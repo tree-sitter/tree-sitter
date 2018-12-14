@@ -2,12 +2,12 @@ mod ffi;
 
 #[macro_use]
 extern crate serde_derive;
-extern crate serde_json;
 extern crate regex;
 extern crate serde;
+extern crate serde_json;
 
-use serde::de::DeserializeOwned;
 use regex::Regex;
+use serde::de::DeserializeOwned;
 use std::collections::HashMap;
 use std::ffi::CStr;
 use std::fmt;
@@ -68,7 +68,7 @@ struct PropertyState {
 #[derive(Debug)]
 pub enum PropertySheetError {
     InvalidJSON(serde_json::Error),
-    InvalidRegex(regex::Error)
+    InvalidRegex(regex::Error),
 }
 
 pub struct PropertySheet<P = HashMap<String, String>> {
@@ -187,7 +187,16 @@ impl Parser {
 
     pub fn parse_str(&mut self, input: &str, old_tree: Option<&Tree>) -> Option<Tree> {
         let bytes = input.as_bytes();
-        self.parse_utf8(&mut |offset, _| &bytes[offset..], old_tree)
+        self.parse_utf8(
+            &mut |offset, _| {
+                if offset < bytes.len() {
+                    &bytes[offset..]
+                } else {
+                    &[]
+                }
+            },
+            old_tree,
+        )
     }
 
     pub fn parse_utf8<'a, T: FnMut(usize, Point) -> &'a [u8]>(
@@ -565,7 +574,8 @@ impl<'a> TreeCursor<'a> {
     }
 
     pub fn goto_first_child_for_index(&mut self, index: usize) -> Option<usize> {
-        let result = unsafe { ffi::ts_tree_cursor_goto_first_child_for_byte(&mut self.0, index as u32) };
+        let result =
+            unsafe { ffi::ts_tree_cursor_goto_first_child_for_byte(&mut self.0, index as u32) };
         if result < 0 {
             None
         } else {
@@ -645,7 +655,12 @@ impl<'a, P> TreePropertyCursor<'a, P> {
         }
     }
 
-    fn next_state(&self, state: &PropertyState, node_kind_id: u16, node_child_index: usize) -> usize {
+    fn next_state(
+        &self,
+        state: &PropertyState,
+        node_kind_id: u16,
+        node_child_index: usize,
+    ) -> usize {
         state
             .transitions
             .get(&node_kind_id)
@@ -748,8 +763,8 @@ impl<P> PropertySheet<P> {
             property_sets: Vec<P>,
         }
 
-        let input: PropertySheetJSON<P> = serde_json::from_str(json)
-            .map_err(PropertySheetError::InvalidJSON)?;
+        let input: PropertySheetJSON<P> =
+            serde_json::from_str(json).map_err(PropertySheetError::InvalidJSON)?;
         let mut states = Vec::new();
         let mut text_regexes = Vec::new();
         let mut text_regex_patterns = Vec::new();
@@ -759,11 +774,15 @@ impl<P> PropertySheet<P> {
             let node_kind_count = language.node_kind_count();
             for transition in state.transitions.iter() {
                 let text_regex_index = if let Some(regex_pattern) = transition.text.as_ref() {
-                    if let Some(index) = text_regex_patterns.iter().position(|r| *r == regex_pattern) {
+                    if let Some(index) =
+                        text_regex_patterns.iter().position(|r| *r == regex_pattern)
+                    {
                         Some(index)
                     } else {
                         text_regex_patterns.push(regex_pattern);
-                        text_regexes.push(Regex::new(&regex_pattern).map_err(PropertySheetError::InvalidRegex)?);
+                        text_regexes.push(
+                            Regex::new(&regex_pattern).map_err(PropertySheetError::InvalidRegex)?,
+                        );
                         Some(text_regexes.len() - 1)
                     }
                 } else {
@@ -771,9 +790,8 @@ impl<P> PropertySheet<P> {
                 };
 
                 for i in 0..(node_kind_count as u16) {
-                    if
-                        transition.kind == language.node_kind_for_id(i) &&
-                        transition.named == language.node_kind_is_named(i)
+                    if transition.kind == language.node_kind_for_id(i)
+                        && transition.named == language.node_kind_is_named(i)
                     {
                         let entry = transitions.entry(i).or_insert(Vec::new());
                         entry.push(PropertyTransition {
@@ -928,7 +946,10 @@ mod tests {
             define: Option<String>,
         }
 
-        let empty_properties = Properties { reference: None, define: None };
+        let empty_properties = Properties {
+            reference: None,
+            define: None,
+        };
 
         let property_sheet = PropertySheet::<Properties>::new(
             rust(),
@@ -1018,7 +1039,10 @@ mod tests {
 
         assert!(cursor.goto_first_child());
         assert_eq!(cursor.node().kind(), "identifier");
-        assert_eq!(cursor.node_properties().reference, Some("function".to_owned()));
+        assert_eq!(
+            cursor.node_properties().reference,
+            Some("function".to_owned())
+        );
     }
 
     #[test]
@@ -1097,7 +1121,10 @@ mod tests {
 
         assert!(cursor.goto_first_child());
         assert_eq!(cursor.node().kind(), "identifier");
-        assert_eq!(cursor.node_properties().scope, Some("constructor".to_owned()));
+        assert_eq!(
+            cursor.node_properties().scope,
+            Some("constructor".to_owned())
+        );
     }
 
     #[test]
