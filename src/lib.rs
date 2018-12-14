@@ -465,6 +465,12 @@ impl<'tree> Node<'tree> {
         unsafe { ffi::ts_node_child_count(self.0) as usize }
     }
 
+    pub fn children<'a>(&'a self) -> impl Iterator<Item = Node<'tree>> + 'a {
+        (0..self.child_count())
+            .into_iter()
+            .map(move |i| self.child(i).unwrap())
+    }
+
     pub fn named_child<'a>(&'a self, i: usize) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_named_child(self.0, i as u32) })
     }
