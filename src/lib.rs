@@ -71,7 +71,7 @@ pub enum PropertySheetError {
     InvalidRegex(regex::Error)
 }
 
-pub struct PropertySheet<P: DeserializeOwned = HashMap<String, String>> {
+pub struct PropertySheet<P = HashMap<String, String>> {
     states: Vec<PropertyState>,
     property_sets: Vec<P>,
     text_regexes: Vec<Regex>,
@@ -86,7 +86,7 @@ pub struct Tree(*mut ffi::TSTree);
 
 pub struct TreeCursor<'a>(ffi::TSTreeCursor, PhantomData<&'a ()>);
 
-pub struct TreePropertyCursor<'a, P: 'a + DeserializeOwned> {
+pub struct TreePropertyCursor<'a, P> {
     cursor: TreeCursor<'a>,
     state_stack: Vec<usize>,
     child_index_stack: Vec<usize>,
@@ -370,7 +370,7 @@ impl Tree {
         self.root_node().walk()
     }
 
-    pub fn walk_with_properties<'a, P: DeserializeOwned>(
+    pub fn walk_with_properties<'a, P>(
         &'a self,
         property_sheet: &'a PropertySheet<P>,
         source: &'a str,
@@ -574,7 +574,7 @@ impl<'a> Drop for TreeCursor<'a> {
     }
 }
 
-impl<'a, P: DeserializeOwned> TreePropertyCursor<'a, P> {
+impl<'a, P> TreePropertyCursor<'a, P> {
     fn new(tree: &'a Tree, property_sheet: &'a PropertySheet<P>, source: &'a str) -> Self {
         let mut result = Self {
             cursor: tree.root_node().walk(),
@@ -714,8 +714,11 @@ impl Into<ffi::TSRange> for Range {
     }
 }
 
-impl<P: DeserializeOwned> PropertySheet<P> {
-    pub fn new(language: Language, json: &str) -> Result<Self, PropertySheetError> {
+impl<P> PropertySheet<P> {
+    pub fn new(language: Language, json: &str) -> Result<Self, PropertySheetError>
+    where
+        P: DeserializeOwned,
+    {
         #[derive(Deserialize, Debug)]
         struct PropertyTransitionJSON {
             #[serde(rename = "type")]
@@ -785,6 +788,21 @@ impl<P: DeserializeOwned> PropertySheet<P> {
             property_sets: input.property_sets,
             states,
             text_regexes,
+        })
+    }
+
+    pub fn map<F, T, E>(self, mut f: F) -> Result<PropertySheet<T>, E>
+    where
+        F: FnMut(P) -> Result<T, E>,
+    {
+        let mut property_sets = Vec::with_capacity(self.property_sets.len());
+        for set in self.property_sets {
+            property_sets.push(f(set)?);
+        }
+        Ok(PropertySheet {
+            states: self.states,
+            text_regexes: self.text_regexes,
+            property_sets,
         })
     }
 }
