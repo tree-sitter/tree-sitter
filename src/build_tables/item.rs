@@ -50,6 +50,8 @@ pub(crate) struct ParseItemSet {
     pub entries: HashMap<ParseItem, LookaheadSet>,
 }
 
+pub(crate) struct ParseItemDisplay<'a>(&'a ParseItem, &'a SyntaxGrammar, &'a InlinedProductionMap);
+
 impl LookaheadSet {
     pub fn new() -> Self {
         Self {
@@ -96,6 +98,10 @@ impl LookaheadSet {
 }
 
 impl ParseItem {
+    pub fn start() -> Self {
+        ParseItem::Start { step_index: 0 }
+    }
+
     pub fn is_kernel(&self) -> bool {
         match self {
             ParseItem::Start { .. } => true,
@@ -106,7 +112,7 @@ impl ParseItem {
     }
 
     pub fn production<'a>(
-        &'a self,
+        &self,
         grammar: &'a SyntaxGrammar,
         inlined_productions: &'a InlinedProductionMap,
     ) -> &'a Production {
@@ -127,7 +133,7 @@ impl ParseItem {
     }
 
     pub fn step<'a>(
-        &'a self,
+        &self,
         grammar: &'a SyntaxGrammar,
         inlined_productions: &'a InlinedProductionMap,
     ) -> Option<&'a ProductionStep> {
@@ -169,7 +175,11 @@ impl ParseItem {
     }
 }
 
-pub struct ParseItemDisplay<'a>(&'a ParseItem, &'a SyntaxGrammar, &'a InlinedProductionMap);
+impl ParseItemSet {
+    pub fn new() -> Self {
+        Self { entries: HashMap::new() }
+    }
+}
 
 impl<'a> fmt::Display for ParseItemDisplay<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {

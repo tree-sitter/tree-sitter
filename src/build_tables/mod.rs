@@ -1,5 +1,7 @@
 mod item;
 mod inline_variables;
+mod item;
+mod item_set_builder;
 
 use std::collections::{HashMap, VecDeque};
 use crate::grammars::{SyntaxGrammar, LexicalGrammar};
