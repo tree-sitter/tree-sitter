@@ -10,7 +10,7 @@ pub(crate) enum SymbolType {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Associativity {
     Left,
-    Right
+    Right,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -137,24 +137,37 @@ impl Rule {
 }
 
 impl Symbol {
+    pub fn is_terminal(&self) -> bool {
+        self.kind == SymbolType::Terminal
+    }
+
     pub fn is_non_terminal(&self) -> bool {
-        return self.kind == SymbolType::NonTerminal
+        self.kind == SymbolType::NonTerminal
     }
 
     pub fn is_external(&self) -> bool {
-        return self.kind == SymbolType::External
+        self.kind == SymbolType::External
     }
 
     pub fn non_terminal(index: usize) -> Self {
-        Symbol { kind: SymbolType::NonTerminal, index }
+        Symbol {
+            kind: SymbolType::NonTerminal,
+            index,
+        }
     }
 
     pub fn terminal(index: usize) -> Self {
-        Symbol { kind: SymbolType::Terminal, index }
+        Symbol {
+            kind: SymbolType::Terminal,
+            index,
+        }
     }
 
     pub fn external(index: usize) -> Self {
-        Symbol { kind: SymbolType::External, index }
+        Symbol {
+            kind: SymbolType::External,
+            index,
+        }
     }
 }
 
@@ -169,11 +182,14 @@ fn add_metadata<T: Fn(&mut MetadataParams)>(input: Rule, f: T) -> Rule {
         Rule::Metadata { rule, mut params } => {
             f(&mut params);
             Rule::Metadata { rule, params }
-        },
+        }
         _ => {
             let mut params = MetadataParams::default();
             f(&mut params);
-            Rule::Metadata { rule: Box::new(input), params }
+            Rule::Metadata {
+                rule: Box::new(input),
+                params,
+            }
         }
     }
 }
@@ -184,7 +200,7 @@ fn choice_helper(result: &mut Vec<Rule>, rule: Rule) {
             for element in elements {
                 choice_helper(result, element);
             }
-        },
+        }
         _ => {
             if !result.contains(&rule) {
                 result.push(rule);

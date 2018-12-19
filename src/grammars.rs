@@ -108,6 +108,18 @@ impl ProductionStep {
     }
 }
 
+impl Production {
+    pub fn first_symbol(&self) -> Option<Symbol> {
+        self.steps.first().map(|s| s.symbol.clone())
+    }
+}
+
+impl Default for Production {
+    fn default() -> Self {
+        Production { dynamic_precedence: 0, steps: Vec::new() }
+    }
+}
+
 impl Variable {
     pub fn named(name: &str, rule: Rule) -> Self {
         Self { name: name.to_string(), kind: VariableType::Named, rule }

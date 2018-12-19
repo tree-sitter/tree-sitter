@@ -5,7 +5,8 @@ authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-bitvec = "0.8"
+lazy_static = "1.2.0"
+smallbitvec = "2.3.0"
 clap = "2.32"
 dirs = "1.0.2"
 ignore = "0.4.4"

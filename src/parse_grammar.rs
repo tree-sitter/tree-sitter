@@ -2,7 +2,6 @@ use serde_json::{Map, Value};
 use crate::error::Result;
 use crate::grammars::{InputGrammar, Variable, VariableType};
 use crate::rules::Rule;
-use std::collections::HashMap;
 
 #[derive(Deserialize)]
 #[serde(tag = "type")]

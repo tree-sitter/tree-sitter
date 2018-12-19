@@ -2,6 +2,7 @@ use clap::{App, Arg, SubCommand};
 
 #[macro_use] extern crate serde_derive;
 #[macro_use] extern crate serde_json;
+#[macro_use] extern crate lazy_static;
 
 mod build_tables;
 mod error;
