@@ -20,7 +20,7 @@ pub(crate) struct ParseItemSetBuilder {
     first_sets: HashMap<Symbol, LookaheadSet>,
     last_sets: HashMap<Symbol, LookaheadSet>,
     transitive_closure_additions: Vec<Vec<TransitiveClosureAddition>>,
-    inlined_production_map: InlinedProductionMap,
+    pub inlines: InlinedProductionMap,
 }
 
 fn find_or_push<T: Eq>(vector: &mut Vec<T>, value: T) {
@@ -35,7 +35,7 @@ impl ParseItemSetBuilder {
             first_sets: HashMap::new(),
             last_sets: HashMap::new(),
             transitive_closure_additions: vec![Vec::new(); syntax_grammar.variables.len()],
-            inlined_production_map: InlinedProductionMap::new(syntax_grammar),
+            inlines: InlinedProductionMap::new(syntax_grammar),
         };
 
         // For each grammar symbol, populate the FIRST and LAST sets: the set of
@@ -192,6 +192,10 @@ impl ParseItemSetBuilder {
             let additions_for_non_terminal = &mut result.transitive_closure_additions[i];
             for (variable_index, follow_set_info) in follow_set_info_by_non_terminal {
                 let variable = &syntax_grammar.variables[variable_index];
+                let non_terminal = Symbol::non_terminal(variable_index);
+                if syntax_grammar.variables_to_inline.contains(&non_terminal) {
+                    continue;
+                }
                 for production_index in 0..variable.productions.len() {
                     let item = ParseItem::Normal {
                         variable_index: variable_index as u32,
@@ -199,7 +203,7 @@ impl ParseItemSetBuilder {
                         step_index: 0,
                     };
 
-                    if let Some(inlined_items) = result.inlined_production_map.inlined_items(item) {
+                    if let Some(inlined_items) = result.inlines.inlined_items(item) {
                         for inlined_item in inlined_items {
                             find_or_push(
                                 additions_for_non_terminal,
@@ -227,32 +231,36 @@ impl ParseItemSetBuilder {
 
     pub(crate) fn transitive_closure(
         &mut self,
-        item_set: ParseItemSet,
+        item_set: &ParseItemSet,
         grammar: &SyntaxGrammar,
     ) -> ParseItemSet {
-        let mut result = ParseItemSet::new();
-        for (item, lookaheads) in item_set.entries {
-            if let Some(items) = self.inlined_production_map.inlined_items(item) {
+        let mut result = ParseItemSet::default();
+        for (item, lookaheads) in &item_set.entries {
+            if let Some(items) = self.inlines.inlined_items(*item) {
                 for item in items {
-                    self.add_item(&mut result, item, lookaheads.clone(), grammar);
+                    self.add_item(&mut result, item, lookaheads, grammar);
                 }
             } else {
-                self.add_item(&mut result, item, lookaheads, grammar);
+                self.add_item(&mut result, *item, lookaheads, grammar);
             }
         }
         result
+    }
+
+    pub fn first_set(&self, symbol: &Symbol) -> &LookaheadSet {
+        &self.first_sets[symbol]
     }
 
     fn add_item(
         &self,
         set: &mut ParseItemSet,
         item: ParseItem,
-        lookaheads: LookaheadSet,
+        lookaheads: &LookaheadSet,
         grammar: &SyntaxGrammar,
     ) {
-        if let Some(step) = item.step(grammar, &self.inlined_production_map) {
+        if let Some(step) = item.step(grammar, &self.inlines) {
             if step.symbol.is_non_terminal() {
-                let next_step = item.successor().step(grammar, &self.inlined_production_map);
+                let next_step = item.successor().step(grammar, &self.inlines);
 
                 // Determine which tokens can follow this non-terminal.
                 let following_tokens = if let Some(next_step) = next_step {
@@ -274,6 +282,6 @@ impl ParseItemSetBuilder {
                 }
             }
         }
-        set.entries.insert(item, lookaheads);
+        set.entries.insert(item, lookaheads.clone());
     }
 }

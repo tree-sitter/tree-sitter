@@ -38,7 +38,7 @@ pub(crate) struct LexicalVariable {
     pub start_state: u32,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub(crate) struct LexicalGrammar {
     pub nfa: Nfa,
     pub variables: Vec<LexicalVariable>,
@@ -112,6 +112,14 @@ impl Production {
     pub fn first_symbol(&self) -> Option<Symbol> {
         self.steps.first().map(|s| s.symbol.clone())
     }
+
+    pub fn last_precedence(&self) -> i32 {
+        self.steps.last().map(|s| s.precedence).unwrap_or(0)
+    }
+
+    pub fn last_associativity(&self) -> Option<Associativity> {
+        self.steps.last().map(|s| s.associativity).unwrap_or(None)
+    }
 }
 
 impl Default for Production {
@@ -135,5 +143,11 @@ impl Variable {
 
     pub fn anonymous(name: &str, rule: Rule) -> Self {
         Self { name: name.to_string(), kind: VariableType::Anonymous, rule }
+    }
+}
+
+impl SyntaxVariable {
+    pub fn is_auxiliary(&self) -> bool {
+        self.kind == VariableType::Auxiliary
     }
 }

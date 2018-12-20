@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum SymbolType {
     External,
     Terminal,
     NonTerminal,
+    End,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -33,7 +34,7 @@ pub(crate) struct MetadataParams {
     pub alias: Option<Alias>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) struct Symbol {
     pub kind: SymbolType,
     pub index: usize,
@@ -56,6 +57,15 @@ pub(crate) enum Rule {
 }
 
 impl Rule {
+    pub fn alias(content: Rule, value: String, is_named: bool) -> Self {
+        add_metadata(content, move |params| {
+            params.alias = Some(Alias {
+                is_named,
+                value
+            });
+        })
+    }
+
     pub fn token(content: Rule) -> Self {
         add_metadata(content, |params| {
             params.is_token = true;
@@ -169,6 +179,13 @@ impl Symbol {
             index,
         }
     }
+
+    pub fn end() -> Self {
+        Symbol {
+            kind: SymbolType::End,
+            index: 0,
+        }
+    }
 }
 
 impl From<Symbol> for Rule {
@@ -177,7 +194,7 @@ impl From<Symbol> for Rule {
     }
 }
 
-fn add_metadata<T: Fn(&mut MetadataParams)>(input: Rule, f: T) -> Rule {
+fn add_metadata<T: FnOnce(&mut MetadataParams)>(input: Rule, f: T) -> Rule {
     match input {
         Rule::Metadata { rule, mut params } => {
             f(&mut params);

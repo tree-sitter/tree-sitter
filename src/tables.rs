@@ -7,19 +7,12 @@ pub(crate) type ParseStateId = usize;
 pub(crate) type LexStateId = usize;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum ParseActionType {
-    Error,
-    Shift,
-    Reduce,
-    Accept,
-    Recover,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ParseAction {
     Accept,
-    Error,
-    Shift(ParseStateId),
+    Shift {
+        state: ParseStateId,
+        is_repetition: bool,
+    },
     ShiftExtra,
     Recover,
     Reduce {
@@ -28,50 +21,69 @@ pub(crate) enum ParseAction {
         precedence: i32,
         dynamic_precedence: i32,
         associativity: Option<Associativity>,
-        alias_sequence_id: Option<AliasSequenceId>,
-        is_repetition: bool,
+        alias_sequence_id: AliasSequenceId,
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ParseTableEntry {
-    actions: Vec<ParseAction>,
-    reusable: bool,
+    pub actions: Vec<ParseAction>,
+    pub reusable: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ParseState {
-    terminal_entries: HashMap<Symbol, ParseTableEntry>,
-    nonterminal_entries: HashMap<Symbol, ParseStateId>
+    pub terminal_entries: HashMap<Symbol, ParseTableEntry>,
+    pub nonterminal_entries: HashMap<Symbol, ParseStateId>
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct ParseTable {
-    states: Vec<ParseState>,
-    alias_sequences: Vec<Vec<Alias>>,
+    pub states: Vec<ParseState>,
+    pub symbols: Vec<Symbol>,
+    pub alias_sequences: Vec<Vec<Option<Alias>>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AdvanceAction {
-    state: LexStateId,
-    precedence: Range<i32>,
-    in_main_token: bool,
+    pub state: LexStateId,
+    pub precedence: Range<i32>,
+    pub in_main_token: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AcceptTokenAction {
-    symbol: Symbol,
-    precedence: i32,
-    implicit_precedence: i32,
+    pub symbol: Symbol,
+    pub precedence: i32,
+    pub implicit_precedence: i32,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct LexState {
-    advance_actions: HashMap<Symbol, AdvanceAction>,
-    accept_action: Option<AcceptTokenAction>,
+    pub advance_actions: HashMap<Symbol, AdvanceAction>,
+    pub accept_action: Option<AcceptTokenAction>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct LexTable {
-    states: Vec<LexState>,
+    pub states: Vec<LexState>,
+}
+
+impl ParseTableEntry {
+    pub fn new() -> Self {
+        Self {
+            reusable: true,
+            actions: Vec::new(),
+        }
+    }
+}
+
+impl ParseAction {
+    pub fn precedence(&self) -> i32 {
+        if let ParseAction::Reduce { precedence, .. } = self {
+            *precedence
+        } else {
+            0
+        }
+    }
 }

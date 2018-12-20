@@ -23,6 +23,12 @@ pub struct Nfa {
     pub states: Vec<NfaState>
 }
 
+impl Default for Nfa {
+    fn default() -> Self {
+        Self { states: Vec::new() }
+    }
+}
+
 #[derive(Debug)]
 pub struct NfaCursor<'a> {
     pub(crate) state_ids: Vec<u32>,

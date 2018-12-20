@@ -67,10 +67,13 @@ pub(super) fn extract_tokens(
         .expected_conflicts
         .into_iter()
         .map(|conflict| {
-            conflict
+            let mut result: Vec<_> = conflict
                 .iter()
                 .map(|symbol| symbol_replacer.replace_symbol(*symbol))
-                .collect()
+                .collect();
+            result.sort_unstable();
+            result.dedup();
+            result
         })
         .collect();
 

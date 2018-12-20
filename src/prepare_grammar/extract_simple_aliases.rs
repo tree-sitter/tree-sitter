@@ -22,6 +22,7 @@ pub(super) fn extract_simple_aliases(
                     Symbol { kind: SymbolType::External, index} => &mut external_status_list[index],
                     Symbol { kind: SymbolType::NonTerminal, index} => &mut non_terminal_status_list[index],
                     Symbol { kind: SymbolType::Terminal, index} => &mut terminal_status_list[index],
+                    Symbol { kind: SymbolType::End, .. } => panic!("Unexpected end token"),
                 };
 
                 if step.alias.is_none() {
@@ -49,6 +50,7 @@ pub(super) fn extract_simple_aliases(
                     Symbol { kind: SymbolType::External, index} => &external_status_list[index],
                     Symbol { kind: SymbolType::NonTerminal, index} => &non_terminal_status_list[index],
                     Symbol { kind: SymbolType::Terminal, index} => &terminal_status_list[index],
+                    Symbol { kind: SymbolType::End, .. } => panic!("Unexpected end token"),
                 };
 
                 if status.alias.is_some() {

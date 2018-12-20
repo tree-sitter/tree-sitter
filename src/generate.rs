@@ -4,8 +4,8 @@ use crate::prepare_grammar::prepare_grammar;
 use crate::build_tables::build_tables;
 use crate::render::render_c_code;
 
-pub fn generate_parser_for_grammar(input: String) -> Result<String> {
-    let input_grammar = parse_grammar(&input)?;
+pub fn generate_parser_for_grammar(input: &str) -> Result<String> {
+    let input_grammar = parse_grammar(input)?;
     let (syntax_grammar, lexical_grammar, simple_aliases) = prepare_grammar(&input_grammar)?;
     let (parse_table, main_lex_table, keyword_lex_table, keyword_capture_token) = build_tables(
         &syntax_grammar,

@@ -3,6 +3,7 @@ pub enum Error {
     GrammarError(String),
     SymbolError(String),
     RegexError(String),
+    ConflictError(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
