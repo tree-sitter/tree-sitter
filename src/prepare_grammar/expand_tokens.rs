@@ -3,7 +3,9 @@ use crate::error::{Error, Result};
 use crate::grammars::{LexicalGrammar, LexicalVariable};
 use crate::nfa::{CharacterSet, Nfa, NfaState};
 use crate::rules::Rule;
-use regex_syntax::ast::{parse, Ast, Class, ClassPerlKind, ClassSet, ClassSetItem, RepetitionKind};
+use regex_syntax::ast::{
+    parse, Ast, Class, ClassPerlKind, ClassSet, ClassSetItem, RepetitionKind, RepetitionRange,
+};
 
 pub(super) fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<LexicalGrammar> {
     let mut nfa = Nfa::new();
@@ -24,7 +26,10 @@ pub(super) fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<Lexi
 
         nfa.states.push(NfaState::Accept(i));
         let last_state_id = nfa.last_state_id();
-        expand_rule(&variable.rule, &mut nfa, last_state_id, false)?;
+        expand_rule(&variable.rule, &mut nfa, last_state_id, false).map_err(|e| match e {
+            Error::RegexError(msg) => Error::RegexError(format!("Rule {} {}", variable.name, msg)),
+            _ => e,
+        })?;
 
         if !is_immediate_token {
             let last_state_id = nfa.last_state_id();
@@ -95,9 +100,60 @@ fn expand_rule(rule: &Rule, nfa: &mut Nfa, mut next_state_id: u32, is_sep: bool)
                 Ok(false)
             }
         }
+        Rule::Metadata { rule, .. } => {
+            // TODO - implement precedence
+            expand_rule(rule, nfa, next_state_id, is_sep)
+        }
         Rule::Blank => Ok(false),
         _ => Err(Error::grammar(&format!("Unexpected rule {:?}", rule))),
     }
+}
+
+fn expand_one_or_more(ast: &Ast, nfa: &mut Nfa, next_state_id: u32, is_sep: bool) -> Result<bool> {
+    nfa.states.push(NfaState::Accept(0)); // Placeholder for split
+    let split_state_id = nfa.last_state_id();
+    if expand_regex(&ast, nfa, split_state_id, is_sep)? {
+        nfa.states[split_state_id as usize] = NfaState::Split(nfa.last_state_id(), next_state_id);
+        Ok(true)
+    } else {
+        nfa.states.pop();
+        Ok(false)
+    }
+}
+
+fn expand_zero_or_one(ast: &Ast, nfa: &mut Nfa, next_state_id: u32, is_sep: bool) -> Result<bool> {
+    if expand_regex(ast, nfa, next_state_id, is_sep)? {
+        nfa.prepend(|last_state_id| NfaState::Split(next_state_id, last_state_id));
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
+fn expand_zero_or_more(ast: &Ast, nfa: &mut Nfa, next_state_id: u32, is_sep: bool) -> Result<bool> {
+    if expand_one_or_more(&ast, nfa, next_state_id, is_sep)? {
+        nfa.prepend(|last_state_id| NfaState::Split(last_state_id, next_state_id));
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
+fn expand_count(
+    ast: &Ast,
+    count: u32,
+    nfa: &mut Nfa,
+    mut next_state_id: u32,
+    is_sep: bool,
+) -> Result<bool> {
+    let mut result = false;
+    for _ in 0..count {
+        if expand_regex(ast, nfa, next_state_id, is_sep)? {
+            result = true;
+            next_state_id = nfa.last_state_id();
+        }
+    }
+    Ok(result)
 }
 
 fn expand_regex(ast: &Ast, nfa: &mut Nfa, mut next_state_id: u32, is_sep: bool) -> Result<bool> {
@@ -148,38 +204,36 @@ fn expand_regex(ast: &Ast, nfa: &mut Nfa, mut next_state_id: u32, is_sep: bool) 
         },
         Ast::Repetition(repetition) => match repetition.op.kind {
             RepetitionKind::ZeroOrOne => {
-                if expand_regex(&repetition.ast, nfa, next_state_id, is_sep)? {
-                    nfa.prepend(|last_state_id| NfaState::Split(next_state_id, last_state_id));
-                    Ok(true)
-                } else {
-                    Ok(false)
-                }
+                expand_zero_or_one(&repetition.ast, nfa, next_state_id, is_sep)
             }
             RepetitionKind::OneOrMore => {
-                nfa.states.push(NfaState::Accept(0)); // Placeholder for split
-                let split_state_id = nfa.last_state_id();
-                if expand_regex(&repetition.ast, nfa, split_state_id, is_sep)? {
-                    nfa.states[split_state_id as usize] =
-                        NfaState::Split(nfa.last_state_id(), next_state_id);
-                    Ok(true)
-                } else {
-                    nfa.states.pop();
-                    Ok(false)
-                }
+                expand_one_or_more(&repetition.ast, nfa, next_state_id, is_sep)
             }
             RepetitionKind::ZeroOrMore => {
-                nfa.states.push(NfaState::Accept(0)); // Placeholder for split
-                let split_state_id = nfa.last_state_id();
-                if expand_regex(&repetition.ast, nfa, split_state_id, is_sep)? {
-                    nfa.states[split_state_id as usize] =
-                        NfaState::Split(nfa.last_state_id(), next_state_id);
-                    nfa.prepend(|last_state_id| NfaState::Split(last_state_id, next_state_id));
-                    Ok(true)
+                expand_zero_or_more(&repetition.ast, nfa, next_state_id, is_sep)
+            }
+            RepetitionKind::Range(RepetitionRange::Exactly(count)) => {
+                expand_count(&repetition.ast, count, nfa, next_state_id, is_sep)
+            }
+            RepetitionKind::Range(RepetitionRange::AtLeast(min)) => {
+                if expand_zero_or_more(&repetition.ast, nfa, next_state_id, is_sep)? {
+                    expand_count(ast, min, nfa, next_state_id, is_sep)
                 } else {
                     Ok(false)
                 }
             }
-            RepetitionKind::Range(_) => unimplemented!(),
+            RepetitionKind::Range(RepetitionRange::Bounded(min, max)) => {
+                let mut result = expand_count(&repetition.ast, min, nfa, next_state_id, is_sep)?;
+                for _ in min..max {
+                    if result {
+                        next_state_id = nfa.last_state_id();
+                    }
+                    if expand_zero_or_one(&repetition.ast, nfa, next_state_id, is_sep)? {
+                        result = true;
+                    }
+                }
+                Ok(result)
+            }
         },
         Ast::Group(group) => expand_regex(&group.ast, nfa, nfa.last_state_id(), is_sep),
         Ast::Alternation(alternation) => {
@@ -202,8 +256,8 @@ fn expand_regex(ast: &Ast, nfa: &mut Nfa, mut next_state_id: u32, is_sep: bool) 
             for ast in concat.asts.iter().rev() {
                 if expand_regex(&ast, nfa, next_state_id, is_sep)? {
                     result = true;
+                    next_state_id = nfa.last_state_id();
                 }
-                next_state_id = nfa.last_state_id();
             }
             Ok(result)
         }
@@ -224,7 +278,11 @@ fn expand_character_class(item: &ClassSetItem) -> Result<CharacterSet> {
             }
             Ok(result)
         }
-        _ => Err(Error::regex("Unsupported character class syntax")),
+        ClassSetItem::Perl(class) => Ok(expand_perl_character_class(&class.kind)),
+        _ => Err(Error::regex(&format!(
+            "Unsupported character class syntax {:?}",
+            item
+        ))),
     }
 }
 
