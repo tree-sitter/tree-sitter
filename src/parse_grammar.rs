@@ -7,6 +7,11 @@ use crate::rules::Rule;
 #[serde(tag = "type")]
 #[allow(non_camel_case_types)]
 enum RuleJSON {
+    ALIAS {
+        content: Box<RuleJSON>,
+        named: bool,
+        value: String,
+    },
     BLANK,
     STRING {
         value: String,
@@ -26,6 +31,13 @@ enum RuleJSON {
     REPEAT {
         content: Box<RuleJSON>,
     },
+    REPEAT1 {
+        content: Box<RuleJSON>,
+    },
+    PREC_DYNAMIC {
+        value: i32,
+        content: Box<RuleJSON>,
+    },
     PREC_LEFT {
         value: i32,
         content: Box<RuleJSON>,
@@ -41,7 +53,7 @@ enum RuleJSON {
     TOKEN {
         content: Box<RuleJSON>,
     },
-    TOKEN_IMMEDIATE {
+    IMMEDIATE_TOKEN {
         content: Box<RuleJSON>,
     },
 }
@@ -97,18 +109,21 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
 
 fn parse_rule(json: RuleJSON) -> Rule {
     match json {
+        RuleJSON::ALIAS { content, value, named } => Rule::alias(parse_rule(*content), value, named),
         RuleJSON::BLANK => Rule::Blank,
         RuleJSON::STRING { value } => Rule::String(value),
         RuleJSON::PATTERN { value } => Rule::Pattern(value),
         RuleJSON::SYMBOL { name } => Rule::NamedSymbol(name),
         RuleJSON::CHOICE { members } => Rule::choice(members.into_iter().map(parse_rule).collect()),
         RuleJSON::SEQ { members } => Rule::seq(members.into_iter().map(parse_rule).collect()),
-        RuleJSON::REPEAT { content } => Rule::repeat(parse_rule(*content)),
+        RuleJSON::REPEAT1 { content } => Rule::repeat(parse_rule(*content)),
+        RuleJSON::REPEAT { content } => Rule::choice(vec![Rule::repeat(parse_rule(*content)), Rule::Blank]),
         RuleJSON::PREC { value, content } => Rule::prec(value, parse_rule(*content)),
         RuleJSON::PREC_LEFT { value, content } => Rule::prec_left(value, parse_rule(*content)),
         RuleJSON::PREC_RIGHT { value, content } => Rule::prec_right(value, parse_rule(*content)),
+        RuleJSON::PREC_DYNAMIC { value, content } => Rule::prec_dynamic(value, parse_rule(*content)),
         RuleJSON::TOKEN { content } => Rule::token(parse_rule(*content)),
-        RuleJSON::TOKEN_IMMEDIATE { content } => Rule::immediate_token(parse_rule(*content)),
+        RuleJSON::IMMEDIATE_TOKEN { content } => Rule::immediate_token(parse_rule(*content)),
     }
 }
 
@@ -122,7 +137,7 @@ mod tests {
             "name": "my_lang",
             "rules": {
                 "file": {
-                    "type": "REPEAT",
+                    "type": "REPEAT1",
                     "content": {
                         "type": "SYMBOL",
                         "name": "statement"
