@@ -1,14 +1,14 @@
-mod inline_variables;
 mod item;
 mod item_set_builder;
 
 use self::item::{LookaheadSet, ParseItem, ParseItemSet};
 use self::item_set_builder::ParseItemSetBuilder;
 use crate::error::{Error, Result};
-use crate::grammars::{LexicalGrammar, SyntaxGrammar, VariableType};
+use crate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar, VariableType};
 use crate::rules::{AliasMap, Associativity, Symbol, SymbolType};
-use crate::tables::ParseTableEntry;
-use crate::tables::{AliasSequenceId, LexTable, ParseAction, ParseState, ParseStateId, ParseTable};
+use crate::tables::{
+    AliasSequenceId, LexTable, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
+};
 use core::ops::Range;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -30,12 +30,13 @@ struct ParseStateQueueEntry {
 }
 
 struct ParseTableBuilder<'a> {
-    item_set_builder: ParseItemSetBuilder,
+    item_set_builder: ParseItemSetBuilder<'a>,
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
+    inlines: &'a InlinedProductionMap,
     simple_aliases: &'a AliasMap,
-    state_ids_by_item_set: HashMap<ParseItemSet, ParseStateId>,
-    item_sets_by_state_id: Vec<ParseItemSet>,
+    state_ids_by_item_set: HashMap<ParseItemSet<'a>, ParseStateId>,
+    item_sets_by_state_id: Vec<ParseItemSet<'a>>,
     parse_state_queue: VecDeque<ParseStateQueueEntry>,
     parse_table: ParseTable,
 }
@@ -46,16 +47,17 @@ impl<'a> ParseTableBuilder<'a> {
         self.parse_table.alias_sequences.push(Vec::new());
 
         // Ensure that the error state has index 0.
-        let error_state_id = self.add_parse_state(
-            &Vec::new(),
-            &Vec::new(),
-            ParseItemSet::default(),
-        );
+        let error_state_id =
+            self.add_parse_state(&Vec::new(), &Vec::new(), ParseItemSet::default());
 
         self.add_parse_state(
             &Vec::new(),
             &Vec::new(),
-            ParseItemSet::with(&[(ParseItem::start(), LookaheadSet::with(&[Symbol::end()]))]),
+            ParseItemSet::with(
+                [(ParseItem::start(), LookaheadSet::with(&[Symbol::end()]))]
+                    .iter()
+                    .cloned(),
+            ),
         );
 
         self.process_part_state_queue()?;
@@ -68,7 +70,7 @@ impl<'a> ParseTableBuilder<'a> {
         &mut self,
         preceding_symbols: &SymbolSequence,
         preceding_auxiliary_symbols: &AuxiliarySymbolSequence,
-        item_set: ParseItemSet,
+        item_set: ParseItemSet<'a>,
     ) -> ParseStateId {
         match self.state_ids_by_item_set.entry(item_set) {
             Entry::Occupied(o) => {
@@ -99,16 +101,14 @@ impl<'a> ParseTableBuilder<'a> {
             println!(
                 "ITEM SET {}:\n{}",
                 entry.state_id,
-                self.item_sets_by_state_id[entry.state_id].display_with(
-                    &self.syntax_grammar,
-                    &self.lexical_grammar,
-                    &self.item_set_builder.inlines
-                )
+                self.item_sets_by_state_id[entry.state_id]
+                    .display_with(&self.syntax_grammar, &self.lexical_grammar,)
             );
 
             let item_set = self.item_set_builder.transitive_closure(
                 &self.item_sets_by_state_id[entry.state_id],
                 self.syntax_grammar,
+                self.inlines,
             );
 
             // println!("TRANSITIVE CLOSURE:");
@@ -131,7 +131,7 @@ impl<'a> ParseTableBuilder<'a> {
         &mut self,
         mut preceding_symbols: SymbolSequence,
         mut preceding_auxiliary_symbols: Vec<AuxiliarySymbolInfo>,
-        item_set: ParseItemSet,
+        item_set: ParseItemSet<'a>,
         state_id: ParseStateId,
     ) -> Result<()> {
         let mut terminal_successors = HashMap::new();
@@ -139,9 +139,7 @@ impl<'a> ParseTableBuilder<'a> {
         let mut lookaheads_with_conflicts = HashSet::new();
 
         for (item, lookaheads) in &item_set.entries {
-            if let Some(next_symbol) =
-                item.symbol(self.syntax_grammar, &self.item_set_builder.inlines)
-            {
+            if let Some(next_symbol) = item.symbol() {
                 let successor = item.successor();
                 if next_symbol.is_non_terminal() {
                     // Keep track of where auxiliary non-terminals (repeat symbols) are
@@ -169,17 +167,15 @@ impl<'a> ParseTableBuilder<'a> {
                         .insert_all(lookaheads);
                 }
             } else {
-                let action = if item.is_final() {
+                let action = if item.is_augmented() {
                     ParseAction::Accept
                 } else {
-                    let production =
-                        item.production(&self.syntax_grammar, &self.item_set_builder.inlines);
                     ParseAction::Reduce {
-                        symbol: Symbol::non_terminal(item.variable_index() as usize),
-                        child_count: item.step_index(),
-                        precedence: production.last_precedence(),
-                        associativity: production.last_associativity(),
-                        dynamic_precedence: production.dynamic_precedence,
+                        symbol: Symbol::non_terminal(item.variable_index as usize),
+                        child_count: item.step_index as usize,
+                        precedence: item.precedence(),
+                        associativity: item.associativity(),
+                        dynamic_precedence: item.production.dynamic_precedence,
                         alias_sequence_id: self.get_alias_sequence_id(item),
                     }
                 };
@@ -280,17 +276,15 @@ impl<'a> ParseTableBuilder<'a> {
         let mut shift_precedence: Option<Range<i32>> = None;
         let mut conflicting_items = HashSet::new();
         for (item, lookaheads) in &item_set.entries {
-            let production = item.production(&self.syntax_grammar, &self.item_set_builder.inlines);
-            let step_index = item.step_index();
-            if let Some(step) = production.steps.get(step_index) {
-                if step_index > 0 {
+            if let Some(step) = item.step() {
+                if item.step_index > 0 {
                     if self
                         .item_set_builder
                         .first_set(&step.symbol)
                         .contains(&conflicting_lookahead)
                     {
                         conflicting_items.insert(item);
-                        let precedence = production.steps[step_index - 1].precedence;
+                        let precedence = item.precedence();
                         if let Some(range) = &mut shift_precedence {
                             if precedence < range.start {
                                 range.start = precedence;
@@ -316,11 +310,11 @@ impl<'a> ParseTableBuilder<'a> {
             // by leaving it in the parse table, but marking the SHIFT action with
             // an `is_repetition` flag.
             let conflicting_variable_index =
-                conflicting_items.iter().next().unwrap().variable_index();
+                conflicting_items.iter().next().unwrap().variable_index;
             if self.syntax_grammar.variables[conflicting_variable_index as usize].is_auxiliary() {
                 if conflicting_items
                     .iter()
-                    .all(|item| item.variable_index() == conflicting_variable_index)
+                    .all(|item| item.variable_index == conflicting_variable_index)
                 {
                     *is_repetition = true;
                     return Ok(());
@@ -340,10 +334,7 @@ impl<'a> ParseTableBuilder<'a> {
                     && shift_precedence.start < reduce_precedence)
             {
                 entry.actions.pop();
-                conflicting_items.retain(|item| {
-                    item.step(&self.syntax_grammar, &self.item_set_builder.inlines)
-                        .is_none()
-                });
+                conflicting_items.retain(|item| item.is_done());
             }
             // If the SHIFT and REDUCE actions have the same predence, consider
             // the REDUCE actions' associativity.
@@ -367,10 +358,7 @@ impl<'a> ParseTableBuilder<'a> {
                 match (has_left, has_non, has_right) {
                     (true, false, false) => {
                         entry.actions.pop();
-                        conflicting_items.retain(|item| {
-                            item.step(&self.syntax_grammar, &self.item_set_builder.inlines)
-                                .is_none()
-                        });
+                        conflicting_items.retain(|item| item.is_done());
                     }
                     (false, false, true) => {
                         entry.actions.drain(0..entry.actions.len() - 1);
@@ -392,7 +380,7 @@ impl<'a> ParseTableBuilder<'a> {
         // Determine the set of parent symbols involved in this conflict.
         let mut actual_conflict = Vec::new();
         for item in &conflicting_items {
-            let symbol = Symbol::non_terminal(item.variable_index() as usize);
+            let symbol = Symbol::non_terminal(item.variable_index as usize);
             if self.syntax_grammar.variables[symbol.index].is_auxiliary() {
                 actual_conflict.extend(
                     preceding_auxiliary_symbols
@@ -441,7 +429,7 @@ impl<'a> ParseTableBuilder<'a> {
 
             for preceding_symbol in preceding_symbols
                 .iter()
-                .take(preceding_symbols.len() - item.step_index())
+                .take(preceding_symbols.len() - item.step_index as usize)
             {
                 write!(&mut msg, "  {}", self.symbol_name(preceding_symbol)).unwrap();
             }
@@ -449,17 +437,12 @@ impl<'a> ParseTableBuilder<'a> {
             write!(
                 &mut msg,
                 "  ({}",
-                &self.syntax_grammar.variables[item.variable_index() as usize].name
+                &self.syntax_grammar.variables[item.variable_index as usize].name
             )
             .unwrap();
 
-            for (j, step) in item
-                .production(&self.syntax_grammar, &self.item_set_builder.inlines)
-                .steps
-                .iter()
-                .enumerate()
-            {
-                if j == item.step_index() {
+            for (j, step) in item.production.steps.iter().enumerate() {
+                if j as u32 == item.step_index {
                     write!(&mut msg, "  •").unwrap();
                 }
                 write!(&mut msg, "  {}", self.symbol_name(&step.symbol)).unwrap();
@@ -467,10 +450,7 @@ impl<'a> ParseTableBuilder<'a> {
 
             write!(&mut msg, ")").unwrap();
 
-            if item
-                .step(&self.syntax_grammar, &self.item_set_builder.inlines)
-                .is_none()
-            {
+            if item.is_done() {
                 write!(
                     &mut msg,
                     "  •  {}",
@@ -479,9 +459,8 @@ impl<'a> ParseTableBuilder<'a> {
                 .unwrap();
             }
 
-            let precedence = item.precedence(&self.syntax_grammar, &self.item_set_builder.inlines);
-            let associativity =
-                item.associativity(&self.syntax_grammar, &self.item_set_builder.inlines);
+            let precedence = item.precedence();
+            let associativity = item.associativity();
             if precedence != 0 || associativity.is_some() {
                 write!(
                     &mut msg,
@@ -506,8 +485,7 @@ impl<'a> ParseTableBuilder<'a> {
             .entries
             .keys()
             .filter_map(|item| {
-                if item.symbol(&self.syntax_grammar, &self.item_set_builder.inlines) == Some(symbol)
-                {
+                if item.symbol() == Some(symbol) {
                     None
                 } else {
                     None
@@ -554,8 +532,12 @@ impl<'a> ParseTableBuilder<'a> {
     }
 
     fn get_alias_sequence_id(&mut self, item: &ParseItem) -> AliasSequenceId {
-        let production = item.production(&self.syntax_grammar, &self.item_set_builder.inlines);
-        let alias_sequence = production.steps.iter().map(|s| s.alias.clone()).collect();
+        let alias_sequence = item
+            .production
+            .steps
+            .iter()
+            .map(|s| s.alias.clone())
+            .collect();
         if let Some(index) = self
             .parse_table
             .alias_sequences
@@ -592,12 +574,14 @@ pub(crate) fn build_tables(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     simple_aliases: &AliasMap,
+    inlines: &InlinedProductionMap,
 ) -> Result<(ParseTable, LexTable, LexTable, Option<Symbol>)> {
     ParseTableBuilder {
         syntax_grammar,
         lexical_grammar,
         simple_aliases,
-        item_set_builder: ParseItemSetBuilder::new(syntax_grammar, lexical_grammar),
+        inlines,
+        item_set_builder: ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines),
         state_ids_by_item_set: HashMap::new(),
         item_sets_by_state_id: Vec::new(),
         parse_state_queue: VecDeque::new(),

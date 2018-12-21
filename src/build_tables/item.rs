@@ -1,10 +1,12 @@
-use super::inline_variables::InlinedProductionMap;
 use crate::grammars::{LexicalGrammar, Production, ProductionStep, SyntaxGrammar};
-use crate::rules::{Associativity, Symbol, SymbolType};
+use crate::rules::Associativity;
+use crate::rules::{Symbol, SymbolType};
 use smallbitvec::SmallBitVec;
 use std::collections::{HashMap, BTreeMap};
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::u32;
+use std::cmp::Ordering;
 
 lazy_static! {
     static ref START_PRODUCTION: Production = Production {
@@ -28,48 +30,25 @@ pub(crate) struct LookaheadSet {
     eof: bool,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub(crate) enum ParseItem {
-    Start {
-        step_index: u32,
-    },
-    Normal {
-        variable_index: u32,
-        production_index: u32,
-        step_index: u32,
-    },
-    Inlined {
-        variable_index: u32,
-        production_index: u32,
-        step_index: u32,
-    },
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ParseItem<'a> {
+    pub variable_index: u32,
+    pub step_index: u32,
+    pub production: &'a Production,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct ParseItemSet {
-    pub entries: BTreeMap<ParseItem, LookaheadSet>,
+pub(crate) struct ParseItemSet<'a> {
+    pub entries: BTreeMap<ParseItem<'a>, LookaheadSet>,
 }
 
-pub(crate) struct ParseItemDisplay<'a>(
-    &'a ParseItem,
-    &'a SyntaxGrammar,
-    &'a LexicalGrammar,
-    &'a InlinedProductionMap,
-);
-
+pub(crate) struct ParseItemDisplay<'a>(&'a ParseItem<'a>, &'a SyntaxGrammar, &'a LexicalGrammar);
 pub(crate) struct LookaheadSetDisplay<'a>(&'a LookaheadSet, &'a SyntaxGrammar, &'a LexicalGrammar);
-
 pub(crate) struct ParseItemSetDisplay<'a>(
-    &'a ParseItemSet,
+    &'a ParseItemSet<'a>,
     &'a SyntaxGrammar,
     &'a LexicalGrammar,
-    &'a InlinedProductionMap,
 );
-
-struct ParseItemSetMapEntry(ParseItemSet, u64);
-pub(crate) struct ParseItemSetMap<T> {
-    map: HashMap<ParseItemSetMapEntry, T>
-}
 
 impl LookaheadSet {
     pub fn new() -> Self {
@@ -173,152 +152,79 @@ impl LookaheadSet {
     }
 }
 
-impl ParseItem {
+impl<'a> ParseItem<'a> {
     pub fn start() -> Self {
-        ParseItem::Start { step_index: 0 }
-    }
-
-    pub fn is_kernel(&self) -> bool {
-        match self {
-            ParseItem::Start { .. } => true,
-            ParseItem::Normal { step_index, .. } | ParseItem::Inlined { step_index, .. } => {
-                *step_index > 0
-            }
+        ParseItem {
+            variable_index: u32::MAX,
+            production: &START_PRODUCTION,
+            step_index: 0,
         }
     }
 
-    pub fn production<'a>(
-        &self,
-        grammar: &'a SyntaxGrammar,
-        inlined_productions: &'a InlinedProductionMap,
-    ) -> &'a Production {
-        match self {
-            ParseItem::Start { .. } => &START_PRODUCTION,
-            ParseItem::Normal {
-                variable_index,
-                production_index,
-                ..
-            } => {
-                &grammar.variables[*variable_index as usize].productions[*production_index as usize]
-            }
-            ParseItem::Inlined {
-                production_index, ..
-            } => &inlined_productions.inlined_productions[*production_index as usize],
+    pub fn step(&self) -> Option<&'a ProductionStep> {
+        self.production.steps.get(self.step_index as usize)
+    }
+
+    pub fn symbol(&self) -> Option<Symbol> {
+        self.step().map(|step| step.symbol)
+    }
+
+    pub fn associativity(&self) -> Option<Associativity> {
+        self.prev_step().and_then(|step| step.associativity)
+    }
+
+    pub fn precedence(&self) -> i32 {
+        self.prev_step().map_or(0, |step| step.precedence)
+    }
+
+    pub fn prev_step(&self) -> Option<&'a ProductionStep> {
+        self.production.steps.get(self.step_index as usize - 1)
+    }
+
+    pub fn is_done(&self) -> bool {
+        self.step_index as usize == self.production.steps.len()
+    }
+
+    pub fn is_augmented(&self) -> bool {
+        self.variable_index == u32::MAX
+    }
+
+    pub fn successor(&self) -> ParseItem<'a> {
+        ParseItem {
+            variable_index: self.variable_index,
+            production: self.production,
+            step_index: self.step_index + 1,
         }
     }
 
-    pub fn symbol(
-        &self,
-        grammar: &SyntaxGrammar,
-        inlined_productions: &InlinedProductionMap,
-    ) -> Option<Symbol> {
-        self.step(grammar, inlined_productions).map(|s| s.symbol)
-    }
-
-    pub fn step<'a>(
-        &self,
-        grammar: &'a SyntaxGrammar,
-        inlined_productions: &'a InlinedProductionMap,
-    ) -> Option<&'a ProductionStep> {
-        self.production(grammar, inlined_productions)
-            .steps
-            .get(self.step_index())
-    }
-
-    pub fn precedence<'a>(
-        &self,
-        grammar: &'a SyntaxGrammar,
-        inlines: &'a InlinedProductionMap,
-    ) -> i32 {
-        self.production(grammar, inlines)
-            .steps
-            .get(self.step_index() - 1)
-            .map(|s| s.precedence)
-            .unwrap_or(0)
-    }
-
-    pub fn associativity<'a>(
-        &self,
-        grammar: &'a SyntaxGrammar,
-        inlines: &'a InlinedProductionMap,
-    ) -> Option<Associativity> {
-        let production = self.production(grammar, inlines);
-        let step_index = self.step_index();
-        if step_index == production.steps.len() {
-            production.steps.last().and_then(|s| s.associativity)
-        } else {
-            None
-        }
-    }
-
-    pub fn variable_index(&self) -> u32 {
-        match self {
-            ParseItem::Start { .. } => panic!("Start item doesn't have a variable index"),
-            ParseItem::Normal { variable_index, .. }
-            | ParseItem::Inlined { variable_index, .. } => *variable_index,
-        }
-    }
-
-    pub fn step_index(&self) -> usize {
-        match self {
-            ParseItem::Start { step_index }
-            | ParseItem::Normal { step_index, .. }
-            | ParseItem::Inlined { step_index, .. } => *step_index as usize,
-        }
-    }
-
-    pub fn is_final(&self) -> bool {
-        if let ParseItem::Start { step_index: 1 } = self {
-            true
-        } else {
-            false
-        }
-    }
-
-    fn step_index_mut(&mut self) -> &mut u32 {
-        match self {
-            ParseItem::Start { step_index }
-            | ParseItem::Normal { step_index, .. }
-            | ParseItem::Inlined { step_index, .. } => step_index,
-        }
-    }
-
-    pub fn display_with<'a>(
+    pub fn display_with(
         &'a self,
         syntax_grammar: &'a SyntaxGrammar,
         lexical_grammar: &'a LexicalGrammar,
-        inlines: &'a InlinedProductionMap,
     ) -> ParseItemDisplay<'a> {
-        ParseItemDisplay(self, syntax_grammar, lexical_grammar, inlines)
-    }
-
-    pub fn successor(&self) -> ParseItem {
-        let mut result = self.clone();
-        *result.step_index_mut() += 1;
-        result
+        ParseItemDisplay(self, syntax_grammar, lexical_grammar)
     }
 }
 
-impl ParseItemSet {
-    pub fn with<'a>(elements: impl IntoIterator<Item = &'a (ParseItem, LookaheadSet)>) -> Self {
+impl<'a> ParseItemSet<'a> {
+    pub fn with(elements: impl IntoIterator<Item = (ParseItem<'a>, LookaheadSet)>) -> Self {
         let mut result = Self::default();
         for (item, lookaheads) in elements {
-            result.entries.insert(*item, lookaheads.clone());
+            result.entries.insert(item, lookaheads);
         }
         result
     }
 
-    pub fn display_with<'a>(
+    pub fn display_with(
         &'a self,
         syntax_grammar: &'a SyntaxGrammar,
         lexical_grammar: &'a LexicalGrammar,
-        inlines: &'a InlinedProductionMap,
     ) -> ParseItemSetDisplay<'a> {
-        ParseItemSetDisplay(self, syntax_grammar, lexical_grammar, inlines)
+        ParseItemSetDisplay(self, syntax_grammar, lexical_grammar)
     }
 }
 
-impl Default for ParseItemSet {
+impl<'a> Default for ParseItemSet<'a> {
     fn default() -> Self {
         Self {
             entries: BTreeMap::new(),
@@ -328,20 +234,18 @@ impl Default for ParseItemSet {
 
 impl<'a> fmt::Display for ParseItemDisplay<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        if let ParseItem::Start { .. } = &self.0 {
+        if self.0.is_augmented() {
             write!(f, "START →")?;
         } else {
             write!(
                 f,
                 "{} →",
-                &self.1.variables[self.0.variable_index() as usize].name
+                &self.1.variables[self.0.variable_index as usize].name
             )?;
         }
 
-        let step_index = self.0.step_index();
-        let production = self.0.production(self.1, self.3);
-        for (i, step) in production.steps.iter().enumerate() {
-            if i == step_index {
+        for (i, step) in self.0.production.steps.iter().enumerate() {
+            if i == self.0.step_index as usize {
                 write!(f, " •")?;
             }
 
@@ -359,7 +263,7 @@ impl<'a> fmt::Display for ParseItemDisplay<'a> {
             }
         }
 
-        if production.steps.len() == step_index {
+        if self.0.is_done() {
             write!(f, " •")?;
         }
 
@@ -398,7 +302,7 @@ impl<'a> fmt::Display for ParseItemSetDisplay<'a> {
             writeln!(
                 f,
                 "{}\t{}",
-                item.display_with(self.1, self.2, self.3),
+                item.display_with(self.1, self.2),
                 lookaheads.display_with(self.1, self.2)
             )?;
         }
@@ -406,7 +310,94 @@ impl<'a> fmt::Display for ParseItemSetDisplay<'a> {
     }
 }
 
-impl Hash for ParseItemSet {
+impl<'a> Hash for ParseItem<'a> {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+        hasher.write_u32(self.variable_index);
+        hasher.write_u32(self.step_index);
+        hasher.write_i32(self.production.dynamic_precedence);
+        hasher.write_usize(self.production.steps.len());
+        hasher.write_i32(self.precedence());
+        self.associativity().hash(hasher);
+        for step in &self.production.steps[0..self.step_index as usize] {
+            step.alias.hash(hasher);
+        }
+        for step in &self.production.steps[self.step_index as usize..] {
+            step.hash(hasher);
+        }
+    }
+}
+
+impl<'a> PartialEq for ParseItem<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        if self.variable_index != other.variable_index
+            || self.step_index != other.step_index
+            || self.production.dynamic_precedence != other.production.dynamic_precedence
+            || self.production.steps.len() != other.production.steps.len()
+            || self.precedence() != other.precedence()
+            || self.associativity() != other.associativity()
+        {
+            return false;
+        }
+
+        for (i, step) in self.production.steps.iter().enumerate() {
+            if i < self.step_index as usize {
+                if step.alias != other.production.steps[i].alias {
+                    return false;
+                }
+            } else {
+                if *step != other.production.steps[i] {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+}
+
+impl<'a> PartialOrd for ParseItem<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        if let Some(o) = self.variable_index.partial_cmp(&other.variable_index) {
+            return Some(o);
+        }
+        if let Some(o) = self.step_index.partial_cmp(&other.step_index) {
+            return Some(o);
+        }
+        if let Some(o) = self.production.dynamic_precedence.partial_cmp(&other.production.dynamic_precedence) {
+            return Some(o);
+        }
+        if let Some(o) = self.production.steps.len().partial_cmp(&other.production.steps.len()) {
+            return Some(o);
+        }
+        if let Some(o) = self.precedence().partial_cmp(&other.precedence()) {
+            return Some(o);
+        }
+        if let Some(o) = self.associativity().partial_cmp(&other.associativity()) {
+            return Some(o);
+        }
+        for (i, step) in self.production.steps.iter().enumerate() {
+            let cmp = if i < self.step_index as usize {
+                step.alias.partial_cmp(&other.production.steps[i].alias)
+            } else {
+                step.partial_cmp(&other.production.steps[i])
+            };
+            if let Some(o) = cmp {
+                return Some(o);
+            }
+        }
+        return None;
+    }
+}
+
+impl<'a> Ord for ParseItem<'a> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap_or(Ordering::Equal)
+    }
+}
+
+impl<'a> Eq for ParseItem<'a> {}
+
+impl<'a> Hash for ParseItemSet<'a> {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
         hasher.write_usize(self.entries.len());
         for (item, lookaheads) in self.entries.iter() {

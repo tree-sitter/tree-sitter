@@ -1,12 +1,13 @@
-use crate::rules::{Associativity, Alias, Rule, Symbol};
 use crate::nfa::Nfa;
+use crate::rules::{Alias, Associativity, Rule, Symbol};
+use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum VariableType {
     Hidden,
     Auxiliary,
     Anonymous,
-    Named
+    Named,
 }
 
 // Input grammar
@@ -46,18 +47,23 @@ pub(crate) struct LexicalGrammar {
 
 // Extracted syntax grammar
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) struct ProductionStep {
-  pub symbol: Symbol,
-  pub precedence: i32,
-  pub associativity: Option<Associativity>,
-  pub alias: Option<Alias>,
+    pub symbol: Symbol,
+    pub precedence: i32,
+    pub associativity: Option<Associativity>,
+    pub alias: Option<Alias>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Production {
     pub steps: Vec<ProductionStep>,
     pub dynamic_precedence: i32,
+}
+
+pub(crate) struct InlinedProductionMap {
+    pub productions: Vec<Production>,
+    pub production_map: HashMap<(*const Production, u32), Vec<usize>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -86,7 +92,12 @@ pub(crate) struct SyntaxGrammar {
 
 impl ProductionStep {
     pub(crate) fn new(symbol: Symbol) -> Self {
-        Self { symbol, precedence: 0, associativity: None, alias: None }
+        Self {
+            symbol,
+            precedence: 0,
+            associativity: None,
+            alias: None,
+        }
     }
 
     pub(crate) fn with_prec(self, precedence: i32, associativity: Option<Associativity>) -> Self {
@@ -103,7 +114,10 @@ impl ProductionStep {
             symbol: self.symbol,
             precedence: self.precedence,
             associativity: self.associativity,
-            alias: Some(Alias { value: value.to_string(), is_named }),
+            alias: Some(Alias {
+                value: value.to_string(),
+                is_named,
+            }),
         }
     }
 }
@@ -124,30 +138,66 @@ impl Production {
 
 impl Default for Production {
     fn default() -> Self {
-        Production { dynamic_precedence: 0, steps: Vec::new() }
+        Production {
+            dynamic_precedence: 0,
+            steps: Vec::new(),
+        }
     }
 }
 
 impl Variable {
     pub fn named(name: &str, rule: Rule) -> Self {
-        Self { name: name.to_string(), kind: VariableType::Named, rule }
+        Self {
+            name: name.to_string(),
+            kind: VariableType::Named,
+            rule,
+        }
     }
 
     pub fn auxiliary(name: &str, rule: Rule) -> Self {
-        Self { name: name.to_string(), kind: VariableType::Auxiliary, rule }
+        Self {
+            name: name.to_string(),
+            kind: VariableType::Auxiliary,
+            rule,
+        }
     }
 
     pub fn hidden(name: &str, rule: Rule) -> Self {
-        Self { name: name.to_string(), kind: VariableType::Hidden, rule }
+        Self {
+            name: name.to_string(),
+            kind: VariableType::Hidden,
+            rule,
+        }
     }
 
     pub fn anonymous(name: &str, rule: Rule) -> Self {
-        Self { name: name.to_string(), kind: VariableType::Anonymous, rule }
+        Self {
+            name: name.to_string(),
+            kind: VariableType::Anonymous,
+            rule,
+        }
     }
 }
 
 impl SyntaxVariable {
     pub fn is_auxiliary(&self) -> bool {
         self.kind == VariableType::Auxiliary
+    }
+}
+
+impl InlinedProductionMap {
+    pub fn inlined_productions<'a>(
+        &'a self,
+        production: &Production,
+        step_index: u32,
+    ) -> Option<impl Iterator<Item = &'a Production> + 'a> {
+        self.production_map
+            .get(&(production as *const Production, step_index))
+            .map(|production_indices| {
+                production_indices
+                    .iter()
+                    .cloned()
+                    .map(move |index| &self.productions[index])
+            })
     }
 }
