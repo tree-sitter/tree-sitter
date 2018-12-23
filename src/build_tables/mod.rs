@@ -1,10 +1,13 @@
 mod item;
 mod item_set_builder;
+mod lex_table_builder;
 
 use self::item::{LookaheadSet, ParseItem, ParseItemSet};
 use self::item_set_builder::ParseItemSetBuilder;
+use self::lex_table_builder::LexTableBuilder;
 use crate::error::{Error, Result};
 use crate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar, VariableType};
+use crate::rules::Alias;
 use crate::rules::{AliasMap, Associativity, Symbol, SymbolType};
 use crate::tables::{
     AliasSequenceId, LexTable, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
@@ -43,7 +46,7 @@ struct ParseTableBuilder<'a> {
 
 impl<'a> ParseTableBuilder<'a> {
     fn build(mut self) -> Result<(ParseTable, LexTable, LexTable, Option<Symbol>)> {
-        // Ensure that the empty rename sequence has index 0.
+        // Ensure that the empty alias sequence has index 0.
         self.parse_table.alias_sequences.push(Vec::new());
 
         // Ensure that the error state has index 0.
@@ -61,9 +64,18 @@ impl<'a> ParseTableBuilder<'a> {
         );
 
         self.process_part_state_queue()?;
+
+        let lex_table_builder = LexTableBuilder::new(self.syntax_grammar, self.lexical_grammar);
+
         self.populate_used_symbols();
 
-        Err(Error::grammar("oh no"))
+        let (main_lex_table, keyword_lex_table, keyword_capture_token) = lex_table_builder.build();
+        Ok((
+            self.parse_table,
+            main_lex_table,
+            keyword_lex_table,
+            keyword_capture_token,
+        ))
     }
 
     fn add_parse_state(
@@ -82,6 +94,7 @@ impl<'a> ParseTableBuilder<'a> {
                 let state_id = self.parse_table.states.len();
                 self.item_sets_by_state_id.push(v.key().clone());
                 self.parse_table.states.push(ParseState {
+                    lex_state_id: 0,
                     terminal_entries: HashMap::new(),
                     nonterminal_entries: HashMap::new(),
                 });
@@ -98,12 +111,16 @@ impl<'a> ParseTableBuilder<'a> {
 
     fn process_part_state_queue(&mut self) -> Result<()> {
         while let Some(entry) = self.parse_state_queue.pop_front() {
-            println!(
-                "ITEM SET {}:\n{}",
-                entry.state_id,
-                self.item_sets_by_state_id[entry.state_id]
-                    .display_with(&self.syntax_grammar, &self.lexical_grammar,)
-            );
+            let debug = false;
+
+            if debug {
+                println!(
+                    "ITEM SET {}:\n{}",
+                    entry.state_id,
+                    self.item_sets_by_state_id[entry.state_id]
+                        .display_with(&self.syntax_grammar, &self.lexical_grammar,)
+                );
+            }
 
             let item_set = self.item_set_builder.transitive_closure(
                 &self.item_sets_by_state_id[entry.state_id],
@@ -111,11 +128,12 @@ impl<'a> ParseTableBuilder<'a> {
                 self.inlines,
             );
 
-            // println!("TRANSITIVE CLOSURE:");
-            // for item in item_set.entries.keys() {
-            //     println!("{}", item.display_with(&self.syntax_grammar, &self.lexical_grammar, &self.item_set_builder.inlines));
-            // }
-            // println!("");
+            if debug {
+                println!(
+                    "TRANSITIVE CLOSURE:\n{}",
+                    item_set.display_with(&self.syntax_grammar, &self.lexical_grammar)
+                );
+            }
 
             self.add_actions(
                 entry.preceding_symbols,
@@ -247,6 +265,17 @@ impl<'a> ParseTableBuilder<'a> {
                 &preceding_auxiliary_symbols,
                 symbol,
             )?;
+        }
+
+        let state = &mut self.parse_table.states[state_id];
+        for extra_token in &self.syntax_grammar.extra_tokens {
+            state
+                .terminal_entries
+                .entry(*extra_token)
+                .or_insert(ParseTableEntry {
+                    reusable: true,
+                    actions: vec![ParseAction::ShiftExtra],
+                });
         }
 
         Ok(())
@@ -514,6 +543,7 @@ impl<'a> ParseTableBuilder<'a> {
                 non_terminal_usages[symbol.index] = true;
             }
         }
+        self.parse_table.symbols.push(Symbol::end());
         for (i, value) in terminal_usages.into_iter().enumerate() {
             if value {
                 self.parse_table.symbols.push(Symbol::terminal(i));
@@ -532,12 +562,15 @@ impl<'a> ParseTableBuilder<'a> {
     }
 
     fn get_alias_sequence_id(&mut self, item: &ParseItem) -> AliasSequenceId {
-        let alias_sequence = item
+        let mut alias_sequence: Vec<Option<Alias>> = item
             .production
             .steps
             .iter()
             .map(|s| s.alias.clone())
             .collect();
+        while alias_sequence.last() == Some(&None) {
+            alias_sequence.pop();
+        }
         if let Some(index) = self
             .parse_table
             .alias_sequences

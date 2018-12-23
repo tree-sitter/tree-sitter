@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::ops::Range;
 use crate::rules::{Associativity, Symbol, Alias};
+use crate::nfa::CharacterSet;
 
 pub(crate) type AliasSequenceId = usize;
 pub(crate) type ParseStateId = usize;
@@ -34,7 +35,8 @@ pub(crate) struct ParseTableEntry {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ParseState {
     pub terminal_entries: HashMap<Symbol, ParseTableEntry>,
-    pub nonterminal_entries: HashMap<Symbol, ParseStateId>
+    pub nonterminal_entries: HashMap<Symbol, ParseStateId>,
+    pub lex_state_id: usize,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -60,7 +62,7 @@ pub(crate) struct AcceptTokenAction {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct LexState {
-    pub advance_actions: HashMap<Symbol, AdvanceAction>,
+    pub advance_actions: HashMap<CharacterSet, AdvanceAction>,
     pub accept_action: Option<AcceptTokenAction>,
 }
 
@@ -75,6 +77,12 @@ impl ParseTableEntry {
             reusable: true,
             actions: Vec::new(),
         }
+    }
+}
+
+impl Default for LexTable {
+    fn default() -> Self {
+        LexTable { states: Vec::new() }
     }
 }
 

@@ -198,15 +198,16 @@ impl<'a> ParseItemSetBuilder<'a> {
                 if syntax_grammar.variables_to_inline.contains(&non_terminal) {
                     continue;
                 }
-                for (production_index, production) in variable.productions.iter().enumerate() {
+                for production in &variable.productions {
                     let item = ParseItem {
                         variable_index,
                         production,
                         step_index: 0,
                     };
 
-                    // let step_id = item.as_step_id(syntax_grammar, inlines);
-                    if let Some(inlined_productions) = inlines.inlined_productions(item.production, item.step_index) {
+                    if let Some(inlined_productions) =
+                        inlines.inlined_productions(item.production, item.step_index)
+                    {
                         for production in inlined_productions {
                             find_or_push(
                                 additions_for_non_terminal,
@@ -244,16 +245,21 @@ impl<'a> ParseItemSetBuilder<'a> {
     ) -> ParseItemSet<'a> {
         let mut result = ParseItemSet::default();
         for (item, lookaheads) in &item_set.entries {
-            if let Some(productions) = inlines.inlined_productions(item.production, item.step_index) {
+            if let Some(productions) = inlines.inlined_productions(item.production, item.step_index)
+            {
                 for production in productions {
-                    self.add_item(&mut result, ParseItem {
-                        variable_index: item.variable_index,
-                        production,
-                        step_index: item.step_index,
-                    }, lookaheads, grammar);
+                    self.add_item(
+                        &mut result,
+                        ParseItem {
+                            variable_index: item.variable_index,
+                            production,
+                            step_index: item.step_index,
+                        },
+                        lookaheads,
+                    );
                 }
             } else {
-                self.add_item(&mut result, *item, lookaheads, grammar);
+                self.add_item(&mut result, *item, lookaheads);
             }
         }
         result
@@ -268,7 +274,6 @@ impl<'a> ParseItemSetBuilder<'a> {
         set: &mut ParseItemSet<'a>,
         item: ParseItem<'a>,
         lookaheads: &LookaheadSet,
-        grammar: &SyntaxGrammar,
     ) {
         if let Some(step) = item.step() {
             if step.symbol.is_non_terminal() {

@@ -2,7 +2,7 @@ use crate::grammars::{LexicalGrammar, Production, ProductionStep, SyntaxGrammar}
 use crate::rules::Associativity;
 use crate::rules::{Symbol, SymbolType};
 use smallbitvec::SmallBitVec;
-use std::collections::{HashMap, BTreeMap};
+use std::collections::BTreeMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::u32;
@@ -178,7 +178,11 @@ impl<'a> ParseItem<'a> {
     }
 
     pub fn prev_step(&self) -> Option<&'a ProductionStep> {
-        self.production.steps.get(self.step_index as usize - 1)
+        if self.step_index > 0 {
+            Some(&self.production.steps[self.step_index as usize - 1])
+        } else {
+            None
+        }
     }
 
     pub fn is_done(&self) -> bool {
@@ -355,43 +359,49 @@ impl<'a> PartialEq for ParseItem<'a> {
     }
 }
 
-impl<'a> PartialOrd for ParseItem<'a> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if let Some(o) = self.variable_index.partial_cmp(&other.variable_index) {
-            return Some(o);
+impl<'a> Ord for ParseItem<'a> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let o = self.variable_index.cmp(&other.variable_index);
+        if o != Ordering::Equal {
+            return o;
         }
-        if let Some(o) = self.step_index.partial_cmp(&other.step_index) {
-            return Some(o);
+        let o = self.step_index.cmp(&other.step_index);
+        if o != Ordering::Equal {
+            return o;
         }
-        if let Some(o) = self.production.dynamic_precedence.partial_cmp(&other.production.dynamic_precedence) {
-            return Some(o);
+        let o = self.production.dynamic_precedence.cmp(&other.production.dynamic_precedence);
+        if o != Ordering::Equal {
+            return o;
         }
-        if let Some(o) = self.production.steps.len().partial_cmp(&other.production.steps.len()) {
-            return Some(o);
+        let o = self.production.steps.len().cmp(&other.production.steps.len());
+        if o != Ordering::Equal {
+            return o;
         }
-        if let Some(o) = self.precedence().partial_cmp(&other.precedence()) {
-            return Some(o);
+        let o = self.precedence().cmp(&other.precedence());
+        if o != Ordering::Equal {
+            return o;
         }
-        if let Some(o) = self.associativity().partial_cmp(&other.associativity()) {
-            return Some(o);
+        let o = self.associativity().cmp(&other.associativity());
+        if o != Ordering::Equal {
+            return o;
         }
         for (i, step) in self.production.steps.iter().enumerate() {
-            let cmp = if i < self.step_index as usize {
-                step.alias.partial_cmp(&other.production.steps[i].alias)
+            let o = if i < self.step_index as usize {
+                step.alias.cmp(&other.production.steps[i].alias)
             } else {
-                step.partial_cmp(&other.production.steps[i])
+                step.cmp(&other.production.steps[i])
             };
-            if let Some(o) = cmp {
-                return Some(o);
+            if o != Ordering::Equal {
+                return o;
             }
         }
-        return None;
+        return Ordering::Equal;
     }
 }
 
-impl<'a> Ord for ParseItem<'a> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap_or(Ordering::Equal)
+impl<'a> PartialOrd for ParseItem<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
