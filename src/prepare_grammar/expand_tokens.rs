@@ -217,7 +217,7 @@ fn expand_regex(ast: &Ast, nfa: &mut Nfa, mut next_state_id: u32, is_sep: bool) 
             }
             RepetitionKind::Range(RepetitionRange::AtLeast(min)) => {
                 if expand_zero_or_more(&repetition.ast, nfa, next_state_id, is_sep)? {
-                    expand_count(ast, min, nfa, next_state_id, is_sep)
+                    expand_count(&repetition.ast, min, nfa, next_state_id, is_sep)
                 } else {
                     Ok(false)
                 }
