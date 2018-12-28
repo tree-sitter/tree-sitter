@@ -499,7 +499,7 @@ class CCodeGenerator {
     string external_scanner_name = language_function_name + "_external_scanner";
 
     if (!syntax_grammar.external_tokens.empty()) {
-      line("void *" + external_scanner_name + "_create();");
+      line("void *" + external_scanner_name + "_create(void);");
       line("void " + external_scanner_name + "_destroy(void *);");
       line("bool " + external_scanner_name + "_scan(void *, TSLexer *, const bool *);");
       line("unsigned " + external_scanner_name + "_serialize(void *, char *);");
@@ -512,7 +512,7 @@ class CCodeGenerator {
     line("#endif");
     line();
 
-    line("extern const TSLanguage *" + language_function_name + "() {");
+    line("extern const TSLanguage *" + language_function_name + "(void) {");
     indent([&]() {
       line("static TSLanguage language = {");
       indent([&]() {

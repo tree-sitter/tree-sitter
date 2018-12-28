@@ -22,7 +22,7 @@ TSNode ts_node_new(const TSTree *tree, const Subtree *subtree, Length position, 
   };
 }
 
-static inline TSNode ts_node__null() {
+static inline TSNode ts_node__null(void) {
   return ts_node_new(NULL, NULL, length_zero(), 0);
 }
 
