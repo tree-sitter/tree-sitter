@@ -7,8 +7,18 @@ use regex_syntax::ast::{
     parse, Ast, Class, ClassPerlKind, ClassSet, ClassSetItem, RepetitionKind, RepetitionRange,
 };
 
-pub(super) fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<LexicalGrammar> {
-    let mut nfa = Nfa::new();
+struct NfaBuilder {
+    nfa: Nfa,
+    is_sep: bool,
+    precedence_stack: Vec<i32>,
+}
+
+pub(crate) fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<LexicalGrammar> {
+    let mut builder = NfaBuilder {
+        nfa: Nfa::new(),
+        is_sep: true,
+        precedence_stack: vec![0],
+    };
 
     let separator_rule = if grammar.separators.len() > 0 {
         grammar.separators.push(Rule::Blank);
@@ -24,281 +34,325 @@ pub(super) fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<Lexi
             _ => false,
         };
 
-        nfa.states.push(NfaState::Accept(i));
-        let last_state_id = nfa.last_state_id();
-        expand_rule(&variable.rule, &mut nfa, last_state_id, false).map_err(|e| match e {
-            Error::RegexError(msg) => Error::RegexError(format!("Rule {} {}", variable.name, msg)),
-            _ => e,
-        })?;
+        builder.is_sep = false;
+        builder.nfa.states.push(NfaState::Accept {
+            variable_index: i,
+            precedence: 0,
+        });
+        let last_state_id = builder.nfa.last_state_id();
+        builder
+            .expand_rule(&variable.rule, last_state_id)
+            .map_err(|e| match e {
+                Error::RegexError(msg) => {
+                    Error::RegexError(format!("Rule {} {}", variable.name, msg))
+                }
+                _ => e,
+            })?;
 
         if !is_immediate_token {
-            let last_state_id = nfa.last_state_id();
-            expand_rule(&separator_rule, &mut nfa, last_state_id, true)?;
+            builder.is_sep = true;
+            let last_state_id = builder.nfa.last_state_id();
+            builder.expand_rule(&separator_rule, last_state_id)?;
         }
 
         variables.push(LexicalVariable {
             name: variable.name,
             kind: variable.kind,
-            start_state: nfa.last_state_id(),
+            start_state: builder.nfa.last_state_id(),
         });
     }
 
-    Ok(LexicalGrammar { nfa, variables })
+    Ok(LexicalGrammar {
+        nfa: builder.nfa,
+        variables,
+    })
 }
 
-fn expand_rule(rule: &Rule, nfa: &mut Nfa, mut next_state_id: u32, is_sep: bool) -> Result<bool> {
-    match rule {
-        Rule::Pattern(s) => {
-            let ast = parse::Parser::new()
-                .parse(&s)
-                .map_err(|e| Error::GrammarError(e.to_string()))?;
-            expand_regex(&ast, nfa, next_state_id, is_sep)
-        }
-        Rule::String(s) => {
-            for c in s.chars().rev() {
-                nfa.prepend(|last_state_id| NfaState::Advance {
-                    chars: CharacterSet::empty().add_char(c),
-                    state_id: last_state_id,
-                    is_sep,
-                });
+impl NfaBuilder {
+    fn expand_rule(&mut self, rule: &Rule, mut next_state_id: u32) -> Result<bool> {
+        match rule {
+            Rule::Pattern(s) => {
+                let ast = parse::Parser::new()
+                    .parse(&s)
+                    .map_err(|e| Error::GrammarError(e.to_string()))?;
+                self.expand_regex(&ast, next_state_id)
             }
-            Ok(s.len() > 0)
-        }
-        Rule::Choice(elements) => {
-            let mut alternative_state_ids = Vec::new();
-            for element in elements {
-                if expand_rule(element, nfa, next_state_id, is_sep)? {
-                    alternative_state_ids.push(nfa.last_state_id());
-                } else {
-                    alternative_state_ids.push(next_state_id);
+            Rule::String(s) => {
+                for c in s.chars().rev() {
+                    self.push_advance(CharacterSet::empty().add_char(c), self.nfa.last_state_id());
                 }
+                Ok(s.len() > 0)
             }
-            alternative_state_ids.retain(|i| *i != nfa.last_state_id());
-            for alternative_state_id in alternative_state_ids {
-                nfa.prepend(|last_state_id| NfaState::Split(last_state_id, alternative_state_id));
-            }
-            Ok(true)
-        }
-        Rule::Seq(elements) => {
-            let mut result = false;
-            for element in elements.into_iter().rev() {
-                if expand_rule(element, nfa, next_state_id, is_sep)? {
-                    result = true;
+            Rule::Choice(elements) => {
+                let mut alternative_state_ids = Vec::new();
+                for element in elements {
+                    if self.expand_rule(element, next_state_id)? {
+                        alternative_state_ids.push(self.nfa.last_state_id());
+                    } else {
+                        alternative_state_ids.push(next_state_id);
+                    }
                 }
-                next_state_id = nfa.last_state_id();
-            }
-            Ok(result)
-        }
-        Rule::Repeat(rule) => {
-            nfa.states.push(NfaState::Accept(0)); // Placeholder for split
-            let split_state_id = nfa.last_state_id();
-            if expand_rule(rule, nfa, split_state_id, is_sep)? {
-                nfa.states[split_state_id as usize] =
-                    NfaState::Split(nfa.last_state_id(), next_state_id);
-                Ok(true)
-            } else {
-                Ok(false)
-            }
-        }
-        Rule::Metadata { rule, .. } => {
-            // TODO - implement precedence
-            expand_rule(rule, nfa, next_state_id, is_sep)
-        }
-        Rule::Blank => Ok(false),
-        _ => Err(Error::grammar(&format!("Unexpected rule {:?}", rule))),
-    }
-}
-
-fn expand_one_or_more(ast: &Ast, nfa: &mut Nfa, next_state_id: u32, is_sep: bool) -> Result<bool> {
-    nfa.states.push(NfaState::Accept(0)); // Placeholder for split
-    let split_state_id = nfa.last_state_id();
-    if expand_regex(&ast, nfa, split_state_id, is_sep)? {
-        nfa.states[split_state_id as usize] = NfaState::Split(nfa.last_state_id(), next_state_id);
-        Ok(true)
-    } else {
-        nfa.states.pop();
-        Ok(false)
-    }
-}
-
-fn expand_zero_or_one(ast: &Ast, nfa: &mut Nfa, next_state_id: u32, is_sep: bool) -> Result<bool> {
-    if expand_regex(ast, nfa, next_state_id, is_sep)? {
-        nfa.prepend(|last_state_id| NfaState::Split(next_state_id, last_state_id));
-        Ok(true)
-    } else {
-        Ok(false)
-    }
-}
-
-fn expand_zero_or_more(ast: &Ast, nfa: &mut Nfa, next_state_id: u32, is_sep: bool) -> Result<bool> {
-    if expand_one_or_more(&ast, nfa, next_state_id, is_sep)? {
-        nfa.prepend(|last_state_id| NfaState::Split(last_state_id, next_state_id));
-        Ok(true)
-    } else {
-        Ok(false)
-    }
-}
-
-fn expand_count(
-    ast: &Ast,
-    count: u32,
-    nfa: &mut Nfa,
-    mut next_state_id: u32,
-    is_sep: bool,
-) -> Result<bool> {
-    let mut result = false;
-    for _ in 0..count {
-        if expand_regex(ast, nfa, next_state_id, is_sep)? {
-            result = true;
-            next_state_id = nfa.last_state_id();
-        }
-    }
-    Ok(result)
-}
-
-fn expand_regex(ast: &Ast, nfa: &mut Nfa, mut next_state_id: u32, is_sep: bool) -> Result<bool> {
-    match ast {
-        Ast::Empty(_) => Ok(false),
-        Ast::Flags(_) => Err(Error::regex("Flags are not supported")),
-        Ast::Literal(literal) => {
-            nfa.states.push(NfaState::Advance {
-                chars: CharacterSet::Include(vec![literal.c]),
-                state_id: next_state_id,
-                is_sep,
-            });
-            Ok(true)
-        }
-        Ast::Dot(_) => {
-            nfa.states.push(NfaState::Advance {
-                chars: CharacterSet::Exclude(vec!['\n']),
-                state_id: next_state_id,
-                is_sep,
-            });
-            Ok(true)
-        }
-        Ast::Assertion(_) => Err(Error::regex("Assertions are not supported")),
-        Ast::Class(class) => match class {
-            Class::Unicode(_) => Err(Error::regex("Unicode character classes are not supported")),
-            Class::Perl(class) => {
-                nfa.states.push(NfaState::Advance {
-                    chars: expand_perl_character_class(&class.kind),
-                    state_id: next_state_id,
-                    is_sep,
-                });
-                Ok(true)
-            }
-            Class::Bracketed(class) => match &class.kind {
-                ClassSet::Item(item) => {
-                    let character_set = expand_character_class(&item)?;
-                    nfa.states.push(NfaState::Advance {
-                        chars: character_set,
-                        state_id: next_state_id,
-                        is_sep,
+                alternative_state_ids.retain(|i| *i != self.nfa.last_state_id());
+                for alternative_state_id in alternative_state_ids {
+                    self.nfa.prepend(|last_state_id| {
+                        NfaState::Split(last_state_id, alternative_state_id)
                     });
-                    Ok(true)
                 }
-                ClassSet::BinaryOp(_) => Err(Error::regex(
-                    "Binary operators in character classes aren't supported",
-                )),
-            },
-        },
-        Ast::Repetition(repetition) => match repetition.op.kind {
-            RepetitionKind::ZeroOrOne => {
-                expand_zero_or_one(&repetition.ast, nfa, next_state_id, is_sep)
+                Ok(true)
             }
-            RepetitionKind::OneOrMore => {
-                expand_one_or_more(&repetition.ast, nfa, next_state_id, is_sep)
+            Rule::Seq(elements) => {
+                let mut result = false;
+                for element in elements.into_iter().rev() {
+                    if self.expand_rule(element, next_state_id)? {
+                        result = true;
+                    }
+                    next_state_id = self.nfa.last_state_id();
+                }
+                Ok(result)
             }
-            RepetitionKind::ZeroOrMore => {
-                expand_zero_or_more(&repetition.ast, nfa, next_state_id, is_sep)
-            }
-            RepetitionKind::Range(RepetitionRange::Exactly(count)) => {
-                expand_count(&repetition.ast, count, nfa, next_state_id, is_sep)
-            }
-            RepetitionKind::Range(RepetitionRange::AtLeast(min)) => {
-                if expand_zero_or_more(&repetition.ast, nfa, next_state_id, is_sep)? {
-                    expand_count(&repetition.ast, min, nfa, next_state_id, is_sep)
+            Rule::Repeat(rule) => {
+                self.nfa.states.push(NfaState::Accept {
+                    variable_index: 0,
+                    precedence: 0,
+                }); // Placeholder for split
+                let split_state_id = self.nfa.last_state_id();
+                if self.expand_rule(rule, split_state_id)? {
+                    self.nfa.states[split_state_id as usize] =
+                        NfaState::Split(self.nfa.last_state_id(), next_state_id);
+                    Ok(true)
                 } else {
                     Ok(false)
                 }
             }
-            RepetitionKind::Range(RepetitionRange::Bounded(min, max)) => {
-                let mut result = expand_count(&repetition.ast, min, nfa, next_state_id, is_sep)?;
-                for _ in min..max {
-                    if result {
-                        next_state_id = nfa.last_state_id();
+            Rule::Metadata { rule, params } => {
+                if let Some(precedence) = params.precedence {
+                    self.precedence_stack.push(precedence);
+                }
+                let result = self.expand_rule(rule, next_state_id);
+                if params.precedence.is_some() {
+                    self.precedence_stack.pop();
+                }
+                result
+            }
+            Rule::Blank => Ok(false),
+            _ => Err(Error::grammar(&format!("Unexpected rule {:?}", rule))),
+        }
+    }
+
+    fn expand_regex(&mut self, ast: &Ast, mut next_state_id: u32) -> Result<bool> {
+        match ast {
+            Ast::Empty(_) => Ok(false),
+            Ast::Flags(_) => Err(Error::regex("Flags are not supported")),
+            Ast::Literal(literal) => {
+                self.push_advance(CharacterSet::Include(vec![literal.c]), next_state_id);
+                Ok(true)
+            }
+            Ast::Dot(_) => {
+                self.push_advance(CharacterSet::Exclude(vec!['\n']), next_state_id);
+                Ok(true)
+            }
+            Ast::Assertion(_) => Err(Error::regex("Assertions are not supported")),
+            Ast::Class(class) => match class {
+                Class::Unicode(_) => {
+                    Err(Error::regex("Unicode character classes are not supported"))
+                }
+                Class::Perl(class) => {
+                    self.push_advance(self.expand_perl_character_class(&class.kind), next_state_id);
+                    Ok(true)
+                }
+                Class::Bracketed(class) => match &class.kind {
+                    ClassSet::Item(item) => {
+                        self.push_advance(self.expand_character_class(&item)?, next_state_id);
+                        Ok(true)
                     }
-                    if expand_zero_or_one(&repetition.ast, nfa, next_state_id, is_sep)? {
+                    ClassSet::BinaryOp(_) => Err(Error::regex(
+                        "Binary operators in character classes aren't supported",
+                    )),
+                },
+            },
+            Ast::Repetition(repetition) => match repetition.op.kind {
+                RepetitionKind::ZeroOrOne => {
+                    self.expand_zero_or_one(&repetition.ast, next_state_id)
+                }
+                RepetitionKind::OneOrMore => {
+                    self.expand_one_or_more(&repetition.ast, next_state_id)
+                }
+                RepetitionKind::ZeroOrMore => {
+                    self.expand_zero_or_more(&repetition.ast, next_state_id)
+                }
+                RepetitionKind::Range(RepetitionRange::Exactly(count)) => {
+                    self.expand_count(&repetition.ast, count, next_state_id)
+                }
+                RepetitionKind::Range(RepetitionRange::AtLeast(min)) => {
+                    if self.expand_zero_or_more(&repetition.ast, next_state_id)? {
+                        self.expand_count(&repetition.ast, min, next_state_id)
+                    } else {
+                        Ok(false)
+                    }
+                }
+                RepetitionKind::Range(RepetitionRange::Bounded(min, max)) => {
+                    let mut result = self.expand_count(&repetition.ast, min, next_state_id)?;
+                    for _ in min..max {
+                        if result {
+                            next_state_id = self.nfa.last_state_id();
+                        }
+                        if self.expand_zero_or_one(&repetition.ast, next_state_id)? {
+                            result = true;
+                        }
+                    }
+                    Ok(result)
+                }
+            },
+            Ast::Group(group) => self.expand_regex(&group.ast, self.nfa.last_state_id()),
+            Ast::Alternation(alternation) => {
+                let mut alternative_state_ids = Vec::new();
+                for ast in alternation.asts.iter() {
+                    if self.expand_regex(&ast, next_state_id)? {
+                        alternative_state_ids.push(self.nfa.last_state_id());
+                    } else {
+                        alternative_state_ids.push(next_state_id);
+                    }
+                }
+                alternative_state_ids.sort_unstable();
+                alternative_state_ids.dedup();
+                alternative_state_ids.retain(|i| *i != self.nfa.last_state_id());
+
+                for alternative_state_id in alternative_state_ids {
+                    self.nfa.prepend(|last_state_id| {
+                        NfaState::Split(last_state_id, alternative_state_id)
+                    });
+                }
+                Ok(true)
+            }
+            Ast::Concat(concat) => {
+                let mut result = false;
+                for ast in concat.asts.iter().rev() {
+                    if self.expand_regex(&ast, next_state_id)? {
                         result = true;
+                        next_state_id = self.nfa.last_state_id();
                     }
                 }
                 Ok(result)
             }
-        },
-        Ast::Group(group) => expand_regex(&group.ast, nfa, nfa.last_state_id(), is_sep),
-        Ast::Alternation(alternation) => {
-            let mut alternative_state_ids = Vec::new();
-            for ast in alternation.asts.iter() {
-                if expand_regex(&ast, nfa, next_state_id, is_sep)? {
-                    alternative_state_ids.push(nfa.last_state_id());
-                } else {
-                    alternative_state_ids.push(next_state_id);
-                }
-            }
-            alternative_state_ids.retain(|i| *i != nfa.last_state_id());
-            for alternative_state_id in alternative_state_ids {
-                nfa.prepend(|last_state_id| NfaState::Split(last_state_id, alternative_state_id));
-            }
+        }
+    }
+
+    fn expand_one_or_more(&mut self, ast: &Ast, next_state_id: u32) -> Result<bool> {
+        self.nfa.states.push(NfaState::Accept {
+            variable_index: 0,
+            precedence: 0,
+        }); // Placeholder for split
+        let split_state_id = self.nfa.last_state_id();
+        if self.expand_regex(&ast, split_state_id)? {
+            self.nfa.states[split_state_id as usize] =
+                NfaState::Split(self.nfa.last_state_id(), next_state_id);
             Ok(true)
+        } else {
+            self.nfa.states.pop();
+            Ok(false)
         }
-        Ast::Concat(concat) => {
-            let mut result = false;
-            for ast in concat.asts.iter().rev() {
-                if expand_regex(&ast, nfa, next_state_id, is_sep)? {
-                    result = true;
-                    next_state_id = nfa.last_state_id();
+    }
+
+    fn expand_zero_or_one(&mut self, ast: &Ast, next_state_id: u32) -> Result<bool> {
+        if self.expand_regex(ast, next_state_id)? {
+            self.nfa
+                .prepend(|last_state_id| NfaState::Split(next_state_id, last_state_id));
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn expand_zero_or_more(&mut self, ast: &Ast, next_state_id: u32) -> Result<bool> {
+        if self.expand_one_or_more(&ast, next_state_id)? {
+            self.nfa
+                .prepend(|last_state_id| NfaState::Split(last_state_id, next_state_id));
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn expand_count(&mut self, ast: &Ast, count: u32, mut next_state_id: u32) -> Result<bool> {
+        let mut result = false;
+        for _ in 0..count {
+            if self.expand_regex(ast, next_state_id)? {
+                result = true;
+                next_state_id = self.nfa.last_state_id();
+            }
+        }
+        Ok(result)
+    }
+
+    fn expand_character_class(&self, item: &ClassSetItem) -> Result<CharacterSet> {
+        match item {
+            ClassSetItem::Empty(_) => Ok(CharacterSet::Include(Vec::new())),
+            ClassSetItem::Literal(literal) => Ok(CharacterSet::Include(vec![literal.c])),
+            ClassSetItem::Range(range) => {
+                Ok(CharacterSet::empty().add_range(range.start.c, range.end.c))
+            }
+            ClassSetItem::Union(union) => {
+                let mut result = CharacterSet::empty();
+                for item in &union.items {
+                    result = result.add(&self.expand_character_class(&item)?);
                 }
+                Ok(result)
             }
-            Ok(result)
+            ClassSetItem::Perl(class) => Ok(self.expand_perl_character_class(&class.kind)),
+            _ => Err(Error::regex(&format!(
+                "Unsupported character class syntax {:?}",
+                item
+            ))),
         }
     }
-}
 
-fn expand_character_class(item: &ClassSetItem) -> Result<CharacterSet> {
-    match item {
-        ClassSetItem::Empty(_) => Ok(CharacterSet::Include(Vec::new())),
-        ClassSetItem::Literal(literal) => Ok(CharacterSet::Include(vec![literal.c])),
-        ClassSetItem::Range(range) => {
-            Ok(CharacterSet::empty().add_range(range.start.c, range.end.c))
+    fn expand_perl_character_class(&self, item: &ClassPerlKind) -> CharacterSet {
+        match item {
+            ClassPerlKind::Digit => CharacterSet::empty().add_range('0', '9'),
+            ClassPerlKind::Space => CharacterSet::empty()
+                .add_char(' ')
+                .add_char('\t')
+                .add_char('\r')
+                .add_char('\n'),
+            ClassPerlKind::Word => CharacterSet::empty()
+                .add_char('_')
+                .add_range('A', 'Z')
+                .add_range('a', 'z')
+                .add_range('0', '9'),
         }
-        ClassSetItem::Union(union) => {
-            let mut result = CharacterSet::empty();
-            for item in &union.items {
-                result = result.add(expand_character_class(&item)?);
-            }
-            Ok(result)
-        }
-        ClassSetItem::Perl(class) => Ok(expand_perl_character_class(&class.kind)),
-        _ => Err(Error::regex(&format!(
-            "Unsupported character class syntax {:?}",
-            item
-        ))),
     }
-}
 
-fn expand_perl_character_class(item: &ClassPerlKind) -> CharacterSet {
-    match item {
-        ClassPerlKind::Digit => CharacterSet::empty().add_range('0', '9'),
-        ClassPerlKind::Space => CharacterSet::empty()
-            .add_char(' ')
-            .add_char('\t')
-            .add_char('\r')
-            .add_char('\n'),
-        ClassPerlKind::Word => CharacterSet::empty()
-            .add_char('_')
-            .add_range('A', 'Z')
-            .add_range('a', 'z')
-            .add_range('0', '9'),
+    fn push_advance(&mut self, chars: CharacterSet, state_id: u32) {
+        let precedence = *self.precedence_stack.last().unwrap();
+        self.add_precedence(precedence, vec![state_id]);
+        self.nfa.states.push(NfaState::Advance {
+            chars,
+            state_id,
+            precedence,
+            is_sep: self.is_sep,
+        });
+    }
+
+    fn add_precedence(&mut self, prec: i32, mut state_ids: Vec<u32>) {
+        let mut i = 0;
+        while i < state_ids.len() {
+            let state_id = state_ids[i];
+            let (left, right) = match &mut self.nfa.states[state_id as usize] {
+                NfaState::Accept {precedence, ..} => {
+                    *precedence = prec;
+                    return;
+                },
+                NfaState::Split(left, right) => (*left, *right),
+                _ => return
+            };
+            if !state_ids.contains(&left) {
+                state_ids.push(left);
+            }
+            if !state_ids.contains(&right) {
+                state_ids.push(right);
+            }
+            i += 1;
+        }
     }
 }
 
@@ -313,11 +367,15 @@ mod tests {
         let mut cursor = NfaCursor::new(&grammar.nfa, start_states);
 
         let mut result = None;
+        let mut result_precedence = 0;
         let mut start_char = 0;
         let mut end_char = 0;
         for c in s.chars() {
-            if let Some(id) = cursor.finished_id() {
-                result = Some((id, &s[start_char..end_char]));
+            if let Some((id, finished_precedence)) = cursor.finished_id() {
+                if result.is_none() || result_precedence <= finished_precedence {
+                    result = Some((id, &s[start_char..end_char]));
+                    result_precedence = finished_precedence;
+                }
             }
             if cursor.advance(c) {
                 end_char += 1;
@@ -329,8 +387,11 @@ mod tests {
             }
         }
 
-        if let Some(id) = cursor.finished_id() {
-            result = Some((id, &s[start_char..end_char]));
+        if let Some((id, finished_precedence)) = cursor.finished_id() {
+            if result.is_none() || result_precedence <= finished_precedence {
+                result = Some((id, &s[start_char..end_char]));
+                result_precedence = finished_precedence;
+            }
         }
 
         result
@@ -441,6 +502,20 @@ mod tests {
                     ("  \nb", Some((0, "b"))),
                     ("  \\a", None),
                     ("  \\\na", Some((0, "a"))),
+                ],
+            },
+            // shorter tokens with higher precedence
+            Row {
+                rules: vec![
+                    Rule::prec(2, Rule::pattern("abc")),
+                    Rule::prec(1, Rule::pattern("ab[cd]e")),
+                    Rule::pattern("[a-e]+"),
+                ],
+                separators: vec![Rule::string("\\\n"), Rule::pattern("\\s")],
+                examples: vec![
+                    ("abceef", Some((0, "abc"))),
+                    ("abdeef", Some((1, "abde"))),
+                    ("aeeeef", Some((2, "aeeee"))),
                 ],
             },
         ];

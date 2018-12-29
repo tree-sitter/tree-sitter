@@ -7,7 +7,7 @@ mod intern_symbols;
 mod process_inlines;
 
 use self::expand_repeats::expand_repeats;
-use self::expand_tokens::expand_tokens;
+pub(crate) use self::expand_tokens::expand_tokens;
 use self::extract_simple_aliases::extract_simple_aliases;
 use self::extract_tokens::extract_tokens;
 use self::flatten_grammar::flatten_grammar;
@@ -19,7 +19,7 @@ use crate::grammars::{
 };
 use crate::rules::{AliasMap, Rule, Symbol};
 
-pub(self) struct IntermediateGrammar<T, U> {
+pub(crate) struct IntermediateGrammar<T, U> {
     variables: Vec<Variable>,
     extra_tokens: Vec<T>,
     expected_conflicts: Vec<Vec<Symbol>>,
@@ -28,14 +28,14 @@ pub(self) struct IntermediateGrammar<T, U> {
     word_token: Option<Symbol>,
 }
 
-pub(self) type InternedGrammar = IntermediateGrammar<Rule, Variable>;
+pub(crate) type InternedGrammar = IntermediateGrammar<Rule, Variable>;
 
-pub(self) type ExtractedSyntaxGrammar = IntermediateGrammar<Symbol, ExternalToken>;
+pub(crate) type ExtractedSyntaxGrammar = IntermediateGrammar<Symbol, ExternalToken>;
 
 #[derive(Debug, PartialEq, Eq)]
-pub(self) struct ExtractedLexicalGrammar {
-    variables: Vec<Variable>,
-    separators: Vec<Rule>,
+pub(crate) struct ExtractedLexicalGrammar {
+    pub variables: Vec<Variable>,
+    pub separators: Vec<Rule>,
 }
 
 pub(crate) fn prepare_grammar(

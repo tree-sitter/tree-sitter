@@ -1,5 +1,8 @@
-use std::fmt;
 use std::char;
+use std::cmp::max;
+use std::cmp::Ordering;
+use std::fmt;
+use std::mem::swap;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CharacterSet {
@@ -13,14 +16,18 @@ pub enum NfaState {
         chars: CharacterSet,
         state_id: u32,
         is_sep: bool,
+        precedence: i32,
     },
     Split(u32, u32),
-    Accept(usize),
+    Accept {
+        variable_index: usize,
+        precedence: i32,
+    },
 }
 
 #[derive(PartialEq, Eq)]
 pub struct Nfa {
-    pub states: Vec<NfaState>
+    pub states: Vec<NfaState>,
 }
 
 impl Default for Nfa {
@@ -78,14 +85,57 @@ impl CharacterSet {
         }
     }
 
-    pub fn add(self, other: CharacterSet) -> Self {
-        if let (CharacterSet::Include(mut chars), CharacterSet::Include(other_chars)) = (self, other) {
-            chars.extend(other_chars);
-            chars.sort_unstable();
-            chars.dedup();
-            CharacterSet::Include(chars)
+    pub fn add(self, other: &CharacterSet) -> Self {
+        if let CharacterSet::Include(other_chars) = other {
+            if let CharacterSet::Include(mut chars) = self {
+                chars.extend(other_chars);
+                chars.sort_unstable();
+                chars.dedup();
+                return CharacterSet::Include(chars);
+            }
+        }
+        panic!("Called add with a negated character set");
+    }
+
+    pub fn remove_intersection(&mut self, other: &mut CharacterSet) -> CharacterSet {
+        match self {
+            CharacterSet::Include(chars) => match other {
+                CharacterSet::Include(other_chars) => {
+                    CharacterSet::Include(remove_chars(chars, other_chars, true))
+                }
+                CharacterSet::Exclude(other_chars) => {
+                    let mut removed = remove_chars(chars, other_chars, false);
+                    add_chars(other_chars, chars);
+                    swap(&mut removed, chars);
+                    CharacterSet::Include(removed)
+                }
+            },
+            CharacterSet::Exclude(chars) => match other {
+                CharacterSet::Include(other_chars) => {
+                    let mut removed = remove_chars(other_chars, chars, false);
+                    add_chars(chars, other_chars);
+                    swap(&mut removed, other_chars);
+                    CharacterSet::Include(removed)
+                }
+                CharacterSet::Exclude(other_chars) => {
+                    let removed = remove_chars(chars, other_chars, true);
+                    let mut included_characters = Vec::new();
+                    let mut other_included_characters = Vec::new();
+                    swap(&mut included_characters, other_chars);
+                    swap(&mut other_included_characters, chars);
+                    *self = CharacterSet::Include(included_characters);
+                    *other = CharacterSet::Include(other_included_characters);
+                    CharacterSet::Exclude(removed)
+                }
+            },
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        if let CharacterSet::Include(c) = self {
+            c.is_empty()
         } else {
-            panic!("Called add with a negated character set");
+            false
         }
     }
 
@@ -94,6 +144,84 @@ impl CharacterSet {
             CharacterSet::Include(chars) => chars.contains(&c),
             CharacterSet::Exclude(chars) => !chars.contains(&c),
         }
+    }
+}
+
+impl Ord for CharacterSet {
+    fn cmp(&self, other: &CharacterSet) -> Ordering {
+        match self {
+            CharacterSet::Include(chars) => {
+                if let CharacterSet::Include(other_chars) = other {
+                    compare_chars(chars, other_chars)
+                } else {
+                    Ordering::Less
+                }
+            }
+            CharacterSet::Exclude(chars) => {
+                if let CharacterSet::Exclude(other_chars) = other {
+                    compare_chars(chars, other_chars)
+                } else {
+                    Ordering::Greater
+                }
+            }
+        }
+    }
+}
+
+impl PartialOrd for CharacterSet {
+    fn partial_cmp(&self, other: &CharacterSet) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+fn add_chars(left: &mut Vec<char>, right: &Vec<char>) {
+    for c in right {
+        match left.binary_search(c) {
+            Err(i) => left.insert(i, *c),
+            _ => {}
+        }
+    }
+}
+
+fn remove_chars(left: &mut Vec<char>, right: &mut Vec<char>, mutate_right: bool) -> Vec<char> {
+    let mut result = Vec::new();
+    right.retain(|right_char| {
+        if let Some(index) = left.iter().position(|left_char| *left_char == *right_char) {
+            left.remove(index);
+            result.push(*right_char);
+            false || !mutate_right
+        } else {
+            true
+        }
+    });
+    result
+}
+
+fn compare_chars(chars: &Vec<char>, other_chars: &Vec<char>) -> Ordering {
+    if chars.is_empty() {
+        if other_chars.is_empty() {
+            Ordering::Equal
+        } else {
+            Ordering::Less
+        }
+    } else if other_chars.is_empty() {
+        Ordering::Greater
+    } else {
+        let mut other_c = other_chars.iter();
+        for c in chars.iter() {
+            if let Some(other_c) = other_c.next() {
+                let cmp = c.cmp(other_c);
+                if cmp != Ordering::Equal {
+                    return cmp;
+                }
+            } else {
+                return Ordering::Greater;
+            }
+        }
+        if other_c.next().is_some() {
+            return Ordering::Less;
+        }
+        Ordering::Equal
     }
 }
 
@@ -124,9 +252,18 @@ impl fmt::Debug for Nfa {
 
 impl<'a> NfaCursor<'a> {
     pub fn new(nfa: &'a Nfa, mut states: Vec<u32>) -> Self {
-        let mut result = Self { nfa, state_ids: Vec::new(), in_sep: true };
+        let mut result = Self {
+            nfa,
+            state_ids: Vec::new(),
+            in_sep: true,
+        };
         result.add_states(&mut states);
         result
+    }
+
+    pub fn reset(&mut self, mut states: Vec<u32>) {
+        self.state_ids.clear();
+        self.add_states(&mut states);
     }
 
     pub fn advance(&mut self, c: char) -> bool {
@@ -134,7 +271,13 @@ impl<'a> NfaCursor<'a> {
         let mut new_state_ids = Vec::new();
         let mut any_sep_transitions = false;
         for current_state_id in &self.state_ids {
-            if let NfaState::Advance { chars, state_id, is_sep } = &self.nfa.states[*current_state_id as usize] {
+            if let NfaState::Advance {
+                chars,
+                state_id,
+                is_sep,
+                ..
+            } = &self.nfa.states[*current_state_id as usize]
+            {
                 if chars.contains(c) {
                     if *is_sep {
                         any_sep_transitions = true;
@@ -152,16 +295,68 @@ impl<'a> NfaCursor<'a> {
         result
     }
 
-    pub fn finished_id(&self) -> Option<usize> {
+    pub fn successors(&self) -> impl Iterator<Item = (&CharacterSet, i32, u32)> {
+        self.state_ids.iter().filter_map(move |id| {
+            if let NfaState::Advance {
+                chars,
+                state_id,
+                precedence,
+                ..
+            } = &self.nfa.states[*id as usize]
+            {
+                Some((chars, *precedence, *state_id))
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn grouped_successors(&self) -> Vec<(CharacterSet, i32, Vec<u32>)> {
+        Self::group_successors(self.successors())
+    }
+
+    fn group_successors<'b>(
+        iter: impl Iterator<Item = (&'b CharacterSet, i32, u32)>,
+    ) -> Vec<(CharacterSet, i32, Vec<u32>)> {
+        let mut result: Vec<(CharacterSet, i32, Vec<u32>)> = Vec::new();
+        for (chars, prec, state) in iter {
+            let mut chars = chars.clone();
+            let mut i = 0;
+            while i < result.len() {
+                let intersection = result[i].0.remove_intersection(&mut chars);
+                if !intersection.is_empty() {
+                    let mut states = result[i].2.clone();
+                    let mut precedence = result[i].1;
+                    states.push(state);
+                    result.insert(i, (intersection, max(precedence, prec), states));
+                    i += 1;
+                }
+                i += 1;
+            }
+            if !chars.is_empty() {
+                result.push((chars, prec, vec![state]));
+            }
+        }
+        result.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+        result
+    }
+
+    pub fn finished_id(&self) -> Option<(usize, i32)> {
         let mut result = None;
         for state_id in self.state_ids.iter() {
-            if let NfaState::Accept(id) = self.nfa.states[*state_id as usize] {
+            if let NfaState::Accept {
+                variable_index,
+                precedence,
+            } = self.nfa.states[*state_id as usize]
+            {
                 match result {
-                    None => {
-                        result = Some(id)
-                    },
-                    Some(existing_id) => if id < existing_id {
-                        result = Some(id)
+                    None => result = Some((variable_index, precedence)),
+                    Some((existing_id, existing_precedence)) => {
+                        if precedence > existing_precedence
+                            || (precedence == existing_precedence && variable_index < existing_id)
+                        {
+                            result = Some((variable_index, precedence))
+                        }
                     }
                 }
             }
@@ -200,5 +395,138 @@ impl<'a> NfaCursor<'a> {
             }
             i += 1;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_group_successors() {
+        let table = [
+            (
+                vec![
+                    (CharacterSet::empty().add_range('a', 'f'), 0, 1),
+                    (CharacterSet::empty().add_range('d', 'i'), 1, 2),
+                ],
+                vec![
+                    (CharacterSet::empty().add_range('a', 'c'), 0, vec![1]),
+                    (CharacterSet::empty().add_range('d', 'f'), 1, vec![1, 2]),
+                    (CharacterSet::empty().add_range('g', 'i'), 1, vec![2]),
+                ],
+            ),
+            (
+                vec![
+                    (CharacterSet::empty().add_range('a', 'z'), 0, 1),
+                    (CharacterSet::empty().add_char('d'), 0, 2),
+                    (CharacterSet::empty().add_char('i'), 0, 3),
+                    (CharacterSet::empty().add_char('f'), 0, 4),
+                ],
+                vec![
+                    (
+                        CharacterSet::empty()
+                            .add_range('a', 'c')
+                            .add_char('e')
+                            .add_range('g', 'h')
+                            .add_range('j', 'z'),
+                        0,
+                        vec![1],
+                    ),
+                    (CharacterSet::empty().add_char('d'), 0, vec![1, 2]),
+                    (CharacterSet::empty().add_char('f'), 0, vec![1, 4]),
+                    (CharacterSet::empty().add_char('i'), 0, vec![1, 3]),
+                ],
+            ),
+        ];
+
+        for row in table.iter() {
+            assert_eq!(
+                NfaCursor::group_successors(row.0.iter().map(|(c, p, s)| (c, *p, *s))),
+                row.1
+            );
+        }
+
+        // let successors = NfaCursor::group_successors(
+        //     [
+        //         (&CharacterSet::empty().add_range('a', 'f'), 1),
+        //         (&CharacterSet::empty().add_range('d', 'i'), 2),
+        //     ]
+        //     .iter()
+        //     .cloned(),
+        // );
+        //
+        // assert_eq!(
+        //     successors,
+        //     vec![
+        //         (CharacterSet::empty().add_range('a', 'c'), vec![1],),
+        //         (CharacterSet::empty().add_range('d', 'f'), vec![1, 2],),
+        //         (CharacterSet::empty().add_range('g', 'i'), vec![2],),
+        //     ]
+        // );
+    }
+
+    #[test]
+    fn test_character_set_intersection() {
+        // whitelist - whitelist
+        // both sets contain 'c', 'd', and 'f'
+        let mut a = CharacterSet::empty().add_range('a', 'f');
+        let mut b = CharacterSet::empty().add_range('c', 'h');
+        assert_eq!(
+            a.remove_intersection(&mut b),
+            CharacterSet::empty().add_range('c', 'f')
+        );
+        assert_eq!(a, CharacterSet::empty().add_range('a', 'b'));
+        assert_eq!(b, CharacterSet::empty().add_range('g', 'h'));
+
+        let mut a = CharacterSet::empty().add_range('a', 'f');
+        let mut b = CharacterSet::empty().add_range('c', 'h');
+        assert_eq!(
+            b.remove_intersection(&mut a),
+            CharacterSet::empty().add_range('c', 'f')
+        );
+        assert_eq!(a, CharacterSet::empty().add_range('a', 'b'));
+        assert_eq!(b, CharacterSet::empty().add_range('g', 'h'));
+
+        // whitelist - blacklist
+        // both sets contain 'e', 'f', and 'm'
+        let mut a = CharacterSet::empty()
+            .add_range('c', 'h')
+            .add_range('k', 'm');
+        let mut b = CharacterSet::empty()
+            .add_range('a', 'd')
+            .add_range('g', 'l')
+            .negate();
+        assert_eq!(
+            a.remove_intersection(&mut b),
+            CharacterSet::Include(vec!['e', 'f', 'm'])
+        );
+        assert_eq!(a, CharacterSet::Include(vec!['c', 'd', 'g', 'h', 'k', 'l']));
+        assert_eq!(b, CharacterSet::empty().add_range('a', 'm').negate());
+
+        let mut a = CharacterSet::empty()
+            .add_range('c', 'h')
+            .add_range('k', 'm');
+        let mut b = CharacterSet::empty()
+            .add_range('a', 'd')
+            .add_range('g', 'l')
+            .negate();
+        assert_eq!(
+            b.remove_intersection(&mut a),
+            CharacterSet::Include(vec!['e', 'f', 'm'])
+        );
+        assert_eq!(a, CharacterSet::Include(vec!['c', 'd', 'g', 'h', 'k', 'l']));
+        assert_eq!(b, CharacterSet::empty().add_range('a', 'm').negate());
+
+        // blacklist - blacklist
+        // both sets exclude 'c', 'd', and 'e'
+        let mut a = CharacterSet::empty().add_range('a', 'e').negate();
+        let mut b = CharacterSet::empty().add_range('c', 'h').negate();
+        assert_eq!(
+            a.remove_intersection(&mut b),
+            CharacterSet::Exclude(vec!['c', 'd', 'e'])
+        );
+        assert_eq!(a, CharacterSet::Include(vec!['f', 'g', 'h']));
+        assert_eq!(b, CharacterSet::Include(vec!['a', 'b']));
     }
 }
