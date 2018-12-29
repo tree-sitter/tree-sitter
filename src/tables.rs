@@ -1,7 +1,7 @@
+use crate::nfa::CharacterSet;
+use crate::rules::{Alias, Associativity, Symbol};
 use std::collections::HashMap;
 use std::ops::Range;
-use crate::rules::{Associativity, Symbol, Alias};
-use crate::nfa::CharacterSet;
 
 pub(crate) type AliasSequenceId = usize;
 pub(crate) type ParseStateId = usize;
@@ -23,7 +23,7 @@ pub(crate) enum ParseAction {
         dynamic_precedence: i32,
         associativity: Option<Associativity>,
         alias_sequence_id: AliasSequenceId,
-    }
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -83,6 +83,56 @@ impl ParseTableEntry {
 impl Default for LexTable {
     fn default() -> Self {
         LexTable { states: Vec::new() }
+    }
+}
+
+impl ParseState {
+    pub fn referenced_states<'a>(&'a self) -> impl Iterator<Item = ParseStateId> + 'a {
+        self.terminal_entries
+            .iter()
+            .flat_map(|(_, entry)| {
+                entry.actions.iter().filter_map(|action| match action {
+                    ParseAction::Shift { state, .. } => Some(*state),
+                    _ => None,
+                })
+            })
+            .chain(self.nonterminal_entries.iter().map(|(_, state)| *state))
+    }
+
+    pub fn update_referenced_states<F>(&mut self, mut f: F)
+    where
+        F: FnMut(usize, &ParseState) -> usize,
+    {
+        let mut updates = Vec::new();
+        for (symbol, entry) in &self.terminal_entries {
+            for (i, action) in entry.actions.iter().enumerate() {
+                if let ParseAction::Shift { state, .. } = action {
+                    let result = f(*state, self);
+                    if result != *state {
+                        updates.push((*symbol, i, result));
+                    }
+                }
+            }
+        }
+        for (symbol, other_state) in &self.nonterminal_entries {
+            let result = f(*other_state, self);
+            if result != *other_state {
+                updates.push((*symbol, 0, result));
+            }
+        }
+        for (symbol, action_index, new_state) in updates {
+            if symbol.is_non_terminal() {
+                self.nonterminal_entries.insert(symbol, new_state);
+            } else {
+                let entry = self.terminal_entries.get_mut(&symbol).unwrap();
+                if let ParseAction::Shift { is_repetition, .. } = entry.actions[action_index] {
+                    entry.actions[action_index] = ParseAction::Shift {
+                        state: new_state,
+                        is_repetition,
+                    };
+                }
+            }
+        }
     }
 }
 
