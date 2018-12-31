@@ -13,6 +13,14 @@ struct NfaBuilder {
     precedence_stack: Vec<i32>,
 }
 
+fn is_string(rule: &Rule) -> bool {
+    match rule {
+        Rule::String(_) => true,
+        Rule::Metadata { rule, .. } => is_string(rule),
+        _ => false
+    }
+}
+
 pub(crate) fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<LexicalGrammar> {
     let mut builder = NfaBuilder {
         nfa: Nfa::new(),
@@ -58,6 +66,7 @@ pub(crate) fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<Lexi
         variables.push(LexicalVariable {
             name: variable.name,
             kind: variable.kind,
+            is_string: is_string(&variable.rule),
             start_state: builder.nfa.last_state_id(),
         });
     }
@@ -94,9 +103,7 @@ impl NfaBuilder {
                 }
                 alternative_state_ids.retain(|i| *i != self.nfa.last_state_id());
                 for alternative_state_id in alternative_state_ids {
-                    self.nfa.prepend(|last_state_id| {
-                        NfaState::Split(last_state_id, alternative_state_id)
-                    });
+                    self.push_split(alternative_state_id);
                 }
                 Ok(true)
             }
@@ -218,9 +225,7 @@ impl NfaBuilder {
                 alternative_state_ids.retain(|i| *i != self.nfa.last_state_id());
 
                 for alternative_state_id in alternative_state_ids {
-                    self.nfa.prepend(|last_state_id| {
-                        NfaState::Split(last_state_id, alternative_state_id)
-                    });
+                    self.push_split(alternative_state_id);
                 }
                 Ok(true)
             }
@@ -255,8 +260,7 @@ impl NfaBuilder {
 
     fn expand_zero_or_one(&mut self, ast: &Ast, next_state_id: u32) -> Result<bool> {
         if self.expand_regex(ast, next_state_id)? {
-            self.nfa
-                .prepend(|last_state_id| NfaState::Split(next_state_id, last_state_id));
+            self.push_split(next_state_id);
             Ok(true)
         } else {
             Ok(false)
@@ -265,8 +269,7 @@ impl NfaBuilder {
 
     fn expand_zero_or_more(&mut self, ast: &Ast, next_state_id: u32) -> Result<bool> {
         if self.expand_one_or_more(&ast, next_state_id)? {
-            self.nfa
-                .prepend(|last_state_id| NfaState::Split(last_state_id, next_state_id));
+            self.push_split(next_state_id);
             Ok(true)
         } else {
             Ok(false)
@@ -333,6 +336,11 @@ impl NfaBuilder {
         });
     }
 
+    fn push_split(&mut self, state_id: u32) {
+        let last_state_id = self.nfa.last_state_id();
+        self.nfa.states.push(NfaState::Split(state_id, last_state_id));
+    }
+
     fn add_precedence(&mut self, prec: i32, mut state_ids: Vec<u32>) {
         let mut i = 0;
         while i < state_ids.len() {
@@ -371,10 +379,10 @@ mod tests {
         let mut start_char = 0;
         let mut end_char = 0;
         for c in s.chars() {
-            if let Some((id, finished_precedence)) = cursor.finished_id() {
-                if result.is_none() || result_precedence <= finished_precedence {
+            for (id, precedence) in cursor.completions() {
+                if result.is_none() || result_precedence <= precedence {
                     result = Some((id, &s[start_char..end_char]));
-                    result_precedence = finished_precedence;
+                    result_precedence = precedence;
                 }
             }
             if cursor.advance(c) {
@@ -387,10 +395,10 @@ mod tests {
             }
         }
 
-        if let Some((id, finished_precedence)) = cursor.finished_id() {
-            if result.is_none() || result_precedence <= finished_precedence {
+        for (id, precedence) in cursor.completions() {
+            if result.is_none() || result_precedence <= precedence {
                 result = Some((id, &s[start_char..end_char]));
-                result_precedence = finished_precedence;
+                result_precedence = precedence;
             }
         }
 

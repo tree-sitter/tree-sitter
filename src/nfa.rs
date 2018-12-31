@@ -97,6 +97,19 @@ impl CharacterSet {
         panic!("Called add with a negated character set");
     }
 
+    pub fn does_intersect(&self, other: &CharacterSet) -> bool {
+        match self {
+            CharacterSet::Include(chars) => match other {
+                CharacterSet::Include(other_chars) => compare_chars(chars, other_chars).common,
+                CharacterSet::Exclude(other_chars) => compare_chars(chars, other_chars).left_only,
+            },
+            CharacterSet::Exclude(chars) => match other {
+                CharacterSet::Include(other_chars) => compare_chars(chars, other_chars).right_only,
+                CharacterSet::Exclude(_) => true,
+            },
+        }
+    }
+
     pub fn remove_intersection(&mut self, other: &mut CharacterSet) -> CharacterSet {
         match self {
             CharacterSet::Include(chars) => match other {
@@ -152,14 +165,14 @@ impl Ord for CharacterSet {
         match self {
             CharacterSet::Include(chars) => {
                 if let CharacterSet::Include(other_chars) = other {
-                    compare_chars(chars, other_chars)
+                    order_chars(chars, other_chars)
                 } else {
                     Ordering::Less
                 }
             }
             CharacterSet::Exclude(chars) => {
                 if let CharacterSet::Exclude(other_chars) = other {
-                    compare_chars(chars, other_chars)
+                    order_chars(chars, other_chars)
                 } else {
                     Ordering::Greater
                 }
@@ -197,7 +210,39 @@ fn remove_chars(left: &mut Vec<char>, right: &mut Vec<char>, mutate_right: bool)
     result
 }
 
-fn compare_chars(chars: &Vec<char>, other_chars: &Vec<char>) -> Ordering {
+struct SetComparision {
+    left_only: bool,
+    common: bool,
+    right_only: bool,
+}
+
+fn compare_chars(left: &Vec<char>, right: &Vec<char>) -> SetComparision {
+    let mut result = SetComparision {
+        left_only: false,
+        common: false,
+        right_only: false,
+    };
+    let mut left = left.iter().cloned();
+    let mut right = right.iter().cloned();
+    let mut i = left.next();
+    let mut j = right.next();
+    while let (Some(left_char), Some(right_char)) = (i, j) {
+        if left_char < right_char {
+            i = left.next();
+            result.left_only = true;
+        } else if left_char > right_char {
+            j = right.next();
+            result.right_only = true;
+        } else {
+            i = left.next();
+            j = right.next();
+            result.common = true;
+        }
+    }
+    result
+}
+
+fn order_chars(chars: &Vec<char>, other_chars: &Vec<char>) -> Ordering {
     if chars.is_empty() {
         if other_chars.is_empty() {
             Ordering::Equal
@@ -207,19 +252,15 @@ fn compare_chars(chars: &Vec<char>, other_chars: &Vec<char>) -> Ordering {
     } else if other_chars.is_empty() {
         Ordering::Greater
     } else {
-        let mut other_c = other_chars.iter();
-        for c in chars.iter() {
-            if let Some(other_c) = other_c.next() {
-                let cmp = c.cmp(other_c);
-                if cmp != Ordering::Equal {
-                    return cmp;
-                }
-            } else {
-                return Ordering::Greater;
-            }
+        let cmp = chars.len().cmp(&other_chars.len());
+        if cmp != Ordering::Equal {
+            return cmp;
         }
-        if other_c.next().is_some() {
-            return Ordering::Less;
+        for (c, other_c) in chars.iter().zip(other_chars.iter()) {
+            let cmp = c.cmp(other_c);
+            if cmp != Ordering::Equal {
+                return cmp;
+            }
         }
         Ordering::Equal
     }
@@ -232,10 +273,6 @@ impl Nfa {
 
     pub fn last_state_id(&self) -> u32 {
         self.states.len() as u32 - 1
-    }
-
-    pub fn prepend(&mut self, f: impl Fn(u32) -> NfaState) {
-        self.states.push(f(self.last_state_id()));
     }
 }
 
@@ -325,11 +362,17 @@ impl<'a> NfaCursor<'a> {
             while i < result.len() {
                 let intersection = result[i].0.remove_intersection(&mut chars);
                 if !intersection.is_empty() {
-                    let mut states = result[i].2.clone();
-                    let mut precedence = result[i].1;
-                    states.push(state);
-                    result.insert(i, (intersection, max(precedence, prec), states));
-                    i += 1;
+                    if result[i].0.is_empty() {
+                        result[i].0 = intersection;
+                        result[i].1 = max(result[i].1, prec);
+                        result[i].2.push(state);
+                    } else {
+                        let mut states = result[i].2.clone();
+                        let mut precedence = result[i].1;
+                        states.push(state);
+                        result.insert(i, (intersection, max(precedence, prec), states));
+                        i += 1;
+                    }
                 }
                 i += 1;
             }
@@ -341,27 +384,18 @@ impl<'a> NfaCursor<'a> {
         result
     }
 
-    pub fn finished_id(&self) -> Option<(usize, i32)> {
-        let mut result = None;
-        for state_id in self.state_ids.iter() {
+    pub fn completions(&self) -> impl Iterator<Item = (usize, i32)> + '_ {
+        self.state_ids.iter().filter_map(move |state_id| {
             if let NfaState::Accept {
                 variable_index,
                 precedence,
             } = self.nfa.states[*state_id as usize]
             {
-                match result {
-                    None => result = Some((variable_index, precedence)),
-                    Some((existing_id, existing_precedence)) => {
-                        if precedence > existing_precedence
-                            || (precedence == existing_precedence && variable_index < existing_id)
-                        {
-                            result = Some((variable_index, precedence))
-                        }
-                    }
-                }
+                Some((variable_index, precedence))
+            } else {
+                None
             }
-        }
-        result
+        })
     }
 
     pub fn in_separator(&self) -> bool {
@@ -467,7 +501,7 @@ mod tests {
     }
 
     #[test]
-    fn test_character_set_intersection() {
+    fn test_character_set_remove_intersection() {
         // whitelist - whitelist
         // both sets contain 'c', 'd', and 'f'
         let mut a = CharacterSet::empty().add_range('a', 'f');
@@ -528,5 +562,47 @@ mod tests {
         );
         assert_eq!(a, CharacterSet::Include(vec!['f', 'g', 'h']));
         assert_eq!(b, CharacterSet::Include(vec!['a', 'b']));
+    }
+
+    #[test]
+    fn test_character_set_does_intersect() {
+        let (a, b) = (CharacterSet::empty(), CharacterSet::empty());
+        assert!(!a.does_intersect(&b));
+        assert!(!b.does_intersect(&a));
+
+        let (a, b) = (
+            CharacterSet::empty().add_char('a'),
+            CharacterSet::empty().add_char('a'),
+        );
+        assert!(a.does_intersect(&b));
+        assert!(b.does_intersect(&a));
+
+        let (a, b) = (
+            CharacterSet::empty().add_char('b'),
+            CharacterSet::empty().add_char('a').add_char('c'),
+        );
+        assert!(!a.does_intersect(&b));
+        assert!(!b.does_intersect(&a));
+
+        let (a, b) = (
+            CharacterSet::Include(vec!['b']),
+            CharacterSet::Exclude(vec!['a', 'b', 'c']),
+        );
+        assert!(!a.does_intersect(&b));
+        assert!(!b.does_intersect(&a));
+
+        let (a, b) = (
+            CharacterSet::Include(vec!['b']),
+            CharacterSet::Exclude(vec!['a', 'c']),
+        );
+        assert!(a.does_intersect(&b));
+        assert!(b.does_intersect(&a));
+
+        let (a, b) = (
+            CharacterSet::Exclude(vec!['a']),
+            CharacterSet::Exclude(vec!['a']),
+        );
+        assert!(a.does_intersect(&b));
+        assert!(b.does_intersect(&a));
     }
 }

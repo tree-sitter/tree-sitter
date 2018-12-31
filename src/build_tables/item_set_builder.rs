@@ -269,6 +269,10 @@ impl<'a> ParseItemSetBuilder<'a> {
         &self.first_sets[symbol]
     }
 
+    pub fn last_set(&self, symbol: &Symbol) -> &LookaheadSet {
+        &self.first_sets[symbol]
+    }
+
     fn add_item(
         &self,
         set: &mut ParseItemSet<'a>,

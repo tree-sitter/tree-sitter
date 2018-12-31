@@ -36,6 +36,7 @@ pub(crate) struct InputGrammar {
 pub(crate) struct LexicalVariable {
     pub name: String,
     pub kind: VariableType,
+    pub is_string: bool,
     pub start_state: u32,
 }
 
@@ -176,6 +177,12 @@ impl Variable {
             kind: VariableType::Anonymous,
             rule,
         }
+    }
+}
+
+impl LexicalGrammar {
+    pub fn variable_index_for_nfa_state(&self, state_id: u32) -> usize {
+        self.variables.iter().position(|v| v.start_state >= state_id).unwrap()
     }
 }
 
