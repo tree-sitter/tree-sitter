@@ -2,11 +2,11 @@ use crate::grammars::{LexicalGrammar, Production, ProductionStep, SyntaxGrammar}
 use crate::rules::Associativity;
 use crate::rules::{Symbol, SymbolType};
 use smallbitvec::SmallBitVec;
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::u32;
-use std::cmp::Ordering;
 
 lazy_static! {
     static ref START_PRODUCTION: Production = Production {
@@ -85,10 +85,10 @@ impl LookaheadSet {
             .chain(if self.eof { Some(Symbol::end()) } else { None })
     }
 
-    pub fn with<'a>(symbols: impl IntoIterator<Item = &'a Symbol>) -> Self {
+    pub fn with(symbols: impl IntoIterator<Item = Symbol>) -> Self {
         let mut result = Self::new();
         for symbol in symbols {
-            result.insert(*symbol);
+            result.insert(symbol);
         }
         result
     }
@@ -217,6 +217,21 @@ impl<'a> ParseItemSet<'a> {
             result.entries.insert(item, lookaheads);
         }
         result
+    }
+
+    pub fn hash_unfinished_items(&self, h: &mut impl Hasher) {
+        let mut previous_variable_index = u32::MAX;
+        let mut previous_step_index = u32::MAX;
+        for item in self.entries.keys() {
+            if item.step().is_none() && item.variable_index != previous_variable_index
+                || item.step_index != previous_step_index
+            {
+                h.write_u32(item.variable_index);
+                h.write_u32(item.step_index);
+                previous_variable_index = item.variable_index;
+                previous_step_index = item.step_index;
+            }
+        }
     }
 
     pub fn display_with(
@@ -369,11 +384,18 @@ impl<'a> Ord for ParseItem<'a> {
         if o != Ordering::Equal {
             return o;
         }
-        let o = self.production.dynamic_precedence.cmp(&other.production.dynamic_precedence);
+        let o = self
+            .production
+            .dynamic_precedence
+            .cmp(&other.production.dynamic_precedence);
         if o != Ordering::Equal {
             return o;
         }
-        let o = self.production.steps.len().cmp(&other.production.steps.len());
+        let o = self
+            .production
+            .steps
+            .len()
+            .cmp(&other.production.steps.len());
         if o != Ordering::Equal {
             return o;
         }

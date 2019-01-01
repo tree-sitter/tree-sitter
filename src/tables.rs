@@ -37,6 +37,7 @@ pub(crate) struct ParseState {
     pub terminal_entries: HashMap<Symbol, ParseTableEntry>,
     pub nonterminal_entries: HashMap<Symbol, ParseStateId>,
     pub lex_state_id: usize,
+    pub unfinished_item_signature: u64,
 }
 
 #[derive(Debug, PartialEq, Eq)]

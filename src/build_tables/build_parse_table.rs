@@ -7,7 +7,8 @@ use crate::tables::{
     AliasSequenceId, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
 };
 use core::ops::Range;
-use std::collections::hash_map::Entry;
+use std::hash::Hasher;
+use std::collections::hash_map::{Entry, DefaultHasher};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::Write;
 
@@ -44,14 +45,13 @@ impl<'a> ParseTableBuilder<'a> {
         self.parse_table.alias_sequences.push(Vec::new());
 
         // Ensure that the error state has index 0.
-        let error_state_id =
-            self.add_parse_state(&Vec::new(), &Vec::new(), ParseItemSet::default());
+        self.add_parse_state(&Vec::new(), &Vec::new(), ParseItemSet::default());
 
         self.add_parse_state(
             &Vec::new(),
             &Vec::new(),
             ParseItemSet::with(
-                [(ParseItem::start(), LookaheadSet::with(&[Symbol::end()]))]
+                [(ParseItem::start(), LookaheadSet::with([Symbol::end()].iter().cloned()))]
                     .iter()
                     .cloned(),
             ),
@@ -78,6 +78,10 @@ impl<'a> ParseTableBuilder<'a> {
             }
         }
 
+        let mut hasher = DefaultHasher::new();
+        item_set.hash_unfinished_items(&mut hasher);
+        let unfinished_item_signature = hasher.finish();
+
         match self.state_ids_by_item_set.entry(item_set) {
             Entry::Occupied(o) => *o.get(),
             Entry::Vacant(v) => {
@@ -87,6 +91,7 @@ impl<'a> ParseTableBuilder<'a> {
                     lex_state_id: 0,
                     terminal_entries: HashMap::new(),
                     nonterminal_entries: HashMap::new(),
+                    unfinished_item_signature,
                 });
                 self.parse_state_queue.push_back(ParseStateQueueEntry {
                     state_id,

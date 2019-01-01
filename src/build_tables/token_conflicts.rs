@@ -8,6 +8,7 @@ use std::fmt;
 struct TokenConflictStatus {
     does_overlap: bool,
     does_match_valid_continuation: bool,
+    does_match_separators: bool,
     matches_same_string: bool,
 }
 
@@ -46,8 +47,9 @@ impl TokenConflictMap {
         self.status_matrix[matrix_index(self.n, i, j)].matches_same_string
     }
 
-    pub fn does_match_valid_continuation(&self, i: usize, j: usize) -> bool {
-        self.status_matrix[matrix_index(self.n, i, j)].does_match_valid_continuation
+    pub fn does_conflict(&self, i: usize, j: usize) -> bool {
+        let entry = &self.status_matrix[matrix_index(self.n, i, j)];
+        entry.does_match_valid_continuation || entry.does_match_separators
     }
 
     pub fn does_overlap(&self, i: usize, j: usize) -> bool {
@@ -207,10 +209,15 @@ fn compute_conflict_status(
                         if chars.does_intersect(&following_chars[j]) {
                             result.0.does_match_valid_continuation = true;
                         }
+                        if cursor.in_separator() {
+                            result.0.does_match_separators = true;
+                        }
                     } else {
                         result.1.does_overlap = true;
                         if chars.does_intersect(&following_chars[i]) {
                             result.1.does_match_valid_continuation = true;
+                        } else {
+                            result.1.does_match_separators = true;
                         }
                     }
                 }
@@ -326,9 +333,9 @@ mod tests {
         let token_map = TokenConflictMap::new(
             &grammar,
             vec![
-                LookaheadSet::with(&[Symbol::terminal(var("identifier"))]),
-                LookaheadSet::with(&[Symbol::terminal(var("in"))]),
-                LookaheadSet::with(&[Symbol::terminal(var("identifier"))]),
+                LookaheadSet::with([Symbol::terminal(var("identifier"))].iter().cloned()),
+                LookaheadSet::with([Symbol::terminal(var("in"))].iter().cloned()),
+                LookaheadSet::with([Symbol::terminal(var("identifier"))].iter().cloned()),
             ],
         );
 
@@ -338,12 +345,12 @@ mod tests {
 
         // Depending on what character follows, the string "in" may be treated as part of an
         // `identifier` token.
-        assert!(token_map.does_match_valid_continuation(var("identifier"), var("in")));
+        assert!(token_map.does_conflict(var("identifier"), var("in")));
 
         // Depending on what character follows, the string "instanceof" may be treated as part of
         // an `identifier` token.
-        assert!(token_map.does_match_valid_continuation(var("identifier"), var("instanceof")));
-        assert!(token_map.does_match_valid_continuation(var("instanceof"), var("in")));
+        assert!(token_map.does_conflict(var("identifier"), var("instanceof")));
+        assert!(token_map.does_conflict(var("instanceof"), var("in")));
     }
 
     fn index_of_var(grammar: &LexicalGrammar, name: &str) -> usize {

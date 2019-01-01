@@ -164,12 +164,20 @@ impl NfaBuilder {
                     Err(Error::regex("Unicode character classes are not supported"))
                 }
                 Class::Perl(class) => {
-                    self.push_advance(self.expand_perl_character_class(&class.kind), next_state_id);
+                    let mut chars = self.expand_perl_character_class(&class.kind);
+                    if class.negated {
+                        chars = chars.negate();
+                    }
+                    self.push_advance(chars, next_state_id);
                     Ok(true)
                 }
                 Class::Bracketed(class) => match &class.kind {
                     ClassSet::Item(item) => {
-                        self.push_advance(self.expand_character_class(&item)?, next_state_id);
+                        let mut chars = self.expand_character_class(&item)?;
+                        if class.negated {
+                            chars = chars.negate();
+                        }
+                        self.push_advance(chars, next_state_id);
                         Ok(true)
                     }
                     ClassSet::BinaryOp(_) => Err(Error::regex(

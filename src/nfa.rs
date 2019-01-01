@@ -86,15 +86,34 @@ impl CharacterSet {
     }
 
     pub fn add(self, other: &CharacterSet) -> Self {
-        if let CharacterSet::Include(other_chars) = other {
-            if let CharacterSet::Include(mut chars) = self {
-                chars.extend(other_chars);
-                chars.sort_unstable();
-                chars.dedup();
-                return CharacterSet::Include(chars);
-            }
+        match self {
+            CharacterSet::Include(mut chars) => match other {
+                CharacterSet::Include(other_chars) => {
+                    chars.extend(other_chars);
+                    chars.sort_unstable();
+                    chars.dedup();
+                    CharacterSet::Include(chars)
+                }
+                CharacterSet::Exclude(other_chars) => {
+                    let excluded_chars = other_chars
+                        .iter()
+                        .cloned()
+                        .filter(|c| !chars.contains(&c))
+                        .collect();
+                    CharacterSet::Exclude(excluded_chars)
+                }
+            },
+            CharacterSet::Exclude(mut chars) => match other {
+                CharacterSet::Include(other_chars) => {
+                    chars.retain(|c| !other_chars.contains(&c));
+                    CharacterSet::Exclude(chars)
+                }
+                CharacterSet::Exclude(other_chars) => {
+                    chars.retain(|c| other_chars.contains(&c));
+                    CharacterSet::Exclude(chars)
+                },
+            },
         }
-        panic!("Called add with a negated character set");
     }
 
     pub fn does_intersect(&self, other: &CharacterSet) -> bool {
@@ -458,6 +477,9 @@ mod tests {
                     (CharacterSet::empty().add_char('f'), 0, 4),
                 ],
                 vec![
+                    (CharacterSet::empty().add_char('d'), 0, vec![1, 2]),
+                    (CharacterSet::empty().add_char('f'), 0, vec![1, 4]),
+                    (CharacterSet::empty().add_char('i'), 0, vec![1, 3]),
                     (
                         CharacterSet::empty()
                             .add_range('a', 'c')
@@ -467,9 +489,6 @@ mod tests {
                         0,
                         vec![1],
                     ),
-                    (CharacterSet::empty().add_char('d'), 0, vec![1, 2]),
-                    (CharacterSet::empty().add_char('f'), 0, vec![1, 4]),
-                    (CharacterSet::empty().add_char('i'), 0, vec![1, 3]),
                 ],
             ),
         ];
