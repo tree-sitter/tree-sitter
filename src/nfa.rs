@@ -40,7 +40,6 @@ impl Default for Nfa {
 pub struct NfaCursor<'a> {
     pub(crate) state_ids: Vec<u32>,
     nfa: &'a Nfa,
-    in_sep: bool,
 }
 
 impl CharacterSet {
@@ -111,7 +110,7 @@ impl CharacterSet {
                 CharacterSet::Exclude(other_chars) => {
                     chars.retain(|c| other_chars.contains(&c));
                     CharacterSet::Exclude(chars)
-                },
+                }
             },
         }
     }
@@ -311,7 +310,6 @@ impl<'a> NfaCursor<'a> {
         let mut result = Self {
             nfa,
             state_ids: Vec::new(),
-            in_sep: true,
         };
         result.add_states(&mut states);
         result
@@ -322,81 +320,59 @@ impl<'a> NfaCursor<'a> {
         self.add_states(&mut states);
     }
 
-    pub fn advance(&mut self, c: char) -> bool {
-        let mut result = false;
-        let mut new_state_ids = Vec::new();
-        let mut any_sep_transitions = false;
-        for current_state_id in &self.state_ids {
-            if let NfaState::Advance {
-                chars,
-                state_id,
-                is_sep,
-                ..
-            } = &self.nfa.states[*current_state_id as usize]
-            {
-                if chars.contains(c) {
-                    if *is_sep {
-                        any_sep_transitions = true;
-                    }
-                    new_state_ids.push(*state_id);
-                    result = true;
-                }
-            }
-        }
-        if !any_sep_transitions {
-            self.in_sep = false;
-        }
-        self.state_ids.clear();
-        self.add_states(&mut new_state_ids);
-        result
-    }
-
-    pub fn successors(&self) -> impl Iterator<Item = (&CharacterSet, i32, u32)> {
+    pub fn successors(&self) -> impl Iterator<Item = (&CharacterSet, i32, u32, bool)> {
         self.state_ids.iter().filter_map(move |id| {
             if let NfaState::Advance {
                 chars,
                 state_id,
                 precedence,
-                ..
+                is_sep,
             } = &self.nfa.states[*id as usize]
             {
-                Some((chars, *precedence, *state_id))
+                Some((chars, *precedence, *state_id, *is_sep))
             } else {
                 None
             }
         })
     }
 
-    pub fn grouped_successors(&self) -> Vec<(CharacterSet, i32, Vec<u32>)> {
+    pub fn grouped_successors(&self) -> Vec<(CharacterSet, i32, Vec<u32>, bool)> {
         Self::group_successors(self.successors())
     }
 
     fn group_successors<'b>(
-        iter: impl Iterator<Item = (&'b CharacterSet, i32, u32)>,
-    ) -> Vec<(CharacterSet, i32, Vec<u32>)> {
-        let mut result: Vec<(CharacterSet, i32, Vec<u32>)> = Vec::new();
-        for (chars, prec, state) in iter {
+        iter: impl Iterator<Item = (&'b CharacterSet, i32, u32, bool)>,
+    ) -> Vec<(CharacterSet, i32, Vec<u32>, bool)> {
+        let mut result: Vec<(CharacterSet, i32, Vec<u32>, bool)> = Vec::new();
+        for (chars, prec, state, is_sep) in iter {
             let mut chars = chars.clone();
             let mut i = 0;
             while i < result.len() {
-                let intersection = result[i].0.remove_intersection(&mut chars);
-                if !intersection.is_empty() {
-                    if result[i].0.is_empty() {
-                        result[i].0 = intersection;
-                        result[i].1 = max(result[i].1, prec);
-                        result[i].2.push(state);
-                    } else {
+                if result[i].0 == chars {
+                    result[i].1 = max(result[i].1, prec);
+                    result[i].2.push(state);
+                    result[i].3 |= is_sep;
+                } else {
+                    let intersection = result[i].0.remove_intersection(&mut chars);
+                    if !intersection.is_empty() {
                         let mut states = result[i].2.clone();
-                        let mut precedence = result[i].1;
                         states.push(state);
-                        result.insert(i, (intersection, max(precedence, prec), states));
+                        result.insert(
+                            i,
+                            (
+                                intersection,
+                                max(result[i].1, prec),
+                                states,
+                                result[i].3 || is_sep,
+                            ),
+                        );
                         i += 1;
                     }
                 }
                 i += 1;
             }
             if !chars.is_empty() {
-                result.push((chars, prec, vec![state]));
+                result.push((chars, prec, vec![state], is_sep));
             }
         }
         result.sort_unstable_by(|a, b| a.0.cmp(&b.0));
@@ -415,10 +391,6 @@ impl<'a> NfaCursor<'a> {
                 None
             }
         })
-    }
-
-    pub fn in_separator(&self) -> bool {
-        self.in_sep
     }
 
     pub fn add_states(&mut self, new_state_ids: &mut Vec<u32>) {
@@ -460,26 +432,31 @@ mod tests {
         let table = [
             (
                 vec![
-                    (CharacterSet::empty().add_range('a', 'f'), 0, 1),
-                    (CharacterSet::empty().add_range('d', 'i'), 1, 2),
+                    (CharacterSet::empty().add_range('a', 'f'), 0, 1, false),
+                    (CharacterSet::empty().add_range('d', 'i'), 1, 2, false),
                 ],
                 vec![
-                    (CharacterSet::empty().add_range('a', 'c'), 0, vec![1]),
-                    (CharacterSet::empty().add_range('d', 'f'), 1, vec![1, 2]),
-                    (CharacterSet::empty().add_range('g', 'i'), 1, vec![2]),
+                    (CharacterSet::empty().add_range('a', 'c'), 0, vec![1], false),
+                    (
+                        CharacterSet::empty().add_range('d', 'f'),
+                        1,
+                        vec![1, 2],
+                        false,
+                    ),
+                    (CharacterSet::empty().add_range('g', 'i'), 1, vec![2], false),
                 ],
             ),
             (
                 vec![
-                    (CharacterSet::empty().add_range('a', 'z'), 0, 1),
-                    (CharacterSet::empty().add_char('d'), 0, 2),
-                    (CharacterSet::empty().add_char('i'), 0, 3),
-                    (CharacterSet::empty().add_char('f'), 0, 4),
+                    (CharacterSet::empty().add_range('a', 'z'), 0, 1, false),
+                    (CharacterSet::empty().add_char('d'), 0, 2, false),
+                    (CharacterSet::empty().add_char('i'), 0, 3, false),
+                    (CharacterSet::empty().add_char('f'), 0, 4, false),
                 ],
                 vec![
-                    (CharacterSet::empty().add_char('d'), 0, vec![1, 2]),
-                    (CharacterSet::empty().add_char('f'), 0, vec![1, 4]),
-                    (CharacterSet::empty().add_char('i'), 0, vec![1, 3]),
+                    (CharacterSet::empty().add_char('d'), 0, vec![1, 2], false),
+                    (CharacterSet::empty().add_char('f'), 0, vec![1, 4], false),
+                    (CharacterSet::empty().add_char('i'), 0, vec![1, 3], false),
                     (
                         CharacterSet::empty()
                             .add_range('a', 'c')
@@ -488,6 +465,7 @@ mod tests {
                             .add_range('j', 'z'),
                         0,
                         vec![1],
+                        false,
                     ),
                 ],
             ),
@@ -495,28 +473,10 @@ mod tests {
 
         for row in table.iter() {
             assert_eq!(
-                NfaCursor::group_successors(row.0.iter().map(|(c, p, s)| (c, *p, *s))),
+                NfaCursor::group_successors(row.0.iter().map(|(c, p, s, sep)| (c, *p, *s, *sep))),
                 row.1
             );
         }
-
-        // let successors = NfaCursor::group_successors(
-        //     [
-        //         (&CharacterSet::empty().add_range('a', 'f'), 1),
-        //         (&CharacterSet::empty().add_range('d', 'i'), 2),
-        //     ]
-        //     .iter()
-        //     .cloned(),
-        // );
-        //
-        // assert_eq!(
-        //     successors,
-        //     vec![
-        //         (CharacterSet::empty().add_range('a', 'c'), vec![1],),
-        //         (CharacterSet::empty().add_range('d', 'f'), vec![1, 2],),
-        //         (CharacterSet::empty().add_range('g', 'i'), vec![2],),
-        //     ]
-        // );
     }
 
     #[test]

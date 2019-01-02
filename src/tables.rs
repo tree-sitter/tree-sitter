@@ -1,7 +1,6 @@
 use crate::nfa::CharacterSet;
 use crate::rules::{Alias, Associativity, Symbol};
 use std::collections::HashMap;
-use std::ops::Range;
 
 pub(crate) type AliasSequenceId = usize;
 pub(crate) type ParseStateId = usize;
@@ -50,21 +49,13 @@ pub(crate) struct ParseTable {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AdvanceAction {
     pub state: LexStateId,
-    pub precedence: Range<i32>,
     pub in_main_token: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct AcceptTokenAction {
-    pub symbol: Symbol,
-    pub precedence: i32,
-    pub implicit_precedence: i32,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct LexState {
-    pub advance_actions: HashMap<CharacterSet, AdvanceAction>,
-    pub accept_action: Option<AcceptTokenAction>,
+    pub advance_actions: Vec<(CharacterSet, AdvanceAction)>,
+    pub accept_action: Option<usize>,
 }
 
 #[derive(Debug, PartialEq, Eq)]

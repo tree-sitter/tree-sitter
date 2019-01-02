@@ -7,10 +7,10 @@ use crate::tables::{
     AliasSequenceId, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
 };
 use core::ops::Range;
-use std::hash::Hasher;
-use std::collections::hash_map::{Entry, DefaultHasher};
+use std::collections::hash_map::{DefaultHasher, Entry};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::Write;
+use std::hash::Hasher;
 
 #[derive(Clone)]
 struct AuxiliarySymbolInfo {
@@ -31,7 +31,6 @@ struct ParseTableBuilder<'a> {
     item_set_builder: ParseItemSetBuilder<'a>,
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
-    inlines: &'a InlinedProductionMap,
     state_ids_by_item_set: HashMap<ParseItemSet<'a>, ParseStateId>,
     item_sets_by_state_id: Vec<ParseItemSet<'a>>,
     parse_state_queue: VecDeque<ParseStateQueueEntry>,
@@ -51,9 +50,12 @@ impl<'a> ParseTableBuilder<'a> {
             &Vec::new(),
             &Vec::new(),
             ParseItemSet::with(
-                [(ParseItem::start(), LookaheadSet::with([Symbol::end()].iter().cloned()))]
-                    .iter()
-                    .cloned(),
+                [(
+                    ParseItem::start(),
+                    LookaheadSet::with([Symbol::end()].iter().cloned()),
+                )]
+                .iter()
+                .cloned(),
             ),
         );
 
@@ -69,8 +71,12 @@ impl<'a> ParseTableBuilder<'a> {
         item_set: ParseItemSet<'a>,
     ) -> ParseStateId {
         if preceding_symbols.len() > 1 {
-            let left_tokens = self.item_set_builder.last_set(&preceding_symbols[preceding_symbols.len() - 2]);
-            let right_tokens = self.item_set_builder.first_set(&preceding_symbols[preceding_symbols.len() - 1]);
+            let left_tokens = self
+                .item_set_builder
+                .last_set(&preceding_symbols[preceding_symbols.len() - 2]);
+            let right_tokens = self
+                .item_set_builder
+                .first_set(&preceding_symbols[preceding_symbols.len() - 1]);
             for left_token in left_tokens.iter() {
                 if left_token.is_terminal() {
                     self.following_tokens[left_token.index].insert_all(right_tokens);
@@ -117,11 +123,9 @@ impl<'a> ParseTableBuilder<'a> {
                 );
             }
 
-            let item_set = self.item_set_builder.transitive_closure(
-                &self.item_sets_by_state_id[entry.state_id],
-                self.syntax_grammar,
-                self.inlines,
-            );
+            let item_set = self
+                .item_set_builder
+                .transitive_closure(&self.item_sets_by_state_id[entry.state_id]);
 
             if debug {
                 println!(
@@ -606,7 +610,6 @@ pub(crate) fn build_parse_table(
     ParseTableBuilder {
         syntax_grammar,
         lexical_grammar,
-        inlines,
         item_set_builder: ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines),
         state_ids_by_item_set: HashMap::new(),
         item_sets_by_state_id: Vec::new(),

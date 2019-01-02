@@ -6,6 +6,7 @@ use crate::rules::Rule;
 use regex_syntax::ast::{
     parse, Ast, Class, ClassPerlKind, ClassSet, ClassSetItem, RepetitionKind, RepetitionRange,
 };
+use std::i32;
 
 struct NfaBuilder {
     nfa: Nfa,
@@ -17,7 +18,7 @@ fn is_string(rule: &Rule) -> bool {
     match rule {
         Rule::String(_) => true,
         Rule::Metadata { rule, .. } => is_string(rule),
-        _ => false
+        _ => false,
     }
 }
 
@@ -346,7 +347,9 @@ impl NfaBuilder {
 
     fn push_split(&mut self, state_id: u32) {
         let last_state_id = self.nfa.last_state_id();
-        self.nfa.states.push(NfaState::Split(state_id, last_state_id));
+        self.nfa
+            .states
+            .push(NfaState::Split(state_id, last_state_id));
     }
 
     fn add_precedence(&mut self, prec: i32, mut state_ids: Vec<u32>) {
@@ -354,12 +357,12 @@ impl NfaBuilder {
         while i < state_ids.len() {
             let state_id = state_ids[i];
             let (left, right) = match &mut self.nfa.states[state_id as usize] {
-                NfaState::Accept {precedence, ..} => {
+                NfaState::Accept { precedence, .. } => {
                     *precedence = prec;
                     return;
-                },
+                }
                 NfaState::Split(left, right) => (*left, *right),
-                _ => return
+                _ => return,
             };
             if !state_ids.contains(&left) {
                 state_ids.push(left);
@@ -383,7 +386,7 @@ mod tests {
         let mut cursor = NfaCursor::new(&grammar.nfa, start_states);
 
         let mut result = None;
-        let mut result_precedence = 0;
+        let mut result_precedence = i32::MIN;
         let mut start_char = 0;
         let mut end_char = 0;
         for c in s.chars() {
@@ -393,9 +396,14 @@ mod tests {
                     result_precedence = precedence;
                 }
             }
-            if cursor.advance(c) {
+            if let Some((_, _, next_states, in_sep)) = cursor
+                .grouped_successors()
+                .into_iter()
+                .find(|(chars, prec, _, _)| chars.contains(c) && *prec >= result_precedence)
+            {
+                cursor.reset(next_states);
                 end_char += 1;
-                if cursor.in_separator() {
+                if in_sep {
                     start_char = end_char;
                 }
             } else {

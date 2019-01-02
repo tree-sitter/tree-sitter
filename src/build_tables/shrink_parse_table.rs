@@ -166,8 +166,6 @@ fn merge_parse_state(
         }
     }
 
-    eprintln!("maybe merge {} {}", left, right);
-
     let mut symbols_to_add = Vec::new();
     for (symbol, right_entry) in &right_state.terminal_entries {
         if !left_state.terminal_entries.contains_key(&symbol) {

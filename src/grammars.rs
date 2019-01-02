@@ -91,6 +91,7 @@ pub(crate) struct SyntaxGrammar {
     pub word_token: Option<Symbol>,
 }
 
+#[cfg(test)]
 impl ProductionStep {
     pub(crate) fn new(symbol: Symbol) -> Self {
         Self {
@@ -127,14 +128,6 @@ impl Production {
     pub fn first_symbol(&self) -> Option<Symbol> {
         self.steps.first().map(|s| s.symbol.clone())
     }
-
-    pub fn last_precedence(&self) -> i32 {
-        self.steps.last().map(|s| s.precedence).unwrap_or(0)
-    }
-
-    pub fn last_associativity(&self) -> Option<Associativity> {
-        self.steps.last().map(|s| s.associativity).unwrap_or(None)
-    }
 }
 
 impl Default for Production {
@@ -146,6 +139,7 @@ impl Default for Production {
     }
 }
 
+#[cfg(test)]
 impl Variable {
     pub fn named(name: &str, rule: Rule) -> Self {
         Self {

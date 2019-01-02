@@ -1,6 +1,6 @@
 use super::{ExtractedLexicalGrammar, ExtractedSyntaxGrammar, InternedGrammar};
 use crate::error::{Error, Result};
-use crate::grammars::{ExternalToken, Variable};
+use crate::grammars::{ExternalToken, Variable, VariableType};
 use crate::rules::{MetadataParams, Rule, Symbol, SymbolType};
 use std::collections::HashMap;
 use std::mem;
@@ -240,16 +240,21 @@ impl TokenExtractor {
 
         let index = self.extracted_variables.len();
         let variable = if let Some(string_value) = string_value {
-            Variable::anonymous(string_value, rule.clone())
+            Variable {
+                name: string_value.clone(),
+                kind: VariableType::Anonymous,
+                rule: rule.clone()
+            }
         } else {
             self.current_variable_token_count += 1;
-            Variable::auxiliary(
-                &format!(
+            Variable {
+                name: format!(
                     "{}_token{}",
                     &self.current_variable_name, self.current_variable_token_count
                 ),
-                rule.clone(),
-            )
+                kind: VariableType::Auxiliary,
+                rule: rule.clone(),
+            }
         };
 
         self.extracted_variables.push(variable);

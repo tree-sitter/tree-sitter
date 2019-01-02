@@ -18,6 +18,7 @@ struct FollowSetInfo {
 pub(crate) struct ParseItemSetBuilder<'a> {
     first_sets: HashMap<Symbol, LookaheadSet>,
     last_sets: HashMap<Symbol, LookaheadSet>,
+    inlines: &'a InlinedProductionMap,
     transitive_closure_additions: Vec<Vec<TransitiveClosureAddition<'a>>>,
 }
 
@@ -36,6 +37,7 @@ impl<'a> ParseItemSetBuilder<'a> {
         let mut result = Self {
             first_sets: HashMap::new(),
             last_sets: HashMap::new(),
+            inlines,
             transitive_closure_additions: vec![Vec::new(); syntax_grammar.variables.len()],
         };
 
@@ -237,15 +239,12 @@ impl<'a> ParseItemSetBuilder<'a> {
         result
     }
 
-    pub(crate) fn transitive_closure(
-        &mut self,
-        item_set: &ParseItemSet<'a>,
-        grammar: &'a SyntaxGrammar,
-        inlines: &'a InlinedProductionMap,
-    ) -> ParseItemSet<'a> {
+    pub(crate) fn transitive_closure(&mut self, item_set: &ParseItemSet<'a>) -> ParseItemSet<'a> {
         let mut result = ParseItemSet::default();
         for (item, lookaheads) in &item_set.entries {
-            if let Some(productions) = inlines.inlined_productions(item.production, item.step_index)
+            if let Some(productions) = self
+                .inlines
+                .inlined_productions(item.production, item.step_index)
             {
                 for production in productions {
                     self.add_item(
@@ -273,12 +272,7 @@ impl<'a> ParseItemSetBuilder<'a> {
         &self.first_sets[symbol]
     }
 
-    fn add_item(
-        &self,
-        set: &mut ParseItemSet<'a>,
-        item: ParseItem<'a>,
-        lookaheads: &LookaheadSet,
-    ) {
+    fn add_item(&self, set: &mut ParseItemSet<'a>, item: ParseItem<'a>, lookaheads: &LookaheadSet) {
         if let Some(step) = item.step() {
             if step.symbol.is_non_terminal() {
                 let next_step = item.successor().step();

@@ -4,7 +4,7 @@ use crate::nfa::{CharacterSet, NfaCursor};
 use std::collections::HashSet;
 use std::fmt;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct TokenConflictStatus {
     does_overlap: bool,
     does_match_valid_continuation: bool,
@@ -12,15 +12,16 @@ struct TokenConflictStatus {
     matches_same_string: bool,
 }
 
-pub(crate) struct TokenConflictMap {
+pub(crate) struct TokenConflictMap<'a> {
     n: usize,
     status_matrix: Vec<TokenConflictStatus>,
     starting_chars_by_index: Vec<CharacterSet>,
     following_chars_by_index: Vec<CharacterSet>,
+    grammar: &'a LexicalGrammar,
 }
 
-impl TokenConflictMap {
-    pub fn new(grammar: &LexicalGrammar, following_tokens: Vec<LookaheadSet>) -> Self {
+impl<'a> TokenConflictMap<'a> {
+    pub fn new(grammar: &'a LexicalGrammar, following_tokens: Vec<LookaheadSet>) -> Self {
         let mut cursor = NfaCursor::new(&grammar.nfa, Vec::new());
         let starting_chars = get_starting_chars(&mut cursor, grammar);
         let following_chars = get_following_chars(&starting_chars, following_tokens);
@@ -40,7 +41,14 @@ impl TokenConflictMap {
             status_matrix,
             starting_chars_by_index: starting_chars,
             following_chars_by_index: following_chars,
+            grammar,
         }
+    }
+
+    pub fn has_same_conflict_status(&self, a: usize, b: usize, other: usize) -> bool {
+        let left = &self.status_matrix[matrix_index(self.n, a, other)];
+        let right = &self.status_matrix[matrix_index(self.n, b, other)];
+        left == right
     }
 
     pub fn does_match_same_string(&self, i: usize, j: usize) -> bool {
@@ -55,9 +63,28 @@ impl TokenConflictMap {
     pub fn does_overlap(&self, i: usize, j: usize) -> bool {
         self.status_matrix[matrix_index(self.n, i, j)].does_overlap
     }
+
+    pub fn prefer_token(grammar: &LexicalGrammar, left: (i32, usize), right: (i32, usize)) -> bool {
+        if left.0 > right.0 {
+            return true;
+        } else if left.0 < right.0 {
+            return false;
+        }
+
+        match (
+            grammar.variables[left.1].is_string,
+            grammar.variables[right.1].is_string,
+        ) {
+            (true, false) => return true,
+            (false, true) => return false,
+            _ => {}
+        }
+
+        left.0 < right.0
+    }
 }
 
-impl fmt::Debug for TokenConflictMap {
+impl<'a> fmt::Debug for TokenConflictMap<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "TokenConflictMap {{\n")?;
 
@@ -69,18 +96,22 @@ impl fmt::Debug for TokenConflictMap {
 
         write!(f, "  following_characters: {{\n")?;
         for i in 0..self.n {
-            write!(f, "    {}: {:?},\n", i, self.following_chars_by_index[i])?;
+            write!(
+                f,
+                "    {}: {:?},\n",
+                self.grammar.variables[i].name, self.following_chars_by_index[i]
+            )?;
         }
         write!(f, "  }},\n")?;
 
         write!(f, "  status_matrix: {{\n")?;
         for i in 0..self.n {
-            write!(f, "    {}: {{\n", i)?;
+            write!(f, "    {}: {{\n", self.grammar.variables[i].name)?;
             for j in 0..self.n {
                 write!(
                     f,
                     "      {}: {:?},\n",
-                    j,
+                    self.grammar.variables[j].name,
                     self.status_matrix[matrix_index(self.n, i, j)]
                 )?;
             }
@@ -101,7 +132,7 @@ fn get_starting_chars(cursor: &mut NfaCursor, grammar: &LexicalGrammar) -> Vec<C
     for variable in &grammar.variables {
         cursor.reset(vec![variable.start_state]);
         let mut all_chars = CharacterSet::empty();
-        for (chars, _, _) in cursor.successors() {
+        for (chars, _, _, _) in cursor.successors() {
             all_chars = all_chars.add(chars);
         }
         result.push(all_chars);
@@ -162,7 +193,11 @@ fn compute_conflict_status(
                 // Prefer tokens with higher precedence. For tokens with equal precedence,
                 // prefer those listed earlier in the grammar.
                 let winning_id;
-                if prefer_token(grammar, (prev_precedence, prev_id), (precedence, id)) {
+                if TokenConflictMap::prefer_token(
+                    grammar,
+                    (prev_precedence, prev_id),
+                    (precedence, id),
+                ) {
                     winning_id = prev_id;
                 } else {
                     winning_id = id;
@@ -181,7 +216,7 @@ fn compute_conflict_status(
             }
         }
 
-        for (chars, advance_precedence, next_states) in cursor.grouped_successors() {
+        for (chars, advance_precedence, next_states, in_sep) in cursor.grouped_successors() {
             let mut can_advance = true;
             if let Some((completed_id, completed_precedence)) = completion {
                 let mut other_id = None;
@@ -209,15 +244,13 @@ fn compute_conflict_status(
                         if chars.does_intersect(&following_chars[j]) {
                             result.0.does_match_valid_continuation = true;
                         }
-                        if cursor.in_separator() {
+                        if in_sep {
                             result.0.does_match_separators = true;
                         }
                     } else {
                         result.1.does_overlap = true;
                         if chars.does_intersect(&following_chars[i]) {
                             result.1.does_match_valid_continuation = true;
-                        } else {
-                            result.1.does_match_separators = true;
                         }
                     }
                 }
@@ -229,25 +262,6 @@ fn compute_conflict_status(
         }
     }
     result
-}
-
-fn prefer_token(grammar: &LexicalGrammar, left: (i32, usize), right: (i32, usize)) -> bool {
-    if left.0 > right.0 {
-        return true;
-    } else if left.0 < right.0 {
-        return false;
-    }
-
-    match (
-        grammar.variables[left.1].is_string,
-        grammar.variables[right.1].is_string,
-    ) {
-        (true, false) => return true,
-        (false, true) => return false,
-        _ => {}
-    }
-
-    left.0 < right.0
 }
 
 fn variable_ids_for_states<'a>(

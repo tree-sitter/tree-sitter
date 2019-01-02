@@ -2,6 +2,7 @@ use crate::grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType
 use crate::nfa::CharacterSet;
 use crate::rules::{Alias, AliasMap, Symbol, SymbolType};
 use crate::tables::{LexState, LexTable, ParseAction, ParseTable, ParseTableEntry};
+use core::ops::Range;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::mem::swap;
@@ -12,11 +13,17 @@ macro_rules! add {
     }}
 }
 
-macro_rules! add_line {
-    ($this: tt, $($arg: tt)*) => {
+macro_rules! add_whitespace {
+    ($this: tt) => {{
         for _ in 0..$this.indent_level {
             write!(&mut $this.buffer, "  ").unwrap();
         }
+    }};
+}
+
+macro_rules! add_line {
+    ($this: tt, $($arg: tt)*) => {
+        add_whitespace!($this);
         $this.buffer.write_fmt(format_args!($($arg)*)).unwrap();
         $this.buffer += "\n";
     }
@@ -162,7 +169,7 @@ impl Generator {
             }
         }
 
-        add_line!(self, "#define LANGUAGE_VERSION {}", 6);
+        add_line!(self, "#define LANGUAGE_VERSION {}", 9);
         add_line!(
             self,
             "#define STATE_COUNT {}",
@@ -352,7 +359,7 @@ impl Generator {
             add_line!(
                 self,
                 "ACCEPT_TOKEN({})",
-                self.symbol_ids[&accept_action.symbol]
+                self.symbol_ids[&Symbol::terminal(accept_action)]
             );
         }
 
@@ -360,9 +367,10 @@ impl Generator {
         for (characters, action) in state.advance_actions {
             let previous_length = self.buffer.len();
 
+            add_whitespace!(self);
             add!(self, "if (");
             if self.add_character_set_condition(&characters, &ruled_out_characters) {
-                add!(self, ")");
+                add!(self, ")\n");
                 indent!(self);
                 if action.in_main_token {
                     add_line!(self, "ADVANCE({});", action.state);
@@ -370,7 +378,7 @@ impl Generator {
                     add_line!(self, "SKIP({});", action.state);
                 }
                 if let CharacterSet::Include(chars) = characters {
-                    ruled_out_characters.extend(chars.iter());
+                    ruled_out_characters.extend(chars.iter().map(|c| *c as u32));
                 }
                 dedent!(self);
             } else {
@@ -384,9 +392,106 @@ impl Generator {
     fn add_character_set_condition(
         &mut self,
         characters: &CharacterSet,
-        ruled_out_characters: &HashSet<char>,
+        ruled_out_characters: &HashSet<u32>,
     ) -> bool {
-        true
+        match characters {
+            CharacterSet::Include(chars) => {
+                let ranges = Self::get_ranges(chars, ruled_out_characters);
+                self.add_character_range_conditions(ranges, false)
+            }
+            CharacterSet::Exclude(chars) => {
+                let ranges = Self::get_ranges(chars, ruled_out_characters);
+                self.add_character_range_conditions(ranges, true)
+            }
+        }
+    }
+
+    fn add_character_range_conditions(
+        &mut self,
+        ranges: impl Iterator<Item = Range<char>>,
+        is_negated: bool,
+    ) -> bool {
+        let line_break = "\n          ";
+        let mut did_add = false;
+        for range in ranges {
+            if is_negated {
+                if did_add {
+                    add!(self, " &&{}", line_break);
+                }
+                if range.end == range.start {
+                    add!(self, "lookahead != ");
+                    self.add_character(range.start);
+                } else if range.end as u32 == range.start as u32 + 1 {
+                    add!(self, "lookahead != ");
+                    self.add_character(range.start);
+                    add!(self, " &&{}lookahead != ", line_break);
+                    self.add_character(range.end);
+                } else {
+                    add!(self, "(lookahead < ");
+                    self.add_character(range.start);
+                    add!(self, " || ");
+                    self.add_character(range.end);
+                    add!(self, " < lookahead)");
+                }
+            } else {
+                if did_add {
+                    add!(self, " ||{}", line_break);
+                }
+                if range.end == range.start {
+                    add!(self, "lookahead == ");
+                    self.add_character(range.start);
+                } else if range.end as u32 == range.start as u32 + 1 {
+                    add!(self, "lookahead == ");
+                    self.add_character(range.start);
+                    add!(self, " ||{}lookahead == ", line_break);
+                    self.add_character(range.end);
+                } else {
+                    add!(self, "(");
+                    self.add_character(range.start);
+                    add!(self, " <= lookahead && lookahead <= ");
+                    self.add_character(range.end);
+                    add!(self, ")");
+                }
+            }
+            did_add = true;
+        }
+        did_add
+    }
+
+    fn get_ranges<'a>(
+        chars: &'a Vec<char>,
+        ruled_out_characters: &'a HashSet<u32>,
+    ) -> impl Iterator<Item = Range<char>> + 'a {
+        let mut prev_range: Option<Range<char>> = None;
+        chars
+            .iter()
+            .cloned()
+            .chain(Some('\0'))
+            .filter_map(move |c| {
+                if ruled_out_characters.contains(&(c as u32)) {
+                    return None;
+                }
+                if let Some(range) = prev_range.clone() {
+                    if c == '\0' {
+                        prev_range = Some(c..c);
+                        return Some(range);
+                    }
+
+                    let mut prev_range_successor = range.end as u32 + 1;
+                    while prev_range_successor < c as u32 {
+                        if !ruled_out_characters.contains(&prev_range_successor) {
+                            prev_range = Some(c..c);
+                            return Some(range);
+                        }
+                        prev_range_successor += 1;
+                    }
+                    prev_range = Some(range.start..c);
+                    None
+                } else {
+                    prev_range = Some(c..c);
+                    None
+                }
+            })
     }
 
     fn add_lex_modes_list(&mut self) {
@@ -577,13 +682,6 @@ impl Generator {
                         alias_sequence_id,
                         ..
                     } => {
-                        if !self.symbol_ids.contains_key(&symbol) {
-                            eprintln!(
-                                "SYMBOL: {:?} {:?}",
-                                symbol,
-                                self.metadata_for_symbol(symbol)
-                            );
-                        }
                         add!(self, "REDUCE({}, {}", self.symbol_ids[&symbol], child_count);
                         if dynamic_precedence != 0 {
                             add!(self, ", .dynamic_precedence = {}", dynamic_precedence);
@@ -785,7 +883,7 @@ impl Generator {
             {
                 result.push(c);
             } else {
-                result += match c {
+                let replacement = match c {
                     '~' => "TILDE",
                     '`' => "BQUOTE",
                     '!' => "BANG",
@@ -821,7 +919,11 @@ impl Generator {
                     '\r' => "CR",
                     '\t' => "TAB",
                     _ => continue,
+                };
+                if !result.is_empty() && !result.ends_with("_") {
+                    result.push('_');
                 }
+                result += replacement;
             }
         }
         result
@@ -836,6 +938,21 @@ impl Generator {
             result.push(c);
         }
         result
+    }
+
+    fn add_character(&mut self, c: char) {
+        if c.is_ascii() {
+            match c {
+                '\'' => add!(self, "'\\''"),
+                '\\' => add!(self, "'\\\\'"),
+                '\t' => add!(self, "'\\t'"),
+                '\n' => add!(self, "'\\n'"),
+                '\r' => add!(self, "'\\r'"),
+                _ => add!(self, "'{}'", c),
+            }
+        } else {
+            add!(self, "{}", c as u32)
+        }
     }
 }
 
@@ -866,4 +983,50 @@ pub(crate) fn render_c_code(
         alias_map: HashMap::new(),
     }
     .generate()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_char_ranges() {
+        struct Row {
+            chars: Vec<char>,
+            ruled_out_chars: Vec<char>,
+            expected_ranges: Vec<Range<char>>,
+        }
+
+        let table = [
+            Row {
+                chars: vec!['a'],
+                ruled_out_chars: vec![],
+                expected_ranges: vec!['a'..'a'],
+            },
+            Row {
+                chars: vec!['a', 'b', 'c', 'e', 'z'],
+                ruled_out_chars: vec![],
+                expected_ranges: vec!['a'..'c', 'e'..'e', 'z'..'z'],
+            },
+            Row {
+                chars: vec!['a', 'b', 'c', 'e', 'h', 'z'],
+                ruled_out_chars: vec!['d', 'f', 'g'],
+                expected_ranges: vec!['a'..'h', 'z'..'z'],
+            },
+        ];
+
+        for Row {
+            chars,
+            ruled_out_chars,
+            expected_ranges,
+        } in table.iter()
+        {
+            let ruled_out_chars = ruled_out_chars
+                .into_iter()
+                .map(|c: &char| *c as u32)
+                .collect();
+            let ranges = Generator::get_ranges(chars, &ruled_out_chars).collect::<Vec<_>>();
+            assert_eq!(ranges, *expected_ranges);
+        }
+    }
 }

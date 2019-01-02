@@ -120,7 +120,10 @@ impl Rule {
     pub fn seq(rules: Vec<Rule>) -> Self {
         Rule::Seq(rules)
     }
+}
 
+#[cfg(test)]
+impl Rule {
     pub fn terminal(index: usize) -> Self {
         Rule::Symbol(Symbol::terminal(index))
     }

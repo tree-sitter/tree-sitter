@@ -42,7 +42,7 @@ fn main() -> error::Result<()> {
         )
         .get_matches();
 
-    if let Some(matches) = matches.subcommand_matches("generate") {
+    if let Some(_) = matches.subcommand_matches("generate") {
         let mut grammar_path = env::current_dir().expect("Failed to read CWD");
         grammar_path.push("grammar.js");
         let grammar_json = load_js_grammar_file(grammar_path);
