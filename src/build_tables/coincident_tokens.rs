@@ -1,10 +1,9 @@
 use crate::grammars::LexicalGrammar;
 use crate::rules::Symbol;
 use crate::tables::{ParseStateId, ParseTable};
-use std::collections::HashSet;
 
 pub(crate) struct CoincidentTokenIndex {
-    entries: Vec<HashSet<ParseStateId>>,
+    entries: Vec<Vec<ParseStateId>>,
     n: usize,
 }
 
@@ -13,20 +12,22 @@ impl CoincidentTokenIndex {
         let n = lexical_grammar.variables.len();
         let mut result = Self {
             n,
-            entries: vec![HashSet::new(); n * n],
+            entries: vec![Vec::new(); n * n],
         };
         for (i, state) in table.states.iter().enumerate() {
             for symbol in state.terminal_entries.keys() {
                 for other_symbol in state.terminal_entries.keys() {
                     let index = result.index(*symbol, *other_symbol);
-                    result.entries[index].insert(i);
+                    if result.entries[index].last().cloned() != Some(i) {
+                        result.entries[index].push(i);
+                    }
                 }
             }
         }
         result
     }
 
-    pub fn states_with(&self, a: Symbol, b: Symbol) -> &HashSet<ParseStateId> {
+    pub fn states_with(&self, a: Symbol, b: Symbol) -> &Vec<ParseStateId> {
         &self.entries[self.index(a, b)]
     }
 

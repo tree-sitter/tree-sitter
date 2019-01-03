@@ -125,7 +125,7 @@ impl Generator {
             .symbols
             .iter()
             .filter(|symbol| {
-                if symbol.is_terminal() {
+                if symbol.is_terminal() || symbol.is_eof() {
                     true
                 } else if symbol.is_external() {
                     self.syntax_grammar.external_tokens[symbol.index]
@@ -359,7 +359,7 @@ impl Generator {
             add_line!(
                 self,
                 "ACCEPT_TOKEN({})",
-                self.symbol_ids[&Symbol::terminal(accept_action)]
+                self.symbol_ids[&accept_action]
             );
         }
 
@@ -462,18 +462,16 @@ impl Generator {
         let mut prev_range: Option<Range<char>> = None;
         chars
             .iter()
-            .cloned()
-            .chain(Some('\0'))
-            .filter_map(move |c| {
+            .map(|c| (*c, false))
+            .chain(Some(('\0', true)))
+            .filter_map(move |(c, done)| {
+                if done {
+                    return prev_range.clone();
+                }
                 if ruled_out_characters.contains(&(c as u32)) {
                     return None;
                 }
                 if let Some(range) = prev_range.clone() {
-                    if c == '\0' {
-                        prev_range = Some(c..c);
-                        return Some(range);
-                    }
-
                     let mut prev_range_successor = range.end as u32 + 1;
                     while prev_range_successor < c as u32 {
                         if !ruled_out_characters.contains(&prev_range_successor) {
@@ -948,6 +946,7 @@ impl Generator {
     fn add_character(&mut self, c: char) {
         if c.is_ascii() {
             match c {
+                '\0' => add!(self, "'\\0'"),
                 '\'' => add!(self, "'\\''"),
                 '\\' => add!(self, "'\\\\'"),
                 '\t' => add!(self, "'\\t'"),

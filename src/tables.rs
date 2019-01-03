@@ -55,7 +55,7 @@ pub(crate) struct AdvanceAction {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct LexState {
     pub advance_actions: Vec<(CharacterSet, AdvanceAction)>,
-    pub accept_action: Option<usize>,
+    pub accept_action: Option<Symbol>,
 }
 
 #[derive(Debug, PartialEq, Eq)]

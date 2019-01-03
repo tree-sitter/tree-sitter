@@ -162,6 +162,10 @@ impl Symbol {
         self.kind == SymbolType::External
     }
 
+    pub fn is_eof(&self) -> bool {
+        self.kind == SymbolType::End
+    }
+
     pub fn non_terminal(index: usize) -> Self {
         Symbol {
             kind: SymbolType::NonTerminal,
