@@ -137,19 +137,19 @@ mod tests {
                 LexicalVariable {
                     name: "t1".to_string(),
                     kind: VariableType::Anonymous,
-                    is_string: true,
+                    implicit_precedence: 0,
                     start_state: 0,
                 },
                 LexicalVariable {
                     name: "t2".to_string(),
                     kind: VariableType::Anonymous,
-                    is_string: true,
+                    implicit_precedence: 0,
                     start_state: 0,
                 },
                 LexicalVariable {
                     name: "t3".to_string(),
                     kind: VariableType::Anonymous,
-                    is_string: true,
+                    implicit_precedence: 0,
                     start_state: 0,
                 }
             ],

@@ -2,6 +2,7 @@ use crate::build_tables::item::LookaheadSet;
 use crate::grammars::LexicalGrammar;
 use crate::nfa::{CharacterSet, NfaCursor};
 use hashbrown::HashSet;
+use std::cmp::Ordering;
 use std::fmt;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -71,16 +72,14 @@ impl<'a> TokenConflictMap<'a> {
             return false;
         }
 
-        match (
-            grammar.variables[left.1].is_string,
-            grammar.variables[right.1].is_string,
-        ) {
-            (true, false) => return true,
-            (false, true) => return false,
-            _ => {}
+        match grammar.variables[left.1]
+            .implicit_precedence
+            .cmp(&grammar.variables[right.1].implicit_precedence)
+        {
+            Ordering::Less => false,
+            Ordering::Greater => true,
+            Ordering::Equal => left.1 < right.1,
         }
-
-        left.0 < right.0
     }
 }
 

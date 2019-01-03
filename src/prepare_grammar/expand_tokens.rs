@@ -14,11 +14,17 @@ struct NfaBuilder {
     precedence_stack: Vec<i32>,
 }
 
-fn is_string(rule: &Rule) -> bool {
+fn get_implicit_precedence(rule: &Rule) -> i32 {
     match rule {
-        Rule::String(_) => true,
-        Rule::Metadata { rule, .. } => is_string(rule),
-        _ => false,
+        Rule::String(_) => 1,
+        Rule::Metadata { rule, params } => {
+            if params.is_main_token {
+                get_implicit_precedence(rule) + 2
+            } else {
+                get_implicit_precedence(rule)
+            }
+        }
+        _ => 0,
     }
 }
 
@@ -67,7 +73,7 @@ pub(crate) fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<Lexi
         variables.push(LexicalVariable {
             name: variable.name,
             kind: variable.kind,
-            is_string: is_string(&variable.rule),
+            implicit_precedence: get_implicit_precedence(&variable.rule),
             start_state: builder.nfa.last_state_id(),
         });
     }

@@ -36,7 +36,7 @@ pub(crate) struct InputGrammar {
 pub(crate) struct LexicalVariable {
     pub name: String,
     pub kind: VariableType,
-    pub is_string: bool,
+    pub implicit_precedence: i32,
     pub start_state: u32,
 }
 
