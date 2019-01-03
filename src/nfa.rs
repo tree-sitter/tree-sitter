@@ -149,14 +149,18 @@ impl CharacterSet {
                     CharacterSet::Include(removed)
                 }
                 CharacterSet::Exclude(other_chars) => {
-                    let removed = remove_chars(chars, other_chars, true);
+                    let mut result_exclusion = chars.clone();
+                    result_exclusion.extend(other_chars.iter().cloned());
+                    result_exclusion.sort_unstable();
+                    result_exclusion.dedup();
+                    remove_chars(chars, other_chars, true);
                     let mut included_characters = Vec::new();
                     let mut other_included_characters = Vec::new();
                     swap(&mut included_characters, other_chars);
                     swap(&mut other_included_characters, chars);
                     *self = CharacterSet::Include(included_characters);
                     *other = CharacterSet::Include(other_included_characters);
-                    CharacterSet::Exclude(removed)
+                    CharacterSet::Exclude(result_exclusion)
                 }
             },
         }
@@ -351,35 +355,24 @@ impl<'a> NfaCursor<'a> {
         for (chars, prec, state, is_sep) in iter {
             let mut chars = chars.clone();
             let mut i = 0;
-            while i < result.len() {
-                if result[i].0 == chars {
-                    result[i].1 = max(result[i].1, prec);
-                    result[i].2.push(state);
-                    result[i].3 |= is_sep;
-                    chars = CharacterSet::empty();
-                    break;
-                }
-
+            while i < result.len() && !chars.is_empty() {
                 let intersection = result[i].0.remove_intersection(&mut chars);
                 if !intersection.is_empty() {
-                    let mut states = result[i].2.clone();
-                    let max_prec = max(result[i].1, prec);
-                    states.push(state);
+                    let mut intersection_states = result[i].2.clone();
+                    match intersection_states.binary_search(&state) {
+                        Err(j) => intersection_states.insert(j, state),
+                        _ => {}
+                    }
+                    let intersection_entry = (
+                        intersection,
+                        max(result[i].1, prec),
+                        intersection_states,
+                        result[i].3 || is_sep,
+                    );
                     if result[i].0.is_empty() {
-                        result[i].0 = intersection;
-                        result[i].1 = max_prec;
-                        result[i].2 = states;
-                        result[i].3 |= is_sep;
+                        result[i] = intersection_entry;
                     } else {
-                        result.insert(
-                            i,
-                            (
-                                intersection,
-                                max_prec,
-                                states,
-                                result[i].3 || is_sep,
-                            ),
-                        );
+                        result.insert(i, intersection_entry);
                         i += 1;
                     }
                 }
@@ -444,6 +437,7 @@ mod tests {
     #[test]
     fn test_group_successors() {
         let table = [
+            // overlapping character classes
             (
                 vec![
                     (CharacterSet::empty().add_range('a', 'f'), 0, 1, false),
@@ -460,6 +454,7 @@ mod tests {
                     (CharacterSet::empty().add_range('g', 'i'), 1, vec![2], false),
                 ],
             ),
+            // large character class followed by many individual characters
             (
                 vec![
                     (CharacterSet::empty().add_range('a', 'z'), 0, 1, false),
@@ -483,6 +478,63 @@ mod tests {
                     ),
                 ],
             ),
+            // negated character class followed by an individual character
+            (
+                vec![
+                    (CharacterSet::empty().add_char('0'), 0, 1, false),
+                    (CharacterSet::empty().add_char('b'), 0, 2, false),
+                    (
+                        CharacterSet::empty().add_range('a', 'f').negate(),
+                        0,
+                        3,
+                        false,
+                    ),
+                    (CharacterSet::empty().add_char('c'), 0, 4, false),
+                ],
+                vec![
+                    (CharacterSet::empty().add_char('0'), 0, vec![1, 3], false),
+                    (CharacterSet::empty().add_char('b'), 0, vec![2], false),
+                    (CharacterSet::empty().add_char('c'), 0, vec![4], false),
+                    (
+                        CharacterSet::empty()
+                            .add_range('a', 'f')
+                            .add_char('0')
+                            .negate(),
+                        0,
+                        vec![3],
+                        false,
+                    ),
+                ],
+            ),
+            // multiple negated character classes
+            (
+                vec![
+                    (CharacterSet::Include(vec!['a']), 0, 1, false),
+                    (CharacterSet::Exclude(vec!['a', 'b', 'c']), 0, 2, false),
+                    (CharacterSet::Include(vec!['g']), 0, 6, false),
+                    (CharacterSet::Exclude(vec!['d', 'e', 'f']), 0, 3, false),
+                    (CharacterSet::Exclude(vec!['g', 'h', 'i']), 0, 4, false),
+                    (CharacterSet::Include(vec!['g']), 0, 5, false),
+                ],
+                vec![
+                    (CharacterSet::Include(vec!['a']), 0, vec![1, 3, 4], false),
+                    (CharacterSet::Include(vec!['g']), 0, vec![2, 3, 5, 6], false),
+                    (CharacterSet::Include(vec!['b', 'c']), 0, vec![3, 4], false),
+                    (CharacterSet::Include(vec!['h', 'i']), 0, vec![2, 3], false),
+                    (
+                        CharacterSet::Include(vec!['d', 'e', 'f']),
+                        0,
+                        vec![2, 4],
+                        false,
+                    ),
+                    (
+                        CharacterSet::Exclude(vec!['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']),
+                        0,
+                        vec![2, 3, 4],
+                        false,
+                    ),
+                ],
+            ),
         ];
 
         for row in table.iter() {
@@ -495,8 +547,8 @@ mod tests {
 
     #[test]
     fn test_character_set_remove_intersection() {
-        // whitelist - whitelist
-        // both sets contain 'c', 'd', and 'f'
+        // A whitelist and an overlapping whitelist.
+        // Both sets contain 'c', 'd', and 'f'
         let mut a = CharacterSet::empty().add_range('a', 'f');
         let mut b = CharacterSet::empty().add_range('c', 'h');
         assert_eq!(
@@ -515,8 +567,37 @@ mod tests {
         assert_eq!(a, CharacterSet::empty().add_range('a', 'b'));
         assert_eq!(b, CharacterSet::empty().add_range('g', 'h'));
 
-        // whitelist - blacklist
-        // both sets contain 'e', 'f', and 'm'
+        // A whitelist and a larger whitelist.
+        let mut a = CharacterSet::empty().add_char('c');
+        let mut b = CharacterSet::empty().add_range('a', 'e');
+        assert_eq!(
+            a.remove_intersection(&mut b),
+            CharacterSet::empty().add_char('c')
+        );
+        assert_eq!(a, CharacterSet::empty());
+        assert_eq!(
+            b,
+            CharacterSet::empty()
+                .add_range('a', 'b')
+                .add_range('d', 'e')
+        );
+
+        let mut a = CharacterSet::empty().add_char('c');
+        let mut b = CharacterSet::empty().add_range('a', 'e');
+        assert_eq!(
+            b.remove_intersection(&mut a),
+            CharacterSet::empty().add_char('c')
+        );
+        assert_eq!(a, CharacterSet::empty());
+        assert_eq!(
+            b,
+            CharacterSet::empty()
+                .add_range('a', 'b')
+                .add_range('d', 'e')
+        );
+
+        // A whitelist and an intersecting blacklist.
+        // Both sets contain 'e', 'f', and 'm'
         let mut a = CharacterSet::empty()
             .add_range('c', 'h')
             .add_range('k', 'm');
@@ -545,16 +626,26 @@ mod tests {
         assert_eq!(a, CharacterSet::Include(vec!['c', 'd', 'g', 'h', 'k', 'l']));
         assert_eq!(b, CharacterSet::empty().add_range('a', 'm').negate());
 
-        // blacklist - blacklist
-        // both sets exclude 'c', 'd', and 'e'
+        // A blacklist and an overlapping blacklist.
+        // Both sets exclude 'c', 'd', and 'e'
         let mut a = CharacterSet::empty().add_range('a', 'e').negate();
         let mut b = CharacterSet::empty().add_range('c', 'h').negate();
         assert_eq!(
             a.remove_intersection(&mut b),
-            CharacterSet::Exclude(vec!['c', 'd', 'e'])
+            CharacterSet::empty().add_range('a', 'h').negate(),
         );
         assert_eq!(a, CharacterSet::Include(vec!['f', 'g', 'h']));
         assert_eq!(b, CharacterSet::Include(vec!['a', 'b']));
+
+        // A blacklist and a larger blacklist.
+        let mut a = CharacterSet::empty().add_range('b', 'c').negate();
+        let mut b = CharacterSet::empty().add_range('a', 'd').negate();
+        assert_eq!(
+            a.remove_intersection(&mut b),
+            CharacterSet::empty().add_range('a', 'd').negate(),
+        );
+        assert_eq!(a, CharacterSet::empty().add_char('a').add_char('d'));
+        assert_eq!(b, CharacterSet::empty());
     }
 
     #[test]
