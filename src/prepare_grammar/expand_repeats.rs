@@ -1,7 +1,7 @@
 use super::ExtractedSyntaxGrammar;
 use crate::grammars::{Variable, VariableType};
 use crate::rules::{Rule, Symbol};
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::mem;
 
 struct Expander {

@@ -1,5 +1,5 @@
 use crate::grammars::{InlinedProductionMap, Production, ProductionStep, SyntaxGrammar};
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct ProductionStepId {

@@ -27,22 +27,14 @@ pub(crate) fn build_tables(
     let (mut parse_table, following_tokens) =
         build_parse_table(syntax_grammar, lexical_grammar, inlines)?;
     let token_conflict_map = TokenConflictMap::new(lexical_grammar, following_tokens);
-
-    eprintln!("{:?}", token_conflict_map);
-
-    let coincident_token_index = CoincidentTokenIndex::new(&parse_table);
-    let keywords = if let Some(word_token) = syntax_grammar.word_token {
-        identify_keywords(
-            lexical_grammar,
-            &parse_table,
-            word_token,
-            &token_conflict_map,
-            &coincident_token_index,
-        )
-    } else {
-        LookaheadSet::new()
-    };
-
+    let coincident_token_index = CoincidentTokenIndex::new(&parse_table, lexical_grammar);
+    let keywords = identify_keywords(
+        lexical_grammar,
+        &parse_table,
+        syntax_grammar.word_token,
+        &token_conflict_map,
+        &coincident_token_index,
+    );
     populate_error_state(
         &mut parse_table,
         syntax_grammar,
@@ -123,10 +115,15 @@ fn populate_error_state(
 fn identify_keywords(
     lexical_grammar: &LexicalGrammar,
     parse_table: &ParseTable,
-    word_token: Symbol,
+    word_token: Option<Symbol>,
     token_conflict_map: &TokenConflictMap,
     coincident_token_index: &CoincidentTokenIndex,
 ) -> LookaheadSet {
+    if word_token.is_none() {
+        return LookaheadSet::new();
+    }
+
+    let word_token = word_token.unwrap();
     let mut cursor = NfaCursor::new(&lexical_grammar.nfa, Vec::new());
 
     // First find all of the candidate keyword tokens: tokens that start with
@@ -137,6 +134,7 @@ fn identify_keywords(
             if all_chars_are_alphabetical(&cursor)
                 && token_conflict_map.does_match_same_string(i, word_token.index)
             {
+                info!("Keywords - add candidate {}", lexical_grammar.variables[i].name);
                 Some(Symbol::terminal(i))
             } else {
                 None
@@ -150,8 +148,8 @@ fn identify_keywords(
             if other_token != *token
                 && token_conflict_map.does_match_same_string(token.index, other_token.index)
             {
-                eprintln!(
-                    "Exclude {} from keywords because it matches the same string as {}",
+                info!(
+                    "Keywords - exclude {} because it matches the same string as {}",
                     lexical_grammar.variables[token.index].name,
                     lexical_grammar.variables[other_token.index].name
                 );
@@ -189,8 +187,8 @@ fn identify_keywords(
                 word_token.index,
                 other_index,
             ) {
-                eprintln!(
-                    "Exclude {} from keywords because of conflict with {}",
+                info!(
+                    "Keywords - exclude {} because of conflict with {}",
                     lexical_grammar.variables[token.index].name,
                     lexical_grammar.variables[other_index].name
                 );
@@ -198,8 +196,8 @@ fn identify_keywords(
             }
         }
 
-        eprintln!(
-            "Include {} in keywords",
+        info!(
+            "Keywords - include {}",
             lexical_grammar.variables[token.index].name,
         );
         true

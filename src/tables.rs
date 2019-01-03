@@ -1,6 +1,6 @@
 use crate::nfa::CharacterSet;
 use crate::rules::{Alias, Associativity, Symbol};
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 pub(crate) type AliasSequenceId = usize;
 pub(crate) type ParseStateId = usize;

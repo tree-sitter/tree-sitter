@@ -1,20 +1,23 @@
 #[macro_use]
-extern crate serde_derive;
-#[macro_use]
-extern crate serde_json;
-#[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate log;
+#[macro_use]
+extern crate serde_derive;
+extern crate hashbrown;
+extern crate serde_json;
 
-use std::path::PathBuf;
 use clap::{App, Arg, SubCommand};
 use std::env;
 use std::io::Write;
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 mod build_tables;
 mod error;
 mod generate;
 mod grammars;
+mod logger;
 mod nfa;
 mod parse_grammar;
 mod prepare_grammar;
@@ -27,7 +30,11 @@ fn main() -> error::Result<()> {
         .version("0.1")
         .author("Max Brunsfeld <maxbrunsfeld@gmail.com>")
         .about("Generates and tests parsers")
-        .subcommand(SubCommand::with_name("generate").about("Generate a parser"))
+        .subcommand(
+            SubCommand::with_name("generate")
+                .about("Generate a parser")
+                .arg(Arg::with_name("log").long("log")),
+        )
         .subcommand(
             SubCommand::with_name("parse")
                 .about("Parse a file")
@@ -42,7 +49,11 @@ fn main() -> error::Result<()> {
         )
         .get_matches();
 
-    if let Some(_) = matches.subcommand_matches("generate") {
+    if let Some(matches) = matches.subcommand_matches("generate") {
+        if matches.is_present("log") {
+            logger::init();
+        }
+
         let mut grammar_path = env::current_dir().expect("Failed to read CWD");
         grammar_path.push("grammar.js");
         let grammar_json = load_js_grammar_file(grammar_path);
@@ -70,7 +81,8 @@ fn load_js_grammar_file(grammar_path: PathBuf) -> String {
         "{}\nconsole.log(JSON.stringify(require(\"{}\"), null, 2));\n",
         js_prelude,
         grammar_path.to_str().unwrap()
-    ).expect("Failed to write to node's stdin");
+    )
+    .expect("Failed to write to node's stdin");
     drop(node_stdin);
     let output = node_process
         .wait_with_output()

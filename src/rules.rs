@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum SymbolType {

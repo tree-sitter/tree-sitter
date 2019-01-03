@@ -1,9 +1,9 @@
 use crate::grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType};
 use crate::nfa::CharacterSet;
 use crate::rules::{Alias, AliasMap, Symbol, SymbolType};
-use crate::tables::{LexState, LexTable, ParseAction, ParseTable, ParseTableEntry};
+use crate::tables::{AdvanceAction, LexState, LexTable, ParseAction, ParseTable, ParseTableEntry};
 use core::ops::Range;
-use std::collections::{HashMap, HashSet};
+use hashbrown::{HashMap, HashSet};
 use std::fmt::Write;
 use std::mem::swap;
 
@@ -372,17 +372,14 @@ impl Generator {
             if self.add_character_set_condition(&characters, &ruled_out_characters) {
                 add!(self, ")\n");
                 indent!(self);
-                if action.in_main_token {
-                    add_line!(self, "ADVANCE({});", action.state);
-                } else {
-                    add_line!(self, "SKIP({});", action.state);
-                }
+                self.add_advance_action(&action);
                 if let CharacterSet::Include(chars) = characters {
                     ruled_out_characters.extend(chars.iter().map(|c| *c as u32));
                 }
                 dedent!(self);
             } else {
                 self.buffer.truncate(previous_length);
+                self.add_advance_action(&action);
             }
         }
 
@@ -492,6 +489,14 @@ impl Generator {
                     None
                 }
             })
+    }
+
+    fn add_advance_action(&mut self, action: &AdvanceAction) {
+        if action.in_main_token {
+            add_line!(self, "ADVANCE({});", action.state);
+        } else {
+            add_line!(self, "SKIP({});", action.state);
+        }
     }
 
     fn add_lex_modes_list(&mut self) {

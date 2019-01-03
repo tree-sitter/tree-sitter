@@ -7,8 +7,11 @@ use crate::tables::{
     AliasSequenceId, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
 };
 use core::ops::Range;
-use std::collections::hash_map::{DefaultHasher, Entry};
-use std::collections::{HashMap, HashSet, VecDeque};
+use hashbrown::hash_map::Entry;
+use hashbrown::{HashMap, HashSet};
+use std::collections::hash_map::DefaultHasher;
+use std::collections::VecDeque;
+
 use std::fmt::Write;
 use std::hash::Hasher;
 
@@ -43,9 +46,10 @@ impl<'a> ParseTableBuilder<'a> {
         // Ensure that the empty alias sequence has index 0.
         self.parse_table.alias_sequences.push(Vec::new());
 
-        // Ensure that the error state has index 0.
+        // Add the error state at index 0.
         self.add_parse_state(&Vec::new(), &Vec::new(), ParseItemSet::default());
 
+        // Add the starting state at index 1.
         self.add_parse_state(
             &Vec::new(),
             &Vec::new(),
@@ -61,6 +65,8 @@ impl<'a> ParseTableBuilder<'a> {
 
         self.process_part_state_queue()?;
         self.populate_used_symbols();
+        self.remove_precedences();
+
         Ok((self.parse_table, self.following_tokens))
     }
 
@@ -112,28 +118,9 @@ impl<'a> ParseTableBuilder<'a> {
 
     fn process_part_state_queue(&mut self) -> Result<()> {
         while let Some(entry) = self.parse_state_queue.pop_front() {
-            let debug = false;
-
-            if debug {
-                println!(
-                    "ITEM SET {}:\n{}",
-                    entry.state_id,
-                    self.item_sets_by_state_id[entry.state_id]
-                        .display_with(&self.syntax_grammar, &self.lexical_grammar,)
-                );
-            }
-
             let item_set = self
                 .item_set_builder
                 .transitive_closure(&self.item_sets_by_state_id[entry.state_id]);
-
-            if debug {
-                println!(
-                    "TRANSITIVE CLOSURE:\n{}",
-                    item_set.display_with(&self.syntax_grammar, &self.lexical_grammar)
-                );
-            }
-
             self.add_actions(
                 entry.preceding_symbols,
                 entry.preceding_auxiliary_symbols,
@@ -527,6 +514,7 @@ impl<'a> ParseTableBuilder<'a> {
     }
 
     fn populate_used_symbols(&mut self) {
+        self.parse_table.symbols.push(Symbol::end());
         let mut terminal_usages = vec![false; self.lexical_grammar.variables.len()];
         let mut non_terminal_usages = vec![false; self.syntax_grammar.variables.len()];
         let mut external_usages = vec![false; self.syntax_grammar.external_tokens.len()];
@@ -542,10 +530,14 @@ impl<'a> ParseTableBuilder<'a> {
                 non_terminal_usages[symbol.index] = true;
             }
         }
-        self.parse_table.symbols.push(Symbol::end());
         for (i, value) in terminal_usages.into_iter().enumerate() {
             if value {
                 self.parse_table.symbols.push(Symbol::terminal(i));
+            }
+        }
+        for (i, value) in external_usages.into_iter().enumerate() {
+            if value {
+                self.parse_table.symbols.push(Symbol::external(i));
             }
         }
         for (i, value) in non_terminal_usages.into_iter().enumerate() {
@@ -553,9 +545,24 @@ impl<'a> ParseTableBuilder<'a> {
                 self.parse_table.symbols.push(Symbol::non_terminal(i));
             }
         }
-        for (i, value) in external_usages.into_iter().enumerate() {
-            if value {
-                self.parse_table.symbols.push(Symbol::external(i));
+    }
+
+    fn remove_precedences(&mut self) {
+        for state in self.parse_table.states.iter_mut() {
+            for (_, entry) in state.terminal_entries.iter_mut() {
+                for action in entry.actions.iter_mut() {
+                    match action {
+                        ParseAction::Reduce {
+                            precedence,
+                            associativity,
+                            ..
+                        } => {
+                            *precedence = 0;
+                            *associativity = None;
+                        }
+                        _ => {}
+                    }
+                }
             }
         }
     }

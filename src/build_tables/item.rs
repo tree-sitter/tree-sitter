@@ -112,7 +112,9 @@ impl LookaheadSet {
                 return;
             }
         };
-        vec.resize(other.index + 1, false);
+        if other.index >= vec.len() {
+            vec.resize(other.index + 1, false);
+        }
         vec.set(other.index, true);
     }
 

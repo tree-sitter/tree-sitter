@@ -2,7 +2,7 @@ use super::token_conflicts::TokenConflictMap;
 use crate::grammars::{SyntaxGrammar, VariableType};
 use crate::rules::{AliasMap, Symbol};
 use crate::tables::{ParseAction, ParseState, ParseTable, ParseTableEntry};
-use std::collections::{HashMap, HashSet};
+use hashbrown::{HashMap, HashSet};
 
 pub(crate) fn shrink_parse_table(
     parse_table: &mut ParseTable,
@@ -240,6 +240,10 @@ fn can_add_entry_to_state(
 
 fn remove_unused_states(parse_table: &mut ParseTable) {
     let mut state_usage_map = vec![false; parse_table.states.len()];
+
+    state_usage_map[0] = true;
+    state_usage_map[1] = true;
+
     for state in &parse_table.states {
         for referenced_state in state.referenced_states() {
             state_usage_map[referenced_state] = true;

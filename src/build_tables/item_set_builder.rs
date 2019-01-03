@@ -1,7 +1,7 @@
 use super::item::{LookaheadSet, ParseItem, ParseItemSet};
 use crate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
 use crate::rules::Symbol;
-use std::collections::{HashMap, HashSet};
+use hashbrown::{HashMap, HashSet};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct TransitiveClosureAddition<'a> {

@@ -1,6 +1,6 @@
 use crate::nfa::Nfa;
 use crate::rules::{Alias, Associativity, Rule, Symbol};
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum VariableType {

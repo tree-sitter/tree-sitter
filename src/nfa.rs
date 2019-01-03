@@ -320,6 +320,10 @@ impl<'a> NfaCursor<'a> {
         self.add_states(&mut states);
     }
 
+    pub fn force_reset(&mut self, states: Vec<u32>) {
+        self.state_ids = states
+    }
+
     pub fn successors(&self) -> impl Iterator<Item = (&CharacterSet, i32, u32, bool)> {
         self.state_ids.iter().filter_map(move |id| {
             if let NfaState::Advance {
@@ -352,16 +356,26 @@ impl<'a> NfaCursor<'a> {
                     result[i].1 = max(result[i].1, prec);
                     result[i].2.push(state);
                     result[i].3 |= is_sep;
-                } else {
-                    let intersection = result[i].0.remove_intersection(&mut chars);
-                    if !intersection.is_empty() {
-                        let mut states = result[i].2.clone();
-                        states.push(state);
+                    chars = CharacterSet::empty();
+                    break;
+                }
+
+                let intersection = result[i].0.remove_intersection(&mut chars);
+                if !intersection.is_empty() {
+                    let mut states = result[i].2.clone();
+                    let max_prec = max(result[i].1, prec);
+                    states.push(state);
+                    if result[i].0.is_empty() {
+                        result[i].0 = intersection;
+                        result[i].1 = max_prec;
+                        result[i].2 = states;
+                        result[i].3 |= is_sep;
+                    } else {
                         result.insert(
                             i,
                             (
                                 intersection,
-                                max(result[i].1, prec),
+                                max_prec,
                                 states,
                                 result[i].3 || is_sep,
                             ),

@@ -133,7 +133,7 @@ mod tests {
 
     #[test]
     fn test_parse_grammar() {
-        let grammar = parse_grammar(&json!({
+        let grammar = parse_grammar(r#"{
             "name": "my_lang",
             "rules": {
                 "file": {
@@ -148,7 +148,7 @@ mod tests {
                     "value": "foo"
                 }
             }
-        }).to_string()).unwrap();
+        }"#).unwrap();
 
         assert_eq!(grammar.name, "my_lang");
         assert_eq!(grammar.variables, vec![

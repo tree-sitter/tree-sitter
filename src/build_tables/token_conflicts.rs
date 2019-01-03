@@ -1,7 +1,7 @@
 use crate::build_tables::item::LookaheadSet;
 use crate::grammars::LexicalGrammar;
 use crate::nfa::{CharacterSet, NfaCursor};
-use std::collections::HashSet;
+use hashbrown::HashSet;
 use std::fmt;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
