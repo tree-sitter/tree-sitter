@@ -358,7 +358,7 @@ impl Generator {
         if let Some(accept_action) = state.accept_action {
             add_line!(
                 self,
-                "ACCEPT_TOKEN({})",
+                "ACCEPT_TOKEN({});",
                 self.symbol_ids[&accept_action]
             );
         }
