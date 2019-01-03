@@ -148,8 +148,8 @@ impl<'a> LexTableBuilder<'a> {
             completion = Some((id, prec));
         }
 
-        info!("raw successors: {:?}", self.cursor.successors().collect::<Vec<_>>());
         let successors = self.cursor.grouped_successors();
+        info!("populate state: {}, successors: {:?}", state_id, successors);
 
         // If EOF is a valid lookahead token, add a transition predicated on the null
         // character that leads to the empty set of NFA states.
@@ -166,10 +166,6 @@ impl<'a> LexTableBuilder<'a> {
         }
 
         for (chars, advance_precedence, next_states, is_sep) in successors {
-            info!(
-                "populate state: {}, characters: {:?}, precedence: {:?}",
-                state_id, chars, advance_precedence
-            );
             if let Some((_, completed_precedence)) = completion {
                 if advance_precedence < completed_precedence {
                     continue;

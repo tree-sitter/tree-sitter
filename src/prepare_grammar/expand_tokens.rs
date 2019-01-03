@@ -89,7 +89,8 @@ impl NfaBuilder {
             }
             Rule::String(s) => {
                 for c in s.chars().rev() {
-                    self.push_advance(CharacterSet::empty().add_char(c), self.nfa.last_state_id());
+                    self.push_advance(CharacterSet::empty().add_char(c), next_state_id);
+                    next_state_id = self.nfa.last_state_id();
                 }
                 Ok(s.len() > 0)
             }
@@ -102,6 +103,8 @@ impl NfaBuilder {
                         alternative_state_ids.push(next_state_id);
                     }
                 }
+                alternative_state_ids.sort_unstable();
+                alternative_state_ids.dedup();
                 alternative_state_ids.retain(|i| *i != self.nfa.last_state_id());
                 for alternative_state_id in alternative_state_ids {
                     self.push_split(alternative_state_id);
@@ -540,6 +543,64 @@ mod tests {
                     ("abceef", Some((0, "abc"))),
                     ("abdeef", Some((1, "abde"))),
                     ("aeeeef", Some((2, "aeeee"))),
+                ],
+            },
+            Row {
+                rules: vec![
+                    Rule::seq(vec![
+                        Rule::string("a"),
+                        Rule::choice(vec![
+                            Rule::string("b"),
+                            Rule::string("c"),
+                        ]),
+                        Rule::string("d"),
+                    ])
+                ],
+                separators: vec![],
+                examples: vec![
+                    ("abd", Some((0, "abd"))),
+                    ("acd", Some((0, "acd"))),
+                    ("abc", None),
+                    ("ad", None),
+                    ("d", None),
+                    ("a", None),
+                ]
+            },
+            // nested choices within sequences
+            Row {
+                rules: vec![
+                    Rule::seq(vec![
+                        Rule::pattern("[0-9]+"),
+                        Rule::choice(vec![
+                            Rule::Blank,
+                            Rule::choice(vec![
+                                Rule::seq(vec![
+                                    Rule::choice(vec![
+                                        Rule::string("e"),
+                                        Rule::string("E")
+                                    ]),
+                                    Rule::choice(vec![
+                                        Rule::Blank,
+                                        Rule::choice(vec![
+                                            Rule::string("+"),
+                                            Rule::string("-"),
+                                        ])
+                                    ]),
+                                    Rule::pattern("[0-9]+"),
+                                ])
+                            ])
+                        ]),
+                    ]),
+                ],
+                separators: vec![],
+                examples: vec![
+                    ("12", Some((0, "12"))),
+                    ("12e", Some((0, "12"))),
+                    ("12g", Some((0, "12"))),
+                    ("12e3", Some((0, "12e3"))),
+                    ("12e+", Some((0, "12"))),
+                    ("12E+34 +", Some((0, "12E+34"))),
+                    ("12e34", Some((0, "12e34"))),
                 ],
             },
         ];
