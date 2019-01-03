@@ -233,12 +233,13 @@ impl Generator {
         indent!(self);
         for symbol in self.parse_table.symbols.iter() {
             if *symbol != Symbol::end() {
-                add_line!(
-                    self,
-                    "[{}] = \"{}\",",
-                    self.symbol_ids[&symbol],
-                    self.sanitize_string(self.metadata_for_symbol(*symbol).0)
+                let name = self.sanitize_string(
+                    self.simple_aliases
+                        .get(symbol)
+                        .map(|alias| alias.value.as_str())
+                        .unwrap_or(self.metadata_for_symbol(*symbol).0),
                 );
+                add_line!(self, "[{}] = \"{}\",", self.symbol_ids[&symbol], name);
             }
         }
         for (alias, symbol) in &self.alias_map {
@@ -265,22 +266,27 @@ impl Generator {
         for symbol in &self.parse_table.symbols {
             add_line!(self, "[{}] = {{", self.symbol_ids[&symbol]);
             indent!(self);
-            match self.metadata_for_symbol(*symbol).1 {
-                VariableType::Named => {
-                    add_line!(self, ".visible = true,");
-                    add_line!(self, ".named = true,");
-                }
-                VariableType::Anonymous => {
-                    add_line!(self, ".visible = true,");
-                    add_line!(self, ".named = false,");
-                }
-                VariableType::Hidden => {
-                    add_line!(self, ".visible = false,");
-                    add_line!(self, ".named = true,");
-                }
-                VariableType::Auxiliary => {
-                    add_line!(self, ".visible = false,");
-                    add_line!(self, ".named = false,");
+            if let Some(Alias { is_named, .. }) = self.simple_aliases.get(symbol) {
+                add_line!(self, ".visible = true,");
+                add_line!(self, ".named = {},", is_named);
+            } else {
+                match self.metadata_for_symbol(*symbol).1 {
+                    VariableType::Named => {
+                        add_line!(self, ".visible = true,");
+                        add_line!(self, ".named = true,");
+                    }
+                    VariableType::Anonymous => {
+                        add_line!(self, ".visible = true,");
+                        add_line!(self, ".named = false,");
+                    }
+                    VariableType::Hidden => {
+                        add_line!(self, ".visible = false,");
+                        add_line!(self, ".named = true,");
+                    }
+                    VariableType::Auxiliary => {
+                        add_line!(self, ".visible = false,");
+                        add_line!(self, ".named = false,");
+                    }
                 }
             }
             dedent!(self);
@@ -356,11 +362,7 @@ impl Generator {
 
     fn add_lex_state(&mut self, state: LexState) {
         if let Some(accept_action) = state.accept_action {
-            add_line!(
-                self,
-                "ACCEPT_TOKEN({});",
-                self.symbol_ids[&accept_action]
-            );
+            add_line!(self, "ACCEPT_TOKEN({});", self.symbol_ids[&accept_action]);
         }
 
         let mut ruled_out_characters = HashSet::new();
@@ -397,7 +399,9 @@ impl Generator {
                 self.add_character_range_conditions(ranges, false)
             }
             CharacterSet::Exclude(chars) => {
-                let ranges = Self::get_ranges(chars, ruled_out_characters);
+                let ranges = Some('\0'..'\0')
+                    .into_iter()
+                    .chain(Self::get_ranges(chars, ruled_out_characters));
                 self.add_character_range_conditions(ranges, true)
             }
         }
