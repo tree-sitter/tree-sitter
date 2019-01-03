@@ -47,6 +47,7 @@ pub(crate) fn build_tables(
         syntax_grammar,
         simple_aliases,
         &token_conflict_map,
+        &keywords,
     );
     let (main_lex_table, keyword_lex_table) =
         build_lex_table(&mut parse_table, syntax_grammar, lexical_grammar, &keywords);
@@ -67,15 +68,22 @@ fn populate_error_state(
 ) {
     let state = &mut parse_table.states[0];
     let n = lexical_grammar.variables.len();
+
+    // First identify the *conflict-free tokens*: tokens that do not overlap with
+    // any other token in any way.
     let conflict_free_tokens = LookaheadSet::with((0..n).into_iter().filter_map(|i| {
-        let conflicts_with_other_tokens = (0..n).into_iter().all(|j| {
-            j == i
-                || coincident_token_index.contains(Symbol::terminal(i), Symbol::terminal(j))
-                || !token_conflict_map.does_conflict(i, j)
+        let conflicts_with_other_tokens = (0..n).into_iter().any(|j| {
+            j != i
+                && !coincident_token_index.contains(Symbol::terminal(i), Symbol::terminal(j))
+                && token_conflict_map.does_conflict(i, j)
         });
         if conflicts_with_other_tokens {
             None
         } else {
+            info!(
+                "error recovery - token {} has no conflicts",
+                lexical_grammar.variables[i].name
+            );
             Some(Symbol::terminal(i))
         }
     }));
@@ -85,19 +93,32 @@ fn populate_error_state(
         actions: vec![ParseAction::Recover],
     };
 
+    // Exclude from the error-recovery state any token that conflicts with one of
+    // the *conflict-free tokens* identified above.
     for i in 0..n {
         let symbol = Symbol::terminal(i);
-        let can_be_used_for_recovery = conflict_free_tokens.contains(&symbol)
-            || conflict_free_tokens.iter().all(|t| {
-                coincident_token_index.contains(symbol, t)
-                    || !token_conflict_map.does_conflict(i, t.index)
-            });
-        if can_be_used_for_recovery {
-            state
-                .terminal_entries
-                .entry(symbol)
-                .or_insert_with(|| recover_entry.clone());
+        if !conflict_free_tokens.contains(&symbol) {
+            if syntax_grammar.word_token != Some(symbol) {
+                if let Some(t) = conflict_free_tokens.iter().find(|t| {
+                    !coincident_token_index.contains(symbol, *t)
+                        && token_conflict_map.does_conflict(symbol.index, t.index)
+                }) {
+                    info!(
+                        "error recovery - exclude token {} because of conflict with {}",
+                        lexical_grammar.variables[i].name, lexical_grammar.variables[t.index].name
+                    );
+                    continue;
+                }
+            }
         }
+        info!(
+            "error recovery - include token {}",
+            lexical_grammar.variables[i].name
+        );
+        state
+            .terminal_entries
+            .entry(symbol)
+            .or_insert_with(|| recover_entry.clone());
     }
 
     for (i, external_token) in syntax_grammar.external_tokens.iter().enumerate() {
@@ -134,7 +155,10 @@ fn identify_keywords(
             if all_chars_are_alphabetical(&cursor)
                 && token_conflict_map.does_match_same_string(i, word_token.index)
             {
-                info!("Keywords - add candidate {}", lexical_grammar.variables[i].name);
+                info!(
+                    "Keywords - add candidate {}",
+                    lexical_grammar.variables[i].name
+                );
                 Some(Symbol::terminal(i))
             } else {
                 None
