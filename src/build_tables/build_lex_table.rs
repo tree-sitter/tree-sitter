@@ -168,7 +168,7 @@ impl<'a> LexTableBuilder<'a> {
             self.table.states[state_id].advance_actions.push((
                 CharacterSet::empty().add_char('\0'),
                 AdvanceAction {
-                    state: next_state_id,
+                    state: Some(next_state_id),
                     in_main_token: true,
                 },
             ));
@@ -189,10 +189,15 @@ impl<'a> LexTableBuilder<'a> {
                 }
             }
             let (next_state_id, _) = self.add_state(states, eof_valid && is_separator);
+            let next_state = if next_state_id == state_id {
+                None
+            } else {
+                Some(next_state_id)
+            };
             self.table.states[state_id].advance_actions.push((
                 characters,
                 AdvanceAction {
-                    state: next_state_id,
+                    state: next_state,
                     in_main_token: !is_separator,
                 },
             ));
@@ -231,10 +236,10 @@ fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
             }
         }
         for state in table.states.iter_mut() {
-            for advance_action in state.advance_actions.iter_mut() {
-                if let Some(new_state_id) = state_replacements.get(&advance_action.1.state) {
-                    advance_action.1.state = *new_state_id;
-                }
+            for (_, advance_action) in state.advance_actions.iter_mut() {
+                advance_action.state = advance_action
+                    .state
+                    .map(|s| state_replacements.get(&s).cloned().unwrap_or(s))
             }
         }
     }
@@ -259,8 +264,8 @@ fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
     }
 
     for state in table.states.iter_mut() {
-        for advance_action in state.advance_actions.iter_mut() {
-            advance_action.1.state = final_state_replacements[advance_action.1.state];
+        for (_, advance_action) in state.advance_actions.iter_mut() {
+            advance_action.state = advance_action.state.map(|s| final_state_replacements[s]);
         }
     }
 
