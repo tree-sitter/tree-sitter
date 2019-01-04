@@ -561,11 +561,13 @@ impl Generator {
         );
         indent!(self);
         for i in 0..self.syntax_grammar.external_tokens.len() {
+            let token = &self.syntax_grammar.external_tokens[i];
+            let id_token = token.corresponding_internal_token.unwrap_or(Symbol::external(i));
             add_line!(
                 self,
                 "[{}] = {},",
-                self.external_token_id(&self.syntax_grammar.external_tokens[i]),
-                self.symbol_ids[&Symbol::external(i)],
+                self.external_token_id(&token),
+                self.symbol_ids[&id_token],
             );
         }
         dedent!(self);
