@@ -12,6 +12,7 @@ pub(crate) fn build_lex_table(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     keywords: &LookaheadSet,
+    minimize: bool,
 ) -> (LexTable, LexTable) {
     let keyword_lex_table;
     if syntax_grammar.word_token.is_some() {
@@ -41,7 +42,10 @@ pub(crate) fn build_lex_table(
     }
 
     let mut table = builder.table;
-    shrink_lex_table(&mut table, parse_table);
+
+    if minimize {
+        minimize_lex_table(&mut table, parse_table);
+    }
 
     (table, keyword_lex_table)
 }
@@ -147,14 +151,20 @@ impl<'a> LexTableBuilder<'a> {
             completion = Some((id, prec));
         }
 
+        info!(
+            "lex state: {}, completion: {:?}",
+            state_id,
+            completion.map(|(id, prec)| (&self.lexical_grammar.variables[id].name, prec))
+        );
+
         let successors = self.cursor.grouped_successors();
-        info!("populate state: {}, successors: {:?}", state_id, successors);
+        info!("lex state: {}, successors: {:?}", state_id, successors);
 
         // If EOF is a valid lookahead token, add a transition predicated on the null
         // character that leads to the empty set of NFA states.
         if eof_valid {
             let (next_state_id, _) = self.add_state(Vec::new(), false);
-            info!("populate state: {}, character: EOF", state_id);
+            info!("lex state: {}, successor: EOF", state_id);
             self.table.states[state_id].advance_actions.push((
                 CharacterSet::empty().add_char('\0'),
                 AdvanceAction {
@@ -166,7 +176,9 @@ impl<'a> LexTableBuilder<'a> {
 
         for (chars, advance_precedence, next_states, is_sep) in successors {
             if let Some((_, completed_precedence)) = completion {
-                if advance_precedence < completed_precedence {
+                if advance_precedence < completed_precedence
+                    || (advance_precedence == completed_precedence && is_sep)
+                {
                     continue;
                 }
             }
@@ -188,7 +200,7 @@ impl<'a> LexTableBuilder<'a> {
     }
 }
 
-fn shrink_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
+fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
     let mut state_replacements = BTreeMap::new();
     let mut done = false;
     while !done {

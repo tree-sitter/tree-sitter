@@ -67,7 +67,7 @@ impl<'a> ParseTableBuilder<'a> {
             // info!(
             //     "state: {}, item set: {}",
             //     entry.state_id,
-            //     ParseItemSetDisplay(
+            //     super::item::ParseItemSetDisplay(
             //         &self.item_sets_by_state_id[entry.state_id],
             //         self.syntax_grammar,
             //         self.lexical_grammar,
@@ -77,6 +77,17 @@ impl<'a> ParseTableBuilder<'a> {
             let item_set = self
                 .item_set_builder
                 .transitive_closure(&self.item_sets_by_state_id[entry.state_id]);
+
+            // info!(
+            //     "state: {}, closed item set: {}",
+            //     entry.state_id,
+            //     super::item::ParseItemSetDisplay(
+            //         &item_set,
+            //         self.syntax_grammar,
+            //         self.lexical_grammar,
+            //     )
+            // );
+
             self.add_actions(
                 entry.preceding_symbols,
                 entry.preceding_auxiliary_symbols,

@@ -5,26 +5,26 @@ use crate::rules::{AliasMap, Symbol};
 use crate::tables::{ParseAction, ParseState, ParseTable, ParseTableEntry};
 use hashbrown::{HashMap, HashSet};
 
-pub(crate) fn shrink_parse_table(
+pub(crate) fn minimize_parse_table(
     parse_table: &mut ParseTable,
     syntax_grammar: &SyntaxGrammar,
     simple_aliases: &AliasMap,
     token_conflict_map: &TokenConflictMap,
     keywords: &LookaheadSet,
 ) {
-    let mut optimizer = Optimizer {
+    let mut minimizer = Minimizer {
         parse_table,
         syntax_grammar,
         token_conflict_map,
         keywords,
         simple_aliases,
     };
-    optimizer.remove_unit_reductions();
-    optimizer.merge_compatible_states();
-    optimizer.remove_unused_states();
+    minimizer.remove_unit_reductions();
+    minimizer.merge_compatible_states();
+    minimizer.remove_unused_states();
 }
 
-struct Optimizer<'a> {
+struct Minimizer<'a> {
     parse_table: &'a mut ParseTable,
     syntax_grammar: &'a SyntaxGrammar,
     token_conflict_map: &'a TokenConflictMap<'a>,
@@ -32,7 +32,7 @@ struct Optimizer<'a> {
     simple_aliases: &'a AliasMap,
 }
 
-impl<'a> Optimizer<'a> {
+impl<'a> Minimizer<'a> {
     fn remove_unit_reductions(&mut self) {
         let mut aliased_symbols = HashSet::new();
         for variable in &self.syntax_grammar.variables {

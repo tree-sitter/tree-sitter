@@ -3,14 +3,14 @@ mod build_parse_table;
 mod coincident_tokens;
 mod item;
 mod item_set_builder;
-mod shrink_parse_table;
+mod minimize_parse_table;
 mod token_conflicts;
 
 use self::build_lex_table::build_lex_table;
 use self::build_parse_table::build_parse_table;
 use self::coincident_tokens::CoincidentTokenIndex;
 use self::item::LookaheadSet;
-use self::shrink_parse_table::shrink_parse_table;
+use self::minimize_parse_table::minimize_parse_table;
 use self::token_conflicts::TokenConflictMap;
 use crate::error::Result;
 use crate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
@@ -23,6 +23,7 @@ pub(crate) fn build_tables(
     lexical_grammar: &LexicalGrammar,
     simple_aliases: &AliasMap,
     inlines: &InlinedProductionMap,
+    minimize: bool,
 ) -> Result<(ParseTable, LexTable, LexTable, Option<Symbol>)> {
     let (mut parse_table, following_tokens) =
         build_parse_table(syntax_grammar, lexical_grammar, inlines)?;
@@ -42,15 +43,22 @@ pub(crate) fn build_tables(
         &coincident_token_index,
         &token_conflict_map,
     );
-    shrink_parse_table(
+    if minimize {
+        minimize_parse_table(
+            &mut parse_table,
+            syntax_grammar,
+            simple_aliases,
+            &token_conflict_map,
+            &keywords,
+        );
+    }
+    let (main_lex_table, keyword_lex_table) = build_lex_table(
         &mut parse_table,
         syntax_grammar,
-        simple_aliases,
-        &token_conflict_map,
+        lexical_grammar,
         &keywords,
+        minimize,
     );
-    let (main_lex_table, keyword_lex_table) =
-        build_lex_table(&mut parse_table, syntax_grammar, lexical_grammar, &keywords);
     Ok((
         parse_table,
         main_lex_table,

@@ -33,7 +33,8 @@ fn main() -> error::Result<()> {
         .subcommand(
             SubCommand::with_name("generate")
                 .about("Generate a parser")
-                .arg(Arg::with_name("log").long("log")),
+                .arg(Arg::with_name("log").long("log"))
+                .arg(Arg::with_name("no-minimize").long("no-minimize")),
         )
         .subcommand(
             SubCommand::with_name("parse")
@@ -54,10 +55,11 @@ fn main() -> error::Result<()> {
             logger::init();
         }
 
+        let minimize = !matches.is_present("no-minimize");
         let mut grammar_path = env::current_dir().expect("Failed to read CWD");
         grammar_path.push("grammar.js");
         let grammar_json = load_js_grammar_file(grammar_path);
-        let code = generate::generate_parser_for_grammar(&grammar_json)?;
+        let code = generate::generate_parser_for_grammar(&grammar_json, minimize)?;
         println!("{}", code);
     }
 
