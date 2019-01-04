@@ -1,25 +1,24 @@
 #[derive(Debug)]
-pub enum Error {
-    GrammarError(String),
-    SymbolError(String),
-    RegexError(String),
-    ConflictError(String),
-}
+pub struct Error(pub String);
 
 pub type Result<T> = std::result::Result<T, Error>;
 
 impl Error {
     pub fn grammar(message: &str) -> Self {
-        Error::GrammarError(message.to_string())
+        Error(format!("Grammar error: {}", message))
     }
 
     pub fn regex(message: &str) -> Self {
-        Error::RegexError(message.to_string())
+        Error(format!("Regex error: {}", message))
+    }
+
+    pub fn undefined_symbol(name: &str) -> Self {
+        Error(format!("Undefined symbol `{}`", name))
     }
 }
 
 impl From<serde_json::Error> for Error {
     fn from(error: serde_json::Error) -> Self {
-        Error::GrammarError(error.to_string())
+        Error(error.to_string())
     }
 }

@@ -64,12 +64,7 @@ pub(crate) fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<Lexi
         let last_state_id = builder.nfa.last_state_id();
         builder
             .expand_rule(&variable.rule, last_state_id)
-            .map_err(|e| match e {
-                Error::RegexError(msg) => {
-                    Error::RegexError(format!("Rule {} {}", variable.name, msg))
-                }
-                _ => e,
-            })?;
+            .map_err(|Error(msg)| Error(format!("Rule {} {}", variable.name, msg)))?;
 
         if !is_immediate_token {
             builder.is_sep = true;
@@ -97,7 +92,7 @@ impl NfaBuilder {
             Rule::Pattern(s) => {
                 let ast = parse::Parser::new()
                     .parse(&s)
-                    .map_err(|e| Error::GrammarError(e.to_string()))?;
+                    .map_err(|e| Error(e.to_string()))?;
                 self.expand_regex(&ast, next_state_id)
             }
             Rule::String(s) => {

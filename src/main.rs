@@ -11,7 +11,7 @@ use clap::{App, Arg, SubCommand};
 use std::env;
 use std::io::Write;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::{exit, Command, Stdio};
 
 mod build_tables;
 mod error;
@@ -25,7 +25,14 @@ mod render;
 mod rules;
 mod tables;
 
-fn main() -> error::Result<()> {
+fn main() {
+    if let Err(e) = run() {
+        eprintln!("{}", e.0);
+        exit(1);
+    }
+}
+
+fn run() -> error::Result<()> {
     let matches = App::new("tree-sitter")
         .version("0.1")
         .author("Max Brunsfeld <maxbrunsfeld@gmail.com>")

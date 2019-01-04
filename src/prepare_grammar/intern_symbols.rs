@@ -7,7 +7,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
     let interner = Interner { grammar };
 
     if variable_type_for_name(&grammar.variables[0].name) == VariableType::Hidden {
-        return Err(Error::GrammarError(
+        return Err(Error(
             "Grammar's start rule must be visible".to_string(),
         ));
     }
@@ -44,7 +44,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
             interned_conflict.push(
                 interner
                     .intern_name(&name)
-                    .ok_or_else(|| symbol_error(name))?,
+                    .ok_or_else(|| Error::undefined_symbol(name))?,
             );
         }
         expected_conflicts.push(interned_conflict);
@@ -62,7 +62,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         word_token = Some(
             interner
                 .intern_name(&name)
-                .ok_or_else(|| symbol_error(&name))?,
+                .ok_or_else(|| Error::undefined_symbol(&name))?,
         );
     }
 
@@ -107,7 +107,7 @@ impl<'a> Interner<'a> {
                 if let Some(symbol) = self.intern_name(&name) {
                     Ok(Rule::Symbol(symbol))
                 } else {
-                    Err(symbol_error(name))
+                    Err(Error::undefined_symbol(name))
                 }
             }
 
@@ -132,10 +132,6 @@ impl<'a> Interner<'a> {
 
         return None;
     }
-}
-
-fn symbol_error(name: &str) -> Error {
-    Error::SymbolError(format!("Undefined symbol '{}'", name))
 }
 
 fn variable_type_for_name(name: &str) -> VariableType {
@@ -223,7 +219,7 @@ mod tests {
         let result = intern_symbols(&build_grammar(vec![Variable::named("x", Rule::named("y"))]));
 
         match result {
-            Err(Error::SymbolError(message)) => assert_eq!(message, "Undefined symbol 'y'"),
+            Err(Error(message)) => assert_eq!(message, "Undefined symbol 'y'"),
             _ => panic!("Expected an error but got none"),
         }
     }

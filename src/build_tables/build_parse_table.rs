@@ -455,9 +455,9 @@ impl<'a> ParseTableBuilder<'a> {
             self.symbol_name(&conflicting_lookahead)
         )
         .unwrap();
-        write!(&mut msg, "Possible interpretations:\n").unwrap();
+        write!(&mut msg, "Possible interpretations:\n\n").unwrap();
         for (i, item) in conflicting_items.iter().enumerate() {
-            write!(&mut msg, "\n  {}:", i).unwrap();
+            write!(&mut msg, "  {}:", i + 1).unwrap();
 
             for preceding_symbol in preceding_symbols
                 .iter()
@@ -501,11 +501,89 @@ impl<'a> ParseTableBuilder<'a> {
                 )
                 .unwrap();
             }
+
+            write!(&mut msg, "\n").unwrap();
         }
 
-        // TODO - generate suggested resolutions
+        let mut resolution_count = 0;
+        write!(&mut msg, "\nPossible resolutions:\n\n").unwrap();
+        let shift_items = conflicting_items
+            .iter()
+            .filter(|i| !i.is_done())
+            .cloned()
+            .collect::<Vec<_>>();
+        if shift_items.len() > 0 {
+            resolution_count += 1;
+            write!(
+                &mut msg,
+                "  {}:  Specify a higher precedence in",
+                resolution_count
+            )
+            .unwrap();
+            for (i, item) in shift_items.iter().enumerate() {
+                if i > 0 {
+                    write!(&mut msg, "  and").unwrap();
+                }
+                write!(
+                    &mut msg,
+                    " `{}`",
+                    self.symbol_name(&Symbol::non_terminal(item.variable_index as usize))
+                )
+                .unwrap();
+            }
+            write!(&mut msg, " than in the other rules.\n").unwrap();
+        }
 
-        Err(Error::ConflictError(msg))
+        if considered_associativity {
+            resolution_count += 1;
+            write!(
+                &mut msg,
+                "  {}:  Specify a left or right associativity in ",
+                resolution_count
+            )
+            .unwrap();
+            for (i, item) in conflicting_items.iter().filter(|i| i.is_done()).enumerate() {
+                if i > 0 {
+                    write!(&mut msg, " and ").unwrap();
+                }
+                write!(
+                    &mut msg,
+                    "{}",
+                    self.symbol_name(&Symbol::non_terminal(item.variable_index as usize))
+                )
+                .unwrap();
+            }
+        }
+
+        for item in &conflicting_items {
+            if item.is_done() {
+                resolution_count += 1;
+                write!(
+                    &mut msg,
+                    "  {}: Specify a higher precedence in `{}` than in the other rules.\n",
+                    resolution_count,
+                    self.symbol_name(&Symbol::non_terminal(item.variable_index as usize))
+                )
+                .unwrap();
+            }
+        }
+
+        resolution_count += 1;
+        write!(
+            &mut msg,
+            "  {}: Add a conflict for these rules: ",
+            resolution_count
+        )
+        .unwrap();
+        for (i, symbol) in actual_conflict.iter().enumerate() {
+            if i > 0 {
+                write!(&mut msg, ", ").unwrap();
+            }
+            write!(&mut msg, "{}", self.symbol_name(symbol)).unwrap();
+        }
+        write!(&mut msg, "\n").unwrap();
+
+        Err(Error(msg))
     }
 
     fn get_auxiliary_node_info(
@@ -517,8 +595,11 @@ impl<'a> ParseTableBuilder<'a> {
             .entries
             .keys()
             .filter_map(|item| {
-                if item.symbol() == Some(symbol) {
-                    None
+                let variable_index = item.variable_index as usize;
+                if item.symbol() == Some(symbol)
+                    && !self.syntax_grammar.variables[variable_index].is_auxiliary()
+                {
+                    Some(Symbol::non_terminal(variable_index))
                 } else {
                     None
                 }
