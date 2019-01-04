@@ -90,7 +90,6 @@ impl InlinedProductionMapBuilder {
         while i < productions_to_add.len() {
             if let Some(step) = productions_to_add[i].steps.get(step_index) {
                 let symbol = step.symbol.clone();
-
                 if grammar.variables_to_inline.contains(&symbol) {
                     // Remove the production from the vector, replacing it with a placeholder.
                     let production = productions_to_add
@@ -116,8 +115,12 @@ impl InlinedProductionMapBuilder {
                                 }
                             }
                             if let Some(last_inserted_step) = inserted_steps.last_mut() {
-                                last_inserted_step.precedence = removed_step.precedence;
-                                last_inserted_step.associativity = removed_step.associativity;
+                                if last_inserted_step.precedence == 0 {
+                                    last_inserted_step.precedence = removed_step.precedence;
+                                }
+                                if last_inserted_step.associativity == None {
+                                    last_inserted_step.associativity = removed_step.associativity;
+                                }
                             }
                             production
                         }),
