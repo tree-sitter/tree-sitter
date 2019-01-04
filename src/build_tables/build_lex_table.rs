@@ -23,7 +23,7 @@ pub(crate) fn build_lex_table(
     }
 
     let mut builder = LexTableBuilder::new(lexical_grammar);
-    for (i, state) in parse_table.states.iter_mut().enumerate() {
+    for state in parse_table.states.iter_mut() {
         let tokens = LookaheadSet::with(state.terminal_entries.keys().filter_map(|token| {
             if token.is_terminal() {
                 if keywords.contains(&token) {
@@ -37,7 +37,6 @@ pub(crate) fn build_lex_table(
                 None
             }
         }));
-        info!("populate lex state for parse state {}", i);
         state.lex_state_id = builder.add_state_for_tokens(&tokens);
     }
 
@@ -199,16 +198,17 @@ fn shrink_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
                 continue;
             }
             for (j, state_j) in table.states.iter().enumerate() {
-                if state_replacements.contains_key(&j) {
-                    continue;
-                }
                 if j == i {
                     break;
+                }
+                if state_replacements.contains_key(&j) {
+                    continue;
                 }
                 if state_i == state_j {
                     info!("replace state {} with state {}", i, j);
                     state_replacements.insert(i, j);
                     done = false;
+                    break;
                 }
             }
         }

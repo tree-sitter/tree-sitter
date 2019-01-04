@@ -63,7 +63,28 @@ impl<'a> ParseTableBuilder<'a> {
             ),
         );
 
-        self.process_part_state_queue()?;
+        while let Some(entry) = self.parse_state_queue.pop_front() {
+            // info!(
+            //     "state: {}, item set: {}",
+            //     entry.state_id,
+            //     ParseItemSetDisplay(
+            //         &self.item_sets_by_state_id[entry.state_id],
+            //         self.syntax_grammar,
+            //         self.lexical_grammar,
+            //     )
+            // );
+
+            let item_set = self
+                .item_set_builder
+                .transitive_closure(&self.item_sets_by_state_id[entry.state_id]);
+            self.add_actions(
+                entry.preceding_symbols,
+                entry.preceding_auxiliary_symbols,
+                entry.state_id,
+                item_set,
+            )?;
+        }
+
         self.populate_used_symbols();
         self.remove_precedences();
 
@@ -116,27 +137,12 @@ impl<'a> ParseTableBuilder<'a> {
         }
     }
 
-    fn process_part_state_queue(&mut self) -> Result<()> {
-        while let Some(entry) = self.parse_state_queue.pop_front() {
-            let item_set = self
-                .item_set_builder
-                .transitive_closure(&self.item_sets_by_state_id[entry.state_id]);
-            self.add_actions(
-                entry.preceding_symbols,
-                entry.preceding_auxiliary_symbols,
-                item_set,
-                entry.state_id,
-            )?;
-        }
-        Ok(())
-    }
-
     fn add_actions(
         &mut self,
         mut preceding_symbols: SymbolSequence,
         mut preceding_auxiliary_symbols: Vec<AuxiliarySymbolInfo>,
-        item_set: ParseItemSet<'a>,
         state_id: ParseStateId,
+        item_set: ParseItemSet<'a>,
     ) -> Result<()> {
         let mut terminal_successors = HashMap::new();
         let mut non_terminal_successors = HashMap::new();

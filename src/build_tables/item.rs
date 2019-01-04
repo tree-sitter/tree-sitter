@@ -42,12 +42,19 @@ pub(crate) struct ParseItemSet<'a> {
     pub entries: BTreeMap<ParseItem<'a>, LookaheadSet>,
 }
 
-pub(crate) struct ParseItemDisplay<'a>(&'a ParseItem<'a>, &'a SyntaxGrammar, &'a LexicalGrammar);
+pub(crate) struct ParseItemDisplay<'a>(
+    pub &'a ParseItem<'a>,
+    pub &'a SyntaxGrammar,
+    pub &'a LexicalGrammar
+);
+
 pub(crate) struct LookaheadSetDisplay<'a>(&'a LookaheadSet, &'a SyntaxGrammar, &'a LexicalGrammar);
+
+#[allow(dead_code)]
 pub(crate) struct ParseItemSetDisplay<'a>(
-    &'a ParseItemSet<'a>,
-    &'a SyntaxGrammar,
-    &'a LexicalGrammar,
+    pub &'a ParseItemSet<'a>,
+    pub &'a SyntaxGrammar,
+    pub &'a LexicalGrammar,
 );
 
 impl LookaheadSet {
@@ -144,14 +151,6 @@ impl LookaheadSet {
         }
         result
     }
-
-    pub fn display_with<'a>(
-        &'a self,
-        syntax_grammar: &'a SyntaxGrammar,
-        lexical_grammar: &'a LexicalGrammar,
-    ) -> LookaheadSetDisplay<'a> {
-        LookaheadSetDisplay(self, syntax_grammar, lexical_grammar)
-    }
 }
 
 impl<'a> ParseItem<'a> {
@@ -202,14 +201,6 @@ impl<'a> ParseItem<'a> {
             step_index: self.step_index + 1,
         }
     }
-
-    pub fn display_with(
-        &'a self,
-        syntax_grammar: &'a SyntaxGrammar,
-        lexical_grammar: &'a LexicalGrammar,
-    ) -> ParseItemDisplay<'a> {
-        ParseItemDisplay(self, syntax_grammar, lexical_grammar)
-    }
 }
 
 impl<'a> ParseItemSet<'a> {
@@ -235,14 +226,6 @@ impl<'a> ParseItemSet<'a> {
             }
         }
     }
-
-    pub fn display_with(
-        &'a self,
-        syntax_grammar: &'a SyntaxGrammar,
-        lexical_grammar: &'a LexicalGrammar,
-    ) -> ParseItemSetDisplay<'a> {
-        ParseItemSetDisplay(self, syntax_grammar, lexical_grammar)
-    }
 }
 
 impl<'a> Default for ParseItemSet<'a> {
@@ -253,6 +236,7 @@ impl<'a> Default for ParseItemSet<'a> {
     }
 }
 
+#[allow(dead_code)]
 impl<'a> fmt::Display for ParseItemDisplay<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         if self.0.is_augmented() {
@@ -281,6 +265,10 @@ impl<'a> fmt::Display for ParseItemDisplay<'a> {
                 write!(f, "{}", &self.1.external_tokens[step.symbol.index].name)?;
             } else {
                 write!(f, "{}", &self.1.variables[step.symbol.index].name)?;
+            }
+
+            if let Some(alias) = &step.alias {
+                write!(f, " (alias {})", alias.value)?;
             }
         }
 
@@ -323,8 +311,8 @@ impl<'a> fmt::Display for ParseItemSetDisplay<'a> {
             writeln!(
                 f,
                 "{}\t{}",
-                item.display_with(self.1, self.2),
-                lookaheads.display_with(self.1, self.2)
+                ParseItemDisplay(item, self.1, self.2),
+                LookaheadSetDisplay(lookaheads, self.1, self.2)
             )?;
         }
         Ok(())

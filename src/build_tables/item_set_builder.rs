@@ -1,7 +1,8 @@
-use super::item::{LookaheadSet, ParseItem, ParseItemSet};
+use super::item::{LookaheadSet, ParseItem, ParseItemDisplay, ParseItemSet};
 use crate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
 use crate::rules::Symbol;
 use hashbrown::{HashMap, HashSet};
+use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct TransitiveClosureAddition<'a> {
@@ -16,6 +17,8 @@ struct FollowSetInfo {
 }
 
 pub(crate) struct ParseItemSetBuilder<'a> {
+    syntax_grammar: &'a SyntaxGrammar,
+    lexical_grammar: &'a LexicalGrammar,
     first_sets: HashMap<Symbol, LookaheadSet>,
     last_sets: HashMap<Symbol, LookaheadSet>,
     inlines: &'a InlinedProductionMap,
@@ -35,6 +38,8 @@ impl<'a> ParseItemSetBuilder<'a> {
         inlines: &'a InlinedProductionMap,
     ) -> Self {
         let mut result = Self {
+            syntax_grammar,
+            lexical_grammar,
             first_sets: HashMap::new(),
             last_sets: HashMap::new(),
             inlines,
@@ -298,5 +303,28 @@ impl<'a> ParseItemSetBuilder<'a> {
             }
         }
         set.entries.insert(item, lookaheads.clone());
+    }
+}
+
+impl<'a> fmt::Debug for ParseItemSetBuilder<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "ParseItemSetBuilder {{\n")?;
+
+        write!(f, "  additions: {{\n")?;
+        for (i, variable) in self.syntax_grammar.variables.iter().enumerate() {
+            write!(f, "    {}: {{\n", variable.name)?;
+            for addition in &self.transitive_closure_additions[i] {
+                write!(
+                    f,
+                    "      {}\n",
+                    ParseItemDisplay(&addition.item, self.syntax_grammar, self.lexical_grammar)
+                )?;
+            }
+            write!(f, "    }},\n")?;
+        }
+        write!(f, "  }},")?;
+
+        write!(f, "}}")?;
+        Ok(())
     }
 }

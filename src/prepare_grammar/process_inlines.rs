@@ -3,6 +3,9 @@ use hashbrown::HashMap;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct ProductionStepId {
+    // A `None` value here means that the production itself was produced via inlining,
+    // and is stored in the the builder's `productions` vector, as opposed to being
+    // stored in one of the grammar's variables.
     variable_index: Option<usize>,
     production_index: usize,
     step_index: usize,
@@ -13,169 +16,166 @@ struct InlinedProductionMapBuilder {
     productions: Vec<Production>,
 }
 
-impl ProductionStepId {
-    pub fn successor(&self) -> Self {
-        Self {
-            variable_index: self.variable_index,
-            production_index: self.production_index,
-            step_index: self.step_index + 1,
-        }
-    }
-}
-
-fn production_for_id<'a>(
-    map: &'a InlinedProductionMapBuilder,
-    id: ProductionStepId,
-    grammar: &'a SyntaxGrammar,
-) -> &'a Production {
-    if let Some(variable_index) = id.variable_index {
-        &grammar.variables[variable_index].productions[id.production_index]
-    } else {
-        &map.productions[id.production_index]
-    }
-}
-
-fn production_step_for_id<'a>(
-    map: &'a InlinedProductionMapBuilder,
-    id: ProductionStepId,
-    grammar: &'a SyntaxGrammar,
-) -> Option<&'a ProductionStep> {
-    production_for_id(map, id, grammar).steps.get(id.step_index)
-}
-
-fn inline<'a>(
-    map: &'a mut InlinedProductionMapBuilder,
-    step_id: ProductionStepId,
-    grammar: &'a SyntaxGrammar,
-) -> &'a Vec<usize> {
-    let step = production_step_for_id(map, step_id, grammar).unwrap();
-    let mut productions_to_add = grammar.variables[step.symbol.index].productions.clone();
-
-    let mut i = 0;
-    while i < productions_to_add.len() {
-        if let Some(first_symbol) = productions_to_add[i].first_symbol() {
-            if grammar.variables_to_inline.contains(&first_symbol) {
-                // Remove the production from the vector, replacing it with a placeholder.
-                let production = productions_to_add
-                    .splice(i..i + 1, [Production::default()].iter().cloned())
-                    .next()
-                    .unwrap();
-
-                // Replace the placeholder with the inlined productions.
-                productions_to_add.splice(
-                    i..i + 1,
-                    grammar.variables[first_symbol.index]
-                        .productions
-                        .iter()
-                        .map(|p| {
-                            let mut p = p.clone();
-                            p.steps.extend(production.steps[1..].iter().cloned());
-                            p
-                        }),
-                );
-                continue;
-            }
-        }
-        i += 1;
-    }
-
-    let result = productions_to_add
-        .into_iter()
-        .map(|production_to_add| {
-            let mut inlined_production = production_for_id(&map, step_id, grammar).clone();
-            let removed_step = inlined_production
-                .steps
-                .splice(
-                    step_id.step_index..step_id.step_index + 1,
-                    production_to_add.steps.iter().cloned(),
-                )
-                .next()
-                .unwrap();
-            let inserted_steps = &mut inlined_production.steps
-                [step_id.step_index..step_id.step_index + production_to_add.steps.len()];
-            if let Some(alias) = removed_step.alias {
-                for inserted_step in inserted_steps.iter_mut() {
-                    inserted_step.alias = Some(alias.clone());
-                }
-            }
-            if let Some(last_inserted_step) = inserted_steps.last_mut() {
-                last_inserted_step.precedence = removed_step.precedence;
-                last_inserted_step.associativity = removed_step.associativity;
-            }
-            map.productions
-                .iter()
-                .position(|p| *p == inlined_production)
-                .unwrap_or({
-                    map.productions.push(inlined_production);
-                    map.productions.len() - 1
-                })
-        })
-        .collect();
-
-    map.production_indices_by_step_id
-        .entry(step_id)
-        .or_insert(result)
-}
-
-pub(super) fn process_inlines(grammar: &SyntaxGrammar) -> InlinedProductionMap {
-    let mut result = InlinedProductionMapBuilder {
-        productions: Vec::new(),
-        production_indices_by_step_id: HashMap::new(),
-    };
-
-    let mut step_ids_to_process = Vec::new();
-    for (variable_index, variable) in grammar.variables.iter().enumerate() {
-        for production_index in 0..variable.productions.len() {
-            step_ids_to_process.push(ProductionStepId {
-                variable_index: Some(variable_index),
-                production_index,
-                step_index: 0,
-            });
-            while !step_ids_to_process.is_empty() {
-                let mut i = 0;
-                while i < step_ids_to_process.len() {
-                    let step_id = step_ids_to_process[i];
-                    if let Some(step) = production_step_for_id(&result, step_id, grammar) {
-                        if grammar.variables_to_inline.contains(&step.symbol) {
-                            let inlined_step_ids = inline(&mut result, step_id, grammar)
-                                .into_iter()
-                                .cloned()
-                                .map(|production_index| ProductionStepId {
-                                    variable_index: None,
-                                    production_index,
-                                    step_index: step_id.step_index,
-                                })
-                                .collect::<Vec<_>>();
-                            step_ids_to_process.splice(i..i + 1, inlined_step_ids);
+impl InlinedProductionMapBuilder {
+    fn build<'a>(mut self, grammar: &'a SyntaxGrammar) -> InlinedProductionMap {
+        let mut step_ids_to_process = Vec::new();
+        for (variable_index, variable) in grammar.variables.iter().enumerate() {
+            for production_index in 0..variable.productions.len() {
+                step_ids_to_process.push(ProductionStepId {
+                    variable_index: Some(variable_index),
+                    production_index,
+                    step_index: 0,
+                });
+                while !step_ids_to_process.is_empty() {
+                    let mut i = 0;
+                    while i < step_ids_to_process.len() {
+                        let step_id = step_ids_to_process[i];
+                        if let Some(step) = self.production_step_for_id(step_id, grammar) {
+                            if grammar.variables_to_inline.contains(&step.symbol) {
+                                let inlined_step_ids = self
+                                    .inline_production_at_step(step_id, grammar)
+                                    .into_iter()
+                                    .cloned()
+                                    .map(|production_index| ProductionStepId {
+                                        variable_index: None,
+                                        production_index,
+                                        step_index: step_id.step_index,
+                                    });
+                                step_ids_to_process.splice(i..i + 1, inlined_step_ids);
+                            } else {
+                                step_ids_to_process[i] = ProductionStepId {
+                                    variable_index: step_id.variable_index,
+                                    production_index: step_id.production_index,
+                                    step_index: step_id.step_index + 1,
+                                };
+                                i += 1;
+                            }
                         } else {
-                            step_ids_to_process[i] = step_id.successor();
-                            i += 1;
+                            step_ids_to_process.remove(i);
                         }
-                    } else {
-                        step_ids_to_process.remove(i);
                     }
                 }
             }
         }
+
+        let productions = self.productions;
+        let production_indices_by_step_id = self.production_indices_by_step_id;
+        let production_map = production_indices_by_step_id
+            .into_iter()
+            .map(|(step_id, production_indices)| {
+                let production = if let Some(variable_index) = step_id.variable_index {
+                    &grammar.variables[variable_index].productions[step_id.production_index]
+                } else {
+                    &productions[step_id.production_index]
+                } as *const Production;
+                ((production, step_id.step_index as u32), production_indices)
+            })
+            .collect();
+
+        InlinedProductionMap {
+            productions,
+            production_map,
+        }
     }
 
-    // result
-    let productions = result.productions;
-    let production_indices_by_step_id = result.production_indices_by_step_id;
+    fn inline_production_at_step<'a>(
+        &'a mut self,
+        step_id: ProductionStepId,
+        grammar: &'a SyntaxGrammar,
+    ) -> &'a Vec<usize> {
+        // Build a list of productions produced by inlining rules.
+        let mut i = 0;
+        let step_index = step_id.step_index;
+        let mut productions_to_add = vec![self.production_for_id(step_id, grammar).clone()];
+        while i < productions_to_add.len() {
+            if let Some(step) = productions_to_add[i].steps.get(step_index) {
+                let symbol = step.symbol.clone();
 
-    let production_map = production_indices_by_step_id
-        .into_iter()
-        .map(|(step_id, production_indices)| {
-            let production = if let Some(variable_index) = step_id.variable_index {
-                &grammar.variables[variable_index].productions[step_id.production_index]
-            } else {
-                &productions[step_id.production_index]
-            } as *const Production;
-            ((production, step_id.step_index as u32), production_indices)
-        })
-        .collect();
+                if grammar.variables_to_inline.contains(&symbol) {
+                    // Remove the production from the vector, replacing it with a placeholder.
+                    let production = productions_to_add
+                        .splice(i..i + 1, [Production::default()].iter().cloned())
+                        .next()
+                        .unwrap();
 
-    InlinedProductionMap { productions, production_map }
+                    // Replace the placeholder with the inlined productions.
+                    productions_to_add.splice(
+                        i..i + 1,
+                        grammar.variables[symbol.index].productions.iter().map(|p| {
+                            let mut production = production.clone();
+                            let removed_step = production
+                                .steps
+                                .splice(step_index..(step_index + 1), p.steps.iter().cloned())
+                                .next()
+                                .unwrap();
+                            let inserted_steps =
+                                &mut production.steps[step_index..(step_index + p.steps.len())];
+                            if let Some(alias) = removed_step.alias {
+                                for inserted_step in inserted_steps.iter_mut() {
+                                    inserted_step.alias = Some(alias.clone());
+                                }
+                            }
+                            if let Some(last_inserted_step) = inserted_steps.last_mut() {
+                                last_inserted_step.precedence = removed_step.precedence;
+                                last_inserted_step.associativity = removed_step.associativity;
+                            }
+                            production
+                        }),
+                    );
+
+                    continue;
+                }
+            }
+            i += 1;
+        }
+
+        // Store all the computed productions.
+        let result = productions_to_add
+            .into_iter()
+            .map(|production| {
+                self.productions
+                    .iter()
+                    .position(|p| *p == production)
+                    .unwrap_or({
+                        self.productions.push(production);
+                        self.productions.len() - 1
+                    })
+            })
+            .collect();
+
+        // Cache these productions based on the original production step.
+        self.production_indices_by_step_id
+            .entry(step_id)
+            .or_insert(result)
+    }
+
+    fn production_for_id<'a>(
+        &'a self,
+        id: ProductionStepId,
+        grammar: &'a SyntaxGrammar,
+    ) -> &'a Production {
+        if let Some(variable_index) = id.variable_index {
+            &grammar.variables[variable_index].productions[id.production_index]
+        } else {
+            &self.productions[id.production_index]
+        }
+    }
+
+    fn production_step_for_id<'a>(
+        &'a self,
+        id: ProductionStepId,
+        grammar: &'a SyntaxGrammar,
+    ) -> Option<&'a ProductionStep> {
+        self.production_for_id(id, grammar).steps.get(id.step_index)
+    }
+}
+
+pub(super) fn process_inlines(grammar: &SyntaxGrammar) -> InlinedProductionMap {
+    InlinedProductionMapBuilder {
+        productions: Vec::new(),
+        production_indices_by_step_id: HashMap::new(),
+    }
+    .build(grammar)
 }
 
 #[cfg(test)]
@@ -234,7 +234,7 @@ mod tests {
         // Inlining variable 1 yields two productions.
         assert_eq!(
             inline_map
-            .inlined_productions(&grammar.variables[0].productions[0], 1)
+                .inlined_productions(&grammar.variables[0].productions[0], 1)
                 .unwrap()
                 .cloned()
                 .collect::<Vec<_>>(),
@@ -446,8 +446,7 @@ mod tests {
                     ProductionStep::new(Symbol::terminal(12))
                         .with_prec(1, Some(Associativity::Left)),
                     ProductionStep::new(Symbol::terminal(10)),
-                    ProductionStep::new(Symbol::non_terminal(2))
-                        .with_alias("outer_alias", true),
+                    ProductionStep::new(Symbol::non_terminal(2)).with_alias("outer_alias", true),
                 ]
             }],
         );
