@@ -12,6 +12,7 @@ use std::env;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{exit, Command, Stdio};
+use std::usize;
 
 mod build_tables;
 mod error;
@@ -41,6 +42,11 @@ fn run() -> error::Result<()> {
             SubCommand::with_name("generate")
                 .about("Generate a parser")
                 .arg(Arg::with_name("log").long("log"))
+                .arg(
+                    Arg::with_name("state-ids-to-log")
+                        .long("log-state")
+                        .takes_value(true),
+                )
                 .arg(Arg::with_name("no-minimize").long("no-minimize")),
         )
         .subcommand(
@@ -63,10 +69,17 @@ fn run() -> error::Result<()> {
         }
 
         let minimize = !matches.is_present("no-minimize");
+        let state_ids_to_log = matches
+            .values_of("state-ids-to-log")
+            .map_or(Vec::new(), |ids| {
+                ids.filter_map(|id| usize::from_str_radix(id, 10).ok())
+                    .collect()
+            });
         let mut grammar_path = env::current_dir().expect("Failed to read CWD");
         grammar_path.push("grammar.js");
         let grammar_json = load_js_grammar_file(grammar_path);
-        let code = generate::generate_parser_for_grammar(&grammar_json, minimize)?;
+        let code =
+            generate::generate_parser_for_grammar(&grammar_json, minimize, state_ids_to_log)?;
         println!("{}", code);
     }
 

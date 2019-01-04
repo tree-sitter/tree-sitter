@@ -45,7 +45,7 @@ pub(crate) struct ParseItemSet<'a> {
 pub(crate) struct ParseItemDisplay<'a>(
     pub &'a ParseItem<'a>,
     pub &'a SyntaxGrammar,
-    pub &'a LexicalGrammar
+    pub &'a LexicalGrammar,
 );
 
 pub(crate) struct LookaheadSetDisplay<'a>(&'a LookaheadSet, &'a SyntaxGrammar, &'a LexicalGrammar);
@@ -252,6 +252,13 @@ impl<'a> fmt::Display for ParseItemDisplay<'a> {
         for (i, step) in self.0.production.steps.iter().enumerate() {
             if i == self.0.step_index as usize {
                 write!(f, " •")?;
+                if step.precedence != 0 || step.associativity.is_some() {
+                    write!(
+                        f,
+                        " (prec {:?} assoc {:?})",
+                        step.precedence, step.associativity
+                    )?;
+                }
             }
 
             write!(f, " ")?;
@@ -274,6 +281,15 @@ impl<'a> fmt::Display for ParseItemDisplay<'a> {
 
         if self.0.is_done() {
             write!(f, " •")?;
+            if let Some(step) = self.0.production.steps.last() {
+                if step.precedence != 0 || step.associativity.is_some() {
+                    write!(
+                        f,
+                        " (prec {:?} assoc {:?})",
+                        step.precedence, step.associativity
+                    )?;
+                }
+            }
         }
 
         Ok(())

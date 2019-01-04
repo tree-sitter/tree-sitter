@@ -39,6 +39,7 @@ struct ParseTableBuilder<'a> {
     parse_state_queue: VecDeque<ParseStateQueueEntry>,
     parse_table: ParseTable,
     following_tokens: Vec<LookaheadSet>,
+    state_ids_to_log: Vec<ParseStateId>,
 }
 
 impl<'a> ParseTableBuilder<'a> {
@@ -64,29 +65,26 @@ impl<'a> ParseTableBuilder<'a> {
         );
 
         while let Some(entry) = self.parse_state_queue.pop_front() {
-            // info!(
-            //     "state: {}, item set: {}",
-            //     entry.state_id,
-            //     super::item::ParseItemSetDisplay(
-            //         &self.item_sets_by_state_id[entry.state_id],
-            //         self.syntax_grammar,
-            //         self.lexical_grammar,
-            //     )
-            // );
-
             let item_set = self
                 .item_set_builder
                 .transitive_closure(&self.item_sets_by_state_id[entry.state_id]);
 
-            // info!(
-            //     "state: {}, closed item set: {}",
-            //     entry.state_id,
-            //     super::item::ParseItemSetDisplay(
-            //         &item_set,
-            //         self.syntax_grammar,
-            //         self.lexical_grammar,
-            //     )
-            // );
+            if self.state_ids_to_log.contains(&entry.state_id) {
+                eprintln!(
+                    "state: {}\n\ninitial item set:\n\n{}closed item set:\n\n{}",
+                    entry.state_id,
+                    super::item::ParseItemSetDisplay(
+                        &self.item_sets_by_state_id[entry.state_id],
+                        self.syntax_grammar,
+                        self.lexical_grammar,
+                    ),
+                    super::item::ParseItemSetDisplay(
+                        &item_set,
+                        self.syntax_grammar,
+                        self.lexical_grammar,
+                    )
+                );
+            }
 
             self.add_actions(
                 entry.preceding_symbols,
@@ -553,6 +551,7 @@ impl<'a> ParseTableBuilder<'a> {
                 )
                 .unwrap();
             }
+            write!(&mut msg, "\n").unwrap();
         }
 
         for item in &conflicting_items {
@@ -560,7 +559,7 @@ impl<'a> ParseTableBuilder<'a> {
                 resolution_count += 1;
                 write!(
                     &mut msg,
-                    "  {}: Specify a higher precedence in `{}` than in the other rules.\n",
+                    "  {}:  Specify a higher precedence in `{}` than in the other rules.\n",
                     resolution_count,
                     self.symbol_name(&Symbol::non_terminal(item.variable_index as usize))
                 )
@@ -571,7 +570,7 @@ impl<'a> ParseTableBuilder<'a> {
         resolution_count += 1;
         write!(
             &mut msg,
-            "  {}: Add a conflict for these rules: ",
+            "  {}:  Add a conflict for these rules: ",
             resolution_count
         )
         .unwrap();
@@ -714,10 +713,12 @@ pub(crate) fn build_parse_table(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     inlines: &InlinedProductionMap,
+    state_ids_to_log: Vec<usize>,
 ) -> Result<(ParseTable, Vec<LookaheadSet>)> {
     ParseTableBuilder {
         syntax_grammar,
         lexical_grammar,
+        state_ids_to_log,
         item_set_builder: ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines),
         state_ids_by_item_set: HashMap::new(),
         item_sets_by_state_id: Vec::new(),
