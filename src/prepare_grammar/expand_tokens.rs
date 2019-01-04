@@ -28,6 +28,13 @@ fn get_implicit_precedence(rule: &Rule) -> i32 {
     }
 }
 
+fn get_completion_precedence(rule: &Rule) -> i32 {
+    match rule {
+        Rule::Metadata { params, .. } => params.precedence.unwrap_or(0),
+        _ => 0,
+    }
+}
+
 pub(crate) fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<LexicalGrammar> {
     let mut builder = NfaBuilder {
         nfa: Nfa::new(),
@@ -52,7 +59,7 @@ pub(crate) fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<Lexi
         builder.is_sep = false;
         builder.nfa.states.push(NfaState::Accept {
             variable_index: i,
-            precedence: 0,
+            precedence: get_completion_precedence(&variable.rule),
         });
         let last_state_id = builder.nfa.last_state_id();
         builder
@@ -345,7 +352,6 @@ impl NfaBuilder {
 
     fn push_advance(&mut self, chars: CharacterSet, state_id: u32) {
         let precedence = *self.precedence_stack.last().unwrap();
-        self.add_precedence(precedence, vec![state_id]);
         self.nfa.states.push(NfaState::Advance {
             chars,
             state_id,
@@ -359,28 +365,6 @@ impl NfaBuilder {
         self.nfa
             .states
             .push(NfaState::Split(state_id, last_state_id));
-    }
-
-    fn add_precedence(&mut self, prec: i32, mut state_ids: Vec<u32>) {
-        let mut i = 0;
-        while i < state_ids.len() {
-            let state_id = state_ids[i];
-            let (left, right) = match &mut self.nfa.states[state_id as usize] {
-                NfaState::Accept { precedence, .. } => {
-                    *precedence = prec;
-                    return;
-                }
-                NfaState::Split(left, right) => (*left, *right),
-                _ => return,
-            };
-            if !state_ids.contains(&left) {
-                state_ids.push(left);
-            }
-            if !state_ids.contains(&right) {
-                state_ids.push(right);
-            }
-            i += 1;
-        }
     }
 }
 
@@ -551,17 +535,21 @@ mod tests {
                     ("aeeeef", Some((2, "aeeee"))),
                 ],
             },
+            // immediate tokens with higher precedence
             Row {
                 rules: vec![
-                    Rule::seq(vec![
-                        Rule::string("a"),
-                        Rule::choice(vec![
-                            Rule::string("b"),
-                            Rule::string("c"),
-                        ]),
-                        Rule::string("d"),
-                    ])
+                    Rule::prec(1, Rule::pattern("[^a]+")),
+                    Rule::immediate_token(Rule::prec(2, Rule::pattern("[^ab]+"))),
                 ],
+                separators: vec![Rule::pattern("\\s")],
+                examples: vec![("cccb", Some((1, "ccc")))],
+            },
+            Row {
+                rules: vec![Rule::seq(vec![
+                    Rule::string("a"),
+                    Rule::choice(vec![Rule::string("b"), Rule::string("c")]),
+                    Rule::string("d"),
+                ])],
                 separators: vec![],
                 examples: vec![
                     ("abd", Some((0, "abd"))),
@@ -570,34 +558,24 @@ mod tests {
                     ("ad", None),
                     ("d", None),
                     ("a", None),
-                ]
+                ],
             },
             // nested choices within sequences
             Row {
-                rules: vec![
-                    Rule::seq(vec![
-                        Rule::pattern("[0-9]+"),
-                        Rule::choice(vec![
-                            Rule::Blank,
+                rules: vec![Rule::seq(vec![
+                    Rule::pattern("[0-9]+"),
+                    Rule::choice(vec![
+                        Rule::Blank,
+                        Rule::choice(vec![Rule::seq(vec![
+                            Rule::choice(vec![Rule::string("e"), Rule::string("E")]),
                             Rule::choice(vec![
-                                Rule::seq(vec![
-                                    Rule::choice(vec![
-                                        Rule::string("e"),
-                                        Rule::string("E")
-                                    ]),
-                                    Rule::choice(vec![
-                                        Rule::Blank,
-                                        Rule::choice(vec![
-                                            Rule::string("+"),
-                                            Rule::string("-"),
-                                        ])
-                                    ]),
-                                    Rule::pattern("[0-9]+"),
-                                ])
-                            ])
-                        ]),
+                                Rule::Blank,
+                                Rule::choice(vec![Rule::string("+"), Rule::string("-")]),
+                            ]),
+                            Rule::pattern("[0-9]+"),
+                        ])]),
                     ]),
-                ],
+                ])],
                 separators: vec![],
                 examples: vec![
                     ("12", Some((0, "12"))),
