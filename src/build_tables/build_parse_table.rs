@@ -675,6 +675,9 @@ impl<'a> ParseTableBuilder<'a> {
         while alias_sequence.last() == Some(&None) {
             alias_sequence.pop();
         }
+        if item.production.steps.len() > self.parse_table.max_aliased_production_length {
+            self.parse_table.max_aliased_production_length = item.production.steps.len()
+        }
         if let Some(index) = self
             .parse_table
             .alias_sequences
@@ -721,8 +724,9 @@ pub(crate) fn build_parse_table(
         parse_state_queue: VecDeque::new(),
         parse_table: ParseTable {
             states: Vec::new(),
-            alias_sequences: Vec::new(),
             symbols: Vec::new(),
+            alias_sequences: Vec::new(),
+            max_aliased_production_length: 0,
         },
         following_tokens: vec![LookaheadSet::new(); lexical_grammar.variables.len()],
     }

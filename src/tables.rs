@@ -44,6 +44,7 @@ pub(crate) struct ParseTable {
     pub states: Vec<ParseState>,
     pub symbols: Vec<Symbol>,
     pub alias_sequences: Vec<Vec<Option<Alias>>>,
+    pub max_aliased_production_length: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

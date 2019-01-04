@@ -191,17 +191,11 @@ impl Generator {
             "#define EXTERNAL_TOKEN_COUNT {}",
             self.syntax_grammar.external_tokens.len()
         );
-        if let Some(max_alias_sequence_length) = self
-            .parse_table
-            .alias_sequences
-            .iter()
-            .map(|seq| seq.len())
-            .max()
-        {
+        if self.parse_table.max_aliased_production_length > 0 {
             add_line!(
                 self,
                 "#define MAX_ALIAS_SEQUENCE_LENGTH {}",
-                max_alias_sequence_length
+                self.parse_table.max_aliased_production_length
             );
         }
         add_line!(self, "");
