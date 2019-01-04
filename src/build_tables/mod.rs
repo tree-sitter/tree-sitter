@@ -43,6 +43,11 @@ pub(crate) fn build_tables(
         &coincident_token_index,
         &token_conflict_map,
     );
+    mark_fragile_tokens(
+        &mut parse_table,
+        lexical_grammar,
+        &token_conflict_map,
+    );
     if minimize {
         minimize_parse_table(
             &mut parse_table,
@@ -236,6 +241,34 @@ fn identify_keywords(
     }));
 
     keywords
+}
+
+fn mark_fragile_tokens(
+    parse_table: &mut ParseTable,
+    lexical_grammar: &LexicalGrammar,
+    token_conflict_map: &TokenConflictMap,
+) {
+    let n = lexical_grammar.variables.len();
+    let mut valid_tokens_mask = Vec::with_capacity(n);
+    for state in parse_table.states.iter_mut() {
+        valid_tokens_mask.clear();
+        valid_tokens_mask.resize(n, false);
+        for token in state.terminal_entries.keys() {
+            if token.is_terminal() {
+                valid_tokens_mask[token.index] = true;
+            }
+        }
+        for (token, entry) in state.terminal_entries.iter_mut() {
+            for i in 0..n {
+                if token_conflict_map.does_overlap(i, token.index) {
+                    if valid_tokens_mask[i] {
+                        entry.reusable = false;
+                        break;
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn all_chars_are_alphabetical(cursor: &NfaCursor) -> bool {
