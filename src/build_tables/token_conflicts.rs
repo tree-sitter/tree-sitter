@@ -1,6 +1,6 @@
 use crate::build_tables::item::LookaheadSet;
 use crate::grammars::LexicalGrammar;
-use crate::nfa::{CharacterSet, NfaCursor};
+use crate::nfa::{CharacterSet, NfaCursor, NfaTransition};
 use hashbrown::HashSet;
 use std::cmp::Ordering;
 use std::fmt;
@@ -131,7 +131,7 @@ fn get_starting_chars(cursor: &mut NfaCursor, grammar: &LexicalGrammar) -> Vec<C
     for variable in &grammar.variables {
         cursor.reset(vec![variable.start_state]);
         let mut all_chars = CharacterSet::empty();
-        for (chars, _, _, _) in cursor.successors() {
+        for (chars, _) in cursor.transition_chars() {
             all_chars = all_chars.add(chars);
         }
         result.push(all_chars);
@@ -215,12 +215,18 @@ fn compute_conflict_status(
             }
         }
 
-        for (chars, advance_precedence, next_states, in_sep) in cursor.grouped_successors() {
+        for NfaTransition {
+            characters,
+            precedence,
+            states,
+            is_separator,
+        } in cursor.transitions()
+        {
             let mut can_advance = true;
             if let Some((completed_id, completed_precedence)) = completion {
                 let mut other_id = None;
                 let mut successor_contains_completed_id = false;
-                for variable_id in variable_ids_for_states(&next_states, grammar) {
+                for variable_id in variable_ids_for_states(&states, grammar) {
                     if variable_id == completed_id {
                         successor_contains_completed_id = true;
                         break;
@@ -231,7 +237,7 @@ fn compute_conflict_status(
 
                 if let (Some(other_id), false) = (other_id, successor_contains_completed_id) {
                     let winning_id;
-                    if advance_precedence < completed_precedence {
+                    if precedence < completed_precedence {
                         winning_id = completed_id;
                         can_advance = false;
                     } else {
@@ -240,23 +246,23 @@ fn compute_conflict_status(
 
                     if winning_id == i {
                         result.0.does_overlap = true;
-                        if chars.does_intersect(&following_chars[j]) {
+                        if characters.does_intersect(&following_chars[j]) {
                             result.0.does_match_valid_continuation = true;
                         }
-                        if in_sep {
+                        if is_separator {
                             result.0.does_match_separators = true;
                         }
                     } else {
                         result.1.does_overlap = true;
-                        if chars.does_intersect(&following_chars[i]) {
+                        if characters.does_intersect(&following_chars[i]) {
                             result.1.does_match_valid_continuation = true;
                         }
                     }
                 }
             }
 
-            if can_advance && visited_state_sets.insert(next_states.clone()) {
-                state_set_queue.push(next_states);
+            if can_advance && visited_state_sets.insert(states.clone()) {
+                state_set_queue.push(states);
             }
         }
     }

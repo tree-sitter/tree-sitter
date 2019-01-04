@@ -1,7 +1,7 @@
 use super::item::LookaheadSet;
 use super::token_conflicts::TokenConflictMap;
 use crate::grammars::{LexicalGrammar, SyntaxGrammar};
-use crate::nfa::{CharacterSet, NfaCursor};
+use crate::nfa::{CharacterSet, NfaCursor, NfaTransition};
 use crate::rules::Symbol;
 use crate::tables::{AdvanceAction, LexState, LexTable, ParseTable};
 use std::collections::hash_map::Entry;
@@ -157,8 +157,8 @@ impl<'a> LexTableBuilder<'a> {
             completion.map(|(id, prec)| (&self.lexical_grammar.variables[id].name, prec))
         );
 
-        let successors = self.cursor.grouped_successors();
-        info!("lex state: {}, successors: {:?}", state_id, successors);
+        let transitions = self.cursor.transitions();
+        info!("lex state: {}, transitions: {:?}", state_id, transitions);
 
         // If EOF is a valid lookahead token, add a transition predicated on the null
         // character that leads to the empty set of NFA states.
@@ -174,20 +174,26 @@ impl<'a> LexTableBuilder<'a> {
             ));
         }
 
-        for (chars, advance_precedence, next_states, is_sep) in successors {
+        for NfaTransition {
+            characters,
+            precedence,
+            states,
+            is_separator,
+        } in transitions
+        {
             if let Some((_, completed_precedence)) = completion {
-                if advance_precedence < completed_precedence
-                    || (advance_precedence == completed_precedence && is_sep)
+                if precedence < completed_precedence
+                    || (precedence == completed_precedence && is_separator)
                 {
                     continue;
                 }
             }
-            let (next_state_id, _) = self.add_state(next_states, eof_valid && is_sep);
+            let (next_state_id, _) = self.add_state(states, eof_valid && is_separator);
             self.table.states[state_id].advance_actions.push((
-                chars,
+                characters,
                 AdvanceAction {
                     state: next_state_id,
-                    in_main_token: !is_sep,
+                    in_main_token: !is_separator,
                 },
             ));
         }

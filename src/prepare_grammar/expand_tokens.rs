@@ -372,7 +372,7 @@ impl NfaBuilder {
 mod tests {
     use super::*;
     use crate::grammars::Variable;
-    use crate::nfa::NfaCursor;
+    use crate::nfa::{NfaCursor, NfaTransition};
 
     fn simulate_nfa<'a>(grammar: &'a LexicalGrammar, s: &'a str) -> Option<(usize, &'a str)> {
         let start_states = grammar.variables.iter().map(|v| v.start_state).collect();
@@ -389,14 +389,18 @@ mod tests {
                     result_precedence = precedence;
                 }
             }
-            if let Some((_, _, next_states, in_sep)) = cursor
-                .grouped_successors()
+            if let Some(NfaTransition {
+                states,
+                is_separator,
+                ..
+            }) = cursor
+                .transitions()
                 .into_iter()
-                .find(|(chars, prec, _, _)| chars.contains(c) && *prec >= result_precedence)
+                .find(|t| t.characters.contains(c) && t.precedence >= result_precedence)
             {
-                cursor.reset(next_states);
+                cursor.reset(states);
                 end_char += 1;
-                if in_sep {
+                if is_separator {
                     start_char = end_char;
                 }
             } else {

@@ -30,16 +30,24 @@ pub struct Nfa {
     pub states: Vec<NfaState>,
 }
 
-impl Default for Nfa {
-    fn default() -> Self {
-        Self { states: Vec::new() }
-    }
-}
-
 #[derive(Debug)]
 pub struct NfaCursor<'a> {
     pub(crate) state_ids: Vec<u32>,
     nfa: &'a Nfa,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct NfaTransition {
+    pub characters: CharacterSet,
+    pub is_separator: bool,
+    pub precedence: i32,
+    pub states: Vec<u32>,
+}
+
+impl Default for Nfa {
+    fn default() -> Self {
+        Self { states: Vec::new() }
+    }
 }
 
 impl CharacterSet {
@@ -328,7 +336,15 @@ impl<'a> NfaCursor<'a> {
         self.state_ids = states
     }
 
-    pub fn successors(&self) -> impl Iterator<Item = (&CharacterSet, i32, u32, bool)> {
+    pub fn transition_chars(&self) -> impl Iterator<Item = (&CharacterSet, bool)> {
+        self.raw_transitions().map(|t| (t.0, t.1))
+    }
+
+    pub fn transitions(&self) -> Vec<NfaTransition> {
+        Self::group_transitions(self.raw_transitions())
+    }
+
+    fn raw_transitions(&self) -> impl Iterator<Item = (&CharacterSet, bool, i32, u32)> {
         self.state_ids.iter().filter_map(move |id| {
             if let NfaState::Advance {
                 chars,
@@ -337,52 +353,53 @@ impl<'a> NfaCursor<'a> {
                 is_sep,
             } = &self.nfa.states[*id as usize]
             {
-                Some((chars, *precedence, *state_id, *is_sep))
+                Some((chars, *is_sep, *precedence, *state_id))
             } else {
                 None
             }
         })
     }
 
-    pub fn grouped_successors(&self) -> Vec<(CharacterSet, i32, Vec<u32>, bool)> {
-        Self::group_successors(self.successors())
-    }
-
-    fn group_successors<'b>(
-        iter: impl Iterator<Item = (&'b CharacterSet, i32, u32, bool)>,
-    ) -> Vec<(CharacterSet, i32, Vec<u32>, bool)> {
-        let mut result: Vec<(CharacterSet, i32, Vec<u32>, bool)> = Vec::new();
-        for (chars, prec, state, is_sep) in iter {
+    fn group_transitions<'b>(
+        iter: impl Iterator<Item = (&'b CharacterSet, bool, i32, u32)>,
+    ) -> Vec<NfaTransition> {
+        let mut result: Vec<NfaTransition> = Vec::new();
+        for (chars, is_sep, prec, state) in iter {
             let mut chars = chars.clone();
             let mut i = 0;
             while i < result.len() && !chars.is_empty() {
-                let intersection = result[i].0.remove_intersection(&mut chars);
+                let intersection = result[i].characters.remove_intersection(&mut chars);
                 if !intersection.is_empty() {
-                    let mut intersection_states = result[i].2.clone();
+                    let mut intersection_states = result[i].states.clone();
                     match intersection_states.binary_search(&state) {
                         Err(j) => intersection_states.insert(j, state),
                         _ => {}
                     }
-                    let intersection_entry = (
-                        intersection,
-                        max(result[i].1, prec),
-                        intersection_states,
-                        result[i].3 || is_sep,
-                    );
-                    if result[i].0.is_empty() {
-                        result[i] = intersection_entry;
+                    let intersection_transition = NfaTransition {
+                        characters: intersection,
+                        is_separator: result[i].is_separator || is_sep,
+                        precedence: max(result[i].precedence, prec),
+                        states: intersection_states,
+                    };
+                    if result[i].characters.is_empty() {
+                        result[i] = intersection_transition;
                     } else {
-                        result.insert(i, intersection_entry);
+                        result.insert(i, intersection_transition);
                         i += 1;
                     }
                 }
                 i += 1;
             }
             if !chars.is_empty() {
-                result.push((chars, prec, vec![state], is_sep));
+                result.push(NfaTransition {
+                    characters: chars,
+                    precedence: prec,
+                    states: vec![state],
+                    is_separator: is_sep,
+                });
             }
         }
-        result.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+        result.sort_unstable_by(|a, b| a.characters.cmp(&b.characters));
         result
     }
 
@@ -435,111 +452,173 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_group_successors() {
+    fn test_group_transitions() {
         let table = [
             // overlapping character classes
             (
                 vec![
-                    (CharacterSet::empty().add_range('a', 'f'), 0, 1, false),
-                    (CharacterSet::empty().add_range('d', 'i'), 1, 2, false),
+                    (CharacterSet::empty().add_range('a', 'f'), false, 0, 1),
+                    (CharacterSet::empty().add_range('d', 'i'), false, 1, 2),
                 ],
                 vec![
-                    (CharacterSet::empty().add_range('a', 'c'), 0, vec![1], false),
-                    (
-                        CharacterSet::empty().add_range('d', 'f'),
-                        1,
-                        vec![1, 2],
-                        false,
-                    ),
-                    (CharacterSet::empty().add_range('g', 'i'), 1, vec![2], false),
+                    NfaTransition {
+                        characters: CharacterSet::empty().add_range('a', 'c'),
+                        is_separator: false,
+                        precedence: 0,
+                        states: vec![1],
+                    },
+                    NfaTransition {
+                        characters: CharacterSet::empty().add_range('d', 'f'),
+                        is_separator: false,
+                        precedence: 1,
+                        states: vec![1, 2],
+                    },
+                    NfaTransition {
+                        characters: CharacterSet::empty().add_range('g', 'i'),
+                        is_separator: false,
+                        precedence: 1,
+                        states: vec![2],
+                    },
                 ],
             ),
             // large character class followed by many individual characters
             (
                 vec![
-                    (CharacterSet::empty().add_range('a', 'z'), 0, 1, false),
-                    (CharacterSet::empty().add_char('d'), 0, 2, false),
-                    (CharacterSet::empty().add_char('i'), 0, 3, false),
-                    (CharacterSet::empty().add_char('f'), 0, 4, false),
+                    (CharacterSet::empty().add_range('a', 'z'), false, 0, 1),
+                    (CharacterSet::empty().add_char('d'), false, 0, 2),
+                    (CharacterSet::empty().add_char('i'), false, 0, 3),
+                    (CharacterSet::empty().add_char('f'), false, 0, 4),
                 ],
                 vec![
-                    (CharacterSet::empty().add_char('d'), 0, vec![1, 2], false),
-                    (CharacterSet::empty().add_char('f'), 0, vec![1, 4], false),
-                    (CharacterSet::empty().add_char('i'), 0, vec![1, 3], false),
-                    (
-                        CharacterSet::empty()
+                    NfaTransition {
+                        characters: CharacterSet::empty().add_char('d'),
+                        is_separator: false,
+                        precedence: 0,
+                        states: vec![1, 2],
+                    },
+                    NfaTransition {
+                        characters: CharacterSet::empty().add_char('f'),
+                        is_separator: false,
+                        precedence: 0,
+                        states: vec![1, 4],
+                    },
+                    NfaTransition {
+                        characters: CharacterSet::empty().add_char('i'),
+                        is_separator: false,
+                        precedence: 0,
+                        states: vec![1, 3],
+                    },
+                    NfaTransition {
+                        characters: CharacterSet::empty()
                             .add_range('a', 'c')
                             .add_char('e')
                             .add_range('g', 'h')
                             .add_range('j', 'z'),
-                        0,
-                        vec![1],
-                        false,
-                    ),
+                        is_separator: false,
+                        precedence: 0,
+                        states: vec![1],
+                    },
                 ],
             ),
             // negated character class followed by an individual character
             (
                 vec![
-                    (CharacterSet::empty().add_char('0'), 0, 1, false),
-                    (CharacterSet::empty().add_char('b'), 0, 2, false),
+                    (CharacterSet::empty().add_char('0'), false, 0, 1),
+                    (CharacterSet::empty().add_char('b'), false, 0, 2),
                     (
                         CharacterSet::empty().add_range('a', 'f').negate(),
+                        false,
                         0,
                         3,
-                        false,
                     ),
-                    (CharacterSet::empty().add_char('c'), 0, 4, false),
+                    (CharacterSet::empty().add_char('c'), false, 0, 4),
                 ],
                 vec![
-                    (CharacterSet::empty().add_char('0'), 0, vec![1, 3], false),
-                    (CharacterSet::empty().add_char('b'), 0, vec![2], false),
-                    (CharacterSet::empty().add_char('c'), 0, vec![4], false),
-                    (
-                        CharacterSet::empty()
+                    NfaTransition {
+                        characters: CharacterSet::empty().add_char('0'),
+                        precedence: 0,
+                        states: vec![1, 3],
+                        is_separator: false,
+                    },
+                    NfaTransition {
+                        characters: CharacterSet::empty().add_char('b'),
+                        precedence: 0,
+                        states: vec![2],
+                        is_separator: false,
+                    },
+                    NfaTransition {
+                        characters: CharacterSet::empty().add_char('c'),
+                        precedence: 0,
+                        states: vec![4],
+                        is_separator: false,
+                    },
+                    NfaTransition {
+                        characters: CharacterSet::empty()
                             .add_range('a', 'f')
                             .add_char('0')
                             .negate(),
-                        0,
-                        vec![3],
-                        false,
-                    ),
+                        precedence: 0,
+                        states: vec![3],
+                        is_separator: false,
+                    },
                 ],
             ),
             // multiple negated character classes
             (
                 vec![
-                    (CharacterSet::Include(vec!['a']), 0, 1, false),
-                    (CharacterSet::Exclude(vec!['a', 'b', 'c']), 0, 2, false),
-                    (CharacterSet::Include(vec!['g']), 0, 6, false),
-                    (CharacterSet::Exclude(vec!['d', 'e', 'f']), 0, 3, false),
-                    (CharacterSet::Exclude(vec!['g', 'h', 'i']), 0, 4, false),
-                    (CharacterSet::Include(vec!['g']), 0, 5, false),
+                    (CharacterSet::Include(vec!['a']), false, 0, 1),
+                    (CharacterSet::Exclude(vec!['a', 'b', 'c']), false, 0, 2),
+                    (CharacterSet::Include(vec!['g']), false, 0, 6),
+                    (CharacterSet::Exclude(vec!['d', 'e', 'f']), false, 0, 3),
+                    (CharacterSet::Exclude(vec!['g', 'h', 'i']), false, 0, 4),
+                    (CharacterSet::Include(vec!['g']), false, 0, 5),
                 ],
                 vec![
-                    (CharacterSet::Include(vec!['a']), 0, vec![1, 3, 4], false),
-                    (CharacterSet::Include(vec!['g']), 0, vec![2, 3, 5, 6], false),
-                    (CharacterSet::Include(vec!['b', 'c']), 0, vec![3, 4], false),
-                    (CharacterSet::Include(vec!['h', 'i']), 0, vec![2, 3], false),
-                    (
-                        CharacterSet::Include(vec!['d', 'e', 'f']),
-                        0,
-                        vec![2, 4],
-                        false,
-                    ),
-                    (
-                        CharacterSet::Exclude(vec!['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']),
-                        0,
-                        vec![2, 3, 4],
-                        false,
-                    ),
+                    NfaTransition {
+                        characters: CharacterSet::Include(vec!['a']),
+                        precedence: 0,
+                        states: vec![1, 3, 4],
+                        is_separator: false,
+                    },
+                    NfaTransition {
+                        characters: CharacterSet::Include(vec!['g']),
+                        precedence: 0,
+                        states: vec![2, 3, 5, 6],
+                        is_separator: false,
+                    },
+                    NfaTransition {
+                        characters: CharacterSet::Include(vec!['b', 'c']),
+                        precedence: 0,
+                        states: vec![3, 4],
+                        is_separator: false,
+                    },
+                    NfaTransition {
+                        characters: CharacterSet::Include(vec!['h', 'i']),
+                        precedence: 0,
+                        states: vec![2, 3],
+                        is_separator: false,
+                    },
+                    NfaTransition {
+                        characters: CharacterSet::Include(vec!['d', 'e', 'f']),
+                        precedence: 0,
+                        states: vec![2, 4],
+                        is_separator: false,
+                    },
+                    NfaTransition {
+                        characters: CharacterSet::Exclude(vec![
+                            'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i',
+                        ]),
+                        precedence: 0,
+                        states: vec![2, 3, 4],
+                        is_separator: false,
+                    },
                 ],
             ),
         ];
 
         for row in table.iter() {
             assert_eq!(
-                NfaCursor::group_successors(row.0.iter().map(|(c, p, s, sep)| (c, *p, *s, *sep))),
+                NfaCursor::group_transitions(row.0.iter().map(|(c, sep, p, s)| (c, *sep, *p, *s))),
                 row.1
             );
         }
