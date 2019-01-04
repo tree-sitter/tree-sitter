@@ -232,15 +232,13 @@ impl Generator {
         add_line!(self, "static const char *ts_symbol_names[] = {{");
         indent!(self);
         for symbol in self.parse_table.symbols.iter() {
-            if *symbol != Symbol::end() {
-                let name = self.sanitize_string(
-                    self.simple_aliases
-                        .get(symbol)
-                        .map(|alias| alias.value.as_str())
-                        .unwrap_or(self.metadata_for_symbol(*symbol).0),
-                );
-                add_line!(self, "[{}] = \"{}\",", self.symbol_ids[&symbol], name);
-            }
+            let name = self.sanitize_string(
+                self.simple_aliases
+                    .get(symbol)
+                    .map(|alias| alias.value.as_str())
+                    .unwrap_or(self.metadata_for_symbol(*symbol).0),
+            );
+            add_line!(self, "[{}] = \"{}\",", self.symbol_ids[&symbol], name);
         }
         for (alias, symbol) in &self.alias_map {
             if symbol.is_none() {
@@ -864,7 +862,7 @@ impl Generator {
 
     fn metadata_for_symbol(&self, symbol: Symbol) -> (&str, VariableType) {
         match symbol.kind {
-            SymbolType::End => ("end", VariableType::Auxiliary),
+            SymbolType::End => ("end", VariableType::Hidden),
             SymbolType::NonTerminal => {
                 let variable = &self.syntax_grammar.variables[symbol.index];
                 (&variable.name, variable.kind)
@@ -950,7 +948,7 @@ impl Generator {
     fn add_character(&mut self, c: char) {
         if c.is_ascii() {
             match c {
-                '\0' => add!(self, "'\\0'"),
+                '\0' => add!(self, "0"),
                 '\'' => add!(self, "'\\''"),
                 '\\' => add!(self, "'\\\\'"),
                 '\t' => add!(self, "'\\t'"),

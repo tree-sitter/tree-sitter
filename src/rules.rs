@@ -3,9 +3,9 @@ use hashbrown::HashMap;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum SymbolType {
     External,
+    End,
     Terminal,
     NonTerminal,
-    End,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]

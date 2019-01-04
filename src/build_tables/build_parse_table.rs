@@ -531,7 +531,6 @@ impl<'a> ParseTableBuilder<'a> {
     }
 
     fn populate_used_symbols(&mut self) {
-        self.parse_table.symbols.push(Symbol::end());
         let mut terminal_usages = vec![false; self.lexical_grammar.variables.len()];
         let mut non_terminal_usages = vec![false; self.syntax_grammar.variables.len()];
         let mut external_usages = vec![false; self.syntax_grammar.external_tokens.len()];
@@ -547,14 +546,15 @@ impl<'a> ParseTableBuilder<'a> {
                 non_terminal_usages[symbol.index] = true;
             }
         }
-        for (i, value) in terminal_usages.into_iter().enumerate() {
-            if value {
-                self.parse_table.symbols.push(Symbol::terminal(i));
-            }
-        }
         for (i, value) in external_usages.into_iter().enumerate() {
             if value {
                 self.parse_table.symbols.push(Symbol::external(i));
+            }
+        }
+        self.parse_table.symbols.push(Symbol::end());
+        for (i, value) in terminal_usages.into_iter().enumerate() {
+            if value {
+                self.parse_table.symbols.push(Symbol::terminal(i));
             }
         }
         for (i, value) in non_terminal_usages.into_iter().enumerate() {
