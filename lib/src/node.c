@@ -1,7 +1,7 @@
 #include <stdbool.h>
-#include "runtime/subtree.h"
-#include "runtime/tree.h"
-#include "runtime/language.h"
+#include "./subtree.h"
+#include "./tree.h"
+#include "./language.h"
 
 typedef struct {
   Subtree parent;

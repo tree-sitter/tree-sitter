@@ -7,9 +7,9 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdio.h>
-#include "runtime/length.h"
-#include "runtime/array.h"
-#include "runtime/error_costs.h"
+#include "./length.h"
+#include "./array.h"
+#include "./error_costs.h"
 #include "tree_sitter/runtime.h"
 #include "tree_sitter/parser.h"
 

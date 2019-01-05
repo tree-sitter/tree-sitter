@@ -10,7 +10,7 @@ extern "C" {
 #include <stdint.h>
 #include <assert.h>
 #include <stdbool.h>
-#include "runtime/alloc.h"
+#include "./alloc.h"
 
 #define Array(T)     \
   struct {           \

@@ -3,18 +3,18 @@
 #include <limits.h>
 #include <stdbool.h>
 #include "tree_sitter/runtime.h"
-#include "runtime/subtree.h"
-#include "runtime/lexer.h"
-#include "runtime/length.h"
-#include "runtime/array.h"
-#include "runtime/language.h"
-#include "runtime/alloc.h"
-#include "runtime/stack.h"
-#include "runtime/reusable_node.h"
-#include "runtime/reduce_action.h"
-#include "runtime/error_costs.h"
-#include "runtime/get_changed_ranges.h"
-#include "runtime/tree.h"
+#include "./subtree.h"
+#include "./lexer.h"
+#include "./length.h"
+#include "./array.h"
+#include "./language.h"
+#include "./alloc.h"
+#include "./stack.h"
+#include "./reusable_node.h"
+#include "./reduce_action.h"
+#include "./error_costs.h"
+#include "./get_changed_ranges.h"
+#include "./tree.h"
 
 #define LOG(...)                                                                            \
   if (self->lexer.logger.log || self->dot_graph_file) {                                     \

@@ -5,8 +5,8 @@
 extern "C" {
 #endif
 
-#include "runtime/length.h"
-#include "runtime/subtree.h"
+#include "./length.h"
+#include "./subtree.h"
 #include "tree_sitter/runtime.h"
 #include "tree_sitter/parser.h"
 

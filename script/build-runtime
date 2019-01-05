@@ -11,11 +11,11 @@ ${CC}                   \
   -c                    \
   -O3                   \
   -std=c99              \
-  -I src                \
-  -I include            \
-  -I externals/utf8proc \
-  src/runtime/runtime.c \
-  -o runtime.o
+  -I lib/src            \
+  -I lib/include        \
+  -I lib/utf8proc       \
+  lib/src/runtime.c     \
+  -o tree-sitter.o
 
-ar rcs libruntime.a runtime.o
-rm runtime.o
+ar rcs libtree-sitter.a tree-sitter.o
+rm tree-sitter.o

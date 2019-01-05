@@ -4,12 +4,12 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
-#include "runtime/alloc.h"
-#include "runtime/atomic.h"
-#include "runtime/subtree.h"
-#include "runtime/length.h"
-#include "runtime/language.h"
-#include "runtime/error_costs.h"
+#include "./alloc.h"
+#include "./atomic.h"
+#include "./subtree.h"
+#include "./length.h"
+#include "./language.h"
+#include "./error_costs.h"
 #include <stddef.h>
 
 typedef struct {

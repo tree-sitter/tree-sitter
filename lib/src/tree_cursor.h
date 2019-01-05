@@ -1,7 +1,7 @@
 #ifndef RUNTIME_TREE_CURSOR_H_
 #define RUNTIME_TREE_CURSOR_H_
 
-#include "runtime/subtree.h"
+#include "./subtree.h"
 
 typedef struct {
   const Subtree *subtree;

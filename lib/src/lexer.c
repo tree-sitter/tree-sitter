@@ -1,8 +1,8 @@
 #include <stdio.h>
-#include "runtime/lexer.h"
-#include "runtime/subtree.h"
-#include "runtime/length.h"
-#include "runtime/utf16.h"
+#include "./lexer.h"
+#include "./subtree.h"
+#include "./length.h"
+#include "./utf16.h"
 #include "utf8proc.h"
 
 #define LOG(...)                                                                      \

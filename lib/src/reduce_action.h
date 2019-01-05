@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#include "runtime/array.h"
+#include "./array.h"
 #include "tree_sitter/runtime.h"
 
 typedef struct {

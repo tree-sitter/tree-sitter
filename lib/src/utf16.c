@@ -1,4 +1,4 @@
-#include "runtime/utf16.h"
+#include "./utf16.h"
 
 utf8proc_ssize_t utf16_iterate(
   const utf8proc_uint8_t *string,

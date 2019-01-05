@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
-#include "runtime/point.h"
+#include "./point.h"
 #include "tree_sitter/runtime.h"
 
 typedef struct {

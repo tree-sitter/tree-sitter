@@ -1,9 +1,9 @@
-#include "runtime/alloc.h"
-#include "runtime/language.h"
-#include "runtime/subtree.h"
-#include "runtime/array.h"
-#include "runtime/stack.h"
-#include "runtime/length.h"
+#include "./alloc.h"
+#include "./language.h"
+#include "./subtree.h"
+#include "./array.h"
+#include "./stack.h"
+#include "./length.h"
 #include <assert.h>
 #include <stdio.h>
 

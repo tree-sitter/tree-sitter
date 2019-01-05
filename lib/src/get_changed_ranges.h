@@ -5,8 +5,8 @@
 extern "C" {
 #endif
 
-#include "runtime/tree_cursor.h"
-#include "runtime/subtree.h"
+#include "./tree_cursor.h"
+#include "./subtree.h"
 
 typedef Array(TSRange) TSRangeArray;
 
