@@ -1,2 +1,3 @@
 /target
 **/*.rs.bk
+fixtures/tree-sitter-rust

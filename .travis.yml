@@ -1,0 +1,14 @@
+language: rust
+
+rust:
+  - stable
+
+env:
+  - TREE_SITTER_TEST=1
+
+before_install:
+  - ./script/fetch-test-fixtures.sh
+
+branches:
+  only:
+  - master

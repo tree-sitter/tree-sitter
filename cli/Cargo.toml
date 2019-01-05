@@ -1,8 +1,12 @@
 [package]
-name = "rust-tree-sitter-cli"
+name = "tree-sitter-cli"
 version = "0.1.0"
 authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
 edition = "2018"
+
+[[bin]]
+name = "tree-sitter"
+path = "src/main.rs"
 
 [dependencies]
 lazy_static = "1.2.0"
@@ -15,8 +19,10 @@ libloading = "0.5"
 rusqlite = "0.14.0"
 serde = "1.0"
 serde_derive = "1.0"
-tree-sitter = "0.3.1"
 regex-syntax = "0.6.4"
+
+[dependencies.tree-sitter]
+path = "../lib"
 
 [dependencies.serde_json]
 version = "1.0"
