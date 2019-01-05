@@ -1,26 +1,27 @@
-image: Visual Studio 2017
+environment:
+  TREE_SITTER_TEST: true
+
+build: false
+
+install:
+  - git submodule update --init --recursive
+
+  - appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
+  - rustup-init -yv --default-toolchain stable
+  - set PATH=%PATH%;%USERPROFILE%\.cargo\bin
+  - rustc -vV
+  - cargo -vV
+
+  - script\fetch-test-fixtures.cmd
+
+test_script:
+  - cargo build
+  - cargo test
 
 branches:
   only:
     - master
 
-platform:
-  - x86
-  - x64
-
-init:
-  - git config --global core.autocrlf false
-
-install:
-  - IF "%PLATFORM%" == "x86" (call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars32.bat")
-  - IF "%PLATFORM%" == "x64" (call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat")
-  - script\configure.cmd
-  - script\fetch-fixtures.cmd
-
-test_script:
-  - script\test.cmd
-
-build: off
-
 cache:
-  - test\fixtures\grammars
+  - test\fixtures
+  - C:\Users\appveyor\.cargo

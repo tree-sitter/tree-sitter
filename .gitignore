@@ -1,22 +1,11 @@
-# Compiled binaries
-out
-*.a
-*.o
-
-fuzz-results
 log.html
-
-# Generated build config files
-gyp-mac-tool
-Makefile
-*.Makefile
-*.target.mk
-
-# IDE files
 .idea
 *.xcodeproj
-
-# Dev dependencies
+*.a
+*.o
+fuzz-results
 test/fixtures/grammars/*
 !test/fixtures/grammars/.gitkeep
-externals/cpplint.py
+
+/target
+**/*.rs.bk
