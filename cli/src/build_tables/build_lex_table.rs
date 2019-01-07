@@ -1,9 +1,10 @@
+use super::coincident_tokens::CoincidentTokenIndex;
 use super::item::TokenSet;
 use super::token_conflicts::TokenConflictMap;
 use crate::grammars::{LexicalGrammar, SyntaxGrammar};
 use crate::nfa::{CharacterSet, NfaCursor, NfaTransition};
 use crate::rules::Symbol;
-use crate::tables::{AdvanceAction, LexState, LexTable, ParseTable};
+use crate::tables::{AdvanceAction, LexState, LexTable, ParseStateId, ParseTable};
 use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 
@@ -12,6 +13,8 @@ pub(crate) fn build_lex_table(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     keywords: &TokenSet,
+    coincident_token_index: &CoincidentTokenIndex,
+    token_conflict_map: &TokenConflictMap,
     minimize: bool,
 ) -> (LexTable, LexTable) {
     let keyword_lex_table;
@@ -23,8 +26,8 @@ pub(crate) fn build_lex_table(
         keyword_lex_table = LexTable::default();
     }
 
-    let mut builder = LexTableBuilder::new(lexical_grammar);
-    for state in parse_table.states.iter_mut() {
+    let mut parse_state_ids_by_token_set: Vec<(TokenSet, Vec<ParseStateId>)> = Vec::new();
+    for (i, state) in parse_table.states.iter().enumerate() {
         let tokens = state
             .terminal_entries
             .keys()
@@ -42,7 +45,33 @@ pub(crate) fn build_lex_table(
                 }
             })
             .collect();
-        state.lex_state_id = builder.add_state_for_tokens(&tokens);
+
+        let mut did_merge = false;
+        for entry in parse_state_ids_by_token_set.iter_mut() {
+            if merge_token_set(
+                &mut entry.0,
+                &tokens,
+                lexical_grammar,
+                token_conflict_map,
+                coincident_token_index,
+            ) {
+                did_merge = true;
+                entry.1.push(i);
+                break;
+            }
+        }
+
+        if !did_merge {
+            parse_state_ids_by_token_set.push((tokens, vec![i]));
+        }
+    }
+
+    let mut builder = LexTableBuilder::new(lexical_grammar);
+    for (tokens, parse_state_ids) in parse_state_ids_by_token_set {
+        let lex_state_id = builder.add_state_for_tokens(&tokens);
+        for id in parse_state_ids {
+            parse_table.states[id].lex_state_id = lex_state_id;
+        }
     }
 
     let mut table = builder.table;
@@ -213,6 +242,34 @@ impl<'a> LexTableBuilder<'a> {
             self.table.states[state_id].accept_action = Some(Symbol::end());
         }
     }
+}
+
+fn merge_token_set(
+    tokens: &mut TokenSet,
+    other: &TokenSet,
+    lexical_grammar: &LexicalGrammar,
+    token_conflict_map: &TokenConflictMap,
+    coincident_token_index: &CoincidentTokenIndex,
+) -> bool {
+    for i in 0..lexical_grammar.variables.len() {
+        let symbol = Symbol::terminal(i);
+        let set_without_terminal = match (tokens.contains_terminal(i), other.contains_terminal(i)) {
+            (true, false) => other,
+            (false, true) => tokens,
+            _ => continue,
+        };
+
+        for existing_token in set_without_terminal.terminals() {
+            if token_conflict_map.does_conflict(i, existing_token.index)
+                || !coincident_token_index.contains(symbol, existing_token)
+            {
+                return false;
+            }
+        }
+    }
+
+    tokens.insert_all(other);
+    true
 }
 
 fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {

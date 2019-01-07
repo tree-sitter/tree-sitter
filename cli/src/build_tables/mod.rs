@@ -59,6 +59,8 @@ pub(crate) fn build_tables(
         syntax_grammar,
         lexical_grammar,
         &keywords,
+        &coincident_token_index,
+        &token_conflict_map,
         minimize,
     );
     Ok((

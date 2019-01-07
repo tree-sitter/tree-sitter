@@ -93,6 +93,19 @@ impl TokenSet {
             .chain(if self.eof { Some(Symbol::end()) } else { None })
     }
 
+    pub fn terminals<'a>(&'a self) -> impl Iterator<Item = Symbol> + 'a {
+        self.terminal_bits
+            .iter()
+            .enumerate()
+            .filter_map(|(i, value)| {
+                if value {
+                    Some(Symbol::terminal(i))
+                } else {
+                    None
+                }
+            })
+    }
+
     pub fn contains(&self, symbol: &Symbol) -> bool {
         match symbol.kind {
             SymbolType::NonTerminal => panic!("Cannot store non-terminals in a TokenSet"),
@@ -100,6 +113,10 @@ impl TokenSet {
             SymbolType::External => self.external_bits.get(symbol.index).unwrap_or(false),
             SymbolType::End => self.eof,
         }
+    }
+
+    pub fn contains_terminal(&self, index: usize) -> bool {
+        self.terminal_bits.get(index).unwrap_or(false)
     }
 
     pub fn insert(&mut self, other: Symbol) {
