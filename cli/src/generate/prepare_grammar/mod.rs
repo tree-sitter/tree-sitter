@@ -14,10 +14,10 @@ use self::flatten_grammar::flatten_grammar;
 use self::intern_symbols::intern_symbols;
 use self::process_inlines::process_inlines;
 use crate::error::Result;
-use crate::grammars::{
+use crate::generate::grammars::{
     ExternalToken, InlinedProductionMap, InputGrammar, LexicalGrammar, SyntaxGrammar, Variable,
 };
-use crate::rules::{AliasMap, Rule, Symbol};
+use crate::generate::rules::{AliasMap, Rule, Symbol};
 
 pub(crate) struct IntermediateGrammar<T, U> {
     variables: Vec<Variable>,

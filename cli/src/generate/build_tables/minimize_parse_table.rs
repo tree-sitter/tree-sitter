@@ -1,8 +1,8 @@
 use super::item::TokenSet;
 use super::token_conflicts::TokenConflictMap;
-use crate::grammars::{SyntaxGrammar, VariableType};
-use crate::rules::{AliasMap, Symbol};
-use crate::tables::{ParseAction, ParseState, ParseTable, ParseTableEntry};
+use crate::generate::grammars::{SyntaxGrammar, VariableType};
+use crate::generate::rules::{AliasMap, Symbol};
+use crate::generate::tables::{ParseAction, ParseState, ParseTable, ParseTableEntry};
 use hashbrown::{HashMap, HashSet};
 
 pub(crate) fn minimize_parse_table(

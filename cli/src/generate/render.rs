@@ -1,7 +1,7 @@
-use crate::grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType};
-use crate::nfa::CharacterSet;
-use crate::rules::{Alias, AliasMap, Symbol, SymbolType};
-use crate::tables::{AdvanceAction, LexState, LexTable, ParseAction, ParseTable, ParseTableEntry};
+use super::grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType};
+use super::nfa::CharacterSet;
+use super::rules::{Alias, AliasMap, Symbol, SymbolType};
+use super::tables::{AdvanceAction, LexState, LexTable, ParseAction, ParseTable, ParseTableEntry};
 use core::ops::Range;
 use hashbrown::{HashMap, HashSet};
 use std::fmt::Write;

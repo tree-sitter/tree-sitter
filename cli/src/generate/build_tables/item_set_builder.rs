@@ -1,6 +1,6 @@
 use super::item::{ParseItem, ParseItemDisplay, ParseItemSet, TokenSet};
-use crate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
-use crate::rules::Symbol;
+use crate::generate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
+use crate::generate::rules::Symbol;
 use hashbrown::{HashMap, HashSet};
 use std::fmt;
 

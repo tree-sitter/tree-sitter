@@ -1,7 +1,7 @@
 use super::InternedGrammar;
 use crate::error::{Error, Result};
-use crate::grammars::{InputGrammar, Variable, VariableType};
-use crate::rules::{Rule, Symbol};
+use crate::generate::grammars::{InputGrammar, Variable, VariableType};
+use crate::generate::rules::{Rule, Symbol};
 
 pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> {
     let interner = Interner { grammar };

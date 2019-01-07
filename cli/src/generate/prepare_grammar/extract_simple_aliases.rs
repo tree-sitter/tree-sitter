@@ -1,5 +1,5 @@
-use crate::rules::{Alias, AliasMap, Symbol, SymbolType};
-use crate::grammars::{LexicalGrammar, SyntaxGrammar};
+use crate::generate::rules::{Alias, AliasMap, Symbol, SymbolType};
+use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar};
 
 #[derive(Clone, Default)]
 struct SymbolStatus {
@@ -83,8 +83,8 @@ pub(super) fn extract_simple_aliases(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::grammars::{LexicalVariable, SyntaxVariable, VariableType, Production, ProductionStep};
-    use crate::nfa::Nfa;
+    use crate::generate::grammars::{LexicalVariable, SyntaxVariable, VariableType, Production, ProductionStep};
+    use crate::generate::nfa::Nfa;
 
     #[test]
     fn test_extract_simple_aliases() {

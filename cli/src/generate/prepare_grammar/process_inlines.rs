@@ -1,4 +1,4 @@
-use crate::grammars::{InlinedProductionMap, Production, ProductionStep, SyntaxGrammar};
+use crate::generate::grammars::{InlinedProductionMap, Production, ProductionStep, SyntaxGrammar};
 use hashbrown::HashMap;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -184,8 +184,8 @@ pub(super) fn process_inlines(grammar: &SyntaxGrammar) -> InlinedProductionMap {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::grammars::{ProductionStep, SyntaxVariable, VariableType};
-    use crate::rules::{Associativity, Symbol};
+    use crate::generate::grammars::{ProductionStep, SyntaxVariable, VariableType};
+    use crate::generate::rules::{Associativity, Symbol};
 
     #[test]
     fn test_basic_inlining() {

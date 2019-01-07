@@ -1,7 +1,7 @@
-use serde_json::{Map, Value};
+use super::grammars::{InputGrammar, Variable, VariableType};
+use super::rules::Rule;
 use crate::error::Result;
-use crate::grammars::{InputGrammar, Variable, VariableType};
-use crate::rules::Rule;
+use serde_json::{Map, Value};
 
 #[derive(Deserialize)]
 #[serde(tag = "type")]
@@ -81,20 +81,20 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
         })
     }
 
-    let extra_tokens = grammar_json.extras
+    let extra_tokens = grammar_json
+        .extras
         .unwrap_or(Vec::new())
         .into_iter()
         .map(parse_rule)
         .collect();
-    let external_tokens = grammar_json.externals
+    let external_tokens = grammar_json
+        .externals
         .unwrap_or(Vec::new())
         .into_iter()
         .map(parse_rule)
         .collect();
-    let expected_conflicts = grammar_json.conflicts
-        .unwrap_or(Vec::new());
-    let variables_to_inline = grammar_json.inline
-        .unwrap_or(Vec::new());
+    let expected_conflicts = grammar_json.conflicts.unwrap_or(Vec::new());
+    let variables_to_inline = grammar_json.inline.unwrap_or(Vec::new());
 
     Ok(InputGrammar {
         name: grammar_json.name,
@@ -109,7 +109,11 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
 
 fn parse_rule(json: RuleJSON) -> Rule {
     match json {
-        RuleJSON::ALIAS { content, value, named } => Rule::alias(parse_rule(*content), value, named),
+        RuleJSON::ALIAS {
+            content,
+            value,
+            named,
+        } => Rule::alias(parse_rule(*content), value, named),
         RuleJSON::BLANK => Rule::Blank,
         RuleJSON::STRING { value } => Rule::String(value),
         RuleJSON::PATTERN { value } => Rule::Pattern(value),
@@ -117,11 +121,15 @@ fn parse_rule(json: RuleJSON) -> Rule {
         RuleJSON::CHOICE { members } => Rule::choice(members.into_iter().map(parse_rule).collect()),
         RuleJSON::SEQ { members } => Rule::seq(members.into_iter().map(parse_rule).collect()),
         RuleJSON::REPEAT1 { content } => Rule::repeat(parse_rule(*content)),
-        RuleJSON::REPEAT { content } => Rule::choice(vec![Rule::repeat(parse_rule(*content)), Rule::Blank]),
+        RuleJSON::REPEAT { content } => {
+            Rule::choice(vec![Rule::repeat(parse_rule(*content)), Rule::Blank])
+        }
         RuleJSON::PREC { value, content } => Rule::prec(value, parse_rule(*content)),
         RuleJSON::PREC_LEFT { value, content } => Rule::prec_left(value, parse_rule(*content)),
         RuleJSON::PREC_RIGHT { value, content } => Rule::prec_right(value, parse_rule(*content)),
-        RuleJSON::PREC_DYNAMIC { value, content } => Rule::prec_dynamic(value, parse_rule(*content)),
+        RuleJSON::PREC_DYNAMIC { value, content } => {
+            Rule::prec_dynamic(value, parse_rule(*content))
+        }
         RuleJSON::TOKEN { content } => Rule::token(parse_rule(*content)),
         RuleJSON::IMMEDIATE_TOKEN { content } => Rule::immediate_token(parse_rule(*content)),
     }
@@ -133,7 +141,8 @@ mod tests {
 
     #[test]
     fn test_parse_grammar() {
-        let grammar = parse_grammar(r#"{
+        let grammar = parse_grammar(
+            r#"{
             "name": "my_lang",
             "rules": {
                 "file": {
@@ -148,20 +157,25 @@ mod tests {
                     "value": "foo"
                 }
             }
-        }"#).unwrap();
+        }"#,
+        )
+        .unwrap();
 
         assert_eq!(grammar.name, "my_lang");
-        assert_eq!(grammar.variables, vec![
-            Variable {
-                name: "file".to_string(),
-                kind: VariableType::Named,
-                rule: Rule::repeat(Rule::NamedSymbol("statement".to_string()))
-            },
-            Variable {
-                name: "statement".to_string(),
-                kind: VariableType::Named,
-                rule: Rule::String("foo".to_string())
-            },
-        ]);
+        assert_eq!(
+            grammar.variables,
+            vec![
+                Variable {
+                    name: "file".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::repeat(Rule::NamedSymbol("statement".to_string()))
+                },
+                Variable {
+                    name: "statement".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::String("foo".to_string())
+                },
+            ]
+        );
     }
 }

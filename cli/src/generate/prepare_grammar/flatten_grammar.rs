@@ -1,7 +1,7 @@
 use super::ExtractedSyntaxGrammar;
 use crate::error::Result;
-use crate::grammars::{Production, ProductionStep, SyntaxGrammar, SyntaxVariable, Variable};
-use crate::rules::{Alias, Associativity, Rule};
+use crate::generate::grammars::{Production, ProductionStep, SyntaxGrammar, SyntaxVariable, Variable};
+use crate::generate::rules::{Alias, Associativity, Rule};
 
 struct RuleFlattener {
     production: Production,
@@ -163,8 +163,8 @@ pub(super) fn flatten_grammar(grammar: ExtractedSyntaxGrammar) -> Result<SyntaxG
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::grammars::VariableType;
-    use crate::rules::Symbol;
+    use crate::generate::grammars::VariableType;
+    use crate::generate::rules::Symbol;
 
     #[test]
     fn test_flatten_grammar() {

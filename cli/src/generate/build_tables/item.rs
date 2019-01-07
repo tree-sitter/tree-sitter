@@ -1,6 +1,6 @@
-use crate::grammars::{LexicalGrammar, Production, ProductionStep, SyntaxGrammar};
-use crate::rules::Associativity;
-use crate::rules::{Symbol, SymbolType};
+use crate::generate::grammars::{LexicalGrammar, Production, ProductionStep, SyntaxGrammar};
+use crate::generate::rules::Associativity;
+use crate::generate::rules::{Symbol, SymbolType};
 use smallbitvec::SmallBitVec;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;

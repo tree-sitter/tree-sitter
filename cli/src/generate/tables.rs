@@ -1,5 +1,5 @@
-use crate::nfa::CharacterSet;
-use crate::rules::{Alias, Associativity, Symbol};
+use super::nfa::CharacterSet;
+use super::rules::{Alias, Associativity, Symbol};
 use hashbrown::HashMap;
 
 pub(crate) type AliasSequenceId = usize;

@@ -1,6 +1,6 @@
 use super::ExtractedSyntaxGrammar;
-use crate::grammars::{Variable, VariableType};
-use crate::rules::{Rule, Symbol};
+use crate::generate::grammars::{Variable, VariableType};
+use crate::generate::rules::{Rule, Symbol};
 use hashbrown::HashMap;
 use std::mem;
 

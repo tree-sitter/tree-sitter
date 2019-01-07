@@ -13,10 +13,10 @@ use self::item::TokenSet;
 use self::minimize_parse_table::minimize_parse_table;
 use self::token_conflicts::TokenConflictMap;
 use crate::error::Result;
-use crate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
-use crate::nfa::{CharacterSet, NfaCursor};
-use crate::rules::{AliasMap, Symbol};
-use crate::tables::{LexTable, ParseAction, ParseTable, ParseTableEntry};
+use crate::generate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
+use crate::generate::nfa::{CharacterSet, NfaCursor};
+use crate::generate::rules::{AliasMap, Symbol};
+use crate::generate::tables::{LexTable, ParseAction, ParseTable, ParseTableEntry};
 
 pub(crate) fn build_tables(
     syntax_grammar: &SyntaxGrammar,

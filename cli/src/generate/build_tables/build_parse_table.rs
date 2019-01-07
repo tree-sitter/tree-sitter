@@ -1,9 +1,9 @@
 use super::item::{ParseItem, ParseItemSet, TokenSet};
 use super::item_set_builder::ParseItemSetBuilder;
 use crate::error::{Error, Result};
-use crate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar, VariableType};
-use crate::rules::{Alias, Associativity, Symbol, SymbolType};
-use crate::tables::{
+use crate::generate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar, VariableType};
+use crate::generate::rules::{Alias, Associativity, Symbol, SymbolType};
+use crate::generate::tables::{
     AliasSequenceId, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
 };
 use core::ops::Range;

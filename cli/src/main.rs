@@ -7,24 +7,14 @@ extern crate serde_derive;
 extern crate hashbrown;
 extern crate serde_json;
 
-use clap::{App, Arg, SubCommand};
-use std::env;
-use std::io::Write;
-use std::path::PathBuf;
-use std::process::{exit, Command, Stdio};
-use std::usize;
-
-mod build_tables;
 mod error;
 mod generate;
-mod grammars;
 mod logger;
-mod nfa;
-mod parse_grammar;
-mod prepare_grammar;
-mod render;
-mod rules;
-mod tables;
+
+use clap::{App, Arg, SubCommand};
+use std::env;
+use std::process::exit;
+use std::usize;
 
 fn main() {
     if let Err(e) = run() {
@@ -77,43 +67,10 @@ fn run() -> error::Result<()> {
             });
         let mut grammar_path = env::current_dir().expect("Failed to read CWD");
         grammar_path.push("grammar.js");
-        let grammar_json = load_js_grammar_file(grammar_path);
         let code =
-            generate::generate_parser_for_grammar(&grammar_json, minimize, state_ids_to_log)?;
+            generate::generate_parser_for_grammar(&grammar_path, minimize, state_ids_to_log)?;
         println!("{}", code);
     }
 
     Ok(())
-}
-
-fn load_js_grammar_file(grammar_path: PathBuf) -> String {
-    let mut node_process = Command::new("node")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .expect("Failed to run `node`");
-
-    let js_prelude = include_str!("./js/dsl.js");
-    let mut node_stdin = node_process
-        .stdin
-        .take()
-        .expect("Failed to open stdin for node");
-    write!(
-        node_stdin,
-        "{}\nconsole.log(JSON.stringify(require(\"{}\"), null, 2));\n",
-        js_prelude,
-        grammar_path.to_str().unwrap()
-    )
-    .expect("Failed to write to node's stdin");
-    drop(node_stdin);
-    let output = node_process
-        .wait_with_output()
-        .expect("Failed to read output from node");
-    match output.status.code() {
-        None => panic!("Node process was killed"),
-        Some(0) => {}
-        Some(code) => panic!(format!("Node process exited with status {}", code)),
-    }
-
-    String::from_utf8(output.stdout).expect("Got invalid UTF8 from node")
 }

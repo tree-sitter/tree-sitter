@@ -1,6 +1,6 @@
-use crate::grammars::LexicalGrammar;
-use crate::rules::Symbol;
-use crate::tables::{ParseStateId, ParseTable};
+use crate::generate::grammars::LexicalGrammar;
+use crate::generate::rules::Symbol;
+use crate::generate::tables::{ParseStateId, ParseTable};
 use std::fmt;
 
 pub(crate) struct CoincidentTokenIndex<'a> {

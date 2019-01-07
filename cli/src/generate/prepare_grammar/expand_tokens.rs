@@ -1,8 +1,8 @@
 use super::ExtractedLexicalGrammar;
 use crate::error::{Error, Result};
-use crate::grammars::{LexicalGrammar, LexicalVariable};
-use crate::nfa::{CharacterSet, Nfa, NfaState};
-use crate::rules::Rule;
+use crate::generate::grammars::{LexicalGrammar, LexicalVariable};
+use crate::generate::nfa::{CharacterSet, Nfa, NfaState};
+use crate::generate::rules::Rule;
 use regex_syntax::ast::{
     parse, Ast, Class, ClassPerlKind, ClassSet, ClassSetItem, RepetitionKind, RepetitionRange,
 };
@@ -366,8 +366,8 @@ impl NfaBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::grammars::Variable;
-    use crate::nfa::{NfaCursor, NfaTransition};
+    use crate::generate::grammars::Variable;
+    use crate::generate::nfa::{NfaCursor, NfaTransition};
 
     fn simulate_nfa<'a>(grammar: &'a LexicalGrammar, s: &'a str) -> Option<(usize, &'a str)> {
         let start_states = grammar.variables.iter().map(|v| v.start_state).collect();

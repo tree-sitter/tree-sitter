@@ -1,6 +1,6 @@
-use crate::build_tables::item::TokenSet;
-use crate::grammars::LexicalGrammar;
-use crate::nfa::{CharacterSet, NfaCursor, NfaTransition};
+use crate::generate::build_tables::item::TokenSet;
+use crate::generate::grammars::LexicalGrammar;
+use crate::generate::nfa::{CharacterSet, NfaCursor, NfaTransition};
 use hashbrown::HashSet;
 use std::cmp::Ordering;
 use std::fmt;
@@ -288,9 +288,9 @@ fn variable_ids_for_states<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::grammars::{Variable, VariableType};
-    use crate::prepare_grammar::{expand_tokens, ExtractedLexicalGrammar};
-    use crate::rules::{Rule, Symbol};
+    use crate::generate::grammars::{Variable, VariableType};
+    use crate::generate::prepare_grammar::{expand_tokens, ExtractedLexicalGrammar};
+    use crate::generate::rules::{Rule, Symbol};
 
     #[test]
     fn test_starting_characters() {
