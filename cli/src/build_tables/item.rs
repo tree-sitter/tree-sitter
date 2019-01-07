@@ -6,6 +6,7 @@ use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::iter::FromIterator;
 use std::u32;
 
 lazy_static! {
@@ -24,7 +25,7 @@ lazy_static! {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) struct LookaheadSet {
+pub(crate) struct TokenSet {
     terminal_bits: SmallBitVec,
     external_bits: SmallBitVec,
     eof: bool,
@@ -39,7 +40,7 @@ pub(crate) struct ParseItem<'a> {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ParseItemSet<'a> {
-    pub entries: BTreeMap<ParseItem<'a>, LookaheadSet>,
+    pub entries: BTreeMap<ParseItem<'a>, TokenSet>,
 }
 
 pub(crate) struct ParseItemDisplay<'a>(
@@ -48,7 +49,7 @@ pub(crate) struct ParseItemDisplay<'a>(
     pub &'a LexicalGrammar,
 );
 
-pub(crate) struct LookaheadSetDisplay<'a>(&'a LookaheadSet, &'a SyntaxGrammar, &'a LexicalGrammar);
+pub(crate) struct TokenSetDisplay<'a>(&'a TokenSet, &'a SyntaxGrammar, &'a LexicalGrammar);
 
 #[allow(dead_code)]
 pub(crate) struct ParseItemSetDisplay<'a>(
@@ -57,7 +58,7 @@ pub(crate) struct ParseItemSetDisplay<'a>(
     pub &'a LexicalGrammar,
 );
 
-impl LookaheadSet {
+impl TokenSet {
     pub fn new() -> Self {
         Self {
             terminal_bits: SmallBitVec::new(),
@@ -92,17 +93,9 @@ impl LookaheadSet {
             .chain(if self.eof { Some(Symbol::end()) } else { None })
     }
 
-    pub fn with(symbols: impl IntoIterator<Item = Symbol>) -> Self {
-        let mut result = Self::new();
-        for symbol in symbols {
-            result.insert(symbol);
-        }
-        result
-    }
-
     pub fn contains(&self, symbol: &Symbol) -> bool {
         match symbol.kind {
-            SymbolType::NonTerminal => panic!("Cannot store non-terminals in a LookaheadSet"),
+            SymbolType::NonTerminal => panic!("Cannot store non-terminals in a TokenSet"),
             SymbolType::Terminal => self.terminal_bits.get(symbol.index).unwrap_or(false),
             SymbolType::External => self.external_bits.get(symbol.index).unwrap_or(false),
             SymbolType::End => self.eof,
@@ -111,7 +104,7 @@ impl LookaheadSet {
 
     pub fn insert(&mut self, other: Symbol) {
         let vec = match other.kind {
-            SymbolType::NonTerminal => panic!("Cannot store non-terminals in a LookaheadSet"),
+            SymbolType::NonTerminal => panic!("Cannot store non-terminals in a TokenSet"),
             SymbolType::Terminal => &mut self.terminal_bits,
             SymbolType::External => &mut self.external_bits,
             SymbolType::End => {
@@ -125,7 +118,7 @@ impl LookaheadSet {
         vec.set(other.index, true);
     }
 
-    pub fn insert_all(&mut self, other: &LookaheadSet) -> bool {
+    pub fn insert_all(&mut self, other: &TokenSet) -> bool {
         let mut result = false;
         if other.terminal_bits.len() > self.terminal_bits.len() {
             self.terminal_bits.resize(other.terminal_bits.len(), false);
@@ -148,6 +141,16 @@ impl LookaheadSet {
         if other.eof {
             result |= !self.eof;
             self.eof = true;
+        }
+        result
+    }
+}
+
+impl FromIterator<Symbol> for TokenSet {
+    fn from_iter<T: IntoIterator<Item = Symbol>>(iter: T) -> Self {
+        let mut result = Self::new();
+        for symbol in iter {
+            result.insert(symbol);
         }
         result
     }
@@ -204,7 +207,7 @@ impl<'a> ParseItem<'a> {
 }
 
 impl<'a> ParseItemSet<'a> {
-    pub fn with(elements: impl IntoIterator<Item = (ParseItem<'a>, LookaheadSet)>) -> Self {
+    pub fn with(elements: impl IntoIterator<Item = (ParseItem<'a>, TokenSet)>) -> Self {
         let mut result = Self::default();
         for (item, lookaheads) in elements {
             result.entries.insert(item, lookaheads);
@@ -296,7 +299,7 @@ impl<'a> fmt::Display for ParseItemDisplay<'a> {
     }
 }
 
-impl<'a> fmt::Display for LookaheadSetDisplay<'a> {
+impl<'a> fmt::Display for TokenSetDisplay<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "[")?;
         for (i, symbol) in self.0.iter().enumerate() {
@@ -328,7 +331,7 @@ impl<'a> fmt::Display for ParseItemSetDisplay<'a> {
                 f,
                 "{}\t{}",
                 ParseItemDisplay(item, self.1, self.2),
-                LookaheadSetDisplay(lookaheads, self.1, self.2)
+                TokenSetDisplay(lookaheads, self.1, self.2)
             )?;
         }
         Ok(())

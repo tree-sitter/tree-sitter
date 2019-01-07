@@ -1,4 +1,4 @@
-use super::item::LookaheadSet;
+use super::item::TokenSet;
 use super::token_conflicts::TokenConflictMap;
 use crate::grammars::{LexicalGrammar, SyntaxGrammar};
 use crate::nfa::{CharacterSet, NfaCursor, NfaTransition};
@@ -11,7 +11,7 @@ pub(crate) fn build_lex_table(
     parse_table: &mut ParseTable,
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
-    keywords: &LookaheadSet,
+    keywords: &TokenSet,
     minimize: bool,
 ) -> (LexTable, LexTable) {
     let keyword_lex_table;
@@ -25,19 +25,23 @@ pub(crate) fn build_lex_table(
 
     let mut builder = LexTableBuilder::new(lexical_grammar);
     for state in parse_table.states.iter_mut() {
-        let tokens = LookaheadSet::with(state.terminal_entries.keys().filter_map(|token| {
-            if token.is_terminal() {
-                if keywords.contains(&token) {
-                    syntax_grammar.word_token
-                } else {
+        let tokens = state
+            .terminal_entries
+            .keys()
+            .filter_map(|token| {
+                if token.is_terminal() {
+                    if keywords.contains(&token) {
+                        syntax_grammar.word_token
+                    } else {
+                        Some(*token)
+                    }
+                } else if token.is_eof() {
                     Some(*token)
+                } else {
+                    None
                 }
-            } else if token.is_eof() {
-                Some(*token)
-            } else {
-                None
-            }
-        }));
+            })
+            .collect();
         state.lex_state_id = builder.add_state_for_tokens(&tokens);
     }
 
@@ -75,7 +79,7 @@ impl<'a> LexTableBuilder<'a> {
         }
     }
 
-    fn add_state_for_tokens(&mut self, tokens: &LookaheadSet) -> usize {
+    fn add_state_for_tokens(&mut self, tokens: &TokenSet) -> usize {
         let mut eof_valid = false;
         let nfa_states = tokens
             .iter()

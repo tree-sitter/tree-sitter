@@ -1,4 +1,4 @@
-use super::item::{LookaheadSet, ParseItem, ParseItemSet};
+use super::item::{ParseItem, ParseItemSet, TokenSet};
 use super::item_set_builder::ParseItemSetBuilder;
 use crate::error::{Error, Result};
 use crate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar, VariableType};
@@ -38,12 +38,12 @@ struct ParseTableBuilder<'a> {
     item_sets_by_state_id: Vec<ParseItemSet<'a>>,
     parse_state_queue: VecDeque<ParseStateQueueEntry>,
     parse_table: ParseTable,
-    following_tokens: Vec<LookaheadSet>,
+    following_tokens: Vec<TokenSet>,
     state_ids_to_log: Vec<ParseStateId>,
 }
 
 impl<'a> ParseTableBuilder<'a> {
-    fn build(mut self) -> Result<(ParseTable, Vec<LookaheadSet>)> {
+    fn build(mut self) -> Result<(ParseTable, Vec<TokenSet>)> {
         // Ensure that the empty alias sequence has index 0.
         self.parse_table.alias_sequences.push(Vec::new());
 
@@ -57,7 +57,7 @@ impl<'a> ParseTableBuilder<'a> {
             ParseItemSet::with(
                 [(
                     ParseItem::start(),
-                    LookaheadSet::with([Symbol::end()].iter().cloned()),
+                    [Symbol::end()].iter().cloned().collect(),
                 )]
                 .iter()
                 .cloned(),
@@ -174,7 +174,7 @@ impl<'a> ParseTableBuilder<'a> {
                         .or_insert_with(|| ParseItemSet::default())
                         .entries
                         .entry(successor)
-                        .or_insert_with(|| LookaheadSet::new())
+                        .or_insert_with(|| TokenSet::new())
                         .insert_all(lookaheads);
                 } else {
                     terminal_successors
@@ -182,7 +182,7 @@ impl<'a> ParseTableBuilder<'a> {
                         .or_insert_with(|| ParseItemSet::default())
                         .entries
                         .entry(successor)
-                        .or_insert_with(|| LookaheadSet::new())
+                        .or_insert_with(|| TokenSet::new())
                         .insert_all(lookaheads);
                 }
             } else {
@@ -714,7 +714,7 @@ pub(crate) fn build_parse_table(
     lexical_grammar: &LexicalGrammar,
     inlines: &InlinedProductionMap,
     state_ids_to_log: Vec<usize>,
-) -> Result<(ParseTable, Vec<LookaheadSet>)> {
+) -> Result<(ParseTable, Vec<TokenSet>)> {
     ParseTableBuilder {
         syntax_grammar,
         lexical_grammar,
@@ -729,7 +729,7 @@ pub(crate) fn build_parse_table(
             alias_sequences: Vec::new(),
             max_aliased_production_length: 0,
         },
-        following_tokens: vec![LookaheadSet::new(); lexical_grammar.variables.len()],
+        following_tokens: vec![TokenSet::new(); lexical_grammar.variables.len()],
     }
     .build()
 }

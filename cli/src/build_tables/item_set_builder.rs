@@ -1,4 +1,4 @@
-use super::item::{LookaheadSet, ParseItem, ParseItemDisplay, ParseItemSet};
+use super::item::{ParseItem, ParseItemDisplay, ParseItemSet, TokenSet};
 use crate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
 use crate::rules::Symbol;
 use hashbrown::{HashMap, HashSet};
@@ -12,15 +12,15 @@ struct TransitiveClosureAddition<'a> {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct FollowSetInfo {
-    lookaheads: LookaheadSet,
+    lookaheads: TokenSet,
     propagates_lookaheads: bool,
 }
 
 pub(crate) struct ParseItemSetBuilder<'a> {
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
-    first_sets: HashMap<Symbol, LookaheadSet>,
-    last_sets: HashMap<Symbol, LookaheadSet>,
+    first_sets: HashMap<Symbol, TokenSet>,
+    last_sets: HashMap<Symbol, TokenSet>,
     inlines: &'a InlinedProductionMap,
     transitive_closure_additions: Vec<Vec<TransitiveClosureAddition<'a>>>,
 }
@@ -54,7 +54,7 @@ impl<'a> ParseItemSetBuilder<'a> {
         // terminal itself.
         for i in 0..lexical_grammar.variables.len() {
             let symbol = Symbol::terminal(i);
-            let mut set = LookaheadSet::new();
+            let mut set = TokenSet::new();
             set.insert(symbol);
             result.first_sets.insert(symbol, set.clone());
             result.last_sets.insert(symbol, set);
@@ -62,7 +62,7 @@ impl<'a> ParseItemSetBuilder<'a> {
 
         for i in 0..syntax_grammar.external_tokens.len() {
             let symbol = Symbol::external(i);
-            let mut set = LookaheadSet::new();
+            let mut set = TokenSet::new();
             set.insert(symbol);
             result.first_sets.insert(symbol, set.clone());
             result.last_sets.insert(symbol, set);
@@ -80,10 +80,7 @@ impl<'a> ParseItemSetBuilder<'a> {
         for i in 0..syntax_grammar.variables.len() {
             let symbol = Symbol::non_terminal(i);
 
-            let first_set = &mut result
-                .first_sets
-                .entry(symbol)
-                .or_insert(LookaheadSet::new());
+            let first_set = &mut result.first_sets.entry(symbol).or_insert(TokenSet::new());
             processed_non_terminals.clear();
             symbols_to_process.clear();
             symbols_to_process.push(symbol);
@@ -103,10 +100,7 @@ impl<'a> ParseItemSetBuilder<'a> {
             }
 
             // The LAST set is defined in a similar way to the FIRST set.
-            let last_set = &mut result
-                .last_sets
-                .entry(symbol)
-                .or_insert(LookaheadSet::new());
+            let last_set = &mut result.last_sets.entry(symbol).or_insert(TokenSet::new());
             processed_non_terminals.clear();
             symbols_to_process.clear();
             symbols_to_process.push(symbol);
@@ -148,7 +142,7 @@ impl<'a> ParseItemSetBuilder<'a> {
         // Again, rather than computing these additions recursively, we use an explicit
         // stack called `entries_to_process`.
         for i in 0..syntax_grammar.variables.len() {
-            let empty_lookaheads = LookaheadSet::new();
+            let empty_lookaheads = TokenSet::new();
             let mut entries_to_process = vec![(i, &empty_lookaheads, true)];
 
             // First, build up a map whose keys are all of the non-terminals that can
@@ -160,7 +154,7 @@ impl<'a> ParseItemSetBuilder<'a> {
                 let existing_info = follow_set_info_by_non_terminal
                     .entry(variable_index)
                     .or_insert_with(|| FollowSetInfo {
-                        lookaheads: LookaheadSet::new(),
+                        lookaheads: TokenSet::new(),
                         propagates_lookaheads: false,
                     });
 
@@ -269,15 +263,15 @@ impl<'a> ParseItemSetBuilder<'a> {
         result
     }
 
-    pub fn first_set(&self, symbol: &Symbol) -> &LookaheadSet {
+    pub fn first_set(&self, symbol: &Symbol) -> &TokenSet {
         &self.first_sets[symbol]
     }
 
-    pub fn last_set(&self, symbol: &Symbol) -> &LookaheadSet {
+    pub fn last_set(&self, symbol: &Symbol) -> &TokenSet {
         &self.first_sets[symbol]
     }
 
-    fn add_item(&self, set: &mut ParseItemSet<'a>, item: ParseItem<'a>, lookaheads: &LookaheadSet) {
+    fn add_item(&self, set: &mut ParseItemSet<'a>, item: ParseItem<'a>, lookaheads: &TokenSet) {
         if let Some(step) = item.step() {
             if step.symbol.is_non_terminal() {
                 let next_step = item.successor().step();
@@ -294,7 +288,7 @@ impl<'a> ParseItemSetBuilder<'a> {
                     let lookaheads = set
                         .entries
                         .entry(addition.item)
-                        .or_insert_with(|| LookaheadSet::new());
+                        .or_insert_with(|| TokenSet::new());
                     lookaheads.insert_all(&addition.info.lookaheads);
                     if addition.info.propagates_lookaheads {
                         lookaheads.insert_all(following_tokens);

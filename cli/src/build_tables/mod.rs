@@ -9,7 +9,7 @@ mod token_conflicts;
 use self::build_lex_table::build_lex_table;
 use self::build_parse_table::build_parse_table;
 use self::coincident_tokens::CoincidentTokenIndex;
-use self::item::LookaheadSet;
+use self::item::TokenSet;
 use self::minimize_parse_table::minimize_parse_table;
 use self::token_conflicts::TokenConflictMap;
 use crate::error::Result;
@@ -44,11 +44,7 @@ pub(crate) fn build_tables(
         &coincident_token_index,
         &token_conflict_map,
     );
-    mark_fragile_tokens(
-        &mut parse_table,
-        lexical_grammar,
-        &token_conflict_map,
-    );
+    mark_fragile_tokens(&mut parse_table, lexical_grammar, &token_conflict_map);
     if minimize {
         minimize_parse_table(
             &mut parse_table,
@@ -85,22 +81,25 @@ fn populate_error_state(
 
     // First identify the *conflict-free tokens*: tokens that do not overlap with
     // any other token in any way.
-    let conflict_free_tokens = LookaheadSet::with((0..n).into_iter().filter_map(|i| {
-        let conflicts_with_other_tokens = (0..n).into_iter().any(|j| {
-            j != i
-                && !coincident_token_index.contains(Symbol::terminal(i), Symbol::terminal(j))
-                && token_conflict_map.does_conflict(i, j)
-        });
-        if conflicts_with_other_tokens {
-            None
-        } else {
-            info!(
-                "error recovery - token {} has no conflicts",
-                lexical_grammar.variables[i].name
-            );
-            Some(Symbol::terminal(i))
-        }
-    }));
+    let conflict_free_tokens: TokenSet = (0..n)
+        .into_iter()
+        .filter_map(|i| {
+            let conflicts_with_other_tokens = (0..n).into_iter().any(|j| {
+                j != i
+                    && !coincident_token_index.contains(Symbol::terminal(i), Symbol::terminal(j))
+                    && token_conflict_map.does_conflict(i, j)
+            });
+            if conflicts_with_other_tokens {
+                None
+            } else {
+                info!(
+                    "error recovery - token {} has no conflicts",
+                    lexical_grammar.variables[i].name
+                );
+                Some(Symbol::terminal(i))
+            }
+        })
+        .collect();
 
     let recover_entry = ParseTableEntry {
         reusable: false,
@@ -153,9 +152,9 @@ fn identify_keywords(
     word_token: Option<Symbol>,
     token_conflict_map: &TokenConflictMap,
     coincident_token_index: &CoincidentTokenIndex,
-) -> LookaheadSet {
+) -> TokenSet {
     if word_token.is_none() {
-        return LookaheadSet::new();
+        return TokenSet::new();
     }
 
     let word_token = word_token.unwrap();
@@ -163,8 +162,11 @@ fn identify_keywords(
 
     // First find all of the candidate keyword tokens: tokens that start with
     // letters or underscore and can match the same string as a word token.
-    let keywords = LookaheadSet::with(lexical_grammar.variables.iter().enumerate().filter_map(
-        |(i, variable)| {
+    let keywords: TokenSet = lexical_grammar
+        .variables
+        .iter()
+        .enumerate()
+        .filter_map(|(i, variable)| {
             cursor.reset(vec![variable.start_state]);
             if all_chars_are_alphabetical(&cursor)
                 && token_conflict_map.does_match_same_string(i, word_token.index)
@@ -177,69 +179,75 @@ fn identify_keywords(
             } else {
                 None
             }
-        },
-    ));
+        })
+        .collect();
 
     // Exclude keyword candidates that shadow another keyword candidate.
-    let keywords = LookaheadSet::with(keywords.iter().filter(|token| {
-        for other_token in keywords.iter() {
-            if other_token != *token
-                && token_conflict_map.does_match_same_string(token.index, other_token.index)
-            {
-                info!(
-                    "Keywords - exclude {} because it matches the same string as {}",
-                    lexical_grammar.variables[token.index].name,
-                    lexical_grammar.variables[other_token.index].name
-                );
-                return false;
+    let keywords: TokenSet = keywords
+        .iter()
+        .filter(|token| {
+            for other_token in keywords.iter() {
+                if other_token != *token
+                    && token_conflict_map.does_match_same_string(token.index, other_token.index)
+                {
+                    info!(
+                        "Keywords - exclude {} because it matches the same string as {}",
+                        lexical_grammar.variables[token.index].name,
+                        lexical_grammar.variables[other_token.index].name
+                    );
+                    return false;
+                }
             }
-        }
-        true
-    }));
+            true
+        })
+        .collect();
 
     // Exclude keyword candidates for which substituting the keyword capture
     // token would introduce new lexical conflicts with other tokens.
-    let keywords = LookaheadSet::with(keywords.iter().filter(|token| {
-        for other_index in 0..lexical_grammar.variables.len() {
-            if keywords.contains(&Symbol::terminal(other_index)) {
-                continue;
+    let keywords = keywords
+        .iter()
+        .filter(|token| {
+            for other_index in 0..lexical_grammar.variables.len() {
+                if keywords.contains(&Symbol::terminal(other_index)) {
+                    continue;
+                }
+
+                // If the word token was already valid in every state containing
+                // this keyword candidate, then substituting the word token won't
+                // introduce any new lexical conflicts.
+                if coincident_token_index
+                    .states_with(*token, Symbol::terminal(other_index))
+                    .iter()
+                    .all(|state_id| {
+                        parse_table.states[*state_id]
+                            .terminal_entries
+                            .contains_key(&word_token)
+                    })
+                {
+                    continue;
+                }
+
+                if !token_conflict_map.has_same_conflict_status(
+                    token.index,
+                    word_token.index,
+                    other_index,
+                ) {
+                    info!(
+                        "Keywords - exclude {} because of conflict with {}",
+                        lexical_grammar.variables[token.index].name,
+                        lexical_grammar.variables[other_index].name
+                    );
+                    return false;
+                }
             }
 
-            // If the word token was already valid in every state containing
-            // this keyword candidate, then substituting the word token won't
-            // introduce any new lexical conflicts.
-            if coincident_token_index
-                .states_with(*token, Symbol::terminal(other_index))
-                .iter()
-                .all(|state_id| {
-                    parse_table.states[*state_id]
-                        .terminal_entries
-                        .contains_key(&word_token)
-                })
-            {
-                continue;
-            }
-
-            if !token_conflict_map.has_same_conflict_status(
-                token.index,
-                word_token.index,
-                other_index,
-            ) {
-                info!(
-                    "Keywords - exclude {} because of conflict with {}",
-                    lexical_grammar.variables[token.index].name,
-                    lexical_grammar.variables[other_index].name
-                );
-                return false;
-            }
-        }
-
-        info!(
-            "Keywords - include {}",
-            lexical_grammar.variables[token.index].name,
-        );
-        true
-    }));
+            info!(
+                "Keywords - include {}",
+                lexical_grammar.variables[token.index].name,
+            );
+            true
+        })
+        .collect();
 
     keywords
 }

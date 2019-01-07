@@ -1,4 +1,4 @@
-use crate::build_tables::item::LookaheadSet;
+use crate::build_tables::item::TokenSet;
 use crate::grammars::LexicalGrammar;
 use crate::nfa::{CharacterSet, NfaCursor, NfaTransition};
 use hashbrown::HashSet;
@@ -22,7 +22,7 @@ pub(crate) struct TokenConflictMap<'a> {
 }
 
 impl<'a> TokenConflictMap<'a> {
-    pub fn new(grammar: &'a LexicalGrammar, following_tokens: Vec<LookaheadSet>) -> Self {
+    pub fn new(grammar: &'a LexicalGrammar, following_tokens: Vec<TokenSet>) -> Self {
         let mut cursor = NfaCursor::new(&grammar.nfa, Vec::new());
         let starting_chars = get_starting_chars(&mut cursor, grammar);
         let following_chars = get_following_chars(&starting_chars, following_tokens);
@@ -141,7 +141,7 @@ fn get_starting_chars(cursor: &mut NfaCursor, grammar: &LexicalGrammar) -> Vec<C
 
 fn get_following_chars(
     starting_chars: &Vec<CharacterSet>,
-    following_tokens: Vec<LookaheadSet>,
+    following_tokens: Vec<TokenSet>,
 ) -> Vec<CharacterSet> {
     following_tokens
         .into_iter()
@@ -352,9 +352,15 @@ mod tests {
         let token_map = TokenConflictMap::new(
             &grammar,
             vec![
-                LookaheadSet::with([Symbol::terminal(var("identifier"))].iter().cloned()),
-                LookaheadSet::with([Symbol::terminal(var("in"))].iter().cloned()),
-                LookaheadSet::with([Symbol::terminal(var("identifier"))].iter().cloned()),
+                [Symbol::terminal(var("identifier"))]
+                    .iter()
+                    .cloned()
+                    .collect(),
+                [Symbol::terminal(var("in"))].iter().cloned().collect(),
+                [Symbol::terminal(var("identifier"))]
+                    .iter()
+                    .cloned()
+                    .collect(),
             ],
         );
 

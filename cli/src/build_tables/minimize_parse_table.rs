@@ -1,4 +1,4 @@
-use super::item::LookaheadSet;
+use super::item::TokenSet;
 use super::token_conflicts::TokenConflictMap;
 use crate::grammars::{SyntaxGrammar, VariableType};
 use crate::rules::{AliasMap, Symbol};
@@ -10,7 +10,7 @@ pub(crate) fn minimize_parse_table(
     syntax_grammar: &SyntaxGrammar,
     simple_aliases: &AliasMap,
     token_conflict_map: &TokenConflictMap,
-    keywords: &LookaheadSet,
+    keywords: &TokenSet,
 ) {
     let mut minimizer = Minimizer {
         parse_table,
@@ -28,7 +28,7 @@ struct Minimizer<'a> {
     parse_table: &'a mut ParseTable,
     syntax_grammar: &'a SyntaxGrammar,
     token_conflict_map: &'a TokenConflictMap<'a>,
-    keywords: &'a LookaheadSet,
+    keywords: &'a TokenSet,
     simple_aliases: &'a AliasMap,
 }
 
