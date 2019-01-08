@@ -1,5 +1,6 @@
 use super::error::Result;
 use ansi_term::Colour;
+use difference::{Changeset, Difference};
 use regex::bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder};
 use regex::Regex;
 use std::char;
@@ -55,10 +56,30 @@ pub fn run_tests_at_path(language: Language, path: &Path) -> Result<()> {
             println!("{} failures:", failures.len())
         }
 
-        for (name, actual, expected) in failures {
-            println!("\n  {}:", name);
-            println!("    Expected: {}", expected);
-            println!("    Actual: {}", actual);
+        println!(
+            "\n{} / {}",
+            Colour::Green.paint("expected"),
+            Colour::Red.paint("actual")
+        );
+
+        for (i, (name, actual, expected)) in failures.iter().enumerate() {
+            println!("\n  {}. {}:", i + 1, name);
+            let changeset = Changeset::new(actual, expected, " ");
+            print!("    ");
+            for diff in &changeset.diffs {
+                match diff {
+                    Difference::Same(part) => {
+                        print!("{}{}", part, changeset.split);
+                    }
+                    Difference::Add(part) => {
+                        print!("{}{}", Colour::Green.paint(part), changeset.split);
+                    }
+                    Difference::Rem(part) => {
+                        print!("{}{}", Colour::Red.paint(part), changeset.split);
+                    }
+                }
+            }
+            println!("");
         }
     }
 

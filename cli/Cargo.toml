@@ -10,6 +10,7 @@ path = "src/main.rs"
 
 [dependencies]
 ansi_term = "0.11"
+difference = "2.0"
 lazy_static = "1.2.0"
 smallbitvec = "2.3.0"
 clap = "2.32"

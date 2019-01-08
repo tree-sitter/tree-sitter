@@ -74,9 +74,7 @@ fn run() -> error::Result<()> {
             generate::generate_parser_for_grammar(&grammar_path, minimize, state_ids_to_log)?;
         println!("{}", code);
         return Ok(());
-    }
-
-    if let Some(_matches) = matches.subcommand_matches("test") {
+    } else if let Some(_matches) = matches.subcommand_matches("test") {
         let corpus_path = current_dir.join("corpus");
         let home_dir = dirs::home_dir().unwrap();
         let mut loader = Loader::new(home_dir.join(".tree-sitter"));
@@ -85,9 +83,7 @@ fn run() -> error::Result<()> {
         } else {
             eprintln!("No language found");
         }
-    }
-
-    if let Some(matches) = matches.subcommand_matches("parse") {
+    } else if let Some(matches) = matches.subcommand_matches("parse") {
         loader.find_parsers(&vec![home_dir.join("github")])?;
         let source_path = Path::new(matches.value_of("path").unwrap());
         if let Some((language, _)) = loader.language_for_file_name(source_path)? {
