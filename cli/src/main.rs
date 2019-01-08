@@ -86,6 +86,15 @@ fn run() -> error::Result<()> {
             eprintln!("No language found");
         }
     }
+
+    if let Some(matches) = matches.subcommand_matches("parse") {
+        loader.find_parsers(&vec![home_dir.join("github")])?;
+        let source_path = Path::new(matches.value_of("path").unwrap());
+        if let Some((language, _)) = loader.language_for_file_name(source_path)? {
+            parse::parse_file_at_path(language, source_path)?;
+        } else {
+            eprintln!("No language found");
+        }
     }
 
     Ok(())
