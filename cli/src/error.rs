@@ -1,3 +1,5 @@
+use std::io;
+
 #[derive(Debug)]
 pub struct Error(pub String);
 
@@ -20,5 +22,17 @@ impl Error {
 impl From<serde_json::Error> for Error {
     fn from(error: serde_json::Error) -> Self {
         Error(error.to_string())
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(error: io::Error) -> Self {
+        Error(error.to_string())
+    }
+}
+
+impl From<String> for Error {
+    fn from(error: String) -> Self {
+        Error(error)
     }
 }

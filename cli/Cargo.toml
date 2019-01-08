@@ -9,6 +9,7 @@ name = "tree-sitter"
 path = "src/main.rs"
 
 [dependencies]
+ansi_term = "0.11"
 lazy_static = "1.2.0"
 smallbitvec = "2.3.0"
 clap = "2.32"
@@ -20,6 +21,7 @@ rusqlite = "0.14.0"
 serde = "1.0"
 serde_derive = "1.0"
 regex-syntax = "0.6.4"
+regex = "1"
 
 [dependencies.tree-sitter]
 path = "../lib"

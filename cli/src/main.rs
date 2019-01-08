@@ -5,14 +5,20 @@ extern crate log;
 #[macro_use]
 extern crate serde_derive;
 extern crate hashbrown;
+extern crate regex;
 extern crate serde_json;
 
 mod error;
 mod generate;
+mod loader;
 mod logger;
+mod parse;
+mod test;
 
+use self::loader::Loader;
 use clap::{App, Arg, SubCommand};
 use std::env;
+use std::path::Path;
 use std::process::exit;
 use std::usize;
 
@@ -44,14 +50,12 @@ fn run() -> error::Result<()> {
                 .about("Parse a file")
                 .arg(Arg::with_name("path").index(1)),
         )
-        .subcommand(
-            SubCommand::with_name("test")
-                .about("Run a parser's tests")
-                .arg(Arg::with_name("path").index(1).required(true))
-                .arg(Arg::with_name("line").index(2).required(true))
-                .arg(Arg::with_name("column").index(3).required(true)),
-        )
+        .subcommand(SubCommand::with_name("test").about("Run a parser's tests"))
         .get_matches();
+
+    let home_dir = dirs::home_dir().unwrap();
+    let current_dir = env::current_dir().unwrap();
+    let mut loader = Loader::new(home_dir.join(".tree-sitter"));
 
     if let Some(matches) = matches.subcommand_matches("generate") {
         if matches.is_present("log") {
@@ -65,11 +69,23 @@ fn run() -> error::Result<()> {
                 ids.filter_map(|id| usize::from_str_radix(id, 10).ok())
                     .collect()
             });
-        let mut grammar_path = env::current_dir().expect("Failed to read CWD");
-        grammar_path.push("grammar.js");
+        let grammar_path = current_dir.join("grammar.js");
         let code =
             generate::generate_parser_for_grammar(&grammar_path, minimize, state_ids_to_log)?;
         println!("{}", code);
+        return Ok(());
+    }
+
+    if let Some(_matches) = matches.subcommand_matches("test") {
+        let corpus_path = current_dir.join("corpus");
+        let home_dir = dirs::home_dir().unwrap();
+        let mut loader = Loader::new(home_dir.join(".tree-sitter"));
+        if let Some((language, _)) = loader.language_configuration_at_path(&current_dir)? {
+            test::run_tests_at_path(language, &corpus_path)?;
+        } else {
+            eprintln!("No language found");
+        }
+    }
     }
 
     Ok(())
