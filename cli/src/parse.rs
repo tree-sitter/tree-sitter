@@ -1,16 +1,40 @@
 use super::error::Result;
+use super::util;
 use std::fs;
-use std::path::Path;
-use tree_sitter::{Language, Parser};
 use std::io::{self, Write};
+use std::path::Path;
+use tree_sitter::{Language, LogType, Parser};
 
-pub fn parse_file_at_path(language: Language, path: &Path) -> Result<()> {
+pub fn parse_file_at_path(
+    language: Language,
+    path: &Path,
+    debug: bool,
+    debug_graph: bool,
+) -> Result<()> {
     let mut parser = Parser::new();
     parser.set_language(language)?;
     let source_code = fs::read_to_string(path)?;
+
+    let mut log_session = None;
+
+    if debug_graph {
+        log_session = Some(util::start_logging_graphs(&mut parser, "log.html")?);
+    } else if debug {
+        parser.set_logger(Some(Box::new(|log_type, message| {
+            if log_type == LogType::Lex {
+                io::stderr().write(b"  ").unwrap();
+            }
+            write!(&mut io::stderr(), "{}\n", message).unwrap();
+        })));
+    }
+
     let tree = parser
         .parse_str(&source_code, None)
         .expect("Incompatible language version");
+
+    if let Some(log_session) = log_session {
+        util::stop_logging_graphs(&mut parser, log_session)?;
+    }
 
     let stdout = io::stdout();
     let mut stdout = stdout.lock();

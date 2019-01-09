@@ -14,6 +14,7 @@ mod loader;
 mod logger;
 mod parse;
 mod test;
+mod util;
 
 use self::loader::Loader;
 use clap::{App, Arg, SubCommand};
@@ -48,9 +49,22 @@ fn run() -> error::Result<()> {
         .subcommand(
             SubCommand::with_name("parse")
                 .about("Parse a file")
-                .arg(Arg::with_name("path").index(1)),
+                .arg(Arg::with_name("path").index(1).required(true))
+                .arg(Arg::with_name("debug").long("debug").short("d"))
+                .arg(Arg::with_name("debug-graph").long("debug-graph").short("D")),
         )
-        .subcommand(SubCommand::with_name("test").about("Run a parser's tests"))
+        .subcommand(
+            SubCommand::with_name("test")
+                .about("Run a parser's tests")
+                .arg(
+                    Arg::with_name("filter")
+                        .long("filter")
+                        .short("f")
+                        .takes_value(true),
+                )
+                .arg(Arg::with_name("debug").long("debug").short("d"))
+                .arg(Arg::with_name("debug-graph").long("debug-graph").short("D")),
+        )
         .get_matches();
 
     let home_dir = dirs::home_dir().unwrap();
@@ -74,20 +88,23 @@ fn run() -> error::Result<()> {
             generate::generate_parser_for_grammar(&grammar_path, minimize, state_ids_to_log)?;
         println!("{}", code);
         return Ok(());
-    } else if let Some(_matches) = matches.subcommand_matches("test") {
+    } else if let Some(matches) = matches.subcommand_matches("test") {
+        let debug = matches.is_present("debug");
+        let debug_graph = matches.is_present("debug-graph");
+        let filter = matches.value_of("filter");
         let corpus_path = current_dir.join("corpus");
-        let home_dir = dirs::home_dir().unwrap();
-        let mut loader = Loader::new(home_dir.join(".tree-sitter"));
         if let Some((language, _)) = loader.language_configuration_at_path(&current_dir)? {
-            test::run_tests_at_path(language, &corpus_path)?;
+            test::run_tests_at_path(language, &corpus_path, debug, debug_graph, filter)?;
         } else {
             eprintln!("No language found");
         }
     } else if let Some(matches) = matches.subcommand_matches("parse") {
+        let debug = matches.is_present("debug");
+        let debug_graph = matches.is_present("debug-graph");
         loader.find_parsers(&vec![home_dir.join("github")])?;
         let source_path = Path::new(matches.value_of("path").unwrap());
         if let Some((language, _)) = loader.language_for_file_name(source_path)? {
-            parse::parse_file_at_path(language, source_path)?;
+            parse::parse_file_at_path(language, source_path, debug, debug_graph)?;
         } else {
             eprintln!("No language found");
         }

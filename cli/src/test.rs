@@ -1,14 +1,15 @@
 use super::error::Result;
+use super::util;
 use ansi_term::Colour;
 use difference::{Changeset, Difference};
 use regex::bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder};
 use regex::Regex;
 use std::char;
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::Path;
 use std::str;
-use tree_sitter::{Language, Parser};
+use tree_sitter::{Language, LogType, Parser};
 
 lazy_static! {
     static ref HEADER_REGEX: ByteRegex = ByteRegexBuilder::new(r"^===+\r?\n([^=]*)\r?\n===+\r?\n")
@@ -35,15 +36,34 @@ pub enum TestEntry {
     },
 }
 
-pub fn run_tests_at_path(language: Language, path: &Path) -> Result<()> {
+pub fn run_tests_at_path(
+    language: Language,
+    path: &Path,
+    debug: bool,
+    debug_graph: bool,
+    filter: Option<&str>,
+) -> Result<()> {
     let test_entry = parse_tests(path)?;
     let mut parser = Parser::new();
     parser.set_language(language)?;
 
+    let mut log_session = None;
+
+    if debug_graph {
+        log_session = Some(util::start_logging_graphs(&mut parser, "log.html")?);
+    } else if debug {
+        parser.set_logger(Some(Box::new(|log_type, message| {
+            if log_type == LogType::Lex {
+                io::stderr().write(b"  ").unwrap();
+            }
+            write!(&mut io::stderr(), "{}\n", message).unwrap();
+        })));
+    }
+
     let mut failures = Vec::new();
     if let TestEntry::Group { children, .. } = test_entry {
         for child in children {
-            run_tests(&mut parser, child, 0, &mut failures)?;
+            run_tests(&mut parser, child, filter, 0, &mut failures)?;
         }
     }
 
@@ -83,28 +103,38 @@ pub fn run_tests_at_path(language: Language, path: &Path) -> Result<()> {
         }
     }
 
+    if let Some(log_session) = log_session {
+        util::stop_logging_graphs(&mut parser, log_session)?;
+    }
+
     Ok(())
 }
 
 fn run_tests(
     parser: &mut Parser,
     test_entry: TestEntry,
+    filter: Option<&str>,
     mut indent_level: i32,
     failures: &mut Vec<(String, String, String)>,
 ) -> Result<()> {
-    for _ in 0..indent_level {
-        print!("  ");
-    }
     match test_entry {
         TestEntry::Example {
             name,
             input,
             output,
         } => {
+            if let Some(filter) = filter {
+                if !name.contains(filter) {
+                    return Ok(());
+                }
+            }
             let tree = parser
                 .parse_utf8(&mut |byte_offset, _| &input[byte_offset..], None)
                 .unwrap();
             let actual = tree.root_node().to_sexp();
+            for _ in 0..indent_level {
+                print!("  ");
+            }
             if actual == output {
                 println!("✓ {}", Colour::Green.paint(&name));
             } else {
@@ -113,10 +143,13 @@ fn run_tests(
             }
         }
         TestEntry::Group { name, children } => {
+            for _ in 0..indent_level {
+                print!("  ");
+            }
             println!("{}:", name);
             indent_level += 1;
             for child in children {
-                run_tests(parser, child, indent_level, failures)?;
+                run_tests(parser, child, filter, indent_level, failures)?;
             }
         }
     }

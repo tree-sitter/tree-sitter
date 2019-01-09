@@ -83,7 +83,7 @@ const TSLanguage *ts_parser_language(const TSParser *);
 bool ts_parser_set_language(TSParser *, const TSLanguage *);
 TSLogger ts_parser_logger(const TSParser *);
 void ts_parser_set_logger(TSParser *, TSLogger);
-void ts_parser_print_dot_graphs(TSParser *, FILE *);
+void ts_parser_print_dot_graphs(TSParser *, int);
 void ts_parser_halt_on_error(TSParser *, bool);
 TSTree *ts_parser_parse(TSParser *, const TSTree *, TSInput);
 TSTree *ts_parser_parse_string(TSParser *, const TSTree *, const char *, uint32_t);

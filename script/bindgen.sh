@@ -1,7 +1,7 @@
 #!/bin/bash
 
-output_path=src/bindings.rs
-header_path='vendor/tree-sitter/include/tree_sitter/runtime.h'
+output_path=lib/binding/bindings.rs
+header_path='lib/include/tree_sitter/runtime.h'
 
 bindgen                         \
   --no-layout-tests             \

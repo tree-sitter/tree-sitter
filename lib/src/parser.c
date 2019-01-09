@@ -1542,8 +1542,16 @@ void ts_parser_set_logger(TSParser *self, TSLogger logger) {
   self->lexer.logger = logger;
 }
 
-void ts_parser_print_dot_graphs(TSParser *self, FILE *file) {
-  self->dot_graph_file = file;
+void ts_parser_print_dot_graphs(TSParser *self, int fd) {
+  if (self->dot_graph_file) {
+    fclose(self->dot_graph_file);
+  }
+
+  if (fd >= 0) {
+    self->dot_graph_file = fdopen(fd, "a");
+  } else {
+    self->dot_graph_file = NULL;
+  }
 }
 
 void ts_parser_halt_on_error(TSParser *self, bool should_halt_on_error) {

@@ -6,6 +6,9 @@ extern crate regex;
 extern crate serde;
 extern crate serde_json;
 
+#[cfg(unix)]
+use std::os::unix::io::AsRawFd;
+
 use regex::Regex;
 use serde::de::DeserializeOwned;
 use std::collections::HashMap;
@@ -183,6 +186,17 @@ impl Parser {
         }
 
         unsafe { ffi::ts_parser_set_logger(self.0, c_logger) };
+    }
+
+    #[cfg(unix)]
+    pub fn print_dot_graphs(&mut self, file: & impl AsRawFd) {
+        let fd = file.as_raw_fd();
+        unsafe { ffi::ts_parser_print_dot_graphs(self.0, ffi::dup(fd)) }
+    }
+
+    #[cfg(unix)]
+    pub fn stop_printing_dot_graphs(&mut self) {
+        unsafe { ffi::ts_parser_print_dot_graphs(self.0, -1) }
     }
 
     pub fn parse_str(&mut self, input: &str, old_tree: Option<&Tree>) -> Option<Tree> {
