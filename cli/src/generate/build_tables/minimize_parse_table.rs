@@ -1,6 +1,6 @@
 use super::item::TokenSet;
 use super::token_conflicts::TokenConflictMap;
-use crate::generate::grammars::{SyntaxGrammar, VariableType};
+use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar, VariableType};
 use crate::generate::rules::{AliasMap, Symbol};
 use crate::generate::tables::{ParseAction, ParseState, ParseTable, ParseTableEntry};
 use hashbrown::{HashMap, HashSet};
@@ -8,6 +8,7 @@ use hashbrown::{HashMap, HashSet};
 pub(crate) fn minimize_parse_table(
     parse_table: &mut ParseTable,
     syntax_grammar: &SyntaxGrammar,
+    lexical_grammar: &LexicalGrammar,
     simple_aliases: &AliasMap,
     token_conflict_map: &TokenConflictMap,
     keywords: &TokenSet,
@@ -15,6 +16,7 @@ pub(crate) fn minimize_parse_table(
     let mut minimizer = Minimizer {
         parse_table,
         syntax_grammar,
+        lexical_grammar,
         token_conflict_map,
         keywords,
         simple_aliases,
@@ -27,6 +29,7 @@ pub(crate) fn minimize_parse_table(
 struct Minimizer<'a> {
     parse_table: &'a mut ParseTable,
     syntax_grammar: &'a SyntaxGrammar,
+    lexical_grammar: &'a LexicalGrammar,
     token_conflict_map: &'a TokenConflictMap<'a>,
     keywords: &'a TokenSet,
     simple_aliases: &'a AliasMap,
@@ -237,6 +240,11 @@ impl<'a> Minimizer<'a> {
                         .token_conflict_map
                         .does_match_same_string(token.index, existing_token.index)
                 {
+                    info!(
+                        "can't merge parse states because of conflict between {} and {}",
+                        self.lexical_grammar.variables[token.index].name,
+                        self.lexical_grammar.variables[existing_token.index].name
+                    );
                     return false;
                 }
             }
