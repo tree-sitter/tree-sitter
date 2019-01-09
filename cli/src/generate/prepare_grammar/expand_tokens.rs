@@ -16,10 +16,10 @@ struct NfaBuilder {
 
 fn get_implicit_precedence(rule: &Rule) -> i32 {
     match rule {
-        Rule::String(_) => 1,
+        Rule::String(_) => 2,
         Rule::Metadata { rule, params } => {
             if params.is_main_token {
-                get_implicit_precedence(rule) + 2
+                get_implicit_precedence(rule) + 1
             } else {
                 get_implicit_precedence(rule)
             }

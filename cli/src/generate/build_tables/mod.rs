@@ -43,12 +43,14 @@ pub(crate) fn build_tables(
         lexical_grammar,
         &coincident_token_index,
         &token_conflict_map,
+        &keywords,
     );
     mark_fragile_tokens(&mut parse_table, lexical_grammar, &token_conflict_map);
     if minimize {
         minimize_parse_table(
             &mut parse_table,
             syntax_grammar,
+            lexical_grammar,
             simple_aliases,
             &token_conflict_map,
             &keywords,
@@ -77,6 +79,7 @@ fn populate_error_state(
     lexical_grammar: &LexicalGrammar,
     coincident_token_index: &CoincidentTokenIndex,
     token_conflict_map: &TokenConflictMap,
+    keywords: &TokenSet,
 ) {
     let state = &mut parse_table.states[0];
     let n = lexical_grammar.variables.len();
@@ -112,7 +115,7 @@ fn populate_error_state(
     // the *conflict-free tokens* identified above.
     for i in 0..n {
         let symbol = Symbol::terminal(i);
-        if !conflict_free_tokens.contains(&symbol) {
+        if !conflict_free_tokens.contains(&symbol) && !keywords.contains(&symbol) {
             if syntax_grammar.word_token != Some(symbol) {
                 if let Some(t) = conflict_free_tokens.iter().find(|t| {
                     !coincident_token_index.contains(symbol, *t)
