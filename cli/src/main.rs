@@ -83,11 +83,7 @@ fn run() -> error::Result<()> {
                 ids.filter_map(|id| usize::from_str_radix(id, 10).ok())
                     .collect()
             });
-        let grammar_path = current_dir.join("grammar.js");
-        let code =
-            generate::generate_parser_for_grammar(&grammar_path, minimize, state_ids_to_log)?;
-        println!("{}", code);
-        return Ok(());
+        generate::generate_parser_for_grammar(&current_dir, minimize, state_ids_to_log)?;
     } else if let Some(matches) = matches.subcommand_matches("test") {
         let debug = matches.is_present("debug");
         let debug_graph = matches.is_present("debug-graph");

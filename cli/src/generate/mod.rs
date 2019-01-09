@@ -3,6 +3,7 @@ use self::parse_grammar::parse_grammar;
 use self::prepare_grammar::prepare_grammar;
 use self::render::render_c_code;
 use crate::error::Result;
+use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -17,11 +18,11 @@ mod rules;
 mod tables;
 
 pub fn generate_parser_for_grammar(
-    grammar_path: &PathBuf,
+    repo_path: &PathBuf,
     minimize: bool,
     state_ids_to_log: Vec<usize>,
-) -> Result<String> {
-    let grammar_json = load_js_grammar_file(grammar_path);
+) -> Result<()> {
+    let grammar_json = load_js_grammar_file(&repo_path.join("grammar.js"));
     let input_grammar = parse_grammar(&grammar_json)?;
     let (syntax_grammar, lexical_grammar, inlines, simple_aliases) =
         prepare_grammar(&input_grammar)?;
@@ -43,7 +44,8 @@ pub fn generate_parser_for_grammar(
         lexical_grammar,
         simple_aliases,
     );
-    Ok(c_code)
+    fs::write(repo_path.join("src").join("parser.c"), c_code)?;
+    Ok(())
 }
 
 fn load_js_grammar_file(grammar_path: &PathBuf) -> String {
