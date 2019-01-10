@@ -1,15 +1,17 @@
 use crate::error::{Error, Result};
+use hashbrown::hash_map::{Entry, HashMap};
+use hashbrown::HashSet;
 use rsass;
 use rsass::sass::Value;
-use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
-use std::fmt;
-use std::fmt::Write;
+use std::cmp::Ordering;
+use std::collections::{BTreeMap, VecDeque};
+use std::fmt::{self, Write};
 use std::fs::{self, File};
-use std::hash::{Hash, Hasher};
+use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use tree_sitter::{self, PropertyStateJSON, PropertyTransitionJSON};
 
-#[derive(Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(untagged)]
 enum PropertyValue {
     String(String),
@@ -17,17 +19,17 @@ enum PropertyValue {
     Array(Vec<PropertyValue>),
 }
 
-type PropertySet = BTreeMap<String, PropertyValue>;
+type PropertySet = std::collections::HashMap<String, PropertyValue>;
 type PropertySheetJSON = tree_sitter::PropertySheetJSON<PropertySet>;
-type StateId = u32;
-type PropertySetId = u32;
+type StateId = usize;
+type PropertySetId = usize;
 
 #[derive(Clone, PartialEq, Eq)]
 struct SelectorStep {
     kind: String,
     is_named: bool,
     is_immediate: bool,
-    child_index: Option<i32>,
+    child_index: Option<usize>,
     text_pattern: Option<String>,
 }
 
@@ -40,29 +42,48 @@ struct Rule {
     properties: PropertySet,
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct PropertyItem {
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct Item {
     rule_id: u32,
     selector_id: u32,
     step_id: u32,
 }
 
-#[derive(PartialEq, Eq)]
-struct PropertyItemSet(BTreeSet<PropertyItem>);
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct ItemSet(Vec<Item>);
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct SelectorMatch {
     specificity: u32,
     rule_id: u32,
-    selector_id: u32,
 }
 
 struct Builder {
     rules: Vec<Rule>,
     output: PropertySheetJSON,
-    ids_by_item_set: HashMap<PropertyItemSet, StateId>,
-    ids_by_property_set: HashMap<PropertySet, PropertySetId>,
-    item_set_queue: VecDeque<(PropertyItemSet, StateId)>,
+    ids_by_item_set: HashMap<ItemSet, StateId>,
+    item_set_queue: VecDeque<(ItemSet, StateId)>,
+}
+
+impl ItemSet {
+    fn new() -> Self {
+        ItemSet(Vec::new())
+    }
+
+    fn insert(&mut self, item: Item) {
+        match self.0.binary_search(&item) {
+            Err(i) => self.0.insert(i, item),
+            _ => {}
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a ItemSet {
+    type Item = &'a Item;
+    type IntoIter = std::slice::Iter<'a, Item>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
 }
 
 impl Builder {
@@ -74,25 +95,301 @@ impl Builder {
                 property_sets: Vec::new(),
             },
             ids_by_item_set: HashMap::new(),
-            ids_by_property_set: HashMap::new(),
             item_set_queue: VecDeque::new(),
         }
     }
 
-    fn build(self) -> PropertySheetJSON {
-        let mut start_item_set = PropertyItemSet(BTreeSet::new());
+    fn build(mut self) -> PropertySheetJSON {
+        let mut start_item_set = ItemSet::new();
+        for (i, rule) in self.rules.iter().enumerate() {
+            for j in 0..rule.selectors.len() {
+                start_item_set.insert(Item {
+                    rule_id: i as u32,
+                    selector_id: j as u32,
+                    step_id: 0,
+                });
+            }
+        }
+
+        self.add_state(start_item_set);
+        while let Some((item_set, state_id)) = self.item_set_queue.pop_front() {
+            self.populate_state(item_set, state_id);
+        }
+
+        self.remove_duplicate_states();
+
+        for (i, state) in self.output.states.iter_mut().enumerate() {
+            state.id = i;
+        }
 
         self.output
     }
-}
 
-impl Hash for PropertyItemSet {
-    fn hash<H: Hasher>(&self, h: &mut H) {
-        h.write_usize(self.0.len());
-        for entry in &self.0 {
-            entry.hash(h);
+    fn add_state(&mut self, item_set: ItemSet) -> StateId {
+        match self.ids_by_item_set.entry(item_set) {
+            Entry::Occupied(o) => *o.get(),
+            Entry::Vacant(v) => {
+                let state_id = self.output.states.len();
+                self.output.states.push(PropertyStateJSON {
+                    id: 0,
+                    transitions: Vec::new(),
+                    property_set_id: 0,
+                    default_next_state_id: 0,
+                });
+                self.item_set_queue.push_back((v.key().clone(), state_id));
+                v.insert(state_id);
+                state_id
+            }
         }
     }
+
+    fn add_property_set(&mut self, properties: PropertySet) -> PropertySetId {
+        if let Some(index) = self
+            .output
+            .property_sets
+            .iter()
+            .position(|i| *i == properties)
+        {
+            index
+        } else {
+            self.output.property_sets.push(properties);
+            self.output.property_sets.len() - 1
+        }
+    }
+
+    fn populate_state(&mut self, item_set: ItemSet, state_id: StateId) {
+        let mut transition_map: HashSet<PropertyTransitionJSON> = HashSet::new();
+        let mut selector_matches = Vec::new();
+
+        // First, compute all of the possible state transition predicates for
+        // this state, and all of the rules that are currently matching.
+        for item in &item_set {
+            let rule = &self.rules[item.rule_id as usize];
+            let selector = &rule.selectors[item.selector_id as usize];
+            let next_step = selector.0.get(item.step_id as usize);
+
+            // If this item has more elements remaining in its selector, then
+            // add a state transition based on the next step.
+            if let Some(step) = next_step {
+                transition_map.insert(PropertyTransitionJSON {
+                    kind: step.kind.clone(),
+                    named: step.is_named,
+                    index: step.child_index,
+                    text: step.text_pattern.clone(),
+                    state_id: 0,
+                });
+            }
+            // If the item has matched its entire selector, then the item's
+            // properties are applicable to this state.
+            else {
+                selector_matches.push(SelectorMatch {
+                    rule_id: item.rule_id,
+                    specificity: selector_specificity(selector),
+                });
+            }
+        }
+
+        // For eacy possible state transition, compute the set of items in that transition's
+        // destination state.
+        let mut transition_list: Vec<(PropertyTransitionJSON, u32)> = transition_map
+            .into_iter()
+            .map(|mut transition| {
+                let mut next_item_set = ItemSet::new();
+                let mut latest_matching_rule_id = 0;
+                for item in &item_set {
+                    let rule = &self.rules[item.rule_id as usize];
+                    let selector = &rule.selectors[item.selector_id as usize];
+                    let next_step = selector.0.get(item.step_id as usize);
+
+                    if let Some(step) = next_step {
+                        // If the next step of the item's selector satisfies this transition,
+                        // advance the item to the next part of its selector and add the
+                        // resulting item to this transition's destination state.
+                        if step_matches_transition(step, &transition) {
+                            let next_item = Item {
+                                rule_id: item.rule_id,
+                                selector_id: item.selector_id,
+                                step_id: item.step_id + 1,
+                            };
+
+                            next_item_set.insert(next_item);
+
+                            // If the next item is at the end of its selector, record its rule id
+                            // so that the rule id can be used when sorting this state's transitions.
+                            if selector.0.get(item.step_id as usize + 1).is_none()
+                                && item.rule_id > latest_matching_rule_id
+                            {
+                                latest_matching_rule_id = item.rule_id;
+                            }
+                        }
+
+                        // If the next step of the item is not an immediate child, then
+                        // include this item in this transition's destination state, because
+                        // the next step of the item might match a descendant node.
+                        if !step.is_immediate {
+                            next_item_set.insert(*item);
+                        }
+                    }
+                }
+
+                transition.state_id = self.add_state(next_item_set);
+                (transition, latest_matching_rule_id)
+            })
+            .collect();
+
+        // Ensure that for a given node type, more specific transitions are tried
+        // first, and in the event of a tie, transitions corresponding to later rules
+        // in the cascade are tried first.
+        transition_list.sort_by(|a, b| {
+            let result = a.0.kind.cmp(&b.0.kind);
+            if result != Ordering::Equal {
+                return result;
+            }
+            let result = a.0.named.cmp(&b.0.named);
+            if result != Ordering::Equal {
+                return result;
+            }
+            let result = transition_specificity(&b.0).cmp(&transition_specificity(&a.0));
+            if result != Ordering::Equal {
+                return result;
+            }
+            b.1.cmp(&a.1)
+        });
+
+        // Compute the merged properties that apply in the current state.
+        // Sort the matching property sets by ascending specificity and by
+        // their order in the sheet. This way, more specific selectors and later
+        // rules will override less specific selectors and earlier rules.
+        let mut properties = PropertySet::new();
+        selector_matches.sort_unstable_by(|a, b| {
+            let result = a.specificity.cmp(&b.specificity);
+            if result != Ordering::Equal {
+                return result;
+            }
+            a.rule_id.cmp(&b.rule_id)
+        });
+        selector_matches.dedup();
+        for selector_match in selector_matches {
+            let rule = &self.rules[selector_match.rule_id as usize];
+            for (property, value) in &rule.properties {
+                properties.insert(property.clone(), value.clone());
+            }
+        }
+
+        // Compute the default successor item set - the item set that
+        // we should advance to if the next element doesn't match any
+        // of the next elements in the item set's selectors.
+        let mut default_next_item_set = ItemSet::new();
+        for item in &item_set {
+            let rule = &self.rules[item.rule_id as usize];
+            let selector = &rule.selectors[item.selector_id as usize];
+            let next_step = selector.0.get(item.step_id as usize);
+            if let Some(step) = next_step {
+                if !step.is_immediate {
+                    default_next_item_set.insert(*item);
+                }
+            }
+        }
+
+        self.output.states[state_id].default_next_state_id = self.add_state(default_next_item_set);
+        self.output.states[state_id].property_set_id = self.add_property_set(properties);
+        self.output.states[state_id]
+            .transitions
+            .extend(transition_list.into_iter().map(|i| i.0));
+    }
+
+    fn remove_duplicate_states(&mut self) {
+        let mut state_replacements = BTreeMap::new();
+        let mut done = false;
+        while !done {
+            done = true;
+            for (i, state_i) in self.output.states.iter().enumerate() {
+                if state_replacements.contains_key(&i) {
+                    continue;
+                }
+                for (j, state_j) in self.output.states.iter().enumerate() {
+                    if j == i {
+                        break;
+                    }
+                    if state_replacements.contains_key(&j) {
+                        continue;
+                    }
+                    if state_i == state_j {
+                        info!("replace state {} with state {}", i, j);
+                        state_replacements.insert(i, j);
+                        done = false;
+                        break;
+                    }
+                }
+            }
+            for state in self.output.states.iter_mut() {
+                for transition in state.transitions.iter_mut() {
+                    if let Some(replacement) = state_replacements.get(&transition.state_id) {
+                        transition.state_id = *replacement;
+                    }
+                }
+            }
+        }
+
+        let final_state_replacements = (0..self.output.states.len())
+            .into_iter()
+            .map(|state_id| {
+                let replacement = state_replacements
+                    .get(&state_id)
+                    .cloned()
+                    .unwrap_or(state_id);
+                let prior_removed = state_replacements
+                    .iter()
+                    .take_while(|i| *i.0 < replacement)
+                    .count();
+                replacement - prior_removed
+            })
+            .collect::<Vec<_>>();
+
+        for state in self.output.states.iter_mut() {
+            for transition in state.transitions.iter_mut() {
+                transition.state_id = final_state_replacements[transition.state_id];
+            }
+        }
+
+        let mut i = 0;
+        self.output.states.retain(|_| {
+            let result = !state_replacements.contains_key(&i);
+            i += 1;
+            result
+        });
+    }
+}
+
+fn selector_specificity(selector: &Selector) -> u32 {
+    let mut result = selector.0.len() as u32;
+    for step in &selector.0 {
+        if step.child_index.is_some() {
+            result += 1;
+        }
+        if step.text_pattern.is_some() {
+            result += 1;
+        }
+    }
+    result
+}
+
+fn transition_specificity(transition: &PropertyTransitionJSON) -> u32 {
+    let mut result = 0;
+    if transition.index.is_some() {
+        result += 1;
+    }
+    if transition.text.is_some() {
+        result += 1;
+    }
+    result
+}
+
+fn step_matches_transition(step: &SelectorStep, transition: &PropertyTransitionJSON) -> bool {
+    step.kind == transition.kind
+        && step.is_named == transition.named
+        && (step.child_index == transition.index || step.child_index.is_none())
+        && (step.text_pattern == transition.text || step.text_pattern.is_none())
 }
 
 impl fmt::Debug for SelectorStep {
@@ -135,27 +432,28 @@ pub fn generate_property_sheets(repo_path: &Path) -> Result<()> {
     let properties_dir_path = repo_path.join("properties");
 
     for entry in fs::read_dir(properties_dir_path)? {
-        let property_sheet_css_path = entry?.path();
-        let rules = parse_property_sheet(&property_sheet_css_path)?;
-
-        for rule in &rules {
-            eprintln!("rule: {:?}", rule);
-        }
-
-        let sheet = Builder::new(rules).build();
+        let css_path = entry?.path();
+        let css = fs::read_to_string(&css_path)?;
+        let sheet = generate_property_sheet(&css_path, &css)?;
         let property_sheet_json_path = src_dir_path
-            .join(property_sheet_css_path.file_name().unwrap())
+            .join(css_path.file_name().unwrap())
             .with_extension("json");
-        let mut property_sheet_json_file = File::create(property_sheet_json_path)?;
-        serde_json::to_writer_pretty(&mut property_sheet_json_file, &sheet)?;
+        let property_sheet_json_file = File::create(property_sheet_json_path)?;
+        let mut writer = BufWriter::new(property_sheet_json_file);
+        serde_json::to_writer_pretty(&mut writer, &sheet)?;
     }
 
     Ok(())
 }
 
-fn parse_property_sheet(path: &Path) -> Result<Vec<Rule>> {
+fn generate_property_sheet(path: impl AsRef<Path>, css: &str) -> Result<PropertySheetJSON> {
+    let rules = parse_property_sheet(path.as_ref(), &css)?;
+    Ok(Builder::new(rules).build())
+}
+
+fn parse_property_sheet(path: &Path, css: &str) -> Result<Vec<Rule>> {
     let mut i = 0;
-    let mut items = rsass::parse_scss_file(path)?;
+    let mut items = rsass::parse_scss_data(css.as_bytes())?;
     while i < items.len() {
         match &items[i] {
             rsass::Item::Import(arg) => {
@@ -296,11 +594,14 @@ fn parse_sass_value(value: &Value) -> Result<PropertyValue> {
             }
             Ok(PropertyValue::Array(result))
         }
+        Value::Color(_, Some(name)) => Ok(PropertyValue::String(name.clone())),
+        Value::Numeric(n, _) => Ok(PropertyValue::String(format!("{}", n))),
         Value::True => Ok(PropertyValue::String("true".to_string())),
         Value::False => Ok(PropertyValue::String("false".to_string())),
-        _ => Err(Error(
-            "Property values must be strings or function calls".to_string(),
-        )),
+        _ => Err(Error(format!(
+            "Property values must be strings or function calls. Got {:?}",
+            value
+        ))),
     }
 }
 
@@ -323,5 +624,160 @@ fn resolve_path(base: &Path, path: impl AsRef<Path>) -> Result<PathBuf> {
             "Could not resolve import path {:?}",
             path.as_ref()
         )))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use regex::Regex;
+
+    #[test]
+    fn test_immediate_child_and_descendant_selectors() {
+        let sheet = generate_property_sheet(
+            "foo",
+            "
+                f1 {
+                  color: red;
+
+                  & > f2 {
+                    color: green;
+                  }
+
+                  & f3 {
+                    color: blue;
+                  }
+                }
+
+                f2 {
+                  color: indigo;
+                  height: 2;
+                }
+
+                f3 {
+                  color: violet;
+                  height: 3;
+                }
+            ",
+        )
+        .unwrap();
+
+        // f1 single-element selector
+        assert_eq!(
+            *query_simple(&sheet, vec!["f1"]),
+            props(&[("color", "red")])
+        );
+        assert_eq!(
+            *query_simple(&sheet, vec!["f2", "f1"]),
+            props(&[("color", "red")])
+        );
+        assert_eq!(
+            *query_simple(&sheet, vec!["f2", "f3", "f1"]),
+            props(&[("color", "red")])
+        );
+
+        // f2 single-element selector
+        assert_eq!(
+            *query_simple(&sheet, vec!["f2"]),
+            props(&[("color", "indigo"), ("height", "2")])
+        );
+        assert_eq!(
+            *query_simple(&sheet, vec!["f2", "f2"]),
+            props(&[("color", "indigo"), ("height", "2")])
+        );
+        assert_eq!(
+            *query_simple(&sheet, vec!["f1", "f3", "f2"]),
+            props(&[("color", "indigo"), ("height", "2")])
+        );
+        assert_eq!(
+            *query_simple(&sheet, vec!["f1", "f6", "f2"]),
+            props(&[("color", "indigo"), ("height", "2")])
+        );
+
+        // f3 single-element selector
+        assert_eq!(
+            *query_simple(&sheet, vec!["f3"]),
+            props(&[("color", "violet"), ("height", "3")])
+        );
+        assert_eq!(
+            *query_simple(&sheet, vec!["f2", "f3"]),
+            props(&[("color", "violet"), ("height", "3")])
+        );
+
+        // f2 child selector
+        assert_eq!(
+            *query_simple(&sheet, vec!["f1", "f2"]),
+            props(&[("color", "green"), ("height", "2")])
+        );
+        assert_eq!(
+            *query_simple(&sheet, vec!["f2", "f1", "f2"]),
+            props(&[("color", "green"), ("height", "2")])
+        );
+        assert_eq!(
+            *query_simple(&sheet, vec!["f3", "f1", "f2"]),
+            props(&[("color", "green"), ("height", "2")])
+        );
+
+        // f3 descendant selector
+        assert_eq!(
+            *query_simple(&sheet, vec!["f1", "f3"]),
+            props(&[("color", "blue"), ("height", "3")])
+        );
+        assert_eq!(
+            *query_simple(&sheet, vec!["f1", "f2", "f3"]),
+            props(&[("color", "blue"), ("height", "3")])
+        );
+        assert_eq!(
+            *query_simple(&sheet, vec!["f1", "f6", "f7", "f8", "f3"]),
+            props(&[("color", "blue"), ("height", "3")])
+        );
+
+        // no match
+        assert_eq!(
+            *query_simple(&sheet, vec!["f1", "f3", "f4"]),
+            props(&[])
+        );
+    }
+
+    fn query_simple<'a>(
+        sheet: &'a PropertySheetJSON,
+        node_stack: Vec<&'static str>,
+    ) -> &'a PropertySet {
+        query(
+            sheet,
+            node_stack.into_iter().map(|s| (s, true, 0)).collect(),
+            "",
+        )
+    }
+
+    fn query<'a>(
+        sheet: &'a PropertySheetJSON,
+        node_stack: Vec<(&'static str, bool, usize)>,
+        leaf_text: &str,
+    ) -> &'a PropertySet {
+        let mut state_id = 0;
+        for (kind, is_named, child_index) in node_stack {
+            let state = &sheet.states[state_id];
+            state_id = state
+                .transitions
+                .iter()
+                .find(|transition| {
+                    transition.kind == kind
+                        && transition.named == is_named
+                        && transition.index.map_or(true, |index| index == child_index)
+                        && (transition
+                            .text
+                            .as_ref()
+                            .map_or(true, |text| Regex::new(text).unwrap().is_match(leaf_text)))
+                })
+                .map_or(state.default_next_state_id, |t| t.state_id);
+        }
+        &sheet.property_sets[sheet.states[state_id].property_set_id]
+    }
+
+    fn props<'a>(s: &'a [(&'a str, &'a str)]) -> PropertySet {
+        s.into_iter()
+            .map(|(a, b)| (a.to_string(), PropertyValue::String(b.to_string())))
+            .collect()
     }
 }

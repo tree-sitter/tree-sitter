@@ -80,20 +80,23 @@ pub struct PropertySheet<P = HashMap<String, String>> {
     text_regexes: Vec<Regex>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Hash, PartialEq, Eq)]
 pub struct PropertyTransitionJSON {
     #[serde(rename = "type")]
     pub kind: String,
     pub named: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub index: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
     pub state_id: usize,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct PropertyStateJSON {
-    pub transitions: Vec<PropertyTransitionJSON>,
+    pub id: usize,
     pub property_set_id: usize,
+    pub transitions: Vec<PropertyTransitionJSON>,
     pub default_next_state_id: usize,
 }
 
