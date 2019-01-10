@@ -1,16 +1,17 @@
 @echo off
 
-call:fetch_grammar embedded-template master
-call:fetch_grammar javascript        master
-call:fetch_grammar json              master
+call:fetch_grammar bash              master
 call:fetch_grammar c                 master
 call:fetch_grammar cpp               master
-call:fetch_grammar python            master
+call:fetch_grammar embedded-template master
 call:fetch_grammar go                master
-call:fetch_grammar ruby              master
-call:fetch_grammar typescript        master
-call:fetch_grammar bash              master
 call:fetch_grammar html              master
+call:fetch_grammar javascript        master
+call:fetch_grammar json              master
+call:fetch_grammar python            master
+call:fetch_grammar ruby              master
+call:fetch_grammar rust              master
+call:fetch_grammar typescript        master
 EXIT /B 0
 
 :fetch_grammar

@@ -12,7 +12,7 @@ install:
   - rustc -vV
   - cargo -vV
 
-  - script\fetch-test-fixtures.cmd
+  - script\fetch-fixtures.cmd
 
 test_script:
   - cargo build
