@@ -1,10 +1,9 @@
 use crate::error::{Error, Result};
-use hashbrown::hash_map::{Entry, HashMap};
-use hashbrown::HashSet;
 use rsass;
 use rsass::sass::Value;
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::hash_map::Entry;
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fmt::{self, Write};
 use std::fs::{self, File};
 use std::io::BufWriter;
@@ -19,7 +18,7 @@ enum PropertyValue {
     Array(Vec<PropertyValue>),
 }
 
-type PropertySet = std::collections::HashMap<String, PropertyValue>;
+type PropertySet = HashMap<String, PropertyValue>;
 type PropertySheetJSON = tree_sitter::PropertySheetJSON<PropertySet>;
 type StateId = usize;
 type PropertySetId = usize;
@@ -448,6 +447,9 @@ pub fn generate_property_sheets(repo_path: &Path) -> Result<()> {
 
 fn generate_property_sheet(path: impl AsRef<Path>, css: &str) -> Result<PropertySheetJSON> {
     let rules = parse_property_sheet(path.as_ref(), &css)?;
+    for rule in &rules {
+        eprintln!("rule {:?}", rule);
+    }
     Ok(Builder::new(rules).build())
 }
 
@@ -470,7 +472,6 @@ fn parse_property_sheet(path: &Path, css: &str) -> Result<Vec<Rule>> {
                 "schema" => {
                     if let Some(s) = get_sass_string(args) {
                         let schema_path = resolve_path(path, s)?;
-                        eprintln!("schema path: {:?}", schema_path);
                         items.remove(i);
                         continue;
                     } else {
@@ -500,7 +501,22 @@ fn parse_sass_items(
         match item {
             rsass::Item::None | rsass::Item::Comment(_) => {}
             rsass::Item::Property(name, value) => {
-                properties.insert(name.to_string(), parse_sass_value(&value)?);
+                let value = parse_sass_value(&value)?;
+                match properties.entry(name.to_string()) {
+                    Entry::Vacant(v) => {
+                        v.insert(value);
+                    }
+                    Entry::Occupied(mut o) => {
+                        let existing_value = o.get_mut();
+                        if let PropertyValue::Array(items) = existing_value {
+                            items.push(value);
+                            continue;
+                        } else {
+                            let v = existing_value.clone();
+                            *existing_value = PropertyValue::Array(vec![v, value]);
+                        }
+                    }
+                }
             }
             rsass::Item::Rule(selectors, items) => {
                 let mut full_selectors = Vec::new();
@@ -516,6 +532,15 @@ fn parse_sass_items(
                             if !part_string.is_empty() {
                                 if part_string == "&" {
                                     continue;
+                                } else if part_string.starts_with(":nth-child(") {
+                                    if let Some(last_step) = prefix.last_mut() {
+                                        if let Ok(index) = usize::from_str_radix(
+                                            &part_string[11..(part_string.len() - 1)],
+                                            10,
+                                        ) {
+                                            last_step.child_index = Some(index);
+                                        }
+                                    }
                                 } else if part_string.starts_with("[text=") {
                                     if let Some(last_step) = prefix.last_mut() {
                                         last_step.text_pattern = Some(
@@ -613,18 +638,30 @@ fn get_sass_string(value: &Value) -> Option<&str> {
     }
 }
 
-fn resolve_path(base: &Path, path: impl AsRef<Path>) -> Result<PathBuf> {
+fn resolve_path(base: &Path, p: &str) -> Result<PathBuf> {
+    let path = Path::new(p);
     let mut result = base.to_owned();
     result.pop();
-    result.push(path.as_ref());
-    if result.exists() {
-        Ok(result)
+    if path.starts_with(".") {
+        result.push(path);
+        if result.exists() {
+            return Ok(result);
+        }
     } else {
-        Err(Error(format!(
-            "Could not resolve import path {:?}",
-            path.as_ref()
-        )))
+        loop {
+            result.push("node_modules");
+            result.push(path);
+            if result.exists() {
+                return Ok(result);
+            }
+            result.pop();
+            result.pop();
+            if !result.pop() {
+                break;
+            }
+        }
     }
+    Err(Error(format!("Could not resolve import path `{}`", p)))
 }
 
 #[cfg(test)]
@@ -635,7 +672,7 @@ mod tests {
     #[test]
     fn test_immediate_child_and_descendant_selectors() {
         let sheet = generate_property_sheet(
-            "foo",
+            "foo.css",
             "
                 f1 {
                   color: red;
@@ -733,9 +770,163 @@ mod tests {
         );
 
         // no match
+        assert_eq!(*query_simple(&sheet, vec!["f1", "f3", "f4"]), props(&[]));
+        assert_eq!(*query_simple(&sheet, vec!["f1", "f2", "f5"]), props(&[]));
+    }
+
+    #[test]
+    fn test_text_attribute() {
+        let sheet = generate_property_sheet(
+            "foo.css",
+            "
+                f1 {
+                  color: red;
+
+                  &[text='^[A-Z]'] {
+                    color: green;
+                  }
+
+                  &[text='^[A-Z_]+$'] {
+                    color: blue;
+                  }
+                }
+
+                f2[text='^[A-Z_]+$'] {
+                  color: purple;
+                }
+            ",
+        )
+        .unwrap();
+
         assert_eq!(
-            *query_simple(&sheet, vec!["f1", "f3", "f4"]),
+            *query(&sheet, vec![("f1", true, 0)], "abc"),
+            props(&[("color", "red")])
+        );
+        assert_eq!(
+            *query(&sheet, vec![("f1", true, 0)], "Abc"),
+            props(&[("color", "green")])
+        );
+        assert_eq!(
+            *query(&sheet, vec![("f1", true, 0)], "AB_CD"),
+            props(&[("color", "blue")])
+        );
+        assert_eq!(*query(&sheet, vec![("f2", true, 0)], "Abc"), props(&[]));
+        assert_eq!(
+            *query(&sheet, vec![("f2", true, 0)], "ABC"),
+            props(&[("color", "purple")])
+        );
+    }
+
+    #[test]
+    fn test_cascade_ordering_as_tie_breaker() {
+        let sheet = generate_property_sheet(
+            "foo.css",
+            "
+                f1 f2:nth-child(1) { color: red; }
+                f1:nth-child(1) f2 { color: green; }
+                f1 f2[text='a'] { color: blue; }
+                f1 f2[text='b'] { color: violet; }
+            ",
+        )
+        .unwrap();
+
+        assert_eq!(
+            *query(&sheet, vec![("f1", true, 0), ("f2", true, 0)], "x"),
             props(&[])
+        );
+        assert_eq!(
+            *query(&sheet, vec![("f1", true, 0), ("f2", true, 1)], "x"),
+            props(&[("color", "red")])
+        );
+        assert_eq!(
+            *query(&sheet, vec![("f1", true, 1), ("f2", true, 1)], "x"),
+            props(&[("color", "green")])
+        );
+        assert_eq!(
+            *query(&sheet, vec![("f1", true, 1), ("f2", true, 1)], "a"),
+            props(&[("color", "blue")])
+        );
+        assert_eq!(
+            *query(&sheet, vec![("f1", true, 1), ("f2", true, 1)], "ab"),
+            props(&[("color", "violet")])
+        );
+    }
+
+    #[test]
+    fn test_css_function_calls() {
+        let sheet = generate_property_sheet(
+            "foo.css",
+            "
+                a {
+                  b: f();
+                  c: f(g(h), i, \"j\", 10);
+                }
+            ",
+        )
+        .unwrap();
+
+        let p = query_simple(&sheet, vec!["a"]);
+
+        assert_eq!(
+            p["b"],
+            object(&[("name", string("f")), ("args", array(vec![])),])
+        );
+
+        assert_eq!(
+            p["c"],
+            object(&[
+                ("name", string("f")),
+                (
+                    "args",
+                    array(vec![
+                        object(&[("name", string("g")), ("args", array(vec![string("h"),]))]),
+                        string("i"),
+                        string("j"),
+                        string("10"),
+                    ])
+                ),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_array_by_declaring_property_multiple_times() {
+        let sheet = generate_property_sheet(
+            "foo.css",
+            "
+                a {
+                  b: 'foo';
+                  b: 'bar';
+                  b: 'baz';
+                  c: f(g());
+                  c: h();
+                }
+            ",
+        )
+        .unwrap();
+
+        let p = query_simple(&sheet, vec!["a"]);
+
+        assert_eq!(
+            p["b"],
+            array(vec![string("foo"), string("bar"), string("baz"),])
+        );
+
+        assert_eq!(
+            p["c"],
+            array(vec![
+                object(&[
+                    ("name", string("f")),
+                    (
+                        "args",
+                        array(vec![object(&[
+                            ("name", string("g")),
+                            ("args", array(vec![])),
+                        ])])
+                    )
+                ]),
+                object(&[("name", string("h")), ("args", array(vec![])),]),
+            ]),
         );
     }
 
@@ -773,6 +964,22 @@ mod tests {
                 .map_or(state.default_next_state_id, |t| t.state_id);
         }
         &sheet.property_sets[sheet.states[state_id].property_set_id]
+    }
+
+    fn array(s: Vec<PropertyValue>) -> PropertyValue {
+        PropertyValue::Array(s)
+    }
+
+    fn object<'a>(s: &'a [(&'a str, PropertyValue)]) -> PropertyValue {
+        PropertyValue::Object(
+            s.into_iter()
+                .map(|(a, b)| (a.to_string(), b.clone()))
+                .collect(),
+        )
+    }
+
+    fn string(s: &str) -> PropertyValue {
+        PropertyValue::String(s.to_string())
     }
 
     fn props<'a>(s: &'a [(&'a str, &'a str)]) -> PropertySet {
