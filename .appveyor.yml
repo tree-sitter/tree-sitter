@@ -23,5 +23,6 @@ branches:
     - master
 
 cache:
-  - test\fixtures
+  - target
+  - test\fixtures\grammars
   - C:\Users\appveyor\.cargo

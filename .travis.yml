@@ -12,3 +12,8 @@ before_install:
 branches:
   only:
   - master
+
+cache:
+  cargo: true
+  directories:
+    - test/fixtures/grammars
