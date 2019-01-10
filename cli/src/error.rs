@@ -31,6 +31,12 @@ impl From<io::Error> for Error {
     }
 }
 
+impl From<rsass::Error> for Error {
+    fn from(error: rsass::Error) -> Self {
+        Error(error.to_string())
+    }
+}
+
 impl From<String> for Error {
     fn from(error: String) -> Self {
         Error(error)

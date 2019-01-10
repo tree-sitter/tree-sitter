@@ -80,6 +80,29 @@ pub struct PropertySheet<P = HashMap<String, String>> {
     text_regexes: Vec<Regex>,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct PropertyTransitionJSON {
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub named: bool,
+    pub index: Option<usize>,
+    pub text: Option<String>,
+    pub state_id: usize,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct PropertyStateJSON {
+    pub transitions: Vec<PropertyTransitionJSON>,
+    pub property_set_id: usize,
+    pub default_next_state_id: usize,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct PropertySheetJSON<P> {
+    pub states: Vec<PropertyStateJSON>,
+    pub property_sets: Vec<P>,
+}
+
 #[derive(Clone, Copy)]
 pub struct Node<'a>(ffi::TSNode, PhantomData<&'a ()>);
 
@@ -189,7 +212,7 @@ impl Parser {
     }
 
     #[cfg(unix)]
-    pub fn print_dot_graphs(&mut self, file: & impl AsRawFd) {
+    pub fn print_dot_graphs(&mut self, file: &impl AsRawFd) {
         let fd = file.as_raw_fd();
         unsafe { ffi::ts_parser_print_dot_graphs(self.0, ffi::dup(fd)) }
     }
@@ -754,29 +777,6 @@ impl<P> PropertySheet<P> {
     where
         P: DeserializeOwned,
     {
-        #[derive(Deserialize, Debug)]
-        struct PropertyTransitionJSON {
-            #[serde(rename = "type")]
-            kind: String,
-            named: bool,
-            index: Option<usize>,
-            text: Option<String>,
-            state_id: usize,
-        }
-
-        #[derive(Deserialize, Debug)]
-        struct PropertyStateJSON {
-            transitions: Vec<PropertyTransitionJSON>,
-            property_set_id: usize,
-            default_next_state_id: usize,
-        }
-
-        #[derive(Deserialize, Debug)]
-        struct PropertySheetJSON<P> {
-            states: Vec<PropertyStateJSON>,
-            property_sets: Vec<P>,
-        }
-
         let input: PropertySheetJSON<P> =
             serde_json::from_str(json).map_err(PropertySheetError::InvalidJSON)?;
         let mut states = Vec::new();

@@ -6,6 +6,7 @@ extern crate log;
 extern crate serde_derive;
 extern crate hashbrown;
 extern crate regex;
+extern crate rsass;
 extern crate serde_json;
 
 mod error;
@@ -39,6 +40,7 @@ fn run() -> error::Result<()> {
             SubCommand::with_name("generate")
                 .about("Generate a parser")
                 .arg(Arg::with_name("log").long("log"))
+                .arg(Arg::with_name("properties-only").long("properties"))
                 .arg(
                     Arg::with_name("state-ids-to-log")
                         .long("log-state")
@@ -77,13 +79,14 @@ fn run() -> error::Result<()> {
         }
 
         let minimize = !matches.is_present("no-minimize");
+        let properties_only = matches.is_present("properties-only");
         let state_ids_to_log = matches
             .values_of("state-ids-to-log")
             .map_or(Vec::new(), |ids| {
                 ids.filter_map(|id| usize::from_str_radix(id, 10).ok())
                     .collect()
             });
-        generate::generate_parser_for_grammar(&current_dir, minimize, state_ids_to_log)?;
+        generate::generate_parser_for_grammar(&current_dir, minimize, state_ids_to_log, properties_only)?;
     } else if let Some(matches) = matches.subcommand_matches("test") {
         let debug = matches.is_present("debug");
         let debug_graph = matches.is_present("debug-graph");
