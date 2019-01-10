@@ -1,5 +1,5 @@
-#ifndef RUNTIME_PARSE_STACK_H_
-#define RUNTIME_PARSE_STACK_H_
+#ifndef TREE_SITTER_PARSE_STACK_H_
+#define TREE_SITTER_PARSE_STACK_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -132,4 +132,4 @@ void ts_stack_iterate(Stack *, StackVersion, StackIterateCallback, void *);
 }
 #endif
 
-#endif  // RUNTIME_PARSE_STACK_H_
+#endif  // TREE_SITTER_PARSE_STACK_H_

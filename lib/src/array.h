@@ -1,5 +1,5 @@
-#ifndef RUNTIME_ARRAY_H_
-#define RUNTIME_ARRAY_H_
+#ifndef TREE_SITTER_ARRAY_H_
+#define TREE_SITTER_ARRAY_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -132,4 +132,4 @@ static inline void array__splice(VoidArray *self, size_t element_size,
 }
 #endif
 
-#endif  // RUNTIME_ARRAY_H_
+#endif  // TREE_SITTER_ARRAY_H_

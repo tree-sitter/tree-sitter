@@ -1,5 +1,5 @@
-#ifndef RUNTIME_UTF16_H_
-#define RUNTIME_UTF16_H_
+#ifndef TREE_SITTER_UTF16_H_
+#define TREE_SITTER_UTF16_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -18,4 +18,4 @@ utf8proc_ssize_t utf16_iterate(const utf8proc_uint8_t *, utf8proc_ssize_t, utf8p
 }
 #endif
 
-#endif  // RUNTIME_UTF16_H_
+#endif  // TREE_SITTER_UTF16_H_

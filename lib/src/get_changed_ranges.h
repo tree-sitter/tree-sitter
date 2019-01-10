@@ -1,5 +1,5 @@
-#ifndef RUNTIME_GET_CHANGED_RANGES_H_
-#define RUNTIME_GET_CHANGED_RANGES_H_
+#ifndef TREE_SITTER_GET_CHANGED_RANGES_H_
+#define TREE_SITTER_GET_CHANGED_RANGES_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,4 +33,4 @@ unsigned ts_subtree_get_changed_ranges(
 }
 #endif
 
-#endif  // RUNTIME_GET_CHANGED_RANGES_H_
+#endif  // TREE_SITTER_GET_CHANGED_RANGES_H_

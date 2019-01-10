@@ -1,5 +1,5 @@
-#ifndef TREE_SITTER_RUNTIME_H_
-#define TREE_SITTER_RUNTIME_H_
+#ifndef TREE_SITTER_API_H_
+#define TREE_SITTER_API_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -153,4 +153,4 @@ uint32_t ts_language_version(const TSLanguage *);
 }
 #endif
 
-#endif  // TREE_SITTER_RUNTIME_H_
+#endif  // TREE_SITTER_API_H_

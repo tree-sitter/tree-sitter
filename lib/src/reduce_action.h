@@ -1,12 +1,12 @@
-#ifndef RUNTIME_REDUCE_ACTION_H_
-#define RUNTIME_REDUCE_ACTION_H_
+#ifndef TREE_SITTER_REDUCE_ACTION_H_
+#define TREE_SITTER_REDUCE_ACTION_H_
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #include "./array.h"
-#include "tree_sitter/runtime.h"
+#include "tree_sitter/api.h"
 
 typedef struct {
   uint32_t count;
@@ -31,4 +31,4 @@ static inline void ts_reduce_action_set_add(ReduceActionSet *self,
 }
 #endif
 
-#endif  // RUNTIME_REDUCE_ACTION_H_
+#endif  // TREE_SITTER_REDUCE_ACTION_H_

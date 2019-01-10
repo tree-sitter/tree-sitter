@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <stdbool.h>
-#include "tree_sitter/runtime.h"
+#include "tree_sitter/api.h"
 #include "./subtree.h"
 #include "./lexer.h"
 #include "./length.h"

@@ -1,5 +1,5 @@
-#ifndef RUNTIME_LEXER_H_
-#define RUNTIME_LEXER_H_
+#ifndef TREE_SITTER_LEXER_H_
+#define TREE_SITTER_LEXER_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -7,7 +7,7 @@ extern "C" {
 
 #include "./length.h"
 #include "./subtree.h"
-#include "tree_sitter/runtime.h"
+#include "tree_sitter/api.h"
 #include "tree_sitter/parser.h"
 
 typedef struct {
@@ -45,4 +45,4 @@ TSRange *ts_lexer_included_ranges(const Lexer *self, uint32_t *count);
 }
 #endif
 
-#endif  // RUNTIME_LEXER_H_
+#endif  // TREE_SITTER_LEXER_H_

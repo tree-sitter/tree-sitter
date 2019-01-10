@@ -1,5 +1,5 @@
-#ifndef RUNTIME_ATOMIC_H_
-#define RUNTIME_ATOMIC_H_
+#ifndef TREE_SITTER_ATOMIC_H_
+#define TREE_SITTER_ATOMIC_H_
 
 #include <stdint.h>
 
@@ -27,4 +27,4 @@ static inline uint32_t atomic_dec(volatile uint32_t *p) {
 
 #endif
 
-#endif  // RUNTIME_ATOMIC_H_
+#endif  // TREE_SITTER_ATOMIC_H_

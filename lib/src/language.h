@@ -1,5 +1,5 @@
-#ifndef RUNTIME_LANGUAGE_H_
-#define RUNTIME_LANGUAGE_H_
+#ifndef TREE_SITTER_LANGUAGE_H_
+#define TREE_SITTER_LANGUAGE_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -91,4 +91,4 @@ ts_language_alias_sequence(const TSLanguage *self, unsigned id) {
 }
 #endif
 
-#endif  // RUNTIME_LANGUAGE_H_
+#endif  // TREE_SITTER_LANGUAGE_H_

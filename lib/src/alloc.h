@@ -1,5 +1,5 @@
-#ifndef RUNTIME_ALLOC_H_
-#define RUNTIME_ALLOC_H_
+#ifndef TREE_SITTER_ALLOC_H_
+#define TREE_SITTER_ALLOC_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -82,4 +82,4 @@ static inline void ts_free(void *buffer) {
 }
 #endif
 
-#endif  // RUNTIME_ALLOC_H_
+#endif  // TREE_SITTER_ALLOC_H_

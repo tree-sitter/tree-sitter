@@ -1,5 +1,5 @@
-#ifndef RUNTIME_TREE_CURSOR_H_
-#define RUNTIME_TREE_CURSOR_H_
+#ifndef TREE_SITTER_TREE_CURSOR_H_
+#define TREE_SITTER_TREE_CURSOR_H_
 
 #include "./subtree.h"
 
@@ -17,4 +17,4 @@ typedef struct {
 
 void ts_tree_cursor_init(TreeCursor *, TSNode);
 
-#endif  // RUNTIME_TREE_CURSOR_H_
+#endif  // TREE_SITTER_TREE_CURSOR_H_

@@ -1,5 +1,5 @@
-#ifndef RUNTIME_TREE_H_
-#define RUNTIME_TREE_H_
+#ifndef TREE_SITTER_TREE_H_
+#define TREE_SITTER_TREE_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -31,4 +31,4 @@ void ts_tree_set_cached_parent(const TSTree *, const TSNode *, const TSNode *);
 }
 #endif
 
-#endif  // RUNTIME_TREE_H_
+#endif  // TREE_SITTER_TREE_H_

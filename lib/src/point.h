@@ -1,7 +1,7 @@
-#ifndef RUNTIME_POINT_H_
-#define RUNTIME_POINT_H_
+#ifndef TREE_SITTER_POINT_H_
+#define TREE_SITTER_POINT_H_
 
-#include "tree_sitter/runtime.h"
+#include "tree_sitter/api.h"
 
 #define POINT_MAX ((TSPoint) {UINT32_MAX, UINT32_MAX})
 

@@ -1,4 +1,4 @@
-#include "tree_sitter/runtime.h"
+#include "tree_sitter/api.h"
 #include "./array.h"
 #include "./get_changed_ranges.h"
 #include "./subtree.h"

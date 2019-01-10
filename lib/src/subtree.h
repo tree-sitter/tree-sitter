@@ -1,5 +1,5 @@
-#ifndef RUNTIME_SUBTREE_H_
-#define RUNTIME_SUBTREE_H_
+#ifndef TREE_SITTER_SUBTREE_H_
+#define TREE_SITTER_SUBTREE_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -10,7 +10,7 @@ extern "C" {
 #include "./length.h"
 #include "./array.h"
 #include "./error_costs.h"
-#include "tree_sitter/runtime.h"
+#include "tree_sitter/api.h"
 #include "tree_sitter/parser.h"
 
 extern TSStateId TS_TREE_STATE_NONE;
@@ -285,4 +285,4 @@ static inline MutableSubtree ts_subtree_to_mut_unsafe(Subtree self) {
 }
 #endif
 
-#endif  // RUNTIME_SUBTREE_H_
+#endif  // TREE_SITTER_SUBTREE_H_

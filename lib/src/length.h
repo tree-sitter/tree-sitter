@@ -1,10 +1,10 @@
-#ifndef RUNTIME_LENGTH_H_
-#define RUNTIME_LENGTH_H_
+#ifndef TREE_SITTER_LENGTH_H_
+#define TREE_SITTER_LENGTH_H_
 
 #include <stdlib.h>
 #include <stdbool.h>
 #include "./point.h"
-#include "tree_sitter/runtime.h"
+#include "tree_sitter/api.h"
 
 typedef struct {
   uint32_t bytes;
