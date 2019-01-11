@@ -4,8 +4,7 @@ rust:
   - stable
 
 env:
-  - TREE_SITTER_TEST=1
-  - RUST_BACKTRACE=full
+  - TREE_SITTER_TEST=1 RUST_BACKTRACE=full
 
 before_install:
   - ./script/fetch-fixtures
