@@ -9,11 +9,6 @@ use std::process::Command;
 use std::time::SystemTime;
 use tree_sitter::{Language, PropertySheet};
 
-const PACKAGE_JSON_PATH: &'static str = "package.json";
-const PARSER_C_PATH: &'static str = "src/parser.c";
-const SCANNER_C_PATH: &'static str = "src/scanner.c";
-const SCANNER_CC_PATH: &'static str = "src/scanner.cc";
-
 #[cfg(unix)]
 const DYLIB_EXTENSION: &'static str = "so";
 
@@ -158,8 +153,10 @@ impl Loader {
                 .target(env!("BUILD_TARGET"))
                 .host(env!("BUILD_TARGET"));
             let compiler = config.get_compiler();
-            let compiler_path = compiler.path();
-            let mut command = Command::new(compiler_path);
+            let mut command = Command::new(compiler.path());
+            for (key, value) in compiler.env() {
+                command.env(key, value);
+            }
 
             if cfg!(windows) {
                 command
@@ -192,7 +189,17 @@ impl Loader {
                 }
             }
 
-            command.output()?;
+            let output = command.output()?;
+            if !output.status.success() {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!(
+                        "Parser compilation failed.\nStdout: {}\nStderr: {}",
+                        String::from_utf8_lossy(&output.stdout),
+                        String::from_utf8_lossy(&output.stderr)
+                    ).as_str(),
+                ));
+            }
         }
 
         let library = Library::new(library_path)?;
@@ -233,7 +240,7 @@ impl Loader {
             tree_sitter: Option<Vec<LanguageConfigurationJSON>>,
         }
 
-        let package_json_contents = fs::read_to_string(&parser_path.join(PACKAGE_JSON_PATH))?;
+        let package_json_contents = fs::read_to_string(&parser_path.join("package.json"))?;
         let package_json: PackageJSON = serde_json::from_str(&package_json_contents)?;
         let configurations = package_json
             .tree_sitter
