@@ -157,7 +157,7 @@ impl Builder {
     }
 
     fn populate_state(&mut self, item_set: ItemSet, state_id: StateId) {
-        let mut transition_map: HashSet<PropertyTransitionJSON> = HashSet::new();
+        let mut transition_map: HashSet<(PropertyTransitionJSON, u32)> = HashSet::new();
         let mut selector_matches = Vec::new();
 
         // First, compute all of the possible state transition predicates for
@@ -170,13 +170,18 @@ impl Builder {
             // If this item has more elements remaining in its selector, then
             // add a state transition based on the next step.
             if let Some(step) = next_step {
-                transition_map.insert(PropertyTransitionJSON {
-                    kind: step.kind.clone(),
-                    named: step.is_named,
-                    index: step.child_index,
-                    text: step.text_pattern.clone(),
-                    state_id: 0,
-                });
+                transition_map.insert((
+                    PropertyTransitionJSON {
+                        kind: step.kind.clone(),
+                        named: step.is_named,
+                        index: step.child_index,
+                        text: step.text_pattern.clone(),
+                        state_id: 0,
+                    },
+
+                    // Include the rule id so that it can be used when sorting transitions.
+                    item.rule_id,
+                ));
             }
             // If the item has matched its entire selector, then the item's
             // properties are applicable to this state.
@@ -192,9 +197,8 @@ impl Builder {
         // destination state.
         let mut transition_list: Vec<(PropertyTransitionJSON, u32)> = transition_map
             .into_iter()
-            .map(|mut transition| {
+            .map(|(mut transition, rule_id)| {
                 let mut next_item_set = ItemSet::new();
-                let mut latest_matching_rule_id = 0;
                 for item in &item_set {
                     let rule = &self.rules[item.rule_id as usize];
                     let selector = &rule.selectors[item.selector_id as usize];
@@ -205,21 +209,11 @@ impl Builder {
                         // advance the item to the next part of its selector and add the
                         // resulting item to this transition's destination state.
                         if step_matches_transition(step, &transition) {
-                            let next_item = Item {
+                            next_item_set.insert(Item {
                                 rule_id: item.rule_id,
                                 selector_id: item.selector_id,
                                 step_id: item.step_id + 1,
-                            };
-
-                            next_item_set.insert(next_item);
-
-                            // If the next item is at the end of its selector, record its rule id
-                            // so that the rule id can be used when sorting this state's transitions.
-                            if selector.0.get(item.step_id as usize + 1).is_none()
-                                && item.rule_id > latest_matching_rule_id
-                            {
-                                latest_matching_rule_id = item.rule_id;
-                            }
+                            });
                         }
 
                         // If the next step of the item is not an immediate child, then
@@ -232,7 +226,7 @@ impl Builder {
                 }
 
                 transition.state_id = self.add_state(next_item_set);
-                (transition, latest_matching_rule_id)
+                (transition, rule_id)
             })
             .collect();
 
@@ -447,9 +441,6 @@ pub fn generate_property_sheets(repo_path: &Path) -> Result<()> {
 
 fn generate_property_sheet(path: impl AsRef<Path>, css: &str) -> Result<PropertySheetJSON> {
     let rules = parse_property_sheet(path.as_ref(), &css)?;
-    for rule in &rules {
-        eprintln!("rule {:?}", rule);
-    }
     Ok(Builder::new(rules).build())
 }
 
