@@ -1,4 +1,5 @@
 environment:
+  RUST_BACKTRACE: full
   TREE_SITTER_TEST: true
 
 build: false

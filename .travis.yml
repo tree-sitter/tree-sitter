@@ -5,6 +5,7 @@ rust:
 
 env:
   - TREE_SITTER_TEST=1
+  - RUST_BACKTRACE=full
 
 before_install:
   - ./script/fetch-fixtures
