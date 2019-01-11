@@ -16,7 +16,7 @@ lazy_static! {
         .multi_line(true)
         .build()
         .unwrap();
-    static ref DIVIDER_REGEX: ByteRegex = ByteRegexBuilder::new(r"^---+\r?\n")
+    static ref DIVIDER_REGEX: ByteRegex = ByteRegexBuilder::new(r"\r?\n---+\r?\n")
         .multi_line(true)
         .build()
         .unwrap();
@@ -251,12 +251,12 @@ d
                 children: vec![
                     TestEntry::Example {
                         name: "The first test".to_string(),
-                        input: "\na b c\n\n".as_bytes().to_vec(),
+                        input: "\na b c\n".as_bytes().to_vec(),
                         output: "(a (b c))".to_string(),
                     },
                     TestEntry::Example {
                         name: "The second test".to_string(),
-                        input: "d\n".as_bytes().to_vec(),
+                        input: "d".as_bytes().to_vec(),
                         output: "(d)".to_string(),
                     },
                 ]
