@@ -89,13 +89,18 @@ fn run() -> error::Result<()> {
                 ids.filter_map(|id| usize::from_str_radix(id, 10).ok())
                     .collect()
             });
-        generate::generate_parser_for_grammar(&current_dir, minimize, state_ids_to_log, properties_only)?;
+        generate::generate_parser_in_directory(
+            &current_dir,
+            minimize,
+            state_ids_to_log,
+            properties_only,
+        )?;
     } else if let Some(matches) = matches.subcommand_matches("test") {
         let debug = matches.is_present("debug");
         let debug_graph = matches.is_present("debug-graph");
         let filter = matches.value_of("filter");
         let corpus_path = current_dir.join("corpus");
-        if let Some((language, _)) = loader.language_configuration_at_path(&current_dir)? {
+        if let Some(language) = loader.language_at_path(&current_dir)? {
             test::run_tests_at_path(language, &corpus_path, debug, debug_graph, filter)?;
         } else {
             eprintln!("No language found");
@@ -103,9 +108,9 @@ fn run() -> error::Result<()> {
     } else if let Some(matches) = matches.subcommand_matches("parse") {
         let debug = matches.is_present("debug");
         let debug_graph = matches.is_present("debug-graph");
-        loader.find_parsers(&vec![home_dir.join("github")])?;
+        loader.find_all_languages(&vec![home_dir.join("github")])?;
         let source_path = Path::new(matches.value_of("path").unwrap());
-        if let Some((language, _)) = loader.language_for_file_name(source_path)? {
+        if let Some((language, _)) = loader.language_configuration_for_file_name(source_path)? {
             parse::parse_file_at_path(language, source_path, debug, debug_graph)?;
         } else {
             eprintln!("No language found");

@@ -2,7 +2,7 @@
   "name": "conflict_in_repeat_rule_after_external_token",
 
   "externals": [
-    {"type": "SYMBOL", "name": "_program_start"},
+    {"type": "SYMBOL", "name": "_program_start"}
   ],
 
   "rules": {

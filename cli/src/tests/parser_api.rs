@@ -1,6 +1,6 @@
 use super::languages::rust;
 use std::thread;
-use tree_sitter::{InputEdit, LogType, Parser, Point, PropertySheet, Range};
+use tree_sitter::{InputEdit, LogType, Parser, Point, PropertySheet};
 
 #[test]
 fn test_basic_parsing() {

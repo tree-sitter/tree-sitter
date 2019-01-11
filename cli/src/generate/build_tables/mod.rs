@@ -15,7 +15,7 @@ use self::token_conflicts::TokenConflictMap;
 use crate::error::Result;
 use crate::generate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
 use crate::generate::nfa::{CharacterSet, NfaCursor};
-use crate::generate::rules::{AliasMap, Symbol};
+use crate::generate::rules::{AliasMap, Symbol, SymbolType};
 use crate::generate::tables::{LexTable, ParseAction, ParseTable, ParseTableEntry};
 
 pub(crate) fn build_tables(
@@ -45,6 +45,7 @@ pub(crate) fn build_tables(
         &token_conflict_map,
         &keywords,
     );
+    populate_used_symbols(&mut parse_table, syntax_grammar, lexical_grammar);
     mark_fragile_tokens(&mut parse_table, lexical_grammar, &token_conflict_map);
     if minimize {
         minimize_parse_table(
@@ -149,6 +150,44 @@ fn populate_error_state(
     }
 
     state.terminal_entries.insert(Symbol::end(), recover_entry);
+}
+
+fn populate_used_symbols(
+    parse_table: &mut ParseTable,
+    syntax_grammar: &SyntaxGrammar,
+    lexical_grammar: &LexicalGrammar,
+) {
+    let mut terminal_usages = vec![false; lexical_grammar.variables.len()];
+    let mut non_terminal_usages = vec![false; syntax_grammar.variables.len()];
+    let mut external_usages = vec![false; syntax_grammar.external_tokens.len()];
+    for state in &parse_table.states {
+        for symbol in state.terminal_entries.keys() {
+            match symbol.kind {
+                SymbolType::Terminal => terminal_usages[symbol.index] = true,
+                SymbolType::External => external_usages[symbol.index] = true,
+                _ => {}
+            }
+        }
+        for symbol in state.nonterminal_entries.keys() {
+            non_terminal_usages[symbol.index] = true;
+        }
+    }
+    for (i, value) in external_usages.into_iter().enumerate() {
+        if value {
+            parse_table.symbols.push(Symbol::external(i));
+        }
+    }
+    parse_table.symbols.push(Symbol::end());
+    for (i, value) in terminal_usages.into_iter().enumerate() {
+        if value {
+            parse_table.symbols.push(Symbol::terminal(i));
+        }
+    }
+    for (i, value) in non_terminal_usages.into_iter().enumerate() {
+        if value {
+            parse_table.symbols.push(Symbol::non_terminal(i));
+        }
+    }
 }
 
 fn identify_keywords(

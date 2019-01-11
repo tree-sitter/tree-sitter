@@ -1,7 +1,9 @@
 use super::item::{ParseItem, ParseItemSet, TokenSet};
 use super::item_set_builder::ParseItemSetBuilder;
 use crate::error::{Error, Result};
-use crate::generate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar, VariableType};
+use crate::generate::grammars::{
+    InlinedProductionMap, LexicalGrammar, SyntaxGrammar, VariableType,
+};
 use crate::generate::rules::{Alias, Associativity, Symbol, SymbolType};
 use crate::generate::tables::{
     AliasSequenceId, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
@@ -11,6 +13,7 @@ use hashbrown::hash_map::Entry;
 use hashbrown::{HashMap, HashSet};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::VecDeque;
+use std::u32;
 
 use std::fmt::Write;
 use std::hash::Hasher;
@@ -94,7 +97,6 @@ impl<'a> ParseTableBuilder<'a> {
             )?;
         }
 
-        self.populate_used_symbols();
         self.remove_precedences();
 
         Ok((self.parse_table, self.following_tokens))
@@ -313,7 +315,10 @@ impl<'a> ParseTableBuilder<'a> {
                         .first_set(&step.symbol)
                         .contains(&conflicting_lookahead)
                     {
-                        conflicting_items.insert(item);
+                        if item.variable_index != u32::MAX {
+                            conflicting_items.insert(item);
+                        }
+
                         let precedence = item.precedence();
                         if let Some(range) = &mut shift_precedence {
                             if precedence < range.start {
@@ -327,7 +332,9 @@ impl<'a> ParseTableBuilder<'a> {
                     }
                 }
             } else if lookaheads.contains(&conflicting_lookahead) {
-                conflicting_items.insert(item);
+                if item.variable_index != u32::MAX {
+                    conflicting_items.insert(item);
+                }
             }
         }
 
@@ -610,40 +617,6 @@ impl<'a> ParseTableBuilder<'a> {
         }
     }
 
-    fn populate_used_symbols(&mut self) {
-        let mut terminal_usages = vec![false; self.lexical_grammar.variables.len()];
-        let mut non_terminal_usages = vec![false; self.syntax_grammar.variables.len()];
-        let mut external_usages = vec![false; self.syntax_grammar.external_tokens.len()];
-        for state in &self.parse_table.states {
-            for symbol in state.terminal_entries.keys() {
-                match symbol.kind {
-                    SymbolType::Terminal => terminal_usages[symbol.index] = true,
-                    SymbolType::External => external_usages[symbol.index] = true,
-                    _ => {}
-                }
-            }
-            for symbol in state.nonterminal_entries.keys() {
-                non_terminal_usages[symbol.index] = true;
-            }
-        }
-        for (i, value) in external_usages.into_iter().enumerate() {
-            if value {
-                self.parse_table.symbols.push(Symbol::external(i));
-            }
-        }
-        self.parse_table.symbols.push(Symbol::end());
-        for (i, value) in terminal_usages.into_iter().enumerate() {
-            if value {
-                self.parse_table.symbols.push(Symbol::terminal(i));
-            }
-        }
-        for (i, value) in non_terminal_usages.into_iter().enumerate() {
-            if value {
-                self.parse_table.symbols.push(Symbol::non_terminal(i));
-            }
-        }
-    }
-
     fn remove_precedences(&mut self) {
         for state in self.parse_table.states.iter_mut() {
             for (_, entry) in state.terminal_entries.iter_mut() {
@@ -702,7 +675,7 @@ impl<'a> ParseTableBuilder<'a> {
                 if variable.kind == VariableType::Named {
                     variable.name.clone()
                 } else {
-                    format!("\"{}\"", &variable.name)
+                    format!("'{}'", &variable.name)
                 }
             }
         }

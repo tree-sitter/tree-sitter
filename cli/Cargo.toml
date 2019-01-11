@@ -9,6 +9,7 @@ name = "tree-sitter"
 path = "src/main.rs"
 
 [dependencies]
+cc = "1.0"
 ansi_term = "0.11"
 difference = "2.0"
 lazy_static = "1.2.0"

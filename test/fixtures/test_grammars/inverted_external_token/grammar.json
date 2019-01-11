@@ -15,7 +15,7 @@
       "content": {
         "type": "SYMBOL",
         "name": "statement"
-      },
+      }
     },
 
     "statement": {
