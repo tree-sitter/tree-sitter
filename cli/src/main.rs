@@ -23,6 +23,7 @@ mod tests;
 use self::loader::Loader;
 use clap::{App, Arg, SubCommand};
 use std::env;
+use std::fs;
 use std::path::Path;
 use std::process::exit;
 use std::usize;
@@ -74,7 +75,9 @@ fn run() -> error::Result<()> {
 
     let home_dir = dirs::home_dir().unwrap();
     let current_dir = env::current_dir().unwrap();
-    let mut loader = Loader::new(home_dir.join(".tree-sitter"));
+    let config_dir = home_dir.join(".tree-sitter");
+    fs::create_dir_all(&config_dir).unwrap();
+    let mut loader = Loader::new(config_dir);
 
     if let Some(matches) = matches.subcommand_matches("generate") {
         if matches.is_present("log") {
