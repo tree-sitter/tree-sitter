@@ -17,6 +17,9 @@ mod parse;
 mod test;
 mod util;
 
+#[cfg(test)]
+mod tests;
+
 use self::loader::Loader;
 use clap::{App, Arg, SubCommand};
 use std::env;

@@ -408,7 +408,7 @@ mod tests {
                             ProductionStep::new(Symbol::terminal(11))
                                 .with_prec(2, None)
                                 .with_alias("inner_alias", true),
-                            ProductionStep::new(Symbol::terminal(12)).with_prec(3, None),
+                            ProductionStep::new(Symbol::terminal(12)),
                         ],
                     }],
                 },

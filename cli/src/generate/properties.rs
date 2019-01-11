@@ -118,7 +118,7 @@ impl Builder {
         self.remove_duplicate_states();
 
         for (i, state) in self.output.states.iter_mut().enumerate() {
-            state.id = i;
+            state.id = Some(i);
         }
 
         self.output
@@ -130,7 +130,7 @@ impl Builder {
             Entry::Vacant(v) => {
                 let state_id = self.output.states.len();
                 self.output.states.push(PropertyStateJSON {
-                    id: 0,
+                    id: None,
                     transitions: Vec::new(),
                     property_set_id: 0,
                     default_next_state_id: 0,

@@ -219,7 +219,7 @@ mod tests {
         let result = intern_symbols(&build_grammar(vec![Variable::named("x", Rule::named("y"))]));
 
         match result {
-            Err(Error(message)) => assert_eq!(message, "Undefined symbol 'y'"),
+            Err(Error(message)) => assert_eq!(message, "Undefined symbol `y`"),
             _ => panic!("Expected an error but got none"),
         }
     }

@@ -46,6 +46,7 @@ fn main() {
             println!("cargo:rerun-if-changed={}", parser_c_path.to_str().unwrap());
             parser_config
                 .include(&parser_src_path)
+                .opt_level(0)
                 .file(&parser_c_path);
             if scanner_cc_path.exists() {
                 println!("cargo:rerun-if-changed={}", scanner_cc_path.to_str().unwrap());
