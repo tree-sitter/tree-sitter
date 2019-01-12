@@ -931,10 +931,14 @@ impl Generator {
     fn sanitize_string(&self, name: &str) -> String {
         let mut result = String::with_capacity(name.len());
         for c in name.chars() {
-            if ['\\', '\n', '\r', '\"'].contains(&c) {
-                result.push('\\');
+            match c {
+                '\"' => result += "\\\"",
+                '\\' => result += "\\\\",
+                '\t' => result += "'\\t'",
+                '\n' => result += "'\\n'",
+                '\r' => result += "'\\r'",
+                _ => result.push(c),
             }
-            result.push(c);
         }
         result
     }
