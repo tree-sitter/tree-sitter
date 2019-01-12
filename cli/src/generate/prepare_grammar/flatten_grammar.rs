@@ -31,13 +31,15 @@ impl RuleFlattener {
         self.production
     }
 
-    fn apply(&mut self, rule: Rule, at_end: bool) {
+    fn apply(&mut self, rule: Rule, at_end: bool) -> bool {
         match rule {
             Rule::Seq(members) => {
+                let mut result = false;
                 let last_index = members.len() - 1;
                 for (i, member) in members.into_iter().enumerate() {
-                    self.apply(member, i == last_index && at_end);
+                    result |= self.apply(member, i == last_index && at_end);
                 }
+                result
             }
             Rule::Metadata { rule, params } => {
                 let mut has_precedence = false;
@@ -62,11 +64,11 @@ impl RuleFlattener {
                     self.production.dynamic_precedence = params.dynamic_precedence;
                 }
 
-                self.apply(*rule, at_end);
+                let did_push = self.apply(*rule, at_end);
 
                 if has_precedence {
                     self.precedence_stack.pop();
-                    if !at_end {
+                    if did_push && !at_end {
                         self.production.steps.last_mut().unwrap().precedence =
                             self.precedence_stack.last().cloned().unwrap_or(0);
                     }
@@ -74,7 +76,7 @@ impl RuleFlattener {
 
                 if has_associativity {
                     self.associativity_stack.pop();
-                    if !at_end {
+                    if did_push && !at_end {
                         self.production.steps.last_mut().unwrap().associativity =
                             self.associativity_stack.last().cloned();
                     }
@@ -83,6 +85,8 @@ impl RuleFlattener {
                 if has_alias {
                     self.alias_stack.pop();
                 }
+
+                did_push
             }
             Rule::Symbol(symbol) => {
                 self.production.steps.push(ProductionStep {
@@ -91,8 +95,9 @@ impl RuleFlattener {
                     associativity: self.associativity_stack.last().cloned(),
                     alias: self.alias_stack.last().cloned(),
                 });
+                true
             }
-            _ => (),
+            _ => false,
         }
     }
 }
