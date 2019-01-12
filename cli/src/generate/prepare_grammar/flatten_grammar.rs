@@ -1,6 +1,9 @@
 use super::ExtractedSyntaxGrammar;
-use crate::error::Result;
-use crate::generate::grammars::{Production, ProductionStep, SyntaxGrammar, SyntaxVariable, Variable};
+use crate::error::{Error, Result};
+use crate::generate::rules::Symbol;
+use crate::generate::grammars::{
+    Production, ProductionStep, SyntaxGrammar, SyntaxVariable, Variable,
+};
 use crate::generate::rules::{Alias, Associativity, Rule};
 
 struct RuleFlattener {
@@ -145,10 +148,37 @@ fn flatten_variable(variable: Variable) -> Result<SyntaxVariable> {
     })
 }
 
+fn symbol_is_used(variables: &Vec<SyntaxVariable>, symbol: Symbol) -> bool {
+    for variable in variables {
+        for production in &variable.productions {
+            for step in &production.steps {
+                if step.symbol == symbol {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
 pub(super) fn flatten_grammar(grammar: ExtractedSyntaxGrammar) -> Result<SyntaxGrammar> {
     let mut variables = Vec::new();
     for variable in grammar.variables {
         variables.push(flatten_variable(variable)?);
+    }
+    for (i, variable) in variables.iter().enumerate() {
+        for production in &variable.productions {
+            if production.steps.is_empty() && symbol_is_used(&variables, Symbol::non_terminal(i)) {
+                return Err(Error(format!(
+                    "The rule `{}` matches the empty string.
+
+Tree-sitter does not support syntactic rules that match the empty string
+unless they are used only as the grammar's start rule.
+",
+                    variable.name
+                )));
+            }
+        }
     }
     Ok(SyntaxGrammar {
         extra_tokens: grammar.extra_tokens,
@@ -228,48 +258,55 @@ mod tests {
     #[test]
     fn test_flatten_grammar_with_maximum_dynamic_precedence() {
         let result = flatten_variable(Variable {
-          name: "test".to_string(),
-          kind: VariableType::Named,
-          rule: Rule::seq(vec![
-            Rule::non_terminal(1),
-            Rule::prec_dynamic(101, Rule::seq(vec![
-              Rule::non_terminal(2),
-              Rule::choice(vec![
-                Rule::prec_dynamic(102, Rule::seq(vec![
-                  Rule::non_terminal(3),
-                  Rule::non_terminal(4)
-                ])),
-                Rule::non_terminal(5),
-              ]),
-              Rule::non_terminal(6),
-            ])),
-            Rule::non_terminal(7),
-          ])
-        }).unwrap();
+            name: "test".to_string(),
+            kind: VariableType::Named,
+            rule: Rule::seq(vec![
+                Rule::non_terminal(1),
+                Rule::prec_dynamic(
+                    101,
+                    Rule::seq(vec![
+                        Rule::non_terminal(2),
+                        Rule::choice(vec![
+                            Rule::prec_dynamic(
+                                102,
+                                Rule::seq(vec![Rule::non_terminal(3), Rule::non_terminal(4)]),
+                            ),
+                            Rule::non_terminal(5),
+                        ]),
+                        Rule::non_terminal(6),
+                    ]),
+                ),
+                Rule::non_terminal(7),
+            ]),
+        })
+        .unwrap();
 
-        assert_eq!(result.productions, vec![
-            Production {
-                dynamic_precedence: 102,
-                steps: vec![
-                    ProductionStep::new(Symbol::non_terminal(1)),
-                    ProductionStep::new(Symbol::non_terminal(2)),
-                    ProductionStep::new(Symbol::non_terminal(3)),
-                    ProductionStep::new(Symbol::non_terminal(4)),
-                    ProductionStep::new(Symbol::non_terminal(6)),
-                    ProductionStep::new(Symbol::non_terminal(7)),
-                ],
-            },
-            Production {
-                dynamic_precedence: 101,
-                steps: vec![
-                    ProductionStep::new(Symbol::non_terminal(1)),
-                    ProductionStep::new(Symbol::non_terminal(2)),
-                    ProductionStep::new(Symbol::non_terminal(5)),
-                    ProductionStep::new(Symbol::non_terminal(6)),
-                    ProductionStep::new(Symbol::non_terminal(7)),
-                ],
-            },
-        ]);
+        assert_eq!(
+            result.productions,
+            vec![
+                Production {
+                    dynamic_precedence: 102,
+                    steps: vec![
+                        ProductionStep::new(Symbol::non_terminal(1)),
+                        ProductionStep::new(Symbol::non_terminal(2)),
+                        ProductionStep::new(Symbol::non_terminal(3)),
+                        ProductionStep::new(Symbol::non_terminal(4)),
+                        ProductionStep::new(Symbol::non_terminal(6)),
+                        ProductionStep::new(Symbol::non_terminal(7)),
+                    ],
+                },
+                Production {
+                    dynamic_precedence: 101,
+                    steps: vec![
+                        ProductionStep::new(Symbol::non_terminal(1)),
+                        ProductionStep::new(Symbol::non_terminal(2)),
+                        ProductionStep::new(Symbol::non_terminal(5)),
+                        ProductionStep::new(Symbol::non_terminal(6)),
+                        ProductionStep::new(Symbol::non_terminal(7)),
+                    ],
+                },
+            ]
+        );
     }
 
     #[test]
@@ -277,37 +314,40 @@ mod tests {
         let result = flatten_variable(Variable {
             name: "test".to_string(),
             kind: VariableType::Named,
-            rule: Rule::prec_left(101, Rule::seq(vec![
-                Rule::non_terminal(1),
-                Rule::non_terminal(2),
-            ])),
-        }).unwrap();
+            rule: Rule::prec_left(
+                101,
+                Rule::seq(vec![Rule::non_terminal(1), Rule::non_terminal(2)]),
+            ),
+        })
+        .unwrap();
 
-        assert_eq!(result.productions, vec![
-            Production {
+        assert_eq!(
+            result.productions,
+            vec![Production {
                 dynamic_precedence: 0,
                 steps: vec![
-                    ProductionStep::new(Symbol::non_terminal(1)).with_prec(101, Some(Associativity::Left)),
-                    ProductionStep::new(Symbol::non_terminal(2)).with_prec(101, Some(Associativity::Left)),
+                    ProductionStep::new(Symbol::non_terminal(1))
+                        .with_prec(101, Some(Associativity::Left)),
+                    ProductionStep::new(Symbol::non_terminal(2))
+                        .with_prec(101, Some(Associativity::Left)),
                 ]
-            }
-        ]);
+            }]
+        );
 
         let result = flatten_variable(Variable {
             name: "test".to_string(),
             kind: VariableType::Named,
-            rule: Rule::prec_left(101, Rule::seq(vec![
-                Rule::non_terminal(1),
-            ])),
-        }).unwrap();
+            rule: Rule::prec_left(101, Rule::seq(vec![Rule::non_terminal(1)])),
+        })
+        .unwrap();
 
-        assert_eq!(result.productions, vec![
-            Production {
+        assert_eq!(
+            result.productions,
+            vec![Production {
                 dynamic_precedence: 0,
-                steps: vec![
-                    ProductionStep::new(Symbol::non_terminal(1)).with_prec(101, Some(Associativity::Left)),
-                ]
-            }
-        ]);
+                steps: vec![ProductionStep::new(Symbol::non_terminal(1))
+                    .with_prec(101, Some(Associativity::Left)),]
+            }]
+        );
     }
 }

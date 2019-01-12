@@ -312,11 +312,13 @@ fn mark_fragile_tokens(
             }
         }
         for (token, entry) in state.terminal_entries.iter_mut() {
-            for i in 0..n {
-                if token_conflict_map.does_overlap(i, token.index) {
-                    if valid_tokens_mask[i] {
-                        entry.reusable = false;
-                        break;
+            if token.is_terminal() {
+                for i in 0..n {
+                    if token_conflict_map.does_overlap(i, token.index) {
+                        if valid_tokens_mask[i] {
+                            entry.reusable = false;
+                            break;
+                        }
                     }
                 }
             }

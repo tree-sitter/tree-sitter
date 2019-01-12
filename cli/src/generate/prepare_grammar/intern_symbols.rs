@@ -8,7 +8,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
 
     if variable_type_for_name(&grammar.variables[0].name) == VariableType::Hidden {
         return Err(Error(
-            "Grammar's start rule must be visible".to_string(),
+            "A grammar's start rule must be visible.".to_string(),
         ));
     }
 

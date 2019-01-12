@@ -461,18 +461,20 @@ impl<'a> ParseTableBuilder<'a> {
         )
         .unwrap();
         write!(&mut msg, "Possible interpretations:\n\n").unwrap();
-        for (i, item) in conflicting_items.iter().enumerate() {
-            write!(&mut msg, "  {}:", i + 1).unwrap();
+
+        let interpretions = conflicting_items.iter().enumerate().map(|(i, item)| {
+            let mut line = String::new();
+            write!(&mut line, "  {}:", i + 1).unwrap();
 
             for preceding_symbol in preceding_symbols
                 .iter()
                 .take(preceding_symbols.len() - item.step_index as usize)
             {
-                write!(&mut msg, "  {}", self.symbol_name(preceding_symbol)).unwrap();
+                write!(&mut line, "  {}", self.symbol_name(preceding_symbol)).unwrap();
             }
 
             write!(
-                &mut msg,
+                &mut line,
                 "  ({}",
                 &self.syntax_grammar.variables[item.variable_index as usize].name
             )
@@ -480,17 +482,17 @@ impl<'a> ParseTableBuilder<'a> {
 
             for (j, step) in item.production.steps.iter().enumerate() {
                 if j as u32 == item.step_index {
-                    write!(&mut msg, "  •").unwrap();
+                    write!(&mut line, "  •").unwrap();
                 }
-                write!(&mut msg, "  {}", self.symbol_name(&step.symbol)).unwrap();
+                write!(&mut line, "  {}", self.symbol_name(&step.symbol)).unwrap();
             }
 
-            write!(&mut msg, ")").unwrap();
+            write!(&mut line, ")").unwrap();
 
             if item.is_done() {
                 write!(
-                    &mut msg,
-                    "  •  {}",
+                    &mut line,
+                    "  •  {}  …",
                     self.symbol_name(&conflicting_lookahead)
                 )
                 .unwrap();
@@ -498,16 +500,33 @@ impl<'a> ParseTableBuilder<'a> {
 
             let precedence = item.precedence();
             let associativity = item.associativity();
-            if precedence != 0 || associativity.is_some() {
-                write!(
-                    &mut msg,
+
+            let prec_line = if let Some(associativity) = associativity {
+                Some(format!(
                     "(precedence: {}, associativity: {:?})",
                     precedence, associativity
-                )
-                .unwrap();
-            }
+                ))
+            } else if precedence > 0 {
+                Some(format!("(precedence: {})", precedence))
+            } else {
+                None
+            };
 
-            write!(&mut msg, "\n").unwrap();
+            (line, prec_line)
+        }).collect::<Vec<_>>();
+
+        let max_interpretation_length = interpretions.iter().map(|i| i.0.chars().count()).max().unwrap();
+
+        for (line, prec_suffix) in interpretions {
+            msg += &line;
+            if let Some(prec_suffix) = prec_suffix {
+                for _ in line.chars().count()..max_interpretation_length {
+                    msg.push(' ');
+                }
+                msg += "  ";
+                msg += &prec_suffix;
+            }
+            msg.push('\n');
         }
 
         let mut resolution_count = 0;
@@ -517,26 +536,41 @@ impl<'a> ParseTableBuilder<'a> {
             .filter(|i| !i.is_done())
             .cloned()
             .collect::<Vec<_>>();
-        if shift_items.len() > 0 {
-            resolution_count += 1;
-            write!(
-                &mut msg,
-                "  {}:  Specify a higher precedence in",
-                resolution_count
-            )
-            .unwrap();
-            for (i, item) in shift_items.iter().enumerate() {
-                if i > 0 {
-                    write!(&mut msg, "  and").unwrap();
-                }
+        if actual_conflict.len() > 1 {
+            if shift_items.len() > 0 {
+                resolution_count += 1;
                 write!(
                     &mut msg,
-                    " `{}`",
-                    self.symbol_name(&Symbol::non_terminal(item.variable_index as usize))
+                    "  {}:  Specify a higher precedence in",
+                    resolution_count
                 )
                 .unwrap();
+                for (i, item) in shift_items.iter().enumerate() {
+                    if i > 0 {
+                        write!(&mut msg, " and").unwrap();
+                    }
+                    write!(
+                        &mut msg,
+                        " `{}`",
+                        self.symbol_name(&Symbol::non_terminal(item.variable_index as usize))
+                    )
+                    .unwrap();
+                }
+                write!(&mut msg, " than in the other rules.\n").unwrap();
             }
-            write!(&mut msg, " than in the other rules.\n").unwrap();
+
+            for item in &conflicting_items {
+                if item.is_done() {
+                    resolution_count += 1;
+                    write!(
+                        &mut msg,
+                        "  {}:  Specify a higher precedence in `{}` than in the other rules.\n",
+                        resolution_count,
+                        self.symbol_name(&Symbol::non_terminal(item.variable_index as usize))
+                    )
+                    .unwrap();
+                }
+            }
         }
 
         if considered_associativity {
@@ -553,25 +587,12 @@ impl<'a> ParseTableBuilder<'a> {
                 }
                 write!(
                     &mut msg,
-                    "{}",
+                    "`{}`",
                     self.symbol_name(&Symbol::non_terminal(item.variable_index as usize))
                 )
                 .unwrap();
             }
             write!(&mut msg, "\n").unwrap();
-        }
-
-        for item in &conflicting_items {
-            if item.is_done() {
-                resolution_count += 1;
-                write!(
-                    &mut msg,
-                    "  {}:  Specify a higher precedence in `{}` than in the other rules.\n",
-                    resolution_count,
-                    self.symbol_name(&Symbol::non_terminal(item.variable_index as usize))
-                )
-                .unwrap();
-            }
         }
 
         resolution_count += 1;
@@ -585,7 +606,7 @@ impl<'a> ParseTableBuilder<'a> {
             if i > 0 {
                 write!(&mut msg, ", ").unwrap();
             }
-            write!(&mut msg, "{}", self.symbol_name(symbol)).unwrap();
+            write!(&mut msg, "`{}`", self.symbol_name(symbol)).unwrap();
         }
         write!(&mut msg, "\n").unwrap();
 

@@ -402,11 +402,11 @@ impl<'a> PartialEq for ParseItem<'a> {
 
 impl<'a> Ord for ParseItem<'a> {
     fn cmp(&self, other: &Self) -> Ordering {
-        let o = self.variable_index.cmp(&other.variable_index);
+        let o = self.step_index.cmp(&other.step_index);
         if o != Ordering::Equal {
             return o;
         }
-        let o = self.step_index.cmp(&other.step_index);
+        let o = self.variable_index.cmp(&other.variable_index);
         if o != Ordering::Equal {
             return o;
         }

@@ -191,13 +191,11 @@ impl Generator {
             "#define EXTERNAL_TOKEN_COUNT {}",
             self.syntax_grammar.external_tokens.len()
         );
-        if self.parse_table.max_aliased_production_length > 0 {
-            add_line!(
-                self,
-                "#define MAX_ALIAS_SEQUENCE_LENGTH {}",
-                self.parse_table.max_aliased_production_length
-            );
-        }
+        add_line!(
+            self,
+            "#define MAX_ALIAS_SEQUENCE_LENGTH {}",
+            self.parse_table.max_aliased_production_length
+        );
         add_line!(self, "");
     }
 

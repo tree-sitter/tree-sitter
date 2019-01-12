@@ -4,12 +4,12 @@ Unresolved conflict for symbol sequence:
 
 Possible interpretations:
 
-  1:  expression  '+'  (product  expression  •  '*'  expression)
-  2:  expression  '+'  (other_thing  expression  •  '*'  '*')
-  3:  (sum  expression  '+'  expression)  •  '*'  …
+  1:  expression  '+'  (product  expression  •  '*'  expression)  (precedence: 1, associativity: Left)
+  2:  expression  '+'  (other_thing  expression  •  '*'  '*')     (precedence: -1, associativity: Left)
+  3:  (sum  expression  '+'  expression)  •  '*'  …               (precedence: 0, associativity: Left)
 
 Possible resolutions:
 
   1:  Specify a higher precedence in `product` and `other_thing` than in the other rules.
   2:  Specify a higher precedence in `sum` than in the other rules.
-  3:  Add a conflict for these rules: `sum` `product` `other_thing`
+  3:  Add a conflict for these rules: `sum`, `product`, `other_thing`

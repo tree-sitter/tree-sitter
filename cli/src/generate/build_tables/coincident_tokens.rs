@@ -19,10 +19,14 @@ impl<'a> CoincidentTokenIndex<'a> {
         };
         for (i, state) in table.states.iter().enumerate() {
             for symbol in state.terminal_entries.keys() {
-                for other_symbol in state.terminal_entries.keys() {
-                    let index = result.index(symbol.index, other_symbol.index);
-                    if result.entries[index].last().cloned() != Some(i) {
-                        result.entries[index].push(i);
+                if symbol.is_terminal() {
+                    for other_symbol in state.terminal_entries.keys() {
+                        if other_symbol.is_terminal() {
+                            let index = result.index(symbol.index, other_symbol.index);
+                            if result.entries[index].last().cloned() != Some(i) {
+                                result.entries[index].push(i);
+                            }
+                        }
                     }
                 }
             }
