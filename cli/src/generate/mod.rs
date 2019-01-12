@@ -36,6 +36,7 @@ pub fn generate_parser_in_directory(
         let grammar_json = load_js_grammar_file(&repo_path.join("grammar.js"));
         let c_code =
             generate_parser_for_grammar_with_opts(&grammar_json, minimize, state_ids_to_log)?;
+        fs::create_dir_all("src")?;
         fs::write(repo_path.join("src").join("parser.c"), c_code)?;
     }
     properties::generate_property_sheets(repo_path)?;
