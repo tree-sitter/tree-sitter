@@ -66,7 +66,10 @@ impl Generator {
         self.add_symbol_enum();
         self.add_symbol_names_list();
         self.add_symbol_metadata_list();
-        self.add_alias_sequences();
+
+        if self.parse_table.alias_sequences.len() > 1 {
+            self.add_alias_sequences();
+        }
 
         let mut main_lex_table = LexTable::default();
         swap(&mut main_lex_table, &mut self.main_lex_table);
@@ -750,10 +753,13 @@ impl Generator {
         add_line!(self, ".parse_actions = ts_parse_actions,");
         add_line!(self, ".lex_modes = ts_lex_modes,");
         add_line!(self, ".symbol_names = ts_symbol_names,");
-        add_line!(
-            self,
-            ".alias_sequences = (const TSSymbol *)ts_alias_sequences,"
-        );
+
+        if self.parse_table.alias_sequences.len() > 1 {
+            add_line!(
+                self,
+                ".alias_sequences = (const TSSymbol *)ts_alias_sequences,"
+            );
+        }
 
         add_line!(
             self,
