@@ -934,9 +934,9 @@ impl Generator {
             match c {
                 '\"' => result += "\\\"",
                 '\\' => result += "\\\\",
-                '\t' => result += "'\\t'",
-                '\n' => result += "'\\n'",
-                '\r' => result += "'\\r'",
+                '\t' => result += "\\t",
+                '\n' => result += "\\n",
+                '\r' => result += "\\r",
                 _ => result.push(c),
             }
         }
