@@ -43,6 +43,7 @@ fn run() -> error::Result<()> {
         .subcommand(
             SubCommand::with_name("generate")
                 .about("Generate a parser")
+                .arg(Arg::with_name("grammar-path").index(1))
                 .arg(Arg::with_name("log").long("log"))
                 .arg(Arg::with_name("properties-only").long("properties"))
                 .arg(
@@ -84,6 +85,7 @@ fn run() -> error::Result<()> {
             logger::init();
         }
 
+        let grammar_path = matches.value_of("grammar-path");
         let minimize = !matches.is_present("no-minimize");
         let properties_only = matches.is_present("properties-only");
         let state_ids_to_log = matches
@@ -94,6 +96,7 @@ fn run() -> error::Result<()> {
             });
         generate::generate_parser_in_directory(
             &current_dir,
+            grammar_path,
             minimize,
             state_ids_to_log,
             properties_only,

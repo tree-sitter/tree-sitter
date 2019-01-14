@@ -424,16 +424,18 @@ pub fn generate_property_sheets(repo_path: &Path) -> Result<()> {
     let src_dir_path = repo_path.join("src");
     let properties_dir_path = repo_path.join("properties");
 
-    for entry in fs::read_dir(properties_dir_path)? {
-        let css_path = entry?.path();
-        let css = fs::read_to_string(&css_path)?;
-        let sheet = generate_property_sheet(&css_path, &css)?;
-        let property_sheet_json_path = src_dir_path
-            .join(css_path.file_name().unwrap())
-            .with_extension("json");
-        let property_sheet_json_file = File::create(property_sheet_json_path)?;
-        let mut writer = BufWriter::new(property_sheet_json_file);
-        serde_json::to_writer_pretty(&mut writer, &sheet)?;
+    if let Ok(entries) = fs::read_dir(properties_dir_path) {
+        for entry in entries {
+            let css_path = entry?.path();
+            let css = fs::read_to_string(&css_path)?;
+            let sheet = generate_property_sheet(&css_path, &css)?;
+            let property_sheet_json_path = src_dir_path
+                .join(css_path.file_name().unwrap())
+                .with_extension("json");
+            let property_sheet_json_file = File::create(property_sheet_json_path)?;
+            let mut writer = BufWriter::new(property_sheet_json_file);
+            serde_json::to_writer_pretty(&mut writer, &sheet)?;
+        }
     }
 
     Ok(())

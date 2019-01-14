@@ -28,12 +28,14 @@ lazy_static! {
 
 pub fn generate_parser_in_directory(
     repo_path: &PathBuf,
+    grammar_path: Option<&str>,
     minimize: bool,
     state_ids_to_log: Vec<usize>,
     properties_only: bool,
 ) -> Result<()> {
     if !properties_only {
-        let grammar_json = load_js_grammar_file(&repo_path.join("grammar.js"));
+        let grammar_path = grammar_path.map_or(repo_path.join("grammar.js"), |s| s.into());
+        let grammar_json = load_grammar_file(&grammar_path);
         let c_code =
             generate_parser_for_grammar_with_opts(&grammar_json, minimize, state_ids_to_log)?;
         fs::create_dir_all("src")?;
@@ -75,6 +77,14 @@ fn generate_parser_for_grammar_with_opts(
         lexical_grammar,
         simple_aliases,
     ))
+}
+
+fn load_grammar_file(grammar_path: &PathBuf) -> String {
+    match grammar_path.extension().and_then(|e| e.to_str()) {
+        Some("js") => load_js_grammar_file(grammar_path),
+        Some("json") => fs::read_to_string(grammar_path).expect("Failed to read grammar file"),
+        _ => panic!("Unknown grammar file extension"),
+    }
 }
 
 fn load_js_grammar_file(grammar_path: &PathBuf) -> String {
