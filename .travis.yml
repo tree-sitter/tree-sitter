@@ -1,13 +1,20 @@
 language: rust
-
 rust:
   - stable
 
 env:
-  - TREE_SITTER_TEST=1 RUST_BACKTRACE=full
+  - RUST_BACKTRACE=full
 
-before_install:
-  - ./script/fetch-fixtures
+script:
+  # Fetch and regenerate the fixture parsers
+  - script/fetch-fixtures
+  - cargo build --release
+  - script/regenerate-fixtures
+
+  # Run tests
+  - export TREE_SITTER_TEST=1
+  - export TREE_SITTER_STATIC_ANALYSIS=1
+  - cargo test
 
 branches:
   only:
