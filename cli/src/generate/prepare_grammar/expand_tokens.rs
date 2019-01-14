@@ -6,7 +6,14 @@ use crate::generate::rules::Rule;
 use regex_syntax::ast::{
     parse, Ast, Class, ClassPerlKind, ClassSet, ClassSetItem, RepetitionKind, RepetitionRange,
 };
+use regex::Regex;
 use std::i32;
+
+lazy_static! {
+    static ref CURLY_BRACE_REGEX: Regex = Regex::new(r#"(^|[^\\])\{([^}]*[^0-9}][^}]*)\}"#).unwrap();
+}
+
+const ALLOWED_REDUNDANT_ESCAPED_CHARS: [char; 4] = ['!', '\'', '"', '/'];
 
 struct NfaBuilder {
     nfa: Nfa,
@@ -33,6 +40,31 @@ fn get_completion_precedence(rule: &Rule) -> i32 {
         Rule::Metadata { params, .. } => params.precedence.unwrap_or(0),
         _ => 0,
     }
+}
+
+fn preprocess_regex(content: &str) -> String {
+    let content = CURLY_BRACE_REGEX.replace(content, "$1\\{$2\\}");
+    let mut result = String::with_capacity(content.len());
+    let mut is_escaped = false;
+    for c in content.chars() {
+        if is_escaped {
+            if ALLOWED_REDUNDANT_ESCAPED_CHARS.contains(&c) {
+                result.push(c);
+            } else {
+                result.push('\\');
+                result.push(c);
+            }
+            is_escaped = false;
+        } else if c == '\\' {
+            is_escaped = true;
+        } else {
+            result.push(c);
+        }
+    }
+    if is_escaped {
+        result.push('\\');
+    }
+    result
 }
 
 pub(crate) fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<LexicalGrammar> {
@@ -90,6 +122,7 @@ impl NfaBuilder {
     fn expand_rule(&mut self, rule: &Rule, mut next_state_id: u32) -> Result<bool> {
         match rule {
             Rule::Pattern(s) => {
+                let s = preprocess_regex(s);
                 let ast = parse::Parser::new()
                     .parse(&s)
                     .map_err(|e| Error(e.to_string()))?;
@@ -586,6 +619,38 @@ mod tests {
                     ("12e34", Some((0, "12e34"))),
                 ],
             },
+            // Allowing unrecognized escape sequences
+            Row {
+                rules: vec![
+                    // Escaped forward slash (used in JS because '/' is the regex delimiter)
+                    Rule::pattern(r#"\/"#),
+                    // Escaped quotes
+                    Rule::pattern(r#"\"\'"#),
+                    // Quote preceded by a literal backslash
+                    Rule::pattern(r#"[\\']+"#),
+                ],
+                separators: vec![],
+                examples: vec![
+                    ("/", Some((0, "/"))),
+                    ("\"\'", Some((1, "\"\'"))),
+                    (r#"'\'a"#, Some((2, r#"'\'"#))),
+                ],
+            },
+            // Allowing un-escaped curly braces
+            Row {
+                rules: vec![
+                    // Un-escaped curly braces
+                    Rule::pattern(r#"u{[0-9a-fA-F]+}"#),
+                    // Already-escaped curly braces
+                    Rule::pattern(r#"\{[ab]{3}\}"#),
+                ],
+                separators: vec![],
+                examples: vec![
+                    ("u{1234} ok", Some((0, "u{1234}"))),
+                    ("{aba}}", Some((1, "{aba}"))),
+                ],
+
+            }
         ];
 
         for Row {

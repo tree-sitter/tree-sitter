@@ -1,5 +1,4 @@
 const UNICODE_ESCAPE_PATTERN = /\\u([0-9a-f]{4})/gi;
-const DELIMITER_ESCAPE_PATTERN = /\\\//g;
 
 function alias(rule, value) {
   const result = {
@@ -150,10 +149,6 @@ function normalize(value) {
       return {
           type: 'PATTERN',
           value: value.source
-            .replace(
-              DELIMITER_ESCAPE_PATTERN,
-              '/'
-            )
             .replace(
               UNICODE_ESCAPE_PATTERN,
               (match, group) => String.fromCharCode(parseInt(group, 16))
