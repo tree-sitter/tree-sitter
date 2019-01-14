@@ -215,8 +215,8 @@ impl Generator {
         for (alias, symbol) in &self.alias_map {
             if symbol.is_none() {
                 add_line!(self, "{} = {},", self.alias_ids[&alias], i);
+                i += 1;
             }
-            i += 1;
         }
         dedent!(self);
         add_line!(self, "}};");
