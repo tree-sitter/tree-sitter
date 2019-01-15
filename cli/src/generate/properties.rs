@@ -464,7 +464,8 @@ fn parse_property_sheet(path: &Path, css: &str) -> Result<Vec<Rule>> {
             rsass::Item::AtRule { name, args, .. } => match name.as_str() {
                 "schema" => {
                     if let Some(s) = get_sass_string(args) {
-                        let schema_path = resolve_path(path, s)?;
+                        // TODO - use schema
+                        let _schema_path = resolve_path(path, s)?;
                         items.remove(i);
                         continue;
                     } else {

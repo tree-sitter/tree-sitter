@@ -1,27 +1,21 @@
-use super::languages;
+use super::fixtures::{get_language, get_test_language, fixtures_dir};
 use crate::generate;
-use crate::loader::Loader;
 use crate::test::{parse_tests, TestEntry};
 use crate::util;
 use std::fs;
-use std::path::PathBuf;
-use tree_sitter::{Language, Parser, LogType};
+use tree_sitter::{LogType, Parser};
+
+const LANGUAGES: &'static [&'static str] = &[
+    "bash",
+    "c",
+    "cpp",
+    "embedded-template",
+    "go",
+    "html",
+    "javascript",
+];
 
 lazy_static! {
-    static ref LANGUAGES: [(&'static str, Language); 7] = [
-        ("bash", languages::bash()),
-        ("c", languages::c()),
-        ("cpp", languages::cpp()),
-        ("embedded-template", languages::embedded_template()),
-        ("go", languages::go()),
-        ("html", languages::html()),
-        ("javascript", languages::javascript()),
-    ];
-    static ref ROOT_DIR: PathBuf = [env!("CARGO_MANIFEST_DIR"), ".."].iter().collect();
-    static ref HEADER_DIR: PathBuf = ROOT_DIR.join("lib").join("include");
-    static ref SCRATCH_DIR: PathBuf = ROOT_DIR.join("target").join("scratch");
-    static ref FIXTURES_DIR: PathBuf = ROOT_DIR.join("test").join("fixtures");
-    static ref EXEC_PATH: PathBuf = std::env::current_exe().unwrap();
     static ref LANGUAGE_FILTER: Option<String> =
         std::env::var("TREE_SITTER_TEST_LANGUAGE_FILTER").ok();
     static ref EXAMPLE_FILTER: Option<String> =
@@ -34,7 +28,7 @@ lazy_static! {
 fn test_real_language_corpus_files() {
     let mut log_session = None;
     let mut parser = Parser::new();
-    let grammars_dir = FIXTURES_DIR.join("grammars");
+    let grammars_dir = fixtures_dir().join("grammars");
 
     if *LOG_ENABLED {
         parser.set_logger(Some(Box::new(|log_type, msg| {
@@ -48,7 +42,7 @@ fn test_real_language_corpus_files() {
         log_session = Some(util::log_graphs(&mut parser, "log.html").unwrap());
     }
 
-    for (language_name, language) in LANGUAGES.iter().cloned() {
+    for language_name in LANGUAGES.iter().cloned() {
         if let Some(filter) = LANGUAGE_FILTER.as_ref() {
             if !language_name.contains(filter.as_str()) {
                 continue;
@@ -57,6 +51,7 @@ fn test_real_language_corpus_files() {
 
         eprintln!("language: {:?}", language_name);
 
+        let language = get_language(language_name);
         let corpus_dir = grammars_dir.join(language_name).join("corpus");
         let test = parse_tests(&corpus_dir).unwrap();
         parser.set_language(language).unwrap();
@@ -69,12 +64,9 @@ fn test_real_language_corpus_files() {
 
 #[test]
 fn test_feature_corpus_files() {
-    fs::create_dir_all(SCRATCH_DIR.as_path()).unwrap();
-
-    let loader = Loader::new(SCRATCH_DIR.clone());
     let mut log_session = None;
     let mut parser = Parser::new();
-    let test_grammars_dir = FIXTURES_DIR.join("test_grammars");
+    let test_grammars_dir = fixtures_dir().join("test_grammars");
 
     if *LOG_ENABLED {
         parser.set_logger(Some(Box::new(|log_type, msg| {
@@ -128,27 +120,7 @@ fn test_feature_corpus_files() {
         } else {
             let corpus_path = test_path.join("corpus.txt");
             let c_code = generate_result.unwrap();
-            let parser_c_path = SCRATCH_DIR.join(&format!("{}-parser.c", language_name));
-            if !fs::read_to_string(&parser_c_path)
-                .map(|content| content == c_code)
-                .unwrap_or(false)
-            {
-                fs::write(&parser_c_path, c_code).unwrap();
-            }
-            let scanner_path = test_path.join("scanner.c");
-            let scanner_path = if scanner_path.exists() {
-                Some(scanner_path)
-            } else {
-                None
-            };
-            let language = loader
-                .load_language_from_sources(
-                    language_name,
-                    &HEADER_DIR,
-                    &parser_c_path,
-                    &scanner_path,
-                )
-                .unwrap();
+            let language = get_test_language(language_name, c_code, &test_path);
             let test = parse_tests(&corpus_path).unwrap();
             parser.set_language(language).unwrap();
             run_mutation_tests(&mut parser, test);
@@ -180,7 +152,7 @@ fn run_mutation_tests(parser: &mut Parser, test: TestEntry) {
             let actual = tree.root_node().to_sexp();
             assert_eq!(actual, output);
         }
-        TestEntry::Group { name, children } => {
+        TestEntry::Group { children, .. } => {
             for child in children {
                 run_mutation_tests(parser, child);
             }

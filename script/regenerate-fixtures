@@ -2,6 +2,8 @@
 
 set -e
 
+cargo build --release
+
 root_dir=$PWD
 tree_sitter=${root_dir}/target/release/tree-sitter
 grammars_dir=${root_dir}/test/fixtures/grammars
@@ -18,6 +20,10 @@ grammar_names=(
   python
   rust
 )
+
+if [[ "$#" > 0 ]]; then
+  grammar_names=($1)
+fi
 
 for grammar_name in "${grammar_names[@]}"; do
   echo "Regenerating ${grammar_name} parser"

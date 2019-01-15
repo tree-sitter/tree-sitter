@@ -1,6 +1,10 @@
-use super::languages::rust;
+use super::fixtures::get_language;
 use std::thread;
-use tree_sitter::{InputEdit, LogType, Parser, Point, PropertySheet};
+use tree_sitter::{InputEdit, LogType, Parser, Point, PropertySheet, Language};
+
+fn rust() -> Language {
+    get_language("rust")
+}
 
 #[test]
 fn test_basic_parsing() {

@@ -55,10 +55,6 @@ impl CharacterSet {
         CharacterSet::Include(Vec::new())
     }
 
-    pub fn all() -> Self {
-        CharacterSet::Exclude(Vec::new())
-    }
-
     pub fn negate(self) -> CharacterSet {
         match self {
             CharacterSet::Include(chars) => CharacterSet::Exclude(chars),
@@ -182,6 +178,7 @@ impl CharacterSet {
         }
     }
 
+    #[cfg(test)]
     pub fn contains(&self, c: char) -> bool {
         match self {
             CharacterSet::Include(chars) => chars.contains(&c),

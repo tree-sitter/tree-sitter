@@ -23,11 +23,11 @@ struct LanguageRepo {
 }
 
 pub struct LanguageConfiguration {
-    name: String,
-    content_regex: Option<Regex>,
-    first_line_regex: Option<Regex>,
+    _name: String,
+    _content_regex: Option<Regex>,
+    _first_line_regex: Option<Regex>,
     file_types: Vec<String>,
-    highlight_property_sheet: Option<Result<PropertySheet, PathBuf>>,
+    _highlight_property_sheet: Option<Result<PropertySheet, PathBuf>>,
 }
 
 pub struct Loader {
@@ -108,16 +108,21 @@ impl Loader {
         let language = if let Some(language) = repo.language {
             language
         } else {
-            let language = self.load_language_at_path(&repo.name, &repo.path)?;
+            let src_path = repo.path.join("src");
+            let language = self.load_language_at_path(&repo.name, &src_path, &src_path)?;
             self.language_repos[id].language = Some(language);
             language
         };
         Ok((language, &self.language_repos[id].configurations))
     }
 
-    fn load_language_at_path(&self, name: &str, language_path: &Path) -> io::Result<Language> {
-        let src_path = language_path.join("src");
-        let parser_c_path = src_path.join("parser.c");
+    pub fn load_language_at_path(
+        &self,
+        name: &str,
+        src_path: &Path,
+        header_path: &Path,
+    ) -> io::Result<Language> {
+        let parser_path = src_path.join("parser.c");
 
         let scanner_path;
         let scanner_c_path = src_path.join("scanner.c");
@@ -132,7 +137,7 @@ impl Loader {
             }
         }
 
-        self.load_language_from_sources(name, &src_path, &parser_c_path, &scanner_path)
+        self.load_language_from_sources(name, &header_path, &parser_path, &scanner_path)
     }
 
     pub fn load_language_from_sources(
@@ -148,6 +153,7 @@ impl Loader {
         if needs_recompile(&library_path, &parser_path, &scanner_path)? {
             let mut config = cc::Build::new();
             config
+                .cpp(true)
                 .opt_level(2)
                 .cargo_metadata(false)
                 .target(env!("BUILD_TARGET"))
@@ -197,13 +203,14 @@ impl Loader {
                         "Parser compilation failed.\nStdout: {}\nStderr: {}",
                         String::from_utf8_lossy(&output.stdout),
                         String::from_utf8_lossy(&output.stderr)
-                    ).as_str(),
+                    )
+                    .as_str(),
                 ));
             }
         }
 
         let library = Library::new(library_path)?;
-        let language_fn_name = format!("tree_sitter_{}", name);
+        let language_fn_name = format!("tree_sitter_{}", replace_dashes_with_underscores(name));
         let language = unsafe {
             let language_fn: Symbol<unsafe extern "C" fn() -> Language> =
                 library.get(language_fn_name.as_bytes())?;
@@ -248,15 +255,15 @@ impl Loader {
                 configurations
                     .into_iter()
                     .map(|conf| LanguageConfiguration {
-                        name: conf.name,
+                        _name: conf.name,
                         file_types: conf.file_types.unwrap_or(Vec::new()),
-                        content_regex: conf
+                        _content_regex: conf
                             .content_regex
                             .and_then(|r| RegexBuilder::new(&r).multi_line(true).build().ok()),
-                        first_line_regex: conf
+                        _first_line_regex: conf
                             .first_line_regex
                             .and_then(|r| RegexBuilder::new(&r).multi_line(true).build().ok()),
-                        highlight_property_sheet: conf.highlights.map(|d| Err(d.into())),
+                        _highlight_property_sheet: conf.highlights.map(|d| Err(d.into())),
                     })
                     .collect()
             });
@@ -303,4 +310,16 @@ fn needs_recompile(
 
 fn mtime(path: &Path) -> io::Result<SystemTime> {
     Ok(fs::metadata(path)?.modified()?)
+}
+
+fn replace_dashes_with_underscores(name: &str) -> String {
+    let mut result = String::with_capacity(name.len());
+    for c in name.chars() {
+        if c == '-' {
+            result.push('_');
+        } else {
+            result.push(c);
+        }
+    }
+    result
 }
