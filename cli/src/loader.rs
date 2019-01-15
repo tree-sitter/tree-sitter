@@ -221,14 +221,6 @@ impl Loader {
     }
 
     fn find_language_at_path<'a>(&'a mut self, parser_path: &Path) -> io::Result<usize> {
-        let name = parser_path
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .split_at("tree-sitter-".len())
-            .1;
-
         #[derive(Deserialize)]
         struct LanguageConfigurationJSON {
             name: String,
@@ -243,6 +235,7 @@ impl Loader {
 
         #[derive(Deserialize)]
         struct PackageJSON {
+            name: String,
             #[serde(rename = "tree-sitter")]
             tree_sitter: Option<Vec<LanguageConfigurationJSON>>,
         }
@@ -278,7 +271,7 @@ impl Loader {
         }
 
         self.language_repos.push(LanguageRepo {
-            name: name.to_string(),
+            name: package_json.name.split_at("tree-sitter-".len()).1.to_string(),
             path: parser_path.to_owned(),
             language: None,
             configurations,
