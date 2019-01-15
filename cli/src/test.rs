@@ -44,13 +44,12 @@ pub fn run_tests_at_path(
     filter: Option<&str>,
 ) -> Result<()> {
     let test_entry = parse_tests(path)?;
+    let mut log_session = None;
     let mut parser = Parser::new();
     parser.set_language(language)?;
 
-    let mut log_session = None;
-
     if debug_graph {
-        log_session = Some(util::start_logging_graphs(&mut parser, "log.html")?);
+        log_session = Some(util::log_graphs(&mut parser, "log.html")?);
     } else if debug {
         parser.set_logger(Some(Box::new(|log_type, message| {
             if log_type == LogType::Lex {
@@ -103,10 +102,7 @@ pub fn run_tests_at_path(
         }
     }
 
-    if let Some(log_session) = log_session {
-        util::stop_logging_graphs(&mut parser, log_session)?;
-    }
-
+    drop(log_session);
     Ok(())
 }
 

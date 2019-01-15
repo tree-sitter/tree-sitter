@@ -1,29 +1,28 @@
-use std::fs::File;
-use std::io::{Result, Write};
+#[cfg(unix)]
+use std::path::PathBuf;
+#[cfg(unix)]
 use std::process::{Child, ChildStdin, Command, Stdio};
-use std::str;
 use tree_sitter::Parser;
+
+const HTML_HEADER: &[u8] = b"<!DOCTYPE html>\n<style>svg { width: 100%; }</style>\n\n";
 
 #[cfg(windows)]
 pub(crate) struct LogSession();
 
+#[cfg(unix)]
+pub(crate) struct LogSession(PathBuf, Option<Child>, Option<ChildStdin>);
+
 #[cfg(windows)]
-pub(crate) fn start_logging_graphs(parser: &mut Parser, path: &str) -> Result<LogSession> {
+pub(crate) fn log_graphs(parser: &mut Parser, path: &str) -> std::io::Result<LogSession> {
     Ok(LogSession())
 }
 
-#[cfg(windows)]
-pub(crate) fn stop_logging_graphs(parser: &mut Parser, mut session: LogSession) -> Result<()> {
-    Ok(())
-}
-
 #[cfg(unix)]
-pub(crate) struct LogSession(Child, ChildStdin);
+pub(crate) fn log_graphs(parser: &mut Parser, path: &str) -> std::io::Result<LogSession> {
+    use std::io::Write;
 
-#[cfg(unix)]
-pub(crate) fn start_logging_graphs(parser: &mut Parser, path: &str) -> Result<LogSession> {
-    let mut dot_file = File::create(path)?;
-    dot_file.write(b"<!DOCTYPE html>\n<style>svg { width: 100%; }</style>\n\n")?;
+    let mut dot_file = std::fs::File::create(path)?;
+    dot_file.write(HTML_HEADER)?;
     let mut dot_process = Command::new("dot")
         .arg("-Tsvg")
         .stdin(Stdio::piped())
@@ -34,25 +33,23 @@ pub(crate) fn start_logging_graphs(parser: &mut Parser, path: &str) -> Result<Lo
         .stdin
         .take()
         .expect("Failed to open stdin for Dot");
-
     parser.print_dot_graphs(&dot_stdin);
-
-    Ok(LogSession(dot_process, dot_stdin))
+    Ok(LogSession(PathBuf::from(path), Some(dot_process), Some(dot_stdin)))
 }
 
 #[cfg(unix)]
-pub(crate) fn stop_logging_graphs(parser: &mut Parser, mut session: LogSession) -> Result<()> {
-    drop(session.1);
+impl Drop for LogSession {
+    fn drop(&mut self) {
+        use std::fs;
 
-    if cfg!(unix) {
-        parser.stop_printing_dot_graphs();
+        drop(self.2.take().unwrap());
+        let output = self.1.take().unwrap().wait_with_output().unwrap();
+        if output.status.success() {
+            if cfg!(target_os = "macos") && fs::metadata(&self.0).unwrap().len() > HTML_HEADER.len() as u64 {
+                Command::new("open").arg("log.html").output().unwrap();
+            }
+        } else {
+            eprintln!("Dot failed: {} {}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+        }
     }
-
-    session.0.wait()?;
-
-    if cfg!(target_os = "macos") {
-        Command::new("open").arg("log.html").output()?;
-    }
-
-    Ok(())
 }

@@ -11,14 +11,13 @@ pub fn parse_file_at_path(
     debug: bool,
     debug_graph: bool,
 ) -> Result<()> {
+    let mut log_session = None;
     let mut parser = Parser::new();
     parser.set_language(language)?;
     let source_code = fs::read_to_string(path)?;
 
-    let mut log_session = None;
-
     if debug_graph {
-        log_session = Some(util::start_logging_graphs(&mut parser, "log.html")?);
+        log_session = Some(util::log_graphs(&mut parser, "log.html")?);
     } else if debug {
         parser.set_logger(Some(Box::new(|log_type, message| {
             if log_type == LogType::Lex {
@@ -32,9 +31,7 @@ pub fn parse_file_at_path(
         .parse_str(&source_code, None)
         .expect("Incompatible language version");
 
-    if let Some(log_session) = log_session {
-        util::stop_logging_graphs(&mut parser, log_session)?;
-    }
+    drop(log_session);
 
     let stdout = io::stdout();
     let mut stdout = stdout.lock();

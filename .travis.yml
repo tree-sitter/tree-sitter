@@ -2,9 +2,6 @@ language: rust
 rust:
   - stable
 
-env:
-  - RUST_BACKTRACE=full
-
 script:
   # Fetch and regenerate the fixture parsers
   - script/fetch-fixtures
@@ -12,9 +9,8 @@ script:
   - script/regenerate-fixtures
 
   # Run tests
-  - export TREE_SITTER_TEST=1
   - export TREE_SITTER_STATIC_ANALYSIS=1
-  - cargo test
+  - script/test
 
 branches:
   only:

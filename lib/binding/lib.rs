@@ -220,7 +220,6 @@ impl Parser {
         unsafe { ffi::ts_parser_print_dot_graphs(self.0, ffi::dup(fd)) }
     }
 
-    #[cfg(unix)]
     pub fn stop_printing_dot_graphs(&mut self) {
         unsafe { ffi::ts_parser_print_dot_graphs(self.0, -1) }
     }
@@ -391,6 +390,7 @@ impl Parser {
 
 impl Drop for Parser {
     fn drop(&mut self) {
+        self.stop_printing_dot_graphs();
         self.set_logger(None);
         unsafe { ffi::ts_parser_delete(self.0) }
     }

@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-
-find src test include -type f | xargs perl -pi -e 's/ +$//'

@@ -324,10 +324,6 @@ fn test_custom_utf16_input() {
     let mut parser = Parser::new();
     parser.set_language(rust()).unwrap();
 
-    parser.set_logger(Some(Box::new(|t, message| {
-        println!("log: {:?} {}", t, message);
-    })));
-
     let lines: Vec<Vec<u16>> = ["pub fn foo() {", "  1", "}"]
         .iter()
         .map(|s| s.encode_utf16().collect())

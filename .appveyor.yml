@@ -10,9 +10,6 @@ install:
   # Install dependencies
   - git submodule update --init
 
-environment:
-  RUST_BACKTRACE: full
-
 test_script:
   # Fetch and regenerate the fixture parsers
   - script\fetch-fixtures.cmd
@@ -21,7 +18,7 @@ test_script:
 
   # Run tests
   - set TREE_SITTER_TEST=1
-  - cargo test
+  - script\test.cmd
 
 branches:
   only:

@@ -5,7 +5,7 @@
       "type": "CHOICE",
       "members": [
         {"type": "STRING", "value": "\n"},
-        {"type": "STRING", "value": "\r"},
+        {"type": "STRING", "value": "\r\n"},
         {"type": "STRING", "value": "'hello'"},
         {"type": "PATTERN", "value": "\\d+"}
       ]

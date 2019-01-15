@@ -1,6 +1,7 @@
 use tree_sitter::Language;
 
 extern "C" {
+    fn tree_sitter_bash() -> Language;
     fn tree_sitter_c() -> Language;
     fn tree_sitter_cpp() -> Language;
     fn tree_sitter_embedded_template() -> Language;
@@ -10,6 +11,7 @@ extern "C" {
     fn tree_sitter_rust() -> Language;
 }
 
+pub fn bash() -> Language { unsafe { tree_sitter_bash() } }
 pub fn c() -> Language { unsafe { tree_sitter_c() } }
 pub fn cpp() -> Language { unsafe { tree_sitter_cpp() } }
 pub fn embedded_template() -> Language { unsafe { tree_sitter_embedded_template() } }
