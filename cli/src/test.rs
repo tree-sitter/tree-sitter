@@ -75,35 +75,42 @@ pub fn run_tests_at_path(
             println!("{} failures:", failures.len())
         }
 
-        println!(
-            "\n{} / {}",
-            Colour::Green.paint("expected"),
-            Colour::Red.paint("actual")
-        );
-
+        print_diff_key();
         for (i, (name, actual, expected)) in failures.iter().enumerate() {
             println!("\n  {}. {}:", i + 1, name);
-            let changeset = Changeset::new(actual, expected, " ");
-            print!("    ");
-            for diff in &changeset.diffs {
-                match diff {
-                    Difference::Same(part) => {
-                        print!("{}{}", part, changeset.split);
-                    }
-                    Difference::Add(part) => {
-                        print!("{}{}", Colour::Green.paint(part), changeset.split);
-                    }
-                    Difference::Rem(part) => {
-                        print!("{}{}", Colour::Red.paint(part), changeset.split);
-                    }
-                }
-            }
-            println!("");
+            print_diff(actual, expected);
         }
     }
 
     drop(log_session);
     Ok(())
+}
+
+pub fn print_diff_key() {
+    println!(
+        "\n{} / {}",
+        Colour::Green.paint("expected"),
+        Colour::Red.paint("actual")
+    );
+}
+
+pub fn print_diff(actual: &String, expected: &String) {
+    let changeset = Changeset::new(actual, expected, " ");
+    print!("    ");
+    for diff in &changeset.diffs {
+        match diff {
+            Difference::Same(part) => {
+                print!("{}{}", part, changeset.split);
+            }
+            Difference::Add(part) => {
+                print!("{}{}", Colour::Green.paint(part), changeset.split);
+            }
+            Difference::Rem(part) => {
+                print!("{}{}", Colour::Red.paint(part), changeset.split);
+            }
+        }
+    }
+    println!("");
 }
 
 fn run_tests(

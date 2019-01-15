@@ -175,8 +175,27 @@ impl Variable {
 }
 
 impl LexicalGrammar {
+    pub fn variable_indices_for_nfa_states<'a>(
+        &'a self,
+        state_ids: &'a Vec<u32>,
+    ) -> impl Iterator<Item = usize> + 'a {
+        let mut prev = None;
+        state_ids.iter().filter_map(move |state_id| {
+            let variable_id = self.variable_index_for_nfa_state(*state_id);
+            if prev != Some(variable_id) {
+                prev = Some(variable_id);
+                prev
+            } else {
+                None
+            }
+        })
+    }
+
     pub fn variable_index_for_nfa_state(&self, state_id: u32) -> usize {
-        self.variables.iter().position(|v| v.start_state >= state_id).unwrap()
+        self.variables
+            .iter()
+            .position(|v| v.start_state >= state_id)
+            .unwrap()
     }
 }
 

@@ -1,6 +1,6 @@
 use super::fixtures::{get_language, get_test_language, fixtures_dir};
 use crate::generate;
-use crate::test::{parse_tests, TestEntry};
+use crate::test::{parse_tests, print_diff, print_diff_key, TestEntry};
 use crate::util;
 use std::fs;
 use tree_sitter::{LogType, Parser};
@@ -13,6 +13,7 @@ const LANGUAGES: &'static [&'static str] = &[
     "go",
     "html",
     "javascript",
+    "python",
 ];
 
 lazy_static! {
@@ -42,9 +43,10 @@ fn test_real_language_corpus_files() {
         log_session = Some(util::log_graphs(&mut parser, "log.html").unwrap());
     }
 
+    let mut did_fail = false;
     for language_name in LANGUAGES.iter().cloned() {
         if let Some(filter) = LANGUAGE_FILTER.as_ref() {
-            if !language_name.contains(filter.as_str()) {
+            if language_name != filter.as_str() {
                 continue;
             }
         }
@@ -55,11 +57,15 @@ fn test_real_language_corpus_files() {
         let corpus_dir = grammars_dir.join(language_name).join("corpus");
         let test = parse_tests(&corpus_dir).unwrap();
         parser.set_language(language).unwrap();
-        run_mutation_tests(&mut parser, test);
+        did_fail |= run_mutation_tests(&mut parser, test);
     }
 
     drop(parser);
     drop(log_session);
+
+    if did_fail {
+        panic!("Corpus tests failed");
+    }
 }
 
 #[test]
@@ -80,6 +86,7 @@ fn test_feature_corpus_files() {
         log_session = Some(util::log_graphs(&mut parser, "log.html").unwrap());
     }
 
+    let mut did_fail = false;
     for entry in fs::read_dir(&test_grammars_dir).unwrap() {
         let entry = entry.unwrap();
         if !entry.metadata().unwrap().is_dir() {
@@ -89,7 +96,7 @@ fn test_feature_corpus_files() {
         let language_name = language_name.to_str().unwrap();
 
         if let Some(filter) = LANGUAGE_FILTER.as_ref() {
-            if !language_name.contains(filter.as_str()) {
+            if language_name != filter.as_str() {
                 continue;
             }
         }
@@ -123,15 +130,19 @@ fn test_feature_corpus_files() {
             let language = get_test_language(language_name, c_code, &test_path);
             let test = parse_tests(&corpus_path).unwrap();
             parser.set_language(language).unwrap();
-            run_mutation_tests(&mut parser, test);
+            did_fail |= run_mutation_tests(&mut parser, test);
         }
     }
 
     drop(parser);
     drop(log_session);
+
+    if did_fail {
+        panic!("Corpus tests failed");
+    }
 }
 
-fn run_mutation_tests(parser: &mut Parser, test: TestEntry) {
+fn run_mutation_tests(parser: &mut Parser, test: TestEntry) -> bool {
     match test {
         TestEntry::Example {
             name,
@@ -140,7 +151,7 @@ fn run_mutation_tests(parser: &mut Parser, test: TestEntry) {
         } => {
             if let Some(filter) = EXAMPLE_FILTER.as_ref() {
                 if !name.contains(filter.as_str()) {
-                    return;
+                    return false;
                 }
             }
 
@@ -150,12 +161,21 @@ fn run_mutation_tests(parser: &mut Parser, test: TestEntry) {
                 .parse_utf8(&mut |byte_offset, _| &input[byte_offset..], None)
                 .unwrap();
             let actual = tree.root_node().to_sexp();
-            assert_eq!(actual, output);
+            if actual != output {
+                print_diff_key();
+                print_diff(&actual, &output);
+                println!("");
+                true
+            } else {
+                false
+            }
         }
         TestEntry::Group { children, .. } => {
+            let mut result = false;
             for child in children {
-                run_mutation_tests(parser, child);
+                result |= run_mutation_tests(parser, child);
             }
+            result
         }
     }
 }

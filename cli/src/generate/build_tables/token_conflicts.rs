@@ -58,7 +58,7 @@ impl<'a> TokenConflictMap<'a> {
 
     pub fn does_conflict(&self, i: usize, j: usize) -> bool {
         let entry = &self.status_matrix[matrix_index(self.n, i, j)];
-        entry.does_match_valid_continuation || entry.does_match_separators
+        entry.does_match_valid_continuation || entry.does_match_separators || entry.matches_same_string
     }
 
     pub fn does_overlap(&self, i: usize, j: usize) -> bool {
@@ -176,7 +176,7 @@ fn compute_conflict_status(
 
     while let Some(state_set) = state_set_queue.pop() {
         // Don't pursue states where there's no potential for conflict.
-        if variable_ids_for_states(&state_set, grammar).count() > 1 {
+        if grammar.variable_indices_for_nfa_states(&state_set).count() > 1 {
             cursor.reset(state_set);
         } else {
             continue;
@@ -226,7 +226,7 @@ fn compute_conflict_status(
             if let Some((completed_id, completed_precedence)) = completion {
                 let mut other_id = None;
                 let mut successor_contains_completed_id = false;
-                for variable_id in variable_ids_for_states(&states, grammar) {
+                for variable_id in grammar.variable_indices_for_nfa_states(&states) {
                     if variable_id == completed_id {
                         successor_contains_completed_id = true;
                         break;
@@ -267,22 +267,6 @@ fn compute_conflict_status(
         }
     }
     result
-}
-
-fn variable_ids_for_states<'a>(
-    state_ids: &'a Vec<u32>,
-    grammar: &'a LexicalGrammar,
-) -> impl Iterator<Item = usize> + 'a {
-    let mut prev = None;
-    state_ids.iter().filter_map(move |state_id| {
-        let variable_id = grammar.variable_index_for_nfa_state(*state_id);
-        if prev != Some(variable_id) {
-            prev = Some(variable_id);
-            prev
-        } else {
-            None
-        }
-    })
 }
 
 #[cfg(test)]

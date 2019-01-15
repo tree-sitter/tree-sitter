@@ -191,6 +191,7 @@ impl<'a> LexTableBuilder<'a> {
         );
 
         let transitions = self.cursor.transitions();
+        let has_sep = self.cursor.transition_chars().any(|(_, sep)| sep);
         info!("lex state: {}, transitions: {:?}", state_id, transitions);
 
         // If EOF is a valid lookahead token, add a transition predicated on the null
@@ -214,11 +215,22 @@ impl<'a> LexTableBuilder<'a> {
             is_separator,
         } in transitions
         {
-            if let Some((_, completed_precedence)) = completion {
-                if precedence < completed_precedence
-                    || (precedence == completed_precedence && is_separator)
-                {
+            if let Some((completed_id, completed_precedence)) = completion {
+                if precedence < completed_precedence {
                     continue;
+                }
+
+                if precedence == completed_precedence {
+                    if is_separator {
+                        continue;
+                    }
+                    if has_sep && self.lexical_grammar
+                        .variable_indices_for_nfa_states(&states)
+                        .position(|i| i == completed_id)
+                        .is_none()
+                    {
+                        continue;
+                    }
                 }
             }
             let (next_state_id, _) = self.add_state(states, eof_valid && is_separator);

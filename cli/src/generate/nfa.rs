@@ -374,7 +374,7 @@ impl<'a> NfaCursor<'a> {
                     }
                     let intersection_transition = NfaTransition {
                         characters: intersection,
-                        is_separator: result[i].is_separator || is_sep,
+                        is_separator: result[i].is_separator && is_sep,
                         precedence: max(result[i].precedence, prec),
                         states: intersection_states,
                     };
