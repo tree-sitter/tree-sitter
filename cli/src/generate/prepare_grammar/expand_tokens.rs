@@ -263,7 +263,7 @@ impl NfaBuilder {
                     Ok(result)
                 }
             },
-            Ast::Group(group) => self.expand_regex(&group.ast, self.nfa.last_state_id()),
+            Ast::Group(group) => self.expand_regex(&group.ast, next_state_id),
             Ast::Alternation(alternation) => {
                 let mut alternative_state_ids = Vec::new();
                 for ast in alternation.asts.iter() {
@@ -619,7 +619,18 @@ mod tests {
                     ("12e34", Some((0, "12e34"))),
                 ],
             },
-            // Allowing unrecognized escape sequences
+            // nested groups
+            Row {
+                rules: vec![Rule::seq(vec![
+                    Rule::pattern(r#"([^x\\]|\\(.|\n))+"#),
+                ])],
+                separators: vec![],
+                examples: vec![
+                    ("abcx", Some((0, "abc"))),
+                    ("abc\\0x", Some((0, "abc\\0"))),
+                ],
+            },
+            // allowing unrecognized escape sequences
             Row {
                 rules: vec![
                     // Escaped forward slash (used in JS because '/' is the regex delimiter)
@@ -636,7 +647,7 @@ mod tests {
                     (r#"'\'a"#, Some((2, r#"'\'"#))),
                 ],
             },
-            // Allowing un-escaped curly braces
+            // allowing un-escaped curly braces
             Row {
                 rules: vec![
                     // Un-escaped curly braces
@@ -649,7 +660,6 @@ mod tests {
                     ("u{1234} ok", Some((0, "u{1234}"))),
                     ("{aba}}", Some((1, "{aba}"))),
                 ],
-
             }
         ];
 
