@@ -188,7 +188,7 @@ impl Loader {
                     .arg(parser_path);
                 if let Some(scanner_path) = scanner_path.as_ref() {
                     if scanner_path.extension() == Some("c".as_ref()) {
-                        command.arg(scanner_path);
+                        command.arg("-xc").arg("-std=c99").arg(scanner_path);
                     } else {
                         command.arg("-xc++").arg(scanner_path);
                     }
@@ -271,7 +271,11 @@ impl Loader {
         }
 
         self.language_repos.push(LanguageRepo {
-            name: package_json.name.split_at("tree-sitter-".len()).1.to_string(),
+            name: package_json
+                .name
+                .split_at("tree-sitter-".len())
+                .1
+                .to_string(),
             path: parser_path.to_owned(),
             language: None,
             configurations,
