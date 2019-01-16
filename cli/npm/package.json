@@ -14,7 +14,7 @@
   ],
   "main": "lib/api/index.js",
   "scripts": {
-    "install": "./install.js"
+    "install": "install.js"
   },
   "bin": {
     "tree-sitter": "tree-sitter"

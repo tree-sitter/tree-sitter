@@ -1,11 +1,17 @@
 log.html
+
 .idea
 *.xcodeproj
-*.a
-*.o
+
 fuzz-results
+
 test/fixtures/grammars/*
 !test/fixtures/grammars/.gitkeep
 
 /target
-**/*.rs.bk
+*.rs.bk
+*.a
+*.o
+*.obj
+*.exp
+*.lib

@@ -1,4 +1,3 @@
 tree-sitter
 tree-sitter.exe
-*.tar.gz
-*.zip
+*.gz
