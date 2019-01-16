@@ -49,5 +49,3 @@ cache:
   - target
   - test\fixtures\grammars
   - C:\Users\appveyor\.cargo
-  - C:\cargo\registry
-  - C:\cargo\git
