@@ -2,7 +2,8 @@ build: false
 install:
   # Install rust
   - appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
-  - rustup-init -yv --default-toolchain stable
+  - IF "%PLATFORM%" == "x86" rustup-init -y --default-toolchain stable --default-host i686-pc-windows-msvc
+  - IF "%PLATFORM%" == "x64" rustup-init -y --default-toolchain stable --default-host x86_64-pc-windows-msvc
   - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
   - rustc -vV
   - cargo -vV

@@ -15,6 +15,8 @@ const DYLIB_EXTENSION: &'static str = "so";
 #[cfg(windows)]
 const DYLIB_EXTENSION: &'static str = "dll";
 
+const BUILD_TARGET: &'static str = env!("BUILD_TARGET");
+
 struct LanguageRepo {
     name: String,
     path: PathBuf,
@@ -156,8 +158,8 @@ impl Loader {
                 .cpp(true)
                 .opt_level(2)
                 .cargo_metadata(false)
-                .target(env!("BUILD_TARGET"))
-                .host(env!("BUILD_TARGET"));
+                .target(BUILD_TARGET)
+                .host(BUILD_TARGET);
             let compiler = config.get_compiler();
             let mut command = Command::new(compiler.path());
             for (key, value) in compiler.env() {
@@ -165,6 +167,9 @@ impl Loader {
             }
 
             if cfg!(windows) {
+                if !BUILD_TARGET.contains("64") {
+                    command.env("Platform", "x86");
+                }
                 command
                     .args(&["/nologo", "/LD", "/I"])
                     .arg(header_path)
