@@ -51,6 +51,10 @@ get(assetURL, response => {
   response.pipe(zlib.createGunzip()).pipe(file);
 });
 
+file.on('finish', () => {
+  fs.chmodSync(executableName, '755');
+});
+
 // Follow redirects.
 function get(url, callback) {
   https.get(url, response => {
