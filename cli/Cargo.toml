@@ -1,6 +1,6 @@
 [package]
 name = "tree-sitter-cli"
-version = "0.1.0"
+version = "0.14.0-beta1"
 authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
 edition = "2018"
 
