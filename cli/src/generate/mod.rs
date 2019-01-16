@@ -12,6 +12,7 @@ use std::process::{Command, Stdio};
 mod build_tables;
 mod grammars;
 mod nfa;
+mod npm_files;
 mod parse_grammar;
 mod prepare_grammar;
 mod properties;
@@ -36,17 +37,30 @@ pub fn generate_parser_in_directory(
     if !properties_only {
         let grammar_path = grammar_path.map_or(repo_path.join("grammar.js"), |s| s.into());
         let grammar_json = load_grammar_file(&grammar_path);
-        let c_code =
+        let (language_name, c_code) =
             generate_parser_for_grammar_with_opts(&grammar_json, minimize, state_ids_to_log)?;
-        fs::create_dir_all("src")?;
-        fs::write(repo_path.join("src").join("parser.c"), c_code)?;
+        let repo_src_path = repo_path.join("src");
+        fs::create_dir_all(&repo_src_path)?;
+        fs::write(&repo_src_path.join("parser.c"), c_code)?;
+        let binding_cc_path = repo_src_path.join("binding.cc");
+        if !binding_cc_path.exists() {
+            fs::write(&binding_cc_path, npm_files::binding_cc(&language_name))?;
+        }
+        let binding_gyp_path = repo_path.join("binding.gyp");
+        if !binding_gyp_path.exists() {
+            fs::write(&binding_gyp_path, npm_files::binding_gyp(&language_name))?;
+        }
+        let index_js_path = repo_path.join("index.js");
+        if !index_js_path.exists() {
+            fs::write(&index_js_path, npm_files::index_js(&language_name))?;
+        }
     }
     properties::generate_property_sheets(repo_path)?;
     Ok(())
 }
 
 #[cfg(test)]
-pub fn generate_parser_for_grammar(grammar_json: &String) -> Result<String> {
+pub fn generate_parser_for_grammar(grammar_json: &String) -> Result<(String, String)> {
     let grammar_json = JSON_COMMENT_REGEX.replace_all(grammar_json, "\n");
     generate_parser_for_grammar_with_opts(&grammar_json, true, Vec::new())
 }
@@ -55,7 +69,7 @@ fn generate_parser_for_grammar_with_opts(
     grammar_json: &str,
     minimize: bool,
     state_ids_to_log: Vec<usize>,
-) -> Result<String> {
+) -> Result<(String, String)> {
     let input_grammar = parse_grammar(grammar_json)?;
     let (syntax_grammar, lexical_grammar, inlines, simple_aliases) =
         prepare_grammar(&input_grammar)?;
@@ -67,7 +81,7 @@ fn generate_parser_for_grammar_with_opts(
         minimize,
         state_ids_to_log,
     )?;
-    Ok(render_c_code(
+    let c_code = render_c_code(
         &input_grammar.name,
         parse_table,
         main_lex_table,
@@ -76,7 +90,8 @@ fn generate_parser_for_grammar_with_opts(
         syntax_grammar,
         lexical_grammar,
         simple_aliases,
-    ))
+    );
+    Ok((input_grammar.name, c_code))
 }
 
 fn load_grammar_file(grammar_path: &PathBuf) -> String {
