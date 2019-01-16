@@ -58,7 +58,9 @@ impl<'a> TokenConflictMap<'a> {
 
     pub fn does_conflict(&self, i: usize, j: usize) -> bool {
         let entry = &self.status_matrix[matrix_index(self.n, i, j)];
-        entry.does_match_valid_continuation || entry.does_match_separators || entry.matches_same_string
+        entry.does_match_valid_continuation
+            || entry.does_match_separators
+            || entry.matches_same_string
     }
 
     pub fn does_overlap(&self, i: usize, j: usize) -> bool {
@@ -81,6 +83,32 @@ impl<'a> TokenConflictMap<'a> {
             Ordering::Equal => left.1 < right.1,
         }
     }
+
+    pub fn prefer_transition(
+        grammar: &LexicalGrammar,
+        t: &NfaTransition,
+        completed_id: usize,
+        completed_precedence: i32,
+        has_separator_transitions: bool,
+    ) -> bool {
+        if t.precedence < completed_precedence {
+            return false;
+        }
+        if t.precedence == completed_precedence {
+            if t.is_separator {
+                return false;
+            }
+            if has_separator_transitions
+                && grammar
+                    .variable_indices_for_nfa_states(&t.states)
+                    .position(|i| i == completed_id)
+                    .is_none()
+            {
+                return false;
+            }
+        }
+        true
+    }
 }
 
 impl<'a> fmt::Debug for TokenConflictMap<'a> {
@@ -97,7 +125,7 @@ impl<'a> fmt::Debug for TokenConflictMap<'a> {
         for i in 0..self.n {
             write!(
                 f,
-                "    {}: {:?},\n",
+                "    {:?}: {:?},\n",
                 self.grammar.variables[i].name, self.following_chars_by_index[i]
             )?;
         }
@@ -105,11 +133,11 @@ impl<'a> fmt::Debug for TokenConflictMap<'a> {
 
         write!(f, "  status_matrix: {{\n")?;
         for i in 0..self.n {
-            write!(f, "    {}: {{\n", self.grammar.variables[i].name)?;
+            write!(f, "    {:?}: {{\n", self.grammar.variables[i].name)?;
             for j in 0..self.n {
                 write!(
                     f,
-                    "      {}: {:?},\n",
+                    "      {:?}: {:?},\n",
                     self.grammar.variables[j].name,
                     self.status_matrix[matrix_index(self.n, i, j)]
                 )?;
@@ -191,19 +219,19 @@ fn compute_conflict_status(
 
                 // Prefer tokens with higher precedence. For tokens with equal precedence,
                 // prefer those listed earlier in the grammar.
-                let winning_id;
+                let preferred_id;
                 if TokenConflictMap::prefer_token(
                     grammar,
                     (prev_precedence, prev_id),
                     (precedence, id),
                 ) {
-                    winning_id = prev_id;
+                    preferred_id = prev_id;
                 } else {
-                    winning_id = id;
+                    preferred_id = id;
                     completion = Some((id, precedence));
                 }
 
-                if winning_id == i {
+                if preferred_id == i {
                     result.0.matches_same_string = true;
                     result.0.does_overlap = true;
                 } else {
@@ -215,18 +243,14 @@ fn compute_conflict_status(
             }
         }
 
-        for NfaTransition {
-            characters,
-            precedence,
-            states,
-            is_separator,
-        } in cursor.transitions()
-        {
+        let has_sep = cursor.transition_chars().any(|(_, sep)| sep);
+
+        for transition in cursor.transitions() {
             let mut can_advance = true;
             if let Some((completed_id, completed_precedence)) = completion {
                 let mut other_id = None;
                 let mut successor_contains_completed_id = false;
-                for variable_id in grammar.variable_indices_for_nfa_states(&states) {
+                for variable_id in grammar.variable_indices_for_nfa_states(&transition.states) {
                     if variable_id == completed_id {
                         successor_contains_completed_id = true;
                         break;
@@ -236,33 +260,38 @@ fn compute_conflict_status(
                 }
 
                 if let (Some(other_id), false) = (other_id, successor_contains_completed_id) {
-                    let winning_id;
-                    if precedence < completed_precedence {
-                        winning_id = completed_id;
-                        can_advance = false;
+                    let preferred_id = if TokenConflictMap::prefer_transition(
+                        grammar,
+                        &transition,
+                        completed_id,
+                        completed_precedence,
+                        has_sep,
+                    ) {
+                        can_advance = true;
+                        other_id
                     } else {
-                        winning_id = other_id;
-                    }
+                        completed_id
+                    };
 
-                    if winning_id == i {
+                    if preferred_id == i {
                         result.0.does_overlap = true;
-                        if characters.does_intersect(&following_chars[j]) {
+                        if transition.characters.does_intersect(&following_chars[j]) {
                             result.0.does_match_valid_continuation = true;
                         }
-                        if is_separator {
+                        if transition.is_separator || has_sep {
                             result.0.does_match_separators = true;
                         }
                     } else {
                         result.1.does_overlap = true;
-                        if characters.does_intersect(&following_chars[i]) {
+                        if transition.characters.does_intersect(&following_chars[i]) {
                             result.1.does_match_valid_continuation = true;
                         }
                     }
                 }
             }
 
-            if can_advance && visited_state_sets.insert(states.clone()) {
-                state_set_queue.push(states);
+            if can_advance && visited_state_sets.insert(transition.states.clone()) {
+                state_set_queue.push(transition.states);
             }
         }
     }

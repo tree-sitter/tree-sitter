@@ -2,7 +2,7 @@ use super::coincident_tokens::CoincidentTokenIndex;
 use super::item::TokenSet;
 use super::token_conflicts::TokenConflictMap;
 use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar};
-use crate::generate::nfa::{CharacterSet, NfaCursor, NfaTransition};
+use crate::generate::nfa::{CharacterSet, NfaCursor};
 use crate::generate::rules::Symbol;
 use crate::generate::tables::{AdvanceAction, LexState, LexTable, ParseStateId, ParseTable};
 use std::collections::hash_map::Entry;
@@ -208,42 +208,31 @@ impl<'a> LexTableBuilder<'a> {
             ));
         }
 
-        for NfaTransition {
-            characters,
-            precedence,
-            states,
-            is_separator,
-        } in transitions
-        {
+        for transition in transitions {
             if let Some((completed_id, completed_precedence)) = completion {
-                if precedence < completed_precedence {
+                if !TokenConflictMap::prefer_transition(
+                    &self.lexical_grammar,
+                    &transition,
+                    completed_id,
+                    completed_precedence,
+                    has_sep,
+                ) {
                     continue;
                 }
-
-                if precedence == completed_precedence {
-                    if is_separator {
-                        continue;
-                    }
-                    if has_sep && self.lexical_grammar
-                        .variable_indices_for_nfa_states(&states)
-                        .position(|i| i == completed_id)
-                        .is_none()
-                    {
-                        continue;
-                    }
-                }
             }
-            let (next_state_id, _) = self.add_state(states, eof_valid && is_separator);
+
+            let (next_state_id, _) =
+                self.add_state(transition.states, eof_valid && transition.is_separator);
             let next_state = if next_state_id == state_id {
                 None
             } else {
                 Some(next_state_id)
             };
             self.table.states[state_id].advance_actions.push((
-                characters,
+                transition.characters,
                 AdvanceAction {
                     state: next_state,
-                    in_main_token: !is_separator,
+                    in_main_token: !transition.is_separator,
                 },
             ));
         }
