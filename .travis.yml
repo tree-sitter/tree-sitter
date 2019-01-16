@@ -2,6 +2,10 @@ language: rust
 rust:
   - stable
 
+os:
+  - linux
+  - osx
+
 script:
   # Fetch and regenerate the fixture parsers
   - script/fetch-fixtures
@@ -15,6 +19,23 @@ script:
 branches:
   only:
   - master
+  - /\d+\.\d+\.\d+/
+
+before_deploy:
+  - mv target/release/tree-sitter .
+  - tar czf tree-sitter-${TRAVIS_OS_NAME}-x64.tar.gz tree-sitter
+
+deploy:
+  provider: releases
+  api_key:
+    secure: "cAd2mQP+Q55v3zedo5ZyOVc3hq3XKMW93lp5LuXV6CYKYbIhkyfym4qfs+C9GJQiIP27cnePYM7B3+OMIFwSPIgXHWWSsuloMtDgYSc/PAwb2dZnJqAyog3BohW/QiGTSnvbVlxPF6P9RMQU6+JP0HJzEJy6QBTa4Und/j0jm24="
+  file_glob: true
+  file: "tree-sitter-*.tar.gz"
+  draft: true
+  overwrite: true
+  skip_cleanup: true
+  on:
+    tags: true
 
 cache:
   cargo: true

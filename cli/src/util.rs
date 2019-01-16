@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::process::{Child, ChildStdin, Command, Stdio};
 use tree_sitter::Parser;
 
+#[cfg(unix)]
 const HTML_HEADER: &[u8] = b"<!DOCTYPE html>\n<style>svg { width: 100%; }</style>\n\n";
 
 #[cfg(windows)]
@@ -13,7 +14,7 @@ pub(crate) struct LogSession();
 pub(crate) struct LogSession(PathBuf, Option<Child>, Option<ChildStdin>);
 
 #[cfg(windows)]
-pub(crate) fn log_graphs(parser: &mut Parser, path: &str) -> std::io::Result<LogSession> {
+pub(crate) fn log_graphs(_parser: &mut Parser, _path: &str) -> std::io::Result<LogSession> {
     Ok(LogSession())
 }
 

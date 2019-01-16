@@ -6,9 +6,17 @@ use std::path::{Path, PathBuf};
 fn main() {
     println!("cargo:rerun-if-env-changed=TREE_SITTER_STATIC_ANALYSIS");
     if env::var("TREE_SITTER_STATIC_ANALYSIS").is_ok() {
-        let clang_path = which("clang").unwrap();
-        let clang_path = clang_path.to_str().unwrap();
-        env::set_var("CC", &format!("scan-build -analyze-headers --use-analyzer={} cc", clang_path));
+        if let (Some(clang_path), Some(scan_build_path)) = (which("clang"), which("scan-build")) {
+            let clang_path = clang_path.to_str().unwrap();
+            let scan_build_path = scan_build_path.to_str().unwrap();
+            env::set_var(
+                "CC",
+                &format!(
+                    "{} -analyze-headers --use-analyzer={} cc",
+                    scan_build_path, clang_path
+                ),
+            );
+        }
     }
 
     let mut config = cc::Build::new();
