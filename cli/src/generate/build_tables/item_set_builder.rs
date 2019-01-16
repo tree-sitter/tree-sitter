@@ -285,18 +285,14 @@ impl<'a> ParseItemSetBuilder<'a> {
 
                 // Use the pre-computed *additions* to expand the non-terminal.
                 for addition in &self.transitive_closure_additions[step.symbol.index] {
-                    let lookaheads = set
-                        .entries
-                        .entry(addition.item)
-                        .or_insert_with(|| TokenSet::new());
-                    lookaheads.insert_all(&addition.info.lookaheads);
+                    let lookaheads = set.insert(addition.item, &addition.info.lookaheads);
                     if addition.info.propagates_lookaheads {
                         lookaheads.insert_all(following_tokens);
                     }
                 }
             }
         }
-        set.entries.insert(item, lookaheads.clone());
+        set.insert(item, lookaheads);
     }
 }
 

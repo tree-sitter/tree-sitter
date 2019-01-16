@@ -174,18 +174,12 @@ impl<'a> ParseTableBuilder<'a> {
                     non_terminal_successors
                         .entry(next_symbol)
                         .or_insert_with(|| ParseItemSet::default())
-                        .entries
-                        .entry(successor)
-                        .or_insert_with(|| TokenSet::new())
-                        .insert_all(lookaheads);
+                        .insert(successor, lookaheads);
                 } else {
                     terminal_successors
                         .entry(next_symbol)
                         .or_insert_with(|| ParseItemSet::default())
-                        .entries
-                        .entry(successor)
-                        .or_insert_with(|| TokenSet::new())
-                        .insert_all(lookaheads);
+                        .insert(successor, lookaheads);
                 }
             } else {
                 let action = if item.is_augmented() {
@@ -620,8 +614,8 @@ impl<'a> ParseTableBuilder<'a> {
     ) -> AuxiliarySymbolInfo {
         let parent_symbols = item_set
             .entries
-            .keys()
-            .filter_map(|item| {
+            .iter()
+            .filter_map(|(item, _)| {
                 let variable_index = item.variable_index as usize;
                 if item.symbol() == Some(symbol)
                     && !self.syntax_grammar.variables[variable_index].is_auxiliary()

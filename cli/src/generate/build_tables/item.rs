@@ -3,7 +3,6 @@ use crate::generate::rules::Associativity;
 use crate::generate::rules::{Symbol, SymbolType};
 use smallbitvec::SmallBitVec;
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::iter::FromIterator;
@@ -40,7 +39,7 @@ pub(crate) struct ParseItem<'a> {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ParseItemSet<'a> {
-    pub entries: BTreeMap<ParseItem<'a>, TokenSet>,
+    pub entries: Vec<(ParseItem<'a>, TokenSet)>,
 }
 
 pub(crate) struct ParseItemDisplay<'a>(
@@ -227,15 +226,28 @@ impl<'a> ParseItemSet<'a> {
     pub fn with(elements: impl IntoIterator<Item = (ParseItem<'a>, TokenSet)>) -> Self {
         let mut result = Self::default();
         for (item, lookaheads) in elements {
-            result.entries.insert(item, lookaheads);
+            result.insert(item, &lookaheads);
         }
         result
+    }
+
+    pub fn insert(&mut self, item: ParseItem<'a>, lookaheads: &TokenSet) -> &mut TokenSet {
+        match self.entries.binary_search_by(|(i, _)| i.cmp(&item)) {
+            Err(i) => {
+                self.entries.insert(i, (item, lookaheads.clone()));
+                &mut self.entries[i].1
+            },
+            Ok(i) => {
+                self.entries[i].1.insert_all(lookaheads);
+                &mut self.entries[i].1
+            }
+        }
     }
 
     pub fn hash_unfinished_items(&self, h: &mut impl Hasher) {
         let mut previous_variable_index = u32::MAX;
         let mut previous_step_index = u32::MAX;
-        for item in self.entries.keys() {
+        for (item, _) in self.entries.iter() {
             if item.step().is_none() && item.variable_index != previous_variable_index
                 || item.step_index != previous_step_index
             {
@@ -251,7 +263,7 @@ impl<'a> ParseItemSet<'a> {
 impl<'a> Default for ParseItemSet<'a> {
     fn default() -> Self {
         Self {
-            entries: BTreeMap::new(),
+            entries: Vec::new(),
         }
     }
 }
