@@ -432,7 +432,9 @@ pub fn generate_property_sheets(repo_path: &Path) -> Result<()> {
             let property_sheet_json_path = src_dir_path
                 .join(css_path.file_name().unwrap())
                 .with_extension("json");
-            let property_sheet_json_file = File::create(property_sheet_json_path)?;
+            let property_sheet_json_file = File::create(&property_sheet_json_path).map_err(|e|
+                format!("Failed to create {:?}: {}", property_sheet_json_path, e)
+            )?;
             let mut writer = BufWriter::new(property_sheet_json_file);
             serde_json::to_writer_pretty(&mut writer, &sheet)?;
         }

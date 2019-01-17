@@ -2,7 +2,7 @@ use self::build_tables::build_tables;
 use self::parse_grammar::parse_grammar;
 use self::prepare_grammar::prepare_grammar;
 use self::render::render_c_code;
-use crate::error::Result;
+use crate::error::{Error, Result};
 use regex::{Regex, RegexBuilder};
 use std::fs;
 use std::io::Write;
@@ -41,19 +41,17 @@ pub fn generate_parser_in_directory(
             generate_parser_for_grammar_with_opts(&grammar_json, minimize, state_ids_to_log)?;
         let repo_src_path = repo_path.join("src");
         fs::create_dir_all(&repo_src_path)?;
-        fs::write(&repo_src_path.join("parser.c"), c_code)?;
-        let binding_cc_path = repo_src_path.join("binding.cc");
-        if !binding_cc_path.exists() {
-            fs::write(&binding_cc_path, npm_files::binding_cc(&language_name))?;
-        }
-        let binding_gyp_path = repo_path.join("binding.gyp");
-        if !binding_gyp_path.exists() {
-            fs::write(&binding_gyp_path, npm_files::binding_gyp(&language_name))?;
-        }
-        let index_js_path = repo_path.join("index.js");
-        if !index_js_path.exists() {
-            fs::write(&index_js_path, npm_files::index_js(&language_name))?;
-        }
+        fs::write(&repo_src_path.join("parser.c"), c_code)
+            .map_err(|e| format!("Failed to write parser.c: {}", e))?;
+        ensure_file(&repo_src_path.join("binding.cc"), || {
+            npm_files::binding_cc(&language_name)
+        })?;
+        ensure_file(&repo_path.join("binding.gyp"), || {
+            npm_files::binding_gyp(&language_name)
+        })?;
+        ensure_file(&repo_path.join("index.js"), || {
+            npm_files::index_js(&language_name)
+        })?;
     }
     properties::generate_property_sheets(repo_path)?;
     Ok(())
@@ -115,7 +113,9 @@ fn load_js_grammar_file(grammar_path: &PathBuf) -> String {
         .take()
         .expect("Failed to open stdin for node");
     let javascript_code = include_bytes!("./dsl.js");
-    node_stdin.write(javascript_code).expect("Failed to write to node's stdin");
+    node_stdin
+        .write(javascript_code)
+        .expect("Failed to write to node's stdin");
     drop(node_stdin);
     let output = node_process
         .wait_with_output()
@@ -127,4 +127,12 @@ fn load_js_grammar_file(grammar_path: &PathBuf) -> String {
     }
 
     String::from_utf8(output.stdout).expect("Got invalid UTF8 from node")
+}
+
+fn ensure_file(path: &PathBuf, f: impl Fn() -> String) -> Result<()> {
+    if path.exists() {
+        Ok(())
+    } else {
+        fs::write(path, f()).map_err(|e| Error(format!("Failed to write file {:?}: {}", path, e)))
+    }
 }
