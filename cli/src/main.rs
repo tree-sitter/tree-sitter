@@ -21,7 +21,7 @@ mod util;
 mod tests;
 
 use self::loader::Loader;
-use clap::{App, Arg, SubCommand};
+use clap::{App, AppSettings, Arg, SubCommand};
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -37,7 +37,8 @@ fn main() {
 
 fn run() -> error::Result<()> {
     let matches = App::new("tree-sitter")
-        .version("0.1")
+        .version(concat!(env!("CARGO_PKG_VERSION"), " (", env!("BUILD_SHA"), ")"))
+        .setting(AppSettings::SubcommandRequiredElseHelp)
         .author("Max Brunsfeld <maxbrunsfeld@gmail.com>")
         .about("Generates and tests parsers")
         .subcommand(
@@ -77,6 +78,7 @@ fn run() -> error::Result<()> {
     let home_dir = dirs::home_dir().unwrap();
     let current_dir = env::current_dir().unwrap();
     let config_dir = home_dir.join(".tree-sitter");
+
     fs::create_dir_all(&config_dir).unwrap();
     let mut loader = Loader::new(config_dir);
 
