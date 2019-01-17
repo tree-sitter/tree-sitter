@@ -184,21 +184,13 @@ impl<'a> LexTableBuilder<'a> {
             completion = Some((id, prec));
         }
 
-        info!(
-            "lex state: {}, completion: {:?}",
-            state_id,
-            completion.map(|(id, prec)| (&self.lexical_grammar.variables[id].name, prec))
-        );
-
         let transitions = self.cursor.transitions();
         let has_sep = self.cursor.transition_chars().any(|(_, sep)| sep);
-        info!("lex state: {}, transitions: {:?}", state_id, transitions);
 
         // If EOF is a valid lookahead token, add a transition predicated on the null
         // character that leads to the empty set of NFA states.
         if eof_valid {
             let (next_state_id, _) = self.add_state(Vec::new(), false);
-            info!("lex state: {}, successor: EOF", state_id);
             self.table.states[state_id].advance_actions.push((
                 CharacterSet::empty().add_char('\0'),
                 AdvanceAction {
