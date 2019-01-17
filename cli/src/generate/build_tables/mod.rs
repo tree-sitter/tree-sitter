@@ -172,15 +172,15 @@ fn populate_used_symbols(
             non_terminal_usages[symbol.index] = true;
         }
     }
-    for (i, value) in external_usages.into_iter().enumerate() {
-        if value {
-            parse_table.symbols.push(Symbol::external(i));
-        }
-    }
     parse_table.symbols.push(Symbol::end());
     for (i, value) in terminal_usages.into_iter().enumerate() {
         if value {
             parse_table.symbols.push(Symbol::terminal(i));
+        }
+    }
+    for (i, value) in external_usages.into_iter().enumerate() {
+        if value {
+            parse_table.symbols.push(Symbol::external(i));
         }
     }
     for (i, value) in non_terminal_usages.into_iter().enumerate() {
