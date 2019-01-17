@@ -17,6 +17,6 @@
     "install": "node install.js"
   },
   "bin": {
-    "tree-sitter": "tree-sitter"
+    "tree-sitter": "cli.js"
   }
 }
