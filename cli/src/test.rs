@@ -44,12 +44,12 @@ pub fn run_tests_at_path(
     filter: Option<&str>,
 ) -> Result<()> {
     let test_entry = parse_tests(path)?;
-    let mut log_session = None;
+    let mut _log_session = None;
     let mut parser = Parser::new();
     parser.set_language(language)?;
 
     if debug_graph {
-        log_session = Some(util::log_graphs(&mut parser, "log.html")?);
+        _log_session = Some(util::log_graphs(&mut parser, "log.html")?);
     } else if debug {
         parser.set_logger(Some(Box::new(|log_type, message| {
             if log_type == LogType::Lex {
@@ -82,7 +82,6 @@ pub fn run_tests_at_path(
         }
     }
 
-    drop(log_session);
     Ok(())
 }
 
@@ -200,6 +199,7 @@ fn parse_test_content(name: String, content: String) -> TestEntry {
                 if let Ok(output) = str::from_utf8(&bytes[divider_end..header_start]) {
                     let input = bytes[previous_header_end..divider_start].to_vec();
                     let output = WHITESPACE_REGEX.replace_all(output.trim(), " ").to_string();
+                    let output = output.replace(" )", ")");
                     children.push(TestEntry::Example {
                         name: previous_name,
                         input,
