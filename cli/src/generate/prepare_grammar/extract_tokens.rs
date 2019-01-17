@@ -15,16 +15,6 @@ pub(super) fn extract_tokens(
         extracted_usage_counts: Vec::new(),
     };
 
-    // Extract the word token first to give it a low numerical index. This ensure that
-    // it can be stored in a subtree with no heap allocations, even for grammars with
-    // very large numbers of tokens. This is an optimization, but also important to
-    // ensure that a subtree's symbol can be successfully reassigned to the word token
-    // without having to move the subtree to the heap.
-    // See https://github.com/tree-sitter/tree-sitter/issues/258
-    if let Some(token) = grammar.word_token {
-        extractor.extract_tokens_in_variable(&mut grammar.variables[token.index]);
-    }
-
     for mut variable in grammar.variables.iter_mut() {
         extractor.extract_tokens_in_variable(&mut variable);
     }

@@ -175,7 +175,17 @@ fn populate_used_symbols(
     parse_table.symbols.push(Symbol::end());
     for (i, value) in terminal_usages.into_iter().enumerate() {
         if value {
-            parse_table.symbols.push(Symbol::terminal(i));
+            // Assign the grammar's word token a low numerical index. This ensures that
+            // it can be stored in a subtree with no heap allocations, even for grammars with
+            // very large numbers of tokens. This is an optimization, but it's also important to
+            // ensure that a subtree's symbol can be successfully reassigned to the word token
+            // without having to move the subtree to the heap.
+            // See https://github.com/tree-sitter/tree-sitter/issues/258
+            if syntax_grammar.word_token.map_or(false, |t| t.index == i) {
+                parse_table.symbols.insert(1, Symbol::terminal(i));
+            } else {
+                parse_table.symbols.push(Symbol::terminal(i));
+            }
         }
     }
     for (i, value) in external_usages.into_iter().enumerate() {
