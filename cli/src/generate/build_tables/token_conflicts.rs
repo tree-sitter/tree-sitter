@@ -286,6 +286,9 @@ fn compute_conflict_status(
                         if transition.characters.does_intersect(&following_chars[i]) {
                             result.1.does_match_valid_continuation = true;
                         }
+                        if transition.is_separator || has_sep {
+                            result.1.does_match_separators = true;
+                        }
                     }
                 }
             }
