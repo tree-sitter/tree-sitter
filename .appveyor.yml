@@ -25,11 +25,6 @@ test_script:
   - set TREE_SITTER_TEST=1
   - script\test.cmd
 
-branches:
-  only:
-    - master
-    - /\d+\.\d+\.\d+.*/
-
 before_deploy:
   - move target\release\tree-sitter.exe tree-sitter.exe
   - 7z a -tgzip tree-sitter-windows-%PLATFORM%.gz tree-sitter.exe
