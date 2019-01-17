@@ -236,7 +236,7 @@ impl<'a> ParseItemSet<'a> {
             Err(i) => {
                 self.entries.insert(i, (item, lookaheads.clone()));
                 &mut self.entries[i].1
-            },
+            }
             Ok(i) => {
                 self.entries[i].1.insert_all(lookaheads);
                 &mut self.entries[i].1
@@ -248,8 +248,9 @@ impl<'a> ParseItemSet<'a> {
         let mut previous_variable_index = u32::MAX;
         let mut previous_step_index = u32::MAX;
         for (item, _) in self.entries.iter() {
-            if item.step().is_none() && item.variable_index != previous_variable_index
-                || item.step_index != previous_step_index
+            if item.step().is_some()
+                && (item.variable_index != previous_variable_index
+                    || item.step_index != previous_step_index)
             {
                 h.write_u32(item.variable_index);
                 h.write_u32(item.step_index);

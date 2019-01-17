@@ -228,8 +228,9 @@ impl<'a> Minimizer<'a> {
         // Do not add a token if it conflicts with an existing token.
         if token.is_terminal() {
             for existing_token in state.terminal_entries.keys() {
-                if (is_word_token && self.keywords.contains(existing_token))
-                    || is_keyword && self.syntax_grammar.word_token.as_ref() == Some(existing_token)
+                if (is_word_token || is_keyword)
+                    && (self.keywords.contains(existing_token)
+                        || self.syntax_grammar.word_token.as_ref() == Some(existing_token))
                 {
                     continue;
                 }

@@ -167,9 +167,6 @@ impl Loader {
             }
 
             if cfg!(windows) {
-                if !BUILD_TARGET.contains("64") {
-                    command.env("Platform", "x86");
-                }
                 command
                     .args(&["/nologo", "/LD", "/I"])
                     .arg(header_path)

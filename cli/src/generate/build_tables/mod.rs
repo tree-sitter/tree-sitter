@@ -232,7 +232,7 @@ fn identify_keywords(
         .filter(|token| {
             for other_token in keywords.iter() {
                 if other_token != *token
-                    && token_conflict_map.does_match_same_string(token.index, other_token.index)
+                    && token_conflict_map.does_match_same_string(other_token.index, token.index)
                 {
                     info!(
                         "Keywords - exclude {} because it matches the same string as {}",
