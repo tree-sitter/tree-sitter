@@ -1,7 +1,7 @@
 build: false
 install:
   # Terminate early unless building either a tag or a PR.
-  - if not defined APPVEYOR_REPO_TAG if not defined APPVEYOR_PULL_REQUEST_NUMBER appveyor exit
+  - if not defined APPVEYOR_REPO_TAG if not "%APPVEYOR_REPO_BRANCH%" == "master" appveyor exit
 
   # Install rust
   - appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
