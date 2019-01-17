@@ -104,23 +104,18 @@ fn load_grammar_file(grammar_path: &PathBuf) -> String {
 
 fn load_js_grammar_file(grammar_path: &PathBuf) -> String {
     let mut node_process = Command::new("node")
+        .env("TREE_SITTER_GRAMMAR_PATH", grammar_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
         .expect("Failed to run `node`");
 
-    let js_prelude = include_str!("./dsl.js");
     let mut node_stdin = node_process
         .stdin
         .take()
         .expect("Failed to open stdin for node");
-    write!(
-        node_stdin,
-        "{}\nconsole.log(JSON.stringify(require(\"{}\"), null, 2));\n",
-        js_prelude,
-        grammar_path.to_str().unwrap()
-    )
-    .expect("Failed to write to node's stdin");
+    let javascript_code = include_bytes!("./dsl.js");
+    node_stdin.write(javascript_code).expect("Failed to write to node's stdin");
     drop(node_stdin);
     let output = node_process
         .wait_with_output()

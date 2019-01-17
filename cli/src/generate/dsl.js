@@ -327,3 +327,6 @@ global.seq = seq;
 global.sym = sym;
 global.token = token;
 global.grammar = grammar;
+
+const result = require(process.env.TREE_SITTER_GRAMMAR_PATH);
+console.log(JSON.stringify(result, null, 2));
