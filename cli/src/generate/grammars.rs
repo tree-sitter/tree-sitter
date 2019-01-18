@@ -81,7 +81,7 @@ pub(crate) struct ExternalToken {
     pub corresponding_internal_token: Option<Symbol>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct SyntaxGrammar {
     pub variables: Vec<SyntaxVariable>,
     pub extra_tokens: Vec<Symbol>,

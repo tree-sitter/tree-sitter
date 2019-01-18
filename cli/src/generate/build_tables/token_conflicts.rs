@@ -1,5 +1,5 @@
-use crate::generate::build_tables::item::TokenSet;
-use crate::generate::grammars::LexicalGrammar;
+use crate::generate::build_tables::item::{TokenSet, TokenSetDisplay};
+use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar};
 use crate::generate::nfa::{CharacterSet, NfaCursor, NfaTransition};
 use hashbrown::HashSet;
 use std::cmp::Ordering;
@@ -16,6 +16,7 @@ struct TokenConflictStatus {
 pub(crate) struct TokenConflictMap<'a> {
     n: usize,
     status_matrix: Vec<TokenConflictStatus>,
+    following_tokens: Vec<TokenSet>,
     starting_chars_by_index: Vec<CharacterSet>,
     following_chars_by_index: Vec<CharacterSet>,
     grammar: &'a LexicalGrammar,
@@ -25,7 +26,7 @@ impl<'a> TokenConflictMap<'a> {
     pub fn new(grammar: &'a LexicalGrammar, following_tokens: Vec<TokenSet>) -> Self {
         let mut cursor = NfaCursor::new(&grammar.nfa, Vec::new());
         let starting_chars = get_starting_chars(&mut cursor, grammar);
-        let following_chars = get_following_chars(&starting_chars, following_tokens);
+        let following_chars = get_following_chars(&starting_chars, &following_tokens);
 
         let n = grammar.variables.len();
         let mut status_matrix = vec![TokenConflictStatus::default(); n * n];
@@ -40,6 +41,7 @@ impl<'a> TokenConflictMap<'a> {
         TokenConflictMap {
             n,
             status_matrix,
+            following_tokens,
             starting_chars_by_index: starting_chars,
             following_chars_by_index: following_chars,
             grammar,
@@ -115,9 +117,27 @@ impl<'a> fmt::Debug for TokenConflictMap<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "TokenConflictMap {{\n")?;
 
+        let syntax_grammar = SyntaxGrammar::default();
+
+        write!(f, "  following_tokens: {{\n")?;
+        for (i, following_tokens) in self.following_tokens.iter().enumerate() {
+            write!(
+                f,
+                "    follow({:?}): {},\n",
+                self.grammar.variables[i].name,
+                TokenSetDisplay(following_tokens, &syntax_grammar, &self.grammar)
+            )?;
+        }
+        write!(f, "  }},\n")?;
+
         write!(f, "  starting_characters: {{\n")?;
         for i in 0..self.n {
-            write!(f, "    {}: {:?},\n", i, self.starting_chars_by_index[i])?;
+            write!(
+                f,
+                "    {:?}: {:?},\n",
+                self.grammar.variables[i].name,
+                self.starting_chars_by_index[i]
+            )?;
         }
         write!(f, "  }},\n")?;
 
@@ -169,10 +189,10 @@ fn get_starting_chars(cursor: &mut NfaCursor, grammar: &LexicalGrammar) -> Vec<C
 
 fn get_following_chars(
     starting_chars: &Vec<CharacterSet>,
-    following_tokens: Vec<TokenSet>,
+    following_tokens: &Vec<TokenSet>,
 ) -> Vec<CharacterSet> {
     following_tokens
-        .into_iter()
+        .iter()
         .map(|following_tokens| {
             let mut chars = CharacterSet::empty();
             for token in following_tokens.iter() {

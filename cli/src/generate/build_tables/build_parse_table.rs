@@ -41,12 +41,11 @@ struct ParseTableBuilder<'a> {
     item_sets_by_state_id: Vec<ParseItemSet<'a>>,
     parse_state_queue: VecDeque<ParseStateQueueEntry>,
     parse_table: ParseTable,
-    following_tokens: Vec<TokenSet>,
     state_ids_to_log: Vec<ParseStateId>,
 }
 
 impl<'a> ParseTableBuilder<'a> {
-    fn build(mut self) -> Result<(ParseTable, Vec<TokenSet>)> {
+    fn build(mut self) -> Result<ParseTable> {
         // Ensure that the empty alias sequence has index 0.
         self.parse_table.alias_sequences.push(Vec::new());
 
@@ -99,7 +98,7 @@ impl<'a> ParseTableBuilder<'a> {
 
         self.remove_precedences();
 
-        Ok((self.parse_table, self.following_tokens))
+        Ok(self.parse_table)
     }
 
     fn add_parse_state(
@@ -108,20 +107,6 @@ impl<'a> ParseTableBuilder<'a> {
         preceding_auxiliary_symbols: &AuxiliarySymbolSequence,
         item_set: ParseItemSet<'a>,
     ) -> ParseStateId {
-        if preceding_symbols.len() > 1 {
-            let left_tokens = self
-                .item_set_builder
-                .last_set(&preceding_symbols[preceding_symbols.len() - 2]);
-            let right_tokens = self
-                .item_set_builder
-                .first_set(&preceding_symbols[preceding_symbols.len() - 1]);
-            for left_token in left_tokens.iter() {
-                if left_token.is_terminal() {
-                    self.following_tokens[left_token.index].insert_all(right_tokens);
-                }
-            }
-        }
-
         let mut hasher = DefaultHasher::new();
         item_set.hash_unfinished_items(&mut hasher);
         let unfinished_item_signature = hasher.finish();
@@ -705,17 +690,50 @@ impl<'a> ParseTableBuilder<'a> {
     }
 }
 
+fn populate_following_tokens(
+    result: &mut Vec<TokenSet>,
+    grammar: &SyntaxGrammar,
+    inlines: &InlinedProductionMap,
+    builder: &ParseItemSetBuilder,
+) {
+    let productions = grammar
+        .variables
+        .iter()
+        .flat_map(|v| &v.productions)
+        .chain(&inlines.productions);
+    for production in productions {
+        for i in 1..production.steps.len() {
+            let left_tokens = builder.last_set(&production.steps[i - 1].symbol);
+            let right_tokens = builder.first_set(&production.steps[i].symbol);
+            for left_token in left_tokens.iter() {
+                if left_token.is_terminal() {
+                    result[left_token.index].insert_all_terminals(right_tokens);
+                }
+            }
+        }
+    }
+}
+
 pub(crate) fn build_parse_table(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     inlines: &InlinedProductionMap,
     state_ids_to_log: Vec<usize>,
 ) -> Result<(ParseTable, Vec<TokenSet>)> {
-    ParseTableBuilder {
+    let item_set_builder = ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines);
+    let mut following_tokens = vec![TokenSet::new(); lexical_grammar.variables.len()];
+    populate_following_tokens(
+        &mut following_tokens,
+        syntax_grammar,
+        inlines,
+        &item_set_builder,
+    );
+
+    let table = ParseTableBuilder {
         syntax_grammar,
         lexical_grammar,
         state_ids_to_log,
-        item_set_builder: ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines),
+        item_set_builder,
         state_ids_by_item_set: HashMap::new(),
         item_sets_by_state_id: Vec::new(),
         parse_state_queue: VecDeque::new(),
@@ -725,7 +743,8 @@ pub(crate) fn build_parse_table(
             alias_sequences: Vec::new(),
             max_aliased_production_length: 0,
         },
-        following_tokens: vec![TokenSet::new(); lexical_grammar.variables.len()],
     }
-    .build()
+    .build()?;
+
+    Ok((table, following_tokens))
 }

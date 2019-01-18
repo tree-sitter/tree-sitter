@@ -48,7 +48,11 @@ pub(crate) struct ParseItemDisplay<'a>(
     pub &'a LexicalGrammar,
 );
 
-pub(crate) struct TokenSetDisplay<'a>(&'a TokenSet, &'a SyntaxGrammar, &'a LexicalGrammar);
+pub(crate) struct TokenSetDisplay<'a>(
+    pub &'a TokenSet,
+    pub &'a SyntaxGrammar,
+    pub &'a LexicalGrammar,
+);
 
 #[allow(dead_code)]
 pub(crate) struct ParseItemSetDisplay<'a>(
@@ -134,13 +138,10 @@ impl TokenSet {
         vec.set(other.index, true);
     }
 
-    pub fn insert_all(&mut self, other: &TokenSet) -> bool {
+    pub fn insert_all_terminals(&mut self, other: &TokenSet) -> bool {
         let mut result = false;
         if other.terminal_bits.len() > self.terminal_bits.len() {
             self.terminal_bits.resize(other.terminal_bits.len(), false);
-        }
-        if other.external_bits.len() > self.external_bits.len() {
-            self.external_bits.resize(other.external_bits.len(), false);
         }
         for (i, element) in other.terminal_bits.iter().enumerate() {
             if element {
@@ -148,16 +149,31 @@ impl TokenSet {
                 self.terminal_bits.set(i, element);
             }
         }
+        result
+    }
+
+    fn insert_all_externals(&mut self, other: &TokenSet) -> bool {
+        let mut result = false;
+        if other.external_bits.len() > self.external_bits.len() {
+            self.external_bits.resize(other.external_bits.len(), false);
+        }
         for (i, element) in other.external_bits.iter().enumerate() {
             if element {
                 result |= !self.external_bits[i];
                 self.external_bits.set(i, element);
             }
         }
+        result
+    }
+
+    pub fn insert_all(&mut self, other: &TokenSet) -> bool {
+        let mut result = false;
         if other.eof {
             result |= !self.eof;
             self.eof = true;
         }
+        result |= self.insert_all_terminals(other);
+        result |= self.insert_all_externals(other);
         result
     }
 }

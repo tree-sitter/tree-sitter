@@ -1,6 +1,6 @@
-use super::item::{ParseItem, ParseItemDisplay, ParseItemSet, TokenSet};
+use super::item::{ParseItem, ParseItemDisplay, ParseItemSet, TokenSet, TokenSetDisplay};
 use crate::generate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
-use crate::generate::rules::Symbol;
+use crate::generate::rules::{Symbol, SymbolType};
 use hashbrown::{HashMap, HashSet};
 use std::fmt;
 
@@ -268,7 +268,7 @@ impl<'a> ParseItemSetBuilder<'a> {
     }
 
     pub fn last_set(&self, symbol: &Symbol) -> &TokenSet {
-        &self.first_sets[symbol]
+        &self.last_sets[symbol]
     }
 
     fn add_item(&self, set: &mut ParseItemSet<'a>, item: ParseItem<'a>, lookaheads: &TokenSet) {
@@ -299,6 +299,40 @@ impl<'a> ParseItemSetBuilder<'a> {
 impl<'a> fmt::Debug for ParseItemSetBuilder<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "ParseItemSetBuilder {{\n")?;
+
+        write!(f, "  first_sets: {{\n")?;
+        for (symbol, first_set) in &self.first_sets {
+            let name = match symbol.kind {
+                SymbolType::NonTerminal => &self.syntax_grammar.variables[symbol.index].name,
+                SymbolType::External => &self.syntax_grammar.external_tokens[symbol.index].name,
+                SymbolType::Terminal => &self.lexical_grammar.variables[symbol.index].name,
+                SymbolType::End => "END",
+            };
+            write!(
+                f,
+                "    first({:?}): {}\n",
+                name,
+                TokenSetDisplay(first_set, &self.syntax_grammar, &self.lexical_grammar)
+            )?;
+        }
+        write!(f, "  }}\n")?;
+
+        write!(f, "  last_sets: {{\n")?;
+        for (symbol, last_set) in &self.last_sets {
+            let name = match symbol.kind {
+                SymbolType::NonTerminal => &self.syntax_grammar.variables[symbol.index].name,
+                SymbolType::External => &self.syntax_grammar.external_tokens[symbol.index].name,
+                SymbolType::Terminal => &self.lexical_grammar.variables[symbol.index].name,
+                SymbolType::End => "END",
+            };
+            write!(
+                f,
+                "    last({:?}): {}\n",
+                name,
+                TokenSetDisplay(last_set, &self.syntax_grammar, &self.lexical_grammar)
+            )?;
+        }
+        write!(f, "  }}\n")?;
 
         write!(f, "  additions: {{\n")?;
         for (i, variable) in self.syntax_grammar.variables.iter().enumerate() {
