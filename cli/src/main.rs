@@ -37,7 +37,12 @@ fn main() {
 
 fn run() -> error::Result<()> {
     let matches = App::new("tree-sitter")
-        .version(concat!(env!("CARGO_PKG_VERSION"), " (", env!("BUILD_SHA"), ")"))
+        .version(concat!(
+            env!("CARGO_PKG_VERSION"),
+            " (",
+            env!("BUILD_SHA"),
+            ")"
+        ))
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .author("Max Brunsfeld <maxbrunsfeld@gmail.com>")
         .about("Generates and tests parsers")
@@ -57,9 +62,16 @@ fn run() -> error::Result<()> {
         .subcommand(
             SubCommand::with_name("parse")
                 .about("Parse a file")
-                .arg(Arg::with_name("path").index(1).required(true))
+                .arg(
+                    Arg::with_name("path")
+                        .index(1)
+                        .multiple(true)
+                        .required(true),
+                )
                 .arg(Arg::with_name("debug").long("debug").short("d"))
-                .arg(Arg::with_name("debug-graph").long("debug-graph").short("D")),
+                .arg(Arg::with_name("debug-graph").long("debug-graph").short("D"))
+                .arg(Arg::with_name("quiet").long("quiet").short("q"))
+                .arg(Arg::with_name("time").long("time").short("t")),
         )
         .subcommand(
             SubCommand::with_name("test")
@@ -116,12 +128,35 @@ fn run() -> error::Result<()> {
     } else if let Some(matches) = matches.subcommand_matches("parse") {
         let debug = matches.is_present("debug");
         let debug_graph = matches.is_present("debug-graph");
+        let quiet = matches.is_present("quiet");
+        let time = matches.is_present("time");
         loader.find_all_languages(&vec![home_dir.join("github")])?;
-        let source_path = Path::new(matches.value_of("path").unwrap());
-        if let Some((language, _)) = loader.language_configuration_for_file_name(source_path)? {
-            parse::parse_file_at_path(language, source_path, debug, debug_graph)?;
-        } else {
-            eprintln!("No language found");
+        let paths = matches
+            .values_of("path")
+            .unwrap()
+            .into_iter()
+            .collect::<Vec<_>>();
+        let max_path_length = paths.iter().map(|p| p.chars().count()).max().unwrap();
+        for path in paths {
+            let path = Path::new(path);
+            let language =
+                if let Some((l, _)) = loader.language_configuration_for_file_name(path)? {
+                    l
+                } else if let Some(l) = loader.language_at_path(&current_dir)? {
+                    l
+                } else {
+                    eprintln!("No language found");
+                    return Ok(());
+                };
+            parse::parse_file_at_path(
+                language,
+                path,
+                max_path_length,
+                quiet,
+                time,
+                debug,
+                debug_graph,
+            )?;
         }
     }
 

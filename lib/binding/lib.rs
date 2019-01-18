@@ -19,6 +19,7 @@ use std::marker::PhantomData;
 use std::os::raw::{c_char, c_void};
 use std::ptr;
 use std::str;
+use std::u16;
 
 #[derive(Clone, Copy)]
 #[repr(transparent)]
@@ -479,6 +480,14 @@ impl<'tree> Node<'tree> {
         unsafe { ffi::ts_node_has_error(self.0) }
     }
 
+    pub fn is_error(&self) -> bool {
+        self.kind_id() == u16::MAX
+    }
+
+    pub fn is_missing(&self) -> bool {
+        unsafe { ffi::ts_node_is_missing(self.0) }
+    }
+
     pub fn start_byte(&self) -> usize {
         unsafe { ffi::ts_node_start_byte(self.0) as usize }
     }
@@ -621,6 +630,10 @@ impl<'a> TreeCursor<'a> {
         } else {
             Some(result as usize)
         }
+    }
+
+    pub fn reset(&mut self, node: Node<'a>) {
+        unsafe { ffi::ts_tree_cursor_reset(&mut self.0, node.0) };
     }
 }
 

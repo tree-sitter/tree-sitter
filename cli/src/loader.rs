@@ -56,12 +56,8 @@ impl Loader {
                 let entry = entry?;
                 if let Some(parser_dir_name) = entry.file_name().to_str() {
                     if parser_dir_name.starts_with("tree-sitter-") {
-                        if self
-                            .find_language_at_path(&parser_container_dir.join(parser_dir_name))
-                            .is_err()
-                        {
-                            eprintln!("Error loading {}", parser_dir_name);
-                        }
+                        self.find_language_at_path(&parser_container_dir.join(parser_dir_name))
+                            .ok();
                     }
                 }
             }
