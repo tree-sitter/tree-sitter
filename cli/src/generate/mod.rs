@@ -36,7 +36,7 @@ pub fn generate_parser_in_directory(
 ) -> Result<()> {
     if !properties_only {
         let grammar_path = grammar_path.map_or(repo_path.join("grammar.js"), |s| s.into());
-        let grammar_json = load_grammar_file(&grammar_path);
+        let grammar_json = load_grammar_file(&grammar_path)?;
         let (language_name, c_code) =
             generate_parser_for_grammar_with_opts(&grammar_json, minimize, state_ids_to_log)?;
         let repo_src_path = repo_path.join("src");
@@ -92,15 +92,15 @@ fn generate_parser_for_grammar_with_opts(
     Ok((input_grammar.name, c_code))
 }
 
-fn load_grammar_file(grammar_path: &PathBuf) -> String {
+fn load_grammar_file(grammar_path: &PathBuf) -> Result<String> {
     match grammar_path.extension().and_then(|e| e.to_str()) {
-        Some("js") => load_js_grammar_file(grammar_path),
-        Some("json") => fs::read_to_string(grammar_path).expect("Failed to read grammar file"),
-        _ => panic!("Unknown grammar file extension"),
+        Some("js") => Ok(load_js_grammar_file(grammar_path)?),
+        Some("json") => Ok(fs::read_to_string(grammar_path)?),
+        _ => Err(Error(format!("Unknown grammar file extension: {:?}", grammar_path))),
     }
 }
 
-fn load_js_grammar_file(grammar_path: &PathBuf) -> String {
+fn load_js_grammar_file(grammar_path: &PathBuf) -> Result<String> {
     let mut node_process = Command::new("node")
         .env("TREE_SITTER_GRAMMAR_PATH", grammar_path)
         .stdin(Stdio::piped())
@@ -123,10 +123,10 @@ fn load_js_grammar_file(grammar_path: &PathBuf) -> String {
     match output.status.code() {
         None => panic!("Node process was killed"),
         Some(0) => {}
-        Some(code) => panic!(format!("Node process exited with status {}", code)),
+        Some(code) => return Err(Error(format!("Node process exited with status {}", code))),
     }
 
-    String::from_utf8(output.stdout).expect("Got invalid UTF8 from node")
+    Ok(String::from_utf8(output.stdout).expect("Got invalid UTF8 from node"))
 }
 
 fn ensure_file(path: &PathBuf, f: impl Fn() -> String) -> Result<()> {

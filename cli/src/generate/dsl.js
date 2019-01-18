@@ -135,7 +135,6 @@ token.immediate = function(value) {
 }
 
 function normalize(value) {
-
   if (typeof value == "undefined")
     throw new Error("Undefined symbol");
 
@@ -289,7 +288,7 @@ function grammar(baseGrammar, options) {
           throw new Error("Grammar's conflicts must be an array of arrays of rules.");
         }
 
-        return conflictSet.map(symbol => symbol.name);
+        return conflictSet.map(symbol => normalize(symbol).name);
       });
     }
 
