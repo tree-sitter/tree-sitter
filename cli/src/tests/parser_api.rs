@@ -1,6 +1,6 @@
 use super::fixtures::get_language;
 use std::thread;
-use tree_sitter::{InputEdit, LogType, Parser, Point, PropertySheet, Language};
+use tree_sitter::{InputEdit, Language, LogType, Parser, Point, PropertySheet};
 
 fn rust() -> Language {
     get_language("rust")

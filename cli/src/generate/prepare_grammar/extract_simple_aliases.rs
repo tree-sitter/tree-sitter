@@ -1,5 +1,5 @@
-use crate::generate::rules::{Alias, AliasMap, Symbol, SymbolType};
 use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar};
+use crate::generate::rules::{Alias, AliasMap, Symbol, SymbolType};
 
 #[derive(Clone, Default)]
 struct SymbolStatus {
@@ -9,20 +9,34 @@ struct SymbolStatus {
 
 pub(super) fn extract_simple_aliases(
     syntax_grammar: &mut SyntaxGrammar,
-    lexical_grammar: &LexicalGrammar
+    lexical_grammar: &LexicalGrammar,
 ) -> AliasMap {
     // Determine which symbols in the grammars are *always* aliased to a single name.
     let mut terminal_status_list = vec![SymbolStatus::default(); lexical_grammar.variables.len()];
-    let mut non_terminal_status_list = vec![SymbolStatus::default(); syntax_grammar.variables.len()];
-    let mut external_status_list = vec![SymbolStatus::default(); syntax_grammar.external_tokens.len()];
+    let mut non_terminal_status_list =
+        vec![SymbolStatus::default(); syntax_grammar.variables.len()];
+    let mut external_status_list =
+        vec![SymbolStatus::default(); syntax_grammar.external_tokens.len()];
     for variable in syntax_grammar.variables.iter() {
         for production in variable.productions.iter() {
             for step in production.steps.iter() {
                 let mut status = match step.symbol {
-                    Symbol { kind: SymbolType::External, index} => &mut external_status_list[index],
-                    Symbol { kind: SymbolType::NonTerminal, index} => &mut non_terminal_status_list[index],
-                    Symbol { kind: SymbolType::Terminal, index} => &mut terminal_status_list[index],
-                    Symbol { kind: SymbolType::End, .. } => panic!("Unexpected end token"),
+                    Symbol {
+                        kind: SymbolType::External,
+                        index,
+                    } => &mut external_status_list[index],
+                    Symbol {
+                        kind: SymbolType::NonTerminal,
+                        index,
+                    } => &mut non_terminal_status_list[index],
+                    Symbol {
+                        kind: SymbolType::Terminal,
+                        index,
+                    } => &mut terminal_status_list[index],
+                    Symbol {
+                        kind: SymbolType::End,
+                        ..
+                    } => panic!("Unexpected end token"),
                 };
 
                 if step.alias.is_none() {
@@ -47,10 +61,22 @@ pub(super) fn extract_simple_aliases(
         for production in variable.productions.iter_mut() {
             for step in production.steps.iter_mut() {
                 let status = match step.symbol {
-                    Symbol { kind: SymbolType::External, index} => &external_status_list[index],
-                    Symbol { kind: SymbolType::NonTerminal, index} => &non_terminal_status_list[index],
-                    Symbol { kind: SymbolType::Terminal, index} => &terminal_status_list[index],
-                    Symbol { kind: SymbolType::End, .. } => panic!("Unexpected end token"),
+                    Symbol {
+                        kind: SymbolType::External,
+                        index,
+                    } => &external_status_list[index],
+                    Symbol {
+                        kind: SymbolType::NonTerminal,
+                        index,
+                    } => &non_terminal_status_list[index],
+                    Symbol {
+                        kind: SymbolType::Terminal,
+                        index,
+                    } => &terminal_status_list[index],
+                    Symbol {
+                        kind: SymbolType::End,
+                        ..
+                    } => panic!("Unexpected end token"),
                 };
 
                 if status.alias.is_some() {
@@ -83,7 +109,9 @@ pub(super) fn extract_simple_aliases(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::generate::grammars::{LexicalVariable, SyntaxVariable, VariableType, Production, ProductionStep};
+    use crate::generate::grammars::{
+        LexicalVariable, Production, ProductionStep, SyntaxVariable, VariableType,
+    };
     use crate::generate::nfa::Nfa;
 
     #[test]
@@ -93,35 +121,29 @@ mod tests {
                 SyntaxVariable {
                     name: "v1".to_owned(),
                     kind: VariableType::Named,
-                    productions: vec![
-                        Production {
-                            dynamic_precedence: 0,
-                            steps: vec![
-                                ProductionStep::new(Symbol::terminal(0)).with_alias("a1", true),
-                                ProductionStep::new(Symbol::terminal(1)).with_alias("a2", true),
-                                ProductionStep::new(Symbol::terminal(2)).with_alias("a3", true),
-                            ],
-                        },
-                    ],
+                    productions: vec![Production {
+                        dynamic_precedence: 0,
+                        steps: vec![
+                            ProductionStep::new(Symbol::terminal(0)).with_alias("a1", true),
+                            ProductionStep::new(Symbol::terminal(1)).with_alias("a2", true),
+                            ProductionStep::new(Symbol::terminal(2)).with_alias("a3", true),
+                        ],
+                    }],
                 },
                 SyntaxVariable {
                     name: "v2".to_owned(),
                     kind: VariableType::Named,
-                    productions: vec![
-                        Production {
-                            dynamic_precedence: 0,
-                            steps: vec![
-                                // Token 0 is always aliased as "a1".
-                                ProductionStep::new(Symbol::terminal(0)).with_alias("a1", true),
-
-                                // Token 1 is aliased above, but not here.
-                                ProductionStep::new(Symbol::terminal(1)),
-
-                                // Token 2 is aliased differently than above.
-                                ProductionStep::new(Symbol::terminal(2)).with_alias("a4", true),
-                            ],
-                        },
-                    ],
+                    productions: vec![Production {
+                        dynamic_precedence: 0,
+                        steps: vec![
+                            // Token 0 is always aliased as "a1".
+                            ProductionStep::new(Symbol::terminal(0)).with_alias("a1", true),
+                            // Token 1 is aliased above, but not here.
+                            ProductionStep::new(Symbol::terminal(1)),
+                            // Token 2 is aliased differently than above.
+                            ProductionStep::new(Symbol::terminal(2)).with_alias("a4", true),
+                        ],
+                    }],
                 },
             ],
             extra_tokens: Vec::new(),
@@ -151,49 +173,50 @@ mod tests {
                     kind: VariableType::Anonymous,
                     implicit_precedence: 0,
                     start_state: 0,
-                }
+                },
             ],
         };
 
         let simple_aliases = extract_simple_aliases(&mut syntax_grammar, &lexical_grammar);
         assert_eq!(simple_aliases.len(), 1);
-        assert_eq!(simple_aliases[&Symbol::terminal(0)], Alias {
-            value: "a1".to_string(),
-            is_named: true,
-        });
+        assert_eq!(
+            simple_aliases[&Symbol::terminal(0)],
+            Alias {
+                value: "a1".to_string(),
+                is_named: true,
+            }
+        );
 
-        assert_eq!(syntax_grammar.variables, vec![
-            SyntaxVariable {
-                name: "v1".to_owned(),
-                kind: VariableType::Named,
-                productions: vec![
-                    Production {
+        assert_eq!(
+            syntax_grammar.variables,
+            vec![
+                SyntaxVariable {
+                    name: "v1".to_owned(),
+                    kind: VariableType::Named,
+                    productions: vec![Production {
                         dynamic_precedence: 0,
                         steps: vec![
                             // 'Simple' alias removed
                             ProductionStep::new(Symbol::terminal(0)),
-
                             // Other aliases unchanged
                             ProductionStep::new(Symbol::terminal(1)).with_alias("a2", true),
                             ProductionStep::new(Symbol::terminal(2)).with_alias("a3", true),
                         ],
-                    },
-                ],
-            },
-            SyntaxVariable {
-                name: "v2".to_owned(),
-                kind: VariableType::Named,
-                productions: vec![
-                    Production {
+                    },],
+                },
+                SyntaxVariable {
+                    name: "v2".to_owned(),
+                    kind: VariableType::Named,
+                    productions: vec![Production {
                         dynamic_precedence: 0,
                         steps: vec![
                             ProductionStep::new(Symbol::terminal(0)),
                             ProductionStep::new(Symbol::terminal(1)),
                             ProductionStep::new(Symbol::terminal(2)).with_alias("a4", true),
                         ],
-                    },
-                ],
-            },
-        ]);
+                    },],
+                },
+            ]
+        );
     }
 }

@@ -3,14 +3,15 @@ use crate::error::{Error, Result};
 use crate::generate::grammars::{LexicalGrammar, LexicalVariable};
 use crate::generate::nfa::{CharacterSet, Nfa, NfaState};
 use crate::generate::rules::Rule;
+use regex::Regex;
 use regex_syntax::ast::{
     parse, Ast, Class, ClassPerlKind, ClassSet, ClassSetItem, RepetitionKind, RepetitionRange,
 };
-use regex::Regex;
 use std::i32;
 
 lazy_static! {
-    static ref CURLY_BRACE_REGEX: Regex = Regex::new(r#"(^|[^\\])\{([^}]*[^0-9,}][^}]*)\}"#).unwrap();
+    static ref CURLY_BRACE_REGEX: Regex =
+        Regex::new(r#"(^|[^\\])\{([^}]*[^0-9,}][^}]*)\}"#).unwrap();
 }
 
 const ALLOWED_REDUNDANT_ESCAPED_CHARS: [char; 4] = ['!', '\'', '"', '/'];
@@ -621,14 +622,9 @@ mod tests {
             },
             // nested groups
             Row {
-                rules: vec![Rule::seq(vec![
-                    Rule::pattern(r#"([^x\\]|\\(.|\n))+"#),
-                ])],
+                rules: vec![Rule::seq(vec![Rule::pattern(r#"([^x\\]|\\(.|\n))+"#)])],
                 separators: vec![],
-                examples: vec![
-                    ("abcx", Some((0, "abc"))),
-                    ("abc\\0x", Some((0, "abc\\0"))),
-                ],
+                examples: vec![("abcx", Some((0, "abc"))), ("abc\\0x", Some((0, "abc\\0")))],
             },
             // allowing unrecognized escape sequences
             Row {
@@ -660,7 +656,7 @@ mod tests {
                     ("u{1234} ok", Some((0, "u{1234}"))),
                     ("{aba}}", Some((1, "{aba}"))),
                 ],
-            }
+            },
         ];
 
         for Row {

@@ -1,4 +1,4 @@
-use super::fixtures::{get_language, get_test_language, fixtures_dir};
+use super::fixtures::{fixtures_dir, get_language, get_test_language};
 use crate::generate;
 use crate::test::{parse_tests, print_diff, print_diff_key, TestEntry};
 use crate::util;

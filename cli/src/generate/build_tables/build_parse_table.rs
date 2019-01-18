@@ -456,60 +456,68 @@ impl<'a> ParseTableBuilder<'a> {
         .unwrap();
         write!(&mut msg, "Possible interpretations:\n\n").unwrap();
 
-        let interpretions = conflicting_items.iter().enumerate().map(|(i, item)| {
-            let mut line = String::new();
-            write!(&mut line, "  {}:", i + 1).unwrap();
+        let interpretions = conflicting_items
+            .iter()
+            .enumerate()
+            .map(|(i, item)| {
+                let mut line = String::new();
+                write!(&mut line, "  {}:", i + 1).unwrap();
 
-            for preceding_symbol in preceding_symbols
-                .iter()
-                .take(preceding_symbols.len() - item.step_index as usize)
-            {
-                write!(&mut line, "  {}", self.symbol_name(preceding_symbol)).unwrap();
-            }
-
-            write!(
-                &mut line,
-                "  ({}",
-                &self.syntax_grammar.variables[item.variable_index as usize].name
-            )
-            .unwrap();
-
-            for (j, step) in item.production.steps.iter().enumerate() {
-                if j as u32 == item.step_index {
-                    write!(&mut line, "  •").unwrap();
+                for preceding_symbol in preceding_symbols
+                    .iter()
+                    .take(preceding_symbols.len() - item.step_index as usize)
+                {
+                    write!(&mut line, "  {}", self.symbol_name(preceding_symbol)).unwrap();
                 }
-                write!(&mut line, "  {}", self.symbol_name(&step.symbol)).unwrap();
-            }
 
-            write!(&mut line, ")").unwrap();
-
-            if item.is_done() {
                 write!(
                     &mut line,
-                    "  •  {}  …",
-                    self.symbol_name(&conflicting_lookahead)
+                    "  ({}",
+                    &self.syntax_grammar.variables[item.variable_index as usize].name
                 )
                 .unwrap();
-            }
 
-            let precedence = item.precedence();
-            let associativity = item.associativity();
+                for (j, step) in item.production.steps.iter().enumerate() {
+                    if j as u32 == item.step_index {
+                        write!(&mut line, "  •").unwrap();
+                    }
+                    write!(&mut line, "  {}", self.symbol_name(&step.symbol)).unwrap();
+                }
 
-            let prec_line = if let Some(associativity) = associativity {
-                Some(format!(
-                    "(precedence: {}, associativity: {:?})",
-                    precedence, associativity
-                ))
-            } else if precedence > 0 {
-                Some(format!("(precedence: {})", precedence))
-            } else {
-                None
-            };
+                write!(&mut line, ")").unwrap();
 
-            (line, prec_line)
-        }).collect::<Vec<_>>();
+                if item.is_done() {
+                    write!(
+                        &mut line,
+                        "  •  {}  …",
+                        self.symbol_name(&conflicting_lookahead)
+                    )
+                    .unwrap();
+                }
 
-        let max_interpretation_length = interpretions.iter().map(|i| i.0.chars().count()).max().unwrap();
+                let precedence = item.precedence();
+                let associativity = item.associativity();
+
+                let prec_line = if let Some(associativity) = associativity {
+                    Some(format!(
+                        "(precedence: {}, associativity: {:?})",
+                        precedence, associativity
+                    ))
+                } else if precedence > 0 {
+                    Some(format!("(precedence: {})", precedence))
+                } else {
+                    None
+                };
+
+                (line, prec_line)
+            })
+            .collect::<Vec<_>>();
+
+        let max_interpretation_length = interpretions
+            .iter()
+            .map(|i| i.0.chars().count())
+            .max()
+            .unwrap();
 
         for (line, prec_suffix) in interpretions {
             msg += &line;

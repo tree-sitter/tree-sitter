@@ -35,7 +35,11 @@ pub(crate) fn log_graphs(parser: &mut Parser, path: &str) -> std::io::Result<Log
         .take()
         .expect("Failed to open stdin for Dot");
     parser.print_dot_graphs(&dot_stdin);
-    Ok(LogSession(PathBuf::from(path), Some(dot_process), Some(dot_stdin)))
+    Ok(LogSession(
+        PathBuf::from(path),
+        Some(dot_process),
+        Some(dot_stdin),
+    ))
 }
 
 #[cfg(unix)]
@@ -46,11 +50,17 @@ impl Drop for LogSession {
         drop(self.2.take().unwrap());
         let output = self.1.take().unwrap().wait_with_output().unwrap();
         if output.status.success() {
-            if cfg!(target_os = "macos") && fs::metadata(&self.0).unwrap().len() > HTML_HEADER.len() as u64 {
+            if cfg!(target_os = "macos")
+                && fs::metadata(&self.0).unwrap().len() > HTML_HEADER.len() as u64
+            {
                 Command::new("open").arg("log.html").output().unwrap();
             }
         } else {
-            eprintln!("Dot failed: {} {}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+            eprintln!(
+                "Dot failed: {} {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
     }
 }

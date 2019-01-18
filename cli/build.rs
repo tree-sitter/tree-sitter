@@ -1,4 +1,4 @@
-use std::{io, env, fs};
+use std::{env, fs, io};
 
 fn main() {
     let git_sha = read_git_sha().unwrap();

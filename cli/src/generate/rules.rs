@@ -59,10 +59,7 @@ pub(crate) enum Rule {
 impl Rule {
     pub fn alias(content: Rule, value: String, is_named: bool) -> Self {
         add_metadata(content, move |params| {
-            params.alias = Some(Alias {
-                is_named,
-                value
-            });
+            params.alias = Some(Alias { is_named, value });
         })
     }
 

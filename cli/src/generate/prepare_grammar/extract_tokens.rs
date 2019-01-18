@@ -243,7 +243,7 @@ impl TokenExtractor {
             Variable {
                 name: string_value.clone(),
                 kind: VariableType::Anonymous,
-                rule: rule.clone()
+                rule: rule.clone(),
             }
         } else {
             self.current_variable_token_count += 1;

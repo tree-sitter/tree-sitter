@@ -1,7 +1,7 @@
 use crate::loader::Loader;
+use std::fs;
 use std::path::{Path, PathBuf};
 use tree_sitter::Language;
-use std::fs;
 
 lazy_static! {
     static ref ROOT_DIR: PathBuf = [env!("CARGO_MANIFEST_DIR"), ".."].iter().collect();
@@ -41,11 +41,6 @@ pub fn get_test_language(name: &str, parser_code: String, path: &Path) -> Langua
         None
     };
     TEST_LOADER
-        .load_language_from_sources(
-            name,
-            &HEADER_DIR,
-            &parser_c_path,
-            &scanner_path,
-        )
+        .load_language_from_sources(name, &HEADER_DIR, &parser_c_path, &scanner_path)
         .unwrap()
 }

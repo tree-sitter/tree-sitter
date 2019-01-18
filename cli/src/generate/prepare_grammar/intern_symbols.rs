@@ -7,9 +7,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
     let interner = Interner { grammar };
 
     if variable_type_for_name(&grammar.variables[0].name) == VariableType::Hidden {
-        return Err(Error(
-            "A grammar's start rule must be visible.".to_string(),
-        ));
+        return Err(Error("A grammar's start rule must be visible.".to_string()));
     }
 
     let mut variables = Vec::with_capacity(grammar.variables.len());

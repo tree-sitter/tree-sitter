@@ -1,9 +1,9 @@
 use super::ExtractedSyntaxGrammar;
 use crate::error::{Error, Result};
-use crate::generate::rules::Symbol;
 use crate::generate::grammars::{
     Production, ProductionStep, SyntaxGrammar, SyntaxVariable, Variable,
 };
+use crate::generate::rules::Symbol;
 use crate::generate::rules::{Alias, Associativity, Rule};
 
 struct RuleFlattener {
