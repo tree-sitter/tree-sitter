@@ -86,14 +86,14 @@ fn populate_error_state(
     let n = lexical_grammar.variables.len();
 
     // First identify the *conflict-free tokens*: tokens that do not overlap with
-    // any other token in any way.
+    // any other token in any way, besides matching exactly the same string.
     let conflict_free_tokens: TokenSet = (0..n)
         .into_iter()
         .filter_map(|i| {
             let conflicts_with_other_tokens = (0..n).into_iter().any(|j| {
                 j != i
                     && !coincident_token_index.contains(Symbol::terminal(i), Symbol::terminal(j))
-                    && token_conflict_map.does_conflict(i, j)
+                    && token_conflict_map.does_match_shorter_or_longer(i, j)
             });
             if conflicts_with_other_tokens {
                 None

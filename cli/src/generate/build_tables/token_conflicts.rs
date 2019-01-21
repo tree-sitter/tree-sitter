@@ -65,6 +65,13 @@ impl<'a> TokenConflictMap<'a> {
             || entry.matches_same_string
     }
 
+    pub fn does_match_shorter_or_longer(&self, i: usize, j: usize) -> bool {
+        let entry = &self.status_matrix[matrix_index(self.n, i, j)];
+        let reverse_entry = &self.status_matrix[matrix_index(self.n, j, i)];
+        (entry.does_match_valid_continuation || entry.does_match_separators)
+            && !reverse_entry.does_match_separators
+    }
+
     pub fn does_overlap(&self, i: usize, j: usize) -> bool {
         self.status_matrix[matrix_index(self.n, i, j)].does_overlap
     }
@@ -135,8 +142,7 @@ impl<'a> fmt::Debug for TokenConflictMap<'a> {
             write!(
                 f,
                 "    {:?}: {:?},\n",
-                self.grammar.variables[i].name,
-                self.starting_chars_by_index[i]
+                self.grammar.variables[i].name, self.starting_chars_by_index[i]
             )?;
         }
         write!(f, "  }},\n")?;
@@ -230,8 +236,18 @@ fn compute_conflict_status(
             continue;
         }
 
+        let has_sep = cursor.transition_chars().any(|(_, sep)| sep);
+
         let mut completion = None;
         for (id, precedence) in cursor.completions() {
+            if has_sep {
+                if id == i {
+                    result.0.does_match_separators = true;
+                } else {
+                    result.1.does_match_separators = true;
+                }
+            }
+
             if let Some((prev_id, prev_precedence)) = completion {
                 if id == prev_id {
                     continue;
@@ -262,8 +278,6 @@ fn compute_conflict_status(
                 completion = Some((id, precedence));
             }
         }
-
-        let has_sep = cursor.transition_chars().any(|(_, sep)| sep);
 
         for transition in cursor.transitions() {
             let mut can_advance = true;
@@ -298,16 +312,10 @@ fn compute_conflict_status(
                         if transition.characters.does_intersect(&following_chars[j]) {
                             result.0.does_match_valid_continuation = true;
                         }
-                        if transition.is_separator || has_sep {
-                            result.0.does_match_separators = true;
-                        }
                     } else {
                         result.1.does_overlap = true;
                         if transition.characters.does_intersect(&following_chars[i]) {
                             result.1.does_match_valid_continuation = true;
-                        }
-                        if transition.is_separator || has_sep {
-                            result.1.does_match_separators = true;
                         }
                     }
                 }
@@ -412,6 +420,60 @@ mod tests {
         // an `identifier` token.
         assert!(token_map.does_conflict(var("identifier"), var("instanceof")));
         assert!(token_map.does_conflict(var("instanceof"), var("in")));
+    }
+
+    #[test]
+    fn test_token_conflicts_with_separators() {
+        let grammar = expand_tokens(ExtractedLexicalGrammar {
+            separators: vec![Rule::pattern("\\s")],
+            variables: vec![
+                Variable {
+                    name: "x".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("x"),
+                },
+                Variable {
+                    name: "newline".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("\n"),
+                },
+            ],
+        })
+        .unwrap();
+
+        let var = |name| index_of_var(&grammar, name);
+
+        let token_map = TokenConflictMap::new(&grammar, vec![TokenSet::new(); 4]);
+
+        assert!(token_map.does_conflict(var("newline"), var("x")));
+        assert!(!token_map.does_conflict(var("x"), var("newline")));
+    }
+
+    #[test]
+    fn test_token_conflicts_with_open_ended_tokens() {
+        let grammar = expand_tokens(ExtractedLexicalGrammar {
+            separators: vec![Rule::pattern("\\s")],
+            variables: vec![
+                Variable {
+                    name: "x".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("x"),
+                },
+                Variable {
+                    name: "anything".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::prec(-1, Rule::pattern(".*")),
+                },
+            ],
+        })
+        .unwrap();
+
+        let var = |name| index_of_var(&grammar, name);
+
+        let token_map = TokenConflictMap::new(&grammar, vec![TokenSet::new(); 4]);
+
+        assert!(token_map.does_match_shorter_or_longer(var("anything"), var("x")));
+        assert!(!token_map.does_match_shorter_or_longer(var("x"), var("anything")));
     }
 
     fn index_of_var(grammar: &LexicalGrammar, name: &str) -> usize {
