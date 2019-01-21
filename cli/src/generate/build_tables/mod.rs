@@ -216,7 +216,7 @@ fn identify_keywords(
 
     // First find all of the candidate keyword tokens: tokens that start with
     // letters or underscore and can match the same string as a word token.
-    let keywords: TokenSet = lexical_grammar
+    let keyword_candidates: TokenSet = lexical_grammar
         .variables
         .iter()
         .enumerate()
@@ -237,10 +237,10 @@ fn identify_keywords(
         .collect();
 
     // Exclude keyword candidates that shadow another keyword candidate.
-    let keywords: TokenSet = keywords
+    let keywords: TokenSet = keyword_candidates
         .iter()
         .filter(|token| {
-            for other_token in keywords.iter() {
+            for other_token in keyword_candidates.iter() {
                 if other_token != *token
                     && token_conflict_map.does_match_same_string(other_token.index, token.index)
                 {
@@ -262,7 +262,7 @@ fn identify_keywords(
         .iter()
         .filter(|token| {
             for other_index in 0..lexical_grammar.variables.len() {
-                if keywords.contains(&Symbol::terminal(other_index)) {
+                if keyword_candidates.contains(&Symbol::terminal(other_index)) {
                     continue;
                 }
 
