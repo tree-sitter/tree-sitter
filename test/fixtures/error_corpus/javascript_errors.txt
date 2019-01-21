@@ -36,7 +36,7 @@ Missing object-literal values
 
 (program (expression_statement (object
   (pair (property_identifier) (identifier))
-  (pair (property_identifier) (yield_expression (MISSING))))))
+  (pair (property_identifier) (MISSING)))))
 
 ===================================================
 Extra identifiers in expressions

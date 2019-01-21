@@ -28,20 +28,8 @@ lazy_static! {
 #[test]
 fn test_real_language_corpus_files() {
     let mut log_session = None;
-    let mut parser = Parser::new();
+    let mut parser = get_parser(&mut log_session, "log1.html");
     let grammars_dir = fixtures_dir().join("grammars");
-
-    if *LOG_ENABLED {
-        parser.set_logger(Some(Box::new(|log_type, msg| {
-            if log_type == LogType::Lex {
-                eprintln!("  {}", msg);
-            } else {
-                eprintln!("{}", msg);
-            }
-        })));
-    } else if *LOG_GRAPH_ENABLED {
-        log_session = Some(util::log_graphs(&mut parser, "log.html").unwrap());
-    }
 
     let mut did_fail = false;
     for language_name in LANGUAGES.iter().cloned() {
@@ -60,8 +48,35 @@ fn test_real_language_corpus_files() {
         did_fail |= run_mutation_tests(&mut parser, test);
     }
 
-    drop(parser);
-    drop(log_session);
+    if did_fail {
+        panic!("Corpus tests failed");
+    }
+}
+
+#[test]
+fn test_error_corpus_files() {
+    let mut log_session = None;
+    let mut parser = get_parser(&mut log_session, "log2.html");
+    let corpus_dir = fixtures_dir().join("error_corpus");
+
+    let mut did_fail = false;
+    for entry in fs::read_dir(&corpus_dir).unwrap() {
+        let entry = entry.unwrap();
+        let language_name = entry.file_name();
+        let language_name = language_name.to_str().unwrap().replace("_errors.txt", "");
+        if let Some(filter) = LANGUAGE_FILTER.as_ref() {
+            if language_name != filter.as_str() {
+                continue;
+            }
+        }
+
+        eprintln!("language: {:?}", language_name);
+
+        let test = parse_tests(&entry.path()).unwrap();
+        let language = get_language(&language_name);
+        parser.set_language(language).unwrap();
+        did_fail |= run_mutation_tests(&mut parser, test);
+    }
 
     if did_fail {
         panic!("Corpus tests failed");
@@ -71,20 +86,8 @@ fn test_real_language_corpus_files() {
 #[test]
 fn test_feature_corpus_files() {
     let mut log_session = None;
-    let mut parser = Parser::new();
+    let mut parser = get_parser(&mut log_session, "log3.html");
     let test_grammars_dir = fixtures_dir().join("test_grammars");
-
-    if *LOG_ENABLED {
-        parser.set_logger(Some(Box::new(|log_type, msg| {
-            if log_type == LogType::Lex {
-                eprintln!("  {}", msg);
-            } else {
-                eprintln!("{}", msg);
-            }
-        })));
-    } else if *LOG_GRAPH_ENABLED {
-        log_session = Some(util::log_graphs(&mut parser, "log.html").unwrap());
-    }
 
     let mut did_fail = false;
     for entry in fs::read_dir(&test_grammars_dir).unwrap() {
@@ -134,9 +137,6 @@ fn test_feature_corpus_files() {
         }
     }
 
-    drop(parser);
-    drop(log_session);
-
     if did_fail {
         panic!("Corpus tests failed");
     }
@@ -178,4 +178,22 @@ fn run_mutation_tests(parser: &mut Parser, test: TestEntry) -> bool {
             result
         }
     }
+}
+
+fn get_parser(session: &mut Option<util::LogSession>, log_filename: &str) -> Parser {
+    let mut parser = Parser::new();
+
+    if *LOG_ENABLED {
+        parser.set_logger(Some(Box::new(|log_type, msg| {
+            if log_type == LogType::Lex {
+                eprintln!("  {}", msg);
+            } else {
+                eprintln!("{}", msg);
+            }
+        })));
+    } else if *LOG_GRAPH_ENABLED {
+        *session = Some(util::log_graphs(&mut parser, log_filename).unwrap());
+    }
+
+    parser
 }

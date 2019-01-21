@@ -53,7 +53,7 @@ impl Drop for LogSession {
             if cfg!(target_os = "macos")
                 && fs::metadata(&self.0).unwrap().len() > HTML_HEADER.len() as u64
             {
-                Command::new("open").arg("log.html").output().unwrap();
+                Command::new("open").arg(&self.0).output().unwrap();
             }
         } else {
             eprintln!(
