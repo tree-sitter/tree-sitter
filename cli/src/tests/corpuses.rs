@@ -1,9 +1,10 @@
+use super::allocations;
 use super::fixtures::{fixtures_dir, get_language, get_test_language};
 use crate::generate;
 use crate::test::{parse_tests, print_diff, print_diff_key, TestEntry};
 use crate::util;
 use std::fs;
-use tree_sitter::{LogType, Parser};
+use tree_sitter::{Language, LogType, Parser};
 
 const LANGUAGES: &'static [&'static str] = &[
     "bash",
@@ -27,8 +28,6 @@ lazy_static! {
 
 #[test]
 fn test_real_language_corpus_files() {
-    let mut log_session = None;
-    let mut parser = get_parser(&mut log_session, "log1.html");
     let grammars_dir = fixtures_dir().join("grammars");
 
     let mut did_fail = false;
@@ -44,8 +43,7 @@ fn test_real_language_corpus_files() {
         let language = get_language(language_name);
         let corpus_dir = grammars_dir.join(language_name).join("corpus");
         let test = parse_tests(&corpus_dir).unwrap();
-        parser.set_language(language).unwrap();
-        did_fail |= run_mutation_tests(&mut parser, test);
+        did_fail |= run_mutation_tests(language, test);
     }
 
     if did_fail {
@@ -55,8 +53,6 @@ fn test_real_language_corpus_files() {
 
 #[test]
 fn test_error_corpus_files() {
-    let mut log_session = None;
-    let mut parser = get_parser(&mut log_session, "log2.html");
     let corpus_dir = fixtures_dir().join("error_corpus");
 
     let mut did_fail = false;
@@ -74,8 +70,7 @@ fn test_error_corpus_files() {
 
         let test = parse_tests(&entry.path()).unwrap();
         let language = get_language(&language_name);
-        parser.set_language(language).unwrap();
-        did_fail |= run_mutation_tests(&mut parser, test);
+        did_fail |= run_mutation_tests(language, test);
     }
 
     if did_fail {
@@ -85,8 +80,6 @@ fn test_error_corpus_files() {
 
 #[test]
 fn test_feature_corpus_files() {
-    let mut log_session = None;
-    let mut parser = get_parser(&mut log_session, "log3.html");
     let test_grammars_dir = fixtures_dir().join("test_grammars");
 
     let mut did_fail = false;
@@ -132,8 +125,7 @@ fn test_feature_corpus_files() {
             let c_code = generate_result.unwrap().1;
             let language = get_test_language(language_name, c_code, &test_path);
             let test = parse_tests(&corpus_path).unwrap();
-            parser.set_language(language).unwrap();
-            did_fail |= run_mutation_tests(&mut parser, test);
+            did_fail |= run_mutation_tests(language, test);
         }
     }
 
@@ -142,7 +134,7 @@ fn test_feature_corpus_files() {
     }
 }
 
-fn run_mutation_tests(parser: &mut Parser, test: TestEntry) -> bool {
+fn run_mutation_tests(language: Language, test: TestEntry) -> bool {
     match test {
         TestEntry::Example {
             name,
@@ -157,23 +149,30 @@ fn run_mutation_tests(parser: &mut Parser, test: TestEntry) -> bool {
 
             eprintln!("  example: {:?}", name);
 
+            allocations::start_recording();
+            let mut log_session = None;
+            let mut parser = get_parser(&mut log_session, "log.html");
+            parser.set_language(language).unwrap();
             let tree = parser
                 .parse_utf8(&mut |byte_offset, _| &input[byte_offset..], None)
                 .unwrap();
             let actual = tree.root_node().to_sexp();
+            drop(tree);
+            drop(parser);
             if actual != output {
                 print_diff_key();
                 print_diff(&actual, &output);
                 println!("");
                 true
             } else {
+                allocations::stop_recording();
                 false
             }
         }
         TestEntry::Group { children, .. } => {
             let mut result = false;
             for child in children {
-                result |= run_mutation_tests(parser, child);
+                result |= run_mutation_tests(language, child);
             }
             result
         }

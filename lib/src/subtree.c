@@ -855,7 +855,7 @@ char *ts_subtree_string(Subtree self, const TSLanguage *language, bool include_a
     language, true,
     include_all, 0, false
   ) + 1;
-  char *result = ts_malloc(size * sizeof(char));
+  char *result = malloc(size * sizeof(char));
   ts_subtree__write_to_string(self, result, size, language, true, include_all, 0, false);
   return result;
 }

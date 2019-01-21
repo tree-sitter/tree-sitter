@@ -1,6 +1,6 @@
 extern crate cc;
 
-use std::env;
+use std::{env, fs};
 use std::path::{Path, PathBuf};
 
 fn main() {
@@ -20,13 +20,27 @@ fn main() {
     }
 
     let mut config = cc::Build::new();
+
+    println!("cargo:rerun-if-env-changed=TREE_SITTER_TEST");
+    if env::var("TREE_SITTER_TEST").is_ok() {
+        config.define("TREE_SITTER_TEST", "");
+    }
+
+    let src_path = Path::new("src");
+
+    for entry in fs::read_dir(&src_path).unwrap() {
+        let entry = entry.unwrap();
+        let path = src_path.join(entry.file_name());
+        println!("cargo:rerun-if-changed={}", path.to_str().unwrap());
+    }
+
     config
         .define("UTF8PROC_STATIC", "")
         .flag_if_supported("-std=c99")
         .flag_if_supported("-Wno-unused-parameter")
         .include("include")
         .include("utf8proc")
-        .file(Path::new("src").join("lib.c"))
+        .file(src_path.join("lib.c"))
         .compile("tree-sitter");
 }
 
