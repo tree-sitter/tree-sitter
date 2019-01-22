@@ -453,6 +453,10 @@ TSNode ts_node_named_child(TSNode self, uint32_t child_index) {
   return ts_node__child(self, child_index, false);
 }
 
+TSNode ts_node_child_by_ref(TSNode self, const char *ref_name) {
+  return ts_node__null();
+}
+
 uint32_t ts_node_child_count(TSNode self) {
   Subtree tree = ts_node__subtree(self);
   if (ts_subtree_child_count(tree) > 0) {

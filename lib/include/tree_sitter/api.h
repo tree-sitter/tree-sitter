@@ -119,6 +119,7 @@ bool ts_node_has_changes(TSNode);
 bool ts_node_has_error(TSNode);
 TSNode ts_node_parent(TSNode);
 TSNode ts_node_child(TSNode, uint32_t);
+TSNode ts_node_child_by_ref(TSNode, const char *);
 TSNode ts_node_named_child(TSNode, uint32_t);
 uint32_t ts_node_child_count(TSNode);
 uint32_t ts_node_named_child_count(TSNode);

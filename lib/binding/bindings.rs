@@ -228,6 +228,9 @@ extern "C" {
     pub fn ts_node_child(arg1: TSNode, arg2: u32) -> TSNode;
 }
 extern "C" {
+    pub fn ts_node_child_by_ref(arg1: TSNode, arg2: *const ::std::os::raw::c_char) -> TSNode;
+}
+extern "C" {
     pub fn ts_node_named_child(arg1: TSNode, arg2: u32) -> TSNode;
 }
 extern "C" {

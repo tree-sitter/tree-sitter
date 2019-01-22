@@ -12,7 +12,7 @@ use std::os::unix::io::AsRawFd;
 use regex::Regex;
 use serde::de::DeserializeOwned;
 use std::collections::HashMap;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::fmt;
 use std::marker::PhantomData;
 use std::os::raw::{c_char, c_void};
@@ -461,6 +461,14 @@ impl<'tree> Node<'tree> {
 
     pub fn child(&self, i: usize) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_child(self.0, i as u32) })
+    }
+
+    pub fn child_by_ref(&self, ref_name: &str) -> Option<Self> {
+        if let Ok(c_ref_name) = CString::new(ref_name) {
+            Self::new(unsafe { ffi::ts_node_child_by_ref(self.0, c_ref_name.as_ptr()) })
+        } else {
+            None
+        }
     }
 
     pub fn child_count(&self) -> usize {
