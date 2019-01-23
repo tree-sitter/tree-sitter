@@ -67,7 +67,7 @@ impl Generator {
         self.add_symbol_names_list();
         self.add_symbol_metadata_list();
 
-        if self.parse_table.alias_sequences.len() > 1 {
+        if self.parse_table.child_info_sequences.len() > 1 {
             self.add_alias_sequences();
         }
 
@@ -148,9 +148,9 @@ impl Generator {
             self.assign_symbol_id(self.parse_table.symbols[i], &mut symbol_identifiers);
         }
 
-        for alias_sequence in &self.parse_table.alias_sequences {
-            for entry in alias_sequence {
-                if let Some(alias) = entry {
+        for child_info_sequence in &self.parse_table.child_info_sequences {
+            for entry in child_info_sequence {
+                if let Some(alias) = &entry.alias {
                     let alias_kind = if alias.is_named {
                         VariableType::Named
                     } else {
@@ -307,14 +307,14 @@ impl Generator {
         add_line!(
             self,
             "static TSSymbol ts_alias_sequences[{}][MAX_ALIAS_SEQUENCE_LENGTH] = {{",
-            self.parse_table.alias_sequences.len()
+            self.parse_table.child_info_sequences.len()
         );
         indent!(self);
-        for (i, sequence) in self.parse_table.alias_sequences.iter().enumerate().skip(1) {
+        for (i, sequence) in self.parse_table.child_info_sequences.iter().enumerate().skip(1) {
             add_line!(self, "[{}] = {{", i);
             indent!(self);
-            for (j, alias) in sequence.iter().enumerate() {
-                if let Some(alias) = alias {
+            for (j, child_info) in sequence.iter().enumerate() {
+                if let Some(alias) = &child_info.alias {
                     add_line!(self, "[{}] = {},", j, self.alias_ids[&alias]);
                 }
             }
@@ -686,15 +686,15 @@ impl Generator {
                         symbol,
                         child_count,
                         dynamic_precedence,
-                        alias_sequence_id,
+                        child_info_sequence_id,
                         ..
                     } => {
                         add!(self, "REDUCE({}, {}", self.symbol_ids[&symbol], child_count);
                         if dynamic_precedence != 0 {
                             add!(self, ", .dynamic_precedence = {}", dynamic_precedence);
                         }
-                        if alias_sequence_id != 0 {
-                            add!(self, ", .alias_sequence_id = {}", alias_sequence_id);
+                        if child_info_sequence_id != 0 {
+                            add!(self, ", .alias_sequence_id = {}", child_info_sequence_id);
                         }
                         add!(self, ")");
                     }
@@ -759,7 +759,7 @@ impl Generator {
         add_line!(self, ".lex_modes = ts_lex_modes,");
         add_line!(self, ".symbol_names = ts_symbol_names,");
 
-        if self.parse_table.alias_sequences.len() > 1 {
+        if self.parse_table.child_info_sequences.len() > 1 {
             add_line!(
                 self,
                 ".alias_sequences = (const TSSymbol *)ts_alias_sequences,"

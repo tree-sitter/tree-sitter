@@ -2,7 +2,7 @@ use super::nfa::CharacterSet;
 use super::rules::{Alias, Associativity, Symbol};
 use hashbrown::HashMap;
 
-pub(crate) type AliasSequenceId = usize;
+pub(crate) type ChildInfoSequenceId = usize;
 pub(crate) type ParseStateId = usize;
 pub(crate) type LexStateId = usize;
 
@@ -21,7 +21,7 @@ pub(crate) enum ParseAction {
         precedence: i32,
         dynamic_precedence: i32,
         associativity: Option<Associativity>,
-        alias_sequence_id: AliasSequenceId,
+        child_info_sequence_id: ChildInfoSequenceId,
     },
 }
 
@@ -39,11 +39,17 @@ pub(crate) struct ParseState {
     pub unfinished_item_signature: u64,
 }
 
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(crate) struct ChildInfo {
+    pub alias: Option<Alias>,
+    pub child_ref: Option<String>,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct ParseTable {
     pub states: Vec<ParseState>,
     pub symbols: Vec<Symbol>,
-    pub alias_sequences: Vec<Vec<Option<Alias>>>,
+    pub child_info_sequences: Vec<Vec<ChildInfo>>,
     pub max_aliased_production_length: usize,
 }
 

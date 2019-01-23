@@ -11,6 +11,7 @@ struct RuleFlattener {
     precedence_stack: Vec<i32>,
     associativity_stack: Vec<Associativity>,
     alias_stack: Vec<Alias>,
+    child_ref_stack: Vec<String>,
 }
 
 impl RuleFlattener {
@@ -23,6 +24,7 @@ impl RuleFlattener {
             precedence_stack: Vec::new(),
             associativity_stack: Vec::new(),
             alias_stack: Vec::new(),
+            child_ref_stack: Vec::new(),
         }
     }
 
@@ -60,6 +62,12 @@ impl RuleFlattener {
                     self.alias_stack.push(alias);
                 }
 
+                let mut has_child_ref = false;
+                if let Some(child_ref) = params.child_ref {
+                    has_child_ref = true;
+                    self.child_ref_stack.push(child_ref);
+                }
+
                 if params.dynamic_precedence.abs() > self.production.dynamic_precedence.abs() {
                     self.production.dynamic_precedence = params.dynamic_precedence;
                 }
@@ -86,6 +94,10 @@ impl RuleFlattener {
                     self.alias_stack.pop();
                 }
 
+                if has_child_ref {
+                    self.child_ref_stack.pop();
+                }
+
                 did_push
             }
             Rule::Symbol(symbol) => {
@@ -94,6 +106,7 @@ impl RuleFlattener {
                     precedence: self.precedence_stack.last().cloned().unwrap_or(0),
                     associativity: self.associativity_stack.last().cloned(),
                     alias: self.alias_stack.last().cloned(),
+                    child_ref: self.child_ref_stack.last().cloned(),
                 });
                 true
             }
@@ -353,6 +366,44 @@ mod tests {
                 steps: vec![ProductionStep::new(Symbol::non_terminal(1))
                     .with_prec(101, Some(Associativity::Left)),]
             }]
+        );
+    }
+
+    #[test]
+    fn test_flatten_grammar_with_child_refs() {
+        let result = flatten_variable(Variable {
+            name: "test".to_string(),
+            kind: VariableType::Named,
+            rule: Rule::seq(vec![
+                Rule::child_ref("first-thing".to_string(), Rule::terminal(1)),
+                Rule::terminal(2),
+                Rule::choice(vec![
+                    Rule::Blank,
+                    Rule::child_ref("second-thing".to_string(), Rule::terminal(3)),
+                ]),
+            ]),
+        })
+        .unwrap();
+
+        assert_eq!(
+            result.productions,
+            vec![
+                Production {
+                    dynamic_precedence: 0,
+                    steps: vec![
+                        ProductionStep::new(Symbol::terminal(1)).with_child_ref("first-thing"),
+                        ProductionStep::new(Symbol::terminal(2))
+                    ]
+                },
+                Production {
+                    dynamic_precedence: 0,
+                    steps: vec![
+                        ProductionStep::new(Symbol::terminal(1)).with_child_ref("first-thing"),
+                        ProductionStep::new(Symbol::terminal(2)),
+                        ProductionStep::new(Symbol::terminal(3)).with_child_ref("second-thing"),
+                    ]
+                },
+            ]
         );
     }
 }

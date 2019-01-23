@@ -124,7 +124,7 @@ fn parse_rule(json: RuleJSON) -> Rule {
         RuleJSON::PATTERN { value } => Rule::Pattern(value),
         RuleJSON::SYMBOL { name } => Rule::NamedSymbol(name),
         RuleJSON::CHOICE { members } => Rule::choice(members.into_iter().map(parse_rule).collect()),
-        RuleJSON::REF { content, value } => parse_rule(*content),
+        RuleJSON::REF { content, value } => Rule::child_ref(value, parse_rule(*content)),
         RuleJSON::SEQ { members } => Rule::seq(members.into_iter().map(parse_rule).collect()),
         RuleJSON::REPEAT1 { content } => Rule::repeat(parse_rule(*content)),
         RuleJSON::REPEAT { content } => {

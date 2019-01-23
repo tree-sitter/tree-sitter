@@ -32,6 +32,7 @@ pub(crate) struct MetadataParams {
     pub is_active: bool,
     pub is_main_token: bool,
     pub alias: Option<Alias>,
+    pub child_ref: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -57,6 +58,12 @@ pub(crate) enum Rule {
 }
 
 impl Rule {
+    pub fn child_ref(name: String, content: Rule) -> Self {
+        add_metadata(content, move |params| {
+            params.child_ref = Some(name);
+        })
+    }
+
     pub fn alias(content: Rule, value: String, is_named: bool) -> Self {
         add_metadata(content, move |params| {
             params.alias = Some(Alias { is_named, value });

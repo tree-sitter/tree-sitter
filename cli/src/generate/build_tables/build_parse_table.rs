@@ -6,7 +6,7 @@ use crate::generate::grammars::{
 };
 use crate::generate::rules::{Alias, Associativity, Symbol, SymbolType};
 use crate::generate::tables::{
-    AliasSequenceId, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
+    ChildInfoSequenceId, ChildInfo, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
 };
 use core::ops::Range;
 use hashbrown::hash_map::Entry;
@@ -47,7 +47,7 @@ struct ParseTableBuilder<'a> {
 impl<'a> ParseTableBuilder<'a> {
     fn build(mut self) -> Result<ParseTable> {
         // Ensure that the empty alias sequence has index 0.
-        self.parse_table.alias_sequences.push(Vec::new());
+        self.parse_table.child_info_sequences.push(Vec::new());
 
         // Add the error state at index 0.
         self.add_parse_state(&Vec::new(), &Vec::new(), ParseItemSet::default());
@@ -176,7 +176,7 @@ impl<'a> ParseTableBuilder<'a> {
                         precedence: item.precedence(),
                         associativity: item.associativity(),
                         dynamic_precedence: item.production.dynamic_precedence,
-                        alias_sequence_id: self.get_alias_sequence_id(item),
+                        child_info_sequence_id: self.get_child_info_sequence_id(item),
                     }
                 };
 
@@ -645,29 +645,32 @@ impl<'a> ParseTableBuilder<'a> {
         }
     }
 
-    fn get_alias_sequence_id(&mut self, item: &ParseItem) -> AliasSequenceId {
-        let mut alias_sequence: Vec<Option<Alias>> = item
+    fn get_child_info_sequence_id(&mut self, item: &ParseItem) -> ChildInfoSequenceId {
+        let mut child_info_sequence: Vec<ChildInfo> = item
             .production
             .steps
             .iter()
-            .map(|s| s.alias.clone())
+            .map(|s| ChildInfo {
+                alias: s.alias.clone(),
+                child_ref: s.child_ref.clone(),
+            })
             .collect();
-        while alias_sequence.last() == Some(&None) {
-            alias_sequence.pop();
+        while child_info_sequence.last() == Some(&ChildInfo::default()) {
+            child_info_sequence.pop();
         }
         if item.production.steps.len() > self.parse_table.max_aliased_production_length {
             self.parse_table.max_aliased_production_length = item.production.steps.len()
         }
         if let Some(index) = self
             .parse_table
-            .alias_sequences
+            .child_info_sequences
             .iter()
-            .position(|seq| *seq == alias_sequence)
+            .position(|seq| *seq == child_info_sequence)
         {
             index
         } else {
-            self.parse_table.alias_sequences.push(alias_sequence);
-            self.parse_table.alias_sequences.len() - 1
+            self.parse_table.child_info_sequences.push(child_info_sequence);
+            self.parse_table.child_info_sequences.len() - 1
         }
     }
 
@@ -740,7 +743,7 @@ pub(crate) fn build_parse_table(
         parse_table: ParseTable {
             states: Vec::new(),
             symbols: Vec::new(),
-            alias_sequences: Vec::new(),
+            child_info_sequences: Vec::new(),
             max_aliased_production_length: 0,
         },
     }

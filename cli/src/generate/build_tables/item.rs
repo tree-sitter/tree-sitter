@@ -20,6 +20,7 @@ lazy_static! {
             precedence: 0,
             associativity: None,
             alias: None,
+            child_ref: None,
         }],
     };
 }
