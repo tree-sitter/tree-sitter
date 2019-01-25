@@ -18,6 +18,7 @@ use std::io::{self, Read, Seek};
 use std::marker::PhantomData;
 use std::os::raw::{c_char, c_void};
 use std::ptr;
+use std::slice;
 use std::str;
 use std::u16;
 
@@ -427,6 +428,18 @@ impl Tree {
     ) -> TreePropertyCursor<'a, P> {
         TreePropertyCursor::new(self, property_sheet, source)
     }
+
+    pub fn changed_ranges(&self, other: &Tree) -> Vec<Range> {
+        unsafe {
+            let mut count = 0;
+            let ptr =
+                ffi::ts_tree_get_changed_ranges(self.0, other.0, &mut count as *mut _ as *mut u32);
+            let ranges = slice::from_raw_parts(ptr, count);
+            let result = ranges.into_iter().map(|r| r.clone().into()).collect();
+            free(ptr as *mut c_void);
+            result
+        }
+    }
 }
 
 unsafe impl Send for Tree {}
@@ -558,10 +571,6 @@ impl<'tree> Node<'tree> {
     }
 
     pub fn to_sexp(&self) -> String {
-        extern "C" {
-            fn free(pointer: *mut c_void);
-        }
-
         let c_string = unsafe { ffi::ts_node_string(self.0) };
         let result = unsafe { CStr::from_ptr(c_string) }
             .to_str()
@@ -788,6 +797,17 @@ impl Into<ffi::TSRange> for Range {
     }
 }
 
+impl From<ffi::TSRange> for Range {
+    fn from(range: ffi::TSRange) -> Self {
+        Self {
+            start_byte: range.start_byte as usize,
+            end_byte: range.end_byte as usize,
+            start_point: range.start_point.into(),
+            end_point: range.end_point.into(),
+        }
+    }
+}
+
 impl<P> PropertySheet<P> {
     pub fn new(language: Language, json: &str) -> Result<Self, PropertySheetError>
     where
@@ -859,4 +879,8 @@ impl<P> PropertySheet<P> {
             property_sets,
         })
     }
+}
+
+extern "C" {
+    fn free(pointer: *mut c_void);
 }

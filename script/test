@@ -10,19 +10,23 @@ USAGE
 
 OPTIONS
 
-  -h  print this message
+  -h  Print this message
 
   -a  Compile C code with the Clang static analyzer
 
-  -l  run only the corpus tests for the given language
+  -l  Run only the corpus tests for the given language
 
-  -e  run only the corpus tests whose name contain the given string
+  -e  Run only the corpus tests whose name contain the given string
 
-  -s  set the seed used to control random behavior
+  -t  Run only the given trial number of randomized test
 
-  -d  print parsing log to stderr
+  -s  Set the seed used to control random behavior
 
-  -D  pipe tests' stderr to \`dot(1)\` to render an SVG log
+  -d  Print parsing log to stderr
+
+  -D  Generate an SVG graph of parsing logs
+
+  -g  Run the tests with a debugger
 
 EOF
 }
@@ -31,7 +35,9 @@ export TREE_SITTER_TEST=1
 export RUST_TEST_THREADS=1
 export RUST_BACKTRACE=full
 
-while getopts "bdl:e:s:gGhpvD" option; do
+mode=normal
+
+while getopts "dDghl:e:s:t:" option; do
   case ${option} in
     h)
       usage
@@ -43,22 +49,35 @@ while getopts "bdl:e:s:gGhpvD" option; do
     e)
       export TREE_SITTER_TEST_EXAMPLE_FILTER=${OPTARG}
       ;;
+    t)
+      export TREE_SITTER_TEST_TRIAL_FILTER=${OPTARG}
+      ;;
     s)
-      export TREE_SITTER_SEED=${OPTARG}
+      export TREE_SITTER_TEST_SEED=${OPTARG}
       ;;
     d)
-      export TREE_SITTER_ENABLE_LOG=1
+      export TREE_SITTER_TEST_ENABLE_LOG=1
       ;;
     D)
-      export TREE_SITTER_ENABLE_LOG_GRAPHS=1
+      export TREE_SITTER_TEST_ENABLE_LOG_GRAPHS=1
+      ;;
+    g)
+      mode=debug
       ;;
   esac
 done
 
-if [[ -n $TREE_SITTER_TEST_LANGUAGE_FILTER || -n $TREE_SITTER_TEST_EXAMPLE_FILTER ]]; then
+shift $(expr $OPTIND - 1 )
+
+if [[ -n $TREE_SITTER_TEST_LANGUAGE_FILTER || -n $TREE_SITTER_TEST_EXAMPLE_FILTER || -n $TREE_SITTER_TEST_TRIAL_FILTER ]]; then
   top_level_filter=corpus
 else
   top_level_filter=$1
 fi
 
-cargo test --jobs 1 $top_level_filter -- --nocapture
+if [[ "${mode}" == "debug" ]]; then
+  test_binary=$(cargo test --no-run --message-format=json 2> /dev/null | jq -rs '.[-1].filenames[0]')
+  lldb "${test_binary}" -- $top_level_filter
+else
+  cargo test --jobs 1 $top_level_filter -- --nocapture
+fi

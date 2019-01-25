@@ -2,10 +2,6 @@ use super::fixtures::get_language;
 use std::thread;
 use tree_sitter::{InputEdit, Language, LogType, Parser, Point, PropertySheet};
 
-fn rust() -> Language {
-    get_language("rust")
-}
-
 #[test]
 fn test_basic_parsing() {
     let mut parser = Parser::new();
@@ -504,4 +500,8 @@ fn test_parallel_parsing() {
         .collect::<Vec<_>>();
 
     assert_eq!(child_count_differences, &[1, 2, 3, 4]);
+}
+
+fn rust() -> Language {
+    get_language("rust")
 }

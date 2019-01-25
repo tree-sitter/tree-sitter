@@ -36,6 +36,12 @@ pub enum TestEntry {
     },
 }
 
+impl Default for TestEntry {
+    fn default() -> Self {
+        TestEntry::Group { name: String::new(), children: Vec::new() }
+    }
+}
+
 pub fn run_tests_at_path(
     language: Language,
     path: &Path,
@@ -160,7 +166,7 @@ fn run_tests(
 
 pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
     let name = path
-        .file_name()
+        .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("")
         .to_string();

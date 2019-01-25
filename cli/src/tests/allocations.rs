@@ -40,13 +40,15 @@ pub fn stop_recording() {
     recorder.enabled = false;
 
     if !recorder.outstanding_allocations.is_empty() {
+        let mut allocation_indices = recorder
+            .outstanding_allocations
+            .iter()
+            .map(|e| e.1)
+            .collect::<Vec<_>>();
+        allocation_indices.sort_unstable();
         panic!(
             "Leaked allocation indices: {:?}",
-            recorder
-                .outstanding_allocations
-                .iter()
-                .map(|e| e.1)
-                .collect::<Vec<_>>()
+            allocation_indices
         );
     }
 }

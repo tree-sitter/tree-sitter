@@ -28,10 +28,10 @@
     fputs("\n\n", self->dot_graph_file);                                         \
   }
 
-#define LOG_TREE()                                                                         \
-  if (self->dot_graph_file) {                                                              \
-    ts_subtree_print_dot_graph(self->finished_tree, self->language, self->dot_graph_file); \
-    fputs("\n", self->dot_graph_file);                                                     \
+#define LOG_TREE(tree)                                                      \
+  if (self->dot_graph_file) {                                               \
+    ts_subtree_print_dot_graph(tree, self->language, self->dot_graph_file); \
+    fputs("\n", self->dot_graph_file);                                      \
   }
 
 #define SYM_NAME(symbol) ts_language_symbol_name(self->language, symbol)
@@ -417,6 +417,13 @@ static Subtree ts_parser__lex(TSParser *self, StackVersion version, TSStateId pa
       parse_state,
       self->language
     );
+
+    LOG(
+      "lexed_lookahead sym:%s, size:%u, character:'%c'",
+      SYM_NAME(ts_subtree_symbol(result)),
+      ts_subtree_total_size(result).bytes,
+      first_error_character
+    );
   } else {
     if (self->lexer.token_end_position.bytes < self->lexer.token_start_position.bytes) {
       self->lexer.token_start_position = self->lexer.token_end_position;
@@ -467,13 +474,14 @@ static Subtree ts_parser__lex(TSParser *self, StackVersion version, TSStateId pa
         length
       );
     }
+
+    LOG(
+      "lexed_lookahead sym:%s, size:%u",
+      SYM_NAME(ts_subtree_symbol(result)),
+      ts_subtree_total_size(result).bytes
+    );
   }
 
-  LOG(
-    "lexed_lookahead sym:%s, size:%u",
-    SYM_NAME(ts_subtree_symbol(result)),
-    ts_subtree_total_size(result).bytes
-  );
   return result;
 }
 
@@ -1623,6 +1631,7 @@ TSTree *ts_parser_parse(TSParser *self, const TSTree *old_tree, TSInput input) {
     );
     reusable_node_reset(&self->reusable_node, old_tree->root);
     LOG("parse_after_edit");
+    LOG_TREE(self->old_tree);
     for (unsigned i = 0; i < self->included_range_differences.size; i++) {
       TSRange *range = &self->included_range_differences.contents[i];
       LOG("different_included_range %u - %u", range->start_byte, range->end_byte);
@@ -1681,7 +1690,7 @@ TSTree *ts_parser_parse(TSParser *self, const TSTree *old_tree, TSInput input) {
 
   ts_subtree_balance(self->finished_tree, &self->tree_pool, self->language);
   LOG("done");
-  LOG_TREE();
+  LOG_TREE(self->finished_tree);
 
   TSTree *result = ts_tree_new(
     self->finished_tree,

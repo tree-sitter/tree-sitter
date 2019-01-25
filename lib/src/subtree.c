@@ -879,7 +879,7 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
     "error-cost: %u\n"
     "has-changes: %u\n"
     "repeat-depth: %u\n"
-    "lookahead-bytes: %u\"]\n",
+    "lookahead-bytes: %u",
     start_offset, end_offset,
     ts_subtree_parse_state(*self),
     ts_subtree_error_cost(*self),
@@ -887,6 +887,12 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
     ts_subtree_repeat_depth(*self),
     ts_subtree_lookahead_bytes(*self)
   );
+
+  if (ts_subtree_is_error(*self) && ts_subtree_child_count(*self) == 0) {
+    fprintf(f, "\ncharacter: '%c'", self->ptr->lookahead_char);
+  }
+
+  fprintf(f, "\"]\n");
 
   uint32_t child_start_offset = start_offset;
   uint32_t structural_child_index = 0;
