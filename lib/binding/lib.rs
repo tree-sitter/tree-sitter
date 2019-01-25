@@ -436,7 +436,7 @@ impl Tree {
                 ffi::ts_tree_get_changed_ranges(self.0, other.0, &mut count as *mut _ as *mut u32);
             let ranges = slice::from_raw_parts(ptr, count);
             let result = ranges.into_iter().map(|r| r.clone().into()).collect();
-            free(ptr as *mut c_void);
+            free_ptr(ptr as *mut c_void);
             result
         }
     }
@@ -576,7 +576,7 @@ impl<'tree> Node<'tree> {
             .to_str()
             .unwrap()
             .to_string();
-        unsafe { free(c_string as *mut c_void) };
+        unsafe { free_ptr(c_string as *mut c_void) };
         result
     }
 
@@ -882,5 +882,6 @@ impl<P> PropertySheet<P> {
 }
 
 extern "C" {
-    fn free(pointer: *mut c_void);
+    #[link_name = "rust_tree_sitter_free"]
+    fn free_ptr(ptr: *mut c_void);
 }

@@ -1,6 +1,7 @@
 use super::allocations;
 use super::fixtures::{fixtures_dir, get_language, get_test_language};
 use super::random::Rand;
+use super::scope_sequence::ScopeSequence;
 use crate::generate;
 use crate::test::{parse_tests, print_diff, print_diff_key, TestEntry};
 use crate::util;
@@ -125,7 +126,11 @@ fn test_real_language_corpus_files() {
 
                     // Check that the new tree is consistent.
                     check_consistent_sizes(&tree2, &input);
-                    check_changed_ranges(&tree, &tree2, &input);
+                    if let Err(message) = check_changed_ranges(&tree, &tree2, &input) {
+                        println!("\nUnexpected scope change in trial {}\n{}\n\n", trial, message);
+                        failure_count += 1;
+                        break;
+                    }
 
                     // Undo all of the edits and re-parse again.
                     while let Some(edit) = undo_stack.pop() {
@@ -139,19 +144,26 @@ fn test_real_language_corpus_files() {
                         .parse_utf8(&mut |i, _| input.get(i..).unwrap_or(&[]), Some(&tree2))
                         .unwrap();
 
-                    // Check that the edited tree is consistent.
-                    check_consistent_sizes(&tree3, &input);
-                    check_changed_ranges(&tree2, &tree3, &input);
-
                     // Verify that the final tree matches the expectation from the corpus.
                     let actual_output = tree3.root_node().to_sexp();
                     if actual_output != expected_output {
-                        println!("Incorrect parse for {} - {} - trial {}", language_name, example_name, trial);
+                        println!(
+                            "Incorrect parse for {} - {} - trial {}",
+                            language_name, example_name, trial
+                        );
                         print_diff_key();
                         print_diff(&actual_output, &expected_output);
                         println!("");
                         failure_count += 1;
-                        // break;
+                        break;
+                    }
+
+                    // Check that the edited tree is consistent.
+                    check_consistent_sizes(&tree3, &input);
+                    if let Err(message) = check_changed_ranges(&tree2, &tree3, &input) {
+                        eprintln!("Unexpected scope change in trial {}\n{}\n\n", trial, message);
+                        failure_count += 1;
+                        break;
                     }
 
                     drop(tree);
@@ -348,7 +360,12 @@ fn position_for_offset(input: &Vec<u8>, offset: usize) -> Point {
 
 fn check_consistent_sizes(tree: &Tree, input: &Vec<u8>) {}
 
-fn check_changed_ranges(old_tree: &Tree, new_tree: &Tree, input: &Vec<u8>) {}
+fn check_changed_ranges(old_tree: &Tree, new_tree: &Tree, input: &Vec<u8>) -> Result<(), String> {
+    let changed_ranges = old_tree.changed_ranges(new_tree);
+    let old_scope_sequence = ScopeSequence::new(old_tree);
+    let new_scope_sequence = ScopeSequence::new(new_tree);
+    old_scope_sequence.check_changes(&new_scope_sequence, &input, &changed_ranges)
+}
 
 fn get_parser(session: &mut Option<util::LogSession>, log_filename: &str) -> Parser {
     let mut parser = Parser::new();

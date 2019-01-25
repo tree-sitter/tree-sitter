@@ -41,6 +41,7 @@ fn main() {
         .include("include")
         .include("utf8proc")
         .file(src_path.join("lib.c"))
+        .file(Path::new("binding").join("helper.c"))
         .compile("tree-sitter");
 }
 
