@@ -1,4 +1,4 @@
-use super::fixtures::get_language;
+use super::helpers::fixtures::get_language;
 use std::thread;
 use tree_sitter::{InputEdit, Language, LogType, Parser, Point, PropertySheet};
 
@@ -453,7 +453,7 @@ fn test_editing() {
 fn test_parallel_parsing() {
     // Parse this source file so that each thread has a non-trivial amount of
     // work to do.
-    let this_file_source = include_str!("parser_api.rs");
+    let this_file_source = include_str!("parser_api_test.rs");
 
     let mut parser = Parser::new();
     parser.set_language(rust()).unwrap();

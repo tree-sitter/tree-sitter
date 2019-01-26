@@ -1,6 +1,3 @@
-mod allocations;
-mod corpuses;
-mod fixtures;
-mod random;
-mod parser_api;
-mod scope_sequence;
+mod corpus_test;
+mod helpers;
+mod parser_api_test;

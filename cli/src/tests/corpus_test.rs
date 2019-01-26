@@ -1,7 +1,7 @@
-use super::allocations;
-use super::fixtures::{fixtures_dir, get_language, get_test_language};
-use super::random::Rand;
-use super::scope_sequence::ScopeSequence;
+use super::helpers::allocations;
+use super::helpers::fixtures::{fixtures_dir, get_language, get_test_language};
+use super::helpers::random::Rand;
+use super::helpers::scope_sequence::ScopeSequence;
 use crate::generate;
 use crate::test::{parse_tests, print_diff, print_diff_key, TestEntry};
 use crate::util;
@@ -127,7 +127,10 @@ fn test_real_language_corpus_files() {
                     // Check that the new tree is consistent.
                     check_consistent_sizes(&tree2, &input);
                     if let Err(message) = check_changed_ranges(&tree, &tree2, &input) {
-                        println!("\nUnexpected scope change in trial {}\n{}\n\n", trial, message);
+                        println!(
+                            "\nUnexpected scope change in trial {}\n{}\n\n",
+                            trial, message
+                        );
                         failure_count += 1;
                         break;
                     }
@@ -161,7 +164,10 @@ fn test_real_language_corpus_files() {
                     // Check that the edited tree is consistent.
                     check_consistent_sizes(&tree3, &input);
                     if let Err(message) = check_changed_ranges(&tree2, &tree3, &input) {
-                        eprintln!("Unexpected scope change in trial {}\n{}\n\n", trial, message);
+                        eprintln!(
+                            "Unexpected scope change in trial {}\n{}\n\n",
+                            trial, message
+                        );
                         failure_count += 1;
                         break;
                     }
