@@ -6,7 +6,7 @@ use crate::generate;
 use crate::test::{parse_tests, print_diff, print_diff_key, TestEntry};
 use crate::util;
 use std::{env, fs, time, usize};
-use tree_sitter::{InputEdit, LogType, Parser, Point, Tree};
+use tree_sitter::{InputEdit, LogType, Node, Parser, Point, Tree};
 
 const EDIT_COUNT: usize = 3;
 const TRIAL_COUNT: usize = 10;
@@ -364,7 +364,57 @@ fn position_for_offset(input: &Vec<u8>, offset: usize) -> Point {
     result
 }
 
-fn check_consistent_sizes(tree: &Tree, input: &Vec<u8>) {}
+fn check_consistent_sizes(tree: &Tree, input: &Vec<u8>) {
+    fn check(node: Node, line_offsets: &Vec<usize>) {
+        let start_byte = node.start_byte();
+        let end_byte = node.end_byte();
+        let start_point = node.start_position();
+        let end_point = node.end_position();
+
+        assert!(start_byte <= end_byte);
+        assert!(start_point <= end_point);
+        assert_eq!(start_byte, line_offsets[start_point.row] + start_point.column);
+        assert_eq!(end_byte, line_offsets[end_point.row] + end_point.column);
+
+        let mut last_child_end_byte = start_byte;
+        let mut last_child_end_point = start_point;
+        let mut some_child_has_changes = false;
+        let mut actual_named_child_count = 0;
+        for child in node.children() {
+            assert!(child.start_byte() >= last_child_end_byte);
+            assert!(child.start_position() >= last_child_end_point);
+            check(child, line_offsets);
+            if child.has_changes() {
+                some_child_has_changes = true;
+            }
+            if child.is_named() {
+                actual_named_child_count += 1;
+            }
+            last_child_end_byte = child.end_byte();
+            last_child_end_point = child.end_position();
+        }
+
+        assert_eq!(actual_named_child_count, node.named_child_count());
+
+        if node.child_count() > 0 {
+            assert!(end_byte >= last_child_end_byte);
+            assert!(end_point >= last_child_end_point);
+        }
+
+        if some_child_has_changes {
+            assert!(node.has_changes());
+        }
+    }
+
+    let mut line_offsets = vec![0];
+    for (i, c) in input.iter().enumerate() {
+        if *c == '\n' as u8 {
+            line_offsets.push(i + 1);
+        }
+    }
+
+    check(tree.root_node(), &line_offsets);
+}
 
 fn check_changed_ranges(old_tree: &Tree, new_tree: &Tree, input: &Vec<u8>) -> Result<(), String> {
     let changed_ranges = old_tree.changed_ranges(new_tree);
