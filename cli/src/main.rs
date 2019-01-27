@@ -121,7 +121,9 @@ fn run() -> error::Result<()> {
         let filter = matches.value_of("filter");
         let corpus_path = current_dir.join("corpus");
         if let Some(language) = loader.language_at_path(&current_dir)? {
-            test::run_tests_at_path(language, &corpus_path, debug, debug_graph, filter)?;
+            if !test::run_tests_at_path(language, &corpus_path, debug, debug_graph, filter)? {
+                exit(1);
+            }
         } else {
             eprintln!("No language found");
         }

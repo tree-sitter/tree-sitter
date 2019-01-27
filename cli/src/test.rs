@@ -48,7 +48,7 @@ pub fn run_tests_at_path(
     debug: bool,
     debug_graph: bool,
     filter: Option<&str>,
-) -> Result<()> {
+) -> Result<bool> {
     let test_entry = parse_tests(path)?;
     let mut _log_session = None;
     let mut parser = Parser::new();
@@ -86,9 +86,10 @@ pub fn run_tests_at_path(
             println!("\n  {}. {}:", i + 1, name);
             print_diff(actual, expected);
         }
+        Ok(true)
+    } else {
+        Ok(false)
     }
-
-    Ok(())
 }
 
 pub fn print_diff_key() {
