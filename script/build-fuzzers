@@ -20,11 +20,8 @@ default_fuzz_flags="-fsanitize=address,undefined -fsanitize-coverage=trace-pc-gu
 CFLAGS=${CFLAGS:-"$default_fuzz_flags"}
 CXXFLAGS=${CXXFLAGS:-"$default_fuzz_flags"}
 
-CC=$CC CXX=$CXX LINK=$LINK CFLAGS=$CFLAGS CXXFLAGS=$CXXFLAGS ./script/configure
-
-export BUILDTYPE=Fuzz
-make runtime
-
+export CFLAGS
+script/build-lib
 
 if [ -z "$@" ]; then
   languages=$(ls test/fixtures/grammars)
@@ -56,9 +53,9 @@ for lang in ${languages[@]}; do
 
   modes=(true halt false recover)
   for i in 0 2; do
-    $CXX $CXXFLAGS -std=c++11 -Iinclude -D TS_HALT_ON_ERROR="${modes[i]}" -D TS_LANG="tree_sitter_$lang" \
+    $CXX $CXXFLAGS -std=c++11 -I lib/include -D TS_HALT_ON_ERROR="${modes[i]}" -D TS_LANG="tree_sitter_$lang" \
       "test/fuzz/fuzzer.cc" "${objects[@]}" \
-      out/Fuzz/obj.target/libruntime.a "$LIB_FUZZER_PATH" \
+      libtree-sitter.a "$LIB_FUZZER_PATH" \
       -o "out/${lang}_fuzzer_${modes[i+1]}"
   done
 
