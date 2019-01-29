@@ -1363,7 +1363,7 @@ static void ts_parser__advance(TSParser *self, StackVersion version, bool allow_
         );
 
         MutableSubtree mutable_lookahead = ts_subtree_make_mut(&self->tree_pool, lookahead);
-        ts_subtree_set_symbol(&mutable_lookahead, self->language->keyword_capture_token);
+        ts_subtree_set_symbol(&mutable_lookahead, self->language->keyword_capture_token, self->language);
         lookahead = ts_subtree_from_mut(mutable_lookahead);
         continue;
       }

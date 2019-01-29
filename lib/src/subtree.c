@@ -225,6 +225,24 @@ Subtree ts_subtree_new_leaf(
   }
 }
 
+void ts_subtree_set_symbol(
+  MutableSubtree *self,
+  TSSymbol symbol,
+  const TSLanguage *language
+) {
+  TSSymbolMetadata metadata = ts_language_symbol_metadata(language, symbol);
+  if (self->data.is_inline) {
+    assert(symbol < UINT8_MAX);
+    self->data.symbol = symbol;
+    self->data.named = metadata.named;
+    self->data.visible = metadata.visible;
+  } else {
+    self->ptr->symbol = symbol;
+    self->ptr->named = metadata.named;
+    self->ptr->visible = metadata.visible;
+  }
+}
+
 Subtree ts_subtree_new_error(
   SubtreePool *pool, int32_t lookahead_char, Length padding, Length size,
   uint32_t bytes_scanned, TSStateId parse_state, const TSLanguage *language

@@ -132,6 +132,7 @@ void ts_subtree_retain(Subtree);
 void ts_subtree_release(SubtreePool *, Subtree);
 bool ts_subtree_eq(Subtree, Subtree);
 int ts_subtree_compare(Subtree, Subtree);
+void ts_subtree_set_symbol(MutableSubtree *, TSSymbol, const TSLanguage *);
 void ts_subtree_set_children(MutableSubtree, Subtree *, uint32_t, const TSLanguage *);
 void ts_subtree_balance(Subtree, SubtreePool *, const TSLanguage *);
 Subtree ts_subtree_edit(Subtree, const TSInputEdit *edit, SubtreePool *);
@@ -153,15 +154,6 @@ static inline TSStateId ts_subtree_parse_state(Subtree self) { return SUBTREE_GE
 static inline uint32_t ts_subtree_lookahead_bytes(Subtree self) { return SUBTREE_GET(self, lookahead_bytes); }
 
 #undef SUBTREE_GET
-
-static inline void ts_subtree_set_symbol(MutableSubtree *self, TSSymbol symbol) {
-  if (self->data.is_inline) {
-    assert(symbol < UINT8_MAX);
-    self->data.symbol = symbol;
-  } else {
-    self->ptr->symbol = symbol;
-  }
-}
 
 static inline void ts_subtree_set_extra(MutableSubtree *self) {
   if (self->data.is_inline) {
