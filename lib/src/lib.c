@@ -1,5 +1,4 @@
-// The Tree-sitter runtime library can be built by compiling this
-// one source file.
+// The Tree-sitter library can be built by compiling this one source file.
 //
 // The following directories must be added to the include path:
 //   - src
