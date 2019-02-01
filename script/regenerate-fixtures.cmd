@@ -10,13 +10,13 @@ call:regenerate javascript
 call:regenerate json
 call:regenerate python
 call:regenerate rust
-EXIT /B 0
+exit /B 0
 
 :regenerate
-SETLOCAL
-SET tree_sitter=%cd%\target\release\tree-sitter
-SET grammar_dir=test\fixtures\grammars\%~1
+setlocal
+set tree_sitter=%cd%\target\release\tree-sitter
+set grammar_dir=test\fixtures\grammars\%~1
 pushd %grammar_dir%
 %tree_sitter% generate src\grammar.json
 popd
-EXIT /B 0
+exit /B 0
