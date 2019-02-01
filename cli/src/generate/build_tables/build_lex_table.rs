@@ -5,6 +5,7 @@ use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar};
 use crate::generate::nfa::{CharacterSet, NfaCursor};
 use crate::generate::rules::Symbol;
 use crate::generate::tables::{AdvanceAction, LexState, LexTable, ParseStateId, ParseTable};
+use log::info;
 use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 

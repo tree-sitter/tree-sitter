@@ -1,4 +1,5 @@
 use super::helpers::fixtures::get_language;
+use serde_derive::Deserialize;
 use std::thread;
 use tree_sitter::{InputEdit, Language, LogType, Parser, Point, PropertySheet};
 

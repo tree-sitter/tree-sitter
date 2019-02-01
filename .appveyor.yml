@@ -25,8 +25,8 @@ test_script:
   - script\regenerate-fixtures.cmd
 
   # Run tests
-  - set TREE_SITTER_TEST=1
   - script\test.cmd
+  - script\benchmark.cmd
 
 before_deploy:
   - move target\release\tree-sitter.exe tree-sitter.exe

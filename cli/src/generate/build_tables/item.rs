@@ -1,6 +1,7 @@
 use crate::generate::grammars::{LexicalGrammar, Production, ProductionStep, SyntaxGrammar};
 use crate::generate::rules::Associativity;
 use crate::generate::rules::{Symbol, SymbolType};
+use lazy_static::lazy_static;
 use smallbitvec::SmallBitVec;
 use std::cmp::Ordering;
 use std::fmt;

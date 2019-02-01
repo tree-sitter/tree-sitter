@@ -1,5 +1,6 @@
 use libloading::{Library, Symbol};
 use regex::{Regex, RegexBuilder};
+use serde_derive::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 use std::io;

@@ -15,6 +15,7 @@ script:
   # Run tests
   - export TREE_SITTER_STATIC_ANALYSIS=1
   - script/test
+  - script/benchmark
 
 branches:
   only:

@@ -8,18 +8,18 @@ use tree_sitter::Parser;
 const HTML_HEADER: &[u8] = b"<!DOCTYPE html>\n<style>svg { width: 100%; }</style>\n\n";
 
 #[cfg(windows)]
-pub(crate) struct LogSession();
+pub struct LogSession();
 
 #[cfg(unix)]
-pub(crate) struct LogSession(PathBuf, Option<Child>, Option<ChildStdin>);
+pub struct LogSession(PathBuf, Option<Child>, Option<ChildStdin>);
 
 #[cfg(windows)]
-pub(crate) fn log_graphs(_parser: &mut Parser, _path: &str) -> std::io::Result<LogSession> {
+pub fn log_graphs(_parser: &mut Parser, _path: &str) -> std::io::Result<LogSession> {
     Ok(LogSession())
 }
 
 #[cfg(unix)]
-pub(crate) fn log_graphs(parser: &mut Parser, path: &str) -> std::io::Result<LogSession> {
+pub fn log_graphs(parser: &mut Parser, path: &str) -> std::io::Result<LogSession> {
     use std::io::Write;
 
     let mut dot_file = std::fs::File::create(path)?;

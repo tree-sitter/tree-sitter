@@ -1,31 +1,10 @@
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
-extern crate log;
-#[macro_use]
-extern crate serde_derive;
-extern crate hashbrown;
-extern crate regex;
-extern crate rsass;
-extern crate serde_json;
-
-mod error;
-mod generate;
-mod loader;
-mod logger;
-mod parse;
-mod test;
-mod util;
-
-#[cfg(test)]
-mod tests;
-
-use self::loader::Loader;
 use clap::{App, AppSettings, Arg, SubCommand};
 use std::env;
 use std::fs;
 use std::path::Path;
 use std::process::exit;
+use tree_sitter_cli::loader::Loader;
+use tree_sitter_cli::{error, generate, logger, parse, test};
 use std::usize;
 
 fn main() {

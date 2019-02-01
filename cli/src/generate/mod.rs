@@ -3,6 +3,7 @@ use self::parse_grammar::parse_grammar;
 use self::prepare_grammar::prepare_grammar;
 use self::render::render_c_code;
 use crate::error::{Error, Result};
+use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use std::fs;
 use std::io::Write;
@@ -62,7 +63,6 @@ pub fn generate_parser_in_directory(
     Ok(())
 }
 
-#[cfg(test)]
 pub fn generate_parser_for_grammar(grammar_json: &String) -> Result<(String, String)> {
     let grammar_json = JSON_COMMENT_REGEX.replace_all(grammar_json, "\n");
     generate_parser_for_grammar_with_opts(&grammar_json, true, Vec::new())
@@ -141,6 +141,7 @@ fn ensure_file<T: AsRef<[u8]>>(path: &PathBuf, f: impl Fn() -> T) -> Result<()> 
     if path.exists() {
         Ok(())
     } else {
-        fs::write(path, f().as_ref()).map_err(|e| Error(format!("Failed to write file {:?}: {}", path, e)))
+        fs::write(path, f().as_ref())
+            .map_err(|e| Error(format!("Failed to write file {:?}: {}", path, e)))
     }
 }

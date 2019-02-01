@@ -1,6 +1,7 @@
 #![cfg(test)]
 #![allow(dead_code)]
 
+use lazy_static::lazy_static;
 use spin::Mutex;
 use std::collections::HashMap;
 use std::os::raw::{c_ulong, c_void};
@@ -46,10 +47,7 @@ pub fn stop_recording() {
             .map(|e| e.1)
             .collect::<Vec<_>>();
         allocation_indices.sort_unstable();
-        panic!(
-            "Leaked allocation indices: {:?}",
-            allocation_indices
-        );
+        panic!("Leaked allocation indices: {:?}", allocation_indices);
     }
 }
 

@@ -3,6 +3,7 @@ use crate::error::{Error, Result};
 use crate::generate::grammars::{LexicalGrammar, LexicalVariable};
 use crate::generate::nfa::{CharacterSet, Nfa, NfaState};
 use crate::generate::rules::Rule;
+use lazy_static::lazy_static;
 use regex::Regex;
 use regex_syntax::ast::{
     parse, Ast, Class, ClassPerlKind, ClassSet, ClassSetItem, RepetitionKind, RepetitionRange,

@@ -2,6 +2,7 @@ use super::error::Result;
 use super::util;
 use ansi_term::Colour;
 use difference::{Changeset, Difference};
+use lazy_static::lazy_static;
 use regex::bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder};
 use regex::Regex;
 use std::char;
@@ -38,7 +39,10 @@ pub enum TestEntry {
 
 impl Default for TestEntry {
     fn default() -> Self {
-        TestEntry::Group { name: String::new(), children: Vec::new() }
+        TestEntry::Group {
+            name: String::new(),
+            children: Vec::new(),
+        }
     }
 }
 

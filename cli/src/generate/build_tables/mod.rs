@@ -17,6 +17,7 @@ use crate::generate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGram
 use crate::generate::nfa::{CharacterSet, NfaCursor};
 use crate::generate::rules::{AliasMap, Symbol, SymbolType};
 use crate::generate::tables::{LexTable, ParseAction, ParseTable, ParseTableEntry};
+use log::info;
 
 pub(crate) fn build_tables(
     syntax_grammar: &SyntaxGrammar,

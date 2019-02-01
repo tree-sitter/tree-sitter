@@ -4,6 +4,7 @@ use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar, VariableType};
 use crate::generate::rules::{AliasMap, Symbol};
 use crate::generate::tables::{ParseAction, ParseState, ParseTable, ParseTableEntry};
 use hashbrown::{HashMap, HashSet};
+use log::info;
 
 pub(crate) fn minimize_parse_table(
     parse_table: &mut ParseTable,

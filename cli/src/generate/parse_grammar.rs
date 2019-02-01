@@ -1,6 +1,7 @@
 use super::grammars::{InputGrammar, Variable, VariableType};
 use super::rules::Rule;
 use crate::error::Result;
+use serde_derive::Deserialize;
 use serde_json::{Map, Value};
 
 #[derive(Deserialize)]

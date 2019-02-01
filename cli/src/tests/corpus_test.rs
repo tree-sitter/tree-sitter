@@ -5,6 +5,7 @@ use super::helpers::scope_sequence::ScopeSequence;
 use crate::generate;
 use crate::test::{parse_tests, print_diff, print_diff_key, TestEntry};
 use crate::util;
+use lazy_static::lazy_static;
 use std::{env, fs, time, usize};
 use tree_sitter::{InputEdit, LogType, Node, Parser, Point, Tree};
 
@@ -373,7 +374,10 @@ fn check_consistent_sizes(tree: &Tree, input: &Vec<u8>) {
 
         assert!(start_byte <= end_byte);
         assert!(start_point <= end_point);
-        assert_eq!(start_byte, line_offsets[start_point.row] + start_point.column);
+        assert_eq!(
+            start_byte,
+            line_offsets[start_point.row] + start_point.column
+        );
         assert_eq!(end_byte, line_offsets[end_point.row] + end_point.column);
 
         let mut last_child_end_byte = start_byte;

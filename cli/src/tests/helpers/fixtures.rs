@@ -1,18 +1,12 @@
 use crate::loader::Loader;
+use lazy_static::lazy_static;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tree_sitter::Language;
 
+include!("./dirs.rs");
+
 lazy_static! {
-    static ref ROOT_DIR: PathBuf = [env!("CARGO_MANIFEST_DIR"), ".."].iter().collect();
-    static ref FIXTURES_DIR: PathBuf = ROOT_DIR.join("test").join("fixtures");
-    static ref HEADER_DIR: PathBuf = ROOT_DIR.join("lib").join("include");
-    static ref GRAMMARS_DIR: PathBuf = ROOT_DIR.join("test").join("fixtures").join("grammars");
-    static ref SCRATCH_DIR: PathBuf = {
-        let result = ROOT_DIR.join("target").join("scratch");
-        fs::create_dir_all(&result).unwrap();
-        result
-    };
     static ref TEST_LOADER: Loader = Loader::new(SCRATCH_DIR.clone());
 }
 

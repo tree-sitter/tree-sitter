@@ -23,7 +23,7 @@ impl Log for Logger {
     fn flush(&self) {}
 }
 
-pub(crate) fn init() {
+pub fn init() {
     log::set_boxed_logger(Box::new(Logger { filter: None })).unwrap();
     log::set_max_level(LevelFilter::Info);
 }

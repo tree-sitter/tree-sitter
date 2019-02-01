@@ -8,6 +8,10 @@ edition = "2018"
 name = "tree-sitter"
 path = "src/main.rs"
 
+[[bench]]
+name = "benchmark"
+harness = false
+
 [dependencies]
 cc = "1.0"
 ansi_term = "0.11"
