@@ -3,9 +3,9 @@ use std::env;
 use std::fs;
 use std::path::Path;
 use std::process::exit;
-use tree_sitter_cli::loader::Loader;
-use tree_sitter_cli::{error, generate, logger, parse, test};
 use std::usize;
+use tree_sitter_cli::loader::Loader;
+use tree_sitter_cli::{error, generate, logger, parse, properties, test};
 
 fn main() {
     if let Err(e) = run() {
@@ -87,13 +87,15 @@ fn run() -> error::Result<()> {
                 ids.filter_map(|id| usize::from_str_radix(id, 10).ok())
                     .collect()
             });
-        generate::generate_parser_in_directory(
-            &current_dir,
-            grammar_path,
-            minimize,
-            state_ids_to_log,
-            properties_only,
-        )?;
+        if !properties_only {
+            generate::generate_parser_in_directory(
+                &current_dir,
+                grammar_path,
+                minimize,
+                state_ids_to_log,
+            )?;
+        }
+        properties::generate_property_sheets(&current_dir)?;
     } else if let Some(matches) = matches.subcommand_matches("test") {
         let debug = matches.is_present("debug");
         let debug_graph = matches.is_present("debug-graph");
