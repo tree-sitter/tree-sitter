@@ -421,7 +421,7 @@ impl fmt::Debug for Selector {
     }
 }
 
-pub fn generate_property_sheets(repo_path: &Path) -> Result<()> {
+pub fn generate_property_sheets_in_directory(repo_path: &Path) -> Result<()> {
     let src_dir_path = repo_path.join("src");
     let properties_dir_path = repo_path.join("properties");
 
@@ -441,6 +441,11 @@ pub fn generate_property_sheets(repo_path: &Path) -> Result<()> {
     }
 
     Ok(())
+}
+
+pub fn generate_property_sheet_string(path: impl AsRef<Path>, css: &str) -> Result<String> {
+    let sheet = generate_property_sheet(path, css)?;
+    Ok(serde_json::to_string(&sheet)?)
 }
 
 fn generate_property_sheet(path: impl AsRef<Path>, css: &str) -> Result<PropertySheetJSON> {

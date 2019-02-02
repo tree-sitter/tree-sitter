@@ -95,7 +95,7 @@ fn run() -> error::Result<()> {
                 state_ids_to_log,
             )?;
         }
-        properties::generate_property_sheets(&current_dir)?;
+        properties::generate_property_sheets_in_directory(&current_dir)?;
     } else if let Some(matches) = matches.subcommand_matches("test") {
         let debug = matches.is_present("debug");
         let debug_graph = matches.is_present("debug-graph");
