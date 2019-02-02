@@ -15,7 +15,7 @@ cd compiler-rt/lib/fuzzer
 
 ## clang
 
-Using libFuzzer requires a reasonably new version of `clang` and will probably _not_ work with your system-installed version. The easiest way to get started is to use the version provided by the Chromium team. Instructions are available at [libFuzzer.info](http://libfuzzer.info).
+Using libFuzzer requires at least version 7 of `clang` and may _not_ work with your system-installed version. If your system-installed version is too old, the easiest way to get started is to use the version provided by the Chromium team. Instructions are available at [libFuzzer.info](http://libfuzzer.info).
 
 The fuzzers can then be built with:
 ```
