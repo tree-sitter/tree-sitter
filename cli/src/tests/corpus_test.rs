@@ -1,4 +1,5 @@
 use super::helpers::allocations;
+use super::helpers::edits::{get_random_edit, invert_edit, perform_edit};
 use super::helpers::fixtures::{fixtures_dir, get_language, get_test_language};
 use super::helpers::random::Rand;
 use super::helpers::scope_sequence::ScopeSequence;
@@ -7,7 +8,7 @@ use crate::test::{parse_tests, print_diff, print_diff_key, TestEntry};
 use crate::util;
 use lazy_static::lazy_static;
 use std::{env, fs, time, usize};
-use tree_sitter::{InputEdit, LogType, Node, Parser, Point, Tree};
+use tree_sitter::{LogType, Node, Parser, Tree};
 
 const EDIT_COUNT: usize = 3;
 const TRIAL_COUNT: usize = 10;
@@ -187,12 +188,6 @@ fn test_real_language_corpus_files() {
     }
 }
 
-struct Edit {
-    position: usize,
-    deleted_length: usize,
-    inserted_text: Vec<u8>,
-}
-
 #[test]
 fn test_feature_corpus_files() {
     let test_grammars_dir = fixtures_dir().join("test_grammars");
@@ -277,92 +272,6 @@ fn test_feature_corpus_files() {
     if failure_count > 0 {
         panic!("{} corpus tests failed", failure_count);
     }
-}
-
-fn get_random_edit(rand: &mut Rand, input: &Vec<u8>) -> Edit {
-    let choice = rand.unsigned(10);
-    if choice < 2 {
-        // Insert text at end
-        let inserted_text = rand.words(3);
-        Edit {
-            position: input.len(),
-            deleted_length: 0,
-            inserted_text,
-        }
-    } else if choice < 5 {
-        // Delete text from the end
-        let mut deleted_length = rand.unsigned(10);
-        if deleted_length > input.len() {
-            deleted_length = input.len();
-        }
-        Edit {
-            position: input.len() - deleted_length,
-            deleted_length,
-            inserted_text: vec![],
-        }
-    } else if choice < 8 {
-        // Insert at a random position
-        let position = rand.unsigned(input.len());
-        let word_count = 1 + rand.unsigned(3);
-        let inserted_text = rand.words(word_count);
-        Edit {
-            position,
-            deleted_length: 0,
-            inserted_text,
-        }
-    } else {
-        // Replace at random position
-        let position = rand.unsigned(input.len());
-        let deleted_length = rand.unsigned(input.len() - position);
-        let word_count = 1 + rand.unsigned(3);
-        let inserted_text = rand.words(word_count);
-        Edit {
-            position,
-            deleted_length,
-            inserted_text,
-        }
-    }
-}
-
-fn invert_edit(input: &Vec<u8>, edit: &Edit) -> Edit {
-    let position = edit.position;
-    let removed_content = &input[position..(position + edit.deleted_length)];
-    Edit {
-        position,
-        deleted_length: edit.inserted_text.len(),
-        inserted_text: removed_content.to_vec(),
-    }
-}
-
-fn perform_edit(tree: &mut Tree, input: &mut Vec<u8>, edit: &Edit) {
-    let start_byte = edit.position;
-    let old_end_byte = edit.position + edit.deleted_length;
-    let new_end_byte = edit.position + edit.inserted_text.len();
-    let start_position = position_for_offset(input, start_byte);
-    let old_end_position = position_for_offset(input, old_end_byte);
-    input.splice(start_byte..old_end_byte, edit.inserted_text.iter().cloned());
-    let new_end_position = position_for_offset(input, new_end_byte);
-    tree.edit(&InputEdit {
-        start_byte,
-        old_end_byte,
-        new_end_byte,
-        start_position,
-        old_end_position,
-        new_end_position,
-    });
-}
-
-fn position_for_offset(input: &Vec<u8>, offset: usize) -> Point {
-    let mut result = Point { row: 0, column: 0 };
-    for c in &input[0..offset] {
-        if *c as char == '\n' {
-            result.row += 1;
-            result.column = 0;
-        } else {
-            result.column += 1;
-        }
-    }
-    result
 }
 
 fn check_consistent_sizes(tree: &Tree, input: &Vec<u8>) {

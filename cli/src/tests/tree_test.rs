@@ -1,10 +1,12 @@
+use super::helpers::edits::{invert_edit, perform_edit, Edit};
 use super::helpers::fixtures::get_language;
-use tree_sitter::{InputEdit, Language, Parser, Point};
+use std::str;
+use tree_sitter::{InputEdit, Parser, Point, Range, Tree};
 
 #[test]
-fn test_edit() {
+fn test_tree_edit() {
     let mut parser = Parser::new();
-    parser.set_language(javascript()).unwrap();
+    parser.set_language(get_language("javascript")).unwrap();
     let tree = parser.parse_str("  abc  !==  def", None).unwrap();
 
     assert_eq!(
@@ -186,6 +188,192 @@ fn test_edit() {
     }
 }
 
-fn javascript() -> Language {
-    get_language("javascript")
+#[test]
+fn test_tree_walk() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("rust")).unwrap();
+
+    let tree = parser
+        .parse_str(
+            "
+                struct Stuff {
+                    a: A;
+                    b: Option<B>,
+                }
+            ",
+            None,
+        )
+        .unwrap();
+
+    let mut cursor = tree.walk();
+    assert_eq!(cursor.node().kind(), "source_file");
+
+    assert!(cursor.goto_first_child());
+    assert_eq!(cursor.node().kind(), "struct_item");
+
+    assert!(cursor.goto_first_child());
+    assert_eq!(cursor.node().kind(), "struct");
+    assert_eq!(cursor.node().is_named(), false);
+
+    assert!(cursor.goto_next_sibling());
+    assert_eq!(cursor.node().kind(), "type_identifier");
+    assert_eq!(cursor.node().is_named(), true);
+
+    assert!(cursor.goto_next_sibling());
+    assert_eq!(cursor.node().kind(), "field_declaration_list");
+    assert_eq!(cursor.node().is_named(), true);
+}
+
+#[test]
+fn test_tree_node_equality() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("rust")).unwrap();
+    let tree = parser.parse_str("struct A {}", None).unwrap();
+    let node1 = tree.root_node();
+    let node2 = tree.root_node();
+    assert_eq!(node1, node2);
+    assert_eq!(node1.child(0).unwrap(), node2.child(0).unwrap());
+    assert_ne!(node1.child(0).unwrap(), node2);
+}
+
+#[test]
+fn test_get_changed_ranges() {
+    let source_code = b"{a: null};\n".to_vec();
+
+    let mut parser = Parser::new();
+    parser.set_language(get_language("javascript")).unwrap();
+    let tree = parser
+        .parse_utf8(&mut |i, _| &source_code[i..], None)
+        .unwrap();
+
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(program (expression_statement (object (pair (property_identifier) (null)))))"
+    );
+
+    // Updating one token
+    {
+        let mut tree = tree.clone();
+        let mut source_code = source_code.clone();
+
+        // Replace `null` with `nothing` - that token has changed syntax
+        let edit = Edit {
+            position: index_of(&source_code, "ull"),
+            deleted_length: 3,
+            inserted_text: b"othing".to_vec(),
+        };
+        let inverse_edit = invert_edit(&source_code, &edit);
+        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, edit);
+        assert_eq!(ranges, vec![range_of(&source_code, "nothing")]);
+
+        // Replace `nothing` with `null` - that token has changed syntax
+        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, inverse_edit);
+        assert_eq!(ranges, vec![range_of(&source_code, "null")]);
+    }
+
+    // Changing only leading whitespace
+    {
+        let mut tree = tree.clone();
+        let mut source_code = source_code.clone();
+
+        // Insert leading newline - no changed ranges
+        let edit = Edit {
+            position: 0,
+            deleted_length: 0,
+            inserted_text: b"\n".to_vec(),
+        };
+        let inverse_edit = invert_edit(&source_code, &edit);
+        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, edit);
+        assert_eq!(ranges, vec![]);
+
+        // Remove leading newline - no changed ranges
+        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, inverse_edit);
+        assert_eq!(ranges, vec![]);
+    }
+
+    // Inserting elements
+    {
+        let mut tree = tree.clone();
+        let mut source_code = source_code.clone();
+
+        // Insert a key-value pair before the `}` - those tokens are changed
+        let edit1 = Edit {
+            position: index_of(&source_code, "}"),
+            deleted_length: 0,
+            inserted_text: b", b: false".to_vec(),
+        };
+        let inverse_edit1 = invert_edit(&source_code, &edit1);
+        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, edit1);
+        assert_eq!(ranges, vec![range_of(&source_code, ", b: false")]);
+
+        let edit2 = Edit {
+            position: index_of(&source_code, ", b"),
+            deleted_length: 0,
+            inserted_text: b", c: 1".to_vec(),
+        };
+        let inverse_edit2 = invert_edit(&source_code, &edit2);
+        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, edit2);
+        assert_eq!(ranges, vec![range_of(&source_code, ", c: 1")]);
+
+        // Remove the middle pair
+        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, inverse_edit2);
+        assert_eq!(ranges, vec![]);
+
+        // Remove the second pair
+        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, inverse_edit1);
+        assert_eq!(ranges, vec![]);
+    }
+
+    // Wrapping elements in larger expressions
+    {
+        let mut tree = tree.clone();
+        let mut source_code = source_code.clone();
+
+        // Replace `null` with the binary expression `b === null`
+        let edit1 = Edit {
+            position: index_of(&source_code, "null"),
+            deleted_length: 0,
+            inserted_text: b"b === ".to_vec(),
+        };
+        let inverse_edit1 = invert_edit(&source_code, &edit1);
+        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, edit1);
+        assert_eq!(ranges, vec![range_of(&source_code, "b === null")]);
+
+        // Undo
+        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, inverse_edit1);
+        assert_eq!(ranges, vec![range_of(&source_code, "null")]);
+    }
+}
+
+fn index_of(text: &Vec<u8>, substring: &str) -> usize {
+    str::from_utf8(text.as_slice())
+        .unwrap()
+        .find(substring)
+        .unwrap()
+}
+
+fn range_of(text: &Vec<u8>, substring: &str) -> Range {
+    let start_byte = index_of(text, substring);
+    let end_byte = start_byte + substring.as_bytes().len();
+    Range {
+        start_byte,
+        end_byte,
+        start_point: Point::new(0, start_byte),
+        end_point: Point::new(0, end_byte),
+    }
+}
+
+fn get_changed_ranges(
+    parser: &mut Parser,
+    tree: &mut Tree,
+    source_code: &mut Vec<u8>,
+    edit: Edit,
+) -> Vec<Range> {
+    perform_edit(tree, source_code, &edit);
+    let new_tree = parser
+        .parse_utf8(&mut |i, _| &source_code[i..], Some(tree))
+        .unwrap();
+    let result = tree.changed_ranges(&new_tree);
+    *tree = new_tree;
+    result
 }

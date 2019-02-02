@@ -30,7 +30,7 @@ fn test_basic_parsing() {
 }
 
 #[test]
-fn test_logging() {
+fn test_parsing_with_logging() {
     let mut parser = Parser::new();
     parser.set_language(rust()).unwrap();
 
@@ -57,43 +57,7 @@ fn test_logging() {
 }
 
 #[test]
-fn test_tree_cursor() {
-    let mut parser = Parser::new();
-    parser.set_language(rust()).unwrap();
-
-    let tree = parser
-        .parse_str(
-            "
-                struct Stuff {
-                    a: A;
-                    b: Option<B>,
-                }
-            ",
-            None,
-        )
-        .unwrap();
-
-    let mut cursor = tree.walk();
-    assert_eq!(cursor.node().kind(), "source_file");
-
-    assert!(cursor.goto_first_child());
-    assert_eq!(cursor.node().kind(), "struct_item");
-
-    assert!(cursor.goto_first_child());
-    assert_eq!(cursor.node().kind(), "struct");
-    assert_eq!(cursor.node().is_named(), false);
-
-    assert!(cursor.goto_next_sibling());
-    assert_eq!(cursor.node().kind(), "type_identifier");
-    assert_eq!(cursor.node().is_named(), true);
-
-    assert!(cursor.goto_next_sibling());
-    assert_eq!(cursor.node().kind(), "field_declaration_list");
-    assert_eq!(cursor.node().is_named(), true);
-}
-
-#[test]
-fn test_custom_utf8_input() {
+fn test_parsing_with_custom_utf8_input() {
     let mut parser = Parser::new();
     parser.set_language(rust()).unwrap();
 
@@ -126,7 +90,7 @@ fn test_custom_utf8_input() {
 }
 
 #[test]
-fn test_custom_utf16_input() {
+fn test_parsing_with_custom_utf16_input() {
     let mut parser = Parser::new();
     parser.set_language(rust()).unwrap();
 
@@ -162,19 +126,7 @@ fn test_custom_utf16_input() {
 }
 
 #[test]
-fn test_node_equality() {
-    let mut parser = Parser::new();
-    parser.set_language(rust()).unwrap();
-    let tree = parser.parse_str("struct A {}", None).unwrap();
-    let node1 = tree.root_node();
-    let node2 = tree.root_node();
-    assert_eq!(node1, node2);
-    assert_eq!(node1.child(0).unwrap(), node2.child(0).unwrap());
-    assert_ne!(node1.child(0).unwrap(), node2);
-}
-
-#[test]
-fn test_editing() {
+fn test_parsing_after_editing() {
     let mut parser = Parser::new();
     parser.set_language(rust()).unwrap();
 
@@ -256,7 +208,7 @@ fn test_editing() {
 }
 
 #[test]
-fn test_parallel_parsing() {
+fn test_parsing_on_multiple_threads() {
     // Parse this source file so that each thread has a non-trivial amount of
     // work to do.
     let this_file_source = include_str!("parser_test.rs");
