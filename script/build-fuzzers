@@ -15,7 +15,7 @@ CC=${CC:-clang}
 CXX=${CXX:-clang++}
 LINK=${LINK:-clang++}
 
-default_fuzz_flags="-fsanitize=address,undefined -fsanitize-coverage=trace-pc-guard"
+default_fuzz_flags="-fsanitize=fuzzer,address,undefined"
 
 CFLAGS=${CFLAGS:-"$default_fuzz_flags"}
 CXXFLAGS=${CXXFLAGS:-"$default_fuzz_flags"}
