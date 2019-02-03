@@ -1,6 +1,6 @@
 use super::helpers::fixtures::get_language;
 use std::thread;
-use tree_sitter::{InputEdit, Language, LogType, Parser, Point};
+use tree_sitter::{InputEdit, Language, LogType, Parser, Point, Range};
 
 #[test]
 fn test_basic_parsing() {
@@ -258,6 +258,148 @@ fn test_parsing_on_multiple_threads() {
         .collect::<Vec<_>>();
 
     assert_eq!(child_count_differences, &[1, 2, 3, 4]);
+}
+
+// Included Ranges
+
+#[test]
+fn test_parsing_with_one_included_range() {
+    let source_code = "<span>hi</span><script>console.log('sup');</script>";
+
+    let mut parser = Parser::new();
+    parser.set_language(get_language("html")).unwrap();
+    let html_tree = parser.parse_str(source_code, None).unwrap();
+    let script_content_node = html_tree.root_node().child(1).unwrap().child(1).unwrap();
+    assert_eq!(script_content_node.kind(), "raw_text");
+
+    parser.set_included_ranges(&[script_content_node.range()]);
+    parser.set_language(get_language("javascript")).unwrap();
+    let js_tree = parser.parse_str(source_code, None).unwrap();
+
+    assert_eq!(
+        js_tree.root_node().to_sexp(),
+        concat!(
+            "(program (expression_statement (call_expression",
+            " (member_expression (identifier) (property_identifier))",
+            " (arguments (string)))))",
+        )
+    );
+    assert_eq!(
+        js_tree.root_node().start_position(),
+        Point::new(0, source_code.find("console").unwrap())
+    );
+}
+
+#[test]
+fn test_parsing_with_multiple_included_ranges() {
+    let source_code = "html `<div>Hello, ${name.toUpperCase()}, it's <b>${now()}</b>.</div>`";
+
+    let mut parser = Parser::new();
+    parser.set_language(get_language("javascript")).unwrap();
+    let js_tree = parser.parse_str(source_code, None).unwrap();
+    let template_string_node = js_tree
+        .root_node()
+        .descendant_for_byte_range(
+            source_code.find("<div>").unwrap(),
+            source_code.find("Hello").unwrap(),
+        )
+        .unwrap();
+    assert_eq!(template_string_node.kind(), "template_string");
+
+    let open_quote_node = template_string_node.child(0).unwrap();
+    let interpolation_node1 = template_string_node.child(1).unwrap();
+    let interpolation_node2 = template_string_node.child(2).unwrap();
+    let close_quote_node = template_string_node.child(3).unwrap();
+
+    parser.set_language(get_language("html")).unwrap();
+    parser.set_included_ranges(&[
+        Range {
+            start_byte: open_quote_node.end_byte(),
+            start_point: open_quote_node.end_position(),
+            end_byte: interpolation_node1.start_byte(),
+            end_point: interpolation_node1.start_position(),
+        },
+        Range {
+            start_byte: interpolation_node1.end_byte(),
+            start_point: interpolation_node1.end_position(),
+            end_byte: interpolation_node2.start_byte(),
+            end_point: interpolation_node2.start_position(),
+        },
+        Range {
+            start_byte: interpolation_node2.end_byte(),
+            start_point: interpolation_node2.end_position(),
+            end_byte: close_quote_node.start_byte(),
+            end_point: close_quote_node.start_position(),
+        },
+    ]);
+    let html_tree = parser.parse_str(source_code, None).unwrap();
+
+    assert_eq!(
+        html_tree.root_node().to_sexp(),
+        concat!(
+            "(fragment (element",
+            " (start_tag (tag_name))",
+            " (text)",
+            " (element (start_tag (tag_name)) (end_tag (tag_name)))",
+            " (text)",
+            " (end_tag (tag_name))))",
+        )
+    );
+
+    let div_element_node = html_tree.root_node().child(0).unwrap();
+    let hello_text_node = div_element_node.child(1).unwrap();
+    let b_element_node = div_element_node.child(2).unwrap();
+    let b_start_tag_node = b_element_node.child(0).unwrap();
+    let b_end_tag_node = b_element_node.child(1).unwrap();
+
+    assert_eq!(hello_text_node.kind(), "text");
+    assert_eq!(
+        hello_text_node.start_byte(),
+        source_code.find("Hello").unwrap()
+    );
+    assert_eq!(hello_text_node.end_byte(), source_code.find("<b>").unwrap());
+
+    assert_eq!(b_start_tag_node.kind(), "start_tag");
+    assert_eq!(
+        b_start_tag_node.start_byte(),
+        source_code.find("<b>").unwrap()
+    );
+    assert_eq!(
+        b_start_tag_node.end_byte(),
+        source_code.find("${now()}").unwrap()
+    );
+
+    assert_eq!(b_end_tag_node.kind(), "end_tag");
+    assert_eq!(
+        b_end_tag_node.start_byte(),
+        source_code.find("</b>").unwrap()
+    );
+    assert_eq!(
+        b_end_tag_node.end_byte(),
+        source_code.find(".</div>").unwrap()
+    );
+}
+
+#[test]
+fn test_parsing_utf16_code_with_errors_at_the_end_of_an_included_range() {
+    let source_code = "<script>a.</script>";
+    let utf16_source_code: Vec<u16> = source_code.as_bytes().iter().map(|c| *c as u16).collect();
+
+    let start_byte = 2 * source_code.find("a.").unwrap();
+    let end_byte = 2 * source_code.find("</script>").unwrap();
+
+    let mut parser = Parser::new();
+    parser.set_language(get_language("javascript")).unwrap();
+    parser.set_included_ranges(&[Range {
+        start_byte,
+        end_byte,
+        start_point: Point::new(0, start_byte),
+        end_point: Point::new(0, end_byte),
+    }]);
+    let tree = parser
+        .parse_utf16(&mut |i, _| &utf16_source_code[i..], None)
+        .unwrap();
+    assert_eq!(tree.root_node().to_sexp(), "(program (ERROR (identifier)))");
 }
 
 fn rust() -> Language {

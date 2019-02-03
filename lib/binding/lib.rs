@@ -261,7 +261,7 @@ impl Parser {
     ) -> Option<Tree> {
         self.parse_utf16_ptr(
             &mut |byte, position| {
-                let slice = input(byte, position);
+                let slice = input(byte / 2, position);
                 (slice.as_ptr(), slice.len())
             },
             old_tree,
@@ -568,6 +568,30 @@ impl<'tree> Node<'tree> {
 
     pub fn prev_named_sibling(&self) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_prev_named_sibling(self.0) })
+    }
+
+    pub fn descendant_for_byte_range(&self, start: usize, end: usize) -> Option<Self> {
+        Self::new(unsafe {
+            ffi::ts_node_descendant_for_byte_range(self.0, start as u32, end as u32)
+        })
+    }
+
+    pub fn named_descendant_for_byte_range(&self, start: usize, end: usize) -> Option<Self> {
+        Self::new(unsafe {
+            ffi::ts_node_named_descendant_for_byte_range(self.0, start as u32, end as u32)
+        })
+    }
+
+    pub fn descendant_for_point_range(&self, start: Point, end: Point) -> Option<Self> {
+        Self::new(unsafe {
+            ffi::ts_node_descendant_for_point_range(self.0, start.into(), end.into())
+        })
+    }
+
+    pub fn named_descendant_for_point_range(&self, start: Point, end: Point) -> Option<Self> {
+        Self::new(unsafe {
+            ffi::ts_node_named_descendant_for_point_range(self.0, start.into(), end.into())
+        })
     }
 
     pub fn to_sexp(&self) -> String {
