@@ -20,7 +20,7 @@ pub fn get_language(name: &str) -> Language {
         .unwrap()
 }
 
-pub fn get_test_language(name: &str, parser_code: String, path: &Path) -> Language {
+pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> Language {
     let parser_c_path = SCRATCH_DIR.join(&format!("{}-parser.c", name));
     if !fs::read_to_string(&parser_c_path)
         .map(|content| content == parser_code)
@@ -28,12 +28,14 @@ pub fn get_test_language(name: &str, parser_code: String, path: &Path) -> Langua
     {
         fs::write(&parser_c_path, parser_code).unwrap();
     }
-    let scanner_path = path.join("scanner.c");
-    let scanner_path = if scanner_path.exists() {
-        Some(scanner_path)
-    } else {
-        None
-    };
+    let scanner_path = path.and_then(|p| {
+        let result = p.join("scanner.c");
+        if result.exists() {
+            Some(result)
+        } else {
+            None
+        }
+    });
     TEST_LOADER
         .load_language_from_sources(name, &HEADER_DIR, &parser_c_path, &scanner_path)
         .unwrap()

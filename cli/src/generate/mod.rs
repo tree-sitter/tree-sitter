@@ -58,7 +58,7 @@ pub fn generate_parser_in_directory(
     Ok(())
 }
 
-pub fn generate_parser_for_grammar(grammar_json: &String) -> Result<(String, String)> {
+pub fn generate_parser_for_grammar(grammar_json: &str) -> Result<(String, String)> {
     let grammar_json = JSON_COMMENT_REGEX.replace_all(grammar_json, "\n");
     generate_parser_for_grammar_with_opts(&grammar_json, true, Vec::new())
 }

@@ -1,4 +1,5 @@
-use super::helpers::fixtures::get_language;
+use super::helpers::fixtures::{get_language, get_test_language};
+use crate::generate::generate_parser_for_grammar;
 use std::{thread, usize};
 use tree_sitter::{InputEdit, LogType, Parser, Point, Range};
 
@@ -270,15 +271,18 @@ fn test_parsing_with_an_operation_limit() {
     // Start parsing from an infinite input. Parsing should abort after 5 "operations".
     parser.set_operation_limit(5);
     let mut call_count = 0;
-    let tree = parser.parse_utf8(&mut |_, _| {
-        if call_count == 0 {
-            call_count += 1;
-            b"[0"
-        } else {
-            call_count += 1;
-            b", 0"
-        }
-    }, None);
+    let tree = parser.parse_utf8(
+        &mut |_, _| {
+            if call_count == 0 {
+                call_count += 1;
+                b"[0"
+            } else {
+                call_count += 1;
+                b", 0"
+            }
+        },
+        None,
+    );
     assert!(tree.is_none());
     assert!(call_count >= 3);
     assert!(call_count <= 8);
@@ -286,15 +290,23 @@ fn test_parsing_with_an_operation_limit() {
     // Resume parsing from the previous state.
     call_count = 0;
     parser.set_operation_limit(20);
-    let tree = parser.parse_utf8(&mut |_, _| {
-        if call_count == 0 {
-            call_count += 1;
-            b"]"
-        } else {
-            b""
-        }
-    }, None).unwrap();
-    assert_eq!(tree.root_node().to_sexp(), "(value (array (number) (number) (number)))");
+    let tree = parser
+        .parse_utf8(
+            &mut |_, _| {
+                if call_count == 0 {
+                    call_count += 1;
+                    b"]"
+                } else {
+                    b""
+                }
+            },
+            None,
+        )
+        .unwrap();
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(value (array (number) (number) (number)))"
+    );
 }
 
 #[test]
@@ -641,13 +653,70 @@ fn test_parsing_with_a_newly_included_range() {
 
     assert_eq!(
         tree.changed_ranges(&first_tree),
-        vec![
-            Range {
-                start_byte: first_code_end_index + 1,
-                end_byte: second_code_end_index + 1,
-                start_point: Point::new(0, first_code_end_index + 1),
-                end_point: Point::new(0, second_code_end_index + 1),
-            }
-        ]
+        vec![Range {
+            start_byte: first_code_end_index + 1,
+            end_byte: second_code_end_index + 1,
+            start_point: Point::new(0, first_code_end_index + 1),
+            end_point: Point::new(0, second_code_end_index + 1),
+        }]
     );
+}
+
+#[test]
+fn test_parsing_with_included_ranges_and_missing_tokens() {
+    let (parser_name, parser_code) = generate_parser_for_grammar(
+        r#"{
+            "name": "test_leading_missing_token",
+            "rules": {
+                "program": {
+                    "type": "SEQ",
+                    "members": [
+                        {"type": "SYMBOL", "name": "A"},
+                        {"type": "SYMBOL", "name": "b"},
+                        {"type": "SYMBOL", "name": "c"},
+                        {"type": "SYMBOL", "name": "A"},
+                        {"type": "SYMBOL", "name": "b"},
+                        {"type": "SYMBOL", "name": "c"}
+                    ]
+                },
+                "A": {"type": "SYMBOL", "name": "a"},
+                "a": {"type": "STRING", "value": "a"},
+                "b": {"type": "STRING", "value": "b"},
+                "c": {"type": "STRING", "value": "c"}
+            }
+        }"#,
+    )
+    .unwrap();
+
+    let mut parser = Parser::new();
+    parser
+        .set_language(get_test_language(&parser_name, &parser_code, None))
+        .unwrap();
+
+    // There's a missing `a` token at the beginning of the code. It must be inserted
+    // at the beginning of the first included range, not at {0, 0}.
+    let source_code = "__bc__bc__";
+    parser.set_included_ranges(&[
+        Range {
+            start_byte: 2,
+            end_byte: 4,
+            start_point: Point::new(0, 2),
+            end_point: Point::new(0, 4),
+        },
+        Range {
+            start_byte: 6,
+            end_byte: 8,
+            start_point: Point::new(0, 6),
+            end_point: Point::new(0, 8),
+        },
+    ]);
+
+    let tree = parser.parse_str(source_code, None).unwrap();
+    let root = tree.root_node();
+    assert_eq!(
+        root.to_sexp(),
+        "(program (A (MISSING)) (b) (c) (A (MISSING)) (b) (c))"
+    );
+    assert_eq!(root.start_byte(), 2);
+    assert_eq!(root.child(3).unwrap().start_byte(), 4);
 }
