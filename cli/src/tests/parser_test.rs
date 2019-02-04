@@ -1,11 +1,11 @@
 use super::helpers::fixtures::get_language;
-use std::thread;
-use tree_sitter::{InputEdit, Language, LogType, Parser, Point, Range};
+use std::{thread, usize};
+use tree_sitter::{InputEdit, LogType, Parser, Point, Range};
 
 #[test]
 fn test_basic_parsing() {
     let mut parser = Parser::new();
-    parser.set_language(rust()).unwrap();
+    parser.set_language(get_language("rust")).unwrap();
 
     let tree = parser
         .parse_str(
@@ -32,7 +32,7 @@ fn test_basic_parsing() {
 #[test]
 fn test_parsing_with_logging() {
     let mut parser = Parser::new();
-    parser.set_language(rust()).unwrap();
+    parser.set_language(get_language("rust")).unwrap();
 
     let mut messages = Vec::new();
     parser.set_logger(Some(Box::new(|log_type, message| {
@@ -59,7 +59,7 @@ fn test_parsing_with_logging() {
 #[test]
 fn test_parsing_with_custom_utf8_input() {
     let mut parser = Parser::new();
-    parser.set_language(rust()).unwrap();
+    parser.set_language(get_language("rust")).unwrap();
 
     let lines = &["pub fn foo() {", "  1", "}"];
 
@@ -92,7 +92,7 @@ fn test_parsing_with_custom_utf8_input() {
 #[test]
 fn test_parsing_with_custom_utf16_input() {
     let mut parser = Parser::new();
-    parser.set_language(rust()).unwrap();
+    parser.set_language(get_language("rust")).unwrap();
 
     let lines: Vec<Vec<u16>> = ["pub fn foo() {", "  1", "}"]
         .iter()
@@ -128,7 +128,7 @@ fn test_parsing_with_custom_utf16_input() {
 #[test]
 fn test_parsing_after_editing() {
     let mut parser = Parser::new();
-    parser.set_language(rust()).unwrap();
+    parser.set_language(get_language("rust")).unwrap();
 
     let mut input_bytes = "fn test(a: A, c: C) {}".as_bytes();
     let mut input_bytes_read = Vec::new();
@@ -214,7 +214,7 @@ fn test_parsing_on_multiple_threads() {
     let this_file_source = include_str!("parser_test.rs");
 
     let mut parser = Parser::new();
-    parser.set_language(rust()).unwrap();
+    parser.set_language(get_language("rust")).unwrap();
     let tree = parser.parse_str(this_file_source, None).unwrap();
 
     let mut parse_threads = Vec::new();
@@ -242,7 +242,7 @@ fn test_parsing_on_multiple_threads() {
 
             // Reparse using the old tree as a starting point.
             let mut parser = Parser::new();
-            parser.set_language(rust()).unwrap();
+            parser.set_language(get_language("rust")).unwrap();
             parser
                 .parse_str(&prepended_source, Some(&tree_clone))
                 .unwrap()
@@ -258,6 +258,76 @@ fn test_parsing_on_multiple_threads() {
         .collect::<Vec<_>>();
 
     assert_eq!(child_count_differences, &[1, 2, 3, 4]);
+}
+
+// Operation limits
+
+#[test]
+fn test_parsing_with_an_operation_limit() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("json")).unwrap();
+
+    // Start parsing from an infinite input. Parsing should abort after 5 "operations".
+    parser.set_operation_limit(5);
+    let mut call_count = 0;
+    let tree = parser.parse_utf8(&mut |_, _| {
+        if call_count == 0 {
+            call_count += 1;
+            b"[0"
+        } else {
+            call_count += 1;
+            b", 0"
+        }
+    }, None);
+    assert!(tree.is_none());
+    assert!(call_count >= 3);
+    assert!(call_count <= 8);
+
+    // Resume parsing from the previous state.
+    call_count = 0;
+    parser.set_operation_limit(20);
+    let tree = parser.parse_utf8(&mut |_, _| {
+        if call_count == 0 {
+            call_count += 1;
+            b"]"
+        } else {
+            b""
+        }
+    }, None).unwrap();
+    assert_eq!(tree.root_node().to_sexp(), "(value (array (number) (number) (number)))");
+}
+
+#[test]
+fn test_parsing_with_a_reset_after_reaching_an_operation_limit() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("json")).unwrap();
+
+    parser.set_operation_limit(3);
+    let tree = parser.parse_str("[1234, 5, 6, 7, 8]", None);
+    assert!(tree.is_none());
+
+    // Without calling reset, the parser continues from where it left off, so
+    // it does not see the changes to the beginning of the source code.
+    parser.set_operation_limit(usize::MAX);
+    let tree = parser.parse_str("[null, 5, 6, 4, 5]", None).unwrap();
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(value (array (number) (number) (number) (number) (number)))"
+    );
+
+    parser.set_operation_limit(3);
+    let tree = parser.parse_str("[1234, 5, 6, 7, 8]", None);
+    assert!(tree.is_none());
+
+    // By calling reset, we force the parser to start over from scratch so
+    // that it sees the changes to the beginning of the source code.
+    parser.set_operation_limit(usize::MAX);
+    parser.reset();
+    let tree = parser.parse_str("[null, 5, 6, 4, 5]", None).unwrap();
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(value (array (null) (number) (number) (number) (number)))"
+    );
 }
 
 // Included Ranges
@@ -402,6 +472,182 @@ fn test_parsing_utf16_code_with_errors_at_the_end_of_an_included_range() {
     assert_eq!(tree.root_node().to_sexp(), "(program (ERROR (identifier)))");
 }
 
-fn rust() -> Language {
-    get_language("rust")
+#[test]
+fn test_parsing_with_external_scanner_that_uses_included_range_boundaries() {
+    let source_code = "a <%= b() %> c <% d() %>";
+    let range1_start_byte = source_code.find(" b() ").unwrap();
+    let range1_end_byte = range1_start_byte + " b() ".len();
+    let range2_start_byte = source_code.find(" d() ").unwrap();
+    let range2_end_byte = range2_start_byte + " d() ".len();
+
+    let mut parser = Parser::new();
+    parser.set_language(get_language("javascript")).unwrap();
+    parser.set_included_ranges(&[
+        Range {
+            start_byte: range1_start_byte,
+            end_byte: range1_end_byte,
+            start_point: Point::new(0, range1_start_byte),
+            end_point: Point::new(0, range1_end_byte),
+        },
+        Range {
+            start_byte: range2_start_byte,
+            end_byte: range2_end_byte,
+            start_point: Point::new(0, range2_start_byte),
+            end_point: Point::new(0, range2_end_byte),
+        },
+    ]);
+
+    let tree = parser.parse_str(source_code, None).unwrap();
+    let root = tree.root_node();
+    let statement1 = root.child(0).unwrap();
+    let statement2 = root.child(1).unwrap();
+
+    assert_eq!(
+        root.to_sexp(),
+        concat!(
+            "(program",
+            " (expression_statement (call_expression (identifier) (arguments)))",
+            " (expression_statement (call_expression (identifier) (arguments))))"
+        )
+    );
+
+    assert_eq!(statement1.start_byte(), source_code.find("b()").unwrap());
+    assert_eq!(statement1.end_byte(), source_code.find(" %> c").unwrap());
+    assert_eq!(statement2.start_byte(), source_code.find("d()").unwrap());
+    assert_eq!(statement2.end_byte(), source_code.len() - " %>".len());
+}
+
+#[test]
+fn test_parsing_with_a_newly_excluded_range() {
+    let mut source_code = String::from("<div><span><%= something %></span></div>");
+
+    // Parse HTML including the template directive, which will cause an error
+    let mut parser = Parser::new();
+    parser.set_language(get_language("html")).unwrap();
+    let mut first_tree = parser.parse_str(&source_code, None).unwrap();
+
+    // Insert code at the beginning of the document.
+    let prefix = "a very very long line of plain text. ";
+    first_tree.edit(&InputEdit {
+        start_byte: 0,
+        old_end_byte: 0,
+        new_end_byte: prefix.len(),
+        start_position: Point::new(0, 0),
+        old_end_position: Point::new(0, 0),
+        new_end_position: Point::new(0, prefix.len()),
+    });
+    source_code.insert_str(0, prefix);
+
+    // Parse the HTML again, this time *excluding* the template directive
+    // (which has moved since the previous parse).
+    let directive_start = source_code.find("<%=").unwrap();
+    let directive_end = source_code.find("</span>").unwrap();
+    let source_code_end = source_code.len();
+    parser.set_included_ranges(&[
+        Range {
+            start_byte: 0,
+            end_byte: directive_start,
+            start_point: Point::new(0, 0),
+            end_point: Point::new(0, directive_start),
+        },
+        Range {
+            start_byte: directive_end,
+            end_byte: source_code_end,
+            start_point: Point::new(0, directive_end),
+            end_point: Point::new(0, source_code_end),
+        },
+    ]);
+    let tree = parser.parse_str(&source_code, Some(&first_tree)).unwrap();
+
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        concat!(
+            "(fragment (text) (element",
+            " (start_tag (tag_name))",
+            " (element (start_tag (tag_name)) (end_tag (tag_name)))",
+            " (end_tag (tag_name))))"
+        )
+    );
+
+    assert_eq!(
+        tree.changed_ranges(&first_tree),
+        vec![
+            // The first range that has changed syntax is the range of the newly-inserted text.
+            Range {
+                start_byte: 0,
+                end_byte: prefix.len(),
+                start_point: Point::new(0, 0),
+                end_point: Point::new(0, prefix.len()),
+            },
+            // Even though no edits were applied to the outer `div` element,
+            // its contents have changed syntax because a range of text that
+            // was previously included is now excluded.
+            Range {
+                start_byte: directive_start,
+                end_byte: directive_end,
+                start_point: Point::new(0, directive_start),
+                end_point: Point::new(0, directive_end),
+            },
+        ]
+    );
+}
+
+#[test]
+fn test_parsing_with_a_newly_included_range() {
+    let source_code = "<div><%= foo() %></div><div><%= bar() %>";
+    let first_code_start_index = source_code.find(" foo").unwrap();
+    let first_code_end_index = first_code_start_index + 7;
+    let second_code_start_index = source_code.find(" bar").unwrap();
+    let second_code_end_index = second_code_start_index + 7;
+    let ranges = [
+        Range {
+            start_byte: first_code_start_index,
+            end_byte: first_code_end_index,
+            start_point: Point::new(0, first_code_start_index),
+            end_point: Point::new(0, first_code_end_index),
+        },
+        Range {
+            start_byte: second_code_start_index,
+            end_byte: second_code_end_index,
+            start_point: Point::new(0, second_code_start_index),
+            end_point: Point::new(0, second_code_end_index),
+        },
+    ];
+
+    // Parse only the first code directive as JavaScript
+    let mut parser = Parser::new();
+    parser.set_language(get_language("javascript")).unwrap();
+    parser.set_included_ranges(&ranges[0..1]);
+    let first_tree = parser.parse_str(source_code, None).unwrap();
+    assert_eq!(
+        first_tree.root_node().to_sexp(),
+        concat!(
+            "(program",
+            " (expression_statement (call_expression (identifier) (arguments))))",
+        )
+    );
+
+    // Parse both the code directives as JavaScript, using the old tree as a reference.
+    parser.set_included_ranges(&ranges);
+    let tree = parser.parse_str(&source_code, Some(&first_tree)).unwrap();
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        concat!(
+            "(program",
+            " (expression_statement (call_expression (identifier) (arguments)))",
+            " (expression_statement (call_expression (identifier) (arguments))))",
+        )
+    );
+
+    assert_eq!(
+        tree.changed_ranges(&first_tree),
+        vec![
+            Range {
+                start_byte: first_code_end_index + 1,
+                end_byte: second_code_end_index + 1,
+                start_point: Point::new(0, first_code_end_index + 1),
+                end_point: Point::new(0, second_code_end_index + 1),
+            }
+        ]
+    );
 }
