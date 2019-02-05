@@ -1,8 +1,13 @@
 [package]
 name = "tree-sitter-cli"
+description = "CLI tool for developing, testing, and using Tree-sitter parsers"
 version = "0.14.0"
 authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
 edition = "2018"
+license = "MIT"
+readme = "README.md"
+keywords = ["incremental", "parsing"]
+categories = ["command-line-utilities", "parsing"]
 
 [[bin]]
 name = "tree-sitter"
