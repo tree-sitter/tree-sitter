@@ -29,6 +29,7 @@ regex = "1"
 rsass = "0.9"
 
 [dependencies.tree-sitter]
+version = "*"
 path = "../lib"
 
 [dependencies.serde_json]
