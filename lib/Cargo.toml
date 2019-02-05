@@ -9,14 +9,12 @@ keywords = ["incremental", "parsing"]
 categories = ["api-bindings", "parsing", "text-editors"]
 
 include = [
+  "/binding/*",
   "/build.rs",
   "/Cargo.toml",
-  "/LICENSE",
-  "/README.md",
+  "/include/*",
   "/src/*",
-  "/core/tree-sitter/externals/utf8proc/utf8proc*",
-  "/core/tree-sitter/include/*",
-  "/core/tree-sitter/src/runtime/*",
+  "/utf8proc/*",
 ]
 
 [dependencies]
