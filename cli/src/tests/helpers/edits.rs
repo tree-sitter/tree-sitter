@@ -56,7 +56,7 @@ impl<'a> ReadRecorder<'a> {
     }
 }
 
-pub fn perform_edit(tree: &mut Tree, input: &mut Vec<u8>, edit: &Edit) {
+pub fn perform_edit(tree: &mut Tree, input: &mut Vec<u8>, edit: &Edit) -> InputEdit {
     let start_byte = edit.position;
     let old_end_byte = edit.position + edit.deleted_length;
     let new_end_byte = edit.position + edit.inserted_text.len();
@@ -64,14 +64,16 @@ pub fn perform_edit(tree: &mut Tree, input: &mut Vec<u8>, edit: &Edit) {
     let old_end_position = position_for_offset(input, old_end_byte);
     input.splice(start_byte..old_end_byte, edit.inserted_text.iter().cloned());
     let new_end_position = position_for_offset(input, new_end_byte);
-    tree.edit(&InputEdit {
+    let edit = InputEdit {
         start_byte,
         old_end_byte,
         new_end_byte,
         start_position,
         old_end_position,
         new_end_position,
-    });
+    };
+    tree.edit(&edit);
+    edit
 }
 
 pub fn invert_edit(input: &Vec<u8>, edit: &Edit) -> Edit {

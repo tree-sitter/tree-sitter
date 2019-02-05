@@ -406,14 +406,7 @@ impl Tree {
     }
 
     pub fn edit(&mut self, edit: &InputEdit) {
-        let edit = ffi::TSInputEdit {
-            start_byte: edit.start_byte as u32,
-            old_end_byte: edit.old_end_byte as u32,
-            new_end_byte: edit.new_end_byte as u32,
-            start_point: edit.start_position.into(),
-            old_end_point: edit.old_end_position.into(),
-            new_end_point: edit.new_end_position.into(),
-        };
+        let edit = edit.into();
         unsafe { ffi::ts_tree_edit(self.0, &edit) };
     }
 
@@ -614,6 +607,11 @@ impl<'tree> Node<'tree> {
 
     pub fn walk(&self) -> TreeCursor<'tree> {
         TreeCursor(unsafe { ffi::ts_tree_cursor_new(self.0) }, PhantomData)
+    }
+
+    pub fn edit(&mut self, edit: &InputEdit) {
+        let edit = edit.into();
+        unsafe { ffi::ts_node_edit(&mut self.0 as *mut ffi::TSNode, &edit) }
     }
 }
 
@@ -828,6 +826,19 @@ impl From<ffi::TSRange> for Range {
             end_byte: range.end_byte as usize,
             start_point: range.start_point.into(),
             end_point: range.end_point.into(),
+        }
+    }
+}
+
+impl<'a> Into<ffi::TSInputEdit> for &'a InputEdit {
+    fn into(self) -> ffi::TSInputEdit {
+        ffi::TSInputEdit {
+            start_byte: self.start_byte as u32,
+            old_end_byte: self.old_end_byte as u32,
+            new_end_byte: self.new_end_byte as u32,
+            start_point: self.start_position.into(),
+            old_end_point: self.old_end_position.into(),
+            new_end_point: self.new_end_position.into(),
         }
     }
 }
