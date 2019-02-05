@@ -248,7 +248,7 @@ fn test_node_named_child_with_aliases_and_extras() {
         .set_language(get_test_language(&parser_name, &parser_code, None))
         .unwrap();
 
-    let tree = parser.parse_str("b ... b ... c", None).unwrap();
+    let tree = parser.parse("b ... b ... c", None).unwrap();
     let root = tree.root_node();
     assert_eq!(root.to_sexp(), "(a (b) (comment) (B) (comment) (C))");
     assert_eq!(root.named_child_count(), 5);
@@ -360,5 +360,5 @@ fn get_all_nodes(tree: &Tree) -> Vec<Node> {
 fn parse_json_example() -> Tree {
     let mut parser = Parser::new();
     parser.set_language(get_language("json")).unwrap();
-    parser.parse_str(JSON_EXAMPLE, None).unwrap()
+    parser.parse(JSON_EXAMPLE, None).unwrap()
 }

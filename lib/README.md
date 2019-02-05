@@ -34,7 +34,7 @@ Now you can parse source code:
 
 ```rust
 let source_code = "fn test() {}";
-let tree = parser.parse_str(source_code, None);
+let tree = parser.parse(source_code, None);
 let root_node = tree.root_node();
 
 assert_eq!(root_node.kind(), "source_file");
@@ -58,12 +58,12 @@ tree.edit(InputEdit {
   new_end_position: Point::new(0, 14),
 });
 
-let new_tree = parser.parse_str(new_source_code, Some(&tree));
+let new_tree = parser.parse(new_source_code, Some(&tree));
 ```
 
 ### Text Input
 
-The source code to parse can be provided either as a string or as a function that returns text encoded as either UTF8 or UTF16:
+The source code to parse can be provided either either as a string, a slice, a vector, or as a function that returns a slice. The text can be encoded as either UTF8 or UTF16:
 
 ```rust
 // Store some source code in an array of lines.
@@ -75,7 +75,7 @@ let lines = &[
 
 // Parse the source code using a custom callback. The callback is called
 // with both a byte offset and a row/column offset.
-let tree = parser.parse_utf8(&mut |_byte: u32, position: Point| -> &[u8] {
+let tree = parser.parse_with(&mut |_byte: u32, position: Point| -> &[u8] {
     let row = position.row as usize;
     let column = position.column as usize;
     if row < lines.len() {

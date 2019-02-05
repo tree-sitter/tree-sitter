@@ -7,7 +7,7 @@ use tree_sitter::{InputEdit, Parser, Point, Range, Tree};
 fn test_tree_edit() {
     let mut parser = Parser::new();
     parser.set_language(get_language("javascript")).unwrap();
-    let tree = parser.parse_str("  abc  !==  def", None).unwrap();
+    let tree = parser.parse("  abc  !==  def", None).unwrap();
 
     assert_eq!(
         tree.root_node().to_sexp(),
@@ -194,7 +194,7 @@ fn test_tree_walk() {
     parser.set_language(get_language("rust")).unwrap();
 
     let tree = parser
-        .parse_str(
+        .parse(
             "
                 struct Stuff {
                     a: A;
@@ -228,7 +228,7 @@ fn test_tree_walk() {
 fn test_tree_node_equality() {
     let mut parser = Parser::new();
     parser.set_language(get_language("rust")).unwrap();
-    let tree = parser.parse_str("struct A {}", None).unwrap();
+    let tree = parser.parse("struct A {}", None).unwrap();
     let node1 = tree.root_node();
     let node2 = tree.root_node();
     assert_eq!(node1, node2);
@@ -242,9 +242,7 @@ fn test_get_changed_ranges() {
 
     let mut parser = Parser::new();
     parser.set_language(get_language("javascript")).unwrap();
-    let tree = parser
-        .parse_utf8(&mut |i, _| &source_code[i..], None)
-        .unwrap();
+    let tree = parser.parse(&source_code, None).unwrap();
 
     assert_eq!(
         tree.root_node().to_sexp(),
@@ -370,9 +368,7 @@ fn get_changed_ranges(
     edit: Edit,
 ) -> Vec<Range> {
     perform_edit(tree, source_code, &edit);
-    let new_tree = parser
-        .parse_utf8(&mut |i, _| &source_code[i..], Some(tree))
-        .unwrap();
+    let new_tree = parser.parse(&source_code, Some(tree)).unwrap();
     let result = tree.changed_ranges(&new_tree);
     *tree = new_tree;
     result

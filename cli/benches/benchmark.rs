@@ -155,7 +155,7 @@ fn parse(parser: &mut Parser, example_path: &Path, max_path_length: usize) -> us
     let source_code = fs::read(example_path).unwrap();
     let time = Instant::now();
     let _tree = parser
-        .parse_utf8(&mut |byte, _| &source_code[byte..], None)
+        .parse(&source_code, None)
         .expect("Incompatible language version");
     let duration = time.elapsed();
     let duration_ms =

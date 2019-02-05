@@ -14,7 +14,6 @@ use serde::de::DeserializeOwned;
 use std::collections::HashMap;
 use std::ffi::CStr;
 use std::fmt;
-use std::io::{self, Read, Seek};
 use std::marker::PhantomData;
 use std::os::raw::{c_char, c_void};
 use std::ptr;
@@ -226,114 +225,35 @@ impl Parser {
         unsafe { ffi::ts_parser_print_dot_graphs(self.0, -1) }
     }
 
-    pub fn parse_str(&mut self, input: &str, old_tree: Option<&Tree>) -> Option<Tree> {
-        let bytes = input.as_bytes();
-        self.parse_utf8(
-            &mut |offset, _| {
-                if offset < bytes.len() {
-                    &bytes[offset..]
-                } else {
-                    &[]
-                }
-            },
-            old_tree,
-        )
+    pub fn parse(&mut self, input: impl AsRef<[u8]>, old_tree: Option<&Tree>) -> Option<Tree> {
+        let bytes = input.as_ref();
+        self.parse_with(&mut |i, _| &bytes[i..], old_tree)
     }
 
-    pub fn parse_utf8<'a, T: FnMut(usize, Point) -> &'a [u8]>(
+    pub fn parse_utf16(
+        &mut self,
+        input: impl AsRef<[u16]>,
+        old_tree: Option<&Tree>,
+    ) -> Option<Tree> {
+        let code_points = input.as_ref();
+        self.parse_utf16_with(&mut |i, _| &code_points[i..], old_tree)
+    }
+
+    pub fn parse_with<'a, T: FnMut(usize, Point) -> &'a [u8]>(
         &mut self,
         input: &mut T,
         old_tree: Option<&Tree>,
     ) -> Option<Tree> {
-        self.parse_utf8_ptr(
-            &mut |byte, position| {
-                let slice = input(byte, position);
-                (slice.as_ptr(), slice.len())
-            },
-            old_tree,
-        )
-    }
-
-    pub fn parse_utf16<'a, T: 'a + FnMut(usize, Point) -> &'a [u16]>(
-        &mut self,
-        input: &mut T,
-        old_tree: Option<&Tree>,
-    ) -> Option<Tree> {
-        self.parse_utf16_ptr(
-            &mut |byte, position| {
-                let slice = input(byte / 2, position);
-                (slice.as_ptr(), slice.len())
-            },
-            old_tree,
-        )
-    }
-
-    pub fn parse_utf8_io(
-        &mut self,
-        mut input: impl Read + Seek,
-        old_tree: Option<&Tree>,
-    ) -> io::Result<Option<Tree>> {
-        let mut error = None;
-        let mut current_offset = 0;
-        let mut buffer = [0; 10 * 1024];
-        let result = self.parse_utf8_ptr(
-            &mut |byte, _| {
-                if byte as u64 != current_offset {
-                    current_offset = byte as u64;
-                    if let Err(e) = input.seek(io::SeekFrom::Start(current_offset)) {
-                        error = Some(e);
-                        return (ptr::null(), 0);
-                    }
-                }
-
-                match input.read(&mut buffer) {
-                    Err(e) => {
-                        error = Some(e);
-                        (ptr::null(), 0)
-                    }
-                    Ok(length) => (buffer.as_ptr(), length),
-                }
-            },
-            old_tree,
-        );
-
-        match error {
-            Some(e) => Err(e),
-            None => Ok(result),
-        }
-    }
-
-    pub fn reset(&mut self) {
-        unsafe { ffi::ts_parser_reset(self.0) }
-    }
-
-    pub fn set_operation_limit(&mut self, limit: usize) {
-        unsafe { ffi::ts_parser_set_operation_limit(self.0, limit) }
-    }
-
-    pub fn set_included_ranges(&mut self, ranges: &[Range]) {
-        let ts_ranges: Vec<ffi::TSRange> =
-            ranges.iter().cloned().map(|range| range.into()).collect();
-        unsafe {
-            ffi::ts_parser_set_included_ranges(self.0, ts_ranges.as_ptr(), ts_ranges.len() as u32)
-        };
-    }
-
-    fn parse_utf8_ptr<T: FnMut(usize, Point) -> (*const u8, usize)>(
-        &mut self,
-        input: &mut T,
-        old_tree: Option<&Tree>,
-    ) -> Option<Tree> {
-        unsafe extern "C" fn read<T: FnMut(usize, Point) -> (*const u8, usize)>(
+        unsafe extern "C" fn read<'a, T: FnMut(usize, Point) -> &'a [u8]>(
             payload: *mut c_void,
             byte_offset: u32,
             position: ffi::TSPoint,
             bytes_read: *mut u32,
         ) -> *const c_char {
             let input = (payload as *mut T).as_mut().unwrap();
-            let (ptr, length) = (*input)(byte_offset as usize, position.into());
-            *bytes_read = length as u32;
-            return ptr as *const c_char;
+            let slice = input(byte_offset as usize, position.into());
+            *bytes_read = slice.len() as u32;
+            return slice.as_ptr() as *const c_char;
         };
 
         let c_input = ffi::TSInput {
@@ -351,27 +271,27 @@ impl Parser {
         }
     }
 
-    fn parse_utf16_ptr<T: FnMut(usize, Point) -> (*const u16, usize)>(
+    pub fn parse_utf16_with<'a, T: 'a + FnMut(usize, Point) -> &'a [u16]>(
         &mut self,
         input: &mut T,
         old_tree: Option<&Tree>,
     ) -> Option<Tree> {
-        unsafe extern "C" fn read<T: FnMut(usize, Point) -> (*const u16, usize)>(
+        unsafe extern "C" fn read<'a, T: FnMut(usize, Point) -> &'a [u16]>(
             payload: *mut c_void,
             byte_offset: u32,
             position: ffi::TSPoint,
             bytes_read: *mut u32,
         ) -> *const c_char {
             let input = (payload as *mut T).as_mut().unwrap();
-            let (ptr, length) = (*input)(
-                byte_offset as usize,
+            let slice = input(
+                (byte_offset / 2) as usize,
                 Point {
                     row: position.row as usize,
                     column: position.column as usize / 2,
                 },
             );
-            *bytes_read = length as u32 * 2;
-            ptr as *const c_char
+            *bytes_read = slice.len() as u32 * 2;
+            slice.as_ptr() as *const c_char
         };
 
         let c_input = ffi::TSInput {
@@ -387,6 +307,22 @@ impl Parser {
         } else {
             Some(Tree(c_new_tree))
         }
+    }
+
+    pub fn reset(&mut self) {
+        unsafe { ffi::ts_parser_reset(self.0) }
+    }
+
+    pub fn set_operation_limit(&mut self, limit: usize) {
+        unsafe { ffi::ts_parser_set_operation_limit(self.0, limit) }
+    }
+
+    pub fn set_included_ranges(&mut self, ranges: &[Range]) {
+        let ts_ranges: Vec<ffi::TSRange> =
+            ranges.iter().cloned().map(|range| range.into()).collect();
+        unsafe {
+            ffi::ts_parser_set_included_ranges(self.0, ts_ranges.as_ptr(), ts_ranges.len() as u32)
+        };
     }
 }
 

@@ -75,7 +75,7 @@ fn test_real_language_corpus_files() {
                 let mut log_session = None;
                 let mut parser = get_parser(&mut log_session, "log.html");
                 parser.set_language(language).unwrap();
-                let tree = parser.parse_utf8(&mut |i, _| &input[i..], None).unwrap();
+                let tree = parser.parse(&input, None).unwrap();
                 let actual_output = tree.root_node().to_sexp();
                 drop(tree);
                 drop(parser);
@@ -91,9 +91,7 @@ fn test_real_language_corpus_files() {
 
             let mut parser = Parser::new();
             parser.set_language(language).unwrap();
-            let tree = parser
-                .parse_utf8(&mut |i, _| input.get(i..).unwrap_or(&[]), None)
-                .unwrap();
+            let tree = parser.parse(&input, None).unwrap();
             drop(parser);
 
             for trial in 1..=TRIAL_COUNT {
@@ -122,9 +120,7 @@ fn test_real_language_corpus_files() {
                         eprintln!("{}\n", String::from_utf8_lossy(&input));
                     }
 
-                    let mut tree2 = parser
-                        .parse_utf8(&mut |i, _| input.get(i..).unwrap_or(&[]), Some(&tree))
-                        .unwrap();
+                    let mut tree2 = parser.parse(&input, Some(&tree)).unwrap();
 
                     // Check that the new tree is consistent.
                     check_consistent_sizes(&tree2, &input);
@@ -145,9 +141,7 @@ fn test_real_language_corpus_files() {
                         eprintln!("{}\n", String::from_utf8_lossy(&input));
                     }
 
-                    let tree3 = parser
-                        .parse_utf8(&mut |i, _| input.get(i..).unwrap_or(&[]), Some(&tree2))
-                        .unwrap();
+                    let tree3 = parser.parse(&input, Some(&tree2)).unwrap();
 
                     // Verify that the final tree matches the expectation from the corpus.
                     let actual_output = tree3.root_node().to_sexp();
@@ -254,7 +248,7 @@ fn test_feature_corpus_files() {
                 let mut log_session = None;
                 let mut parser = get_parser(&mut log_session, "log.html");
                 parser.set_language(language).unwrap();
-                let tree = parser.parse_utf8(&mut |i, _| &input[i..], None).unwrap();
+                let tree = parser.parse(&input, None).unwrap();
                 let actual_output = tree.root_node().to_sexp();
                 drop(tree);
                 drop(parser);

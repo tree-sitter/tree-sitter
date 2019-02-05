@@ -141,9 +141,7 @@ fn run_tests(
                     return Ok(());
                 }
             }
-            let tree = parser
-                .parse_utf8(&mut |byte_offset, _| &input[byte_offset..], None)
-                .unwrap();
+            let tree = parser.parse(&input, None).unwrap();
             let actual = tree.root_node().to_sexp();
             for _ in 0..indent_level {
                 print!("  ");

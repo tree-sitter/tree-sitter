@@ -38,7 +38,7 @@ fn test_walk_with_properties_with_nth_child() {
 
     let mut parser = Parser::new();
     parser.set_language(language).unwrap();
-    let tree = parser.parse_str(source_code, None).unwrap();
+    let tree = parser.parse(source_code, None).unwrap();
 
     let mut cursor = tree.walk_with_properties(&property_sheet, source_code);
     assert_eq!(cursor.node().kind(), "program");
@@ -96,7 +96,7 @@ fn test_walk_with_properties_with_regexes() {
 
     let mut parser = Parser::new();
     parser.set_language(language).unwrap();
-    let tree = parser.parse_str(source_code, None).unwrap();
+    let tree = parser.parse(source_code, None).unwrap();
 
     let mut cursor = tree.walk_with_properties(&property_sheet, source_code);
     assert_eq!(cursor.node().kind(), "program");

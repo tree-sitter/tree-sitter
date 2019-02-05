@@ -33,7 +33,7 @@ pub fn parse_file_at_path(
 
     let time = Instant::now();
     let tree = parser
-        .parse_utf8(&mut |byte, _| &source_code[byte..], None)
+        .parse(&source_code, None)
         .expect("Incompatible language version");
     let duration = time.elapsed();
     let duration_ms = duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000;
