@@ -15,16 +15,13 @@ CC=${CC:-clang}
 CXX=${CXX:-clang++}
 LINK=${LINK:-clang++}
 
-default_fuzz_flags="-fsanitize=address,undefined -fsanitize-coverage=trace-pc-guard"
+default_fuzz_flags="-fsanitize=fuzzer,address,undefined"
 
 CFLAGS=${CFLAGS:-"$default_fuzz_flags"}
 CXXFLAGS=${CXXFLAGS:-"$default_fuzz_flags"}
 
-CC=$CC CXX=$CXX LINK=$LINK CFLAGS=$CFLAGS CXXFLAGS=$CXXFLAGS ./script/configure
-
-export BUILDTYPE=Fuzz
-make runtime
-
+export CFLAGS
+script/build-lib
 
 if [ -z "$@" ]; then
   languages=$(ls test/fixtures/grammars)
@@ -56,9 +53,13 @@ for lang in ${languages[@]}; do
 
   modes=(true halt false recover)
   for i in 0 2; do
-    $CXX $CXXFLAGS -std=c++11 -Iinclude -D TS_HALT_ON_ERROR="${modes[i]}" -D TS_LANG="tree_sitter_$lang" \
+    # FIXME: We should extract the grammar name from grammar.js. Use the name of
+    # the directory instead. Also, the grammar name needs to be a valid C
+    # identifier so replace any '-' characters
+    ts_lang="tree_sitter_$(echo $lang | tr -- - _)"
+    $CXX $CXXFLAGS -std=c++11 -I lib/include -D TS_HALT_ON_ERROR="${modes[i]}" -D TS_LANG="$ts_lang" \
       "test/fuzz/fuzzer.cc" "${objects[@]}" \
-      out/Fuzz/obj.target/libruntime.a "$LIB_FUZZER_PATH" \
+      libtree-sitter.a "$LIB_FUZZER_PATH" \
       -o "out/${lang}_fuzzer_${modes[i+1]}"
   done
 

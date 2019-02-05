@@ -1,9 +1,8 @@
 @echo off
-msbuild /p:Configuration=Test tests.vcxproj
 
-set only_arg=
-IF not "%~1"=="" (
-  set only_arg=--only=%1
-)
-
-.\test\tests.exe --reporter=singleline --no-color %only_arg%
+setlocal
+set TREE_SITTER_TEST=1
+set RUST_TEST_THREADS=1
+set RUST_BACKTRACE=full
+cargo test "%~1" -- --nocapture
+endlocal

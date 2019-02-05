@@ -3,7 +3,7 @@
 
   "extras": [
     {"type": "SYMBOL", "name": "comment"},
-    {"type": "PATTERN", "value": "\\s"},
+    {"type": "PATTERN", "value": "\\s"}
   ],
 
   "rules": {

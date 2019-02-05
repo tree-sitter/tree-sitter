@@ -40,7 +40,7 @@
           {"type": "SYMBOL", "name": "_expression"},
           {"type": "STRING", "value": "("},
           {"type": "SYMBOL", "name": "_expression"},
-          {"type": "STRING", "value": ")"},
+          {"type": "STRING", "value": ")"}
         ]
       }
     },

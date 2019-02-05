@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-
-set -e
-
-script/fetch-fixtures
-script/check-mallocs
-script/build-runtime
-script/test -b
-script/benchmark -b

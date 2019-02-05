@@ -1,26 +1,50 @@
-image: Visual Studio 2017
+build: false
+install:
+  # Terminate early unless building either a tag or a PR.
+  - if "%APPVEYOR_REPO_TAG%" == "false" if not "%APPVEYOR_REPO_BRANCH%" == "master" appveyor exit
 
-branches:
-  only:
-    - master
+  # Install rust
+  - appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
+  - IF "%PLATFORM%" == "x86" rustup-init -y --default-toolchain stable --default-host i686-pc-windows-msvc
+  - IF "%PLATFORM%" == "x64" rustup-init -y --default-toolchain stable --default-host x86_64-pc-windows-msvc
+  - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
+  - rustc -vV
+  - cargo -vV
+
+  # Install dependencies
+  - git submodule update --init
 
 platform:
-  - x86
   - x64
-
-init:
-  - git config --global core.autocrlf false
-
-install:
-  - IF "%PLATFORM%" == "x86" (call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars32.bat")
-  - IF "%PLATFORM%" == "x64" (call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat")
-  - script\configure.cmd
-  - script\fetch-fixtures.cmd
+  - x86
 
 test_script:
-  - script\test.cmd
+  # Fetch and regenerate the fixture parsers
+  - script\fetch-fixtures.cmd
+  - cargo build --release
+  - script\regenerate-fixtures.cmd
 
-build: off
+  # Run tests
+  - script\test.cmd
+  - script\benchmark.cmd
+
+before_deploy:
+  - move target\release\tree-sitter.exe tree-sitter.exe
+  - 7z a -tgzip tree-sitter-windows-%PLATFORM%.gz tree-sitter.exe
+  - appveyor PushArtifact tree-sitter-windows-%PLATFORM%.gz
+
+deploy:
+  description: ''
+  provider: GitHub
+  auth_token:
+    secure: VC9ntV5+inKoNteZyLQksKzWMKXF46P+Jx3JHKVSfF+o1rWtZn2iIHAVsQv5LaUi
+  artifact: /tree-sitter-windows-.*/
+  draft: true
+  force_update: true
+  on:
+    APPVEYOR_REPO_TAG: true
 
 cache:
+  - target
   - test\fixtures\grammars
+  - C:\Users\appveyor\.cargo

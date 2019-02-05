@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+# If `CC` isn't set, pick a default compiler
+if hash clang 2>/dev/null; then
+  : ${CC:=clang}
+else
+  : ${CC:=gcc}
+fi
+
+${CC}                   \
+  -c                    \
+  -O3                   \
+  -std=c99              \
+  $CFLAGS               \
+  -I lib/src            \
+  -I lib/include        \
+  -I lib/utf8proc       \
+  lib/src/lib.c     \
+  -o tree-sitter.o
+
+ar rcs libtree-sitter.a tree-sitter.o
+rm tree-sitter.o

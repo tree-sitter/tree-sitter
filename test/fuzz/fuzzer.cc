@@ -1,5 +1,5 @@
 #include <cassert>
-#include "tree_sitter/runtime.h"
+#include "tree_sitter/api.h"
 
 extern "C" const TSLanguage *TS_LANG();
 

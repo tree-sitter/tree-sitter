@@ -110,7 +110,7 @@
             "type": "SEQ",
             "members": [
               {"type": "STRING", "value": "::"},
-              {"type": "SYMBOL", "name": "expression"},
+              {"type": "SYMBOL", "name": "expression"}
             ]
           }
         ]

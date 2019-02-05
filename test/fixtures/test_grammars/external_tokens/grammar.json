@@ -45,7 +45,7 @@
             {"type": "SYMBOL", "name": "expression"},
             {"type": "SYMBOL", "name": "_percent_string_end"}
           ]
-        },
+        }
       ]
     },
 

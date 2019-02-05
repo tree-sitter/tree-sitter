@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-src_dir="src/runtime"
+src_dir="lib/src"
 
 allocation_functions=(
   malloc

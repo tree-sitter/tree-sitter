@@ -1,0 +1,44 @@
+[package]
+name = "tree-sitter-cli"
+version = "0.14.0-beta4"
+authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
+edition = "2018"
+
+[[bin]]
+name = "tree-sitter"
+path = "src/main.rs"
+
+[[bench]]
+name = "benchmark"
+harness = false
+
+[dependencies]
+cc = "1.0"
+ansi_term = "0.11"
+difference = "2.0"
+lazy_static = "1.2.0"
+smallbitvec = "2.3.0"
+clap = "2.32"
+dirs = "1.0.2"
+hashbrown = "0.1"
+libloading = "0.5"
+serde = "1.0"
+serde_derive = "1.0"
+regex-syntax = "0.6.4"
+regex = "1"
+rsass = "0.9"
+
+[dependencies.tree-sitter]
+path = "../lib"
+
+[dependencies.serde_json]
+version = "1.0"
+features = ["preserve_order"]
+
+[dependencies.log]
+version = "0.4.6"
+features = ["std"]
+
+[dev-dependencies]
+rand = "0.6.4"
+spin = "0.5"

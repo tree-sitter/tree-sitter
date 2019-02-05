@@ -1,8 +1,0 @@
--std=c++14
--Isrc
--Itest
--Iinclude
--Iexternals/utf8proc
--Iexternals/json-parser
--Iexternals/bandit
--Iexternals/crypto-algorithms
