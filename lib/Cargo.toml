@@ -4,7 +4,7 @@ description = "Rust bindings to the Tree-sitter parsing library"
 version = "0.3.5"
 authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
 license = "MIT"
-readme = "README.md"
+readme = "binding/README.md"
 keywords = ["incremental", "parsing"]
 categories = ["api-bindings", "parsing", "text-editors"]
 
