@@ -1,3 +1,4 @@
+use super::helpers::edits::{perform_edit, Edit, ReadRecorder};
 use super::helpers::fixtures::{get_language, get_test_language};
 use crate::generate::generate_parser_for_grammar;
 use std::{thread, usize};
@@ -126,87 +127,96 @@ fn test_parsing_with_custom_utf16_input() {
     assert_eq!(root.child(0).unwrap().kind(), "function_item");
 }
 
+// Incremental parsing
+
 #[test]
-fn test_parsing_after_editing() {
+fn test_parsing_after_editing_beginning_of_code() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("rust")).unwrap();
+    parser.set_language(get_language("javascript")).unwrap();
 
-    let mut input_bytes = "fn test(a: A, c: C) {}".as_bytes();
-    let mut input_bytes_read = Vec::new();
-
-    let mut tree = parser
-        .parse_utf8(
-            &mut |offset, _| {
-                let offset = offset;
-                if offset < input_bytes.len() {
-                    let result = &input_bytes[offset..offset + 1];
-                    input_bytes_read.extend(result.iter());
-                    result
-                } else {
-                    &[]
-                }
-            },
-            None,
-        )
-        .unwrap();
-
-    let parameters_sexp = tree
-        .root_node()
-        .named_child(0)
-        .unwrap()
-        .named_child(1)
-        .unwrap()
-        .to_sexp();
+    let mut code = b"123 + 456 * (10 + x);".to_vec();
+    let mut tree = parser.parse_utf8(&mut |i, _| &code[i..], None).unwrap();
     assert_eq!(
-        parameters_sexp,
-        "(parameters (parameter (identifier) (type_identifier)) (parameter (identifier) (type_identifier)))"
+        tree.root_node().to_sexp(),
+        concat!(
+            "(program (expression_statement (binary_expression ",
+              "(number) ",
+              "(binary_expression (number) (parenthesized_expression (binary_expression (number) (identifier)))))))",
+        )
     );
 
-    input_bytes_read.clear();
-    input_bytes = "fn test(a: A, b: B, c: C) {}".as_bytes();
-    tree.edit(&InputEdit {
-        start_byte: 14,
-        old_end_byte: 14,
-        new_end_byte: 20,
-        start_position: Point::new(0, 14),
-        old_end_position: Point::new(0, 14),
-        new_end_position: Point::new(0, 20),
-    });
+    perform_edit(
+        &mut tree,
+        &mut code,
+        &Edit {
+            position: 3,
+            deleted_length: 0,
+            inserted_text: b" || 5".to_vec(),
+        },
+    );
 
+    let mut recorder = ReadRecorder::new(&code);
     let tree = parser
-        .parse_utf8(
-            &mut |offset, _| {
-                let offset = offset;
-                if offset < input_bytes.len() {
-                    let result = &input_bytes[offset..offset + 1];
-                    input_bytes_read.extend(result.iter());
-                    result
-                } else {
-                    &[]
-                }
-            },
-            Some(&tree),
-        )
+        .parse_utf8(&mut |i, _| recorder.read(i), Some(&tree))
         .unwrap();
-
-    let parameters_sexp = tree
-        .root_node()
-        .named_child(0)
-        .unwrap()
-        .named_child(1)
-        .unwrap()
-        .to_sexp();
     assert_eq!(
-        parameters_sexp,
-        "(parameters (parameter (identifier) (type_identifier)) (parameter (identifier) (type_identifier)) (parameter (identifier) (type_identifier)))"
+        tree.root_node().to_sexp(),
+        concat!(
+            "(program (expression_statement (binary_expression ",
+              "(number) ",
+              "(binary_expression ",
+                "(number) ",
+                "(binary_expression (number) (parenthesized_expression (binary_expression (number) (identifier))))))))",
+        )
     );
 
-    let retokenized_content = String::from_utf8(input_bytes_read).unwrap();
-    assert!(retokenized_content.contains("b: B"));
-    assert!(!retokenized_content.contains("a: A"));
-    assert!(!retokenized_content.contains("c: C"));
-    assert!(!retokenized_content.contains("{}"));
+    assert_eq!(recorder.strings_read(), vec!["123 || 5 "]);
 }
+
+#[test]
+fn test_parsing_after_editing_end_of_code() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("javascript")).unwrap();
+
+    let mut code = b"x * (100 + abc);".to_vec();
+    let mut tree = parser.parse_utf8(&mut |i, _| &code[i..], None).unwrap();
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        concat!(
+            "(program (expression_statement (binary_expression ",
+              "(identifier) ",
+              "(parenthesized_expression (binary_expression (number) (identifier))))))",
+        )
+    );
+
+    let position = code.len() - 2;
+    perform_edit(
+        &mut tree,
+        &mut code,
+        &Edit {
+            position,
+            deleted_length: 0,
+            inserted_text: b".d".to_vec(),
+        },
+    );
+
+    let mut recorder = ReadRecorder::new(&code);
+    let tree = parser
+        .parse_utf8(&mut |i, _| recorder.read(i), Some(&tree))
+        .unwrap();
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        concat!(
+            "(program (expression_statement (binary_expression ",
+              "(identifier) ",
+              "(parenthesized_expression (binary_expression (number) (member_expression (identifier) (property_identifier)))))))"
+        )
+    );
+
+    assert_eq!(recorder.strings_read(), vec![" * ", "abc.d)",]);
+}
+
+// Thread safety
 
 #[test]
 fn test_parsing_on_multiple_threads() {
