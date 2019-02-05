@@ -21,6 +21,8 @@ use std::slice;
 use std::str;
 use std::u16;
 
+pub const PARSER_HEADER: &'static str = include_str!("../include/tree_sitter/parser.h");
+
 #[derive(Clone, Copy)]
 #[repr(transparent)]
 pub struct Language(*const ffi::TSLanguage);

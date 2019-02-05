@@ -53,7 +53,7 @@ pub fn generate_parser_in_directory(
         npm_files::index_js(&language_name)
     })?;
     ensure_file(&repo_header_path.join("parser.h"), || {
-        include_str!("../../../lib/include/tree_sitter/parser.h")
+        tree_sitter::PARSER_HEADER
     })?;
     Ok(())
 }
