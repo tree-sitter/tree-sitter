@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::{env, fs, io};
 
 fn main() {
@@ -11,7 +12,16 @@ fn main() {
 }
 
 fn read_git_sha() -> io::Result<String> {
-    let git_path = env::current_dir().unwrap().parent().unwrap().join(".git");
+    let mut repo_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let mut git_path;
+    loop {
+        git_path = repo_path.join(".git");
+        if git_path.exists() {
+            break;
+        } else {
+            assert!(repo_path.pop());
+        }
+    }
     let git_head_path = git_path.join("HEAD");
     println!("cargo:rerun-if-changed={}", git_head_path.to_str().unwrap());
     let mut head_content = fs::read_to_string(&git_head_path)?;
