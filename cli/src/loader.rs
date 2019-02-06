@@ -53,12 +53,14 @@ impl Loader {
 
     pub fn find_all_languages(&mut self, parser_src_paths: &Vec<PathBuf>) -> io::Result<()> {
         for parser_container_dir in parser_src_paths.iter() {
-            for entry in fs::read_dir(parser_container_dir)? {
-                let entry = entry?;
-                if let Some(parser_dir_name) = entry.file_name().to_str() {
-                    if parser_dir_name.starts_with("tree-sitter-") {
-                        self.find_language_at_path(&parser_container_dir.join(parser_dir_name))
-                            .ok();
+            if let Ok(entries) = fs::read_dir(parser_container_dir) {
+                for entry in entries {
+                    let entry = entry?;
+                    if let Some(parser_dir_name) = entry.file_name().to_str() {
+                        if parser_dir_name.starts_with("tree-sitter-") {
+                            self.find_language_at_path(&parser_container_dir.join(parser_dir_name))
+                                .ok();
+                        }
                     }
                 }
             }
