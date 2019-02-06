@@ -1,11 +1,12 @@
 // The Tree-sitter library can be built by compiling this one source file.
 //
 // The following directories must be added to the include path:
-//   - src
 //   - include
-//   - externals/utf8proc
+//   - utf8proc
 
 #define _POSIX_SOURCE
+#define UTF8PROC_STATIC
+
 #include "./get_changed_ranges.c"
 #include "./language.c"
 #include "./lexer.c"

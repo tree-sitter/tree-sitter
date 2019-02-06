@@ -35,7 +35,6 @@ fn main() {
     }
 
     config
-        .define("UTF8PROC_STATIC", "")
         .flag_if_supported("-std=c99")
         .flag_if_supported("-Wno-unused-parameter")
         .include("include")
