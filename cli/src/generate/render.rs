@@ -110,13 +110,16 @@ impl Generator {
         add_line!(self, "#endif");
         add_line!(self, "");
 
-        // Compiling large lexer functions can be very slow, especially when
-        // using Visual Studio on Windows. Disabling optimizations is not
-        // ideal, but only a very small fraction of overall parse time is
-        // spent lexing, so the performance impact of this is pretty small.
-        if self.main_lex_table.states.len() > 500 {
+        // Compiling large lexer functions can be very slow. Disabling optimizations
+        // is not ideal, but only a very small fraction of overall parse time is
+        // spent lexing, so the performance impact of this is negligible.
+        if self.main_lex_table.states.len() > 300 {
             add_line!(self, "#ifdef _MSC_VER");
             add_line!(self, "#pragma optimize(\"\", off)");
+            add_line!(self, "#elif defined(__clang__)");
+            add_line!(self, "#pragma clang optimize off");
+            add_line!(self, "#elif defined(__GNUC__)");
+            add_line!(self, "#pragma GCC optimize (\"O0\")");
             add_line!(self, "#endif");
             add_line!(self, "");
         }
