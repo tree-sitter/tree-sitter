@@ -184,16 +184,15 @@ impl Loader {
                     .arg("-I")
                     .arg(header_path)
                     .arg("-o")
-                    .arg(&library_path)
-                    .arg("-xc")
-                    .arg(parser_path);
+                    .arg(&library_path);
                 if let Some(scanner_path) = scanner_path.as_ref() {
                     if scanner_path.extension() == Some("c".as_ref()) {
                         command.arg("-xc").arg("-std=c99").arg(scanner_path);
                     } else {
-                        command.arg("-xc++").arg(scanner_path);
+                        command.arg(scanner_path);
                     }
                 }
+                command.arg("-xc").arg(parser_path);
             }
 
             let output = command.output()?;
