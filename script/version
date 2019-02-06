@@ -20,7 +20,20 @@ if (npmVersion !== cargoVersion) {
   process.exit(1);
 }
 
-if (process.argv[2]) {
+const arg = process.argv[2];
+
+if (!arg) {
+  console.log([
+    `Usage: script/version major |minor | patch | <version-number>`,
+    '',
+    'Update the CLI version by the given increment or to the given',
+    'version number, creating a commit and tag for the new version.',
+    ''
+  ].join('\n'))
+  process.exit(1);
+}
+
+if (arg) {
   // Check that working directory is clean
   const diff = execFileSync(
     'git',
