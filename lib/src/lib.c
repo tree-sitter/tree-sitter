@@ -5,6 +5,7 @@
 //   - include
 //   - externals/utf8proc
 
+#define _POSIX_SOURCE
 #include "./get_changed_ranges.c"
 #include "./language.c"
 #include "./lexer.c"
