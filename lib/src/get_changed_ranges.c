@@ -288,30 +288,32 @@ typedef enum {
 } IteratorComparison;
 
 IteratorComparison iterator_compare(const Iterator *old_iter, const Iterator *new_iter) {
-  Subtree old_tree = NULL_SUBTREE, new_tree = NULL_SUBTREE;
-  uint32_t old_start = 0, new_start = 0;
-  TSSymbol old_alias_symbol = 0, new_alias_symbol = 0;
+  Subtree old_tree = NULL_SUBTREE;
+  Subtree new_tree = NULL_SUBTREE;
+  uint32_t old_start = 0;
+  uint32_t new_start = 0;
+  TSSymbol old_alias_symbol = 0;
+  TSSymbol new_alias_symbol = 0;
   iterator_get_visible_state(old_iter, &old_tree, &old_alias_symbol, &old_start);
   iterator_get_visible_state(new_iter, &new_tree, &new_alias_symbol, &new_start);
 
   if (!old_tree.ptr && !new_tree.ptr) return IteratorMatches;
   if (!old_tree.ptr || !new_tree.ptr) return IteratorDiffers;
 
-  if (old_alias_symbol == new_alias_symbol) {
-    if (old_start == new_start) {
-      if (!ts_subtree_has_changes(old_tree) &&
-          ts_subtree_symbol(old_tree) == ts_subtree_symbol(new_tree) &&
-          ts_subtree_symbol(old_tree) != ts_builtin_sym_error &&
-          ts_subtree_size(old_tree).bytes == ts_subtree_size(new_tree).bytes &&
-          ts_subtree_parse_state(old_tree) != TS_TREE_STATE_NONE &&
-          ts_subtree_parse_state(new_tree) != TS_TREE_STATE_NONE &&
-          (ts_subtree_parse_state(old_tree) == ERROR_STATE) ==
-          (ts_subtree_parse_state(new_tree) == ERROR_STATE)) {
-        return IteratorMatches;
-      }
-    }
-
-    if (ts_subtree_symbol(old_tree) == ts_subtree_symbol(new_tree)) {
+  if (
+    old_alias_symbol == new_alias_symbol &&
+    ts_subtree_symbol(old_tree) == ts_subtree_symbol(new_tree)
+  ) {
+    if (old_start == new_start &&
+        !ts_subtree_has_changes(old_tree) &&
+        ts_subtree_symbol(old_tree) != ts_builtin_sym_error &&
+        ts_subtree_size(old_tree).bytes == ts_subtree_size(new_tree).bytes &&
+        ts_subtree_parse_state(old_tree) != TS_TREE_STATE_NONE &&
+        ts_subtree_parse_state(new_tree) != TS_TREE_STATE_NONE &&
+        (ts_subtree_parse_state(old_tree) == ERROR_STATE) ==
+        (ts_subtree_parse_state(new_tree) == ERROR_STATE)) {
+      return IteratorMatches;
+    } else {
       return IteratorMayDiffer;
     }
   }
@@ -366,21 +368,31 @@ unsigned ts_subtree_get_changed_ranges(const Subtree *old_tree, const Subtree *n
     puts("");
     #endif
 
+    // Compare the old and new subtrees.
+    IteratorComparison comparison = iterator_compare(&old_iter, &new_iter);
+
+    // Even if the two subtrees appear to be identical, they could differ
+    // internally if they contain a range of text that was previously
+    // excluded from the parse, and is now included, or vice-versa.
+    if (comparison == IteratorMatches && ts_range_array_intersects(
+      included_range_differences,
+      included_range_difference_index,
+      position.bytes,
+      iterator_end_position(&old_iter).bytes
+    )) {
+      comparison = IteratorMayDiffer;
+    }
+
     bool is_changed = false;
-    switch (iterator_compare(&old_iter, &new_iter)) {
+    switch (comparison) {
+      // If the subtrees are definitely identical, move to the end
+      // of both subtrees.
       case IteratorMatches:
         next_position = iterator_end_position(&old_iter);
-        if (ts_range_array_intersects(
-          included_range_differences,
-          included_range_difference_index,
-          position.bytes, next_position.bytes
-        )) {
-          next_position = position;
-          __attribute__ ((fallthrough));
-        } else {
-          break;
-        }
+        break;
 
+      // If the subtrees might differ internally, descend into both
+      // subtrees, finding the first child that spans the current position.
       case IteratorMayDiffer:
         if (iterator_descend(&old_iter, position.bytes)) {
           if (!iterator_descend(&new_iter, position.bytes)) {
@@ -398,6 +410,8 @@ unsigned ts_subtree_get_changed_ranges(const Subtree *old_tree, const Subtree *n
         }
         break;
 
+      // If the subtrees are different, record a change and then move
+      // to the end of both subtrees.
       case IteratorDiffers:
         is_changed = true;
         next_position = length_min(
@@ -407,19 +421,23 @@ unsigned ts_subtree_get_changed_ranges(const Subtree *old_tree, const Subtree *n
         break;
     }
 
+    // Ensure that both iterators are caught up to the current position.
     while (
       !iterator_done(&old_iter) &&
       iterator_end_position(&old_iter).bytes <= next_position.bytes
     ) iterator_advance(&old_iter);
-
     while (
       !iterator_done(&new_iter) &&
       iterator_end_position(&new_iter).bytes <= next_position.bytes
     ) iterator_advance(&new_iter);
 
-    while (old_iter.visible_depth > new_iter.visible_depth) iterator_ascend(&old_iter);
-
-    while (new_iter.visible_depth > old_iter.visible_depth) iterator_ascend(&new_iter);
+    // Ensure that both iterators are at the same depth in the tree.
+    while (old_iter.visible_depth > new_iter.visible_depth) {
+      iterator_ascend(&old_iter);
+    }
+    while (new_iter.visible_depth > old_iter.visible_depth) {
+      iterator_ascend(&new_iter);
+    }
 
     if (is_changed) {
       #ifdef DEBUG_GET_CHANGED_RANGES
@@ -435,8 +453,12 @@ unsigned ts_subtree_get_changed_ranges(const Subtree *old_tree, const Subtree *n
 
     position = next_position;
 
+    // Keep track of the current position in the included range differences
+    // array in order to avoid scanning the entire array on each iteration.
     while (included_range_difference_index < included_range_differences->size) {
-      const TSRange *range = &included_range_differences->contents[included_range_difference_index];
+      const TSRange *range = &included_range_differences->contents[
+        included_range_difference_index
+      ];
       if (range->end_byte <= position.bytes) {
         included_range_difference_index++;
       } else {
