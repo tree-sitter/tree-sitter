@@ -42,14 +42,17 @@ function choice(...elements) {
 }
 
 function optional(value) {
+  checkArguments(arguments.length, optional, 'optional');
   return choice(value, blank());
 }
 
 function prec(number, rule) {
-  if (rule == null) {
-    rule = number;
-    number = 0;
-  }
+  checkArguments(
+    arguments.length - 1,
+    prec,
+    'prec',
+    ' and a precedence argument'
+  );
 
   return {
     type: "PREC",
@@ -64,6 +67,13 @@ prec.left = function(number, rule) {
     number = 0;
   }
 
+  checkArguments(
+    arguments.length - 1,
+    prec.left,
+    'prec.left',
+    ' and an optional precedence argument'
+  );
+
   return {
     type: "PREC_LEFT",
     value: number,
@@ -77,6 +87,13 @@ prec.right = function(number, rule) {
     number = 0;
   }
 
+  checkArguments(
+    arguments.length - 1,
+    prec.right,
+    'prec.right',
+    ' and an optional precedence argument'
+  );
+
   return {
     type: "PREC_RIGHT",
     value: number,
@@ -85,6 +102,13 @@ prec.right = function(number, rule) {
 }
 
 prec.dynamic = function(number, rule) {
+  checkArguments(
+    arguments.length - 1,
+    prec.dynamic,
+    'prec.dynamic',
+    ' and a precedence argument'
+  );
+
   return {
     type: "PREC_DYNAMIC",
     value: number,
@@ -93,6 +117,7 @@ prec.dynamic = function(number, rule) {
 }
 
 function repeat(rule) {
+  checkArguments(arguments.length, repeat, 'repeat');
   return {
     type: "REPEAT",
     content: normalize(rule)
@@ -100,6 +125,7 @@ function repeat(rule) {
 }
 
 function repeat1(rule) {
+  checkArguments(arguments.length, repeat1, 'repeat1');
   return {
     type: "REPEAT1",
     content: normalize(rule)
@@ -314,6 +340,17 @@ function grammar(baseGrammar, options) {
 
     return {name, word, rules, extras, conflicts, externals, inline};
   }
+
+function checkArguments(ruleCount, caller, callerName, suffix = '') {
+  if (ruleCount > 1) {
+    const error = new Error([
+      `The \`${callerName}\` function only takes one rule argument${suffix}.`,
+      'You passed multiple rules. Did you mean to call `seq`?\n'
+    ].join('\n'));
+    Error.captureStackTrace(error, caller);
+    throw error
+  }
+}
 
 global.alias = alias;
 global.blank = blank;
