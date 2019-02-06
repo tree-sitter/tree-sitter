@@ -40,7 +40,7 @@ fn test_walk_with_properties_with_nth_child() {
     parser.set_language(language).unwrap();
     let tree = parser.parse(source_code, None).unwrap();
 
-    let mut cursor = tree.walk_with_properties(&property_sheet, source_code);
+    let mut cursor = tree.walk_with_properties(&property_sheet, source_code.as_bytes());
     assert_eq!(cursor.node().kind(), "program");
     assert!(cursor.goto_first_child());
     assert_eq!(cursor.node().kind(), "expression_statement");
@@ -98,7 +98,7 @@ fn test_walk_with_properties_with_regexes() {
     parser.set_language(language).unwrap();
     let tree = parser.parse(source_code, None).unwrap();
 
-    let mut cursor = tree.walk_with_properties(&property_sheet, source_code);
+    let mut cursor = tree.walk_with_properties(&property_sheet, source_code.as_bytes());
     assert_eq!(cursor.node().kind(), "program");
     assert!(cursor.goto_first_child());
     assert_eq!(cursor.node().kind(), "lexical_declaration");

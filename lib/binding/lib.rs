@@ -123,7 +123,7 @@ pub struct TreePropertyCursor<'a, P> {
     state_stack: Vec<usize>,
     child_index_stack: Vec<usize>,
     property_sheet: &'a PropertySheet<P>,
-    source: &'a str,
+    source: &'a [u8],
 }
 
 impl Language {
@@ -355,7 +355,7 @@ impl Tree {
     pub fn walk_with_properties<'a, P>(
         &'a self,
         property_sheet: &'a PropertySheet<P>,
-        source: &'a str,
+        source: &'a [u8],
     ) -> TreePropertyCursor<'a, P> {
         TreePropertyCursor::new(self, property_sheet, source)
     }
@@ -613,7 +613,7 @@ impl<'a> Drop for TreeCursor<'a> {
 }
 
 impl<'a, P> TreePropertyCursor<'a, P> {
-    fn new(tree: &'a Tree, property_sheet: &'a PropertySheet<P>, source: &'a str) -> Self {
+    fn new(tree: &'a Tree, property_sheet: &'a PropertySheet<P>, source: &'a [u8]) -> Self {
         let mut result = Self {
             cursor: tree.root_node().walk(),
             child_index_stack: vec![0],
@@ -690,7 +690,7 @@ impl<'a, P> TreePropertyCursor<'a, P> {
                 for transition in transitions.iter() {
                     if let Some(text_regex_index) = transition.text_regex_index {
                         let node = self.cursor.node();
-                        let text = &self.source.as_bytes()[node.start_byte()..node.end_byte()];
+                        let text = &self.source[node.start_byte()..node.end_byte()];
                         if let Ok(text) = str::from_utf8(text) {
                             if !self.property_sheet.text_regexes[text_regex_index].is_match(text) {
                                 continue;
