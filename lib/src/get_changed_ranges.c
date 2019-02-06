@@ -376,7 +376,7 @@ unsigned ts_subtree_get_changed_ranges(const Subtree *old_tree, const Subtree *n
           position.bytes, next_position.bytes
         )) {
           next_position = position;
-          // fall through
+          __attribute__ ((fallthrough));
         } else {
           break;
         }
