@@ -180,6 +180,7 @@ impl Loader {
                 command
                     .arg("-shared")
                     .arg("-fPIC")
+                    .arg("-fno-exceptions")
                     .arg("-I")
                     .arg(header_path)
                     .arg("-o")
