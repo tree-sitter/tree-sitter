@@ -1,13 +1,12 @@
+use super::error::{Error, Result};
 use libloading::{Library, Symbol};
 use regex::{Regex, RegexBuilder};
 use serde_derive::Deserialize;
 use std::collections::HashMap;
-use std::fs;
-use std::io;
-use std::mem;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::SystemTime;
+use std::{fs, mem};
 use tree_sitter::{Language, PropertySheet};
 
 #[cfg(unix)]
@@ -30,7 +29,7 @@ pub struct LanguageConfiguration {
     _content_regex: Option<Regex>,
     _first_line_regex: Option<Regex>,
     file_types: Vec<String>,
-    _highlight_property_sheet: Option<Result<PropertySheet, PathBuf>>,
+    _highlight_property_sheet: Option<std::result::Result<PropertySheet, PathBuf>>,
 }
 
 pub struct Loader {
@@ -51,7 +50,7 @@ impl Loader {
         }
     }
 
-    pub fn find_all_languages(&mut self, parser_src_paths: &Vec<PathBuf>) -> io::Result<()> {
+    pub fn find_all_languages(&mut self, parser_src_paths: &Vec<PathBuf>) -> Result<()> {
         for parser_container_dir in parser_src_paths.iter() {
             if let Ok(entries) = fs::read_dir(parser_container_dir) {
                 for entry in entries {
@@ -68,7 +67,7 @@ impl Loader {
         Ok(())
     }
 
-    pub fn language_at_path(&mut self, path: &Path) -> io::Result<Option<Language>> {
+    pub fn language_at_path(&mut self, path: &Path) -> Result<Option<Language>> {
         if let Ok(id) = self.find_language_at_path(path) {
             Ok(Some(self.language_configuration_for_id(id)?.0))
         } else {
@@ -79,7 +78,7 @@ impl Loader {
     pub fn language_configuration_for_file_name(
         &mut self,
         path: &Path,
-    ) -> io::Result<Option<(Language, &LanguageConfiguration)>> {
+    ) -> Result<Option<(Language, &LanguageConfiguration)>> {
         let ids = path
             .file_name()
             .and_then(|n| n.to_str())
@@ -104,7 +103,7 @@ impl Loader {
     fn language_configuration_for_id(
         &mut self,
         id: usize,
-    ) -> io::Result<(Language, &Vec<LanguageConfiguration>)> {
+    ) -> Result<(Language, &Vec<LanguageConfiguration>)> {
         let repo = &self.language_repos[id];
         let language = if let Some(language) = repo.language {
             language
@@ -122,7 +121,7 @@ impl Loader {
         name: &str,
         src_path: &Path,
         header_path: &Path,
-    ) -> io::Result<Language> {
+    ) -> Result<Language> {
         let parser_path = src_path.join("parser.c");
 
         let scanner_path;
@@ -147,7 +146,7 @@ impl Loader {
         header_path: &Path,
         parser_path: &Path,
         scanner_path: &Option<PathBuf>,
-    ) -> io::Result<Language> {
+    ) -> Result<Language> {
         let mut library_path = self.parser_lib_path.join(name);
         library_path.set_extension(DYLIB_EXTENSION);
 
@@ -197,19 +196,20 @@ impl Loader {
 
             let output = command.output()?;
             if !output.status.success() {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    format!(
-                        "Parser compilation failed.\nStdout: {}\nStderr: {}",
-                        String::from_utf8_lossy(&output.stdout),
-                        String::from_utf8_lossy(&output.stderr)
-                    )
-                    .as_str(),
-                ));
+                return Err(Error(format!(
+                    "Parser compilation failed.\nStdout: {}\nStderr: {}",
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                )));
             }
         }
 
-        let library = Library::new(library_path)?;
+        let library = Library::new(&library_path).map_err(|e| {
+            Error(format!(
+                "Error opening dynamic library {:?}: {}",
+                &library_path, e
+            ))
+        })?;
         let language_fn_name = format!("tree_sitter_{}", replace_dashes_with_underscores(name));
         let language = unsafe {
             let language_fn: Symbol<unsafe extern "C" fn() -> Language> =
@@ -220,7 +220,7 @@ impl Loader {
         Ok(language)
     }
 
-    fn find_language_at_path<'a>(&'a mut self, parser_path: &Path) -> io::Result<usize> {
+    fn find_language_at_path<'a>(&'a mut self, parser_path: &Path) -> Result<usize> {
         #[derive(Deserialize)]
         struct LanguageConfigurationJSON {
             name: String,
@@ -289,7 +289,7 @@ fn needs_recompile(
     lib_path: &Path,
     parser_c_path: &Path,
     scanner_path: &Option<PathBuf>,
-) -> io::Result<bool> {
+) -> Result<bool> {
     if !lib_path.exists() {
         return Ok(true);
     }
@@ -305,7 +305,7 @@ fn needs_recompile(
     Ok(false)
 }
 
-fn mtime(path: &Path) -> io::Result<SystemTime> {
+fn mtime(path: &Path) -> Result<SystemTime> {
     Ok(fs::metadata(path)?.modified()?)
 }
 
