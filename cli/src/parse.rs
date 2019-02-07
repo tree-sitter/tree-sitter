@@ -14,7 +14,7 @@ pub fn parse_file_at_path(
     print_time: bool,
     debug: bool,
     debug_graph: bool,
-) -> Result<()> {
+) -> Result<bool> {
     let mut _log_session = None;
     let mut parser = Parser::new();
     parser.set_language(language)?;
@@ -126,7 +126,7 @@ pub fn parse_file_at_path(
             let end = node.end_position();
             write!(
                 &mut stdout,
-                "\t({} [{}, {}] - [{}, {}]",
+                "\t({} [{}, {}] - [{}, {}])",
                 node.kind(),
                 start.row,
                 start.column,
@@ -137,5 +137,5 @@ pub fn parse_file_at_path(
         write!(&mut stdout, "\n")?;
     }
 
-    Ok(())
+    Ok(first_error.is_some())
 }

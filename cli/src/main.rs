@@ -118,6 +118,7 @@ fn run() -> error::Result<()> {
             .into_iter()
             .collect::<Vec<_>>();
         let max_path_length = paths.iter().map(|p| p.chars().count()).max().unwrap();
+        let mut has_error = false;
         for path in paths {
             let path = Path::new(path);
             let language =
@@ -129,7 +130,7 @@ fn run() -> error::Result<()> {
                     eprintln!("No language found");
                     return Ok(());
                 };
-            parse::parse_file_at_path(
+            has_error |= parse::parse_file_at_path(
                 language,
                 path,
                 max_path_length,
@@ -138,6 +139,10 @@ fn run() -> error::Result<()> {
                 debug,
                 debug_graph,
             )?;
+        }
+
+        if has_error {
+            return Err(error::Error(String::new()));
         }
     }
 
