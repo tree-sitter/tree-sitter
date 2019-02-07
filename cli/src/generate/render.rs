@@ -6,6 +6,7 @@ use core::ops::Range;
 use hashbrown::{HashMap, HashSet};
 use std::fmt::Write;
 use std::mem::swap;
+use tree_sitter::LANGUAGE_VERSION;
 
 macro_rules! add {
     ($this: tt, $($arg: tt)*) => {{
@@ -56,10 +57,12 @@ struct Generator {
     alias_ids: HashMap<Alias, String>,
     external_scanner_states: Vec<HashSet<usize>>,
     alias_map: HashMap<Alias, Option<Symbol>>,
+    field_names: Vec<String>,
 }
 
 impl Generator {
     fn generate(mut self) -> String {
+        self.init();
         self.add_includes();
         self.add_pragmas();
         self.add_stats();
@@ -68,7 +71,11 @@ impl Generator {
         self.add_symbol_metadata_list();
 
         if self.parse_table.child_info_sequences.len() > 1 {
-            self.add_alias_sequences();
+            if !self.field_names.is_empty() {
+                self.add_field_name_enum();
+            }
+            self.add_field_name_names_list();
+            self.add_child_info_sequences();
         }
 
         let mut main_lex_table = LexTable::default();
@@ -93,6 +100,49 @@ impl Generator {
         self.add_parser_export();
 
         self.buffer
+    }
+
+    fn init(&mut self) {
+        let mut symbol_identifiers = HashSet::new();
+        for i in 0..self.parse_table.symbols.len() {
+            self.assign_symbol_id(self.parse_table.symbols[i], &mut symbol_identifiers);
+        }
+
+        let mut field_names = Vec::new();
+        for child_info_sequence in &self.parse_table.child_info_sequences {
+            for entry in child_info_sequence {
+                if let Some(field_name) = &entry.field_name {
+                    field_names.push(field_name);
+                }
+
+                if let Some(alias) = &entry.alias {
+                    let alias_kind = if alias.is_named {
+                        VariableType::Named
+                    } else {
+                        VariableType::Anonymous
+                    };
+                    let matching_symbol = self.parse_table.symbols.iter().cloned().find(|symbol| {
+                        let (name, kind) = self.metadata_for_symbol(*symbol);
+                        name == alias.value && kind == alias_kind
+                    });
+                    let alias_id = if let Some(symbol) = matching_symbol {
+                        self.symbol_ids[&symbol].clone()
+                    } else if alias.is_named {
+                        format!("alias_sym_{}", self.sanitize_identifier(&alias.value))
+                    } else {
+                        format!("anon_alias_sym_{}", self.sanitize_identifier(&alias.value))
+                    };
+                    self.alias_ids.entry(alias.clone()).or_insert(alias_id);
+                    self.alias_map
+                        .entry(alias.clone())
+                        .or_insert(matching_symbol);
+                }
+            }
+        }
+
+        field_names.sort_unstable();
+        field_names.dedup();
+        self.field_names = field_names.into_iter().cloned().collect();
     }
 
     fn add_includes(&mut self) {
@@ -143,39 +193,7 @@ impl Generator {
             })
             .count();
 
-        let mut symbol_identifiers = HashSet::new();
-        for i in 0..self.parse_table.symbols.len() {
-            self.assign_symbol_id(self.parse_table.symbols[i], &mut symbol_identifiers);
-        }
-
-        for child_info_sequence in &self.parse_table.child_info_sequences {
-            for entry in child_info_sequence {
-                if let Some(alias) = &entry.alias {
-                    let alias_kind = if alias.is_named {
-                        VariableType::Named
-                    } else {
-                        VariableType::Anonymous
-                    };
-                    let matching_symbol = self.parse_table.symbols.iter().cloned().find(|symbol| {
-                        let (name, kind) = self.metadata_for_symbol(*symbol);
-                        name == alias.value && kind == alias_kind
-                    });
-                    let alias_id = if let Some(symbol) = matching_symbol {
-                        self.symbol_ids[&symbol].clone()
-                    } else if alias.is_named {
-                        format!("alias_sym_{}", self.sanitize_identifier(&alias.value))
-                    } else {
-                        format!("anon_alias_sym_{}", self.sanitize_identifier(&alias.value))
-                    };
-                    self.alias_ids.entry(alias.clone()).or_insert(alias_id);
-                    self.alias_map
-                        .entry(alias.clone())
-                        .or_insert(matching_symbol);
-                }
-            }
-        }
-
-        add_line!(self, "#define LANGUAGE_VERSION {}", 9);
+        add_line!(self, "#define LANGUAGE_VERSION {}", LANGUAGE_VERSION);
         add_line!(
             self,
             "#define STATE_COUNT {}",
@@ -197,10 +215,11 @@ impl Generator {
             "#define EXTERNAL_TOKEN_COUNT {}",
             self.syntax_grammar.external_tokens.len()
         );
+        add_line!(self, "#define FIELD_COUNT {}", self.field_names.len());
         add_line!(
             self,
-            "#define MAX_ALIAS_SEQUENCE_LENGTH {}",
-            self.parse_table.max_aliased_production_length
+            "#define MAX_CHILD_INFO_PRODUCTION_LENGTH {}",
+            self.parse_table.max_production_length_with_child_info
         );
         add_line!(self, "");
     }
@@ -247,6 +266,34 @@ impl Generator {
                     self.sanitize_string(&alias.value)
                 );
             }
+        }
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+    }
+
+    fn add_field_name_enum(&mut self) {
+        add_line!(self, "enum {{");
+        indent!(self);
+        for (i, field_name) in self.field_names.iter().enumerate() {
+            add_line!(self, "{} = {},", self.field_id(field_name), i + 1);
+        }
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+    }
+
+    fn add_field_name_names_list(&mut self) {
+        add_line!(self, "static const char *ts_field_names[] = {{");
+        indent!(self);
+        add_line!(self, "[0] = NULL,");
+        for field_name in &self.field_names {
+            add_line!(
+                self,
+                "[{}] = \"{}\",",
+                self.field_id(field_name),
+                field_name
+            );
         }
         dedent!(self);
         add_line!(self, "}};");
@@ -303,19 +350,48 @@ impl Generator {
         add_line!(self, "");
     }
 
-    fn add_alias_sequences(&mut self) {
+    fn add_child_info_sequences(&mut self) {
         add_line!(
             self,
-            "static TSSymbol ts_alias_sequences[{}][MAX_ALIAS_SEQUENCE_LENGTH] = {{",
+            "static TSSymbol ts_alias_sequences[{}][MAX_CHILD_INFO_PRODUCTION_LENGTH] = {{",
             self.parse_table.child_info_sequences.len()
         );
         indent!(self);
-        for (i, sequence) in self.parse_table.child_info_sequences.iter().enumerate().skip(1) {
+        for (i, sequence) in self.parse_table.child_info_sequences.iter().enumerate() {
+            if sequence.iter().all(|i| i.alias.is_none()) {
+                continue;
+            }
+
             add_line!(self, "[{}] = {{", i);
             indent!(self);
             for (j, child_info) in sequence.iter().enumerate() {
                 if let Some(alias) = &child_info.alias {
                     add_line!(self, "[{}] = {},", j, self.alias_ids[&alias]);
+                }
+            }
+            dedent!(self);
+            add_line!(self, "}},");
+        }
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+
+        add_line!(
+            self,
+            "static TSFieldId ts_field_sequences[{}][MAX_CHILD_INFO_PRODUCTION_LENGTH] = {{",
+            self.parse_table.child_info_sequences.len()
+        );
+        indent!(self);
+        for (i, sequence) in self.parse_table.child_info_sequences.iter().enumerate() {
+            if sequence.iter().all(|i| i.field_name.is_none()) {
+                continue;
+            }
+
+            add_line!(self, "[{}] = {{", i);
+            indent!(self);
+            for (j, child_info) in sequence.iter().enumerate() {
+                if let Some(field_name) = &child_info.field_name {
+                    add_line!(self, "[{}] = {},", j, self.field_id(&field_name));
                 }
             }
             dedent!(self);
@@ -694,7 +770,11 @@ impl Generator {
                             add!(self, ", .dynamic_precedence = {}", dynamic_precedence);
                         }
                         if child_info_sequence_id != 0 {
-                            add!(self, ", .alias_sequence_id = {}", child_info_sequence_id);
+                            add!(
+                                self,
+                                ", .child_info_sequence_id = {}",
+                                child_info_sequence_id
+                            );
                         }
                         add!(self, ")");
                     }
@@ -764,11 +844,18 @@ impl Generator {
                 self,
                 ".alias_sequences = (const TSSymbol *)ts_alias_sequences,"
             );
+
+            add_line!(self, ".field_count = FIELD_COUNT,");
+            add_line!(
+                self,
+                ".field_sequences = (const TSFieldId *)ts_field_sequences,"
+            );
+            add_line!(self, ".field_names = ts_field_names,");
         }
 
         add_line!(
             self,
-            ".max_alias_sequence_length = MAX_ALIAS_SEQUENCE_LENGTH,"
+            ".max_child_info_production_length = MAX_CHILD_INFO_PRODUCTION_LENGTH,"
         );
         add_line!(self, ".lex_fn = ts_lex,");
 
@@ -863,6 +950,10 @@ impl Generator {
 
         used_identifiers.insert(id.clone());
         self.symbol_ids.insert(symbol, id);
+    }
+
+    fn field_id(&self, field_name: &String) -> String {
+        format!("field_id_{}", field_name)
     }
 
     fn metadata_for_symbol(&self, symbol: Symbol) -> (&str, VariableType) {
@@ -996,6 +1087,7 @@ pub(crate) fn render_c_code(
         alias_ids: HashMap::new(),
         external_scanner_states: Vec::new(),
         alias_map: HashMap::new(),
+        field_names: Vec::new(),
     }
     .generate()
 }

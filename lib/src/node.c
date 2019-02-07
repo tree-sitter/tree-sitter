@@ -8,8 +8,8 @@ typedef struct {
   const TSTree *tree;
   Length position;
   uint32_t child_index;
-  uint32_t structural_child_index;
-  const TSSymbol *alias_sequence;
+  uint32_t child_info_offset;
+  TSFieldId last_field_id;
 } NodeChildIterator;
 
 // TSNode - constructors
@@ -49,19 +49,18 @@ static inline Subtree ts_node__subtree(TSNode self) {
 static inline NodeChildIterator ts_node_iterate_children(const TSNode *node) {
   Subtree subtree = ts_node__subtree(*node);
   if (ts_subtree_child_count(subtree) == 0) {
-    return (NodeChildIterator) {NULL_SUBTREE, node->tree, length_zero(), 0, 0, NULL};
+    return (NodeChildIterator) {NULL_SUBTREE, node->tree, length_zero(), 0, 0, 0};
   }
-  const TSSymbol *alias_sequence = ts_language_alias_sequence(
-    node->tree->language,
-    subtree.ptr->alias_sequence_id
-  );
+  uint32_t child_info_offset =
+    subtree.ptr->child_info_sequence_id *
+    node->tree->language->max_child_info_production_length;
   return (NodeChildIterator) {
     .tree = node->tree,
     .parent = subtree,
     .position = {ts_node_start_byte(*node), ts_node_start_point(*node)},
     .child_index = 0,
-    .structural_child_index = 0,
-    .alias_sequence = alias_sequence,
+    .child_info_offset = child_info_offset,
+    .last_field_id = 0,
   };
 }
 
@@ -69,11 +68,10 @@ static inline bool ts_node_child_iterator_next(NodeChildIterator *self, TSNode *
   if (!self->parent.ptr || self->child_index == self->parent.ptr->child_count) return false;
   const Subtree *child = &self->parent.ptr->children[self->child_index];
   TSSymbol alias_symbol = 0;
-  if (!ts_subtree_extra(*child)) {
-    if (self->alias_sequence) {
-      alias_symbol = self->alias_sequence[self->structural_child_index];
-    }
-    self->structural_child_index++;
+  if (!ts_subtree_extra(*child) && self->child_info_offset) {
+    alias_symbol = self->tree->language->alias_sequences[self->child_info_offset];
+    self->last_field_id = self->tree->language->field_sequences[self->child_info_offset];
+    self->child_info_offset++;
   }
   if (self->child_index > 0) {
     self->position = length_add(self->position, ts_subtree_padding(*child));
@@ -453,8 +451,30 @@ TSNode ts_node_named_child(TSNode self, uint32_t child_index) {
   return ts_node__child(self, child_index, false);
 }
 
-TSNode ts_node_child_by_ref(TSNode self, const char *ref_name) {
+TSNode ts_node_child_by_field_id(TSNode self, TSFieldId field_id) {
+  if (field_id) {
+    TSNode child;
+    NodeChildIterator iterator = ts_node_iterate_children(&self);
+    while (ts_node_child_iterator_next(&iterator, &child)) {
+      if (iterator.last_field_id == field_id) {
+        return child;
+      }
+    }
+  }
   return ts_node__null();
+}
+
+TSNode ts_node_child_by_field_name(
+  TSNode self,
+  const char *name,
+  uint32_t name_length
+) {
+  TSFieldId field_id = ts_language_field_id_for_name(
+    self.tree->language,
+    name,
+    name_length
+  );
+  return ts_node_child_by_field_id(self, field_id);
 }
 
 uint32_t ts_node_child_count(TSNode self) {

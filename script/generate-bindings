@@ -12,6 +12,13 @@ bindgen                         \
   $header_path > $output_path
 
 echo "" >> $output_path
-version_constant='TREE_SITTER_LANGUAGE_VERSION'
-version_number=$(egrep "#define $version_constant (.*)" $header_path | cut -d' ' -f3)
-echo "pub const $version_constant: usize = $version_number;" >> $output_path
+
+defines=(
+  TREE_SITTER_LANGUAGE_VERSION
+  TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
+)
+
+for define in ${defines[@]}; do
+  define_value=$(egrep "#define $define (.*)" $header_path | cut -d' ' -f3)
+  echo "pub const $define: usize = $define_value;" >> $output_path
+done

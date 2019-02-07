@@ -9,8 +9,7 @@ typedef struct {
   const TSTree *tree;
   Length position;
   uint32_t child_index;
-  uint32_t structural_child_index;
-  const TSSymbol *alias_sequence;
+  uint32_t child_info_offset;
 } CursorChildIterator;
 
 // CursorChildIterator
@@ -18,19 +17,17 @@ typedef struct {
 static inline CursorChildIterator ts_tree_cursor_iterate_children(const TreeCursor *self) {
   TreeCursorEntry *last_entry = array_back(&self->stack);
   if (ts_subtree_child_count(*last_entry->subtree) == 0) {
-    return (CursorChildIterator) {NULL_SUBTREE, self->tree, length_zero(), 0, 0, NULL};
+    return (CursorChildIterator) {NULL_SUBTREE, self->tree, length_zero(), 0, 0};
   }
-  const TSSymbol *alias_sequence = ts_language_alias_sequence(
-    self->tree->language,
-    last_entry->subtree->ptr->alias_sequence_id
-  );
+  uint32_t child_info_offset =
+    last_entry->subtree->ptr->child_info_sequence_id *
+    self->tree->language->max_child_info_production_length;
   return (CursorChildIterator) {
     .tree = self->tree,
     .parent = *last_entry->subtree,
     .position = last_entry->position,
     .child_index = 0,
-    .structural_child_index = 0,
-    .alias_sequence = alias_sequence,
+    .child_info_offset = child_info_offset,
   };
 }
 
@@ -43,17 +40,17 @@ static inline bool ts_tree_cursor_child_iterator_next(CursorChildIterator *self,
     .subtree = child,
     .position = self->position,
     .child_index = self->child_index,
-    .structural_child_index = self->structural_child_index,
+    .child_info_offset = self->child_info_offset,
   };
   *visible = ts_subtree_visible(*child);
   bool extra = ts_subtree_extra(*child);
-  if (!extra && self->alias_sequence) {
-    *visible |= self->alias_sequence[self->structural_child_index];
+  if (!extra && self->child_info_offset) {
+    *visible |= self->tree->language->alias_sequences[self->child_info_offset];
+    self->child_info_offset++;
   }
 
   self->position = length_add(self->position, ts_subtree_size(*child));
   self->child_index++;
-  if (!extra) self->structural_child_index++;
 
   if (self->child_index < self->parent.ptr->child_count) {
     Subtree next_child = self->parent.ptr->children[self->child_index];
@@ -85,7 +82,7 @@ void ts_tree_cursor_init(TreeCursor *self, TSNode node) {
       ts_node_start_point(node)
     },
     .child_index = 0,
-    .structural_child_index = 0,
+    .child_info_offset = 0,
   }));
 }
 
@@ -176,7 +173,7 @@ bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *_self) {
     TreeCursorEntry entry = array_pop(&self->stack);
     CursorChildIterator iterator = ts_tree_cursor_iterate_children(self);
     iterator.child_index = entry.child_index;
-    iterator.structural_child_index = entry.structural_child_index;
+    iterator.child_info_offset = entry.child_info_offset;
     iterator.position = entry.position;
 
     bool visible = false;
@@ -207,12 +204,9 @@ bool ts_tree_cursor_goto_parent(TSTreeCursor *_self) {
     TreeCursorEntry *entry = &self->stack.contents[i];
     bool is_aliased = false;
     if (i > 0) {
-      TreeCursorEntry *parent_entry = &self->stack.contents[i - 1];
-      const TSSymbol *alias_sequence = ts_language_alias_sequence(
-        self->tree->language,
-        parent_entry->subtree->ptr->alias_sequence_id
-      );
-      is_aliased = alias_sequence && alias_sequence[entry->structural_child_index];
+      is_aliased =
+        entry->child_info_offset &&
+        self->tree->language->alias_sequences[entry->child_info_offset];
     }
     if (ts_subtree_visible(*entry->subtree) || is_aliased) {
       self->stack.size = i + 1;
@@ -226,15 +220,8 @@ TSNode ts_tree_cursor_current_node(const TSTreeCursor *_self) {
   const TreeCursor *self = (const TreeCursor *)_self;
   TreeCursorEntry *last_entry = array_back(&self->stack);
   TSSymbol alias_symbol = 0;
-  if (self->stack.size > 1) {
-    TreeCursorEntry *parent_entry = &self->stack.contents[self->stack.size - 2];
-    const TSSymbol *alias_sequence = ts_language_alias_sequence(
-      self->tree->language,
-      parent_entry->subtree->ptr->alias_sequence_id
-    );
-    if (alias_sequence && !ts_subtree_extra(*last_entry->subtree)) {
-      alias_symbol = alias_sequence[last_entry->structural_child_index];
-    }
+  if (last_entry->child_info_offset) {
+    alias_symbol = self->tree->language->alias_sequences[last_entry->child_info_offset];
   }
   return ts_node_new(
     self->tree,
@@ -242,4 +229,20 @@ TSNode ts_tree_cursor_current_node(const TSTreeCursor *_self) {
     last_entry->position,
     alias_symbol
   );
+}
+
+TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *_self) {
+  const TreeCursor *self = (const TreeCursor *)_self;
+  TreeCursorEntry *entry = array_back(&self->stack);
+  if (entry->child_info_offset) {
+    return self->tree->language->field_sequences[entry->child_info_offset];
+  } else {
+    return 0;
+  }
+}
+
+const char *ts_tree_cursor_current_field_name(const TSTreeCursor *_self) {
+  TSFieldId id = ts_tree_cursor_current_field_id(_self);
+  const TreeCursor *self = (const TreeCursor *)_self;
+  return self->tree->language->field_names[id];
 }

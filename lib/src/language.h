@@ -83,7 +83,7 @@ ts_language_enabled_external_tokens(const TSLanguage *self,
 static inline const TSSymbol *
 ts_language_alias_sequence(const TSLanguage *self, unsigned id) {
   return id > 0 ?
-    self->alias_sequences + id * self->max_alias_sequence_length :
+    self->alias_sequences + id * self->max_child_info_production_length :
     NULL;
 }
 

@@ -15,6 +15,7 @@ extern "C" {
 
 #ifndef TREE_SITTER_API_H_
 typedef uint16_t TSSymbol;
+typedef uint16_t TSFieldId;
 typedef struct TSLanguage TSLanguage;
 #endif
 
@@ -54,7 +55,7 @@ typedef struct {
       TSSymbol symbol;
       int16_t dynamic_precedence;
       uint8_t child_count;
-      uint8_t alias_sequence_id;
+      uint8_t child_info_sequence_id;
     };
   } params;
   TSParseActionType type : 4;
@@ -85,7 +86,7 @@ struct TSLanguage {
   const TSParseActionEntry *parse_actions;
   const TSLexMode *lex_modes;
   const TSSymbol *alias_sequences;
-  uint16_t max_alias_sequence_length;
+  uint16_t max_child_info_production_length;
   bool (*lex_fn)(TSLexer *, TSStateId);
   bool (*keyword_lex_fn)(TSLexer *, TSStateId);
   TSSymbol keyword_capture_token;
@@ -98,6 +99,9 @@ struct TSLanguage {
     unsigned (*serialize)(void *, char *);
     void (*deserialize)(void *, const char *, unsigned);
   } external_scanner;
+  uint32_t field_count;
+  const TSFieldId *field_sequences;
+  const char **field_names;
 };
 
 /*

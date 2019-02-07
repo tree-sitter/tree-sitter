@@ -42,7 +42,7 @@ pub(crate) struct ParseState {
 #[derive(Debug, Default, PartialEq, Eq)]
 pub(crate) struct ChildInfo {
     pub alias: Option<Alias>,
-    pub child_ref: Option<String>,
+    pub field_name: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -50,7 +50,7 @@ pub(crate) struct ParseTable {
     pub states: Vec<ParseState>,
     pub symbols: Vec<Symbol>,
     pub child_info_sequences: Vec<Vec<ChildInfo>>,
-    pub max_aliased_production_length: usize,
+    pub max_production_length_with_child_info: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

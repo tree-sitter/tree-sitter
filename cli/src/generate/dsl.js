@@ -34,6 +34,14 @@ function blank() {
   };
 }
 
+function field(name, rule) {
+  return {
+    type: "FIELD",
+    name: name,
+    content: rule
+  }
+}
+
 function choice(...elements) {
   return {
     type: "CHOICE",
@@ -363,6 +371,7 @@ global.seq = seq;
 global.sym = sym;
 global.token = token;
 global.grammar = grammar;
+global.field = field;
 
 const result = require(process.env.TREE_SITTER_GRAMMAR_PATH);
 console.log(JSON.stringify(result, null, 2));

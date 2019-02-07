@@ -49,9 +49,8 @@ pub fn parse_file_at_path(
         let mut did_visit_children = false;
         loop {
             let node = cursor.node();
-            let is_named = node.is_named();
             if did_visit_children {
-                if is_named {
+                if node.is_named() {
                     stdout.write(b")")?;
                     needs_newline = true;
                 }
@@ -64,12 +63,15 @@ pub fn parse_file_at_path(
                     break;
                 }
             } else {
-                if is_named {
+                if node.is_named() {
                     if needs_newline {
                         stdout.write(b"\n")?;
                     }
                     for _ in 0..indent_level {
                         stdout.write(b"  ")?;
+                    }
+                    if let Some(field_name) = cursor.field_name() {
+                        write!(&mut stdout, "{}: ", field_name)?;
                     }
                     let start = node.start_position();
                     let end = node.end_position();

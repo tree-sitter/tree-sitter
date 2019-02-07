@@ -4,9 +4,10 @@ use crate::error::{Error, Result};
 use crate::generate::grammars::{
     InlinedProductionMap, LexicalGrammar, SyntaxGrammar, VariableType,
 };
-use crate::generate::rules::{Alias, Associativity, Symbol, SymbolType};
+use crate::generate::rules::{Associativity, Symbol, SymbolType};
 use crate::generate::tables::{
-    ChildInfoSequenceId, ChildInfo, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
+    ChildInfo, ChildInfoSequenceId, ParseAction, ParseState, ParseStateId, ParseTable,
+    ParseTableEntry,
 };
 use core::ops::Range;
 use hashbrown::hash_map::Entry;
@@ -652,14 +653,14 @@ impl<'a> ParseTableBuilder<'a> {
             .iter()
             .map(|s| ChildInfo {
                 alias: s.alias.clone(),
-                child_ref: s.child_ref.clone(),
+                field_name: s.field_name.clone(),
             })
             .collect();
         while child_info_sequence.last() == Some(&ChildInfo::default()) {
             child_info_sequence.pop();
         }
-        if item.production.steps.len() > self.parse_table.max_aliased_production_length {
-            self.parse_table.max_aliased_production_length = item.production.steps.len()
+        if item.production.steps.len() > self.parse_table.max_production_length_with_child_info {
+            self.parse_table.max_production_length_with_child_info = item.production.steps.len()
         }
         if let Some(index) = self
             .parse_table
@@ -669,7 +670,9 @@ impl<'a> ParseTableBuilder<'a> {
         {
             index
         } else {
-            self.parse_table.child_info_sequences.push(child_info_sequence);
+            self.parse_table
+                .child_info_sequences
+                .push(child_info_sequence);
             self.parse_table.child_info_sequences.len() - 1
         }
     }
@@ -744,7 +747,7 @@ pub(crate) fn build_parse_table(
             states: Vec::new(),
             symbols: Vec::new(),
             child_info_sequences: Vec::new(),
-            max_aliased_production_length: 0,
+            max_production_length_with_child_info: 0,
         },
     }
     .build()?;

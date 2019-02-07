@@ -54,7 +54,7 @@ pub(crate) struct ProductionStep {
     pub precedence: i32,
     pub associativity: Option<Associativity>,
     pub alias: Option<Alias>,
-    pub child_ref: Option<String>,
+    pub field_name: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -100,7 +100,7 @@ impl ProductionStep {
             precedence: 0,
             associativity: None,
             alias: None,
-            child_ref: None,
+            field_name: None,
         }
     }
 
@@ -110,7 +110,7 @@ impl ProductionStep {
             precedence,
             associativity,
             alias: self.alias,
-            child_ref: self.child_ref,
+            field_name: self.field_name,
         }
     }
 
@@ -123,16 +123,16 @@ impl ProductionStep {
                 value: value.to_string(),
                 is_named,
             }),
-            child_ref: self.child_ref,
+            field_name: self.field_name,
         }
     }
-    pub(crate) fn with_child_ref(self, name: &str) -> Self {
+    pub(crate) fn with_field_name(self, name: &str) -> Self {
         Self {
             symbol: self.symbol,
             precedence: self.precedence,
             associativity: self.associativity,
             alias: self.alias,
-            child_ref: Some(name.to_string()),
+            field_name: Some(name.to_string()),
         }
     }
 }

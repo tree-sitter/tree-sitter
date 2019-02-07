@@ -12,15 +12,12 @@ use std::os::unix::io::AsRawFd;
 use regex::Regex;
 use serde::de::DeserializeOwned;
 use std::collections::HashMap;
-use std::ffi::{CStr, CString};
-use std::fmt;
+use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::os::raw::{c_char, c_void};
-use std::ptr;
-use std::slice;
-use std::str;
-use std::u16;
+use std::{fmt, ptr, slice, str, u16};
 
+pub const LANGUAGE_VERSION: usize = ffi::TREE_SITTER_LANGUAGE_VERSION;
 pub const PARSER_HEADER: &'static str = include_str!("../include/tree_sitter/parser.h");
 
 #[derive(Clone, Copy)]
@@ -157,15 +154,21 @@ impl Parser {
     pub fn set_language(&mut self, language: Language) -> Result<(), String> {
         unsafe {
             let version = ffi::ts_language_version(language.0) as usize;
-            if version == ffi::TREE_SITTER_LANGUAGE_VERSION {
-                ffi::ts_parser_set_language(self.0, language.0);
-                Ok(())
-            } else {
+            if version < ffi::TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION {
+                Err(format!(
+                    "Incompatible language version {}. Expected {} or greater.",
+                    version,
+                    ffi::TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
+                ))
+            } else if version > ffi::TREE_SITTER_LANGUAGE_VERSION {
                 Err(format!(
                     "Incompatible language version {}. Expected {}.",
                     version,
                     ffi::TREE_SITTER_LANGUAGE_VERSION
                 ))
+            } else {
+                ffi::ts_parser_set_language(self.0, language.0);
+                Ok(())
             }
         }
     }
@@ -463,12 +466,15 @@ impl<'tree> Node<'tree> {
         Self::new(unsafe { ffi::ts_node_child(self.0, i as u32) })
     }
 
-    pub fn child_by_ref(&self, ref_name: &str) -> Option<Self> {
-        if let Ok(c_ref_name) = CString::new(ref_name) {
-            Self::new(unsafe { ffi::ts_node_child_by_ref(self.0, c_ref_name.as_ptr()) })
-        } else {
-            None
-        }
+    pub fn child_by_field_name(&self, field_name: impl AsRef<[u8]>) -> Option<Self> {
+        let field_name = field_name.as_ref();
+        Self::new(unsafe {
+            ffi::ts_node_child_by_field_name(
+                self.0,
+                field_name.as_ptr() as *const c_char,
+                field_name.len() as u32,
+            )
+        })
     }
 
     pub fn child_count(&self) -> usize {
@@ -585,6 +591,28 @@ impl<'a> TreeCursor<'a> {
             unsafe { ffi::ts_tree_cursor_current_node(&self.0) },
             PhantomData,
         )
+    }
+
+    pub fn field_id(&self) -> Option<u16> {
+        unsafe {
+            let id = ffi::ts_tree_cursor_current_field_id(&self.0);
+            if id == 0 {
+                None
+            } else {
+                Some(id)
+            }
+        }
+    }
+
+    pub fn field_name(&self) -> Option<&str> {
+        unsafe {
+            let ptr = ffi::ts_tree_cursor_current_field_name(&self.0);
+            if ptr.is_null() {
+                None
+            } else {
+                Some(CStr::from_ptr(ptr).to_str().unwrap())
+            }
+        }
     }
 
     pub fn goto_first_child(&mut self) -> bool {

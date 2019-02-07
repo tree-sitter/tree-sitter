@@ -10,9 +10,11 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 
-#define TREE_SITTER_LANGUAGE_VERSION 9
+#define TREE_SITTER_LANGUAGE_VERSION 10
+#define TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION 9
 
 typedef uint16_t TSSymbol;
+typedef uint16_t TSFieldId;
 typedef struct TSLanguage TSLanguage;
 typedef struct TSParser TSParser;
 typedef struct TSTree TSTree;
@@ -119,7 +121,8 @@ bool ts_node_has_changes(TSNode);
 bool ts_node_has_error(TSNode);
 TSNode ts_node_parent(TSNode);
 TSNode ts_node_child(TSNode, uint32_t);
-TSNode ts_node_child_by_ref(TSNode, const char *);
+TSNode ts_node_child_by_field_id(TSNode, TSFieldId);
+TSNode ts_node_child_by_field_name(TSNode, const char *, uint32_t);
 TSNode ts_node_named_child(TSNode, uint32_t);
 uint32_t ts_node_child_count(TSNode);
 uint32_t ts_node_named_child_count(TSNode);
@@ -139,6 +142,8 @@ TSTreeCursor ts_tree_cursor_new(TSNode);
 void ts_tree_cursor_delete(TSTreeCursor *);
 void ts_tree_cursor_reset(TSTreeCursor *, TSNode);
 TSNode ts_tree_cursor_current_node(const TSTreeCursor *);
+TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *);
+const char *ts_tree_cursor_current_field_name(const TSTreeCursor *);
 bool ts_tree_cursor_goto_parent(TSTreeCursor *);
 bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *);
 bool ts_tree_cursor_goto_first_child(TSTreeCursor *);
@@ -147,6 +152,9 @@ int64_t ts_tree_cursor_goto_first_child_for_byte(TSTreeCursor *, uint32_t);
 uint32_t ts_language_symbol_count(const TSLanguage *);
 const char *ts_language_symbol_name(const TSLanguage *, TSSymbol);
 TSSymbol ts_language_symbol_for_name(const TSLanguage *, const char *);
+uint32_t ts_language_field_count(const TSLanguage *);
+const char *ts_language_field_name_for_id(const TSLanguage *, TSFieldId);
+TSFieldId ts_language_field_id_for_name(const TSLanguage *, const char *, uint32_t);
 TSSymbolType ts_language_symbol_type(const TSLanguage *, TSSymbol);
 uint32_t ts_language_version(const TSLanguage *);
 

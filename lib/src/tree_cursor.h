@@ -7,7 +7,7 @@ typedef struct {
   const Subtree *subtree;
   Length position;
   uint32_t child_index;
-  uint32_t structural_child_index;
+  uint32_t child_info_offset;
 } TreeCursorEntry;
 
 typedef struct {

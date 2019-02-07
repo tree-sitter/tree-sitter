@@ -338,6 +338,65 @@ fn test_node_edit() {
     }
 }
 
+#[test]
+fn test_node_field_names() {
+    let (parser_name, parser_code) = generate_parser_for_grammar(
+        r#"
+        {
+            "name": "test_grammar_with_refs",
+            "extras": [
+                {"type": "PATTERN", "value": "\\s+"}
+            ],
+            "rules": {
+                "rule_a": {
+                    "type": "SEQ",
+                    "members": [
+                        {
+                            "type": "FIELD",
+                            "name": "field_1",
+                            "content": {
+                                "type": "STRING",
+                                "value": "child-1"
+                            }
+                        },
+                        {
+                            "type": "CHOICE",
+                            "members": [
+                                {
+                                    "type": "STRING",
+                                    "value": "child-2"
+                                },
+                                {
+                                    "type": "BLANK"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "FIELD",
+                            "name": "field_2",
+                            "content": {
+                                "type": "STRING",
+                                "value": "child-3"
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    "#,
+    )
+    .unwrap();
+
+    let mut parser = Parser::new();
+    let language = get_test_language(&parser_name, &parser_code, None);
+    parser.set_language(language).unwrap();
+
+    let tree = parser.parse("child-1 child-2 child-3", None).unwrap();
+    let root_node = tree.root_node();
+    assert_eq!(root_node.child_by_field_name("field_1"), root_node.child(0));
+    assert_eq!(root_node.child_by_field_name("field_2"), root_node.child(2));
+}
+
 fn get_all_nodes(tree: &Tree) -> Vec<Node> {
     let mut result = Vec::new();
     let mut visited_children = false;
