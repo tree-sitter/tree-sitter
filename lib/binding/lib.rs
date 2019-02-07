@@ -535,12 +535,12 @@ impl<'tree> Node<'tree> {
         result
     }
 
-    pub fn utf8_text<'a>(&self, source: &'a str) -> Result<&'a str, str::Utf8Error> {
-        str::from_utf8(&source.as_bytes()[self.start_byte()..self.end_byte()])
+    pub fn utf8_text<'a>(&self, source: &'a [u8]) -> Result<&'a str, str::Utf8Error> {
+        str::from_utf8(&source[self.start_byte()..self.end_byte()])
     }
 
     pub fn utf16_text<'a>(&self, source: &'a [u16]) -> &'a [u16] {
-        &source[self.start_byte()..self.end_byte()]
+        &source.as_ref()[self.start_byte()..self.end_byte()]
     }
 
     pub fn walk(&self) -> TreeCursor<'tree> {
