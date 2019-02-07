@@ -47,7 +47,6 @@ pub(crate) fn build_tables(
         &keywords,
     );
     populate_used_symbols(&mut parse_table, syntax_grammar, lexical_grammar);
-    mark_fragile_tokens(&mut parse_table, lexical_grammar, &token_conflict_map);
     if minimize {
         minimize_parse_table(
             &mut parse_table,
@@ -67,6 +66,7 @@ pub(crate) fn build_tables(
         &token_conflict_map,
         minimize,
     );
+    mark_fragile_tokens(&mut parse_table, lexical_grammar, &token_conflict_map);
     Ok((
         parse_table,
         main_lex_table,
@@ -324,9 +324,9 @@ fn mark_fragile_tokens(
         }
         for (token, entry) in state.terminal_entries.iter_mut() {
             if token.is_terminal() {
-                for i in 0..n {
-                    if token_conflict_map.does_overlap(i, token.index) {
-                        if valid_tokens_mask[i] {
+                for (i, is_valid) in valid_tokens_mask.iter().enumerate() {
+                    if *is_valid {
+                        if token_conflict_map.does_overlap(i, token.index) {
                             entry.reusable = false;
                             break;
                         }
