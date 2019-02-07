@@ -854,6 +854,24 @@ impl<P> PropertySheet<P> {
     }
 }
 
+impl fmt::Display for PropertySheetError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            PropertySheetError::InvalidJSON(e) => write!(f, "Invalid JSON: {}", e),
+            PropertySheetError::InvalidRegex(e) => write!(f, "Invalid Regex: {}", e),
+        }
+    }
+}
+
+impl std::error::Error for PropertySheetError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            PropertySheetError::InvalidJSON(e) => Some(e),
+            PropertySheetError::InvalidRegex(e) => Some(e),
+        }
+    }
+}
+
 extern "C" {
     #[link_name = "rust_tree_sitter_free"]
     fn free_ptr(ptr: *mut c_void);
