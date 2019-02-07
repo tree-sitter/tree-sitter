@@ -54,6 +54,11 @@ pub fn generate_parser_in_directory(
     fs::create_dir_all(&repo_header_path)?;
     fs::write(&repo_src_path.join("parser.c"), c_code)
         .map_err(|e| format!("Failed to write parser.c: {}", e))?;
+    fs::write(
+        &repo_header_path.join("parser.h"),
+        tree_sitter::PARSER_HEADER,
+    )
+    .map_err(|e| format!("Failed to write parser.h: {}", e))?;
     ensure_file(&repo_src_path.join("binding.cc"), || {
         npm_files::binding_cc(&language_name)
     })?;
@@ -62,9 +67,6 @@ pub fn generate_parser_in_directory(
     })?;
     ensure_file(&repo_path.join("index.js"), || {
         npm_files::index_js(&language_name)
-    })?;
-    ensure_file(&repo_header_path.join("parser.h"), || {
-        tree_sitter::PARSER_HEADER
     })?;
     Ok(())
 }
