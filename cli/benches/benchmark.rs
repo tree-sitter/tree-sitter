@@ -166,7 +166,8 @@ fn parse(parser: &mut Parser, example_path: &Path, max_path_length: usize) -> us
 }
 
 fn get_language(name: &str) -> Language {
+    let src_dir = GRAMMARS_DIR.join(name).join("src");
     TEST_LOADER
-        .load_language_at_path(name, &GRAMMARS_DIR.join(name).join("src"), &HEADER_DIR)
+        .load_language_at_path(name, &src_dir, &src_dir)
         .unwrap()
 }
