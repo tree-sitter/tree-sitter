@@ -19,6 +19,12 @@ typedef uint16_t TSFieldId;
 typedef struct TSLanguage TSLanguage;
 #endif
 
+typedef struct {
+  TSFieldId field_id;
+  uint8_t child_index;
+  bool inherited;
+} TSFieldMapping;
+
 typedef uint16_t TSStateId;
 
 typedef struct {
@@ -55,7 +61,7 @@ typedef struct {
       TSSymbol symbol;
       int16_t dynamic_precedence;
       uint8_t child_count;
-      uint8_t child_info_sequence_id;
+      uint8_t child_info_id;
     };
   } params;
   TSParseActionType type : 4;
@@ -100,7 +106,7 @@ struct TSLanguage {
     void (*deserialize)(void *, const char *, unsigned);
   } external_scanner;
   uint32_t field_count;
-  const TSFieldId *field_sequences;
+  const TSFieldMapping *field_map;
   const char **field_names;
 };
 

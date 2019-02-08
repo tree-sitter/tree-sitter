@@ -108,7 +108,7 @@ static Iterator iterator_new(TreeCursor *cursor, const Subtree *tree, const TSLa
     .subtree = tree,
     .position = length_zero(),
     .child_index = 0,
-    .child_info_offset = 0,
+    .structural_child_index = 0,
   }));
   return (Iterator) {
     .cursor = *cursor,
@@ -144,11 +144,15 @@ Length iterator_end_position(Iterator *self) {
 static bool iterator_tree_is_visible(const Iterator *self) {
   TreeCursorEntry entry = *array_back(&self->cursor.stack);
   if (ts_subtree_visible(*entry.subtree)) return true;
-  if (entry.child_info_offset) {
-    return self->language->alias_sequences[entry.child_info_offset] != 0;
-  } else {
-    return false;
+  if (self->cursor.stack.size > 1) {
+    Subtree parent = *self->cursor.stack.contents[self->cursor.stack.size - 2].subtree;
+    const TSSymbol *alias_sequence = ts_language_alias_sequence(
+      self->language,
+      parent.ptr->child_info_id
+    );
+    return alias_sequence && alias_sequence[entry.structural_child_index] != 0;
   }
+  return false;
 }
 
 static void iterator_get_visible_state(const Iterator *self, Subtree *tree,
@@ -163,8 +167,15 @@ static void iterator_get_visible_state(const Iterator *self, Subtree *tree,
   for (; i + 1 > 0; i--) {
     TreeCursorEntry entry = self->cursor.stack.contents[i];
 
-    if (entry.child_info_offset) {
-      *alias_symbol = self->language->alias_sequences[entry.child_info_offset];
+    if (i > 0) {
+      const Subtree *parent = self->cursor.stack.contents[i - 1].subtree;
+      const TSSymbol *alias_sequence = ts_language_alias_sequence(
+        self->language,
+        parent->ptr->child_info_id
+      );
+      if (alias_sequence) {
+        *alias_symbol = alias_sequence[entry.structural_child_index];
+      }
     }
 
     if (ts_subtree_visible(*entry.subtree) || *alias_symbol) {
@@ -190,9 +201,7 @@ static bool iterator_descend(Iterator *self, uint32_t goal_position) {
     did_descend = false;
     TreeCursorEntry entry = *array_back(&self->cursor.stack);
     Length position = entry.position;
-    uint32_t child_info_offset =
-      self->language->max_child_info_production_length *
-      ts_subtree_child_info_sequence_id(*entry.subtree);
+    uint32_t structural_child_index = 0;
     for (uint32_t i = 0, n = ts_subtree_child_count(*entry.subtree); i < n; i++) {
       const Subtree *child = &entry.subtree->ptr->children[i];
       Length child_left = length_add(position, ts_subtree_padding(*child));
@@ -203,7 +212,7 @@ static bool iterator_descend(Iterator *self, uint32_t goal_position) {
           .subtree = child,
           .position = position,
           .child_index = i,
-          .child_info_offset = child_info_offset,
+          .structural_child_index = structural_child_index,
         }));
 
         if (iterator_tree_is_visible(self)) {
@@ -220,9 +229,7 @@ static bool iterator_descend(Iterator *self, uint32_t goal_position) {
       }
 
       position = child_right;
-      if (!ts_subtree_extra(*child) && child_info_offset) {
-        child_info_offset++;
-      }
+      if (!ts_subtree_extra(*child)) structural_child_index++;
     }
   } while (did_descend);
 
@@ -249,17 +256,15 @@ static void iterator_advance(Iterator *self) {
     uint32_t child_index = entry.child_index + 1;
     if (ts_subtree_child_count(*parent) > child_index) {
       Length position = length_add(entry.position, ts_subtree_total_size(*entry.subtree));
-      uint32_t child_info_offset = entry.child_info_offset;
-      if (child_info_offset && !ts_subtree_extra(*entry.subtree)) {
-        child_info_offset++;
-      }
+      uint32_t structural_child_index = entry.structural_child_index;
+      if (!ts_subtree_extra(*entry.subtree)) structural_child_index++;
       const Subtree *next_child = &parent->ptr->children[child_index];
 
       array_push(&self->cursor.stack, ((TreeCursorEntry){
         .subtree = next_child,
         .position = position,
         .child_index = child_index,
-        .child_info_offset = child_info_offset,
+        .structural_child_index = structural_child_index,
       }));
 
       if (iterator_tree_is_visible(self)) {

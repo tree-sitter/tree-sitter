@@ -6,14 +6,14 @@ use crate::generate::grammars::{
 };
 use crate::generate::rules::{Associativity, Symbol, SymbolType};
 use crate::generate::tables::{
-    ChildInfo, ChildInfoSequenceId, ParseAction, ParseState, ParseStateId, ParseTable,
+    ChildInfo, ChildInfoId, FieldLocation, ParseAction, ParseState, ParseStateId, ParseTable,
     ParseTableEntry,
 };
 use core::ops::Range;
 use hashbrown::hash_map::Entry;
 use hashbrown::{HashMap, HashSet};
 use std::collections::hash_map::DefaultHasher;
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::u32;
 
 use std::fmt::Write;
@@ -36,6 +36,7 @@ struct ParseStateQueueEntry {
 
 struct ParseTableBuilder<'a> {
     item_set_builder: ParseItemSetBuilder<'a>,
+    field_names_by_hidden_symbol: HashMap<Symbol, Vec<String>>,
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
     state_ids_by_item_set: HashMap<ParseItemSet<'a>, ParseStateId>,
@@ -48,7 +49,7 @@ struct ParseTableBuilder<'a> {
 impl<'a> ParseTableBuilder<'a> {
     fn build(mut self) -> Result<ParseTable> {
         // Ensure that the empty alias sequence has index 0.
-        self.parse_table.child_info_sequences.push(Vec::new());
+        self.parse_table.child_infos.push(ChildInfo::default());
 
         // Add the error state at index 0.
         self.add_parse_state(&Vec::new(), &Vec::new(), ParseItemSet::default());
@@ -177,7 +178,7 @@ impl<'a> ParseTableBuilder<'a> {
                         precedence: item.precedence(),
                         associativity: item.associativity(),
                         dynamic_precedence: item.production.dynamic_precedence,
-                        child_info_sequence_id: self.get_child_info_sequence_id(item),
+                        child_info_id: self.get_child_info_id(item),
                     }
                 };
 
@@ -646,34 +647,56 @@ impl<'a> ParseTableBuilder<'a> {
         }
     }
 
-    fn get_child_info_sequence_id(&mut self, item: &ParseItem) -> ChildInfoSequenceId {
-        let mut child_info_sequence: Vec<ChildInfo> = item
-            .production
-            .steps
-            .iter()
-            .map(|s| ChildInfo {
-                alias: s.alias.clone(),
-                field_name: s.field_name.clone(),
-            })
-            .collect();
-        while child_info_sequence.last() == Some(&ChildInfo::default()) {
-            child_info_sequence.pop();
+    fn get_child_info_id(&mut self, item: &ParseItem) -> ChildInfoId {
+        let mut child_info = ChildInfo {
+            alias_sequence: Vec::new(),
+            field_map: BTreeMap::new(),
+        };
+
+        for (i, step) in item.production.steps.iter().enumerate() {
+            child_info.alias_sequence.push(step.alias.clone());
+            if let Some(field_name) = &step.field_name {
+                child_info
+                    .field_map
+                    .entry(field_name.clone())
+                    .or_insert(Vec::new())
+                    .push(FieldLocation {
+                        index: i,
+                        inherited: false,
+                    });
+            }
+            if let Some(field_names) = self.field_names_by_hidden_symbol.get(&step.symbol) {
+                for field_name in field_names {
+                    child_info
+                        .field_map
+                        .entry(field_name.clone())
+                        .or_insert(Vec::new())
+                        .push(FieldLocation {
+                            index: i,
+                            inherited: true,
+                        });
+                }
+            }
         }
+
+        while child_info.alias_sequence.last() == Some(&None) {
+            child_info.alias_sequence.pop();
+        }
+
         if item.production.steps.len() > self.parse_table.max_production_length_with_child_info {
             self.parse_table.max_production_length_with_child_info = item.production.steps.len()
         }
+
         if let Some(index) = self
             .parse_table
-            .child_info_sequences
+            .child_infos
             .iter()
-            .position(|seq| *seq == child_info_sequence)
+            .position(|seq| *seq == child_info)
         {
             index
         } else {
-            self.parse_table
-                .child_info_sequences
-                .push(child_info_sequence);
-            self.parse_table.child_info_sequences.len() - 1
+            self.parse_table.child_infos.push(child_info);
+            self.parse_table.child_infos.len() - 1
         }
     }
 
@@ -720,6 +743,26 @@ fn populate_following_tokens(
     }
 }
 
+fn field_names_by_hidden_symbol(grammar: &SyntaxGrammar) -> HashMap<Symbol, Vec<String>> {
+    let mut result = HashMap::new();
+    for (i, variable) in grammar.variables.iter().enumerate() {
+        let mut field_names = Vec::new();
+        if variable.kind == VariableType::Hidden {
+            for production in &variable.productions {
+                for step in &production.steps {
+                    if let Some(field_name) = &step.field_name {
+                        if let Err(i) = field_names.binary_search(field_name) {
+                            field_names.insert(i, field_name.clone());
+                        }
+                    }
+                }
+            }
+        }
+        result.insert(Symbol::non_terminal(i), field_names);
+    }
+    result
+}
+
 pub(crate) fn build_parse_table(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
@@ -746,9 +789,10 @@ pub(crate) fn build_parse_table(
         parse_table: ParseTable {
             states: Vec::new(),
             symbols: Vec::new(),
-            child_info_sequences: Vec::new(),
+            child_infos: Vec::new(),
             max_production_length_with_child_info: 0,
         },
+        field_names_by_hidden_symbol: field_names_by_hidden_symbol(syntax_grammar),
     }
     .build()?;
 

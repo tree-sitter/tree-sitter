@@ -675,7 +675,7 @@ static bool ts_parser__replace_children(TSParser *self, MutableSubtree *tree, Su
 
 static StackVersion ts_parser__reduce(TSParser *self, StackVersion version, TSSymbol symbol,
                                       uint32_t count, int dynamic_precedence,
-                                      uint16_t child_info_sequence_id, bool fragile) {
+                                      uint16_t child_info_id, bool fragile) {
   uint32_t initial_version_count = ts_stack_version_count(self->stack);
   uint32_t removed_version_count = 0;
   StackSliceArray pop = ts_stack_pop_count(self->stack, version, count);
@@ -709,7 +709,7 @@ static StackVersion ts_parser__reduce(TSParser *self, StackVersion version, TSSy
     }
 
     MutableSubtree parent = ts_subtree_new_node(&self->tree_pool,
-      symbol, &children, child_info_sequence_id, self->language
+      symbol, &children, child_info_id, self->language
     );
 
     // This pop operation may have caused multiple stack versions to collapse
@@ -735,7 +735,7 @@ static StackVersion ts_parser__reduce(TSParser *self, StackVersion version, TSSy
     }
 
     parent.ptr->dynamic_precedence += dynamic_precedence;
-    parent.ptr->child_info_sequence_id = child_info_sequence_id;
+    parent.ptr->child_info_id = child_info_id;
 
     TSStateId state = ts_stack_state(self->stack, slice_version);
     TSStateId next_state = ts_language_next_state(self->language, state, symbol);
@@ -791,7 +791,7 @@ static void ts_parser__accept(TSParser *self, StackVersion version, Subtree look
           &self->tree_pool,
           ts_subtree_symbol(child),
           &trees,
-          child.ptr->child_info_sequence_id,
+          child.ptr->child_info_id,
           self->language
         ));
         ts_subtree_release(&self->tree_pool, child);
@@ -867,7 +867,7 @@ static bool ts_parser__do_all_potential_reductions(TSParser *self,
                 .symbol = action.params.symbol,
                 .count = action.params.child_count,
                 .dynamic_precedence = action.params.dynamic_precedence,
-                .child_info_sequence_id = action.params.child_info_sequence_id,
+                .child_info_id = action.params.child_info_id,
               });
           default:
             break;
@@ -881,7 +881,7 @@ static bool ts_parser__do_all_potential_reductions(TSParser *self,
 
       reduction_version = ts_parser__reduce(
         self, version, action.symbol, action.count,
-        action.dynamic_precedence, action.child_info_sequence_id,
+        action.dynamic_precedence, action.child_info_id,
         true
       );
     }
@@ -1310,7 +1310,7 @@ static void ts_parser__advance(TSParser *self, StackVersion version, bool allow_
           LOG("reduce sym:%s, child_count:%u", SYM_NAME(action.params.symbol), action.params.child_count);
           StackVersion reduction_version = ts_parser__reduce(
             self, version, action.params.symbol, action.params.child_count,
-            action.params.dynamic_precedence, action.params.child_info_sequence_id,
+            action.params.dynamic_precedence, action.params.child_info_id,
             is_fragile
           );
           if (reduction_version != STACK_VERSION_NONE) {

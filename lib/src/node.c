@@ -8,8 +8,8 @@ typedef struct {
   const TSTree *tree;
   Length position;
   uint32_t child_index;
-  uint32_t child_info_offset;
-  TSFieldId last_field_id;
+  uint32_t structural_child_index;
+  const TSSymbol *alias_sequence;
 } NodeChildIterator;
 
 // TSNode - constructors
@@ -49,29 +49,35 @@ static inline Subtree ts_node__subtree(TSNode self) {
 static inline NodeChildIterator ts_node_iterate_children(const TSNode *node) {
   Subtree subtree = ts_node__subtree(*node);
   if (ts_subtree_child_count(subtree) == 0) {
-    return (NodeChildIterator) {NULL_SUBTREE, node->tree, length_zero(), 0, 0, 0};
+    return (NodeChildIterator) {NULL_SUBTREE, node->tree, length_zero(), 0, 0, NULL};
   }
-  uint32_t child_info_offset =
-    subtree.ptr->child_info_sequence_id *
-    node->tree->language->max_child_info_production_length;
+  const TSSymbol *alias_sequence = ts_language_alias_sequence(
+    node->tree->language,
+    subtree.ptr->child_info_id
+  );
   return (NodeChildIterator) {
     .tree = node->tree,
     .parent = subtree,
     .position = {ts_node_start_byte(*node), ts_node_start_point(*node)},
     .child_index = 0,
-    .child_info_offset = child_info_offset,
-    .last_field_id = 0,
+    .structural_child_index = 0,
+    .alias_sequence = alias_sequence,
   };
 }
 
+static inline bool ts_node_child_iterator_done(NodeChildIterator *self) {
+  return self->child_index == self->parent.ptr->child_count;
+}
+
 static inline bool ts_node_child_iterator_next(NodeChildIterator *self, TSNode *result) {
-  if (!self->parent.ptr || self->child_index == self->parent.ptr->child_count) return false;
+  if (!self->parent.ptr || ts_node_child_iterator_done(self)) return false;
   const Subtree *child = &self->parent.ptr->children[self->child_index];
   TSSymbol alias_symbol = 0;
-  if (!ts_subtree_extra(*child) && self->child_info_offset) {
-    alias_symbol = self->tree->language->alias_sequences[self->child_info_offset];
-    self->last_field_id = self->tree->language->field_sequences[self->child_info_offset];
-    self->child_info_offset++;
+  if (!ts_subtree_extra(*child)) {
+    if (self->alias_sequence) {
+      alias_symbol = self->alias_sequence[self->structural_child_index];
+    }
+    self->structural_child_index++;
   }
   if (self->child_index > 0) {
     self->position = length_add(self->position, ts_subtree_padding(*child));
@@ -452,15 +458,68 @@ TSNode ts_node_named_child(TSNode self, uint32_t child_index) {
 }
 
 TSNode ts_node_child_by_field_id(TSNode self, TSFieldId field_id) {
-  if (field_id) {
-    TSNode child;
-    NodeChildIterator iterator = ts_node_iterate_children(&self);
-    while (ts_node_child_iterator_next(&iterator, &child)) {
-      if (iterator.last_field_id == field_id) {
+recur:
+  if (!field_id || ts_node_child_count(self) == 0) return ts_node__null();
+
+  const TSFieldMapping *field_map, *field_map_end;
+  ts_language_field_map(
+    self.tree->language,
+    ts_node__subtree(self).ptr->child_info_id,
+    &field_map,
+    &field_map_end
+  );
+  if (field_map == field_map_end) return ts_node__null();
+
+  // The field mappings are sorted by their field id. Scan all
+  // the mappings to find the ones for the given field id.
+  while (field_map->field_id < field_id) {
+    field_map++;
+    if (field_map == field_map_end) return ts_node__null();
+  }
+  while (field_map_end[-1].field_id > field_id) {
+    field_map_end--;
+    if (field_map == field_map_end) return ts_node__null();
+  }
+
+  TSNode child;
+  NodeChildIterator iterator = ts_node_iterate_children(&self);
+  while (ts_node_child_iterator_next(&iterator, &child)) {
+    if (!ts_subtree_extra(ts_node__subtree(child))) {
+      uint32_t index = iterator.structural_child_index - 1;
+      if (index < field_map->child_index) continue;
+
+      // Hidden nodes' fields are "inherited" by their visible parent.
+      if (field_map->inherited) {
+
+        // If this is the *last* possible child node for this field,
+        // then perform a tail call to avoid recursion.
+        if (field_map + 1 == field_map_end) {
+          self = child;
+          goto recur;
+        }
+
+        // Otherwise, descend into this child, but if that child doesn't
+        // contain the field, continue searching subsequent children.
+        else {
+          TSNode result = ts_node_child_by_field_id(child, field_id);
+          if (result.id) return result;
+          field_map++;
+          if (field_map == field_map_end) return ts_node__null();
+        }
+      }
+
+      else if (ts_node__is_relevant(child, true)) {
         return child;
+      }
+
+      // If the field refers to a hidden node, return its first visible
+      // child.
+      else {
+        return ts_node_child(child, 0);
       }
     }
   }
+
   return ts_node__null();
 }
 

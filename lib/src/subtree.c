@@ -379,7 +379,7 @@ void ts_subtree_set_children(
   self.ptr->dynamic_precedence = 0;
 
   uint32_t non_extra_index = 0;
-  const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self.ptr->child_info_sequence_id);
+  const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self.ptr->child_info_id);
   uint32_t lookahead_end_byte = 0;
 
   for (uint32_t i = 0; i < self.ptr->child_count; i++) {
@@ -474,7 +474,7 @@ void ts_subtree_set_children(
 }
 
 MutableSubtree ts_subtree_new_node(SubtreePool *pool, TSSymbol symbol,
-                                   SubtreeArray *children, unsigned child_info_sequence_id,
+                                   SubtreeArray *children, unsigned child_info_id,
                                    const TSLanguage *language) {
   TSSymbolMetadata metadata = ts_language_symbol_metadata(language, symbol);
   bool fragile = symbol == ts_builtin_sym_error || symbol == ts_builtin_sym_error_repeat;
@@ -482,7 +482,7 @@ MutableSubtree ts_subtree_new_node(SubtreePool *pool, TSSymbol symbol,
   *data = (SubtreeHeapData) {
     .ref_count = 1,
     .symbol = symbol,
-    .child_info_sequence_id = child_info_sequence_id,
+    .child_info_id = child_info_id,
     .visible = metadata.visible,
     .named = metadata.named,
     .has_changes = false,
@@ -838,7 +838,7 @@ static size_t ts_subtree__write_to_string(Subtree self, char *string, size_t lim
   }
 
   if (ts_subtree_child_count(self)) {
-    const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self.ptr->child_info_sequence_id);
+    const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self.ptr->child_info_id);
     uint32_t structural_child_index = 0;
     for (uint32_t i = 0; i < self.ptr->child_count; i++) {
       Subtree child = self.ptr->children[i];
@@ -913,20 +913,17 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
   fprintf(f, "\"]\n");
 
   uint32_t child_start_offset = start_offset;
-  uint32_t structural_child_index = 0;
-  const TSSymbol *alias_sequence = ts_language_alias_sequence(
-    language,
-    ts_subtree_child_info_sequence_id(*self)
-  );
+  uint32_t child_info_offset =
+    language->max_child_info_production_length *
+    ts_subtree_child_info_id(*self);
   for (uint32_t i = 0, n = ts_subtree_child_count(*self); i < n; i++) {
     const Subtree *child = &self->ptr->children[i];
-    if (ts_subtree_extra(*child)) {
-      ts_subtree__print_dot_graph(child, child_start_offset, language, 0, f);
-    } else {
-      TSSymbol alias_symbol = alias_sequence ? alias_sequence[structural_child_index] : 0;
-      ts_subtree__print_dot_graph(child, child_start_offset, language, alias_symbol, f);
-      structural_child_index++;
+    TSSymbol alias_symbol = 0;
+    if (!ts_subtree_extra(*child) && child_info_offset) {
+      alias_symbol = language->alias_sequences[child_info_offset];
+      child_info_offset++;
     }
+    ts_subtree__print_dot_graph(child, child_start_offset, language, alias_symbol, f);
     fprintf(f, "tree_%p -> tree_%p [tooltip=%u]\n", self, child, i);
     child_start_offset += ts_subtree_total_bytes(*child);
   }

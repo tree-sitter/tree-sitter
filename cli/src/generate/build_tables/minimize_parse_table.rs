@@ -59,7 +59,7 @@ impl<'a> Minimizer<'a> {
                         ParseAction::ShiftExtra => continue,
                         ParseAction::Reduce {
                             child_count: 1,
-                            child_info_sequence_id: 0,
+                            child_info_id: 0,
                             symbol,
                             ..
                         } => {

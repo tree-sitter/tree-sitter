@@ -1,7 +1,9 @@
 use super::grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType};
 use super::nfa::CharacterSet;
 use super::rules::{Alias, AliasMap, Symbol, SymbolType};
-use super::tables::{AdvanceAction, LexState, LexTable, ParseAction, ParseTable, ParseTableEntry};
+use super::tables::{
+    AdvanceAction, FieldLocation, LexState, LexTable, ParseAction, ParseTable, ParseTableEntry,
+};
 use core::ops::Range;
 use hashbrown::{HashMap, HashSet};
 use std::fmt::Write;
@@ -70,12 +72,14 @@ impl Generator {
         self.add_symbol_names_list();
         self.add_symbol_metadata_list();
 
-        if self.parse_table.child_info_sequences.len() > 1 {
-            if !self.field_names.is_empty() {
-                self.add_field_name_enum();
-            }
+        if !self.field_names.is_empty() {
+            self.add_field_name_enum();
             self.add_field_name_names_list();
-            self.add_child_info_sequences();
+            self.add_field_sequences();
+        }
+
+        if !self.alias_ids.is_empty() {
+            self.add_alias_sequences();
         }
 
         let mut main_lex_table = LexTable::default();
@@ -109,13 +113,13 @@ impl Generator {
         }
 
         let mut field_names = Vec::new();
-        for child_info_sequence in &self.parse_table.child_info_sequences {
-            for entry in child_info_sequence {
-                if let Some(field_name) = &entry.field_name {
-                    field_names.push(field_name);
-                }
+        for child_info in &self.parse_table.child_infos {
+            for field_name in child_info.field_map.keys() {
+                field_names.push(field_name);
+            }
 
-                if let Some(alias) = &entry.alias {
+            for alias in &child_info.alias_sequence {
+                if let Some(alias) = &alias {
                     let alias_kind = if alias.is_named {
                         VariableType::Named
                     } else {
@@ -350,22 +354,22 @@ impl Generator {
         add_line!(self, "");
     }
 
-    fn add_child_info_sequences(&mut self) {
+    fn add_alias_sequences(&mut self) {
         add_line!(
             self,
             "static TSSymbol ts_alias_sequences[{}][MAX_CHILD_INFO_PRODUCTION_LENGTH] = {{",
-            self.parse_table.child_info_sequences.len()
+            self.parse_table.child_infos.len()
         );
         indent!(self);
-        for (i, sequence) in self.parse_table.child_info_sequences.iter().enumerate() {
-            if sequence.iter().all(|i| i.alias.is_none()) {
+        for (i, child_info) in self.parse_table.child_infos.iter().enumerate() {
+            if child_info.alias_sequence.is_empty() {
                 continue;
             }
 
             add_line!(self, "[{}] = {{", i);
             indent!(self);
-            for (j, child_info) in sequence.iter().enumerate() {
-                if let Some(alias) = &child_info.alias {
+            for (j, alias) in child_info.alias_sequence.iter().enumerate() {
+                if let Some(alias) = alias {
                     add_line!(self, "[{}] = {},", j, self.alias_ids[&alias]);
                 }
             }
@@ -375,28 +379,66 @@ impl Generator {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
+    }
 
-        add_line!(
-            self,
-            "static TSFieldId ts_field_sequences[{}][MAX_CHILD_INFO_PRODUCTION_LENGTH] = {{",
-            self.parse_table.child_info_sequences.len()
+    fn add_field_sequences(&mut self) {
+        let mut flat_field_maps = vec![];
+        let mut next_flat_field_map_index = self.parse_table.child_infos.len();
+        self.get_field_map_id(
+            &Vec::new(),
+            &mut flat_field_maps,
+            &mut next_flat_field_map_index,
         );
-        indent!(self);
-        for (i, sequence) in self.parse_table.child_info_sequences.iter().enumerate() {
-            if sequence.iter().all(|i| i.field_name.is_none()) {
-                continue;
-            }
 
-            add_line!(self, "[{}] = {{", i);
-            indent!(self);
-            for (j, child_info) in sequence.iter().enumerate() {
-                if let Some(field_name) = &child_info.field_name {
-                    add_line!(self, "[{}] = {},", j, self.field_id(&field_name));
+        let mut field_map_ids = Vec::new();
+        for child_info in &self.parse_table.child_infos {
+            if !child_info.field_map.is_empty() {
+                let mut flat_field_map = Vec::new();
+                for (field_name, locations) in &child_info.field_map {
+                    for location in locations {
+                        flat_field_map.push((field_name.clone(), *location));
+                    }
                 }
+                field_map_ids.push((
+                    self.get_field_map_id(
+                        &flat_field_map,
+                        &mut flat_field_maps,
+                        &mut next_flat_field_map_index,
+                    ),
+                    flat_field_map.len(),
+                ));
+            } else {
+                field_map_ids.push((0, 0));
+            }
+        }
+
+        add_line!(self, "static const TSFieldMapping ts_field_map[] = {{",);
+        indent!(self);
+
+        add_line!(self, "/* child info id -> (field map index, count) */");
+        for (child_info_id, (row_id, length)) in field_map_ids.into_iter().enumerate() {
+            if length > 0 {
+                add_line!(self, "[{}] = {{{}, {}, 0}},", child_info_id, row_id, length);
+            }
+        }
+
+        add!(self, "\n");
+        add_line!(self, "/* field id -> child index */");
+        for (row_index, field_pairs) in flat_field_maps.into_iter().skip(1) {
+            add_line!(self, "[{}] =", row_index);
+            indent!(self);
+            for (field_name, location) in field_pairs {
+                add_line!(
+                    self,
+                    "{{{}, {}, {}}},",
+                    self.field_id(&field_name),
+                    location.index,
+                    location.inherited
+                );
             }
             dedent!(self);
-            add_line!(self, "}},");
         }
+
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
@@ -762,19 +804,15 @@ impl Generator {
                         symbol,
                         child_count,
                         dynamic_precedence,
-                        child_info_sequence_id,
+                        child_info_id,
                         ..
                     } => {
                         add!(self, "REDUCE({}, {}", self.symbol_ids[&symbol], child_count);
                         if dynamic_precedence != 0 {
                             add!(self, ", .dynamic_precedence = {}", dynamic_precedence);
                         }
-                        if child_info_sequence_id != 0 {
-                            add!(
-                                self,
-                                ", .child_info_sequence_id = {}",
-                                child_info_sequence_id
-                            );
+                        if child_info_id != 0 {
+                            add!(self, ", .child_info_id = {}", child_info_id);
                         }
                         add!(self, ")");
                     }
@@ -839,17 +877,17 @@ impl Generator {
         add_line!(self, ".lex_modes = ts_lex_modes,");
         add_line!(self, ".symbol_names = ts_symbol_names,");
 
-        if self.parse_table.child_info_sequences.len() > 1 {
+        if !self.alias_ids.is_empty() {
             add_line!(
                 self,
                 ".alias_sequences = (const TSSymbol *)ts_alias_sequences,"
             );
+        }
 
-            add_line!(self, ".field_count = FIELD_COUNT,");
-            add_line!(
-                self,
-                ".field_sequences = (const TSFieldId *)ts_field_sequences,"
-            );
+        add_line!(self, ".field_count = FIELD_COUNT,");
+
+        if !self.field_names.is_empty() {
+            add_line!(self, ".field_map = (const TSFieldMapping *)ts_field_map,");
             add_line!(self, ".field_names = ts_field_names,");
         }
 
@@ -904,6 +942,22 @@ impl Generator {
         let result = *next_parse_action_list_index;
         parse_table_entries.push((result, entry.clone()));
         *next_parse_action_list_index += 1 + entry.actions.len();
+        result
+    }
+
+    fn get_field_map_id(
+        &self,
+        flat_field_map: &Vec<(String, FieldLocation)>,
+        flat_field_maps: &mut Vec<(usize, Vec<(String, FieldLocation)>)>,
+        next_flat_field_map_index: &mut usize,
+    ) -> usize {
+        if let Some((index, _)) = flat_field_maps.iter().find(|(_, e)| *e == *flat_field_map) {
+            return *index;
+        }
+
+        let result = *next_flat_field_map_index;
+        flat_field_maps.push((result, flat_field_map.clone()));
+        *next_flat_field_map_index += flat_field_map.len();
         result
     }
 
