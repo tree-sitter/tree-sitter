@@ -520,11 +520,12 @@ impl<'a> ParseTableBuilder<'a> {
 
         let mut resolution_count = 0;
         write!(&mut msg, "\nPossible resolutions:\n\n").unwrap();
-        let shift_items = conflicting_items
+        let mut shift_items = conflicting_items
             .iter()
             .filter(|i| !i.is_done())
             .cloned()
             .collect::<Vec<_>>();
+        shift_items.sort_unstable();
         if actual_conflict.len() > 1 {
             if shift_items.len() > 0 {
                 resolution_count += 1;
