@@ -7,7 +7,7 @@ use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use std::fs;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 mod build_tables;
@@ -33,11 +33,22 @@ pub fn generate_parser_in_directory(
     minimize: bool,
     state_ids_to_log: Vec<usize>,
 ) -> Result<()> {
-    let grammar_path = grammar_path.map_or(repo_path.join("grammar.js"), |s| s.into());
-    let grammar_json = load_grammar_file(&grammar_path)?;
+    let repo_src_path = repo_path.join("src");
+
+    let grammar_json;
+    match grammar_path {
+        Some(path) => {
+            grammar_json = load_grammar_file(path.as_ref())?;
+        }
+        None => {
+            let grammar_js_path = grammar_path.map_or(repo_path.join("grammar.js"), |s| s.into());
+            grammar_json = load_grammar_file(&grammar_js_path)?;
+            fs::write(&repo_src_path.join("grammar.json"), &grammar_json)?;
+        }
+    }
+
     let (language_name, c_code) =
         generate_parser_for_grammar_with_opts(&grammar_json, minimize, state_ids_to_log)?;
-    let repo_src_path = repo_path.join("src");
     let repo_header_path = repo_src_path.join("tree_sitter");
     fs::create_dir_all(&repo_src_path)?;
     fs::create_dir_all(&repo_header_path)?;
@@ -92,7 +103,7 @@ fn generate_parser_for_grammar_with_opts(
     Ok((input_grammar.name, c_code))
 }
 
-fn load_grammar_file(grammar_path: &PathBuf) -> Result<String> {
+fn load_grammar_file(grammar_path: &Path) -> Result<String> {
     match grammar_path.extension().and_then(|e| e.to_str()) {
         Some("js") => Ok(load_js_grammar_file(grammar_path)?),
         Some("json") => Ok(fs::read_to_string(grammar_path)?),
@@ -103,7 +114,7 @@ fn load_grammar_file(grammar_path: &PathBuf) -> Result<String> {
     }
 }
 
-fn load_js_grammar_file(grammar_path: &PathBuf) -> Result<String> {
+fn load_js_grammar_file(grammar_path: &Path) -> Result<String> {
     let mut node_process = Command::new("node")
         .env("TREE_SITTER_GRAMMAR_PATH", grammar_path)
         .stdin(Stdio::piped())
