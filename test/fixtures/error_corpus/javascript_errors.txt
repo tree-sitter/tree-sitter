@@ -13,7 +13,7 @@ class A {
 ---
 
 (program
-  (class (identifier) (class_body
+  (class_declaration (identifier) (class_body
     (method_definition
       (property_identifier)
       (formal_parameters (identifier) (identifier) (ERROR))
@@ -82,7 +82,8 @@ if ({a: 'b'} {c: 'd'}) {
           (identifier)
           (function (formal_parameters (identifier)) (statement_block (expression_statement (identifier)))))
         (MISSING ";"))
-      (function (formal_parameters (identifier)) (statement_block (expression_statement (identifier)))))))
+      (expression_statement
+        (function (formal_parameters (identifier)) (statement_block (expression_statement (identifier))))))))
 
 ===================================================
 Extra tokens at the end of the file
@@ -124,14 +125,14 @@ var x = !!!
 
 (program
   (comment)
-  (function (identifier) (formal_parameters) (statement_block))
-  (function (identifier) (formal_parameters) (statement_block))
-  (function (identifier) (formal_parameters) (statement_block))
-  (function (identifier) (formal_parameters) (statement_block))
-  (function (identifier) (formal_parameters) (statement_block))
-  (function (identifier) (formal_parameters) (statement_block))
-  (function (identifier) (formal_parameters) (statement_block))
-  (function (identifier) (formal_parameters) (statement_block))
+  (function_declaration (identifier) (formal_parameters) (statement_block))
+  (function_declaration (identifier) (formal_parameters) (statement_block))
+  (function_declaration (identifier) (formal_parameters) (statement_block))
+  (function_declaration (identifier) (formal_parameters) (statement_block))
+  (function_declaration (identifier) (formal_parameters) (statement_block))
+  (function_declaration (identifier) (formal_parameters) (statement_block))
+  (function_declaration (identifier) (formal_parameters) (statement_block))
+  (function_declaration (identifier) (formal_parameters) (statement_block))
   (ERROR (identifier)))
 
 =========================================================
@@ -169,7 +170,7 @@ function main(x) {
 ---
 
 (program
-  (function
+  (function_declaration
     (identifier)
     (formal_parameters (identifier))
     (statement_block

@@ -12,7 +12,7 @@ fn test_tree_edit() {
 
     assert_eq!(
         tree.root_node().to_sexp(),
-        "(program (expression_statement (binary_expression (identifier) (identifier))))"
+        "(program (expression_statement (binary_expression left: (identifier) right: (identifier))))"
     );
 
     // edit entirely within the tree's padding:
@@ -247,7 +247,7 @@ fn test_get_changed_ranges() {
 
     assert_eq!(
         tree.root_node().to_sexp(),
-        "(program (expression_statement (object (pair (property_identifier) (null)))))"
+        "(program (expression_statement (object (pair key: (property_identifier) value: (null)))))"
     );
 
     // Updating one token

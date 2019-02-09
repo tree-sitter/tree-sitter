@@ -173,8 +173,9 @@ fn test_parsing_after_editing_beginning_of_code() {
         tree.root_node().to_sexp(),
         concat!(
             "(program (expression_statement (binary_expression ",
-              "(number) ",
-              "(binary_expression (number) (parenthesized_expression (binary_expression (number) (identifier)))))))",
+            "left: (number) ",
+            "right: (binary_expression left: (number) right: (parenthesized_expression ",
+            "(binary_expression left: (number) right: (identifier)))))))",
         )
     );
 
@@ -196,10 +197,12 @@ fn test_parsing_after_editing_beginning_of_code() {
         tree.root_node().to_sexp(),
         concat!(
             "(program (expression_statement (binary_expression ",
-              "(number) ",
-              "(binary_expression ",
-                "(number) ",
-                "(binary_expression (number) (parenthesized_expression (binary_expression (number) (identifier))))))))",
+            "left: (number) ",
+            "right: (binary_expression ",
+            "left: (number) ",
+            "right: (binary_expression ",
+            "left: (number) ",
+            "right: (parenthesized_expression (binary_expression left: (number) right: (identifier))))))))",
         )
     );
 
@@ -217,8 +220,8 @@ fn test_parsing_after_editing_end_of_code() {
         tree.root_node().to_sexp(),
         concat!(
             "(program (expression_statement (binary_expression ",
-            "(identifier) ",
-            "(parenthesized_expression (binary_expression (number) (identifier))))))",
+            "left: (identifier) ",
+            "right: (parenthesized_expression (binary_expression left: (number) right: (identifier))))))",
         )
     );
 
@@ -241,8 +244,12 @@ fn test_parsing_after_editing_end_of_code() {
         tree.root_node().to_sexp(),
         concat!(
             "(program (expression_statement (binary_expression ",
-              "(identifier) ",
-              "(parenthesized_expression (binary_expression (number) (member_expression (identifier) (property_identifier)))))))"
+            "left: (identifier) ",
+            "right: (parenthesized_expression (binary_expression ",
+            "left: (number) ",
+            "right: (member_expression ",
+            "object: (identifier) ",
+            "property: (property_identifier)))))))"
         )
     );
 
@@ -482,9 +489,9 @@ fn test_parsing_with_one_included_range() {
     assert_eq!(
         js_tree.root_node().to_sexp(),
         concat!(
-            "(program (expression_statement (call_expression",
-            " (member_expression (identifier) (property_identifier))",
-            " (arguments (string)))))",
+            "(program (expression_statement (call_expression ",
+            "function: (member_expression object: (identifier) property: (property_identifier)) ",
+            "arguments: (arguments (string)))))",
         )
     );
     assert_eq!(
@@ -637,8 +644,8 @@ fn test_parsing_with_external_scanner_that_uses_included_range_boundaries() {
         root.to_sexp(),
         concat!(
             "(program",
-            " (expression_statement (call_expression (identifier) (arguments)))",
-            " (expression_statement (call_expression (identifier) (arguments))))"
+            " (expression_statement (call_expression function: (identifier) arguments: (arguments)))",
+            " (expression_statement (call_expression function: (identifier) arguments: (arguments))))"
         )
     );
 
@@ -754,7 +761,7 @@ fn test_parsing_with_a_newly_included_range() {
         first_tree.root_node().to_sexp(),
         concat!(
             "(program",
-            " (expression_statement (call_expression (identifier) (arguments))))",
+            " (expression_statement (call_expression function: (identifier) arguments: (arguments))))",
         )
     );
 
@@ -765,8 +772,8 @@ fn test_parsing_with_a_newly_included_range() {
         tree.root_node().to_sexp(),
         concat!(
             "(program",
-            " (expression_statement (call_expression (identifier) (arguments)))",
-            " (expression_statement (call_expression (identifier) (arguments))))",
+            " (expression_statement (call_expression function: (identifier) arguments: (arguments)))",
+            " (expression_statement (call_expression function: (identifier) arguments: (arguments))))",
         )
     );
 
