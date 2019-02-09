@@ -684,8 +684,8 @@ impl<'a> ParseTableBuilder<'a> {
             child_info.alias_sequence.pop();
         }
 
-        if item.production.steps.len() > self.parse_table.max_production_length_with_child_info {
-            self.parse_table.max_production_length_with_child_info = item.production.steps.len()
+        if item.production.steps.len() > self.parse_table.max_aliased_production_length {
+            self.parse_table.max_aliased_production_length = item.production.steps.len()
         }
 
         if let Some(index) = self
@@ -791,7 +791,7 @@ pub(crate) fn build_parse_table(
             states: Vec::new(),
             symbols: Vec::new(),
             child_infos: Vec::new(),
-            max_production_length_with_child_info: 0,
+            max_aliased_production_length: 0,
         },
         field_names_by_hidden_symbol: field_names_by_hidden_symbol(syntax_grammar),
     }

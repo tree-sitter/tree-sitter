@@ -222,8 +222,8 @@ impl Generator {
         add_line!(self, "#define FIELD_COUNT {}", self.field_names.len());
         add_line!(
             self,
-            "#define MAX_CHILD_INFO_PRODUCTION_LENGTH {}",
-            self.parse_table.max_production_length_with_child_info
+            "#define MAX_ALIAS_SEQUENCE_LENGTH {}",
+            self.parse_table.max_aliased_production_length
         );
         add_line!(self, "");
     }
@@ -357,7 +357,7 @@ impl Generator {
     fn add_alias_sequences(&mut self) {
         add_line!(
             self,
-            "static TSSymbol ts_alias_sequences[{}][MAX_CHILD_INFO_PRODUCTION_LENGTH] = {{",
+            "static TSSymbol ts_alias_sequences[{}][MAX_ALIAS_SEQUENCE_LENGTH] = {{",
             self.parse_table.child_infos.len()
         );
         indent!(self);
@@ -912,7 +912,7 @@ impl Generator {
 
         add_line!(
             self,
-            ".max_child_info_production_length = MAX_CHILD_INFO_PRODUCTION_LENGTH,"
+            ".max_alias_sequence_length = MAX_ALIAS_SEQUENCE_LENGTH,"
         );
         add_line!(self, ".lex_fn = ts_lex,");
 

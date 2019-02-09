@@ -57,7 +57,7 @@ pub(crate) struct ParseTable {
     pub states: Vec<ParseState>,
     pub symbols: Vec<Symbol>,
     pub child_infos: Vec<ChildInfo>,
-    pub max_production_length_with_child_info: usize,
+    pub max_aliased_production_length: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

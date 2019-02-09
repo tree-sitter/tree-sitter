@@ -914,7 +914,7 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
 
   uint32_t child_start_offset = start_offset;
   uint32_t child_info_offset =
-    language->max_child_info_production_length *
+    language->max_alias_sequence_length *
     ts_subtree_child_info_id(*self);
   for (uint32_t i = 0, n = ts_subtree_child_count(*self); i < n; i++) {
     const Subtree *child = &self->ptr->children[i];
