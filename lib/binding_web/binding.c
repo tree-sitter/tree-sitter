@@ -289,6 +289,11 @@ uint32_t ts_tree_cursor_end_index_wasm(const TSTree *tree) {
   return byte_to_code_unit(ts_node_end_byte(node));
 }
 
+uint32_t ts_tree_cursor_current_field_id_wasm(const TSTree *tree) {
+  TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, tree);
+  return ts_tree_cursor_current_field_id(&cursor);
+}
+
 void ts_tree_cursor_current_node_wasm(const TSTree *tree) {
   TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, tree);
   marshal_node(TRANSFER_BUFFER, ts_tree_cursor_current_node(&cursor));
