@@ -264,7 +264,7 @@ TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *_self) {
       }
     }
 
-    const TSFieldMapping *field_map, *field_map_end;
+    const TSFieldMapEntry *field_map, *field_map_end;
     ts_language_field_map(
       self->tree->language,
       parent_entry->subtree->ptr->child_info_id,

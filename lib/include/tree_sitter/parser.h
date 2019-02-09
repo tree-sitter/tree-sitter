@@ -23,7 +23,12 @@ typedef struct {
   TSFieldId field_id;
   uint8_t child_index;
   bool inherited;
-} TSFieldMapping;
+} TSFieldMapEntry;
+
+typedef struct {
+  uint16_t index;
+  uint16_t length;
+} TSFieldMapSlice;
 
 typedef uint16_t TSStateId;
 
@@ -106,7 +111,8 @@ struct TSLanguage {
     void (*deserialize)(void *, const char *, unsigned);
   } external_scanner;
   uint32_t field_count;
-  const TSFieldMapping *field_map;
+  const TSFieldMapSlice *field_map_slices;
+  const TSFieldMapEntry *field_map_entries;
   const char **field_names;
 };
 

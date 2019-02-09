@@ -383,7 +383,7 @@ impl Generator {
 
     fn add_field_sequences(&mut self) {
         let mut flat_field_maps = vec![];
-        let mut next_flat_field_map_index = self.parse_table.child_infos.len();
+        let mut next_flat_field_map_index = 0;
         self.get_field_map_id(
             &Vec::new(),
             &mut flat_field_maps,
@@ -412,29 +412,41 @@ impl Generator {
             }
         }
 
-        add_line!(self, "static const TSFieldMapping ts_field_map[] = {{",);
+        add_line!(
+            self,
+            "static const TSFieldMapSlice ts_field_map_slices[] = {{",
+        );
         indent!(self);
-
-        add_line!(self, "/* child info id -> (field map index, count) */");
         for (child_info_id, (row_id, length)) in field_map_ids.into_iter().enumerate() {
             if length > 0 {
-                add_line!(self, "[{}] = {{{}, {}, 0}},", child_info_id, row_id, length);
+                add_line!(
+                    self,
+                    "[{}] = {{.index = {}, .length = {}}},",
+                    child_info_id,
+                    row_id,
+                    length
+                );
             }
         }
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
 
-        add!(self, "\n");
-        add_line!(self, "/* field id -> child index */");
+        add_line!(
+            self,
+            "static const TSFieldMapEntry ts_field_map_entries[] = {{",
+        );
+        indent!(self);
         for (row_index, field_pairs) in flat_field_maps.into_iter().skip(1) {
             add_line!(self, "[{}] =", row_index);
             indent!(self);
             for (field_name, location) in field_pairs {
-                add_line!(
-                    self,
-                    "{{{}, {}, {}}},",
-                    self.field_id(&field_name),
-                    location.index,
-                    location.inherited
-                );
+                add_whitespace!(self);
+                add!(self, "{{{}, {}", self.field_id(&field_name), location.index);
+                if location.inherited {
+                    add!(self, ", .inherited = true");
+                }
+                add!(self, "}},\n");
             }
             dedent!(self);
         }
@@ -887,8 +899,15 @@ impl Generator {
         add_line!(self, ".field_count = FIELD_COUNT,");
 
         if !self.field_names.is_empty() {
-            add_line!(self, ".field_map = (const TSFieldMapping *)ts_field_map,");
             add_line!(self, ".field_names = ts_field_names,");
+            add_line!(
+                self,
+                ".field_map_slices = (const TSFieldMapSlice *)ts_field_map_slices,"
+            );
+            add_line!(
+                self,
+                ".field_map_entries = (const TSFieldMapEntry *)ts_field_map_entries,"
+            );
         }
 
         add_line!(
@@ -1007,7 +1026,7 @@ impl Generator {
     }
 
     fn field_id(&self, field_name: &String) -> String {
-        format!("field_id_{}", field_name)
+        format!("field_{}", field_name)
     }
 
     fn metadata_for_symbol(&self, symbol: Symbol) -> (&str, VariableType) {

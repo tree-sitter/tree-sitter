@@ -90,18 +90,12 @@ ts_language_alias_sequence(const TSLanguage *self, uint32_t child_info_id) {
 static inline void ts_language_field_map(
   const TSLanguage *self,
   uint32_t child_info_id,
-  const TSFieldMapping **start,
-  const TSFieldMapping **end
+  const TSFieldMapEntry **start,
+  const TSFieldMapEntry **end
 ) {
-  // To find the field mappings for a given child info id, first index
-  // into the field map using the child info id directly. This 'header'
-  // row contains two values:
-  // * the index where the field mappings start
-  // * the number of field mappings.
-  const TSFieldMapping *field_map = self->field_map;
-  TSFieldMapping header = field_map[child_info_id];
-  *start = &field_map[header.field_id];
-  *end = &field_map[header.field_id] + header.child_index;
+  TSFieldMapSlice slice = self->field_map_slices[child_info_id];
+  *start = &self->field_map_entries[slice.index];
+  *end = &self->field_map_entries[slice.index] + slice.length;
 }
 
 #ifdef __cplusplus

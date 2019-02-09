@@ -461,7 +461,7 @@ TSNode ts_node_child_by_field_id(TSNode self, TSFieldId field_id) {
 recur:
   if (!field_id || ts_node_child_count(self) == 0) return ts_node__null();
 
-  const TSFieldMapping *field_map, *field_map_end;
+  const TSFieldMapEntry *field_map, *field_map_end;
   ts_language_field_map(
     self.tree->language,
     ts_node__subtree(self).ptr->child_info_id,
