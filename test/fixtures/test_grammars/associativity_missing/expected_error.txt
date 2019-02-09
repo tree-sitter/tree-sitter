@@ -4,8 +4,8 @@ Unresolved conflict for symbol sequence:
 
 Possible interpretations:
 
-  1:  expression  '+'  (math_operation  expression  •  '+'  expression)
-  2:  (math_operation  expression  '+'  expression)  •  '+'  …
+  1:  (math_operation  expression  '+'  expression)  •  '+'  …
+  2:  expression  '+'  (math_operation  expression  •  '+'  expression)
 
 Possible resolutions:
 

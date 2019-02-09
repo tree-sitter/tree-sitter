@@ -4,9 +4,9 @@ Unresolved conflict for symbol sequence:
 
 Possible interpretations:
 
-  1:  expression  '+'  (product  expression  •  '*'  expression)  (precedence: 1, associativity: Left)
+  1:  (sum  expression  '+'  expression)  •  '*'  …               (precedence: 0, associativity: Left)
   2:  expression  '+'  (other_thing  expression  •  '*'  '*')     (precedence: -1, associativity: Left)
-  3:  (sum  expression  '+'  expression)  •  '*'  …               (precedence: 0, associativity: Left)
+  3:  expression  '+'  (product  expression  •  '*'  expression)  (precedence: 1, associativity: Left)
 
 Possible resolutions:
 

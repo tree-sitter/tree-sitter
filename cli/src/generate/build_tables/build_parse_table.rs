@@ -443,13 +443,10 @@ impl<'a> ParseTableBuilder<'a> {
         .unwrap();
         write!(&mut msg, "Possible interpretations:\n\n").unwrap();
 
-        let interpretions = conflicting_items
+        let mut interpretions = conflicting_items
             .iter()
-            .enumerate()
-            .map(|(i, item)| {
+            .map(|item| {
                 let mut line = String::new();
-                write!(&mut line, "  {}:", i + 1).unwrap();
-
                 for preceding_symbol in preceding_symbols
                     .iter()
                     .take(preceding_symbols.len() - item.step_index as usize)
@@ -505,8 +502,9 @@ impl<'a> ParseTableBuilder<'a> {
             .map(|i| i.0.chars().count())
             .max()
             .unwrap();
-
-        for (line, prec_suffix) in interpretions {
+        interpretions.sort_unstable();
+        for (i, (line, prec_suffix)) in interpretions.into_iter().enumerate() {
+            write!(&mut msg, "  {}:", i + 1).unwrap();
             msg += &line;
             if let Some(prec_suffix) = prec_suffix {
                 for _ in line.chars().count()..max_interpretation_length {

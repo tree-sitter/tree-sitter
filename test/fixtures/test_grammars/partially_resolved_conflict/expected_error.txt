@@ -4,8 +4,8 @@ Unresolved conflict for symbol sequence:
 
 Possible interpretations:
 
-  1:  (unary_b  '!'  expression)  •  '<'  …  (precedence: 2)
-  2:  (unary_a  '!'  expression)  •  '<'  …  (precedence: 2)
+  1:  (unary_a  '!'  expression)  •  '<'  …  (precedence: 2)
+  2:  (unary_b  '!'  expression)  •  '<'  …  (precedence: 2)
 
 Possible resolutions:
 
