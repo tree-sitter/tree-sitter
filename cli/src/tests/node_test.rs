@@ -421,6 +421,8 @@ fn test_node_field_names() {
     assert_eq!(root_node.child_by_field_name("field_1"), root_node.child(0));
     assert_eq!(root_node.child_by_field_name("field_2"), root_node.child(2));
     assert_eq!(root_node.child_by_field_name("field_3"), root_node.child(4));
+    assert_eq!(root_node.child(0).unwrap().child_by_field_name("field_1"), None);
+    assert_eq!(root_node.child_by_field_name("not_a_real_field"), None);
 
     let mut cursor = root_node.walk();
     assert_eq!(cursor.field_name(), None);
