@@ -38,7 +38,7 @@ function field(name, rule) {
   return {
     type: "FIELD",
     name: name,
-    content: rule
+    content: normalize(rule)
   }
 }
 
