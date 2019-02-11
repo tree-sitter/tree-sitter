@@ -229,7 +229,8 @@ impl Parser {
 
     pub fn parse(&mut self, input: impl AsRef<[u8]>, old_tree: Option<&Tree>) -> Option<Tree> {
         let bytes = input.as_ref();
-        self.parse_with(&mut |i, _| &bytes[i..], old_tree)
+        let len = bytes.len();
+        self.parse_with(&mut |i, _| if i < len { &bytes[i..] } else { &[] }, old_tree)
     }
 
     pub fn parse_utf16(
@@ -238,7 +239,8 @@ impl Parser {
         old_tree: Option<&Tree>,
     ) -> Option<Tree> {
         let code_points = input.as_ref();
-        self.parse_utf16_with(&mut |i, _| &code_points[i..], old_tree)
+        let len = code_points.len();
+        self.parse_utf16_with(&mut |i, _| if i < len { &code_points[i..] } else { &[] }, old_tree)
     }
 
     pub fn parse_with<'a, T: FnMut(usize, Point) -> &'a [u8]>(
