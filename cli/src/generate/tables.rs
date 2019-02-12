@@ -1,9 +1,9 @@
 use super::nfa::CharacterSet;
 use super::rules::{Alias, Associativity, Symbol};
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
 use std::collections::BTreeMap;
 
-pub(crate) type ChildInfoId = usize;
+pub(crate) type ProductionInfoId = usize;
 pub(crate) type ParseStateId = usize;
 pub(crate) type LexStateId = usize;
 
@@ -22,7 +22,7 @@ pub(crate) enum ParseAction {
         precedence: i32,
         dynamic_precedence: i32,
         associativity: Option<Associativity>,
-        child_info_id: ChildInfoId,
+        production_id: ProductionInfoId,
     },
 }
 
@@ -47,16 +47,36 @@ pub(crate) struct FieldLocation {
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
-pub(crate) struct ChildInfo {
+pub(crate) struct ProductionInfo {
     pub alias_sequence: Vec<Option<Alias>>,
     pub field_map: BTreeMap<String, Vec<FieldLocation>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum ChildType {
+    Normal(Symbol),
+    Aliased(Alias),
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct FieldInfo {
+    pub required: bool,
+    pub multiple: bool,
+    pub types: HashSet<ChildType>,
+}
+
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(crate) struct VariableInfo {
+    pub fields: HashMap<String, FieldInfo>,
+    pub child_types: HashSet<ChildType>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct ParseTable {
     pub states: Vec<ParseState>,
     pub symbols: Vec<Symbol>,
-    pub child_infos: Vec<ChildInfo>,
+    pub variable_info: Vec<VariableInfo>,
+    pub production_infos: Vec<ProductionInfo>,
     pub max_aliased_production_length: usize,
 }
 

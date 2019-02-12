@@ -148,7 +148,7 @@ static bool iterator_tree_is_visible(const Iterator *self) {
     Subtree parent = *self->cursor.stack.contents[self->cursor.stack.size - 2].subtree;
     const TSSymbol *alias_sequence = ts_language_alias_sequence(
       self->language,
-      parent.ptr->child_info_id
+      parent.ptr->production_id
     );
     return alias_sequence && alias_sequence[entry.structural_child_index] != 0;
   }
@@ -171,7 +171,7 @@ static void iterator_get_visible_state(const Iterator *self, Subtree *tree,
       const Subtree *parent = self->cursor.stack.contents[i - 1].subtree;
       const TSSymbol *alias_sequence = ts_language_alias_sequence(
         self->language,
-        parent->ptr->child_info_id
+        parent->ptr->production_id
       );
       if (alias_sequence) {
         *alias_symbol = alias_sequence[entry.structural_child_index];

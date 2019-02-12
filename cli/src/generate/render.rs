@@ -113,12 +113,12 @@ impl Generator {
         }
 
         let mut field_names = Vec::new();
-        for child_info in &self.parse_table.child_infos {
-            for field_name in child_info.field_map.keys() {
+        for production_info in &self.parse_table.production_infos {
+            for field_name in production_info.field_map.keys() {
                 field_names.push(field_name);
             }
 
-            for alias in &child_info.alias_sequence {
+            for alias in &production_info.alias_sequence {
                 if let Some(alias) = &alias {
                     let alias_kind = if alias.is_named {
                         VariableType::Named
@@ -358,17 +358,17 @@ impl Generator {
         add_line!(
             self,
             "static TSSymbol ts_alias_sequences[{}][MAX_ALIAS_SEQUENCE_LENGTH] = {{",
-            self.parse_table.child_infos.len()
+            self.parse_table.production_infos.len()
         );
         indent!(self);
-        for (i, child_info) in self.parse_table.child_infos.iter().enumerate() {
-            if child_info.alias_sequence.is_empty() {
+        for (i, production_info) in self.parse_table.production_infos.iter().enumerate() {
+            if production_info.alias_sequence.is_empty() {
                 continue;
             }
 
             add_line!(self, "[{}] = {{", i);
             indent!(self);
-            for (j, alias) in child_info.alias_sequence.iter().enumerate() {
+            for (j, alias) in production_info.alias_sequence.iter().enumerate() {
                 if let Some(alias) = alias {
                     add_line!(self, "[{}] = {},", j, self.alias_ids[&alias]);
                 }
@@ -391,10 +391,10 @@ impl Generator {
         );
 
         let mut field_map_ids = Vec::new();
-        for child_info in &self.parse_table.child_infos {
-            if !child_info.field_map.is_empty() {
+        for production_info in &self.parse_table.production_infos {
+            if !production_info.field_map.is_empty() {
                 let mut flat_field_map = Vec::new();
-                for (field_name, locations) in &child_info.field_map {
+                for (field_name, locations) in &production_info.field_map {
                     for location in locations {
                         flat_field_map.push((field_name.clone(), *location));
                     }
@@ -417,12 +417,12 @@ impl Generator {
             "static const TSFieldMapSlice ts_field_map_slices[] = {{",
         );
         indent!(self);
-        for (child_info_id, (row_id, length)) in field_map_ids.into_iter().enumerate() {
+        for (production_id, (row_id, length)) in field_map_ids.into_iter().enumerate() {
             if length > 0 {
                 add_line!(
                     self,
                     "[{}] = {{.index = {}, .length = {}}},",
-                    child_info_id,
+                    production_id,
                     row_id,
                     length
                 );
@@ -816,15 +816,15 @@ impl Generator {
                         symbol,
                         child_count,
                         dynamic_precedence,
-                        child_info_id,
+                        production_id,
                         ..
                     } => {
                         add!(self, "REDUCE({}, {}", self.symbol_ids[&symbol], child_count);
                         if dynamic_precedence != 0 {
                             add!(self, ", .dynamic_precedence = {}", dynamic_precedence);
                         }
-                        if child_info_id != 0 {
-                            add!(self, ", .child_info_id = {}", child_info_id);
+                        if production_id != 0 {
+                            add!(self, ", .production_id = {}", production_id);
                         }
                         add!(self, ")");
                     }

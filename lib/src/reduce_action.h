@@ -12,7 +12,7 @@ typedef struct {
   uint32_t count;
   TSSymbol symbol;
   int dynamic_precedence;
-  unsigned short child_info_id;
+  unsigned short production_id;
 } ReduceAction;
 
 typedef Array(ReduceAction) ReduceActionSet;

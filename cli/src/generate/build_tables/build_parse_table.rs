@@ -6,18 +6,17 @@ use crate::generate::grammars::{
 };
 use crate::generate::rules::{Associativity, Symbol, SymbolType};
 use crate::generate::tables::{
-    ChildInfo, ChildInfoId, FieldLocation, ParseAction, ParseState, ParseStateId, ParseTable,
-    ParseTableEntry,
+    ChildType, FieldInfo, FieldLocation, ParseAction, ParseState, ParseStateId, ParseTable,
+    ParseTableEntry, ProductionInfo, ProductionInfoId, VariableInfo,
 };
 use core::ops::Range;
 use hashbrown::hash_map::Entry;
 use hashbrown::{HashMap, HashSet};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeMap, VecDeque};
-use std::u32;
-
 use std::fmt::Write;
 use std::hash::Hasher;
+use std::{mem, u32};
 
 #[derive(Clone)]
 struct AuxiliarySymbolInfo {
@@ -36,7 +35,6 @@ struct ParseStateQueueEntry {
 
 struct ParseTableBuilder<'a> {
     item_set_builder: ParseItemSetBuilder<'a>,
-    field_names_by_hidden_symbol: HashMap<Symbol, Vec<String>>,
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
     state_ids_by_item_set: HashMap<ParseItemSet<'a>, ParseStateId>,
@@ -49,7 +47,7 @@ struct ParseTableBuilder<'a> {
 impl<'a> ParseTableBuilder<'a> {
     fn build(mut self) -> Result<ParseTable> {
         // Ensure that the empty alias sequence has index 0.
-        self.parse_table.child_infos.push(ChildInfo::default());
+        self.parse_table.production_infos.push(ProductionInfo::default());
 
         // Add the error state at index 0.
         self.add_parse_state(&Vec::new(), &Vec::new(), ParseItemSet::default());
@@ -178,7 +176,7 @@ impl<'a> ParseTableBuilder<'a> {
                         precedence: item.precedence(),
                         associativity: item.associativity(),
                         dynamic_precedence: item.production.dynamic_precedence,
-                        child_info_id: self.get_child_info_id(item),
+                        production_id: self.get_production_id(item),
                     }
                 };
 
@@ -646,16 +644,16 @@ impl<'a> ParseTableBuilder<'a> {
         }
     }
 
-    fn get_child_info_id(&mut self, item: &ParseItem) -> ChildInfoId {
-        let mut child_info = ChildInfo {
+    fn get_production_id(&mut self, item: &ParseItem) -> ProductionInfoId {
+        let mut production_info = ProductionInfo {
             alias_sequence: Vec::new(),
             field_map: BTreeMap::new(),
         };
 
         for (i, step) in item.production.steps.iter().enumerate() {
-            child_info.alias_sequence.push(step.alias.clone());
+            production_info.alias_sequence.push(step.alias.clone());
             if let Some(field_name) = &step.field_name {
-                child_info
+                production_info
                     .field_map
                     .entry(field_name.clone())
                     .or_insert(Vec::new())
@@ -664,9 +662,15 @@ impl<'a> ParseTableBuilder<'a> {
                         inherited: false,
                     });
             }
-            if let Some(field_names) = self.field_names_by_hidden_symbol.get(&step.symbol) {
-                for field_name in field_names {
-                    child_info
+
+            if step.symbol.kind == SymbolType::NonTerminal
+                && !self.syntax_grammar.variables[step.symbol.index]
+                    .kind
+                    .is_visible()
+            {
+                let info = &self.parse_table.variable_info[step.symbol.index];
+                for (field_name, _) in &info.fields {
+                    production_info
                         .field_map
                         .entry(field_name.clone())
                         .or_insert(Vec::new())
@@ -678,8 +682,8 @@ impl<'a> ParseTableBuilder<'a> {
             }
         }
 
-        while child_info.alias_sequence.last() == Some(&None) {
-            child_info.alias_sequence.pop();
+        while production_info.alias_sequence.last() == Some(&None) {
+            production_info.alias_sequence.pop();
         }
 
         if item.production.steps.len() > self.parse_table.max_aliased_production_length {
@@ -688,14 +692,14 @@ impl<'a> ParseTableBuilder<'a> {
 
         if let Some(index) = self
             .parse_table
-            .child_infos
+            .production_infos
             .iter()
-            .position(|seq| *seq == child_info)
+            .position(|seq| *seq == production_info)
         {
             index
         } else {
-            self.parse_table.child_infos.push(child_info);
-            self.parse_table.child_infos.len() - 1
+            self.parse_table.production_infos.push(production_info);
+            self.parse_table.production_infos.len() - 1
         }
     }
 
@@ -742,23 +746,155 @@ fn populate_following_tokens(
     }
 }
 
-fn field_names_by_hidden_symbol(grammar: &SyntaxGrammar) -> HashMap<Symbol, Vec<String>> {
-    let mut result = HashMap::new();
-    for (i, variable) in grammar.variables.iter().enumerate() {
-        let mut field_names = Vec::new();
-        if variable.kind == VariableType::Hidden {
+pub(crate) fn get_variable_info(
+    syntax_grammar: &SyntaxGrammar,
+    lexical_grammar: &LexicalGrammar,
+) -> Vec<VariableInfo> {
+    let mut result = Vec::new();
+
+    // Determine which field names and child node types can appear directly
+    // within each type of node.
+    for (i, variable) in syntax_grammar.variables.iter().enumerate() {
+        let mut info = VariableInfo {
+            fields: HashMap::new(),
+            child_types: HashSet::new(),
+        };
+        let is_recursive = variable
+            .productions
+            .iter()
+            .any(|p| p.steps.iter().any(|s| s.symbol == Symbol::non_terminal(i)));
+
+        for production in &variable.productions {
+            for step in &production.steps {
+                let child_type = if let Some(alias) = &step.alias {
+                    ChildType::Aliased(alias.clone())
+                } else {
+                    ChildType::Normal(step.symbol)
+                };
+
+                if let Some(field_name) = &step.field_name {
+                    let field_info = info.fields.entry(field_name.clone()).or_insert(FieldInfo {
+                        multiple: false,
+                        required: true,
+                        types: HashSet::new(),
+                    });
+                    field_info.multiple |= is_recursive;
+                    field_info.types.insert(child_type.clone());
+                }
+
+                info.child_types.insert(child_type);
+            }
+        }
+
+        for production in &variable.productions {
+            let production_fields: Vec<&String> = production
+                .steps
+                .iter()
+                .filter_map(|s| s.field_name.as_ref())
+                .collect();
+            for (field_name, field_info) in info.fields.iter_mut() {
+                if !production_fields.contains(&field_name) {
+                    field_info.required = false;
+                }
+            }
+        }
+
+        result.push(info);
+    }
+
+    // Expand each node type's information recursively to inherit the properties of
+    // hidden children.
+    let mut done = false;
+    while !done {
+        done = true;
+        for (i, variable) in syntax_grammar.variables.iter().enumerate() {
+            // Move this variable's info out of the vector so it can be modified
+            // while reading from other entries of the vector.
+            let mut variable_info = VariableInfo {
+                fields: HashMap::new(),
+                child_types: HashSet::new(),
+            };
+            mem::swap(&mut variable_info, &mut result[i]);
+
             for production in &variable.productions {
                 for step in &production.steps {
-                    if let Some(field_name) = &step.field_name {
-                        if let Err(i) = field_names.binary_search(field_name) {
-                            field_names.insert(i, field_name.clone());
+                    if step.symbol.kind == SymbolType::NonTerminal
+                        && !syntax_grammar.variables[step.symbol.index]
+                            .kind
+                            .is_visible()
+                    {
+                        let production_info = &result[step.symbol.index];
+
+                        // Inherit fields from this hidden child
+                        for (field_name, child_field_info) in &production_info.fields {
+                            let field_info = variable_info
+                                .fields
+                                .entry(field_name.clone())
+                                .or_insert_with(|| {
+                                    done = false;
+                                    child_field_info.clone()
+                                });
+                            if child_field_info.multiple && !field_info.multiple {
+                                field_info.multiple = child_field_info.multiple;
+                                done = false;
+                            }
+                            if !child_field_info.required && field_info.required {
+                                field_info.required = child_field_info.required;
+                                done = false;
+                            }
+                            for child_type in &child_field_info.types {
+                                if field_info.types.insert(child_type.clone()) {
+                                    done = false;
+                                }
+                            }
+                        }
+
+                        // Inherit child types from this hidden child
+                        for child_type in &production_info.child_types {
+                            if variable_info.child_types.insert(child_type.clone()) {
+                                done = false;
+                            }
+                        }
+
+                        // If any field points to this hidden child, inherit child types
+                        // for the field.
+                        if let Some(field_name) = &step.field_name {
+                            let field_info = variable_info.fields.get_mut(field_name).unwrap();
+                            for child_type in &production_info.child_types {
+                                if field_info.types.insert(child_type.clone()) {
+                                    done = false;
+                                }
+                            }
                         }
                     }
                 }
             }
+
+            // Move this variable's info back into the vector.
+            result[i] = variable_info;
         }
-        result.insert(Symbol::non_terminal(i), field_names);
     }
+
+    let child_type_is_visible = |child_type: &ChildType| match child_type {
+        ChildType::Aliased(_) => true,
+        ChildType::Normal(symbol) => {
+            let step_kind = match symbol.kind {
+                SymbolType::NonTerminal => syntax_grammar.variables[symbol.index].kind,
+                SymbolType::Terminal => lexical_grammar.variables[symbol.index].kind,
+                SymbolType::External => syntax_grammar.external_tokens[symbol.index].kind,
+                _ => VariableType::Hidden,
+            };
+            step_kind.is_visible()
+        }
+    };
+
+    for variable_info in result.iter_mut() {
+        variable_info.child_types.retain(&child_type_is_visible);
+        for (_, field_info) in variable_info.fields.iter_mut() {
+            field_info.types.retain(&child_type_is_visible);
+        }
+    }
+
     result
 }
 
@@ -788,12 +924,178 @@ pub(crate) fn build_parse_table(
         parse_table: ParseTable {
             states: Vec::new(),
             symbols: Vec::new(),
-            child_infos: Vec::new(),
+            production_infos: Vec::new(),
             max_aliased_production_length: 0,
+            variable_info: get_variable_info(syntax_grammar, lexical_grammar),
         },
-        field_names_by_hidden_symbol: field_names_by_hidden_symbol(syntax_grammar),
     }
     .build()?;
 
     Ok((table, following_tokens))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::generate::grammars::{
+        LexicalVariable, Production, ProductionStep, SyntaxVariable, VariableType,
+    };
+
+    #[test]
+    fn test_get_variable_info() {
+        let variable_info = get_variable_info(
+            &build_syntax_grammar(vec![
+                // Required field `field1` has only one node type.
+                SyntaxVariable {
+                    name: "rule0".to_string(),
+                    kind: VariableType::Named,
+                    productions: vec![Production {
+                        dynamic_precedence: 0,
+                        steps: vec![
+                            ProductionStep::new(Symbol::terminal(0)),
+                            ProductionStep::new(Symbol::non_terminal(1)).with_field_name("field1"),
+                        ],
+                    }],
+                },
+                // Hidden node
+                SyntaxVariable {
+                    name: "_rule1".to_string(),
+                    kind: VariableType::Hidden,
+                    productions: vec![Production {
+                        dynamic_precedence: 0,
+                        steps: vec![ProductionStep::new(Symbol::terminal(1))],
+                    }],
+                },
+                // Optional field `field2` can have two possible node types.
+                SyntaxVariable {
+                    name: "rule2".to_string(),
+                    kind: VariableType::Named,
+                    productions: vec![
+                        Production {
+                            dynamic_precedence: 0,
+                            steps: vec![ProductionStep::new(Symbol::terminal(0))],
+                        },
+                        Production {
+                            dynamic_precedence: 0,
+                            steps: vec![
+                                ProductionStep::new(Symbol::terminal(0)),
+                                ProductionStep::new(Symbol::terminal(2)).with_field_name("field2"),
+                            ],
+                        },
+                        Production {
+                            dynamic_precedence: 0,
+                            steps: vec![
+                                ProductionStep::new(Symbol::terminal(0)),
+                                ProductionStep::new(Symbol::terminal(3)).with_field_name("field2"),
+                            ],
+                        },
+                    ],
+                },
+            ]),
+            &build_lexical_grammar(),
+        );
+
+        assert_eq!(
+            variable_info[0].fields,
+            vec![(
+                "field1".to_string(),
+                FieldInfo {
+                    required: true,
+                    multiple: false,
+                    types: vec![ChildType::Normal(Symbol::terminal(1))]
+                        .into_iter()
+                        .collect::<HashSet<_>>(),
+                }
+            )]
+            .into_iter()
+            .collect::<HashMap<_, _>>()
+        );
+
+        assert_eq!(
+            variable_info[2].fields,
+            vec![(
+                "field2".to_string(),
+                FieldInfo {
+                    required: false,
+                    multiple: false,
+                    types: vec![
+                        ChildType::Normal(Symbol::terminal(2)),
+                        ChildType::Normal(Symbol::terminal(3)),
+                    ]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
+                }
+            )]
+            .into_iter()
+            .collect::<HashMap<_, _>>()
+        );
+    }
+
+    #[test]
+    fn test_get_variable_info_with_inherited_fields() {
+        let variable_info = get_variable_info(
+            &build_syntax_grammar(vec![
+                SyntaxVariable {
+                    name: "rule0".to_string(),
+                    kind: VariableType::Named,
+                    productions: vec![Production {
+                        dynamic_precedence: 0,
+                        steps: vec![
+                            ProductionStep::new(Symbol::terminal(0)),
+                            ProductionStep::new(Symbol::non_terminal(1)),
+                            ProductionStep::new(Symbol::terminal(1)),
+                        ],
+                    }],
+                },
+                // Hidden node with fields
+                SyntaxVariable {
+                    name: "_rule1".to_string(),
+                    kind: VariableType::Hidden,
+                    productions: vec![Production {
+                        dynamic_precedence: 0,
+                        steps: vec![
+                            ProductionStep::new(Symbol::terminal(2)),
+                            ProductionStep::new(Symbol::terminal(3)).with_field_name("field1"),
+                        ],
+                    }],
+                },
+            ]),
+            &build_lexical_grammar(),
+        );
+
+        assert_eq!(
+            variable_info[0].fields,
+            vec![(
+                "field1".to_string(),
+                FieldInfo {
+                    required: true,
+                    multiple: false,
+                    types: vec![ChildType::Normal(Symbol::terminal(3))]
+                        .into_iter()
+                        .collect::<HashSet<_>>(),
+                }
+            )]
+            .into_iter()
+            .collect::<HashMap<_, _>>()
+        );
+    }
+
+    fn build_syntax_grammar(variables: Vec<SyntaxVariable>) -> SyntaxGrammar {
+        let mut syntax_grammar = SyntaxGrammar::default();
+        syntax_grammar.variables = variables;
+        syntax_grammar
+    }
+
+    fn build_lexical_grammar() -> LexicalGrammar {
+        let mut lexical_grammar = LexicalGrammar::default();
+        for i in 0..10 {
+            lexical_grammar.variables.push(LexicalVariable {
+                name: format!("token_{}", i),
+                kind: VariableType::Named,
+                implicit_precedence: 0,
+                start_state: 0,
+            });
+        }
+        lexical_grammar
+    }
 }

@@ -187,6 +187,12 @@ impl Variable {
     }
 }
 
+impl VariableType {
+    pub fn is_visible(&self) -> bool {
+        *self == VariableType::Named || *self == VariableType::Anonymous
+    }
+}
+
 impl LexicalGrammar {
     pub fn variable_indices_for_nfa_states<'a>(
         &'a self,

@@ -53,7 +53,7 @@ static inline NodeChildIterator ts_node_iterate_children(const TSNode *node) {
   }
   const TSSymbol *alias_sequence = ts_language_alias_sequence(
     node->tree->language,
-    subtree.ptr->child_info_id
+    subtree.ptr->production_id
   );
   return (NodeChildIterator) {
     .tree = node->tree,
@@ -464,7 +464,7 @@ recur:
   const TSFieldMapEntry *field_map, *field_map_end;
   ts_language_field_map(
     self.tree->language,
-    ts_node__subtree(self).ptr->child_info_id,
+    ts_node__subtree(self).ptr->production_id,
     &field_map,
     &field_map_end
   );
@@ -498,8 +498,8 @@ recur:
           goto recur;
         }
 
-        // Otherwise, descend into this child, but if that child doesn't
-        // contain the field, continue searching subsequent children.
+        // Otherwise, descend into this child, but if it doesn't contain
+        // the field, continue searching subsequent children.
         else {
           TSNode result = ts_node_child_by_field_id(child, field_id);
           if (result.id) return result;

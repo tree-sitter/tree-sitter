@@ -22,7 +22,7 @@ static inline CursorChildIterator ts_tree_cursor_iterate_children(const TreeCurs
   }
   const TSSymbol *alias_sequence = ts_language_alias_sequence(
     self->tree->language,
-    last_entry->subtree->ptr->child_info_id
+    last_entry->subtree->ptr->production_id
   );
   return (CursorChildIterator) {
     .tree = self->tree,
@@ -210,7 +210,7 @@ bool ts_tree_cursor_goto_parent(TSTreeCursor *_self) {
       TreeCursorEntry *parent_entry = &self->stack.contents[i - 1];
       const TSSymbol *alias_sequence = ts_language_alias_sequence(
         self->tree->language,
-        parent_entry->subtree->ptr->child_info_id
+        parent_entry->subtree->ptr->production_id
       );
       is_aliased = alias_sequence && alias_sequence[entry->structural_child_index];
     }
@@ -230,7 +230,7 @@ TSNode ts_tree_cursor_current_node(const TSTreeCursor *_self) {
     TreeCursorEntry *parent_entry = &self->stack.contents[self->stack.size - 2];
     const TSSymbol *alias_sequence = ts_language_alias_sequence(
       self->tree->language,
-      parent_entry->subtree->ptr->child_info_id
+      parent_entry->subtree->ptr->production_id
     );
     if (alias_sequence && !ts_subtree_extra(*last_entry->subtree)) {
       alias_symbol = alias_sequence[last_entry->structural_child_index];
@@ -257,7 +257,7 @@ TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *_self) {
       if (ts_subtree_visible(*entry->subtree)) break;
       const TSSymbol *alias_sequence = ts_language_alias_sequence(
         self->tree->language,
-        parent_entry->subtree->ptr->child_info_id
+        parent_entry->subtree->ptr->production_id
       );
       if (alias_sequence && alias_sequence[entry->structural_child_index]) {
         break;
@@ -267,7 +267,7 @@ TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *_self) {
     const TSFieldMapEntry *field_map, *field_map_end;
     ts_language_field_map(
       self->tree->language,
-      parent_entry->subtree->ptr->child_info_id,
+      parent_entry->subtree->ptr->production_id,
       &field_map, &field_map_end
     );
 

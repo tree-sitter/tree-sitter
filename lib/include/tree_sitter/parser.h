@@ -66,7 +66,7 @@ typedef struct {
       TSSymbol symbol;
       int16_t dynamic_precedence;
       uint8_t child_count;
-      uint8_t child_info_id;
+      uint8_t production_id;
     };
   } params;
   TSParseActionType type : 4;

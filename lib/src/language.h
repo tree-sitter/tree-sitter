@@ -81,19 +81,19 @@ ts_language_enabled_external_tokens(const TSLanguage *self,
 }
 
 static inline const TSSymbol *
-ts_language_alias_sequence(const TSLanguage *self, uint32_t child_info_id) {
-  return child_info_id > 0 ?
-    self->alias_sequences + child_info_id * self->max_alias_sequence_length :
+ts_language_alias_sequence(const TSLanguage *self, uint32_t production_id) {
+  return production_id > 0 ?
+    self->alias_sequences + production_id * self->max_alias_sequence_length :
     NULL;
 }
 
 static inline void ts_language_field_map(
   const TSLanguage *self,
-  uint32_t child_info_id,
+  uint32_t production_id,
   const TSFieldMapEntry **start,
   const TSFieldMapEntry **end
 ) {
-  TSFieldMapSlice slice = self->field_map_slices[child_info_id];
+  TSFieldMapSlice slice = self->field_map_slices[production_id];
   *start = &self->field_map_entries[slice.index];
   *end = &self->field_map_entries[slice.index] + slice.length;
 }
