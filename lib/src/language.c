@@ -3,8 +3,6 @@
 #include "./error_costs.h"
 #include <string.h>
 
-#define LANGUAGE_VERSION_WITH_FIELDS 10
-
 void ts_language_table_entry(const TSLanguage *self, TSStateId state,
                              TSSymbol symbol, TableEntry *result) {
   if (symbol == ts_builtin_sym_error || symbol == ts_builtin_sym_error_repeat) {
@@ -73,7 +71,7 @@ TSSymbolType ts_language_symbol_type(const TSLanguage *language, TSSymbol symbol
 }
 
 uint32_t ts_language_field_count(const TSLanguage *self) {
-  if (self->version >= LANGUAGE_VERSION_WITH_FIELDS) {
+  if (self->version >= TREE_SITTER_LANGUAGE_VERSION_WITH_FIELDS) {
     return self->field_count;
   } else {
     return 0;

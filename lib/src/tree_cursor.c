@@ -284,6 +284,10 @@ TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *_self) {
 
 const char *ts_tree_cursor_current_field_name(const TSTreeCursor *_self) {
   TSFieldId id = ts_tree_cursor_current_field_id(_self);
-  const TreeCursor *self = (const TreeCursor *)_self;
-  return self->tree->language->field_names[id];
+  if (id) {
+    const TreeCursor *self = (const TreeCursor *)_self;
+    return self->tree->language->field_names[id];
+  } else {
+    return NULL;
+  }
 }

@@ -1,6 +1,6 @@
+use super::helpers::edits::{get_random_edit, perform_edit};
 use super::helpers::fixtures::{get_language, get_test_language};
 use super::helpers::random::Rand;
-use super::helpers::edits::{get_random_edit, perform_edit};
 use crate::generate::generate_parser_for_grammar;
 use tree_sitter::{Node, Parser, Point, Tree};
 
@@ -321,11 +321,7 @@ fn test_node_edit() {
         let nodes_after = get_all_nodes(&tree2);
         for (i, node) in nodes_before.into_iter().enumerate() {
             assert_eq!(
-                (
-                    node.kind(),
-                    node.start_byte(),
-                    node.start_position()
-                ),
+                (node.kind(), node.start_byte(), node.start_position()),
                 (
                     nodes_after[i].kind(),
                     nodes_after[i].start_byte(),
@@ -415,13 +411,18 @@ fn test_node_field_names() {
     let language = get_test_language(&parser_name, &parser_code, None);
     parser.set_language(language).unwrap();
 
-    let tree = parser.parse("child-0 child-1 child-2 child-3 child-4", None).unwrap();
+    let tree = parser
+        .parse("child-0 child-1 child-2 child-3 child-4", None)
+        .unwrap();
     let root_node = tree.root_node();
 
     assert_eq!(root_node.child_by_field_name("field_1"), root_node.child(0));
     assert_eq!(root_node.child_by_field_name("field_2"), root_node.child(2));
     assert_eq!(root_node.child_by_field_name("field_3"), root_node.child(4));
-    assert_eq!(root_node.child(0).unwrap().child_by_field_name("field_1"), None);
+    assert_eq!(
+        root_node.child(0).unwrap().child_by_field_name("field_1"),
+        None
+    );
     assert_eq!(root_node.child_by_field_name("not_a_real_field"), None);
 
     let mut cursor = root_node.walk();
@@ -441,6 +442,55 @@ fn test_node_field_names() {
     cursor.goto_next_sibling();
     assert_eq!(cursor.node().kind(), "child-4");
     assert_eq!(cursor.field_name(), Some("field_3"));
+}
+
+#[test]
+fn test_node_field_calls_in_language_without_fields() {
+    let (parser_name, parser_code) = generate_parser_for_grammar(
+        r#"
+        {
+            "name": "test_grammar_with_no_fields",
+            "extras": [
+                {"type": "PATTERN", "value": "\\s+"}
+            ],
+            "rules": {
+                "a": {
+                    "type": "SEQ",
+                    "members": [
+                        {
+                            "type": "STRING",
+                            "value": "b"
+                        },
+                        {
+                            "type": "STRING",
+                            "value": "c"
+                        },
+                        {
+                            "type": "STRING",
+                            "value": "d"
+                        }
+                    ]
+                }
+            }
+        }
+    "#,
+    )
+    .unwrap();
+
+    let mut parser = Parser::new();
+    let language = get_test_language(&parser_name, &parser_code, None);
+    parser.set_language(language).unwrap();
+
+    let tree = parser.parse("b c d", None).unwrap();
+
+    let root_node = tree.root_node();
+    assert_eq!(root_node.kind(), "a");
+    assert_eq!(root_node.child_by_field_name("something"), None);
+
+    let mut cursor = root_node.walk();
+    assert_eq!(cursor.field_name(), None);
+    assert_eq!(cursor.goto_first_child(), true);
+    assert_eq!(cursor.field_name(), None);
 }
 
 fn get_all_nodes(tree: &Tree) -> Vec<Node> {
