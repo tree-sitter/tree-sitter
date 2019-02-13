@@ -22,6 +22,7 @@ lazy_static! {
         .build()
         .unwrap();
     static ref WHITESPACE_REGEX: Regex = Regex::new(r"\s+").unwrap();
+    static ref SEXP_FIELD_REGEX: Regex = Regex::new(r" \w+: \(").unwrap();
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -34,6 +35,7 @@ pub enum TestEntry {
         name: String,
         input: Vec<u8>,
         output: String,
+        has_fields: bool,
     },
 }
 
@@ -135,6 +137,7 @@ fn run_tests(
             name,
             input,
             output,
+            has_fields,
         } => {
             if let Some(filter) = filter {
                 if !name.contains(filter) {
@@ -142,7 +145,10 @@ fn run_tests(
                 }
             }
             let tree = parser.parse(&input, None).unwrap();
-            let actual = tree.root_node().to_sexp();
+            let mut actual = tree.root_node().to_sexp();
+            if !has_fields {
+                actual = strip_sexp_fields(actual);
+            }
             for _ in 0..indent_level {
                 print!("  ");
             }
@@ -186,6 +192,10 @@ pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
     }
 }
 
+pub fn strip_sexp_fields(sexp: String) -> String {
+    SEXP_FIELD_REGEX.replace_all(&sexp, " (").to_string()
+}
+
 fn parse_test_content(name: String, content: String) -> TestEntry {
     let mut children = Vec::new();
     let bytes = content.as_bytes();
@@ -209,10 +219,12 @@ fn parse_test_content(name: String, content: String) -> TestEntry {
                     let input = bytes[previous_header_end..divider_start].to_vec();
                     let output = WHITESPACE_REGEX.replace_all(output.trim(), " ").to_string();
                     let output = output.replace(" )", ")");
+                    let has_fields = SEXP_FIELD_REGEX.is_match(&output);
                     children.push(TestEntry::Example {
                         name: previous_name,
                         input,
                         output,
+                        has_fields,
                     });
                 }
             }
@@ -265,11 +277,13 @@ d
                         name: "The first test".to_string(),
                         input: "\na b c\n".as_bytes().to_vec(),
                         output: "(a (b c))".to_string(),
+                        has_fields: false,
                     },
                     TestEntry::Example {
                         name: "The second test".to_string(),
                         input: "d".as_bytes().to_vec(),
                         output: "(d)".to_string(),
+                        has_fields: false,
                     },
                 ]
             }

@@ -4,7 +4,7 @@ use super::helpers::fixtures::{fixtures_dir, get_language, get_test_language};
 use super::helpers::random::Rand;
 use super::helpers::scope_sequence::ScopeSequence;
 use crate::generate;
-use crate::test::{parse_tests, print_diff, print_diff_key, TestEntry};
+use crate::test::{parse_tests, print_diff, print_diff_key, strip_sexp_fields, TestEntry};
 use crate::util;
 use lazy_static::lazy_static;
 use std::{env, fs, time, usize};
@@ -67,7 +67,7 @@ fn test_real_language_corpus_files() {
             eprintln!("language: {:?}", language_name);
         }
 
-        for (example_name, input, expected_output) in tests {
+        for (example_name, input, expected_output, has_fields) in tests {
             eprintln!("  example: {:?}", example_name);
 
             if TRIAL_FILTER.map_or(true, |t| t == 0) {
@@ -76,7 +76,10 @@ fn test_real_language_corpus_files() {
                 let mut parser = get_parser(&mut log_session, "log.html");
                 parser.set_language(language).unwrap();
                 let tree = parser.parse(&input, None).unwrap();
-                let actual_output = tree.root_node().to_sexp();
+                let mut actual_output = tree.root_node().to_sexp();
+                if !has_fields {
+                    actual_output = strip_sexp_fields(actual_output);
+                }
                 drop(tree);
                 drop(parser);
                 if actual_output != expected_output {
@@ -144,7 +147,11 @@ fn test_real_language_corpus_files() {
                     let tree3 = parser.parse(&input, Some(&tree2)).unwrap();
 
                     // Verify that the final tree matches the expectation from the corpus.
-                    let actual_output = tree3.root_node().to_sexp();
+                    let mut actual_output = tree3.root_node().to_sexp();
+                    if !has_fields {
+                        actual_output = strip_sexp_fields(actual_output);
+                    }
+
                     if actual_output != expected_output {
                         println!(
                             "Incorrect parse for {} - {} - trial {}",
@@ -241,7 +248,7 @@ fn test_feature_corpus_files() {
                 eprintln!("test language: {:?}", language_name);
             }
 
-            for (name, input, expected_output) in tests {
+            for (name, input, expected_output, has_fields) in tests {
                 eprintln!("  example: {:?}", name);
 
                 allocations::start_recording();
@@ -249,7 +256,11 @@ fn test_feature_corpus_files() {
                 let mut parser = get_parser(&mut log_session, "log.html");
                 parser.set_language(language).unwrap();
                 let tree = parser.parse(&input, None).unwrap();
-                let actual_output = tree.root_node().to_sexp();
+                let mut actual_output = tree.root_node().to_sexp();
+                if !has_fields {
+                    actual_output = strip_sexp_fields(actual_output);
+                }
+
                 drop(tree);
                 drop(parser);
                 if actual_output != expected_output {
@@ -348,13 +359,14 @@ fn get_parser(session: &mut Option<util::LogSession>, log_filename: &str) -> Par
     parser
 }
 
-fn flatten_tests(test: TestEntry) -> Vec<(String, Vec<u8>, String)> {
-    fn helper(test: TestEntry, prefix: &str, result: &mut Vec<(String, Vec<u8>, String)>) {
+fn flatten_tests(test: TestEntry) -> Vec<(String, Vec<u8>, String, bool)> {
+    fn helper(test: TestEntry, prefix: &str, result: &mut Vec<(String, Vec<u8>, String, bool)>) {
         match test {
             TestEntry::Example {
                 mut name,
                 input,
                 output,
+                has_fields,
             } => {
                 if !prefix.is_empty() {
                     name.insert_str(0, " - ");
@@ -365,7 +377,7 @@ fn flatten_tests(test: TestEntry) -> Vec<(String, Vec<u8>, String)> {
                         return;
                     }
                 }
-                result.push((name, input, output));
+                result.push((name, input, output, has_fields));
             }
             TestEntry::Group { mut name, children } => {
                 if !prefix.is_empty() {

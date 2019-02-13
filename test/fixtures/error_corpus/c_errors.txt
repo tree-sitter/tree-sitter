@@ -14,8 +14,8 @@ int main() {
     (primitive_type)
     (function_declarator (identifier) (parameter_list))
     (compound_statement
-      (expression_statement (call_expression (identifier) (argument_list (string_literal))) (MISSING))
-      (expression_statement (call_expression (identifier) (argument_list (string_literal))) (MISSING)))))
+      (expression_statement (call_expression (identifier) (argument_list (string_literal))) (MISSING ";"))
+      (expression_statement (call_expression (identifier) (argument_list (string_literal))) (MISSING ";")))))
 
 ==============================================
 Top-level declarations with missing semicolons
@@ -27,8 +27,8 @@ static int b
 ---
 
 (translation_unit
-  (declaration (primitive_type) (identifier) (MISSING))
-  (declaration (storage_class_specifier) (primitive_type) (identifier) (MISSING)))
+  (declaration (primitive_type) (identifier) (MISSING ";"))
+  (declaration (storage_class_specifier) (primitive_type) (identifier) (MISSING ";")))
 
 ==========================================
 Partial declaration lists inside ifdefs
@@ -58,7 +58,7 @@ int c() {
       (comment)
       (declaration (primitive_type) (identifier))
       (function_definition (primitive_type) (function_declarator (identifier) (parameter_list)) (compound_statement (return_statement (number_literal))))
-      (preproc_ifdef (identifier) (MISSING))))))
+      (preproc_ifdef (identifier) (MISSING "#endif"))))))
 
 ==========================================
 If statements with incomplete expressions
@@ -83,12 +83,12 @@ int main() {
       (if_statement
         (parenthesized_expression (field_expression
           (identifier)
-          (MISSING)))
+          (MISSING field_identifier)))
         (compound_statement
           (expression_statement (call_expression (identifier) (argument_list)))
           (expression_statement (call_expression (identifier) (argument_list)))
           (if_statement
-            (parenthesized_expression (pointer_expression (MISSING)))
+            (parenthesized_expression (pointer_expression (MISSING identifier)))
             (expression_statement (call_expression (identifier) (argument_list)))))))))
 
 ====================================

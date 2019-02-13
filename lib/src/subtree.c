@@ -805,56 +805,90 @@ static void ts_subtree__write_dot_string(FILE *f, const char *string) {
   }
 }
 
-static size_t ts_subtree__write_to_string(Subtree self, char *string, size_t limit,
-                                          const TSLanguage *language, bool is_root,
-                                          bool include_all, TSSymbol alias_symbol,
-                                          bool alias_is_named) {
+static const char *ROOT_FIELD = "__ROOT__";
+
+static size_t ts_subtree__write_to_string(
+  Subtree self, char *string, size_t limit,
+  const TSLanguage *language, bool include_all,
+  TSSymbol alias_symbol, bool alias_is_named, const char *field_name
+) {
   if (!self.ptr) return snprintf(string, limit, "(NULL)");
 
   char *cursor = string;
   char **writer = (limit > 0) ? &cursor : &string;
   bool visible =
     include_all ||
-    is_root ||
+    alias_is_named ||
     ts_subtree_missing(self) ||
-    (ts_subtree_visible(self) && ts_subtree_named(self)) ||
-    alias_is_named;
-
-  if (visible && !is_root) {
-    cursor += snprintf(*writer, limit, " ");
-  }
+    (ts_subtree_visible(self) && ts_subtree_named(self));
 
   if (visible) {
+    if (field_name != ROOT_FIELD) {
+      cursor += snprintf(*writer, limit, " ");
+
+      if (field_name) {
+        cursor += snprintf(*writer, limit, "%s: ", field_name);
+      }
+    }
+
     if (ts_subtree_is_error(self) && ts_subtree_child_count(self) == 0 && self.ptr->size.bytes > 0) {
       cursor += snprintf(*writer, limit, "(UNEXPECTED ");
       cursor += ts_subtree__write_char_to_string(*writer, limit, self.ptr->lookahead_char);
-    } else if (ts_subtree_missing(self)) {
-      cursor += snprintf(*writer, limit, "(MISSING");
     } else {
       TSSymbol symbol = alias_symbol ? alias_symbol : ts_subtree_symbol(self);
       const char *symbol_name = ts_language_symbol_name(language, symbol);
-      cursor += snprintf(*writer, limit, "(%s", symbol_name);
+      if (ts_subtree_missing(self)) {
+        cursor += snprintf(*writer, limit, "(MISSING ");
+        if (alias_is_named || ts_subtree_named(self)) {
+          cursor += snprintf(*writer, limit, "%s", symbol_name);
+        } else {
+          cursor += snprintf(*writer, limit, "\"%s\"", symbol_name);
+        }
+      } else {
+        cursor += snprintf(*writer, limit, "(%s", symbol_name);
+      }
     }
   }
 
   if (ts_subtree_child_count(self)) {
     const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self.ptr->production_id);
+    const TSFieldMapEntry *field_map, *field_map_end;
+    ts_language_field_map(
+      language,
+      self.ptr->production_id,
+      &field_map,
+      &field_map_end
+    );
+
     uint32_t structural_child_index = 0;
     for (uint32_t i = 0; i < self.ptr->child_count; i++) {
       Subtree child = self.ptr->children[i];
       if (ts_subtree_extra(child)) {
         cursor += ts_subtree__write_to_string(
           child, *writer, limit,
-          language, false, include_all,
-          0, false
+          language, include_all,
+          0, false, NULL
         );
       } else {
-        TSSymbol alias_symbol = alias_sequence ? alias_sequence[structural_child_index] : 0;
+        TSSymbol alias_symbol = alias_sequence
+          ? alias_sequence[structural_child_index]
+          : 0;
+        bool alias_is_named = alias_symbol
+          ? ts_language_symbol_metadata(language, alias_symbol).named
+          : false;
+
+        const char *child_field_name = visible ? NULL : field_name;
+        for (const TSFieldMapEntry *i = field_map; i < field_map_end; i++) {
+          if (!i->inherited && i->child_index == structural_child_index) {
+            child_field_name = language->field_names[i->field_id];
+            break;
+          }
+        }
+
         cursor += ts_subtree__write_to_string(
           child, *writer, limit,
-          language, false, include_all,
-          alias_symbol,
-          alias_symbol ? ts_language_symbol_metadata(language, alias_symbol).named : false
+          language, include_all,
+          alias_symbol, alias_is_named, child_field_name
         );
         structural_child_index++;
       }
@@ -866,15 +900,23 @@ static size_t ts_subtree__write_to_string(Subtree self, char *string, size_t lim
   return cursor - string;
 }
 
-char *ts_subtree_string(Subtree self, const TSLanguage *language, bool include_all) {
+char *ts_subtree_string(
+  Subtree self,
+  const TSLanguage *language,
+  bool include_all
+) {
   char scratch_string[1];
   size_t size = ts_subtree__write_to_string(
     self, scratch_string, 0,
-    language, true,
-    include_all, 0, false
+    language, include_all,
+    0, false, ROOT_FIELD
   ) + 1;
   char *result = malloc(size * sizeof(char));
-  ts_subtree__write_to_string(self, result, size, language, true, include_all, 0, false);
+  ts_subtree__write_to_string(
+    self, result, size,
+    language, include_all,
+    0, false, ROOT_FIELD
+  );
   return result;
 }
 
