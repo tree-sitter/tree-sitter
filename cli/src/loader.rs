@@ -3,6 +3,7 @@ use libloading::{Library, Symbol};
 use regex::{Regex, RegexBuilder};
 use serde_derive::Deserialize;
 use std::collections::HashMap;
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::SystemTime;
@@ -18,7 +19,6 @@ const DYLIB_EXTENSION: &'static str = "dll";
 const BUILD_TARGET: &'static str = env!("BUILD_TARGET");
 
 struct LanguageRepo {
-    name: String,
     path: PathBuf,
     language: Option<Language>,
     configurations: Vec<LanguageConfiguration>,
@@ -109,35 +109,42 @@ impl Loader {
             language
         } else {
             let src_path = repo.path.join("src");
-            let language = self.load_language_at_path(&repo.name, &src_path, &src_path)?;
+            let language = self.load_language_at_path(&src_path, &src_path)?;
             self.language_repos[id].language = Some(language);
             language
         };
         Ok((language, &self.language_repos[id].configurations))
     }
 
-    pub fn load_language_at_path(
-        &self,
-        name: &str,
-        src_path: &Path,
-        header_path: &Path,
-    ) -> Result<Language> {
+    pub fn load_language_at_path(&self, src_path: &Path, header_path: &Path) -> Result<Language> {
+        let grammar_path = src_path.join("grammar.json");
         let parser_path = src_path.join("parser.c");
+        let mut scanner_path = src_path.join("scanner.c");
 
-        let scanner_path;
-        let scanner_c_path = src_path.join("scanner.c");
-        if scanner_c_path.exists() {
-            scanner_path = Some(scanner_c_path);
-        } else {
-            let scanner_cc_path = src_path.join("scanner.cc");
-            if scanner_cc_path.exists() {
-                scanner_path = Some(scanner_cc_path);
-            } else {
-                scanner_path = None;
-            }
+        #[derive(Deserialize)]
+        struct GrammarJSON {
+            name: String,
         }
+        let mut grammar_file = fs::File::open(grammar_path)?;
+        let grammar_json: GrammarJSON = serde_json::from_reader(BufReader::new(&mut grammar_file))?;
 
-        self.load_language_from_sources(name, &header_path, &parser_path, &scanner_path)
+        let scanner_path = if scanner_path.exists() {
+            Some(scanner_path)
+        } else {
+            scanner_path.set_extension("cc");
+            if scanner_path.exists() {
+                Some(scanner_path)
+            } else {
+                None
+            }
+        };
+
+        self.load_language_from_sources(
+            &grammar_json.name,
+            &header_path,
+            &parser_path,
+            &scanner_path,
+        )
     }
 
     pub fn load_language_from_sources(
@@ -236,7 +243,6 @@ impl Loader {
 
         #[derive(Deserialize)]
         struct PackageJSON {
-            name: String,
             #[serde(rename = "tree-sitter")]
             tree_sitter: Option<Vec<LanguageConfigurationJSON>>,
         }
@@ -272,11 +278,6 @@ impl Loader {
         }
 
         self.language_repos.push(LanguageRepo {
-            name: package_json
-                .name
-                .split_at("tree-sitter-".len())
-                .1
-                .to_string(),
             path: parser_path.to_owned(),
             language: None,
             configurations,
