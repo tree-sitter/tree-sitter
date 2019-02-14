@@ -2,8 +2,8 @@ use crate::error::{Error, Result};
 use log::info;
 use rsass;
 use rsass::sass::Value;
+use rsass::selectors::SelectorPart;
 use serde_derive::Serialize;
-use std::cmp::Ordering;
 use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fmt::{self, Write};
@@ -27,11 +27,12 @@ type PropertySetId = usize;
 
 #[derive(Clone, PartialEq, Eq)]
 struct SelectorStep {
-    kind: String,
-    is_named: bool,
-    is_immediate: bool,
+    kind: Option<String>,
+    field: Option<String>,
     child_index: Option<usize>,
     text_pattern: Option<String>,
+    is_named: Option<bool>,
+    is_immediate: bool,
 }
 
 #[derive(PartialEq, Eq)]
@@ -175,6 +176,7 @@ impl Builder {
                 transition_map.insert((
                     PropertyTransitionJSON {
                         kind: step.kind.clone(),
+                        field: step.field.clone(),
                         named: step.is_named,
                         index: step.child_index,
                         text: step.text_pattern.clone(),
@@ -235,19 +237,11 @@ impl Builder {
         // first, and in the event of a tie, transitions corresponding to later rules
         // in the cascade are tried first.
         transition_list.sort_by(|a, b| {
-            let result = a.0.kind.cmp(&b.0.kind);
-            if result != Ordering::Equal {
-                return result;
-            }
-            let result = a.0.named.cmp(&b.0.named);
-            if result != Ordering::Equal {
-                return result;
-            }
-            let result = transition_specificity(&b.0).cmp(&transition_specificity(&a.0));
-            if result != Ordering::Equal {
-                return result;
-            }
-            b.1.cmp(&a.1)
+            (transition_specificity(&b.0).cmp(&transition_specificity(&a.0)))
+                .then_with(|| b.1.cmp(&a.1))
+                .then_with(|| a.0.kind.cmp(&b.0.kind))
+                .then_with(|| a.0.named.cmp(&b.0.named))
+                .then_with(|| a.0.field.cmp(&b.0.field))
         });
 
         // Compute the merged properties that apply in the current state.
@@ -256,11 +250,7 @@ impl Builder {
         // rules will override less specific selectors and earlier rules.
         let mut properties = PropertySet::new();
         selector_matches.sort_unstable_by(|a, b| {
-            let result = a.specificity.cmp(&b.specificity);
-            if result != Ordering::Equal {
-                return result;
-            }
-            a.rule_id.cmp(&b.rule_id)
+            (a.specificity.cmp(&b.specificity)).then_with(|| a.rule_id.cmp(&b.rule_id))
         });
         selector_matches.dedup();
         for selector_match in selector_matches {
@@ -322,6 +312,7 @@ impl Builder {
                         transition.state_id = *replacement;
                     }
                 }
+                state.transitions.dedup();
             }
         }
 
@@ -356,8 +347,14 @@ impl Builder {
 }
 
 fn selector_specificity(selector: &Selector) -> u32 {
-    let mut result = selector.0.len() as u32;
+    let mut result = 0;
     for step in &selector.0 {
+        if step.kind.is_some() {
+            result += 1;
+        }
+        if step.field.is_some() {
+            result += 1;
+        }
         if step.child_index.is_some() {
             result += 1;
         }
@@ -370,6 +367,12 @@ fn selector_specificity(selector: &Selector) -> u32 {
 
 fn transition_specificity(transition: &PropertyTransitionJSON) -> u32 {
     let mut result = 0;
+    if transition.kind.is_some() {
+        result += 1;
+    }
+    if transition.field.is_some() {
+        result += 1;
+    }
     if transition.index.is_some() {
         result += 1;
     }
@@ -380,19 +383,37 @@ fn transition_specificity(transition: &PropertyTransitionJSON) -> u32 {
 }
 
 fn step_matches_transition(step: &SelectorStep, transition: &PropertyTransitionJSON) -> bool {
-    step.kind == transition.kind
-        && step.is_named == transition.named
-        && (step.child_index == transition.index || step.child_index.is_none())
-        && (step.text_pattern == transition.text || step.text_pattern.is_none())
+    step.kind
+        .as_ref()
+        .map_or(true, |kind| transition.kind.as_ref() == Some(kind))
+        && step
+            .is_named
+            .map_or(true, |named| transition.named == Some(named))
+        && step
+            .field
+            .as_ref()
+            .map_or(true, |field| transition.field.as_ref() == Some(field))
+        && step
+            .child_index
+            .map_or(true, |index| transition.index == Some(index))
+        && step
+            .text_pattern
+            .as_ref()
+            .map_or(true, |text| transition.text.as_ref() == Some(text))
 }
 
 impl fmt::Debug for SelectorStep {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "(")?;
-        if self.is_named {
-            write!(f, "{}", self.kind)?;
-        } else {
-            write!(f, "\"{}\"", self.kind)?;
+        if let Some(kind) = &self.kind {
+            if self.is_named.unwrap() {
+                write!(f, "{}", kind)?;
+            } else {
+                write!(f, "[token='{}']", kind)?;
+            }
+        }
+        if let Some(field) = &self.field {
+            write!(f, ".{}", field)?;
         }
         if let Some(n) = self.child_index {
             write!(f, ":nth-child({})", n)?;
@@ -416,7 +437,7 @@ impl fmt::Debug for Selector {
             }
             write!(f, "{:?}", step)?;
         }
-        write!(f, "]")?;
+        write!(f, " (specificity: {})]", selector_specificity(self))?;
         Ok(())
     }
 }
@@ -522,52 +543,134 @@ fn parse_sass_items(
             rsass::Item::Rule(selectors, items) => {
                 let mut full_selectors = Vec::new();
                 for prefix in selector_prefixes {
-                    let mut part_string = String::new();
-                    let mut next_step_is_immediate = false;
                     for selector in &selectors.s {
                         let mut prefix = prefix.clone();
+                        let mut operator_was_immediate: Option<bool> = Some(false);
                         for part in &selector.0 {
-                            part_string.clear();
-                            write!(&mut part_string, "{}", part).unwrap();
-                            let part_string = part_string.trim();
-                            if !part_string.is_empty() {
-                                if part_string == "&" {
-                                    continue;
-                                } else if part_string.starts_with(":nth-child(") {
-                                    if let Some(last_step) = prefix.last_mut() {
-                                        if let Ok(index) = usize::from_str_radix(
-                                            &part_string[11..(part_string.len() - 1)],
-                                            10,
-                                        ) {
-                                            last_step.child_index = Some(index);
+                            match part {
+                                SelectorPart::BackRef => {
+                                    operator_was_immediate = None;
+                                }
+                                SelectorPart::Simple(value) => {
+                                    if let Some(value) = value.single_raw() {
+                                        for (i, value) in value.split('.').enumerate() {
+                                            if value.is_empty() {
+                                                continue;
+                                            }
+                                            let value = value.to_string();
+                                            check_node_kind(&value)?;
+                                            if i > 0 {
+                                                if let Some(immediate) = operator_was_immediate {
+                                                    prefix.push(SelectorStep {
+                                                        kind: None,
+                                                        field: Some(value),
+                                                        is_named: None,
+                                                        child_index: None,
+                                                        text_pattern: None,
+                                                        is_immediate: immediate,
+                                                    })
+                                                } else {
+                                                    prefix.last_mut().unwrap().field = Some(value);
+                                                }
+                                            } else {
+                                                if let Some(immediate) = operator_was_immediate {
+                                                    prefix.push(SelectorStep {
+                                                        kind: Some(value.to_string()),
+                                                        field: None,
+                                                        child_index: None,
+                                                        text_pattern: None,
+                                                        is_named: Some(true),
+                                                        is_immediate: immediate,
+                                                    });
+                                                } else {
+                                                    return Err(Error(format!("Node type {} must be separated by whitespace or the `>` operator", value)));
+                                                }
+                                            }
+                                            operator_was_immediate = None;
+                                        }
+                                    } else {
+                                        return Err(interpolation_error());
+                                    }
+                                    operator_was_immediate = None;
+                                }
+                                SelectorPart::Attribute { name, val, .. } => {
+                                    match name.single_raw() {
+                                        None => return Err(interpolation_error()),
+                                        Some("text") => {
+                                            if operator_was_immediate.is_some() {
+                                                return Err(Error("The `text` attribute must be used in combination with a node type or field".to_string()));
+                                            }
+                                            if let Some(last_step) = prefix.last_mut() {
+                                                last_step.text_pattern =
+                                                    Some(get_string_value(val.to_string())?)
+                                            }
+                                        }
+                                        Some("token") => {
+                                            if let Some(immediate) = operator_was_immediate {
+                                                prefix.push(SelectorStep {
+                                                    kind: Some(get_string_value(val.to_string())?),
+                                                    field: None,
+                                                    is_named: Some(false),
+                                                    child_index: None,
+                                                    text_pattern: None,
+                                                    is_immediate: immediate,
+                                                });
+                                                operator_was_immediate = None;
+                                            } else {
+                                                return Err(Error("The `token` attribute canot be used in combination with a node type".to_string()));
+                                            }
+                                        }
+                                        _ => {
+                                            return Err(Error(format!(
+                                                "Unsupported attribute {}",
+                                                part
+                                            )));
                                         }
                                     }
-                                } else if part_string.starts_with("[text=") {
-                                    if let Some(last_step) = prefix.last_mut() {
-                                        last_step.text_pattern = Some(
-                                            part_string[7..(part_string.len() - 2)].to_string(),
-                                        )
+                                }
+                                SelectorPart::PseudoElement { .. } => {
+                                    return Err(Error(
+                                        "Pseudo elements are not supported".to_string(),
+                                    ));
+                                }
+                                SelectorPart::Pseudo { name, arg } => match name.single_raw() {
+                                    None => return Err(interpolation_error()),
+                                    Some("nth-child") => {
+                                        if let Some(arg) = arg {
+                                            let mut arg_str = String::new();
+                                            write!(&mut arg_str, "{}", arg).unwrap();
+                                            if let Some(last_step) = prefix.last_mut() {
+                                                if let Ok(i) = usize::from_str_radix(&arg_str, 10) {
+                                                    last_step.child_index = Some(i);
+                                                } else {
+                                                    return Err(Error(format!(
+                                                        "Invalid child index {}",
+                                                        arg
+                                                    )));
+                                                }
+                                            }
+                                        }
                                     }
-                                } else if part_string == ">" {
-                                    next_step_is_immediate = true;
-                                } else if part_string.starts_with("[token=") {
-                                    prefix.push(SelectorStep {
-                                        kind: part_string[8..(part_string.len() - 2)].to_string(),
-                                        is_named: false,
-                                        child_index: None,
-                                        text_pattern: None,
-                                        is_immediate: next_step_is_immediate,
-                                    });
-                                    next_step_is_immediate = false;
-                                } else {
-                                    prefix.push(SelectorStep {
-                                        kind: part_string.to_string(),
-                                        is_named: true,
-                                        child_index: None,
-                                        text_pattern: None,
-                                        is_immediate: next_step_is_immediate,
-                                    });
-                                    next_step_is_immediate = false;
+                                    _ => {
+                                        return Err(Error(format!(
+                                            "Unsupported pseudo-class {}",
+                                            part
+                                        )));
+                                    }
+                                },
+                                SelectorPart::Descendant => {
+                                    operator_was_immediate = Some(false);
+                                }
+                                SelectorPart::RelOp(operator) => {
+                                    let operator = *operator as char;
+                                    if operator == '>' {
+                                        operator_was_immediate = Some(true);
+                                    } else {
+                                        return Err(Error(format!(
+                                            "Unsupported operator {}",
+                                            operator
+                                        )));
+                                    }
                                 }
                             }
                         }
@@ -596,7 +699,7 @@ fn parse_sass_value(value: &Value) -> Result<PropertyValue> {
             if let Some(s) = s.single_raw() {
                 Ok(PropertyValue::String(s.to_string()))
             } else {
-                Err(Error("String interpolation is not supported".to_string()))
+                Err(interpolation_error())
             }
         }
         Value::Call(name, raw_args) => {
@@ -665,13 +768,36 @@ fn resolve_path(base: &Path, p: &str) -> Result<PathBuf> {
     Err(Error(format!("Could not resolve import path `{}`", p)))
 }
 
+fn check_node_kind(name: &String) -> Result<()> {
+    for c in name.chars() {
+        if !c.is_alphanumeric() && c != '_' {
+            return Err(Error(format!("Invalid identifier '{}'", name)));
+        }
+    }
+    Ok(())
+}
+
+fn get_string_value(mut s: String) -> Result<String> {
+    if s.starts_with("'") && s.ends_with("'") || s.starts_with('"') && s.ends_with('"') {
+        s.pop();
+        s.remove(0);
+        Ok(s)
+    } else {
+        Err(Error(format!("Unsupported string literal {}", s)))
+    }
+}
+
+fn interpolation_error() -> Error {
+    Error("String interpolation is not supported".to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use regex::Regex;
 
     #[test]
-    fn test_immediate_child_and_descendant_selectors() {
+    fn test_properties_immediate_child_and_descendant_selectors() {
         let sheet = generate_property_sheet(
             "foo.css",
             "
@@ -776,7 +902,7 @@ mod tests {
     }
 
     #[test]
-    fn test_text_attribute() {
+    fn test_properties_text_attribute() {
         let sheet = generate_property_sheet(
             "foo.css",
             "
@@ -800,26 +926,93 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            *query(&sheet, vec![("f1", true, 0)], "abc"),
+            *query(&sheet, vec![("f1", None, true, 0)], "abc"),
             props(&[("color", "red")])
         );
         assert_eq!(
-            *query(&sheet, vec![("f1", true, 0)], "Abc"),
+            *query(&sheet, vec![("f1", None, true, 0)], "Abc"),
             props(&[("color", "green")])
         );
         assert_eq!(
-            *query(&sheet, vec![("f1", true, 0)], "AB_CD"),
+            *query(&sheet, vec![("f1", None, true, 0)], "AB_CD"),
             props(&[("color", "blue")])
         );
-        assert_eq!(*query(&sheet, vec![("f2", true, 0)], "Abc"), props(&[]));
         assert_eq!(
-            *query(&sheet, vec![("f2", true, 0)], "ABC"),
+            *query(&sheet, vec![("f2", None, true, 0)], "Abc"),
+            props(&[])
+        );
+        assert_eq!(
+            *query(&sheet, vec![("f2", None, true, 0)], "ABC"),
             props(&[("color", "purple")])
         );
     }
 
     #[test]
-    fn test_cascade_ordering_as_tie_breaker() {
+    fn test_properties_with_fields() {
+        let sheet = generate_property_sheet(
+            "foo.css",
+            "
+                a {
+                    color: red;
+                    &.x {
+                        color: green;
+                        b {
+                            color: blue;
+                            &.y { color: yellow; }
+                        }
+                    }
+                    b { color: orange; }
+                    b.y { color: indigo; }
+                }
+                .x { color: violet; }
+            ",
+        )
+        .unwrap();
+
+        assert_eq!(
+            *query(&sheet, vec![("a", None, true, 0)], ""),
+            props(&[("color", "red")])
+        );
+        assert_eq!(
+            *query(&sheet, vec![("a", Some("x"), true, 0)], ""),
+            props(&[("color", "green")])
+        );
+        assert_eq!(
+            *query(
+                &sheet,
+                vec![("a", Some("x"), true, 0), ("b", None, true, 0)],
+                ""
+            ),
+            props(&[("color", "blue")])
+        );
+        assert_eq!(
+            *query(
+                &sheet,
+                vec![("a", Some("x"), true, 0), ("b", Some("y"), true, 0)],
+                ""
+            ),
+            props(&[("color", "yellow")])
+        );
+        assert_eq!(
+            *query(&sheet, vec![("b", Some("x"), true, 0)], ""),
+            props(&[("color", "violet")])
+        );
+        assert_eq!(
+            *query(&sheet, vec![("a", None, true, 0), ("b", None, true, 0)], ""),
+            props(&[("color", "orange")])
+        );
+        assert_eq!(
+            *query(
+                &sheet,
+                vec![("a", None, true, 0), ("b", Some("y"), true, 0)],
+                ""
+            ),
+            props(&[("color", "indigo")])
+        );
+    }
+
+    #[test]
+    fn test_properties_cascade_ordering_as_tie_breaker() {
         let sheet = generate_property_sheet(
             "foo.css",
             "
@@ -832,29 +1025,49 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            *query(&sheet, vec![("f1", true, 0), ("f2", true, 0)], "x"),
+            *query(
+                &sheet,
+                vec![("f1", None, true, 0), ("f2", None, true, 0)],
+                "x"
+            ),
             props(&[])
         );
         assert_eq!(
-            *query(&sheet, vec![("f1", true, 0), ("f2", true, 1)], "x"),
+            *query(
+                &sheet,
+                vec![("f1", None, true, 0), ("f2", None, true, 1)],
+                "x"
+            ),
             props(&[("color", "red")])
         );
         assert_eq!(
-            *query(&sheet, vec![("f1", true, 1), ("f2", true, 1)], "x"),
+            *query(
+                &sheet,
+                vec![("f1", None, true, 1), ("f2", None, true, 1)],
+                "x"
+            ),
             props(&[("color", "green")])
         );
         assert_eq!(
-            *query(&sheet, vec![("f1", true, 1), ("f2", true, 1)], "a"),
+            *query(
+                &sheet,
+                vec![("f1", None, true, 1), ("f2", None, true, 1)],
+                "a"
+            ),
             props(&[("color", "blue")])
         );
         assert_eq!(
-            *query(&sheet, vec![("f1", true, 1), ("f2", true, 1)], "ab"),
+            *query(
+                &sheet,
+                vec![("f1", None, true, 1), ("f2", None, true, 1)],
+                "ab"
+            ),
             props(&[("color", "violet")])
         );
     }
 
     #[test]
-    fn test_css_function_calls() {
+    fn test_properties_css_function_calls() {
         let sheet = generate_property_sheet(
             "foo.css",
             "
@@ -891,7 +1104,7 @@ mod tests {
     }
 
     #[test]
-    fn test_array_by_declaring_property_multiple_times() {
+    fn test_properties_array_by_declaring_property_multiple_times() {
         let sheet = generate_property_sheet(
             "foo.css",
             "
@@ -937,25 +1150,26 @@ mod tests {
     ) -> &'a PropertySet {
         query(
             sheet,
-            node_stack.into_iter().map(|s| (s, true, 0)).collect(),
+            node_stack.into_iter().map(|s| (s, None, true, 0)).collect(),
             "",
         )
     }
 
     fn query<'a>(
         sheet: &'a PropertySheetJSON,
-        node_stack: Vec<(&'static str, bool, usize)>,
+        node_stack: Vec<(&'static str, Option<&'static str>, bool, usize)>,
         leaf_text: &str,
     ) -> &'a PropertySet {
         let mut state_id = 0;
-        for (kind, is_named, child_index) in node_stack {
+        for (kind, field, is_named, child_index) in node_stack {
             let state = &sheet.states[state_id];
             state_id = state
                 .transitions
                 .iter()
                 .find(|transition| {
-                    transition.kind == kind
-                        && transition.named == is_named
+                    transition.kind.as_ref().map_or(true, |k| k == kind)
+                        && transition.named.map_or(true, |n| n == is_named)
+                        && transition.field.as_ref().map_or(true, |f| field == Some(f))
                         && transition.index.map_or(true, |index| index == child_index)
                         && (transition
                             .text

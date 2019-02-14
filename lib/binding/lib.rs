@@ -62,8 +62,15 @@ struct PropertyTransition {
     text_regex_index: Option<usize>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+enum NodeId {
+    Kind(u16),
+    Field(u16),
+    KindAndField(u16, u16),
+}
+
 struct PropertyState {
-    transitions: HashMap<u16, Vec<PropertyTransition>>,
+    transitions: HashMap<NodeId, Vec<PropertyTransition>>,
     property_set_id: usize,
     default_next_state_id: usize,
 }
@@ -83,10 +90,14 @@ pub struct PropertySheet<P = HashMap<String, String>> {
 #[derive(Debug, Deserialize, Serialize, Hash, PartialEq, Eq)]
 pub struct PropertyTransitionJSON {
     #[serde(rename = "type")]
-    pub kind: String,
-    pub named: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub named: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub index: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub field: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
     pub state_id: usize,
@@ -136,6 +147,22 @@ impl Language {
 
     pub fn node_kind_is_named(&self, id: u16) -> bool {
         unsafe { ffi::ts_language_symbol_type(self.0, id) == ffi::TSSymbolType_TSSymbolTypeRegular }
+    }
+
+    pub fn field_id_for_name(&self, field_name: impl AsRef<[u8]>) -> Option<u16> {
+        let field_name = field_name.as_ref();
+        let id = unsafe {
+            ffi::ts_language_field_id_for_name(
+                self.0,
+                field_name.as_ptr() as *const c_char,
+                field_name.len() as u32,
+            )
+        };
+        if id == 0 {
+            None
+        } else {
+            Some(id)
+        }
     }
 }
 
@@ -657,7 +684,9 @@ impl<'a, P> TreePropertyCursor<'a, P> {
             property_sheet,
             source,
         };
-        let state = result.next_state(&result.current_state(), result.cursor.node().kind_id(), 0);
+        let kind_id = result.cursor.node().kind_id();
+        let field_id = result.cursor.field_id();
+        let state = result.next_state(&result.current_state(), kind_id, field_id, 0);
         result.state_stack.push(state);
         result
     }
@@ -676,7 +705,8 @@ impl<'a, P> TreePropertyCursor<'a, P> {
             let next_state_id = {
                 let state = &self.current_state();
                 let kind_id = self.cursor.node().kind_id();
-                self.next_state(state, kind_id, child_index)
+                let field_id = self.cursor.field_id();
+                self.next_state(state, kind_id, field_id, child_index)
             };
             self.state_stack.push(next_state_id);
             self.child_index_stack.push(child_index);
@@ -693,7 +723,8 @@ impl<'a, P> TreePropertyCursor<'a, P> {
             let next_state_id = {
                 let state = &self.current_state();
                 let kind_id = self.cursor.node().kind_id();
-                self.next_state(state, kind_id, child_index)
+                let field_id = self.cursor.field_id();
+                self.next_state(state, kind_id, field_id, child_index)
             };
             self.state_stack.push(next_state_id);
             self.child_index_stack.push(child_index);
@@ -717,12 +748,25 @@ impl<'a, P> TreePropertyCursor<'a, P> {
         &self,
         state: &PropertyState,
         node_kind_id: u16,
+        node_field_id: Option<u16>,
         node_child_index: usize,
     ) -> usize {
-        state
-            .transitions
-            .get(&node_kind_id)
-            .and_then(|transitions| {
+        let keys;
+        let key_count;
+        if let Some(node_field_id) = node_field_id {
+            key_count = 3;
+            keys = [
+                NodeId::KindAndField(node_kind_id, node_field_id),
+                NodeId::Field(node_field_id),
+                NodeId::Kind(node_kind_id),
+            ];
+        } else {
+            key_count = 1;
+            keys = [NodeId::Kind(node_kind_id); 3];
+        }
+
+        for key in &keys[0..key_count] {
+            if let Some(transitions) = state.transitions.get(key) {
                 for transition in transitions.iter() {
                     if let Some(text_regex_index) = transition.text_regex_index {
                         let node = self.cursor.node();
@@ -740,11 +784,12 @@ impl<'a, P> TreePropertyCursor<'a, P> {
                         }
                     }
 
-                    return Some(transition.state_id);
+                    return transition.state_id;
                 }
-                None
-            })
-            .unwrap_or(state.default_next_state_id)
+            }
+        }
+
+        state.default_next_state_id
     }
 
     fn current_state(&self) -> &PropertyState {
@@ -848,18 +893,38 @@ impl<P> PropertySheet<P> {
                     None
                 };
 
-                for i in 0..(node_kind_count as u16) {
-                    if transition.kind == language.node_kind_for_id(i)
-                        && transition.named == language.node_kind_is_named(i)
-                    {
-                        let entry = transitions.entry(i).or_insert(Vec::new());
-                        entry.push(PropertyTransition {
-                            child_index: transition.index,
-                            state_id: transition.state_id,
-                            text_regex_index,
-                        });
+                let kind_id = transition.kind.as_ref().and_then(|kind| {
+                    let named = transition.named.unwrap();
+                    for i in 0..(node_kind_count as u16) {
+                        if kind == language.node_kind_for_id(i)
+                            && named == language.node_kind_is_named(i)
+                        {
+                            return Some(i);
+                        }
                     }
-                }
+                    None
+                });
+
+                let field_id = transition
+                    .field
+                    .as_ref()
+                    .and_then(|field| language.field_id_for_name(&field));
+
+                let key = match (kind_id, field_id) {
+                    (Some(kind_id), None) => NodeId::Kind(kind_id),
+                    (None, Some(field_id)) => NodeId::Field(field_id),
+                    (Some(kind_id), Some(field_id)) => NodeId::KindAndField(kind_id, field_id),
+                    (None, None) => continue,
+                };
+
+                transitions
+                    .entry(key)
+                    .or_insert(Vec::new())
+                    .push(PropertyTransition {
+                        child_index: transition.index,
+                        state_id: transition.state_id,
+                        text_regex_index,
+                    });
             }
             states.push(PropertyState {
                 transitions,
