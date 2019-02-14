@@ -16,7 +16,7 @@ pub fn fixtures_dir<'a>() -> &'static Path {
 
 pub fn get_language(name: &str) -> Language {
     TEST_LOADER
-        .load_language_at_path(name, &GRAMMARS_DIR.join(name).join("src"), &HEADER_DIR)
+        .load_language_at_path(&GRAMMARS_DIR.join(name).join("src"), &HEADER_DIR)
         .unwrap()
 }
 
