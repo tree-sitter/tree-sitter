@@ -57,20 +57,15 @@ pub struct InputEdit {
 }
 
 struct PropertyTransition {
-    state_id: usize,
-    child_index: Option<usize>,
-    text_regex_index: Option<usize>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-enum NodeId {
-    Kind(u16),
-    Field(u16),
-    KindAndField(u16, u16),
+    state_id: u16,
+    child_index: Option<u16>,
+    text_regex_index: Option<u16>,
+    node_kind_id: Option<u16>,
 }
 
 struct PropertyState {
-    transitions: HashMap<NodeId, Vec<PropertyTransition>>,
+    field_transitions: HashMap<u16, Vec<PropertyTransition>>,
+    kind_transitions: HashMap<u16, Vec<PropertyTransition>>,
     property_set_id: usize,
     default_next_state_id: usize,
 }
@@ -260,7 +255,10 @@ impl Parser {
     pub fn parse(&mut self, input: impl AsRef<[u8]>, old_tree: Option<&Tree>) -> Option<Tree> {
         let bytes = input.as_ref();
         let len = bytes.len();
-        self.parse_with(&mut |i, _| if i < len { &bytes[i..] } else { &[] }, old_tree)
+        self.parse_with(
+            &mut |i, _| if i < len { &bytes[i..] } else { &[] },
+            old_tree,
+        )
     }
 
     pub fn parse_utf16(
@@ -270,7 +268,10 @@ impl Parser {
     ) -> Option<Tree> {
         let code_points = input.as_ref();
         let len = code_points.len();
-        self.parse_utf16_with(&mut |i, _| if i < len { &code_points[i..] } else { &[] }, old_tree)
+        self.parse_utf16_with(
+            &mut |i, _| if i < len { &code_points[i..] } else { &[] },
+            old_tree,
+        )
     }
 
     pub fn parse_with<'a, T: FnMut(usize, Point) -> &'a [u8]>(
@@ -753,41 +754,40 @@ impl<'a, P> TreePropertyCursor<'a, P> {
         node_field_id: Option<u16>,
         node_child_index: usize,
     ) -> usize {
-        let keys;
-        let key_count;
-        if let Some(node_field_id) = node_field_id {
-            key_count = 3;
-            keys = [
-                NodeId::KindAndField(node_kind_id, node_field_id),
-                NodeId::Field(node_field_id),
-                NodeId::Kind(node_kind_id),
-            ];
+        let transitions = if let Some(field_id) = node_field_id {
+            state.field_transitions.get(&field_id)
         } else {
-            key_count = 1;
-            keys = [NodeId::Kind(node_kind_id); 3];
-        }
+            state.kind_transitions.get(&node_kind_id)
+        };
 
-        for key in &keys[0..key_count] {
-            if let Some(transitions) = state.transitions.get(key) {
-                for transition in transitions.iter() {
-                    if let Some(text_regex_index) = transition.text_regex_index {
-                        let node = self.cursor.node();
-                        let text = &self.source[node.start_byte()..node.end_byte()];
-                        if let Ok(text) = str::from_utf8(text) {
-                            if !self.property_sheet.text_regexes[text_regex_index].is_match(text) {
-                                continue;
-                            }
-                        }
-                    }
+        if let Some(transitions) = transitions {
+            for transition in transitions.iter() {
+                if transition
+                    .node_kind_id
+                    .map_or(false, |id| id != node_kind_id)
+                {
+                    continue;
+                }
 
-                    if let Some(child_index) = transition.child_index {
-                        if child_index != node_child_index {
+                if let Some(text_regex_index) = transition.text_regex_index {
+                    let node = self.cursor.node();
+                    let text = &self.source[node.start_byte()..node.end_byte()];
+                    if let Ok(text) = str::from_utf8(text) {
+                        if !self.property_sheet.text_regexes[text_regex_index as usize]
+                            .is_match(text)
+                        {
                             continue;
                         }
                     }
-
-                    return transition.state_id;
                 }
+
+                if let Some(child_index) = transition.child_index {
+                    if child_index != node_child_index as u16 {
+                        continue;
+                    }
+                }
+
+                return transition.state_id as usize;
             }
         }
 
@@ -876,20 +876,32 @@ impl<P> PropertySheet<P> {
         let mut text_regex_patterns = Vec::new();
 
         for state in input.states.iter() {
-            let mut transitions = HashMap::new();
             let node_kind_count = language.node_kind_count();
+            let mut kind_transitions = HashMap::new();
+            let mut field_transitions = HashMap::new();
+
+            for transition in state.transitions.iter() {
+                let field_id = transition
+                    .field
+                    .as_ref()
+                    .and_then(|field| language.field_id_for_name(&field));
+                if let Some(field_id) = field_id {
+                    field_transitions.entry(field_id).or_insert(Vec::new());
+                }
+            }
+
             for transition in state.transitions.iter() {
                 let text_regex_index = if let Some(regex_pattern) = transition.text.as_ref() {
                     if let Some(index) =
                         text_regex_patterns.iter().position(|r| *r == regex_pattern)
                     {
-                        Some(index)
+                        Some(index as u16)
                     } else {
                         text_regex_patterns.push(regex_pattern);
                         text_regexes.push(
                             Regex::new(&regex_pattern).map_err(PropertySheetError::InvalidRegex)?,
                         );
-                        Some(text_regexes.len() - 1)
+                        Some(text_regexes.len() as u16 - 1)
                     }
                 } else {
                     None
@@ -912,24 +924,41 @@ impl<P> PropertySheet<P> {
                     .as_ref()
                     .and_then(|field| language.field_id_for_name(&field));
 
-                let key = match (kind_id, field_id) {
-                    (Some(kind_id), None) => NodeId::Kind(kind_id),
-                    (None, Some(field_id)) => NodeId::Field(field_id),
-                    (Some(kind_id), Some(field_id)) => NodeId::KindAndField(kind_id, field_id),
-                    (None, None) => continue,
-                };
+                if let Some(field_id) = field_id {
+                    field_transitions
+                        .entry(field_id)
+                        .or_insert(Vec::new())
+                        .push(PropertyTransition {
+                            node_kind_id: kind_id,
+                            child_index: transition.index.map(|i| i as u16),
+                            state_id: transition.state_id as u16,
+                            text_regex_index,
+                        });
+                } else {
+                    for (_, entries) in field_transitions.iter_mut() {
+                        entries.push(PropertyTransition {
+                            node_kind_id: kind_id,
+                            child_index: transition.index.map(|i| i as u16),
+                            state_id: transition.state_id as u16,
+                            text_regex_index,
+                        });
+                    }
 
-                transitions
-                    .entry(key)
-                    .or_insert(Vec::new())
-                    .push(PropertyTransition {
-                        child_index: transition.index,
-                        state_id: transition.state_id,
-                        text_regex_index,
-                    });
+                    if let Some(kind_id) = kind_id {
+                        kind_transitions.entry(kind_id).or_insert(Vec::new()).push(
+                            PropertyTransition {
+                                node_kind_id: None,
+                                child_index: transition.index.map(|i| i as u16),
+                                state_id: transition.state_id as u16,
+                                text_regex_index,
+                            },
+                        );
+                    }
+                }
             }
             states.push(PropertyState {
-                transitions,
+                field_transitions,
+                kind_transitions,
                 default_next_state_id: state.default_next_state_id,
                 property_set_id: state.property_set_id,
             });
