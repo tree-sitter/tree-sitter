@@ -45,6 +45,10 @@ pub fn generate_parser_in_directory(
     state_ids_to_log: Vec<usize>,
 ) -> Result<()> {
     let repo_src_path = repo_path.join("src");
+    let repo_header_path = repo_src_path.join("tree_sitter");
+
+    fs::create_dir_all(&repo_src_path)?;
+    fs::create_dir_all(&repo_header_path)?;
 
     let grammar_json;
     match grammar_path {
@@ -63,9 +67,7 @@ pub fn generate_parser_in_directory(
         c_code,
         fields_json,
     } = generate_parser_for_grammar_with_opts(&grammar_json, minimize, state_ids_to_log)?;
-    let repo_header_path = repo_src_path.join("tree_sitter");
-    fs::create_dir_all(&repo_src_path)?;
-    fs::create_dir_all(&repo_header_path)?;
+
     fs::write(&repo_src_path.join("parser.c"), c_code)
         .map_err(|e| format!("Failed to write parser.c: {}", e))?;
     fs::write(&repo_src_path.join("node-fields.json"), fields_json)
