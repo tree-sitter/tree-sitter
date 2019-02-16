@@ -15,6 +15,7 @@ use tree_sitter::{self, PropertyStateJSON, PropertyTransitionJSON};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(untagged)]
 enum PropertyValue {
+    Number(isize),
     String(String),
     Object(PropertySet),
     Array(Vec<PropertyValue>),
@@ -621,7 +622,7 @@ fn parse_sass_value(value: &Value) -> Result<PropertyValue> {
             Ok(PropertyValue::Array(result))
         }
         Value::Color(_, Some(name)) => Ok(PropertyValue::String(name.clone())),
-        Value::Numeric(n, _) => Ok(PropertyValue::String(format!("{}", n))),
+        Value::Numeric(n, _) => Ok(PropertyValue::Number(n.to_integer())),
         Value::True => Ok(PropertyValue::String("true".to_string())),
         Value::False => Ok(PropertyValue::String("false".to_string())),
         _ => Err(Error(format!(
@@ -703,71 +704,71 @@ mod tests {
         // f1 single-element selector
         assert_eq!(
             *query_simple(&sheet, vec!["f1"]),
-            props(&[("color", "red")])
+            props(&[("color", string("red"))])
         );
         assert_eq!(
             *query_simple(&sheet, vec!["f2", "f1"]),
-            props(&[("color", "red")])
+            props(&[("color", string("red"))])
         );
         assert_eq!(
             *query_simple(&sheet, vec!["f2", "f3", "f1"]),
-            props(&[("color", "red")])
+            props(&[("color", string("red"))])
         );
 
         // f2 single-element selector
         assert_eq!(
             *query_simple(&sheet, vec!["f2"]),
-            props(&[("color", "indigo"), ("height", "2")])
+            props(&[("color", string("indigo")), ("height", num(2))])
         );
         assert_eq!(
             *query_simple(&sheet, vec!["f2", "f2"]),
-            props(&[("color", "indigo"), ("height", "2")])
+            props(&[("color", string("indigo")), ("height", num(2))])
         );
         assert_eq!(
             *query_simple(&sheet, vec!["f1", "f3", "f2"]),
-            props(&[("color", "indigo"), ("height", "2")])
+            props(&[("color", string("indigo")), ("height", num(2))])
         );
         assert_eq!(
             *query_simple(&sheet, vec!["f1", "f6", "f2"]),
-            props(&[("color", "indigo"), ("height", "2")])
+            props(&[("color", string("indigo")), ("height", num(2))])
         );
 
         // f3 single-element selector
         assert_eq!(
             *query_simple(&sheet, vec!["f3"]),
-            props(&[("color", "violet"), ("height", "3")])
+            props(&[("color", string("violet")), ("height", num(3))])
         );
         assert_eq!(
             *query_simple(&sheet, vec!["f2", "f3"]),
-            props(&[("color", "violet"), ("height", "3")])
+            props(&[("color", string("violet")), ("height", num(3))])
         );
 
         // f2 child selector
         assert_eq!(
             *query_simple(&sheet, vec!["f1", "f2"]),
-            props(&[("color", "green"), ("height", "2")])
+            props(&[("color", string("green")), ("height", num(2))])
         );
         assert_eq!(
             *query_simple(&sheet, vec!["f2", "f1", "f2"]),
-            props(&[("color", "green"), ("height", "2")])
+            props(&[("color", string("green")), ("height", num(2))])
         );
         assert_eq!(
             *query_simple(&sheet, vec!["f3", "f1", "f2"]),
-            props(&[("color", "green"), ("height", "2")])
+            props(&[("color", string("green")), ("height", num(2))])
         );
 
         // f3 descendant selector
         assert_eq!(
             *query_simple(&sheet, vec!["f1", "f3"]),
-            props(&[("color", "blue"), ("height", "3")])
+            props(&[("color", string("blue")), ("height", num(3))])
         );
         assert_eq!(
             *query_simple(&sheet, vec!["f1", "f2", "f3"]),
-            props(&[("color", "blue"), ("height", "3")])
+            props(&[("color", string("blue")), ("height", num(3))])
         );
         assert_eq!(
             *query_simple(&sheet, vec!["f1", "f6", "f7", "f8", "f3"]),
-            props(&[("color", "blue"), ("height", "3")])
+            props(&[("color", string("blue")), ("height", num(3))])
         );
 
         // no match
@@ -801,20 +802,20 @@ mod tests {
 
         assert_eq!(
             *query(&sheet, vec![("f1", true, 0)], "abc"),
-            props(&[("color", "red")])
+            props(&[("color", string("red"))])
         );
         assert_eq!(
             *query(&sheet, vec![("f1", true, 0)], "Abc"),
-            props(&[("color", "green")])
+            props(&[("color", string("green"))])
         );
         assert_eq!(
             *query(&sheet, vec![("f1", true, 0)], "AB_CD"),
-            props(&[("color", "blue")])
+            props(&[("color", string("blue"))])
         );
         assert_eq!(*query(&sheet, vec![("f2", true, 0)], "Abc"), props(&[]));
         assert_eq!(
             *query(&sheet, vec![("f2", true, 0)], "ABC"),
-            props(&[("color", "purple")])
+            props(&[("color", string("purple"))])
         );
     }
 
@@ -837,19 +838,19 @@ mod tests {
         );
         assert_eq!(
             *query(&sheet, vec![("f1", true, 0), ("f2", true, 1)], "x"),
-            props(&[("color", "red")])
+            props(&[("color", string("red"))])
         );
         assert_eq!(
             *query(&sheet, vec![("f1", true, 1), ("f2", true, 1)], "x"),
-            props(&[("color", "green")])
+            props(&[("color", string("green"))])
         );
         assert_eq!(
             *query(&sheet, vec![("f1", true, 1), ("f2", true, 1)], "a"),
-            props(&[("color", "blue")])
+            props(&[("color", string("blue"))])
         );
         assert_eq!(
             *query(&sheet, vec![("f1", true, 1), ("f2", true, 1)], "ab"),
-            props(&[("color", "violet")])
+            props(&[("color", string("violet"))])
         );
     }
 
@@ -883,7 +884,7 @@ mod tests {
                         object(&[("name", string("g")), ("args", array(vec![string("h"),]))]),
                         string("i"),
                         string("j"),
-                        string("10"),
+                        num(10),
                     ])
                 ),
             ])
@@ -983,9 +984,13 @@ mod tests {
         PropertyValue::String(s.to_string())
     }
 
-    fn props<'a>(s: &'a [(&'a str, &'a str)]) -> PropertySet {
+    fn num(n: isize) -> PropertyValue {
+        PropertyValue::Number(n)
+    }
+
+    fn props<'a>(s: &'a [(&'a str, PropertyValue)]) -> PropertySet {
         s.into_iter()
-            .map(|(a, b)| (a.to_string(), PropertyValue::String(b.to_string())))
+            .map(|(a, b)| (a.to_string(), b.clone()))
             .collect()
     }
 }
