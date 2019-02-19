@@ -3,9 +3,8 @@ use log::info;
 use rsass;
 use rsass::sass::Value;
 use serde_derive::Serialize;
-use std::cmp::Ordering;
 use std::collections::hash_map::Entry;
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{btree_map, BTreeMap, HashMap, VecDeque};
 use std::fmt::{self, Write};
 use std::fs::{self, File};
 use std::io::BufWriter;
@@ -21,7 +20,7 @@ enum PropertyValue {
     Array(Vec<PropertyValue>),
 }
 
-type PropertySet = HashMap<String, PropertyValue>;
+type PropertySet = BTreeMap<String, PropertyValue>;
 type PropertySheetJSON = tree_sitter::PropertySheetJSON<PropertySet>;
 type StateId = usize;
 type PropertySetId = usize;
@@ -160,7 +159,7 @@ impl Builder {
     }
 
     fn populate_state(&mut self, item_set: ItemSet, state_id: StateId) {
-        let mut transition_map: HashSet<(PropertyTransitionJSON, u32)> = HashSet::new();
+        let mut transitions: HashMap<PropertyTransitionJSON, u32> = HashMap::new();
         let mut selector_matches = Vec::new();
 
         // First, compute all of the possible state transition predicates for
@@ -173,17 +172,20 @@ impl Builder {
             // If this item has more elements remaining in its selector, then
             // add a state transition based on the next step.
             if let Some(step) = next_step {
-                transition_map.insert((
-                    PropertyTransitionJSON {
+                transitions
+                    .entry(PropertyTransitionJSON {
                         kind: step.kind.clone(),
                         named: step.is_named,
                         index: step.child_index,
                         text: step.text_pattern.clone(),
                         state_id: 0,
-                    },
-                    // Include the rule id so that it can be used when sorting transitions.
-                    item.rule_id,
-                ));
+                    })
+                    .and_modify(|rule_id| {
+                        if item.rule_id > *rule_id {
+                            *rule_id = item.rule_id;
+                        }
+                    })
+                    .or_insert(item.rule_id);
             }
             // If the item has matched its entire selector, then the item's
             // properties are applicable to this state.
@@ -195,61 +197,51 @@ impl Builder {
             }
         }
 
-        // For eacy possible state transition, compute the set of items in that transition's
-        // destination state.
-        let mut transition_list: Vec<(PropertyTransitionJSON, u32)> = transition_map
-            .into_iter()
-            .map(|(mut transition, rule_id)| {
-                let mut next_item_set = ItemSet::new();
-                for item in &item_set {
-                    let rule = &self.rules[item.rule_id as usize];
-                    let selector = &rule.selectors[item.selector_id as usize];
-                    let next_step = selector.0.get(item.step_id as usize);
-
-                    if let Some(step) = next_step {
-                        // If the next step of the item's selector satisfies this transition,
-                        // advance the item to the next part of its selector and add the
-                        // resulting item to this transition's destination state.
-                        if step_matches_transition(step, &transition) {
-                            next_item_set.insert(Item {
-                                rule_id: item.rule_id,
-                                selector_id: item.selector_id,
-                                step_id: item.step_id + 1,
-                            });
-                        }
-
-                        // If the next step of the item is not an immediate child, then
-                        // include this item in this transition's destination state, because
-                        // the next step of the item might match a descendant node.
-                        if !step.is_immediate {
-                            next_item_set.insert(*item);
-                        }
-                    }
-                }
-
-                transition.state_id = self.add_state(next_item_set);
-                (transition, rule_id)
-            })
-            .collect();
-
         // Ensure that for a given node type, more specific transitions are tried
         // first, and in the event of a tie, transitions corresponding to later rules
         // in the cascade are tried first.
+        let mut transition_list: Vec<(PropertyTransitionJSON, u32)> =
+            transitions.into_iter().collect();
         transition_list.sort_by(|a, b| {
-            let result = a.0.kind.cmp(&b.0.kind);
-            if result != Ordering::Equal {
-                return result;
-            }
-            let result = a.0.named.cmp(&b.0.named);
-            if result != Ordering::Equal {
-                return result;
-            }
-            let result = transition_specificity(&b.0).cmp(&transition_specificity(&a.0));
-            if result != Ordering::Equal {
-                return result;
-            }
-            b.1.cmp(&a.1)
+            a.0.kind
+                .cmp(&b.0.kind)
+                .then_with(|| a.0.named.cmp(&b.0.named))
+                .then_with(|| transition_specificity(&b.0).cmp(&transition_specificity(&a.0)))
+                .then_with(|| b.1.cmp(&a.1))
         });
+
+        // For eacy possible state transition, compute the set of items in that transition's
+        // destination state.
+        for (transition, _) in transition_list.iter_mut() {
+            let mut next_item_set = ItemSet::new();
+            for item in &item_set {
+                let rule = &self.rules[item.rule_id as usize];
+                let selector = &rule.selectors[item.selector_id as usize];
+                let next_step = selector.0.get(item.step_id as usize);
+
+                if let Some(step) = next_step {
+                    // If the next step of the item's selector satisfies this transition,
+                    // advance the item to the next part of its selector and add the
+                    // resulting item to this transition's destination state.
+                    if step_matches_transition(step, &transition) {
+                        next_item_set.insert(Item {
+                            rule_id: item.rule_id,
+                            selector_id: item.selector_id,
+                            step_id: item.step_id + 1,
+                        });
+                    }
+
+                    // If the next step of the item is not an immediate child, then
+                    // include this item in this transition's destination state, because
+                    // the next step of the item might match a descendant node.
+                    if !step.is_immediate {
+                        next_item_set.insert(*item);
+                    }
+                }
+            }
+
+            transition.state_id = self.add_state(next_item_set);
+        }
 
         // Compute the merged properties that apply in the current state.
         // Sort the matching property sets by ascending specificity and by
@@ -257,11 +249,9 @@ impl Builder {
         // rules will override less specific selectors and earlier rules.
         let mut properties = PropertySet::new();
         selector_matches.sort_unstable_by(|a, b| {
-            let result = a.specificity.cmp(&b.specificity);
-            if result != Ordering::Equal {
-                return result;
-            }
-            a.rule_id.cmp(&b.rule_id)
+            a.specificity
+                .cmp(&b.specificity)
+                .then_with(|| a.rule_id.cmp(&b.rule_id))
         });
         selector_matches.dedup();
         for selector_match in selector_matches {
@@ -505,10 +495,10 @@ fn parse_sass_items(
             rsass::Item::Property(name, value) => {
                 let value = parse_sass_value(&value)?;
                 match properties.entry(name.to_string()) {
-                    Entry::Vacant(v) => {
+                    btree_map::Entry::Vacant(v) => {
                         v.insert(value);
                     }
-                    Entry::Occupied(mut o) => {
+                    btree_map::Entry::Occupied(mut o) => {
                         let existing_value = o.get_mut();
                         if let PropertyValue::Array(items) = existing_value {
                             items.push(value);
