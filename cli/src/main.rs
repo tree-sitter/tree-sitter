@@ -4,8 +4,7 @@ use std::fs;
 use std::path::Path;
 use std::process::exit;
 use std::usize;
-use tree_sitter_cli::loader::Loader;
-use tree_sitter_cli::{error, generate, logger, parse, properties, test};
+use tree_sitter_cli::{error, generate, highlight, loader, logger, parse, properties, test};
 
 fn main() {
     if let Err(e) = run() {
@@ -64,14 +63,30 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("debug").long("debug").short("d"))
                 .arg(Arg::with_name("debug-graph").long("debug-graph").short("D")),
         )
+        .subcommand(
+            SubCommand::with_name("highlight")
+                .about("Highlight a file")
+                .arg(
+                    Arg::with_name("path")
+                        .index(1)
+                        .multiple(true)
+                        .required(true),
+                )
+                .arg(Arg::with_name("html").long("html").short("h")),
+        )
         .get_matches();
 
     let home_dir = dirs::home_dir().unwrap();
     let current_dir = env::current_dir().unwrap();
     let config_dir = home_dir.join(".tree-sitter");
+    let theme_path = config_dir.join("theme.json");
+    let parsers_dir = config_dir.join("parsers");
 
-    fs::create_dir_all(&config_dir).unwrap();
-    let mut loader = Loader::new(config_dir);
+    // TODO - make configurable
+    let parser_repo_paths = vec![home_dir.join("github")];
+
+    fs::create_dir_all(&parsers_dir).unwrap();
+    let mut loader = loader::Loader::new(config_dir);
 
     if let Some(matches) = matches.subcommand_matches("generate") {
         if matches.is_present("log") {
@@ -111,7 +126,7 @@ fn run() -> error::Result<()> {
         let debug_graph = matches.is_present("debug-graph");
         let quiet = matches.is_present("quiet");
         let time = matches.is_present("time");
-        loader.find_all_languages(&vec![home_dir.join("github")])?;
+        loader.find_all_languages(&parser_repo_paths)?;
         let paths = matches
             .values_of("path")
             .unwrap()
@@ -143,6 +158,29 @@ fn run() -> error::Result<()> {
 
         if has_error {
             return Err(error::Error(String::new()));
+        }
+    } else if let Some(matches) = matches.subcommand_matches("highlight") {
+        loader.find_all_languages(&parser_repo_paths)?;
+        let theme = highlight::Theme::load(&theme_path).unwrap_or_default();
+        let paths = matches.values_of("path").unwrap().into_iter();
+        let html_mode = matches.is_present("html");
+
+        if html_mode {
+            println!("{}", highlight::HTML_HEADER);
+        }
+
+        for path in paths {
+            let path = Path::new(path);
+            if let Some((language, config)) = loader.language_configuration_for_file_name(path)? {
+                if let Some(sheet) = config.highlight_property_sheet(language)? {
+                    let source = fs::read(path)?;
+                    if html_mode {
+                        highlight::html(&loader, &theme, &source, language, sheet)?;
+                    } else {
+                        highlight::ansi(&loader, &theme, &source, language, sheet)?;
+                    }
+                }
+            }
         }
     }
 

@@ -1,5 +1,6 @@
 use super::error::{Error, Result};
 use libloading::{Library, Symbol};
+use once_cell::unsync::OnceCell;
 use regex::{Regex, RegexBuilder};
 use serde_derive::Deserialize;
 use std::collections::HashMap;
@@ -9,6 +10,7 @@ use std::process::Command;
 use std::time::SystemTime;
 use std::{fs, mem};
 use tree_sitter::{Language, PropertySheet};
+use tree_sitter_highlight::{load_property_sheet, LanguageRegistry, Properties};
 
 #[cfg(unix)]
 const DYLIB_EXTENSION: &'static str = "so";
@@ -20,16 +22,18 @@ const BUILD_TARGET: &'static str = env!("BUILD_TARGET");
 
 struct LanguageRepo {
     path: PathBuf,
-    language: Option<Language>,
+    language: OnceCell<Language>,
     configurations: Vec<LanguageConfiguration>,
 }
 
 pub struct LanguageConfiguration {
-    _name: String,
+    pub name: String,
     _content_regex: Option<Regex>,
     _first_line_regex: Option<Regex>,
+    injection_regex: Option<Regex>,
     file_types: Vec<String>,
-    _highlight_property_sheet: Option<std::result::Result<PropertySheet, PathBuf>>,
+    highlight_property_sheet_path: Option<PathBuf>,
+    highlight_property_sheet: OnceCell<Option<PropertySheet<Properties>>>,
 }
 
 pub struct Loader {
@@ -76,7 +80,7 @@ impl Loader {
     }
 
     pub fn language_configuration_for_file_name(
-        &mut self,
+        &self,
         path: &Path,
     ) -> Result<Option<(Language, &LanguageConfiguration)>> {
         let ids = path
@@ -100,20 +104,43 @@ impl Loader {
         Ok(None)
     }
 
+    pub fn language_configuration_for_injection_string(
+        &self,
+        string: &str,
+    ) -> Result<Option<(Language, &LanguageConfiguration)>> {
+        let mut best_match_length = 0;
+        let mut best_match_position = None;
+        for (i, repo) in self.language_repos.iter().enumerate() {
+            for (j, configuration) in repo.configurations.iter().enumerate() {
+                if let Some(injection_regex) = &configuration.injection_regex {
+                    if let Some(mat) = injection_regex.find(string) {
+                        let length = mat.end() - mat.start();
+                        if length > best_match_length {
+                            best_match_position = Some((i, j));
+                            best_match_length = length;
+                        }
+                    }
+                }
+            }
+        }
+        if let Some((i, j)) = best_match_position {
+            let (language, configurations) = self.language_configuration_for_id(i)?;
+            Ok(Some((language, &configurations[j])))
+        } else {
+            Ok(None)
+        }
+    }
+
     fn language_configuration_for_id(
-        &mut self,
+        &self,
         id: usize,
     ) -> Result<(Language, &Vec<LanguageConfiguration>)> {
         let repo = &self.language_repos[id];
-        let language = if let Some(language) = repo.language {
-            language
-        } else {
+        let language = repo.language.get_or_try_init(|| {
             let src_path = repo.path.join("src");
-            let language = self.load_language_at_path(&src_path, &src_path)?;
-            self.language_repos[id].language = Some(language);
-            language
-        };
-        Ok((language, &self.language_repos[id].configurations))
+            self.load_language_at_path(&src_path, &src_path)
+        })?;
+        Ok((*language, &self.language_repos[id].configurations))
     }
 
     pub fn load_language_at_path(&self, src_path: &Path, header_path: &Path) -> Result<Language> {
@@ -238,6 +265,8 @@ impl Loader {
             content_regex: Option<String>,
             #[serde(rename = "first-line-regex")]
             first_line_regex: Option<String>,
+            #[serde(rename = "injection-regex")]
+            injection_regex: Option<String>,
             highlights: Option<String>,
         }
 
@@ -255,7 +284,7 @@ impl Loader {
                 configurations
                     .into_iter()
                     .map(|conf| LanguageConfiguration {
-                        _name: conf.name,
+                        name: conf.name,
                         file_types: conf.file_types.unwrap_or(Vec::new()),
                         _content_regex: conf
                             .content_regex
@@ -263,7 +292,11 @@ impl Loader {
                         _first_line_regex: conf
                             .first_line_regex
                             .and_then(|r| RegexBuilder::new(&r).multi_line(true).build().ok()),
-                        _highlight_property_sheet: conf.highlights.map(|d| Err(d.into())),
+                        injection_regex: conf
+                            .injection_regex
+                            .and_then(|r| RegexBuilder::new(&r).multi_line(true).build().ok()),
+                        highlight_property_sheet_path: conf.highlights.map(|h| parser_path.join(h)),
+                        highlight_property_sheet: OnceCell::new(),
                     })
                     .collect()
             });
@@ -279,11 +312,61 @@ impl Loader {
 
         self.language_repos.push(LanguageRepo {
             path: parser_path.to_owned(),
-            language: None,
+            language: OnceCell::new(),
             configurations,
         });
 
         Ok(self.language_repos.len() - 1)
+    }
+}
+
+impl LanguageRegistry for Loader {
+    fn language_for_injection_string<'a>(
+        &'a self,
+        string: &str,
+    ) -> Option<(Language, &'a PropertySheet<Properties>)> {
+        match self.language_configuration_for_injection_string(string) {
+            Err(message) => {
+                eprintln!(
+                    "Failed to load language for injection string '{}': {}",
+                    string, message.0
+                );
+                None
+            }
+            Ok(None) => None,
+            Ok(Some((language, configuration))) => {
+                match configuration.highlight_property_sheet(language) {
+                    Err(message) => {
+                        eprintln!(
+                            "Failed to load property sheet for injection string '{}': {}",
+                            string, message.0
+                        );
+                        None
+                    }
+                    Ok(None) => None,
+                    Ok(Some(sheet)) => Some((language, sheet)),
+                }
+            }
+        }
+    }
+}
+
+impl LanguageConfiguration {
+    pub fn highlight_property_sheet(
+        &self,
+        language: Language,
+    ) -> Result<Option<&PropertySheet<Properties>>> {
+        self.highlight_property_sheet
+            .get_or_try_init(|| {
+                if let Some(path) = &self.highlight_property_sheet_path {
+                    let sheet_json = fs::read_to_string(path)?;
+                    let sheet = load_property_sheet(language, &sheet_json)?;
+                    Ok(Some(sheet))
+                } else {
+                    Ok(None)
+                }
+            })
+            .map(Option::as_ref)
     }
 }
 

@@ -1,4 +1,5 @@
 use std::io;
+use tree_sitter_highlight::PropertySheetError;
 
 #[derive(Debug)]
 pub struct Error(pub String);
@@ -40,5 +41,15 @@ impl From<rsass::Error> for Error {
 impl From<String> for Error {
     fn from(error: String) -> Self {
         Error(error)
+    }
+}
+
+impl From<PropertySheetError> for Error {
+    fn from(error: PropertySheetError) -> Self {
+        match error {
+            PropertySheetError::InvalidFormat(e) => Self::from(e),
+            PropertySheetError::InvalidRegex(e) => Self::regex(&e.to_string()),
+            PropertySheetError::InvalidJSON(e) => Self::from(e),
+        }
     }
 }

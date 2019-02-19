@@ -2,7 +2,8 @@ use crate::loader::Loader;
 use lazy_static::lazy_static;
 use std::fs;
 use std::path::{Path, PathBuf};
-use tree_sitter::Language;
+use tree_sitter::{Language, PropertySheet};
+use tree_sitter_highlight::{load_property_sheet, Properties};
 
 include!("./dirs.rs");
 
@@ -18,6 +19,16 @@ pub fn get_language(name: &str) -> Language {
     TEST_LOADER
         .load_language_at_path(&GRAMMARS_DIR.join(name).join("src"), &HEADER_DIR)
         .unwrap()
+}
+
+pub fn get_property_sheet(language_name: &str, sheet_name: &str) -> PropertySheet<Properties> {
+    let path = GRAMMARS_DIR
+        .join(language_name)
+        .join("src")
+        .join(sheet_name);
+    let json = fs::read_to_string(path).unwrap();
+    let language = get_language(language_name);
+    load_property_sheet(language, &json).unwrap()
 }
 
 pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> Language {

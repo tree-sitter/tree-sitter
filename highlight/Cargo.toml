@@ -1,0 +1,23 @@
+[package]
+name = "tree-sitter-highlight"
+description = "Library for performing syntax highlighting with Tree-sitter"
+version = "0.1.0"
+authors = [
+  "Max Brunsfeld <maxbrunsfeld@gmail.com>",
+  "Tim Clem <timothy.clem@gmail.com>"
+]
+license = "MIT"
+readme = "README.md"
+edition = "2018"
+keywords = ["incremental", "parsing", "syntax", "highlighting"]
+categories = ["parsing", "text-editors"]
+
+[dependencies]
+regex = "1"
+serde = "1.0"
+serde_json = "1.0"
+serde_derive = "1.0"
+
+[dependencies.tree-sitter]
+version = ">= 0.3.7"
+path = "../lib"
