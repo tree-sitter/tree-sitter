@@ -27,7 +27,7 @@ struct LanguageRepo {
 }
 
 pub struct LanguageConfiguration {
-    pub name: String,
+    scope: Option<String>,
     _content_regex: Option<Regex>,
     _first_line_regex: Option<Regex>,
     injection_regex: Option<Regex>,
@@ -77,6 +77,21 @@ impl Loader {
         } else {
             Ok(None)
         }
+    }
+
+    pub fn language_configuration_for_scope(
+        &self,
+        scope: &str,
+    ) -> Result<Option<(Language, &LanguageConfiguration)>> {
+        for (i, repo) in self.language_repos.iter().enumerate() {
+            for configuration in &repo.configurations {
+                if configuration.scope.as_ref().map_or(false, |s| s == scope) {
+                    let (language, _) = self.language_configuration_for_id(i)?;
+                    return Ok(Some((language, &configuration)));
+                }
+            }
+        }
+        Ok(None)
     }
 
     pub fn language_configuration_for_file_name(
@@ -258,7 +273,7 @@ impl Loader {
     fn find_language_at_path<'a>(&'a mut self, parser_path: &Path) -> Result<usize> {
         #[derive(Deserialize)]
         struct LanguageConfigurationJSON {
-            name: String,
+            scope: Option<String>,
             #[serde(rename = "file-types")]
             file_types: Option<Vec<String>>,
             #[serde(rename = "content-regex")]
@@ -284,7 +299,7 @@ impl Loader {
                 configurations
                     .into_iter()
                     .map(|conf| LanguageConfiguration {
-                        name: conf.name,
+                        scope: conf.scope,
                         file_types: conf.file_types.unwrap_or(Vec::new()),
                         _content_regex: conf
                             .content_regex

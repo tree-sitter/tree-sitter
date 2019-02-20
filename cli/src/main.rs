@@ -72,6 +72,7 @@ fn run() -> error::Result<()> {
                         .multiple(true)
                         .required(true),
                 )
+                .arg(Arg::with_name("scope").long("scope").takes_value(true))
                 .arg(Arg::with_name("html").long("html").short("h")),
         )
         .get_matches();
@@ -169,17 +170,40 @@ fn run() -> error::Result<()> {
             println!("{}", highlight::HTML_HEADER);
         }
 
+        let language_config;
+        if let Some(scope) = matches.value_of("scope") {
+            language_config = loader.language_configuration_for_scope(scope)?;
+            if language_config.is_none() {
+                return Err(error::Error(format!("Unknown scope '{}'", scope)));
+            }
+        } else {
+            language_config = None;
+        }
+
         for path in paths {
             let path = Path::new(path);
-            if let Some((language, config)) = loader.language_configuration_for_file_name(path)? {
-                if let Some(sheet) = config.highlight_property_sheet(language)? {
-                    let source = fs::read(path)?;
-                    if html_mode {
-                        highlight::html(&loader, &theme, &source, language, sheet)?;
-                    } else {
-                        highlight::ansi(&loader, &theme, &source, language, sheet)?;
+            let (language, config) = match language_config {
+                Some(v) => v,
+                None => match loader.language_configuration_for_file_name(path)? {
+                    Some(v) => v,
+                    None => {
+                        eprintln!("No language found for path {:?}", path);
+                        continue;
                     }
+                },
+            };
+
+            if let Some(sheet) = config.highlight_property_sheet(language)? {
+                let source = fs::read(path)?;
+                if html_mode {
+                    highlight::html(&loader, &theme, &source, language, sheet)?;
+                } else {
+                    highlight::ansi(&loader, &theme, &source, language, sheet)?;
                 }
+            } else {
+                return Err(error::Error(format!(
+                    "No syntax highlighting property sheet specified"
+                )));
             }
         }
     }
