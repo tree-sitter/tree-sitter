@@ -10,7 +10,7 @@ use std::process::Command;
 use std::time::SystemTime;
 use std::{fs, mem};
 use tree_sitter::{Language, PropertySheet};
-use tree_sitter_highlight::{load_property_sheet, LanguageRegistry, Properties};
+use tree_sitter_highlight::{load_property_sheet, Properties};
 
 #[cfg(unix)]
 const DYLIB_EXTENSION: &'static str = "so";
@@ -317,37 +317,6 @@ impl Loader {
         });
 
         Ok(self.language_repos.len() - 1)
-    }
-}
-
-impl LanguageRegistry for Loader {
-    fn language_for_injection_string<'a>(
-        &'a self,
-        string: &str,
-    ) -> Option<(Language, &'a PropertySheet<Properties>)> {
-        match self.language_configuration_for_injection_string(string) {
-            Err(message) => {
-                eprintln!(
-                    "Failed to load language for injection string '{}': {}",
-                    string, message.0
-                );
-                None
-            }
-            Ok(None) => None,
-            Ok(Some((language, configuration))) => {
-                match configuration.highlight_property_sheet(language) {
-                    Err(message) => {
-                        eprintln!(
-                            "Failed to load property sheet for injection string '{}': {}",
-                            string, message.0
-                        );
-                        None
-                    }
-                    Ok(None) => None,
-                    Ok(Some(sheet)) => Some((language, sheet)),
-                }
-            }
-        }
     }
 }
 

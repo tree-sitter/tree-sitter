@@ -9,13 +9,6 @@ use std::str;
 use std::usize;
 use tree_sitter::{Language, Node, Parser, Point, PropertySheet, Range, Tree, TreePropertyCursor};
 
-pub trait LanguageRegistry {
-    fn language_for_injection_string<'a>(
-        &'a self,
-        s: &str,
-    ) -> Option<(Language, &'a PropertySheet<Properties>)>;
-}
-
 #[derive(Debug)]
 enum TreeStep {
     Child {
@@ -87,8 +80,11 @@ struct Layer<'a> {
     at_node_end: bool,
 }
 
-struct Highlighter<'a, T: LanguageRegistry> {
-    language_registry: &'a T,
+struct Highlighter<'a, T>
+where
+    T: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
+{
+    injection_callback: &'a T,
     source: &'a [u8],
     source_offset: usize,
     parser: Parser,
@@ -349,12 +345,15 @@ impl Properties {
     }
 }
 
-impl<'a, T: LanguageRegistry> Highlighter<'a, T> {
+impl<'a, F> Highlighter<'a, F>
+where
+    F: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
+{
     fn new(
-        language_registry: &'a T,
         source: &'a [u8],
         language: Language,
         property_sheet: &'a PropertySheet<Properties>,
+        injection_callback: &'a F,
     ) -> Result<Self, String> {
         let mut parser = Parser::new();
         parser.set_language(language)?;
@@ -362,7 +361,7 @@ impl<'a, T: LanguageRegistry> Highlighter<'a, T> {
             .parse(source, None)
             .ok_or_else(|| format!("Tree-sitter: failed to parse"))?;
         Ok(Self {
-            language_registry,
+            injection_callback,
             source,
             source_offset: 0,
             parser,
@@ -457,7 +456,7 @@ impl<'a, T: LanguageRegistry> Highlighter<'a, T> {
     // on the text of some node in the syntax tree.
     fn injection_language_string(
         &self,
-        node: &Node,
+        node: &Node<'a>,
         language: &InjectionLanguage,
     ) -> Option<String> {
         match language {
@@ -556,10 +555,7 @@ impl<'a, T: LanguageRegistry> Highlighter<'a, T> {
     }
 
     fn add_layer(&mut self, language_string: &str, ranges: Vec<Range>) {
-        if let Some((language, property_sheet)) = self
-            .language_registry
-            .language_for_injection_string(language_string)
-        {
+        if let Some((language, property_sheet)) = (self.injection_callback)(language_string) {
             self.parser
                 .set_language(language)
                 .expect("Failed to set language");
@@ -579,7 +575,9 @@ impl<'a, T: LanguageRegistry> Highlighter<'a, T> {
     }
 }
 
-impl<'a, T: LanguageRegistry> Iterator for Highlighter<'a, T> {
+impl<'a, T: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>> Iterator
+    for Highlighter<'a, T>
+{
     type Item = HighlightEvent<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -738,23 +736,32 @@ impl<'de> Deserialize<'de> for Scope {
     }
 }
 
-pub fn highlight<'a, T: LanguageRegistry>(
-    language_registry: &'a T,
+pub trait HTMLAttributeCallback<'a>: Fn(Scope) -> &'a str {}
+
+pub fn highlight<'a, F>(
     source: &'a [u8],
     language: Language,
     property_sheet: &'a PropertySheet<Properties>,
-) -> Result<impl Iterator<Item = HighlightEvent<'a>> + 'a, String> {
-    Highlighter::new(language_registry, source, language, property_sheet)
+    injection_callback: &'a F,
+) -> Result<impl Iterator<Item = HighlightEvent<'a>> + 'a, String>
+where
+    F: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
+{
+    Highlighter::new(source, language, property_sheet, injection_callback)
 }
 
-pub fn highlight_html<'a, T: LanguageRegistry, F: Fn(Scope) -> &'a str>(
-    language_registry: &'a T,
+pub fn highlight_html<'a, F1, F2>(
     source: &'a [u8],
     language: Language,
     property_sheet: &'a PropertySheet<Properties>,
-    attribute_callback: F,
-) -> Result<Vec<String>, String> {
-    let highlighter = Highlighter::new(language_registry, source, language, property_sheet)?;
+    injection_callback: &'a F1,
+    attribute_callback: &'a F2,
+) -> Result<Vec<String>, String>
+where
+    F1: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
+    F2: Fn(Scope) -> &'a str,
+{
+    let highlighter = Highlighter::new(source, language, property_sheet, injection_callback)?;
     let mut renderer = HtmlRenderer::new(attribute_callback);
     let mut scopes = Vec::new();
     for event in highlighter {
@@ -782,7 +789,10 @@ struct HtmlRenderer<'a, F: Fn(Scope) -> &'a str> {
     attribute_callback: F,
 }
 
-impl<'a, F: Fn(Scope) -> &'a str> HtmlRenderer<'a, F> {
+impl<'a, F> HtmlRenderer<'a, F>
+where
+    F: Fn(Scope) -> &'a str,
+{
     fn new(attribute_callback: F) -> Self {
         HtmlRenderer {
             result: Vec::new(),

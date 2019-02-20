@@ -4,7 +4,7 @@ use ansi_term::{Color, Style};
 use lazy_static::lazy_static;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::{fmt, fs, io, mem, path};
+use std::{fmt, fs, io, path};
 use tree_sitter::{Language, PropertySheet};
 use tree_sitter_highlight::{highlight, highlight_html, HighlightEvent, Properties, Scope};
 
@@ -195,7 +195,9 @@ pub fn ansi(
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
     let mut scope_stack = Vec::new();
-    for event in highlight(loader, source, language, property_sheet)? {
+    for event in highlight(source, language, property_sheet, &|s| {
+        language_for_injection_string(loader, s)
+    })? {
         match event {
             HighlightEvent::Source(s) => {
                 if let Some(style) = scope_stack.last().and_then(|s| theme.ansi_style(*s)) {
@@ -252,13 +254,19 @@ pub fn html(
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
     write!(&mut stdout, "<table>\n")?;
-    let lines = highlight_html(loader, source, language, property_sheet, |scope| {
-        if let Some(css_style) = theme.css_style(scope) {
-            css_style
-        } else {
-            ""
-        }
-    })?;
+    let lines = highlight_html(
+        source,
+        language,
+        property_sheet,
+        &|s| language_for_injection_string(loader, s),
+        &|scope| {
+            if let Some(css_style) = theme.css_style(scope) {
+                css_style
+            } else {
+                ""
+            }
+        },
+    )?;
     for (i, line) in lines.into_iter().enumerate() {
         write!(
             &mut stdout,
@@ -269,4 +277,33 @@ pub fn html(
     }
     write!(&mut stdout, "</table>\n")?;
     Ok(())
+}
+
+fn language_for_injection_string<'a>(
+    loader: &'a Loader,
+    string: &str,
+) -> Option<(Language, &'a PropertySheet<Properties>)> {
+    match loader.language_configuration_for_injection_string(string) {
+        Err(message) => {
+            eprintln!(
+                "Failed to load language for injection string '{}': {}",
+                string, message.0
+            );
+            None
+        }
+        Ok(None) => None,
+        Ok(Some((language, configuration))) => {
+            match configuration.highlight_property_sheet(language) {
+                Err(message) => {
+                    eprintln!(
+                        "Failed to load property sheet for injection string '{}': {}",
+                        string, message.0
+                    );
+                    None
+                }
+                Ok(None) => None,
+                Ok(Some(sheet)) => Some((language, sheet)),
+            }
+        }
+    }
 }

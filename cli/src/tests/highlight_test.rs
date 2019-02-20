@@ -1,9 +1,7 @@
 use super::helpers::fixtures::{get_language, get_property_sheet};
 use lazy_static::lazy_static;
 use tree_sitter::{Language, PropertySheet};
-use tree_sitter_highlight::{
-    highlight, highlight_html, HighlightEvent, LanguageRegistry, Properties, Scope,
-};
+use tree_sitter_highlight::{highlight, highlight_html, HighlightEvent, Properties, Scope};
 
 lazy_static! {
     static ref JS_SHEET: PropertySheet<Properties> =
@@ -124,18 +122,13 @@ fn test_highlighting_multiline_scopes_to_html() {
     );
 }
 
-struct TestLanguageRegistry;
-
-impl LanguageRegistry for TestLanguageRegistry {
-    fn language_for_injection_string(
-        &self,
-        string: &str,
-    ) -> Option<(Language, &PropertySheet<Properties>)> {
-        match string {
-            "javascript" => Some((get_language("javascript"), &JS_SHEET)),
-            "html" => Some((get_language("html"), &HTML_SHEET)),
-            _ => None,
-        }
+fn test_language_for_injection_string<'a>(
+    string: &str,
+) -> Option<(Language, &'a PropertySheet<Properties>)> {
+    match string {
+        "javascript" => Some((get_language("javascript"), &JS_SHEET)),
+        "html" => Some((get_language("html"), &HTML_SHEET)),
+        _ => None,
     }
 }
 
@@ -145,11 +138,11 @@ fn to_html<'a>(
     property_sheet: &'a PropertySheet<Properties>,
 ) -> Result<Vec<String>, String> {
     highlight_html(
-        &TestLanguageRegistry,
         src.as_bytes(),
         language,
         property_sheet,
-        |scope| SCOPE_CLASS_STRINGS[scope as usize].as_str(),
+        &test_language_for_injection_string,
+        &|scope| SCOPE_CLASS_STRINGS[scope as usize].as_str(),
     )
 }
 
@@ -162,10 +155,10 @@ fn to_token_vector<'a>(
     let mut scopes = Vec::new();
     let mut line = Vec::new();
     for event in highlight(
-        &TestLanguageRegistry,
         src.as_bytes(),
         language,
         property_sheet,
+        &test_language_for_injection_string,
     )? {
         match event {
             HighlightEvent::ScopeStart(s) => scopes.push(s),
