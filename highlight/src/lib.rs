@@ -84,7 +84,7 @@ struct Highlighter<'a, T>
 where
     T: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
 {
-    injection_callback: &'a T,
+    injection_callback: T,
     source: &'a [u8],
     source_offset: usize,
     parser: Parser,
@@ -353,7 +353,7 @@ where
         source: &'a [u8],
         language: Language,
         property_sheet: &'a PropertySheet<Properties>,
-        injection_callback: &'a F,
+        injection_callback: F,
     ) -> Result<Self, String> {
         let mut parser = Parser::new();
         parser.set_language(language)?;
@@ -742,10 +742,10 @@ pub fn highlight<'a, F>(
     source: &'a [u8],
     language: Language,
     property_sheet: &'a PropertySheet<Properties>,
-    injection_callback: &'a F,
+    injection_callback: F,
 ) -> Result<impl Iterator<Item = HighlightEvent<'a>> + 'a, String>
 where
-    F: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
+    F: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)> + 'a,
 {
     Highlighter::new(source, language, property_sheet, injection_callback)
 }
@@ -754,8 +754,8 @@ pub fn highlight_html<'a, F1, F2>(
     source: &'a [u8],
     language: Language,
     property_sheet: &'a PropertySheet<Properties>,
-    injection_callback: &'a F1,
-    attribute_callback: &'a F2,
+    injection_callback: F1,
+    attribute_callback: F2,
 ) -> Result<Vec<String>, String>
 where
     F1: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,

@@ -195,7 +195,7 @@ pub fn ansi(
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
     let mut scope_stack = Vec::new();
-    for event in highlight(source, language, property_sheet, &|s| {
+    for event in highlight(source, language, property_sheet, |s| {
         language_for_injection_string(loader, s)
     })? {
         match event {
@@ -258,8 +258,8 @@ pub fn html(
         source,
         language,
         property_sheet,
-        &|s| language_for_injection_string(loader, s),
-        &|scope| {
+        |s| language_for_injection_string(loader, s),
+        |scope| {
             if let Some(css_style) = theme.css_style(scope) {
                 css_style
             } else {
