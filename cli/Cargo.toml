@@ -27,6 +27,7 @@ clap = "2.32"
 dirs = "1.0.2"
 hashbrown = "0.1"
 libloading = "0.5"
+once_cell = "0.1.8"
 serde = "1.0"
 serde_derive = "1.0"
 regex-syntax = "0.6.4"
@@ -36,6 +37,10 @@ rsass = "0.9"
 [dependencies.tree-sitter]
 version = ">= 0.3.7"
 path = "../lib"
+
+[dependencies.tree-sitter-highlight]
+version = ">= 0.1.0"
+path = "../highlight"
 
 [dependencies.serde_json]
 version = "1.0"
