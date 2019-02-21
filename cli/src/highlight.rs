@@ -209,7 +209,7 @@ pub fn ansi(
             HighlightEvent::ScopeStart(s) => {
                 scope_stack.push(s);
             }
-            HighlightEvent::ScopeEnd(_) => {
+            HighlightEvent::ScopeEnd => {
                 scope_stack.pop();
             }
         }

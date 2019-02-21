@@ -162,8 +162,7 @@ fn to_token_vector<'a>(
     )? {
         match event {
             HighlightEvent::ScopeStart(s) => scopes.push(s),
-            HighlightEvent::ScopeEnd(s) => {
-                assert_eq!(*scopes.last().unwrap(), s);
+            HighlightEvent::ScopeEnd => {
                 scopes.pop();
             }
             HighlightEvent::Source(s) => {

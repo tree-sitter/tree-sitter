@@ -96,7 +96,7 @@ where
 pub enum HighlightEvent<'a> {
     Source(&'a str),
     ScopeStart(Scope),
-    ScopeEnd(Scope),
+    ScopeEnd,
 }
 
 #[derive(Debug, Deserialize)]
@@ -565,10 +565,7 @@ where
                 .parse(self.source, None)
                 .expect("Failed to parse");
             let layer = Layer::new(self.source, tree, property_sheet, ranges);
-            match self
-                .layers
-                .binary_search_by_key(&(layer.offset(), 1), |l| (l.offset(), 0))
-            {
+            match self.layers.binary_search_by(|l| l.cmp(&layer)) {
                 Ok(i) | Err(i) => self.layers.insert(i, layer),
             };
         }
@@ -625,7 +622,7 @@ impl<'a, T: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>> Itera
                 }
 
                 scope_event = if self.layers[0].at_node_end {
-                    Some(HighlightEvent::ScopeEnd(scope))
+                    Some(HighlightEvent::ScopeEnd)
                 } else {
                     Some(HighlightEvent::ScopeStart(scope))
                 };
@@ -638,7 +635,7 @@ impl<'a, T: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>> Itera
             // to re-sort the layers. If the cursor is already at the end of its syntax tree,
             // remove it.
             if self.layers[0].advance() {
-                self.layers.sort_unstable_by_key(|layer| layer.offset());
+                self.layers.sort_unstable_by(|a, b| a.cmp(&b));
             } else {
                 self.layers.remove(0);
             }
@@ -674,6 +671,15 @@ impl<'a> Layer<'a> {
             ranges,
             at_node_end: false,
         }
+    }
+
+    fn cmp(&self, other: &Layer) -> cmp::Ordering {
+        // Events are ordered primarily by their position in the document. But if
+        // one scope starts at a given position and another scope ends at that
+        // same position, return the scope end event before the scope start event.
+        self.offset()
+            .cmp(&other.offset())
+            .then_with(|| other.at_node_end.cmp(&self.at_node_end))
     }
 
     fn offset(&self) -> usize {
@@ -770,8 +776,8 @@ where
                 scopes.push(s);
                 renderer.start_scope(s);
             }
-            HighlightEvent::ScopeEnd(s) => {
-                assert_eq!(scopes.pop(), Some(s));
+            HighlightEvent::ScopeEnd => {
+                scopes.pop();
                 renderer.end_scope();
             }
             HighlightEvent::Source(src) => {
