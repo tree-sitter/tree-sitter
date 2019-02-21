@@ -639,12 +639,12 @@ dependencies = [
  "smallbitvec 2.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "spin 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tree-sitter 0.3.8",
- "tree-sitter-highlight 0.1.1",
+ "tree-sitter-highlight 0.1.2",
 ]
 
 [[package]]
 name = "tree-sitter-highlight"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "regex 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.80 (registry+https://github.com/rust-lang/crates.io-index)",
