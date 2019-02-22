@@ -781,17 +781,19 @@ where
                 renderer.end_scope();
             }
             HighlightEvent::Source(src) => {
-                renderer.render_line(src, &scopes);
+                renderer.add_text(src, &scopes);
             }
         };
     }
-    renderer.flush();
+    if !renderer.current_line.is_empty() {
+        renderer.finish_line();
+    }
     Ok(renderer.result)
 }
 
 struct HtmlRenderer<'a, F: Fn(Scope) -> &'a str> {
     result: Vec<String>,
-    buffer: String,
+    current_line: String,
     attribute_callback: F,
 }
 
@@ -802,37 +804,40 @@ where
     fn new(attribute_callback: F) -> Self {
         HtmlRenderer {
             result: Vec::new(),
-            buffer: String::new(),
+            current_line: String::new(),
             attribute_callback,
         }
     }
 
     fn start_scope(&mut self, s: Scope) {
-        write!(&mut self.buffer, "<span {}>", (self.attribute_callback)(s),).unwrap();
+        write!(
+            &mut self.current_line,
+            "<span {}>",
+            (self.attribute_callback)(s),
+        )
+        .unwrap();
     }
 
     fn end_scope(&mut self) {
-        write!(&mut self.buffer, "</span>").unwrap();
+        write!(&mut self.current_line, "</span>").unwrap();
     }
 
-    fn flush(&mut self) {
-        if !self.buffer.is_empty() {
-            self.buffer.push('\n');
-            self.result.push(self.buffer.clone());
-            self.buffer.clear();
-        }
+    fn finish_line(&mut self) {
+        self.current_line.push('\n');
+        self.result.push(self.current_line.clone());
+        self.current_line.clear();
     }
 
-    fn render_line(&mut self, src: &str, scopes: &Vec<Scope>) {
+    fn add_text(&mut self, src: &str, scopes: &Vec<Scope>) {
         let mut multiline = false;
         for line in src.split('\n') {
             let line = line.trim_end_matches('\r');
             if multiline {
                 scopes.iter().for_each(|_| self.end_scope());
-                self.flush();
+                self.finish_line();
                 scopes.iter().for_each(|scope| self.start_scope(*scope));
             }
-            write!(&mut self.buffer, "{}", escape::Escape(line)).unwrap();
+            write!(&mut self.current_line, "{}", escape::Escape(line)).unwrap();
             multiline = true;
         }
     }

@@ -122,6 +122,37 @@ fn test_highlighting_multiline_scopes_to_html() {
     );
 }
 
+#[test]
+fn test_highlighting_empty_lines() {
+    let source = vec![
+        "class A {",
+        "",
+        "  b(c) {",
+        "",
+        "    d(e)",
+        "",
+        "  }",
+        "",
+        "}",
+    ]
+    .join("\n");
+
+    assert_eq!(
+        &to_html(&source, get_language("javascript"), &JS_SHEET,).unwrap(),
+        &[
+            "<span class=Keyword>class</span> <span class=Constructor>A</span> <span class=PunctuationBracket>{</span>\n".to_string(),
+            "\n".to_string(),
+            "  <span class=Function>b</span><span class=PunctuationBracket>(</span><span class=Variable>c</span><span class=PunctuationBracket>)</span> <span class=PunctuationBracket>{</span>\n".to_string(),
+            "\n".to_string(),
+            "    <span class=Function>d</span><span class=PunctuationBracket>(</span><span class=Variable>e</span><span class=PunctuationBracket>)</span>\n".to_string(),
+            "\n".to_string(),
+            "  <span class=PunctuationBracket>}</span>\n".to_string(),
+            "\n".to_string(),
+            "<span class=PunctuationBracket>}</span>\n".to_string(),
+        ]
+    );
+}
+
 fn test_language_for_injection_string<'a>(
     string: &str,
 ) -> Option<(Language, &'a PropertySheet<Properties>)> {
