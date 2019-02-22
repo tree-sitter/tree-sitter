@@ -7,7 +7,9 @@ permalink: creating-parsers
 
 Developing Tree-sitter parsers can have a difficult learning curve, but once you get the hang of it, it can be fun and even zen-like. This document should help you to build an effective mental model for parser development.
 
-## Understanding the problem
+## Getting Started
+
+### Understanding the problem
 
 Writing a grammar requires creativity. There are an infinite number of CFGs (context-free grammars) that can be used to describe any given language. In order to produce a good Tree-sitter parser, you need to create a grammar with two important properties:
 
@@ -17,22 +19,22 @@ Writing a grammar requires creativity. There are an infinite number of CFGs (con
 
 It's unlikely that you'll be able to satisfy these two properties just by translating an existing context-free grammar directly into Tree-sitter's grammar format. There are a few kinds of adjustments that are often required. The following sections will explain these adjustments in more depth.
 
-## Dependencies
+### Dependencies
 
 In order to develop a Tree-sitter parser, there are two dependencies that you need to install:
 
 * **Node.js** - Tree-sitter grammars are written in JavaScript, and Tree-sitter uses [Node.js][node.js] to interpret JavaScript files. It requires the `node` command to be in one of the directories in your [`PATH`][path-env]. It shouldn't matter what version of Node you have.
 * **C Compiler** - Tree-sitter creates parsers that are written in C. In order to run and test these parsers with the `tree-sitter parse` or `tree-sitter test` commands, you must have a C/C++ compiler installed. Tree-sitter will try to look for these compilers in the standard places for each platform.
 
-## Installation
+### Installation
 
 To create a Tree-sitter parser, you need to use the [the `tree-sitter` CLI][tree-sitter-cli]. You can install the CLI in a few different ways:
 
-* Install the pre-built `tree-sitter-cli` [Node.js module][node-module] using [`npm`][npm], the Node package manager. This is the recommended approach, and it is discussed further in the next section.
+* Install the `tree-sitter-cli` [Node.js module][node-module] using [`npm`][npm], the Node package manager. This is the recommended approach, and it is discussed further in the next section.
 * Download a binary for your platform from [the latest GitHub release][releases], and put it into a directory on your `PATH`.
 * Build the `tree-sitter-cli` [Rust crate][crate] from source using [`cargo`][cargo], the Rust package manager.
 
-## Setting up a Project
+### Setting up a Project
 
 The preferred convention is to name the parser repository "tree-sitter-" followed by the name of the language.
 
@@ -47,7 +49,7 @@ You should create a `package.json` file that describes your project, and allows 
 # This will prompt you for input
 npm init
 
-# This allows your parser to be built as a native node module.
+# This installs a small module that lets your parser be used from Node
 npm install --save nan
 
 # This installs the Tree-sitter CLI itself
@@ -89,7 +91,7 @@ This should print the following:
 
 You might notice that the first time you run `tree-sitter parse`, it takes a few seconds. This is because Tree-sitter automatically compiles your C code into a dynamically-loadable library. Whenever you make changes to your grammar, you can update the parser simply by re-running `tree-sitter generate`. When the parser changes, Tree-sitter will recompile it as needed.
 
-## Starting to define the grammar
+## Writing the Grammar
 
 It's usually a good idea to find a formal specification for the language you're trying to parse. This specification will most likely contain a context-free grammar. As you read through the rules of this CFG, you will probably discover a complex and cyclic graph of relationships. It might be unclear how you should navigate this graph as you define your grammar.
 
@@ -190,7 +192,7 @@ With this structure in place, you can now freely decide what part of the grammar
 
 After developing the *type* sublanguage a bit further, you might decide to switch to working on *statements* or *expressions* instead. It's often useful to check your progress by trying to parse some real code using `tree-sitter parse`.
 
-## Writing unit tests
+### Writing unit tests
 
 For each rule that you add to the grammar, you should first create a *test* that describes how the syntax trees should look when parsing that rule. These tests are written using specially-formatted text files in a `corpus` directory in your parser's root folder. Here is an example of how these tests should look:
 
@@ -231,13 +233,13 @@ tree-sitter test -f 'Return statements'
 The recommendation is to be comprehensive in adding tests. If it's a visible node, add it to a test file in your `corpus` directory. It's typically a good idea to test all of the permutations of each language construct. This increases test coverage, but doubly acquaints readers with a way to examine expected outputs and understand the "edges" of a language.
 
 
-## Using the grammar DSL
+### The Grammar DSL
 
 The following is a complete list of built-in functions you can use to define Tree-sitter grammars. Use-cases for some of these functions will be explained in more detail in later sections.
 
 * **Symbols (the `$` object)** - Every grammar rule is written as a JavaScript function that takes a parameter conventionally called `$`. The syntax `$.identifier` is how you refer to another grammar symbol within a rule.
 * **String and Regex literals** - The terminal symbols in a grammar are described using JavaScript strings and regular expressions. Of course during parsing, Tree-sitter does not actually use JavaScript's regex engine to evaluate these regexes; it generates its own regex-matching logic as part of each parser. Regex literals are just used as a convenient way of writing regular expressions in your grammar.
-* **Sequences : `seq(rule1, rule2, ...)`** - This function creates a rule that matches any number of other rules, one after another. It is analogous to simply writing multiple symbols next to each other in [EBNF notation](enbf).
+* **Sequences : `seq(rule1, rule2, ...)`** - This function creates a rule that matches any number of other rules, one after another. It is analogous to simply writing multiple symbols next to each other in [EBNF notation][ebnf].
 * **Alternatives : `choice(rule1, rule2, ...)`** - This function creates a rule that matches *one* of a set of possible rules. The order of the arguments does not matter. This is analogous to the `|` (pipe) operator in EBNF notation.
 * **Repetitions : `repeat(rule)`** - This function creates a rule that matches *zero-or-more* occurrences of a given rule. It is analogous to the `{x}` (curly brace) syntax in EBNF notation.
 * **Repetitions : `repeat1(rule)`** - This function creates a rule that matches *one-or-more* occurrences of a given rule. The previous `repeat` rule is implemented in terms of `repeat1` but is included because it is very commonly used.
@@ -251,13 +253,13 @@ The following is a complete list of built-in functions you can use to define Tre
 
 In addition to the `name` and `rules` fields, grammars have a few other optional public fields that influence the behavior of the parser.
 
-* `extras` - an array of tokens that may appear *anywhere* in the language. This is often used for whitespace and comments. The default value of `extras` is to accept whitespace. To control whitespace explicitly, specify `extras: $ => []` in your grammar.
-* `inline` - an array of rule names that should be automatically *removed* from the grammar by replacing all of their usages with a copy of their definition. This is useful for rules that are used in multiple places but for which you *don't* want to create syntax tree nodes at runtime.
-* `conflicts` - an array of arrays of rule names. Each inner array represents a set of rules that's involved in an *LR(1) conflict* that is *intended to exist* in the grammar. When these conflicts occur at runtime, Tree-sitter will use the GLR algorithm to explore all of the possible interpretations. If *multiple* parses end up succeeding, Tree-sitter will pick the subtree whose corresponding rule has the highest total *dynamic precedence*.
-* `externals` - an array of token names which can be returned by an *external scanner*. External scanners allow you to write custom C code which runs during the lexing process in order to handle lexical rules (e.g. Python's indentation tokens) that cannot be described by regular expressions.
-* `word` - the name of a token that will match keywords for the purpose of the [keyword extraction](#keyword-extraction) optimization.
+* **`extras`** - an array of tokens that may appear *anywhere* in the language. This is often used for whitespace and comments. The default value of `extras` is to accept whitespace. To control whitespace explicitly, specify `extras: $ => []` in your grammar.
+* **`inline`** - an array of rule names that should be automatically *removed* from the grammar by replacing all of their usages with a copy of their definition. This is useful for rules that are used in multiple places but for which you *don't* want to create syntax tree nodes at runtime.
+* **`conflicts`** - an array of arrays of rule names. Each inner array represents a set of rules that's involved in an *LR(1) conflict* that is *intended to exist* in the grammar. When these conflicts occur at runtime, Tree-sitter will use the GLR algorithm to explore all of the possible interpretations. If *multiple* parses end up succeeding, Tree-sitter will pick the subtree whose corresponding rule has the highest total *dynamic precedence*.
+* **`externals`** - an array of token names which can be returned by an [*external scanner*](#external-scanners). External scanners allow you to write custom C code which runs during the lexing process in order to handle lexical rules (e.g. Python's indentation tokens) that cannot be described by regular expressions.
+* **`word`** - the name of a token that will match keywords for the purpose of the [keyword extraction](#keyword-extraction) optimization.
 
-## Adjusting existing grammars
+### Adjusting existing grammars
 
 Imagine that you were just starting work on the [Tree-sitter JavaScript parser][tree-sitter-javascript]. You might try to directly mirror the structure of the [ECMAScript Language Spec][ecmascript-spec]. To illustrate the problem with this approach, consider the following line of code:
 
@@ -342,7 +344,7 @@ Possible resolutions:
   4:  Add a conflict for these rules: `binary_expression` `unary_expression`
 ```
 
-For an expression like `-a * b`, it's not clear whether the `-` operator applies to the `a * b` or just to the `a`. This is where the `prec` function described above comes into play. By wrapping a rule with `prec`, we can indicate that certain sequence of symbols should *bind to each other more tightly* than others. For example, the `'-', $._expression` sequence in `unary_expression` should bind more tightly than the `$._expression, '+', $._expression` sequence in `binary_expression`:
+For an expression like `-a * b`, it's not clear whether the `-` operator applies to the `a * b` or just to the `a`. This is where the `prec` function [described above](#the-grammar-dsl) comes into play. By wrapping a rule with `prec`, we can indicate that certain sequence of symbols should *bind to each other more tightly* than others. For example, the `'-', $._expression` sequence in `unary_expression` should bind more tightly than the `$._expression, '+', $._expression` sequence in `binary_expression`:
 
 ```js
 {
@@ -438,6 +440,8 @@ For example, suppose we added `identifier` as the `word` token in our JavaScript
 
 ```js
 grammar({
+  name: 'javascript',
+
   word: $ => $.identifier,
 
   rules: {
@@ -460,39 +464,177 @@ grammar({
 
     identifier: $ => /[a-z_]+/
   }
-})
+});
 ```
 
 Tree-sitter would identify `typeof` and `instanceof` as keywords. Then, when parsing the invalid code above, rather than scanning for the `instanceof` token individually, it would scan for an `identifier` first, and find `instanceofSomething`. It would then correctly recognize the code as invalid.
 
 Aside from improving error detection, keyword extraction also has performance benefits. It allows Tree-sitter to generate a smaller, simpler lexing function, which means that **the parser will compile much more quickly**.
 
-[lexing]: https://en.wikipedia.org/wiki/Lexical_analysis
-[longest-match]: https://en.wikipedia.org/wiki/Maximal_munch
-[cst]: https://en.wikipedia.org/wiki/Parse_tree
-[dfa]: https://en.wikipedia.org/wiki/Deterministic_finite_automaton
-[path-env]: https://en.wikipedia.org/wiki/PATH_(variable)
-[non-terminal]: https://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols
-[language-spec]: https://en.wikipedia.org/wiki/Programming_language_specification
-[glr-parsing]: https://en.wikipedia.org/wiki/GLR_parser
-[lr-grammars]: https://en.wikipedia.org/wiki/LR_parser
-[yacc]: https://en.wikipedia.org/wiki/Yacc
-[bison]: https://en.wikipedia.org/wiki/GNU_bison
-[antlr]: http://www.antlr.org/
-[peg]: https://en.wikipedia.org/wiki/Parsing_expression_grammar
+### External Scanners
+
+Many languages have some tokens whose structure is impossible or inconvenient to describe with a regular expression. Some examples:
+* [Indent and dedent][indent-tokens] tokens in Python
+* [Heredocs][heredoc] in Bash and Ruby
+* [Percent strings][percent-string] in Ruby
+
+Tree-sitter allows you to handle these kinds of tokens using *external scanners*. An external scanner is a set of C functions that you, the grammar author, can write by hand in order to add custom logic for recognizing certain tokens.
+
+To use an external scanner, there are a few steps. First, add an `externals` section to your grammar. This section should list the names of all of your external tokens. These names can then be used elsewhere in your grammar.
+
+```js
+grammar({
+  name: 'my_language',
+
+  externals: $ => [
+    $.indent,
+    $.dedent,
+    $.newline
+  ],
+
+  // ...
+});
+```
+
+Then, add another C or C++ source file to your project. Currently, its path must be `src/scanner.c` or `src/scanner.cc` for the CLI to recognize it. Be sure to add this file to the `sources` section of your `binding.gyp` file so that it will be included when your project is compiled by Node.js.
+
+In this new source file, define an [`enum`][enum] type containing the names of all of your external tokens. The ordering of this enum must match the order in your grammar's `externals` array.
+
+```c
+#include <tree_sitter/parser.h>
+
+enum TokenType {
+  INDENT,
+  DEDENT,
+  NEWLINE
+}
+```
+
+Finally, you must define five functions with specific names, based on your language's name and five actions: *create*, *destroy*, *serialize*, *deserialize*, and *scan*. These functions must all use [C linkage][c-linkage], so if you're writing the scanner in C++, you need to declare them with the `extern "C"` qualifier.
+
+#### Create
+
+```c
+void * tree_sitter_my_language_external_scanner_create() {
+  // ...
+}
+```
+
+This function should create your scanner object. It will only be called once anytime your language is set on a parser. Often, you will want to allocate memory on the heap and return a pointer to it. If your external scanner doesn't need to maintain any state, it's ok to return `NULL`.
+
+
+#### Destroy
+
+```c
+void tree_sitter_my_language_external_scanner_destroy(void *payload) {
+  // ...
+}
+```
+
+This function should free any memory used by your scanner. It is called once when a parser is deleted or assigned a different language. It receives as an argument the same pointer that was returned from the *create* function. If your *create* function didn't allocate any memory, this function can be a noop.
+
+#### Serialize
+
+```c
+unsigned tree_sitter_my_language_external_scanner_serialize(
+  void *payload,
+  char *buffer
+) {
+  // ...
+}
+```
+
+This function should copy the complete state of your scanner into a given byte buffer, and return the number of bytes written. The function is called every time the external scanner successfully recognizes a token. It receives a pointer to your scanner and a pointer to a buffer. The maximum number of bytes that you can write is given by the `TREE_SITTER_SERIALIZATION_BUFFER_SIZE` constant, defined in the `tree_sitter/parser.h` header file.
+
+The data that this function writes will ultimately be stored in the syntax tree so that the scanner can be restored to the right state when handling edits or ambiguities. For your parser to work correctly, the `serialize` function must store its entire state, and `deserialize` must restore the entire state. For good performance, you should design your scanner so that its state can be serialized as quickly and compactly as possible.
+
+#### Deserialize
+
+```c
+void tree_sitter_my_language_external_scanner_deserialize(
+  void *payload,
+  const char *buffer,
+  unsigned length
+) {
+  // ...
+}
+```
+
+This function should *restore* the state of your scanner based the bytes that were previously written by the `serialize` function. It is called with a pointer to your scanner, a pointer to the buffer of bytes, and the number of bytes that should be read.
+
+#### Scan
+
+```c
+bool tree_sitter_my_language_external_scanner_scan(
+  void *payload,
+  TSLexer *lexer,
+  const bool *valid_symbols
+) {
+  // ...
+}
+```
+
+This function is responsible for recognizing external tokens. It should return `true` if a token was recognized, and `false` otherwise. It is called with a "lexer" struct with the following fields:
+
+* **`uint32_t lookahead`** - The current next character in the input stream, represented as a 32-bit unicode code point.
+* **`TSSymbol result_symbol`** - The symbol that was recognized. Your scan function should *assign* to this field one of the values from the `TokenType` enum, described above.
+* **`void (*advance)(TSLexer *, bool skip)`** - A function for advancing to the next character. Pass `true` for the second argument, the current character will be treated as whitespace.
+* **`void (*mark_end)(TSLexer *)`** - A function for marking the end of the recognized token. This allows matching tokens that require multiple characters of lookahead. By default (if you don't call `mark_end`), any character that you moved past using the `advance` function will be included in the size of the token. But once you call `mark_end`, then any later calls to `advance` will *not* increase the size of the returned token. You can call `mark_end` multiple times to increase the size of the token.
+* **`uint32_t (*get_column)(TSLexer *)`** - **(Experimental)** A function for querying the current column position of the lexer. It returns the number of unicode code points (not bytes) since the start of the current line.
+* **`bool (*is_at_included_range_start)(TSLexer *)`** - A function for checking if the parser has just skipped some characters in the document. When parsing an embedded document using the `ts_parser_set_included_ranges` function (described in the [multi-language document section][multi-language-section]), your scanner may want to apply some special behavior when moving to a disjoint part of the document. For example, in [EJS documents][ejs], the JavaScript parser uses this function to enable inserting automatic semicolon tokens in between the code directives, delimited by `<%` and `%>`.
+
+The third argument to the `scan` function is an array of booleans that indicates which of your external tokens are currently expected by the parser. You should only look for a given token if it is valid according to this array. At the same time, you cannot backtrack, so you may need to combine certain pieces of logic.
+
+```c
+if (valid_symbols[INDENT] || valid_symbol[DEDENT]) {
+
+  // ... logic that is common to both `INDENT` and `DEDENT`
+
+  if (valid_symbols[INDENT]) {
+
+    // ... logic that is specific to `INDENT`
+
+    lexer->result_symbol = INDENT;
+    return true;
+  }
+}
+```
+
+
+
 [ambiguous-grammar]: https://en.wikipedia.org/wiki/Ambiguous_grammar
-[tree-sitter-javascript]: https://github.com/tree-sitter/tree-sitter-javascript
-[ecmascript-spec]: https://www.ecma-international.org/ecma-262/6.0
-[tree-sitter-cli]: https://github.com/tree-sitter/tree-sitter/tree/master/cli
-[releases]: https://github.com/tree-sitter/tree-sitter/releases/latest
-[node-module]: https://www.npmjs.com/package/tree-sitter-cli
-[node.js]: https://nodejs.org
-[npm]: https://docs.npmjs.com
+[antlr]: http://www.antlr.org/
+[bison-dprec]: https://www.gnu.org/software/bison/manual/html_node/Generalized-LR-Parsing.html
+[bison]: https://en.wikipedia.org/wiki/GNU_bison
+[c-linkage]: https://en.cppreference.com/w/cpp/language/language_linkage
 [cargo]: https://doc.rust-lang.org/cargo/getting-started/installation.html
 [crate]: https://crates.io/crates/tree-sitter-cli
-[nan]: https://github.com/nodejs/nan
-[s-exp]: https://en.wikipedia.org/wiki/S-expression
+[cst]: https://en.wikipedia.org/wiki/Parse_tree
+[dfa]: https://en.wikipedia.org/wiki/Deterministic_finite_automaton
 [ebnf]: https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form
+[ecmascript-spec]: https://www.ecma-international.org/ecma-262/6.0
+[ejs]: https://ejs.co
+[enum]: https://en.wikipedia.org/wiki/Enumerated_type#C
+[glr-parsing]: https://en.wikipedia.org/wiki/GLR_parser
+[heredoc]: https://en.wikipedia.org/wiki/Here_document
+[indent-tokens]: https://en.wikipedia.org/wiki/Off-side_rule
+[language-spec]: https://en.wikipedia.org/wiki/Programming_language_specification
+[lexing]: https://en.wikipedia.org/wiki/Lexical_analysis
+[longest-match]: https://en.wikipedia.org/wiki/Maximal_munch
 [lr-conflict]: https://en.wikipedia.org/wiki/LR_parser#Conflicts_in_the_constructed_tables
+[lr-grammars]: https://en.wikipedia.org/wiki/LR_parser
+[multi-language-section]: /using-parsers#multi-language-documents
+[nan]: https://github.com/nodejs/nan
+[node-module]: https://www.npmjs.com/package/tree-sitter-cli
+[node.js]: https://nodejs.org
+[non-terminal]: https://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols
+[npm]: https://docs.npmjs.com
+[path-env]: https://en.wikipedia.org/wiki/PATH_(variable)
+[peg]: https://en.wikipedia.org/wiki/Parsing_expression_grammar
+[percent-string]: https://docs.ruby-lang.org/en/2.5.0/syntax/literals_rdoc.html#label-Percent+Strings
+[releases]: https://github.com/tree-sitter/tree-sitter/releases/latest
+[s-exp]: https://en.wikipedia.org/wiki/S-expression
+[tree-sitter-cli]: https://github.com/tree-sitter/tree-sitter/tree/master/cli
+[tree-sitter-javascript]: https://github.com/tree-sitter/tree-sitter-javascript
 [yacc-prec]: https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html
-[bison-dprec]: https://www.gnu.org/software/bison/manual/html_node/Generalized-LR-Parsing.html
+[yacc]: https://en.wikipedia.org/wiki/Yacc
