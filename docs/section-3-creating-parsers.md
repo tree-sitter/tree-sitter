@@ -11,28 +11,50 @@ Developing Tree-sitter parsers can have a difficult learning curve, but once you
 
 Writing a grammar requires creativity. There are an infinite number of CFGs (context-free grammars) that can be used to describe any given language. In order to produce a good Tree-sitter parser, you need to create a grammar with two important properties:
 
-  1. **An intuitive structure** - Tree-sitter's output is a [concrete syntax tree][cst]; each node in the tree corresponds directly to a [terminal or non-terminal symbol][non-terminal] in the grammar. So in order to produce an easy-to-analyze tree, there should be a direct correspondence between the symbols in your grammar and the recognizable constructs in the language. This might seem obvious, but it is very different from the way that context-free grammars are often written in contexts like [language specifications][language-spec] or [Yacc][yacc]/[Bison][bison] parsers.
+1. **An intuitive structure** - Tree-sitter's output is a [concrete syntax tree][cst]; each node in the tree corresponds directly to a [terminal or non-terminal symbol][non-terminal] in the grammar. So in order to produce an easy-to-analyze tree, there should be a direct correspondence between the symbols in your grammar and the recognizable constructs in the language. This might seem obvious, but it is very different from the way that context-free grammars are often written in contexts like [language specifications][language-spec] or [Yacc][yacc]/[Bison][bison] parsers.
 
-  2. **A close adherence to LR(1)** - Tree-sitter is based on the [GLR parsing][glr-parsing] algorithm. This means that while it can handle any context-free grammar, it works most efficiently with a class of context-free grammars called [LR(1) Grammars][lr-grammars]. In this respect, Tree-sitter's grammars are similar to (but less restrictive than) [Yacc][yacc] and [Bison][bison] grammars, but *different* from [ANTLR grammars][antlr], [Parsing Expression Grammars][peg], or the [ambiguous grammars][ambiguous-grammar] commonly used in language specifications.
+2. **A close adherence to LR(1)** - Tree-sitter is based on the [GLR parsing][glr-parsing] algorithm. This means that while it can handle any context-free grammar, it works most efficiently with a class of context-free grammars called [LR(1) Grammars][lr-grammars]. In this respect, Tree-sitter's grammars are similar to (but less restrictive than) [Yacc][yacc] and [Bison][bison] grammars, but *different* from [ANTLR grammars][antlr], [Parsing Expression Grammars][peg], or the [ambiguous grammars][ambiguous-grammar] commonly used in language specifications.
 
 It's unlikely that you'll be able to satisfy these two properties just by translating an existing context-free grammar directly into Tree-sitter's grammar format. There are a few kinds of adjustments that are often required. The following sections will explain these adjustments in more depth.
 
-## Installing the tools
+## Dependencies
 
-The best way to create a Tree-sitter parser is with the [`Tree-sitter CLI`][tree-sitter-cli], which is distributed as [a Node.js module][node-module]. To install it, first install [`node`][node.js] and its package manager [`npm`][npm] on your system. Then use `npm` to create a new node module and add `tree-sitter-cli` and [`nan`][nan] as dependencies:
+In order to develop a Tree-sitter parser, there are two dependencies that you need to install:
+
+* **Node.js** - Tree-sitter grammars are written in JavaScript, and Tree-sitter uses [Node.js][node.js] to interpret JavaScript files. It requires the `node` command to be in one of the directories in your [`PATH`][path-env]. It shouldn't matter what version of Node you have.
+* **C Compiler** - Tree-sitter creates parsers that are written in C. In order to run and test these parsers with the `tree-sitter parse` or `tree-sitter test` commands, you must have a C/C++ compiler installed. Tree-sitter will try to look for these compilers in the standard places for each platform.
+
+## Installation
+
+To create a Tree-sitter parser, you need to use the [the `tree-sitter` CLI][tree-sitter-cli]. You can install the CLI in a few different ways:
+
+* Install the pre-built `tree-sitter-cli` [Node.js module][node-module] using [`npm`][npm], the Node package manager. This is the recommended approach, and it is discussed further in the next section.
+* Download a binary for your platform from [the latest GitHub release][releases], and put it into a directory on your `PATH`.
+* Build the `tree-sitter-cli` [Rust crate][crate] from source using [`cargo`][cargo], the Rust package manager.
+
+## Setting up a Project
+
+The preferred convention is to name the parser repository "tree-sitter-" followed by the name of the language.
 
 ```sh
 mkdir tree-sitter-${YOUR_LANGUAGE_NAME}
 cd tree-sitter-${YOUR_LANGUAGE_NAME}
+```
 
+You should create a `package.json` file that describes your project, and allows your parser to be used from Node.js.
+
+```sh
 # This will prompt you for input
 npm init
 
+# This allows your parser to be built as a native node module.
 npm install --save nan
+
+# This installs the Tree-sitter CLI itself
 npm install --save-dev tree-sitter-cli
 ```
 
-This will install the CLI and its dependencies into the `node_modules` folder in your directory. An executable program called `tree-sitter` will be created at the path `./node_modules/.bin/tree-sitter`. You may want to follow the Node.js convention of adding `./node_modules/.bin` to your `PATH` so that you can easily run this program when working in this directory.
+The last command will install the CLI into the `node_modules` folder in your project. An executable program called `tree-sitter` will be created at the path `./node_modules/.bin/tree-sitter`. You may want to follow the Node.js convention of adding `./node_modules/.bin` to your `PATH` so that you can easily run this program when working in this directory.
 
 Once you have the CLI installed, create a file called `grammar.js` with the following skeleton:
 
@@ -51,7 +73,6 @@ Then run the the following command:
 
 ```sh
 tree-sitter generate
-npm install
 ```
 
 This will generate the C code required to parse this trivial language, as well as all of the files needed to compile and load this native parser as a Node.js module. You can test this parser by creating a source file with the contents `hello;` and parsing it:
@@ -60,12 +81,13 @@ This will generate the C code required to parse this trivial language, as well a
 tree-sitter parse ./the-file
 ```
 
-This should print:
+This should print the following:
+
 ```
 (source_file [0, 0] - [0, 5])
 ```
 
-When you make changes to the grammar, you can update the parser simply by re-running `tree-sitter generate`. The best way to recompile the C-code is to run the command `node-gyp build`. You may have to install the [`node-gyp`][node-gyp] tool separately by running `npm install -g node-gyp`.
+You might notice that the first time you run `tree-sitter parse`, it takes a few seconds. This is because Tree-sitter automatically compiles your C code into a dynamically-loadable library. Whenever you make changes to your grammar, you can update the parser simply by re-running `tree-sitter generate`. When the parser changes, Tree-sitter will recompile it as needed.
 
 ## Starting to define the grammar
 
@@ -449,6 +471,7 @@ Aside from improving error detection, keyword extraction also has performance be
 [longest-match]: https://en.wikipedia.org/wiki/Maximal_munch
 [cst]: https://en.wikipedia.org/wiki/Parse_tree
 [dfa]: https://en.wikipedia.org/wiki/Deterministic_finite_automaton
+[path-env]: https://en.wikipedia.org/wiki/PATH_(variable)
 [non-terminal]: https://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols
 [language-spec]: https://en.wikipedia.org/wiki/Programming_language_specification
 [glr-parsing]: https://en.wikipedia.org/wiki/GLR_parser
@@ -460,13 +483,15 @@ Aside from improving error detection, keyword extraction also has performance be
 [ambiguous-grammar]: https://en.wikipedia.org/wiki/Ambiguous_grammar
 [tree-sitter-javascript]: https://github.com/tree-sitter/tree-sitter-javascript
 [ecmascript-spec]: https://www.ecma-international.org/ecma-262/6.0
-[tree-sitter-cli]: https://github.com/tree-sitter/tree-sitter-cli
+[tree-sitter-cli]: https://github.com/tree-sitter/tree-sitter/tree/master/cli
+[releases]: https://github.com/tree-sitter/tree-sitter/releases/latest
 [node-module]: https://www.npmjs.com/package/tree-sitter-cli
 [node.js]: https://nodejs.org
 [npm]: https://docs.npmjs.com
+[cargo]: https://doc.rust-lang.org/cargo/getting-started/installation.html
+[crate]: https://crates.io/crates/tree-sitter-cli
 [nan]: https://github.com/nodejs/nan
 [s-exp]: https://en.wikipedia.org/wiki/S-expression
-[node-gyp]: https://github.com/nodejs/node-gyp
 [ebnf]: https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form
 [lr-conflict]: https://en.wikipedia.org/wiki/LR_parser#Conflicts_in_the_constructed_tables
 [yacc-prec]: https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html
