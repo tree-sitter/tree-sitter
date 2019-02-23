@@ -445,38 +445,9 @@ fn generate_property_sheet(path: impl AsRef<Path>, css: &str) -> Result<Property
 }
 
 fn parse_property_sheet(path: &Path, css: &str) -> Result<Vec<Rule>> {
-    let mut i = 0;
+    let mut schema_paths = Vec::new();
     let mut items = rsass::parse_scss_data(css.as_bytes())?;
-    while i < items.len() {
-        match &items[i] {
-            rsass::Item::Import(arg) => {
-                if let Some(s) = get_sass_string(arg) {
-                    let import_path = resolve_path(path, s)?;
-                    let imported_items = rsass::parse_scss_file(&import_path)?;
-                    items.splice(i..(i + 1), imported_items);
-                    continue;
-                } else {
-                    return Err(Error("@import arguments must be strings".to_string()));
-                }
-            }
-            rsass::Item::AtRule { name, args, .. } => match name.as_str() {
-                "schema" => {
-                    if let Some(s) = get_sass_string(args) {
-                        // TODO - use schema
-                        let _schema_path = resolve_path(path, s)?;
-                        items.remove(i);
-                        continue;
-                    } else {
-                        return Err(Error("@schema arguments must be strings".to_string()));
-                    }
-                }
-                _ => return Err(Error(format!("Unsupported at-rule '{}'", name))),
-            },
-            _ => {}
-        }
-        i += 1;
-    }
-
+    process_at_rules(&mut items, &mut schema_paths, path)?;
     let mut result = Vec::new();
     let selector_prefixes = vec![Vec::new()];
     parse_sass_items(items, &selector_prefixes, &mut result)?;
@@ -581,6 +552,45 @@ fn parse_sass_items(
     Ok(())
 }
 
+fn process_at_rules(
+    items: &mut Vec<rsass::Item>,
+    schema_paths: &mut Vec<PathBuf>,
+    path: &Path,
+) -> Result<()> {
+    let mut i = 0;
+    while i < items.len() {
+        match &items[i] {
+            rsass::Item::Import(arg) => {
+                if let Some(s) = get_sass_string(arg) {
+                    let import_path = resolve_path(path, s)?;
+                    let mut imported_items = rsass::parse_scss_file(&import_path)?;
+                    process_at_rules(&mut imported_items, schema_paths, &import_path)?;
+                    items.splice(i..(i + 1), imported_items);
+                    continue;
+                } else {
+                    return Err(Error("@import arguments must be strings".to_string()));
+                }
+            }
+            rsass::Item::AtRule { name, args, .. } => match name.as_str() {
+                "schema" => {
+                    if let Some(s) = get_sass_string(args) {
+                        let schema_path = resolve_path(path, s)?;
+                        schema_paths.push(schema_path);
+                        items.remove(i);
+                        continue;
+                    } else {
+                        return Err(Error("@schema arguments must be strings".to_string()));
+                    }
+                }
+                _ => return Err(Error(format!("Unsupported at-rule '{}'", name))),
+            },
+            _ => {}
+        }
+        i += 1;
+    }
+    Ok(())
+}
+
 fn parse_sass_value(value: &Value) -> Result<PropertyValue> {
     match value {
         Value::Literal(s) => {
@@ -632,23 +642,22 @@ fn get_sass_string(value: &Value) -> Option<&str> {
 
 fn resolve_path(base: &Path, p: &str) -> Result<PathBuf> {
     let path = Path::new(p);
-    let mut result = base.to_owned();
-    result.pop();
+    let mut base = base.to_owned();
+    base.pop();
     if path.starts_with(".") {
-        result.push(path);
-        if result.exists() {
-            return Ok(result);
+        base.push(path);
+        if base.exists() {
+            return Ok(base);
         }
     } else {
         loop {
+            let mut result = base.clone();
             result.push("node_modules");
             result.push(path);
             if result.exists() {
                 return Ok(result);
             }
-            result.pop();
-            result.pop();
-            if !result.pop() {
+            if !base.pop() {
                 break;
             }
         }
@@ -660,9 +669,10 @@ fn resolve_path(base: &Path, p: &str) -> Result<PathBuf> {
 mod tests {
     use super::*;
     use regex::Regex;
+    use tempfile::TempDir;
 
     #[test]
-    fn test_immediate_child_and_descendant_selectors() {
+    fn test_property_sheet_with_immediate_child_and_descendant_selectors() {
         let sheet = generate_property_sheet(
             "foo.css",
             "
@@ -767,7 +777,7 @@ mod tests {
     }
 
     #[test]
-    fn test_text_attribute() {
+    fn test_property_sheet_with_text_attribute() {
         let sheet = generate_property_sheet(
             "foo.css",
             "
@@ -810,7 +820,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cascade_ordering_as_tie_breaker() {
+    fn test_property_sheet_with_cascade_ordering_as_tie_breaker() {
         let sheet = generate_property_sheet(
             "foo.css",
             "
@@ -845,7 +855,7 @@ mod tests {
     }
 
     #[test]
-    fn test_css_function_calls() {
+    fn test_property_sheet_with_function_calls() {
         let sheet = generate_property_sheet(
             "foo.css",
             "
@@ -882,7 +892,7 @@ mod tests {
     }
 
     #[test]
-    fn test_array_by_declaring_property_multiple_times() {
+    fn test_property_sheet_with_array_by_declaring_property_multiple_times() {
         let sheet = generate_property_sheet(
             "foo.css",
             "
@@ -920,6 +930,62 @@ mod tests {
                 object(&[("name", string("h")), ("args", array(vec![])),]),
             ]),
         );
+    }
+
+    #[test]
+    fn test_property_sheet_with_imports() {
+        let repo_dir = TempDir::new().unwrap();
+        let properties_dir = repo_dir.path().join("properties");
+        let dependency_properties_dir = repo_dir
+            .path()
+            .join("node_modules")
+            .join("the-dependency")
+            .join("properties");
+        fs::create_dir_all(&properties_dir).unwrap();
+        fs::create_dir_all(&dependency_properties_dir).unwrap();
+        let sheet_path1 = properties_dir.join("sheet1.css");
+        let sheet_path2 = properties_dir.join("sheet2.css");
+        let dependency_sheet_path1 = dependency_properties_dir.join("dependency-sheet1.css");
+        let dependency_sheet_path2 = dependency_properties_dir.join("dependency-sheet2.css");
+
+        fs::write(
+            sheet_path2,
+            r#"
+            a { x: '1'; }
+            "#,
+        )
+        .unwrap();
+        fs::write(
+            dependency_sheet_path1,
+            r#"
+            @import "./dependency-sheet2.css";
+            a { y: '2'; }
+            "#,
+        )
+        .unwrap();
+        fs::write(
+            dependency_sheet_path2,
+            r#"
+            b { x: '3'; }
+            "#,
+        )
+        .unwrap();
+        let sheet = generate_property_sheet(
+            sheet_path1,
+            r#"
+            @import "./sheet2.css";
+            @import "the-dependency/properties/dependency-sheet1.css";
+            b { y: '4'; }
+            "#,
+        )
+        .unwrap();
+
+        let a = query_simple(&sheet, vec!["a"]);
+        assert_eq!(a["x"], string("1"),);
+        assert_eq!(a["y"], string("2"),);
+        let b = query_simple(&sheet, vec!["b"]);
+        assert_eq!(b["x"], string("3"),);
+        assert_eq!(b["y"], string("4"),);
     }
 
     fn query_simple<'a>(
