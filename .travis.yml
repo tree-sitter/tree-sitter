@@ -23,7 +23,7 @@ branches:
   - /\d+\.\d+\.\d+/
 
 before_deploy:
-  - mv target/release/tree-sitter .
+  - cp target/release/tree-sitter .
   - gzip --suffix "-${TRAVIS_OS_NAME}-x64.gz" tree-sitter
 
 deploy:
