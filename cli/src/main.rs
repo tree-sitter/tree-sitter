@@ -4,7 +4,9 @@ use std::fs;
 use std::path::Path;
 use std::process::exit;
 use std::usize;
-use tree_sitter_cli::{error, generate, highlight, loader, logger, parse, properties, test};
+use tree_sitter_cli::{
+    config, error, generate, highlight, loader, logger, parse, properties, test,
+};
 
 fn main() {
     if let Err(e) = run() {
@@ -24,6 +26,7 @@ fn run() -> error::Result<()> {
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .author("Max Brunsfeld <maxbrunsfeld@gmail.com>")
         .about("Generates and tests parsers")
+        .subcommand(SubCommand::with_name("init-config").about("Generate a default config file"))
         .subcommand(
             SubCommand::with_name("generate")
                 .about("Generate a parser")
@@ -77,19 +80,15 @@ fn run() -> error::Result<()> {
         )
         .get_matches();
 
-    let home_dir = dirs::home_dir().unwrap();
+    let home_dir = dirs::home_dir().expect("Failed to read home directory");
     let current_dir = env::current_dir().unwrap();
-    let config_dir = home_dir.join(".tree-sitter");
-    let theme_path = config_dir.join("theme.json");
-    let parsers_dir = config_dir.join("parsers");
+    let config = config::Config::load(&home_dir);
+    let mut loader = loader::Loader::new(config.binary_directory.clone());
 
-    // TODO - make configurable
-    let parser_repo_paths = vec![home_dir.join("github")];
-
-    fs::create_dir_all(&parsers_dir).unwrap();
-    let mut loader = loader::Loader::new(config_dir);
-
-    if let Some(matches) = matches.subcommand_matches("generate") {
+    if matches.subcommand_matches("init-config").is_some() {
+        let config = config::Config::new(&home_dir);
+        config.save(&home_dir)?;
+    } else if let Some(matches) = matches.subcommand_matches("generate") {
         if matches.is_present("log") {
             logger::init();
         }
@@ -127,7 +126,7 @@ fn run() -> error::Result<()> {
         let debug_graph = matches.is_present("debug-graph");
         let quiet = matches.is_present("quiet");
         let time = matches.is_present("time");
-        loader.find_all_languages(&parser_repo_paths)?;
+        loader.find_all_languages(&config.parser_directories)?;
         let paths = matches
             .values_of("path")
             .unwrap()
@@ -161,10 +160,9 @@ fn run() -> error::Result<()> {
             return Err(error::Error(String::new()));
         }
     } else if let Some(matches) = matches.subcommand_matches("highlight") {
-        loader.find_all_languages(&parser_repo_paths)?;
-        let theme = highlight::Theme::load(&theme_path).unwrap_or_default();
         let paths = matches.values_of("path").unwrap().into_iter();
         let html_mode = matches.is_present("html");
+        loader.find_all_languages(&config.parser_directories)?;
 
         if html_mode {
             println!("{}", highlight::HTML_HEADER);
@@ -182,7 +180,7 @@ fn run() -> error::Result<()> {
 
         for path in paths {
             let path = Path::new(path);
-            let (language, config) = match language_config {
+            let (language, language_config) = match language_config {
                 Some(v) => v,
                 None => match loader.language_configuration_for_file_name(path)? {
                     Some(v) => v,
@@ -193,12 +191,12 @@ fn run() -> error::Result<()> {
                 },
             };
 
-            if let Some(sheet) = config.highlight_property_sheet(language)? {
+            if let Some(sheet) = language_config.highlight_property_sheet(language)? {
                 let source = fs::read(path)?;
                 if html_mode {
-                    highlight::html(&loader, &theme, &source, language, sheet)?;
+                    highlight::html(&loader, &config.theme, &source, language, sheet)?;
                 } else {
-                    highlight::ansi(&loader, &theme, &source, language, sheet)?;
+                    highlight::ansi(&loader, &config.theme, &source, language, sheet)?;
                 }
             } else {
                 return Err(error::Error(format!(

@@ -1,6 +1,6 @@
 mod escape;
 
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_derive::*;
 use std::cmp;
 use std::fmt::Write;
@@ -738,6 +738,43 @@ impl<'de> Deserialize<'de> for Scope {
             "variable.builtin" => Ok(Scope::VariableBuiltin),
             "tag" => Ok(Scope::Tag),
             _ => Ok(Scope::Unknown),
+        }
+    }
+}
+
+impl Serialize for Scope {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Scope::Attribute => serializer.serialize_str("attribute"),
+            Scope::Comment => serializer.serialize_str("comment"),
+            Scope::Constant => serializer.serialize_str("constant"),
+            Scope::ConstantBuiltin => serializer.serialize_str("constant.builtin"),
+            Scope::Constructor => serializer.serialize_str("constructor"),
+            Scope::ConstructorBuiltin => serializer.serialize_str("constructor.builtin"),
+            Scope::Embedded => serializer.serialize_str("embedded"),
+            Scope::Escape => serializer.serialize_str("escape"),
+            Scope::Function => serializer.serialize_str("function"),
+            Scope::FunctionBuiltin => serializer.serialize_str("function.builtin"),
+            Scope::Keyword => serializer.serialize_str("keyword"),
+            Scope::Number => serializer.serialize_str("number"),
+            Scope::Operator => serializer.serialize_str("operator"),
+            Scope::Property => serializer.serialize_str("property"),
+            Scope::PropertyBuiltin => serializer.serialize_str("property.builtin"),
+            Scope::Punctuation => serializer.serialize_str("punctuation"),
+            Scope::PunctuationBracket => serializer.serialize_str("punctuation.bracket"),
+            Scope::PunctuationDelimiter => serializer.serialize_str("punctuation.delimiter"),
+            Scope::PunctuationSpecial => serializer.serialize_str("punctuation.special"),
+            Scope::String => serializer.serialize_str("string"),
+            Scope::StringSpecial => serializer.serialize_str("string.special"),
+            Scope::Type => serializer.serialize_str("type"),
+            Scope::TypeBuiltin => serializer.serialize_str("type.builtin"),
+            Scope::Variable => serializer.serialize_str("variable"),
+            Scope::VariableBuiltin => serializer.serialize_str("variable.builtin"),
+            Scope::Tag => serializer.serialize_str("tag"),
+            Scope::Unknown => serializer.serialize_str(""),
         }
     }
 }

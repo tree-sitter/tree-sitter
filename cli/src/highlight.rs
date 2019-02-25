@@ -2,7 +2,9 @@ use crate::error::Result;
 use crate::loader::Loader;
 use ansi_term::{Color, Style};
 use lazy_static::lazy_static;
-use serde_json::Value;
+use serde::ser::SerializeMap;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::{fmt, fs, io, path};
 use tree_sitter::{Language, PropertySheet};
@@ -21,24 +23,7 @@ pub struct Theme {
 impl Theme {
     pub fn load(path: &path::Path) -> io::Result<Self> {
         let json = fs::read_to_string(path)?;
-        Ok(Self::new(&json))
-    }
-
-    pub fn new(json: &str) -> Self {
-        let mut ansi_styles = vec![None; 30];
-        let mut css_styles = vec![None; 30];
-        if let Ok(colors) = serde_json::from_str::<HashMap<Scope, Value>>(json) {
-            for (scope, style_value) in colors {
-                let mut style = Style::default();
-                parse_style(&mut style, style_value);
-                ansi_styles[scope as usize] = Some(style);
-                css_styles[scope as usize] = Some(style_to_css(style));
-            }
-        }
-        Self {
-            ansi_styles,
-            css_styles,
-        }
+        Ok(serde_json::from_str(&json).unwrap_or_default())
     }
 
     fn ansi_style(&self, scope: Scope) -> Option<&Style> {
@@ -50,9 +35,85 @@ impl Theme {
     }
 }
 
+impl<'de> Deserialize<'de> for Theme {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Theme, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let scope_count = Scope::Unknown as usize + 1;
+        let mut ansi_styles = vec![None; scope_count];
+        let mut css_styles = vec![None; scope_count];
+        if let Ok(colors) = HashMap::<Scope, Value>::deserialize(deserializer) {
+            for (scope, style_value) in colors {
+                let mut style = Style::default();
+                parse_style(&mut style, style_value);
+                ansi_styles[scope as usize] = Some(style);
+                css_styles[scope as usize] = Some(style_to_css(style));
+            }
+        }
+        Ok(Self {
+            ansi_styles,
+            css_styles,
+        })
+    }
+}
+
+impl Serialize for Theme {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let entry_count = self.ansi_styles.iter().filter(|i| i.is_some()).count();
+        let mut map = serializer.serialize_map(Some(entry_count))?;
+        for (i, style) in self.ansi_styles.iter().enumerate() {
+            let scope = Scope::from_usize(i).unwrap();
+            if scope == Scope::Unknown {
+                break;
+            }
+            if let Some(style) = style {
+                let color = style.foreground.map(|color| match color {
+                    Color::Black => json!("black"),
+                    Color::Blue => json!("blue"),
+                    Color::Cyan => json!("cyan"),
+                    Color::Green => json!("green"),
+                    Color::Purple => json!("purple"),
+                    Color::Red => json!("red"),
+                    Color::White => json!("white"),
+                    Color::Yellow => json!("yellow"),
+                    Color::RGB(r, g, b) => json!(format!("#{:x?}{:x?}{:x?}", r, g, b)),
+                    Color::Fixed(n) => json!(n),
+                });
+                if style.is_bold || style.is_italic || style.is_underline {
+                    let mut entry = HashMap::new();
+                    if let Some(color) = color {
+                        entry.insert("color", color);
+                    }
+                    if style.is_bold {
+                        entry.insert("bold", Value::Bool(true));
+                    }
+                    if style.is_italic {
+                        entry.insert("italic", Value::Bool(true));
+                    }
+                    if style.is_underline {
+                        entry.insert("underline", Value::Bool(true));
+                    }
+                    map.serialize_entry(&scope, &entry)?;
+                } else if let Some(color) = color {
+                    map.serialize_entry(&scope, &color)?;
+                } else {
+                    map.serialize_entry(&scope, &Value::Null)?;
+                }
+            } else {
+                map.serialize_entry(&scope, &Value::Null)?;
+            }
+        }
+        map.end()
+    }
+}
+
 impl Default for Theme {
     fn default() -> Self {
-        Theme::new(
+        serde_json::from_str(
             r#"
             {
               "attribute": {"color": 124, "italic": true},
@@ -71,11 +132,14 @@ impl Default for Theme {
               "punctuation.delimiter": 239,
               "string.special": 30,
               "string": 28,
-              "tag": {"color": 18},
+              "tag": 18,
+              "type": 23,
+              "type.builtin": {"color": 23, "bold": true},
               "variable.builtin": {"bold": true}
             }
             "#,
         )
+        .unwrap()
     }
 }
 
@@ -102,9 +166,8 @@ fn parse_style(style: &mut Style, json: Value) {
     if let Value::Object(entries) = json {
         for (property_name, value) in entries {
             match property_name.as_str() {
-                "italic" => *style = style.italic(),
                 "bold" => *style = style.bold(),
-                "dimmed" => *style = style.dimmed(),
+                "italic" => *style = style.italic(),
                 "underline" => *style = style.underline(),
                 "color" => {
                     if let Some(color) = parse_color(value) {
@@ -126,6 +189,7 @@ fn parse_color(json: Value) -> Option<Color> {
             _ => None,
         },
         Value::String(s) => match s.to_lowercase().as_str() {
+            "black" => Some(Color::Black),
             "blue" => Some(Color::Blue),
             "cyan" => Some(Color::Cyan),
             "green" => Some(Color::Green),
