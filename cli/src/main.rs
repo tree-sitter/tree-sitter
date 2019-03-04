@@ -96,12 +96,14 @@ fn run() -> error::Result<()> {
         let grammar_path = matches.value_of("grammar-path");
         let minimize = !matches.is_present("no-minimize");
         let properties_only = matches.is_present("properties-only");
+        let parser_only = grammar_path.is_some();
         let state_ids_to_log = matches
             .values_of("state-ids-to-log")
             .map_or(Vec::new(), |ids| {
                 ids.filter_map(|id| usize::from_str_radix(id, 10).ok())
                     .collect()
             });
+
         if !properties_only {
             generate::generate_parser_in_directory(
                 &current_dir,
@@ -110,7 +112,10 @@ fn run() -> error::Result<()> {
                 state_ids_to_log,
             )?;
         }
-        properties::generate_property_sheets_in_directory(&current_dir)?;
+
+        if !parser_only {
+            properties::generate_property_sheets_in_directory(&current_dir)?;
+        }
     } else if let Some(matches) = matches.subcommand_matches("test") {
         let debug = matches.is_present("debug");
         let debug_graph = matches.is_present("debug-graph");
