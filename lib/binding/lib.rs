@@ -907,53 +907,61 @@ impl<P> PropertySheet<P> {
                     None
                 };
 
-                let kind_id = transition.kind.as_ref().and_then(|kind| {
-                    let named = transition.named.unwrap();
-                    for i in 0..(node_kind_count as u16) {
-                        if kind == language.node_kind_for_id(i)
-                            && named == language.node_kind_is_named(i)
-                        {
-                            return Some(i);
-                        }
-                    }
-                    None
-                });
-
+                let state_id = transition.state_id as u16;
+                let child_index = transition.index.map(|i| i as u16);
                 let field_id = transition
                     .field
                     .as_ref()
                     .and_then(|field| language.field_id_for_name(&field));
 
-                if let Some(field_id) = field_id {
+                if let Some(kind) = transition.kind.as_ref() {
+                    for kind_id in 0..(node_kind_count as u16) {
+                        if kind != language.node_kind_for_id(kind_id)
+                            || transition.named != Some(language.node_kind_is_named(kind_id))
+                        {
+                            continue;
+                        }
+
+                        if let Some(field_id) = field_id {
+                            field_transitions
+                                .entry(field_id)
+                                .or_insert(Vec::new())
+                                .push(PropertyTransition {
+                                    node_kind_id: Some(kind_id),
+                                    state_id,
+                                    child_index,
+                                    text_regex_index,
+                                });
+                        } else {
+                            for (_, entries) in field_transitions.iter_mut() {
+                                entries.push(PropertyTransition {
+                                    node_kind_id: Some(kind_id),
+                                    state_id,
+                                    child_index,
+                                    text_regex_index,
+                                });
+                            }
+
+                            kind_transitions.entry(kind_id).or_insert(Vec::new()).push(
+                                PropertyTransition {
+                                    node_kind_id: None,
+                                    state_id,
+                                    child_index,
+                                    text_regex_index,
+                                },
+                            );
+                        }
+                    }
+                } else if let Some(field_id) = field_id {
                     field_transitions
                         .entry(field_id)
                         .or_insert(Vec::new())
                         .push(PropertyTransition {
-                            node_kind_id: kind_id,
-                            child_index: transition.index.map(|i| i as u16),
-                            state_id: transition.state_id as u16,
+                            node_kind_id: None,
+                            state_id,
+                            child_index,
                             text_regex_index,
                         });
-                } else {
-                    for (_, entries) in field_transitions.iter_mut() {
-                        entries.push(PropertyTransition {
-                            node_kind_id: kind_id,
-                            child_index: transition.index.map(|i| i as u16),
-                            state_id: transition.state_id as u16,
-                            text_regex_index,
-                        });
-                    }
-
-                    if let Some(kind_id) = kind_id {
-                        kind_transitions.entry(kind_id).or_insert(Vec::new()).push(
-                            PropertyTransition {
-                                node_kind_id: None,
-                                child_index: transition.index.map(|i| i as u16),
-                                state_id: transition.state_id as u16,
-                                text_regex_index,
-                            },
-                        );
-                    }
                 }
             }
             states.push(PropertyState {
