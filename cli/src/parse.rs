@@ -1,4 +1,4 @@
-use super::error::Result;
+use super::error::{Error, Result};
 use super::util;
 use std::fs;
 use std::io::{self, Write};
@@ -18,7 +18,8 @@ pub fn parse_file_at_path(
     let mut _log_session = None;
     let mut parser = Parser::new();
     parser.set_language(language)?;
-    let source_code = fs::read(path)?;
+    let source_code = fs::read(path)
+        .map_err(|e| Error(format!("Error reading source file {:?}: {}", path, e)))?;
 
     if debug_graph {
         _log_session = Some(util::log_graphs(&mut parser, "log.html")?);

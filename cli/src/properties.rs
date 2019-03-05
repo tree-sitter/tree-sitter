@@ -5,7 +5,7 @@ use rsass::sass::Value;
 use rsass::selectors::SelectorPart;
 use serde_derive::Serialize;
 use std::collections::hash_map::Entry;
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{btree_map, BTreeMap, HashMap, VecDeque};
 use std::fmt::{self, Write};
 use std::fs::{self, File};
 use std::io::BufWriter;
@@ -15,12 +15,13 @@ use tree_sitter::{self, PropertyStateJSON, PropertyTransitionJSON};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(untagged)]
 enum PropertyValue {
+    Number(isize),
     String(String),
     Object(PropertySet),
     Array(Vec<PropertyValue>),
 }
 
-type PropertySet = HashMap<String, PropertyValue>;
+type PropertySet = BTreeMap<String, PropertyValue>;
 type PropertySheetJSON = tree_sitter::PropertySheetJSON<PropertySet>;
 type StateId = usize;
 type PropertySetId = usize;
@@ -160,7 +161,7 @@ impl Builder {
     }
 
     fn populate_state(&mut self, item_set: ItemSet, state_id: StateId) {
-        let mut transition_map: HashSet<(PropertyTransitionJSON, u32)> = HashSet::new();
+        let mut transitions: HashMap<PropertyTransitionJSON, u32> = HashMap::new();
         let mut selector_matches = Vec::new();
 
         // First, compute all of the possible state transition predicates for
@@ -173,18 +174,21 @@ impl Builder {
             // If this item has more elements remaining in its selector, then
             // add a state transition based on the next step.
             if let Some(step) = next_step {
-                transition_map.insert((
-                    PropertyTransitionJSON {
+                transitions
+                    .entry(PropertyTransitionJSON {
                         kind: step.kind.clone(),
                         field: step.field.clone(),
                         named: step.is_named,
                         index: step.child_index,
                         text: step.text_pattern.clone(),
                         state_id: 0,
-                    },
-                    // Include the rule id so that it can be used when sorting transitions.
-                    item.rule_id,
-                ));
+                    })
+                    .and_modify(|rule_id| {
+                        if item.rule_id > *rule_id {
+                            *rule_id = item.rule_id;
+                        }
+                    })
+                    .or_insert(item.rule_id);
             }
             // If the item has matched its entire selector, then the item's
             // properties are applicable to this state.
@@ -196,46 +200,11 @@ impl Builder {
             }
         }
 
-        // For eacy possible state transition, compute the set of items in that transition's
-        // destination state.
-        let mut transition_list: Vec<(PropertyTransitionJSON, u32)> = transition_map
-            .into_iter()
-            .map(|(mut transition, rule_id)| {
-                let mut next_item_set = ItemSet::new();
-                for item in &item_set {
-                    let rule = &self.rules[item.rule_id as usize];
-                    let selector = &rule.selectors[item.selector_id as usize];
-                    let next_step = selector.0.get(item.step_id as usize);
-
-                    if let Some(step) = next_step {
-                        // If the next step of the item's selector satisfies this transition,
-                        // advance the item to the next part of its selector and add the
-                        // resulting item to this transition's destination state.
-                        if step_matches_transition(step, &transition) {
-                            next_item_set.insert(Item {
-                                rule_id: item.rule_id,
-                                selector_id: item.selector_id,
-                                step_id: item.step_id + 1,
-                            });
-                        }
-
-                        // If the next step of the item is not an immediate child, then
-                        // include this item in this transition's destination state, because
-                        // the next step of the item might match a descendant node.
-                        if !step.is_immediate {
-                            next_item_set.insert(*item);
-                        }
-                    }
-                }
-
-                transition.state_id = self.add_state(next_item_set);
-                (transition, rule_id)
-            })
-            .collect();
-
         // Ensure that for a given node type, more specific transitions are tried
         // first, and in the event of a tie, transitions corresponding to later rules
         // in the cascade are tried first.
+        let mut transition_list: Vec<(PropertyTransitionJSON, u32)> =
+            transitions.into_iter().collect();
         transition_list.sort_by(|a, b| {
             (transition_specificity(&b.0).cmp(&transition_specificity(&a.0)))
                 .then_with(|| b.1.cmp(&a.1))
@@ -243,6 +212,39 @@ impl Builder {
                 .then_with(|| a.0.named.cmp(&b.0.named))
                 .then_with(|| a.0.field.cmp(&b.0.field))
         });
+
+        // For eacy possible state transition, compute the set of items in that transition's
+        // destination state.
+        for (transition, _) in transition_list.iter_mut() {
+            let mut next_item_set = ItemSet::new();
+            for item in &item_set {
+                let rule = &self.rules[item.rule_id as usize];
+                let selector = &rule.selectors[item.selector_id as usize];
+                let next_step = selector.0.get(item.step_id as usize);
+
+                if let Some(step) = next_step {
+                    // If the next step of the item's selector satisfies this transition,
+                    // advance the item to the next part of its selector and add the
+                    // resulting item to this transition's destination state.
+                    if step_matches_transition(step, &transition) {
+                        next_item_set.insert(Item {
+                            rule_id: item.rule_id,
+                            selector_id: item.selector_id,
+                            step_id: item.step_id + 1,
+                        });
+                    }
+
+                    // If the next step of the item is not an immediate child, then
+                    // include this item in this transition's destination state, because
+                    // the next step of the item might match a descendant node.
+                    if !step.is_immediate {
+                        next_item_set.insert(*item);
+                    }
+                }
+            }
+
+            transition.state_id = self.add_state(next_item_set);
+        }
 
         // Compute the merged properties that apply in the current state.
         // Sort the matching property sets by ascending specificity and by
@@ -475,38 +477,9 @@ fn generate_property_sheet(path: impl AsRef<Path>, css: &str) -> Result<Property
 }
 
 fn parse_property_sheet(path: &Path, css: &str) -> Result<Vec<Rule>> {
-    let mut i = 0;
+    let mut schema_paths = Vec::new();
     let mut items = rsass::parse_scss_data(css.as_bytes())?;
-    while i < items.len() {
-        match &items[i] {
-            rsass::Item::Import(arg) => {
-                if let Some(s) = get_sass_string(arg) {
-                    let import_path = resolve_path(path, s)?;
-                    let imported_items = rsass::parse_scss_file(&import_path)?;
-                    items.splice(i..(i + 1), imported_items);
-                    continue;
-                } else {
-                    return Err(Error("@import arguments must be strings".to_string()));
-                }
-            }
-            rsass::Item::AtRule { name, args, .. } => match name.as_str() {
-                "schema" => {
-                    if let Some(s) = get_sass_string(args) {
-                        // TODO - use schema
-                        let _schema_path = resolve_path(path, s)?;
-                        items.remove(i);
-                        continue;
-                    } else {
-                        return Err(Error("@schema arguments must be strings".to_string()));
-                    }
-                }
-                _ => return Err(Error(format!("Unsupported at-rule '{}'", name))),
-            },
-            _ => {}
-        }
-        i += 1;
-    }
-
+    process_at_rules(&mut items, &mut schema_paths, path)?;
     let mut result = Vec::new();
     let selector_prefixes = vec![Vec::new()];
     parse_sass_items(items, &selector_prefixes, &mut result)?;
@@ -525,10 +498,10 @@ fn parse_sass_items(
             rsass::Item::Property(name, value) => {
                 let value = parse_sass_value(&value)?;
                 match properties.entry(name.to_string()) {
-                    Entry::Vacant(v) => {
+                    btree_map::Entry::Vacant(v) => {
                         v.insert(value);
                     }
-                    Entry::Occupied(mut o) => {
+                    btree_map::Entry::Occupied(mut o) => {
                         let existing_value = o.get_mut();
                         if let PropertyValue::Array(items) = existing_value {
                             items.push(value);
@@ -693,6 +666,45 @@ fn parse_sass_items(
     Ok(())
 }
 
+fn process_at_rules(
+    items: &mut Vec<rsass::Item>,
+    schema_paths: &mut Vec<PathBuf>,
+    path: &Path,
+) -> Result<()> {
+    let mut i = 0;
+    while i < items.len() {
+        match &items[i] {
+            rsass::Item::Import(arg) => {
+                if let Some(s) = get_sass_string(arg) {
+                    let import_path = resolve_path(path, s)?;
+                    let mut imported_items = rsass::parse_scss_file(&import_path)?;
+                    process_at_rules(&mut imported_items, schema_paths, &import_path)?;
+                    items.splice(i..(i + 1), imported_items);
+                    continue;
+                } else {
+                    return Err(Error("@import arguments must be strings".to_string()));
+                }
+            }
+            rsass::Item::AtRule { name, args, .. } => match name.as_str() {
+                "schema" => {
+                    if let Some(s) = get_sass_string(args) {
+                        let schema_path = resolve_path(path, s)?;
+                        schema_paths.push(schema_path);
+                        items.remove(i);
+                        continue;
+                    } else {
+                        return Err(Error("@schema arguments must be strings".to_string()));
+                    }
+                }
+                _ => return Err(Error(format!("Unsupported at-rule '{}'", name))),
+            },
+            _ => {}
+        }
+        i += 1;
+    }
+    Ok(())
+}
+
 fn parse_sass_value(value: &Value) -> Result<PropertyValue> {
     match value {
         Value::Literal(s) => {
@@ -724,7 +736,7 @@ fn parse_sass_value(value: &Value) -> Result<PropertyValue> {
             Ok(PropertyValue::Array(result))
         }
         Value::Color(_, Some(name)) => Ok(PropertyValue::String(name.clone())),
-        Value::Numeric(n, _) => Ok(PropertyValue::String(format!("{}", n))),
+        Value::Numeric(n, _) => Ok(PropertyValue::Number(n.to_integer())),
         Value::True => Ok(PropertyValue::String("true".to_string())),
         Value::False => Ok(PropertyValue::String("false".to_string())),
         _ => Err(Error(format!(
@@ -744,23 +756,22 @@ fn get_sass_string(value: &Value) -> Option<&str> {
 
 fn resolve_path(base: &Path, p: &str) -> Result<PathBuf> {
     let path = Path::new(p);
-    let mut result = base.to_owned();
-    result.pop();
+    let mut base = base.to_owned();
+    base.pop();
     if path.starts_with(".") {
-        result.push(path);
-        if result.exists() {
-            return Ok(result);
+        base.push(path);
+        if base.exists() {
+            return Ok(base);
         }
     } else {
         loop {
+            let mut result = base.clone();
             result.push("node_modules");
             result.push(path);
             if result.exists() {
                 return Ok(result);
             }
-            result.pop();
-            result.pop();
-            if !result.pop() {
+            if !base.pop() {
                 break;
             }
         }
@@ -795,9 +806,10 @@ fn interpolation_error() -> Error {
 mod tests {
     use super::*;
     use regex::Regex;
+    use tempfile::TempDir;
 
     #[test]
-    fn test_properties_immediate_child_and_descendant_selectors() {
+    fn test_property_sheet_with_immediate_child_and_descendant_selectors() {
         let sheet = generate_property_sheet(
             "foo.css",
             "
@@ -829,71 +841,71 @@ mod tests {
         // f1 single-element selector
         assert_eq!(
             *query_simple(&sheet, vec!["f1"]),
-            props(&[("color", "red")])
+            props(&[("color", string("red"))])
         );
         assert_eq!(
             *query_simple(&sheet, vec!["f2", "f1"]),
-            props(&[("color", "red")])
+            props(&[("color", string("red"))])
         );
         assert_eq!(
             *query_simple(&sheet, vec!["f2", "f3", "f1"]),
-            props(&[("color", "red")])
+            props(&[("color", string("red"))])
         );
 
         // f2 single-element selector
         assert_eq!(
             *query_simple(&sheet, vec!["f2"]),
-            props(&[("color", "indigo"), ("height", "2")])
+            props(&[("color", string("indigo")), ("height", num(2))])
         );
         assert_eq!(
             *query_simple(&sheet, vec!["f2", "f2"]),
-            props(&[("color", "indigo"), ("height", "2")])
+            props(&[("color", string("indigo")), ("height", num(2))])
         );
         assert_eq!(
             *query_simple(&sheet, vec!["f1", "f3", "f2"]),
-            props(&[("color", "indigo"), ("height", "2")])
+            props(&[("color", string("indigo")), ("height", num(2))])
         );
         assert_eq!(
             *query_simple(&sheet, vec!["f1", "f6", "f2"]),
-            props(&[("color", "indigo"), ("height", "2")])
+            props(&[("color", string("indigo")), ("height", num(2))])
         );
 
         // f3 single-element selector
         assert_eq!(
             *query_simple(&sheet, vec!["f3"]),
-            props(&[("color", "violet"), ("height", "3")])
+            props(&[("color", string("violet")), ("height", num(3))])
         );
         assert_eq!(
             *query_simple(&sheet, vec!["f2", "f3"]),
-            props(&[("color", "violet"), ("height", "3")])
+            props(&[("color", string("violet")), ("height", num(3))])
         );
 
         // f2 child selector
         assert_eq!(
             *query_simple(&sheet, vec!["f1", "f2"]),
-            props(&[("color", "green"), ("height", "2")])
+            props(&[("color", string("green")), ("height", num(2))])
         );
         assert_eq!(
             *query_simple(&sheet, vec!["f2", "f1", "f2"]),
-            props(&[("color", "green"), ("height", "2")])
+            props(&[("color", string("green")), ("height", num(2))])
         );
         assert_eq!(
             *query_simple(&sheet, vec!["f3", "f1", "f2"]),
-            props(&[("color", "green"), ("height", "2")])
+            props(&[("color", string("green")), ("height", num(2))])
         );
 
         // f3 descendant selector
         assert_eq!(
             *query_simple(&sheet, vec!["f1", "f3"]),
-            props(&[("color", "blue"), ("height", "3")])
+            props(&[("color", string("blue")), ("height", num(3))])
         );
         assert_eq!(
             *query_simple(&sheet, vec!["f1", "f2", "f3"]),
-            props(&[("color", "blue"), ("height", "3")])
+            props(&[("color", string("blue")), ("height", num(3))])
         );
         assert_eq!(
             *query_simple(&sheet, vec!["f1", "f6", "f7", "f8", "f3"]),
-            props(&[("color", "blue"), ("height", "3")])
+            props(&[("color", string("blue")), ("height", num(3))])
         );
 
         // no match
@@ -902,7 +914,7 @@ mod tests {
     }
 
     #[test]
-    fn test_properties_text_attribute() {
+    fn test_property_sheet_with_text_attribute() {
         let sheet = generate_property_sheet(
             "foo.css",
             "
@@ -927,15 +939,15 @@ mod tests {
 
         assert_eq!(
             *query(&sheet, vec![("f1", None, true, 0)], "abc"),
-            props(&[("color", "red")])
+            props(&[("color", string("red"))])
         );
         assert_eq!(
             *query(&sheet, vec![("f1", None, true, 0)], "Abc"),
-            props(&[("color", "green")])
+            props(&[("color", string("green"))])
         );
         assert_eq!(
             *query(&sheet, vec![("f1", None, true, 0)], "AB_CD"),
-            props(&[("color", "blue")])
+            props(&[("color", string("blue"))])
         );
         assert_eq!(
             *query(&sheet, vec![("f2", None, true, 0)], "Abc"),
@@ -943,12 +955,12 @@ mod tests {
         );
         assert_eq!(
             *query(&sheet, vec![("f2", None, true, 0)], "ABC"),
-            props(&[("color", "purple")])
+            props(&[("color", string("purple"))])
         );
     }
 
     #[test]
-    fn test_properties_with_fields() {
+    fn test_property_sheet_with_fields() {
         let sheet = generate_property_sheet(
             "foo.css",
             "
@@ -971,11 +983,11 @@ mod tests {
 
         assert_eq!(
             *query(&sheet, vec![("a", None, true, 0)], ""),
-            props(&[("color", "red")])
+            props(&[("color", string("red"))])
         );
         assert_eq!(
             *query(&sheet, vec![("a", Some("x"), true, 0)], ""),
-            props(&[("color", "green")])
+            props(&[("color", string("green"))])
         );
         assert_eq!(
             *query(
@@ -983,7 +995,7 @@ mod tests {
                 vec![("a", Some("x"), true, 0), ("b", None, true, 0)],
                 ""
             ),
-            props(&[("color", "blue")])
+            props(&[("color", string("blue"))])
         );
         assert_eq!(
             *query(
@@ -991,15 +1003,15 @@ mod tests {
                 vec![("a", Some("x"), true, 0), ("b", Some("y"), true, 0)],
                 ""
             ),
-            props(&[("color", "yellow")])
+            props(&[("color", string("yellow"))])
         );
         assert_eq!(
             *query(&sheet, vec![("b", Some("x"), true, 0)], ""),
-            props(&[("color", "violet")])
+            props(&[("color", string("violet"))])
         );
         assert_eq!(
             *query(&sheet, vec![("a", None, true, 0), ("b", None, true, 0)], ""),
-            props(&[("color", "orange")])
+            props(&[("color", string("orange"))])
         );
         assert_eq!(
             *query(
@@ -1007,12 +1019,12 @@ mod tests {
                 vec![("a", None, true, 0), ("b", Some("y"), true, 0)],
                 ""
             ),
-            props(&[("color", "indigo")])
+            props(&[("color", string("indigo"))])
         );
     }
 
     #[test]
-    fn test_properties_cascade_ordering_as_tie_breaker() {
+    fn test_property_sheet_with_cascade_ordering_as_tie_breaker() {
         let sheet = generate_property_sheet(
             "foo.css",
             "
@@ -1038,7 +1050,7 @@ mod tests {
                 vec![("f1", None, true, 0), ("f2", None, true, 1)],
                 "x"
             ),
-            props(&[("color", "red")])
+            props(&[("color", string("red"))])
         );
         assert_eq!(
             *query(
@@ -1046,7 +1058,7 @@ mod tests {
                 vec![("f1", None, true, 1), ("f2", None, true, 1)],
                 "x"
             ),
-            props(&[("color", "green")])
+            props(&[("color", string("green"))])
         );
         assert_eq!(
             *query(
@@ -1054,7 +1066,7 @@ mod tests {
                 vec![("f1", None, true, 1), ("f2", None, true, 1)],
                 "a"
             ),
-            props(&[("color", "blue")])
+            props(&[("color", string("blue"))])
         );
         assert_eq!(
             *query(
@@ -1062,12 +1074,12 @@ mod tests {
                 vec![("f1", None, true, 1), ("f2", None, true, 1)],
                 "ab"
             ),
-            props(&[("color", "violet")])
+            props(&[("color", string("violet"))])
         );
     }
 
     #[test]
-    fn test_properties_css_function_calls() {
+    fn test_property_sheet_with_css_function_calls() {
         let sheet = generate_property_sheet(
             "foo.css",
             "
@@ -1096,7 +1108,7 @@ mod tests {
                         object(&[("name", string("g")), ("args", array(vec![string("h"),]))]),
                         string("i"),
                         string("j"),
-                        string("10"),
+                        num(10),
                     ])
                 ),
             ])
@@ -1104,7 +1116,7 @@ mod tests {
     }
 
     #[test]
-    fn test_properties_array_by_declaring_property_multiple_times() {
+    fn test_property_sheet_with_array_by_declaring_property_multiple_times() {
         let sheet = generate_property_sheet(
             "foo.css",
             "
@@ -1142,6 +1154,62 @@ mod tests {
                 object(&[("name", string("h")), ("args", array(vec![])),]),
             ]),
         );
+    }
+
+    #[test]
+    fn test_property_sheet_with_imports() {
+        let repo_dir = TempDir::new().unwrap();
+        let properties_dir = repo_dir.path().join("properties");
+        let dependency_properties_dir = repo_dir
+            .path()
+            .join("node_modules")
+            .join("the-dependency")
+            .join("properties");
+        fs::create_dir_all(&properties_dir).unwrap();
+        fs::create_dir_all(&dependency_properties_dir).unwrap();
+        let sheet_path1 = properties_dir.join("sheet1.css");
+        let sheet_path2 = properties_dir.join("sheet2.css");
+        let dependency_sheet_path1 = dependency_properties_dir.join("dependency-sheet1.css");
+        let dependency_sheet_path2 = dependency_properties_dir.join("dependency-sheet2.css");
+
+        fs::write(
+            sheet_path2,
+            r#"
+            a { x: '1'; }
+            "#,
+        )
+        .unwrap();
+        fs::write(
+            dependency_sheet_path1,
+            r#"
+            @import "./dependency-sheet2.css";
+            a { y: '2'; }
+            "#,
+        )
+        .unwrap();
+        fs::write(
+            dependency_sheet_path2,
+            r#"
+            b { x: '3'; }
+            "#,
+        )
+        .unwrap();
+        let sheet = generate_property_sheet(
+            sheet_path1,
+            r#"
+            @import "./sheet2.css";
+            @import "the-dependency/properties/dependency-sheet1.css";
+            b { y: '4'; }
+            "#,
+        )
+        .unwrap();
+
+        let a = query_simple(&sheet, vec!["a"]);
+        assert_eq!(a["x"], string("1"),);
+        assert_eq!(a["y"], string("2"),);
+        let b = query_simple(&sheet, vec!["b"]);
+        assert_eq!(b["x"], string("3"),);
+        assert_eq!(b["y"], string("4"),);
     }
 
     fn query_simple<'a>(
@@ -1197,9 +1265,13 @@ mod tests {
         PropertyValue::String(s.to_string())
     }
 
-    fn props<'a>(s: &'a [(&'a str, &'a str)]) -> PropertySet {
+    fn num(n: isize) -> PropertyValue {
+        PropertyValue::Number(n)
+    }
+
+    fn props<'a>(s: &'a [(&'a str, PropertyValue)]) -> PropertySet {
         s.into_iter()
-            .map(|(a, b)| (a.to_string(), PropertyValue::String(b.to_string())))
+            .map(|(a, b)| (a.to_string(), b.clone()))
             .collect()
     }
 }

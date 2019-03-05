@@ -1,5 +1,3 @@
-const UNICODE_ESCAPE_PATTERN = /\\u([0-9a-f]{4})/gi;
-
 function alias(rule, value) {
   const result = {
     type: "ALIAS",
@@ -180,12 +178,8 @@ function normalize(value) {
       };
     case RegExp:
       return {
-          type: 'PATTERN',
-          value: value.source
-            .replace(
-              UNICODE_ESCAPE_PATTERN,
-              (match, group) => String.fromCharCode(parseInt(group, 16))
-            )
+        type: 'PATTERN',
+        value: value.source
       };
     case ReferenceError:
       throw value

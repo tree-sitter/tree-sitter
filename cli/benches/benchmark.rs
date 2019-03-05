@@ -61,11 +61,6 @@ fn main() {
     let mut all_error_speeds = Vec::new();
 
     for (language_name, example_paths) in EXAMPLE_PATHS_BY_LANGUAGE_NAME.iter() {
-        // TODO - remove after fixing slow error parsing HTML.
-        if language_name == "html" {
-            continue;
-        }
-
         if let Some(filter) = LANGUAGE_FILTER.as_ref() {
             if language_name != filter.as_str() {
                 continue;

@@ -4,8 +4,9 @@ use std::fs;
 use std::path::Path;
 use std::process::exit;
 use std::usize;
-use tree_sitter_cli::loader::Loader;
-use tree_sitter_cli::{error, generate, logger, parse, properties, test};
+use tree_sitter_cli::{
+    config, error, generate, highlight, loader, logger, parse, properties, test,
+};
 
 fn main() {
     if let Err(e) = run() {
@@ -25,6 +26,7 @@ fn run() -> error::Result<()> {
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .author("Max Brunsfeld <maxbrunsfeld@gmail.com>")
         .about("Generates and tests parsers")
+        .subcommand(SubCommand::with_name("init-config").about("Generate a default config file"))
         .subcommand(
             SubCommand::with_name("generate")
                 .about("Generate a parser")
@@ -64,16 +66,29 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("debug").long("debug").short("d"))
                 .arg(Arg::with_name("debug-graph").long("debug-graph").short("D")),
         )
+        .subcommand(
+            SubCommand::with_name("highlight")
+                .about("Highlight a file")
+                .arg(
+                    Arg::with_name("path")
+                        .index(1)
+                        .multiple(true)
+                        .required(true),
+                )
+                .arg(Arg::with_name("scope").long("scope").takes_value(true))
+                .arg(Arg::with_name("html").long("html").short("h")),
+        )
         .get_matches();
 
-    let home_dir = dirs::home_dir().unwrap();
+    let home_dir = dirs::home_dir().expect("Failed to read home directory");
     let current_dir = env::current_dir().unwrap();
-    let config_dir = home_dir.join(".tree-sitter");
+    let config = config::Config::load(&home_dir);
+    let mut loader = loader::Loader::new(config.binary_directory.clone());
 
-    fs::create_dir_all(&config_dir).unwrap();
-    let mut loader = Loader::new(config_dir);
-
-    if let Some(matches) = matches.subcommand_matches("generate") {
+    if matches.subcommand_matches("init-config").is_some() {
+        let config = config::Config::new(&home_dir);
+        config.save(&home_dir)?;
+    } else if let Some(matches) = matches.subcommand_matches("generate") {
         if matches.is_present("log") {
             logger::init();
         }
@@ -81,12 +96,14 @@ fn run() -> error::Result<()> {
         let grammar_path = matches.value_of("grammar-path");
         let minimize = !matches.is_present("no-minimize");
         let properties_only = matches.is_present("properties-only");
+        let parser_only = grammar_path.is_some();
         let state_ids_to_log = matches
             .values_of("state-ids-to-log")
             .map_or(Vec::new(), |ids| {
                 ids.filter_map(|id| usize::from_str_radix(id, 10).ok())
                     .collect()
             });
+
         if !properties_only {
             generate::generate_parser_in_directory(
                 &current_dir,
@@ -95,7 +112,10 @@ fn run() -> error::Result<()> {
                 state_ids_to_log,
             )?;
         }
-        properties::generate_property_sheets_in_directory(&current_dir)?;
+
+        if !parser_only {
+            properties::generate_property_sheets_in_directory(&current_dir)?;
+        }
     } else if let Some(matches) = matches.subcommand_matches("test") {
         let debug = matches.is_present("debug");
         let debug_graph = matches.is_present("debug-graph");
@@ -111,7 +131,7 @@ fn run() -> error::Result<()> {
         let debug_graph = matches.is_present("debug-graph");
         let quiet = matches.is_present("quiet");
         let time = matches.is_present("time");
-        loader.find_all_languages(&vec![home_dir.join("github")])?;
+        loader.find_all_languages(&config.parser_directories)?;
         let paths = matches
             .values_of("path")
             .unwrap()
@@ -143,6 +163,51 @@ fn run() -> error::Result<()> {
 
         if has_error {
             return Err(error::Error(String::new()));
+        }
+    } else if let Some(matches) = matches.subcommand_matches("highlight") {
+        let paths = matches.values_of("path").unwrap().into_iter();
+        let html_mode = matches.is_present("html");
+        loader.find_all_languages(&config.parser_directories)?;
+
+        if html_mode {
+            println!("{}", highlight::HTML_HEADER);
+        }
+
+        let language_config;
+        if let Some(scope) = matches.value_of("scope") {
+            language_config = loader.language_configuration_for_scope(scope)?;
+            if language_config.is_none() {
+                return Err(error::Error(format!("Unknown scope '{}'", scope)));
+            }
+        } else {
+            language_config = None;
+        }
+
+        for path in paths {
+            let path = Path::new(path);
+            let (language, language_config) = match language_config {
+                Some(v) => v,
+                None => match loader.language_configuration_for_file_name(path)? {
+                    Some(v) => v,
+                    None => {
+                        eprintln!("No language found for path {:?}", path);
+                        continue;
+                    }
+                },
+            };
+
+            if let Some(sheet) = language_config.highlight_property_sheet(language)? {
+                let source = fs::read(path)?;
+                if html_mode {
+                    highlight::html(&loader, &config.theme, &source, language, sheet)?;
+                } else {
+                    highlight::ansi(&loader, &config.theme, &source, language, sheet)?;
+                }
+            } else {
+                return Err(error::Error(format!(
+                    "No syntax highlighting property sheet specified"
+                )));
+            }
         }
     }
 
