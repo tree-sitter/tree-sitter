@@ -35,6 +35,15 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         extra_tokens.push(interner.intern_rule(extra_token)?);
     }
 
+    let mut supertype_symbols = Vec::with_capacity(grammar.supertype_symbols.len());
+    for supertype_symbol_name in grammar.supertype_symbols.iter() {
+        supertype_symbols.push(
+            interner
+                .intern_name(supertype_symbol_name)
+                .ok_or_else(|| Error::undefined_symbol(supertype_symbol_name))?,
+        );
+    }
+
     let mut expected_conflicts = Vec::new();
     for conflict in grammar.expected_conflicts.iter() {
         let mut interned_conflict = Vec::with_capacity(conflict.len());
@@ -64,12 +73,15 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         );
     }
 
+    eprintln!("supertype_symbols: {:?}", supertype_symbols);
+
     Ok(InternedGrammar {
         variables,
         external_tokens,
         extra_tokens,
         expected_conflicts,
         variables_to_inline,
+        supertype_symbols,
         word_token,
     })
 }
@@ -230,6 +242,7 @@ mod tests {
             external_tokens: Vec::new(),
             expected_conflicts: Vec::new(),
             variables_to_inline: Vec::new(),
+            supertype_symbols: Vec::new(),
             word_token: None,
         }
     }

@@ -203,6 +203,7 @@ unless they are used only as the grammar's start rule.
         expected_conflicts: grammar.expected_conflicts,
         variables_to_inline: grammar.variables_to_inline,
         external_tokens: grammar.external_tokens,
+        supertype_symbols: grammar.supertype_symbols,
         word_token: grammar.word_token,
         variables,
     })

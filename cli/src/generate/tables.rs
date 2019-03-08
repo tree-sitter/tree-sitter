@@ -1,6 +1,6 @@
 use super::nfa::CharacterSet;
 use super::rules::{Alias, Associativity, Symbol};
-use hashbrown::{HashMap, HashSet};
+use hashbrown::HashMap;
 use std::collections::BTreeMap;
 
 pub(crate) type ProductionInfoId = usize;
@@ -52,7 +52,7 @@ pub(crate) struct ProductionInfo {
     pub field_map: BTreeMap<String, Vec<FieldLocation>>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum ChildType {
     Normal(Symbol),
     Aliased(Alias),
@@ -62,13 +62,15 @@ pub(crate) enum ChildType {
 pub(crate) struct FieldInfo {
     pub required: bool,
     pub multiple: bool,
-    pub types: HashSet<ChildType>,
+    pub types: Vec<ChildType>,
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
 pub(crate) struct VariableInfo {
     pub fields: HashMap<String, FieldInfo>,
-    pub child_types: HashSet<ChildType>,
+    pub subclasses: Vec<Symbol>,
+    pub child_types: Vec<ChildType>,
+    pub has_multi_step_production: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]

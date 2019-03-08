@@ -71,6 +71,7 @@ struct GrammarJSON {
     externals: Option<Vec<RuleJSON>>,
     extras: Option<Vec<RuleJSON>>,
     inline: Option<Vec<String>>,
+    supertypes: Option<Vec<String>>,
     word: Option<String>,
 }
 
@@ -100,6 +101,7 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
         .collect();
     let expected_conflicts = grammar_json.conflicts.unwrap_or(Vec::new());
     let variables_to_inline = grammar_json.inline.unwrap_or(Vec::new());
+    let supertype_symbols = grammar_json.supertypes.unwrap_or(Vec::new());
 
     Ok(InputGrammar {
         name: grammar_json.name,
@@ -108,6 +110,7 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
         extra_tokens,
         expected_conflicts,
         external_tokens,
+        supertype_symbols,
         variables_to_inline,
     })
 }

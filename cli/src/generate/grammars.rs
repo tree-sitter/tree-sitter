@@ -27,6 +27,7 @@ pub(crate) struct InputGrammar {
     pub expected_conflicts: Vec<Vec<String>>,
     pub external_tokens: Vec<Rule>,
     pub variables_to_inline: Vec<String>,
+    pub supertype_symbols: Vec<String>,
     pub word_token: Option<String>,
 }
 
@@ -88,6 +89,7 @@ pub(crate) struct SyntaxGrammar {
     pub extra_tokens: Vec<Symbol>,
     pub expected_conflicts: Vec<Vec<Symbol>>,
     pub external_tokens: Vec<ExternalToken>,
+    pub supertype_symbols: Vec<Symbol>,
     pub variables_to_inline: Vec<Symbol>,
     pub word_token: Option<Symbol>,
 }

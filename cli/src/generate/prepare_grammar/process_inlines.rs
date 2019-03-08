@@ -198,6 +198,7 @@ mod tests {
             expected_conflicts: Vec::new(),
             extra_tokens: Vec::new(),
             external_tokens: Vec::new(),
+            supertype_symbols: Vec::new(),
             word_token: None,
             variables_to_inline: vec![Symbol::non_terminal(1)],
             variables: vec![
@@ -328,6 +329,7 @@ mod tests {
             expected_conflicts: Vec::new(),
             extra_tokens: Vec::new(),
             external_tokens: Vec::new(),
+            supertype_symbols: Vec::new(),
             word_token: None,
         };
         let inline_map = process_inlines(&grammar);
@@ -429,6 +431,7 @@ mod tests {
             expected_conflicts: Vec::new(),
             extra_tokens: Vec::new(),
             external_tokens: Vec::new(),
+            supertype_symbols: Vec::new(),
             word_token: None,
         };
 

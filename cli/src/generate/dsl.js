@@ -212,136 +212,153 @@ function RuleBuilder(ruleMap) {
 }
 
 function grammar(baseGrammar, options) {
-    if (!options) {
-      options = baseGrammar;
-      baseGrammar = {
-        name: null,
-        rules: {},
-        extras: [normalize(/\s/)],
-        conflicts: [],
-        externals: [],
-        inline: []
-      };
+  if (!options) {
+    options = baseGrammar;
+    baseGrammar = {
+      name: null,
+      rules: {},
+      extras: [normalize(/\s/)],
+      conflicts: [],
+      externals: [],
+      inline: [],
+      supertypes: []
+    };
+  }
+
+  let externals = baseGrammar.externals;
+  if (options.externals) {
+    if (typeof options.externals !== "function") {
+      throw new Error("Grammar's 'externals' property must be a function.");
     }
 
-    let externals = baseGrammar.externals;
-    if (options.externals) {
-      if (typeof options.externals !== "function") {
-        throw new Error("Grammar's 'externals' property must be a function.");
+    const externalsRuleBuilder = RuleBuilder(null)
+    const externalRules = options.externals.call(externalsRuleBuilder, externalsRuleBuilder, baseGrammar.externals);
+
+    if (!Array.isArray(externalRules)) {
+      throw new Error("Grammar's 'externals' property must return an array of rules.");
+    }
+
+    externals = externalRules.map(normalize);
+  }
+
+  const ruleMap = {};
+  for (const key in options.rules) {
+    ruleMap[key] = true;
+  }
+  for (const key in baseGrammar.rules) {
+    ruleMap[key] = true;
+  }
+  for (const external of externals) {
+    if (typeof external.name === 'string') {
+      ruleMap[external.name] = true;
+    }
+  }
+
+  const ruleBuilder = RuleBuilder(ruleMap);
+
+  const name = options.name;
+  if (typeof name !== "string") {
+    throw new Error("Grammar's 'name' property must be a string.");
+  }
+
+  if (!/^[a-zA-Z_]\w*$/.test(name)) {
+    throw new Error("Grammar's 'name' property must not start with a digit and cannot contain non-word characters.");
+  }
+
+  let rules = Object.assign({}, baseGrammar.rules);
+  if (options.rules) {
+    if (typeof options.rules !== "object") {
+      throw new Error("Grammar's 'rules' property must be an object.");
+    }
+
+    for (const ruleName in options.rules) {
+      const ruleFn = options.rules[ruleName];
+      if (typeof ruleFn !== "function") {
+        throw new Error("Grammar rules must all be functions. '" + ruleName + "' rule is not.");
       }
+      rules[ruleName] = normalize(ruleFn.call(ruleBuilder, ruleBuilder, baseGrammar.rules[ruleName]));
+    }
+  }
 
-      const externalsRuleBuilder = RuleBuilder(null)
-      const externalRules = options.externals.call(externalsRuleBuilder, externalsRuleBuilder, baseGrammar.externals);
-
-      if (!Array.isArray(externalRules)) {
-        throw new Error("Grammar's 'externals' property must return an array of rules.");
-      }
-
-      externals = externalRules.map(normalize);
+  let extras = baseGrammar.extras.slice();
+  if (options.extras) {
+    if (typeof options.extras !== "function") {
+      throw new Error("Grammar's 'extras' property must be a function.");
     }
 
-    const ruleMap = {};
-    for (const key in options.rules) {
-      ruleMap[key] = true;
-    }
-    for (const key in baseGrammar.rules) {
-      ruleMap[key] = true;
-    }
-    for (const external of externals) {
-      if (typeof external.name === 'string') {
-        ruleMap[external.name] = true;
-      }
-    }
+    extras = options.extras
+      .call(ruleBuilder, ruleBuilder, baseGrammar.extras)
+      .map(normalize);
+  }
 
-    const ruleBuilder = RuleBuilder(ruleMap);
-
-    const name = options.name;
-    if (typeof name !== "string") {
-      throw new Error("Grammar's 'name' property must be a string.");
+  let word = baseGrammar.word;
+  if (options.word) {
+    word = options.word.call(ruleBuilder, ruleBuilder).name;
+    if (typeof word != 'string') {
+      throw new Error("Grammar's 'word' property must be a named rule.");
     }
+  }
 
-    if (!/^[a-zA-Z_]\w*$/.test(name)) {
-      throw new Error("Grammar's 'name' property must not start with a digit and cannot contain non-word characters.");
+  let conflicts = baseGrammar.conflicts;
+  if (options.conflicts) {
+    if (typeof options.conflicts !== "function") {
+      throw new Error("Grammar's 'conflicts' property must be a function.");
     }
 
-    let rules = Object.assign({}, baseGrammar.rules);
-    if (options.rules) {
-      if (typeof options.rules !== "object") {
-        throw new Error("Grammar's 'rules' property must be an object.");
-      }
+    const baseConflictRules = baseGrammar.conflicts.map(conflict => conflict.map(sym));
+    const conflictRules = options.conflicts.call(ruleBuilder, ruleBuilder, baseConflictRules);
 
-      for (const ruleName in options.rules) {
-        const ruleFn = options.rules[ruleName];
-        if (typeof ruleFn !== "function") {
-          throw new Error("Grammar rules must all be functions. '" + ruleName + "' rule is not.");
-        }
-        rules[ruleName] = normalize(ruleFn.call(ruleBuilder, ruleBuilder, baseGrammar.rules[ruleName]));
-      }
+    if (!Array.isArray(conflictRules)) {
+      throw new Error("Grammar's conflicts must be an array of arrays of rules.");
     }
 
-    let extras = baseGrammar.extras.slice();
-    if (options.extras) {
-      if (typeof options.extras !== "function") {
-        throw new Error("Grammar's 'extras' property must be a function.");
-      }
-
-      extras = options.extras
-        .call(ruleBuilder, ruleBuilder, baseGrammar.extras)
-        .map(normalize);
-    }
-
-    let word = baseGrammar.word;
-    if (options.word) {
-      word = options.word.call(ruleBuilder, ruleBuilder).name;
-      if (typeof word != 'string') {
-        throw new Error("Grammar's 'word' property must be a named rule.");
-      }
-    }
-
-    let conflicts = baseGrammar.conflicts;
-    if (options.conflicts) {
-      if (typeof options.conflicts !== "function") {
-        throw new Error("Grammar's 'conflicts' property must be a function.");
-      }
-
-      const baseConflictRules = baseGrammar.conflicts.map(conflict => conflict.map(sym));
-      const conflictRules = options.conflicts.call(ruleBuilder, ruleBuilder, baseConflictRules);
-
-      if (!Array.isArray(conflictRules)) {
+    conflicts = conflictRules.map(conflictSet => {
+      if (!Array.isArray(conflictSet)) {
         throw new Error("Grammar's conflicts must be an array of arrays of rules.");
       }
 
-      conflicts = conflictRules.map(conflictSet => {
-        if (!Array.isArray(conflictSet)) {
-          throw new Error("Grammar's conflicts must be an array of arrays of rules.");
-        }
-
-        return conflictSet.map(symbol => normalize(symbol).name);
-      });
-    }
-
-    let inline = baseGrammar.inline;
-    if (options.inline) {
-      if (typeof options.inline !== "function") {
-        throw new Error("Grammar's 'inline' property must be a function.");
-      }
-
-      const baseInlineRules = baseGrammar.inline.map(sym);
-      const inlineRules = options.inline.call(ruleBuilder, ruleBuilder, baseInlineRules);
-
-      if (!Array.isArray(inlineRules)) {
-        throw new Error("Grammar's inline must be an array of rules.");
-      }
-
-      inline = inlineRules.map(symbol => symbol.name);
-    }
-
-    if (Object.keys(rules).length == 0) {
-      throw new Error("Grammar must have at least one rule.");
-    }
-
-    return {name, word, rules, extras, conflicts, externals, inline};
+      return conflictSet.map(symbol => normalize(symbol).name);
+    });
   }
+
+  let inline = baseGrammar.inline;
+  if (options.inline) {
+    if (typeof options.inline !== "function") {
+      throw new Error("Grammar's 'inline' property must be a function.");
+    }
+
+    const baseInlineRules = baseGrammar.inline.map(sym);
+    const inlineRules = options.inline.call(ruleBuilder, ruleBuilder, baseInlineRules);
+
+    if (!Array.isArray(inlineRules)) {
+      throw new Error("Grammar's inline must be an array of rules.");
+    }
+
+    inline = inlineRules.map(symbol => symbol.name);
+  }
+
+  let supertypes = baseGrammar.supertypes;
+  if (options.supertypes) {
+    if (typeof options.supertypes !== "function") {
+      throw new Error("Grammar's 'supertypes' property must be a function.");
+    }
+
+    const baseSupertypeRules = baseGrammar.supertypes.map(sym);
+    const supertypeRules = options.supertypes.call(ruleBuilder, ruleBuilder, baseSupertypeRules);
+
+    if (!Array.isArray(supertypeRules)) {
+      throw new Error("Grammar's supertypes must be an array of rules.");
+    }
+
+    supertypes = supertypeRules.map(symbol => symbol.name);
+  }
+
+  if (Object.keys(rules).length == 0) {
+    throw new Error("Grammar must have at least one rule.");
+  }
+
+  return {name, word, rules, extras, conflicts, externals, inline, supertypes};
+}
 
 function checkArguments(ruleCount, caller, callerName, suffix = '') {
   if (ruleCount > 1) {
