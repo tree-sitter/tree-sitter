@@ -12,6 +12,9 @@ edition = "2018"
 keywords = ["incremental", "parsing", "syntax", "highlighting"]
 categories = ["parsing", "text-editors"]
 
+[lib]
+crate-type = ["lib", "staticlib"]
+
 [dependencies]
 regex = "1"
 serde = "1.0"

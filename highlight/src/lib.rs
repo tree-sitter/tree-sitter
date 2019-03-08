@@ -1,9 +1,11 @@
+pub mod c_lib;
 mod escape;
 
+pub use c_lib as c;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_derive::*;
 use std::cmp;
-use std::fmt::Write;
+use std::fmt::{self, Write};
 use std::mem::transmute;
 use std::str;
 use std::usize;
@@ -149,6 +151,16 @@ pub enum PropertySheetError {
     InvalidJSON(serde_json::Error),
     InvalidRegex(regex::Error),
     InvalidFormat(String),
+}
+
+impl fmt::Display for PropertySheetError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            PropertySheetError::InvalidJSON(e) => e.fmt(f),
+            PropertySheetError::InvalidRegex(e) => e.fmt(f),
+            PropertySheetError::InvalidFormat(e) => e.fmt(f),
+        }
+    }
 }
 
 pub fn load_property_sheet(
