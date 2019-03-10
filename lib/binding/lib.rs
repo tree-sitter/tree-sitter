@@ -469,10 +469,11 @@ impl<'tree> Node<'tree> {
         unsafe { ffi::ts_node_child_count(self.0) as usize }
     }
 
-    pub fn children<'a>(&'a self) -> impl Iterator<Item = Node<'tree>> + 'a {
+    pub fn children(&self) -> impl Iterator<Item = Node<'tree>> {
+        let me = self.clone();
         (0..self.child_count())
             .into_iter()
-            .map(move |i| self.child(i).unwrap())
+            .map(move |i| me.child(i).unwrap())
     }
 
     pub fn named_child<'a>(&'a self, i: usize) -> Option<Self> {
