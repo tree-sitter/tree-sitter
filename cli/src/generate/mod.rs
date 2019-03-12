@@ -143,7 +143,9 @@ fn load_js_grammar_file(grammar_path: &Path) -> Result<String> {
         Some(code) => return Err(Error(format!("Node process exited with status {}", code))),
     }
 
-    Ok(String::from_utf8(output.stdout).expect("Got invalid UTF8 from node"))
+    let mut result = String::from_utf8(output.stdout).expect("Got invalid UTF8 from node");
+    result.push('\n');
+    Ok(result)
 }
 
 fn ensure_file<T: AsRef<[u8]>>(path: &PathBuf, f: impl Fn() -> T) -> Result<()> {
