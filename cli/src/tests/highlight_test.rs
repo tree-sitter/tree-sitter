@@ -10,6 +10,8 @@ lazy_static! {
         get_property_sheet("javascript", "highlights.json");
     static ref HTML_SHEET: PropertySheet<Properties> =
         get_property_sheet("html", "highlights.json");
+    static ref EJS_SHEET: PropertySheet<Properties> =
+        get_property_sheet("embedded-template", "highlights-ejs.json");
     static ref SCOPE_CLASS_STRINGS: Vec<String> = {
         let mut result = Vec::new();
         let mut i = 0;
@@ -152,6 +154,30 @@ fn test_highlighting_empty_lines() {
             "\n".to_string(),
             "<span class=PunctuationBracket>}</span>\n".to_string(),
         ]
+    );
+}
+
+#[test]
+fn test_highlighting_ejs() {
+    let source = vec!["<div><% foo() %></div>"].join("\n");
+
+    assert_eq!(
+        &to_token_vector(&source, get_language("embedded-template"), &EJS_SHEET).unwrap(),
+        &[[
+            ("<", vec![]),
+            ("div", vec![Scope::Tag]),
+            (">", vec![]),
+            ("<%", vec![Scope::Keyword]),
+            (" ", vec![]),
+            ("foo", vec![Scope::Function]),
+            ("(", vec![Scope::PunctuationBracket]),
+            (")", vec![Scope::PunctuationBracket]),
+            (" ", vec![]),
+            ("%>", vec![Scope::Keyword]),
+            ("</", vec![]),
+            ("div", vec![Scope::Tag]),
+            (">", vec![])
+        ]],
     );
 }
 
