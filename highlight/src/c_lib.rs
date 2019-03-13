@@ -144,7 +144,7 @@ pub extern "C" fn ts_highlighter_highlight(
 
 impl TSHighlighter {
     fn highlight(
-        &mut self,
+        &self,
         source_code: &[u8],
         scope_name: &str,
         output: &mut TSHighlightBuffer,
