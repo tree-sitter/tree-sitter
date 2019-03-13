@@ -6,6 +6,7 @@ use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::time::Instant;
 use std::{fmt, fs, io, path};
 use tree_sitter::{Language, PropertySheet};
 use tree_sitter_highlight::{highlight, highlight_html, HighlightEvent, Properties, Scope};
@@ -254,10 +255,13 @@ pub fn ansi(
     source: &[u8],
     language: Language,
     property_sheet: &PropertySheet<Properties>,
+    print_time: bool,
 ) -> Result<()> {
     use std::io::Write;
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
+
+    let time = Instant::now();
     let mut scope_stack = Vec::new();
     for event in highlight(source, language, property_sheet, |s| {
         language_for_injection_string(loader, s)
@@ -278,6 +282,13 @@ pub fn ansi(
             }
         }
     }
+
+    if print_time {
+        let duration = time.elapsed();
+        let duration_ms = duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000;
+        eprintln!("{} ms", duration_ms);
+    }
+
     Ok(())
 }
 

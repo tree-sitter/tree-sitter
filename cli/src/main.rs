@@ -76,7 +76,8 @@ fn run() -> error::Result<()> {
                         .required(true),
                 )
                 .arg(Arg::with_name("scope").long("scope").takes_value(true))
-                .arg(Arg::with_name("html").long("html").short("h")),
+                .arg(Arg::with_name("html").long("html").short("h"))
+                .arg(Arg::with_name("time").long("time").short("t")),
         )
         .get_matches();
 
@@ -167,6 +168,7 @@ fn run() -> error::Result<()> {
     } else if let Some(matches) = matches.subcommand_matches("highlight") {
         let paths = matches.values_of("path").unwrap().into_iter();
         let html_mode = matches.is_present("html");
+        let time = matches.is_present("time");
         loader.find_all_languages(&config.parser_directories)?;
 
         if html_mode {
@@ -201,7 +203,7 @@ fn run() -> error::Result<()> {
                 if html_mode {
                     highlight::html(&loader, &config.theme, &source, language, sheet)?;
                 } else {
-                    highlight::ansi(&loader, &config.theme, &source, language, sheet)?;
+                    highlight::ansi(&loader, &config.theme, &source, language, sheet, time)?;
                 }
             } else {
                 return Err(error::Error(format!(
