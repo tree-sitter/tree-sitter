@@ -31,7 +31,9 @@ pub enum ErrorCode {
 }
 
 #[no_mangle]
-pub extern "C" fn ts_highlighter_new(attribute_strings: *const *const c_char) -> *mut TSHighlighter {
+pub extern "C" fn ts_highlighter_new(
+    attribute_strings: *const *const c_char,
+) -> *mut TSHighlighter {
     let attribute_strings =
         unsafe { slice::from_raw_parts(attribute_strings, Scope::Unknown as usize + 1) };
     let attribute_strings = attribute_strings
@@ -69,25 +71,25 @@ pub extern "C" fn ts_highlight_buffer_delete(this: *mut TSHighlightBuffer) {
 }
 
 #[no_mangle]
-pub extern "C" fn ts_highlight_buffer_content(this: *mut TSHighlightBuffer) -> *const u8 {
+pub extern "C" fn ts_highlight_buffer_content(this: *const TSHighlightBuffer) -> *const u8 {
     let this = unwrap_ptr(this);
     this.html.as_slice().as_ptr()
 }
 
 #[no_mangle]
-pub extern "C" fn ts_highlight_buffer_line_offsets(this: *mut TSHighlightBuffer) -> *const u32 {
+pub extern "C" fn ts_highlight_buffer_line_offsets(this: *const TSHighlightBuffer) -> *const u32 {
     let this = unwrap_ptr(this);
     this.line_offsets.as_slice().as_ptr()
 }
 
 #[no_mangle]
-pub extern "C" fn ts_highlight_buffer_len(this: *mut TSHighlightBuffer) -> u32 {
+pub extern "C" fn ts_highlight_buffer_len(this: *const TSHighlightBuffer) -> u32 {
     let this = unwrap_ptr(this);
     this.html.len() as u32
 }
 
 #[no_mangle]
-pub extern "C" fn ts_highlight_buffer_line_count(this: *mut TSHighlightBuffer) -> u32 {
+pub extern "C" fn ts_highlight_buffer_line_count(this: *const TSHighlightBuffer) -> u32 {
     let this = unwrap_ptr(this);
     this.line_offsets.len() as u32
 }
@@ -100,7 +102,7 @@ pub extern "C" fn ts_highlighter_add_language(
     property_sheet_json: *const c_char,
     injection_regex: *const c_char,
 ) -> ErrorCode {
-    let this = unwrap_ptr(this);
+    let this = unwrap_mut_ptr(this);
     let scope_name = unsafe { CStr::from_ptr(scope_name) };
     let scope_name = unwrap(scope_name.to_str()).to_string();
     let property_sheet_json = unsafe { CStr::from_ptr(property_sheet_json) };
@@ -128,14 +130,14 @@ pub extern "C" fn ts_highlighter_add_language(
 
 #[no_mangle]
 pub extern "C" fn ts_highlighter_highlight(
-    this: *mut TSHighlighter,
+    this: *const TSHighlighter,
     scope_name: *const c_char,
     source_code: *const c_char,
     source_code_len: u32,
     output: *mut TSHighlightBuffer,
 ) -> ErrorCode {
     let this = unwrap_ptr(this);
-    let output = unwrap_ptr(output);
+    let output = unwrap_mut_ptr(output);
     let scope_name = unwrap(unsafe { CStr::from_ptr(scope_name).to_str() });
     let source_code =
         unsafe { slice::from_raw_parts(source_code as *const u8, source_code_len as usize) };
@@ -233,7 +235,14 @@ impl TSHighlightBuffer {
     }
 }
 
-fn unwrap_ptr<'a, T>(result: *mut T) -> &'a mut T {
+fn unwrap_ptr<'a, T>(result: *const T) -> &'a T {
+    unsafe { result.as_ref() }.unwrap_or_else(|| {
+        eprintln!("{}:{} - pointer must not be null", file!(), line!());
+        abort();
+    })
+}
+
+fn unwrap_mut_ptr<'a, T>(result: *mut T) -> &'a mut T {
     unsafe { result.as_mut() }.unwrap_or_else(|| {
         eprintln!("{}:{} - pointer must not be null", file!(), line!());
         abort();

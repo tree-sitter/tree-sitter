@@ -75,7 +75,7 @@ int ts_highlighter_add_language(
 // Compute syntax highlighting for a given document. You must first
 // create a `TSHighlightBuffer` to hold the output.
 int ts_highlighter_highlight(
-  TSHighlighter *self,
+  const TSHighlighter *self,
   const char *scope_name,
   const char *source_code,
   uint32_t source_code_len,
