@@ -21,12 +21,16 @@ pub fn get_language(name: &str) -> Language {
         .unwrap()
 }
 
-pub fn get_property_sheet(language_name: &str, sheet_name: &str) -> PropertySheet<Properties> {
+pub fn get_property_sheet_json(language_name: &str, sheet_name: &str) -> String {
     let path = GRAMMARS_DIR
         .join(language_name)
         .join("src")
         .join(sheet_name);
-    let json = fs::read_to_string(path).unwrap();
+    fs::read_to_string(path).unwrap()
+}
+
+pub fn get_property_sheet(language_name: &str, sheet_name: &str) -> PropertySheet<Properties> {
+    let json = get_property_sheet_json(language_name, sheet_name);
     let language = get_language(language_name);
     load_property_sheet(language, &json).unwrap()
 }

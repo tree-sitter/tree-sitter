@@ -1,12 +1,12 @@
+pub mod c_lib;
 mod escape;
 
+pub use c_lib as c;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_derive::*;
-use std::cmp;
-use std::fmt::Write;
+use std::fmt::{self, Write};
 use std::mem::transmute;
-use std::str;
-use std::usize;
+use std::{cmp, str, usize};
 use tree_sitter::{Language, Node, Parser, Point, PropertySheet, Range, Tree, TreePropertyCursor};
 
 #[derive(Debug)]
@@ -78,6 +78,7 @@ struct Layer<'a> {
     cursor: TreePropertyCursor<'a, Properties>,
     ranges: Vec<Range>,
     at_node_end: bool,
+    depth: usize,
 }
 
 struct Highlighter<'a, T>
@@ -149,6 +150,28 @@ pub enum PropertySheetError {
     InvalidJSON(serde_json::Error),
     InvalidRegex(regex::Error),
     InvalidFormat(String),
+}
+
+impl fmt::Display for PropertySheetError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            PropertySheetError::InvalidJSON(e) => e.fmt(f),
+            PropertySheetError::InvalidRegex(e) => e.fmt(f),
+            PropertySheetError::InvalidFormat(e) => e.fmt(f),
+        }
+    }
+}
+
+impl<'a> fmt::Debug for Layer<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Layer {{ at_node_end: {}, node: {:?} }}",
+            self.at_node_end,
+            self.cursor.node()
+        )?;
+        Ok(())
+    }
 }
 
 pub fn load_property_sheet(
@@ -375,6 +398,7 @@ where
                     start_point: Point::new(0, 0),
                     end_point: Point::new(usize::MAX, usize::MAX),
                 }],
+                0,
             )],
             utf8_error_len: None,
         })
@@ -554,7 +578,7 @@ where
         result
     }
 
-    fn add_layer(&mut self, language_string: &str, ranges: Vec<Range>) {
+    fn add_layer(&mut self, language_string: &str, ranges: Vec<Range>, depth: usize) {
         if let Some((language, property_sheet)) = (self.injection_callback)(language_string) {
             self.parser
                 .set_language(language)
@@ -564,7 +588,7 @@ where
                 .parser
                 .parse(self.source, None)
                 .expect("Failed to parse");
-            let layer = Layer::new(self.source, tree, property_sheet, ranges);
+            let layer = Layer::new(self.source, tree, property_sheet, ranges, depth);
             match self.layers.binary_search_by(|l| l.cmp(&layer)) {
                 Ok(i) | Err(i) => self.layers.insert(i, layer),
             };
@@ -605,8 +629,9 @@ impl<'a, T: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>> Itera
                     })
                     .collect::<Vec<_>>();
 
+                let depth = first_layer.depth + 1;
                 for (language, ranges) in injections {
-                    self.add_layer(&language, ranges);
+                    self.add_layer(&language, ranges, depth);
                 }
             }
 
@@ -635,7 +660,13 @@ impl<'a, T: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>> Itera
             // to re-sort the layers. If the cursor is already at the end of its syntax tree,
             // remove it.
             if self.layers[0].advance() {
-                self.layers.sort_unstable_by(|a, b| a.cmp(&b));
+                let mut index = 0;
+                while self.layers.get(index + 1).map_or(false, |next| {
+                    self.layers[index].cmp(next) == cmp::Ordering::Greater
+                }) {
+                    self.layers.swap(index, index + 1);
+                    index += 1;
+                }
             } else {
                 self.layers.remove(0);
             }
@@ -659,6 +690,7 @@ impl<'a> Layer<'a> {
         tree: Tree,
         sheet: &'a PropertySheet<Properties>,
         ranges: Vec<Range>,
+        depth: usize,
     ) -> Self {
         // The cursor's lifetime parameter indicates that the tree must outlive the cursor.
         // But because the tree is really a pointer to the heap, the cursor can remain
@@ -669,6 +701,7 @@ impl<'a> Layer<'a> {
             _tree: tree,
             cursor,
             ranges,
+            depth,
             at_node_end: false,
         }
     }
@@ -680,6 +713,7 @@ impl<'a> Layer<'a> {
         self.offset()
             .cmp(&other.offset())
             .then_with(|| other.at_node_end.cmp(&self.at_node_end))
+            .then_with(|| self.depth.cmp(&other.depth))
     }
 
     fn offset(&self) -> usize {
