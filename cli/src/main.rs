@@ -3,7 +3,7 @@ use std::env;
 use std::fs;
 use std::path::Path;
 use std::process::exit;
-use std::usize;
+use std::{u64, usize};
 use tree_sitter_cli::{
     config, error, generate, highlight, loader, logger, parse, properties, test,
 };
@@ -49,6 +49,7 @@ fn run() -> error::Result<()> {
                         .multiple(true)
                         .required(true),
                 )
+                .arg(Arg::with_name("scope").long("scope").takes_value(true))
                 .arg(Arg::with_name("debug").long("debug").short("d"))
                 .arg(Arg::with_name("debug-graph").long("debug-graph").short("D"))
                 .arg(Arg::with_name("quiet").long("quiet").short("q"))
@@ -135,7 +136,7 @@ fn run() -> error::Result<()> {
         let time = matches.is_present("time");
         let timeout = matches
             .value_of("timeout")
-            .map_or(0, |t| usize::from_str_radix(t, 10).unwrap());
+            .map_or(0, |t| u64::from_str_radix(t, 10).unwrap());
         loader.find_all_languages(&config.parser_directories)?;
         let paths = matches
             .values_of("path")
@@ -146,15 +147,20 @@ fn run() -> error::Result<()> {
         let mut has_error = false;
         for path in paths {
             let path = Path::new(path);
-            let language =
-                if let Some((l, _)) = loader.language_configuration_for_file_name(path)? {
-                    l
-                } else if let Some(l) = loader.language_at_path(&current_dir)? {
-                    l
+            let language = if let Some(scope) = matches.value_of("scope") {
+                if let Some(config) = loader.language_configuration_for_scope(scope)? {
+                    config.0
                 } else {
-                    eprintln!("No language found");
-                    return Ok(());
-                };
+                    return Err(error::Error(format!("Unknown scope '{}'", scope)));
+                }
+            } else if let Some((l, _)) = loader.language_configuration_for_file_name(path)? {
+                l
+            } else if let Some(l) = loader.language_at_path(&current_dir)? {
+                l
+            } else {
+                eprintln!("No language found");
+                return Ok(());
+            };
             has_error |= parse::parse_file_at_path(
                 language,
                 path,

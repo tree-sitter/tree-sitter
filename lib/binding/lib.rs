@@ -323,11 +323,11 @@ impl Parser {
         unsafe { ffi::ts_parser_reset(self.0) }
     }
 
-    pub fn timeout_micros(&self) -> usize {
+    pub fn timeout_micros(&self) -> u64 {
         unsafe { ffi::ts_parser_timeout_micros(self.0) }
     }
 
-    pub fn set_timeout_micros(&mut self, timeout_micros: usize) {
+    pub fn set_timeout_micros(&mut self, timeout_micros: u64) {
         unsafe { ffi::ts_parser_set_timeout_micros(self.0, timeout_micros) }
     }
 

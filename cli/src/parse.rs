@@ -12,7 +12,7 @@ pub fn parse_file_at_path(
     max_path_length: usize,
     quiet: bool,
     print_time: bool,
-    timeout: usize,
+    timeout: u64,
     debug: bool,
     debug_graph: bool,
 ) -> Result<bool> {

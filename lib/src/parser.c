@@ -4,17 +4,18 @@
 #include <limits.h>
 #include <stdbool.h>
 #include "tree_sitter/api.h"
-#include "./subtree.h"
-#include "./lexer.h"
-#include "./length.h"
-#include "./array.h"
-#include "./language.h"
 #include "./alloc.h"
-#include "./stack.h"
-#include "./reusable_node.h"
-#include "./reduce_action.h"
+#include "./array.h"
+#include "./clock.h"
 #include "./error_costs.h"
 #include "./get_changed_ranges.h"
+#include "./language.h"
+#include "./length.h"
+#include "./lexer.h"
+#include "./reduce_action.h"
+#include "./reusable_node.h"
+#include "./stack.h"
+#include "./subtree.h"
 #include "./tree.h"
 
 #define LOG(...)                                                                            \
@@ -43,7 +44,6 @@ static const unsigned MAX_VERSION_COUNT = 6;
 static const unsigned MAX_VERSION_COUNT_OVERFLOW = 4;
 static const unsigned MAX_SUMMARY_DEPTH = 16;
 static const unsigned MAX_COST_DIFFERENCE = 16 * ERROR_COST_PER_SKIPPED_TREE;
-static const unsigned CLOCKS_PER_MICROSECOND = CLOCKS_PER_SEC / 1000000;
 static const unsigned OP_COUNT_PER_TIMEOUT_CHECK = 100;
 
 typedef struct {
@@ -66,8 +66,8 @@ struct TSParser {
   void *external_scanner_payload;
   FILE *dot_graph_file;
   unsigned accept_count;
-  clock_t clock_limit;
-  clock_t start_clock;
+  uint64_t clock_limit;
+  uint64_t start_clock;
   unsigned operation_count;
   volatile bool enabled;
   bool halt_on_error;
@@ -1285,7 +1285,7 @@ static bool ts_parser__advance(
   for (;;) {
     if (!self->enabled || ++self->operation_count == OP_COUNT_PER_TIMEOUT_CHECK) {
       self->operation_count = 0;
-      if (clock() - self->start_clock > self->clock_limit) {
+      if ((uint64_t)(get_clock() - self->start_clock) > self->clock_limit) {
         ts_subtree_release(&self->tree_pool, lookahead);
         return false;
       }
@@ -1509,7 +1509,7 @@ TSParser *ts_parser_new() {
   self->dot_graph_file = NULL;
   self->halt_on_error = false;
   self->enabled = true;
-  self->clock_limit = SIZE_MAX;
+  self->clock_limit = UINT64_MAX;
   self->start_clock = 0;
   self->operation_count = 0;
   self->old_tree = NULL_SUBTREE;
@@ -1593,13 +1593,13 @@ void ts_parser_set_enabled(TSParser *self, bool enabled) {
   self->enabled = enabled;
 }
 
-size_t ts_parser_timeout_micros(const TSParser *self) {
-  return self->clock_limit / CLOCKS_PER_MICROSECOND;
+uint64_t ts_parser_timeout_micros(const TSParser *self) {
+  return self->clock_limit / (get_clocks_per_second() / 1000000);
 }
 
-void ts_parser_set_timeout_micros(TSParser *self, size_t timeout_micros) {
-  self->clock_limit = timeout_micros * CLOCKS_PER_MICROSECOND;
-  if (self->clock_limit == 0) self->clock_limit = SIZE_MAX;
+void ts_parser_set_timeout_micros(TSParser *self, uint64_t timeout_micros) {
+  self->clock_limit = timeout_micros * (get_clocks_per_second() / 1000000);
+  if (self->clock_limit == 0) self->clock_limit = UINT64_MAX;
 }
 
 void ts_parser_set_included_ranges(TSParser *self, const TSRange *ranges, uint32_t count) {
@@ -1663,7 +1663,7 @@ TSTree *ts_parser_parse(TSParser *self, const TSTree *old_tree, TSInput input) {
 
   uint32_t position = 0, last_position = 0, version_count = 0;
   self->operation_count = 0;
-  self->start_clock = clock();
+  self->start_clock = get_clock();
 
   do {
     for (StackVersion version = 0;

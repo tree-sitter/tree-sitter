@@ -90,8 +90,8 @@ TSTree *ts_parser_parse_string(TSParser *, const TSTree *, const char *, uint32_
 TSTree *ts_parser_parse_string_encoding(TSParser *, const TSTree *, const char *, uint32_t, TSInputEncoding);
 bool ts_parser_enabled(const TSParser *);
 void ts_parser_set_enabled(TSParser *, bool);
-size_t ts_parser_timeout_micros(const TSParser *);
-void ts_parser_set_timeout_micros(TSParser *, size_t);
+uint64_t ts_parser_timeout_micros(const TSParser *);
+void ts_parser_set_timeout_micros(TSParser *, uint64_t);
 void ts_parser_reset(TSParser *);
 void ts_parser_set_included_ranges(TSParser *, const TSRange *, uint32_t);
 const TSRange *ts_parser_included_ranges(const TSParser *, uint32_t *);
