@@ -1,3 +1,4 @@
+#include <time.h>
 #include <assert.h>
 #include <stdio.h>
 #include <limits.h>
@@ -42,6 +43,7 @@ static const unsigned MAX_VERSION_COUNT = 6;
 static const unsigned MAX_VERSION_COUNT_OVERFLOW = 4;
 static const unsigned MAX_SUMMARY_DEPTH = 16;
 static const unsigned MAX_COST_DIFFERENCE = 16 * ERROR_COST_PER_SKIPPED_TREE;
+static const unsigned CLOCKS_PER_MICROSECOND = CLOCKS_PER_SEC / 1000000;
 
 typedef struct {
   Subtree token;
@@ -63,7 +65,8 @@ struct TSParser {
   void *external_scanner_payload;
   FILE *dot_graph_file;
   unsigned accept_count;
-  size_t operation_limit;
+  clock_t clock_limit;
+  clock_t start_clock;
   volatile bool enabled;
   bool halt_on_error;
   Subtree old_tree;
@@ -1242,7 +1245,11 @@ static void ts_parser__recover(TSParser *self, StackVersion version, Subtree loo
   }
 }
 
-static void ts_parser__advance(TSParser *self, StackVersion version, bool allow_node_reuse) {
+static bool ts_parser__advance(
+  TSParser *self,
+  StackVersion version,
+  bool allow_node_reuse
+) {
   TSStateId state = ts_stack_state(self->stack, version);
   uint32_t position = ts_stack_position(self->stack, version).bytes;
   Subtree last_external_token = ts_stack_last_external_token(self->stack, version);
@@ -1274,6 +1281,11 @@ static void ts_parser__advance(TSParser *self, StackVersion version, bool allow_
   }
 
   for (;;) {
+    if ((size_t)(clock() - self->start_clock) > self->clock_limit || !self->enabled) {
+      ts_subtree_release(&self->tree_pool, lookahead);
+      return false;
+    }
+
     StackVersion last_reduction_version = STACK_VERSION_NONE;
 
     for (uint32_t i = 0; i < table_entry.action_count; i++) {
@@ -1302,7 +1314,7 @@ static void ts_parser__advance(TSParser *self, StackVersion version, bool allow_
 
           ts_parser__shift(self, version, next_state, lookahead, action.params.extra);
           if (did_reuse) reusable_node_advance(&self->reusable_node);
-          return;
+          return true;
         }
 
         case TSParseActionTypeReduce: {
@@ -1322,7 +1334,7 @@ static void ts_parser__advance(TSParser *self, StackVersion version, bool allow_
         case TSParseActionTypeAccept: {
           LOG("accept");
           ts_parser__accept(self, version, lookahead);
-          return;
+          return true;
         }
 
         case TSParseActionTypeRecover: {
@@ -1332,7 +1344,7 @@ static void ts_parser__advance(TSParser *self, StackVersion version, bool allow_
 
           ts_parser__recover(self, version, lookahead);
           if (did_reuse) reusable_node_advance(&self->reusable_node);
-          return;
+          return true;
         }
       }
     }
@@ -1371,7 +1383,7 @@ static void ts_parser__advance(TSParser *self, StackVersion version, bool allow_
 
     if (state == ERROR_STATE) {
       ts_parser__recover(self, version, lookahead);
-      return;
+      return true;
     }
 
     if (ts_parser__breakdown_top_of_stack(self, version)) {
@@ -1381,7 +1393,7 @@ static void ts_parser__advance(TSParser *self, StackVersion version, bool allow_
     LOG("detect_error");
     ts_stack_pause(self->stack, version, ts_subtree_leaf_symbol(lookahead));
     ts_subtree_release(&self->tree_pool, lookahead);
-    return;
+    return true;
   }
 }
 
@@ -1492,7 +1504,8 @@ TSParser *ts_parser_new() {
   self->dot_graph_file = NULL;
   self->halt_on_error = false;
   self->enabled = true;
-  self->operation_limit = SIZE_MAX;
+  self->clock_limit = SIZE_MAX;
+  self->start_clock = 0;
   self->old_tree = NULL_SUBTREE;
   self->scratch_tree.ptr = &self->scratch_tree_data;
   self->included_range_differences = (TSRangeArray) array_new();
@@ -1574,12 +1587,13 @@ void ts_parser_set_enabled(TSParser *self, bool enabled) {
   self->enabled = enabled;
 }
 
-size_t ts_parser_operation_limit(const TSParser *self) {
-  return self->operation_limit;
+size_t ts_parser_timeout_micros(const TSParser *self) {
+  return self->clock_limit / CLOCKS_PER_MICROSECOND;
 }
 
-void ts_parser_set_operation_limit(TSParser *self, size_t limit) {
-  self->operation_limit = limit;
+void ts_parser_set_timeout_micros(TSParser *self, size_t timeout_micros) {
+  self->clock_limit = timeout_micros * CLOCKS_PER_MICROSECOND;
+  if (self->clock_limit == 0) self->clock_limit = SIZE_MAX;
 }
 
 void ts_parser_set_included_ranges(TSParser *self, const TSRange *ranges, uint32_t count) {
@@ -1642,15 +1656,12 @@ TSTree *ts_parser_parse(TSParser *self, const TSTree *old_tree, TSInput input) {
   }
 
   uint32_t position = 0, last_position = 0, version_count = 0;
-  size_t operation_count = 0;
+  self->start_clock = clock();
 
   do {
     for (StackVersion version = 0;
          version_count = ts_stack_version_count(self->stack), version < version_count;
          version++) {
-      if (operation_count > self->operation_limit || !self->enabled) return NULL;
-      operation_count++;
-
       bool allow_node_reuse = version_count == 1;
       while (ts_stack_is_active(self->stack, version)) {
         LOG("process version:%d, version_count:%u, state:%d, row:%u, col:%u",
@@ -1659,7 +1670,7 @@ TSTree *ts_parser_parse(TSParser *self, const TSTree *old_tree, TSInput input) {
             ts_stack_position(self->stack, version).extent.row,
             ts_stack_position(self->stack, version).extent.column);
 
-        ts_parser__advance(self, version, allow_node_reuse);
+        if (!ts_parser__advance(self, version, allow_node_reuse)) return NULL;
         LOG_STACK();
 
         position = ts_stack_position(self->stack, version).bytes;

@@ -143,10 +143,10 @@ extern "C" {
     pub fn ts_parser_set_enabled(arg1: *mut TSParser, arg2: bool);
 }
 extern "C" {
-    pub fn ts_parser_operation_limit(arg1: *const TSParser) -> usize;
+    pub fn ts_parser_timeout_micros(arg1: *const TSParser) -> usize;
 }
 extern "C" {
-    pub fn ts_parser_set_operation_limit(arg1: *mut TSParser, arg2: usize);
+    pub fn ts_parser_set_timeout_micros(arg1: *mut TSParser, arg2: usize);
 }
 extern "C" {
     pub fn ts_parser_reset(arg1: *mut TSParser);
