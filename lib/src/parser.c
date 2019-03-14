@@ -44,6 +44,7 @@ static const unsigned MAX_VERSION_COUNT_OVERFLOW = 4;
 static const unsigned MAX_SUMMARY_DEPTH = 16;
 static const unsigned MAX_COST_DIFFERENCE = 16 * ERROR_COST_PER_SKIPPED_TREE;
 static const unsigned CLOCKS_PER_MICROSECOND = CLOCKS_PER_SEC / 1000000;
+static const unsigned OP_COUNT_PER_TIMEOUT_CHECK = 100;
 
 typedef struct {
   Subtree token;
@@ -67,6 +68,7 @@ struct TSParser {
   unsigned accept_count;
   clock_t clock_limit;
   clock_t start_clock;
+  unsigned operation_count;
   volatile bool enabled;
   bool halt_on_error;
   Subtree old_tree;
@@ -1281,9 +1283,12 @@ static bool ts_parser__advance(
   }
 
   for (;;) {
-    if ((size_t)(clock() - self->start_clock) > self->clock_limit || !self->enabled) {
-      ts_subtree_release(&self->tree_pool, lookahead);
-      return false;
+    if (!self->enabled || ++self->operation_count == OP_COUNT_PER_TIMEOUT_CHECK) {
+      self->operation_count = 0;
+      if (clock() - self->start_clock > self->clock_limit) {
+        ts_subtree_release(&self->tree_pool, lookahead);
+        return false;
+      }
     }
 
     StackVersion last_reduction_version = STACK_VERSION_NONE;
@@ -1506,6 +1511,7 @@ TSParser *ts_parser_new() {
   self->enabled = true;
   self->clock_limit = SIZE_MAX;
   self->start_clock = 0;
+  self->operation_count = 0;
   self->old_tree = NULL_SUBTREE;
   self->scratch_tree.ptr = &self->scratch_tree_data;
   self->included_range_differences = (TSRangeArray) array_new();
@@ -1656,6 +1662,7 @@ TSTree *ts_parser_parse(TSParser *self, const TSTree *old_tree, TSInput input) {
   }
 
   uint32_t position = 0, last_position = 0, version_count = 0;
+  self->operation_count = 0;
   self->start_clock = clock();
 
   do {
