@@ -98,7 +98,9 @@ extern "C" fn ts_record_free(ptr: *mut c_void) {
 }
 
 #[no_mangle]
-extern "C" fn ts_record_allocations_toggle() {
+extern "C" fn ts_toggle_allocation_recording(enabled: bool) -> bool {
     let mut recorder = RECORDER.lock();
-    recorder.enabled = !recorder.enabled;
+    let was_enabled = recorder.enabled;
+    recorder.enabled = enabled;
+    was_enabled
 }
