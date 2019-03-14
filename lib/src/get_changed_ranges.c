@@ -326,7 +326,7 @@ static inline void iterator_print_state(Iterator *self) {
   TreeCursorEntry entry = *array_back(&self->cursor.stack);
   TSPoint start = iterator_start_position(self).extent;
   TSPoint end = iterator_end_position(self).extent;
-  const char *name = ts_language_symbol_name(self->language, entry.subtree->symbol);
+  const char *name = ts_language_symbol_name(self->language, ts_subtree_symbol(*entry.subtree));
   printf(
     "(%-25s %s\t depth:%u [%u, %u] - [%u, %u])",
     name, self->in_padding ? "(p)" : "   ",
