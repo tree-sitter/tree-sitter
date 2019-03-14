@@ -276,57 +276,56 @@ fn test_parsing_with_a_timeout() {
     let mut parser = Parser::new();
     parser.set_language(get_language("json")).unwrap();
 
-    // Parse an infinitely-long string, but pause after 100 microseconds of processing.
-    parser.set_timeout_micros(200);
+    // Parse an infinitely-long array, but pause after 100 microseconds of processing.
+    parser.set_timeout_micros(100);
     let start_time = time::Instant::now();
     let tree = parser.parse_with(
         &mut |offset, _| {
             if offset == 0 {
-                b"\""
+                b" ["
             } else {
-                b"x"
+                b",0"
             }
         },
         None,
     );
     assert!(tree.is_none());
-    assert!(start_time.elapsed().as_micros() > 100);
-    assert!(start_time.elapsed().as_micros() < 300);
-
-    // Continue parsing, but pause after 300 microseconds of processing.
-    parser.set_timeout_micros(400);
-    let start_time = time::Instant::now();
-    let tree = parser.parse_with(
-        &mut |offset, _| {
-            if offset == 0 {
-                b"\""
-            } else {
-                b"x"
-            }
-        },
-        None,
-    );
-    assert!(tree.is_none());
-    assert!(start_time.elapsed().as_micros() > 300);
     assert!(start_time.elapsed().as_micros() < 500);
 
+    // Continue parsing, but pause after 300 microseconds of processing.
+    parser.set_timeout_micros(1000);
+    let start_time = time::Instant::now();
+    let tree = parser.parse_with(
+        &mut |offset, _| {
+            if offset == 0 {
+                b" ["
+            } else {
+                b",0"
+            }
+        },
+        None,
+    );
+    assert!(tree.is_none());
+    assert!(start_time.elapsed().as_micros() > 500);
+    assert!(start_time.elapsed().as_micros() < 1500);
+
     // Finish parsing
-    parser.set_timeout_micros(1_000_000);
+    parser.set_timeout_micros(0);
     let tree = parser
         .parse_with(
             &mut |offset, _| {
-                if offset > 1000 {
+                if offset > 5000 {
                     b""
-                } else if offset == 1000 {
-                    b"\""
+                } else if offset == 5000 {
+                    b"]"
                 } else {
-                    b"y"
+                    b",0"
                 }
             },
             None,
         )
         .unwrap();
-    assert_eq!(tree.root_node().to_sexp(), "(value (string))");
+    assert_eq!(tree.root_node().child(0).unwrap().kind(), "array");
 }
 
 #[test]
@@ -349,7 +348,12 @@ fn test_parsing_with_a_timeout_and_a_reset() {
         None,
     ).unwrap();
     assert_eq!(
-        tree.root_node().named_child(0).unwrap().named_child(0).unwrap().kind(),
+        tree.root_node()
+            .named_child(0)
+            .unwrap()
+            .named_child(0)
+            .unwrap()
+            .kind(),
         "string"
     );
 
@@ -369,7 +373,12 @@ fn test_parsing_with_a_timeout_and_a_reset() {
         None,
     ).unwrap();
     assert_eq!(
-        tree.root_node().named_child(0).unwrap().named_child(0).unwrap().kind(),
+        tree.root_node()
+            .named_child(0)
+            .unwrap()
+            .named_child(0)
+            .unwrap()
+            .kind(),
         "null"
     );
 }
