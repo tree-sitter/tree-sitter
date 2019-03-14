@@ -331,8 +331,8 @@ static inline void iterator_print_state(Iterator *self) {
     "(%-25s %s\t depth:%u [%u, %u] - [%u, %u])",
     name, self->in_padding ? "(p)" : "   ",
     self->visible_depth,
-    start.row, start.column,
-    end.row, end.column
+    start.row + 1, start.column,
+    end.row + 1, end.column
   );
 }
 #endif
@@ -361,7 +361,7 @@ unsigned ts_subtree_get_changed_ranges(const Subtree *old_tree, const Subtree *n
 
   do {
     #ifdef DEBUG_GET_CHANGED_RANGES
-    printf("At [%-2u, %-2u] Compare ", position.extent.row, position.extent.column);
+    printf("At [%-2u, %-2u] Compare ", position.extent.row + 1, position.extent.column);
     iterator_print_state(&old_iter);
     printf("\tvs\t");
     iterator_print_state(&new_iter);
@@ -443,8 +443,8 @@ unsigned ts_subtree_get_changed_ranges(const Subtree *old_tree, const Subtree *n
       #ifdef DEBUG_GET_CHANGED_RANGES
       printf(
         "  change: [[%u, %u] - [%u, %u]]\n",
-        position.extent.row, position.extent.column,
-        next_position.extent.row, next_position.extent.column
+        position.extent.row + 1, position.extent.column,
+        next_position.extent.row + 1, next_position.extent.column
       );
       #endif
 

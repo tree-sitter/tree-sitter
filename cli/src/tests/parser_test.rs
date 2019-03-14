@@ -56,6 +56,10 @@ fn test_parsing_with_logging() {
         "reduce sym:struct_item, child_count:3".to_string()
     )));
     assert!(messages.contains(&(LogType::Lex, "skip character:' '".to_string())));
+
+    for (_, m) in &messages {
+        assert!(!m.contains("row:0"));
+    }
 }
 
 #[test]

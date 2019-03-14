@@ -55,6 +55,9 @@ impl Drop for LogSession {
             {
                 Command::new("open").arg(&self.0).output().unwrap();
             }
+
+            #[cfg(any(debug_assertions, test))]
+            validate_graph_log(&self);
         } else {
             eprintln!(
                 "Dot failed: {} {}",
@@ -62,5 +65,21 @@ impl Drop for LogSession {
                 String::from_utf8_lossy(&output.stderr)
             );
         }
+    }
+}
+
+#[cfg(all(unix, any(debug_assertions, test)))]
+fn validate_graph_log(session: &LogSession) {
+    use std::io::{BufRead, BufReader};
+
+    let has_zero_indexed_row = |s: &str| s.contains("position: 0,");
+
+    let graph_log = std::fs::File::open(&session.0)
+        .expect("Failed to open graph log");
+    let log_reader = BufReader::new(graph_log)
+        .lines()
+        .map(|l| l.expect("Failed to read line from graph log"));
+    for line in log_reader {
+        assert!(!has_zero_indexed_row(&line), "Graph log output includes zero-indexed row: {}", line);
     }
 }
