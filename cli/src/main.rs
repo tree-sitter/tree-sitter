@@ -52,7 +52,8 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("debug").long("debug").short("d"))
                 .arg(Arg::with_name("debug-graph").long("debug-graph").short("D"))
                 .arg(Arg::with_name("quiet").long("quiet").short("q"))
-                .arg(Arg::with_name("time").long("time").short("t")),
+                .arg(Arg::with_name("time").long("time").short("t"))
+                .arg(Arg::with_name("timeout").long("timeout").takes_value(true)),
         )
         .subcommand(
             SubCommand::with_name("test")
@@ -132,6 +133,9 @@ fn run() -> error::Result<()> {
         let debug_graph = matches.is_present("debug-graph");
         let quiet = matches.is_present("quiet");
         let time = matches.is_present("time");
+        let timeout = matches
+            .value_of("timeout")
+            .map_or(0, |t| usize::from_str_radix(t, 10).unwrap());
         loader.find_all_languages(&config.parser_directories)?;
         let paths = matches
             .values_of("path")
@@ -157,6 +161,7 @@ fn run() -> error::Result<()> {
                 max_path_length,
                 quiet,
                 time,
+                timeout,
                 debug,
                 debug_graph,
             )?;
