@@ -230,7 +230,10 @@ impl Parser {
     pub fn parse(&mut self, input: impl AsRef<[u8]>, old_tree: Option<&Tree>) -> Option<Tree> {
         let bytes = input.as_ref();
         let len = bytes.len();
-        self.parse_with(&mut |i, _| if i < len { &bytes[i..] } else { &[] }, old_tree)
+        self.parse_with(
+            &mut |i, _| if i < len { &bytes[i..] } else { &[] },
+            old_tree,
+        )
     }
 
     pub fn parse_utf16(
@@ -240,7 +243,10 @@ impl Parser {
     ) -> Option<Tree> {
         let code_points = input.as_ref();
         let len = code_points.len();
-        self.parse_utf16_with(&mut |i, _| if i < len { &code_points[i..] } else { &[] }, old_tree)
+        self.parse_utf16_with(
+            &mut |i, _| if i < len { &code_points[i..] } else { &[] },
+            old_tree,
+        )
     }
 
     pub fn parse_with<'a, T: FnMut(usize, Point) -> &'a [u8]>(
@@ -317,8 +323,12 @@ impl Parser {
         unsafe { ffi::ts_parser_reset(self.0) }
     }
 
-    pub fn set_operation_limit(&mut self, limit: usize) {
-        unsafe { ffi::ts_parser_set_operation_limit(self.0, limit) }
+    pub fn timeout_micros(&self) -> u64 {
+        unsafe { ffi::ts_parser_timeout_micros(self.0) }
+    }
+
+    pub fn set_timeout_micros(&mut self, timeout_micros: u64) {
+        unsafe { ffi::ts_parser_set_timeout_micros(self.0, timeout_micros) }
     }
 
     pub fn set_included_ranges(&mut self, ranges: &[Range]) {
