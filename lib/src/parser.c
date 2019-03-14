@@ -1594,11 +1594,11 @@ void ts_parser_set_enabled(TSParser *self, bool enabled) {
 }
 
 uint64_t ts_parser_timeout_micros(const TSParser *self) {
-  return self->clock_limit / (get_clocks_per_second() / 1000000);
+  return self->clock_limit * 1000000 / get_clocks_per_second();
 }
 
 void ts_parser_set_timeout_micros(TSParser *self, uint64_t timeout_micros) {
-  self->clock_limit = timeout_micros * (get_clocks_per_second() / 1000000);
+  self->clock_limit = timeout_micros * get_clocks_per_second() / 1000000;
   if (self->clock_limit == 0) self->clock_limit = UINT64_MAX;
 }
 
