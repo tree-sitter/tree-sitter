@@ -1,6 +1,7 @@
 use super::helpers::edits::{perform_edit, Edit, ReadRecorder};
 use super::helpers::fixtures::{get_language, get_test_language};
 use crate::generate::generate_parser_for_grammar;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::{thread, time};
 use tree_sitter::{InputEdit, LogType, Parser, Point, Range};
 
@@ -81,7 +82,11 @@ fn test_parsing_with_debug_graph_enabled() {
         .lines()
         .map(|l| l.expect("Failed to read line from graph log"));
     for line in log_reader {
-        assert!(!has_zero_indexed_row(&line), "Graph log output includes zero-indexed row: {}", line);
+        assert!(
+            !has_zero_indexed_row(&line),
+            "Graph log output includes zero-indexed row: {}",
+            line
+        );
     }
 }
 
@@ -294,6 +299,38 @@ fn test_parsing_on_multiple_threads() {
         .collect::<Vec<_>>();
 
     assert_eq!(child_count_differences, &[1, 2, 3, 4]);
+}
+
+#[test]
+fn test_parsing_cancelled_by_another_thread() {
+    let cancellation_flag = AtomicU32::new(0);
+
+    let mut parser = Parser::new();
+    parser.set_language(get_language("javascript")).unwrap();
+    unsafe { parser.set_cancellation_flag(Some(&cancellation_flag)) };
+
+    let parse_thread = thread::spawn(move || {
+        // Infinite input
+        parser.parse_with(
+            &mut |offset, _| {
+                if offset == 0 {
+                    b" ["
+                } else {
+                    b"0,"
+                }
+            },
+            None,
+        )
+    });
+
+    let cancel_thread = thread::spawn(move || {
+        thread::sleep(time::Duration::from_millis(80));
+        cancellation_flag.store(1, Ordering::Relaxed);
+    });
+
+    cancel_thread.join().unwrap();
+    let tree = parse_thread.join().unwrap();
+    assert!(tree.is_none());
 }
 
 // Timeouts

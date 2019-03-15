@@ -6,6 +6,7 @@
 #include "tree_sitter/api.h"
 #include "./alloc.h"
 #include "./array.h"
+#include "./atomic.h"
 #include "./clock.h"
 #include "./error_costs.h"
 #include "./get_changed_ranges.h"
@@ -69,7 +70,7 @@ struct TSParser {
   uint64_t clock_limit;
   uint64_t start_clock;
   unsigned operation_count;
-  volatile bool enabled;
+  const volatile uint32_t *cancellation_flag;
   bool halt_on_error;
   Subtree old_tree;
   TSRangeArray included_range_differences;
@@ -1283,9 +1284,12 @@ static bool ts_parser__advance(
   }
 
   for (;;) {
-    if (!self->enabled || ++self->operation_count == OP_COUNT_PER_TIMEOUT_CHECK) {
+    if (++self->operation_count == OP_COUNT_PER_TIMEOUT_CHECK) {
       self->operation_count = 0;
-      if ((uint64_t)(get_clock() - self->start_clock) > self->clock_limit) {
+      if (
+        (self->cancellation_flag && !atomic_load(self->cancellation_flag)) ||
+        (self->clock_limit && get_clock() - self->start_clock > self->clock_limit)
+      ) {
         ts_subtree_release(&self->tree_pool, lookahead);
         return false;
       }
@@ -1508,8 +1512,8 @@ TSParser *ts_parser_new() {
   self->reusable_node = reusable_node_new();
   self->dot_graph_file = NULL;
   self->halt_on_error = false;
-  self->enabled = true;
-  self->clock_limit = UINT64_MAX;
+  self->cancellation_flag = NULL;
+  self->clock_limit = 0;
   self->start_clock = 0;
   self->operation_count = 0;
   self->old_tree = NULL_SUBTREE;
@@ -1585,12 +1589,12 @@ void ts_parser_halt_on_error(TSParser *self, bool should_halt_on_error) {
   self->halt_on_error = should_halt_on_error;
 }
 
-bool ts_parser_enabled(const TSParser *self) {
-  return self->enabled;
+const uint32_t *ts_parser_cancellation_flag(const TSParser *self) {
+  return (const uint32_t *)self->cancellation_flag;
 }
 
-void ts_parser_set_enabled(TSParser *self, bool enabled) {
-  self->enabled = enabled;
+void ts_parser_set_cancellation_flag(TSParser *self, const uint32_t *flag) {
+  self->cancellation_flag = (const volatile uint32_t *)flag;
 }
 
 uint64_t ts_parser_timeout_micros(const TSParser *self) {
@@ -1599,7 +1603,6 @@ uint64_t ts_parser_timeout_micros(const TSParser *self) {
 
 void ts_parser_set_timeout_micros(TSParser *self, uint64_t timeout_micros) {
   self->clock_limit = timeout_micros * get_clocks_per_second() / 1000000;
-  if (self->clock_limit == 0) self->clock_limit = UINT64_MAX;
 }
 
 void ts_parser_set_included_ranges(TSParser *self, const TSRange *ranges, uint32_t count) {

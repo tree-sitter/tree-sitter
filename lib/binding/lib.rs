@@ -13,13 +13,10 @@ use regex::Regex;
 use serde::de::DeserializeOwned;
 use std::collections::HashMap;
 use std::ffi::CStr;
-use std::fmt;
 use std::marker::PhantomData;
 use std::os::raw::{c_char, c_void};
-use std::ptr;
-use std::slice;
-use std::str;
-use std::u16;
+use std::sync::atomic::AtomicU32;
+use std::{fmt, ptr, slice, str, u16};
 
 pub const PARSER_HEADER: &'static str = include_str!("../include/tree_sitter/parser.h");
 
@@ -337,6 +334,18 @@ impl Parser {
         unsafe {
             ffi::ts_parser_set_included_ranges(self.0, ts_ranges.as_ptr(), ts_ranges.len() as u32)
         };
+    }
+
+    pub unsafe fn cancellation_flag(&self) -> Option<&AtomicU32> {
+        (ffi::ts_parser_cancellation_flag(self.0) as *const AtomicU32).as_ref()
+    }
+
+    pub unsafe fn set_cancellation_flag(&self, flag: Option<&AtomicU32>) {
+        if let Some(flag) = flag {
+            ffi::ts_parser_set_cancellation_flag(self.0, flag as *const AtomicU32 as *const u32);
+        } else {
+            ffi::ts_parser_set_cancellation_flag(self.0, ptr::null());
+        }
     }
 }
 
