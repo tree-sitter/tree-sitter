@@ -785,7 +785,7 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
       fprintf(
         f,
         " tooltip=\"position: %u,%u\nnode_count:%u\nerror_cost: %u\ndynamic_precedence: %d\"];\n",
-        node->position.extent.row,
+        node->position.extent.row + 1,
         node->position.extent.column,
         node->node_count,
         node->error_cost,

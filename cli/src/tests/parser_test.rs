@@ -56,6 +56,33 @@ fn test_parsing_with_logging() {
         "reduce sym:struct_item, child_count:3".to_string()
     )));
     assert!(messages.contains(&(LogType::Lex, "skip character:' '".to_string())));
+
+    for (_, m) in &messages {
+        assert!(!m.contains("row:0"));
+    }
+}
+
+#[test]
+#[cfg(unix)]
+fn test_parsing_with_debug_graph_enabled() {
+    use std::io::{BufRead, BufReader, Seek};
+
+    let has_zero_indexed_row = |s: &str| s.contains("position: 0,");
+
+    let mut parser = Parser::new();
+    parser.set_language(get_language("javascript")).unwrap();
+
+    let mut debug_graph_file = tempfile::tempfile().unwrap();
+    parser.print_dot_graphs(&debug_graph_file);
+    parser.parse("const zero = 0", None).unwrap();
+
+    debug_graph_file.seek(std::io::SeekFrom::Start(0)).unwrap();
+    let log_reader = BufReader::new(debug_graph_file)
+        .lines()
+        .map(|l| l.expect("Failed to read line from graph log"));
+    for line in log_reader {
+        assert!(!has_zero_indexed_row(&line), "Graph log output includes zero-indexed row: {}", line);
+    }
 }
 
 #[test]

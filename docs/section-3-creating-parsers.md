@@ -86,7 +86,7 @@ tree-sitter parse ./the-file
 This should print the following:
 
 ```
-(source_file [0, 0] - [0, 5])
+(source_file [1, 0] - [1, 5])
 ```
 
 You might notice that the first time you run `tree-sitter parse`, it takes a few seconds. This is because Tree-sitter automatically compiles your C code into a dynamically-loadable library. Whenever you make changes to your grammar, you can update the parser simply by re-running `tree-sitter generate`. When the parser changes, Tree-sitter will recompile it as needed.
