@@ -5,6 +5,7 @@ use std::ffi::CStr;
 use std::io::Write;
 use std::os::raw::c_char;
 use std::process::abort;
+use std::sync::atomic::AtomicU32;
 use std::{fmt, slice};
 use tree_sitter::{Language, PropertySheet};
 
@@ -135,13 +136,15 @@ pub extern "C" fn ts_highlighter_highlight(
     source_code: *const c_char,
     source_code_len: u32,
     output: *mut TSHighlightBuffer,
+    cancellation_flag: *const AtomicU32,
 ) -> ErrorCode {
     let this = unwrap_ptr(this);
     let output = unwrap_mut_ptr(output);
     let scope_name = unwrap(unsafe { CStr::from_ptr(scope_name).to_str() });
     let source_code =
         unsafe { slice::from_raw_parts(source_code as *const u8, source_code_len as usize) };
-    this.highlight(source_code, scope_name, output)
+    let cancellation_flag = unsafe { cancellation_flag.as_ref() };
+    this.highlight(source_code, scope_name, output, cancellation_flag)
 }
 
 impl TSHighlighter {
@@ -150,6 +153,7 @@ impl TSHighlighter {
         source_code: &[u8],
         scope_name: &str,
         output: &mut TSHighlightBuffer,
+        cancellation_flag: Option<&AtomicU32>,
     ) -> ErrorCode {
         let configuration = self.languages.get(scope_name);
         if configuration.is_none() {
@@ -173,6 +177,7 @@ impl TSHighlighter {
                     })
                 })
             },
+            cancellation_flag,
         ));
 
         output.html.clear();

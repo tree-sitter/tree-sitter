@@ -136,10 +136,10 @@ extern "C" {
     ) -> *mut TSTree;
 }
 extern "C" {
-    pub fn ts_parser_enabled(arg1: *const TSParser) -> bool;
+    pub fn ts_parser_cancellation_flag(arg1: *const TSParser) -> *const u32;
 }
 extern "C" {
-    pub fn ts_parser_set_enabled(arg1: *mut TSParser, arg2: bool);
+    pub fn ts_parser_set_cancellation_flag(arg1: *mut TSParser, arg2: *const u32);
 }
 extern "C" {
     pub fn ts_parser_timeout_micros(arg1: *const TSParser) -> u64;
