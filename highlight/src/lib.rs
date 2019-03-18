@@ -6,8 +6,11 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_derive::*;
 use std::fmt::{self, Write};
 use std::mem::transmute;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::{cmp, str, usize};
 use tree_sitter::{Language, Node, Parser, Point, PropertySheet, Range, Tree, TreePropertyCursor};
+
+const CANCELLATION_CHECK_INTERVAL: usize = 100;
 
 #[derive(Debug)]
 enum TreeStep {
@@ -91,6 +94,8 @@ where
     parser: Parser,
     layers: Vec<Layer<'a>>,
     utf8_error_len: Option<usize>,
+    operation_count: usize,
+    cancellation_flag: Option<&'a AtomicU32>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -377,17 +382,22 @@ where
         language: Language,
         property_sheet: &'a PropertySheet<Properties>,
         injection_callback: F,
+        cancellation_flag: Option<&'a AtomicU32>,
     ) -> Result<Self, String> {
         let mut parser = Parser::new();
+        unsafe { parser.set_cancellation_flag(cancellation_flag.clone()) };
         parser.set_language(language)?;
         let tree = parser
             .parse(source, None)
             .ok_or_else(|| format!("Tree-sitter: failed to parse"))?;
         Ok(Self {
-            injection_callback,
-            source,
-            source_offset: 0,
             parser,
+            source,
+            cancellation_flag,
+            injection_callback,
+            source_offset: 0,
+            operation_count: 0,
+            utf8_error_len: None,
             layers: vec![Layer::new(
                 source,
                 tree,
@@ -400,7 +410,6 @@ where
                 }],
                 0,
             )],
-            utf8_error_len: None,
         })
     }
 
@@ -602,6 +611,16 @@ impl<'a, T: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>> Itera
     type Item = HighlightEvent<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if let Some(cancellation_flag) = self.cancellation_flag {
+            self.operation_count += 1;
+            if self.operation_count >= CANCELLATION_CHECK_INTERVAL {
+                self.operation_count = 0;
+                if cancellation_flag.load(Ordering::Relaxed) != 0 {
+                    return None;
+                }
+            }
+        }
+
         if let Some(utf8_error_len) = self.utf8_error_len.take() {
             self.source_offset += utf8_error_len;
             return Some(HighlightEvent::Source("\u{FFFD}"));
@@ -824,7 +843,7 @@ pub fn highlight<'a, F>(
 where
     F: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)> + 'a,
 {
-    Highlighter::new(source, language, property_sheet, injection_callback)
+    Highlighter::new(source, language, property_sheet, injection_callback, None)
 }
 
 pub fn highlight_html<'a, F1, F2>(
@@ -838,7 +857,7 @@ where
     F1: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
     F2: Fn(Scope) -> &'a str,
 {
-    let highlighter = Highlighter::new(source, language, property_sheet, injection_callback)?;
+    let highlighter = Highlighter::new(source, language, property_sheet, injection_callback, None)?;
     let mut renderer = HtmlRenderer::new(attribute_callback);
     let mut scopes = Vec::new();
     for event in highlighter {

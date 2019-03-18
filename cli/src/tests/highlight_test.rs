@@ -229,6 +229,7 @@ fn test_highlighting_via_c_api() {
         source_code.as_ptr(),
         source_code.as_bytes().len() as u32,
         buffer,
+        ptr::null_mut(),
     );
 
     let output_bytes = c::ts_highlight_buffer_content(buffer);
