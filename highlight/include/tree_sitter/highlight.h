@@ -10,6 +10,7 @@ extern "C" {
 typedef enum {
   TSHighlightOk,
   TSHighlightUnknownScope,
+  TSHighlightTimeout,
 } TSHighlightError;
 
 // The list of scopes which can be styled for syntax highlighting.

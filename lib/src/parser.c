@@ -1287,7 +1287,7 @@ static bool ts_parser__advance(
     if (++self->operation_count == OP_COUNT_PER_TIMEOUT_CHECK) {
       self->operation_count = 0;
       if (
-        (self->cancellation_flag && !atomic_load(self->cancellation_flag)) ||
+        (self->cancellation_flag && atomic_load(self->cancellation_flag)) ||
         (self->clock_limit && get_clock() - self->start_clock > self->clock_limit)
       ) {
         ts_subtree_release(&self->tree_pool, lookahead);

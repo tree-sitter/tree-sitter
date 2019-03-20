@@ -29,6 +29,7 @@ pub struct TSHighlightBuffer {
 pub enum ErrorCode {
     Ok,
     UnknownScope,
+    Timeout,
 }
 
 #[no_mangle]
@@ -162,7 +163,7 @@ impl TSHighlighter {
         let configuration = configuration.unwrap();
         let languages = &self.languages;
 
-        let highlighter = unwrap(Highlighter::new(
+        let highlighter = Highlighter::new(
             source_code,
             configuration.language,
             &configuration.property_sheet,
@@ -178,29 +179,32 @@ impl TSHighlighter {
                 })
             },
             cancellation_flag,
-        ));
+        );
 
-        output.html.clear();
-        output.line_offsets.clear();
-        output.line_offsets.push(0);
-        let mut scopes = Vec::new();
-        for event in highlighter {
-            match event {
-                HighlightEvent::ScopeStart(s) => {
-                    scopes.push(s);
-                    output.start_scope(s, &self.attribute_strings);
-                }
-                HighlightEvent::ScopeEnd => {
-                    scopes.pop();
-                    output.end_scope();
-                }
-                HighlightEvent::Source(src) => {
-                    output.add_text(src, &scopes, &self.attribute_strings);
-                }
-            };
+        if let Ok(highlighter) = highlighter {
+            output.html.clear();
+            output.line_offsets.clear();
+            output.line_offsets.push(0);
+            let mut scopes = Vec::new();
+            for event in highlighter {
+                match event {
+                    HighlightEvent::ScopeStart(s) => {
+                        scopes.push(s);
+                        output.start_scope(s, &self.attribute_strings);
+                    }
+                    HighlightEvent::ScopeEnd => {
+                        scopes.pop();
+                        output.end_scope();
+                    }
+                    HighlightEvent::Source(src) => {
+                        output.add_text(src, &scopes, &self.attribute_strings);
+                    }
+                };
+            }
+            ErrorCode::Ok
+        } else {
+            ErrorCode::Timeout
         }
-
-        ErrorCode::Ok
     }
 }
 

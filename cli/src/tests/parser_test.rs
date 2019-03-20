@@ -303,33 +303,48 @@ fn test_parsing_on_multiple_threads() {
 
 #[test]
 fn test_parsing_cancelled_by_another_thread() {
-    let cancellation_flag = AtomicU32::new(0);
+    let cancellation_flag = Box::new(AtomicU32::new(0));
 
     let mut parser = Parser::new();
     parser.set_language(get_language("javascript")).unwrap();
     unsafe { parser.set_cancellation_flag(Some(&cancellation_flag)) };
 
-    let parse_thread = thread::spawn(move || {
-        // Infinite input
-        parser.parse_with(
-            &mut |offset, _| {
-                if offset == 0 {
-                    b" ["
-                } else {
-                    b"0,"
-                }
-            },
-            None,
-        )
-    });
+    // Long input - parsing succeeds
+    let tree = parser.parse_with(
+        &mut |offset, _| {
+            if offset == 0 {
+                b" ["
+            } else if offset >= 20000 {
+                b""
+            } else {
+                b"0,"
+            }
+        },
+        None,
+    );
+    assert!(tree.is_some());
 
     let cancel_thread = thread::spawn(move || {
-        thread::sleep(time::Duration::from_millis(80));
-        cancellation_flag.store(1, Ordering::Relaxed);
+        thread::sleep(time::Duration::from_millis(100));
+        cancellation_flag.store(1, Ordering::SeqCst);
     });
 
+    // Infinite input
+    let tree = parser.parse_with(
+        &mut |offset, _| {
+            thread::yield_now();
+            thread::sleep(time::Duration::from_millis(10));
+            if offset == 0 {
+                b" ["
+            } else {
+                b"0,"
+            }
+        },
+        None,
+    );
+
+    // Parsing returns None because it was cancelled.
     cancel_thread.join().unwrap();
-    let tree = parse_thread.join().unwrap();
     assert!(tree.is_none());
 }
 
