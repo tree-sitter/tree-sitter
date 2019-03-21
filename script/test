@@ -67,7 +67,7 @@ while getopts "dDghl:e:s:t:" option; do
   esac
 done
 
-shift $(expr $OPTIND - 1 )
+shift $(expr $OPTIND - 1)
 
 if [[ -n $TREE_SITTER_TEST_LANGUAGE_FILTER || -n $TREE_SITTER_TEST_EXAMPLE_FILTER || -n $TREE_SITTER_TEST_TRIAL_FILTER ]]; then
   top_level_filter=corpus
@@ -76,7 +76,10 @@ else
 fi
 
 if [[ "${mode}" == "debug" ]]; then
-  test_binary=$(cargo test --no-run --message-format=json 2> /dev/null | jq -rs '.[-1].filenames[0]')
+  test_binary=$(
+    cargo test -p tree-sitter-cli --no-run --message-format=json 2> /dev/null |\
+    jq -rs 'map(select(.target.name == "tree-sitter-cli" and .executable))[0].executable'
+  )
   lldb "${test_binary}" -- $top_level_filter
 else
   cargo test -p tree-sitter-cli --jobs 1 $top_level_filter -- --nocapture
