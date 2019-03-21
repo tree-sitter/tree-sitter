@@ -6,7 +6,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_derive::*;
 use std::fmt::{self, Write};
 use std::mem::transmute;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{cmp, str, usize};
 use tree_sitter::{Language, Node, Parser, Point, PropertySheet, Range, Tree, TreePropertyCursor};
 
@@ -95,7 +95,7 @@ where
     layers: Vec<Layer<'a>>,
     utf8_error_len: Option<usize>,
     operation_count: usize,
-    cancellation_flag: Option<&'a AtomicU32>,
+    cancellation_flag: Option<&'a AtomicUsize>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -382,7 +382,7 @@ where
         language: Language,
         property_sheet: &'a PropertySheet<Properties>,
         injection_callback: F,
-        cancellation_flag: Option<&'a AtomicU32>,
+        cancellation_flag: Option<&'a AtomicUsize>,
     ) -> Result<Self, String> {
         let mut parser = Parser::new();
         unsafe { parser.set_cancellation_flag(cancellation_flag.clone()) };

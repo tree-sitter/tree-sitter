@@ -81,7 +81,7 @@ int ts_highlighter_highlight(
   const char *source_code,
   uint32_t source_code_len,
   TSHighlightBuffer *output,
-  const uint32_t *cancellation_flag
+  const size_t *cancellation_flag
 );
 
 // TSHighlightBuffer: This struct stores the HTML output of syntax

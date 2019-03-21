@@ -70,7 +70,7 @@ struct TSParser {
   uint64_t clock_limit;
   uint64_t start_clock;
   unsigned operation_count;
-  const volatile uint32_t *cancellation_flag;
+  const volatile size_t *cancellation_flag;
   bool halt_on_error;
   Subtree old_tree;
   TSRangeArray included_range_differences;
@@ -1589,12 +1589,12 @@ void ts_parser_halt_on_error(TSParser *self, bool should_halt_on_error) {
   self->halt_on_error = should_halt_on_error;
 }
 
-const uint32_t *ts_parser_cancellation_flag(const TSParser *self) {
-  return (const uint32_t *)self->cancellation_flag;
+const size_t *ts_parser_cancellation_flag(const TSParser *self) {
+  return (const size_t *)self->cancellation_flag;
 }
 
-void ts_parser_set_cancellation_flag(TSParser *self, const uint32_t *flag) {
-  self->cancellation_flag = (const volatile uint32_t *)flag;
+void ts_parser_set_cancellation_flag(TSParser *self, const size_t *flag) {
+  self->cancellation_flag = (const volatile size_t *)flag;
 }
 
 uint64_t ts_parser_timeout_micros(const TSParser *self) {
