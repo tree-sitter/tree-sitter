@@ -1501,7 +1501,7 @@ static bool ts_parser_has_outstanding_parse(TSParser *self) {
 
 // Parser - Public
 
-TSParser *ts_parser_new() {
+TSParser *ts_parser_new(void) {
   TSParser *self = ts_calloc(1, sizeof(TSParser));
   ts_lexer_init(&self->lexer);
   array_init(&self->reduce_actions);

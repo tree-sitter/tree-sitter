@@ -77,7 +77,7 @@ typedef struct {
   uint32_t context[2];
 } TSTreeCursor;
 
-TSParser *ts_parser_new();
+TSParser *ts_parser_new(void);
 void ts_parser_delete(TSParser *);
 const TSLanguage *ts_parser_language(const TSParser *);
 bool ts_parser_set_language(TSParser *, const TSLanguage *);

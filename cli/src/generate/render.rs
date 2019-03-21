@@ -713,7 +713,7 @@ impl Generator {
         let external_scanner_name = format!("{}_external_scanner", language_function_name);
 
         if !self.syntax_grammar.external_tokens.is_empty() {
-            add_line!(self, "void *{}_create();", external_scanner_name);
+            add_line!(self, "void *{}_create(void);", external_scanner_name);
             add_line!(self, "void {}_destroy(void *);", external_scanner_name);
             add_line!(
                 self,
@@ -740,7 +740,7 @@ impl Generator {
 
         add_line!(
             self,
-            "extern const TSLanguage *{}() {{",
+            "extern const TSLanguage *{}(void) {{",
             language_function_name
         );
         indent!(self);

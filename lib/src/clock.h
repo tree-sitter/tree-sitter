@@ -26,11 +26,11 @@ static inline uint64_t duration_to_micros(TSDuration self) {
   return self * 1000000 / (uint64_t)frequency.QuadPart;
 }
 
-static inline TSClock clock_null() {
+static inline TSClock clock_null(void) {
   return 0;
 }
 
-static inline TSClock clock_now() {
+static inline TSClock clock_now(void) {
   LARGE_INTEGER result;
   QueryPerformanceCounter(&result);
   return (uint64_t)result.QuadPart;
@@ -68,13 +68,13 @@ static inline uint64_t duration_to_micros(TSDuration self) {
   return self;
 }
 
-static inline TSClock clock_now() {
+static inline TSClock clock_now(void) {
   TSClock result;
   clock_gettime(CLOCK_MONOTONIC, &result);
   return result;
 }
 
-static inline TSClock clock_null() {
+static inline TSClock clock_null(void) {
   return (TSClock) {0, 0};
 }
 
@@ -116,11 +116,11 @@ static inline uint64_t duration_to_micros(TSDuration self) {
   return self * 1000000 / (uint64_t)CLOCKS_PER_SEC;
 }
 
-static inline TSClock clock_null() {
+static inline TSClock clock_null(void) {
   return 0;
 }
 
-static inline TSClock clock_now() {
+static inline TSClock clock_now(void) {
   return (uint64_t)clock();
 }
 

@@ -36,7 +36,7 @@ static inline Length length_sub(Length len1, Length len2) {
   return result;
 }
 
-static inline Length length_zero() {
+static inline Length length_zero(void) {
   Length result = {0, {0, 0}};
   return result;
 }
