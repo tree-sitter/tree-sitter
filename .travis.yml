@@ -1,6 +1,6 @@
 language: rust
 rust:
-  - beta
+  - stable
 
 os:
   - linux
