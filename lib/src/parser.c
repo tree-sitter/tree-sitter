@@ -66,9 +66,9 @@ struct TSParser {
   ReusableNode reusable_node;
   void *external_scanner_payload;
   FILE *dot_graph_file;
+  TSClock end_clock;
+  TSDuration timeout_duration;
   unsigned accept_count;
-  uint64_t clock_limit;
-  uint64_t start_clock;
   unsigned operation_count;
   const volatile uint32_t *cancellation_flag;
   bool halt_on_error;
@@ -1288,7 +1288,7 @@ static bool ts_parser__advance(
       self->operation_count = 0;
       if (
         (self->cancellation_flag && atomic_load(self->cancellation_flag)) ||
-        (self->clock_limit && get_clock() - self->start_clock > self->clock_limit)
+        (!clock_is_null(self->end_clock) && clock_is_gt(clock_now(), self->end_clock))
       ) {
         ts_subtree_release(&self->tree_pool, lookahead);
         return false;
@@ -1513,8 +1513,8 @@ TSParser *ts_parser_new() {
   self->dot_graph_file = NULL;
   self->halt_on_error = false;
   self->cancellation_flag = NULL;
-  self->clock_limit = 0;
-  self->start_clock = 0;
+  self->timeout_duration = 0;
+  self->end_clock = clock_null();
   self->operation_count = 0;
   self->old_tree = NULL_SUBTREE;
   self->scratch_tree.ptr = &self->scratch_tree_data;
@@ -1598,11 +1598,11 @@ void ts_parser_set_cancellation_flag(TSParser *self, const uint32_t *flag) {
 }
 
 uint64_t ts_parser_timeout_micros(const TSParser *self) {
-  return self->clock_limit * 1000000 / get_clocks_per_second();
+  return duration_to_micros(self->timeout_duration);
 }
 
 void ts_parser_set_timeout_micros(TSParser *self, uint64_t timeout_micros) {
-  self->clock_limit = timeout_micros * get_clocks_per_second() / 1000000;
+  self->timeout_duration = duration_from_micros(timeout_micros);
 }
 
 void ts_parser_set_included_ranges(TSParser *self, const TSRange *ranges, uint32_t count) {
@@ -1666,7 +1666,11 @@ TSTree *ts_parser_parse(TSParser *self, const TSTree *old_tree, TSInput input) {
 
   uint32_t position = 0, last_position = 0, version_count = 0;
   self->operation_count = 0;
-  self->start_clock = get_clock();
+  if (self->timeout_duration) {
+    self->end_clock = clock_after(clock_now(), self->timeout_duration);
+  } else {
+    self->end_clock = clock_null();
+  }
 
   do {
     for (StackVersion version = 0;
