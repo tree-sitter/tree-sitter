@@ -1,9 +1,10 @@
 use super::error::{Error, Result};
 use super::util;
-use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Instant;
+use std::{fs, thread};
 use tree_sitter::{Language, LogType, Parser};
 
 pub fn parse_file_at_path(
@@ -15,6 +16,7 @@ pub fn parse_file_at_path(
     timeout: u64,
     debug: bool,
     debug_graph: bool,
+    allow_cancellation: bool,
 ) -> Result<bool> {
     let mut _log_session = None;
     let mut parser = Parser::new();
@@ -22,9 +24,28 @@ pub fn parse_file_at_path(
     let source_code = fs::read(path)
         .map_err(|e| Error(format!("Error reading source file {:?}: {}", path, e)))?;
 
+    // If the `--cancel` flag was passed, then cancel the parse
+    // when the user types a newline.
+    if allow_cancellation {
+        let flag = Box::new(AtomicU32::new(0));
+        unsafe { parser.set_cancellation_flag(Some(&flag)) };
+        thread::spawn(move || {
+            let mut line = String::new();
+            io::stdin().read_line(&mut line).unwrap();
+            eprintln!("Cancelling");
+            flag.store(1, Ordering::Relaxed);
+        });
+    }
+
+    // Set a timeout based on the `--time` flag.
+    parser.set_timeout_micros(timeout);
+
+    // Render an HTML graph if `--debug-graph` was passed
     if debug_graph {
         _log_session = Some(util::log_graphs(&mut parser, "log.html")?);
-    } else if debug {
+    }
+    // Log to stderr if `--debug` was passed
+    else if debug {
         parser.set_logger(Some(Box::new(|log_type, message| {
             if log_type == LogType::Lex {
                 io::stderr().write(b"  ").unwrap();
@@ -33,7 +54,6 @@ pub fn parse_file_at_path(
         })));
     }
 
-    parser.set_timeout_micros(timeout);
     let time = Instant::now();
     let tree = parser.parse(&source_code, None);
     let duration = time.elapsed();
@@ -139,7 +159,7 @@ pub fn parse_file_at_path(
             write!(&mut stdout, "\n")?;
         }
 
-        return Ok(first_error.is_some())
+        return Ok(first_error.is_some());
     } else if print_time {
         writeln!(
             &mut stdout,

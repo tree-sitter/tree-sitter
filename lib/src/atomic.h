@@ -22,7 +22,7 @@ static inline uint32_t atomic_dec(volatile uint32_t *p) {
 #else
 
 static inline uint32_t atomic_load(const volatile uint32_t *p) {
-  return __atomic_load_n(p, __ATOMIC_SEQ_CST);
+  return __atomic_load_n(p, __ATOMIC_RELAXED);
 }
 
 static inline uint32_t atomic_inc(volatile uint32_t *p) {

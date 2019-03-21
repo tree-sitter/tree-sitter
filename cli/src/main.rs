@@ -54,6 +54,7 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("debug-graph").long("debug-graph").short("D"))
                 .arg(Arg::with_name("quiet").long("quiet").short("q"))
                 .arg(Arg::with_name("time").long("time").short("t"))
+                .arg(Arg::with_name("allow-cancellation").long("cancel"))
                 .arg(Arg::with_name("timeout").long("timeout").takes_value(true)),
         )
         .subcommand(
@@ -134,6 +135,7 @@ fn run() -> error::Result<()> {
         let debug_graph = matches.is_present("debug-graph");
         let quiet = matches.is_present("quiet");
         let time = matches.is_present("time");
+        let allow_cancellation = matches.is_present("allow-cancellation");
         let timeout = matches
             .value_of("timeout")
             .map_or(0, |t| u64::from_str_radix(t, 10).unwrap());
@@ -170,6 +172,7 @@ fn run() -> error::Result<()> {
                 timeout,
                 debug,
                 debug_graph,
+                allow_cancellation,
             )?;
         }
 
