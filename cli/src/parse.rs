@@ -2,7 +2,7 @@ use super::error::{Error, Result};
 use super::util;
 use std::io::{self, Write};
 use std::path::Path;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 use std::{fs, thread};
 use tree_sitter::{Language, LogType, Parser};
@@ -27,7 +27,7 @@ pub fn parse_file_at_path(
     // If the `--cancel` flag was passed, then cancel the parse
     // when the user types a newline.
     if allow_cancellation {
-        let flag = Box::new(AtomicU32::new(0));
+        let flag = Box::new(AtomicUsize::new(0));
         unsafe { parser.set_cancellation_flag(Some(&flag)) };
         thread::spawn(move || {
             let mut line = String::new();

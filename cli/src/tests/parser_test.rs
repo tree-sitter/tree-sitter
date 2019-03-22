@@ -1,7 +1,7 @@
 use super::helpers::edits::{perform_edit, Edit, ReadRecorder};
 use super::helpers::fixtures::{get_language, get_test_language};
 use crate::generate::generate_parser_for_grammar;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{thread, time};
 use tree_sitter::{InputEdit, LogType, Parser, Point, Range};
 
@@ -303,7 +303,7 @@ fn test_parsing_on_multiple_threads() {
 
 #[test]
 fn test_parsing_cancelled_by_another_thread() {
-    let cancellation_flag = Box::new(AtomicU32::new(0));
+    let cancellation_flag = Box::new(AtomicUsize::new(0));
 
     let mut parser = Parser::new();
     parser.set_language(get_language("javascript")).unwrap();
