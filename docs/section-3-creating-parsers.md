@@ -77,7 +77,7 @@ Then run the the following command:
 tree-sitter generate
 ```
 
-This will generate the C code required to parse this trivial language, as well as all of the files needed to compile and load this native parser as a Node.js module. You can test this parser by creating a source file with the contents `hello;` and parsing it:
+This will generate the C code required to parse this trivial language, as well as all of the files needed to compile and load this native parser as a Node.js module. You can test this parser by creating a source file with the contents `hello` and parsing it:
 
 ```sh
 tree-sitter parse ./the-file
