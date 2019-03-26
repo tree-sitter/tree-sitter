@@ -53,21 +53,21 @@ pub(crate) fn generate_node_types_json(
                         let variable = &syntax_grammar.variables[symbol.index];
                         NodeTypeJSON {
                             kind: variable.name.clone(),
-                            named: variable.kind == VariableType::Named,
+                            named: variable.kind != VariableType::Anonymous,
                         }
                     }
                     SymbolType::Terminal => {
                         let variable = &lexical_grammar.variables[symbol.index];
                         NodeTypeJSON {
                             kind: variable.name.clone(),
-                            named: variable.kind == VariableType::Named,
+                            named: variable.kind != VariableType::Anonymous,
                         }
                     }
                     SymbolType::External => {
                         let variable = &syntax_grammar.external_tokens[symbol.index];
                         NodeTypeJSON {
                             kind: variable.name.clone(),
-                            named: variable.kind == VariableType::Named,
+                            named: variable.kind != VariableType::Anonymous,
                         }
                     }
                     _ => panic!("Unexpected symbol type"),
@@ -130,4 +130,172 @@ pub(crate) fn generate_node_types_json(
     }
 
     node_types_json.into_iter().map(|e| e.1).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::generate::build_tables::build_parse_table::get_variable_info;
+    use crate::generate::grammars::{InputGrammar, Variable, VariableType};
+    use crate::generate::prepare_grammar::prepare_grammar;
+    use crate::generate::rules::Rule;
+
+    #[test]
+    fn test_node_types_simple() {
+        let node_types = get_node_types(InputGrammar {
+            name: String::new(),
+            extra_tokens: Vec::new(),
+            external_tokens: Vec::new(),
+            expected_conflicts: Vec::new(),
+            variables_to_inline: Vec::new(),
+            word_token: None,
+            supertype_symbols: vec![],
+            variables: vec![
+                Variable {
+                    name: "v1".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::seq(vec![
+                        Rule::field("f1".to_string(), Rule::named("v2")),
+                        Rule::field("f2".to_string(), Rule::string(";")),
+                    ]),
+                },
+                Variable {
+                    name: "v2".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("x"),
+                },
+            ],
+        });
+
+        assert_eq!(
+            node_types[0],
+            NodeInfoJSON {
+                name: "v1".to_string(),
+                subtypes: None,
+                fields: Some(
+                    vec![
+                        (
+                            "f1".to_string(),
+                            FieldInfoJSON {
+                                multiple: false,
+                                required: true,
+                                types: vec![NodeTypeJSON {
+                                    kind: "v2".to_string(),
+                                    named: true,
+                                }]
+                            }
+                        ),
+                        (
+                            "f2".to_string(),
+                            FieldInfoJSON {
+                                multiple: false,
+                                required: true,
+                                types: vec![NodeTypeJSON {
+                                    kind: ";".to_string(),
+                                    named: false,
+                                }]
+                            }
+                        ),
+                    ]
+                    .into_iter()
+                    .collect()
+                )
+            }
+        );
+    }
+
+    #[test]
+    fn test_node_types_with_supertypes() {
+        let node_types = get_node_types(InputGrammar {
+            name: String::new(),
+            extra_tokens: Vec::new(),
+            external_tokens: Vec::new(),
+            expected_conflicts: Vec::new(),
+            variables_to_inline: Vec::new(),
+            word_token: None,
+            supertype_symbols: vec!["_v2".to_string()],
+            variables: vec![
+                Variable {
+                    name: "v1".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::field("f1".to_string(), Rule::named("_v2")),
+                },
+                Variable {
+                    name: "_v2".to_string(),
+                    kind: VariableType::Hidden,
+                    rule: Rule::choice(vec![
+                        Rule::named("v3"),
+                        Rule::named("v4"),
+                        Rule::string("*"),
+                    ]),
+                },
+                Variable {
+                    name: "v3".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("x"),
+                },
+                Variable {
+                    name: "v4".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("y"),
+                },
+            ],
+        });
+
+        assert_eq!(
+            node_types[0],
+            NodeInfoJSON {
+                name: "_v2".to_string(),
+                fields: None,
+                subtypes: Some(vec![
+                    NodeTypeJSON {
+                        kind: "*".to_string(),
+                        named: false,
+                    },
+                    NodeTypeJSON {
+                        kind: "v3".to_string(),
+                        named: true,
+                    },
+                    NodeTypeJSON {
+                        kind: "v4".to_string(),
+                        named: true,
+                    },
+                ]),
+            }
+        );
+        assert_eq!(
+            node_types[1],
+            NodeInfoJSON {
+                name: "v1".to_string(),
+                subtypes: None,
+                fields: Some(
+                    vec![(
+                        "f1".to_string(),
+                        FieldInfoJSON {
+                            multiple: false,
+                            required: true,
+                            types: vec![NodeTypeJSON {
+                                kind: "_v2".to_string(),
+                                named: true,
+                            }]
+                        }
+                    ),]
+                    .into_iter()
+                    .collect()
+                )
+            }
+        );
+    }
+
+    fn get_node_types(grammar: InputGrammar) -> Vec<NodeInfoJSON> {
+        let (syntax_grammar, lexical_grammar, _, simple_aliases) =
+            prepare_grammar(&grammar).unwrap();
+        let variable_info = get_variable_info(&syntax_grammar, &lexical_grammar).unwrap();
+        generate_node_types_json(
+            &syntax_grammar,
+            &lexical_grammar,
+            &simple_aliases,
+            &variable_info,
+        )
+    }
 }

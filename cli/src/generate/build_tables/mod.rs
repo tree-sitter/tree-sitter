@@ -1,5 +1,5 @@
-mod build_lex_table;
-mod build_parse_table;
+pub(crate) mod build_lex_table;
+pub(crate) mod build_parse_table;
 mod coincident_tokens;
 mod item;
 mod item_set_builder;
