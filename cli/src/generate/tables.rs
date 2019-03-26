@@ -68,7 +68,6 @@ pub(crate) struct FieldInfo {
 #[derive(Debug, Default, PartialEq, Eq)]
 pub(crate) struct VariableInfo {
     pub fields: HashMap<String, FieldInfo>,
-    pub subclasses: Vec<Symbol>,
     pub child_types: Vec<ChildType>,
     pub has_multi_step_production: bool,
 }

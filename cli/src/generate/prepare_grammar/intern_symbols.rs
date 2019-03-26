@@ -73,8 +73,6 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         );
     }
 
-    eprintln!("supertype_symbols: {:?}", supertype_symbols);
-
     Ok(InternedGrammar {
         variables,
         external_tokens,

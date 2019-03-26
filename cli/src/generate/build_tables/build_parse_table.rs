@@ -759,7 +759,6 @@ pub(crate) fn get_variable_info(
     for (i, variable) in syntax_grammar.variables.iter().enumerate() {
         let mut info = VariableInfo {
             fields: HashMap::new(),
-            subclasses: Vec::new(),
             child_types: Vec::new(),
             has_multi_step_production: false,
         };
@@ -828,7 +827,8 @@ pub(crate) fn get_variable_info(
             for production in &variable.productions {
                 for step in &production.steps {
                     let child_symbol = step.symbol;
-                    if child_symbol.kind == SymbolType::NonTerminal
+                    if step.alias.is_none()
+                        && child_symbol.kind == SymbolType::NonTerminal
                         && !syntax_grammar.variables[child_symbol.index]
                             .kind
                             .is_visible()

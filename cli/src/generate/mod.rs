@@ -35,7 +35,7 @@ lazy_static! {
 struct GeneratedParser {
     name: String,
     c_code: String,
-    fields_json: String,
+    node_types_json: String,
 }
 
 pub fn generate_parser_in_directory(
@@ -65,12 +65,12 @@ pub fn generate_parser_in_directory(
     let GeneratedParser {
         name: language_name,
         c_code,
-        fields_json,
+        node_types_json,
     } = generate_parser_for_grammar_with_opts(&grammar_json, minimize, state_ids_to_log)?;
 
     fs::write(&repo_src_path.join("parser.c"), c_code)
         .map_err(|e| format!("Failed to write parser.c: {}", e))?;
-    fs::write(&repo_src_path.join("node-fields.json"), fields_json)
+    fs::write(&repo_src_path.join("node-types.json"), node_types_json)
         .map_err(|e| format!("Failed to write parser.c: {}", e))?;
     fs::write(
         &repo_header_path.join("parser.h"),
@@ -112,7 +112,7 @@ fn generate_parser_for_grammar_with_opts(
         state_ids_to_log,
     )?;
     let name = input_grammar.name;
-    let fields_json = generate_field_info_json(
+    let node_types_json = generate_node_types_json(
         &syntax_grammar,
         &lexical_grammar,
         &simple_aliases,
@@ -131,7 +131,7 @@ fn generate_parser_for_grammar_with_opts(
     Ok(GeneratedParser {
         name,
         c_code,
-        fields_json,
+        node_types_json,
     })
 }
 
@@ -188,12 +188,17 @@ fn ensure_file<T: AsRef<[u8]>>(path: &PathBuf, f: impl Fn() -> T) -> Result<()> 
 
 #[derive(Debug, Serialize, PartialEq, Eq, Default)]
 struct NodeInfoJSON {
+    #[serde(rename = "type")]
+    name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     fields: Option<BTreeMap<String, FieldInfoJSON>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     subtypes: Option<Vec<NodeTypeJSON>>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 struct NodeTypeJSON {
+    #[serde(rename = "type")]
     kind: String,
     named: bool,
 }
@@ -205,28 +210,87 @@ struct FieldInfoJSON {
     types: Vec<NodeTypeJSON>,
 }
 
-fn generate_field_info_json(
+fn generate_node_types_json(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     simple_aliases: &AliasMap,
     variable_info: &Vec<VariableInfo>,
 ) -> String {
     let mut node_types_json = BTreeMap::new();
-    for (i, info) in variable_info.iter().enumerate() {
-        let variable = &syntax_grammar.variables[i];
-        if !variable.kind.is_visible() || info.fields.is_empty() {
-            continue;
-        }
 
+    let child_type_to_node_type = |child_type: &ChildType| match child_type {
+        ChildType::Aliased(alias) => NodeTypeJSON {
+            kind: alias.value.clone(),
+            named: alias.is_named,
+        },
+        ChildType::Normal(symbol) => {
+            if let Some(alias) = simple_aliases.get(&symbol) {
+                NodeTypeJSON {
+                    kind: alias.value.clone(),
+                    named: alias.is_named,
+                }
+            } else {
+                match symbol.kind {
+                    SymbolType::NonTerminal => {
+                        let variable = &syntax_grammar.variables[symbol.index];
+                        NodeTypeJSON {
+                            kind: variable.name.clone(),
+                            named: variable.kind == VariableType::Named,
+                        }
+                    }
+                    SymbolType::Terminal => {
+                        let variable = &lexical_grammar.variables[symbol.index];
+                        NodeTypeJSON {
+                            kind: variable.name.clone(),
+                            named: variable.kind == VariableType::Named,
+                        }
+                    }
+                    SymbolType::External => {
+                        let variable = &syntax_grammar.external_tokens[symbol.index];
+                        NodeTypeJSON {
+                            kind: variable.name.clone(),
+                            named: variable.kind == VariableType::Named,
+                        }
+                    }
+                    _ => panic!("Unexpected symbol type"),
+                }
+            }
+        }
+    };
+
+    for (i, info) in variable_info.iter().enumerate() {
+        let symbol = Symbol::non_terminal(i);
+        let variable = &syntax_grammar.variables[i];
         let name = simple_aliases
             .get(&Symbol::non_terminal(i))
             .map_or(&variable.name, |alias| &alias.value);
 
-        let node_type_json = node_types_json
-            .entry(name.clone())
-            .or_insert_with(|| NodeInfoJSON::default());
+        if syntax_grammar.supertype_symbols.contains(&symbol) {
+            let node_type_json =
+                node_types_json
+                    .entry(name.clone())
+                    .or_insert_with(|| NodeInfoJSON {
+                        name: name.clone(),
+                        fields: None,
+                        subtypes: None,
+                    });
+            let mut subtypes = info.child_types
+                .iter()
+                .map(child_type_to_node_type)
+                .collect::<Vec<_>>();
+            subtypes.sort_unstable();
+            subtypes.dedup();
+            node_type_json.subtypes = Some(subtypes);
 
-        if info.fields.len() > 0 {
+        } else if variable.kind.is_visible() {
+            let node_type_json =
+                node_types_json
+                    .entry(name.clone())
+                    .or_insert_with(|| NodeInfoJSON {
+                        name: name.clone(),
+                        fields: None,
+                        subtypes: None,
+                    });
             let mut fields_json = BTreeMap::new();
             for (field, field_info) in info.fields.iter() {
                 let field_info_json = fields_json.entry(field.clone()).or_insert(FieldInfoJSON {
@@ -237,53 +301,17 @@ fn generate_field_info_json(
 
                 field_info_json.multiple |= field_info.multiple;
                 field_info_json.required &= field_info.required;
-                field_info_json.types.extend(field_info.types.iter().map(
-                    |child_type| match child_type {
-                        ChildType::Aliased(alias) => NodeTypeJSON {
-                            kind: alias.value.clone(),
-                            named: alias.is_named,
-                        },
-                        ChildType::Normal(symbol) => {
-                            if let Some(alias) = simple_aliases.get(&symbol) {
-                                NodeTypeJSON {
-                                    kind: alias.value.clone(),
-                                    named: alias.is_named,
-                                }
-                            } else {
-                                match symbol.kind {
-                                    SymbolType::NonTerminal => {
-                                        let variable = &syntax_grammar.variables[symbol.index];
-                                        NodeTypeJSON {
-                                            kind: variable.name.clone(),
-                                            named: variable.kind == VariableType::Named,
-                                        }
-                                    }
-                                    SymbolType::Terminal => {
-                                        let variable = &lexical_grammar.variables[symbol.index];
-                                        NodeTypeJSON {
-                                            kind: variable.name.clone(),
-                                            named: variable.kind == VariableType::Named,
-                                        }
-                                    }
-                                    SymbolType::External => {
-                                        let variable = &syntax_grammar.external_tokens[symbol.index];
-                                        NodeTypeJSON {
-                                            kind: variable.name.clone(),
-                                            named: variable.kind == VariableType::Named,
-                                        }
-                                    }
-                                    _ => panic!("Unexpected symbol type"),
-                                }
-                            }
-                        }
-                    },
-                ));
+                field_info_json
+                    .types
+                    .extend(field_info.types.iter().map(child_type_to_node_type));
                 field_info_json.types.sort_unstable();
                 field_info_json.types.dedup();
             }
             node_type_json.fields = Some(fields_json);
         }
-
     }
+
+    let node_types_json = node_types_json.values().collect::<Vec<_>>();
+
     serde_json::to_string_pretty(&node_types_json).unwrap()
 }
