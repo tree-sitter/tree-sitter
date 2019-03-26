@@ -7,7 +7,8 @@ use std::collections::BTreeMap;
 #[derive(Debug, Serialize, PartialEq, Eq, Default)]
 pub(crate) struct NodeInfoJSON {
     #[serde(rename = "type")]
-    name: String,
+    kind: String,
+    named: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     fields: Option<BTreeMap<String, FieldInfoJSON>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -88,7 +89,8 @@ pub(crate) fn generate_node_types_json(
                 node_types_json
                     .entry(name.clone())
                     .or_insert_with(|| NodeInfoJSON {
-                        name: name.clone(),
+                        kind: name.clone(),
+                        named: true,
                         fields: None,
                         subtypes: None,
                     });
@@ -105,7 +107,8 @@ pub(crate) fn generate_node_types_json(
                 node_types_json
                     .entry(name.clone())
                     .or_insert_with(|| NodeInfoJSON {
-                        name: name.clone(),
+                        kind: name.clone(),
+                        named: true,
                         fields: None,
                         subtypes: None,
                     });
@@ -129,7 +132,27 @@ pub(crate) fn generate_node_types_json(
         }
     }
 
-    node_types_json.into_iter().map(|e| e.1).collect()
+    let mut result = node_types_json.into_iter().map(|e| e.1).collect::<Vec<_>>();
+
+    for variable in &lexical_grammar.variables {
+        if variable.kind == VariableType::Named {
+            result.push(NodeInfoJSON {
+                kind: variable.name.clone(),
+                named: true,
+                fields: None,
+                subtypes: None,
+            });
+        } else if variable.kind == VariableType::Anonymous {
+            result.push(NodeInfoJSON {
+                kind: variable.name.clone(),
+                named: false,
+                fields: None,
+                subtypes: None,
+            });
+        }
+    }
+
+    result
 }
 
 #[cfg(test)]
@@ -170,7 +193,8 @@ mod tests {
         assert_eq!(
             node_types[0],
             NodeInfoJSON {
-                name: "v1".to_string(),
+                kind: "v1".to_string(),
+                named: true,
                 subtypes: None,
                 fields: Some(
                     vec![
@@ -200,6 +224,24 @@ mod tests {
                     .into_iter()
                     .collect()
                 )
+            }
+        );
+        assert_eq!(
+            node_types[1],
+            NodeInfoJSON {
+                kind: ";".to_string(),
+                named: false,
+                subtypes: None,
+                fields: None
+            }
+        );
+        assert_eq!(
+            node_types[2],
+            NodeInfoJSON {
+                kind: "v2".to_string(),
+                named: true,
+                subtypes: None,
+                fields: None
             }
         );
     }
@@ -245,7 +287,8 @@ mod tests {
         assert_eq!(
             node_types[0],
             NodeInfoJSON {
-                name: "_v2".to_string(),
+                kind: "_v2".to_string(),
+                named: true,
                 fields: None,
                 subtypes: Some(vec![
                     NodeTypeJSON {
@@ -266,7 +309,8 @@ mod tests {
         assert_eq!(
             node_types[1],
             NodeInfoJSON {
-                name: "v1".to_string(),
+                kind: "v1".to_string(),
+                named: true,
                 subtypes: None,
                 fields: Some(
                     vec![(
