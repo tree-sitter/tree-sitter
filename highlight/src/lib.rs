@@ -1,13 +1,16 @@
+pub mod c_lib;
 mod escape;
 
+pub use c_lib as c;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_derive::*;
-use std::cmp;
 use std::fmt::{self, Write};
 use std::mem::transmute;
-use std::str;
-use std::usize;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{cmp, str, usize};
 use tree_sitter::{Language, Node, Parser, Point, PropertySheet, Range, Tree, TreePropertyCursor};
+
+const CANCELLATION_CHECK_INTERVAL: usize = 100;
 
 #[derive(Debug)]
 enum TreeStep {
@@ -78,6 +81,7 @@ struct Layer<'a> {
     cursor: TreePropertyCursor<'a, Properties>,
     ranges: Vec<Range>,
     at_node_end: bool,
+    depth: usize,
 }
 
 struct Highlighter<'a, T>
@@ -90,6 +94,8 @@ where
     parser: Parser,
     layers: Vec<Layer<'a>>,
     utf8_error_len: Option<usize>,
+    operation_count: usize,
+    cancellation_flag: Option<&'a AtomicUsize>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -149,6 +155,28 @@ pub enum PropertySheetError {
     InvalidJSON(serde_json::Error),
     InvalidRegex(regex::Error),
     InvalidFormat(String),
+}
+
+impl fmt::Display for PropertySheetError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            PropertySheetError::InvalidJSON(e) => e.fmt(f),
+            PropertySheetError::InvalidRegex(e) => e.fmt(f),
+            PropertySheetError::InvalidFormat(e) => e.fmt(f),
+        }
+    }
+}
+
+impl<'a> fmt::Debug for Layer<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Layer {{ at_node_end: {}, node: {:?} }}",
+            self.at_node_end,
+            self.cursor.node()
+        )?;
+        Ok(())
+    }
 }
 
 pub fn load_property_sheet(
@@ -354,17 +382,22 @@ where
         language: Language,
         property_sheet: &'a PropertySheet<Properties>,
         injection_callback: F,
+        cancellation_flag: Option<&'a AtomicUsize>,
     ) -> Result<Self, String> {
         let mut parser = Parser::new();
+        unsafe { parser.set_cancellation_flag(cancellation_flag.clone()) };
         parser.set_language(language)?;
         let tree = parser
             .parse(source, None)
             .ok_or_else(|| format!("Tree-sitter: failed to parse"))?;
         Ok(Self {
-            injection_callback,
-            source,
-            source_offset: 0,
             parser,
+            source,
+            cancellation_flag,
+            injection_callback,
+            source_offset: 0,
+            operation_count: 0,
+            utf8_error_len: None,
             layers: vec![Layer::new(
                 source,
                 tree,
@@ -375,8 +408,8 @@ where
                     start_point: Point::new(0, 0),
                     end_point: Point::new(usize::MAX, usize::MAX),
                 }],
+                0,
             )],
-            utf8_error_len: None,
         })
     }
 
@@ -554,7 +587,7 @@ where
         result
     }
 
-    fn add_layer(&mut self, language_string: &str, ranges: Vec<Range>) {
+    fn add_layer(&mut self, language_string: &str, ranges: Vec<Range>, depth: usize) {
         if let Some((language, property_sheet)) = (self.injection_callback)(language_string) {
             self.parser
                 .set_language(language)
@@ -564,7 +597,7 @@ where
                 .parser
                 .parse(self.source, None)
                 .expect("Failed to parse");
-            let layer = Layer::new(self.source, tree, property_sheet, ranges);
+            let layer = Layer::new(self.source, tree, property_sheet, ranges, depth);
             match self.layers.binary_search_by(|l| l.cmp(&layer)) {
                 Ok(i) | Err(i) => self.layers.insert(i, layer),
             };
@@ -579,6 +612,16 @@ where
     type Item = HighlightEvent<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if let Some(cancellation_flag) = self.cancellation_flag {
+            self.operation_count += 1;
+            if self.operation_count >= CANCELLATION_CHECK_INTERVAL {
+                self.operation_count = 0;
+                if cancellation_flag.load(Ordering::Relaxed) != 0 {
+                    return None;
+                }
+            }
+        }
+
         if let Some(utf8_error_len) = self.utf8_error_len.take() {
             self.source_offset += utf8_error_len;
             return Some(HighlightEvent::Source("\u{FFFD}"));
@@ -606,8 +649,9 @@ where
                     })
                     .collect::<Vec<_>>();
 
+                let depth = first_layer.depth + 1;
                 for (language, ranges) in injections {
-                    self.add_layer(&language, ranges);
+                    self.add_layer(&language, ranges, depth);
                 }
             }
 
@@ -636,7 +680,13 @@ where
             // to re-sort the layers. If the cursor is already at the end of its syntax tree,
             // remove it.
             if self.layers[0].advance() {
-                self.layers.sort_unstable_by(|a, b| a.cmp(&b));
+                let mut index = 0;
+                while self.layers.get(index + 1).map_or(false, |next| {
+                    self.layers[index].cmp(next) == cmp::Ordering::Greater
+                }) {
+                    self.layers.swap(index, index + 1);
+                    index += 1;
+                }
             } else {
                 self.layers.remove(0);
             }
@@ -685,6 +735,7 @@ impl<'a> Layer<'a> {
         tree: Tree,
         sheet: &'a PropertySheet<Properties>,
         ranges: Vec<Range>,
+        depth: usize,
     ) -> Self {
         // The cursor's lifetime parameter indicates that the tree must outlive the cursor.
         // But because the tree is really a pointer to the heap, the cursor can remain
@@ -695,6 +746,7 @@ impl<'a> Layer<'a> {
             _tree: tree,
             cursor,
             ranges,
+            depth,
             at_node_end: false,
         }
     }
@@ -706,6 +758,7 @@ impl<'a> Layer<'a> {
         self.offset()
             .cmp(&other.offset())
             .then_with(|| other.at_node_end.cmp(&self.at_node_end))
+            .then_with(|| self.depth.cmp(&other.depth))
     }
 
     fn offset(&self) -> usize {
@@ -816,7 +869,7 @@ pub fn highlight<'a, F>(
 where
     F: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)> + 'a,
 {
-    Highlighter::new(source, language, property_sheet, injection_callback)
+    Highlighter::new(source, language, property_sheet, injection_callback, None)
 }
 
 pub fn highlight_html<'a, F1, F2>(
@@ -830,7 +883,7 @@ where
     F1: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
     F2: Fn(Scope) -> &'a str,
 {
-    let highlighter = Highlighter::new(source, language, property_sheet, injection_callback)?;
+    let highlighter = Highlighter::new(source, language, property_sheet, injection_callback, None)?;
     let mut renderer = HtmlRenderer::new(attribute_callback);
     let mut scopes = Vec::new();
     for event in highlighter {

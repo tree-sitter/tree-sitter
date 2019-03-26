@@ -1,13 +1,17 @@
-use super::helpers::fixtures::{get_language, get_property_sheet};
+use super::helpers::fixtures::{get_language, get_property_sheet, get_property_sheet_json};
 use lazy_static::lazy_static;
+use std::ffi::CString;
+use std::{ptr, slice, str};
 use tree_sitter::{Language, PropertySheet};
-use tree_sitter_highlight::{highlight, highlight_html, HighlightEvent, Properties, Scope};
+use tree_sitter_highlight::{c, highlight, highlight_html, HighlightEvent, Properties, Scope};
 
 lazy_static! {
     static ref JS_SHEET: PropertySheet<Properties> =
         get_property_sheet("javascript", "highlights.json");
     static ref HTML_SHEET: PropertySheet<Properties> =
         get_property_sheet("html", "highlights.json");
+    static ref EJS_SHEET: PropertySheet<Properties> =
+        get_property_sheet("embedded-template", "highlights-ejs.json");
     static ref SCOPE_CLASS_STRINGS: Vec<String> = {
         let mut result = Vec::new();
         let mut i = 0;
@@ -151,6 +155,118 @@ fn test_highlighting_empty_lines() {
             "<span class=PunctuationBracket>}</span>\n".to_string(),
         ]
     );
+}
+
+#[test]
+fn test_highlighting_ejs() {
+    let source = vec!["<div><% foo() %></div>"].join("\n");
+
+    assert_eq!(
+        &to_token_vector(&source, get_language("embedded-template"), &EJS_SHEET).unwrap(),
+        &[[
+            ("<", vec![]),
+            ("div", vec![Scope::Tag]),
+            (">", vec![]),
+            ("<%", vec![Scope::Keyword]),
+            (" ", vec![]),
+            ("foo", vec![Scope::Function]),
+            ("(", vec![Scope::PunctuationBracket]),
+            (")", vec![Scope::PunctuationBracket]),
+            (" ", vec![]),
+            ("%>", vec![Scope::Keyword]),
+            ("</", vec![]),
+            ("div", vec![Scope::Tag]),
+            (">", vec![])
+        ]],
+    );
+}
+
+#[test]
+fn test_highlighting_via_c_api() {
+    let js_lang = get_language("javascript");
+    let html_lang = get_language("html");
+    let js_sheet = get_property_sheet_json("javascript", "highlights.json");
+    let js_sheet = c_string(&js_sheet);
+    let html_sheet = get_property_sheet_json("html", "highlights.json");
+    let html_sheet = c_string(&html_sheet);
+
+    let class_tag = c_string("class=tag");
+    let class_function = c_string("class=function");
+    let class_string = c_string("class=string");
+    let class_keyword = c_string("class=keyword");
+
+    let js_scope_name = c_string("source.js");
+    let html_scope_name = c_string("text.html.basic");
+    let injection_regex = c_string("^(javascript|js)$");
+    let source_code = c_string("<script>\nconst a = b('c');\nc.d();\n</script>");
+
+    let attribute_strings = &mut [ptr::null(); Scope::Unknown as usize + 1];
+    attribute_strings[Scope::Tag as usize] = class_tag.as_ptr();
+    attribute_strings[Scope::String as usize] = class_string.as_ptr();
+    attribute_strings[Scope::Keyword as usize] = class_keyword.as_ptr();
+    attribute_strings[Scope::Function as usize] = class_function.as_ptr();
+
+    let highlighter = c::ts_highlighter_new(attribute_strings.as_ptr());
+    let buffer = c::ts_highlight_buffer_new();
+
+    c::ts_highlighter_add_language(
+        highlighter,
+        html_scope_name.as_ptr(),
+        html_lang,
+        html_sheet.as_ptr(),
+        ptr::null_mut(),
+    );
+    c::ts_highlighter_add_language(
+        highlighter,
+        js_scope_name.as_ptr(),
+        js_lang,
+        js_sheet.as_ptr(),
+        injection_regex.as_ptr(),
+    );
+    c::ts_highlighter_highlight(
+        highlighter,
+        html_scope_name.as_ptr(),
+        source_code.as_ptr(),
+        source_code.as_bytes().len() as u32,
+        buffer,
+        ptr::null_mut(),
+    );
+
+    let output_bytes = c::ts_highlight_buffer_content(buffer);
+    let output_line_offsets = c::ts_highlight_buffer_line_offsets(buffer);
+    let output_len = c::ts_highlight_buffer_len(buffer);
+    let output_line_count = c::ts_highlight_buffer_line_count(buffer);
+
+    let output_bytes = unsafe { slice::from_raw_parts(output_bytes, output_len as usize) };
+    let output_line_offsets =
+        unsafe { slice::from_raw_parts(output_line_offsets, output_line_count as usize) };
+
+    let mut lines = Vec::new();
+    for i in 0..(output_line_count as usize) {
+        let line_start = output_line_offsets[i] as usize;
+        let line_end = output_line_offsets
+            .get(i + 1)
+            .map(|x| *x as usize)
+            .unwrap_or(output_bytes.len());
+        lines.push(str::from_utf8(&output_bytes[line_start..line_end]).unwrap());
+    }
+
+    assert_eq!(
+        lines,
+        vec![
+            "&lt;<span class=tag>script</span>&gt;",
+            "<span class=keyword>const</span> <span>a</span> <span>=</span> <span class=function>b</span><span>(</span><span class=string>&#39;c&#39;</span><span>)</span><span>;</span>",
+            "<span>c</span><span>.</span><span class=function>d</span><span>(</span><span>)</span><span>;</span>",
+            "&lt;/<span class=tag>script</span>&gt;",
+        ]
+    );
+
+    c::ts_highlighter_delete(highlighter);
+    c::ts_highlight_buffer_delete(buffer);
+}
+
+fn c_string(s: &str) -> CString {
+    CString::new(s.as_bytes().to_vec()).unwrap()
 }
 
 fn test_language_for_injection_string<'a>(

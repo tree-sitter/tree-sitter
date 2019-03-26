@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::os::raw::{c_char, c_void};
+use std::sync::atomic::AtomicUsize;
 use std::{fmt, ptr, slice, str, u16};
 
 pub const LANGUAGE_VERSION: usize = ffi::TREE_SITTER_LANGUAGE_VERSION;
@@ -348,8 +349,12 @@ impl Parser {
         unsafe { ffi::ts_parser_reset(self.0) }
     }
 
-    pub fn set_operation_limit(&mut self, limit: usize) {
-        unsafe { ffi::ts_parser_set_operation_limit(self.0, limit) }
+    pub fn timeout_micros(&self) -> u64 {
+        unsafe { ffi::ts_parser_timeout_micros(self.0) }
+    }
+
+    pub fn set_timeout_micros(&mut self, timeout_micros: u64) {
+        unsafe { ffi::ts_parser_set_timeout_micros(self.0, timeout_micros) }
     }
 
     pub fn set_included_ranges(&mut self, ranges: &[Range]) {
@@ -358,6 +363,18 @@ impl Parser {
         unsafe {
             ffi::ts_parser_set_included_ranges(self.0, ts_ranges.as_ptr(), ts_ranges.len() as u32)
         };
+    }
+
+    pub unsafe fn cancellation_flag(&self) -> Option<&AtomicUsize> {
+        (ffi::ts_parser_cancellation_flag(self.0) as *const AtomicUsize).as_ref()
+    }
+
+    pub unsafe fn set_cancellation_flag(&self, flag: Option<&AtomicUsize>) {
+        if let Some(flag) = flag {
+            ffi::ts_parser_set_cancellation_flag(self.0, flag as *const AtomicUsize as *const usize);
+        } else {
+            ffi::ts_parser_set_cancellation_flag(self.0, ptr::null());
+        }
     }
 }
 
@@ -511,10 +528,11 @@ impl<'tree> Node<'tree> {
         unsafe { ffi::ts_node_child_count(self.0) as usize }
     }
 
-    pub fn children<'a>(&'a self) -> impl Iterator<Item = Node<'tree>> + 'a {
+    pub fn children(&self) -> impl Iterator<Item = Node<'tree>> {
+        let me = self.clone();
         (0..self.child_count())
             .into_iter()
-            .map(move |i| self.child(i).unwrap())
+            .map(move |i| me.child(i).unwrap())
     }
 
     pub fn named_child<'a>(&'a self, i: usize) -> Option<Self> {

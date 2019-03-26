@@ -11,7 +11,7 @@ typedef struct {
   Subtree last_external_token;
 } ReusableNode;
 
-static inline ReusableNode reusable_node_new() {
+static inline ReusableNode reusable_node_new(void) {
   return (ReusableNode) {array_new(), NULL_SUBTREE};
 }
 

@@ -3,7 +3,7 @@ use std::env;
 use std::fs;
 use std::path::Path;
 use std::process::exit;
-use std::usize;
+use std::{u64, usize};
 use tree_sitter_cli::{
     config, error, generate, highlight, loader, logger, parse, properties, test,
 };
@@ -49,10 +49,13 @@ fn run() -> error::Result<()> {
                         .multiple(true)
                         .required(true),
                 )
+                .arg(Arg::with_name("scope").long("scope").takes_value(true))
                 .arg(Arg::with_name("debug").long("debug").short("d"))
                 .arg(Arg::with_name("debug-graph").long("debug-graph").short("D"))
                 .arg(Arg::with_name("quiet").long("quiet").short("q"))
-                .arg(Arg::with_name("time").long("time").short("t")),
+                .arg(Arg::with_name("time").long("time").short("t"))
+                .arg(Arg::with_name("allow-cancellation").long("cancel"))
+                .arg(Arg::with_name("timeout").long("timeout").takes_value(true)),
         )
         .subcommand(
             SubCommand::with_name("test")
@@ -76,7 +79,8 @@ fn run() -> error::Result<()> {
                         .required(true),
                 )
                 .arg(Arg::with_name("scope").long("scope").takes_value(true))
-                .arg(Arg::with_name("html").long("html").short("h")),
+                .arg(Arg::with_name("html").long("html").short("h"))
+                .arg(Arg::with_name("time").long("time").short("t")),
         )
         .get_matches();
 
@@ -131,6 +135,10 @@ fn run() -> error::Result<()> {
         let debug_graph = matches.is_present("debug-graph");
         let quiet = matches.is_present("quiet");
         let time = matches.is_present("time");
+        let allow_cancellation = matches.is_present("allow-cancellation");
+        let timeout = matches
+            .value_of("timeout")
+            .map_or(0, |t| u64::from_str_radix(t, 10).unwrap());
         loader.find_all_languages(&config.parser_directories)?;
         let paths = matches
             .values_of("path")
@@ -141,23 +149,30 @@ fn run() -> error::Result<()> {
         let mut has_error = false;
         for path in paths {
             let path = Path::new(path);
-            let language =
-                if let Some((l, _)) = loader.language_configuration_for_file_name(path)? {
-                    l
-                } else if let Some(l) = loader.language_at_path(&current_dir)? {
-                    l
+            let language = if let Some(scope) = matches.value_of("scope") {
+                if let Some(config) = loader.language_configuration_for_scope(scope)? {
+                    config.0
                 } else {
-                    eprintln!("No language found");
-                    return Ok(());
-                };
+                    return Err(error::Error(format!("Unknown scope '{}'", scope)));
+                }
+            } else if let Some((l, _)) = loader.language_configuration_for_file_name(path)? {
+                l
+            } else if let Some(l) = loader.language_at_path(&current_dir)? {
+                l
+            } else {
+                eprintln!("No language found");
+                return Ok(());
+            };
             has_error |= parse::parse_file_at_path(
                 language,
                 path,
                 max_path_length,
                 quiet,
                 time,
+                timeout,
                 debug,
                 debug_graph,
+                allow_cancellation,
             )?;
         }
 
@@ -167,6 +182,7 @@ fn run() -> error::Result<()> {
     } else if let Some(matches) = matches.subcommand_matches("highlight") {
         let paths = matches.values_of("path").unwrap().into_iter();
         let html_mode = matches.is_present("html");
+        let time = matches.is_present("time");
         loader.find_all_languages(&config.parser_directories)?;
 
         if html_mode {
@@ -201,7 +217,7 @@ fn run() -> error::Result<()> {
                 if html_mode {
                     highlight::html(&loader, &config.theme, &source, language, sheet)?;
                 } else {
-                    highlight::ansi(&loader, &config.theme, &source, language, sheet)?;
+                    highlight::ansi(&loader, &config.theme, &source, language, sheet, time)?;
                 }
             } else {
                 return Err(error::Error(format!(

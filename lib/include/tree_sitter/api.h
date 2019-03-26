@@ -79,7 +79,7 @@ typedef struct {
   uint32_t context[2];
 } TSTreeCursor;
 
-TSParser *ts_parser_new();
+TSParser *ts_parser_new(void);
 void ts_parser_delete(TSParser *);
 const TSLanguage *ts_parser_language(const TSParser *);
 bool ts_parser_set_language(TSParser *, const TSLanguage *);
@@ -90,10 +90,10 @@ void ts_parser_halt_on_error(TSParser *, bool);
 TSTree *ts_parser_parse(TSParser *, const TSTree *, TSInput);
 TSTree *ts_parser_parse_string(TSParser *, const TSTree *, const char *, uint32_t);
 TSTree *ts_parser_parse_string_encoding(TSParser *, const TSTree *, const char *, uint32_t, TSInputEncoding);
-bool ts_parser_enabled(const TSParser *);
-void ts_parser_set_enabled(TSParser *, bool);
-size_t ts_parser_operation_limit(const TSParser *);
-void ts_parser_set_operation_limit(TSParser *, size_t);
+const size_t *ts_parser_cancellation_flag(const TSParser *);
+void ts_parser_set_cancellation_flag(TSParser *, const size_t *);
+uint64_t ts_parser_timeout_micros(const TSParser *);
+void ts_parser_set_timeout_micros(TSParser *, uint64_t);
 void ts_parser_reset(TSParser *);
 void ts_parser_set_included_ranges(TSParser *, const TSRange *, uint32_t);
 const TSRange *ts_parser_included_ranges(const TSParser *, uint32_t *);

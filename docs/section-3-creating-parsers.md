@@ -77,7 +77,7 @@ Then run the the following command:
 tree-sitter generate
 ```
 
-This will generate the C code required to parse this trivial language, as well as all of the files needed to compile and load this native parser as a Node.js module. You can test this parser by creating a source file with the contents `hello;` and parsing it:
+This will generate the C code required to parse this trivial language, as well as all of the files needed to compile and load this native parser as a Node.js module. You can test this parser by creating a source file with the contents `hello` and parsing it:
 
 ```sh
 tree-sitter parse ./the-file
@@ -86,7 +86,7 @@ tree-sitter parse ./the-file
 This should print the following:
 
 ```
-(source_file [0, 0] - [0, 5])
+(source_file [1, 0] - [1, 5])
 ```
 
 You might notice that the first time you run `tree-sitter parse`, it takes a few seconds. This is because Tree-sitter automatically compiles your C code into a dynamically-loadable library. Whenever you make changes to your grammar, you can update the parser simply by re-running `tree-sitter generate`. When the parser changes, Tree-sitter will recompile it as needed.

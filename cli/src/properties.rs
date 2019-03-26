@@ -1113,6 +1113,28 @@ mod tests {
                 ),
             ])
         );
+
+        // Handle differently-formatted calls
+        let sheet2 = generate_property_sheet(
+            "foo.css",
+            "
+                a {
+                  b: f();
+                  c: f(
+                      g(h),
+                      i,
+                      \"j\",
+                      10
+                  );
+                }
+            ",
+        )
+        .unwrap();
+
+        assert_eq!(
+            query_simple(&sheet2, vec!["a"])["c"],
+            query_simple(&sheet, vec!["a"])["c"]
+        );
     }
 
     #[test]

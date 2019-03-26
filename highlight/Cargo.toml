@@ -1,7 +1,7 @@
 [package]
 name = "tree-sitter-highlight"
 description = "Library for performing syntax highlighting with Tree-sitter"
-version = "0.1.4"
+version = "0.1.5"
 authors = [
   "Max Brunsfeld <maxbrunsfeld@gmail.com>",
   "Tim Clem <timothy.clem@gmail.com>"
@@ -11,6 +11,9 @@ readme = "README.md"
 edition = "2018"
 keywords = ["incremental", "parsing", "syntax", "highlighting"]
 categories = ["parsing", "text-editors"]
+
+[lib]
+crate-type = ["lib", "staticlib"]
 
 [dependencies]
 regex = "1"

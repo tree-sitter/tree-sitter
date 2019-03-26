@@ -1,7 +1,8 @@
 use super::helpers::edits::{perform_edit, Edit, ReadRecorder};
 use super::helpers::fixtures::{get_language, get_test_language};
 use crate::generate::generate_parser_for_grammar;
-use std::{thread, usize};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{thread, time};
 use tree_sitter::{InputEdit, LogType, Parser, Point, Range};
 
 #[test]
@@ -56,6 +57,37 @@ fn test_parsing_with_logging() {
         "reduce sym:struct_item, child_count:3".to_string()
     )));
     assert!(messages.contains(&(LogType::Lex, "skip character:' '".to_string())));
+
+    for (_, m) in &messages {
+        assert!(!m.contains("row:0"));
+    }
+}
+
+#[test]
+#[cfg(unix)]
+fn test_parsing_with_debug_graph_enabled() {
+    use std::io::{BufRead, BufReader, Seek};
+
+    let has_zero_indexed_row = |s: &str| s.contains("position: 0,");
+
+    let mut parser = Parser::new();
+    parser.set_language(get_language("javascript")).unwrap();
+
+    let mut debug_graph_file = tempfile::tempfile().unwrap();
+    parser.print_dot_graphs(&debug_graph_file);
+    parser.parse("const zero = 0", None).unwrap();
+
+    debug_graph_file.seek(std::io::SeekFrom::Start(0)).unwrap();
+    let log_reader = BufReader::new(debug_graph_file)
+        .lines()
+        .map(|l| l.expect("Failed to read line from graph log"));
+    for line in log_reader {
+        assert!(
+            !has_zero_indexed_row(&line),
+            "Graph log output includes zero-indexed row: {}",
+            line
+        );
+    }
 }
 
 #[test]
@@ -269,84 +301,164 @@ fn test_parsing_on_multiple_threads() {
     assert_eq!(child_count_differences, &[1, 2, 3, 4]);
 }
 
-// Operation limits
+#[test]
+fn test_parsing_cancelled_by_another_thread() {
+    let cancellation_flag = Box::new(AtomicUsize::new(0));
+
+    let mut parser = Parser::new();
+    parser.set_language(get_language("javascript")).unwrap();
+    unsafe { parser.set_cancellation_flag(Some(&cancellation_flag)) };
+
+    // Long input - parsing succeeds
+    let tree = parser.parse_with(
+        &mut |offset, _| {
+            if offset == 0 {
+                b" ["
+            } else if offset >= 20000 {
+                b""
+            } else {
+                b"0,"
+            }
+        },
+        None,
+    );
+    assert!(tree.is_some());
+
+    let cancel_thread = thread::spawn(move || {
+        thread::sleep(time::Duration::from_millis(100));
+        cancellation_flag.store(1, Ordering::SeqCst);
+    });
+
+    // Infinite input
+    let tree = parser.parse_with(
+        &mut |offset, _| {
+            thread::yield_now();
+            thread::sleep(time::Duration::from_millis(10));
+            if offset == 0 {
+                b" ["
+            } else {
+                b"0,"
+            }
+        },
+        None,
+    );
+
+    // Parsing returns None because it was cancelled.
+    cancel_thread.join().unwrap();
+    assert!(tree.is_none());
+}
+
+// Timeouts
 
 #[test]
-fn test_parsing_with_an_operation_limit() {
+fn test_parsing_with_a_timeout() {
     let mut parser = Parser::new();
     parser.set_language(get_language("json")).unwrap();
 
-    // Start parsing from an infinite input. Parsing should abort after 5 "operations".
-    parser.set_operation_limit(5);
-    let mut call_count = 0;
+    // Parse an infinitely-long array, but pause after 100 microseconds of processing.
+    parser.set_timeout_micros(100);
+    let start_time = time::Instant::now();
     let tree = parser.parse_with(
-        &mut |_, _| {
-            if call_count == 0 {
-                call_count += 1;
-                b"[0"
+        &mut |offset, _| {
+            if offset == 0 {
+                b" ["
             } else {
-                call_count += 1;
-                b", 0"
+                b",0"
             }
         },
         None,
     );
     assert!(tree.is_none());
-    assert!(call_count >= 3);
-    assert!(call_count <= 8);
+    assert!(start_time.elapsed().as_micros() < 500);
 
-    // Resume parsing from the previous state.
-    call_count = 0;
-    parser.set_operation_limit(20);
+    // Continue parsing, but pause after 300 microseconds of processing.
+    parser.set_timeout_micros(1000);
+    let start_time = time::Instant::now();
+    let tree = parser.parse_with(
+        &mut |offset, _| {
+            if offset == 0 {
+                b" ["
+            } else {
+                b",0"
+            }
+        },
+        None,
+    );
+    assert!(tree.is_none());
+    assert!(start_time.elapsed().as_micros() > 500);
+    assert!(start_time.elapsed().as_micros() < 1500);
+
+    // Finish parsing
+    parser.set_timeout_micros(0);
     let tree = parser
         .parse_with(
-            &mut |_, _| {
-                if call_count == 0 {
-                    call_count += 1;
+            &mut |offset, _| {
+                if offset > 5000 {
+                    b""
+                } else if offset == 5000 {
                     b"]"
                 } else {
-                    b""
+                    b",0"
                 }
             },
             None,
         )
         .unwrap();
-    assert_eq!(
-        tree.root_node().to_sexp(),
-        "(value (array (number) (number) (number)))"
-    );
+    assert_eq!(tree.root_node().child(0).unwrap().kind(), "array");
 }
 
 #[test]
-fn test_parsing_with_a_reset_after_reaching_an_operation_limit() {
+fn test_parsing_with_a_timeout_and_a_reset() {
     let mut parser = Parser::new();
     parser.set_language(get_language("json")).unwrap();
 
-    parser.set_operation_limit(3);
-    let tree = parser.parse("[1234, 5, 6, 7, 8]", None);
+    parser.set_timeout_micros(30);
+    let tree = parser.parse(
+        "[\"ok\", 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]",
+        None,
+    );
     assert!(tree.is_none());
 
     // Without calling reset, the parser continues from where it left off, so
     // it does not see the changes to the beginning of the source code.
-    parser.set_operation_limit(usize::MAX);
-    let tree = parser.parse("[null, 5, 6, 4, 5]", None).unwrap();
+    parser.set_timeout_micros(0);
+    let tree = parser.parse(
+        "[null, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]",
+        None,
+    ).unwrap();
     assert_eq!(
-        tree.root_node().to_sexp(),
-        "(value (array (number) (number) (number) (number) (number)))"
+        tree.root_node()
+            .named_child(0)
+            .unwrap()
+            .named_child(0)
+            .unwrap()
+            .kind(),
+        "string"
     );
 
-    parser.set_operation_limit(3);
-    let tree = parser.parse("[1234, 5, 6, 7, 8]", None);
+    parser.set_timeout_micros(30);
+    let tree = parser.parse(
+        "[\"ok\", 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]",
+        None,
+    );
     assert!(tree.is_none());
 
     // By calling reset, we force the parser to start over from scratch so
     // that it sees the changes to the beginning of the source code.
-    parser.set_operation_limit(usize::MAX);
+    parser.set_timeout_micros(0);
     parser.reset();
-    let tree = parser.parse("[null, 5, 6, 4, 5]", None).unwrap();
+    let tree = parser.parse(
+        "[null, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]",
+        None,
+    ).unwrap();
     assert_eq!(
-        tree.root_node().to_sexp(),
-        "(value (array (null) (number) (number) (number) (number)))"
+        tree.root_node()
+            .named_child(0)
+            .unwrap()
+            .named_child(0)
+            .unwrap()
+            .kind(),
+        "null"
     );
 }
 
