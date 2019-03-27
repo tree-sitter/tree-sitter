@@ -99,21 +99,23 @@ fn generate_parser_for_grammar_with_opts(
     let input_grammar = parse_grammar(grammar_json)?;
     let (syntax_grammar, lexical_grammar, inlines, simple_aliases) =
         prepare_grammar(&input_grammar)?;
+    let variable_info = node_types::get_variable_info(&syntax_grammar, &lexical_grammar)?;
+    let node_types_json = node_types::generate_node_types_json(
+        &syntax_grammar,
+        &lexical_grammar,
+        &simple_aliases,
+        &variable_info,
+    );
     let (parse_table, main_lex_table, keyword_lex_table, keyword_capture_token) = build_tables(
         &syntax_grammar,
         &lexical_grammar,
         &simple_aliases,
+        &variable_info,
         &inlines,
         minimize,
         state_ids_to_log,
     )?;
     let name = input_grammar.name;
-    let node_types_json = node_types::generate_node_types_json(
-        &syntax_grammar,
-        &lexical_grammar,
-        &simple_aliases,
-        &parse_table.variable_info,
-    );
     let c_code = render_c_code(
         &name,
         parse_table,

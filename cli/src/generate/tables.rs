@@ -52,31 +52,10 @@ pub(crate) struct ProductionInfo {
     pub field_map: BTreeMap<String, Vec<FieldLocation>>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) enum ChildType {
-    Normal(Symbol),
-    Aliased(Alias),
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct FieldInfo {
-    pub required: bool,
-    pub multiple: bool,
-    pub types: Vec<ChildType>,
-}
-
-#[derive(Debug, Default, PartialEq, Eq)]
-pub(crate) struct VariableInfo {
-    pub fields: HashMap<String, FieldInfo>,
-    pub child_types: Vec<ChildType>,
-    pub has_multi_step_production: bool,
-}
-
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct ParseTable {
     pub states: Vec<ParseState>,
     pub symbols: Vec<Symbol>,
-    pub variable_info: Vec<VariableInfo>,
     pub production_infos: Vec<ProductionInfo>,
     pub max_aliased_production_length: usize,
 }

@@ -15,6 +15,7 @@ use self::token_conflicts::TokenConflictMap;
 use crate::error::Result;
 use crate::generate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
 use crate::generate::nfa::{CharacterSet, NfaCursor};
+use crate::generate::node_types::VariableInfo;
 use crate::generate::rules::{AliasMap, Symbol, SymbolType};
 use crate::generate::tables::{LexTable, ParseAction, ParseTable, ParseTableEntry};
 use log::info;
@@ -23,12 +24,18 @@ pub(crate) fn build_tables(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     simple_aliases: &AliasMap,
+    variable_info: &Vec<VariableInfo>,
     inlines: &InlinedProductionMap,
     minimize: bool,
     state_ids_to_log: Vec<usize>,
 ) -> Result<(ParseTable, LexTable, LexTable, Option<Symbol>)> {
-    let (mut parse_table, following_tokens) =
-        build_parse_table(syntax_grammar, lexical_grammar, inlines, state_ids_to_log)?;
+    let (mut parse_table, following_tokens) = build_parse_table(
+        syntax_grammar,
+        lexical_grammar,
+        inlines,
+        variable_info,
+        state_ids_to_log,
+    )?;
     let token_conflict_map = TokenConflictMap::new(lexical_grammar, following_tokens);
     let coincident_token_index = CoincidentTokenIndex::new(&parse_table, lexical_grammar);
     let keywords = identify_keywords(
