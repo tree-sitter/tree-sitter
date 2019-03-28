@@ -69,3 +69,39 @@ TSSymbolType ts_language_symbol_type(const TSLanguage *language, TSSymbol symbol
     return TSSymbolTypeAuxiliary;
   }
 }
+
+uint32_t ts_language_field_count(const TSLanguage *self) {
+  if (self->version >= TREE_SITTER_LANGUAGE_VERSION_WITH_FIELDS) {
+    return self->field_count;
+  } else {
+    return 0;
+  }
+}
+
+const char *ts_language_field_name_for_id(const TSLanguage *self, TSFieldId id) {
+  uint32_t count = ts_language_field_count(self);
+  if (count) {
+    return self->field_names[id];
+  } else {
+    return NULL;
+  }
+}
+
+TSFieldId ts_language_field_id_for_name(
+  const TSLanguage *self,
+  const char *name,
+  uint32_t name_length
+) {
+  uint32_t count = ts_language_field_count(self);
+  for (TSSymbol i = 1; i < count + 1; i++) {
+    switch (strncmp(name, self->field_names[i], name_length)) {
+      case 0:
+        return i;
+      case -1:
+        return 0;
+      default:
+        break;
+    }
+  }
+  return 0;
+}

@@ -114,6 +114,11 @@ impl InlinedProductionMapBuilder {
                                     inserted_step.alias = Some(alias.clone());
                                 }
                             }
+                            if let Some(field_name) = removed_step.field_name {
+                                for inserted_step in inserted_steps.iter_mut() {
+                                    inserted_step.field_name = Some(field_name.clone());
+                                }
+                            }
                             if let Some(last_inserted_step) = inserted_steps.last_mut() {
                                 if last_inserted_step.precedence == 0 {
                                     last_inserted_step.precedence = removed_step.precedence;
@@ -193,6 +198,7 @@ mod tests {
             expected_conflicts: Vec::new(),
             extra_tokens: Vec::new(),
             external_tokens: Vec::new(),
+            supertype_symbols: Vec::new(),
             word_token: None,
             variables_to_inline: vec![Symbol::non_terminal(1)],
             variables: vec![
@@ -323,6 +329,7 @@ mod tests {
             expected_conflicts: Vec::new(),
             extra_tokens: Vec::new(),
             external_tokens: Vec::new(),
+            supertype_symbols: Vec::new(),
             word_token: None,
         };
         let inline_map = process_inlines(&grammar);
@@ -424,6 +431,7 @@ mod tests {
             expected_conflicts: Vec::new(),
             extra_tokens: Vec::new(),
             external_tokens: Vec::new(),
+            supertype_symbols: Vec::new(),
             word_token: None,
         };
 

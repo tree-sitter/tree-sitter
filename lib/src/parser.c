@@ -681,7 +681,7 @@ static bool ts_parser__replace_children(TSParser *self, MutableSubtree *tree, Su
 
 static StackVersion ts_parser__reduce(TSParser *self, StackVersion version, TSSymbol symbol,
                                       uint32_t count, int dynamic_precedence,
-                                      uint16_t alias_sequence_id, bool fragile) {
+                                      uint16_t production_id, bool fragile) {
   uint32_t initial_version_count = ts_stack_version_count(self->stack);
   uint32_t removed_version_count = 0;
   StackSliceArray pop = ts_stack_pop_count(self->stack, version, count);
@@ -715,7 +715,7 @@ static StackVersion ts_parser__reduce(TSParser *self, StackVersion version, TSSy
     }
 
     MutableSubtree parent = ts_subtree_new_node(&self->tree_pool,
-      symbol, &children, alias_sequence_id, self->language
+      symbol, &children, production_id, self->language
     );
 
     // This pop operation may have caused multiple stack versions to collapse
@@ -741,7 +741,7 @@ static StackVersion ts_parser__reduce(TSParser *self, StackVersion version, TSSy
     }
 
     parent.ptr->dynamic_precedence += dynamic_precedence;
-    parent.ptr->alias_sequence_id = alias_sequence_id;
+    parent.ptr->production_id = production_id;
 
     TSStateId state = ts_stack_state(self->stack, slice_version);
     TSStateId next_state = ts_language_next_state(self->language, state, symbol);
@@ -797,7 +797,7 @@ static void ts_parser__accept(TSParser *self, StackVersion version, Subtree look
           &self->tree_pool,
           ts_subtree_symbol(child),
           &trees,
-          child.ptr->alias_sequence_id,
+          child.ptr->production_id,
           self->language
         ));
         ts_subtree_release(&self->tree_pool, child);
@@ -873,7 +873,7 @@ static bool ts_parser__do_all_potential_reductions(TSParser *self,
                 .symbol = action.params.symbol,
                 .count = action.params.child_count,
                 .dynamic_precedence = action.params.dynamic_precedence,
-                .alias_sequence_id = action.params.alias_sequence_id,
+                .production_id = action.params.production_id,
               });
           default:
             break;
@@ -887,7 +887,7 @@ static bool ts_parser__do_all_potential_reductions(TSParser *self,
 
       reduction_version = ts_parser__reduce(
         self, version, action.symbol, action.count,
-        action.dynamic_precedence, action.alias_sequence_id,
+        action.dynamic_precedence, action.production_id,
         true
       );
     }
@@ -1331,7 +1331,7 @@ static bool ts_parser__advance(
           LOG("reduce sym:%s, child_count:%u", SYM_NAME(action.params.symbol), action.params.child_count);
           StackVersion reduction_version = ts_parser__reduce(
             self, version, action.params.symbol, action.params.child_count,
-            action.params.dynamic_precedence, action.params.alias_sequence_id,
+            action.params.dynamic_precedence, action.params.production_id,
             is_fragile
           );
           if (reduction_version != STACK_VERSION_NONE) {
@@ -1549,7 +1549,10 @@ const TSLanguage *ts_parser_language(const TSParser *self) {
 }
 
 bool ts_parser_set_language(TSParser *self, const TSLanguage *language) {
-  if (language && language->version != TREE_SITTER_LANGUAGE_VERSION) return false;
+  if (language) {
+    if (language->version > TREE_SITTER_LANGUAGE_VERSION) return false;
+    if (language->version < TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION) return false;
+  }
 
   if (self->external_scanner_payload && self->language->external_scanner.destroy) {
     self->language->external_scanner.destroy(self->external_scanner_payload);

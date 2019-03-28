@@ -77,6 +77,12 @@ pub(super) fn extract_tokens(
         })
         .collect();
 
+    let supertype_symbols = grammar
+        .supertype_symbols
+        .into_iter()
+        .map(|symbol| symbol_replacer.replace_symbol(symbol))
+        .collect();
+
     let variables_to_inline = grammar
         .variables_to_inline
         .into_iter()
@@ -154,6 +160,7 @@ pub(super) fn extract_tokens(
             expected_conflicts,
             extra_tokens,
             variables_to_inline,
+            supertype_symbols,
             external_tokens,
             word_token,
         },
@@ -519,6 +526,7 @@ mod test {
             external_tokens: Vec::new(),
             expected_conflicts: Vec::new(),
             variables_to_inline: Vec::new(),
+            supertype_symbols: Vec::new(),
             word_token: None,
         }
     }

@@ -27,6 +27,7 @@ pub(crate) struct InputGrammar {
     pub expected_conflicts: Vec<Vec<String>>,
     pub external_tokens: Vec<Rule>,
     pub variables_to_inline: Vec<String>,
+    pub supertype_symbols: Vec<String>,
     pub word_token: Option<String>,
 }
 
@@ -54,6 +55,7 @@ pub(crate) struct ProductionStep {
     pub precedence: i32,
     pub associativity: Option<Associativity>,
     pub alias: Option<Alias>,
+    pub field_name: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -87,6 +89,7 @@ pub(crate) struct SyntaxGrammar {
     pub extra_tokens: Vec<Symbol>,
     pub expected_conflicts: Vec<Vec<Symbol>>,
     pub external_tokens: Vec<ExternalToken>,
+    pub supertype_symbols: Vec<Symbol>,
     pub variables_to_inline: Vec<Symbol>,
     pub word_token: Option<Symbol>,
 }
@@ -99,6 +102,7 @@ impl ProductionStep {
             precedence: 0,
             associativity: None,
             alias: None,
+            field_name: None,
         }
     }
 
@@ -108,6 +112,7 @@ impl ProductionStep {
             precedence,
             associativity,
             alias: self.alias,
+            field_name: self.field_name,
         }
     }
 
@@ -120,6 +125,16 @@ impl ProductionStep {
                 value: value.to_string(),
                 is_named,
             }),
+            field_name: self.field_name,
+        }
+    }
+    pub(crate) fn with_field_name(self, name: &str) -> Self {
+        Self {
+            symbol: self.symbol,
+            precedence: self.precedence,
+            associativity: self.associativity,
+            alias: self.alias,
+            field_name: Some(name.to_string()),
         }
     }
 }
@@ -171,6 +186,12 @@ impl Variable {
             kind: VariableType::Anonymous,
             rule,
         }
+    }
+}
+
+impl VariableType {
+    pub fn is_visible(&self) -> bool {
+        *self == VariableType::Named || *self == VariableType::Anonymous
     }
 }
 

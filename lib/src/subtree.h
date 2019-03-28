@@ -73,7 +73,7 @@ typedef struct {
       uint32_t node_count;
       uint32_t repeat_depth;
       int32_t dynamic_precedence;
-      uint16_t alias_sequence_id;
+      uint16_t production_id;
       struct {
         TSSymbol symbol;
         TSStateId parse_state;
@@ -229,9 +229,9 @@ static inline int32_t ts_subtree_dynamic_precedence(Subtree self) {
   return (self.data.is_inline || self.ptr->child_count == 0) ? 0 : self.ptr->dynamic_precedence;
 }
 
-static inline uint16_t ts_subtree_alias_sequence_id(Subtree self) {
+static inline uint16_t ts_subtree_production_id(Subtree self) {
   if (ts_subtree_child_count(self) > 0) {
-    return self.ptr->alias_sequence_id;
+    return self.ptr->production_id;
   } else {
     return 0;
   }

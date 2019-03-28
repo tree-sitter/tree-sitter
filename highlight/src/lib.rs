@@ -605,8 +605,9 @@ where
     }
 }
 
-impl<'a, T: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>> Iterator
-    for Highlighter<'a, T>
+impl<'a, T> Iterator for Highlighter<'a, T>
+where
+    T: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
 {
     type Item = HighlightEvent<'a>;
 
@@ -700,6 +701,31 @@ impl<'a, T: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>> Itera
         } else {
             None
         }
+    }
+}
+
+impl<'a, T> fmt::Debug for Highlighter<'a, T>
+where
+    T: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(layer) = self.layers.first() {
+            let node = layer.cursor.node();
+            let position = if layer.at_node_end {
+                node.end_position()
+            } else {
+                node.start_position()
+            };
+            write!(
+                f,
+                "{{Highlighter position: {:?}, kind: {}, at_end: {}, props: {:?}}}",
+                position,
+                node.kind(),
+                layer.at_node_end,
+                layer.cursor.node_properties()
+            )?;
+        }
+        Ok(())
     }
 }
 

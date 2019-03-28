@@ -1,11 +1,14 @@
 use super::grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType};
 use super::nfa::CharacterSet;
 use super::rules::{Alias, AliasMap, Symbol, SymbolType};
-use super::tables::{AdvanceAction, LexState, LexTable, ParseAction, ParseTable, ParseTableEntry};
+use super::tables::{
+    AdvanceAction, FieldLocation, LexState, LexTable, ParseAction, ParseTable, ParseTableEntry,
+};
 use core::ops::Range;
 use hashbrown::{HashMap, HashSet};
 use std::fmt::Write;
 use std::mem::swap;
+use tree_sitter::LANGUAGE_VERSION;
 
 macro_rules! add {
     ($this: tt, $($arg: tt)*) => {{
@@ -56,10 +59,12 @@ struct Generator {
     alias_ids: HashMap<Alias, String>,
     external_scanner_states: Vec<HashSet<usize>>,
     alias_map: HashMap<Alias, Option<Symbol>>,
+    field_names: Vec<String>,
 }
 
 impl Generator {
     fn generate(mut self) -> String {
+        self.init();
         self.add_includes();
         self.add_pragmas();
         self.add_stats();
@@ -67,7 +72,13 @@ impl Generator {
         self.add_symbol_names_list();
         self.add_symbol_metadata_list();
 
-        if self.parse_table.alias_sequences.len() > 1 {
+        if !self.field_names.is_empty() {
+            self.add_field_name_enum();
+            self.add_field_name_names_list();
+            self.add_field_sequences();
+        }
+
+        if !self.alias_ids.is_empty() {
             self.add_alias_sequences();
         }
 
@@ -93,6 +104,49 @@ impl Generator {
         self.add_parser_export();
 
         self.buffer
+    }
+
+    fn init(&mut self) {
+        let mut symbol_identifiers = HashSet::new();
+        for i in 0..self.parse_table.symbols.len() {
+            self.assign_symbol_id(self.parse_table.symbols[i], &mut symbol_identifiers);
+        }
+
+        let mut field_names = Vec::new();
+        for production_info in &self.parse_table.production_infos {
+            for field_name in production_info.field_map.keys() {
+                field_names.push(field_name);
+            }
+
+            for alias in &production_info.alias_sequence {
+                if let Some(alias) = &alias {
+                    let alias_kind = if alias.is_named {
+                        VariableType::Named
+                    } else {
+                        VariableType::Anonymous
+                    };
+                    let matching_symbol = self.parse_table.symbols.iter().cloned().find(|symbol| {
+                        let (name, kind) = self.metadata_for_symbol(*symbol);
+                        name == alias.value && kind == alias_kind
+                    });
+                    let alias_id = if let Some(symbol) = matching_symbol {
+                        self.symbol_ids[&symbol].clone()
+                    } else if alias.is_named {
+                        format!("alias_sym_{}", self.sanitize_identifier(&alias.value))
+                    } else {
+                        format!("anon_alias_sym_{}", self.sanitize_identifier(&alias.value))
+                    };
+                    self.alias_ids.entry(alias.clone()).or_insert(alias_id);
+                    self.alias_map
+                        .entry(alias.clone())
+                        .or_insert(matching_symbol);
+                }
+            }
+        }
+
+        field_names.sort_unstable();
+        field_names.dedup();
+        self.field_names = field_names.into_iter().cloned().collect();
     }
 
     fn add_includes(&mut self) {
@@ -143,39 +197,7 @@ impl Generator {
             })
             .count();
 
-        let mut symbol_identifiers = HashSet::new();
-        for i in 0..self.parse_table.symbols.len() {
-            self.assign_symbol_id(self.parse_table.symbols[i], &mut symbol_identifiers);
-        }
-
-        for alias_sequence in &self.parse_table.alias_sequences {
-            for entry in alias_sequence {
-                if let Some(alias) = entry {
-                    let alias_kind = if alias.is_named {
-                        VariableType::Named
-                    } else {
-                        VariableType::Anonymous
-                    };
-                    let matching_symbol = self.parse_table.symbols.iter().cloned().find(|symbol| {
-                        let (name, kind) = self.metadata_for_symbol(*symbol);
-                        name == alias.value && kind == alias_kind
-                    });
-                    let alias_id = if let Some(symbol) = matching_symbol {
-                        self.symbol_ids[&symbol].clone()
-                    } else if alias.is_named {
-                        format!("alias_sym_{}", self.sanitize_identifier(&alias.value))
-                    } else {
-                        format!("anon_alias_sym_{}", self.sanitize_identifier(&alias.value))
-                    };
-                    self.alias_ids.entry(alias.clone()).or_insert(alias_id);
-                    self.alias_map
-                        .entry(alias.clone())
-                        .or_insert(matching_symbol);
-                }
-            }
-        }
-
-        add_line!(self, "#define LANGUAGE_VERSION {}", 9);
+        add_line!(self, "#define LANGUAGE_VERSION {}", LANGUAGE_VERSION);
         add_line!(
             self,
             "#define STATE_COUNT {}",
@@ -197,6 +219,7 @@ impl Generator {
             "#define EXTERNAL_TOKEN_COUNT {}",
             self.syntax_grammar.external_tokens.len()
         );
+        add_line!(self, "#define FIELD_COUNT {}", self.field_names.len());
         add_line!(
             self,
             "#define MAX_ALIAS_SEQUENCE_LENGTH {}",
@@ -247,6 +270,34 @@ impl Generator {
                     self.sanitize_string(&alias.value)
                 );
             }
+        }
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+    }
+
+    fn add_field_name_enum(&mut self) {
+        add_line!(self, "enum {{");
+        indent!(self);
+        for (i, field_name) in self.field_names.iter().enumerate() {
+            add_line!(self, "{} = {},", self.field_id(field_name), i + 1);
+        }
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+    }
+
+    fn add_field_name_names_list(&mut self) {
+        add_line!(self, "static const char *ts_field_names[] = {{");
+        indent!(self);
+        add_line!(self, "[0] = NULL,");
+        for field_name in &self.field_names {
+            add_line!(
+                self,
+                "[{}] = \"{}\",",
+                self.field_id(field_name),
+                field_name
+            );
         }
         dedent!(self);
         add_line!(self, "}};");
@@ -307,13 +358,17 @@ impl Generator {
         add_line!(
             self,
             "static TSSymbol ts_alias_sequences[{}][MAX_ALIAS_SEQUENCE_LENGTH] = {{",
-            self.parse_table.alias_sequences.len()
+            self.parse_table.production_infos.len()
         );
         indent!(self);
-        for (i, sequence) in self.parse_table.alias_sequences.iter().enumerate().skip(1) {
+        for (i, production_info) in self.parse_table.production_infos.iter().enumerate() {
+            if production_info.alias_sequence.is_empty() {
+                continue;
+            }
+
             add_line!(self, "[{}] = {{", i);
             indent!(self);
-            for (j, alias) in sequence.iter().enumerate() {
+            for (j, alias) in production_info.alias_sequence.iter().enumerate() {
                 if let Some(alias) = alias {
                     add_line!(self, "[{}] = {},", j, self.alias_ids[&alias]);
                 }
@@ -321,6 +376,81 @@ impl Generator {
             dedent!(self);
             add_line!(self, "}},");
         }
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+    }
+
+    fn add_field_sequences(&mut self) {
+        let mut flat_field_maps = vec![];
+        let mut next_flat_field_map_index = 0;
+        self.get_field_map_id(
+            &Vec::new(),
+            &mut flat_field_maps,
+            &mut next_flat_field_map_index,
+        );
+
+        let mut field_map_ids = Vec::new();
+        for production_info in &self.parse_table.production_infos {
+            if !production_info.field_map.is_empty() {
+                let mut flat_field_map = Vec::new();
+                for (field_name, locations) in &production_info.field_map {
+                    for location in locations {
+                        flat_field_map.push((field_name.clone(), *location));
+                    }
+                }
+                field_map_ids.push((
+                    self.get_field_map_id(
+                        &flat_field_map,
+                        &mut flat_field_maps,
+                        &mut next_flat_field_map_index,
+                    ),
+                    flat_field_map.len(),
+                ));
+            } else {
+                field_map_ids.push((0, 0));
+            }
+        }
+
+        add_line!(
+            self,
+            "static const TSFieldMapSlice ts_field_map_slices[] = {{",
+        );
+        indent!(self);
+        for (production_id, (row_id, length)) in field_map_ids.into_iter().enumerate() {
+            if length > 0 {
+                add_line!(
+                    self,
+                    "[{}] = {{.index = {}, .length = {}}},",
+                    production_id,
+                    row_id,
+                    length
+                );
+            }
+        }
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+
+        add_line!(
+            self,
+            "static const TSFieldMapEntry ts_field_map_entries[] = {{",
+        );
+        indent!(self);
+        for (row_index, field_pairs) in flat_field_maps.into_iter().skip(1) {
+            add_line!(self, "[{}] =", row_index);
+            indent!(self);
+            for (field_name, location) in field_pairs {
+                add_whitespace!(self);
+                add!(self, "{{{}, {}", self.field_id(&field_name), location.index);
+                if location.inherited {
+                    add!(self, ", .inherited = true");
+                }
+                add!(self, "}},\n");
+            }
+            dedent!(self);
+        }
+
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
@@ -686,15 +816,15 @@ impl Generator {
                         symbol,
                         child_count,
                         dynamic_precedence,
-                        alias_sequence_id,
+                        production_id,
                         ..
                     } => {
                         add!(self, "REDUCE({}, {}", self.symbol_ids[&symbol], child_count);
                         if dynamic_precedence != 0 {
                             add!(self, ", .dynamic_precedence = {}", dynamic_precedence);
                         }
-                        if alias_sequence_id != 0 {
-                            add!(self, ", .alias_sequence_id = {}", alias_sequence_id);
+                        if production_id != 0 {
+                            add!(self, ", .production_id = {}", production_id);
                         }
                         add!(self, ")");
                     }
@@ -759,10 +889,24 @@ impl Generator {
         add_line!(self, ".lex_modes = ts_lex_modes,");
         add_line!(self, ".symbol_names = ts_symbol_names,");
 
-        if self.parse_table.alias_sequences.len() > 1 {
+        if !self.alias_ids.is_empty() {
             add_line!(
                 self,
                 ".alias_sequences = (const TSSymbol *)ts_alias_sequences,"
+            );
+        }
+
+        add_line!(self, ".field_count = FIELD_COUNT,");
+
+        if !self.field_names.is_empty() {
+            add_line!(self, ".field_names = ts_field_names,");
+            add_line!(
+                self,
+                ".field_map_slices = (const TSFieldMapSlice *)ts_field_map_slices,"
+            );
+            add_line!(
+                self,
+                ".field_map_entries = (const TSFieldMapEntry *)ts_field_map_entries,"
             );
         }
 
@@ -820,6 +964,22 @@ impl Generator {
         result
     }
 
+    fn get_field_map_id(
+        &self,
+        flat_field_map: &Vec<(String, FieldLocation)>,
+        flat_field_maps: &mut Vec<(usize, Vec<(String, FieldLocation)>)>,
+        next_flat_field_map_index: &mut usize,
+    ) -> usize {
+        if let Some((index, _)) = flat_field_maps.iter().find(|(_, e)| *e == *flat_field_map) {
+            return *index;
+        }
+
+        let result = *next_flat_field_map_index;
+        flat_field_maps.push((result, flat_field_map.clone()));
+        *next_flat_field_map_index += flat_field_map.len();
+        result
+    }
+
     fn get_external_scanner_state_id(&mut self, external_tokens: HashSet<usize>) -> usize {
         self.external_scanner_states
             .iter()
@@ -863,6 +1023,10 @@ impl Generator {
 
         used_identifiers.insert(id.clone());
         self.symbol_ids.insert(symbol, id);
+    }
+
+    fn field_id(&self, field_name: &String) -> String {
+        format!("field_{}", field_name)
     }
 
     fn metadata_for_symbol(&self, symbol: Symbol) -> (&str, VariableType) {
@@ -996,6 +1160,7 @@ pub(crate) fn render_c_code(
         alias_ids: HashMap::new(),
         external_scanner_states: Vec::new(),
         alias_map: HashMap::new(),
+        field_names: Vec::new(),
     }
     .generate()
 }

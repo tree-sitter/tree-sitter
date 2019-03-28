@@ -26,6 +26,10 @@ enum RuleJSON {
     CHOICE {
         members: Vec<RuleJSON>,
     },
+    FIELD {
+        name: String,
+        content: Box<RuleJSON>,
+    },
     SEQ {
         members: Vec<RuleJSON>,
     },
@@ -67,6 +71,7 @@ struct GrammarJSON {
     externals: Option<Vec<RuleJSON>>,
     extras: Option<Vec<RuleJSON>>,
     inline: Option<Vec<String>>,
+    supertypes: Option<Vec<String>>,
     word: Option<String>,
 }
 
@@ -96,6 +101,7 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
         .collect();
     let expected_conflicts = grammar_json.conflicts.unwrap_or(Vec::new());
     let variables_to_inline = grammar_json.inline.unwrap_or(Vec::new());
+    let supertype_symbols = grammar_json.supertypes.unwrap_or(Vec::new());
 
     Ok(InputGrammar {
         name: grammar_json.name,
@@ -104,6 +110,7 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
         extra_tokens,
         expected_conflicts,
         external_tokens,
+        supertype_symbols,
         variables_to_inline,
     })
 }
@@ -120,6 +127,7 @@ fn parse_rule(json: RuleJSON) -> Rule {
         RuleJSON::PATTERN { value } => Rule::Pattern(value),
         RuleJSON::SYMBOL { name } => Rule::NamedSymbol(name),
         RuleJSON::CHOICE { members } => Rule::choice(members.into_iter().map(parse_rule).collect()),
+        RuleJSON::FIELD { content, name } => Rule::field(name, parse_rule(*content)),
         RuleJSON::SEQ { members } => Rule::seq(members.into_iter().map(parse_rule).collect()),
         RuleJSON::REPEAT1 { content } => Rule::repeat(parse_rule(*content)),
         RuleJSON::REPEAT { content } => {

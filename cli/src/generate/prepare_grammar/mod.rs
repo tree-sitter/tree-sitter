@@ -25,6 +25,7 @@ pub(crate) struct IntermediateGrammar<T, U> {
     expected_conflicts: Vec<Vec<Symbol>>,
     external_tokens: Vec<U>,
     variables_to_inline: Vec<Symbol>,
+    supertype_symbols: Vec<Symbol>,
     word_token: Option<Symbol>,
 }
 

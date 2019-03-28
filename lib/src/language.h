@@ -9,6 +9,7 @@ extern "C" {
 #include "tree_sitter/parser.h"
 
 #define ts_builtin_sym_error_repeat (ts_builtin_sym_error - 1)
+#define TREE_SITTER_LANGUAGE_VERSION_WITH_FIELDS 10
 
 typedef struct {
   const TSParseAction *actions;
@@ -81,10 +82,27 @@ ts_language_enabled_external_tokens(const TSLanguage *self,
 }
 
 static inline const TSSymbol *
-ts_language_alias_sequence(const TSLanguage *self, unsigned id) {
-  return id > 0 ?
-    self->alias_sequences + id * self->max_alias_sequence_length :
+ts_language_alias_sequence(const TSLanguage *self, uint32_t production_id) {
+  return production_id > 0 ?
+    self->alias_sequences + production_id * self->max_alias_sequence_length :
     NULL;
+}
+
+static inline void ts_language_field_map(
+  const TSLanguage *self,
+  uint32_t production_id,
+  const TSFieldMapEntry **start,
+  const TSFieldMapEntry **end
+) {
+  if (self->version < TREE_SITTER_LANGUAGE_VERSION_WITH_FIELDS || self->field_count == 0) {
+    *start = NULL;
+    *end = NULL;
+    return;
+  }
+
+  TSFieldMapSlice slice = self->field_map_slices[production_id];
+  *start = &self->field_map_entries[slice.index];
+  *end = &self->field_map_entries[slice.index] + slice.length;
 }
 
 #ifdef __cplusplus

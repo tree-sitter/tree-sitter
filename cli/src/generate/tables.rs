@@ -1,8 +1,9 @@
 use super::nfa::CharacterSet;
 use super::rules::{Alias, Associativity, Symbol};
 use hashbrown::HashMap;
+use std::collections::BTreeMap;
 
-pub(crate) type AliasSequenceId = usize;
+pub(crate) type ProductionInfoId = usize;
 pub(crate) type ParseStateId = usize;
 pub(crate) type LexStateId = usize;
 
@@ -21,7 +22,7 @@ pub(crate) enum ParseAction {
         precedence: i32,
         dynamic_precedence: i32,
         associativity: Option<Associativity>,
-        alias_sequence_id: AliasSequenceId,
+        production_id: ProductionInfoId,
     },
 }
 
@@ -39,11 +40,23 @@ pub(crate) struct ParseState {
     pub unfinished_item_signature: u64,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct FieldLocation {
+    pub index: usize,
+    pub inherited: bool,
+}
+
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(crate) struct ProductionInfo {
+    pub alias_sequence: Vec<Option<Alias>>,
+    pub field_map: BTreeMap<String, Vec<FieldLocation>>,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct ParseTable {
     pub states: Vec<ParseState>,
     pub symbols: Vec<Symbol>,
-    pub alias_sequences: Vec<Vec<Option<Alias>>>,
+    pub production_infos: Vec<ProductionInfo>,
     pub max_aliased_production_length: usize,
 }
 

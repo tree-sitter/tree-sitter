@@ -833,7 +833,7 @@ fn test_parsing_with_included_ranges_and_missing_tokens() {
     let root = tree.root_node();
     assert_eq!(
         root.to_sexp(),
-        "(program (A (MISSING)) (b) (c) (A (MISSING)) (b) (c))"
+        "(program (A (MISSING a)) (b) (c) (A (MISSING a)) (b) (c))"
     );
     assert_eq!(root.start_byte(), 2);
     assert_eq!(root.child(3).unwrap().start_byte(), 4);

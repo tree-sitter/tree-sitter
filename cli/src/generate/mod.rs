@@ -13,6 +13,7 @@ use std::process::{Command, Stdio};
 mod build_tables;
 mod grammars;
 mod nfa;
+mod node_types;
 mod npm_files;
 mod parse_grammar;
 mod prepare_grammar;
@@ -25,6 +26,12 @@ lazy_static! {
         .multi_line(true)
         .build()
         .unwrap();
+}
+
+struct GeneratedParser {
+    name: String,
+    c_code: String,
+    node_types_json: String,
 }
 
 pub fn generate_parser_in_directory(
@@ -51,9 +58,15 @@ pub fn generate_parser_in_directory(
         }
     }
 
-    let (language_name, c_code) =
-        generate_parser_for_grammar_with_opts(&grammar_json, minimize, state_ids_to_log)?;
+    let GeneratedParser {
+        name: language_name,
+        c_code,
+        node_types_json,
+    } = generate_parser_for_grammar_with_opts(&grammar_json, minimize, state_ids_to_log)?;
+
     fs::write(&repo_src_path.join("parser.c"), c_code)
+        .map_err(|e| format!("Failed to write parser.c: {}", e))?;
+    fs::write(&repo_src_path.join("node-types.json"), node_types_json)
         .map_err(|e| format!("Failed to write parser.c: {}", e))?;
     fs::write(
         &repo_header_path.join("parser.h"),
@@ -74,27 +87,37 @@ pub fn generate_parser_in_directory(
 
 pub fn generate_parser_for_grammar(grammar_json: &str) -> Result<(String, String)> {
     let grammar_json = JSON_COMMENT_REGEX.replace_all(grammar_json, "\n");
-    generate_parser_for_grammar_with_opts(&grammar_json, true, Vec::new())
+    let parser = generate_parser_for_grammar_with_opts(&grammar_json, true, Vec::new())?;
+    Ok((parser.name, parser.c_code))
 }
 
 fn generate_parser_for_grammar_with_opts(
     grammar_json: &str,
     minimize: bool,
     state_ids_to_log: Vec<usize>,
-) -> Result<(String, String)> {
+) -> Result<GeneratedParser> {
     let input_grammar = parse_grammar(grammar_json)?;
     let (syntax_grammar, lexical_grammar, inlines, simple_aliases) =
         prepare_grammar(&input_grammar)?;
+    let variable_info = node_types::get_variable_info(&syntax_grammar, &lexical_grammar)?;
+    let node_types_json = node_types::generate_node_types_json(
+        &syntax_grammar,
+        &lexical_grammar,
+        &simple_aliases,
+        &variable_info,
+    );
     let (parse_table, main_lex_table, keyword_lex_table, keyword_capture_token) = build_tables(
         &syntax_grammar,
         &lexical_grammar,
         &simple_aliases,
+        &variable_info,
         &inlines,
         minimize,
         state_ids_to_log,
     )?;
+    let name = input_grammar.name;
     let c_code = render_c_code(
-        &input_grammar.name,
+        &name,
         parse_table,
         main_lex_table,
         keyword_lex_table,
@@ -103,7 +126,11 @@ fn generate_parser_for_grammar_with_opts(
         lexical_grammar,
         simple_aliases,
     );
-    Ok((input_grammar.name, c_code))
+    Ok(GeneratedParser {
+        name,
+        c_code,
+        node_types_json: serde_json::to_string_pretty(&node_types_json).unwrap(),
+    })
 }
 
 fn load_grammar_file(grammar_path: &Path) -> Result<String> {

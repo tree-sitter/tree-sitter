@@ -4,19 +4,20 @@ use crate::error::{Error, Result};
 use crate::generate::grammars::{
     InlinedProductionMap, LexicalGrammar, SyntaxGrammar, VariableType,
 };
-use crate::generate::rules::{Alias, Associativity, Symbol, SymbolType};
+use crate::generate::node_types::VariableInfo;
+use crate::generate::rules::{Associativity, Symbol, SymbolType};
 use crate::generate::tables::{
-    AliasSequenceId, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
+    FieldLocation, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
+    ProductionInfo, ProductionInfoId,
 };
 use core::ops::Range;
 use hashbrown::hash_map::Entry;
 use hashbrown::{HashMap, HashSet};
 use std::collections::hash_map::DefaultHasher;
-use std::collections::VecDeque;
-use std::u32;
-
+use std::collections::{BTreeMap, VecDeque};
 use std::fmt::Write;
 use std::hash::Hasher;
+use std::u32;
 
 #[derive(Clone)]
 struct AuxiliarySymbolInfo {
@@ -37,6 +38,7 @@ struct ParseTableBuilder<'a> {
     item_set_builder: ParseItemSetBuilder<'a>,
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
+    variable_info: &'a Vec<VariableInfo>,
     state_ids_by_item_set: HashMap<ParseItemSet<'a>, ParseStateId>,
     item_sets_by_state_id: Vec<ParseItemSet<'a>>,
     parse_state_queue: VecDeque<ParseStateQueueEntry>,
@@ -47,7 +49,9 @@ struct ParseTableBuilder<'a> {
 impl<'a> ParseTableBuilder<'a> {
     fn build(mut self) -> Result<ParseTable> {
         // Ensure that the empty alias sequence has index 0.
-        self.parse_table.alias_sequences.push(Vec::new());
+        self.parse_table
+            .production_infos
+            .push(ProductionInfo::default());
 
         // Add the error state at index 0.
         self.add_parse_state(&Vec::new(), &Vec::new(), ParseItemSet::default());
@@ -176,7 +180,7 @@ impl<'a> ParseTableBuilder<'a> {
                         precedence: item.precedence(),
                         associativity: item.associativity(),
                         dynamic_precedence: item.production.dynamic_precedence,
-                        alias_sequence_id: self.get_alias_sequence_id(item),
+                        production_id: self.get_production_id(item),
                     }
                 };
 
@@ -441,13 +445,10 @@ impl<'a> ParseTableBuilder<'a> {
         .unwrap();
         write!(&mut msg, "Possible interpretations:\n\n").unwrap();
 
-        let interpretions = conflicting_items
+        let mut interpretions = conflicting_items
             .iter()
-            .enumerate()
-            .map(|(i, item)| {
+            .map(|item| {
                 let mut line = String::new();
-                write!(&mut line, "  {}:", i + 1).unwrap();
-
                 for preceding_symbol in preceding_symbols
                     .iter()
                     .take(preceding_symbols.len() - item.step_index as usize)
@@ -503,8 +504,9 @@ impl<'a> ParseTableBuilder<'a> {
             .map(|i| i.0.chars().count())
             .max()
             .unwrap();
-
-        for (line, prec_suffix) in interpretions {
+        interpretions.sort_unstable();
+        for (i, (line, prec_suffix)) in interpretions.into_iter().enumerate() {
+            write!(&mut msg, "  {}:", i + 1).unwrap();
             msg += &line;
             if let Some(prec_suffix) = prec_suffix {
                 for _ in line.chars().count()..max_interpretation_length {
@@ -518,11 +520,12 @@ impl<'a> ParseTableBuilder<'a> {
 
         let mut resolution_count = 0;
         write!(&mut msg, "\nPossible resolutions:\n\n").unwrap();
-        let shift_items = conflicting_items
+        let mut shift_items = conflicting_items
             .iter()
             .filter(|i| !i.is_done())
             .cloned()
             .collect::<Vec<_>>();
+        shift_items.sort_unstable();
         if actual_conflict.len() > 1 {
             if shift_items.len() > 0 {
                 resolution_count += 1;
@@ -645,29 +648,62 @@ impl<'a> ParseTableBuilder<'a> {
         }
     }
 
-    fn get_alias_sequence_id(&mut self, item: &ParseItem) -> AliasSequenceId {
-        let mut alias_sequence: Vec<Option<Alias>> = item
-            .production
-            .steps
-            .iter()
-            .map(|s| s.alias.clone())
-            .collect();
-        while alias_sequence.last() == Some(&None) {
-            alias_sequence.pop();
+    fn get_production_id(&mut self, item: &ParseItem) -> ProductionInfoId {
+        let mut production_info = ProductionInfo {
+            alias_sequence: Vec::new(),
+            field_map: BTreeMap::new(),
+        };
+
+        for (i, step) in item.production.steps.iter().enumerate() {
+            production_info.alias_sequence.push(step.alias.clone());
+            if let Some(field_name) = &step.field_name {
+                production_info
+                    .field_map
+                    .entry(field_name.clone())
+                    .or_insert(Vec::new())
+                    .push(FieldLocation {
+                        index: i,
+                        inherited: false,
+                    });
+            }
+
+            if step.symbol.kind == SymbolType::NonTerminal
+                && !self.syntax_grammar.variables[step.symbol.index]
+                    .kind
+                    .is_visible()
+            {
+                let info = &self.variable_info[step.symbol.index];
+                for (field_name, _) in &info.fields {
+                    production_info
+                        .field_map
+                        .entry(field_name.clone())
+                        .or_insert(Vec::new())
+                        .push(FieldLocation {
+                            index: i,
+                            inherited: true,
+                        });
+                }
+            }
         }
+
+        while production_info.alias_sequence.last() == Some(&None) {
+            production_info.alias_sequence.pop();
+        }
+
         if item.production.steps.len() > self.parse_table.max_aliased_production_length {
             self.parse_table.max_aliased_production_length = item.production.steps.len()
         }
+
         if let Some(index) = self
             .parse_table
-            .alias_sequences
+            .production_infos
             .iter()
-            .position(|seq| *seq == alias_sequence)
+            .position(|seq| *seq == production_info)
         {
             index
         } else {
-            self.parse_table.alias_sequences.push(alias_sequence);
-            self.parse_table.alias_sequences.len() - 1
+            self.parse_table.production_infos.push(production_info);
+            self.parse_table.production_infos.len() - 1
         }
     }
 
@@ -718,6 +754,7 @@ pub(crate) fn build_parse_table(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     inlines: &InlinedProductionMap,
+    variable_info: &Vec<VariableInfo>,
     state_ids_to_log: Vec<usize>,
 ) -> Result<(ParseTable, Vec<TokenSet>)> {
     let item_set_builder = ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines);
@@ -734,13 +771,14 @@ pub(crate) fn build_parse_table(
         lexical_grammar,
         state_ids_to_log,
         item_set_builder,
+        variable_info,
         state_ids_by_item_set: HashMap::new(),
         item_sets_by_state_id: Vec::new(),
         parse_state_queue: VecDeque::new(),
         parse_table: ParseTable {
             states: Vec::new(),
             symbols: Vec::new(),
-            alias_sequences: Vec::new(),
+            production_infos: Vec::new(),
             max_aliased_production_length: 0,
         },
     }

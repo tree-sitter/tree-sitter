@@ -600,8 +600,6 @@ if (valid_symbols[INDENT] || valid_symbol[DEDENT]) {
 }
 ```
 
-
-
 [ambiguous-grammar]: https://en.wikipedia.org/wiki/Ambiguous_grammar
 [antlr]: http://www.antlr.org/
 [bison-dprec]: https://www.gnu.org/software/bison/manual/html_node/Generalized-LR-Parsing.html

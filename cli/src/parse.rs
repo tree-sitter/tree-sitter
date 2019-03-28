@@ -95,6 +95,9 @@ pub fn parse_file_at_path(
                         }
                         let start = node.start_position();
                         let end = node.end_position();
+                        if let Some(field_name) = cursor.field_name() {
+                            write!(&mut stdout, "{}: ", field_name)?;
+                        }
                         write!(
                             &mut stdout,
                             "({} [{}, {}] - [{}, {}]",

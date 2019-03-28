@@ -11,6 +11,7 @@ struct RuleFlattener {
     precedence_stack: Vec<i32>,
     associativity_stack: Vec<Associativity>,
     alias_stack: Vec<Alias>,
+    field_name_stack: Vec<String>,
 }
 
 impl RuleFlattener {
@@ -23,6 +24,7 @@ impl RuleFlattener {
             precedence_stack: Vec::new(),
             associativity_stack: Vec::new(),
             alias_stack: Vec::new(),
+            field_name_stack: Vec::new(),
         }
     }
 
@@ -60,6 +62,12 @@ impl RuleFlattener {
                     self.alias_stack.push(alias);
                 }
 
+                let mut has_field_name = false;
+                if let Some(field_name) = params.field_name {
+                    has_field_name = true;
+                    self.field_name_stack.push(field_name);
+                }
+
                 if params.dynamic_precedence.abs() > self.production.dynamic_precedence.abs() {
                     self.production.dynamic_precedence = params.dynamic_precedence;
                 }
@@ -86,6 +94,10 @@ impl RuleFlattener {
                     self.alias_stack.pop();
                 }
 
+                if has_field_name {
+                    self.field_name_stack.pop();
+                }
+
                 did_push
             }
             Rule::Symbol(symbol) => {
@@ -94,6 +106,7 @@ impl RuleFlattener {
                     precedence: self.precedence_stack.last().cloned().unwrap_or(0),
                     associativity: self.associativity_stack.last().cloned(),
                     alias: self.alias_stack.last().cloned(),
+                    field_name: self.field_name_stack.last().cloned(),
                 });
                 true
             }
@@ -190,6 +203,7 @@ unless they are used only as the grammar's start rule.
         expected_conflicts: grammar.expected_conflicts,
         variables_to_inline: grammar.variables_to_inline,
         external_tokens: grammar.external_tokens,
+        supertype_symbols: grammar.supertype_symbols,
         word_token: grammar.word_token,
         variables,
     })
@@ -353,6 +367,44 @@ mod tests {
                 steps: vec![ProductionStep::new(Symbol::non_terminal(1))
                     .with_prec(101, Some(Associativity::Left)),]
             }]
+        );
+    }
+
+    #[test]
+    fn test_flatten_grammar_with_field_names() {
+        let result = flatten_variable(Variable {
+            name: "test".to_string(),
+            kind: VariableType::Named,
+            rule: Rule::seq(vec![
+                Rule::field("first-thing".to_string(), Rule::terminal(1)),
+                Rule::terminal(2),
+                Rule::choice(vec![
+                    Rule::Blank,
+                    Rule::field("second-thing".to_string(), Rule::terminal(3)),
+                ]),
+            ]),
+        })
+        .unwrap();
+
+        assert_eq!(
+            result.productions,
+            vec![
+                Production {
+                    dynamic_precedence: 0,
+                    steps: vec![
+                        ProductionStep::new(Symbol::terminal(1)).with_field_name("first-thing"),
+                        ProductionStep::new(Symbol::terminal(2))
+                    ]
+                },
+                Production {
+                    dynamic_precedence: 0,
+                    steps: vec![
+                        ProductionStep::new(Symbol::terminal(1)).with_field_name("first-thing"),
+                        ProductionStep::new(Symbol::terminal(2)),
+                        ProductionStep::new(Symbol::terminal(3)).with_field_name("second-thing"),
+                    ]
+                },
+            ]
         );
     }
 }
