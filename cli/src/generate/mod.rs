@@ -73,14 +73,16 @@ pub fn generate_parser_in_directory(
         tree_sitter::PARSER_HEADER,
     )
     .map_err(|e| format!("Failed to write parser.h: {}", e))?;
+    fs::write(
+        &repo_path.join("index.js"),
+        npm_files::index_js(&language_name),
+    )
+    .map_err(|e| format!("Failed to write index.js: {}", e))?;
     ensure_file(&repo_src_path.join("binding.cc"), || {
         npm_files::binding_cc(&language_name)
     })?;
     ensure_file(&repo_path.join("binding.gyp"), || {
         npm_files::binding_gyp(&language_name)
-    })?;
-    ensure_file(&repo_path.join("index.js"), || {
-        npm_files::index_js(&language_name)
     })?;
     Ok(())
 }
