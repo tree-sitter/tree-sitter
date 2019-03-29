@@ -452,52 +452,41 @@ impl<'a> PartialEq for ParseItem<'a> {
 
 impl<'a> Ord for ParseItem<'a> {
     fn cmp(&self, other: &Self) -> Ordering {
-        let o = self.step_index.cmp(&other.step_index);
-        if o != Ordering::Equal {
-            return o;
-        }
-        let o = self.variable_index.cmp(&other.variable_index);
-        if o != Ordering::Equal {
-            return o;
-        }
-        let o = self
-            .production
-            .dynamic_precedence
-            .cmp(&other.production.dynamic_precedence);
-        if o != Ordering::Equal {
-            return o;
-        }
-        let o = self
-            .production
-            .steps
-            .len()
-            .cmp(&other.production.steps.len());
-        if o != Ordering::Equal {
-            return o;
-        }
-        let o = self.precedence().cmp(&other.precedence());
-        if o != Ordering::Equal {
-            return o;
-        }
-        let o = self.associativity().cmp(&other.associativity());
-        if o != Ordering::Equal {
-            return o;
-        }
-        for (i, step) in self.production.steps.iter().enumerate() {
-            // See the previous comment (in the `Hash::hash` impl) regarding comparisons
-            // of parse items' already-completed steps.
-            let o = if i < self.step_index as usize {
-                step.alias
-                    .cmp(&other.production.steps[i].alias)
-                    .then_with(|| step.field_name.cmp(&other.production.steps[i].field_name))
-            } else {
-                step.cmp(&other.production.steps[i])
-            };
-            if o != Ordering::Equal {
-                return o;
-            }
-        }
-        return Ordering::Equal;
+        self.step_index
+            .cmp(&other.step_index)
+            .then_with(|| self.variable_index.cmp(&other.variable_index))
+            .then_with(|| {
+                self.production
+                    .dynamic_precedence
+                    .cmp(&other.production.dynamic_precedence)
+            })
+            .then_with(|| {
+                self.production
+                    .steps
+                    .len()
+                    .cmp(&other.production.steps.len())
+            })
+            .then_with(|| self.precedence().cmp(&other.precedence()))
+            .then_with(|| self.associativity().cmp(&other.associativity()))
+            .then_with(|| {
+                for (i, step) in self.production.steps.iter().enumerate() {
+                    // See the previous comment (in the `Hash::hash` impl) regarding comparisons
+                    // of parse items' already-completed steps.
+                    let o = if i < self.step_index as usize {
+                        step.alias
+                            .cmp(&other.production.steps[i].alias)
+                            .then_with(|| {
+                                step.field_name.cmp(&other.production.steps[i].field_name)
+                            })
+                    } else {
+                        step.cmp(&other.production.steps[i])
+                    };
+                    if o != Ordering::Equal {
+                        return o;
+                    }
+                }
+                return Ordering::Equal;
+            })
     }
 }
 
