@@ -25,6 +25,10 @@ lazy_static! {
     };
 }
 
+// Because tokens are represented as small (~400 max) unsigned integers,
+// sets of tokens can be efficiently represented as bit vectors with each
+// index correspoding to a token, and each value representing whether or not
+// the token is present in the set.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct TokenSet {
     terminal_bits: SmallBitVec,
@@ -394,8 +398,20 @@ impl<'a> Hash for ParseItem<'a> {
         hasher.write_usize(self.production.steps.len());
         hasher.write_i32(self.precedence());
         self.associativity().hash(hasher);
+
+        // When comparing two parse items, the symbols that were already consumed by
+        // both items don't matter. Take for example these two items:
+        //   X -> a b • c
+        //   X -> a d • c
+        // These two items can be considered equivalent, for the purposes of parse
+        // table generation, because they entail the same actions. However, if the
+        // productions have different aliases or field names, they *cannot* be
+        // treated as equivalent, because those details are ultimately stored as
+        // attributes of the `REDUCE` action that will be performed when the item
+        // is finished.
         for step in &self.production.steps[0..self.step_index as usize] {
             step.alias.hash(hasher);
+            step.field_name.hash(hasher);
         }
         for step in &self.production.steps[self.step_index as usize..] {
             step.hash(hasher);
@@ -416,14 +432,17 @@ impl<'a> PartialEq for ParseItem<'a> {
         }
 
         for (i, step) in self.production.steps.iter().enumerate() {
+            // See the previous comment (in the `Hash::hash` impl) regarding comparisons
+            // of parse items' already-completed steps.
             if i < self.step_index as usize {
                 if step.alias != other.production.steps[i].alias {
                     return false;
                 }
-            } else {
-                if *step != other.production.steps[i] {
+                if step.field_name != other.production.steps[i].field_name {
                     return false;
                 }
+            } else if *step != other.production.steps[i] {
+                return false;
             }
         }
 
@@ -465,8 +484,12 @@ impl<'a> Ord for ParseItem<'a> {
             return o;
         }
         for (i, step) in self.production.steps.iter().enumerate() {
+            // See the previous comment (in the `Hash::hash` impl) regarding comparisons
+            // of parse items' already-completed steps.
             let o = if i < self.step_index as usize {
-                step.alias.cmp(&other.production.steps[i].alias)
+                step.alias
+                    .cmp(&other.production.steps[i].alias)
+                    .then_with(|| step.field_name.cmp(&other.production.steps[i].field_name))
             } else {
                 step.cmp(&other.production.steps[i])
             };
