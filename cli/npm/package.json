@@ -1,6 +1,6 @@
 {
   "name": "tree-sitter-cli",
-  "version": "0.14.5",
+  "version": "0.15.0",
   "author": "Max Brunsfeld",
   "license": "MIT",
   "repository": {
