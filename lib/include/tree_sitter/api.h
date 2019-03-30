@@ -351,6 +351,16 @@ void ts_tree_print_dot_graph(const TSTree *, FILE *);
 /******************/
 
 /**
+ * Get the node's type as a null-terminated string.
+ */
+const char *ts_node_type(TSNode);
+
+/**
+ * Get the node's type as a numerical id.
+ */
+TSSymbol ts_node_symbol(TSNode);
+
+/**
  * Get the node's start byte.
  */
 uint32_t ts_node_start_byte(TSNode);
@@ -371,10 +381,10 @@ uint32_t ts_node_end_byte(TSNode);
 TSPoint ts_node_end_point(TSNode);
 
 /**
- * Get the node's type as a null-terminated string.
+ * Get an S-expression representing the node as a string.
  *
- * This string is owned by the language and does *not* need to be freed by the
- * caller.
+ * This string is allocated with `malloc` and the caller is responsible for
+ * freeing it using `free`.
  */
 char *ts_node_string(TSNode);
 
