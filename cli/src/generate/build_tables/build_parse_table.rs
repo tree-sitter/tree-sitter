@@ -520,12 +520,17 @@ impl<'a> ParseTableBuilder<'a> {
 
         let mut resolution_count = 0;
         write!(&mut msg, "\nPossible resolutions:\n\n").unwrap();
-        let mut shift_items = conflicting_items
-            .iter()
-            .filter(|i| !i.is_done())
-            .cloned()
-            .collect::<Vec<_>>();
+        let mut shift_items = Vec::new();
+        let mut reduce_items = Vec::new();
+        for item in conflicting_items {
+            if item.is_done() {
+                reduce_items.push(item);
+            } else {
+                shift_items.push(item);
+            }
+        }
         shift_items.sort_unstable();
+        reduce_items.sort_unstable();
         if actual_conflict.len() > 1 {
             if shift_items.len() > 0 {
                 resolution_count += 1;
@@ -549,17 +554,15 @@ impl<'a> ParseTableBuilder<'a> {
                 write!(&mut msg, " than in the other rules.\n").unwrap();
             }
 
-            for item in &conflicting_items {
-                if item.is_done() {
-                    resolution_count += 1;
-                    write!(
-                        &mut msg,
-                        "  {}:  Specify a higher precedence in `{}` than in the other rules.\n",
-                        resolution_count,
-                        self.symbol_name(&Symbol::non_terminal(item.variable_index as usize))
-                    )
-                    .unwrap();
-                }
+            for item in &reduce_items {
+                resolution_count += 1;
+                write!(
+                    &mut msg,
+                    "  {}:  Specify a higher precedence in `{}` than in the other rules.\n",
+                    resolution_count,
+                    self.symbol_name(&Symbol::non_terminal(item.variable_index as usize))
+                )
+                .unwrap();
             }
         }
 
@@ -571,7 +574,7 @@ impl<'a> ParseTableBuilder<'a> {
                 resolution_count
             )
             .unwrap();
-            for (i, item) in conflicting_items.iter().filter(|i| i.is_done()).enumerate() {
+            for (i, item) in reduce_items.iter().enumerate() {
                 if i > 0 {
                     write!(&mut msg, " and ").unwrap();
                 }
