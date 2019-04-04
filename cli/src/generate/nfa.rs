@@ -397,6 +397,24 @@ impl<'a> NfaCursor<'a> {
             }
         }
         result.sort_unstable_by(|a, b| a.characters.cmp(&b.characters));
+
+        let mut i = 0;
+        'i_loop: while i < result.len() {
+            for j in 0..i {
+                if result[j].states == result[i].states
+                    && result[j].is_separator == result[i].is_separator
+                    && result[j].precedence == result[i].precedence
+                {
+                    let mut characters = CharacterSet::empty();
+                    swap(&mut characters, &mut result[j].characters);
+                    result[j].characters = characters.add(&result[i].characters);
+                    result.remove(i);
+                    continue 'i_loop;
+                }
+            }
+            i += 1;
+        }
+
         result
     }
 
@@ -611,11 +629,39 @@ mod tests {
                     },
                 ],
             ),
+            // disjoint characters with same state
+            (
+                vec![
+                    (CharacterSet::Include(vec!['a']), false, 0, 1),
+                    (CharacterSet::Include(vec!['b']), false, 0, 2),
+                    (CharacterSet::Include(vec!['c']), false, 0, 1),
+                    (CharacterSet::Include(vec!['d']), false, 0, 1),
+                    (CharacterSet::Include(vec!['e']), false, 0, 2),
+                ],
+                vec![
+                    NfaTransition {
+                        characters: CharacterSet::Include(vec!['a', 'c', 'd']),
+                        precedence: 0,
+                        states: vec![1],
+                        is_separator: false,
+                    },
+                    NfaTransition {
+                        characters: CharacterSet::Include(vec!['b', 'e']),
+                        precedence: 0,
+                        states: vec![2],
+                        is_separator: false,
+                    },
+                ],
+            ),
         ];
 
         for row in table.iter() {
             assert_eq!(
-                NfaCursor::group_transitions(row.0.iter().map(|(c, sep, p, s)| (c, *sep, *p, *s))),
+                NfaCursor::group_transitions(
+                    row.0
+                        .iter()
+                        .map(|(chars, is_sep, prec, state)| (chars, *is_sep, *prec, *state))
+                ),
                 row.1
             );
         }
