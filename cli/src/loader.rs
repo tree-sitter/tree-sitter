@@ -230,6 +230,7 @@ impl Loader {
                     .arg("-shared")
                     .arg("-fPIC")
                     .arg("-fno-exceptions")
+                    .arg("-g")
                     .arg("-I")
                     .arg(header_path)
                     .arg("-o")
