@@ -53,6 +53,7 @@ function optional(value) {
 }
 
 function prec(number, rule) {
+  checkPrecedence(number);
   checkArguments(
     arguments.length - 1,
     prec,
@@ -73,6 +74,7 @@ prec.left = function(number, rule) {
     number = 0;
   }
 
+  checkPrecedence(number);
   checkArguments(
     arguments.length - 1,
     prec.left,
@@ -93,6 +95,7 @@ prec.right = function(number, rule) {
     number = 0;
   }
 
+  checkPrecedence(number);
   checkArguments(
     arguments.length - 1,
     prec.right,
@@ -108,6 +111,7 @@ prec.right = function(number, rule) {
 }
 
 prec.dynamic = function(number, rule) {
+  checkPrecedence(number);
   checkArguments(
     arguments.length - 1,
     prec.dynamic,
@@ -368,6 +372,12 @@ function checkArguments(ruleCount, caller, callerName, suffix = '') {
     ].join('\n'));
     Error.captureStackTrace(error, caller);
     throw error
+  }
+}
+
+function checkPrecedence(value) {
+  if (value == null) {
+    throw new Error('Missing precedence value');
   }
 }
 
