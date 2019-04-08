@@ -4,12 +4,20 @@ use std::io::{self, Write};
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
-use std::{fs, thread};
-use tree_sitter::{Language, LogType, Parser};
+use std::{fs, thread, usize};
+use tree_sitter::{InputEdit, Language, LogType, Parser, Point, Tree};
+
+#[derive(Debug)]
+pub struct Edit {
+    pub position: usize,
+    pub deleted_length: usize,
+    pub inserted_text: Vec<u8>,
+}
 
 pub fn parse_file_at_path(
     language: Language,
     path: &Path,
+    edits: &Vec<&str>,
     max_path_length: usize,
     quiet: bool,
     print_time: bool,
@@ -21,7 +29,7 @@ pub fn parse_file_at_path(
     let mut _log_session = None;
     let mut parser = Parser::new();
     parser.set_language(language)?;
-    let source_code = fs::read(path)
+    let mut source_code = fs::read(path)
         .map_err(|e| Error(format!("Error reading source file {:?}: {}", path, e)))?;
 
     // If the `--cancel` flag was passed, then cancel the parse
@@ -56,13 +64,19 @@ pub fn parse_file_at_path(
 
     let time = Instant::now();
     let tree = parser.parse(&source_code, None);
-    let duration = time.elapsed();
-    let duration_ms = duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000;
 
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
 
-    if let Some(tree) = tree {
+    if let Some(mut tree) = tree {
+        for edit in edits {
+            let edit = parse_edit_flag(&source_code, edit)?;
+            perform_edit(&mut tree, &mut source_code, &edit);
+            tree = parser.parse(&source_code, Some(&tree)).unwrap();
+        }
+
+        let duration = time.elapsed();
+        let duration_ms = duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000;
         let mut cursor = tree.walk();
 
         if !quiet {
@@ -129,12 +143,12 @@ pub fn parse_file_at_path(
                     first_error = Some(node);
                     break;
                 } else {
-                    cursor.goto_first_child();
+                    if !cursor.goto_first_child() {
+                        break;
+                    }
                 }
             } else if !cursor.goto_next_sibling() {
-                if !cursor.goto_parent() {
-                    break;
-                }
+                break;
             }
         }
 
@@ -164,6 +178,8 @@ pub fn parse_file_at_path(
 
         return Ok(first_error.is_some());
     } else if print_time {
+        let duration = time.elapsed();
+        let duration_ms = duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000;
         writeln!(
             &mut stdout,
             "{:width$}\t{} ms (timed out)",
@@ -174,4 +190,92 @@ pub fn parse_file_at_path(
     }
 
     Ok(false)
+}
+
+pub fn perform_edit(tree: &mut Tree, input: &mut Vec<u8>, edit: &Edit) -> InputEdit {
+    let start_byte = edit.position;
+    let old_end_byte = edit.position + edit.deleted_length;
+    let new_end_byte = edit.position + edit.inserted_text.len();
+    let start_position = position_for_offset(input, start_byte);
+    let old_end_position = position_for_offset(input, old_end_byte);
+    input.splice(start_byte..old_end_byte, edit.inserted_text.iter().cloned());
+    let new_end_position = position_for_offset(input, new_end_byte);
+    let edit = InputEdit {
+        start_byte,
+        old_end_byte,
+        new_end_byte,
+        start_position,
+        old_end_position,
+        new_end_position,
+    };
+    tree.edit(&edit);
+    edit
+}
+
+fn parse_edit_flag(source_code: &Vec<u8>, flag: &str) -> Result<Edit> {
+    let error = || {
+        Error::from(format!(concat!(
+            "Invalid edit string '{}'. ",
+            "Edit strings must match the pattern '<START_BYTE_OR_POSITION> <REMOVED_LENGTH> <NEW_TEXT>'"
+        ), flag))
+    };
+
+    // Three whitespace-separated parts:
+    // * edit position
+    // * deleted length
+    // * inserted text
+    let mut parts = flag.split(" ");
+    let position = parts.next().ok_or_else(error)?;
+    let deleted_length = parts.next().ok_or_else(error)?;
+    let inserted_text = parts.collect::<Vec<_>>().join(" ").into_bytes();
+
+    // Position can either be a byte_offset or row,column pair, separated by a comma
+    let position = if position.contains(",") {
+        let mut parts = position.split(",");
+        let row = parts.next().ok_or_else(error)?;
+        let row = usize::from_str_radix(row, 10).map_err(|_| error())?;
+        let column = parts.next().ok_or_else(error)?;
+        let column = usize::from_str_radix(column, 10).map_err(|_| error())?;
+        offset_for_position(source_code, Point { row, column })
+    } else {
+        usize::from_str_radix(position, 10).map_err(|_| error())?
+    };
+
+    // Deleted length must be a byte count.
+    let deleted_length = usize::from_str_radix(deleted_length, 10).map_err(|_| error())?;
+
+    Ok(Edit {
+        position,
+        deleted_length,
+        inserted_text,
+    })
+}
+
+fn offset_for_position(input: &Vec<u8>, position: Point) -> usize {
+    let mut current_position = Point { row: 0, column: 0 };
+    for (i, c) in input.iter().enumerate() {
+        if *c as char == '\n' {
+            current_position.row += 1;
+            current_position.column = 0;
+        } else {
+            current_position.column += 1;
+        }
+        if current_position > position {
+            return i;
+        }
+    }
+    return input.len();
+}
+
+fn position_for_offset(input: &Vec<u8>, offset: usize) -> Point {
+    let mut result = Point { row: 0, column: 0 };
+    for c in &input[0..offset] {
+        if *c as char == '\n' {
+            result.row += 1;
+            result.column = 0;
+        } else {
+            result.column += 1;
+        }
+    }
+    result
 }

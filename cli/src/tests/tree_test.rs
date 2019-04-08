@@ -1,5 +1,6 @@
-use super::helpers::edits::{invert_edit, perform_edit, Edit};
+use super::helpers::edits::invert_edit;
 use super::helpers::fixtures::get_language;
+use crate::parse::{perform_edit, Edit};
 use std::str;
 use tree_sitter::{InputEdit, Parser, Point, Range, Tree};
 

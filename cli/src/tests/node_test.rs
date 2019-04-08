@@ -1,7 +1,8 @@
-use super::helpers::edits::{get_random_edit, perform_edit};
+use super::helpers::edits::get_random_edit;
 use super::helpers::fixtures::{get_language, get_test_language};
 use super::helpers::random::Rand;
 use crate::generate::generate_parser_for_grammar;
+use crate::parse::perform_edit;
 use tree_sitter::{Node, Parser, Point, Tree};
 
 const JSON_EXAMPLE: &'static str = r#"

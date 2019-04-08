@@ -1,13 +1,7 @@
 use super::random::Rand;
+use crate::parse::Edit;
 use std::ops::Range;
 use std::str;
-use tree_sitter::{InputEdit, Point, Tree};
-
-pub struct Edit {
-    pub position: usize,
-    pub deleted_length: usize,
-    pub inserted_text: Vec<u8>,
-}
 
 #[derive(Debug)]
 pub struct ReadRecorder<'a> {
@@ -54,26 +48,6 @@ impl<'a> ReadRecorder<'a> {
         }
         result
     }
-}
-
-pub fn perform_edit(tree: &mut Tree, input: &mut Vec<u8>, edit: &Edit) -> InputEdit {
-    let start_byte = edit.position;
-    let old_end_byte = edit.position + edit.deleted_length;
-    let new_end_byte = edit.position + edit.inserted_text.len();
-    let start_position = position_for_offset(input, start_byte);
-    let old_end_position = position_for_offset(input, old_end_byte);
-    input.splice(start_byte..old_end_byte, edit.inserted_text.iter().cloned());
-    let new_end_position = position_for_offset(input, new_end_byte);
-    let edit = InputEdit {
-        start_byte,
-        old_end_byte,
-        new_end_byte,
-        start_position,
-        old_end_position,
-        new_end_position,
-    };
-    tree.edit(&edit);
-    edit
 }
 
 pub fn invert_edit(input: &Vec<u8>, edit: &Edit) -> Edit {
@@ -129,17 +103,4 @@ pub fn get_random_edit(rand: &mut Rand, input: &Vec<u8>) -> Edit {
             inserted_text,
         }
     }
-}
-
-fn position_for_offset(input: &Vec<u8>, offset: usize) -> Point {
-    let mut result = Point { row: 0, column: 0 };
-    for c in &input[0..offset] {
-        if *c as char == '\n' {
-            result.row += 1;
-            result.column = 0;
-        } else {
-            result.column += 1;
-        }
-    }
-    result
 }

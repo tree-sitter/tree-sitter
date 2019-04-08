@@ -55,7 +55,15 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("quiet").long("quiet").short("q"))
                 .arg(Arg::with_name("time").long("time").short("t"))
                 .arg(Arg::with_name("allow-cancellation").long("cancel"))
-                .arg(Arg::with_name("timeout").long("timeout").takes_value(true)),
+                .arg(Arg::with_name("timeout").long("timeout").takes_value(true))
+                .arg(
+                    Arg::with_name("edits")
+                        .long("edit")
+                        .short("edit")
+                        .takes_value(true)
+                        .multiple(true)
+                        .number_of_values(1),
+                ),
         )
         .subcommand(
             SubCommand::with_name("test")
@@ -135,6 +143,9 @@ fn run() -> error::Result<()> {
         let debug_graph = matches.is_present("debug-graph");
         let quiet = matches.is_present("quiet");
         let time = matches.is_present("time");
+        let edits = matches
+            .values_of("edits")
+            .map_or(Vec::new(), |e| e.collect());
         let allow_cancellation = matches.is_present("allow-cancellation");
         let timeout = matches
             .value_of("timeout")
@@ -166,6 +177,7 @@ fn run() -> error::Result<()> {
             has_error |= parse::parse_file_at_path(
                 language,
                 path,
+                &edits,
                 max_path_length,
                 quiet,
                 time,

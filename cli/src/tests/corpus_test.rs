@@ -1,9 +1,10 @@
 use super::helpers::allocations;
-use super::helpers::edits::{get_random_edit, invert_edit, perform_edit};
+use super::helpers::edits::{get_random_edit, invert_edit};
 use super::helpers::fixtures::{fixtures_dir, get_language, get_test_language};
 use super::helpers::random::Rand;
 use super::helpers::scope_sequence::ScopeSequence;
 use crate::generate;
+use crate::parse::perform_edit;
 use crate::test::{parse_tests, print_diff, print_diff_key, strip_sexp_fields, TestEntry};
 use crate::util;
 use lazy_static::lazy_static;
