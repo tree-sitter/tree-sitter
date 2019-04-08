@@ -1,0 +1,21 @@
+{
+  "name": "epsilon_external_tokens",
+
+  "externals": [
+    {"type": "SYMBOL", "name": "zero_width"}
+  ],
+
+  "extras": [
+    {"type": "PATTERN", "value": "\\s"}
+  ],
+
+  "rules": {
+    "document": {
+      "type": "SEQ",
+      "members": [
+        {"type": "SYMBOL", "name": "zero_width"},
+        {"type": "STRING", "value": "hello"}
+      ]
+    }
+  }
+}
