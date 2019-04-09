@@ -12,7 +12,7 @@ use std::i32;
 
 lazy_static! {
     static ref CURLY_BRACE_REGEX: Regex =
-        Regex::new(r#"(^|[^\\])\{([^}]*[^0-9,}][^}]*)\}"#).unwrap();
+        Regex::new(r#"(^|[^\\])\{([^}]*[^0-9A-F,}][^}]*)\}"#).unwrap();
 }
 
 const ALLOWED_REDUNDANT_ESCAPED_CHARS: [char; 4] = ['!', '\'', '"', '/'];
@@ -429,7 +429,7 @@ mod tests {
                 .find(|t| t.characters.contains(c) && t.precedence >= result_precedence)
             {
                 cursor.reset(states);
-                end_char += 1;
+                end_char += c.len_utf8();
                 if is_separator {
                     start_char = end_char;
                 }
@@ -651,11 +651,14 @@ mod tests {
                     Rule::pattern(r#"u{[0-9a-fA-F]+}"#),
                     // Already-escaped curly braces
                     Rule::pattern(r#"\{[ab]{3}\}"#),
+                    // Unicode codepoints
+                    Rule::pattern(r#"\u{1000A}"#),
                 ],
                 separators: vec![],
                 examples: vec![
                     ("u{1234} ok", Some((0, "u{1234}"))),
                     ("{aba}}", Some((1, "{aba}"))),
+                    ("\u{1000A}", Some((2, "\u{1000A}"))),
                 ],
             },
         ];
