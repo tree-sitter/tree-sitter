@@ -28,7 +28,7 @@ static uint32_t byte_to_code_unit(uint32_t byte) {
   return byte >> 1;
 }
 
-static void marshal_node(const void **buffer, TSNode node) {
+static inline void marshal_node(const void **buffer, TSNode node) {
   buffer[0] = (const void *)node.id;
   buffer[1] = (const void *)node.context[0];
   buffer[2] = (const void *)node.context[1];
@@ -36,7 +36,7 @@ static void marshal_node(const void **buffer, TSNode node) {
   buffer[4] = (const void *)node.context[3];
 }
 
-static TSNode unmarshal_node(const TSTree *tree) {
+static inline TSNode unmarshal_node(const TSTree *tree) {
   TSNode node;
   node.id = TRANSFER_BUFFER[0];
   node.context[0] = (uint32_t)TRANSFER_BUFFER[1];
@@ -45,6 +45,21 @@ static TSNode unmarshal_node(const TSTree *tree) {
   node.context[3] = (uint32_t)TRANSFER_BUFFER[4];
   node.tree = tree;
   return node;
+}
+
+static inline void marshal_cursor(const TSTreeCursor *cursor) {
+  TRANSFER_BUFFER[0] = (const void *)cursor->id;
+  TRANSFER_BUFFER[1] = (const void *)cursor->context[0];
+  TRANSFER_BUFFER[2] = (const void *)cursor->context[1];
+}
+
+static inline TSTreeCursor unmarshal_cursor(const void **buffer, const TSTree *tree) {
+  TSTreeCursor cursor;
+  cursor.id = buffer[0];
+  cursor.context[0] = (uint32_t)buffer[1];
+  cursor.context[1] = (uint32_t)buffer[2];
+  cursor.tree = tree;
+  return cursor;
 }
 
 static void marshal_point(TSPoint point) {
@@ -161,6 +176,90 @@ void ts_tree_root_node_wasm(const TSTree *tree) {
 void ts_tree_edit_wasm(TSTree *tree) {
   TSInputEdit edit = unmarshal_edit();
   ts_tree_edit(tree, &edit);
+}
+
+/************************/
+/* Section - TreeCursor */
+/************************/
+
+void ts_tree_cursor_new_wasm(const TSTree *tree) {
+  TSNode node = unmarshal_node(tree);
+  TSTreeCursor cursor = ts_tree_cursor_new(node);
+  marshal_cursor(&cursor);
+}
+
+void ts_tree_cursor_delete_wasm(const TSTree *tree) {
+  TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, tree);
+  ts_tree_cursor_delete(&cursor);
+}
+
+void ts_tree_cursor_reset_wasm(const TSTree *tree) {
+  TSNode node = unmarshal_node(tree);
+  TSTreeCursor cursor = unmarshal_cursor(&TRANSFER_BUFFER[5], tree);
+  ts_tree_cursor_reset(&cursor, node);
+  marshal_cursor(&cursor);
+}
+
+bool ts_tree_cursor_goto_first_child_wasm(const TSTree *tree) {
+  TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, tree);
+  bool result = ts_tree_cursor_goto_first_child(&cursor);
+  marshal_cursor(&cursor);
+  return result;
+}
+
+bool ts_tree_cursor_goto_next_sibling_wasm(const TSTree *tree) {
+  TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, tree);
+  bool result = ts_tree_cursor_goto_next_sibling(&cursor);
+  marshal_cursor(&cursor);
+  return result;
+}
+
+bool ts_tree_cursor_goto_parent_wasm(const TSTree *tree) {
+  TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, tree);
+  bool result = ts_tree_cursor_goto_parent(&cursor);
+  marshal_cursor(&cursor);
+  return result;
+}
+
+uint16_t ts_tree_cursor_current_node_type_id_wasm(const TSTree *tree) {
+  TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, tree);
+  TSNode node = ts_tree_cursor_current_node(&cursor);
+  return ts_node_symbol(node);
+}
+
+bool ts_tree_cursor_current_node_is_named_wasm(const TSTree *tree) {
+  TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, tree);
+  TSNode node = ts_tree_cursor_current_node(&cursor);
+  return ts_node_is_named(node);
+}
+
+void ts_tree_cursor_start_position_wasm(const TSTree *tree) {
+  TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, tree);
+  TSNode node = ts_tree_cursor_current_node(&cursor);
+  marshal_point(ts_node_start_point(node));
+}
+
+void ts_tree_cursor_end_position_wasm(const TSTree *tree) {
+  TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, tree);
+  TSNode node = ts_tree_cursor_current_node(&cursor);
+  marshal_point(ts_node_end_point(node));
+}
+
+uint32_t ts_tree_cursor_start_index_wasm(const TSTree *tree) {
+  TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, tree);
+  TSNode node = ts_tree_cursor_current_node(&cursor);
+  return byte_to_code_unit(ts_node_start_byte(node));
+}
+
+uint32_t ts_tree_cursor_end_index_wasm(const TSTree *tree) {
+  TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, tree);
+  TSNode node = ts_tree_cursor_current_node(&cursor);
+  return byte_to_code_unit(ts_node_end_byte(node));
+}
+
+void ts_tree_cursor_current_node_wasm(const TSTree *tree) {
+  TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, tree);
+  marshal_node(TRANSFER_BUFFER, ts_tree_cursor_current_node(&cursor));
 }
 
 /******************/
