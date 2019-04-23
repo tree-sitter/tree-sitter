@@ -3,8 +3,10 @@
 set -e
 
 args="-Os"
+minify=1
 if [[ "$1" == "--debug" ]]; then
-  args="-s ASSERTIONS=1 SAFE_HEAP=1 -O0"
+  minify=0
+  args="-s ASSERTIONS=1 -s SAFE_HEAP=1 -O0"
 fi
 
 mkdir -p target/scratch target/release
@@ -35,19 +37,23 @@ docker run                          \
   lib/web/binding.c                 \
   -o target/scratch/tree-sitter.js
 
-if [ ! -d lib/web/node_modules/terser ]; then
-  (
-    cd lib/web
-    npm install
-  )
-fi
 
-lib/web/node_modules/.bin/terser   \
-  --compress                       \
-  --mangle                         \
-  --keep-fnames                    \
-  --keep-classnames                \
-  -- target/scratch/tree-sitter.js \
-  > target/release/tree-sitter.js
+if [[ "$minify" == "1" ]]; then
+  if [ ! -d lib/web/node_modules/terser ]; then
+    (
+      cd lib/web
+      npm install
+    )
+  fi
+  lib/web/node_modules/.bin/terser   \
+    --compress                       \
+    --mangle                         \
+    --keep-fnames                    \
+    --keep-classnames                \
+    -- target/scratch/tree-sitter.js \
+    > target/release/tree-sitter.js
+else
+  cp target/scratch/tree-sitter.js target/release/tree-sitter.js
+fi
 
 mv target/scratch/tree-sitter.wasm target/release/tree-sitter.wasm
