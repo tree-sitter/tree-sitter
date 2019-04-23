@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+export EMCC_FORCE_STDLIBS=libc++
+
+args="-Os"
+target_dir="target/release"
+if [[ "$1" == "--debug" ]]; then
+  args="-s SAFE_HEAP=1 -O0"
+  target_dir="target/debug"
+fi
+
+mkdir -p $target_dir
+
+emcc                                \
+  -s WASM=1                         \
+  -s ALLOW_MEMORY_GROWTH            \
+  -s MAIN_MODULE=1                  \
+  -s ASSERTIONS=1                   \
+  -s EXPORT_ALL=1                   \
+  $args                             \
+  -std=c99                          \
+  -D 'fprintf(...)='                \
+  -I lib/src                        \
+  -I lib/include                    \
+  -I lib/utf8proc                   \
+  --js-library lib/web/imports.js   \
+  --pre-js lib/web/prefix.js        \
+  --post-js lib/web/binding.js      \
+  lib/src/lib.c                     \
+  lib/web/binding.c                 \
+  -o $target_dir/tree-sitter.js

@@ -5,7 +5,7 @@ use std::path::Path;
 use std::process::exit;
 use std::{u64, usize};
 use tree_sitter_cli::{
-    config, error, generate, highlight, loader, logger, parse, properties, test,
+    config, error, generate, highlight, loader, logger, parse, properties, test, wasm,
 };
 
 fn main() {
@@ -89,6 +89,11 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("scope").long("scope").takes_value(true))
                 .arg(Arg::with_name("html").long("html").short("h"))
                 .arg(Arg::with_name("time").long("time").short("t")),
+        )
+        .subcommand(
+            SubCommand::with_name("build-wasm")
+                .about("Compile a parser to WASM")
+                .arg(Arg::with_name("path").index(1).multiple(true)),
         )
         .get_matches();
 
@@ -237,6 +242,9 @@ fn run() -> error::Result<()> {
                 )));
             }
         }
+    } else if let Some(matches) = matches.subcommand_matches("build-wasm") {
+        let grammar_path = current_dir.join(matches.value_of("path").unwrap_or(""));
+        wasm::compile_language_to_wasm(&grammar_path)?;
     }
 
     Ok(())

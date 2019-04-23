@@ -15,7 +15,7 @@ mod grammars;
 mod nfa;
 mod node_types;
 mod npm_files;
-mod parse_grammar;
+pub mod parse_grammar;
 mod prepare_grammar;
 mod render;
 mod rules;
