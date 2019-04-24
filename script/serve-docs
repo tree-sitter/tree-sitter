@@ -1,4 +1,25 @@
 #!/bin/bash
 
+root=$PWD
 cd docs
-bundle exec jekyll serve "$@"
+
+bundle exec jekyll serve "$@" &
+
+bundle exec ruby <<RUBY &
+  require "listen"
+  dir = "$root/target/release"
+  puts "Watching #{dir}"
+  listener = Listen.to(dir, only: /^tree-sitter\.(js|wasm)$/, wait_for_delay: 3.0) do
+    puts "WASM files updated. Copying to docs folder..."
+    system(
+      "cp",
+      "$root/target/release/tree-sitter.js",
+      "$root/target/release/tree-sitter.wasm",
+      "$root/docs/assets/js/"
+    )
+  end
+  listener.start
+  sleep
+RUBY
+
+wait

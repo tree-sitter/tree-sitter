@@ -8,6 +8,8 @@ fuzz-results
 test/fixtures/grammars/*
 !test/fixtures/grammars/.gitkeep
 
+docs/assets/js/tree-sitter.js
+
 /target
 *.rs.bk
 *.a
