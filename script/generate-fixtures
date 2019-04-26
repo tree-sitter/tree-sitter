@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+set -e
+
+cargo build --release
+
+root_dir=$PWD
+tree_sitter=${root_dir}/target/release/tree-sitter
+grammars_dir=${root_dir}/test/fixtures/grammars
+grammar_names=$(ls $grammars_dir)
+
+if [[ "$#" > 0 ]]; then
+  grammar_names=($1)
+fi
+
+for grammar_name in $grammar_names; do
+  echo "Regenerating ${grammar_name} parser"
+  (
+    cd ${grammars_dir}/${grammar_name}
+    $tree_sitter generate src/grammar.json
+  )
+done

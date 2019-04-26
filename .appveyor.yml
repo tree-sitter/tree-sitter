@@ -22,7 +22,7 @@ test_script:
   # Fetch and regenerate the fixture parsers
   - script\fetch-fixtures.cmd
   - cargo build --release
-  - script\regenerate-fixtures.cmd
+  - script\generate-fixtures.cmd
 
   # Run tests
   - script\test.cmd

@@ -11,7 +11,13 @@ fi
 
 mkdir -p $target_dir
 
-emcc                                \
+docker run                          \
+  --rm                              \
+  -v $(pwd):/src                    \
+  -u $(id -u)                       \
+  trzeci/emscripten-slim            \
+                                    \
+  emcc                              \
   -s WASM=1                         \
   -s ALLOW_MEMORY_GROWTH            \
   -s MAIN_MODULE=1                  \

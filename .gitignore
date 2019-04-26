@@ -7,6 +7,8 @@ fuzz-results
 
 test/fixtures/grammars/*
 !test/fixtures/grammars/.gitkeep
+package-lock.json
+node_modules
 
 docs/assets/js/tree-sitter.js
 

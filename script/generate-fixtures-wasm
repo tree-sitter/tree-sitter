@@ -7,27 +7,18 @@ cargo build --release
 root_dir=$PWD
 tree_sitter=${root_dir}/target/release/tree-sitter
 grammars_dir=${root_dir}/test/fixtures/grammars
-
 grammar_names=(
-  bash
-  c
-  cpp
-  embedded-template
-  go
-  html
   javascript
-  json
   python
-  rust
 )
 
 if [[ "$#" > 0 ]]; then
   grammar_names=($1)
 fi
 
-for grammar_name in "${grammar_names[@]}"; do
-  echo "Regenerating ${grammar_name} parser"
-  cd ${grammars_dir}/${grammar_name}
-  $tree_sitter generate src/grammar.json
-  cd $PWD
+for grammar_name in ${grammar_names[@]}; do
+  echo "Compiling ${grammar_name} parser to wasm"
+  $tree_sitter build-wasm ${grammars_dir}/${grammar_name}
 done
+
+mv tree-sitter-*.wasm target/scratch/
