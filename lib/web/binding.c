@@ -15,6 +15,8 @@ const void *TRANSFER_BUFFER[12] = {
 };
 
 void *ts_init() {
+  TRANSFER_BUFFER[0] = (const void *)TREE_SITTER_LANGUAGE_VERSION;
+  TRANSFER_BUFFER[1] = (const void *)TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION;
   return TRANSFER_BUFFER;
 }
 
@@ -26,12 +28,12 @@ static uint32_t byte_to_code_unit(uint32_t byte) {
   return byte >> 1;
 }
 
-static void marshal_node(TSNode node) {
-  TRANSFER_BUFFER[0] = (const void *)node.id;
-  TRANSFER_BUFFER[1] = (const void *)node.context[0];
-  TRANSFER_BUFFER[2] = (const void *)node.context[1];
-  TRANSFER_BUFFER[3] = (const void *)node.context[2];
-  TRANSFER_BUFFER[4] = (const void *)node.context[3];
+static void marshal_node(const void **buffer, TSNode node) {
+  buffer[0] = (const void *)node.id;
+  buffer[1] = (const void *)node.context[0];
+  buffer[2] = (const void *)node.context[1];
+  buffer[3] = (const void *)node.context[2];
+  buffer[4] = (const void *)node.context[3];
 }
 
 static TSNode unmarshal_node(const TSTree *tree) {
@@ -109,8 +111,9 @@ static const char *call_parse_callback(
     bytes_read
   );
   *bytes_read = code_unit_to_byte(*bytes_read);
-  if (*bytes_read > INPUT_BUFFER_SIZE) *bytes_read = INPUT_BUFFER_SIZE;
-  if (*bytes_read > 0) *bytes_read -= 2; // Remove null character
+  if (*bytes_read >= INPUT_BUFFER_SIZE) {
+    *bytes_read = INPUT_BUFFER_SIZE - 2;
+  }
   return buffer;
 }
 
@@ -122,13 +125,28 @@ void ts_parser_enable_logger_wasm(TSParser *self, bool should_log) {
 TSTree *ts_parser_parse_wasm(
   TSParser *self,
   char *input_buffer,
-  const TSTree *old_tree
+  const TSTree *old_tree,
+  TSRange *ranges,
+  uint32_t range_count
 ) {
   TSInput input = {
     input_buffer,
     call_parse_callback,
     TSInputEncodingUTF16
   };
+  if (range_count) {
+    for (unsigned i = 0; i < range_count; i++) {
+      TSRange *range = &ranges[i];
+      range->start_byte = code_unit_to_byte(range->start_byte);
+      range->end_byte = code_unit_to_byte(range->end_byte);
+      range->start_point.column = code_unit_to_byte(range->start_point.column);
+      range->end_point.column = code_unit_to_byte(range->end_point.column);
+    }
+    ts_parser_set_included_ranges(self, ranges, range_count);
+    free(ranges);
+  } else {
+    ts_parser_set_included_ranges(self, NULL, 0);
+  }
   return ts_parser_parse(self, old_tree, input);
 }
 
@@ -137,7 +155,7 @@ TSTree *ts_parser_parse_wasm(
 /******************/
 
 void ts_tree_root_node_wasm(const TSTree *tree) {
-  marshal_node(ts_tree_root_node(tree));
+  marshal_node(TRANSFER_BUFFER, ts_tree_root_node(tree));
 }
 
 void ts_tree_edit_wasm(TSTree *tree) {
@@ -148,6 +166,8 @@ void ts_tree_edit_wasm(TSTree *tree) {
 /******************/
 /* Section - Node */
 /******************/
+
+static TSTreeCursor scratch_cursor = {0};
 
 uint16_t ts_node_symbol_wasm(const TSTree *tree) {
   TSNode node = unmarshal_node(tree);
@@ -166,17 +186,53 @@ uint32_t ts_node_named_child_count_wasm(const TSTree *tree) {
 
 void ts_node_child_wasm(const TSTree *tree, uint32_t index) {
   TSNode node = unmarshal_node(tree);
-  marshal_node(ts_node_child(node, index));
+  marshal_node(TRANSFER_BUFFER, ts_node_child(node, index));
 }
 
 void ts_node_named_child_wasm(const TSTree *tree, uint32_t index) {
   TSNode node = unmarshal_node(tree);
-  marshal_node(ts_node_named_child(node, index));
+  marshal_node(TRANSFER_BUFFER, ts_node_named_child(node, index));
+}
+
+void ts_node_next_sibling_wasm(const TSTree *tree) {
+  TSNode node = unmarshal_node(tree);
+  marshal_node(TRANSFER_BUFFER, ts_node_next_sibling(node));
+}
+
+void ts_node_prev_sibling_wasm(const TSTree *tree) {
+  TSNode node = unmarshal_node(tree);
+  marshal_node(TRANSFER_BUFFER, ts_node_prev_sibling(node));
+}
+
+void ts_node_next_named_sibling_wasm(const TSTree *tree) {
+  TSNode node = unmarshal_node(tree);
+  marshal_node(TRANSFER_BUFFER, ts_node_next_named_sibling(node));
+}
+
+void ts_node_prev_named_sibling_wasm(const TSTree *tree) {
+  TSNode node = unmarshal_node(tree);
+  marshal_node(TRANSFER_BUFFER, ts_node_prev_named_sibling(node));
 }
 
 void ts_node_parent_wasm(const TSTree *tree) {
   TSNode node = unmarshal_node(tree);
-  marshal_node(ts_node_parent(node));
+  marshal_node(TRANSFER_BUFFER, ts_node_parent(node));
+}
+
+void ts_node_descendant_for_index_wasm(const TSTree *tree) {
+  TSNode node = unmarshal_node(tree);
+  const void **address = TRANSFER_BUFFER + 5;
+  uint32_t start = code_unit_to_byte((uint32_t)address[0]);
+  uint32_t end = code_unit_to_byte((uint32_t)address[1]);
+  marshal_node(TRANSFER_BUFFER, ts_node_descendant_for_byte_range(node, start, end));
+}
+
+void ts_node_named_descendant_for_index_wasm(const TSTree *tree) {
+  TSNode node = unmarshal_node(tree);
+  const void **address = TRANSFER_BUFFER + 5;
+  uint32_t start = code_unit_to_byte((uint32_t)address[0]);
+  uint32_t end = code_unit_to_byte((uint32_t)address[1]);
+  marshal_node(TRANSFER_BUFFER, ts_node_named_descendant_for_byte_range(node, start, end));
 }
 
 void ts_node_descendant_for_position_wasm(const TSTree *tree) {
@@ -184,7 +240,7 @@ void ts_node_descendant_for_position_wasm(const TSTree *tree) {
   const void **address = TRANSFER_BUFFER + 5;
   TSPoint start = unmarshal_point(address); address += 2;
   TSPoint end = unmarshal_point(address);
-  marshal_node(ts_node_descendant_for_point_range(node, start, end));
+  marshal_node(TRANSFER_BUFFER, ts_node_descendant_for_point_range(node, start, end));
 }
 
 void ts_node_named_descendant_for_position_wasm(const TSTree *tree) {
@@ -192,7 +248,7 @@ void ts_node_named_descendant_for_position_wasm(const TSTree *tree) {
   const void **address = TRANSFER_BUFFER + 5;
   TSPoint start = unmarshal_point(address); address += 2;
   TSPoint end = unmarshal_point(address);
-  marshal_node(ts_node_named_descendant_for_point_range(node, start, end));
+  marshal_node(TRANSFER_BUFFER, ts_node_named_descendant_for_point_range(node, start, end));
 }
 
 void ts_node_start_point_wasm(const TSTree *tree) {
@@ -218,4 +274,70 @@ uint32_t ts_node_end_index_wasm(const TSTree *tree) {
 char *ts_node_to_string_wasm(const TSTree *tree) {
   TSNode node = unmarshal_node(tree);
   return ts_node_string(node);
+}
+
+void ts_node_children_wasm(const TSTree *tree) {
+  TSNode node = unmarshal_node(tree);
+  uint32_t count = ts_node_child_count(node);
+  const void **result = NULL;
+  if (count > 0) {
+    result = calloc(sizeof(void *), 5 * count);
+    const void **address = result;
+    ts_tree_cursor_reset(&scratch_cursor, node);
+    ts_tree_cursor_goto_first_child(&scratch_cursor);
+    marshal_node(address, ts_tree_cursor_current_node(&scratch_cursor));
+    for (uint32_t i = 1; i < count; i++) {
+      address += 5;
+      ts_tree_cursor_goto_next_sibling(&scratch_cursor);
+      TSNode child = ts_tree_cursor_current_node(&scratch_cursor);
+      marshal_node(address, child);
+    }
+  }
+  TRANSFER_BUFFER[0] = (const void *)count;
+  TRANSFER_BUFFER[1] = result;
+}
+
+void ts_node_named_children_wasm(const TSTree *tree) {
+  TSNode node = unmarshal_node(tree);
+  uint32_t count = ts_node_named_child_count(node);
+  const void **result = NULL;
+  if (count > 0) {
+    result = calloc(sizeof(void *), 5 * count);
+    const void **address = result;
+    ts_tree_cursor_reset(&scratch_cursor, node);
+    ts_tree_cursor_goto_first_child(&scratch_cursor);
+    uint32_t i = 0;
+    for (;;) {
+      TSNode child = ts_tree_cursor_current_node(&scratch_cursor);
+      if (ts_node_is_named(child)) {
+        marshal_node(address, child);
+        address += 5;
+        i++;
+        if (i == count) break;
+      }
+      if (!ts_tree_cursor_goto_next_sibling(&scratch_cursor)) break;
+    }
+  }
+  TRANSFER_BUFFER[0] = (const void *)count;
+  TRANSFER_BUFFER[1] = result;
+}
+
+int ts_node_is_named_wasm(const TSTree *tree) {
+  TSNode node = unmarshal_node(tree);
+  return ts_node_is_named(node);
+}
+
+int ts_node_has_changes_wasm(const TSTree *tree) {
+  TSNode node = unmarshal_node(tree);
+  return ts_node_has_changes(node);
+}
+
+int ts_node_has_error_wasm(const TSTree *tree) {
+  TSNode node = unmarshal_node(tree);
+  return ts_node_has_error(node);
+}
+
+int ts_node_is_missing_wasm(const TSTree *tree) {
+  TSNode node = unmarshal_node(tree);
+  return ts_node_is_missing(node);
 }
