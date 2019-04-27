@@ -125,8 +125,6 @@ var handleCursorMovement = debounce(() => {
     highlightedNodeLink = null;
   }
 
-  if (!codeEditor.somethingSelected()) return;
-
   const selection = codeEditor.getDoc().listSelections()[0];
   let start = {row: selection.anchor.line, column: selection.anchor.ch};
   let end = {row: selection.head.line, column: selection.head.ch};
@@ -163,10 +161,10 @@ var renderTree = debounce(() => {
     result += "(<a class='tree-link' href='#' ";
     result += `data-id="${node[0]}" data-row=${start.row} data-column=${start.column}>${type}</a>`
     result += `[${start.row + 1}, ${start.column}] - [${end.row + 1}, ${end.column}]`;
-    if (node.namedChildCount > 0) {
-      for (let i = 0, n = node.namedChildCount; i < n; i++) {
+    if (node.namedChildren.length > 0) {
+      for (let i = 0, n = node.namedChildren.length; i < n; i++) {
         result += '\n';
-        renderNode(node.namedChild(i), indentLevel + 1);
+        renderNode(node.namedChildren[i], indentLevel + 1);
       }
     }
     result += ')';
