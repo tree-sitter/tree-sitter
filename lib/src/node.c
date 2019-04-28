@@ -319,7 +319,7 @@ static inline TSNode ts_node__descendant_for_byte_range(TSNode self, uint32_t mi
     TSNode child;
     NodeChildIterator iterator = ts_node_iterate_children(&node);
     while (ts_node_child_iterator_next(&iterator, &child)) {
-      if (iterator.position.bytes > max) {
+      if (max <= iterator.position.bytes) {
         if (ts_node_start_byte(child) > min) break;
         node = child;
         if (ts_node__is_relevant(node, include_anonymous)) {
@@ -348,7 +348,7 @@ static inline TSNode ts_node__descendant_for_point_range(TSNode self, TSPoint mi
     TSNode child;
     NodeChildIterator iterator = ts_node_iterate_children(&node);
     while (ts_node_child_iterator_next(&iterator, &child)) {
-      if (point_gt(iterator.position.extent, max)) {
+      if (point_lte(max, iterator.position.extent)) {
         if (point_gt(ts_node_start_point(child), min)) break;
         node = child;
         if (ts_node__is_relevant(node, include_anonymous)) {

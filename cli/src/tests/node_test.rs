@@ -265,42 +265,90 @@ fn test_node_descendant_for_range() {
     let tree = parse_json_example();
     let array_node = tree.root_node().child(0).unwrap();
 
+    // Leaf node starts and ends at the given bounds - byte query
     let colon_index = JSON_EXAMPLE.find(":").unwrap();
-    let node1 = array_node
-        .descendant_for_byte_range(colon_index, colon_index)
+    let colon_node = array_node
+        .descendant_for_byte_range(colon_index, colon_index + 1)
         .unwrap();
-    assert_eq!(node1.kind(), ":");
-    assert_eq!(node1.start_byte(), colon_index);
-    assert_eq!(node1.end_byte(), colon_index + 1);
-    assert_eq!(node1.start_position(), Point::new(6, 7));
-    assert_eq!(node1.end_position(), Point::new(6, 8));
+    assert_eq!(colon_node.kind(), ":");
+    assert_eq!(colon_node.start_byte(), colon_index);
+    assert_eq!(colon_node.end_byte(), colon_index + 1);
+    assert_eq!(colon_node.start_position(), Point::new(6, 7));
+    assert_eq!(colon_node.end_position(), Point::new(6, 8));
 
+    // Leaf node starts and ends at the given bounds - point query
+    let colon_node = array_node
+        .descendant_for_point_range(Point::new(6, 7), Point::new(6, 8))
+        .unwrap();
+    assert_eq!(colon_node.kind(), ":");
+    assert_eq!(colon_node.start_byte(), colon_index);
+    assert_eq!(colon_node.end_byte(), colon_index + 1);
+    assert_eq!(colon_node.start_position(), Point::new(6, 7));
+    assert_eq!(colon_node.end_position(), Point::new(6, 8));
+
+    // Leaf node starts at the lower bound, ends after the upper bound - byte query
     let string_index = JSON_EXAMPLE.find("\"x\"").unwrap();
-    let node2 = array_node
+    let string_node = array_node
+        .descendant_for_byte_range(string_index, string_index + 2)
+        .unwrap();
+    assert_eq!(string_node.kind(), "string");
+    assert_eq!(string_node.start_byte(), string_index);
+    assert_eq!(string_node.end_byte(), string_index + 3);
+    assert_eq!(string_node.start_position(), Point::new(6, 4));
+    assert_eq!(string_node.end_position(), Point::new(6, 7));
+
+    // Leaf node starts at the lower bound, ends after the upper bound - point query
+    let string_node = array_node
+        .descendant_for_point_range(Point::new(6, 4), Point::new(6, 6))
+        .unwrap();
+    assert_eq!(string_node.kind(), "string");
+    assert_eq!(string_node.start_byte(), string_index);
+    assert_eq!(string_node.end_byte(), string_index + 3);
+    assert_eq!(string_node.start_position(), Point::new(6, 4));
+    assert_eq!(string_node.end_position(), Point::new(6, 7));
+
+    // Leaf node starts before the lower bound, ends at the upper bound - byte query
+    let null_index = JSON_EXAMPLE.find("null").unwrap();
+    let null_node = array_node
+        .descendant_for_byte_range(null_index + 1, null_index + 4)
+        .unwrap();
+    assert_eq!(null_node.kind(), "null");
+    assert_eq!(null_node.start_byte(), null_index);
+    assert_eq!(null_node.end_byte(), null_index + 4);
+    assert_eq!(null_node.start_position(), Point::new(6, 9));
+    assert_eq!(null_node.end_position(), Point::new(6, 13));
+
+    // Leaf node starts before the lower bound, ends at the upper bound - point query
+    let null_node = array_node
+        .descendant_for_point_range(Point::new(6, 11), Point::new(6, 13))
+        .unwrap();
+    assert_eq!(null_node.kind(), "null");
+    assert_eq!(null_node.start_byte(), null_index);
+    assert_eq!(null_node.end_byte(), null_index + 4);
+    assert_eq!(null_node.start_position(), Point::new(6, 9));
+    assert_eq!(null_node.end_position(), Point::new(6, 13));
+
+    // The bounds span multiple leaf nodes - return the smallest node that does span it.
+    let pair_node = array_node
         .descendant_for_byte_range(string_index + 2, string_index + 4)
         .unwrap();
-    assert_eq!(node2.kind(), "pair");
-    assert_eq!(node2.start_byte(), string_index);
-    assert_eq!(node2.end_byte(), string_index + 9);
-    assert_eq!(node2.start_position(), Point::new(6, 4));
-    assert_eq!(node2.end_position(), Point::new(6, 13));
+    assert_eq!(pair_node.kind(), "pair");
+    assert_eq!(pair_node.start_byte(), string_index);
+    assert_eq!(pair_node.end_byte(), string_index + 9);
+    assert_eq!(pair_node.start_position(), Point::new(6, 4));
+    assert_eq!(pair_node.end_position(), Point::new(6, 13));
 
-    assert_eq!(node1.parent(), Some(node2));
-
-    let node3 = array_node
-        .named_descendant_for_byte_range(string_index, string_index + 2)
-        .unwrap();
-    assert_eq!(node3.kind(), "string");
-    assert_eq!(node3.start_byte(), string_index);
-    assert_eq!(node3.end_byte(), string_index + 3);
+    assert_eq!(colon_node.parent(), Some(pair_node));
 
     // no leaf spans the given range - return the smallest node that does span it.
-    let node4 = array_node
-        .named_descendant_for_byte_range(string_index, string_index + 3)
+    let pair_node = array_node
+        .named_descendant_for_point_range(Point::new(6, 6), Point::new(6, 8))
         .unwrap();
-    assert_eq!(node4.kind(), "pair");
-    assert_eq!(node4.start_byte(), string_index);
-    assert_eq!(node4.end_byte(), string_index + 9);
+    assert_eq!(pair_node.kind(), "pair");
+    assert_eq!(pair_node.start_byte(), string_index);
+    assert_eq!(pair_node.end_byte(), string_index + 9);
+    assert_eq!(pair_node.start_position(), Point::new(6, 4));
+    assert_eq!(pair_node.end_position(), Point::new(6, 13));
 }
 
 #[test]

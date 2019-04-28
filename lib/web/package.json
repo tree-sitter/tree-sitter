@@ -1,0 +1,31 @@
+{
+  "name": "tree-sitter.wasm",
+  "version": "0.0.1",
+  "description": "Tree-sitter bindings for the web",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tree-sitter/tree-sitter.git"
+  },
+  "keywords": [
+    "incremental",
+    "parsing"
+  ],
+  "author": "Max Brunsfeld",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tree-sitter/tree-sitter/issues"
+  },
+  "homepage": "https://github.com/tree-sitter/tree-sitter#readme",
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "mocha": "^6.1.4",
+    "terser": "^3.17.0"
+  }
+}

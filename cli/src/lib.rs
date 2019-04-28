@@ -8,6 +8,7 @@ pub mod parse;
 pub mod properties;
 pub mod test;
 pub mod util;
+pub mod wasm;
 
 #[cfg(test)]
 mod tests;
