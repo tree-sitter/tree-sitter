@@ -52,6 +52,8 @@ pub fn compile_language_to_wasm(language_dir: &Path) -> Result<()> {
         "-s",
         "SIDE_MODULE=1",
         "-s",
+        "TOTAL_MEMORY=33554432",
+        "-s",
         &format!("EXPORTED_FUNCTIONS=[\"_tree_sitter_{}\"]", grammar.name),
         "-I",
         "src",
