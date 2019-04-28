@@ -2,8 +2,6 @@
 
 set -e
 
-export EMCC_FORCE_STDLIBS=libc++
-
 args="-Os"
 if [[ "$1" == "--debug" ]]; then
   args="-s ASSERTIONS=1 SAFE_HEAP=1 -O0"
@@ -15,6 +13,7 @@ docker run                          \
   --rm                              \
   -v $(pwd):/src                    \
   -u $(id -u)                       \
+  -e EMCC_FORCE_STDLIBS=libc++      \
   trzeci/emscripten-slim            \
                                     \
   emcc                              \
