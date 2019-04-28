@@ -60,8 +60,8 @@ enum RuleJSON {
 }
 
 #[derive(Deserialize)]
-struct GrammarJSON {
-    name: String,
+pub(crate) struct GrammarJSON {
+    pub(crate) name: String,
     rules: Map<String, Value>,
     conflicts: Option<Vec<Vec<String>>>,
     externals: Option<Vec<RuleJSON>>,

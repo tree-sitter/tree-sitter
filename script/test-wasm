@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -e
+
+cd lib/web
+
+if [ ! -d "node_modules/chai" ] || [ ! -d "node_modules/mocha" ]; then
+  echo "Installing test dependencies..."
+  npm install
+fi
+
+./node_modules/.bin/mocha

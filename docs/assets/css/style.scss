@@ -116,3 +116,43 @@ body {
     }
   }
 }
+
+#playground-container {
+  > .CodeMirror {
+    height: auto;
+    max-height: 350px;
+    border: 1px solid #aaa;
+  }
+
+  .CodeMirror-scroll {
+    height: auto;
+    max-height: 350px;
+  }
+
+  h4, select, .field {
+    display: inline-block;
+    margin-right: 20px;
+  }
+
+  #logging-checkbox {
+    height: 15px;
+  }
+
+  .CodeMirror div.CodeMirror-cursor {
+    border-left: 3px solid red;
+  }
+}
+
+#output-container {
+  position: relative;
+  margin-top: 0;
+  overflow: auto;
+  padding: 20px 10px;
+  max-height: 350px;
+  border: 1px solid #aaa;
+}
+
+.tree-link.highlighted {
+  background-color: #ddd;
+  text-decoration: underline;
+}
