@@ -144,15 +144,20 @@ body {
 }
 
 #output-container {
+  padding: 0 10px;
+  margin: 0;
+}
+
+#output-container-scroll {
+  padding: 0;
   position: relative;
   margin-top: 0;
   overflow: auto;
-  padding: 20px 10px;
   max-height: 350px;
   border: 1px solid #aaa;
 }
 
-.tree-link.highlighted {
+a.highlighted {
   background-color: #ddd;
   text-decoration: underline;
 }
