@@ -233,6 +233,18 @@ bool ts_tree_cursor_current_node_is_named_wasm(const TSTree *tree) {
   return ts_node_is_named(node);
 }
 
+bool ts_tree_cursor_current_node_is_missing_wasm(const TSTree *tree) {
+  TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, tree);
+  TSNode node = ts_tree_cursor_current_node(&cursor);
+  return ts_node_is_missing(node);
+}
+
+const uint32_t ts_tree_cursor_current_node_id_wasm(const TSTree *tree) {
+  TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, tree);
+  TSNode node = ts_tree_cursor_current_node(&cursor);
+  return (uint32_t)node.id;
+}
+
 void ts_tree_cursor_start_position_wasm(const TSTree *tree) {
   TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, tree);
   TSNode node = ts_tree_cursor_current_node(&cursor);

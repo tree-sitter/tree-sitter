@@ -5,6 +5,7 @@ permalink: playground
 ---
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.45.0/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/clusterize.js/0.18.0/clusterize.min.css">
 
 <h1>Playground</h1>
 
@@ -27,23 +28,13 @@ permalink: playground
 <label for="logging-checkbox">Log</label>
 
 <textarea id="code-input">
-function quicksort() {
-  function sort(items) {
-    if (items.length <= 1) return items;
-    var pivot = items.shift(), current, left = [], right = [];
-    while (items.length > 0) {
-      current = items.shift();
-      current < pivot ? left.push(current) : right.push(current);
-    }
-    return sort(left).concat(pivot).concat(sort(right));
-  };
-  return sort(Array.apply(this, arguments));
-};
 </textarea>
 
 <h4>Tree</h4>
 <span id="update-time"></span>
-<pre id="output-container" class="highlight"></pre>
+<div id="output-container-scroll">
+  <pre id="output-container" class="highlight"></pre>
+</div>
 
 </div>
 
@@ -57,4 +48,5 @@ function quicksort() {
 <script src="https://tree-sitter.github.io/tree-sitter.js"></script>
 {% endif %}
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/clusterize.js/0.18.0/clusterize.min.js"></script>
 <script src="{{ '/assets/js/playground.js' | relative_url }}"></script>
