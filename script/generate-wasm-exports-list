@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+root_dir=$PWD
+grammars_dir=${root_dir}/test/fixtures/grammars
+grammar_names=$(ls $grammars_dir | tr '-' '_')
+
+symbol_file=$(mktemp)
+
+for grammar_name in $grammar_names; do
+  wasm-objdump                                                \
+    --details target/release/tree-sitter-${grammar_name}.wasm \
+    --section Import                                          \
+    | egrep -o '<(\w+)>'                                      \
+    | tr -d '<>'                                              \
+    >> $symbol_file
+done
+
+sort -u -o $symbol_file $symbol_file
+cat $symbol_file
