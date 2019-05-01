@@ -55,6 +55,7 @@ pub fn compile_language_to_wasm(language_dir: &Path) -> Result<()> {
         "TOTAL_MEMORY=33554432",
         "-s",
         &format!("EXPORTED_FUNCTIONS=[\"_tree_sitter_{}\"]", grammar.name),
+        "-fno-exceptions",
         "-I",
         "src",
     ]);

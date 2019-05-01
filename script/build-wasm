@@ -6,8 +6,10 @@ args="-Os"
 minify=1
 if [[ "$1" == "--debug" ]]; then
   minify=0
-  args="-s ASSERTIONS=1 -s SAFE_HEAP=1 -O0"
+  args="-s ASSERTIONS=1 -s SAFE_HEAP=1 -Os"
 fi
+
+exports=$(cat lib/web/exports.json)
 
 mkdir -p target/scratch target/release
 
@@ -22,8 +24,9 @@ docker run                          \
   -s WASM=1                         \
   -s TOTAL_MEMORY=33554432          \
   -s ALLOW_MEMORY_GROWTH            \
-  -s MAIN_MODULE=1                  \
-  -s EXPORT_ALL=1                   \
+  -s MAIN_MODULE=2                  \
+  -s NO_FILESYSTEM=1                \
+  -s "EXPORTED_FUNCTIONS=${exports}" \
   $args                             \
   -std=c99                          \
   -D 'fprintf(...)='                \
