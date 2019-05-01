@@ -828,12 +828,19 @@ static size_t ts_subtree__write_to_string(Subtree self, char *string, size_t lim
     if (ts_subtree_is_error(self) && ts_subtree_child_count(self) == 0 && self.ptr->size.bytes > 0) {
       cursor += snprintf(*writer, limit, "(UNEXPECTED ");
       cursor += ts_subtree__write_char_to_string(*writer, limit, self.ptr->lookahead_char);
-    } else if (ts_subtree_missing(self)) {
-      cursor += snprintf(*writer, limit, "(MISSING");
     } else {
       TSSymbol symbol = alias_symbol ? alias_symbol : ts_subtree_symbol(self);
       const char *symbol_name = ts_language_symbol_name(language, symbol);
-      cursor += snprintf(*writer, limit, "(%s", symbol_name);
+      if (ts_subtree_missing(self)) {
+        cursor += snprintf(*writer, limit, "(MISSING ");
+        if (alias_is_named || ts_subtree_named(self)) {
+          cursor += snprintf(*writer, limit, "%s", symbol_name);
+        } else {
+          cursor += snprintf(*writer, limit, "\"%s\"", symbol_name);
+        }
+      } else {
+        cursor += snprintf(*writer, limit, "(%s", symbol_name);
+      }
     }
   }
 
