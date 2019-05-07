@@ -1,13 +1,14 @@
 {
-  "name": "tree-sitter.wasm",
-  "version": "0.0.1",
+  "name": "web-tree-sitter",
+  "version": "0.15.1",
   "description": "Tree-sitter bindings for the web",
-  "main": "index.js",
+  "main": "tree-sitter.js",
   "directories": {
     "test": "test"
   },
   "scripts": {
-    "test": "mocha"
+    "test": "mocha",
+    "prepublish": "node check-artifacts-fresh.js"
   },
   "repository": {
     "type": "git",
@@ -22,7 +23,7 @@
   "bugs": {
     "url": "https://github.com/tree-sitter/tree-sitter/issues"
   },
-  "homepage": "https://github.com/tree-sitter/tree-sitter#readme",
+  "homepage": "https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web",
   "devDependencies": {
     "chai": "^4.2.0",
     "mocha": "^6.1.4",

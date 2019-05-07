@@ -1,16 +1,16 @@
-tree-sitter.wasm
-================
+Web Tree-sitter
+===============
 
 [![Build Status](https://travis-ci.org/tree-sitter/tree-sitter.svg?branch=master)](https://travis-ci.org/tree-sitter/tree-sitter)
 
-Wasm bindings to the [Tree-sitter](https://github.com/tree-sitter/tree-sitter) parsing library.
+WebAssembly bindings to the [Tree-sitter](https://github.com/tree-sitter/tree-sitter) parsing library.
 
-### Basic Usage
+### Setup
 
-You can either load the library as a standalone script:
+You can download the the `tree-sitter.js` and `tree-sitter.wasm` files from [the latest GitHub release](https://github.com/tree-sitter/tree-sitter/releases/tag/0.14.7) and load them using a standalone script:
 
 ```html
-<script src="/public/js/tree-sitter.js"/>
+<script src="/the/path/to/tree-sitter.js"/>
 
 <script>
   const Parser = window.TreeSitter;
@@ -18,14 +18,16 @@ You can either load the library as a standalone script:
 </script>
 ```
 
-or using a packaging system like Webpack:
+You can also install [the `web-tree-sitter` module](https://www.npmjs.com/package/web-tree-sitter) from NPM and load it using a system like Webpack:
 
 ```js
-const Parser = require('tree-sitter');
+const Parser = require('web-tree-sitter');
 Parser.init().then(() => { /* the library is ready */ });
 ```
 
-Create a parser:
+### Basic Usage
+
+First, create a parser:
 
 ```js
 const parser = new Parser;

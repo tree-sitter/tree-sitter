@@ -2,16 +2,40 @@
 
 set -e
 
+if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+  cat <<EOF
+USAGE
+
+  $0 [--debug]
+
+SUMMARY
+
+  Compile the Tree-sitter WASM library. This will create two files in the
+  \`lib/binding_web\` directory: \`tree-sitter.js\` and \`tree-sitter.wasm\`.
+
+REQUIREMENTS
+
+  You must have the \`docker\` command on your PATH for this to work.
+
+OPTIONS
+
+  --debug: Compile the library more quickly, with fewer optimizations and more runtime assertions.
+
+EOF
+  exit 0
+fi
+
+web_dir=lib/binding_web
+exports=$(cat ${web_dir}/exports.json)
 args="-Os"
 minify=1
+
 if [[ "$1" == "--debug" ]]; then
   minify=0
   args="-s ASSERTIONS=1 -s SAFE_HEAP=1 -Os"
 fi
 
-exports=$(cat lib/binding_web/exports.json)
-
-mkdir -p target/scratch target/release
+mkdir -p target/scratch
 
 docker run                          \
   --rm                              \
@@ -33,30 +57,30 @@ docker run                          \
   -I lib/src                        \
   -I lib/include                    \
   -I lib/utf8proc                   \
-  --js-library lib/binding_web/imports.js   \
-  --pre-js lib/binding_web/prefix.js        \
-  --post-js lib/binding_web/binding.js      \
+  --js-library ${web_dir}/imports.js   \
+  --pre-js ${web_dir}/prefix.js        \
+  --post-js ${web_dir}/binding.js      \
   lib/src/lib.c                     \
-  lib/binding_web/binding.c                 \
+  ${web_dir}/binding.c                 \
   -o target/scratch/tree-sitter.js
 
 
 if [[ "$minify" == "1" ]]; then
-  if [ ! -d lib/binding_web/node_modules/terser ]; then
+  if [ ! -d ${web_dir}/node_modules/terser ]; then
     (
-      cd lib/binding_web
+      cd ${web_dir}
       npm install
     )
   fi
-  lib/binding_web/node_modules/.bin/terser   \
+  ${web_dir}/node_modules/.bin/terser   \
     --compress                       \
     --mangle                         \
     --keep-fnames                    \
     --keep-classnames                \
     -- target/scratch/tree-sitter.js \
-    > target/release/tree-sitter.js
+    > $web_dir/tree-sitter.js
 else
-  cp target/scratch/tree-sitter.js target/release/tree-sitter.js
+  cp target/scratch/tree-sitter.js $web_dir/tree-sitter.js
 fi
 
-mv target/scratch/tree-sitter.wasm target/release/tree-sitter.wasm
+mv target/scratch/tree-sitter.wasm $web_dir/tree-sitter.wasm

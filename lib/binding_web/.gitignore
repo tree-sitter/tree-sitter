@@ -1,0 +1,4 @@
+/tree-sitter.js
+/tree-sitter.wasm
+node_modules
+*.tgz
