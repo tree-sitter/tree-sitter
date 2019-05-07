@@ -371,7 +371,10 @@ impl Parser {
 
     pub unsafe fn set_cancellation_flag(&self, flag: Option<&AtomicUsize>) {
         if let Some(flag) = flag {
-            ffi::ts_parser_set_cancellation_flag(self.0, flag as *const AtomicUsize as *const usize);
+            ffi::ts_parser_set_cancellation_flag(
+                self.0,
+                flag as *const AtomicUsize as *const usize,
+            );
         } else {
             ffi::ts_parser_set_cancellation_flag(self.0, ptr::null());
         }
@@ -772,11 +775,9 @@ impl<'a, P> TreePropertyCursor<'a, P> {
         node_field_id: Option<u16>,
         node_child_index: usize,
     ) -> usize {
-        let transitions = if let Some(field_id) = node_field_id {
-            state.field_transitions.get(&field_id)
-        } else {
-            state.kind_transitions.get(&node_kind_id)
-        };
+        let transitions = node_field_id
+            .and_then(|field_id| state.field_transitions.get(&field_id))
+            .or_else(|| state.kind_transitions.get(&node_kind_id));
 
         if let Some(transitions) = transitions {
             for transition in transitions.iter() {

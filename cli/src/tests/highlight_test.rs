@@ -111,6 +111,7 @@ fn test_highlighting_multiline_scopes_to_html() {
         "    two()",
         "  } three",
         "`",
+        "",
     ]
     .join("\n");
 
