@@ -1,6 +1,6 @@
 #!/bin/bash
 
-output_path=lib/binding/bindings.rs
+output_path=lib/binding_rust/bindings.rs
 header_path='lib/include/tree_sitter/api.h'
 
 bindgen                         \

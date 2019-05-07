@@ -9,7 +9,7 @@ if [[ "$1" == "--debug" ]]; then
   args="-s ASSERTIONS=1 -s SAFE_HEAP=1 -Os"
 fi
 
-exports=$(cat lib/web/exports.json)
+exports=$(cat lib/binding_web/exports.json)
 
 mkdir -p target/scratch target/release
 
@@ -33,22 +33,22 @@ docker run                          \
   -I lib/src                        \
   -I lib/include                    \
   -I lib/utf8proc                   \
-  --js-library lib/web/imports.js   \
-  --pre-js lib/web/prefix.js        \
-  --post-js lib/web/binding.js      \
+  --js-library lib/binding_web/imports.js   \
+  --pre-js lib/binding_web/prefix.js        \
+  --post-js lib/binding_web/binding.js      \
   lib/src/lib.c                     \
-  lib/web/binding.c                 \
+  lib/binding_web/binding.c                 \
   -o target/scratch/tree-sitter.js
 
 
 if [[ "$minify" == "1" ]]; then
-  if [ ! -d lib/web/node_modules/terser ]; then
+  if [ ! -d lib/binding_web/node_modules/terser ]; then
     (
-      cd lib/web
+      cd lib/binding_web
       npm install
     )
   fi
-  lib/web/node_modules/.bin/terser   \
+  lib/binding_web/node_modules/.bin/terser   \
     --compress                       \
     --mangle                         \
     --keep-fnames                    \
