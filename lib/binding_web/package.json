@@ -1,6 +1,6 @@
 {
   "name": "web-tree-sitter",
-  "version": "0.15.1",
+  "version": "0.15.2",
   "description": "Tree-sitter bindings for the web",
   "main": "tree-sitter.js",
   "directories": {
@@ -8,7 +8,7 @@
   },
   "scripts": {
     "test": "mocha",
-    "prepublish": "node check-artifacts-fresh.js"
+    "prepublishOnly": "node check-artifacts-fresh.js"
   },
   "repository": {
     "type": "git",
