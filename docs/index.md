@@ -51,6 +51,7 @@ Parsers for these languages are in development:
 
 ### Talks on Tree-sitter
 
+* [Strange Loop 2018](https://www.thestrangeloop.com/2018/tree-sitter---a-new-parsing-system-for-programming-tools.html)
 * [FOSDEM 2018](https://www.youtube.com/watch?v=0CGzC_iss-8)
 * [GitHub Universe 2017](https://www.youtube.com/watch?v=a1rC79DHpmY)
 
