@@ -103,14 +103,14 @@ int main() {
 }
 ```
 
-This program uses the Tree-sitter C API, which is declared in the header file `tree_sitter/api.h`, so we need to add the `tree_sitter/include` directory to the include path. We also need to link `libtree-sitter.a` into the binary. We compile the source code of the JSON language directly into the binary as well.
+This program uses the Tree-sitter C API, which is declared in the header file `tree-sitter/api.h`, so we need to add the `tree-sitter/lib/include` directory to the include path. We also need to link `libtree-sitter.a` into the binary. We compile the source code of the JSON language directly into the binary as well.
 
 ```sh
 clang                                   \
-  -I tree-sitter/include                \
+  -I tree-sitter/lib/include            \
   test-json-parser.c                    \
   tree-sitter-json/src/parser.c         \
-  tree-sitter/libtree-sitter.a  \
+  tree-sitter/libtree-sitter.a          \
   -o test-json-parser
 
 ./test-json-parser
