@@ -41,7 +41,11 @@ struct Injection {
 #[derive(Debug)]
 pub struct Properties {
     highlight: Option<Highlight>,
+    highlight_nonlocal: Option<Highlight>,
     injections: Vec<Injection>,
+    local_scope: Option<bool>,
+    local_definition: bool,
+    local_reference: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -73,7 +77,14 @@ pub enum Highlight {
     TypeBuiltin,
     Variable,
     VariableBuiltin,
+    VariableParameter,
     Unknown,
+}
+
+#[derive(Debug)]
+struct Scope<'a> {
+    inherits: bool,
+    local_defs: Vec<(&'a str, Highlight)>,
 }
 
 struct Layer<'a> {
@@ -82,6 +93,8 @@ struct Layer<'a> {
     ranges: Vec<Range>,
     at_node_end: bool,
     depth: usize,
+    scope_stack: Vec<Scope<'a>>,
+    local_highlight: Option<Highlight>,
 }
 
 struct Highlighter<'a, T>
@@ -144,10 +157,22 @@ enum InjectionContentJSON {
 #[derive(Debug, Deserialize)]
 struct PropertiesJSON {
     highlight: Option<Highlight>,
+    #[serde(rename = "highlight-nonlocal")]
+    highlight_nonlocal: Option<Highlight>,
+
     #[serde(rename = "injection-language")]
     injection_language: Option<InjectionLanguageJSON>,
     #[serde(rename = "injection-content")]
     injection_content: Option<InjectionContentJSON>,
+
+    #[serde(default, rename = "local-scope")]
+    local_scope: bool,
+    #[serde(default, rename = "local-scope-inherit")]
+    local_scope_inherit: bool,
+    #[serde(default, rename = "local-definition")]
+    local_definition: bool,
+    #[serde(default, rename = "local-reference")]
+    local_reference: bool,
 }
 
 #[derive(Debug)]
@@ -282,6 +307,14 @@ impl Properties {
 
         Ok(Self {
             highlight: json.highlight,
+            highlight_nonlocal: json.highlight_nonlocal,
+            local_scope: if json.local_scope {
+                Some(json.local_scope_inherit)
+            } else {
+                None
+            },
+            local_definition: json.local_definition,
+            local_reference: json.local_reference,
             injections,
         })
     }
@@ -629,6 +662,7 @@ where
 
         while !self.layers.is_empty() {
             let first_layer = &self.layers[0];
+            let local_highlight = first_layer.local_highlight;
             let properties = &first_layer.cursor.node_properties();
 
             // Add any injections for the current node.
@@ -657,7 +691,10 @@ where
 
             // Determine if any scopes start or end at the current position.
             let scope_event;
-            if let Some(highlight) = properties.highlight {
+            if let Some(highlight) = local_highlight
+                .or(properties.highlight_nonlocal)
+                .or(properties.highlight)
+            {
                 let next_offset = cmp::min(self.source.len(), self.layers[0].offset());
 
                 // Before returning any highlight boundaries, return any remaining slice of
@@ -748,6 +785,11 @@ impl<'a> Layer<'a> {
             ranges,
             depth,
             at_node_end: false,
+            scope_stack: vec![Scope {
+                inherits: false,
+                local_defs: Vec::new(),
+            }],
+            local_highlight: None,
         }
     }
 
@@ -770,16 +812,78 @@ impl<'a> Layer<'a> {
     }
 
     fn advance(&mut self) -> bool {
+        // Clear the current local highlighting class, which may be re-populated
+        // if we enter a node that represents a local definition or local reference.
+        self.local_highlight = None;
+
+        // Step through the tree in a depth-first traversal, stopping at both
+        // the start and end position of every node.
         if self.at_node_end {
+            self.leave_node();
             if self.cursor.goto_next_sibling() {
+                self.enter_node();
                 self.at_node_end = false;
             } else if !self.cursor.goto_parent() {
                 return false;
             }
-        } else if !self.cursor.goto_first_child() {
+        } else if self.cursor.goto_first_child() {
+            self.enter_node();
+        } else {
             self.at_node_end = true;
         }
         true
+    }
+
+    fn enter_node(&mut self) {
+        let node = self.cursor.node();
+        let props = self.cursor.node_properties();
+        let node_text = if props.local_definition || props.local_reference {
+            node.utf8_text(self.cursor.source()).ok()
+        } else {
+            None
+        };
+
+        // If this node represents a local definition, then record its highlighting class
+        // and store the highlighting class in the current local scope.
+        if props.local_definition {
+            if let (Some(text), Some(inner_scope), Some(highlight)) =
+                (node_text, self.scope_stack.last_mut(), props.highlight)
+            {
+                self.local_highlight = props.highlight;
+                if let Err(i) = inner_scope.local_defs.binary_search_by_key(&text, |e| e.0) {
+                    inner_scope.local_defs.insert(i, (text, highlight));
+                }
+            }
+        }
+        // If this node represents a local reference, then look it up in the current scope
+        // stack. If a local definition is found, record its highlighting class.
+        else if props.local_reference {
+            if let Some(text) = node_text {
+                for scope in self.scope_stack.iter().rev() {
+                    if let Ok(i) = scope.local_defs.binary_search_by_key(&text, |e| e.0) {
+                        self.local_highlight = Some(scope.local_defs[i].1);
+                        break;
+                    }
+                    if !scope.inherits {
+                        break;
+                    }
+                }
+            }
+        }
+        // If this node represents a new local scope, then push it onto the scope stack.
+        if let Some(inherits) = props.local_scope {
+            self.scope_stack.push(Scope {
+                inherits,
+                local_defs: Vec::new(),
+            });
+        }
+    }
+
+    fn leave_node(&mut self) {
+        let props = self.cursor.node_properties();
+        if props.local_scope.is_some() {
+            self.scope_stack.pop();
+        }
     }
 }
 
@@ -815,6 +919,7 @@ impl<'de> Deserialize<'de> for Highlight {
             "type.builtin" => Ok(Highlight::TypeBuiltin),
             "variable" => Ok(Highlight::Variable),
             "variable.builtin" => Ok(Highlight::VariableBuiltin),
+            "variable.parameter" => Ok(Highlight::VariableParameter),
             "tag" => Ok(Highlight::Tag),
             _ => Ok(Highlight::Unknown),
         }
@@ -852,6 +957,7 @@ impl Serialize for Highlight {
             Highlight::TypeBuiltin => serializer.serialize_str("type.builtin"),
             Highlight::Variable => serializer.serialize_str("variable"),
             Highlight::VariableBuiltin => serializer.serialize_str("variable.builtin"),
+            Highlight::VariableParameter => serializer.serialize_str("variable.parameter"),
             Highlight::Tag => serializer.serialize_str("tag"),
             Highlight::Unknown => serializer.serialize_str(""),
         }

@@ -138,7 +138,8 @@ impl Default for Theme {
               "tag": 18,
               "type": 23,
               "type.builtin": {"color": 23, "bold": true},
-              "variable.builtin": {"bold": true}
+              "variable.builtin": {"bold": true},
+              "variable.parameter": {"underline": true}
             }
             "#,
         )

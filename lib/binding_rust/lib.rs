@@ -755,6 +755,10 @@ impl<'a, P> TreePropertyCursor<'a, P> {
         }
     }
 
+    pub fn source(&self) -> &'a [u8] {
+        &self.source
+    }
+
     fn next_state(&self, node_child_index: usize) -> usize {
         let state = self.current_state();
         let node_field_id = self.cursor.field_id();
