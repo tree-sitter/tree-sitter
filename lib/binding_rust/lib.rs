@@ -708,9 +708,7 @@ impl<'a, P> TreePropertyCursor<'a, P> {
             property_sheet,
             source,
         };
-        let kind_id = result.cursor.node().kind_id();
-        let field_id = result.cursor.field_id();
-        let state = result.next_state(&result.current_state(), kind_id, field_id, 0);
+        let state = result.next_state(0);
         result.state_stack.push(state);
         result
     }
@@ -725,15 +723,9 @@ impl<'a, P> TreePropertyCursor<'a, P> {
 
     pub fn goto_first_child(&mut self) -> bool {
         if self.cursor.goto_first_child() {
-            let child_index = 0;
-            let next_state_id = {
-                let state = &self.current_state();
-                let kind_id = self.cursor.node().kind_id();
-                let field_id = self.cursor.field_id();
-                self.next_state(state, kind_id, field_id, child_index)
-            };
+            let next_state_id = self.next_state(0);
             self.state_stack.push(next_state_id);
-            self.child_index_stack.push(child_index);
+            self.child_index_stack.push(0);
             true
         } else {
             false
@@ -744,12 +736,7 @@ impl<'a, P> TreePropertyCursor<'a, P> {
         if self.cursor.goto_next_sibling() {
             let child_index = self.child_index_stack.pop().unwrap() + 1;
             self.state_stack.pop();
-            let next_state_id = {
-                let state = &self.current_state();
-                let kind_id = self.cursor.node().kind_id();
-                let field_id = self.cursor.field_id();
-                self.next_state(state, kind_id, field_id, child_index)
-            };
+            let next_state_id = self.next_state(child_index);
             self.state_stack.push(next_state_id);
             self.child_index_stack.push(child_index);
             true
@@ -768,13 +755,10 @@ impl<'a, P> TreePropertyCursor<'a, P> {
         }
     }
 
-    fn next_state(
-        &self,
-        state: &PropertyState,
-        node_kind_id: u16,
-        node_field_id: Option<u16>,
-        node_child_index: usize,
-    ) -> usize {
+    fn next_state(&self, node_child_index: usize) -> usize {
+        let state = self.current_state();
+        let node_field_id = self.cursor.field_id();
+        let node_kind_id = self.cursor.node().kind_id();
         let transitions = node_field_id
             .and_then(|field_id| state.field_transitions.get(&field_id))
             .or_else(|| state.kind_transitions.get(&node_kind_id));
