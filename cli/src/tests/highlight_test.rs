@@ -3,7 +3,7 @@ use lazy_static::lazy_static;
 use std::ffi::CString;
 use std::{ptr, slice, str};
 use tree_sitter::{Language, PropertySheet};
-use tree_sitter_highlight::{c, highlight, highlight_html, HighlightEvent, Properties, Scope};
+use tree_sitter_highlight::{c, highlight, highlight_html, Highlight, HighlightEvent, Properties};
 
 lazy_static! {
     static ref JS_SHEET: PropertySheet<Properties> =
@@ -15,8 +15,8 @@ lazy_static! {
     static ref SCOPE_CLASS_STRINGS: Vec<String> = {
         let mut result = Vec::new();
         let mut i = 0;
-        while let Some(scope) = Scope::from_usize(i) {
-            result.push(format!("class={:?}", scope));
+        while let Some(highlight) = Highlight::from_usize(i) {
+            result.push(format!("class={:?}", highlight));
             i += 1;
         }
         result
@@ -30,34 +30,51 @@ fn test_highlighting_injected_html_in_javascript() {
     assert_eq!(
         &to_token_vector(&source, get_language("javascript"), &JS_SHEET).unwrap(),
         &[vec![
-            ("const", vec![Scope::Keyword]),
+            ("const", vec![Highlight::Keyword]),
             (" ", vec![]),
-            ("s", vec![Scope::Variable]),
+            ("s", vec![Highlight::Variable]),
             (" ", vec![]),
-            ("=", vec![Scope::Operator]),
+            ("=", vec![Highlight::Operator]),
             (" ", vec![]),
-            ("html", vec![Scope::Function]),
+            ("html", vec![Highlight::Function]),
             (" ", vec![]),
-            ("`<", vec![Scope::String]),
-            ("div", vec![Scope::String, Scope::Tag]),
-            (">", vec![Scope::String]),
+            ("`<", vec![Highlight::String]),
+            ("div", vec![Highlight::String, Highlight::Tag]),
+            (">", vec![Highlight::String]),
             (
                 "${",
-                vec![Scope::String, Scope::Embedded, Scope::PunctuationSpecial]
+                vec![
+                    Highlight::String,
+                    Highlight::Embedded,
+                    Highlight::PunctuationSpecial
+                ]
             ),
-            ("a", vec![Scope::String, Scope::Embedded, Scope::Variable]),
-            (" ", vec![Scope::String, Scope::Embedded]),
-            ("<", vec![Scope::String, Scope::Embedded, Scope::Operator]),
-            (" ", vec![Scope::String, Scope::Embedded]),
-            ("b", vec![Scope::String, Scope::Embedded, Scope::Variable]),
+            (
+                "a",
+                vec![Highlight::String, Highlight::Embedded, Highlight::Variable]
+            ),
+            (" ", vec![Highlight::String, Highlight::Embedded]),
+            (
+                "<",
+                vec![Highlight::String, Highlight::Embedded, Highlight::Operator]
+            ),
+            (" ", vec![Highlight::String, Highlight::Embedded]),
+            (
+                "b",
+                vec![Highlight::String, Highlight::Embedded, Highlight::Variable]
+            ),
             (
                 "}",
-                vec![Scope::String, Scope::Embedded, Scope::PunctuationSpecial]
+                vec![
+                    Highlight::String,
+                    Highlight::Embedded,
+                    Highlight::PunctuationSpecial
+                ]
             ),
-            ("</", vec![Scope::String]),
-            ("div", vec![Scope::String, Scope::Tag]),
-            (">`", vec![Scope::String]),
-            (";", vec![Scope::PunctuationDelimiter]),
+            ("</", vec![Highlight::String]),
+            ("div", vec![Highlight::String, Highlight::Tag]),
+            (">`", vec![Highlight::String]),
+            (";", vec![Highlight::PunctuationDelimiter]),
         ]]
     );
 }
@@ -76,35 +93,43 @@ fn test_highlighting_injected_javascript_in_html() {
     assert_eq!(
         &to_token_vector(&source, get_language("html"), &HTML_SHEET).unwrap(),
         &[
-            vec![("<", vec![]), ("body", vec![Scope::Tag]), (">", vec![]),],
-            vec![("  <", vec![]), ("script", vec![Scope::Tag]), (">", vec![]),],
+            vec![("<", vec![]), ("body", vec![Highlight::Tag]), (">", vec![]),],
+            vec![
+                ("  <", vec![]),
+                ("script", vec![Highlight::Tag]),
+                (">", vec![]),
+            ],
             vec![
                 ("    ", vec![]),
-                ("const", vec![Scope::Keyword]),
+                ("const", vec![Highlight::Keyword]),
                 (" ", vec![]),
-                ("x", vec![Scope::Variable]),
+                ("x", vec![Highlight::Variable]),
                 (" ", vec![]),
-                ("=", vec![Scope::Operator]),
+                ("=", vec![Highlight::Operator]),
                 (" ", vec![]),
-                ("new", vec![Scope::Keyword]),
+                ("new", vec![Highlight::Keyword]),
                 (" ", vec![]),
-                ("Thing", vec![Scope::Constructor]),
-                ("(", vec![Scope::PunctuationBracket]),
-                (")", vec![Scope::PunctuationBracket]),
-                (";", vec![Scope::PunctuationDelimiter]),
+                ("Thing", vec![Highlight::Constructor]),
+                ("(", vec![Highlight::PunctuationBracket]),
+                (")", vec![Highlight::PunctuationBracket]),
+                (";", vec![Highlight::PunctuationDelimiter]),
             ],
             vec![
                 ("  </", vec![]),
-                ("script", vec![Scope::Tag]),
+                ("script", vec![Highlight::Tag]),
                 (">", vec![]),
             ],
-            vec![("</", vec![]), ("body", vec![Scope::Tag]), (">", vec![]),],
+            vec![
+                ("</", vec![]),
+                ("body", vec![Highlight::Tag]),
+                (">", vec![]),
+            ],
         ]
     );
 }
 
 #[test]
-fn test_highlighting_multiline_scopes_to_html() {
+fn test_highlighting_multiline_nodes_to_html() {
     let source = vec![
         "const SOMETHING = `",
         "  one ${",
@@ -166,17 +191,17 @@ fn test_highlighting_ejs() {
         &to_token_vector(&source, get_language("embedded-template"), &EJS_SHEET).unwrap(),
         &[[
             ("<", vec![]),
-            ("div", vec![Scope::Tag]),
+            ("div", vec![Highlight::Tag]),
             (">", vec![]),
-            ("<%", vec![Scope::Keyword]),
+            ("<%", vec![Highlight::Keyword]),
             (" ", vec![]),
-            ("foo", vec![Scope::Function]),
-            ("(", vec![Scope::PunctuationBracket]),
-            (")", vec![Scope::PunctuationBracket]),
+            ("foo", vec![Highlight::Function]),
+            ("(", vec![Highlight::PunctuationBracket]),
+            (")", vec![Highlight::PunctuationBracket]),
             (" ", vec![]),
-            ("%>", vec![Scope::Keyword]),
+            ("%>", vec![Highlight::Keyword]),
             ("</", vec![]),
-            ("div", vec![Scope::Tag]),
+            ("div", vec![Highlight::Tag]),
             (">", vec![])
         ]],
     );
@@ -201,11 +226,11 @@ fn test_highlighting_via_c_api() {
     let injection_regex = c_string("^(javascript|js)$");
     let source_code = c_string("<script>\nconst a = b('c');\nc.d();\n</script>");
 
-    let attribute_strings = &mut [ptr::null(); Scope::Unknown as usize + 1];
-    attribute_strings[Scope::Tag as usize] = class_tag.as_ptr();
-    attribute_strings[Scope::String as usize] = class_string.as_ptr();
-    attribute_strings[Scope::Keyword as usize] = class_keyword.as_ptr();
-    attribute_strings[Scope::Function as usize] = class_function.as_ptr();
+    let attribute_strings = &mut [ptr::null(); Highlight::Unknown as usize + 1];
+    attribute_strings[Highlight::Tag as usize] = class_tag.as_ptr();
+    attribute_strings[Highlight::String as usize] = class_string.as_ptr();
+    attribute_strings[Highlight::Keyword as usize] = class_keyword.as_ptr();
+    attribute_strings[Highlight::Function as usize] = class_function.as_ptr();
 
     let highlighter = c::ts_highlighter_new(attribute_strings.as_ptr());
     let buffer = c::ts_highlight_buffer_new();
@@ -290,7 +315,7 @@ fn to_html<'a>(
         language,
         property_sheet,
         &test_language_for_injection_string,
-        &|scope| SCOPE_CLASS_STRINGS[scope as usize].as_str(),
+        &|highlight| SCOPE_CLASS_STRINGS[highlight as usize].as_str(),
     )
 }
 
@@ -298,9 +323,9 @@ fn to_token_vector<'a>(
     src: &'a str,
     language: Language,
     property_sheet: &'a PropertySheet<Properties>,
-) -> Result<Vec<Vec<(&'a str, Vec<Scope>)>>, String> {
+) -> Result<Vec<Vec<(&'a str, Vec<Highlight>)>>, String> {
     let mut lines = Vec::new();
-    let mut scopes = Vec::new();
+    let mut highlights = Vec::new();
     let mut line = Vec::new();
     for event in highlight(
         src.as_bytes(),
@@ -309,9 +334,9 @@ fn to_token_vector<'a>(
         &test_language_for_injection_string,
     )? {
         match event {
-            HighlightEvent::ScopeStart(s) => scopes.push(s),
-            HighlightEvent::ScopeEnd => {
-                scopes.pop();
+            HighlightEvent::HighlightStart(s) => highlights.push(s),
+            HighlightEvent::HighlightEnd => {
+                highlights.pop();
             }
             HighlightEvent::Source(s) => {
                 for (i, l) in s.lines().enumerate() {
@@ -320,7 +345,7 @@ fn to_token_vector<'a>(
                         line = Vec::new();
                     }
                     if l.len() > 0 {
-                        line.push((l, scopes.clone()));
+                        line.push((l, highlights.clone()));
                     }
                 }
             }
