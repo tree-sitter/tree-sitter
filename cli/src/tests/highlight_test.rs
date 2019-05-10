@@ -172,7 +172,7 @@ fn test_highlighting_empty_lines() {
         &[
             "<span class=Keyword>class</span> <span class=Constructor>A</span> <span class=PunctuationBracket>{</span>\n".to_string(),
             "\n".to_string(),
-            "  <span class=Function>b</span><span class=PunctuationBracket>(</span><span class=Variable>c</span><span class=PunctuationBracket>)</span> <span class=PunctuationBracket>{</span>\n".to_string(),
+            "  <span class=Function>b</span><span class=PunctuationBracket>(</span><span class=VariableParameter>c</span><span class=PunctuationBracket>)</span> <span class=PunctuationBracket>{</span>\n".to_string(),
             "\n".to_string(),
             "    <span class=Function>d</span><span class=PunctuationBracket>(</span><span class=Variable>e</span><span class=PunctuationBracket>)</span>\n".to_string(),
             "\n".to_string(),
