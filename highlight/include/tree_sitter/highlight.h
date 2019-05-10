@@ -43,6 +43,7 @@ enum TSHighlightValue {
   TSHighlightValueTypeBuiltin,
   TSHighlightValueVariable,
   TSHighlightValueVariableBuiltin,
+  TSHighlightValueVariableParameter,
   TSHighlightValueUnknown,
 };
 
