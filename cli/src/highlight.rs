@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 use std::{fmt, fs, io, path};
 use tree_sitter::{Language, PropertySheet};
-use tree_sitter_highlight::{highlight, highlight_html, HighlightEvent, Properties, Scope};
+use tree_sitter_highlight::{highlight, highlight_html, Highlight, HighlightEvent, Properties};
 
 lazy_static! {
     static ref CSS_STYLES_BY_COLOR_ID: Vec<String> =
@@ -27,12 +27,14 @@ impl Theme {
         Ok(serde_json::from_str(&json).unwrap_or_default())
     }
 
-    fn ansi_style(&self, scope: Scope) -> Option<&Style> {
-        self.ansi_styles[scope as usize].as_ref()
+    fn ansi_style(&self, highlight: Highlight) -> Option<&Style> {
+        self.ansi_styles[highlight as usize].as_ref()
     }
 
-    fn css_style(&self, scope: Scope) -> Option<&str> {
-        self.css_styles[scope as usize].as_ref().map(|s| s.as_str())
+    fn css_style(&self, highlight: Highlight) -> Option<&str> {
+        self.css_styles[highlight as usize]
+            .as_ref()
+            .map(|s| s.as_str())
     }
 }
 
@@ -41,15 +43,15 @@ impl<'de> Deserialize<'de> for Theme {
     where
         D: Deserializer<'de>,
     {
-        let scope_count = Scope::Unknown as usize + 1;
-        let mut ansi_styles = vec![None; scope_count];
-        let mut css_styles = vec![None; scope_count];
-        if let Ok(colors) = HashMap::<Scope, Value>::deserialize(deserializer) {
-            for (scope, style_value) in colors {
+        let highlight_count = Highlight::Unknown as usize + 1;
+        let mut ansi_styles = vec![None; highlight_count];
+        let mut css_styles = vec![None; highlight_count];
+        if let Ok(colors) = HashMap::<Highlight, Value>::deserialize(deserializer) {
+            for (highlight, style_value) in colors {
                 let mut style = Style::default();
                 parse_style(&mut style, style_value);
-                ansi_styles[scope as usize] = Some(style);
-                css_styles[scope as usize] = Some(style_to_css(style));
+                ansi_styles[highlight as usize] = Some(style);
+                css_styles[highlight as usize] = Some(style_to_css(style));
             }
         }
         Ok(Self {
@@ -67,8 +69,8 @@ impl Serialize for Theme {
         let entry_count = self.ansi_styles.iter().filter(|i| i.is_some()).count();
         let mut map = serializer.serialize_map(Some(entry_count))?;
         for (i, style) in self.ansi_styles.iter().enumerate() {
-            let scope = Scope::from_usize(i).unwrap();
-            if scope == Scope::Unknown {
+            let highlight = Highlight::from_usize(i).unwrap();
+            if highlight == Highlight::Unknown {
                 break;
             }
             if let Some(style) = style {
@@ -98,14 +100,14 @@ impl Serialize for Theme {
                     if style.is_underline {
                         entry.insert("underline", Value::Bool(true));
                     }
-                    map.serialize_entry(&scope, &entry)?;
+                    map.serialize_entry(&highlight, &entry)?;
                 } else if let Some(color) = color {
-                    map.serialize_entry(&scope, &color)?;
+                    map.serialize_entry(&highlight, &color)?;
                 } else {
-                    map.serialize_entry(&scope, &Value::Null)?;
+                    map.serialize_entry(&highlight, &Value::Null)?;
                 }
             } else {
-                map.serialize_entry(&scope, &Value::Null)?;
+                map.serialize_entry(&highlight, &Value::Null)?;
             }
         }
         map.end()
@@ -136,7 +138,8 @@ impl Default for Theme {
               "tag": 18,
               "type": 23,
               "type.builtin": {"color": 23, "bold": true},
-              "variable.builtin": {"bold": true}
+              "variable.builtin": {"bold": true},
+              "variable.parameter": {"underline": true}
             }
             "#,
         )
@@ -150,11 +153,11 @@ impl fmt::Debug for Theme {
         let mut first = true;
         for (i, style) in self.ansi_styles.iter().enumerate() {
             if let Some(style) = style {
-                let scope = Scope::from_usize(i).unwrap();
+                let highlight = Highlight::from_usize(i).unwrap();
                 if !first {
                     write!(f, ", ")?;
                 }
-                write!(f, "{:?}: {:?}", scope, style)?;
+                write!(f, "{:?}: {:?}", highlight, style)?;
                 first = false;
             }
         }
@@ -262,23 +265,23 @@ pub fn ansi(
     let mut stdout = stdout.lock();
 
     let time = Instant::now();
-    let mut scope_stack = Vec::new();
+    let mut highlight_stack = Vec::new();
     for event in highlight(source, language, property_sheet, |s| {
         language_for_injection_string(loader, s)
     })? {
         match event {
             HighlightEvent::Source(s) => {
-                if let Some(style) = scope_stack.last().and_then(|s| theme.ansi_style(*s)) {
+                if let Some(style) = highlight_stack.last().and_then(|s| theme.ansi_style(*s)) {
                     write!(&mut stdout, "{}", style.paint(s))?;
                 } else {
                     write!(&mut stdout, "{}", s)?;
                 }
             }
-            HighlightEvent::ScopeStart(s) => {
-                scope_stack.push(s);
+            HighlightEvent::HighlightStart(h) => {
+                highlight_stack.push(h);
             }
-            HighlightEvent::ScopeEnd => {
-                scope_stack.pop();
+            HighlightEvent::HighlightEnd => {
+                highlight_stack.pop();
             }
         }
     }
@@ -334,8 +337,8 @@ pub fn html(
         language,
         property_sheet,
         |s| language_for_injection_string(loader, s),
-        |scope| {
-            if let Some(css_style) = theme.css_style(scope) {
+        |highlight| {
+            if let Some(css_style) = theme.css_style(highlight) {
                 css_style
             } else {
                 ""

@@ -16,6 +16,7 @@ use tree_sitter::{self, PropertyStateJSON, PropertyTransitionJSON};
 #[serde(untagged)]
 enum PropertyValue {
     Number(isize),
+    Boolean(bool),
     String(String),
     Object(PropertySet),
     Array(Vec<PropertyValue>),
@@ -314,6 +315,9 @@ impl Builder {
                         transition.state_id = *replacement;
                     }
                 }
+                if let Some(replacement) = state_replacements.get(&state.default_next_state_id) {
+                    state.default_next_state_id = *replacement;
+                }
                 state.transitions.dedup();
             }
         }
@@ -337,6 +341,7 @@ impl Builder {
             for transition in state.transitions.iter_mut() {
                 transition.state_id = final_state_replacements[transition.state_id];
             }
+            state.default_next_state_id = final_state_replacements[state.default_next_state_id]
         }
 
         let mut i = 0;
@@ -737,8 +742,8 @@ fn parse_sass_value(value: &Value) -> Result<PropertyValue> {
         }
         Value::Color(_, Some(name)) => Ok(PropertyValue::String(name.clone())),
         Value::Numeric(n, _) => Ok(PropertyValue::Number(n.to_integer())),
-        Value::True => Ok(PropertyValue::String("true".to_string())),
-        Value::False => Ok(PropertyValue::String("false".to_string())),
+        Value::True => Ok(PropertyValue::Boolean(true)),
+        Value::False => Ok(PropertyValue::Boolean(false)),
         _ => Err(Error(format!(
             "Property values must be strings or function calls. Got {:?}",
             value

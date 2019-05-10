@@ -40,13 +40,17 @@ struct Injection {
 
 #[derive(Debug)]
 pub struct Properties {
-    scope: Option<Scope>,
+    highlight: Option<Highlight>,
+    highlight_nonlocal: Option<Highlight>,
     injections: Vec<Injection>,
+    local_scope: Option<bool>,
+    local_definition: bool,
+    local_reference: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(u16)]
-pub enum Scope {
+pub enum Highlight {
     Attribute,
     Comment,
     Constant,
@@ -73,7 +77,14 @@ pub enum Scope {
     TypeBuiltin,
     Variable,
     VariableBuiltin,
+    VariableParameter,
     Unknown,
+}
+
+#[derive(Debug)]
+struct Scope<'a> {
+    inherits: bool,
+    local_defs: Vec<(&'a str, Highlight)>,
 }
 
 struct Layer<'a> {
@@ -82,6 +93,8 @@ struct Layer<'a> {
     ranges: Vec<Range>,
     at_node_end: bool,
     depth: usize,
+    scope_stack: Vec<Scope<'a>>,
+    local_highlight: Option<Highlight>,
 }
 
 struct Highlighter<'a, T>
@@ -101,8 +114,8 @@ where
 #[derive(Copy, Clone, Debug)]
 pub enum HighlightEvent<'a> {
     Source(&'a str),
-    ScopeStart(Scope),
-    ScopeEnd,
+    HighlightStart(Highlight),
+    HighlightEnd,
 }
 
 #[derive(Debug, Deserialize)]
@@ -143,11 +156,23 @@ enum InjectionContentJSON {
 
 #[derive(Debug, Deserialize)]
 struct PropertiesJSON {
-    scope: Option<Scope>,
+    highlight: Option<Highlight>,
+    #[serde(rename = "highlight-nonlocal")]
+    highlight_nonlocal: Option<Highlight>,
+
     #[serde(rename = "injection-language")]
     injection_language: Option<InjectionLanguageJSON>,
     #[serde(rename = "injection-content")]
     injection_content: Option<InjectionContentJSON>,
+
+    #[serde(default, rename = "local-scope")]
+    local_scope: bool,
+    #[serde(default, rename = "local-scope-inherit")]
+    local_scope_inherit: bool,
+    #[serde(default, rename = "local-definition")]
+    local_definition: bool,
+    #[serde(default, rename = "local-reference")]
+    local_reference: bool,
 }
 
 #[derive(Debug)]
@@ -193,9 +218,9 @@ pub fn load_property_sheet(
     Ok(sheet)
 }
 
-impl Scope {
+impl Highlight {
     pub fn from_usize(i: usize) -> Option<Self> {
-        if i <= (Scope::Unknown as usize) {
+        if i <= (Highlight::Unknown as usize) {
             Some(unsafe { transmute(i as u16) })
         } else {
             None
@@ -281,7 +306,15 @@ impl Properties {
         }?;
 
         Ok(Self {
-            scope: json.scope,
+            highlight: json.highlight,
+            highlight_nonlocal: json.highlight_nonlocal,
+            local_scope: if json.local_scope {
+                Some(json.local_scope_inherit)
+            } else {
+                None
+            },
+            local_definition: json.local_definition,
+            local_reference: json.local_reference,
             injections,
         })
     }
@@ -629,6 +662,7 @@ where
 
         while !self.layers.is_empty() {
             let first_layer = &self.layers[0];
+            let local_highlight = first_layer.local_highlight;
             let properties = &first_layer.cursor.node_properties();
 
             // Add any injections for the current node.
@@ -657,19 +691,22 @@ where
 
             // Determine if any scopes start or end at the current position.
             let scope_event;
-            if let Some(scope) = properties.scope {
+            if let Some(highlight) = local_highlight
+                .or(properties.highlight_nonlocal)
+                .or(properties.highlight)
+            {
                 let next_offset = cmp::min(self.source.len(), self.layers[0].offset());
 
-                // Before returning any scope boundaries, return any remaining slice of
-                // the source code the precedes that scope boundary.
+                // Before returning any highlight boundaries, return any remaining slice of
+                // the source code the precedes that highlight boundary.
                 if self.source_offset < next_offset {
                     return self.emit_source(next_offset);
                 }
 
                 scope_event = if self.layers[0].at_node_end {
-                    Some(HighlightEvent::ScopeEnd)
+                    Some(HighlightEvent::HighlightEnd)
                 } else {
-                    Some(HighlightEvent::ScopeStart(scope))
+                    Some(HighlightEvent::HighlightStart(highlight))
                 };
             } else {
                 scope_event = None;
@@ -748,13 +785,18 @@ impl<'a> Layer<'a> {
             ranges,
             depth,
             at_node_end: false,
+            scope_stack: vec![Scope {
+                inherits: false,
+                local_defs: Vec::new(),
+            }],
+            local_highlight: None,
         }
     }
 
     fn cmp(&self, other: &Layer) -> cmp::Ordering {
         // Events are ordered primarily by their position in the document. But if
-        // one scope starts at a given position and another scope ends at that
-        // same position, return the scope end event before the scope start event.
+        // one highlight starts at a given position and another highlight ends at that
+        // same position, return the highlight end event before the highlight start event.
         self.offset()
             .cmp(&other.offset())
             .then_with(|| other.at_node_end.cmp(&self.at_node_end))
@@ -770,95 +812,159 @@ impl<'a> Layer<'a> {
     }
 
     fn advance(&mut self) -> bool {
+        // Clear the current local highlighting class, which may be re-populated
+        // if we enter a node that represents a local definition or local reference.
+        self.local_highlight = None;
+
+        // Step through the tree in a depth-first traversal, stopping at both
+        // the start and end position of every node.
         if self.at_node_end {
+            self.leave_node();
             if self.cursor.goto_next_sibling() {
+                self.enter_node();
                 self.at_node_end = false;
             } else if !self.cursor.goto_parent() {
                 return false;
             }
-        } else if !self.cursor.goto_first_child() {
+        } else if self.cursor.goto_first_child() {
+            self.enter_node();
+        } else {
             self.at_node_end = true;
         }
         true
     }
+
+    fn enter_node(&mut self) {
+        let node = self.cursor.node();
+        let props = self.cursor.node_properties();
+        let node_text = if props.local_definition || props.local_reference {
+            node.utf8_text(self.cursor.source()).ok()
+        } else {
+            None
+        };
+
+        // If this node represents a local definition, then record its highlighting class
+        // and store the highlighting class in the current local scope.
+        if props.local_definition {
+            if let (Some(text), Some(inner_scope), Some(highlight)) =
+                (node_text, self.scope_stack.last_mut(), props.highlight)
+            {
+                self.local_highlight = props.highlight;
+                if let Err(i) = inner_scope.local_defs.binary_search_by_key(&text, |e| e.0) {
+                    inner_scope.local_defs.insert(i, (text, highlight));
+                }
+            }
+        }
+        // If this node represents a local reference, then look it up in the current scope
+        // stack. If a local definition is found, record its highlighting class.
+        else if props.local_reference {
+            if let Some(text) = node_text {
+                for scope in self.scope_stack.iter().rev() {
+                    if let Ok(i) = scope.local_defs.binary_search_by_key(&text, |e| e.0) {
+                        self.local_highlight = Some(scope.local_defs[i].1);
+                        break;
+                    }
+                    if !scope.inherits {
+                        break;
+                    }
+                }
+            }
+        }
+        // If this node represents a new local scope, then push it onto the scope stack.
+        if let Some(inherits) = props.local_scope {
+            self.scope_stack.push(Scope {
+                inherits,
+                local_defs: Vec::new(),
+            });
+        }
+    }
+
+    fn leave_node(&mut self) {
+        let props = self.cursor.node_properties();
+        if props.local_scope.is_some() {
+            self.scope_stack.pop();
+        }
+    }
 }
 
-impl<'de> Deserialize<'de> for Scope {
+impl<'de> Deserialize<'de> for Highlight {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
         match s.as_str() {
-            "attribute" => Ok(Scope::Attribute),
-            "comment" => Ok(Scope::Comment),
-            "constant" => Ok(Scope::Constant),
-            "constant.builtin" => Ok(Scope::ConstantBuiltin),
-            "constructor" => Ok(Scope::Constructor),
-            "constructor.builtin" => Ok(Scope::ConstructorBuiltin),
-            "embedded" => Ok(Scope::Embedded),
-            "escape" => Ok(Scope::Escape),
-            "function" => Ok(Scope::Function),
-            "function.builtin" => Ok(Scope::FunctionBuiltin),
-            "keyword" => Ok(Scope::Keyword),
-            "number" => Ok(Scope::Number),
-            "operator" => Ok(Scope::Operator),
-            "property" => Ok(Scope::Property),
-            "property.builtin" => Ok(Scope::PropertyBuiltin),
-            "punctuation" => Ok(Scope::Punctuation),
-            "punctuation.bracket" => Ok(Scope::PunctuationBracket),
-            "punctuation.delimiter" => Ok(Scope::PunctuationDelimiter),
-            "punctuation.special" => Ok(Scope::PunctuationSpecial),
-            "string" => Ok(Scope::String),
-            "string.special" => Ok(Scope::StringSpecial),
-            "type" => Ok(Scope::Type),
-            "type.builtin" => Ok(Scope::TypeBuiltin),
-            "variable" => Ok(Scope::Variable),
-            "variable.builtin" => Ok(Scope::VariableBuiltin),
-            "tag" => Ok(Scope::Tag),
-            _ => Ok(Scope::Unknown),
+            "attribute" => Ok(Highlight::Attribute),
+            "comment" => Ok(Highlight::Comment),
+            "constant" => Ok(Highlight::Constant),
+            "constant.builtin" => Ok(Highlight::ConstantBuiltin),
+            "constructor" => Ok(Highlight::Constructor),
+            "constructor.builtin" => Ok(Highlight::ConstructorBuiltin),
+            "embedded" => Ok(Highlight::Embedded),
+            "escape" => Ok(Highlight::Escape),
+            "function" => Ok(Highlight::Function),
+            "function.builtin" => Ok(Highlight::FunctionBuiltin),
+            "keyword" => Ok(Highlight::Keyword),
+            "number" => Ok(Highlight::Number),
+            "operator" => Ok(Highlight::Operator),
+            "property" => Ok(Highlight::Property),
+            "property.builtin" => Ok(Highlight::PropertyBuiltin),
+            "punctuation" => Ok(Highlight::Punctuation),
+            "punctuation.bracket" => Ok(Highlight::PunctuationBracket),
+            "punctuation.delimiter" => Ok(Highlight::PunctuationDelimiter),
+            "punctuation.special" => Ok(Highlight::PunctuationSpecial),
+            "string" => Ok(Highlight::String),
+            "string.special" => Ok(Highlight::StringSpecial),
+            "type" => Ok(Highlight::Type),
+            "type.builtin" => Ok(Highlight::TypeBuiltin),
+            "variable" => Ok(Highlight::Variable),
+            "variable.builtin" => Ok(Highlight::VariableBuiltin),
+            "variable.parameter" => Ok(Highlight::VariableParameter),
+            "tag" => Ok(Highlight::Tag),
+            _ => Ok(Highlight::Unknown),
         }
     }
 }
 
-impl Serialize for Scope {
+impl Serialize for Highlight {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         match self {
-            Scope::Attribute => serializer.serialize_str("attribute"),
-            Scope::Comment => serializer.serialize_str("comment"),
-            Scope::Constant => serializer.serialize_str("constant"),
-            Scope::ConstantBuiltin => serializer.serialize_str("constant.builtin"),
-            Scope::Constructor => serializer.serialize_str("constructor"),
-            Scope::ConstructorBuiltin => serializer.serialize_str("constructor.builtin"),
-            Scope::Embedded => serializer.serialize_str("embedded"),
-            Scope::Escape => serializer.serialize_str("escape"),
-            Scope::Function => serializer.serialize_str("function"),
-            Scope::FunctionBuiltin => serializer.serialize_str("function.builtin"),
-            Scope::Keyword => serializer.serialize_str("keyword"),
-            Scope::Number => serializer.serialize_str("number"),
-            Scope::Operator => serializer.serialize_str("operator"),
-            Scope::Property => serializer.serialize_str("property"),
-            Scope::PropertyBuiltin => serializer.serialize_str("property.builtin"),
-            Scope::Punctuation => serializer.serialize_str("punctuation"),
-            Scope::PunctuationBracket => serializer.serialize_str("punctuation.bracket"),
-            Scope::PunctuationDelimiter => serializer.serialize_str("punctuation.delimiter"),
-            Scope::PunctuationSpecial => serializer.serialize_str("punctuation.special"),
-            Scope::String => serializer.serialize_str("string"),
-            Scope::StringSpecial => serializer.serialize_str("string.special"),
-            Scope::Type => serializer.serialize_str("type"),
-            Scope::TypeBuiltin => serializer.serialize_str("type.builtin"),
-            Scope::Variable => serializer.serialize_str("variable"),
-            Scope::VariableBuiltin => serializer.serialize_str("variable.builtin"),
-            Scope::Tag => serializer.serialize_str("tag"),
-            Scope::Unknown => serializer.serialize_str(""),
+            Highlight::Attribute => serializer.serialize_str("attribute"),
+            Highlight::Comment => serializer.serialize_str("comment"),
+            Highlight::Constant => serializer.serialize_str("constant"),
+            Highlight::ConstantBuiltin => serializer.serialize_str("constant.builtin"),
+            Highlight::Constructor => serializer.serialize_str("constructor"),
+            Highlight::ConstructorBuiltin => serializer.serialize_str("constructor.builtin"),
+            Highlight::Embedded => serializer.serialize_str("embedded"),
+            Highlight::Escape => serializer.serialize_str("escape"),
+            Highlight::Function => serializer.serialize_str("function"),
+            Highlight::FunctionBuiltin => serializer.serialize_str("function.builtin"),
+            Highlight::Keyword => serializer.serialize_str("keyword"),
+            Highlight::Number => serializer.serialize_str("number"),
+            Highlight::Operator => serializer.serialize_str("operator"),
+            Highlight::Property => serializer.serialize_str("property"),
+            Highlight::PropertyBuiltin => serializer.serialize_str("property.builtin"),
+            Highlight::Punctuation => serializer.serialize_str("punctuation"),
+            Highlight::PunctuationBracket => serializer.serialize_str("punctuation.bracket"),
+            Highlight::PunctuationDelimiter => serializer.serialize_str("punctuation.delimiter"),
+            Highlight::PunctuationSpecial => serializer.serialize_str("punctuation.special"),
+            Highlight::String => serializer.serialize_str("string"),
+            Highlight::StringSpecial => serializer.serialize_str("string.special"),
+            Highlight::Type => serializer.serialize_str("type"),
+            Highlight::TypeBuiltin => serializer.serialize_str("type.builtin"),
+            Highlight::Variable => serializer.serialize_str("variable"),
+            Highlight::VariableBuiltin => serializer.serialize_str("variable.builtin"),
+            Highlight::VariableParameter => serializer.serialize_str("variable.parameter"),
+            Highlight::Tag => serializer.serialize_str("tag"),
+            Highlight::Unknown => serializer.serialize_str(""),
         }
     }
 }
 
-pub trait HTMLAttributeCallback<'a>: Fn(Scope) -> &'a str {}
+pub trait HTMLAttributeCallback<'a>: Fn(Highlight) -> &'a str {}
 
 pub fn highlight<'a, F>(
     source: &'a [u8],
@@ -881,18 +987,18 @@ pub fn highlight_html<'a, F1, F2>(
 ) -> Result<Vec<String>, String>
 where
     F1: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
-    F2: Fn(Scope) -> &'a str,
+    F2: Fn(Highlight) -> &'a str,
 {
     let highlighter = Highlighter::new(source, language, property_sheet, injection_callback, None)?;
     let mut renderer = HtmlRenderer::new(attribute_callback);
     let mut scopes = Vec::new();
     for event in highlighter {
         match event {
-            HighlightEvent::ScopeStart(s) => {
+            HighlightEvent::HighlightStart(s) => {
                 scopes.push(s);
                 renderer.start_scope(s);
             }
-            HighlightEvent::ScopeEnd => {
+            HighlightEvent::HighlightEnd => {
                 scopes.pop();
                 renderer.end_scope();
             }
@@ -907,7 +1013,7 @@ where
     Ok(renderer.result)
 }
 
-struct HtmlRenderer<'a, F: Fn(Scope) -> &'a str> {
+struct HtmlRenderer<'a, F: Fn(Highlight) -> &'a str> {
     result: Vec<String>,
     current_line: String,
     attribute_callback: F,
@@ -915,7 +1021,7 @@ struct HtmlRenderer<'a, F: Fn(Scope) -> &'a str> {
 
 impl<'a, F> HtmlRenderer<'a, F>
 where
-    F: Fn(Scope) -> &'a str,
+    F: Fn(Highlight) -> &'a str,
 {
     fn new(attribute_callback: F) -> Self {
         HtmlRenderer {
@@ -925,7 +1031,7 @@ where
         }
     }
 
-    fn start_scope(&mut self, s: Scope) {
+    fn start_scope(&mut self, s: Highlight) {
         write!(
             &mut self.current_line,
             "<span {}>",
@@ -944,14 +1050,16 @@ where
         self.current_line.clear();
     }
 
-    fn add_text(&mut self, src: &str, scopes: &Vec<Scope>) {
+    fn add_text(&mut self, src: &str, scopes: &Vec<Highlight>) {
         let mut multiline = false;
         for line in src.split('\n') {
             let line = line.trim_end_matches('\r');
             if multiline {
                 scopes.iter().for_each(|_| self.end_scope());
                 self.finish_line();
-                scopes.iter().for_each(|scope| self.start_scope(*scope));
+                scopes
+                    .iter()
+                    .for_each(|highlight| self.start_scope(*highlight));
             }
             write!(&mut self.current_line, "{}", escape::Escape(line)).unwrap();
             multiline = true;

@@ -1,4 +1,4 @@
-use super::{escape, load_property_sheet, HighlightEvent, Highlighter, Properties, Scope};
+use super::{escape, load_property_sheet, Highlight, HighlightEvent, Highlighter, Properties};
 use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::CStr;
@@ -37,7 +37,7 @@ pub extern "C" fn ts_highlighter_new(
     attribute_strings: *const *const c_char,
 ) -> *mut TSHighlighter {
     let attribute_strings =
-        unsafe { slice::from_raw_parts(attribute_strings, Scope::Unknown as usize + 1) };
+        unsafe { slice::from_raw_parts(attribute_strings, Highlight::Unknown as usize + 1) };
     let attribute_strings = attribute_strings
         .into_iter()
         .map(|s| {
@@ -185,19 +185,19 @@ impl TSHighlighter {
             output.html.clear();
             output.line_offsets.clear();
             output.line_offsets.push(0);
-            let mut scopes = Vec::new();
+            let mut highlights = Vec::new();
             for event in highlighter {
                 match event {
-                    HighlightEvent::ScopeStart(s) => {
-                        scopes.push(s);
-                        output.start_scope(s, &self.attribute_strings);
+                    HighlightEvent::HighlightStart(s) => {
+                        highlights.push(s);
+                        output.start_highlight(s, &self.attribute_strings);
                     }
-                    HighlightEvent::ScopeEnd => {
-                        scopes.pop();
-                        output.end_scope();
+                    HighlightEvent::HighlightEnd => {
+                        highlights.pop();
+                        output.end_highlight();
                     }
                     HighlightEvent::Source(src) => {
-                        output.add_text(src, &scopes, &self.attribute_strings);
+                        output.add_text(src, &highlights, &self.attribute_strings);
                     }
                 };
             }
@@ -209,8 +209,8 @@ impl TSHighlighter {
 }
 
 impl TSHighlightBuffer {
-    fn start_scope(&mut self, s: Scope, attribute_strings: &[&[u8]]) {
-        let attribute_string = attribute_strings[s as usize];
+    fn start_highlight(&mut self, h: Highlight, attribute_strings: &[&[u8]]) {
+        let attribute_string = attribute_strings[h as usize];
         self.html.extend(b"<span");
         if !attribute_string.is_empty() {
             self.html.extend(b" ");
@@ -219,7 +219,7 @@ impl TSHighlightBuffer {
         self.html.extend(b">");
     }
 
-    fn end_scope(&mut self) {
+    fn end_highlight(&mut self) {
         self.html.extend(b"</span>");
     }
 
@@ -227,16 +227,16 @@ impl TSHighlightBuffer {
         self.line_offsets.push(self.html.len() as u32);
     }
 
-    fn add_text(&mut self, src: &str, scopes: &Vec<Scope>, attribute_strings: &[&[u8]]) {
+    fn add_text(&mut self, src: &str, highlights: &Vec<Highlight>, attribute_strings: &[&[u8]]) {
         let mut multiline = false;
         for line in src.split('\n') {
             let line = line.trim_end_matches('\r');
             if multiline {
-                scopes.iter().for_each(|_| self.end_scope());
+                highlights.iter().for_each(|_| self.end_highlight());
                 self.finish_line();
-                scopes
+                highlights
                     .iter()
-                    .for_each(|scope| self.start_scope(*scope, attribute_strings));
+                    .for_each(|scope| self.start_highlight(*scope, attribute_strings));
             }
             write!(&mut self.html, "{}", escape::Escape(line)).unwrap();
             multiline = true;
