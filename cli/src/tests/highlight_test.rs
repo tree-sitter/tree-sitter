@@ -153,6 +153,67 @@ fn test_highlighting_multiline_nodes_to_html() {
 }
 
 #[test]
+fn test_highlighting_with_local_variable_tracking() {
+    let source = vec![
+        "module.exports = function a(b) {",
+        "  const module = c;",
+        "  console.log(module, b);",
+        "}",
+        "",
+    ]
+    .join("\n");
+
+    assert_eq!(
+        &to_token_vector(&source, get_language("javascript"), &JS_SHEET).unwrap(),
+        &[
+            vec![
+                ("module", vec![Highlight::VariableBuiltin]),
+                (".", vec![Highlight::PunctuationDelimiter]),
+                ("exports", vec![Highlight::Property]),
+                (" ", vec![]),
+                ("=", vec![Highlight::Operator]),
+                (" ", vec![]),
+                ("function", vec![Highlight::Keyword]),
+                (" ", vec![]),
+                ("a", vec![Highlight::Function]),
+                ("(", vec![Highlight::PunctuationBracket]),
+                ("b", vec![Highlight::VariableParameter]),
+                (")", vec![Highlight::PunctuationBracket]),
+                (" ", vec![]),
+                ("{", vec![Highlight::PunctuationBracket])
+            ],
+            vec![
+                ("  ", vec![]),
+                ("const", vec![Highlight::Keyword]),
+                (" ", vec![]),
+                ("module", vec![Highlight::Variable]),
+                (" ", vec![]),
+                ("=", vec![Highlight::Operator]),
+                (" ", vec![]),
+                ("c", vec![Highlight::Variable]),
+                (";", vec![Highlight::PunctuationDelimiter])
+            ],
+            vec![
+                ("  ", vec![]),
+                ("console", vec![Highlight::VariableBuiltin]),
+                (".", vec![Highlight::PunctuationDelimiter]),
+                ("log", vec![Highlight::Function]),
+                ("(", vec![Highlight::PunctuationBracket]),
+                // Not a builtin, because `module` was defined as a variable above.
+                ("module", vec![Highlight::Variable]),
+                (",", vec![Highlight::PunctuationDelimiter]),
+                (" ", vec![]),
+                // A parameter, because `b` was defined as a parameter above.
+                ("b", vec![Highlight::VariableParameter]),
+                (")", vec![Highlight::PunctuationBracket]),
+                (";", vec![Highlight::PunctuationDelimiter]),
+                ("}", vec![Highlight::PunctuationBracket])
+            ]
+        ],
+    );
+}
+
+#[test]
 fn test_highlighting_empty_lines() {
     let source = vec![
         "class A {",
