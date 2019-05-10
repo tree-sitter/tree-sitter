@@ -315,6 +315,9 @@ impl Builder {
                         transition.state_id = *replacement;
                     }
                 }
+                if let Some(replacement) = state_replacements.get(&state.default_next_state_id) {
+                    state.default_next_state_id = *replacement;
+                }
                 state.transitions.dedup();
             }
         }
@@ -338,6 +341,7 @@ impl Builder {
             for transition in state.transitions.iter_mut() {
                 transition.state_id = final_state_replacements[transition.state_id];
             }
+            state.default_next_state_id = final_state_replacements[state.default_next_state_id]
         }
 
         let mut i = 0;
