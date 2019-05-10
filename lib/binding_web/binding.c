@@ -74,6 +74,20 @@ static TSPoint unmarshal_point(const void **address) {
   return point;
 }
 
+static void marshal_range(TSRange *range) {
+  range->start_byte = byte_to_code_unit(range->start_byte);
+  range->end_byte = byte_to_code_unit(range->end_byte);
+  range->start_point.column = byte_to_code_unit(range->start_point.column);
+  range->end_point.column = byte_to_code_unit(range->end_point.column);
+}
+
+static void unmarshal_range(TSRange *range) {
+  range->start_byte = code_unit_to_byte(range->start_byte);
+  range->end_byte = code_unit_to_byte(range->end_byte);
+  range->start_point.column = code_unit_to_byte(range->start_point.column);
+  range->end_point.column = code_unit_to_byte(range->end_point.column);
+}
+
 static TSInputEdit unmarshal_edit() {
   TSInputEdit edit;
   const void **address = TRANSFER_BUFFER;
@@ -151,11 +165,7 @@ TSTree *ts_parser_parse_wasm(
   };
   if (range_count) {
     for (unsigned i = 0; i < range_count; i++) {
-      TSRange *range = &ranges[i];
-      range->start_byte = code_unit_to_byte(range->start_byte);
-      range->end_byte = code_unit_to_byte(range->end_byte);
-      range->start_point.column = code_unit_to_byte(range->start_point.column);
-      range->end_point.column = code_unit_to_byte(range->end_point.column);
+      unmarshal_range(&ranges[i]);
     }
     ts_parser_set_included_ranges(self, ranges, range_count);
     free(ranges);
@@ -176,6 +186,16 @@ void ts_tree_root_node_wasm(const TSTree *tree) {
 void ts_tree_edit_wasm(TSTree *tree) {
   TSInputEdit edit = unmarshal_edit();
   ts_tree_edit(tree, &edit);
+}
+
+void ts_tree_get_changed_ranges_wasm(TSTree *tree, TSTree *other) {
+  unsigned range_count;
+  TSRange *ranges = ts_tree_get_changed_ranges(tree, other, &range_count);
+  for (unsigned i = 0; i < range_count; i++) {
+    marshal_range(&ranges[i]);
+  }
+  TRANSFER_BUFFER[0] = (const void *)range_count;
+  TRANSFER_BUFFER[1] = (const void *)ranges;
 }
 
 /************************/
