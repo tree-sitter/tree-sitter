@@ -16,41 +16,41 @@ typedef enum {
 // The list of scopes which can be styled for syntax highlighting.
 // When constructing a `TSHighlighter`, you need to construct an
 // `attribute_strings` array whose elements correspond to these values.
-enum TSHighlightScope {
-  TSHighlightScopeAttribute,
-  TSHighlightScopeComment,
-  TSHighlightScopeConstant,
-  TSHighlightScopeConstantBuiltin,
-  TSHighlightScopeConstructor,
-  TSHighlightScopeConstructorBuiltin,
-  TSHighlightScopeEmbedded,
-  TSHighlightScopeEscape,
-  TSHighlightScopeFunction,
-  TSHighlightScopeFunctionBuiltin,
-  TSHighlightScopeKeyword,
-  TSHighlightScopeNumber,
-  TSHighlightScopeOperator,
-  TSHighlightScopeProperty,
-  TSHighlightScopePropertyBuiltin,
-  TSHighlightScopePunctuation,
-  TSHighlightScopePunctuationBracket,
-  TSHighlightScopePunctuationDelimiter,
-  TSHighlightScopePunctuationSpecial,
-  TSHighlightScopeString,
-  TSHighlightScopeStringSpecial,
-  TSHighlightScopeTag,
-  TSHighlightScopeType,
-  TSHighlightScopeTypeBuiltin,
-  TSHighlightScopeVariable,
-  TSHighlightScopeVariableBuiltin,
-  TSHighlightScopeUnknown,
+enum TSHighlightValue {
+  TSHighlightValueAttribute,
+  TSHighlightValueComment,
+  TSHighlightValueConstant,
+  TSHighlightValueConstantBuiltin,
+  TSHighlightValueConstructor,
+  TSHighlightValueConstructorBuiltin,
+  TSHighlightValueEmbedded,
+  TSHighlightValueEscape,
+  TSHighlightValueFunction,
+  TSHighlightValueFunctionBuiltin,
+  TSHighlightValueKeyword,
+  TSHighlightValueNumber,
+  TSHighlightValueOperator,
+  TSHighlightValueProperty,
+  TSHighlightValuePropertyBuiltin,
+  TSHighlightValuePunctuation,
+  TSHighlightValuePunctuationBracket,
+  TSHighlightValuePunctuationDelimiter,
+  TSHighlightValuePunctuationSpecial,
+  TSHighlightValueString,
+  TSHighlightValueStringSpecial,
+  TSHighlightValueTag,
+  TSHighlightValueType,
+  TSHighlightValueTypeBuiltin,
+  TSHighlightValueVariable,
+  TSHighlightValueVariableBuiltin,
+  TSHighlightValueUnknown,
 };
 
 typedef struct TSHighlighter TSHighlighter;
 typedef struct TSHighlightBuffer TSHighlightBuffer;
 
 // Construct a `TSHighlighter` by providing a list of strings containing
-// the HTML attributes that should be applied for each highlight scope.
+// the HTML attributes that should be applied for each highlight value.
 TSHighlighter *ts_highlighter_new(
   const char **attribute_strings
 );
