@@ -6,10 +6,18 @@ use std::str::FromStr;
 use tiny_http::{Header, Response, Server};
 use webbrowser;
 
-const PLAYGROUND_JS: &'static [u8] = include_bytes!("../../docs/assets/js/playground.js");
-const LIB_JS: &'static [u8] = include_bytes!("../../lib/binding_web/tree-sitter.js");
-const LIB_WASM: &'static [u8] = include_bytes!("../../lib/binding_web/tree-sitter.wasm");
 const HTML: &'static str = include_str!("./web_ui.html");
+const PLAYGROUND_JS: &'static [u8] = include_bytes!("../../docs/assets/js/playground.js");
+
+#[cfg(unix)]
+const LIB_JS: &'static [u8] = include_bytes!("../../lib/binding_web/tree-sitter.js");
+#[cfg(unix)]
+const LIB_WASM: &'static [u8] = include_bytes!("../../lib/binding_web/tree-sitter.wasm");
+
+#[cfg(windows)]
+const LIB_JS: &'static [u8] = &[];
+#[cfg(windows)]
+const LIB_WASM: &'static [u8] = &[];
 
 pub fn serve(grammar_path: &Path) {
     let port = get_available_port().expect("Couldn't find an available port");
@@ -32,32 +40,48 @@ pub fn serve(grammar_path: &Path) {
         .map_err(|e| format!("Failed to open '{}' in a web browser. Error: {}", url, e))
         .unwrap();
 
-    let html = HTML.replace("THE_LANGUAGE_NAME", &grammar_name);
+    let html = HTML
+        .replace("THE_LANGUAGE_NAME", &grammar_name)
+        .into_bytes();
     let html_header = Header::from_str("Content-type: text/html").unwrap();
     let js_header = Header::from_str("Content-type: application/javascript").unwrap();
     let wasm_header = Header::from_str("Content-type: application/wasm").unwrap();
 
     for request in server.incoming_requests() {
-        let (body, header) = match request.url() {
-            "/" => (html.as_ref(), &html_header),
-            "/playground.js" => (PLAYGROUND_JS, &js_header),
-            "/tree-sitter.js" => (LIB_JS, &js_header),
-            "/tree-sitter.wasm" => (LIB_WASM, &wasm_header),
-            "/tree-sitter-parser.wasm" => (language_wasm.as_slice(), &wasm_header),
-            _ => {
-                request
-                    .respond(Response::from_string("Not found").with_status_code(404))
-                    .expect("Failed to write HTTP response");
-                continue;
+        let res = match request.url() {
+            "/" => response(&html, &html_header),
+            "/playground.js" => response(PLAYGROUND_JS, &js_header),
+            "/tree-sitter-parser.wasm" => response(&language_wasm, &wasm_header),
+            "/tree-sitter.js" => {
+                if cfg!(windows) {
+                    redirect("https://tree-sitter.github.io/tree-sitter.js")
+                } else {
+                    response(LIB_JS, &js_header)
+                }
             }
+            "/tree-sitter.wasm" => {
+                if cfg!(windows) {
+                    redirect("https://tree-sitter.github.io/tree-sitter.wasm")
+                } else {
+                    response(LIB_WASM, &js_header)
+                }
+            }
+            _ => response(b"Not found", &html_header).with_status_code(404),
         };
-        let response = Response::from_string("")
-            .with_data(body, Some(body.len()))
-            .with_header(header.clone());
-        request
-            .respond(response)
-            .expect("Failed to write HTTP response");
+        request.respond(res).expect("Failed to write HTTP response");
     }
+}
+
+fn redirect<'a>(url: &'a str) -> Response<&'a [u8]> {
+    Response::empty(302)
+        .with_data("".as_bytes(), Some(0))
+        .with_header(Header::from_bytes("Location", url.as_bytes()).unwrap())
+}
+
+fn response<'a>(data: &'a [u8], header: &Header) -> Response<&'a [u8]> {
+    Response::empty(200)
+        .with_data(data, Some(data.len()))
+        .with_header(header.clone())
 }
 
 fn get_available_port() -> Option<u16> {
