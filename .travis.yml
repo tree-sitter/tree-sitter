@@ -5,29 +5,35 @@ rust:
 matrix:
   include:
     - os: osx
+      env: INSTALL_EMSCRIPTEN=1
     - os: linux
       services: docker
-      env: TEST_WASM=1
 
 before_install:
   # Install node
-  - if [ -n "$TEST_WASM" ]; then nvm install 10 && nvm use 10; fi
+  - nvm install 10
+  - nvm use 10
+
+  # Download emscripten and add it to the PATH
+  - if [ -n "$INSTALL_EMSCRIPTEN" ]; then export wasm_env="$(script/fetch-emscripten)"; fi
 
 script:
+  # Build the WASM binding
+  - (eval "$wasm_env" && script/build-wasm)
+
+  # Build the CLI
+  - cargo build --release
+
   # Fetch and regenerate the fixture parsers
   - script/fetch-fixtures
-  - cargo build --release
   - script/generate-fixtures
+  - (eval "$wasm_env" && script/generate-fixtures-wasm)
 
   # Run the tests
   - export TREE_SITTER_STATIC_ANALYSIS=1
   - script/test
+  - script/test-wasm
   - script/benchmark
-
-  # Build and test the WASM binding
-  - if [ -n "$TEST_WASM" ]; then script/build-wasm; fi
-  - if [ -n "$TEST_WASM" ]; then script/generate-fixtures-wasm; fi
-  - if [ -n "$TEST_WASM" ]; then script/test-wasm; fi
 
 branches:
   only:
@@ -56,4 +62,6 @@ deploy:
 cache:
   cargo: true
   directories:
+    - target/emsdk
     - test/fixtures/grammars
+    - /home/travis/.emscripten_cache
