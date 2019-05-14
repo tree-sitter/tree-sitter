@@ -5,10 +5,7 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-pub fn compile_language_to_wasm(language_dir: &Path) -> Result<()> {
-    let src_dir = language_dir.join("src");
-
-    // Parse the grammar.json to find out the language name.
+pub fn get_grammar_name(src_dir: &Path) -> Result<String> {
     let grammar_json_path = src_dir.join("grammar.json");
     let grammar_json = fs::read_to_string(&grammar_json_path).map_err(|e| {
         format!(
@@ -22,7 +19,13 @@ pub fn compile_language_to_wasm(language_dir: &Path) -> Result<()> {
             grammar_json_path, e
         )
     })?;
-    let output_filename = format!("tree-sitter-{}.wasm", grammar.name);
+    Ok(grammar.name)
+}
+
+pub fn compile_language_to_wasm(language_dir: &Path) -> Result<()> {
+    let src_dir = language_dir.join("src");
+    let grammar_name = get_grammar_name(&src_dir)?;
+    let output_filename = format!("tree-sitter-{}.wasm", grammar_name);
 
     // Get the current user id so that files created in the docker container will have
     // the same owner.
@@ -54,7 +57,7 @@ pub fn compile_language_to_wasm(language_dir: &Path) -> Result<()> {
         "-s",
         "TOTAL_MEMORY=33554432",
         "-s",
-        &format!("EXPORTED_FUNCTIONS=[\"_tree_sitter_{}\"]", grammar.name),
+        &format!("EXPORTED_FUNCTIONS=[\"_tree_sitter_{}\"]", grammar_name),
         "-fno-exceptions",
         "-I",
         "src",

@@ -5,7 +5,7 @@ use std::path::Path;
 use std::process::exit;
 use std::{u64, usize};
 use tree_sitter_cli::{
-    config, error, generate, highlight, loader, logger, parse, properties, test, wasm,
+    config, error, generate, highlight, loader, logger, parse, properties, test, wasm, web_ui,
 };
 
 fn main() {
@@ -95,6 +95,7 @@ fn run() -> error::Result<()> {
                 .about("Compile a parser to WASM")
                 .arg(Arg::with_name("path").index(1).multiple(true)),
         )
+        .subcommand(SubCommand::with_name("ui").about("Test a parser interactively in the browser"))
         .get_matches();
 
     let home_dir = dirs::home_dir().expect("Failed to read home directory");
@@ -245,6 +246,8 @@ fn run() -> error::Result<()> {
     } else if let Some(matches) = matches.subcommand_matches("build-wasm") {
         let grammar_path = current_dir.join(matches.value_of("path").unwrap_or(""));
         wasm::compile_language_to_wasm(&grammar_path)?;
+    } else if matches.subcommand_matches("ui").is_some() {
+        web_ui::serve(&current_dir);
     }
 
     Ok(())

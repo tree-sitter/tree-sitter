@@ -11,10 +11,7 @@ let tree;
   const demoContainer = document.getElementById('playground-container');
   const languagesByName = {};
 
-  await Promise.all([
-    codeInput.value = await fetch(scriptURL).then(r => r.text()),
-    TreeSitter.init()
-  ]);
+  await TreeSitter.init();
 
   const parser = new TreeSitter();
   const codeEditor = CodeMirror.fromTextArea(codeInput, {
@@ -182,11 +179,13 @@ let tree;
     const node = tree.rootNode.namedDescendantForPosition(start, end);
     if (treeRows) {
       if (treeRowHighlightedIndex !== -1) {
-        treeRows[treeRowHighlightedIndex] = treeRows[treeRowHighlightedIndex].replace('highlighted', 'plain');
+        const row = treeRows[treeRowHighlightedIndex];
+        if (row) treeRows[treeRowHighlightedIndex] = row.replace('highlighted', 'plain');
       }
       treeRowHighlightedIndex = treeRows.findIndex(row => row.includes(`data-id=${node.id}`));
       if (treeRowHighlightedIndex !== -1) {
-        treeRows[treeRowHighlightedIndex] = treeRows[treeRowHighlightedIndex].replace('plain', 'highlighted');
+        const row = treeRows[treeRowHighlightedIndex];
+        if (row) treeRows[treeRowHighlightedIndex] = row.replace('plain', 'highlighted');
       }
       cluster.update(treeRows);
       const lineHeight = cluster.options.item_height;
@@ -220,7 +219,13 @@ let tree;
 
   function handleLoggingChange() {
     if (loggingCheckbox.checked) {
-      parser.setLogger(console.log);
+      parser.setLogger((message, lexing) => {
+        if (lexing) {
+          console.log("  ", message)
+        } else {
+          console.log(message)
+        }
+      });
     } else {
       parser.setLogger(null);
     }
