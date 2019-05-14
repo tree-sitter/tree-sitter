@@ -5,10 +5,7 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-pub fn compile_language_to_wasm(language_dir: &Path) -> Result<()> {
-    let src_dir = language_dir.join("src");
-
-    // Parse the grammar.json to find out the language name.
+pub fn get_grammar_name(src_dir: &Path) -> Result<String> {
     let grammar_json_path = src_dir.join("grammar.json");
     let grammar_json = fs::read_to_string(&grammar_json_path).map_err(|e| {
         format!(
@@ -22,28 +19,42 @@ pub fn compile_language_to_wasm(language_dir: &Path) -> Result<()> {
             grammar_json_path, e
         )
     })?;
-    let output_filename = format!("tree-sitter-{}.wasm", grammar.name);
+    Ok(grammar.name)
+}
 
-    // Get the current user id so that files created in the docker container will have
-    // the same owner.
-    let user_id_output = Command::new("id")
-        .arg("-u")
-        .output()
-        .map_err(|e| format!("Failed to get get current user id {}", e))?;
-    let user_id = String::from_utf8_lossy(&user_id_output.stdout);
-    let user_id = user_id.trim();
+pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Result<()> {
+    let src_dir = language_dir.join("src");
+    let grammar_name = get_grammar_name(&src_dir)?;
+    let output_filename = format!("tree-sitter-{}.wasm", grammar_name);
 
-    // Use `emscripten-slim` docker image with the parser directory mounted as a volume.
-    let mut command = Command::new("docker");
-    let mut volume_string = OsString::from(language_dir);
-    volume_string.push(":/src");
-    command.args(&["run", "--rm"]);
-    command.args(&[OsStr::new("--volume"), &volume_string]);
-    command.args(&["--user", user_id, "trzeci/emscripten-slim"]);
+    let mut command;
+    if !force_docker && Command::new("emcc").output().is_ok() {
+        command = Command::new("emcc");
+        command.current_dir(&language_dir);
+    } else {
+        command = Command::new("docker");
+        command.args(&["run", "--rm"]);
 
-    // Run emscripten in the container
+        // Mount the parser directory as a volume
+        let mut volume_string = OsString::from(language_dir);
+        volume_string.push(":/src");
+        command.args(&[OsStr::new("--volume"), &volume_string]);
+
+        // Get the current user id so that files created in the docker container will have
+        // the same owner.
+        let user_id_output = Command::new("id")
+            .arg("-u")
+            .output()
+            .map_err(|e| format!("Failed to get get current user id {}", e))?;
+        let user_id = String::from_utf8_lossy(&user_id_output.stdout);
+        let user_id = user_id.trim();
+        command.args(&["--user", user_id]);
+
+        // Run `emcc` in a container using the `emscripten-slim` image
+        command.args(&["trzeci/emscripten-slim", "emcc"]);
+    }
+
     command.args(&[
-        "emcc",
         "-o",
         &output_filename,
         "-Os",
@@ -54,7 +65,7 @@ pub fn compile_language_to_wasm(language_dir: &Path) -> Result<()> {
         "-s",
         "TOTAL_MEMORY=33554432",
         "-s",
-        &format!("EXPORTED_FUNCTIONS=[\"_tree_sitter_{}\"]", grammar.name),
+        &format!("EXPORTED_FUNCTIONS=[\"_tree_sitter_{}\"]", grammar_name),
         "-fno-exceptions",
         "-I",
         "src",
@@ -86,7 +97,7 @@ pub fn compile_language_to_wasm(language_dir: &Path) -> Result<()> {
 
     let output = command
         .output()
-        .map_err(|e| format!("Failed to run docker emcc command - {}", e))?;
+        .map_err(|e| format!("Failed to run emcc command - {}", e))?;
     if !output.status.success() {
         return Err(Error::from(format!(
             "emcc command failed - {}",

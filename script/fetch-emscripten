@@ -1,0 +1,30 @@
+#!/bin/bash
+
+set -e
+
+mkdir -p target
+EMSDK_DIR="./target/emsdk"
+
+(
+  if [ ! -f "$EMSDK_DIR/emsdk" ]; then
+    echo 'Downloading emscripten SDK...'
+    git clone https://github.com/emscripten-core/emsdk.git $EMSDK_DIR
+  fi
+
+  cd $EMSDK_DIR
+
+  echo 'Updating emscripten SDK...'
+  git pull
+  ./emsdk list
+
+  echo 'Installing latest emscripten...'
+  ./emsdk install latest
+
+  echo 'Activating latest emscripten...'
+  ./emsdk activate latest
+) >&2
+
+(
+  source "$EMSDK_DIR/emsdk_env.sh" > /dev/null
+  declare -px
+)
