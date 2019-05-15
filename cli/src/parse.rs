@@ -163,14 +163,24 @@ pub fn parse_file_at_path(
             if let Some(node) = first_error {
                 let start = node.start_position();
                 let end = node.end_position();
+                write!(&mut stdout, "\t(")?;
+                if node.is_missing() {
+                    if node.is_named() {
+                        write!(&mut stdout, "MISSING {}", node.kind())?;
+                    } else {
+                        write!(
+                            &mut stdout,
+                            "MISSING \"{}\"",
+                            node.kind().replace("\n", "\\n")
+                        )?;
+                    }
+                } else {
+                    write!(&mut stdout, "{}", node.kind())?;
+                }
                 write!(
                     &mut stdout,
-                    "\t({} [{}, {}] - [{}, {}])",
-                    node.kind(),
-                    start.row,
-                    start.column,
-                    end.row,
-                    end.column
+                    " [{}, {}] - [{}, {}])",
+                    start.row, start.column, end.row, end.column
                 )?;
             }
             write!(&mut stdout, "\n")?;
