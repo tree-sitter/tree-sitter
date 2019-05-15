@@ -13,17 +13,31 @@ struct Expander {
 }
 
 impl Expander {
-    fn expand_variable(&mut self, variable: &mut Variable) {
+    fn expand_variable(&mut self, index: usize, variable: &mut Variable) -> bool {
         self.variable_name.clear();
         self.variable_name.push_str(&variable.name);
         self.repeat_count_in_variable = 0;
         let mut rule = Rule::Blank;
         mem::swap(&mut rule, &mut variable.rule);
+
+        // In the special case of a hidden variable with a repetition at its top level,
+        // convert that rule itself into a binary tree structure instead of introducing
+        // another auxiliary rule.
+        if let (VariableType::Hidden, Rule::Repeat(repeated_content)) = (variable.kind, &rule) {
+            let inner_rule = self.expand_rule(&repeated_content);
+            variable.rule = self.wrap_rule_in_binary_tree(Symbol::non_terminal(index), inner_rule);
+            variable.kind = VariableType::Auxiliary;
+            return true;
+        }
+
         variable.rule = self.expand_rule(&rule);
+        false
     }
 
     fn expand_rule(&mut self, rule: &Rule) -> Rule {
         match rule {
+            // For choices, sequences, and metadata, descend into the child rules,
+            // replacing any nested repetitions.
             Rule::Choice(elements) => Rule::Choice(
                 elements
                     .iter()
@@ -38,6 +52,13 @@ impl Expander {
                     .collect(),
             ),
 
+            Rule::Metadata { rule, params } => Rule::Metadata {
+                rule: Box::new(self.expand_rule(rule)),
+                params: params.clone(),
+            },
+
+            // For repetitions, introduce an auxiliary rule that contains the the
+            // repeated content, but can also contain a recursive binary tree structure.
             Rule::Repeat(content) => {
                 let inner_rule = self.expand_rule(content);
 
@@ -58,25 +79,22 @@ impl Expander {
                 self.auxiliary_variables.push(Variable {
                     name: rule_name,
                     kind: VariableType::Auxiliary,
-                    rule: Rule::Choice(vec![
-                        Rule::Seq(vec![
-                            Rule::Symbol(repeat_symbol),
-                            Rule::Symbol(repeat_symbol),
-                        ]),
-                        inner_rule,
-                    ]),
+                    rule: self.wrap_rule_in_binary_tree(repeat_symbol, inner_rule),
                 });
 
                 Rule::Symbol(repeat_symbol)
             }
 
-            Rule::Metadata { rule, params } => Rule::Metadata {
-                rule: Box::new(self.expand_rule(rule)),
-                params: params.clone(),
-            },
-
+            // For primitive rules, don't change anything.
             _ => rule.clone(),
         }
+    }
+
+    fn wrap_rule_in_binary_tree(&self, symbol: Symbol, rule: Rule) -> Rule {
+        Rule::choice(vec![
+            Rule::Seq(vec![Rule::Symbol(symbol), Rule::Symbol(symbol)]),
+            rule,
+        ])
     }
 }
 
@@ -89,8 +107,16 @@ pub(super) fn expand_repeats(mut grammar: ExtractedSyntaxGrammar) -> ExtractedSy
         existing_repeats: HashMap::new(),
     };
 
-    for mut variable in grammar.variables.iter_mut() {
-        expander.expand_variable(&mut variable);
+    for (i, mut variable) in grammar.variables.iter_mut().enumerate() {
+        let expanded_top_level_repetition = expander.expand_variable(i, &mut variable);
+
+        // If a hidden variable had a top-level repetition and it was converted to
+        // a recursive rule, then it can't be inlined.
+        if expanded_top_level_repetition {
+            grammar
+                .variables_to_inline
+                .retain(|symbol| *symbol != Symbol::non_terminal(i));
+        }
     }
 
     grammar
@@ -223,6 +249,32 @@ mod tests {
                         Rule::seq(vec![Rule::non_terminal(2), Rule::non_terminal(2),]),
                         Rule::seq(vec![Rule::terminal(11), Rule::non_terminal(1),]),
                     ])
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_expansion_of_repeats_at_top_of_hidden_rules() {
+        let grammar = expand_repeats(build_grammar(vec![
+            Variable::named("rule0", Rule::non_terminal(1)),
+            Variable::hidden(
+                "_rule1",
+                Rule::repeat(Rule::choice(vec![Rule::terminal(11), Rule::terminal(12)])),
+            ),
+        ]));
+
+        assert_eq!(
+            grammar.variables,
+            vec![
+                Variable::named("rule0", Rule::non_terminal(1),),
+                Variable::auxiliary(
+                    "_rule1",
+                    Rule::choice(vec![
+                        Rule::seq(vec![Rule::non_terminal(1), Rule::non_terminal(1)]),
+                        Rule::terminal(11),
+                        Rule::terminal(12),
+                    ]),
                 ),
             ]
         );

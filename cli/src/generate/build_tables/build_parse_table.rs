@@ -331,14 +331,13 @@ impl<'a> ParseTableBuilder<'a> {
             // an `is_repetition` flag.
             let conflicting_variable_index =
                 conflicting_items.iter().next().unwrap().variable_index;
-            if self.syntax_grammar.variables[conflicting_variable_index as usize].is_auxiliary() {
-                if conflicting_items
+            if self.syntax_grammar.variables[conflicting_variable_index as usize].is_auxiliary()
+                && conflicting_items
                     .iter()
                     .all(|item| item.variable_index == conflicting_variable_index)
-                {
-                    *is_repetition = true;
-                    return Ok(());
-                }
+            {
+                *is_repetition = true;
+                return Ok(());
             }
 
             // If the SHIFT action has higher precedence, remove all the REDUCE actions.
