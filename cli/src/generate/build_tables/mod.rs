@@ -18,6 +18,7 @@ use crate::generate::node_types::VariableInfo;
 use crate::generate::rules::{AliasMap, Symbol, SymbolType, TokenSet};
 use crate::generate::tables::{LexTable, ParseAction, ParseTable, ParseTableEntry};
 use log::info;
+use std::collections::HashMap;
 
 pub(crate) fn build_tables(
     syntax_grammar: &SyntaxGrammar,
@@ -62,6 +63,7 @@ pub(crate) fn build_tables(
         &coincident_token_index,
         &token_conflict_map,
     );
+    populate_external_lex_states(&mut parse_table, syntax_grammar);
     mark_fragile_tokens(&mut parse_table, lexical_grammar, &token_conflict_map);
     Ok((
         parse_table,
@@ -194,6 +196,43 @@ fn populate_used_symbols(
         if value {
             parse_table.symbols.push(Symbol::non_terminal(i));
         }
+    }
+}
+
+fn populate_external_lex_states(parse_table: &mut ParseTable, syntax_grammar: &SyntaxGrammar) {
+    let mut external_tokens_by_corresponding_internal_token = HashMap::new();
+    for (i, external_token) in syntax_grammar.external_tokens.iter().enumerate() {
+        if let Some(symbol) = external_token.corresponding_internal_token {
+            external_tokens_by_corresponding_internal_token.insert(symbol.index, i);
+        }
+    }
+
+    // Ensure that external lex state 0 represents the absence of any
+    // external tokens.
+    parse_table.external_lex_states.push(TokenSet::new());
+
+    for i in 0..parse_table.states.len() {
+        let mut external_tokens = TokenSet::new();
+        for token in parse_table.states[i].terminal_entries.keys() {
+            if token.is_external() {
+                external_tokens.insert(*token);
+            } else if token.is_terminal() {
+                if let Some(index) =
+                    external_tokens_by_corresponding_internal_token.get(&token.index)
+                {
+                    external_tokens.insert(Symbol::external(*index));
+                }
+            }
+        }
+
+        parse_table.states[i].external_lex_state_id = parse_table
+            .external_lex_states
+            .iter()
+            .position(|tokens| *tokens == external_tokens)
+            .unwrap_or_else(|| {
+                parse_table.external_lex_states.push(external_tokens);
+                parse_table.external_lex_states.len() - 1
+            });
     }
 }
 

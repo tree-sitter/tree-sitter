@@ -108,6 +108,7 @@ impl<'a> ParseTableBuilder<'a> {
                 self.parse_table.states.push(ParseState {
                     id: state_id,
                     lex_state_id: 0,
+                    external_lex_state_id: 0,
                     terminal_entries: HashMap::new(),
                     nonterminal_entries: HashMap::new(),
                     core_id,
@@ -777,6 +778,7 @@ pub(crate) fn build_parse_table(
         parse_table: ParseTable {
             states: Vec::new(),
             symbols: Vec::new(),
+            external_lex_states: Vec::new(),
             production_infos: Vec::new(),
             max_aliased_production_length: 1,
         },
