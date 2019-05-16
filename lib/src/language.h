@@ -10,6 +10,7 @@ extern "C" {
 
 #define ts_builtin_sym_error_repeat (ts_builtin_sym_error - 1)
 #define TREE_SITTER_LANGUAGE_VERSION_WITH_FIELDS 10
+#define TREE_SITTER_LANGUAGE_VERSION_WITH_SMALL_STATES 11
 
 typedef struct {
   const TSParseAction *actions;
@@ -51,6 +52,30 @@ static inline bool ts_language_has_reduce_action(const TSLanguage *self,
   return entry.action_count > 0 && entry.actions[0].type == TSParseActionTypeReduce;
 }
 
+static inline uint16_t ts_language_lookup(
+  const TSLanguage *self,
+  TSStateId state,
+  TSSymbol symbol
+) {
+  if (
+    self->version >= TREE_SITTER_LANGUAGE_VERSION_WITH_SMALL_STATES &&
+    state >= self->large_state_count
+  ) {
+    uint32_t index = self->small_parse_table_map[state - self->large_state_count];
+    const uint16_t *state_data = &self->small_parse_table[index];
+    uint16_t symbol_count = *state_data;
+    state_data++;
+    for (unsigned i = 0; i < symbol_count; i++) {
+      if (state_data[0] == symbol) return state_data[1];
+      if (state_data[0] > symbol) break;
+      state_data += 2;
+    }
+    return 0;
+  } else {
+    return self->parse_table[state * self->symbol_count + symbol];
+  }
+}
+
 static inline TSStateId ts_language_next_state(const TSLanguage *self,
                                                TSStateId state,
                                                TSSymbol symbol) {
@@ -67,7 +92,7 @@ static inline TSStateId ts_language_next_state(const TSLanguage *self,
     }
     return 0;
   } else {
-    return self->parse_table[state * self->symbol_count + symbol];
+    return ts_language_lookup(self, state, symbol);
   }
 }
 

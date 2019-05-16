@@ -591,5 +591,5 @@ extern "C" {
     pub fn ts_language_version(arg1: *const TSLanguage) -> u32;
 }
 
-pub const TREE_SITTER_LANGUAGE_VERSION: usize = 10;
+pub const TREE_SITTER_LANGUAGE_VERSION: usize = 11;
 pub const TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION: usize = 9;

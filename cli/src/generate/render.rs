@@ -45,6 +45,8 @@ macro_rules! dedent {
     };
 }
 
+const SMALL_STATE_THRESHOLD: usize = 48;
+
 struct Generator {
     buffer: String,
     indent_level: usize,
@@ -52,10 +54,12 @@ struct Generator {
     parse_table: ParseTable,
     main_lex_table: LexTable,
     keyword_lex_table: LexTable,
+    large_state_count: usize,
     keyword_capture_token: Option<Symbol>,
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
     simple_aliases: AliasMap,
+    symbol_order: HashMap<Symbol, usize>,
     symbol_ids: HashMap<Symbol, String>,
     alias_ids: HashMap<Alias, String>,
     alias_map: BTreeMap<Alias, Option<Symbol>>,
@@ -144,6 +148,15 @@ impl Generator {
             }
         }
 
+        self.large_state_count = self
+            .parse_table
+            .states
+            .iter()
+            .take_while(|s| {
+                s.terminal_entries.len() + s.nonterminal_entries.len() > SMALL_STATE_THRESHOLD
+            })
+            .count();
+
         field_names.sort_unstable();
         field_names.dedup();
         self.field_names = field_names.into_iter().cloned().collect();
@@ -203,6 +216,7 @@ impl Generator {
             "#define STATE_COUNT {}",
             self.parse_table.states.len()
         );
+        add_line!(self, "#define LARGE_STATE_COUNT {}", self.large_state_count);
         add_line!(
             self,
             "#define SYMBOL_COUNT {}",
@@ -231,9 +245,11 @@ impl Generator {
     fn add_symbol_enum(&mut self) {
         add_line!(self, "enum {{");
         indent!(self);
+        self.symbol_order.insert(Symbol::end(), 0);
         let mut i = 1;
         for symbol in self.parse_table.symbols.iter() {
             if *symbol != Symbol::end() {
+                self.symbol_order.insert(*symbol, i);
                 add_line!(self, "{} = {},", self.symbol_ids[&symbol], i);
                 i += 1;
             }
@@ -733,25 +749,37 @@ impl Generator {
 
         add_line!(
             self,
-            "static uint16_t ts_parse_table[STATE_COUNT][SYMBOL_COUNT] = {{"
+            "static uint16_t ts_parse_table[LARGE_STATE_COUNT][SYMBOL_COUNT] = {{"
         );
         indent!(self);
 
         let mut terminal_entries = Vec::new();
         let mut nonterminal_entries = Vec::new();
 
-        for (i, state) in self.parse_table.states.iter().enumerate() {
+        for (i, state) in self
+            .parse_table
+            .states
+            .iter()
+            .enumerate()
+            .take(self.large_state_count)
+        {
+            add_line!(self, "[{}] = {{", i);
+            indent!(self);
+
             terminal_entries.clear();
             nonterminal_entries.clear();
             terminal_entries.extend(state.terminal_entries.iter());
             nonterminal_entries.extend(state.nonterminal_entries.iter());
-            terminal_entries.sort_unstable_by_key(|e| e.0);
-            nonterminal_entries.sort_unstable_by_key(|e| e.0);
+            terminal_entries.sort_unstable_by_key(|e| self.symbol_order.get(e.0));
+            nonterminal_entries.sort_unstable_by_key(|k| k.0);
 
-            add_line!(self, "[{}] = {{", i);
-            indent!(self);
             for (symbol, state_id) in &nonterminal_entries {
-                add_line!(self, "[{}] = STATE({}),", self.symbol_ids[symbol], state_id);
+                add_line!(
+                    self,
+                    "[{}] = STATE({}),",
+                    self.symbol_ids[symbol],
+                    *state_id
+                );
             }
 
             for (symbol, entry) in &terminal_entries {
@@ -769,6 +797,57 @@ impl Generator {
             }
             dedent!(self);
             add_line!(self, "}},");
+        }
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+
+        add_line!(self, "static uint32_t ts_small_parse_table_map[] = {{");
+        indent!(self);
+        let mut index = 0;
+        for (i, state) in self
+            .parse_table
+            .states
+            .iter()
+            .enumerate()
+            .skip(self.large_state_count)
+        {
+            add_line!(self, "[SMALL_STATE({})] = {},", i, index);
+            index += 1 + 2 * state.symbol_count();
+        }
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+
+        index = 0;
+        add_line!(self, "static uint16_t ts_small_parse_table[] = {{");
+        indent!(self);
+        for state in self.parse_table.states.iter().skip(self.large_state_count) {
+            add_line!(self, "[{}] = {},", index, state.symbol_count());
+            indent!(self);
+
+            terminal_entries.clear();
+            nonterminal_entries.clear();
+            terminal_entries.extend(state.terminal_entries.iter());
+            nonterminal_entries.extend(state.nonterminal_entries.iter());
+            terminal_entries.sort_unstable_by_key(|e| self.symbol_order.get(e.0));
+            nonterminal_entries.sort_unstable_by_key(|k| k.0);
+
+            for (symbol, entry) in &terminal_entries {
+                let entry_id = self.get_parse_action_list_id(
+                    entry,
+                    &mut parse_table_entries,
+                    &mut next_parse_action_list_index,
+                );
+                add_line!(self, "{}, ACTIONS({}),", self.symbol_ids[symbol], entry_id);
+            }
+
+            for (symbol, state_id) in &nonterminal_entries {
+                add_line!(self, "{}, STATE({}),", self.symbol_ids[symbol], *state_id);
+            }
+            dedent!(self);
+
+            index += 1 + 2 * state.symbol_count();
         }
         dedent!(self);
         add_line!(self, "}};");
@@ -872,10 +951,19 @@ impl Generator {
         add_line!(self, ".symbol_count = SYMBOL_COUNT,");
         add_line!(self, ".alias_count = ALIAS_COUNT,");
         add_line!(self, ".token_count = TOKEN_COUNT,");
+        add_line!(self, ".large_state_count = LARGE_STATE_COUNT,");
         add_line!(self, ".symbol_metadata = ts_symbol_metadata,");
         add_line!(
             self,
             ".parse_table = (const unsigned short *)ts_parse_table,"
+        );
+        add_line!(
+            self,
+            ".small_parse_table = (const uint16_t *)ts_small_parse_table,"
+        );
+        add_line!(
+            self,
+            ".small_parse_table_map = (const uint32_t *)ts_small_parse_table_map,"
         );
         add_line!(self, ".parse_actions = ts_parse_actions,");
         add_line!(self, ".lex_modes = ts_lex_modes,");
@@ -1131,6 +1219,7 @@ pub(crate) fn render_c_code(
         buffer: String::new(),
         indent_level: 0,
         language_name: name.to_string(),
+        large_state_count: 0,
         parse_table,
         main_lex_table,
         keyword_lex_table,
@@ -1139,6 +1228,7 @@ pub(crate) fn render_c_code(
         lexical_grammar,
         simple_aliases,
         symbol_ids: HashMap::new(),
+        symbol_order: HashMap::new(),
         alias_ids: HashMap::new(),
         alias_map: BTreeMap::new(),
         field_names: Vec::new(),

@@ -114,6 +114,9 @@ struct TSLanguage {
   const TSFieldMapSlice *field_map_slices;
   const TSFieldMapEntry *field_map_entries;
   const char **field_names;
+  uint32_t large_state_count;
+  const uint16_t *small_parse_table;
+  const uint32_t *small_parse_table_map;
 };
 
 /*
@@ -154,6 +157,8 @@ struct TSLanguage {
 /*
  *  Parse Table Macros
  */
+
+#define SMALL_STATE(id) id - LARGE_STATE_COUNT
 
 #define STATE(id) id
 

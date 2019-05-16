@@ -94,6 +94,10 @@ impl Default for LexTable {
 }
 
 impl ParseState {
+    pub fn symbol_count(&self) -> usize {
+        self.terminal_entries.len() + self.nonterminal_entries.len()
+    }
+
     pub fn referenced_states<'a>(&'a self) -> impl Iterator<Item = ParseStateId> + 'a {
         self.terminal_entries
             .iter()
