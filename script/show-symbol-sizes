@@ -1,0 +1,50 @@
+#!/usr/bin/env node
+
+const {statSync} = require('fs');
+const {execFileSync} = require('child_process');
+const libPath = process.argv[2];
+
+if (!libPath || libPath === '--help') {
+  console.log(`Usage: ${process.argv[1]} <dylib-path>`);
+  process.exit(0)
+}
+
+// Get total file size
+const totalSize = statSync(libPath).size
+
+// Dump symbols with addresses
+const output = execFileSync(
+  'nm',
+  ['-t', 'd', libPath],
+  {encoding: 'utf8'}
+);
+
+// Parse addresses
+const addressEntries = [];
+for (const line of output.split('\n')) {
+  const [address, _, name] = line.split(/\s+/);
+  if (address && name) {
+    addressEntries.push({name, address: parseInt(address)})
+  }
+}
+
+// Compute sizes by subtracting addresses
+addressEntries.sort((a, b) => a.address - b.address);
+const sizeEntries = addressEntries.map(({name, address}, i) => {
+  const next = addressEntries[i + 1] ? addressEntries[i + 1].address : totalSize;
+  const size = next - address;
+  return {name, size}
+})
+
+function formatSize(sizeInBytes) {
+  return sizeInBytes > 1024
+    ? `${(sizeInBytes / 1024).toFixed(1)} kb`
+    : `${sizeInBytes} b`
+}
+
+// Display sizes
+sizeEntries.sort((a, b) => b.size - a.size);
+console.log('total'.padEnd(64, ' '), '\t', formatSize(totalSize));
+for (const entry of sizeEntries) {
+  console.log(entry.name.padEnd(64, ' '), '\t', formatSize(entry.size));
+}
