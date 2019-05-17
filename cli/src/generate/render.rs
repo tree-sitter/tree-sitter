@@ -5,6 +5,7 @@ use super::tables::{
     AdvanceAction, FieldLocation, LexState, LexTable, ParseAction, ParseTable, ParseTableEntry,
 };
 use core::ops::Range;
+use std::cmp;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write;
 use std::mem::swap;
@@ -148,12 +149,17 @@ impl Generator {
             }
         }
 
+        let threshold = cmp::min(
+            SMALL_STATE_THRESHOLD,
+            self.parse_table.symbols.len() / 2 - 1,
+        );
         self.large_state_count = self
             .parse_table
             .states
             .iter()
-            .take_while(|s| {
-                s.terminal_entries.len() + s.nonterminal_entries.len() > SMALL_STATE_THRESHOLD
+            .enumerate()
+            .take_while(|(i, s)| {
+                *i <= 1 || s.terminal_entries.len() + s.nonterminal_entries.len() > threshold
             })
             .count();
 
@@ -802,56 +808,58 @@ impl Generator {
         add_line!(self, "}};");
         add_line!(self, "");
 
-        add_line!(self, "static uint32_t ts_small_parse_table_map[] = {{");
-        indent!(self);
-        let mut index = 0;
-        for (i, state) in self
-            .parse_table
-            .states
-            .iter()
-            .enumerate()
-            .skip(self.large_state_count)
-        {
-            add_line!(self, "[SMALL_STATE({})] = {},", i, index);
-            index += 1 + 2 * state.symbol_count();
-        }
-        dedent!(self);
-        add_line!(self, "}};");
-        add_line!(self, "");
-
-        index = 0;
-        add_line!(self, "static uint16_t ts_small_parse_table[] = {{");
-        indent!(self);
-        for state in self.parse_table.states.iter().skip(self.large_state_count) {
-            add_line!(self, "[{}] = {},", index, state.symbol_count());
+        if self.large_state_count < self.parse_table.states.len() {
+            add_line!(self, "static uint32_t ts_small_parse_table_map[] = {{");
             indent!(self);
-
-            terminal_entries.clear();
-            nonterminal_entries.clear();
-            terminal_entries.extend(state.terminal_entries.iter());
-            nonterminal_entries.extend(state.nonterminal_entries.iter());
-            terminal_entries.sort_unstable_by_key(|e| self.symbol_order.get(e.0));
-            nonterminal_entries.sort_unstable_by_key(|k| k.0);
-
-            for (symbol, entry) in &terminal_entries {
-                let entry_id = self.get_parse_action_list_id(
-                    entry,
-                    &mut parse_table_entries,
-                    &mut next_parse_action_list_index,
-                );
-                add_line!(self, "{}, ACTIONS({}),", self.symbol_ids[symbol], entry_id);
-            }
-
-            for (symbol, state_id) in &nonterminal_entries {
-                add_line!(self, "{}, STATE({}),", self.symbol_ids[symbol], *state_id);
+            let mut index = 0;
+            for (i, state) in self
+                .parse_table
+                .states
+                .iter()
+                .enumerate()
+                .skip(self.large_state_count)
+            {
+                add_line!(self, "[SMALL_STATE({})] = {},", i, index);
+                index += 1 + 2 * state.symbol_count();
             }
             dedent!(self);
+            add_line!(self, "}};");
+            add_line!(self, "");
 
-            index += 1 + 2 * state.symbol_count();
+            index = 0;
+            add_line!(self, "static uint16_t ts_small_parse_table[] = {{");
+            indent!(self);
+            for state in self.parse_table.states.iter().skip(self.large_state_count) {
+                add_line!(self, "[{}] = {},", index, state.symbol_count());
+                indent!(self);
+
+                terminal_entries.clear();
+                nonterminal_entries.clear();
+                terminal_entries.extend(state.terminal_entries.iter());
+                nonterminal_entries.extend(state.nonterminal_entries.iter());
+                terminal_entries.sort_unstable_by_key(|e| self.symbol_order.get(e.0));
+                nonterminal_entries.sort_unstable_by_key(|k| k.0);
+
+                for (symbol, entry) in &terminal_entries {
+                    let entry_id = self.get_parse_action_list_id(
+                        entry,
+                        &mut parse_table_entries,
+                        &mut next_parse_action_list_index,
+                    );
+                    add_line!(self, "{}, ACTIONS({}),", self.symbol_ids[symbol], entry_id);
+                }
+
+                for (symbol, state_id) in &nonterminal_entries {
+                    add_line!(self, "{}, STATE({}),", self.symbol_ids[symbol], *state_id);
+                }
+                dedent!(self);
+
+                index += 1 + 2 * state.symbol_count();
+            }
+            dedent!(self);
+            add_line!(self, "}};");
+            add_line!(self, "");
         }
-        dedent!(self);
-        add_line!(self, "}};");
-        add_line!(self, "");
 
         self.add_parse_action_list(parse_table_entries);
     }
@@ -957,14 +965,18 @@ impl Generator {
             self,
             ".parse_table = (const unsigned short *)ts_parse_table,"
         );
-        add_line!(
-            self,
-            ".small_parse_table = (const uint16_t *)ts_small_parse_table,"
-        );
-        add_line!(
-            self,
-            ".small_parse_table_map = (const uint32_t *)ts_small_parse_table_map,"
-        );
+
+        if self.large_state_count < self.parse_table.states.len() {
+            add_line!(
+                self,
+                ".small_parse_table = (const uint16_t *)ts_small_parse_table,"
+            );
+            add_line!(
+                self,
+                ".small_parse_table_map = (const uint32_t *)ts_small_parse_table_map,"
+            );
+        }
+
         add_line!(self, ".parse_actions = ts_parse_actions,");
         add_line!(self, ".lex_modes = ts_lex_modes,");
         add_line!(self, ".symbol_names = ts_symbol_names,");
