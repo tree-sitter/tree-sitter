@@ -14,6 +14,7 @@ EMSDK_DIR="./target/emsdk"
   cd $EMSDK_DIR
 
   echo 'Updating emscripten SDK...'
+  git reset --hard
   git pull
   ./emsdk list
 
