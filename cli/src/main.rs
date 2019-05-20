@@ -39,6 +39,12 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("grammar-path").index(1))
                 .arg(Arg::with_name("log").long("log"))
                 .arg(Arg::with_name("properties-only").long("properties"))
+                .arg(
+                    Arg::with_name("report-states-for-rule")
+                        .long("report-states-for-rule")
+                        .value_name("rule-name")
+                        .takes_value(true),
+                )
                 .arg(Arg::with_name("no-minimize").long("no-minimize")),
         )
         .subcommand(
@@ -121,10 +127,22 @@ fn run() -> error::Result<()> {
     } else if let Some(matches) = matches.subcommand_matches("generate") {
         let grammar_path = matches.value_of("grammar-path");
         let properties_only = matches.is_present("properties-only");
+        let report_symbol_name = matches.value_of("report-states-for-rule").or_else(|| {
+            if matches.is_present("report-states") {
+                Some("")
+            } else {
+                None
+            }
+        });
         if matches.is_present("log") {
             logger::init();
         }
-        generate::generate_parser_in_directory(&current_dir, grammar_path, properties_only)?;
+        generate::generate_parser_in_directory(
+            &current_dir,
+            grammar_path,
+            properties_only,
+            report_symbol_name,
+        )?;
     } else if let Some(matches) = matches.subcommand_matches("test") {
         let debug = matches.is_present("debug");
         let debug_graph = matches.is_present("debug-graph");

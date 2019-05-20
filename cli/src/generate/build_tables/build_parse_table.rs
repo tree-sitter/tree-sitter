@@ -25,10 +25,11 @@ struct AuxiliarySymbolInfo {
 type SymbolSequence = Vec<Symbol>;
 type AuxiliarySymbolSequence = Vec<AuxiliarySymbolInfo>;
 
+pub(crate) type ParseStateInfo<'a> = (SymbolSequence, ParseItemSet<'a>);
+
 struct ParseStateQueueEntry {
-    preceding_symbols: SymbolSequence,
-    preceding_auxiliary_symbols: AuxiliarySymbolSequence,
     state_id: ParseStateId,
+    preceding_auxiliary_symbols: AuxiliarySymbolSequence,
 }
 
 struct ParseTableBuilder<'a> {
@@ -38,13 +39,13 @@ struct ParseTableBuilder<'a> {
     variable_info: &'a Vec<VariableInfo>,
     core_ids_by_core: HashMap<ParseItemSetCore<'a>, usize>,
     state_ids_by_item_set: HashMap<ParseItemSet<'a>, ParseStateId>,
-    item_sets_by_state_id: Vec<ParseItemSet<'a>>,
+    parse_state_info_by_id: Vec<ParseStateInfo<'a>>,
     parse_state_queue: VecDeque<ParseStateQueueEntry>,
     parse_table: ParseTable,
 }
 
 impl<'a> ParseTableBuilder<'a> {
-    fn build(mut self) -> Result<ParseTable> {
+    fn build(mut self) -> Result<(ParseTable, Vec<ParseStateInfo<'a>>)> {
         // Ensure that the empty alias sequence has index 0.
         self.parse_table
             .production_infos
@@ -70,9 +71,10 @@ impl<'a> ParseTableBuilder<'a> {
         while let Some(entry) = self.parse_state_queue.pop_front() {
             let item_set = self
                 .item_set_builder
-                .transitive_closure(&self.item_sets_by_state_id[entry.state_id]);
+                .transitive_closure(&self.parse_state_info_by_id[entry.state_id].1);
+
             self.add_actions(
-                entry.preceding_symbols,
+                self.parse_state_info_by_id[entry.state_id].0.clone(),
                 entry.preceding_auxiliary_symbols,
                 entry.state_id,
                 item_set,
@@ -81,7 +83,7 @@ impl<'a> ParseTableBuilder<'a> {
 
         self.remove_precedences();
 
-        Ok(self.parse_table)
+        Ok((self.parse_table, self.parse_state_info_by_id))
     }
 
     fn add_parse_state(
@@ -104,7 +106,9 @@ impl<'a> ParseTableBuilder<'a> {
                 };
 
                 let state_id = self.parse_table.states.len();
-                self.item_sets_by_state_id.push(v.key().clone());
+                self.parse_state_info_by_id
+                    .push((preceding_symbols.clone(), v.key().clone()));
+
                 self.parse_table.states.push(ParseState {
                     id: state_id,
                     lex_state_id: 0,
@@ -115,7 +119,6 @@ impl<'a> ParseTableBuilder<'a> {
                 });
                 self.parse_state_queue.push_back(ParseStateQueueEntry {
                     state_id,
-                    preceding_symbols: preceding_symbols.clone(),
                     preceding_auxiliary_symbols: preceding_auxiliary_symbols.clone(),
                 });
                 v.insert(state_id);
@@ -751,12 +754,12 @@ fn populate_following_tokens(
     }
 }
 
-pub(crate) fn build_parse_table(
-    syntax_grammar: &SyntaxGrammar,
-    lexical_grammar: &LexicalGrammar,
-    inlines: &InlinedProductionMap,
-    variable_info: &Vec<VariableInfo>,
-) -> Result<(ParseTable, Vec<TokenSet>)> {
+pub(crate) fn build_parse_table<'a>(
+    syntax_grammar: &'a SyntaxGrammar,
+    lexical_grammar: &'a LexicalGrammar,
+    inlines: &'a InlinedProductionMap,
+    variable_info: &'a Vec<VariableInfo>,
+) -> Result<(ParseTable, Vec<TokenSet>, Vec<ParseStateInfo<'a>>)> {
     let item_set_builder = ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines);
     let mut following_tokens = vec![TokenSet::new(); lexical_grammar.variables.len()];
     populate_following_tokens(
@@ -766,14 +769,14 @@ pub(crate) fn build_parse_table(
         &item_set_builder,
     );
 
-    let table = ParseTableBuilder {
+    let (table, item_sets) = ParseTableBuilder {
         syntax_grammar,
         lexical_grammar,
         item_set_builder,
         variable_info,
         state_ids_by_item_set: HashMap::new(),
         core_ids_by_core: HashMap::new(),
-        item_sets_by_state_id: Vec::new(),
+        parse_state_info_by_id: Vec::new(),
         parse_state_queue: VecDeque::new(),
         parse_table: ParseTable {
             states: Vec::new(),
@@ -785,5 +788,5 @@ pub(crate) fn build_parse_table(
     }
     .build()?;
 
-    Ok((table, following_tokens))
+    Ok((table, following_tokens, item_sets))
 }

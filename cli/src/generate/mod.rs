@@ -42,6 +42,7 @@ pub fn generate_parser_in_directory(
     repo_path: &PathBuf,
     grammar_path: Option<&str>,
     properties_only: bool,
+    report_symbol_name: Option<&str>,
 ) -> Result<()> {
     let src_path = repo_path.join("src");
     let header_path = src_path.join("tree_sitter");
@@ -102,6 +103,7 @@ pub fn generate_parser_in_directory(
             lexical_grammar,
             inlines,
             simple_aliases,
+            report_symbol_name,
         )?;
 
         write_file(&src_path.join("parser.c"), c_code)?;
@@ -132,6 +134,7 @@ pub fn generate_parser_for_grammar(grammar_json: &str) -> Result<(String, String
         lexical_grammar,
         inlines,
         simple_aliases,
+        None,
     )?;
     Ok((input_grammar.name, parser.c_code))
 }
@@ -142,6 +145,7 @@ fn generate_parser_for_grammar_with_opts(
     lexical_grammar: LexicalGrammar,
     inlines: InlinedProductionMap,
     simple_aliases: AliasMap,
+    report_symbol_name: Option<&str>,
 ) -> Result<GeneratedParser> {
     let variable_info = node_types::get_variable_info(&syntax_grammar, &lexical_grammar, &inlines)?;
     let node_types_json = node_types::generate_node_types_json(
@@ -156,6 +160,7 @@ fn generate_parser_for_grammar_with_opts(
         &simple_aliases,
         &variable_info,
         &inlines,
+        report_symbol_name,
     )?;
     let c_code = render_c_code(
         name,
