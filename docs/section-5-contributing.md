@@ -29,12 +29,6 @@ git clone https://github.com/tree-sitter/tree-sitter
 cd tree-sitter
 ```
 
-Clone the [`utf8proc`](https://juliastrings.github.io/utf8proc/) submodule:
-
-```
-git submodule update --init
-```
-
 Build the WASM library. We do this first because it gets embedded in the CLI to enable the `web-ui` command. If you have emscripten installed, this will use your `emcc` compiler. Otherwise, it will use Docker:
 
 ```sh

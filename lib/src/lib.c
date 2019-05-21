@@ -2,7 +2,6 @@
 //
 // The following directories must be added to the include path:
 //   - include
-//   - utf8proc
 
 #define _POSIX_C_SOURCE 200112L
 #define UTF8PROC_STATIC
@@ -16,5 +15,5 @@
 #include "./subtree.c"
 #include "./tree_cursor.c"
 #include "./tree.c"
+#include "./utf8.c"
 #include "./utf16.c"
-#include "utf8proc.c"

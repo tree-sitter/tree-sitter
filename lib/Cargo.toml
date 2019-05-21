@@ -16,7 +16,6 @@ include = [
   "/Cargo.toml",
   "/include/*",
   "/src/*",
-  "/utf8proc/*",
 ]
 
 [dependencies]

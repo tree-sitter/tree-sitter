@@ -93,7 +93,6 @@ $emcc                                \
   -D 'fprintf(...)='                 \
   -I lib/src                         \
   -I lib/include                     \
-  -I lib/utf8proc                    \
   --js-library ${web_dir}/imports.js \
   --pre-js ${web_dir}/prefix.js      \
   --post-js ${web_dir}/binding.js    \
