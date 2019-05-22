@@ -1,3 +1,3 @@
 @echo off
 
-cargo bench
+cargo bench --bench benchmark

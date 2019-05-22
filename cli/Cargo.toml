@@ -17,6 +17,10 @@ path = "src/main.rs"
 name = "benchmark"
 harness = false
 
+[[bench]]
+name = "crit-benchmark"
+harness = false
+
 [dependencies]
 cc = "1.0"
 ansi_term = "0.11"
@@ -53,6 +57,7 @@ version = "0.4.6"
 features = ["std"]
 
 [dev-dependencies]
+criterion = "0.2"
 rand = "0.6.4"
 spin = "0.5"
 tempfile = "3"

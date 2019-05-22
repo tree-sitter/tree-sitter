@@ -39,4 +39,4 @@ while getopts "hl:e:r:" option; do
   esac
 done
 
-cargo bench
+cargo bench --bench benchmark

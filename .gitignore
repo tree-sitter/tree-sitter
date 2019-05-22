@@ -12,6 +12,7 @@ node_modules
 
 docs/assets/js/tree-sitter.js
 
+/cli/target
 /target
 *.rs.bk
 *.a
