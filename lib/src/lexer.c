@@ -40,31 +40,28 @@ static void ts_lexer__get_lookahead(Lexer *self) {
   const uint8_t *chunk = (const uint8_t *)self->chunk + position_in_chunk;
   uint32_t size = self->chunk_size - position_in_chunk;
 
-  if (size == 0) {
+  DecodeNextFunction decode_next =
+    self->input.encoding == TSInputEncodingUTF8 ? utf8_decode_next : utf16_decode_next;
+
+  uint32_t *code_point = (uint32_t*)&self->data.lookahead;
+  self->lookahead_size = (uint32_t)decode_next(chunk, size, code_point);
+
+  if (self->lookahead_size == 0) {
     self->lookahead_size = 1;
     self->data.lookahead = '\0';
     return;
   }
 
-  DecodeNextFunction decode_next =
-    self->input.encoding == TSInputEncodingUTF8 ? utf8_decode_next : utf16_decode_next;
-
-  uint32_t code_point = 0;
-  ssize_t decode_next_r = decode_next(chunk, size, &code_point);
-
   // If this chunk ended in the middle of a multi-byte character,
   // try again with a fresh chunk.
-  if (decode_next_r == DECODE_NEXT_ERROR && size < 4) {
+  if (self->lookahead_size == (uint32_t)DECODE_NEXT_ERROR && size < 4) {
     ts_lexer__get_chunk(self);
     chunk = (const uint8_t *)self->chunk;
     size = self->chunk_size;
-    decode_next_r = decode_next(chunk, size, &code_point);
+    self->lookahead_size = decode_next(chunk, size, code_point);
   }
 
-  if (decode_next_r != DECODE_NEXT_ERROR) {
-    self->lookahead_size = (uint32_t)decode_next_r;
-    self->data.lookahead = (int32_t)code_point;
-  } else {
+  if (self->lookahead_size == (uint32_t)DECODE_NEXT_ERROR) {
     self->lookahead_size = 1;
     self->data.lookahead = DECODE_NEXT_ERROR;
   }
