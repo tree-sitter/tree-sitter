@@ -3,6 +3,7 @@
   "version": "0.15.3",
   "description": "Tree-sitter bindings for the web",
   "main": "tree-sitter.js",
+  "types": "tree-sitter-web.d.ts",
   "directories": {
     "test": "test"
   },
