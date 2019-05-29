@@ -5,6 +5,7 @@ use criterion::{Criterion, Benchmark, Throughput};
 use lazy_static::lazy_static;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::time::Duration;
 use std::{env, fs};
 use tree_sitter::{Language, Parser};
 use tree_sitter_cli::loader::Loader;
@@ -134,5 +135,17 @@ fn benchmark(c: &mut Criterion) {
     }
 }
 
-criterion_group!(benches, benchmark);
+fn benchmark_config() -> Criterion {
+    Criterion::default()
+        .warm_up_time(Duration::from_millis(500))
+        .measurement_time(Duration::from_millis(1000))
+        .sample_size(8)
+        .nresamples(1000)
+}
+
+criterion_group!{
+    name = benches;
+    config = benchmark_config();
+    targets = benchmark
+}
 criterion_main!(benches);
