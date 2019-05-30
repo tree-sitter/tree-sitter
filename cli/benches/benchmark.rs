@@ -14,43 +14,46 @@ lazy_static! {
     static ref EXAMPLE_FILTER: Option<String> =
         env::var("TREE_SITTER_BENCHMARK_EXAMPLE_FILTER").ok();
     static ref TEST_LOADER: Loader = Loader::new(SCRATCH_DIR.clone());
-    static ref EXAMPLE_PATHS_BY_LANGUAGE_NAME: BTreeMap<String, Vec<PathBuf>> = {
-        let mut result = BTreeMap::new();
-        let grammar_dirs = fs::read_dir(&(*GRAMMARS_DIR)).unwrap();
-        for grammar_dir in grammar_dirs {
-            let grammar_dir = grammar_dir.unwrap();
-            if !grammar_dir.path().is_dir() {
-                continue;
-            }
-
-            let language_name = grammar_dir.file_name();
-            let language_name = language_name.to_str().unwrap();
-            if let Ok(example_files) = fs::read_dir(&grammar_dir.path().join("examples")) {
-                result.insert(
-                    language_name.to_string(),
-                    example_files
-                        .filter_map(|p| {
-                            let p = p.unwrap().path();
-                            if p.is_file() {
-                                Some(p)
-                            } else {
-                                None
-                            }
-                        })
-                        .collect(),
-                );
+    static ref EXAMPLE_PATHS_BY_LANGUAGE_DIR: BTreeMap<PathBuf, Vec<PathBuf>> = {
+        fn process_dir(result: &mut BTreeMap<PathBuf, Vec<PathBuf>>, dir: &Path) {
+            if dir.join("grammar.js").exists() {
+                let relative_path = dir.strip_prefix(GRAMMARS_DIR.as_path()).unwrap();
+                if let Ok(example_files) = fs::read_dir(&dir.join("examples")) {
+                    result.insert(
+                        relative_path.to_owned(),
+                        example_files
+                            .filter_map(|p| {
+                                let p = p.unwrap().path();
+                                if p.is_file() {
+                                    Some(p)
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect(),
+                    );
+                } else {
+                    result.insert(relative_path.to_owned(), Vec::new());
+                }
             } else {
-                result.insert(language_name.to_string(), Vec::new());
+                for entry in fs::read_dir(&dir).unwrap() {
+                    let entry = entry.unwrap().path();
+                    if entry.is_dir() {
+                        process_dir(result, &entry);
+                    }
+                }
             }
         }
 
+        let mut result = BTreeMap::new();
+        process_dir(&mut result, &GRAMMARS_DIR);
         result
     };
 }
 
 fn main() {
     let mut parser = Parser::new();
-    let max_path_length = EXAMPLE_PATHS_BY_LANGUAGE_NAME
+    let max_path_length = EXAMPLE_PATHS_BY_LANGUAGE_DIR
         .iter()
         .flat_map(|(_, paths)| paths.iter())
         .map(|p| p.file_name().unwrap().to_str().unwrap().chars().count())
@@ -60,7 +63,9 @@ fn main() {
     let mut all_normal_speeds = Vec::new();
     let mut all_error_speeds = Vec::new();
 
-    for (language_name, example_paths) in EXAMPLE_PATHS_BY_LANGUAGE_NAME.iter() {
+    for (language_path, example_paths) in EXAMPLE_PATHS_BY_LANGUAGE_DIR.iter() {
+        let language_name = language_path.file_name().unwrap().to_str().unwrap();
+
         if let Some(filter) = LANGUAGE_FILTER.as_ref() {
             if language_name != filter.as_str() {
                 continue;
@@ -68,7 +73,7 @@ fn main() {
         }
 
         eprintln!("\nLanguage: {}", language_name);
-        parser.set_language(get_language(language_name)).unwrap();
+        parser.set_language(get_language(language_path)).unwrap();
 
         eprintln!("  Normal examples:");
         let mut normal_speeds = Vec::new();
@@ -84,8 +89,8 @@ fn main() {
 
         eprintln!("  Error examples (mismatched languages):");
         let mut error_speeds = Vec::new();
-        for (other_language_name, example_paths) in EXAMPLE_PATHS_BY_LANGUAGE_NAME.iter() {
-            if other_language_name != language_name {
+        for (other_language_path, example_paths) in EXAMPLE_PATHS_BY_LANGUAGE_DIR.iter() {
+            if other_language_path != language_path {
                 for example_path in example_paths {
                     if let Some(filter) = EXAMPLE_FILTER.as_ref() {
                         if !example_path.to_str().unwrap().contains(filter.as_str()) {
@@ -147,7 +152,9 @@ fn parse(parser: &mut Parser, example_path: &Path, max_path_length: usize) -> us
         width = max_path_length
     );
 
-    let source_code = fs::read(example_path).unwrap();
+    let source_code = fs::read(example_path)
+        .map_err(|e| format!("Failed to read {:?} - {}", example_path, e))
+        .unwrap();
     let time = Instant::now();
     let _tree = parser
         .parse(&source_code, None)
@@ -160,9 +167,10 @@ fn parse(parser: &mut Parser, example_path: &Path, max_path_length: usize) -> us
     speed
 }
 
-fn get_language(name: &str) -> Language {
-    let src_dir = GRAMMARS_DIR.join(name).join("src");
+fn get_language(path: &Path) -> Language {
+    let src_dir = GRAMMARS_DIR.join(path).join("src");
     TEST_LOADER
         .load_language_at_path(&src_dir, &src_dir)
+        .map_err(|e| format!("Failed to load language at path {:?} - {:?}", src_dir, e))
         .unwrap()
 }
