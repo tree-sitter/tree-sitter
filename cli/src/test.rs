@@ -92,7 +92,7 @@ pub fn run_tests_at_path(
             println!("\n  {}. {}:", i + 1, name);
             print_diff(actual, expected);
         }
-        Err(Error(String::new()))
+        Error::err(String::new())
     } else {
         Ok(())
     }

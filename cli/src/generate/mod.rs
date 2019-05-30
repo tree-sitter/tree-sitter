@@ -64,20 +64,16 @@ pub fn generate_parser_in_directory(
         node_types_json,
     } = generate_parser_for_grammar_with_opts(&grammar_json, minimize, state_ids_to_log)?;
 
-    fs::write(&repo_src_path.join("parser.c"), c_code)
-        .map_err(|e| format!("Failed to write parser.c: {}", e))?;
-    fs::write(&repo_src_path.join("node-types.json"), node_types_json)
-        .map_err(|e| format!("Failed to write parser.c: {}", e))?;
-    fs::write(
+    write_file(&repo_src_path.join("parser.c"), c_code)?;
+    write_file(&repo_src_path.join("node-types.json"), node_types_json)?;
+    write_file(
         &repo_header_path.join("parser.h"),
         tree_sitter::PARSER_HEADER,
-    )
-    .map_err(|e| format!("Failed to write parser.h: {}", e))?;
-    fs::write(
+    )?;
+    write_file(
         &repo_path.join("index.js"),
         npm_files::index_js(&language_name),
-    )
-    .map_err(|e| format!("Failed to write index.js: {}", e))?;
+    )?;
     ensure_file(&repo_src_path.join("binding.cc"), || {
         npm_files::binding_cc(&language_name)
     })?;
@@ -139,7 +135,7 @@ fn load_grammar_file(grammar_path: &Path) -> Result<String> {
     match grammar_path.extension().and_then(|e| e.to_str()) {
         Some("js") => Ok(load_js_grammar_file(grammar_path)?),
         Some("json") => Ok(fs::read_to_string(grammar_path)?),
-        _ => Err(Error(format!(
+        _ => Err(Error::new(format!(
             "Unknown grammar file extension: {:?}",
             grammar_path
         ))),
@@ -169,7 +165,7 @@ fn load_js_grammar_file(grammar_path: &Path) -> Result<String> {
     match output.status.code() {
         None => panic!("Node process was killed"),
         Some(0) => {}
-        Some(code) => return Err(Error(format!("Node process exited with status {}", code))),
+        Some(code) => return Error::err(format!("Node process exited with status {}", code)),
     }
 
     let mut result = String::from_utf8(output.stdout).expect("Got invalid UTF8 from node");
@@ -177,11 +173,16 @@ fn load_js_grammar_file(grammar_path: &Path) -> Result<String> {
     Ok(result)
 }
 
+fn write_file(path: &Path, body: impl AsRef<[u8]>) -> Result<()> {
+    fs::write(path, body).map_err(Error::wrap(|| {
+        format!("Failed to write {:?}", path.file_name().unwrap())
+    }))
+}
+
 fn ensure_file<T: AsRef<[u8]>>(path: &PathBuf, f: impl Fn() -> T) -> Result<()> {
     if path.exists() {
         Ok(())
     } else {
-        fs::write(path, f().as_ref())
-            .map_err(|e| Error(format!("Failed to write file {:?}: {}", path, e)))
+        write_file(path, f().as_ref())
     }
 }

@@ -1,4 +1,5 @@
 use clap::{App, AppSettings, Arg, SubCommand};
+use error::Error;
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -10,7 +11,7 @@ use tree_sitter_cli::{
 
 fn main() {
     if let Err(e) = run() {
-        eprintln!("{}", e.0);
+        eprintln!("{}", e.message());
         exit(1);
     }
 }
@@ -174,15 +175,35 @@ fn run() -> error::Result<()> {
         for path in paths {
             let path = Path::new(path);
             let language = if let Some(scope) = matches.value_of("scope") {
-                if let Some(config) = loader.language_configuration_for_scope(scope)? {
+                if let Some(config) =
+                    loader
+                        .language_configuration_for_scope(scope)
+                        .map_err(Error::wrap(|| {
+                            format!("Failed to load language for scope '{}'", scope)
+                        }))?
+                {
                     config.0
                 } else {
-                    return Err(error::Error(format!("Unknown scope '{}'", scope)));
+                    return Error::err(format!("Unknown scope '{}'", scope));
                 }
-            } else if let Some((l, _)) = loader.language_configuration_for_file_name(path)? {
-                l
-            } else if let Some(l) = loader.language_at_path(&current_dir)? {
-                l
+            } else if let Some((lang, _)) = loader
+                .language_configuration_for_file_name(path)
+                .map_err(Error::wrap(|| {
+                    format!(
+                        "Failed to load language for file name {:?}",
+                        path.file_name().unwrap()
+                    )
+                }))?
+            {
+                lang
+            } else if let Some(lang) =
+                loader
+                    .language_at_path(&current_dir)
+                    .map_err(Error::wrap(|| {
+                        "Failed to load language in current directory"
+                    }))?
+            {
+                lang
             } else {
                 eprintln!("No language found");
                 return Ok(());
@@ -202,7 +223,7 @@ fn run() -> error::Result<()> {
         }
 
         if has_error {
-            return Err(error::Error(String::new()));
+            return Error::err(String::new());
         }
     } else if let Some(matches) = matches.subcommand_matches("highlight") {
         let paths = matches.values_of("path").unwrap().into_iter();
@@ -218,7 +239,7 @@ fn run() -> error::Result<()> {
         if let Some(scope) = matches.value_of("scope") {
             language_config = loader.language_configuration_for_scope(scope)?;
             if language_config.is_none() {
-                return Err(error::Error(format!("Unknown scope '{}'", scope)));
+                return Error::err(format!("Unknown scope '{}'", scope));
             }
         } else {
             language_config = None;
@@ -245,9 +266,7 @@ fn run() -> error::Result<()> {
                     highlight::ansi(&loader, &config.theme, &source, language, sheet, time)?;
                 }
             } else {
-                return Err(error::Error(format!(
-                    "No syntax highlighting property sheet specified"
-                )));
+                return Error::err(format!("No syntax highlighting property sheet specified"));
             }
         }
     } else if let Some(matches) = matches.subcommand_matches("build-wasm") {

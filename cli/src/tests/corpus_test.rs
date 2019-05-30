@@ -224,10 +224,11 @@ fn test_feature_corpus_files() {
 
             let expected_message = fs::read_to_string(&error_message_path).unwrap();
             if let Err(e) = generate_result {
-                if e.0 != expected_message {
+                if e.message() != expected_message {
                     eprintln!(
                         "Unexpected error message.\n\nExpected:\n\n{}\nActual:\n\n{}\n",
-                        expected_message, e.0
+                        expected_message,
+                        e.message()
                     );
                     failure_count += 1;
                 }

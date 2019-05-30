@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 use std::{env, fs, usize};
 use tree_sitter::{Language, Parser};
+use tree_sitter_cli::error::Error;
 use tree_sitter_cli::loader::Loader;
 
 include!("../src/tests/helpers/dirs.rs");
@@ -153,7 +154,7 @@ fn parse(parser: &mut Parser, example_path: &Path, max_path_length: usize) -> us
     );
 
     let source_code = fs::read(example_path)
-        .map_err(|e| format!("Failed to read {:?} - {}", example_path, e))
+        .map_err(Error::wrap(|| format!("Failed to read {:?}", example_path)))
         .unwrap();
     let time = Instant::now();
     let _tree = parser
@@ -171,6 +172,8 @@ fn get_language(path: &Path) -> Language {
     let src_dir = GRAMMARS_DIR.join(path).join("src");
     TEST_LOADER
         .load_language_at_path(&src_dir, &src_dir)
-        .map_err(|e| format!("Failed to load language at path {:?} - {:?}", src_dir, e))
+        .map_err(Error::wrap(|| {
+            format!("Failed to load language at path {:?}", src_dir)
+        }))
         .unwrap()
 }

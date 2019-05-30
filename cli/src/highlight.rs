@@ -362,20 +362,22 @@ fn language_for_injection_string<'a>(
     string: &str,
 ) -> Option<(Language, &'a PropertySheet<Properties>)> {
     match loader.language_configuration_for_injection_string(string) {
-        Err(message) => {
+        Err(e) => {
             eprintln!(
                 "Failed to load language for injection string '{}': {}",
-                string, message.0
+                string,
+                e.message()
             );
             None
         }
         Ok(None) => None,
         Ok(Some((language, configuration))) => {
             match configuration.highlight_property_sheet(language) {
-                Err(message) => {
+                Err(e) => {
                     eprintln!(
                         "Failed to load property sheet for injection string '{}': {}",
-                        string, message.0
+                        string,
+                        e.message()
                     );
                     None
                 }

@@ -165,8 +165,10 @@ impl Loader {
         struct GrammarJSON {
             name: String,
         }
-        let mut grammar_file = fs::File::open(grammar_path)?;
-        let grammar_json: GrammarJSON = serde_json::from_reader(BufReader::new(&mut grammar_file))?;
+        let mut grammar_file =
+            fs::File::open(grammar_path).map_err(Error::wrap(|| "Failed to read grammar.json"))?;
+        let grammar_json: GrammarJSON = serde_json::from_reader(BufReader::new(&mut grammar_file))
+            .map_err(Error::wrap(|| "Failed to parse grammar.json"))?;
 
         let scanner_path = if scanner_path.exists() {
             Some(scanner_path)
@@ -197,7 +199,11 @@ impl Loader {
         let mut library_path = self.parser_lib_path.join(name);
         library_path.set_extension(DYLIB_EXTENSION);
 
-        if needs_recompile(&library_path, &parser_path, &scanner_path)? {
+        let recompile = needs_recompile(&library_path, &parser_path, &scanner_path).map_err(
+            Error::wrap(|| "Failed to compare source and binary timestamps"),
+        )?;
+
+        if recompile {
             let mut config = cc::Build::new();
             config
                 .cpp(true)
@@ -244,9 +250,11 @@ impl Loader {
                 command.arg("-xc").arg(parser_path);
             }
 
-            let output = command.output()?;
+            let output = command
+                .output()
+                .map_err(Error::wrap(|| "Failed to execute C compiler"))?;
             if !output.status.success() {
-                return Err(Error(format!(
+                return Err(Error::new(format!(
                     "Parser compilation failed.\nStdout: {}\nStderr: {}",
                     String::from_utf8_lossy(&output.stdout),
                     String::from_utf8_lossy(&output.stderr)
@@ -254,16 +262,16 @@ impl Loader {
             }
         }
 
-        let library = Library::new(&library_path).map_err(|e| {
-            Error(format!(
-                "Error opening dynamic library {:?}: {}",
-                &library_path, e
-            ))
-        })?;
+        let library = Library::new(&library_path).map_err(Error::wrap(|| {
+            format!("Error opening dynamic library {:?}", &library_path)
+        }))?;
         let language_fn_name = format!("tree_sitter_{}", replace_dashes_with_underscores(name));
         let language = unsafe {
-            let language_fn: Symbol<unsafe extern "C" fn() -> Language> =
-                library.get(language_fn_name.as_bytes())?;
+            let language_fn: Symbol<unsafe extern "C" fn() -> Language> = library
+                .get(language_fn_name.as_bytes())
+                .map_err(Error::wrap(|| {
+                    format!("Failed to load symbol {}", language_fn_name)
+                }))?;
             language_fn()
         };
         mem::forget(library);
@@ -349,8 +357,19 @@ impl LanguageConfiguration {
         self.highlight_property_sheet
             .get_or_try_init(|| {
                 if let Some(path) = &self.highlight_property_sheet_path {
-                    let sheet_json = fs::read_to_string(path)?;
-                    let sheet = load_property_sheet(language, &sheet_json)?;
+                    let sheet_json = fs::read_to_string(path).map_err(Error::wrap(|| {
+                        format!(
+                            "Failed to read property sheet {:?}",
+                            path.file_name().unwrap()
+                        )
+                    }))?;
+                    let sheet =
+                        load_property_sheet(language, &sheet_json).map_err(Error::wrap(|| {
+                            format!(
+                                "Failed to parse property sheet {:?}",
+                                path.file_name().unwrap()
+                            )
+                        }))?;
                     Ok(Some(sheet))
                 } else {
                     Ok(None)

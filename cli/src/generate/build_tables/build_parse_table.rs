@@ -602,7 +602,7 @@ impl<'a> ParseTableBuilder<'a> {
         }
         write!(&mut msg, "\n").unwrap();
 
-        Err(Error(msg))
+        Err(Error::new(msg))
     }
 
     fn get_auxiliary_node_info(

@@ -461,8 +461,10 @@ pub fn generate_property_sheets_in_directory(repo_path: &Path) -> Result<()> {
             let property_sheet_json_path = src_dir_path
                 .join(css_path.file_name().unwrap())
                 .with_extension("json");
-            let property_sheet_json_file = File::create(&property_sheet_json_path)
-                .map_err(|e| format!("Failed to create {:?}: {}", property_sheet_json_path, e))?;
+            let property_sheet_json_file =
+                File::create(&property_sheet_json_path).map_err(Error::wrap(|| {
+                    format!("Failed to create {:?}", property_sheet_json_path)
+                }))?;
             let mut writer = BufWriter::new(property_sheet_json_file);
             serde_json::to_writer_pretty(&mut writer, &sheet)?;
         }
@@ -561,7 +563,7 @@ fn parse_sass_items(
                                                         is_immediate: immediate,
                                                     });
                                                 } else {
-                                                    return Err(Error(format!("Node type {} must be separated by whitespace or the `>` operator", value)));
+                                                    return Error::err(format!("Node type {} must be separated by whitespace or the `>` operator", value));
                                                 }
                                             }
                                             operator_was_immediate = None;
@@ -576,7 +578,7 @@ fn parse_sass_items(
                                         None => return Err(interpolation_error()),
                                         Some("text") => {
                                             if operator_was_immediate.is_some() {
-                                                return Err(Error("The `text` attribute must be used in combination with a node type or field".to_string()));
+                                                return Error::err("The `text` attribute must be used in combination with a node type or field".to_string());
                                             }
                                             if let Some(last_step) = prefix.last_mut() {
                                                 last_step.text_pattern =
@@ -595,21 +597,21 @@ fn parse_sass_items(
                                                 });
                                                 operator_was_immediate = None;
                                             } else {
-                                                return Err(Error("The `token` attribute canot be used in combination with a node type".to_string()));
+                                                return Error::err("The `token` attribute canot be used in combination with a node type".to_string());
                                             }
                                         }
                                         _ => {
-                                            return Err(Error(format!(
+                                            return Error::err(format!(
                                                 "Unsupported attribute {}",
                                                 part
-                                            )));
+                                            ));
                                         }
                                     }
                                 }
                                 SelectorPart::PseudoElement { .. } => {
-                                    return Err(Error(
+                                    return Error::err(
                                         "Pseudo elements are not supported".to_string(),
-                                    ));
+                                    );
                                 }
                                 SelectorPart::Pseudo { name, arg } => match name.single_raw() {
                                     None => return Err(interpolation_error()),
@@ -621,19 +623,19 @@ fn parse_sass_items(
                                                 if let Ok(i) = usize::from_str_radix(&arg_str, 10) {
                                                     last_step.child_index = Some(i);
                                                 } else {
-                                                    return Err(Error(format!(
+                                                    return Error::err(format!(
                                                         "Invalid child index {}",
                                                         arg
-                                                    )));
+                                                    ));
                                                 }
                                             }
                                         }
                                     }
                                     _ => {
-                                        return Err(Error(format!(
+                                        return Error::err(format!(
                                             "Unsupported pseudo-class {}",
                                             part
-                                        )));
+                                        ));
                                     }
                                 },
                                 SelectorPart::Descendant => {
@@ -644,10 +646,10 @@ fn parse_sass_items(
                                     if operator == '>' {
                                         operator_was_immediate = Some(true);
                                     } else {
-                                        return Err(Error(format!(
+                                        return Error::err(format!(
                                             "Unsupported operator {}",
                                             operator
-                                        )));
+                                        ));
                                     }
                                 }
                             }
@@ -657,7 +659,7 @@ fn parse_sass_items(
                 }
                 parse_sass_items(items, &full_selectors, result)?;
             }
-            _ => return Err(Error(format!("Unsupported syntax type {:?}", item))),
+            _ => return Error::err(format!("Unsupported syntax type {:?}", item)),
         }
     }
 
@@ -687,7 +689,7 @@ fn process_at_rules(
                     items.splice(i..(i + 1), imported_items);
                     continue;
                 } else {
-                    return Err(Error("@import arguments must be strings".to_string()));
+                    return Err(Error::new("@import arguments must be strings".to_string()));
                 }
             }
             rsass::Item::AtRule { name, args, .. } => match name.as_str() {
@@ -698,10 +700,10 @@ fn process_at_rules(
                         items.remove(i);
                         continue;
                     } else {
-                        return Err(Error("@schema arguments must be strings".to_string()));
+                        return Error::err("@schema arguments must be strings".to_string());
                     }
                 }
-                _ => return Err(Error(format!("Unsupported at-rule '{}'", name))),
+                _ => return Error::err(format!("Unsupported at-rule '{}'", name)),
             },
             _ => {}
         }
@@ -730,7 +732,9 @@ fn parse_sass_value(value: &Value) -> Result<PropertyValue> {
                 result.insert("args".to_string(), PropertyValue::Array(args));
                 Ok(PropertyValue::Object(result))
             } else {
-                Err(Error("String interpolation is not supported".to_string()))
+                Err(Error::new(
+                    "String interpolation is not supported".to_string(),
+                ))
             }
         }
         Value::List(elements, ..) => {
@@ -744,7 +748,7 @@ fn parse_sass_value(value: &Value) -> Result<PropertyValue> {
         Value::Numeric(n, _) => Ok(PropertyValue::Number(n.to_integer())),
         Value::True => Ok(PropertyValue::Boolean(true)),
         Value::False => Ok(PropertyValue::Boolean(false)),
-        _ => Err(Error(format!(
+        _ => Err(Error::new(format!(
             "Property values must be strings or function calls. Got {:?}",
             value
         ))),
@@ -781,13 +785,13 @@ fn resolve_path(base: &Path, p: &str) -> Result<PathBuf> {
             }
         }
     }
-    Err(Error(format!("Could not resolve import path `{}`", p)))
+    Err(Error::new(format!("Could not resolve import path `{}`", p)))
 }
 
 fn check_node_kind(name: &String) -> Result<()> {
     for c in name.chars() {
         if !c.is_alphanumeric() && c != '_' {
-            return Err(Error(format!("Invalid identifier '{}'", name)));
+            return Err(Error::new(format!("Invalid identifier '{}'", name)));
         }
     }
     Ok(())
@@ -799,12 +803,12 @@ fn get_string_value(mut s: String) -> Result<String> {
         s.remove(0);
         Ok(s)
     } else {
-        Err(Error(format!("Unsupported string literal {}", s)))
+        Err(Error::new(format!("Unsupported string literal {}", s)))
     }
 }
 
 fn interpolation_error() -> Error {
-    Error("String interpolation is not supported".to_string())
+    Error::new("String interpolation is not supported".to_string())
 }
 
 #[cfg(test)]

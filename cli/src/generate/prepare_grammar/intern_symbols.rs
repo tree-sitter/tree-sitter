@@ -7,7 +7,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
     let interner = Interner { grammar };
 
     if variable_type_for_name(&grammar.variables[0].name) == VariableType::Hidden {
-        return Err(Error("A grammar's start rule must be visible.".to_string()));
+        return Error::err("A grammar's start rule must be visible.".to_string());
     }
 
     let mut variables = Vec::with_capacity(grammar.variables.len());
@@ -227,7 +227,7 @@ mod tests {
         let result = intern_symbols(&build_grammar(vec![Variable::named("x", Rule::named("y"))]));
 
         match result {
-            Err(Error(message)) => assert_eq!(message, "Undefined symbol `y`"),
+            Err(e) => assert_eq!(e.message(), "Undefined symbol `y`"),
             _ => panic!("Expected an error but got none"),
         }
     }

@@ -187,14 +187,14 @@ pub(super) fn flatten_grammar(grammar: ExtractedSyntaxGrammar) -> Result<SyntaxG
     for (i, variable) in variables.iter().enumerate() {
         for production in &variable.productions {
             if production.steps.is_empty() && symbol_is_used(&variables, Symbol::non_terminal(i)) {
-                return Err(Error(format!(
+                return Error::err(format!(
                     "The rule `{}` matches the empty string.
 
 Tree-sitter does not support syntactic rules that match the empty string
 unless they are used only as the grammar's start rule.
 ",
                     variable.name
-                )));
+                ));
             }
         }
     }

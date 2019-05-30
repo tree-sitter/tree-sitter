@@ -95,10 +95,10 @@ pub(super) fn extract_tokens(
         if let Rule::Symbol(symbol) = rule {
             let new_symbol = symbol_replacer.replace_symbol(symbol);
             if new_symbol.is_non_terminal() {
-                return Err(Error(format!(
+                return Error::err(format!(
                     "Non-token symbol '{}' cannot be used as an extra token",
                     &variables[new_symbol.index].name
-                )));
+                ));
             } else {
                 extra_tokens.push(new_symbol);
             }
@@ -116,10 +116,10 @@ pub(super) fn extract_tokens(
         let rule = symbol_replacer.replace_symbols_in_rule(&external_token.rule);
         if let Rule::Symbol(symbol) = rule {
             if symbol.is_non_terminal() {
-                return Err(Error(format!(
+                return Error::err(format!(
                     "Rule '{}' cannot be used as both an external token and a non-terminal rule",
                     &variables[symbol.index].name,
-                )));
+                ));
             }
 
             if symbol.is_external() {
@@ -136,9 +136,9 @@ pub(super) fn extract_tokens(
                 })
             }
         } else {
-            return Err(Error(format!(
+            return Error::err(format!(
                 "Non-symbol rules cannot be used as external tokens"
-            )));
+            ));
         }
     }
 
@@ -146,10 +146,10 @@ pub(super) fn extract_tokens(
     if let Some(token) = grammar.word_token {
         let token = symbol_replacer.replace_symbol(token);
         if token.is_non_terminal() {
-            return Err(Error(format!(
+            return Error::err(format!(
                 "Non-terminal symbol '{}' cannot be used as the word token",
                 &variables[token.index].name
-            )));
+            ));
         }
         word_token = Some(token);
     }
@@ -482,9 +482,9 @@ mod test {
         grammar.extra_tokens = vec![Rule::non_terminal(1)];
 
         match extract_tokens(grammar) {
-            Err(Error(s)) => {
+            Err(e) => {
                 assert_eq!(
-                    s,
+                    e.message(),
                     "Non-token symbol 'rule_1' cannot be used as an extra token"
                 );
             }
@@ -510,8 +510,8 @@ mod test {
         grammar.external_tokens = vec![Variable::named("rule_1", Rule::non_terminal(1))];
 
         match extract_tokens(grammar) {
-            Err(Error(s)) => {
-                assert_eq!(s, "Rule 'rule_1' cannot be used as both an external token and a non-terminal rule");
+            Err(e) => {
+                assert_eq!(e.message(), "Rule 'rule_1' cannot be used as both an external token and a non-terminal rule");
             }
             _ => {
                 panic!("Expected an error but got no error");

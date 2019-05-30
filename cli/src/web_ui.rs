@@ -1,3 +1,4 @@
+use super::error::Error;
 use super::wasm;
 use std::fs;
 use std::net::TcpListener;
@@ -24,20 +25,22 @@ pub fn serve(grammar_path: &Path) {
     let url = format!("127.0.0.1:{}", port);
     let server = Server::http(&url).expect("Failed to start web server");
     let grammar_name = wasm::get_grammar_name(&grammar_path.join("src"))
-        .map_err(|e| format!("Failed to get wasm filename: {:?}", e))
+        .map_err(Error::wrap(|| "Failed to get wasm filename"))
         .unwrap();
     let wasm_filename = format!("tree-sitter-{}.wasm", grammar_name);
     let language_wasm = fs::read(grammar_path.join(&wasm_filename))
-        .map_err(|_| {
+        .map_err(Error::wrap(|| {
             format!(
-                "Failed to read '{}'. Run `tree-sitter build-wasm` first.",
+                "Failed to read {}. Run `tree-sitter build-wasm` first.",
                 wasm_filename
             )
-        })
+        }))
         .unwrap();
 
     webbrowser::open(&format!("http://127.0.0.1:{}", port))
-        .map_err(|e| format!("Failed to open '{}' in a web browser. Error: {}", url, e))
+        .map_err(Error::wrap(|| {
+            format!("Failed to open '{}' in a web browser", url)
+        }))
         .unwrap();
 
     let html = HTML

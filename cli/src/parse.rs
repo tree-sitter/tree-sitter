@@ -29,8 +29,9 @@ pub fn parse_file_at_path(
     let mut _log_session = None;
     let mut parser = Parser::new();
     parser.set_language(language)?;
-    let mut source_code = fs::read(path)
-        .map_err(|e| Error(format!("Error reading source file {:?}: {}", path, e)))?;
+    let mut source_code = fs::read(path).map_err(Error::wrap(|| {
+        format!("Error reading source file {:?}", path)
+    }))?;
 
     // If the `--cancel` flag was passed, then cancel the parse
     // when the user types a newline.
