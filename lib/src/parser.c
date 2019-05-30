@@ -1525,6 +1525,8 @@ TSParser *ts_parser_new(void) {
 }
 
 void ts_parser_delete(TSParser *self) {
+  if (!self) return;
+
   ts_stack_delete(self->stack);
   if (self->reduce_actions.contents) {
     array_delete(&self->reduce_actions);
