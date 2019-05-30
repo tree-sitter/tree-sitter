@@ -7,15 +7,17 @@ cargo build --release
 root_dir=$PWD
 tree_sitter=${root_dir}/target/release/tree-sitter
 grammars_dir=${root_dir}/test/fixtures/grammars
-grammar_names=$(ls $grammars_dir)
+grammar_files=$(find $grammars_dir -name grammar.js | grep -v node_modules)
 
 if [[ "$#" > 0 ]]; then
   grammar_names=($1)
 fi
 
-for grammar_name in $grammar_names; do
+for grammar_file in $grammar_files; do
+  grammar_dir=$(dirname $grammar_file)
+  grammar_name=$(basename $grammar_dir)
   echo "Compiling ${grammar_name} parser to wasm"
-  $tree_sitter build-wasm ${grammars_dir}/${grammar_name}
+  $tree_sitter build-wasm $grammar_dir
 done
 
 mv tree-sitter-*.wasm target/release/

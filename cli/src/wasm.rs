@@ -36,8 +36,18 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
         command.args(&["run", "--rm"]);
 
         // Mount the parser directory as a volume
-        let mut volume_string = OsString::from(language_dir);
-        volume_string.push(":/src");
+        let mut volume_string;
+        if let (Some(parent), Some(filename)) = (language_dir.parent(), language_dir.file_name()) {
+            volume_string = OsString::from(parent);
+            volume_string.push(":/src");
+            command.arg("--workdir");
+            command.arg(&Path::new("/src").join(filename));
+        } else {
+            volume_string = OsString::from(language_dir);
+            volume_string.push(":/src");
+            command.args(&["--workdir", "/src"]);
+        }
+
         command.args(&[OsStr::new("--volume"), &volume_string]);
 
         // Get the current user id so that files created in the docker container will have
