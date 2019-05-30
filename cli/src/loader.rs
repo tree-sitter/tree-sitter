@@ -26,6 +26,7 @@ struct LanguageRepo {
     configurations: Vec<LanguageConfiguration>,
 }
 
+#[derive(Default)]
 pub struct LanguageConfiguration {
     scope: Option<String>,
     _content_regex: Option<Regex>,
@@ -73,7 +74,7 @@ impl Loader {
 
     pub fn language_at_path(&mut self, path: &Path) -> Result<Option<Language>> {
         if let Ok(id) = self.find_language_at_path(path) {
-            Ok(Some(self.language_configuration_for_id(id)?.0))
+            Ok(Some(self.language_for_id(id)?.0))
         } else {
             Ok(None)
         }
@@ -86,7 +87,7 @@ impl Loader {
         for (i, repo) in self.language_repos.iter().enumerate() {
             for configuration in &repo.configurations {
                 if configuration.scope.as_ref().map_or(false, |s| s == scope) {
-                    let (language, _) = self.language_configuration_for_id(i)?;
+                    let (language, _) = self.language_for_id(i)?;
                     return Ok(Some((language, &configuration)));
                 }
             }
@@ -112,7 +113,7 @@ impl Loader {
         if let Some(ids) = ids {
             // TODO use `content-regex` to pick one
             for (repo_id, configuration_id) in ids.iter().cloned() {
-                let (language, configurations) = self.language_configuration_for_id(repo_id)?;
+                let (language, configurations) = self.language_for_id(repo_id)?;
                 return Ok(Some((language, &configurations[configuration_id])));
             }
         }
@@ -139,17 +140,14 @@ impl Loader {
             }
         }
         if let Some((i, j)) = best_match_position {
-            let (language, configurations) = self.language_configuration_for_id(i)?;
+            let (language, configurations) = self.language_for_id(i)?;
             Ok(Some((language, &configurations[j])))
         } else {
             Ok(None)
         }
     }
 
-    fn language_configuration_for_id(
-        &self,
-        id: usize,
-    ) -> Result<(Language, &Vec<LanguageConfiguration>)> {
+    fn language_for_id(&self, id: usize) -> Result<(Language, &Vec<LanguageConfiguration>)> {
         let repo = &self.language_repos[id];
         let language = repo.language.get_or_try_init(|| {
             let src_path = repo.path.join("src");
@@ -293,37 +291,43 @@ impl Loader {
             tree_sitter: Option<Vec<LanguageConfigurationJSON>>,
         }
 
-        let package_json_contents = fs::read_to_string(&parser_path.join("package.json"))?;
-        let package_json: PackageJSON = serde_json::from_str(&package_json_contents)?;
-        let configurations = package_json
-            .tree_sitter
-            .map_or(Vec::new(), |configurations| {
-                configurations
-                    .into_iter()
-                    .map(|conf| LanguageConfiguration {
-                        scope: conf.scope,
-                        file_types: conf.file_types.unwrap_or(Vec::new()),
-                        _content_regex: conf
-                            .content_regex
-                            .and_then(|r| RegexBuilder::new(&r).multi_line(true).build().ok()),
-                        _first_line_regex: conf
-                            .first_line_regex
-                            .and_then(|r| RegexBuilder::new(&r).multi_line(true).build().ok()),
-                        injection_regex: conf
-                            .injection_regex
-                            .and_then(|r| RegexBuilder::new(&r).multi_line(true).build().ok()),
-                        highlight_property_sheet_path: conf.highlights.map(|h| parser_path.join(h)),
-                        highlight_property_sheet: OnceCell::new(),
-                    })
-                    .collect()
-            });
+        let mut configurations = vec![LanguageConfiguration::default()];
+        if let Ok(package_json_contents) = fs::read_to_string(&parser_path.join("package.json")) {
+            let package_json = serde_json::from_str::<PackageJSON>(&package_json_contents);
+            if let Ok(package_json) = package_json {
+                configurations = package_json
+                    .tree_sitter
+                    .map_or(Vec::new(), |configurations| {
+                        configurations
+                            .into_iter()
+                            .map(|conf| LanguageConfiguration {
+                                scope: conf.scope,
+                                file_types: conf.file_types.unwrap_or(Vec::new()),
+                                _content_regex: conf.content_regex.and_then(|r| {
+                                    RegexBuilder::new(&r).multi_line(true).build().ok()
+                                }),
+                                _first_line_regex: conf.first_line_regex.and_then(|r| {
+                                    RegexBuilder::new(&r).multi_line(true).build().ok()
+                                }),
+                                injection_regex: conf.injection_regex.and_then(|r| {
+                                    RegexBuilder::new(&r).multi_line(true).build().ok()
+                                }),
+                                highlight_property_sheet_path: conf
+                                    .highlights
+                                    .map(|h| parser_path.join(h)),
+                                highlight_property_sheet: OnceCell::new(),
+                            })
+                            .collect()
+                    });
 
-        for (i, configuration) in configurations.iter().enumerate() {
-            for file_type in &configuration.file_types {
-                self.language_configuration_ids_by_file_type
-                    .entry(file_type.to_string())
-                    .or_insert(Vec::new())
-                    .push((self.language_repos.len(), i));
+                for (i, configuration) in configurations.iter().enumerate() {
+                    for file_type in &configuration.file_types {
+                        self.language_configuration_ids_by_file_type
+                            .entry(file_type.to_string())
+                            .or_insert(Vec::new())
+                            .push((self.language_repos.len(), i));
+                    }
+                }
             }
         }
 
