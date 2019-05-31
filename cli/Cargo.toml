@@ -17,10 +17,6 @@ path = "src/main.rs"
 name = "benchmark"
 harness = false
 
-[[bench]]
-name = "crit-benchmark"
-harness = false
-
 [dependencies]
 cc = "1.0"
 ansi_term = "0.11"
