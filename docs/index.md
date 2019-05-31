@@ -35,6 +35,7 @@ Parsers for these languages are fairly complete:
 * [Go](https://github.com/tree-sitter/tree-sitter-go)
 * [HTML](https://github.com/tree-sitter/tree-sitter-html)
 * [JavaScript](https://github.com/tree-sitter/tree-sitter-javascript)
+* [Lua](https://github.com/Azganoth/tree-sitter-lua)
 * [OCaml](https://github.com/tree-sitter/tree-sitter-ocaml)
 * [PHP](https://github.com/tree-sitter/tree-sitter-php)
 * [Python](https://github.com/tree-sitter/tree-sitter-python)
