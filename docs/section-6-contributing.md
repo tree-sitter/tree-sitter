@@ -5,6 +5,8 @@ permalink: contributing
 
 # Contributing
 
+## Code of Conduct
+
 ## Developing Tree-sitter
 
 ### Prerequisites
@@ -63,6 +65,13 @@ Then you can run the tests:
 
 ```sh
 script/test
+```
+
+Similarly, to test the WASM binding, you need to compile these parsers to WASM:
+
+```sh
+script/generate-fixtures-wasm
+script/test-wasm
 ```
 
 ### Debugging
