@@ -74,7 +74,7 @@ fn get_normal_inputs(example_paths: &Vec<PathBuf>) -> Vec<(&str, Vec<u8>)> {
     let mut normal_inputs = Vec::new();
     for example_path in example_paths {
         let example_path_str = example_path.to_str().unwrap();
-        let example_file_str = example_path.file_name().unwrap().to_str().unwrap();
+        let relative_example_path_str = example_path.strip_prefix(GRAMMARS_DIR.as_path()).unwrap().to_str().unwrap();
         if let Some(filter) = EXAMPLE_FILTER.as_ref() {
             if !example_path_str.contains(filter.as_str()) {
                 continue;
@@ -83,7 +83,7 @@ fn get_normal_inputs(example_paths: &Vec<PathBuf>) -> Vec<(&str, Vec<u8>)> {
         let source_code = fs::read(example_path)
             .map_err(Error::wrap(|| format!("Failed to read {:?}", example_path)))
             .unwrap();
-        normal_inputs.push((example_file_str, source_code));
+        normal_inputs.push((relative_example_path_str, source_code));
     }
     normal_inputs
 }
@@ -94,7 +94,7 @@ fn get_error_inputs(language_path: &Path) -> Vec<(&str, Vec<u8>)> {
         if other_language_path != language_path {
             for example_path in example_paths {
                 let example_path_str = example_path.to_str().unwrap();
-                let example_file_str = example_path.file_name().unwrap().to_str().unwrap();
+                let relative_example_path_str = example_path.strip_prefix(GRAMMARS_DIR.as_path()).unwrap().to_str().unwrap();
                 if let Some(filter) = EXAMPLE_FILTER.as_ref() {
                     if !example_path_str.contains(filter.as_str()) {
                         continue;
@@ -103,7 +103,7 @@ fn get_error_inputs(language_path: &Path) -> Vec<(&str, Vec<u8>)> {
                 let source_code = fs::read(example_path)
                     .map_err(Error::wrap(|| format!("Failed to read {:?}", example_path)))
                     .unwrap();
-                error_inputs.push((example_file_str, source_code));
+                error_inputs.push((relative_example_path_str, source_code));
             }
         }
     }
@@ -130,11 +130,11 @@ fn benchmark(c: &mut Criterion) {
         for normal_input in normal_inputs {
             let mut parser = Parser::new();
             parser.set_language(get_language(language_path)).unwrap();
-            let file_name = normal_input.0;
+            let file_path = normal_input.0;
             let source_code = normal_input.1;
             let source_code_size = source_code.len();
             c.bench(&format!("language: {}", language_name),
-                    Benchmark::new(format!("parse normal: {}", file_name),
+                    Benchmark::new(format!("parse normal: {}", file_path),
                                    move |b| b.iter(|| parse(&mut parser, &source_code)),
                     ).throughput(Throughput::Bytes(source_code_size as u32))
             );
@@ -144,11 +144,11 @@ fn benchmark(c: &mut Criterion) {
         for error_input in error_inputs {
             let mut parser = Parser::new();
             parser.set_language(get_language(language_path)).unwrap();
-            let file_name = error_input.0;
+            let file_path = error_input.0;
             let source_code = error_input.1;
             let source_code_size = source_code.len();
             c.bench(&format!("language: {}", language_name),
-                    Benchmark::new(format!("parse error: {}", file_name),
+                    Benchmark::new(format!("parse error: {}", file_path),
                                    move |b| b.iter(|| parse(&mut parser, &source_code)),
                     ).throughput(Throughput::Bytes(source_code_size as u32))
             );
