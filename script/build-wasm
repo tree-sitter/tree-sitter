@@ -84,7 +84,7 @@ mkdir -p target/scratch
 $emcc                                \
   -s WASM=1                          \
   -s TOTAL_MEMORY=33554432           \
-  -s ALLOW_MEMORY_GROWTH             \
+  -s ALLOW_MEMORY_GROWTH=1           \
   -s MAIN_MODULE=2                   \
   -s NO_FILESYSTEM=1                 \
   -s "EXPORTED_FUNCTIONS=${exports}" \
