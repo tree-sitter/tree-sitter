@@ -2,9 +2,10 @@ use super::item::TokenSet;
 use super::token_conflicts::TokenConflictMap;
 use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar, VariableType};
 use crate::generate::rules::{AliasMap, Symbol};
-use crate::generate::tables::{ParseAction, ParseState, ParseTable, ParseTableEntry};
+use crate::generate::tables::{ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry};
 use hashbrown::{HashMap, HashSet};
 use log::info;
+use std::mem;
 
 pub(crate) fn minimize_parse_table(
     parse_table: &mut ParseTable,
@@ -22,8 +23,8 @@ pub(crate) fn minimize_parse_table(
         keywords,
         simple_aliases,
     };
-    minimizer.remove_unit_reductions();
     minimizer.merge_compatible_states();
+    minimizer.remove_unit_reductions();
     minimizer.remove_unused_states();
 }
 
@@ -109,107 +110,333 @@ impl<'a> Minimizer<'a> {
     }
 
     fn merge_compatible_states(&mut self) {
-        let mut state_ids_by_signature = HashMap::new();
+        let core_count = 1 + self
+            .parse_table
+            .states
+            .iter()
+            .map(|state| state.core_id)
+            .max()
+            .unwrap();
+
+        // Initially group the states by their parse item set core.
+        let mut group_ids_by_state_id = Vec::with_capacity(self.parse_table.states.len());
+        let mut state_ids_by_group_id = vec![Vec::<ParseStateId>::new(); core_count];
         for (i, state) in self.parse_table.states.iter().enumerate() {
-            state_ids_by_signature
-                .entry(state.unfinished_item_signature)
-                .or_insert(Vec::new())
-                .push(i);
+            state_ids_by_group_id[state.core_id].push(i);
+            group_ids_by_state_id.push(state.core_id);
         }
 
-        let mut deleted_states = HashSet::new();
-        loop {
-            let mut state_replacements = HashMap::new();
-            for (_, state_ids) in &state_ids_by_signature {
-                for i in state_ids {
-                    for j in state_ids {
-                        if j == i {
-                            break;
-                        }
-                        if deleted_states.contains(j) || deleted_states.contains(i) {
-                            continue;
-                        }
-                        if self.merge_parse_state(*j, *i) {
-                            deleted_states.insert(*i);
-                            state_replacements.insert(*i, *j);
+        self.split_state_id_groups_by(
+            &mut state_ids_by_group_id,
+            &mut group_ids_by_state_id,
+            |left, right, groups| self.states_conflict(left, right, groups),
+        );
+
+        while self.split_state_id_groups_by(
+            &mut state_ids_by_group_id,
+            &mut group_ids_by_state_id,
+            |left, right, groups| self.state_successors_differ(left, right, groups),
+        ) {
+            continue;
+        }
+
+        let error_group_index = state_ids_by_group_id
+            .iter()
+            .position(|g| g.contains(&0))
+            .unwrap();
+        let start_group_index = state_ids_by_group_id
+            .iter()
+            .position(|g| g.contains(&1))
+            .unwrap();
+        state_ids_by_group_id.swap(error_group_index, 0);
+        state_ids_by_group_id.swap(start_group_index, 1);
+
+        // Create a list of new parse states: one state for each group of old states.
+        let mut new_states = Vec::with_capacity(state_ids_by_group_id.len());
+        for state_ids in &state_ids_by_group_id {
+            // Initialize the new state based on the first old state in the group.
+            let mut parse_state = ParseState::default();
+            mem::swap(&mut parse_state, &mut self.parse_table.states[state_ids[0]]);
+
+            // Extend the new state with all of the actions from the other old states
+            // in the group.
+            for state_id in &state_ids[1..] {
+                let mut other_parse_state = ParseState::default();
+                mem::swap(
+                    &mut other_parse_state,
+                    &mut self.parse_table.states[*state_id],
+                );
+
+                parse_state
+                    .terminal_entries
+                    .extend(other_parse_state.terminal_entries);
+                parse_state
+                    .nonterminal_entries
+                    .extend(other_parse_state.nonterminal_entries);
+            }
+
+            // Update the new state's outgoing references using the new grouping.
+            parse_state.update_referenced_states(|state_id, _| group_ids_by_state_id[state_id]);
+            new_states.push(parse_state);
+        }
+
+        self.parse_table.states = new_states;
+    }
+
+    fn split_state_id_groups_by(
+        &self,
+        state_ids_by_group_id: &mut Vec<Vec<ParseStateId>>,
+        group_ids_by_state_id: &mut Vec<ParseStateId>,
+        mut f: impl FnMut(&ParseState, &ParseState, &Vec<ParseStateId>) -> bool,
+    ) -> bool {
+        let mut result = false;
+
+        // Examine each group of states, and split them up if necessary. For
+        // each group of states, find a subgroup where all the states are mutually
+        // compatible. Leave that subgroup in place, and split off all of the
+        // other states in the group into a new group. Those states are not
+        // necessarily mutually compatible, but they will be split up in later
+        // iterations.
+        let mut group_id = 0;
+        while group_id < state_ids_by_group_id.len() {
+            let state_ids = &state_ids_by_group_id[group_id];
+            let mut split_state_ids = Vec::new();
+
+            let mut i = 0;
+            while i < state_ids.len() {
+                let left_state_id = state_ids[i];
+                if split_state_ids.contains(&left_state_id) {
+                    i += 1;
+                    continue;
+                }
+
+                let left_state = &self.parse_table.states[left_state_id];
+
+                // Identify all of the other states in the group that are incompatible with
+                // this state.
+                let mut j = i + 1;
+                while j < state_ids.len() {
+                    let right_state_id = state_ids[j];
+                    if split_state_ids.contains(&right_state_id) {
+                        j += 1;
+                        continue;
+                    }
+                    let right_state = &self.parse_table.states[right_state_id];
+
+                    if f(left_state, right_state, &group_ids_by_state_id) {
+                        split_state_ids.push(right_state_id);
+                    }
+
+                    j += 1;
+                }
+
+                i += 1;
+            }
+
+            // If any states were removed from the group, add them all as a new group.
+            if split_state_ids.len() > 0 {
+                result = true;
+                state_ids_by_group_id[group_id].retain(|i| !split_state_ids.contains(&i));
+
+                info!(
+                    "split state groups {:?} {:?}",
+                    state_ids_by_group_id[group_id], split_state_ids,
+                );
+
+                let new_group_id = state_ids_by_group_id.len();
+                for id in &split_state_ids {
+                    group_ids_by_state_id[*id] = new_group_id;
+                }
+
+                state_ids_by_group_id.push(Vec::new());
+                mem::swap(
+                    &mut split_state_ids,
+                    state_ids_by_group_id.last_mut().unwrap(),
+                );
+            }
+
+            group_id += 1;
+        }
+
+        result
+    }
+
+    fn states_conflict(
+        &self,
+        left_state: &ParseState,
+        right_state: &ParseState,
+        group_ids_by_state_id: &Vec<ParseStateId>,
+    ) -> bool {
+        for (token, left_entry) in &left_state.terminal_entries {
+            if let Some(right_entry) = right_state.terminal_entries.get(token) {
+                if self.entries_conflict(
+                    left_state.id,
+                    right_state.id,
+                    token,
+                    left_entry,
+                    right_entry,
+                    group_ids_by_state_id,
+                ) {
+                    return true;
+                }
+            } else if self.token_conflicts(
+                left_state.id,
+                right_state.id,
+                right_state.terminal_entries.keys(),
+                *token,
+            ) {
+                return true;
+            }
+        }
+
+        for token in right_state.terminal_entries.keys() {
+            if !left_state.terminal_entries.contains_key(token) {
+                if self.token_conflicts(
+                    left_state.id,
+                    right_state.id,
+                    left_state.terminal_entries.keys(),
+                    *token,
+                ) {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
+    fn state_successors_differ(
+        &self,
+        state1: &ParseState,
+        state2: &ParseState,
+        group_ids_by_state_id: &Vec<ParseStateId>,
+    ) -> bool {
+        for (token, entry1) in &state1.terminal_entries {
+            if let ParseAction::Shift { state: s1, .. } = entry1.actions.last().unwrap() {
+                if let Some(entry2) = state2.terminal_entries.get(token) {
+                    if let ParseAction::Shift { state: s2, .. } = entry2.actions.last().unwrap() {
+                        let group1 = group_ids_by_state_id[*s1];
+                        let group2 = group_ids_by_state_id[*s2];
+                        if group1 != group2 {
+                            info!(
+                                "split states {} {} - successors for {} are split: {} {}",
+                                state1.id,
+                                state2.id,
+                                self.symbol_name(token),
+                                s1,
+                                s2,
+                            );
+                            return true;
                         }
                     }
                 }
             }
+        }
 
-            if state_replacements.is_empty() {
-                break;
-            }
-
-            for state in self.parse_table.states.iter_mut() {
-                state.update_referenced_states(|other_state_id, _| {
-                    *state_replacements
-                        .get(&other_state_id)
-                        .unwrap_or(&other_state_id)
-                });
+        for (symbol, s1) in &state1.nonterminal_entries {
+            if let Some(s2) = state2.nonterminal_entries.get(symbol) {
+                let group1 = group_ids_by_state_id[*s1];
+                let group2 = group_ids_by_state_id[*s2];
+                if group1 != group2 {
+                    info!(
+                        "split states {} {} - successors for {} are split: {} {}",
+                        state1.id,
+                        state2.id,
+                        self.symbol_name(symbol),
+                        s1,
+                        s2,
+                    );
+                    return true;
+                }
             }
         }
+
+        false
     }
 
-    fn merge_parse_state(&mut self, left: usize, right: usize) -> bool {
-        let left_state = &self.parse_table.states[left];
-        let right_state = &self.parse_table.states[right];
-
-        if left_state.nonterminal_entries != right_state.nonterminal_entries {
-            return false;
-        }
-
-        for (symbol, left_entry) in &left_state.terminal_entries {
-            if let Some(right_entry) = right_state.terminal_entries.get(symbol) {
-                if right_entry.actions != left_entry.actions {
-                    return false;
-                }
-            } else if !self.can_add_entry_to_state(right_state, *symbol, left_entry) {
-                return false;
-            }
-        }
-
-        let mut symbols_to_add = Vec::new();
-        for (symbol, right_entry) in &right_state.terminal_entries {
-            if !left_state.terminal_entries.contains_key(&symbol) {
-                if !self.can_add_entry_to_state(left_state, *symbol, right_entry) {
-                    return false;
-                }
-                symbols_to_add.push(*symbol);
-            }
-        }
-
-        for symbol in symbols_to_add {
-            let entry = self.parse_table.states[right].terminal_entries[&symbol].clone();
-            self.parse_table.states[left]
-                .terminal_entries
-                .insert(symbol, entry);
-        }
-
-        true
-    }
-
-    fn can_add_entry_to_state(
+    fn entries_conflict(
         &self,
-        state: &ParseState,
-        token: Symbol,
-        entry: &ParseTableEntry,
+        state_id1: ParseStateId,
+        state_id2: ParseStateId,
+        token: &Symbol,
+        entry1: &ParseTableEntry,
+        entry2: &ParseTableEntry,
+        group_ids_by_state_id: &Vec<ParseStateId>,
+    ) -> bool {
+        // To be compatible, entries need to have the same actions.
+        let actions1 = &entry1.actions;
+        let actions2 = &entry2.actions;
+        if actions1.len() != actions2.len() {
+            info!(
+                "split states {} {} - differing action counts for token {}",
+                state_id1,
+                state_id2,
+                self.symbol_name(token)
+            );
+            return true;
+        }
+
+        for (i, action1) in actions1.iter().enumerate() {
+            let action2 = &actions2[i];
+
+            // Two shift actions are equivalent if their destinations are in the same group.
+            if let (
+                ParseAction::Shift {
+                    state: s1,
+                    is_repetition: is_repetition1,
+                },
+                ParseAction::Shift {
+                    state: s2,
+                    is_repetition: is_repetition2,
+                },
+            ) = (action1, action2)
+            {
+                let group1 = group_ids_by_state_id[*s1];
+                let group2 = group_ids_by_state_id[*s2];
+                if group1 == group2 && is_repetition1 == is_repetition2 {
+                    continue;
+                } else {
+                    info!(
+                        "split states {} {} - successors for {} are split: {} {}",
+                        state_id1,
+                        state_id2,
+                        self.symbol_name(token),
+                        s1,
+                        s2,
+                    );
+                    return true;
+                }
+            } else if action1 != action2 {
+                info!(
+                    "split states {} {} - unequal actions for {}",
+                    state_id1,
+                    state_id2,
+                    self.symbol_name(token),
+                );
+                return true;
+            }
+        }
+
+        false
+    }
+
+    fn token_conflicts<'b>(
+        &self,
+        left_id: ParseStateId,
+        right_id: ParseStateId,
+        existing_tokens: impl Iterator<Item = &'b Symbol>,
+        new_token: Symbol,
     ) -> bool {
         // Do not add external tokens; they could conflict lexically with any of the state's
         // existing lookahead tokens.
-        if token.is_external() {
-            return false;
-        }
-
-        // Only merge_compatible_states parse states by allowing existing reductions to happen
-        // with additional lookahead tokens. Do not alter parse states in ways
-        // that allow entirely new types of actions to happen.
-        if state.terminal_entries.iter().all(|(_, e)| e != entry) {
-            return false;
-        }
-        match entry.actions.last() {
-            Some(ParseAction::Reduce { .. }) => {}
-            _ => return false,
+        if new_token.is_external() {
+            info!(
+                "split states {} {} - external token {}",
+                left_id,
+                right_id,
+                self.symbol_name(&new_token),
+            );
+            return true;
         }
 
         // Do not add tokens which are both internal and external. Their validity could
@@ -218,41 +445,54 @@ impl<'a> Minimizer<'a> {
             .syntax_grammar
             .external_tokens
             .iter()
-            .any(|t| t.corresponding_internal_token == Some(token))
+            .any(|external| external.corresponding_internal_token == Some(new_token))
         {
-            return false;
+            info!(
+                "split states {} {} - internal/external token {}",
+                left_id,
+                right_id,
+                self.symbol_name(&new_token),
+            );
+            return true;
         }
 
-        let is_word_token = self.syntax_grammar.word_token == Some(token);
-        let is_keyword = self.keywords.contains(&token);
-
         // Do not add a token if it conflicts with an existing token.
-        if token.is_terminal() {
-            for existing_token in state.terminal_entries.keys() {
-                if (is_word_token || is_keyword)
-                    && (self.keywords.contains(existing_token)
-                        || self.syntax_grammar.word_token.as_ref() == Some(existing_token))
-                {
-                    continue;
-                }
-                if self
-                    .token_conflict_map
-                    .does_conflict(token.index, existing_token.index)
-                    || self
+        for token in existing_tokens {
+            if token.is_terminal() {
+                if !(self.syntax_grammar.word_token == Some(*token)
+                    && self.keywords.contains(&new_token))
+                    && !(self.syntax_grammar.word_token == Some(new_token)
+                        && self.keywords.contains(token))
+                    && (self
                         .token_conflict_map
-                        .does_match_same_string(token.index, existing_token.index)
+                        .does_conflict(new_token.index, token.index)
+                        || self
+                            .token_conflict_map
+                            .does_match_same_string(new_token.index, token.index))
                 {
                     info!(
-                        "can't merge parse states because of conflict between {} and {}",
-                        self.lexical_grammar.variables[token.index].name,
-                        self.lexical_grammar.variables[existing_token.index].name
+                        "split states {} {} - token {} conflicts with {}",
+                        left_id,
+                        right_id,
+                        self.symbol_name(&new_token),
+                        self.symbol_name(token),
                     );
-                    return false;
+                    return true;
                 }
             }
         }
 
-        true
+        false
+    }
+
+    fn symbol_name(&self, symbol: &Symbol) -> &String {
+        if symbol.is_non_terminal() {
+            &self.syntax_grammar.variables[symbol.index].name
+        } else if symbol.is_external() {
+            &self.syntax_grammar.external_tokens[symbol.index].name
+        } else {
+            &self.lexical_grammar.variables[symbol.index].name
+        }
     }
 
     fn remove_unused_states(&mut self) {

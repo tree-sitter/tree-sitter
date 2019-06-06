@@ -1,4 +1,4 @@
-use super::item::{ParseItem, ParseItemSet, TokenSet};
+use super::item::{ParseItem, ParseItemSet, ParseItemSetCore, TokenSet};
 use super::item_set_builder::ParseItemSetBuilder;
 use crate::error::{Error, Result};
 use crate::generate::grammars::{
@@ -13,10 +13,8 @@ use crate::generate::tables::{
 use core::ops::Range;
 use hashbrown::hash_map::Entry;
 use hashbrown::{HashMap, HashSet};
-use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt::Write;
-use std::hash::Hasher;
 use std::u32;
 
 #[derive(Clone)]
@@ -39,6 +37,7 @@ struct ParseTableBuilder<'a> {
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
     variable_info: &'a Vec<VariableInfo>,
+    core_ids_by_core: HashMap<ParseItemSetCore<'a>, usize>,
     state_ids_by_item_set: HashMap<ParseItemSet<'a>, ParseStateId>,
     item_sets_by_state_id: Vec<ParseItemSet<'a>>,
     parse_state_queue: VecDeque<ParseStateQueueEntry>,
@@ -111,20 +110,27 @@ impl<'a> ParseTableBuilder<'a> {
         preceding_auxiliary_symbols: &AuxiliarySymbolSequence,
         item_set: ParseItemSet<'a>,
     ) -> ParseStateId {
-        let mut hasher = DefaultHasher::new();
-        item_set.hash_unfinished_items(&mut hasher);
-        let unfinished_item_signature = hasher.finish();
-
         match self.state_ids_by_item_set.entry(item_set) {
             Entry::Occupied(o) => *o.get(),
             Entry::Vacant(v) => {
+                let core = v.key().core();
+                let core_count = self.core_ids_by_core.len();
+                let core_id = match self.core_ids_by_core.entry(core) {
+                    Entry::Occupied(e) => *e.get(),
+                    Entry::Vacant(e) => {
+                        e.insert(core_count);
+                        core_count
+                    }
+                };
+
                 let state_id = self.parse_table.states.len();
                 self.item_sets_by_state_id.push(v.key().clone());
                 self.parse_table.states.push(ParseState {
+                    id: state_id,
                     lex_state_id: 0,
                     terminal_entries: HashMap::new(),
                     nonterminal_entries: HashMap::new(),
-                    unfinished_item_signature,
+                    core_id,
                 });
                 self.parse_state_queue.push_back(ParseStateQueueEntry {
                     state_id,
@@ -775,6 +781,7 @@ pub(crate) fn build_parse_table(
         item_set_builder,
         variable_info,
         state_ids_by_item_set: HashMap::new(),
+        core_ids_by_core: HashMap::new(),
         item_sets_by_state_id: Vec::new(),
         parse_state_queue: VecDeque::new(),
         parse_table: ParseTable {
