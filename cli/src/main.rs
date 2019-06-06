@@ -9,6 +9,9 @@ use tree_sitter_cli::{
     config, error, generate, highlight, loader, logger, parse, properties, test, wasm, web_ui,
 };
 
+const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
+
 fn main() {
     if let Err(e) = run() {
         eprintln!("{}", e.message());
@@ -17,13 +20,14 @@ fn main() {
 }
 
 fn run() -> error::Result<()> {
+    let version = if let Some(build_sha) = BUILD_SHA {
+        format!("{} ({})", BUILD_VERSION, build_sha)
+    } else {
+        BUILD_VERSION.to_string()
+    };
+
     let matches = App::new("tree-sitter")
-        .version(concat!(
-            env!("CARGO_PKG_VERSION"),
-            " (",
-            env!("BUILD_SHA"),
-            ")"
-        ))
+        .version(version.as_str())
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .author("Max Brunsfeld <maxbrunsfeld@gmail.com>")
         .about("Generates and tests parsers")
