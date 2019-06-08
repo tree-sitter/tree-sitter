@@ -1,7 +1,10 @@
-declare module 'web-tree-sitter' {
+declare module "web-tree-sitter" {
   class Parser {
     static init(): Promise<void>;
-    parse(input: string | Parser.Input, previousTree?: Parser.Tree): Parser.Tree;
+    parse(
+      input: string | Parser.Input,
+      previousTree?: Parser.Tree
+    ): Parser.Tree;
     getLanguage(): any;
     setLanguage(language: any): void;
     getLogger(): Parser.Logger;
@@ -30,7 +33,7 @@ declare module 'web-tree-sitter' {
 
     export type Logger = (
       message: string,
-      params: {[param: string]: string},
+      params: { [param: string]: string },
       type: "parse" | "lex"
     ) => void;
 
@@ -69,15 +72,23 @@ declare module 'web-tree-sitter' {
       toString(): string;
       child(index: number): SyntaxNode | null;
       namedChild(index: number): SyntaxNode | null;
+      firstChildForIndex(index: number): SyntaxNode | null;
+      firstNamedChildForIndex(index: number): SyntaxNode | null;
 
       descendantForIndex(index: number): SyntaxNode;
       descendantForIndex(startIndex: number, endIndex: number): SyntaxNode;
       namedDescendantForIndex(index: number): SyntaxNode;
       namedDescendantForIndex(startIndex: number, endIndex: number): SyntaxNode;
       descendantForPosition(position: Point): SyntaxNode;
-      descendantForPosition(startPosition: Point, endPosition: Point): SyntaxNode;
+      descendantForPosition(
+        startPosition: Point,
+        endPosition: Point
+      ): SyntaxNode;
       namedDescendantForPosition(position: Point): SyntaxNode;
-      namedDescendantForPosition(startPosition: Point, endPosition: Point): SyntaxNode;
+      namedDescendantForPosition(
+        startPosition: Point,
+        endPosition: Point
+      ): SyntaxNode;
 
       walk(): TreeCursor;
     }
@@ -90,9 +101,9 @@ declare module 'web-tree-sitter' {
       endPosition: Point;
       startIndex: number;
       endIndex: number;
-      readonly currentNode: SyntaxNode
+      readonly currentNode: SyntaxNode;
 
-      reset(node: SyntaxNode): void
+      reset(node: SyntaxNode): void;
       gotoParent(): boolean;
       gotoFirstChild(): boolean;
       gotoFirstChildForIndex(index: number): boolean;
@@ -108,9 +119,9 @@ declare module 'web-tree-sitter' {
       getEditedRange(other: Tree): Range;
     }
     namespace Language {
-        function load(url: string): Promise<any>
+      function load(url: string): Promise<any>;
     }
   }
 
-  export = Parser
+  export = Parser;
 }

@@ -315,6 +315,16 @@ uint32_t ts_node_named_child_count_wasm(const TSTree *tree) {
   return ts_node_named_child_count(node);
 }
 
+void ts_node_first_child_for_byte_wasm(const TSTree *tree, uint32_t index) {
+  TSNode node = unmarshal_node(tree);
+  marshal_node(TRANSFER_BUFFER, ts_node_first_child_for_byte(node, index));
+}
+
+void ts_node_first_named_child_for_byte_wasm(const TSTree *tree, uint32_t index) {
+  TSNode node = unmarshal_node(tree);
+  marshal_node(TRANSFER_BUFFER, ts_node_first_named_child_for_byte(node, index));
+}
+
 void ts_node_child_wasm(const TSTree *tree, uint32_t index) {
   TSNode node = unmarshal_node(tree);
   marshal_node(TRANSFER_BUFFER, ts_node_child(node, index));

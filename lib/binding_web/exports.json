@@ -47,6 +47,8 @@
   "_ts_node_is_named_wasm",
   "_ts_node_named_child_count_wasm",
   "_ts_node_named_child_wasm",
+  "_ts_node_first_child_for_byte_wasm",
+  "_ts_node_first_named_child_for_byte_wasm",
   "_ts_node_named_children_wasm",
   "_ts_node_named_descendant_for_index_wasm",
   "_ts_node_named_descendant_for_position_wasm",
