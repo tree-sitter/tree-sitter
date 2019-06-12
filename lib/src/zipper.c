@@ -100,11 +100,11 @@ bool _ts_zipper_down(const _TSZipper *zip, _TSZipper *result, TSLanguage *lang) 
     }
 }
 
-void _ts_zipper_new(TSTree *tree, _TSZipper *result) {
+void _ts_zipper_new(Subtree tree, _TSZipper *result) {
     *result = (_TSZipper) {
         .parent = NULL,
         .parent_alias_sequence = NULL,
-        .subtree = tree->root,
+        .subtree = tree,
         .byte_offset = 0,
         .child_index = 0,
         .structural_child_index = 0
@@ -112,7 +112,7 @@ void _ts_zipper_new(TSTree *tree, _TSZipper *result) {
 }
 
 void ts_zipper_new(TSTree *tree, TSZipper *result) {
-    return _ts_zipper_new(tree, (_TSZipper *)result);
+    return _ts_zipper_new(tree->root, (_TSZipper *)result);
 }
 
 bool ts_zipper_right(const TSZipper *zip, TSZipper *result) {
