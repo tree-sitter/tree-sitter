@@ -1,9 +1,10 @@
 use std::path::PathBuf;
-use std::{env, fs, io};
+use std::{env, fs};
 
 fn main() {
-    let git_sha = read_git_sha().unwrap();
-    println!("cargo:rustc-env={}={}", "BUILD_SHA", git_sha);
+    if let Some(git_sha) = read_git_sha() {
+        println!("cargo:rustc-env={}={}", "BUILD_SHA", git_sha);
+    }
 
     println!(
         "cargo:rustc-env=BUILD_TARGET={}",
@@ -11,32 +12,43 @@ fn main() {
     );
 }
 
-fn read_git_sha() -> io::Result<String> {
+fn read_git_sha() -> Option<String> {
     let mut repo_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+
     let mut git_path;
     loop {
         git_path = repo_path.join(".git");
         if git_path.exists() {
             break;
-        } else {
-            assert!(repo_path.pop());
+        } else if !repo_path.pop() {
+            return None;
         }
     }
-    let git_head_path = git_path.join("HEAD");
-    println!("cargo:rerun-if-changed={}", git_head_path.to_str().unwrap());
-    let mut head_content = fs::read_to_string(&git_head_path)?;
-    assert!(head_content.ends_with("\n"));
-    head_content.pop();
 
-    if head_content.starts_with("ref: ") {
-        // We're on a branch. Read the SHA from the ref file.
-        head_content.replace_range(0.."ref: ".len(), "");
-        let ref_filename = git_path.join(&head_content);
-        println!("cargo:rerun-if-changed={}", ref_filename.to_str().unwrap());
-        fs::read_to_string(&ref_filename)
-    } else {
-        // We're not on a branch. The `HEAD` file itself contains the sha.
-        assert_eq!(head_content.len(), 40);
-        Ok(head_content)
+    let git_head_path = git_path.join("HEAD");
+    if let Some(path) = git_head_path.to_str() {
+        println!("cargo:rerun-if-changed={}", path);
     }
+    if let Ok(mut head_content) = fs::read_to_string(&git_head_path) {
+        if head_content.ends_with("\n") {
+            head_content.pop();
+        }
+
+        // If we're on a branch, read the SHA from the ref file.
+        if head_content.starts_with("ref: ") {
+            head_content.replace_range(0.."ref: ".len(), "");
+            let ref_filename = git_path.join(&head_content);
+            if let Some(path) = ref_filename.to_str() {
+                println!("cargo:rerun-if-changed={}", path);
+            }
+            return fs::read_to_string(&ref_filename).ok();
+        }
+
+        // If we're on a detached commit, then the `HEAD` file itself contains the sha.
+        else if head_content.len() == 40 {
+            return Some(head_content);
+        }
+    }
+
+    None
 }

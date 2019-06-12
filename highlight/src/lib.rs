@@ -36,6 +36,7 @@ enum InjectionLanguage {
 struct Injection {
     language: InjectionLanguage,
     content: Vec<TreeStep>,
+    includes_children: bool,
 }
 
 #[derive(Debug)]
@@ -93,6 +94,7 @@ struct Layer<'a> {
     ranges: Vec<Range>,
     at_node_end: bool,
     depth: usize,
+    opaque: bool,
     scope_stack: Vec<Scope<'a>>,
     local_highlight: Option<Highlight>,
 }
@@ -106,6 +108,7 @@ where
     source_offset: usize,
     parser: Parser,
     layers: Vec<Layer<'a>>,
+    max_opaque_layer_depth: usize,
     utf8_error_len: Option<usize>,
     operation_count: usize,
     cancellation_flag: Option<&'a AtomicUsize>,
@@ -155,6 +158,13 @@ enum InjectionContentJSON {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum InjectionIncludesChildrenJSON {
+    List(Vec<bool>),
+    Single(bool),
+}
+
+#[derive(Debug, Deserialize)]
 struct PropertiesJSON {
     highlight: Option<Highlight>,
     #[serde(rename = "highlight-nonlocal")]
@@ -164,6 +174,8 @@ struct PropertiesJSON {
     injection_language: Option<InjectionLanguageJSON>,
     #[serde(rename = "injection-content")]
     injection_content: Option<InjectionContentJSON>,
+    #[serde(default, rename = "injection-includes-children")]
+    injection_includes_children: Option<InjectionIncludesChildrenJSON>,
 
     #[serde(default, rename = "local-scope")]
     local_scope: bool,
@@ -289,11 +301,23 @@ impl Properties {
                     }],
                 };
 
+                let mut includes_children = match json.injection_includes_children {
+                    Some(InjectionIncludesChildrenJSON::List(v)) => v,
+                    Some(InjectionIncludesChildrenJSON::Single(v)) => vec![v],
+                    None => vec![false],
+                };
+
                 if languages.len() == contents.len() {
+                    includes_children.resize(languages.len(), includes_children[0]);
                     Ok(languages
                         .into_iter()
                         .zip(contents.into_iter())
-                        .map(|(language, content)| Injection { language, content })
+                        .zip(includes_children.into_iter())
+                        .map(|((language, content), includes_children)| Injection {
+                            language,
+                            content,
+                            includes_children,
+                        })
                         .collect())
                 } else {
                     Err(format!(
@@ -431,6 +455,7 @@ where
             source_offset: 0,
             operation_count: 0,
             utf8_error_len: None,
+            max_opaque_layer_depth: 0,
             layers: vec![Layer::new(
                 source,
                 tree,
@@ -442,6 +467,7 @@ where
                     end_point: Point::new(usize::MAX, usize::MAX),
                 }],
                 0,
+                true,
             )],
         })
     }
@@ -539,25 +565,32 @@ where
     }
 
     // Compute the ranges that should be included when parsing an injection.
-    // This takes into account two things:
-    // * `nodes` - Every injection takes place within a set of nodes. The injection ranges
-    //   are the ranges of those nodes, *minus* the ranges of those nodes' children.
+    // This takes into account three things:
     // * `parent_ranges` - The new injection may be nested inside of *another* injection
     //   (e.g. JavaScript within HTML within ERB). The parent injection's ranges must
     //   be taken into account.
-    fn intersect_ranges(parent_ranges: &Vec<Range>, nodes: &Vec<Node>) -> Vec<Range> {
+    // * `nodes` - Every injection takes place within a set of nodes. The injection ranges
+    //   are the ranges of those nodes.
+    // * `includes_children` - For some injections, the content nodes' children should be
+    //   excluded from the nested document, so that only the content nodes' *own* content
+    //   is reparsed. For other injections, the content nodes' entire ranges should be
+    //   reparsed, including the ranges of their children.
+    fn intersect_ranges(
+        parent_ranges: &Vec<Range>,
+        nodes: &Vec<Node>,
+        includes_children: bool,
+    ) -> Vec<Range> {
         let mut result = Vec::new();
         let mut parent_range_iter = parent_ranges.iter();
         let mut parent_range = parent_range_iter
             .next()
             .expect("Layers should only be constructed with non-empty ranges vectors");
         for node in nodes.iter() {
-            let range = node.range();
             let mut preceding_range = Range {
                 start_byte: 0,
                 start_point: Point::new(0, 0),
-                end_byte: range.start_byte,
-                end_point: range.start_point,
+                end_byte: node.start_byte(),
+                end_point: node.start_position(),
             };
             let following_range = Range {
                 start_byte: node.end_byte(),
@@ -566,18 +599,24 @@ where
                 end_point: Point::new(usize::MAX, usize::MAX),
             };
 
-            for child_range in node
+            for excluded_range in node
                 .children()
-                .map(|c| c.range())
+                .filter_map(|child| {
+                    if includes_children {
+                        None
+                    } else {
+                        Some(child.range())
+                    }
+                })
                 .chain([following_range].iter().cloned())
             {
                 let mut range = Range {
                     start_byte: preceding_range.end_byte,
                     start_point: preceding_range.end_point,
-                    end_byte: child_range.start_byte,
-                    end_point: child_range.start_point,
+                    end_byte: excluded_range.start_byte,
+                    end_point: excluded_range.start_point,
                 };
-                preceding_range = child_range;
+                preceding_range = excluded_range;
 
                 if range.end_byte < parent_range.start_byte {
                     continue;
@@ -620,7 +659,13 @@ where
         result
     }
 
-    fn add_layer(&mut self, language_string: &str, ranges: Vec<Range>, depth: usize) {
+    fn add_layer(
+        &mut self,
+        language_string: &str,
+        ranges: Vec<Range>,
+        depth: usize,
+        includes_children: bool,
+    ) {
         if let Some((language, property_sheet)) = (self.injection_callback)(language_string) {
             self.parser
                 .set_language(language)
@@ -630,10 +675,32 @@ where
                 .parser
                 .parse(self.source, None)
                 .expect("Failed to parse");
-            let layer = Layer::new(self.source, tree, property_sheet, ranges, depth);
+            let layer = Layer::new(
+                self.source,
+                tree,
+                property_sheet,
+                ranges,
+                depth,
+                includes_children,
+            );
+            if includes_children && depth > self.max_opaque_layer_depth {
+                self.max_opaque_layer_depth = depth;
+            }
             match self.layers.binary_search_by(|l| l.cmp(&layer)) {
                 Ok(i) | Err(i) => self.layers.insert(i, layer),
             };
+        }
+    }
+
+    fn remove_first_layer(&mut self) {
+        let layer = self.layers.remove(0);
+        if layer.opaque && layer.depth == self.max_opaque_layer_depth {
+            self.max_opaque_layer_depth = self
+                .layers
+                .iter()
+                .filter_map(|l| if l.opaque { Some(l.depth) } else { None })
+                .max()
+                .unwrap_or(0);
         }
     }
 }
@@ -661,56 +728,74 @@ where
         }
 
         while !self.layers.is_empty() {
+            let mut scope_event = None;
             let first_layer = &self.layers[0];
-            let local_highlight = first_layer.local_highlight;
-            let properties = &first_layer.cursor.node_properties();
 
-            // Add any injections for the current node.
-            if !first_layer.at_node_end {
-                let node = first_layer.cursor.node();
-                let injections = properties
-                    .injections
-                    .iter()
-                    .filter_map(|Injection { language, content }| {
-                        if let Some(language) = self.injection_language_string(&node, language) {
-                            let nodes = self.nodes_for_tree_path(node, content);
-                            let ranges = Self::intersect_ranges(&first_layer.ranges, &nodes);
-                            if ranges.len() > 0 {
-                                return Some((language, ranges));
-                            }
-                        }
-                        None
-                    })
-                    .collect::<Vec<_>>();
+            // If the current layer is not covered up by a nested layer, then
+            // process any scope boundaries and language injections for the layer's
+            // current position.
+            let first_layer_is_visible = first_layer.depth >= self.max_opaque_layer_depth;
+            if first_layer_is_visible {
+                let local_highlight = first_layer.local_highlight;
+                let properties = &first_layer.cursor.node_properties();
 
-                let depth = first_layer.depth + 1;
-                for (language, ranges) in injections {
-                    self.add_layer(&language, ranges, depth);
+                // Add any injections for the current node.
+                if !first_layer.at_node_end {
+                    let node = first_layer.cursor.node();
+                    let injections = properties
+                        .injections
+                        .iter()
+                        .filter_map(
+                            |Injection {
+                                 language,
+                                 content,
+                                 includes_children,
+                             }| {
+                                if let Some(language) =
+                                    self.injection_language_string(&node, language)
+                                {
+                                    let nodes = self.nodes_for_tree_path(node, content);
+                                    let ranges = Self::intersect_ranges(
+                                        &first_layer.ranges,
+                                        &nodes,
+                                        *includes_children,
+                                    );
+                                    if ranges.len() > 0 {
+                                        return Some((language, ranges, *includes_children));
+                                    }
+                                }
+                                None
+                            },
+                        )
+                        .collect::<Vec<_>>();
+
+                    let depth = first_layer.depth + 1;
+                    for (language, ranges, includes_children) in injections {
+                        self.add_layer(&language, ranges, depth, includes_children);
+                    }
+                }
+
+                // Determine if any scopes start or end at the current position.
+                let first_layer = &mut self.layers[0];
+                if let Some(highlight) = local_highlight
+                    .or(properties.highlight_nonlocal)
+                    .or(properties.highlight)
+                {
+                    let next_offset = cmp::min(self.source.len(), first_layer.offset());
+
+                    // Before returning any highlight boundaries, return any remaining slice of
+                    // the source code the precedes that highlight boundary.
+                    if self.source_offset < next_offset {
+                        return self.emit_source(next_offset);
+                    }
+
+                    scope_event = if first_layer.at_node_end {
+                        Some(HighlightEvent::HighlightEnd)
+                    } else {
+                        Some(HighlightEvent::HighlightStart(highlight))
+                    };
                 }
             }
-
-            // Determine if any scopes start or end at the current position.
-            let scope_event;
-            if let Some(highlight) = local_highlight
-                .or(properties.highlight_nonlocal)
-                .or(properties.highlight)
-            {
-                let next_offset = cmp::min(self.source.len(), self.layers[0].offset());
-
-                // Before returning any highlight boundaries, return any remaining slice of
-                // the source code the precedes that highlight boundary.
-                if self.source_offset < next_offset {
-                    return self.emit_source(next_offset);
-                }
-
-                scope_event = if self.layers[0].at_node_end {
-                    Some(HighlightEvent::HighlightEnd)
-                } else {
-                    Some(HighlightEvent::HighlightStart(highlight))
-                };
-            } else {
-                scope_event = None;
-            };
 
             // Advance the current layer's tree cursor. This might cause that cursor to move
             // beyond one of the other layers' cursors for a different syntax tree, so we need
@@ -725,7 +810,7 @@ where
                     index += 1;
                 }
             } else {
-                self.layers.remove(0);
+                self.remove_first_layer();
             }
 
             if scope_event.is_some() {
@@ -773,6 +858,7 @@ impl<'a> Layer<'a> {
         sheet: &'a PropertySheet<Properties>,
         ranges: Vec<Range>,
         depth: usize,
+        opaque: bool,
     ) -> Self {
         // The cursor's lifetime parameter indicates that the tree must outlive the cursor.
         // But because the tree is really a pointer to the heap, the cursor can remain
@@ -784,6 +870,7 @@ impl<'a> Layer<'a> {
             cursor,
             ranges,
             depth,
+            opaque,
             at_node_end: false,
             scope_stack: vec![Scope {
                 inherits: false,

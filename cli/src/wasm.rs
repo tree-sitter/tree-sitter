@@ -25,7 +25,7 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
     if !force_docker && Command::new("emcc").output().is_ok() {
         command = Command::new("emcc");
         command.current_dir(&language_dir);
-    } else {
+    } else if Command::new("docker").output().is_ok() {
         command = Command::new("docker");
         command.args(&["run", "--rm"]);
 
@@ -46,16 +46,20 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
 
         // Get the current user id so that files created in the docker container will have
         // the same owner.
-        let user_id_output = Command::new("id")
-            .arg("-u")
-            .output()
-            .map_err(Error::wrap(|| "Failed to get get current user id {}"))?;
-        let user_id = String::from_utf8_lossy(&user_id_output.stdout);
-        let user_id = user_id.trim();
-        command.args(&["--user", user_id]);
+        if cfg!(unix) {
+            let user_id_output = Command::new("id")
+                .arg("-u")
+                .output()
+                .map_err(Error::wrap(|| "Failed to get get current user id"))?;
+            let user_id = String::from_utf8_lossy(&user_id_output.stdout);
+            let user_id = user_id.trim();
+            command.args(&["--user", user_id]);
+        }
 
         // Run `emcc` in a container using the `emscripten-slim` image
         command.args(&["trzeci/emscripten-slim", "emcc"]);
+    } else {
+        return Error::err("You must have either emcc or docker on your PATH to run this command".to_string());
     }
 
     command.args(&[

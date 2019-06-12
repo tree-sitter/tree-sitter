@@ -48,6 +48,11 @@ pub(crate) struct ParseItemSet<'a> {
     pub entries: Vec<(ParseItem<'a>, TokenSet)>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ParseItemSetCore<'a> {
+    pub entries: Vec<ParseItem<'a>>,
+}
+
 pub(crate) struct ParseItemDisplay<'a>(
     pub &'a ParseItem<'a>,
     pub &'a SyntaxGrammar,
@@ -266,20 +271,8 @@ impl<'a> ParseItemSet<'a> {
         }
     }
 
-    pub fn hash_unfinished_items(&self, h: &mut impl Hasher) {
-        let mut previous_variable_index = u32::MAX;
-        let mut previous_step_index = u32::MAX;
-        for (item, _) in self.entries.iter() {
-            if item.step().is_some()
-                && (item.variable_index != previous_variable_index
-                    || item.step_index != previous_step_index)
-            {
-                h.write_u32(item.variable_index);
-                h.write_u32(item.step_index);
-                previous_variable_index = item.variable_index;
-                previous_step_index = item.step_index;
-            }
-        }
+    pub fn core(&self) -> ParseItemSetCore<'a> {
+        ParseItemSetCore { entries: self.entries.iter().map(|e| e.0).collect() }
     }
 }
 
@@ -504,6 +497,15 @@ impl<'a> Hash for ParseItemSet<'a> {
         for (item, lookaheads) in self.entries.iter() {
             item.hash(hasher);
             lookaheads.hash(hasher);
+        }
+    }
+}
+
+impl<'a> Hash for ParseItemSetCore<'a> {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+        hasher.write_usize(self.entries.len());
+        for item in &self.entries {
+            item.hash(hasher);
         }
     }
 }

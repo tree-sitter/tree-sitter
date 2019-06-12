@@ -7,7 +7,7 @@ pub(crate) type ProductionInfoId = usize;
 pub(crate) type ParseStateId = usize;
 pub(crate) type LexStateId = usize;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum ParseAction {
     Accept,
     Shift {
@@ -32,12 +32,13 @@ pub(crate) struct ParseTableEntry {
     pub reusable: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct ParseState {
+    pub id: ParseStateId,
     pub terminal_entries: HashMap<Symbol, ParseTableEntry>,
     pub nonterminal_entries: HashMap<Symbol, ParseStateId>,
     pub lex_state_id: usize,
-    pub unfinished_item_signature: u64,
+    pub core_id: usize,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

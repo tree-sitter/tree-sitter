@@ -12,6 +12,8 @@ lazy_static! {
         get_property_sheet("html", "highlights.json");
     static ref EJS_SHEET: PropertySheet<Properties> =
         get_property_sheet("embedded-template", "highlights-ejs.json");
+    static ref RUST_SHEET: PropertySheet<Properties> =
+        get_property_sheet("rust", "highlights.json");
     static ref SCOPE_CLASS_STRINGS: Vec<String> = {
         let mut result = Vec::new();
         let mut i = 0;
@@ -159,7 +161,6 @@ fn test_highlighting_with_local_variable_tracking() {
         "  const module = c;",
         "  console.log(module, b);",
         "}",
-        "",
     ]
     .join("\n");
 
@@ -207,6 +208,8 @@ fn test_highlighting_with_local_variable_tracking() {
                 ("b", vec![Highlight::VariableParameter]),
                 (")", vec![Highlight::PunctuationBracket]),
                 (";", vec![Highlight::PunctuationDelimiter]),
+            ],
+            vec![
                 ("}", vec![Highlight::PunctuationBracket])
             ]
         ],
@@ -265,6 +268,42 @@ fn test_highlighting_ejs() {
             ("div", vec![Highlight::Tag]),
             (">", vec![])
         ]],
+    );
+}
+
+#[test]
+fn test_highlighting_with_content_children_included() {
+    let source = vec!["assert!(", "    a.b.c() < D::e::<F>()", ");"].join("\n");
+
+    assert_eq!(
+        &to_token_vector(&source, get_language("rust"), &RUST_SHEET).unwrap(),
+        &[
+            vec![
+                ("assert", vec![Highlight::Function]),
+                ("!", vec![Highlight::Function]),
+                ("(", vec![Highlight::PunctuationBracket]),
+            ],
+            vec![
+                ("    a", vec![]),
+                (".", vec![Highlight::PunctuationDelimiter]),
+                ("b", vec![Highlight::Property]),
+                (".", vec![Highlight::PunctuationDelimiter]),
+                ("c", vec![Highlight::Function]),
+                ("(", vec![Highlight::PunctuationBracket]),
+                (")", vec![Highlight::PunctuationBracket]),
+                (" < ", vec![]),
+                ("D", vec![Highlight::Type]),
+                ("::", vec![Highlight::PunctuationDelimiter]),
+                ("e", vec![Highlight::Function]),
+                ("::", vec![Highlight::PunctuationDelimiter]),
+                ("<", vec![Highlight::PunctuationBracket]),
+                ("F", vec![Highlight::Type]),
+                (">", vec![Highlight::PunctuationBracket]),
+                ("(", vec![Highlight::PunctuationBracket]),
+                (")", vec![Highlight::PunctuationBracket]),
+            ],
+            vec![(")", vec![Highlight::PunctuationBracket]), (";", vec![]),]
+        ],
     );
 }
 
@@ -362,6 +401,7 @@ fn test_language_for_injection_string<'a>(
     match string {
         "javascript" => Some((get_language("javascript"), &JS_SHEET)),
         "html" => Some((get_language("html"), &HTML_SHEET)),
+        "rust" => Some((get_language("rust"), &RUST_SHEET)),
         _ => None,
     }
 }
@@ -400,7 +440,8 @@ fn to_token_vector<'a>(
                 highlights.pop();
             }
             HighlightEvent::Source(s) => {
-                for (i, l) in s.lines().enumerate() {
+                for (i, l) in s.split("\n").enumerate() {
+                    let l = l.trim_end_matches('\r');
                     if i > 0 {
                         lines.push(line);
                         line = Vec::new();
@@ -412,6 +453,8 @@ fn to_token_vector<'a>(
             }
         }
     }
-    lines.push(line);
+    if line.len() > 0 {
+        lines.push(line);
+    }
     Ok(lines)
 }
