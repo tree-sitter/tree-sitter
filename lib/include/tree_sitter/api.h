@@ -86,6 +86,16 @@ typedef struct {
   const void *id;
   uint32_t context[2];
 } TSTreeCursor;
+    
+typedef struct {
+    void *parent;
+    void *parent_alias_sequence;
+    void *subtree;
+    uint32_t byte_offset;
+    uint32_t child_index;
+    uint32_t structural_child_index;
+} TSZipper;
+
 
 /********************/
 /* Section - Parser */
@@ -646,6 +656,22 @@ TSSymbolType ts_language_symbol_type(const TSLanguage *, TSSymbol);
  * See also `ts_parser_set_language`.
  */
 uint32_t ts_language_version(const TSLanguage *);
+    
+
+
+    
+void ts_zipper_new(TSTree *tree, TSZipper *result);
+
+bool ts_zipper_right(const TSZipper *zip, TSZipper *result);
+
+bool ts_zipper_down(const TSZipper *zip, TSZipper *result, TSLanguage *lang);
+    
+TSZipper *ts_zipper_up(const TSZipper *zip);
+
+TSSymbol ts_zipper_node_type(const TSZipper *zip);
+uint32_t ts_zipper_start_byte(const TSZipper *zip);
+uint32_t ts_zipper_end_byte(const TSZipper *zip);
+
 
 #ifdef __cplusplus
 }

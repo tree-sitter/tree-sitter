@@ -18,3 +18,4 @@
 #include "./tree.c"
 #include "./utf16.c"
 #include "utf8proc.c"
+#include "zipper.c"
