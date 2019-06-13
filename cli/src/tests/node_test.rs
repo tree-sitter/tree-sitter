@@ -265,7 +265,7 @@ fn test_node_descendant_for_range() {
     let tree = parse_json_example();
     let array_node = tree.root_node().child(0).unwrap();
 
-    // Leaf node starts and ends at the given bounds - byte query
+    // Leaf node exactly matches the given bounds - byte query
     let colon_index = JSON_EXAMPLE.find(":").unwrap();
     let colon_node = array_node
         .descendant_for_byte_range(colon_index, colon_index + 1)
@@ -276,9 +276,30 @@ fn test_node_descendant_for_range() {
     assert_eq!(colon_node.start_position(), Point::new(6, 7));
     assert_eq!(colon_node.end_position(), Point::new(6, 8));
 
-    // Leaf node starts and ends at the given bounds - point query
+    // Leaf node exactly matches the given bounds - point query
     let colon_node = array_node
         .descendant_for_point_range(Point::new(6, 7), Point::new(6, 8))
+        .unwrap();
+    assert_eq!(colon_node.kind(), ":");
+    assert_eq!(colon_node.start_byte(), colon_index);
+    assert_eq!(colon_node.end_byte(), colon_index + 1);
+    assert_eq!(colon_node.start_position(), Point::new(6, 7));
+    assert_eq!(colon_node.end_position(), Point::new(6, 8));
+
+    // The given point is between two adjacent leaf nodes - byte query
+    let colon_index = JSON_EXAMPLE.find(":").unwrap();
+    let colon_node = array_node
+        .descendant_for_byte_range(colon_index, colon_index)
+        .unwrap();
+    assert_eq!(colon_node.kind(), ":");
+    assert_eq!(colon_node.start_byte(), colon_index);
+    assert_eq!(colon_node.end_byte(), colon_index + 1);
+    assert_eq!(colon_node.start_position(), Point::new(6, 7));
+    assert_eq!(colon_node.end_position(), Point::new(6, 8));
+
+    // The given point is between two adjacent leaf nodes - point query
+    let colon_node = array_node
+        .descendant_for_point_range(Point::new(6, 7), Point::new(6, 7))
         .unwrap();
     assert_eq!(colon_node.kind(), ":");
     assert_eq!(colon_node.start_byte(), colon_index);

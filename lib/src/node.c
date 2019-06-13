@@ -14,7 +14,12 @@ typedef struct {
 
 // TSNode - constructors
 
-TSNode ts_node_new(const TSTree *tree, const Subtree *subtree, Length position, TSSymbol alias) {
+TSNode ts_node_new(
+  const TSTree *tree,
+  const Subtree *subtree,
+  Length position,
+  TSSymbol alias
+) {
   return (TSNode) {
     {position.bytes, position.extent.row, position.extent.column, alias},
     subtree,
@@ -69,7 +74,10 @@ static inline bool ts_node_child_iterator_done(NodeChildIterator *self) {
   return self->child_index == self->parent.ptr->child_count;
 }
 
-static inline bool ts_node_child_iterator_next(NodeChildIterator *self, TSNode *result) {
+static inline bool ts_node_child_iterator_next(
+  NodeChildIterator *self,
+  TSNode *result
+) {
   if (!self->parent.ptr || ts_node_child_iterator_done(self)) return false;
   const Subtree *child = &self->parent.ptr->children[self->child_index];
   TSSymbol alias_symbol = 0;
@@ -108,7 +116,10 @@ static inline bool ts_node__is_relevant(TSNode self, bool include_anonymous) {
   }
 }
 
-static inline uint32_t ts_node__relevant_child_count(TSNode self, bool include_anonymous) {
+static inline uint32_t ts_node__relevant_child_count(
+  TSNode self,
+  bool include_anonymous
+) {
   Subtree tree = ts_node__subtree(self);
   if (ts_subtree_child_count(tree) > 0) {
     if (include_anonymous) {
@@ -121,7 +132,11 @@ static inline uint32_t ts_node__relevant_child_count(TSNode self, bool include_a
   }
 }
 
-static inline TSNode ts_node__child(TSNode self, uint32_t child_index, bool include_anonymous) {
+static inline TSNode ts_node__child(
+  TSNode self,
+  uint32_t child_index,
+  bool include_anonymous
+) {
   TSNode result = self;
   bool did_descend = true;
 
@@ -155,7 +170,10 @@ static inline TSNode ts_node__child(TSNode self, uint32_t child_index, bool incl
   return ts_node__null();
 }
 
-static bool ts_subtree_has_trailing_empty_descendant(Subtree self, Subtree other) {
+static bool ts_subtree_has_trailing_empty_descendant(
+  Subtree self,
+  Subtree other
+) {
   for (unsigned i = ts_subtree_child_count(self) - 1; i + 1 > 0; i--) {
     Subtree child = self.ptr->children[i];
     if (ts_subtree_total_bytes(child) > 0) break;
@@ -276,12 +294,11 @@ static inline TSNode ts_node__next_sibling(TSNode self, bool include_anonymous) 
   return ts_node__null();
 }
 
-static inline bool point_gt(TSPoint self, TSPoint other) {
-  return self.row > other.row || (self.row == other.row && self.column > other.column);
-}
-
-static inline TSNode ts_node__first_child_for_byte(TSNode self, uint32_t goal,
-                                                   bool include_anonymous) {
+static inline TSNode ts_node__first_child_for_byte(
+  TSNode self,
+  uint32_t goal,
+  bool include_anonymous
+) {
   TSNode node = self;
   bool did_descend = true;
 
@@ -306,9 +323,12 @@ static inline TSNode ts_node__first_child_for_byte(TSNode self, uint32_t goal,
   return ts_node__null();
 }
 
-static inline TSNode ts_node__descendant_for_byte_range(TSNode self, uint32_t min,
-                                                        uint32_t max,
-                                                        bool include_anonymous) {
+static inline TSNode ts_node__descendant_for_byte_range(
+  TSNode self,
+  uint32_t range_start,
+  uint32_t range_end,
+  bool include_anonymous
+) {
   TSNode node = self;
   TSNode last_visible_node = self;
 
@@ -319,25 +339,36 @@ static inline TSNode ts_node__descendant_for_byte_range(TSNode self, uint32_t mi
     TSNode child;
     NodeChildIterator iterator = ts_node_iterate_children(&node);
     while (ts_node_child_iterator_next(&iterator, &child)) {
-      if (max <= iterator.position.bytes) {
-        if (ts_node_start_byte(child) > min) break;
-        node = child;
-        if (ts_node__is_relevant(node, include_anonymous)) {
-          ts_tree_set_cached_parent(self.tree, &child, &last_visible_node);
-          last_visible_node = node;
-        }
-        did_descend = true;
-        break;
+      uint32_t node_end = iterator.position.bytes;
+
+      // The end of this node must extend far enough forward to touch
+      // the end of the range and exceed the start of the range.
+      if (node_end < range_end) continue;
+      if (node_end <= range_start) continue;
+
+      // The start of this node must extend far enough backward to
+      // touch the start of the range.
+      if (range_start < ts_node_start_byte(child)) break;
+
+      node = child;
+      if (ts_node__is_relevant(node, include_anonymous)) {
+        ts_tree_set_cached_parent(self.tree, &child, &last_visible_node);
+        last_visible_node = node;
       }
+      did_descend = true;
+      break;
     }
   }
 
   return last_visible_node;
 }
 
-static inline TSNode ts_node__descendant_for_point_range(TSNode self, TSPoint min,
-                                                         TSPoint max,
-                                                         bool include_anonymous) {
+static inline TSNode ts_node__descendant_for_point_range(
+  TSNode self,
+  TSPoint range_start,
+  TSPoint range_end,
+  bool include_anonymous
+) {
   TSNode node = self;
   TSNode last_visible_node = self;
 
@@ -348,16 +379,24 @@ static inline TSNode ts_node__descendant_for_point_range(TSNode self, TSPoint mi
     TSNode child;
     NodeChildIterator iterator = ts_node_iterate_children(&node);
     while (ts_node_child_iterator_next(&iterator, &child)) {
-      if (point_lte(max, iterator.position.extent)) {
-        if (point_gt(ts_node_start_point(child), min)) break;
-        node = child;
-        if (ts_node__is_relevant(node, include_anonymous)) {
-          ts_tree_set_cached_parent(self.tree, &child, &last_visible_node);
-          last_visible_node = node;
-        }
-        did_descend = true;
-        break;
+      TSPoint node_end = iterator.position.extent;
+
+      // The end of this node must extend far enough forward to touch
+      // the end of the range and exceed the start of the range.
+      if (point_lt(node_end, range_end)) continue;
+      if (point_lte(node_end, range_start)) continue;
+
+      // The start of this node must extend far enough backward to
+      // touch the start of the range.
+      if (point_lt(range_start, ts_node_start_point(child))) break;
+
+      node = child;
+      if (ts_node__is_relevant(node, include_anonymous)) {
+        ts_tree_set_cached_parent(self.tree, &child, &last_visible_node);
+        last_visible_node = node;
       }
+      did_descend = true;
+      break;
     }
   }
 
@@ -578,20 +617,36 @@ TSNode ts_node_first_named_child_for_byte(TSNode self, uint32_t byte) {
   return ts_node__first_child_for_byte(self, byte, false);
 }
 
-TSNode ts_node_descendant_for_byte_range(TSNode self, uint32_t min, uint32_t max) {
-  return ts_node__descendant_for_byte_range(self, min, max, true);
+TSNode ts_node_descendant_for_byte_range(
+  TSNode self,
+  uint32_t start,
+  uint32_t end
+) {
+  return ts_node__descendant_for_byte_range(self, start, end, true);
 }
 
-TSNode ts_node_named_descendant_for_byte_range(TSNode self, uint32_t min, uint32_t max) {
-  return ts_node__descendant_for_byte_range(self, min, max, false);
+TSNode ts_node_named_descendant_for_byte_range(
+  TSNode self,
+  uint32_t start,
+  uint32_t end
+) {
+  return ts_node__descendant_for_byte_range(self, start, end, false);
 }
 
-TSNode ts_node_descendant_for_point_range(TSNode self, TSPoint min, TSPoint max) {
-  return ts_node__descendant_for_point_range(self, min, max, true);
+TSNode ts_node_descendant_for_point_range(
+  TSNode self,
+  TSPoint start,
+  TSPoint end
+) {
+  return ts_node__descendant_for_point_range(self, start, end, true);
 }
 
-TSNode ts_node_named_descendant_for_point_range(TSNode self, TSPoint min, TSPoint max) {
-  return ts_node__descendant_for_point_range(self, min, max, false);
+TSNode ts_node_named_descendant_for_point_range(
+  TSNode self,
+  TSPoint start,
+  TSPoint end
+) {
+  return ts_node__descendant_for_point_range(self, start, end, false);
 }
 
 void ts_node_edit(TSNode *self, const TSInputEdit *edit) {
