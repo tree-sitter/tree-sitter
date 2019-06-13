@@ -41,7 +41,9 @@ Parsers for these languages are fairly complete:
 * [Python](https://github.com/tree-sitter/tree-sitter-python)
 * [Ruby](https://github.com/tree-sitter/tree-sitter-ruby)
 * [Rust](https://github.com/tree-sitter/tree-sitter-rust)
+* [SystemRDL](https://github.com/SystemRDL/tree-sitter-systemrdl)
 * [TypeScript](https://github.com/tree-sitter/tree-sitter-typescript)
+* [Verilog](https://github.com/tree-sitter/tree-sitter-verilog)
 
 Parsers for these languages are in development:
 
