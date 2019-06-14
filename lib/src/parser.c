@@ -979,7 +979,8 @@ static void ts_parser__handle_error(TSParser *self, StackVersion version,
   }
 
   for (unsigned i = previous_version_count; i < version_count; i++) {
-    assert(ts_stack_merge(self->stack, version, previous_version_count));
+    bool did_merge = ts_stack_merge(self->stack, version, previous_version_count);
+    assert(did_merge);
   }
 
   ts_stack_record_summary(self->stack, version, MAX_SUMMARY_DEPTH);
