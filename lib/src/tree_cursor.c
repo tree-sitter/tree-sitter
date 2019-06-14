@@ -293,10 +293,10 @@ const char *ts_tree_cursor_current_field_name(const TSTreeCursor *_self) {
 }
 
 TSTreeCursor ts_tree_cursor_copy(const TSTreeCursor *_cursor) {
-    const TreeCursor *cursor = (const TreeCursor *)_cursor;
-    TSTreeCursor res = {NULL, NULL, {0, 0}};
-    TreeCursor *copy = (TreeCursor *)&res;
-    copy->tree = cursor->tree;
-    array_push_all(&copy->stack, &cursor->stack);
-    return res;
+  const TreeCursor *cursor = (const TreeCursor *)_cursor;
+  TSTreeCursor res = {NULL, NULL, {0, 0}};
+  TreeCursor *copy = (TreeCursor *)&res;
+  copy->tree = cursor->tree;
+  array_push_all(&copy->stack, &cursor->stack);
+  return res;
 }
