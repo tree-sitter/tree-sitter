@@ -593,6 +593,8 @@ bool ts_tree_cursor_goto_first_child(TSTreeCursor *);
  * if no such child was found.
  */
 int64_t ts_tree_cursor_goto_first_child_for_byte(TSTreeCursor *, uint32_t);
+    
+TSTreeCursor ts_tree_cursor_copy(const TSTreeCursor *);
 
 /**********************/
 /* Section - Language */
