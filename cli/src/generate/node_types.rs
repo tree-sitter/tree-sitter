@@ -23,6 +23,7 @@ pub(crate) struct FieldInfo {
 pub(crate) struct VariableInfo {
     pub fields: HashMap<String, FieldInfo>,
     pub child_types: Vec<ChildType>,
+    pub child_types_without_fields: Vec<ChildType>,
     pub has_multi_step_production: bool,
 }
 
@@ -33,6 +34,8 @@ pub(crate) struct NodeInfoJSON {
     named: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     fields: Option<BTreeMap<String, FieldInfoJSON>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    children: Option<FieldInfoJSON>,
     #[serde(skip_serializing_if = "Option::is_none")]
     subtypes: Option<Vec<NodeTypeJSON>>,
 }
@@ -63,6 +66,7 @@ pub(crate) fn get_variable_info(
         let mut info = VariableInfo {
             fields: HashMap::new(),
             child_types: Vec::new(),
+            child_types_without_fields: Vec::new(),
             has_multi_step_production: false,
         };
         let is_recursive = variable
@@ -83,14 +87,20 @@ pub(crate) fn get_variable_info(
                 };
 
                 if let Some(field_name) = &step.field_name {
-                    let field_info = info.fields.entry(field_name.clone()).or_insert(FieldInfo {
-                        multiple: false,
-                        required: true,
-                        types: Vec::new(),
-                    });
+                    let field_info = info.fields
+                        .entry(field_name.clone())
+                        .or_insert(FieldInfo {
+                            multiple: false,
+                            required: true,
+                            types: Vec::new(),
+                        });
                     field_info.multiple |= is_recursive;
                     if let Err(i) = field_info.types.binary_search(&child_type) {
                         field_info.types.insert(i, child_type.clone());
+                    }
+                } else if variable_type_for_child_type(&child_type, syntax_grammar, lexical_grammar) == VariableType::Named {
+                    if let Err(i) = info.child_types_without_fields.binary_search(&child_type) {
+                        info.child_types_without_fields.insert(i, child_type.clone());
                     }
                 }
 
@@ -107,8 +117,17 @@ pub(crate) fn get_variable_info(
                 .filter_map(|s| s.field_name.as_ref())
                 .collect();
             for (field_name, field_info) in info.fields.iter_mut() {
-                if !production_fields.contains(&field_name) {
+                let mut occurrence_count = 0;
+                for f in &production_fields {
+                    if *f == field_name {
+                        occurrence_count += 1;
+                    }
+                }
+                if occurrence_count == 0 {
                     field_info.required = false;
+                }
+                if occurrence_count > 1 {
+                    field_info.multiple = true;
                 }
             }
         }
@@ -135,6 +154,7 @@ pub(crate) fn get_variable_info(
                         && !syntax_grammar.variables[child_symbol.index]
                             .kind
                             .is_visible()
+                        && !syntax_grammar.supertype_symbols.contains(&child_symbol)
                     {
                         let child_variable_info = &result[child_symbol.index];
 
@@ -169,25 +189,32 @@ pub(crate) fn get_variable_info(
                             }
                         }
 
-                        if !syntax_grammar.supertype_symbols.contains(&child_symbol) {
-                            // Inherit child types from this hidden child
+                        // Inherit child types from this hidden child
+                        for child_type in &child_variable_info.child_types {
+                            if let Err(i) = variable_info.child_types.binary_search(&child_type)
+                            {
+                                variable_info.child_types.insert(i, child_type.clone());
+                                done = false;
+                            }
+                        }
+
+                        // If any field points to this hidden child, inherit child types
+                        // for the field.
+                        if let Some(field_name) = &step.field_name {
+                            let field_info = variable_info.fields.get_mut(field_name).unwrap();
                             for child_type in &child_variable_info.child_types {
-                                if let Err(i) = variable_info.child_types.binary_search(&child_type)
-                                {
-                                    variable_info.child_types.insert(i, child_type.clone());
+                                if let Err(i) = field_info.types.binary_search(&child_type) {
+                                    field_info.types.insert(i, child_type.clone());
                                     done = false;
                                 }
                             }
-
-                            // If any field points to this hidden child, inherit child types
-                            // for the field.
-                            if let Some(field_name) = &step.field_name {
-                                let field_info = variable_info.fields.get_mut(field_name).unwrap();
-                                for child_type in &child_variable_info.child_types {
-                                    if let Err(i) = field_info.types.binary_search(&child_type) {
-                                        field_info.types.insert(i, child_type.clone());
-                                        done = false;
-                                    }
+                        } else {
+                            // Inherit child types without fields from this hidden child
+                            for child_type in &child_variable_info.child_types_without_fields {
+                                if let Err(i) = variable_info.child_types_without_fields.binary_search(&child_type)
+                                {
+                                    variable_info.child_types_without_fields.insert(i, child_type.clone());
+                                    done = false;
                                 }
                             }
                         }
@@ -217,20 +244,8 @@ pub(crate) fn get_variable_info(
         }
     }
 
-    let child_type_is_visible = |child_type: &ChildType| match child_type {
-        ChildType::Aliased(_) => true,
-        ChildType::Normal(symbol) => {
-            if syntax_grammar.supertype_symbols.contains(&symbol) {
-                return true;
-            }
-            let variable_kind = match symbol.kind {
-                SymbolType::NonTerminal => syntax_grammar.variables[symbol.index].kind,
-                SymbolType::Terminal => lexical_grammar.variables[symbol.index].kind,
-                SymbolType::External => syntax_grammar.external_tokens[symbol.index].kind,
-                _ => VariableType::Hidden,
-            };
-            variable_kind.is_visible()
-        }
+    let child_type_is_visible = |t: &ChildType| {
+        variable_type_for_child_type(t, syntax_grammar, lexical_grammar) >= VariableType::Anonymous
     };
 
     for supertype_symbol in &syntax_grammar.supertype_symbols {
@@ -259,10 +274,40 @@ pub(crate) fn get_variable_info(
             field_info.types.retain(child_type_is_visible);
         }
 
+        variable_info.child_types_without_fields.retain(child_type_is_visible);
+
         result[i] = variable_info;
     }
 
     Ok(result)
+}
+
+fn variable_type_for_child_type(
+    child_type: &ChildType,
+    syntax_grammar: &SyntaxGrammar,
+    lexical_grammar: &LexicalGrammar,
+) -> VariableType {
+    match child_type {
+        ChildType::Aliased(alias) => {
+            if alias.is_named {
+                VariableType::Named
+            } else {
+                VariableType::Anonymous
+            }
+        }
+        ChildType::Normal(symbol) => {
+            if syntax_grammar.supertype_symbols.contains(&symbol) {
+                return VariableType::Named;
+            } else {
+                match symbol.kind {
+                    SymbolType::NonTerminal => syntax_grammar.variables[symbol.index].kind,
+                    SymbolType::Terminal => lexical_grammar.variables[symbol.index].kind,
+                    SymbolType::External => syntax_grammar.external_tokens[symbol.index].kind,
+                    _ => VariableType::Hidden,
+                }
+            }
+        }
+    }
 }
 
 fn sorted_vec_replace<T>(left: &mut Vec<T>, right: &Vec<T>, value: T) -> bool
@@ -366,6 +411,7 @@ pub(crate) fn generate_node_types_json(
                         kind: name.clone(),
                         named: true,
                         fields: None,
+                        children: None,
                         subtypes: None,
                     });
             let mut subtypes = info
@@ -384,6 +430,7 @@ pub(crate) fn generate_node_types_json(
                         kind: name.clone(),
                         named: true,
                         fields: None,
+                        children: None,
                         subtypes: None,
                     });
             let mut fields_json = BTreeMap::new();
@@ -403,6 +450,13 @@ pub(crate) fn generate_node_types_json(
                 field_info_json.types.dedup();
             }
             node_type_json.fields = Some(fields_json);
+            if info.child_types_without_fields.len() > 0 {
+                node_type_json.children = Some(FieldInfoJSON {
+                    multiple: true,
+                    required: false,
+                    types: info.child_types_without_fields.iter().map(child_type_to_node_type).collect(),
+                });
+            }
         }
     }
 
@@ -414,6 +468,7 @@ pub(crate) fn generate_node_types_json(
                 kind: variable.name.clone(),
                 named: true,
                 fields: None,
+                children: None,
                 subtypes: None,
             });
         } else if variable.kind == VariableType::Anonymous {
@@ -421,6 +476,7 @@ pub(crate) fn generate_node_types_json(
                 kind: variable.name.clone(),
                 named: false,
                 fields: None,
+                children: None,
                 subtypes: None,
             });
         }
@@ -471,6 +527,7 @@ mod tests {
                 kind: "v1".to_string(),
                 named: true,
                 subtypes: None,
+                children: None,
                 fields: Some(
                     vec![
                         (
@@ -507,6 +564,7 @@ mod tests {
                 kind: ";".to_string(),
                 named: false,
                 subtypes: None,
+                children: None,
                 fields: None
             }
         );
@@ -516,6 +574,7 @@ mod tests {
                 kind: "v2".to_string(),
                 named: true,
                 subtypes: None,
+                children: None,
                 fields: None
             }
         );
@@ -565,6 +624,7 @@ mod tests {
                 kind: "_v2".to_string(),
                 named: true,
                 fields: None,
+                children: None,
                 subtypes: Some(vec![
                     NodeTypeJSON {
                         kind: "*".to_string(),
@@ -587,6 +647,7 @@ mod tests {
                 kind: "v1".to_string(),
                 named: true,
                 subtypes: None,
+                children: None,
                 fields: Some(
                     vec![(
                         "f1".to_string(),

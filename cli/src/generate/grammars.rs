@@ -2,7 +2,7 @@ use super::nfa::Nfa;
 use super::rules::{Alias, Associativity, Rule, Symbol};
 use hashbrown::HashMap;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum VariableType {
     Hidden,
     Auxiliary,
