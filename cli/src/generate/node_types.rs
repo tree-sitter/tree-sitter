@@ -668,6 +668,85 @@ mod tests {
     }
 
     #[test]
+    fn test_node_types_for_children_without_fields() {
+        let node_types = get_node_types(InputGrammar {
+            name: String::new(),
+            extra_tokens: Vec::new(),
+            external_tokens: Vec::new(),
+            expected_conflicts: Vec::new(),
+            variables_to_inline: Vec::new(),
+            word_token: None,
+            supertype_symbols: vec![],
+            variables: vec![
+                Variable {
+                    name: "v1".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::seq(vec![
+                        Rule::named("v2"),
+                        Rule::field("f1".to_string(), Rule::named("v3")),
+                        Rule::named("v4")
+                    ]),
+                },
+                Variable {
+                    name: "v2".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("x"),
+                },
+                Variable {
+                    name: "v3".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("x"),
+                },
+                Variable {
+                    name: "v4".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("x"),
+                },
+            ],
+        });
+
+        assert_eq!(
+            node_types[0],
+            NodeInfoJSON {
+                kind: "v1".to_string(),
+                named: true,
+                subtypes: None,
+                children: Some(FieldInfoJSON {
+                    multiple: true,
+                    required: false,
+                    types: vec![
+                        NodeTypeJSON {
+                            kind: "v2".to_string(),
+                            named: true,
+                        },
+                        NodeTypeJSON {
+                            kind: "v4".to_string(),
+                            named: true,
+                        },
+                    ]
+                }),
+                fields: Some(
+                    vec![
+                        (
+                            "f1".to_string(),
+                            FieldInfoJSON {
+                                multiple: false,
+                                required: true,
+                                types: vec![NodeTypeJSON {
+                                    kind: "v3".to_string(),
+                                    named: true,
+                                }]
+                            }
+                        ),
+                    ]
+                    .into_iter()
+                    .collect()
+                )
+            }
+        );
+    }
+
+    #[test]
     fn test_get_variable_info() {
         let variable_info = get_variable_info(
             &build_syntax_grammar(
