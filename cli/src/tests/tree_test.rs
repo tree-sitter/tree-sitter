@@ -190,7 +190,7 @@ fn test_tree_edit() {
 }
 
 #[test]
-fn test_tree_walk() {
+fn test_tree_cursor() {
     let mut parser = Parser::new();
     parser.set_language(get_language("rust")).unwrap();
 
@@ -223,6 +223,43 @@ fn test_tree_walk() {
     assert!(cursor.goto_next_sibling());
     assert_eq!(cursor.node().kind(), "field_declaration_list");
     assert_eq!(cursor.node().is_named(), true);
+}
+
+#[test]
+fn test_tree_cursor_fields() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("javascript")).unwrap();
+
+    let tree = parser
+        .parse("function /*1*/ bar /*2*/ () {}", None)
+        .unwrap();
+
+    let mut cursor = tree.walk();
+    assert_eq!(cursor.node().kind(), "program");
+
+    cursor.goto_first_child();
+    assert_eq!(cursor.node().kind(), "function_declaration");
+    assert_eq!(cursor.field_name(), None);
+
+    cursor.goto_first_child();
+    assert_eq!(cursor.node().kind(), "function");
+    assert_eq!(cursor.field_name(), None);
+
+    cursor.goto_next_sibling();
+    assert_eq!(cursor.node().kind(), "comment");
+    assert_eq!(cursor.field_name(), None);
+
+    cursor.goto_next_sibling();
+    assert_eq!(cursor.node().kind(), "identifier");
+    assert_eq!(cursor.field_name(), Some("name"));
+
+    cursor.goto_next_sibling();
+    assert_eq!(cursor.node().kind(), "comment");
+    assert_eq!(cursor.field_name(), None);
+
+    cursor.goto_next_sibling();
+    assert_eq!(cursor.node().kind(), "formal_parameters");
+    assert_eq!(cursor.field_name(), Some("parameters"));
 }
 
 #[test]
