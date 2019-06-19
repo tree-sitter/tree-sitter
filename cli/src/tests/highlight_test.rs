@@ -420,15 +420,32 @@ fn test_highlighting_via_c_api() {
     assert_eq!(
         lines,
         vec![
-            "&lt;<span class=tag>script</span>&gt;",
-            "<span class=keyword>const</span> <span>a</span> <span>=</span> <span class=function>b</span><span>(</span><span class=string>&#39;c&#39;</span><span>)</span><span>;</span>",
-            "<span>c</span><span>.</span><span class=function>d</span><span>(</span><span>)</span><span>;</span>",
-            "&lt;/<span class=tag>script</span>&gt;",
+            "&lt;<span class=tag>script</span>&gt;\n",
+            "<span class=keyword>const</span> <span>a</span> <span>=</span> <span class=function>b</span><span>(</span><span class=string>&#39;c&#39;</span><span>)</span><span>;</span>\n",
+            "<span>c</span><span>.</span><span class=function>d</span><span>(</span><span>)</span><span>;</span>\n",
+            "&lt;/<span class=tag>script</span>&gt;\n",
         ]
     );
 
     c::ts_highlighter_delete(highlighter);
     c::ts_highlight_buffer_delete(buffer);
+}
+
+#[test]
+fn test_decode_utf8_lossy() {
+    use tree_sitter_highlight::util::LossyUtf8;
+
+    let parts = LossyUtf8::new(b"hi").collect::<Vec<_>>();
+    assert_eq!(parts, vec!["hi"]);
+
+    let parts = LossyUtf8::new(b"hi\xc0\xc1bye").collect::<Vec<_>>();
+    assert_eq!(parts, vec!["hi", "\u{fffd}", "\u{fffd}", "bye"]);
+
+    let parts = LossyUtf8::new(b"\xc0\xc1bye").collect::<Vec<_>>();
+    assert_eq!(parts, vec!["\u{fffd}", "\u{fffd}", "bye"]);
+
+    let parts = LossyUtf8::new(b"hello\xc0\xc1").collect::<Vec<_>>();
+    assert_eq!(parts, vec!["hello", "\u{fffd}", "\u{fffd}"]);
 }
 
 fn c_string(s: &str) -> CString {
@@ -466,11 +483,12 @@ fn to_token_vector<'a>(
     language: Language,
     property_sheet: &'a PropertySheet<Properties>,
 ) -> Result<Vec<Vec<(&'a str, Vec<Highlight>)>>, Error> {
+    let src = src.as_bytes();
     let mut lines = Vec::new();
     let mut highlights = Vec::new();
     let mut line = Vec::new();
     for event in highlight(
-        src.as_bytes(),
+        src,
         language,
         property_sheet,
         None,
@@ -481,7 +499,8 @@ fn to_token_vector<'a>(
             HighlightEvent::HighlightEnd => {
                 highlights.pop();
             }
-            HighlightEvent::Source(s) => {
+            HighlightEvent::Source { start, end } => {
+                let s = str::from_utf8(&src[start..end]).unwrap();
                 for (i, l) in s.split("\n").enumerate() {
                     let l = l.trim_end_matches('\r');
                     if i > 0 {

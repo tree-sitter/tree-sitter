@@ -293,11 +293,11 @@ pub fn ansi(
     {
         let event = event.map_err(|e| e.to_string())?;
         match event {
-            HighlightEvent::Source(s) => {
+            HighlightEvent::Source { start, end } => {
                 if let Some(style) = highlight_stack.last().and_then(|s| theme.ansi_style(*s)) {
-                    write!(&mut stdout, "{}", style.paint(s))?;
+                    style.paint(&source[start..end]).write_to(&mut stdout)?;
                 } else {
-                    write!(&mut stdout, "{}", s)?;
+                    stdout.write_all(&source[start..end])?;
                 }
             }
             HighlightEvent::HighlightStart(h) => {
