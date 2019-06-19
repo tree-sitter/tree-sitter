@@ -3,11 +3,19 @@ let tree;
 (async () => {
   const CAPTURE_REGEX = /@\s*([\w\._-]+)/g;
   const COLORS_BY_INDEX = [
-    'red',
-    'green',
     'blue',
-    'orange',
-    'violet',
+    'chocolate',
+    'darkblue',
+    'darkcyan',
+    'darkgreen',
+    'darkred',
+    'darkslategray',
+    'dimgray',
+    'green',
+    'indigo',
+    'navy',
+    'red',
+    'sienna',
   ];
 
   const scriptURL = document.currentScript.getAttribute('src');
@@ -213,7 +221,10 @@ let tree;
           {row: startRow, column: 0},
           {row: endRow, column: 0},
         );
+        let lastNodeId;
         for (const {name, node} of captures) {
+          if (node.id === lastNodeId) continue;
+          lastNodeId = node.id;
           const {startPosition, endPosition} = node;
           codeEditor.markText(
             {line: startPosition.row, ch: startPosition.column},
