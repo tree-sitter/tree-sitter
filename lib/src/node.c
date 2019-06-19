@@ -435,6 +435,10 @@ bool ts_node_is_null(TSNode self) {
   return self.id == 0;
 }
 
+bool ts_node_is_extra(TSNode self) {
+  return ts_subtree_extra(ts_node__subtree(self));
+}
+
 bool ts_node_is_named(TSNode self) {
   return ts_node__alias(&self)
     ? ts_language_symbol_metadata(self.tree->language, ts_node__alias(&self)).named

@@ -469,6 +469,10 @@ impl<'tree> Node<'tree> {
         unsafe { ffi::ts_node_is_named(self.0) }
     }
 
+    pub fn is_extra(&self) -> bool {
+        unsafe { ffi::ts_node_is_extra(self.0) }
+    }
+
     pub fn has_changes(&self) -> bool {
         unsafe { ffi::ts_node_has_changes(self.0) }
     }

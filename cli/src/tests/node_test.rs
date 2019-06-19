@@ -405,6 +405,21 @@ fn test_node_edit() {
 }
 
 #[test]
+fn test_node_is_extra() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("javascript")).unwrap();
+    let tree = parser.parse("foo(/* hi */);", None).unwrap();
+
+    let root_node = tree.root_node();
+    let comment_node = root_node.descendant_for_byte_range(7, 7).unwrap();
+
+    assert_eq!(root_node.kind(), "program");
+    assert_eq!(comment_node.kind(), "comment");
+    assert!(!root_node.is_extra());
+    assert!(comment_node.is_extra());
+}
+
+#[test]
 fn test_node_field_names() {
     let (parser_name, parser_code) = generate_parser_for_grammar(
         r#"
