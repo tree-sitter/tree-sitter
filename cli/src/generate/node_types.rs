@@ -523,14 +523,17 @@ pub(crate) fn generate_node_types_json(
             }
             node_type_json.fields = Some(fields_json);
             if info.child_types_without_fields.len() > 0 {
+                let mut children_types = info
+                    .child_types_without_fields
+                    .iter()
+                    .map(child_type_to_node_type)
+                    .collect::<Vec<_>>();
+                children_types.sort_unstable();
+                children_types.dedup();
                 node_type_json.children = Some(FieldInfoJSON {
                     multiple: true,
                     required: false,
-                    types: info
-                        .child_types_without_fields
-                        .iter()
-                        .map(child_type_to_node_type)
-                        .collect(),
+                    types: children_types,
                 });
             }
         }
