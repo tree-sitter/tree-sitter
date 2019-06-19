@@ -64,6 +64,7 @@ pub(crate) struct Production {
     pub dynamic_precedence: i32,
 }
 
+#[derive(Default)]
 pub(crate) struct InlinedProductionMap {
     pub productions: Vec<Production>,
     pub production_map: HashMap<(*const Production, u32), Vec<usize>>,

@@ -97,7 +97,7 @@ fn generate_parser_for_grammar_with_opts(
     let input_grammar = parse_grammar(grammar_json)?;
     let (syntax_grammar, lexical_grammar, inlines, simple_aliases) =
         prepare_grammar(&input_grammar)?;
-    let variable_info = node_types::get_variable_info(&syntax_grammar, &lexical_grammar)?;
+    let variable_info = node_types::get_variable_info(&syntax_grammar, &lexical_grammar, &inlines)?;
     let node_types_json = node_types::generate_node_types_json(
         &syntax_grammar,
         &lexical_grammar,

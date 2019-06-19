@@ -1,4 +1,7 @@
-use super::grammars::{LexicalGrammar, SyntaxGrammar, VariableType};
+use super::grammars::{
+    InlinedProductionMap, LexicalGrammar, Production, ProductionStep, SyntaxGrammar,
+    SyntaxVariable, VariableType,
+};
 use super::rules::{Alias, AliasMap, Symbol, SymbolType};
 use crate::error::{Error, Result};
 use hashbrown::HashMap;
@@ -57,11 +60,13 @@ pub(crate) struct FieldInfoJSON {
 pub(crate) fn get_variable_info(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
+    inlines: &InlinedProductionMap,
 ) -> Result<Vec<VariableInfo>> {
     let mut result = Vec::new();
 
     // Determine which field names and child node types can appear directly
     // within each type of node.
+    let mut steps = Vec::new();
     for (i, variable) in syntax_grammar.variables.iter().enumerate() {
         let mut info = VariableInfo {
             fields: HashMap::new(),
@@ -69,44 +74,42 @@ pub(crate) fn get_variable_info(
             child_types_without_fields: Vec::new(),
             has_multi_step_production: false,
         };
-        let is_recursive = variable
-            .productions
-            .iter()
-            .any(|p| p.steps.iter().any(|s| s.symbol == Symbol::non_terminal(i)));
 
-        for production in &variable.productions {
-            if production.steps.len() > 1 {
-                info.has_multi_step_production = true;
+        steps.clear();
+        if get_all_child_steps(variable, inlines, &mut steps) > 1 {
+            info.has_multi_step_production = true;
+        }
+
+        let is_recursive = steps.iter().any(|s| s.symbol == Symbol::non_terminal(i));
+
+        for step in &steps {
+            let child_type = if let Some(alias) = &step.alias {
+                ChildType::Aliased(alias.clone())
+            } else {
+                ChildType::Normal(step.symbol)
+            };
+
+            if let Some(field_name) = &step.field_name {
+                let field_info = info.fields.entry(field_name.clone()).or_insert(FieldInfo {
+                    multiple: false,
+                    required: true,
+                    types: Vec::new(),
+                });
+                field_info.multiple |= is_recursive;
+                if let Err(i) = field_info.types.binary_search(&child_type) {
+                    field_info.types.insert(i, child_type.clone());
+                }
+            } else if variable_type_for_child_type(&child_type, syntax_grammar, lexical_grammar)
+                == VariableType::Named
+            {
+                if let Err(i) = info.child_types_without_fields.binary_search(&child_type) {
+                    info.child_types_without_fields
+                        .insert(i, child_type.clone());
+                }
             }
 
-            for step in &production.steps {
-                let child_type = if let Some(alias) = &step.alias {
-                    ChildType::Aliased(alias.clone())
-                } else {
-                    ChildType::Normal(step.symbol)
-                };
-
-                if let Some(field_name) = &step.field_name {
-                    let field_info = info.fields
-                        .entry(field_name.clone())
-                        .or_insert(FieldInfo {
-                            multiple: false,
-                            required: true,
-                            types: Vec::new(),
-                        });
-                    field_info.multiple |= is_recursive;
-                    if let Err(i) = field_info.types.binary_search(&child_type) {
-                        field_info.types.insert(i, child_type.clone());
-                    }
-                } else if variable_type_for_child_type(&child_type, syntax_grammar, lexical_grammar) == VariableType::Named {
-                    if let Err(i) = info.child_types_without_fields.binary_search(&child_type) {
-                        info.child_types_without_fields.insert(i, child_type.clone());
-                    }
-                }
-
-                if let Err(i) = info.child_types.binary_search(&child_type) {
-                    info.child_types.insert(i, child_type.clone());
-                }
+            if let Err(i) = info.child_types.binary_search(&child_type) {
+                info.child_types.insert(i, child_type.clone());
             }
         }
 
@@ -146,76 +149,80 @@ pub(crate) fn get_variable_info(
             let mut variable_info = VariableInfo::default();
             mem::swap(&mut variable_info, &mut result[i]);
 
-            for production in &variable.productions {
-                for step in &production.steps {
-                    let child_symbol = step.symbol;
-                    if step.alias.is_none()
-                        && child_symbol.kind == SymbolType::NonTerminal
-                        && !syntax_grammar.variables[child_symbol.index]
-                            .kind
-                            .is_visible()
-                        && !syntax_grammar.supertype_symbols.contains(&child_symbol)
-                    {
-                        let child_variable_info = &result[child_symbol.index];
+            steps.clear();
+            get_all_child_steps(variable, inlines, &mut steps);
 
-                        // If a hidden child can have multiple children, then this
-                        // node can appear to have multiple children.
-                        if child_variable_info.has_multi_step_production {
-                            variable_info.has_multi_step_production = true;
+            for step in &steps {
+                let child_symbol = step.symbol;
+                if step.alias.is_none()
+                    && child_symbol.kind == SymbolType::NonTerminal
+                    && !syntax_grammar.variables[child_symbol.index]
+                        .kind
+                        .is_visible()
+                    && !syntax_grammar.supertype_symbols.contains(&child_symbol)
+                {
+                    let child_variable_info = &result[child_symbol.index];
+
+                    // If a hidden child can have multiple children, then this
+                    // node can appear to have multiple children.
+                    if child_variable_info.has_multi_step_production {
+                        variable_info.has_multi_step_production = true;
+                    }
+
+                    // Inherit fields from this hidden child
+                    for (field_name, child_field_info) in &child_variable_info.fields {
+                        let field_info = variable_info
+                            .fields
+                            .entry(field_name.clone())
+                            .or_insert_with(|| {
+                                done = false;
+                                child_field_info.clone()
+                            });
+                        if child_field_info.multiple && !field_info.multiple {
+                            field_info.multiple = child_field_info.multiple;
+                            done = false;
                         }
-
-                        // Inherit fields from this hidden child
-                        for (field_name, child_field_info) in &child_variable_info.fields {
-                            let field_info = variable_info
-                                .fields
-                                .entry(field_name.clone())
-                                .or_insert_with(|| {
-                                    done = false;
-                                    child_field_info.clone()
-                                });
-                            if child_field_info.multiple && !field_info.multiple {
-                                field_info.multiple = child_field_info.multiple;
+                        if !child_field_info.required && field_info.required {
+                            field_info.required = child_field_info.required;
+                            done = false;
+                        }
+                        for child_type in &child_field_info.types {
+                            if let Err(i) = field_info.types.binary_search(&child_type) {
+                                field_info.types.insert(i, child_type.clone());
                                 done = false;
                             }
-                            if !child_field_info.required && field_info.required {
-                                field_info.required = child_field_info.required;
-                                done = false;
-                            }
-                            for child_type in &child_field_info.types {
-                                if let Err(i) = field_info.types.binary_search(&child_type) {
-                                    field_info.types.insert(i, child_type.clone());
-                                    done = false;
-                                }
-                            }
                         }
+                    }
 
-                        // Inherit child types from this hidden child
+                    // Inherit child types from this hidden child
+                    for child_type in &child_variable_info.child_types {
+                        if let Err(i) = variable_info.child_types.binary_search(&child_type) {
+                            variable_info.child_types.insert(i, child_type.clone());
+                            done = false;
+                        }
+                    }
+
+                    // If any field points to this hidden child, inherit child types
+                    // for the field.
+                    if let Some(field_name) = &step.field_name {
+                        let field_info = variable_info.fields.get_mut(field_name).unwrap();
                         for child_type in &child_variable_info.child_types {
-                            if let Err(i) = variable_info.child_types.binary_search(&child_type)
-                            {
-                                variable_info.child_types.insert(i, child_type.clone());
+                            if let Err(i) = field_info.types.binary_search(&child_type) {
+                                field_info.types.insert(i, child_type.clone());
                                 done = false;
                             }
                         }
-
-                        // If any field points to this hidden child, inherit child types
-                        // for the field.
-                        if let Some(field_name) = &step.field_name {
-                            let field_info = variable_info.fields.get_mut(field_name).unwrap();
-                            for child_type in &child_variable_info.child_types {
-                                if let Err(i) = field_info.types.binary_search(&child_type) {
-                                    field_info.types.insert(i, child_type.clone());
-                                    done = false;
-                                }
-                            }
-                        } else {
-                            // Inherit child types without fields from this hidden child
-                            for child_type in &child_variable_info.child_types_without_fields {
-                                if let Err(i) = variable_info.child_types_without_fields.binary_search(&child_type)
-                                {
-                                    variable_info.child_types_without_fields.insert(i, child_type.clone());
-                                    done = false;
-                                }
+                    } else {
+                        // Inherit child types without fields from this hidden child
+                        for child_type in &child_variable_info.child_types_without_fields {
+                            if let Err(i) = variable_info
+                                .child_types_without_fields
+                                .binary_search(&child_type)
+                            {
+                                variable_info
+                                    .child_types_without_fields
+                                    .insert(i, child_type.clone());
+                                done = false;
                             }
                         }
                     }
@@ -262,24 +269,83 @@ pub(crate) fn get_variable_info(
         // subtypes with a single supertype.
         for (_, field_info) in variable_info.fields.iter_mut() {
             for supertype_symbol in &syntax_grammar.supertype_symbols {
-                if sorted_vec_replace(
+                sorted_vec_replace(
                     &mut field_info.types,
                     &result[supertype_symbol.index].child_types,
                     ChildType::Normal(*supertype_symbol),
-                ) {
-                    break;
-                }
+                );
             }
 
             field_info.types.retain(child_type_is_visible);
         }
 
-        variable_info.child_types_without_fields.retain(child_type_is_visible);
+        for supertype_symbol in &syntax_grammar.supertype_symbols {
+            sorted_vec_replace(
+                &mut variable_info.child_types_without_fields,
+                &result[supertype_symbol.index].child_types,
+                ChildType::Normal(*supertype_symbol),
+            );
+        }
+
+        variable_info
+            .child_types_without_fields
+            .retain(child_type_is_visible);
 
         result[i] = variable_info;
     }
 
     Ok(result)
+}
+
+// Summarize information about this variable's possible children by walking
+// all of its productions.
+fn get_all_child_steps(
+    variable: &SyntaxVariable,
+    inlines: &InlinedProductionMap,
+    output: &mut Vec<ProductionStep>,
+) -> usize {
+    // For each of the given variable's productions, insert all of the reachable steps
+    // into the output vector, and return the longest possible production length.
+    return variable
+        .productions
+        .iter()
+        .map(|p| process_production(inlines, p, 0, output))
+        .max()
+        .unwrap_or(0);
+
+    // For the given production suffix, add all of the remaining steps into the output
+    // vector and return the longest possible production length.
+    fn process_production(
+        inlines: &InlinedProductionMap,
+        production: &Production,
+        step_index: usize,
+        output: &mut Vec<ProductionStep>,
+    ) -> usize {
+        let mut max_length = production.steps.len();
+
+        // Process each of the remaining steps of the production.
+        for (i, step) in production.steps.iter().enumerate().skip(step_index) {
+            // If this step is inlined, then process the corresponding suffixes of
+            // all of the inlined productions instead.
+            if let Some(inlined_productions) = inlines.inlined_productions(production, i as u32) {
+                for inlined_production in inlined_productions {
+                    let length = process_production(inlines, inlined_production, i, output);
+                    if length > max_length {
+                        max_length = length;
+                    }
+                }
+                break;
+            }
+
+            // Otherwise, insert this step into the output vector unless it is already
+            // present.
+            if let Err(i) = output.binary_search(step) {
+                output.insert(i, step.clone());
+            }
+        }
+
+        return max_length;
+    }
 }
 
 fn variable_type_for_child_type(
@@ -314,6 +380,10 @@ fn sorted_vec_replace<T>(left: &mut Vec<T>, right: &Vec<T>, value: T) -> bool
 where
     T: Eq + Ord,
 {
+    if left.len() == 0 {
+        return false;
+    }
+
     let mut i = 0;
     for right_elem in right.iter() {
         while left[i] < *right_elem {
@@ -422,7 +492,9 @@ pub(crate) fn generate_node_types_json(
             subtypes.sort_unstable();
             subtypes.dedup();
             node_type_json.subtypes = Some(subtypes);
-        } else if variable.kind.is_visible() {
+        } else if variable.kind.is_visible()
+            && !syntax_grammar.variables_to_inline.contains(&symbol)
+        {
             let node_type_json =
                 node_types_json
                     .entry(name.clone())
@@ -454,7 +526,11 @@ pub(crate) fn generate_node_types_json(
                 node_type_json.children = Some(FieldInfoJSON {
                     multiple: true,
                     required: false,
-                    types: info.child_types_without_fields.iter().map(child_type_to_node_type).collect(),
+                    types: info
+                        .child_types_without_fields
+                        .iter()
+                        .map(child_type_to_node_type)
+                        .collect(),
                 });
             }
         }
@@ -684,7 +760,7 @@ mod tests {
                     rule: Rule::seq(vec![
                         Rule::named("v2"),
                         Rule::field("f1".to_string(), Rule::named("v3")),
-                        Rule::named("v4")
+                        Rule::named("v4"),
                     ]),
                 },
                 Variable {
@@ -726,19 +802,17 @@ mod tests {
                     ]
                 }),
                 fields: Some(
-                    vec![
-                        (
-                            "f1".to_string(),
-                            FieldInfoJSON {
-                                multiple: false,
-                                required: true,
-                                types: vec![NodeTypeJSON {
-                                    kind: "v3".to_string(),
-                                    named: true,
-                                }]
-                            }
-                        ),
-                    ]
+                    vec![(
+                        "f1".to_string(),
+                        FieldInfoJSON {
+                            multiple: false,
+                            required: true,
+                            types: vec![NodeTypeJSON {
+                                kind: "v3".to_string(),
+                                named: true,
+                            }]
+                        }
+                    ),]
                     .into_iter()
                     .collect()
                 )
@@ -804,6 +878,7 @@ mod tests {
                 vec![],
             ),
             &build_lexical_grammar(),
+            &InlinedProductionMap::default(),
         )
         .unwrap();
 
@@ -872,6 +947,7 @@ mod tests {
                 vec![],
             ),
             &build_lexical_grammar(),
+            &InlinedProductionMap::default(),
         )
         .unwrap();
 
@@ -927,6 +1003,7 @@ mod tests {
                 vec![Symbol::non_terminal(1)],
             ),
             &build_lexical_grammar(),
+            &InlinedProductionMap::default(),
         )
         .unwrap();
 
@@ -948,7 +1025,12 @@ mod tests {
     fn get_node_types(grammar: InputGrammar) -> Vec<NodeInfoJSON> {
         let (syntax_grammar, lexical_grammar, _, simple_aliases) =
             prepare_grammar(&grammar).unwrap();
-        let variable_info = get_variable_info(&syntax_grammar, &lexical_grammar).unwrap();
+        let variable_info = get_variable_info(
+            &syntax_grammar,
+            &lexical_grammar,
+            &InlinedProductionMap::default(),
+        )
+        .unwrap();
         generate_node_types_json(
             &syntax_grammar,
             &lexical_grammar,
