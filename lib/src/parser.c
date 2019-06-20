@@ -296,9 +296,14 @@ static bool ts_parser__can_reuse_first_leaf(TSParser *self, TSStateId state, Sub
   TSLexMode leaf_lex_mode = self->language->lex_modes[leaf_state];
 
   // If the token was created in a state with the same set of lookaheads, it is reusable.
-  if (memcmp(&leaf_lex_mode, &current_lex_mode, sizeof(TSLexMode)) == 0 &&
-      (leaf_symbol != self->language->keyword_capture_token ||
-       (!ts_subtree_is_keyword(tree) && ts_subtree_parse_state(tree) == state))) return true;
+  if (
+    table_entry->action_count > 0 &&
+    memcmp(&leaf_lex_mode, &current_lex_mode, sizeof(TSLexMode)) == 0 &&
+    (
+      leaf_symbol != self->language->keyword_capture_token ||
+      (!ts_subtree_is_keyword(tree) && ts_subtree_parse_state(tree) == state)
+    )
+  ) return true;
 
   // Empty tokens are not reusable in states with different lookaheads.
   if (ts_subtree_size(tree).bytes == 0 && leaf_symbol != ts_builtin_sym_end) return false;
