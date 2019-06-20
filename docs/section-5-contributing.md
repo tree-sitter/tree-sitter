@@ -7,6 +7,8 @@ permalink: contributing
 
 ## Code of Conduct
 
+Contributors to Tree-sitter should abide by the [Contributor Covenant](https://www.contributor-covenant.org/version/1/4/code-of-conduct).
+
 ## Developing Tree-sitter
 
 ### Prerequisites
