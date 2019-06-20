@@ -745,6 +745,7 @@ fn populate_following_tokens(
         .iter()
         .flat_map(|v| &v.productions)
         .chain(&inlines.productions);
+    let all_tokens = (0..result.len()).into_iter().map(Symbol::terminal).collect::<TokenSet>();
     for production in productions {
         for i in 1..production.steps.len() {
             let left_tokens = builder.last_set(&production.steps[i - 1].symbol);
@@ -754,6 +755,14 @@ fn populate_following_tokens(
                     result[left_token.index].insert_all_terminals(right_tokens);
                 }
             }
+        }
+    }
+    for extra in &grammar.extra_tokens {
+        if extra.is_terminal() {
+            for entry in result.iter_mut() {
+                entry.insert(*extra);
+            }
+            result[extra.index] = all_tokens.clone();
         }
     }
 }

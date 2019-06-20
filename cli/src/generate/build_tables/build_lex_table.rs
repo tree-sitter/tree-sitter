@@ -251,10 +251,15 @@ fn merge_token_set(
         };
 
         for existing_token in set_without_terminal.terminals() {
-            if token_conflict_map.does_conflict(i, existing_token.index)
-                || !coincident_token_index.contains(symbol, existing_token)
-            {
+            if token_conflict_map.does_conflict(i, existing_token.index) ||
+               token_conflict_map.does_match_prefix(i, existing_token.index) {
                 return false;
+            }
+            if !coincident_token_index.contains(symbol, existing_token) {
+                if token_conflict_map.does_overlap(existing_token.index, i) ||
+                   token_conflict_map.does_overlap(i, existing_token.index) {
+                    return false;
+                }
             }
         }
     }

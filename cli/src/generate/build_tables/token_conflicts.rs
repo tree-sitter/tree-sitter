@@ -7,7 +7,8 @@ use std::fmt;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct TokenConflictStatus {
-    does_overlap: bool,
+    matches_prefix: bool,
+    does_match_continuation: bool,
     does_match_valid_continuation: bool,
     does_match_separators: bool,
     matches_same_string: bool,
@@ -65,6 +66,10 @@ impl<'a> TokenConflictMap<'a> {
             || entry.matches_same_string
     }
 
+    pub fn does_match_prefix(&self, i: usize, j: usize) -> bool {
+        self.status_matrix[matrix_index(self.n, i, j)].matches_prefix
+    }
+
     pub fn does_match_shorter_or_longer(&self, i: usize, j: usize) -> bool {
         let entry = &self.status_matrix[matrix_index(self.n, i, j)];
         let reverse_entry = &self.status_matrix[matrix_index(self.n, j, i)];
@@ -73,7 +78,11 @@ impl<'a> TokenConflictMap<'a> {
     }
 
     pub fn does_overlap(&self, i: usize, j: usize) -> bool {
-        self.status_matrix[matrix_index(self.n, i, j)].does_overlap
+        let status = &self.status_matrix[matrix_index(self.n, i, j)];
+        status.does_match_separators ||
+            status.matches_prefix ||
+            status.matches_same_string ||
+            status.does_match_continuation
     }
 
     pub fn prefer_token(grammar: &LexicalGrammar, left: (i32, usize), right: (i32, usize)) -> bool {
@@ -238,6 +247,7 @@ fn compute_conflict_status(
 
         let has_sep = cursor.transition_chars().any(|(_, sep)| sep);
 
+        // Examine each possible completed token in this state.
         let mut completion = None;
         for (id, precedence) in cursor.completions() {
             if has_sep {
@@ -248,13 +258,14 @@ fn compute_conflict_status(
                 }
             }
 
+            // If the other token has already completed, then this is
+            // a same-string conflict.
             if let Some((prev_id, prev_precedence)) = completion {
                 if id == prev_id {
                     continue;
                 }
 
-                // Prefer tokens with higher precedence. For tokens with equal precedence,
-                // prefer those listed earlier in the grammar.
+                // Determine which of the two tokens is preferred.
                 let preferred_id;
                 if TokenConflictMap::prefer_token(
                     grammar,
@@ -269,32 +280,37 @@ fn compute_conflict_status(
 
                 if preferred_id == i {
                     result.0.matches_same_string = true;
-                    result.0.does_overlap = true;
                 } else {
                     result.1.matches_same_string = true;
-                    result.1.does_overlap = true;
                 }
             } else {
                 completion = Some((id, precedence));
             }
         }
 
+        // Examine each possible transition from this state to detect substring conflicts.
         for transition in cursor.transitions() {
             let mut can_advance = true;
+
+            // If there is already a completed token in this state, then determine
+            // if the next state can also match the completed token. If so, then
+            // this is *not* a conflict.
             if let Some((completed_id, completed_precedence)) = completion {
-                let mut other_id = None;
+                let mut advanced_id = None;
                 let mut successor_contains_completed_id = false;
                 for variable_id in grammar.variable_indices_for_nfa_states(&transition.states) {
                     if variable_id == completed_id {
                         successor_contains_completed_id = true;
                         break;
                     } else {
-                        other_id = Some(variable_id);
+                        advanced_id = Some(variable_id);
                     }
                 }
 
-                if let (Some(other_id), false) = (other_id, successor_contains_completed_id) {
-                    let preferred_id = if TokenConflictMap::prefer_transition(
+                // Determine which action is preferred: matching the already complete
+                // token, or continuing on to try and match the other longer token.
+                if let (Some(advanced_id), false) = (advanced_id, successor_contains_completed_id) {
+                    if TokenConflictMap::prefer_transition(
                         grammar,
                         &transition,
                         completed_id,
@@ -302,20 +318,22 @@ fn compute_conflict_status(
                         has_sep,
                     ) {
                         can_advance = true;
-                        other_id
-                    } else {
-                        completed_id
-                    };
-
-                    if preferred_id == i {
-                        result.0.does_overlap = true;
-                        if transition.characters.does_intersect(&following_chars[j]) {
-                            result.0.does_match_valid_continuation = true;
+                        if advanced_id == i {
+                            result.0.does_match_continuation = true;
+                            if transition.characters.does_intersect(&following_chars[j]) {
+                                result.0.does_match_valid_continuation = true;
+                            }
+                        } else {
+                            result.1.does_match_continuation = true;
+                            if transition.characters.does_intersect(&following_chars[i]) {
+                                result.1.does_match_valid_continuation = true;
+                            }
                         }
                     } else {
-                        result.1.does_overlap = true;
-                        if transition.characters.does_intersect(&following_chars[i]) {
-                            result.1.does_match_valid_continuation = true;
+                        if completed_id == i {
+                            result.0.matches_prefix = true;
+                        } else {
+                            result.1.matches_prefix = true;
                         }
                     }
                 }
