@@ -40,6 +40,7 @@ macro_rules! indent {
 
 macro_rules! dedent {
     ($this: tt) => {
+        assert_ne!($this.indent_level, 0);
         $this.indent_level -= 1;
     };
 }
@@ -498,17 +499,16 @@ impl Generator {
             add_whitespace!(self);
             add!(self, "if (");
             if self.add_character_set_condition(&characters, &ruled_out_characters) {
-                add!(self, ")\n");
-                indent!(self);
+                add!(self, ") ");
                 self.add_advance_action(index, &action);
                 if let CharacterSet::Include(chars) = characters {
                     ruled_out_characters.extend(chars.iter().map(|c| *c as u32));
                 }
-                dedent!(self);
             } else {
                 self.buffer.truncate(previous_length);
                 self.add_advance_action(index, &action);
             }
+            add!(self, "\n");
         }
 
         add_line!(self, "END_STATE();");
@@ -620,10 +620,11 @@ impl Generator {
     }
 
     fn add_advance_action(&mut self, index: usize, action: &AdvanceAction) {
+        let state_id = action.state.unwrap_or(index);
         if action.in_main_token {
-            add_line!(self, "ADVANCE({});", action.state.unwrap_or(index));
+            add!(self, "ADVANCE({});", state_id);
         } else {
-            add_line!(self, "SKIP({});", action.state.unwrap_or(index));
+            add!(self, "SKIP({})", state_id);
         }
     }
 

@@ -122,22 +122,26 @@ struct TSLanguage {
 
 #define START_LEXER()           \
   bool result = false;          \
+  bool skip = false;            \
   int32_t lookahead;            \
+  goto start;                   \
   next_state:                   \
+  lexer->advance(lexer, skip);  \
+  start:                        \
+  skip = false;                 \
   lookahead = lexer->lookahead;
 
-#define ADVANCE(state_value)      \
-  {                               \
-    lexer->advance(lexer, false); \
-    state = state_value;          \
-    goto next_state;              \
+#define ADVANCE(state_value) \
+  {                          \
+    state = state_value;     \
+    goto next_state;         \
   }
 
-#define SKIP(state_value)        \
-  {                              \
-    lexer->advance(lexer, true); \
-    state = state_value;         \
-    goto next_state;             \
+#define SKIP(state_value) \
+  {                       \
+    skip = true;          \
+    state = state_value;  \
+    goto next_state;      \
   }
 
 #define ACCEPT_TOKEN(symbol_value)     \
