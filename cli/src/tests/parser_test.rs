@@ -413,7 +413,7 @@ fn test_parsing_with_a_timeout_and_a_reset() {
     let mut parser = Parser::new();
     parser.set_language(get_language("json")).unwrap();
 
-    parser.set_timeout_micros(30);
+    parser.set_timeout_micros(5);
     let tree = parser.parse(
         "[\"ok\", 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]",
         None,
@@ -437,7 +437,7 @@ fn test_parsing_with_a_timeout_and_a_reset() {
         "string"
     );
 
-    parser.set_timeout_micros(30);
+    parser.set_timeout_micros(5);
     let tree = parser.parse(
         "[\"ok\", 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]",
         None,
