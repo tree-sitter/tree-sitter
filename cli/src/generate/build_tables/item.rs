@@ -272,7 +272,9 @@ impl<'a> ParseItemSet<'a> {
     }
 
     pub fn core(&self) -> ParseItemSetCore<'a> {
-        ParseItemSetCore { entries: self.entries.iter().map(|e| e.0).collect() }
+        ParseItemSetCore {
+            entries: self.entries.iter().map(|e| e.0).collect(),
+        }
     }
 }
 

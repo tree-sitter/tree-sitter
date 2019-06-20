@@ -2,7 +2,7 @@ use super::nfa::Nfa;
 use super::rules::{Alias, Associativity, Rule, Symbol};
 use hashbrown::HashMap;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum VariableType {
     Hidden,
     Auxiliary,
@@ -64,6 +64,7 @@ pub(crate) struct Production {
     pub dynamic_precedence: i32,
 }
 
+#[derive(Default)]
 pub(crate) struct InlinedProductionMap {
     pub productions: Vec<Production>,
     pub production_map: HashMap<(*const Production, u32), Vec<usize>>,
