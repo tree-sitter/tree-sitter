@@ -63,7 +63,7 @@ pub(crate) struct ParseTable {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AdvanceAction {
-    pub state: Option<LexStateId>,
+    pub state: LexStateId,
     pub in_main_token: bool,
 }
 
@@ -150,5 +150,41 @@ impl ParseAction {
         } else {
             0
         }
+    }
+}
+
+impl LexState {
+    pub fn equals(&self, other: &LexState, left_state: usize, right_state: usize) -> bool {
+        if self.accept_action != other.accept_action {
+            return false;
+        }
+
+        if self.advance_actions.len() != other.advance_actions.len() {
+            return false;
+        }
+
+        for (left, right) in self
+            .advance_actions
+            .iter()
+            .zip(other.advance_actions.iter())
+        {
+            if left.0 != right.0 || left.1.in_main_token != right.1.in_main_token {
+                return false;
+            }
+
+            let left_successor = left.1.state;
+            let right_successor = right.1.state;
+
+            // Two states can be equal if they have different successors but the successor
+            // states are equal.
+            if left_successor != right_successor
+                && (left_successor != left_state || right_successor != right_state)
+                && (left_successor != right_state || right_successor != left_state)
+            {
+                return false;
+            }
+        }
+
+        true
     }
 }

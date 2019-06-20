@@ -195,7 +195,7 @@ impl<'a> LexTableBuilder<'a> {
             self.table.states[state_id].advance_actions.push((
                 CharacterSet::empty().add_char('\0'),
                 AdvanceAction {
-                    state: Some(next_state_id),
+                    state: next_state_id,
                     in_main_token: true,
                 },
             ));
@@ -216,15 +216,10 @@ impl<'a> LexTableBuilder<'a> {
 
             let (next_state_id, _) =
                 self.add_state(transition.states, eof_valid && transition.is_separator);
-            let next_state = if next_state_id == state_id {
-                None
-            } else {
-                Some(next_state_id)
-            };
             self.table.states[state_id].advance_actions.push((
                 transition.characters,
                 AdvanceAction {
-                    state: next_state,
+                    state: next_state_id,
                     in_main_token: !transition.is_separator,
                 },
             ));
@@ -282,7 +277,7 @@ fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
                 if state_replacements.contains_key(&j) {
                     continue;
                 }
-                if state_i == state_j {
+                if state_i.equals(state_j, i, j) {
                     info!("replace state {} with state {}", i, j);
                     state_replacements.insert(i, j);
                     done = false;
@@ -292,9 +287,10 @@ fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
         }
         for state in table.states.iter_mut() {
             for (_, advance_action) in state.advance_actions.iter_mut() {
-                advance_action.state = advance_action
-                    .state
-                    .map(|s| state_replacements.get(&s).cloned().unwrap_or(s))
+                advance_action.state = state_replacements
+                    .get(&advance_action.state)
+                    .cloned()
+                    .unwrap_or(advance_action.state);
             }
         }
     }
@@ -320,7 +316,7 @@ fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
 
     for state in table.states.iter_mut() {
         for (_, advance_action) in state.advance_actions.iter_mut() {
-            advance_action.state = advance_action.state.map(|s| final_state_replacements[s]);
+            advance_action.state = final_state_replacements[advance_action.state];
         }
     }
 
