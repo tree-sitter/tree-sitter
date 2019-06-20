@@ -33,7 +33,7 @@ First, create a parser:
 const parser = new Parser;
 ```
 
-Then assign a language to the parser. Tree-sitter languages are packaged as individual `.wasm` files:
+Then assign a language to the parser. Tree-sitter languages are packaged as individual `.wasm` files (more on this below):
 
 ```js
 const JavaScript = await Parser.Language.load('/path/to/tree-sitter-javascript.wasm');
@@ -104,4 +104,41 @@ const tree = parser.parse((index, position) => {
   let line = sourceLines[position.row];
   if (line) return line.slice(position.column);
 });
+```
+
+### Generate .wasm language files
+
+The following example shows how to generate `.wasm` file for tree-sitter JavaScript grammar.
+
+**IMPORTANT**: [emscripten](https://emscripten.org/docs/getting_started/downloads.html) or [docker](https://www.docker.com/) need to be installed.
+
+First install `tree-sitter-cli` and the tree-sitter language for which to generate `.wasm` (`tree-sitter-javascript` in this example):
+
+```sh
+npm install --save-dev tree-sitter-cli tree-sitter-javascript
+```
+
+Then just use tree-sitter cli tool to generate the `.wasm`. 
+
+```sh
+npx tree-sitter build-wasm node_modules/tree-sitter-javascript
+```
+
+If everything is fine, file `tree-sitter-javascript.wasm` should be generated in current directory.
+
+#### Running .wasm in Node.js
+
+Notice that executing `.wasm` files in node.js is considerably slower than running [node.js bindings](https://github.com/tree-sitter/node-tree-sitter). However could be useful for testing purposes:
+
+```javascript
+const Parser = require('web-tree-sitter');
+
+(async () => {
+  await Parser.init();
+  const parser = new Parser();
+  const Lang = await Parser.Language.load('tree-sitter-javascript.wasm');
+  parser.setLanguage(Lang);
+  const tree = parser.parse('let x = 1;');
+  console.log(tree.rootNode.toString());
+})();
 ```
