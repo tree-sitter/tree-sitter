@@ -8,6 +8,7 @@ use crate::generate::tables::{AdvanceAction, LexState, LexTable, ParseStateId, P
 use log::info;
 use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::mem;
 
 pub(crate) fn build_lex_table(
     parse_table: &mut ParseTable,
@@ -79,6 +80,7 @@ pub(crate) fn build_lex_table(
 
     if minimize {
         minimize_lex_table(&mut table, parse_table);
+        sort_states(&mut table, parse_table);
     }
 
     (table, keyword_lex_table)
@@ -326,4 +328,35 @@ fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
         i += 1;
         result
     });
+}
+
+fn sort_states(table: &mut LexTable, parse_table: &mut ParseTable) {
+    // Get a mapping of old state index -> new_state_index
+    let mut old_ids_by_new_id = (0..table.states.len()).collect::<Vec<_>>();
+    &old_ids_by_new_id[1..].sort_unstable_by_key(|id| &table.states[*id]);
+
+    // Get the inverse mapping
+    let mut new_ids_by_old_id = vec![0; old_ids_by_new_id.len()];
+    for (id, old_id) in old_ids_by_new_id.iter().enumerate() {
+        new_ids_by_old_id[*old_id] = id;
+    }
+
+    // Reorder the parse states and update their references to reflect
+    // the new ordering.
+    table.states = old_ids_by_new_id
+        .iter()
+        .map(|old_id| {
+            let mut state = LexState::default();
+            mem::swap(&mut state, &mut table.states[*old_id]);
+            for (_, advance_action) in state.advance_actions.iter_mut() {
+                advance_action.state = new_ids_by_old_id[advance_action.state];
+            }
+            state
+        })
+        .collect();
+
+    // Update the parse table's lex state references
+    for state in parse_table.states.iter_mut() {
+        state.lex_state_id = new_ids_by_old_id[state.lex_state_id];
+    }
 }
