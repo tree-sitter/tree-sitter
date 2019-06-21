@@ -702,7 +702,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-cli"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "ansi_term 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "cc 1.0.25 (registry+https://github.com/rust-lang/crates.io-index)",
