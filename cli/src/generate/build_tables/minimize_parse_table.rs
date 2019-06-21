@@ -1,4 +1,5 @@
 use super::item::TokenSet;
+use super::split_state_id_groups;
 use super::token_conflicts::TokenConflictMap;
 use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar, VariableType};
 use crate::generate::rules::{AliasMap, Symbol};
@@ -126,15 +127,19 @@ impl<'a> Minimizer<'a> {
             group_ids_by_state_id.push(state.core_id);
         }
 
-        self.split_state_id_groups_by(
+        split_state_id_groups(
+            &self.parse_table.states,
             &mut state_ids_by_group_id,
             &mut group_ids_by_state_id,
+            0,
             |left, right, groups| self.states_conflict(left, right, groups),
         );
 
-        while self.split_state_id_groups_by(
+        while split_state_id_groups(
+            &self.parse_table.states,
             &mut state_ids_by_group_id,
             &mut group_ids_by_state_id,
+            0,
             |left, right, groups| self.state_successors_differ(left, right, groups),
         ) {
             continue;
@@ -181,84 +186,6 @@ impl<'a> Minimizer<'a> {
         }
 
         self.parse_table.states = new_states;
-    }
-
-    fn split_state_id_groups_by(
-        &self,
-        state_ids_by_group_id: &mut Vec<Vec<ParseStateId>>,
-        group_ids_by_state_id: &mut Vec<ParseStateId>,
-        mut f: impl FnMut(&ParseState, &ParseState, &Vec<ParseStateId>) -> bool,
-    ) -> bool {
-        let mut result = false;
-
-        // Examine each group of states, and split them up if necessary. For
-        // each group of states, find a subgroup where all the states are mutually
-        // compatible. Leave that subgroup in place, and split off all of the
-        // other states in the group into a new group. Those states are not
-        // necessarily mutually compatible, but they will be split up in later
-        // iterations.
-        let mut group_id = 0;
-        while group_id < state_ids_by_group_id.len() {
-            let state_ids = &state_ids_by_group_id[group_id];
-            let mut split_state_ids = Vec::new();
-
-            let mut i = 0;
-            while i < state_ids.len() {
-                let left_state_id = state_ids[i];
-                if split_state_ids.contains(&left_state_id) {
-                    i += 1;
-                    continue;
-                }
-
-                let left_state = &self.parse_table.states[left_state_id];
-
-                // Identify all of the other states in the group that are incompatible with
-                // this state.
-                let mut j = i + 1;
-                while j < state_ids.len() {
-                    let right_state_id = state_ids[j];
-                    if split_state_ids.contains(&right_state_id) {
-                        j += 1;
-                        continue;
-                    }
-                    let right_state = &self.parse_table.states[right_state_id];
-
-                    if f(left_state, right_state, &group_ids_by_state_id) {
-                        split_state_ids.push(right_state_id);
-                    }
-
-                    j += 1;
-                }
-
-                i += 1;
-            }
-
-            // If any states were removed from the group, add them all as a new group.
-            if split_state_ids.len() > 0 {
-                result = true;
-                state_ids_by_group_id[group_id].retain(|i| !split_state_ids.contains(&i));
-
-                info!(
-                    "split state groups {:?} {:?}",
-                    state_ids_by_group_id[group_id], split_state_ids,
-                );
-
-                let new_group_id = state_ids_by_group_id.len();
-                for id in &split_state_ids {
-                    group_ids_by_state_id[*id] = new_group_id;
-                }
-
-                state_ids_by_group_id.push(Vec::new());
-                mem::swap(
-                    &mut split_state_ids,
-                    state_ids_by_group_id.last_mut().unwrap(),
-                );
-            }
-
-            group_id += 1;
-        }
-
-        result
     }
 
     fn states_conflict(

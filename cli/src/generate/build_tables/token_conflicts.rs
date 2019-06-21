@@ -79,10 +79,10 @@ impl<'a> TokenConflictMap<'a> {
 
     pub fn does_overlap(&self, i: usize, j: usize) -> bool {
         let status = &self.status_matrix[matrix_index(self.n, i, j)];
-        status.does_match_separators ||
-            status.matches_prefix ||
-            status.matches_same_string ||
-            status.does_match_continuation
+        status.does_match_separators
+            || status.matches_prefix
+            || status.matches_same_string
+            || status.does_match_continuation
     }
 
     pub fn prefer_token(grammar: &LexicalGrammar, left: (i32, usize), right: (i32, usize)) -> bool {

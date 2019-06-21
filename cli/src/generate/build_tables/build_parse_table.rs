@@ -745,7 +745,10 @@ fn populate_following_tokens(
         .iter()
         .flat_map(|v| &v.productions)
         .chain(&inlines.productions);
-    let all_tokens = (0..result.len()).into_iter().map(Symbol::terminal).collect::<TokenSet>();
+    let all_tokens = (0..result.len())
+        .into_iter()
+        .map(Symbol::terminal)
+        .collect::<TokenSet>();
     for production in productions {
         for i in 1..production.steps.len() {
             let left_tokens = builder.last_set(&production.steps[i - 1].symbol);
