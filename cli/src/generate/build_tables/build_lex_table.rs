@@ -294,6 +294,7 @@ fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
         .into_iter()
         .map(|e| e.1)
         .collect::<Vec<_>>();
+    state_ids_by_group_id.sort();
     let error_group_index = state_ids_by_group_id
         .iter()
         .position(|g| g.contains(&0))
