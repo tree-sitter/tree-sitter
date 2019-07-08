@@ -74,6 +74,12 @@ impl From<regex_syntax::ast::Error> for Error {
     }
 }
 
+impl From<regex_syntax::Error> for Error {
+    fn from(error: regex_syntax::Error) -> Self {
+        Error::new(error.to_string())
+    }
+}
+
 impl From<String> for Error {
     fn from(error: String) -> Self {
         Error::new(error)

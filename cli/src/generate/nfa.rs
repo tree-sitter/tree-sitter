@@ -7,6 +7,7 @@ use std::mem::swap;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CharacterSet {
     Include(Vec<char>),
+    #[allow(dead_code)]
     Exclude(Vec<char>),
 }
 
@@ -55,6 +56,7 @@ impl CharacterSet {
         CharacterSet::Include(Vec::new())
     }
 
+    #[allow(dead_code)]
     pub fn negate(self) -> CharacterSet {
         match self {
             CharacterSet::Include(chars) => CharacterSet::Exclude(chars),
@@ -77,7 +79,9 @@ impl CharacterSet {
         if let CharacterSet::Include(mut chars) = self {
             let mut c = start as u32;
             while c <= end as u32 {
-                chars.push(char::from_u32(c).unwrap());
+                if let Some(c) = char::from_u32(c) {
+                    chars.push(c);
+                }
                 c += 1;
             }
             chars.sort_unstable();

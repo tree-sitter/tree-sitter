@@ -5,10 +5,11 @@ use crate::generate::nfa::{CharacterSet, Nfa, NfaState};
 use crate::generate::rules::Rule;
 use lazy_static::lazy_static;
 use regex::Regex;
-use regex_syntax::ast::{
-    parse, Ast, Class, ClassPerlKind, ClassSet, ClassSetItem, RepetitionKind, RepetitionRange,
+use regex_syntax::hir::{
+    Class as HirClass, Hir, HirKind, Literal, RepetitionKind as HirRepetitionKind,
+    RepetitionRange as HirRepetitionRange,
 };
-use std::i32;
+use std::{char, i32};
 
 lazy_static! {
     static ref CURLY_BRACE_REGEX: Regex = Regex::new(r#"(?x)
@@ -159,8 +160,8 @@ impl NfaBuilder {
         match rule {
             Rule::Pattern(s) => {
                 let s = preprocess_regex(s);
-                let ast = parse::Parser::new().parse(&s)?;
-                self.expand_regex(&ast, next_state_id)
+                let hir = regex_syntax::Parser::new().parse(&s)?;
+                self.expand_regex(&hir, next_state_id)
             }
             Rule::String(s) => {
                 for c in s.chars().rev() {
@@ -225,83 +226,78 @@ impl NfaBuilder {
         }
     }
 
-    fn expand_regex(&mut self, ast: &Ast, mut next_state_id: u32) -> Result<bool> {
-        match ast {
-            Ast::Empty(_) => Ok(false),
-            Ast::Flags(_) => Err(Error::regex("Flags are not supported")),
-            Ast::Literal(literal) => {
-                self.push_advance(CharacterSet::Include(vec![literal.c]), next_state_id);
+    fn expand_regex(&mut self, hir: &Hir, mut next_state_id: u32) -> Result<bool> {
+        match hir.kind() {
+            HirKind::Empty => Ok(false),
+            HirKind::Literal(literal) => {
+                let c = match literal {
+                    Literal::Unicode(c) => *c,
+                    Literal::Byte(_) => unreachable!("all regex are utf8-correct"),
+                };
+                self.push_advance(CharacterSet::Include(vec![c]), next_state_id);
                 Ok(true)
             }
-            Ast::Dot(_) => {
-                self.push_advance(CharacterSet::Exclude(vec!['\n']), next_state_id);
+            HirKind::Class(class) => {
+                let chars = self.expand_character_class(class)?;
+                self.push_advance(chars, next_state_id);
                 Ok(true)
+            },
+            HirKind::Anchor(_) => Err(Error::regex("Anchors are not supported")),
+            HirKind::WordBoundary(_) => Err(Error::regex("Word boundaries are not supported")),
+            HirKind::Repetition(repetition) => {
+                if repetition.greedy {
+                    match repetition.kind {
+                        HirRepetitionKind::ZeroOrOne => {
+                            self.expand_zero_or_one(&repetition.hir, next_state_id)
+                        }
+                        HirRepetitionKind::ZeroOrMore => {
+                            self.expand_zero_or_more(&repetition.hir, next_state_id)
+                        }
+                        HirRepetitionKind::OneOrMore => {
+                            self.expand_one_or_more(&repetition.hir, next_state_id)
+                        }
+                        HirRepetitionKind::Range(HirRepetitionRange::Exactly(count)) => {
+                            self.expand_count(&repetition.hir, count, next_state_id)
+                        }
+                        HirRepetitionKind::Range(HirRepetitionRange::AtLeast(min)) => {
+                            if self.expand_one_or_more(&repetition.hir, next_state_id)? {
+                                self.expand_count(&repetition.hir, min, next_state_id)
+                            } else {
+                                Ok(false)
+                            }
+                        }
+                        HirRepetitionKind::Range(HirRepetitionRange::Bounded(min, max)) => {
+                            let mut result = self.expand_count(&repetition.hir, min, next_state_id)?;
+                            for _ in min..max {
+                                if result {
+                                    next_state_id = self.nfa.last_state_id();
+                                }
+                                if self.expand_zero_or_one(&repetition.hir, next_state_id)? {
+                                    result = true;
+                                }
+                            }
+                            Ok(result)
+                        }
+                    }
+                } else {
+                    Err(Error::regex("Non-greedy repetition are not supported"))
+                }
             }
-            Ast::Assertion(_) => Err(Error::regex("Assertions are not supported")),
-            Ast::Class(class) => match class {
-                Class::Unicode(_) => {
-                    Err(Error::regex("Unicode character classes are not supported"))
-                }
-                Class::Perl(class) => {
-                    let mut chars = self.expand_perl_character_class(&class.kind);
-                    if class.negated {
-                        chars = chars.negate();
-                    }
-                    self.push_advance(chars, next_state_id);
-                    Ok(true)
-                }
-                Class::Bracketed(class) => match &class.kind {
-                    ClassSet::Item(item) => {
-                        let mut chars = self.expand_character_class(&item)?;
-                        if class.negated {
-                            chars = chars.negate();
-                        }
-                        self.push_advance(chars, next_state_id);
-                        Ok(true)
-                    }
-                    ClassSet::BinaryOp(_) => Err(Error::regex(
-                        "Binary operators in character classes aren't supported",
-                    )),
-                },
-            },
-            Ast::Repetition(repetition) => match repetition.op.kind {
-                RepetitionKind::ZeroOrOne => {
-                    self.expand_zero_or_one(&repetition.ast, next_state_id)
-                }
-                RepetitionKind::OneOrMore => {
-                    self.expand_one_or_more(&repetition.ast, next_state_id)
-                }
-                RepetitionKind::ZeroOrMore => {
-                    self.expand_zero_or_more(&repetition.ast, next_state_id)
-                }
-                RepetitionKind::Range(RepetitionRange::Exactly(count)) => {
-                    self.expand_count(&repetition.ast, count, next_state_id)
-                }
-                RepetitionKind::Range(RepetitionRange::AtLeast(min)) => {
-                    if self.expand_zero_or_more(&repetition.ast, next_state_id)? {
-                        self.expand_count(&repetition.ast, min, next_state_id)
-                    } else {
-                        Ok(false)
+            HirKind::Group(group) => self.expand_regex(&group.hir, next_state_id),
+            HirKind::Concat(concat) => {
+                let mut result = false;
+                for hir in concat.iter().rev() {
+                    if self.expand_regex(&hir, next_state_id)? {
+                        result = true;
+                        next_state_id = self.nfa.last_state_id();
                     }
                 }
-                RepetitionKind::Range(RepetitionRange::Bounded(min, max)) => {
-                    let mut result = self.expand_count(&repetition.ast, min, next_state_id)?;
-                    for _ in min..max {
-                        if result {
-                            next_state_id = self.nfa.last_state_id();
-                        }
-                        if self.expand_zero_or_one(&repetition.ast, next_state_id)? {
-                            result = true;
-                        }
-                    }
-                    Ok(result)
-                }
-            },
-            Ast::Group(group) => self.expand_regex(&group.ast, next_state_id),
-            Ast::Alternation(alternation) => {
+                Ok(result)
+            }
+            HirKind::Alternation(alternation) => {
                 let mut alternative_state_ids = Vec::new();
-                for ast in alternation.asts.iter() {
-                    if self.expand_regex(&ast, next_state_id)? {
+                for hir in alternation {
+                    if self.expand_regex(&hir, next_state_id)? {
                         alternative_state_ids.push(self.nfa.last_state_id());
                     } else {
                         alternative_state_ids.push(next_state_id);
@@ -316,26 +312,16 @@ impl NfaBuilder {
                 }
                 Ok(true)
             }
-            Ast::Concat(concat) => {
-                let mut result = false;
-                for ast in concat.asts.iter().rev() {
-                    if self.expand_regex(&ast, next_state_id)? {
-                        result = true;
-                        next_state_id = self.nfa.last_state_id();
-                    }
-                }
-                Ok(result)
-            }
         }
     }
 
-    fn expand_one_or_more(&mut self, ast: &Ast, next_state_id: u32) -> Result<bool> {
+    fn expand_one_or_more(&mut self, hir: &Hir, next_state_id: u32) -> Result<bool> {
         self.nfa.states.push(NfaState::Accept {
             variable_index: 0,
             precedence: 0,
         }); // Placeholder for split
         let split_state_id = self.nfa.last_state_id();
-        if self.expand_regex(&ast, split_state_id)? {
+        if self.expand_regex(hir, split_state_id)? {
             self.nfa.states[split_state_id as usize] =
                 NfaState::Split(self.nfa.last_state_id(), next_state_id);
             Ok(true)
@@ -345,8 +331,8 @@ impl NfaBuilder {
         }
     }
 
-    fn expand_zero_or_one(&mut self, ast: &Ast, next_state_id: u32) -> Result<bool> {
-        if self.expand_regex(ast, next_state_id)? {
+    fn expand_zero_or_one(&mut self, hir: &Hir, next_state_id: u32) -> Result<bool> {
+        if self.expand_regex(hir, next_state_id)? {
             self.push_split(next_state_id);
             Ok(true)
         } else {
@@ -354,8 +340,8 @@ impl NfaBuilder {
         }
     }
 
-    fn expand_zero_or_more(&mut self, ast: &Ast, next_state_id: u32) -> Result<bool> {
-        if self.expand_one_or_more(&ast, next_state_id)? {
+    fn expand_zero_or_more(&mut self, hir: &Hir, next_state_id: u32) -> Result<bool> {
+        if self.expand_one_or_more(hir, next_state_id)? {
             self.push_split(next_state_id);
             Ok(true)
         } else {
@@ -363,10 +349,10 @@ impl NfaBuilder {
         }
     }
 
-    fn expand_count(&mut self, ast: &Ast, count: u32, mut next_state_id: u32) -> Result<bool> {
+    fn expand_count(&mut self, hir: &Hir, count: u32, mut next_state_id: u32) -> Result<bool> {
         let mut result = false;
         for _ in 0..count {
-            if self.expand_regex(ast, next_state_id)? {
+            if self.expand_regex(hir, next_state_id)? {
                 result = true;
                 next_state_id = self.nfa.last_state_id();
             }
@@ -374,41 +360,22 @@ impl NfaBuilder {
         Ok(result)
     }
 
-    fn expand_character_class(&self, item: &ClassSetItem) -> Result<CharacterSet> {
+    fn expand_character_class(&self, item: &HirClass) -> Result<CharacterSet> {
         match item {
-            ClassSetItem::Empty(_) => Ok(CharacterSet::Include(Vec::new())),
-            ClassSetItem::Literal(literal) => Ok(CharacterSet::Include(vec![literal.c])),
-            ClassSetItem::Range(range) => {
-                Ok(CharacterSet::empty().add_range(range.start.c, range.end.c))
-            }
-            ClassSetItem::Union(union) => {
-                let mut result = CharacterSet::empty();
-                for item in &union.items {
-                    result = result.add(&self.expand_character_class(&item)?);
+            HirClass::Unicode(class) => {
+                let mut chars = CharacterSet::empty();
+                for cs in class.iter() {
+                    chars = chars.add_range(cs.start(), cs.end());
                 }
-                Ok(result)
+                Ok(chars)
             }
-            ClassSetItem::Perl(class) => Ok(self.expand_perl_character_class(&class.kind)),
-            _ => Err(Error::regex(&format!(
-                "Unsupported character class syntax {:?}",
-                item
-            ))),
-        }
-    }
-
-    fn expand_perl_character_class(&self, item: &ClassPerlKind) -> CharacterSet {
-        match item {
-            ClassPerlKind::Digit => CharacterSet::empty().add_range('0', '9'),
-            ClassPerlKind::Space => CharacterSet::empty()
-                .add_char(' ')
-                .add_char('\t')
-                .add_char('\r')
-                .add_char('\n'),
-            ClassPerlKind::Word => CharacterSet::empty()
-                .add_char('_')
-                .add_range('A', 'Z')
-                .add_range('a', 'z')
-                .add_range('0', '9'),
+            HirClass::Bytes(class) => {
+                let mut chars = CharacterSet::empty();
+                for cs in class.iter() {
+                    chars = chars.add_range(char::from(cs.start()), char::from(cs.end()));
+                }
+                Ok(chars)
+            }
         }
     }
 
