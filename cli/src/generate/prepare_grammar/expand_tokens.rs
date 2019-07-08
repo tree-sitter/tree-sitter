@@ -685,12 +685,15 @@ mod tests {
                     Rule::pattern(r#"\{[ab]{3}\}"#),
                     // Unicode codepoints
                     Rule::pattern(r#"\u{1000A}"#),
+                    // This isn't a repetition
+                    Rule::pattern(r#"{DEADBEEF}"#),
                 ],
                 separators: vec![],
                 examples: vec![
                     ("u{1234} ok", Some((0, "u{1234}"))),
                     ("{aba}}", Some((1, "{aba}"))),
                     ("\u{1000A}", Some((2, "\u{1000A}"))),
+                    ("{DEADBEEF}", Some((3, "{DEADBEEF}"))),
                 ],
             },
         ];
