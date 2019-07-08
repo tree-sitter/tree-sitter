@@ -11,8 +11,16 @@ use regex_syntax::ast::{
 use std::i32;
 
 lazy_static! {
-    static ref CURLY_BRACE_REGEX: Regex =
-        Regex::new(r#"(^|[^\\])\{([^}]*[^0-9A-F,}][^}]*)\}"#).unwrap();
+    static ref CURLY_BRACE_REGEX: Regex = Regex::new(r#"(?x)
+        # captures: $1: lookbehind, $2, $4: close bracket; $3, $5: content
+        ( ^[^\\\{]?? | \\[^pPuUx] | [^\\][^\\] )               # lookbehind is not \p, \P, \u, \U, \x, \
+        \{                                                     # followed by a openning bracket
+        (?: $ | (\}) |                                         # followed by eoi or close bracket, or
+            ( (?:\\\}|[^}])*?(?:[^0-9,}]|\\\})(?:\\\}|[^}])*?  # content and
+              [^\\] ) (\}) |                                   # a non-escaped close bracket, or
+            ( (?:\\\}|[^}])*?(?:[^0-9,}]|\\\})(?:\\\}|[^}])*?)$# content and lacks a close bracket
+        )
+    "#).unwrap();
 }
 
 const ALLOWED_REDUNDANT_ESCAPED_CHARS: [char; 4] = ['!', '\'', '"', '/'];
@@ -45,7 +53,31 @@ fn get_completion_precedence(rule: &Rule) -> i32 {
 }
 
 fn preprocess_regex(content: &str) -> String {
-    let content = CURLY_BRACE_REGEX.replace(content, "$1\\{$2\\}");
+    let content = {
+        let mut content = content.to_string();
+        loop {
+            // continually replace _paired_ brackets that aren't part of an escape/class
+            let mut next;
+            if let Some(c) = CURLY_BRACE_REGEX.captures(&content) {
+                let c: regex::Captures = c;
+                next = String::with_capacity(content.len());
+                next.push_str(&content[..c.get(1).unwrap().end()]);
+                next.push_str(r#"\{"#);
+                let mid = c.get(3).or_else(|| c.get(5)).map_or("", |m| m.as_str());
+                next.push_str(mid);
+                let (end, close) = c
+                    .get(2)
+                    .or_else(|| c.get(4))
+                    .map_or_else(|| (content.len(), ""), |m| (m.end(), r#"\}"#));
+                next.push_str(close);
+                next.push_str(&content[end..]);
+            } else {
+                break;
+            };
+            content = next;
+        }
+        content
+    };
     let mut result = String::with_capacity(content.len());
     let mut is_escaped = false;
     for c in content.chars() {
