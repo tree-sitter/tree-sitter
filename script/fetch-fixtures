@@ -24,12 +24,12 @@ fetch_grammar() {
 fetch_grammar bash              master
 fetch_grammar c                 master
 fetch_grammar cpp               master
-fetch_grammar embedded-template highlight-locals
+fetch_grammar embedded-template master
 fetch_grammar go                master
-fetch_grammar html              highlight-locals
-fetch_grammar javascript        highlight-locals
+fetch_grammar html              master
+fetch_grammar javascript        master
 fetch_grammar json              master
-fetch_grammar python            highlight-locals
-fetch_grammar ruby              highlight-locals
+fetch_grammar python            master
+fetch_grammar ruby              master
 fetch_grammar rust              master
 fetch_grammar typescript        master
