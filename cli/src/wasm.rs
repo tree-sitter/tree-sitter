@@ -73,6 +73,8 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
         "-s",
         "TOTAL_MEMORY=33554432",
         "-s",
+        "NODEJS_CATCH_EXIT=0",
+        "-s",
         &format!("EXPORTED_FUNCTIONS=[\"_tree_sitter_{}\"]", grammar_name),
         "-fno-exceptions",
         "-I",
