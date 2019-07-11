@@ -727,6 +727,7 @@ dependencies = [
  "tiny_http 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "tree-sitter 0.3.10",
  "tree-sitter-highlight 0.1.6",
+ "unic-char-range 0.9.0 (git+https://github.com/open-i18n/rust-unic/?branch=CAD97-patch-1)",
  "webbrowser 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -745,6 +746,11 @@ dependencies = [
 name = "ucd-util"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "unic-char-range"
+version = "0.9.0"
+source = "git+https://github.com/open-i18n/rust-unic/?branch=CAD97-patch-1#639815504c0ee5a68d19b4b225fdb85ff3a5a8ee"
 
 [[package]]
 name = "unicode-bidi"
@@ -931,6 +937,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum time 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)" = "db8dcfca086c1143c9270ac42a2bbd8a7ee477b78ac8e45b19abfb0cbede4b6f"
 "checksum tiny_http 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "1661fa0a44c95d01604bd05c66732a446c657efb62b5164a7a083a3b552b4951"
 "checksum ucd-util 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "535c204ee4d8434478593480b8f86ab45ec9aae0e83c568ca81abf0fd0e88f86"
+"checksum unic-char-range 0.9.0 (git+https://github.com/open-i18n/rust-unic/?branch=CAD97-patch-1)" = "<none>"
 "checksum unicode-bidi 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)" = "49f2bd0c6468a8230e1db229cff8029217cf623c767ea5d60bfbd42729ea54d5"
 "checksum unicode-normalization 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "141339a08b982d942be2ca06ff8b076563cbe223d1befd5450716790d44e2426"
 "checksum unicode-width 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "882386231c45df4700b275c7ff55b6f3698780a650026380e72dabe76fa46526"

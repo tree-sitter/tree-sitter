@@ -4,8 +4,9 @@ use super::rules::{Alias, AliasMap, Symbol, SymbolType};
 use super::tables::{
     AdvanceAction, FieldLocation, LexState, LexTable, ParseAction, ParseTable, ParseTableEntry,
 };
-use core::ops::Range;
+use core::ops::{Range, RangeInclusive};
 use hashbrown::{HashMap, HashSet};
+use std::char;
 use std::fmt::Write;
 use std::mem::swap;
 use tree_sitter::LANGUAGE_VERSION;
@@ -492,6 +493,7 @@ impl Generator {
             add_line!(self, "ACCEPT_TOKEN({});", self.symbol_ids[&accept_action]);
         }
 
+        // TODO: use ranges for better performance with unicode sets
         let mut ruled_out_characters = HashSet::new();
         for (characters, action) in state.advance_actions {
             let previous_length = self.buffer.len();
@@ -501,9 +503,7 @@ impl Generator {
             if self.add_character_set_condition(&characters, &ruled_out_characters) {
                 add!(self, ") ");
                 self.add_advance_action(&action);
-                if let CharacterSet::Include(chars) = characters {
-                    ruled_out_characters.extend(chars.iter().map(|c| *c as u32));
-                }
+                ruled_out_characters.extend(characters.iter().map(|c| c as u32));
             } else {
                 self.buffer.truncate(previous_length);
                 self.add_advance_action(&action);
@@ -519,23 +519,19 @@ impl Generator {
         characters: &CharacterSet,
         ruled_out_characters: &HashSet<u32>,
     ) -> bool {
-        match characters {
-            CharacterSet::Include(chars) => {
-                let ranges = Self::get_ranges(chars, ruled_out_characters);
-                self.add_character_range_conditions(ranges, false)
-            }
-            CharacterSet::Exclude(chars) => {
-                let ranges = Some('\0'..'\0')
-                    .into_iter()
-                    .chain(Self::get_ranges(chars, ruled_out_characters));
-                self.add_character_range_conditions(ranges, true)
+        let mut chars = characters.clone();
+        for &c in ruled_out_characters {
+            if let Some(c) = char::from_u32(c) {
+                chars.remove_char(c);
             }
         }
+        let ranges = chars.ranges();
+        self.add_character_range_conditions(ranges, false)
     }
 
     fn add_character_range_conditions(
         &mut self,
-        ranges: impl Iterator<Item = Range<char>>,
+        ranges: impl Iterator<Item = RangeInclusive<char>>,
         is_negated: bool,
     ) -> bool {
         let line_break = "\n          ";
@@ -545,38 +541,38 @@ impl Generator {
                 if did_add {
                     add!(self, " &&{}", line_break);
                 }
-                if range.end == range.start {
+                if range.end() == range.start() {
                     add!(self, "lookahead != ");
-                    self.add_character(range.start);
-                } else if range.end as u32 == range.start as u32 + 1 {
+                    self.add_character(*range.start());
+                } else if *range.end() as u32 == *range.start() as u32 + 1 {
                     add!(self, "lookahead != ");
-                    self.add_character(range.start);
+                    self.add_character(*range.start());
                     add!(self, " &&{}lookahead != ", line_break);
-                    self.add_character(range.end);
+                    self.add_character(*range.end());
                 } else {
                     add!(self, "(lookahead < ");
-                    self.add_character(range.start);
+                    self.add_character(*range.start());
                     add!(self, " || ");
-                    self.add_character(range.end);
+                    self.add_character(*range.end());
                     add!(self, " < lookahead)");
                 }
             } else {
                 if did_add {
                     add!(self, " ||{}", line_break);
                 }
-                if range.end == range.start {
+                if range.end() == range.start() {
                     add!(self, "lookahead == ");
-                    self.add_character(range.start);
-                } else if range.end as u32 == range.start as u32 + 1 {
+                    self.add_character(*range.start());
+                } else if *range.end() as u32 == *range.start() as u32 + 1 {
                     add!(self, "lookahead == ");
-                    self.add_character(range.start);
+                    self.add_character(*range.start());
                     add!(self, " ||{}lookahead == ", line_break);
-                    self.add_character(range.end);
+                    self.add_character(*range.end());
                 } else {
                     add!(self, "(");
-                    self.add_character(range.start);
+                    self.add_character(*range.start());
                     add!(self, " <= lookahead && lookahead <= ");
-                    self.add_character(range.end);
+                    self.add_character(*range.end());
                     add!(self, ")");
                 }
             }

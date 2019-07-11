@@ -4,3 +4,6 @@ members = [
     "cli",
     "lib",
 ]
+
+[patch.'crates-io']
+unic-char-range = { git = "https://github.com/open-i18n/rust-unic/", branch = "CAD97-patch-1" }

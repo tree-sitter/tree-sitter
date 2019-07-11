@@ -234,14 +234,14 @@ impl NfaBuilder {
                     Literal::Unicode(c) => *c,
                     Literal::Byte(_) => unreachable!("all regex are utf8-correct"),
                 };
-                self.push_advance(CharacterSet::Include(vec![c]), next_state_id);
+                self.push_advance(CharacterSet::singleton(c), next_state_id);
                 Ok(true)
             }
             HirKind::Class(class) => {
                 let chars = self.expand_character_class(class)?;
                 self.push_advance(chars, next_state_id);
                 Ok(true)
-            },
+            }
             HirKind::Anchor(_) => Err(Error::regex("Anchors are not supported")),
             HirKind::WordBoundary(_) => Err(Error::regex("Word boundaries are not supported")),
             HirKind::Repetition(repetition) => {
@@ -267,7 +267,8 @@ impl NfaBuilder {
                             }
                         }
                         HirRepetitionKind::Range(HirRepetitionRange::Bounded(min, max)) => {
-                            let mut result = self.expand_count(&repetition.hir, min, next_state_id)?;
+                            let mut result =
+                                self.expand_count(&repetition.hir, min, next_state_id)?;
                             for _ in min..max {
                                 if result {
                                     next_state_id = self.nfa.last_state_id();

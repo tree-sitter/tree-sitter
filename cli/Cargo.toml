@@ -35,6 +35,7 @@ regex = "1"
 rsass = "^0.9.8"
 tiny_http = "0.6"
 webbrowser = "0.5.1"
+unic-char-range = "0.9.0"
 
 [dependencies.tree-sitter]
 version = ">= 0.3.7"
