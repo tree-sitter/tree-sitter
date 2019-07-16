@@ -12,6 +12,13 @@ use tree_sitter::{Language, Node, Parser, Point, PropertySheet, Range, Tree, Tre
 
 const CANCELLATION_CHECK_INTERVAL: usize = 100;
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum Error {
+    Cancelled,
+    InvalidLanguage,
+    Unknown,
+}
+
 #[derive(Debug)]
 enum TreeStep {
     Child {
@@ -192,6 +199,16 @@ pub enum PropertySheetError {
     InvalidJSON(serde_json::Error),
     InvalidRegex(regex::Error),
     InvalidFormat(String),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::Cancelled => write!(f, "Cancelled"),
+            Error::InvalidLanguage => write!(f, "Invalid language"),
+            Error::Unknown => write!(f, "Unknown error"),
+        }
+    }
 }
 
 impl fmt::Display for PropertySheetError {
@@ -440,13 +457,13 @@ where
         property_sheet: &'a PropertySheet<Properties>,
         injection_callback: F,
         cancellation_flag: Option<&'a AtomicUsize>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, Error> {
         let mut parser = Parser::new();
         unsafe { parser.set_cancellation_flag(cancellation_flag.clone()) };
-        parser.set_language(language)?;
-        let tree = parser
-            .parse(source, None)
-            .ok_or_else(|| format!("Tree-sitter: failed to parse"))?;
+        parser
+            .set_language(language)
+            .map_err(|_| Error::InvalidLanguage)?;
+        let tree = parser.parse(source, None).ok_or_else(|| Error::Cancelled)?;
         Ok(Self {
             parser,
             source,
@@ -472,24 +489,24 @@ where
         })
     }
 
-    fn emit_source(&mut self, next_offset: usize) -> Option<HighlightEvent<'a>> {
+    fn emit_source(&mut self, next_offset: usize) -> Option<Result<HighlightEvent<'a>, Error>> {
         let input = &self.source[self.source_offset..next_offset];
         match str::from_utf8(input) {
             Ok(valid) => {
                 self.source_offset = next_offset;
-                Some(HighlightEvent::Source(valid))
+                Some(Ok(HighlightEvent::Source(valid)))
             }
             Err(error) => {
                 if let Some(error_len) = error.error_len() {
                     if error.valid_up_to() > 0 {
                         let prefix = &input[0..error.valid_up_to()];
                         self.utf8_error_len = Some(error_len);
-                        Some(HighlightEvent::Source(unsafe {
+                        Some(Ok(HighlightEvent::Source(unsafe {
                             str::from_utf8_unchecked(prefix)
-                        }))
+                        })))
                     } else {
                         self.source_offset += error_len;
-                        Some(HighlightEvent::Source("\u{FFFD}"))
+                        Some(Ok(HighlightEvent::Source("\u{FFFD}")))
                     }
                 } else {
                     None
@@ -665,31 +682,32 @@ where
         ranges: Vec<Range>,
         depth: usize,
         includes_children: bool,
-    ) {
+    ) -> Option<Error> {
         if let Some((language, property_sheet)) = (self.injection_callback)(language_string) {
-            self.parser
-                .set_language(language)
-                .expect("Failed to set language");
-            self.parser.set_included_ranges(&ranges);
-            let tree = self
-                .parser
-                .parse(self.source, None)
-                .expect("Failed to parse");
-            let layer = Layer::new(
-                self.source,
-                tree,
-                property_sheet,
-                ranges,
-                depth,
-                includes_children,
-            );
-            if includes_children && depth > self.max_opaque_layer_depth {
-                self.max_opaque_layer_depth = depth;
+            if self.parser.set_language(language).is_err() {
+                return Some(Error::InvalidLanguage);
             }
-            match self.layers.binary_search_by(|l| l.cmp(&layer)) {
-                Ok(i) | Err(i) => self.layers.insert(i, layer),
-            };
+            self.parser.set_included_ranges(&ranges);
+            if let Some(tree) = self.parser.parse(self.source, None) {
+                let layer = Layer::new(
+                    self.source,
+                    tree,
+                    property_sheet,
+                    ranges,
+                    depth,
+                    includes_children,
+                );
+                if includes_children && depth > self.max_opaque_layer_depth {
+                    self.max_opaque_layer_depth = depth;
+                }
+                match self.layers.binary_search_by(|l| l.cmp(&layer)) {
+                    Ok(i) | Err(i) => self.layers.insert(i, layer),
+                };
+            } else {
+                return Some(Error::Cancelled);
+            }
         }
+        None
     }
 
     fn remove_first_layer(&mut self) {
@@ -709,7 +727,7 @@ impl<'a, T> Iterator for Highlighter<'a, T>
 where
     T: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
 {
-    type Item = HighlightEvent<'a>;
+    type Item = Result<HighlightEvent<'a>, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(cancellation_flag) = self.cancellation_flag {
@@ -717,14 +735,14 @@ where
             if self.operation_count >= CANCELLATION_CHECK_INTERVAL {
                 self.operation_count = 0;
                 if cancellation_flag.load(Ordering::Relaxed) != 0 {
-                    return None;
+                    return Some(Err(Error::Cancelled));
                 }
             }
         }
 
         if let Some(utf8_error_len) = self.utf8_error_len.take() {
             self.source_offset += utf8_error_len;
-            return Some(HighlightEvent::Source("\u{FFFD}"));
+            return Some(Ok(HighlightEvent::Source("\u{FFFD}")));
         }
 
         while !self.layers.is_empty() {
@@ -771,7 +789,11 @@ where
 
                     let depth = first_layer.depth + 1;
                     for (language, ranges, includes_children) in injections {
-                        self.add_layer(&language, ranges, depth, includes_children);
+                        if let Some(error) =
+                            self.add_layer(&language, ranges, depth, includes_children)
+                        {
+                            return Some(Err(error));
+                        }
                     }
                 }
 
@@ -790,9 +812,9 @@ where
                     }
 
                     scope_event = if first_layer.at_node_end {
-                        Some(HighlightEvent::HighlightEnd)
+                        Some(Ok(HighlightEvent::HighlightEnd))
                     } else {
-                        Some(HighlightEvent::HighlightStart(highlight))
+                        Some(Ok(HighlightEvent::HighlightStart(highlight)))
                     };
                 }
             }
@@ -1057,29 +1079,44 @@ pub fn highlight<'a, F>(
     source: &'a [u8],
     language: Language,
     property_sheet: &'a PropertySheet<Properties>,
+    cancellation_flag: Option<&'a AtomicUsize>,
     injection_callback: F,
-) -> Result<impl Iterator<Item = HighlightEvent<'a>> + 'a, String>
+) -> Result<impl Iterator<Item = Result<HighlightEvent<'a>, Error>> + 'a, Error>
 where
     F: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)> + 'a,
 {
-    Highlighter::new(source, language, property_sheet, injection_callback, None)
+    Highlighter::new(
+        source,
+        language,
+        property_sheet,
+        injection_callback,
+        cancellation_flag,
+    )
 }
 
 pub fn highlight_html<'a, F1, F2>(
     source: &'a [u8],
     language: Language,
     property_sheet: &'a PropertySheet<Properties>,
+    cancellation_flag: Option<&'a AtomicUsize>,
     injection_callback: F1,
     attribute_callback: F2,
-) -> Result<Vec<String>, String>
+) -> Result<Vec<String>, Error>
 where
     F1: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
     F2: Fn(Highlight) -> &'a str,
 {
-    let highlighter = Highlighter::new(source, language, property_sheet, injection_callback, None)?;
+    let highlighter = Highlighter::new(
+        source,
+        language,
+        property_sheet,
+        injection_callback,
+        cancellation_flag,
+    )?;
     let mut renderer = HtmlRenderer::new(attribute_callback);
     let mut scopes = Vec::new();
     for event in highlighter {
+        let event = event?;
         match event {
             HighlightEvent::HighlightStart(s) => {
                 scopes.push(s);

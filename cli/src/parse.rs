@@ -28,7 +28,7 @@ pub fn parse_file_at_path(
 ) -> Result<bool> {
     let mut _log_session = None;
     let mut parser = Parser::new();
-    parser.set_language(language)?;
+    parser.set_language(language).map_err(|e| e.to_string())?;
     let mut source_code = fs::read(path).map_err(Error::wrap(|| {
         format!("Error reading source file {:?}", path)
     }))?;

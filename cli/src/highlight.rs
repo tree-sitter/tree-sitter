@@ -6,8 +6,10 @@ use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::Instant;
-use std::{fmt, fs, io, path};
+use std::{fmt, fs, io, path, thread};
 use tree_sitter::{Language, PropertySheet};
 use tree_sitter_highlight::{highlight, highlight_html, Highlight, HighlightEvent, Properties};
 
@@ -252,6 +254,19 @@ fn color_to_css(color: Color) -> &'static str {
     }
 }
 
+fn cancel_on_stdin() -> Arc<AtomicUsize> {
+    let result = Arc::new(AtomicUsize::new(0));
+    thread::spawn({
+        let flag = result.clone();
+        move || {
+            let mut line = String::new();
+            io::stdin().read_line(&mut line).unwrap();
+            flag.store(1, Ordering::Relaxed);
+        }
+    });
+    result
+}
+
 pub fn ansi(
     loader: &Loader,
     theme: &Theme,
@@ -264,11 +279,19 @@ pub fn ansi(
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
 
+    let cancellation_flag = cancel_on_stdin();
     let time = Instant::now();
     let mut highlight_stack = Vec::new();
-    for event in highlight(source, language, property_sheet, |s| {
-        language_for_injection_string(loader, s)
-    })? {
+    for event in highlight(
+        source,
+        language,
+        property_sheet,
+        Some(cancellation_flag.as_ref()),
+        |s| language_for_injection_string(loader, s),
+    )
+    .map_err(|e| e.to_string())?
+    {
+        let event = event.map_err(|e| e.to_string())?;
         match event {
             HighlightEvent::Source(s) => {
                 if let Some(style) = highlight_stack.last().and_then(|s| theme.ansi_style(*s)) {
@@ -332,10 +355,13 @@ pub fn html(
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
     write!(&mut stdout, "<table>\n")?;
+
+    let cancellation_flag = cancel_on_stdin();
     let lines = highlight_html(
         source,
         language,
         property_sheet,
+        Some(cancellation_flag.as_ref()),
         |s| language_for_injection_string(loader, s),
         |highlight| {
             if let Some(css_style) = theme.css_style(highlight) {
@@ -344,7 +370,8 @@ pub fn html(
                 ""
             }
         },
-    )?;
+    )
+    .map_err(|e| e.to_string())?;
     for (i, line) in lines.into_iter().enumerate() {
         write!(
             &mut stdout,
