@@ -58,7 +58,7 @@ pub fn run_tests_at_path(
     let test_entry = parse_tests(path)?;
     let mut _log_session = None;
     let mut parser = Parser::new();
-    parser.set_language(language)?;
+    parser.set_language(language).map_err(|e| e.to_string())?;
 
     if debug_graph {
         _log_session = Some(util::log_graphs(&mut parser, "log.html")?);

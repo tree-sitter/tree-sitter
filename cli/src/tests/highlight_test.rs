@@ -1,9 +1,13 @@
 use super::helpers::fixtures::{get_language, get_property_sheet, get_property_sheet_json};
 use lazy_static::lazy_static;
 use std::ffi::CString;
+
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{ptr, slice, str};
 use tree_sitter::{Language, PropertySheet};
-use tree_sitter_highlight::{c, highlight, highlight_html, Highlight, HighlightEvent, Properties};
+use tree_sitter_highlight::{
+    c, highlight, highlight_html, Error, Highlight, HighlightEvent, Properties,
+};
 
 lazy_static! {
     static ref JS_SHEET: PropertySheet<Properties> =
@@ -209,9 +213,7 @@ fn test_highlighting_with_local_variable_tracking() {
                 (")", vec![Highlight::PunctuationBracket]),
                 (";", vec![Highlight::PunctuationDelimiter]),
             ],
-            vec![
-                ("}", vec![Highlight::PunctuationBracket])
-            ]
+            vec![("}", vec![Highlight::PunctuationBracket])]
         ],
     );
 }
@@ -305,6 +307,44 @@ fn test_highlighting_with_content_children_included() {
             vec![(")", vec![Highlight::PunctuationBracket]), (";", vec![]),]
         ],
     );
+}
+
+#[test]
+fn test_highlighting_cancellation() {
+    // An HTML document with a large injected JavaScript document:
+    let mut source = "<script>\n".to_string();
+    for _ in 0..500 {
+        source += "function a() { console.log('hi'); }\n";
+    }
+    source += "</script>\n";
+
+    // Cancel the highlighting before parsing the injected document.
+    let cancellation_flag = AtomicUsize::new(0);
+    let injection_callback = |name: &str| {
+        cancellation_flag.store(1, Ordering::SeqCst);
+        test_language_for_injection_string(name)
+    };
+
+    // Constructing the highlighter, which eagerly parses the outer document,
+    // should not fail.
+    let highlighter = highlight(
+        source.as_bytes(),
+        get_language("html"),
+        &HTML_SHEET,
+        Some(&cancellation_flag),
+        injection_callback,
+    )
+    .unwrap();
+
+    // Iterating the scopes should not panic. It should return an error
+    // once the cancellation is detected.
+    for event in highlighter {
+        if let Err(e) = event {
+            assert_eq!(e, Error::Cancelled);
+            return;
+        }
+    }
+    panic!("Expected an error while iterating highlighter");
 }
 
 #[test]
@@ -410,11 +450,12 @@ fn to_html<'a>(
     src: &'a str,
     language: Language,
     property_sheet: &'a PropertySheet<Properties>,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<String>, Error> {
     highlight_html(
         src.as_bytes(),
         language,
         property_sheet,
+        None,
         &test_language_for_injection_string,
         &|highlight| SCOPE_CLASS_STRINGS[highlight as usize].as_str(),
     )
@@ -424,7 +465,7 @@ fn to_token_vector<'a>(
     src: &'a str,
     language: Language,
     property_sheet: &'a PropertySheet<Properties>,
-) -> Result<Vec<Vec<(&'a str, Vec<Highlight>)>>, String> {
+) -> Result<Vec<Vec<(&'a str, Vec<Highlight>)>>, Error> {
     let mut lines = Vec::new();
     let mut highlights = Vec::new();
     let mut line = Vec::new();
@@ -432,9 +473,10 @@ fn to_token_vector<'a>(
         src.as_bytes(),
         language,
         property_sheet,
+        None,
         &test_language_for_injection_string,
     )? {
-        match event {
+        match event? {
             HighlightEvent::HighlightStart(s) => highlights.push(s),
             HighlightEvent::HighlightEnd => {
                 highlights.pop();

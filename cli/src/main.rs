@@ -14,6 +14,7 @@ const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
 
 fn main() {
     if let Err(e) = run() {
+        println!("");
         eprintln!("{}", e.message());
         exit(1);
     }

@@ -11,6 +11,7 @@ typedef enum {
   TSHighlightOk,
   TSHighlightUnknownScope,
   TSHighlightTimeout,
+  TSHighlightInvalidLanguage,
 } TSHighlightError;
 
 // The list of scopes which can be styled for syntax highlighting.

@@ -26,6 +26,11 @@ pub const PARSER_HEADER: &'static str = include_str!("../include/tree_sitter/par
 pub struct Language(*const ffi::TSLanguage);
 
 #[derive(Debug, PartialEq, Eq)]
+pub struct LanguageError {
+    version: usize,
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum LogType {
     Parse,
     Lex,
@@ -162,6 +167,18 @@ impl Language {
     }
 }
 
+impl fmt::Display for LanguageError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "Incompatible language version {}. Expected minimum {}, maximum {}",
+            self.version,
+            ffi::TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION,
+            ffi::TREE_SITTER_LANGUAGE_VERSION
+        )
+    }
+}
+
 unsafe impl Send for Language {}
 
 unsafe impl Sync for Language {}
@@ -174,21 +191,13 @@ impl Parser {
         }
     }
 
-    pub fn set_language(&mut self, language: Language) -> Result<(), String> {
+    pub fn set_language(&mut self, language: Language) -> Result<(), LanguageError> {
         unsafe {
             let version = ffi::ts_language_version(language.0) as usize;
-            if version < ffi::TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION {
-                Err(format!(
-                    "Incompatible language version {}. Expected {} or greater.",
-                    version,
-                    ffi::TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
-                ))
-            } else if version > ffi::TREE_SITTER_LANGUAGE_VERSION {
-                Err(format!(
-                    "Incompatible language version {}. Expected {}.",
-                    version,
-                    ffi::TREE_SITTER_LANGUAGE_VERSION
-                ))
+            if version < ffi::TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
+                || version > ffi::TREE_SITTER_LANGUAGE_VERSION
+            {
+                Err(LanguageError { version })
             } else {
                 ffi::ts_parser_set_language(self.0, language.0);
                 Ok(())

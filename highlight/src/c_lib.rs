@@ -1,4 +1,4 @@
-use super::{escape, load_property_sheet, Highlight, HighlightEvent, Highlighter, Properties};
+use super::{escape, load_property_sheet, Error, Highlight, HighlightEvent, Highlighter, Properties};
 use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::CStr;
@@ -30,6 +30,7 @@ pub enum ErrorCode {
     Ok,
     UnknownScope,
     Timeout,
+    InvalidLanguage,
 }
 
 #[no_mangle]
@@ -188,18 +189,27 @@ impl TSHighlighter {
             let mut highlights = Vec::new();
             for event in highlighter {
                 match event {
-                    HighlightEvent::HighlightStart(s) => {
+                    Ok(HighlightEvent::HighlightStart(s)) => {
                         highlights.push(s);
                         output.start_highlight(s, &self.attribute_strings);
                     }
-                    HighlightEvent::HighlightEnd => {
+                    Ok(HighlightEvent::HighlightEnd) => {
                         highlights.pop();
                         output.end_highlight();
                     }
-                    HighlightEvent::Source(src) => {
+                    Ok(HighlightEvent::Source(src)) => {
                         output.add_text(src, &highlights, &self.attribute_strings);
+                    },
+                    Err(Error::Cancelled) => {
+                        return ErrorCode::Timeout;
+                    },
+                    Err(Error::InvalidLanguage) => {
+                        return ErrorCode::InvalidLanguage;
+                    },
+                    Err(Error::Unknown) => {
+                        return ErrorCode::Timeout;
                     }
-                };
+                }
             }
             ErrorCode::Ok
         } else {
