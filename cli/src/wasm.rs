@@ -33,12 +33,12 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
         let mut volume_string;
         if let (Some(parent), Some(filename)) = (language_dir.parent(), language_dir.file_name()) {
             volume_string = OsString::from(parent);
-            volume_string.push(":/src");
+            volume_string.push(":/src:Z");
             command.arg("--workdir");
             command.arg(&Path::new("/src").join(filename));
         } else {
             volume_string = OsString::from(language_dir);
-            volume_string.push(":/src");
+            volume_string.push(":/src:Z");
             command.args(&["--workdir", "/src"]);
         }
 

@@ -67,7 +67,7 @@ if which emcc > /dev/null && [[ "$force_docker" == "0" ]]; then
 elif which docker > /dev/null; then
   emcc="docker run               \
     --rm                         \
-    -v $(pwd):/src               \
+    -v $(pwd):/src:Z             \
     -u $(id -u)                  \
     -e EMCC_FORCE_STDLIBS=libc++ \
     trzeci/emscripten-slim       \
