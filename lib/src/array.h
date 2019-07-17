@@ -43,8 +43,13 @@ extern "C" {
 #define array_delete(self) array__delete((VoidArray *)self)
 
 #define array_push(self, element)                            \
-  (array__grow((VoidArray *)(self), array__elem_size(self)), \
+  (array__grow((VoidArray *)(self), 1, array__elem_size(self)), \
    (self)->contents[(self)->size++] = (element))
+
+#define array_grow_by(self, count) \
+  (array__grow((VoidArray *)(self), count, array__elem_size(self)), \
+   (self)->size += count, \
+   memset((self)->contents + (self)->size, 0, (count) * array__elem_size(self)))
 
 #define array_push_all(self, other)                                       \
   array_splice((self), (self)->size, 0, (other)->size, (other)->contents)
@@ -100,10 +105,12 @@ static inline void array__assign(VoidArray *self, const VoidArray *other, size_t
   memcpy(self->contents, other->contents, self->size * element_size);
 }
 
-static inline void array__grow(VoidArray *self, size_t element_size) {
-  if (self->size == self->capacity) {
+static inline void array__grow(VoidArray *self, size_t count, size_t element_size) {
+  size_t new_size = self->size + count;
+  if (new_size > self->capacity) {
     size_t new_capacity = self->capacity * 2;
     if (new_capacity < 8) new_capacity = 8;
+    if (new_capacity < new_size) new_capacity = new_size;
     array__reserve(self, element_size, new_capacity);
   }
 }

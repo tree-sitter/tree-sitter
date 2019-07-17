@@ -1,6 +1,7 @@
 #include <emscripten.h>
 #include <tree_sitter/api.h>
 #include <stdio.h>
+#include "array.h"
 
 /*****************************/
 /* Section - Data marshaling */
@@ -456,6 +457,89 @@ void ts_node_named_children_wasm(const TSTree *tree) {
   }
   TRANSFER_BUFFER[0] = (const void *)count;
   TRANSFER_BUFFER[1] = result;
+}
+
+bool point_lte(TSPoint a, TSPoint b) {
+  if (a.row < b.row) return true;
+  if (a.row > b.row) return false;
+  return a.column <= b.column;
+}
+
+bool symbols_contain(const uint32_t *set, uint32_t length, uint32_t value) {
+  for (unsigned i = 0; i < length; i++) {
+    if (set[i] == value) return true;
+    if (set[i] > value) break;
+  }
+  return false;
+}
+
+void ts_node_descendants_of_type_wasm(
+  const TSTree *tree,
+  const uint32_t *symbols,
+  uint32_t symbol_count,
+  uint32_t start_row,
+  uint32_t start_column,
+  uint32_t end_row,
+  uint32_t end_column
+) {
+  TSNode node = unmarshal_node(tree);
+  TSPoint start_point = {start_row, code_unit_to_byte(start_column)};
+  TSPoint end_point = {end_row, code_unit_to_byte(end_column)};
+  if (end_point.row == 0 && end_point.column == 0) {
+    end_point = (TSPoint) {UINT32_MAX, UINT32_MAX};
+  }
+
+  Array(const void *) result = array_new();
+
+  // Walk the tree depth first looking for matching nodes.
+  ts_tree_cursor_reset(&scratch_cursor, node);
+  bool already_visited_children = false;
+  while (true) {
+    TSNode descendant = ts_tree_cursor_current_node(&scratch_cursor);
+
+    if (!already_visited_children) {
+      // If this node is before the selected range, then avoid
+      // descending into it.
+      if (point_lte(ts_node_end_point(descendant), start_point)) {
+        if (ts_tree_cursor_goto_next_sibling(&scratch_cursor)) {
+          already_visited_children = false;
+        } else {
+          if (!ts_tree_cursor_goto_parent(&scratch_cursor)) break;
+          already_visited_children = true;
+        }
+        continue;
+      }
+
+      // If this node is after the selected range, then stop walking.
+      if (point_lte(end_point, ts_node_start_point(descendant))) break;
+
+      // Add the node to the result if its type matches one of the given
+      // node types.
+      if (symbols_contain(symbols, symbol_count, ts_node_symbol(descendant))) {
+        array_grow_by(&result, 5);
+        marshal_node(result.contents + result.size - 5, descendant);
+      }
+
+      // Continue walking.
+      if (ts_tree_cursor_goto_first_child(&scratch_cursor)) {
+        already_visited_children = false;
+      } else if (ts_tree_cursor_goto_next_sibling(&scratch_cursor)) {
+        already_visited_children = false;
+      } else {
+        if (!ts_tree_cursor_goto_parent(&scratch_cursor)) break;
+        already_visited_children = true;
+      }
+    } else {
+      if (ts_tree_cursor_goto_next_sibling(&scratch_cursor)) {
+        already_visited_children = false;
+      } else {
+        if (!ts_tree_cursor_goto_parent(&scratch_cursor)) break;
+      }
+    }
+  }
+
+  TRANSFER_BUFFER[0] = (const void *)(result.size / 5);
+  TRANSFER_BUFFER[1] = result.contents;
 }
 
 int ts_node_is_named_wasm(const TSTree *tree) {
