@@ -1,6 +1,7 @@
 declare module 'web-tree-sitter' {
   class Parser {
     static init(): Promise<void>;
+    delete(): void;
     parse(input: string | Parser.Input, previousTree?: Parser.Tree): Parser.Tree;
     getLanguage(): any;
     setLanguage(language: any): void;
@@ -102,6 +103,7 @@ declare module 'web-tree-sitter' {
     export interface Tree {
       readonly rootNode: SyntaxNode;
 
+      delete(): void;
       edit(delta: Edit): Tree;
       walk(): TreeCursor;
       getChangedRanges(other: Tree): Range[];
