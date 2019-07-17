@@ -394,7 +394,7 @@ fn test_parsing_with_a_timeout() {
     );
     assert!(tree.is_none());
     assert!(start_time.elapsed().as_micros() > 500);
-    assert!(start_time.elapsed().as_micros() < 1500);
+    assert!(start_time.elapsed().as_micros() < 2000);
 
     // Finish parsing
     parser.set_timeout_micros(0);
