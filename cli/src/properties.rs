@@ -162,12 +162,17 @@ impl Builder {
     }
 
     fn populate_state(&mut self, item_set: ItemSet, state_id: StateId) {
+        let is_start_state = state_id == 0;
         let mut transitions: HashMap<PropertyTransitionJSON, u32> = HashMap::new();
         let mut selector_matches = Vec::new();
 
-        // First, compute all of the possible state transition predicates for
+        // First, compute all of the possible state transition conditions for
         // this state, and all of the rules that are currently matching.
         for item in &item_set {
+            if !is_start_state && item.step_id == 0 {
+                continue;
+            }
+
             let rule = &self.rules[item.rule_id as usize];
             let selector = &rule.selectors[item.selector_id as usize];
             let next_step = selector.0.get(item.step_id as usize);
@@ -1265,6 +1270,7 @@ mod tests {
             state_id = state
                 .transitions
                 .iter()
+                .chain(sheet.states[0].transitions.iter())
                 .find(|transition| {
                     transition.kind.as_ref().map_or(true, |k| k == kind)
                         && transition.named.map_or(true, |n| n == is_named)

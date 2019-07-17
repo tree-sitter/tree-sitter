@@ -88,7 +88,7 @@ pub struct PropertySheet<P = HashMap<String, String>> {
     text_regexes: Vec<Regex>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash, PartialEq, Eq)]
 pub struct PropertyTransitionJSON {
     #[serde(rename = "type")]
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -773,49 +773,56 @@ impl<'a, P> TreePropertyCursor<'a, P> {
     }
 
     fn next_state(&self, node_child_index: usize) -> usize {
-        let state = self.current_state();
-        let node_field_id = self.cursor.field_id();
-        let node_kind_id = self.cursor.node().kind_id();
-        let transitions = node_field_id
-            .and_then(|field_id| state.field_transitions.get(&field_id))
-            .or_else(|| state.kind_transitions.get(&node_kind_id));
+        let current_state = self.current_state();
 
-        if let Some(transitions) = transitions {
-            for transition in transitions.iter() {
-                if transition
-                    .node_kind_id
-                    .map_or(false, |id| id != node_kind_id)
-                {
-                    continue;
-                }
+        for state in [current_state, self.default_state()].iter() {
+            let node_field_id = self.cursor.field_id();
+            let node_kind_id = self.cursor.node().kind_id();
+            let transitions = node_field_id
+                .and_then(|field_id| state.field_transitions.get(&field_id))
+                .or_else(|| state.kind_transitions.get(&node_kind_id));
 
-                if let Some(text_regex_index) = transition.text_regex_index {
-                    let node = self.cursor.node();
-                    let text = &self.source[node.start_byte()..node.end_byte()];
-                    if let Ok(text) = str::from_utf8(text) {
-                        if !self.property_sheet.text_regexes[text_regex_index as usize]
-                            .is_match(text)
-                        {
+            if let Some(transitions) = transitions {
+                for transition in transitions.iter() {
+                    if transition
+                        .node_kind_id
+                        .map_or(false, |id| id != node_kind_id)
+                    {
+                        continue;
+                    }
+
+                    if let Some(text_regex_index) = transition.text_regex_index {
+                        let node = self.cursor.node();
+                        let text = &self.source[node.start_byte()..node.end_byte()];
+                        if let Ok(text) = str::from_utf8(text) {
+                            if !self.property_sheet.text_regexes[text_regex_index as usize]
+                                .is_match(text)
+                            {
+                                continue;
+                            }
+                        }
+                    }
+
+                    if let Some(child_index) = transition.child_index {
+                        if child_index != node_child_index as u16 {
                             continue;
                         }
                     }
-                }
 
-                if let Some(child_index) = transition.child_index {
-                    if child_index != node_child_index as u16 {
-                        continue;
-                    }
+                    return transition.state_id as usize;
                 }
-
-                return transition.state_id as usize;
             }
         }
 
-        state.default_next_state_id
+        current_state.default_next_state_id
     }
 
     fn current_state(&self) -> &PropertyState {
         &self.property_sheet.states[*self.state_stack.last().unwrap()]
+    }
+
+    fn default_state(&self) -> &PropertyState {
+        &self.property_sheet.states.first().unwrap()
     }
 }
 
