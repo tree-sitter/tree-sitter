@@ -41,6 +41,7 @@
   "_ts_node_children_wasm",
   "_ts_node_descendant_for_index_wasm",
   "_ts_node_descendant_for_position_wasm",
+  "_ts_node_descendants_of_type_wasm",
   "_ts_node_end_index_wasm",
   "_ts_node_end_point_wasm",
   "_ts_node_has_changes_wasm",
