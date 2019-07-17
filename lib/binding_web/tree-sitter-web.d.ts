@@ -73,6 +73,7 @@ declare module 'web-tree-sitter' {
 
       descendantForIndex(index: number): SyntaxNode;
       descendantForIndex(startIndex: number, endIndex: number): SyntaxNode;
+      descendantsOfType(type: string | Array<string>, startPosition?: Point, endPosition?: Point): Array<SyntaxNode>;
       namedDescendantForIndex(index: number): SyntaxNode;
       namedDescendantForIndex(startIndex: number, endIndex: number): SyntaxNode;
       descendantForPosition(position: Point): SyntaxNode;
