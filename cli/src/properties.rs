@@ -206,11 +206,29 @@ impl Builder {
             }
         }
 
+        // If there are multiple transitions that could *both* match (e.g. one based on a
+        // a node type and one based on a field name), then create an additional transition
+        // for the intersection of the two.
+        let mut i = 0;
+        let mut transition_list = transitions.into_iter().collect::<Vec<_>>();
+        while i < transition_list.len() {
+            for j in 0..i {
+                if let Some(intersection) =
+                    self.intersect_transitions(&transition_list[j].0, &transition_list[i].0)
+                {
+                    transition_list.push((
+                        intersection,
+                        u32::max(transition_list[i].1, transition_list[j].1),
+                    ));
+                }
+            }
+            i += 1;
+        }
+
         // Ensure that for a given node type, more specific transitions are tried
         // first, and in the event of a tie, transitions corresponding to later rules
-        // in the cascade are tried first.
-        let mut transition_list: Vec<(PropertyTransitionJSON, u32)> =
-            transitions.into_iter().collect();
+        // in the cascade are tried first. Also, sort the non-intersecting transitions
+        // by name to guarantee a deterministic order.
         transition_list.sort_by(|a, b| {
             (transition_specificity(&b.0).cmp(&transition_specificity(&a.0)))
                 .then_with(|| b.1.cmp(&a.1))
@@ -288,6 +306,31 @@ impl Builder {
         self.output.states[state_id]
             .transitions
             .extend(transition_list.into_iter().map(|i| i.0));
+    }
+
+    fn intersect_transitions(
+        &self,
+        left: &PropertyTransitionJSON,
+        right: &PropertyTransitionJSON,
+    ) -> Option<PropertyTransitionJSON> {
+        // If one transition is based on the node's type and the other
+        // is based on its field name, then create a combined transition
+        // wiht *both* criteria.
+        if let (Some(left_field), None) = (&left.field, &left.kind) {
+            if right.field.is_none() {
+                let mut result = right.clone();
+                result.field = Some(left_field.clone());
+                return Some(result);
+            }
+        }
+        if let (Some(right_field), None) = (&right.field, &right.kind) {
+            if left.field.is_none() {
+                let mut result = left.clone();
+                result.field = Some(right_field.clone());
+                return Some(result);
+            }
+        }
+        return None;
     }
 
     fn remove_duplicate_states(&mut self) {
