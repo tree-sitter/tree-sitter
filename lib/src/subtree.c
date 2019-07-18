@@ -816,16 +816,16 @@ static size_t ts_subtree__write_to_string(
 
   char *cursor = string;
   char **writer = (limit > 0) ? &cursor : &string;
-  bool visible =
+  bool is_root = field_name == ROOT_FIELD;
+  bool is_visible =
     include_all ||
     alias_is_named ||
     ts_subtree_missing(self) ||
     (ts_subtree_visible(self) && ts_subtree_named(self));
 
-  if (visible) {
-    if (field_name != ROOT_FIELD) {
+  if (is_visible) {
+    if (!is_root) {
       cursor += snprintf(*writer, limit, " ");
-
       if (field_name) {
         cursor += snprintf(*writer, limit, "%s: ", field_name);
       }
@@ -848,6 +848,10 @@ static size_t ts_subtree__write_to_string(
         cursor += snprintf(*writer, limit, "(%s", symbol_name);
       }
     }
+  } else if (is_root) {
+    TSSymbol symbol = ts_subtree_symbol(self);
+    const char *symbol_name = ts_language_symbol_name(language, symbol);
+    cursor += snprintf(*writer, limit, "(\"%s\")", symbol_name);
   }
 
   if (ts_subtree_child_count(self)) {
@@ -877,7 +881,7 @@ static size_t ts_subtree__write_to_string(
           ? ts_language_symbol_metadata(language, alias_symbol).named
           : false;
 
-        const char *child_field_name = visible ? NULL : field_name;
+        const char *child_field_name = is_visible ? NULL : field_name;
         for (const TSFieldMapEntry *i = field_map; i < field_map_end; i++) {
           if (!i->inherited && i->child_index == structural_child_index) {
             child_field_name = language->field_names[i->field_id];
@@ -895,7 +899,7 @@ static size_t ts_subtree__write_to_string(
     }
   }
 
-  if (visible) cursor += snprintf(*writer, limit, ")");
+  if (is_visible) cursor += snprintf(*writer, limit, ")");
 
   return cursor - string;
 }

@@ -420,6 +420,23 @@ fn test_node_is_extra() {
 }
 
 #[test]
+fn test_node_sexp() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("javascript")).unwrap();
+    let tree = parser.parse("if (a) b", None).unwrap();
+    let root_node = tree.root_node();
+    let if_node = root_node.descendant_for_byte_range(0, 0).unwrap();
+    let paren_node = root_node.descendant_for_byte_range(3, 3).unwrap();
+    let identifier_node = root_node.descendant_for_byte_range(4, 4).unwrap();
+    assert_eq!(if_node.kind(), "if");
+    assert_eq!(if_node.to_sexp(), "(\"if\")");
+    assert_eq!(paren_node.kind(), "(");
+    assert_eq!(paren_node.to_sexp(), "(\"(\")");
+    assert_eq!(identifier_node.kind(), "identifier");
+    assert_eq!(identifier_node.to_sexp(), "(identifier)");
+}
+
+#[test]
 fn test_node_field_names() {
     let (parser_name, parser_code) = generate_parser_for_grammar(
         r#"
