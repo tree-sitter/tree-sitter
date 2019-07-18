@@ -42,7 +42,6 @@ struct ParseTableBuilder<'a> {
     item_sets_by_state_id: Vec<ParseItemSet<'a>>,
     parse_state_queue: VecDeque<ParseStateQueueEntry>,
     parse_table: ParseTable,
-    state_ids_to_log: Vec<ParseStateId>,
 }
 
 impl<'a> ParseTableBuilder<'a> {
@@ -73,24 +72,6 @@ impl<'a> ParseTableBuilder<'a> {
             let item_set = self
                 .item_set_builder
                 .transitive_closure(&self.item_sets_by_state_id[entry.state_id]);
-
-            if self.state_ids_to_log.contains(&entry.state_id) {
-                eprintln!(
-                    "state: {}\n\ninitial item set:\n\n{}closed item set:\n\n{}",
-                    entry.state_id,
-                    super::item::ParseItemSetDisplay(
-                        &self.item_sets_by_state_id[entry.state_id],
-                        self.syntax_grammar,
-                        self.lexical_grammar,
-                    ),
-                    super::item::ParseItemSetDisplay(
-                        &item_set,
-                        self.syntax_grammar,
-                        self.lexical_grammar,
-                    )
-                );
-            }
-
             self.add_actions(
                 entry.preceding_symbols,
                 entry.preceding_auxiliary_symbols,
@@ -775,7 +756,6 @@ pub(crate) fn build_parse_table(
     lexical_grammar: &LexicalGrammar,
     inlines: &InlinedProductionMap,
     variable_info: &Vec<VariableInfo>,
-    state_ids_to_log: Vec<usize>,
 ) -> Result<(ParseTable, Vec<TokenSet>)> {
     let item_set_builder = ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines);
     let mut following_tokens = vec![TokenSet::new(); lexical_grammar.variables.len()];
@@ -789,7 +769,6 @@ pub(crate) fn build_parse_table(
     let table = ParseTableBuilder {
         syntax_grammar,
         lexical_grammar,
-        state_ids_to_log,
         item_set_builder,
         variable_info,
         state_ids_by_item_set: HashMap::new(),

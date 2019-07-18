@@ -38,7 +38,6 @@ pub fn generate_parser_in_directory(
     repo_path: &PathBuf,
     grammar_path: Option<&str>,
     minimize: bool,
-    state_ids_to_log: Vec<usize>,
 ) -> Result<()> {
     let repo_src_path = repo_path.join("src");
     let repo_header_path = repo_src_path.join("tree_sitter");
@@ -62,7 +61,7 @@ pub fn generate_parser_in_directory(
         name: language_name,
         c_code,
         node_types_json,
-    } = generate_parser_for_grammar_with_opts(&grammar_json, minimize, state_ids_to_log)?;
+    } = generate_parser_for_grammar_with_opts(&grammar_json, minimize)?;
 
     write_file(&repo_src_path.join("parser.c"), c_code)?;
     write_file(&repo_src_path.join("node-types.json"), node_types_json)?;
@@ -85,14 +84,13 @@ pub fn generate_parser_in_directory(
 
 pub fn generate_parser_for_grammar(grammar_json: &str) -> Result<(String, String)> {
     let grammar_json = JSON_COMMENT_REGEX.replace_all(grammar_json, "\n");
-    let parser = generate_parser_for_grammar_with_opts(&grammar_json, true, Vec::new())?;
+    let parser = generate_parser_for_grammar_with_opts(&grammar_json, true)?;
     Ok((parser.name, parser.c_code))
 }
 
 fn generate_parser_for_grammar_with_opts(
     grammar_json: &str,
     minimize: bool,
-    state_ids_to_log: Vec<usize>,
 ) -> Result<GeneratedParser> {
     let input_grammar = parse_grammar(grammar_json)?;
     let (syntax_grammar, lexical_grammar, inlines, simple_aliases) =
@@ -111,7 +109,6 @@ fn generate_parser_for_grammar_with_opts(
         &variable_info,
         &inlines,
         minimize,
-        state_ids_to_log,
     )?;
     let name = input_grammar.name;
     let c_code = render_c_code(

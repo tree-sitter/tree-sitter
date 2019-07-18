@@ -1,10 +1,8 @@
 use clap::{App, AppSettings, Arg, SubCommand};
 use error::Error;
-use std::env;
-use std::fs;
+use std::{env, fs, u64};
 use std::path::Path;
 use std::process::exit;
-use std::{u64, usize};
 use tree_sitter_cli::{
     config, error, generate, highlight, loader, logger, parse, properties, test, wasm, web_ui,
 };
@@ -39,11 +37,6 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("grammar-path").index(1))
                 .arg(Arg::with_name("log").long("log"))
                 .arg(Arg::with_name("properties-only").long("properties"))
-                .arg(
-                    Arg::with_name("state-ids-to-log")
-                        .long("log-state")
-                        .takes_value(true),
-                )
                 .arg(Arg::with_name("no-minimize").long("no-minimize")),
         )
         .subcommand(
@@ -120,30 +113,17 @@ fn run() -> error::Result<()> {
         let config = config::Config::new(&home_dir);
         config.save(&home_dir)?;
     } else if let Some(matches) = matches.subcommand_matches("generate") {
-        if matches.is_present("log") {
-            logger::init();
-        }
-
         let grammar_path = matches.value_of("grammar-path");
         let minimize = !matches.is_present("no-minimize");
         let properties_only = matches.is_present("properties-only");
         let parser_only = grammar_path.is_some();
-        let state_ids_to_log = matches
-            .values_of("state-ids-to-log")
-            .map_or(Vec::new(), |ids| {
-                ids.filter_map(|id| usize::from_str_radix(id, 10).ok())
-                    .collect()
-            });
-
-        if !properties_only {
-            generate::generate_parser_in_directory(
-                &current_dir,
-                grammar_path,
-                minimize,
-                state_ids_to_log,
-            )?;
+        if matches.is_present("log") {
+            logger::init();
         }
 
+        if !properties_only {
+            generate::generate_parser_in_directory(&current_dir, grammar_path, minimize)?;
+        }
         if !parser_only {
             properties::generate_property_sheets_in_directory(&current_dir)?;
         }
