@@ -92,9 +92,9 @@ declare module 'web-tree-sitter' {
       endPosition: Point;
       startIndex: number;
       endIndex: number;
-      readonly currentNode: SyntaxNode
 
       reset(node: SyntaxNode): void
+      currentNode(): SyntaxNode;
       gotoParent(): boolean;
       gotoFirstChild(): boolean;
       gotoFirstChildForIndex(index: number): boolean;
