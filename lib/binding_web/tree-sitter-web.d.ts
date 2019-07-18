@@ -96,6 +96,7 @@ declare module 'web-tree-sitter' {
       reset(node: SyntaxNode): void;
       delete(): void;
       currentNode(): SyntaxNode;
+      currentFieldName(): string;
       gotoParent(): boolean;
       gotoFirstChild(): boolean;
       gotoFirstChildForIndex(index: number): boolean;
