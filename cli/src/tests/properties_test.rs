@@ -218,7 +218,7 @@ fn test_walk_with_properties_based_on_fields() {
     assert_eq!(
         *cursor.node_properties(),
         Properties {
-            a: None,
+            a: Some("w".to_string()),
             b: Some("z".to_string())
         }
     );

@@ -169,10 +169,6 @@ impl Builder {
         // First, compute all of the possible state transition conditions for
         // this state, and all of the rules that are currently matching.
         for item in &item_set {
-            if !is_start_state && item.step_id == 0 {
-                continue;
-            }
-
             let rule = &self.rules[item.rule_id as usize];
             let selector = &rule.selectors[item.selector_id as usize];
             let next_step = selector.0.get(item.step_id as usize);
@@ -239,7 +235,8 @@ impl Builder {
 
         // For eacy possible state transition, compute the set of items in that transition's
         // destination state.
-        for (transition, _) in transition_list.iter_mut() {
+        i = 0;
+        while i < transition_list.len() {
             let mut next_item_set = ItemSet::new();
             for item in &item_set {
                 let rule = &self.rules[item.rule_id as usize];
@@ -250,7 +247,7 @@ impl Builder {
                     // If the next step of the item's selector satisfies this transition,
                     // advance the item to the next part of its selector and add the
                     // resulting item to this transition's destination state.
-                    if step_matches_transition(step, &transition) {
+                    if step_matches_transition(step, &transition_list[i].0) {
                         next_item_set.insert(Item {
                             rule_id: item.rule_id,
                             selector_id: item.selector_id,
@@ -267,7 +264,15 @@ impl Builder {
                 }
             }
 
-            transition.state_id = self.add_state(next_item_set);
+            if !is_start_state {
+                if next_item_set.0.iter().all(|item| item.step_id == 1) {
+                    transition_list.remove(i);
+                    continue;
+                }
+            }
+
+            transition_list[i].0.state_id = self.add_state(next_item_set);
+            i += 1;
         }
 
         // Compute the merged properties that apply in the current state.

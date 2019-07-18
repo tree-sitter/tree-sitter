@@ -774,8 +774,9 @@ impl<'a, P> TreePropertyCursor<'a, P> {
 
     fn next_state(&self, node_child_index: usize) -> usize {
         let current_state = self.current_state();
+        let default_state = self.default_state();
 
-        for state in [current_state, self.default_state()].iter() {
+        for state in [current_state, default_state].iter() {
             let node_field_id = self.cursor.field_id();
             let node_kind_id = self.cursor.node().kind_id();
             let transitions = node_field_id
@@ -811,6 +812,10 @@ impl<'a, P> TreePropertyCursor<'a, P> {
 
                     return transition.state_id as usize;
                 }
+            }
+
+            if current_state as *const PropertyState == default_state as *const PropertyState {
+                break;
             }
         }
 
