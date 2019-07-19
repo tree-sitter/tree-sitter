@@ -4,7 +4,7 @@ use std::{env, fs, u64};
 use std::path::Path;
 use std::process::exit;
 use tree_sitter_cli::{
-    config, error, generate, highlight, loader, logger, parse, properties, test, wasm, web_ui,
+    config, error, generate, highlight, loader, logger, parse, test, wasm, web_ui,
 };
 
 const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -114,19 +114,11 @@ fn run() -> error::Result<()> {
         config.save(&home_dir)?;
     } else if let Some(matches) = matches.subcommand_matches("generate") {
         let grammar_path = matches.value_of("grammar-path");
-        let minimize = !matches.is_present("no-minimize");
         let properties_only = matches.is_present("properties-only");
-        let parser_only = grammar_path.is_some();
         if matches.is_present("log") {
             logger::init();
         }
-
-        if !properties_only {
-            generate::generate_parser_in_directory(&current_dir, grammar_path, minimize)?;
-        }
-        if !parser_only {
-            properties::generate_property_sheets_in_directory(&current_dir)?;
-        }
+        generate::generate_parser_in_directory(&current_dir, grammar_path, properties_only)?;
     } else if let Some(matches) = matches.subcommand_matches("test") {
         let debug = matches.is_present("debug");
         let debug_graph = matches.is_present("debug-graph");

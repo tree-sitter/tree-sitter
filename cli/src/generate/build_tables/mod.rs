@@ -26,7 +26,6 @@ pub(crate) fn build_tables(
     simple_aliases: &AliasMap,
     variable_info: &Vec<VariableInfo>,
     inlines: &InlinedProductionMap,
-    minimize: bool,
 ) -> Result<(ParseTable, LexTable, LexTable, Option<Symbol>)> {
     let (mut parse_table, following_tokens) =
         build_parse_table(syntax_grammar, lexical_grammar, inlines, variable_info)?;
@@ -48,16 +47,14 @@ pub(crate) fn build_tables(
         &keywords,
     );
     populate_used_symbols(&mut parse_table, syntax_grammar, lexical_grammar);
-    if minimize {
-        minimize_parse_table(
-            &mut parse_table,
-            syntax_grammar,
-            lexical_grammar,
-            simple_aliases,
-            &token_conflict_map,
-            &keywords,
-        );
-    }
+    minimize_parse_table(
+        &mut parse_table,
+        syntax_grammar,
+        lexical_grammar,
+        simple_aliases,
+        &token_conflict_map,
+        &keywords,
+    );
     let (main_lex_table, keyword_lex_table) = build_lex_table(
         &mut parse_table,
         syntax_grammar,
@@ -65,7 +62,6 @@ pub(crate) fn build_tables(
         &keywords,
         &coincident_token_index,
         &token_conflict_map,
-        minimize,
     );
     mark_fragile_tokens(&mut parse_table, lexical_grammar, &token_conflict_map);
     Ok((

@@ -1,20 +1,21 @@
 use crate::error::{Error, Result};
-use log::info;
+use crate::generate::dedup::split_state_id_groups;
 use rsass;
 use rsass::sass::Value;
 use rsass::selectors::SelectorPart;
 use serde_derive::Serialize;
+use std::cmp::Ordering;
 use std::collections::hash_map::Entry;
-use std::collections::{btree_map, BTreeMap, HashMap, VecDeque};
+use std::collections::{btree_map, BTreeMap, HashMap, HashSet, VecDeque};
 use std::fmt::{self, Write};
-use std::fs::{self, File};
-use std::io::BufWriter;
+use std::hash::{Hash, Hasher};
+use std::mem;
 use std::path::{Path, PathBuf};
 use tree_sitter::{self, PropertyStateJSON, PropertyTransitionJSON};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(untagged)]
-enum PropertyValue {
+pub(crate) enum PropertyValue {
     Number(isize),
     Boolean(bool),
     String(String),
@@ -27,7 +28,7 @@ type PropertySheetJSON = tree_sitter::PropertySheetJSON<PropertySet>;
 type StateId = usize;
 type PropertySetId = usize;
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct SelectorStep {
     kind: Option<String>,
     field: Option<String>,
@@ -37,7 +38,7 @@ struct SelectorStep {
     is_immediate: bool,
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
 struct Selector(Vec<SelectorStep>);
 
 #[derive(Debug, PartialEq, Eq)]
@@ -46,15 +47,15 @@ struct Rule {
     properties: PropertySet,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct Item {
+#[derive(Clone, Copy, Debug)]
+struct Item<'a> {
     rule_id: u32,
-    selector_id: u32,
+    selector: &'a Selector,
     step_id: u32,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
-struct ItemSet(Vec<Item>);
+#[derive(Clone, PartialEq, Eq)]
+struct ItemSet<'a>(Vec<Item<'a>>);
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct SelectorMatch {
@@ -62,19 +63,104 @@ struct SelectorMatch {
     rule_id: u32,
 }
 
-struct Builder {
-    rules: Vec<Rule>,
+struct Builder<'a> {
+    rules: &'a Vec<Rule>,
     output: PropertySheetJSON,
-    ids_by_item_set: HashMap<ItemSet, StateId>,
-    item_set_queue: VecDeque<(ItemSet, StateId)>,
+    start_item_set: ItemSet<'a>,
+    token_names: &'a HashSet<String>,
+    ids_by_item_set: HashMap<ItemSet<'a>, StateId>,
+    item_set_queue: VecDeque<(ItemSet<'a>, StateId)>,
+    item_set_list: Vec<ItemSet<'a>>,
 }
 
-impl ItemSet {
+impl<'a> Item<'a> {
+    fn next_step(&self) -> Option<&SelectorStep> {
+        self.selector.0.get(self.step_id as usize)
+    }
+
+    fn is_done(&self) -> bool {
+        self.step_id as usize == self.selector.0.len()
+    }
+}
+
+impl<'a> Ord for Item<'a> {
+    fn cmp(&self, other: &Item) -> Ordering {
+        self.rule_id
+            .cmp(&other.rule_id)
+            .then_with(|| self.selector.0.len().cmp(&other.selector.0.len()))
+            .then_with(|| {
+                for (i, step) in self
+                    .selector
+                    .0
+                    .iter()
+                    .enumerate()
+                    .skip(self.step_id as usize)
+                {
+                    let result = step.cmp(&other.selector.0[i]);
+                    if result != Ordering::Equal {
+                        return result;
+                    }
+                }
+                Ordering::Equal
+            })
+    }
+}
+
+impl<'a> PartialOrd for Item<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<'a> Hash for Item<'a> {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+        hasher.write_u32(self.rule_id);
+        hasher.write_usize(self.selector.0.len());
+        for step in &self.selector.0[self.step_id as usize..] {
+            step.hash(hasher);
+        }
+    }
+}
+
+impl<'a> PartialEq for Item<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        if self.rule_id != other.rule_id || self.selector.0.len() != other.selector.0.len() {
+            return false;
+        }
+
+        for (i, step) in self
+            .selector
+            .0
+            .iter()
+            .enumerate()
+            .skip(self.step_id as usize)
+        {
+            if *step != other.selector.0[i] {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
+impl<'a> Eq for Item<'a> {}
+
+impl<'a> Hash for ItemSet<'a> {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+        hasher.write_usize(self.0.len());
+        for item in &self.0 {
+            item.hash(hasher);
+        }
+    }
+}
+
+impl<'a> ItemSet<'a> {
     fn new() -> Self {
         ItemSet(Vec::new())
     }
 
-    fn insert(&mut self, item: Item) {
+    fn insert(&mut self, item: Item<'a>) {
         match self.0.binary_search(&item) {
             Err(i) => self.0.insert(i, item),
             _ => {}
@@ -82,40 +168,35 @@ impl ItemSet {
     }
 }
 
-impl<'a> IntoIterator for &'a ItemSet {
-    type Item = &'a Item;
-    type IntoIter = std::slice::Iter<'a, Item>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.iter()
-    }
-}
-
-impl Builder {
-    fn new(rules: Vec<Rule>) -> Self {
+impl<'a> Builder<'a> {
+    fn new(rules: &'a Vec<Rule>, token_names: &'a HashSet<String>) -> Self {
         Builder {
             rules,
+            start_item_set: ItemSet::new(),
+            item_set_list: Vec::new(),
             output: PropertySheetJSON {
                 states: Vec::new(),
                 property_sets: Vec::new(),
             },
+            token_names,
             ids_by_item_set: HashMap::new(),
             item_set_queue: VecDeque::new(),
         }
     }
 
     fn build(mut self) -> PropertySheetJSON {
-        let mut start_item_set = ItemSet::new();
         for (i, rule) in self.rules.iter().enumerate() {
-            for j in 0..rule.selectors.len() {
-                start_item_set.insert(Item {
+            for selector in &rule.selectors {
+                self.start_item_set.insert(Item {
                     rule_id: i as u32,
-                    selector_id: j as u32,
+                    selector,
                     step_id: 0,
                 });
             }
         }
 
-        self.add_state(start_item_set);
+        self.add_state(ItemSet::new());
+        self.output.states[0].id = Some(0);
         while let Some((item_set, state_id)) = self.item_set_queue.pop_front() {
             self.populate_state(item_set, state_id);
         }
@@ -129,7 +210,7 @@ impl Builder {
         self.output
     }
 
-    fn add_state(&mut self, item_set: ItemSet) -> StateId {
+    fn add_state(&mut self, item_set: ItemSet<'a>) -> StateId {
         match self.ids_by_item_set.entry(item_set) {
             Entry::Occupied(o) => *o.get(),
             Entry::Vacant(v) => {
@@ -161,21 +242,17 @@ impl Builder {
         }
     }
 
-    fn populate_state(&mut self, item_set: ItemSet, state_id: StateId) {
+    fn populate_state(&mut self, item_set: ItemSet<'a>, state_id: StateId) {
         let is_start_state = state_id == 0;
         let mut transitions: HashMap<PropertyTransitionJSON, u32> = HashMap::new();
         let mut selector_matches = Vec::new();
 
         // First, compute all of the possible state transition conditions for
         // this state, and all of the rules that are currently matching.
-        for item in &item_set {
-            let rule = &self.rules[item.rule_id as usize];
-            let selector = &rule.selectors[item.selector_id as usize];
-            let next_step = selector.0.get(item.step_id as usize);
-
+        for item in item_set.0.iter().chain(self.start_item_set.0.iter()) {
             // If this item has more elements remaining in its selector, then
             // add a state transition based on the next step.
-            if let Some(step) = next_step {
+            if let Some(step) = item.next_step() {
                 transitions
                     .entry(PropertyTransitionJSON {
                         kind: step.kind.clone(),
@@ -197,10 +274,27 @@ impl Builder {
             else {
                 selector_matches.push(SelectorMatch {
                     rule_id: item.rule_id,
-                    specificity: selector_specificity(selector),
+                    specificity: selector_specificity(item.selector),
                 });
             }
         }
+
+        // Compute the merged properties that apply in the current state.
+        // Sort the matching property sets by ascending specificity and by
+        // their order in the sheet. This way, more specific selectors and later
+        // rules will override less specific selectors and earlier rules.
+        let mut properties = PropertySet::new();
+        selector_matches.sort_unstable_by(|a, b| {
+            (a.specificity.cmp(&b.specificity)).then_with(|| a.rule_id.cmp(&b.rule_id))
+        });
+        selector_matches.dedup();
+        for selector_match in selector_matches {
+            let rule = &self.rules[selector_match.rule_id as usize];
+            for (property, value) in &rule.properties {
+                properties.insert(property.clone(), value.clone());
+            }
+        }
+        self.output.states[state_id].property_set_id = self.add_property_set(properties);
 
         // If there are multiple transitions that could *both* match (e.g. one based on a
         // a node type and one based on a field name), then create an additional transition
@@ -237,80 +331,75 @@ impl Builder {
         // destination state.
         i = 0;
         while i < transition_list.len() {
-            let mut next_item_set = ItemSet::new();
-            for item in &item_set {
-                let rule = &self.rules[item.rule_id as usize];
-                let selector = &rule.selectors[item.selector_id as usize];
-                let next_step = selector.0.get(item.step_id as usize);
+            let transition = &mut transition_list[i].0;
+            let transition_is_leaf = transition.named == Some(false)
+                || transition
+                    .kind
+                    .as_ref()
+                    .map_or(false, |kind| self.token_names.contains(kind));
 
-                if let Some(step) = next_step {
+            let mut next_item_set = ItemSet::new();
+            let mut transition_differs_from_start_state = false;
+            for item in item_set.0.iter().chain(self.start_item_set.0.iter()) {
+                if let Some(next_step) = item.next_step() {
                     // If the next step of the item's selector satisfies this transition,
                     // advance the item to the next part of its selector and add the
                     // resulting item to this transition's destination state.
-                    if step_matches_transition(step, &transition_list[i].0) {
-                        next_item_set.insert(Item {
+                    if step_matches_transition(next_step, transition) {
+                        let next_item = Item {
                             rule_id: item.rule_id,
-                            selector_id: item.selector_id,
+                            selector: item.selector,
                             step_id: item.step_id + 1,
-                        });
+                        };
+                        if !transition_is_leaf || next_item.is_done() {
+                            next_item_set.insert(next_item);
+                            if item.step_id > 0 {
+                                transition_differs_from_start_state = true;
+                            }
+                        }
                     }
 
                     // If the next step of the item is not an immediate child, then
                     // include this item in this transition's destination state, because
                     // the next step of the item might match a descendant node.
-                    if !step.is_immediate {
+                    if !transition_is_leaf && !next_step.is_immediate && item.step_id > 0 {
                         next_item_set.insert(*item);
+                        transition_differs_from_start_state = true;
                     }
                 }
             }
 
-            if !is_start_state {
-                if next_item_set.0.iter().all(|item| item.step_id == 1) {
-                    transition_list.remove(i);
+            if (is_start_state || transition_differs_from_start_state)
+                && !next_item_set.0.is_empty()
+            {
+                transition.state_id = self.add_state(next_item_set);
+                if is_start_state || !self.output.states[0].transitions.contains(&transition) {
+                    i += 1;
                     continue;
                 }
             }
-
-            transition_list[i].0.state_id = self.add_state(next_item_set);
-            i += 1;
+            transition_list.remove(i);
         }
 
-        // Compute the merged properties that apply in the current state.
-        // Sort the matching property sets by ascending specificity and by
-        // their order in the sheet. This way, more specific selectors and later
-        // rules will override less specific selectors and earlier rules.
-        let mut properties = PropertySet::new();
-        selector_matches.sort_unstable_by(|a, b| {
-            (a.specificity.cmp(&b.specificity)).then_with(|| a.rule_id.cmp(&b.rule_id))
-        });
-        selector_matches.dedup();
-        for selector_match in selector_matches {
-            let rule = &self.rules[selector_match.rule_id as usize];
-            for (property, value) in &rule.properties {
-                properties.insert(property.clone(), value.clone());
-            }
-        }
+        self.output.states[state_id]
+            .transitions
+            .extend(transition_list.into_iter().map(|i| i.0));
 
         // Compute the default successor item set - the item set that
         // we should advance to if the next element doesn't match any
         // of the next elements in the item set's selectors.
         let mut default_next_item_set = ItemSet::new();
-        for item in &item_set {
-            let rule = &self.rules[item.rule_id as usize];
-            let selector = &rule.selectors[item.selector_id as usize];
-            let next_step = selector.0.get(item.step_id as usize);
+        for item in &item_set.0 {
+            let next_step = item.selector.0.get(item.step_id as usize);
             if let Some(step) = next_step {
                 if !step.is_immediate {
                     default_next_item_set.insert(*item);
                 }
             }
         }
-
         self.output.states[state_id].default_next_state_id = self.add_state(default_next_item_set);
-        self.output.states[state_id].property_set_id = self.add_property_set(properties);
-        self.output.states[state_id]
-            .transitions
-            .extend(transition_list.into_iter().map(|i| i.0));
+
+        self.item_set_list.push(item_set);
     }
 
     fn intersect_transitions(
@@ -339,71 +428,78 @@ impl Builder {
     }
 
     fn remove_duplicate_states(&mut self) {
-        let mut state_replacements = BTreeMap::new();
-        let mut done = false;
-        while !done {
-            done = true;
-            for (i, state_i) in self.output.states.iter().enumerate() {
-                if state_replacements.contains_key(&i) {
-                    continue;
-                }
-                for (j, state_j) in self.output.states.iter().enumerate() {
-                    if j == i {
-                        break;
-                    }
-                    if state_replacements.contains_key(&j) {
-                        continue;
-                    }
-                    if state_i == state_j {
-                        info!("replace state {} with state {}", i, j);
-                        state_replacements.insert(i, j);
-                        done = false;
-                        break;
-                    }
-                }
-            }
-            for state in self.output.states.iter_mut() {
-                for transition in state.transitions.iter_mut() {
-                    if let Some(replacement) = state_replacements.get(&transition.state_id) {
-                        transition.state_id = *replacement;
-                    }
-                }
-                if let Some(replacement) = state_replacements.get(&state.default_next_state_id) {
-                    state.default_next_state_id = *replacement;
-                }
-                state.transitions.dedup();
-            }
+        let mut state_ids_by_properties = HashMap::new();
+        for (i, state) in self.output.states.iter().enumerate() {
+            state_ids_by_properties
+                .entry(state.property_set_id)
+                .or_insert(Vec::new())
+                .push(i);
         }
-
-        let final_state_replacements = (0..self.output.states.len())
+        let mut state_ids_by_group_id = state_ids_by_properties
             .into_iter()
-            .map(|state_id| {
-                let replacement = state_replacements
-                    .get(&state_id)
-                    .cloned()
-                    .unwrap_or(state_id);
-                let prior_removed = state_replacements
-                    .iter()
-                    .take_while(|i| *i.0 < replacement)
-                    .count();
-                replacement - prior_removed
-            })
+            .map(|e| e.1)
             .collect::<Vec<_>>();
+        state_ids_by_group_id.sort();
+        let start_group_index = state_ids_by_group_id
+            .iter()
+            .position(|g| g.contains(&0))
+            .unwrap();
+        state_ids_by_group_id.swap(start_group_index, 0);
 
-        for state in self.output.states.iter_mut() {
-            for transition in state.transitions.iter_mut() {
-                transition.state_id = final_state_replacements[transition.state_id];
+        let mut group_ids_by_state_id = vec![0; self.output.states.len()];
+        for (group_id, state_ids) in state_ids_by_group_id.iter().enumerate() {
+            for state_id in state_ids {
+                group_ids_by_state_id[*state_id] = group_id;
             }
-            state.default_next_state_id = final_state_replacements[state.default_next_state_id]
         }
 
-        let mut i = 0;
-        self.output.states.retain(|_| {
-            let result = !state_replacements.contains_key(&i);
-            i += 1;
-            result
-        });
+        while split_state_id_groups(
+            &self.output.states,
+            &mut state_ids_by_group_id,
+            &mut group_ids_by_state_id,
+            0,
+            property_states_differ,
+        ) {
+            continue;
+        }
+
+        let mut new_states = Vec::with_capacity(state_ids_by_group_id.len());
+        for state_ids in state_ids_by_group_id.iter() {
+            let mut new_state = PropertyStateJSON::default();
+            mem::swap(&mut new_state, &mut self.output.states[state_ids[0]]);
+            for transition in new_state.transitions.iter_mut() {
+                transition.state_id = group_ids_by_state_id[transition.state_id];
+            }
+            new_state.default_next_state_id =
+                group_ids_by_state_id[new_state.default_next_state_id];
+            new_states.push(new_state);
+        }
+        self.output.states = new_states;
     }
+}
+
+fn property_states_differ(
+    left: &PropertyStateJSON,
+    right: &PropertyStateJSON,
+    group_ids_by_state_id: &Vec<usize>,
+) -> bool {
+    if group_ids_by_state_id[left.default_next_state_id]
+        != group_ids_by_state_id[right.default_next_state_id]
+    {
+        return true;
+    }
+
+    left.transitions
+        .iter()
+        .zip(right.transitions.iter())
+        .any(|(left, right)| {
+            left.kind != right.kind
+                || left.named != right.named
+                || left.index != right.index
+                || left.field != right.field
+                || left.text != right.text
+                || group_ids_by_state_id[left.state_id] != group_ids_by_state_id[right.state_id]
+        })
 }
 
 fn selector_specificity(selector: &Selector) -> u32 {
@@ -464,6 +560,9 @@ fn step_matches_transition(step: &SelectorStep, transition: &PropertyTransitionJ
 
 impl fmt::Debug for SelectorStep {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.is_immediate {
+            write!(f, "> ")?;
+        }
         write!(f, "(")?;
         if let Some(kind) = &self.kind {
             if self.is_named.unwrap() {
@@ -502,38 +601,13 @@ impl fmt::Debug for Selector {
     }
 }
 
-pub fn generate_property_sheets_in_directory(repo_path: &Path) -> Result<()> {
-    let src_dir_path = repo_path.join("src");
-    let properties_dir_path = repo_path.join("properties");
-
-    if let Ok(entries) = fs::read_dir(properties_dir_path) {
-        for entry in entries {
-            let css_path = entry?.path();
-            let css = fs::read_to_string(&css_path)?;
-            let sheet = generate_property_sheet(&css_path, &css)?;
-            let property_sheet_json_path = src_dir_path
-                .join(css_path.file_name().unwrap())
-                .with_extension("json");
-            let property_sheet_json_file =
-                File::create(&property_sheet_json_path).map_err(Error::wrap(|| {
-                    format!("Failed to create {:?}", property_sheet_json_path)
-                }))?;
-            let mut writer = BufWriter::new(property_sheet_json_file);
-            serde_json::to_writer_pretty(&mut writer, &sheet)?;
-        }
-    }
-
-    Ok(())
-}
-
-pub fn generate_property_sheet_string(path: impl AsRef<Path>, css: &str) -> Result<String> {
-    let sheet = generate_property_sheet(path, css)?;
-    Ok(serde_json::to_string(&sheet)?)
-}
-
-fn generate_property_sheet(path: impl AsRef<Path>, css: &str) -> Result<PropertySheetJSON> {
+pub(crate) fn generate_property_sheet(
+    path: impl AsRef<Path>,
+    css: &str,
+    token_names: &HashSet<String>,
+) -> Result<PropertySheetJSON> {
     let rules = parse_property_sheet(path.as_ref(), &css)?;
-    Ok(Builder::new(rules).build())
+    Ok(Builder::new(&rules, token_names).build())
 }
 
 fn parse_property_sheet(path: &Path, css: &str) -> Result<Vec<Rule>> {
@@ -868,6 +942,7 @@ fn interpolation_error() -> Error {
 mod tests {
     use super::*;
     use regex::Regex;
+    use std::fs;
     use tempfile::TempDir;
 
     #[test]
@@ -897,6 +972,7 @@ mod tests {
                   height: 3;
                 }
             ",
+            &HashSet::new(),
         )
         .unwrap();
 
@@ -996,6 +1072,7 @@ mod tests {
                   color: purple;
                 }
             ",
+            &HashSet::new(),
         )
         .unwrap();
 
@@ -1040,6 +1117,7 @@ mod tests {
                 }
                 .x { color: violet; }
             ",
+            &HashSet::new(),
         )
         .unwrap();
 
@@ -1095,6 +1173,7 @@ mod tests {
                 f1 f2[text='a'] { color: blue; }
                 f1 f2[text='b'] { color: violet; }
             ",
+            &HashSet::new(),
         )
         .unwrap();
 
@@ -1150,6 +1229,7 @@ mod tests {
                   c: f(g(h), i, \"j\", 10);
                 }
             ",
+            &HashSet::new(),
         )
         .unwrap();
 
@@ -1190,6 +1270,7 @@ mod tests {
                   );
                 }
             ",
+            &HashSet::new(),
         )
         .unwrap();
 
@@ -1212,6 +1293,7 @@ mod tests {
                   c: h();
                 }
             ",
+            &HashSet::new(),
         )
         .unwrap();
 
@@ -1285,6 +1367,7 @@ mod tests {
             @import "the-dependency/properties/dependency-sheet1.css";
             b { y: '4'; }
             "#,
+            &HashSet::new(),
         )
         .unwrap();
 

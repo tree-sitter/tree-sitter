@@ -18,7 +18,6 @@ pub(crate) fn build_lex_table(
     keywords: &TokenSet,
     coincident_token_index: &CoincidentTokenIndex,
     token_conflict_map: &TokenConflictMap,
-    minimize: bool,
 ) -> (LexTable, LexTable) {
     let keyword_lex_table;
     if syntax_grammar.word_token.is_some() {
@@ -78,12 +77,8 @@ pub(crate) fn build_lex_table(
     }
 
     let mut table = builder.table;
-
-    if minimize {
-        minimize_lex_table(&mut table, parse_table);
-        sort_states(&mut table, parse_table);
-    }
-
+    minimize_lex_table(&mut table, parse_table);
+    sort_states(&mut table, parse_table);
     (table, keyword_lex_table)
 }
 

@@ -104,7 +104,7 @@ pub struct PropertyTransitionJSON {
     pub state_id: usize,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub struct PropertyStateJSON {
     pub id: Option<usize>,
     pub property_set_id: usize,

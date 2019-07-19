@@ -1,7 +1,9 @@
 use super::helpers::fixtures::get_language;
-use crate::properties;
+use crate::generate::properties;
 use serde_derive::Deserialize;
+use serde_json;
 use tree_sitter::{Parser, PropertySheet};
+use std::collections::HashSet;
 
 #[derive(Debug, Default, Deserialize, PartialEq, Eq)]
 struct Properties {
@@ -14,7 +16,7 @@ fn test_walk_with_properties_with_nth_child() {
     let language = get_language("javascript");
     let property_sheet = PropertySheet::<Properties>::new(
         language,
-        &properties::generate_property_sheet_string(
+        &generate_property_sheet_string(
             "/some/path.css",
             "
                 binary_expression > identifier:nth-child(2) {
@@ -30,7 +32,6 @@ fn test_walk_with_properties_with_nth_child() {
                 }
             ",
         )
-        .unwrap(),
     )
     .unwrap();
 
@@ -90,7 +91,7 @@ fn test_walk_with_properties_with_regexes() {
     let language = get_language("javascript");
     let property_sheet = PropertySheet::<Properties>::new(
         language,
-        &properties::generate_property_sheet_string(
+        &generate_property_sheet_string(
             "/some/path.css",
             "
                 identifier {
@@ -106,7 +107,6 @@ fn test_walk_with_properties_with_regexes() {
                 }
             ",
         )
-        .unwrap(),
     )
     .unwrap();
 
@@ -174,7 +174,7 @@ fn test_walk_with_properties_based_on_fields() {
     let language = get_language("javascript");
     let property_sheet = PropertySheet::<Properties>::new(
         language,
-        &properties::generate_property_sheet_string(
+        &generate_property_sheet_string(
             "/some/path.css",
             "
                 arrow_function > .parameter {
@@ -196,7 +196,6 @@ fn test_walk_with_properties_based_on_fields() {
                 }
             ",
         )
-        .unwrap(),
     )
     .unwrap();
 
@@ -258,4 +257,8 @@ fn test_walk_with_properties_based_on_fields() {
             b: None,
         }
     );
+}
+
+fn generate_property_sheet_string(path: &str, css: &str) -> String {
+    serde_json::to_string(&properties::generate_property_sheet(path, css, &HashSet::new()).unwrap()).unwrap()
 }
