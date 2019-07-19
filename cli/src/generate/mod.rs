@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 mod build_tables;
+mod dedup;
 mod grammars;
 mod nfa;
 mod node_types;

@@ -1,6 +1,6 @@
 use super::item::TokenSet;
-use super::split_state_id_groups;
 use super::token_conflicts::TokenConflictMap;
+use crate::generate::dedup::split_state_id_groups;
 use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar, VariableType};
 use crate::generate::rules::{AliasMap, Symbol};
 use crate::generate::tables::{ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry};
