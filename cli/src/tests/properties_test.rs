@@ -2,9 +2,9 @@ use super::helpers::fixtures::get_language;
 use crate::generate::properties;
 use serde_derive::Deserialize;
 use serde_json;
-use tree_sitter::{Parser, PropertySheet};
-use std::collections::HashSet;
 
+use std::collections::HashSet;
+use tree_sitter::{Parser, PropertySheet};
 #[derive(Debug, Default, Deserialize, PartialEq, Eq)]
 struct Properties {
     a: Option<String>,
@@ -31,7 +31,7 @@ fn test_walk_with_properties_with_nth_child() {
                     a: z;
                 }
             ",
-        )
+        ),
     )
     .unwrap();
 
@@ -106,7 +106,7 @@ fn test_walk_with_properties_with_regexes() {
                     a: x;
                 }
             ",
-        )
+        ),
     )
     .unwrap();
 
@@ -195,7 +195,7 @@ fn test_walk_with_properties_based_on_fields() {
                     a: w;
                 }
             ",
-        )
+        ),
     )
     .unwrap();
 
@@ -260,5 +260,6 @@ fn test_walk_with_properties_based_on_fields() {
 }
 
 fn generate_property_sheet_string(path: &str, css: &str) -> String {
-    serde_json::to_string(&properties::generate_property_sheet(path, css, &HashSet::new()).unwrap()).unwrap()
+    serde_json::to_string(&properties::generate_property_sheet(path, css, &HashSet::new()).unwrap())
+        .unwrap()
 }

@@ -407,24 +407,68 @@ impl<'a> Builder<'a> {
         left: &PropertyTransitionJSON,
         right: &PropertyTransitionJSON,
     ) -> Option<PropertyTransitionJSON> {
-        // If one transition is based on the node's type and the other
-        // is based on its field name, then create a combined transition
-        // wiht *both* criteria.
-        if let (Some(left_field), None) = (&left.field, &left.kind) {
-            if right.field.is_none() {
-                let mut result = right.clone();
-                result.field = Some(left_field.clone());
-                return Some(result);
+        let mut left_contributes = false;
+        let mut right_contributes = false;
+        let mut result = left.clone();
+
+        if let Some(left_kind) = &left.kind {
+            if let Some(right_kind) = &right.kind {
+                if left_kind != right_kind || left.named != right.named {
+                    return None;
+                }
+            } else {
+                left_contributes = true;
             }
+        } else if let Some(right_kind) = &right.kind {
+            result.kind = Some(right_kind.clone());
+            result.named = right.named;
+            right_contributes = true;
         }
-        if let (Some(right_field), None) = (&right.field, &right.kind) {
-            if left.field.is_none() {
-                let mut result = left.clone();
-                result.field = Some(right_field.clone());
-                return Some(result);
+
+        if let Some(left_field) = &left.field {
+            if let Some(right_field) = &right.field {
+                if left_field != right_field {
+                    return None;
+                }
+            } else {
+                left_contributes = true;
             }
+        } else if let Some(right_field) = &right.field {
+            result.field = Some(right_field.clone());
+            right_contributes = true;
         }
-        return None;
+
+        if let Some(left_text) = &left.text {
+            if let Some(right_text) = &right.text {
+                if left_text != right_text {
+                    return None;
+                }
+            } else {
+                left_contributes = true;
+            }
+        } else if let Some(right_text) = &right.text {
+            result.text = Some(right_text.clone());
+            right_contributes = true;
+        }
+
+        if let Some(left_index) = &left.index {
+            if let Some(right_index) = &right.index {
+                if left_index != right_index {
+                    return None;
+                }
+            } else {
+                left_contributes = true;
+            }
+        } else if let Some(right_index) = &right.index {
+            result.index = Some(right_index.clone());
+            right_contributes = true;
+        }
+
+        if left_contributes && right_contributes {
+            Some(result)
+        } else {
+            None
+        }
     }
 
     fn remove_duplicate_states(&mut self) {
