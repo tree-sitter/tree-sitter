@@ -9,9 +9,9 @@ if a is:
 ---
 
 (module
-  (if_statement (identifier) (ERROR)
+  (if_statement (identifier) (ERROR) (block
     (print_statement (identifier))
-    (print_statement (identifier))))
+    (print_statement (identifier)))))
 
 ==========================================
 errors in function definitions
@@ -24,6 +24,6 @@ def a()::
 ---
 
 (module
-  (function_definition (identifier) (parameters) (ERROR)
+  (function_definition (identifier) (parameters) (ERROR) (block
     (expression_statement (identifier))
-    (expression_statement (identifier))))
+    (expression_statement (identifier)))))
