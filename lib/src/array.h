@@ -48,8 +48,8 @@ extern "C" {
 
 #define array_grow_by(self, count) \
   (array__grow((VoidArray *)(self), count, array__elem_size(self)), \
-   (self)->size += count, \
-   memset((self)->contents + (self)->size, 0, (count) * array__elem_size(self)))
+   memset((self)->contents + (self)->size, 0, (count) * array__elem_size(self)), \
+   (self)->size += (count))
 
 #define array_push_all(self, other)                                       \
   array_splice((self), (self)->size, 0, (other)->size, (other)->contents)
