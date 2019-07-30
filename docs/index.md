@@ -52,6 +52,7 @@ Parsers for these languages are in development:
 * [C-sharp](https://github.com/tree-sitter/tree-sitter-c-sharp)
 * [Haskell](https://github.com/tree-sitter/tree-sitter-haskell)
 * [Julia](https://github.com/tree-sitter/tree-sitter-julia)
+* [Nix](https://github.com/cstrahan/tree-sitter-nix)
 * [Scala](https://github.com/tree-sitter/tree-sitter-scala)
 
 ### Talks on Tree-sitter
