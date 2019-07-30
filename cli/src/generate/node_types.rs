@@ -26,7 +26,7 @@ pub(crate) struct FieldInfo {
 pub(crate) struct VariableInfo {
     pub fields: HashMap<String, FieldInfo>,
     pub child_types: Vec<ChildType>,
-    pub child_types_without_fields: Vec<ChildType>,
+    pub children_without_fields: FieldInfo,
     pub has_multi_step_production: bool,
 }
 
@@ -71,7 +71,11 @@ pub(crate) fn get_variable_info(
         let mut info = VariableInfo {
             fields: HashMap::new(),
             child_types: Vec::new(),
-            child_types_without_fields: Vec::new(),
+            children_without_fields: FieldInfo {
+                multiple: false,
+                required: true,
+                types: Vec::new(),
+            },
             has_multi_step_production: false,
         };
 
@@ -102,9 +106,10 @@ pub(crate) fn get_variable_info(
             } else if variable_type_for_child_type(&child_type, syntax_grammar, lexical_grammar)
                 == VariableType::Named
             {
-                if let Err(i) = info.child_types_without_fields.binary_search(&child_type) {
-                    info.child_types_without_fields
-                        .insert(i, child_type.clone());
+                let children_info = &mut info.children_without_fields;
+                children_info.multiple |= is_recursive;
+                if let Err(i) = children_info.types.binary_search(&child_type) {
+                    children_info.types.insert(i, child_type.clone());
                 }
             }
 
@@ -132,6 +137,30 @@ pub(crate) fn get_variable_info(
                 if occurrence_count > 1 {
                     field_info.multiple = true;
                 }
+            }
+
+            let named_children_without_fields_count = production
+                .steps
+                .iter()
+                .filter(|s| {
+                    if s.field_name.is_some() {
+                        false
+                    } else if let Some(alias) = &s.alias {
+                        alias.is_named
+                    } else if s.symbol.is_non_terminal() {
+                        true
+                    } else if s.symbol.is_external() {
+                        syntax_grammar.external_tokens[s.symbol.index].kind == VariableType::Named
+                    } else {
+                        lexical_grammar.variables[s.symbol.index].kind == VariableType::Named
+                    }
+                })
+                .count();
+            if named_children_without_fields_count == 0 {
+                info.children_without_fields.required = false;
+            }
+            if named_children_without_fields_count > 1 {
+                info.children_without_fields.multiple = true;
             }
         }
 
@@ -214,13 +243,29 @@ pub(crate) fn get_variable_info(
                         }
                     } else {
                         // Inherit child types without fields from this hidden child
-                        for child_type in &child_variable_info.child_types_without_fields {
+                        // Inherit info about children w/o fields from this hidden child
+                        let grandchildren_info = &child_variable_info.children_without_fields;
+                        if grandchildren_info.multiple
+                            && !variable_info.children_without_fields.multiple
+                        {
+                            variable_info.children_without_fields.multiple = true;
+                            done = false;
+                        }
+                        // if !grandchildren_info.required
+                        //     && variable_info.children_without_fields.required
+                        // {
+                        //     variable_info.children_without_fields.required = false;
+                        //     done = false;
+                        // }
+                        for child_type in &grandchildren_info.types {
                             if let Err(i) = variable_info
-                                .child_types_without_fields
+                                .children_without_fields
+                                .types
                                 .binary_search(&child_type)
                             {
                                 variable_info
-                                    .child_types_without_fields
+                                    .children_without_fields
+                                    .types
                                     .insert(i, child_type.clone());
                                 done = false;
                             }
@@ -281,14 +326,15 @@ pub(crate) fn get_variable_info(
 
         for supertype_symbol in &syntax_grammar.supertype_symbols {
             sorted_vec_replace(
-                &mut variable_info.child_types_without_fields,
+                &mut variable_info.children_without_fields.types,
                 &result[supertype_symbol.index].child_types,
                 ChildType::Normal(*supertype_symbol),
             );
         }
 
         variable_info
-            .child_types_without_fields
+            .children_without_fields
+            .types
             .retain(child_type_is_visible);
 
         result[i] = variable_info;
@@ -522,17 +568,18 @@ pub(crate) fn generate_node_types_json(
                 field_info_json.types.dedup();
             }
             node_type_json.fields = Some(fields_json);
-            if info.child_types_without_fields.len() > 0 {
-                let mut children_types = info
-                    .child_types_without_fields
-                    .iter()
-                    .map(child_type_to_node_type)
-                    .collect::<Vec<_>>();
+            let mut children_types = info
+                .children_without_fields
+                .types
+                .iter()
+                .map(child_type_to_node_type)
+                .collect::<Vec<_>>();
+            if children_types.len() > 0 {
                 children_types.sort_unstable();
                 children_types.dedup();
                 node_type_json.children = Some(FieldInfoJSON {
-                    multiple: true,
-                    required: false,
+                    multiple: info.children_without_fields.multiple,
+                    required: info.children_without_fields.required,
                     types: children_types,
                 });
             }
@@ -769,7 +816,11 @@ mod tests {
                 Variable {
                     name: "v2".to_string(),
                     kind: VariableType::Named,
-                    rule: Rule::string("x"),
+                    rule: Rule::seq(vec![
+                        Rule::string("{"),
+                        Rule::choice(vec![Rule::named("v3"), Rule::Blank]),
+                        Rule::string("}"),
+                    ]),
                 },
                 Variable {
                     name: "v3".to_string(),
@@ -779,7 +830,7 @@ mod tests {
                 Variable {
                     name: "v4".to_string(),
                     kind: VariableType::Named,
-                    rule: Rule::string("x"),
+                    rule: Rule::string("y"),
                 },
             ],
         });
@@ -792,7 +843,7 @@ mod tests {
                 subtypes: None,
                 children: Some(FieldInfoJSON {
                     multiple: true,
-                    required: false,
+                    required: true,
                     types: vec![
                         NodeTypeJSON {
                             kind: "v2".to_string(),
@@ -819,6 +870,23 @@ mod tests {
                     .into_iter()
                     .collect()
                 )
+            }
+        );
+        assert_eq!(
+            node_types[1],
+            NodeInfoJSON {
+                kind: "v2".to_string(),
+                named: true,
+                subtypes: None,
+                children: Some(FieldInfoJSON {
+                    multiple: false,
+                    required: false,
+                    types: vec![NodeTypeJSON {
+                        kind: "v3".to_string(),
+                        named: true,
+                    },]
+                }),
+                fields: Some(BTreeMap::new()),
             }
         );
     }
