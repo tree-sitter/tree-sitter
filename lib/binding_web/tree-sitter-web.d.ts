@@ -35,10 +35,11 @@ declare module 'web-tree-sitter' {
       type: "parse" | "lex"
     ) => void;
 
-    export interface Input {
-      seek(index: number): void;
-      read(): any;
-    }
+    export type Input = (
+      startIndex: number,
+      startPoint?: Point,
+      endIndex?: number,
+    ) => string | null;
 
     export interface SyntaxNode {
       tree: Tree;
