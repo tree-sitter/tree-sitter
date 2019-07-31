@@ -216,7 +216,7 @@ func x() int {
       (return_statement (number)))))
 ```
 
-The name of the test is written between two lines containing only `=` characters. Then the source code is written, followed by a line containing three or more `-` characters. Then, the expected syntax tree is written as an [S-expression][s-exp]. The exact placement of whitespace in the S-expression doesn't matter, but ideally the syntax tree should be legible. Note that the S-expression does not show syntax nodes like `func`, `(` and `;`, which are expressed as strings and regexes in the grammar. It only shows the *named* nodes, as described in [the previous page](/using-parsers#named-vs-anonymous-nodes).
+The name of the test is written between two lines containing only `=` characters. Then the source code is written, followed by a line containing three or more `-` characters. Then, the expected syntax tree is written as an [S-expression][s-exp]. The exact placement of whitespace in the S-expression doesn't matter, but ideally the syntax tree should be legible. Note that the S-expression does not show syntax nodes like `func`, `(` and `;`, which are expressed as strings and regexes in the grammar. It only shows the *named* nodes, as described in [the previous page][named-vs-anonymous-nodes-section].
 
 These tests are important. They serve as the parser's API documentation, and they can be run every time you change the grammar to verify that everything still parses correctly. You can run these tests using this command:
 
@@ -622,6 +622,7 @@ if (valid_symbols[INDENT] || valid_symbol[DEDENT]) {
 [lr-conflict]: https://en.wikipedia.org/wiki/LR_parser#Conflicts_in_the_constructed_tables
 [lr-grammars]: https://en.wikipedia.org/wiki/LR_parser
 [multi-language-section]: ./using-parsers#multi-language-documents
+[named-vs-anonymous-nodes-section]: ./using-parsers#named-vs-anonymous-nodes
 [nan]: https://github.com/nodejs/nan
 [node-module]: https://www.npmjs.com/package/tree-sitter-cli
 [node.js]: https://nodejs.org
