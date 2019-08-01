@@ -216,7 +216,7 @@ func x() int {
       (return_statement (number)))))
 ```
 
-The name of the test is written between two lines containing only `=` characters. Then the source code is written, followed by a line containing three or more `-` characters. Then, the expected syntax tree is written as an [S-expression][s-exp]. The exact placement of whitespace in the S-expression doesn't matter, but ideally the syntax tree should be legible. Note that the S-expression does not show syntax nodes like `func`, `(` and `;`, which are expressed as strings and regexes in the grammar. It only shows the *named* nodes, as described in [the previous page](/using-parsers#named-vs-anonymous-nodes).
+The name of the test is written between two lines containing only `=` characters. Then the source code is written, followed by a line containing three or more `-` characters. Then, the expected syntax tree is written as an [S-expression][s-exp]. The exact placement of whitespace in the S-expression doesn't matter, but ideally the syntax tree should be legible. Note that the S-expression does not show syntax nodes like `func`, `(` and `;`, which are expressed as strings and regexes in the grammar. It only shows the *named* nodes, as described in [the previous page][named-vs-anonymous-nodes-section].
 
 These tests are important. They serve as the parser's API documentation, and they can be run every time you change the grammar to verify that everything still parses correctly. You can run these tests using this command:
 
@@ -249,7 +249,7 @@ The following is a complete list of built-in functions you can use to define Tre
 * **Right Associativity : `prec.right([number], rule)`** - This function is like `prec.left`, but it instructs Tree-sitter to prefer matching a rule that ends *later*.
 * **Dynamic Precedence : `prec.dynamic(number, rule)`** - This function is similar to `prec`, but the given numerical precedence is applied at *runtime* instead of at parser generation time. This is only necessary when handling a conflict dynamically using the the `conflicts` field in the grammar, and when there is a genuine *ambiguity*: multiple rules correctly match a given piece of code. In that event, Tree-sitter compares the total dynamic precedence associated with each rule, and selects the one with the highest total. This is similar to [dynamic precedence directives][bison-dprec] in Bison grammars.
 * **Tokens : `token(rule)`** - This function marks the given rule as producing only a single token. Tree-sitter's default is to treat each String or RegExp literal in the grammar as a separate token. Each token is matched separately by the lexer and returned as its own leaf node in the tree. The `token` function allows you to express a complex rule using the functions described above (rather than as a single regular expression) but still have Tree-sitter treat it as a single token.
-* **Aliases : `alias(rule, name)`** - This function causes the given rule to *appear* with an alternative name in the syntax tree. It is useful in cases where a language construct needs to be parsed differently in different contexts (and thus needs to be defined using multiple symbols), but should always *appear* as the same type of node.
+* **Aliases : `alias(rule, name)`** - Depending on the *type* of the `name` argument this does one of two closely related things: Given `alias($.foo, $.bar)` it uses the rule `foo` but makes it *appear* in the syntax tree as a [named node][named-vs-anonymous-nodes-section] with the name `bar` instead. However when the second argument given is a string - for instance `alias($.foo, 'bar')` - it uses the rule `foo` but turns it into an [anonymous node][named-vs-anonymous-nodes-section] with the name `bar` instead. It is useful in cases where a language construct needs to be parsed differently in different contexts (and thus needs to be defined using multiple symbols), but should always *appear* as the same type of node.
 
 In addition to the `name` and `rules` fields, grammars have a few other optional public fields that influence the behavior of the parser.
 
@@ -622,6 +622,7 @@ if (valid_symbols[INDENT] || valid_symbol[DEDENT]) {
 [lr-conflict]: https://en.wikipedia.org/wiki/LR_parser#Conflicts_in_the_constructed_tables
 [lr-grammars]: https://en.wikipedia.org/wiki/LR_parser
 [multi-language-section]: ./using-parsers#multi-language-documents
+[named-vs-anonymous-nodes-section]: ./using-parsers#named-vs-anonymous-nodes
 [nan]: https://github.com/nodejs/nan
 [node-module]: https://www.npmjs.com/package/tree-sitter-cli
 [node.js]: https://nodejs.org
