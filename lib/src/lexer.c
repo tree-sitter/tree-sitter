@@ -20,6 +20,8 @@
 
 static const char empty_chunk[3] = { 0, 0 };
 
+static const int32_t BYTE_ORDER_MARK = 0xFEFF;
+
 static void ts_lexer__get_chunk(Lexer *self) {
   self->chunk_start = self->current_position.bytes;
   self->chunk = self->input.read(
@@ -248,6 +250,10 @@ void ts_lexer_start(Lexer *self) {
   self->data.result_symbol = 0;
   if (!self->chunk) ts_lexer__get_chunk(self);
   if (!self->lookahead_size) ts_lexer__get_lookahead(self);
+  if (
+    self->current_position.bytes == 0 &&
+    self->data.lookahead == BYTE_ORDER_MARK
+  ) ts_lexer__advance((TSLexer *)self, true);
 }
 
 void ts_lexer_finish(Lexer *self, uint32_t *lookahead_end_byte) {

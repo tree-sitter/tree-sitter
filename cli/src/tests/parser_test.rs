@@ -160,6 +160,65 @@ fn test_parsing_with_custom_utf16_input() {
     assert_eq!(root.child(0).unwrap().kind(), "function_item");
 }
 
+#[test]
+fn test_parsing_text_with_byte_order_mark() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("rust")).unwrap();
+
+    // Parse UTF16 text with a BOM
+    let tree = parser
+        .parse_utf16(
+            &"\u{FEFF}fn a() {}".encode_utf16().collect::<Vec<_>>(),
+            None,
+        )
+        .unwrap();
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(source_file (function_item (identifier) (parameters) (block)))"
+    );
+    assert_eq!(tree.root_node().start_byte(), 2);
+
+    // Parse UTF8 text with a BOM
+    let mut tree = parser.parse("\u{FEFF}fn a() {}", None).unwrap();
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(source_file (function_item (identifier) (parameters) (block)))"
+    );
+    assert_eq!(tree.root_node().start_byte(), 3);
+
+    // Edit the text, inserting a character before the BOM. The BOM is now an error.
+    tree.edit(&InputEdit {
+        start_byte: 0,
+        old_end_byte: 0,
+        new_end_byte: 1,
+        start_position: Point::new(0, 0),
+        old_end_position: Point::new(0, 0),
+        new_end_position: Point::new(0, 1),
+    });
+    let mut tree = parser.parse(" \u{FEFF}fn a() {}", Some(&tree)).unwrap();
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(source_file (ERROR (UNEXPECTED 65279)) (function_item (identifier) (parameters) (block)))"
+    );
+    assert_eq!(tree.root_node().start_byte(), 1);
+
+    // Edit the text again, putting the BOM back at the beginning.
+    tree.edit(&InputEdit {
+        start_byte: 0,
+        old_end_byte: 1,
+        new_end_byte: 0,
+        start_position: Point::new(0, 0),
+        old_end_position: Point::new(0, 1),
+        new_end_position: Point::new(0, 0),
+    });
+    let tree = parser.parse("\u{FEFF}fn a() {}", Some(&tree)).unwrap();
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(source_file (function_item (identifier) (parameters) (block)))"
+    );
+    assert_eq!(tree.root_node().start_byte(), 3);
+}
+
 // Incremental parsing
 
 #[test]
