@@ -6,7 +6,7 @@ function usage {
   cat <<-EOF
 USAGE
 
-  $0  [-h] [-l language-name] [-e example-file-name]
+  $0  [-h] [-l language-name] [-e example-file-name] [-r repetition-count]
 
 OPTIONS
 
@@ -16,10 +16,12 @@ OPTIONS
 
   -e  run only the benchmarks that parse the example file with the given name
 
+  -r  parse each sample the given number of times (default 5)
+
 EOF
 }
 
-while getopts "hl:e:" option; do
+while getopts "hl:e:r:" option; do
   case ${option} in
     h)
       usage
@@ -30,6 +32,9 @@ while getopts "hl:e:" option; do
       ;;
     l)
       export TREE_SITTER_BENCHMARK_LANGUAGE_FILTER=${OPTARG}
+      ;;
+    r)
+      export TREE_SITTER_BENCHMARK_REPETITION_COUNT=${OPTARG}
       ;;
   esac
 done
