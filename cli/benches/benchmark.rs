@@ -68,6 +68,8 @@ fn main() {
     let mut all_normal_speeds = Vec::new();
     let mut all_error_speeds = Vec::new();
 
+    eprintln!("Benchmarking with {} repetitions", *REPETITION_COUNT);
+
     for (language_path, example_paths) in EXAMPLE_PATHS_BY_LANGUAGE_DIR.iter() {
         let language_name = language_path.file_name().unwrap().to_str().unwrap();
 
@@ -76,8 +78,6 @@ fn main() {
                 continue;
             }
         }
-
-        eprintln!("Benchmarking with {} repetitions", *REPETITION_COUNT);
 
         eprintln!("\nLanguage: {}", language_name);
         parser.set_language(get_language(language_path)).unwrap();
