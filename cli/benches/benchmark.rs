@@ -158,9 +158,9 @@ fn benchmark(c: &mut Criterion) {
 
 fn benchmark_config() -> Criterion {
     Criterion::default()
-        .warm_up_time(Duration::from_millis(500))
-        .measurement_time(Duration::from_millis(1000))
-        .sample_size(8)
+        .warm_up_time(Duration::from_millis(100))
+        .measurement_time(Duration::from_millis(500))
+        .sample_size(10)
         .nresamples(1000)
 }
 
