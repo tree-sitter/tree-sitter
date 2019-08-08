@@ -1,8 +1,8 @@
 use clap::{App, AppSettings, Arg, SubCommand};
 use error::Error;
-use std::{env, fs, u64};
 use std::path::Path;
 use std::process::exit;
+use std::{env, fs, u64};
 use tree_sitter_cli::{
     config, error, generate, highlight, loader, logger, parse, test, wasm, web_ui,
 };
@@ -102,6 +102,10 @@ fn run() -> error::Result<()> {
         .subcommand(
             SubCommand::with_name("web-ui").about("Test a parser interactively in the browser"),
         )
+        .subcommand(
+            SubCommand::with_name("dump-languages")
+                .about("Print info about all known language parsers"),
+        )
         .get_matches();
 
     let home_dir = dirs::home_dir().expect("Failed to read home directory");
@@ -124,8 +128,8 @@ fn run() -> error::Result<()> {
         let debug_graph = matches.is_present("debug-graph");
         let filter = matches.value_of("filter");
         let corpus_path = current_dir.join("corpus");
-        if let Some(language) = loader.language_at_path(&current_dir)? {
-            test::run_tests_at_path(language, &corpus_path, debug, debug_graph, filter)?;
+        if let Some(language) = loader.languages_at_path(&current_dir)?.first() {
+            test::run_tests_at_path(*language, &corpus_path, debug, debug_graph, filter)?;
         } else {
             eprintln!("No language found");
         }
@@ -173,12 +177,13 @@ fn run() -> error::Result<()> {
                 }))?
             {
                 lang
-            } else if let Some(lang) =
-                loader
-                    .language_at_path(&current_dir)
-                    .map_err(Error::wrap(|| {
-                        "Failed to load language in current directory"
-                    }))?
+            } else if let Some(lang) = loader
+                .languages_at_path(&current_dir)
+                .map_err(Error::wrap(|| {
+                    "Failed to load language in current directory"
+                }))?
+                .first()
+                .cloned()
             {
                 lang
             } else {
@@ -251,6 +256,19 @@ fn run() -> error::Result<()> {
         wasm::compile_language_to_wasm(&grammar_path, matches.is_present("docker"))?;
     } else if matches.subcommand_matches("web-ui").is_some() {
         web_ui::serve(&current_dir);
+    } else if matches.subcommand_matches("dump-languages").is_some() {
+        loader.find_all_languages(&config.parser_directories)?;
+        for (configuration, language_path) in loader.get_all_language_configurations() {
+            println!(
+                "scope: {}\nparser: {:?}\nproperties: {:?}\nfile_types: {:?}\ncontent_regex: {:?}\ninjection_regex: {:?}\n",
+                configuration.scope.as_ref().unwrap_or(&String::new()),
+                language_path,
+                configuration.highlight_property_sheet_path,
+                configuration.file_types,
+                configuration.content_regex,
+                configuration.injection_regex,
+            );
+        }
     }
 
     Ok(())
