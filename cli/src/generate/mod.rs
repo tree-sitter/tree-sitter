@@ -107,10 +107,9 @@ pub fn generate_parser_in_directory(
         write_file(&src_path.join("parser.c"), c_code)?;
         write_file(&src_path.join("node-types.json"), node_types_json)?;
         write_file(&header_path.join("parser.h"), tree_sitter::PARSER_HEADER)?;
-        write_file(
-            &repo_path.join("index.js"),
-            npm_files::index_js(&language_name),
-        )?;
+        ensure_file(&repo_path.join("index.js"), || {
+            npm_files::index_js(&language_name)
+        })?;
         ensure_file(&src_path.join("binding.cc"), || {
             npm_files::binding_cc(&language_name)
         })?;
