@@ -34,7 +34,7 @@ Now you can parse source code:
 
 ```rust
 let source_code = "fn test() {}";
-let tree = parser.parse(source_code, None);
+let tree = parser.parse(source_code, None).unwrap();
 let root_node = tree.root_node();
 
 assert_eq!(root_node.kind(), "source_file");
