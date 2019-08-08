@@ -29,5 +29,6 @@ EMSDK_DIR="./target/emsdk"
 
 (
   source "$EMSDK_DIR/emsdk_env.sh" > /dev/null
+  emcc --version >&2
   declare -px
 )
