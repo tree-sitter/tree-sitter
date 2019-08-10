@@ -46,9 +46,9 @@ pub fn serve(grammar_path: &Path) {
     let html = HTML
         .replace("THE_LANGUAGE_NAME", &grammar_name)
         .into_bytes();
-    let html_header = Header::from_str("Content-type: text/html").unwrap();
-    let js_header = Header::from_str("Content-type: application/javascript").unwrap();
-    let wasm_header = Header::from_str("Content-type: application/wasm").unwrap();
+    let html_header = Header::from_str("Content-Type: text/html").unwrap();
+    let js_header = Header::from_str("Content-Type: application/javascript").unwrap();
+    let wasm_header = Header::from_str("Content-Type: application/wasm").unwrap();
 
     for request in server.incoming_requests() {
         let res = match request.url() {
@@ -66,7 +66,7 @@ pub fn serve(grammar_path: &Path) {
                 if cfg!(windows) {
                     redirect("https://tree-sitter.github.io/tree-sitter.wasm")
                 } else {
-                    response(LIB_WASM, &js_header)
+                    response(LIB_WASM, &wasm_header)
                 }
             }
             _ => response(b"Not found", &html_header).with_status_code(404),
