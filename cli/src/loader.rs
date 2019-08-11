@@ -370,10 +370,6 @@ impl Loader {
         if let Ok(package_json_contents) = fs::read_to_string(&parser_path.join("package.json")) {
             let package_json = serde_json::from_str::<PackageJSON>(&package_json_contents);
             if let Ok(package_json) = package_json {
-                if package_json.tree_sitter.is_empty() {
-                    return Ok(&[]);
-                }
-
                 let language_count = self.languages_by_id.len();
                 for config_json in package_json.tree_sitter {
                     // Determine the path to the parser directory. This can be specified in
@@ -426,6 +422,23 @@ impl Loader {
                     self.language_configurations.push(configuration);
                 }
             }
+        }
+
+        if self.language_configurations.len() == initial_language_configuration_count
+            && parser_path.join("src").join("grammar.json").exists()
+        {
+            self.language_configurations.push(LanguageConfiguration {
+                language_id: self.languages_by_id.len(),
+                scope: None,
+                content_regex: None,
+                injection_regex: None,
+                file_types: Vec::new(),
+                _first_line_regex: None,
+                highlight_property_sheet_path: None,
+                highlight_property_sheet: OnceCell::new(),
+            });
+            self.languages_by_id
+                .push((parser_path.to_owned(), OnceCell::new()));
         }
 
         Ok(&self.language_configurations[initial_language_configuration_count..])
