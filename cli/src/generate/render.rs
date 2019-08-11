@@ -79,7 +79,7 @@ impl Generator {
             self.add_field_sequences();
         }
 
-        if !self.alias_ids.is_empty() {
+        if !self.parse_table.production_infos.is_empty() {
             self.add_alias_sequences();
         }
 
@@ -889,7 +889,7 @@ impl Generator {
         add_line!(self, ".lex_modes = ts_lex_modes,");
         add_line!(self, ".symbol_names = ts_symbol_names,");
 
-        if !self.alias_ids.is_empty() {
+        if !self.parse_table.production_infos.is_empty() {
             add_line!(
                 self,
                 ".alias_sequences = (const TSSymbol *)ts_alias_sequences,"
