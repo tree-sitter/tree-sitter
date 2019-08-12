@@ -16,7 +16,7 @@ ${CC}                   \
   -I lib/include        \
   -I lib/utf8proc       \
   lib/src/lib.c     \
-  -o tree-sitter.o
+  syntaxes/json_parser.c \
 
-ar rcs libtree-sitter.a tree-sitter.o
-rm tree-sitter.o
+ar rcs libtree-sitter.a lib.o json_parser.o
+rm *.o
