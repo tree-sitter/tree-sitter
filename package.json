@@ -10,7 +10,7 @@
     "install": [
         ["cp", "libtree-sitter.a", "#{self.lib}"],
         ["mkdir", "-p", "#{self.install / 'include'}"],
-        ["cp", "-r",  "lib/include/*", "#{self.install / 'include'}"]
+        ["cp", "-r",  "lib/include", "#{self.install}"]
     ],
     "buildsInSource": true,
     "exportedEnv": {
