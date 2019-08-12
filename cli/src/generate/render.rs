@@ -367,7 +367,7 @@ impl Generator {
                 // Work around MSVC's intolerance of empty array initializers by
                 // explicitly zero-initializing the first element.
                 if i == 0 {
-                    add_line!(self, "[0] = {{}},");
+                    add_line!(self, "[0] = {{0}},");
                 }
                 continue;
             }

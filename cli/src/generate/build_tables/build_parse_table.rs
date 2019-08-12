@@ -779,7 +779,7 @@ pub(crate) fn build_parse_table(
             states: Vec::new(),
             symbols: Vec::new(),
             production_infos: Vec::new(),
-            max_aliased_production_length: 0,
+            max_aliased_production_length: 1,
         },
     }
     .build()?;
