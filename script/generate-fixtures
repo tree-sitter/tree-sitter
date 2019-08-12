@@ -11,8 +11,8 @@ tree_sitter=${root_dir}/target/release/tree-sitter
 grammars_dir=${root_dir}/test/fixtures/grammars
 grammar_files=$(find $grammars_dir -name grammar.js | grep -v node_modules)
 
-for grammar_file in $grammar_files; do
-  grammar_dir=$(dirname $grammar_file)
+while read -r grammar_file; do
+  grammar_dir=$(dirname "$grammar_file")
   grammar_name=$(basename "$grammar_dir")
 
   if [[ -n $filter_grammar_name && "$filter_grammar_name" != "$grammar_name" ]]; then
@@ -22,6 +22,6 @@ for grammar_file in $grammar_files; do
   echo "Regenerating ${grammar_name} parser"
   (
     cd $grammar_dir
-    $tree_sitter generate src/grammar.json
+    "$tree_sitter" generate src/grammar.json
   )
-done
+done <<< "$grammar_files"

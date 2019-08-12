@@ -1,19 +1,18 @@
 #!/usr/bin/env bash
 
-root_dir=$PWD
-grammars_dir=${root_dir}/test/fixtures/grammars
-grammar_names=$(ls $grammars_dir | tr '-' '_')
+set -e
 
 symbol_file=$(mktemp)
+wasm_files=$(find target -maxdepth 2 -name 'tree-sitter-*.wasm')
 
-for grammar_name in $grammar_names; do
-  wasm-objdump                                                \
-    --details target/release/tree-sitter-${grammar_name}.wasm \
-    --section Import                                          \
-    | egrep -o '<(\w+)>'                                      \
-    | tr -d '<>'                                              \
+while read -r wasm_file; do
+  wasm-objdump                   \
+    --details "$wasm_file"    \
+    --section Import             \
+    | egrep -o '<\w+>'           \
+    | tr -d '<>'                 \
     >> $symbol_file
-done
+done <<< "$wasm_files"
 
 sort -u -o $symbol_file $symbol_file
 cat $symbol_file
