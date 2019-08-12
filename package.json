@@ -5,12 +5,14 @@
   "license": "MIT",
   "esy": {
     "build": [
-        ["bash", "-c", "#{os == 'windows' ? 'CC=x86_64-w64-mingw32-gcc' : 'CC=gcc'} script/build-lib"],
-        ["cp", "libtree-sitter.a", "#{self.lib}"],
-        ["cp", "-r", "lib/include", "#{self.install / 'include'}"],
-        ["echo #{self.install}"]
+        ["bash", "-c", "#{os == 'windows' ? 'CC=x86_64-w64-mingw32-gcc' : 'CC=gcc'} script/build-lib"]
     ],
-    "buildsInSource": "_build",
+    "install": [
+        ["cp", "libtree-sitter.a", "#{self.lib}"],
+        ["mkdir", "-p", "#{self.install / 'linclude'}"],
+        ["cp", "-r",  "lib/include/*", "#{self.install / 'include'}"]
+    ],
+    "buildsInSource": true,
     "exportedEnv": {
         "TREESITTER_INCLUDE_PATH": {
             "val": "#{self.install / 'include'}",
