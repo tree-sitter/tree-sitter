@@ -1,0 +1,26 @@
+{
+  "name": "esy-tree-sitter",
+  "version": "1.0.1000",
+  "description": "esy-enabled build for tree-sitter",
+  "license": "MIT",
+  "esy": {
+    "build": [
+        ["bash", "-c", "#{os == 'windows' ? 'CC=x86_64-w64-mingw32-gcc' : 'CC=gcc'} script/build-lib"],
+        ["cp", "libtree-sitter.a", "#{self.lib}"],
+        ["cp", "-r", "lib/include", "#{self.install / 'include'}"],
+        ["echo #{self.install}"]
+    ],
+    "buildsInSource": "_build",
+    "exportedEnv": {
+        "TREESITTER_INCLUDE_PATH": {
+            "val": "#{self.install / 'include'}",
+            "scope": "global"
+        },
+        "TREESITTER_LIB_PATH": {
+            "val": "#{self.lib}",
+            "scope": "global"
+        }
+    }
+  },
+  "dependencies": { }
+}

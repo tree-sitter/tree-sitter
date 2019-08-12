@@ -1,19 +1,30 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
+# Cross-platform build pipeline + NPM publish
 
-trigger:
-- master
+name: $(Build.SourceVersion)
+jobs:
+- job: Linux
+  displayName: "Linux - Ubuntu 16.04"
+  pool:
+    vmImage: 'Ubuntu 16.04'
+  steps:
+  - template: .ci/esy-build-steps.yml
 
-pool:
-  vmImage: 'ubuntu-latest'
+- job: MacOS13
+  displayName: "MacOS Mojave"
+  pool:
+    vmImage: 'macOS 10.13'
+  steps:
+  - template: .ci/esy-build-steps.yml
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+- job: MacOS14
+  displayName: "MacOS High Sierra"
+  pool:
+    vmImage: 'macOS 10.14'
+  steps:
+  - template: .ci/esy-build-steps.yml
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+- job: Windows
+  pool:
+    vmImage: 'vs2017-win2016'
+  steps:
+  - template: .ci/esy-build-steps.yml
