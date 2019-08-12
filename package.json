@@ -1,6 +1,6 @@
 {
   "name": "esy-tree-sitter",
-  "version": "1.0.1000",
+  "version": "1.1.0",
   "description": "esy-enabled build for tree-sitter",
   "license": "MIT",
   "esy": {
@@ -9,7 +9,7 @@
     ],
     "install": [
         ["cp", "libtree-sitter.a", "#{self.lib}"],
-        ["mkdir", "-p", "#{self.install / 'linclude'}"],
+        ["mkdir", "-p", "#{self.install / 'include'}"],
         ["cp", "-r",  "lib/include/*", "#{self.install / 'include'}"]
     ],
     "buildsInSource": true,
