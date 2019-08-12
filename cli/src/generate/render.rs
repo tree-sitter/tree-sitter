@@ -364,6 +364,11 @@ impl Generator {
         indent!(self);
         for (i, production_info) in self.parse_table.production_infos.iter().enumerate() {
             if production_info.alias_sequence.is_empty() {
+                // Work around MSVC's intolerance of empty array initializers by
+                // explicitly zero-initializing the first element.
+                if i == 0 {
+                    add_line!(self, "[0] = {{}},");
+                }
                 continue;
             }
 
