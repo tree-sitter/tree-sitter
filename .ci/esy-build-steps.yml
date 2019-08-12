@@ -4,7 +4,7 @@ steps:
   - task: NodeTool@0
     inputs:
       versionSpec: '8.9'
- - script: npm install -g esy@0.5.8
+  - script: npm install -g esy@0.5.8
   - script: esy install
     workingDirectory: src
     displayName: 'esy install'
