@@ -5,7 +5,7 @@
   "license": "MIT",
   "esy": {
     "build": [
-        ["bash", "-c", "#{os == 'windows' ? 'CC=x86_64-w64-mingw32-gcc' : 'CC=gcc'} script/build-lib"]
+        ["bash", "-c", "#{os == 'windows' ? 'CC=x86_64-w64-mingw32-gcc' : os == 'linux' ? 'CFLAGS='-fPIC' : 'CC=gcc'} script/build-lib"]
     ],
     "install": [
         ["cp", "libtree-sitter.a", "#{self.lib}"],
