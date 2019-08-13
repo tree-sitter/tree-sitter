@@ -1,7 +1,7 @@
 use crate::generate::build_tables::item::{TokenSet, TokenSetDisplay};
 use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar};
 use crate::generate::nfa::{CharacterSet, NfaCursor, NfaTransition};
-use hashbrown::HashSet;
+use std::collections::HashSet;
 use std::cmp::Ordering;
 use std::fmt;
 

@@ -656,7 +656,13 @@ pub(crate) fn generate_property_sheet(
 
 fn parse_property_sheet(path: &Path, css: &str) -> Result<Vec<Rule>> {
     let mut schema_paths = Vec::new();
-    let mut items = rsass::parse_scss_data(css.as_bytes())?;
+    let css = css.as_bytes();
+    let mut items = rsass::parse_scss_data(css).map_err(|(pos, kind)| rsass::Error::ParseError {
+        file: path.to_string_lossy().into(),
+        pos: rsass::ErrPos::pos_of(pos, &css),
+        kind,
+    })?;
+
     process_at_rules(&mut items, &mut schema_paths, path)?;
     let mut result = Vec::new();
     let selector_prefixes = vec![Vec::new()];

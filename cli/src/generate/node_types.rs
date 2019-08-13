@@ -4,9 +4,8 @@ use super::grammars::{
 };
 use super::rules::{Alias, AliasMap, Symbol, SymbolType};
 use crate::error::{Error, Result};
-use hashbrown::HashMap;
 use serde_derive::Serialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::mem;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

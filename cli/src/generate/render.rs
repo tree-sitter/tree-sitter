@@ -5,7 +5,7 @@ use super::tables::{
     AdvanceAction, FieldLocation, LexState, LexTable, ParseAction, ParseTable, ParseTableEntry,
 };
 use core::ops::Range;
-use hashbrown::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::mem::swap;
 use tree_sitter::LANGUAGE_VERSION;

@@ -4,8 +4,8 @@ use crate::generate::dedup::split_state_id_groups;
 use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar, VariableType};
 use crate::generate::rules::{AliasMap, Symbol};
 use crate::generate::tables::{ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry};
-use hashbrown::{HashMap, HashSet};
 use log::info;
+use std::collections::{HashMap, HashSet};
 use std::mem;
 
 pub(crate) fn minimize_parse_table(

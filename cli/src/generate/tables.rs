@@ -1,7 +1,6 @@
 use super::nfa::CharacterSet;
 use super::rules::{Alias, Associativity, Symbol};
-use hashbrown::HashMap;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 pub(crate) type ProductionInfoId = usize;
 pub(crate) type ParseStateId = usize;

@@ -2,7 +2,7 @@ use super::{ExtractedLexicalGrammar, ExtractedSyntaxGrammar, InternedGrammar};
 use crate::error::{Error, Result};
 use crate::generate::grammars::{ExternalToken, Variable, VariableType};
 use crate::generate::rules::{MetadataParams, Rule, Symbol, SymbolType};
-use hashbrown::HashMap;
+use std::collections::HashMap;
 use std::mem;
 
 pub(super) fn extract_tokens(

@@ -11,9 +11,8 @@ use crate::generate::tables::{
     ProductionInfo, ProductionInfoId,
 };
 use core::ops::Range;
-use hashbrown::hash_map::Entry;
-use hashbrown::{HashMap, HashSet};
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::hash_map::Entry;
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fmt::Write;
 use std::u32;
 
