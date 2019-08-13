@@ -149,6 +149,21 @@ impl TokenSet {
         vec.set(other.index, true);
     }
 
+    pub fn remove(&mut self, other: &Symbol) {
+        let vec = match other.kind {
+            SymbolType::NonTerminal => panic!("Cannot store non-terminals in a TokenSet"),
+            SymbolType::Terminal => &mut self.terminal_bits,
+            SymbolType::External => &mut self.external_bits,
+            SymbolType::End => {
+                self.eof = false;
+                return;
+            }
+        };
+        if other.index < vec.len() {
+            vec.set(other.index, false);
+        }
+    }
+
     pub fn insert_all_terminals(&mut self, other: &TokenSet) -> bool {
         let mut result = false;
         if other.terminal_bits.len() > self.terminal_bits.len() {

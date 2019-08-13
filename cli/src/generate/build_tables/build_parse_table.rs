@@ -132,7 +132,7 @@ impl<'a> ParseTableBuilder<'a> {
     ) -> Result<()> {
         let mut terminal_successors = HashMap::new();
         let mut non_terminal_successors = HashMap::new();
-        let mut lookaheads_with_conflicts = HashSet::new();
+        let mut lookaheads_with_conflicts = TokenSet::new();
 
         for (item, lookaheads) in &item_set.entries {
             if let Some(next_symbol) = item.symbol() {
@@ -229,7 +229,7 @@ impl<'a> ParseTableBuilder<'a> {
                 .insert(symbol, next_state_id);
         }
 
-        for symbol in lookaheads_with_conflicts {
+        for symbol in lookaheads_with_conflicts.iter() {
             self.handle_conflict(
                 &item_set,
                 state_id,
