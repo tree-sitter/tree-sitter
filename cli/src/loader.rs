@@ -322,20 +322,7 @@ impl Loader {
             }
         }
 
-        let library = Library::new(&library_path).map_err(Error::wrap(|| {
-            format!("Error opening dynamic library {:?}", &library_path)
-        }))?;
-        let language_fn_name = format!("tree_sitter_{}", replace_dashes_with_underscores(name));
-        let language = unsafe {
-            let language_fn: Symbol<unsafe extern "C" fn() -> Language> = library
-                .get(language_fn_name.as_bytes())
-                .map_err(Error::wrap(|| {
-                    format!("Failed to load symbol {}", language_fn_name)
-                }))?;
-            language_fn()
-        };
-        mem::forget(library);
-        Ok(language)
+        load_language_from_library(&name, &library_path)
     }
 
     fn find_language_configurations_at_path<'a>(
@@ -509,4 +496,21 @@ fn replace_dashes_with_underscores(name: &str) -> String {
         }
     }
     result
+}
+
+fn load_language_from_library(name: &str, library_path: &Path) -> Result<Language> {
+    let library = Library::new(&library_path).map_err(Error::wrap(|| {
+        format!("Error opening dynamic library {:?}", &library_path)
+    }))?;
+    let language_fn_name = format!("tree_sitter_{}", replace_dashes_with_underscores(name));
+    let language = unsafe {
+        let language_fn: Symbol<unsafe extern "C" fn() -> Language> = library
+            .get(language_fn_name.as_bytes())
+            .map_err(Error::wrap(|| {
+                format!("Failed to load symbol {}", language_fn_name)
+            }))?;
+        language_fn()
+    };
+    mem::forget(library);
+    Ok(language)
 }
