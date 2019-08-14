@@ -5,7 +5,11 @@
   "license": "MIT",
   "esy": {
     "build": [
-        ["bash", "-c", "#{os == 'windows' ? 'CC=x86_64-w64-mingw32-gcc' : os == 'linux' ? 'CFLAGS=-fPIC' : 'CC=gcc'} script/build-lib"]
+        ["bash", "-c", "echo", "#{os}"],
+        ["bash", "-c", "#{os == 'windows' ? 'CC=x86_64-w64-mingw32-gcc script/build-lib' : 'echo'}"],
+        ["bash", "-c", "#{os == 'linux' ? 'CFLAGS=-fPIC script/build-lib' : 'echo'}"],
+        ["bash", "-c", "#{os == 'darwin' ? 'script/build-lib' : 'echo'}"]
+        ["bash", "-c", "#{os == 'macOS' ? 'script/build-lib' : 'echo'}"]
     ],
     "install": [
         ["cp", "libtree-sitter.a", "#{self.lib}"],
