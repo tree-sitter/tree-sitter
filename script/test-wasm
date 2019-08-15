@@ -2,7 +2,7 @@
 
 set -e
 
-cd lib/binding_web
+cd lib/binding/web
 
 if [ ! -d "node_modules/chai" ] || [ ! -d "node_modules/mocha" ]; then
   echo "Installing test dependencies..."

@@ -5,7 +5,7 @@ permalink: using-parsers
 
 # Using Parsers
 
-All of Tree-sitter's parsing functionality is exposed through C APIs. Applications written in higher-level languages can use Tree-sitter via binding libraries like  [node-tree-sitter](https://github.com/tree-sitter/node-tree-sitter) or [rust-tree-sitter](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_rust), which have their own documentation.
+All of Tree-sitter's parsing functionality is exposed through C APIs. Applications written in higher-level languages can use Tree-sitter via binding libraries like  [node-tree-sitter](https://github.com/tree-sitter/node-tree-sitter) or [rust-tree-sitter](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding/rust), which have their own documentation.
 
 This document will describes the general concepts of how to use Tree-sitter, which should be relevant regardless of what language you're using. It also goes into some C-specific details that are useful if you're using the C API directly or are building a new binding to a different language.
 

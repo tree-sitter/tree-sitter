@@ -19,7 +19,7 @@ use std::sync::atomic::AtomicUsize;
 use std::{fmt, ptr, slice, str, u16};
 
 pub const LANGUAGE_VERSION: usize = ffi::TREE_SITTER_LANGUAGE_VERSION;
-pub const PARSER_HEADER: &'static str = include_str!("../include/tree_sitter/parser.h");
+pub const PARSER_HEADER: &'static str = include_str!("../../include/tree_sitter/parser.h");
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]

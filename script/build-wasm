@@ -9,7 +9,7 @@ USAGE
 SUMMARY
 
   Compile the Tree-sitter WASM library. This will create two files in the
-  \`lib/binding_web\` directory: \`tree-sitter.js\` and \`tree-sitter.wasm\`.
+  \`lib/binding/web\` directory: \`tree-sitter.js\` and \`tree-sitter.wasm\`.
 
 REQUIREMENTS
 
@@ -29,7 +29,7 @@ EOF
 
 set -e
 
-web_dir=lib/binding_web
+web_dir=lib/binding/web
 exports=$(cat ${web_dir}/exports.json)
 emscripten_flags="-O3"
 minify_js=1
@@ -102,7 +102,7 @@ $emcc                                \
   -o target/scratch/tree-sitter.js
 
 # Use terser to write a minified version of `tree-sitter.js` into
-# the `lib/binding_web` directory.
+# the `lib/binding/web` directory.
 if [[ "$minify_js" == "1" ]]; then
   if [ ! -d ${web_dir}/node_modules/terser ]; then
     (

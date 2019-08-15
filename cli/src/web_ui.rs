@@ -11,9 +11,9 @@ const HTML: &'static str = include_str!("./web_ui.html");
 const PLAYGROUND_JS: &'static [u8] = include_bytes!("../../docs/assets/js/playground.js");
 
 #[cfg(unix)]
-const LIB_JS: &'static [u8] = include_bytes!("../../lib/binding_web/tree-sitter.js");
+const LIB_JS: &'static [u8] = include_bytes!("../../lib/binding/web/tree-sitter.js");
 #[cfg(unix)]
-const LIB_WASM: &'static [u8] = include_bytes!("../../lib/binding_web/tree-sitter.wasm");
+const LIB_WASM: &'static [u8] = include_bytes!("../../lib/binding/web/tree-sitter.wasm");
 
 #[cfg(windows)]
 const LIB_JS: &'static [u8] = &[];

@@ -15,8 +15,8 @@ Tree-sitter is a parser generator tool and an incremental parsing library. It ca
 
 There are currently bindings that allow Tree-sitter to be used from the following languages:
 
-* [Rust](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_rust)
-* [JavaScript (Wasm)](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web)
+* [Rust](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding/rust)
+* [JavaScript (Wasm)](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding/web)
 * [JavaScript (Node.js)](https://github.com/tree-sitter/node-tree-sitter)
 * [Python](https://github.com/tree-sitter/py-tree-sitter)
 * [Ruby](https://github.com/tree-sitter/ruby-tree-sitter)

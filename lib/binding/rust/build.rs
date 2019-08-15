@@ -40,7 +40,7 @@ fn main() {
         .include("include")
         .include("utf8proc")
         .file(src_path.join("lib.c"))
-        .file(Path::new("binding_rust").join("helper.c"))
+        .file(Path::new("binding").join("rust").join("helper.c"))
         .compile("tree-sitter");
 }
 

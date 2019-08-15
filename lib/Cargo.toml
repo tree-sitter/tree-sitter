@@ -4,14 +4,14 @@ description = "Rust bindings to the Tree-sitter parsing library"
 version = "0.3.10"
 authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
 license = "MIT"
-readme = "binding_rust/README.md"
+readme = "binding/rust/README.md"
 keywords = ["incremental", "parsing"]
 categories = ["api-bindings", "parsing", "text-editors"]
 
-build = "binding_rust/build.rs"
+build = "binding/rust/build.rs"
 
 include = [
-  "/binding_rust/*",
+  "/binding/rust/*",
   "/Cargo.toml",
   "/include/*",
   "/src/*",
@@ -28,4 +28,4 @@ serde_derive = "1.0"
 cc = "1.0"
 
 [lib]
-path = "binding_rust/lib.rs"
+path = "binding/rust/lib.rs"
