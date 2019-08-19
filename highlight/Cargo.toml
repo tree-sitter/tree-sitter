@@ -11,6 +11,7 @@ readme = "README.md"
 edition = "2018"
 keywords = ["incremental", "parsing", "syntax", "highlighting"]
 categories = ["parsing", "text-editors"]
+repository = "https://github.com/tree-sitter/tree-sitter"
 
 [lib]
 crate-type = ["lib", "staticlib"]

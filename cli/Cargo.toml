@@ -8,6 +8,7 @@ license = "MIT"
 readme = "README.md"
 keywords = ["incremental", "parsing"]
 categories = ["command-line-utilities", "parsing"]
+repository = "https://github.com/tree-sitter/tree-sitter"
 
 [[bin]]
 name = "tree-sitter"
