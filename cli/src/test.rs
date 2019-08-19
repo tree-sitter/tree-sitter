@@ -183,7 +183,14 @@ pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
         let mut children = Vec::new();
         for entry in fs::read_dir(path)? {
             let entry = entry?;
-            children.push(parse_tests(&entry.path())?);
+            let hidden = entry
+                .file_name()
+                .to_str()
+                .unwrap_or("")
+                .starts_with(".");
+            if !hidden {
+                children.push(parse_tests(&entry.path())?);
+            }
         }
         Ok(TestEntry::Group { name, children })
     } else {
