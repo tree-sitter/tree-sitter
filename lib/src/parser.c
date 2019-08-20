@@ -1290,15 +1290,18 @@ static bool ts_parser__advance(
   }
 
   for (;;) {
+    // If a cancellation flag or a timeout was provided, then check every
+    // time a fixed number of parse actions has been processed.
     if (++self->operation_count == OP_COUNT_PER_TIMEOUT_CHECK) {
       self->operation_count = 0;
-      if (
-        (self->cancellation_flag && atomic_load(self->cancellation_flag)) ||
-        (!clock_is_null(self->end_clock) && clock_is_gt(clock_now(), self->end_clock))
-      ) {
-        ts_subtree_release(&self->tree_pool, lookahead);
-        return false;
-      }
+    }
+    if (
+      self->operation_count == 0 &&
+      ((self->cancellation_flag && atomic_load(self->cancellation_flag)) ||
+       (!clock_is_null(self->end_clock) && clock_is_gt(clock_now(), self->end_clock)))
+    ) {
+      ts_subtree_release(&self->tree_pool, lookahead);
+      return false;
     }
 
     StackVersion last_reduction_version = STACK_VERSION_NONE;
