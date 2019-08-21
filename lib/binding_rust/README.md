@@ -19,7 +19,24 @@ use tree_sitter::{Parser, Language};
 let mut parser = Parser::new();
 ```
 
-Then assign a language to the parser. Tree-sitter languages consist of generated C code. To use them from rust, you must declare them as `extern "C"` functions and invoke them with `unsafe`:
+Tree-sitter languages consist of generated C code. To make sure they're properly compiled and linked, you can create a [build script](https://doc.rust-lang.org/cargo/reference/build-scripts.html) like the following (assuming `tree-sitter-javascript` is in your root directory):
+```rust
+extern crate cc;
+
+use std::path::PathBuf;
+
+fn main() {
+    let dir: PathBuf = ["tree-sitter-javascript", "src"].iter().collect();
+
+    cc::Build::new()
+        .include(&dir)
+        .file(dir.join("parser.c"))
+        .file(dir.join("scanner.c"))
+        .compile("tree-sitter-javascript");
+}
+```
+
+To then use languages from rust, you must declare them as `extern "C"` functions and invoke them with `unsafe`. Then you can assign them to the parser. 
 
 ```rust
 extern "C" { fn tree_sitter_c() -> Language; }
