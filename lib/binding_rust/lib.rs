@@ -36,7 +36,7 @@ pub enum LogType {
     Lex,
 }
 
-type Logger<'a> = Box<FnMut(LogType, &str) + 'a>;
+type Logger<'a> = Box<dyn FnMut(LogType, &str) + 'a>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Point {
@@ -136,6 +136,10 @@ pub struct TreePropertyCursor<'a, P> {
 }
 
 impl Language {
+    pub fn version(&self) -> usize {
+        unsafe { ffi::ts_language_version(self.0) as usize }
+    }
+
     pub fn node_kind_count(&self) -> usize {
         unsafe { ffi::ts_language_symbol_count(self.0) as usize }
     }
@@ -148,6 +152,16 @@ impl Language {
 
     pub fn node_kind_is_named(&self, id: u16) -> bool {
         unsafe { ffi::ts_language_symbol_type(self.0, id) == ffi::TSSymbolType_TSSymbolTypeRegular }
+    }
+
+    pub fn field_count(&self) -> usize {
+        unsafe { ffi::ts_language_field_count(self.0) as usize }
+    }
+
+    pub fn field_name_for_id(&self, field_id: u16) -> &'static str {
+        unsafe { CStr::from_ptr(ffi::ts_language_field_name_for_id(self.0, field_id)) }
+            .to_str()
+            .unwrap()
     }
 
     pub fn field_id_for_name(&self, field_name: impl AsRef<[u8]>) -> Option<u16> {
@@ -192,16 +206,23 @@ impl Parser {
     }
 
     pub fn set_language(&mut self, language: Language) -> Result<(), LanguageError> {
-        unsafe {
-            let version = ffi::ts_language_version(language.0) as usize;
-            if version < ffi::TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
-                || version > ffi::TREE_SITTER_LANGUAGE_VERSION
-            {
-                Err(LanguageError { version })
-            } else {
-                ffi::ts_parser_set_language(self.0, language.0);
-                Ok(())
-            }
+        let version = language.version();
+        if version < ffi::TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
+            || version > ffi::TREE_SITTER_LANGUAGE_VERSION
+        {
+            Err(LanguageError { version })
+        } else {
+            unsafe { ffi::ts_parser_set_language(self.0, language.0); }
+            Ok(())
+        }
+    }
+
+    pub fn language(&self) -> Option<Language> {
+        let ptr = unsafe { ffi::ts_parser_language(self.0) };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(Language(ptr))
         }
     }
 
@@ -405,6 +426,10 @@ impl Tree {
         Node::new(unsafe { ffi::ts_tree_root_node(self.0) }).unwrap()
     }
 
+    pub fn language(&self) -> Language {
+        Language(unsafe { ffi::ts_tree_language(self.0) })
+    }
+
     pub fn edit(&mut self, edit: &InputEdit) {
         let edit = edit.into();
         unsafe { ffi::ts_tree_edit(self.0, &edit) };
@@ -538,6 +563,10 @@ impl<'tree> Node<'tree> {
                 field_name.len() as u32,
             )
         })
+    }
+
+    pub fn child_by_field_id(&self, field_id: u16) -> Option<Self> {
+        Self::new(unsafe { ffi::ts_node_child_by_field_id(self.0, field_id) })
     }
 
     pub fn child_count(&self) -> usize {
