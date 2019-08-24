@@ -767,7 +767,7 @@ fn test_parsing_with_a_newly_excluded_range() {
     );
 
     assert_eq!(
-        tree.changed_ranges(&first_tree),
+        tree.changed_ranges(&first_tree).collect::<Vec<_>>(),
         vec![
             // The first range that has changed syntax is the range of the newly-inserted text.
             Range {
@@ -837,7 +837,7 @@ fn test_parsing_with_a_newly_included_range() {
     );
 
     assert_eq!(
-        tree.changed_ranges(&first_tree),
+        tree.changed_ranges(&first_tree).collect::<Vec<_>>(),
         vec![Range {
             start_byte: first_code_end_index + 1,
             end_byte: second_code_end_index + 1,
