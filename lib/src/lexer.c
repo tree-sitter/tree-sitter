@@ -58,7 +58,7 @@ static void ts_lexer__get_lookahead(Lexer *self) {
     ts_lexer__get_chunk(self);
     chunk = (const uint8_t *)self->chunk;
     size = self->chunk_size;
-    self->lookahead_size = decode_next(chunk, size, code_point);
+    self->lookahead_size = (uint32_t)decode_next(chunk, size, code_point);
   }
 
   if (self->lookahead_size == (uint32_t)DECODE_NEXT_ERROR) {

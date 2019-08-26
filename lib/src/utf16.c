@@ -6,12 +6,11 @@
 
 static const uint32_t SURROGATE_BASE = 0xD800;
 static const uint32_t BMP_PRIVATE_BASE = 0xE000;
-static const uint32_t SMP_1_BASE = 0x10000;
 
-static const uint32_t LOW_10 = 0x3FF;
-static const uint32_t LOW_OFFSET = SURROGATE_BASE + LOW_10 + 1; // 0xDC00
-static const uint32_t SURROGATE_OFFSET =
-  SMP_1_BASE - (SURROGATE_BASE << 10) - LOW_OFFSET;
+// SURROGATE_BASE + 0x3FF + 1
+static const uint32_t LOW_OFFSET = 0xDC00;
+// 0x10000 - (SURROGATE_BASE << 10) - LOW_OFFSET
+static const uint32_t SURROGATE_OFFSET = -0x35FDC00;
 
 static uint32_t utf16_decode_surrogates(uint16_t low, uint16_t high) {
   return ((uint32_t)(high) << 10) + low + SURROGATE_OFFSET;
