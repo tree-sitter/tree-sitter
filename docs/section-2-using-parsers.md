@@ -17,7 +17,7 @@ To build the library on a POSIX system, run this script, which will create a sta
 script/build-lib
 ```
 
-Alternatively, you can use the library in a larger project by adding one source file to the project. This source file needs three directories to be in the include path when compiled:
+Alternatively, you can use the library in a larger project by adding one source file to the project. This source file needs two directories to be in the include path when compiled:
 
 **source file:**
 * `tree-sitter/lib/src/lib.c`
