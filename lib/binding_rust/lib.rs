@@ -452,7 +452,7 @@ impl Tree {
         let mut count = 0;
         unsafe {
             let ptr = ffi::ts_tree_get_changed_ranges(self.0, other.0, &mut count as *mut _ as *mut u32);
-            util::CBufferIter::new(ptr, count, free_ptr).map(|r| r.into())
+            util::CBufferIter::new(ptr, count).map(|r| r.into())
         }
     }
 }
@@ -635,7 +635,7 @@ impl<'tree> Node<'tree> {
             .to_str()
             .unwrap()
             .to_string();
-        unsafe { free_ptr(c_string as *mut c_void) };
+        unsafe { util::free_ptr(c_string as *mut c_void) };
         result
     }
 
@@ -1068,9 +1068,4 @@ impl std::error::Error for PropertySheetError {
             PropertySheetError::InvalidRegex(e) => Some(e),
         }
     }
-}
-
-extern "C" {
-    #[link_name = "rust_tree_sitter_free"]
-    fn free_ptr(ptr: *mut c_void);
 }
