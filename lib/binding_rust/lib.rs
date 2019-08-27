@@ -1,4 +1,5 @@
 mod ffi;
+mod util;
 
 #[macro_use]
 extern crate serde_derive;
@@ -16,7 +17,7 @@ use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::os::raw::{c_char, c_void};
 use std::sync::atomic::AtomicUsize;
-use std::{fmt, ptr, slice, str, u16};
+use std::{fmt, ptr, str, u16};
 
 pub const LANGUAGE_VERSION: usize = ffi::TREE_SITTER_LANGUAGE_VERSION;
 pub const PARSER_HEADER: &'static str = include_str!("../include/tree_sitter/parser.h");
@@ -447,15 +448,11 @@ impl Tree {
         TreePropertyCursor::new(self, property_sheet, source)
     }
 
-    pub fn changed_ranges(&self, other: &Tree) -> Vec<Range> {
+    pub fn changed_ranges(&self, other: &Tree) -> impl Iterator<Item = Range> {
+        let mut count = 0;
         unsafe {
-            let mut count = 0;
-            let ptr =
-                ffi::ts_tree_get_changed_ranges(self.0, other.0, &mut count as *mut _ as *mut u32);
-            let ranges = slice::from_raw_parts(ptr, count);
-            let result = ranges.into_iter().map(|r| r.clone().into()).collect();
-            free_ptr(ptr as *mut c_void);
-            result
+            let ptr = ffi::ts_tree_get_changed_ranges(self.0, other.0, &mut count as *mut _ as *mut u32);
+            util::CBufferIter::new(ptr, count).map(|r| r.into())
         }
     }
 }
@@ -638,7 +635,7 @@ impl<'tree> Node<'tree> {
             .to_str()
             .unwrap()
             .to_string();
-        unsafe { free_ptr(c_string as *mut c_void) };
+        unsafe { util::free_ptr(c_string as *mut c_void) };
         result
     }
 
@@ -1071,9 +1068,4 @@ impl std::error::Error for PropertySheetError {
             PropertySheetError::InvalidRegex(e) => Some(e),
         }
     }
-}
-
-extern "C" {
-    #[link_name = "rust_tree_sitter_free"]
-    fn free_ptr(ptr: *mut c_void);
 }

@@ -370,7 +370,7 @@ fn get_changed_ranges(
 ) -> Vec<Range> {
     perform_edit(tree, source_code, &edit);
     let new_tree = parser.parse(&source_code, Some(tree)).unwrap();
-    let result = tree.changed_ranges(&new_tree);
+    let result = tree.changed_ranges(&new_tree).collect();
     *tree = new_tree;
     result
 }

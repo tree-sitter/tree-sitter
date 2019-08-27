@@ -337,7 +337,7 @@ fn check_consistent_sizes(tree: &Tree, input: &Vec<u8>) {
 }
 
 fn check_changed_ranges(old_tree: &Tree, new_tree: &Tree, input: &Vec<u8>) -> Result<(), String> {
-    let changed_ranges = old_tree.changed_ranges(new_tree);
+    let changed_ranges = old_tree.changed_ranges(new_tree).collect();
     let old_scope_sequence = ScopeSequence::new(old_tree);
     let new_scope_sequence = ScopeSequence::new(new_tree);
     old_scope_sequence.check_changes(&new_scope_sequence, &input, &changed_ranges)
