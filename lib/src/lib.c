@@ -14,5 +14,3 @@
 #include "./subtree.c"
 #include "./tree_cursor.c"
 #include "./tree.c"
-#include "./utf8.c"
-#include "./utf16.c"
