@@ -22,16 +22,17 @@ impl<T: Copy> Iterator for CBufferIter<T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let i = self.i;
-        self.i += 1;
         if i >= self.count {
             None
         } else {
+            self.i += 1;
             Some(unsafe { *self.ptr.offset(i as isize) })
         }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.count, Some(self.count))
+        let remaining = self.count - self.i;
+        (remaining, Some(remaining))
     }
 }
 
