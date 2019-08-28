@@ -18,8 +18,6 @@ typedef struct {
   Length new_end;
 } Edit;
 
-TSStateId TS_TREE_STATE_NONE = USHRT_MAX;
-
 #ifdef TREE_SITTER_TEST
 
 #define TS_MAX_INLINE_TREE_LENGTH 2
