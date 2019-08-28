@@ -29,6 +29,10 @@ impl<T: Copy> Iterator for CBufferIter<T> {
             Some(unsafe { *self.ptr.offset(i as isize) })
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.count, Some(self.count))
+    }
 }
 
 impl<T> Drop for CBufferIter<T> {
