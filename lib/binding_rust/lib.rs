@@ -448,7 +448,7 @@ impl Tree {
         TreePropertyCursor::new(self, property_sheet, source)
     }
 
-    pub fn changed_ranges(&self, other: &Tree) -> impl Iterator<Item = Range> {
+    pub fn changed_ranges(&self, other: &Tree) -> impl ExactSizeIterator<Item = Range> {
         let mut count = 0;
         unsafe {
             let ptr = ffi::ts_tree_get_changed_ranges(self.0, other.0, &mut count as *mut _ as *mut u32);
@@ -570,7 +570,7 @@ impl<'tree> Node<'tree> {
         unsafe { ffi::ts_node_child_count(self.0) as usize }
     }
 
-    pub fn children(&self) -> impl Iterator<Item = Node<'tree>> {
+    pub fn children(&self) -> impl ExactSizeIterator<Item = Node<'tree>> {
         let me = self.clone();
         (0..self.child_count())
             .into_iter()
