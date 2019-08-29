@@ -161,6 +161,24 @@ fn test_parsing_with_custom_utf16_input() {
 }
 
 #[test]
+fn test_parsing_with_callback_returning_owned_strings() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("rust")).unwrap();
+
+    let text = b"pub fn foo() { 1 }";
+
+    let tree = parser
+        .parse_with(
+            &mut |i, _| String::from_utf8(text[i..].to_vec()).unwrap(),
+            None,
+        )
+        .unwrap();
+
+    let root = tree.root_node();
+    assert_eq!(root.to_sexp(), "(source_file (function_item (visibility_modifier) (identifier) (parameters) (block (integer_literal))))");
+}
+
+#[test]
 fn test_parsing_text_with_byte_order_mark() {
     let mut parser = Parser::new();
     parser.set_language(get_language("rust")).unwrap();
@@ -380,11 +398,11 @@ fn test_parsing_cancelled_by_another_thread() {
     let tree = parser.parse_with(
         &mut |offset, _| {
             if offset == 0 {
-                b" ["
+                " [".as_bytes()
             } else if offset >= 20000 {
-                b""
+                "".as_bytes()
             } else {
-                b"0,"
+                "0,".as_bytes()
             }
         },
         None,
@@ -461,11 +479,11 @@ fn test_parsing_with_a_timeout() {
         .parse_with(
             &mut |offset, _| {
                 if offset > 5000 {
-                    b""
+                    "".as_bytes()
                 } else if offset == 5000 {
-                    b"]"
+                    "]".as_bytes()
                 } else {
-                    b",0"
+                    ",0".as_bytes()
                 }
             },
             None,
