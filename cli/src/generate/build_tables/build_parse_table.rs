@@ -130,8 +130,8 @@ impl<'a> ParseTableBuilder<'a> {
         state_id: ParseStateId,
         item_set: ParseItemSet<'a>,
     ) -> Result<()> {
-        let mut terminal_successors = HashMap::new();
-        let mut non_terminal_successors = HashMap::new();
+        let mut terminal_successors = BTreeMap::new();
+        let mut non_terminal_successors = BTreeMap::new();
         let mut lookaheads_with_conflicts = TokenSet::new();
 
         for (item, lookaheads) in &item_set.entries {

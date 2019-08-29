@@ -1,11 +1,11 @@
 use super::grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType};
 use super::nfa::CharacterSet;
-use super::rules::{Alias, AliasMap, Symbol, SymbolType};
+use super::rules::{Alias, AliasMap, Symbol, SymbolType, TokenSet};
 use super::tables::{
     AdvanceAction, FieldLocation, LexState, LexTable, ParseAction, ParseTable, ParseTableEntry,
 };
 use core::ops::Range;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write;
 use std::mem::swap;
 use tree_sitter::LANGUAGE_VERSION;
@@ -58,8 +58,8 @@ struct Generator {
     simple_aliases: AliasMap,
     symbol_ids: HashMap<Symbol, String>,
     alias_ids: HashMap<Alias, String>,
-    external_scanner_states: Vec<HashSet<usize>>,
-    alias_map: HashMap<Alias, Option<Symbol>>,
+    external_scanner_states: Vec<TokenSet>,
+    alias_map: BTreeMap<Alias, Option<Symbol>>,
     field_names: Vec<String>,
 }
 
@@ -633,7 +633,7 @@ impl Generator {
     }
 
     fn add_lex_modes_list(&mut self) {
-        self.get_external_scanner_state_id(HashSet::new());
+        self.get_external_scanner_state_id(TokenSet::new());
 
         let mut external_tokens_by_corresponding_internal_token = HashMap::new();
         for (i, external_token) in self.syntax_grammar.external_tokens.iter().enumerate() {
@@ -645,15 +645,15 @@ impl Generator {
         add_line!(self, "static TSLexMode ts_lex_modes[STATE_COUNT] = {{");
         indent!(self);
         for i in 0..self.parse_table.states.len() {
-            let mut external_tokens = HashSet::new();
+            let mut external_tokens = TokenSet::new();
             for token in self.parse_table.states[i].terminal_entries.keys() {
                 if token.is_external() {
-                    external_tokens.insert(token.index);
+                    external_tokens.insert(*token);
                 } else if token.is_terminal() {
                     if let Some(external_index) =
                         external_tokens_by_corresponding_internal_token.get(&token.index)
                     {
-                        external_tokens.insert(*external_index);
+                        external_tokens.insert(Symbol::external(*external_index));
                     }
                 }
             }
@@ -727,11 +727,11 @@ impl Generator {
             if !self.external_scanner_states[i].is_empty() {
                 add_line!(self, "[{}] = {{", i);
                 indent!(self);
-                for token_index in &self.external_scanner_states[i] {
+                for token in self.external_scanner_states[i].iter() {
                     add_line!(
                         self,
                         "[{}] = true,",
-                        self.external_token_id(&self.syntax_grammar.external_tokens[*token_index])
+                        self.external_token_id(&self.syntax_grammar.external_tokens[token.index])
                     );
                 }
                 dedent!(self);
@@ -761,13 +761,25 @@ impl Generator {
             "static uint16_t ts_parse_table[STATE_COUNT][SYMBOL_COUNT] = {{"
         );
         indent!(self);
+
+        let mut terminal_entries = Vec::new();
+        let mut nonterminal_entries = Vec::new();
+
         for (i, state) in self.parse_table.states.iter().enumerate() {
+            terminal_entries.clear();
+            nonterminal_entries.clear();
+            terminal_entries.extend(state.terminal_entries.iter());
+            nonterminal_entries.extend(state.nonterminal_entries.iter());
+            terminal_entries.sort_unstable_by_key(|e| e.0);
+            nonterminal_entries.sort_unstable_by_key(|e| e.0);
+
             add_line!(self, "[{}] = {{", i);
             indent!(self);
-            for (symbol, state_id) in &state.nonterminal_entries {
+            for (symbol, state_id) in &nonterminal_entries {
                 add_line!(self, "[{}] = STATE({}),", self.symbol_ids[symbol], state_id);
             }
-            for (symbol, entry) in &state.terminal_entries {
+
+            for (symbol, entry) in &terminal_entries {
                 let entry_id = self.get_parse_action_list_id(
                     entry,
                     &mut parse_table_entries,
@@ -985,7 +997,7 @@ impl Generator {
         result
     }
 
-    fn get_external_scanner_state_id(&mut self, external_tokens: HashSet<usize>) -> usize {
+    fn get_external_scanner_state_id(&mut self, external_tokens: TokenSet) -> usize {
         self.external_scanner_states
             .iter()
             .position(|tokens| *tokens == external_tokens)
@@ -1164,7 +1176,7 @@ pub(crate) fn render_c_code(
         symbol_ids: HashMap::new(),
         alias_ids: HashMap::new(),
         external_scanner_states: Vec::new(),
-        alias_map: HashMap::new(),
+        alias_map: BTreeMap::new(),
         field_names: Vec::new(),
     }
     .generate()
