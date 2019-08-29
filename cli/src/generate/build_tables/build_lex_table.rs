@@ -1,10 +1,9 @@
 use super::coincident_tokens::CoincidentTokenIndex;
-use super::item::TokenSet;
 use super::token_conflicts::TokenConflictMap;
 use crate::generate::dedup::split_state_id_groups;
 use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar};
 use crate::generate::nfa::{CharacterSet, NfaCursor};
-use crate::generate::rules::Symbol;
+use crate::generate::rules::{Symbol, TokenSet};
 use crate::generate::tables::{AdvanceAction, LexState, LexTable, ParseStateId, ParseTable};
 use log::info;
 use std::collections::hash_map::Entry;

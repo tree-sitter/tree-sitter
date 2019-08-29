@@ -9,14 +9,13 @@ mod token_conflicts;
 use self::build_lex_table::build_lex_table;
 use self::build_parse_table::build_parse_table;
 use self::coincident_tokens::CoincidentTokenIndex;
-use self::item::TokenSet;
 use self::minimize_parse_table::minimize_parse_table;
 use self::token_conflicts::TokenConflictMap;
 use crate::error::Result;
 use crate::generate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
 use crate::generate::nfa::{CharacterSet, NfaCursor};
 use crate::generate::node_types::VariableInfo;
-use crate::generate::rules::{AliasMap, Symbol, SymbolType};
+use crate::generate::rules::{AliasMap, Symbol, SymbolType, TokenSet};
 use crate::generate::tables::{LexTable, ParseAction, ParseTable, ParseTableEntry};
 use log::info;
 

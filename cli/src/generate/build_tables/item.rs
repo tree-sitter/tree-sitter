@@ -1,12 +1,9 @@
 use crate::generate::grammars::{LexicalGrammar, Production, ProductionStep, SyntaxGrammar};
-use crate::generate::rules::Associativity;
-use crate::generate::rules::{Symbol, SymbolType};
+use crate::generate::rules::{Associativity, Symbol, SymbolType, TokenSet};
 use lazy_static::lazy_static;
-use smallbitvec::SmallBitVec;
 use std::cmp::Ordering;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::iter::FromIterator;
 use std::u32;
 
 lazy_static! {
@@ -23,17 +20,6 @@ lazy_static! {
             field_name: None,
         }],
     };
-}
-
-// Because tokens are represented as small (~400 max) unsigned integers,
-// sets of tokens can be efficiently represented as bit vectors with each
-// index correspoding to a token, and each value representing whether or not
-// the token is present in the set.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) struct TokenSet {
-    terminal_bits: SmallBitVec,
-    external_bits: SmallBitVec,
-    eof: bool,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -71,148 +57,6 @@ pub(crate) struct ParseItemSetDisplay<'a>(
     pub &'a SyntaxGrammar,
     pub &'a LexicalGrammar,
 );
-
-impl TokenSet {
-    pub fn new() -> Self {
-        Self {
-            terminal_bits: SmallBitVec::new(),
-            external_bits: SmallBitVec::new(),
-            eof: false,
-        }
-    }
-
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = Symbol> + 'a {
-        self.terminal_bits
-            .iter()
-            .enumerate()
-            .filter_map(|(i, value)| {
-                if value {
-                    Some(Symbol::terminal(i))
-                } else {
-                    None
-                }
-            })
-            .chain(
-                self.external_bits
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(i, value)| {
-                        if value {
-                            Some(Symbol::external(i))
-                        } else {
-                            None
-                        }
-                    }),
-            )
-            .chain(if self.eof { Some(Symbol::end()) } else { None })
-    }
-
-    pub fn terminals<'a>(&'a self) -> impl Iterator<Item = Symbol> + 'a {
-        self.terminal_bits
-            .iter()
-            .enumerate()
-            .filter_map(|(i, value)| {
-                if value {
-                    Some(Symbol::terminal(i))
-                } else {
-                    None
-                }
-            })
-    }
-
-    pub fn contains(&self, symbol: &Symbol) -> bool {
-        match symbol.kind {
-            SymbolType::NonTerminal => panic!("Cannot store non-terminals in a TokenSet"),
-            SymbolType::Terminal => self.terminal_bits.get(symbol.index).unwrap_or(false),
-            SymbolType::External => self.external_bits.get(symbol.index).unwrap_or(false),
-            SymbolType::End => self.eof,
-        }
-    }
-
-    pub fn contains_terminal(&self, index: usize) -> bool {
-        self.terminal_bits.get(index).unwrap_or(false)
-    }
-
-    pub fn insert(&mut self, other: Symbol) {
-        let vec = match other.kind {
-            SymbolType::NonTerminal => panic!("Cannot store non-terminals in a TokenSet"),
-            SymbolType::Terminal => &mut self.terminal_bits,
-            SymbolType::External => &mut self.external_bits,
-            SymbolType::End => {
-                self.eof = true;
-                return;
-            }
-        };
-        if other.index >= vec.len() {
-            vec.resize(other.index + 1, false);
-        }
-        vec.set(other.index, true);
-    }
-
-    pub fn remove(&mut self, other: &Symbol) {
-        let vec = match other.kind {
-            SymbolType::NonTerminal => panic!("Cannot store non-terminals in a TokenSet"),
-            SymbolType::Terminal => &mut self.terminal_bits,
-            SymbolType::External => &mut self.external_bits,
-            SymbolType::End => {
-                self.eof = false;
-                return;
-            }
-        };
-        if other.index < vec.len() {
-            vec.set(other.index, false);
-        }
-    }
-
-    pub fn insert_all_terminals(&mut self, other: &TokenSet) -> bool {
-        let mut result = false;
-        if other.terminal_bits.len() > self.terminal_bits.len() {
-            self.terminal_bits.resize(other.terminal_bits.len(), false);
-        }
-        for (i, element) in other.terminal_bits.iter().enumerate() {
-            if element {
-                result |= !self.terminal_bits[i];
-                self.terminal_bits.set(i, element);
-            }
-        }
-        result
-    }
-
-    fn insert_all_externals(&mut self, other: &TokenSet) -> bool {
-        let mut result = false;
-        if other.external_bits.len() > self.external_bits.len() {
-            self.external_bits.resize(other.external_bits.len(), false);
-        }
-        for (i, element) in other.external_bits.iter().enumerate() {
-            if element {
-                result |= !self.external_bits[i];
-                self.external_bits.set(i, element);
-            }
-        }
-        result
-    }
-
-    pub fn insert_all(&mut self, other: &TokenSet) -> bool {
-        let mut result = false;
-        if other.eof {
-            result |= !self.eof;
-            self.eof = true;
-        }
-        result |= self.insert_all_terminals(other);
-        result |= self.insert_all_externals(other);
-        result
-    }
-}
-
-impl FromIterator<Symbol> for TokenSet {
-    fn from_iter<T: IntoIterator<Item = Symbol>>(iter: T) -> Self {
-        let mut result = Self::new();
-        for symbol in iter {
-            result.insert(symbol);
-        }
-        result
-    }
-}
 
 impl<'a> ParseItem<'a> {
     pub fn start() -> Self {

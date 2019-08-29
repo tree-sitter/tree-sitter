@@ -1,11 +1,11 @@
-use super::item::{ParseItem, ParseItemSet, ParseItemSetCore, TokenSet};
+use super::item::{ParseItem, ParseItemSet, ParseItemSetCore};
 use super::item_set_builder::ParseItemSetBuilder;
 use crate::error::{Error, Result};
 use crate::generate::grammars::{
     InlinedProductionMap, LexicalGrammar, SyntaxGrammar, VariableType,
 };
 use crate::generate::node_types::VariableInfo;
-use crate::generate::rules::{Associativity, Symbol, SymbolType};
+use crate::generate::rules::{Associativity, Symbol, SymbolType, TokenSet};
 use crate::generate::tables::{
     FieldLocation, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
     ProductionInfo, ProductionInfoId,

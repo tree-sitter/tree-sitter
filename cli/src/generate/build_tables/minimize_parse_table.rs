@@ -1,8 +1,7 @@
-use super::item::TokenSet;
 use super::token_conflicts::TokenConflictMap;
 use crate::generate::dedup::split_state_id_groups;
 use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar, VariableType};
-use crate::generate::rules::{AliasMap, Symbol};
+use crate::generate::rules::{AliasMap, Symbol, TokenSet};
 use crate::generate::tables::{ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry};
 use log::info;
 use std::collections::{HashMap, HashSet};
