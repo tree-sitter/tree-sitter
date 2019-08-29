@@ -37,17 +37,17 @@ static void ts_lexer__get_lookahead(Lexer *self) {
   const uint8_t *chunk = (const uint8_t *)self->chunk + position_in_chunk;
   uint32_t size = self->chunk_size - position_in_chunk;
 
+  if (size == 0) {
+    self->lookahead_size = 1;
+    self->data.lookahead = '\0';
+    return;
+  }
+
   UnicodeDecodeFunction decode = self->input.encoding == TSInputEncodingUTF8
     ? ts_decode_utf8
     : ts_decode_utf16;
 
   self->lookahead_size = decode(chunk, size, &self->data.lookahead);
-
-  if (self->lookahead_size == 0) {
-    self->lookahead_size = 1;
-    self->data.lookahead = '\0';
-    return;
-  }
 
   // If this chunk ended in the middle of a multi-byte character,
   // try again with a fresh chunk.
