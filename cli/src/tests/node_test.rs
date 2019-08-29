@@ -1,8 +1,9 @@
 use super::helpers::edits::get_random_edit;
-use super::helpers::fixtures::{get_language, get_test_language};
+use super::helpers::fixtures::{fixtures_dir, get_language, get_test_language};
 use super::helpers::random::Rand;
 use crate::generate::generate_parser_for_grammar;
 use crate::parse::perform_edit;
+use std::fs;
 use tree_sitter::{Node, Parser, Point, Tree};
 
 const JSON_EXAMPLE: &'static str = r#"
@@ -593,6 +594,37 @@ fn test_node_field_calls_in_language_without_fields() {
     assert_eq!(cursor.field_name(), None);
     assert_eq!(cursor.goto_first_child(), true);
     assert_eq!(cursor.field_name(), None);
+}
+
+#[test]
+fn test_node_is_named_but_aliased_as_anonymous() {
+    let (parser_name, parser_code) = generate_parser_for_grammar(
+        &fs::read_to_string(
+            &fixtures_dir()
+                .join("test_grammars")
+                .join("named_rule_aliased_as_anonymous")
+                .join("grammar.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+
+    let mut parser = Parser::new();
+    let language = get_test_language(&parser_name, &parser_code, None);
+    parser.set_language(language).unwrap();
+
+    let tree = parser.parse("B C B", None).unwrap();
+
+    let root_node = tree.root_node();
+    assert!(!root_node.has_error());
+    assert_eq!(root_node.child_count(), 3);
+    assert_eq!(root_node.named_child_count(), 2);
+
+    let aliased = root_node.child(0).unwrap();
+    assert!(!aliased.is_named());
+    assert_eq!(aliased.kind(), "the-alias");
+
+    assert_eq!(root_node.named_child(0).unwrap().kind(), "c");
 }
 
 fn get_all_nodes(tree: &Tree) -> Vec<Node> {
