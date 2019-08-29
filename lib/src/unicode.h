@@ -28,8 +28,8 @@ static inline uint32_t ts_decode_utf8(
   uint32_t length,
   int32_t *code_point
 ) {
-  int32_t i = 0;
-  U8_NEXT(string, i, ((int)length), *code_point);
+  uint32_t i = 0;
+  U8_NEXT(string, i, length, *code_point);
   return i;
 }
 
@@ -38,8 +38,8 @@ static inline uint32_t ts_decode_utf16(
   uint32_t length,
   int32_t *code_point
 ) {
-  int32_t i = 0;
-  U16_NEXT(((uint16_t *)string), i, ((int)length), *code_point);
+  uint32_t i = 0;
+  U16_NEXT(((uint16_t *)string), i, length, *code_point);
   return i * 2;
 }
 
