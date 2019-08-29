@@ -9,7 +9,10 @@ use std::cmp;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write;
 use std::mem::swap;
-use tree_sitter::LANGUAGE_VERSION;
+
+// Currently, the library supports a new ABI version that has not yet been
+// stabilized, and the parser generation does not use it by default.
+const STABLE_LANGUAGE_VERSION: usize = tree_sitter::LANGUAGE_VERSION - 1;
 
 macro_rules! add {
     ($this: tt, $($arg: tt)*) => {{
@@ -65,6 +68,7 @@ struct Generator {
     alias_ids: HashMap<Alias, String>,
     alias_map: BTreeMap<Alias, Option<Symbol>>,
     field_names: Vec<String>,
+    next_abi: bool,
 }
 
 impl Generator {
@@ -149,23 +153,30 @@ impl Generator {
             }
         }
 
-        let threshold = cmp::min(
-            SMALL_STATE_THRESHOLD,
-            self.parse_table.symbols.len() / 2 - 1,
-        );
-        self.large_state_count = self
-            .parse_table
-            .states
-            .iter()
-            .enumerate()
-            .take_while(|(i, s)| {
-                *i <= 1 || s.terminal_entries.len() + s.nonterminal_entries.len() > threshold
-            })
-            .count();
-
         field_names.sort_unstable();
         field_names.dedup();
         self.field_names = field_names.into_iter().cloned().collect();
+
+        // If we are opting in to the new unstable language ABI, then use the concept of
+        // "small parse states". Otherwise, use the same representation for all parse
+        // states.
+        if self.next_abi {
+            let threshold = cmp::min(
+                SMALL_STATE_THRESHOLD,
+                self.parse_table.symbols.len() / 2 - 1,
+            );
+            self.large_state_count = self
+                .parse_table
+                .states
+                .iter()
+                .enumerate()
+                .take_while(|(i, s)| {
+                    *i <= 1 || s.terminal_entries.len() + s.nonterminal_entries.len() > threshold
+                })
+                .count();
+        } else {
+            self.large_state_count = self.parse_table.states.len();
+        }
     }
 
     fn add_includes(&mut self) {
@@ -216,13 +227,26 @@ impl Generator {
             })
             .count();
 
-        add_line!(self, "#define LANGUAGE_VERSION {}", LANGUAGE_VERSION);
+        if self.next_abi {
+            add_line!(
+                self,
+                "#define LANGUAGE_VERSION {}",
+                tree_sitter::LANGUAGE_VERSION
+            );
+        } else {
+            add_line!(self, "#define LANGUAGE_VERSION {}", STABLE_LANGUAGE_VERSION);
+        }
+
         add_line!(
             self,
             "#define STATE_COUNT {}",
             self.parse_table.states.len()
         );
-        add_line!(self, "#define LARGE_STATE_COUNT {}", self.large_state_count);
+
+        if self.next_abi {
+            add_line!(self, "#define LARGE_STATE_COUNT {}", self.large_state_count);
+        }
+
         add_line!(
             self,
             "#define SYMBOL_COUNT {}",
@@ -755,7 +779,12 @@ impl Generator {
 
         add_line!(
             self,
-            "static uint16_t ts_parse_table[LARGE_STATE_COUNT][SYMBOL_COUNT] = {{"
+            "static uint16_t ts_parse_table[{}][SYMBOL_COUNT] = {{",
+            if self.next_abi {
+                "LARGE_STATE_COUNT"
+            } else {
+                "STATE_COUNT"
+            }
         );
         indent!(self);
 
@@ -959,7 +988,11 @@ impl Generator {
         add_line!(self, ".symbol_count = SYMBOL_COUNT,");
         add_line!(self, ".alias_count = ALIAS_COUNT,");
         add_line!(self, ".token_count = TOKEN_COUNT,");
-        add_line!(self, ".large_state_count = LARGE_STATE_COUNT,");
+
+        if self.next_abi {
+            add_line!(self, ".large_state_count = LARGE_STATE_COUNT,");
+        }
+
         add_line!(self, ".symbol_metadata = ts_symbol_metadata,");
         add_line!(
             self,
@@ -1217,6 +1250,23 @@ impl Generator {
     }
 }
 
+/// Returns a String of C code for the given components of a parser.
+///
+/// # Arguments
+///
+/// * `name` - A string slice containing the name of the language
+/// * `parse_table` - The generated parse table for the language
+/// * `main_lex_table` - The generated lexing table for the language
+/// * `keyword_lex_table` - The generated keyword lexing table for the language
+/// * `keyword_capture_token` - A symbol indicating which token is used
+///    for keyword capture, if any.
+/// * `syntax_grammar` - The syntax grammar extracted from the language's grammar
+/// * `lexical_grammar` - The lexical grammar extracted from the language's grammar
+/// * `simple_aliases` - A map describing the global rename rules that should apply.
+///    the keys are symbols that are *always* aliased in the same way, and the values
+///    are the aliases that are applied to those symbols.
+/// * `next_abi` - A boolean indicating whether to opt into the new, unstable parse
+///    table format. This is mainly used for testing, when developing Tree-sitter itself.
 pub(crate) fn render_c_code(
     name: &str,
     parse_table: ParseTable,
@@ -1226,6 +1276,7 @@ pub(crate) fn render_c_code(
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
     simple_aliases: AliasMap,
+    next_abi: bool,
 ) -> String {
     Generator {
         buffer: String::new(),
@@ -1244,6 +1295,7 @@ pub(crate) fn render_c_code(
         alias_ids: HashMap::new(),
         alias_map: BTreeMap::new(),
         field_names: Vec::new(),
+        next_abi,
     }
     .generate()
 }

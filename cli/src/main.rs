@@ -38,6 +38,7 @@ fn run() -> error::Result<()> {
                 .about("Generate a parser")
                 .arg(Arg::with_name("grammar-path").index(1))
                 .arg(Arg::with_name("log").long("log"))
+                .arg(Arg::with_name("next-abi").long("next-abi"))
                 .arg(Arg::with_name("properties-only").long("properties"))
                 .arg(
                     Arg::with_name("report-states-for-rule")
@@ -137,10 +138,12 @@ fn run() -> error::Result<()> {
         if matches.is_present("log") {
             logger::init();
         }
+        let next_abi = matches.is_present("next-abi");
         generate::generate_parser_in_directory(
             &current_dir,
             grammar_path,
             properties_only,
+            next_abi,
             report_symbol_name,
         )?;
     } else if let Some(matches) = matches.subcommand_matches("test") {
