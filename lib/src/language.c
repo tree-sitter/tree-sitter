@@ -11,7 +11,7 @@ void ts_language_table_entry(const TSLanguage *self, TSStateId state,
     result->actions = NULL;
   } else {
     assert(symbol < self->token_count);
-    uint32_t action_index = self->parse_table[state * self->symbol_count + symbol];
+    uint32_t action_index = ts_language_lookup(self, state, symbol);
     const TSParseActionEntry *entry = &self->parse_actions[action_index];
     result->action_count = entry->count;
     result->is_reusable = entry->reusable;

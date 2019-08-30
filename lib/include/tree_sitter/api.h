@@ -14,7 +14,7 @@ extern "C" {
 /* Section - ABI Versioning */
 /****************************/
 
-#define TREE_SITTER_LANGUAGE_VERSION 10
+#define TREE_SITTER_LANGUAGE_VERSION 11
 #define TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION 9
 
 /*******************/

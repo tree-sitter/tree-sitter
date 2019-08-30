@@ -1,5 +1,8 @@
-use crate::generate::grammars::{LexicalGrammar, Production, ProductionStep, SyntaxGrammar};
-use crate::generate::rules::{Associativity, Symbol, SymbolType, TokenSet};
+use crate::generate::grammars::{
+    LexicalGrammar, Production, ProductionStep, SyntaxGrammar,
+};
+use crate::generate::rules::Associativity;
+use crate::generate::rules::{Symbol, SymbolType, TokenSet};
 use lazy_static::lazy_static;
 use std::cmp::Ordering;
 use std::fmt;
@@ -161,12 +164,14 @@ impl<'a> fmt::Display for ParseItemDisplay<'a> {
         for (i, step) in self.0.production.steps.iter().enumerate() {
             if i == self.0.step_index as usize {
                 write!(f, " •")?;
-                if step.precedence != 0 || step.associativity.is_some() {
-                    write!(
-                        f,
-                        " (prec {:?} assoc {:?})",
-                        step.precedence, step.associativity
-                    )?;
+                if let Some(associativity) = step.associativity {
+                    if step.precedence != 0 {
+                        write!(f, " ({} {:?})", step.precedence, associativity)?;
+                    } else {
+                        write!(f, " ({:?})", associativity)?;
+                    }
+                } else if step.precedence != 0 {
+                    write!(f, " ({})", step.precedence)?;
                 }
             }
 
@@ -184,19 +189,21 @@ impl<'a> fmt::Display for ParseItemDisplay<'a> {
             }
 
             if let Some(alias) = &step.alias {
-                write!(f, " (alias {})", alias.value)?;
+                write!(f, "@{}", alias.value)?;
             }
         }
 
         if self.0.is_done() {
             write!(f, " •")?;
             if let Some(step) = self.0.production.steps.last() {
-                if step.precedence != 0 || step.associativity.is_some() {
-                    write!(
-                        f,
-                        " (prec {:?} assoc {:?})",
-                        step.precedence, step.associativity
-                    )?;
+                if let Some(associativity) = step.associativity {
+                    if step.precedence != 0 {
+                        write!(f, " ({} {:?})", step.precedence, associativity)?;
+                    } else {
+                        write!(f, " ({:?})", associativity)?;
+                    }
+                } else if step.precedence != 0 {
+                    write!(f, " ({})", step.precedence)?;
                 }
             }
         }
