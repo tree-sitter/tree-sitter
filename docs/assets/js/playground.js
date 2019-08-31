@@ -65,18 +65,17 @@ let tree;
   }
 
   async function handleCodeChange(editor, changes) {
-    let start;
+    const newText = codeEditor.getValue() + '\n';
+
+    const start = performance.now();
     if (tree && changes) {
-      start = performance.now();
       for (const change of changes) {
-        const edit = treeEditForEditorChange(change);
-        tree.edit(edit);
+        tree.edit(treeEditForEditorChange(change));
       }
-    } else {
-      start = performance.now();
     }
-    const newTree = parser.parse(codeEditor.getValue() + '\n', tree);
+    const newTree = parser.parse(newText, tree);
     const duration = (performance.now() - start).toFixed(1);
+
     updateTimeSpan.innerText = `${duration} ms`;
     if (tree) tree.delete();
     tree = newTree;
