@@ -62,13 +62,14 @@ static inline uint16_t ts_language_lookup(
     state >= self->large_state_count
   ) {
     uint32_t index = self->small_parse_table_map[state - self->large_state_count];
-    const uint16_t *state_data = &self->small_parse_table[index];
-    uint16_t symbol_count = *state_data;
-    state_data++;
-    for (unsigned i = 0; i < symbol_count; i++) {
-      if (state_data[0] == symbol) return state_data[1];
-      if (state_data[0] > symbol) break;
-      state_data += 2;
+    const uint16_t *data = &self->small_parse_table[index];
+    uint16_t section_count = *(data++);
+    for (unsigned i = 0; i < section_count; i++) {
+      uint16_t section_value = *(data++);
+      uint16_t symbol_count = *(data++);
+      for (unsigned i = 0; i < symbol_count; i++) {
+        if (*(data++) == symbol) return section_value;
+      }
     }
     return 0;
   } else {
