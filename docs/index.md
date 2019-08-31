@@ -44,8 +44,10 @@ Parsers for these languages are fairly complete:
 * [Ruby](https://github.com/tree-sitter/tree-sitter-ruby)
 * [Rust](https://github.com/tree-sitter/tree-sitter-rust)
 * [SystemRDL](https://github.com/SystemRDL/tree-sitter-systemrdl)
+* [TOML](https://github.com/ikatyang/tree-sitter-toml)
 * [TypeScript](https://github.com/tree-sitter/tree-sitter-typescript)
 * [Verilog](https://github.com/tree-sitter/tree-sitter-verilog)
+* [YAML](https://github.com/ikatyang/tree-sitter-yaml)
 
 Parsers for these languages are in development:
 
