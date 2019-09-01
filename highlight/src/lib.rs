@@ -106,15 +106,15 @@ struct Layer<'a, S: NodeSource<'a>> {
     local_highlight: Option<Highlight>,
 }
 
-struct Highlighter<'a, T>
+struct Highlighter<'a, T, S: NodeSource<'a>>
 where
     T: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
 {
     injection_callback: T,
-    source: &'a [u8],
+    source: S,
     source_offset: usize,
     parser: Parser,
-    layers: Vec<Layer<'a, &'a [u8]>>,
+    layers: Vec<Layer<'a, S>>,
     max_opaque_layer_depth: usize,
     utf8_error_len: Option<usize>,
     operation_count: usize,
@@ -447,12 +447,12 @@ impl Properties {
     }
 }
 
-impl<'a, F> Highlighter<'a, F>
+impl<'a, F, S: NodeSource<'a>> Highlighter<'a, F, S>
 where
     F: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
 {
     fn new(
-        source: &'a [u8],
+        source: S,
         language: Language,
         property_sheet: &'a PropertySheet<Properties>,
         injection_callback: F,
@@ -463,10 +463,10 @@ where
         parser
             .set_language(language)
             .map_err(|_| Error::InvalidLanguage)?;
-        let tree = parser.parse(source, None).ok_or_else(|| Error::Cancelled)?;
+        let tree = parser.parse_source(&source, None).ok_or_else(|| Error::Cancelled)?;
         Ok(Self {
             parser,
-            source,
+            source: source.clone(),
             cancellation_flag,
             injection_callback,
             source_offset: 0,
@@ -490,7 +490,7 @@ where
     }
 
     fn emit_source(&mut self, next_offset: usize) -> Option<Result<HighlightEvent<'a>, Error>> {
-        let input = &self.source[self.source_offset..next_offset];
+        let input = self.source.get_bytes(self.source_offset, next_offset);
         match str::from_utf8(input) {
             Ok(valid) => {
                 self.source_offset = next_offset;
@@ -574,7 +574,7 @@ where
                 .nodes_for_tree_path(*node, steps)
                 .first()
                 .and_then(|node| {
-                    str::from_utf8(&self.source[node.start_byte()..node.end_byte()])
+                    str::from_utf8(self.source.get_bytes(node.start_byte(), node.end_byte()))
                         .map(|s| s.to_owned())
                         .ok()
                 }),
@@ -688,9 +688,9 @@ where
                 return Some(Error::InvalidLanguage);
             }
             self.parser.set_included_ranges(&ranges);
-            if let Some(tree) = self.parser.parse(self.source, None) {
+            if let Some(tree) = self.parser.parse_source(&self.source, None) {
                 let layer = Layer::new(
-                    self.source,
+                    self.source.clone(),
                     tree,
                     property_sheet,
                     ranges,
@@ -723,7 +723,7 @@ where
     }
 }
 
-impl<'a, T> Iterator for Highlighter<'a, T>
+impl<'a, T, S: NodeSource<'a>> Iterator for Highlighter<'a, T, S>
 where
     T: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
 {
@@ -803,7 +803,7 @@ where
                     .or(properties.highlight_nonlocal)
                     .or(properties.highlight)
                 {
-                    let next_offset = cmp::min(self.source.len(), first_layer.offset());
+                    let next_offset = cmp::min(self.source.max_len(), first_layer.offset());
 
                     // Before returning any highlight boundaries, return any remaining slice of
                     // the source code the precedes that highlight boundary.
@@ -840,15 +840,15 @@ where
             }
         }
 
-        if self.source_offset < self.source.len() {
-            self.emit_source(self.source.len())
+        if self.source_offset < self.source.max_len() {
+            self.emit_source(self.source.max_len())
         } else {
             None
         }
     }
 }
 
-impl<'a, T> fmt::Debug for Highlighter<'a, T>
+impl<'a, T, S: NodeSource<'a>> fmt::Debug for Highlighter<'a, T, S>
 where
     T: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
 {

@@ -129,8 +129,12 @@ pub struct Tree(*mut ffi::TSTree);
 pub struct TreeCursor<'a>(ffi::TSTreeCursor, PhantomData<&'a ()>);
 
 // TODO: See if we can generalize this into a Source trait (for parsing, not just for walking).
-pub trait NodeSource<'a> {
-    fn get_bytes(&self, node: Node<'a>) -> &'a [u8];
+pub trait NodeSource<'a>: Clone {
+    fn get_bytes(&self, start_byte: usize, end_byte: usize) -> &'a [u8];
+
+    fn max_len(&self) -> usize;
+
+    fn read(&self, byte_offset: usize, point: Point) -> &[u8];
 }
 
 pub struct TreePropertyCursor<'a, P, S: NodeSource<'a>> {
@@ -311,6 +315,13 @@ impl Parser {
             &mut |i, _| if i < len { &bytes[i..] } else { &[] },
             old_tree,
         )
+    }
+
+    pub fn parse_source<'t>(&mut self, source: &impl NodeSource<'t>, old_tree: Option<&Tree>) -> Option<Tree> {
+        let callback = &mut |i, p| {
+            source.read(i, p)
+        };
+        self.parse_with(callback, old_tree)
     }
 
     /// Parse a slice UTF16 text.
@@ -808,8 +819,22 @@ impl<'a> Drop for TreeCursor<'a> {
 }
 
 impl<'a> NodeSource<'a> for &'a [u8] {
-    fn get_bytes(&self, node: Node<'a>) -> &'a [u8] {
-        &self[node.start_byte()..node.end_byte()]
+    fn get_bytes(&self, start_byte: usize, end_byte: usize) -> &'a [u8] {
+        &self[start_byte..end_byte]
+    }
+
+    #[inline(always)]
+    fn max_len(&self) -> usize {
+        self.len()
+    }
+
+    fn read(&self, byte_offset: usize, point: Point) -> &[u8] {
+        let len = self.len();
+        if byte_offset < len {
+            &self[byte_offset..]
+        } else {
+            &[]
+        }
     }
 }
 
@@ -871,7 +896,7 @@ impl<'a, P, S: NodeSource<'a>> TreePropertyCursor<'a, P, S> {
 
     pub fn current_source(&self) -> Result<&'a str, str::Utf8Error> {
         let node = self.node();
-        str::from_utf8(&self.source.get_bytes(node))
+        str::from_utf8(&self.source.get_bytes(node.start_byte(), node.end_byte()))
     }
 
     fn next_state(&self, node_child_index: usize) -> usize {
