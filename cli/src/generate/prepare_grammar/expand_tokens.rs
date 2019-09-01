@@ -12,7 +12,7 @@ use std::i32;
 
 lazy_static! {
     static ref CURLY_BRACE_REGEX: Regex =
-        Regex::new(r#"(^|[^\\])\{([^}]*[^0-9A-F,}][^}]*)\}"#).unwrap();
+        Regex::new(r#"(^|[^\\])\{([^}]*[^0-9A-Fa-f,}][^}]*)\}"#).unwrap();
 }
 
 const ALLOWED_REDUNDANT_ESCAPED_CHARS: [char; 4] = ['!', '\'', '"', '/'];
@@ -653,12 +653,15 @@ mod tests {
                     Rule::pattern(r#"\{[ab]{3}\}"#),
                     // Unicode codepoints
                     Rule::pattern(r#"\u{1000A}"#),
+                    // Unicode codepoints (lowercase)
+                    Rule::pattern(r#"\u{1000b}"#),
                 ],
                 separators: vec![],
                 examples: vec![
                     ("u{1234} ok", Some((0, "u{1234}"))),
                     ("{aba}}", Some((1, "{aba}"))),
                     ("\u{1000A}", Some((2, "\u{1000A}"))),
+                    ("\u{1000b}", Some((3, "\u{1000b}"))),
                 ],
             },
         ];
