@@ -128,12 +128,17 @@ pub struct Tree(*mut ffi::TSTree);
 
 pub struct TreeCursor<'a>(ffi::TSTreeCursor, PhantomData<&'a ()>);
 
-pub struct TreePropertyCursor<'a, P> {
+// TODO: See if we can generalize this into a Source trait (for parsing, not just for walking).
+pub trait NodeSource<'a> {
+    fn get_bytes(&self, node: Node<'a>) -> &'a [u8];
+}
+
+pub struct TreePropertyCursor<'a, P, S: NodeSource<'a>> {
     cursor: TreeCursor<'a>,
     state_stack: Vec<usize>,
     child_index_stack: Vec<usize>,
     property_sheet: &'a PropertySheet<P>,
-    source: &'a [u8],
+    source: S,
 }
 
 impl Language {
@@ -503,11 +508,11 @@ impl Tree {
         self.root_node().walk()
     }
 
-    pub fn walk_with_properties<'a, P>(
+    pub fn walk_with_properties<'a, P, S: NodeSource<'a>>(
         &'a self,
         property_sheet: &'a PropertySheet<P>,
-        source: &'a [u8],
-    ) -> TreePropertyCursor<'a, P> {
+        source: S,
+    ) -> TreePropertyCursor<'a, P, S> {
         TreePropertyCursor::new(self, property_sheet, source)
     }
 
@@ -802,8 +807,14 @@ impl<'a> Drop for TreeCursor<'a> {
     }
 }
 
-impl<'a, P> TreePropertyCursor<'a, P> {
-    fn new(tree: &'a Tree, property_sheet: &'a PropertySheet<P>, source: &'a [u8]) -> Self {
+impl<'a> NodeSource<'a> for &'a [u8] {
+    fn get_bytes(&self, node: Node<'a>) -> &'a [u8] {
+        &self[node.start_byte()..node.end_byte()]
+    }
+}
+
+impl<'a, P, S: NodeSource<'a>> TreePropertyCursor<'a, P, S> {
+    fn new(tree: &'a Tree, property_sheet: &'a PropertySheet<P>, source: S) -> Self {
         let mut result = Self {
             cursor: tree.root_node().walk(),
             child_index_stack: vec![0],
@@ -858,8 +869,9 @@ impl<'a, P> TreePropertyCursor<'a, P> {
         }
     }
 
-    pub fn source(&self) -> &'a [u8] {
-        &self.source
+    pub fn current_source(&self) -> Result<&'a str, str::Utf8Error> {
+        let node = self.node();
+        str::from_utf8(&self.source.get_bytes(node))
     }
 
     fn next_state(&self, node_child_index: usize) -> usize {
@@ -883,9 +895,7 @@ impl<'a, P> TreePropertyCursor<'a, P> {
                     }
 
                     if let Some(text_regex_index) = transition.text_regex_index {
-                        let node = self.cursor.node();
-                        let text = &self.source[node.start_byte()..node.end_byte()];
-                        if let Ok(text) = str::from_utf8(text) {
+                        if let Ok(text) = self.current_source() {
                             if !self.property_sheet.text_regexes[text_regex_index as usize]
                                 .is_match(text)
                             {

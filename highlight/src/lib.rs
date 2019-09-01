@@ -97,7 +97,7 @@ struct Scope<'a> {
 
 struct Layer<'a> {
     _tree: Tree,
-    cursor: TreePropertyCursor<'a, Properties>,
+    cursor: TreePropertyCursor<'a, Properties, &'a [u8]>,
     ranges: Vec<Range>,
     at_node_end: bool,
     depth: usize,
@@ -944,10 +944,9 @@ impl<'a> Layer<'a> {
     }
 
     fn enter_node(&mut self) {
-        let node = self.cursor.node();
         let props = self.cursor.node_properties();
         let node_text = if props.local_definition || props.local_reference {
-            node.utf8_text(self.cursor.source()).ok()
+            self.cursor.current_source().ok()
         } else {
             None
         };
