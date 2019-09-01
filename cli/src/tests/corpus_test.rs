@@ -59,8 +59,8 @@ fn test_real_language_corpus_files() {
         let language = get_language(language_name);
         let corpus_dir = grammars_dir.join(language_name).join("corpus");
         let error_corpus_file = error_corpus_dir.join(&format!("{}_errors.txt", language_name));
-        let main_tests = parse_tests(&corpus_dir).unwrap();
-        let error_tests = parse_tests(&error_corpus_file).unwrap_or(TestEntry::default());
+        let main_tests = parse_tests(&corpus_dir, true).unwrap();
+        let error_tests = parse_tests(&error_corpus_file, true).unwrap_or(TestEntry::default());
         let mut tests = flatten_tests(main_tests);
         tests.extend(flatten_tests(error_tests));
 
@@ -243,7 +243,7 @@ fn test_feature_corpus_files() {
             let corpus_path = test_path.join("corpus.txt");
             let c_code = generate_result.unwrap().1;
             let language = get_test_language(language_name, &c_code, Some(&test_path));
-            let test = parse_tests(&corpus_path).unwrap();
+            let test = parse_tests(&corpus_path, true).unwrap();
             let tests = flatten_tests(test);
 
             if !tests.is_empty() {
@@ -381,7 +381,7 @@ fn flatten_tests(test: TestEntry) -> Vec<(String, Vec<u8>, String, bool)> {
                 }
                 result.push((name, input, output, has_fields));
             }
-            TestEntry::Group { mut name, children } => {
+            TestEntry::Group { mut name, children, .. } => {
                 if !prefix.is_empty() {
                     name.insert_str(0, " - ");
                     name.insert_str(0, prefix);
