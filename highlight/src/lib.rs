@@ -8,7 +8,7 @@ use std::fmt::{self, Write};
 use std::mem::transmute;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{cmp, str, usize};
-use tree_sitter::{Language, Node, Parser, Point, PropertySheet, Range, Tree, TreePropertyCursor};
+use tree_sitter::{Language, Node, Parser, Point, PropertySheet, Range, Tree, TreePropertyCursor, NodeSource};
 
 const CANCELLATION_CHECK_INTERVAL: usize = 100;
 
@@ -95,9 +95,9 @@ struct Scope<'a> {
     local_defs: Vec<(&'a str, Highlight)>,
 }
 
-struct Layer<'a> {
+struct Layer<'a, S: NodeSource<'a>> {
     _tree: Tree,
-    cursor: TreePropertyCursor<'a, Properties, &'a [u8]>,
+    cursor: TreePropertyCursor<'a, Properties, S>,
     ranges: Vec<Range>,
     at_node_end: bool,
     depth: usize,
@@ -114,7 +114,7 @@ where
     source: &'a [u8],
     source_offset: usize,
     parser: Parser,
-    layers: Vec<Layer<'a>>,
+    layers: Vec<Layer<'a, &'a [u8]>>,
     max_opaque_layer_depth: usize,
     utf8_error_len: Option<usize>,
     operation_count: usize,
@@ -221,7 +221,7 @@ impl fmt::Display for PropertySheetError {
     }
 }
 
-impl<'a> fmt::Debug for Layer<'a> {
+impl<'a, S: NodeSource<'a>> fmt::Debug for Layer<'a, S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -873,9 +873,9 @@ where
     }
 }
 
-impl<'a> Layer<'a> {
+impl<'a, S: NodeSource<'a>> Layer<'a, S> {
     fn new(
-        source: &'a [u8],
+        source: S,
         tree: Tree,
         sheet: &'a PropertySheet<Properties>,
         ranges: Vec<Range>,
@@ -885,8 +885,9 @@ impl<'a> Layer<'a> {
         // The cursor's lifetime parameter indicates that the tree must outlive the cursor.
         // But because the tree is really a pointer to the heap, the cursor can remain
         // valid when the tree is moved. There's no way to express this with lifetimes
-        // right now, so we have to `transmute` the cursor's lifetime.
-        let cursor = unsafe { transmute(tree.walk_with_properties(sheet, source)) };
+        // right now, so we have to `transmute` the tree's lifetime.
+        let tree_ref: &Tree = unsafe { transmute(&tree) };
+        let cursor = tree_ref.walk_with_properties(sheet, source);
         Self {
             _tree: tree,
             cursor,
@@ -902,7 +903,7 @@ impl<'a> Layer<'a> {
         }
     }
 
-    fn cmp(&self, other: &Layer) -> cmp::Ordering {
+    fn cmp(&self, other: &Layer<'a, S>) -> cmp::Ordering {
         // Events are ordered primarily by their position in the document. But if
         // one highlight starts at a given position and another highlight ends at that
         // same position, return the highlight end event before the highlight start event.
