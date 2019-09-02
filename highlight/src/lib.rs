@@ -492,6 +492,41 @@ where
         })
     }
 
+    /// Similar to `new`, except that it takes an already parsed tree instead of a language.
+    pub fn new_with_tree(
+        source: S,
+        tree: Tree,
+        property_sheet: &'a PropertySheet<Properties>,
+        injection_callback: F,
+        cancellation_flag: Option<&'a AtomicUsize>,
+    ) -> Result<Self, Error> {
+        let parser = Parser::new();
+        unsafe { parser.set_cancellation_flag(cancellation_flag.clone()) };
+        Ok(Self {
+            parser,
+            source: source.clone(),
+            cancellation_flag,
+            injection_callback,
+            source_offset: 0,
+            operation_count: 0,
+            utf8_error_len: None,
+            max_opaque_layer_depth: 0,
+            layers: vec![Layer::new(
+                source,
+                tree,
+                property_sheet,
+                vec![Range {
+                    start_byte: 0,
+                    end_byte: usize::MAX,
+                    start_point: Point::new(0, 0),
+                    end_point: Point::new(usize::MAX, usize::MAX),
+                }],
+                0,
+                true,
+            )],
+        })
+    }
+
     fn emit_source(&mut self, next_offset: usize) -> Option<Result<HighlightEvent<'a>, Error>> {
         let input = self.source.bytes(self.source_offset, next_offset);
         let mut range = self.source_offset..next_offset;
@@ -848,8 +883,9 @@ where
             }
         }
 
-        if self.source_offset < self.source.max_len() {
-            self.emit_source(self.source.max_len())
+        let max_len = self.source.max_len();
+        if self.source_offset < max_len {
+            self.emit_source(max_len)
         } else {
             None
         }
@@ -954,8 +990,8 @@ impl<'a, S: NodeSource<'a>> Layer<'a, S> {
 
     fn enter_node(&mut self) {
         let props = self.cursor.node_properties();
-        let bytes = self.cursor.node_bytes();
         let node_text = if props.local_definition || props.local_reference {
+            let bytes = self.cursor.node_bytes();
             cow::decode_utf8(bytes).ok()
         } else {
             None
