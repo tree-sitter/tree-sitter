@@ -8,7 +8,7 @@ use serde_derive::*;
 use std::fmt::{self, Write};
 use std::mem::transmute;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{cmp, str, usize};
+use std::{cmp, str, usize, ops};
 use tree_sitter::{Language, Node, Parser, Point, PropertySheet, Range, Tree, TreePropertyCursor, NodeSource};
 use std::borrow::Cow;
 
@@ -125,7 +125,8 @@ where
 
 #[derive(Clone, Debug)]
 pub enum HighlightEvent<'a> {
-    Source(Cow<'a, str>),
+    // TODO: Include only the range here?
+    Source(Cow<'a, str>, ops::Range<usize>),
     HighlightStart(Highlight),
     HighlightEnd,
 }
@@ -493,22 +494,25 @@ where
 
     fn emit_source(&mut self, next_offset: usize) -> Option<Result<HighlightEvent<'a>, Error>> {
         let input = self.source.bytes(self.source_offset, next_offset);
+        let mut range = self.source_offset..next_offset;
         match cow::decode_utf8(input) {
             Ok(valid) => {
                 self.source_offset = next_offset;
-                Some(Ok(HighlightEvent::Source(valid)))
+                Some(Ok(HighlightEvent::Source(valid, range)))
             }
             Err((error, input)) => {
                 if let Some(error_len) = error.error_len() {
                     let valid_len = error.valid_up_to();
                     if valid_len > 0 {
                         self.utf8_error_len = Some(error_len);
+                        range.end = self.source_offset + valid_len;
                         Some(Ok(HighlightEvent::Source(unsafe {
                             cow::decode_utf8_unchecked(input, valid_len)
-                        })))
+                        }, range)))
                     } else {
+                        range.end = self.source_offset;
                         self.source_offset += error_len;
-                        Some(Ok(HighlightEvent::Source(Cow::Borrowed("\u{FFFD}"))))
+                        Some(Ok(HighlightEvent::Source(Cow::Borrowed("\u{FFFD}"), range)))
                     }
                 } else {
                     None
@@ -744,8 +748,9 @@ where
         }
 
         if let Some(utf8_error_len) = self.utf8_error_len.take() {
+            let range = self.source_offset..self.source_offset;
             self.source_offset += utf8_error_len;
-            return Some(Ok(HighlightEvent::Source(Cow::Borrowed("\u{FFFD}"))));
+            return Some(Ok(HighlightEvent::Source(Cow::Borrowed("\u{FFFD}"), range)));
         }
 
         while !self.layers.is_empty() {
@@ -1132,7 +1137,7 @@ where
                 scopes.pop();
                 renderer.end_scope();
             }
-            HighlightEvent::Source(src) => {
+            HighlightEvent::Source(src, _) => {
                 renderer.add_text(src.as_ref(), &scopes);
             }
         };

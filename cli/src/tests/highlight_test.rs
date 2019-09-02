@@ -481,7 +481,7 @@ fn to_token_vector<'a>(
             HighlightEvent::HighlightEnd => {
                 highlights.pop();
             }
-            HighlightEvent::Source(s) => {
+            HighlightEvent::Source(s, _) => {
                 // Safety: This is safe because we know the original source is kept around
                 // immutably for the duration of the test.
                 let s: &'a str = unsafe { mem::transmute(s.as_ref()) };

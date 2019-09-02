@@ -197,7 +197,7 @@ impl TSHighlighter {
                         highlights.pop();
                         output.end_highlight();
                     }
-                    Ok(HighlightEvent::Source(src)) => {
+                    Ok(HighlightEvent::Source(src, _)) => {
                         output.add_text(src.as_ref(), &highlights, &self.attribute_strings);
                     },
                     Err(Error::Cancelled) => {

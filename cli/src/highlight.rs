@@ -293,7 +293,7 @@ pub fn ansi(
     {
         let event = event.map_err(|e| e.to_string())?;
         match event {
-            HighlightEvent::Source(s) => {
+            HighlightEvent::Source(s, _) => {
                 if let Some(style) = highlight_stack.last().and_then(|s| theme.ansi_style(*s)) {
                     write!(&mut stdout, "{}", style.paint(s))?;
                 } else {
