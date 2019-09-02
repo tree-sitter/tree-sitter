@@ -1,5 +1,6 @@
 pub mod c_lib;
 mod escape;
+mod cow;
 
 pub use c_lib as c;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -9,6 +10,7 @@ use std::mem::transmute;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{cmp, str, usize};
 use tree_sitter::{Language, Node, Parser, Point, PropertySheet, Range, Tree, TreePropertyCursor, NodeSource};
+use std::borrow::Cow;
 
 const CANCELLATION_CHECK_INTERVAL: usize = 100;
 
@@ -92,7 +94,7 @@ pub enum Highlight {
 #[derive(Debug)]
 struct Scope<'a> {
     inherits: bool,
-    local_defs: Vec<(&'a str, Highlight)>,
+    local_defs: Vec<(Cow<'a, str>, Highlight)>,
 }
 
 struct Layer<'a, S: NodeSource<'a>> {
@@ -106,7 +108,7 @@ struct Layer<'a, S: NodeSource<'a>> {
     local_highlight: Option<Highlight>,
 }
 
-struct Highlighter<'a, T, S: NodeSource<'a>>
+pub struct Highlighter<'a, T, S: NodeSource<'a>>
 where
     T: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
 {
@@ -121,9 +123,9 @@ where
     cancellation_flag: Option<&'a AtomicUsize>,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub enum HighlightEvent<'a> {
-    Source(&'a str),
+    Source(Cow<'a, str>),
     HighlightStart(Highlight),
     HighlightEnd,
 }
@@ -451,7 +453,7 @@ impl<'a, F, S: NodeSource<'a>> Highlighter<'a, F, S>
 where
     F: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
 {
-    fn new(
+    pub fn new(
         source: S,
         language: Language,
         property_sheet: &'a PropertySheet<Properties>,
@@ -490,23 +492,23 @@ where
     }
 
     fn emit_source(&mut self, next_offset: usize) -> Option<Result<HighlightEvent<'a>, Error>> {
-        let input = self.source.get_bytes(self.source_offset, next_offset);
-        match str::from_utf8(input) {
+        let input = self.source.bytes(self.source_offset, next_offset);
+        match cow::decode_utf8(input) {
             Ok(valid) => {
                 self.source_offset = next_offset;
                 Some(Ok(HighlightEvent::Source(valid)))
             }
-            Err(error) => {
+            Err((error, input)) => {
                 if let Some(error_len) = error.error_len() {
-                    if error.valid_up_to() > 0 {
-                        let prefix = &input[0..error.valid_up_to()];
+                    let valid_len = error.valid_up_to();
+                    if valid_len > 0 {
                         self.utf8_error_len = Some(error_len);
                         Some(Ok(HighlightEvent::Source(unsafe {
-                            str::from_utf8_unchecked(prefix)
+                            cow::decode_utf8_unchecked(input, valid_len)
                         })))
                     } else {
                         self.source_offset += error_len;
-                        Some(Ok(HighlightEvent::Source("\u{FFFD}")))
+                        Some(Ok(HighlightEvent::Source(Cow::Borrowed("\u{FFFD}"))))
                     }
                 } else {
                     None
@@ -574,7 +576,8 @@ where
                 .nodes_for_tree_path(*node, steps)
                 .first()
                 .and_then(|node| {
-                    str::from_utf8(self.source.get_bytes(node.start_byte(), node.end_byte()))
+                    let bytes = self.source.bytes(node.start_byte(), node.end_byte());
+                    str::from_utf8(bytes.as_ref())
                         .map(|s| s.to_owned())
                         .ok()
                 }),
@@ -742,7 +745,7 @@ where
 
         if let Some(utf8_error_len) = self.utf8_error_len.take() {
             self.source_offset += utf8_error_len;
-            return Some(Ok(HighlightEvent::Source("\u{FFFD}")));
+            return Some(Ok(HighlightEvent::Source(Cow::Borrowed("\u{FFFD}"))));
         }
 
         while !self.layers.is_empty() {
@@ -946,8 +949,9 @@ impl<'a, S: NodeSource<'a>> Layer<'a, S> {
 
     fn enter_node(&mut self) {
         let props = self.cursor.node_properties();
+        let bytes = self.cursor.node_bytes();
         let node_text = if props.local_definition || props.local_reference {
-            self.cursor.current_source().ok()
+            cow::decode_utf8(bytes).ok()
         } else {
             None
         };
@@ -959,7 +963,8 @@ impl<'a, S: NodeSource<'a>> Layer<'a, S> {
                 (node_text, self.scope_stack.last_mut(), props.highlight)
             {
                 self.local_highlight = props.highlight;
-                if let Err(i) = inner_scope.local_defs.binary_search_by_key(&text, |e| e.0) {
+                let text_r = text.as_ref();
+                if let Err(i) = inner_scope.local_defs.binary_search_by_key(&text_r, |e| e.0.as_ref()) {
                     inner_scope.local_defs.insert(i, (text, highlight));
                 }
             }
@@ -968,8 +973,9 @@ impl<'a, S: NodeSource<'a>> Layer<'a, S> {
         // stack. If a local definition is found, record its highlighting class.
         else if props.local_reference {
             if let Some(text) = node_text {
+                let text_r = text.as_ref();
                 for scope in self.scope_stack.iter().rev() {
-                    if let Ok(i) = scope.local_defs.binary_search_by_key(&text, |e| e.0) {
+                    if let Ok(i) = scope.local_defs.binary_search_by_key(&text_r, |e| e.0.as_ref()) {
                         self.local_highlight = Some(scope.local_defs[i].1);
                         break;
                     }
@@ -1127,7 +1133,7 @@ where
                 renderer.end_scope();
             }
             HighlightEvent::Source(src) => {
-                renderer.add_text(src, &scopes);
+                renderer.add_text(src.as_ref(), &scopes);
             }
         };
     }

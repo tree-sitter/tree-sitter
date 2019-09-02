@@ -18,6 +18,7 @@ use std::marker::PhantomData;
 use std::os::raw::{c_char, c_void};
 use std::sync::atomic::AtomicUsize;
 use std::{fmt, ptr, str, u16};
+use std::borrow::Cow;
 
 pub const LANGUAGE_VERSION: usize = ffi::TREE_SITTER_LANGUAGE_VERSION;
 pub const PARSER_HEADER: &'static str = include_str!("../include/tree_sitter/parser.h");
@@ -130,11 +131,11 @@ pub struct TreeCursor<'a>(ffi::TSTreeCursor, PhantomData<&'a ()>);
 
 // TODO: See if we can generalize this into a Source trait (for parsing, not just for walking).
 pub trait NodeSource<'a>: Clone {
-    fn get_bytes(&self, start_byte: usize, end_byte: usize) -> &'a [u8];
+    fn bytes(&self, start: usize, end: usize) -> Cow<'a, [u8]>;
 
     fn max_len(&self) -> usize;
 
-    fn read(&self, byte_offset: usize, point: Point) -> &[u8];
+    fn read(&self, byte_offset: usize, point: Point) -> Cow<'a, [u8]>;
 }
 
 pub struct TreePropertyCursor<'a, P, S: NodeSource<'a>> {
@@ -317,7 +318,7 @@ impl Parser {
         )
     }
 
-    pub fn parse_source<'t>(&mut self, source: &impl NodeSource<'t>, old_tree: Option<&Tree>) -> Option<Tree> {
+    pub fn parse_source<'a>(&mut self, source: &impl NodeSource<'a>, old_tree: Option<&Tree>) -> Option<Tree> {
         let callback = &mut |i, p| {
             source.read(i, p)
         };
@@ -819,8 +820,8 @@ impl<'a> Drop for TreeCursor<'a> {
 }
 
 impl<'a> NodeSource<'a> for &'a [u8] {
-    fn get_bytes(&self, start_byte: usize, end_byte: usize) -> &'a [u8] {
-        &self[start_byte..end_byte]
+    fn bytes(&self, start: usize, end: usize) -> Cow<'a, [u8]> {
+        Cow::Borrowed(&self[start..end])
     }
 
     #[inline(always)]
@@ -828,13 +829,13 @@ impl<'a> NodeSource<'a> for &'a [u8] {
         self.len()
     }
 
-    fn read(&self, byte_offset: usize, point: Point) -> &[u8] {
+    fn read(&self, byte_offset: usize, _: Point) -> Cow<'a, [u8]> {
         let len = self.len();
-        if byte_offset < len {
+        Cow::Borrowed(if byte_offset < len {
             &self[byte_offset..]
         } else {
             &[]
-        }
+        })
     }
 }
 
@@ -894,9 +895,9 @@ impl<'a, P, S: NodeSource<'a>> TreePropertyCursor<'a, P, S> {
         }
     }
 
-    pub fn current_source(&self) -> Result<&'a str, str::Utf8Error> {
+    pub fn node_bytes(&self) -> Cow<'a, [u8]> {
         let node = self.node();
-        str::from_utf8(&self.source.get_bytes(node.start_byte(), node.end_byte()))
+        self.source.bytes(node.start_byte(), node.end_byte())
     }
 
     fn next_state(&self, node_child_index: usize) -> usize {
@@ -920,7 +921,8 @@ impl<'a, P, S: NodeSource<'a>> TreePropertyCursor<'a, P, S> {
                     }
 
                     if let Some(text_regex_index) = transition.text_regex_index {
-                        if let Ok(text) = self.current_source() {
+                        let bytes = self.node_bytes();
+                        if let Ok(text) = str::from_utf8(bytes.as_ref()) {
                             if !self.property_sheet.text_regexes[text_regex_index as usize]
                                 .is_match(text)
                             {

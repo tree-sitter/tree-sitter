@@ -198,7 +198,7 @@ impl TSHighlighter {
                         output.end_highlight();
                     }
                     Ok(HighlightEvent::Source(src)) => {
-                        output.add_text(src, &highlights, &self.attribute_strings);
+                        output.add_text(src.as_ref(), &highlights, &self.attribute_strings);
                     },
                     Err(Error::Cancelled) => {
                         return ErrorCode::Timeout;

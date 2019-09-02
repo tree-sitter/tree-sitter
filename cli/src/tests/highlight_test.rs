@@ -3,7 +3,7 @@ use lazy_static::lazy_static;
 use std::ffi::CString;
 
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{ptr, slice, str};
+use std::{ptr, slice, str, mem};
 use tree_sitter::{Language, PropertySheet};
 use tree_sitter_highlight::{
     c, highlight, highlight_html, Error, Highlight, HighlightEvent, Properties,
@@ -482,6 +482,9 @@ fn to_token_vector<'a>(
                 highlights.pop();
             }
             HighlightEvent::Source(s) => {
+                // Safety: This is safe because we know the original source is kept around
+                // immutably for the duration of the test.
+                let s: &'a str = unsafe { mem::transmute(s.as_ref()) };
                 for (i, l) in s.split("\n").enumerate() {
                     let l = l.trim_end_matches('\r');
                     if i > 0 {
