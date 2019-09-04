@@ -91,6 +91,7 @@ $emcc                                \
   $emscripten_flags                  \
   -std=c99                           \
   -D 'fprintf(...)='                 \
+  -D NDEBUG=                         \
   -I lib/src                         \
   -I lib/include                     \
   -I lib/utf8proc                    \
