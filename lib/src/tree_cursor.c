@@ -273,6 +273,7 @@ TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *_self) {
 
     while (field_map < field_map_end) {
       if (
+        !ts_subtree_extra(*entry->subtree) &&
         !field_map->inherited &&
         field_map->child_index == entry->structural_child_index
       ) return field_map->field_id;

@@ -331,6 +331,11 @@ void ts_node_named_child_wasm(const TSTree *tree, uint32_t index) {
   marshal_node(TRANSFER_BUFFER, ts_node_named_child(node, index));
 }
 
+void ts_node_child_by_field_id_wasm(const TSTree *tree, uint32_t field_id) {
+  TSNode node = unmarshal_node(tree);
+  marshal_node(TRANSFER_BUFFER, ts_node_child_by_field_id(node, field_id));
+}
+
 void ts_node_next_sibling_wasm(const TSTree *tree) {
   TSNode node = unmarshal_node(tree);
   marshal_node(TRANSFER_BUFFER, ts_node_next_sibling(node));

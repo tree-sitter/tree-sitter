@@ -1,8 +1,7 @@
-use super::{escape, load_property_sheet, Error, Highlight, HighlightEvent, Highlighter, Properties};
+use super::{load_property_sheet, Error, Highlight, Highlighter, HtmlRenderer, Properties};
 use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::CStr;
-use std::io::Write;
 use std::os::raw::c_char;
 use std::process::abort;
 use std::sync::atomic::AtomicUsize;
@@ -20,10 +19,7 @@ pub struct TSHighlighter {
     attribute_strings: Vec<&'static [u8]>,
 }
 
-pub struct TSHighlightBuffer {
-    html: Vec<u8>,
-    line_offsets: Vec<u32>,
-}
+pub struct TSHighlightBuffer(HtmlRenderer);
 
 #[repr(C)]
 pub enum ErrorCode {
@@ -57,10 +53,7 @@ pub extern "C" fn ts_highlighter_new(
 
 #[no_mangle]
 pub extern "C" fn ts_highlight_buffer_new() -> *mut TSHighlightBuffer {
-    Box::into_raw(Box::new(TSHighlightBuffer {
-        html: Vec::new(),
-        line_offsets: Vec::new(),
-    }))
+    Box::into_raw(Box::new(TSHighlightBuffer(HtmlRenderer::new())))
 }
 
 #[no_mangle]
@@ -76,25 +69,25 @@ pub extern "C" fn ts_highlight_buffer_delete(this: *mut TSHighlightBuffer) {
 #[no_mangle]
 pub extern "C" fn ts_highlight_buffer_content(this: *const TSHighlightBuffer) -> *const u8 {
     let this = unwrap_ptr(this);
-    this.html.as_slice().as_ptr()
+    this.0.html.as_slice().as_ptr()
 }
 
 #[no_mangle]
 pub extern "C" fn ts_highlight_buffer_line_offsets(this: *const TSHighlightBuffer) -> *const u32 {
     let this = unwrap_ptr(this);
-    this.line_offsets.as_slice().as_ptr()
+    this.0.line_offsets.as_slice().as_ptr()
 }
 
 #[no_mangle]
 pub extern "C" fn ts_highlight_buffer_len(this: *const TSHighlightBuffer) -> u32 {
     let this = unwrap_ptr(this);
-    this.html.len() as u32
+    this.0.html.len() as u32
 }
 
 #[no_mangle]
 pub extern "C" fn ts_highlight_buffer_line_count(this: *const TSHighlightBuffer) -> u32 {
     let this = unwrap_ptr(this);
-    this.line_offsets.len() as u32
+    this.0.line_offsets.len() as u32
 }
 
 #[no_mangle]
@@ -183,73 +176,24 @@ impl TSHighlighter {
         );
 
         if let Ok(highlighter) = highlighter {
-            output.html.clear();
-            output.line_offsets.clear();
-            output.line_offsets.push(0);
-            let mut highlights = Vec::new();
-            for event in highlighter {
-                match event {
-                    Ok(HighlightEvent::HighlightStart(s)) => {
-                        highlights.push(s);
-                        output.start_highlight(s, &self.attribute_strings);
-                    }
-                    Ok(HighlightEvent::HighlightEnd) => {
-                        highlights.pop();
-                        output.end_highlight();
-                    }
-                    Ok(HighlightEvent::Source(src)) => {
-                        output.add_text(src, &highlights, &self.attribute_strings);
-                    },
-                    Err(Error::Cancelled) => {
-                        return ErrorCode::Timeout;
-                    },
-                    Err(Error::InvalidLanguage) => {
-                        return ErrorCode::InvalidLanguage;
-                    },
-                    Err(Error::Unknown) => {
-                        return ErrorCode::Timeout;
-                    }
+            output.0.reset();
+            let result = output.0.render(highlighter, source_code, &|s| {
+                self.attribute_strings[s as usize]
+            });
+            match result {
+                Err(Error::Cancelled) => {
+                    return ErrorCode::Timeout;
                 }
+                Err(Error::InvalidLanguage) => {
+                    return ErrorCode::InvalidLanguage;
+                }
+                Err(Error::Unknown) => {
+                    return ErrorCode::Timeout;
+                }
+                Ok(()) => ErrorCode::Ok,
             }
-            ErrorCode::Ok
         } else {
             ErrorCode::Timeout
-        }
-    }
-}
-
-impl TSHighlightBuffer {
-    fn start_highlight(&mut self, h: Highlight, attribute_strings: &[&[u8]]) {
-        let attribute_string = attribute_strings[h as usize];
-        self.html.extend(b"<span");
-        if !attribute_string.is_empty() {
-            self.html.extend(b" ");
-            self.html.extend(attribute_string);
-        }
-        self.html.extend(b">");
-    }
-
-    fn end_highlight(&mut self) {
-        self.html.extend(b"</span>");
-    }
-
-    fn finish_line(&mut self) {
-        self.line_offsets.push(self.html.len() as u32);
-    }
-
-    fn add_text(&mut self, src: &str, highlights: &Vec<Highlight>, attribute_strings: &[&[u8]]) {
-        let mut multiline = false;
-        for line in src.split('\n') {
-            let line = line.trim_end_matches('\r');
-            if multiline {
-                highlights.iter().for_each(|_| self.end_highlight());
-                self.finish_line();
-                highlights
-                    .iter()
-                    .for_each(|scope| self.start_highlight(*scope, attribute_strings));
-            }
-            write!(&mut self.html, "{}", escape::Escape(line)).unwrap();
-            multiline = true;
         }
     }
 }
