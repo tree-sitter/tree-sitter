@@ -6,9 +6,10 @@ use lazy_static::lazy_static;
 use regex::bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder};
 use regex::Regex;
 use std::char;
+use std::fmt::Write as FmtWrite;
 use std::fs;
 use std::io::{self, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str;
 use tree_sitter::{Language, LogType, Parser};
 
@@ -30,6 +31,7 @@ pub enum TestEntry {
     Group {
         name: String,
         children: Vec<TestEntry>,
+        file_path: Option<PathBuf>,
     },
     Example {
         name: String,
@@ -44,6 +46,7 @@ impl Default for TestEntry {
         TestEntry::Group {
             name: String::new(),
             children: Vec::new(),
+            file_path: None,
         }
     }
 }
@@ -54,6 +57,7 @@ pub fn run_tests_at_path(
     debug: bool,
     debug_graph: bool,
     filter: Option<&str>,
+    update: bool,
 ) -> Result<()> {
     let test_entry = parse_tests(path)?;
     let mut _log_session = None;
@@ -72,27 +76,37 @@ pub fn run_tests_at_path(
     }
 
     let mut failures = Vec::new();
-    if let TestEntry::Group { children, .. } = test_entry {
-        for child in children {
-            run_tests(&mut parser, child, filter, 0, &mut failures)?;
-        }
-    }
+    let mut corrected_entries = Vec::new();
+    run_tests(&mut parser, test_entry, filter, 0, &mut failures, update, &mut corrected_entries)?;
 
     if failures.len() > 0 {
         println!("");
 
-        if failures.len() == 1 {
-            println!("1 failure:")
-        } else {
-            println!("{} failures:", failures.len())
-        }
+        if update {
+            if failures.len() == 1 {
+                println!("1 update:\n")
+            } else {
+                println!("{} updates:\n", failures.len())
+            }
 
-        print_diff_key();
-        for (i, (name, actual, expected)) in failures.iter().enumerate() {
-            println!("\n  {}. {}:", i + 1, name);
-            print_diff(actual, expected);
+            for (i, (name, ..)) in failures.iter().enumerate() {
+                println!("  {}. {}", i + 1, name);
+            }
+            Ok(())
+        } else {
+            if failures.len() == 1 {
+                println!("1 failure:")
+            } else {
+                println!("{} failures:", failures.len())
+            }
+
+            print_diff_key();
+            for (i, (name, actual, expected)) in failures.iter().enumerate() {
+                println!("\n  {}. {}:", i + 1, name);
+                print_diff(actual, expected);
+            }
+            Error::err(String::new())
         }
-        Error::err(String::new())
     } else {
         Ok(())
     }
@@ -131,6 +145,8 @@ fn run_tests(
     filter: Option<&str>,
     mut indent_level: i32,
     failures: &mut Vec<(String, String, String)>,
+    update: bool,
+    corrected_entries: &mut Vec<(String, String, String)>,
 ) -> Result<()> {
     match test_entry {
         TestEntry::Example {
@@ -141,6 +157,11 @@ fn run_tests(
         } => {
             if let Some(filter) = filter {
                 if !name.contains(filter) {
+                    if update {
+                        let input = String::from_utf8(input).unwrap();
+                        let output = format_sexp(&output);
+                        corrected_entries.push((name, input, output));
+                    }
                     return Ok(());
                 }
             }
@@ -154,21 +175,122 @@ fn run_tests(
             }
             if actual == output {
                 println!("✓ {}", Colour::Green.paint(&name));
+                if update {
+                    let input = String::from_utf8(input).unwrap();
+                    let output = format_sexp(&output);
+                    corrected_entries.push((name, input, output));
+                }
             } else {
-                println!("✗ {}", Colour::Red.paint(&name));
+                if update {
+                    let input = String::from_utf8(input).unwrap();
+                    let output = format_sexp(&actual);
+                    corrected_entries.push((name.clone(), input, output));
+                    println!("✓ {}", Colour::Blue.paint(&name));
+                } else {
+                    println!("✗ {}", Colour::Red.paint(&name));
+                }
                 failures.push((name, actual, output));
             }
         }
-        TestEntry::Group { name, children } => {
-            for _ in 0..indent_level {
-                print!("  ");
+        TestEntry::Group { name, children, file_path } => {
+            if indent_level > 0 {
+                for _ in 0..indent_level {
+                    print!("  ");
+                }
+                println!("{}:", name);
             }
-            println!("{}:", name);
+
+            let failure_count = failures.len();
+
             indent_level += 1;
             for child in children {
-                run_tests(parser, child, filter, indent_level, failures)?;
+                run_tests(parser, child, filter, indent_level, failures, update, corrected_entries)?;
+            }
+
+            if let Some(file_path) = file_path {
+                if update && failures.len() - failure_count > 0 {
+                    write_tests(&file_path, corrected_entries)?;
+                }
+                corrected_entries.clear();
             }
         }
+    }
+    Ok(())
+}
+
+fn format_sexp(sexp: &String) -> String {
+    let mut formatted = String::new();
+
+    let mut indent_level = 0;
+    let mut has_field = false;
+    let mut s_iter = sexp.split(|c| c == ' ' || c == ')');
+    while let Some(s) = s_iter.next() {
+        if s.is_empty() {
+            // ")"
+            indent_level -= 1;
+            write!(formatted, ")").unwrap();
+        } else if s.starts_with('(') {
+            if has_field {
+                has_field = false;
+            } else {
+                if indent_level > 0 {
+                    writeln!(formatted, "").unwrap();
+                    for _ in 0..indent_level {
+                        write!(formatted, "  ").unwrap();
+                    }
+                }
+                indent_level += 1;
+            }
+
+            // "(node_name"
+            write!(formatted, "{}", s).unwrap();
+
+            let mut c_iter = s.chars();
+            c_iter.next();
+            let second_char = c_iter.next().unwrap();
+            if second_char == 'M' {
+                // "(MISSING node_name"
+                let s = s_iter.next().unwrap();
+                write!(formatted, " {}", s).unwrap();
+            }
+        } else if s.ends_with(':') {
+            // "field:"
+            writeln!(formatted, "").unwrap();
+            for _ in 0..indent_level {
+                write!(formatted, "  ").unwrap();
+            }
+            write!(formatted, "{} ", s).unwrap();
+            has_field = true;
+            indent_level += 1;
+        }
+    }
+
+    formatted
+}
+
+fn write_tests(file_path: &Path, corrected_entries: &Vec<(String, String, String)>) -> Result<()> {
+    let mut buffer = fs::File::create(file_path)?;
+    write_tests_to_buffer(&mut buffer, corrected_entries)
+}
+
+fn write_tests_to_buffer(
+    buffer: &mut Write,
+    corrected_entries: &Vec<(String, String, String)>,
+) -> Result<()> {
+    for (i, (name, input, output)) in corrected_entries.iter().enumerate() {
+        if i > 0 {
+            write!(buffer, "\n")?;
+        }
+        write!(
+            buffer,
+            "{}\n{}\n{}\n{}\n{}\n\n{}\n",
+            "=".repeat(80),
+            name,
+            "=".repeat(80),
+            input,
+            "-".repeat(80),
+            output.trim()
+        )?;
     }
     Ok(())
 }
@@ -188,10 +310,10 @@ pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
                 children.push(parse_tests(&entry.path())?);
             }
         }
-        Ok(TestEntry::Group { name, children })
+        Ok(TestEntry::Group { name, children, file_path: None })
     } else {
         let content = fs::read_to_string(path)?;
-        Ok(parse_test_content(name, content))
+        Ok(parse_test_content(name, content, Some(path.to_path_buf())))
     }
 }
 
@@ -199,7 +321,7 @@ pub fn strip_sexp_fields(sexp: String) -> String {
     SEXP_FIELD_REGEX.replace_all(&sexp, " (").to_string()
 }
 
-fn parse_test_content(name: String, content: String) -> TestEntry {
+fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>) -> TestEntry {
     let mut children = Vec::new();
     let bytes = content.as_bytes();
     let mut prev_name = String::new();
@@ -250,7 +372,7 @@ fn parse_test_content(name: String, content: String) -> TestEntry {
             .to_string();
         prev_header_end = header_end;
     }
-    TestEntry::Group { name, children }
+    TestEntry::Group { name, children, file_path }
 }
 
 #[cfg(test)]
@@ -282,6 +404,7 @@ d
         "#
             .trim()
             .to_string(),
+            None,
         );
 
         assert_eq!(
@@ -301,7 +424,8 @@ d
                         output: "(d)".to_string(),
                         has_fields: false,
                     },
-                ]
+                ],
+                file_path: None,
             }
         );
     }
@@ -334,6 +458,7 @@ abc
         "#
             .trim()
             .to_string(),
+            None,
         );
 
         assert_eq!(
@@ -353,8 +478,67 @@ abc
                         output: "(c (d))".to_string(),
                         has_fields: false,
                     },
-                ]
+                ],
+                file_path: None,
             }
+        );
+    }
+
+    #[test]
+    fn test_format_sexp() {
+        assert_eq!(
+            format_sexp(&"(a b: (c) (d) e: (f (g (h (MISSING i)))))".to_string()),
+            r#"
+(a
+  b: (c)
+  (d)
+  e: (f
+    (g
+      (h
+        (MISSING i)))))
+"#
+            .trim()
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn test_write_tests_to_buffer() {
+        let mut buffer = Vec::new();
+        let corrected_entries = vec![
+            (
+                "title 1".to_string(),
+                "input 1".to_string(),
+                "output 1".to_string(),
+            ),
+            (
+                "title 2".to_string(),
+                "input 2".to_string(),
+                "output 2".to_string(),
+            ),
+        ];
+        write_tests_to_buffer(&mut buffer, &corrected_entries).unwrap();
+        assert_eq!(
+            String::from_utf8(buffer).unwrap(),
+            r#"
+================================================================================
+title 1
+================================================================================
+input 1
+--------------------------------------------------------------------------------
+
+output 1
+
+================================================================================
+title 2
+================================================================================
+input 2
+--------------------------------------------------------------------------------
+
+output 2
+"#
+            .trim_start()
+            .to_string()
         );
     }
 }
