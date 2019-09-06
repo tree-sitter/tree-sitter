@@ -1,5 +1,4 @@
 use super::error::{Error, Result};
-use super::print::print_tree;
 use super::util;
 use ansi_term::Colour;
 use difference::{Changeset, Difference};
@@ -9,7 +8,7 @@ use regex::Regex;
 use std::char;
 use std::fs;
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::str;
 use tree_sitter::{Language, LogType, Parser};
 
@@ -31,7 +30,6 @@ pub enum TestEntry {
     Group {
         name: String,
         children: Vec<TestEntry>,
-        file_path: Option<PathBuf>,
     },
     Example {
         name: String,
@@ -46,7 +44,6 @@ impl Default for TestEntry {
         TestEntry::Group {
             name: String::new(),
             children: Vec::new(),
-            file_path: None,
         }
     }
 }
@@ -57,52 +54,43 @@ pub fn run_tests_at_path(
     debug: bool,
     debug_graph: bool,
     filter: Option<&str>,
-    update: bool,
 ) -> Result<()> {
-    let test_entry = parse_tests(path, false)?;
+    let test_entry = parse_tests(path)?;
     let mut _log_session = None;
     let mut parser = Parser::new();
     parser.set_language(language).map_err(|e| e.to_string())?;
 
-    if !update {
-        if debug_graph {
-            _log_session = Some(util::log_graphs(&mut parser, "log.html")?);
-        } else if debug {
-            parser.set_logger(Some(Box::new(|log_type, message| {
-                if log_type == LogType::Lex {
-                    io::stderr().write(b"  ").unwrap();
-                }
-                write!(&mut io::stderr(), "{}\n", message).unwrap();
-            })));
+    if debug_graph {
+        _log_session = Some(util::log_graphs(&mut parser, "log.html")?);
+    } else if debug {
+        parser.set_logger(Some(Box::new(|log_type, message| {
+            if log_type == LogType::Lex {
+                io::stderr().write(b"  ").unwrap();
+            }
+            write!(&mut io::stderr(), "{}\n", message).unwrap();
+        })));
+    }
+
+    let mut failures = Vec::new();
+    if let TestEntry::Group { children, .. } = test_entry {
+        for child in children {
+            run_tests(&mut parser, child, filter, 0, &mut failures)?;
         }
     }
 
-    let mut diffs = Vec::new();
-    let mut update_entries = Vec::new();
-    run_tests(&mut parser, test_entry, filter, update, &mut update_entries, -1, &mut diffs)?;
-
-    if diffs.len() > 0 {
+    if failures.len() > 0 {
         println!("");
 
-        let diff_name = if update { "update" } else { "failure" };
-        if diffs.len() == 1 {
-            println!("1 {}:", diff_name)
+        if failures.len() == 1 {
+            println!("1 failure:")
         } else {
-            println!("{} {}s:", diffs.len(), diff_name)
+            println!("{} failures:", failures.len())
         }
 
-        if update {
-            print_update_diff_key();
-        } else {
-            print_diff_key();
-        }
-        for (i, (name, parsed, provided)) in diffs.iter().enumerate() {
+        print_diff_key();
+        for (i, (name, actual, expected)) in failures.iter().enumerate() {
             println!("\n  {}. {}:", i + 1, name);
-            if update {
-                print_update_diff(provided, parsed);
-            } else {
-                print_diff(parsed, provided);
-            }
+            print_diff(actual, expected);
         }
         Error::err(String::new())
     } else {
@@ -111,40 +99,14 @@ pub fn run_tests_at_path(
 }
 
 pub fn print_diff_key() {
-    print_diff_key_with_colors("actual", "expected", Colour::Red, Colour::Green);
-}
-
-fn print_update_diff_key() {
-    print_diff_key_with_colors("original", "updated", Colour::Yellow, Colour::Green);
-}
-
-fn print_diff_key_with_colors(
-    actual_name: &str,
-    expected_name: &str,
-    actual_color: Colour,
-    expected_color: Colour,
-) {
     println!(
         "\n{} / {}",
-        expected_color.paint(expected_name),
-        actual_color.paint(actual_name)
+        Colour::Green.paint("expected"),
+        Colour::Red.paint("actual")
     );
 }
 
 pub fn print_diff(actual: &String, expected: &String) {
-    print_diff_with_colors(actual, expected, Colour::Red, Colour::Green);
-}
-
-fn print_update_diff(actual: &String, expected: &String) {
-    print_diff_with_colors(actual, expected, Colour::Yellow, Colour::Green);
-}
-
-fn print_diff_with_colors(
-    actual: &String,
-    expected: &String,
-    actual_color: Colour,
-    expected_color: Colour,
-) {
     let changeset = Changeset::new(actual, expected, " ");
     print!("    ");
     for diff in &changeset.diffs {
@@ -153,10 +115,10 @@ fn print_diff_with_colors(
                 print!("{}{}", part, changeset.split);
             }
             Difference::Add(part) => {
-                print!("{}{}", expected_color.paint(part), changeset.split);
+                print!("{}{}", Colour::Green.paint(part), changeset.split);
             }
             Difference::Rem(part) => {
-                print!("{}{}", actual_color.paint(part), changeset.split);
+                print!("{}{}", Colour::Red.paint(part), changeset.split);
             }
         }
     }
@@ -167,10 +129,8 @@ fn run_tests(
     parser: &mut Parser,
     test_entry: TestEntry,
     filter: Option<&str>,
-    update: bool,
-    update_entries: &mut Vec<(String, String, String)>,
     mut indent_level: i32,
-    diffs: &mut Vec<(String, String, String)>,
+    failures: &mut Vec<(String, String, String)>,
 ) -> Result<()> {
     match test_entry {
         TestEntry::Example {
@@ -181,97 +141,39 @@ fn run_tests(
         } => {
             if let Some(filter) = filter {
                 if !name.contains(filter) {
-                    if update {
-                        let input = String::from_utf8(input).unwrap();
-                        update_entries.push((name, input, output));
-                    }
                     return Ok(());
                 }
             }
             let tree = parser.parse(&input, None).unwrap();
-            let mut parsed = tree.root_node().to_sexp();
+            let mut actual = tree.root_node().to_sexp();
             if !has_fields {
-                parsed = strip_sexp_fields(parsed);
+                actual = strip_sexp_fields(actual);
             }
             for _ in 0..indent_level {
                 print!("  ");
             }
-            let provided = normalize_sexp(&output);
-            if parsed == provided {
+            if actual == output {
                 println!("✓ {}", Colour::Green.paint(&name));
-                if update {
-                    let input = String::from_utf8(input).unwrap();
-                    update_entries.push((name, input, output));
-                }
             } else {
-                if update {
-                    let input = String::from_utf8(input).unwrap();
-                    let mut fixed_output = Vec::new();
-                    let mut cursor = tree.walk();
-                    print_tree(&mut fixed_output, &mut cursor, false)?;
-                    let fixed_output = String::from_utf8(fixed_output).unwrap();
-                    update_entries.push((name.clone(), input, fixed_output));
-                    println!("✓ {}", Colour::Yellow.paint(&name));
-                } else {
-                    println!("✗ {}", Colour::Red.paint(&name));
-                }
-                diffs.push((name, parsed, provided));
+                println!("✗ {}", Colour::Red.paint(&name));
+                failures.push((name, actual, output));
             }
         }
-        TestEntry::Group { name, children, file_path } => {
-            if indent_level >= 0 {
-                for _ in 0..indent_level {
-                    print!("  ");
-                }
-                println!("{}:", name);
+        TestEntry::Group { name, children } => {
+            for _ in 0..indent_level {
+                print!("  ");
             }
-
-            let diff_count = diffs.len();
-
+            println!("{}:", name);
             indent_level += 1;
             for child in children {
-                run_tests(parser, child, filter, update, update_entries, indent_level, diffs)?;
-            }
-
-            if let Some(file_path) = file_path {
-                if update && diffs.len() - diff_count > 0 {
-                    write_tests(&file_path, &update_entries)?;
-                }
-                update_entries.clear();
+                run_tests(parser, child, filter, indent_level, failures)?;
             }
         }
     }
     Ok(())
 }
 
-fn write_tests(file_path: &Path, update_entries: &Vec<(String, String, String)>) -> Result<()> {
-    let mut buffer = fs::File::create(file_path)?;
-    write_tests_to_buffer(&mut buffer, update_entries)
-}
-
-fn write_tests_to_buffer(
-    buffer: &mut Write,
-    update_entries: &Vec<(String, String, String)>,
-) -> Result<()> {
-    for (i, (name, input, output)) in update_entries.iter().enumerate() {
-        if i > 0 {
-            write!(buffer, "\n")?;
-        }
-        write!(
-            buffer,
-            "{}\n{}\n{}\n{}\n{}\n\n{}\n",
-            "=".repeat(80),
-            name,
-            "=".repeat(80),
-            input,
-            "-".repeat(80),
-            output.trim()
-        )?;
-    }
-    Ok(())
-}
-
-pub fn parse_tests(path: &Path, norm_sexp: bool) -> io::Result<TestEntry> {
+pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
     let name = path
         .file_stem()
         .and_then(|s| s.to_str())
@@ -287,13 +189,13 @@ pub fn parse_tests(path: &Path, norm_sexp: bool) -> io::Result<TestEntry> {
                 .unwrap_or("")
                 .starts_with(".");
             if !hidden {
-                children.push(parse_tests(&entry.path(), norm_sexp)?);
+                children.push(parse_tests(&entry.path())?);
             }
         }
-        Ok(TestEntry::Group { name, children, file_path: None })
+        Ok(TestEntry::Group { name, children })
     } else {
         let content = fs::read_to_string(path)?;
-        Ok(parse_test_content(name, content, Some(path.to_path_buf()), norm_sexp))
+        Ok(parse_test_content(name, content))
     }
 }
 
@@ -301,12 +203,7 @@ pub fn strip_sexp_fields(sexp: String) -> String {
     SEXP_FIELD_REGEX.replace_all(&sexp, " (").to_string()
 }
 
-fn parse_test_content(
-    name: String,
-    content: String,
-    file_path: Option<PathBuf>,
-    norm_sexp: bool,
-) -> TestEntry {
+fn parse_test_content(name: String, content: String) -> TestEntry {
     let mut children = Vec::new();
     let bytes = content.as_bytes();
     let mut previous_name = String::new();
@@ -327,11 +224,8 @@ fn parse_test_content(
                 );
                 if let Ok(output) = str::from_utf8(&bytes[divider_end..header_start]) {
                     let input = bytes[previous_header_end..divider_start].to_vec();
-                    let output = if norm_sexp {
-                        normalize_sexp(output)
-                    } else {
-                        output.to_owned()
-                    };
+                    let output = WHITESPACE_REGEX.replace_all(output.trim(), " ").to_string();
+                    let output = output.replace(" )", ")");
                     let has_fields = SEXP_FIELD_REGEX.is_match(&output);
                     children.push(TestEntry::Example {
                         name: previous_name,
@@ -347,13 +241,7 @@ fn parse_test_content(
             .to_string();
         previous_header_end = header_end;
     }
-    TestEntry::Group { name, children, file_path }
-}
-
-fn normalize_sexp(sexp: &str) -> String {
-    let sexp = WHITESPACE_REGEX.replace_all(sexp.trim(), " ").to_string();
-    let sexp = sexp.replace(" )", ")");
-    return sexp;
+    TestEntry::Group { name, children }
 }
 
 #[cfg(test)]
@@ -385,8 +273,6 @@ d
         "#
             .trim()
             .to_string(),
-            None,
-            true,
         );
 
         assert_eq!(
@@ -406,49 +292,8 @@ d
                         output: "(d)".to_string(),
                         has_fields: false,
                     },
-                ],
-                file_path: None
+                ]
             }
-        );
-    }
-
-    #[test]
-    fn test_write_tests_to_buffer() {
-        let mut buffer = Vec::new();
-        let update_entries = vec![
-            (
-                "title 1".to_string(),
-                "input 1".to_string(),
-                "output 1".to_string(),
-            ),
-            (
-                "title 2".to_string(),
-                "input 2".to_string(),
-                "output 2".to_string(),
-            ),
-        ];
-        write_tests_to_buffer(&mut buffer, &update_entries).unwrap();
-        assert_eq!(
-            String::from_utf8(buffer).unwrap(),
-            r#"
-================================================================================
-title 1
-================================================================================
-input 1
---------------------------------------------------------------------------------
-
-output 1
-
-================================================================================
-title 2
-================================================================================
-input 2
---------------------------------------------------------------------------------
-
-output 2
-"#
-            .trim_start()
-            .to_string()
         );
     }
 }

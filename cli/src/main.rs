@@ -83,8 +83,7 @@ fn run() -> error::Result<()> {
                         .takes_value(true),
                 )
                 .arg(Arg::with_name("debug").long("debug").short("d"))
-                .arg(Arg::with_name("debug-graph").long("debug-graph").short("D"))
-                .arg(Arg::with_name("update").long("update").short("u")),
+                .arg(Arg::with_name("debug-graph").long("debug-graph").short("D")),
         )
         .subcommand(
             SubCommand::with_name("highlight")
@@ -151,10 +150,9 @@ fn run() -> error::Result<()> {
         let debug = matches.is_present("debug");
         let debug_graph = matches.is_present("debug-graph");
         let filter = matches.value_of("filter");
-        let update = matches.is_present("update");
         let corpus_path = current_dir.join("corpus");
         if let Some(language) = loader.languages_at_path(&current_dir)?.first() {
-            test::run_tests_at_path(*language, &corpus_path, debug, debug_graph, filter, update)?;
+            test::run_tests_at_path(*language, &corpus_path, debug, debug_graph, filter)?;
         } else {
             eprintln!("No language found");
         }

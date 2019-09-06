@@ -9,7 +9,6 @@ pub mod test;
 pub mod util;
 pub mod wasm;
 pub mod web_ui;
-pub mod print;
 
 #[cfg(test)]
 mod tests;
