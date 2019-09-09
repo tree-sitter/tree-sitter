@@ -19,6 +19,16 @@ pub struct TSParser {
 pub struct TSTree {
     _unused: [u8; 0],
 }
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct TSQuery {
+    _unused: [u8; 0],
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct TSQueryContext {
+    _unused: [u8; 0],
+}
 pub const TSInputEncoding_TSInputEncodingUTF8: TSInputEncoding = 0;
 pub const TSInputEncoding_TSInputEncodingUTF16: TSInputEncoding = 1;
 pub type TSInputEncoding = u32;
@@ -93,6 +103,17 @@ pub struct TSTreeCursor {
     pub id: *const ::std::os::raw::c_void,
     pub context: [u32; 2usize],
 }
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct TSQueryCapture {
+    pub node: TSNode,
+    pub index: u32,
+}
+pub const TSQueryError_TSQueryErrorNone: TSQueryError = 0;
+pub const TSQueryError_TSQueryErrorSyntax: TSQueryError = 1;
+pub const TSQueryError_TSQueryErrorNodeType: TSQueryError = 2;
+pub const TSQueryError_TSQueryErrorField: TSQueryError = 3;
+pub type TSQueryError = u32;
 extern "C" {
     #[doc = " Create a new parser."]
     pub fn ts_parser_new() -> *mut TSParser;
@@ -537,6 +558,65 @@ extern "C" {
 }
 extern "C" {
     pub fn ts_tree_cursor_copy(arg1: *const TSTreeCursor) -> TSTreeCursor;
+}
+extern "C" {
+    #[doc = " Create a new query based on a given language and string containing"]
+    #[doc = " one or more S-expression patterns."]
+    #[doc = ""]
+    #[doc = " If all of the given patterns are valid, this returns a `TSQuery`."]
+    #[doc = " If a pattern is invalid, this returns `NULL`, and provides two pieces"]
+    #[doc = " of information about the problem:"]
+    #[doc = " 1. The byte offset of the error is written to the `error_offset` parameter."]
+    #[doc = " 2. The type of error is written to the `error_type` parameter."]
+    pub fn ts_query_new(
+        arg1: *const TSLanguage,
+        source: *const ::std::os::raw::c_char,
+        source_len: u32,
+        error_offset: *mut u32,
+        error_type: *mut TSQueryError,
+    ) -> *mut TSQuery;
+}
+extern "C" {
+    #[doc = " Delete a query, freeing all of the memory that it used."]
+    pub fn ts_query_delete(arg1: *mut TSQuery);
+}
+extern "C" {
+    pub fn ts_query_capture_count(arg1: *const TSQuery) -> u32;
+}
+extern "C" {
+    pub fn ts_query_capture_name_for_id(
+        self_: *const TSQuery,
+        index: u32,
+        length: *mut u32,
+    ) -> *const ::std::os::raw::c_char;
+}
+extern "C" {
+    pub fn ts_query_capture_id_for_name(
+        self_: *const TSQuery,
+        name: *const ::std::os::raw::c_char,
+        length: u32,
+    ) -> ::std::os::raw::c_int;
+}
+extern "C" {
+    pub fn ts_query_context_new(arg1: *const TSQuery) -> *mut TSQueryContext;
+}
+extern "C" {
+    pub fn ts_query_context_delete(arg1: *mut TSQueryContext);
+}
+extern "C" {
+    pub fn ts_query_context_exec(arg1: *mut TSQueryContext, arg2: TSNode);
+}
+extern "C" {
+    pub fn ts_query_context_next(arg1: *mut TSQueryContext) -> bool;
+}
+extern "C" {
+    pub fn ts_query_context_matched_pattern_index(arg1: *const TSQueryContext) -> u32;
+}
+extern "C" {
+    pub fn ts_query_context_matched_captures(
+        arg1: *const TSQueryContext,
+        arg2: *mut u32,
+    ) -> *const TSQueryCapture;
 }
 extern "C" {
     #[doc = " Get the number of distinct node types in the language."]

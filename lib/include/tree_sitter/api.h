@@ -26,6 +26,8 @@ typedef uint16_t TSFieldId;
 typedef struct TSLanguage TSLanguage;
 typedef struct TSParser TSParser;
 typedef struct TSTree TSTree;
+typedef struct TSQuery TSQuery;
+typedef struct TSQueryContext TSQueryContext;
 
 typedef enum {
   TSInputEncodingUTF8,
@@ -86,6 +88,18 @@ typedef struct {
   const void *id;
   uint32_t context[2];
 } TSTreeCursor;
+
+typedef struct {
+  TSNode node;
+  uint32_t index;
+} TSQueryCapture;
+
+typedef enum {
+  TSQueryErrorNone = 0,
+  TSQueryErrorSyntax,
+  TSQueryErrorNodeType,
+  TSQueryErrorField,
+} TSQueryError;
 
 /********************/
 /* Section - Parser */
@@ -601,6 +615,107 @@ bool ts_tree_cursor_goto_first_child(TSTreeCursor *);
 int64_t ts_tree_cursor_goto_first_child_for_byte(TSTreeCursor *, uint32_t);
 
 TSTreeCursor ts_tree_cursor_copy(const TSTreeCursor *);
+
+/*******************/
+/* Section - Query */
+/*******************/
+
+/**
+ * Create a new query from a string containing one or more S-expression
+ * patterns. The query is associated with a particular language, and can
+ * only be run on syntax nodes parsed with that language.
+ *
+ * If all of the given patterns are valid, this returns a `TSQuery`.
+ * If a pattern is invalid, this returns `NULL`, and provides two pieces
+ * of information about the problem:
+ * 1. The byte offset of the error is written to the `error_offset` parameter.
+ * 2. The type of error is written to the `error_type` parameter.
+ */
+TSQuery *ts_query_new(
+  const TSLanguage *language,
+  const char *source,
+  uint32_t source_len,
+  uint32_t *error_offset,
+  TSQueryError *error_type
+);
+
+/**
+ * Delete a query, freeing all of the memory that it used.
+ */
+void ts_query_delete(TSQuery *);
+
+/*
+ * Get the number of distinct capture names in the query.
+ */
+uint32_t ts_query_capture_count(const TSQuery *);
+
+/*
+ * Get the name and length of one of the query's capture. Each capture
+ * is associated with a numeric id based on the order that it appeared
+ * in the query's source.
+ */
+const char *ts_query_capture_name_for_id(
+  const TSQuery *self,
+  uint32_t index,
+  uint32_t *length
+);
+
+/*
+ * Get the numeric id of the capture with the given name.
+ */
+int ts_query_capture_id_for_name(
+  const TSQuery *self,
+  const char *name,
+  uint32_t length
+);
+
+/*
+ * Create a new context for executing a given query.
+ *
+ * The context stores the state that is needed to iteratively search
+ * for matches. To use the query context:
+ * 1. First call `ts_query_context_exec` to start running the query
+ *    on a particular syntax node.
+ * 2. Then repeatedly call `ts_query_context_next` to iterate over
+ *    the matches.
+ * 3. For each match, you can call `ts_query_context_matched_pattern_index`
+ *    to determine which pattern matched. You can also call
+ *    `ts_query_context_matched_captures` to determine which nodes
+ *    were captured by which capture names.
+ *
+ * If you don't care about finding all of the matches, you can stop calling
+ * `ts_query_context_next` at any point. And you can start executing the
+ *  query against a different node by calling `ts_query_context_exec` again.
+ */
+TSQueryContext *ts_query_context_new(const TSQuery *);
+
+/*
+ * Delete a query context, freeing all of the memory that it used.
+ */
+void ts_query_context_delete(TSQueryContext *);
+
+/*
+ * Start running a query on a given node.
+ */
+void ts_query_context_exec(TSQueryContext *, TSNode);
+
+/*
+ * Advance to the next match of the currently running query.
+ */
+bool ts_query_context_next(TSQueryContext *);
+
+/*
+ * Check which pattern matched.
+ */
+uint32_t ts_query_context_matched_pattern_index(const TSQueryContext *);
+
+/*
+ * Check which pattern matched.
+ */
+const TSQueryCapture *ts_query_context_matched_captures(
+  const TSQueryContext *,
+  uint32_t *
+);
 
 /**********************/
 /* Section - Language */

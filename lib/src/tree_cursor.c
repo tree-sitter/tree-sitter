@@ -244,7 +244,12 @@ TSNode ts_tree_cursor_current_node(const TSTreeCursor *_self) {
   );
 }
 
-TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *_self) {
+static inline TSFieldId ts_tree_cursor__current_field_info(
+  const TSTreeCursor *_self,
+  const TSFieldMapEntry **field_map,
+  const TSFieldMapEntry **field_map_end,
+  uint32_t *child_index
+) {
   const TreeCursor *self = (const TreeCursor *)_self;
 
   // Walk up the tree, visiting the current node and its invisible ancestors.
@@ -264,23 +269,59 @@ TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *_self) {
       }
     }
 
-    const TSFieldMapEntry *field_map, *field_map_end;
+    if (ts_subtree_extra(*entry->subtree)) break;
+
     ts_language_field_map(
       self->tree->language,
       parent_entry->subtree->ptr->production_id,
-      &field_map, &field_map_end
+      field_map, field_map_end
     );
-
-    while (field_map < field_map_end) {
-      if (
-        !ts_subtree_extra(*entry->subtree) &&
-        !field_map->inherited &&
-        field_map->child_index == entry->structural_child_index
-      ) return field_map->field_id;
-      field_map++;
+    for (const TSFieldMapEntry *i = *field_map; i < *field_map_end; i++) {
+      if (!i->inherited && i->child_index == entry->structural_child_index) {
+        *child_index = entry->structural_child_index;
+        return i->field_id;
+      }
     }
   }
   return 0;
+}
+
+TSFieldId ts_tree_cursor_current_field_id_ext(
+  const TSTreeCursor *self,
+  bool *field_has_additional
+) {
+  uint32_t child_index;
+  const TSFieldMapEntry *field_map, *field_map_end;
+  TSFieldId field_id = ts_tree_cursor__current_field_info(
+    self,
+    &field_map,
+    &field_map_end,
+    &child_index
+  );
+
+  // After finding the field, check if any other later children have
+  // the same field name.
+  if (field_id) {
+    for (const TSFieldMapEntry *i = field_map; i < field_map_end; i++) {
+      if (i->field_id == field_id && i->child_index > child_index) {
+        *field_has_additional = true;
+      }
+    }
+  }
+
+  return field_id;
+}
+
+
+TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *self) {
+  uint32_t child_index;
+  const TSFieldMapEntry *field_map, *field_map_end;
+  return ts_tree_cursor__current_field_info(
+    self,
+    &field_map,
+    &field_map_end,
+    &child_index
+  );
 }
 
 const char *ts_tree_cursor_current_field_name(const TSTreeCursor *_self) {

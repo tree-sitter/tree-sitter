@@ -17,7 +17,7 @@ use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::os::raw::{c_char, c_void};
 use std::sync::atomic::AtomicUsize;
-use std::{fmt, ptr, str, u16};
+use std::{char, fmt, ptr, slice, str, u16};
 
 pub const LANGUAGE_VERSION: usize = ffi::TREE_SITTER_LANGUAGE_VERSION;
 pub const PARSER_HEADER: &'static str = include_str!("../include/tree_sitter/parser.h");
@@ -134,6 +134,23 @@ pub struct TreePropertyCursor<'a, P> {
     child_index_stack: Vec<usize>,
     property_sheet: &'a PropertySheet<P>,
     source: &'a [u8],
+}
+
+#[derive(Debug)]
+pub struct Query {
+    ptr: *mut ffi::TSQuery,
+    capture_names: Vec<String>,
+}
+
+pub struct QueryContext<'a>(*mut ffi::TSQueryContext, PhantomData<&'a ()>);
+
+pub struct QueryMatch<'a>(&'a QueryContext<'a>);
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum QueryError<'a> {
+    Syntax(usize),
+    NodeType(&'a str),
+    Field(&'a str),
 }
 
 impl Language {
@@ -918,6 +935,117 @@ impl<'a, P> TreePropertyCursor<'a, P> {
 
     fn default_state(&self) -> &PropertyState {
         &self.property_sheet.states.first().unwrap()
+    }
+}
+
+impl Query {
+    pub fn new(language: Language, source: &str) -> Result<Self, QueryError> {
+        let mut error_offset = 0u32;
+        let mut error_type: ffi::TSQueryError = 0;
+        let bytes = source.as_bytes();
+        let ptr = unsafe {
+            ffi::ts_query_new(
+                language.0,
+                bytes.as_ptr() as *const c_char,
+                bytes.len() as u32,
+                &mut error_offset as *mut u32,
+                &mut error_type as *mut ffi::TSQueryError,
+            )
+        };
+        if ptr.is_null() {
+            let offset = error_offset as usize;
+            Err(match error_type {
+                ffi::TSQueryError_TSQueryErrorNodeType | ffi::TSQueryError_TSQueryErrorField => {
+                    let suffix = source.split_at(offset).1;
+                    let end_offset = suffix
+                        .find(|c| !char::is_alphanumeric(c) && c != '_' && c != '-')
+                        .unwrap_or(source.len());
+                    let name = suffix.split_at(end_offset).0;
+                    if error_type == ffi::TSQueryError_TSQueryErrorNodeType {
+                        QueryError::NodeType(name)
+                    } else {
+                        QueryError::Field(name)
+                    }
+                }
+                _ => QueryError::Syntax(offset),
+            })
+        } else {
+            let capture_count = unsafe { ffi::ts_query_capture_count(ptr) };
+            let capture_names = (0..capture_count)
+                .map(|i| unsafe {
+                    let mut length = 0u32;
+                    let name =
+                        ffi::ts_query_capture_name_for_id(ptr, i as u32, &mut length as *mut u32)
+                            as *const u8;
+                    let name = slice::from_raw_parts(name, length as usize);
+                    let name = str::from_utf8_unchecked(name);
+                    name.to_string()
+                })
+                .collect();
+            Ok(Query { ptr, capture_names })
+        }
+    }
+
+    pub fn capture_names(&self) -> &[String] {
+        &self.capture_names
+    }
+
+    pub fn context(&self) -> QueryContext {
+        let context = unsafe { ffi::ts_query_context_new(self.ptr) };
+        QueryContext(context, PhantomData)
+    }
+}
+
+impl<'a> QueryContext<'a> {
+    pub fn exec(&'a self, node: Node<'a>) -> impl Iterator<Item = QueryMatch<'a>> + 'a {
+        unsafe {
+            ffi::ts_query_context_exec(self.0, node.0);
+        }
+        std::iter::from_fn(move || -> Option<QueryMatch<'a>> {
+            unsafe {
+                if ffi::ts_query_context_next(self.0) {
+                    Some(QueryMatch(self))
+                } else {
+                    None
+                }
+            }
+        })
+    }
+}
+
+impl<'a> QueryMatch<'a> {
+    pub fn pattern_index(&self) -> usize {
+        unsafe { ffi::ts_query_context_matched_pattern_index((self.0).0) as usize }
+    }
+
+    pub fn captures(&self) -> impl ExactSizeIterator<Item = (usize, Node)> {
+        unsafe {
+            let mut capture_count = 0u32;
+            let captures =
+                ffi::ts_query_context_matched_captures((self.0).0, &mut capture_count as *mut u32);
+            let captures = slice::from_raw_parts(captures, capture_count as usize);
+            captures
+                .iter()
+                .map(move |capture| (capture.index as usize, Node::new(capture.node).unwrap()))
+        }
+    }
+}
+
+impl PartialEq for Query {
+    fn eq(&self, other: &Self) -> bool {
+        self.ptr == other.ptr
+    }
+}
+
+impl Drop for Query {
+    fn drop(&mut self) {
+        unsafe { ffi::ts_query_delete(self.ptr) }
+    }
+}
+
+impl<'a> Drop for QueryContext<'a> {
+    fn drop(&mut self) {
+        unsafe { ffi::ts_query_context_delete(self.0) }
     }
 }
 
