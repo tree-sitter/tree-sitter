@@ -413,6 +413,7 @@ static TSQueryError ts_query_parse_pattern(
       .depth = depth,
       .symbol = symbol,
       .field = 0,
+      .capture_id = NONE,
     }));
 
     if (stream->next != '"') return TSQueryErrorSyntax;
@@ -756,7 +757,7 @@ bool ts_query_context_next(TSQueryContext *self) {
 
           array_push(&self->states, ((QueryState) {
             .pattern_index = slice->pattern_index,
-            .step_index = slice->step_index + 1,
+            .step_index = slice->step_index,
             .start_depth = self->depth,
             .capture_list_id = capture_list_id,
             .capture_count = 0,

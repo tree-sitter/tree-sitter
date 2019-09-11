@@ -312,6 +312,37 @@ fn test_query_exec_too_many_match_permutations_to_track() {
 }
 
 #[test]
+fn test_query_exec_with_anonymous_tokens() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            ";" @ punctuation
+            "&&" @ operator
+            "#,
+        )
+        .unwrap();
+
+        let source = "foo(a && b);";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let context = query.context();
+        let matches = context.exec(tree.root_node());
+
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[
+                (1, vec![("operator", "&&")]),
+                (0, vec![("punctuation", ";")]),
+            ]
+        );
+    });
+}
+
+#[test]
 fn test_query_capture_names() {
     allocations::record(|| {
         let language = get_language("javascript");
