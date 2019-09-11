@@ -206,23 +206,19 @@ static TSQueryCapture *capture_list_pool_get(CaptureListPool *self, uint16_t id)
   return &self->list.contents[id * (self->list.size / MAX_STATE_COUNT)];
 }
 
-static inline uint32_t capture_list_bitmask_for_id(uint16_t id) {
-  // An id of zero corresponds to the highest-order bit in the bitmask.
-  return (1u << (31 - id));
-}
-
 static uint16_t capture_list_pool_acquire(CaptureListPool *self) {
   // In the usage_map bitmask, ones represent free lists, and zeros represent
   // lists that are in use. A free list can quickly be found by counting
-  // the leading zeros in the usage map.
+  // the leading zeros in the usage map. An id of zero corresponds to the
+  // highest-order bit in the bitmask.
   uint16_t id = count_leading_zeros(self->usage_map);
   if (id == 32) return NONE;
-  self->usage_map &= ~capture_list_bitmask_for_id(id);
+  self->usage_map &= ~bitmask_for_index(id);
   return id;
 }
 
 static void capture_list_pool_release(CaptureListPool *self, uint16_t id) {
-  self->usage_map |= capture_list_bitmask_for_id(id);
+  self->usage_map |= bitmask_for_index(id);
 }
 
 /*********
