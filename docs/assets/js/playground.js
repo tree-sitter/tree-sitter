@@ -11,6 +11,8 @@ let tree;
   const demoContainer = document.getElementById('playground-container');
   const languagesByName = {};
 
+  loadState();
+
   await TreeSitter.init();
 
   const parser = new TreeSitter();
@@ -25,6 +27,7 @@ let tree;
     scrollElem: outputContainerScroll
   });
   const renderTreeOnCodeChange = debounce(renderTree, 50);
+  const saveStateOnChange = debounce(saveState, 2000);
 
   let languageName = languageSelect.value;
   let treeRows = null;
@@ -81,6 +84,7 @@ let tree;
     tree = newTree;
     parseCount++;
     renderTreeOnCodeChange();
+    saveStateOnChange();
   }
 
   async function renderTree() {
@@ -260,6 +264,20 @@ let tree;
       startIndex, oldEndIndex, newEndIndex,
       startPosition, oldEndPosition, newEndPosition
     };
+  }
+
+  function loadState() {
+    const language = localStorage.getItem("language");
+    const sourceCode = localStorage.getItem("sourceCode");
+    if (language != null && sourceCode != null) {
+      codeInput.value = sourceCode;
+      languageSelect.value = language;
+    }
+  }
+
+  function saveState() {
+    localStorage.setItem("language", languageSelect.value);
+    localStorage.setItem("sourceCode", codeEditor.getValue());
   }
 
   function debounce(func, wait, immediate) {
