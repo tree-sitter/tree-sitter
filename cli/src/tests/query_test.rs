@@ -193,6 +193,48 @@ fn test_query_exec_with_multiple_matches_same_root() {
     allocations::stop_recording();
 }
 
+#[test]
+fn test_query_exec_multiple_patterns() {
+    allocations::start_recording();
+
+    let language = get_language("javascript");
+    let query = Query::new(
+        language,
+        "
+            (function_declaration name:(identifier) @fn-def)
+            (call_expression function:(identifier) @fn-ref)
+        ",
+    )
+    .unwrap();
+
+    let source = "
+        function f1() {
+            f2(f3());
+        }
+    ";
+
+    let mut parser = Parser::new();
+    parser.set_language(language).unwrap();
+    let tree = parser.parse(source, None).unwrap();
+    let context = query.context();
+    let matches = context.exec(tree.root_node());
+
+    assert_eq!(
+        collect_matches(matches, &query, source),
+        &[
+            (0, vec![("fn-def", "f1")]),
+            (1, vec![("fn-ref", "f2")]),
+            (1, vec![("fn-ref", "f3")]),
+        ],
+    );
+
+    drop(context);
+    drop(parser);
+    drop(query);
+    drop(tree);
+    allocations::stop_recording();
+}
+
 fn collect_matches<'a>(
     matches: impl Iterator<Item = QueryMatch<'a>>,
     query: &'a Query,

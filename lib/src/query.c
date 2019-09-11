@@ -252,20 +252,20 @@ static inline bool ts_query__pattern_map_search(
     TSSymbol mid_symbol = self->steps.contents[
       self->pattern_map.contents[mid_index].step_index
     ].symbol;
-    if (needle > mid_symbol) base_index = mid_index;
+    if (needle >= mid_symbol) base_index = mid_index;
     size -= half_size;
   }
   TSSymbol symbol = self->steps.contents[
     self->pattern_map.contents[base_index].step_index
   ].symbol;
   if (needle > symbol) {
-    *result = base_index;
+    *result = base_index + 1;
     return false;
   } else if (needle == symbol) {
     *result = base_index;
     return true;
   } else {
-    *result = base_index + 1;
+    *result = base_index;
     return false;
   }
 }
