@@ -7,7 +7,7 @@
 </head>
 
 <body>
-  <div id="playground-container">
+  <div id="playground-container" style="visibility: hidden;">
     <header>
       <div class=header-item>
         <bold>THE_LANGUAGE_NAME</bold>
@@ -118,7 +118,12 @@
       margin-right: 30px;
     }
 
-    .CodeMirror {
+    #playground-container .CodeMirror {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
       height: 100%;
     }
 
