@@ -26,8 +26,7 @@ typedef struct {
   TSSymbol symbol;
   TSFieldId field;
   uint16_t capture_id;
-  uint8_t depth;
-  bool field_is_multiple;
+  uint16_t depth;
 } QueryStep;
 
 /*
@@ -155,6 +154,7 @@ static void stream_skip_whitespace(Stream *stream) {
     if (iswspace(stream->next)) {
       stream_advance(stream);
     } else if (stream->next == ';') {
+      // skip over comments
       stream_advance(stream);
       while (stream->next && stream->next != '\n') {
         if (!stream_advance(stream)) break;
@@ -246,10 +246,7 @@ static uint16_t ts_query_intern_capture_name(
   uint32_t length
 ) {
   int id = ts_query_capture_id_for_name(self, name, length);
-  if (id >= 0) {
-    return (uint16_t)id;
-  }
-
+  if (id >= 0) return (uint16_t)id;
   CaptureSlice capture = {
     .offset = self->capture_data.size,
     .length = length,
@@ -267,6 +264,10 @@ static uint16_t ts_query_intern_capture_name(
 // that node. It is represented as an array of `(symbol, step index)` pairs,
 // sorted by symbol. Lookups use a binary search so that their cost scales
 // logarithmically with the number of patterns in the query.
+//
+// This returns `true` if the symbol is present and `false` otherwise.
+// If the symbol is not present `*result` is set to the index where the
+// symbol should be inserted.
 static inline bool ts_query__pattern_map_search(
   const TSQuery *self,
   TSSymbol needle,
@@ -545,6 +546,9 @@ TSQuery *ts_query_new(
       self->wildcard_root_pattern_count++;
     }
 
+    // Keep track of the maximum number of captures in pattern, because
+    // that numer determines how much space is needed to store each capture
+    // list.
     if (capture_count > self->max_capture_count) {
       self->max_capture_count = capture_count;
     }
@@ -690,8 +694,8 @@ bool ts_query_cursor_next(TSQueryCursor *self) {
 
   while (self->finished_states.size == 0) {
     if (self->ascending) {
-      // Remove any states that were started within this node and are still
-      // not complete.
+      // When leaving a node, remove any unfinished states whose next step
+      // needed to match something within that node.
       uint32_t deleted_count = 0;
       for (unsigned i = 0, n = self->states.size; i < n; i++) {
         QueryState *state = &self->states.contents[i];
@@ -716,9 +720,8 @@ bool ts_query_cursor_next(TSQueryCursor *self) {
 
       if (deleted_count) {
         LOG("failed %u of %u states\n", deleted_count, self->states.size);
+        self->states.size -= deleted_count;
       }
-
-      self->states.size -= deleted_count;
 
       if (ts_tree_cursor_goto_next_sibling(&self->cursor)) {
         self->ascending = false;
@@ -758,9 +761,9 @@ bool ts_query_cursor_next(TSQueryCursor *self) {
         PatternSlice *slice = &self->query->pattern_map.contents[i];
         QueryStep *step = &self->query->steps.contents[slice->step_index];
 
-        // Check that the node matches the criteria for the first step
-        // of the pattern.
         if (step->field) {
+          // Compute the current field id if it is needed and has not yet
+          // been computed.
           if (field_id == NONE) {
             field_id = ts_tree_cursor_current_field_id_ext(
               &self->cursor,
@@ -770,7 +773,8 @@ bool ts_query_cursor_next(TSQueryCursor *self) {
           if (field_id != step->field) continue;
         }
 
-        // Add a new state at the start of this pattern.
+        // If this node matches the first step of the pattern, then add a new
+        // state at the start of this pattern.
         uint32_t capture_list_id = capture_list_pool_acquire(
           &self->capture_list_pool
         );
@@ -790,6 +794,8 @@ bool ts_query_cursor_next(TSQueryCursor *self) {
         QueryStep *step = &self->query->steps.contents[slice->step_index];
         do {
           if (step->field) {
+            // Compute the current field id if it is needed and has not yet
+            // been computed.
             if (field_id == NONE) {
               field_id = ts_tree_cursor_current_field_id_ext(
                 &self->cursor,
@@ -801,9 +807,9 @@ bool ts_query_cursor_next(TSQueryCursor *self) {
 
           LOG("start pattern %u\n", slice->pattern_index);
 
-          // If the node matches the first step of the pattern, then add
-          // a new in-progress state. First, acquire a list to hold the
-          // pattern's captures.
+          // If this node matches the first step of the pattern, then add a
+          // new in-progress state. First, acquire a list to hold the pattern's
+          // captures.
           uint32_t capture_list_id = capture_list_pool_acquire(
             &self->capture_list_pool
           );
@@ -817,6 +823,7 @@ bool ts_query_cursor_next(TSQueryCursor *self) {
             .capture_count = 0,
           }));
 
+          // Advance to the next pattern whose root node matches this node.
           i++;
           if (i == self->query->pattern_map.size) break;
           slice = &self->query->pattern_map.contents[i];
@@ -834,8 +841,8 @@ bool ts_query_cursor_next(TSQueryCursor *self) {
         if (state->start_depth + step->depth != self->depth) continue;
         if (step->symbol && step->symbol != symbol) continue;
         if (step->field) {
-          // Only compute the current field if it is needed for the current
-          // step of some in-progress pattern.
+          // Compute the current field id if it is needed and has not yet
+          // been computed.
           if (field_id == NONE) {
             field_id = ts_tree_cursor_current_field_id_ext(
               &self->cursor,
@@ -874,8 +881,8 @@ bool ts_query_cursor_next(TSQueryCursor *self) {
           };
         }
 
-        // If the pattern is now done, then populate the query cursor's
-        // finished state.
+        // If the pattern is now done, then remove it from the list of
+        // in-progress states, and add it to the list of finished states.
         next_state->step_index++;
         QueryStep *next_step = step + 1;
         if (next_step->depth == PATTERN_DONE_MARKER) {
