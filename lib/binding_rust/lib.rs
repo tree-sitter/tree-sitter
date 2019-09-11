@@ -142,9 +142,9 @@ pub struct Query {
     capture_names: Vec<String>,
 }
 
-pub struct QueryContext<'a>(*mut ffi::TSQueryContext, PhantomData<&'a ()>);
+pub struct QueryCursor(*mut ffi::TSQueryCursor);
 
-pub struct QueryMatch<'a>(&'a QueryContext<'a>);
+pub struct QueryMatch<'a>(*mut ffi::TSQueryCursor, PhantomData<&'a ()>);
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum QueryError<'a> {
@@ -989,22 +989,21 @@ impl Query {
     pub fn capture_names(&self) -> &[String] {
         &self.capture_names
     }
-
-    pub fn context(&self) -> QueryContext {
-        let context = unsafe { ffi::ts_query_context_new(self.ptr) };
-        QueryContext(context, PhantomData)
-    }
 }
 
-impl<'a> QueryContext<'a> {
-    pub fn exec(&'a self, node: Node<'a>) -> impl Iterator<Item = QueryMatch<'a>> + 'a {
+impl QueryCursor {
+    pub fn new() -> Self {
+        QueryCursor(unsafe { ffi::ts_query_cursor_new() })
+    }
+
+    pub fn exec<'a>(&'a mut self, query: &'a Query, node: Node<'a>) -> impl Iterator<Item = QueryMatch<'a>> + 'a {
         unsafe {
-            ffi::ts_query_context_exec(self.0, node.0);
+            ffi::ts_query_cursor_exec(self.0, query.ptr, node.0);
         }
         std::iter::from_fn(move || -> Option<QueryMatch<'a>> {
             unsafe {
-                if ffi::ts_query_context_next(self.0) {
-                    Some(QueryMatch(self))
+                if ffi::ts_query_cursor_next(self.0) {
+                    Some(QueryMatch(self.0, PhantomData))
                 } else {
                     None
                 }
@@ -1014,14 +1013,14 @@ impl<'a> QueryContext<'a> {
 
     pub fn set_byte_range(&mut self, start: usize, end: usize) -> &mut Self {
         unsafe {
-            ffi::ts_query_context_set_byte_range(self.0, start as u32, end as u32);
+            ffi::ts_query_cursor_set_byte_range(self.0, start as u32, end as u32);
         }
         self
     }
 
     pub fn set_point_range(&mut self, start: Point, end: Point) -> &mut Self {
         unsafe {
-            ffi::ts_query_context_set_point_range(self.0, start.into(), end.into());
+            ffi::ts_query_cursor_set_point_range(self.0, start.into(), end.into());
         }
         self
     }
@@ -1029,14 +1028,14 @@ impl<'a> QueryContext<'a> {
 
 impl<'a> QueryMatch<'a> {
     pub fn pattern_index(&self) -> usize {
-        unsafe { ffi::ts_query_context_matched_pattern_index((self.0).0) as usize }
+        unsafe { ffi::ts_query_cursor_matched_pattern_index(self.0) as usize }
     }
 
     pub fn captures(&self) -> impl ExactSizeIterator<Item = (usize, Node)> {
         unsafe {
             let mut capture_count = 0u32;
             let captures =
-                ffi::ts_query_context_matched_captures((self.0).0, &mut capture_count as *mut u32);
+                ffi::ts_query_cursor_matched_captures(self.0, &mut capture_count as *mut u32);
             let captures = slice::from_raw_parts(captures, capture_count as usize);
             captures
                 .iter()
@@ -1057,9 +1056,9 @@ impl Drop for Query {
     }
 }
 
-impl<'a> Drop for QueryContext<'a> {
+impl Drop for QueryCursor {
     fn drop(&mut self) {
-        unsafe { ffi::ts_query_context_delete(self.0) }
+        unsafe { ffi::ts_query_cursor_delete(self.0) }
     }
 }
 

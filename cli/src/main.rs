@@ -1,9 +1,8 @@
 use clap::{App, AppSettings, Arg, SubCommand};
 use error::Error;
-use std::io::Read;
 use std::path::Path;
 use std::process::exit;
-use std::{env, fs, io, u64};
+use std::{env, fs, u64};
 use tree_sitter::Language;
 use tree_sitter_cli::{
     config, error, generate, highlight, loader, logger, parse, query, test, wasm, web_ui,

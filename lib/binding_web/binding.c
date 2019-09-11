@@ -306,6 +306,7 @@ void ts_tree_cursor_current_node_wasm(const TSTree *tree) {
 /******************/
 
 static TSTreeCursor scratch_cursor = {0};
+static TSQueryCursor *scratch_query_cursor = NULL;
 
 uint16_t ts_node_symbol_wasm(const TSTree *tree) {
   TSNode node = unmarshal_node(tree);
@@ -566,24 +567,22 @@ int ts_node_is_missing_wasm(const TSTree *tree) {
 /* Section - Query */
 /******************/
 
-void ts_query_exec_wasm(
-  const TSQuery *self,
-  TSQueryContext *context,
-  const TSTree *tree
-) {
+void ts_query_exec_wasm(const TSQuery *self, const TSTree *tree) {
+  if (!scratch_query_cursor) scratch_query_cursor = ts_query_cursor_new();
+
   TSNode node = unmarshal_node(tree);
 
   Array(const void *) result = array_new();
 
   unsigned index = 0;
   unsigned match_count = 0;
-  ts_query_context_exec(context, node);
-  while (ts_query_context_next(context)) {
+  ts_query_cursor_exec(scratch_query_cursor, self, node);
+  while (ts_query_cursor_next(scratch_query_cursor)) {
     match_count++;
-    uint32_t pattern_index = ts_query_context_matched_pattern_index(context);
+    uint32_t pattern_index = ts_query_cursor_matched_pattern_index(scratch_query_cursor);
     uint32_t capture_count;
-    const TSQueryCapture *captures = ts_query_context_matched_captures(
-      context,
+    const TSQueryCapture *captures = ts_query_cursor_matched_captures(
+      scratch_query_cursor,
       &capture_count
     );
 

@@ -2,7 +2,7 @@ use super::error::{Error, Result};
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
-use tree_sitter::{Language, Parser, Query};
+use tree_sitter::{Language, Parser, Query, QueryCursor};
 
 pub fn query_files_at_paths(
     language: Language,
@@ -18,7 +18,7 @@ pub fn query_files_at_paths(
     let query = Query::new(language, &query_source)
         .map_err(|e| Error::new(format!("Query compilation failed: {:?}", e)))?;
 
-    let query_context = query.context();
+    let mut query_cursor = QueryCursor::new();
 
     let mut parser = Parser::new();
     parser.set_language(language).map_err(|e| e.to_string())?;
@@ -32,7 +32,7 @@ pub fn query_files_at_paths(
 
         let tree = parser.parse(&source_code, None).unwrap();
 
-        for mat in query_context.exec(tree.root_node()) {
+        for mat in query_cursor.exec(&query, tree.root_node()) {
             writeln!(&mut stdout, "  pattern: {}", mat.pattern_index())?;
             for (capture_id, node) in mat.captures() {
                 writeln!(

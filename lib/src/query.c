@@ -50,7 +50,7 @@ typedef struct {
 
 /*
  * QueryState - The state of an in-progress match of a particular pattern
- * in a query. While executing, a QueryContext must keep track of a number
+ * in a query. While executing, a `TSQueryCursor` must keep track of a number
  * of possible in-progress matches. Each of those possible matches is
  * represented as one of these states.
  */
@@ -69,15 +69,14 @@ typedef struct {
  * parts of the shared array are currently in use by a QueryState.
  */
 typedef struct {
-  TSQueryCapture *contents;
-  uint32_t list_size;
+  Array(TSQueryCapture) list;
   uint32_t usage_map;
 } CaptureListPool;
 
 /*
  * TSQuery - A tree query, compiled from a string of S-expressions. The query
  * itself is immutable. The mutable state used in the process of executing the
- * query is stored in a `TSQueryContext`.
+ * query is stored in a `TSQueryCursor`.
  */
 struct TSQuery {
   Array(QueryStep) steps;
@@ -90,9 +89,9 @@ struct TSQuery {
 };
 
 /*
- * TSQueryContext - A stateful struct used to execute a query on a tree.
+ * TSQueryCursor - A stateful struct used to execute a query on a tree.
  */
-struct TSQueryContext {
+struct TSQueryCursor {
   const TSQuery *query;
   TSTreeCursor cursor;
   Array(QueryState) states;
@@ -185,24 +184,26 @@ static void stream_scan_identifier(Stream *stream) {
  * CaptureListPool
  ******************/
 
-static CaptureListPool capture_list_pool_new(uint16_t list_size) {
+static CaptureListPool capture_list_pool_new() {
   return (CaptureListPool) {
-    .contents = ts_calloc(MAX_STATE_COUNT * list_size, sizeof(TSQueryCapture)),
-    .list_size = list_size,
+    .list = array_new(),
     .usage_map = UINT32_MAX,
   };
 }
 
-static void capture_list_pool_clear(CaptureListPool *self) {
+static void capture_list_pool_reset(CaptureListPool *self, uint16_t list_size) {
   self->usage_map = UINT32_MAX;
+  uint32_t total_size = MAX_STATE_COUNT * list_size;
+  array_reserve(&self->list, total_size);
+  self->list.size = total_size;
 }
 
 static void capture_list_pool_delete(CaptureListPool *self) {
-  ts_free(self->contents);
+  array_delete(&self->list);
 }
 
 static TSQueryCapture *capture_list_pool_get(CaptureListPool *self, uint16_t id) {
-  return &self->contents[id * self->list_size];
+  return &self->list.contents[id * (self->list.size / MAX_STATE_COUNT)];
 }
 
 static inline uint32_t capture_list_bitmask_for_id(uint16_t id) {
@@ -599,17 +600,16 @@ int ts_query_capture_id_for_name(
 }
 
 /***************
- * QueryContext
+ * QueryCursor
  ***************/
 
-TSQueryContext *ts_query_context_new(const TSQuery *query) {
-  TSQueryContext *self = ts_malloc(sizeof(TSQueryContext));
-  *self = (TSQueryContext) {
-    .query = query,
+TSQueryCursor *ts_query_cursor_new() {
+  TSQueryCursor *self = ts_malloc(sizeof(TSQueryCursor));
+  *self = (TSQueryCursor) {
     .ascending = false,
     .states = array_new(),
     .finished_states = array_new(),
-    .capture_list_pool = capture_list_pool_new(query->max_capture_count),
+    .capture_list_pool = capture_list_pool_new(),
     .start_byte = 0,
     .end_byte = UINT32_MAX,
     .start_point = {0, 0},
@@ -618,7 +618,7 @@ TSQueryContext *ts_query_context_new(const TSQuery *query) {
   return self;
 }
 
-void ts_query_context_delete(TSQueryContext *self) {
+void ts_query_cursor_delete(TSQueryCursor *self) {
   array_delete(&self->states);
   array_delete(&self->finished_states);
   ts_tree_cursor_delete(&self->cursor);
@@ -626,17 +626,22 @@ void ts_query_context_delete(TSQueryContext *self) {
   ts_free(self);
 }
 
-void ts_query_context_exec(TSQueryContext *self, TSNode node) {
+void ts_query_cursor_exec(
+  TSQueryCursor *self,
+  const TSQuery *query,
+  TSNode node
+) {
   array_clear(&self->states);
   array_clear(&self->finished_states);
   ts_tree_cursor_reset(&self->cursor, node);
-  capture_list_pool_clear(&self->capture_list_pool);
+  capture_list_pool_reset(&self->capture_list_pool, query->max_capture_count);
   self->depth = 0;
   self->ascending = false;
+  self->query = query;
 }
 
-void ts_query_context_set_byte_range(
-  TSQueryContext *self,
+void ts_query_cursor_set_byte_range(
+  TSQueryCursor *self,
   uint32_t start_byte,
   uint32_t end_byte
 ) {
@@ -648,8 +653,8 @@ void ts_query_context_set_byte_range(
   self->end_byte = end_byte;
 }
 
-void ts_query_context_set_point_range(
-  TSQueryContext *self,
+void ts_query_cursor_set_point_range(
+  TSQueryCursor *self,
   TSPoint start_point,
   TSPoint end_point
 ) {
@@ -661,8 +666,8 @@ void ts_query_context_set_point_range(
   self->end_point = end_point;
 }
 
-static QueryState *ts_query_context_copy_state(
-  TSQueryContext *self,
+static QueryState *ts_query_cursor_copy_state(
+  TSQueryCursor *self,
   QueryState *state
 ) {
   uint32_t new_list_id = capture_list_pool_acquire(&self->capture_list_pool);
@@ -682,7 +687,7 @@ static QueryState *ts_query_context_copy_state(
   return new_state;
 }
 
-bool ts_query_context_next(TSQueryContext *self) {
+bool ts_query_cursor_next(TSQueryCursor *self) {
   if (self->finished_states.size > 0) {
     QueryState state = array_pop(&self->finished_states);
     capture_list_pool_release(&self->capture_list_pool, state.capture_list_id);
@@ -853,7 +858,7 @@ bool ts_query_context_next(TSQueryContext *self) {
         // siblings.
         QueryState *next_state = state;
         if (step->depth > 0 && (!step->field || field_occurs_in_later_sibling)) {
-          QueryState *copy = ts_query_context_copy_state(self, state);
+          QueryState *copy = ts_query_cursor_copy_state(self, state);
           if (copy) next_state = copy;
         }
 
@@ -873,7 +878,7 @@ bool ts_query_context_next(TSQueryContext *self) {
           };
         }
 
-        // If the pattern is now done, then populate the query context's
+        // If the pattern is now done, then populate the query cursor's
         // finished state.
         next_state->step_index++;
         QueryStep *next_step = step + 1;
@@ -902,7 +907,7 @@ bool ts_query_context_next(TSQueryContext *self) {
   return true;
 }
 
-uint32_t ts_query_context_matched_pattern_index(const TSQueryContext *self) {
+uint32_t ts_query_cursor_matched_pattern_index(const TSQueryCursor *self) {
   if (self->finished_states.size > 0) {
     QueryState *state = array_back(&self->finished_states);
     return state->pattern_index;
@@ -910,8 +915,8 @@ uint32_t ts_query_context_matched_pattern_index(const TSQueryContext *self) {
   return 0;
 }
 
-const TSQueryCapture *ts_query_context_matched_captures(
-  const TSQueryContext *self,
+const TSQueryCapture *ts_query_cursor_matched_captures(
+  const TSQueryCursor *self,
   uint32_t *count
 ) {
   if (self->finished_states.size > 0) {

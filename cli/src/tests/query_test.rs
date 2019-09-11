@@ -1,6 +1,6 @@
 use super::helpers::allocations;
 use super::helpers::fixtures::get_language;
-use tree_sitter::{Parser, Query, QueryError, QueryMatch};
+use tree_sitter::{Parser, Query, QueryCursor, QueryError, QueryMatch};
 
 #[test]
 fn test_query_errors_on_invalid_syntax() {
@@ -77,8 +77,8 @@ fn test_query_exec_with_simple_pattern() {
         parser.set_language(language).unwrap();
         let tree = parser.parse(source, None).unwrap();
 
-        let context = query.context();
-        let matches = context.exec(tree.root_node());
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.exec(&query, tree.root_node());
 
         assert_eq!(
             collect_matches(matches, &query, source),
@@ -117,8 +117,8 @@ fn test_query_exec_with_multiple_matches_same_root() {
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
         let tree = parser.parse(source, None).unwrap();
-        let context = query.context();
-        let matches = context.exec(tree.root_node());
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.exec(&query, tree.root_node());
 
         assert_eq!(
             collect_matches(matches, &query, source),
@@ -164,8 +164,8 @@ fn test_query_exec_multiple_patterns_different_roots() {
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
         let tree = parser.parse(source, None).unwrap();
-        let context = query.context();
-        let matches = context.exec(tree.root_node());
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.exec(&query, tree.root_node());
 
         assert_eq!(
             collect_matches(matches, &query, source),
@@ -206,8 +206,8 @@ fn test_query_exec_multiple_patterns_same_root() {
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
         let tree = parser.parse(source, None).unwrap();
-        let context = query.context();
-        let matches = context.exec(tree.root_node());
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.exec(&query, tree.root_node());
 
         assert_eq!(
             collect_matches(matches, &query, source),
@@ -243,8 +243,8 @@ fn test_query_exec_nested_matches_without_fields() {
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
         let tree = parser.parse(source, None).unwrap();
-        let context = query.context();
-        let matches = context.exec(tree.root_node());
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.exec(&query, tree.root_node());
 
         assert_eq!(
             collect_matches(matches, &query, source),
@@ -269,8 +269,8 @@ fn test_query_exec_many_matches() {
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
         let tree = parser.parse(&source, None).unwrap();
-        let context = query.context();
-        let matches = context.exec(tree.root_node());
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.exec(&query, tree.root_node());
 
         assert_eq!(
             collect_matches(matches, &query, source.as_str()),
@@ -298,8 +298,8 @@ fn test_query_exec_too_many_match_permutations_to_track() {
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
         let tree = parser.parse(&source, None).unwrap();
-        let context = query.context();
-        let matches = context.exec(tree.root_node());
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.exec(&query, tree.root_node());
 
         // For this pathological query, some match permutations will be dropped.
         // Just check that a subset of the results are returned, and crash or
@@ -329,8 +329,8 @@ fn test_query_exec_with_anonymous_tokens() {
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
         let tree = parser.parse(&source, None).unwrap();
-        let context = query.context();
-        let matches = context.exec(tree.root_node());
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.exec(&query, tree.root_node());
 
         assert_eq!(
             collect_matches(matches, &query, source),
@@ -354,8 +354,8 @@ fn test_query_exec_within_byte_range() {
         parser.set_language(language).unwrap();
         let tree = parser.parse(&source, None).unwrap();
 
-        let mut context = query.context();
-        let matches = context.set_byte_range(5, 15).exec(tree.root_node());
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.set_byte_range(5, 15).exec(&query, tree.root_node());
 
         assert_eq!(
             collect_matches(matches, &query, source),
@@ -420,8 +420,8 @@ fn test_query_comments() {
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
         let tree = parser.parse(source, None).unwrap();
-        let context = query.context();
-        let matches = context.exec(tree.root_node());
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.exec(&query, tree.root_node());
         assert_eq!(
             collect_matches(matches, &query, source),
             &[(0, vec![("fn-name", "one")]),],

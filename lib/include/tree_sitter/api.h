@@ -27,7 +27,7 @@ typedef struct TSLanguage TSLanguage;
 typedef struct TSParser TSParser;
 typedef struct TSTree TSTree;
 typedef struct TSQuery TSQuery;
-typedef struct TSQueryContext TSQueryContext;
+typedef struct TSQueryCursor TSQueryCursor;
 
 typedef enum {
   TSInputEncodingUTF8,
@@ -670,57 +670,57 @@ int ts_query_capture_id_for_name(
 );
 
 /**
- * Create a new context for executing a given query.
+ * Create a new cursor for executing a given query.
  *
- * The context stores the state that is needed to iteratively search
- * for matches. To use the query context:
- * 1. First call `ts_query_context_exec` to start running the query
- *    on a particular syntax node.
- * 2. Then repeatedly call `ts_query_context_next` to iterate over
- *    the matches.
- * 3. After each successful call to `ts_query_context_next`, you can call
- *    `ts_query_context_matched_pattern_index` to determine which pattern
- *     matched. You can also call `ts_query_context_matched_captures` to
- *     determine which nodes were captured by which capture names.
+ * The cursor stores the state that is needed to iteratively search
+ * for matches. To use the query cursor:
+ * 1. First call `ts_query_cursor_exec` to start running a given query on
+      a given syntax node.
+ * 2. Then repeatedly call `ts_query_cursor_next` to iterate over the matches.
+ *    This will return `false` when there are no more matches left.
+ * 3. After each successful call to `ts_query_cursor_next`, you can call
+ *    `ts_query_cursor_matched_pattern_index` to determine which pattern
+ *     matched. You can also call `ts_query_cursor_matched_captures` to
+ *     determine which nodes were captured, and by which capture names.
  *
  * If you don't care about finding all of the matches, you can stop calling
- * `ts_query_context_next` at any point. And you can start executing the
- *  query against a different node by calling `ts_query_context_exec` again.
+ * `ts_query_cursor_next` at any point. And you can start executing another
+ *  query on another node by calling `ts_query_cursor_exec` again.
  */
-TSQueryContext *ts_query_context_new(const TSQuery *);
+TSQueryCursor *ts_query_cursor_new();
 
 /**
- * Delete a query context, freeing all of the memory that it used.
+ * Delete a query cursor, freeing all of the memory that it used.
  */
-void ts_query_context_delete(TSQueryContext *);
+void ts_query_cursor_delete(TSQueryCursor *);
 
 /**
- * Start running a query on a given node.
+ * Start running a given query on a given node.
  */
-void ts_query_context_exec(TSQueryContext *, TSNode);
+void ts_query_cursor_exec(TSQueryCursor *, const TSQuery *, TSNode);
 
 /**
  * Set the range of bytes or (row, column) positions in which the query
  * will be executed.
  */
-void ts_query_context_set_byte_range(TSQueryContext *, uint32_t, uint32_t);
-void ts_query_context_set_point_range(TSQueryContext *, TSPoint, TSPoint);
+void ts_query_cursor_set_byte_range(TSQueryCursor *, uint32_t, uint32_t);
+void ts_query_cursor_set_point_range(TSQueryCursor *, TSPoint, TSPoint);
 
 /**
  * Advance to the next match of the currently running query.
  */
-bool ts_query_context_next(TSQueryContext *);
+bool ts_query_cursor_next(TSQueryCursor *);
 
 /**
  * Check which pattern matched.
  */
-uint32_t ts_query_context_matched_pattern_index(const TSQueryContext *);
+uint32_t ts_query_cursor_matched_pattern_index(const TSQueryCursor *);
 
 /**
  * Check which pattern matched.
  */
-const TSQueryCapture *ts_query_context_matched_captures(
-  const TSQueryContext *,
+const TSQueryCapture *ts_query_cursor_matched_captures(
+  const TSQueryCursor *,
   uint32_t *
 );
 
