@@ -31,9 +31,10 @@ fn test_query_errors_on_invalid_syntax() {
             Err(QueryError::Syntax(24))
         );
 
+        // Return an error at the beginning of an unterminated string.
         assert_eq!(
-            Query::new(language, "(if_statement condition:)"),
-            Err(QueryError::Syntax(24))
+            Query::new(language, r#"(identifier) "h "#),
+            Err(QueryError::Syntax(13))
         );
     });
 }

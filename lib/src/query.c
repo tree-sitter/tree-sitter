@@ -398,7 +398,12 @@ static TSQueryError ts_query_parse_pattern(
 
     // Parse the string content
     const char *string_content = stream->input;
-    while (stream->next && stream->next != '"') stream_advance(stream);
+    while (stream->next != '"') {
+      if (!stream_advance(stream)) {
+        stream_reset(stream, string_content - 1);
+        return TSQueryErrorSyntax;
+      }
+    }
     uint32_t length = stream->input - string_content;
 
     // Add a step for the node
