@@ -51,6 +51,12 @@ pub fn stop_recording() {
     }
 }
 
+pub fn record(f: impl FnOnce()) {
+    start_recording();
+    f();
+    stop_recording();
+}
+
 fn record_alloc(ptr: *mut c_void) {
     let mut recorder = RECORDER.lock();
     if recorder.enabled {
