@@ -32,18 +32,18 @@ static uint32_t byte_to_code_unit(uint32_t byte) {
 
 static inline void marshal_node(const void **buffer, TSNode node) {
   buffer[0] = (const void *)node.id;
-  buffer[1] = (const void *)node.context[0];
+  buffer[1] = (const void *)byte_to_code_unit(node.context[0]);
   buffer[2] = (const void *)node.context[1];
-  buffer[3] = (const void *)node.context[2];
+  buffer[3] = (const void *)byte_to_code_unit(node.context[2]);
   buffer[4] = (const void *)node.context[3];
 }
 
 static inline TSNode unmarshal_node(const TSTree *tree) {
   TSNode node;
   node.id = TRANSFER_BUFFER[0];
-  node.context[0] = (uint32_t)TRANSFER_BUFFER[1];
+  node.context[0] = code_unit_to_byte((uint32_t)TRANSFER_BUFFER[1]);
   node.context[1] = (uint32_t)TRANSFER_BUFFER[2];
-  node.context[2] = (uint32_t)TRANSFER_BUFFER[3];
+  node.context[2] = code_unit_to_byte((uint32_t)TRANSFER_BUFFER[3]);
   node.context[3] = (uint32_t)TRANSFER_BUFFER[4];
   node.tree = tree;
   return node;
