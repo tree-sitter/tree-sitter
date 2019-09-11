@@ -343,6 +343,32 @@ fn test_query_exec_with_anonymous_tokens() {
 }
 
 #[test]
+fn test_query_exec_within_byte_range() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(language, "(identifier) @element").unwrap();
+
+        let source = "[a, b, c, d, e, f, g]";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+
+        let mut context = query.context();
+        let matches = context.set_byte_range(5, 15).exec(tree.root_node());
+
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[
+                (0, vec![("element", "c")]),
+                (0, vec![("element", "d")]),
+                (0, vec![("element", "e")]),
+            ]
+        );
+    });
+}
+
+#[test]
 fn test_query_capture_names() {
     allocations::record(|| {
         let language = get_language("javascript");

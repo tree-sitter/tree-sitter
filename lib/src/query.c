@@ -2,6 +2,7 @@
 #include "./alloc.h"
 #include "./array.h"
 #include "./bits.h"
+#include "./point.h"
 #include "utf8proc.h"
 #include <wctype.h>
 
@@ -99,6 +100,10 @@ struct TSQueryContext {
   CaptureListPool capture_list_pool;
   bool ascending;
   uint32_t depth;
+  uint32_t start_byte;
+  uint32_t end_byte;
+  TSPoint start_point;
+  TSPoint end_point;
 };
 
 static const TSQueryError PARENT_DONE = -1;
@@ -605,6 +610,10 @@ TSQueryContext *ts_query_context_new(const TSQuery *query) {
     .states = array_new(),
     .finished_states = array_new(),
     .capture_list_pool = capture_list_pool_new(query->max_capture_count),
+    .start_byte = 0,
+    .end_byte = UINT32_MAX,
+    .start_point = {0, 0},
+    .end_point = POINT_MAX,
   };
   return self;
 }
@@ -624,6 +633,32 @@ void ts_query_context_exec(TSQueryContext *self, TSNode node) {
   capture_list_pool_clear(&self->capture_list_pool);
   self->depth = 0;
   self->ascending = false;
+}
+
+void ts_query_context_set_byte_range(
+  TSQueryContext *self,
+  uint32_t start_byte,
+  uint32_t end_byte
+) {
+  if (end_byte == 0) {
+    start_byte = 0;
+    end_byte = UINT32_MAX;
+  }
+  self->start_byte = start_byte;
+  self->end_byte = end_byte;
+}
+
+void ts_query_context_set_point_range(
+  TSQueryContext *self,
+  TSPoint start_point,
+  TSPoint end_point
+) {
+  if (end_point.row == 0 && end_point.column == 0) {
+    start_point = POINT_ZERO;
+    end_point = POINT_MAX;
+  }
+  self->start_point = start_point;
+  self->end_point = end_point;
 }
 
 static QueryState *ts_query_context_copy_state(
@@ -697,6 +732,24 @@ bool ts_query_context_next(TSQueryContext *self) {
       bool field_occurs_in_later_sibling = false;
       TSNode node = ts_tree_cursor_current_node(&self->cursor);
       TSSymbol symbol = ts_node_symbol(node);
+
+      // If this node is before the selected range, then avoid
+      // descending into it.
+      if (
+        ts_node_end_byte(node) <= self->start_byte ||
+        point_lte(ts_node_end_point(node), self->start_point)
+      ) {
+        if (!ts_tree_cursor_goto_next_sibling(&self->cursor)) {
+          self->ascending = true;
+        }
+        continue;
+      }
+
+      // If this node is after the selected range, then stop walking.
+      if (
+        self->end_byte <= ts_node_start_byte(node) ||
+        point_lte(self->end_point, ts_node_start_point(node))
+      ) return false;
 
       LOG("enter node %s\n", ts_node_type(node));
 

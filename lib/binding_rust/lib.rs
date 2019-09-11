@@ -1011,6 +1011,20 @@ impl<'a> QueryContext<'a> {
             }
         })
     }
+
+    pub fn set_byte_range(&mut self, start: usize, end: usize) -> &mut Self {
+        unsafe {
+            ffi::ts_query_context_set_byte_range(self.0, start as u32, end as u32);
+        }
+        self
+    }
+
+    pub fn set_point_range(&mut self, start: Point, end: Point) -> &mut Self {
+        unsafe {
+            ffi::ts_query_context_set_point_range(self.0, start.into(), end.into());
+        }
+        self
+    }
 }
 
 impl<'a> QueryMatch<'a> {

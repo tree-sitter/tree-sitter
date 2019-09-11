@@ -2,6 +2,7 @@
 #include <tree_sitter/api.h>
 #include <stdio.h>
 #include "array.h"
+#include "point.h"
 
 /*****************************/
 /* Section - Data marshaling */
@@ -462,12 +463,6 @@ void ts_node_named_children_wasm(const TSTree *tree) {
   }
   TRANSFER_BUFFER[0] = (const void *)count;
   TRANSFER_BUFFER[1] = result;
-}
-
-bool point_lte(TSPoint a, TSPoint b) {
-  if (a.row < b.row) return true;
-  if (a.row > b.row) return false;
-  return a.column <= b.column;
 }
 
 bool symbols_contain(const uint32_t *set, uint32_t length, uint32_t value) {

@@ -644,12 +644,12 @@ TSQuery *ts_query_new(
  */
 void ts_query_delete(TSQuery *);
 
-/*
+/**
  * Get the number of distinct capture names in the query.
  */
 uint32_t ts_query_capture_count(const TSQuery *);
 
-/*
+/**
  * Get the name and length of one of the query's capture. Each capture
  * is associated with a numeric id based on the order that it appeared
  * in the query's source.
@@ -660,7 +660,7 @@ const char *ts_query_capture_name_for_id(
   uint32_t *length
 );
 
-/*
+/**
  * Get the numeric id of the capture with the given name.
  */
 int ts_query_capture_id_for_name(
@@ -669,7 +669,7 @@ int ts_query_capture_id_for_name(
   uint32_t length
 );
 
-/*
+/**
  * Create a new context for executing a given query.
  *
  * The context stores the state that is needed to iteratively search
@@ -678,10 +678,10 @@ int ts_query_capture_id_for_name(
  *    on a particular syntax node.
  * 2. Then repeatedly call `ts_query_context_next` to iterate over
  *    the matches.
- * 3. For each match, you can call `ts_query_context_matched_pattern_index`
- *    to determine which pattern matched. You can also call
- *    `ts_query_context_matched_captures` to determine which nodes
- *    were captured by which capture names.
+ * 3. After each successful call to `ts_query_context_next`, you can call
+ *    `ts_query_context_matched_pattern_index` to determine which pattern
+ *     matched. You can also call `ts_query_context_matched_captures` to
+ *     determine which nodes were captured by which capture names.
  *
  * If you don't care about finding all of the matches, you can stop calling
  * `ts_query_context_next` at any point. And you can start executing the
@@ -689,27 +689,34 @@ int ts_query_capture_id_for_name(
  */
 TSQueryContext *ts_query_context_new(const TSQuery *);
 
-/*
+/**
  * Delete a query context, freeing all of the memory that it used.
  */
 void ts_query_context_delete(TSQueryContext *);
 
-/*
+/**
  * Start running a query on a given node.
  */
 void ts_query_context_exec(TSQueryContext *, TSNode);
 
-/*
+/**
+ * Set the range of bytes or (row, column) positions in which the query
+ * will be executed.
+ */
+void ts_query_context_set_byte_range(TSQueryContext *, uint32_t, uint32_t);
+void ts_query_context_set_point_range(TSQueryContext *, TSPoint, TSPoint);
+
+/**
  * Advance to the next match of the currently running query.
  */
 bool ts_query_context_next(TSQueryContext *);
 
-/*
+/**
  * Check which pattern matched.
  */
 uint32_t ts_query_context_matched_pattern_index(const TSQueryContext *);
 
-/*
+/**
  * Check which pattern matched.
  */
 const TSQueryCapture *ts_query_context_matched_captures(

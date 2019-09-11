@@ -560,8 +560,9 @@ extern "C" {
     pub fn ts_tree_cursor_copy(arg1: *const TSTreeCursor) -> TSTreeCursor;
 }
 extern "C" {
-    #[doc = " Create a new query based on a given language and string containing"]
-    #[doc = " one or more S-expression patterns."]
+    #[doc = " Create a new query from a string containing one or more S-expression"]
+    #[doc = " patterns. The query is associated with a particular language, and can"]
+    #[doc = " only be run on syntax nodes parsed with that language."]
     #[doc = ""]
     #[doc = " If all of the given patterns are valid, this returns a `TSQuery`."]
     #[doc = " If a pattern is invalid, this returns `NULL`, and provides two pieces"]
@@ -569,7 +570,7 @@ extern "C" {
     #[doc = " 1. The byte offset of the error is written to the `error_offset` parameter."]
     #[doc = " 2. The type of error is written to the `error_type` parameter."]
     pub fn ts_query_new(
-        arg1: *const TSLanguage,
+        language: *const TSLanguage,
         source: *const ::std::os::raw::c_char,
         source_len: u32,
         error_offset: *mut u32,
@@ -581,9 +582,13 @@ extern "C" {
     pub fn ts_query_delete(arg1: *mut TSQuery);
 }
 extern "C" {
+    #[doc = " Get the number of distinct capture names in the query."]
     pub fn ts_query_capture_count(arg1: *const TSQuery) -> u32;
 }
 extern "C" {
+    #[doc = " Get the name and length of one of the query\'s capture. Each capture"]
+    #[doc = " is associated with a numeric id based on the order that it appeared"]
+    #[doc = " in the query\'s source."]
     pub fn ts_query_capture_name_for_id(
         self_: *const TSQuery,
         index: u32,
@@ -591,6 +596,7 @@ extern "C" {
     ) -> *const ::std::os::raw::c_char;
 }
 extern "C" {
+    #[doc = " Get the numeric id of the capture with the given name."]
     pub fn ts_query_capture_id_for_name(
         self_: *const TSQuery,
         name: *const ::std::os::raw::c_char,
@@ -598,21 +604,54 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
+    #[doc = " Create a new context for executing a given query."]
+    #[doc = ""]
+    #[doc = " The context stores the state that is needed to iteratively search"]
+    #[doc = " for matches. To use the query context:"]
+    #[doc = " 1. First call `ts_query_context_exec` to start running the query"]
+    #[doc = "    on a particular syntax node."]
+    #[doc = " 2. Then repeatedly call `ts_query_context_next` to iterate over"]
+    #[doc = "    the matches."]
+    #[doc = " 3. After each successful call to `ts_query_context_next`, you can call"]
+    #[doc = "    `ts_query_context_matched_pattern_index` to determine which pattern"]
+    #[doc = "     matched. You can also call `ts_query_context_matched_captures` to"]
+    #[doc = "     determine which nodes were captured by which capture names."]
+    #[doc = ""]
+    #[doc = " If you don\'t care about finding all of the matches, you can stop calling"]
+    #[doc = " `ts_query_context_next` at any point. And you can start executing the"]
+    #[doc = "  query against a different node by calling `ts_query_context_exec` again."]
     pub fn ts_query_context_new(arg1: *const TSQuery) -> *mut TSQueryContext;
 }
 extern "C" {
+    #[doc = " Delete a query context, freeing all of the memory that it used."]
     pub fn ts_query_context_delete(arg1: *mut TSQueryContext);
 }
 extern "C" {
+    #[doc = " Start running a query on a given node."]
     pub fn ts_query_context_exec(arg1: *mut TSQueryContext, arg2: TSNode);
 }
 extern "C" {
+    #[doc = " Set the range of bytes or (row, column) positions in which the query"]
+    #[doc = " will be executed."]
+    pub fn ts_query_context_set_byte_range(arg1: *mut TSQueryContext, arg2: u32, arg3: u32);
+}
+extern "C" {
+    pub fn ts_query_context_set_point_range(
+        arg1: *mut TSQueryContext,
+        arg2: TSPoint,
+        arg3: TSPoint,
+    );
+}
+extern "C" {
+    #[doc = " Advance to the next match of the currently running query."]
     pub fn ts_query_context_next(arg1: *mut TSQueryContext) -> bool;
 }
 extern "C" {
+    #[doc = " Check which pattern matched."]
     pub fn ts_query_context_matched_pattern_index(arg1: *const TSQueryContext) -> u32;
 }
 extern "C" {
+    #[doc = " Check which pattern matched."]
     pub fn ts_query_context_matched_captures(
         arg1: *const TSQueryContext,
         arg2: *mut u32,
