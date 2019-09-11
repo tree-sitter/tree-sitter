@@ -147,7 +147,18 @@ static Stream stream_new(const char *string, uint32_t length) {
 }
 
 static void stream_skip_whitespace(Stream *stream) {
-  while (iswspace(stream->next)) stream_advance(stream);
+  for (;;) {
+    if (iswspace(stream->next)) {
+      stream_advance(stream);
+    } else if (stream->next == ';') {
+      stream_advance(stream);
+      while (stream->next && stream->next != '\n') {
+        if (!stream_advance(stream)) break;
+      }
+    } else {
+      break;
+    }
+  }
 }
 
 static bool stream_is_ident_start(Stream *stream) {

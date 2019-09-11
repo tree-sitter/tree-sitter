@@ -63,38 +63,6 @@ fn test_query_errors_on_invalid_symbols() {
 }
 
 #[test]
-fn test_query_capture_names() {
-    allocations::record(|| {
-        let language = get_language("javascript");
-        let query = Query::new(
-            language,
-            r#"
-            (if_statement
-              condition: (binary_expression
-                left: * @left-operand
-                operator: "||"
-                right: * @right-operand)
-              consequence: (statement_block) @body)
-
-            (while_statement
-              condition:* @loop-condition)
-            "#,
-        )
-        .unwrap();
-
-        assert_eq!(
-            query.capture_names(),
-            &[
-                "left-operand".to_string(),
-                "right-operand".to_string(),
-                "body".to_string(),
-                "loop-condition".to_string(),
-            ]
-        );
-    });
-}
-
-#[test]
 fn test_query_exec_with_simple_pattern() {
     allocations::record(|| {
         let language = get_language("javascript");
@@ -298,6 +266,67 @@ fn test_query_exec_too_many_match_permutations_to_track() {
         assert_eq!(
             collect_matches(matches, &query, source.as_str())[0],
             (0, vec![("pre", "hello"), ("post", "hello")]),
+        );
+    });
+}
+
+#[test]
+fn test_query_capture_names() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            (if_statement
+              condition: (binary_expression
+                left: * @left-operand
+                operator: "||"
+                right: * @right-operand)
+              consequence: (statement_block) @body)
+
+            (while_statement
+              condition:* @loop-condition)
+            "#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            query.capture_names(),
+            &[
+                "left-operand".to_string(),
+                "right-operand".to_string(),
+                "body".to_string(),
+                "loop-condition".to_string(),
+            ]
+        );
+    });
+}
+
+#[test]
+fn test_query_comments() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            "
+                ; this is my first comment
+                ; i have two comments here
+                (function_declaration
+                    ; there is also a comment here
+                    ; and here
+                    name: (identifier) @fn-name)",
+        )
+        .unwrap();
+
+        let source = "function one() { }";
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        let context = query.context();
+        let matches = context.exec(tree.root_node());
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[(0, vec![("fn-name", "one")]),],
         );
     });
 }
