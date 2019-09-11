@@ -567,7 +567,7 @@ int ts_node_is_missing_wasm(const TSTree *tree) {
 /* Section - Query */
 /******************/
 
-void ts_query_exec_wasm(
+void ts_query_matches_wasm(
   const TSQuery *self,
   const TSTree *tree,
   uint32_t start_row,
@@ -580,24 +580,23 @@ void ts_query_exec_wasm(
   TSNode node = unmarshal_node(tree);
   TSPoint start_point = {start_row, code_unit_to_byte(start_column)};
   TSPoint end_point = {end_row, code_unit_to_byte(end_column)};
-
-  Array(const void *) result = array_new();
-
-  unsigned index = 0;
-  unsigned match_count = 0;
   ts_query_cursor_set_point_range(scratch_query_cursor, start_point, end_point);
   ts_query_cursor_exec(scratch_query_cursor, self, node);
-  while (ts_query_cursor_next(scratch_query_cursor)) {
+
+  uint32_t index = 0;
+  uint32_t match_count = 0;
+  Array(const void *) result = array_new();
+
+  uint32_t pattern_index, capture_count;
+  const TSQueryCapture *captures;
+  while (ts_query_cursor_next_match(
+    scratch_query_cursor,
+    &pattern_index,
+    &capture_count,
+    &captures
+  )) {
     match_count++;
-    uint32_t pattern_index = ts_query_cursor_matched_pattern_index(scratch_query_cursor);
-    uint32_t capture_count;
-    const TSQueryCapture *captures = ts_query_cursor_matched_captures(
-      scratch_query_cursor,
-      &capture_count
-    );
-
     array_grow_by(&result, 2 + 6 * capture_count);
-
     result.contents[index++] = (const void *)pattern_index;
     result.contents[index++] = (const void *)capture_count;
     for (unsigned i = 0; i < capture_count; i++) {
@@ -609,5 +608,39 @@ void ts_query_exec_wasm(
   }
 
   TRANSFER_BUFFER[0] = (const void *)(match_count);
+  TRANSFER_BUFFER[1] = result.contents;
+}
+
+void ts_query_captures_wasm(
+  const TSQuery *self,
+  const TSTree *tree,
+  uint32_t start_row,
+  uint32_t start_column,
+  uint32_t end_row,
+  uint32_t end_column
+) {
+  if (!scratch_query_cursor) scratch_query_cursor = ts_query_cursor_new();
+
+  TSNode node = unmarshal_node(tree);
+  TSPoint start_point = {start_row, code_unit_to_byte(start_column)};
+  TSPoint end_point = {end_row, code_unit_to_byte(end_column)};
+  ts_query_cursor_set_point_range(scratch_query_cursor, start_point, end_point);
+  ts_query_cursor_exec(scratch_query_cursor, self, node);
+
+  unsigned index = 0;
+  unsigned capture_count = 0;
+  Array(const void *) result = array_new();
+
+  TSQueryCapture capture;
+  while (ts_query_cursor_next_capture(scratch_query_cursor, &capture)) {
+    capture_count++;
+
+    array_grow_by(&result, 6);
+    result.contents[index++] = (const void *)capture.index;
+    marshal_node(result.contents + index, capture.node);
+    index += 5;
+  }
+
+  TRANSFER_BUFFER[0] = (const void *)(capture_count);
   TRANSFER_BUFFER[1] = result.contents;
 }

@@ -18,6 +18,7 @@ use std::marker::PhantomData;
 use std::os::raw::{c_char, c_void};
 use std::sync::atomic::AtomicUsize;
 use std::{char, fmt, ptr, slice, str, u16};
+use std::mem::MaybeUninit;
 
 pub const LANGUAGE_VERSION: usize = ffi::TREE_SITTER_LANGUAGE_VERSION;
 pub const PARSER_HEADER: &'static str = include_str!("../include/tree_sitter/parser.h");
@@ -144,7 +145,12 @@ pub struct Query {
 
 pub struct QueryCursor(*mut ffi::TSQueryCursor);
 
-pub struct QueryMatch<'a>(*mut ffi::TSQueryCursor, PhantomData<&'a ()>);
+pub struct QueryMatch<'a> {
+    pattern_index: usize,
+    capture_count: usize,
+    captures_ptr: *const ffi::TSQueryCapture,
+    cursor: PhantomData<&'a ()>,
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum QueryError<'a> {
@@ -996,14 +1002,52 @@ impl QueryCursor {
         QueryCursor(unsafe { ffi::ts_query_cursor_new() })
     }
 
-    pub fn exec<'a>(&'a mut self, query: &'a Query, node: Node<'a>) -> impl Iterator<Item = QueryMatch<'a>> + 'a {
+    pub fn matches<'a>(
+        &'a mut self,
+        query: &'a Query,
+        node: Node<'a>,
+    ) -> impl Iterator<Item = QueryMatch<'a>> + 'a {
         unsafe {
             ffi::ts_query_cursor_exec(self.0, query.ptr, node.0);
         }
         std::iter::from_fn(move || -> Option<QueryMatch<'a>> {
             unsafe {
-                if ffi::ts_query_cursor_next(self.0) {
-                    Some(QueryMatch(self.0, PhantomData))
+                let mut pattern_index = 0u32;
+                let mut capture_count = 0u32;
+                let mut captures = ptr::null();
+                if ffi::ts_query_cursor_next_match(
+                    self.0,
+                    &mut pattern_index as *mut u32,
+                    &mut capture_count as *mut u32,
+                    &mut captures as *mut *const ffi::TSQueryCapture,
+                ) {
+                    Some(QueryMatch {
+                        pattern_index: pattern_index as usize,
+                        capture_count: capture_count as usize,
+                        captures_ptr: captures,
+                        cursor: PhantomData
+                    })
+                } else {
+                    None
+                }
+            }
+        })
+    }
+
+    pub fn captures<'a>(
+        &'a mut self,
+        query: &'a Query,
+        node: Node<'a>,
+    ) -> impl Iterator<Item = (usize, Node)> + 'a {
+        unsafe {
+            ffi::ts_query_cursor_exec(self.0, query.ptr, node.0);
+        }
+        std::iter::from_fn(move || -> Option<(usize, Node<'a>)> {
+            unsafe {
+                let mut capture = MaybeUninit::<ffi::TSQueryCapture>::uninit();
+                if ffi::ts_query_cursor_next_capture(self.0, capture.as_mut_ptr()) {
+                    let capture = capture.assume_init();
+                    Some((capture.index as usize, Node::new(capture.node).unwrap()))
                 } else {
                     None
                 }
@@ -1028,19 +1072,14 @@ impl QueryCursor {
 
 impl<'a> QueryMatch<'a> {
     pub fn pattern_index(&self) -> usize {
-        unsafe { ffi::ts_query_cursor_matched_pattern_index(self.0) as usize }
+        self.pattern_index
     }
 
     pub fn captures(&self) -> impl ExactSizeIterator<Item = (usize, Node)> {
-        unsafe {
-            let mut capture_count = 0u32;
-            let captures =
-                ffi::ts_query_cursor_matched_captures(self.0, &mut capture_count as *mut u32);
-            let captures = slice::from_raw_parts(captures, capture_count as usize);
-            captures
-                .iter()
-                .map(move |capture| (capture.index as usize, Node::new(capture.node).unwrap()))
-        }
+        let captures = unsafe { slice::from_raw_parts(self.captures_ptr, self.capture_count as usize) };
+        captures
+            .iter()
+            .map(|capture| (capture.index as usize, Node::new(capture.node).unwrap()))
     }
 }
 

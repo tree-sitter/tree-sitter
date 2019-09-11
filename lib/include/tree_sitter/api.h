@@ -673,19 +673,23 @@ int ts_query_capture_id_for_name(
  * Create a new cursor for executing a given query.
  *
  * The cursor stores the state that is needed to iteratively search
- * for matches. To use the query cursor:
- * 1. First call `ts_query_cursor_exec` to start running a given query on
-      a given syntax node.
- * 2. Then repeatedly call `ts_query_cursor_next` to iterate over the matches.
- *    This will return `false` when there are no more matches left.
- * 3. After each successful call to `ts_query_cursor_next`, you can call
- *    `ts_query_cursor_matched_pattern_index` to determine which pattern
- *     matched. You can also call `ts_query_cursor_matched_captures` to
- *     determine which nodes were captured, and by which capture names.
+ * for matches. To use the query cursor, first call `ts_query_cursor_exec`
+ * to start running a given query on a given syntax node. Then, there are
+ * two options for consuming the results of the query:
+ * 1. Repeatedly call `ts_query_cursor_next_match` to iterate over all of the
+ *    the *matches* in the order that they were found. Each match contains the
+ *    index of the pattern that matched, and an array of captures. Because
+ *    multiple patterns can match the same set of nodes, one match may contain
+ *    captures that appear *before* some of the captures from a previous match.
+ * 2. Repeatedly call `ts_query_cursor_next_capture` to iterate over all of the
+ *    individual *captures* in the order that they appear. This is useful if
+ *    don't care about which pattern matched, and just want a single ordered
+ *    sequence of captures.
  *
- * If you don't care about finding all of the matches, you can stop calling
- * `ts_query_cursor_next` at any point. And you can start executing another
- *  query on another node by calling `ts_query_cursor_exec` again.
+ * If you don't care about consuming all of the results, you can stop calling
+ * `ts_query_cursor_next_match` or `ts_query_cursor_next_capture` at any point.
+ *  You can then start executing another query on another node by calling
+ *  `ts_query_cursor_exec` again.
  */
 TSQueryCursor *ts_query_cursor_new();
 
@@ -708,21 +712,25 @@ void ts_query_cursor_set_point_range(TSQueryCursor *, TSPoint, TSPoint);
 
 /**
  * Advance to the next match of the currently running query.
+ *
+ * If there is another match, write its pattern index to `pattern_index`,
+ * the number of captures to `capture_count`, and the captures themselves
+ * to `*captures`, and return `true`. Otherwise, return `false`.
  */
-bool ts_query_cursor_next(TSQueryCursor *);
-
-/**
- * Check which pattern matched.
- */
-uint32_t ts_query_cursor_matched_pattern_index(const TSQueryCursor *);
-
-/**
- * Check which pattern matched.
- */
-const TSQueryCapture *ts_query_cursor_matched_captures(
-  const TSQueryCursor *,
-  uint32_t *
+bool ts_query_cursor_next_match(
+  TSQueryCursor *self,
+  uint32_t *pattern_index,
+  uint32_t *capture_count,
+  const TSQueryCapture **captures
 );
+
+/**
+ * Advance to the next capture of the currently running query.
+ *
+ * If there is another capture, write it to `capture` and return `true`.
+ * Otherwise, return `false`.
+ */
+bool ts_query_cursor_next_capture(TSQueryCursor *, TSQueryCapture *capture);
 
 /**********************/
 /* Section - Language */

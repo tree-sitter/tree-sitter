@@ -47,7 +47,7 @@ let tree;
   });
   const renderTreeOnCodeChange = debounce(renderTree, 50);
   const saveStateOnChange = debounce(saveState, 2000);
-  const runTreeQueryOnChange = debounce(runTreeQuery, 150);
+  const runTreeQueryOnChange = debounce(runTreeQuery, 50);
 
   let languageName = languageSelect.value;
   let treeRows = null;
@@ -208,24 +208,22 @@ let tree;
       marks.forEach(m => m.clear());
 
       if (tree && query) {
-        const matches = query.exec(
+        const captures = query.captures(
           tree.rootNode,
           {row: startRow, column: 0},
           {row: endRow, column: 0},
         );
-        for (const {captures} of matches) {
-          for (const {name, node} of captures) {
-            const {startPosition, endPosition} = node;
-            codeEditor.markText(
-              {line: startPosition.row, ch: startPosition.column},
-              {line: endPosition.row, ch: endPosition.column},
-              {
-                inclusiveLeft: true,
-                inclusiveRight: true,
-                css: `color: ${colorForCaptureName(name)}`
-              }
-            );
-          }
+        for (const {name, node} of captures) {
+          const {startPosition, endPosition} = node;
+          codeEditor.markText(
+            {line: startPosition.row, ch: startPosition.column},
+            {line: endPosition.row, ch: endPosition.column},
+            {
+              inclusiveLeft: true,
+              inclusiveRight: true,
+              css: `color: ${colorForCaptureName(name)}`
+            }
+          );
         }
       }
     });

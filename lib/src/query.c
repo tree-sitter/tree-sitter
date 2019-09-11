@@ -54,11 +54,12 @@ typedef struct {
  * represented as one of these states.
  */
 typedef struct {
-  uint16_t step_index;
-  uint16_t pattern_index;
   uint16_t start_depth;
-  uint16_t capture_list_id;
-  uint16_t capture_count;
+  uint16_t pattern_index;
+  uint8_t step_index;
+  uint8_t capture_count;
+  uint8_t capture_list_id;
+  uint8_t consumed_capture_count;
 } QueryState;
 
 /*
@@ -96,12 +97,12 @@ struct TSQueryCursor {
   Array(QueryState) states;
   Array(QueryState) finished_states;
   CaptureListPool capture_list_pool;
-  bool ascending;
   uint32_t depth;
   uint32_t start_byte;
   uint32_t end_byte;
   TSPoint start_point;
   TSPoint end_point;
+  bool ascending;
 };
 
 static const TSQueryError PARENT_DONE = -1;
@@ -686,13 +687,8 @@ static QueryState *ts_query_cursor_copy_state(
   return new_state;
 }
 
-bool ts_query_cursor_next(TSQueryCursor *self) {
-  if (self->finished_states.size > 0) {
-    QueryState state = array_pop(&self->finished_states);
-    capture_list_pool_release(&self->capture_list_pool, state.capture_list_id);
-  }
-
-  while (self->finished_states.size == 0) {
+static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
+  do {
     if (self->ascending) {
       // When leaving a node, remove any unfinished states whose next step
       // needed to match something within that node.
@@ -784,6 +780,7 @@ bool ts_query_cursor_next(TSQueryCursor *self) {
           .pattern_index = slice->pattern_index,
           .capture_list_id = capture_list_id,
           .capture_count = 0,
+          .consumed_capture_count = 0,
         }));
       }
 
@@ -821,6 +818,7 @@ bool ts_query_cursor_next(TSQueryCursor *self) {
             .start_depth = self->depth,
             .capture_list_id = capture_list_id,
             .capture_count = 0,
+            .consumed_capture_count = 0,
           }));
 
           // Advance to the next pattern whose root node matches this node.
@@ -905,32 +903,108 @@ bool ts_query_cursor_next(TSQueryCursor *self) {
         self->ascending = true;
       }
     }
-  }
+  } while (self->finished_states.size == 0);
 
   return true;
 }
 
-uint32_t ts_query_cursor_matched_pattern_index(const TSQueryCursor *self) {
-  if (self->finished_states.size > 0) {
-    QueryState *state = array_back(&self->finished_states);
-    return state->pattern_index;
-  }
-  return 0;
-}
-
-const TSQueryCapture *ts_query_cursor_matched_captures(
-  const TSQueryCursor *self,
-  uint32_t *count
+bool ts_query_cursor_next_match(
+  TSQueryCursor *self,
+  uint32_t *pattern_index,
+  uint32_t *capture_count,
+  const TSQueryCapture **captures
 ) {
   if (self->finished_states.size > 0) {
-    QueryState *state = array_back(&self->finished_states);
-    *count = state->capture_count;
-    return capture_list_pool_get(
-      (CaptureListPool *)&self->capture_list_pool,
-      state->capture_list_id
-    );
+    QueryState state = array_pop(&self->finished_states);
+    capture_list_pool_release(&self->capture_list_pool, state.capture_list_id);
   }
-  return NULL;
+
+  if (!ts_query_cursor__advance(self)) return false;
+
+  const QueryState *state = array_back(&self->finished_states);
+  *pattern_index = state->pattern_index;
+  *capture_count = state->capture_count;
+  *captures = capture_list_pool_get(
+    &self->capture_list_pool,
+    state->capture_list_id
+  );
+
+  return true;
+}
+
+bool ts_query_cursor_next_capture(
+  TSQueryCursor *self,
+  TSQueryCapture *capture
+) {
+  for (;;) {
+    if (self->finished_states.size > 0) {
+      // Find the position of the earliest capture in an unfinished match.
+      uint32_t first_unfinished_capture_byte = UINT32_MAX;
+      for (unsigned i = 0; i < self->states.size; i++) {
+        const QueryState *state = &self->states.contents[i];
+        if (state->capture_count > 0) {
+          const TSQueryCapture *captures = capture_list_pool_get(
+            &self->capture_list_pool,
+            state->capture_list_id
+          );
+          uint32_t capture_byte = ts_node_start_byte(captures[0].node);
+          if (capture_byte < first_unfinished_capture_byte) {
+            first_unfinished_capture_byte = capture_byte;
+          }
+        }
+      }
+
+      // Find the earliest capture in a finished match. It must not start
+      // after the first unfinished capture.
+      int first_finished_state_index = -1;
+      uint32_t first_finished_capture_byte = first_unfinished_capture_byte;
+      for (unsigned i = 0; i < self->finished_states.size; i++) {
+        const QueryState *state = &self->finished_states.contents[i];
+        if (state->capture_count > state->consumed_capture_count) {
+          const TSQueryCapture *captures = capture_list_pool_get(
+            &self->capture_list_pool,
+            state->capture_list_id
+          );
+          uint32_t capture_byte = ts_node_start_byte(
+            captures[state->consumed_capture_count].node
+          );
+          if (capture_byte <= first_finished_capture_byte) {
+            first_finished_state_index = i;
+            first_finished_capture_byte = capture_byte;
+          }
+        } else {
+          capture_list_pool_release(
+            &self->capture_list_pool,
+            state->capture_list_id
+          );
+          array_erase(&self->finished_states, i);
+          i--;
+        }
+      }
+
+      if (first_finished_state_index != -1) {
+        QueryState *state = &self->finished_states.contents[
+          first_finished_state_index
+        ];
+        const TSQueryCapture *captures = capture_list_pool_get(
+          &self->capture_list_pool,
+          state->capture_list_id
+        );
+        *capture = captures[state->consumed_capture_count];
+        state->consumed_capture_count++;
+        if (state->consumed_capture_count == state->capture_count) {
+          capture_list_pool_release(
+            &self->capture_list_pool,
+            state->capture_list_id
+          );
+          array_erase(&self->finished_states, first_finished_state_index);
+        }
+        return true;
+      }
+    }
+
+    if (!ts_query_cursor__advance(self)) return false;
+  }
 }
 
 #undef LOG

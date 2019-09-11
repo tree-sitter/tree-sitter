@@ -607,19 +607,23 @@ extern "C" {
     #[doc = " Create a new cursor for executing a given query."]
     #[doc = ""]
     #[doc = " The cursor stores the state that is needed to iteratively search"]
-    #[doc = " for matches. To use the query cursor:"]
-    #[doc = " 1. First call `ts_query_cursor_exec` to start running a given query on"]
-    #[doc = "a given syntax node."]
-    #[doc = " 2. Then repeatedly call `ts_query_cursor_next` to iterate over the matches."]
-    #[doc = "    This will return `false` when there are no more matches left."]
-    #[doc = " 3. After each successful call to `ts_query_cursor_next`, you can call"]
-    #[doc = "    `ts_query_cursor_matched_pattern_index` to determine which pattern"]
-    #[doc = "     matched. You can also call `ts_query_cursor_matched_captures` to"]
-    #[doc = "     determine which nodes were captured, and by which capture names."]
+    #[doc = " for matches. To use the query cursor, first call `ts_query_cursor_exec`"]
+    #[doc = " to start running a given query on a given syntax node. Then, there are"]
+    #[doc = " two options for consuming the results of the query:"]
+    #[doc = " 1. Repeatedly call `ts_query_cursor_next_match` to iterate over all of the"]
+    #[doc = "    the *matches* in the order that they were found. Each match contains the"]
+    #[doc = "    index of the pattern that matched, and an array of captures. Because"]
+    #[doc = "    multiple patterns can match the same set of nodes, one match may contain"]
+    #[doc = "    captures that appear *before* some of the captures from a previous match."]
+    #[doc = " 2. Repeatedly call `ts_query_cursor_next_capture` to iterate over all of the"]
+    #[doc = "    individual *captures* in the order that they appear. This is useful if"]
+    #[doc = "    don\'t care about which pattern matched, and just want a single ordered"]
+    #[doc = "    sequence of captures."]
     #[doc = ""]
-    #[doc = " If you don\'t care about finding all of the matches, you can stop calling"]
-    #[doc = " `ts_query_cursor_next` at any point. And you can start executing another"]
-    #[doc = "  query on another node by calling `ts_query_cursor_exec` again."]
+    #[doc = " If you don\'t care about consuming all of the results, you can stop calling"]
+    #[doc = " `ts_query_cursor_next_match` or `ts_query_cursor_next_capture` at any point."]
+    #[doc = "  You can then start executing another query on another node by calling"]
+    #[doc = "  `ts_query_cursor_exec` again."]
     pub fn ts_query_cursor_new() -> *mut TSQueryCursor;
 }
 extern "C" {
@@ -640,18 +644,26 @@ extern "C" {
 }
 extern "C" {
     #[doc = " Advance to the next match of the currently running query."]
-    pub fn ts_query_cursor_next(arg1: *mut TSQueryCursor) -> bool;
+    #[doc = ""]
+    #[doc = " If there is another match, write its pattern index to `pattern_index`,"]
+    #[doc = " the number of captures to `capture_count`, and the captures themselves"]
+    #[doc = " to `*captures`, and return `true`. Otherwise, return `false`."]
+    pub fn ts_query_cursor_next_match(
+        self_: *mut TSQueryCursor,
+        pattern_index: *mut u32,
+        capture_count: *mut u32,
+        captures: *mut *const TSQueryCapture,
+    ) -> bool;
 }
 extern "C" {
-    #[doc = " Check which pattern matched."]
-    pub fn ts_query_cursor_matched_pattern_index(arg1: *const TSQueryCursor) -> u32;
-}
-extern "C" {
-    #[doc = " Check which pattern matched."]
-    pub fn ts_query_cursor_matched_captures(
-        arg1: *const TSQueryCursor,
-        arg2: *mut u32,
-    ) -> *const TSQueryCapture;
+    #[doc = " Advance to the next capture of the currently running query."]
+    #[doc = ""]
+    #[doc = " If there is another capture, write it to `capture` and return `true`."]
+    #[doc = " Otherwise, return `false`."]
+    pub fn ts_query_cursor_next_capture(
+        arg1: *mut TSQueryCursor,
+        capture: *mut TSQueryCapture,
+    ) -> bool;
 }
 extern "C" {
     #[doc = " Get the number of distinct node types in the language."]
