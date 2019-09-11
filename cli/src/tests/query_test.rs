@@ -44,12 +44,12 @@ fn test_query_errors_on_invalid_symbols() {
         let language = get_language("javascript");
 
         assert_eq!(
-            Query::new(language, "(non_existent1)"),
-            Err(QueryError::NodeType("non_existent1"))
+            Query::new(language, "(clas)"),
+            Err(QueryError::NodeType("clas"))
         );
         assert_eq!(
-            Query::new(language, "(if_statement (non_existent2))"),
-            Err(QueryError::NodeType("non_existent2"))
+            Query::new(language, "(if_statement (arrayyyyy))"),
+            Err(QueryError::NodeType("arrayyyyy"))
         );
         assert_eq!(
             Query::new(language, "(if_statement condition: (non_existent3))"),

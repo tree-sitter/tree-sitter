@@ -237,10 +237,9 @@ static TSSymbol ts_query_intern_node_name(
 ) {
   uint32_t symbol_count = ts_language_symbol_count(self->language);
   for (TSSymbol i = 0; i < symbol_count; i++) {
-    if (
-      ts_language_symbol_type(self->language, i) == symbol_type &&
-      !strncmp(ts_language_symbol_name(self->language, i), name, length)
-    ) return i;
+    if (ts_language_symbol_type(self->language, i) != symbol_type) continue;
+    const char *symbol_name = ts_language_symbol_name(self->language, i);
+    if (!strncmp(symbol_name, name, length) && !symbol_name[length]) return i;
   }
   return 0;
 }
