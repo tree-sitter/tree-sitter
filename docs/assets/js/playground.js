@@ -1,14 +1,27 @@
 let tree;
 
 (async () => {
+  const CAPTURE_REGEX = /@\s*([\w\._-]+)/g;
+  const COLORS_BY_INDEX = [
+    'red',
+    'green',
+    'blue',
+    'orange',
+    'violet',
+  ];
+
   const scriptURL = document.currentScript.getAttribute('src');
+
   const codeInput = document.getElementById('code-input');
   const languageSelect = document.getElementById('language-select');
   const loggingCheckbox = document.getElementById('logging-checkbox');
   const outputContainer = document.getElementById('output-container');
   const outputContainerScroll = document.getElementById('output-container-scroll');
+  const playgroundContainer = document.getElementById('playground-container');
+  const queryCheckbox = document.getElementById('query-checkbox');
+  const queryContainer = document.getElementById('query-container');
+  const queryInput = document.getElementById('query-input');
   const updateTimeSpan = document.getElementById('update-time');
-  const demoContainer = document.getElementById('playground-container');
   const languagesByName = {};
 
   loadState();
@@ -20,6 +33,12 @@ let tree;
     lineNumbers: true,
     showCursorWhenSelecting: true
   });
+
+  const queryEditor = CodeMirror.fromTextArea(queryInput, {
+    lineNumbers: true,
+    showCursorWhenSelecting: true
+  });
+
   const cluster = new Clusterize({
     rows: [],
     noDataText: null,
@@ -28,22 +47,29 @@ let tree;
   });
   const renderTreeOnCodeChange = debounce(renderTree, 50);
   const saveStateOnChange = debounce(saveState, 2000);
+  const runTreeQueryOnChange = debounce(runTreeQuery, 150);
 
   let languageName = languageSelect.value;
   let treeRows = null;
   let treeRowHighlightedIndex = -1;
   let parseCount = 0;
   let isRendering = 0;
+  let query;
 
   codeEditor.on('changes', handleCodeChange);
+  codeEditor.on('viewportChange', runTreeQueryOnChange);
   codeEditor.on('cursorActivity', debounce(handleCursorMovement, 150));
+  queryEditor.on('changes', debounce(handleQueryChange, 150));
+
   loggingCheckbox.addEventListener('change', handleLoggingChange);
+  queryCheckbox.addEventListener('change', handleQueryEnableChange);
   languageSelect.addEventListener('change', handleLanguageChange);
   outputContainer.addEventListener('click', handleTreeClick);
 
+  handleQueryEnableChange();
   await handleLanguageChange()
 
-  demoContainer.style.visibility = 'visible';
+  playgroundContainer.style.visibility = 'visible';
 
   async function handleLanguageChange() {
     const newLanguageName = languageSelect.value;
@@ -65,6 +91,7 @@ let tree;
     languageName = newLanguageName;
     parser.setLanguage(languagesByName[newLanguageName]);
     handleCodeChange();
+    handleQueryChange();
   }
 
   async function handleCodeChange(editor, changes) {
@@ -84,6 +111,7 @@ let tree;
     tree = newTree;
     parseCount++;
     renderTreeOnCodeChange();
+    runTreeQueryOnChange();
     saveStateOnChange();
   }
 
@@ -168,6 +196,106 @@ let tree;
     handleCursorMovement();
   }
 
+  function runTreeQuery(_, startRow, endRow) {
+    if (endRow == null) {
+      const viewport = codeEditor.getViewport();
+      startRow = viewport.from;
+      endRow = viewport.to;
+    }
+
+    codeEditor.operation(() => {
+      const marks = codeEditor.getAllMarks();
+      marks.forEach(m => m.clear());
+
+      if (tree && query) {
+        const matches = query.exec(
+          tree.rootNode,
+          {row: startRow, column: 0},
+          {row: endRow, column: 0},
+        );
+        for (const {captures} of matches) {
+          for (const {name, node} of captures) {
+            const {startPosition, endPosition} = node;
+            codeEditor.markText(
+              {line: startPosition.row, ch: startPosition.column},
+              {line: endPosition.row, ch: endPosition.column},
+              {
+                inclusiveLeft: true,
+                inclusiveRight: true,
+                css: `color: ${colorForCaptureName(name)}`
+              }
+            );
+          }
+        }
+      }
+    });
+  }
+
+  function handleQueryChange() {
+    if (query) {
+      query.delete();
+      query.deleted = true;
+      query = null;
+    }
+
+    queryEditor.operation(() => {
+      queryEditor.getAllMarks().forEach(m => m.clear());
+      if (!queryCheckbox.checked) return;
+
+      const queryText = queryEditor.getValue();
+
+      try {
+        query = parser.getLanguage().query(queryText);
+        let match;
+
+        let row = 0;
+        queryEditor.eachLine((line) => {
+          while (match = CAPTURE_REGEX.exec(line.text)) {
+            queryEditor.markText(
+              {line: row, ch: match.index},
+              {line: row, ch: match.index + match[0].length},
+              {
+                inclusiveLeft: true,
+                inclusiveRight: true,
+                css: `color: ${colorForCaptureName(match[1])}`
+              }
+            );
+          }
+          row++;
+        });
+      } catch (error) {
+        const startPosition = queryEditor.posFromIndex(error.index);
+        const endPosition = {
+          line: startPosition.line,
+          ch: startPosition.ch + (error.length || 1)
+        };
+
+        if (error.index === queryText.length) {
+          if (startPosition.ch > 0) {
+            startPosition.ch--;
+          } else if (startPosition.row > 0) {
+            startPosition.row--;
+            startPosition.column = Infinity;
+          }
+        }
+
+        queryEditor.markText(
+          startPosition,
+          endPosition,
+          {
+            className: 'query-error',
+            inclusiveLeft: true,
+            inclusiveRight: true,
+            attributes: {title: error.message}
+          }
+        );
+      }
+    });
+
+    runTreeQuery();
+    saveQueryState();
+  }
+
   function handleCursorMovement() {
     if (isRendering) return;
 
@@ -240,6 +368,17 @@ let tree;
     }
   }
 
+  function handleQueryEnableChange() {
+    if (queryCheckbox.checked) {
+      queryContainer.style.visibility = '';
+      queryContainer.style.position = '';
+    } else {
+      queryContainer.style.visibility = 'hidden';
+      queryContainer.style.position = 'absolute';
+    }
+    handleQueryChange();
+  }
+
   function treeEditForEditorChange(change) {
     const oldLineCount = change.removed.length;
     const newLineCount = change.text.length;
@@ -266,18 +405,33 @@ let tree;
     };
   }
 
+  function colorForCaptureName(capture) {
+    const id = query.captureNames.indexOf(capture);
+    return COLORS_BY_INDEX[id % COLORS_BY_INDEX.length];
+  }
+
   function loadState() {
     const language = localStorage.getItem("language");
     const sourceCode = localStorage.getItem("sourceCode");
-    if (language != null && sourceCode != null) {
+    const query = localStorage.getItem("query");
+    const queryEnabled = localStorage.getItem("queryEnabled");
+    if (language != null && sourceCode != null && query != null) {
+      queryInput.value = query;
       codeInput.value = sourceCode;
       languageSelect.value = language;
+      queryCheckbox.checked = (queryEnabled === 'true');
     }
   }
 
   function saveState() {
     localStorage.setItem("language", languageSelect.value);
     localStorage.setItem("sourceCode", codeEditor.getValue());
+    saveQueryState();
+  }
+
+  function saveQueryState() {
+    localStorage.setItem("queryEnabled", queryCheckbox.checked);
+    localStorage.setItem("query", queryEditor.getValue());
   }
 
   function debounce(func, wait, immediate) {
