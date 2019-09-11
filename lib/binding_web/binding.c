@@ -566,3 +566,44 @@ int ts_node_is_missing_wasm(const TSTree *tree) {
   TSNode node = unmarshal_node(tree);
   return ts_node_is_missing(node);
 }
+
+/******************/
+/* Section - Query */
+/******************/
+
+void ts_query_exec_wasm(
+  const TSQuery *self,
+  TSQueryContext *context,
+  const TSTree *tree
+) {
+  TSNode node = unmarshal_node(tree);
+
+  Array(const void *) result = array_new();
+
+  unsigned index = 0;
+  unsigned match_count = 0;
+  ts_query_context_exec(context, node);
+  while (ts_query_context_next(context)) {
+    match_count++;
+    uint32_t pattern_index = ts_query_context_matched_pattern_index(context);
+    uint32_t capture_count;
+    const TSQueryCapture *captures = ts_query_context_matched_captures(
+      context,
+      &capture_count
+    );
+
+    array_grow_by(&result, 1 + 6 * capture_count);
+
+    result.contents[index++] = (const void *)pattern_index;
+    result.contents[index++] = (const void *)capture_count;
+    for (unsigned i = 0; i < capture_count; i++) {
+      const TSQueryCapture *capture = &captures[i];
+      result.contents[index++] = (const void *)capture->index;
+      marshal_node(result.contents + index, capture->node);
+      index += 5;
+    }
+  }
+
+  TRANSFER_BUFFER[0] = (const void *)(match_count);
+  TRANSFER_BUFFER[1] = result.contents;
+}
