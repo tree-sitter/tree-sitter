@@ -5,6 +5,7 @@ pub mod highlight;
 pub mod loader;
 pub mod logger;
 pub mod parse;
+pub mod query;
 pub mod test;
 pub mod util;
 pub mod wasm;

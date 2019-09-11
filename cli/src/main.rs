@@ -1,10 +1,12 @@
 use clap::{App, AppSettings, Arg, SubCommand};
 use error::Error;
+use std::io::Read;
 use std::path::Path;
 use std::process::exit;
-use std::{env, fs, u64};
+use std::{env, fs, io, u64};
+use tree_sitter::Language;
 use tree_sitter_cli::{
-    config, error, generate, highlight, loader, logger, parse, test, wasm, web_ui,
+    config, error, generate, highlight, loader, logger, parse, query, test, wasm, web_ui,
 };
 
 const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -50,7 +52,7 @@ fn run() -> error::Result<()> {
         )
         .subcommand(
             SubCommand::with_name("parse")
-                .about("Parse a file")
+                .about("Parse files")
                 .arg(
                     Arg::with_name("path")
                         .index(1)
@@ -72,6 +74,18 @@ fn run() -> error::Result<()> {
                         .multiple(true)
                         .number_of_values(1),
                 ),
+        )
+        .subcommand(
+            SubCommand::with_name("query")
+                .about("Search files using a syntax tree query")
+                .arg(Arg::with_name("query-path").index(1).required(true))
+                .arg(
+                    Arg::with_name("path")
+                        .index(2)
+                        .multiple(true)
+                        .required(true),
+                )
+                .arg(Arg::with_name("scope").long("scope").takes_value(true)),
         )
         .subcommand(
             SubCommand::with_name("test")
@@ -168,7 +182,6 @@ fn run() -> error::Result<()> {
         let timeout = matches
             .value_of("timeout")
             .map_or(0, |t| u64::from_str_radix(t, 10).unwrap());
-        loader.find_all_languages(&config.parser_directories)?;
         let paths = matches
             .values_of("path")
             .unwrap()
@@ -176,43 +189,11 @@ fn run() -> error::Result<()> {
             .collect::<Vec<_>>();
         let max_path_length = paths.iter().map(|p| p.chars().count()).max().unwrap();
         let mut has_error = false;
+        loader.find_all_languages(&config.parser_directories)?;
         for path in paths {
             let path = Path::new(path);
-            let language = if let Some(scope) = matches.value_of("scope") {
-                if let Some(config) =
-                    loader
-                        .language_configuration_for_scope(scope)
-                        .map_err(Error::wrap(|| {
-                            format!("Failed to load language for scope '{}'", scope)
-                        }))?
-                {
-                    config.0
-                } else {
-                    return Error::err(format!("Unknown scope '{}'", scope));
-                }
-            } else if let Some((lang, _)) = loader
-                .language_configuration_for_file_name(path)
-                .map_err(Error::wrap(|| {
-                    format!(
-                        "Failed to load language for file name {:?}",
-                        path.file_name().unwrap()
-                    )
-                }))?
-            {
-                lang
-            } else if let Some(lang) = loader
-                .languages_at_path(&current_dir)
-                .map_err(Error::wrap(|| {
-                    "Failed to load language in current directory"
-                }))?
-                .first()
-                .cloned()
-            {
-                lang
-            } else {
-                eprintln!("No language found");
-                return Ok(());
-            };
+            let language =
+                select_language(&mut loader, path, &current_dir, matches.value_of("scope"))?;
             has_error |= parse::parse_file_at_path(
                 language,
                 path,
@@ -226,10 +207,25 @@ fn run() -> error::Result<()> {
                 allow_cancellation,
             )?;
         }
-
         if has_error {
             return Error::err(String::new());
         }
+    } else if let Some(matches) = matches.subcommand_matches("query") {
+        let paths = matches
+            .values_of("path")
+            .unwrap()
+            .into_iter()
+            .map(Path::new)
+            .collect::<Vec<&Path>>();
+        loader.find_all_languages(&config.parser_directories)?;
+        let language = select_language(
+            &mut loader,
+            paths[0],
+            &current_dir,
+            matches.value_of("scope"),
+        )?;
+        let query_path = Path::new(matches.value_of("query-path").unwrap());
+        query::query_files_at_paths(language, paths, query_path)?;
     } else if let Some(matches) = matches.subcommand_matches("highlight") {
         let paths = matches.values_of("path").unwrap().into_iter();
         let html_mode = matches.is_present("html");
@@ -295,4 +291,48 @@ fn run() -> error::Result<()> {
     }
 
     Ok(())
+}
+
+fn select_language(
+    loader: &mut loader::Loader,
+    path: &Path,
+    current_dir: &Path,
+    scope: Option<&str>,
+) -> Result<Language, Error> {
+    if let Some(scope) = scope {
+        if let Some(config) =
+            loader
+                .language_configuration_for_scope(scope)
+                .map_err(Error::wrap(|| {
+                    format!("Failed to load language for scope '{}'", scope)
+                }))?
+        {
+            Ok(config.0)
+        } else {
+            return Error::err(format!("Unknown scope '{}'", scope));
+        }
+    } else if let Some((lang, _)) =
+        loader
+            .language_configuration_for_file_name(path)
+            .map_err(Error::wrap(|| {
+                format!(
+                    "Failed to load language for file name {:?}",
+                    path.file_name().unwrap()
+                )
+            }))?
+    {
+        Ok(lang)
+    } else if let Some(lang) = loader
+        .languages_at_path(&current_dir)
+        .map_err(Error::wrap(|| {
+            "Failed to load language in current directory"
+        }))?
+        .first()
+        .cloned()
+    {
+        Ok(lang)
+    } else {
+        eprintln!("No language found");
+        Error::err("No language found".to_string())
+    }
 }
