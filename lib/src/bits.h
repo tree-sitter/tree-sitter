@@ -10,7 +10,7 @@
 static inline uint32_t count_leading_zeros(uint32_t x) {
   if (x == 0) return 32;
   uint32_t result;
-  _BitScanReverse(&reuslt, x);
+  _BitScanReverse(&result, x);
   return result;
 }
 
