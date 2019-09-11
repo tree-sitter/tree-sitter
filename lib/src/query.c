@@ -260,6 +260,12 @@ static uint16_t ts_query_intern_capture_name(
   return self->capture_names.size - 1;
 }
 
+// The `pattern_map` contains a mapping from TSSymbol values to indices in the
+// `steps` array. For a given syntax node, the `pattern_map` makes it possible
+// to quickly find the starting steps of all of the patterns whose root matches
+// that node. It is represented as an array of `(symbol, step index)` pairs,
+// sorted by symbol. Lookups use a binary search so that their cost scales
+// logarithmically with the number of patterns in the query.
 static inline bool ts_query__pattern_map_search(
   const TSQuery *self,
   TSSymbol needle,
@@ -277,24 +283,29 @@ static inline bool ts_query__pattern_map_search(
     TSSymbol mid_symbol = self->steps.contents[
       self->pattern_map.contents[mid_index].step_index
     ].symbol;
-    if (needle >= mid_symbol) base_index = mid_index;
+    if (needle > mid_symbol) base_index = mid_index;
     size -= half_size;
   }
+
   TSSymbol symbol = self->steps.contents[
     self->pattern_map.contents[base_index].step_index
   ].symbol;
+
   if (needle > symbol) {
-    *result = base_index + 1;
-    return false;
-  } else if (needle == symbol) {
-    *result = base_index;
-    return true;
-  } else {
-    *result = base_index;
-    return false;
+    base_index++;
+    if (base_index < self->pattern_map.size) {
+      symbol = self->steps.contents[
+        self->pattern_map.contents[base_index].step_index
+      ].symbol;
+    }
   }
+
+  *result = base_index;
+  return needle == symbol;
 }
 
+// Insert a new pattern's start index into the pattern map, maintaining
+// the pattern map's ordering invariant.
 static inline void ts_query__pattern_map_insert(
   TSQuery *self,
   TSSymbol symbol,
@@ -308,6 +319,9 @@ static inline void ts_query__pattern_map_insert(
   }));
 }
 
+// Read one S-expression pattern from the stream, and incorporate it into
+// the query's internal state machine representation. For nested patterns,
+// this function calls itself recursively.
 static TSQueryError ts_query_parse_pattern(
   TSQuery *self,
   Stream *stream,
@@ -459,7 +473,7 @@ static TSQueryError ts_query_parse_pattern(
 
   stream_skip_whitespace(stream);
 
-  // Parse a '@'-suffixed capture pattern
+  // Parse an '@'-suffixed capture pattern
   if (stream->next == '@') {
     stream_advance(stream);
     stream_skip_whitespace(stream);
@@ -615,18 +629,18 @@ static QueryState *ts_query_context_copy_state(
   TSQueryContext *self,
   QueryState *state
 ) {
-  uint32_t capture_list_id = capture_list_pool_acquire(&self->capture_list_pool);
-  if (capture_list_id == NONE) return NULL;
+  uint32_t new_list_id = capture_list_pool_acquire(&self->capture_list_pool);
+  if (new_list_id == NONE) return NULL;
   array_push(&self->states, *state);
   QueryState *new_state = array_back(&self->states);
-  new_state->capture_list_id = capture_list_id;
+  new_state->capture_list_id = new_list_id;
   TSQueryCapture *old_captures = capture_list_pool_get(
     &self->capture_list_pool,
     state->capture_list_id
   );
   TSQueryCapture *new_captures = capture_list_pool_get(
     &self->capture_list_pool,
-    capture_list_id
+    new_list_id
   );
   memcpy(new_captures, old_captures, state->capture_count * sizeof(TSQueryCapture));
   return new_state;

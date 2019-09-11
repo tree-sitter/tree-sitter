@@ -143,7 +143,7 @@ fn test_query_exec_with_multiple_matches_same_root() {
 }
 
 #[test]
-fn test_query_exec_multiple_patterns() {
+fn test_query_exec_multiple_patterns_different_roots() {
     allocations::record(|| {
         let language = get_language("javascript");
         let query = Query::new(
@@ -173,6 +173,47 @@ fn test_query_exec_multiple_patterns() {
                 (0, vec![("fn-def", "f1")]),
                 (1, vec![("fn-ref", "f2")]),
                 (1, vec![("fn-ref", "f3")]),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_exec_multiple_patterns_same_root() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            "
+              (pair
+                key: (property_identifier) @method-def
+                value: (function))
+
+              (pair
+                key: (property_identifier) @method-def
+                value: (arrow_function))
+            ",
+        )
+        .unwrap();
+
+        let source = "
+            a = {
+                b: () => { return c; },
+                d: function() { return d; }
+            };
+        ";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        let context = query.context();
+        let matches = context.exec(tree.root_node());
+
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[
+                (1, vec![("method-def", "b")]),
+                (0, vec![("method-def", "d")]),
             ],
         );
     });
