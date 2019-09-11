@@ -567,15 +567,25 @@ int ts_node_is_missing_wasm(const TSTree *tree) {
 /* Section - Query */
 /******************/
 
-void ts_query_exec_wasm(const TSQuery *self, const TSTree *tree) {
+void ts_query_exec_wasm(
+  const TSQuery *self,
+  const TSTree *tree,
+  uint32_t start_row,
+  uint32_t start_column,
+  uint32_t end_row,
+  uint32_t end_column
+) {
   if (!scratch_query_cursor) scratch_query_cursor = ts_query_cursor_new();
 
   TSNode node = unmarshal_node(tree);
+  TSPoint start_point = {start_row, code_unit_to_byte(start_column)};
+  TSPoint end_point = {end_row, code_unit_to_byte(end_column)};
 
   Array(const void *) result = array_new();
 
   unsigned index = 0;
   unsigned match_count = 0;
+  ts_query_cursor_set_point_range(scratch_query_cursor, start_point, end_point);
   ts_query_cursor_exec(scratch_query_cursor, self, node);
   while (ts_query_cursor_next(scratch_query_cursor)) {
     match_count++;
@@ -586,7 +596,7 @@ void ts_query_exec_wasm(const TSQuery *self, const TSTree *tree) {
       &capture_count
     );
 
-    array_grow_by(&result, 1 + 6 * capture_count);
+    array_grow_by(&result, 2 + 6 * capture_count);
 
     result.contents[index++] = (const void *)pattern_index;
     result.contents[index++] = (const void *)capture_count;

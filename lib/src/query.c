@@ -783,6 +783,7 @@ bool ts_query_cursor_next(TSQueryCursor *self) {
           .step_index = slice->step_index,
           .pattern_index = slice->pattern_index,
           .capture_list_id = capture_list_id,
+          .capture_count = 0,
         }));
       }
 

@@ -56,8 +56,12 @@ fn test_query_errors_on_invalid_symbols() {
             Err(QueryError::NodeType("non_existent3"))
         );
         assert_eq!(
-            Query::new(language, "(if_statement not_a_field: (identifier))"),
-            Err(QueryError::Field("not_a_field"))
+            Query::new(language, "(if_statement condit: (identifier))"),
+            Err(QueryError::Field("condit"))
+        );
+        assert_eq!(
+            Query::new(language, "(if_statement conditioning: (identifier))"),
+            Err(QueryError::Field("conditioning"))
         );
     });
 }
@@ -364,6 +368,67 @@ fn test_query_exec_within_byte_range() {
                 (0, vec![("element", "d")]),
                 (0, vec![("element", "e")]),
             ]
+        );
+    });
+}
+
+#[test]
+fn test_query_exec_different_queries() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query1 = Query::new(
+            language,
+            "
+            (array (identifier) @id1)
+        ",
+        )
+        .unwrap();
+        let query2 = Query::new(
+            language,
+            "
+            (array (identifier) @id1)
+            (pair (identifier) @id2)
+        ",
+        )
+        .unwrap();
+        let query3 = Query::new(
+            language,
+            "
+            (array (identifier) @id1)
+            (pair (identifier) @id2)
+            (parenthesized_expression (identifier) @id3)
+        ",
+        )
+        .unwrap();
+
+        let source = "[a, {b: b}, (c)];";
+
+        let mut parser = Parser::new();
+        let mut cursor = QueryCursor::new();
+
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+
+        let matches = cursor.exec(&query1, tree.root_node());
+        assert_eq!(
+            collect_matches(matches, &query1, source),
+            &[(0, vec![("id1", "a")]),]
+        );
+
+        let matches = cursor.exec(&query3, tree.root_node());
+        assert_eq!(
+            collect_matches(matches, &query3, source),
+            &[
+                (0, vec![("id1", "a")]),
+                (1, vec![("id2", "b")]),
+                (2, vec![("id3", "c")]),
+            ]
+        );
+
+        let matches = cursor.exec(&query2, tree.root_node());
+        assert_eq!(
+            collect_matches(matches, &query2, source),
+            &[(0, vec![("id1", "a")]), (1, vec![("id2", "b")]),]
         );
     });
 }
