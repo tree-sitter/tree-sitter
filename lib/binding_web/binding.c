@@ -587,20 +587,14 @@ void ts_query_matches_wasm(
   uint32_t match_count = 0;
   Array(const void *) result = array_new();
 
-  uint32_t pattern_index, capture_count;
-  const TSQueryCapture *captures;
-  while (ts_query_cursor_next_match(
-    scratch_query_cursor,
-    &pattern_index,
-    &capture_count,
-    &captures
-  )) {
+  TSQueryMatch match;
+  while (ts_query_cursor_next_match(scratch_query_cursor, &match)) {
     match_count++;
-    array_grow_by(&result, 2 + 6 * capture_count);
-    result.contents[index++] = (const void *)pattern_index;
-    result.contents[index++] = (const void *)capture_count;
-    for (unsigned i = 0; i < capture_count; i++) {
-      const TSQueryCapture *capture = &captures[i];
+    array_grow_by(&result, 2 + 6 * match.capture_count);
+    result.contents[index++] = (const void *)(uint32_t)match.pattern_index;
+    result.contents[index++] = (const void *)(uint32_t)match.capture_count;
+    for (unsigned i = 0; i < match.capture_count; i++) {
+      const TSQueryCapture *capture = &match.captures[i];
       result.contents[index++] = (const void *)capture->index;
       marshal_node(result.contents + index, capture->node);
       index += 5;
@@ -631,14 +625,25 @@ void ts_query_captures_wasm(
   unsigned capture_count = 0;
   Array(const void *) result = array_new();
 
-  TSQueryCapture capture;
-  while (ts_query_cursor_next_capture(scratch_query_cursor, &capture)) {
+  TSQueryMatch match;
+  uint32_t capture_index;
+  while (ts_query_cursor_next_capture(
+    scratch_query_cursor,
+    &match,
+    &capture_index
+  )) {
     capture_count++;
 
-    array_grow_by(&result, 6);
-    result.contents[index++] = (const void *)capture.index;
-    marshal_node(result.contents + index, capture.node);
-    index += 5;
+    array_grow_by(&result, 3 + 6 * match.capture_count);
+    result.contents[index++] = (const void *)(uint32_t)match.pattern_index;
+    result.contents[index++] = (const void *)(uint32_t)match.capture_count;
+    result.contents[index++] = (const void *)(uint32_t)capture_index;
+    for (unsigned i = 0; i < match.capture_count; i++) {
+      const TSQueryCapture *capture = &match.captures[i];
+      result.contents[index++] = (const void *)capture->index;
+      marshal_node(result.contents + index, capture->node);
+      index += 5;
+    }
   }
 
   TRANSFER_BUFFER[0] = (const void *)(capture_count);

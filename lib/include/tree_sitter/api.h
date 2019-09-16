@@ -94,11 +94,30 @@ typedef struct {
   uint32_t index;
 } TSQueryCapture;
 
+typedef struct {
+  uint32_t id;
+  uint16_t pattern_index;
+  uint16_t capture_count;
+  const TSQueryCapture *captures;
+} TSQueryMatch;
+
+typedef enum {
+  TSQueryPredicateStepTypeDone,
+  TSQueryPredicateStepTypeCapture,
+  TSQueryPredicateStepTypeString,
+} TSQueryPredicateStepType;
+
+typedef struct {
+  TSQueryPredicateStepType type;
+  uint32_t value_id;
+} TSQueryPredicateStep;
+
 typedef enum {
   TSQueryErrorNone = 0,
   TSQueryErrorSyntax,
   TSQueryErrorNodeType,
   TSQueryErrorField,
+  TSQueryErrorCapture,
 } TSQueryError;
 
 /********************/
@@ -645,27 +664,54 @@ TSQuery *ts_query_new(
 void ts_query_delete(TSQuery *);
 
 /**
- * Get the number of distinct capture names in the query.
+ * Get the number of patterns in the query.
  */
-uint32_t ts_query_capture_count(const TSQuery *);
+uint32_t ts_query_pattern_count(const TSQuery *);
 
 /**
- * Get the name and length of one of the query's capture. Each capture
- * is associated with a numeric id based on the order that it appeared
- * in the query's source.
+ * Get the predicates for the given pattern in the query.
  */
-const char *ts_query_capture_name_for_id(
+const TSQueryPredicateStep *ts_query_predicates_for_pattern(
   const TSQuery *self,
-  uint32_t index,
+  uint32_t pattern_index,
   uint32_t *length
 );
 
 /**
- * Get the numeric id of the capture with the given name.
+ * Get the number of distinct capture names in the query, or the number of
+ * distinct string literals in the query.
+ */
+uint32_t ts_query_capture_count(const TSQuery *);
+uint32_t ts_query_string_count(const TSQuery *);
+
+/**
+ * Get the name and length of one of the query's captures, or one of the
+ * query's string literals. Each capture and string is associated with a
+ * numeric id based on the order that it appeared in the query's source.
+ */
+const char *ts_query_capture_name_for_id(
+  const TSQuery *,
+  uint32_t id,
+  uint32_t *length
+);
+const char *ts_query_string_value_for_id(
+  const TSQuery *,
+  uint32_t id,
+  uint32_t *length
+);
+
+/**
+ * Get the numeric id of the capture with the given name, or string with the
+ * given value.
  */
 int ts_query_capture_id_for_name(
   const TSQuery *self,
   const char *name,
+  uint32_t length
+);
+int ts_query_string_id_for_value(
+  const TSQuery *self,
+  const char *value,
   uint32_t length
 );
 
@@ -713,24 +759,22 @@ void ts_query_cursor_set_point_range(TSQueryCursor *, TSPoint, TSPoint);
 /**
  * Advance to the next match of the currently running query.
  *
- * If there is another match, write its pattern index to `pattern_index`,
- * the number of captures to `capture_count`, and the captures themselves
- * to `*captures`, and return `true`. Otherwise, return `false`.
+ * If there is a match, write it to `*match` and return `true`.
+ * Otherwise, return `false`.
  */
-bool ts_query_cursor_next_match(
-  TSQueryCursor *self,
-  uint32_t *pattern_index,
-  uint32_t *capture_count,
-  const TSQueryCapture **captures
-);
+bool ts_query_cursor_next_match(TSQueryCursor *, TSQueryMatch *match);
 
 /**
  * Advance to the next capture of the currently running query.
  *
- * If there is another capture, write it to `capture` and return `true`.
- * Otherwise, return `false`.
+ * If there is a capture, write its match to `*match` and its index within
+ * the matche's capture list to `*capture_index`. Otherwise, return `false`.
  */
-bool ts_query_cursor_next_capture(TSQueryCursor *, TSQueryCapture *capture);
+bool ts_query_cursor_next_capture(
+  TSQueryCursor *,
+  TSQueryMatch *match,
+  uint32_t *capture_index
+);
 
 /**********************/
 /* Section - Language */

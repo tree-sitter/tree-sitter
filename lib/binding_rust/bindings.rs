@@ -109,10 +109,29 @@ pub struct TSQueryCapture {
     pub node: TSNode,
     pub index: u32,
 }
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct TSQueryMatch {
+    pub id: u32,
+    pub pattern_index: u16,
+    pub capture_count: u16,
+    pub captures: *const TSQueryCapture,
+}
+pub const TSQueryPredicateStepType_TSQueryPredicateStepTypeDone: TSQueryPredicateStepType = 0;
+pub const TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture: TSQueryPredicateStepType = 1;
+pub const TSQueryPredicateStepType_TSQueryPredicateStepTypeString: TSQueryPredicateStepType = 2;
+pub type TSQueryPredicateStepType = u32;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct TSQueryPredicateStep {
+    pub type_: TSQueryPredicateStepType,
+    pub value_id: u32,
+}
 pub const TSQueryError_TSQueryErrorNone: TSQueryError = 0;
 pub const TSQueryError_TSQueryErrorSyntax: TSQueryError = 1;
 pub const TSQueryError_TSQueryErrorNodeType: TSQueryError = 2;
 pub const TSQueryError_TSQueryErrorField: TSQueryError = 3;
+pub const TSQueryError_TSQueryErrorCapture: TSQueryError = 4;
 pub type TSQueryError = u32;
 extern "C" {
     #[doc = " Create a new parser."]
@@ -582,24 +601,55 @@ extern "C" {
     pub fn ts_query_delete(arg1: *mut TSQuery);
 }
 extern "C" {
-    #[doc = " Get the number of distinct capture names in the query."]
+    #[doc = " Get the number of patterns in the query."]
+    pub fn ts_query_pattern_count(arg1: *const TSQuery) -> u32;
+}
+extern "C" {
+    #[doc = " Get the predicates for the given pattern in the query."]
+    pub fn ts_query_predicates_for_pattern(
+        self_: *const TSQuery,
+        pattern_index: u32,
+        length: *mut u32,
+    ) -> *const TSQueryPredicateStep;
+}
+extern "C" {
+    #[doc = " Get the number of distinct capture names in the query, or the number of"]
+    #[doc = " distinct string literals in the query."]
     pub fn ts_query_capture_count(arg1: *const TSQuery) -> u32;
 }
 extern "C" {
-    #[doc = " Get the name and length of one of the query\'s capture. Each capture"]
-    #[doc = " is associated with a numeric id based on the order that it appeared"]
-    #[doc = " in the query\'s source."]
+    pub fn ts_query_string_count(arg1: *const TSQuery) -> u32;
+}
+extern "C" {
+    #[doc = " Get the name and length of one of the query\'s captures, or one of the"]
+    #[doc = " query\'s string literals. Each capture and string is associated with a"]
+    #[doc = " numeric id based on the order that it appeared in the query\'s source."]
     pub fn ts_query_capture_name_for_id(
-        self_: *const TSQuery,
-        index: u32,
+        arg1: *const TSQuery,
+        id: u32,
         length: *mut u32,
     ) -> *const ::std::os::raw::c_char;
 }
 extern "C" {
-    #[doc = " Get the numeric id of the capture with the given name."]
+    pub fn ts_query_string_value_for_id(
+        arg1: *const TSQuery,
+        id: u32,
+        length: *mut u32,
+    ) -> *const ::std::os::raw::c_char;
+}
+extern "C" {
+    #[doc = " Get the numeric id of the capture with the given name, or string with the"]
+    #[doc = " given value."]
     pub fn ts_query_capture_id_for_name(
         self_: *const TSQuery,
         name: *const ::std::os::raw::c_char,
+        length: u32,
+    ) -> ::std::os::raw::c_int;
+}
+extern "C" {
+    pub fn ts_query_string_id_for_value(
+        self_: *const TSQuery,
+        value: *const ::std::os::raw::c_char,
         length: u32,
     ) -> ::std::os::raw::c_int;
 }
@@ -645,24 +695,19 @@ extern "C" {
 extern "C" {
     #[doc = " Advance to the next match of the currently running query."]
     #[doc = ""]
-    #[doc = " If there is another match, write its pattern index to `pattern_index`,"]
-    #[doc = " the number of captures to `capture_count`, and the captures themselves"]
-    #[doc = " to `*captures`, and return `true`. Otherwise, return `false`."]
-    pub fn ts_query_cursor_next_match(
-        self_: *mut TSQueryCursor,
-        pattern_index: *mut u32,
-        capture_count: *mut u32,
-        captures: *mut *const TSQueryCapture,
-    ) -> bool;
+    #[doc = " If there is a match, write it to `*match` and return `true`."]
+    #[doc = " Otherwise, return `false`."]
+    pub fn ts_query_cursor_next_match(arg1: *mut TSQueryCursor, match_: *mut TSQueryMatch) -> bool;
 }
 extern "C" {
     #[doc = " Advance to the next capture of the currently running query."]
     #[doc = ""]
-    #[doc = " If there is another capture, write it to `capture` and return `true`."]
-    #[doc = " Otherwise, return `false`."]
+    #[doc = " If there is a capture, write its match to `*match` and its index within"]
+    #[doc = " the matche\'s capture list to `*capture_index`. Otherwise, return `false`."]
     pub fn ts_query_cursor_next_capture(
         arg1: *mut TSQueryCursor,
-        capture: *mut TSQueryCapture,
+        match_: *mut TSQueryMatch,
+        capture_index: *mut u32,
     ) -> bool;
 }
 extern "C" {

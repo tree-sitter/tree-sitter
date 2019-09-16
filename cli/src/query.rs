@@ -32,7 +32,7 @@ pub fn query_files_at_paths(
 
         let tree = parser.parse(&source_code, None).unwrap();
 
-        for mat in query_cursor.matches(&query, tree.root_node()) {
+        for mat in query_cursor.matches(&query, tree.root_node(), |n| &source_code[n.byte_range()]) {
             writeln!(&mut stdout, "  pattern: {}", mat.pattern_index())?;
             for (capture_id, node) in mat.captures() {
                 writeln!(
