@@ -36,6 +36,15 @@ fn test_query_errors_on_invalid_syntax() {
             Query::new(language, r#"(identifier) "h "#),
             Err(QueryError::Syntax(13))
         );
+
+        assert_eq!(
+            Query::new(language, r#"((identifier) ()"#),
+            Err(QueryError::Syntax(16))
+        );
+        assert_eq!(
+            Query::new(language, r#"((identifier) @x (eq? @x a"#),
+            Err(QueryError::Syntax(26))
+        );
     });
 }
 

@@ -481,6 +481,10 @@ static TSQueryError ts_query_parse_predicate(
       }));
     }
 
+    else {
+      return TSQueryErrorSyntax;
+    }
+
     step_count++;
     stream_skip_whitespace(stream);
   }

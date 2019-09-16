@@ -155,9 +155,7 @@ pub struct QueryCursor(*mut ffi::TSQueryCursor);
 
 pub struct QueryMatch<'a> {
     pattern_index: usize,
-    capture_count: usize,
-    captures_ptr: *const ffi::TSQueryCapture,
-    cursor: PhantomData<&'a ()>,
+    captures: &'a [ffi::TSQueryCapture],
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -1140,24 +1138,32 @@ impl QueryCursor {
         &'a mut self,
         query: &'a Query,
         node: Node<'a>,
-        text_callback: impl FnMut(Node<'a>) -> &'a [u8],
+        mut text_callback: impl FnMut(Node<'a>) -> &'a [u8] + 'a,
     ) -> impl Iterator<Item = QueryMatch<'a>> + 'a {
         unsafe {
             ffi::ts_query_cursor_exec(self.0, query.ptr, node.0);
         }
         std::iter::from_fn(move || -> Option<QueryMatch<'a>> {
-            unsafe {
-                let mut m = MaybeUninit::<ffi::TSQueryMatch>::uninit();
-                if ffi::ts_query_cursor_next_match(self.0, m.as_mut_ptr()) {
-                    let m = m.assume_init();
-                    Some(QueryMatch {
-                        pattern_index: m.pattern_index as usize,
-                        capture_count: m.capture_count as usize,
-                        captures_ptr: m.captures,
-                        cursor: PhantomData,
-                    })
-                } else {
-                    None
+            loop {
+                unsafe {
+                    let mut m = MaybeUninit::<ffi::TSQueryMatch>::uninit();
+                    if ffi::ts_query_cursor_next_match(self.0, m.as_mut_ptr()) {
+                        let m = m.assume_init();
+                        let captures = slice::from_raw_parts(m.captures, m.capture_count as usize);
+                        if self.captures_match_condition(
+                            query,
+                            captures,
+                            m.pattern_index as usize,
+                            &mut text_callback,
+                        ) {
+                            return Some(QueryMatch {
+                                pattern_index: m.pattern_index as usize,
+                                captures,
+                            });
+                        }
+                    } else {
+                        return None;
+                    }
                 }
             }
         })
@@ -1260,9 +1266,7 @@ impl<'a> QueryMatch<'a> {
     }
 
     pub fn captures(&self) -> impl ExactSizeIterator<Item = (usize, Node)> {
-        let captures =
-            unsafe { slice::from_raw_parts(self.captures_ptr, self.capture_count as usize) };
-        captures
+        self.captures
             .iter()
             .map(|capture| (capture.index as usize, Node::new(capture.node).unwrap()))
     }
