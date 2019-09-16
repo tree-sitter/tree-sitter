@@ -356,8 +356,8 @@ fn test_query_matches_with_anonymous_tokens() {
         let query = Query::new(
             language,
             r#"
-            ";" @ punctuation
-            "&&" @ operator
+            ";" @punctuation
+            "&&" @operator
             "#,
         )
         .unwrap();

@@ -8,7 +8,7 @@
 
 /*
  * Stream - A sequence of unicode characters derived from a UTF8 string.
- * This struct is used in parsing query S-expressions.
+ * This struct is used in parsing queries from S-expressions.
  */
 typedef struct {
   const char *input;
@@ -20,7 +20,17 @@ typedef struct {
 /*
  * QueryStep - A step in the process of matching a query. Each node within
  * a query S-expression maps to one of these steps. An entire pattern is
- * represented as a sequence of these steps.
+ * represented as a sequence of these steps. Fields:
+ *
+ * - `symbol` - The grammar symbol to match. A zero value represents the
+ *    wildcard symbol, '*'.
+ * - `field` - The field name to match. A zero value means that a field name
+ *    was not specified.
+ * - `capture_id` - An integer representing the name of the capture associated
+ *    with this node in the pattern. A `NONE` value means this node is not
+ *    captured in this pattern.
+ * - `depth` - The depth where this node occurs in the pattern. The root node
+ *    of the pattern has depth zero.
  */
 typedef struct {
   TSSymbol symbol;
@@ -30,26 +40,34 @@ typedef struct {
 } QueryStep;
 
 /*
- * Slice - A string represented as a slice of a shared string.
+ * Slice - A slice of an external array. Within a query, capture names,
+ * literal string values, and predicate step informations are stored in three
+ * contiguous arrays. Individual captures, string values, and predicates are
+ * represented as slices of these three arrays.
  */
 typedef struct {
   uint32_t offset;
   uint32_t length;
 } Slice;
 
+/*
+ * SymbolTable - a two-way mapping of strings to ids.
+ */
 typedef struct {
   Array(char) characters;
   Array(Slice) slices;
 } SymbolTable;
 
 /*
- * PatternSlice - The set of steps needed to match a particular pattern,
- * represented as a slice of a shared array.
+ * PatternEntry - The set of steps needed to match a particular pattern,
+ * represented as a slice of a shared array. These entries are stored in a
+ * 'pattern map' - a sorted array that makes it possible to efficiently lookup
+ * patterns based on the symbol for their first first step.
  */
 typedef struct {
   uint16_t step_index;
   uint16_t pattern_index;
-} PatternSlice;
+} PatternEntry;
 
 /*
  * QueryState - The state of an in-progress match of a particular pattern
@@ -78,17 +96,6 @@ typedef struct {
   uint32_t usage_map;
 } CaptureListPool;
 
-typedef enum {
-  PredicateStepTypeSymbol,
-  PredicateStepTypeCapture,
-  PredicateStepTypeDone,
-} PredicateStepType;
-
-typedef struct {
-  bool is_capture;
-  uint16_t value_id;
-} PredicateStep;
-
 /*
  * TSQuery - A tree query, compiled from a string of S-expressions. The query
  * itself is immutable. The mutable state used in the process of executing the
@@ -98,7 +105,7 @@ struct TSQuery {
   Array(QueryStep) steps;
   SymbolTable captures;
   SymbolTable predicate_values;
-  Array(PatternSlice) pattern_map;
+  Array(PatternEntry) pattern_map;
   Array(TSQueryPredicateStep) predicate_steps;
   Array(Slice) predicates_by_pattern;
   const TSLanguage *language;
@@ -140,6 +147,7 @@ static const uint16_t MAX_STATE_COUNT = 32;
  * Stream
  **********/
 
+// Advance to the next unicode code point in the stream.
 static bool stream_advance(Stream *self) {
   if (self->input >= self->end) return false;
   self->input += self->next_size;
@@ -153,6 +161,8 @@ static bool stream_advance(Stream *self) {
   return true;
 }
 
+// Reset the stream to the given input position, represented as a pointer
+// into the input string.
 static void stream_reset(Stream *self, const char *input) {
   self->input = input;
   self->next_size = 0;
@@ -230,7 +240,7 @@ static TSQueryCapture *capture_list_pool_get(CaptureListPool *self, uint16_t id)
 
 static uint16_t capture_list_pool_acquire(CaptureListPool *self) {
   // In the usage_map bitmask, ones represent free lists, and zeros represent
-  // lists that are in use. A free list can quickly be found by counting
+  // lists that are in use. A free list id can quickly be found by counting
   // the leading zeros in the usage map. An id of zero corresponds to the
   // highest-order bit in the bitmask.
   uint16_t id = count_leading_zeros(self->usage_map);
@@ -378,12 +388,18 @@ static inline void ts_query__pattern_map_insert(
 ) {
   uint32_t index;
   ts_query__pattern_map_search(self, symbol, &index);
-  array_insert(&self->pattern_map, index, ((PatternSlice) {
+  array_insert(&self->pattern_map, index, ((PatternEntry) {
     .step_index = start_step_index,
     .pattern_index = self->pattern_map.size,
   }));
 }
 
+// Parse a single predicate associated with a pattern, adding it to the
+// query's internal `predicate_steps` array. Predicates are arbitrary
+// S-expressions associated with a pattern which are meant to be handled at
+// a higher level of abstraction, such as the Rust/JavaScript bindings. They
+// can contain '@'-prefixed capture names, double-quoted strings, and bare
+// symbols, which also represent strings.
 static TSQueryError ts_query_parse_predicate(
   TSQuery *self,
   Stream *stream
@@ -405,10 +421,9 @@ static TSQueryError ts_query_parse_predicate(
       break;
     }
 
-    // Parse an `@`-prefixed capture
+    // Parse an '@'-prefixed capture name
     else if (stream->next == '@') {
       stream_advance(stream);
-      stream_skip_whitespace(stream);
 
       // Parse the capture name
       if (!stream_is_ident_start(stream)) return TSQueryErrorSyntax;
@@ -515,12 +530,13 @@ static TSQueryError ts_query_parse_pattern(
     stream_advance(stream);
     stream_skip_whitespace(stream);
 
-    // Parse a pattern inside of a conditional form
+    // Parse a nested list, which represents a pattern followed by
+    // zero-or-more predicates.
     if (stream->next == '(' && depth == 0) {
       TSQueryError e = ts_query_parse_pattern(self, stream, 0, capture_count);
       if (e) return e;
 
-      // Parse the child patterns
+      // Parse the predicates.
       stream_skip_whitespace(stream);
       for (;;) {
         TSQueryError e = ts_query_parse_predicate(self, stream);
@@ -665,17 +681,15 @@ static TSQueryError ts_query_parse_pattern(
     }));
   }
 
-  // No match
   else {
     return TSQueryErrorSyntax;
   }
 
   stream_skip_whitespace(stream);
 
-  // Parse an '@'-suffixed capture pattern
+  // Parse an '@'-prefixed capture pattern
   if (stream->next == '@') {
     stream_advance(stream);
-    stream_skip_whitespace(stream);
 
     // Parse the capture name
     if (!stream_is_ident_start(stream)) return TSQueryErrorSyntax;
@@ -918,6 +932,10 @@ static QueryState *ts_query_cursor_copy_state(
   return new_state;
 }
 
+// Walk the tree, processing patterns until at least one pattern finishes,
+// If one or more patterns finish, return `true` and store their states in the
+// `finished_states` array. Multiple patterns can finish on the same node. If
+// there are no more matches, return `false`.
 static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
   do {
     if (self->ascending) {
@@ -963,8 +981,8 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
       TSNode node = ts_tree_cursor_current_node(&self->cursor);
       TSSymbol symbol = ts_node_symbol(node);
 
-      // If this node is before the selected range, then avoid
-      // descending into it.
+      // If this node is before the selected range, then avoid descending
+      // into it.
       if (
         ts_node_end_byte(node) <= self->start_byte ||
         point_lte(ts_node_end_point(node), self->start_point)
@@ -985,7 +1003,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
 
       // Add new states for any patterns whose root node is a wildcard.
       for (unsigned i = 0; i < self->query->wildcard_root_pattern_count; i++) {
-        PatternSlice *slice = &self->query->pattern_map.contents[i];
+        PatternEntry *slice = &self->query->pattern_map.contents[i];
         QueryStep *step = &self->query->steps.contents[slice->step_index];
 
         if (step->field) {
@@ -1018,7 +1036,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
       // Add new states for any patterns whose root node matches this node.
       unsigned i;
       if (ts_query__pattern_map_search(self->query, symbol, &i)) {
-        PatternSlice *slice = &self->query->pattern_map.contents[i];
+        PatternEntry *slice = &self->query->pattern_map.contents[i];
         QueryStep *step = &self->query->steps.contents[slice->step_index];
         do {
           if (step->field) {
@@ -1096,10 +1114,10 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
 
         LOG("advance state for pattern %u\n", next_state->pattern_index);
 
-        // Record captures
+        // If the current node is captured in this pattern, add it to the
+        // capture list.
         if (step->capture_id != NONE) {
           LOG("capture id %u\n", step->capture_id);
-
           TSQueryCapture *capture_list = capture_list_pool_get(
             &self->capture_list_pool,
             next_state->capture_list_id
@@ -1129,6 +1147,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         }
       }
 
+      // Continue descending if possible.
       if (ts_tree_cursor_goto_first_child(&self->cursor)) {
         self->depth++;
       } else {
@@ -1169,8 +1188,14 @@ bool ts_query_cursor_next_capture(
   uint32_t *capture_index
 ) {
   for (;;) {
+    // The goal here is to return captures in order, even though they may not
+    // be discovered in order, because patterns can overlap. If there are any
+    // finished patterns, then try to find one that contains a capture that
+    // is *definitely* before any capture in an *unfinished* pattern.
     if (self->finished_states.size > 0) {
-      // Find the position of the earliest capture in an unfinished match.
+      // First, identify the position of the earliest capture in an unfinished
+      // match. For a finished capture to be returned, it must be *before*
+      // this position.
       uint32_t first_unfinished_capture_byte = UINT32_MAX;
       for (unsigned i = 0; i < self->states.size; i++) {
         const QueryState *state = &self->states.contents[i];
@@ -1186,8 +1211,7 @@ bool ts_query_cursor_next_capture(
         }
       }
 
-      // Find the earliest capture in a finished match. It must not start
-      // after the first unfinished capture.
+      // Find the earliest capture in a finished match.
       int first_finished_state_index = -1;
       uint32_t first_finished_capture_byte = first_unfinished_capture_byte;
       for (unsigned i = 0; i < self->finished_states.size; i++) {
@@ -1214,6 +1238,9 @@ bool ts_query_cursor_next_capture(
         }
       }
 
+      // If there is finished capture that is clearly before any unfinished
+      // capture, then return its match, and its capture index. Internally
+      // record the fact that the capture has been 'consumed'.
       if (first_finished_state_index != -1) {
         QueryState *state = &self->finished_states.contents[
           first_finished_state_index
@@ -1231,6 +1258,8 @@ bool ts_query_cursor_next_capture(
       }
     }
 
+    // If there are no finished matches that are ready to be returned, then
+    // continue finding more matches.
     if (!ts_query_cursor__advance(self)) return false;
   }
 }
