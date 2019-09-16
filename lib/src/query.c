@@ -817,22 +817,6 @@ const char *ts_query_string_value_for_id(
   return symbol_table_name_for_id(&self->predicate_values, index, length);
 }
 
-int ts_query_capture_id_for_name(
-  const TSQuery *self,
-  const char *name,
-  uint32_t length
-) {
-  return symbol_table_id_for_name(&self->captures, name, length);
-}
-
-int ts_query_string_id_for_value(
-  const TSQuery *self,
-  const char *value,
-  uint32_t length
-) {
-  return symbol_table_id_for_name(&self->predicate_values, value, length);
-}
-
 const TSQueryPredicateStep *ts_query_predicates_for_pattern(
   const TSQuery *self,
   uint32_t pattern_index,

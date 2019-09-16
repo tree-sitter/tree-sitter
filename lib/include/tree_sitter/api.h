@@ -664,25 +664,33 @@ TSQuery *ts_query_new(
 void ts_query_delete(TSQuery *);
 
 /**
- * Get the number of patterns in the query.
+ * Get the number of patterns, captures, or string literals in the query.
  */
 uint32_t ts_query_pattern_count(const TSQuery *);
+uint32_t ts_query_capture_count(const TSQuery *);
+uint32_t ts_query_string_count(const TSQuery *);
 
 /**
- * Get the predicates for the given pattern in the query.
+ * Get all of the predicates for the given pattern in the query.
+ *
+ * The predicates are represented as a single array of steps. There are three
+ * types of steps in this array, which correspond to the three legal values for
+ * the `type` field:
+ * - `TSQueryPredicateStepTypeCapture` - Steps with this type represent names
+ *    of captures. Their `value_id` can be used with the
+ *   `ts_query_capture_name_for_id` function to obtain the name of the capture.
+ * - `TSQueryPredicateStepTypeString` - Steps with this type represent literal
+ *    strings. Their `value_id` can be used with the
+ *    `ts_query_string_value_for_id` function to obtain their string value.
+ * - `TSQueryPredicateStepTypeDone` - Steps with this type are *sentinels*
+ *    that represent the end of an individual predicate. If a pattern has two
+ *    predicates, then there will be two steps with this `type` in the array.
  */
 const TSQueryPredicateStep *ts_query_predicates_for_pattern(
   const TSQuery *self,
   uint32_t pattern_index,
   uint32_t *length
 );
-
-/**
- * Get the number of distinct capture names in the query, or the number of
- * distinct string literals in the query.
- */
-uint32_t ts_query_capture_count(const TSQuery *);
-uint32_t ts_query_string_count(const TSQuery *);
 
 /**
  * Get the name and length of one of the query's captures, or one of the
@@ -698,21 +706,6 @@ const char *ts_query_string_value_for_id(
   const TSQuery *,
   uint32_t id,
   uint32_t *length
-);
-
-/**
- * Get the numeric id of the capture with the given name, or string with the
- * given value.
- */
-int ts_query_capture_id_for_name(
-  const TSQuery *self,
-  const char *name,
-  uint32_t length
-);
-int ts_query_string_id_for_value(
-  const TSQuery *self,
-  const char *value,
-  uint32_t length
 );
 
 /**
