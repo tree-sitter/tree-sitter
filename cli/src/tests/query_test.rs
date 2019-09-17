@@ -266,15 +266,15 @@ fn test_query_matches_with_nesting_and_no_fields() {
             "
                 (array
                     (array
-                        (identifier) @element-1
-                        (identifier) @element-2))
+                        (identifier) @x1
+                        (identifier) @x2))
             ",
         )
         .unwrap();
 
         let source = "
             [[a]];
-            [[c, d], [e, f, g]];
+            [[c, d], [e, f, g, h]];
             [[h], [i]];
         ";
 
@@ -287,10 +287,13 @@ fn test_query_matches_with_nesting_and_no_fields() {
         assert_eq!(
             collect_matches(matches, &query, source),
             &[
-                (0, vec![("element-1", "c"), ("element-2", "d")]),
-                (0, vec![("element-1", "e"), ("element-2", "f")]),
-                (0, vec![("element-1", "f"), ("element-2", "g")]),
-                (0, vec![("element-1", "e"), ("element-2", "g")]),
+                (0, vec![("x1", "c"), ("x2", "d")]),
+                (0, vec![("x1", "e"), ("x2", "f")]),
+                (0, vec![("x1", "e"), ("x2", "g")]),
+                (0, vec![("x1", "f"), ("x2", "g")]),
+                (0, vec![("x1", "e"), ("x2", "h")]),
+                (0, vec![("x1", "f"), ("x2", "h")]),
+                (0, vec![("x1", "g"), ("x2", "h")]),
             ],
         );
     });

@@ -268,7 +268,7 @@ impl Parser {
     pub fn set_logger(&mut self, logger: Option<Logger>) {
         let prev_logger = unsafe { ffi::ts_parser_logger(self.0) };
         if !prev_logger.payload.is_null() {
-            unsafe { Box::from_raw(prev_logger.payload as *mut Logger) };
+            drop(unsafe { Box::from_raw(prev_logger.payload as *mut Logger) });
         }
 
         let c_logger;

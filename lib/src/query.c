@@ -843,6 +843,8 @@ TSQueryCursor *ts_query_cursor_new() {
     .start_point = {0, 0},
     .end_point = POINT_MAX,
   };
+  array_reserve(&self->states, MAX_STATE_COUNT);
+  array_reserve(&self->finished_states, MAX_STATE_COUNT);
   return self;
 }
 
@@ -897,7 +899,7 @@ void ts_query_cursor_set_point_range(
 
 static QueryState *ts_query_cursor_copy_state(
   TSQueryCursor *self,
-  QueryState *state
+  const QueryState *state
 ) {
   uint32_t new_list_id = capture_list_pool_acquire(&self->capture_list_pool);
   if (new_list_id == NONE) return NULL;
@@ -1147,14 +1149,13 @@ bool ts_query_cursor_next_match(
   TSQueryCursor *self,
   TSQueryMatch *match
 ) {
-  if (self->finished_states.size > 0) {
-    QueryState state = array_pop(&self->finished_states);
-    capture_list_pool_release(&self->capture_list_pool, state.capture_list_id);
+  if (self->finished_states.size == 0) {
+    if (!ts_query_cursor__advance(self)) {
+      return false;
+    }
   }
 
-  if (!ts_query_cursor__advance(self)) return false;
-
-  const QueryState *state = array_back(&self->finished_states);
+  QueryState *state = &self->finished_states.contents[0];
   match->id = state->id;
   match->pattern_index = state->pattern_index;
   match->capture_count = state->capture_count;
@@ -1162,7 +1163,8 @@ bool ts_query_cursor_next_match(
     &self->capture_list_pool,
     state->capture_list_id
   );
-
+  capture_list_pool_release(&self->capture_list_pool, state->capture_list_id);
+  array_erase(&self->finished_states, 0);
   return true;
 }
 
