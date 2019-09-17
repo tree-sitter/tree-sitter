@@ -1124,6 +1124,17 @@ impl Query {
         Ok(result)
     }
 
+    pub fn start_byte_for_pattern(&self, pattern_index: usize) -> usize {
+        if pattern_index >= self.predicates.len() {
+            panic!(
+                "Pattern index is {} but the pattern count is {}",
+                pattern_index,
+                self.predicates.len(),
+            );
+        }
+        unsafe { ffi::ts_query_start_byte_for_pattern(self.ptr, pattern_index as u32) as usize }
+    }
+
     pub fn capture_names(&self) -> &[String] {
         &self.capture_names
     }

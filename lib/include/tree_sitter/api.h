@@ -671,6 +671,14 @@ uint32_t ts_query_capture_count(const TSQuery *);
 uint32_t ts_query_string_count(const TSQuery *);
 
 /**
+ * Get the byte offset where the given pattern starts in the query's source.
+ *
+ * This can be useful when combining queries by concatenating their source
+ * code strings.
+ */
+uint32_t ts_query_start_byte_for_pattern(const TSQuery *, uint32_t);
+
+/**
  * Get all of the predicates for the given pattern in the query.
  *
  * The predicates are represented as a single array of steps. There are three

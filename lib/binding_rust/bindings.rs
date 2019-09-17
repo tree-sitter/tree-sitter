@@ -601,24 +601,42 @@ extern "C" {
     pub fn ts_query_delete(arg1: *mut TSQuery);
 }
 extern "C" {
-    #[doc = " Get the number of patterns in the query."]
+    #[doc = " Get the number of patterns, captures, or string literals in the query."]
     pub fn ts_query_pattern_count(arg1: *const TSQuery) -> u32;
 }
 extern "C" {
-    #[doc = " Get the predicates for the given pattern in the query."]
+    pub fn ts_query_capture_count(arg1: *const TSQuery) -> u32;
+}
+extern "C" {
+    pub fn ts_query_string_count(arg1: *const TSQuery) -> u32;
+}
+extern "C" {
+    #[doc = " Get the byte offset where the given pattern starts in the query\'s source."]
+    #[doc = ""]
+    #[doc = " This can be useful when combining queries by concatenating their source"]
+    #[doc = " code strings."]
+    pub fn ts_query_start_byte_for_pattern(arg1: *const TSQuery, arg2: u32) -> u32;
+}
+extern "C" {
+    #[doc = " Get all of the predicates for the given pattern in the query."]
+    #[doc = ""]
+    #[doc = " The predicates are represented as a single array of steps. There are three"]
+    #[doc = " types of steps in this array, which correspond to the three legal values for"]
+    #[doc = " the `type` field:"]
+    #[doc = " - `TSQueryPredicateStepTypeCapture` - Steps with this type represent names"]
+    #[doc = "    of captures. Their `value_id` can be used with the"]
+    #[doc = "   `ts_query_capture_name_for_id` function to obtain the name of the capture."]
+    #[doc = " - `TSQueryPredicateStepTypeString` - Steps with this type represent literal"]
+    #[doc = "    strings. Their `value_id` can be used with the"]
+    #[doc = "    `ts_query_string_value_for_id` function to obtain their string value."]
+    #[doc = " - `TSQueryPredicateStepTypeDone` - Steps with this type are *sentinels*"]
+    #[doc = "    that represent the end of an individual predicate. If a pattern has two"]
+    #[doc = "    predicates, then there will be two steps with this `type` in the array."]
     pub fn ts_query_predicates_for_pattern(
         self_: *const TSQuery,
         pattern_index: u32,
         length: *mut u32,
     ) -> *const TSQueryPredicateStep;
-}
-extern "C" {
-    #[doc = " Get the number of distinct capture names in the query, or the number of"]
-    #[doc = " distinct string literals in the query."]
-    pub fn ts_query_capture_count(arg1: *const TSQuery) -> u32;
-}
-extern "C" {
-    pub fn ts_query_string_count(arg1: *const TSQuery) -> u32;
 }
 extern "C" {
     #[doc = " Get the name and length of one of the query\'s captures, or one of the"]
@@ -636,22 +654,6 @@ extern "C" {
         id: u32,
         length: *mut u32,
     ) -> *const ::std::os::raw::c_char;
-}
-extern "C" {
-    #[doc = " Get the numeric id of the capture with the given name, or string with the"]
-    #[doc = " given value."]
-    pub fn ts_query_capture_id_for_name(
-        self_: *const TSQuery,
-        name: *const ::std::os::raw::c_char,
-        length: u32,
-    ) -> ::std::os::raw::c_int;
-}
-extern "C" {
-    pub fn ts_query_string_id_for_value(
-        self_: *const TSQuery,
-        value: *const ::std::os::raw::c_char,
-        length: u32,
-    ) -> ::std::os::raw::c_int;
 }
 extern "C" {
     #[doc = " Create a new cursor for executing a given query."]

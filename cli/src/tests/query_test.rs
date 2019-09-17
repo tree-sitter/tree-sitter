@@ -597,6 +597,41 @@ fn test_query_captures_with_text_conditions() {
 }
 
 #[test]
+fn test_query_pattern_after_source_byte() {
+    let language = get_language("javascript");
+
+    let patterns_1 = r#"
+        "+" @operator
+        "-" @operator
+        "*" @operator
+        "=" @operator
+        "=>" @operator
+    "#.trim_start();
+
+    let patterns_2 = "
+        (identifier) @a
+        (string) @b
+    ".trim_start();
+
+    let patterns_3 = "
+        ((identifier) @b (match? @b i))
+        (function_declaration name: (identifier) @c)
+        (method_definition name: (identifier) @d)
+    ".trim_start();
+
+    let mut source = String::new();
+    source += patterns_1;
+    source += patterns_2;
+    source += patterns_3;
+
+    let query = Query::new(language, &source).unwrap();
+
+    assert_eq!(query.start_byte_for_pattern(0), 0);
+    assert_eq!(query.start_byte_for_pattern(5), patterns_1.len());
+    assert_eq!(query.start_byte_for_pattern(7), patterns_1.len() + patterns_2.len());
+}
+
+#[test]
 fn test_query_capture_names() {
     allocations::record(|| {
         let language = get_language("javascript");

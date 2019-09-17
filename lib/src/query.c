@@ -102,12 +102,13 @@ typedef struct {
  * query is stored in a `TSQueryCursor`.
  */
 struct TSQuery {
-  Array(QueryStep) steps;
   SymbolTable captures;
   SymbolTable predicate_values;
+  Array(QueryStep) steps;
   Array(PatternEntry) pattern_map;
   Array(TSQueryPredicateStep) predicate_steps;
   Array(Slice) predicates_by_pattern;
+  Array(uint32_t) start_bytes_by_pattern;
   const TSLanguage *language;
   uint16_t max_capture_count;
   uint16_t wildcard_root_pattern_count;
@@ -743,6 +744,7 @@ TSQuery *ts_query_new(
   for (;;) {
     start_step_index = self->steps.size;
     uint32_t capture_count = 0;
+    array_push(&self->start_bytes_by_pattern, stream.input - source);
     array_push(&self->predicates_by_pattern, ((Slice) {
       .offset = self->predicate_steps.size,
       .length = 0,
@@ -787,6 +789,7 @@ void ts_query_delete(TSQuery *self) {
     array_delete(&self->pattern_map);
     array_delete(&self->predicate_steps);
     array_delete(&self->predicates_by_pattern);
+    array_delete(&self->start_bytes_by_pattern);
     symbol_table_delete(&self->captures);
     symbol_table_delete(&self->predicate_values);
     ts_free(self);
@@ -829,6 +832,13 @@ const TSQueryPredicateStep *ts_query_predicates_for_pattern(
   Slice slice = self->predicates_by_pattern.contents[pattern_index];
   *step_count = slice.length;
   return &self->predicate_steps.contents[slice.offset];
+}
+
+uint32_t ts_query_start_byte_for_pattern(
+  const TSQuery *self,
+  uint32_t pattern_index
+) {
+  return self->start_bytes_by_pattern.contents[pattern_index];
 }
 
 /***************
