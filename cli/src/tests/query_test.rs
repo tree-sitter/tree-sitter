@@ -555,16 +555,16 @@ fn test_query_captures_with_text_conditions() {
         let query = Query::new(
             language,
             r#"
-            (identifier) @variable
+            ((identifier) @constant
+             (match? @constant "^[A-Z]{2,}$"))
+
+             ((identifier) @constructor
+              (match? @constructor "^[A-Z]"))
 
             ((identifier) @function.builtin
              (eq? @function.builtin "require"))
 
-            ((identifier) @constructor
-             (match? @constructor "^[A-Z]"))
-
-            ((identifier) @constant
-             (match? @constant "^[A-Z]{2,}$"))
+             (identifier) @variable
             "#,
         )
         .unwrap();
@@ -584,13 +584,49 @@ fn test_query_captures_with_text_conditions() {
             collect_captures(captures, &query, source),
             &[
                 ("variable", "ab"),
-                ("variable", "require"),
                 ("function.builtin", "require"),
-                ("variable", "Cd"),
+                ("variable", "require"),
                 ("constructor", "Cd"),
-                ("variable", "EF"),
-                ("constructor", "EF"),
+                ("variable", "Cd"),
                 ("constant", "EF"),
+                ("constructor", "EF"),
+                ("variable", "EF"),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_captures_with_duplicates() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            (variable_declarator
+                name: (identifier) @function
+                value: (function))
+
+            (identifier) @variable
+            "#,
+        )
+        .unwrap();
+
+        let source = "
+          var x = function() {};
+        ";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+
+        let captures = cursor.captures(&query, tree.root_node(), to_callback(source));
+        assert_eq!(
+            collect_captures(captures, &query, source),
+            &[
+                ("function", "x"),
+                ("variable", "x"),
             ],
         );
     });

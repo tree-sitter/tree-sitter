@@ -1197,6 +1197,7 @@ bool ts_query_cursor_next_capture(
       // match. For a finished capture to be returned, it must be *before*
       // this position.
       uint32_t first_unfinished_capture_byte = UINT32_MAX;
+      uint32_t first_unfinished_pattern_index = UINT32_MAX;
       for (unsigned i = 0; i < self->states.size; i++) {
         const QueryState *state = &self->states.contents[i];
         if (state->capture_count > 0) {
@@ -1205,8 +1206,15 @@ bool ts_query_cursor_next_capture(
             state->capture_list_id
           );
           uint32_t capture_byte = ts_node_start_byte(captures[0].node);
-          if (capture_byte < first_unfinished_capture_byte) {
+          if (
+            capture_byte < first_unfinished_capture_byte ||
+            (
+              capture_byte == first_unfinished_capture_byte &&
+              state->pattern_index < first_unfinished_pattern_index
+            )
+          ) {
             first_unfinished_capture_byte = capture_byte;
+            first_unfinished_pattern_index = state->pattern_index;
           }
         }
       }
@@ -1214,6 +1222,7 @@ bool ts_query_cursor_next_capture(
       // Find the earliest capture in a finished match.
       int first_finished_state_index = -1;
       uint32_t first_finished_capture_byte = first_unfinished_capture_byte;
+      uint32_t first_finished_pattern_index = first_unfinished_pattern_index;
       for (unsigned i = 0; i < self->finished_states.size; i++) {
         const QueryState *state = &self->finished_states.contents[i];
         if (state->capture_count > state->consumed_capture_count) {
@@ -1224,9 +1233,16 @@ bool ts_query_cursor_next_capture(
           uint32_t capture_byte = ts_node_start_byte(
             captures[state->consumed_capture_count].node
           );
-          if (capture_byte <= first_finished_capture_byte) {
+          if (
+            capture_byte < first_finished_capture_byte ||
+            (
+              capture_byte == first_finished_capture_byte &&
+              state->pattern_index < first_finished_pattern_index
+            )
+          ) {
             first_finished_state_index = i;
             first_finished_capture_byte = capture_byte;
+            first_finished_pattern_index = state->pattern_index;
           }
         } else {
           capture_list_pool_release(
