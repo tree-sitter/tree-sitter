@@ -62,7 +62,7 @@ typedef struct {
  * PatternEntry - The set of steps needed to match a particular pattern,
  * represented as a slice of a shared array. These entries are stored in a
  * 'pattern map' - a sorted array that makes it possible to efficiently lookup
- * patterns based on the symbol for their first first step.
+ * patterns based on the symbol for their first step.
  */
 typedef struct {
   uint16_t step_index;
@@ -334,9 +334,13 @@ static TSSymbol ts_query_intern_node_name(
 // The `pattern_map` contains a mapping from TSSymbol values to indices in the
 // `steps` array. For a given syntax node, the `pattern_map` makes it possible
 // to quickly find the starting steps of all of the patterns whose root matches
-// that node. It is represented as an array of `(symbol, step index)` pairs,
-// sorted by symbol. Lookups use a binary search so that their cost scales
-// logarithmically with the number of patterns in the query.
+// that node. Each entry has two fields: a `pattern_index`, which identifies one
+// of the patterns in the query, and a `step_index`, which indicates the start
+// offset of that pattern's steps pattern within the `steps` array.
+//
+// The entries are sorted by the patterns' root symbols, and lookups use a
+// binary search. This ensures that the cost of this initial lookup step
+// scales logarithmically with the number of patterns in the query.
 //
 // This returns `true` if the symbol is present and `false` otherwise.
 // If the symbol is not present `*result` is set to the index where the
