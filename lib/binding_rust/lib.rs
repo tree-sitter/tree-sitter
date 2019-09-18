@@ -154,8 +154,13 @@ pub struct Query {
 pub struct QueryCursor(*mut ffi::TSQueryCursor);
 
 pub struct QueryMatch<'a> {
-    pattern_index: usize,
+    pub pattern_index: usize,
     captures: &'a [ffi::TSQueryCapture],
+}
+
+pub struct QueryCapture<'a> {
+    pub index: usize,
+    pub node: Node<'a>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -1135,6 +1140,10 @@ impl Query {
         unsafe { ffi::ts_query_start_byte_for_pattern(self.ptr, pattern_index as u32) as usize }
     }
 
+    pub fn pattern_count(&self) -> usize {
+        unsafe { ffi::ts_query_pattern_count(self.ptr) as usize }
+    }
+
     pub fn capture_names(&self) -> &[String] {
         &self.capture_names
     }
@@ -1185,37 +1194,38 @@ impl QueryCursor {
         query: &'a Query,
         node: Node<'a>,
         mut text_callback: impl FnMut(Node<'a>) -> &'a [u8] + 'a,
-    ) -> impl Iterator<Item = (usize, Node)> + 'a {
+    ) -> impl Iterator<Item = (usize, QueryCapture)> + 'a {
         unsafe {
             ffi::ts_query_cursor_exec(self.0, query.ptr, node.0);
         }
-        std::iter::from_fn(move || -> Option<(usize, Node<'a>)> {
-            loop {
-                unsafe {
-                    let mut m = MaybeUninit::<ffi::TSQueryMatch>::uninit();
-                    let mut capture_index = 0u32;
-                    if ffi::ts_query_cursor_next_capture(
-                        self.0,
-                        m.as_mut_ptr(),
-                        &mut capture_index as *mut u32,
+        std::iter::from_fn(move || loop {
+            unsafe {
+                let mut m = MaybeUninit::<ffi::TSQueryMatch>::uninit();
+                let mut capture_index = 0u32;
+                if ffi::ts_query_cursor_next_capture(
+                    self.0,
+                    m.as_mut_ptr(),
+                    &mut capture_index as *mut u32,
+                ) {
+                    let m = m.assume_init();
+                    let captures = slice::from_raw_parts(m.captures, m.capture_count as usize);
+                    if self.captures_match_condition(
+                        query,
+                        captures,
+                        m.pattern_index as usize,
+                        &mut text_callback,
                     ) {
-                        let m = m.assume_init();
-                        let captures = slice::from_raw_parts(m.captures, m.capture_count as usize);
-                        if self.captures_match_condition(
-                            query,
-                            captures,
+                        let capture = captures[capture_index as usize];
+                        return Some((
                             m.pattern_index as usize,
-                            &mut text_callback,
-                        ) {
-                            let capture = captures[capture_index as usize];
-                            return Some((
-                                capture.index as usize,
-                                Node::new(capture.node).unwrap(),
-                            ));
-                        }
-                    } else {
-                        return None;
+                            QueryCapture {
+                                index: capture.index as usize,
+                                node: Node::new(capture.node).unwrap(),
+                            },
+                        ));
                     }
+                } else {
+                    return None;
                 }
             }
         })
@@ -1272,14 +1282,11 @@ impl QueryCursor {
 }
 
 impl<'a> QueryMatch<'a> {
-    pub fn pattern_index(&self) -> usize {
-        self.pattern_index
-    }
-
-    pub fn captures(&self) -> impl ExactSizeIterator<Item = (usize, Node)> {
-        self.captures
-            .iter()
-            .map(|capture| (capture.index as usize, Node::new(capture.node).unwrap()))
+    pub fn captures(&self) -> impl ExactSizeIterator<Item = QueryCapture> {
+        self.captures.iter().map(|capture| QueryCapture {
+            index: capture.index as usize,
+            node: Node::new(capture.node).unwrap(),
+        })
     }
 }
 

@@ -2,12 +2,13 @@ use super::error::{Error, Result};
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
-use tree_sitter::{Language, Parser, Query, QueryCursor};
+use tree_sitter::{Language, Node, Parser, Query, QueryCursor};
 
 pub fn query_files_at_paths(
     language: Language,
     paths: Vec<&Path>,
     query_path: &Path,
+    ordered_captures: bool,
 ) -> Result<()> {
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
@@ -29,18 +30,32 @@ pub fn query_files_at_paths(
         let source_code = fs::read(path).map_err(Error::wrap(|| {
             format!("Error reading source file {:?}", path)
         }))?;
-
+        let text_callback = |n: Node| &source_code[n.byte_range()];
         let tree = parser.parse(&source_code, None).unwrap();
 
-        for mat in query_cursor.matches(&query, tree.root_node(), |n| &source_code[n.byte_range()]) {
-            writeln!(&mut stdout, "  pattern: {}", mat.pattern_index())?;
-            for (capture_id, node) in mat.captures() {
+        if ordered_captures {
+            for (pattern_index, capture) in query_cursor.captures(&query, tree.root_node(), text_callback) {
                 writeln!(
                     &mut stdout,
-                    "    {}: {:?}",
-                    &query.capture_names()[capture_id],
-                    node.utf8_text(&source_code).unwrap_or("")
+                    "    pattern: {}, capture: {}, row: {}, text: {:?}",
+                    pattern_index,
+                    &query.capture_names()[capture.index],
+                    capture.node.start_position().row,
+                    capture.node.utf8_text(&source_code).unwrap_or("")
                 )?;
+            }
+        } else {
+            for m in query_cursor.matches(&query, tree.root_node(), text_callback) {
+                writeln!(&mut stdout, "  pattern: {}", m.pattern_index)?;
+                for capture in m.captures() {
+                    writeln!(
+                        &mut stdout,
+                        "    capture: {}, row: {}, text: {:?}",
+                        &query.capture_names()[capture.index],
+                        capture.node.start_position().row,
+                        capture.node.utf8_text(&source_code).unwrap_or("")
+                    )?;
+                }
             }
         }
     }

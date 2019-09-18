@@ -1,6 +1,6 @@
 use super::helpers::allocations;
 use super::helpers::fixtures::get_language;
-use tree_sitter::{Node, Parser, Query, QueryCursor, QueryError, QueryMatch};
+use tree_sitter::{Node, Parser, Query, QueryCapture, QueryCursor, QueryError, QueryMatch};
 use std::fmt::Write;
 
 #[test]
@@ -797,22 +797,22 @@ fn collect_matches<'a>(
     matches
         .map(|m| {
             (
-                m.pattern_index(),
-                collect_captures(m.captures(), query, source),
+                m.pattern_index,
+                collect_captures(m.captures().map(|c| (m.pattern_index, c)), query, source),
             )
         })
         .collect()
 }
 
 fn collect_captures<'a, 'b>(
-    captures: impl Iterator<Item = (usize, Node<'a>)>,
+    captures: impl Iterator<Item = (usize, QueryCapture<'a>)>,
     query: &'b Query,
     source: &'b str,
 ) -> Vec<(&'b str, &'b str)> {
     captures
-        .map(|(capture_id, node)| {
+        .map(|(_, QueryCapture { index, node })| {
             (
-                query.capture_names()[capture_id].as_str(),
+                query.capture_names()[index].as_str(),
                 node.utf8_text(source.as_bytes()).unwrap(),
             )
         })
