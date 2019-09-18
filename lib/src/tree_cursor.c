@@ -272,7 +272,7 @@ TSFieldId ts_tree_cursor_current_status(
       }
     }
 
-    if (ts_subtree_child_count(*parent_entry->subtree) > entry->child_index) {
+    if (ts_subtree_child_count(*parent_entry->subtree) > entry->child_index + 1) {
       *can_have_later_siblings = true;
     }
 

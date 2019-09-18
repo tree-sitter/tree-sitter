@@ -78,10 +78,10 @@ typedef struct {
 typedef struct {
   uint16_t start_depth;
   uint16_t pattern_index;
-  uint8_t step_index;
-  uint8_t capture_count;
-  uint8_t capture_list_id;
-  uint8_t consumed_capture_count;
+  uint16_t step_index;
+  uint16_t capture_count;
+  uint16_t capture_list_id;
+  uint16_t consumed_capture_count;
   uint32_t id;
 } QueryState;
 
@@ -1083,7 +1083,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         bool later_sibling_can_match = can_have_later_siblings;
         if (step->field) {
           if (step->field == field_id) {
-            if (!node_does_match && !can_have_later_siblings_with_this_field) {
+            if (!can_have_later_siblings_with_this_field) {
               later_sibling_can_match = false;
             }
           } else {

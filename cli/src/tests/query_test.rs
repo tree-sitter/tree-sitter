@@ -1,7 +1,7 @@
 use super::helpers::allocations;
 use super::helpers::fixtures::get_language;
-use tree_sitter::{Node, Parser, Query, QueryCapture, QueryCursor, QueryError, QueryMatch};
 use std::fmt::Write;
+use tree_sitter::{Node, Parser, Query, QueryCapture, QueryCursor, QueryError, QueryMatch};
 
 #[test]
 fn test_query_errors_on_invalid_syntax() {
@@ -625,16 +625,13 @@ fn test_query_captures_with_duplicates() {
         let captures = cursor.captures(&query, tree.root_node(), to_callback(source));
         assert_eq!(
             collect_captures(captures, &query, source),
-            &[
-                ("function", "x"),
-                ("variable", "x"),
-            ],
+            &[("function", "x"), ("variable", "x"),],
         );
     });
 }
 
 #[test]
-fn test_query_captures_with_many_results() {
+fn test_query_captures_with_many_nested_results_without_fields() {
     allocations::record(|| {
         let language = get_language("javascript");
 
@@ -644,7 +641,7 @@ fn test_query_captures_with_many_results() {
             r#"
             (pair
               key: * @method-def
-              value: (arrow_function))
+              (arrow_function))
 
             ":" @colon
             "," @comma
@@ -672,21 +669,24 @@ fn test_query_captures_with_many_results() {
         let captures = cursor.captures(&query, tree.root_node(), to_callback(&source));
         let captures = collect_captures(captures, &query, &source);
 
-        assert_eq!(&captures[0..13], &[
-            ("colon", ":"),
-            ("method-def", "method0"),
-            ("colon", ":"),
-            ("comma", ","),
-            ("method-def", "method1"),
-            ("colon", ":"),
-            ("comma", ","),
-            ("method-def", "method2"),
-            ("colon", ":"),
-            ("comma", ","),
-            ("method-def", "method3"),
-            ("colon", ":"),
-            ("comma", ","),
-        ]);
+        assert_eq!(
+            &captures[0..13],
+            &[
+                ("colon", ":"),
+                ("method-def", "method0"),
+                ("colon", ":"),
+                ("comma", ","),
+                ("method-def", "method1"),
+                ("colon", ":"),
+                ("comma", ","),
+                ("method-def", "method2"),
+                ("colon", ":"),
+                ("comma", ","),
+                ("method-def", "method3"),
+                ("colon", ":"),
+                ("comma", ","),
+            ]
+        );
 
         // Ensure that we don't drop matches because of needing to buffer too many.
         assert_eq!(captures.len(), 1 + 3 * method_count);
@@ -694,7 +694,74 @@ fn test_query_captures_with_many_results() {
 }
 
 #[test]
-fn test_query_pattern_after_source_byte() {
+fn test_query_captures_with_many_nested_results_with_fields() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        // Search expressions like `a ? a.b : null`
+        let query = Query::new(
+            language,
+            r#"
+            ((ternary_expression
+                condition: (identifier) @left
+                consequence: (member_expression
+                    object: (identifier) @right)
+                alternative: (null))
+             (eq? @left @right))
+            "#,
+        )
+        .unwrap();
+
+        // The outer expression does not match the pattern, but the consequence of the ternary
+        // is an object that *does* contain many occurences of the pattern.
+        let count = 50;
+        let mut source = "a ? {".to_owned();
+        for i in 0..count {
+            writeln!(&mut source, "  x: y{} ? y{}.z : null,", i, i).unwrap();
+        }
+        source.push_str("} : null;\n");
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+
+        let captures = cursor.captures(&query, tree.root_node(), to_callback(&source));
+        let captures = collect_captures(captures, &query, &source);
+
+        assert_eq!(
+            &captures[0..20],
+            &[
+                ("left", "y0"),
+                ("right", "y0"),
+                ("left", "y1"),
+                ("right", "y1"),
+                ("left", "y2"),
+                ("right", "y2"),
+                ("left", "y3"),
+                ("right", "y3"),
+                ("left", "y4"),
+                ("right", "y4"),
+                ("left", "y5"),
+                ("right", "y5"),
+                ("left", "y6"),
+                ("right", "y6"),
+                ("left", "y7"),
+                ("right", "y7"),
+                ("left", "y8"),
+                ("right", "y8"),
+                ("left", "y9"),
+                ("right", "y9"),
+            ]
+        );
+
+        // Ensure that we don't drop matches because of needing to buffer too many.
+        assert_eq!(captures.len(), 2 * count);
+    });
+}
+
+#[test]
+fn test_query_start_byte_for_pattern() {
     let language = get_language("javascript");
 
     let patterns_1 = r#"
@@ -703,18 +770,21 @@ fn test_query_pattern_after_source_byte() {
         "*" @operator
         "=" @operator
         "=>" @operator
-    "#.trim_start();
+    "#
+    .trim_start();
 
     let patterns_2 = "
         (identifier) @a
         (string) @b
-    ".trim_start();
+    "
+    .trim_start();
 
     let patterns_3 = "
         ((identifier) @b (match? @b i))
         (function_declaration name: (identifier) @c)
         (method_definition name: (identifier) @d)
-    ".trim_start();
+    "
+    .trim_start();
 
     let mut source = String::new();
     source += patterns_1;
@@ -725,7 +795,10 @@ fn test_query_pattern_after_source_byte() {
 
     assert_eq!(query.start_byte_for_pattern(0), 0);
     assert_eq!(query.start_byte_for_pattern(5), patterns_1.len());
-    assert_eq!(query.start_byte_for_pattern(7), patterns_1.len() + patterns_2.len());
+    assert_eq!(
+        query.start_byte_for_pattern(7),
+        patterns_1.len() + patterns_2.len()
+    );
 }
 
 #[test]
