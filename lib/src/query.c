@@ -138,11 +138,8 @@ static const uint16_t NONE = UINT16_MAX;
 static const TSSymbol WILDCARD_SYMBOL = 0;
 static const uint16_t MAX_STATE_COUNT = 32;
 
-#ifdef DEBUG_QUERY
-#define LOG printf
-#else
+// #define LOG printf
 #define LOG(...)
-#endif
 
 /**********
  * Stream
@@ -939,6 +936,8 @@ static QueryState *ts_query_cursor_copy_state(
 static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
   do {
     if (self->ascending) {
+      LOG("leave node %s\n", ts_node_type(ts_tree_cursor_current_node(&self->cursor)));
+
       // When leaving a node, remove any unfinished states whose next step
       // needed to match something within that node.
       uint32_t deleted_count = 0;
@@ -948,7 +947,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
 
         if (state->start_depth + step->depth > self->depth) {
           LOG(
-            "fail state with pattern: %u, step: %u\n",
+            "  failed to match. pattern:%u, step:%u\n",
             state->pattern_index,
             state->step_index
           );
@@ -963,10 +962,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         }
       }
 
-      if (deleted_count) {
-        LOG("failed %u of %u states\n", deleted_count, self->states.size);
-        self->states.size -= deleted_count;
-      }
+      self->states.size -= deleted_count;
 
       if (ts_tree_cursor_goto_next_sibling(&self->cursor)) {
         self->ascending = false;
@@ -976,8 +972,13 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         return false;
       }
     } else {
-      TSFieldId field_id = NONE;
-      bool field_occurs_in_later_sibling = false;
+      bool can_have_later_siblings;
+      bool can_have_later_siblings_with_this_field;
+      TSFieldId field_id = ts_tree_cursor_current_status(
+        &self->cursor,
+        &can_have_later_siblings,
+        &can_have_later_siblings_with_this_field
+      );
       TSNode node = ts_tree_cursor_current_node(&self->cursor);
       TSSymbol symbol = ts_node_symbol(node);
 
@@ -999,27 +1000,22 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         point_lte(self->end_point, ts_node_start_point(node))
       ) return false;
 
-      LOG("enter node %s\n", ts_node_type(node));
+      LOG(
+        "enter node %s. row:%u state_count:%u, finished_state_count: %u\n",
+        ts_node_type(node),
+        ts_node_start_point(node).row,
+        self->states.size,
+        self->finished_states.size
+      );
 
       // Add new states for any patterns whose root node is a wildcard.
       for (unsigned i = 0; i < self->query->wildcard_root_pattern_count; i++) {
         PatternEntry *slice = &self->query->pattern_map.contents[i];
         QueryStep *step = &self->query->steps.contents[slice->step_index];
 
-        if (step->field) {
-          // Compute the current field id if it is needed and has not yet
-          // been computed.
-          if (field_id == NONE) {
-            field_id = ts_tree_cursor_current_field_id_ext(
-              &self->cursor,
-              &field_occurs_in_later_sibling
-            );
-          }
-          if (field_id != step->field) continue;
-        }
-
         // If this node matches the first step of the pattern, then add a new
         // state at the start of this pattern.
+        if (step->field && field_id != step->field) continue;
         uint32_t capture_list_id = capture_list_pool_acquire(
           &self->capture_list_pool
         );
@@ -1039,19 +1035,9 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         PatternEntry *slice = &self->query->pattern_map.contents[i];
         QueryStep *step = &self->query->steps.contents[slice->step_index];
         do {
-          if (step->field) {
-            // Compute the current field id if it is needed and has not yet
-            // been computed.
-            if (field_id == NONE) {
-              field_id = ts_tree_cursor_current_field_id_ext(
-                &self->cursor,
-                &field_occurs_in_later_sibling
-              );
-            }
-            if (field_id != step->field) continue;
-          }
+          if (step->field && field_id != step->field) continue;
 
-          LOG("start pattern %u\n", slice->pattern_index);
+          LOG("  start state. pattern:%u\n", slice->pattern_index);
 
           // If this node matches the first step of the pattern, then add a
           // new in-progress state. First, acquire a list to hold the pattern's
@@ -1059,7 +1045,10 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
           uint32_t capture_list_id = capture_list_pool_acquire(
             &self->capture_list_pool
           );
-          if (capture_list_id == NONE) break;
+          if (capture_list_id == NONE) {
+            LOG("  too many states.");
+            break;
+          }
 
           array_push(&self->states, ((QueryState) {
             .pattern_index = slice->pattern_index,
@@ -1084,19 +1073,40 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         QueryStep *step = &self->query->steps.contents[state->step_index];
 
         // Check that the node matches all of the criteria for the next
-        // step of the pattern.
+        // step of the pattern.if (
         if (state->start_depth + step->depth != self->depth) continue;
-        if (step->symbol && step->symbol != symbol) continue;
+
+        // Determine if this node matches this step of the pattern, and also
+        // if this node can have later siblings that match this step of the
+        // pattern.
+        bool node_does_match = !step->symbol || step->symbol == symbol;
+        bool later_sibling_can_match = can_have_later_siblings;
         if (step->field) {
-          // Compute the current field id if it is needed and has not yet
-          // been computed.
-          if (field_id == NONE) {
-            field_id = ts_tree_cursor_current_field_id_ext(
-              &self->cursor,
-              &field_occurs_in_later_sibling
-            );
+          if (step->field == field_id) {
+            if (!node_does_match && !can_have_later_siblings_with_this_field) {
+              later_sibling_can_match = false;
+            }
+          } else {
+            node_does_match = false;
           }
-          if (field_id != step->field) continue;
+        }
+
+        if (!node_does_match) {
+          if (!later_sibling_can_match) {
+            LOG(
+              "  discard state. pattern:%u, step:%u\n",
+              state->pattern_index,
+              state->step_index
+            );
+            capture_list_pool_release(
+              &self->capture_list_pool,
+              state->capture_list_id
+            );
+            array_erase(&self->states, i);
+            i--;
+            n--;
+          }
+          continue;
         }
 
         // Some patterns can match their root node in multiple ways,
@@ -1107,17 +1117,30 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         // this node, to preserve the possibility of capturing later
         // siblings.
         QueryState *next_state = state;
-        if (step->depth > 0 && (!step->field || field_occurs_in_later_sibling)) {
+        if (step->depth > 0 && later_sibling_can_match) {
+          LOG(
+            "  split state. pattern:%u, step:%u\n",
+            state->pattern_index,
+            state->step_index
+          );
           QueryState *copy = ts_query_cursor_copy_state(self, state);
           if (copy) next_state = copy;
         }
 
-        LOG("advance state for pattern %u\n", next_state->pattern_index);
+        LOG(
+          "  advance state. pattern:%u, step:%u\n",
+          next_state->pattern_index,
+          next_state->step_index
+        );
 
         // If the current node is captured in this pattern, add it to the
         // capture list.
         if (step->capture_id != NONE) {
-          LOG("capture id %u\n", step->capture_id);
+          LOG(
+            "  capture node. pattern:%u, capture_id:%u\n",
+            next_state->pattern_index,
+            step->capture_id
+          );
           TSQueryCapture *capture_list = capture_list_pool_get(
             &self->capture_list_pool,
             next_state->capture_list_id

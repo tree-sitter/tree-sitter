@@ -1,6 +1,7 @@
 use super::helpers::allocations;
 use super::helpers::fixtures::get_language;
 use tree_sitter::{Node, Parser, Query, QueryCursor, QueryError, QueryMatch};
+use std::fmt::Write;
 
 #[test]
 fn test_query_errors_on_invalid_syntax() {
@@ -629,6 +630,66 @@ fn test_query_captures_with_duplicates() {
                 ("variable", "x"),
             ],
         );
+    });
+}
+
+#[test]
+fn test_query_captures_with_many_results() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        // Search for key-value pairs whose values are anonymous functions.
+        let query = Query::new(
+            language,
+            r#"
+            (pair
+              key: * @method-def
+              value: (arrow_function))
+
+            ":" @colon
+            "," @comma
+            "#,
+        )
+        .unwrap();
+
+        // The `pair` node for key `y` does not match any pattern, but inside of
+        // its value, it contains many other `pair` nodes that do match the pattern.
+        // The match for the *outer* pair should be terminated *before* descending into
+        // the object value, so that we can avoid needing to buffer all of the inner
+        // matches.
+        let method_count = 50;
+        let mut source = "x = { y: {\n".to_owned();
+        for i in 0..method_count {
+            writeln!(&mut source, "    method{}: $ => null,", i).unwrap();
+        }
+        source.push_str("}};\n");
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+
+        let captures = cursor.captures(&query, tree.root_node(), to_callback(&source));
+        let captures = collect_captures(captures, &query, &source);
+
+        assert_eq!(&captures[0..13], &[
+            ("colon", ":"),
+            ("method-def", "method0"),
+            ("colon", ":"),
+            ("comma", ","),
+            ("method-def", "method1"),
+            ("colon", ":"),
+            ("comma", ","),
+            ("method-def", "method2"),
+            ("colon", ":"),
+            ("comma", ","),
+            ("method-def", "method3"),
+            ("colon", ":"),
+            ("comma", ","),
+        ]);
+
+        // Ensure that we don't drop matches because of needing to buffer too many.
+        assert_eq!(captures.len(), 1 + 3 * method_count);
     });
 }
 
