@@ -1,7 +1,9 @@
 use super::helpers::allocations;
 use super::helpers::fixtures::get_language;
 use std::fmt::Write;
-use tree_sitter::{Node, Parser, Query, QueryCapture, QueryCursor, QueryError, QueryMatch};
+use tree_sitter::{
+    Node, Parser, Query, QueryCapture, QueryCursor, QueryError, QueryMatch, QueryProperty,
+};
 
 #[test]
 fn test_query_errors_on_invalid_syntax() {
@@ -642,20 +644,30 @@ fn test_query_captures_with_set_properties() {
             r#"
             ((call_expression (identifier) @foo)
              (set! name something)
-             (set! age 24))
+             (set! cool))
 
-            (property_identifier) @bar"#,
+            ((property_identifier) @bar
+             (is? cool)
+             (is-not? name something))"#,
         )
         .unwrap();
 
         assert_eq!(
-            query.pattern_properties(0),
+            query.property_settings(0),
             &[
-                ("name".to_string(), "something".to_string()),
-                ("age".to_string(), "24".to_string()),
+                QueryProperty::new("name", Some("something"), None),
+                QueryProperty::new("cool", None, None),
             ]
         );
-        assert_eq!(query.pattern_properties(1), &[])
+        assert_eq!(query.property_settings(1), &[]);
+        assert_eq!(query.property_predicates(0), &[]);
+        assert_eq!(
+            query.property_predicates(1),
+            &[
+                (QueryProperty::new("cool", None, None), true),
+                (QueryProperty::new("name", Some("something"), None), false),
+            ]
+        );
     });
 }
 
