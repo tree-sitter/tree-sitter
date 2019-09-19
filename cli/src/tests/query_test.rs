@@ -322,6 +322,41 @@ fn test_query_matches_with_many() {
 }
 
 #[test]
+fn test_query_matches_in_language_with_simple_aliases() {
+    allocations::record(|| {
+        let language = get_language("html");
+
+        // HTML uses different tokens to track start tags names, end
+        // tag names, script tag names, and style tag names. All of
+        // these tokens are aliased to `tag_name`.
+        let query = Query::new(language, "(tag_name) @tag").unwrap();
+        let source = "
+            <div>
+                <script>hi</script>
+                <style>hi</style>
+            </div>";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.matches(&query, tree.root_node(), to_callback(&source));
+
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[
+                (0, vec![("tag", "div")]),
+                (0, vec![("tag", "script")]),
+                (0, vec![("tag", "script")]),
+                (0, vec![("tag", "style")]),
+                (0, vec![("tag", "style")]),
+                (0, vec![("tag", "div")]),
+            ],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_too_many_permutations_to_track() {
     allocations::record(|| {
         let language = get_language("javascript");
