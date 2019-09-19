@@ -15,9 +15,10 @@ use serde::de::DeserializeOwned;
 use std::collections::HashMap;
 use std::ffi::CStr;
 use std::marker::PhantomData;
+use std::mem::MaybeUninit;
 use std::os::raw::{c_char, c_void};
 use std::sync::atomic::AtomicUsize;
-use std::{fmt, ptr, str, u16};
+use std::{char, fmt, ptr, slice, str, u16};
 
 pub const LANGUAGE_VERSION: usize = ffi::TREE_SITTER_LANGUAGE_VERSION;
 pub const PARSER_HEADER: &'static str = include_str!("../include/tree_sitter/parser.h");
@@ -136,6 +137,41 @@ pub struct TreePropertyCursor<'a, P> {
     source: &'a [u8],
 }
 
+#[derive(Debug)]
+enum QueryPredicate {
+    CaptureEqString(u32, String),
+    CaptureEqCapture(u32, u32),
+    CaptureMatchString(u32, regex::bytes::Regex),
+}
+
+#[derive(Debug)]
+pub struct Query {
+    ptr: *mut ffi::TSQuery,
+    capture_names: Vec<String>,
+    predicates: Vec<Vec<QueryPredicate>>,
+}
+
+pub struct QueryCursor(*mut ffi::TSQueryCursor);
+
+pub struct QueryMatch<'a> {
+    pub pattern_index: usize,
+    captures: &'a [ffi::TSQueryCapture],
+}
+
+pub struct QueryCapture<'a> {
+    pub index: usize,
+    pub node: Node<'a>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum QueryError<'a> {
+    Syntax(usize),
+    NodeType(&'a str),
+    Field(&'a str),
+    Capture(&'a str),
+    Predicate(String),
+}
+
 impl Language {
     pub fn version(&self) -> usize {
         unsafe { ffi::ts_language_version(self.0) as usize }
@@ -237,7 +273,7 @@ impl Parser {
     pub fn set_logger(&mut self, logger: Option<Logger>) {
         let prev_logger = unsafe { ffi::ts_parser_logger(self.0) };
         if !prev_logger.payload.is_null() {
-            unsafe { Box::from_raw(prev_logger.payload as *mut Logger) };
+            drop(unsafe { Box::from_raw(prev_logger.payload as *mut Logger) });
         }
 
         let c_logger;
@@ -308,7 +344,7 @@ impl Parser {
         )
     }
 
-    /// Parse a slice UTF16 text.
+    /// Parse a slice of UTF16 text.
     ///
     /// # Arguments:
     /// * `text` The UTF16-encoded text to parse.
@@ -590,6 +626,10 @@ impl<'tree> Node<'tree> {
 
     pub fn end_byte(&self) -> usize {
         unsafe { ffi::ts_node_end_byte(self.0) as usize }
+    }
+
+    pub fn byte_range(&self) -> std::ops::Range<usize> {
+        self.start_byte()..self.end_byte()
     }
 
     pub fn range(&self) -> Range {
@@ -918,6 +958,353 @@ impl<'a, P> TreePropertyCursor<'a, P> {
 
     fn default_state(&self) -> &PropertyState {
         &self.property_sheet.states.first().unwrap()
+    }
+}
+
+impl Query {
+    pub fn new<'a>(language: Language, source: &'a str) -> Result<Self, QueryError<'a>> {
+        let mut error_offset = 0u32;
+        let mut error_type: ffi::TSQueryError = 0;
+        let bytes = source.as_bytes();
+
+        // Compile the query.
+        let ptr = unsafe {
+            ffi::ts_query_new(
+                language.0,
+                bytes.as_ptr() as *const c_char,
+                bytes.len() as u32,
+                &mut error_offset as *mut u32,
+                &mut error_type as *mut ffi::TSQueryError,
+            )
+        };
+
+        // On failure, build an error based on the error code and offset.
+        if ptr.is_null() {
+            let offset = error_offset as usize;
+            return if error_type != ffi::TSQueryError_TSQueryErrorSyntax {
+                let suffix = source.split_at(offset).1;
+                let end_offset = suffix
+                    .find(|c| !char::is_alphanumeric(c) && c != '_' && c != '-')
+                    .unwrap_or(source.len());
+                let name = suffix.split_at(end_offset).0;
+                match error_type {
+                    ffi::TSQueryError_TSQueryErrorNodeType => Err(QueryError::NodeType(name)),
+                    ffi::TSQueryError_TSQueryErrorField => Err(QueryError::Field(name)),
+                    ffi::TSQueryError_TSQueryErrorCapture => Err(QueryError::Capture(name)),
+                    _ => Err(QueryError::Syntax(offset)),
+                }
+            } else {
+                Err(QueryError::Syntax(offset))
+            };
+        }
+
+        let string_count = unsafe { ffi::ts_query_string_count(ptr) };
+        let capture_count = unsafe { ffi::ts_query_capture_count(ptr) };
+        let pattern_count = unsafe { ffi::ts_query_pattern_count(ptr) as usize };
+        let mut result = Query {
+            ptr,
+            capture_names: Vec::with_capacity(capture_count as usize),
+            predicates: Vec::with_capacity(pattern_count),
+        };
+
+        // Build a vector of strings to store the capture names.
+        for i in 0..capture_count {
+            unsafe {
+                let mut length = 0u32;
+                let name =
+                    ffi::ts_query_capture_name_for_id(ptr, i, &mut length as *mut u32) as *const u8;
+                let name = slice::from_raw_parts(name, length as usize);
+                let name = str::from_utf8_unchecked(name);
+                result.capture_names.push(name.to_string());
+            }
+        }
+
+        // Build a vector of strings to represent literal values used in predicates.
+        let string_values = (0..string_count)
+            .map(|i| unsafe {
+                let mut length = 0u32;
+                let value =
+                    ffi::ts_query_string_value_for_id(ptr, i as u32, &mut length as *mut u32)
+                        as *const u8;
+                let value = slice::from_raw_parts(value, length as usize);
+                let value = str::from_utf8_unchecked(value);
+                value.to_string()
+            })
+            .collect::<Vec<_>>();
+
+        // Build a vector of predicates for each pattern.
+        for i in 0..pattern_count {
+            let predicate_steps = unsafe {
+                let mut length = 0u32;
+                let raw_predicates =
+                    ffi::ts_query_predicates_for_pattern(ptr, i as u32, &mut length as *mut u32);
+                slice::from_raw_parts(raw_predicates, length as usize)
+            };
+
+            let type_done = ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeDone;
+            let type_capture = ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture;
+            let type_string = ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeString;
+
+            let mut pattern_predicates = Vec::new();
+            for p in predicate_steps.split(|s| s.type_ == type_done) {
+                if p.is_empty() {
+                    continue;
+                }
+
+                if p[0].type_ != type_string {
+                    return Err(QueryError::Predicate(format!(
+                        "Expected predicate to start with a function name. Got @{}.",
+                        result.capture_names[p[0].value_id as usize],
+                    )));
+                }
+
+                // Build a predicate for each of the known predicate function names.
+                let operator_name = &string_values[p[0].value_id as usize];
+                pattern_predicates.push(match operator_name.as_str() {
+                    "eq?" => {
+                        if p.len() != 3 {
+                            return Err(QueryError::Predicate(format!(
+                                "Wrong number of arguments to eq? predicate. Expected 2, got {}.",
+                                p.len() - 1
+                            )));
+                        }
+                        if p[1].type_ != type_capture {
+                            return Err(QueryError::Predicate(format!(
+                                "First argument to eq? predicate must be a capture name. Got literal \"{}\".",
+                                string_values[p[1].value_id as usize],
+                            )));
+                        }
+
+                        if p[2].type_ == type_capture {
+                            Ok(QueryPredicate::CaptureEqCapture(
+                                p[1].value_id,
+                                p[2].value_id,
+                            ))
+                        } else {
+                            Ok(QueryPredicate::CaptureEqString(
+                                p[1].value_id,
+                                string_values[p[2].value_id as usize].clone(),
+                            ))
+                        }
+                    }
+
+                    "match?" => {
+                        if p.len() != 3 {
+                            return Err(QueryError::Predicate(format!(
+                                "Wrong number of arguments to match? predicate. Expected 2, got {}.",
+                                p.len() - 1
+                            )));
+                        }
+                        if p[1].type_ != type_capture {
+                            return Err(QueryError::Predicate(format!(
+                                "First argument to match? predicate must be a capture name. Got literal \"{}\".",
+                                string_values[p[1].value_id as usize],
+                            )));
+                        }
+                        if p[2].type_ == type_capture {
+                            return Err(QueryError::Predicate(format!(
+                                "Second argument to match? predicate must be a literal. Got capture @{}.",
+                                result.capture_names[p[2].value_id as usize],
+                            )));
+                        }
+
+                        let regex = &string_values[p[2].value_id as usize];
+                        Ok(QueryPredicate::CaptureMatchString(
+                            p[1].value_id,
+                            regex::bytes::Regex::new(regex)
+                                .map_err(|_| QueryError::Predicate(format!("Invalid regex '{}'", regex)))?,
+                        ))
+                    }
+
+                    _ => Err(QueryError::Predicate(format!(
+                        "Unknown query predicate function {}",
+                        operator_name,
+                    ))),
+                }?);
+            }
+
+            result.predicates.push(pattern_predicates);
+        }
+
+        Ok(result)
+    }
+
+    pub fn start_byte_for_pattern(&self, pattern_index: usize) -> usize {
+        if pattern_index >= self.predicates.len() {
+            panic!(
+                "Pattern index is {} but the pattern count is {}",
+                pattern_index,
+                self.predicates.len(),
+            );
+        }
+        unsafe { ffi::ts_query_start_byte_for_pattern(self.ptr, pattern_index as u32) as usize }
+    }
+
+    pub fn pattern_count(&self) -> usize {
+        unsafe { ffi::ts_query_pattern_count(self.ptr) as usize }
+    }
+
+    pub fn capture_names(&self) -> &[String] {
+        &self.capture_names
+    }
+}
+
+impl QueryCursor {
+    pub fn new() -> Self {
+        QueryCursor(unsafe { ffi::ts_query_cursor_new() })
+    }
+
+    pub fn matches<'a>(
+        &'a mut self,
+        query: &'a Query,
+        node: Node<'a>,
+        mut text_callback: impl FnMut(Node<'a>) -> &'a [u8] + 'a,
+    ) -> impl Iterator<Item = QueryMatch<'a>> + 'a {
+        unsafe {
+            ffi::ts_query_cursor_exec(self.0, query.ptr, node.0);
+        }
+        std::iter::from_fn(move || -> Option<QueryMatch<'a>> {
+            loop {
+                unsafe {
+                    let mut m = MaybeUninit::<ffi::TSQueryMatch>::uninit();
+                    if ffi::ts_query_cursor_next_match(self.0, m.as_mut_ptr()) {
+                        let m = m.assume_init();
+                        let captures = slice::from_raw_parts(m.captures, m.capture_count as usize);
+                        if self.captures_match_condition(
+                            query,
+                            captures,
+                            m.pattern_index as usize,
+                            &mut text_callback,
+                        ) {
+                            return Some(QueryMatch {
+                                pattern_index: m.pattern_index as usize,
+                                captures,
+                            });
+                        }
+                    } else {
+                        return None;
+                    }
+                }
+            }
+        })
+    }
+
+    pub fn captures<'a>(
+        &'a mut self,
+        query: &'a Query,
+        node: Node<'a>,
+        mut text_callback: impl FnMut(Node<'a>) -> &'a [u8] + 'a,
+    ) -> impl Iterator<Item = (usize, QueryCapture)> + 'a {
+        unsafe {
+            ffi::ts_query_cursor_exec(self.0, query.ptr, node.0);
+        }
+        std::iter::from_fn(move || loop {
+            unsafe {
+                let mut m = MaybeUninit::<ffi::TSQueryMatch>::uninit();
+                let mut capture_index = 0u32;
+                if ffi::ts_query_cursor_next_capture(
+                    self.0,
+                    m.as_mut_ptr(),
+                    &mut capture_index as *mut u32,
+                ) {
+                    let m = m.assume_init();
+                    let captures = slice::from_raw_parts(m.captures, m.capture_count as usize);
+                    if self.captures_match_condition(
+                        query,
+                        captures,
+                        m.pattern_index as usize,
+                        &mut text_callback,
+                    ) {
+                        let capture = captures[capture_index as usize];
+                        return Some((
+                            m.pattern_index as usize,
+                            QueryCapture {
+                                index: capture.index as usize,
+                                node: Node::new(capture.node).unwrap(),
+                            },
+                        ));
+                    }
+                } else {
+                    return None;
+                }
+            }
+        })
+    }
+
+    fn captures_match_condition<'a>(
+        &self,
+        query: &'a Query,
+        captures: &'a [ffi::TSQueryCapture],
+        pattern_index: usize,
+        text_callback: &mut impl FnMut(Node<'a>) -> &'a [u8],
+    ) -> bool {
+        query.predicates[pattern_index]
+            .iter()
+            .all(|predicate| match predicate {
+                QueryPredicate::CaptureEqCapture(i, j) => {
+                    let node1 = Self::capture_for_id(captures, *i).unwrap();
+                    let node2 = Self::capture_for_id(captures, *j).unwrap();
+                    text_callback(node1) == text_callback(node2)
+                }
+                QueryPredicate::CaptureEqString(i, s) => {
+                    let node = Self::capture_for_id(captures, *i).unwrap();
+                    text_callback(node) == s.as_bytes()
+                }
+                QueryPredicate::CaptureMatchString(i, r) => {
+                    let node = Self::capture_for_id(captures, *i).unwrap();
+                    r.is_match(text_callback(node))
+                }
+            })
+    }
+
+    fn capture_for_id(captures: &[ffi::TSQueryCapture], capture_id: u32) -> Option<Node> {
+        for c in captures {
+            if c.index == capture_id {
+                return Node::new(c.node);
+            }
+        }
+        None
+    }
+
+    pub fn set_byte_range(&mut self, start: usize, end: usize) -> &mut Self {
+        unsafe {
+            ffi::ts_query_cursor_set_byte_range(self.0, start as u32, end as u32);
+        }
+        self
+    }
+
+    pub fn set_point_range(&mut self, start: Point, end: Point) -> &mut Self {
+        unsafe {
+            ffi::ts_query_cursor_set_point_range(self.0, start.into(), end.into());
+        }
+        self
+    }
+}
+
+impl<'a> QueryMatch<'a> {
+    pub fn captures(&self) -> impl ExactSizeIterator<Item = QueryCapture> {
+        self.captures.iter().map(|capture| QueryCapture {
+            index: capture.index as usize,
+            node: Node::new(capture.node).unwrap(),
+        })
+    }
+}
+
+impl PartialEq for Query {
+    fn eq(&self, other: &Self) -> bool {
+        self.ptr == other.ptr
+    }
+}
+
+impl Drop for Query {
+    fn drop(&mut self) {
+        unsafe { ffi::ts_query_delete(self.ptr) }
+    }
+}
+
+impl Drop for QueryCursor {
+    fn drop(&mut self) {
+        unsafe { ffi::ts_query_cursor_delete(self.0) }
     }
 }
 

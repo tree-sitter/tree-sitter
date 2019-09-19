@@ -12,6 +12,7 @@
 #include "./lexer.c"
 #include "./node.c"
 #include "./parser.c"
+#include "./query.c"
 #include "./stack.c"
 #include "./subtree.c"
 #include "./tree_cursor.c"
