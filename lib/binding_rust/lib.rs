@@ -150,6 +150,7 @@ pub struct Query {
     ptr: NonNull<ffi::TSQuery>,
     capture_names: Vec<String>,
     predicates: Vec<Vec<QueryPredicate>>,
+    properties: Vec<Box<[(String, String)]>>,
 }
 
 pub struct QueryCursor(NonNull<ffi::TSQueryCursor>);
@@ -1002,6 +1003,7 @@ impl Query {
             ptr: unsafe { NonNull::new_unchecked(ptr) },
             capture_names: Vec::with_capacity(capture_count as usize),
             predicates: Vec::with_capacity(pattern_count),
+            properties: Vec::with_capacity(pattern_count),
         };
 
         // Build a vector of strings to store the capture names.
@@ -1042,6 +1044,7 @@ impl Query {
             let type_capture = ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture;
             let type_string = ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeString;
 
+            let mut pattern_properties = Vec::new();
             let mut pattern_predicates = Vec::new();
             for p in predicate_steps.split(|s| s.type_ == type_done) {
                 if p.is_empty() {
@@ -1057,7 +1060,7 @@ impl Query {
 
                 // Build a predicate for each of the known predicate function names.
                 let operator_name = &string_values[p[0].value_id as usize];
-                pattern_predicates.push(match operator_name.as_str() {
+                match operator_name.as_str() {
                     "eq?" => {
                         if p.len() != 3 {
                             return Err(QueryError::Predicate(format!(
@@ -1072,17 +1075,14 @@ impl Query {
                             )));
                         }
 
-                        if p[2].type_ == type_capture {
-                            Ok(QueryPredicate::CaptureEqCapture(
-                                p[1].value_id,
-                                p[2].value_id,
-                            ))
+                        pattern_predicates.push(if p[2].type_ == type_capture {
+                            QueryPredicate::CaptureEqCapture(p[1].value_id, p[2].value_id)
                         } else {
-                            Ok(QueryPredicate::CaptureEqString(
+                            QueryPredicate::CaptureEqString(
                                 p[1].value_id,
                                 string_values[p[2].value_id as usize].clone(),
-                            ))
-                        }
+                            )
+                        });
                     }
 
                     "match?" => {
@@ -1106,20 +1106,44 @@ impl Query {
                         }
 
                         let regex = &string_values[p[2].value_id as usize];
-                        Ok(QueryPredicate::CaptureMatchString(
+                        pattern_predicates.push(QueryPredicate::CaptureMatchString(
                             p[1].value_id,
-                            regex::bytes::Regex::new(regex)
-                                .map_err(|_| QueryError::Predicate(format!("Invalid regex '{}'", regex)))?,
-                        ))
+                            regex::bytes::Regex::new(regex).map_err(|_| {
+                                QueryError::Predicate(format!("Invalid regex '{}'", regex))
+                            })?,
+                        ));
                     }
 
-                    _ => Err(QueryError::Predicate(format!(
-                        "Unknown query predicate function {}",
-                        operator_name,
-                    ))),
-                }?);
+                    "set!" => {
+                        if p.len() != 3 {
+                            return Err(QueryError::Predicate(format!(
+                                "Wrong number of arguments to set! predicate. Expected 2, got {}.",
+                                p.len() - 1
+                            )));
+                        }
+                        if p[1].type_ != type_string || p[2].type_ != type_string {
+                            return Err(QueryError::Predicate(
+                                "Argument to set! predicate must be strings.".to_string(),
+                            ));
+                        }
+                        let key = &string_values[p[1].value_id as usize];
+                        let value = &string_values[p[2].value_id as usize];
+
+                        pattern_properties.push((key.to_string(), value.to_string()));
+                    }
+
+                    _ => {
+                        return Err(QueryError::Predicate(format!(
+                            "Unknown query predicate function {}",
+                            operator_name,
+                        )))
+                    }
+                }
             }
 
+            result
+                .properties
+                .push(pattern_properties.into_boxed_slice());
             result.predicates.push(pattern_predicates);
         }
 
@@ -1145,6 +1169,10 @@ impl Query {
 
     pub fn capture_names(&self) -> &[String] {
         &self.capture_names
+    }
+
+    pub fn pattern_properties(&self, index: usize) -> &[(String, String)] {
+        &self.properties[index]
     }
 }
 

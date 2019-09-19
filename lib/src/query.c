@@ -196,7 +196,7 @@ static void stream_skip_whitespace(Stream *stream) {
 }
 
 static bool stream_is_ident_start(Stream *stream) {
-  return iswalpha(stream->next) || stream->next == '_' || stream->next == '-';
+  return iswalnum(stream->next) || stream->next == '_' || stream->next == '-';
 }
 
 static void stream_scan_identifier(Stream *stream) {
@@ -417,6 +417,7 @@ static TSQueryError ts_query_parse_predicate(
   for (;;) {
     if (stream->next == ')') {
       stream_advance(stream);
+      stream_skip_whitespace(stream);
       array_back(&self->predicates_by_pattern)->length++;
       array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
         .type = TSQueryPredicateStepTypeDone,

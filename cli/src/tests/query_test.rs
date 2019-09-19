@@ -633,6 +633,33 @@ fn test_query_captures_with_text_conditions() {
 }
 
 #[test]
+fn test_query_captures_with_set_properties() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        let query = Query::new(
+            language,
+            r#"
+            ((call_expression (identifier) @foo)
+             (set! name something)
+             (set! age 24))
+
+            (property_identifier) @bar"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            query.pattern_properties(0),
+            &[
+                ("name".to_string(), "something".to_string()),
+                ("age".to_string(), "24".to_string()),
+            ]
+        );
+        assert_eq!(query.pattern_properties(1), &[])
+    });
+}
+
+#[test]
 fn test_query_captures_with_duplicates() {
     allocations::record(|| {
         let language = get_language("javascript");
