@@ -1,9 +1,9 @@
-use crate::generate::build_tables::item::{TokenSetDisplay};
+use crate::generate::build_tables::item::TokenSetDisplay;
 use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar};
 use crate::generate::nfa::{CharacterSet, NfaCursor, NfaTransition};
 use crate::generate::rules::TokenSet;
-use std::collections::HashSet;
 use std::cmp::Ordering;
+use std::collections::HashSet;
 use std::fmt;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
