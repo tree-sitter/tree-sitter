@@ -9,8 +9,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::SystemTime;
 use std::{fs, mem};
-use tree_sitter::{Language, PropertySheet};
-use tree_sitter_highlight::{load_property_sheet, Properties};
+use tree_sitter::Language;
+use tree_sitter_highlight::{HighlightConfiguration, Highlighter};
 
 #[cfg(unix)]
 const DYLIB_EXTENSION: &'static str = "so";
@@ -27,9 +27,9 @@ pub struct LanguageConfiguration {
     pub _first_line_regex: Option<Regex>,
     pub injection_regex: Option<Regex>,
     pub file_types: Vec<String>,
-    pub highlight_property_sheet_path: Option<PathBuf>,
+    pub root_path: PathBuf,
     language_id: usize,
-    highlight_property_sheet: OnceCell<Option<PropertySheet<Properties>>>,
+    highlight_config: OnceCell<Option<HighlightConfiguration>>,
 }
 
 pub struct Loader {
@@ -134,7 +134,6 @@ impl Loader {
                 if configuration_ids.len() == 1 {
                     configuration = &self.language_configurations[configuration_ids[0]];
                 }
-
                 // If multiple language configurations match, then determine which
                 // one to use by applying the configurations' content regexes.
                 else {
@@ -151,7 +150,6 @@ impl Loader {
                             if let Some(mat) = content_regex.find(&file_contents) {
                                 score = (mat.end() - mat.start()) as isize;
                             }
-
                             // If the content regex does not match, then *penalize* this
                             // language configuration, so that language configurations
                             // without content regexes are preferred over those with
@@ -394,6 +392,7 @@ impl Loader {
                     });
 
                     let configuration = LanguageConfiguration {
+                        root_path: parser_path.to_path_buf(),
                         scope: config_json.scope,
                         language_id,
                         file_types: config_json.file_types.unwrap_or(Vec::new()),
@@ -406,10 +405,7 @@ impl Loader {
                         injection_regex: config_json
                             .injection_regex
                             .and_then(|r| RegexBuilder::new(&r).multi_line(true).build().ok()),
-                        highlight_property_sheet_path: config_json
-                            .highlights
-                            .map(|h| parser_path.join(h)),
-                        highlight_property_sheet: OnceCell::new(),
+                        highlight_config: OnceCell::new(),
                     };
 
                     for file_type in &configuration.file_types {
@@ -428,14 +424,14 @@ impl Loader {
             && parser_path.join("src").join("grammar.json").exists()
         {
             self.language_configurations.push(LanguageConfiguration {
+                root_path: parser_path.to_owned(),
                 language_id: self.languages_by_id.len(),
                 scope: None,
                 content_regex: None,
                 injection_regex: None,
                 file_types: Vec::new(),
                 _first_line_regex: None,
-                highlight_property_sheet_path: None,
-                highlight_property_sheet: OnceCell::new(),
+                highlight_config: OnceCell::new(),
             });
             self.languages_by_id
                 .push((parser_path.to_owned(), OnceCell::new()));
@@ -446,30 +442,41 @@ impl Loader {
 }
 
 impl LanguageConfiguration {
-    pub fn highlight_property_sheet(
+    pub fn highlight_config(
         &self,
+        highlighter: &Highlighter,
         language: Language,
-    ) -> Result<Option<&PropertySheet<Properties>>> {
-        self.highlight_property_sheet
+    ) -> Result<Option<&HighlightConfiguration>> {
+        self.highlight_config
             .get_or_try_init(|| {
-                if let Some(path) = &self.highlight_property_sheet_path {
-                    let sheet_json = fs::read_to_string(path).map_err(Error::wrap(|| {
-                        format!(
-                            "Failed to read property sheet {:?}",
-                            path.file_name().unwrap()
-                        )
-                    }))?;
-                    let sheet =
-                        load_property_sheet(language, &sheet_json).map_err(Error::wrap(|| {
-                            format!(
-                                "Failed to parse property sheet {:?}",
-                                path.file_name().unwrap()
-                            )
-                        }))?;
-                    Ok(Some(sheet))
-                } else {
-                    Ok(None)
+                let queries_path = self.root_path.join("queries");
+
+                let highlights_path = queries_path.join("highlights.scm");
+                let injections_path = queries_path.join("injections.scm");
+                let locals_path = queries_path.join("locals.scm");
+
+                if !highlights_path.exists() {
+                    return Ok(None);
                 }
+
+                let highlights_query = fs::read_to_string(highlights_path)?;
+                let injections_query = if injections_path.exists() {
+                    fs::read_to_string(injections_path)?
+                } else {
+                    String::new()
+                };
+                let locals_query = if locals_path.exists() {
+                    fs::read_to_string(locals_path)?
+                } else {
+                    String::new()
+                };
+
+                Ok(Some(highlighter.load_configuration(
+                    language,
+                    &highlights_query,
+                    &injections_query,
+                    &locals_query,
+                )?))
             })
             .map(Option::as_ref)
     }

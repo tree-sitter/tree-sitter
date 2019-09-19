@@ -2,8 +2,8 @@ use crate::loader::Loader;
 use lazy_static::lazy_static;
 use std::fs;
 use std::path::{Path, PathBuf};
-use tree_sitter::{Language, PropertySheet};
-use tree_sitter_highlight::{load_property_sheet, Properties};
+use tree_sitter::Language;
+use tree_sitter_highlight::{HighlightConfiguration, Highlighter};
 
 include!("./dirs.rs");
 
@@ -21,18 +21,42 @@ pub fn get_language(name: &str) -> Language {
         .unwrap()
 }
 
-pub fn get_property_sheet_json(language_name: &str, sheet_name: &str) -> String {
-    let path = GRAMMARS_DIR
-        .join(language_name)
-        .join("src")
-        .join(sheet_name);
-    fs::read_to_string(path).unwrap()
+pub fn get_highlight_query_sources(language_name: &str) -> (String, String, String) {
+    let queries_path = GRAMMARS_DIR.join(language_name).join("queries");
+    let highlights_path = queries_path.join("highlights.scm");
+    let injections_path = queries_path.join("injections.scm");
+    let locals_path = queries_path.join("locals.scm");
+
+    let highlights_query = fs::read_to_string(highlights_path).unwrap();
+    let injections_query = if injections_path.exists() {
+        fs::read_to_string(injections_path).unwrap()
+    } else {
+        String::new()
+    };
+    let locals_query = if locals_path.exists() {
+        fs::read_to_string(locals_path).unwrap()
+    } else {
+        String::new()
+    };
+
+    (highlights_query, injections_query, locals_query)
 }
 
-pub fn get_property_sheet(language_name: &str, sheet_name: &str) -> PropertySheet<Properties> {
-    let json = get_property_sheet_json(language_name, sheet_name);
+pub fn get_highlight_config(
+    language_name: &str,
+    highlighter: &Highlighter,
+) -> HighlightConfiguration {
     let language = get_language(language_name);
-    load_property_sheet(language, &json).unwrap()
+    let (highlights_query, injections_query, locals_query) =
+        get_highlight_query_sources(language_name);
+    highlighter
+        .load_configuration(
+            language,
+            &highlights_query,
+            &injections_query,
+            &locals_query,
+        )
+        .unwrap()
 }
 
 pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> Language {

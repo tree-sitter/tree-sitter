@@ -1,25 +1,23 @@
-use super::{load_property_sheet, Error, Highlight, Highlighter, HtmlRenderer, Properties};
+use super::{Error, HighlightConfiguration, HighlightContext, Highlighter, HtmlRenderer};
 use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::process::abort;
 use std::sync::atomic::AtomicUsize;
-use std::{fmt, slice};
-use tree_sitter::{Language, PropertySheet};
-
-struct LanguageConfiguration {
-    language: Language,
-    property_sheet: PropertySheet<Properties>,
-    injection_regex: Option<Regex>,
-}
+use std::{fmt, slice, str};
+use tree_sitter::Language;
 
 pub struct TSHighlighter {
-    languages: HashMap<String, LanguageConfiguration>,
+    languages: HashMap<String, (Option<Regex>, HighlightConfiguration)>,
     attribute_strings: Vec<&'static [u8]>,
+    highlighter: Highlighter,
 }
 
-pub struct TSHighlightBuffer(HtmlRenderer);
+pub struct TSHighlightBuffer {
+    context: HighlightContext,
+    renderer: HtmlRenderer,
+}
 
 #[repr(C)]
 pub enum ErrorCode {
@@ -27,33 +25,113 @@ pub enum ErrorCode {
     UnknownScope,
     Timeout,
     InvalidLanguage,
+    InvalidUtf8,
+    InvalidRegex,
+    InvalidQuery,
 }
 
 #[no_mangle]
 pub extern "C" fn ts_highlighter_new(
+    highlight_names: *const *const c_char,
     attribute_strings: *const *const c_char,
+    highlight_count: u32,
 ) -> *mut TSHighlighter {
+    let highlight_names =
+        unsafe { slice::from_raw_parts(highlight_names, highlight_count as usize) };
     let attribute_strings =
-        unsafe { slice::from_raw_parts(attribute_strings, Highlight::Unknown as usize + 1) };
+        unsafe { slice::from_raw_parts(attribute_strings, highlight_count as usize) };
+    let highlight_names = highlight_names
+        .into_iter()
+        .map(|s| unsafe { CStr::from_ptr(*s).to_string_lossy().to_string() })
+        .collect();
     let attribute_strings = attribute_strings
         .into_iter()
-        .map(|s| {
-            if s.is_null() {
-                &[]
-            } else {
-                unsafe { CStr::from_ptr(*s).to_bytes() }
-            }
-        })
+        .map(|s| unsafe { CStr::from_ptr(*s).to_bytes() })
         .collect();
+    let highlighter = Highlighter::new(highlight_names);
     Box::into_raw(Box::new(TSHighlighter {
         languages: HashMap::new(),
         attribute_strings,
+        highlighter,
     }))
 }
 
 #[no_mangle]
+pub extern "C" fn ts_highlighter_add_language(
+    this: *mut TSHighlighter,
+    scope_name: *const c_char,
+    injection_regex: *const c_char,
+    language: Language,
+    highlight_query: *const c_char,
+    injection_query: *const c_char,
+    locals_query: *const c_char,
+    highlight_query_len: u32,
+    injection_query_len: u32,
+    locals_query_len: u32,
+) -> ErrorCode {
+    let f = move || {
+        let this = unwrap_mut_ptr(this);
+        let scope_name = unsafe { CStr::from_ptr(scope_name) };
+        let scope_name = scope_name
+            .to_str()
+            .or(Err(ErrorCode::InvalidUtf8))?
+            .to_string();
+        let injection_regex = if injection_regex.is_null() {
+            None
+        } else {
+            let pattern = unsafe { CStr::from_ptr(injection_regex) };
+            let pattern = pattern.to_str().or(Err(ErrorCode::InvalidUtf8))?;
+            Some(Regex::new(pattern).or(Err(ErrorCode::InvalidRegex))?)
+        };
+
+        let highlight_query = unsafe {
+            slice::from_raw_parts(highlight_query as *const u8, highlight_query_len as usize)
+        };
+        let highlight_query = str::from_utf8(highlight_query).or(Err(ErrorCode::InvalidUtf8))?;
+
+        let injection_query = if injection_query_len > 0 {
+            let query = unsafe {
+                slice::from_raw_parts(injection_query as *const u8, injection_query_len as usize)
+            };
+            str::from_utf8(query).or(Err(ErrorCode::InvalidUtf8))?
+        } else {
+            ""
+        };
+
+        let locals_query = if locals_query_len > 0 {
+            let query = unsafe {
+                slice::from_raw_parts(locals_query as *const u8, locals_query_len as usize)
+            };
+            str::from_utf8(query).or(Err(ErrorCode::InvalidUtf8))?
+        } else {
+            ""
+        };
+
+        this.languages.insert(
+            scope_name,
+            (
+                injection_regex,
+                this.highlighter
+                    .load_configuration(language, highlight_query, injection_query, locals_query)
+                    .or(Err(ErrorCode::InvalidQuery))?,
+            ),
+        );
+
+        Ok(())
+    };
+
+    match f() {
+        Ok(()) => ErrorCode::Ok,
+        Err(e) => e,
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn ts_highlight_buffer_new() -> *mut TSHighlightBuffer {
-    Box::into_raw(Box::new(TSHighlightBuffer(HtmlRenderer::new())))
+    Box::into_raw(Box::new(TSHighlightBuffer {
+        context: HighlightContext::new(),
+        renderer: HtmlRenderer::new(),
+    }))
 }
 
 #[no_mangle]
@@ -69,59 +147,25 @@ pub extern "C" fn ts_highlight_buffer_delete(this: *mut TSHighlightBuffer) {
 #[no_mangle]
 pub extern "C" fn ts_highlight_buffer_content(this: *const TSHighlightBuffer) -> *const u8 {
     let this = unwrap_ptr(this);
-    this.0.html.as_slice().as_ptr()
+    this.renderer.html.as_slice().as_ptr()
 }
 
 #[no_mangle]
 pub extern "C" fn ts_highlight_buffer_line_offsets(this: *const TSHighlightBuffer) -> *const u32 {
     let this = unwrap_ptr(this);
-    this.0.line_offsets.as_slice().as_ptr()
+    this.renderer.line_offsets.as_slice().as_ptr()
 }
 
 #[no_mangle]
 pub extern "C" fn ts_highlight_buffer_len(this: *const TSHighlightBuffer) -> u32 {
     let this = unwrap_ptr(this);
-    this.0.html.len() as u32
+    this.renderer.html.len() as u32
 }
 
 #[no_mangle]
 pub extern "C" fn ts_highlight_buffer_line_count(this: *const TSHighlightBuffer) -> u32 {
     let this = unwrap_ptr(this);
-    this.0.line_offsets.len() as u32
-}
-
-#[no_mangle]
-pub extern "C" fn ts_highlighter_add_language(
-    this: *mut TSHighlighter,
-    scope_name: *const c_char,
-    language: Language,
-    property_sheet_json: *const c_char,
-    injection_regex: *const c_char,
-) -> ErrorCode {
-    let this = unwrap_mut_ptr(this);
-    let scope_name = unsafe { CStr::from_ptr(scope_name) };
-    let scope_name = unwrap(scope_name.to_str()).to_string();
-    let property_sheet_json = unsafe { CStr::from_ptr(property_sheet_json) };
-    let property_sheet_json = unwrap(property_sheet_json.to_str());
-
-    let property_sheet = unwrap(load_property_sheet(language, property_sheet_json));
-    let injection_regex = if injection_regex.is_null() {
-        None
-    } else {
-        let pattern = unsafe { CStr::from_ptr(injection_regex) };
-        Some(unwrap(Regex::new(unwrap(pattern.to_str()))))
-    };
-
-    this.languages.insert(
-        scope_name,
-        LanguageConfiguration {
-            language,
-            property_sheet,
-            injection_regex,
-        },
-    );
-
-    ErrorCode::Ok
+    this.renderer.line_offsets.len() as u32
 }
 
 #[no_mangle]
@@ -150,36 +194,36 @@ impl TSHighlighter {
         output: &mut TSHighlightBuffer,
         cancellation_flag: Option<&AtomicUsize>,
     ) -> ErrorCode {
-        let configuration = self.languages.get(scope_name);
-        if configuration.is_none() {
+        let entry = self.languages.get(scope_name);
+        if entry.is_none() {
             return ErrorCode::UnknownScope;
         }
-        let configuration = configuration.unwrap();
+        let (_, configuration) = entry.unwrap();
         let languages = &self.languages;
 
-        let highlighter = Highlighter::new(
+        let highlights = self.highlighter.highlight(
+            &mut output.context,
+            configuration,
             source_code,
-            configuration.language,
-            &configuration.property_sheet,
-            |injection_string| {
-                languages.values().find_map(|conf| {
-                    conf.injection_regex.as_ref().and_then(|regex| {
+            cancellation_flag,
+            move |injection_string| {
+                languages.values().find_map(|(injection_regex, config)| {
+                    injection_regex.as_ref().and_then(|regex| {
                         if regex.is_match(injection_string) {
-                            Some((conf.language, &conf.property_sheet))
+                            Some(config)
                         } else {
                             None
                         }
                     })
                 })
             },
-            cancellation_flag,
         );
 
-        if let Ok(highlighter) = highlighter {
-            output.0.reset();
-            let result = output.0.render(highlighter, source_code, &|s| {
-                self.attribute_strings[s as usize]
-            });
+        if let Ok(highlights) = highlights {
+            output.renderer.reset();
+            let result = output
+                .renderer
+                .render(highlights, source_code, &|s| self.attribute_strings[s.0]);
             match result {
                 Err(Error::Cancelled) => {
                     return ErrorCode::Timeout;
