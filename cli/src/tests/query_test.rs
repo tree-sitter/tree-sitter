@@ -761,6 +761,46 @@ fn test_query_captures_with_many_nested_results_with_fields() {
 }
 
 #[test]
+fn test_query_captures_ordered_by_both_start_and_end_positions() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            (call_expression) @call
+            (member_expression) @member
+            (identifier) @variable
+            "#,
+        )
+        .unwrap();
+
+        let source = "
+          a.b(c.d().e).f;
+        ";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+
+        let captures = cursor.captures(&query, tree.root_node(), to_callback(source));
+        assert_eq!(
+            collect_captures(captures, &query, source),
+            &[
+                ("member", "a.b(c.d().e).f"),
+                ("call", "a.b(c.d().e)"),
+                ("member", "a.b"),
+                ("variable", "a"),
+                ("member", "c.d().e"),
+                ("call", "c.d()"),
+                ("member", "c.d"),
+                ("variable", "c"),
+            ],
+        );
+    });
+}
+
+#[test]
 fn test_query_start_byte_for_pattern() {
     let language = get_language("javascript");
 
