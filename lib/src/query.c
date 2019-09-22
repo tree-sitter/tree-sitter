@@ -3,6 +3,7 @@
 #include "./array.h"
 #include "./bits.h"
 #include "./point.h"
+#include "./tree_cursor.h"
 #include "utf8proc.h"
 #include <wctype.h>
 
