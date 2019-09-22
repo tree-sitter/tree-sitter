@@ -738,7 +738,7 @@ const char *ts_query_string_value_for_id(
  *  You can then start executing another query on another node by calling
  *  `ts_query_cursor_exec` again.
  */
-TSQueryCursor *ts_query_cursor_new();
+TSQueryCursor *ts_query_cursor_new(void);
 
 /**
  * Delete a query cursor, freeing all of the memory that it used.
