@@ -104,11 +104,12 @@ let tree;
 
   async function handleCodeChange(editor, changes) {
     const newText = codeEditor.getValue() + '\n';
+    const edits = tree && changes && changes.map(treeEditForEditorChange);
 
     const start = performance.now();
-    if (tree && changes) {
-      for (const change of changes) {
-        tree.edit(treeEditForEditorChange(change));
+    if (edits) {
+      for (const edit of edits) {
+        tree.edit(edit);
       }
     }
     const newTree = parser.parse(newText, tree);
