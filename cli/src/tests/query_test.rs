@@ -56,23 +56,23 @@ fn test_query_errors_on_invalid_symbols() {
 
         assert_eq!(
             Query::new(language, "(clas)"),
-            Err(QueryError::NodeType("clas"))
+            Err(QueryError::NodeType("clas".to_string()))
         );
         assert_eq!(
             Query::new(language, "(if_statement (arrayyyyy))"),
-            Err(QueryError::NodeType("arrayyyyy"))
+            Err(QueryError::NodeType("arrayyyyy".to_string()))
         );
         assert_eq!(
             Query::new(language, "(if_statement condition: (non_existent3))"),
-            Err(QueryError::NodeType("non_existent3"))
+            Err(QueryError::NodeType("non_existent3".to_string()))
         );
         assert_eq!(
             Query::new(language, "(if_statement condit: (identifier))"),
-            Err(QueryError::Field("condit"))
+            Err(QueryError::Field("condit".to_string()))
         );
         assert_eq!(
             Query::new(language, "(if_statement conditioning: (identifier))"),
-            Err(QueryError::Field("conditioning"))
+            Err(QueryError::Field("conditioning".to_string()))
         );
     });
 }
@@ -96,7 +96,7 @@ fn test_query_errors_on_invalid_conditions() {
         );
         assert_eq!(
             Query::new(language, "((identifier) @id (eq? @id @ok))"),
-            Err(QueryError::Capture("ok"))
+            Err(QueryError::Capture("ok".to_string()))
         );
     });
 }
