@@ -1270,7 +1270,7 @@ impl QueryCursor {
     }
 
     pub fn matches<'a>(
-        &'a mut self,
+        &mut self,
         query: &'a Query,
         node: Node<'a>,
         mut text_callback: impl FnMut(Node<'a>) -> &[u8] + 'a,
@@ -1293,7 +1293,7 @@ impl QueryCursor {
     }
 
     pub fn captures<'a, T: AsRef<[u8]>>(
-        &'a mut self,
+        &mut self,
         query: &'a Query,
         node: Node<'a>,
         text_callback: impl FnMut(Node<'a>) -> T + 'a,
