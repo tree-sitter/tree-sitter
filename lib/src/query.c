@@ -789,7 +789,7 @@ TSQuery *ts_query_new(
   Stream stream = stream_new(source, source_len);
   stream_skip_whitespace(&stream);
   uint32_t start_step_index;
-  for (;;) {
+  while (stream.input < stream.end) {
     start_step_index = self->steps.size;
     uint32_t capture_count = 0;
     array_push(&self->start_bytes_by_pattern, stream.input - source);
@@ -824,8 +824,6 @@ TSQuery *ts_query_new(
     if (capture_count > self->max_capture_count) {
       self->max_capture_count = capture_count;
     }
-
-    if (stream.input == stream.end) break;
   }
 
   ts_query__finalize_steps(self);

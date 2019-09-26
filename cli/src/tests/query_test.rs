@@ -1030,6 +1030,16 @@ fn test_query_capture_names() {
 }
 
 #[test]
+fn test_query_with_no_patterns() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(language, "").unwrap();
+        assert!(query.capture_names().is_empty());
+        assert_eq!(query.pattern_count(), 0);
+    });
+}
+
+#[test]
 fn test_query_comments() {
     allocations::record(|| {
         let language = get_language("javascript");
