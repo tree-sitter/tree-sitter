@@ -36,7 +36,8 @@ typedef struct {
   TSSymbol symbol;
   TSFieldId field;
   uint16_t capture_id;
-  uint16_t depth;
+  uint16_t depth: 15;
+  bool contains_captures: 1;
 } QueryStep;
 
 /*
@@ -403,6 +404,23 @@ static inline void ts_query__pattern_map_insert(
   }));
 }
 
+static void ts_query__finalize_steps(TSQuery *self) {
+  for (unsigned i = 0; i < self->steps.size; i++) {
+    QueryStep *step = &self->steps.contents[i];
+    uint32_t depth = step->depth;
+    if (step->capture_id != NONE) {
+      step->contains_captures = true;
+    } else {
+      step->contains_captures = false;
+      for (unsigned j = i + 1; j < self->steps.size; j++) {
+        QueryStep *s = &self->steps.contents[j];
+        if (s->depth == PATTERN_DONE_MARKER || s->depth <= depth) break;
+        if (s->capture_id != NONE) step->contains_captures = true;
+      }
+    }
+  }
+}
+
 // Parse a single predicate associated with a pattern, adding it to the
 // query's internal `predicate_steps` array. Predicates are arbitrary
 // S-expressions associated with a pattern which are meant to be handled at
@@ -593,6 +611,7 @@ static TSQueryError ts_query_parse_pattern(
       .symbol = symbol,
       .field = 0,
       .capture_id = NONE,
+      .contains_captures = false,
     }));
 
     // Parse the child patterns
@@ -638,6 +657,7 @@ static TSQueryError ts_query_parse_pattern(
       .symbol = symbol,
       .field = 0,
       .capture_id = NONE,
+      .contains_captures = false,
     }));
 
     if (stream->next != '"') return TSQueryErrorSyntax;
@@ -688,6 +708,7 @@ static TSQueryError ts_query_parse_pattern(
       .depth = depth,
       .symbol = WILDCARD_SYMBOL,
       .field = 0,
+      .contains_captures = false,
     }));
   }
 
@@ -807,6 +828,7 @@ TSQuery *ts_query_new(
     if (stream.input == stream.end) break;
   }
 
+  ts_query__finalize_steps(self);
   return self;
 }
 
@@ -1147,11 +1169,15 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         // capturing different children. If this pattern step could match
         // later children within the same parent, then this query state
         // cannot simply be updated in place. It must be split into two
-        // states: one that captures this node, and one which skips over
-        // this node, to preserve the possibility of capturing later
+        // states: one that matches this node, and one which skips over
+        // this node, to preserve the possibility of matching later
         // siblings.
         QueryState *next_state = state;
-        if (step->depth > 0 && later_sibling_can_match) {
+        if (
+          step->depth > 0 &&
+          step->contains_captures &&
+          later_sibling_can_match
+        ) {
           LOG(
             "  split state. pattern:%u, step:%u\n",
             state->pattern_index,
