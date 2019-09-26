@@ -37,6 +37,7 @@ pub enum HighlightEvent {
 pub struct HighlightConfiguration {
     pub language: Language,
     pub query: Query,
+    injections_query: Query,
     locals_pattern_index: usize,
     highlights_pattern_index: usize,
     highlight_indices: Vec<Option<Highlight>>,
@@ -66,6 +67,7 @@ where
     source: &'a [u8],
     byte_offset: usize,
     context: &'a mut HighlightContext,
+    injections_cursor: QueryCursor,
     injection_callback: F,
     cancellation_flag: Option<&'a AtomicUsize>,
     layers: Vec<HighlightIterLayer<'a>>,
@@ -81,6 +83,7 @@ struct HighlightIterLayer<'a> {
     highlight_end_stack: Vec<usize>,
     scope_stack: Vec<LocalScope<'a>>,
     ranges: Vec<Range>,
+    depth: usize,
 }
 
 impl HighlightContext {
@@ -113,7 +116,14 @@ impl Highlighter {
         query_source.push_str(highlights_query);
 
         // Construct a query with the concatenated string.
-        let query = Query::new(language, &query_source)?;
+        let mut query = Query::new(language, &query_source)?;
+
+        let injections_query = Query::new(language, injection_query)?;
+        for injection_capture in injections_query.capture_names() {
+            if injection_capture != "injection.site" {
+                query.disable_capture(injection_capture);
+            }
+        }
 
         // Determine the range of pattern indices that belong to each section of the query.
         let mut locals_pattern_index = 0;
@@ -192,8 +202,9 @@ impl Highlighter {
         }
 
         Ok(HighlightConfiguration {
-            query,
             language,
+            query,
+            injections_query,
             locals_pattern_index,
             highlights_pattern_index,
             highlight_indices,
@@ -220,6 +231,7 @@ impl Highlighter {
             source,
             context,
             cancellation_flag,
+            0,
             vec![Range {
                 start_byte: 0,
                 end_byte: usize::MAX,
@@ -228,11 +240,14 @@ impl Highlighter {
             }],
         )?;
 
+        let injections_cursor = context.cursors.pop().unwrap_or(QueryCursor::new());
+
         Ok(HighlightIter {
             source,
             byte_offset: 0,
             injection_callback,
             cancellation_flag,
+            injections_cursor,
             context,
             iter_count: 0,
             layers: vec![layer],
@@ -247,6 +262,7 @@ impl<'a> HighlightIterLayer<'a> {
         source: &'a [u8],
         context: &mut HighlightContext,
         cancellation_flag: Option<&'a AtomicUsize>,
+        depth: usize,
         ranges: Vec<Range>,
     ) -> Result<Self, Error> {
         context
@@ -279,6 +295,7 @@ impl<'a> HighlightIterLayer<'a> {
                 local_defs: Vec::new(),
             }],
             cursor,
+            depth,
             _tree: tree,
             captures,
             config,
@@ -377,16 +394,25 @@ impl<'a> HighlightIterLayer<'a> {
         result
     }
 
-    fn offset(&mut self) -> Option<usize> {
+    // First, sort scope boundaries by their byte offset in the document. At a
+    // given position, emit scope endings before scope beginnings. Finally, emit
+    // scope boundaries from outer layers first.
+    fn sort_key(&mut self) -> Option<(usize, bool, usize)> {
         let next_start = self
             .captures
             .peek()
             .map(|(m, i)| m.captures[*i].node.start_byte());
         let next_end = self.highlight_end_stack.last().cloned();
         match (next_start, next_end) {
-            (Some(i), Some(j)) => Some(usize::min(i, j)),
-            (Some(i), None) => Some(i),
-            (None, Some(j)) => Some(j),
+            (Some(start), Some(end)) => {
+                if start < end {
+                    Some((start, true, self.depth))
+                } else {
+                    Some((end, false, self.depth))
+                }
+            }
+            (Some(i), None) => Some((i, true, self.depth)),
+            (None, Some(j)) => Some((j, false, self.depth)),
             _ => None,
         }
     }
@@ -417,11 +443,11 @@ where
     }
 
     fn sort_layers(&mut self) {
-        if let Some(offset) = self.layers[0].offset() {
+        if let Some(sort_key) = self.layers[0].sort_key() {
             let mut i = 0;
             while i + 1 < self.layers.len() {
-                if let Some(next_offset) = self.layers[i + 1].offset() {
-                    if next_offset < offset {
+                if let Some(next_offset) = self.layers[i + 1].sort_key() {
+                    if next_offset < sort_key {
                         i += 1;
                         continue;
                     }
@@ -429,12 +455,25 @@ where
                 break;
             }
             if i > 0 {
-                &self.layers[0..(i + 1)].rotate_left(i);
+                &self.layers[0..(i + 1)].rotate_left(1);
             }
         } else {
             let layer = self.layers.remove(0);
             self.context.cursors.push(layer.cursor);
         }
+    }
+
+    fn insert_layer(&mut self, mut layer: HighlightIterLayer<'a>) {
+        let sort_key = layer.sort_key();
+        let mut i = 1;
+        while i < self.layers.len() {
+            if self.layers[i].sort_key() > sort_key {
+                self.layers.insert(i, layer);
+                return;
+            }
+            i += 1;
+        }
+        self.layers.push(layer);
     }
 }
 
@@ -516,88 +555,112 @@ where
                 let content_capture_index = layer.config.injection_content_capture_index;
                 let language_capture_index = layer.config.injection_language_capture_index;
 
-                // Find the language name and the node that represents the injection content.
-                let mut injection_site = None;
-                let mut injection_language = None;
-                let mut injection_contents = Vec::new();
-                for capture in match_.captures {
-                    let index = Some(capture.index);
-                    if index == site_capture_index {
-                        injection_site = Some(capture.node);
-                    } else if index == language_capture_index {
-                        injection_language = capture.node.utf8_text(self.source).ok();
-                    } else if index == content_capture_index {
-                        injection_contents.push(capture.node);
+                // Injections must have a `injection.site` capture, which contains all of the
+                // information about the injection.
+                let site_node = match_.captures.iter().find_map(|c| {
+                    if Some(c.index) == site_capture_index {
+                        return Some(c.node);
+                    } else {
+                        return None;
                     }
-                }
+                });
 
-                // In addition to specifying the language name via the text of a captured node,
-                // it can also be hard-coded via a `(set! injection.language <language>)`
-                // predicate.
-                if injection_language.is_none() {
-                    injection_language = layer
-                        .config
-                        .query
-                        .property_settings(pattern_index)
-                        .iter()
-                        .find_map(|prop| {
-                            if prop.key.as_ref() == "injection.language" {
-                                prop.value.as_ref().map(|s| s.as_ref())
-                            } else {
-                                None
-                            }
-                        });
-                }
-
-                // For injections, we process entire matches at once, as opposed to processing
-                // each capture separately, interspersed with captures form other patterns.
                 // Explicitly remove this match so that none of its other captures will remain
                 // in the stream of captures.
                 layer.captures.next().unwrap().0.remove();
 
-                // If an `injection.site` was captured, then find any subsequent matches
-                // with the same pattern and `injection.site` capture. Those matches should
-                // all be combined into this match. This allows you to specify that a single
-                // injected document spans multiple 'content' nodes.
-                if let Some(injection_site) = injection_site {
+                if let Some(site_node) = site_node {
+                    // Discard any subsequent matches for same injection site.
                     while let Some((next_match, _)) = layer.captures.peek() {
-                        if next_match.pattern_index == pattern_index
-                            && next_match.captures.iter().any(|c| {
-                                Some(c.index) == site_capture_index && c.node == injection_site
-                            })
+                        if next_match.pattern_index < layer.config.locals_pattern_index
+                            && next_match
+                                .captures
+                                .iter()
+                                .any(|c| Some(c.index) == site_capture_index && c.node == site_node)
                         {
-                            injection_contents.extend(next_match.captures.iter().filter_map(|c| {
-                                if Some(c.index) == content_capture_index {
-                                    Some(c.node)
-                                } else {
-                                    None
-                                }
-                            }));
                             layer.captures.next().unwrap().0.remove();
                             continue;
                         }
                         break;
                     }
-                }
 
-                // If a language is found with the given name, then add a new language layer
-                // to the highlighted document.
-                if let Some(config) = injection_language.and_then(&self.injection_callback) {
-                    if !injection_contents.is_empty() {
-                        match HighlightIterLayer::new(
-                            config,
-                            self.source,
-                            self.context,
-                            self.cancellation_flag,
-                            layer.intersect_ranges(&injection_contents, false),
-                        ) {
-                            Ok(layer) => self.layers.push(layer),
-                            Err(e) => return Some(Err(e)),
+                    // Find the language name and the nodes that represents the injection content.
+                    // Use a separate Query and QueryCursor in order to avoid the injection
+                    // captures being intermixed with other captures related to local variables
+                    // and syntax highlighting.
+                    let source = self.source;
+                    let mut injections = Vec::<(usize, Option<&str>, Vec<Node>)>::new();
+                    for mat in self.injections_cursor.matches(
+                        &layer.config.injections_query,
+                        site_node,
+                        move |node| &source[node.byte_range()],
+                    ) {
+                        let entry = if let Some(entry) =
+                            injections.iter_mut().find(|e| e.0 == mat.pattern_index)
+                        {
+                            entry
+                        } else {
+                            injections.push((mat.pattern_index, None, Vec::new()));
+                            injections.last_mut().unwrap()
+                        };
+
+                        for capture in mat.captures {
+                            let index = Some(capture.index);
+                            if index == site_capture_index {
+                                if capture.node != site_node {
+                                    break;
+                                }
+                            } else if index == language_capture_index && entry.1.is_none() {
+                                entry.1 = capture.node.utf8_text(self.source).ok();
+                            } else if index == content_capture_index {
+                                entry.2.push(capture.node);
+                            }
                         }
                     }
+
+                    for (pattern_index, language, _) in injections.iter_mut() {
+                        // In addition to specifying the language name via the text of a captured node,
+                        // it can also be hard-coded via a `(set! injection.language <language>)`
+                        // predicate.
+                        if language.is_none() {
+                            *language = layer
+                                .config
+                                .query
+                                .property_settings(*pattern_index)
+                                .iter()
+                                .find_map(|prop| {
+                                    if prop.key.as_ref() == "injection.language" {
+                                        prop.value.as_ref().map(|s| s.as_ref())
+                                    } else {
+                                        None
+                                    }
+                                });
+                        }
+                    }
+
+                    for (_, language, content_nodes) in injections {
+                        // If a language is found with the given name, then add a new language layer
+                        // to the highlighted document.
+                        if let Some(config) = language.and_then(&self.injection_callback) {
+                            if !content_nodes.is_empty() {
+                                match HighlightIterLayer::new(
+                                    config,
+                                    self.source,
+                                    self.context,
+                                    self.cancellation_flag,
+                                    self.layers[0].depth + 1,
+                                    self.layers[0].intersect_ranges(&content_nodes, false),
+                                ) {
+                                    Ok(layer) => self.insert_layer(layer),
+                                    Err(e) => return Some(Err(e)),
+                                }
+                            }
+                        }
+                    }
+
+                    self.sort_layers();
                 }
 
-                self.sort_layers();
                 continue;
             }
 
@@ -685,6 +748,7 @@ where
                     if next_capture.node == capture.node {
                         capture = next_capture;
                         has_highlight = true;
+                        pattern_index = next_match.pattern_index;
                         layer.captures.next();
                         continue;
                     }

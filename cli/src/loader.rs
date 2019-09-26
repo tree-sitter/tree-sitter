@@ -28,6 +28,9 @@ pub struct LanguageConfiguration {
     pub injection_regex: Option<Regex>,
     pub file_types: Vec<String>,
     pub root_path: PathBuf,
+    pub highlights_filename: Option<String>,
+    pub injections_filename: Option<String>,
+    pub locals_filename: Option<String>,
     language_id: usize,
     highlight_config: OnceCell<Option<HighlightConfiguration>>,
 }
@@ -354,6 +357,8 @@ impl Loader {
             #[serde(rename = "injection-regex")]
             injection_regex: Option<String>,
             highlights: Option<String>,
+            injections: Option<String>,
+            locals: Option<String>,
         }
 
         #[derive(Deserialize)]
@@ -406,6 +411,9 @@ impl Loader {
                             .injection_regex
                             .and_then(|r| RegexBuilder::new(&r).multi_line(true).build().ok()),
                         highlight_config: OnceCell::new(),
+                        injections_filename: config_json.injections,
+                        locals_filename: config_json.locals,
+                        highlights_filename: config_json.highlights,
                     };
 
                     for file_type in &configuration.file_types {
@@ -423,16 +431,10 @@ impl Loader {
         if self.language_configurations.len() == initial_language_configuration_count
             && parser_path.join("src").join("grammar.json").exists()
         {
-            self.language_configurations.push(LanguageConfiguration {
-                root_path: parser_path.to_owned(),
-                language_id: self.languages_by_id.len(),
-                scope: None,
-                content_regex: None,
-                injection_regex: None,
-                file_types: Vec::new(),
-                _first_line_regex: None,
-                highlight_config: OnceCell::new(),
-            });
+            let mut configuration = LanguageConfiguration::default();
+            configuration.root_path = parser_path.to_owned();
+            configuration.language_id = self.languages_by_id.len();
+            self.language_configurations.push(configuration);
             self.languages_by_id
                 .push((parser_path.to_owned(), OnceCell::new()));
         }
@@ -451,9 +453,21 @@ impl LanguageConfiguration {
             .get_or_try_init(|| {
                 let queries_path = self.root_path.join("queries");
 
-                let highlights_path = queries_path.join("highlights.scm");
-                let injections_path = queries_path.join("injections.scm");
-                let locals_path = queries_path.join("locals.scm");
+                let highlights_path = queries_path.join(
+                    self.highlights_filename
+                        .as_ref()
+                        .map_or("highlights.scm", String::as_str),
+                );
+                let injections_path = queries_path.join(
+                    self.injections_filename
+                        .as_ref()
+                        .map_or("injections.scm", String::as_str),
+                );
+                let locals_path = queries_path.join(
+                    self.locals_filename
+                        .as_ref()
+                        .map_or("locals.scm", String::as_str),
+                );
 
                 if !highlights_path.exists() {
                     return Ok(None);
@@ -471,12 +485,18 @@ impl LanguageConfiguration {
                     String::new()
                 };
 
-                Ok(Some(highlighter.load_configuration(
-                    language,
-                    &highlights_query,
-                    &injections_query,
-                    &locals_query,
-                )?))
+                Ok(Some(
+                    highlighter
+                        .load_configuration(
+                            language,
+                            &highlights_query,
+                            &injections_query,
+                            &locals_query,
+                        )
+                        .map_err(Error::wrap(|| {
+                            format!("Failed to load queries in {:?}", queries_path)
+                        }))?,
+                ))
             })
             .map(Option::as_ref)
     }

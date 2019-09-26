@@ -352,6 +352,7 @@ pub fn html(
         }
     })?;
 
+    write!(&mut stdout, "<table>\n")?;
     for (i, line) in renderer.lines().enumerate() {
         write!(
             &mut stdout,
