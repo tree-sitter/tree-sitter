@@ -656,6 +656,16 @@ extern "C" {
     ) -> *const ::std::os::raw::c_char;
 }
 extern "C" {
+    #[doc = " Disable a certain capture within a query. This prevents the capture"]
+    #[doc = " from being returned in matches, and also avoids any resource usage"]
+    #[doc = " associated with recording the capture."]
+    pub fn ts_query_disable_capture(
+        arg1: *mut TSQuery,
+        arg2: *const ::std::os::raw::c_char,
+        arg3: u32,
+    );
+}
+extern "C" {
     #[doc = " Create a new cursor for executing a given query."]
     #[doc = ""]
     #[doc = " The cursor stores the state that is needed to iteratively search"]

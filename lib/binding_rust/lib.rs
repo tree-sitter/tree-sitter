@@ -1202,6 +1202,16 @@ impl Query {
         &self.property_settings[index]
     }
 
+    pub fn disable_capture(&mut self, name: &str) {
+        unsafe {
+            ffi::ts_query_disable_capture(
+                self.ptr.as_ptr(),
+                name.as_bytes().as_ptr() as *const c_char,
+                name.len() as u32,
+            );
+        }
+    }
+
     fn parse_property(
         function_name: &str,
         capture_names: &[String],

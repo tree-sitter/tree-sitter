@@ -889,6 +889,23 @@ uint32_t ts_query_start_byte_for_pattern(
   return self->start_bytes_by_pattern.contents[pattern_index];
 }
 
+void ts_query_disable_capture(
+  TSQuery *self,
+  const char *name,
+  uint32_t length
+) {
+  int id = symbol_table_id_for_name(&self->captures, name, length);
+  if (id != -1) {
+    for (unsigned i = 0; i < self->steps.size; i++) {
+      QueryStep *step = &self->steps.contents[i];
+      if (step->capture_id == id) {
+        step->capture_id = NONE;
+      }
+    }
+  }
+  ts_query__finalize_steps(self);
+}
+
 /***************
  * QueryCursor
  ***************/
@@ -1020,7 +1037,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
       } else if (ts_tree_cursor_goto_parent(&self->cursor)) {
         self->depth--;
       } else {
-        return false;
+        return self->finished_states.size > 0;
       }
     } else {
       bool can_have_later_siblings;
@@ -1214,7 +1231,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         next_state->step_index++;
         QueryStep *next_step = step + 1;
         if (next_step->depth == PATTERN_DONE_MARKER) {
-          LOG("finish pattern %u\n", next_state->pattern_index);
+          LOG("  finish pattern %u\n", next_state->pattern_index);
 
           next_state->id = self->next_state_id++;
           array_push(&self->finished_states, *next_state);
