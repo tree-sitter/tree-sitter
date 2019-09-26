@@ -186,7 +186,7 @@ pub struct QueryCapture<'a> {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum QueryError {
-    Syntax(usize),
+    Syntax(String),
     NodeType(String),
     Field(String),
     Capture(String),
@@ -997,6 +997,24 @@ impl Query {
         // On failure, build an error based on the error code and offset.
         if ptr.is_null() {
             let offset = error_offset as usize;
+            let mut line_start = 0;
+            let line_containing_error = source.split("\n").find_map(|line| {
+                let line_end = line_start + line.len() + 1;
+                if line_end > offset {
+                    Some(line)
+                } else {
+                    line_start = line_end;
+                    None
+                }
+            });
+
+            let message = if let Some(line) = line_containing_error {
+                line.to_string() + "\n" + &" ".repeat(offset - line_start) + "^"
+            } else {
+                "Unexpected EOF".to_string()
+            };
+
+            // if line_containing_error
             return if error_type != ffi::TSQueryError_TSQueryErrorSyntax {
                 let suffix = source.split_at(offset).1;
                 let end_offset = suffix
@@ -1007,10 +1025,10 @@ impl Query {
                     ffi::TSQueryError_TSQueryErrorNodeType => Err(QueryError::NodeType(name)),
                     ffi::TSQueryError_TSQueryErrorField => Err(QueryError::Field(name)),
                     ffi::TSQueryError_TSQueryErrorCapture => Err(QueryError::Capture(name)),
-                    _ => Err(QueryError::Syntax(offset)),
+                    _ => Err(QueryError::Syntax(message)),
                 }
             } else {
-                Err(QueryError::Syntax(offset))
+                Err(QueryError::Syntax(message))
             };
         }
 
