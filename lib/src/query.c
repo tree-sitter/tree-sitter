@@ -732,7 +732,7 @@ TSQuery *ts_query_new(
   TSSymbol *symbol_map = ts_malloc(sizeof(TSSymbol) * symbol_count);
   for (unsigned i = 0; i < symbol_count; i++) {
     const char *name = ts_language_symbol_name(language, i);
-    const char symbol_type = ts_language_symbol_type(language, i);
+    const TSSymbolType symbol_type = ts_language_symbol_type(language, i);
 
     symbol_map[i] = i;
     for (unsigned j = 0; j < i; j++) {
