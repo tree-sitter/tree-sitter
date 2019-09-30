@@ -914,6 +914,49 @@ fn test_query_captures_with_matches_removed() {
 }
 
 #[test]
+fn test_query_captures_and_matches_iterators_are_fused() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            (comment) @comment
+            "#,
+        )
+        .unwrap();
+
+        let source = "
+          // one
+          // two
+          // three
+          /* unfinished
+        ";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let mut captures = cursor.captures(&query, tree.root_node(), to_callback(source));
+
+        assert_eq!(captures.next().unwrap().0.captures[0].index, 0);
+        assert_eq!(captures.next().unwrap().0.captures[0].index, 0);
+        assert_eq!(captures.next().unwrap().0.captures[0].index, 0);
+        assert!(captures.next().is_none());
+        assert!(captures.next().is_none());
+        assert!(captures.next().is_none());
+        drop(captures);
+
+        let mut matches = cursor.matches(&query, tree.root_node(), to_callback(source));
+        assert_eq!(matches.next().unwrap().captures[0].index, 0);
+        assert_eq!(matches.next().unwrap().captures[0].index, 0);
+        assert_eq!(matches.next().unwrap().captures[0].index, 0);
+        assert!(matches.next().is_none());
+        assert!(matches.next().is_none());
+        assert!(matches.next().is_none());
+    });
+}
+
+#[test]
 fn test_query_start_byte_for_pattern() {
     let language = get_language("javascript");
 
