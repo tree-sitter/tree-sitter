@@ -38,6 +38,7 @@ Parsers for these languages are fairly complete:
 * [Java](https://github.com/tree-sitter/tree-sitter-java)
 * [JavaScript](https://github.com/tree-sitter/tree-sitter-javascript)
 * [Lua](https://github.com/Azganoth/tree-sitter-lua)
+* [Markdown](https://github.com/ikatyang/tree-sitter-markdown)
 * [OCaml](https://github.com/tree-sitter/tree-sitter-ocaml)
 * [PHP](https://github.com/tree-sitter/tree-sitter-php)
 * [Python](https://github.com/tree-sitter/tree-sitter-python)
