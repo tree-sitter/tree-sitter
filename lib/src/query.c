@@ -1006,7 +1006,10 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         &can_have_later_siblings_with_this_field
       );
       TSNode node = ts_tree_cursor_current_node(&self->cursor);
-      TSSymbol symbol = self->query->symbol_map[ts_node_symbol(node)];
+      TSSymbol symbol = ts_node_symbol(node);
+      if (symbol != ts_builtin_sym_error) {
+        symbol = self->query->symbol_map[symbol];
+      }
 
       // If this node is before the selected range, then avoid descending
       // into it.
