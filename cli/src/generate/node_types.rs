@@ -521,11 +521,19 @@ pub(crate) fn generate_node_types_json(
     for variable in &syntax_grammar.variables {
         for production in &variable.productions {
             for step in &production.steps {
-                aliases_by_symbol.entry(step.symbol).or_insert(HashSet::new()).insert(step.alias.clone());
+                if !simple_aliases.contains_key(&step.symbol) {
+                    aliases_by_symbol
+                        .entry(step.symbol)
+                        .or_insert(HashSet::new())
+                        .insert(step.alias.clone());
+                }
             }
         }
     }
-    aliases_by_symbol.insert(Symbol::non_terminal(0), [None].into_iter().cloned().collect());
+    aliases_by_symbol.insert(
+        Symbol::non_terminal(0),
+        [None].into_iter().cloned().collect(),
+    );
 
     for (i, info) in variable_info.iter().enumerate() {
         let symbol = Symbol::non_terminal(i);
@@ -552,7 +560,10 @@ pub(crate) fn generate_node_types_json(
         } else if variable.kind.is_visible()
             && !syntax_grammar.variables_to_inline.contains(&symbol)
         {
-            for alias in aliases_by_symbol.get(&Symbol::non_terminal(i)).unwrap_or(&HashSet::new()) {
+            for alias in aliases_by_symbol
+                .get(&Symbol::non_terminal(i))
+                .unwrap_or(&HashSet::new())
+            {
                 let kind;
                 let is_named;
                 if let Some(alias) = alias {
@@ -575,11 +586,12 @@ pub(crate) fn generate_node_types_json(
                         });
                 let mut fields_json = BTreeMap::new();
                 for (field, field_info) in info.fields.iter() {
-                    let field_info_json = fields_json.entry(field.clone()).or_insert(FieldInfoJSON {
-                        multiple: false,
-                        required: true,
-                        types: Vec::new(),
-                    });
+                    let field_info_json =
+                        fields_json.entry(field.clone()).or_insert(FieldInfoJSON {
+                            multiple: false,
+                            required: true,
+                            types: Vec::new(),
+                        });
 
                     field_info_json.multiple |= field_info.multiple;
                     field_info_json.required &= field_info.required;
@@ -612,7 +624,10 @@ pub(crate) fn generate_node_types_json(
     let mut result = node_types_json.into_iter().map(|e| e.1).collect::<Vec<_>>();
 
     for (i, variable) in lexical_grammar.variables.iter().enumerate() {
-        for alias in aliases_by_symbol.get(&Symbol::terminal(i)).unwrap_or(&HashSet::new()) {
+        for alias in aliases_by_symbol
+            .get(&Symbol::terminal(i))
+            .unwrap_or(&HashSet::new())
+        {
             let kind;
             let is_named;
             if let Some(alias) = alias {
@@ -644,7 +659,9 @@ pub(crate) fn generate_node_types_json(
     }
 
     result.sort_unstable_by(|a, b| {
-        b.subtypes.is_some().cmp(&a.subtypes.is_some())
+        b.subtypes
+            .is_some()
+            .cmp(&a.subtypes.is_some())
             .then_with(|| {
                 let a_is_leaf = a.children.is_none() && a.fields.is_none();
                 let b_is_leaf = b.children.is_none() && b.fields.is_none();
@@ -950,16 +967,17 @@ mod tests {
                 Variable {
                     name: "thing".to_string(),
                     kind: VariableType::Named,
-                    rule: Rule::choice(vec![
-                        Rule::named("type"),
-                        Rule::named("expression"),
-                    ]),
+                    rule: Rule::choice(vec![Rule::named("type"), Rule::named("expression")]),
                 },
                 Variable {
                     name: "type".to_string(),
                     kind: VariableType::Named,
                     rule: Rule::choice(vec![
-                        Rule::alias(Rule::named("identifier"), "type_identifier".to_string(), true),
+                        Rule::alias(
+                            Rule::named("identifier"),
+                            "type_identifier".to_string(),
+                            true,
+                        ),
                         Rule::string("void"),
                     ]),
                 },
@@ -968,6 +986,11 @@ mod tests {
                     kind: VariableType::Named,
                     rule: Rule::choice(vec![
                         Rule::named("identifier"),
+                        Rule::alias(
+                            Rule::named("foo_identifier"),
+                            "identifier".to_string(),
+                            true,
+                        ),
                     ]),
                 },
                 Variable {
@@ -975,9 +998,15 @@ mod tests {
                     kind: VariableType::Named,
                     rule: Rule::pattern("\\w+"),
                 },
+                Variable {
+                    name: "foo_identifier".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::pattern("[\\w-]+"),
+                },
             ],
         });
 
+        assert_eq!(node_types.iter().find(|t| t.kind == "foo_identifier"), None);
         assert_eq!(
             node_types.iter().find(|t| t.kind == "identifier"),
             Some(&NodeInfoJSON {
