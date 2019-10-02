@@ -5,7 +5,7 @@ use super::grammars::{
 use super::rules::{Alias, AliasMap, Symbol, SymbolType};
 use crate::error::{Error, Result};
 use serde_derive::Serialize;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::mem;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -29,7 +29,7 @@ pub(crate) struct VariableInfo {
     pub has_multi_step_production: bool,
 }
 
-#[derive(Debug, Serialize, PartialEq, Eq, Default)]
+#[derive(Debug, Serialize, PartialEq, Eq, Default, PartialOrd, Ord)]
 pub(crate) struct NodeInfoJSON {
     #[serde(rename = "type")]
     kind: String,
@@ -49,7 +49,7 @@ pub(crate) struct NodeTypeJSON {
     named: bool,
 }
 
-#[derive(Debug, Serialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct FieldInfoJSON {
     multiple: bool,
     required: bool,
@@ -309,8 +309,8 @@ pub(crate) fn get_variable_info(
         let mut variable_info = VariableInfo::default();
         mem::swap(&mut variable_info, &mut result[i]);
 
-        // For each field, make the `types` list more concise by replacing sets of
-        // subtypes with a single supertype.
+        // For each named field, make the `types` list more concise by replacing sets of
+        // subtypes with a single supertype. Also remove any hidden node types.
         for (_, field_info) in variable_info.fields.iter_mut() {
             for supertype_symbol in &syntax_grammar.supertype_symbols {
                 sorted_vec_replace(
@@ -319,10 +319,10 @@ pub(crate) fn get_variable_info(
                     ChildType::Normal(*supertype_symbol),
                 );
             }
-
             field_info.types.retain(child_type_is_visible);
         }
 
+        // Do the same thing for the children without fields.
         for supertype_symbol in &syntax_grammar.supertype_symbols {
             sorted_vec_replace(
                 &mut variable_info.children_without_fields.types,
@@ -330,7 +330,6 @@ pub(crate) fn get_variable_info(
                 ChildType::Normal(*supertype_symbol),
             );
         }
-
         variable_info
             .children_without_fields
             .types
@@ -511,19 +510,32 @@ pub(crate) fn generate_node_types_json(
         }
     };
 
+    let mut aliases_by_symbol = HashMap::new();
+    for (symbol, alias) in simple_aliases {
+        aliases_by_symbol.insert(*symbol, {
+            let mut aliases = HashSet::new();
+            aliases.insert(Some(alias.clone()));
+            aliases
+        });
+    }
+    for variable in &syntax_grammar.variables {
+        for production in &variable.productions {
+            for step in &production.steps {
+                aliases_by_symbol.entry(step.symbol).or_insert(HashSet::new()).insert(step.alias.clone());
+            }
+        }
+    }
+    aliases_by_symbol.insert(Symbol::non_terminal(0), [None].into_iter().cloned().collect());
+
     for (i, info) in variable_info.iter().enumerate() {
         let symbol = Symbol::non_terminal(i);
         let variable = &syntax_grammar.variables[i];
-        let name = simple_aliases
-            .get(&Symbol::non_terminal(i))
-            .map_or(&variable.name, |alias| &alias.value);
-
         if syntax_grammar.supertype_symbols.contains(&symbol) {
             let node_type_json =
                 node_types_json
-                    .entry(name.clone())
+                    .entry(variable.name.clone())
                     .or_insert_with(|| NodeInfoJSON {
-                        kind: name.clone(),
+                        kind: variable.name.clone(),
                         named: true,
                         fields: None,
                         children: None,
@@ -540,73 +552,107 @@ pub(crate) fn generate_node_types_json(
         } else if variable.kind.is_visible()
             && !syntax_grammar.variables_to_inline.contains(&symbol)
         {
-            let node_type_json =
-                node_types_json
-                    .entry(name.clone())
-                    .or_insert_with(|| NodeInfoJSON {
-                        kind: name.clone(),
-                        named: true,
-                        fields: None,
-                        children: None,
-                        subtypes: None,
-                    });
-            let mut fields_json = BTreeMap::new();
-            for (field, field_info) in info.fields.iter() {
-                let field_info_json = fields_json.entry(field.clone()).or_insert(FieldInfoJSON {
-                    multiple: false,
-                    required: true,
-                    types: Vec::new(),
-                });
+            for alias in aliases_by_symbol.get(&Symbol::non_terminal(i)).unwrap_or(&HashSet::new()) {
+                let kind;
+                let is_named;
+                if let Some(alias) = alias {
+                    kind = &alias.value;
+                    is_named = alias.is_named;
+                } else {
+                    kind = &variable.name;
+                    is_named = variable.kind == VariableType::Named;
+                }
 
-                field_info_json.multiple |= field_info.multiple;
-                field_info_json.required &= field_info.required;
-                field_info_json
+                let node_type_json =
+                    node_types_json
+                        .entry(kind.clone())
+                        .or_insert_with(|| NodeInfoJSON {
+                            kind: kind.clone(),
+                            named: is_named,
+                            fields: None,
+                            children: None,
+                            subtypes: None,
+                        });
+                let mut fields_json = BTreeMap::new();
+                for (field, field_info) in info.fields.iter() {
+                    let field_info_json = fields_json.entry(field.clone()).or_insert(FieldInfoJSON {
+                        multiple: false,
+                        required: true,
+                        types: Vec::new(),
+                    });
+
+                    field_info_json.multiple |= field_info.multiple;
+                    field_info_json.required &= field_info.required;
+                    field_info_json
+                        .types
+                        .extend(field_info.types.iter().map(child_type_to_node_type));
+                    field_info_json.types.sort_unstable();
+                    field_info_json.types.dedup();
+                }
+                node_type_json.fields = Some(fields_json);
+                let mut children_types = info
+                    .children_without_fields
                     .types
-                    .extend(field_info.types.iter().map(child_type_to_node_type));
-                field_info_json.types.sort_unstable();
-                field_info_json.types.dedup();
-            }
-            node_type_json.fields = Some(fields_json);
-            let mut children_types = info
-                .children_without_fields
-                .types
-                .iter()
-                .map(child_type_to_node_type)
-                .collect::<Vec<_>>();
-            if children_types.len() > 0 {
-                children_types.sort_unstable();
-                children_types.dedup();
-                node_type_json.children = Some(FieldInfoJSON {
-                    multiple: info.children_without_fields.multiple,
-                    required: info.children_without_fields.required,
-                    types: children_types,
-                });
+                    .iter()
+                    .map(child_type_to_node_type)
+                    .collect::<Vec<_>>();
+                if children_types.len() > 0 {
+                    children_types.sort_unstable();
+                    children_types.dedup();
+                    node_type_json.children = Some(FieldInfoJSON {
+                        multiple: info.children_without_fields.multiple,
+                        required: info.children_without_fields.required,
+                        types: children_types,
+                    });
+                }
             }
         }
     }
 
     let mut result = node_types_json.into_iter().map(|e| e.1).collect::<Vec<_>>();
 
-    for variable in &lexical_grammar.variables {
-        if variable.kind == VariableType::Named {
-            result.push(NodeInfoJSON {
-                kind: variable.name.clone(),
-                named: true,
-                fields: None,
-                children: None,
-                subtypes: None,
-            });
-        } else if variable.kind == VariableType::Anonymous {
-            result.push(NodeInfoJSON {
-                kind: variable.name.clone(),
-                named: false,
-                fields: None,
-                children: None,
-                subtypes: None,
-            });
+    for (i, variable) in lexical_grammar.variables.iter().enumerate() {
+        for alias in aliases_by_symbol.get(&Symbol::terminal(i)).unwrap_or(&HashSet::new()) {
+            let kind;
+            let is_named;
+            if let Some(alias) = alias {
+                kind = &alias.value;
+                is_named = alias.is_named;
+            } else {
+                kind = &variable.name;
+                is_named = variable.kind == VariableType::Named;
+            }
+
+            if variable.kind == VariableType::Named {
+                result.push(NodeInfoJSON {
+                    kind: kind.clone(),
+                    named: is_named,
+                    fields: None,
+                    children: None,
+                    subtypes: None,
+                });
+            } else if variable.kind == VariableType::Anonymous {
+                result.push(NodeInfoJSON {
+                    kind: kind.clone(),
+                    named: is_named,
+                    fields: None,
+                    children: None,
+                    subtypes: None,
+                });
+            }
         }
     }
 
+    result.sort_unstable_by(|a, b| {
+        b.subtypes.is_some().cmp(&a.subtypes.is_some())
+            .then_with(|| {
+                let a_is_leaf = a.children.is_none() && a.fields.is_none();
+                let b_is_leaf = b.children.is_none() && b.fields.is_none();
+                a_is_leaf.cmp(&b_is_leaf)
+            })
+            .then_with(|| a.kind.cmp(&b.kind))
+    });
+    result.dedup();
     result
 }
 
@@ -887,6 +933,70 @@ mod tests {
                 }),
                 fields: Some(BTreeMap::new()),
             }
+        );
+    }
+
+    #[test]
+    fn test_node_types_for_aliased_nodes() {
+        let node_types = get_node_types(InputGrammar {
+            name: String::new(),
+            extra_tokens: Vec::new(),
+            external_tokens: Vec::new(),
+            expected_conflicts: Vec::new(),
+            variables_to_inline: Vec::new(),
+            word_token: None,
+            supertype_symbols: vec![],
+            variables: vec![
+                Variable {
+                    name: "thing".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::choice(vec![
+                        Rule::named("type"),
+                        Rule::named("expression"),
+                    ]),
+                },
+                Variable {
+                    name: "type".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::choice(vec![
+                        Rule::alias(Rule::named("identifier"), "type_identifier".to_string(), true),
+                        Rule::string("void"),
+                    ]),
+                },
+                Variable {
+                    name: "expression".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::choice(vec![
+                        Rule::named("identifier"),
+                    ]),
+                },
+                Variable {
+                    name: "identifier".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::pattern("\\w+"),
+                },
+            ],
+        });
+
+        assert_eq!(
+            node_types.iter().find(|t| t.kind == "identifier"),
+            Some(&NodeInfoJSON {
+                kind: "identifier".to_string(),
+                named: true,
+                subtypes: None,
+                children: None,
+                fields: None,
+            })
+        );
+        assert_eq!(
+            node_types.iter().find(|t| t.kind == "type_identifier"),
+            Some(&NodeInfoJSON {
+                kind: "type_identifier".to_string(),
+                named: true,
+                subtypes: None,
+                children: None,
+                fields: None,
+            })
         );
     }
 
