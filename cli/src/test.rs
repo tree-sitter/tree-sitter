@@ -248,8 +248,8 @@ fn format_sexp(sexp: &String) -> String {
             let mut c_iter = s.chars();
             c_iter.next();
             let second_char = c_iter.next().unwrap();
-            if second_char == 'M' {
-                // "(MISSING node_name"
+            if second_char == 'M' || second_char == 'U' {
+                // "(MISSING node_name" or "(UNEXPECTED 'x'"
                 let s = s_iter.next().unwrap();
                 write!(formatted, " {}", s).unwrap();
             }
