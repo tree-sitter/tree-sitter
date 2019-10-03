@@ -702,6 +702,9 @@ extern "C" {
     pub fn ts_query_cursor_next_match(arg1: *mut TSQueryCursor, match_: *mut TSQueryMatch) -> bool;
 }
 extern "C" {
+    pub fn ts_query_cursor_remove_match(arg1: *mut TSQueryCursor, id: u32);
+}
+extern "C" {
     #[doc = " Advance to the next capture of the currently running query."]
     #[doc = ""]
     #[doc = " If there is a capture, write its match to `*match` and its index within"]

@@ -875,6 +875,45 @@ fn test_query_captures_ordered_by_both_start_and_end_positions() {
 }
 
 #[test]
+fn test_query_captures_with_matches_removed() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            (binary_expression
+                left: (identifier) @left
+                operator: * @op
+                right: (identifier) @right)
+            "#,
+        )
+        .unwrap();
+
+        let source = "
+          a === b && c > d && e < f;
+        ";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+
+        let mut captured_strings = Vec::new();
+        for (m, i) in cursor.captures(&query, tree.root_node(), to_callback(source)) {
+            let capture = m.captures[i];
+            let text = capture.node.utf8_text(source.as_bytes()).unwrap();
+            if text == "a" {
+                m.remove();
+                continue;
+            }
+            captured_strings.push(text);
+        }
+
+        assert_eq!(captured_strings, &["c", ">", "d", "e", "<", "f",]);
+    });
+}
+
+#[test]
 fn test_query_start_byte_for_pattern() {
     let language = get_language("javascript");
 
@@ -985,22 +1024,30 @@ fn collect_matches<'a>(
         .map(|m| {
             (
                 m.pattern_index,
-                collect_captures(m.captures().map(|c| (m.pattern_index, c)), query, source),
+                format_captures(m.captures.iter().cloned(), query, source),
             )
         })
         .collect()
 }
 
-fn collect_captures<'a, 'b>(
-    captures: impl Iterator<Item = (usize, QueryCapture<'a>)>,
-    query: &'b Query,
-    source: &'b str,
-) -> Vec<(&'b str, &'b str)> {
+fn collect_captures<'a>(
+    captures: impl Iterator<Item = (QueryMatch<'a>, usize)>,
+    query: &'a Query,
+    source: &'a str,
+) -> Vec<(&'a str, &'a str)> {
+    format_captures(captures.map(|(m, i)| m.captures[i]), query, source)
+}
+
+fn format_captures<'a>(
+    captures: impl Iterator<Item = QueryCapture<'a>>,
+    query: &'a Query,
+    source: &'a str,
+) -> Vec<(&'a str, &'a str)> {
     captures
-        .map(|(_, QueryCapture { index, node })| {
+        .map(|capture| {
             (
-                query.capture_names()[index].as_str(),
-                node.utf8_text(source.as_bytes()).unwrap(),
+                query.capture_names()[capture.index as usize].as_str(),
+                capture.node.utf8_text(source.as_bytes()).unwrap(),
             )
         })
         .collect()

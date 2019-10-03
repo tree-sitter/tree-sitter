@@ -1234,6 +1234,23 @@ bool ts_query_cursor_next_match(
   return true;
 }
 
+void ts_query_cursor_remove_match(
+  TSQueryCursor *self,
+  uint32_t match_id
+) {
+  for (unsigned i = 0; i < self->finished_states.size; i++) {
+    const QueryState *state = &self->finished_states.contents[i];
+    if (state->id == match_id) {
+      capture_list_pool_release(
+        &self->capture_list_pool,
+        state->capture_list_id
+      );
+      array_erase(&self->finished_states, i);
+      return;
+    }
+  }
+}
+
 bool ts_query_cursor_next_capture(
   TSQueryCursor *self,
   TSQueryMatch *match,
