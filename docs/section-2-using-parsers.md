@@ -245,7 +245,7 @@ If you use this group of methods, the syntax tree functions much like an abstrac
 
 ## Node Field Names
 
-To make syntax nodes easier to analyze, many grammars assign unique *field names* to particular child nodes. The the next page [explains](./creating-parsers#using-fields) how to do this on your own grammars. If a syntax node has fields, you can access its children using their field name:
+To make syntax nodes easier to analyze, many grammars assign unique *field names* to particular child nodes. The next page [explains](./creating-parsers#using-fields) how to do this on your own grammars. If a syntax node has fields, you can access its children using their field name:
 
 ```c
 TSNode ts_node_child_by_field_name(
