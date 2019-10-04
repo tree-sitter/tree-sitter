@@ -2,7 +2,7 @@ declare module 'web-tree-sitter' {
   class Parser {
     static init(): Promise<void>;
     delete(): void;
-    parse(input: string | Parser.Input, previousTree?: Parser.Tree): Parser.Tree;
+    parse(input: string | Parser.Input, previousTree?: Parser.Tree, options?: Parser.Options): Parser.Tree;
     getLanguage(): any;
     setLanguage(language: any): void;
     getLogger(): Parser.Logger;
@@ -10,14 +10,20 @@ declare module 'web-tree-sitter' {
   }
 
   namespace Parser {
+    export type Options = {
+      includedRanges?: Range[];
+    };
+
     export type Point = {
       row: number;
       column: number;
     };
 
     export type Range = {
-      start: Point;
-      end: Point;
+      startPosition: Point;
+      endPosition: Point;
+      startIndex: number;
+      endIndex: number;
     };
 
     export type Edit = {
