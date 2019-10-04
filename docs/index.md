@@ -48,6 +48,7 @@ Parsers for these languages are fairly complete:
 * [TOML](https://github.com/ikatyang/tree-sitter-toml)
 * [TypeScript](https://github.com/tree-sitter/tree-sitter-typescript)
 * [Verilog](https://github.com/tree-sitter/tree-sitter-verilog)
+* [Vue](https://github.com/ikatyang/tree-sitter-vue)
 * [YAML](https://github.com/ikatyang/tree-sitter-yaml)
 
 Parsers for these languages are in development:
