@@ -1,22 +1,25 @@
-use super::helpers::fixtures::{get_highlight_config, get_highlight_query_sources, get_language};
+use super::helpers::fixtures::{get_highlight_config, get_language, get_language_queries_path};
 use lazy_static::lazy_static;
 use std::ffi::CString;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{ptr, slice, str};
+use std::{fs, ptr, slice, str};
 use tree_sitter_highlight::{
     c, Error, HighlightConfiguration, HighlightContext, HighlightEvent, Highlighter, HtmlRenderer,
 };
 
 lazy_static! {
     static ref JS_HIGHLIGHT: HighlightConfiguration =
-        get_highlight_config("javascript", &HIGHLIGHTER);
-    static ref HTML_HIGHLIGHT: HighlightConfiguration = get_highlight_config("html", &HIGHLIGHTER);
+        get_highlight_config(&HIGHLIGHTER, "javascript", "injections.scm");
+    static ref HTML_HIGHLIGHT: HighlightConfiguration =
+        get_highlight_config(&HIGHLIGHTER, "html", "injections.scm");
     static ref EJS_HIGHLIGHT: HighlightConfiguration =
-        get_highlight_config("embedded-template", &HIGHLIGHTER);
-    static ref RUST_HIGHLIGHT: HighlightConfiguration = get_highlight_config("rust", &HIGHLIGHTER);
+        get_highlight_config(&HIGHLIGHTER, "embedded-template", "injections-ejs.scm");
+    static ref RUST_HIGHLIGHT: HighlightConfiguration =
+        get_highlight_config(&HIGHLIGHTER, "rust", "injections.scm");
     static ref HIGHLIGHTER: Highlighter = Highlighter::new(
         [
             "attribute",
+            "constant",
             "constructor",
             "function.builtin",
             "function",
@@ -219,11 +222,11 @@ fn test_highlighting_multiline_nodes_to_html() {
     assert_eq!(
         &to_html(&source, &JS_HIGHLIGHT).unwrap(),
         &[
-            "<span class=Keyword>const</span> <span class=Constant>SOMETHING</span> <span class=Operator>=</span> <span class=String>`</span>\n".to_string(),
-            "<span class=String>  one <span class=Embedded><span class=PunctuationSpecial>${</span></span></span>\n".to_string(),
-            "<span class=String><span class=Embedded>    <span class=Function>two</span><span class=PunctuationBracket>(</span><span class=PunctuationBracket>)</span></span></span>\n".to_string(),
-            "<span class=String><span class=Embedded>  <span class=PunctuationSpecial>}</span></span> three</span>\n".to_string(),
-            "<span class=String>`</span>\n".to_string(),
+            "<span class=keyword>const</span> <span class=constant>SOMETHING</span> <span class=operator>=</span> <span class=string>`</span>\n".to_string(),
+            "<span class=string>  one <span class=embedded><span class=punctuation.special>${</span></span></span>\n".to_string(),
+            "<span class=string><span class=embedded>    <span class=function>two</span><span class=punctuation.bracket>(</span><span class=punctuation.bracket>)</span></span></span>\n".to_string(),
+            "<span class=string><span class=embedded>  <span class=punctuation.special>}</span></span> three</span>\n".to_string(),
+            "<span class=string>`</span>\n".to_string(),
         ]
     );
 }
@@ -326,9 +329,9 @@ fn test_highlighting_ejs() {
     assert_eq!(
         &to_token_vector(&source, &EJS_HIGHLIGHT).unwrap(),
         &[[
-            ("<", vec![]),
+            ("<", vec!["punctuation.bracket"]),
             ("div", vec!["tag"]),
-            (">", vec![]),
+            (">", vec!["punctuation.bracket"]),
             ("<%", vec!["keyword"]),
             (" ", vec![]),
             ("foo", vec!["function"]),
@@ -336,9 +339,9 @@ fn test_highlighting_ejs() {
             (")", vec!["punctuation.bracket"]),
             (" ", vec![]),
             ("%>", vec!["keyword"]),
-            ("</", vec![]),
+            ("</", vec!["punctuation.bracket"]),
             ("div", vec!["tag"]),
-            (">", vec![])
+            (">", vec!["punctuation.bracket"])
         ]],
     );
 }
@@ -446,8 +449,10 @@ fn test_highlighting_via_c_api() {
     let js_scope = c_string("source.js");
     let js_injection_regex = c_string("^javascript");
     let language = get_language("javascript");
-    let (highlights_query, injections_query, locals_query) =
-        get_highlight_query_sources("javascript");
+    let queries = get_language_queries_path("javascript");
+    let highlights_query = fs::read_to_string(queries.join("highlights.scm")).unwrap();
+    let injections_query = fs::read_to_string(queries.join("injections.scm")).unwrap();
+    let locals_query = fs::read_to_string(queries.join("locals.scm")).unwrap();
     c::ts_highlighter_add_language(
         highlighter,
         js_scope.as_ptr(),
@@ -464,7 +469,9 @@ fn test_highlighting_via_c_api() {
     let html_scope = c_string("text.html.basic");
     let html_injection_regex = c_string("^html");
     let language = get_language("html");
-    let (highlights_query, injections_query, locals_query) = get_highlight_query_sources("html");
+    let queries = get_language_queries_path("html");
+    let highlights_query = fs::read_to_string(queries.join("highlights.scm")).unwrap();
+    let injections_query = fs::read_to_string(queries.join("injections.scm")).unwrap();
     c::ts_highlighter_add_language(
         highlighter,
         html_scope.as_ptr(),
@@ -472,10 +479,10 @@ fn test_highlighting_via_c_api() {
         language,
         highlights_query.as_ptr() as *const i8,
         injections_query.as_ptr() as *const i8,
-        locals_query.as_ptr() as *const i8,
+        ptr::null(),
         highlights_query.len() as u32,
         injections_query.len() as u32,
-        locals_query.len() as u32,
+        0,
     );
 
     let buffer = c::ts_highlight_buffer_new();
@@ -512,8 +519,8 @@ fn test_highlighting_via_c_api() {
         lines,
         vec![
             "&lt;<span class=tag>script</span>&gt;\n",
-            "<span class=keyword>const</span> <span>a</span> <span>=</span> <span class=function>b</span><span>(</span><span class=string>&#39;c&#39;</span><span>)</span><span>;</span>\n",
-            "<span>c</span><span>.</span><span class=function>d</span><span>(</span><span>)</span><span>;</span>\n",
+            "<span class=keyword>const</span> a = <span class=function>b</span>(<span class=string>&#39;c&#39;</span>);\n",
+            "c.<span class=function>d</span>();\n",
             "&lt;/<span class=tag>script</span>&gt;\n",
         ]
     );

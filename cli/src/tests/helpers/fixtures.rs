@@ -21,34 +21,20 @@ pub fn get_language(name: &str) -> Language {
         .unwrap()
 }
 
-pub fn get_highlight_query_sources(language_name: &str) -> (String, String, String) {
-    let queries_path = GRAMMARS_DIR.join(language_name).join("queries");
-    let highlights_path = queries_path.join("highlights.scm");
-    let injections_path = queries_path.join("injections.scm");
-    let locals_path = queries_path.join("locals.scm");
-
-    let highlights_query = fs::read_to_string(highlights_path).unwrap();
-    let injections_query = if injections_path.exists() {
-        fs::read_to_string(injections_path).unwrap()
-    } else {
-        String::new()
-    };
-    let locals_query = if locals_path.exists() {
-        fs::read_to_string(locals_path).unwrap()
-    } else {
-        String::new()
-    };
-
-    (highlights_query, injections_query, locals_query)
+pub fn get_language_queries_path(language_name: &str) -> PathBuf {
+    GRAMMARS_DIR.join(language_name).join("queries")
 }
 
 pub fn get_highlight_config(
-    language_name: &str,
     highlighter: &Highlighter,
+    language_name: &str,
+    injection_query_filename: &str,
 ) -> HighlightConfiguration {
     let language = get_language(language_name);
-    let (highlights_query, injections_query, locals_query) =
-        get_highlight_query_sources(language_name);
+    let queries_path = get_language_queries_path(language_name);
+    let highlights_query = fs::read_to_string(queries_path.join("highlights.scm")).unwrap();
+    let injections_query = fs::read_to_string(queries_path.join(injection_query_filename)).unwrap();
+    let locals_query = fs::read_to_string(queries_path.join("locals.scm")).unwrap_or(String::new());
     highlighter
         .load_configuration(
             language,
