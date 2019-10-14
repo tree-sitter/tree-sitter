@@ -4,7 +4,6 @@
 #include "./bits.h"
 #include "./point.h"
 #include "./tree_cursor.h"
-#include "utf8proc.h"
 #include <wctype.h>
 
 /*
@@ -149,16 +148,22 @@ static const uint16_t MAX_STATE_COUNT = 32;
 
 // Advance to the next unicode code point in the stream.
 static bool stream_advance(Stream *self) {
-  if (self->input >= self->end) return false;
   self->input += self->next_size;
-  int size = utf8proc_iterate(
-    (const uint8_t *)self->input,
-    self->end - self->input,
-    &self->next
-  );
-  if (size <= 0) return false;
-  self->next_size = size;
-  return true;
+  if (self->input < self->end) {
+    uint32_t size = ts_decode_utf8(
+      (const uint8_t *)self->input,
+      self->end - self->input,
+      &self->next
+    );
+    if (size > 0) {
+      self->next_size = size;
+      return true;
+    }
+  } else {
+    self->next_size = 0;
+    self->next = '\0';
+  }
+  return false;
 }
 
 // Reset the stream to the given input position, represented as a pointer

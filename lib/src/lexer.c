@@ -2,8 +2,7 @@
 #include "./lexer.h"
 #include "./subtree.h"
 #include "./length.h"
-#include "./utf16.h"
-#include "utf8proc.h"
+#include "./unicode.h"
 
 #define LOG(...)                                                                      \
   if (self->logger.log) {                                                             \
@@ -33,12 +32,6 @@ static void ts_lexer__get_chunk(Lexer *self) {
   if (!self->chunk_size) self->chunk = empty_chunk;
 }
 
-typedef utf8proc_ssize_t (*DecodeFunction)(
-  const utf8proc_uint8_t *,
-  utf8proc_ssize_t,
-  utf8proc_int32_t *
-);
-
 static void ts_lexer__get_lookahead(Lexer *self) {
   uint32_t position_in_chunk = self->current_position.bytes - self->chunk_start;
   const uint8_t *chunk = (const uint8_t *)self->chunk + position_in_chunk;
@@ -50,21 +43,22 @@ static void ts_lexer__get_lookahead(Lexer *self) {
     return;
   }
 
-  DecodeFunction decode =
-    self->input.encoding == TSInputEncodingUTF8 ? utf8proc_iterate : utf16_iterate;
+  UnicodeDecodeFunction decode = self->input.encoding == TSInputEncodingUTF8
+    ? ts_decode_utf8
+    : ts_decode_utf16;
 
   self->lookahead_size = decode(chunk, size, &self->data.lookahead);
 
   // If this chunk ended in the middle of a multi-byte character,
   // try again with a fresh chunk.
-  if (self->data.lookahead == -1 && size < 4) {
+  if (self->data.lookahead == TS_DECODE_ERROR && size < 4) {
     ts_lexer__get_chunk(self);
     chunk = (const uint8_t *)self->chunk;
     size = self->chunk_size;
     self->lookahead_size = decode(chunk, size, &self->data.lookahead);
   }
 
-  if (self->data.lookahead == -1) {
+  if (self->data.lookahead == TS_DECODE_ERROR) {
     self->lookahead_size = 1;
   }
 }
@@ -267,7 +261,7 @@ void ts_lexer_finish(Lexer *self, uint32_t *lookahead_end_byte) {
   // the character decoding algorithm may have looked at the following byte.
   // Therefore, the next byte *after* the current (invalid) character
   // affects the interpretation of the current character.
-  if (self->data.lookahead == -1) {
+  if (self->data.lookahead == TS_DECODE_ERROR) {
     current_lookahead_end_byte++;
   }
 

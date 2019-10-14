@@ -1,3 +1,0 @@
-[submodule "externals/utf8proc"]
-	path = lib/utf8proc
-	url = https://github.com/julialang/utf8proc

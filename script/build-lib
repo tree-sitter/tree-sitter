@@ -14,7 +14,6 @@ ${CC}                   \
   $CFLAGS               \
   -I lib/src            \
   -I lib/include        \
-  -I lib/utf8proc       \
   lib/src/lib.c     \
   -o tree-sitter.o
 

@@ -13,19 +13,13 @@ All of the API functions shown here are declared and documented in the `tree_sit
 
 ## Building the Library
 
-Building the library requires one git submodule: [`utf8proc`](https://github.com/JuliaStrings/utf8proc). Make sure that `utf8proc` is downloaded by running this command from the Tree-sitter directory:
-
-```sh
-git submodule update --init
-```
-
 To build the library on a POSIX system, run this script, which will create a static library called `libtree-sitter.a` in the Tree-sitter folder:
 
 ```sh
 script/build-lib
 ```
 
-Alternatively, you can use the library in a larger project by adding one source file to the project. This source file needs three directories to be in the include path when compiled:
+Alternatively, you can use the library in a larger project by adding one source file to the project. This source file needs two directories to be in the include path when compiled:
 
 **source file:**
 * `tree-sitter/lib/src/lib.c`
@@ -33,7 +27,6 @@ Alternatively, you can use the library in a larger project by adding one source 
 **include directories:**
 * `tree-sitter/lib/src`
 * `tree-sitter/lib/include`
-* `tree-sitter/lib/utf8proc`
 
 ## The Objects
 
