@@ -37,6 +37,7 @@ fn main() {
     config
         .flag_if_supported("-std=c99")
         .flag_if_supported("-Wno-unused-parameter")
+        .include(src_path)
         .include("include")
         .file(src_path.join("lib.c"))
         .file(Path::new("binding_rust").join("helper.c"))
