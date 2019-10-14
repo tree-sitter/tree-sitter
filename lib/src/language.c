@@ -11,7 +11,7 @@ void ts_language_table_entry(const TSLanguage *self, TSStateId state,
     result->actions = NULL;
   } else {
     assert(symbol < self->token_count);
-    uint32_t action_index = self->parse_table[state * self->symbol_count + symbol];
+    uint32_t action_index = ts_language_lookup(self, state, symbol);
     const TSParseActionEntry *entry = &self->parse_actions[action_index];
     result->action_count = entry->count;
     result->is_reusable = entry->reusable;
@@ -96,7 +96,8 @@ TSFieldId ts_language_field_id_for_name(
   for (TSSymbol i = 1; i < count + 1; i++) {
     switch (strncmp(name, self->field_names[i], name_length)) {
       case 0:
-        return i;
+        if (self->field_names[i][name_length] == 0) return i;
+        break;
       case -1:
         return 0;
       default:

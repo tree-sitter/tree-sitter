@@ -1,7 +1,6 @@
 use super::nfa::CharacterSet;
-use super::rules::{Alias, Associativity, Symbol};
+use super::rules::{Alias, Associativity, Symbol, TokenSet};
 use std::collections::{BTreeMap, HashMap};
-
 pub(crate) type ProductionInfoId = usize;
 pub(crate) type ParseStateId = usize;
 pub(crate) type LexStateId = usize;
@@ -37,6 +36,7 @@ pub(crate) struct ParseState {
     pub terminal_entries: HashMap<Symbol, ParseTableEntry>,
     pub nonterminal_entries: HashMap<Symbol, ParseStateId>,
     pub lex_state_id: usize,
+    pub external_lex_state_id: usize,
     pub core_id: usize,
 }
 
@@ -58,6 +58,7 @@ pub(crate) struct ParseTable {
     pub symbols: Vec<Symbol>,
     pub production_infos: Vec<ProductionInfo>,
     pub max_aliased_production_length: usize,
+    pub external_lex_states: Vec<TokenSet>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]

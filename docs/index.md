@@ -38,14 +38,18 @@ Parsers for these languages are fairly complete:
 * [Java](https://github.com/tree-sitter/tree-sitter-java)
 * [JavaScript](https://github.com/tree-sitter/tree-sitter-javascript)
 * [Lua](https://github.com/Azganoth/tree-sitter-lua)
+* [Markdown](https://github.com/ikatyang/tree-sitter-markdown)
 * [OCaml](https://github.com/tree-sitter/tree-sitter-ocaml)
 * [PHP](https://github.com/tree-sitter/tree-sitter-php)
 * [Python](https://github.com/tree-sitter/tree-sitter-python)
 * [Ruby](https://github.com/tree-sitter/tree-sitter-ruby)
 * [Rust](https://github.com/tree-sitter/tree-sitter-rust)
 * [SystemRDL](https://github.com/SystemRDL/tree-sitter-systemrdl)
+* [TOML](https://github.com/ikatyang/tree-sitter-toml)
 * [TypeScript](https://github.com/tree-sitter/tree-sitter-typescript)
 * [Verilog](https://github.com/tree-sitter/tree-sitter-verilog)
+* [Vue](https://github.com/ikatyang/tree-sitter-vue)
+* [YAML](https://github.com/ikatyang/tree-sitter-yaml)
 
 Parsers for these languages are in development:
 
@@ -55,6 +59,7 @@ Parsers for these languages are in development:
 * [Julia](https://github.com/tree-sitter/tree-sitter-julia)
 * [Nix](https://github.com/cstrahan/tree-sitter-nix)
 * [Scala](https://github.com/tree-sitter/tree-sitter-scala)
+* [Swift](https://github.com/tree-sitter/tree-sitter-swift)
 
 ### Talks on Tree-sitter
 

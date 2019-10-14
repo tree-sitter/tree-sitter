@@ -122,7 +122,7 @@ static bool iterator_done(Iterator *self) {
   return self->cursor.stack.size == 0;
 }
 
-Length iterator_start_position(Iterator *self) {
+static Length iterator_start_position(Iterator *self) {
   TreeCursorEntry entry = *array_back(&self->cursor.stack);
   if (self->in_padding) {
     return entry.position;
@@ -131,7 +131,7 @@ Length iterator_start_position(Iterator *self) {
   }
 }
 
-Length iterator_end_position(Iterator *self) {
+static Length iterator_end_position(Iterator *self) {
   TreeCursorEntry entry = *array_back(&self->cursor.stack);
   Length result = length_add(entry.position, ts_subtree_padding(*entry.subtree));
   if (self->in_padding) {
@@ -287,7 +287,7 @@ typedef enum {
   IteratorMatches,
 } IteratorComparison;
 
-IteratorComparison iterator_compare(const Iterator *old_iter, const Iterator *new_iter) {
+static IteratorComparison iterator_compare(const Iterator *old_iter, const Iterator *new_iter) {
   Subtree old_tree = NULL_SUBTREE;
   Subtree new_tree = NULL_SUBTREE;
   uint32_t old_start = 0;

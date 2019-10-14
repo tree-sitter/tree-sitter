@@ -116,6 +116,7 @@ impl<'a> Hash for Item<'a> {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
         hasher.write_u32(self.rule_id);
         hasher.write_usize(self.selector.0.len());
+        hasher.write_u32(self.step_id);
         for step in &self.selector.0[self.step_id as usize..] {
             step.hash(hasher);
         }
@@ -124,7 +125,10 @@ impl<'a> Hash for Item<'a> {
 
 impl<'a> PartialEq for Item<'a> {
     fn eq(&self, other: &Self) -> bool {
-        if self.rule_id != other.rule_id || self.selector.0.len() != other.selector.0.len() {
+        if self.rule_id != other.rule_id
+            || self.selector.0.len() != other.selector.0.len()
+            || self.step_id != other.step_id
+        {
             return false;
         }
 

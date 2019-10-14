@@ -1,0 +1,33 @@
+{
+  "name": "named_rule_aliased_as_anonymous",
+
+  "extras": [
+    {"type": "PATTERN", "value": "\\s"}
+  ],
+
+  "rules": {
+    "a": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "ALIAS",
+          "value": "the-alias",
+          "named": false,
+          "content": {"type": "SYMBOL", "name": "b"}
+        },
+        {"type": "SYMBOL", "name": "c"},
+        {"type": "SYMBOL", "name": "b"}
+      ]
+    },
+
+    "b": {
+      "type": "STRING",
+      "value": "B"
+    },
+
+    "c": {
+      "type": "STRING",
+      "value": "C"
+    }
+  }
+}

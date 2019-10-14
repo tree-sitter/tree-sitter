@@ -19,6 +19,16 @@ pub struct TSParser {
 pub struct TSTree {
     _unused: [u8; 0],
 }
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct TSQuery {
+    _unused: [u8; 0],
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct TSQueryCursor {
+    _unused: [u8; 0],
+}
 pub const TSInputEncoding_TSInputEncodingUTF8: TSInputEncoding = 0;
 pub const TSInputEncoding_TSInputEncodingUTF16: TSInputEncoding = 1;
 pub type TSInputEncoding = u32;
@@ -93,6 +103,36 @@ pub struct TSTreeCursor {
     pub id: *const ::std::os::raw::c_void,
     pub context: [u32; 2usize],
 }
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct TSQueryCapture {
+    pub node: TSNode,
+    pub index: u32,
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct TSQueryMatch {
+    pub id: u32,
+    pub pattern_index: u16,
+    pub capture_count: u16,
+    pub captures: *const TSQueryCapture,
+}
+pub const TSQueryPredicateStepType_TSQueryPredicateStepTypeDone: TSQueryPredicateStepType = 0;
+pub const TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture: TSQueryPredicateStepType = 1;
+pub const TSQueryPredicateStepType_TSQueryPredicateStepTypeString: TSQueryPredicateStepType = 2;
+pub type TSQueryPredicateStepType = u32;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct TSQueryPredicateStep {
+    pub type_: TSQueryPredicateStepType,
+    pub value_id: u32,
+}
+pub const TSQueryError_TSQueryErrorNone: TSQueryError = 0;
+pub const TSQueryError_TSQueryErrorSyntax: TSQueryError = 1;
+pub const TSQueryError_TSQueryErrorNodeType: TSQueryError = 2;
+pub const TSQueryError_TSQueryErrorField: TSQueryError = 3;
+pub const TSQueryError_TSQueryErrorCapture: TSQueryError = 4;
+pub type TSQueryError = u32;
 extern "C" {
     #[doc = " Create a new parser."]
     pub fn ts_parser_new() -> *mut TSParser;
@@ -539,6 +579,143 @@ extern "C" {
     pub fn ts_tree_cursor_copy(arg1: *const TSTreeCursor) -> TSTreeCursor;
 }
 extern "C" {
+    #[doc = " Create a new query from a string containing one or more S-expression"]
+    #[doc = " patterns. The query is associated with a particular language, and can"]
+    #[doc = " only be run on syntax nodes parsed with that language."]
+    #[doc = ""]
+    #[doc = " If all of the given patterns are valid, this returns a `TSQuery`."]
+    #[doc = " If a pattern is invalid, this returns `NULL`, and provides two pieces"]
+    #[doc = " of information about the problem:"]
+    #[doc = " 1. The byte offset of the error is written to the `error_offset` parameter."]
+    #[doc = " 2. The type of error is written to the `error_type` parameter."]
+    pub fn ts_query_new(
+        language: *const TSLanguage,
+        source: *const ::std::os::raw::c_char,
+        source_len: u32,
+        error_offset: *mut u32,
+        error_type: *mut TSQueryError,
+    ) -> *mut TSQuery;
+}
+extern "C" {
+    #[doc = " Delete a query, freeing all of the memory that it used."]
+    pub fn ts_query_delete(arg1: *mut TSQuery);
+}
+extern "C" {
+    #[doc = " Get the number of patterns, captures, or string literals in the query."]
+    pub fn ts_query_pattern_count(arg1: *const TSQuery) -> u32;
+}
+extern "C" {
+    pub fn ts_query_capture_count(arg1: *const TSQuery) -> u32;
+}
+extern "C" {
+    pub fn ts_query_string_count(arg1: *const TSQuery) -> u32;
+}
+extern "C" {
+    #[doc = " Get the byte offset where the given pattern starts in the query\'s source."]
+    #[doc = ""]
+    #[doc = " This can be useful when combining queries by concatenating their source"]
+    #[doc = " code strings."]
+    pub fn ts_query_start_byte_for_pattern(arg1: *const TSQuery, arg2: u32) -> u32;
+}
+extern "C" {
+    #[doc = " Get all of the predicates for the given pattern in the query."]
+    #[doc = ""]
+    #[doc = " The predicates are represented as a single array of steps. There are three"]
+    #[doc = " types of steps in this array, which correspond to the three legal values for"]
+    #[doc = " the `type` field:"]
+    #[doc = " - `TSQueryPredicateStepTypeCapture` - Steps with this type represent names"]
+    #[doc = "    of captures. Their `value_id` can be used with the"]
+    #[doc = "   `ts_query_capture_name_for_id` function to obtain the name of the capture."]
+    #[doc = " - `TSQueryPredicateStepTypeString` - Steps with this type represent literal"]
+    #[doc = "    strings. Their `value_id` can be used with the"]
+    #[doc = "    `ts_query_string_value_for_id` function to obtain their string value."]
+    #[doc = " - `TSQueryPredicateStepTypeDone` - Steps with this type are *sentinels*"]
+    #[doc = "    that represent the end of an individual predicate. If a pattern has two"]
+    #[doc = "    predicates, then there will be two steps with this `type` in the array."]
+    pub fn ts_query_predicates_for_pattern(
+        self_: *const TSQuery,
+        pattern_index: u32,
+        length: *mut u32,
+    ) -> *const TSQueryPredicateStep;
+}
+extern "C" {
+    #[doc = " Get the name and length of one of the query\'s captures, or one of the"]
+    #[doc = " query\'s string literals. Each capture and string is associated with a"]
+    #[doc = " numeric id based on the order that it appeared in the query\'s source."]
+    pub fn ts_query_capture_name_for_id(
+        arg1: *const TSQuery,
+        id: u32,
+        length: *mut u32,
+    ) -> *const ::std::os::raw::c_char;
+}
+extern "C" {
+    pub fn ts_query_string_value_for_id(
+        arg1: *const TSQuery,
+        id: u32,
+        length: *mut u32,
+    ) -> *const ::std::os::raw::c_char;
+}
+extern "C" {
+    #[doc = " Create a new cursor for executing a given query."]
+    #[doc = ""]
+    #[doc = " The cursor stores the state that is needed to iteratively search"]
+    #[doc = " for matches. To use the query cursor, first call `ts_query_cursor_exec`"]
+    #[doc = " to start running a given query on a given syntax node. Then, there are"]
+    #[doc = " two options for consuming the results of the query:"]
+    #[doc = " 1. Repeatedly call `ts_query_cursor_next_match` to iterate over all of the"]
+    #[doc = "    the *matches* in the order that they were found. Each match contains the"]
+    #[doc = "    index of the pattern that matched, and an array of captures. Because"]
+    #[doc = "    multiple patterns can match the same set of nodes, one match may contain"]
+    #[doc = "    captures that appear *before* some of the captures from a previous match."]
+    #[doc = " 2. Repeatedly call `ts_query_cursor_next_capture` to iterate over all of the"]
+    #[doc = "    individual *captures* in the order that they appear. This is useful if"]
+    #[doc = "    don\'t care about which pattern matched, and just want a single ordered"]
+    #[doc = "    sequence of captures."]
+    #[doc = ""]
+    #[doc = " If you don\'t care about consuming all of the results, you can stop calling"]
+    #[doc = " `ts_query_cursor_next_match` or `ts_query_cursor_next_capture` at any point."]
+    #[doc = "  You can then start executing another query on another node by calling"]
+    #[doc = "  `ts_query_cursor_exec` again."]
+    pub fn ts_query_cursor_new() -> *mut TSQueryCursor;
+}
+extern "C" {
+    #[doc = " Delete a query cursor, freeing all of the memory that it used."]
+    pub fn ts_query_cursor_delete(arg1: *mut TSQueryCursor);
+}
+extern "C" {
+    #[doc = " Start running a given query on a given node."]
+    pub fn ts_query_cursor_exec(arg1: *mut TSQueryCursor, arg2: *const TSQuery, arg3: TSNode);
+}
+extern "C" {
+    #[doc = " Set the range of bytes or (row, column) positions in which the query"]
+    #[doc = " will be executed."]
+    pub fn ts_query_cursor_set_byte_range(arg1: *mut TSQueryCursor, arg2: u32, arg3: u32);
+}
+extern "C" {
+    pub fn ts_query_cursor_set_point_range(arg1: *mut TSQueryCursor, arg2: TSPoint, arg3: TSPoint);
+}
+extern "C" {
+    #[doc = " Advance to the next match of the currently running query."]
+    #[doc = ""]
+    #[doc = " If there is a match, write it to `*match` and return `true`."]
+    #[doc = " Otherwise, return `false`."]
+    pub fn ts_query_cursor_next_match(arg1: *mut TSQueryCursor, match_: *mut TSQueryMatch) -> bool;
+}
+extern "C" {
+    pub fn ts_query_cursor_remove_match(arg1: *mut TSQueryCursor, id: u32);
+}
+extern "C" {
+    #[doc = " Advance to the next capture of the currently running query."]
+    #[doc = ""]
+    #[doc = " If there is a capture, write its match to `*match` and its index within"]
+    #[doc = " the matche\'s capture list to `*capture_index`. Otherwise, return `false`."]
+    pub fn ts_query_cursor_next_capture(
+        arg1: *mut TSQueryCursor,
+        match_: *mut TSQueryMatch,
+        capture_index: *mut u32,
+    ) -> bool;
+}
+extern "C" {
     #[doc = " Get the number of distinct node types in the language."]
     pub fn ts_language_symbol_count(arg1: *const TSLanguage) -> u32;
 }
@@ -591,5 +768,5 @@ extern "C" {
     pub fn ts_language_version(arg1: *const TSLanguage) -> u32;
 }
 
-pub const TREE_SITTER_LANGUAGE_VERSION: usize = 10;
+pub const TREE_SITTER_LANGUAGE_VERSION: usize = 11;
 pub const TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION: usize = 9;

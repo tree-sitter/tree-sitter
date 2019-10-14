@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+#include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include "./length.h"
@@ -13,7 +14,7 @@ extern "C" {
 #include "tree_sitter/api.h"
 #include "tree_sitter/parser.h"
 
-extern TSStateId TS_TREE_STATE_NONE;
+static const TSStateId TS_TREE_STATE_NONE = USHRT_MAX;
 #define NULL_SUBTREE ((Subtree) {.ptr = NULL})
 
 typedef union Subtree Subtree;

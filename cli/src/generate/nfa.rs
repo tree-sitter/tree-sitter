@@ -266,6 +266,13 @@ fn compare_chars(left: &Vec<char>, right: &Vec<char>) -> SetComparision {
             result.common = true;
         }
     }
+
+    match (i, j) {
+        (Some(_), _) => result.left_only = true,
+        (_, Some(_)) => result.right_only = true,
+        _ => {}
+    }
+
     result
 }
 
@@ -806,6 +813,13 @@ mod tests {
 
         let (a, b) = (
             CharacterSet::Exclude(vec!['a']),
+            CharacterSet::Exclude(vec!['a']),
+        );
+        assert!(a.does_intersect(&b));
+        assert!(b.does_intersect(&a));
+
+        let (a, b) = (
+            CharacterSet::Include(vec!['c']),
             CharacterSet::Exclude(vec!['a']),
         );
         assert!(a.does_intersect(&b));

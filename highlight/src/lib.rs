@@ -1,13 +1,12 @@
 pub mod c_lib;
-mod escape;
+pub mod util;
 
 pub use c_lib as c;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_derive::*;
-use std::fmt::{self, Write};
 use std::mem::transmute;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{cmp, str, usize};
+use std::{cmp, fmt, str, usize};
 use tree_sitter::{Language, Node, Parser, Point, PropertySheet, Range, Tree, TreePropertyCursor};
 
 const CANCELLATION_CHECK_INTERVAL: usize = 100;
@@ -116,14 +115,13 @@ where
     parser: Parser,
     layers: Vec<Layer<'a>>,
     max_opaque_layer_depth: usize,
-    utf8_error_len: Option<usize>,
     operation_count: usize,
     cancellation_flag: Option<&'a AtomicUsize>,
 }
 
 #[derive(Copy, Clone, Debug)]
-pub enum HighlightEvent<'a> {
-    Source(&'a str),
+pub enum HighlightEvent {
+    Source { start: usize, end: usize },
     HighlightStart(Highlight),
     HighlightEnd,
 }
@@ -471,7 +469,6 @@ where
             injection_callback,
             source_offset: 0,
             operation_count: 0,
-            utf8_error_len: None,
             max_opaque_layer_depth: 0,
             layers: vec![Layer::new(
                 source,
@@ -489,30 +486,13 @@ where
         })
     }
 
-    fn emit_source(&mut self, next_offset: usize) -> Option<Result<HighlightEvent<'a>, Error>> {
-        let input = &self.source[self.source_offset..next_offset];
-        match str::from_utf8(input) {
-            Ok(valid) => {
-                self.source_offset = next_offset;
-                Some(Ok(HighlightEvent::Source(valid)))
-            }
-            Err(error) => {
-                if let Some(error_len) = error.error_len() {
-                    if error.valid_up_to() > 0 {
-                        let prefix = &input[0..error.valid_up_to()];
-                        self.utf8_error_len = Some(error_len);
-                        Some(Ok(HighlightEvent::Source(unsafe {
-                            str::from_utf8_unchecked(prefix)
-                        })))
-                    } else {
-                        self.source_offset += error_len;
-                        Some(Ok(HighlightEvent::Source("\u{FFFD}")))
-                    }
-                } else {
-                    None
-                }
-            }
-        }
+    fn emit_source(&mut self, next_offset: usize) -> HighlightEvent {
+        let result = HighlightEvent::Source {
+            start: self.source_offset,
+            end: next_offset,
+        };
+        self.source_offset = next_offset;
+        result
     }
 
     fn process_tree_step(&self, step: &TreeStep, nodes: &mut Vec<Node>) {
@@ -727,7 +707,7 @@ impl<'a, T> Iterator for Highlighter<'a, T>
 where
     T: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
 {
-    type Item = Result<HighlightEvent<'a>, Error>;
+    type Item = Result<HighlightEvent, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(cancellation_flag) = self.cancellation_flag {
@@ -738,11 +718,6 @@ where
                     return Some(Err(Error::Cancelled));
                 }
             }
-        }
-
-        if let Some(utf8_error_len) = self.utf8_error_len.take() {
-            self.source_offset += utf8_error_len;
-            return Some(Ok(HighlightEvent::Source("\u{FFFD}")));
         }
 
         while !self.layers.is_empty() {
@@ -808,7 +783,7 @@ where
                     // Before returning any highlight boundaries, return any remaining slice of
                     // the source code the precedes that highlight boundary.
                     if self.source_offset < next_offset {
-                        return self.emit_source(next_offset);
+                        return Some(Ok(self.emit_source(next_offset)));
                     }
 
                     scope_event = if first_layer.at_node_end {
@@ -841,7 +816,7 @@ where
         }
 
         if self.source_offset < self.source.len() {
-            self.emit_source(self.source.len())
+            Some(Ok(self.emit_source(self.source.len())))
         } else {
             None
         }
@@ -1081,7 +1056,7 @@ pub fn highlight<'a, F>(
     property_sheet: &'a PropertySheet<Properties>,
     cancellation_flag: Option<&'a AtomicUsize>,
     injection_callback: F,
-) -> Result<impl Iterator<Item = Result<HighlightEvent<'a>, Error>> + 'a, Error>
+) -> Result<impl Iterator<Item = Result<HighlightEvent, Error>> + 'a, Error>
 where
     F: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)> + 'a,
 {
@@ -1106,87 +1081,124 @@ where
     F1: Fn(&str) -> Option<(Language, &'a PropertySheet<Properties>)>,
     F2: Fn(Highlight) -> &'a str,
 {
-    let highlighter = Highlighter::new(
+    let mut renderer = HtmlRenderer::new();
+    renderer.render(
+        Highlighter::new(
+            source,
+            language,
+            property_sheet,
+            injection_callback,
+            cancellation_flag,
+        )?,
         source,
-        language,
-        property_sheet,
-        injection_callback,
-        cancellation_flag,
+        &|s| (attribute_callback)(s).as_bytes(),
     )?;
-    let mut renderer = HtmlRenderer::new(attribute_callback);
-    let mut scopes = Vec::new();
-    for event in highlighter {
-        let event = event?;
-        match event {
-            HighlightEvent::HighlightStart(s) => {
-                scopes.push(s);
-                renderer.start_scope(s);
-            }
-            HighlightEvent::HighlightEnd => {
-                scopes.pop();
-                renderer.end_scope();
-            }
-            HighlightEvent::Source(src) => {
-                renderer.add_text(src, &scopes);
-            }
-        };
-    }
-    if !renderer.current_line.is_empty() {
-        renderer.finish_line();
-    }
-    Ok(renderer.result)
+    Ok(renderer
+        .line_offsets
+        .iter()
+        .enumerate()
+        .map(|(i, offset)| {
+            let offset = *offset as usize;
+            let next_offset = renderer
+                .line_offsets
+                .get(i + 1)
+                .map_or(renderer.html.len(), |i| *i as usize);
+            String::from_utf8(renderer.html[offset..next_offset].to_vec()).unwrap()
+        })
+        .collect())
 }
 
-struct HtmlRenderer<'a, F: Fn(Highlight) -> &'a str> {
-    result: Vec<String>,
-    current_line: String,
-    attribute_callback: F,
+pub struct HtmlRenderer {
+    pub html: Vec<u8>,
+    pub line_offsets: Vec<u32>,
 }
 
-impl<'a, F> HtmlRenderer<'a, F>
-where
-    F: Fn(Highlight) -> &'a str,
-{
-    fn new(attribute_callback: F) -> Self {
+impl HtmlRenderer {
+    fn new() -> Self {
         HtmlRenderer {
-            result: Vec::new(),
-            current_line: String::new(),
-            attribute_callback,
+            html: Vec::new(),
+            line_offsets: vec![0],
         }
     }
 
-    fn start_scope(&mut self, s: Highlight) {
-        write!(
-            &mut self.current_line,
-            "<span {}>",
-            (self.attribute_callback)(s),
-        )
-        .unwrap();
+    pub fn reset(&mut self) {
+        self.html.clear();
+        self.line_offsets.clear();
+        self.line_offsets.push(0);
     }
 
-    fn end_scope(&mut self) {
-        write!(&mut self.current_line, "</span>").unwrap();
-    }
-
-    fn finish_line(&mut self) {
-        self.current_line.push('\n');
-        self.result.push(self.current_line.clone());
-        self.current_line.clear();
-    }
-
-    fn add_text(&mut self, src: &str, scopes: &Vec<Highlight>) {
-        let mut multiline = false;
-        for line in src.split('\n') {
-            let line = line.trim_end_matches('\r');
-            if multiline {
-                scopes.iter().for_each(|_| self.end_scope());
-                self.finish_line();
-                scopes
-                    .iter()
-                    .for_each(|highlight| self.start_scope(*highlight));
+    pub fn render<'a, F>(
+        &mut self,
+        highlighter: impl Iterator<Item = Result<HighlightEvent, Error>>,
+        source: &'a [u8],
+        attribute_callback: &F,
+    ) -> Result<(), Error>
+    where
+        F: Fn(Highlight) -> &'a [u8],
+    {
+        let mut highlights = Vec::new();
+        for event in highlighter {
+            match event {
+                Ok(HighlightEvent::HighlightStart(s)) => {
+                    highlights.push(s);
+                    self.start_highlight(s, attribute_callback);
+                }
+                Ok(HighlightEvent::HighlightEnd) => {
+                    highlights.pop();
+                    self.end_highlight();
+                }
+                Ok(HighlightEvent::Source { start, end }) => {
+                    self.add_text(&source[start..end], &highlights, attribute_callback);
+                }
+                Err(a) => return Err(a),
             }
-            write!(&mut self.current_line, "{}", escape::Escape(line)).unwrap();
-            multiline = true;
+        }
+        if self.html.last() != Some(&b'\n') {
+            self.html.push(b'\n');
+        }
+        if self.line_offsets.last() == Some(&(self.html.len() as u32)) {
+            self.line_offsets.pop();
+        }
+        Ok(())
+    }
+
+    fn start_highlight<'a, F>(&mut self, h: Highlight, attribute_callback: &F)
+    where
+        F: Fn(Highlight) -> &'a [u8],
+    {
+        let attribute_string = (attribute_callback)(h);
+        self.html.extend(b"<span");
+        if !attribute_string.is_empty() {
+            self.html.extend(b" ");
+            self.html.extend(attribute_string);
+        }
+        self.html.extend(b">");
+    }
+
+    fn end_highlight(&mut self) {
+        self.html.extend(b"</span>");
+    }
+
+    fn add_text<'a, F>(&mut self, src: &[u8], highlights: &Vec<Highlight>, attribute_callback: &F)
+    where
+        F: Fn(Highlight) -> &'a [u8],
+    {
+        for c in util::LossyUtf8::new(src).flat_map(|p| p.bytes()) {
+            if c == b'\n' {
+                if self.html.ends_with(b"\r") {
+                    self.html.pop();
+                }
+                highlights.iter().for_each(|_| self.end_highlight());
+                self.html.push(c);
+                self.line_offsets.push(self.html.len() as u32);
+                highlights
+                    .iter()
+                    .for_each(|scope| self.start_highlight(*scope, attribute_callback));
+            } else if let Some(escape) = util::html_escape(c) {
+                self.html.extend_from_slice(escape);
+            } else {
+                self.html.push(c);
+            }
         }
     }
 }

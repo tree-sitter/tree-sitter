@@ -108,11 +108,12 @@ static inline bool ts_node__is_relevant(TSNode self, bool include_anonymous) {
   if (include_anonymous) {
     return ts_subtree_visible(tree) || ts_node__alias(&self);
   } else {
-    return
-      (ts_subtree_visible(tree) &&
-       ts_subtree_named(tree)) ||
-      (ts_node__alias(&self) &&
-       ts_language_symbol_metadata(self.tree->language, ts_node__alias(&self)).named);
+    TSSymbol alias = ts_node__alias(&self);
+    if (alias) {
+      return ts_language_symbol_metadata(self.tree->language, alias).named;
+    } else {
+      return ts_subtree_visible(tree) && ts_subtree_named(tree);
+    }
   }
 }
 
@@ -440,8 +441,9 @@ bool ts_node_is_extra(TSNode self) {
 }
 
 bool ts_node_is_named(TSNode self) {
-  return ts_node__alias(&self)
-    ? ts_language_symbol_metadata(self.tree->language, ts_node__alias(&self)).named
+  TSSymbol alias = ts_node__alias(&self);
+  return alias
+    ? ts_language_symbol_metadata(self.tree->language, alias).named
     : ts_subtree_named(ts_node__subtree(self));
 }
 

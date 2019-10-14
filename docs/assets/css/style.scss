@@ -118,7 +118,7 @@ body {
 }
 
 #playground-container {
-  > .CodeMirror {
+  .CodeMirror {
     height: auto;
     max-height: 350px;
     border: 1px solid #aaa;
@@ -129,7 +129,7 @@ body {
     max-height: 350px;
   }
 
-  h4, select, .field {
+  h4, select, .field, label {
     display: inline-block;
     margin-right: 20px;
   }
@@ -160,4 +160,8 @@ body {
 a.highlighted {
   background-color: #ddd;
   text-decoration: underline;
+}
+
+.query-error {
+  text-decoration: underline red dashed;
 }

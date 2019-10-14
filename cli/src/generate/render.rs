@@ -5,10 +5,14 @@ use super::tables::{
     AdvanceAction, FieldLocation, LexState, LexTable, ParseAction, ParseTable, ParseTableEntry,
 };
 use core::ops::Range;
-use std::collections::{HashMap, HashSet};
+use std::cmp;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write;
 use std::mem::swap;
-use tree_sitter::LANGUAGE_VERSION;
+
+// Currently, the library supports a new ABI version that has not yet been
+// stabilized, and the parser generation does not use it by default.
+const STABLE_LANGUAGE_VERSION: usize = tree_sitter::LANGUAGE_VERSION - 1;
 
 macro_rules! add {
     ($this: tt, $($arg: tt)*) => {{
@@ -45,6 +49,8 @@ macro_rules! dedent {
     };
 }
 
+const SMALL_STATE_THRESHOLD: usize = 64;
+
 struct Generator {
     buffer: String,
     indent_level: usize,
@@ -52,15 +58,17 @@ struct Generator {
     parse_table: ParseTable,
     main_lex_table: LexTable,
     keyword_lex_table: LexTable,
+    large_state_count: usize,
     keyword_capture_token: Option<Symbol>,
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
     simple_aliases: AliasMap,
+    symbol_order: HashMap<Symbol, usize>,
     symbol_ids: HashMap<Symbol, String>,
     alias_ids: HashMap<Alias, String>,
-    external_scanner_states: Vec<HashSet<usize>>,
-    alias_map: HashMap<Alias, Option<Symbol>>,
+    alias_map: BTreeMap<Alias, Option<Symbol>>,
     field_names: Vec<String>,
+    next_abi: bool,
 }
 
 impl Generator {
@@ -148,6 +156,24 @@ impl Generator {
         field_names.sort_unstable();
         field_names.dedup();
         self.field_names = field_names.into_iter().cloned().collect();
+
+        // If we are opting in to the new unstable language ABI, then use the concept of
+        // "small parse states". Otherwise, use the same representation for all parse
+        // states.
+        if self.next_abi {
+            let threshold = cmp::min(SMALL_STATE_THRESHOLD, self.parse_table.symbols.len() / 2);
+            self.large_state_count = self
+                .parse_table
+                .states
+                .iter()
+                .enumerate()
+                .take_while(|(i, s)| {
+                    *i <= 1 || s.terminal_entries.len() + s.nonterminal_entries.len() > threshold
+                })
+                .count();
+        } else {
+            self.large_state_count = self.parse_table.states.len();
+        }
     }
 
     fn add_includes(&mut self) {
@@ -198,12 +224,26 @@ impl Generator {
             })
             .count();
 
-        add_line!(self, "#define LANGUAGE_VERSION {}", LANGUAGE_VERSION);
+        if self.next_abi {
+            add_line!(
+                self,
+                "#define LANGUAGE_VERSION {}",
+                tree_sitter::LANGUAGE_VERSION
+            );
+        } else {
+            add_line!(self, "#define LANGUAGE_VERSION {}", STABLE_LANGUAGE_VERSION);
+        }
+
         add_line!(
             self,
             "#define STATE_COUNT {}",
             self.parse_table.states.len()
         );
+
+        if self.next_abi {
+            add_line!(self, "#define LARGE_STATE_COUNT {}", self.large_state_count);
+        }
+
         add_line!(
             self,
             "#define SYMBOL_COUNT {}",
@@ -232,9 +272,11 @@ impl Generator {
     fn add_symbol_enum(&mut self) {
         add_line!(self, "enum {{");
         indent!(self);
+        self.symbol_order.insert(Symbol::end(), 0);
         let mut i = 1;
         for symbol in self.parse_table.symbols.iter() {
             if *symbol != Symbol::end() {
+                self.symbol_order.insert(*symbol, i);
                 add_line!(self, "{} = {},", self.symbol_ids[&symbol], i);
                 i += 1;
             }
@@ -633,40 +675,16 @@ impl Generator {
     }
 
     fn add_lex_modes_list(&mut self) {
-        self.get_external_scanner_state_id(HashSet::new());
-
-        let mut external_tokens_by_corresponding_internal_token = HashMap::new();
-        for (i, external_token) in self.syntax_grammar.external_tokens.iter().enumerate() {
-            if let Some(symbol) = external_token.corresponding_internal_token {
-                external_tokens_by_corresponding_internal_token.insert(symbol.index, i);
-            }
-        }
-
         add_line!(self, "static TSLexMode ts_lex_modes[STATE_COUNT] = {{");
         indent!(self);
-        for i in 0..self.parse_table.states.len() {
-            let mut external_tokens = HashSet::new();
-            for token in self.parse_table.states[i].terminal_entries.keys() {
-                if token.is_external() {
-                    external_tokens.insert(token.index);
-                } else if token.is_terminal() {
-                    if let Some(external_index) =
-                        external_tokens_by_corresponding_internal_token.get(&token.index)
-                    {
-                        external_tokens.insert(*external_index);
-                    }
-                }
-            }
-
-            let external_state_id = self.get_external_scanner_state_id(external_tokens);
-            let state = &self.parse_table.states[i];
-            if external_state_id > 0 {
+        for (i, state) in self.parse_table.states.iter().enumerate() {
+            if state.external_lex_state_id > 0 {
                 add_line!(
                     self,
                     "[{}] = {{.lex_state = {}, .external_lex_state = {}}},",
                     i,
                     state.lex_state_id,
-                    external_state_id
+                    state.external_lex_state_id
                 );
             } else {
                 add_line!(self, "[{}] = {{.lex_state = {}}},", i, state.lex_state_id);
@@ -720,18 +738,18 @@ impl Generator {
         add_line!(
             self,
             "static bool ts_external_scanner_states[{}][EXTERNAL_TOKEN_COUNT] = {{",
-            self.external_scanner_states.len(),
+            self.parse_table.external_lex_states.len(),
         );
         indent!(self);
-        for i in 0..self.external_scanner_states.len() {
-            if !self.external_scanner_states[i].is_empty() {
+        for i in 0..self.parse_table.external_lex_states.len() {
+            if !self.parse_table.external_lex_states[i].is_empty() {
                 add_line!(self, "[{}] = {{", i);
                 indent!(self);
-                for token_index in &self.external_scanner_states[i] {
+                for token in self.parse_table.external_lex_states[i].iter() {
                     add_line!(
                         self,
                         "[{}] = true,",
-                        self.external_token_id(&self.syntax_grammar.external_tokens[*token_index])
+                        self.external_token_id(&self.syntax_grammar.external_tokens[token.index])
                     );
                 }
                 dedent!(self);
@@ -758,16 +776,47 @@ impl Generator {
 
         add_line!(
             self,
-            "static uint16_t ts_parse_table[STATE_COUNT][SYMBOL_COUNT] = {{"
+            "static uint16_t ts_parse_table[{}][SYMBOL_COUNT] = {{",
+            if self.next_abi {
+                "LARGE_STATE_COUNT"
+            } else {
+                "STATE_COUNT"
+            }
         );
         indent!(self);
-        for (i, state) in self.parse_table.states.iter().enumerate() {
+
+        let mut terminal_entries = Vec::new();
+        let mut nonterminal_entries = Vec::new();
+
+        for (i, state) in self
+            .parse_table
+            .states
+            .iter()
+            .enumerate()
+            .take(self.large_state_count)
+        {
             add_line!(self, "[{}] = {{", i);
             indent!(self);
-            for (symbol, state_id) in &state.nonterminal_entries {
-                add_line!(self, "[{}] = STATE({}),", self.symbol_ids[symbol], state_id);
+
+            // Ensure the entries are in a deterministic order, since they are
+            // internally represented as a hash map.
+            terminal_entries.clear();
+            nonterminal_entries.clear();
+            terminal_entries.extend(state.terminal_entries.iter());
+            nonterminal_entries.extend(state.nonterminal_entries.iter());
+            terminal_entries.sort_unstable_by_key(|e| self.symbol_order.get(e.0));
+            nonterminal_entries.sort_unstable_by_key(|k| k.0);
+
+            for (symbol, state_id) in &nonterminal_entries {
+                add_line!(
+                    self,
+                    "[{}] = STATE({}),",
+                    self.symbol_ids[symbol],
+                    *state_id
+                );
             }
-            for (symbol, entry) in &state.terminal_entries {
+
+            for (symbol, entry) in &terminal_entries {
                 let entry_id = self.get_parse_action_list_id(
                     entry,
                     &mut parse_table_entries,
@@ -786,6 +835,92 @@ impl Generator {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
+
+        if self.large_state_count < self.parse_table.states.len() {
+            add_line!(self, "static uint16_t ts_small_parse_table[] = {{");
+            indent!(self);
+
+            let mut index = 0;
+            let mut small_state_indices = Vec::new();
+            let mut symbols_by_value: HashMap<(usize, SymbolType), Vec<Symbol>> = HashMap::new();
+            for state in self.parse_table.states.iter().skip(self.large_state_count) {
+                small_state_indices.push(index);
+                symbols_by_value.clear();
+
+                terminal_entries.clear();
+                terminal_entries.extend(state.terminal_entries.iter());
+                terminal_entries.sort_unstable_by_key(|e| self.symbol_order.get(e.0));
+
+                // In a given parse state, many lookahead symbols have the same actions.
+                // So in the "small state" representation, group symbols by their action
+                // in order to avoid repeating the action.
+                for (symbol, entry) in &terminal_entries {
+                    let entry_id = self.get_parse_action_list_id(
+                        entry,
+                        &mut parse_table_entries,
+                        &mut next_parse_action_list_index,
+                    );
+                    symbols_by_value
+                        .entry((entry_id, SymbolType::Terminal))
+                        .or_default()
+                        .push(**symbol);
+                }
+                for (symbol, state_id) in &state.nonterminal_entries {
+                    symbols_by_value
+                        .entry((*state_id, SymbolType::NonTerminal))
+                        .or_default()
+                        .push(*symbol);
+                }
+
+                let mut values_with_symbols = symbols_by_value.drain().collect::<Vec<_>>();
+                values_with_symbols.sort_unstable_by_key(|((value, kind), symbols)| {
+                    (symbols.len(), *kind, *value, symbols[0])
+                });
+
+                add_line!(self, "[{}] = {},", index, values_with_symbols.len());
+                indent!(self);
+
+                for ((value, kind), symbols) in values_with_symbols.iter_mut() {
+                    if *kind == SymbolType::NonTerminal {
+                        add_line!(self, "STATE({}), {},", value, symbols.len());
+                    } else {
+                        add_line!(self, "ACTIONS({}), {},", value, symbols.len());
+                    }
+
+                    symbols.sort_unstable();
+                    indent!(self);
+                    for symbol in symbols {
+                        add_line!(self, "{},", self.symbol_ids[symbol]);
+                    }
+                    dedent!(self);
+                }
+
+                dedent!(self);
+
+                index += 1 + values_with_symbols
+                    .iter()
+                    .map(|(_, symbols)| 2 + symbols.len())
+                    .sum::<usize>();
+            }
+
+            dedent!(self);
+            add_line!(self, "}};");
+            add_line!(self, "");
+
+            add_line!(self, "static uint32_t ts_small_parse_table_map[] = {{");
+            indent!(self);
+            for i in self.large_state_count..self.parse_table.states.len() {
+                add_line!(
+                    self,
+                    "[SMALL_STATE({})] = {},",
+                    i,
+                    small_state_indices[i - self.large_state_count]
+                );
+            }
+            dedent!(self);
+            add_line!(self, "}};");
+            add_line!(self, "");
+        }
 
         self.add_parse_action_list(parse_table_entries);
     }
@@ -885,11 +1020,28 @@ impl Generator {
         add_line!(self, ".symbol_count = SYMBOL_COUNT,");
         add_line!(self, ".alias_count = ALIAS_COUNT,");
         add_line!(self, ".token_count = TOKEN_COUNT,");
+
+        if self.next_abi {
+            add_line!(self, ".large_state_count = LARGE_STATE_COUNT,");
+        }
+
         add_line!(self, ".symbol_metadata = ts_symbol_metadata,");
         add_line!(
             self,
             ".parse_table = (const unsigned short *)ts_parse_table,"
         );
+
+        if self.large_state_count < self.parse_table.states.len() {
+            add_line!(
+                self,
+                ".small_parse_table = (const uint16_t *)ts_small_parse_table,"
+            );
+            add_line!(
+                self,
+                ".small_parse_table_map = (const uint32_t *)ts_small_parse_table_map,"
+            );
+        }
+
         add_line!(self, ".parse_actions = ts_parse_actions,");
         add_line!(self, ".lex_modes = ts_lex_modes,");
         add_line!(self, ".symbol_names = ts_symbol_names,");
@@ -983,16 +1135,6 @@ impl Generator {
         flat_field_maps.push((result, flat_field_map.clone()));
         *next_flat_field_map_index += flat_field_map.len();
         result
-    }
-
-    fn get_external_scanner_state_id(&mut self, external_tokens: HashSet<usize>) -> usize {
-        self.external_scanner_states
-            .iter()
-            .position(|tokens| *tokens == external_tokens)
-            .unwrap_or_else(|| {
-                self.external_scanner_states.push(external_tokens);
-                self.external_scanner_states.len() - 1
-            })
     }
 
     fn external_token_id(&self, token: &ExternalToken) -> String {
@@ -1140,6 +1282,23 @@ impl Generator {
     }
 }
 
+/// Returns a String of C code for the given components of a parser.
+///
+/// # Arguments
+///
+/// * `name` - A string slice containing the name of the language
+/// * `parse_table` - The generated parse table for the language
+/// * `main_lex_table` - The generated lexing table for the language
+/// * `keyword_lex_table` - The generated keyword lexing table for the language
+/// * `keyword_capture_token` - A symbol indicating which token is used
+///    for keyword capture, if any.
+/// * `syntax_grammar` - The syntax grammar extracted from the language's grammar
+/// * `lexical_grammar` - The lexical grammar extracted from the language's grammar
+/// * `simple_aliases` - A map describing the global rename rules that should apply.
+///    the keys are symbols that are *always* aliased in the same way, and the values
+///    are the aliases that are applied to those symbols.
+/// * `next_abi` - A boolean indicating whether to opt into the new, unstable parse
+///    table format. This is mainly used for testing, when developing Tree-sitter itself.
 pub(crate) fn render_c_code(
     name: &str,
     parse_table: ParseTable,
@@ -1149,11 +1308,13 @@ pub(crate) fn render_c_code(
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
     simple_aliases: AliasMap,
+    next_abi: bool,
 ) -> String {
     Generator {
         buffer: String::new(),
         indent_level: 0,
         language_name: name.to_string(),
+        large_state_count: 0,
         parse_table,
         main_lex_table,
         keyword_lex_table,
@@ -1162,10 +1323,11 @@ pub(crate) fn render_c_code(
         lexical_grammar,
         simple_aliases,
         symbol_ids: HashMap::new(),
+        symbol_order: HashMap::new(),
         alias_ids: HashMap::new(),
-        external_scanner_states: Vec::new(),
-        alias_map: HashMap::new(),
+        alias_map: BTreeMap::new(),
         field_names: Vec::new(),
+        next_abi,
     }
     .generate()
 }

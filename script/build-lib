@@ -17,5 +17,6 @@ ${CC}                   \
   lib/src/lib.c     \
   -o tree-sitter.o
 
+rm -f libtree-sitter.a
 ar rcs libtree-sitter.a tree-sitter.o
 rm tree-sitter.o

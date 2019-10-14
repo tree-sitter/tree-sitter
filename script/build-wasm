@@ -91,6 +91,7 @@ $emcc                                \
   $emscripten_flags                  \
   -std=c99                           \
   -D 'fprintf(...)='                 \
+  -D NDEBUG=                         \
   -I lib/src                         \
   -I lib/include                     \
   --js-library ${web_dir}/imports.js \
@@ -112,7 +113,6 @@ if [[ "$minify_js" == "1" ]]; then
   ${web_dir}/node_modules/.bin/terser   \
     --compress                       \
     --mangle                         \
-    --keep-fnames                    \
     --keep-classnames                \
     -- target/scratch/tree-sitter.js \
     > $web_dir/tree-sitter.js
