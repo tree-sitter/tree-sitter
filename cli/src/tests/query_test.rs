@@ -16,7 +16,13 @@ fn test_query_errors_on_invalid_syntax() {
         // Mismatched parens
         assert_eq!(
             Query::new(language, "(if_statement"),
-            Err(QueryError::Syntax("Unexpected EOF".to_string()))
+            Err(QueryError::Syntax(
+                [
+                    "(if_statement", //
+                    "             ^",
+                ]
+                .join("\n")
+            ))
         );
         assert_eq!(
             Query::new(language, "; comment 1\n; comment 2\n  (if_statement))"),

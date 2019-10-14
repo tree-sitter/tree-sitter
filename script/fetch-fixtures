@@ -31,5 +31,5 @@ fetch_grammar javascript        highlight-queries
 fetch_grammar json              master
 fetch_grammar python            master
 fetch_grammar ruby              master
-fetch_grammar rust              master
+fetch_grammar rust              highlight-queries
 fetch_grammar typescript        master

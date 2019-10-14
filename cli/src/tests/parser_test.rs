@@ -7,7 +7,7 @@ use std::{thread, time};
 use tree_sitter::{InputEdit, LogType, Parser, Point, Range};
 
 #[test]
-fn test_basic_parsing() {
+fn test_parsing_simple_string() {
     let mut parser = Parser::new();
     parser.set_language(get_language("rust")).unwrap();
 
@@ -26,7 +26,11 @@ fn test_basic_parsing() {
 
     assert_eq!(
         root_node.to_sexp(),
-        "(source_file (struct_item (type_identifier) (field_declaration_list)) (function_item (identifier) (parameters) (block)))"
+        concat!(
+            "(source_file ",
+            "(struct_item name: (type_identifier) body: (field_declaration_list)) ",
+            "(function_item name: (identifier) parameters: (parameters) body: (block)))"
+        )
     );
 
     let struct_node = root_node.child(0).unwrap();
@@ -118,7 +122,17 @@ fn test_parsing_with_custom_utf8_input() {
         .unwrap();
 
     let root = tree.root_node();
-    assert_eq!(root.to_sexp(), "(source_file (function_item (visibility_modifier) (identifier) (parameters) (block (integer_literal))))");
+    assert_eq!(
+        root.to_sexp(),
+        concat!(
+            "(source_file ",
+            "(function_item ",
+            "(visibility_modifier) ",
+            "name: (identifier) ",
+            "parameters: (parameters) ",
+            "body: (block (integer_literal))))"
+        )
+    );
     assert_eq!(root.kind(), "source_file");
     assert_eq!(root.has_error(), false);
     assert_eq!(root.child(0).unwrap().kind(), "function_item");
@@ -154,7 +168,10 @@ fn test_parsing_with_custom_utf16_input() {
         .unwrap();
 
     let root = tree.root_node();
-    assert_eq!(root.to_sexp(), "(source_file (function_item (visibility_modifier) (identifier) (parameters) (block (integer_literal))))");
+    assert_eq!(
+        root.to_sexp(),
+        "(source_file (function_item (visibility_modifier) name: (identifier) parameters: (parameters) body: (block (integer_literal))))"
+    );
     assert_eq!(root.kind(), "source_file");
     assert_eq!(root.has_error(), false);
     assert_eq!(root.child(0).unwrap().kind(), "function_item");
@@ -175,7 +192,10 @@ fn test_parsing_with_callback_returning_owned_strings() {
         .unwrap();
 
     let root = tree.root_node();
-    assert_eq!(root.to_sexp(), "(source_file (function_item (visibility_modifier) (identifier) (parameters) (block (integer_literal))))");
+    assert_eq!(
+        root.to_sexp(),
+        "(source_file (function_item (visibility_modifier) name: (identifier) parameters: (parameters) body: (block (integer_literal))))"
+    );
 }
 
 #[test]
@@ -192,7 +212,7 @@ fn test_parsing_text_with_byte_order_mark() {
         .unwrap();
     assert_eq!(
         tree.root_node().to_sexp(),
-        "(source_file (function_item (identifier) (parameters) (block)))"
+        "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))"
     );
     assert_eq!(tree.root_node().start_byte(), 2);
 
@@ -200,7 +220,7 @@ fn test_parsing_text_with_byte_order_mark() {
     let mut tree = parser.parse("\u{FEFF}fn a() {}", None).unwrap();
     assert_eq!(
         tree.root_node().to_sexp(),
-        "(source_file (function_item (identifier) (parameters) (block)))"
+        "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))"
     );
     assert_eq!(tree.root_node().start_byte(), 3);
 
@@ -216,7 +236,7 @@ fn test_parsing_text_with_byte_order_mark() {
     let mut tree = parser.parse(" \u{FEFF}fn a() {}", Some(&tree)).unwrap();
     assert_eq!(
         tree.root_node().to_sexp(),
-        "(source_file (ERROR (UNEXPECTED 65279)) (function_item (identifier) (parameters) (block)))"
+        "(source_file (ERROR (UNEXPECTED 65279)) (function_item name: (identifier) parameters: (parameters) body: (block)))"
     );
     assert_eq!(tree.root_node().start_byte(), 1);
 
@@ -232,7 +252,7 @@ fn test_parsing_text_with_byte_order_mark() {
     let tree = parser.parse("\u{FEFF}fn a() {}", Some(&tree)).unwrap();
     assert_eq!(
         tree.root_node().to_sexp(),
-        "(source_file (function_item (identifier) (parameters) (block)))"
+        "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))"
     );
     assert_eq!(tree.root_node().start_byte(), 3);
 }

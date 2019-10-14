@@ -73,6 +73,7 @@ where
     layers: Vec<HighlightIterLayer<'a>>,
     iter_count: usize,
     next_event: Option<HighlightEvent>,
+    last_highlight_range: Option<(usize, usize, usize)>,
 }
 
 struct HighlightIterLayer<'a> {
@@ -252,6 +253,7 @@ impl Highlighter {
             iter_count: 0,
             layers: vec![layer],
             next_event: None,
+            last_highlight_range: None,
         })
     }
 }
@@ -397,7 +399,8 @@ impl<'a> HighlightIterLayer<'a> {
     // First, sort scope boundaries by their byte offset in the document. At a
     // given position, emit scope endings before scope beginnings. Finally, emit
     // scope boundaries from outer layers first.
-    fn sort_key(&mut self) -> Option<(usize, bool, usize)> {
+    fn sort_key(&mut self) -> Option<(usize, bool, isize)> {
+        let depth = -(self.depth as isize);
         let next_start = self
             .captures
             .peek()
@@ -406,13 +409,13 @@ impl<'a> HighlightIterLayer<'a> {
         match (next_start, next_end) {
             (Some(start), Some(end)) => {
                 if start < end {
-                    Some((start, true, self.depth))
+                    Some((start, true, depth))
                 } else {
-                    Some((end, false, self.depth))
+                    Some((end, false, depth))
                 }
             }
-            (Some(i), None) => Some((i, true, self.depth)),
-            (None, Some(j)) => Some((j, false, self.depth)),
+            (Some(i), None) => Some((i, true, depth)),
+            (None, Some(j)) => Some((j, false, depth)),
             _ => None,
         }
     }
@@ -589,7 +592,7 @@ where
                     // captures being intermixed with other captures related to local variables
                     // and syntax highlighting.
                     let source = self.source;
-                    let mut injections = Vec::<(usize, Option<&str>, Vec<Node>)>::new();
+                    let mut injections = Vec::<(usize, Option<&str>, Vec<Node>, bool)>::new();
                     for mat in self.injections_cursor.matches(
                         &layer.config.injections_query,
                         site_node,
@@ -600,7 +603,7 @@ where
                         {
                             entry
                         } else {
-                            injections.push((mat.pattern_index, None, Vec::new()));
+                            injections.push((mat.pattern_index, None, Vec::new(), false));
                             injections.last_mut().unwrap()
                         };
 
@@ -618,27 +621,29 @@ where
                         }
                     }
 
-                    for (pattern_index, language, _) in injections.iter_mut() {
-                        // In addition to specifying the language name via the text of a captured node,
-                        // it can also be hard-coded via a `(set! injection.language <language>)`
-                        // predicate.
-                        if language.is_none() {
-                            *language = layer
-                                .config
-                                .query
-                                .property_settings(*pattern_index)
-                                .iter()
-                                .find_map(|prop| {
-                                    if prop.key.as_ref() == "injection.language" {
-                                        prop.value.as_ref().map(|s| s.as_ref())
-                                    } else {
-                                        None
+                    for (pattern_index, language, _, include_children) in injections.iter_mut() {
+                        for prop in layer.config.query.property_settings(*pattern_index) {
+                            match prop.key.as_ref() {
+                                // In addition to specifying the language name via the text of a
+                                // captured node, it can also be hard-coded via a `set!` predicate
+                                // that sets the injection.language key.
+                                "injection.language" => {
+                                    if language.is_none() {
+                                        *language = prop.value.as_ref().map(|s| s.as_ref())
                                     }
-                                });
+                                }
+
+                                // By default, injections do not include the *children* of an
+                                // `injection.content` node - only the ranges that belong to the
+                                // node itself. This can be changed using a `set!` predicate that
+                                // sets the `injection.include-children` key.
+                                "injection.include-children" => *include_children = true,
+                                _ => {}
+                            }
                         }
                     }
 
-                    for (_, language, content_nodes) in injections {
+                    for (_, language, content_nodes, include_children) in injections {
                         // If a language is found with the given name, then add a new language layer
                         // to the highlighted document.
                         if let Some(config) = language.and_then(&self.injection_callback) {
@@ -649,7 +654,8 @@ where
                                     self.context,
                                     self.cancellation_flag,
                                     self.layers[0].depth + 1,
-                                    self.layers[0].intersect_ranges(&content_nodes, false),
+                                    self.layers[0]
+                                        .intersect_ranges(&content_nodes, include_children),
                                 ) {
                                     Ok(layer) => self.insert_layer(layer),
                                     Err(e) => return Some(Err(e)),
@@ -736,10 +742,17 @@ where
                 break;
             }
 
+            let mut has_highlight = true;
+            if let Some((last_start, last_end, last_depth)) = self.last_highlight_range {
+                if range.start == last_start && range.end == last_end && layer.depth < last_depth {
+                    has_highlight = false;
+                }
+            }
+
             // If the current node was found to be a local variable, then skip over any
             // highlighting patterns that are disabled for local variables.
-            let mut has_highlight = true;
-            while (definition_highlight.is_some() || reference_highlight.is_some())
+            while has_highlight
+                && (definition_highlight.is_some() || reference_highlight.is_some())
                 && layer.config.non_local_variable_patterns[pattern_index]
             {
                 has_highlight = false;
@@ -780,6 +793,7 @@ where
 
                 // Emit a scope start event and push the node's end position to the stack.
                 if let Some(highlight) = reference_highlight.or(current_highlight) {
+                    self.last_highlight_range = Some((range.start, range.end, layer.depth));
                     layer.highlight_end_stack.push(range.end);
                     return self
                         .emit_event(range.start, Some(HighlightEvent::HighlightStart(highlight)));
