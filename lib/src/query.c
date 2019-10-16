@@ -328,6 +328,7 @@ static TSSymbol ts_query_intern_node_name(
   uint32_t length,
   TSSymbolType symbol_type
 ) {
+  if (!strncmp(name, "ERROR", length)) return ts_builtin_sym_error;
   uint32_t symbol_count = ts_language_symbol_count(self->language);
   for (TSSymbol i = 0; i < symbol_count; i++) {
     if (ts_language_symbol_type(self->language, i) != symbol_type) continue;

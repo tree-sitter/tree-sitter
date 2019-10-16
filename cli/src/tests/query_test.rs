@@ -366,6 +366,36 @@ fn test_query_matches_with_many() {
 }
 
 #[test]
+fn test_query_matches_capturing_error_nodes() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            "
+            (ERROR (identifier) @the-error-identifier) @the-error
+            ",
+        )
+        .unwrap();
+
+        let source = "function a(b,, c, d :e:) {}";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
+
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[(
+                0,
+                vec![("the-error", ":e:"), ("the-error-identifier", "e"),]
+            ),]
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_in_language_with_simple_aliases() {
     allocations::record(|| {
         let language = get_language("html");
