@@ -1,18 +1,14 @@
 mod ffi;
 mod util;
 
-#[macro_use]
-extern crate serde_derive;
 extern crate regex;
 extern crate serde;
+extern crate serde_derive;
 extern crate serde_json;
 
 #[cfg(unix)]
 use std::os::unix::io::AsRawFd;
 
-use regex::Regex;
-use serde::de::DeserializeOwned;
-use std::collections::HashMap;
 use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
@@ -65,62 +61,6 @@ pub struct InputEdit {
     pub new_end_position: Point,
 }
 
-struct PropertyTransition {
-    state_id: u16,
-    child_index: Option<u16>,
-    text_regex_index: Option<u16>,
-    node_kind_id: Option<u16>,
-}
-
-struct PropertyState {
-    field_transitions: HashMap<u16, Vec<PropertyTransition>>,
-    kind_transitions: HashMap<u16, Vec<PropertyTransition>>,
-    property_set_id: usize,
-    default_next_state_id: usize,
-}
-
-#[derive(Debug)]
-pub enum PropertySheetError {
-    InvalidJSON(serde_json::Error),
-    InvalidRegex(regex::Error),
-}
-
-pub struct PropertySheet<P = HashMap<String, String>> {
-    states: Vec<PropertyState>,
-    property_sets: Vec<P>,
-    text_regexes: Vec<Regex>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, Hash, PartialEq, Eq)]
-pub struct PropertyTransitionJSON {
-    #[serde(rename = "type")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub kind: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub named: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub index: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub field: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub text: Option<String>,
-    pub state_id: usize,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
-pub struct PropertyStateJSON {
-    pub id: Option<usize>,
-    pub property_set_id: usize,
-    pub transitions: Vec<PropertyTransitionJSON>,
-    pub default_next_state_id: usize,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct PropertySheetJSON<P> {
-    pub states: Vec<PropertyStateJSON>,
-    pub property_sets: Vec<P>,
-}
-
 #[derive(Clone, Copy)]
 #[repr(transparent)]
 pub struct Node<'a>(ffi::TSNode, PhantomData<&'a ()>);
@@ -130,14 +70,6 @@ pub struct Parser(NonNull<ffi::TSParser>);
 pub struct Tree(NonNull<ffi::TSTree>);
 
 pub struct TreeCursor<'a>(ffi::TSTreeCursor, PhantomData<&'a ()>);
-
-pub struct TreePropertyCursor<'a, P> {
-    cursor: TreeCursor<'a>,
-    state_stack: Vec<usize>,
-    child_index_stack: Vec<usize>,
-    property_sheet: &'a PropertySheet<P>,
-    source: &'a [u8],
-}
 
 #[derive(Debug)]
 enum TextPredicate {
@@ -252,6 +184,7 @@ impl fmt::Display for LanguageError {
 }
 
 impl Parser {
+    /// Create a new parser.
     pub fn new() -> Parser {
         unsafe {
             let parser = ffi::ts_parser_new();
@@ -259,6 +192,14 @@ impl Parser {
         }
     }
 
+    /// Set the language that the parser should use for parsing.
+    ///
+    /// Returns a Result indicating whether or not the language was successfully
+    /// assigned. True means assignment succeeded. False means there was a version
+    /// mismatch: the language was generated with an incompatible version of the
+    /// Tree-sitter CLI. Check the language's version using `ts_language_version`
+    /// and compare it to this library's `TREE_SITTER_LANGUAGE_VERSION` and
+    /// `TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION` constants.
     pub fn set_language(&mut self, language: Language) -> Result<(), LanguageError> {
         let version = language.version();
         if version < ffi::TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
@@ -554,14 +495,6 @@ impl Tree {
         self.root_node().walk()
     }
 
-    pub fn walk_with_properties<'a, P>(
-        &'a self,
-        property_sheet: &'a PropertySheet<P>,
-        source: &'a [u8],
-    ) -> TreePropertyCursor<'a, P> {
-        TreePropertyCursor::new(self, property_sheet, source)
-    }
-
     pub fn changed_ranges(&self, other: &Tree) -> impl ExactSizeIterator<Item = Range> {
         let mut count = 0;
         unsafe {
@@ -855,125 +788,6 @@ impl<'a> TreeCursor<'a> {
 impl<'a> Drop for TreeCursor<'a> {
     fn drop(&mut self) {
         unsafe { ffi::ts_tree_cursor_delete(&mut self.0) }
-    }
-}
-
-impl<'a, P> TreePropertyCursor<'a, P> {
-    fn new(tree: &'a Tree, property_sheet: &'a PropertySheet<P>, source: &'a [u8]) -> Self {
-        let mut result = Self {
-            cursor: tree.root_node().walk(),
-            child_index_stack: vec![0],
-            state_stack: vec![0],
-            property_sheet,
-            source,
-        };
-        let state = result.next_state(0);
-        result.state_stack.push(state);
-        result
-    }
-
-    pub fn node(&self) -> Node<'a> {
-        self.cursor.node()
-    }
-
-    pub fn node_properties(&self) -> &'a P {
-        &self.property_sheet.property_sets[self.current_state().property_set_id]
-    }
-
-    pub fn goto_first_child(&mut self) -> bool {
-        if self.cursor.goto_first_child() {
-            let next_state_id = self.next_state(0);
-            self.state_stack.push(next_state_id);
-            self.child_index_stack.push(0);
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn goto_next_sibling(&mut self) -> bool {
-        if self.cursor.goto_next_sibling() {
-            let child_index = self.child_index_stack.pop().unwrap() + 1;
-            self.state_stack.pop();
-            let next_state_id = self.next_state(child_index);
-            self.state_stack.push(next_state_id);
-            self.child_index_stack.push(child_index);
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn goto_parent(&mut self) -> bool {
-        if self.cursor.goto_parent() {
-            self.state_stack.pop();
-            self.child_index_stack.pop();
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn source(&self) -> &'a [u8] {
-        &self.source
-    }
-
-    fn next_state(&self, node_child_index: usize) -> usize {
-        let current_state = self.current_state();
-        let default_state = self.default_state();
-
-        for state in [current_state, default_state].iter() {
-            let node_field_id = self.cursor.field_id();
-            let node_kind_id = self.cursor.node().kind_id();
-            let transitions = node_field_id
-                .and_then(|field_id| state.field_transitions.get(&field_id))
-                .or_else(|| state.kind_transitions.get(&node_kind_id));
-
-            if let Some(transitions) = transitions {
-                for transition in transitions.iter() {
-                    if transition
-                        .node_kind_id
-                        .map_or(false, |id| id != node_kind_id)
-                    {
-                        continue;
-                    }
-
-                    if let Some(text_regex_index) = transition.text_regex_index {
-                        let node = self.cursor.node();
-                        let text = &self.source[node.start_byte()..node.end_byte()];
-                        if let Ok(text) = str::from_utf8(text) {
-                            if !self.property_sheet.text_regexes[text_regex_index as usize]
-                                .is_match(text)
-                            {
-                                continue;
-                            }
-                        }
-                    }
-
-                    if let Some(child_index) = transition.child_index {
-                        if child_index != node_child_index as u16 {
-                            continue;
-                        }
-                    }
-
-                    return transition.state_id as usize;
-                }
-            }
-
-            if current_state as *const PropertyState == default_state as *const PropertyState {
-                break;
-            }
-        }
-
-        current_state.default_next_state_id
-    }
-
-    fn current_state(&self) -> &PropertyState {
-        &self.property_sheet.states[*self.state_stack.last().unwrap()]
-    }
-
-    fn default_state(&self) -> &PropertyState {
-        &self.property_sheet.states.first().unwrap()
     }
 }
 
@@ -1509,154 +1323,6 @@ impl<'a> Into<ffi::TSInputEdit> for &'a InputEdit {
             start_point: self.start_position.into(),
             old_end_point: self.old_end_position.into(),
             new_end_point: self.new_end_position.into(),
-        }
-    }
-}
-
-impl<P> PropertySheet<P> {
-    pub fn new(language: Language, json: &str) -> Result<Self, PropertySheetError>
-    where
-        P: DeserializeOwned,
-    {
-        let input: PropertySheetJSON<P> =
-            serde_json::from_str(json).map_err(PropertySheetError::InvalidJSON)?;
-        let mut states = Vec::new();
-        let mut text_regexes = Vec::new();
-        let mut text_regex_patterns = Vec::new();
-
-        for state in input.states.iter() {
-            let node_kind_count = language.node_kind_count();
-            let mut kind_transitions = HashMap::new();
-            let mut field_transitions = HashMap::new();
-
-            for transition in state.transitions.iter() {
-                let field_id = transition
-                    .field
-                    .as_ref()
-                    .and_then(|field| language.field_id_for_name(&field));
-                if let Some(field_id) = field_id {
-                    field_transitions.entry(field_id).or_insert(Vec::new());
-                }
-            }
-
-            for transition in state.transitions.iter() {
-                let text_regex_index = if let Some(regex_pattern) = transition.text.as_ref() {
-                    if let Some(index) =
-                        text_regex_patterns.iter().position(|r| *r == regex_pattern)
-                    {
-                        Some(index as u16)
-                    } else {
-                        text_regex_patterns.push(regex_pattern);
-                        text_regexes.push(
-                            Regex::new(&regex_pattern).map_err(PropertySheetError::InvalidRegex)?,
-                        );
-                        Some(text_regexes.len() as u16 - 1)
-                    }
-                } else {
-                    None
-                };
-
-                let state_id = transition.state_id as u16;
-                let child_index = transition.index.map(|i| i as u16);
-                let field_id = transition
-                    .field
-                    .as_ref()
-                    .and_then(|field| language.field_id_for_name(&field));
-
-                if let Some(kind) = transition.kind.as_ref() {
-                    for kind_id in 0..(node_kind_count as u16) {
-                        if kind != language.node_kind_for_id(kind_id)
-                            || transition.named != Some(language.node_kind_is_named(kind_id))
-                        {
-                            continue;
-                        }
-
-                        if let Some(field_id) = field_id {
-                            field_transitions
-                                .entry(field_id)
-                                .or_insert(Vec::new())
-                                .push(PropertyTransition {
-                                    node_kind_id: Some(kind_id),
-                                    state_id,
-                                    child_index,
-                                    text_regex_index,
-                                });
-                        } else {
-                            for (_, entries) in field_transitions.iter_mut() {
-                                entries.push(PropertyTransition {
-                                    node_kind_id: Some(kind_id),
-                                    state_id,
-                                    child_index,
-                                    text_regex_index,
-                                });
-                            }
-
-                            kind_transitions.entry(kind_id).or_insert(Vec::new()).push(
-                                PropertyTransition {
-                                    node_kind_id: None,
-                                    state_id,
-                                    child_index,
-                                    text_regex_index,
-                                },
-                            );
-                        }
-                    }
-                } else if let Some(field_id) = field_id {
-                    field_transitions
-                        .entry(field_id)
-                        .or_insert(Vec::new())
-                        .push(PropertyTransition {
-                            node_kind_id: None,
-                            state_id,
-                            child_index,
-                            text_regex_index,
-                        });
-                }
-            }
-            states.push(PropertyState {
-                field_transitions,
-                kind_transitions,
-                default_next_state_id: state.default_next_state_id,
-                property_set_id: state.property_set_id,
-            });
-        }
-        Ok(Self {
-            property_sets: input.property_sets,
-            states,
-            text_regexes,
-        })
-    }
-
-    pub fn map<F, T, E>(self, mut f: F) -> Result<PropertySheet<T>, E>
-    where
-        F: FnMut(P) -> Result<T, E>,
-    {
-        let mut property_sets = Vec::with_capacity(self.property_sets.len());
-        for set in self.property_sets {
-            property_sets.push(f(set)?);
-        }
-        Ok(PropertySheet {
-            states: self.states,
-            text_regexes: self.text_regexes,
-            property_sets,
-        })
-    }
-}
-
-impl fmt::Display for PropertySheetError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            PropertySheetError::InvalidJSON(e) => write!(f, "Invalid JSON: {}", e),
-            PropertySheetError::InvalidRegex(e) => write!(f, "Invalid Regex: {}", e),
-        }
-    }
-}
-
-impl std::error::Error for PropertySheetError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            PropertySheetError::InvalidJSON(e) => Some(e),
-            PropertySheetError::InvalidRegex(e) => Some(e),
         }
     }
 }

@@ -40,7 +40,6 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("grammar-path").index(1))
                 .arg(Arg::with_name("log").long("log"))
                 .arg(Arg::with_name("next-abi").long("next-abi"))
-                .arg(Arg::with_name("properties-only").long("properties"))
                 .arg(
                     Arg::with_name("report-states-for-rule")
                         .long("report-states-for-rule")
@@ -142,7 +141,6 @@ fn run() -> error::Result<()> {
         config.save(&home_dir)?;
     } else if let Some(matches) = matches.subcommand_matches("generate") {
         let grammar_path = matches.value_of("grammar-path");
-        let properties_only = matches.is_present("properties-only");
         let report_symbol_name = matches.value_of("report-states-for-rule").or_else(|| {
             if matches.is_present("report-states") {
                 Some("")
@@ -157,7 +155,6 @@ fn run() -> error::Result<()> {
         generate::generate_parser_in_directory(
             &current_dir,
             grammar_path,
-            properties_only,
             next_abi,
             report_symbol_name,
         )?;

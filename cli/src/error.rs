@@ -74,12 +74,6 @@ impl From<io::Error> for Error {
     }
 }
 
-impl From<rsass::Error> for Error {
-    fn from(error: rsass::Error) -> Self {
-        Error::new(error.to_string())
-    }
-}
-
 impl From<regex_syntax::ast::Error> for Error {
     fn from(error: regex_syntax::ast::Error) -> Self {
         Error::new(error.to_string())
