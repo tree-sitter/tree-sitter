@@ -1,6 +1,6 @@
 use std::fmt::Write;
 use std::io;
-use tree_sitter_highlight::PropertySheetError;
+use tree_sitter::QueryError;
 
 #[derive(Debug)]
 pub struct Error(pub Vec<String>);
@@ -50,6 +50,18 @@ impl Error {
     }
 }
 
+impl<'a> From<QueryError> for Error {
+    fn from(error: QueryError) -> Self {
+        Error::new(format!("{:?}", error))
+    }
+}
+
+impl<'a> From<tree_sitter_highlight::Error> for Error {
+    fn from(error: tree_sitter_highlight::Error) -> Self {
+        Error::new(format!("{:?}", error))
+    }
+}
+
 impl From<serde_json::Error> for Error {
     fn from(error: serde_json::Error) -> Self {
         Error::new(error.to_string())
@@ -58,12 +70,6 @@ impl From<serde_json::Error> for Error {
 
 impl From<io::Error> for Error {
     fn from(error: io::Error) -> Self {
-        Error::new(error.to_string())
-    }
-}
-
-impl From<rsass::Error> for Error {
-    fn from(error: rsass::Error) -> Self {
         Error::new(error.to_string())
     }
 }
@@ -77,15 +83,5 @@ impl From<regex_syntax::ast::Error> for Error {
 impl From<String> for Error {
     fn from(error: String) -> Self {
         Error::new(error)
-    }
-}
-
-impl From<PropertySheetError> for Error {
-    fn from(error: PropertySheetError) -> Self {
-        match error {
-            PropertySheetError::InvalidFormat(e) => Self::from(e),
-            PropertySheetError::InvalidRegex(e) => Self::regex(&e.to_string()),
-            PropertySheetError::InvalidJSON(e) => Self::from(e),
-        }
     }
 }

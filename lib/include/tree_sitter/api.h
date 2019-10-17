@@ -717,6 +717,13 @@ const char *ts_query_string_value_for_id(
 );
 
 /**
+ * Disable a certain capture within a query. This prevents the capture
+ * from being returned in matches, and also avoids any resource usage
+ * associated with recording the capture.
+ */
+void ts_query_disable_capture(TSQuery *, const char *, uint32_t);
+
+/**
  * Create a new cursor for executing a given query.
  *
  * The cursor stores the state that is needed to iteratively search

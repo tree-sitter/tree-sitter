@@ -40,7 +40,6 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("grammar-path").index(1))
                 .arg(Arg::with_name("log").long("log"))
                 .arg(Arg::with_name("next-abi").long("next-abi"))
-                .arg(Arg::with_name("properties-only").long("properties"))
                 .arg(
                     Arg::with_name("report-states-for-rule")
                         .long("report-states-for-rule")
@@ -110,7 +109,8 @@ fn run() -> error::Result<()> {
                 )
                 .arg(Arg::with_name("scope").long("scope").takes_value(true))
                 .arg(Arg::with_name("html").long("html").short("h"))
-                .arg(Arg::with_name("time").long("time").short("t")),
+                .arg(Arg::with_name("time").long("time").short("t"))
+                .arg(Arg::with_name("q").short("q")),
         )
         .subcommand(
             SubCommand::with_name("build-wasm")
@@ -141,7 +141,6 @@ fn run() -> error::Result<()> {
         config.save(&home_dir)?;
     } else if let Some(matches) = matches.subcommand_matches("generate") {
         let grammar_path = matches.value_of("grammar-path");
-        let properties_only = matches.is_present("properties-only");
         let report_symbol_name = matches.value_of("report-states-for-rule").or_else(|| {
             if matches.is_present("report-states") {
                 Some("")
@@ -156,7 +155,6 @@ fn run() -> error::Result<()> {
         generate::generate_parser_in_directory(
             &current_dir,
             grammar_path,
-            properties_only,
             next_abi,
             report_symbol_name,
         )?;
@@ -260,15 +258,18 @@ fn run() -> error::Result<()> {
                 },
             };
 
-            if let Some(sheet) = language_config.highlight_property_sheet(language)? {
-                let source = fs::read(path)?;
+            let source = fs::read(path)?;
+
+            if let Some(highlight_config) =
+                language_config.highlight_config(&config.theme.highlighter, language)?
+            {
                 if html_mode {
-                    highlight::html(&loader, &config.theme, &source, language, sheet)?;
+                    highlight::html(&loader, &config.theme, &source, highlight_config, time)?;
                 } else {
-                    highlight::ansi(&loader, &config.theme, &source, language, sheet, time)?;
+                    highlight::ansi(&loader, &config.theme, &source, highlight_config, time)?;
                 }
             } else {
-                return Error::err(format!("No syntax highlighting property sheet specified"));
+                return Error::err(format!("No syntax highlighting query found"));
             }
         }
     } else if let Some(matches) = matches.subcommand_matches("build-wasm") {
@@ -280,10 +281,17 @@ fn run() -> error::Result<()> {
         loader.find_all_languages(&config.parser_directories)?;
         for (configuration, language_path) in loader.get_all_language_configurations() {
             println!(
-                "scope: {}\nparser: {:?}\nproperties: {:?}\nfile_types: {:?}\ncontent_regex: {:?}\ninjection_regex: {:?}\n",
+                concat!(
+                    "scope: {}\n",
+                    "parser: {:?}\n",
+                    "highlights: {:?}\n",
+                    "file_types: {:?}\n",
+                    "content_regex: {:?}\n",
+                    "injection_regex: {:?}\n",
+                ),
                 configuration.scope.as_ref().unwrap_or(&String::new()),
                 language_path,
-                configuration.highlight_property_sheet_path,
+                configuration.highlights_filenames,
                 configuration.file_types,
                 configuration.content_regex,
                 configuration.injection_regex,

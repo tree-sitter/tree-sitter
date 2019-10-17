@@ -14,47 +14,15 @@ typedef enum {
   TSHighlightInvalidLanguage,
 } TSHighlightError;
 
-// The list of scopes which can be styled for syntax highlighting.
-// When constructing a `TSHighlighter`, you need to construct an
-// `attribute_strings` array whose elements correspond to these values.
-enum TSHighlightValue {
-  TSHighlightValueAttribute,
-  TSHighlightValueComment,
-  TSHighlightValueConstant,
-  TSHighlightValueConstantBuiltin,
-  TSHighlightValueConstructor,
-  TSHighlightValueConstructorBuiltin,
-  TSHighlightValueEmbedded,
-  TSHighlightValueEscape,
-  TSHighlightValueFunction,
-  TSHighlightValueFunctionBuiltin,
-  TSHighlightValueKeyword,
-  TSHighlightValueNumber,
-  TSHighlightValueOperator,
-  TSHighlightValueProperty,
-  TSHighlightValuePropertyBuiltin,
-  TSHighlightValuePunctuation,
-  TSHighlightValuePunctuationBracket,
-  TSHighlightValuePunctuationDelimiter,
-  TSHighlightValuePunctuationSpecial,
-  TSHighlightValueString,
-  TSHighlightValueStringSpecial,
-  TSHighlightValueTag,
-  TSHighlightValueType,
-  TSHighlightValueTypeBuiltin,
-  TSHighlightValueVariable,
-  TSHighlightValueVariableBuiltin,
-  TSHighlightValueVariableParameter,
-  TSHighlightValueUnknown,
-};
-
 typedef struct TSHighlighter TSHighlighter;
 typedef struct TSHighlightBuffer TSHighlightBuffer;
 
 // Construct a `TSHighlighter` by providing a list of strings containing
 // the HTML attributes that should be applied for each highlight value.
 TSHighlighter *ts_highlighter_new(
-  const char **attribute_strings
+  const char **highlight_names,
+  const char **attribute_strings,
+  uint32_t highlight_count
 );
 
 // Delete a syntax highlighter.
@@ -70,9 +38,14 @@ void ts_highlighter_delete(TSHighlighter *);
 int ts_highlighter_add_language(
   TSHighlighter *self,
   const char *scope_name,
+  const char *injection_regex,
   const TSLanguage *language,
-  const char *property_sheet_json,
-  const char *injection_regex
+  const char *highlight_query,
+  const char *injection_query,
+  const char *locals_query,
+  uint32_t highlight_query_len,
+  uint32_t injection_query_len,
+  uint32_t locals_query_len
 );
 
 // Compute syntax highlighting for a given document. You must first

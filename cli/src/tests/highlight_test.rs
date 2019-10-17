@@ -1,32 +1,88 @@
-use super::helpers::fixtures::{get_language, get_property_sheet, get_property_sheet_json};
+use super::helpers::fixtures::{get_highlight_config, get_language, get_language_queries_path};
 use lazy_static::lazy_static;
 use std::ffi::CString;
-
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{ptr, slice, str};
-use tree_sitter::{Language, PropertySheet};
+use std::{fs, ptr, slice, str};
 use tree_sitter_highlight::{
-    c, highlight, highlight_html, Error, Highlight, HighlightEvent, Properties,
+    c, Error, HighlightConfiguration, HighlightContext, HighlightEvent, Highlighter, HtmlRenderer,
 };
 
 lazy_static! {
-    static ref JS_SHEET: PropertySheet<Properties> =
-        get_property_sheet("javascript", "highlights.json");
-    static ref HTML_SHEET: PropertySheet<Properties> =
-        get_property_sheet("html", "highlights.json");
-    static ref EJS_SHEET: PropertySheet<Properties> =
-        get_property_sheet("embedded-template", "highlights-ejs.json");
-    static ref RUST_SHEET: PropertySheet<Properties> =
-        get_property_sheet("rust", "highlights.json");
-    static ref SCOPE_CLASS_STRINGS: Vec<String> = {
-        let mut result = Vec::new();
-        let mut i = 0;
-        while let Some(highlight) = Highlight::from_usize(i) {
-            result.push(format!("class={:?}", highlight));
-            i += 1;
-        }
-        result
-    };
+    static ref JS_HIGHLIGHT: HighlightConfiguration =
+        get_highlight_config(&HIGHLIGHTER, "javascript", "injections.scm");
+    static ref HTML_HIGHLIGHT: HighlightConfiguration =
+        get_highlight_config(&HIGHLIGHTER, "html", "injections.scm");
+    static ref EJS_HIGHLIGHT: HighlightConfiguration =
+        get_highlight_config(&HIGHLIGHTER, "embedded-template", "injections-ejs.scm");
+    static ref RUST_HIGHLIGHT: HighlightConfiguration =
+        get_highlight_config(&HIGHLIGHTER, "rust", "injections.scm");
+    static ref HIGHLIGHTER: Highlighter = Highlighter::new(
+        [
+            "attribute",
+            "constant",
+            "constructor",
+            "function.builtin",
+            "function",
+            "embedded",
+            "keyword",
+            "operator",
+            "property.builtin",
+            "property",
+            "punctuation",
+            "punctuation.bracket",
+            "punctuation.delimiter",
+            "punctuation.special",
+            "string",
+            "tag",
+            "type.builtin",
+            "type",
+            "variable.builtin",
+            "variable.parameter",
+            "variable",
+        ]
+        .iter()
+        .cloned()
+        .map(String::from)
+        .collect()
+    );
+    static ref HTML_ATTRS: Vec<String> = HIGHLIGHTER
+        .names()
+        .iter()
+        .map(|s| format!("class={}", s))
+        .collect();
+}
+
+#[test]
+fn test_highlighting_javascript() {
+    let source = "const a = function(b) { return b + c; }";
+    assert_eq!(
+        &to_token_vector(&source, &JS_HIGHLIGHT).unwrap(),
+        &[vec![
+            ("const", vec!["keyword"]),
+            (" ", vec![]),
+            ("a", vec!["function"]),
+            (" ", vec![]),
+            ("=", vec!["operator"]),
+            (" ", vec![]),
+            ("function", vec!["keyword"]),
+            ("(", vec!["punctuation.bracket"]),
+            ("b", vec!["variable.parameter"]),
+            (")", vec!["punctuation.bracket"]),
+            (" ", vec![]),
+            ("{", vec!["punctuation.bracket"]),
+            (" ", vec![]),
+            ("return", vec!["keyword"]),
+            (" ", vec![]),
+            ("b", vec!["variable.parameter"]),
+            (" ", vec![]),
+            ("+", vec!["operator"]),
+            (" ", vec![]),
+            ("c", vec!["variable"]),
+            (";", vec!["punctuation.delimiter"]),
+            (" ", vec![]),
+            ("}", vec!["punctuation.bracket"]),
+        ]]
+    );
 }
 
 #[test]
@@ -34,54 +90,62 @@ fn test_highlighting_injected_html_in_javascript() {
     let source = vec!["const s = html `<div>${a < b}</div>`;"].join("\n");
 
     assert_eq!(
-        &to_token_vector(&source, get_language("javascript"), &JS_SHEET).unwrap(),
+        &to_token_vector(&source, &JS_HIGHLIGHT).unwrap(),
         &[vec![
-            ("const", vec![Highlight::Keyword]),
+            ("const", vec!["keyword"]),
             (" ", vec![]),
-            ("s", vec![Highlight::Variable]),
+            ("s", vec!["variable"]),
             (" ", vec![]),
-            ("=", vec![Highlight::Operator]),
+            ("=", vec!["operator"]),
             (" ", vec![]),
-            ("html", vec![Highlight::Function]),
+            ("html", vec!["function"]),
             (" ", vec![]),
-            ("`<", vec![Highlight::String]),
-            ("div", vec![Highlight::String, Highlight::Tag]),
-            (">", vec![Highlight::String]),
-            (
-                "${",
-                vec![
-                    Highlight::String,
-                    Highlight::Embedded,
-                    Highlight::PunctuationSpecial
-                ]
-            ),
-            (
-                "a",
-                vec![Highlight::String, Highlight::Embedded, Highlight::Variable]
-            ),
-            (" ", vec![Highlight::String, Highlight::Embedded]),
-            (
-                "<",
-                vec![Highlight::String, Highlight::Embedded, Highlight::Operator]
-            ),
-            (" ", vec![Highlight::String, Highlight::Embedded]),
-            (
-                "b",
-                vec![Highlight::String, Highlight::Embedded, Highlight::Variable]
-            ),
-            (
-                "}",
-                vec![
-                    Highlight::String,
-                    Highlight::Embedded,
-                    Highlight::PunctuationSpecial
-                ]
-            ),
-            ("</", vec![Highlight::String]),
-            ("div", vec![Highlight::String, Highlight::Tag]),
-            (">`", vec![Highlight::String]),
-            (";", vec![Highlight::PunctuationDelimiter]),
+            ("`", vec!["string"]),
+            ("<", vec!["string", "punctuation.bracket"]),
+            ("div", vec!["string", "tag"]),
+            (">", vec!["string", "punctuation.bracket"]),
+            ("${", vec!["string", "embedded", "punctuation.special"]),
+            ("a", vec!["string", "embedded", "variable"]),
+            (" ", vec!["string", "embedded"]),
+            ("<", vec!["string", "embedded", "operator"]),
+            (" ", vec!["string", "embedded"]),
+            ("b", vec!["string", "embedded", "variable"]),
+            ("}", vec!["string", "embedded", "punctuation.special"]),
+            ("</", vec!["string", "punctuation.bracket"]),
+            ("div", vec!["string", "tag"]),
+            (">", vec!["string", "punctuation.bracket"]),
+            ("`", vec!["string"]),
+            (";", vec!["punctuation.delimiter"]),
         ]]
+    );
+}
+
+#[test]
+fn test_highlighting_injected_javascript_in_html_mini() {
+    let source = "<script>const x = new Thing();</script>";
+
+    assert_eq!(
+        &to_token_vector(source, &HTML_HIGHLIGHT).unwrap(),
+        &[vec![
+            ("<", vec!["punctuation.bracket"]),
+            ("script", vec!["tag"]),
+            (">", vec!["punctuation.bracket"]),
+            ("const", vec!["keyword"]),
+            (" ", vec![]),
+            ("x", vec!["variable"]),
+            (" ", vec![]),
+            ("=", vec!["operator"]),
+            (" ", vec![]),
+            ("new", vec!["keyword"]),
+            (" ", vec![]),
+            ("Thing", vec!["constructor"]),
+            ("(", vec!["punctuation.bracket"]),
+            (")", vec!["punctuation.bracket"]),
+            (";", vec!["punctuation.delimiter"]),
+            ("</", vec!["punctuation.bracket"]),
+            ("script", vec!["tag"]),
+            (">", vec!["punctuation.bracket"]),
+        ],]
     );
 }
 
@@ -97,38 +161,44 @@ fn test_highlighting_injected_javascript_in_html() {
     .join("\n");
 
     assert_eq!(
-        &to_token_vector(&source, get_language("html"), &HTML_SHEET).unwrap(),
+        &to_token_vector(&source, &HTML_HIGHLIGHT).unwrap(),
         &[
-            vec![("<", vec![]), ("body", vec![Highlight::Tag]), (">", vec![]),],
             vec![
-                ("  <", vec![]),
-                ("script", vec![Highlight::Tag]),
-                (">", vec![]),
+                ("<", vec!["punctuation.bracket"]),
+                ("body", vec!["tag"]),
+                (">", vec!["punctuation.bracket"]),
+            ],
+            vec![
+                ("  ", vec![]),
+                ("<", vec!["punctuation.bracket"]),
+                ("script", vec!["tag"]),
+                (">", vec!["punctuation.bracket"]),
             ],
             vec![
                 ("    ", vec![]),
-                ("const", vec![Highlight::Keyword]),
+                ("const", vec!["keyword"]),
                 (" ", vec![]),
-                ("x", vec![Highlight::Variable]),
+                ("x", vec!["variable"]),
                 (" ", vec![]),
-                ("=", vec![Highlight::Operator]),
+                ("=", vec!["operator"]),
                 (" ", vec![]),
-                ("new", vec![Highlight::Keyword]),
+                ("new", vec!["keyword"]),
                 (" ", vec![]),
-                ("Thing", vec![Highlight::Constructor]),
-                ("(", vec![Highlight::PunctuationBracket]),
-                (")", vec![Highlight::PunctuationBracket]),
-                (";", vec![Highlight::PunctuationDelimiter]),
+                ("Thing", vec!["constructor"]),
+                ("(", vec!["punctuation.bracket"]),
+                (")", vec!["punctuation.bracket"]),
+                (";", vec!["punctuation.delimiter"]),
             ],
             vec![
-                ("  </", vec![]),
-                ("script", vec![Highlight::Tag]),
-                (">", vec![]),
+                ("  ", vec![]),
+                ("</", vec!["punctuation.bracket"]),
+                ("script", vec!["tag"]),
+                (">", vec!["punctuation.bracket"]),
             ],
             vec![
-                ("</", vec![]),
-                ("body", vec![Highlight::Tag]),
-                (">", vec![]),
+                ("</", vec!["punctuation.bracket"]),
+                ("body", vec!["tag"]),
+                (">", vec!["punctuation.bracket"]),
             ],
         ]
     );
@@ -147,13 +217,13 @@ fn test_highlighting_multiline_nodes_to_html() {
     .join("\n");
 
     assert_eq!(
-        &to_html(&source, get_language("javascript"), &JS_SHEET,).unwrap(),
+        &to_html(&source, &JS_HIGHLIGHT).unwrap(),
         &[
-            "<span class=Keyword>const</span> <span class=Constant>SOMETHING</span> <span class=Operator>=</span> <span class=String>`</span>\n".to_string(),
-            "<span class=String>  one <span class=Embedded><span class=PunctuationSpecial>${</span></span></span>\n".to_string(),
-            "<span class=String><span class=Embedded>    <span class=Function>two</span><span class=PunctuationBracket>(</span><span class=PunctuationBracket>)</span></span></span>\n".to_string(),
-            "<span class=String><span class=Embedded>  <span class=PunctuationSpecial>}</span></span> three</span>\n".to_string(),
-            "<span class=String>`</span>\n".to_string(),
+            "<span class=keyword>const</span> <span class=constant>SOMETHING</span> <span class=operator>=</span> <span class=string>`</span>\n".to_string(),
+            "<span class=string>  one <span class=embedded><span class=punctuation.special>${</span></span></span>\n".to_string(),
+            "<span class=string><span class=embedded>    <span class=function>two</span><span class=punctuation.bracket>(</span><span class=punctuation.bracket>)</span></span></span>\n".to_string(),
+            "<span class=string><span class=embedded>  <span class=punctuation.special>}</span></span> three</span>\n".to_string(),
+            "<span class=string>`</span>\n".to_string(),
         ]
     );
 }
@@ -169,51 +239,51 @@ fn test_highlighting_with_local_variable_tracking() {
     .join("\n");
 
     assert_eq!(
-        &to_token_vector(&source, get_language("javascript"), &JS_SHEET).unwrap(),
+        &to_token_vector(&source, &JS_HIGHLIGHT).unwrap(),
         &[
             vec![
-                ("module", vec![Highlight::VariableBuiltin]),
-                (".", vec![Highlight::PunctuationDelimiter]),
-                ("exports", vec![Highlight::Property]),
+                ("module", vec!["variable.builtin"]),
+                (".", vec!["punctuation.delimiter"]),
+                ("exports", vec!["function"]),
                 (" ", vec![]),
-                ("=", vec![Highlight::Operator]),
+                ("=", vec!["operator"]),
                 (" ", vec![]),
-                ("function", vec![Highlight::Keyword]),
+                ("function", vec!["keyword"]),
                 (" ", vec![]),
-                ("a", vec![Highlight::Function]),
-                ("(", vec![Highlight::PunctuationBracket]),
-                ("b", vec![Highlight::VariableParameter]),
-                (")", vec![Highlight::PunctuationBracket]),
+                ("a", vec!["function"]),
+                ("(", vec!["punctuation.bracket"]),
+                ("b", vec!["variable.parameter"]),
+                (")", vec!["punctuation.bracket"]),
                 (" ", vec![]),
-                ("{", vec![Highlight::PunctuationBracket])
+                ("{", vec!["punctuation.bracket"])
             ],
             vec![
                 ("  ", vec![]),
-                ("const", vec![Highlight::Keyword]),
+                ("const", vec!["keyword"]),
                 (" ", vec![]),
-                ("module", vec![Highlight::Variable]),
+                ("module", vec!["variable"]),
                 (" ", vec![]),
-                ("=", vec![Highlight::Operator]),
+                ("=", vec!["operator"]),
                 (" ", vec![]),
-                ("c", vec![Highlight::Variable]),
-                (";", vec![Highlight::PunctuationDelimiter])
+                ("c", vec!["variable"]),
+                (";", vec!["punctuation.delimiter"])
             ],
             vec![
                 ("  ", vec![]),
-                ("console", vec![Highlight::VariableBuiltin]),
-                (".", vec![Highlight::PunctuationDelimiter]),
-                ("log", vec![Highlight::Function]),
-                ("(", vec![Highlight::PunctuationBracket]),
+                ("console", vec!["variable.builtin"]),
+                (".", vec!["punctuation.delimiter"]),
+                ("log", vec!["function"]),
+                ("(", vec!["punctuation.bracket"]),
                 // Not a builtin, because `module` was defined as a variable above.
-                ("module", vec![Highlight::Variable]),
-                (",", vec![Highlight::PunctuationDelimiter]),
+                ("module", vec!["variable"]),
+                (",", vec!["punctuation.delimiter"]),
                 (" ", vec![]),
                 // A parameter, because `b` was defined as a parameter above.
-                ("b", vec![Highlight::VariableParameter]),
-                (")", vec![Highlight::PunctuationBracket]),
-                (";", vec![Highlight::PunctuationDelimiter]),
+                ("b", vec!["variable.parameter"]),
+                (")", vec!["punctuation.bracket"]),
+                (";", vec!["punctuation.delimiter"]),
             ],
-            vec![("}", vec![Highlight::PunctuationBracket])]
+            vec![("}", vec!["punctuation.bracket"])]
         ],
     );
 }
@@ -234,17 +304,17 @@ fn test_highlighting_empty_lines() {
     .join("\n");
 
     assert_eq!(
-        &to_html(&source, get_language("javascript"), &JS_SHEET,).unwrap(),
+        &to_html(&source, &JS_HIGHLIGHT,).unwrap(),
         &[
-            "<span class=Keyword>class</span> <span class=Constructor>A</span> <span class=PunctuationBracket>{</span>\n".to_string(),
+            "<span class=keyword>class</span> <span class=constructor>A</span> <span class=punctuation.bracket>{</span>\n".to_string(),
             "\n".to_string(),
-            "  <span class=Function>b</span><span class=PunctuationBracket>(</span><span class=VariableParameter>c</span><span class=PunctuationBracket>)</span> <span class=PunctuationBracket>{</span>\n".to_string(),
+            "  <span class=function>b</span><span class=punctuation.bracket>(</span><span class=variable.parameter>c</span><span class=punctuation.bracket>)</span> <span class=punctuation.bracket>{</span>\n".to_string(),
             "\n".to_string(),
-            "    <span class=Function>d</span><span class=PunctuationBracket>(</span><span class=Variable>e</span><span class=PunctuationBracket>)</span>\n".to_string(),
+            "    <span class=function>d</span><span class=punctuation.bracket>(</span><span class=variable>e</span><span class=punctuation.bracket>)</span>\n".to_string(),
             "\n".to_string(),
-            "  <span class=PunctuationBracket>}</span>\n".to_string(),
+            "  <span class=punctuation.bracket>}</span>\n".to_string(),
             "\n".to_string(),
-            "<span class=PunctuationBracket>}</span>\n".to_string(),
+            "<span class=punctuation.bracket>}</span>\n".to_string(),
         ]
     );
 }
@@ -254,21 +324,21 @@ fn test_highlighting_ejs() {
     let source = vec!["<div><% foo() %></div>"].join("\n");
 
     assert_eq!(
-        &to_token_vector(&source, get_language("embedded-template"), &EJS_SHEET).unwrap(),
+        &to_token_vector(&source, &EJS_HIGHLIGHT).unwrap(),
         &[[
-            ("<", vec![]),
-            ("div", vec![Highlight::Tag]),
-            (">", vec![]),
-            ("<%", vec![Highlight::Keyword]),
+            ("<", vec!["punctuation.bracket"]),
+            ("div", vec!["tag"]),
+            (">", vec!["punctuation.bracket"]),
+            ("<%", vec!["keyword"]),
             (" ", vec![]),
-            ("foo", vec![Highlight::Function]),
-            ("(", vec![Highlight::PunctuationBracket]),
-            (")", vec![Highlight::PunctuationBracket]),
+            ("foo", vec!["function"]),
+            ("(", vec!["punctuation.bracket"]),
+            (")", vec!["punctuation.bracket"]),
             (" ", vec![]),
-            ("%>", vec![Highlight::Keyword]),
-            ("</", vec![]),
-            ("div", vec![Highlight::Tag]),
-            (">", vec![])
+            ("%>", vec!["keyword"]),
+            ("</", vec!["punctuation.bracket"]),
+            ("div", vec!["tag"]),
+            (">", vec!["punctuation.bracket"])
         ]],
     );
 }
@@ -278,33 +348,36 @@ fn test_highlighting_with_content_children_included() {
     let source = vec!["assert!(", "    a.b.c() < D::e::<F>()", ");"].join("\n");
 
     assert_eq!(
-        &to_token_vector(&source, get_language("rust"), &RUST_SHEET).unwrap(),
+        &to_token_vector(&source, &RUST_HIGHLIGHT).unwrap(),
         &[
             vec![
-                ("assert", vec![Highlight::Function]),
-                ("!", vec![Highlight::Function]),
-                ("(", vec![Highlight::PunctuationBracket]),
+                ("assert", vec!["function"]),
+                ("!", vec!["function"]),
+                ("(", vec!["punctuation.bracket"]),
             ],
             vec![
                 ("    a", vec![]),
-                (".", vec![Highlight::PunctuationDelimiter]),
-                ("b", vec![Highlight::Property]),
-                (".", vec![Highlight::PunctuationDelimiter]),
-                ("c", vec![Highlight::Function]),
-                ("(", vec![Highlight::PunctuationBracket]),
-                (")", vec![Highlight::PunctuationBracket]),
+                (".", vec!["punctuation.delimiter"]),
+                ("b", vec!["property"]),
+                (".", vec!["punctuation.delimiter"]),
+                ("c", vec!["function"]),
+                ("(", vec!["punctuation.bracket"]),
+                (")", vec!["punctuation.bracket"]),
                 (" < ", vec![]),
-                ("D", vec![Highlight::Type]),
-                ("::", vec![Highlight::PunctuationDelimiter]),
-                ("e", vec![Highlight::Function]),
-                ("::", vec![Highlight::PunctuationDelimiter]),
-                ("<", vec![Highlight::PunctuationBracket]),
-                ("F", vec![Highlight::Type]),
-                (">", vec![Highlight::PunctuationBracket]),
-                ("(", vec![Highlight::PunctuationBracket]),
-                (")", vec![Highlight::PunctuationBracket]),
+                ("D", vec!["type"]),
+                ("::", vec!["punctuation.delimiter"]),
+                ("e", vec!["function"]),
+                ("::", vec!["punctuation.delimiter"]),
+                ("<", vec!["punctuation.bracket"]),
+                ("F", vec!["type"]),
+                (">", vec!["punctuation.bracket"]),
+                ("(", vec!["punctuation.bracket"]),
+                (")", vec!["punctuation.bracket"]),
             ],
-            vec![(")", vec![Highlight::PunctuationBracket]), (";", vec![]),]
+            vec![
+                (")", vec!["punctuation.bracket"]),
+                (";", vec!["punctuation.delimiter"]),
+            ]
         ],
     );
 }
@@ -327,18 +400,20 @@ fn test_highlighting_cancellation() {
 
     // Constructing the highlighter, which eagerly parses the outer document,
     // should not fail.
-    let highlighter = highlight(
-        source.as_bytes(),
-        get_language("html"),
-        &HTML_SHEET,
-        Some(&cancellation_flag),
-        injection_callback,
-    )
-    .unwrap();
+    let mut context = HighlightContext::new();
+    let events = HIGHLIGHTER
+        .highlight(
+            &mut context,
+            &HTML_HIGHLIGHT,
+            source.as_bytes(),
+            Some(&cancellation_flag),
+            injection_callback,
+        )
+        .unwrap();
 
     // Iterating the scopes should not panic. It should return an error
     // once the cancellation is detected.
-    for event in highlighter {
+    for event in events {
         if let Err(e) = event {
             assert_eq!(e, Error::Cancelled);
             return;
@@ -349,49 +424,72 @@ fn test_highlighting_cancellation() {
 
 #[test]
 fn test_highlighting_via_c_api() {
-    let js_lang = get_language("javascript");
-    let html_lang = get_language("html");
-    let js_sheet = get_property_sheet_json("javascript", "highlights.json");
-    let js_sheet = c_string(&js_sheet);
-    let html_sheet = get_property_sheet_json("html", "highlights.json");
-    let html_sheet = c_string(&html_sheet);
+    let highlights = vec![
+        "class=tag\0",
+        "class=function\0",
+        "class=string\0",
+        "class=keyword\0",
+    ];
+    let highlight_names = highlights
+        .iter()
+        .map(|h| h["class=".len()..].as_ptr() as *const i8)
+        .collect::<Vec<_>>();
+    let highlight_attrs = highlights
+        .iter()
+        .map(|h| h.as_bytes().as_ptr() as *const i8)
+        .collect::<Vec<_>>();
+    let highlighter = c::ts_highlighter_new(
+        &highlight_names[0] as *const *const i8,
+        &highlight_attrs[0] as *const *const i8,
+        highlights.len() as u32,
+    );
 
-    let class_tag = c_string("class=tag");
-    let class_function = c_string("class=function");
-    let class_string = c_string("class=string");
-    let class_keyword = c_string("class=keyword");
-
-    let js_scope_name = c_string("source.js");
-    let html_scope_name = c_string("text.html.basic");
-    let injection_regex = c_string("^(javascript|js)$");
     let source_code = c_string("<script>\nconst a = b('c');\nc.d();\n</script>");
 
-    let attribute_strings = &mut [ptr::null(); Highlight::Unknown as usize + 1];
-    attribute_strings[Highlight::Tag as usize] = class_tag.as_ptr();
-    attribute_strings[Highlight::String as usize] = class_string.as_ptr();
-    attribute_strings[Highlight::Keyword as usize] = class_keyword.as_ptr();
-    attribute_strings[Highlight::Function as usize] = class_function.as_ptr();
+    let js_scope = c_string("source.js");
+    let js_injection_regex = c_string("^javascript");
+    let language = get_language("javascript");
+    let queries = get_language_queries_path("javascript");
+    let highlights_query = fs::read_to_string(queries.join("highlights.scm")).unwrap();
+    let injections_query = fs::read_to_string(queries.join("injections.scm")).unwrap();
+    let locals_query = fs::read_to_string(queries.join("locals.scm")).unwrap();
+    c::ts_highlighter_add_language(
+        highlighter,
+        js_scope.as_ptr(),
+        js_injection_regex.as_ptr(),
+        language,
+        highlights_query.as_ptr() as *const i8,
+        injections_query.as_ptr() as *const i8,
+        locals_query.as_ptr() as *const i8,
+        highlights_query.len() as u32,
+        injections_query.len() as u32,
+        locals_query.len() as u32,
+    );
 
-    let highlighter = c::ts_highlighter_new(attribute_strings.as_ptr());
+    let html_scope = c_string("text.html.basic");
+    let html_injection_regex = c_string("^html");
+    let language = get_language("html");
+    let queries = get_language_queries_path("html");
+    let highlights_query = fs::read_to_string(queries.join("highlights.scm")).unwrap();
+    let injections_query = fs::read_to_string(queries.join("injections.scm")).unwrap();
+    c::ts_highlighter_add_language(
+        highlighter,
+        html_scope.as_ptr(),
+        html_injection_regex.as_ptr(),
+        language,
+        highlights_query.as_ptr() as *const i8,
+        injections_query.as_ptr() as *const i8,
+        ptr::null(),
+        highlights_query.len() as u32,
+        injections_query.len() as u32,
+        0,
+    );
+
     let buffer = c::ts_highlight_buffer_new();
 
-    c::ts_highlighter_add_language(
-        highlighter,
-        html_scope_name.as_ptr(),
-        html_lang,
-        html_sheet.as_ptr(),
-        ptr::null_mut(),
-    );
-    c::ts_highlighter_add_language(
-        highlighter,
-        js_scope_name.as_ptr(),
-        js_lang,
-        js_sheet.as_ptr(),
-        injection_regex.as_ptr(),
-    );
     c::ts_highlighter_highlight(
         highlighter,
-        html_scope_name.as_ptr(),
+        html_scope.as_ptr(),
         source_code.as_ptr(),
         source_code.as_bytes().len() as u32,
         buffer,
@@ -421,8 +519,8 @@ fn test_highlighting_via_c_api() {
         lines,
         vec![
             "&lt;<span class=tag>script</span>&gt;\n",
-            "<span class=keyword>const</span> <span>a</span> <span>=</span> <span class=function>b</span><span>(</span><span class=string>&#39;c&#39;</span><span>)</span><span>;</span>\n",
-            "<span>c</span><span>.</span><span class=function>d</span><span>(</span><span>)</span><span>;</span>\n",
+            "<span class=keyword>const</span> a = <span class=function>b</span>(<span class=string>&#39;c&#39;</span>);\n",
+            "c.<span class=function>d</span>();\n",
             "&lt;/<span class=tag>script</span>&gt;\n",
         ]
     );
@@ -452,50 +550,55 @@ fn c_string(s: &str) -> CString {
     CString::new(s.as_bytes().to_vec()).unwrap()
 }
 
-fn test_language_for_injection_string<'a>(
-    string: &str,
-) -> Option<(Language, &'a PropertySheet<Properties>)> {
+fn test_language_for_injection_string<'a>(string: &str) -> Option<&'a HighlightConfiguration> {
     match string {
-        "javascript" => Some((get_language("javascript"), &JS_SHEET)),
-        "html" => Some((get_language("html"), &HTML_SHEET)),
-        "rust" => Some((get_language("rust"), &RUST_SHEET)),
+        "javascript" => Some(&JS_HIGHLIGHT),
+        "html" => Some(&HTML_HIGHLIGHT),
+        "rust" => Some(&RUST_HIGHLIGHT),
         _ => None,
     }
 }
 
 fn to_html<'a>(
     src: &'a str,
-    language: Language,
-    property_sheet: &'a PropertySheet<Properties>,
+    language_config: &'a HighlightConfiguration,
 ) -> Result<Vec<String>, Error> {
-    highlight_html(
-        src.as_bytes(),
-        language,
-        property_sheet,
+    let src = src.as_bytes();
+    let mut renderer = HtmlRenderer::new();
+    let mut context = HighlightContext::new();
+    let events = HIGHLIGHTER.highlight(
+        &mut context,
+        language_config,
+        src,
         None,
         &test_language_for_injection_string,
-        &|highlight| SCOPE_CLASS_STRINGS[highlight as usize].as_str(),
-    )
+    )?;
+
+    renderer
+        .render(events, src, &|highlight| HTML_ATTRS[highlight.0].as_bytes())
+        .unwrap();
+    Ok(renderer.lines().map(|s| s.to_string()).collect())
 }
 
 fn to_token_vector<'a>(
     src: &'a str,
-    language: Language,
-    property_sheet: &'a PropertySheet<Properties>,
-) -> Result<Vec<Vec<(&'a str, Vec<Highlight>)>>, Error> {
+    language_config: &'a HighlightConfiguration,
+) -> Result<Vec<Vec<(&'a str, Vec<&'static str>)>>, Error> {
     let src = src.as_bytes();
+    let mut context = HighlightContext::new();
     let mut lines = Vec::new();
     let mut highlights = Vec::new();
     let mut line = Vec::new();
-    for event in highlight(
+    let events = HIGHLIGHTER.highlight(
+        &mut context,
+        language_config,
         src,
-        language,
-        property_sheet,
         None,
         &test_language_for_injection_string,
-    )? {
+    )?;
+    for event in events {
         match event? {
-            HighlightEvent::HighlightStart(s) => highlights.push(s),
+            HighlightEvent::HighlightStart(s) => highlights.push(HIGHLIGHTER.names()[s.0].as_str()),
             HighlightEvent::HighlightEnd => {
                 highlights.pop();
             }

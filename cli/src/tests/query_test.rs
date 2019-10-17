@@ -16,37 +16,79 @@ fn test_query_errors_on_invalid_syntax() {
         // Mismatched parens
         assert_eq!(
             Query::new(language, "(if_statement"),
-            Err(QueryError::Syntax(13))
+            Err(QueryError::Syntax(
+                [
+                    "(if_statement", //
+                    "             ^",
+                ]
+                .join("\n")
+            ))
         );
         assert_eq!(
-            Query::new(language, "(if_statement))"),
-            Err(QueryError::Syntax(14))
+            Query::new(language, "; comment 1\n; comment 2\n  (if_statement))"),
+            Err(QueryError::Syntax(
+                [
+                    "  (if_statement))", //
+                    "                ^",
+                ]
+                .join("\n")
+            ))
         );
 
         // Return an error at the *beginning* of a bare identifier not followed a colon.
         // If there's a colon but no pattern, return an error at the end of the colon.
         assert_eq!(
             Query::new(language, "(if_statement identifier)"),
-            Err(QueryError::Syntax(14))
+            Err(QueryError::Syntax(
+                [
+                    "(if_statement identifier)", //
+                    "              ^",
+                ]
+                .join("\n")
+            ))
         );
         assert_eq!(
             Query::new(language, "(if_statement condition:)"),
-            Err(QueryError::Syntax(24))
+            Err(QueryError::Syntax(
+                [
+                    "(if_statement condition:)", //
+                    "                        ^",
+                ]
+                .join("\n")
+            ))
         );
 
         // Return an error at the beginning of an unterminated string.
         assert_eq!(
             Query::new(language, r#"(identifier) "h "#),
-            Err(QueryError::Syntax(13))
+            Err(QueryError::Syntax(
+                [
+                    r#"(identifier) "h "#, //
+                    r#"             ^"#,
+                ]
+                .join("\n")
+            ))
         );
 
         assert_eq!(
             Query::new(language, r#"((identifier) ()"#),
-            Err(QueryError::Syntax(16))
+            Err(QueryError::Syntax(
+                [
+                    "((identifier) ()", //
+                    "                ^",
+                ]
+                .join("\n")
+            ))
         );
         assert_eq!(
             Query::new(language, r#"((identifier) @x (eq? @x a"#),
-            Err(QueryError::Syntax(26))
+            Err(QueryError::Syntax(
+                [
+                    r#"((identifier) @x (eq? @x a"#,
+                    r#"                          ^"#,
+                ]
+                .join("\n")
+            ))
         );
     });
 }
@@ -319,6 +361,36 @@ fn test_query_matches_with_many() {
         assert_eq!(
             collect_matches(matches, &query, source.as_str()),
             vec![(0, vec![("element", "hello")]); 50],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_capturing_error_nodes() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            "
+            (ERROR (identifier) @the-error-identifier) @the-error
+            ",
+        )
+        .unwrap();
+
+        let source = "function a(b,, c, d :e:) {}";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
+
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[(
+                0,
+                vec![("the-error", ":e:"), ("the-error-identifier", "e"),]
+            ),]
         );
     });
 }
@@ -1026,6 +1098,16 @@ fn test_query_capture_names() {
                 "loop-condition".to_string(),
             ]
         );
+    });
+}
+
+#[test]
+fn test_query_with_no_patterns() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(language, "").unwrap();
+        assert!(query.capture_names().is_empty());
+        assert_eq!(query.pattern_count(), 0);
     });
 }
 

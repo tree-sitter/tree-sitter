@@ -1,6 +1,6 @@
 use crate::error::Result;
 use crate::loader::Loader;
-use ansi_term::{Color, Style};
+use ansi_term::Color;
 use lazy_static::lazy_static;
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -9,18 +9,52 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
-use std::{fmt, fs, io, path, thread};
-use tree_sitter::{Language, PropertySheet};
-use tree_sitter_highlight::{highlight, highlight_html, Highlight, HighlightEvent, Properties};
+use std::{fs, io, path, str, thread, usize};
+use tree_sitter_highlight::{
+    HighlightConfiguration, HighlightContext, HighlightEvent, Highlighter, HtmlRenderer,
+};
+
+pub const HTML_HEADER: &'static str = "
+<!doctype HTML>
+<head>
+  <title>Tree-sitter Highlighting</title>
+  <style>
+    body {
+      font-family: monospace
+    }
+    .line-number {
+      user-select: none;
+      text-align: right;
+      color: rgba(27,31,35,.3);
+      padding: 0 10px;
+    }
+    .line {
+      white-space: pre;
+    }
+  </style>
+</head>
+<body>
+";
+
+pub const HTML_FOOTER: &'static str = "
+</body>
+";
 
 lazy_static! {
     static ref CSS_STYLES_BY_COLOR_ID: Vec<String> =
         serde_json::from_str(include_str!("../vendor/xterm-colors.json")).unwrap();
 }
 
+#[derive(Debug, Default)]
+pub struct Style {
+    pub ansi: ansi_term::Style,
+    pub css: Option<String>,
+}
+
+#[derive(Debug)]
 pub struct Theme {
-    ansi_styles: Vec<Option<Style>>,
-    css_styles: Vec<Option<String>>,
+    pub highlighter: Highlighter,
+    styles: Vec<Style>,
 }
 
 impl Theme {
@@ -29,14 +63,8 @@ impl Theme {
         Ok(serde_json::from_str(&json).unwrap_or_default())
     }
 
-    fn ansi_style(&self, highlight: Highlight) -> Option<&Style> {
-        self.ansi_styles[highlight as usize].as_ref()
-    }
-
-    fn css_style(&self, highlight: Highlight) -> Option<&str> {
-        self.css_styles[highlight as usize]
-            .as_ref()
-            .map(|s| s.as_str())
+    pub fn default_style(&self) -> Style {
+        Style::default()
     }
 }
 
@@ -45,20 +73,21 @@ impl<'de> Deserialize<'de> for Theme {
     where
         D: Deserializer<'de>,
     {
-        let highlight_count = Highlight::Unknown as usize + 1;
-        let mut ansi_styles = vec![None; highlight_count];
-        let mut css_styles = vec![None; highlight_count];
-        if let Ok(colors) = HashMap::<Highlight, Value>::deserialize(deserializer) {
-            for (highlight, style_value) in colors {
+        let mut names = Vec::new();
+        let mut styles = Vec::new();
+        if let Ok(colors) = HashMap::<String, Value>::deserialize(deserializer) {
+            names.reserve(colors.len());
+            styles.reserve(colors.len());
+            for (name, style_value) in colors {
                 let mut style = Style::default();
                 parse_style(&mut style, style_value);
-                ansi_styles[highlight as usize] = Some(style);
-                css_styles[highlight as usize] = Some(style_to_css(style));
+                names.push(name);
+                styles.push(style);
             }
         }
         Ok(Self {
-            ansi_styles,
-            css_styles,
+            highlighter: Highlighter::new(names),
+            styles,
         })
     }
 }
@@ -68,48 +97,40 @@ impl Serialize for Theme {
     where
         S: Serializer,
     {
-        let entry_count = self.ansi_styles.iter().filter(|i| i.is_some()).count();
-        let mut map = serializer.serialize_map(Some(entry_count))?;
-        for (i, style) in self.ansi_styles.iter().enumerate() {
-            let highlight = Highlight::from_usize(i).unwrap();
-            if highlight == Highlight::Unknown {
-                break;
-            }
-            if let Some(style) = style {
-                let color = style.foreground.map(|color| match color {
-                    Color::Black => json!("black"),
-                    Color::Blue => json!("blue"),
-                    Color::Cyan => json!("cyan"),
-                    Color::Green => json!("green"),
-                    Color::Purple => json!("purple"),
-                    Color::Red => json!("red"),
-                    Color::White => json!("white"),
-                    Color::Yellow => json!("yellow"),
-                    Color::RGB(r, g, b) => json!(format!("#{:x?}{:x?}{:x?}", r, g, b)),
-                    Color::Fixed(n) => json!(n),
-                });
-                if style.is_bold || style.is_italic || style.is_underline {
-                    let mut entry = HashMap::new();
-                    if let Some(color) = color {
-                        entry.insert("color", color);
-                    }
-                    if style.is_bold {
-                        entry.insert("bold", Value::Bool(true));
-                    }
-                    if style.is_italic {
-                        entry.insert("italic", Value::Bool(true));
-                    }
-                    if style.is_underline {
-                        entry.insert("underline", Value::Bool(true));
-                    }
-                    map.serialize_entry(&highlight, &entry)?;
-                } else if let Some(color) = color {
-                    map.serialize_entry(&highlight, &color)?;
-                } else {
-                    map.serialize_entry(&highlight, &Value::Null)?;
+        let mut map = serializer.serialize_map(Some(self.styles.len()))?;
+        for (name, style) in self.highlighter.names().iter().zip(&self.styles) {
+            let style = &style.ansi;
+            let color = style.foreground.map(|color| match color {
+                Color::Black => json!("black"),
+                Color::Blue => json!("blue"),
+                Color::Cyan => json!("cyan"),
+                Color::Green => json!("green"),
+                Color::Purple => json!("purple"),
+                Color::Red => json!("red"),
+                Color::White => json!("white"),
+                Color::Yellow => json!("yellow"),
+                Color::RGB(r, g, b) => json!(format!("#{:x?}{:x?}{:x?}", r, g, b)),
+                Color::Fixed(n) => json!(n),
+            });
+            if style.is_bold || style.is_italic || style.is_underline {
+                let mut style_json = HashMap::new();
+                if let Some(color) = color {
+                    style_json.insert("color", color);
                 }
+                if style.is_bold {
+                    style_json.insert("bold", Value::Bool(true));
+                }
+                if style.is_italic {
+                    style_json.insert("italic", Value::Bool(true));
+                }
+                if style.is_underline {
+                    style_json.insert("underline", Value::Bool(true));
+                }
+                map.serialize_entry(&name, &style_json)?;
+            } else if let Some(color) = color {
+                map.serialize_entry(&name, &color)?;
             } else {
-                map.serialize_entry(&highlight, &Value::Null)?;
+                map.serialize_entry(&name, &Value::Null)?;
             }
         }
         map.end()
@@ -149,42 +170,27 @@ impl Default for Theme {
     }
 }
 
-impl fmt::Debug for Theme {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{{")?;
-        let mut first = true;
-        for (i, style) in self.ansi_styles.iter().enumerate() {
-            if let Some(style) = style {
-                let highlight = Highlight::from_usize(i).unwrap();
-                if !first {
-                    write!(f, ", ")?;
-                }
-                write!(f, "{:?}: {:?}", highlight, style)?;
-                first = false;
-            }
-        }
-        write!(f, "}}")?;
-        Ok(())
-    }
-}
-
 fn parse_style(style: &mut Style, json: Value) {
     if let Value::Object(entries) = json {
         for (property_name, value) in entries {
             match property_name.as_str() {
-                "bold" => *style = style.bold(),
-                "italic" => *style = style.italic(),
-                "underline" => *style = style.underline(),
+                "bold" => style.ansi = style.ansi.bold(),
+                "italic" => style.ansi = style.ansi.italic(),
+                "underline" => style.ansi = style.ansi.underline(),
                 "color" => {
                     if let Some(color) = parse_color(value) {
-                        *style = style.fg(color);
+                        style.ansi = style.ansi.fg(color);
                     }
                 }
                 _ => {}
             }
         }
+        style.css = Some(style_to_css(style.ansi));
     } else if let Some(color) = parse_color(json) {
-        *style = style.fg(color);
+        style.ansi = style.ansi.fg(color);
+        style.css = Some(style_to_css(style.ansi));
+    } else {
+        style.css = None;
     }
 }
 
@@ -223,7 +229,7 @@ fn parse_color(json: Value) -> Option<Color> {
     }
 }
 
-fn style_to_css(style: Style) -> String {
+fn style_to_css(style: ansi_term::Style) -> String {
     use std::fmt::Write;
     let mut result = "style='".to_string();
     if style.is_bold {
@@ -271,108 +277,83 @@ pub fn ansi(
     loader: &Loader,
     theme: &Theme,
     source: &[u8],
-    language: Language,
-    property_sheet: &PropertySheet<Properties>,
+    config: &HighlightConfiguration,
     print_time: bool,
 ) -> Result<()> {
-    use std::io::Write;
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
-
-    let cancellation_flag = cancel_on_stdin();
     let time = Instant::now();
-    let mut highlight_stack = Vec::new();
-    for event in highlight(
+    let cancellation_flag = cancel_on_stdin();
+    let mut context = HighlightContext::new();
+
+    let events = theme.highlighter.highlight(
+        &mut context,
+        config,
         source,
-        language,
-        property_sheet,
-        Some(cancellation_flag.as_ref()),
-        |s| language_for_injection_string(loader, s),
-    )
-    .map_err(|e| e.to_string())?
-    {
-        let event = event.map_err(|e| e.to_string())?;
-        match event {
-            HighlightEvent::Source { start, end } => {
-                if let Some(style) = highlight_stack.last().and_then(|s| theme.ansi_style(*s)) {
-                    style.paint(&source[start..end]).write_to(&mut stdout)?;
-                } else {
-                    stdout.write_all(&source[start..end])?;
-                }
-            }
-            HighlightEvent::HighlightStart(h) => {
-                highlight_stack.push(h);
+        Some(&cancellation_flag),
+        |string| language_for_injection_string(loader, theme, string),
+    )?;
+
+    let mut style_stack = vec![theme.default_style().ansi];
+    for event in events {
+        match event? {
+            HighlightEvent::HighlightStart(highlight) => {
+                style_stack.push(theme.styles[highlight.0].ansi);
             }
             HighlightEvent::HighlightEnd => {
-                highlight_stack.pop();
+                style_stack.pop();
+            }
+            HighlightEvent::Source { start, end } => {
+                style_stack
+                    .last()
+                    .unwrap()
+                    .paint(&source[start..end])
+                    .write_to(&mut stdout)?;
             }
         }
     }
 
     if print_time {
-        let duration = time.elapsed();
-        let duration_ms = duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000;
-        eprintln!("{} ms", duration_ms);
+        eprintln!("Time: {}ms", time.elapsed().as_millis());
     }
 
     Ok(())
 }
 
-pub const HTML_HEADER: &'static str = "
-<!doctype HTML>
-<head>
-  <title>Tree-sitter Highlighting</title>
-  <style>
-    body {
-      font-family: monospace
-    }
-    .line-number {
-      user-select: none;
-      text-align: right;
-      color: rgba(27,31,35,.3);
-      padding: 0 10px;
-    }
-    .line {
-      white-space: pre;
-    }
-  </style>
-</head>
-<body>
-";
-
-pub const HTML_FOOTER: &'static str = "
-</body>
-";
-
 pub fn html(
     loader: &Loader,
     theme: &Theme,
     source: &[u8],
-    language: Language,
-    property_sheet: &PropertySheet<Properties>,
+    config: &HighlightConfiguration,
+    print_time: bool,
 ) -> Result<()> {
     use std::io::Write;
+
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
-    write!(&mut stdout, "<table>\n")?;
-
+    let time = Instant::now();
     let cancellation_flag = cancel_on_stdin();
-    let lines = highlight_html(
+    let mut context = HighlightContext::new();
+
+    let events = theme.highlighter.highlight(
+        &mut context,
+        config,
         source,
-        language,
-        property_sheet,
-        Some(cancellation_flag.as_ref()),
-        |s| language_for_injection_string(loader, s),
-        |highlight| {
-            if let Some(css_style) = theme.css_style(highlight) {
-                css_style
-            } else {
-                ""
-            }
-        },
-    )
-    .map_err(|e| e.to_string())?;
-    for (i, line) in lines.into_iter().enumerate() {
+        Some(&cancellation_flag),
+        |string| language_for_injection_string(loader, theme, string),
+    )?;
+
+    let mut renderer = HtmlRenderer::new();
+    renderer.render(events, source, &move |highlight| {
+        if let Some(css_style) = &theme.styles[highlight.0].css {
+            css_style.as_bytes()
+        } else {
+            "".as_bytes()
+        }
+    })?;
+
+    write!(&mut stdout, "<table>\n")?;
+    for (i, line) in renderer.lines().enumerate() {
         write!(
             &mut stdout,
             "<tr><td class=line-number>{}</td><td class=line>{}</td></tr>\n",
@@ -380,14 +361,21 @@ pub fn html(
             line
         )?;
     }
+
     write!(&mut stdout, "</table>\n")?;
+
+    if print_time {
+        eprintln!("Time: {}ms", time.elapsed().as_millis());
+    }
+
     Ok(())
 }
 
 fn language_for_injection_string<'a>(
     loader: &'a Loader,
+    theme: &Theme,
     string: &str,
-) -> Option<(Language, &'a PropertySheet<Properties>)> {
+) -> Option<&'a HighlightConfiguration> {
     match loader.language_configuration_for_injection_string(string) {
         Err(e) => {
             eprintln!(
@@ -399,7 +387,7 @@ fn language_for_injection_string<'a>(
         }
         Ok(None) => None,
         Ok(Some((language, configuration))) => {
-            match configuration.highlight_property_sheet(language) {
+            match configuration.highlight_config(&theme.highlighter, language) {
                 Err(e) => {
                     eprintln!(
                         "Failed to load property sheet for injection string '{}': {}",
@@ -409,7 +397,7 @@ fn language_for_injection_string<'a>(
                     None
                 }
                 Ok(None) => None,
-                Ok(Some(sheet)) => Some((language, sheet)),
+                Ok(Some(config)) => Some(config),
             }
         }
     }

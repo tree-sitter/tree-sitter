@@ -2,8 +2,8 @@ use crate::loader::Loader;
 use lazy_static::lazy_static;
 use std::fs;
 use std::path::{Path, PathBuf};
-use tree_sitter::{Language, PropertySheet};
-use tree_sitter_highlight::{load_property_sheet, Properties};
+use tree_sitter::Language;
+use tree_sitter_highlight::{HighlightConfiguration, Highlighter};
 
 include!("./dirs.rs");
 
@@ -21,18 +21,28 @@ pub fn get_language(name: &str) -> Language {
         .unwrap()
 }
 
-pub fn get_property_sheet_json(language_name: &str, sheet_name: &str) -> String {
-    let path = GRAMMARS_DIR
-        .join(language_name)
-        .join("src")
-        .join(sheet_name);
-    fs::read_to_string(path).unwrap()
+pub fn get_language_queries_path(language_name: &str) -> PathBuf {
+    GRAMMARS_DIR.join(language_name).join("queries")
 }
 
-pub fn get_property_sheet(language_name: &str, sheet_name: &str) -> PropertySheet<Properties> {
-    let json = get_property_sheet_json(language_name, sheet_name);
+pub fn get_highlight_config(
+    highlighter: &Highlighter,
+    language_name: &str,
+    injection_query_filename: &str,
+) -> HighlightConfiguration {
     let language = get_language(language_name);
-    load_property_sheet(language, &json).unwrap()
+    let queries_path = get_language_queries_path(language_name);
+    let highlights_query = fs::read_to_string(queries_path.join("highlights.scm")).unwrap();
+    let injections_query = fs::read_to_string(queries_path.join(injection_query_filename)).unwrap();
+    let locals_query = fs::read_to_string(queries_path.join("locals.scm")).unwrap_or(String::new());
+    highlighter
+        .load_configuration(
+            language,
+            &highlights_query,
+            &injections_query,
+            &locals_query,
+        )
+        .unwrap()
 }
 
 pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> Language {

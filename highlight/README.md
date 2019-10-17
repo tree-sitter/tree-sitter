@@ -1,4 +1,4 @@
-Tree-sitter Highlighting
+Tree-sitter Highlight
 =========================
 
 [![Build Status](https://travis-ci.org/tree-sitter/tree-sitter.svg?branch=master)](https://travis-ci.org/tree-sitter/tree-sitter)
@@ -14,42 +14,91 @@ extern "C" tree_sitter_html();
 extern "C" tree_sitter_javascript();
 ```
 
-Load some *property sheets*:
+Create a highlighter. You only need one of these:
 
 ```rust
-use tree_sitter_highlight::load_property_sheet;
+use tree_sitter_highlight::Highlighter;
 
-let javascript_property_sheet = load_property_sheet(
-  fs::read_to_string("./tree-sitter-javascript/src/highlights.json").unwrap()
-).unwrap();
+let highlighter = Highlighter::new(
+    [
+        "attribute",
+        "constant",
+        "function.builtin",
+        "function",
+        "keyword",
+        "operator",
+        "property",
+        "punctuation",
+        "punctuation.bracket",
+        "punctuation.delimiter",
+        "string",
+        "string.special",
+        "tag",
+        "type",
+        "type.builtin",
+        "variable",
+        "variable.builtin",
+        "variable.parameter",
+    ]
+    .iter()
+    .cloned()
+    .map(String::from)
+    .collect()
+);
+```
 
-let html_property_sheet = load_property_sheet(
-  fs::read_to_string("./tree-sitter-html/src/highlights.json").unwrap()
-).unwrap();
+Create a highlight context. You need one of these for each thread that you're using for syntax highlighting:
+
+```rust
+use tree_sitter_highlight::HighlightContext;
+
+let context = HighlightContext::new();
+```
+
+Load some highlighting queries from the `queries` directory of some language repositories:
+
+```rust
+let html_language = unsafe { tree_sitter_html() };
+let javascript_language = unsafe { tree_sitter_javascript() };
+
+let html_config = highlighter.load_configuration(
+    html_language,
+    &fs::read_to_string("./tree-sitter-html/queries/highlights.scm").unwrap(),
+    &fs::read_to_string("./tree-sitter-html/queries/injections.scm").unwrap(),
+    "",
+);
+
+let javascript_config = highlighter.load_configuration(
+    javascript_language,
+    &fs::read_to_string("./tree-sitter-javascript/queries/highlights.scm").unwrap(),
+    &fs::read_to_string("./tree-sitter-javascript/queries/injections.scm").unwrap(),
+    &fs::read_to_string("./tree-sitter-javascript/queries/locals.scm").unwrap(),
+);
 ```
 
 Highlight some code:
 
 ```rust
-use tree_sitter_highlight::{highlight, HighlightEvent};
+use tree_sitter_highlight::HighlightEvent;
 
-let highlights = highlight(
+let highlights = highlighter.highlight(
+    &mut context,
+    javascript_config,
     b"const x = new Y();",
-    unsafe { tree_sitter_javascript() },
-    &javascript_property_sheet,
+    None,
     &|_| None
 ).unwrap();
 
 for event in highlights {
-    match event {
+    match event? {
         HighlightEvent::Source(s) {
             eprintln!("source: {:?}", s);
         },
-        HighlightEvent::ScopeStart(s) {
-            eprintln!("scope started: {:?}", s);
+        HighlightEvent::HighlightStart(s) {
+            eprintln!("highlight style started: {:?}", s);
         },
-        HighlightEvent::ScopeEnd(s) {
-            eprintln!("scope ended: {:?}", s);
+        HighlightEvent::HighlightEnd(s) {
+            eprintln!("highlight style ended: {:?}", s);
         },
     }
 }
