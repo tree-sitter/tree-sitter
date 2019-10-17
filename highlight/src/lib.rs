@@ -10,9 +10,11 @@ use tree_sitter::{
 
 const CANCELLATION_CHECK_INTERVAL: usize = 100;
 
+/// Indicates which highlight should be applied to a region of source code.
 #[derive(Copy, Clone, Debug)]
 pub struct Highlight(pub usize);
 
+/// Represents the reason why syntax highlighting failed.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     Cancelled,
@@ -20,13 +22,7 @@ pub enum Error {
     Unknown,
 }
 
-#[derive(Debug)]
-struct LocalScope<'a> {
-    inherits: bool,
-    range: ops::Range<usize>,
-    local_defs: Vec<(&'a str, Option<Highlight>)>,
-}
-
+/// Represents a single step in rendering a syntax-highlighted document.
 #[derive(Copy, Clone, Debug)]
 pub enum HighlightEvent {
     Source { start: usize, end: usize },
@@ -34,6 +30,9 @@ pub enum HighlightEvent {
     HighlightEnd,
 }
 
+/// Contains the data neeeded to higlight code written in a particular language.
+///
+/// This struct is immutable and can be shared between threads.
 pub struct HighlightConfiguration {
     pub language: Language,
     pub query: Query,
@@ -50,14 +49,46 @@ pub struct HighlightConfiguration {
     local_ref_capture_index: Option<u32>,
 }
 
+/// Performs syntax highlighting, recognizing a given list of highlight names.
+///
+/// Tree-sitter syntax-highlighting queries specify highlights in the form of dot-separated
+/// highlight names like `punctuation.bracket` and `function.method.builtin`. Consumers of
+/// these queries can choose to recognize highlights with different levels of specificity.
+/// For example, the string `function.builtin` will match against `function.method.builtin`
+/// and `function.builtin.constructor`, but will not match `function.method`.
+///
+/// The `Highlight` struct is instantiated with an ordered list of recognized highlight names
+/// and is then used for loading highlight queries and performing syntax highlighting.
+/// Highlighting results are returned as `Highlight` values, which contain the index of the
+/// matched highlight this list of highlight names.
+///
+/// The `Highlighter` struct is immutable and can be shared between threads.
 #[derive(Clone, Debug)]
 pub struct Highlighter {
-    pub highlight_names: Vec<String>,
+    highlight_names: Vec<String>,
 }
 
+/// Carries the mutable state required for syntax highlighting.
+///
+/// For the best performance `HighlightContext` values should be reused between
+/// syntax highlighting calls. A separate context is needed for each thread that
+/// is performing highlighting.
 pub struct HighlightContext {
     parser: Parser,
     cursors: Vec<QueryCursor>,
+}
+
+/// Converts a general-purpose syntax highlighting iterator into a sequence of lines of HTML.
+pub struct HtmlRenderer {
+    pub html: Vec<u8>,
+    pub line_offsets: Vec<u32>,
+}
+
+#[derive(Debug)]
+struct LocalScope<'a> {
+    inherits: bool,
+    range: ops::Range<usize>,
+    local_defs: Vec<(&'a str, Option<Highlight>)>,
 }
 
 struct HighlightIter<'a, F>
@@ -97,10 +128,30 @@ impl HighlightContext {
 }
 
 impl Highlighter {
+    /// Creates a highlighter with a given list of recognized highlight names.
     pub fn new(highlight_names: Vec<String>) -> Self {
         Highlighter { highlight_names }
     }
 
+    /// Returns the list of highlight names with which this Highlighter was constructed.
+    pub fn names(&self) -> &[String] {
+        &self.highlight_names
+    }
+
+    /// Creates a `HighlightConfiguration` for a given `Language` and set of highlighting
+    /// queries.
+    ///
+    /// # Parameters
+    ///
+    /// * `language`  - The Tree-sitter `Language` that should be used for parsing.
+    /// * `highlights_query` - A string containing tree patterns for syntax highlighting. This
+    ///   should be non-empty, otherwise no syntax highlights will be added.
+    /// * `injections_query` -  A string containing tree patterns for injecting other languages
+    ///   into the document. This can be empty if no injections are desired.
+    /// * `locals_query` - A string containing tree patterns for tracking local variable
+    ///   definitions and references. This can be empty if local variable tracking is not needed.
+    ///
+    /// Returns a `HighlightConfiguration` that can then be used with the `highlight` method.
     pub fn load_configuration(
         &self,
         language: Language,
@@ -141,33 +192,32 @@ impl Highlighter {
             }
         }
 
+        let mut capture_parts = Vec::new();
+
         // Compute a mapping from the query's capture ids to the indices of the highlighter's
         // recognized highlight names.
         let highlight_indices = query
             .capture_names()
             .iter()
             .map(move |capture_name| {
-                let mut best_index = None;
-                let mut best_name_len = 0;
-                let mut best_common_prefix_len = 0;
-                for (i, highlight_name) in self.highlight_names.iter().enumerate() {
-                    if highlight_name.len() > capture_name.len() {
-                        continue;
-                    }
+                capture_parts.clear();
+                capture_parts.extend(capture_name.split('.'));
 
-                    let capture_parts = capture_name.split('.');
-                    let highlight_parts = highlight_name.split('.');
-                    let common_prefix_len = capture_parts
-                        .zip(highlight_parts)
-                        .take_while(|(a, b)| a == b)
-                        .count();
-                    let is_best_match = common_prefix_len > best_common_prefix_len
-                        || (common_prefix_len == best_common_prefix_len
-                            && highlight_name.len() < best_name_len);
-                    if is_best_match {
+                let mut best_index = None;
+                let mut best_match_len = 0;
+                for (i, highlight_name) in self.highlight_names.iter().enumerate() {
+                    let mut len = 0;
+                    let mut matches = true;
+                    for part in highlight_name.split('.') {
+                        len += 1;
+                        if !capture_parts.contains(&part) {
+                            matches = false;
+                            break;
+                        }
+                    }
+                    if matches && len > best_match_len {
                         best_index = Some(i);
-                        best_name_len = highlight_name.len();
-                        best_common_prefix_len = common_prefix_len;
+                        best_match_len = len;
                     }
                 }
                 best_index.map(Highlight)
@@ -219,6 +269,7 @@ impl Highlighter {
         })
     }
 
+    /// Iterate over the highlighted regions for a given slice of source code.
     pub fn highlight<'a>(
         &'a self,
         context: &'a mut HighlightContext,
@@ -398,7 +449,7 @@ impl<'a> HighlightIterLayer<'a> {
 
     // First, sort scope boundaries by their byte offset in the document. At a
     // given position, emit scope endings before scope beginnings. Finally, emit
-    // scope boundaries from outer layers first.
+    // scope boundaries from deeper layers first.
     fn sort_key(&mut self) -> Option<(usize, bool, isize)> {
         let depth = -(self.depth as isize);
         let next_start = self
@@ -803,11 +854,6 @@ where
             self.sort_layers();
         }
     }
-}
-
-pub struct HtmlRenderer {
-    pub html: Vec<u8>,
-    pub line_offsets: Vec<u32>,
 }
 
 impl HtmlRenderer {

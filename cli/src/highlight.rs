@@ -98,7 +98,7 @@ impl Serialize for Theme {
         S: Serializer,
     {
         let mut map = serializer.serialize_map(Some(self.styles.len()))?;
-        for (name, style) in self.highlighter.highlight_names.iter().zip(&self.styles) {
+        for (name, style) in self.highlighter.names().iter().zip(&self.styles) {
             let style = &style.ansi;
             let color = style.foreground.map(|color| match color {
                 Color::Black => json!("black"),

@@ -46,7 +46,7 @@ lazy_static! {
         .collect()
     );
     static ref HTML_ATTRS: Vec<String> = HIGHLIGHTER
-        .highlight_names
+        .names()
         .iter()
         .map(|s| format!("class={}", s))
         .collect();
@@ -598,9 +598,7 @@ fn to_token_vector<'a>(
     )?;
     for event in events {
         match event? {
-            HighlightEvent::HighlightStart(s) => {
-                highlights.push(HIGHLIGHTER.highlight_names[s.0].as_str())
-            }
+            HighlightEvent::HighlightStart(s) => highlights.push(HIGHLIGHTER.names()[s.0].as_str()),
             HighlightEvent::HighlightEnd => {
                 highlights.pop();
             }
