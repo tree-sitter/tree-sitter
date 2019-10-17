@@ -7,16 +7,8 @@ else
   : ${CC:=gcc}
 fi
 
-${CC}                   \
-  -c                    \
-  -O3                   \
-  -std=c99              \
-  $CFLAGS               \
-  -I lib/src            \
-  -I lib/include        \
-  lib/src/lib.c     \
-  -o tree-sitter.o
+CC="$CC" meson build/c \
+  --buildtype=release  \
+  -Dc_args="$CFLAGS"
 
-rm -f libtree-sitter.a
-ar rcs libtree-sitter.a tree-sitter.o
-rm tree-sitter.o
+ninja -C build/c

@@ -1,0 +1,23 @@
+FROM trzeci/emscripten-slim
+
+RUN echo "## Start building" \
+    \
+&&      echo "## Update and install packages" \
+    &&  apt-get -qq -y update \
+    # mitigate problem with create symlink to man
+    &&  mkdir -p /usr/share/man/man1/ \
+    &&  apt-get -qq install -y --no-install-recommends \
+            binutils \
+            gcc \
+	    git \
+            libc6-dev \
+            python3 \
+            python3-pip \
+            python3-setuptools \
+            python3-wheel \
+            ninja-build \
+    && (git clone https://github.com/mesonbuild/meson.git \
+    && cd meson \
+    && python3 setup.py  build \
+    && python3 setup.py install) \
+    || pip3 install meson

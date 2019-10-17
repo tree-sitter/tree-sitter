@@ -3,6 +3,18 @@ install:
   # Terminate early unless building either a tag or a PR.
   - if "%APPVEYOR_REPO_TAG%" == "false" if not "%APPVEYOR_REPO_BRANCH%" == "master" appveyor exit
 
+  # Install ninja
+  - mkdir C:\ninja-build
+  - ps: (new-object net.webclient).DownloadFile('https://github.com/mesonbuild/cidata/raw/master/ninja.exe', 'C:\ninja-build\ninja.exe')
+  # Set paths to dependencies (based on architecture)
+  - if "%PLATFORM%" == "x86" (set PYTHON_ROOT=C:\python37) else (set PYTHON_ROOT=C:\python37-x64)
+  # Print out dependency paths
+  - echo Using Python at "%PYTHON_ROOT%"
+  # Add neccessary paths to PATH variable
+  - set PATH=%cd%;C:\ninja-build;%PYTHON_ROOT%;%PYTHON_ROOT%\Scripts;%PATH%
+  # Install meson
+  - pip install meson
+
   # Install rust
   - appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
   - IF "%PLATFORM%" == "x86" rustup-init -y --default-toolchain stable --default-host i686-pc-windows-msvc

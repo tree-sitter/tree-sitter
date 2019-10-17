@@ -1,0 +1,6 @@
+option('lib_binding',
+       type : 'combo',
+       choices : ['c', 'rust', 'web'],
+       value : 'c',
+       description: 'Which tree-sitter library binding to build',
+)
