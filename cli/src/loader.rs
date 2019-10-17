@@ -28,9 +28,9 @@ pub struct LanguageConfiguration {
     pub injection_regex: Option<Regex>,
     pub file_types: Vec<String>,
     pub root_path: PathBuf,
-    pub highlights_filename: Option<String>,
-    pub injections_filename: Option<String>,
-    pub locals_filename: Option<String>,
+    pub highlights_filenames: Option<Vec<String>>,
+    pub injections_filenames: Option<Vec<String>>,
+    pub locals_filenames: Option<Vec<String>>,
     language_id: usize,
     highlight_config: OnceCell<Option<HighlightConfiguration>>,
 }
@@ -344,6 +344,30 @@ impl Loader {
         parser_path: &Path,
     ) -> Result<&[LanguageConfiguration]> {
         #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum PathsJSON {
+            Empty,
+            Single(String),
+            Multiple(Vec<String>),
+        }
+
+        impl Default for PathsJSON {
+            fn default() -> Self {
+                PathsJSON::Empty
+            }
+        }
+
+        impl PathsJSON {
+            fn into_vec(self) -> Option<Vec<String>> {
+                match self {
+                    PathsJSON::Empty => None,
+                    PathsJSON::Single(s) => Some(vec![s]),
+                    PathsJSON::Multiple(s) => Some(s),
+                }
+            }
+        }
+
+        #[derive(Deserialize)]
         struct LanguageConfigurationJSON {
             #[serde(default)]
             path: PathBuf,
@@ -356,9 +380,12 @@ impl Loader {
             first_line_regex: Option<String>,
             #[serde(rename = "injection-regex")]
             injection_regex: Option<String>,
-            highlights: Option<String>,
-            injections: Option<String>,
-            locals: Option<String>,
+            #[serde(default)]
+            highlights: PathsJSON,
+            #[serde(default)]
+            injections: PathsJSON,
+            #[serde(default)]
+            locals: PathsJSON,
         }
 
         #[derive(Deserialize)]
@@ -411,9 +438,9 @@ impl Loader {
                             .injection_regex
                             .and_then(|r| RegexBuilder::new(&r).multi_line(true).build().ok()),
                         highlight_config: OnceCell::new(),
-                        injections_filename: config_json.injections,
-                        locals_filename: config_json.locals,
-                        highlights_filename: config_json.highlights,
+                        injections_filenames: config_json.injections.into_vec(),
+                        locals_filenames: config_json.locals.into_vec(),
+                        highlights_filenames: config_json.highlights.into_vec(),
                     };
 
                     for file_type in &configuration.file_types {
@@ -452,51 +479,48 @@ impl LanguageConfiguration {
         self.highlight_config
             .get_or_try_init(|| {
                 let queries_path = self.root_path.join("queries");
+                let read_queries = |paths: &Option<Vec<String>>, default_path: &str| {
+                    if let Some(paths) = paths.as_ref() {
+                        let mut query = String::new();
+                        for path in paths {
+                            let path = self.root_path.join(path);
+                            query += &fs::read_to_string(&path).map_err(Error::wrap(|| {
+                                format!("Failed to read query file {:?}", path)
+                            }))?;
+                        }
+                        Ok(query)
+                    } else {
+                        let path = queries_path.join(default_path);
+                        if path.exists() {
+                            fs::read_to_string(&path).map_err(Error::wrap(|| {
+                                format!("Failed to read query file {:?}", path)
+                            }))
+                        } else {
+                            Ok(String::new())
+                        }
+                    }
+                };
 
-                let highlights_path = queries_path.join(
-                    self.highlights_filename
-                        .as_ref()
-                        .map_or("highlights.scm", String::as_str),
-                );
-                let injections_path = queries_path.join(
-                    self.injections_filename
-                        .as_ref()
-                        .map_or("injections.scm", String::as_str),
-                );
-                let locals_path = queries_path.join(
-                    self.locals_filename
-                        .as_ref()
-                        .map_or("locals.scm", String::as_str),
-                );
+                let highlights_query = read_queries(&self.highlights_filenames, "highlights.scm")?;
+                let injections_query = read_queries(&self.injections_filenames, "injections.scm")?;
+                let locals_query = read_queries(&self.locals_filenames, "locals.scm")?;
 
-                if !highlights_path.exists() {
-                    return Ok(None);
+                if highlights_query.is_empty() {
+                    Ok(None)
+                } else {
+                    Ok(Some(
+                        highlighter
+                            .load_configuration(
+                                language,
+                                &highlights_query,
+                                &injections_query,
+                                &locals_query,
+                            )
+                            .map_err(Error::wrap(|| {
+                                format!("Failed to load queries in {:?}", self.root_path)
+                            }))?,
+                    ))
                 }
-
-                let highlights_query = fs::read_to_string(highlights_path)?;
-                let injections_query = if injections_path.exists() {
-                    fs::read_to_string(injections_path)?
-                } else {
-                    String::new()
-                };
-                let locals_query = if locals_path.exists() {
-                    fs::read_to_string(locals_path)?
-                } else {
-                    String::new()
-                };
-
-                Ok(Some(
-                    highlighter
-                        .load_configuration(
-                            language,
-                            &highlights_query,
-                            &injections_query,
-                            &locals_query,
-                        )
-                        .map_err(Error::wrap(|| {
-                            format!("Failed to load queries in {:?}", queries_path)
-                        }))?,
-                ))
             })
             .map(Option::as_ref)
     }

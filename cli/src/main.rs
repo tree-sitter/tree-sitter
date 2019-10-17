@@ -284,9 +284,17 @@ fn run() -> error::Result<()> {
         loader.find_all_languages(&config.parser_directories)?;
         for (configuration, language_path) in loader.get_all_language_configurations() {
             println!(
-                "scope: {}\nparser: {:?}\nfile_types: {:?}\ncontent_regex: {:?}\ninjection_regex: {:?}\n",
+                concat!(
+                    "scope: {}\n",
+                    "parser: {:?}\n",
+                    "highlights: {:?}\n",
+                    "file_types: {:?}\n",
+                    "content_regex: {:?}\n",
+                    "injection_regex: {:?}\n",
+                ),
                 configuration.scope.as_ref().unwrap_or(&String::new()),
                 language_path,
+                configuration.highlights_filenames,
                 configuration.file_types,
                 configuration.content_regex,
                 configuration.injection_regex,
