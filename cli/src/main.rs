@@ -162,9 +162,15 @@ fn run() -> error::Result<()> {
         let debug = matches.is_present("debug");
         let debug_graph = matches.is_present("debug-graph");
         let filter = matches.value_of("filter");
-        let corpus_path = current_dir.join("corpus");
         if let Some(language) = loader.languages_at_path(&current_dir)?.first() {
-            test::run_tests_at_path(*language, &corpus_path, debug, debug_graph, filter)?;
+            test::run_tests_at_path(
+                *language,
+                &current_dir.join("corpus"),
+                debug,
+                debug_graph,
+                filter,
+            )?;
+            test::check_queries_at_path(*language, &current_dir.join("queries"))?;
         } else {
             eprintln!("No language found");
         }

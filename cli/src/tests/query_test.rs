@@ -17,6 +17,7 @@ fn test_query_errors_on_invalid_syntax() {
         assert_eq!(
             Query::new(language, "(if_statement"),
             Err(QueryError::Syntax(
+                1,
                 [
                     "(if_statement", //
                     "             ^",
@@ -27,6 +28,7 @@ fn test_query_errors_on_invalid_syntax() {
         assert_eq!(
             Query::new(language, "; comment 1\n; comment 2\n  (if_statement))"),
             Err(QueryError::Syntax(
+                3,
                 [
                     "  (if_statement))", //
                     "                ^",
@@ -40,6 +42,7 @@ fn test_query_errors_on_invalid_syntax() {
         assert_eq!(
             Query::new(language, "(if_statement identifier)"),
             Err(QueryError::Syntax(
+                1,
                 [
                     "(if_statement identifier)", //
                     "              ^",
@@ -50,6 +53,7 @@ fn test_query_errors_on_invalid_syntax() {
         assert_eq!(
             Query::new(language, "(if_statement condition:)"),
             Err(QueryError::Syntax(
+                1,
                 [
                     "(if_statement condition:)", //
                     "                        ^",
@@ -62,6 +66,7 @@ fn test_query_errors_on_invalid_syntax() {
         assert_eq!(
             Query::new(language, r#"(identifier) "h "#),
             Err(QueryError::Syntax(
+                1,
                 [
                     r#"(identifier) "h "#, //
                     r#"             ^"#,
@@ -73,6 +78,7 @@ fn test_query_errors_on_invalid_syntax() {
         assert_eq!(
             Query::new(language, r#"((identifier) ()"#),
             Err(QueryError::Syntax(
+                1,
                 [
                     "((identifier) ()", //
                     "                ^",
@@ -83,6 +89,7 @@ fn test_query_errors_on_invalid_syntax() {
         assert_eq!(
             Query::new(language, r#"((identifier) @x (eq? @x a"#),
             Err(QueryError::Syntax(
+                1,
                 [
                     r#"((identifier) @x (eq? @x a"#,
                     r#"                          ^"#,
@@ -100,23 +107,23 @@ fn test_query_errors_on_invalid_symbols() {
 
         assert_eq!(
             Query::new(language, "(clas)"),
-            Err(QueryError::NodeType("clas".to_string()))
+            Err(QueryError::NodeType(1, "clas".to_string()))
         );
         assert_eq!(
             Query::new(language, "(if_statement (arrayyyyy))"),
-            Err(QueryError::NodeType("arrayyyyy".to_string()))
+            Err(QueryError::NodeType(1, "arrayyyyy".to_string()))
         );
         assert_eq!(
             Query::new(language, "(if_statement condition: (non_existent3))"),
-            Err(QueryError::NodeType("non_existent3".to_string()))
+            Err(QueryError::NodeType(1, "non_existent3".to_string()))
         );
         assert_eq!(
             Query::new(language, "(if_statement condit: (identifier))"),
-            Err(QueryError::Field("condit".to_string()))
+            Err(QueryError::Field(1, "condit".to_string()))
         );
         assert_eq!(
             Query::new(language, "(if_statement conditioning: (identifier))"),
-            Err(QueryError::Field("conditioning".to_string()))
+            Err(QueryError::Field(1, "conditioning".to_string()))
         );
     });
 }
@@ -140,7 +147,7 @@ fn test_query_errors_on_invalid_conditions() {
         );
         assert_eq!(
             Query::new(language, "((identifier) @id (eq? @id @ok))"),
-            Err(QueryError::Capture("ok".to_string()))
+            Err(QueryError::Capture(1, "ok".to_string()))
         );
     });
 }

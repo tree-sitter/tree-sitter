@@ -52,7 +52,25 @@ impl Error {
 
 impl<'a> From<QueryError> for Error {
     fn from(error: QueryError) -> Self {
-        Error::new(format!("{:?}", error))
+        match error {
+            QueryError::Capture(row, c) => Error::new(format!(
+                "Query error on line {}: Invalid capture name {}",
+                row, c
+            )),
+            QueryError::Field(row, f) => Error::new(format!(
+                "Query error on line {}: Invalid field name {}",
+                row, f
+            )),
+            QueryError::NodeType(row, t) => Error::new(format!(
+                "Query error on line {}. Invalid node type {}",
+                row, t
+            )),
+            QueryError::Syntax(row, l) => Error::new(format!(
+                "Query error on line {}. Invalid syntax:\n{}",
+                row, l
+            )),
+            QueryError::Predicate(p) => Error::new(format!("Query error: {}", p)),
+        }
     }
 }
 

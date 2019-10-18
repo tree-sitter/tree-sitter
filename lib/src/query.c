@@ -485,7 +485,7 @@ static TSQueryError ts_query_parse_predicate(
       // Parse the string content
       const char *string_content = stream->input;
       while (stream->next != '"') {
-        if (!stream_advance(stream)) {
+        if (stream->next == '\n' || !stream_advance(stream)) {
           stream_reset(stream, string_content - 1);
           return TSQueryErrorSyntax;
         }

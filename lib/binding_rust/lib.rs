@@ -118,10 +118,10 @@ pub struct QueryCapture<'a> {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum QueryError {
-    Syntax(String),
-    NodeType(String),
-    Field(String),
-    Capture(String),
+    Syntax(usize, String),
+    NodeType(usize, String),
+    Field(usize, String),
+    Capture(usize, String),
     Predicate(String),
 }
 
@@ -812,7 +812,9 @@ impl Query {
         if ptr.is_null() {
             let offset = error_offset as usize;
             let mut line_start = 0;
+            let mut row = 0;
             let line_containing_error = source.split("\n").find_map(|line| {
+                row += 1;
                 let line_end = line_start + line.len() + 1;
                 if line_end > offset {
                     Some(line)
@@ -836,13 +838,13 @@ impl Query {
                     .unwrap_or(source.len());
                 let name = suffix.split_at(end_offset).0.to_string();
                 match error_type {
-                    ffi::TSQueryError_TSQueryErrorNodeType => Err(QueryError::NodeType(name)),
-                    ffi::TSQueryError_TSQueryErrorField => Err(QueryError::Field(name)),
-                    ffi::TSQueryError_TSQueryErrorCapture => Err(QueryError::Capture(name)),
-                    _ => Err(QueryError::Syntax(message)),
+                    ffi::TSQueryError_TSQueryErrorNodeType => Err(QueryError::NodeType(row, name)),
+                    ffi::TSQueryError_TSQueryErrorField => Err(QueryError::Field(row, name)),
+                    ffi::TSQueryError_TSQueryErrorCapture => Err(QueryError::Capture(row, name)),
+                    _ => Err(QueryError::Syntax(row, message)),
                 }
             } else {
-                Err(QueryError::Syntax(message))
+                Err(QueryError::Syntax(row, message))
             };
         }
 
