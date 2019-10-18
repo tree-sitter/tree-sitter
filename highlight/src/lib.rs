@@ -732,11 +732,21 @@ where
                 // the scope stack.
                 if Some(capture.index) == layer.config.local_scope_capture_index {
                     definition_highlight = None;
-                    layer.scope_stack.push(LocalScope {
+                    let mut scope = LocalScope {
                         inherits: true,
                         range: range.clone(),
                         local_defs: Vec::new(),
-                    });
+                    };
+                    for prop in layer.config.query.property_settings(pattern_index) {
+                        match prop.key.as_ref() {
+                            "local.scope-inherits" => {
+                                scope.inherits =
+                                    prop.value.as_ref().map_or(true, |r| r.as_ref() == "true");
+                            }
+                            _ => {}
+                        }
+                    }
+                    layer.scope_stack.push(scope);
                 }
                 // If the node represents a definition, add a new definition to the
                 // local scope at the top of the scope stack.
