@@ -1655,6 +1655,7 @@ TSParser *ts_parser_new(void) {
 void ts_parser_delete(TSParser *self) {
   if (!self) return;
 
+  ts_parser_set_language(self, NULL);
   ts_stack_delete(self->stack);
   if (self->reduce_actions.contents) {
     array_delete(&self->reduce_actions);
@@ -1670,7 +1671,6 @@ void ts_parser_delete(TSParser *self) {
   ts_parser__set_cached_token(self, 0, NULL_SUBTREE, NULL_SUBTREE);
   ts_subtree_pool_delete(&self->tree_pool);
   reusable_node_delete(&self->reusable_node);
-  ts_parser_set_language(self, NULL);
   ts_free(self);
 }
 
@@ -1695,6 +1695,7 @@ bool ts_parser_set_language(TSParser *self, const TSLanguage *language) {
   }
 
   self->language = language;
+  ts_parser_reset(self);
   return true;
 }
 
@@ -1747,7 +1748,7 @@ const TSRange *ts_parser_included_ranges(const TSParser *self, uint32_t *count) 
 }
 
 void ts_parser_reset(TSParser *self) {
-  if (self->language->external_scanner.deserialize) {
+  if (self->language && self->language->external_scanner.deserialize) {
     self->language->external_scanner.deserialize(self->external_scanner_payload, NULL, 0);
   }
 

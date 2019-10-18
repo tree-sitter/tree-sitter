@@ -1,3 +1,4 @@
+use super::helpers::allocations;
 use super::helpers::edits::ReadRecorder;
 use super::helpers::fixtures::{get_language, get_test_language};
 use crate::generate::generate_parser_for_grammar;
@@ -565,6 +566,56 @@ fn test_parsing_with_a_timeout_and_a_reset() {
             .kind(),
         "null"
     );
+}
+
+#[test]
+fn test_parsing_with_a_timeout_and_implicit_reset() {
+    allocations::record(|| {
+        let mut parser = Parser::new();
+        parser.set_language(get_language("javascript")).unwrap();
+
+        parser.set_timeout_micros(5);
+        let tree = parser.parse(
+            "[\"ok\", 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]",
+            None,
+        );
+        assert!(tree.is_none());
+
+        // Changing the parser's language implicitly resets, discarding
+        // the previous partial parse.
+        parser.set_language(get_language("json")).unwrap();
+        parser.set_timeout_micros(0);
+        let tree = parser.parse(
+            "[null, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]",
+            None,
+        ).unwrap();
+        assert_eq!(
+            tree.root_node()
+                .named_child(0)
+                .unwrap()
+                .named_child(0)
+                .unwrap()
+                .kind(),
+            "null"
+        );
+    });
+}
+
+#[test]
+fn test_parsing_with_timeout_and_no_completion() {
+    allocations::record(|| {
+        let mut parser = Parser::new();
+        parser.set_language(get_language("javascript")).unwrap();
+
+        parser.set_timeout_micros(5);
+        let tree = parser.parse(
+            "[\"ok\", 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]",
+            None,
+        );
+        assert!(tree.is_none());
+
+        // drop the parser when it has an unfinished parse
+    });
 }
 
 // Included Ranges
