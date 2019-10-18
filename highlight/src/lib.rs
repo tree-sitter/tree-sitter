@@ -46,6 +46,7 @@ pub struct HighlightConfiguration {
     injection_language_capture_index: Option<u32>,
     local_scope_capture_index: Option<u32>,
     local_def_capture_index: Option<u32>,
+    local_def_value_capture_index: Option<u32>,
     local_ref_capture_index: Option<u32>,
 }
 
@@ -85,10 +86,17 @@ pub struct HtmlRenderer {
 }
 
 #[derive(Debug)]
+struct LocalDef<'a> {
+    name: &'a str,
+    value_range: ops::Range<usize>,
+    highlight: Option<Highlight>,
+}
+
+#[derive(Debug)]
 struct LocalScope<'a> {
     inherits: bool,
     range: ops::Range<usize>,
-    local_defs: Vec<(&'a str, Option<Highlight>)>,
+    local_defs: Vec<LocalDef<'a>>,
 }
 
 struct HighlightIter<'a, F>
@@ -237,6 +245,7 @@ impl Highlighter {
         let mut injection_language_capture_index = None;
         let mut injection_site_capture_index = None;
         let mut local_def_capture_index = None;
+        let mut local_def_value_capture_index = None;
         let mut local_ref_capture_index = None;
         let mut local_scope_capture_index = None;
         for (i, name) in query.capture_names().iter().enumerate() {
@@ -246,6 +255,7 @@ impl Highlighter {
                 "injection.language" => injection_language_capture_index = i,
                 "injection.site" => injection_site_capture_index = i,
                 "local.definition" => local_def_capture_index = i,
+                "local.definition-value" => local_def_value_capture_index = i,
                 "local.reference" => local_ref_capture_index = i,
                 "local.scope" => local_scope_capture_index = i,
                 _ => {}
@@ -264,6 +274,7 @@ impl Highlighter {
             injection_language_capture_index,
             injection_site_capture_index,
             local_def_capture_index,
+            local_def_value_capture_index,
             local_ref_capture_index,
             local_scope_capture_index,
         })
@@ -573,13 +584,15 @@ where
             // Get the next capture. If there are no more captures, then emit the rest of the
             // source code.
             let match_;
+            let mut captures;
             let mut capture;
             let mut pattern_index;
             let layer = &mut self.layers[0];
             if let Some((m, capture_index)) = layer.captures.peek() {
                 match_ = m;
+                captures = match_.captures;
                 pattern_index = match_.pattern_index;
-                capture = match_.captures[*capture_index];
+                capture = captures[*capture_index];
             } else if let Some(end_byte) = layer.highlight_end_stack.last().cloned() {
                 layer.highlight_end_stack.pop();
                 return self.emit_event(end_byte, Some(HighlightEvent::HighlightEnd));
@@ -754,9 +767,22 @@ where
                     reference_highlight = None;
                     definition_highlight = None;
                     let scope = layer.scope_stack.last_mut().unwrap();
+
+                    let mut value_range = 0..0;
+                    for capture in captures {
+                        if Some(capture.index) == layer.config.local_def_value_capture_index {
+                            value_range = capture.node.byte_range();
+                        }
+                    }
+
                     if let Ok(name) = str::from_utf8(&self.source[range.clone()]) {
-                        scope.local_defs.push((name, None));
-                        definition_highlight = scope.local_defs.last_mut().map(|s| &mut s.1);
+                        scope.local_defs.push(LocalDef {
+                            name,
+                            value_range,
+                            highlight: None,
+                        });
+                        definition_highlight =
+                            scope.local_defs.last_mut().map(|s| &mut s.highlight);
                     }
                 }
                 // If the node represents a reference, then try to find the corresponding
@@ -767,9 +793,9 @@ where
                         if let Ok(name) = str::from_utf8(&self.source[range.clone()]) {
                             for scope in layer.scope_stack.iter().rev() {
                                 if let Some(highlight) =
-                                    scope.local_defs.iter().rev().find_map(|i| {
-                                        if i.0 == name {
-                                            Some(i.1)
+                                    scope.local_defs.iter().rev().find_map(|def| {
+                                        if def.name == name && range.start >= def.value_range.end {
+                                            Some(def.highlight)
                                         } else {
                                             None
                                         }
@@ -792,6 +818,7 @@ where
                     let next_capture = next_match.captures[*next_capture_index];
                     if next_capture.node == capture.node {
                         pattern_index = next_match.pattern_index;
+                        captures = next_match.captures;
                         capture = next_capture;
                         layer.captures.next();
                         continue;
