@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
-#include "./point.h"
+#include "point.h"
 #include "tree_sitter/api.h"
 
 typedef struct {

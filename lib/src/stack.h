@@ -5,9 +5,9 @@
 extern "C" {
 #endif
 
-#include "./array.h"
-#include "./subtree.h"
-#include "./error_costs.h"
+#include "array.h"
+#include "subtree.h"
+#include "error_costs.h"
 #include <stdio.h>
 
 typedef struct Stack Stack;

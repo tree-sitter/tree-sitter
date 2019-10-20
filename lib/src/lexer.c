@@ -1,8 +1,8 @@
 #include <stdio.h>
-#include "./lexer.h"
-#include "./subtree.h"
-#include "./length.h"
-#include "./unicode.h"
+#include "lexer.h"
+#include "subtree.h"
+#include "length.h"
+#include "unicode.h"
 
 #define LOG(...)                                                                      \
   if (self->logger.log) {                                                             \

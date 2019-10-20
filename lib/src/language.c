@@ -1,6 +1,6 @@
-#include "./language.h"
-#include "./subtree.h"
-#include "./error_costs.h"
+#include "language.h"
+#include "subtree.h"
+#include "error_costs.h"
 #include <string.h>
 
 void ts_language_table_entry(const TSLanguage *self, TSStateId state,

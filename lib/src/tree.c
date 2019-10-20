@@ -1,9 +1,9 @@
 #include "tree_sitter/api.h"
-#include "./array.h"
-#include "./get_changed_ranges.h"
-#include "./subtree.h"
-#include "./tree_cursor.h"
-#include "./tree.h"
+#include "array.h"
+#include "get_changed_ranges.h"
+#include "subtree.h"
+#include "tree_cursor.h"
+#include "tree.h"
 
 static const unsigned PARENT_CACHE_CAPACITY = 32;
 

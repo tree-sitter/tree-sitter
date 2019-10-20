@@ -1,8 +1,8 @@
 #include "tree_sitter/api.h"
-#include "./alloc.h"
-#include "./tree_cursor.h"
-#include "./language.h"
-#include "./tree.h"
+#include "alloc.h"
+#include "tree_cursor.h"
+#include "language.h"
+#include "tree.h"
 
 typedef struct {
   Subtree parent;

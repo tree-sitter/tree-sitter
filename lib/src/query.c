@@ -1,10 +1,10 @@
 #include "tree_sitter/api.h"
-#include "./alloc.h"
-#include "./array.h"
-#include "./bits.h"
-#include "./point.h"
-#include "./tree_cursor.h"
-#include "./unicode.h"
+#include "alloc.h"
+#include "array.h"
+#include "bits.h"
+#include "point.h"
+#include "tree_cursor.h"
+#include "unicode.h"
 #include <wctype.h>
 
 /*

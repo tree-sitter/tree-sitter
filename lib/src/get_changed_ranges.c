@@ -1,8 +1,8 @@
-#include "./get_changed_ranges.h"
-#include "./subtree.h"
-#include "./language.h"
-#include "./error_costs.h"
-#include "./tree_cursor.h"
+#include "get_changed_ranges.h"
+#include "subtree.h"
+#include "language.h"
+#include "error_costs.h"
+#include "tree_cursor.h"
 #include <assert.h>
 
 // #define DEBUG_GET_CHANGED_RANGES

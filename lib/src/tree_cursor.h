@@ -1,7 +1,7 @@
 #ifndef TREE_SITTER_TREE_CURSOR_H_
 #define TREE_SITTER_TREE_CURSOR_H_
 
-#include "./subtree.h"
+#include "subtree.h"
 
 typedef struct {
   const Subtree *subtree;

@@ -1,4 +1,4 @@
-#include "./subtree.h"
+#include "subtree.h"
 
 typedef struct {
   Subtree tree;

@@ -8,9 +8,9 @@ extern "C" {
 #include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include "./length.h"
-#include "./array.h"
-#include "./error_costs.h"
+#include "length.h"
+#include "array.h"
+#include "error_costs.h"
 #include "tree_sitter/api.h"
 #include "tree_sitter/parser.h"
 
