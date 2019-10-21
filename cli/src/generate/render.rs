@@ -2,7 +2,8 @@ use super::grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType
 use super::nfa::CharacterSet;
 use super::rules::{Alias, AliasMap, Symbol, SymbolType};
 use super::tables::{
-    AdvanceAction, FieldLocation, LexState, LexTable, ParseAction, ParseTable, ParseTableEntry,
+    AdvanceAction, FieldLocation, GotoAction, LexState, LexTable, ParseAction, ParseTable,
+    ParseTableEntry,
 };
 use core::ops::Range;
 use std::cmp;
@@ -678,7 +679,12 @@ impl Generator {
         add_line!(self, "static TSLexMode ts_lex_modes[STATE_COUNT] = {{");
         indent!(self);
         for (i, state) in self.parse_table.states.iter().enumerate() {
-            if state.external_lex_state_id > 0 {
+            if state.is_non_terminal_extra
+                && state.terminal_entries.len() == 1
+                && *state.terminal_entries.iter().next().unwrap().0 == Symbol::end()
+            {
+                add_line!(self, "[{}] = {{-1}},", i,);
+            } else if state.external_lex_state_id > 0 {
                 add_line!(
                     self,
                     "[{}] = {{.lex_state = {}, .external_lex_state = {}}},",
@@ -807,12 +813,15 @@ impl Generator {
             terminal_entries.sort_unstable_by_key(|e| self.symbol_order.get(e.0));
             nonterminal_entries.sort_unstable_by_key(|k| k.0);
 
-            for (symbol, state_id) in &nonterminal_entries {
+            for (symbol, action) in &nonterminal_entries {
                 add_line!(
                     self,
                     "[{}] = STATE({}),",
                     self.symbol_ids[symbol],
-                    *state_id
+                    match action {
+                        GotoAction::Goto(state) => *state,
+                        GotoAction::ShiftExtra => i,
+                    }
                 );
             }
 
@@ -865,9 +874,15 @@ impl Generator {
                         .or_default()
                         .push(**symbol);
                 }
-                for (symbol, state_id) in &state.nonterminal_entries {
+                for (symbol, action) in &state.nonterminal_entries {
+                    let state_id = match action {
+                        GotoAction::Goto(i) => *i,
+                        GotoAction::ShiftExtra => {
+                            self.large_state_count + small_state_indices.len() - 1
+                        }
+                    };
                     symbols_by_value
-                        .entry((*state_id, SymbolType::NonTerminal))
+                        .entry((state_id, SymbolType::NonTerminal))
                         .or_default()
                         .push(*symbol);
                 }

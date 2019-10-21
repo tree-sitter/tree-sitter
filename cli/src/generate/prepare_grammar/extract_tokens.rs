@@ -93,15 +93,7 @@ pub(super) fn extract_tokens(
     let mut extra_tokens = Vec::new();
     for rule in grammar.extra_tokens {
         if let Rule::Symbol(symbol) = rule {
-            let new_symbol = symbol_replacer.replace_symbol(symbol);
-            if new_symbol.is_non_terminal() {
-                return Error::err(format!(
-                    "Non-token symbol '{}' cannot be used as an extra token",
-                    &variables[new_symbol.index].name
-                ));
-            } else {
-                extra_tokens.push(new_symbol);
-            }
+            extra_tokens.push(symbol_replacer.replace_symbol(symbol));
         } else {
             if let Some(index) = lexical_variables.iter().position(|v| v.rule == rule) {
                 extra_tokens.push(Symbol::terminal(index));
@@ -470,28 +462,6 @@ mod test {
                 },
             ]
         );
-    }
-
-    #[test]
-    fn test_error_on_non_terminal_symbol_extras() {
-        let mut grammar = build_grammar(vec![
-            Variable::named("rule_0", Rule::non_terminal(1)),
-            Variable::named("rule_1", Rule::non_terminal(2)),
-            Variable::named("rule_2", Rule::string("x")),
-        ]);
-        grammar.extra_tokens = vec![Rule::non_terminal(1)];
-
-        match extract_tokens(grammar) {
-            Err(e) => {
-                assert_eq!(
-                    e.message(),
-                    "Non-token symbol 'rule_1' cannot be used as an extra token"
-                );
-            }
-            _ => {
-                panic!("Expected an error but got no error");
-            }
-        }
     }
 
     #[test]

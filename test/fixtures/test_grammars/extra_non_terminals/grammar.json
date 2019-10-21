@@ -1,0 +1,35 @@
+{
+  "name": "extra_non_terminals",
+
+  "extras": [
+    {"type": "PATTERN", "value": "\\s"},
+    {"type": "SYMBOL", "name": "comment"}
+  ],
+
+  "rules": {
+    "module": {
+      "type": "SEQ",
+      "members": [
+        {"type": "STRING", "value": "a"},
+        {"type": "STRING", "value": "b"},
+        {"type": "STRING", "value": "c"},
+        {"type": "STRING", "value": "d"}
+      ]
+    },
+
+    "comment": {
+      "type": "SEQ",
+      "members": [
+        {"type": "STRING", "value": "("},
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "PATTERN",
+            "value": "[a-z]+"
+          }
+        },
+        {"type": "STRING", "value": ")"}
+      ]
+    }
+  }
+}
