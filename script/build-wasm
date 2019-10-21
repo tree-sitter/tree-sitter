@@ -62,14 +62,12 @@ done
 
 emcc=
 if which emcc > /dev/null && [[ "$force_docker" == "0" ]]; then
-  export EMCC_FORCE_STDLIBS=libc++
   emcc=emcc
 elif which docker > /dev/null; then
   emcc="docker run               \
     --rm                         \
     -v $(pwd):/src:Z             \
     -u $(id -u)                  \
-    -e EMCC_FORCE_STDLIBS=libc++ \
     trzeci/emscripten-slim       \
     emcc"
 else
