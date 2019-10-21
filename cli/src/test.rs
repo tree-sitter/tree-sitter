@@ -99,16 +99,18 @@ pub fn run_tests_at_path(
 }
 
 pub fn check_queries_at_path(language: Language, path: &Path) -> Result<()> {
-    for entry in fs::read_dir(path)? {
-        let entry = entry?;
-        let hidden = entry.file_name().to_str().unwrap_or("").starts_with(".");
-        if !hidden {
-            let content = fs::read_to_string(entry.path()).map_err(Error::wrap(|| {
-                format!("Error reading query file {:?}", entry.file_name())
-            }))?;
-            Query::new(language, &content).map_err(Error::wrap(|| {
-                format!("Error in query file {:?}", entry.file_name())
-            }))?;
+    if path.exists() {
+        for entry in fs::read_dir(path)? {
+            let entry = entry?;
+            let hidden = entry.file_name().to_str().unwrap_or("").starts_with(".");
+            if !hidden {
+                let content = fs::read_to_string(entry.path()).map_err(Error::wrap(|| {
+                    format!("Error reading query file {:?}", entry.file_name())
+                }))?;
+                Query::new(language, &content).map_err(Error::wrap(|| {
+                    format!("Error in query file {:?}", entry.file_name())
+                }))?;
+            }
         }
     }
     Ok(())
