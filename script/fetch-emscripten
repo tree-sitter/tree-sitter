@@ -2,7 +2,7 @@
 
 set -e
 
-EMSCRIPTEN_VERSION=1.38.40
+EMSCRIPTEN_VERSION=1.39.0
 
 mkdir -p target
 EMSDK_DIR="./target/emsdk"
