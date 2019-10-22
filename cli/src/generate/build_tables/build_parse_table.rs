@@ -76,7 +76,7 @@ impl<'a> ParseTableBuilder<'a> {
         let mut non_terminal_extra_item_sets_by_first_terminal = BTreeMap::new();
         for extra_non_terminal in self
             .syntax_grammar
-            .extra_tokens
+            .extra_symbols
             .iter()
             .filter(|s| s.is_non_terminal())
         {
@@ -336,7 +336,7 @@ impl<'a> ParseTableBuilder<'a> {
         // are added to every state except for those at the ends of non-terminal
         // extras.
         if !is_end_of_non_terminal_extra {
-            for extra_token in &self.syntax_grammar.extra_tokens {
+            for extra_token in &self.syntax_grammar.extra_symbols {
                 if extra_token.is_non_terminal() {
                     state
                         .nonterminal_entries
@@ -843,7 +843,7 @@ fn populate_following_tokens(
             }
         }
     }
-    for extra in &grammar.extra_tokens {
+    for extra in &grammar.extra_symbols {
         if extra.is_terminal() {
             for entry in result.iter_mut() {
                 entry.insert(*extra);

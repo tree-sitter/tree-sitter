@@ -21,7 +21,7 @@ use crate::generate::rules::{AliasMap, Rule, Symbol};
 
 pub(crate) struct IntermediateGrammar<T, U> {
     variables: Vec<Variable>,
-    extra_tokens: Vec<T>,
+    extra_symbols: Vec<T>,
     expected_conflicts: Vec<Vec<Symbol>>,
     external_tokens: Vec<U>,
     variables_to_inline: Vec<Symbol>,

@@ -689,7 +689,7 @@ mod tests {
     fn test_node_types_simple() {
         let node_types = get_node_types(InputGrammar {
             name: String::new(),
-            extra_tokens: Vec::new(),
+            extra_symbols: Vec::new(),
             external_tokens: Vec::new(),
             expected_conflicts: Vec::new(),
             variables_to_inline: Vec::new(),
@@ -775,7 +775,7 @@ mod tests {
     fn test_node_types_with_supertypes() {
         let node_types = get_node_types(InputGrammar {
             name: String::new(),
-            extra_tokens: Vec::new(),
+            extra_symbols: Vec::new(),
             external_tokens: Vec::new(),
             expected_conflicts: Vec::new(),
             variables_to_inline: Vec::new(),
@@ -862,7 +862,7 @@ mod tests {
     fn test_node_types_for_children_without_fields() {
         let node_types = get_node_types(InputGrammar {
             name: String::new(),
-            extra_tokens: Vec::new(),
+            extra_symbols: Vec::new(),
             external_tokens: Vec::new(),
             expected_conflicts: Vec::new(),
             variables_to_inline: Vec::new(),
@@ -960,7 +960,7 @@ mod tests {
     fn test_node_types_for_aliased_nodes() {
         let node_types = get_node_types(InputGrammar {
             name: String::new(),
-            extra_tokens: Vec::new(),
+            extra_symbols: Vec::new(),
             external_tokens: Vec::new(),
             expected_conflicts: Vec::new(),
             variables_to_inline: Vec::new(),
@@ -1036,7 +1036,7 @@ mod tests {
     fn test_node_types_with_multiple_valued_fields() {
         let node_types = get_node_types(InputGrammar {
             name: String::new(),
-            extra_tokens: Vec::new(),
+            extra_symbols: Vec::new(),
             external_tokens: Vec::new(),
             expected_conflicts: Vec::new(),
             variables_to_inline: Vec::new(),

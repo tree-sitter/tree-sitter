@@ -146,7 +146,7 @@ mod tests {
                     }],
                 },
             ],
-            extra_tokens: Vec::new(),
+            extra_symbols: Vec::new(),
             expected_conflicts: Vec::new(),
             variables_to_inline: Vec::new(),
             supertype_symbols: Vec::new(),
