@@ -199,7 +199,7 @@ unless they are used only as the grammar's start rule.
         }
     }
     Ok(SyntaxGrammar {
-        extra_tokens: grammar.extra_tokens,
+        extra_symbols: grammar.extra_symbols,
         expected_conflicts: grammar.expected_conflicts,
         variables_to_inline: grammar.variables_to_inline,
         external_tokens: grammar.external_tokens,

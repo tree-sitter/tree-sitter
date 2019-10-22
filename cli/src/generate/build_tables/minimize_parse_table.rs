@@ -2,7 +2,9 @@ use super::token_conflicts::TokenConflictMap;
 use crate::generate::dedup::split_state_id_groups;
 use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar, VariableType};
 use crate::generate::rules::{AliasMap, Symbol, TokenSet};
-use crate::generate::tables::{ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry};
+use crate::generate::tables::{
+    GotoAction, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
+};
 use log::info;
 use std::collections::{HashMap, HashSet};
 use std::mem;
@@ -101,7 +103,10 @@ impl<'a> Minimizer<'a> {
                 state.update_referenced_states(|other_state_id, state| {
                     if let Some(symbol) = unit_reduction_symbols_by_state.get(&other_state_id) {
                         done = false;
-                        state.nonterminal_entries[symbol]
+                        match state.nonterminal_entries.get(symbol) {
+                            Some(GotoAction::Goto(state_id)) => *state_id,
+                            _ => other_state_id,
+                        }
                     } else {
                         other_state_id
                     }
@@ -262,18 +267,24 @@ impl<'a> Minimizer<'a> {
 
         for (symbol, s1) in &state1.nonterminal_entries {
             if let Some(s2) = state2.nonterminal_entries.get(symbol) {
-                let group1 = group_ids_by_state_id[*s1];
-                let group2 = group_ids_by_state_id[*s2];
-                if group1 != group2 {
-                    info!(
-                        "split states {} {} - successors for {} are split: {} {}",
-                        state1.id,
-                        state2.id,
-                        self.symbol_name(symbol),
-                        s1,
-                        s2,
-                    );
-                    return true;
+                match (s1, s2) {
+                    (GotoAction::ShiftExtra, GotoAction::ShiftExtra) => continue,
+                    (GotoAction::Goto(s1), GotoAction::Goto(s2)) => {
+                        let group1 = group_ids_by_state_id[*s1];
+                        let group2 = group_ids_by_state_id[*s2];
+                        if group1 != group2 {
+                            info!(
+                                "split states {} {} - successors for {} are split: {} {}",
+                                state1.id,
+                                state2.id,
+                                self.symbol_name(symbol),
+                                s1,
+                                s2,
+                            );
+                            return true;
+                        }
+                    }
+                    _ => return true,
                 }
             }
         }

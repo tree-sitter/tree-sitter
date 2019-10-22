@@ -30,9 +30,9 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         external_tokens.push(Variable { name, kind, rule });
     }
 
-    let mut extra_tokens = Vec::with_capacity(grammar.extra_tokens.len());
-    for extra_token in grammar.extra_tokens.iter() {
-        extra_tokens.push(interner.intern_rule(extra_token)?);
+    let mut extra_symbols = Vec::with_capacity(grammar.extra_symbols.len());
+    for extra_token in grammar.extra_symbols.iter() {
+        extra_symbols.push(interner.intern_rule(extra_token)?);
     }
 
     let mut supertype_symbols = Vec::with_capacity(grammar.supertype_symbols.len());
@@ -76,7 +76,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
     Ok(InternedGrammar {
         variables,
         external_tokens,
-        extra_tokens,
+        extra_symbols,
         expected_conflicts,
         variables_to_inline,
         supertype_symbols,
@@ -236,7 +236,7 @@ mod tests {
         InputGrammar {
             variables,
             name: "the_language".to_string(),
-            extra_tokens: Vec::new(),
+            extra_symbols: Vec::new(),
             external_tokens: Vec::new(),
             expected_conflicts: Vec::new(),
             variables_to_inline: Vec::new(),

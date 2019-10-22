@@ -87,7 +87,7 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
         })
     }
 
-    let extra_tokens = grammar_json
+    let extra_symbols = grammar_json
         .extras
         .unwrap_or(Vec::new())
         .into_iter()
@@ -107,7 +107,7 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
         name: grammar_json.name,
         word_token: grammar_json.word,
         variables,
-        extra_tokens,
+        extra_symbols,
         expected_conflicts,
         external_tokens,
         supertype_symbols,
