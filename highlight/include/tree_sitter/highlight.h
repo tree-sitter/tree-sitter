@@ -12,6 +12,9 @@ typedef enum {
   TSHighlightUnknownScope,
   TSHighlightTimeout,
   TSHighlightInvalidLanguage,
+  TSHighlightInvalidUtf8,
+  TSHighlightInvalidRegex,
+  TSHighlightInvalidQuery,
 } TSHighlightError;
 
 typedef struct TSHighlighter TSHighlighter;
@@ -35,7 +38,7 @@ void ts_highlighter_delete(TSHighlighter *);
 // with that language. You can also optionally provide an 'injection regex',
 // which is used to detect when this language has been embedded in a document
 // written in a different language.
-int ts_highlighter_add_language(
+TSHighlightError ts_highlighter_add_language(
   TSHighlighter *self,
   const char *scope_name,
   const char *injection_regex,
@@ -50,7 +53,7 @@ int ts_highlighter_add_language(
 
 // Compute syntax highlighting for a given document. You must first
 // create a `TSHighlightBuffer` to hold the output.
-int ts_highlighter_highlight(
+TSHighlightError ts_highlighter_highlight(
   const TSHighlighter *self,
   const char *scope_name,
   const char *source_code,
