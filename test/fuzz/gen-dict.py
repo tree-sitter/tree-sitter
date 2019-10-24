@@ -25,7 +25,7 @@ def main():
 
   for lit in sorted(literals):
     if lit:
-      print '"%s"' % ''.join([(c if c.isalnum() else '\\x%02x' % ord(c)) for c in lit])
+      print '"%s"' % ''.join(['\\x%02x' % ord(b) for b in lit.encode('utf-8')])
 
 if __name__ == '__main__':
   main()
