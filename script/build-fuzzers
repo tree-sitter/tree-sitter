@@ -51,13 +51,21 @@ for lang in ${languages[@]}; do
   $CC $CFLAGS -g -O0 "-I${lang_dir}/src" "${lang_dir}/src/parser.c" -c -o "${lang_dir}/src/parser.o"
   objects+=("${lang_dir}/src/parser.o")
 
+  highlights_filename="${lang_dir}/queries/highlights.scm"
+  if [ -e "${highlights_filename}" ]; then
+    ts_lang_query_filename="${lang}.scm"
+    cp "${highlights_filename}" "out/${ts_lang_query_filename}"
+  else
+    ts_lang_query_filename=""
+  fi
+
   modes=(true halt false recover)
   for i in 0 2; do
     # FIXME: We should extract the grammar name from grammar.js. Use the name of
     # the directory instead. Also, the grammar name needs to be a valid C
     # identifier so replace any '-' characters
     ts_lang="tree_sitter_$(echo $lang | tr -- - _)"
-    $CXX $CXXFLAGS -std=c++11 -I lib/include -D TS_HALT_ON_ERROR="${modes[i]}" -D TS_LANG="$ts_lang" \
+    $CXX $CXXFLAGS -std=c++11 -I lib/include -D TS_HALT_ON_ERROR="${modes[i]}" -D TS_LANG="$ts_lang" -D TS_LANG_QUERY_FILENAME="\"${ts_lang_query_filename}\"" \
       "test/fuzz/fuzzer.cc" "${objects[@]}" \
       libtree-sitter.a "$LIB_FUZZER_PATH" \
       -o "out/${lang}_fuzzer_${modes[i+1]}"
