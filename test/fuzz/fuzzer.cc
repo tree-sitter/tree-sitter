@@ -12,7 +12,7 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
     // to an absolute path first
     auto binary_filename = std::string((*argv)[0]);
     auto binary_directory = binary_filename.substr(0, binary_filename.find_last_of("\\/"));
-    auto lang_query_filename = binary_directory + std::string("/") + std::string(TS_LANG_QUERY_FILENAME);
+    auto lang_query_filename = binary_directory + "/" + TS_LANG_QUERY_FILENAME;
 
     auto f = std::ifstream(lang_query_filename);
     assert(f.good());
