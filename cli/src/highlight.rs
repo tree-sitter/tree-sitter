@@ -10,9 +10,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 use std::{fs, io, path, str, thread, usize};
-use tree_sitter_highlight::{
-    HighlightConfiguration, HighlightContext, HighlightEvent, Highlighter, HtmlRenderer,
-};
+use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer};
 
 pub const HTML_HEADER: &'static str = "
 <!doctype HTML>
@@ -53,8 +51,8 @@ pub struct Style {
 
 #[derive(Debug)]
 pub struct Theme {
-    pub highlighter: Highlighter,
-    styles: Vec<Style>,
+    pub styles: Vec<Style>,
+    pub highlight_names: Vec<String>,
 }
 
 impl Theme {
@@ -73,21 +71,21 @@ impl<'de> Deserialize<'de> for Theme {
     where
         D: Deserializer<'de>,
     {
-        let mut names = Vec::new();
         let mut styles = Vec::new();
+        let mut highlight_names = Vec::new();
         if let Ok(colors) = HashMap::<String, Value>::deserialize(deserializer) {
-            names.reserve(colors.len());
+            highlight_names.reserve(colors.len());
             styles.reserve(colors.len());
             for (name, style_value) in colors {
                 let mut style = Style::default();
                 parse_style(&mut style, style_value);
-                names.push(name);
+                highlight_names.push(name);
                 styles.push(style);
             }
         }
         Ok(Self {
-            highlighter: Highlighter::new(names),
             styles,
+            highlight_names,
         })
     }
 }
@@ -98,7 +96,7 @@ impl Serialize for Theme {
         S: Serializer,
     {
         let mut map = serializer.serialize_map(Some(self.styles.len()))?;
-        for (name, style) in self.highlighter.names().iter().zip(&self.styles) {
+        for (name, style) in self.highlight_names.iter().zip(&self.styles) {
             let style = &style.ansi;
             let color = style.foreground.map(|color| match color {
                 Color::Black => json!("black"),
@@ -284,15 +282,11 @@ pub fn ansi(
     let mut stdout = stdout.lock();
     let time = Instant::now();
     let cancellation_flag = cancel_on_stdin();
-    let mut context = HighlightContext::new();
+    let mut highlighter = Highlighter::new();
 
-    let events = theme.highlighter.highlight(
-        &mut context,
-        config,
-        source,
-        Some(&cancellation_flag),
-        |string| language_for_injection_string(loader, theme, string),
-    )?;
+    let events = highlighter.highlight(config, source, Some(&cancellation_flag), |string| {
+        loader.highlight_config_for_injection_string(string)
+    })?;
 
     let mut style_stack = vec![theme.default_style().ansi];
     for event in events {
@@ -333,15 +327,11 @@ pub fn html(
     let mut stdout = stdout.lock();
     let time = Instant::now();
     let cancellation_flag = cancel_on_stdin();
-    let mut context = HighlightContext::new();
+    let mut highlighter = Highlighter::new();
 
-    let events = theme.highlighter.highlight(
-        &mut context,
-        config,
-        source,
-        Some(&cancellation_flag),
-        |string| language_for_injection_string(loader, theme, string),
-    )?;
+    let events = highlighter.highlight(config, source, Some(&cancellation_flag), |string| {
+        loader.highlight_config_for_injection_string(string)
+    })?;
 
     let mut renderer = HtmlRenderer::new();
     renderer.render(events, source, &move |highlight| {
@@ -369,36 +359,4 @@ pub fn html(
     }
 
     Ok(())
-}
-
-fn language_for_injection_string<'a>(
-    loader: &'a Loader,
-    theme: &Theme,
-    string: &str,
-) -> Option<&'a HighlightConfiguration> {
-    match loader.language_configuration_for_injection_string(string) {
-        Err(e) => {
-            eprintln!(
-                "Failed to load language for injection string '{}': {}",
-                string,
-                e.message()
-            );
-            None
-        }
-        Ok(None) => None,
-        Ok(Some((language, configuration))) => {
-            match configuration.highlight_config(&theme.highlighter, language) {
-                Err(e) => {
-                    eprintln!(
-                        "Failed to load property sheet for injection string '{}': {}",
-                        string,
-                        e.message()
-                    );
-                    None
-                }
-                Ok(None) => None,
-                Ok(Some(config)) => Some(config),
-            }
-        }
-    }
 }

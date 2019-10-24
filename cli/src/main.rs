@@ -5,8 +5,10 @@ use std::process::exit;
 use std::{env, fs, u64};
 use tree_sitter::Language;
 use tree_sitter_cli::{
-    config, error, generate, highlight, loader, logger, parse, query, test, wasm, web_ui,
+    config, error, generate, highlight, loader, logger, parse, query, test, test_highlight, wasm,
+    web_ui,
 };
+use tree_sitter_highlight::Highlighter;
 
 const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
@@ -99,6 +101,9 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("debug-graph").long("debug-graph").short("D")),
         )
         .subcommand(
+            SubCommand::with_name("test-highlight").about("Run a parser's highlighting tests"),
+        )
+        .subcommand(
             SubCommand::with_name("highlight")
                 .about("Highlight a file")
                 .arg(
@@ -174,6 +179,27 @@ fn run() -> error::Result<()> {
         } else {
             eprintln!("No language found");
         }
+    } else if matches.subcommand_matches("test-highlight").is_some() {
+        loader.find_language_configurations_at_path(&current_dir)?;
+        let mut highlighter = Highlighter::new();
+
+        for highlight_test_file in fs::read_dir(current_dir.join("highlight-test"))? {
+            let test_file_path = highlight_test_file?.path();
+            if let Some((language, language_config)) =
+                loader.language_configuration_for_file_name(&test_file_path)?
+            {
+                if let Some(highlight_config) = language_config.highlight_config(language)? {
+                    test_highlight::test_highlight(
+                        &loader,
+                        &mut highlighter,
+                        highlight_config,
+                        fs::read(test_file_path)?.as_slice(),
+                    )?;
+                }
+            } else {
+                return Error::err(format!("No language found for path {:?}", test_file_path));
+            }
+        }
     } else if let Some(matches) = matches.subcommand_matches("parse") {
         let debug = matches.is_present("debug");
         let debug_graph = matches.is_present("debug-graph");
@@ -232,11 +258,12 @@ fn run() -> error::Result<()> {
         let query_path = Path::new(matches.value_of("query-path").unwrap());
         query::query_files_at_paths(language, paths, query_path, ordered_captures)?;
     } else if let Some(matches) = matches.subcommand_matches("highlight") {
-        let paths = matches.values_of("path").unwrap().into_iter();
-        let html_mode = matches.is_present("html");
-        let time = matches.is_present("time");
+        loader.configure_highlights(&config.theme.highlight_names);
         loader.find_all_languages(&config.parser_directories)?;
 
+        let time = matches.is_present("time");
+        let paths = matches.values_of("path").unwrap().into_iter();
+        let html_mode = matches.is_present("html");
         if html_mode {
             println!("{}", highlight::HTML_HEADER);
         }
@@ -266,9 +293,7 @@ fn run() -> error::Result<()> {
 
             let source = fs::read(path)?;
 
-            if let Some(highlight_config) =
-                language_config.highlight_config(&config.theme.highlighter, language)?
-            {
+            if let Some(highlight_config) = language_config.highlight_config(language)? {
                 if html_mode {
                     highlight::html(&loader, &config.theme, &source, highlight_config, time)?;
                 } else {
