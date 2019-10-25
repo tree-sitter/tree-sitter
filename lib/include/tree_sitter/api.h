@@ -369,8 +369,8 @@ void ts_tree_edit(TSTree *self, const TSInputEdit *edit);
  * given `length` pointer.
  */
 TSRange *ts_tree_get_changed_ranges(
-  const TSTree *self,
   const TSTree *old_tree,
+  const TSTree *self,
   uint32_t *length
 );
 

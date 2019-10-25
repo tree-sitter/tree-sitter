@@ -89,7 +89,7 @@ TSRange *ts_tree_get_changed_ranges(const TSTree *self, const TSTree *other, uin
   TreeCursor cursor2 = {NULL, array_new()};
   TSNode root = ts_tree_root_node(self);
   ts_tree_cursor_init(&cursor1, root);
-  ts_tree_cursor_init(&cursor2, root);
+  ts_tree_cursor_init(&cursor2, root); // really other's root, but reinitialized later
 
   TSRangeArray included_range_differences = array_new();
   ts_range_array_get_changed_ranges(
