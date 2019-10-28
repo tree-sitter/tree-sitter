@@ -355,22 +355,22 @@ const TSLanguage *ts_tree_language(const TSTree *);
 void ts_tree_edit(TSTree *self, const TSInputEdit *edit);
 
 /**
- * Compare a new syntax tree to a previous syntax tree representing the same
+ * Compare an old edited syntax tree to a new syntax tree representing the same
  * document, returning an array of ranges whose syntactic structure has changed.
  *
  * For this to work correctly, the old syntax tree must have been edited such
  * that its ranges match up to the new tree. Generally, you'll want to call
- * this function right after calling one of the `ts_parser_parse` functions,
- * passing in the new tree that was returned from `ts_parser_parse` and the old
- * tree that was passed as a parameter.
+ * this function right after calling one of the `ts_parser_parse` functions.
+ * You need to pass the old tree that was passed to parse, as well as the new
+ * tree that was returned from that function.
  *
  * The returned array is allocated using `malloc` and the caller is responsible
  * for freeing it using `free`. The length of the array will be written to the
  * given `length` pointer.
  */
 TSRange *ts_tree_get_changed_ranges(
-  const TSTree *self,
   const TSTree *old_tree,
+  const TSTree *new_tree,
   uint32_t *length
 );
 
