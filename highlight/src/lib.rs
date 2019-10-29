@@ -712,17 +712,20 @@ where
                         // to the highlighted document.
                         if let Some(config) = language.and_then(&self.injection_callback) {
                             if !content_nodes.is_empty() {
-                                match HighlightIterLayer::new(
-                                    config,
-                                    self.source,
-                                    self.context,
-                                    self.cancellation_flag,
-                                    self.layers[0].depth + 1,
-                                    self.layers[0]
-                                        .intersect_ranges(&content_nodes, include_children),
-                                ) {
-                                    Ok(layer) => self.insert_layer(layer),
-                                    Err(e) => return Some(Err(e)),
+                                let ranges = self.layers[0]
+                                    .intersect_ranges(&content_nodes, include_children);
+                                if !ranges.is_empty() {
+                                    match HighlightIterLayer::new(
+                                        config,
+                                        self.source,
+                                        self.context,
+                                        self.cancellation_flag,
+                                        self.layers[0].depth + 1,
+                                        ranges,
+                                    ) {
+                                        Ok(layer) => self.insert_layer(layer),
+                                        Err(e) => return Some(Err(e)),
+                                    }
                                 }
                             }
                         }
