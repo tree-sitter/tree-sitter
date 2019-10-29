@@ -444,13 +444,11 @@ TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *);
 
 ### Pattern Matching with Queries
 
-Many code analysis tasks involve searching for patterns in syntax trees. Tree-sitter provides a small declarative language for expressing these patterns and searching for matches.
-
-The language is similar to the format of Tree-sitter's [unit test system](./creating-parsers#command-test).
+Many code analysis tasks involve searching for patterns in syntax trees. Tree-sitter provides a small declarative language for expressing these patterns and searching for matches. The language is similar to the format of Tree-sitter's [unit test system](./creating-parsers#command-test).
 
 #### Basics
 
-Syntax trees are written as [S-expressions](https://en.wikipedia.org/wiki/S-expression). An S-expression representation of a node node consists of a pair of parentheses containing the node's name and, optionally, a series of S-expressions representations representing the node's children.
+Syntax trees are written as [S-expressions](https://en.wikipedia.org/wiki/S-expression). An S-expression for a node consists of a pair of parentheses containing the node's name and, optionally, a series of S-expressions representing the node's children.
 
 For example, this pattern would match a `binary_expression` node whose children are both `number_literal` nodes:
 
@@ -466,7 +464,7 @@ Children can also be omitted. For example, this would match any `binary_expressi
 
 #### Fields
 
-In general, it's a good idea to make patterns more specific by specifying field names associated with child nodes. For example, this pattern would match an `assignment_expression` node whose *left* child is a `member_expression`, whose `object` is a `call_expression`.
+In general, it's a good idea to make patterns more specific by specifying field names associated with child nodes. For example, this pattern would match an `assignment_expression` node whose *left* child is a `member_expression` with a `call_expression` for its `object`.
 
 ```
 (assignment_expression
@@ -492,8 +490,8 @@ For example, this pattern would match any assignment of a `function` to an `iden
 
 ```
 (assignment_expression
-  (identifier) @function-definition
-  (function))
+  left: (identifier) @function-definition
+  right: (function))
 ```
 
 And this pattern would match all method definitions, associating the name `the-method-name` with the method name, `the-class-name` with the containing class name:
