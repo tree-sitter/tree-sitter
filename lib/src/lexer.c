@@ -296,7 +296,7 @@ static const TSRange DEFAULT_RANGES[] = {
 };
 
 void ts_lexer_set_included_ranges(Lexer *self, const TSRange *ranges, uint32_t count) {
-  if (!ranges) {
+  if (count == 0 || !ranges) {
     ranges = DEFAULT_RANGES;
     count = 1;
   }
