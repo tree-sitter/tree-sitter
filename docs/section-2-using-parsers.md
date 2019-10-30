@@ -5,7 +5,7 @@ permalink: using-parsers
 
 # Using Parsers
 
-All of Tree-sitter's parsing functionality is exposed through C APIs. Applications written in higher-level languages can use Tree-sitter via binding libraries like  [node-tree-sitter](https://github.com/tree-sitter/node-tree-sitter) or [rust-tree-sitter](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_rust), which have their own documentation.
+All of Tree-sitter's parsing functionality is exposed through C APIs. Applications written in higher-level languages can use Tree-sitter via binding libraries like [node-tree-sitter](https://github.com/tree-sitter/node-tree-sitter) or the [tree-sitter rust crate](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_rust), which have their own documentation.
 
 This document will describes the general concepts of how to use Tree-sitter, which should be relevant regardless of what language you're using. It also goes into some C-specific details that are useful if you're using the C API directly or are building a new binding to a different language.
 
@@ -415,7 +415,7 @@ Internally, copying a syntax tree just entails incrementing an atomic reference 
 
 ### Walking Trees with Tree Cursors
 
-You can access every node in a syntax tree using the `TSNode` APIs [described above](#retrieving-nodes), but if you need to access a large number of nodes, the most efficient way to do it is with a *tree cursor*. A cursor is a stateful object that allows you to walk a syntax tree with maximum efficiency.
+You can access every node in a syntax tree using the `TSNode` APIs [described above](#retrieving-nodes), but if you need to access a large number of nodes, the fastest way to do so is with a *tree cursor*. A cursor is a stateful object that allows you to walk a syntax tree with maximum efficiency.
 
 You can initialize a cursor from any node:
 
@@ -424,7 +424,6 @@ TSTreeCursor ts_tree_cursor_new(TSNode);
 ```
 
 You can move the cursor around the tree:
-
 
 ```c
 bool ts_tree_cursor_goto_first_child(TSTreeCursor *);
@@ -448,9 +447,7 @@ Many code analysis tasks involve searching for patterns in syntax trees. Tree-si
 
 #### Basics
 
-Syntax trees are written as [S-expressions](https://en.wikipedia.org/wiki/S-expression). An S-expression for a node consists of a pair of parentheses containing the node's name and, optionally, a series of S-expressions representing the node's children.
-
-For example, this pattern would match a `binary_expression` node whose children are both `number_literal` nodes:
+A *query* consists of one or more *patterns*, where each pattern is an [S-expression](https://en.wikipedia.org/wiki/S-expression) that matches a certain set of nodes in a syntax tree. The expression to match a given node consists of a pair of parentheses containing two things: the node's type, and optionally, a series of other S-expressions that match the node's children. For example, this pattern would match any `binary_expression` node whose children are both `number_literal` nodes:
 
 ```
 (binary_expression (number_literal) (number_literal))
@@ -464,7 +461,7 @@ Children can also be omitted. For example, this would match any `binary_expressi
 
 #### Fields
 
-In general, it's a good idea to make patterns more specific by specifying field names associated with child nodes. For example, this pattern would match an `assignment_expression` node whose *left* child is a `member_expression` with a `call_expression` for its `object`.
+In general, it's a good idea to make patterns more specific by specifying [field names](#node-field-names) associated with child nodes. You do this by prefixing a child pattern with a field name followed by a colon. For example, this pattern would match an `assignment_expression` node where the `left` child is a `member_expression` whose `object` is a `call_expression`.
 
 ```
 (assignment_expression
@@ -508,14 +505,23 @@ And this pattern would match all method definitions, associating the name `the-m
 
 You can also specify other conditions that should restrict the nodes that match a given pattern. You do this by enclosing the pattern in an additional pair of parentheses, and specifying one or more *predicate* S-expressions after your main pattern. Predicate S-expressions must start with a predicate name, and contain either `@`-prefixed capture names or strings.
 
-For example, this pattern would match identifier nodes whose names contain only capital letters:
+For example, this pattern would match identifier whose names is written in `SCREAMING_SNAKE_CASE`:
 
 ```
 ((identifier) @constant
  (match? @constant "^[A-Z][A-Z_]+"))
 ```
 
-*Note* - Predicates are not handled directly by the Tree-sitter library. They are just exposed in a structured form so that higher-level code can perform the filtering.
+And this pattern would match key-value pairs where the `value` is an identifier with the same name as the key:
+
+```
+((pair
+  key: (property_identifier) @key-name
+  value: (identifier) @value-name)
+ (eq? @key-name @value-name))
+```
+
+*Note* - Predicates are not handled directly by the Tree-sitter C library. They are just exposed in a structured form so that higher-level code can perform the filtering. However, higher-level bindings to Tree-sitter like [the Rust crate](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_rust) or the [WebAssembly binding](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web) implement a few common predicates like `eq?` and `match?`.
 
 #### The Query API
 
@@ -559,6 +565,11 @@ You can then iterate over the matches:
 
 ```c
 typedef struct {
+  TSNode node;
+  uint32_t index;
+} TSQueryCapture;
+
+typedef struct {
   uint32_t id;
   uint16_t pattern_index;
   uint16_t capture_count;
@@ -568,4 +579,4 @@ typedef struct {
 bool ts_query_cursor_next_match(TSQueryCursor *, TSQueryMatch *match);
 ```
 
-This function will return `false` when there are no more matches.
+This function will return `false` when there are no more matches. Otherwise, it will populate the `match` with data about which pattern matched and which nodes were captured.
