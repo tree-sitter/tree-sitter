@@ -513,6 +513,13 @@ impl Generator {
         );
         indent!(self);
         add_line!(self, "START_LEXER();");
+
+        if self.next_abi {
+            add_line!(self, "eof = lexer->eof(lexer);");
+        } else {
+            add_line!(self, "eof = lookahead == 0;");
+        }
+
         add_line!(self, "switch (state) {{");
         indent!(self);
 

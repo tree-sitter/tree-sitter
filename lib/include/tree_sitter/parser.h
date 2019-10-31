@@ -134,8 +134,7 @@ struct TSLanguage {
   lexer->advance(lexer, skip);  \
   start:                        \
   skip = false;                 \
-  lookahead = lexer->lookahead; \
-  eof = lexer->eof(lexer);
+  lookahead = lexer->lookahead;
 
 #define ADVANCE(state_value) \
   {                          \
