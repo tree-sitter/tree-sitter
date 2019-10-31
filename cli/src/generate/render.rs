@@ -540,6 +540,10 @@ impl Generator {
             add_line!(self, "ACCEPT_TOKEN({});", self.symbol_ids[&accept_action]);
         }
 
+        if let Some(eof_action) = state.eof_action {
+            add_line!(self, "if (eof) ADVANCE({});", eof_action.state);
+        }
+
         let mut ruled_out_characters = HashSet::new();
         for (characters, action) in state.advance_actions {
             let previous_length = self.buffer.len();

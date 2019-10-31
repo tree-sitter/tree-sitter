@@ -224,6 +224,7 @@ void ts_lexer_init(Lexer *self) {
       .mark_end = ts_lexer__mark_end,
       .get_column = ts_lexer__get_column,
       .is_at_included_range_start = ts_lexer__is_at_included_range_start,
+      .eof = ts_lexer__eof,
       .lookahead = 0,
       .result_symbol = 0,
     },
