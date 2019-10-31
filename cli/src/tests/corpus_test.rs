@@ -21,6 +21,7 @@ const LANGUAGES: &'static [&'static str] = &[
     "go",
     "html",
     "javascript",
+    "json",
     "python",
 ];
 
