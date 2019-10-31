@@ -77,6 +77,7 @@ pub(crate) struct AdvanceAction {
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct LexState {
     pub accept_action: Option<Symbol>,
+    pub eof_action: Option<AdvanceAction>,
     pub advance_actions: Vec<(CharacterSet, AdvanceAction)>,
 }
 

@@ -258,6 +258,36 @@ fn test_parsing_text_with_byte_order_mark() {
     assert_eq!(tree.root_node().start_byte(), 3);
 }
 
+#[test]
+fn test_parsing_invalid_chars_at_eof() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("json")).unwrap();
+    let tree = parser.parse(b"\xdf", None).unwrap();
+    assert_eq!(tree.root_node().to_sexp(), "(ERROR (UNEXPECTED INVALID))");
+}
+
+#[test]
+fn test_parsing_ends_when_input_callback_returns_empty() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("javascript")).unwrap();
+    let mut i = 0;
+    let source = b"abcdefghijklmnoqrs";
+    let tree = parser
+        .parse_with(
+            &mut |offset, _| {
+                i += 1;
+                if offset >= 6 {
+                    b""
+                } else {
+                    &source[offset..usize::min(source.len(), offset + 3)]
+                }
+            },
+            None,
+        )
+        .unwrap();
+    assert_eq!(tree.root_node().end_byte(), 6);
+}
+
 // Incremental parsing
 
 #[test]
@@ -928,10 +958,10 @@ fn test_parsing_with_a_newly_included_range() {
     assert_eq!(
         tree.changed_ranges(&first_tree).collect::<Vec<_>>(),
         vec![Range {
-            start_byte: first_code_end_index + 1,
-            end_byte: second_code_end_index + 1,
-            start_point: Point::new(0, first_code_end_index + 1),
-            end_point: Point::new(0, second_code_end_index + 1),
+            start_byte: first_code_end_index,
+            end_byte: second_code_end_index,
+            start_point: Point::new(0, first_code_end_index),
+            end_point: Point::new(0, second_code_end_index),
         }]
     );
 }
