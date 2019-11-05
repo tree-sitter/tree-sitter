@@ -442,8 +442,8 @@ bool ts_node_is_named(TSNode);
 bool ts_node_is_missing(TSNode);
 
 /**
- * Check if the node is *missing*. Missing nodes are inserted by the parser in
- * order to recover from certain kinds of syntax errors.
+ * Check if the node is *extra*. Extra nodes represent things like comments,
+ * which are not required the grammar, but can appear anywhere.
  */
 bool ts_node_is_extra(TSNode);
 

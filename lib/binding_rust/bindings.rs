@@ -330,21 +330,21 @@ extern "C" {
     pub fn ts_tree_edit(self_: *mut TSTree, edit: *const TSInputEdit);
 }
 extern "C" {
-    #[doc = " Compare a new syntax tree to a previous syntax tree representing the same"]
+    #[doc = " Compare an old edited syntax tree to a new syntax tree representing the same"]
     #[doc = " document, returning an array of ranges whose syntactic structure has changed."]
     #[doc = ""]
     #[doc = " For this to work correctly, the old syntax tree must have been edited such"]
     #[doc = " that its ranges match up to the new tree. Generally, you\'ll want to call"]
-    #[doc = " this function right after calling one of the `ts_parser_parse` functions,"]
-    #[doc = " passing in the new tree that was returned from `ts_parser_parse` and the old"]
-    #[doc = " tree that was passed as a parameter."]
+    #[doc = " this function right after calling one of the `ts_parser_parse` functions."]
+    #[doc = " You need to pass the old tree that was passed to parse, as well as the new"]
+    #[doc = " tree that was returned from that function."]
     #[doc = ""]
     #[doc = " The returned array is allocated using `malloc` and the caller is responsible"]
     #[doc = " for freeing it using `free`. The length of the array will be written to the"]
     #[doc = " given `length` pointer."]
     pub fn ts_tree_get_changed_ranges(
-        self_: *const TSTree,
         old_tree: *const TSTree,
+        new_tree: *const TSTree,
         length: *mut u32,
     ) -> *mut TSRange;
 }
@@ -401,8 +401,8 @@ extern "C" {
     pub fn ts_node_is_missing(arg1: TSNode) -> bool;
 }
 extern "C" {
-    #[doc = " Check if the node is *missing*. Missing nodes are inserted by the parser in"]
-    #[doc = " order to recover from certain kinds of syntax errors."]
+    #[doc = " Check if the node is *extra*. Extra nodes represent things like comments,"]
+    #[doc = " which are not required the grammar, but can appear anywhere."]
     pub fn ts_node_is_extra(arg1: TSNode) -> bool;
 }
 extern "C" {
