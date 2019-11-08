@@ -379,6 +379,7 @@ impl<'a> HighlightIterLayer<'a> {
     //   is reparsed. For other injections, the content nodes' entire ranges should be
     //   reparsed, including the ranges of their children.
     fn intersect_ranges(&self, nodes: &Vec<Node>, includes_children: bool) -> Vec<Range> {
+        let mut cursor = nodes[0].walk();
         let mut result = Vec::new();
         let mut parent_range_iter = self.ranges.iter();
         let mut parent_range = parent_range_iter
@@ -399,7 +400,7 @@ impl<'a> HighlightIterLayer<'a> {
             };
 
             for excluded_range in node
-                .children()
+                .children(&mut cursor)
                 .filter_map(|child| {
                     if includes_children {
                         None

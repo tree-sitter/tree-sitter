@@ -15,7 +15,7 @@ use std::mem::MaybeUninit;
 use std::os::raw::{c_char, c_void};
 use std::ptr::NonNull;
 use std::sync::atomic::AtomicUsize;
-use std::{char, fmt, ptr, slice, str, u16};
+use std::{char, fmt, iter, ptr, slice, str, u16};
 
 /// The latest ABI version that is supported by the current version of the
 /// library.
@@ -635,6 +635,11 @@ impl<'tree> Node<'tree> {
             .unwrap()
     }
 
+    /// Get the [Language] that was used to parse this node's syntax tree.
+    pub fn language(&self) -> Language {
+        Language(unsafe { ffi::ts_tree_language(self.0.tree) })
+    }
+
     /// Check if this node is *named*.
     ///
     /// Named nodes correspond to named rules in the grammar, whereas *anonymous* nodes
@@ -718,15 +723,40 @@ impl<'tree> Node<'tree> {
 
     /// Get the node's child at the given index, where zero represents the first
     /// child.
+    ///
+    /// This method is fairly fast, but its cost is technically log(i), so you
+    /// if you might be iterating over a long list of children, you should use
+    /// [Node::children] instead.
     pub fn child(&self, i: usize) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_child(self.0, i as u32) })
     }
 
+    /// Get this node's number of children.
+    pub fn child_count(&self) -> usize {
+        unsafe { ffi::ts_node_child_count(self.0) as usize }
+    }
+
+    /// Get this node's *named* child at the given index.
+    ///
+    /// See also [Node::is_named].
+    /// This method is fairly fast, but its cost is technically log(i), so you
+    /// if you might be iterating over a long list of children, you should use
+    /// [Node::named_children] instead.
+    pub fn named_child<'a>(&'a self, i: usize) -> Option<Self> {
+        Self::new(unsafe { ffi::ts_node_named_child(self.0, i as u32) })
+    }
+
+    /// Get this node's number of *named* children.
+    ///
+    /// See also [Node::is_named].
+    pub fn named_child_count(&self) -> usize {
+        unsafe { ffi::ts_node_named_child_count(self.0) as usize }
+    }
+
     /// Get the first child with the given field name.
     ///
-    /// To access the node's children and their field names more efficiently, create
-    /// a [TreeCursor] using [Node::walk]. Then, while walking the tree, access each
-    /// node's field id using [TreeCursor::field_name] or [TreeCursor::field_id].
+    /// If multiple children may have the same field name, access them using
+    /// [children_by_field_name](Node::children_by_field_name)
     pub fn child_by_field_name(&self, field_name: impl AsRef<[u8]>) -> Option<Self> {
         let field_name = field_name.as_ref();
         Self::new(unsafe {
@@ -746,30 +776,87 @@ impl<'tree> Node<'tree> {
         Self::new(unsafe { ffi::ts_node_child_by_field_id(self.0, field_id) })
     }
 
-    /// Get this node's number of children.
-    pub fn child_count(&self) -> usize {
-        unsafe { ffi::ts_node_child_count(self.0) as usize }
-    }
-
-    pub fn children(&self) -> impl ExactSizeIterator<Item = Node<'tree>> {
-        let me = self.clone();
-        (0..self.child_count())
-            .into_iter()
-            .map(move |i| me.child(i).unwrap())
-    }
-
-    /// Get this node's *named* child at the given index.
+    /// Iterate over this node's children.
     ///
-    /// See also [Node::is_named].
-    pub fn named_child<'a>(&'a self, i: usize) -> Option<Self> {
-        Self::new(unsafe { ffi::ts_node_named_child(self.0, i as u32) })
+    /// A [TreeCursor] is used to retrieve the children efficiently. Obtain
+    /// a [TreeCursor] by calling [Tree::walk] or [Node::walk]. To avoid unnecessary
+    /// allocations, you should reuse the same cursor for subsequent calls to
+    /// this method.
+    ///
+    /// If you're walking the tree recursively, you may want to use the `TreeCursor`
+    /// APIs directly instead.
+    pub fn children<'a>(
+        &self,
+        cursor: &'a mut TreeCursor<'tree>,
+    ) -> impl ExactSizeIterator<Item = Node<'tree>> + 'a {
+        cursor.reset(*self);
+        cursor.goto_first_child();
+        (0..self.child_count()).into_iter().map(move |_| {
+            let result = cursor.node();
+            cursor.goto_next_sibling();
+            result
+        })
     }
 
-    /// Get this node's number of *named* children.
+    /// Iterate over this node's named children.
     ///
-    /// See also [Node::is_named].
-    pub fn named_child_count(&self) -> usize {
-        unsafe { ffi::ts_node_named_child_count(self.0) as usize }
+    /// See also [Node::children].
+    pub fn named_children<'a>(
+        &self,
+        cursor: &'a mut TreeCursor<'tree>,
+    ) -> impl ExactSizeIterator<Item = Node<'tree>> + 'a {
+        cursor.reset(*self);
+        cursor.goto_first_child();
+        (0..self.named_child_count()).into_iter().map(move |_| {
+            while !cursor.node().is_named() {
+                if !cursor.goto_next_sibling() {
+                    break;
+                }
+            }
+            let result = cursor.node();
+            cursor.goto_next_sibling();
+            result
+        })
+    }
+
+    /// Iterate over this node's children with a given field name.
+    ///
+    /// See also [Node::children].
+    pub fn children_by_field_name<'a>(
+        &self,
+        field_name: &str,
+        cursor: &'a mut TreeCursor<'tree>,
+    ) -> impl Iterator<Item = Node<'tree>> + 'a {
+        let field_id = self.language().field_id_for_name(field_name);
+        self.children_by_field_id(field_id.unwrap_or(0), cursor)
+    }
+
+    /// Iterate over this node's children with a given field id.
+    ///
+    /// See also [Node::children_by_field_name].
+    pub fn children_by_field_id<'a>(
+        &self,
+        field_id: u16,
+        cursor: &'a mut TreeCursor<'tree>,
+    ) -> impl Iterator<Item = Node<'tree>> + 'a {
+        cursor.reset(*self);
+        cursor.goto_first_child();
+        let mut done = false;
+        iter::from_fn(move || {
+            while !done {
+                while cursor.field_id() != Some(field_id) {
+                    if !cursor.goto_next_sibling() {
+                        return None;
+                    }
+                }
+                let result = cursor.node();
+                if !cursor.goto_next_sibling() {
+                    done = true;
+                }
+                return Some(result);
+            }
+            None
+        })
     }
 
     /// Get this node's immediate parent.
@@ -890,7 +977,7 @@ impl<'a> TreeCursor<'a> {
 
     /// Get the numerical field id of this tree cursor's current node.
     ///
-    /// See also [field_name].
+    /// See also [field_name](TreeCursor::field_name).
     pub fn field_id(&self) -> Option<u16> {
         unsafe {
             let id = ffi::ts_tree_cursor_current_field_id(&self.0);
@@ -969,8 +1056,9 @@ impl Query {
     /// Create a new query from a string containing one or more S-expression
     /// patterns.
     ///
-    ///The query is associated with a particular language, and can only be run
-    /// on syntax nodes parsed with that language.
+    /// The query is associated with a particular language, and can only be run
+    /// on syntax nodes parsed with that language. References to Queries can be
+    /// shared between multiple threads.
     pub fn new(language: Language, source: &str) -> Result<Self, QueryError> {
         let mut error_offset = 0u32;
         let mut error_type: ffi::TSQueryError = 0;
@@ -1289,21 +1377,16 @@ impl Query {
 impl QueryCursor {
     /// Create a new cursor for executing a given query.
     ///
-    /// The cursor stores the state that is needed to iteratively search
-    /// for matches.
-    /// 1. Call [matches] to iterate over all of the *matches* in the order that they were
-    ///    found. Each match contains the index of the pattern that matched, and a list of
-    ///    captures. Because multiple patterns can match the same set of nodes, one match
-    ///    may contain captures that appear *before* some of the captures from a previous
-    ///    match.
-    /// 2. Call `captures` to iterate over all of the individual *captures* in the order that
-    ///    they appear. This is useful if don't care about which pattern matched, and just want
-    ///    a single, ordered sequence of captures.
+    /// The cursor stores the state that is needed to iteratively search for matches.
     pub fn new() -> Self {
         QueryCursor(unsafe { NonNull::new_unchecked(ffi::ts_query_cursor_new()) })
     }
 
-    /// Iterate through the matches of a given query.
+    /// Iterate over all of the matches in the order that they were found.
+    ///
+    /// Each match contains the index of the pattern that matched, and a list of captures.
+    /// Because multiple patterns can match the same set of nodes, one match may contain
+    /// captures that appear *before* some of the captures from a previous match.
     pub fn matches<'a>(
         &mut self,
         query: &'a Query,
@@ -1327,7 +1410,10 @@ impl QueryCursor {
         })
     }
 
-    /// Iterate through the captures of a given query.
+    /// Iterate over all of the individual captures in the order that they appear.
+    ///
+    /// This is useful if don't care about which pattern matched, and just want a single,
+    /// ordered sequence of captures.
     pub fn captures<'a, T: AsRef<[u8]>>(
         &mut self,
         query: &'a Query,

@@ -168,6 +168,66 @@ fn test_node_child() {
 }
 
 #[test]
+fn test_node_children() {
+    let tree = parse_json_example();
+    let mut cursor = tree.walk();
+    let array_node = tree.root_node().child(0).unwrap();
+    assert_eq!(
+        array_node
+            .children(&mut cursor)
+            .map(|n| n.kind())
+            .collect::<Vec<_>>(),
+        &["[", "number", ",", "false", ",", "object", "]",]
+    );
+    assert_eq!(
+        array_node
+            .named_children(&mut cursor)
+            .map(|n| n.kind())
+            .collect::<Vec<_>>(),
+        &["number", "false", "object"]
+    );
+    let object_node = array_node
+        .named_children(&mut cursor)
+        .find(|n| n.kind() == "object")
+        .unwrap();
+    assert_eq!(
+        object_node
+            .children(&mut cursor)
+            .map(|n| n.kind())
+            .collect::<Vec<_>>(),
+        &["{", "pair", "}",]
+    );
+}
+
+#[test]
+fn test_node_children_by_field_name() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("python")).unwrap();
+    let source = "
+        if one:
+            a()
+        elif two:
+            b()
+        elif three:
+            c()
+        elif four:
+            d()
+    ";
+
+    let tree = parser.parse(source, None).unwrap();
+    let node = tree.root_node().child(0).unwrap();
+    assert_eq!(node.kind(), "if_statement");
+    let mut cursor = tree.walk();
+    let alternatives = node.children_by_field_name("alternative", &mut cursor);
+    let alternative_texts =
+        alternatives.map(|n| &source[n.child_by_field_name("condition").unwrap().byte_range()]);
+    assert_eq!(
+        alternative_texts.collect::<Vec<_>>(),
+        &["two", "three", "four",]
+    );
+}
+
+#[test]
 fn test_node_named_child() {
     let tree = parse_json_example();
     let array_node = tree.root_node().child(0).unwrap();
