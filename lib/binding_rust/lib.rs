@@ -238,9 +238,9 @@ impl Parser {
     /// Returns a Result indicating whether or not the language was successfully
     /// assigned. True means assignment succeeded. False means there was a version
     /// mismatch: the language was generated with an incompatible version of the
-    /// Tree-sitter CLI. Check the language's version using `ts_language_version`
-    /// and compare it to this library's `LANGUAGE_VERSION` and
-    /// `MIN_COMPATIBLE_LANGUAGE_VERSION` constants.
+    /// Tree-sitter CLI. Check the language's version using [Language::version]
+    /// and compare it to this library's [LANGUAGE_VERSION](LANGUAGE_VERSION) and
+    /// [MIN_COMPATIBLE_LANGUAGE_VERSION](MIN_COMPATIBLE_LANGUAGE_VERSION) constants.
     pub fn set_language(&mut self, language: Language) -> Result<(), LanguageError> {
         let version = language.version();
         if version < MIN_COMPATIBLE_LANGUAGE_VERSION || version > LANGUAGE_VERSION {
@@ -488,7 +488,7 @@ impl Parser {
 
     /// Get the duration in microseconds that parsing is allowed to take.
     ///
-    /// This is set via [set_timeout_micros].
+    /// This is set via [set_timeout_micros](Parser::set_timeout_micros).
     pub fn timeout_micros(&self) -> u64 {
         unsafe { ffi::ts_parser_timeout_micros(self.0.as_ptr()) }
     }
@@ -528,8 +528,8 @@ impl Parser {
     /// Set the parser's current cancellation flag pointer.
     ///
     /// If a pointer is assigned, then the parser will periodically read from
-    /// this pointer during parsing. If it reads a non-zero value, it will
-    /// halt early, returning `None`. See [parse] for more information.
+    /// this pointer during parsing. If it reads a non-zero value, it will halt early,
+    /// returning `None`. See [parse](Parser::parse) for more information.
     pub unsafe fn set_cancellation_flag(&self, flag: Option<&AtomicUsize>) {
         if let Some(flag) = flag {
             ffi::ts_parser_set_cancellation_flag(
@@ -740,8 +740,8 @@ impl<'tree> Node<'tree> {
 
     /// Get this node's child with the given numerical field id.
     ///
-    /// See also [child_by_field_name]. You can convert a field name to an id using
-    /// [Language::field_id_for_name].
+    /// See also [child_by_field_name](Node::child_by_field_name). You can convert a field name to
+    /// an id using [Language::field_id_for_name].
     pub fn child_by_field_id(&self, field_id: u16) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_child_by_field_id(self.0, field_id) })
     }
@@ -760,14 +760,14 @@ impl<'tree> Node<'tree> {
 
     /// Get this node's *named* child at the given index.
     ///
-    /// See also [Node.is_named].
+    /// See also [Node::is_named].
     pub fn named_child<'a>(&'a self, i: usize) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_named_child(self.0, i as u32) })
     }
 
     /// Get this node's number of *named* children.
     ///
-    /// See also [Node.is_named].
+    /// See also [Node::is_named].
     pub fn named_child_count(&self) -> usize {
         unsafe { ffi::ts_node_named_child_count(self.0) as usize }
     }
