@@ -157,7 +157,7 @@ extern "C" {
     pub fn ts_parser_language(self_: *const TSParser) -> *const TSLanguage;
 }
 extern "C" {
-    #[doc = " Set the spans of text that the parser should include when parsing."]
+    #[doc = " Set the ranges of text that the parser should include when parsing."]
     #[doc = ""]
     #[doc = " By default, the parser will always include entire documents. This function"]
     #[doc = " allows you to parse only a *portion* of a document but still return a syntax"]
@@ -252,13 +252,15 @@ extern "C" {
     #[doc = " by default, it will resume where it left off on the next call to"]
     #[doc = " `ts_parser_parse` or other parsing functions. If you don\'t want to resume,"]
     #[doc = " and instead intend to use this parser to parse some other document, you must"]
-    #[doc = " call this `ts_parser_reset` first."]
+    #[doc = " call `ts_parser_reset` first."]
     pub fn ts_parser_reset(self_: *mut TSParser);
 }
 extern "C" {
     #[doc = " Set the maximum duration in microseconds that parsing should be allowed to"]
-    #[doc = " take before halting. If parsing takes longer than this, it will halt early,"]
-    #[doc = " returning NULL. See `ts_parser_parse` for more information."]
+    #[doc = " take before halting."]
+    #[doc = ""]
+    #[doc = " If parsing takes longer than this, it will halt early, returning NULL."]
+    #[doc = " See `ts_parser_parse` for more information."]
     pub fn ts_parser_set_timeout_micros(self_: *mut TSParser, timeout: u64);
 }
 extern "C" {
@@ -266,10 +268,11 @@ extern "C" {
     pub fn ts_parser_timeout_micros(self_: *const TSParser) -> u64;
 }
 extern "C" {
-    #[doc = " Set the parser\'s current cancellation flag pointer. If a non-null pointer is"]
-    #[doc = " assigned, then the parser will periodically read from this pointer during"]
-    #[doc = " parsing. If it reads a non-zero value, it will halt early, returning NULL."]
-    #[doc = " See `ts_parser_parse` for more information."]
+    #[doc = " Set the parser\'s current cancellation flag pointer."]
+    #[doc = ""]
+    #[doc = " If a non-null pointer is assigned, then the parser will periodically read"]
+    #[doc = " from this pointer during parsing. If it reads a non-zero value, it will"]
+    #[doc = " halt early, returning NULL. See `ts_parser_parse` for more information."]
     pub fn ts_parser_set_cancellation_flag(self_: *mut TSParser, flag: *const usize);
 }
 extern "C" {
@@ -523,7 +526,7 @@ extern "C" {
     pub fn ts_tree_cursor_delete(arg1: *mut TSTreeCursor);
 }
 extern "C" {
-    #[doc = " Re-initialize a tree cursor to start at a different ndoe."]
+    #[doc = " Re-initialize a tree cursor to start at a different node."]
     pub fn ts_tree_cursor_reset(arg1: *mut TSTreeCursor, arg2: TSNode);
 }
 extern "C" {
@@ -561,14 +564,14 @@ extern "C" {
     pub fn ts_tree_cursor_goto_next_sibling(arg1: *mut TSTreeCursor) -> bool;
 }
 extern "C" {
-    #[doc = " Move the cursor to the first schild of its current node."]
+    #[doc = " Move the cursor to the first child of its current node."]
     #[doc = ""]
     #[doc = " This returns `true` if the cursor successfully moved, and returns `false`"]
     #[doc = " if there were no children."]
     pub fn ts_tree_cursor_goto_first_child(arg1: *mut TSTreeCursor) -> bool;
 }
 extern "C" {
-    #[doc = " Move the cursor to the first schild of its current node that extends beyond"]
+    #[doc = " Move the cursor to the first child of its current node that extends beyond"]
     #[doc = " the given byte offset."]
     #[doc = ""]
     #[doc = " This returns the index of the child node if one was found, and returns -1"]
