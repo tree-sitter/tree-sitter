@@ -1282,9 +1282,10 @@ impl Generator {
             match c {
                 '\"' => result += "\\\"",
                 '\\' => result += "\\\\",
-                '\t' => result += "\\t",
+                '\u{000c}' => result += "\\f",
                 '\n' => result += "\\n",
                 '\r' => result += "\\r",
+                '\t' => result += "\\t",
                 _ => result.push(c),
             }
         }
@@ -1292,18 +1293,20 @@ impl Generator {
     }
 
     fn add_character(&mut self, c: char) {
-        if c.is_ascii() {
-            match c {
-                '\0' => add!(self, "0"),
-                '\'' => add!(self, "'\\''"),
-                '\\' => add!(self, "'\\\\'"),
-                '\t' => add!(self, "'\\t'"),
-                '\n' => add!(self, "'\\n'"),
-                '\r' => add!(self, "'\\r'"),
-                _ => add!(self, "'{}'", c),
+        match c {
+            '\'' => add!(self, "'\\''"),
+            '\\' => add!(self, "'\\\\'"),
+            '\u{000c}' => add!(self, "'\\f'"),
+            '\n' => add!(self, "'\\n'"),
+            '\t' => add!(self, "'\\t'"),
+            '\r' => add!(self, "'\\r'"),
+            _ => {
+                if c == ' ' || c.is_ascii_graphic() {
+                    add!(self, "'{}'", c)
+                } else {
+                    add!(self, "{}", c as u32)
+                }
             }
-        } else {
-            add!(self, "{}", c as u32)
         }
     }
 }
