@@ -149,7 +149,8 @@ fn generate_parser_for_grammar_with_opts(
     next_abi: bool,
     report_symbol_name: Option<&str>,
 ) -> Result<GeneratedParser> {
-    let variable_info = node_types::get_variable_info(&syntax_grammar, &lexical_grammar)?;
+    let variable_info =
+        node_types::get_variable_info(&syntax_grammar, &lexical_grammar, &simple_aliases)?;
     let node_types_json = node_types::generate_node_types_json(
         &syntax_grammar,
         &lexical_grammar,

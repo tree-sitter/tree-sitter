@@ -137,6 +137,7 @@ impl ChildQuantity {
 pub(crate) fn get_variable_info(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
+    simple_aliases: &AliasMap,
 ) -> Result<Vec<VariableInfo>> {
     let child_type_is_visible = |t: &ChildType| {
         variable_type_for_child_type(t, syntax_grammar, lexical_grammar) >= VariableType::Anonymous
@@ -173,6 +174,8 @@ pub(crate) fn get_variable_info(
                 for step in &production.steps {
                     let child_symbol = step.symbol;
                     let child_type = if let Some(alias) = &step.alias {
+                        ChildType::Aliased(alias.clone())
+                    } else if let Some(alias) = simple_aliases.get(&step.symbol) {
                         ChildType::Aliased(alias.clone())
                     } else {
                         ChildType::Normal(child_symbol)
@@ -223,8 +226,7 @@ pub(crate) fn get_variable_info(
                     if child_symbol.is_non_terminal()
                         && !syntax_grammar.supertype_symbols.contains(&child_symbol)
                         && step.alias.is_none()
-                        && (!child_type_is_visible(&child_type)
-                            || syntax_grammar.variables_to_inline.contains(&child_symbol))
+                        && !child_type_is_visible(&child_type)
                     {
                         let child_variable_info = &result[child_symbol.index];
 
@@ -345,7 +347,7 @@ pub(crate) fn get_variable_info(
     }
 
     // Update all of the node type lists to account for node visiblity:
-    // * Wherever possible, repalce lists of subtypes with their supertypes.
+    // * Wherever possible, replace lists of subtypes with their supertypes.
     // * Remove other hidden node types.
     for i in 0..result.len() {
         let mut variable_info = VariableInfo::default();
@@ -398,7 +400,9 @@ fn variable_type_for_child_type(
         }
         ChildType::Normal(symbol) => {
             if syntax_grammar.supertype_symbols.contains(&symbol) {
-                return VariableType::Named;
+                VariableType::Named
+            } else if syntax_grammar.variables_to_inline.contains(&symbol) {
+                VariableType::Hidden
             } else {
                 match symbol.kind {
                     SymbolType::NonTerminal => syntax_grammar.variables[symbol.index].kind,
@@ -957,6 +961,61 @@ mod tests {
     }
 
     #[test]
+    fn test_node_types_with_inlined_rules() {
+        let node_types = get_node_types(InputGrammar {
+            name: String::new(),
+            word_token: None,
+            extra_symbols: Vec::new(),
+            external_tokens: Vec::new(),
+            expected_conflicts: Vec::new(),
+            variables_to_inline: vec!["v2".to_string()],
+            supertype_symbols: vec![],
+            variables: vec![
+                Variable {
+                    name: "v1".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::seq(vec![Rule::named("v2"), Rule::named("v3")]),
+                },
+                // v2 should not appear in the node types, since it is inlined
+                Variable {
+                    name: "v2".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::alias(Rule::string("a"), "x".to_string(), true),
+                },
+                Variable {
+                    name: "v3".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("b"),
+                },
+            ],
+        });
+
+        assert_eq!(
+            node_types[0],
+            NodeInfoJSON {
+                kind: "v1".to_string(),
+                named: true,
+                subtypes: None,
+                children: Some(FieldInfoJSON {
+                    multiple: true,
+                    required: true,
+                    types: vec![
+                        NodeTypeJSON {
+                            kind: "v3".to_string(),
+                            named: true,
+                        },
+                        NodeTypeJSON {
+                            kind: "x".to_string(),
+                            named: true,
+                        },
+                    ]
+                }),
+                fields: Some(BTreeMap::new()),
+            }
+        );
+    }
+
+    #[test]
     fn test_node_types_for_aliased_nodes() {
         let node_types = get_node_types(InputGrammar {
             name: String::new(),
@@ -1158,6 +1217,7 @@ mod tests {
                 vec![],
             ),
             &build_lexical_grammar(),
+            &AliasMap::new(),
         )
         .unwrap();
 
@@ -1238,6 +1298,7 @@ mod tests {
                 vec![],
             ),
             &build_lexical_grammar(),
+            &AliasMap::new(),
         )
         .unwrap();
 
@@ -1258,7 +1319,6 @@ mod tests {
             .collect::<HashMap<_, _>>()
         );
 
-        //
         assert_eq!(
             variable_info[0].children_without_fields,
             FieldInfo {
@@ -1312,6 +1372,7 @@ mod tests {
                 vec![Symbol::non_terminal(1)],
             ),
             &build_lexical_grammar(),
+            &AliasMap::new(),
         )
         .unwrap();
 
@@ -1336,7 +1397,8 @@ mod tests {
     fn get_node_types(grammar: InputGrammar) -> Vec<NodeInfoJSON> {
         let (syntax_grammar, lexical_grammar, _, simple_aliases) =
             prepare_grammar(&grammar).unwrap();
-        let variable_info = get_variable_info(&syntax_grammar, &lexical_grammar).unwrap();
+        let variable_info =
+            get_variable_info(&syntax_grammar, &lexical_grammar, &simple_aliases).unwrap();
         generate_node_types_json(
             &syntax_grammar,
             &lexical_grammar,
