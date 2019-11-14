@@ -366,7 +366,7 @@ impl FromIterator<Symbol> for TokenSet {
 
 fn add_metadata<T: FnOnce(&mut MetadataParams)>(input: Rule, f: T) -> Rule {
     match input {
-        Rule::Metadata { rule, mut params } => {
+        Rule::Metadata { rule, mut params } if !params.is_token => {
             f(&mut params);
             Rule::Metadata { rule, params }
         }
