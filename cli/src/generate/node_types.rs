@@ -628,7 +628,7 @@ pub(crate) fn generate_node_types_json(
         }
     }
 
-    let mut result = node_types_json.into_iter().map(|e| e.1).collect::<Vec<_>>();
+    let mut anonymous_node_types = Vec::new();
 
     for (i, variable) in lexical_grammar.variables.iter().enumerate() {
         for alias in aliases_by_symbol
@@ -645,26 +645,36 @@ pub(crate) fn generate_node_types_json(
                 is_named = variable.kind == VariableType::Named;
             }
 
-            if variable.kind == VariableType::Named {
-                result.push(NodeInfoJSON {
+            if is_named {
+                let node_type_json = node_types_json.entry(kind.clone()).or_insert(NodeInfoJSON {
                     kind: kind.clone(),
                     named: is_named,
                     fields: None,
                     children: None,
                     subtypes: None,
                 });
+                if let Some(children) = &mut node_type_json.children {
+                    children.required = false;
+                }
+                if let Some(fields) = &mut node_type_json.fields {
+                    for (_, field) in fields.iter_mut() {
+                        field.required = false;
+                    }
+                }
             } else if variable.kind == VariableType::Anonymous {
-                result.push(NodeInfoJSON {
+                anonymous_node_types.push(NodeInfoJSON {
                     kind: kind.clone(),
                     named: is_named,
                     fields: None,
                     children: None,
                     subtypes: None,
-                });
+                })
             }
         }
     }
 
+    let mut result = node_types_json.into_iter().map(|e| e.1).collect::<Vec<_>>();
+    result.extend(anonymous_node_types.into_iter());
     result.sort_unstable_by(|a, b| {
         b.subtypes
             .is_some()
@@ -1155,6 +1165,64 @@ mod tests {
                     .into_iter()
                     .collect()
                 ),
+            }
+        );
+    }
+
+    #[test]
+    fn test_node_types_with_tokens_aliased_to_match_rules() {
+        let node_types = get_node_types(InputGrammar {
+            name: String::new(),
+            extra_symbols: Vec::new(),
+            external_tokens: Vec::new(),
+            expected_conflicts: Vec::new(),
+            variables_to_inline: Vec::new(),
+            word_token: None,
+            supertype_symbols: vec![],
+            variables: vec![
+                Variable {
+                    name: "a".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::seq(vec![Rule::named("b"), Rule::named("c")]),
+                },
+                // Ordinarily, `b` nodes have two named `c` children.
+                Variable {
+                    name: "b".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::seq(vec![Rule::named("c"), Rule::string("B"), Rule::named("c")]),
+                },
+                Variable {
+                    name: "c".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::choice(vec![
+                        Rule::string("C"),
+                        // This token is aliased as a `b`, which will produce a `b` node
+                        // with no children.
+                        Rule::alias(Rule::string("D"), "b".to_string(), true),
+                    ]),
+                },
+            ],
+        });
+
+        assert_eq!(
+            node_types.iter().map(|n| &n.kind).collect::<Vec<_>>(),
+            &["a", "b", "c", "B", "C"]
+        );
+        assert_eq!(
+            node_types[1],
+            NodeInfoJSON {
+                kind: "b".to_string(),
+                named: true,
+                subtypes: None,
+                children: Some(FieldInfoJSON {
+                    multiple: true,
+                    required: false,
+                    types: vec![NodeTypeJSON {
+                        kind: "c".to_string(),
+                        named: true,
+                    }]
+                }),
+                fields: Some(BTreeMap::new()),
             }
         );
     }
