@@ -18,17 +18,8 @@ typedef struct {
   Length new_end;
 } Edit;
 
-#ifdef TREE_SITTER_TEST
-
-#define TS_MAX_INLINE_TREE_LENGTH 2
-#define TS_MAX_TREE_POOL_SIZE 0
-
-#else
-
 #define TS_MAX_INLINE_TREE_LENGTH UINT8_MAX
 #define TS_MAX_TREE_POOL_SIZE 32
-
-#endif
 
 static const ExternalScannerState empty_state = {.length = 0, .short_data = {0}};
 
