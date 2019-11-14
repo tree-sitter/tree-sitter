@@ -4,7 +4,7 @@ extern "C" {
     /// In *Release* builds, the C library links directly against `malloc` and `free`.
     ///
     /// When freeing memory that was allocated by C code, use `free` directly.
-    #[cfg(not(test))]
+    #[cfg(not(debug_assertions))]
     #[link_name = "free"]
     pub fn free_ptr(ptr: *mut c_void);
 
@@ -15,7 +15,7 @@ extern "C" {
     ///
     /// When freeing memory that was allocated by C code, use the `free` function
     /// from that module.
-    #[cfg(test)]
+    #[cfg(debug_assertions)]
     #[link_name = "ts_record_free"]
     pub fn free_ptr(ptr: *mut c_void);
 
