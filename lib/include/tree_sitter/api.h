@@ -817,7 +817,12 @@ const char *ts_language_symbol_name(const TSLanguage *, TSSymbol);
 /**
  * Get the numerical id for the given node type string.
  */
-TSSymbol ts_language_symbol_for_name(const TSLanguage *, const char *);
+TSSymbol ts_language_symbol_for_name(
+  const TSLanguage *self,
+  const char *string,
+  uint32_t length,
+  bool is_named
+);
 
 /**
  * Get the number of distinct field names in the language.

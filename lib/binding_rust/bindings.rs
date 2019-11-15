@@ -742,8 +742,10 @@ extern "C" {
 extern "C" {
     #[doc = " Get the numerical id for the given node type string."]
     pub fn ts_language_symbol_for_name(
-        arg1: *const TSLanguage,
-        arg2: *const ::std::os::raw::c_char,
+        self_: *const TSLanguage,
+        string: *const ::std::os::raw::c_char,
+        length: u32,
+        is_named: bool,
     ) -> TSSymbol;
 }
 extern "C" {

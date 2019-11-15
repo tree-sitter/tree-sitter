@@ -47,14 +47,19 @@ const char *ts_language_symbol_name(const TSLanguage *language, TSSymbol symbol)
   }
 }
 
-TSSymbol ts_language_symbol_for_name(const TSLanguage *self, const char *name) {
-  if (!strcmp(name, "ERROR")) return ts_builtin_sym_error;
-
+TSSymbol ts_language_symbol_for_name(
+  const TSLanguage *self,
+  const char *string,
+  uint32_t length,
+  bool is_named
+) {
+  if (!strncmp(string, "ERROR", length)) return ts_builtin_sym_error;
   uint32_t count = ts_language_symbol_count(self);
   for (TSSymbol i = 0; i < count; i++) {
-    if (!strcmp(self->symbol_names[i], name)) {
-      return i;
-    }
+    TSSymbolMetadata metadata = ts_language_symbol_metadata(self, i);
+    if (!metadata.visible || metadata.named != is_named) continue;
+    const char *symbol_name = self->symbol_names[i];
+    if (!strncmp(symbol_name, string, length) && !symbol_name[length]) return i;
   }
   return 0;
 }
