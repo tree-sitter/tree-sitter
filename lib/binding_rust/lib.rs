@@ -1387,11 +1387,11 @@ impl QueryCursor {
     /// Each match contains the index of the pattern that matched, and a list of captures.
     /// Because multiple patterns can match the same set of nodes, one match may contain
     /// captures that appear *before* some of the captures from a previous match.
-    pub fn matches<'a>(
+    pub fn matches<'a, T: AsRef<[u8]>>(
         &mut self,
         query: &'a Query,
         node: Node<'a>,
-        mut text_callback: impl FnMut(Node<'a>) -> &[u8] + 'a,
+        mut text_callback: impl FnMut(Node<'a>) -> T + 'a,
     ) -> impl Iterator<Item = QueryMatch<'a>> + 'a {
         let ptr = self.0.as_ptr();
         unsafe { ffi::ts_query_cursor_exec(ptr, query.ptr.as_ptr(), node.0) };
