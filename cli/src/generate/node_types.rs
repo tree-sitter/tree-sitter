@@ -1170,6 +1170,95 @@ mod tests {
     }
 
     #[test]
+    fn test_node_types_with_named_aliases() {
+        let node_types = get_node_types(InputGrammar {
+            name: String::new(),
+            extra_symbols: Vec::new(),
+            external_tokens: Vec::new(),
+            expected_conflicts: Vec::new(),
+            variables_to_inline: Vec::new(),
+            word_token: None,
+            supertype_symbols: vec![],
+            variables: vec![
+                Variable {
+                    name: "expression".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::choice(vec![Rule::named("yield"), Rule::named("argument_list")]),
+                },
+                Variable {
+                    name: "yield".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::Seq(vec![Rule::string("YIELD")]),
+                },
+                Variable {
+                    name: "argument_list".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::choice(vec![
+                        Rule::named("x"),
+                        Rule::alias(Rule::named("b"), "expression".to_string(), true),
+                    ]),
+                },
+                Variable {
+                    name: "b".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::choice(vec![Rule::seq(vec![Rule::string("B")]), Rule::named("c")]),
+                },
+                Variable {
+                    name: "c".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::seq(vec![Rule::string("C")]),
+                },
+                Variable {
+                    name: "x".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::seq(vec![Rule::string("X")]),
+                },
+            ],
+        });
+
+        assert_eq!(
+            node_types.iter().map(|n| &n.kind).collect::<Vec<_>>(),
+            &[
+                "argument_list",
+                "c",
+                "expression",
+                "x",
+                "yield",
+                "B",
+                "C",
+                "X",
+                "YIELD"
+            ]
+        );
+        assert_eq!(
+            node_types[2],
+            NodeInfoJSON {
+                kind: "expression".to_string(),
+                named: true,
+                subtypes: None,
+                children: Some(FieldInfoJSON {
+                    multiple: false,
+                    required: true,
+                    types: vec![
+                        NodeTypeJSON {
+                            kind: "argument_list".to_string(),
+                            named: true,
+                        },
+                        NodeTypeJSON {
+                            kind: "c".to_string(),
+                            named: true,
+                        },
+                        NodeTypeJSON {
+                            kind: "yield".to_string(),
+                            named: true,
+                        },
+                    ]
+                }),
+                fields: Some(BTreeMap::new()),
+            }
+        );
+    }
+    #[test]
     fn test_node_types_with_tokens_aliased_to_match_rules() {
         let node_types = get_node_types(InputGrammar {
             name: String::new(),
