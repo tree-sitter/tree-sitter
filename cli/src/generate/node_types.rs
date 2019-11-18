@@ -615,12 +615,20 @@ pub(crate) fn generate_node_types_json(
                     .iter()
                     .map(child_type_to_node_type)
                     .collect::<Vec<_>>();
+                let mut multiple = info.children_without_fields.quantity.multiple;
+                let mut required = info.children_without_fields.quantity.required;
+                if let Some(children) = &mut node_type_json.children {
+                    println!("children: {:?}", children);
+                    children_types.append(&mut children.types);
+                    multiple |= children.multiple;
+                    required |= children.required;
+                }
                 if children_types.len() > 0 {
                     children_types.sort_unstable();
                     children_types.dedup();
                     node_type_json.children = Some(FieldInfoJSON {
-                        multiple: info.children_without_fields.quantity.multiple,
-                        required: info.children_without_fields.quantity.required,
+                        multiple: multiple,
+                        required: required,
                         types: children_types,
                     });
                 }
