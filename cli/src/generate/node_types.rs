@@ -59,6 +59,16 @@ pub struct ChildQuantity {
     multiple: bool,
 }
 
+impl Default for FieldInfoJSON {
+    fn default() -> Self {
+        FieldInfoJSON {
+            multiple: false,
+            required: true,
+            types: Vec::new(),
+        }
+    }
+}
+
 impl Default for ChildQuantity {
     fn default() -> Self {
         Self::zero()
@@ -517,6 +527,15 @@ pub(crate) fn generate_node_types_json(
         }
     };
 
+    let populate_field_info_json = |json: &mut FieldInfoJSON, info: &FieldInfo| {
+        json.multiple |= info.quantity.multiple;
+        json.required &= info.quantity.required;
+        json.types
+            .extend(info.types.iter().map(child_type_to_node_type));
+        json.types.sort_unstable();
+        json.types.dedup();
+    };
+
     let mut aliases_by_symbol = HashMap::new();
     for (symbol, alias) in simple_aliases {
         aliases_by_symbol.insert(*symbol, {
@@ -567,6 +586,8 @@ pub(crate) fn generate_node_types_json(
         } else if variable.kind.is_visible()
             && !syntax_grammar.variables_to_inline.contains(&symbol)
         {
+            // If a rule is aliased under multiple names, then its information
+            // contributes to multiple entries in the final JSON.
             for alias in aliases_by_symbol
                 .get(&Symbol::non_terminal(i))
                 .unwrap_or(&HashSet::new())
@@ -581,48 +602,36 @@ pub(crate) fn generate_node_types_json(
                     is_named = variable.kind == VariableType::Named;
                 }
 
+                // There may already be an entry with this name, because multiple
+                // rules may be aliased with the same name.
                 let node_type_json =
                     node_types_json
                         .entry(kind.clone())
                         .or_insert_with(|| NodeInfoJSON {
                             kind: kind.clone(),
                             named: is_named,
-                            fields: None,
+                            fields: Some(BTreeMap::new()),
                             children: None,
                             subtypes: None,
                         });
-                let mut fields_json = BTreeMap::new();
-                for (field, field_info) in info.fields.iter() {
-                    let field_info_json =
-                        fields_json.entry(field.clone()).or_insert(FieldInfoJSON {
-                            multiple: false,
-                            required: true,
-                            types: Vec::new(),
-                        });
 
-                    field_info_json.multiple |= field_info.quantity.multiple;
-                    field_info_json.required &= field_info.quantity.required;
-                    field_info_json
-                        .types
-                        .extend(field_info.types.iter().map(child_type_to_node_type));
-                    field_info_json.types.sort_unstable();
-                    field_info_json.types.dedup();
+                let fields_json = node_type_json.fields.as_mut().unwrap();
+                for (field, field_info) in info.fields.iter() {
+                    populate_field_info_json(
+                        &mut fields_json
+                            .entry(field.clone())
+                            .or_insert(FieldInfoJSON::default()),
+                        field_info,
+                    );
                 }
-                node_type_json.fields = Some(fields_json);
-                let mut children_types = info
-                    .children_without_fields
-                    .types
-                    .iter()
-                    .map(child_type_to_node_type)
-                    .collect::<Vec<_>>();
-                if children_types.len() > 0 {
-                    children_types.sort_unstable();
-                    children_types.dedup();
-                    node_type_json.children = Some(FieldInfoJSON {
-                        multiple: info.children_without_fields.quantity.multiple,
-                        required: info.children_without_fields.quantity.required,
-                        types: children_types,
-                    });
+
+                if info.children_without_fields.types.len() > 0 {
+                    populate_field_info_json(
+                        &mut node_type_json
+                            .children
+                            .get_or_insert(FieldInfoJSON::default()),
+                        &info.children_without_fields,
+                    );
                 }
             }
         }
@@ -1169,6 +1178,112 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_node_types_with_named_aliases() {
+        let node_types = get_node_types(InputGrammar {
+            name: String::new(),
+            extra_symbols: Vec::new(),
+            external_tokens: Vec::new(),
+            expected_conflicts: Vec::new(),
+            variables_to_inline: Vec::new(),
+            word_token: None,
+            supertype_symbols: vec![],
+            variables: vec![
+                Variable {
+                    name: "expression".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::choice(vec![Rule::named("yield"), Rule::named("argument_list")]),
+                },
+                Variable {
+                    name: "yield".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::Seq(vec![Rule::string("YIELD")]),
+                },
+                Variable {
+                    name: "argument_list".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::choice(vec![
+                        Rule::named("x"),
+                        Rule::alias(Rule::named("b"), "expression".to_string(), true),
+                    ]),
+                },
+                Variable {
+                    name: "b".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::choice(vec![
+                        Rule::field("f".to_string(), Rule::string("B")),
+                        Rule::named("c"),
+                    ]),
+                },
+                Variable {
+                    name: "c".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::seq(vec![Rule::string("C")]),
+                },
+                Variable {
+                    name: "x".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::seq(vec![Rule::string("X")]),
+                },
+            ],
+        });
+
+        assert_eq!(
+            node_types.iter().map(|n| &n.kind).collect::<Vec<_>>(),
+            &[
+                "argument_list",
+                "c",
+                "expression",
+                "x",
+                "yield",
+                "B",
+                "C",
+                "X",
+                "YIELD"
+            ]
+        );
+        assert_eq!(
+            node_types[2],
+            NodeInfoJSON {
+                kind: "expression".to_string(),
+                named: true,
+                subtypes: None,
+                children: Some(FieldInfoJSON {
+                    multiple: false,
+                    required: false,
+                    types: vec![
+                        NodeTypeJSON {
+                            kind: "argument_list".to_string(),
+                            named: true,
+                        },
+                        NodeTypeJSON {
+                            kind: "c".to_string(),
+                            named: true,
+                        },
+                        NodeTypeJSON {
+                            kind: "yield".to_string(),
+                            named: true,
+                        },
+                    ]
+                }),
+                fields: Some(
+                    vec![(
+                        "f".to_string(),
+                        FieldInfoJSON {
+                            required: false,
+                            multiple: false,
+                            types: vec![NodeTypeJSON {
+                                named: false,
+                                kind: "B".to_string(),
+                            }]
+                        }
+                    )]
+                    .into_iter()
+                    .collect()
+                ),
+            }
+        );
+    }
     #[test]
     fn test_node_types_with_tokens_aliased_to_match_rules() {
         let node_types = get_node_types(InputGrammar {
