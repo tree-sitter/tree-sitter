@@ -618,7 +618,6 @@ pub(crate) fn generate_node_types_json(
                 let mut multiple = info.children_without_fields.quantity.multiple;
                 let mut required = info.children_without_fields.quantity.required;
                 if let Some(children) = &mut node_type_json.children {
-                    println!("children: {:?}", children);
                     children_types.append(&mut children.types);
                     multiple |= children.multiple;
                     required |= children.required;
