@@ -1210,7 +1210,10 @@ mod tests {
                 Variable {
                     name: "b".to_string(),
                     kind: VariableType::Named,
-                    rule: Rule::choice(vec![Rule::seq(vec![Rule::string("B")]), Rule::named("c")]),
+                    rule: Rule::choice(vec![
+                        Rule::field("f".to_string(), Rule::string("B")),
+                        Rule::named("c"),
+                    ]),
                 },
                 Variable {
                     name: "c".to_string(),
@@ -1263,7 +1266,21 @@ mod tests {
                         },
                     ]
                 }),
-                fields: Some(BTreeMap::new()),
+                fields: Some(
+                    vec![(
+                        "f".to_string(),
+                        FieldInfoJSON {
+                            required: false,
+                            multiple: false,
+                            types: vec![NodeTypeJSON {
+                                named: false,
+                                kind: "B".to_string(),
+                            }]
+                        }
+                    )]
+                    .into_iter()
+                    .collect()
+                ),
             }
         );
     }
