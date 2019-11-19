@@ -567,6 +567,8 @@ pub(crate) fn generate_node_types_json(
         } else if variable.kind.is_visible()
             && !syntax_grammar.variables_to_inline.contains(&symbol)
         {
+            // If a rule is aliased under multiple names, then its information
+            // contributes to multiple entries in the final JSON.
             for alias in aliases_by_symbol
                 .get(&Symbol::non_terminal(i))
                 .unwrap_or(&HashSet::new())
@@ -581,17 +583,20 @@ pub(crate) fn generate_node_types_json(
                     is_named = variable.kind == VariableType::Named;
                 }
 
+                // There may already be an entry with this name, because multiple
+                // rules may be aliased with the *same* name.
                 let node_type_json =
                     node_types_json
                         .entry(kind.clone())
                         .or_insert_with(|| NodeInfoJSON {
                             kind: kind.clone(),
                             named: is_named,
-                            fields: None,
+                            fields: Some(BTreeMap::new()),
                             children: None,
                             subtypes: None,
                         });
-                let mut fields_json = BTreeMap::new();
+
+                let fields_json = node_type_json.fields.as_mut().unwrap();
                 for (field, field_info) in info.fields.iter() {
                     let field_info_json =
                         fields_json.entry(field.clone()).or_insert(FieldInfoJSON {
@@ -599,7 +604,6 @@ pub(crate) fn generate_node_types_json(
                             required: true,
                             types: Vec::new(),
                         });
-
                     field_info_json.multiple |= field_info.quantity.multiple;
                     field_info_json.required &= field_info.quantity.required;
                     field_info_json
@@ -608,28 +612,24 @@ pub(crate) fn generate_node_types_json(
                     field_info_json.types.sort_unstable();
                     field_info_json.types.dedup();
                 }
-                node_type_json.fields = Some(fields_json);
+
                 let mut children_types = info
                     .children_without_fields
                     .types
                     .iter()
                     .map(child_type_to_node_type)
                     .collect::<Vec<_>>();
-                let mut multiple = info.children_without_fields.quantity.multiple;
-                let mut required = info.children_without_fields.quantity.required;
-                if let Some(children) = &mut node_type_json.children {
-                    children_types.append(&mut children.types);
-                    multiple |= children.multiple;
-                    required |= children.required;
-                }
                 if children_types.len() > 0 {
-                    children_types.sort_unstable();
-                    children_types.dedup();
-                    node_type_json.children = Some(FieldInfoJSON {
-                        multiple: multiple,
-                        required: required,
-                        types: children_types,
+                    let mut children_json = node_type_json.children.get_or_insert(FieldInfoJSON {
+                        multiple: false,
+                        required: true,
+                        types: Vec::new(),
                     });
+                    children_json.types.append(&mut children_types);
+                    children_json.types.sort_unstable();
+                    children_json.types.dedup();
+                    children_json.multiple |= info.children_without_fields.quantity.multiple;
+                    children_json.required &= info.children_without_fields.quantity.required;
                 }
             }
         }
@@ -1245,7 +1245,7 @@ mod tests {
                 subtypes: None,
                 children: Some(FieldInfoJSON {
                     multiple: false,
-                    required: true,
+                    required: false,
                     types: vec![
                         NodeTypeJSON {
                             kind: "argument_list".to_string(),
