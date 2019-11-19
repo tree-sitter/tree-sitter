@@ -59,6 +59,16 @@ pub struct ChildQuantity {
     multiple: bool,
 }
 
+impl Default for FieldInfoJSON {
+    fn default() -> Self {
+        FieldInfoJSON {
+            multiple: false,
+            required: true,
+            types: Vec::new(),
+        }
+    }
+}
+
 impl Default for ChildQuantity {
     fn default() -> Self {
         Self::zero()
@@ -517,6 +527,15 @@ pub(crate) fn generate_node_types_json(
         }
     };
 
+    let populate_field_info_json = |json: &mut FieldInfoJSON, info: &FieldInfo| {
+        json.multiple |= info.quantity.multiple;
+        json.required &= info.quantity.required;
+        json.types
+            .extend(info.types.iter().map(child_type_to_node_type));
+        json.types.sort_unstable();
+        json.types.dedup();
+    };
+
     let mut aliases_by_symbol = HashMap::new();
     for (symbol, alias) in simple_aliases {
         aliases_by_symbol.insert(*symbol, {
@@ -584,7 +603,7 @@ pub(crate) fn generate_node_types_json(
                 }
 
                 // There may already be an entry with this name, because multiple
-                // rules may be aliased with the *same* name.
+                // rules may be aliased with the same name.
                 let node_type_json =
                     node_types_json
                         .entry(kind.clone())
@@ -598,38 +617,21 @@ pub(crate) fn generate_node_types_json(
 
                 let fields_json = node_type_json.fields.as_mut().unwrap();
                 for (field, field_info) in info.fields.iter() {
-                    let field_info_json =
-                        fields_json.entry(field.clone()).or_insert(FieldInfoJSON {
-                            multiple: false,
-                            required: true,
-                            types: Vec::new(),
-                        });
-                    field_info_json.multiple |= field_info.quantity.multiple;
-                    field_info_json.required &= field_info.quantity.required;
-                    field_info_json
-                        .types
-                        .extend(field_info.types.iter().map(child_type_to_node_type));
-                    field_info_json.types.sort_unstable();
-                    field_info_json.types.dedup();
+                    populate_field_info_json(
+                        &mut fields_json
+                            .entry(field.clone())
+                            .or_insert(FieldInfoJSON::default()),
+                        field_info,
+                    );
                 }
 
-                let mut children_types = info
-                    .children_without_fields
-                    .types
-                    .iter()
-                    .map(child_type_to_node_type)
-                    .collect::<Vec<_>>();
-                if children_types.len() > 0 {
-                    let mut children_json = node_type_json.children.get_or_insert(FieldInfoJSON {
-                        multiple: false,
-                        required: true,
-                        types: Vec::new(),
-                    });
-                    children_json.types.append(&mut children_types);
-                    children_json.types.sort_unstable();
-                    children_json.types.dedup();
-                    children_json.multiple |= info.children_without_fields.quantity.multiple;
-                    children_json.required &= info.children_without_fields.quantity.required;
+                if info.children_without_fields.types.len() > 0 {
+                    populate_field_info_json(
+                        &mut node_type_json
+                            .children
+                            .get_or_insert(FieldInfoJSON::default()),
+                        &info.children_without_fields,
+                    );
                 }
             }
         }
