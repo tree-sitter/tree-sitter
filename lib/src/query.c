@@ -998,7 +998,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         QueryState *state = &self->states.contents[i];
         QueryStep *step = &self->query->steps.contents[state->step_index];
 
-        if (state->start_depth + step->depth > self->depth) {
+        if ((uint32_t)state->start_depth + (uint32_t)step->depth > self->depth) {
           LOG(
             "  failed to match. pattern:%u, step:%u\n",
             state->pattern_index,
@@ -1130,7 +1130,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
 
         // Check that the node matches all of the criteria for the next
         // step of the pattern.if (
-        if (state->start_depth + step->depth != self->depth) continue;
+        if ((uint32_t)state->start_depth + (uint32_t)step->depth != self->depth) continue;
 
         // Determine if this node matches this step of the pattern, and also
         // if this node can have later siblings that match this step of the
@@ -1225,7 +1225,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
             i--;
             n--;
           } else {
-            array_pop(&self->states);
+            self->states.size--;
           }
         }
       }
