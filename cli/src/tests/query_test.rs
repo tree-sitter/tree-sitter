@@ -914,6 +914,97 @@ fn test_query_captures_with_many_nested_results_with_fields() {
 }
 
 #[test]
+fn test_query_captures_with_too_many_nested_results() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        // Search for method calls in general, and also method calls with a template string
+        // in place of an argument list (aka "tagged template strings") in particular.
+        //
+        // This second pattern, which looks for the tagged template strings, is expensive to
+        // use with the `captures()` method, because:
+        // 1. When calling `captures`, all of the captures must be returned in order of their
+        //    appearance.
+        // 2. This pattern captures the root `call_expression`.
+        // 3. This pattern's result also depends on the final child (the template string).
+        // 4. In between the `call_expression` and the possible `template_string`, there can
+        //    be an arbitrarily deep subtree.
+        //
+        // This means that, if any patterns match *after* the initial `call_expression` is
+        // captured, but before the final `template_string` is found, those matches must
+        // be buffered, in order to prevent captures from being returned out-of-order.
+        let query = Query::new(
+            language,
+            r#"
+            ;; easy 👇
+            (call_expression
+              function: (member_expression
+                property: (property_identifier) @method-name))
+
+            ;; hard 👇
+            (call_expression
+              function: (member_expression
+                property: (property_identifier) @template-tag)
+              arguments: (template_string)) @template-call
+            "#,
+        )
+        .unwrap();
+
+        // There are a *lot* of matches in between the beginning of the outer `call_expression`
+        // (the call to `a(...).f`), which starts at the beginning of the file, and the final
+        // template string, which occurs at the end of the file. The query algorithm imposes a
+        // limit on the total number of matches which can be buffered at a time. But we don't
+        // want to neglect the inner matches just because of the expensive outer match, so we
+        // abandon the outer match (which would have captured `f` as a `template-tag`).
+        let source = "
+        a(b => {
+            b.c0().d0 `😄`;
+            b.c1().d1 `😄`;
+            b.c2().d2 `😄`;
+            b.c3().d3 `😄`;
+            b.c4().d4 `😄`;
+            b.c5().d5 `😄`;
+            b.c6().d6 `😄`;
+            b.c7().d7 `😄`;
+            b.c8().d8 `😄`;
+            b.c9().d9 `😄`;
+        }).e().f ``;
+        "
+        .trim();
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let captures = cursor.captures(&query, tree.root_node(), to_callback(&source));
+        let captures = collect_captures(captures, &query, &source);
+
+        assert_eq!(
+            &captures[0..4],
+            &[
+                ("template-call", "b.c0().d0 `😄`"),
+                ("method-name", "c0"),
+                ("method-name", "d0"),
+                ("template-tag", "d0"),
+            ]
+        );
+        assert_eq!(
+            &captures[36..40],
+            &[
+                ("template-call", "b.c9().d9 `😄`"),
+                ("method-name", "c9"),
+                ("method-name", "d9"),
+                ("template-tag", "d9"),
+            ]
+        );
+        assert_eq!(
+            &captures[40..],
+            &[("method-name", "e"), ("method-name", "f"),]
+        );
+    });
+}
+
+#[test]
 fn test_query_captures_ordered_by_both_start_and_end_positions() {
     allocations::record(|| {
         let language = get_language("javascript");
