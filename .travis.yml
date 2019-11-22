@@ -66,4 +66,4 @@ cache:
   directories:
     - target/emsdk
     - test/fixtures/grammars
-    - /home/travis/.emscripten_cache
+    - $HOME/.emscripten_cache
