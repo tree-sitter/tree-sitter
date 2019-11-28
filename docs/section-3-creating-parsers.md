@@ -22,7 +22,7 @@ To create a Tree-sitter parser, you need to use the [the `tree-sitter` CLI][tree
 
 * Install the `tree-sitter-cli` [Node.js module][node-module] using [`npm`][npm], the Node package manager. This is the recommended approach, and it is discussed further in the next section.
 * Download a binary for your platform from [the latest GitHub release][releases], and put it into a directory on your `PATH`.
-* Build the `tree-sitter-cli` [Rust crate][crate] from source using [`cargo`][cargo], the Rust package manager. See [the contributing docs](/contributing#developing-tree-sitter) for more information.
+* Build the `tree-sitter-cli` [Rust crate][crate] from source using [`cargo`][cargo], the Rust package manager. See [the contributing docs](/docs/section-5-contributing.md#developing-tree-sitter) for more information.
 
 ### Project Setup
 
