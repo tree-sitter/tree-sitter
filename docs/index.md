@@ -28,6 +28,7 @@ Parsers for these languages are fairly complete:
 
 * [Bash](https://github.com/tree-sitter/tree-sitter-bash)
 * [C](https://github.com/tree-sitter/tree-sitter-c)
+* [C#](https://github.com/tree-sitter/tree-sitter-c-sharp)
 * [C++](https://github.com/tree-sitter/tree-sitter-cpp)
 * [CSS](https://github.com/tree-sitter/tree-sitter-css)
 * [Elm](https://github.com/razzeee/tree-sitter-elm)
@@ -54,7 +55,6 @@ Parsers for these languages are fairly complete:
 Parsers for these languages are in development:
 
 * [Agda](https://github.com/tree-sitter/tree-sitter-agda)
-* [C-sharp](https://github.com/tree-sitter/tree-sitter-c-sharp)
 * [Haskell](https://github.com/tree-sitter/tree-sitter-haskell)
 * [Julia](https://github.com/tree-sitter/tree-sitter-julia)
 * [Nix](https://github.com/cstrahan/tree-sitter-nix)
