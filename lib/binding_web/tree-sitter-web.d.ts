@@ -50,7 +50,7 @@ declare module 'web-tree-sitter' {
     export interface SyntaxNode {
       tree: Tree;
       type: string;
-      isNamed: boolean;
+      isNamed(): boolean;
       text: string;
       startPosition: Point;
       endPosition: Point;
