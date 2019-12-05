@@ -5,7 +5,8 @@ use std::process::exit;
 use std::{env, fs, u64};
 use tree_sitter::Language;
 use tree_sitter_cli::{
-    config, error, generate, highlight, loader, logger, parse, query, test, wasm, web_ui,
+    config, error, generate, highlight, loader, logger, parse, query, test, test_highlight, wasm,
+    web_ui,
 };
 
 const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -162,17 +163,28 @@ fn run() -> error::Result<()> {
         let debug = matches.is_present("debug");
         let debug_graph = matches.is_present("debug-graph");
         let filter = matches.value_of("filter");
-        if let Some(language) = loader.languages_at_path(&current_dir)?.first() {
-            test::run_tests_at_path(
-                *language,
-                &current_dir.join("corpus"),
-                debug,
-                debug_graph,
-                filter,
-            )?;
-            test::check_queries_at_path(*language, &current_dir.join("queries"))?;
-        } else {
-            eprintln!("No language found");
+        let languages = loader.languages_at_path(&current_dir)?;
+        let language = languages
+            .first()
+            .ok_or_else(|| "No language found".to_string())?;
+        let test_dir = current_dir.join("test");
+
+        // Run the corpus tests. Look for them at two paths: `test/corpus` and `corpus`.
+        let mut test_corpus_dir = test_dir.join("corpus");
+        if !test_corpus_dir.is_dir() {
+            test_corpus_dir = current_dir.join("corpus");
+        }
+        if test_corpus_dir.is_dir() {
+            test::run_tests_at_path(*language, &test_corpus_dir, debug, debug_graph, filter)?;
+        }
+
+        // Check that all of the queries are valid.
+        test::check_queries_at_path(*language, &current_dir.join("queries"))?;
+
+        // Run the syntax highlighting tests.
+        let test_highlight_dir = test_dir.join("highlight");
+        if test_highlight_dir.is_dir() {
+            test_highlight::test_highlights(&loader, &test_highlight_dir)?;
         }
     } else if let Some(matches) = matches.subcommand_matches("parse") {
         let debug = matches.is_present("debug");
@@ -232,11 +244,12 @@ fn run() -> error::Result<()> {
         let query_path = Path::new(matches.value_of("query-path").unwrap());
         query::query_files_at_paths(language, paths, query_path, ordered_captures)?;
     } else if let Some(matches) = matches.subcommand_matches("highlight") {
-        let paths = matches.values_of("path").unwrap().into_iter();
-        let html_mode = matches.is_present("html");
-        let time = matches.is_present("time");
+        loader.configure_highlights(&config.theme.highlight_names);
         loader.find_all_languages(&config.parser_directories)?;
 
+        let time = matches.is_present("time");
+        let paths = matches.values_of("path").unwrap().into_iter();
+        let html_mode = matches.is_present("html");
         if html_mode {
             println!("{}", highlight::HTML_HEADER);
         }
@@ -266,9 +279,7 @@ fn run() -> error::Result<()> {
 
             let source = fs::read(path)?;
 
-            if let Some(highlight_config) =
-                language_config.highlight_config(&config.theme.highlighter, language)?
-            {
+            if let Some(highlight_config) = language_config.highlight_config(language)? {
                 if html_mode {
                     highlight::html(&loader, &config.theme, &source, highlight_config, time)?;
                 } else {

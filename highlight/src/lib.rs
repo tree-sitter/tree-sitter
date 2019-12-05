@@ -11,7 +11,7 @@ use tree_sitter::{
 const CANCELLATION_CHECK_INTERVAL: usize = 100;
 
 /// Indicates which highlight should be applied to a region of source code.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Highlight(pub usize);
 
 /// Represents the reason why syntax highlighting failed.
@@ -52,29 +52,10 @@ pub struct HighlightConfiguration {
 
 /// Performs syntax highlighting, recognizing a given list of highlight names.
 ///
-/// Tree-sitter syntax-highlighting queries specify highlights in the form of dot-separated
-/// highlight names like `punctuation.bracket` and `function.method.builtin`. Consumers of
-/// these queries can choose to recognize highlights with different levels of specificity.
-/// For example, the string `function.builtin` will match against `function.method.builtin`
-/// and `function.builtin.constructor`, but will not match `function.method`.
-///
-/// The `Highlight` struct is instantiated with an ordered list of recognized highlight names
-/// and is then used for loading highlight queries and performing syntax highlighting.
-/// Highlighting results are returned as `Highlight` values, which contain the index of the
-/// matched highlight this list of highlight names.
-///
-/// The `Highlighter` struct is immutable and can be shared between threads.
-#[derive(Clone, Debug)]
-pub struct Highlighter {
-    highlight_names: Vec<String>,
-}
-
-/// Carries the mutable state required for syntax highlighting.
-///
-/// For the best performance `HighlightContext` values should be reused between
-/// syntax highlighting calls. A separate context is needed for each thread that
+/// For the best performance `Highlighter` values should be reused between
+/// syntax highlighting calls. A separate highlighter is needed for each thread that
 /// is performing highlighting.
-pub struct HighlightContext {
+pub struct Highlighter {
     parser: Parser,
     cursors: Vec<QueryCursor>,
 }
@@ -101,11 +82,11 @@ struct LocalScope<'a> {
 
 struct HighlightIter<'a, F>
 where
-    F: Fn(&str) -> Option<&'a HighlightConfiguration> + 'a,
+    F: FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
 {
     source: &'a [u8],
     byte_offset: usize,
-    context: &'a mut HighlightContext,
+    highlighter: &'a mut Highlighter,
     injections_cursor: QueryCursor,
     injection_callback: F,
     cancellation_flag: Option<&'a AtomicUsize>,
@@ -126,26 +107,58 @@ struct HighlightIterLayer<'a> {
     depth: usize,
 }
 
-impl HighlightContext {
+impl Highlighter {
     pub fn new() -> Self {
-        HighlightContext {
+        Highlighter {
             parser: Parser::new(),
             cursors: Vec::new(),
         }
     }
+
+    pub fn parser(&mut self) -> &mut Parser {
+        &mut self.parser
+    }
+
+    /// Iterate over the highlighted regions for a given slice of source code.
+    pub fn highlight<'a>(
+        &'a mut self,
+        config: &'a HighlightConfiguration,
+        source: &'a [u8],
+        cancellation_flag: Option<&'a AtomicUsize>,
+        injection_callback: impl FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
+    ) -> Result<impl Iterator<Item = Result<HighlightEvent, Error>> + 'a, Error> {
+        let layer = HighlightIterLayer::new(
+            config,
+            source,
+            self,
+            cancellation_flag,
+            0,
+            vec![Range {
+                start_byte: 0,
+                end_byte: usize::MAX,
+                start_point: Point::new(0, 0),
+                end_point: Point::new(usize::MAX, usize::MAX),
+            }],
+        )?;
+
+        let injections_cursor = self.cursors.pop().unwrap_or(QueryCursor::new());
+
+        Ok(HighlightIter {
+            source,
+            byte_offset: 0,
+            injection_callback,
+            cancellation_flag,
+            injections_cursor,
+            highlighter: self,
+            iter_count: 0,
+            layers: vec![layer],
+            next_event: None,
+            last_highlight_range: None,
+        })
+    }
 }
 
-impl Highlighter {
-    /// Creates a highlighter with a given list of recognized highlight names.
-    pub fn new(highlight_names: Vec<String>) -> Self {
-        Highlighter { highlight_names }
-    }
-
-    /// Returns the list of highlight names with which this Highlighter was constructed.
-    pub fn names(&self) -> &[String] {
-        &self.highlight_names
-    }
-
+impl HighlightConfiguration {
     /// Creates a `HighlightConfiguration` for a given `Language` and set of highlighting
     /// queries.
     ///
@@ -160,13 +173,12 @@ impl Highlighter {
     ///   definitions and references. This can be empty if local variable tracking is not needed.
     ///
     /// Returns a `HighlightConfiguration` that can then be used with the `highlight` method.
-    pub fn load_configuration(
-        &self,
+    pub fn new(
         language: Language,
         highlights_query: &str,
         injection_query: &str,
         locals_query: &str,
-    ) -> Result<HighlightConfiguration, QueryError> {
+    ) -> Result<Self, QueryError> {
         // Concatenate the query strings, keeping track of the start offset of each section.
         let mut query_source = String::new();
         query_source.push_str(injection_query);
@@ -200,38 +212,6 @@ impl Highlighter {
             }
         }
 
-        let mut capture_parts = Vec::new();
-
-        // Compute a mapping from the query's capture ids to the indices of the highlighter's
-        // recognized highlight names.
-        let highlight_indices = query
-            .capture_names()
-            .iter()
-            .map(move |capture_name| {
-                capture_parts.clear();
-                capture_parts.extend(capture_name.split('.'));
-
-                let mut best_index = None;
-                let mut best_match_len = 0;
-                for (i, highlight_name) in self.highlight_names.iter().enumerate() {
-                    let mut len = 0;
-                    let mut matches = true;
-                    for part in highlight_name.split('.') {
-                        len += 1;
-                        if !capture_parts.contains(&part) {
-                            matches = false;
-                            break;
-                        }
-                    }
-                    if matches && len > best_match_len {
-                        best_index = Some(i);
-                        best_match_len = len;
-                    }
-                }
-                best_index.map(Highlight)
-            })
-            .collect();
-
         let non_local_variable_patterns = (0..query.pattern_count())
             .map(|i| {
                 query
@@ -262,6 +242,8 @@ impl Highlighter {
             }
         }
 
+        let highlight_indices = vec![None; query.capture_names().len()];
+
         Ok(HighlightConfiguration {
             language,
             query,
@@ -280,43 +262,48 @@ impl Highlighter {
         })
     }
 
-    /// Iterate over the highlighted regions for a given slice of source code.
-    pub fn highlight<'a>(
-        &'a self,
-        context: &'a mut HighlightContext,
-        config: &'a HighlightConfiguration,
-        source: &'a [u8],
-        cancellation_flag: Option<&'a AtomicUsize>,
-        injection_callback: impl Fn(&str) -> Option<&'a HighlightConfiguration> + 'a,
-    ) -> Result<impl Iterator<Item = Result<HighlightEvent, Error>> + 'a, Error> {
-        let layer = HighlightIterLayer::new(
-            config,
-            source,
-            context,
-            cancellation_flag,
-            0,
-            vec![Range {
-                start_byte: 0,
-                end_byte: usize::MAX,
-                start_point: Point::new(0, 0),
-                end_point: Point::new(usize::MAX, usize::MAX),
-            }],
-        )?;
+    /// Get a slice containing all of the highlight names used in the configuration.
+    pub fn names(&self) -> &[String] {
+        self.query.capture_names()
+    }
 
-        let injections_cursor = context.cursors.pop().unwrap_or(QueryCursor::new());
+    /// Set the list of recognized highlight names.
+    ///
+    /// Tree-sitter syntax-highlighting queries specify highlights in the form of dot-separated
+    /// highlight names like `punctuation.bracket` and `function.method.builtin`. Consumers of
+    /// these queries can choose to recognize highlights with different levels of specificity.
+    /// For example, the string `function.builtin` will match against `function.method.builtin`
+    /// and `function.builtin.constructor`, but will not match `function.method`.
+    ///
+    /// When highlighting, results are returned as `Highlight` values, which contain the index
+    /// of the matched highlight this list of highlight names.
+    pub fn configure(&mut self, recognized_names: &[String]) {
+        let mut capture_parts = Vec::new();
+        self.highlight_indices.clear();
+        self.highlight_indices
+            .extend(self.query.capture_names().iter().map(move |capture_name| {
+                capture_parts.clear();
+                capture_parts.extend(capture_name.split('.'));
 
-        Ok(HighlightIter {
-            source,
-            byte_offset: 0,
-            injection_callback,
-            cancellation_flag,
-            injections_cursor,
-            context,
-            iter_count: 0,
-            layers: vec![layer],
-            next_event: None,
-            last_highlight_range: None,
-        })
+                let mut best_index = None;
+                let mut best_match_len = 0;
+                for (i, recognized_name) in recognized_names.iter().enumerate() {
+                    let mut len = 0;
+                    let mut matches = true;
+                    for part in recognized_name.split('.') {
+                        len += 1;
+                        if !capture_parts.contains(&part) {
+                            matches = false;
+                            break;
+                        }
+                    }
+                    if matches && len > best_match_len {
+                        best_index = Some(i);
+                        best_match_len = len;
+                    }
+                }
+                best_index.map(Highlight)
+            }));
     }
 }
 
@@ -324,21 +311,24 @@ impl<'a> HighlightIterLayer<'a> {
     fn new(
         config: &'a HighlightConfiguration,
         source: &'a [u8],
-        context: &mut HighlightContext,
+        highlighter: &mut Highlighter,
         cancellation_flag: Option<&'a AtomicUsize>,
         depth: usize,
         ranges: Vec<Range>,
     ) -> Result<Self, Error> {
-        context
+        highlighter
             .parser
             .set_language(config.language)
             .map_err(|_| Error::InvalidLanguage)?;
-        unsafe { context.parser.set_cancellation_flag(cancellation_flag) };
+        unsafe { highlighter.parser.set_cancellation_flag(cancellation_flag) };
 
-        context.parser.set_included_ranges(&ranges);
+        highlighter.parser.set_included_ranges(&ranges);
 
-        let tree = context.parser.parse(source, None).ok_or(Error::Cancelled)?;
-        let mut cursor = context.cursors.pop().unwrap_or(QueryCursor::new());
+        let tree = highlighter
+            .parser
+            .parse(source, None)
+            .ok_or(Error::Cancelled)?;
+        let mut cursor = highlighter.cursors.pop().unwrap_or(QueryCursor::new());
 
         // The `captures` iterator borrows the `Tree` and the `QueryCursor`, which
         // prevents them from being moved. But both of these values are really just
@@ -486,7 +476,7 @@ impl<'a> HighlightIterLayer<'a> {
 
 impl<'a, F> HighlightIter<'a, F>
 where
-    F: Fn(&str) -> Option<&'a HighlightConfiguration> + 'a,
+    F: FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
 {
     fn emit_event(
         &mut self,
@@ -525,7 +515,7 @@ where
             }
         } else {
             let layer = self.layers.remove(0);
-            self.context.cursors.push(layer.cursor);
+            self.highlighter.cursors.push(layer.cursor);
         }
     }
 
@@ -545,7 +535,7 @@ where
 
 impl<'a, F> Iterator for HighlightIter<'a, F>
 where
-    F: Fn(&str) -> Option<&'a HighlightConfiguration> + 'a,
+    F: FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
 {
     type Item = Result<HighlightEvent, Error>;
 
@@ -711,21 +701,23 @@ where
                     for (_, language, content_nodes, include_children) in injections {
                         // If a language is found with the given name, then add a new language layer
                         // to the highlighted document.
-                        if let Some(config) = language.and_then(&self.injection_callback) {
-                            if !content_nodes.is_empty() {
-                                let ranges = self.layers[0]
-                                    .intersect_ranges(&content_nodes, include_children);
-                                if !ranges.is_empty() {
-                                    match HighlightIterLayer::new(
-                                        config,
-                                        self.source,
-                                        self.context,
-                                        self.cancellation_flag,
-                                        self.layers[0].depth + 1,
-                                        ranges,
-                                    ) {
-                                        Ok(layer) => self.insert_layer(layer),
-                                        Err(e) => return Some(Err(e)),
+                        if let Some(language) = language {
+                            if let Some(config) = (self.injection_callback)(language) {
+                                if !content_nodes.is_empty() {
+                                    let ranges = self.layers[0]
+                                        .intersect_ranges(&content_nodes, include_children);
+                                    if !ranges.is_empty() {
+                                        match HighlightIterLayer::new(
+                                            config,
+                                            self.source,
+                                            self.highlighter,
+                                            self.cancellation_flag,
+                                            self.layers[0].depth + 1,
+                                            ranges,
+                                        ) {
+                                            Ok(layer) => self.insert_layer(layer),
+                                            Err(e) => return Some(Err(e)),
+                                        }
                                     }
                                 }
                             }

@@ -3,12 +3,16 @@ use lazy_static::lazy_static;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tree_sitter::Language;
-use tree_sitter_highlight::{HighlightConfiguration, Highlighter};
+use tree_sitter_highlight::HighlightConfiguration;
 
 include!("./dirs.rs");
 
 lazy_static! {
     static ref TEST_LOADER: Loader = Loader::new(SCRATCH_DIR.clone());
+}
+
+pub fn test_loader<'a>() -> &'a Loader {
+    &*TEST_LOADER
 }
 
 pub fn fixtures_dir<'a>() -> &'static Path {
@@ -26,23 +30,24 @@ pub fn get_language_queries_path(language_name: &str) -> PathBuf {
 }
 
 pub fn get_highlight_config(
-    highlighter: &Highlighter,
     language_name: &str,
     injection_query_filename: &str,
+    highlight_names: &[String],
 ) -> HighlightConfiguration {
     let language = get_language(language_name);
     let queries_path = get_language_queries_path(language_name);
     let highlights_query = fs::read_to_string(queries_path.join("highlights.scm")).unwrap();
     let injections_query = fs::read_to_string(queries_path.join(injection_query_filename)).unwrap();
     let locals_query = fs::read_to_string(queries_path.join("locals.scm")).unwrap_or(String::new());
-    highlighter
-        .load_configuration(
-            language,
-            &highlights_query,
-            &injections_query,
-            &locals_query,
-        )
-        .unwrap()
+    let mut result = HighlightConfiguration::new(
+        language,
+        &highlights_query,
+        &injections_query,
+        &locals_query,
+    )
+    .unwrap();
+    result.configure(highlight_names);
+    result
 }
 
 pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> Language {

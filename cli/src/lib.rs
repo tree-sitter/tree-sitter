@@ -7,6 +7,7 @@ pub mod logger;
 pub mod parse;
 pub mod query;
 pub mod test;
+pub mod test_highlight;
 pub mod util;
 pub mod wasm;
 pub mod web_ui;

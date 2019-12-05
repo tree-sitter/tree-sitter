@@ -58,7 +58,11 @@ fn test_real_language_corpus_files() {
         }
 
         let language = get_language(language_name);
-        let corpus_dir = grammars_dir.join(language_name).join("corpus");
+        let mut corpus_dir = grammars_dir.join(language_name).join("corpus");
+        if !corpus_dir.is_dir() {
+            corpus_dir = grammars_dir.join(language_name).join("test").join("corpus");
+        }
+
         let error_corpus_file = error_corpus_dir.join(&format!("{}_errors.txt", language_name));
         let main_tests = parse_tests(&corpus_dir).unwrap();
         let error_tests = parse_tests(&error_corpus_file).unwrap_or(TestEntry::default());

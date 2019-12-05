@@ -1,4 +1,4 @@
-use super::{Error, HighlightConfiguration, HighlightContext, Highlighter, HtmlRenderer};
+use super::{Error, HighlightConfiguration, Highlighter, HtmlRenderer};
 use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::CStr;
@@ -11,11 +11,11 @@ use tree_sitter::Language;
 pub struct TSHighlighter {
     languages: HashMap<String, (Option<Regex>, HighlightConfiguration)>,
     attribute_strings: Vec<&'static [u8]>,
-    highlighter: Highlighter,
+    highlight_names: Vec<String>,
 }
 
 pub struct TSHighlightBuffer {
-    context: HighlightContext,
+    highlighter: Highlighter,
     renderer: HtmlRenderer,
 }
 
@@ -48,11 +48,10 @@ pub extern "C" fn ts_highlighter_new(
         .into_iter()
         .map(|s| unsafe { CStr::from_ptr(*s).to_bytes() })
         .collect();
-    let highlighter = Highlighter::new(highlight_names);
     Box::into_raw(Box::new(TSHighlighter {
         languages: HashMap::new(),
         attribute_strings,
-        highlighter,
+        highlight_names,
     }))
 }
 
@@ -107,15 +106,11 @@ pub extern "C" fn ts_highlighter_add_language(
             ""
         };
 
-        this.languages.insert(
-            scope_name,
-            (
-                injection_regex,
-                this.highlighter
-                    .load_configuration(language, highlight_query, injection_query, locals_query)
-                    .or(Err(ErrorCode::InvalidQuery))?,
-            ),
-        );
+        let mut config =
+            HighlightConfiguration::new(language, highlight_query, injection_query, locals_query)
+                .or(Err(ErrorCode::InvalidQuery))?;
+        config.configure(&this.highlight_names);
+        this.languages.insert(scope_name, (injection_regex, config));
 
         Ok(())
     };
@@ -129,7 +124,7 @@ pub extern "C" fn ts_highlighter_add_language(
 #[no_mangle]
 pub extern "C" fn ts_highlight_buffer_new() -> *mut TSHighlightBuffer {
     Box::into_raw(Box::new(TSHighlightBuffer {
-        context: HighlightContext::new(),
+        highlighter: Highlighter::new(),
         renderer: HtmlRenderer::new(),
     }))
 }
@@ -201,8 +196,7 @@ impl TSHighlighter {
         let (_, configuration) = entry.unwrap();
         let languages = &self.languages;
 
-        let highlights = self.highlighter.highlight(
-            &mut output.context,
+        let highlights = output.highlighter.highlight(
             configuration,
             source_code,
             cancellation_flag,

@@ -14,66 +14,64 @@ extern "C" tree_sitter_html();
 extern "C" tree_sitter_javascript();
 ```
 
-Create a highlighter. You only need one of these:
+Define the list of highlight names that you will recognize:
+
+```rust
+let highlight_names = [
+    "attribute",
+    "constant",
+    "function.builtin",
+    "function",
+    "keyword",
+    "operator",
+    "property",
+    "punctuation",
+    "punctuation.bracket",
+    "punctuation.delimiter",
+    "string",
+    "string.special",
+    "tag",
+    "type",
+    "type.builtin",
+    "variable",
+    "variable.builtin",
+    "variable.parameter",
+]
+.iter()
+.cloned()
+.map(String::from)
+.collect();
+```
+
+Create a highlighter. You need one of these for each thread that you're using for syntax highlighting:
 
 ```rust
 use tree_sitter_highlight::Highlighter;
 
-let highlighter = Highlighter::new(
-    [
-        "attribute",
-        "constant",
-        "function.builtin",
-        "function",
-        "keyword",
-        "operator",
-        "property",
-        "punctuation",
-        "punctuation.bracket",
-        "punctuation.delimiter",
-        "string",
-        "string.special",
-        "tag",
-        "type",
-        "type.builtin",
-        "variable",
-        "variable.builtin",
-        "variable.parameter",
-    ]
-    .iter()
-    .cloned()
-    .map(String::from)
-    .collect()
-);
-```
-
-Create a highlight context. You need one of these for each thread that you're using for syntax highlighting:
-
-```rust
-use tree_sitter_highlight::HighlightContext;
-
-let context = HighlightContext::new();
+let highlighter = Highlighter::new();
 ```
 
 Load some highlighting queries from the `queries` directory of some language repositories:
 
 ```rust
+use tree_sitter_highlight::HighlightConfiguration;
+
 let html_language = unsafe { tree_sitter_html() };
 let javascript_language = unsafe { tree_sitter_javascript() };
 
-let html_config = highlighter.load_configuration(
+let html_config = HighlightConfiguration::new(
     html_language,
     &fs::read_to_string("./tree-sitter-html/queries/highlights.scm").unwrap(),
     &fs::read_to_string("./tree-sitter-html/queries/injections.scm").unwrap(),
     "",
-);
+).unwrap();
 
-let javascript_config = highlighter.load_configuration(
+let javascript_config = HighlightConfiguration::new(
     javascript_language,
     &fs::read_to_string("./tree-sitter-javascript/queries/highlights.scm").unwrap(),
     &fs::read_to_string("./tree-sitter-javascript/queries/injections.scm").unwrap(),
     &fs::read_to_string("./tree-sitter-javascript/queries/locals.scm").unwrap(),
-);
+).unwrap();
 ```
 
 Highlight some code:
@@ -82,7 +80,6 @@ Highlight some code:
 use tree_sitter_highlight::HighlightEvent;
 
 let highlights = highlighter.highlight(
-    &mut context,
     javascript_config,
     b"const x = new Y();",
     None,
