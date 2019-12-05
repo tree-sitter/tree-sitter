@@ -1,7 +1,10 @@
 use super::error::Result;
 use crate::loader::Loader;
+use ansi_term::Colour;
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::fs;
+use std::path::Path;
 use tree_sitter::{Language, Parser, Point};
 use tree_sitter_highlight::{Highlight, HighlightConfiguration, HighlightEvent, Highlighter};
 
@@ -19,7 +22,7 @@ pub struct Failure {
 impl Failure {
     pub fn message(&self) -> String {
         let mut result = format!(
-            "Failed assertion at row: {}, column: {}.\nExpected highlight: '{}'.\nActual highlights: ",
+            "Failure - row: {}, column: {}, expected highlight '{}', actual highlights: ",
             self.row, self.column, self.expected_highlight
         );
         if self.actual_highlights.is_empty() {
@@ -38,12 +41,58 @@ impl Failure {
     }
 }
 
+pub fn test_highlights(loader: &Loader, directory: &Path) -> Result<()> {
+    let mut failed = false;
+    let mut highlighter = Highlighter::new();
+
+    println!("syntax highlighting:");
+    for highlight_test_file in fs::read_dir(directory)? {
+        let highlight_test_file = highlight_test_file?;
+        let test_file_path = highlight_test_file.path();
+        let test_file_name = highlight_test_file.file_name();
+        let (language, language_config) = loader
+            .language_configuration_for_file_name(&test_file_path)?
+            .ok_or_else(|| format!("No language found for path {:?}", test_file_path))?;
+        let highlight_config = language_config
+            .highlight_config(language)?
+            .ok_or_else(|| format!("No highlighting config found for {:?}", test_file_path))?;
+        match test_highlight(
+            &loader,
+            &mut highlighter,
+            highlight_config,
+            fs::read(&test_file_path)?.as_slice(),
+        ) {
+            Ok(assertion_count) => {
+                println!(
+                    "  ✓ {} ({} assertions)",
+                    Colour::Green.paint(test_file_name.to_string_lossy().as_ref()),
+                    assertion_count
+                );
+            }
+            Err(e) => {
+                println!(
+                    "  ✗ {}",
+                    Colour::Red.paint(test_file_name.to_string_lossy().as_ref())
+                );
+                println!("    {}", e.message());
+                failed = true;
+            }
+        }
+    }
+
+    if failed {
+        Err(String::new().into())
+    } else {
+        Ok(())
+    }
+}
+
 pub fn test_highlight(
     loader: &Loader,
     highlighter: &mut Highlighter,
     highlight_config: &HighlightConfiguration,
     source: &[u8],
-) -> Result<()> {
+) -> Result<usize> {
     // Highlight the file, and parse out all of the highlighting assertions.
     let highlight_names = loader.highlight_names();
     let highlights = get_highlight_positions(loader, highlighter, highlight_config, source)?;
@@ -53,7 +102,7 @@ pub fn test_highlight(
     // actual highlights.
     let mut i = 0;
     let mut actual_highlights = Vec::<&String>::new();
-    for (position, expected_highlight) in assertions {
+    for (position, expected_highlight) in &assertions {
         let mut passed = false;
         actual_highlights.clear();
 
@@ -61,7 +110,7 @@ pub fn test_highlight(
             // The assertions are ordered by position, so skip past all of the highlights that
             // end at or before this assertion's position.
             if let Some(highlight) = highlights.get(i) {
-                if highlight.1 <= position {
+                if highlight.1 <= *position {
                     i += 1;
                     continue;
                 }
@@ -70,7 +119,7 @@ pub fn test_highlight(
                 // position, looking for one that matches the assertion.
                 let mut j = i;
                 while let (false, Some(highlight)) = (passed, highlights.get(j)) {
-                    if highlight.0 > position {
+                    if highlight.0 > *position {
                         break 'highlight_loop;
                     }
 
@@ -79,7 +128,7 @@ pub fn test_highlight(
                     // assertion's position, in order to generate an error message in the event
                     // of a failure.
                     let highlight_name = &highlight_names[(highlight.2).0];
-                    if *highlight_name == expected_highlight {
+                    if *highlight_name == *expected_highlight {
                         passed = true;
                         break 'highlight_loop;
                     } else {
@@ -104,7 +153,7 @@ pub fn test_highlight(
         }
     }
 
-    Ok(())
+    Ok(assertions.len())
 }
 
 /// Parse the given source code, finding all of the comments that contain

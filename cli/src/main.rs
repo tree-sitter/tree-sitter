@@ -8,7 +8,6 @@ use tree_sitter_cli::{
     config, error, generate, highlight, loader, logger, parse, query, test, test_highlight, wasm,
     web_ui,
 };
-use tree_sitter_highlight::Highlighter;
 
 const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
@@ -101,9 +100,6 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("debug-graph").long("debug-graph").short("D")),
         )
         .subcommand(
-            SubCommand::with_name("test-highlight").about("Run a parser's highlighting tests"),
-        )
-        .subcommand(
             SubCommand::with_name("highlight")
                 .about("Highlight a file")
                 .arg(
@@ -167,38 +163,28 @@ fn run() -> error::Result<()> {
         let debug = matches.is_present("debug");
         let debug_graph = matches.is_present("debug-graph");
         let filter = matches.value_of("filter");
-        if let Some(language) = loader.languages_at_path(&current_dir)?.first() {
-            test::run_tests_at_path(
-                *language,
-                &current_dir.join("corpus"),
-                debug,
-                debug_graph,
-                filter,
-            )?;
-            test::check_queries_at_path(*language, &current_dir.join("queries"))?;
-        } else {
-            eprintln!("No language found");
-        }
-    } else if matches.subcommand_matches("test-highlight").is_some() {
-        loader.find_language_configurations_at_path(&current_dir)?;
-        let mut highlighter = Highlighter::new();
+        let languages = loader.languages_at_path(&current_dir)?;
+        let language = languages
+            .first()
+            .ok_or_else(|| "No language found".to_string())?;
+        let test_dir = current_dir.join("test");
 
-        for highlight_test_file in fs::read_dir(current_dir.join("highlight-test"))? {
-            let test_file_path = highlight_test_file?.path();
-            if let Some((language, language_config)) =
-                loader.language_configuration_for_file_name(&test_file_path)?
-            {
-                if let Some(highlight_config) = language_config.highlight_config(language)? {
-                    test_highlight::test_highlight(
-                        &loader,
-                        &mut highlighter,
-                        highlight_config,
-                        fs::read(test_file_path)?.as_slice(),
-                    )?;
-                }
-            } else {
-                return Error::err(format!("No language found for path {:?}", test_file_path));
-            }
+        // Run the corpus tests. Look for them at two paths: `test/corpus` and `corpus`.
+        let mut test_corpus_dir = test_dir.join("corpus");
+        if !test_corpus_dir.is_dir() {
+            test_corpus_dir = current_dir.join("corpus");
+        }
+        if test_corpus_dir.is_dir() {
+            test::run_tests_at_path(*language, &test_corpus_dir, debug, debug_graph, filter)?;
+        }
+
+        // Check that all of the queries are valid.
+        test::check_queries_at_path(*language, &current_dir.join("queries"))?;
+
+        // Run the syntax highlighting tests.
+        let test_highlight_dir = test_dir.join("highlight");
+        if test_highlight_dir.is_dir() {
+            test_highlight::test_highlights(&loader, &test_highlight_dir)?;
         }
     } else if let Some(matches) = matches.subcommand_matches("parse") {
         let debug = matches.is_present("debug");
