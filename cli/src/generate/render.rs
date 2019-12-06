@@ -365,6 +365,18 @@ impl Generator {
                 self.symbol_ids[&mapping],
             );
         }
+
+        for (alias, symbol) in &self.alias_map {
+            if symbol.is_none() {
+                add_line!(
+                    self,
+                    "[{}] = {},",
+                    self.alias_ids[&alias],
+                    self.alias_ids[&alias],
+                );
+            }
+        }
+
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
