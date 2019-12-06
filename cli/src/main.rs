@@ -1,5 +1,6 @@
 use clap::{App, AppSettings, Arg, SubCommand};
 use error::Error;
+use glob::glob;
 use std::path::Path;
 use std::process::exit;
 use std::{env, fs, u64};
@@ -64,6 +65,7 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("quiet").long("quiet").short("q"))
                 .arg(Arg::with_name("time").long("time").short("t"))
                 .arg(Arg::with_name("allow-cancellation").long("cancel"))
+                .arg(Arg::with_name("files-").long("cancel"))
                 .arg(Arg::with_name("timeout").long("timeout").takes_value(true))
                 .arg(
                     Arg::with_name("edits")
@@ -198,16 +200,12 @@ fn run() -> error::Result<()> {
         let timeout = matches
             .value_of("timeout")
             .map_or(0, |t| u64::from_str_radix(t, 10).unwrap());
-        let paths = matches
-            .values_of("path")
-            .unwrap()
-            .into_iter()
-            .collect::<Vec<_>>();
+        let paths = collect_paths(matches.values_of("path").unwrap())?;
         let max_path_length = paths.iter().map(|p| p.chars().count()).max().unwrap();
         let mut has_error = false;
         loader.find_all_languages(&config.parser_directories)?;
         for path in paths {
-            let path = Path::new(path);
+            let path = Path::new(&path);
             let language =
                 select_language(&mut loader, path, &current_dir, matches.value_of("scope"))?;
             has_error |= parse::parse_file_at_path(
@@ -317,6 +315,39 @@ fn run() -> error::Result<()> {
     }
 
     Ok(())
+}
+
+fn collect_paths<'a>(paths: impl Iterator<Item = &'a str>) -> error::Result<Vec<String>> {
+    let mut result = Vec::new();
+
+    let mut incorporate_path = |path: &str, positive| {
+        if positive {
+            result.push(path.to_string());
+        } else {
+            if let Some(index) = result.iter().position(|p| p == path) {
+                result.remove(index);
+            }
+        }
+    };
+
+    for mut path in paths {
+        let mut positive = true;
+        if path.starts_with("!") {
+            positive = false;
+            path = path.trim_start_matches("!");
+        }
+
+        if Path::new(path).exists() {
+            incorporate_path(path, positive);
+        } else {
+            for path in glob(path)? {
+                if let Some(path) = path?.to_str() {
+                    incorporate_path(path, positive);
+                }
+            }
+        }
+    }
+    Ok(result)
 }
 
 fn select_language(
