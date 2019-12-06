@@ -80,7 +80,7 @@ Highlight some code:
 use tree_sitter_highlight::HighlightEvent;
 
 let highlights = highlighter.highlight(
-    javascript_config,
+    &javascript_config,
     b"const x = new Y();",
     None,
     |_| None
