@@ -65,4 +65,4 @@ incomplete tokens at EOF
 nul
 ---
 
-(ERROR (UNEXPECTED EOF))
+(ERROR (UNEXPECTED '\0'))

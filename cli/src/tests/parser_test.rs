@@ -267,6 +267,17 @@ fn test_parsing_invalid_chars_at_eof() {
 }
 
 #[test]
+fn test_parsing_unexpected_null_characters_within_source() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("javascript")).unwrap();
+    let tree = parser.parse(b"var \0 something;", None).unwrap();
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(program (variable_declaration (ERROR (UNEXPECTED '\\0')) (variable_declarator name: (identifier))))"
+    );
+}
+
+#[test]
 fn test_parsing_ends_when_input_callback_returns_empty() {
     let mut parser = Parser::new();
     parser.set_language(get_language("javascript")).unwrap();

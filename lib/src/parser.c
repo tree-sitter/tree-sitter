@@ -439,7 +439,7 @@ static Subtree ts_parser__lex(
     }
 
     if (self->lexer.current_position.bytes == error_end_position.bytes) {
-      if (self->lexer.data.lookahead == 0) {
+      if (self->lexer.data.eof(&self->lexer.data)) {
         self->lexer.data.result_symbol = ts_builtin_sym_error;
         break;
       }
