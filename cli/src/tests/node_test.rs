@@ -687,6 +687,63 @@ fn test_node_is_named_but_aliased_as_anonymous() {
     assert_eq!(root_node.named_child(0).unwrap().kind(), "c");
 }
 
+#[test]
+fn test_node_numeric_symbols_respect_simple_aliases() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("python")).unwrap();
+
+    // Example 1:
+    // Python argument lists can contain "splat" arguments, which are not allowed within
+    // other expressions. This includes `parenthesized_list_splat` nodes like `(*b)`. These
+    // `parenthesized_list_splat` nodes are aliased as `parenthesized_expression`. Their numeric
+    // `symbol`, aka `kind_id` should match that of a normal `parenthesized_expression`.
+    let tree = parser.parse("(a((*b)))", None).unwrap();
+    let root = tree.root_node();
+    assert_eq!(
+        root.to_sexp(),
+        "(module (expression_statement (parenthesized_expression (call function: (identifier) arguments: (argument_list (parenthesized_expression (list_splat (identifier))))))))",
+    );
+
+    let outer_expr_node = root.child(0).unwrap().child(0).unwrap();
+    assert_eq!(outer_expr_node.kind(), "parenthesized_expression");
+
+    let inner_expr_node = outer_expr_node
+        .named_child(0)
+        .unwrap()
+        .child_by_field_name("arguments")
+        .unwrap()
+        .named_child(0)
+        .unwrap();
+    assert_eq!(inner_expr_node.kind(), "parenthesized_expression");
+    assert_eq!(inner_expr_node.kind_id(), outer_expr_node.kind_id());
+
+    // Example 2:
+    // Ruby handles the unary (negative) and binary (minus) `-` operators using two different
+    // tokens. One or more of these is an external token that's aliased as `-`. Their numeric
+    // kind ids should match.
+    parser.set_language(get_language("ruby")).unwrap();
+    let tree = parser.parse("-a - b", None).unwrap();
+    let root = tree.root_node();
+    assert_eq!(
+        root.to_sexp(),
+        "(program (binary left: (unary (identifier)) right: (identifier)))",
+    );
+
+    let binary_node = root.child(0).unwrap();
+    assert_eq!(binary_node.kind(), "binary");
+
+    let unary_minus_node = binary_node
+        .child_by_field_name("left")
+        .unwrap()
+        .child(0)
+        .unwrap();
+    assert_eq!(unary_minus_node.kind(), "-");
+
+    let binary_minus_node = binary_node.child_by_field_name("operator").unwrap();
+    assert_eq!(binary_minus_node.kind(), "-");
+    assert_eq!(unary_minus_node.kind_id(), binary_minus_node.kind_id());
+}
+
 fn get_all_nodes(tree: &Tree) -> Vec<Node> {
     let mut result = Vec::new();
     let mut visited_children = false;
