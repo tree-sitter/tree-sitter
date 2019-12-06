@@ -83,19 +83,19 @@ let highlights = highlighter.highlight(
     javascript_config,
     b"const x = new Y();",
     None,
-    &|_| None
+    |_| None
 ).unwrap();
 
 for event in highlights {
     match event? {
-        HighlightEvent::Source(s) {
-            eprintln!("source: {:?}", s);
+        HighlightEvent::Source{start, end} => {
+            eprintln!("source: {}-{}", start, end);
         },
         HighlightEvent::HighlightStart(s) {
             eprintln!("highlight style started: {:?}", s);
         },
-        HighlightEvent::HighlightEnd(s) {
-            eprintln!("highlight style ended: {:?}", s);
+        HighlightEvent::HighlightEnd {
+            eprintln!("highlight style ended");
         },
     }
 }
