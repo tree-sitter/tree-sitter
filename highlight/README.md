@@ -74,6 +74,12 @@ let javascript_config = HighlightConfiguration::new(
 ).unwrap();
 ```
 
+Configure the recognized names:
+
+```rust
+javascript_config.configure(&highlight_names);
+```
+
 Highlight some code:
 
 ```rust
