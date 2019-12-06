@@ -35,7 +35,8 @@ const NEW_HEADER_PARTS: [&'static str; 2] = [
     "
   uint32_t large_state_count;
   const uint16_t *small_parse_table;
-  const uint32_t *small_parse_table_map;",
+  const uint32_t *small_parse_table_map;
+  const TSSymbol *public_symbol_map;",
     "
 #define SMALL_STATE(id) id - LARGE_STATE_COUNT
 ",
