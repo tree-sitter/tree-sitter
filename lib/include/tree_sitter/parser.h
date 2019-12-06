@@ -118,6 +118,7 @@ struct TSLanguage {
   uint32_t large_state_count;
   const uint16_t *small_parse_table;
   const uint32_t *small_parse_table_map;
+  const TSSymbol *public_symbol_map;
 };
 
 /*

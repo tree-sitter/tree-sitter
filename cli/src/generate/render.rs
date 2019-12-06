@@ -80,6 +80,11 @@ impl Generator {
         self.add_stats();
         self.add_symbol_enum();
         self.add_symbol_names_list();
+
+        if self.next_abi {
+            self.add_unique_symbol_map();
+        }
+
         self.add_symbol_metadata_list();
 
         if !self.field_names.is_empty() {
@@ -314,6 +319,51 @@ impl Generator {
                     self.sanitize_string(&alias.value)
                 );
             }
+        }
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+    }
+
+    fn add_unique_symbol_map(&mut self) {
+        add_line!(self, "static TSSymbol ts_symbol_map[] = {{");
+        indent!(self);
+        for symbol in &self.parse_table.symbols {
+            let mut mapping = symbol;
+
+            // If this symbol has a simple alias, then check if its alias has the same
+            // name and kind (e.g. named vs anonymous) as some other symbol in the grammar.
+            // If so, add an entry to the symbol map that deduplicates these two symbols,
+            // so that only one of them will ever be returned via the public API.
+            if let Some(alias) = self.simple_aliases.get(symbol) {
+                let kind = if alias.is_named {
+                    VariableType::Named
+                } else {
+                    VariableType::Anonymous
+                };
+
+                for other_symbol in &self.parse_table.symbols {
+                    if other_symbol == symbol {
+                        continue;
+                    }
+                    if let Some(other_alias) = self.simple_aliases.get(other_symbol) {
+                        if other_symbol < symbol && other_alias == alias {
+                            mapping = other_symbol;
+                            break;
+                        }
+                    } else if self.metadata_for_symbol(*other_symbol) == (&alias.value, kind) {
+                        mapping = other_symbol;
+                        break;
+                    }
+                }
+            }
+
+            add_line!(
+                self,
+                "[{}] = {},",
+                self.symbol_ids[&symbol],
+                self.symbol_ids[&mapping],
+            );
         }
         dedent!(self);
         add_line!(self, "}};");
@@ -1071,6 +1121,10 @@ impl Generator {
         add_line!(self, ".parse_actions = ts_parse_actions,");
         add_line!(self, ".lex_modes = ts_lex_modes,");
         add_line!(self, ".symbol_names = ts_symbol_names,");
+
+        if self.next_abi {
+            add_line!(self, ".public_symbol_map = ts_symbol_map,");
+        }
 
         if !self.parse_table.production_infos.is_empty() {
             add_line!(

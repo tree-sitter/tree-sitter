@@ -742,8 +742,8 @@ TSQuery *ts_query_new(
 ) {
   // Work around the fact that multiple symbols can currently be
   // associated with the same name, due to "simple aliases".
-  // In the next language ABI version, this map should be contained
-  // within the language itself.
+  // In the next language ABI version, this map will be contained
+  // in the language's `public_symbol_map` field.
   uint32_t symbol_count = ts_language_symbol_count(language);
   TSSymbol *symbol_map = ts_malloc(sizeof(TSSymbol) * symbol_count);
   for (unsigned i = 0; i < symbol_count; i++) {
