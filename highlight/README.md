@@ -88,7 +88,7 @@ let highlights = highlighter.highlight(
 
 for event in highlights {
     match event? {
-        HighlightEvent::Source{start, end} => {
+        HighlightEvent::Source {start, end} => {
             eprintln!("source: {}-{}", start, end);
         },
         HighlightEvent::HighlightStart(s) {
