@@ -740,22 +740,28 @@ TSQuery *ts_query_new(
   uint32_t *error_offset,
   TSQueryError *error_type
 ) {
-  // Work around the fact that multiple symbols can currently be
-  // associated with the same name, due to "simple aliases".
-  // In the next language ABI version, this map will be contained
-  // in the language's `public_symbol_map` field.
-  uint32_t symbol_count = ts_language_symbol_count(language);
-  TSSymbol *symbol_map = ts_malloc(sizeof(TSSymbol) * symbol_count);
-  for (unsigned i = 0; i < symbol_count; i++) {
-    const char *name = ts_language_symbol_name(language, i);
-    const TSSymbolType symbol_type = ts_language_symbol_type(language, i);
+  TSSymbol *symbol_map;
+  if (ts_language_version(language) >= TREE_SITTER_LANGUAGE_VERSION_WITH_SYMBOL_DEDUPING) {
+    symbol_map = NULL;
+  } else {
+    // Work around the fact that multiple symbols can currently be
+    // associated with the same name, due to "simple aliases".
+    // In the next language ABI version, this map will be contained
+    // in the language's `public_symbol_map` field.
+    uint32_t symbol_count = ts_language_symbol_count(language);
+    symbol_map = ts_malloc(sizeof(TSSymbol) * symbol_count);
+    for (unsigned i = 0; i < symbol_count; i++) {
+      const char *name = ts_language_symbol_name(language, i);
+      const TSSymbolType symbol_type = ts_language_symbol_type(language, i);
 
-    symbol_map[i] = i;
-    for (unsigned j = 0; j < i; j++) {
-      if (ts_language_symbol_type(language, j) == symbol_type) {
-        if (!strcmp(name, ts_language_symbol_name(language, j))) {
-          symbol_map[i] = j;
-          break;
+      symbol_map[i] = i;
+
+      for (unsigned j = 0; j < i; j++) {
+        if (ts_language_symbol_type(language, j) == symbol_type) {
+          if (!strcmp(name, ts_language_symbol_name(language, j))) {
+            symbol_map[i] = j;
+            break;
+          }
         }
       }
     }
@@ -1115,7 +1121,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
       );
       TSNode node = ts_tree_cursor_current_node(&self->cursor);
       TSSymbol symbol = ts_node_symbol(node);
-      if (symbol != ts_builtin_sym_error) {
+      if (symbol != ts_builtin_sym_error && self->query->symbol_map) {
         symbol = self->query->symbol_map[symbol];
       }
 
