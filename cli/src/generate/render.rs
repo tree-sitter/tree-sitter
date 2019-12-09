@@ -525,7 +525,8 @@ impl Generator {
 
         add_line!(
             self,
-            "static const TSFieldMapSlice ts_field_map_slices[] = {{",
+            "static const TSFieldMapSlice ts_field_map_slices[{}] = {{",
+            self.parse_table.production_infos.len(),
         );
         indent!(self);
         for (production_id, (row_id, length)) in field_map_ids.into_iter().enumerate() {
