@@ -10,14 +10,14 @@ fn test_highlight_test_with_basic_test() {
         "javascript",
         "injections.scm",
         &[
-            "function.definition".to_string(),
+            "function".to_string(),
             "variable.parameter".to_string(),
             "keyword".to_string(),
         ],
     );
     let source = [
         "var abc = function(d) {",
-        "  // ^ function.definition",
+        "  // ^ function",
         "  //       ^ keyword",
         "  return d + e;",
         "  //     ^ variable.parameter",
@@ -29,7 +29,7 @@ fn test_highlight_test_with_basic_test() {
     assert_eq!(
         assertions,
         &[
-            (Point::new(0, 5), "function.definition".to_string()),
+            (Point::new(0, 5), "function".to_string()),
             (Point::new(0, 11), "keyword".to_string()),
             (Point::new(3, 9), "variable.parameter".to_string()),
         ]
