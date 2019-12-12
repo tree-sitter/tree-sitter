@@ -401,13 +401,7 @@ fn variable_type_for_child_type(
     lexical_grammar: &LexicalGrammar,
 ) -> VariableType {
     match child_type {
-        ChildType::Aliased(alias) => {
-            if alias.is_named {
-                VariableType::Named
-            } else {
-                VariableType::Anonymous
-            }
-        }
+        ChildType::Aliased(alias) => alias.kind(),
         ChildType::Normal(symbol) => {
             if syntax_grammar.supertype_symbols.contains(&symbol) {
                 VariableType::Named
@@ -583,9 +577,7 @@ pub(crate) fn generate_node_types_json(
             subtypes.sort_unstable();
             subtypes.dedup();
             node_type_json.subtypes = Some(subtypes);
-        } else if variable.kind.is_visible()
-            && !syntax_grammar.variables_to_inline.contains(&symbol)
-        {
+        } else if !syntax_grammar.variables_to_inline.contains(&symbol) {
             // If a rule is aliased under multiple names, then its information
             // contributes to multiple entries in the final JSON.
             for alias in aliases_by_symbol
@@ -597,9 +589,11 @@ pub(crate) fn generate_node_types_json(
                 if let Some(alias) = alias {
                     kind = &alias.value;
                     is_named = alias.is_named;
-                } else {
+                } else if variable.kind.is_visible() {
                     kind = &variable.name;
                     is_named = variable.kind == VariableType::Named;
+                } else {
+                    continue;
                 }
 
                 // There may already be an entry with this name, because multiple
@@ -639,25 +633,49 @@ pub(crate) fn generate_node_types_json(
 
     let mut anonymous_node_types = Vec::new();
 
-    for (i, variable) in lexical_grammar.variables.iter().enumerate() {
-        for alias in aliases_by_symbol
-            .get(&Symbol::terminal(i))
-            .unwrap_or(&HashSet::new())
-        {
-            let kind;
-            let is_named;
-            if let Some(alias) = alias {
-                kind = &alias.value;
-                is_named = alias.is_named;
-            } else {
-                kind = &variable.name;
-                is_named = variable.kind == VariableType::Named;
-            }
+    let empty = HashSet::new();
+    let regular_tokens = lexical_grammar
+        .variables
+        .iter()
+        .enumerate()
+        .flat_map(|(i, variable)| {
+            aliases_by_symbol
+                .get(&Symbol::terminal(i))
+                .unwrap_or(&empty)
+                .iter()
+                .map(move |alias| {
+                    if let Some(alias) = alias {
+                        (&alias.value, alias.kind())
+                    } else {
+                        (&variable.name, variable.kind)
+                    }
+                })
+        });
+    let external_tokens =
+        syntax_grammar
+            .external_tokens
+            .iter()
+            .enumerate()
+            .flat_map(|(i, token)| {
+                aliases_by_symbol
+                    .get(&Symbol::external(i))
+                    .unwrap_or(&empty)
+                    .iter()
+                    .map(move |alias| {
+                        if let Some(alias) = alias {
+                            (&alias.value, alias.kind())
+                        } else {
+                            (&token.name, token.kind)
+                        }
+                    })
+            });
 
-            if is_named {
-                let node_type_json = node_types_json.entry(kind.clone()).or_insert(NodeInfoJSON {
-                    kind: kind.clone(),
-                    named: is_named,
+    for (name, kind) in regular_tokens.chain(external_tokens) {
+        match kind {
+            VariableType::Named => {
+                let node_type_json = node_types_json.entry(name.clone()).or_insert(NodeInfoJSON {
+                    kind: name.clone(),
+                    named: true,
                     fields: None,
                     children: None,
                     subtypes: None,
@@ -670,15 +688,15 @@ pub(crate) fn generate_node_types_json(
                         field.required = false;
                     }
                 }
-            } else if variable.kind == VariableType::Anonymous {
-                anonymous_node_types.push(NodeInfoJSON {
-                    kind: kind.clone(),
-                    named: is_named,
-                    fields: None,
-                    children: None,
-                    subtypes: None,
-                })
             }
+            VariableType::Anonymous => anonymous_node_types.push(NodeInfoJSON {
+                kind: name.clone(),
+                named: false,
+                fields: None,
+                children: None,
+                subtypes: None,
+            }),
+            _ => {}
         }
     }
 
@@ -1284,6 +1302,7 @@ mod tests {
             }
         );
     }
+
     #[test]
     fn test_node_types_with_tokens_aliased_to_match_rules() {
         let node_types = get_node_types(InputGrammar {

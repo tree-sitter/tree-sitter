@@ -135,11 +135,7 @@ impl Generator {
 
             for alias in &production_info.alias_sequence {
                 if let Some(alias) = &alias {
-                    let alias_kind = if alias.is_named {
-                        VariableType::Named
-                    } else {
-                        VariableType::Anonymous
-                    };
+                    let alias_kind = alias.kind();
                     let matching_symbol = self.parse_table.symbols.iter().cloned().find(|symbol| {
                         let (name, kind) = self.metadata_for_symbol(*symbol);
                         name == alias.value && kind == alias_kind
@@ -336,12 +332,7 @@ impl Generator {
             // If so, add an entry to the symbol map that deduplicates these two symbols,
             // so that only one of them will ever be returned via the public API.
             if let Some(alias) = self.simple_aliases.get(symbol) {
-                let kind = if alias.is_named {
-                    VariableType::Named
-                } else {
-                    VariableType::Anonymous
-                };
-
+                let kind = alias.kind();
                 for other_symbol in &self.parse_table.symbols {
                     if other_symbol == symbol {
                         continue;

@@ -1,3 +1,4 @@
+use super::grammars::VariableType;
 use smallbitvec::SmallBitVec;
 use std::collections::HashMap;
 use std::iter::FromIterator;
@@ -136,6 +137,16 @@ impl Rule {
 
     pub fn seq(rules: Vec<Rule>) -> Self {
         Rule::Seq(rules)
+    }
+}
+
+impl Alias {
+    pub fn kind(&self) -> VariableType {
+        if self.is_named {
+            VariableType::Named
+        } else {
+            VariableType::Anonymous
+        }
     }
 }
 
