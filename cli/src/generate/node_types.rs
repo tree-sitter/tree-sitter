@@ -522,12 +522,16 @@ pub(crate) fn generate_node_types_json(
     };
 
     let populate_field_info_json = |json: &mut FieldInfoJSON, info: &FieldInfo| {
-        json.multiple |= info.quantity.multiple;
-        json.required &= info.quantity.required;
-        json.types
-            .extend(info.types.iter().map(child_type_to_node_type));
-        json.types.sort_unstable();
-        json.types.dedup();
+        if info.types.len() > 0 {
+            json.multiple |= info.quantity.multiple;
+            json.required &= info.quantity.required;
+            json.types
+                .extend(info.types.iter().map(child_type_to_node_type));
+            json.types.sort_unstable();
+            json.types.dedup();
+        } else {
+            json.required = false;
+        }
     };
 
     let mut aliases_by_symbol = HashMap::new();
@@ -618,6 +622,11 @@ pub(crate) fn generate_node_types_json(
                         field_info,
                     );
                 }
+                for (existing_field, field_json) in fields_json.iter_mut() {
+                    if !info.fields.contains_key(existing_field) {
+                        field_json.required = false;
+                    }
+                }
 
                 if info.children_without_fields.types.len() > 0 {
                     populate_field_info_json(
@@ -626,6 +635,8 @@ pub(crate) fn generate_node_types_json(
                             .get_or_insert(FieldInfoJSON::default()),
                         &info.children_without_fields,
                     );
+                } else if let Some(existing_children) = &mut node_type_json.children {
+                    existing_children.required = false;
                 }
             }
         }
