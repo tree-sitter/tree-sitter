@@ -13,6 +13,7 @@ struct TokenConflictStatus {
     does_match_valid_continuation: bool,
     does_match_separators: bool,
     matches_same_string: bool,
+    matches_different_string: bool,
 }
 
 pub(crate) struct TokenConflictMap<'a> {
@@ -25,6 +26,12 @@ pub(crate) struct TokenConflictMap<'a> {
 }
 
 impl<'a> TokenConflictMap<'a> {
+    /// Create a token conflict map based on a lexical grammar, which describes the structure
+    /// each token, and a `following_token` map, which indicates which tokens may be appear
+    /// immediately after each other token.
+    ///
+    /// This analyzes the possible kinds of overlap between each pair of tokens and stores
+    /// them in a matrix.
     pub fn new(grammar: &'a LexicalGrammar, following_tokens: Vec<TokenSet>) -> Self {
         let mut cursor = NfaCursor::new(&grammar.nfa, Vec::new());
         let starting_chars = get_starting_chars(&mut cursor, grammar);
@@ -50,12 +57,21 @@ impl<'a> TokenConflictMap<'a> {
         }
     }
 
+    /// Does token `i` match any strings that token `j` also matches, such that token `i`
+    /// is preferred over token `j`?
     pub fn has_same_conflict_status(&self, a: usize, b: usize, other: usize) -> bool {
         let left = &self.status_matrix[matrix_index(self.n, a, other)];
         let right = &self.status_matrix[matrix_index(self.n, b, other)];
         left == right
     }
 
+    /// Does token `i` match any strings that token `j` does *not* match?
+    pub fn does_match_different_string(&self, i: usize, j: usize) -> bool {
+        self.status_matrix[matrix_index(self.n, i, j)].matches_different_string
+    }
+
+    /// Does token `i` match any strings that token `j` also matches, where
+    /// token `i` is preferred over token `j`?
     pub fn does_match_same_string(&self, i: usize, j: usize) -> bool {
         self.status_matrix[matrix_index(self.n, i, j)].matches_same_string
     }
@@ -67,6 +83,7 @@ impl<'a> TokenConflictMap<'a> {
             || entry.matches_same_string
     }
 
+    /// Does token `i` match any strings that are *prefixes* of strings matched by `j`?
     pub fn does_match_prefix(&self, i: usize, j: usize) -> bool {
         self.status_matrix[matrix_index(self.n, i, j)].matches_prefix
     }
@@ -239,19 +256,29 @@ fn compute_conflict_status(
     );
 
     while let Some(state_set) = state_set_queue.pop() {
-        // Don't pursue states where there's no potential for conflict.
-        if grammar.variable_indices_for_nfa_states(&state_set).count() > 1 {
-            cursor.reset(state_set);
-        } else {
+        let mut live_variable_indices = grammar.variable_indices_for_nfa_states(&state_set);
+
+        // If only one of the two tokens could possibly match from this state, then
+        // there is no reason to analyze any of its successors. Just record the fact
+        // that the token matches a string that the other token does not match.
+        let first_live_variable_index = live_variable_indices.next().unwrap();
+        if live_variable_indices.count() == 0 {
+            if first_live_variable_index == i {
+                result.0.matches_different_string = true;
+            } else {
+                result.1.matches_different_string = true;
+            }
             continue;
         }
 
-        let has_sep = cursor.transition_chars().any(|(_, sep)| sep);
+        // Don't pursue states where there's no potential for conflict.
+        cursor.reset(state_set);
+        let within_separator = cursor.transition_chars().any(|(_, sep)| sep);
 
         // Examine each possible completed token in this state.
         let mut completion = None;
         for (id, precedence) in cursor.completions() {
-            if has_sep {
+            if within_separator {
                 if id == i {
                     result.0.does_match_separators = true;
                 } else {
@@ -316,7 +343,7 @@ fn compute_conflict_status(
                         &transition,
                         completed_id,
                         completed_precedence,
-                        has_sep,
+                        within_separator,
                     ) {
                         can_advance = true;
                         if advanced_id == i {
