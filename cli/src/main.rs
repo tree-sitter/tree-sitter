@@ -65,7 +65,6 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("quiet").long("quiet").short("q"))
                 .arg(Arg::with_name("time").long("time").short("t"))
                 .arg(Arg::with_name("allow-cancellation").long("cancel"))
-                .arg(Arg::with_name("files-").long("cancel"))
                 .arg(Arg::with_name("timeout").long("timeout").takes_value(true))
                 .arg(
                     Arg::with_name("edits")
