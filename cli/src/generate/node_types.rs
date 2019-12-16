@@ -550,17 +550,23 @@ pub(crate) fn generate_node_types_json(
                     }
                 }
 
-                if info.children_without_fields.types.len() > 0 {
-                    populate_field_info_json(
-                        &mut node_type_json
-                            .children
-                            .get_or_insert(FieldInfoJSON::default()),
-                        &info.children_without_fields,
-                    );
-                } else if let Some(existing_children) = &mut node_type_json.children {
-                    existing_children.required = false;
-                }
+                populate_field_info_json(
+                    node_type_json
+                        .children
+                        .get_or_insert(FieldInfoJSON::default()),
+                    &info.children_without_fields,
+                );
             }
+        }
+    }
+
+    for (_, node_type_json) in node_types_json.iter_mut() {
+        if node_type_json
+            .children
+            .as_ref()
+            .map_or(false, |c| c.types.is_empty())
+        {
+            node_type_json.children = None;
         }
     }
 
