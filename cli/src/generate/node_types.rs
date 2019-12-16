@@ -395,84 +395,6 @@ pub(crate) fn get_variable_info(
     Ok(result)
 }
 
-fn variable_type_for_child_type(
-    child_type: &ChildType,
-    syntax_grammar: &SyntaxGrammar,
-    lexical_grammar: &LexicalGrammar,
-) -> VariableType {
-    match child_type {
-        ChildType::Aliased(alias) => alias.kind(),
-        ChildType::Normal(symbol) => {
-            if syntax_grammar.supertype_symbols.contains(&symbol) {
-                VariableType::Named
-            } else if syntax_grammar.variables_to_inline.contains(&symbol) {
-                VariableType::Hidden
-            } else {
-                match symbol.kind {
-                    SymbolType::NonTerminal => syntax_grammar.variables[symbol.index].kind,
-                    SymbolType::Terminal => lexical_grammar.variables[symbol.index].kind,
-                    SymbolType::External => syntax_grammar.external_tokens[symbol.index].kind,
-                    _ => VariableType::Hidden,
-                }
-            }
-        }
-    }
-}
-
-fn sorted_vec_insert<T>(vec: &mut Vec<T>, value: &T) -> bool
-where
-    T: Clone + Eq + Ord,
-{
-    if let Err(i) = vec.binary_search(&value) {
-        vec.insert(i, value.clone());
-        true
-    } else {
-        false
-    }
-}
-
-fn sorted_vec_replace<T>(left: &mut Vec<T>, right: &Vec<T>, value: T) -> bool
-where
-    T: Eq + Ord,
-{
-    if left.len() == 0 {
-        return false;
-    }
-
-    let mut i = 0;
-    for right_elem in right.iter() {
-        while left[i] < *right_elem {
-            i += 1;
-            if i == left.len() {
-                return false;
-            }
-        }
-        if left[i] != *right_elem {
-            return false;
-        }
-    }
-
-    i = 0;
-    left.retain(|left_elem| {
-        if i == right.len() {
-            return true;
-        }
-        while right[i] < *left_elem {
-            i += 1;
-            if i == right.len() {
-                return true;
-            }
-        }
-        right[i] != *left_elem
-    });
-
-    if let Err(i) = left.binary_search(&value) {
-        left.insert(i, value);
-    }
-
-    true
-}
-
 pub(crate) fn generate_node_types_json(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
@@ -726,6 +648,84 @@ pub(crate) fn generate_node_types_json(
     });
     result.dedup();
     result
+}
+
+fn variable_type_for_child_type(
+    child_type: &ChildType,
+    syntax_grammar: &SyntaxGrammar,
+    lexical_grammar: &LexicalGrammar,
+) -> VariableType {
+    match child_type {
+        ChildType::Aliased(alias) => alias.kind(),
+        ChildType::Normal(symbol) => {
+            if syntax_grammar.supertype_symbols.contains(&symbol) {
+                VariableType::Named
+            } else if syntax_grammar.variables_to_inline.contains(&symbol) {
+                VariableType::Hidden
+            } else {
+                match symbol.kind {
+                    SymbolType::NonTerminal => syntax_grammar.variables[symbol.index].kind,
+                    SymbolType::Terminal => lexical_grammar.variables[symbol.index].kind,
+                    SymbolType::External => syntax_grammar.external_tokens[symbol.index].kind,
+                    _ => VariableType::Hidden,
+                }
+            }
+        }
+    }
+}
+
+fn sorted_vec_insert<T>(vec: &mut Vec<T>, value: &T) -> bool
+where
+    T: Clone + Eq + Ord,
+{
+    if let Err(i) = vec.binary_search(&value) {
+        vec.insert(i, value.clone());
+        true
+    } else {
+        false
+    }
+}
+
+fn sorted_vec_replace<T>(left: &mut Vec<T>, right: &Vec<T>, value: T) -> bool
+where
+    T: Eq + Ord,
+{
+    if left.len() == 0 {
+        return false;
+    }
+
+    let mut i = 0;
+    for right_elem in right.iter() {
+        while left[i] < *right_elem {
+            i += 1;
+            if i == left.len() {
+                return false;
+            }
+        }
+        if left[i] != *right_elem {
+            return false;
+        }
+    }
+
+    i = 0;
+    left.retain(|left_elem| {
+        if i == right.len() {
+            return true;
+        }
+        while right[i] < *left_elem {
+            i += 1;
+            if i == right.len() {
+                return true;
+            }
+        }
+        right[i] != *left_elem
+    });
+
+    if let Err(i) = left.binary_search(&value) {
+        left.insert(i, value);
+    }
+
+    true
 }
 
 #[cfg(test)]
