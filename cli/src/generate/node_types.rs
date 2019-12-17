@@ -3,7 +3,6 @@ use super::rules::{Alias, AliasMap, Symbol, SymbolType};
 use crate::error::{Error, Result};
 use serde_derive::Serialize;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::mem;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum ChildType {
@@ -38,7 +37,7 @@ pub(crate) struct NodeInfoJSON {
     subtypes: Option<Vec<NodeTypeJSON>>,
 }
 
-#[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct NodeTypeJSON {
     #[serde(rename = "type")]
     kind: String,
@@ -136,7 +135,7 @@ impl ChildQuantity {
 ///    not associated with fields. Data regarding these children:
 ///    * `types` - The types of named children with no field.
 ///    * `optional` - Do `N` nodes always have at least one named child with no field?
-///    * `multiple` - Can `N` nodes have multiple named child with no field?
+///    * `multiple` - Can `N` nodes have multiple named children with no field?
 ///
 /// Each summary must account for some indirect factors:
 /// 1. hidden nodes. When a parent node `N` has a hidden child `C`, the visible
@@ -350,46 +349,20 @@ pub(crate) fn get_variable_info(
         }
     }
 
+    // Update all of the node type lists to eliminate hidden nodes.
     for supertype_symbol in &syntax_grammar.supertype_symbols {
         result[supertype_symbol.index]
             .child_types
             .retain(child_type_is_visible);
     }
-
-    // Update all of the node type lists to account for node visiblity:
-    // * Wherever possible, replace lists of subtypes with their supertypes.
-    // * Remove other hidden node types.
-    for i in 0..result.len() {
-        let mut variable_info = VariableInfo::default();
-        mem::swap(&mut variable_info, &mut result[i]);
-
-        // For each named field, make the `types` list more concise by replacing sets of
-        // subtypes with a single supertype. Also remove any hidden node types.
+    for variable_info in result.iter_mut() {
         for (_, field_info) in variable_info.fields.iter_mut() {
-            for supertype_symbol in &syntax_grammar.supertype_symbols {
-                sorted_vec_replace(
-                    &mut field_info.types,
-                    &result[supertype_symbol.index].child_types,
-                    ChildType::Normal(*supertype_symbol),
-                );
-            }
             field_info.types.retain(child_type_is_visible);
-        }
-
-        // Do the same thing for the children without fields.
-        for supertype_symbol in &syntax_grammar.supertype_symbols {
-            sorted_vec_replace(
-                &mut variable_info.children_without_fields.types,
-                &result[supertype_symbol.index].child_types,
-                ChildType::Normal(*supertype_symbol),
-            );
         }
         variable_info
             .children_without_fields
             .types
             .retain(child_type_is_visible);
-
-        result[i] = variable_info;
     }
 
     Ok(result)
@@ -481,6 +454,7 @@ pub(crate) fn generate_node_types_json(
         [None].into_iter().cloned().collect(),
     );
 
+    let mut subtype_map = HashMap::new();
     for (i, info) in variable_info.iter().enumerate() {
         let symbol = Symbol::non_terminal(i);
         let variable = &syntax_grammar.variables[i];
@@ -500,6 +474,13 @@ pub(crate) fn generate_node_types_json(
                 .iter()
                 .map(child_type_to_node_type)
                 .collect::<Vec<_>>();
+            subtype_map.insert(
+                NodeTypeJSON {
+                    kind: node_type_json.kind.clone(),
+                    named: true,
+                },
+                subtypes.clone(),
+            );
             subtypes.sort_unstable();
             subtypes.dedup();
             node_type_json.subtypes = Some(subtypes);
@@ -567,6 +548,15 @@ pub(crate) fn generate_node_types_json(
             .map_or(false, |c| c.types.is_empty())
         {
             node_type_json.children = None;
+        }
+
+        if let Some(children) = &mut node_type_json.children {
+            process_supertypes(children, &subtype_map);
+        }
+        if let Some(fields) = &mut node_type_json.fields {
+            for (_, field_info) in fields.iter_mut() {
+                process_supertypes(field_info, &subtype_map);
+            }
         }
     }
 
@@ -656,6 +646,17 @@ pub(crate) fn generate_node_types_json(
     result
 }
 
+fn process_supertypes(
+    info: &mut FieldInfoJSON,
+    subtype_map: &HashMap<NodeTypeJSON, Vec<NodeTypeJSON>>,
+) {
+    for (supertype, subtypes) in subtype_map {
+        if info.types.contains(supertype) {
+            info.types.retain(|t| !subtypes.contains(t));
+        }
+    }
+}
+
 fn variable_type_for_child_type(
     child_type: &ChildType,
     syntax_grammar: &SyntaxGrammar,
@@ -690,48 +691,6 @@ where
     } else {
         false
     }
-}
-
-fn sorted_vec_replace<T>(left: &mut Vec<T>, right: &Vec<T>, value: T) -> bool
-where
-    T: Eq + Ord,
-{
-    if left.len() == 0 {
-        return false;
-    }
-
-    let mut i = 0;
-    for right_elem in right.iter() {
-        while left[i] < *right_elem {
-            i += 1;
-            if i == left.len() {
-                return false;
-            }
-        }
-        if left[i] != *right_elem {
-            return false;
-        }
-    }
-
-    i = 0;
-    left.retain(|left_elem| {
-        if i == right.len() {
-            return true;
-        }
-        while right[i] < *left_elem {
-            i += 1;
-            if i == right.len() {
-                return true;
-            }
-        }
-        right[i] != *left_elem
-    });
-
-    if let Err(i) = left.binary_search(&value) {
-        left.insert(i, value);
-    }
-
-    true
 }
 
 #[cfg(test)]
