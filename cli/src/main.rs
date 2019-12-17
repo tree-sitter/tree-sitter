@@ -245,7 +245,7 @@ fn run() -> error::Result<()> {
         loader.find_all_languages(&config.parser_directories)?;
 
         let time = matches.is_present("time");
-        let paths = matches.values_of("path").unwrap().into_iter();
+        let paths = collect_paths(matches.values_of("path").unwrap())?;
         let html_mode = matches.is_present("html");
         if html_mode {
             println!("{}", highlight::HTML_HEADER);
@@ -262,7 +262,7 @@ fn run() -> error::Result<()> {
         }
 
         for path in paths {
-            let path = Path::new(path);
+            let path = Path::new(&path);
             let (language, language_config) = match language_config {
                 Some(v) => v,
                 None => match loader.language_configuration_for_file_name(path)? {
