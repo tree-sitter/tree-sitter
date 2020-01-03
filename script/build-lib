@@ -10,7 +10,7 @@ fi
 ${CC}                   \
   -c                    \
   -O3                   \
-  -std=c99              \
+  -std=gnu99            \
   $CFLAGS               \
   -I lib/src            \
   -I lib/include        \
