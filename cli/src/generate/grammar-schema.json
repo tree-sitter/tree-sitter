@@ -102,7 +102,6 @@
     },
 
     "symbol-rule": {
-      "required": ["name"],
       "type": "object",
       "properties": {
         "type": {
