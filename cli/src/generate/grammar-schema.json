@@ -1,10 +1,7 @@
 {
   "type": "object",
 
-  "required": [
-    "name",
-    "rules"
-  ],
+  "required": ["name", "rules"],
 
   "additionalProperties": false,
 
@@ -96,7 +93,7 @@
           "type": "string",
           "pattern": "^PATTERN$"
         },
-        "value": {"type": "string"}
+        "value": { "type": "string" }
       },
       "required": ["type", "value"]
     },
@@ -108,7 +105,7 @@
           "type": "string",
           "pattern": "^SYMBOL$"
         },
-        "name": {"type": "string"}
+        "name": { "type": "string" }
       },
       "required": ["type", "name"]
     },
@@ -209,6 +206,20 @@
       "required": ["type", "content"]
     },
 
+    "field-rule": {
+      "properties": {
+        "name": { "type": "string" },
+        "type": {
+          "type": "string",
+          "pattern": "^FIELD$"
+        },
+        "content": {
+          "$ref": "#/definitions/rule"
+        }
+      },
+      "required": ["name", "type", "content"]
+    },
+
     "prec-rule": {
       "type": "object",
       "properties": {
@@ -238,6 +249,7 @@
         { "$ref": "#/definitions/repeat1-rule" },
         { "$ref": "#/definitions/repeat-rule" },
         { "$ref": "#/definitions/token-rule" },
+        { "$ref": "#/definitions/field-rule" },
         { "$ref": "#/definitions/prec-rule" }
       ]
     }
