@@ -1238,6 +1238,45 @@ fn test_query_comments() {
     });
 }
 
+#[test]
+fn test_query_disable_pattern() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let mut query = Query::new(
+            language,
+            "
+                (function_declaration
+                    name: (identifier) @name)
+                (function_declaration
+                    body: (statement_block) @body)
+                (class_declaration
+                    name: (identifier) @name)
+                (class_declaration
+                    body: (class_body) @body)
+            ",
+        )
+        .unwrap();
+
+        // disable the patterns that match names
+        query.disable_pattern(0);
+        query.disable_pattern(2);
+
+        let source = "class A { constructor() {} } function b() { return 1; }";
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[
+                (3, vec![("body", "{ constructor() {} }")]),
+                (1, vec![("body", "{ return 1; }")]),
+            ],
+        );
+    });
+}
+
 fn collect_matches<'a>(
     matches: impl Iterator<Item = QueryMatch<'a>>,
     query: &'a Query,

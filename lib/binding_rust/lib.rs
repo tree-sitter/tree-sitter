@@ -1322,6 +1322,14 @@ impl Query {
         }
     }
 
+    /// Disable a certain pattern within a query.
+    ///
+    /// This prevents the pattern from matching, and also avoids any resource usage
+    /// associated with the pattern.
+    pub fn disable_pattern(&mut self, index: usize) {
+        unsafe { ffi::ts_query_disable_pattern(self.ptr.as_ptr(), index as u32) }
+    }
+
     fn parse_property(
         function_name: &str,
         capture_names: &[String],

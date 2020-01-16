@@ -893,6 +893,8 @@ void ts_query_disable_capture(
   const char *name,
   uint32_t length
 ) {
+  // Remove capture information for any pattern step that previously
+  // captured with the given name.
   int id = symbol_table_id_for_name(&self->captures, name, length);
   if (id != -1) {
     for (unsigned i = 0; i < self->steps.size; i++) {
@@ -901,8 +903,23 @@ void ts_query_disable_capture(
         step->capture_id = NONE;
       }
     }
+    ts_query__finalize_steps(self);
   }
-  ts_query__finalize_steps(self);
+}
+
+void ts_query_disable_pattern(
+  TSQuery *self,
+  uint32_t pattern_index
+) {
+  // Remove the given pattern from the pattern map. Its steps will still
+  // be in the `steps` array, but they will never be read.
+  for (unsigned i = 0; i < self->pattern_map.size; i++) {
+    PatternEntry *pattern = &self->pattern_map.contents[i];
+    if (pattern->pattern_index == pattern_index) {
+      array_erase(&self->pattern_map, i);
+      i--;
+    }
+  }
 }
 
 /***************

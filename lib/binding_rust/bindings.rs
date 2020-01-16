@@ -669,6 +669,12 @@ extern "C" {
     );
 }
 extern "C" {
+    #[doc = " Disable a certain pattern within a query. This prevents the pattern"]
+    #[doc = " from matching and removes most of the overhead associated with the"]
+    #[doc = " pattern."]
+    pub fn ts_query_disable_pattern(arg1: *mut TSQuery, arg2: u32);
+}
+extern "C" {
     #[doc = " Create a new cursor for executing a given query."]
     #[doc = ""]
     #[doc = " The cursor stores the state that is needed to iteratively search"]
