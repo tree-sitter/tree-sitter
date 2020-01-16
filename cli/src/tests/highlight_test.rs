@@ -317,8 +317,8 @@ fn test_highlighting_empty_lines() {
 }
 
 #[test]
-fn test_highlighting_ejs() {
-    let source = vec!["<div><% foo() %></div>"].join("\n");
+fn test_highlighting_ejs_with_html_and_javascript() {
+    let source = vec!["<div><% foo() %></div><script> bar() </script>"].join("\n");
 
     assert_eq!(
         &to_token_vector(&source, &EJS_HIGHLIGHT).unwrap(),
@@ -335,7 +335,18 @@ fn test_highlighting_ejs() {
             ("%>", vec!["keyword"]),
             ("</", vec!["punctuation.bracket"]),
             ("div", vec!["tag"]),
-            (">", vec!["punctuation.bracket"])
+            (">", vec!["punctuation.bracket"]),
+            ("<", vec!["punctuation.bracket"]),
+            ("script", vec!["tag"]),
+            (">", vec!["punctuation.bracket"]),
+            (" ", vec![]),
+            ("bar", vec!["function"]),
+            ("(", vec!["punctuation.bracket"]),
+            (")", vec!["punctuation.bracket"]),
+            (" ", vec![]),
+            ("</", vec!["punctuation.bracket"]),
+            ("script", vec!["tag"]),
+            (">", vec!["punctuation.bracket"]),
         ]],
     );
 }

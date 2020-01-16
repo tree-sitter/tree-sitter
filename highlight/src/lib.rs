@@ -5,7 +5,8 @@ pub use c_lib as c;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{iter, mem, ops, str, usize};
 use tree_sitter::{
-    Language, Node, Parser, Point, Query, QueryCaptures, QueryCursor, QueryError, Range, Tree,
+    Language, Node, Parser, Point, Query, QueryCaptures, QueryCursor, QueryError, QueryMatch,
+    Range, Tree,
 };
 
 const CANCELLATION_CHECK_INTERVAL: usize = 100;
@@ -36,12 +37,11 @@ pub enum HighlightEvent {
 pub struct HighlightConfiguration {
     pub language: Language,
     pub query: Query,
-    injections_query: Query,
+    combined_injections_query: Option<Query>,
     locals_pattern_index: usize,
     highlights_pattern_index: usize,
     highlight_indices: Vec<Option<Highlight>>,
     non_local_variable_patterns: Vec<bool>,
-    injection_site_capture_index: Option<u32>,
     injection_content_capture_index: Option<u32>,
     injection_language_capture_index: Option<u32>,
     local_scope_capture_index: Option<u32>,
@@ -87,7 +87,6 @@ where
     source: &'a [u8],
     byte_offset: usize,
     highlighter: &'a mut Highlighter,
-    injections_cursor: QueryCursor,
     injection_callback: F,
     cancellation_flag: Option<&'a AtomicUsize>,
     layers: Vec<HighlightIterLayer<'a>>,
@@ -125,13 +124,14 @@ impl Highlighter {
         config: &'a HighlightConfiguration,
         source: &'a [u8],
         cancellation_flag: Option<&'a AtomicUsize>,
-        injection_callback: impl FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
+        mut injection_callback: impl FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
     ) -> Result<impl Iterator<Item = Result<HighlightEvent, Error>> + 'a, Error> {
-        let layer = HighlightIterLayer::new(
-            config,
+        let layers = HighlightIterLayer::new(
             source,
             self,
             cancellation_flag,
+            &mut injection_callback,
+            config,
             0,
             vec![Range {
                 start_byte: 0,
@@ -140,21 +140,19 @@ impl Highlighter {
                 end_point: Point::new(usize::MAX, usize::MAX),
             }],
         )?;
-
-        let injections_cursor = self.cursors.pop().unwrap_or(QueryCursor::new());
-
-        Ok(HighlightIter {
+        let mut result = HighlightIter {
             source,
             byte_offset: 0,
             injection_callback,
             cancellation_flag,
-            injections_cursor,
             highlighter: self,
             iter_count: 0,
-            layers: vec![layer],
+            layers: layers,
             next_event: None,
             last_highlight_range: None,
-        })
+        };
+        result.sort_layers();
+        Ok(result)
     }
 }
 
@@ -187,17 +185,9 @@ impl HighlightConfiguration {
         let highlights_query_offset = query_source.len();
         query_source.push_str(highlights_query);
 
-        // Construct a query with the concatenated string.
+        // Construct a single query by concatenating the three query strings, but record the
+        // range of pattern indices that belong to each individual string.
         let mut query = Query::new(language, &query_source)?;
-
-        let injections_query = Query::new(language, injection_query)?;
-        for injection_capture in injections_query.capture_names() {
-            if injection_capture != "injection.site" {
-                query.disable_capture(injection_capture);
-            }
-        }
-
-        // Determine the range of pattern indices that belong to each section of the query.
         let mut locals_pattern_index = 0;
         let mut highlights_pattern_index = 0;
         for i in 0..(query.pattern_count()) {
@@ -212,6 +202,27 @@ impl HighlightConfiguration {
             }
         }
 
+        // Construct a separate query just for dealing with the 'combined injections'.
+        // Disable the combined injection patterns in the main query.
+        let mut combined_injections_query = Query::new(language, injection_query)?;
+        let mut has_combined_queries = false;
+        for pattern_index in 0..locals_pattern_index {
+            let settings = query.property_settings(pattern_index);
+            if settings.iter().any(|s| &*s.key == "injection.combined") {
+                has_combined_queries = true;
+                query.disable_pattern(pattern_index);
+            } else {
+                combined_injections_query.disable_pattern(pattern_index);
+            }
+        }
+        let combined_injections_query = if has_combined_queries {
+            Some(combined_injections_query)
+        } else {
+            None
+        };
+
+        // Find all of the highlighting patterns that are disabled for nodes that
+        // have been identified as local variables.
         let non_local_variable_patterns = (0..query.pattern_count())
             .map(|i| {
                 query
@@ -221,9 +232,9 @@ impl HighlightConfiguration {
             })
             .collect();
 
+        // Store the numeric ids for all of the special captures.
         let mut injection_content_capture_index = None;
         let mut injection_language_capture_index = None;
-        let mut injection_site_capture_index = None;
         let mut local_def_capture_index = None;
         let mut local_def_value_capture_index = None;
         let mut local_ref_capture_index = None;
@@ -233,7 +244,6 @@ impl HighlightConfiguration {
             match name.as_str() {
                 "injection.content" => injection_content_capture_index = i,
                 "injection.language" => injection_language_capture_index = i,
-                "injection.site" => injection_site_capture_index = i,
                 "local.definition" => local_def_capture_index = i,
                 "local.definition-value" => local_def_value_capture_index = i,
                 "local.reference" => local_ref_capture_index = i,
@@ -243,18 +253,16 @@ impl HighlightConfiguration {
         }
 
         let highlight_indices = vec![None; query.capture_names().len()];
-
         Ok(HighlightConfiguration {
             language,
             query,
-            injections_query,
+            combined_injections_query,
             locals_pattern_index,
             highlights_pattern_index,
             highlight_indices,
             non_local_variable_patterns,
             injection_content_capture_index,
             injection_language_capture_index,
-            injection_site_capture_index,
             local_def_capture_index,
             local_def_value_capture_index,
             local_ref_capture_index,
@@ -308,70 +316,125 @@ impl HighlightConfiguration {
 }
 
 impl<'a> HighlightIterLayer<'a> {
-    fn new(
-        config: &'a HighlightConfiguration,
+    /// Create a new 'layer' of highlighting for this document.
+    ///
+    /// In the even that the new layer contains "combined injections" (injections where multiple
+    /// disjoint ranges are parsed as one syntax tree), these will be eagerly processed and
+    /// added to the returned vector.
+    fn new<F: FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a>(
         source: &'a [u8],
         highlighter: &mut Highlighter,
         cancellation_flag: Option<&'a AtomicUsize>,
-        depth: usize,
-        ranges: Vec<Range>,
-    ) -> Result<Self, Error> {
-        highlighter
-            .parser
-            .set_language(config.language)
-            .map_err(|_| Error::InvalidLanguage)?;
-        unsafe { highlighter.parser.set_cancellation_flag(cancellation_flag) };
+        injection_callback: &mut F,
+        mut config: &'a HighlightConfiguration,
+        mut depth: usize,
+        mut ranges: Vec<Range>,
+    ) -> Result<Vec<Self>, Error> {
+        let mut result = Vec::with_capacity(1);
+        let mut queue = Vec::new();
+        loop {
+            highlighter
+                .parser
+                .set_language(config.language)
+                .map_err(|_| Error::InvalidLanguage)?;
+            highlighter.parser.set_included_ranges(&ranges);
+            unsafe { highlighter.parser.set_cancellation_flag(cancellation_flag) };
+            let tree = highlighter
+                .parser
+                .parse(source, None)
+                .ok_or(Error::Cancelled)?;
+            unsafe { highlighter.parser.set_cancellation_flag(None) };
+            let mut cursor = highlighter.cursors.pop().unwrap_or(QueryCursor::new());
 
-        highlighter.parser.set_included_ranges(&ranges);
+            // Process combined injections.
+            if let Some(combined_injections_query) = &config.combined_injections_query {
+                let mut injections_by_pattern_index =
+                    vec![(None, Vec::new(), false); combined_injections_query.pattern_count()];
+                let matches =
+                    cursor.matches(combined_injections_query, tree.root_node(), |n: Node| {
+                        &source[n.byte_range()]
+                    });
+                for mat in matches {
+                    let entry = &mut injections_by_pattern_index[mat.pattern_index];
+                    let (language_name, content_node, include_children) =
+                        injection_for_match(config, combined_injections_query, &mat, source);
+                    if language_name.is_some() {
+                        entry.0 = language_name;
+                    }
+                    if let Some(content_node) = content_node {
+                        entry.1.push(content_node);
+                    }
+                    entry.2 = include_children;
+                }
+                for (lang_name, content_nodes, includes_children) in injections_by_pattern_index {
+                    if let (Some(lang_name), false) = (lang_name, content_nodes.is_empty()) {
+                        if let Some(next_config) = (injection_callback)(lang_name) {
+                            let ranges =
+                                Self::intersect_ranges(&ranges, &content_nodes, includes_children);
+                            if !ranges.is_empty() {
+                                queue.push((next_config, depth + 1, ranges));
+                            }
+                        }
+                    }
+                }
+            }
 
-        let tree = highlighter
-            .parser
-            .parse(source, None)
-            .ok_or(Error::Cancelled)?;
-        let mut cursor = highlighter.cursors.pop().unwrap_or(QueryCursor::new());
+            // The `captures` iterator borrows the `Tree` and the `QueryCursor`, which
+            // prevents them from being moved. But both of these values are really just
+            // pointers, so it's actually ok to move them.
+            let tree_ref = unsafe { mem::transmute::<_, &'static Tree>(&tree) };
+            let cursor_ref = unsafe { mem::transmute::<_, &'static mut QueryCursor>(&mut cursor) };
+            let captures = cursor_ref
+                .captures(&config.query, tree_ref.root_node(), move |n: Node| {
+                    &source[n.byte_range()]
+                })
+                .peekable();
 
-        // The `captures` iterator borrows the `Tree` and the `QueryCursor`, which
-        // prevents them from being moved. But both of these values are really just
-        // pointers, so it's actually ok to move them.
-        let tree_ref = unsafe { mem::transmute::<_, &'static Tree>(&tree) };
-        let cursor_ref = unsafe { mem::transmute::<_, &'static mut QueryCursor>(&mut cursor) };
-        let captures = cursor_ref
-            .captures(&config.query, tree_ref.root_node(), move |n| {
-                &source[n.byte_range()]
-            })
-            .peekable();
+            result.push(HighlightIterLayer {
+                highlight_end_stack: Vec::new(),
+                scope_stack: vec![LocalScope {
+                    inherits: false,
+                    range: 0..usize::MAX,
+                    local_defs: Vec::new(),
+                }],
+                cursor,
+                depth,
+                _tree: tree,
+                captures,
+                config,
+                ranges,
+            });
 
-        Ok(HighlightIterLayer {
-            highlight_end_stack: Vec::new(),
-            scope_stack: vec![LocalScope {
-                inherits: false,
-                range: 0..usize::MAX,
-                local_defs: Vec::new(),
-            }],
-            cursor,
-            depth,
-            _tree: tree,
-            captures,
-            config,
-            ranges,
-        })
+            if queue.is_empty() {
+                break;
+            } else {
+                let (next_config, next_depth, next_ranges) = queue.remove(0);
+                config = next_config;
+                depth = next_depth;
+                ranges = next_ranges;
+            }
+        }
+
+        Ok(result)
     }
 
     // Compute the ranges that should be included when parsing an injection.
     // This takes into account three things:
-    // * `parent_ranges` - The new injection may be nested inside of *another* injection
-    //   (e.g. JavaScript within HTML within ERB). The parent injection's ranges must
-    //   be taken into account.
+    // * `parent_ranges` - The ranges must all fall within the *current* layer's ranges.
     // * `nodes` - Every injection takes place within a set of nodes. The injection ranges
     //   are the ranges of those nodes.
     // * `includes_children` - For some injections, the content nodes' children should be
     //   excluded from the nested document, so that only the content nodes' *own* content
     //   is reparsed. For other injections, the content nodes' entire ranges should be
     //   reparsed, including the ranges of their children.
-    fn intersect_ranges(&self, nodes: &Vec<Node>, includes_children: bool) -> Vec<Range> {
+    fn intersect_ranges(
+        parent_ranges: &[Range],
+        nodes: &[Node],
+        includes_children: bool,
+    ) -> Vec<Range> {
         let mut cursor = nodes[0].walk();
         let mut result = Vec::new();
-        let mut parent_range_iter = self.ranges.iter();
+        let mut parent_range_iter = parent_ranges.iter();
         let mut parent_range = parent_range_iter
             .next()
             .expect("Layers should only be constructed with non-empty ranges vectors");
@@ -558,7 +621,7 @@ where
                 }
             }
 
-            // If none of the layers have any more scope boundaries, terminate.
+            // If none of the layers have any more highlight boundaries, terminate.
             if self.layers.is_empty() {
                 if self.byte_offset < self.source.len() {
                     let result = Some(Ok(HighlightEvent::Source {
@@ -572,8 +635,7 @@ where
                 }
             }
 
-            // Get the next capture. If there are no more captures, then emit the rest of the
-            // source code.
+            // Get the next capture from whichever layer has the earliest highlight boundary.
             let match_;
             let mut captures;
             let mut capture;
@@ -584,7 +646,10 @@ where
                 captures = match_.captures;
                 pattern_index = match_.pattern_index;
                 capture = captures[*capture_index];
-            } else if let Some(end_byte) = layer.highlight_end_stack.last().cloned() {
+            }
+            // If there are no more captures, then emit any remaining highlight end events.
+            // And if there are none of those, then just advance to the end of the document.
+            else if let Some(end_byte) = layer.highlight_end_stack.last().cloned() {
                 layer.highlight_end_stack.pop();
                 return self.emit_event(end_byte, Some(HighlightEvent::HighlightEnd));
             } else {
@@ -602,131 +667,51 @@ where
                 }
             }
 
-            // Remove from the scope stack any local scopes that have already ended.
+            // Remove from the local scope stack any local scopes that have already ended.
             while range.start > layer.scope_stack.last().unwrap().range.end {
                 layer.scope_stack.pop();
             }
 
             // If this capture represents an injection, then process the injection.
             if pattern_index < layer.config.locals_pattern_index {
-                let site_capture_index = layer.config.injection_site_capture_index;
-                let content_capture_index = layer.config.injection_content_capture_index;
-                let language_capture_index = layer.config.injection_language_capture_index;
-
-                // Injections must have a `injection.site` capture, which contains all of the
-                // information about the injection.
-                let site_node = match_.captures.iter().find_map(|c| {
-                    if Some(c.index) == site_capture_index {
-                        return Some(c.node);
-                    } else {
-                        return None;
-                    }
-                });
+                let (language_name, content_node, include_children) =
+                    injection_for_match(&layer.config, &layer.config.query, match_, &self.source);
 
                 // Explicitly remove this match so that none of its other captures will remain
-                // in the stream of captures.
+                // in the stream of captures. The `unwrap` is ok because
                 layer.captures.next().unwrap().0.remove();
 
-                if let Some(site_node) = site_node {
-                    // Discard any subsequent matches for same injection site.
-                    while let Some((next_match, _)) = layer.captures.peek() {
-                        if next_match.pattern_index < layer.config.locals_pattern_index
-                            && next_match
-                                .captures
-                                .iter()
-                                .any(|c| Some(c.index) == site_capture_index && c.node == site_node)
-                        {
-                            layer.captures.next().unwrap().0.remove();
-                            continue;
-                        }
-                        break;
-                    }
-
-                    // Find the language name and the nodes that represents the injection content.
-                    // Use a separate Query and QueryCursor in order to avoid the injection
-                    // captures being intermixed with other captures related to local variables
-                    // and syntax highlighting.
-                    let source = self.source;
-                    let mut injections = Vec::<(usize, Option<&str>, Vec<Node>, bool)>::new();
-                    for mat in self.injections_cursor.matches(
-                        &layer.config.injections_query,
-                        site_node,
-                        move |node| &source[node.byte_range()],
-                    ) {
-                        let entry = if let Some(entry) =
-                            injections.iter_mut().find(|e| e.0 == mat.pattern_index)
-                        {
-                            entry
-                        } else {
-                            injections.push((mat.pattern_index, None, Vec::new(), false));
-                            injections.last_mut().unwrap()
-                        };
-
-                        for capture in mat.captures {
-                            let index = Some(capture.index);
-                            if index == site_capture_index {
-                                if capture.node != site_node {
-                                    break;
-                                }
-                            } else if index == language_capture_index && entry.1.is_none() {
-                                entry.1 = capture.node.utf8_text(self.source).ok();
-                            } else if index == content_capture_index {
-                                entry.2.push(capture.node);
-                            }
-                        }
-                    }
-
-                    for (pattern_index, language, _, include_children) in injections.iter_mut() {
-                        for prop in layer.config.query.property_settings(*pattern_index) {
-                            match prop.key.as_ref() {
-                                // In addition to specifying the language name via the text of a
-                                // captured node, it can also be hard-coded via a `set!` predicate
-                                // that sets the injection.language key.
-                                "injection.language" => {
-                                    if language.is_none() {
-                                        *language = prop.value.as_ref().map(|s| s.as_ref())
+                // If a language is found with the given name, then add a new language layer
+                // to the highlighted document.
+                if let (Some(language_name), Some(content_node)) = (language_name, content_node) {
+                    if let Some(config) = (self.injection_callback)(language_name) {
+                        let ranges = HighlightIterLayer::intersect_ranges(
+                            &self.layers[0].ranges,
+                            &[content_node],
+                            include_children,
+                        );
+                        if !ranges.is_empty() {
+                            match HighlightIterLayer::new(
+                                self.source,
+                                self.highlighter,
+                                self.cancellation_flag,
+                                &mut self.injection_callback,
+                                config,
+                                self.layers[0].depth + 1,
+                                ranges,
+                            ) {
+                                Ok(layers) => {
+                                    for layer in layers {
+                                        self.insert_layer(layer);
                                     }
                                 }
-
-                                // By default, injections do not include the *children* of an
-                                // `injection.content` node - only the ranges that belong to the
-                                // node itself. This can be changed using a `set!` predicate that
-                                // sets the `injection.include-children` key.
-                                "injection.include-children" => *include_children = true,
-                                _ => {}
+                                Err(e) => return Some(Err(e)),
                             }
                         }
                     }
-
-                    for (_, language, content_nodes, include_children) in injections {
-                        // If a language is found with the given name, then add a new language layer
-                        // to the highlighted document.
-                        if let Some(language) = language {
-                            if let Some(config) = (self.injection_callback)(language) {
-                                if !content_nodes.is_empty() {
-                                    let ranges = self.layers[0]
-                                        .intersect_ranges(&content_nodes, include_children);
-                                    if !ranges.is_empty() {
-                                        match HighlightIterLayer::new(
-                                            config,
-                                            self.source,
-                                            self.highlighter,
-                                            self.cancellation_flag,
-                                            self.layers[0].depth + 1,
-                                            ranges,
-                                        ) {
-                                            Ok(layer) => self.insert_layer(layer),
-                                            Err(e) => return Some(Err(e)),
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    self.sort_layers();
                 }
 
+                self.sort_layers();
                 continue;
             }
 
@@ -826,7 +811,11 @@ where
                 break;
             }
 
+            // Otherwise, this capture must represent a highlight.
             let mut has_highlight = true;
+
+            // If this exact range has already been highlighted by an earlier pattern, or by
+            // a different layer, then skip over this one.
             if let Some((last_start, last_end, last_depth)) = self.last_highlight_range {
                 if range.start == last_start && range.end == last_end && layer.depth < last_depth {
                     has_highlight = false;
@@ -992,4 +981,48 @@ impl HtmlRenderer {
             }
         }
     }
+}
+
+fn injection_for_match<'a>(
+    config: &HighlightConfiguration,
+    query: &'a Query,
+    query_match: &QueryMatch<'a>,
+    source: &'a [u8],
+) -> (Option<&'a str>, Option<Node<'a>>, bool) {
+    let content_capture_index = config.injection_content_capture_index;
+    let language_capture_index = config.injection_language_capture_index;
+
+    let mut language_name = None;
+    let mut content_node = None;
+    for capture in query_match.captures {
+        let index = Some(capture.index);
+        if index == language_capture_index {
+            language_name = capture.node.utf8_text(source).ok();
+        } else if index == content_capture_index {
+            content_node = Some(capture.node);
+        }
+    }
+
+    let mut include_children = false;
+    for prop in query.property_settings(query_match.pattern_index) {
+        match prop.key.as_ref() {
+            // In addition to specifying the language name via the text of a
+            // captured node, it can also be hard-coded via a `set!` predicate
+            // that sets the injection.language key.
+            "injection.language" => {
+                if language_name.is_none() {
+                    language_name = prop.value.as_ref().map(|s| s.as_ref())
+                }
+            }
+
+            // By default, injections do not include the *children* of an
+            // `injection.content` node - only the ranges that belong to the
+            // node itself. This can be changed using a `set!` predicate that
+            // sets the `injection.include-children` key.
+            "injection.include-children" => include_children = true,
+            _ => {}
+        }
+    }
+
+    (language_name, content_node, include_children)
 }
