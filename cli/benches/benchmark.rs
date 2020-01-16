@@ -17,7 +17,6 @@ lazy_static! {
     static ref REPETITION_COUNT: usize = env::var("TREE_SITTER_BENCHMARK_REPETITION_COUNT")
         .map(|s| usize::from_str_radix(&s, 10).unwrap())
         .unwrap_or(5);
-
     static ref TEST_LOADER: Loader = Loader::new(SCRATCH_DIR.clone());
     static ref EXAMPLE_PATHS_BY_LANGUAGE_DIR: BTreeMap<PathBuf, Vec<PathBuf>> = {
         fn process_dir(result: &mut BTreeMap<PathBuf, Vec<PathBuf>>, dir: &Path) {
@@ -137,7 +136,7 @@ fn main() {
     eprintln!("");
 }
 
-fn aggregate(speeds: &Vec<(usize)>) -> Option<(usize, usize)> {
+fn aggregate(speeds: &Vec<usize>) -> Option<(usize, usize)> {
     if speeds.is_empty() {
         return None;
     }

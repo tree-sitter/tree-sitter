@@ -62,10 +62,12 @@ typedef struct {
 } SymbolTable;
 
 /*
- * PatternEntry - The set of steps needed to match a particular pattern,
- * represented as a slice of a shared array. These entries are stored in a
- * 'pattern map' - a sorted array that makes it possible to efficiently lookup
- * patterns based on the symbol for their first step.
+ * PatternEntry - Information about the starting point for matching a
+ * particular pattern, consisting of the index of the pattern within the query,
+ * and the index of the patter's first step in the shared `steps` array. These
+ * entries are stored in a 'pattern map' - a sorted array that makes it
+ * possible to efficiently lookup patterns based on the symbol for their first
+ * step.
  */
 typedef struct {
   uint16_t step_index;
@@ -333,7 +335,7 @@ static uint16_t symbol_table_insert_name(
 // to quickly find the starting steps of all of the patterns whose root matches
 // that node. Each entry has two fields: a `pattern_index`, which identifies one
 // of the patterns in the query, and a `step_index`, which indicates the start
-// offset of that pattern's steps pattern within the `steps` array.
+// offset of that pattern's steps within the `steps` array.
 //
 // The entries are sorted by the patterns' root symbols, and lookups use a
 // binary search. This ensures that the cost of this initial lookup step
@@ -891,6 +893,8 @@ void ts_query_disable_capture(
   const char *name,
   uint32_t length
 ) {
+  // Remove capture information for any pattern step that previously
+  // captured with the given name.
   int id = symbol_table_id_for_name(&self->captures, name, length);
   if (id != -1) {
     for (unsigned i = 0; i < self->steps.size; i++) {
@@ -899,8 +903,23 @@ void ts_query_disable_capture(
         step->capture_id = NONE;
       }
     }
+    ts_query__finalize_steps(self);
   }
-  ts_query__finalize_steps(self);
+}
+
+void ts_query_disable_pattern(
+  TSQuery *self,
+  uint32_t pattern_index
+) {
+  // Remove the given pattern from the pattern map. Its steps will still
+  // be in the `steps` array, but they will never be read.
+  for (unsigned i = 0; i < self->pattern_map.size; i++) {
+    PatternEntry *pattern = &self->pattern_map.contents[i];
+    if (pattern->pattern_index == pattern_index) {
+      array_erase(&self->pattern_map, i);
+      i--;
+    }
+  }
 }
 
 /***************
@@ -1010,7 +1029,7 @@ static bool ts_query_cursor__first_in_progress_capture(
 
 static bool ts_query__cursor_add_state(
   TSQueryCursor *self,
-  const PatternEntry *slice
+  const PatternEntry *pattern
 ) {
   uint32_t list_id = capture_list_pool_acquire(&self->capture_list_pool);
 
@@ -1037,11 +1056,11 @@ static bool ts_query__cursor_add_state(
     }
   }
 
-  LOG("  start state. pattern:%u\n", slice->pattern_index);
+  LOG("  start state. pattern:%u\n", pattern->pattern_index);
   array_push(&self->states, ((QueryState) {
     .capture_list_id = list_id,
-    .step_index = slice->step_index,
-    .pattern_index = slice->pattern_index,
+    .step_index = pattern->step_index,
+    .pattern_index = pattern->pattern_index,
     .start_depth = self->depth,
     .capture_count = 0,
     .consumed_capture_count = 0,
@@ -1157,31 +1176,31 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
 
       // Add new states for any patterns whose root node is a wildcard.
       for (unsigned i = 0; i < self->query->wildcard_root_pattern_count; i++) {
-        PatternEntry *slice = &self->query->pattern_map.contents[i];
-        QueryStep *step = &self->query->steps.contents[slice->step_index];
+        PatternEntry *pattern = &self->query->pattern_map.contents[i];
+        QueryStep *step = &self->query->steps.contents[pattern->step_index];
 
         // If this node matches the first step of the pattern, then add a new
         // state at the start of this pattern.
         if (step->field && field_id != step->field) continue;
-        if (!ts_query__cursor_add_state(self, slice)) break;
+        if (!ts_query__cursor_add_state(self, pattern)) break;
       }
 
       // Add new states for any patterns whose root node matches this node.
       unsigned i;
       if (ts_query__pattern_map_search(self->query, symbol, &i)) {
-        PatternEntry *slice = &self->query->pattern_map.contents[i];
-        QueryStep *step = &self->query->steps.contents[slice->step_index];
+        PatternEntry *pattern = &self->query->pattern_map.contents[i];
+        QueryStep *step = &self->query->steps.contents[pattern->step_index];
         do {
           // If this node matches the first step of the pattern, then add a new
           // state at the start of this pattern.
           if (step->field && field_id != step->field) continue;
-          if (!ts_query__cursor_add_state(self, slice)) break;
+          if (!ts_query__cursor_add_state(self, pattern)) break;
 
           // Advance to the next pattern whose root node matches this node.
           i++;
           if (i == self->query->pattern_map.size) break;
-          slice = &self->query->pattern_map.contents[i];
-          step = &self->query->steps.contents[slice->step_index];
+          pattern = &self->query->pattern_map.contents[i];
+          step = &self->query->steps.contents[pattern->step_index];
         } while (step->symbol == symbol);
       }
 

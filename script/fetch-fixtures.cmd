@@ -3,9 +3,9 @@
 call:fetch_grammar bash              master
 call:fetch_grammar c                 master
 call:fetch_grammar cpp               master
-call:fetch_grammar embedded-template master
+call:fetch_grammar embedded-template new-highlight-injection-api
 call:fetch_grammar go                master
-call:fetch_grammar html              master
+call:fetch_grammar html              new-highlight-injection-api
 call:fetch_grammar javascript        master
 call:fetch_grammar json              master
 call:fetch_grammar python            master
