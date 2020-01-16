@@ -51,13 +51,25 @@ pub fn query_files_at_paths(
             for m in query_cursor.matches(&query, tree.root_node(), text_callback) {
                 writeln!(&mut stdout, "  pattern: {}", m.pattern_index)?;
                 for capture in m.captures {
-                    writeln!(
-                        &mut stdout,
-                        "    capture: {}, row: {}, text: {:?}",
-                        &query.capture_names()[capture.index as usize],
-                        capture.node.start_position().row,
-                        capture.node.utf8_text(&source_code).unwrap_or("")
-                    )?;
+                    let start = capture.node.start_position();
+                    let end = capture.node.end_position();
+                    if end.row == start.row {
+                        writeln!(
+                            &mut stdout,
+                            "    capture: {}, start: {}, text: {:?}",
+                            &query.capture_names()[capture.index as usize],
+                            start,
+                            capture.node.utf8_text(&source_code).unwrap_or("")
+                        )?;
+                    } else {
+                        writeln!(
+                            &mut stdout,
+                            "    capture: {}, start: {}, end: {}",
+                            &query.capture_names()[capture.index as usize],
+                            start,
+                            end,
+                        )?;
+                    }
                 }
             }
         }
