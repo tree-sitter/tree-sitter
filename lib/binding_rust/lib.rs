@@ -142,6 +142,10 @@ pub struct LanguageError {
     version: usize,
 }
 
+/// An error that occurred in `Parser::set_included_ranges`.
+#[derive(Debug, PartialEq, Eq)]
+pub struct IncludedRangesError(pub usize);
+
 /// An error that occurred when trying to create a `Query`.
 #[derive(Debug, PartialEq, Eq)]
 pub enum QueryError {
@@ -508,16 +512,41 @@ impl Parser {
     /// allows you to parse only a *portion* of a document but still return a syntax
     /// tree whose ranges match up with the document as a whole. You can also pass
     /// multiple disjoint ranges.
-    pub fn set_included_ranges(&mut self, ranges: &[Range]) {
+    ///
+    /// If `ranges` is empty, then the entire document will be parsed. Otherwise,
+    /// the given ranges must be ordered from earliest to latest in the document,
+    /// and they must not overlap. That is, the following must hold for all
+    /// `i` < `length - 1`:
+    ///
+    ///     ranges[i].end_byte <= ranges[i + 1].start_byte
+    ///
+    /// If this requirement is not satisfied, method will panic.
+    pub fn set_included_ranges<'a>(
+        &mut self,
+        ranges: &'a [Range],
+    ) -> Result<(), IncludedRangesError> {
         let ts_ranges: Vec<ffi::TSRange> =
             ranges.iter().cloned().map(|range| range.into()).collect();
-        unsafe {
+        let result = unsafe {
             ffi::ts_parser_set_included_ranges(
                 self.0.as_ptr(),
                 ts_ranges.as_ptr(),
                 ts_ranges.len() as u32,
             )
         };
+
+        if result {
+            Ok(())
+        } else {
+            let mut prev_end_byte = 0;
+            for (i, range) in ranges.iter().enumerate() {
+                if range.start_byte < prev_end_byte || range.end_byte < range.start_byte {
+                    return Err(IncludedRangesError(i));
+                }
+                prev_end_byte = range.end_byte;
+            }
+            Err(IncludedRangesError(0))
+        }
     }
 
     /// Get the parser's current cancellation flag pointer.

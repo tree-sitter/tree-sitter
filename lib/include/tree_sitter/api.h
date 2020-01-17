@@ -174,8 +174,19 @@ const TSLanguage *ts_parser_language(const TSParser *self);
  * The second and third parameters specify the location and length of an array
  * of ranges. The parser does *not* take ownership of these ranges; it copies
  * the data, so it doesn't matter how these ranges are allocated.
+ *
+ * If `length` is zero, then the entire document will be parsed. Otherwise,
+ * the given ranges must be ordered from earliest to latest in the document,
+ * and they must not overlap. That is, the following must hold for all
+ * `i` < `length - 1`:
+ *
+ *     ranges[i].end_byte <= ranges[i + 1].start_byte
+ *
+ * If this requirement is not satisfied, the operation will fail, the ranges
+ * will not be assigned, and this function will return `false`. On success,
+ * this function returns `true`
  */
-void ts_parser_set_included_ranges(
+bool ts_parser_set_included_ranges(
   TSParser *self,
   const TSRange *ranges,
   uint32_t length

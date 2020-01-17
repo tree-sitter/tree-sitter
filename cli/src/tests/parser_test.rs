@@ -5,7 +5,7 @@ use crate::generate::generate_parser_for_grammar;
 use crate::parse::{perform_edit, Edit};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{thread, time};
-use tree_sitter::{InputEdit, LogType, Parser, Point, Range};
+use tree_sitter::{IncludedRangesError, InputEdit, LogType, Parser, Point, Range};
 
 #[test]
 fn test_parsing_simple_string() {
@@ -671,7 +671,9 @@ fn test_parsing_with_one_included_range() {
     let script_content_node = html_tree.root_node().child(1).unwrap().child(1).unwrap();
     assert_eq!(script_content_node.kind(), "raw_text");
 
-    parser.set_included_ranges(&[script_content_node.range()]);
+    parser
+        .set_included_ranges(&[script_content_node.range()])
+        .unwrap();
     parser.set_language(get_language("javascript")).unwrap();
     let js_tree = parser.parse(source_code, None).unwrap();
 
@@ -711,26 +713,28 @@ fn test_parsing_with_multiple_included_ranges() {
     let close_quote_node = template_string_node.child(3).unwrap();
 
     parser.set_language(get_language("html")).unwrap();
-    parser.set_included_ranges(&[
-        Range {
-            start_byte: open_quote_node.end_byte(),
-            start_point: open_quote_node.end_position(),
-            end_byte: interpolation_node1.start_byte(),
-            end_point: interpolation_node1.start_position(),
-        },
-        Range {
-            start_byte: interpolation_node1.end_byte(),
-            start_point: interpolation_node1.end_position(),
-            end_byte: interpolation_node2.start_byte(),
-            end_point: interpolation_node2.start_position(),
-        },
-        Range {
-            start_byte: interpolation_node2.end_byte(),
-            start_point: interpolation_node2.end_position(),
-            end_byte: close_quote_node.start_byte(),
-            end_point: close_quote_node.start_position(),
-        },
-    ]);
+    parser
+        .set_included_ranges(&[
+            Range {
+                start_byte: open_quote_node.end_byte(),
+                start_point: open_quote_node.end_position(),
+                end_byte: interpolation_node1.start_byte(),
+                end_point: interpolation_node1.start_position(),
+            },
+            Range {
+                start_byte: interpolation_node1.end_byte(),
+                start_point: interpolation_node1.end_position(),
+                end_byte: interpolation_node2.start_byte(),
+                end_point: interpolation_node2.start_position(),
+            },
+            Range {
+                start_byte: interpolation_node2.end_byte(),
+                start_point: interpolation_node2.end_position(),
+                end_byte: close_quote_node.start_byte(),
+                end_point: close_quote_node.start_position(),
+            },
+        ])
+        .unwrap();
     let html_tree = parser.parse(source_code, None).unwrap();
 
     assert_eq!(
@@ -780,6 +784,47 @@ fn test_parsing_with_multiple_included_ranges() {
 }
 
 #[test]
+fn test_parsing_error_in_invalid_included_ranges() {
+    let mut parser = Parser::new();
+
+    // Ranges are not ordered
+    let error = parser
+        .set_included_ranges(&[
+            Range {
+                start_byte: 23,
+                end_byte: 29,
+                start_point: Point::new(0, 23),
+                end_point: Point::new(0, 29),
+            },
+            Range {
+                start_byte: 0,
+                end_byte: 5,
+                start_point: Point::new(0, 0),
+                end_point: Point::new(0, 5),
+            },
+            Range {
+                start_byte: 50,
+                end_byte: 60,
+                start_point: Point::new(0, 50),
+                end_point: Point::new(0, 60),
+            },
+        ])
+        .unwrap_err();
+    assert_eq!(error, IncludedRangesError(1));
+
+    // Range ends before it starts
+    let error = parser
+        .set_included_ranges(&[Range {
+            start_byte: 10,
+            end_byte: 5,
+            start_point: Point::new(0, 10),
+            end_point: Point::new(0, 5),
+        }])
+        .unwrap_err();
+    assert_eq!(error, IncludedRangesError(0));
+}
+
+#[test]
 fn test_parsing_utf16_code_with_errors_at_the_end_of_an_included_range() {
     let source_code = "<script>a.</script>";
     let utf16_source_code: Vec<u16> = source_code.as_bytes().iter().map(|c| *c as u16).collect();
@@ -789,12 +834,14 @@ fn test_parsing_utf16_code_with_errors_at_the_end_of_an_included_range() {
 
     let mut parser = Parser::new();
     parser.set_language(get_language("javascript")).unwrap();
-    parser.set_included_ranges(&[Range {
-        start_byte,
-        end_byte,
-        start_point: Point::new(0, start_byte),
-        end_point: Point::new(0, end_byte),
-    }]);
+    parser
+        .set_included_ranges(&[Range {
+            start_byte,
+            end_byte,
+            start_point: Point::new(0, start_byte),
+            end_point: Point::new(0, end_byte),
+        }])
+        .unwrap();
     let tree = parser.parse_utf16(&utf16_source_code, None).unwrap();
     assert_eq!(tree.root_node().to_sexp(), "(program (ERROR (identifier)))");
 }
@@ -809,20 +856,22 @@ fn test_parsing_with_external_scanner_that_uses_included_range_boundaries() {
 
     let mut parser = Parser::new();
     parser.set_language(get_language("javascript")).unwrap();
-    parser.set_included_ranges(&[
-        Range {
-            start_byte: range1_start_byte,
-            end_byte: range1_end_byte,
-            start_point: Point::new(0, range1_start_byte),
-            end_point: Point::new(0, range1_end_byte),
-        },
-        Range {
-            start_byte: range2_start_byte,
-            end_byte: range2_end_byte,
-            start_point: Point::new(0, range2_start_byte),
-            end_point: Point::new(0, range2_end_byte),
-        },
-    ]);
+    parser
+        .set_included_ranges(&[
+            Range {
+                start_byte: range1_start_byte,
+                end_byte: range1_end_byte,
+                start_point: Point::new(0, range1_start_byte),
+                end_point: Point::new(0, range1_end_byte),
+            },
+            Range {
+                start_byte: range2_start_byte,
+                end_byte: range2_end_byte,
+                start_point: Point::new(0, range2_start_byte),
+                end_point: Point::new(0, range2_end_byte),
+            },
+        ])
+        .unwrap();
 
     let tree = parser.parse(source_code, None).unwrap();
     let root = tree.root_node();
@@ -870,20 +919,22 @@ fn test_parsing_with_a_newly_excluded_range() {
     let directive_start = source_code.find("<%=").unwrap();
     let directive_end = source_code.find("</span>").unwrap();
     let source_code_end = source_code.len();
-    parser.set_included_ranges(&[
-        Range {
-            start_byte: 0,
-            end_byte: directive_start,
-            start_point: Point::new(0, 0),
-            end_point: Point::new(0, directive_start),
-        },
-        Range {
-            start_byte: directive_end,
-            end_byte: source_code_end,
-            start_point: Point::new(0, directive_end),
-            end_point: Point::new(0, source_code_end),
-        },
-    ]);
+    parser
+        .set_included_ranges(&[
+            Range {
+                start_byte: 0,
+                end_byte: directive_start,
+                start_point: Point::new(0, 0),
+                end_point: Point::new(0, directive_start),
+            },
+            Range {
+                start_byte: directive_end,
+                end_byte: source_code_end,
+                start_point: Point::new(0, directive_end),
+                end_point: Point::new(0, source_code_end),
+            },
+        ])
+        .unwrap();
     let tree = parser.parse(&source_code, Some(&first_tree)).unwrap();
 
     assert_eq!(
@@ -944,7 +995,7 @@ fn test_parsing_with_a_newly_included_range() {
     // Parse only the first code directive as JavaScript
     let mut parser = Parser::new();
     parser.set_language(get_language("javascript")).unwrap();
-    parser.set_included_ranges(&ranges[0..1]);
+    parser.set_included_ranges(&ranges[0..1]).unwrap();
     let first_tree = parser.parse(source_code, None).unwrap();
     assert_eq!(
         first_tree.root_node().to_sexp(),
@@ -955,7 +1006,7 @@ fn test_parsing_with_a_newly_included_range() {
     );
 
     // Parse both the code directives as JavaScript, using the old tree as a reference.
-    parser.set_included_ranges(&ranges);
+    parser.set_included_ranges(&ranges).unwrap();
     let tree = parser.parse(&source_code, Some(&first_tree)).unwrap();
     assert_eq!(
         tree.root_node().to_sexp(),
@@ -1011,20 +1062,22 @@ fn test_parsing_with_included_ranges_and_missing_tokens() {
     // There's a missing `a` token at the beginning of the code. It must be inserted
     // at the beginning of the first included range, not at {0, 0}.
     let source_code = "__bc__bc__";
-    parser.set_included_ranges(&[
-        Range {
-            start_byte: 2,
-            end_byte: 4,
-            start_point: Point::new(0, 2),
-            end_point: Point::new(0, 4),
-        },
-        Range {
-            start_byte: 6,
-            end_byte: 8,
-            start_point: Point::new(0, 6),
-            end_point: Point::new(0, 8),
-        },
-    ]);
+    parser
+        .set_included_ranges(&[
+            Range {
+                start_byte: 2,
+                end_byte: 4,
+                start_point: Point::new(0, 2),
+                end_point: Point::new(0, 4),
+            },
+            Range {
+                start_byte: 6,
+                end_byte: 8,
+                start_point: Point::new(0, 6),
+                end_point: Point::new(0, 8),
+            },
+        ])
+        .unwrap();
 
     let tree = parser.parse(source_code, None).unwrap();
     let root = tree.root_node();
