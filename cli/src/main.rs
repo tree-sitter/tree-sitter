@@ -339,7 +339,9 @@ fn collect_paths<'a>(paths: impl Iterator<Item = &'a str>) -> error::Result<Vec<
         if Path::new(path).exists() {
             incorporate_path(path, positive);
         } else {
-            for path in glob(path)? {
+            let paths =
+                glob(path).map_err(Error::wrap(|| format!("Invalid glob pattern {:?}", path)))?;
+            for path in paths {
                 if let Some(path) = path?.to_str() {
                     incorporate_path(path, positive);
                 }
