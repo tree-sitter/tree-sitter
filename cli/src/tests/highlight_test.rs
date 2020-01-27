@@ -369,7 +369,7 @@ fn test_highlighting_javascript_with_jsdoc() {
             ("a", vec!["variable"]),
             (" ", vec![]),
             ("/* ", vec!["comment"]),
-            ("@see", vec!["comment", "tag"]),
+            ("@see", vec!["comment", "keyword"]),
             (" a */", vec!["comment"]),
             (" ", vec![]),
             ("b", vec!["variable"]),
@@ -381,7 +381,7 @@ fn test_highlighting_javascript_with_jsdoc() {
             (";", vec!["punctuation.delimiter"]),
             (" ", vec![]),
             ("/* ", vec!["comment"]),
-            ("@see", vec!["comment", "tag"]),
+            ("@see", vec!["comment", "keyword"]),
             (" b */", vec!["comment"])
         ]],
     );
