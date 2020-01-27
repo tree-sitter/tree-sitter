@@ -31,13 +31,17 @@ pub fn get_language_queries_path(language_name: &str) -> PathBuf {
 
 pub fn get_highlight_config(
     language_name: &str,
-    injection_query_filename: &str,
+    injection_query_filename: Option<&str>,
     highlight_names: &[String],
 ) -> HighlightConfiguration {
     let language = get_language(language_name);
     let queries_path = get_language_queries_path(language_name);
     let highlights_query = fs::read_to_string(queries_path.join("highlights.scm")).unwrap();
-    let injections_query = fs::read_to_string(queries_path.join(injection_query_filename)).unwrap();
+    let injections_query = if let Some(injection_query_filename) = injection_query_filename {
+        fs::read_to_string(queries_path.join(injection_query_filename)).unwrap()
+    } else {
+        String::new()
+    };
     let locals_query = fs::read_to_string(queries_path.join("locals.scm")).unwrap_or(String::new());
     let mut result = HighlightConfiguration::new(
         language,

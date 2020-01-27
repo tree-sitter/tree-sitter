@@ -570,37 +570,45 @@ where
     }
 
     fn sort_layers(&mut self) {
-        if let Some(sort_key) = self.layers[0].sort_key() {
-            let mut i = 0;
-            while i + 1 < self.layers.len() {
-                if let Some(next_offset) = self.layers[i + 1].sort_key() {
-                    if next_offset < sort_key {
-                        i += 1;
-                        continue;
+        while !self.layers.is_empty() {
+            if let Some(sort_key) = self.layers[0].sort_key() {
+                let mut i = 0;
+                while i + 1 < self.layers.len() {
+                    if let Some(next_offset) = self.layers[i + 1].sort_key() {
+                        if next_offset < sort_key {
+                            i += 1;
+                            continue;
+                        }
                     }
+                    break;
+                }
+                if i > 0 {
+                    &self.layers[0..(i + 1)].rotate_left(1);
                 }
                 break;
+            } else {
+                let layer = self.layers.remove(0);
+                self.highlighter.cursors.push(layer.cursor);
             }
-            if i > 0 {
-                &self.layers[0..(i + 1)].rotate_left(1);
-            }
-        } else {
-            let layer = self.layers.remove(0);
-            self.highlighter.cursors.push(layer.cursor);
         }
     }
 
     fn insert_layer(&mut self, mut layer: HighlightIterLayer<'a>) {
-        let sort_key = layer.sort_key();
-        let mut i = 1;
-        while i < self.layers.len() {
-            if self.layers[i].sort_key() > sort_key {
-                self.layers.insert(i, layer);
-                return;
+        if let Some(sort_key) = layer.sort_key() {
+            let mut i = 1;
+            while i < self.layers.len() {
+                if let Some(sort_key_i) = self.layers[i].sort_key() {
+                    if sort_key_i > sort_key {
+                        self.layers.insert(i, layer);
+                        return;
+                    }
+                    i += 1;
+                } else {
+                    self.layers.remove(i);
+                }
             }
-            i += 1;
+            self.layers.push(layer);
         }
-        self.layers.push(layer);
     }
 }
 

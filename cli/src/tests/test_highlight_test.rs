@@ -8,7 +8,7 @@ fn test_highlight_test_with_basic_test() {
     let language = get_language("javascript");
     let config = get_highlight_config(
         "javascript",
-        "injections.scm",
+        Some("injections.scm"),
         &[
             "function".to_string(),
             "variable.parameter".to_string(),

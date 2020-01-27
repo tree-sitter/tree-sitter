@@ -9,15 +9,21 @@ use tree_sitter_highlight::{
 
 lazy_static! {
     static ref JS_HIGHLIGHT: HighlightConfiguration =
-        get_highlight_config("javascript", "injections.scm", &HIGHLIGHT_NAMES);
+        get_highlight_config("javascript", Some("injections.scm"), &HIGHLIGHT_NAMES);
+    static ref JSDOC_HIGHLIGHT: HighlightConfiguration =
+        get_highlight_config("jsdoc", None, &HIGHLIGHT_NAMES);
     static ref HTML_HIGHLIGHT: HighlightConfiguration =
-        get_highlight_config("html", "injections.scm", &HIGHLIGHT_NAMES);
-    static ref EJS_HIGHLIGHT: HighlightConfiguration =
-        get_highlight_config("embedded-template", "injections-ejs.scm", &HIGHLIGHT_NAMES);
+        get_highlight_config("html", Some("injections.scm"), &HIGHLIGHT_NAMES);
+    static ref EJS_HIGHLIGHT: HighlightConfiguration = get_highlight_config(
+        "embedded-template",
+        Some("injections-ejs.scm"),
+        &HIGHLIGHT_NAMES
+    );
     static ref RUST_HIGHLIGHT: HighlightConfiguration =
-        get_highlight_config("rust", "injections.scm", &HIGHLIGHT_NAMES);
+        get_highlight_config("rust", Some("injections.scm"), &HIGHLIGHT_NAMES);
     static ref HIGHLIGHT_NAMES: Vec<String> = [
         "attribute",
+        "comment",
         "constant",
         "constructor",
         "function.builtin",
@@ -352,6 +358,36 @@ fn test_highlighting_ejs_with_html_and_javascript() {
 }
 
 #[test]
+fn test_highlighting_javascript_with_jsdoc() {
+    // Regression test: the middle comment has no highlights. This should not prevent
+    // later injections from highlighting properly.
+    let source = vec!["a /* @see a */ b; /* nothing */ c; /* @see b */"].join("\n");
+
+    assert_eq!(
+        &to_token_vector(&source, &JS_HIGHLIGHT).unwrap(),
+        &[[
+            ("a", vec!["variable"]),
+            (" ", vec![]),
+            ("/* ", vec!["comment"]),
+            ("@see", vec!["comment", "tag"]),
+            (" a */", vec!["comment"]),
+            (" ", vec![]),
+            ("b", vec!["variable"]),
+            (";", vec!["punctuation.delimiter"]),
+            (" ", vec![]),
+            ("/* nothing */", vec!["comment"]),
+            (" ", vec![]),
+            ("c", vec!["variable"]),
+            (";", vec!["punctuation.delimiter"]),
+            (" ", vec![]),
+            ("/* ", vec!["comment"]),
+            ("@see", vec!["comment", "tag"]),
+            (" b */", vec!["comment"])
+        ]],
+    );
+}
+
+#[test]
 fn test_highlighting_with_content_children_included() {
     let source = vec!["assert!(", "    a.b.c() < D::e::<F>()", ");"].join("\n");
 
@@ -562,6 +598,7 @@ fn test_language_for_injection_string<'a>(string: &str) -> Option<&'a HighlightC
         "javascript" => Some(&JS_HIGHLIGHT),
         "html" => Some(&HTML_HIGHLIGHT),
         "rust" => Some(&RUST_HIGHLIGHT),
+        "jsdoc" => Some(&JSDOC_HIGHLIGHT),
         _ => None,
     }
 }
