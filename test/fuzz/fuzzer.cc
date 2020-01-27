@@ -44,8 +44,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   bool language_ok = ts_parser_set_language(parser, TS_LANG());
   assert(language_ok);
 
-  ts_parser_halt_on_error(parser, TS_HALT_ON_ERROR);
-
   TSTree *tree = ts_parser_parse_string(parser, NULL, str, size);
   TSNode root_node = ts_tree_root_node(tree);
 

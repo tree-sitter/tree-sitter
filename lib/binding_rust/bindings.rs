@@ -314,13 +314,6 @@ extern "C" {
     pub fn ts_parser_print_dot_graphs(self_: *mut TSParser, file: ::std::os::raw::c_int);
 }
 extern "C" {
-    #[doc = " Set whether or not the parser should halt immediately upon detecting an"]
-    #[doc = " error. This will generally result in a syntax tree with an error at the"]
-    #[doc = " root, and one or more partial syntax trees within the error. This behavior"]
-    #[doc = " may not be supported long-term."]
-    pub fn ts_parser_halt_on_error(self_: *mut TSParser, halt: bool);
-}
-extern "C" {
     #[doc = " Create a shallow copy of the syntax tree. This is very fast."]
     #[doc = ""]
     #[doc = " You need to copy a syntax tree in order to use it on more than one thread at"]

@@ -336,14 +336,6 @@ TSLogger ts_parser_logger(const TSParser *self);
  */
 void ts_parser_print_dot_graphs(TSParser *self, int file);
 
-/**
- * Set whether or not the parser should halt immediately upon detecting an
- * error. This will generally result in a syntax tree with an error at the
- * root, and one or more partial syntax trees within the error. This behavior
- * may not be supported long-term.
- */
-void ts_parser_halt_on_error(TSParser *self, bool halt);
-
 /******************/
 /* Section - Tree */
 /******************/
