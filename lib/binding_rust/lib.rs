@@ -1425,7 +1425,7 @@ impl QueryCursor {
     /// Because multiple patterns can match the same set of nodes, one match may contain
     /// captures that appear *before* some of the captures from a previous match.
     pub fn matches<'a, T: AsRef<[u8]>>(
-        &mut self,
+        &'a mut self,
         query: &'a Query,
         node: Node<'a>,
         mut text_callback: impl FnMut(Node<'a>) -> T + 'a,
@@ -1452,7 +1452,7 @@ impl QueryCursor {
     /// This is useful if don't care about which pattern matched, and just want a single,
     /// ordered sequence of captures.
     pub fn captures<'a, T: AsRef<[u8]>>(
-        &mut self,
+        &'a mut self,
         query: &'a Query,
         node: Node<'a>,
         text_callback: impl FnMut(Node<'a>) -> T + 'a,
