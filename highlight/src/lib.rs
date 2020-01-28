@@ -64,6 +64,7 @@ pub struct Highlighter {
 pub struct HtmlRenderer {
     pub html: Vec<u8>,
     pub line_offsets: Vec<u32>,
+    carriage_return_highlight: Option<Highlight>,
 }
 
 #[derive(Debug)]
@@ -899,7 +900,12 @@ impl HtmlRenderer {
         HtmlRenderer {
             html: Vec::new(),
             line_offsets: vec![0],
+            carriage_return_highlight: None,
         }
+    }
+
+    pub fn set_carriage_return_highlight(&mut self, highlight: Option<Highlight>) {
+        self.carriage_return_highlight = highlight;
     }
 
     pub fn reset(&mut self) {
@@ -958,6 +964,20 @@ impl HtmlRenderer {
             })
     }
 
+    fn add_carriage_return<'a, F>(&mut self, attribute_callback: &F)
+    where
+        F: Fn(Highlight) -> &'a [u8],
+    {
+        if let Some(highlight) = self.carriage_return_highlight {
+            let attribute_string = (attribute_callback)(highlight);
+            if !attribute_string.is_empty() {
+                self.html.extend(b"<span ");
+                self.html.extend(attribute_string);
+                self.html.extend(b"></span>");
+            }
+        }
+    }
+
     fn start_highlight<'a, F>(&mut self, h: Highlight, attribute_callback: &F)
     where
         F: Fn(Highlight) -> &'a [u8],
@@ -979,11 +999,23 @@ impl HtmlRenderer {
     where
         F: Fn(Highlight) -> &'a [u8],
     {
+        let mut last_char_was_cr = false;
         for c in util::LossyUtf8::new(src).flat_map(|p| p.bytes()) {
-            if c == b'\n' {
-                if self.html.ends_with(b"\r") {
-                    self.html.pop();
+            // Don't render carriage return characters, but allow lone carriage returns (not
+            // followed by line feeds) to be styled via the attribute callback.
+            if c == b'\r' {
+                last_char_was_cr = true;
+                continue;
+            }
+            if last_char_was_cr {
+                if c != b'\n' {
+                    self.add_carriage_return(attribute_callback);
                 }
+                last_char_was_cr = false;
+            }
+
+            // At line boundaries, close and re-open all of the open tags.
+            if c == b'\n' {
                 highlights.iter().for_each(|_| self.end_highlight());
                 self.html.push(c);
                 self.line_offsets.push(self.html.len() as u32);
