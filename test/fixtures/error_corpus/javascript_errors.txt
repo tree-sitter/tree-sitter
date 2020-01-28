@@ -179,8 +179,9 @@ function main(x) {
           (member_expression (identifier) (property_identifier))
           (arguments (string))))
       (expression_statement
-        (identifier)
-        (ERROR
+        (binary_expression
+          (identifier)
+          (ERROR)
           (call_expression
             (member_expression (identifier) (property_identifier))
             (arguments (string)))))
