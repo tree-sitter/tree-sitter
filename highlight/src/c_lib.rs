@@ -1,4 +1,4 @@
-use super::{Error, HighlightConfiguration, Highlighter, HtmlRenderer};
+use super::{Error, Highlight, HighlightConfiguration, Highlighter, HtmlRenderer};
 use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::CStr;
@@ -12,6 +12,7 @@ pub struct TSHighlighter {
     languages: HashMap<String, (Option<Regex>, HighlightConfiguration)>,
     attribute_strings: Vec<&'static [u8]>,
     highlight_names: Vec<String>,
+    carriage_return_index: Option<usize>,
 }
 
 pub struct TSHighlightBuffer {
@@ -43,15 +44,17 @@ pub extern "C" fn ts_highlighter_new(
     let highlight_names = highlight_names
         .into_iter()
         .map(|s| unsafe { CStr::from_ptr(*s).to_string_lossy().to_string() })
-        .collect();
+        .collect::<Vec<_>>();
     let attribute_strings = attribute_strings
         .into_iter()
         .map(|s| unsafe { CStr::from_ptr(*s).to_bytes() })
         .collect();
+    let carriage_return_index = highlight_names.iter().position(|s| s == "carriage-return");
     Box::into_raw(Box::new(TSHighlighter {
         languages: HashMap::new(),
         attribute_strings,
         highlight_names,
+        carriage_return_index,
     }))
 }
 
@@ -215,6 +218,9 @@ impl TSHighlighter {
 
         if let Ok(highlights) = highlights {
             output.renderer.reset();
+            output
+                .renderer
+                .set_carriage_return_highlight(self.carriage_return_index.map(Highlight));
             let result = output
                 .renderer
                 .render(highlights, source_code, &|s| self.attribute_strings[s.0]);

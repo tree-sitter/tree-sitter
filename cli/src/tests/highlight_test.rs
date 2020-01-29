@@ -4,7 +4,7 @@ use std::ffi::CString;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{fs, ptr, slice, str};
 use tree_sitter_highlight::{
-    c, Error, HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer,
+    c, Error, Highlight, HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer,
 };
 
 lazy_static! {
@@ -23,6 +23,7 @@ lazy_static! {
         get_highlight_config("rust", Some("injections.scm"), &HIGHLIGHT_NAMES);
     static ref HIGHLIGHT_NAMES: Vec<String> = [
         "attribute",
+        "carriage-return",
         "comment",
         "constant",
         "constructor",
@@ -323,6 +324,19 @@ fn test_highlighting_empty_lines() {
 }
 
 #[test]
+fn test_highlighting_carriage_returns() {
+    let source = "a = \"a\rb\"\r\nb\r";
+
+    assert_eq!(
+        &to_html(&source, &JS_HIGHLIGHT).unwrap(),
+        &[
+            "<span class=variable>a</span> <span class=operator>=</span> <span class=string>&quot;a<span class=carriage-return></span>b&quot;</span>\n",
+            "<span class=variable>b</span>\n",
+        ],
+    );
+}
+
+#[test]
 fn test_highlighting_ejs_with_html_and_javascript() {
     let source = vec!["<div><% foo() %></div><script> bar() </script>"].join("\n");
 
@@ -617,6 +631,12 @@ fn to_html<'a>(
         &test_language_for_injection_string,
     )?;
 
+    renderer.set_carriage_return_highlight(
+        HIGHLIGHT_NAMES
+            .iter()
+            .position(|s| s == "carriage-return")
+            .map(Highlight),
+    );
     renderer
         .render(events, src, &|highlight| HTML_ATTRS[highlight.0].as_bytes())
         .unwrap();
