@@ -29,10 +29,12 @@ static inline bool ts_language_is_symbol_external(const TSLanguage *self, TSSymb
   return 0 < symbol && symbol < self->external_token_count + 1;
 }
 
-static inline const TSParseAction *ts_language_actions(const TSLanguage *self,
-                                                       TSStateId state,
-                                                       TSSymbol symbol,
-                                                       uint32_t *count) {
+static inline const TSParseAction *ts_language_actions(
+  const TSLanguage *self,
+  TSStateId state,
+  TSSymbol symbol,
+  uint32_t *count
+) {
   TableEntry entry;
   ts_language_table_entry(self, state, symbol, &entry);
   *count = entry.action_count;
