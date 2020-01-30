@@ -182,6 +182,18 @@ impl Language {
             .unwrap()
     }
 
+    /// Get the numeric id for the given node kind.
+    pub fn id_for_node_kind(&self, kind: &str, named: bool) -> u16 {
+        unsafe {
+            ffi::ts_language_symbol_for_name(
+                self.0,
+                kind.as_bytes().as_ptr() as *const c_char,
+                kind.len() as u32,
+                named,
+            )
+        }
+    }
+
     /// Check if the node type for the given numerical id is named (as opposed
     /// to an anonymous node type).
     pub fn node_kind_is_named(&self, id: u16) -> bool {
