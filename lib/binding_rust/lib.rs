@@ -200,6 +200,12 @@ impl Language {
         unsafe { ffi::ts_language_symbol_type(self.0, id) == ffi::TSSymbolType_TSSymbolTypeRegular }
     }
 
+    pub fn node_kind_is_visible(&self, id: u16) -> bool {
+        unsafe {
+            ffi::ts_language_symbol_type(self.0, id) <= ffi::TSSymbolType_TSSymbolTypeAnonymous
+        }
+    }
+
     /// Get the number of distinct field names in this language.
     pub fn field_count(&self) -> usize {
         unsafe { ffi::ts_language_field_count(self.0) as usize }
