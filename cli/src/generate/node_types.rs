@@ -449,10 +449,7 @@ pub(crate) fn generate_node_types_json(
             }
         }
     }
-    aliases_by_symbol.insert(
-        Symbol::non_terminal(0),
-        [None].into_iter().cloned().collect(),
-    );
+    aliases_by_symbol.insert(Symbol::non_terminal(0), [None].iter().cloned().collect());
 
     let mut subtype_map = HashMap::new();
     for (i, info) in variable_info.iter().enumerate() {
