@@ -1013,7 +1013,9 @@ static void ts_parser__handle_error(
         TSStateId state_after_missing_symbol = ts_language_next_state(
           self->language, state, missing_symbol
         );
-        if (state_after_missing_symbol == 0) continue;
+        if (state_after_missing_symbol == 0 || state_after_missing_symbol == state) {
+          continue;
+        }
 
         if (ts_language_has_reduce_action(
           self->language,
