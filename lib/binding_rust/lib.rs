@@ -44,7 +44,7 @@ pub struct Tree(NonNull<ffi::TSTree>);
 /// A position in a multi-line text document, in terms of rows and columns.
 ///
 /// Rows and columns are zero-based.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Point {
     pub row: usize,
     pub column: usize,
@@ -1000,6 +1000,8 @@ impl<'a> PartialEq for Node<'a> {
         self.0.id == other.0.id
     }
 }
+
+impl<'a> Eq for Node<'a> {}
 
 impl<'a> fmt::Debug for Node<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
