@@ -35,7 +35,48 @@ At the end of these transformations, the initial grammar is split into two gramm
 
 ### Building Parse Tables
 
+WIP
 
+### Syntax highlighting
+
+Use `tree-sitter highlight --help` for a short help message conaining a list of flags and options.
+
+The `tree-sitter highlight` and tree-sitter-highlight crate (including its C API) were introduced in [PR#444](https://github.com/tree-sitter/tree-sitter/pull/444). The `tree-sitter highlight` subcommand uses the `tree query` API  and requires parsers. Currently, it will look for them in directories matching the glob pattern: `~/github/tree-sitter-*` on your file system (see also [PR#283](https://github.com/tree-sitter/tree-sitter/pull/283)). A parser must declare certain fields in its `package.json` file: 
+* `file-types` - An array of filename suffixes. The grammar will be used for files whose names end with one of these suffixes. Note that the suffix may be an entire filename.
+* `highlights` - if not defined defaults to: `queries/highlights.scm`; A file containing a series of [S-expressions](https://en.wikipedia.org/wiki/S-expression) that should be used for syntax highlighting (will be compiled into an NFA at runtime).
+* `injection-regex` - optional, default: `queries/injections.scm`
+* `locals` - optional, default: `queries/locals.scm`
+
+#### The Query Structure
+
+The new syntax highlighting implementation is based on three query files, see also [PR#448](https://github.com/tree-sitter/tree-sitter/pull/448):
+
+1. `queries/highlights.scm` 
+This file contains patterns with capture names that correspond to syntax highlighting styles. Examples are `@type`, `@function.builtin`, `@punctuation.bracket`, etc. The names are dot-separated, and the idea is that users may want to style in a course grained way (e.g. `@function`) or in a more fine-grained way (e.g. `@function.method.builtin`), and both will work.  
+__Tie-breaking convention__ - In the event that two captures in this query both capture a given node with two different capture names, the __first pattern is preferred__.
+2. `queries/injections.scm` 
+This file contains patterns that, when matched, cause portions of the syntax tree to have their text re-parsed with a new "injected" grammar. These patterns can specify these captures:
+* `@injection.content` - This node will have its text re-parsed using some other grammar. All of the `content` nodes will be parsed together as one nested document if the rule incudes `(set! injection.combined true)`. This allows you to parse multiple _disjoint_ ranges of text as one injection, which is important for templating languages like [ERB](https://en.wikipedia.org/wiki/ERuby, in which code can be interspersed with other text.
+* `@injection.language` (optional) - This node's text will be used to determine which language to use for the injection. For example, in a Ruby HEREDOC, where the heredoc delimiter often indicates the language, you would capture the delimiter as the language.
+The following _predicates_ are recognized for patterns in this file: 
+* `(set! injection.language "the-language")` - This allows you to _hard-code_ a specific language that should be injected, instead of inferring one from the text of a captured node.
+* `(set! injection.combined "bool")` - A boolean flag, when true the text of all all of the captured nodes is parsed together as one syntax tree in the specified language; introduced in [PR#526](https://github.com/tree-sitter/tree-sitter/pull/526)
+3. `queries/locals.scm` 
+This file allows you to keep track of local variables, ensuring that they are styled the same way in every place where they occur. Patterns in this file can have these captures: 
+* `@local.scope` - This indicates that the captured node introduces a new scope.
+* `@local.definition` - This indicates that the captured node represents a newly-introduced local variable.
+* `@local.reference` - This indicates that the captured node may be a reference to a local variable introduced earlier in the current scope, or some surrounding scope.
+
+__Trying it Out__  
+You can write and execute queries interactively in the web UI, both [on the docs site](/playground) and via the tree-sitter web-ui command in your own grammar repos.
+
+__Testing syntax highlighting queries__  
+[PR#499](https://github.com/tree-sitter/tree-sitter/pull/499) introduced a system for testing syntax highlighting queries
+
+Tasks you might want to perform with a Tree-sitter syntax tree: 
+* Computing syntax highlighting
+* Computing code-folding regions
+* Finding nested documents to parse separately (JavaScript within HTML, Ruby within ERB, etc)
 
 ## The Runtime
 
