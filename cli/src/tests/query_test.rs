@@ -591,7 +591,60 @@ fn test_query_matches_different_queries_same_cursor() {
 }
 
 #[test]
-fn test_query_captures() {
+fn test_query_matches_with_multiple_captures_on_a_node() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let mut query = Query::new(
+            language,
+            "(function_declaration
+                (identifier) @name1 @name2 @name3
+                (statement_block) @body1 @body2)",
+        )
+        .unwrap();
+
+        let source = "function foo() { return 1; }";
+        let mut parser = Parser::new();
+        let mut cursor = QueryCursor::new();
+
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+
+        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[(
+                0,
+                vec![
+                    ("name1", "foo"),
+                    ("name2", "foo"),
+                    ("name3", "foo"),
+                    ("body1", "{ return 1; }"),
+                    ("body2", "{ return 1; }"),
+                ]
+            ),]
+        );
+
+        // disabling captures still works when there are multiple captures on a
+        // single node.
+        query.disable_capture("name2");
+        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[(
+                0,
+                vec![
+                    ("name1", "foo"),
+                    ("name3", "foo"),
+                    ("body1", "{ return 1; }"),
+                    ("body2", "{ return 1; }"),
+                ]
+            ),]
+        );
+    });
+}
+
+#[test]
+fn test_query_captures_basic() {
     allocations::record(|| {
         let language = get_language("javascript");
         let query = Query::new(
