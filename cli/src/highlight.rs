@@ -230,6 +230,9 @@ fn parse_color(json: Value) -> Option<Color> {
 fn style_to_css(style: ansi_term::Style) -> String {
     use std::fmt::Write;
     let mut result = "style='".to_string();
+    if style.is_underline {
+        write!(&mut result, "text-decoration: underline;").unwrap();
+    }
     if style.is_bold {
         write!(&mut result, "font-weight: bold;").unwrap();
     }
