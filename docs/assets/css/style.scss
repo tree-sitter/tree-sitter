@@ -74,6 +74,10 @@ a[href^="http"]:after {
   text-decoration: underline;
 }
 
+a > span {
+  text-decoration: inherit;
+}
+
 .table-of-contents-section {
   border-bottom: 1px solid #ccc;
 }
