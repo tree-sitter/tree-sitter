@@ -15,7 +15,7 @@ use std::mem::MaybeUninit;
 use std::os::raw::{c_char, c_void};
 use std::ptr::NonNull;
 use std::sync::atomic::AtomicUsize;
-use std::{char, fmt, iter, ptr, slice, str, u16};
+use std::{char, fmt, hash, iter, ptr, slice, str, u16};
 
 /// The latest ABI version that is supported by the current version of the
 /// library.
@@ -44,7 +44,7 @@ pub struct Tree(NonNull<ffi::TSTree>);
 /// A position in a multi-line text document, in terms of rows and columns.
 ///
 /// Rows and columns are zero-based.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Point {
     pub row: usize,
     pub column: usize,
@@ -52,7 +52,7 @@ pub struct Point {
 
 /// A range of positions in a multi-line text document, both in terms of bytes and of
 /// rows and columns.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Range {
     pub start_byte: usize,
     pub end_byte: usize,
@@ -670,6 +670,16 @@ impl<'tree> Node<'tree> {
         }
     }
 
+    /// Get a numeric id for this node that is unique.
+    ///
+    /// Within a given syntax tree, no two nodes have the same id. However, if
+    /// a new tree is created based on an older tree, and a node from the old
+    /// tree is reused in the process, then that node will have the same id in
+    /// both trees.
+    pub fn id(&self) -> usize {
+        self.0.id as usize
+    }
+
     /// Get this node's type as a numerical id.
     pub fn kind_id(&self) -> u16 {
         unsafe { ffi::ts_node_symbol(self.0) }
@@ -1002,6 +1012,16 @@ impl<'a> PartialEq for Node<'a> {
 }
 
 impl<'a> Eq for Node<'a> {}
+
+impl<'a> hash::Hash for Node<'a> {
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.0.id.hash(state);
+        self.0.context[0].hash(state);
+        self.0.context[1].hash(state);
+        self.0.context[2].hash(state);
+        self.0.context[3].hash(state);
+    }
+}
 
 impl<'a> fmt::Debug for Node<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
