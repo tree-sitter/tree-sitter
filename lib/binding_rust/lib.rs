@@ -1439,12 +1439,17 @@ impl Query {
         let mut value = None;
         if i < args.len() {
             if args[i].type_ == ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture {
-                return Err(QueryError::Predicate(format!(
-                    "Invalid arguments to {} predicate. Expected string, got @{}",
-                    function_name, capture_names[args[i].value_id as usize]
-                )));
+                if capture_id.is_some() {
+                    return Err(QueryError::Predicate(format!(
+                        "Invalid arguments to {} predicate. Unexpected second capture name @{}",
+                        function_name, capture_names[args[i].value_id as usize]
+                    )));
+                } else {
+                    capture_id = Some(args[i].value_id as usize);
+                }
+            } else {
+                value = Some(string_values[args[i].value_id as usize].as_str());
             }
-            value = Some(string_values[args[i].value_id as usize].as_str());
         }
 
         Ok(QueryProperty::new(key, value, capture_id))
