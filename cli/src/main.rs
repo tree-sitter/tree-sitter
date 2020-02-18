@@ -282,7 +282,9 @@ fn run() -> error::Result<()> {
             if let Some(highlight_config) = language_config.highlight_config(language)? {
                 if html_mode || html_snippet_mode {
                     highlight::html(&loader, &config.theme, &source, highlight_config, time)?;
-                    println!("{}", highlight::HTML_FOOTER);
+                    if ! html_snippet_mode {
+                        println!("{}", highlight::HTML_FOOTER);
+                    }
                 } else {
                     highlight::ansi(&loader, &config.theme, &source, highlight_config, time)?;
                 }
