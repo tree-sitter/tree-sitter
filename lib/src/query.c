@@ -144,6 +144,7 @@ static const TSQueryError PARENT_DONE = -1;
 static const uint8_t PATTERN_DONE_MARKER = UINT8_MAX;
 static const uint16_t NONE = UINT16_MAX;
 static const TSSymbol WILDCARD_SYMBOL = 0;
+static const TSSymbol NAMED_WILDCARD_SYMBOL = UINT16_MAX - 1;
 static const uint16_t MAX_STATE_COUNT = 32;
 
 // #define LOG(...) fprintf(stderr, __VA_ARGS__)
@@ -615,7 +616,7 @@ static TSQueryError ts_query__parse_pattern(
 
     // Parse the wildcard symbol
     if (stream->next == '*') {
-      symbol = WILDCARD_SYMBOL;
+      symbol = NAMED_WILDCARD_SYMBOL;
       stream_advance(stream);
     }
 
@@ -1240,7 +1241,8 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         // pattern.
         bool node_does_match =
           step->symbol == symbol ||
-          (!step->symbol && ts_node_is_named(node));
+          step->symbol == WILDCARD_SYMBOL ||
+          (step->symbol == NAMED_WILDCARD_SYMBOL && ts_node_is_named(node));
         bool later_sibling_can_match = can_have_later_siblings;
         if (step->field) {
           if (step->field == field_id) {
