@@ -1238,7 +1238,9 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         // Determine if this node matches this step of the pattern, and also
         // if this node can have later siblings that match this step of the
         // pattern.
-        bool node_does_match = !step->symbol || step->symbol == symbol;
+        bool node_does_match =
+          step->symbol == symbol ||
+          (!step->symbol && ts_node_is_named(node));
         bool later_sibling_can_match = can_have_later_siblings;
         if (step->field) {
           if (step->field == field_id) {
