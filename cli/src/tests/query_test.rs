@@ -435,6 +435,57 @@ fn test_query_matches_with_named_wildcard() {
 }
 
 #[test]
+fn test_query_with_immediate_siblings() {
+    allocations::record(|| {
+        let language = get_language("python");
+
+        // The immediate child operator '.' can be used in three similar ways:
+        // 1. Before the first child node in a pattern, it means that there cannot be any
+        //    named siblings before that child node.
+        // 2. After the last child node in a pattern, it means that there cannot be any named
+        //    sibling after that child node.
+        // 2. Between two child nodes in a pattern, it specifies that there cannot be any
+        //    named siblings between those two child snodes.
+        let query = Query::new(
+            language,
+            "
+            (dotted_name
+                (identifier) @parent
+                .
+                (identifier) @child)
+            (dotted_name
+                (identifier) @last-child
+                .)
+            (list
+                .
+                (*) @first-element)
+            ",
+        )
+        .unwrap();
+
+        let source = "import a.b.c.d; return [w, [1, y], z]";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
+
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[
+                (0, vec![("parent", "a"), ("child", "b")]),
+                (0, vec![("parent", "b"), ("child", "c")]),
+                (1, vec![("last-child", "d")]),
+                (0, vec![("parent", "c"), ("child", "d")]),
+                (2, vec![("first-element", "w")]),
+                (2, vec![("first-element", "1")]),
+            ]
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_in_language_with_simple_aliases() {
     allocations::record(|| {
         let language = get_language("html");
