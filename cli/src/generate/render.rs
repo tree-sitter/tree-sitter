@@ -1058,6 +1058,10 @@ impl Generator {
         let language_function_name = format!("tree_sitter_{}", self.language_name);
         let external_scanner_name = format!("{}_external_scanner", language_function_name);
 
+        add_line!(self, "#ifdef __cplusplus");
+        add_line!(self, r#"extern "C" {{"#);
+        add_line!(self, "#endif");
+
         if !self.syntax_grammar.external_tokens.is_empty() {
             add_line!(self, "void *{}_create(void);", external_scanner_name);
             add_line!(self, "void {}_destroy(void *);", external_scanner_name);
@@ -1183,6 +1187,9 @@ impl Generator {
         add_line!(self, "return &language;");
         dedent!(self);
         add_line!(self, "}}");
+        add_line!(self, "#ifdef __cplusplus");
+        add_line!(self, "}}");
+        add_line!(self, "#endif");
     }
 
     fn get_parse_action_list_id(
