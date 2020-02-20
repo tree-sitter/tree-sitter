@@ -66,7 +66,7 @@ Suppose we wanted to render this code with the following colors:
 
 We can assign each of these categories a *highlight name* using a query like this:
 
-```clj
+```
 ; highlights.scm
 
 "func" @keyword
@@ -92,7 +92,7 @@ And we could map each of these highlight names to a color:
 #### Result
 
 <pre class='highlight' style='border: 1px solid #aaa;'>
-<span style='color: purple;'>func</span> <span style='color: #005fd7;'>increment</span>(<span>a</span> <span style='color: #005f5f;'>int</span>) <span style='color: #005f5f;'>int</span> {
+<span style='color: purple;'>func</span> <span style='color: #005fd7;'>increment</span>(<span>a</span> <span style='color: green;'>int</span>) <span style='color: green;'>int</span> {
     <span style='color: purple;'>return</span> <span>a</span> <span style='font-weight: bold;color: #4e4e4e;'>+</span> <span style='font-weight: bold;color: #875f00;'>1</span>
 }
 </pre>
@@ -110,6 +110,8 @@ The capture names are as follows:
 * `@local.reference` - indicates that a syntax node contains the *name* which *may* refer to an earlier definition within some enclosing scope.
 
 When highlighting a file, Tree-sitter will keep track of the set of scopes that contains any given position, and the set of definitions within each scope. When processing a syntax node that is captured as a `local.reference`, Tree-sitter will try to find a definition for a name that that matches the node's text. If it finds a match, Tree-sitter will ensure that the *reference* and the *definition* are colored the same.
+
+The information produced by this query can also be *used* by the highlights query. You can *disable* a pattern for nodes which have been identified as local variables by adding the predicate `(is-not? local)` to the pattern. This is used in the example below:
 
 #### Example Input
 
@@ -172,7 +174,7 @@ There are several different types of names within this method:
 
 Let's write some queries that let us clearly distinguish between these types of names. First, set up the highlighting query, as described in the previous section. We'll assign distinct colors to method calls, method definitions, and formal parameters:
 
-```clj
+```
 ; highlights.scm
 
 (call method: (identifier) @function.method)
@@ -182,11 +184,14 @@ Let's write some queries that let us clearly distinguish between these types of 
 
 (method_parameters (identifier) @variable.parameter)
 (block_parameters (identifier) @variable.parameter)
+
+((identifier) @function.method
+ (is-not? local))
 ```
 
 Then, we'll set up a local variable query to keep track of the variables and scopes. Here, we're indicating that methods and blocks create local *scopes*, parameters and assignments create *definitions*, and other identifiers should be considered *references*:
 
-```clj
+```
 ; locals.scm
 
 (method) @local.scope
@@ -202,8 +207,6 @@ Then, we'll set up a local variable query to keep track of the variables and sco
 
 #### Result
 
-
-
 <pre class='highlight' style='border: 1px solid #aaa;'>
 <span style='color: purple;'>def</span> <span style='color: #005fd7;'>process_list</span><span style='color: #4e4e4e;'>(</span><span style='text-decoration: underline;'>list</span><span style='color: #4e4e4e;'>)</span>
   <span>context</span> <span style='font-weight: bold;color: #4e4e4e;'>=</span> <span style='color: #005fd7;'>current_context</span>
@@ -217,3 +220,48 @@ Then, we'll set up a local variable query to keep track of the variables and sco
 </pre>
 
 ## Language Injection Query
+
+Some source files contain code written in multiple different languages. Examples include:
+* HTML files, which can contain JavaScript inside of `<script>` tags and CSS inside of `<style>` tags
+* [ERB](https://en.wikipedia.org/wiki/ERuby) files, which contain Ruby inside of `<% %>` tags, and HTML outside of those tags
+* PHP files, which can contain  HTML between the `<php` tags
+* JavaScript files, which contain regular expression syntax within regex literals
+* Ruby, which can contain Bash code inside of `<<BASH` here-doc literals
+
+All of these examples can be modeled in terms of a *parent* syntax tree and one or more *injected* syntax trees, which reside *inside* of certain nodes in the parent tree. The language injection query allows you to specify these "injections" using the following captures:
+
+* `@injection.content` - indicates that the captured node should have its contents re-parsed using another language.
+* `@injection.language` - indicates that the captured node's text may contain the *name* of a language that should be used to re-parse the `@injection.content`.
+
+The language can also be specified by a hard-coded string using the `(set! injection.language)` predicate. The way that the
+
+#### Examples
+
+Consider this ruby code:
+
+```ruby
+system <<-BASH.strip!
+  abc --def | ghi > jkl
+BASH
+```
+
+With this syntax tree:
+
+```
+(program
+  (method_call
+    method: (identifier)
+    arguments: (argument_list
+      (call
+        receiver: (heredoc_beginning)
+        method: (identifier))))
+  (heredoc_body
+    (heredoc_end)))
+```
+
+The following query would specify that the contents of the heredoc should be parsed using a language named "BASH" (because that is the text of the `heredoc_end` node):
+
+```
+(heredoc_body
+  (heredoc_end) @injection.language) @injection.content
+```
