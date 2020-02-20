@@ -226,14 +226,18 @@ Some source files contain code written in multiple different languages. Examples
 * [ERB](https://en.wikipedia.org/wiki/ERuby) files, which contain Ruby inside of `<% %>` tags, and HTML outside of those tags
 * PHP files, which can contain  HTML between the `<php` tags
 * JavaScript files, which contain regular expression syntax within regex literals
-* Ruby, which can contain Bash code inside of `<<BASH` here-doc literals
+* Ruby, which can contain snippets of code inside of heredoc literals, where the heredoc delimiter often indicates the language
 
 All of these examples can be modeled in terms of a *parent* syntax tree and one or more *injected* syntax trees, which reside *inside* of certain nodes in the parent tree. The language injection query allows you to specify these "injections" using the following captures:
 
 * `@injection.content` - indicates that the captured node should have its contents re-parsed using another language.
 * `@injection.language` - indicates that the captured node's text may contain the *name* of a language that should be used to re-parse the `@injection.content`.
 
-The language can also be specified by a hard-coded string using the `(set! injection.language)` predicate. The way that the
+The language injection behavior can also be configured by some properties associated with patterns:
+
+* `injection.language` - can be used to hard-code the name of a specific language.
+* `injection.combined` - indicates that *all* of the matching nodes in the tree should have their content parsed as *one* nested document.
+* `injection.include-children` - indicates that the `@injection.content` node's *entire* text should be re-parsed, including the text of its child nodes. By default, child nodes' text will be *excluded* from the injected document.
 
 #### Examples
 
