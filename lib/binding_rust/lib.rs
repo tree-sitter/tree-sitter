@@ -158,8 +158,8 @@ pub enum QueryError {
 
 #[derive(Debug)]
 enum TextPredicate {
-    CaptureEqString(u32, String),
-    CaptureEqCapture(u32, u32),
+    CaptureEqString(u32, String, bool),
+    CaptureEqCapture(u32, u32, bool),
     CaptureMatchString(u32, regex::bytes::Regex),
 }
 
@@ -1251,7 +1251,7 @@ impl Query {
                 // Build a predicate for each of the known predicate function names.
                 let operator_name = &string_values[p[0].value_id as usize];
                 match operator_name.as_str() {
-                    "eq?" => {
+                    "eq?" | "not-eq?" => {
                         if p.len() != 3 {
                             return Err(QueryError::Predicate(format!(
                                 "Wrong number of arguments to eq? predicate. Expected 2, got {}.",
@@ -1265,12 +1265,18 @@ impl Query {
                             )));
                         }
 
+                        let is_positive = operator_name == "eq?";
                         text_predicates.push(if p[2].type_ == type_capture {
-                            TextPredicate::CaptureEqCapture(p[1].value_id, p[2].value_id)
+                            TextPredicate::CaptureEqCapture(
+                                p[1].value_id,
+                                p[2].value_id,
+                                is_positive,
+                            )
                         } else {
                             TextPredicate::CaptureEqString(
                                 p[1].value_id,
                                 string_values[p[2].value_id as usize].clone(),
+                                is_positive,
                             )
                         });
                     }
@@ -1555,14 +1561,14 @@ impl<'a> QueryMatch<'a> {
         query.text_predicates[self.pattern_index]
             .iter()
             .all(|predicate| match predicate {
-                TextPredicate::CaptureEqCapture(i, j) => {
+                TextPredicate::CaptureEqCapture(i, j, is_positive) => {
                     let node1 = self.capture_for_index(*i).unwrap();
                     let node2 = self.capture_for_index(*j).unwrap();
-                    text_callback(node1).as_ref() == text_callback(node2).as_ref()
+                    (text_callback(node1).as_ref() == text_callback(node2).as_ref()) == *is_positive
                 }
-                TextPredicate::CaptureEqString(i, s) => {
+                TextPredicate::CaptureEqString(i, s, is_positive) => {
                     let node = self.capture_for_index(*i).unwrap();
-                    text_callback(node).as_ref() == s.as_bytes()
+                    (text_callback(node).as_ref() == s.as_bytes()) == *is_positive
                 }
                 TextPredicate::CaptureMatchString(i, r) => {
                     let node = self.capture_for_index(*i).unwrap();
