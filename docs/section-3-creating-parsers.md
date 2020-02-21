@@ -184,11 +184,15 @@ You can run your parser on an arbitrary file using `tree-sitter parse`. This wil
           (int_literal [1, 9] - [1, 10]))))))
 ```
 
-You can pass as many files to `tree-sitter parse` as your OS will allow. The command will exit with a non-zero status code if any parse errors occurred. You can also prevent the syntax trees from being printed using the `--quiet` flag. This makes `tree-sitter parse` usable as a secondary testing strategy: you can check that a large number of files parse without error:
+You can pass any number of file paths and glob patterns to `tree-sitter parse`, and it will parse all of the given files. The command will exit with a non-zero status code if any parse errors occurred. You can also prevent the syntax trees from being printed using the `--quiet` flag. This makes `tree-sitter parse` usable as a secondary testing strategy: you can check that a large number of files parse without error:
 
 ```sh
-find ./examples -name '*.go' | xargs -n 1000 tree-sitter parse --quiet
+tree-sitter parse 'examples/**/*.go' --quiet
 ```
+
+### Command: `highlight`
+
+You can run syntax highlighting on an arbitrary file using `tree-sitter highlight`. This can either output colors directly to your terminal using ansi escape codes, or produce HTML (if the `--html` flag is passed). For more information, see [the syntax highlighting page][syntax-highlighting].
 
 ### The Grammar DSL
 
@@ -708,7 +712,6 @@ if (valid_symbols[INDENT] || valid_symbol[DEDENT]) {
 [multi-language-section]: ./using-parsers#multi-language-documents
 [named-vs-anonymous-nodes-section]: ./using-parsers#named-vs-anonymous-nodes
 [field-names-section]: ./using-parsers#node-field-names
-[syntax-highlighting-tests]: ./syntax-highlighting#unit-testing
 [nan]: https://github.com/nodejs/nan
 [node-module]: https://www.npmjs.com/package/tree-sitter-cli
 [node.js]: https://nodejs.org
@@ -719,6 +722,8 @@ if (valid_symbols[INDENT] || valid_symbol[DEDENT]) {
 [percent-string]: https://docs.ruby-lang.org/en/2.5.0/syntax/literals_rdoc.html#label-Percent+Strings
 [releases]: https://github.com/tree-sitter/tree-sitter/releases/latest
 [s-exp]: https://en.wikipedia.org/wiki/S-expression
+[syntax-highlighting]: ./syntax-highlighting
+[syntax-highlighting-tests]: ./syntax-highlighting#unit-testing
 [tree-sitter-cli]: https://github.com/tree-sitter/tree-sitter/tree/master/cli
 [tree-sitter-javascript]: https://github.com/tree-sitter/tree-sitter-javascript
 [yacc-prec]: https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html
