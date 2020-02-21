@@ -5,7 +5,7 @@ permalink: syntax-highlighting
 
 # Syntax Highlighting
 
-Syntax highlighting is a very common feature in applications that deal with code. Tree-sitter has built-in support for syntax highlighting, via the [`tree-sitter-highlight`](https://github.com/tree-sitter/tree-sitter/tree/master/highlight) library, which is currently used on GitHub.com for highlighting code written in several languages. You can also run also perform syntax highlighting at the command line using the `tree-sitter highlight` command.
+Syntax highlighting is a very common feature in applications that deal with code. Tree-sitter has built-in support for syntax highlighting, via the [`tree-sitter-highlight`](https://github.com/tree-sitter/tree-sitter/tree/master/highlight) library, which is currently used on GitHub.com for highlighting code written in several languages. You can also perform syntax highlighting at the command line using the `tree-sitter highlight` command.
 
 This document explains how the Tree-sitter syntax highlighting system works, using the command line interface. If you are using `tree-sitter-highlight` library (either from C or from Rust), all of these concepts are still applicable, but the configuration data is provided using in-memory objects, rather than files.
 
@@ -79,7 +79,7 @@ The `package.json` file is used by package managers like `npm`. Within this file
 
 These keys specify basic information about the parser:
 
-* `scope` (required) - A string like `"source.js"` that identifies the language. Currently, we strive to match the scope names used by popular [TextMate grammars](textmate.com) and by the [Linguist](https://github.com/github/linguist) library.
+* `scope` (required) - A string like `"source.js"` that identifies the language. Currently, we strive to match the scope names used by popular [TextMate grammars](https://macromates.com/manual/en/language_grammars) and by the [Linguist](https://github.com/github/linguist) library.
 
 * `path` (optional) - A relative path from the directory containig `package.json` to another directory containing the `src/` folder, which contains the actual generated parser. The default value is `"."` (so that `src/` is in the same folder as `package.json`), and this very rarely needs to be overridden.
 
@@ -134,7 +134,7 @@ Syntax highlighting is controlled by *three* different types of query files that
 
 Alternatively, you can think of `.scm` as an acronym for "Source Code Matching".
 
-### Highlights Query
+### Highlights
 
 The most important query is called the highlights query. The highlights query uses *captures* to assign arbitrary *highlight names* to different nodes in the tree. Each highlight name can then be mapped to a color (as described [above](#theme)). Commonly used highlight names include `keyword`, `function`, `type`, `property`, and `string`. Names can also be dot-separated like `function.builtin`.
 
@@ -210,7 +210,7 @@ Running `tree-sitter highlight` on this Go file would produce output like this:
 }
 </pre>
 
-### Local Variable Query
+### Local Variables
 
 Good syntax highlighting helps the reader to quickly distinguish between the different types of *entities* in their code. Ideally, if a given entity appears in *multiple* places, it should be colored the same in each place. The Tree-sitter syntax highlighting system can help you to achieve this by keeping track of local scopes and variables.
 
@@ -334,7 +334,7 @@ Running `tree-sitter highlight` on this ruby file would produce output like this
 <span>list</span> <span style='font-weight: bold;color: #4e4e4e;'>=</span> [<span>item</span><span style='color: #4e4e4e;'>]</span>
 </pre>
 
-### Language Injection Query
+### Language Injection
 
 Some source files contain code written in multiple different languages. Examples include:
 * HTML files, which can contain JavaScript inside of `<script>` tags and CSS inside of `<style>` tags
@@ -384,3 +384,38 @@ The following query would specify that the contents of the heredoc should be par
 (heredoc_body
   (heredoc_end) @injection.language) @injection.content
 ```
+
+## Unit Testing
+
+Tree-sitter has a built-in way to verify the results of syntax highlighting. The interface is based on [Sublime Text's system](https://www.sublimetext.com/docs/3/syntax.html#testing) for testing highlighting.
+
+Tests are written as normal source code files that contain specially-formatted *comments* that make assertions about the surrounding syntax highlighting. These files are stored in the `test/highlight` directory in a grammar repository.
+
+Here is an example of a syntax highlighting test for JavaScript:
+
+```js
+var abc = function(d) {
+  // <- keyword
+  //          ^ keyword
+  //               ^ variable.parameter
+  // ^ function
+
+  if (a) {
+  // <- keyword
+  // ^ punctuation.bracket
+
+    foo(`foo ${bar}`);
+    // <- function
+    //    ^ string
+    //          ^ variable
+  }
+};
+```
+
+From the Sublime text docs:
+
+> The two types of tests are:
+>
+> **Caret**: ^ this will test the following selector against the scope on the most recent non-test line. It will test it at the same column the ^ is in. Consecutive ^s will test each column against the selector.
+>
+> **Arrow**: <- this will test the following selector against the scope on the most recent non-test line. It will test it at the same column as the comment character is in.

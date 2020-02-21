@@ -110,9 +110,9 @@ If there is an ambiguity or *local ambiguity* in your grammar, Tree-sitter will 
 
 The `tree-sitter test` command allows you to easily test that your parser is working correctly.
 
-For each rule that you add to the grammar, you should first create a *test* that describes how the syntax trees should look when parsing that rule. These tests are written using specially-formatted text files in a `corpus` directory in your parser's root folder.
+For each rule that you add to the grammar, you should first create a *test* that describes how the syntax trees should look when parsing that rule. These tests are written using specially-formatted text files in the `corpus/` or `test/corpus/` directories within your parser's root folder.
 
-For example, you might have a file called `corpus/statements.txt` that contains a series of entries like this:
+For example, you might have a file called `test/corpus/statements.txt` that contains a series of entries like this:
 
 ```
 ==================
@@ -152,7 +152,7 @@ func x() int {
 
 These tests are important. They serve as the parser's API documentation, and they can be run every time you change the grammar to verify that everything still parses correctly.
 
-By default, the `tree-sitter test` command runs all of the tests in your `corpus` folder. To run a particular test, you can use the the `-f` flag:
+By default, the `tree-sitter test` command runs all of the tests in your `corpus` or `test/corpus/` folder. To run a particular test, you can use the the `-f` flag:
 
 ```sh
 tree-sitter test -f 'Return statements'
@@ -163,6 +163,10 @@ The recommendation is to be comprehensive in adding tests. If it's a visible nod
 #### Automatic Compilation
 
 You might notice that the first time you run `tree-sitter test` after regenerating your parser, it takes some extra time. This is because Tree-sitter automatically compiles your C code into a dynamically-loadable library. It recompiles your parser as-needed whenever you update it by re-running `tree-sitter generate`.
+
+#### Syntax Highlighting Tests
+
+The `tree-sitter test` command will *also* run any syntax highlighting tests in the `test/highlight` folder, if it exists. For more information about syntax highlighting tests, see [the syntax highlighting page][syntax-highlighting-tests].
 
 ### Command: `parse`
 
@@ -704,6 +708,7 @@ if (valid_symbols[INDENT] || valid_symbol[DEDENT]) {
 [multi-language-section]: ./using-parsers#multi-language-documents
 [named-vs-anonymous-nodes-section]: ./using-parsers#named-vs-anonymous-nodes
 [field-names-section]: ./using-parsers#node-field-names
+[syntax-highlighting-tests]: ./syntax-highlighting#unit-testing
 [nan]: https://github.com/nodejs/nan
 [node-module]: https://www.npmjs.com/package/tree-sitter-cli
 [node.js]: https://nodejs.org
