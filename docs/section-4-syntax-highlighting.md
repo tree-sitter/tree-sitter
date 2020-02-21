@@ -5,27 +5,138 @@ permalink: syntax-highlighting
 
 # Syntax Highlighting
 
-Syntax highlighting is a very common feature in applications that deal with code. Tree-sitter has built-in support for syntax highlighting, via the [`tree-sitter-highlight`](https://github.com/tree-sitter/tree-sitter/tree/master/highlight) library. This system is currently used on GitHub.com for highlighting code written in several languages.
+Syntax highlighting is a very common feature in applications that deal with code. Tree-sitter has built-in support for syntax highlighting, via the [`tree-sitter-highlight`](https://github.com/tree-sitter/tree-sitter/tree/master/highlight) library, which is currently used on GitHub.com for highlighting code written in several languages. You can also run also perform syntax highlighting at the command line using the `tree-sitter highlight` command.
 
-**Note - If you are working on syntax highlighting in the [Atom](https://atom.io/) text editor, you should consult [this page](https://flight-manual.atom.io/hacking-atom/sections/creating-a-grammar/) in the Atom Flight Manual. Atom currently uses a different syntax highlighting system that is also based on Tree-sitter, but is older than the one described in this document.**
+This document explains how the Tree-sitter syntax highlighting system works, using the command line interface. If you are using `tree-sitter-highlight` library (either from C or from Rust), all of these concepts are still applicable, but the configuration data is provided using in-memory objects, rather than files.
+
+**Note - If you are working on syntax highlighting in the [Atom](https://atom.io/) text editor, you should consult [the grammar-creation page](https://flight-manual.atom.io/hacking-atom/sections/creating-a-grammar/) of the Atom Flight Manual, *not* this document. Atom currently uses a different syntax highlighting system that is also based on Tree-sitter, but is older than the one described here.**
 
 ## Overview
 
+All of the files needed to highlight a given language are normally included in the same git repository as the Tree-sitter grammar for that language (for example, [`tree-sitter-javascript`](https://github.com/tree-sitter/tree-sitter-javascript), [`tree-sitter-ruby`](https://github.com/tree-sitter/tree-sitter-ruby)). In order to run syntax highlighting from the command-line, three types of files are needed:
+
+1. Global configuration in `~/.tree-sitter/config.json`
+2. Language configuration in grammar repositories' `package.json` files.
+3. Tree queries in the grammars repositories' `queries` folders.
+
+For an example of the language-specific files, see the [`package.json` file](https://github.com/tree-sitter/tree-sitter-ruby/blob/master/package.json) and [`queries` directory](https://github.com/tree-sitter/tree-sitter-ruby/tree/master/queries) in the `tree-sitter-ruby` repository. The following sections describe the behavior of each file.
+
+## Global Configuration
+
+The Tree-sitter CLI automatically creates a directory in your home folder called `~/.tree-sitter`. This is used to store compiled language binaries, and it can also contain a JSON configuration file. To automatically create a default config file, run this command:
+
+```sh
+tree-sitter init-config
+```
+
+### Paths
+
+The `tree-sitter highlight` command takes one or more file paths, and tries to automatically determine which language should be used to highlight those files. In order to do this, it needs to know *where* to look for Tree-sitter grammars on your filesystem. You can control this using the `"parser-directories"` key in your configuration file:
+
+```json
+{
+  "parser-directories": [
+    "/Users/my-name/code",
+    "/Users/my-name/other-code"
+  ]
+}
+```
+
+Currently, any folder within one of these *parser directores* whose name begins with "tree-sitter-" will be treated as a Tree-sitter grammar repository.
+
+### Theme
+
+The Tree-sitter highlighting system works by annotating ranges of source code with logical "highlight names" like `function.method`, `type.builtin`, `keyword`, etc. In order to decide what *color* should be used for rendering each highlight, a *theme* is needed.
+
+In `~/.tree-sitter/config.json`, the `"theme"` value is an object whose keys are dot-separated highlight names like `function.builtin` or `keyword`, and whose values are JSON expressions that represent text styling parameters.
+
+#### Highlight Names
+
+A theme can contain multiple keys that share a common subsequence. Examples:
+* `variable` and `variable.parameter`
+* `function`, `function.builtin`, and `function.method`
+
+For a given highlight produced, styling will be determined based on the **longest matching theme key**. For example, the highlight `function.builtin.static` would match they key `function.builtin` rather than `function`.
+
+#### Styling Values
+
+Styling values can be any of the following:
+
+* Integers from 0 to 255, representing ANSI terminal color ids.
+* Strings like `"#e45649"` representing hexadecimal RGB colors.
+* Strings naming basic ANSI colors like `"red"`, `"black"`, `"purple"`, or `"cyan"`.
+* Objects with the following keys:
+  * `color` - An integer or string as described above.
+  * `underline` - A boolean indicating whether the text should be underlined.
+  * `italic` - A boolean indicating whether the text should be italicized.
+  * `bold` - A boolean indicating whether the text should be bold-face.
+
+## Language Configuration
+
+The `package.json` file is used by package managers like `npm`. Within this file, the Tree-sitter CLI looks for data nested under the top-level `"tree-sitter"` key. This key is expected to contain an array of objects with the following keys:
+
+### Basics
+
+These keys specify basic information about the parser:
+
+* `scope` (required) - A string like `"source.js"` that identifies the language. Currently, we strive to match the scope names used by popular [TextMate grammars](textmate.com) and by the [Linguist](https://github.com/github/linguist) library.
+
+* `path` (optional) - A relative path from the directory containig `package.json` to another directory containing the `src/` folder, which contains the actual generated parser. The default value is `"."` (so that `src/` is in the same folder as `package.json`), and this very rarely needs to be overridden.
+
+### Language Detection
+
+These keys help to decide whether the language applies to a given file:
+
+* `file-types` - An array of filename suffix strings. The grammar will be used for files whose names end with one of these suffixes. Note that the suffix may match an *entire* filename.
+
+* `first-line-regex` - A regex pattern that will be tested against the first line of a file in order to determine whether this language applies to the file. If present, this regex will be used for any file whose language does not match any grammar's `file-types`.
+
+* `content-regex` - A regex pattern that will be tested against the contents of the file in order to break ties in cases where multiple grammars matched the file using the above two criteria. If the regex matches, this grammar will be preferred over another grammar with no `content-regex`. If the regex does not match, a grammar with no `content-regex` will be preferred over this one.
+
+* `injection-regex` - A regex pattern that will be tested against a *language name* in order to determine whether this language should be used for a potential *language injection* site. Language injection is described in more detail in [a later section](#language-injection-query).
+
+### Query Paths
+
+These keys specify relative paths from the directory containing `package.json` to the files that control syntax highlighting:
+
+* `highlights` - Path to a *highlight query*. Default: `queries/highlights.scm`
+* `locals` - Path to a *local variable query*. Default: `queries/locals.scm`.
+* `injections` - Path to an *injection query*. Default: `queries/injections.scm`.
+
+The behaviors of these three files are described in the next section.
+
+### Example
+
+Typically, the `"tree-sitter"` array only needs to contain one object, which only needs to specify a few keys:
+
+```json
+{
+  "tree-sitter": [
+    {
+      "scope": "source.ruby",
+      "file-types": [
+        "rb",
+        "gemspec",
+        "Gemfile",
+        "Rakefile"
+      ],
+      "first-line-regex": "#!.*\\bruby$"
+    }
+  ]
+}
+```
+
+## Queries
+
 Tree-sitter's syntax highlighting system is based on *tree queries*, which are a general system for pattern-matching on Tree-sitter's syntax trees. See [this section](./using-parsers#pattern-matching-with-queries) of the documentation for more information about tree queries.
 
-Syntax highlighting queries for a given language are normally included in the same git repository as the Tree-sitter grammar for that language, in a top-level directory called `queries`. For an example, see the `queries` directory in the [`tree-sitter-ruby` repository](https://github.com/tree-sitter/tree-sitter-ruby/tree/master/queries).
+Syntax highlighting is controlled by *three* different types of query files that are usually included in the `queries` folder. The default names for the query files use the `.scm` file. We chose this extension because it commonly used for files written in [Scheme](https://en.wikipedia.org/wiki/Scheme_%28programming_language%29), a popular dialect of Lisp, and these query files use a Lisp-like syntax.
 
-Highlighting is controlled by *three* different types of query files that can be included in the `queries` folder.
+Alternatively, you can think of `.scm` as an acronym for "Source Code Matching".
 
-* The highlights query (required, with default name `highlights.scm`)
-* The local variable query (optional, with default name `locals.scm`)
-* The language injection query (optional, with default name `injections.scm`)
+### Highlights Query
 
-The default names for the query files use the `.scm` file. We chose this extension because it commonly used for files written in [Scheme](https://en.wikipedia.org/wiki/Scheme_%28programming_language%29), a popular dialect of Lisp, and these query files use a Lisp-like syntax. But alternatively, you can think of `SCM` as an acronym for "Source Code Matching".
-
-## Highlights Query
-
-The most important query is called the highlights query. The highlights query uses *captures* to assign arbitrary *highlight names* to different nodes in the tree. Each highlight name can then be mapped to a color. Commonly used highlight names include `keyword`, `function`, `type`, `property`, and `string`. Names can also be dot-separated like `function.builtin`.
+The most important query is called the highlights query. The highlights query uses *captures* to assign arbitrary *highlight names* to different nodes in the tree. Each highlight name can then be mapped to a color (as described [above](#theme)). Commonly used highlight names include `keyword`, `function`, `type`, `property`, and `string`. Names can also be dot-separated like `function.builtin`.
 
 #### Example Input
 
@@ -76,7 +187,7 @@ We can assign each of these categories a *highlight name* using a query like thi
 (function_declaration name: (identifier) @function)
 ```
 
-And we could map each of these highlight names to a color:
+Then, in our `~/.tree-sitter/config.json` file, we could map each of these highlight names to a color:
 
 ```json
 {
@@ -91,13 +202,15 @@ And we could map each of these highlight names to a color:
 
 #### Result
 
+Running `tree-sitter highlight` on this Go file would produce output like this:
+
 <pre class='highlight' style='border: 1px solid #aaa;'>
 <span style='color: purple;'>func</span> <span style='color: #005fd7;'>increment</span>(<span>a</span> <span style='color: green;'>int</span>) <span style='color: green;'>int</span> {
     <span style='color: purple;'>return</span> <span>a</span> <span style='font-weight: bold;color: #4e4e4e;'>+</span> <span style='font-weight: bold;color: #875f00;'>1</span>
 }
 </pre>
 
-## Local Variable Query
+### Local Variable Query
 
 Good syntax highlighting helps the reader to quickly distinguish between the different types of *entities* in their code. Ideally, if a given entity appears in *multiple* places, it should be colored the same in each place. The Tree-sitter syntax highlighting system can help you to achieve this by keeping track of local scopes and variables.
 
@@ -207,6 +320,8 @@ Then, we'll set up a local variable query to keep track of the variables and sco
 
 #### Result
 
+Running `tree-sitter highlight` on this ruby file would produce output like this:
+
 <pre class='highlight' style='border: 1px solid #aaa;'>
 <span style='color: purple;'>def</span> <span style='color: #005fd7;'>process_list</span><span style='color: #4e4e4e;'>(</span><span style='text-decoration: underline;'>list</span><span style='color: #4e4e4e;'>)</span>
   <span>context</span> <span style='font-weight: bold;color: #4e4e4e;'>=</span> <span style='color: #005fd7;'>current_context</span>
@@ -219,7 +334,7 @@ Then, we'll set up a local variable query to keep track of the variables and sco
 <span>list</span> <span style='font-weight: bold;color: #4e4e4e;'>=</span> [<span>item</span><span style='color: #4e4e4e;'>]</span>
 </pre>
 
-## Language Injection Query
+### Language Injection Query
 
 Some source files contain code written in multiple different languages. Examples include:
 * HTML files, which can contain JavaScript inside of `<script>` tags and CSS inside of `<style>` tags
