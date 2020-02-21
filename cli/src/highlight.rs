@@ -172,9 +172,21 @@ fn parse_style(style: &mut Style, json: Value) {
     if let Value::Object(entries) = json {
         for (property_name, value) in entries {
             match property_name.as_str() {
-                "bold" => style.ansi = style.ansi.bold(),
-                "italic" => style.ansi = style.ansi.italic(),
-                "underline" => style.ansi = style.ansi.underline(),
+                "bold" => {
+                    if value == Value::Bool(true) {
+                        style.ansi = style.ansi.bold()
+                    }
+                }
+                "italic" => {
+                    if value == Value::Bool(true) {
+                        style.ansi = style.ansi.italic()
+                    }
+                }
+                "underline" => {
+                    if value == Value::Bool(true) {
+                        style.ansi = style.ansi.underline()
+                    }
+                }
                 "color" => {
                     if let Some(color) = parse_color(value) {
                         style.ansi = style.ansi.fg(color);
@@ -230,6 +242,9 @@ fn parse_color(json: Value) -> Option<Color> {
 fn style_to_css(style: ansi_term::Style) -> String {
     use std::fmt::Write;
     let mut result = "style='".to_string();
+    if style.is_underline {
+        write!(&mut result, "text-decoration: underline;").unwrap();
+    }
     if style.is_bold {
         write!(&mut result, "font-weight: bold;").unwrap();
     }
