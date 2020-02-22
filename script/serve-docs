@@ -10,6 +10,7 @@ bundle exec ruby <<RUBY &
 
   def copy_wasm_files
     `cp $root/lib/binding_web/tree-sitter.{js,wasm} $root/docs/assets/js/`
+    `cp $root/target/release/*.wasm $root/docs/assets/js/`
   end
 
   puts "Copying WASM files to docs folder..."
