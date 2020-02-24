@@ -279,7 +279,6 @@ fn run() -> error::Result<()> {
             if let Some(highlight_config) = language_config.highlight_config(language)? {
                 if html_mode {
                     highlight::html(&loader, &config.theme, &source, highlight_config, time)?;
-                    println!("{}", highlight::HTML_FOOTER);
                 } else {
                     highlight::ansi(&loader, &config.theme, &source, highlight_config, time)?;
                 }
@@ -287,6 +286,11 @@ fn run() -> error::Result<()> {
                 return Error::err(format!("No syntax highlighting query found"));
             }
         }
+
+        if html_mode {
+            println!("{}", highlight::HTML_FOOTER);
+        }
+
     } else if let Some(matches) = matches.subcommand_matches("build-wasm") {
         let grammar_path = current_dir.join(matches.value_of("path").unwrap_or(""));
         wasm::compile_language_to_wasm(&grammar_path, matches.is_present("docker"))?;
