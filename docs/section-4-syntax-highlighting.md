@@ -81,7 +81,7 @@ These keys specify basic information about the parser:
 
 * `scope` (required) - A string like `"source.js"` that identifies the language. Currently, we strive to match the scope names used by popular [TextMate grammars](https://macromates.com/manual/en/language_grammars) and by the [Linguist](https://github.com/github/linguist) library.
 
-* `path` (optional) - A relative path from the directory containig `package.json` to another directory containing the `src/` folder, which contains the actual generated parser. The default value is `"."` (so that `src/` is in the same folder as `package.json`), and this very rarely needs to be overridden.
+* `path` (optional) - A relative path from the directory containing `package.json` to another directory containing the `src/` folder, which contains the actual generated parser. The default value is `"."` (so that `src/` is in the same folder as `package.json`), and this very rarely needs to be overridden.
 
 ### Language Detection
 
