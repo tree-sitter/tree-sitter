@@ -63,7 +63,7 @@
     },
 
     "supertypes": {
-      "description": "each supertype instructs the parser to replace a set of subtypes in the `types` list with a single supertype.",
+      "description": "A list of hidden rule names that should be considered supertypes in the generated node types file. See http://tree-sitter.github.io/tree-sitter/using-parsers#static-node-types.",
       "type": "array",
       "items": {
         "description": "the name of a rule in `rules` or `extras`",
