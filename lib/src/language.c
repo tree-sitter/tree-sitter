@@ -119,7 +119,7 @@ const char *ts_language_field_name_for_id(
   TSFieldId id
 ) {
   uint32_t count = ts_language_field_count(self);
-  if (count) {
+  if (count && id <= count) {
     return self->field_names[id];
   } else {
     return NULL;
