@@ -1059,7 +1059,7 @@ impl<'a> TreeCursor<'a> {
     }
 
     /// Get the field name of this tree cursor's current node.
-    pub fn field_name(&self) -> Option<&str> {
+    pub fn field_name(&self) -> Option<&'static str> {
         unsafe {
             let ptr = ffi::ts_tree_cursor_current_field_name(&self.0);
             if ptr.is_null() {
