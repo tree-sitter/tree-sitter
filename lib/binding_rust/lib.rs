@@ -176,10 +176,13 @@ impl Language {
     }
 
     /// Get the name of the node kind for the given numerical id.
-    pub fn node_kind_for_id(&self, id: u16) -> &'static str {
-        unsafe { CStr::from_ptr(ffi::ts_language_symbol_name(self.0, id)) }
-            .to_str()
-            .unwrap()
+    pub fn node_kind_for_id(&self, id: u16) -> Option<&'static str> {
+        let ptr = unsafe { ffi::ts_language_symbol_name(self.0, id) };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(unsafe { CStr::from_ptr(ptr) }.to_str().unwrap())
+        }
     }
 
     /// Get the numeric id for the given node kind.
@@ -212,10 +215,13 @@ impl Language {
     }
 
     /// Get the field names for the given numerical id.
-    pub fn field_name_for_id(&self, field_id: u16) -> &'static str {
-        unsafe { CStr::from_ptr(ffi::ts_language_field_name_for_id(self.0, field_id)) }
-            .to_str()
-            .unwrap()
+    pub fn field_name_for_id(&self, field_id: u16) -> Option<&'static str> {
+        let ptr = unsafe { ffi::ts_language_field_name_for_id(self.0, field_id) };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(unsafe { CStr::from_ptr(ptr) }.to_str().unwrap())
+        }
     }
 
     /// Get the numerical id for the given field name.
