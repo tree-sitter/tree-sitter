@@ -72,8 +72,10 @@ const char *ts_language_symbol_name(
     return "ERROR";
   } else if (symbol == ts_builtin_sym_error_repeat) {
     return "_ERROR";
-  } else {
+  } else if (symbol < ts_language_symbol_count(self)) {
     return self->symbol_names[symbol];
+  } else {
+    return NULL;
   }
 }
 
