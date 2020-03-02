@@ -585,7 +585,7 @@ This function will return `false` when there are no more matches. Otherwise, it 
 
 In languages with static typing, it can be helpful for syntax trees to provide specific type information about individual syntax nodes. Tree-sitter makes this information available via a generated file called `node-types.json`. This *node types* file provides structured data about every possible syntax node in a grammar.
 
-You can use this data to generate type declarations in statically-typed programming languages. For example, GitHub's [Semantic](https://github.com/github/semantic) uses these node types files to [generate Haskell data types](https://github.com/github/semantic/pull/448) for every possible syntax node, which allows for code analysis algorithms to be structurally verified by the Haskell type system.
+You can use this data to generate type declarations in statically-typed programming languages. For example, GitHub's [Semantic](https://github.com/github/semantic) uses these node types files to [generate Haskell data types](https://github.com/github/semantic/tree/master/semantic-ast) for every possible syntax node, which allows for code analysis algorithms to be structurally verified by the Haskell type system.
 
 The node types file contains an array of objects, each of which describes a particular type of syntax node using the following entries:
 
