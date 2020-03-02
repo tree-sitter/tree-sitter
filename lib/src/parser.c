@@ -324,6 +324,10 @@ static bool ts_parser__can_reuse_first_leaf(
   TSStateId leaf_state = ts_subtree_leaf_parse_state(tree);
   TSLexMode leaf_lex_mode = self->language->lex_modes[leaf_state];
 
+  // At the end of a non-terminal extra node, the lexer normally returns
+  // NULL, which indicates that the parser should look for a reduce action
+  // at symbol `0`. Avoid reusing tokens in this situation to ensure that
+  // the same thing happens when incrementally reparsing.
   if (current_lex_mode.lex_state == (uint16_t)(-1)) return false;
 
   // If the token was created in a state with the same set of lookaheads, it is reusable.
