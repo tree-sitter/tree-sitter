@@ -22,6 +22,7 @@ const LANGUAGES: &'static [&'static str] = &[
     "html",
     "javascript",
     "json",
+    "php",
     "python",
 ];
 

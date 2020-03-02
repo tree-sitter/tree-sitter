@@ -324,6 +324,8 @@ static bool ts_parser__can_reuse_first_leaf(
   TSStateId leaf_state = ts_subtree_leaf_parse_state(tree);
   TSLexMode leaf_lex_mode = self->language->lex_modes[leaf_state];
 
+  if (current_lex_mode.lex_state == (uint16_t)(-1)) return false;
+
   // If the token was created in a state with the same set of lookaheads, it is reusable.
   if (
     table_entry->action_count > 0 &&
