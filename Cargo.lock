@@ -737,7 +737,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter"
-version = "0.6.2"
+version = "0.6.3"
 dependencies = [
  "cc 1.0.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -770,7 +770,7 @@ dependencies = [
  "spin 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tempfile 3.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "tiny_http 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "tree-sitter 0.6.2",
+ "tree-sitter 0.6.3",
  "tree-sitter-highlight 0.1.6",
  "webbrowser 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -783,7 +783,7 @@ dependencies = [
  "serde 1.0.80 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.80 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.33 (registry+https://github.com/rust-lang/crates.io-index)",
- "tree-sitter 0.6.2",
+ "tree-sitter 0.6.3",
 ]
 
 [[package]]
