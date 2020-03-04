@@ -8,6 +8,7 @@
     "test": "test"
   },
   "scripts": {
+    "lint": "cat prefix.js binding.js | eslint --stdin && eslint imports.js test/* check-artifacts-fresh.js",
     "test": "mocha",
     "prepublishOnly": "node check-artifacts-fresh.js"
   },
@@ -27,6 +28,8 @@
   "homepage": "https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web",
   "devDependencies": {
     "chai": "^4.2.0",
+    "eslint": "^6.8.0",
+    "eslint-plugin-emscripten": "file:eslint-plugin-emscripten",
     "mocha": "^6.1.4",
     "terser": "^3.17.0"
   }
