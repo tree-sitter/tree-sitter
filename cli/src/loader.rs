@@ -12,6 +12,7 @@ use std::time::SystemTime;
 use std::{fs, mem};
 use tree_sitter::Language;
 use tree_sitter_highlight::HighlightConfiguration;
+use tree_sitter_tags::TagsConfiguration;
 
 #[cfg(unix)]
 const DYLIB_EXTENSION: &'static str = "so";
@@ -33,6 +34,7 @@ pub struct LanguageConfiguration<'a> {
     pub locals_filenames: Option<Vec<String>>,
     language_id: usize,
     highlight_config: OnceCell<Option<HighlightConfiguration>>,
+    tags_config: OnceCell<Option<TagsConfiguration>>,
     highlight_names: &'a Mutex<Vec<String>>,
     use_all_highlight_names: bool,
 }
@@ -481,6 +483,7 @@ impl Loader {
                         locals_filenames: config_json.locals.into_vec(),
                         highlights_filenames: config_json.highlights.into_vec(),
                         highlight_config: OnceCell::new(),
+                        tags_config: OnceCell::new(),
                         highlight_names: &*self.highlight_names,
                         use_all_highlight_names: self.use_all_highlight_names,
                     };
@@ -513,6 +516,7 @@ impl Loader {
                 locals_filenames: None,
                 highlights_filenames: None,
                 highlight_config: OnceCell::new(),
+                tags_config: OnceCell::new(),
                 highlight_names: &*self.highlight_names,
                 use_all_highlight_names: self.use_all_highlight_names,
             };
@@ -534,32 +538,11 @@ impl<'a> LanguageConfiguration<'a> {
     pub fn highlight_config(&self, language: Language) -> Result<Option<&HighlightConfiguration>> {
         self.highlight_config
             .get_or_try_init(|| {
-                let queries_path = self.root_path.join("queries");
-                let read_queries = |paths: &Option<Vec<String>>, default_path: &str| {
-                    if let Some(paths) = paths.as_ref() {
-                        let mut query = String::new();
-                        for path in paths {
-                            let path = self.root_path.join(path);
-                            query += &fs::read_to_string(&path).map_err(Error::wrap(|| {
-                                format!("Failed to read query file {:?}", path)
-                            }))?;
-                        }
-                        Ok(query)
-                    } else {
-                        let path = queries_path.join(default_path);
-                        if path.exists() {
-                            fs::read_to_string(&path).map_err(Error::wrap(|| {
-                                format!("Failed to read query file {:?}", path)
-                            }))
-                        } else {
-                            Ok(String::new())
-                        }
-                    }
-                };
-
-                let highlights_query = read_queries(&self.highlights_filenames, "highlights.scm")?;
-                let injections_query = read_queries(&self.injections_filenames, "injections.scm")?;
-                let locals_query = read_queries(&self.locals_filenames, "locals.scm")?;
+                let highlights_query =
+                    self.read_queries(&self.highlights_filenames, "highlights.scm")?;
+                let injections_query =
+                    self.read_queries(&self.injections_filenames, "injections.scm")?;
+                let locals_query = self.read_queries(&self.locals_filenames, "locals.scm")?;
 
                 if highlights_query.is_empty() {
                     Ok(None)
@@ -586,6 +569,47 @@ impl<'a> LanguageConfiguration<'a> {
                 }
             })
             .map(Option::as_ref)
+    }
+
+    pub fn tags_config(&self, language: Language) -> Result<Option<&TagsConfiguration>> {
+        self.tags_config
+            .get_or_try_init(|| {
+                let tags_query = self.read_queries(&self.highlights_filenames, "tags.scm")?;
+                let locals_query = self.read_queries(&self.locals_filenames, "locals.scm")?;
+                if tags_query.is_empty() {
+                    Ok(None)
+                } else {
+                    TagsConfiguration::new(language, &tags_query, &locals_query)
+                        .map_err(Error::wrap(|| {
+                            format!("Failed to load queries in {:?}", self.root_path)
+                        }))
+                        .map(|config| Some(config))
+                }
+            })
+            .map(Option::as_ref)
+    }
+
+    fn read_queries(&self, paths: &Option<Vec<String>>, default_path: &str) -> Result<String> {
+        if let Some(paths) = paths.as_ref() {
+            let mut query = String::new();
+            for path in paths {
+                let path = self.root_path.join(path);
+                query += &fs::read_to_string(&path).map_err(Error::wrap(|| {
+                    format!("Failed to read query file {:?}", path)
+                }))?;
+            }
+            Ok(query)
+        } else {
+            let queries_path = self.root_path.join("queries");
+            let path = queries_path.join(default_path);
+            if path.exists() {
+                fs::read_to_string(&path).map_err(Error::wrap(|| {
+                    format!("Failed to read query file {:?}", path)
+                }))
+            } else {
+                Ok(String::new())
+            }
+        }
     }
 }
 

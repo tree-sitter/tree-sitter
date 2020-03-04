@@ -608,6 +608,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "serde"
 version = "1.0.80"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "serde_derive 1.0.80 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "serde_derive"
@@ -772,11 +775,23 @@ dependencies = [
  "tiny_http 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "tree-sitter 0.6.3",
  "tree-sitter-highlight 0.1.6",
+ "tree-sitter-tags 0.1.6",
  "webbrowser 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "tree-sitter-highlight"
+version = "0.1.6"
+dependencies = [
+ "regex 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.80 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_derive 1.0.80 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 1.0.33 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tree-sitter 0.6.3",
+]
+
+[[package]]
+name = "tree-sitter-tags"
 version = "0.1.6"
 dependencies = [
  "regex 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
