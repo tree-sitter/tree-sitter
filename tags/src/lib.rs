@@ -61,12 +61,13 @@ impl Serialize for TagKind {
         S: Serializer,
     {
         match self {
-            TagKind::Call => "Call".serialize(s),
-            TagKind::Module => "Module".serialize(s),
-            TagKind::Class => "Class".serialize(s),
-            TagKind::Method => "Method".serialize(s),
-            TagKind::Function => "Function".serialize(s),
+            TagKind::Call => "Call",
+            TagKind::Module => "Module",
+            TagKind::Class => "Class",
+            TagKind::Method => "Method",
+            TagKind::Function => "Function",
         }
+        .serialize(s)
     }
 }
 
