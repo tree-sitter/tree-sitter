@@ -14,30 +14,31 @@ pub struct TagsContext {
     cursor: QueryCursor,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Range {
     pub start: i64,
     pub end: i64,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Loc {
     pub byte_range: Range,
     pub span: Span,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Span {
     pub start: Pos,
     pub end: Pos,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Pos {
     pub line: i64,
     pub column: i64,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum TagKind {
     Function,
     Method,
@@ -46,7 +47,7 @@ pub enum TagKind {
     Call,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Tag<'a> {
     pub kind: TagKind,
     pub loc: Loc,
@@ -88,8 +89,6 @@ impl TagsConfiguration {
             }
         }
 
-        query.pattern_count();
-        query.start_byte_for_pattern(5);
         Ok(TagsConfiguration {
             language,
             query,
@@ -107,6 +106,23 @@ impl TagsContext {
     }
 
     pub fn generate_tags(&mut self, config: &TagsConfiguration, source: &[u8]) -> Vec<Tag> {
-        Vec::new()
+        self.parser
+            .set_language(config.language)
+            .expect("Incompatible language");
+        let tree = self
+            .parser
+            .parse(source, None)
+            .expect("Parsing failed unexpectedly");
+        let matches = self
+            .cursor
+            .matches(&config.query, tree.root_node(), |node| {
+                &source[node.byte_range()]
+            });
+        matches
+            .map(|mat| {
+                for capture in mat.captures {}
+                unimplemented!();
+            })
+            .collect()
     }
 }
