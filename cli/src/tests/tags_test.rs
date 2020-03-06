@@ -9,10 +9,8 @@ fn test_tags_javascript() {
         r#"
         ((function_definition
             name: (identifier) @name
-            body: (block
-                . (string) @doc)) @function
+            body: (block . (string) @doc)) @function
          (set! replace @doc "(^['\s]*)|(['\s]*$)"))
-
         (function_definition
             name: (identifier) @name) @function
         (class_definition
