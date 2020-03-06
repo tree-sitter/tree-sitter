@@ -2,12 +2,18 @@
   "name": "web-tree-sitter",
   "version": "0.16.2",
   "description": "Tree-sitter bindings for the web",
-  "main": "tree-sitter.js",
-  "types": "tree-sitter-web.d.ts",
+  "main": "lib/tree-sitter.js",
+  "types": "lib/src/ts/tree-sitter.d.ts",
+  "files": [
+    "lib/tree-sitter.js",
+    "lib/src/ts/tree-sitter.d.ts",
+    "lib/tree-sitter.wasm"
+  ],
   "directories": {
     "test": "test"
   },
   "scripts": {
+    "build": "rollup -c",
     "test": "mocha",
     "prepublishOnly": "node check-artifacts-fresh.js"
   },
@@ -26,8 +32,22 @@
   },
   "homepage": "https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web",
   "devDependencies": {
+    "@types/node": "^13.7.7",
+    "@typescript-eslint/eslint-plugin": "^2.22.0",
+    "@typescript-eslint/parser": "^2.22.0",
     "chai": "^4.2.0",
+    "eslint": "^6.8.0",
+    "eslint-config-prettier": "^6.10.0",
+    "eslint-plugin-prettier": "^3.1.2",
     "mocha": "^6.1.4",
-    "terser": "^3.17.0"
-  }
+    "prettier": "^1.19.1",
+    "rollup": "^1.32.0",
+    "rollup-plugin-copy": "^3.3.0",
+    "rollup-plugin-terser": "^5.2.0",
+    "rollup-plugin-typescript2": "^0.26.0",
+    "terser": "^3.17.0",
+    "tslib": "^1.11.1",
+    "typescript": "^3.8.3"
+  },
+  "dependencies": {}
 }

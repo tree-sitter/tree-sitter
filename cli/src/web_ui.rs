@@ -40,8 +40,8 @@ macro_rules! posix_resource {
 
 resource!(get_main_html, "cli/src/web_ui.html");
 resource!(get_playground_js, "docs/assets/js/playground.js");
-posix_resource!(get_lib_js, "lib/binding_web/tree-sitter.js");
-posix_resource!(get_lib_wasm, "lib/binding_web/tree-sitter.wasm");
+posix_resource!(get_lib_js, "lib/binding_web/lib/tree-sitter.js");
+posix_resource!(get_lib_wasm, "lib/binding_web/lib/tree-sitter.wasm");
 
 pub fn serve(grammar_path: &Path) {
     let port = get_available_port().expect("Couldn't find an available port");

@@ -118,7 +118,7 @@ First install `tree-sitter-cli` and the tree-sitter language for which to genera
 npm install --save-dev tree-sitter-cli tree-sitter-javascript
 ```
 
-Then just use tree-sitter cli tool to generate the `.wasm`. 
+Then just use tree-sitter cli tool to generate the `.wasm`.
 
 ```sh
 npx tree-sitter build-wasm node_modules/tree-sitter-javascript
