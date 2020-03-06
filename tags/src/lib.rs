@@ -153,17 +153,26 @@ impl TagsContext {
                     }
                 }
 
-                if let (Some(function), Some(name)) = (function_node, name_node) {
+                let tag_from_node = |kind, name: Node, node| {
                     if let Ok(name) = str::from_utf8(&source[name.byte_range()]) {
                         return Some(Tag {
                             name,
-                            line: "",
-                            loc: loc_for_node(function),
-                            kind: TagKind::Function,
+                            line: "TODO",
+                            loc: loc_for_node(node),
+                            kind: kind,
                             docs: doc_node
                                 .and_then(|n| str::from_utf8(&source[n.byte_range()]).ok()),
                         });
-                    }
+                    };
+                    return None;
+                };
+
+                if let (Some(function), Some(name)) = (function_node, name_node) {
+                    return tag_from_node(TagKind::Function, name, function);
+                } else if let (Some(call), Some(name)) = (call_node, name_node) {
+                    return tag_from_node(TagKind::Call, name, call);
+                } else if let (Some(class), Some(name)) = (class_node, name_node) {
+                    return tag_from_node(TagKind::Class, name, class);
                 }
 
                 None
@@ -191,6 +200,15 @@ impl Serialize for TagKind {
 fn loc_for_node(node: Node) -> Loc {
     Loc {
         byte_range: node.byte_range(),
-        span: node.start_position()..node.start_position(),
+        span: node.start_position().into()..node.start_position().into(),
+    }
+}
+
+impl From<tree_sitter::Point> for Pos {
+    fn from(point: tree_sitter::Point) -> Self {
+        return Pos {
+            line: point.row as i64,
+            column: point.column as i64,
+        };
     }
 }
