@@ -126,6 +126,7 @@ impl TagsContext {
             .matches(&config.query, tree.root_node(), |node| {
                 &source[node.byte_range()]
             });
+        let mut last_matched_kind = None;
         matches
             .filter_map(|mat| {
                 let mut call_node = None;
@@ -153,8 +154,15 @@ impl TagsContext {
                     }
                 }
 
-                let tag_from_node = |kind, name: Node, node| {
+                let mut tag_from_node = |kind, name: Node, node: Node| {
                     if let Ok(name) = str::from_utf8(&source[name.byte_range()]) {
+                        let current_kind = Some(node.kind());
+                        if last_matched_kind == current_kind {
+                            return None;
+                        } else {
+                            last_matched_kind = current_kind;
+                        }
+
                         return Some(Tag {
                             name,
                             line: "TODO",
@@ -167,7 +175,9 @@ impl TagsContext {
                     return None;
                 };
 
-                if let (Some(function), Some(name)) = (function_node, name_node) {
+                if let (Some(function), Some(name), Some(_doc)) =
+                    (function_node, name_node, doc_node)
+                {
                     return tag_from_node(TagKind::Function, name, function);
                 } else if let (Some(call), Some(name)) = (call_node, name_node) {
                     return tag_from_node(TagKind::Call, name, call);
