@@ -9,4 +9,5 @@ if [ ! -d "node_modules/chai" ] || [ ! -d "node_modules/mocha" ]; then
   npm install
 fi
 
-./node_modules/.bin/mocha
+npm run test
+

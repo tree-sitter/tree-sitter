@@ -2,12 +2,13 @@
   "name": "web-tree-sitter",
   "version": "0.16.2",
   "description": "Tree-sitter bindings for the web",
-  "main": "tree-sitter.js",
-  "types": "tree-sitter-web.d.ts",
+  "main": "lib/tree-sitter.js",
+  "types": "lib/tree-sitter-web.d.ts",
   "directories": {
     "test": "test"
   },
   "scripts": {
+    "build": "rollup -c --environment BUILD:production",
     "test": "mocha",
     "prepublishOnly": "node check-artifacts-fresh.js"
   },
@@ -28,6 +29,9 @@
   "devDependencies": {
     "chai": "^4.2.0",
     "mocha": "^6.1.4",
+    "rollup": "^2.0.0",
+    "rollup-plugin-copy": "^3.3.0",
+    "rollup-plugin-terser": "^5.3.0",
     "terser": "^3.17.0"
   }
 }

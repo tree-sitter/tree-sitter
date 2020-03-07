@@ -1,5 +1,4 @@
 *
-!README.md
-!tree-sitter.js
-!tree-sitter.wasm
-!tree-sitter-web.d.ts
+!lib/tree-sitter.js
+!lib/tree-sitter.wasm
+!lib/tree-sitter-web.d.ts

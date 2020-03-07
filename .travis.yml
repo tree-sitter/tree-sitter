@@ -21,6 +21,7 @@ before_install:
 
 script:
   # Build the WASM binding
+  - npm install --prefix lib/binding_web
   - (eval "$WASM_ENV" && script/build-wasm)
 
   # Build the CLI
@@ -53,8 +54,8 @@ deploy:
   file_glob: true
   file:
     - "tree-sitter-*.gz"
-    - "target/release/tree-sitter.js"
-    - "target/release/tree-sitter.wasm"
+    - "lib/binding_web/lib/tree-sitter.js"
+    - "lib/binding_web/lib/tree-sitter.wasm"
   draft: true
   overwrite: true
   skip_cleanup: true

@@ -8,8 +8,9 @@ USAGE
 
 SUMMARY
 
-  Compile the Tree-sitter WASM library. This will create two files in the
-  \`lib/binding_web\` directory: \`tree-sitter.js\` and \`tree-sitter.wasm\`.
+  Compile the Tree-sitter WASM library. This will create two files in 
+  the \`lib/binding_web/build-wasm\` directory: \`tree-sitter-c.js\` and 
+  \`tree-sitter.wasm\`.
 
 REQUIREMENTS
 
@@ -30,7 +31,12 @@ EOF
 set -e
 
 web_dir=lib/binding_web
-exports=$(cat ${web_dir}/exports.json)
+src_dir="$web_dir/src/wasm"
+out_dir="$web_dir/build-wasm"
+
+exports=$(cat ${src_dir}/exports.json)
+runtime_exports=$(cat ${src_dir}/runtime-exports.json)
+
 emscripten_flags="-O3"
 minify_js=1
 force_docker=0
@@ -77,45 +83,38 @@ fi
 
 mkdir -p target/scratch
 
-# Use emscripten to generate `tree-sitter.js` and `tree-sitter.wasm`
+# Use emscripten to generate `tree-sitter-c.js` and `tree-sitter.wasm`
 # in the `target/scratch` directory
-$emcc                                \
-  -s WASM=1                          \
-  -s TOTAL_MEMORY=33554432           \
-  -s ALLOW_MEMORY_GROWTH=1           \
-  -s MAIN_MODULE=2                   \
-  -s NO_FILESYSTEM=1                 \
-  -s "EXPORTED_FUNCTIONS=${exports}" \
-  $emscripten_flags                  \
-  -std=c99                           \
-  -D 'fprintf(...)='                 \
-  -D NDEBUG=                         \
-  -I lib/src                         \
-  -I lib/include                     \
-  --js-library ${web_dir}/imports.js \
-  --pre-js ${web_dir}/prefix.js      \
-  --post-js ${web_dir}/binding.js    \
-  lib/src/lib.c                      \
-  ${web_dir}/binding.c               \
+$emcc                                                    \
+  -s WASM=1                                              \
+  -s TOTAL_MEMORY=33554432                               \
+  -s ALLOW_MEMORY_GROWTH=1                               \
+  -s MAIN_MODULE=2                                       \
+  -s EXPORT_ES6=1                                        \
+  -s MODULARIZE_INSTANCE=1                               \
+  -s NO_FILESYSTEM=1                                     \
+  -s "EXPORTED_FUNCTIONS=${exports}"                     \
+  -s "EXTRA_EXPORTED_RUNTIME_METHODS=${runtime_exports}" \
+  $emscripten_flags                                      \
+  --minify 0                                             \
+  -std=c99                                               \
+  -D 'fprintf(...)='                                     \
+  -D NDEBUG=                                             \
+  -I lib/src                                             \
+  -I lib/include                                         \
+  --js-library ${src_dir}/imports.js                     \
+  lib/src/lib.c                                          \
+  ${src_dir}/binding.c                                   \
   -o target/scratch/tree-sitter.js
 
-# Use terser to write a minified version of `tree-sitter.js` into
-# the `lib/binding_web` directory.
-if [[ "$minify_js" == "1" ]]; then
-  if [ ! -d ${web_dir}/node_modules/terser ]; then
-    (
-      cd ${web_dir}
-      npm install
-    )
-  fi
-  ${web_dir}/node_modules/.bin/terser   \
-    --compress                       \
-    --mangle                         \
-    --keep-classnames                \
-    -- target/scratch/tree-sitter.js \
-    > $web_dir/tree-sitter.js
-else
-  cp target/scratch/tree-sitter.js $web_dir/tree-sitter.js
+mkdir -p "$web_dir/build-wasm"
+cp target/scratch/tree-sitter.js   $web_dir/build-wasm/tree-sitter-c.js
+cp target/scratch/tree-sitter.wasm $web_dir/build-wasm/tree-sitter.wasm
+
+build_env=development
+if [[ "$minify_js" == "1" ]]; then 
+  build_env=production
 fi
 
-mv target/scratch/tree-sitter.wasm $web_dir/tree-sitter.wasm
+npm run --prefix lib/binding_web build -- --environment BUILD:$build_env
+
