@@ -599,6 +599,10 @@ static Subtree ts_parser__reuse_node(
     uint32_t byte_offset = reusable_node_byte_offset(&self->reusable_node);
     uint32_t end_byte_offset = byte_offset + ts_subtree_total_bytes(result);
 
+    // Do not reuse an EOF node if the included ranges array has changes
+    // later on in the file.
+    if (ts_subtree_is_eof(result)) end_byte_offset = UINT32_MAX;
+
     if (byte_offset > position) {
       LOG("before_reusable_node symbol:%s", TREE_NAME(result));
       break;
@@ -1611,8 +1615,8 @@ static unsigned ts_parser__condense_stack(TSParser *self) {
 
 static bool ts_parser_has_outstanding_parse(TSParser *self) {
   return (
-    self->lexer.current_position.bytes > 0 ||
-    ts_stack_state(self->stack, 0) != 1
+    ts_stack_state(self->stack, 0) != 1 ||
+    ts_stack_node_count_since_error(self->stack, 0) != 0
   );
 }
 
