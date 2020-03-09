@@ -1,4 +1,5 @@
 use serde::{Serialize, Serializer};
+use std::collections::HashMap;
 use std::{ops, str};
 use tree_sitter::{Language, Node, Parser, Point, Query, QueryCursor, QueryError};
 
@@ -21,13 +22,13 @@ pub struct TagsContext {
     cursor: QueryCursor,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct Loc {
     pub byte_range: ops::Range<usize>,
     pub span: ops::Range<Pos>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct Pos {
     pub line: i64,
     pub column: i64,
@@ -42,7 +43,7 @@ pub enum TagKind {
     Call,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct Tag<'a> {
     pub kind: TagKind,
     pub loc: Loc,
@@ -109,6 +110,7 @@ impl TagsContext {
         }
     }
 
+    // TODO: This should return an iterator rather than build up a vector
     pub fn generate_tags<'a>(
         &mut self,
         config: &TagsConfiguration,
@@ -126,68 +128,100 @@ impl TagsContext {
             .matches(&config.query, tree.root_node(), |node| {
                 &source[node.byte_range()]
             });
-        let mut last_matched_kind = None;
-        matches
-            .filter_map(|mat| {
-                let mut call_node = None;
-                let mut doc_node = None;
-                let mut class_node = None;
-                let mut function_node = None;
-                let mut module_node = None;
-                let mut name_node = None;
+        let mut neighbor_map: HashMap<tree_sitter::Node, (Tag<'a>, usize)> = HashMap::new();
 
-                for capture in mat.captures {
-                    let index = Some(capture.index);
-                    let node = Some(capture.node);
-                    if index == config.call_capture_index {
-                        call_node = node;
-                    } else if index == config.class_capture_index {
-                        class_node = node;
-                    } else if index == config.doc_capture_index {
-                        doc_node = node;
-                    } else if index == config.function_capture_index {
-                        function_node = node;
-                    } else if index == config.module_capture_index {
-                        module_node = node;
-                    } else if index == config.name_capture_index {
-                        name_node = node;
-                    }
+        for mat in matches {
+            let mut call_node = None;
+            let mut doc_node = None;
+            let mut class_node = None;
+            let mut function_node = None;
+            let mut module_node = None;
+            let mut name_node = None;
+
+            for capture in mat.captures {
+                let index = Some(capture.index);
+                let node = Some(capture.node);
+                if index == config.call_capture_index {
+                    call_node = node;
+                } else if index == config.class_capture_index {
+                    class_node = node;
+                } else if index == config.doc_capture_index {
+                    doc_node = node;
+                } else if index == config.function_capture_index {
+                    function_node = node;
+                } else if index == config.module_capture_index {
+                    module_node = node;
+                } else if index == config.name_capture_index {
+                    name_node = node;
                 }
+            }
 
-                let mut tag_from_node = |kind, name: Node, node: Node| {
-                    if let Ok(name) = str::from_utf8(&source[name.byte_range()]) {
-                        let current_kind = Some(node.kind());
-                        if last_matched_kind == current_kind {
-                            return None;
-                        } else {
-                            last_matched_kind = current_kind;
+            let tag_from_node = |node: Node| -> Option<Tag> {
+                return None;
+            }
+
+            for (optFound, theKind) in [
+                (call_node, TagKind::Call),
+                (class_node, TagKind::Class),
+                (function_node, TagKind::Function),
+                (module_node, TagKind::Module),
+            ] {
+                if let (Some(found), Some(name)) = (optFound, name_node) {
+                    match neighbor_map.entry(found) {
+                        hash_map::Entry::Occupied(entry) => {
+                            let (tag, old_idx) = entry.get_mut();
+                            if old_idx > mat.pattern_index {
+                                *tag =
+                            }
                         }
+                    }
+            }
+            }
+        }
 
-                        return Some(Tag {
-                            name,
-                            line: "TODO",
-                            loc: loc_for_node(node),
-                            kind: kind,
-                            docs: doc_node
-                                .and_then(|n| str::from_utf8(&source[n.byte_range()]).ok()),
-                        });
-                    };
-                    return None;
-                };
+        // some computation
+        return neighbor_map.into_iter().map(|t| (t.1).0).collect();
 
-                if let (Some(function), Some(name), Some(_doc)) =
-                    (function_node, name_node, doc_node)
-                {
-                    return tag_from_node(TagKind::Function, name, function);
-                } else if let (Some(call), Some(name)) = (call_node, name_node) {
-                    return tag_from_node(TagKind::Call, name, call);
-                } else if let (Some(class), Some(name)) = (class_node, name_node) {
-                    return tag_from_node(TagKind::Class, name, class);
-                }
+        // matches
+        //     .filter_map(|mat| {
 
-                None
-            })
-            .collect()
+        //         for capture in mat.captures {
+        //
+        //
+
+        //         }
+
+        //         let tag_from_node = |kind, name: Node, node| -> Option<Tag> {
+        //             if let Ok(name) = str::from_utf8(&source[name.byte_range()]) {
+        //                 if let Some((tag, index)) = neighbor_map.get(&node) {
+        //                     if index > &mat.pattern_index {
+        //                         return Some(tag.clone());
+        //                     }
+        //                 }
+
+        //                 return Some(Tag {
+        //                     name,
+        //                     line: "TODO",
+        //                     loc: loc_for_node(node),
+        //                     kind: kind,
+        //                     docs: doc_node
+        //                         .and_then(|n| str::from_utf8(&source[n.byte_range()]).ok()),
+        //                 });
+        //             };
+        //             return None;
+        //         };
+
+        //         if let (Some(function), Some(name)) = (function_node, name_node) {
+        //             return tag_from_node(TagKind::Function, name, function);
+        //         } else if let (Some(call), Some(name)) = (call_node, name_node) {
+        //             return tag_from_node(TagKind::Call, name, call);
+        //         } else if let (Some(class), Some(name)) = (class_node, name_node) {
+        //             return tag_from_node(TagKind::Class, name, class);
+        //         }
+
+        //         None
+        //     })
+        //     .collect()
     }
 }
 
