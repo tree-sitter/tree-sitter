@@ -31,7 +31,7 @@ where
     _tree: Tree,
     source: &'a [u8],
     config: &'a TagsConfiguration,
-    tags: Vec<(Node<'a>, usize, Tag<'a>)>,
+    tag_queue: Vec<(Node<'a>, usize, Tag<'a>)>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -168,7 +168,7 @@ impl TagsContext {
             matches,
             source,
             config,
-            tags: Vec::new(),
+            tag_queue: Vec::new(),
             _tree: tree,
         }
     }
@@ -182,12 +182,18 @@ where
 
     fn next(&mut self) -> Option<Tag<'a>> {
         loop {
-            if let Some(last_entry) = self.tags.last() {
-                if self.tags.len() > 1 && self.tags[0].0.end_byte() < last_entry.0.start_byte() {
-                    return Some(self.tags.remove(0).2);
+            // If there is a queued tag for an earlier node in the syntax tree, then pop
+            // it off of the queue and return it.
+            if let Some(last_entry) = self.tag_queue.last() {
+                if self.tag_queue.len() > 1
+                    && self.tag_queue[0].0.end_byte() < last_entry.0.start_byte()
+                {
+                    return Some(self.tag_queue.remove(0).2);
                 }
             }
 
+            // If there is another match, then compute its tag and add it to the
+            // tag queue.
             if let Some(mat) = self.matches.next() {
                 let mut call_node = None;
                 let mut doc_node = None;
@@ -246,12 +252,14 @@ where
                 .cloned()
                 {
                     if let Some(found) = tag_node {
-                        match self.tags.binary_search_by_key(
+                        // Only create one tag per node. The tag queue is sorted by node position
+                        // to allow for fast lookup.
+                        match self.tag_queue.binary_search_by_key(
                             &(found.end_byte(), found.start_byte(), found.id()),
                             |(node, _, _)| (node.end_byte(), node.start_byte(), node.id()),
                         ) {
                             Ok(i) => {
-                                let (_, old_idx, tag) = &mut self.tags[i];
+                                let (_, old_idx, tag) = &mut self.tag_queue[i];
                                 if *old_idx > mat.pattern_index {
                                     if let Some(new_tag) = tag_from_node(found, tag_kind) {
                                         *tag = new_tag;
@@ -261,15 +269,17 @@ where
                             }
                             Err(i) => {
                                 if let Some(tag) = tag_from_node(found, tag_kind) {
-                                    self.tags.insert(i, (found, mat.pattern_index, tag))
+                                    self.tag_queue.insert(i, (found, mat.pattern_index, tag))
                                 }
                             }
                         }
                         break;
                     }
                 }
-            } else if !self.tags.is_empty() {
-                return Some(self.tags.remove(0).2);
+            }
+            // If there are no more matches, then drain the queue.
+            else if !self.tag_queue.is_empty() {
+                return Some(self.tag_queue.remove(0).2);
             } else {
                 return None;
             }
