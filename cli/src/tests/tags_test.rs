@@ -10,13 +10,13 @@ fn test_tags_python() {
         ((function_definition
             name: (identifier) @name
             body: (block . (expression_statement (string) @doc))) @function
-         (set! strip @doc "(^['\s]*)|(['\s]*$)"))
+         (set! strip @doc "(^['\"\\s]*)|(['\"\\s]*$)"))
         (function_definition
             name: (identifier) @name) @function
         ((class_definition
             name: (identifier) @name
             body: (block . (expression_statement (string) @doc))) @class
-         (set! strip @doc "(^['\s]*)|(['\s]*$)"))
+         (set! strip @doc "(^['\"\\s]*)|(['\"\\s]*$)"))
         (class_definition
             name: (identifier) @name) @class
         (call
@@ -32,9 +32,9 @@ fn test_tags_python() {
             &tags_config,
             br#"
         class Customer:
-            '''
+            """
             Data about a customer
-            '''
+            """
 
             def age(self):
                 '''
