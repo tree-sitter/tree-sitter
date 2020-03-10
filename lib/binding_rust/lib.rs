@@ -1425,46 +1425,39 @@ impl Query {
             )));
         }
 
-        let mut i = 0;
         let mut capture_id = None;
-        if args[i].type_ == ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture {
-            capture_id = Some(args[i].value_id as usize);
-            i += 1;
-
-            if i == args.len() {
-                return Err(QueryError::Predicate(format!(
-                    "No key specified for {} predicate.",
-                    function_name,
-                )));
-            }
-            if args[i].type_ == ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture {
-                return Err(QueryError::Predicate(format!(
-                    "Invalid arguments to {} predicate. Expected string, got @{}",
-                    function_name, capture_names[args[i].value_id as usize]
-                )));
-            }
-        }
-
-        let key = &string_values[args[i].value_id as usize];
-        i += 1;
-
+        let mut key = None;
         let mut value = None;
-        if i < args.len() {
-            if args[i].type_ == ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture {
+
+        for arg in args {
+            if arg.type_ == ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture {
                 if capture_id.is_some() {
                     return Err(QueryError::Predicate(format!(
                         "Invalid arguments to {} predicate. Unexpected second capture name @{}",
-                        function_name, capture_names[args[i].value_id as usize]
+                        function_name, capture_names[arg.value_id as usize]
                     )));
-                } else {
-                    capture_id = Some(args[i].value_id as usize);
                 }
+                capture_id = Some(arg.value_id as usize);
+            } else if key.is_none() {
+                key = Some(&string_values[arg.value_id as usize]);
+            } else if value.is_none() {
+                value = Some(string_values[arg.value_id as usize].as_str());
             } else {
-                value = Some(string_values[args[i].value_id as usize].as_str());
+                return Err(QueryError::Predicate(format!(
+                    "Invalid arguments to {} predicate. Unexpected third argument @{}",
+                    function_name, string_values[arg.value_id as usize]
+                )));
             }
         }
 
-        Ok(QueryProperty::new(key, value, capture_id))
+        if let Some(key) = key {
+            Ok(QueryProperty::new(key, value, capture_id))
+        } else {
+            return Err(QueryError::Predicate(format!(
+                "Invalid arguments to {} predicate. Missing key argument",
+                function_name,
+            )));
+        }
     }
 }
 
