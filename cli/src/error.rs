@@ -81,6 +81,12 @@ impl<'a> From<tree_sitter_highlight::Error> for Error {
     }
 }
 
+impl<'a> From<tree_sitter_tags::Error> for Error {
+    fn from(error: tree_sitter_tags::Error) -> Self {
+        Error::new(format!("{:?}", error))
+    }
+}
+
 impl From<serde_json::Error> for Error {
     fn from(error: serde_json::Error) -> Self {
         Error::new(error.to_string())

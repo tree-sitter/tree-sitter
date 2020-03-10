@@ -1,7 +1,8 @@
+use regex::Regex;
 use serde::{Serialize, Serializer};
 use std::collections::{hash_map, HashMap};
 use std::{ops, str};
-use tree_sitter::{Language, Node, Parser, Point, Query, QueryCursor, QueryError};
+use tree_sitter::{Language, Node, Parser, Query, QueryCursor, QueryError};
 
 /// Contains the data neeeded to compute tags for code written in a
 /// particular language.
@@ -15,6 +16,7 @@ pub struct TagsConfiguration {
     locals_pattern_index: usize,
     module_capture_index: Option<u32>,
     name_capture_index: Option<u32>,
+    doc_strip_regexes: Vec<Option<Regex>>,
 }
 
 pub struct TagsContext {
@@ -49,15 +51,17 @@ pub struct Tag<'a> {
     pub loc: Loc,
     pub name: &'a str,
     pub line: &'a str,
-    pub docs: Option<&'a str>,
+    pub docs: Option<String>,
+}
+
+#[derive(Debug)]
+pub enum Error {
+    Query(QueryError),
+    Regex(regex::Error),
 }
 
 impl TagsConfiguration {
-    pub fn new(
-        language: Language,
-        tags_query: &str,
-        locals_query: &str,
-    ) -> Result<Self, QueryError> {
+    pub fn new(language: Language, tags_query: &str, locals_query: &str) -> Result<Self, Error> {
         let query = Query::new(language, &format!("{}{}", tags_query, locals_query))?;
 
         let locals_query_offset = tags_query.len();
@@ -88,6 +92,23 @@ impl TagsConfiguration {
             *index = Some(i as u32);
         }
 
+        let doc_strip_regexes = (0..query.pattern_count())
+            .map(|pattern_index| {
+                let properties = query.property_settings(pattern_index);
+                for property in properties {
+                    if property.key.as_ref() == "strip"
+                        && property.capture_id.map(|id| id as u32) == doc_capture_index
+                    {
+                        if let Some(value) = &property.value {
+                            let regex = Regex::new(value.as_ref())?;
+                            return Ok(Some(regex));
+                        }
+                    }
+                }
+                return Ok(None);
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+
         Ok(TagsConfiguration {
             language,
             query,
@@ -98,6 +119,7 @@ impl TagsConfiguration {
             doc_capture_index,
             call_capture_index,
             name_capture_index,
+            doc_strip_regexes,
         })
     }
 }
@@ -158,7 +180,15 @@ impl TagsContext {
 
             let tag_from_node = |node: Node, kind: TagKind| -> Option<Tag> {
                 let name = str::from_utf8(&source[name_node?.byte_range()]).ok()?;
-                let docs = doc_node.and_then(|n| str::from_utf8(&source[n.byte_range()]).ok());
+                let docs = doc_node
+                    .and_then(|n| str::from_utf8(&source[n.byte_range()]).ok())
+                    .map(|s| {
+                        if let Some(regex) = &config.doc_strip_regexes[mat.pattern_index] {
+                            regex.replace_all(s, "").to_string()
+                        } else {
+                            s.to_string()
+                        }
+                    });
                 Some(Tag {
                     name,
                     line: "TODO",
@@ -231,5 +261,17 @@ impl From<tree_sitter::Point> for Pos {
             line: point.row as i64,
             column: point.column as i64,
         };
+    }
+}
+
+impl From<regex::Error> for Error {
+    fn from(error: regex::Error) -> Self {
+        Error::Regex(error)
+    }
+}
+
+impl From<QueryError> for Error {
+    fn from(error: QueryError) -> Self {
+        Error::Query(error)
     }
 }

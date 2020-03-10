@@ -10,13 +10,13 @@ fn test_tags_javascript() {
         ((function_definition
             name: (identifier) @name
             body: (block . (expression_statement (string) @doc))) @function
-         (set! replace @doc "(^['\s]*)|(['\s]*$)"))
+         (set! strip @doc "(^['\s]*)|(['\s]*$)"))
         (function_definition
             name: (identifier) @name) @function
         ((class_definition
             name: (identifier) @name
             body: (block . (expression_statement (string) @doc))) @class
-         (set! replace @doc "(^['\s]*)|(['\s]*$)"))
+         (set! strip @doc "(^['\s]*)|(['\s]*$)"))
         (class_definition
             name: (identifier) @name) @class
         (call
@@ -31,14 +31,14 @@ fn test_tags_javascript() {
         &tags_config,
         br#"
         class Customer:
-            """
+            '''
             Data about a customer
-            """
+            '''
 
             def age(self):
-                """
+                '''
                 Get the customer's age
-                """
+                '''
                 compute_age(self.id);
         }
         "#,
@@ -53,6 +53,6 @@ fn test_tags_javascript() {
         ]
     );
 
-    assert_eq!(tags[0].docs, Some("Data about a customer"));
-    assert_eq!(tags[1].docs, Some("Get the customer's age"));
+    assert_eq!(tags[0].docs.as_ref().unwrap(), "Data about a customer");
+    assert_eq!(tags[1].docs.as_ref().unwrap(), "Get the customer's age");
 }
