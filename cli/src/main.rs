@@ -267,35 +267,7 @@ fn run() -> error::Result<()> {
     } else if let Some(matches) = matches.subcommand_matches("tags") {
         loader.find_all_languages(&config.parser_directories)?;
         let paths = collect_paths(matches.values_of("inputs").unwrap())?;
-
-        let mut lang = None;
-        if let Some(scope) = matches.value_of("scope") {
-            lang = loader.language_configuration_for_scope(scope)?;
-            if lang.is_none() {
-                return Error::err(format!("Unknown scope '{}'", scope));
-            }
-        }
-
-        for path in paths {
-            let path = Path::new(&path);
-            let (language, language_config) = match lang {
-                Some(v) => v,
-                None => match loader.language_configuration_for_file_name(path)? {
-                    Some(v) => v,
-                    None => {
-                        eprintln!("No language found for path {:?}", path);
-                        continue;
-                    }
-                },
-            };
-
-            if let Some(tags_config) = language_config.tags_config(language)? {
-                let source = fs::read(path)?;
-                tags::generate_tags(tags_config, &source)?;
-            } else {
-                eprintln!("No tags config found for path {:?}", path);
-            }
-        }
+        tags::generate_tags(&loader, matches.value_of("scope"), &paths)?;
     } else if let Some(matches) = matches.subcommand_matches("highlight") {
         loader.configure_highlights(&config.theme.highlight_names);
         loader.find_all_languages(&config.parser_directories)?;

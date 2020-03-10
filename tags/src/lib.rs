@@ -58,10 +58,10 @@ pub enum TagKind {
 #[derive(Debug, Serialize, Clone)]
 pub struct Tag<'a> {
     pub kind: TagKind,
-    pub loc: Loc,
     pub name: &'a str,
-    pub line: &'a str,
     pub docs: Option<String>,
+    pub loc: Loc,
+    pub line: &'a str,
 }
 
 #[derive(Debug)]
