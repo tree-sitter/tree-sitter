@@ -1,8 +1,8 @@
 use regex::Regex;
 use serde::{Serialize, Serializer};
 use std::collections::{hash_map, HashMap};
-use std::{ops, str};
-use tree_sitter::{Language, Node, Parser, Query, QueryCursor, QueryError};
+use std::{mem, ops, str};
+use tree_sitter::{Language, Node, Parser, Query, QueryCursor, QueryError, Tree};
 
 /// Contains the data neeeded to compute tags for code written in a
 /// particular language.
@@ -22,6 +22,17 @@ pub struct TagsConfiguration {
 pub struct TagsContext {
     parser: Parser,
     cursor: QueryCursor,
+}
+
+struct TagsIter<'a, I>
+where
+    I: Iterator<Item = tree_sitter::QueryMatch<'a>>,
+{
+    matches: I,
+    tree: Tree,
+    source: &'a [u8],
+    config: &'a TagsConfiguration,
+    tags: Vec<(Node<'a>, usize, Tag<'a>)>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -134,10 +145,10 @@ impl TagsContext {
 
     // TODO: This should return an iterator rather than build up a vector
     pub fn generate_tags<'a>(
-        &mut self,
-        config: &TagsConfiguration,
+        &'a mut self,
+        config: &'a TagsConfiguration,
         source: &'a [u8],
-    ) -> Vec<Tag<'a>> {
+    ) -> impl Iterator<Item = Tag<'a>> + 'a {
         self.parser
             .set_language(config.language)
             .expect("Incompatible language");
@@ -145,14 +156,30 @@ impl TagsContext {
             .parser
             .parse(source, None)
             .expect("Parsing failed unexpectedly");
+        let tree_ref = unsafe { mem::transmute::<_, &'static Tree>(&tree) };
         let matches = self
             .cursor
-            .matches(&config.query, tree.root_node(), |node| {
+            .matches(&config.query, tree_ref.root_node(), move |node| {
                 &source[node.byte_range()]
             });
-        let mut neighbor_map: HashMap<tree_sitter::Node, (Tag<'a>, usize)> = HashMap::new();
+        TagsIter {
+            matches,
+            tree,
+            source,
+            config,
+            tags: Vec::new(),
+        }
+    }
+}
 
-        for mat in matches {
+impl<'a, I> Iterator for TagsIter<'a, I>
+where
+    I: Iterator<Item = tree_sitter::QueryMatch<'a>>,
+{
+    type Item = Tag<'a>;
+
+    fn next(&mut self) -> Option<Tag<'a>> {
+        if let Some(mat) = self.matches.next() {
             let mut call_node = None;
             let mut doc_node = None;
             let mut class_node = None;
@@ -163,21 +190,23 @@ impl TagsContext {
             for capture in mat.captures {
                 let index = Some(capture.index);
                 let node = Some(capture.node);
-                if index == config.call_capture_index {
+                if index == self.config.call_capture_index {
                     call_node = node;
-                } else if index == config.class_capture_index {
+                } else if index == self.config.class_capture_index {
                     class_node = node;
-                } else if index == config.doc_capture_index {
+                } else if index == self.config.doc_capture_index {
                     doc_node = node;
-                } else if index == config.function_capture_index {
+                } else if index == self.config.function_capture_index {
                     function_node = node;
-                } else if index == config.module_capture_index {
+                } else if index == self.config.module_capture_index {
                     module_node = node;
-                } else if index == config.name_capture_index {
+                } else if index == self.config.name_capture_index {
                     name_node = node;
                 }
             }
 
+            let source = &self.source;
+            let config = &self.config;
             let tag_from_node = |node: Node, kind: TagKind| -> Option<Tag> {
                 let name = str::from_utf8(&source[name_node?.byte_range()]).ok()?;
                 let docs = doc_node
@@ -208,9 +237,13 @@ impl TagsContext {
             .cloned()
             {
                 if let Some(found) = tag_node {
-                    match neighbor_map.entry(found) {
-                        hash_map::Entry::Occupied(mut entry) => {
-                            let (tag, old_idx) = entry.get_mut();
+                    match self
+                        .tags
+                        .binary_search_by_key(&(found.end_byte(), found.id()), |(node, _, _)| {
+                            (node.end_byte(), node.id())
+                        }) {
+                        Ok(i) => {
+                            let (_, old_idx, tag) = &mut self.tags[i];
                             if *old_idx > mat.pattern_index {
                                 if let Some(new_tag) = tag_from_node(found, tag_kind) {
                                     *tag = new_tag;
@@ -218,17 +251,17 @@ impl TagsContext {
                                 }
                             }
                         }
-                        hash_map::Entry::Vacant(entry) => {
+                        Err(i) => {
                             if let Some(tag) = tag_from_node(found, tag_kind) {
-                                entry.insert((tag, mat.pattern_index));
+                                self.tags.insert(i, (found, mat.pattern_index, tag))
                             }
                         }
                     }
                 }
             }
+        } else {
         }
-
-        return neighbor_map.into_iter().map(|t| (t.1).0).collect();
+        None
     }
 }
 

@@ -27,9 +27,10 @@ fn test_tags_javascript() {
     .unwrap();
 
     let mut tag_context = TagsContext::new();
-    let tags = tag_context.generate_tags(
-        &tags_config,
-        br#"
+    let tags = tag_context
+        .generate_tags(
+            &tags_config,
+            br#"
         class Customer:
             '''
             Data about a customer
@@ -42,7 +43,8 @@ fn test_tags_javascript() {
                 compute_age(self.id);
         }
         "#,
-    );
+        )
+        .collect::<Vec<_>>();
 
     assert_eq!(
         tags.iter().map(|t| (t.name, t.kind)).collect::<Vec<_>>(),
