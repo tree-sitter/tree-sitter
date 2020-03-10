@@ -1,6 +1,5 @@
 use regex::Regex;
 use serde::{Serialize, Serializer};
-use std::collections::{hash_map, HashMap};
 use std::{mem, ops, str};
 use tree_sitter::{Language, Node, Parser, Query, QueryCursor, QueryError, Tree};
 
@@ -29,7 +28,7 @@ where
     I: Iterator<Item = tree_sitter::QueryMatch<'a>>,
 {
     matches: I,
-    tree: Tree,
+    _tree: Tree,
     source: &'a [u8],
     config: &'a TagsConfiguration,
     tags: Vec<(Node<'a>, usize, Tag<'a>)>,
@@ -156,6 +155,9 @@ impl TagsContext {
             .parser
             .parse(source, None)
             .expect("Parsing failed unexpectedly");
+
+        // The `matches` iterator borrows the `Tree`, which prevents it from being moved.
+        // But the tree is really just a pointer, so it's actually ok to move it.
         let tree_ref = unsafe { mem::transmute::<_, &'static Tree>(&tree) };
         let matches = self
             .cursor
@@ -164,10 +166,10 @@ impl TagsContext {
             });
         TagsIter {
             matches,
-            tree,
             source,
             config,
             tags: Vec::new(),
+            _tree: tree,
         }
     }
 }
@@ -179,89 +181,99 @@ where
     type Item = Tag<'a>;
 
     fn next(&mut self) -> Option<Tag<'a>> {
-        if let Some(mat) = self.matches.next() {
-            let mut call_node = None;
-            let mut doc_node = None;
-            let mut class_node = None;
-            let mut function_node = None;
-            let mut module_node = None;
-            let mut name_node = None;
-
-            for capture in mat.captures {
-                let index = Some(capture.index);
-                let node = Some(capture.node);
-                if index == self.config.call_capture_index {
-                    call_node = node;
-                } else if index == self.config.class_capture_index {
-                    class_node = node;
-                } else if index == self.config.doc_capture_index {
-                    doc_node = node;
-                } else if index == self.config.function_capture_index {
-                    function_node = node;
-                } else if index == self.config.module_capture_index {
-                    module_node = node;
-                } else if index == self.config.name_capture_index {
-                    name_node = node;
+        loop {
+            if let Some(last_entry) = self.tags.last() {
+                if self.tags.len() > 1 && self.tags[0].0.end_byte() < last_entry.0.start_byte() {
+                    return Some(self.tags.remove(0).2);
                 }
             }
 
-            let source = &self.source;
-            let config = &self.config;
-            let tag_from_node = |node: Node, kind: TagKind| -> Option<Tag> {
-                let name = str::from_utf8(&source[name_node?.byte_range()]).ok()?;
-                let docs = doc_node
-                    .and_then(|n| str::from_utf8(&source[n.byte_range()]).ok())
-                    .map(|s| {
-                        if let Some(regex) = &config.doc_strip_regexes[mat.pattern_index] {
-                            regex.replace_all(s, "").to_string()
-                        } else {
-                            s.to_string()
-                        }
-                    });
-                Some(Tag {
-                    name,
-                    line: "TODO",
-                    loc: loc_for_node(node),
-                    kind: kind,
-                    docs,
-                })
-            };
+            if let Some(mat) = self.matches.next() {
+                let mut call_node = None;
+                let mut doc_node = None;
+                let mut class_node = None;
+                let mut function_node = None;
+                let mut module_node = None;
+                let mut name_node = None;
 
-            for (tag_node, tag_kind) in [
-                (call_node, TagKind::Call),
-                (class_node, TagKind::Class),
-                (function_node, TagKind::Function),
-                (module_node, TagKind::Module),
-            ]
-            .iter()
-            .cloned()
-            {
-                if let Some(found) = tag_node {
-                    match self
-                        .tags
-                        .binary_search_by_key(&(found.end_byte(), found.id()), |(node, _, _)| {
-                            (node.end_byte(), node.id())
-                        }) {
-                        Ok(i) => {
-                            let (_, old_idx, tag) = &mut self.tags[i];
-                            if *old_idx > mat.pattern_index {
-                                if let Some(new_tag) = tag_from_node(found, tag_kind) {
-                                    *tag = new_tag;
-                                    *old_idx = mat.pattern_index;
+                for capture in mat.captures {
+                    let index = Some(capture.index);
+                    let node = Some(capture.node);
+                    if index == self.config.call_capture_index {
+                        call_node = node;
+                    } else if index == self.config.class_capture_index {
+                        class_node = node;
+                    } else if index == self.config.doc_capture_index {
+                        doc_node = node;
+                    } else if index == self.config.function_capture_index {
+                        function_node = node;
+                    } else if index == self.config.module_capture_index {
+                        module_node = node;
+                    } else if index == self.config.name_capture_index {
+                        name_node = node;
+                    }
+                }
+
+                let source = &self.source;
+                let config = &self.config;
+                let tag_from_node = |node: Node, kind: TagKind| -> Option<Tag> {
+                    let name = str::from_utf8(&source[name_node?.byte_range()]).ok()?;
+                    let docs = doc_node
+                        .and_then(|n| str::from_utf8(&source[n.byte_range()]).ok())
+                        .map(|s| {
+                            if let Some(regex) = &config.doc_strip_regexes[mat.pattern_index] {
+                                regex.replace_all(s, "").to_string()
+                            } else {
+                                s.to_string()
+                            }
+                        });
+                    Some(Tag {
+                        name,
+                        line: "TODO",
+                        loc: loc_for_node(node),
+                        kind: kind,
+                        docs,
+                    })
+                };
+
+                for (tag_node, tag_kind) in [
+                    (call_node, TagKind::Call),
+                    (class_node, TagKind::Class),
+                    (function_node, TagKind::Function),
+                    (module_node, TagKind::Module),
+                ]
+                .iter()
+                .cloned()
+                {
+                    if let Some(found) = tag_node {
+                        match self.tags.binary_search_by_key(
+                            &(found.end_byte(), found.start_byte(), found.id()),
+                            |(node, _, _)| (node.end_byte(), node.start_byte(), node.id()),
+                        ) {
+                            Ok(i) => {
+                                let (_, old_idx, tag) = &mut self.tags[i];
+                                if *old_idx > mat.pattern_index {
+                                    if let Some(new_tag) = tag_from_node(found, tag_kind) {
+                                        *tag = new_tag;
+                                        *old_idx = mat.pattern_index;
+                                    }
+                                }
+                            }
+                            Err(i) => {
+                                if let Some(tag) = tag_from_node(found, tag_kind) {
+                                    self.tags.insert(i, (found, mat.pattern_index, tag))
                                 }
                             }
                         }
-                        Err(i) => {
-                            if let Some(tag) = tag_from_node(found, tag_kind) {
-                                self.tags.insert(i, (found, mat.pattern_index, tag))
-                            }
-                        }
+                        break;
                     }
                 }
+            } else if !self.tags.is_empty() {
+                return Some(self.tags.remove(0).2);
+            } else {
+                return None;
             }
-        } else {
         }
-        None
     }
 }
 

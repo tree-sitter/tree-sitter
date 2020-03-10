@@ -2,7 +2,7 @@ use super::helpers::fixtures::get_language;
 use tree_sitter_tags::{TagKind, TagsConfiguration, TagsContext};
 
 #[test]
-fn test_tags_javascript() {
+fn test_tags_python() {
     let language = get_language("python");
     let tags_config = TagsConfiguration::new(
         language,
@@ -40,7 +40,7 @@ fn test_tags_javascript() {
                 '''
                 Get the customer's age
                 '''
-                compute_age(self.id);
+                compute_age(self.id)
         }
         "#,
         )
