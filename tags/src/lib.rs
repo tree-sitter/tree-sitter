@@ -1,5 +1,5 @@
 use serde::{Serialize, Serializer};
-use std::collections::HashMap;
+use std::collections::{hash_map, HashMap};
 use std::{ops, str};
 use tree_sitter::{Language, Node, Parser, Point, Query, QueryCursor, QueryError};
 
@@ -156,72 +156,49 @@ impl TagsContext {
                 }
             }
 
-            let tag_from_node = |node: Node| -> Option<Tag> {
-                return None;
-            }
+            let tag_from_node = |node: Node, kind: TagKind| -> Option<Tag> {
+                let name = str::from_utf8(&source[name_node?.byte_range()]).ok()?;
+                let docs = doc_node.and_then(|n| str::from_utf8(&source[n.byte_range()]).ok());
+                Some(Tag {
+                    name,
+                    line: "TODO",
+                    loc: loc_for_node(node),
+                    kind: kind,
+                    docs,
+                })
+            };
 
-            for (optFound, theKind) in [
+            for (tag_node, tag_kind) in [
                 (call_node, TagKind::Call),
                 (class_node, TagKind::Class),
                 (function_node, TagKind::Function),
                 (module_node, TagKind::Module),
-            ] {
-                if let (Some(found), Some(name)) = (optFound, name_node) {
+            ]
+            .iter()
+            .cloned()
+            {
+                if let Some(found) = tag_node {
                     match neighbor_map.entry(found) {
-                        hash_map::Entry::Occupied(entry) => {
+                        hash_map::Entry::Occupied(mut entry) => {
                             let (tag, old_idx) = entry.get_mut();
-                            if old_idx > mat.pattern_index {
-                                *tag =
+                            if *old_idx > mat.pattern_index {
+                                if let Some(new_tag) = tag_from_node(found, tag_kind) {
+                                    *tag = new_tag;
+                                    *old_idx = mat.pattern_index;
+                                }
+                            }
+                        }
+                        hash_map::Entry::Vacant(entry) => {
+                            if let Some(tag) = tag_from_node(found, tag_kind) {
+                                entry.insert((tag, mat.pattern_index));
                             }
                         }
                     }
-            }
+                }
             }
         }
 
-        // some computation
         return neighbor_map.into_iter().map(|t| (t.1).0).collect();
-
-        // matches
-        //     .filter_map(|mat| {
-
-        //         for capture in mat.captures {
-        //
-        //
-
-        //         }
-
-        //         let tag_from_node = |kind, name: Node, node| -> Option<Tag> {
-        //             if let Ok(name) = str::from_utf8(&source[name.byte_range()]) {
-        //                 if let Some((tag, index)) = neighbor_map.get(&node) {
-        //                     if index > &mat.pattern_index {
-        //                         return Some(tag.clone());
-        //                     }
-        //                 }
-
-        //                 return Some(Tag {
-        //                     name,
-        //                     line: "TODO",
-        //                     loc: loc_for_node(node),
-        //                     kind: kind,
-        //                     docs: doc_node
-        //                         .and_then(|n| str::from_utf8(&source[n.byte_range()]).ok()),
-        //                 });
-        //             };
-        //             return None;
-        //         };
-
-        //         if let (Some(function), Some(name)) = (function_node, name_node) {
-        //             return tag_from_node(TagKind::Function, name, function);
-        //         } else if let (Some(call), Some(name)) = (call_node, name_node) {
-        //             return tag_from_node(TagKind::Call, name, call);
-        //         } else if let (Some(class), Some(name)) = (class_node, name_node) {
-        //             return tag_from_node(TagKind::Class, name, class);
-        //         }
-
-        //         None
-        //     })
-        //     .collect()
     }
 }
 
