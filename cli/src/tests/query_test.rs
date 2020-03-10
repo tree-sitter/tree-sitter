@@ -887,6 +887,53 @@ fn test_query_captures_with_set_properties() {
 }
 
 #[test]
+fn test_query_captures_with_set_quoted_properties() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        // Double-quoted strings can contain:
+        // * special escape sequences like \n and \r
+        // * escaped double quotes with \*
+        // * literal backslashes with \\
+        let query = Query::new(
+            language,
+            r#"
+            ((call_expression (identifier) @foo)
+             (set! one "\"something\ngreat\""))
+
+            ((identifier)
+             (set! two "\\s(\r?\n)*$"))
+
+            ((function_declaration)
+             (set! three "\"something\ngreat\""))
+            "#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            query.property_settings(0),
+            &[QueryProperty::new(
+                "one",
+                Some("\"something\ngreat\""),
+                None
+            )]
+        );
+        assert_eq!(
+            query.property_settings(1),
+            &[QueryProperty::new("two", Some("\\s(\r?\n)*$"), None)]
+        );
+        assert_eq!(
+            query.property_settings(2),
+            &[QueryProperty::new(
+                "three",
+                Some("\"something\ngreat\""),
+                None
+            )]
+        );
+    });
+}
+
+#[test]
 fn test_query_captures_with_duplicates() {
     allocations::record(|| {
         let language = get_language("javascript");

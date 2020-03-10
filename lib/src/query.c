@@ -331,6 +331,67 @@ static uint16_t symbol_table_insert_name(
   return self->slices.size - 1;
 }
 
+static uint16_t symbol_table_insert_name_with_escapes(
+  SymbolTable *self,
+  const char *escaped_name,
+  uint32_t escaped_length
+) {
+  Slice slice = {
+    .offset = self->characters.size,
+    .length = 0,
+  };
+  array_grow_by(&self->characters, escaped_length + 1);
+
+  // Copy the contents of the literal into the characters buffer, processing escape
+  // sequences like \n and \". This needs to be done before checking if the literal
+  // is already present, in order to do the string comparison.
+  bool is_escaped = false;
+  for (unsigned i = 0; i < escaped_length; i++) {
+    const char *src = &escaped_name[i];
+    char *dest = &self->characters.contents[slice.offset + slice.length];
+    if (is_escaped) {
+      switch (*src) {
+        case 'n':
+          *dest = '\n';
+          break;
+        case 'r':
+          *dest = '\r';
+          break;
+        case 't':
+          *dest = '\t';
+          break;
+        case '0':
+          *dest = '\0';
+          break;
+        default:
+          *dest = *src;
+          break;
+      }
+      is_escaped = false;
+      slice.length++;
+    } else {
+      if (*src == '\\') {
+        is_escaped = true;
+      } else {
+        *dest = *src;
+        slice.length++;
+      }
+    }
+  }
+
+  // If the string is already present, remove the redundant content from the characters
+  // buffer and return the existing id.
+  int id = symbol_table_id_for_name(self, &self->characters.contents[slice.offset], slice.length);
+  if (id >= 0) {
+    self->characters.size -= (escaped_length + 1);
+    return id;
+  }
+
+  self->characters.contents[slice.offset + slice.length] = 0;
+  array_push(&self->slices, slice);
+  return self->slices.size - 1;
+}
+
 /************
  * QueryStep
  ************/
@@ -523,9 +584,22 @@ static TSQueryError ts_query__parse_predicate(
       stream_advance(stream);
 
       // Parse the string content
+      bool is_escaped = false;
       const char *string_content = stream->input;
-      while (stream->next != '"') {
-        if (stream->next == '\n' || !stream_advance(stream)) {
+      for (;;) {
+        if (is_escaped) {
+          is_escaped = false;
+        } else {
+          if (stream->next == '\\') {
+            is_escaped = true;
+          } else if (stream->next == '"') {
+            break;
+          } else if (stream->next == '\n') {
+            stream_reset(stream, string_content - 1);
+            return TSQueryErrorSyntax;
+          }
+        }
+        if (!stream_advance(stream)) {
           stream_reset(stream, string_content - 1);
           return TSQueryErrorSyntax;
         }
@@ -533,7 +607,7 @@ static TSQueryError ts_query__parse_predicate(
       uint32_t length = stream->input - string_content;
 
       // Add a step for the node
-      uint16_t id = symbol_table_insert_name(
+      uint16_t id = symbol_table_insert_name_with_escapes(
         &self->predicate_values,
         string_content,
         length
