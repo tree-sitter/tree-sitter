@@ -56,5 +56,6 @@ fn test_tags_python() {
     );
 
     assert_eq!(tags[0].docs.as_ref().unwrap(), "Data about a customer");
+    assert_eq!(tags[0].line, "class Customer:");
     assert_eq!(tags[1].docs.as_ref().unwrap(), "Get the customer's age");
 }
