@@ -698,7 +698,7 @@ static TSQueryError ts_query__parse_pattern(
 
     // Parse the wildcard symbol
     if (stream->next == '*') {
-      symbol = NAMED_WILDCARD_SYMBOL;
+      symbol = depth > 0 ? NAMED_WILDCARD_SYMBOL : WILDCARD_SYMBOL;
       stream_advance(stream);
     }
 
