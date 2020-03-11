@@ -224,11 +224,12 @@ where
                 let config = &self.config;
                 let tag_from_node = |node: Node, kind: TagKind| -> Option<Tag> {
                     let name = str::from_utf8(&source[name_node?.byte_range()]).ok()?;
+
+                    // Slice out the first line of the text corresponding to the node in question.
                     let mut line_range = node.byte_range();
-                    if line_range.len() > 180 {
-                        line_range.end = line_range.start + 180;
-                    }
+                    line_range.end = line_range.end.min(line_range.start + 180);
                     let line = str::from_utf8(&source[line_range]).ok()?.lines().next()?;
+
                     let docs = doc_node
                         .and_then(|n| str::from_utf8(&source[n.byte_range()]).ok())
                         .map(|s| {
