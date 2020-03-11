@@ -435,6 +435,36 @@ fn test_query_matches_with_named_wildcard() {
 }
 
 #[test]
+fn test_query_matches_with_wildcard_at_the_root() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            "
+            (*
+                (comment) @doc
+                .
+                (function_declaration
+                    name: (identifier) @name))
+            ",
+        )
+        .unwrap();
+
+        let source = "/* one */ var x; /* two */ function y() {} /* three */ class Z {}";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
+
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[(0, vec![("doc", "/* two */"), ("name", "y")]),]
+        );
+    });
+}
+#[test]
 fn test_query_with_immediate_siblings() {
     allocations::record(|| {
         let language = get_language("python");
