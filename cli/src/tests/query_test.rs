@@ -464,6 +464,7 @@ fn test_query_matches_with_wildcard_at_the_root() {
         );
     });
 }
+
 #[test]
 fn test_query_with_immediate_siblings() {
     allocations::record(|| {
@@ -510,6 +511,73 @@ fn test_query_with_immediate_siblings() {
                 (0, vec![("parent", "c"), ("child", "d")]),
                 (2, vec![("first-element", "w")]),
                 (2, vec![("first-element", "1")]),
+            ]
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_repeated_nodes() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        let query = Query::new(
+            language,
+            "
+            (*
+                (comment)+ @doc
+                .
+                (class_declaration
+                    name: (identifier) @name))
+
+            (*
+                (comment)+ @doc
+                .
+                (function_declaration
+                    name: (identifier) @name))
+            ",
+        )
+        .unwrap();
+
+        let source = "
+            // one
+            // two
+            a();
+
+            // three
+            {
+                // four
+                // five
+                // six
+                class B {}
+
+                // seven
+                c();
+
+                // eight
+                function d() {}
+            }
+        ";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
+
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[
+                (
+                    0,
+                    vec![
+                        ("doc", "// four"),
+                        ("doc", "// five"),
+                        ("doc", "// six"),
+                        ("name", "B")
+                    ]
+                ),
+                (1, vec![("doc", "// eight"), ("name", "d")]),
             ]
         );
     });
