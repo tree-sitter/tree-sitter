@@ -13,6 +13,7 @@ pub struct TagsConfiguration {
     doc_capture_index: Option<u32>,
     function_capture_index: Option<u32>,
     locals_pattern_index: usize,
+    method_capture_index: Option<u32>,
     module_capture_index: Option<u32>,
     name_capture_index: Option<u32>,
     doc_strip_regexes: Vec<Option<Regex>>,
@@ -87,6 +88,7 @@ impl TagsConfiguration {
         let mut class_capture_index = None;
         let mut doc_capture_index = None;
         let mut function_capture_index = None;
+        let mut method_capture_index = None;
         let mut module_capture_index = None;
         let mut name_capture_index = None;
         for (i, name) in query.capture_names().iter().enumerate() {
@@ -95,6 +97,7 @@ impl TagsConfiguration {
                 "class" => &mut class_capture_index,
                 "doc" => &mut doc_capture_index,
                 "function" => &mut function_capture_index,
+                "method" => &mut method_capture_index,
                 "module" => &mut module_capture_index,
                 "name" => &mut name_capture_index,
                 _ => continue,
@@ -125,6 +128,7 @@ impl TagsConfiguration {
             locals_pattern_index,
             function_capture_index,
             class_capture_index,
+            method_capture_index,
             module_capture_index,
             doc_capture_index,
             call_capture_index,
@@ -195,10 +199,11 @@ where
             // If there is another match, then compute its tag and add it to the
             // tag queue.
             if let Some(mat) = self.matches.next() {
+                let mut docs = None;
                 let mut call_node = None;
-                let mut doc_node = None;
                 let mut class_node = None;
                 let mut function_node = None;
+                let mut method_node = None;
                 let mut module_node = None;
                 let mut name_node = None;
 
@@ -210,9 +215,27 @@ where
                     } else if index == self.config.class_capture_index {
                         class_node = node;
                     } else if index == self.config.doc_capture_index {
-                        doc_node = node;
+                        if let Ok(content) = str::from_utf8(&self.source[capture.node.byte_range()])
+                        {
+                            let content = if let Some(regex) =
+                                &self.config.doc_strip_regexes[mat.pattern_index]
+                            {
+                                regex.replace_all(content, "").to_string()
+                            } else {
+                                content.to_string()
+                            };
+                            match &mut docs {
+                                None => docs = Some(content),
+                                Some(d) => {
+                                    d.push('\n');
+                                    d.push_str(&content);
+                                }
+                            }
+                        }
                     } else if index == self.config.function_capture_index {
                         function_node = node;
+                    } else if index == self.config.method_capture_index {
+                        method_node = node;
                     } else if index == self.config.module_capture_index {
                         module_node = node;
                     } else if index == self.config.name_capture_index {
@@ -221,7 +244,6 @@ where
                 }
 
                 let source = &self.source;
-                let config = &self.config;
                 let tag_from_node = |node: Node, kind: TagKind| -> Option<Tag> {
                     let name = str::from_utf8(&source[name_node?.byte_range()]).ok()?;
 
@@ -230,15 +252,6 @@ where
                     line_range.end = line_range.end.min(line_range.start + 180);
                     let line = str::from_utf8(&source[line_range]).ok()?.lines().next()?;
 
-                    let docs = doc_node
-                        .and_then(|n| str::from_utf8(&source[n.byte_range()]).ok())
-                        .map(|s| {
-                            if let Some(regex) = &config.doc_strip_regexes[mat.pattern_index] {
-                                regex.replace_all(s, "").to_string()
-                            } else {
-                                s.to_string()
-                            }
-                        });
                     Some(Tag {
                         name,
                         line,
@@ -252,6 +265,7 @@ where
                     (call_node, TagKind::Call),
                     (class_node, TagKind::Class),
                     (function_node, TagKind::Function),
+                    (method_node, TagKind::Method),
                     (module_node, TagKind::Module),
                 ]
                 .iter()

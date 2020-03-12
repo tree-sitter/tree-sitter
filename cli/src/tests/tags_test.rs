@@ -59,3 +59,56 @@ fn test_tags_python() {
     assert_eq!(tags[0].line, "class Customer:");
     assert_eq!(tags[1].docs.as_ref().unwrap(), "Get the customer's age");
 }
+
+#[test]
+fn test_tags_javascript() {
+    let language = get_language("javascript");
+    let tags_config = TagsConfiguration::new(
+        language,
+        r#"
+        ((*
+            (comment)+ @doc
+            .
+            (class_declaration
+                name: (identifier) @name) @class)
+         (set! strip @doc "(^[/\\*\\s]*)|([/\\*\\s]*$)"))
+        ((*
+            (comment)+ @doc
+            .
+            (method_definition
+                name: (property_identifier) @name) @method)
+         (set! strip @doc "(^[/\\*\\s]*)|([/\\*\\s]*$)"))
+        "#,
+        "",
+    )
+    .unwrap();
+
+    let mut tag_context = TagsContext::new();
+    let tags = tag_context
+        .generate_tags(
+            &tags_config,
+            br#"
+            // Data about a customer.
+            // bla bla bla
+            class Customer {
+                /*
+                 * Get the customer's age
+                 */
+                getAge() {
+
+                }
+            }
+            "#,
+        )
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        tags.iter().map(|t| (t.name, t.kind)).collect::<Vec<_>>(),
+        &[("getAge", TagKind::Method), ("Customer", TagKind::Class)]
+    );
+    assert_eq!(tags[0].docs.as_ref().unwrap(), "Get the customer's age");
+    assert_eq!(
+        tags[1].docs.as_ref().unwrap(),
+        "Data about a customer.\nbla bla bla"
+    );
+}
