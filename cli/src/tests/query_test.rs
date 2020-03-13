@@ -2,7 +2,8 @@ use super::helpers::allocations;
 use super::helpers::fixtures::get_language;
 use std::fmt::Write;
 use tree_sitter::{
-    Node, Parser, Query, QueryCapture, QueryCursor, QueryError, QueryMatch, QueryProperty,
+    Node, Parser, Query, QueryCapture, QueryCursor, QueryError, QueryMatch, QueryPredicate,
+    QueryPredicateArg, QueryProperty,
 };
 
 #[test]
@@ -948,7 +949,7 @@ fn test_query_captures_with_text_conditions() {
 }
 
 #[test]
-fn test_query_captures_with_set_properties() {
+fn test_query_captures_with_predicates() {
     allocations::record(|| {
         let language = get_language("javascript");
 
@@ -957,7 +958,8 @@ fn test_query_captures_with_set_properties() {
             r#"
             ((call_expression (identifier) @foo)
              (set! name something)
-             (set! cool))
+             (set! cool)
+             (something! @foo omg))
 
             ((property_identifier) @bar
              (is? cool)
@@ -972,6 +974,16 @@ fn test_query_captures_with_set_properties() {
                 QueryProperty::new("cool", None, None),
             ]
         );
+        assert_eq!(
+            query.general_predicates(0),
+            &[QueryPredicate {
+                operator: "something!".to_string().into_boxed_str(),
+                args: vec![
+                    QueryPredicateArg::Capture(0),
+                    QueryPredicateArg::String("omg".to_string().into_boxed_str()),
+                ],
+            },]
+        );
         assert_eq!(query.property_settings(1), &[]);
         assert_eq!(query.property_predicates(0), &[]);
         assert_eq!(
@@ -985,7 +997,7 @@ fn test_query_captures_with_set_properties() {
 }
 
 #[test]
-fn test_query_captures_with_set_quoted_properties() {
+fn test_query_captures_with_quoted_predicate_args() {
     allocations::record(|| {
         let language = get_language("javascript");
 
