@@ -1,7 +1,9 @@
 use regex::Regex;
 use serde::{Serialize, Serializer};
 use std::{mem, ops, str};
-use tree_sitter::{Language, Node, Parser, Query, QueryCursor, QueryError, Tree};
+use tree_sitter::{
+    Language, Node, Parser, Query, QueryCursor, QueryError, QueryPredicateArg, Tree,
+};
 
 /// Contains the data neeeded to compute tags for code written in a
 /// particular language.
@@ -16,12 +18,18 @@ pub struct TagsConfiguration {
     method_capture_index: Option<u32>,
     module_capture_index: Option<u32>,
     name_capture_index: Option<u32>,
-    doc_strip_regexes: Vec<Option<Regex>>,
+    pattern_info: Vec<PatternInfo>,
 }
 
 pub struct TagsContext {
     parser: Parser,
     cursor: QueryCursor,
+}
+
+#[derive(Default)]
+struct PatternInfo {
+    docs_adjacent_capture: Option<u32>,
+    doc_strip_regex: Option<Regex>,
 }
 
 struct TagsIter<'a, I>
@@ -105,20 +113,28 @@ impl TagsConfiguration {
             *index = Some(i as u32);
         }
 
-        let doc_strip_regexes = (0..query.pattern_count())
+        let pattern_info = (0..query.pattern_count())
             .map(|pattern_index| {
-                let properties = query.property_settings(pattern_index);
-                for property in properties {
-                    if property.key.as_ref() == "strip"
-                        && property.capture_id.map(|id| id as u32) == doc_capture_index
-                    {
-                        if let Some(value) = &property.value {
-                            let regex = Regex::new(value.as_ref())?;
-                            return Ok(Some(regex));
+                let mut info = PatternInfo::default();
+                if let Some(doc_capture_index) = doc_capture_index {
+                    for predicate in query.general_predicates(pattern_index) {
+                        if predicate.args.get(0)
+                            == Some(&QueryPredicateArg::Capture(doc_capture_index))
+                        {
+                            match (predicate.operator.as_ref(), predicate.args.get(1)) {
+                                ("select-adjacent!", Some(QueryPredicateArg::Capture(index))) => {
+                                    info.docs_adjacent_capture = Some(*index);
+                                }
+                                ("strip!", Some(QueryPredicateArg::String(pattern))) => {
+                                    let regex = Regex::new(pattern.as_ref())?;
+                                    info.doc_strip_regex = Some(regex);
+                                }
+                                _ => {}
+                            }
                         }
                     }
                 }
-                return Ok(None);
+                return Ok(info);
             })
             .collect::<Result<Vec<_>, Error>>()?;
 
@@ -133,7 +149,7 @@ impl TagsConfiguration {
             doc_capture_index,
             call_capture_index,
             name_capture_index,
-            doc_strip_regexes,
+            pattern_info,
         })
     }
 }
@@ -199,26 +215,68 @@ where
             // If there is another match, then compute its tag and add it to the
             // tag queue.
             if let Some(mat) = self.matches.next() {
-                let mut docs = None;
-                let mut call_node = None;
-                let mut class_node = None;
-                let mut function_node = None;
-                let mut method_node = None;
-                let mut module_node = None;
-                let mut name_node = None;
+                let mut name = None;
+                let mut doc_nodes = Vec::new();
+                let mut tag_node = None;
+                let mut tag_kind = TagKind::Call;
+                let mut docs_adjacent_node = None;
 
                 for capture in mat.captures {
                     let index = Some(capture.index);
-                    let node = Some(capture.node);
-                    if index == self.config.call_capture_index {
-                        call_node = node;
-                    } else if index == self.config.class_capture_index {
-                        class_node = node;
+
+                    if index == self.config.pattern_info[mat.pattern_index].docs_adjacent_capture {
+                        docs_adjacent_node = Some(capture.node);
+                    }
+
+                    if index == self.config.name_capture_index {
+                        name = str::from_utf8(&self.source[Some(capture.node)?.byte_range()]).ok();
                     } else if index == self.config.doc_capture_index {
-                        if let Ok(content) = str::from_utf8(&self.source[capture.node.byte_range()])
-                        {
+                        doc_nodes.push(capture.node);
+                    } else if index == self.config.call_capture_index {
+                        tag_node = Some(capture.node);
+                        tag_kind = TagKind::Call;
+                    } else if index == self.config.class_capture_index {
+                        tag_node = Some(capture.node);
+                        tag_kind = TagKind::Class;
+                    } else if index == self.config.function_capture_index {
+                        tag_node = Some(capture.node);
+                        tag_kind = TagKind::Function;
+                    } else if index == self.config.method_capture_index {
+                        tag_node = Some(capture.node);
+                        tag_kind = TagKind::Method;
+                    } else if index == self.config.module_capture_index {
+                        tag_node = Some(capture.node);
+                        tag_kind = TagKind::Module;
+                    }
+                }
+
+                if let (Some(tag_node), Some(name)) = (tag_node, name) {
+                    // If needed, filter the doc nodes based on their ranges, selecting
+                    // only the slice that are adjacent to some specified node.
+                    let mut docs_start_index = 0;
+                    if let (Some(docs_adjacent_node), false) =
+                        (docs_adjacent_node, doc_nodes.is_empty())
+                    {
+                        docs_start_index = doc_nodes.len();
+                        let mut start_row = docs_adjacent_node.start_position().row;
+                        while docs_start_index > 0 {
+                            let doc_node = &doc_nodes[docs_start_index - 1];
+                            let prev_doc_end_row = doc_node.end_position().row;
+                            if prev_doc_end_row + 1 >= start_row {
+                                docs_start_index -= 1;
+                                start_row = doc_node.start_position().row;
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+
+                    // Generate a doc string from all of the doc nodes, applying any strip regexes.
+                    let mut docs = None;
+                    for doc_node in &doc_nodes[docs_start_index..] {
+                        if let Ok(content) = str::from_utf8(&self.source[doc_node.byte_range()]) {
                             let content = if let Some(regex) =
-                                &self.config.doc_strip_regexes[mat.pattern_index]
+                                &self.config.pattern_info[mat.pattern_index].doc_strip_regex
                             {
                                 regex.replace_all(content, "").to_string()
                             } else {
@@ -232,68 +290,43 @@ where
                                 }
                             }
                         }
-                    } else if index == self.config.function_capture_index {
-                        function_node = node;
-                    } else if index == self.config.method_capture_index {
-                        method_node = node;
-                    } else if index == self.config.module_capture_index {
-                        module_node = node;
-                    } else if index == self.config.name_capture_index {
-                        name_node = node;
                     }
-                }
 
-                let source = &self.source;
-                let tag_from_node = |node: Node, kind: TagKind| -> Option<Tag> {
-                    let name = str::from_utf8(&source[name_node?.byte_range()]).ok()?;
+                    let source = &self.source;
+                    let tag_from_node = |node: Node, kind: TagKind| -> Option<Tag> {
+                        // Slice out the first line of the text corresponding to the node in question.
+                        let mut line_range = node.byte_range();
+                        line_range.end = line_range.end.min(line_range.start + 180);
+                        let line = str::from_utf8(&source[line_range]).ok()?.lines().next()?;
+                        Some(Tag {
+                            name,
+                            line,
+                            kind,
+                            docs,
+                            loc: loc_for_node(node),
+                        })
+                    };
 
-                    // Slice out the first line of the text corresponding to the node in question.
-                    let mut line_range = node.byte_range();
-                    line_range.end = line_range.end.min(line_range.start + 180);
-                    let line = str::from_utf8(&source[line_range]).ok()?.lines().next()?;
-
-                    Some(Tag {
-                        name,
-                        line,
-                        loc: loc_for_node(node),
-                        kind: kind,
-                        docs,
-                    })
-                };
-
-                for (tag_node, tag_kind) in [
-                    (call_node, TagKind::Call),
-                    (class_node, TagKind::Class),
-                    (function_node, TagKind::Function),
-                    (method_node, TagKind::Method),
-                    (module_node, TagKind::Module),
-                ]
-                .iter()
-                .cloned()
-                {
-                    if let Some(found) = tag_node {
-                        // Only create one tag per node. The tag queue is sorted by node position
-                        // to allow for fast lookup.
-                        match self.tag_queue.binary_search_by_key(
-                            &(found.end_byte(), found.start_byte(), found.id()),
-                            |(node, _, _)| (node.end_byte(), node.start_byte(), node.id()),
-                        ) {
-                            Ok(i) => {
-                                let (_, old_idx, tag) = &mut self.tag_queue[i];
-                                if *old_idx > mat.pattern_index {
-                                    if let Some(new_tag) = tag_from_node(found, tag_kind) {
-                                        *tag = new_tag;
-                                        *old_idx = mat.pattern_index;
-                                    }
-                                }
-                            }
-                            Err(i) => {
-                                if let Some(tag) = tag_from_node(found, tag_kind) {
-                                    self.tag_queue.insert(i, (found, mat.pattern_index, tag))
+                    // Only create one tag per node. The tag queue is sorted by node position
+                    // to allow for fast lookup.
+                    match self.tag_queue.binary_search_by_key(
+                        &(tag_node.end_byte(), tag_node.start_byte(), tag_node.id()),
+                        |(node, _, _)| (node.end_byte(), node.start_byte(), node.id()),
+                    ) {
+                        Ok(i) => {
+                            let (_, old_idx, tag) = &mut self.tag_queue[i];
+                            if *old_idx > mat.pattern_index {
+                                if let Some(new_tag) = tag_from_node(tag_node, tag_kind) {
+                                    *tag = new_tag;
+                                    *old_idx = mat.pattern_index;
                                 }
                             }
                         }
-                        break;
+                        Err(i) => {
+                            if let Some(tag) = tag_from_node(tag_node, tag_kind) {
+                                self.tag_queue.insert(i, (tag_node, mat.pattern_index, tag))
+                            }
+                        }
                     }
                 }
             }

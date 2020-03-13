@@ -8,19 +8,19 @@ fn test_tags_python() {
         language,
         r#"
         ((function_definition
-            name: (identifier) @name
-            body: (block . (expression_statement (string) @doc))) @function
-         (set! strip @doc "(^['\"\\s]*)|(['\"\\s]*$)"))
+          name: (identifier) @name
+          body: (block . (expression_statement (string) @doc))) @function
+         (strip! @doc "(^['\"\\s]*)|(['\"\\s]*$)"))
         (function_definition
-            name: (identifier) @name) @function
+          name: (identifier) @name) @function
         ((class_definition
-            name: (identifier) @name
-            body: (block . (expression_statement (string) @doc))) @class
-         (set! strip @doc "(^['\"\\s]*)|(['\"\\s]*$)"))
+          name: (identifier) @name
+          body: (block . (expression_statement (string) @doc))) @class
+         (strip! @doc "(^['\"\\s]*)|(['\"\\s]*$)"))
         (class_definition
-            name: (identifier) @name) @class
+          name: (identifier) @name) @class
         (call
-            function: (identifier) @name) @call
+          function: (identifier) @name) @call
         "#,
         "",
     )
@@ -67,17 +67,19 @@ fn test_tags_javascript() {
         language,
         r#"
         ((*
-            (comment)+ @doc
-            .
-            (class_declaration
-                name: (identifier) @name) @class)
-         (set! strip @doc "(^[/\\*\\s]*)|([/\\*\\s]*$)"))
+          (comment)+ @doc
+          .
+          (class_declaration
+            name: (identifier) @name) @class)
+         (select-adjacent! @doc @class)
+         (strip! @doc "(^[/\\*\\s]*)|([/\\*\\s]*$)"))
         ((*
-            (comment)+ @doc
-            .
-            (method_definition
-                name: (property_identifier) @name) @method)
-         (set! strip @doc "(^[/\\*\\s]*)|([/\\*\\s]*$)"))
+          (comment)+ @doc
+          .
+          (method_definition
+            name: (property_identifier) @name) @method)
+         (select-adjacent! @doc @method)
+         (strip! @doc "(^[/\\*\\s]*)|([/\\*\\s]*$)"))
         "#,
         "",
     )
@@ -88,6 +90,8 @@ fn test_tags_javascript() {
         .generate_tags(
             &tags_config,
             br#"
+            // hi
+
             // Data about a customer.
             // bla bla bla
             class Customer {
@@ -95,7 +99,6 @@ fn test_tags_javascript() {
                  * Get the customer's age
                  */
                 getAge() {
-
                 }
             }
             "#,
