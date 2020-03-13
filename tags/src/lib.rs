@@ -14,11 +14,11 @@ pub struct TagsConfiguration {
     class_capture_index: Option<u32>,
     doc_capture_index: Option<u32>,
     function_capture_index: Option<u32>,
-    locals_pattern_index: usize,
     method_capture_index: Option<u32>,
     module_capture_index: Option<u32>,
     name_capture_index: Option<u32>,
     pattern_info: Vec<PatternInfo>,
+    _locals_pattern_index: usize,
 }
 
 pub struct TagsContext {
@@ -141,7 +141,6 @@ impl TagsConfiguration {
         Ok(TagsConfiguration {
             language,
             query,
-            locals_pattern_index,
             function_capture_index,
             class_capture_index,
             method_capture_index,
@@ -150,6 +149,7 @@ impl TagsConfiguration {
             call_capture_index,
             name_capture_index,
             pattern_info,
+            _locals_pattern_index: locals_pattern_index,
         })
     }
 }
