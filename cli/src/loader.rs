@@ -32,6 +32,7 @@ pub struct LanguageConfiguration<'a> {
     pub highlights_filenames: Option<Vec<String>>,
     pub injections_filenames: Option<Vec<String>>,
     pub locals_filenames: Option<Vec<String>>,
+    pub tags_filenames: Option<Vec<String>>,
     language_id: usize,
     highlight_config: OnceCell<Option<HighlightConfiguration>>,
     tags_config: OnceCell<Option<TagsConfiguration>>,
@@ -434,6 +435,8 @@ impl Loader {
             injections: PathsJSON,
             #[serde(default)]
             locals: PathsJSON,
+            #[serde(default)]
+            tags: PathsJSON,
         }
 
         #[derive(Deserialize)]
@@ -481,6 +484,7 @@ impl Loader {
                         injection_regex: Self::regex(config_json.injection_regex),
                         injections_filenames: config_json.injections.into_vec(),
                         locals_filenames: config_json.locals.into_vec(),
+                        tags_filenames: config_json.tags.into_vec(),
                         highlights_filenames: config_json.highlights.into_vec(),
                         highlight_config: OnceCell::new(),
                         tags_config: OnceCell::new(),
@@ -515,6 +519,7 @@ impl Loader {
                 injections_filenames: None,
                 locals_filenames: None,
                 highlights_filenames: None,
+                tags_filenames: None,
                 highlight_config: OnceCell::new(),
                 tags_config: OnceCell::new(),
                 highlight_names: &*self.highlight_names,
@@ -574,7 +579,7 @@ impl<'a> LanguageConfiguration<'a> {
     pub fn tags_config(&self, language: Language) -> Result<Option<&TagsConfiguration>> {
         self.tags_config
             .get_or_try_init(|| {
-                let tags_query = self.read_queries(&self.highlights_filenames, "tags.scm")?;
+                let tags_query = self.read_queries(&self.tags_filenames, "tags.scm")?;
                 let locals_query = self.read_queries(&self.locals_filenames, "locals.scm")?;
                 if tags_query.is_empty() {
                     Ok(None)

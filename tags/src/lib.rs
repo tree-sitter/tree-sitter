@@ -7,6 +7,7 @@ use tree_sitter::{
 
 /// Contains the data neeeded to compute tags for code written in a
 /// particular language.
+#[derive(Debug)]
 pub struct TagsConfiguration {
     pub language: Language,
     pub query: Query,
@@ -26,7 +27,7 @@ pub struct TagsContext {
     cursor: QueryCursor,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct PatternInfo {
     docs_adjacent_capture: Option<u32>,
     doc_strip_regex: Option<Regex>,
@@ -229,7 +230,7 @@ where
                     }
 
                     if index == self.config.name_capture_index {
-                        name = str::from_utf8(&self.source[Some(capture.node)?.byte_range()]).ok();
+                        name = str::from_utf8(&self.source[capture.node.byte_range()]).ok();
                     } else if index == self.config.doc_capture_index {
                         doc_nodes.push(capture.node);
                     } else if index == self.config.call_capture_index {
