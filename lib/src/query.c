@@ -35,11 +35,15 @@ typedef struct {
  *    captured in this pattern.
  * - `depth` - The depth where this node occurs in the pattern. The root node
  *    of the pattern has depth zero.
+ * - `repeat_step_index` - If this step is part of a repetition, the index of
+ *    the beginning of the repetition. A `NONE` value means this step is not
+ *    part of a repetition.
  */
 typedef struct {
   TSSymbol symbol;
   TSFieldId field;
   uint16_t capture_ids[MAX_STEP_CAPTURE_COUNT];
+  uint16_t repeat_step_index;
   uint16_t depth: 12;
   bool contains_captures: 1;
   bool is_immediate: 1;
@@ -86,13 +90,14 @@ typedef struct {
  * represented as one of these states.
  */
 typedef struct {
+  uint32_t id;
   uint16_t start_depth;
   uint16_t pattern_index;
   uint16_t step_index;
-  uint16_t capture_list_id;
   uint16_t consumed_capture_count;
-  uint32_t id;
-  uint16_t current_step_match_count;
+  uint16_t repeat_match_count;
+  uint16_t step_index_on_failure;
+  uint8_t capture_list_id;
   bool seeking_non_match;
 } QueryState;
 
@@ -410,8 +415,10 @@ static QueryStep query_step__new(
     .field = 0,
     .capture_ids = {NONE, NONE, NONE, NONE},
     .contains_captures = false,
-    .is_immediate = is_immediate,
     .is_repeated = false,
+    .is_last = false,
+    .is_immediate = is_immediate,
+    .repeat_step_index = NONE,
   };
 }
 
@@ -853,6 +860,7 @@ static TSQueryError ts_query__parse_pattern(
     if (stream->next == '+') {
       stream_advance(stream);
       step->is_repeated = true;
+      array_back(&self->steps)->repeat_step_index = starting_step_index;
       stream_skip_whitespace(stream);
     }
 
@@ -1212,7 +1220,8 @@ static bool ts_query__cursor_add_state(
     .pattern_index = pattern->pattern_index,
     .start_depth = self->depth,
     .consumed_capture_count = 0,
-    .current_step_match_count = 0,
+    .repeat_match_count = 0,
+    .step_index_on_failure = NONE,
     .seeking_non_match = false,
   }));
   return true;
@@ -1391,23 +1400,21 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
           }
         }
 
-        if (node_does_match) {
-          // The `seeking_non_match` flag indicates that a previous QueryState
-          // has already begun processing this repeating sequence, so that *this*
-          // QueryState should not begin matching until a separate repeating sequence
-          // is found.
-          if (state->seeking_non_match) continue;
-        } else {
+        if (!node_does_match) {
           // If this QueryState has processed a repeating sequence, and that repeating
           // sequence has ended, move on to the *next* step of this state's pattern.
-          if (state->current_step_match_count > 0) {
+          if (
+            state->step_index_on_failure != NONE &&
+            (!later_sibling_can_match || step->is_repeated)
+          ) {
             LOG(
               "  finish repetition state. pattern:%u, step:%u\n",
               state->pattern_index,
               state->step_index
             );
-            state->step_index++;
-            state->current_step_match_count = 0;
+            state->step_index = state->step_index_on_failure;
+            state->step_index_on_failure = NONE;
+            state->repeat_match_count = 0;
             i--;
             continue;
           }
@@ -1431,6 +1438,12 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
           continue;
         }
 
+        // The `seeking_non_match` flag indicates that a previous QueryState
+        // has already begun processing this repeating sequence, so that *this*
+        // QueryState should not begin matching until a separate repeating sequence
+        // is found.
+        if (state->seeking_non_match) continue;
+
         // Some patterns can match their root node in multiple ways,
         // capturing different children. If this pattern step could match
         // later children within the same parent, then this query state
@@ -1443,7 +1456,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
           step->depth > 0 &&
           step->contains_captures &&
           later_sibling_can_match &&
-          state->current_step_match_count == 0
+          state->repeat_match_count == 0
         ) {
           QueryState *copy = ts_query__cursor_copy_state(self, state);
 
@@ -1466,22 +1479,11 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
           }
         }
 
-        LOG(
-          "  advance state. pattern:%u, step:%u\n",
-          next_state->pattern_index,
-          next_state->step_index
-        );
-
         // If the current node is captured in this pattern, add it to the
         // capture list.
         for (unsigned j = 0; j < MAX_STEP_CAPTURE_COUNT; j++) {
           uint16_t capture_id = step->capture_ids[j];
           if (step->capture_ids[j] == NONE) break;
-          LOG(
-            "  capture node. pattern:%u, capture_id:%u\n",
-            next_state->pattern_index,
-            capture_id
-          );
           CaptureList *capture_list = capture_list_pool_get(
             &self->capture_list_pool,
             next_state->capture_list_id
@@ -1490,15 +1492,33 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
             node,
             capture_id
           }));
+          LOG(
+            "  capture node. pattern:%u, capture_id:%u, capture_count:%u\n",
+            next_state->pattern_index,
+            capture_id,
+            capture_list->size
+          );
         }
 
-        // If this step repeats, then don't move to the next step until
-        // this step no longer matches.
-        if (step->is_repeated) {
-          next_state->current_step_match_count++;
+        // If this is the end of a repetition, then jump back to the beginning
+        // of that repetition.
+        if (step->repeat_step_index != NONE) {
+          next_state->step_index_on_failure = next_state->step_index + 1;
+          next_state->step_index = step->repeat_step_index;
+          next_state->repeat_match_count++;
+          LOG(
+            "  continue repeat. pattern:%u, match_count:%u\n",
+            next_state->pattern_index,
+            next_state->repeat_match_count
+          );
         } else {
           next_state->step_index++;
-          next_state->current_step_match_count = 0;
+          LOG(
+            "  advance state. pattern:%u, step:%u\n",
+            next_state->pattern_index,
+            next_state->step_index
+          );
+
           QueryStep *next_step = step + 1;
 
           // If the pattern is now done, then remove it from the list of

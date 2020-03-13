@@ -518,7 +518,7 @@ fn test_query_with_immediate_siblings() {
 }
 
 #[test]
-fn test_query_matches_with_repeated_nodes() {
+fn test_query_matches_with_repeated_leaf_nodes() {
     allocations::record(|| {
         let language = get_language("javascript");
 
@@ -582,6 +582,40 @@ fn test_query_matches_with_repeated_nodes() {
             ]
         );
     });
+}
+
+#[test]
+fn test_query_matches_with_repeated_internal_nodes() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let mut cursor = QueryCursor::new();
+
+        let query = Query::new(
+            language,
+            "
+            (*
+                (method_definition
+                    (decorator (identifier) @deco)+
+                    name: (property_identifier) @name))
+            ",
+        )
+        .unwrap();
+        let source = "
+            class A {
+                @c
+                @d
+                e() {}
+            }
+        ";
+        let tree = parser.parse(source, None).unwrap();
+        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[(0, vec![("deco", "c"), ("deco", "d"), ("name", "e")]),]
+        );
+    })
 }
 
 #[test]
