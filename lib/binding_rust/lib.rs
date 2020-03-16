@@ -1,11 +1,6 @@
 mod ffi;
 mod util;
 
-extern crate regex;
-extern crate serde;
-extern crate serde_derive;
-extern crate serde_json;
-
 #[cfg(unix)]
 use std::os::unix::io::AsRawFd;
 
