@@ -450,7 +450,7 @@ fn test_parsing_on_multiple_threads() {
 
 #[test]
 fn test_parsing_cancelled_by_another_thread() {
-    let cancellation_flag = Box::new(AtomicUsize::new(0));
+    let cancellation_flag = std::sync::Arc::new(AtomicUsize::new(0));
 
     let mut parser = Parser::new();
     parser.set_language(get_language("javascript")).unwrap();
@@ -471,9 +471,10 @@ fn test_parsing_cancelled_by_another_thread() {
     );
     assert!(tree.is_some());
 
+    let flag = cancellation_flag.clone();
     let cancel_thread = thread::spawn(move || {
         thread::sleep(time::Duration::from_millis(100));
-        cancellation_flag.store(1, Ordering::SeqCst);
+        flag.store(1, Ordering::SeqCst);
     });
 
     // Infinite input
