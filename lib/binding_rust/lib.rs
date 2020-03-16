@@ -541,9 +541,9 @@ impl Parser {
     /// the given ranges must be ordered from earliest to latest in the document,
     /// and they must not overlap. That is, the following must hold for all
     /// `i` < `length - 1`:
-    ///
+    /// ```text
     ///     ranges[i].end_byte <= ranges[i + 1].start_byte
-    ///
+    /// ```
     /// If this requirement is not satisfied, method will panic.
     pub fn set_included_ranges<'a>(
         &mut self,
