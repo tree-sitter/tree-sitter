@@ -78,7 +78,7 @@ fn test_tags_javascript() {
           .
           (method_definition
             name: (property_identifier) @name) @method)
-         (select-adjacent! @doc @method)
+;         (select-adjacent! @doc @method)
          (strip! @doc "(^[/\\*\\s]*)|([/\\*\\s]*$)"))
         "#,
         "",

@@ -439,6 +439,10 @@ fn test_query_matches_with_named_wildcard() {
 fn test_query_matches_with_wildcard_at_the_root() {
     allocations::record(|| {
         let language = get_language("javascript");
+        let mut cursor = QueryCursor::new();
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+
         let query = Query::new(
             language,
             "
@@ -453,15 +457,35 @@ fn test_query_matches_with_wildcard_at_the_root() {
 
         let source = "/* one */ var x; /* two */ function y() {} /* three */ class Z {}";
 
-        let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
         let tree = parser.parse(source, None).unwrap();
-        let mut cursor = QueryCursor::new();
         let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
-
         assert_eq!(
             collect_matches(matches, &query, source),
             &[(0, vec![("doc", "/* two */"), ("name", "y")]),]
+        );
+
+        let query = Query::new(
+            language,
+            "
+                (* (string) @a)
+                (* (number) @b)
+                (* (true) @c)
+                (* (false) @d)
+            ",
+        )
+        .unwrap();
+
+        let source = "['hi', x(true), {y: false}]";
+
+        let tree = parser.parse(source, None).unwrap();
+        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[
+                (0, vec![("a", "'hi'")]),
+                (2, vec![("c", "true")]),
+                (3, vec![("d", "false")]),
+            ]
         );
     });
 }

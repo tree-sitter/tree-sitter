@@ -44,8 +44,9 @@ typedef struct {
   TSFieldId field;
   uint16_t capture_ids[MAX_STEP_CAPTURE_COUNT];
   uint16_t repeat_step_index;
-  uint16_t depth: 12;
+  uint16_t depth: 11;
   bool contains_captures: 1;
+  bool is_pattern_start: 1;
   bool is_immediate: 1;
   bool is_last: 1;
   bool is_repeated: 1;
@@ -105,9 +106,9 @@ typedef Array(TSQueryCapture) CaptureList;
 
 /*
  * CaptureListPool - A collection of *lists* of captures. Each QueryState
- * needs to maintain its own list of captures. They are all represented as
- * slices of one shared array. The CaptureListPool keeps track of which
- * parts of the shared array are currently in use by a QueryState.
+ * needs to maintain its own list of captures. To avoid repeated allocations,
+ * the reuses a fixed set of capture lists, and keeps track of which ones
+ * are currently in use.
  */
 typedef struct {
   CaptureList list[32];
@@ -128,7 +129,6 @@ struct TSQuery {
   Array(Slice) predicates_by_pattern;
   Array(uint32_t) start_bytes_by_pattern;
   const TSLanguage *language;
-  uint16_t max_capture_count;
   uint16_t wildcard_root_pattern_count;
   TSSymbol *symbol_map;
 };
@@ -417,6 +417,7 @@ static QueryStep query_step__new(
     .contains_captures = false,
     .is_repeated = false,
     .is_last = false,
+    .is_pattern_start = false,
     .is_immediate = is_immediate,
     .repeat_step_index = NONE,
   };
@@ -939,16 +940,14 @@ TSQuery *ts_query_new(
     .predicates_by_pattern = array_new(),
     .symbol_map = symbol_map,
     .wildcard_root_pattern_count = 0,
-    .max_capture_count = 0,
     .language = language,
   };
 
   // Parse all of the S-expressions in the given string.
   Stream stream = stream_new(source, source_len);
   stream_skip_whitespace(&stream);
-  uint32_t start_step_index;
   while (stream.input < stream.end) {
-    start_step_index = self->steps.size;
+    uint32_t start_step_index = self->steps.size;
     uint32_t capture_count = 0;
     array_push(&self->start_bytes_by_pattern, stream.input - source);
     array_push(&self->predicates_by_pattern, ((Slice) {
@@ -966,7 +965,19 @@ TSQuery *ts_query_new(
       return NULL;
     }
 
+    // If a pattern has a wildcard at its root, optimize the matching process
+    // by skipping matching the wildcard.
+    if (
+      self->steps.contents[start_step_index].symbol == WILDCARD_SYMBOL
+    ) {
+      QueryStep *second_step = &self->steps.contents[start_step_index + 1];
+      if (second_step->symbol != WILDCARD_SYMBOL && second_step->depth != PATTERN_DONE_MARKER) {
+        start_step_index += 1;
+      }
+    }
+
     // Maintain a map that can look up patterns for a given root symbol.
+    self->steps.contents[start_step_index].is_pattern_start = true;
     ts_query__pattern_map_insert(
       self,
       self->steps.contents[start_step_index].symbol,
@@ -974,13 +985,6 @@ TSQuery *ts_query_new(
     );
     if (self->steps.contents[start_step_index].symbol == WILDCARD_SYMBOL) {
       self->wildcard_root_pattern_count++;
-    }
-
-    // Keep track of the maximum number of captures in pattern, because
-    // that numer determines how much space is needed to store each capture
-    // list.
-    if (capture_count > self->max_capture_count) {
-      self->max_capture_count = capture_count;
     }
   }
 
@@ -1188,6 +1192,19 @@ static bool ts_query__cursor_add_state(
   TSQueryCursor *self,
   const PatternEntry *pattern
 ) {
+  QueryStep *step = &self->query->steps.contents[pattern->step_index];
+
+  // If this pattern begins with a repetition, then avoid creating
+  // new states after already matching the repetition one or more times.
+  // The query should only one match for the repetition - the one that
+  // started the earliest.
+  if (step->is_repeated) {
+    for (unsigned i = 0; i < self->states.size; i++) {
+      QueryState *state = &self->states.contents[i];
+      if (state->step_index == pattern->step_index) return true;
+    }
+  }
+
   uint32_t list_id = capture_list_pool_acquire(&self->capture_list_pool);
 
   // If there are no capture lists left in the pool, then terminate whichever
@@ -1213,12 +1230,16 @@ static bool ts_query__cursor_add_state(
     }
   }
 
-  LOG("  start state. pattern:%u\n", pattern->pattern_index);
+  LOG(
+    "  start state. pattern:%u, step:%u\n",
+    pattern->pattern_index,
+    pattern->step_index
+  );
   array_push(&self->states, ((QueryState) {
     .capture_list_id = list_id,
     .step_index = pattern->step_index,
     .pattern_index = pattern->pattern_index,
-    .start_depth = self->depth,
+    .start_depth = self->depth - step->depth,
     .consumed_capture_count = 0,
     .repeat_match_count = 0,
     .step_index_on_failure = NONE,
@@ -1453,7 +1474,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         // siblings.
         QueryState *next_state = state;
         if (
-          step->depth > 0 &&
+          !step->is_pattern_start &&
           step->contains_captures &&
           later_sibling_can_match &&
           state->repeat_match_count == 0
