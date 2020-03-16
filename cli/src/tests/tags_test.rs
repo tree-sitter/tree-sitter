@@ -101,17 +101,28 @@ fn test_tags_javascript() {
                 getAge() {
                 }
             }
+
+            // ok
+
+            class Agent {
+
+            }
             "#,
         )
         .collect::<Vec<_>>();
 
     assert_eq!(
         tags.iter().map(|t| (t.name, t.kind)).collect::<Vec<_>>(),
-        &[("getAge", TagKind::Method), ("Customer", TagKind::Class)]
+        &[
+            ("getAge", TagKind::Method),
+            ("Customer", TagKind::Class),
+            ("Agent", TagKind::Class)
+        ]
     );
     assert_eq!(tags[0].docs.as_ref().unwrap(), "Get the customer's age");
     assert_eq!(
         tags[1].docs.as_ref().unwrap(),
         "Data about a customer.\nbla bla bla"
     );
+    assert_eq!(tags[2].docs, None);
 }
