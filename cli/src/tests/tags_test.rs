@@ -26,28 +26,29 @@ fn test_tags_python() {
     )
     .unwrap();
 
+    let source = br#"
+    class Customer:
+        """
+        Data about a customer
+        """
+
+        def age(self):
+            '''
+            Get the customer's age
+            '''
+            compute_age(self.id)
+    }
+    "#;
+
     let mut tag_context = TagsContext::new();
     let tags = tag_context
-        .generate_tags(
-            &tags_config,
-            br#"
-        class Customer:
-            """
-            Data about a customer
-            """
-
-            def age(self):
-                '''
-                Get the customer's age
-                '''
-                compute_age(self.id)
-        }
-        "#,
-        )
+        .generate_tags(&tags_config, source)
         .collect::<Vec<_>>();
 
     assert_eq!(
-        tags.iter().map(|t| (t.name, t.kind)).collect::<Vec<_>>(),
+        tags.iter()
+            .map(|t| (substr(source, &t.name_range), t.kind))
+            .collect::<Vec<_>>(),
         &[
             ("Customer", TagKind::Class),
             ("age", TagKind::Function),
@@ -55,8 +56,12 @@ fn test_tags_python() {
         ]
     );
 
+    assert_eq!(substr(source, &tags[0].line_range), "    class Customer:");
+    assert_eq!(
+        substr(source, &tags[1].line_range),
+        "        def age(self):"
+    );
     assert_eq!(tags[0].docs.as_ref().unwrap(), "Data about a customer");
-    assert_eq!(tags[0].line, "class Customer:");
     assert_eq!(tags[1].docs.as_ref().unwrap(), "Get the customer's age");
 }
 
@@ -86,33 +91,33 @@ fn test_tags_javascript() {
     .unwrap();
 
     let mut tag_context = TagsContext::new();
+    let source = br#"
+    // hi
+
+    // Data about a customer.
+    // bla bla bla
+    class Customer {
+        /*
+         * Get the customer's age
+         */
+        getAge() {
+        }
+    }
+
+    // ok
+
+    class Agent {
+
+    }
+    "#;
     let tags = tag_context
-        .generate_tags(
-            &tags_config,
-            br#"
-            // hi
-
-            // Data about a customer.
-            // bla bla bla
-            class Customer {
-                /*
-                 * Get the customer's age
-                 */
-                getAge() {
-                }
-            }
-
-            // ok
-
-            class Agent {
-
-            }
-            "#,
-        )
+        .generate_tags(&tags_config, source)
         .collect::<Vec<_>>();
 
     assert_eq!(
-        tags.iter().map(|t| (t.name, t.kind)).collect::<Vec<_>>(),
+        tags.iter()
+            .map(|t| (substr(source, &t.name_range), t.kind))
+            .collect::<Vec<_>>(),
         &[
             ("getAge", TagKind::Method),
             ("Customer", TagKind::Class),
@@ -125,4 +130,8 @@ fn test_tags_javascript() {
         "Data about a customer.\nbla bla bla"
     );
     assert_eq!(tags[2].docs, None);
+}
+
+fn substr<'a>(source: &'a [u8], range: &std::ops::Range<usize>) -> &'a str {
+    std::str::from_utf8(&source[range.clone()]).unwrap()
 }

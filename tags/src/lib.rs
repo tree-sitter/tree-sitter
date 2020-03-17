@@ -1,9 +1,12 @@
+use memchr::{memchr, memrchr};
 use regex::Regex;
-use serde::{Serialize, Serializer};
-use std::{mem, ops, str};
+use std::ops::Range;
+use std::{fmt, mem, str};
 use tree_sitter::{
-    Language, Node, Parser, Query, QueryCursor, QueryError, QueryPredicateArg, Tree,
+    Language, Node, Parser, Point, Query, QueryCursor, QueryError, QueryPredicateArg, Tree,
 };
+
+const MAX_LINE_LEN: usize = 180;
 
 /// Contains the data neeeded to compute tags for code written in a
 /// particular language.
@@ -27,6 +30,31 @@ pub struct TagsContext {
     cursor: QueryCursor,
 }
 
+#[derive(Debug, Clone)]
+pub struct Tag {
+    pub kind: TagKind,
+    pub range: Range<usize>,
+    pub name_range: Range<usize>,
+    pub line_range: Range<usize>,
+    pub span: Range<Point>,
+    pub docs: Option<String>,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum TagKind {
+    Function,
+    Method,
+    Class,
+    Module,
+    Call,
+}
+
+#[derive(Debug)]
+pub enum Error {
+    Query(QueryError),
+    Regex(regex::Error),
+}
+
 #[derive(Debug, Default)]
 struct PatternInfo {
     docs_adjacent_capture: Option<u32>,
@@ -41,43 +69,7 @@ where
     _tree: Tree,
     source: &'a [u8],
     config: &'a TagsConfiguration,
-    tag_queue: Vec<(Node<'a>, usize, Tag<'a>)>,
-}
-
-#[derive(Debug, Serialize, Clone)]
-pub struct Loc {
-    pub byte_range: ops::Range<usize>,
-    pub span: ops::Range<Pos>,
-}
-
-#[derive(Debug, Serialize, Clone)]
-pub struct Pos {
-    pub line: i64,
-    pub column: i64,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum TagKind {
-    Function,
-    Method,
-    Class,
-    Module,
-    Call,
-}
-
-#[derive(Debug, Serialize, Clone)]
-pub struct Tag<'a> {
-    pub kind: TagKind,
-    pub name: &'a str,
-    pub docs: Option<String>,
-    pub loc: Loc,
-    pub line: &'a str,
-}
-
-#[derive(Debug)]
-pub enum Error {
-    Query(QueryError),
-    Regex(regex::Error),
+    tag_queue: Vec<(Node<'a>, usize, Tag)>,
 }
 
 impl TagsConfiguration {
@@ -163,12 +155,11 @@ impl TagsContext {
         }
     }
 
-    // TODO: This should return an iterator rather than build up a vector
     pub fn generate_tags<'a>(
         &'a mut self,
         config: &'a TagsConfiguration,
         source: &'a [u8],
-    ) -> impl Iterator<Item = Tag<'a>> + 'a {
+    ) -> impl Iterator<Item = Tag> + 'a {
         self.parser
             .set_language(config.language)
             .expect("Incompatible language");
@@ -199,9 +190,9 @@ impl<'a, I> Iterator for TagsIter<'a, I>
 where
     I: Iterator<Item = tree_sitter::QueryMatch<'a>>,
 {
-    type Item = Tag<'a>;
+    type Item = Tag;
 
-    fn next(&mut self) -> Option<Tag<'a>> {
+    fn next(&mut self) -> Option<Tag> {
         loop {
             // If there is a queued tag for an earlier node in the syntax tree, then pop
             // it off of the queue and return it.
@@ -216,10 +207,10 @@ where
             // If there is another match, then compute its tag and add it to the
             // tag queue.
             if let Some(mat) = self.matches.next() {
-                let mut name = None;
+                let mut name_range = None;
                 let mut doc_nodes = Vec::new();
                 let mut tag_node = None;
-                let mut tag_kind = TagKind::Call;
+                let mut kind = TagKind::Call;
                 let mut docs_adjacent_node = None;
 
                 for capture in mat.captures {
@@ -230,28 +221,28 @@ where
                     }
 
                     if index == self.config.name_capture_index {
-                        name = str::from_utf8(&self.source[capture.node.byte_range()]).ok();
+                        name_range = Some(capture.node.byte_range());
                     } else if index == self.config.doc_capture_index {
                         doc_nodes.push(capture.node);
                     } else if index == self.config.call_capture_index {
                         tag_node = Some(capture.node);
-                        tag_kind = TagKind::Call;
+                        kind = TagKind::Call;
                     } else if index == self.config.class_capture_index {
                         tag_node = Some(capture.node);
-                        tag_kind = TagKind::Class;
+                        kind = TagKind::Class;
                     } else if index == self.config.function_capture_index {
                         tag_node = Some(capture.node);
-                        tag_kind = TagKind::Function;
+                        kind = TagKind::Function;
                     } else if index == self.config.method_capture_index {
                         tag_node = Some(capture.node);
-                        tag_kind = TagKind::Method;
+                        kind = TagKind::Method;
                     } else if index == self.config.module_capture_index {
                         tag_node = Some(capture.node);
-                        tag_kind = TagKind::Module;
+                        kind = TagKind::Module;
                     }
                 }
 
-                if let (Some(tag_node), Some(name)) = (tag_node, name) {
+                if let (Some(tag_node), Some(name_range)) = (tag_node, name_range) {
                     // If needed, filter the doc nodes based on their ranges, selecting
                     // only the slice that are adjacent to some specified node.
                     let mut docs_start_index = 0;
@@ -293,41 +284,42 @@ where
                         }
                     }
 
-                    let source = &self.source;
-                    let tag_from_node = |node: Node, kind: TagKind| -> Option<Tag> {
-                        // Slice out the first line of the text corresponding to the node in question.
-                        let mut line_range = node.byte_range();
-                        line_range.end = line_range.end.min(line_range.start + 180);
-                        let line = str::from_utf8(&source[line_range]).ok()?.lines().next()?;
-                        Some(Tag {
-                            name,
-                            line,
-                            kind,
-                            docs,
-                            loc: loc_for_node(node),
-                        })
-                    };
-
                     // Only create one tag per node. The tag queue is sorted by node position
                     // to allow for fast lookup.
+                    let range = tag_node.byte_range();
                     match self.tag_queue.binary_search_by_key(
-                        &(tag_node.end_byte(), tag_node.start_byte(), tag_node.id()),
+                        &(range.end, range.start, tag_node.id()),
                         |(node, _, _)| (node.end_byte(), node.start_byte(), node.id()),
                     ) {
                         Ok(i) => {
-                            let (_, old_idx, tag) = &mut self.tag_queue[i];
-                            if *old_idx > mat.pattern_index {
-                                if let Some(new_tag) = tag_from_node(tag_node, tag_kind) {
-                                    *tag = new_tag;
-                                    *old_idx = mat.pattern_index;
-                                }
+                            let (_, pattern_index, tag) = &mut self.tag_queue[i];
+                            if *pattern_index > mat.pattern_index {
+                                *pattern_index = mat.pattern_index;
+                                *tag = Tag {
+                                    line_range: line_range(self.source, range.start, MAX_LINE_LEN),
+                                    span: tag_node.start_position()..tag_node.start_position(),
+                                    kind,
+                                    range,
+                                    name_range,
+                                    docs,
+                                };
                             }
                         }
-                        Err(i) => {
-                            if let Some(tag) = tag_from_node(tag_node, tag_kind) {
-                                self.tag_queue.insert(i, (tag_node, mat.pattern_index, tag))
-                            }
-                        }
+                        Err(i) => self.tag_queue.insert(
+                            i,
+                            (
+                                tag_node,
+                                mat.pattern_index,
+                                Tag {
+                                    line_range: line_range(self.source, range.start, MAX_LINE_LEN),
+                                    span: tag_node.start_position()..tag_node.start_position(),
+                                    kind,
+                                    range,
+                                    name_range,
+                                    docs,
+                                },
+                            ),
+                        ),
                     }
                 }
             }
@@ -341,35 +333,19 @@ where
     }
 }
 
-impl Serialize for TagKind {
-    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            TagKind::Call => "Call",
-            TagKind::Module => "Module",
-            TagKind::Class => "Class",
-            TagKind::Method => "Method",
-            TagKind::Function => "Function",
-        }
-        .serialize(s)
-    }
-}
-
-fn loc_for_node(node: Node) -> Loc {
-    Loc {
-        byte_range: node.byte_range(),
-        span: node.start_position().into()..node.start_position().into(),
-    }
-}
-
-impl From<tree_sitter::Point> for Pos {
-    fn from(point: tree_sitter::Point) -> Self {
-        return Pos {
-            line: point.row as i64,
-            column: point.column as i64,
-        };
+impl fmt::Display for TagKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                TagKind::Call => "Call",
+                TagKind::Module => "Module",
+                TagKind::Class => "Class",
+                TagKind::Method => "Method",
+                TagKind::Function => "Function",
+            }
+        )
     }
 }
 
@@ -382,5 +358,30 @@ impl From<regex::Error> for Error {
 impl From<QueryError> for Error {
     fn from(error: QueryError) -> Self {
         Error::Query(error)
+    }
+}
+
+fn line_range(text: &[u8], index: usize, max_line_len: usize) -> Range<usize> {
+    let start = memrchr(b'\n', &text[0..index]).map_or(0, |i| i + 1);
+    let max_line_len = max_line_len.min(text.len() - start);
+    let end = start + memchr(b'\n', &text[start..(start + max_line_len)]).unwrap_or(max_line_len);
+    start..end
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_line() {
+        let text = b"abc\ndefg\nhijkl";
+        assert_eq!(line_range(text, 0, 10), 0..3);
+        assert_eq!(line_range(text, 1, 10), 0..3);
+        assert_eq!(line_range(text, 2, 10), 0..3);
+        assert_eq!(line_range(text, 3, 10), 0..3);
+        assert_eq!(line_range(text, 1, 2), 0..2);
+        assert_eq!(line_range(text, 4, 10), 4..8);
+        assert_eq!(line_range(text, 5, 10), 4..8);
+        assert_eq!(line_range(text, 11, 10), 9..14);
     }
 }

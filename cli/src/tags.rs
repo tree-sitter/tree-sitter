@@ -1,8 +1,8 @@
 use super::loader::Loader;
 use crate::error::{Error, Result};
-use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
+use std::{fs, str};
 use tree_sitter_tags::TagsContext;
 
 pub fn generate_tags(loader: &Loader, scope: Option<&str>, paths: &[String]) -> Result<()> {
@@ -34,8 +34,15 @@ pub fn generate_tags(loader: &Loader, scope: Option<&str>, paths: &[String]) -> 
         if let Some(tags_config) = language_config.tags_config(language)? {
             let source = fs::read(path)?;
             for tag in context.generate_tags(tags_config, &source) {
-                serde_json::to_writer(&mut stdout, &tag)?;
-                stdout.write(b"\n")?;
+                writeln!(
+                    &mut stdout,
+                    "{}\t{}\t{} - {}\tdocs:{}",
+                    tag.kind,
+                    str::from_utf8(&source[tag.name_range]).unwrap_or(""),
+                    tag.span.start,
+                    tag.span.end,
+                    tag.docs.unwrap_or(String::new()),
+                )?;
             }
         } else {
             eprintln!("No tags config found for path {:?}", path);
