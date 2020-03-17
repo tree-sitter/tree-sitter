@@ -32,17 +32,27 @@ pub fn generate_tags(loader: &Loader, scope: Option<&str>, paths: &[String]) -> 
         };
 
         if let Some(tags_config) = language_config.tags_config(language)? {
+            let path_str = format!("{:?}", path);
+            writeln!(&mut stdout, "{}", &path_str[1..path_str.len() - 1])?;
+
             let source = fs::read(path)?;
             for tag in context.generate_tags(tags_config, &source) {
-                writeln!(
+                write!(
                     &mut stdout,
-                    "{}\t{}\t{} - {}\tdocs:{}",
+                    "  {:<8}\t{:<40}\t{:>9}-{:<9}",
                     tag.kind,
                     str::from_utf8(&source[tag.name_range]).unwrap_or(""),
                     tag.span.start,
                     tag.span.end,
-                    tag.docs.unwrap_or(String::new()),
                 )?;
+                if let Some(docs) = tag.docs {
+                    if docs.len() > 120 {
+                        write!(&mut stdout, "\t{:?}...", &docs[0..120])?;
+                    } else {
+                        write!(&mut stdout, "\t{:?}", &docs)?;
+                    }
+                }
+                writeln!(&mut stdout, "")?;
             }
         } else {
             eprintln!("No tags config found for path {:?}", path);

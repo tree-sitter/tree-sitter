@@ -335,17 +335,14 @@ where
 
 impl fmt::Display for TagKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                TagKind::Call => "Call",
-                TagKind::Module => "Module",
-                TagKind::Class => "Class",
-                TagKind::Method => "Method",
-                TagKind::Function => "Function",
-            }
-        )
+        match self {
+            TagKind::Call => "Call",
+            TagKind::Module => "Module",
+            TagKind::Class => "Class",
+            TagKind::Method => "Method",
+            TagKind::Function => "Function",
+        }
+        .fmt(f)
     }
 }
 
