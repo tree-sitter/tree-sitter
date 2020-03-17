@@ -9,7 +9,7 @@ authors = [
 license = "MIT"
 readme = "README.md"
 edition = "2018"
-keywords = ["incremental", "parsing", "syntax", "highlighting"]
+keywords = ["incremental", "parsing", "syntax", "tagging"]
 categories = ["parsing", "text-editors"]
 repository = "https://github.com/tree-sitter/tree-sitter"
 
@@ -18,13 +18,7 @@ crate-type = ["lib", "staticlib"]
 
 [dependencies]
 regex = "1"
-serde_json = "1.0"
-serde_derive = "1.0"
 memchr = "2.3"
-
-[dependencies.serde]
-version = "1.0"
-features = ["derive"]
 
 [dependencies.tree-sitter]
 version = ">= 0.3.7"
