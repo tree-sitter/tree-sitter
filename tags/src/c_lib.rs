@@ -6,7 +6,8 @@ use std::{fmt, slice, str};
 use tree_sitter::Language;
 
 #[repr(C)]
-enum TSTagsError {
+#[derive(Debug, PartialEq, Eq)]
+pub enum TSTagsError {
     Ok,
     UnknownScope,
     Timeout,
@@ -17,7 +18,8 @@ enum TSTagsError {
 }
 
 #[repr(C)]
-enum TSTagKind {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TSTagKind {
     Function,
     Method,
     Class,
@@ -26,38 +28,49 @@ enum TSTagKind {
 }
 
 #[repr(C)]
-struct TSPoint {
+pub struct TSPoint {
     row: u32,
     column: u32,
 }
 
 #[repr(C)]
-struct TSTag {
-    kind: TSTagKind,
-    start_byte: u32,
-    end_byte: u32,
-    name_start_byte: u32,
-    name_end_byte: u32,
-    line_start_byte: u32,
-    line_end_byte: u32,
-    start_point: TSPoint,
-    end_point: TSPoint,
-    docs: *const u8,
-    docs_length: u32,
+pub struct TSTag {
+    pub kind: TSTagKind,
+    pub start_byte: u32,
+    pub end_byte: u32,
+    pub name_start_byte: u32,
+    pub name_end_byte: u32,
+    pub line_start_byte: u32,
+    pub line_end_byte: u32,
+    pub start_point: TSPoint,
+    pub end_point: TSPoint,
+    pub docs_start_byte: u32,
+    pub docs_end_byte: u32,
 }
 
-struct TSTagger {
+pub struct TSTagger {
     languages: HashMap<String, TagsConfiguration>,
 }
 
-struct TSTagsBuffer {
+pub struct TSTagsBuffer {
     context: TagsContext,
     tags: Vec<TSTag>,
     docs: Vec<u8>,
 }
 
 #[no_mangle]
-unsafe extern "C" fn ts_tagger_add_language(
+pub extern "C" fn ts_tagger_new() -> *mut TSTagger {
+    Box::into_raw(Box::new(TSTagger {
+        languages: HashMap::new(),
+    }))
+}
+
+pub extern "C" fn ts_tagger_delete(this: *mut TSTagger) {
+    drop(unsafe { Box::from_raw(this) })
+}
+
+#[no_mangle]
+pub extern "C" fn ts_tagger_add_language(
     this: *mut TSTagger,
     scope_name: *const i8,
     language: Language,
@@ -67,9 +80,9 @@ unsafe extern "C" fn ts_tagger_add_language(
     locals_query_len: u32,
 ) -> TSTagsError {
     let tagger = unwrap_mut_ptr(this);
-    let scope_name = unwrap(CStr::from_ptr(scope_name).to_str());
-    let tags_query = slice::from_raw_parts(tags_query, tags_query_len as usize);
-    let locals_query = slice::from_raw_parts(locals_query, locals_query_len as usize);
+    let scope_name = unsafe { unwrap(CStr::from_ptr(scope_name).to_str()) };
+    let tags_query = unsafe { slice::from_raw_parts(tags_query, tags_query_len as usize) };
+    let locals_query = unsafe { slice::from_raw_parts(locals_query, locals_query_len as usize) };
     let tags_query = match str::from_utf8(tags_query) {
         Ok(e) => e,
         Err(_) => return TSTagsError::InvalidUtf8,
@@ -89,7 +102,7 @@ unsafe extern "C" fn ts_tagger_add_language(
 }
 
 #[no_mangle]
-unsafe extern "C" fn ts_tagger_tag(
+pub extern "C" fn ts_tagger_tag(
     this: *mut TSTagger,
     scope_name: *const i8,
     source_code: *const u8,
@@ -99,15 +112,17 @@ unsafe extern "C" fn ts_tagger_tag(
 ) -> TSTagsError {
     let tagger = unwrap_mut_ptr(this);
     let buffer = unwrap_mut_ptr(output);
-    let scope_name = unwrap(CStr::from_ptr(scope_name).to_str());
+    let scope_name = unsafe { unwrap(CStr::from_ptr(scope_name).to_str()) };
     if let Some(config) = tagger.languages.get(scope_name) {
-        let source_code = slice::from_raw_parts(source_code, source_code_len as usize);
+        buffer.tags.clear();
+        buffer.docs.clear();
+        let source_code = unsafe { slice::from_raw_parts(source_code, source_code_len as usize) };
+
         for tag in buffer.context.generate_tags(config, source_code) {
             let prev_docs_len = buffer.docs.len();
             if let Some(docs) = tag.docs {
                 buffer.docs.extend_from_slice(docs.as_bytes());
             }
-            let docs = &buffer.docs[prev_docs_len..];
             buffer.tags.push(TSTag {
                 kind: match tag.kind {
                     TagKind::Function => TSTagKind::Function,
@@ -130,10 +145,11 @@ unsafe extern "C" fn ts_tagger_tag(
                     row: tag.span.end.row as u32,
                     column: tag.span.end.column as u32,
                 },
-                docs: docs.as_ptr(),
-                docs_length: docs.len() as u32,
+                docs_start_byte: prev_docs_len as u32,
+                docs_end_byte: buffer.docs.len() as u32,
             });
         }
+
         TSTagsError::Ok
     } else {
         TSTagsError::UnknownScope
@@ -141,7 +157,7 @@ unsafe extern "C" fn ts_tagger_tag(
 }
 
 #[no_mangle]
-extern "C" fn ts_tags_buffer_new() -> *mut TSTagsBuffer {
+pub extern "C" fn ts_tags_buffer_new() -> *mut TSTagsBuffer {
     Box::into_raw(Box::new(TSTagsBuffer {
         context: TagsContext::new(),
         tags: Vec::new(),
@@ -150,20 +166,32 @@ extern "C" fn ts_tags_buffer_new() -> *mut TSTagsBuffer {
 }
 
 #[no_mangle]
-extern "C" fn ts_tags_buffer_delete(this: *mut TSTagsBuffer) {
+pub extern "C" fn ts_tags_buffer_delete(this: *mut TSTagsBuffer) {
     drop(unsafe { Box::from_raw(this) })
 }
 
 #[no_mangle]
-extern "C" fn ts_tags_buffer_line_offsets(this: *const TSTagsBuffer) -> *const TSTag {
+pub extern "C" fn ts_tags_buffer_tags(this: *const TSTagsBuffer) -> *const TSTag {
     let buffer = unwrap_ptr(this);
     buffer.tags.as_ptr()
 }
 
 #[no_mangle]
-extern "C" fn ts_tags_buffer_len(this: *const TSTagsBuffer) -> u32 {
+pub extern "C" fn ts_tags_buffer_tags_len(this: *const TSTagsBuffer) -> u32 {
     let buffer = unwrap_ptr(this);
     buffer.tags.len() as u32
+}
+
+#[no_mangle]
+pub extern "C" fn ts_tags_buffer_docs(this: *const TSTagsBuffer) -> *const i8 {
+    let buffer = unwrap_ptr(this);
+    buffer.docs.as_ptr() as *const i8
+}
+
+#[no_mangle]
+pub extern "C" fn ts_tags_buffer_docs_len(this: *const TSTagsBuffer) -> u32 {
+    let buffer = unwrap_ptr(this);
+    buffer.docs.len() as u32
 }
 
 fn unwrap_ptr<'a, T>(result: *const T) -> &'a T {

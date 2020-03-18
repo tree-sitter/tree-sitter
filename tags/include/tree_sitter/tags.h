@@ -82,8 +82,12 @@ TSTagsBuffer *ts_tags_buffer_new();
 void ts_tags_buffer_delete(TSTagsBuffer *);
 
 // Access the tags within a tag buffer.
-const TSTag *ts_tags_buffer_line_offsets(const TSTagsBuffer *);
-uint32_t ts_tags_buffer_len(const TSTagsBuffer *);
+const TSTag *ts_tags_buffer_tags(const TSTagsBuffer *);
+uint32_t ts_tags_buffer_tags_len(const TSTagsBuffer *);
+
+// Access the string containing all of the docs
+const char *ts_tags_buffer_docs(const TSTagsBuffer *);
+uint32_t ts_tags_buffer_docs_len(const TSTagsBuffer *);
 
 #ifdef __cplusplus
 }

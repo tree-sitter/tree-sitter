@@ -1,4 +1,4 @@
-mod c_lib;
+pub mod c_lib;
 
 use memchr::{memchr, memrchr};
 use regex::Regex;
