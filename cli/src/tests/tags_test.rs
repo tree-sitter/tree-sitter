@@ -136,16 +136,16 @@ fn test_tags_javascript() {
             .map(|t| (substr(source, &t.name_range), t.kind))
             .collect::<Vec<_>>(),
         &[
-            ("getAge", TagKind::Method),
             ("Customer", TagKind::Class),
+            ("getAge", TagKind::Method),
             ("Agent", TagKind::Class)
         ]
     );
-    assert_eq!(tags[0].docs.as_ref().unwrap(), "Get the customer's age");
     assert_eq!(
-        tags[1].docs.as_ref().unwrap(),
+        tags[0].docs.as_ref().unwrap(),
         "Data about a customer.\nbla bla bla"
     );
+    assert_eq!(tags[1].docs.as_ref().unwrap(), "Get the customer's age");
     assert_eq!(tags[2].docs, None);
 }
 
