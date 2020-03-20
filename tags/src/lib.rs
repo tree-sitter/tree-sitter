@@ -393,7 +393,7 @@ where
                                 *pattern_index = mat.pattern_index;
                                 *tag = Tag {
                                     line_range: line_range(self.source, range.start, MAX_LINE_LEN),
-                                    span: tag_node.start_position()..tag_node.start_position(),
+                                    span: tag_node.start_position()..tag_node.end_position(),
                                     kind,
                                     range,
                                     name_range,
@@ -406,7 +406,7 @@ where
                             (
                                 Tag {
                                     line_range: line_range(self.source, range.start, MAX_LINE_LEN),
-                                    span: tag_node.start_position()..tag_node.start_position(),
+                                    span: tag_node.start_position()..tag_node.end_position(),
                                     kind,
                                     range,
                                     name_range,

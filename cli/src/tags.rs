@@ -39,7 +39,7 @@ pub fn generate_tags(loader: &Loader, scope: Option<&str>, paths: &[String]) -> 
             for tag in context.generate_tags(tags_config, &source) {
                 write!(
                     &mut stdout,
-                    "  {:<8}\t{:<40}\t{:>9}-{:<9}",
+                    "  {:<8} {:<40}\t{:>9}-{:<9}",
                     tag.kind,
                     str::from_utf8(&source[tag.name_range]).unwrap_or(""),
                     tag.span.start,
