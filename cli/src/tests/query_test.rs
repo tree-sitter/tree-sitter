@@ -491,7 +491,7 @@ fn test_query_matches_with_wildcard_at_the_root() {
 }
 
 #[test]
-fn test_query_with_immediate_siblings() {
+fn test_query_matches_with_immediate_siblings() {
     allocations::record(|| {
         let language = get_language("python");
 
@@ -673,6 +673,41 @@ fn test_query_matches_in_language_with_simple_aliases() {
                 (0, vec![("tag", "style")]),
                 (0, vec![("tag", "div")]),
             ],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_different_tokens_with_the_same_string_value() {
+    allocations::record(|| {
+        let language = get_language("rust");
+        let query = Query::new(
+            language,
+            r#"
+                "<" @less
+                ">" @greater
+                "#,
+        )
+        .unwrap();
+
+        // In Rust, there are two '<' tokens: one for the binary operator,
+        // and one with higher precedence for generics.
+        let source = "const A: B<C> = d < e || f > g;";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
+
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[
+                (0, vec![("less", "<")]),
+                (1, vec![("greater", ">")]),
+                (0, vec![("less", "<")]),
+                (1, vec![("greater", ">")]),
+            ]
         );
     });
 }
