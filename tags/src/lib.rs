@@ -5,7 +5,7 @@ use regex::Regex;
 use std::ops::Range;
 use std::{fmt, mem, str};
 use tree_sitter::{
-    Language, Node, Parser, Point, Query, QueryCursor, QueryError, QueryPredicateArg, Tree,
+    Language, Parser, Point, Query, QueryCursor, QueryError, QueryPredicateArg, Tree,
 };
 
 const MAX_LINE_LEN: usize = 180;
@@ -23,8 +23,10 @@ pub struct TagsConfiguration {
     method_capture_index: Option<u32>,
     module_capture_index: Option<u32>,
     name_capture_index: Option<u32>,
+    local_scope_capture_index: Option<u32>,
+    local_definition_capture_index: Option<u32>,
+    tags_pattern_index: usize,
     pattern_info: Vec<PatternInfo>,
-    _locals_pattern_index: usize,
 }
 
 pub struct TagsContext {
@@ -60,7 +62,22 @@ pub enum Error {
 #[derive(Debug, Default)]
 struct PatternInfo {
     docs_adjacent_capture: Option<u32>,
+    local_scope_inherits: bool,
+    name_must_be_non_local: bool,
     doc_strip_regex: Option<Regex>,
+}
+
+#[derive(Debug)]
+struct LocalDef<'a> {
+    name: &'a [u8],
+    value_range: Range<usize>,
+}
+
+#[derive(Debug)]
+struct LocalScope<'a> {
+    inherits: bool,
+    range: Range<usize>,
+    local_defs: Vec<LocalDef<'a>>,
 }
 
 struct TagsIter<'a, I>
@@ -71,19 +88,20 @@ where
     _tree: Tree,
     source: &'a [u8],
     config: &'a TagsConfiguration,
-    tag_queue: Vec<(Node<'a>, usize, Tag)>,
+    tag_queue: Vec<(Tag, usize)>,
+    scopes: Vec<LocalScope<'a>>,
 }
 
 impl TagsConfiguration {
     pub fn new(language: Language, tags_query: &str, locals_query: &str) -> Result<Self, Error> {
-        let query = Query::new(language, &format!("{}{}", tags_query, locals_query))?;
+        let query = Query::new(language, &format!("{}{}", locals_query, tags_query))?;
 
-        let locals_query_offset = tags_query.len();
-        let mut locals_pattern_index = 0;
+        let tags_query_offset = locals_query.len();
+        let mut tags_pattern_index = 0;
         for i in 0..(query.pattern_count()) {
             let pattern_offset = query.start_byte_for_pattern(i);
-            if pattern_offset < locals_query_offset {
-                locals_pattern_index += 1;
+            if pattern_offset < tags_query_offset {
+                tags_pattern_index += 1;
             }
         }
 
@@ -94,6 +112,8 @@ impl TagsConfiguration {
         let mut method_capture_index = None;
         let mut module_capture_index = None;
         let mut name_capture_index = None;
+        let mut local_scope_capture_index = None;
+        let mut local_definition_capture_index = None;
         for (i, name) in query.capture_names().iter().enumerate() {
             let index = match name.as_str() {
                 "call" => &mut call_capture_index,
@@ -103,6 +123,8 @@ impl TagsConfiguration {
                 "method" => &mut method_capture_index,
                 "module" => &mut module_capture_index,
                 "name" => &mut name_capture_index,
+                "local.scope" => &mut local_scope_capture_index,
+                "local.definition" => &mut local_definition_capture_index,
                 _ => continue,
             };
             *index = Some(i as u32);
@@ -111,6 +133,22 @@ impl TagsConfiguration {
         let pattern_info = (0..query.pattern_count())
             .map(|pattern_index| {
                 let mut info = PatternInfo::default();
+                for (property, is_positive) in query.property_predicates(pattern_index) {
+                    if !is_positive && property.key.as_ref() == "local" {
+                        info.name_must_be_non_local = true;
+                    }
+                }
+                info.local_scope_inherits = true;
+                for property in query.property_settings(pattern_index) {
+                    if property.key.as_ref() == "local.scope-inherits"
+                        && property
+                            .value
+                            .as_ref()
+                            .map_or(false, |v| v.as_ref() == "false")
+                    {
+                        info.local_scope_inherits = false;
+                    }
+                }
                 if let Some(doc_capture_index) = doc_capture_index {
                     for predicate in query.general_predicates(pattern_index) {
                         if predicate.args.get(0)
@@ -143,8 +181,10 @@ impl TagsConfiguration {
             doc_capture_index,
             call_capture_index,
             name_capture_index,
+            tags_pattern_index,
+            local_scope_capture_index,
+            local_definition_capture_index,
             pattern_info,
-            _locals_pattern_index: locals_pattern_index,
         })
     }
 }
@@ -179,11 +219,16 @@ impl TagsContext {
                 &source[node.byte_range()]
             });
         TagsIter {
+            _tree: tree,
             matches,
             source,
             config,
             tag_queue: Vec::new(),
-            _tree: tree,
+            scopes: vec![LocalScope {
+                range: 0..source.len(),
+                inherits: false,
+                local_defs: Vec::new(),
+            }],
         }
     }
 }
@@ -200,15 +245,41 @@ where
             // it off of the queue and return it.
             if let Some(last_entry) = self.tag_queue.last() {
                 if self.tag_queue.len() > 1
-                    && self.tag_queue[0].0.end_byte() < last_entry.0.start_byte()
+                    && self.tag_queue[0].0.name_range.end < last_entry.0.name_range.start
                 {
-                    return Some(self.tag_queue.remove(0).2);
+                    return Some(self.tag_queue.remove(0).0);
                 }
             }
 
             // If there is another match, then compute its tag and add it to the
             // tag queue.
             if let Some(mat) = self.matches.next() {
+                let pattern_info = &self.config.pattern_info[mat.pattern_index];
+
+                if mat.pattern_index < self.config.tags_pattern_index {
+                    for capture in mat.captures {
+                        let index = Some(capture.index);
+                        let range = capture.node.byte_range();
+                        if index == self.config.local_scope_capture_index {
+                            self.scopes.push(LocalScope {
+                                range,
+                                inherits: pattern_info.local_scope_inherits,
+                                local_defs: Vec::new(),
+                            });
+                        } else if index == self.config.local_definition_capture_index {
+                            if let Some(scope) = self.scopes.iter_mut().rev().find(|scope| {
+                                scope.range.start <= range.start && scope.range.end >= range.end
+                            }) {
+                                scope.local_defs.push(LocalDef {
+                                    name: &self.source[range.clone()],
+                                    value_range: range,
+                                });
+                            }
+                        }
+                    }
+                    continue;
+                }
+
                 let mut name_range = None;
                 let mut doc_nodes = Vec::new();
                 let mut tag_node = None;
@@ -245,6 +316,30 @@ where
                 }
 
                 if let (Some(tag_node), Some(name_range)) = (tag_node, name_range) {
+                    if pattern_info.name_must_be_non_local {
+                        let mut is_local = false;
+                        for scope in self.scopes.iter().rev() {
+                            if scope.range.start <= name_range.start
+                                && scope.range.end >= name_range.end
+                            {
+                                if scope
+                                    .local_defs
+                                    .iter()
+                                    .any(|d| d.name == &self.source[name_range.clone()])
+                                {
+                                    is_local = true;
+                                    break;
+                                }
+                                if !scope.inherits {
+                                    break;
+                                }
+                            }
+                        }
+                        if is_local {
+                            continue;
+                        }
+                    }
+
                     // If needed, filter the doc nodes based on their ranges, selecting
                     // only the slice that are adjacent to some specified node.
                     let mut docs_start_index = 0;
@@ -269,9 +364,7 @@ where
                     let mut docs = None;
                     for doc_node in &doc_nodes[docs_start_index..] {
                         if let Ok(content) = str::from_utf8(&self.source[doc_node.byte_range()]) {
-                            let content = if let Some(regex) =
-                                &self.config.pattern_info[mat.pattern_index].doc_strip_regex
-                            {
+                            let content = if let Some(regex) = &pattern_info.doc_strip_regex {
                                 regex.replace_all(content, "").to_string()
                             } else {
                                 content.to_string()
@@ -289,12 +382,13 @@ where
                     // Only create one tag per node. The tag queue is sorted by node position
                     // to allow for fast lookup.
                     let range = tag_node.byte_range();
-                    match self.tag_queue.binary_search_by_key(
-                        &(range.end, range.start, tag_node.id()),
-                        |(node, _, _)| (node.end_byte(), node.start_byte(), node.id()),
-                    ) {
+                    match self
+                        .tag_queue
+                        .binary_search_by_key(&(name_range.end, name_range.start), |(tag, _)| {
+                            (tag.name_range.end, tag.name_range.start)
+                        }) {
                         Ok(i) => {
-                            let (_, pattern_index, tag) = &mut self.tag_queue[i];
+                            let (tag, pattern_index) = &mut self.tag_queue[i];
                             if *pattern_index > mat.pattern_index {
                                 *pattern_index = mat.pattern_index;
                                 *tag = Tag {
@@ -310,8 +404,6 @@ where
                         Err(i) => self.tag_queue.insert(
                             i,
                             (
-                                tag_node,
-                                mat.pattern_index,
                                 Tag {
                                     line_range: line_range(self.source, range.start, MAX_LINE_LEN),
                                     span: tag_node.start_position()..tag_node.start_position(),
@@ -320,6 +412,7 @@ where
                                     name_range,
                                     docs,
                                 },
+                                mat.pattern_index,
                             ),
                         ),
                     }
@@ -327,7 +420,7 @@ where
             }
             // If there are no more matches, then drain the queue.
             else if !self.tag_queue.is_empty() {
-                return Some(self.tag_queue.remove(0).2);
+                return Some(self.tag_queue.remove(0).0);
             } else {
                 return None;
             }
