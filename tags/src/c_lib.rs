@@ -65,6 +65,7 @@ pub extern "C" fn ts_tagger_new() -> *mut TSTagger {
     }))
 }
 
+#[no_mangle]
 pub extern "C" fn ts_tagger_delete(this: *mut TSTagger) {
     drop(unsafe { Box::from_raw(this) })
 }
