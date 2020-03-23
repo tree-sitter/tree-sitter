@@ -2,7 +2,7 @@ use super::{Error, TagKind, TagsConfiguration, TagsContext};
 use std::collections::HashMap;
 use std::ffi::CStr;
 use std::process::abort;
-use std::{fmt, slice, str};
+use std::{fmt, ptr, slice, str};
 use tree_sitter::Language;
 
 #[repr(C)]
@@ -92,6 +92,7 @@ pub extern "C" fn ts_tagger_add_language(
         Ok(e) => e,
         Err(_) => return TSTagsError::InvalidUtf8,
     };
+
     match TagsConfiguration::new(language, tags_query, locals_query) {
         Ok(c) => {
             tagger.languages.insert(scope_name.to_string(), c);
@@ -114,6 +115,7 @@ pub extern "C" fn ts_tagger_tag(
     let tagger = unwrap_mut_ptr(this);
     let buffer = unwrap_mut_ptr(output);
     let scope_name = unsafe { unwrap(CStr::from_ptr(scope_name).to_str()) };
+
     if let Some(config) = tagger.languages.get(scope_name) {
         buffer.tags.clear();
         buffer.docs.clear();
@@ -174,7 +176,11 @@ pub extern "C" fn ts_tags_buffer_delete(this: *mut TSTagsBuffer) {
 #[no_mangle]
 pub extern "C" fn ts_tags_buffer_tags(this: *const TSTagsBuffer) -> *const TSTag {
     let buffer = unwrap_ptr(this);
-    buffer.tags.as_ptr()
+    if buffer.tags.is_empty() {
+        ptr::null()
+    } else {
+        buffer.tags.as_ptr()
+    }
 }
 
 #[no_mangle]
@@ -186,7 +192,11 @@ pub extern "C" fn ts_tags_buffer_tags_len(this: *const TSTagsBuffer) -> u32 {
 #[no_mangle]
 pub extern "C" fn ts_tags_buffer_docs(this: *const TSTagsBuffer) -> *const i8 {
     let buffer = unwrap_ptr(this);
-    buffer.docs.as_ptr() as *const i8
+    if buffer.docs.is_empty() {
+        ptr::null()
+    } else {
+        buffer.docs.as_ptr() as *const i8
+    }
 }
 
 #[no_mangle]

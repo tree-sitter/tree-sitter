@@ -36,8 +36,8 @@ typedef struct {
   uint32_t line_end_byte;
   TSPoint start_point;
   TSPoint end_point;
-  const char *docs;
-  uint32_t docs_length;
+  uint32_t docs_start_byte;
+  uint32_t docs_end_byte;
 } TSTag;
 
 typedef struct TSTagger TSTagger;
