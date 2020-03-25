@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::ffi::CStr;
 use std::process::abort;
 use std::sync::atomic::AtomicUsize;
-use std::{fmt, ptr, slice, str};
+use std::{fmt, slice, str};
 use tree_sitter::Language;
 
 #[repr(C)]
@@ -187,8 +187,8 @@ pub extern "C" fn ts_tagger_tag(
 pub extern "C" fn ts_tags_buffer_new() -> *mut TSTagsBuffer {
     Box::into_raw(Box::new(TSTagsBuffer {
         context: TagsContext::new(),
-        tags: Vec::new(),
-        docs: Vec::new(),
+        tags: Vec::with_capacity(64),
+        docs: Vec::with_capacity(64),
     }))
 }
 
@@ -200,11 +200,7 @@ pub extern "C" fn ts_tags_buffer_delete(this: *mut TSTagsBuffer) {
 #[no_mangle]
 pub extern "C" fn ts_tags_buffer_tags(this: *const TSTagsBuffer) -> *const TSTag {
     let buffer = unwrap_ptr(this);
-    if buffer.tags.is_empty() {
-        ptr::null()
-    } else {
-        buffer.tags.as_ptr()
-    }
+    buffer.tags.as_ptr()
 }
 
 #[no_mangle]
@@ -216,11 +212,7 @@ pub extern "C" fn ts_tags_buffer_tags_len(this: *const TSTagsBuffer) -> u32 {
 #[no_mangle]
 pub extern "C" fn ts_tags_buffer_docs(this: *const TSTagsBuffer) -> *const i8 {
     let buffer = unwrap_ptr(this);
-    if buffer.docs.is_empty() {
-        ptr::null()
-    } else {
-        buffer.docs.as_ptr() as *const i8
-    }
+    buffer.docs.as_ptr() as *const i8
 }
 
 #[no_mangle]
