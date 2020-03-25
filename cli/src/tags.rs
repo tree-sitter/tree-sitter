@@ -1,4 +1,5 @@
 use super::loader::Loader;
+use super::util;
 use crate::error::{Error, Result};
 use std::io::{self, Write};
 use std::path::Path;
@@ -15,6 +16,7 @@ pub fn generate_tags(loader: &Loader, scope: Option<&str>, paths: &[String]) -> 
     }
 
     let mut context = TagsContext::new();
+    let cancellation_flag = util::cancel_on_stdin();
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
 
@@ -36,7 +38,8 @@ pub fn generate_tags(loader: &Loader, scope: Option<&str>, paths: &[String]) -> 
             writeln!(&mut stdout, "{}", &path_str[1..path_str.len() - 1])?;
 
             let source = fs::read(path)?;
-            for tag in context.generate_tags(tags_config, &source) {
+            for tag in context.generate_tags(tags_config, &source, Some(&cancellation_flag))? {
+                let tag = tag?;
                 write!(
                     &mut stdout,
                     "  {:<8} {:<40}\t{:>9}-{:<9}",

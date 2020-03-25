@@ -3,7 +3,7 @@ use super::helpers::fixtures::{get_language, get_language_queries_path};
 use std::ffi::CString;
 use std::{fs, ptr, slice, str};
 use tree_sitter_tags::c_lib as c;
-use tree_sitter_tags::{TagKind, TagsConfiguration, TagsContext};
+use tree_sitter_tags::{Error, TagKind, TagsConfiguration, TagsContext};
 
 const PYTHON_TAG_QUERY: &'static str = r#"
 ((function_definition
@@ -79,8 +79,10 @@ fn test_tags_python() {
     "#;
 
     let tags = tag_context
-        .generate_tags(&tags_config, source)
-        .collect::<Vec<_>>();
+        .generate_tags(&tags_config, source, None)
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
 
     assert_eq!(
         tags.iter()
@@ -128,8 +130,10 @@ fn test_tags_javascript() {
 
     let mut tag_context = TagsContext::new();
     let tags = tag_context
-        .generate_tags(&tags_config, source)
-        .collect::<Vec<_>>();
+        .generate_tags(&tags_config, source, None)
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
 
     assert_eq!(
         tags.iter()
@@ -178,8 +182,10 @@ fn test_tags_ruby() {
 
     let mut tag_context = TagsContext::new();
     let tags = tag_context
-        .generate_tags(&tags_config, source.as_bytes())
-        .collect::<Vec<_>>();
+        .generate_tags(&tags_config, source.as_bytes(), None)
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
 
     assert_eq!(
         tags.iter()
@@ -199,6 +205,39 @@ fn test_tags_ruby() {
             ("b", TagKind::Call, (13, 15),),
         ]
     );
+}
+
+#[test]
+fn test_tags_cancellation() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    allocations::record(|| {
+        // Large javascript document
+        let source = (0..500)
+            .map(|_| "/* hi */ class A { /* ok */ b() {} }\n")
+            .collect::<String>();
+
+        let cancellation_flag = AtomicUsize::new(0);
+        let language = get_language("javascript");
+        let tags_config = TagsConfiguration::new(language, JS_TAG_QUERY, "").unwrap();
+
+        let mut tag_context = TagsContext::new();
+        let tags = tag_context
+            .generate_tags(&tags_config, source.as_bytes(), Some(&cancellation_flag))
+            .unwrap();
+
+        for (i, tag) in tags.enumerate() {
+            if i == 150 {
+                cancellation_flag.store(1, Ordering::SeqCst);
+            }
+            if let Err(e) = tag {
+                assert_eq!(e, Error::Cancelled);
+                return;
+            }
+        }
+
+        panic!("Expected to halt tagging with an error");
+    });
 }
 
 #[test]

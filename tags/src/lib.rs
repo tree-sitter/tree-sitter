@@ -3,12 +3,14 @@ pub mod c_lib;
 use memchr::{memchr, memrchr};
 use regex::Regex;
 use std::ops::Range;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{fmt, mem, str};
 use tree_sitter::{
     Language, Parser, Point, Query, QueryCursor, QueryError, QueryPredicateArg, Tree,
 };
 
 const MAX_LINE_LEN: usize = 180;
+const CANCELLATION_CHECK_INTERVAL: usize = 100;
 
 /// Contains the data neeeded to compute tags for code written in a
 /// particular language.
@@ -53,10 +55,12 @@ pub enum TagKind {
     Call,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Error {
     Query(QueryError),
     Regex(regex::Error),
+    Cancelled,
+    InvalidLanguage,
 }
 
 #[derive(Debug, Default)]
@@ -88,6 +92,8 @@ where
     _tree: Tree,
     source: &'a [u8],
     config: &'a TagsConfiguration,
+    cancellation_flag: Option<&'a AtomicUsize>,
+    iter_count: usize,
     tag_queue: Vec<(Tag, usize)>,
     scopes: Vec<LocalScope<'a>>,
 }
@@ -201,14 +207,13 @@ impl TagsContext {
         &'a mut self,
         config: &'a TagsConfiguration,
         source: &'a [u8],
-    ) -> impl Iterator<Item = Tag> + 'a {
+        cancellation_flag: Option<&'a AtomicUsize>,
+    ) -> Result<impl Iterator<Item = Result<Tag, Error>> + 'a, Error> {
         self.parser
             .set_language(config.language)
-            .expect("Incompatible language");
-        let tree = self
-            .parser
-            .parse(source, None)
-            .expect("Parsing failed unexpectedly");
+            .map_err(|_| Error::InvalidLanguage)?;
+        unsafe { self.parser.set_cancellation_flag(cancellation_flag) };
+        let tree = self.parser.parse(source, None).ok_or(Error::Cancelled)?;
 
         // The `matches` iterator borrows the `Tree`, which prevents it from being moved.
         // But the tree is really just a pointer, so it's actually ok to move it.
@@ -218,18 +223,20 @@ impl TagsContext {
             .matches(&config.query, tree_ref.root_node(), move |node| {
                 &source[node.byte_range()]
             });
-        TagsIter {
+        Ok(TagsIter {
             _tree: tree,
             matches,
             source,
             config,
+            cancellation_flag,
             tag_queue: Vec::new(),
+            iter_count: 0,
             scopes: vec![LocalScope {
                 range: 0..source.len(),
                 inherits: false,
                 local_defs: Vec::new(),
             }],
-        }
+        })
     }
 }
 
@@ -237,17 +244,29 @@ impl<'a, I> Iterator for TagsIter<'a, I>
 where
     I: Iterator<Item = tree_sitter::QueryMatch<'a>>,
 {
-    type Item = Tag;
+    type Item = Result<Tag, Error>;
 
-    fn next(&mut self) -> Option<Tag> {
+    fn next(&mut self) -> Option<Self::Item> {
         loop {
+            // Periodically check for cancellation, returning `Cancelled` error if the
+            // cancellation flag was flipped.
+            if let Some(cancellation_flag) = self.cancellation_flag {
+                self.iter_count += 1;
+                if self.iter_count >= CANCELLATION_CHECK_INTERVAL {
+                    self.iter_count = 0;
+                    if cancellation_flag.load(Ordering::Relaxed) != 0 {
+                        return Some(Err(Error::Cancelled));
+                    }
+                }
+            }
+
             // If there is a queued tag for an earlier node in the syntax tree, then pop
             // it off of the queue and return it.
             if let Some(last_entry) = self.tag_queue.last() {
                 if self.tag_queue.len() > 1
                     && self.tag_queue[0].0.name_range.end < last_entry.0.name_range.start
                 {
-                    return Some(self.tag_queue.remove(0).0);
+                    return Some(Ok(self.tag_queue.remove(0).0));
                 }
             }
 
@@ -420,7 +439,7 @@ where
             }
             // If there are no more matches, then drain the queue.
             else if !self.tag_queue.is_empty() {
-                return Some(self.tag_queue.remove(0).0);
+                return Some(Ok(self.tag_queue.remove(0).0));
             } else {
                 return None;
             }

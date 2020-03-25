@@ -1,3 +1,4 @@
+use super::util;
 use crate::error::Result;
 use crate::loader::Loader;
 use ansi_term::Color;
@@ -6,10 +7,8 @@ use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 use std::time::Instant;
-use std::{fs, io, path, str, thread, usize};
+use std::{fs, io, path, str, usize};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer};
 
 pub const HTML_HEADER: &'static str = "
@@ -273,19 +272,6 @@ fn color_to_css(color: Color) -> &'static str {
     }
 }
 
-fn cancel_on_stdin() -> Arc<AtomicUsize> {
-    let result = Arc::new(AtomicUsize::new(0));
-    thread::spawn({
-        let flag = result.clone();
-        move || {
-            let mut line = String::new();
-            io::stdin().read_line(&mut line).unwrap();
-            flag.store(1, Ordering::Relaxed);
-        }
-    });
-    result
-}
-
 pub fn ansi(
     loader: &Loader,
     theme: &Theme,
@@ -296,7 +282,7 @@ pub fn ansi(
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
     let time = Instant::now();
-    let cancellation_flag = cancel_on_stdin();
+    let cancellation_flag = util::cancel_on_stdin();
     let mut highlighter = Highlighter::new();
 
     let events = highlighter.highlight(config, source, Some(&cancellation_flag), |string| {
@@ -341,7 +327,7 @@ pub fn html(
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
     let time = Instant::now();
-    let cancellation_flag = cancel_on_stdin();
+    let cancellation_flag = util::cancel_on_stdin();
     let mut highlighter = Highlighter::new();
 
     let events = highlighter.highlight(config, source, Some(&cancellation_flag), |string| {

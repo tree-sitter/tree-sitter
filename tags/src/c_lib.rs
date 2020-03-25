@@ -2,6 +2,7 @@ use super::{Error, TagKind, TagsConfiguration, TagsContext};
 use std::collections::HashMap;
 use std::ffi::CStr;
 use std::process::abort;
+use std::sync::atomic::AtomicUsize;
 use std::{fmt, ptr, slice, str};
 use tree_sitter::Language;
 
@@ -15,6 +16,7 @@ pub enum TSTagsError {
     InvalidUtf8,
     InvalidRegex,
     InvalidQuery,
+    Unknown,
 }
 
 #[repr(C)]
@@ -100,6 +102,7 @@ pub extern "C" fn ts_tagger_add_language(
         }
         Err(Error::Query(_)) => TSTagsError::InvalidQuery,
         Err(Error::Regex(_)) => TSTagsError::InvalidRegex,
+        Err(_) => TSTagsError::Unknown,
     }
 }
 
@@ -110,7 +113,7 @@ pub extern "C" fn ts_tagger_tag(
     source_code: *const u8,
     source_code_len: u32,
     output: *mut TSTagsBuffer,
-    cancellation_flag: *const usize,
+    cancellation_flag: *const AtomicUsize,
 ) -> TSTagsError {
     let tagger = unwrap_mut_ptr(this);
     let buffer = unwrap_mut_ptr(output);
@@ -120,8 +123,29 @@ pub extern "C" fn ts_tagger_tag(
         buffer.tags.clear();
         buffer.docs.clear();
         let source_code = unsafe { slice::from_raw_parts(source_code, source_code_len as usize) };
+        let cancellation_flag = unsafe { cancellation_flag.as_ref() };
 
-        for tag in buffer.context.generate_tags(config, source_code) {
+        let tags = match buffer
+            .context
+            .generate_tags(config, source_code, cancellation_flag)
+        {
+            Ok(tags) => tags,
+            Err(e) => {
+                return match e {
+                    Error::InvalidLanguage => TSTagsError::InvalidLanguage,
+                    Error::Cancelled => TSTagsError::Timeout,
+                    _ => TSTagsError::Timeout,
+                }
+            }
+        };
+
+        for tag in tags {
+            let tag = if let Ok(tag) = tag {
+                tag
+            } else {
+                return TSTagsError::Timeout;
+            };
+
             let prev_docs_len = buffer.docs.len();
             if let Some(docs) = tag.docs {
                 buffer.docs.extend_from_slice(docs.as_bytes());
