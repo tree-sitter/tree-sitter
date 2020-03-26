@@ -248,6 +248,9 @@ static CaptureListPool capture_list_pool_new() {
 
 static void capture_list_pool_reset(CaptureListPool *self) {
   self->usage_map = UINT32_MAX;
+  for (unsigned i = 0; i < 32; i++) {
+    array_clear(&self->list[i]);
+  }
 }
 
 static void capture_list_pool_delete(CaptureListPool *self) {

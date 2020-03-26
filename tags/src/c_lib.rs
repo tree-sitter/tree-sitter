@@ -143,6 +143,8 @@ pub extern "C" fn ts_tagger_tag(
             let tag = if let Ok(tag) = tag {
                 tag
             } else {
+                buffer.tags.clear();
+                buffer.docs.clear();
                 return TSTagsError::Timeout;
             };
 

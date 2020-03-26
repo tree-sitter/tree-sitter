@@ -212,6 +212,7 @@ impl TagsContext {
         self.parser
             .set_language(config.language)
             .map_err(|_| Error::InvalidLanguage)?;
+        self.parser.reset();
         unsafe { self.parser.set_cancellation_flag(cancellation_flag) };
         let tree = self.parser.parse(source, None).ok_or(Error::Cancelled)?;
 
