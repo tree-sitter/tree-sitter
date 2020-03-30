@@ -9,13 +9,13 @@ type Rule =
 interface BaseGrammar<Keys extends string> {
   name: string;
 
-  extras($: Record<Keys, Rule>): Rule[];
+  extras?: ($: Record<Keys, Rule>) => Rule[];
 
-  externals($: Record<Keys, Rule>): Rule[];
+  externals?: ($: Record<Keys, Rule>) => Rule[];
 
-  conflicts($: Record<Keys, Rule>): Rule[];
+  conflicts?: ($: Record<Keys, Rule>) => Rule[][];
 
-  inline($: Record<Keys, Rule>): Rule[];
+  inline?: ($: Record<Keys, Rule>) => Rule[];
 
   rules: Record<Keys, ($: Record<Keys, Rule>) => Rule>;
 }
