@@ -78,7 +78,7 @@ int main() {
   TSNode number_node = ts_node_named_child(array_node, 0);
 
   // Check that the nodes have the expected types.
-  assert(strcmp(ts_node_type(root_node), "value") == 0);
+  assert(strcmp(ts_node_type(root_node), "document") == 0);
   assert(strcmp(ts_node_type(array_node), "array") == 0);
   assert(strcmp(ts_node_type(number_node), "number") == 0);
 
