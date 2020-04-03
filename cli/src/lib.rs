@@ -6,6 +6,7 @@ pub mod loader;
 pub mod logger;
 pub mod parse;
 pub mod query;
+pub mod tags;
 pub mod test;
 pub mod test_highlight;
 pub mod util;

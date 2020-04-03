@@ -95,6 +95,7 @@ pub struct Query {
     text_predicates: Vec<Box<[TextPredicate]>>,
     property_settings: Vec<Box<[QueryProperty]>>,
     property_predicates: Vec<Box<[(QueryProperty, bool)]>>,
+    general_predicates: Vec<Box<[QueryPredicate]>>,
 }
 
 /// A stateful object for executing a `Query` on a syntax `Tree`.
@@ -106,6 +107,19 @@ pub struct QueryProperty {
     pub key: Box<str>,
     pub value: Option<Box<str>>,
     pub capture_id: Option<usize>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum QueryPredicateArg {
+    Capture(u32),
+    String(Box<str>),
+}
+
+/// A key-value pair associated with a particular pattern in a `Query`.
+#[derive(Debug, PartialEq, Eq)]
+pub struct QueryPredicate {
+    pub operator: Box<str>,
+    pub args: Vec<QueryPredicateArg>,
 }
 
 /// A match of a `Query` to a particular set of `Node`s.
@@ -1194,6 +1208,7 @@ impl Query {
             text_predicates: Vec::with_capacity(pattern_count),
             property_predicates: Vec::with_capacity(pattern_count),
             property_settings: Vec::with_capacity(pattern_count),
+            general_predicates: Vec::with_capacity(pattern_count),
         };
 
         // Build a vector of strings to store the capture names.
@@ -1237,6 +1252,7 @@ impl Query {
             let mut text_predicates = Vec::new();
             let mut property_predicates = Vec::new();
             let mut property_settings = Vec::new();
+            let mut general_predicates = Vec::new();
             for p in predicate_steps.split(|s| s.type_ == type_done) {
                 if p.is_empty() {
                     continue;
@@ -1328,12 +1344,21 @@ impl Query {
                         operator_name == "is?",
                     )),
 
-                    _ => {
-                        return Err(QueryError::Predicate(format!(
-                            "Unknown query predicate function {}",
-                            operator_name,
-                        )))
-                    }
+                    _ => general_predicates.push(QueryPredicate {
+                        operator: operator_name.clone().into_boxed_str(),
+                        args: p[1..]
+                            .iter()
+                            .map(|a| {
+                                if a.type_ == type_capture {
+                                    QueryPredicateArg::Capture(a.value_id)
+                                } else {
+                                    QueryPredicateArg::String(
+                                        string_values[a.value_id as usize].clone().into_boxed_str(),
+                                    )
+                                }
+                            })
+                            .collect(),
+                    }),
                 }
             }
 
@@ -1346,6 +1371,9 @@ impl Query {
             result
                 .property_settings
                 .push(property_settings.into_boxed_slice());
+            result
+                .general_predicates
+                .push(general_predicates.into_boxed_slice());
         }
         Ok(result)
     }
@@ -1375,13 +1403,28 @@ impl Query {
     }
 
     /// Get the properties that are checked for the given pattern index.
+    ///
+    /// This includes predicates with the operators `is?` and `is-not?`.
     pub fn property_predicates(&self, index: usize) -> &[(QueryProperty, bool)] {
         &self.property_predicates[index]
     }
 
     /// Get the properties that are set for the given pattern index.
+    ///
+    /// This includes predicates with the operator `set!`.
     pub fn property_settings(&self, index: usize) -> &[QueryProperty] {
         &self.property_settings[index]
+    }
+
+    /// Get the other user-defined predicates associated with the given index.
+    ///
+    /// This includes predicate with operators other than:
+    /// * `match?`
+    /// * `eq?` and `not-eq?
+    /// * `is?` and `is-not?`
+    /// * `set!`
+    pub fn general_predicates(&self, index: usize) -> &[QueryPredicate] {
+        &self.general_predicates[index]
     }
 
     /// Disable a certain capture within a query.
@@ -1420,46 +1463,39 @@ impl Query {
             )));
         }
 
-        let mut i = 0;
         let mut capture_id = None;
-        if args[i].type_ == ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture {
-            capture_id = Some(args[i].value_id as usize);
-            i += 1;
-
-            if i == args.len() {
-                return Err(QueryError::Predicate(format!(
-                    "No key specified for {} predicate.",
-                    function_name,
-                )));
-            }
-            if args[i].type_ == ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture {
-                return Err(QueryError::Predicate(format!(
-                    "Invalid arguments to {} predicate. Expected string, got @{}",
-                    function_name, capture_names[args[i].value_id as usize]
-                )));
-            }
-        }
-
-        let key = &string_values[args[i].value_id as usize];
-        i += 1;
-
+        let mut key = None;
         let mut value = None;
-        if i < args.len() {
-            if args[i].type_ == ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture {
+
+        for arg in args {
+            if arg.type_ == ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture {
                 if capture_id.is_some() {
                     return Err(QueryError::Predicate(format!(
                         "Invalid arguments to {} predicate. Unexpected second capture name @{}",
-                        function_name, capture_names[args[i].value_id as usize]
+                        function_name, capture_names[arg.value_id as usize]
                     )));
-                } else {
-                    capture_id = Some(args[i].value_id as usize);
                 }
+                capture_id = Some(arg.value_id as usize);
+            } else if key.is_none() {
+                key = Some(&string_values[arg.value_id as usize]);
+            } else if value.is_none() {
+                value = Some(string_values[arg.value_id as usize].as_str());
             } else {
-                value = Some(string_values[args[i].value_id as usize].as_str());
+                return Err(QueryError::Predicate(format!(
+                    "Invalid arguments to {} predicate. Unexpected third argument @{}",
+                    function_name, string_values[arg.value_id as usize]
+                )));
             }
         }
 
-        Ok(QueryProperty::new(key, value, capture_id))
+        if let Some(key) = key {
+            Ok(QueryProperty::new(key, value, capture_id))
+        } else {
+            return Err(QueryError::Predicate(format!(
+                "Invalid arguments to {} predicate. Missing key argument",
+                function_name,
+            )));
+        }
     }
 }
 
