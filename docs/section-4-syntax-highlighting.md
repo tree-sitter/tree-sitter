@@ -42,7 +42,7 @@ The `tree-sitter highlight` command takes one or more file paths, and tries to a
 }
 ```
 
-Currently, any folder within one of these *parser directores* whose name begins with "tree-sitter-" will be treated as a Tree-sitter grammar repository.
+Currently, any folder within one of these *parser directories* whose name begins with "tree-sitter-" will be treated as a Tree-sitter grammar repository.
 
 ### Theme
 
@@ -56,7 +56,7 @@ A theme can contain multiple keys that share a common subsequence. Examples:
 * `variable` and `variable.parameter`
 * `function`, `function.builtin`, and `function.method`
 
-For a given highlight produced, styling will be determined based on the **longest matching theme key**. For example, the highlight `function.builtin.static` would match they key `function.builtin` rather than `function`.
+For a given highlight produced, styling will be determined based on the **longest matching theme key**. For example, the highlight `function.builtin.static` would match the key `function.builtin` rather than `function`.
 
 #### Styling Values
 
@@ -222,7 +222,7 @@ The capture names are as follows:
 * `@local.definition` - indicates that a syntax node contains the *name* of a definition within the current local scope.
 * `@local.reference` - indicates that a syntax node contains the *name* which *may* refer to an earlier definition within some enclosing scope.
 
-When highlighting a file, Tree-sitter will keep track of the set of scopes that contains any given position, and the set of definitions within each scope. When processing a syntax node that is captured as a `local.reference`, Tree-sitter will try to find a definition for a name that that matches the node's text. If it finds a match, Tree-sitter will ensure that the *reference* and the *definition* are colored the same.
+When highlighting a file, Tree-sitter will keep track of the set of scopes that contains any given position, and the set of definitions within each scope. When processing a syntax node that is captured as a `local.reference`, Tree-sitter will try to find a definition for a name that matches the node's text. If it finds a match, Tree-sitter will ensure that the *reference* and the *definition* are colored the same.
 
 The information produced by this query can also be *used* by the highlights query. You can *disable* a pattern for nodes which have been identified as local variables by adding the predicate `(is-not? local)` to the pattern. This is used in the example below:
 
