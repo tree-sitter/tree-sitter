@@ -450,7 +450,7 @@ fn test_parsing_on_multiple_threads() {
 
 #[test]
 fn test_parsing_cancelled_by_another_thread() {
-    let cancellation_flag = Box::new(AtomicUsize::new(0));
+    let cancellation_flag = std::sync::Arc::new(AtomicUsize::new(0));
 
     let mut parser = Parser::new();
     parser.set_language(get_language("javascript")).unwrap();
@@ -471,9 +471,10 @@ fn test_parsing_cancelled_by_another_thread() {
     );
     assert!(tree.is_some());
 
+    let flag = cancellation_flag.clone();
     let cancel_thread = thread::spawn(move || {
         thread::sleep(time::Duration::from_millis(100));
-        cancellation_flag.store(1, Ordering::SeqCst);
+        flag.store(1, Ordering::SeqCst);
     });
 
     // Infinite input
@@ -972,59 +973,73 @@ fn test_parsing_with_a_newly_excluded_range() {
 
 #[test]
 fn test_parsing_with_a_newly_included_range() {
-    let source_code = "<div><%= foo() %></div><div><%= bar() %>";
-    let first_code_start_index = source_code.find(" foo").unwrap();
-    let first_code_end_index = first_code_start_index + 7;
-    let second_code_start_index = source_code.find(" bar").unwrap();
-    let second_code_end_index = second_code_start_index + 7;
-    let ranges = [
-        Range {
-            start_byte: first_code_start_index,
-            end_byte: first_code_end_index,
-            start_point: Point::new(0, first_code_start_index),
-            end_point: Point::new(0, first_code_end_index),
-        },
-        Range {
-            start_byte: second_code_start_index,
-            end_byte: second_code_end_index,
-            start_point: Point::new(0, second_code_start_index),
-            end_point: Point::new(0, second_code_end_index),
-        },
-    ];
+    let source_code = "<div><%= foo() %></div><span><%= bar() %></span><%= baz() %>";
+    let range1_start = source_code.find(" foo").unwrap();
+    let range2_start = source_code.find(" bar").unwrap();
+    let range3_start = source_code.find(" baz").unwrap();
+    let range1_end = range1_start + 7;
+    let range2_end = range2_start + 7;
+    let range3_end = range3_start + 7;
 
     // Parse only the first code directive as JavaScript
     let mut parser = Parser::new();
     parser.set_language(get_language("javascript")).unwrap();
-    parser.set_included_ranges(&ranges[0..1]).unwrap();
-    let first_tree = parser.parse(source_code, None).unwrap();
+    parser
+        .set_included_ranges(&[simple_range(range1_start, range1_end)])
+        .unwrap();
+    let tree = parser.parse(source_code, None).unwrap();
     assert_eq!(
-        first_tree.root_node().to_sexp(),
+        tree.root_node().to_sexp(),
         concat!(
             "(program",
             " (expression_statement (call_expression function: (identifier) arguments: (arguments))))",
         )
     );
 
-    // Parse both the code directives as JavaScript, using the old tree as a reference.
-    parser.set_included_ranges(&ranges).unwrap();
-    let tree = parser.parse(&source_code, Some(&first_tree)).unwrap();
+    // Parse both the first and third code directives as JavaScript, using the old tree as a
+    // reference.
+    parser
+        .set_included_ranges(&[
+            simple_range(range1_start, range1_end),
+            simple_range(range3_start, range3_end),
+        ])
+        .unwrap();
+    let tree2 = parser.parse(&source_code, Some(&tree)).unwrap();
     assert_eq!(
-        tree.root_node().to_sexp(),
+        tree2.root_node().to_sexp(),
         concat!(
             "(program",
             " (expression_statement (call_expression function: (identifier) arguments: (arguments)))",
             " (expression_statement (call_expression function: (identifier) arguments: (arguments))))",
         )
     );
-
     assert_eq!(
-        tree.changed_ranges(&first_tree).collect::<Vec<_>>(),
-        vec![Range {
-            start_byte: first_code_end_index,
-            end_byte: second_code_end_index,
-            start_point: Point::new(0, first_code_end_index),
-            end_point: Point::new(0, second_code_end_index),
-        }]
+        tree2.changed_ranges(&tree).collect::<Vec<_>>(),
+        &[simple_range(range1_end, range3_end)]
+    );
+
+    // Parse all three code directives as JavaScript, using the old tree as a
+    // reference.
+    parser
+        .set_included_ranges(&[
+            simple_range(range1_start, range1_end),
+            simple_range(range2_start, range2_end),
+            simple_range(range3_start, range3_end),
+        ])
+        .unwrap();
+    let tree3 = parser.parse(&source_code, Some(&tree)).unwrap();
+    assert_eq!(
+        tree3.root_node().to_sexp(),
+        concat!(
+            "(program",
+            " (expression_statement (call_expression function: (identifier) arguments: (arguments)))",
+            " (expression_statement (call_expression function: (identifier) arguments: (arguments)))",
+            " (expression_statement (call_expression function: (identifier) arguments: (arguments))))",
+        )
+    );
+    assert_eq!(
+        tree3.changed_ranges(&tree2).collect::<Vec<_>>(),
+        &[simple_range(range2_start + 1, range2_end - 1)]
     );
 }
 
@@ -1087,4 +1102,13 @@ fn test_parsing_with_included_ranges_and_missing_tokens() {
     );
     assert_eq!(root.start_byte(), 2);
     assert_eq!(root.child(3).unwrap().start_byte(), 4);
+}
+
+fn simple_range(start: usize, end: usize) -> Range {
+    Range {
+        start_byte: start,
+        end_byte: end,
+        start_point: Point::new(0, start),
+        end_point: Point::new(0, end),
+    }
 }

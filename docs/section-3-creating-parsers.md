@@ -110,9 +110,9 @@ If there is an ambiguity or *local ambiguity* in your grammar, Tree-sitter will 
 
 The `tree-sitter test` command allows you to easily test that your parser is working correctly.
 
-For each rule that you add to the grammar, you should first create a *test* that describes how the syntax trees should look when parsing that rule. These tests are written using specially-formatted text files in a `corpus` directory in your parser's root folder.
+For each rule that you add to the grammar, you should first create a *test* that describes how the syntax trees should look when parsing that rule. These tests are written using specially-formatted text files in the `corpus/` or `test/corpus/` directories within your parser's root folder.
 
-For example, you might have a file called `corpus/statements.txt` that contains a series of entries like this:
+For example, you might have a file called `test/corpus/statements.txt` that contains a series of entries like this:
 
 ```
 ==================
@@ -152,7 +152,7 @@ func x() int {
 
 These tests are important. They serve as the parser's API documentation, and they can be run every time you change the grammar to verify that everything still parses correctly.
 
-By default, the `tree-sitter test` command runs all of the tests in your `corpus` folder. To run a particular test, you can use the the `-f` flag:
+By default, the `tree-sitter test` command runs all of the tests in your `corpus` or `test/corpus/` folder. To run a particular test, you can use the the `-f` flag:
 
 ```sh
 tree-sitter test -f 'Return statements'
@@ -163,6 +163,10 @@ The recommendation is to be comprehensive in adding tests. If it's a visible nod
 #### Automatic Compilation
 
 You might notice that the first time you run `tree-sitter test` after regenerating your parser, it takes some extra time. This is because Tree-sitter automatically compiles your C code into a dynamically-loadable library. It recompiles your parser as-needed whenever you update it by re-running `tree-sitter generate`.
+
+#### Syntax Highlighting Tests
+
+The `tree-sitter test` command will *also* run any syntax highlighting tests in the `test/highlight` folder, if it exists. For more information about syntax highlighting tests, see [the syntax highlighting page][syntax-highlighting-tests].
 
 ### Command: `parse`
 
@@ -180,11 +184,15 @@ You can run your parser on an arbitrary file using `tree-sitter parse`. This wil
           (int_literal [1, 9] - [1, 10]))))))
 ```
 
-You can pass as many files to `tree-sitter parse` as your OS will allow. The command will exit with a non-zero status code if any parse errors occurred. You can also prevent the syntax trees from being printed using the `--quiet` flag. This makes `tree-sitter parse` usable as a secondary testing strategy: you can check that a large number of files parse without error:
+You can pass any number of file paths and glob patterns to `tree-sitter parse`, and it will parse all of the given files. The command will exit with a non-zero status code if any parse errors occurred. You can also prevent the syntax trees from being printed using the `--quiet` flag. This makes `tree-sitter parse` usable as a secondary testing strategy: you can check that a large number of files parse without error:
 
 ```sh
-find ./examples -name '*.go' | xargs -n 1000 tree-sitter parse --quiet
+tree-sitter parse 'examples/**/*.go' --quiet
 ```
+
+### Command: `highlight`
+
+You can run syntax highlighting on an arbitrary file using `tree-sitter highlight`. This can either output colors directly to your terminal using ansi escape codes, or produce HTML (if the `--html` flag is passed). For more information, see [the syntax highlighting page][syntax-highlighting].
 
 ### The Grammar DSL
 
@@ -212,6 +220,7 @@ In addition to the `name` and `rules` fields, grammars have a few other optional
 * **`conflicts`** - an array of arrays of rule names. Each inner array represents a set of rules that's involved in an *LR(1) conflict* that is *intended to exist* in the grammar. When these conflicts occur at runtime, Tree-sitter will use the GLR algorithm to explore all of the possible interpretations. If *multiple* parses end up succeeding, Tree-sitter will pick the subtree whose corresponding rule has the highest total *dynamic precedence*.
 * **`externals`** - an array of token names which can be returned by an [*external scanner*](#external-scanners). External scanners allow you to write custom C code which runs during the lexing process in order to handle lexical rules (e.g. Python's indentation tokens) that cannot be described by regular expressions.
 * **`word`** - the name of a token that will match keywords for the purpose of the [keyword extraction](#keyword-extraction) optimization.
+* **`supertypes`** an array of hidden rule names which should be considered to be 'supertypes' in the generated [*node types* file][static-node-types].
 
 
 ## Writing the Grammar
@@ -707,6 +716,7 @@ if (valid_symbols[INDENT] || valid_symbol[DEDENT]) {
 [nan]: https://github.com/nodejs/nan
 [node-module]: https://www.npmjs.com/package/tree-sitter-cli
 [node.js]: https://nodejs.org
+[static-node-types]: ./using-parsers#static-node-types
 [non-terminal]: https://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols
 [npm]: https://docs.npmjs.com
 [path-env]: https://en.wikipedia.org/wiki/PATH_(variable)
@@ -714,6 +724,8 @@ if (valid_symbols[INDENT] || valid_symbol[DEDENT]) {
 [percent-string]: https://docs.ruby-lang.org/en/2.5.0/syntax/literals_rdoc.html#label-Percent+Strings
 [releases]: https://github.com/tree-sitter/tree-sitter/releases/latest
 [s-exp]: https://en.wikipedia.org/wiki/S-expression
+[syntax-highlighting]: ./syntax-highlighting
+[syntax-highlighting-tests]: ./syntax-highlighting#unit-testing
 [tree-sitter-cli]: https://github.com/tree-sitter/tree-sitter/tree/master/cli
 [tree-sitter-javascript]: https://github.com/tree-sitter/tree-sitter-javascript
 [yacc-prec]: https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html

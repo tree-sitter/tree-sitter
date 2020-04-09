@@ -6,8 +6,8 @@ use std::process::exit;
 use std::{env, fs, u64};
 use tree_sitter::Language;
 use tree_sitter_cli::{
-    config, error, generate, highlight, loader, logger, parse, query, test, test_highlight, wasm,
-    web_ui,
+    config, error, generate, highlight, loader, logger, parse, query, tags, test, test_highlight,
+    wasm, web_ui,
 };
 
 const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -87,6 +87,30 @@ fn run() -> error::Result<()> {
                 )
                 .arg(Arg::with_name("scope").long("scope").takes_value(true))
                 .arg(Arg::with_name("captures").long("captures").short("c")),
+        )
+        .subcommand(
+            SubCommand::with_name("tags")
+                .arg(
+                    Arg::with_name("format")
+                        .short("f")
+                        .long("format")
+                        .value_name("json|protobuf")
+                        .help("Determine output format (default: json)"),
+                )
+                .arg(Arg::with_name("scope").long("scope").takes_value(true))
+                .arg(
+                    Arg::with_name("inputs")
+                        .help("The source file to use")
+                        .index(1)
+                        .required(true)
+                        .multiple(true),
+                )
+                .arg(
+                    Arg::with_name("v")
+                        .short("v")
+                        .multiple(true)
+                        .help("Sets the level of verbosity"),
+                ),
         )
         .subcommand(
             SubCommand::with_name("test")
@@ -241,6 +265,10 @@ fn run() -> error::Result<()> {
         )?;
         let query_path = Path::new(matches.value_of("query-path").unwrap());
         query::query_files_at_paths(language, paths, query_path, ordered_captures)?;
+    } else if let Some(matches) = matches.subcommand_matches("tags") {
+        loader.find_all_languages(&config.parser_directories)?;
+        let paths = collect_paths(matches.values_of("inputs").unwrap())?;
+        tags::generate_tags(&loader, matches.value_of("scope"), &paths)?;
     } else if let Some(matches) = matches.subcommand_matches("highlight") {
         loader.configure_highlights(&config.theme.highlight_names);
         loader.find_all_languages(&config.parser_directories)?;
@@ -254,19 +282,17 @@ fn run() -> error::Result<()> {
             println!("{}", highlight::HTML_HEADER);
         }
 
-        let language_config;
+        let mut lang = None;
         if let Some(scope) = matches.value_of("scope") {
-            language_config = loader.language_configuration_for_scope(scope)?;
-            if language_config.is_none() {
+            lang = loader.language_configuration_for_scope(scope)?;
+            if lang.is_none() {
                 return Error::err(format!("Unknown scope '{}'", scope));
             }
-        } else {
-            language_config = None;
         }
 
         for path in paths {
             let path = Path::new(&path);
-            let (language, language_config) = match language_config {
+            let (language, language_config) = match lang {
                 Some(v) => v,
                 None => match loader.language_configuration_for_file_name(path)? {
                     Some(v) => v,
@@ -277,10 +303,9 @@ fn run() -> error::Result<()> {
                 },
             };
 
-            let source = fs::read(path)?;
-
             if let Some(highlight_config) = language_config.highlight_config(language)? {
-                if html_mode || html_snippet_mode {
+                let source = fs::read(path)?;
+                if html_mode {
                     highlight::html(&loader, &config.theme, &source, highlight_config, time)?;
                     if ! html_snippet_mode {
                         println!("{}", highlight::HTML_FOOTER);
@@ -289,8 +314,12 @@ fn run() -> error::Result<()> {
                     highlight::ansi(&loader, &config.theme, &source, highlight_config, time)?;
                 }
             } else {
-                return Error::err(format!("No syntax highlighting query found"));
+                eprintln!("No syntax highlighting config found for path {:?}", path);
             }
+        }
+
+        if html_mode {
+            println!("{}", highlight::HTML_FOOTER);
         }
     } else if let Some(matches) = matches.subcommand_matches("build-wasm") {
         let grammar_path = current_dir.join(matches.value_of("path").unwrap_or(""));

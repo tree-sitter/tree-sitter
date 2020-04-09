@@ -36,6 +36,12 @@ fn main() {
 }
 ```
 
+Add the `cc` crate to your `Cargo.toml` under `[build-dependencies]`:
+```toml
+[build-dependencies]
+cc="*"
+```
+
 To then use languages from rust, you must declare them as `extern "C"` functions and invoke them with `unsafe`. Then you can assign them to the parser. 
 
 ```rust
