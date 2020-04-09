@@ -305,7 +305,7 @@ fn run() -> error::Result<()> {
 
             if let Some(highlight_config) = language_config.highlight_config(language)? {
                 let source = fs::read(path)?;
-                if html_mode {
+                if html_mode || html_snippet_mode {
                     highlight::html(&loader, &config.theme, &source, highlight_config, time)?;
                     if ! html_snippet_mode {
                         println!("{}", highlight::HTML_FOOTER);
