@@ -23,6 +23,9 @@ script:
   # Build the WASM binding
   - (eval "$WASM_ENV" && script/build-wasm)
 
+  # build the shared/static libraries
+  - make
+
   # Build the CLI
   - cargo build --release
 
