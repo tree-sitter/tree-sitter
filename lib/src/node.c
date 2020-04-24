@@ -58,7 +58,7 @@ static inline NodeChildIterator ts_node_iterate_children(const TSNode *node) {
   }
   const TSSymbol *alias_sequence = ts_language_alias_sequence(
     node->tree->language,
-    subtree.ptr->production_id
+    subtree.ptr->d.non_terminal.production_id
   );
   return (NodeChildIterator) {
     .tree = node->tree,
@@ -79,7 +79,7 @@ static inline bool ts_node_child_iterator_next(
   TSNode *result
 ) {
   if (!self->parent.ptr || ts_node_child_iterator_done(self)) return false;
-  const Subtree *child = &self->parent.ptr->children[self->child_index];
+  const Subtree *child = &self->parent.ptr->d.non_terminal.children[self->child_index];
   TSSymbol alias_symbol = 0;
   if (!ts_subtree_extra(*child)) {
     if (self->alias_sequence) {
@@ -124,9 +124,9 @@ static inline uint32_t ts_node__relevant_child_count(
   Subtree tree = ts_node__subtree(self);
   if (ts_subtree_child_count(tree) > 0) {
     if (include_anonymous) {
-      return tree.ptr->visible_child_count;
+      return tree.ptr->d.non_terminal.visible_child_count;
     } else {
-      return tree.ptr->named_child_count;
+      return tree.ptr->d.non_terminal.named_child_count;
     }
   } else {
     return 0;
@@ -178,7 +178,7 @@ static bool ts_subtree_has_trailing_empty_descendant(
   Subtree other
 ) {
   for (unsigned i = ts_subtree_child_count(self) - 1; i + 1 > 0; i--) {
-    Subtree child = self.ptr->children[i];
+    Subtree child = self.ptr->d.non_terminal.children[i];
     if (ts_subtree_total_bytes(child) > 0) break;
     if (child.ptr == other.ptr || ts_subtree_has_trailing_empty_descendant(child, other)) {
       return true;
@@ -513,7 +513,7 @@ recur:
   const TSFieldMapEntry *field_map, *field_map_end;
   ts_language_field_map(
     self.tree->language,
-    ts_node__subtree(self).ptr->production_id,
+    ts_node__subtree(self).ptr->d.non_terminal.production_id,
     &field_map,
     &field_map_end
   );
@@ -588,7 +588,7 @@ TSNode ts_node_child_by_field_name(
 uint32_t ts_node_child_count(TSNode self) {
   Subtree tree = ts_node__subtree(self);
   if (ts_subtree_child_count(tree) > 0) {
-    return tree.ptr->visible_child_count;
+    return tree.ptr->d.non_terminal.visible_child_count;
   } else {
     return 0;
   }
@@ -597,7 +597,7 @@ uint32_t ts_node_child_count(TSNode self) {
 uint32_t ts_node_named_child_count(TSNode self) {
   Subtree tree = ts_node__subtree(self);
   if (ts_subtree_child_count(tree) > 0) {
-    return tree.ptr->named_child_count;
+    return tree.ptr->d.non_terminal.named_child_count;
   } else {
     return 0;
   }

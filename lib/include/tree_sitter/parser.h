@@ -62,13 +62,13 @@ typedef struct {
       TSStateId state;
       bool extra : 1;
       bool repetition : 1;
-    };
+    } s;
     struct {
       TSSymbol symbol;
       int16_t dynamic_precedence;
       uint8_t child_count;
       uint8_t production_id;
-    };
+    } p;
   } params;
   TSParseActionType type : 4;
 } TSParseAction;
@@ -83,7 +83,7 @@ typedef union {
   struct {
     uint8_t count;
     bool reusable : 1;
-  };
+  } d;
 } TSParseActionEntry;
 
 struct TSLanguage {
@@ -167,12 +167,12 @@ struct TSLanguage {
 
 #define ACTIONS(id) id
 
-#define SHIFT(state_value)              \
-  {                                     \
-    {                                   \
-      .type = TSParseActionTypeShift,   \
-      .params = {.state = state_value}, \
-    }                                   \
+#define SHIFT(state_value)                \
+  {                                       \
+    {                                     \
+      .type = TSParseActionTypeShift,     \
+      .params = {.s.state = state_value}, \
+    }                                     \
   }
 
 #define SHIFT_REPEAT(state_value)     \
@@ -180,8 +180,8 @@ struct TSLanguage {
     {                                 \
       .type = TSParseActionTypeShift, \
       .params = {                     \
-        .state = state_value,         \
-        .repetition = true            \
+        .s.state = state_value,       \
+        .s.repetition = true          \
       },                              \
     }                                 \
   }
@@ -195,7 +195,7 @@ struct TSLanguage {
   {                                   \
     {                                 \
       .type = TSParseActionTypeShift, \
-      .params = {.extra = true}       \
+      .params = {.s.extra = true}     \
     }                                 \
   }
 
@@ -204,8 +204,8 @@ struct TSLanguage {
     {                                            \
       .type = TSParseActionTypeReduce,           \
       .params = {                                \
-        .symbol = symbol_val,                    \
-        .child_count = child_count_val,          \
+        .p.symbol = symbol_val,                  \
+        .p.child_count = child_count_val,        \
         __VA_ARGS__                              \
       }                                          \
     }                                            \

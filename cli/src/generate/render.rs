@@ -1022,7 +1022,7 @@ impl Generator {
         for (i, entry) in parse_table_entries {
             add!(
                 self,
-                "  [{}] = {{.count = {}, .reusable = {}}},",
+                "  [{}] = {{.d.count = {}, .d.reusable = {}}},",
                 i,
                 entry.actions.len(),
                 entry.reusable
@@ -1052,10 +1052,10 @@ impl Generator {
                     } => {
                         add!(self, "REDUCE({}, {}", self.symbol_ids[&symbol], child_count);
                         if dynamic_precedence != 0 {
-                            add!(self, ", .dynamic_precedence = {}", dynamic_precedence);
+                            add!(self, ", .p.dynamic_precedence = {}", dynamic_precedence);
                         }
                         if production_id != 0 {
-                            add!(self, ", .production_id = {}", production_id);
+                            add!(self, ", .p.production_id = {}", production_id);
                         }
                         add!(self, ")");
                     }

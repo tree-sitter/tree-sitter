@@ -22,7 +22,7 @@ static inline CursorChildIterator ts_tree_cursor_iterate_children(const TreeCurs
   }
   const TSSymbol *alias_sequence = ts_language_alias_sequence(
     self->tree->language,
-    last_entry->subtree->ptr->production_id
+    last_entry->subtree->ptr->d.non_terminal.production_id
   );
   return (CursorChildIterator) {
     .tree = self->tree,
@@ -38,7 +38,7 @@ static inline bool ts_tree_cursor_child_iterator_next(CursorChildIterator *self,
                                                       TreeCursorEntry *result,
                                                       bool *visible) {
   if (!self->parent.ptr || self->child_index == self->parent.ptr->child_count) return false;
-  const Subtree *child = &self->parent.ptr->children[self->child_index];
+  const Subtree *child = &self->parent.ptr->d.non_terminal.children[self->child_index];
   *result = (TreeCursorEntry) {
     .subtree = child,
     .position = self->position,
@@ -56,7 +56,7 @@ static inline bool ts_tree_cursor_child_iterator_next(CursorChildIterator *self,
   self->child_index++;
 
   if (self->child_index < self->parent.ptr->child_count) {
-    Subtree next_child = self->parent.ptr->children[self->child_index];
+    Subtree next_child = self->parent.ptr->d.non_terminal.children[self->child_index];
     self->position = length_add(self->position, ts_subtree_padding(next_child));
   }
 
@@ -210,7 +210,7 @@ bool ts_tree_cursor_goto_parent(TSTreeCursor *_self) {
       TreeCursorEntry *parent_entry = &self->stack.contents[i - 1];
       const TSSymbol *alias_sequence = ts_language_alias_sequence(
         self->tree->language,
-        parent_entry->subtree->ptr->production_id
+        parent_entry->subtree->ptr->d.non_terminal.production_id
       );
       is_aliased = alias_sequence && alias_sequence[entry->structural_child_index];
     }
@@ -230,7 +230,7 @@ TSNode ts_tree_cursor_current_node(const TSTreeCursor *_self) {
     TreeCursorEntry *parent_entry = &self->stack.contents[self->stack.size - 2];
     const TSSymbol *alias_sequence = ts_language_alias_sequence(
       self->tree->language,
-      parent_entry->subtree->ptr->production_id
+      parent_entry->subtree->ptr->d.non_terminal.production_id
     );
     if (alias_sequence && !ts_subtree_extra(*last_entry->subtree)) {
       alias_symbol = alias_sequence[last_entry->structural_child_index];
@@ -265,7 +265,7 @@ TSFieldId ts_tree_cursor_current_status(
       if (ts_subtree_visible(*entry->subtree)) break;
       const TSSymbol *alias_sequence = ts_language_alias_sequence(
         self->tree->language,
-        parent_entry->subtree->ptr->production_id
+        parent_entry->subtree->ptr->d.non_terminal.production_id
       );
       if (alias_sequence && alias_sequence[entry->structural_child_index]) {
         break;
@@ -281,7 +281,7 @@ TSFieldId ts_tree_cursor_current_status(
     const TSFieldMapEntry *field_map, *field_map_end;
     ts_language_field_map(
       self->tree->language,
-      parent_entry->subtree->ptr->production_id,
+      parent_entry->subtree->ptr->d.non_terminal.production_id,
       &field_map, &field_map_end
     );
 
@@ -323,7 +323,7 @@ TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *_self) {
       if (ts_subtree_visible(*entry->subtree)) break;
       const TSSymbol *alias_sequence = ts_language_alias_sequence(
         self->tree->language,
-        parent_entry->subtree->ptr->production_id
+        parent_entry->subtree->ptr->d.non_terminal.production_id
       );
       if (alias_sequence && alias_sequence[entry->structural_child_index]) {
         break;
@@ -335,7 +335,7 @@ TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *_self) {
     const TSFieldMapEntry *field_map, *field_map_end;
     ts_language_field_map(
       self->tree->language,
-      parent_entry->subtree->ptr->production_id,
+      parent_entry->subtree->ptr->d.non_terminal.production_id,
       &field_map, &field_map_end
     );
     for (const TSFieldMapEntry *i = field_map; i < field_map_end; i++) {

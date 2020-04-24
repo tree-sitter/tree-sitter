@@ -24,7 +24,7 @@ typedef struct {
   union {
     char *long_data;
     char short_data[24];
-  };
+  } data;
   uint32_t length;
 } ExternalScannerState;
 
@@ -79,14 +79,14 @@ typedef struct {
         TSSymbol symbol;
         TSStateId parse_state;
       } first_leaf;
-    };
+    } non_terminal;
 
     // External terminal subtrees (`child_count == 0 && has_external_tokens`)
     ExternalScannerState external_scanner_state;
 
     // Error terminal subtrees (`child_count == 0 && symbol == ts_builtin_sym_error`)
     int32_t lookahead_char;
-  };
+  } d;
 } SubtreeHeapData;
 
 union Subtree {
@@ -167,13 +167,13 @@ static inline void ts_subtree_set_extra(MutableSubtree *self) {
 static inline TSSymbol ts_subtree_leaf_symbol(Subtree self) {
   if (self.data.is_inline) return self.data.symbol;
   if (self.ptr->child_count == 0) return self.ptr->symbol;
-  return self.ptr->first_leaf.symbol;
+  return self.ptr->d.non_terminal.first_leaf.symbol;
 }
 
 static inline TSStateId ts_subtree_leaf_parse_state(Subtree self) {
   if (self.data.is_inline) return self.data.parse_state;
   if (self.ptr->child_count == 0) return self.ptr->parse_state;
-  return self.ptr->first_leaf.parse_state;
+  return self.ptr->d.non_terminal.first_leaf.parse_state;
 }
 
 static inline Length ts_subtree_padding(Subtree self) {
@@ -207,16 +207,16 @@ static inline uint32_t ts_subtree_child_count(Subtree self) {
 }
 
 static inline uint32_t ts_subtree_repeat_depth(Subtree self) {
-  return self.data.is_inline ? 0 : self.ptr->repeat_depth;
+  return self.data.is_inline ? 0 : self.ptr->d.non_terminal.repeat_depth;
 }
 
 static inline uint32_t ts_subtree_node_count(Subtree self) {
-  return (self.data.is_inline || self.ptr->child_count == 0) ? 1 : self.ptr->node_count;
+  return (self.data.is_inline || self.ptr->child_count == 0) ? 1 : self.ptr->d.non_terminal.node_count;
 }
 
 static inline uint32_t ts_subtree_visible_child_count(Subtree self) {
   if (ts_subtree_child_count(self) > 0) {
-    return self.ptr->visible_child_count;
+    return self.ptr->d.non_terminal.visible_child_count;
   } else {
     return 0;
   }
@@ -231,12 +231,12 @@ static inline uint32_t ts_subtree_error_cost(Subtree self) {
 }
 
 static inline int32_t ts_subtree_dynamic_precedence(Subtree self) {
-  return (self.data.is_inline || self.ptr->child_count == 0) ? 0 : self.ptr->dynamic_precedence;
+  return (self.data.is_inline || self.ptr->child_count == 0) ? 0 : self.ptr->d.non_terminal.dynamic_precedence;
 }
 
 static inline uint16_t ts_subtree_production_id(Subtree self) {
   if (ts_subtree_child_count(self) > 0) {
-    return self.ptr->production_id;
+    return self.ptr->d.non_terminal.production_id;
   } else {
     return 0;
   }

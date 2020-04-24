@@ -154,7 +154,7 @@ static bool ts_parser__breakdown_top_of_stack(
       Subtree parent = *array_front(&slice.subtrees);
 
       for (uint32_t j = 0, n = ts_subtree_child_count(parent); j < n; j++) {
-        Subtree child = parent.ptr->children[j];
+        Subtree child = parent.ptr->d.non_terminal.children[j];
         pending = ts_subtree_child_count(child) > 0;
 
         if (ts_subtree_is_error(child)) {
@@ -305,8 +305,8 @@ static void ts_parser__restore_external_scanner(
   if (external_token.ptr) {
     self->language->external_scanner.deserialize(
       self->external_scanner_payload,
-      ts_external_scanner_state_data(&external_token.ptr->external_scanner_state),
-      external_token.ptr->external_scanner_state.length
+      ts_external_scanner_state_data(&external_token.ptr->d.external_scanner_state),
+      external_token.ptr->d.external_scanner_state.length
     );
   } else {
     self->language->external_scanner.deserialize(self->external_scanner_payload, NULL, 0);
@@ -520,7 +520,7 @@ static Subtree ts_parser__lex(
         self->lexer.debug_buffer
       );
       ts_external_scanner_state_init(
-        &((SubtreeHeapData *)result.ptr)->external_scanner_state,
+        &((SubtreeHeapData *)result.ptr)->d.external_scanner_state,
         self->lexer.debug_buffer,
         length
       );
@@ -819,8 +819,8 @@ static StackVersion ts_parser__reduce(
       }
     }
 
-    parent.ptr->dynamic_precedence += dynamic_precedence;
-    parent.ptr->production_id = production_id;
+    parent.ptr->d.non_terminal.dynamic_precedence += dynamic_precedence;
+    parent.ptr->d.non_terminal.production_id = production_id;
 
     TSStateId state = ts_stack_state(self->stack, slice_version);
     TSStateId next_state = ts_language_next_state(self->language, state, symbol);
@@ -874,14 +874,14 @@ static void ts_parser__accept(
         assert(!child.data.is_inline);
         uint32_t child_count = ts_subtree_child_count(child);
         for (uint32_t k = 0; k < child_count; k++) {
-          ts_subtree_retain(child.ptr->children[k]);
+          ts_subtree_retain(child.ptr->d.non_terminal.children[k]);
         }
-        array_splice(&trees, j, 1, child_count, child.ptr->children);
+        array_splice(&trees, j, 1, child_count, child.ptr->d.non_terminal.children);
         root = ts_subtree_from_mut(ts_subtree_new_node(
           &self->tree_pool,
           ts_subtree_symbol(child),
           &trees,
-          child.ptr->production_id,
+          child.ptr->d.non_terminal.production_id,
           self->language
         ));
         ts_subtree_release(&self->tree_pool, child);
@@ -951,15 +951,15 @@ static bool ts_parser__do_all_potential_reductions(
         switch (action.type) {
           case TSParseActionTypeShift:
           case TSParseActionTypeRecover:
-            if (!action.params.extra && !action.params.repetition) has_shift_action = true;
+            if (!action.params.s.extra && !action.params.s.repetition) has_shift_action = true;
             break;
           case TSParseActionTypeReduce:
-            if (action.params.child_count > 0)
+            if (action.params.p.child_count > 0)
               ts_reduce_action_set_add(&self->reduce_actions, (ReduceAction){
-                .symbol = action.params.symbol,
-                .count = action.params.child_count,
-                .dynamic_precedence = action.params.dynamic_precedence,
-                .production_id = action.params.production_id,
+                .symbol = action.params.p.symbol,
+                .count = action.params.p.child_count,
+                .dynamic_precedence = action.params.p.dynamic_precedence,
+                .production_id = action.params.p.production_id,
               });
           default:
             break;
@@ -1109,7 +1109,7 @@ static bool ts_parser__recover_to_state(
       Subtree error_tree = error_trees.contents[0];
       uint32_t error_child_count = ts_subtree_child_count(error_tree);
       if (error_child_count > 0) {
-        array_splice(&slice.subtrees, 0, 0, error_child_count, error_tree.ptr->children);
+        array_splice(&slice.subtrees, 0, 0, error_child_count, error_tree.ptr->d.non_terminal.children);
         for (unsigned j = 0; j < error_child_count; j++) {
           ts_subtree_retain(slice.subtrees.contents[j]);
         }
@@ -1250,7 +1250,7 @@ static void ts_parser__recover(
   // be counted in error cost calculations.
   unsigned n;
   const TSParseAction *actions = ts_language_actions(self->language, 1, ts_subtree_symbol(lookahead), &n);
-  if (n > 0 && actions[n - 1].type == TSParseActionTypeShift && actions[n - 1].params.extra) {
+  if (n > 0 && actions[n - 1].type == TSParseActionTypeShift && actions[n - 1].params.s.extra) {
     MutableSubtree mutable_lookahead = ts_subtree_make_mut(&self->tree_pool, lookahead);
     ts_subtree_set_extra(&mutable_lookahead);
     lookahead = ts_subtree_from_mut(mutable_lookahead);
@@ -1379,9 +1379,9 @@ static bool ts_parser__advance(
 
       switch (action.type) {
         case TSParseActionTypeShift: {
-          if (action.params.repetition) break;
+          if (action.params.s.repetition) break;
           TSStateId next_state;
-          if (action.params.extra) {
+          if (action.params.s.extra) {
 
             // TODO: remove when TREE_SITTER_LANGUAGE_VERSION 9 is out.
             if (state == ERROR_STATE) continue;
@@ -1389,7 +1389,7 @@ static bool ts_parser__advance(
             next_state = state;
             LOG("shift_extra");
           } else {
-            next_state = action.params.state;
+            next_state = action.params.s.state;
             LOG("shift state:%u", next_state);
           }
 
@@ -1398,7 +1398,7 @@ static bool ts_parser__advance(
             next_state = ts_language_next_state(self->language, state, ts_subtree_symbol(lookahead));
           }
 
-          ts_parser__shift(self, version, next_state, lookahead, action.params.extra);
+          ts_parser__shift(self, version, next_state, lookahead, action.params.s.extra);
           if (did_reuse) reusable_node_advance(&self->reusable_node);
           return true;
         }
@@ -1406,10 +1406,10 @@ static bool ts_parser__advance(
         case TSParseActionTypeReduce: {
           bool is_fragile = table_entry.action_count > 1;
           bool is_extra = lookahead.ptr == NULL;
-          LOG("reduce sym:%s, child_count:%u", SYM_NAME(action.params.symbol), action.params.child_count);
+          LOG("reduce sym:%s, child_count:%u", SYM_NAME(action.params.p.symbol), action.params.p.child_count);
           StackVersion reduction_version = ts_parser__reduce(
-            self, version, action.params.symbol, action.params.child_count,
-            action.params.dynamic_precedence, action.params.production_id,
+            self, version, action.params.p.symbol, action.params.p.child_count,
+            action.params.p.dynamic_precedence, action.params.p.production_id,
             is_fragile, is_extra
           );
           if (reduction_version != STACK_VERSION_NONE) {
