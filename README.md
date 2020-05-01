@@ -13,6 +13,7 @@ Tree-sitter is a parser generator tool and an incremental parsing library. It ca
 ## Links
 
 - [Documentation](https://tree-sitter.github.io)
+- [Building / contributing](https://tree-sitter.github.io/tree-sitter/contributing)
 - [Rust binding](lib/binding_rust/README.md)
 - [WASM binding](lib/binding_web/README.md)
 - [Command-line interface](cli/README.md)
