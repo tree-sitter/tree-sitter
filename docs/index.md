@@ -51,6 +51,7 @@ Parsers for these languages are fairly complete:
 * [Verilog](https://github.com/tree-sitter/tree-sitter-verilog)
 * [Vue](https://github.com/ikatyang/tree-sitter-vue)
 * [YAML](https://github.com/ikatyang/tree-sitter-yaml)
+* [WASM](https://github.com/wasm-lsp/tree-sitter-wasm)
 
 Parsers for these languages are in development:
 
