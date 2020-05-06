@@ -35,21 +35,20 @@ typedef struct {
  *    captured in this pattern.
  * - `depth` - The depth where this node occurs in the pattern. The root node
  *    of the pattern has depth zero.
- * - `repeat_step_index` - If this step is part of a repetition, the index of
- *    the beginning of the repetition. A `NONE` value means this step is not
- *    part of a repetition.
+ * - `alternative_index` - TODO doc
  */
 typedef struct {
   TSSymbol symbol;
   TSFieldId field;
   uint16_t capture_ids[MAX_STEP_CAPTURE_COUNT];
-  uint16_t repeat_step_index;
-  uint16_t depth: 11;
+  uint16_t alternative_index;
+  uint8_t depth;
   bool contains_captures: 1;
   bool is_pattern_start: 1;
   bool is_immediate: 1;
   bool is_last: 1;
-  bool is_repeated: 1;
+  bool is_placeholder: 1;
+  bool alternative_is_immediate: 1;
 } QueryStep;
 
 /*
@@ -96,10 +95,8 @@ typedef struct {
   uint16_t pattern_index;
   uint16_t step_index;
   uint16_t consumed_capture_count;
-  uint16_t repeat_match_count;
-  uint16_t step_index_on_failure;
   uint8_t capture_list_id;
-  bool seeking_non_match;
+  bool seeking_immediate_match: 1;
 } QueryState;
 
 typedef Array(TSQueryCapture) CaptureList;
@@ -417,12 +414,13 @@ static QueryStep query_step__new(
     .depth = depth,
     .field = 0,
     .capture_ids = {NONE, NONE, NONE, NONE},
+    .alternative_index = NONE,
     .contains_captures = false,
-    .is_repeated = false,
     .is_last = false,
     .is_pattern_start = false,
+    .is_placeholder = false,
     .is_immediate = is_immediate,
-    .repeat_step_index = NONE,
+    .alternative_is_immediate = false,
   };
 }
 
@@ -511,13 +509,14 @@ static inline bool ts_query__pattern_map_search(
 static inline void ts_query__pattern_map_insert(
   TSQuery *self,
   TSSymbol symbol,
-  uint32_t start_step_index
+  uint32_t start_step_index,
+  uint32_t pattern_index
 ) {
   uint32_t index;
   ts_query__pattern_map_search(self, symbol, &index);
   array_insert(&self->pattern_map, index, ((PatternEntry) {
     .step_index = start_step_index,
-    .pattern_index = self->pattern_map.size,
+    .pattern_index = pattern_index,
   }));
 }
 
@@ -863,8 +862,17 @@ static TSQueryError ts_query__parse_pattern(
 
     if (stream->next == '+') {
       stream_advance(stream);
-      step->is_repeated = true;
-      array_back(&self->steps)->repeat_step_index = starting_step_index;
+      QueryStep repeat_step = query_step__new(WILDCARD_SYMBOL, depth, false);
+      repeat_step.alternative_index = starting_step_index;
+      repeat_step.is_placeholder = true;
+      repeat_step.alternative_is_immediate = true;
+      array_push(&self->steps, repeat_step);
+      stream_skip_whitespace(stream);
+    }
+
+    else if (stream->next == '?') {
+      stream_advance(stream);
+      step->alternative_index = self->steps.size;
       stream_skip_whitespace(stream);
     }
 
@@ -950,6 +958,7 @@ TSQuery *ts_query_new(
   Stream stream = stream_new(source, source_len);
   stream_skip_whitespace(&stream);
   while (stream.input < stream.end) {
+    uint32_t pattern_index = self->predicates_by_pattern.size;
     uint32_t start_step_index = self->steps.size;
     uint32_t capture_count = 0;
     array_push(&self->start_bytes_by_pattern, stream.input - source);
@@ -980,14 +989,18 @@ TSQuery *ts_query_new(
     }
 
     // Maintain a map that can look up patterns for a given root symbol.
-    self->steps.contents[start_step_index].is_pattern_start = true;
-    ts_query__pattern_map_insert(
-      self,
-      self->steps.contents[start_step_index].symbol,
-      start_step_index
-    );
-    if (self->steps.contents[start_step_index].symbol == WILDCARD_SYMBOL) {
-      self->wildcard_root_pattern_count++;
+    for (;;) {
+      QueryStep *step = &self->steps.contents[start_step_index];
+      step->is_pattern_start = true;
+      ts_query__pattern_map_insert(self, step->symbol, start_step_index, pattern_index);
+      if (step->symbol == WILDCARD_SYMBOL) {
+        self->wildcard_root_pattern_count++;
+      }
+      if (step->alternative_index != NONE) {
+        start_step_index = step->alternative_index;
+      } else {
+        break;
+      }
     }
   }
 
@@ -1191,22 +1204,84 @@ static bool ts_query_cursor__first_in_progress_capture(
   return result;
 }
 
-static bool ts_query__cursor_add_state(
+// Determine which node is first in a depth-first traversal
+int ts_query_cursor__compare_nodes(TSNode left, TSNode right) {
+  if (left.id != right.id) {
+    uint32_t left_start = ts_node_start_byte(left);
+    uint32_t right_start = ts_node_start_byte(right);
+    if (left_start < right_start) return -1;
+    if (left_start > right_start) return 1;
+    uint32_t left_node_count = ts_node_end_byte(left);
+    uint32_t right_node_count = ts_node_end_byte(right);
+    if (left_node_count > right_node_count) return -1;
+    if (left_node_count < right_node_count) return 1;
+  }
+  return 0;
+}
+
+// Determine if either state contains a superset of the other state's captures.
+void ts_query_cursor__compare_captures(
+  TSQueryCursor *self,
+  QueryState *left_state,
+  QueryState *right_state,
+  bool *left_contains_right,
+  bool *right_contains_left
+) {
+  CaptureList *left_captures = capture_list_pool_get(
+    &self->capture_list_pool,
+    left_state->capture_list_id
+  );
+  CaptureList *right_captures = capture_list_pool_get(
+    &self->capture_list_pool,
+    right_state->capture_list_id
+  );
+  *left_contains_right = true;
+  *right_contains_left = true;
+  unsigned i = 0, j = 0;
+  for (;;) {
+    if (i < left_captures->size) {
+      if (j < right_captures->size) {
+        TSQueryCapture *left = &left_captures->contents[i];
+        TSQueryCapture *right = &right_captures->contents[j];
+        if (left->node.id == right->node.id && left->index == right->index) {
+          i++;
+          j++;
+        } else {
+          switch (ts_query_cursor__compare_nodes(left->node, right->node)) {
+            case -1:
+              *right_contains_left = false;
+              i++;
+              break;
+            case 1:
+              *left_contains_right = false;
+              j++;
+              break;
+            default:
+              *right_contains_left = false;
+              *left_contains_right = false;
+              i++;
+              j++;
+              break;
+          }
+        }
+      } else {
+        *right_contains_left = false;
+        break;
+      }
+    } else {
+      if (j < right_captures->size) {
+        *left_contains_right = false;
+      }
+      break;
+    }
+  }
+}
+
+static bool ts_query_cursor__add_state(
   TSQueryCursor *self,
   const PatternEntry *pattern
 ) {
   QueryStep *step = &self->query->steps.contents[pattern->step_index];
-
-  // If this pattern begins with a repetition, then avoid creating
-  // new states after already matching the repetition one or more times.
-  // The query should only one match for the repetition - the one that
-  // started the earliest.
-  if (step->is_repeated) {
-    for (unsigned i = 0; i < self->states.size; i++) {
-      QueryState *state = &self->states.contents[i];
-      if (state->step_index == pattern->step_index) return true;
-    }
-  }
 
   uint32_t list_id = capture_list_pool_acquire(&self->capture_list_pool);
 
@@ -1244,21 +1319,23 @@ static bool ts_query__cursor_add_state(
     .pattern_index = pattern->pattern_index,
     .start_depth = self->depth - step->depth,
     .consumed_capture_count = 0,
-    .repeat_match_count = 0,
-    .step_index_on_failure = NONE,
-    .seeking_non_match = false,
+    .seeking_immediate_match = false,
   }));
   return true;
 }
 
+// Duplicate the given state and insert the newly-created state immediately after
+// the given state in the `states` array.
 static QueryState *ts_query__cursor_copy_state(
   TSQueryCursor *self,
   const QueryState *state
 ) {
   uint32_t new_list_id = capture_list_pool_acquire(&self->capture_list_pool);
   if (new_list_id == NONE) return NULL;
-  array_push(&self->states, *state);
-  QueryState *new_state = array_back(&self->states);
+  uint32_t index = (state - self->states.contents) + 1;
+  QueryState copy = *state;
+  array_insert(&self->states, index, copy);
+  QueryState *new_state = &self->states.contents[index];
   new_state->capture_list_id = new_list_id;
   CaptureList *old_captures = capture_list_pool_get(
     &self->capture_list_pool,
@@ -1304,7 +1381,6 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
           self->states.contents[i - deleted_count] = *state;
         }
       }
-
       self->states.size -= deleted_count;
 
       if (ts_tree_cursor_goto_next_sibling(&self->cursor)) {
@@ -1329,8 +1405,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         symbol = self->query->symbol_map[symbol];
       }
 
-      // If this node is before the selected range, then avoid descending
-      // into it.
+      // If this node is before the selected range, then avoid descending into it.
       if (
         ts_node_end_byte(node) <= self->start_byte ||
         point_lte(ts_node_end_point(node), self->start_point)
@@ -1369,7 +1444,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         // If this node matches the first step of the pattern, then add a new
         // state at the start of this pattern.
         if (step->field && field_id != step->field) continue;
-        if (!ts_query__cursor_add_state(self, pattern)) break;
+        if (!ts_query_cursor__add_state(self, pattern)) break;
       }
 
       // Add new states for any patterns whose root node matches this node.
@@ -1381,7 +1456,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
           // If this node matches the first step of the pattern, then add a new
           // state at the start of this pattern.
           if (step->field && field_id != step->field) continue;
-          if (!ts_query__cursor_add_state(self, pattern)) break;
+          if (!ts_query_cursor__add_state(self, pattern)) break;
 
           // Advance to the next pattern whose root node matches this node.
           i++;
@@ -1392,7 +1467,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
       }
 
       // Update all of the in-progress states with current node.
-      for (unsigned i = 0, n = self->states.size; i < n; i++) {
+      for (unsigned i = 0; i < self->states.size; i++) {
         QueryState *state = &self->states.contents[i];
         QueryStep *step = &self->query->steps.contents[state->step_index];
 
@@ -1408,7 +1483,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
           step->symbol == WILDCARD_SYMBOL ||
           (step->symbol == NAMED_WILDCARD_SYMBOL && is_named);
         bool later_sibling_can_match = has_later_siblings;
-        if (step->is_immediate && is_named) {
+        if ((step->is_immediate && is_named) || state->seeking_immediate_match) {
           later_sibling_can_match = false;
         }
         if (step->is_last && has_later_siblings) {
@@ -1425,24 +1500,6 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         }
 
         if (!node_does_match) {
-          // If this QueryState has processed a repeating sequence, and that repeating
-          // sequence has ended, move on to the *next* step of this state's pattern.
-          if (
-            state->step_index_on_failure != NONE &&
-            (!later_sibling_can_match || step->is_repeated)
-          ) {
-            LOG(
-              "  finish repetition state. pattern:%u, step:%u\n",
-              state->pattern_index,
-              state->step_index
-            );
-            state->step_index = state->step_index_on_failure;
-            state->step_index_on_failure = NONE;
-            state->repeat_match_count = 0;
-            i--;
-            continue;
-          }
-
           if (!later_sibling_can_match) {
             LOG(
               "  discard state. pattern:%u, step:%u\n",
@@ -1455,114 +1512,136 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
             );
             array_erase(&self->states, i);
             i--;
-            n--;
           }
-
-          state->seeking_non_match = false;
           continue;
         }
 
-        // The `seeking_non_match` flag indicates that a previous QueryState
-        // has already begun processing this repeating sequence, so that *this*
-        // QueryState should not begin matching until a separate repeating sequence
-        // is found.
-        if (state->seeking_non_match) continue;
-
-        // Some patterns can match their root node in multiple ways,
-        // capturing different children. If this pattern step could match
-        // later children within the same parent, then this query state
-        // cannot simply be updated in place. It must be split into two
-        // states: one that matches this node, and one which skips over
-        // this node, to preserve the possibility of matching later
-        // siblings.
-        QueryState *next_state = state;
+        // Some patterns can match their root node in multiple ways, capturing different
+        // children. If this pattern step could match later children within the same
+        // parent, then this query state cannot simply be updated in place. It must be
+        // split into two states: one that matches this node, and one which skips over
+        // this node, to preserve the possibility of matching later siblings.
         if (
-          !step->is_pattern_start &&
-          step->contains_captures &&
           later_sibling_can_match &&
-          state->repeat_match_count == 0
+          !step->is_pattern_start &&
+          step->contains_captures
         ) {
-          QueryState *copy = ts_query__cursor_copy_state(self, state);
-
-          // The QueryState that matched this node has begun matching a repeating
-          // sequence. The QueryState that *skipped* this node should not start
-          // matching later elements of the same repeating sequence.
-          if (step->is_repeated) {
-            state->seeking_non_match = true;
-          }
-
-          if (copy) {
+          if (ts_query__cursor_copy_state(self, state)) {
             LOG(
-              "  split state. pattern:%u, step:%u\n",
-              copy->pattern_index,
-              copy->step_index
+              "  split state for capture. pattern:%u, step:%u\n",
+              state->pattern_index,
+              state->step_index
             );
-            next_state = copy;
-          } else {
-            LOG("  cannot split state.\n");
+            i++;
           }
         }
 
-        // If the current node is captured in this pattern, add it to the
-        // capture list.
+        // If the current node is captured in this pattern, add it to the capture list.
+        CaptureList *capture_list = capture_list_pool_get(
+          &self->capture_list_pool,
+          state->capture_list_id
+        );
         for (unsigned j = 0; j < MAX_STEP_CAPTURE_COUNT; j++) {
           uint16_t capture_id = step->capture_ids[j];
           if (step->capture_ids[j] == NONE) break;
-          CaptureList *capture_list = capture_list_pool_get(
-            &self->capture_list_pool,
-            next_state->capture_list_id
-          );
-          array_push(capture_list, ((TSQueryCapture) {
-            node,
-            capture_id
-          }));
+          array_push(capture_list, ((TSQueryCapture) { node, capture_id }));
           LOG(
             "  capture node. pattern:%u, capture_id:%u, capture_count:%u\n",
-            next_state->pattern_index,
+            state->pattern_index,
             capture_id,
             capture_list->size
           );
         }
 
-        // If this is the end of a repetition, then jump back to the beginning
-        // of that repetition.
-        if (step->repeat_step_index != NONE) {
-          next_state->step_index_on_failure = next_state->step_index + 1;
-          next_state->step_index = step->repeat_step_index;
-          next_state->repeat_match_count++;
-          LOG(
-            "  continue repeat. pattern:%u, match_count:%u\n",
-            next_state->pattern_index,
-            next_state->repeat_match_count
-          );
-        } else {
-          next_state->step_index++;
-          LOG(
-            "  advance state. pattern:%u, step:%u\n",
-            next_state->pattern_index,
-            next_state->step_index
-          );
+        // Advance this state to the next step of its pattern.
+        state->step_index++;
+        state->seeking_immediate_match = false;
+        LOG(
+          "  advance state. pattern:%u, step:%u\n",
+          state->pattern_index,
+          state->step_index
+        );
 
-          QueryStep *next_step = step + 1;
-
-          // If the pattern is now done, then remove it from the list of
-          // in-progress states, and add it to the list of finished states.
-          if (next_step->depth == PATTERN_DONE_MARKER) {
-            LOG("  finish pattern %u\n", next_state->pattern_index);
-
-            next_state->id = self->next_state_id++;
-            array_push(&self->finished_states, *next_state);
-            if (next_state == state) {
-              array_erase(&self->states, i);
-              i--;
-              n--;
-            } else {
-              self->states.size--;
+        // If this state's next step has an 'alternative' step (the step is either optional,
+        // or is the end of a repetition), then copy the state in order to pursue both
+        // alternatives. The alternative step itself may have an alternative, so this is
+        // an interative process.
+        for (unsigned j = i, end_index = i + 1; j < end_index; j++) {
+          QueryState *state = &self->states.contents[j];
+          QueryStep *next_step = &self->query->steps.contents[state->step_index];
+          if (next_step->alternative_index != NONE) {
+            QueryState *copy = ts_query__cursor_copy_state(self, state);
+            if (copy) {
+              i++;
+              end_index++;
+              copy->step_index = next_step->alternative_index;
+              if (next_step->alternative_is_immediate) {
+                copy->seeking_immediate_match = true;
+              }
+              LOG(
+                "  split state for branch. pattern:%u, step:%u\n",
+                copy->pattern_index,
+                copy->step_index
+              );
+            }
+            if (next_step->is_placeholder) {
+              state->step_index++;
+              j--;
             }
           }
         }
       }
 
+      for (unsigned i = 0; i < self->states.size; i++) {
+        QueryState *state = &self->states.contents[i];
+
+        for (unsigned j = i + 1; j < self->states.size; j++) {
+          QueryState *other_state = &self->states.contents[j];
+          if (
+            state->pattern_index == other_state->pattern_index &&
+            state->start_depth == other_state->start_depth &&
+            state->step_index == other_state->step_index
+          ) {
+            bool left_contains_right, right_contains_left;
+            ts_query_cursor__compare_captures(
+              self,
+              state,
+              other_state,
+              &left_contains_right,
+              &right_contains_left
+            );
+            if (left_contains_right || right_contains_left) {
+              LOG(
+                "  drop shorter state. pattern: %u, step_index: %u\n",
+                state->pattern_index,
+                state->step_index
+              );
+              if (right_contains_left) {
+                capture_list_pool_release(&self->capture_list_pool, state->capture_list_id);
+                array_erase(&self->states, i);
+                i--;
+                j--;
+                break;
+              } else if (left_contains_right) {
+                capture_list_pool_release(&self->capture_list_pool, other_state->capture_list_id);
+                array_erase(&self->states, j);
+                j--;
+              }
+            }
+          }
+        }
+
+        // If there the state is at the end of its pattern, remove it from the list
+        // of in-progress states and add it to the list of finished states.
+        QueryStep *next_step = &self->query->steps.contents[state->step_index];
+        if (next_step->depth == PATTERN_DONE_MARKER) {
+          LOG("  finish pattern %u\n", state->pattern_index);
+          state->id = self->next_state_id++;
+          array_push(&self->finished_states, *state);
+          array_erase(&self->states, i);
+          i--;
+        }
+      }
 
       // Continue descending if possible.
       if (ts_tree_cursor_goto_first_child(&self->cursor)) {

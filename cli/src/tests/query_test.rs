@@ -609,6 +609,115 @@ fn test_query_matches_with_repeated_leaf_nodes() {
 }
 
 #[test]
+fn test_query_matches_with_leading_optional_repeated_leaf_nodes() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        let query = Query::new(
+            language,
+            "
+            (*
+                (comment)+? @doc
+                .
+                (function_declaration
+                    name: (identifier) @name))
+            ",
+        )
+        .unwrap();
+
+        let source = "
+        function a() {
+            // one
+            var b;
+
+            function c() {}
+
+            // two
+            // three
+            var d;
+
+            // four
+            // five
+            function e() {
+
+            }
+        }
+
+        // six
+        ";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
+
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[
+                (0, vec![("name", "a")]),
+                (0, vec![("name", "c")]),
+                (
+                    0,
+                    vec![("doc", "// four"), ("doc", "// five"), ("name", "e")]
+                ),
+            ]
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_optional_nodes() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        let query = Query::new(
+            language,
+            "
+            (class_declaration
+                name: (identifier) @class
+                (class_heritage
+                  (identifier) @superclass)?)
+            ",
+        )
+        .unwrap();
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+
+        let source = "
+            class A {}
+        ";
+        let tree = parser.parse(source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
+
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[(0, vec![("class", "A")]),]
+        );
+
+        let source = "
+            class A {}
+            class B extends C {}
+            class D extends (E.F) {}
+        ";
+        let tree = parser.parse(source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
+
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[
+                (0, vec![("class", "A")]),
+                (0, vec![("class", "B"), ("superclass", "C")]),
+                (0, vec![("class", "D")]),
+            ]
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_repeated_internal_nodes() {
     allocations::record(|| {
         let language = get_language("javascript");
