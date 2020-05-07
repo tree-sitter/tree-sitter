@@ -97,6 +97,7 @@ typedef struct {
   uint16_t consumed_capture_count;
   uint8_t capture_list_id;
   bool seeking_immediate_match: 1;
+  bool skipped_trailing_optional: 1;
 } QueryState;
 
 typedef Array(TSQueryCapture) CaptureList;
@@ -1358,20 +1359,31 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
     if (self->ascending) {
       LOG("leave node. type:%s\n", ts_node_type(ts_tree_cursor_current_node(&self->cursor)));
 
-      // When leaving a node, remove any unfinished states whose next step
-      // needed to match something within that node.
+      // When leaving a node, remove any states that cannot make further progress.
       uint32_t deleted_count = 0;
       for (unsigned i = 0, n = self->states.size; i < n; i++) {
         QueryState *state = &self->states.contents[i];
         QueryStep *step = &self->query->steps.contents[state->step_index];
 
-        if ((uint32_t)state->start_depth + (uint32_t)step->depth > self->depth) {
+        // If a state completed its pattern inside of this node, but was deferred from finishing
+        // in order to search for longer matches, mark it as finished.
+        if (step->depth == PATTERN_DONE_MARKER) {
+          if (state->start_depth == self->depth) {
+            LOG("  finish pattern %u\n", state->pattern_index);
+            state->id = self->next_state_id++;
+            array_push(&self->finished_states, *state);
+            deleted_count++;
+          }
+        }
+
+        // If a state needed to match something within this node, then remove that state
+        // as it has failed to match.
+        else if ((uint32_t)state->start_depth + (uint32_t)step->depth > self->depth) {
           LOG(
             "  failed to match. pattern:%u, step:%u\n",
             state->pattern_index,
             state->step_index
           );
-
           capture_list_pool_release(
             &self->capture_list_pool,
             state->capture_list_id
@@ -1383,6 +1395,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
       }
       self->states.size -= deleted_count;
 
+      // Leave this node by stepping to its next sibling or to its parent.
       if (ts_tree_cursor_goto_next_sibling(&self->cursor)) {
         self->ascending = false;
       } else if (ts_tree_cursor_goto_parent(&self->cursor)) {
@@ -1391,11 +1404,11 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         return self->finished_states.size > 0;
       }
     } else {
-      bool has_later_siblings;
+      bool can_have_later_siblings;
       bool can_have_later_siblings_with_this_field;
       TSFieldId field_id = ts_tree_cursor_current_status(
         &self->cursor,
-        &has_later_siblings,
+        &can_have_later_siblings,
         &can_have_later_siblings_with_this_field
       );
       TSNode node = ts_tree_cursor_current_node(&self->cursor);
@@ -1423,17 +1436,12 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
       ) return false;
 
       LOG(
-        "enter node. "
-        "type:%s, field:%s, row:%u state_count:%u, "
-        "finished_state_count:%u, has_later_siblings:%d, "
-        "can_have_later_siblings_with_this_field:%d\n",
+        "enter node. type:%s, field:%s, row:%u state_count:%u, finished_state_count:%u\n",
         ts_node_type(node),
         ts_language_field_name_for_id(self->query->language, field_id),
         ts_node_start_point(node).row,
         self->states.size,
-        self->finished_states.size,
-        has_later_siblings,
-        can_have_later_siblings_with_this_field
+        self->finished_states.size
       );
 
       // Add new states for any patterns whose root node is a wildcard.
@@ -1482,11 +1490,11 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
           step->symbol == symbol ||
           step->symbol == WILDCARD_SYMBOL ||
           (step->symbol == NAMED_WILDCARD_SYMBOL && is_named);
-        bool later_sibling_can_match = has_later_siblings;
+        bool later_sibling_can_match = can_have_later_siblings;
         if ((step->is_immediate && is_named) || state->seeking_immediate_match) {
           later_sibling_can_match = false;
         }
-        if (step->is_last && has_later_siblings) {
+        if (step->is_last && can_have_later_siblings) {
           node_does_match = false;
         }
         if (step->field) {
@@ -1499,6 +1507,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
           }
         }
 
+        // Remove states immediately if it is ever clear that they cannot match.
         if (!node_does_match) {
           if (!later_sibling_can_match) {
             LOG(
@@ -1566,11 +1575,17 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         // or is the end of a repetition), then copy the state in order to pursue both
         // alternatives. The alternative step itself may have an alternative, so this is
         // an interative process.
-        for (unsigned j = i, end_index = i + 1; j < end_index; j++) {
+        unsigned start_index = state - self->states.contents;
+        unsigned end_index = start_index + 1;
+        for (unsigned j = start_index; j < end_index; j++) {
           QueryState *state = &self->states.contents[j];
           QueryStep *next_step = &self->query->steps.contents[state->step_index];
           if (next_step->alternative_index != NONE) {
             QueryState *copy = ts_query__cursor_copy_state(self, state);
+            if (next_step->is_placeholder) {
+              state->step_index++;
+              j--;
+            }
             if (copy) {
               i++;
               end_index++;
@@ -1579,15 +1594,14 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
                 copy->seeking_immediate_match = true;
               }
               LOG(
-                "  split state for branch. pattern:%u, step:%u\n",
+                "  split state for branch. pattern:%u, step:%u, step:%u\n",
                 copy->pattern_index,
+                state->step_index,
                 copy->step_index
               );
             }
-            if (next_step->is_placeholder) {
-              state->step_index++;
-              j--;
-            }
+          } else if (next_step->depth == PATTERN_DONE_MARKER && j > start_index) {
+            state->skipped_trailing_optional = true;
           }
         }
       }
@@ -1595,6 +1609,9 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
       for (unsigned i = 0; i < self->states.size; i++) {
         QueryState *state = &self->states.contents[i];
 
+        // Enfore the longest-match criteria. When a query pattern contains optional or
+        // repeated nodes, this is necesssary to avoid multiple redundant states, where
+        // one state has a strict subset of another state's captures.
         for (unsigned j = i + 1; j < self->states.size; j++) {
           QueryState *other_state = &self->states.contents[j];
           if (
@@ -1635,11 +1652,15 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         // of in-progress states and add it to the list of finished states.
         QueryStep *next_step = &self->query->steps.contents[state->step_index];
         if (next_step->depth == PATTERN_DONE_MARKER) {
-          LOG("  finish pattern %u\n", state->pattern_index);
-          state->id = self->next_state_id++;
-          array_push(&self->finished_states, *state);
-          array_erase(&self->states, i);
-          i--;
+          if (state->skipped_trailing_optional) {
+            LOG("  defer finishing pattern %u\n", state->pattern_index);
+          } else {
+            LOG("  finish pattern %u\n", state->pattern_index);
+            state->id = self->next_state_id++;
+            array_push(&self->finished_states, *state);
+            array_erase(&self->states, i);
+            i--;
+          }
         }
       }
 
