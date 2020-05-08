@@ -1456,21 +1456,8 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         return self->finished_states.size > 0;
       }
     } else {
-      bool can_have_later_siblings;
-      bool can_have_later_siblings_with_this_field;
-      TSFieldId field_id = ts_tree_cursor_current_status(
-        &self->cursor,
-        &can_have_later_siblings,
-        &can_have_later_siblings_with_this_field
-      );
-      TSNode node = ts_tree_cursor_current_node(&self->cursor);
-      TSSymbol symbol = ts_node_symbol(node);
-      bool is_named = ts_node_is_named(node);
-      if (symbol != ts_builtin_sym_error && self->query->symbol_map) {
-        symbol = self->query->symbol_map[symbol];
-      }
-
       // If this node is before the selected range, then avoid descending into it.
+      TSNode node = ts_tree_cursor_current_node(&self->cursor);
       if (
         ts_node_end_byte(node) <= self->start_byte ||
         point_lte(ts_node_end_point(node), self->start_point)
@@ -1487,6 +1474,19 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         point_lte(self->end_point, ts_node_start_point(node))
       ) return false;
 
+      // Get the properties of the current node.
+      TSSymbol symbol = ts_node_symbol(node);
+      bool is_named = ts_node_is_named(node);
+      if (symbol != ts_builtin_sym_error && self->query->symbol_map) {
+        symbol = self->query->symbol_map[symbol];
+      }
+      bool can_have_later_siblings;
+      bool can_have_later_siblings_with_this_field;
+      TSFieldId field_id = ts_tree_cursor_current_status(
+        &self->cursor,
+        &can_have_later_siblings,
+        &can_have_later_siblings_with_this_field
+      );
       LOG(
         "enter node. type:%s, field:%s, row:%u state_count:%u, finished_state_count:%u\n",
         ts_node_type(node),
