@@ -596,6 +596,33 @@ fn test_query_matches_with_top_level_repetitions() {
 }
 
 #[test]
+fn test_query_matches_with_non_terminal_repetitions_within_root() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            (*
+                (expression_statement
+                  (identifier) @id)+)
+            "#,
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            r#"
+            a;
+            b;
+            c;
+            "#,
+            &[(0, vec![("id", "a"), ("id", "b"), ("id", "c")])],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_nested_repetitions() {
     allocations::record(|| {
         let language = get_language("javascript");

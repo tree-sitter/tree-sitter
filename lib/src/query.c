@@ -1407,7 +1407,17 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
     if (self->ascending) {
       LOG("leave node. type:%s\n", ts_node_type(ts_tree_cursor_current_node(&self->cursor)));
 
-      // When leaving a node, remove any states that cannot make further progress.
+      // Leave this node by stepping to its next sibling or to its parent.
+      bool did_move = true;
+      if (ts_tree_cursor_goto_next_sibling(&self->cursor)) {
+        self->ascending = false;
+      } else if (ts_tree_cursor_goto_parent(&self->cursor)) {
+        self->depth--;
+      } else {
+        did_move = false;
+      }
+
+      // After leaving a node, remove any states that cannot make further progress.
       uint32_t deleted_count = 0;
       for (unsigned i = 0, n = self->states.size; i < n; i++) {
         QueryState *state = &self->states.contents[i];
@@ -1416,7 +1426,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         // If a state completed its pattern inside of this node, but was deferred from finishing
         // in order to search for longer matches, mark it as finished.
         if (step->depth == PATTERN_DONE_MARKER) {
-          if (state->start_depth > self->depth) {
+          if (state->start_depth > self->depth || !did_move) {
             LOG("  finish pattern %u\n", state->pattern_index);
             state->id = self->next_state_id++;
             array_push(&self->finished_states, *state);
@@ -1447,12 +1457,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
       }
       self->states.size -= deleted_count;
 
-      // Leave this node by stepping to its next sibling or to its parent.
-      if (ts_tree_cursor_goto_next_sibling(&self->cursor)) {
-        self->ascending = false;
-      } else if (ts_tree_cursor_goto_parent(&self->cursor)) {
-        self->depth--;
-      } else {
+      if (!did_move) {
         return self->finished_states.size > 0;
       }
     } else {
