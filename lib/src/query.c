@@ -102,11 +102,11 @@ typedef struct {
  * - `seeking_immediate_match` - A flag that indicates that the state's next
  *    step must be matched by the very next sibling. This is used when
  *    processing repetitions.
- * - `skipped_trailing_optional` - A flag that indicates that there is an
- *    optional node at the end of this state's pattern, and this state did
- *    *not* match that node. In order to obey the 'longest-match' rule, this
- *    match should not be returned until it is clear that there can be no
- *    longer match.
+ * - `has_in_progress_alternatives` - A flag that indicates that there is are
+ *    other states that have the same captures as this state, but are at
+ *    different steps in their pattern. This means that in order to obey the
+ *    'longest-match' rule, this state should not be returned as a match until
+ *    it is clear that there can be no longer match.
  */
 typedef struct {
   uint32_t id;
@@ -116,7 +116,7 @@ typedef struct {
   uint16_t consumed_capture_count;
   uint8_t capture_list_id;
   bool seeking_immediate_match: 1;
-  bool skipped_trailing_optional: 1;
+  bool has_in_progress_alternatives: 1;
 } QueryState;
 
 typedef Array(TSQueryCapture) CaptureList;
@@ -1416,11 +1416,12 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         // If a state completed its pattern inside of this node, but was deferred from finishing
         // in order to search for longer matches, mark it as finished.
         if (step->depth == PATTERN_DONE_MARKER) {
-          if (state->start_depth == self->depth) {
+          if (state->start_depth > self->depth) {
             LOG("  finish pattern %u\n", state->pattern_index);
             state->id = self->next_state_id++;
             array_push(&self->finished_states, *state);
             deleted_count++;
+            continue;
           }
         }
 
@@ -1437,7 +1438,10 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
             state->capture_list_id
           );
           deleted_count++;
-        } else if (deleted_count > 0) {
+          continue;
+        }
+
+        if (deleted_count > 0) {
           self->states.contents[i - deleted_count] = *state;
         }
       }
@@ -1526,6 +1530,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
       for (unsigned i = 0; i < self->states.size; i++) {
         QueryState *state = &self->states.contents[i];
         QueryStep *step = &self->query->steps.contents[state->step_index];
+        state->has_in_progress_alternatives = false;
 
         // Check that the node matches all of the criteria for the next
         // step of the pattern.
@@ -1625,7 +1630,6 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         // an interative process.
         unsigned start_index = state - self->states.contents;
         unsigned end_index = start_index + 1;
-        bool is_alternative = false;
         for (unsigned j = start_index; j < end_index; j++) {
           QueryState *state = &self->states.contents[j];
           QueryStep *next_step = &self->query->steps.contents[state->step_index];
@@ -1650,12 +1654,6 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
               );
             }
           }
-
-          if (
-            (next_step->alternative_index != NONE || is_alternative) &&
-            next_step->depth == PATTERN_DONE_MARKER
-          ) state->skipped_trailing_optional = true;
-          is_alternative = true;
         }
       }
 
@@ -1670,8 +1668,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
           QueryState *other_state = &self->states.contents[j];
           if (
             state->pattern_index == other_state->pattern_index &&
-            state->start_depth == other_state->start_depth &&
-            state->step_index == other_state->step_index
+            state->start_depth == other_state->start_depth
           ) {
             bool left_contains_right, right_contains_left;
             ts_query_cursor__compare_captures(
@@ -1681,23 +1678,33 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
               &left_contains_right,
               &right_contains_left
             );
-            if (left_contains_right || right_contains_left) {
-              LOG(
-                "  drop shorter state. pattern: %u, step_index: %u\n",
-                state->pattern_index,
-                state->step_index
-              );
-              if (right_contains_left) {
-                capture_list_pool_release(&self->capture_list_pool, state->capture_list_id);
-                array_erase(&self->states, i);
-                did_remove = true;
-                j--;
-                break;
-              } else if (left_contains_right) {
+            if (left_contains_right) {
+              if (state->step_index == other_state->step_index) {
+                LOG(
+                  "  drop shorter state. pattern: %u, step_index: %u\n",
+                  state->pattern_index,
+                  state->step_index
+                );
                 capture_list_pool_release(&self->capture_list_pool, other_state->capture_list_id);
                 array_erase(&self->states, j);
                 j--;
+                continue;
               }
+              other_state->has_in_progress_alternatives = true;
+            }
+            if (right_contains_left) {
+              if (state->step_index == other_state->step_index) {
+                LOG(
+                  "  drop shorter state. pattern: %u, step_index: %u\n",
+                  state->pattern_index,
+                  state->step_index
+                );
+                capture_list_pool_release(&self->capture_list_pool, state->capture_list_id);
+                array_erase(&self->states, i);
+                did_remove = true;
+                break;
+              }
+              state->has_in_progress_alternatives = true;
             }
           }
         }
@@ -1707,7 +1714,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         if (!did_remove) {
           QueryStep *next_step = &self->query->steps.contents[state->step_index];
           if (next_step->depth == PATTERN_DONE_MARKER) {
-            if (state->skipped_trailing_optional) {
+            if (state->has_in_progress_alternatives) {
               LOG("  defer finishing pattern %u\n", state->pattern_index);
             } else {
               LOG("  finish pattern %u\n", state->pattern_index);

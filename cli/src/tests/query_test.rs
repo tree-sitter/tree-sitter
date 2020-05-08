@@ -564,6 +564,72 @@ fn test_query_matches_with_optional_nodes_inside_of_repetitions() {
 }
 
 #[test]
+fn test_query_matches_with_top_level_repetitions() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            (comment)+ @doc
+            "#,
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            r#"
+            // a
+            // b
+            // c
+
+            d()
+
+            // e
+            "#,
+            &[
+                (0, vec![("doc", "// a"), ("doc", "// b"), ("doc", "// c")]),
+                (0, vec![("doc", "// e")]),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_nested_repetitions() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            (variable_declaration
+                (","? (variable_declarator name: (identifier) @x))+)+
+            "#,
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            r#"
+            var a = b, c, d
+            var e, f
+
+            // more
+            var g
+            "#,
+            &[
+                (
+                    0,
+                    vec![("x", "a"), ("x", "c"), ("x", "d"), ("x", "e"), ("x", "f")],
+                ),
+                (0, vec![("x", "g")]),
+            ],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_leading_optional_repeated_leaf_nodes() {
     allocations::record(|| {
         let language = get_language("javascript");
@@ -616,7 +682,7 @@ fn test_query_matches_with_leading_optional_repeated_leaf_nodes() {
 }
 
 #[test]
-fn test_query_matches_with_optional_nodes() {
+fn test_query_matches_with_trailing_optional_nodes() {
     allocations::record(|| {
         let language = get_language("javascript");
 
