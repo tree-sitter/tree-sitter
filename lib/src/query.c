@@ -581,10 +581,8 @@ static TSQueryError ts_query__parse_predicate(
     .type = TSQueryPredicateStepTypeString,
     .value_id = id,
   }));
-  stream_advance(stream);
   stream_skip_whitespace(stream);
 
-  unsigned step_count = 0;
   for (;;) {
     if (stream->next == ')') {
       stream_advance(stream);
@@ -689,7 +687,6 @@ static TSQueryError ts_query__parse_predicate(
       return TSQueryErrorSyntax;
     }
 
-    step_count++;
     stream_skip_whitespace(stream);
   }
 
@@ -765,7 +762,7 @@ static TSQueryError ts_query__parse_pattern(
         stream->next == '_' ||
 
         // TODO - remove.
-        // For temporary backward compatibility, handle parenthesized '*' as a wildcard.
+        // For temporary backward compatibility, handle '*' as a wildcard.
         stream->next == '*'
       ) {
         symbol = depth > 0 ? NAMED_WILDCARD_SYMBOL : WILDCARD_SYMBOL;
@@ -836,7 +833,13 @@ static TSQueryError ts_query__parse_pattern(
   }
 
   // Parse a wildcard pattern
-  else if (stream->next == '_') {
+  else if (
+    stream->next == '_' ||
+
+    // TODO remove.
+    // For temporary backward compatibility, handle '*' as a wildcard.
+    stream->next == '*'
+  ) {
     stream_advance(stream);
     stream_skip_whitespace(stream);
 
