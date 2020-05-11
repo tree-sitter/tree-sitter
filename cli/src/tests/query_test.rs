@@ -744,6 +744,48 @@ fn test_query_matches_with_trailing_optional_nodes() {
 }
 
 #[test]
+fn test_query_matches_with_nested_optional_nodes() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        // A function call, optionally containing a function call, which optionally contains a number
+        let query = Query::new(
+            language,
+            "
+            (call_expression
+                function: (identifier) @outer-fn
+                arguments: (arguments
+                    (call_expression
+                        function: (identifier) @inner-fn
+                        arguments: (arguments
+                            (number)? @num))?))
+            ",
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            r#"
+            a(b, c(), d(null, 1, 2))
+            e()
+            f(g())
+            "#,
+            &[
+                (0, vec![("outer-fn", "a"), ("inner-fn", "c")]),
+                (0, vec![("outer-fn", "c")]),
+                (0, vec![("outer-fn", "a"), ("inner-fn", "d"), ("num", "1")]),
+                (0, vec![("outer-fn", "a"), ("inner-fn", "d"), ("num", "2")]),
+                (0, vec![("outer-fn", "d")]),
+                (0, vec![("outer-fn", "e")]),
+                (0, vec![("outer-fn", "f"), ("inner-fn", "g")]),
+                (0, vec![("outer-fn", "g")]),
+            ],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_repeated_internal_nodes() {
     allocations::record(|| {
         let language = get_language("javascript");
