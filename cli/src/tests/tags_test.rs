@@ -33,7 +33,7 @@ const PYTHON_TAG_QUERY: &'static str = r#"
 
 const JS_TAG_QUERY: &'static str = r#"
 (
-    (comment)+ @doc .
+    (comment)* @doc .
     (class_declaration
         name: (identifier) @name) @class
     (#select-adjacent! @doc @class)
@@ -41,7 +41,7 @@ const JS_TAG_QUERY: &'static str = r#"
 )
 
 (
-    (comment)+ @doc .
+    (comment)* @doc .
     (method_definition
         name: (property_identifier) @name) @method
     (#select-adjacent! @doc @method)
@@ -49,14 +49,15 @@ const JS_TAG_QUERY: &'static str = r#"
 )
 
 (
-    (comment)+ @doc .
+    (comment)* @doc .
     (function_declaration
         name: (identifier) @name) @function
     (#select-adjacent! @doc @function)
     (#strip! @doc "(^[/\\*\\s]*)|([/\\*\\s]*$)")
 )
 
-(call_expression function: (identifier) @name) @call
+(call_expression
+    function: (identifier) @name) @call
 "#;
 
 const RUBY_TAG_QUERY: &'static str = r#"

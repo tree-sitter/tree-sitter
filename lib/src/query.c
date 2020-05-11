@@ -27,7 +27,7 @@ typedef struct {
  * represented as a sequence of these steps. Fields:
  *
  * - `symbol` - The grammar symbol to match. A zero value represents the
- *    wildcard symbol, '*'.
+ *    wildcard symbol, '_'.
  * - `field` - The field name to match. A zero value means that a field name
  *    was not specified.
  * - `capture_id` - An integer representing the name of the capture associated
@@ -761,7 +761,7 @@ static TSQueryError ts_query__parse_pattern(
       TSSymbol symbol;
 
       // Parse the wildcard symbol
-      if (stream->next == '*') {
+      if (stream->next == '_') {
         symbol = depth > 0 ? NAMED_WILDCARD_SYMBOL : WILDCARD_SYMBOL;
         stream_advance(stream);
       }
@@ -819,6 +819,15 @@ static TSQueryError ts_query__parse_pattern(
         child_is_immediate = false;
       }
     }
+  }
+
+  // Parse a wildcard pattern
+  else if (stream->next == '_') {
+    stream_advance(stream);
+    stream_skip_whitespace(stream);
+
+    // Add a step that matches any kind of node
+    array_push(&self->steps, query_step__new(WILDCARD_SYMBOL, depth, is_immediate));
   }
 
   // Parse a double-quoted anonymous leaf node expression
@@ -892,15 +901,6 @@ static TSQueryError ts_query__parse_pattern(
     self->steps.contents[step_index].field = field_id;
   }
 
-  // Parse a wildcard pattern
-  else if (stream->next == '*') {
-    stream_advance(stream);
-    stream_skip_whitespace(stream);
-
-    // Add a step that matches any kind of node
-    array_push(&self->steps, query_step__new(WILDCARD_SYMBOL, depth, is_immediate));
-  }
-
   else {
     return TSQueryErrorSyntax;
   }
@@ -913,18 +913,29 @@ static TSQueryError ts_query__parse_pattern(
 
     if (stream->next == '+') {
       stream_advance(stream);
+      stream_skip_whitespace(stream);
       QueryStep repeat_step = query_step__new(WILDCARD_SYMBOL, depth, false);
       repeat_step.alternative_index = starting_step_index;
       repeat_step.is_placeholder = true;
       repeat_step.alternative_is_immediate = true;
       array_push(&self->steps, repeat_step);
-      stream_skip_whitespace(stream);
     }
 
     else if (stream->next == '?') {
       stream_advance(stream);
-      step->alternative_index = self->steps.size;
       stream_skip_whitespace(stream);
+      step->alternative_index = self->steps.size;
+    }
+
+    else if (stream->next == '*') {
+      stream_advance(stream);
+      stream_skip_whitespace(stream);
+      QueryStep repeat_step = query_step__new(WILDCARD_SYMBOL, depth, false);
+      repeat_step.alternative_index = starting_step_index;
+      repeat_step.is_placeholder = true;
+      repeat_step.alternative_is_immediate = true;
+      array_push(&self->steps, repeat_step);
+      step->alternative_index = self->steps.size;
     }
 
     // Parse an '@'-prefixed capture pattern
