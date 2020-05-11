@@ -82,18 +82,29 @@ fn test_query_errors_on_invalid_syntax() {
                 1,
                 [
                     "((identifier) ()", //
-                    "                ^",
+                    "               ^",
                 ]
                 .join("\n")
             ))
         );
         assert_eq!(
-            Query::new(language, r#"((identifier) @x (eq? @x a"#),
+            Query::new(language, r#"((identifier) (#a)"#),
             Err(QueryError::Syntax(
                 1,
                 [
-                    r#"((identifier) @x (eq? @x a"#,
-                    r#"                          ^"#,
+                    "((identifier) (#a)", //
+                    "                  ^",
+                ]
+                .join("\n")
+            ))
+        );
+        assert_eq!(
+            Query::new(language, r#"((identifier) @x (#eq? @x a"#),
+            Err(QueryError::Syntax(
+                1,
+                [
+                    r#"((identifier) @x (#eq? @x a"#,
+                    r#"                           ^"#,
                 ]
                 .join("\n")
             ))
@@ -136,18 +147,23 @@ fn test_query_errors_on_invalid_conditions() {
 
         assert_eq!(
             Query::new(language, "((identifier) @id (@id))"),
-            Err(QueryError::Predicate(
-                "Expected predicate to start with a function name. Got @id.".to_string()
+            Err(QueryError::Syntax(
+                1,
+                [
+                    "((identifier) @id (@id))", //
+                    "                   ^"
+                ]
+                .join("\n")
             ))
         );
         assert_eq!(
-            Query::new(language, "((identifier) @id (eq? @id))"),
+            Query::new(language, "((identifier) @id (#eq? @id))"),
             Err(QueryError::Predicate(
-                "Wrong number of arguments to eq? predicate. Expected 2, got 1.".to_string()
+                "Wrong number of arguments to #eq? predicate. Expected 2, got 1.".to_string()
             ))
         );
         assert_eq!(
-            Query::new(language, "((identifier) @id (eq? @id @ok))"),
+            Query::new(language, "((identifier) @id (#eq? @id @ok))"),
             Err(QueryError::Capture(1, "ok".to_string()))
         );
     });
@@ -365,8 +381,8 @@ fn test_query_matches_with_named_wildcard() {
         let query = Query::new(
             language,
             "
-            (return_statement (*) @the-return-value)
-            (binary_expression operator: * @the-operator)
+            (return_statement (_) @the-return-value)
+            (binary_expression operator: _ @the-operator)
             ",
         )
         .unwrap();
@@ -397,7 +413,7 @@ fn test_query_matches_with_wildcard_at_the_root() {
         let query = Query::new(
             language,
             "
-            (*
+            (_
                 (comment) @doc
                 .
                 (function_declaration
@@ -416,10 +432,10 @@ fn test_query_matches_with_wildcard_at_the_root() {
         let query = Query::new(
             language,
             "
-                (* (string) @a)
-                (* (number) @b)
-                (* (true) @c)
-                (* (false) @d)
+                (_ (string) @a)
+                (_ (number) @b)
+                (_ (true) @c)
+                (_ (false) @d)
             ",
         )
         .unwrap();
@@ -461,7 +477,7 @@ fn test_query_matches_with_immediate_siblings() {
                 .)
             (list
                 .
-                (*) @first-element)
+                (_) @first-element)
             ",
         )
         .unwrap();
@@ -490,17 +506,19 @@ fn test_query_matches_with_repeated_leaf_nodes() {
         let query = Query::new(
             language,
             "
-            (*
+            (
                 (comment)+ @doc
                 .
                 (class_declaration
-                    name: (identifier) @name))
+                    name: (identifier) @name)
+            )
 
-            (*
+            (
                 (comment)+ @doc
                 .
                 (function_declaration
-                    name: (identifier) @name))
+                    name: (identifier) @name)
+            )
             ",
         )
         .unwrap();
@@ -602,7 +620,7 @@ fn test_query_matches_with_non_terminal_repetitions_within_root() {
         let query = Query::new(
             language,
             r#"
-            (*
+            (_
                 (expression_statement
                   (identifier) @id)+)
             "#,
@@ -657,18 +675,19 @@ fn test_query_matches_with_nested_repetitions() {
 }
 
 #[test]
-fn test_query_matches_with_leading_optional_repeated_leaf_nodes() {
+fn test_query_matches_with_leading_zero_or_more_repeated_leaf_nodes() {
     allocations::record(|| {
         let language = get_language("javascript");
 
         let query = Query::new(
             language,
             "
-            (*
-                (comment)+? @doc
+            (
+                (comment)* @doc
                 .
                 (function_declaration
-                    name: (identifier) @name))
+                    name: (identifier) @name)
+            )
             ",
         )
         .unwrap();
@@ -792,7 +811,7 @@ fn test_query_matches_with_repeated_internal_nodes() {
         let query = Query::new(
             language,
             "
-            (*
+            (_
                 (method_definition
                     (decorator (identifier) @deco)+
                     name: (property_identifier) @name))
@@ -1083,12 +1102,12 @@ fn test_query_captures_basic() {
             language,
             r#"
             (pair
-              key: * @method.def
+              key: _ @method.def
               (function
                 name: (identifier) @method.alias))
 
             (variable_declarator
-              name: * @function.def
+              name: _ @function.def
               value: (function
                 name: (identifier) @function.alias))
 
@@ -1158,13 +1177,13 @@ fn test_query_captures_with_text_conditions() {
             language,
             r#"
             ((identifier) @constant
-             (match? @constant "^[A-Z]{2,}$"))
+             (#match? @constant "^[A-Z]{2,}$"))
 
              ((identifier) @constructor
-              (match? @constructor "^[A-Z]"))
+              (#match? @constructor "^[A-Z]"))
 
             ((identifier) @function.builtin
-             (eq? @function.builtin "require"))
+             (#eq? @function.builtin "require"))
 
              (identifier) @variable
             "#,
@@ -1207,13 +1226,13 @@ fn test_query_captures_with_predicates() {
             language,
             r#"
             ((call_expression (identifier) @foo)
-             (set! name something)
-             (set! cool)
-             (something! @foo omg))
+             (#set! name something)
+             (#set! cool)
+             (#something! @foo omg))
 
             ((property_identifier) @bar
-             (is? cool)
-             (is-not? name something))"#,
+             (#is? cool)
+             (#is-not? name something))"#,
         )
         .unwrap();
 
@@ -1259,13 +1278,13 @@ fn test_query_captures_with_quoted_predicate_args() {
             language,
             r#"
             ((call_expression (identifier) @foo)
-             (set! one "\"something\ngreat\""))
+             (#set! one "\"something\ngreat\""))
 
             ((identifier)
-             (set! two "\\s(\r?\n)*$"))
+             (#set! two "\\s(\r?\n)*$"))
 
             ((function_declaration)
-             (set! three "\"something\ngreat\""))
+             (#set! three "\"something\ngreat\""))
             "#,
         )
         .unwrap();
@@ -1336,7 +1355,7 @@ fn test_query_captures_with_many_nested_results_without_fields() {
             language,
             r#"
             (pair
-              key: * @method-def
+              key: _ @method-def
               (arrow_function))
 
             ":" @colon
@@ -1403,7 +1422,7 @@ fn test_query_captures_with_many_nested_results_with_fields() {
                 consequence: (member_expression
                     object: (identifier) @right)
                 alternative: (null))
-             (eq? @left @right))
+             (#eq? @left @right))
             "#,
         )
         .unwrap();
@@ -1596,7 +1615,7 @@ fn test_query_captures_with_matches_removed() {
             r#"
             (binary_expression
                 left: (identifier) @left
-                operator: * @op
+                operator: _ @op
                 right: (identifier) @right)
             "#,
         )
@@ -1689,7 +1708,7 @@ fn test_query_start_byte_for_pattern() {
     .trim_start();
 
     let patterns_3 = "
-        ((identifier) @b (match? @b i))
+        ((identifier) @b (#match? @b i))
         (function_declaration name: (identifier) @c)
         (method_definition name: (identifier) @d)
     "
@@ -1719,13 +1738,13 @@ fn test_query_capture_names() {
             r#"
             (if_statement
               condition: (binary_expression
-                left: * @left-operand
+                left: _ @left-operand
                 operator: "||"
-                right: * @right-operand)
+                right: _ @right-operand)
               consequence: (statement_block) @body)
 
             (while_statement
-              condition:* @loop-condition)
+              condition: _ @loop-condition)
             "#,
         )
         .unwrap();

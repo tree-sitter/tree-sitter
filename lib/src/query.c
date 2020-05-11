@@ -27,7 +27,7 @@ typedef struct {
  * represented as a sequence of these steps. Fields:
  *
  * - `symbol` - The grammar symbol to match. A zero value represents the
- *    wildcard symbol, '*'.
+ *    wildcard symbol, '_'.
  * - `field` - The field name to match. A zero value means that a field name
  *    was not specified.
  * - `capture_id` - An integer representing the name of the capture associated
@@ -567,12 +567,22 @@ static TSQueryError ts_query__parse_predicate(
   TSQuery *self,
   Stream *stream
 ) {
-  if (stream->next == ')') return PARENT_DONE;
-  if (stream->next != '(') return TSQueryErrorSyntax;
-  stream_advance(stream);
+  if (!stream_is_ident_start(stream)) return TSQueryErrorSyntax;
+  const char *predicate_name = stream->input;
+  stream_scan_identifier(stream);
+  uint32_t length = stream->input - predicate_name;
+  uint16_t id = symbol_table_insert_name(
+    &self->predicate_values,
+    predicate_name,
+    length
+  );
+  array_back(&self->predicates_by_pattern)->length++;
+  array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
+    .type = TSQueryPredicateStepTypeString,
+    .value_id = id,
+  }));
   stream_skip_whitespace(stream);
 
-  unsigned step_count = 0;
   for (;;) {
     if (stream->next == ')') {
       stream_advance(stream);
@@ -677,7 +687,6 @@ static TSQueryError ts_query__parse_predicate(
       return TSQueryErrorSyntax;
     }
 
-    step_count++;
     stream_skip_whitespace(stream);
   }
 
@@ -703,35 +712,16 @@ static TSQueryError ts_query__parse_pattern(
     return PARENT_DONE;
   }
 
-  // Parse a parenthesized node expression
+  // An open parenthesis can be the start of three possible constructs:
+  // * A grouped sequence
+  // * A predicate
+  // * A named node
   else if (stream->next == '(') {
     stream_advance(stream);
     stream_skip_whitespace(stream);
 
-    // At the top-level, a nested list represents one root pattern followed by
-    // zero-or-more predicates.
-    if (stream->next == '(' && depth == 0) {
-      TSQueryError e = ts_query__parse_pattern(self, stream, 0, capture_count, is_immediate);
-      if (e) return e;
-
-      // Parse the predicates.
-      stream_skip_whitespace(stream);
-      for (;;) {
-        TSQueryError e = ts_query__parse_predicate(self, stream);
-        if (e == PARENT_DONE) {
-          stream_advance(stream);
-          stream_skip_whitespace(stream);
-          return 0;
-        } else if (e) {
-          return e;
-        }
-      }
-    }
-
-    // When nested inside of a larger pattern, a nested list just represents
-    // multiple sibling nodes which are grouped, possibly so that a postfix
-    // operator can be applied to the group.
-    else if (depth > 0 && (stream->next == '(' || stream->next == '"' )) {
+    // If this parenthesis is followed by a node, then it represents a grouped sequence.
+    if (stream->next == '(' || stream->next == '"') {
       bool child_is_immediate = false;
       for (;;) {
         if (stream->next == '.') {
@@ -755,11 +745,26 @@ static TSQueryError ts_query__parse_pattern(
 
         child_is_immediate = false;
       }
-    } else {
+    }
+
+    // A pound character indicates the start of a predicate.
+    else if (stream->next == '#') {
+      stream_advance(stream);
+      return ts_query__parse_predicate(self, stream);
+    }
+
+    // Otherwise, this parenthesis is the start of a named node.
+    else {
       TSSymbol symbol;
 
       // Parse the wildcard symbol
-      if (stream->next == '*') {
+      if (
+        stream->next == '_' ||
+
+        // TODO - remove.
+        // For temporary backward compatibility, handle '*' as a wildcard.
+        stream->next == '*'
+      ) {
         symbol = depth > 0 ? NAMED_WILDCARD_SYMBOL : WILDCARD_SYMBOL;
         stream_advance(stream);
       }
@@ -769,6 +774,14 @@ static TSQueryError ts_query__parse_pattern(
         const char *node_name = stream->input;
         stream_scan_identifier(stream);
         uint32_t length = stream->input - node_name;
+
+        // TODO - remove.
+        // For temporary backward compatibility, handle predicates without the leading '#' sign.
+        if (length > 0 && (node_name[length - 1] == '!' || node_name[length - 1] == '?')) {
+          stream_reset(stream, node_name);
+          return ts_query__parse_predicate(self, stream);
+        }
+
         symbol = ts_language_symbol_for_name(
           self->language,
           node_name,
@@ -817,6 +830,21 @@ static TSQueryError ts_query__parse_pattern(
         child_is_immediate = false;
       }
     }
+  }
+
+  // Parse a wildcard pattern
+  else if (
+    stream->next == '_' ||
+
+    // TODO remove.
+    // For temporary backward compatibility, handle '*' as a wildcard.
+    stream->next == '*'
+  ) {
+    stream_advance(stream);
+    stream_skip_whitespace(stream);
+
+    // Add a step that matches any kind of node
+    array_push(&self->steps, query_step__new(WILDCARD_SYMBOL, depth, is_immediate));
   }
 
   // Parse a double-quoted anonymous leaf node expression
@@ -890,15 +918,6 @@ static TSQueryError ts_query__parse_pattern(
     self->steps.contents[step_index].field = field_id;
   }
 
-  // Parse a wildcard pattern
-  else if (stream->next == '*') {
-    stream_advance(stream);
-    stream_skip_whitespace(stream);
-
-    // Add a step that matches any kind of node
-    array_push(&self->steps, query_step__new(WILDCARD_SYMBOL, depth, is_immediate));
-  }
-
   else {
     return TSQueryErrorSyntax;
   }
@@ -911,18 +930,29 @@ static TSQueryError ts_query__parse_pattern(
 
     if (stream->next == '+') {
       stream_advance(stream);
+      stream_skip_whitespace(stream);
       QueryStep repeat_step = query_step__new(WILDCARD_SYMBOL, depth, false);
       repeat_step.alternative_index = starting_step_index;
       repeat_step.is_placeholder = true;
       repeat_step.alternative_is_immediate = true;
       array_push(&self->steps, repeat_step);
-      stream_skip_whitespace(stream);
     }
 
     else if (stream->next == '?') {
       stream_advance(stream);
-      step->alternative_index = self->steps.size;
       stream_skip_whitespace(stream);
+      step->alternative_index = self->steps.size;
+    }
+
+    else if (stream->next == '*') {
+      stream_advance(stream);
+      stream_skip_whitespace(stream);
+      QueryStep repeat_step = query_step__new(WILDCARD_SYMBOL, depth, false);
+      repeat_step.alternative_index = starting_step_index;
+      repeat_step.is_placeholder = true;
+      repeat_step.alternative_is_immediate = true;
+      array_push(&self->steps, repeat_step);
+      step->alternative_index = self->steps.size;
     }
 
     // Parse an '@'-prefixed capture pattern
