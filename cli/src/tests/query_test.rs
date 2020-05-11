@@ -2,8 +2,8 @@ use super::helpers::allocations;
 use super::helpers::fixtures::get_language;
 use std::fmt::Write;
 use tree_sitter::{
-    Node, Parser, Query, QueryCapture, QueryCursor, QueryError, QueryMatch, QueryPredicate,
-    QueryPredicateArg, QueryProperty,
+    Language, Node, Parser, Query, QueryCapture, QueryCursor, QueryError, QueryMatch,
+    QueryPredicate, QueryPredicateArg, QueryProperty,
 };
 
 #[test]
@@ -163,19 +163,13 @@ fn test_query_matches_with_simple_pattern() {
         )
         .unwrap();
 
-        let source = "function one() { two(); function three() {} }";
-        let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
-        let tree = parser.parse(source, None).unwrap();
-
-        let mut cursor = QueryCursor::new();
-        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
-
-        assert_eq!(
-            collect_matches(matches, &query, source),
+        assert_query_matches(
+            language,
+            &query,
+            "function one() { two(); function three() {} }",
             &[
                 (0, vec![("fn-name", "one")]),
-                (0, vec![("fn-name", "three")])
+                (0, vec![("fn-name", "three")]),
             ],
         );
     });
@@ -195,7 +189,10 @@ fn test_query_matches_with_multiple_on_same_root() {
         )
         .unwrap();
 
-        let source = "
+        assert_query_matches(
+            language,
+            &query,
+            "
             class Person {
                 // the constructor
                 constructor(name) { this.name = name; }
@@ -203,30 +200,21 @@ fn test_query_matches_with_multiple_on_same_root() {
                 // the getter
                 getFullName() { return this.name; }
             }
-        ";
-
-        let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
-        let tree = parser.parse(source, None).unwrap();
-        let mut cursor = QueryCursor::new();
-        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
-
-        assert_eq!(
-            collect_matches(matches, &query, source),
+            ",
             &[
                 (
                     0,
                     vec![
                         ("the-class-name", "Person"),
-                        ("the-method-name", "constructor")
-                    ]
+                        ("the-method-name", "constructor"),
+                    ],
                 ),
                 (
                     0,
                     vec![
                         ("the-class-name", "Person"),
-                        ("the-method-name", "getFullName")
-                    ]
+                        ("the-method-name", "getFullName"),
+                    ],
                 ),
             ],
         );
@@ -246,20 +234,14 @@ fn test_query_matches_with_multiple_patterns_different_roots() {
         )
         .unwrap();
 
-        let source = "
+        assert_query_matches(
+            language,
+            &query,
+            "
             function f1() {
                 f2(f3());
             }
-        ";
-
-        let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
-        let tree = parser.parse(source, None).unwrap();
-        let mut cursor = QueryCursor::new();
-        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
-
-        assert_eq!(
-            collect_matches(matches, &query, source),
+            ",
             &[
                 (0, vec![("fn-def", "f1")]),
                 (1, vec![("fn-ref", "f2")]),
@@ -287,21 +269,15 @@ fn test_query_matches_with_multiple_patterns_same_root() {
         )
         .unwrap();
 
-        let source = "
+        assert_query_matches(
+            language,
+            &query,
+            "
             a = {
                 b: () => { return c; },
                 d: function() { return d; }
             };
-        ";
-
-        let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
-        let tree = parser.parse(source, None).unwrap();
-        let mut cursor = QueryCursor::new();
-        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
-
-        assert_eq!(
-            collect_matches(matches, &query, source),
+            ",
             &[
                 (1, vec![("method-def", "b")]),
                 (0, vec![("method-def", "d")]),
@@ -325,20 +301,14 @@ fn test_query_matches_with_nesting_and_no_fields() {
         )
         .unwrap();
 
-        let source = "
+        assert_query_matches(
+            language,
+            &query,
+            "
             [[a]];
             [[c, d], [e, f, g, h]];
             [[h], [i]];
-        ";
-
-        let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
-        let tree = parser.parse(source, None).unwrap();
-        let mut cursor = QueryCursor::new();
-        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
-
-        assert_eq!(
-            collect_matches(matches, &query, source),
+            ",
             &[
                 (0, vec![("x1", "c"), ("x2", "d")]),
                 (0, vec![("x1", "e"), ("x2", "f")]),
@@ -358,17 +328,11 @@ fn test_query_matches_with_many() {
         let language = get_language("javascript");
         let query = Query::new(language, "(array (identifier) @element)").unwrap();
 
-        let source = "[hello];\n".repeat(50);
-
-        let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
-        let mut cursor = QueryCursor::new();
-        let matches = cursor.matches(&query, tree.root_node(), to_callback(&source));
-
-        assert_eq!(
-            collect_matches(matches, &query, source.as_str()),
-            vec![(0, vec![("element", "hello")]); 50],
+        assert_query_matches(
+            language,
+            &query,
+            &"[hello];\n".repeat(50),
+            &vec![(0, vec![("element", "hello")]); 50],
         );
     });
 }
@@ -385,20 +349,11 @@ fn test_query_matches_capturing_error_nodes() {
         )
         .unwrap();
 
-        let source = "function a(b,, c, d :e:) {}";
-
-        let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
-        let tree = parser.parse(source, None).unwrap();
-        let mut cursor = QueryCursor::new();
-        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
-
-        assert_eq!(
-            collect_matches(matches, &query, source),
-            &[(
-                0,
-                vec![("the-error", ":e:"), ("the-error-identifier", "e"),]
-            ),]
+        assert_query_matches(
+            language,
+            &query,
+            "function a(b,, c, d :e:) {}",
+            &[(0, vec![("the-error", ":e:"), ("the-error-identifier", "e")])],
         );
     });
 }
@@ -439,10 +394,6 @@ fn test_query_matches_with_named_wildcard() {
 fn test_query_matches_with_wildcard_at_the_root() {
     allocations::record(|| {
         let language = get_language("javascript");
-        let mut cursor = QueryCursor::new();
-        let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
-
         let query = Query::new(
             language,
             "
@@ -455,13 +406,11 @@ fn test_query_matches_with_wildcard_at_the_root() {
         )
         .unwrap();
 
-        let source = "/* one */ var x; /* two */ function y() {} /* three */ class Z {}";
-
-        let tree = parser.parse(source, None).unwrap();
-        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
-        assert_eq!(
-            collect_matches(matches, &query, source),
-            &[(0, vec![("doc", "/* two */"), ("name", "y")]),]
+        assert_query_matches(
+            language,
+            &query,
+            "/* one */ var x; /* two */ function y() {} /* three */ class Z {}",
+            &[(0, vec![("doc", "/* two */"), ("name", "y")])],
         );
 
         let query = Query::new(
@@ -475,17 +424,15 @@ fn test_query_matches_with_wildcard_at_the_root() {
         )
         .unwrap();
 
-        let source = "['hi', x(true), {y: false}]";
-
-        let tree = parser.parse(source, None).unwrap();
-        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
-        assert_eq!(
-            collect_matches(matches, &query, source),
+        assert_query_matches(
+            language,
+            &query,
+            "['hi', x(true), {y: false}]",
             &[
                 (0, vec![("a", "'hi'")]),
                 (2, vec![("c", "true")]),
                 (3, vec![("d", "false")]),
-            ]
+            ],
         );
     });
 }
@@ -519,16 +466,10 @@ fn test_query_matches_with_immediate_siblings() {
         )
         .unwrap();
 
-        let source = "import a.b.c.d; return [w, [1, y], z]";
-
-        let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
-        let tree = parser.parse(source, None).unwrap();
-        let mut cursor = QueryCursor::new();
-        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
-
-        assert_eq!(
-            collect_matches(matches, &query, source),
+        assert_query_matches(
+            language,
+            &query,
+            "import a.b.c.d; return [w, [1, y], z]",
             &[
                 (0, vec![("parent", "a"), ("child", "b")]),
                 (0, vec![("parent", "b"), ("child", "c")]),
@@ -536,7 +477,7 @@ fn test_query_matches_with_immediate_siblings() {
                 (0, vec![("parent", "c"), ("child", "d")]),
                 (2, vec![("first-element", "w")]),
                 (2, vec![("first-element", "1")]),
-            ]
+            ],
         );
     });
 }
@@ -564,7 +505,10 @@ fn test_query_matches_with_repeated_leaf_nodes() {
         )
         .unwrap();
 
-        let source = "
+        assert_query_matches(
+            language,
+            &query,
+            "
             // one
             // two
             a();
@@ -582,16 +526,7 @@ fn test_query_matches_with_repeated_leaf_nodes() {
                 // eight
                 function d() {}
             }
-        ";
-
-        let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
-        let tree = parser.parse(source, None).unwrap();
-        let mut cursor = QueryCursor::new();
-        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
-
-        assert_eq!(
-            collect_matches(matches, &query, source),
+            ",
             &[
                 (
                     0,
@@ -599,11 +534,253 @@ fn test_query_matches_with_repeated_leaf_nodes() {
                         ("doc", "// four"),
                         ("doc", "// five"),
                         ("doc", "// six"),
-                        ("name", "B")
-                    ]
+                        ("name", "B"),
+                    ],
                 ),
                 (1, vec![("doc", "// eight"), ("name", "d")]),
-            ]
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_optional_nodes_inside_of_repetitions() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(language, r#"(array (","? (number) @num)+)"#).unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            r#"
+            var a = [1, 2, 3, 4]
+            "#,
+            &[(
+                0,
+                vec![("num", "1"), ("num", "2"), ("num", "3"), ("num", "4")],
+            )],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_top_level_repetitions() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            (comment)+ @doc
+            "#,
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            r#"
+            // a
+            // b
+            // c
+
+            d()
+
+            // e
+            "#,
+            &[
+                (0, vec![("doc", "// a"), ("doc", "// b"), ("doc", "// c")]),
+                (0, vec![("doc", "// e")]),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_non_terminal_repetitions_within_root() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            (*
+                (expression_statement
+                  (identifier) @id)+)
+            "#,
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            r#"
+            a;
+            b;
+            c;
+            "#,
+            &[(0, vec![("id", "a"), ("id", "b"), ("id", "c")])],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_nested_repetitions() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            (variable_declaration
+                (","? (variable_declarator name: (identifier) @x))+)+
+            "#,
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            r#"
+            var a = b, c, d
+            var e, f
+
+            // more
+            var g
+            "#,
+            &[
+                (
+                    0,
+                    vec![("x", "a"), ("x", "c"), ("x", "d"), ("x", "e"), ("x", "f")],
+                ),
+                (0, vec![("x", "g")]),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_leading_optional_repeated_leaf_nodes() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        let query = Query::new(
+            language,
+            "
+            (*
+                (comment)+? @doc
+                .
+                (function_declaration
+                    name: (identifier) @name))
+            ",
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            "
+            function a() {
+                // one
+                var b;
+
+                function c() {}
+
+                // two
+                // three
+                var d;
+
+                // four
+                // five
+                function e() {
+
+                }
+            }
+
+            // six
+            ",
+            &[
+                (0, vec![("name", "a")]),
+                (0, vec![("name", "c")]),
+                (
+                    0,
+                    vec![("doc", "// four"), ("doc", "// five"), ("name", "e")],
+                ),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_trailing_optional_nodes() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        let query = Query::new(
+            language,
+            "
+            (class_declaration
+                name: (identifier) @class
+                (class_heritage
+                  (identifier) @superclass)?)
+            ",
+        )
+        .unwrap();
+
+        assert_query_matches(language, &query, "class A {}", &[(0, vec![("class", "A")])]);
+
+        assert_query_matches(
+            language,
+            &query,
+            "
+            class A {}
+            class B extends C {}
+            class D extends (E.F) {}
+            ",
+            &[
+                (0, vec![("class", "A")]),
+                (0, vec![("class", "B"), ("superclass", "C")]),
+                (0, vec![("class", "D")]),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_nested_optional_nodes() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        // A function call, optionally containing a function call, which optionally contains a number
+        let query = Query::new(
+            language,
+            "
+            (call_expression
+                function: (identifier) @outer-fn
+                arguments: (arguments
+                    (call_expression
+                        function: (identifier) @inner-fn
+                        arguments: (arguments
+                            (number)? @num))?))
+            ",
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            r#"
+            a(b, c(), d(null, 1, 2))
+            e()
+            f(g())
+            "#,
+            &[
+                (0, vec![("outer-fn", "a"), ("inner-fn", "c")]),
+                (0, vec![("outer-fn", "c")]),
+                (0, vec![("outer-fn", "a"), ("inner-fn", "d"), ("num", "1")]),
+                (0, vec![("outer-fn", "a"), ("inner-fn", "d"), ("num", "2")]),
+                (0, vec![("outer-fn", "d")]),
+                (0, vec![("outer-fn", "e")]),
+                (0, vec![("outer-fn", "f"), ("inner-fn", "g")]),
+                (0, vec![("outer-fn", "g")]),
+            ],
         );
     });
 }
@@ -612,10 +789,6 @@ fn test_query_matches_with_repeated_leaf_nodes() {
 fn test_query_matches_with_repeated_internal_nodes() {
     allocations::record(|| {
         let language = get_language("javascript");
-        let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
-        let mut cursor = QueryCursor::new();
-
         let query = Query::new(
             language,
             "
@@ -626,18 +799,18 @@ fn test_query_matches_with_repeated_internal_nodes() {
             ",
         )
         .unwrap();
-        let source = "
+
+        assert_query_matches(
+            language,
+            &query,
+            "
             class A {
                 @c
                 @d
                 e() {}
             }
-        ";
-        let tree = parser.parse(source, None).unwrap();
-        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
-        assert_eq!(
-            collect_matches(matches, &query, source),
-            &[(0, vec![("deco", "c"), ("deco", "d"), ("name", "e")]),]
+            ",
+            &[(0, vec![("deco", "c"), ("deco", "d"), ("name", "e")])],
         );
     })
 }
@@ -651,20 +824,16 @@ fn test_query_matches_in_language_with_simple_aliases() {
         // tag names, script tag names, and style tag names. All of
         // these tokens are aliased to `tag_name`.
         let query = Query::new(language, "(tag_name) @tag").unwrap();
-        let source = "
+
+        assert_query_matches(
+            language,
+            &query,
+            "
             <div>
                 <script>hi</script>
                 <style>hi</style>
-            </div>";
-
-        let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
-        let mut cursor = QueryCursor::new();
-        let matches = cursor.matches(&query, tree.root_node(), to_callback(&source));
-
-        assert_eq!(
-            collect_matches(matches, &query, source),
+            </div>
+            ",
             &[
                 (0, vec![("tag", "div")]),
                 (0, vec![("tag", "script")]),
@@ -680,6 +849,8 @@ fn test_query_matches_in_language_with_simple_aliases() {
 #[test]
 fn test_query_matches_with_different_tokens_with_the_same_string_value() {
     allocations::record(|| {
+        // In Rust, there are two '<' tokens: one for the binary operator,
+        // and one with higher precedence for generics.
         let language = get_language("rust");
         let query = Query::new(
             language,
@@ -690,24 +861,16 @@ fn test_query_matches_with_different_tokens_with_the_same_string_value() {
         )
         .unwrap();
 
-        // In Rust, there are two '<' tokens: one for the binary operator,
-        // and one with higher precedence for generics.
-        let source = "const A: B<C> = d < e || f > g;";
-
-        let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
-        let mut cursor = QueryCursor::new();
-        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
-
-        assert_eq!(
-            collect_matches(matches, &query, source),
+        assert_query_matches(
+            language,
+            &query,
+            "const A: B<C> = d < e || f > g;",
             &[
                 (0, vec![("less", "<")]),
                 (1, vec![("greater", ">")]),
                 (0, vec![("less", "<")]),
                 (1, vec![("greater", ">")]),
-            ]
+            ],
         );
     });
 }
@@ -757,20 +920,14 @@ fn test_query_matches_with_anonymous_tokens() {
         )
         .unwrap();
 
-        let source = "foo(a && b);";
-
-        let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
-        let mut cursor = QueryCursor::new();
-        let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
-
-        assert_eq!(
-            collect_matches(matches, &query, source),
+        assert_query_matches(
+            language,
+            &query,
+            "foo(a && b);",
             &[
                 (1, vec![("operator", "&&")]),
                 (0, vec![("punctuation", ";")]),
-            ]
+            ],
         );
     });
 }
@@ -1661,6 +1818,20 @@ fn test_query_disable_pattern() {
             ],
         );
     });
+}
+
+fn assert_query_matches(
+    language: Language,
+    query: &Query,
+    source: &str,
+    expected: &[(usize, Vec<(&str, &str)>)],
+) {
+    let mut parser = Parser::new();
+    parser.set_language(language).unwrap();
+    let tree = parser.parse(source, None).unwrap();
+    let mut cursor = QueryCursor::new();
+    let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
+    assert_eq!(collect_matches(matches, &query, source), expected);
 }
 
 fn collect_matches<'a>(
