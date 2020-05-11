@@ -1271,13 +1271,13 @@ impl Query {
                     "eq?" | "not-eq?" => {
                         if p.len() != 3 {
                             return Err(QueryError::Predicate(format!(
-                                "Wrong number of arguments to eq? predicate. Expected 2, got {}.",
+                                "Wrong number of arguments to #eq? predicate. Expected 2, got {}.",
                                 p.len() - 1
                             )));
                         }
                         if p[1].type_ != type_capture {
                             return Err(QueryError::Predicate(format!(
-                                "First argument to eq? predicate must be a capture name. Got literal \"{}\".",
+                                "First argument to #eq? predicate must be a capture name. Got literal \"{}\".",
                                 string_values[p[1].value_id as usize],
                             )));
                         }
@@ -1301,19 +1301,19 @@ impl Query {
                     "match?" => {
                         if p.len() != 3 {
                             return Err(QueryError::Predicate(format!(
-                                "Wrong number of arguments to match? predicate. Expected 2, got {}.",
+                                "Wrong number of arguments to #match? predicate. Expected 2, got {}.",
                                 p.len() - 1
                             )));
                         }
                         if p[1].type_ != type_capture {
                             return Err(QueryError::Predicate(format!(
-                                "First argument to match? predicate must be a capture name. Got literal \"{}\".",
+                                "First argument to #match? predicate must be a capture name. Got literal \"{}\".",
                                 string_values[p[1].value_id as usize],
                             )));
                         }
                         if p[2].type_ == type_capture {
                             return Err(QueryError::Predicate(format!(
-                                "Second argument to match? predicate must be a literal. Got capture @{}.",
+                                "Second argument to #match? predicate must be a literal. Got capture @{}.",
                                 result.capture_names[p[2].value_id as usize],
                             )));
                         }

@@ -6,46 +6,58 @@ use tree_sitter_tags::c_lib as c;
 use tree_sitter_tags::{Error, TagKind, TagsConfiguration, TagsContext};
 
 const PYTHON_TAG_QUERY: &'static str = r#"
-((function_definition
-  name: (identifier) @name
-  body: (block . (expression_statement (string) @doc))) @function
- (strip! @doc "(^['\"\\s]*)|(['\"\\s]*$)"))
+(
+    (function_definition
+      name: (identifier) @name
+      body: (block . (expression_statement (string) @doc))) @function
+    (#strip! @doc "(^['\"\\s]*)|(['\"\\s]*$)")
+)
+
 (function_definition
   name: (identifier) @name) @function
-((class_definition
-  name: (identifier) @name
-  body: (block . (expression_statement (string) @doc))) @class
- (strip! @doc "(^['\"\\s]*)|(['\"\\s]*$)"))
+
+(
+    (class_definition
+        name: (identifier) @name
+        body: (block
+            . (expression_statement (string) @doc))) @class
+    (#strip! @doc "(^['\"\\s]*)|(['\"\\s]*$)")
+)
+
 (class_definition
   name: (identifier) @name) @class
+
 (call
   function: (identifier) @name) @call
 "#;
 
 const JS_TAG_QUERY: &'static str = r#"
-((*
+(
     (comment)+ @doc .
     (class_declaration
-        name: (identifier) @name) @class)
- (select-adjacent! @doc @class)
- (strip! @doc "(^[/\\*\\s]*)|([/\\*\\s]*$)"))
+        name: (identifier) @name) @class
+    (#select-adjacent! @doc @class)
+    (#strip! @doc "(^[/\\*\\s]*)|([/\\*\\s]*$)")
+)
 
-((*
+(
     (comment)+ @doc .
     (method_definition
-        name: (property_identifier) @name) @method)
- (select-adjacent! @doc @method)
- (strip! @doc "(^[/\\*\\s]*)|([/\\*\\s]*$)"))
+        name: (property_identifier) @name) @method
+    (#select-adjacent! @doc @method)
+    (#strip! @doc "(^[/\\*\\s]*)|([/\\*\\s]*$)")
+)
 
-((*
+(
     (comment)+ @doc .
     (function_declaration
-        name: (identifier) @name) @function)
- (select-adjacent! @doc @function)
- (strip! @doc "(^[/\\*\\s]*)|([/\\*\\s]*$)"))
+        name: (identifier) @name) @function
+    (#select-adjacent! @doc @function)
+    (#strip! @doc "(^[/\\*\\s]*)|([/\\*\\s]*$)")
+)
 
 (call_expression function: (identifier) @name) @call
-  "#;
+"#;
 
 const RUBY_TAG_QUERY: &'static str = r#"
 (method
@@ -55,7 +67,7 @@ const RUBY_TAG_QUERY: &'static str = r#"
     method: (identifier) @name) @call
 
 ((identifier) @name @call
- (is-not? local))
+ (#is-not? local))
 "#;
 
 #[test]

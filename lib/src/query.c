@@ -567,8 +567,20 @@ static TSQueryError ts_query__parse_predicate(
   TSQuery *self,
   Stream *stream
 ) {
-  if (stream->next == ')') return PARENT_DONE;
-  if (stream->next != '(') return TSQueryErrorSyntax;
+  if (!stream_is_ident_start(stream)) return TSQueryErrorSyntax;
+  const char *predicate_name = stream->input;
+  stream_scan_identifier(stream);
+  uint32_t length = stream->input - predicate_name;
+  uint16_t id = symbol_table_insert_name(
+    &self->predicate_values,
+    predicate_name,
+    length
+  );
+  array_back(&self->predicates_by_pattern)->length++;
+  array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
+    .type = TSQueryPredicateStepTypeString,
+    .value_id = id,
+  }));
   stream_advance(stream);
   stream_skip_whitespace(stream);
 
@@ -703,35 +715,16 @@ static TSQueryError ts_query__parse_pattern(
     return PARENT_DONE;
   }
 
-  // Parse a parenthesized node expression
+  // Parse either:
+  // * A parenthesized sequence of nodes
+  // * A predicate
+  // * A named node
   else if (stream->next == '(') {
     stream_advance(stream);
     stream_skip_whitespace(stream);
 
-    // At the top-level, a nested list represents one root pattern followed by
-    // zero-or-more predicates.
-    if (stream->next == '(' && depth == 0) {
-      TSQueryError e = ts_query__parse_pattern(self, stream, 0, capture_count, is_immediate);
-      if (e) return e;
-
-      // Parse the predicates.
-      stream_skip_whitespace(stream);
-      for (;;) {
-        TSQueryError e = ts_query__parse_predicate(self, stream);
-        if (e == PARENT_DONE) {
-          stream_advance(stream);
-          stream_skip_whitespace(stream);
-          return 0;
-        } else if (e) {
-          return e;
-        }
-      }
-    }
-
-    // When nested inside of a larger pattern, a nested list just represents
-    // multiple sibling nodes which are grouped, possibly so that a postfix
-    // operator can be applied to the group.
-    else if (depth > 0 && (stream->next == '(' || stream->next == '"' )) {
+    // If this parenthesis is followed by a node, then it represents grouping.
+    if (stream->next == '(' || stream->next == '"') {
       bool child_is_immediate = false;
       for (;;) {
         if (stream->next == '.') {
@@ -755,7 +748,16 @@ static TSQueryError ts_query__parse_pattern(
 
         child_is_immediate = false;
       }
-    } else {
+    }
+
+    // This parenthesis is the start of a predicate
+    else if (stream->next == '#') {
+      stream_advance(stream);
+      return ts_query__parse_predicate(self, stream);
+    }
+
+    // Otherwise, this parenthesis is the start of a named node.
+    else {
       TSSymbol symbol;
 
       // Parse the wildcard symbol

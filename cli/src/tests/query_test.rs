@@ -82,18 +82,29 @@ fn test_query_errors_on_invalid_syntax() {
                 1,
                 [
                     "((identifier) ()", //
-                    "                ^",
+                    "               ^",
                 ]
                 .join("\n")
             ))
         );
         assert_eq!(
-            Query::new(language, r#"((identifier) @x (eq? @x a"#),
+            Query::new(language, r#"((identifier) (#a)"#),
             Err(QueryError::Syntax(
                 1,
                 [
-                    r#"((identifier) @x (eq? @x a"#,
-                    r#"                          ^"#,
+                    "((identifier) (#a)", //
+                    "                  ^",
+                ]
+                .join("\n")
+            ))
+        );
+        assert_eq!(
+            Query::new(language, r#"((identifier) @x (#eq? @x a"#),
+            Err(QueryError::Syntax(
+                1,
+                [
+                    r#"((identifier) @x (#eq? @x a"#,
+                    r#"                           ^"#,
                 ]
                 .join("\n")
             ))
@@ -136,18 +147,23 @@ fn test_query_errors_on_invalid_conditions() {
 
         assert_eq!(
             Query::new(language, "((identifier) @id (@id))"),
-            Err(QueryError::Predicate(
-                "Expected predicate to start with a function name. Got @id.".to_string()
+            Err(QueryError::Syntax(
+                1,
+                [
+                    "((identifier) @id (@id))", //
+                    "                   ^"
+                ]
+                .join("\n")
             ))
         );
         assert_eq!(
-            Query::new(language, "((identifier) @id (eq? @id))"),
+            Query::new(language, "((identifier) @id (#eq? @id))"),
             Err(QueryError::Predicate(
-                "Wrong number of arguments to eq? predicate. Expected 2, got 1.".to_string()
+                "Wrong number of arguments to #eq? predicate. Expected 2, got 1.".to_string()
             ))
         );
         assert_eq!(
-            Query::new(language, "((identifier) @id (eq? @id @ok))"),
+            Query::new(language, "((identifier) @id (#eq? @id @ok))"),
             Err(QueryError::Capture(1, "ok".to_string()))
         );
     });
@@ -1158,13 +1174,13 @@ fn test_query_captures_with_text_conditions() {
             language,
             r#"
             ((identifier) @constant
-             (match? @constant "^[A-Z]{2,}$"))
+             (#match? @constant "^[A-Z]{2,}$"))
 
              ((identifier) @constructor
-              (match? @constructor "^[A-Z]"))
+              (#match? @constructor "^[A-Z]"))
 
             ((identifier) @function.builtin
-             (eq? @function.builtin "require"))
+             (#eq? @function.builtin "require"))
 
              (identifier) @variable
             "#,
@@ -1207,13 +1223,13 @@ fn test_query_captures_with_predicates() {
             language,
             r#"
             ((call_expression (identifier) @foo)
-             (set! name something)
-             (set! cool)
-             (something! @foo omg))
+             (#set! name something)
+             (#set! cool)
+             (#something! @foo omg))
 
             ((property_identifier) @bar
-             (is? cool)
-             (is-not? name something))"#,
+             (#is? cool)
+             (#is-not? name something))"#,
         )
         .unwrap();
 
@@ -1259,13 +1275,13 @@ fn test_query_captures_with_quoted_predicate_args() {
             language,
             r#"
             ((call_expression (identifier) @foo)
-             (set! one "\"something\ngreat\""))
+             (#set! one "\"something\ngreat\""))
 
             ((identifier)
-             (set! two "\\s(\r?\n)*$"))
+             (#set! two "\\s(\r?\n)*$"))
 
             ((function_declaration)
-             (set! three "\"something\ngreat\""))
+             (#set! three "\"something\ngreat\""))
             "#,
         )
         .unwrap();
@@ -1403,7 +1419,7 @@ fn test_query_captures_with_many_nested_results_with_fields() {
                 consequence: (member_expression
                     object: (identifier) @right)
                 alternative: (null))
-             (eq? @left @right))
+             (#eq? @left @right))
             "#,
         )
         .unwrap();
@@ -1689,7 +1705,7 @@ fn test_query_start_byte_for_pattern() {
     .trim_start();
 
     let patterns_3 = "
-        ((identifier) @b (match? @b i))
+        ((identifier) @b (#match? @b i))
         (function_declaration name: (identifier) @c)
         (method_definition name: (identifier) @d)
     "
