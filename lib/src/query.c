@@ -715,15 +715,15 @@ static TSQueryError ts_query__parse_pattern(
     return PARENT_DONE;
   }
 
-  // Parse either:
-  // * A parenthesized sequence of nodes
+  // An open parenthesis can be the start of three possible constructs:
+  // * A grouped sequence
   // * A predicate
   // * A named node
   else if (stream->next == '(') {
     stream_advance(stream);
     stream_skip_whitespace(stream);
 
-    // If this parenthesis is followed by a node, then it represents grouping.
+    // If this parenthesis is followed by a node, then it represents a grouped sequence.
     if (stream->next == '(' || stream->next == '"') {
       bool child_is_immediate = false;
       for (;;) {
@@ -750,7 +750,7 @@ static TSQueryError ts_query__parse_pattern(
       }
     }
 
-    // This parenthesis is the start of a predicate
+    // A pound character indicates the start of a predicate.
     else if (stream->next == '#') {
       stream_advance(stream);
       return ts_query__parse_predicate(self, stream);
@@ -761,7 +761,13 @@ static TSQueryError ts_query__parse_pattern(
       TSSymbol symbol;
 
       // Parse the wildcard symbol
-      if (stream->next == '_') {
+      if (
+        stream->next == '_' ||
+
+        // TODO - remove.
+        // For temporary backward compatibility, handle parenthesized '*' as a wildcard.
+        stream->next == '*'
+      ) {
         symbol = depth > 0 ? NAMED_WILDCARD_SYMBOL : WILDCARD_SYMBOL;
         stream_advance(stream);
       }
@@ -771,6 +777,14 @@ static TSQueryError ts_query__parse_pattern(
         const char *node_name = stream->input;
         stream_scan_identifier(stream);
         uint32_t length = stream->input - node_name;
+
+        // TODO - remove.
+        // For temporary backward compatibility, handle predicates without the leading '#' sign.
+        if (length > 0 && (node_name[length - 1] == '!' || node_name[length - 1] == '?')) {
+          stream_reset(stream, node_name);
+          return ts_query__parse_predicate(self, stream);
+        }
+
         symbol = ts_language_symbol_for_name(
           self->language,
           node_name,
