@@ -83,10 +83,11 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
         "src",
     ]);
 
-    let parser_c_path = src_dir.join("parser.c");
-    let scanner_c_path = src_dir.join("scanner.c");
-    let scanner_cc_path = src_dir.join("scanner.cc");
-    let scanner_cpp_path = src_dir.join("scanner.cpp");
+    let src = Path::new("src");
+    let parser_c_path = src.join("parser.c");
+    let scanner_c_path = src.join("scanner.c");
+    let scanner_cc_path = src.join("scanner.cc");
+    let scanner_cpp_path = src.join("scanner.cpp");
 
     if scanner_cc_path.exists() {
         command.arg("-xc++").arg(&scanner_cc_path);
