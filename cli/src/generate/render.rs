@@ -759,7 +759,7 @@ impl Generator {
                 && state.terminal_entries.len() == 1
                 && *state.terminal_entries.iter().next().unwrap().0 == Symbol::end()
             {
-                add_line!(self, "[{}] = {{-1}},", i,);
+                add_line!(self, "[{}] = {{(TSStateId)(-1)}},", i,);
             } else if state.external_lex_state_id > 0 {
                 add_line!(
                     self,
