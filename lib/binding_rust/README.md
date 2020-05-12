@@ -1,5 +1,4 @@
-Rust Tree-sitter
-================
+# Rust Tree-sitter
 
 [![Build Status](https://travis-ci.org/tree-sitter/tree-sitter.svg?branch=master)](https://travis-ci.org/tree-sitter/tree-sitter)
 [![Build status](https://ci.appveyor.com/api/projects/status/vtmbd6i92e97l55w/branch/master?svg=true)](https://ci.appveyor.com/project/maxbrunsfeld/tree-sitter/branch/master)
@@ -14,15 +13,12 @@ First, create a parser:
 ```rust
 use tree_sitter::{Parser, Language};
 
-// ...
-
 let mut parser = Parser::new();
 ```
 
 Tree-sitter languages consist of generated C code. To make sure they're properly compiled and linked, you can create a [build script](https://doc.rust-lang.org/cargo/reference/build-scripts.html) like the following (assuming `tree-sitter-javascript` is in your root directory):
-```rust
-extern crate cc;
 
+```rust
 use std::path::PathBuf;
 
 fn main() {
@@ -37,12 +33,13 @@ fn main() {
 ```
 
 Add the `cc` crate to your `Cargo.toml` under `[build-dependencies]`:
+
 ```toml
 [build-dependencies]
 cc="*"
 ```
 
-To then use languages from rust, you must declare them as `extern "C"` functions and invoke them with `unsafe`. Then you can assign them to the parser. 
+To then use languages from rust, you must declare them as `extern "C"` functions and invoke them with `unsafe`. Then you can assign them to the parser.
 
 ```rust
 extern "C" { fn tree_sitter_c() -> Language; }
