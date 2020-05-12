@@ -21,7 +21,7 @@ CFLAGS=${CFLAGS:-"$default_fuzz_flags"}
 CXXFLAGS=${CXXFLAGS:-"$default_fuzz_flags"}
 
 export CFLAGS
-script/build-lib
+make
 
 if [ -z "$@" ]; then
   languages=$(ls test/fixtures/grammars)
