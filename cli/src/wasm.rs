@@ -89,11 +89,11 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
     let scanner_cc_path = src.join("scanner.cc");
     let scanner_cpp_path = src.join("scanner.cpp");
 
-    if scanner_cc_path.exists() {
+    if language_dir.join(&scanner_cc_path).exists() {
         command.arg("-xc++").arg(&scanner_cc_path);
-    } else if scanner_cpp_path.exists() {
+    } else if language_dir.join(&scanner_cpp_path).exists() {
         command.arg("-xc++").arg(&scanner_cpp_path);
-    } else if scanner_c_path.exists() {
+    } else if language_dir.join(&scanner_c_path).exists() {
         command.arg(&scanner_c_path);
     }
 
