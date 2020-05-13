@@ -1022,7 +1022,7 @@ impl Generator {
         for (i, entry) in parse_table_entries {
             add!(
                 self,
-                "  [{}] = {{ .entry = {{.count = {}, .reusable = {}}} }},",
+                "  [{}] = {{.entry = {{.count = {}, .reusable = {}}}}},",
                 i,
                 entry.actions.len(),
                 entry.reusable
