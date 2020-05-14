@@ -502,26 +502,34 @@ pub(crate) fn generate_node_types_json(
 
                 // There may already be an entry with this name, because multiple
                 // rules may be aliased with the same name.
-                let node_type_json =
-                    node_types_json
-                        .entry(kind.clone())
-                        .or_insert_with(|| NodeInfoJSON {
-                            kind: kind.clone(),
-                            named: is_named,
-                            fields: Some(BTreeMap::new()),
-                            children: None,
-                            subtypes: None,
-                        });
+                let mut node_type_existed = true;
+                let node_type_json = node_types_json.entry(kind.clone()).or_insert_with(|| {
+                    node_type_existed = false;
+                    NodeInfoJSON {
+                        kind: kind.clone(),
+                        named: is_named,
+                        fields: Some(BTreeMap::new()),
+                        children: None,
+                        subtypes: None,
+                    }
+                });
 
                 let fields_json = node_type_json.fields.as_mut().unwrap();
-                for (field, field_info) in info.fields.iter() {
-                    populate_field_info_json(
-                        &mut fields_json
-                            .entry(field.clone())
-                            .or_insert(FieldInfoJSON::default()),
-                        field_info,
-                    );
+                for (new_field, field_info) in info.fields.iter() {
+                    let field_json = fields_json.entry(new_field.clone()).or_insert_with(|| {
+                        // If another rule is aliased with the same name, and does *not* have this field,
+                        // then this field cannot be required.
+                        let mut field_json = FieldInfoJSON::default();
+                        if node_type_existed {
+                            field_json.required = false;
+                        }
+                        field_json
+                    });
+                    populate_field_info_json(field_json, field_info);
                 }
+
+                // If another rule is aliased with the same name, any fields that aren't present in this
+                // cannot be required.
                 for (existing_field, field_json) in fields_json.iter_mut() {
                     if !info.fields.contains_key(existing_field) {
                         field_json.required = false;
@@ -1170,7 +1178,7 @@ mod tests {
     }
 
     #[test]
-    fn test_node_types_with_named_aliases() {
+    fn test_node_types_with_multiple_rules_same_alias_name() {
         let node_types = get_node_types(InputGrammar {
             name: String::new(),
             extra_symbols: Vec::new(),
@@ -1181,98 +1189,117 @@ mod tests {
             supertype_symbols: vec![],
             variables: vec![
                 Variable {
-                    name: "expression".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::choice(vec![Rule::named("yield"), Rule::named("argument_list")]),
-                },
-                Variable {
-                    name: "yield".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::Seq(vec![Rule::string("YIELD")]),
-                },
-                Variable {
-                    name: "argument_list".to_string(),
+                    name: "script".to_string(),
                     kind: VariableType::Named,
                     rule: Rule::choice(vec![
-                        Rule::named("x"),
-                        Rule::alias(Rule::named("b"), "expression".to_string(), true),
+                        Rule::named("a"),
+                        // Rule `b` is aliased as rule `a`
+                        Rule::alias(Rule::named("b"), "a".to_string(), true),
+                    ]),
+                },
+                Variable {
+                    name: "a".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::seq(vec![
+                        Rule::field("f1".to_string(), Rule::string("1")),
+                        Rule::field("f2".to_string(), Rule::string("2")),
                     ]),
                 },
                 Variable {
                     name: "b".to_string(),
                     kind: VariableType::Named,
-                    rule: Rule::choice(vec![
-                        Rule::field("f".to_string(), Rule::string("B")),
-                        Rule::named("c"),
+                    rule: Rule::seq(vec![
+                        Rule::field("f2".to_string(), Rule::string("22")),
+                        Rule::field("f2".to_string(), Rule::string("222")),
+                        Rule::field("f3".to_string(), Rule::string("3")),
                     ]),
-                },
-                Variable {
-                    name: "c".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::seq(vec![Rule::string("C")]),
-                },
-                Variable {
-                    name: "x".to_string(),
-                    kind: VariableType::Named,
-                    rule: Rule::seq(vec![Rule::string("X")]),
                 },
             ],
         });
 
         assert_eq!(
-            node_types.iter().map(|n| &n.kind).collect::<Vec<_>>(),
-            &[
-                "argument_list",
-                "c",
-                "expression",
-                "x",
-                "yield",
-                "B",
-                "C",
-                "X",
-                "YIELD"
-            ]
+            &node_types
+                .iter()
+                .map(|t| t.kind.as_str())
+                .collect::<Vec<_>>(),
+            &["a", "script", "1", "2", "22", "222", "3"]
         );
+
         assert_eq!(
-            node_types[2],
-            NodeInfoJSON {
-                kind: "expression".to_string(),
-                named: true,
-                subtypes: None,
-                children: Some(FieldInfoJSON {
-                    multiple: false,
-                    required: false,
-                    types: vec![
-                        NodeTypeJSON {
-                            kind: "argument_list".to_string(),
+            &node_types[0..2],
+            &[
+                // A combination of the types for `a` and `b`.
+                NodeInfoJSON {
+                    kind: "a".to_string(),
+                    named: true,
+                    subtypes: None,
+                    children: None,
+                    fields: Some(
+                        vec![
+                            (
+                                "f1".to_string(),
+                                FieldInfoJSON {
+                                    multiple: false,
+                                    required: false,
+                                    types: vec![NodeTypeJSON {
+                                        kind: "1".to_string(),
+                                        named: false,
+                                    }]
+                                }
+                            ),
+                            (
+                                "f2".to_string(),
+                                FieldInfoJSON {
+                                    multiple: true,
+                                    required: true,
+                                    types: vec![
+                                        NodeTypeJSON {
+                                            kind: "2".to_string(),
+                                            named: false,
+                                        },
+                                        NodeTypeJSON {
+                                            kind: "22".to_string(),
+                                            named: false,
+                                        },
+                                        NodeTypeJSON {
+                                            kind: "222".to_string(),
+                                            named: false,
+                                        }
+                                    ]
+                                },
+                            ),
+                            (
+                                "f3".to_string(),
+                                FieldInfoJSON {
+                                    multiple: false,
+                                    required: false,
+                                    types: vec![NodeTypeJSON {
+                                        kind: "3".to_string(),
+                                        named: false,
+                                    }]
+                                }
+                            ),
+                        ]
+                        .into_iter()
+                        .collect()
+                    ),
+                },
+                NodeInfoJSON {
+                    kind: "script".to_string(),
+                    named: true,
+                    subtypes: None,
+                    // Only one node
+                    children: Some(FieldInfoJSON {
+                        multiple: false,
+                        required: true,
+                        types: vec![NodeTypeJSON {
+                            kind: "a".to_string(),
                             named: true,
-                        },
-                        NodeTypeJSON {
-                            kind: "c".to_string(),
-                            named: true,
-                        },
-                        NodeTypeJSON {
-                            kind: "yield".to_string(),
-                            named: true,
-                        },
-                    ]
-                }),
-                fields: Some(
-                    vec![(
-                        "f".to_string(),
-                        FieldInfoJSON {
-                            required: false,
-                            multiple: false,
-                            types: vec![NodeTypeJSON {
-                                named: false,
-                                kind: "B".to_string(),
-                            }]
-                        }
-                    )]
-                    .into_iter()
-                    .collect()
-                ),
-            }
+                        }]
+                    }),
+                    fields: Some(BTreeMap::new()),
+                }
+            ]
         );
     }
 
