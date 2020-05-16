@@ -149,7 +149,8 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("path").index(1).multiple(true)),
         )
         .subcommand(
-            SubCommand::with_name("web-ui").about("Test a parser interactively in the browser"),
+            SubCommand::with_name("web-ui").about("Test a parser interactively in the browser")
+                .arg(Arg::with_name("quiet").long("quiet").short("q").help("open in default browser")),
         )
         .subcommand(
             SubCommand::with_name("dump-languages")
@@ -318,8 +319,9 @@ fn run() -> error::Result<()> {
     } else if let Some(matches) = matches.subcommand_matches("build-wasm") {
         let grammar_path = current_dir.join(matches.value_of("path").unwrap_or(""));
         wasm::compile_language_to_wasm(&grammar_path, matches.is_present("docker"))?;
-    } else if matches.subcommand_matches("web-ui").is_some() {
-        web_ui::serve(&current_dir);
+    } else if let Some(matches) = matches.subcommand_matches("web-ui") {
+        let open_in_browser = !matches.is_present("quiet");
+        web_ui::serve(&current_dir, open_in_browser);
     } else if matches.subcommand_matches("dump-languages").is_some() {
         loader.find_all_languages(&config.parser_directories)?;
         for (configuration, language_path) in loader.get_all_language_configurations() {
