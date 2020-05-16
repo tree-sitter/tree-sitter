@@ -43,7 +43,7 @@ resource!(get_playground_js, "docs/assets/js/playground.js");
 posix_resource!(get_lib_js, "lib/binding_web/tree-sitter.js");
 posix_resource!(get_lib_wasm, "lib/binding_web/tree-sitter.wasm");
 
-pub fn serve(grammar_path: &Path) {
+pub fn serve(grammar_path: &Path, open_in_browser: bool) {
     let port = get_available_port().expect("Couldn't find an available port");
     let url = format!("127.0.0.1:{}", port);
     let server = Server::http(&url).expect("Failed to start web server");
@@ -59,12 +59,11 @@ pub fn serve(grammar_path: &Path) {
             )
         }))
         .unwrap();
-
-    webbrowser::open(&format!("http://127.0.0.1:{}", port))
-        .map_err(Error::wrap(|| {
-            format!("Failed to open '{}' in a web browser", url)
-        }))
-        .unwrap();
+    if open_in_browser {
+        if let Err(_) = webbrowser::open(&format!("http://127.0.0.1:{}", port)) {
+            eprintln!("Failed to open '{}' in a web browser", url);
+        }
+    }
 
     let tree_sitter_dir = env::var("TREE_SITTER_BASE_DIR").map(PathBuf::from).ok();
     let main_html = String::from_utf8(get_main_html(&tree_sitter_dir))
