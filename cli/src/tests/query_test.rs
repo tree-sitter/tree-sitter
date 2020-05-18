@@ -339,7 +339,7 @@ fn test_query_matches_with_nesting_and_no_fields() {
 }
 
 #[test]
-fn test_query_matches_with_many() {
+fn test_query_matches_with_many_results() {
     allocations::record(|| {
         let language = get_language("javascript");
         let query = Query::new(language, "(array (identifier) @element)").unwrap();
@@ -349,6 +349,47 @@ fn test_query_matches_with_many() {
             &query,
             &"[hello];\n".repeat(50),
             &vec![(0, vec![("element", "hello")]); 50],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_many_overlapping_results() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            (call_expression
+                function: (member_expression
+                    property: (property_identifier) @method))
+            (call_expression
+                function: (identifier) @function)
+            ((identifier) @constant
+             (#match? @constant "[A-Z\\d_]+"))
+            "#
+        ).unwrap();
+
+        let count = 80;
+
+        // Deeply nested chained function calls:
+        // a
+        //    .foo(bar(BAZ))
+        //    .foo(bar(BAZ))
+        //    .foo(bar(BAZ))
+        //    ...
+        let mut source = "a".to_string();
+        source += &"\n  .foo(bar(BAZ))".repeat(count);
+
+        assert_query_matches(
+            language,
+            &query,
+            &source,
+            &[
+                (0, vec![("method", "foo")]),
+                (1, vec![("function", "bar")]),
+                (2, vec![("constant", "BAZ")])
+            ].iter().cloned().cycle().take(3 * count).collect::<Vec<_>>(),
         );
     });
 }
