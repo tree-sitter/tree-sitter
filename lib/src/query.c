@@ -1268,6 +1268,9 @@ static bool ts_query_cursor__first_in_progress_capture(
   uint32_t *pattern_index
 ) {
   bool result = false;
+  *state_index = UINT32_MAX;
+  *byte_offset = UINT32_MAX;
+  *pattern_index = UINT32_MAX;
   for (unsigned i = 0; i < self->states.size; i++) {
     const QueryState *state = &self->states.contents[i];
     const CaptureList *captures = capture_list_pool_get(
@@ -1279,10 +1282,7 @@ static bool ts_query_cursor__first_in_progress_capture(
       if (
         !result ||
         capture_byte < *byte_offset ||
-        (
-          capture_byte == *byte_offset &&
-          state->pattern_index < *pattern_index
-        )
+        (capture_byte == *byte_offset && state->pattern_index < *pattern_index)
       ) {
         result = true;
         *state_index = i;
@@ -1644,7 +1644,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
             // state has captured the earliest node in the document, and steal its
             // capture list.
             if (state->capture_list_id == NONE) {
-              uint32_t state_index = 0, byte_offset, pattern_index;
+              uint32_t state_index, byte_offset, pattern_index;
               if (ts_query_cursor__first_in_progress_capture(
                 self,
                 &state_index,
@@ -1865,9 +1865,9 @@ bool ts_query_cursor_next_capture(
       // First, identify the position of the earliest capture in an unfinished
       // match. For a finished capture to be returned, it must be *before*
       // this position.
-      uint32_t first_unfinished_capture_byte = UINT32_MAX;
-      uint32_t first_unfinished_pattern_index = UINT32_MAX;
-      uint32_t first_unfinished_state_index = UINT32_MAX;
+      uint32_t first_unfinished_capture_byte;
+      uint32_t first_unfinished_pattern_index;
+      uint32_t first_unfinished_state_index;
       ts_query_cursor__first_in_progress_capture(
         self,
         &first_unfinished_state_index,
