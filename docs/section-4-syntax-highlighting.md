@@ -224,7 +224,7 @@ The capture names are as follows:
 
 When highlighting a file, Tree-sitter will keep track of the set of scopes that contains any given position, and the set of definitions within each scope. When processing a syntax node that is captured as a `local.reference`, Tree-sitter will try to find a definition for a name that matches the node's text. If it finds a match, Tree-sitter will ensure that the *reference* and the *definition* are colored the same.
 
-The information produced by this query can also be *used* by the highlights query. You can *disable* a pattern for nodes which have been identified as local variables by adding the predicate `(is-not? local)` to the pattern. This is used in the example below:
+The information produced by this query can also be *used* by the highlights query. You can *disable* a pattern for nodes which have been identified as local variables by adding the predicate `(#is-not? local)` to the pattern. This is used in the example below:
 
 #### Example Input
 
@@ -299,7 +299,7 @@ Let's write some queries that let us clearly distinguish between these types of 
 (block_parameters (identifier) @variable.parameter)
 
 ((identifier) @function.method
- (is-not? local))
+ (#is-not? local))
 ```
 
 Then, we'll set up a local variable query to keep track of the variables and scopes. Here, we're indicating that methods and blocks create local *scopes*, parameters and assignments create *definitions*, and other identifiers should be considered *references*:

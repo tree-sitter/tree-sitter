@@ -1055,7 +1055,7 @@ fn injection_for_match<'a>(
     for prop in query.property_settings(query_match.pattern_index) {
         match prop.key.as_ref() {
             // In addition to specifying the language name via the text of a
-            // captured node, it can also be hard-coded via a `set!` predicate
+            // captured node, it can also be hard-coded via a `#set!` predicate
             // that sets the injection.language key.
             "injection.language" => {
                 if language_name.is_none() {
@@ -1065,7 +1065,7 @@ fn injection_for_match<'a>(
 
             // By default, injections do not include the *children* of an
             // `injection.content` node - only the ranges that belong to the
-            // node itself. This can be changed using a `set!` predicate that
+            // node itself. This can be changed using a `#set!` predicate that
             // sets the `injection.include-children` key.
             "injection.include-children" => include_children = true,
             _ => {}
