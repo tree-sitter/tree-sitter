@@ -80,6 +80,13 @@ struct TransitionSummary {
     call_id: Option<usize>,
 }
 
+struct LargeCharacterSetInfo {
+    ranges: Vec<Range<char>>,
+    symbol: Symbol,
+    index: usize,
+    usage_count: usize,
+}
+
 impl Generator {
     fn generate(mut self) -> String {
         self.init();
@@ -585,7 +592,7 @@ impl Generator {
         extract_helper_functions: bool,
     ) {
         let mut ruled_out_chars = HashSet::new();
-        let mut large_character_sets = Vec::<(Symbol, usize, Vec<Range<char>>)>::new();
+        let mut large_character_sets = Vec::<LargeCharacterSetInfo>::new();
 
         // For each lex state, compute a summary of the code that needs to be
         // generated.
@@ -621,22 +628,24 @@ impl Generator {
                                 .symbol_for_advance_action(action, &lex_table)
                                 .expect("No symbol for lex state");
                             let mut count_for_symbol = 0;
-                            for (i, (symbol, _, r)) in large_character_sets.iter().enumerate() {
-                                if r == &ranges {
+                            for (i, info) in large_character_sets.iter_mut().enumerate() {
+                                if info.ranges == ranges {
                                     call_id = Some(i);
+                                    info.usage_count += 1;
                                     break;
                                 }
-                                if *symbol == char_set_symbol {
+                                if info.symbol == char_set_symbol {
                                     count_for_symbol += 1;
                                 }
                             }
                             if call_id.is_none() {
                                 call_id = Some(large_character_sets.len());
-                                large_character_sets.push((
-                                    char_set_symbol,
-                                    count_for_symbol + 1,
-                                    ranges.clone(),
-                                ));
+                                large_character_sets.push(LargeCharacterSetInfo {
+                                    symbol: char_set_symbol,
+                                    index: count_for_symbol + 1,
+                                    ranges: ranges.clone(),
+                                    usage_count: 1,
+                                });
                             }
                         }
 
@@ -652,24 +661,26 @@ impl Generator {
 
         // Generate a helper function for each large character set.
         let mut sorted_large_char_sets: Vec<_> = large_character_sets.iter().map(|e| e).collect();
-        sorted_large_char_sets.sort_unstable_by_key(|(sym, count, _)| (sym, count));
-        for (sym, count, ranges) in sorted_large_char_sets {
-            add_line!(
-                self,
-                "static inline bool {}_character_set_{}(int32_t lookahead) {{",
-                self.symbol_ids[sym],
-                count
-            );
-            indent!(self);
-            add_line!(self, "return");
-            indent!(self);
-            add_whitespace!(self);
-            self.add_character_range_conditions(ranges, true, 0);
-            add!(self, ";\n");
-            dedent!(self);
-            dedent!(self);
-            add_line!(self, "}}");
-            add_line!(self, "");
+        sorted_large_char_sets.sort_unstable_by_key(|info| (info.symbol, info.index));
+        for info in sorted_large_char_sets {
+            if info.usage_count > 1 {
+                add_line!(
+                    self,
+                    "static inline bool {}_character_set_{}(int32_t lookahead) {{",
+                    self.symbol_ids[&info.symbol],
+                    info.index
+                );
+                indent!(self);
+                add_line!(self, "return");
+                indent!(self);
+                add_whitespace!(self);
+                self.add_character_range_conditions(&info.ranges, true, 0);
+                add!(self, ";\n");
+                dedent!(self);
+                dedent!(self);
+                add_line!(self, "}}");
+                add_line!(self, "");
+            }
         }
 
         add_line!(
@@ -735,7 +746,7 @@ impl Generator {
         &mut self,
         state: LexState,
         transition_info: &Vec<TransitionSummary>,
-        large_character_sets: &Vec<(Symbol, usize, Vec<Range<char>>)>,
+        large_character_sets: &Vec<LargeCharacterSetInfo>,
     ) {
         if let Some(accept_action) = state.accept_action {
             add_line!(self, "ACCEPT_TOKEN({});", self.symbol_ids[&accept_action]);
@@ -752,21 +763,27 @@ impl Generator {
             // If there is a helper function for this transition's character
             // set, then generate a call to that helper function.
             if let Some(call_id) = transition.call_id {
-                add!(self, "if (");
-                if !transition.is_included {
-                    add!(self, "!");
+                let info = &large_character_sets[call_id];
+                if info.usage_count > 1 {
+                    add!(self, "if (");
+                    if !transition.is_included {
+                        add!(self, "!");
+                    }
+                    add!(
+                        self,
+                        "{}_character_set_{}(lookahead)) ",
+                        self.symbol_ids[&info.symbol],
+                        info.index
+                    );
+                    self.add_advance_action(&action);
+                    add!(self, "\n");
+                    continue;
                 }
-                let (symbol, count, _) = &large_character_sets[call_id];
-                add!(
-                    self,
-                    "{}_character_set_{}(lookahead)) ",
-                    self.symbol_ids[symbol],
-                    count
-                );
             }
+
             // Otherwise, generate code to compare the lookahead character
             // with all of the character ranges.
-            else if transition.ranges.len() > 0 {
+            if transition.ranges.len() > 0 {
                 add!(self, "if (");
                 self.add_character_range_conditions(&transition.ranges, transition.is_included, 2);
                 add!(self, ") ");
