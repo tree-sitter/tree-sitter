@@ -15,7 +15,7 @@ use std::mem::swap;
 // stabilized, and the parser generation does not use it by default.
 const STABLE_LANGUAGE_VERSION: usize = tree_sitter::LANGUAGE_VERSION - 1;
 
-const LARGE_RANGE_COUNT: usize = 8;
+const LARGE_CHARACTER_RANGE_COUNT: usize = 8;
 
 macro_rules! add {
     ($this: tt, $($arg: tt)*) => {{
@@ -584,67 +584,92 @@ impl Generator {
         lex_table: LexTable,
         extract_helper_functions: bool,
     ) {
-        let mut large_character_sets = Vec::<Vec<Range<char>>>::new();
+        let mut ruled_out_chars = HashSet::new();
+        let mut large_character_sets = Vec::<(Symbol, usize, Vec<Range<char>>)>::new();
 
-        let mut state_transition_summaries = Vec::new();
-        for state in lex_table.states.iter() {
-            let mut transition_info = Vec::new();
-            let mut ruled_out_characters = HashSet::new();
-            for (characters, _) in &state.advance_actions {
-                let (characters, is_included) = match characters {
-                    CharacterSet::Include(c) => (c, true),
-                    CharacterSet::Exclude(c) => (c, false),
-                };
+        // For each lex state, compute a summary of the code that needs to be
+        // generated.
+        let state_transition_summaries: Vec<Vec<TransitionSummary>> = lex_table
+            .states
+            .iter()
+            .map(|state| {
+                ruled_out_chars.clear();
 
-                let mut summary = TransitionSummary {
-                    is_included,
-                    ranges: CharacterSet::ranges(characters, &ruled_out_characters).collect(),
-                    call_id: None,
-                };
+                // For each state transition, compute the set of character ranges
+                // that need to be checked.
+                state
+                    .advance_actions
+                    .iter()
+                    .map(|(chars, action)| {
+                        let (chars, is_included) = match chars {
+                            CharacterSet::Include(c) => (c, true),
+                            CharacterSet::Exclude(c) => (c, false),
+                        };
+                        let mut call_id = None;
+                        let mut ranges =
+                            CharacterSet::ranges(chars, &ruled_out_chars).collect::<Vec<_>>();
+                        if is_included {
+                            ruled_out_chars.extend(chars.iter().map(|c| *c as u32));
+                        } else {
+                            ranges.insert(0, '\0'..'\0')
+                        }
 
-                if !summary.is_included {
-                    summary.ranges.insert(0, '\0'..'\0')
-                }
+                        // Record any large character sets so that they can be extracted
+                        // into helper functions, reducing code duplication.
+                        if extract_helper_functions && ranges.len() > LARGE_CHARACTER_RANGE_COUNT {
+                            let char_set_symbol = self
+                                .symbol_for_advance_action(action, &lex_table)
+                                .expect("No symbol for lex state");
+                            let mut count_for_symbol = 0;
+                            for (i, (symbol, _, r)) in large_character_sets.iter().enumerate() {
+                                if r == &ranges {
+                                    call_id = Some(i);
+                                    break;
+                                }
+                                if *symbol == char_set_symbol {
+                                    count_for_symbol += 1;
+                                }
+                            }
+                            if call_id.is_none() {
+                                call_id = Some(large_character_sets.len());
+                                large_character_sets.push((
+                                    char_set_symbol,
+                                    count_for_symbol + 1,
+                                    ranges.clone(),
+                                ));
+                            }
+                        }
 
-                if extract_helper_functions && summary.ranges.len() > LARGE_RANGE_COUNT {
-                    if let Some(id) = large_character_sets
-                        .iter()
-                        .position(|c| c == &summary.ranges)
-                    {
-                        summary.call_id = Some(id);
-                    } else {
-                        summary.call_id = Some(large_character_sets.len());
-                        large_character_sets.push(summary.ranges.clone());
-                    }
-                }
+                        TransitionSummary {
+                            is_included,
+                            ranges,
+                            call_id,
+                        }
+                    })
+                    .collect()
+            })
+            .collect();
 
-                if is_included {
-                    ruled_out_characters.extend(characters.iter().map(|c| *c as u32));
-                }
-
-                transition_info.push(summary);
-            }
-            state_transition_summaries.push(transition_info);
-        }
-
-        if extract_helper_functions {
-            for (i, ranges) in large_character_sets.into_iter().enumerate() {
-                add_line!(
-                    self,
-                    "static inline bool ts_character_set_{}(int32_t lookahead) {{",
-                    i
-                );
-                indent!(self);
-                add_line!(self, "return");
-                indent!(self);
-                add_whitespace!(self);
-                self.add_character_range_conditions(&ranges, true, 0);
-                add!(self, ";\n");
-                dedent!(self);
-                dedent!(self);
-                add_line!(self, "}}");
-                add_line!(self, "");
-            }
+        // Generate a helper function for each large character set.
+        let mut sorted_large_char_sets: Vec<_> = large_character_sets.iter().map(|e| e).collect();
+        sorted_large_char_sets.sort_unstable_by_key(|(sym, count, _)| (sym, count));
+        for (sym, count, ranges) in sorted_large_char_sets {
+            add_line!(
+                self,
+                "static inline bool {}_character_set_{}(int32_t lookahead) {{",
+                self.symbol_ids[sym],
+                count
+            );
+            indent!(self);
+            add_line!(self, "return");
+            indent!(self);
+            add_whitespace!(self);
+            self.add_character_range_conditions(ranges, true, 0);
+            add!(self, ";\n");
+            dedent!(self);
+            dedent!(self);
+            add_line!(self, "}}");
+            add_line!(self, "");
         }
 
         add_line!(
@@ -667,7 +692,7 @@ impl Generator {
         for (i, state) in lex_table.states.into_iter().enumerate() {
             add_line!(self, "case {}:", i);
             indent!(self);
-            self.add_lex_state(state, &state_transition_summaries[i]);
+            self.add_lex_state(state, &state_transition_summaries[i], &large_character_sets);
             dedent!(self);
         }
 
@@ -683,7 +708,35 @@ impl Generator {
         add_line!(self, "");
     }
 
-    fn add_lex_state(&mut self, state: LexState, transition_info: &Vec<TransitionSummary>) {
+    fn symbol_for_advance_action(
+        &self,
+        action: &AdvanceAction,
+        lex_table: &LexTable,
+    ) -> Option<Symbol> {
+        let mut state_ids = vec![action.state];
+        let mut i = 0;
+        while i < state_ids.len() {
+            let id = state_ids[i];
+            let state = &lex_table.states[id];
+            if let Some(accept) = state.accept_action {
+                return Some(accept);
+            }
+            for (_, action) in &state.advance_actions {
+                if !state_ids.contains(&action.state) {
+                    state_ids.push(action.state);
+                }
+            }
+            i += 1;
+        }
+        return None;
+    }
+
+    fn add_lex_state(
+        &mut self,
+        state: LexState,
+        transition_info: &Vec<TransitionSummary>,
+        large_character_sets: &Vec<(Symbol, usize, Vec<Range<char>>)>,
+    ) {
         if let Some(accept_action) = state.accept_action {
             add_line!(self, "ACCEPT_TOKEN({});", self.symbol_ids[&accept_action]);
         }
@@ -695,13 +748,25 @@ impl Generator {
         for (i, (_, action)) in state.advance_actions.into_iter().enumerate() {
             let transition = &transition_info[i];
             add_whitespace!(self);
+
+            // If there is a helper function for this transition's character
+            // set, then generate a call to that helper function.
             if let Some(call_id) = transition.call_id {
                 add!(self, "if (");
                 if !transition.is_included {
                     add!(self, "!");
                 }
-                add!(self, "ts_character_set_{}(lookahead)) ", call_id);
-            } else if transition.ranges.len() > 0 {
+                let (symbol, count, _) = &large_character_sets[call_id];
+                add!(
+                    self,
+                    "{}_character_set_{}(lookahead)) ",
+                    self.symbol_ids[symbol],
+                    count
+                );
+            }
+            // Otherwise, generate code to compare the lookahead character
+            // with all of the character ranges.
+            else if transition.ranges.len() > 0 {
                 add!(self, "if (");
                 self.add_character_range_conditions(&transition.ranges, transition.is_included, 2);
                 add!(self, ") ");
