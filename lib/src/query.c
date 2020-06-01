@@ -874,7 +874,7 @@ static TSQueryError ts_query__parse_pattern(
           capture_count,
           child_is_immediate
         );
-        if (e == PARENT_DONE) {
+        if (e == PARENT_DONE && stream->next == ')') {
           if (child_is_immediate) {
             self->steps.contents[child_start_step_index].is_last_child = true;
           }
@@ -1132,6 +1132,7 @@ TSQuery *ts_query_new(
     // If any pattern could not be parsed, then report the error information
     // and terminate.
     if (*error_type) {
+      if (*error_type == PARENT_DONE) *error_type = TSQueryErrorSyntax;
       *error_offset = stream.input - source;
       ts_query_delete(self);
       return NULL;
@@ -1156,6 +1157,9 @@ TSQuery *ts_query_new(
       if (step->symbol == WILDCARD_SYMBOL) {
         self->wildcard_root_pattern_count++;
       }
+
+      // If there are alternatives or options at the root of the pattern,
+      // then add multiple entries to the pattern map.
       if (step->alternative_index != NONE) {
         start_step_index = step->alternative_index;
       } else {

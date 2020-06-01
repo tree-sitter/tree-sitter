@@ -88,6 +88,17 @@ fn test_query_errors_on_invalid_syntax() {
             ))
         );
         assert_eq!(
+            Query::new(language, r#"((identifier) [])"#),
+            Err(QueryError::Syntax(
+                1,
+                [
+                    "((identifier) [])", //
+                    "               ^",
+                ]
+                .join("\n")
+            ))
+        );
+        assert_eq!(
             Query::new(language, r#"((identifier) (#a)"#),
             Err(QueryError::Syntax(
                 1,
@@ -951,6 +962,47 @@ fn test_query_matches_with_alternatives_in_repetitions() {
                     0,
                     vec![("el", "e"), ("el", "'f'"), ("el", "'g'"), ("el", "h")],
                 ),
+            ],
+        );
+    })
+}
+
+#[test]
+fn test_query_matches_with_alternatives_at_root() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            [
+                "if"
+                "else"
+                "function"
+                "throw"
+                "return"
+            ] @keyword
+            "#,
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            "
+            function a(b, c, d) {
+                if (b) {
+                    return c;
+                } else {
+                    throw d;
+                }
+            }
+            ",
+            &[
+                (0, vec![("keyword", "function")]),
+                (0, vec![("keyword", "if")]),
+                (0, vec![("keyword", "return")]),
+                (0, vec![("keyword", "else")]),
+                (0, vec![("keyword", "throw")]),
             ],
         );
     })
