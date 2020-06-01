@@ -88,6 +88,17 @@ fn test_query_errors_on_invalid_syntax() {
             ))
         );
         assert_eq!(
+            Query::new(language, r#"((identifier) [])"#),
+            Err(QueryError::Syntax(
+                1,
+                [
+                    "((identifier) [])", //
+                    "               ^",
+                ]
+                .join("\n")
+            ))
+        );
+        assert_eq!(
             Query::new(language, r#"((identifier) (#a)"#),
             Err(QueryError::Syntax(
                 1,
@@ -367,8 +378,9 @@ fn test_query_matches_with_many_overlapping_results() {
                 function: (identifier) @function)
             ((identifier) @constant
              (#match? @constant "[A-Z\\d_]+"))
-            "#
-        ).unwrap();
+            "#,
+        )
+        .unwrap();
 
         let count = 80;
 
@@ -388,8 +400,13 @@ fn test_query_matches_with_many_overlapping_results() {
             &[
                 (0, vec![("method", "foo")]),
                 (1, vec![("function", "bar")]),
-                (2, vec![("constant", "BAZ")])
-            ].iter().cloned().cycle().take(3 * count).collect::<Vec<_>>(),
+                (2, vec![("constant", "BAZ")]),
+            ]
+            .iter()
+            .cloned()
+            .cycle()
+            .take(3 * count)
+            .collect::<Vec<_>>(),
         );
     });
 }
@@ -871,6 +888,122 @@ fn test_query_matches_with_repeated_internal_nodes() {
             }
             ",
             &[(0, vec![("deco", "c"), ("deco", "d"), ("name", "e")])],
+        );
+    })
+}
+
+#[test]
+fn test_query_matches_with_simple_alternatives() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            "
+            (pair
+                key: [(property_identifier) (string)] @key
+                value: [(function) @val1 (arrow_function) @val2])
+            ",
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            "
+            a = {
+                b: c,
+                'd': e => f,
+                g: {
+                    h: function i() {},
+                    'x': null,
+                    j: _ => k
+                },
+                'l': function m() {},
+            };
+            ",
+            &[
+                (0, vec![("key", "'d'"), ("val2", "e => f")]),
+                (0, vec![("key", "h"), ("val1", "function i() {}")]),
+                (0, vec![("key", "j"), ("val2", "_ => k")]),
+                (0, vec![("key", "'l'"), ("val1", "function m() {}")]),
+            ],
+        );
+    })
+}
+
+#[test]
+fn test_query_matches_with_alternatives_in_repetitions() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            (array
+                [(identifier) (string)] @el
+                .
+                (
+                    ","
+                    .
+                    [(identifier) (string)] @el
+                )*)
+            "#,
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            "
+            a = [b, 'c', d, 1, e, 'f', 'g', h];
+            ",
+            &[
+                (0, vec![("el", "b"), ("el", "'c'"), ("el", "d")]),
+                (
+                    0,
+                    vec![("el", "e"), ("el", "'f'"), ("el", "'g'"), ("el", "h")],
+                ),
+            ],
+        );
+    })
+}
+
+#[test]
+fn test_query_matches_with_alternatives_at_root() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            [
+                "if"
+                "else"
+                "function"
+                "throw"
+                "return"
+            ] @keyword
+            "#,
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            "
+            function a(b, c, d) {
+                if (b) {
+                    return c;
+                } else {
+                    throw d;
+                }
+            }
+            ",
+            &[
+                (0, vec![("keyword", "function")]),
+                (0, vec![("keyword", "if")]),
+                (0, vec![("keyword", "return")]),
+                (0, vec![("keyword", "else")]),
+                (0, vec![("keyword", "throw")]),
+            ],
         );
     })
 }
