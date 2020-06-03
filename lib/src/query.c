@@ -259,7 +259,7 @@ static void stream_scan_identifier(Stream *stream) {
  * CaptureListPool
  ******************/
 
-static CaptureListPool capture_list_pool_new() {
+static CaptureListPool capture_list_pool_new(void) {
   return (CaptureListPool) {
     .empty_list = array_new(),
     .usage_map = UINT32_MAX,
@@ -315,7 +315,7 @@ static void capture_list_pool_release(CaptureListPool *self, uint16_t id) {
  * SymbolTable
  **************/
 
-static SymbolTable symbol_table_new() {
+static SymbolTable symbol_table_new(void) {
   return (SymbolTable) {
     .characters = array_new(),
     .slices = array_new(),
@@ -752,7 +752,7 @@ static TSQueryError ts_query__parse_pattern(
       array_push(&branch_step_indices, start_index);
       array_push(&self->steps, query_step__new(0, depth, false));
     }
-    array_pop(&self->steps);
+    (void)array_pop(&self->steps);
 
     // For all of the branches except for the last one, add the subsequent branch as an
     // alternative, and link the end of the branch to the current end of the steps.
@@ -1267,7 +1267,7 @@ void ts_query_disable_pattern(
  * QueryCursor
  ***************/
 
-TSQueryCursor *ts_query_cursor_new() {
+TSQueryCursor *ts_query_cursor_new(void) {
   TSQueryCursor *self = ts_malloc(sizeof(TSQueryCursor));
   *self = (TSQueryCursor) {
     .ascending = false,
