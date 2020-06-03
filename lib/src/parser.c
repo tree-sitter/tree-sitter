@@ -1500,6 +1500,13 @@ static bool ts_parser__advance(
     // push each of its children. Then try again to process the current
     // lookahead.
     if (ts_parser__breakdown_top_of_stack(self, version)) {
+      state = ts_stack_state(self->stack, version);
+      ts_language_table_entry(
+        self->language,
+        state,
+        ts_subtree_leaf_symbol(lookahead),
+        &table_entry
+      );
       continue;
     }
 
