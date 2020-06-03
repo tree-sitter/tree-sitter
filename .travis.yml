@@ -2,6 +2,9 @@ language: rust
 rust:
   - stable
 
+env:
+  CFLAGS="-Wall -Wextra -Werror -Wstrict-prototypes"
+
 matrix:
   include:
     - os: osx
