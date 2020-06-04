@@ -1339,6 +1339,7 @@ static bool ts_parser__advance(
     );
   }
 
+lex:
   // Otherwise, re-run the lexer.
   if (!lookahead.ptr) {
     lookahead = ts_parser__lex(self, version, state);
@@ -1501,12 +1502,9 @@ static bool ts_parser__advance(
     // lookahead.
     if (ts_parser__breakdown_top_of_stack(self, version)) {
       state = ts_stack_state(self->stack, version);
-      ts_language_table_entry(
-        self->language,
-        state,
-        ts_subtree_leaf_symbol(lookahead),
-        &table_entry
-      );
+      ts_subtree_release(&self->tree_pool, lookahead);
+      lookahead = NULL_SUBTREE;
+      goto lex;
       continue;
     }
 
