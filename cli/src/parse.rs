@@ -70,10 +70,18 @@ pub fn parse_file_at_path(
     let mut stdout = stdout.lock();
 
     if let Some(mut tree) = tree {
-        for edit in edits {
+        if debug_graph && !edits.is_empty() {
+            println!("BEFORE:\n{}", String::from_utf8_lossy(&source_code));
+        }
+
+        for (i, edit) in edits.iter().enumerate() {
             let edit = parse_edit_flag(&source_code, edit)?;
             perform_edit(&mut tree, &mut source_code, &edit);
             tree = parser.parse(&source_code, Some(&tree)).unwrap();
+
+            if debug_graph {
+                println!("AFTER {}:\n{}", i, String::from_utf8_lossy(&source_code));
+            }
         }
 
         let duration = time.elapsed();
