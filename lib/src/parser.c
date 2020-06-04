@@ -1339,6 +1339,7 @@ static bool ts_parser__advance(
     );
   }
 
+lex:
   // Otherwise, re-run the lexer.
   if (!lookahead.ptr) {
     lookahead = ts_parser__lex(self, version, state);
@@ -1500,6 +1501,10 @@ static bool ts_parser__advance(
     // push each of its children. Then try again to process the current
     // lookahead.
     if (ts_parser__breakdown_top_of_stack(self, version)) {
+      state = ts_stack_state(self->stack, version);
+      ts_subtree_release(&self->tree_pool, lookahead);
+      lookahead = NULL_SUBTREE;
+      goto lex;
       continue;
     }
 
