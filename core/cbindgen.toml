@@ -1,0 +1,6 @@
+header = "// SPDX-License-Identifier: MIT"
+tab_width = 4
+style = "Type"
+language = "C"
+cpp_compat = true
+include_guard = "TREE_SITTER_H"

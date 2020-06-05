@@ -1,6 +1,6 @@
 [package]
-name = "tree-sitter"
-description = "Rust bindings to the Tree-sitter parsing library"
+name = "tree-sitter-core"
+description = "Rust Tree-Sitter core"
 version = "0.16.1"
 authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
 license = "MIT"
@@ -10,11 +10,10 @@ categories = ["api-bindings", "parsing", "text-editors"]
 repository = "https://github.com/tree-sitter/tree-sitter"
 
 [dependencies]
-regex = "1"
-
-[dependencies.tree-sitter-core]
-version = ">= 0.3.7"
-path = "../core"
+c2rust-bitfields = "0.3"
+libc = { version = "0.2", optional = true }
+once_cell = "1.3.1"
+errno = { version = "0.2.5", optional = true }
 
 [lib]
-path = "binding_rust/lib.rs"
+crate-type = ["lib", "staticlib"]

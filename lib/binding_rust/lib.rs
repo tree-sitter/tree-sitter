@@ -1,5 +1,7 @@
-mod ffi;
+mod bindings;
 mod util;
+
+extern crate tree_sitter_core;
 
 #[cfg(unix)]
 use std::os::unix::io::AsRawFd;
@@ -11,6 +13,7 @@ use std::os::raw::{c_char, c_void};
 use std::ptr::NonNull;
 use std::sync::atomic::AtomicUsize;
 use std::{char, fmt, hash, iter, ptr, slice, str, u16};
+use tree_sitter_core as ffi;
 
 /// The latest ABI version that is supported by the current version of the
 /// library.
@@ -209,12 +212,14 @@ impl Language {
     /// Check if the node type for the given numerical id is named (as opposed
     /// to an anonymous node type).
     pub fn node_kind_is_named(&self, id: u16) -> bool {
-        unsafe { ffi::ts_language_symbol_type(self.0, id) == ffi::TSSymbolType_TSSymbolTypeRegular }
+        unsafe {
+            ffi::ts_language_symbol_type(self.0, id) == bindings::TSSymbolType_TSSymbolTypeRegular
+        }
     }
 
     pub fn node_kind_is_visible(&self, id: u16) -> bool {
         unsafe {
-            ffi::ts_language_symbol_type(self.0, id) <= ffi::TSSymbolType_TSSymbolTypeAnonymous
+            ffi::ts_language_symbol_type(self.0, id) <= bindings::TSSymbolType_TSSymbolTypeAnonymous
         }
     }
 
@@ -324,7 +329,7 @@ impl Parser {
             ) {
                 let callback = (payload as *mut Logger).as_mut().unwrap();
                 if let Ok(message) = CStr::from_ptr(c_message).to_str() {
-                    let log_type = if c_log_type == ffi::TSLogType_TSLogTypeParse {
+                    let log_type = if c_log_type == bindings::TSLogType_TSLogTypeParse {
                         LogType::Parse
                     } else {
                         LogType::Lex
@@ -356,7 +361,7 @@ impl Parser {
     #[cfg(unix)]
     pub fn print_dot_graphs(&mut self, file: &impl AsRawFd) {
         let fd = file.as_raw_fd();
-        unsafe { ffi::ts_parser_print_dot_graphs(self.0.as_ptr(), ffi::dup(fd)) }
+        unsafe { ffi::ts_parser_print_dot_graphs(self.0.as_ptr(), bindings::dup(fd)) }
     }
 
     /// Stop the parser from printing debugging graphs while parsing.
@@ -447,7 +452,7 @@ impl Parser {
         let c_input = ffi::TSInput {
             payload: &mut payload as *mut (&mut F, Option<T>) as *mut c_void,
             read: Some(read::<T, F>),
-            encoding: ffi::TSInputEncoding_TSInputEncodingUTF8,
+            encoding: bindings::TSInputEncoding_TSInputEncodingUTF8,
         };
 
         let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0.as_ptr());
@@ -503,7 +508,7 @@ impl Parser {
         let c_input = ffi::TSInput {
             payload: &mut payload as *mut (&mut F, Option<T>) as *mut c_void,
             read: Some(read::<T, F>),
-            encoding: ffi::TSInputEncoding_TSInputEncodingUTF16,
+            encoding: bindings::TSInputEncoding_TSInputEncodingUTF16,
         };
 
         let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0.as_ptr());
@@ -1182,16 +1187,20 @@ impl Query {
             };
 
             // if line_containing_error
-            return if error_type != ffi::TSQueryError_TSQueryErrorSyntax {
+            return if error_type != bindings::TSQueryError_TSQueryErrorSyntax {
                 let suffix = source.split_at(offset).1;
                 let end_offset = suffix
                     .find(|c| !char::is_alphanumeric(c) && c != '_' && c != '-')
                     .unwrap_or(source.len());
                 let name = suffix.split_at(end_offset).0.to_string();
                 match error_type {
-                    ffi::TSQueryError_TSQueryErrorNodeType => Err(QueryError::NodeType(row, name)),
-                    ffi::TSQueryError_TSQueryErrorField => Err(QueryError::Field(row, name)),
-                    ffi::TSQueryError_TSQueryErrorCapture => Err(QueryError::Capture(row, name)),
+                    bindings::TSQueryError_TSQueryErrorNodeType => {
+                        Err(QueryError::NodeType(row, name))
+                    }
+                    bindings::TSQueryError_TSQueryErrorField => Err(QueryError::Field(row, name)),
+                    bindings::TSQueryError_TSQueryErrorCapture => {
+                        Err(QueryError::Capture(row, name))
+                    }
                     _ => Err(QueryError::Syntax(row, message)),
                 }
             } else {
@@ -1245,9 +1254,9 @@ impl Query {
                 slice::from_raw_parts(raw_predicates, length as usize)
             };
 
-            let type_done = ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeDone;
-            let type_capture = ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture;
-            let type_string = ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeString;
+            let type_done = bindings::TSQueryPredicateStepType_TSQueryPredicateStepTypeDone;
+            let type_capture = bindings::TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture;
+            let type_string = bindings::TSQueryPredicateStepType_TSQueryPredicateStepTypeString;
 
             let mut text_predicates = Vec::new();
             let mut property_predicates = Vec::new();
@@ -1468,7 +1477,7 @@ impl Query {
         let mut value = None;
 
         for arg in args {
-            if arg.type_ == ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture {
+            if arg.type_ == bindings::TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture {
                 if capture_id.is_some() {
                     return Err(QueryError::Predicate(format!(
                         "Invalid arguments to {} predicate. Unexpected second capture name @{}",
