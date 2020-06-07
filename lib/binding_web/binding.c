@@ -46,7 +46,7 @@ static inline TSNode unmarshal_node(const TSTree *tree) {
   node.context[1] = (uint32_t)TRANSFER_BUFFER[2];
   node.context[2] = code_unit_to_byte((uint32_t)TRANSFER_BUFFER[3]);
   node.context[3] = (uint32_t)TRANSFER_BUFFER[4];
-  node.context[5] = code_unit_to_byte((uint32_t)TRANSFER_BUFFER[3]);
+  node.context[4] = code_unit_to_byte((uint32_t)TRANSFER_BUFFER[5]);
   node.tree = tree;
   return node;
 }
