@@ -41,6 +41,7 @@ pub type TSSymbolType = u32;
 pub struct TSPoint {
     pub row: u32,
     pub column: u32,
+    pub column_: u32,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]

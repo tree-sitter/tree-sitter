@@ -33,6 +33,7 @@ pub enum TSTagKind {
 pub struct TSPoint {
     row: u32,
     column: u32,
+    column_: u32,
 }
 
 #[repr(C)]
@@ -169,10 +170,14 @@ pub extern "C" fn ts_tagger_tag(
                 start_point: TSPoint {
                     row: tag.span.start.row as u32,
                     column: tag.span.start.column as u32,
+                    // FIXME
+                    column_: 0,
                 },
                 end_point: TSPoint {
                     row: tag.span.end.row as u32,
                     column: tag.span.end.column as u32,
+                    // FIXME
+                    column_: 0,
                 },
                 docs_start_byte: prev_docs_len as u32,
                 docs_end_byte: buffer.docs.len() as u32,

@@ -55,6 +55,7 @@ typedef enum {
 typedef struct {
   uint32_t row;
   uint32_t column;
+  uint32_t column_;
 } TSPoint;
 
 typedef struct {
