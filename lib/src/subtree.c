@@ -178,6 +178,7 @@ Subtree ts_subtree_new_leaf(
       .padding_bytes = padding.bytes,
       .padding_rows = padding.extent.row,
       .padding_columns = padding.extent.column,
+      .padding_columns_ = padding.extent.column_,
       .size_bytes = size.bytes,
       .lookahead_bytes = lookahead_bytes,
       .visible = metadata.visible,
@@ -663,6 +664,7 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *edit, SubtreePool *pool
         result.data.padding_bytes = padding.bytes;
         result.data.padding_rows = padding.extent.row;
         result.data.padding_columns = padding.extent.column;
+        result.data.padding_columns_ = padding.extent.column_;
         result.data.size_bytes = size.bytes;
       } else {
         SubtreeHeapData *data = ts_subtree_pool_allocate(pool);
