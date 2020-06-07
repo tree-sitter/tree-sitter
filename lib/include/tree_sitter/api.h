@@ -91,7 +91,7 @@ typedef struct {
 } TSInputEdit;
 
 typedef struct {
-  uint32_t context[4];
+  uint32_t context[5];
   const void *id;
   const TSTree *tree;
 } TSNode;
