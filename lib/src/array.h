@@ -66,6 +66,30 @@ extern "C" {
 #define array_assign(self, other) \
   array__assign((VoidArray *)(self), (const VoidArray *)(other), array__elem_size(self))
 
+#define array_search_sorted_by(self, start, field, needle, out_index, out_exists) \
+  do { \
+    *(out_exists) = false; \
+    for (*(out_index) = start; *(out_index) < (self)->size; (*(out_index))++) { \
+      int _comparison = (int)((self)->contents[*(out_index)] field) - (int)(needle); \
+      if (_comparison >= 0) { \
+        if (_comparison == 0) *(out_exists) = true; \
+        break; \
+      } \
+    } \
+  } while (0);
+
+#define array_search_sorted_with(self, start, compare, needle, out_index, out_exists) \
+  do { \
+    *(out_exists) = false; \
+    for (*(out_index) = start; *(out_index) < (self)->size; (*(out_index))++) { \
+      int _comparison = compare(&(self)->contents[*(out_index)], (needle)); \
+      if (_comparison >= 0) { \
+        if (_comparison == 0) *(out_exists) = true; \
+        break; \
+      } \
+    } \
+  } while (0);
+
 // Private
 
 typedef Array(void) VoidArray;

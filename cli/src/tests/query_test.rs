@@ -1919,7 +1919,7 @@ fn test_query_start_byte_for_pattern() {
     let patterns_3 = "
         ((identifier) @b (#match? @b i))
         (function_declaration name: (identifier) @c)
-        (method_definition name: (identifier) @d)
+        (method_definition name: (property_identifier) @d)
     "
     .trim_start();
 
@@ -2045,6 +2045,76 @@ fn test_query_disable_pattern() {
                 (1, vec![("body", "{ return 1; }")]),
             ],
         );
+    });
+}
+
+#[test]
+fn test_query_is_definite() {
+    struct Row {
+        pattern: &'static str,
+        results_by_step_index: &'static [(usize, bool)],
+    }
+
+    let rows = &[
+        Row {
+            pattern: r#"(object "{" "}")"#,
+            results_by_step_index: &[
+                (0, false),
+                (1, true), // "{"
+                (2, true), // "}"
+            ],
+        },
+        Row {
+            pattern: r#"(pair (property_identifier) ":")"#,
+            results_by_step_index: &[
+                (0, false),
+                (1, false), // property_identifier
+                (2, true),  // ":""
+            ],
+        },
+        Row {
+            pattern: r#"(object "{" (_) "}")"#,
+            results_by_step_index: &[
+                (0, false),
+                (1, false), // "{""
+                (2, false), // (_)
+                (3, true),  // "}"
+            ],
+        },
+        Row {
+            // Named wildcards, fields
+            pattern: r#"(binary_expression left: (identifier) right: (_))"#,
+            results_by_step_index: &[
+                (0, false),
+                (1, false), // identifier
+                (2, true),  // (_)
+            ],
+        },
+        Row {
+            pattern: r#"(function_declaration name: (identifier) body: (statement_block))"#,
+            results_by_step_index: &[
+                (0, false),
+                (1, true), // identifier
+                (2, true), // statement_block
+            ],
+        },
+    ];
+
+    allocations::record(|| {
+        let language = get_language("javascript");
+        for row in rows.iter() {
+            let query = Query::new(language, row.pattern).unwrap();
+            for (step_index, is_definite) in row.results_by_step_index {
+                assert_eq!(
+                    query.pattern_is_definite(0, *step_index),
+                    *is_definite,
+                    "Pattern: {:?}, step: {}, expected is_definite to be {}",
+                    row.pattern,
+                    step_index,
+                    is_definite,
+                )
+            }
+        }
     });
 }
 

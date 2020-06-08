@@ -95,11 +95,7 @@ impl Generator {
         self.add_stats();
         self.add_symbol_enum();
         self.add_symbol_names_list();
-
-        if self.next_abi {
-            self.add_unique_symbol_map();
-        }
-
+        self.add_unique_symbol_map();
         self.add_symbol_metadata_list();
 
         if !self.field_names.is_empty() {
@@ -177,20 +173,16 @@ impl Generator {
         // If we are opting in to the new unstable language ABI, then use the concept of
         // "small parse states". Otherwise, use the same representation for all parse
         // states.
-        if self.next_abi {
-            let threshold = cmp::min(SMALL_STATE_THRESHOLD, self.parse_table.symbols.len() / 2);
-            self.large_state_count = self
-                .parse_table
-                .states
-                .iter()
-                .enumerate()
-                .take_while(|(i, s)| {
-                    *i <= 1 || s.terminal_entries.len() + s.nonterminal_entries.len() > threshold
-                })
-                .count();
-        } else {
-            self.large_state_count = self.parse_table.states.len();
-        }
+        let threshold = cmp::min(SMALL_STATE_THRESHOLD, self.parse_table.symbols.len() / 2);
+        self.large_state_count = self
+            .parse_table
+            .states
+            .iter()
+            .enumerate()
+            .take_while(|(i, s)| {
+                *i <= 1 || s.terminal_entries.len() + s.nonterminal_entries.len() > threshold
+            })
+            .count();
     }
 
     fn add_includes(&mut self) {
@@ -256,10 +248,7 @@ impl Generator {
             "#define STATE_COUNT {}",
             self.parse_table.states.len()
         );
-
-        if self.next_abi {
-            add_line!(self, "#define LARGE_STATE_COUNT {}", self.large_state_count);
-        }
+        add_line!(self, "#define LARGE_STATE_COUNT {}", self.large_state_count);
 
         add_line!(
             self,
@@ -689,17 +678,12 @@ impl Generator {
             name
         );
         indent!(self);
+
         add_line!(self, "START_LEXER();");
-
-        if self.next_abi {
-            add_line!(self, "eof = lexer->eof(lexer);");
-        } else {
-            add_line!(self, "eof = lookahead == 0;");
-        }
-
+        add_line!(self, "eof = lexer->eof(lexer);");
         add_line!(self, "switch (state) {{");
-        indent!(self);
 
+        indent!(self);
         for (i, state) in lex_table.states.into_iter().enumerate() {
             add_line!(self, "case {}:", i);
             indent!(self);
@@ -714,6 +698,7 @@ impl Generator {
 
         dedent!(self);
         add_line!(self, "}}");
+
         dedent!(self);
         add_line!(self, "}}");
         add_line!(self, "");
@@ -967,12 +952,7 @@ impl Generator {
 
         add_line!(
             self,
-            "static uint16_t ts_parse_table[{}][SYMBOL_COUNT] = {{",
-            if self.next_abi {
-                "LARGE_STATE_COUNT"
-            } else {
-                "STATE_COUNT"
-            }
+            "static uint16_t ts_parse_table[LARGE_STATE_COUNT][SYMBOL_COUNT] = {{",
         );
         indent!(self);
 
@@ -1224,9 +1204,10 @@ impl Generator {
         add_line!(self, ".symbol_count = SYMBOL_COUNT,");
         add_line!(self, ".alias_count = ALIAS_COUNT,");
         add_line!(self, ".token_count = TOKEN_COUNT,");
+        add_line!(self, ".large_state_count = LARGE_STATE_COUNT,");
 
         if self.next_abi {
-            add_line!(self, ".large_state_count = LARGE_STATE_COUNT,");
+            add_line!(self, ".state_count = STATE_COUNT,");
         }
 
         add_line!(self, ".symbol_metadata = ts_symbol_metadata,");
@@ -1249,10 +1230,7 @@ impl Generator {
         add_line!(self, ".parse_actions = ts_parse_actions,");
         add_line!(self, ".lex_modes = ts_lex_modes,");
         add_line!(self, ".symbol_names = ts_symbol_names,");
-
-        if self.next_abi {
-            add_line!(self, ".public_symbol_map = ts_symbol_map,");
-        }
+        add_line!(self, ".public_symbol_map = ts_symbol_map,");
 
         if !self.parse_table.production_infos.is_empty() {
             add_line!(

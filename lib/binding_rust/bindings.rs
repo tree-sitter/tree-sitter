@@ -172,9 +172,9 @@ extern "C" {
     #[doc = " the given ranges must be ordered from earliest to latest in the document,"]
     #[doc = " and they must not overlap. That is, the following must hold for all"]
     #[doc = " `i` < `length - 1`:"]
-    #[doc = " ```text"]
+    #[doc = ""]
     #[doc = "     ranges[i].end_byte <= ranges[i + 1].start_byte"]
-    #[doc = " ```"]
+    #[doc = ""]
     #[doc = " If this requirement is not satisfied, the operation will fail, the ranges"]
     #[doc = " will not be assigned, and this function will return `false`. On success,"]
     #[doc = " this function returns `true`"]
@@ -650,6 +650,13 @@ extern "C" {
     ) -> *const TSQueryPredicateStep;
 }
 extern "C" {
+    pub fn ts_query_pattern_is_definite(
+        self_: *const TSQuery,
+        pattern_index: u32,
+        step_index: u32,
+    ) -> bool;
+}
+extern "C" {
     #[doc = " Get the name and length of one of the query\'s captures, or one of the"]
     #[doc = " query\'s string literals. Each capture and string is associated with a"]
     #[doc = " numeric id based on the order that it appeared in the query\'s source."]
@@ -800,5 +807,5 @@ extern "C" {
     pub fn ts_language_version(arg1: *const TSLanguage) -> u32;
 }
 
-pub const TREE_SITTER_LANGUAGE_VERSION: usize = 11;
+pub const TREE_SITTER_LANGUAGE_VERSION: usize = 12;
 pub const TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION: usize = 9;

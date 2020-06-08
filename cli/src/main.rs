@@ -149,8 +149,14 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("path").index(1).multiple(true)),
         )
         .subcommand(
-            SubCommand::with_name("web-ui").about("Test a parser interactively in the browser")
-                .arg(Arg::with_name("quiet").long("quiet").short("q").help("open in default browser")),
+            SubCommand::with_name("web-ui")
+                .about("Test a parser interactively in the browser")
+                .arg(
+                    Arg::with_name("quiet")
+                        .long("quiet")
+                        .short("q")
+                        .help("open in default browser"),
+                ),
         )
         .subcommand(
             SubCommand::with_name("dump-languages")
