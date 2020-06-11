@@ -181,23 +181,33 @@ static void ts_lexer__mark_end(TSLexer *_self) {
   self->token_end_position = self->current_position;
 }
 
+// char w[10000];
 static uint32_t ts_lexer__get_column(TSLexer *_self) {
   Lexer *self = (Lexer *)_self;
-  uint32_t goal_byte = self->current_position.bytes;
 
-  self->current_position.bytes -= self->current_position.extent.column;
-  self->current_position.extent.column = 0;
-
-  if (self->current_position.bytes < self->chunk_start) {
-    ts_lexer__get_chunk(self);
-  }
+  uint32_t row_start_bytes = self->current_position.bytes - self->current_position.extent.column;
+  TSPoint row_start_extent = { self->current_position.extent.row, 0};
+  
+  uint32_t chunk_size;  
+  char* chunk = row_start_bytes < self->chunk_start
+    ? self->input.read(
+        self->input.payload,
+        row_start_bytes,
+        row_start_extent,
+        &chunk_size
+      )
+    : self->chunk - self->current_position.extent.column;
+  
+  UnicodeDecodeFunction decode = self->input.encoding == TSInputEncodingUTF8
+    ? ts_decode_utf8
+    : ts_decode_utf16;
 
   uint32_t result = 0;
-  while (self->current_position.bytes < goal_byte) {
-    ts_lexer__advance(&self->data, false);
-    result++;
+  for(unsigned i = 0;i < self->current_position.extent.column;result++) {
+    int32_t code_point;
+    int32_t size = decode(chunk + i, self->current_position.extent.column - i, &code_point);
+    i += size;
   }
-
   return result;
 }
 
