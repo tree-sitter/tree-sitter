@@ -135,7 +135,7 @@ void ts_tree_set_cached_parent(const TSTree *_self, const TSNode *node, const TS
     .parent = (const Subtree *)parent->id,
     .position = {
       parent->context[0],
-      {parent->context[1], parent->context[2], parent->context[4]}
+      {parent->context[1], parent->context[2]}
     },
     .alias_symbol = parent->context[3],
   };

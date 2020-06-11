@@ -93,7 +93,7 @@ pub struct TSInputEdit {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct TSNode {
-    pub context: [u32; 5usize],
+    pub context: [u32; 4usize],
     pub id: *const ::std::os::raw::c_void,
     pub tree: *const TSTree,
 }

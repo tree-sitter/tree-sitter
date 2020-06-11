@@ -1035,7 +1035,6 @@ impl<'a> hash::Hash for Node<'a> {
         self.0.context[1].hash(state);
         self.0.context[2].hash(state);
         self.0.context[3].hash(state);
-        self.0.context[4].hash(state);
     }
 }
 

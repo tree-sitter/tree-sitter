@@ -38,7 +38,7 @@ uint32_t ts_node_start_byte(TSNode self) {
 }
 
 TSPoint ts_node_start_point(TSNode self) {
-  return (TSPoint) {self.context[1], self.context[2], self.context[4]};
+  return (TSPoint) {self.context[1], self.context[2]};
 }
 
 static inline uint32_t ts_node__alias(const TSNode *self) {
@@ -674,5 +674,4 @@ void ts_node_edit(TSNode *self, const TSInputEdit *edit) {
   self->context[0] = start_byte;
   self->context[1] = start_point.row;
   self->context[2] = start_point.column;
-  self->context[4] = start_point.column;
 }
