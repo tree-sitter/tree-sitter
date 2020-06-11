@@ -40,7 +40,6 @@ typedef struct {
   uint8_t padding_bytes;
   uint8_t size_bytes;
   uint8_t padding_columns;
-  uint8_t padding_columns_;
   uint8_t padding_rows : 4;
   uint8_t lookahead_bytes : 4;
   uint16_t parse_state;
@@ -179,7 +178,7 @@ static inline TSStateId ts_subtree_leaf_parse_state(Subtree self) {
 
 static inline Length ts_subtree_padding(Subtree self) {
   if (self.data.is_inline) {
-    Length result = {self.data.padding_bytes, {self.data.padding_rows, self.data.padding_columns, self.data.padding_columns_}};
+    Length result = {self.data.padding_bytes, {self.data.padding_rows, self.data.padding_columns}};
     return result;
   } else {
     return self.ptr->padding;
