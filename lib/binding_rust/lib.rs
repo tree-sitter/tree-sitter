@@ -1696,8 +1696,6 @@ impl Into<ffi::TSPoint> for Point {
         ffi::TSPoint {
             row: self.row as u32,
             column: self.column as u32,
-            // FIXME
-            column_: 0 as u32,
         }
     }
 }
