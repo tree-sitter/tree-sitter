@@ -41,17 +41,21 @@ static inline const TSParseAction *ts_language_actions(
   return entry.actions;
 }
 
-static inline bool ts_language_has_actions(const TSLanguage *self,
-                                           TSStateId state,
-                                           TSSymbol symbol) {
+static inline bool ts_language_has_actions(
+  const TSLanguage *self,
+  TSStateId state,
+  TSSymbol symbol
+) {
   TableEntry entry;
   ts_language_table_entry(self, state, symbol, &entry);
   return entry.action_count > 0;
 }
 
-static inline bool ts_language_has_reduce_action(const TSLanguage *self,
-                                                 TSStateId state,
-                                                 TSSymbol symbol) {
+static inline bool ts_language_has_reduce_action(
+  const TSLanguage *self,
+  TSStateId state,
+  TSSymbol symbol
+) {
   TableEntry entry;
   ts_language_table_entry(self, state, symbol, &entry);
   return entry.action_count > 0 && entry.actions[0].type == TSParseActionTypeReduce;
@@ -82,9 +86,11 @@ static inline uint16_t ts_language_lookup(
   }
 }
 
-static inline TSStateId ts_language_next_state(const TSLanguage *self,
-                                               TSStateId state,
-                                               TSSymbol symbol) {
+static inline TSStateId ts_language_next_state(
+  const TSLanguage *self,
+  TSStateId state,
+  TSSymbol symbol
+) {
   if (symbol == ts_builtin_sym_error || symbol == ts_builtin_sym_error_repeat) {
     return 0;
   } else if (symbol < self->token_count) {
@@ -102,9 +108,10 @@ static inline TSStateId ts_language_next_state(const TSLanguage *self,
   }
 }
 
-static inline const bool *
-ts_language_enabled_external_tokens(const TSLanguage *self,
-                                    unsigned external_scanner_state) {
+static inline const bool *ts_language_enabled_external_tokens(
+  const TSLanguage *self,
+  unsigned external_scanner_state
+) {
   if (external_scanner_state == 0) {
     return NULL;
   } else {
@@ -112,11 +119,23 @@ ts_language_enabled_external_tokens(const TSLanguage *self,
   }
 }
 
-static inline const TSSymbol *
-ts_language_alias_sequence(const TSLanguage *self, uint32_t production_id) {
-  return production_id > 0 ?
-    self->alias_sequences + production_id * self->max_alias_sequence_length :
+static inline const TSSymbol *ts_language_alias_sequence(
+  const TSLanguage *self,
+  uint32_t production_id
+) {
+  return production_id ?
+    &self->alias_sequences[production_id * self->max_alias_sequence_length] :
     NULL;
+}
+
+static inline TSSymbol ts_language_alias_at(
+  const TSLanguage *self,
+  uint32_t production_id,
+  uint32_t child_index
+) {
+  return production_id ?
+    self->alias_sequences[production_id * self->max_alias_sequence_length + child_index] :
+    0;
 }
 
 static inline void ts_language_field_map(

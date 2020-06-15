@@ -146,17 +146,21 @@ static bool iterator_tree_is_visible(const Iterator *self) {
   if (ts_subtree_visible(*entry.subtree)) return true;
   if (self->cursor.stack.size > 1) {
     Subtree parent = *self->cursor.stack.contents[self->cursor.stack.size - 2].subtree;
-    const TSSymbol *alias_sequence = ts_language_alias_sequence(
+    return ts_language_alias_at(
       self->language,
-      parent.ptr->production_id
-    );
-    return alias_sequence && alias_sequence[entry.structural_child_index] != 0;
+      parent.ptr->production_id,
+      entry.structural_child_index
+    ) != 0;
   }
   return false;
 }
 
-static void iterator_get_visible_state(const Iterator *self, Subtree *tree,
-                                       TSSymbol *alias_symbol, uint32_t *start_byte) {
+static void iterator_get_visible_state(
+  const Iterator *self,
+  Subtree *tree,
+  TSSymbol *alias_symbol,
+  uint32_t *start_byte
+) {
   uint32_t i = self->cursor.stack.size - 1;
 
   if (self->in_padding) {
@@ -169,13 +173,11 @@ static void iterator_get_visible_state(const Iterator *self, Subtree *tree,
 
     if (i > 0) {
       const Subtree *parent = self->cursor.stack.contents[i - 1].subtree;
-      const TSSymbol *alias_sequence = ts_language_alias_sequence(
+      *alias_symbol = ts_language_alias_at(
         self->language,
-        parent->ptr->production_id
+        parent->ptr->production_id,
+        entry.structural_child_index
       );
-      if (alias_sequence) {
-        *alias_symbol = alias_sequence[entry.structural_child_index];
-      }
     }
 
     if (ts_subtree_visible(*entry.subtree) || *alias_symbol) {
