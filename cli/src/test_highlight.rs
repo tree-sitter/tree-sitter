@@ -168,6 +168,7 @@ pub fn parse_highlight_test(
     let mut assertion_ranges = Vec::new();
 
     // Parse the code.
+    parser.set_included_ranges(&[]).unwrap();
     parser.set_language(language).unwrap();
     let tree = parser.parse(source, None).unwrap();
 
