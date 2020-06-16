@@ -1,4 +1,4 @@
-use super::{Error, TagKind, TagsConfiguration, TagsContext};
+use super::{Error, TagsConfiguration, TagsContext};
 use std::collections::HashMap;
 use std::ffi::CStr;
 use std::process::abort;
@@ -20,16 +20,6 @@ pub enum TSTagsError {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TSTagKind {
-    Function,
-    Method,
-    Class,
-    Module,
-    Call,
-}
-
-#[repr(C)]
 pub struct TSPoint {
     row: u32,
     column: u32,
@@ -37,7 +27,6 @@ pub struct TSPoint {
 
 #[repr(C)]
 pub struct TSTag {
-    pub kind: TSTagKind,
     pub start_byte: u32,
     pub end_byte: u32,
     pub name_start_byte: u32,
@@ -48,6 +37,8 @@ pub struct TSTag {
     pub end_point: TSPoint,
     pub docs_start_byte: u32,
     pub docs_end_byte: u32,
+    pub kind: String,
+    pub is_definition: bool,
 }
 
 pub struct TSTagger {
@@ -153,13 +144,6 @@ pub extern "C" fn ts_tagger_tag(
                 buffer.docs.extend_from_slice(docs.as_bytes());
             }
             buffer.tags.push(TSTag {
-                kind: match tag.kind {
-                    TagKind::Function => TSTagKind::Function,
-                    TagKind::Method => TSTagKind::Method,
-                    TagKind::Class => TSTagKind::Class,
-                    TagKind::Module => TSTagKind::Module,
-                    TagKind::Call => TSTagKind::Call,
-                },
                 start_byte: tag.range.start as u32,
                 end_byte: tag.range.end as u32,
                 name_start_byte: tag.name_range.start as u32,
@@ -176,6 +160,8 @@ pub extern "C" fn ts_tagger_tag(
                 },
                 docs_start_byte: prev_docs_len as u32,
                 docs_end_byte: buffer.docs.len() as u32,
+                kind: tag.kind,
+                is_definition: tag.is_definition,
             });
         }
 
