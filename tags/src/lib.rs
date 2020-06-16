@@ -4,7 +4,8 @@ use memchr::{memchr, memrchr};
 use regex::Regex;
 use std::ops::Range;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{fmt, mem, str};
+use std::{mem, str};
+use std::collections::HashMap;
 use tree_sitter::{
     Language, Parser, Point, Query, QueryCursor, QueryError, QueryPredicateArg, Tree,
 };
@@ -18,12 +19,8 @@ const CANCELLATION_CHECK_INTERVAL: usize = 100;
 pub struct TagsConfiguration {
     pub language: Language,
     pub query: Query,
-    call_capture_index: Option<u32>,
-    class_capture_index: Option<u32>,
+    capture_map: HashMap<u32, String>,
     doc_capture_index: Option<u32>,
-    function_capture_index: Option<u32>,
-    method_capture_index: Option<u32>,
-    module_capture_index: Option<u32>,
     name_capture_index: Option<u32>,
     local_scope_capture_index: Option<u32>,
     local_definition_capture_index: Option<u32>,
@@ -38,21 +35,13 @@ pub struct TagsContext {
 
 #[derive(Debug, Clone)]
 pub struct Tag {
-    pub kind: TagKind,
     pub range: Range<usize>,
     pub name_range: Range<usize>,
     pub line_range: Range<usize>,
     pub span: Range<Point>,
     pub docs: Option<String>,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum TagKind {
-    Function,
-    Method,
-    Class,
-    Module,
-    Call,
+    pub is_definition: bool,
+    pub kind: String,
 }
 
 #[derive(Debug, PartialEq)]
@@ -111,29 +100,23 @@ impl TagsConfiguration {
             }
         }
 
-        let mut call_capture_index = None;
-        let mut class_capture_index = None;
+        let mut capture_map: HashMap<u32, String> = HashMap::new();
         let mut doc_capture_index = None;
-        let mut function_capture_index = None;
-        let mut method_capture_index = None;
-        let mut module_capture_index = None;
         let mut name_capture_index = None;
         let mut local_scope_capture_index = None;
         let mut local_definition_capture_index = None;
         for (i, name) in query.capture_names().iter().enumerate() {
-            let index = match name.as_str() {
-                "call" => &mut call_capture_index,
-                "class" => &mut class_capture_index,
-                "doc" => &mut doc_capture_index,
-                "function" => &mut function_capture_index,
-                "method" => &mut method_capture_index,
-                "module" => &mut module_capture_index,
-                "name" => &mut name_capture_index,
-                "local.scope" => &mut local_scope_capture_index,
-                "local.definition" => &mut local_definition_capture_index,
-                _ => continue,
-            };
-            *index = Some(i as u32);
+            match name.as_str() {
+                "" => continue,
+                "name" => name_capture_index = Some(i as u32),
+                "doc" => doc_capture_index = Some(i as u32),
+                "local.scope" => local_scope_capture_index = Some(i as u32),
+                "local.definition" => local_definition_capture_index = Some(i as u32),
+                _ => {
+                    capture_map.insert(i as u32, name.to_string());
+                    continue;
+                }
+            }
         }
 
         let pattern_info = (0..query.pattern_count())
@@ -180,12 +163,8 @@ impl TagsConfiguration {
         Ok(TagsConfiguration {
             language,
             query,
-            function_capture_index,
-            class_capture_index,
-            method_capture_index,
-            module_capture_index,
+            capture_map,
             doc_capture_index,
-            call_capture_index,
             name_capture_index,
             tags_pattern_index,
             local_scope_capture_index,
@@ -303,7 +282,8 @@ where
                 let mut name_range = None;
                 let mut doc_nodes = Vec::new();
                 let mut tag_node = None;
-                let mut kind = TagKind::Call;
+                let mut kind = "unknown";
+                let mut is_definition = false;
                 let mut docs_adjacent_node = None;
 
                 for capture in mat.captures {
@@ -317,21 +297,18 @@ where
                         name_range = Some(capture.node.byte_range());
                     } else if index == self.config.doc_capture_index {
                         doc_nodes.push(capture.node);
-                    } else if index == self.config.call_capture_index {
+                    }
+
+                    if let Some(name) = self.config.capture_map.get(&capture.index) {
                         tag_node = Some(capture.node);
-                        kind = TagKind::Call;
-                    } else if index == self.config.class_capture_index {
-                        tag_node = Some(capture.node);
-                        kind = TagKind::Class;
-                    } else if index == self.config.function_capture_index {
-                        tag_node = Some(capture.node);
-                        kind = TagKind::Function;
-                    } else if index == self.config.method_capture_index {
-                        tag_node = Some(capture.node);
-                        kind = TagKind::Method;
-                    } else if index == self.config.module_capture_index {
-                        tag_node = Some(capture.node);
-                        kind = TagKind::Module;
+                        kind = if name.starts_with("definition.") {
+                            is_definition = true;
+                            name.trim_start_matches("definition.")
+                        } else if name.starts_with("reference.") {
+                            name.trim_start_matches("reference.")
+                        } else {
+                            name
+                        }
                     }
                 }
 
@@ -414,10 +391,11 @@ where
                                 *tag = Tag {
                                     line_range: line_range(self.source, range.start, MAX_LINE_LEN),
                                     span: tag_node.start_position()..tag_node.end_position(),
-                                    kind,
                                     range,
                                     name_range,
                                     docs,
+                                    kind: kind.to_string(),
+                                    is_definition,
                                 };
                             }
                         }
@@ -427,10 +405,11 @@ where
                                 Tag {
                                     line_range: line_range(self.source, range.start, MAX_LINE_LEN),
                                     span: tag_node.start_position()..tag_node.end_position(),
-                                    kind,
                                     range,
                                     name_range,
                                     docs,
+                                    kind: kind.to_string(),
+                                    is_definition,
                                 },
                                 mat.pattern_index,
                             ),
@@ -445,19 +424,6 @@ where
                 return None;
             }
         }
-    }
-}
-
-impl fmt::Display for TagKind {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            TagKind::Call => "Call",
-            TagKind::Module => "Module",
-            TagKind::Class => "Class",
-            TagKind::Method => "Method",
-            TagKind::Function => "Function",
-        }
-        .fmt(f)
     }
 }
 
