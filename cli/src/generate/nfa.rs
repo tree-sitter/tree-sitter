@@ -761,7 +761,7 @@ mod tests {
                 .add_range('d', 'e')
         );
 
-        // A whitelist and an intersecting blacklist.
+        // An inclusion and an intersecting exclusion.
         // Both sets contain 'e', 'f', and 'm'
         let mut a = CharacterSet::empty()
             .add_range('c', 'h')
@@ -791,7 +791,7 @@ mod tests {
         assert_eq!(a, CharacterSet::Include(vec!['c', 'd', 'g', 'h', 'k', 'l']));
         assert_eq!(b, CharacterSet::empty().add_range('a', 'm').negate());
 
-        // A blacklist and an overlapping blacklist.
+        // An exclusion and an overlapping inclusion.
         // Both sets exclude 'c', 'd', and 'e'
         let mut a = CharacterSet::empty().add_range('a', 'e').negate();
         let mut b = CharacterSet::empty().add_range('c', 'h').negate();
@@ -802,7 +802,7 @@ mod tests {
         assert_eq!(a, CharacterSet::Include(vec!['f', 'g', 'h']));
         assert_eq!(b, CharacterSet::Include(vec!['a', 'b']));
 
-        // A blacklist and a larger blacklist.
+        // An exclusion and a larger exclusion.
         let mut a = CharacterSet::empty().add_range('b', 'c').negate();
         let mut b = CharacterSet::empty().add_range('a', 'd').negate();
         assert_eq!(
