@@ -189,7 +189,7 @@ static uint32_t ts_lexer__get_column(TSLexer *_self) {
   TSPoint row_start_extent = { self->current_position.extent.row, 0};
   
   uint32_t chunk_size;  
-  char* chunk = row_start_bytes < self->chunk_start
+  const char* chunk = row_start_bytes < self->chunk_start
     ? self->input.read(
         self->input.payload,
         row_start_bytes,
@@ -205,7 +205,7 @@ static uint32_t ts_lexer__get_column(TSLexer *_self) {
   uint32_t result = 0;
   for(unsigned i = 0;i < self->current_position.extent.column;result++) {
     int32_t code_point;
-    int32_t size = decode(chunk + i, self->current_position.extent.column - i, &code_point);
+    int32_t size = decode((const uint8_t *)chunk + i, self->current_position.extent.column - i, &code_point);
     i += size;
   }
   return result;
