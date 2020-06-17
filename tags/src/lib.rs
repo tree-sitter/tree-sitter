@@ -483,7 +483,7 @@ impl NamedCapture {
 
 impl fmt::Display for SyntaxType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        format!("{:?}", self).fmt(f)
     }
 }
 
