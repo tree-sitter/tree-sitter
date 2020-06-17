@@ -34,20 +34,27 @@ pub fn generate_tags(loader: &Loader, scope: Option<&str>, paths: &[String]) -> 
         };
 
         if let Some(tags_config) = language_config.tags_config(language)? {
-            let path_str = format!("{:?}", path);
-            writeln!(&mut stdout, "{}", &path_str[1..path_str.len() - 1])?;
+            let ident = if paths.len() > 1 {
+                let path_str = format!("{:?}", path);
+                writeln!(&mut stdout, "{}", &path_str[1..path_str.len() - 1])?;
+                "\t"
+            } else {
+                ""
+            };
 
             let source = fs::read(path)?;
             for tag in context.generate_tags(tags_config, &source, Some(&cancellation_flag))? {
                 let tag = tag?;
                 write!(
                     &mut stdout,
-                    "  {:<8} {:<40}\t [{}] {:>9}-{:<9}",
-                    tag.syntax_type,
+                    "{}{:<10}\t | {:<8}\t{} {} - {} `{}`",
+                    ident,
                     str::from_utf8(&source[tag.name_range]).unwrap_or(""),
+                    tag.syntax_type,
                     if tag.is_definition { "def" } else { "ref" },
                     tag.span.start,
                     tag.span.end,
+                    str::from_utf8(&source[tag.line_range]).unwrap_or(""),
                 )?;
                 if let Some(docs) = tag.docs {
                     if docs.len() > 120 {
