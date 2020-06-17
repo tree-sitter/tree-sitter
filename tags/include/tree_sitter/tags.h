@@ -19,15 +19,17 @@ typedef enum {
 } TSTagsError;
 
 typedef enum {
-  TSTagKindFunction,
-  TSTagKindMethod,
-  TSTagKindClass,
-  TSTagKindModule,
-  TSTagKindCall,
-} TSTagKind;
+  TSSyntaxTypeFunction,
+  TSSyntaxTypeMethod,
+  TSSyntaxTypeClass,
+  TSSyntaxTypeModule,
+  TSSyntaxTypeCall,
+  TSSyntaxTypeType,
+  TSSyntaxTypeInterface,
+  TSSyntaxTypeImplementation,
+} TSTagSyntaxType;
 
 typedef struct {
-  TSTagKind kind;
   uint32_t start_byte;
   uint32_t end_byte;
   uint32_t name_start_byte;
@@ -38,6 +40,8 @@ typedef struct {
   TSPoint end_point;
   uint32_t docs_start_byte;
   uint32_t docs_end_byte;
+  TSTagSyntaxType syntax_type;
+  bool is_definition;
 } TSTag;
 
 typedef struct TSTagger TSTagger;
