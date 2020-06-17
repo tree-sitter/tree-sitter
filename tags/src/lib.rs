@@ -323,14 +323,6 @@ where
                         tag_node = Some(capture.node);
                         syntax_type = named_capture.syntax_type;
                         is_definition = named_capture.is_definition;
-                        // kind = if name.starts_with("definition.") {
-                        //     is_definition = true;
-                        //     name.trim_start_matches("definition.")
-                        // } else if name.starts_with("reference.") {
-                        //     name.trim_start_matches("reference.")
-                        // } else {
-                        //     name
-                        // }
                     }
                 }
 
