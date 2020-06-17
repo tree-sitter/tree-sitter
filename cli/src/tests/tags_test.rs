@@ -3,7 +3,7 @@ use super::helpers::fixtures::{get_language, get_language_queries_path};
 use std::ffi::CString;
 use std::{fs, ptr, slice, str};
 use tree_sitter_tags::c_lib as c;
-use tree_sitter_tags::{Error, TagKind, TagsConfiguration, TagsContext};
+use tree_sitter_tags::{Error, SyntaxType, TagsConfiguration, TagsContext};
 
 const PYTHON_TAG_QUERY: &'static str = r#"
 (
@@ -99,12 +99,12 @@ fn test_tags_python() {
 
     assert_eq!(
         tags.iter()
-            .map(|t| (substr(source, &t.name_range), t.kind))
+            .map(|t| (substr(source, &t.name_range), t.syntax_type))
             .collect::<Vec<_>>(),
         &[
-            ("Customer", TagKind::Class),
-            ("age", TagKind::Function),
-            ("compute_age", TagKind::Call),
+            ("Customer", SyntaxType::Class),
+            ("age", SyntaxType::Function),
+            ("compute_age", SyntaxType::Call),
         ]
     );
 
@@ -150,12 +150,12 @@ fn test_tags_javascript() {
 
     assert_eq!(
         tags.iter()
-            .map(|t| (substr(source, &t.name_range), t.kind))
+            .map(|t| (substr(source, &t.name_range), t.syntax_type))
             .collect::<Vec<_>>(),
         &[
-            ("Customer", TagKind::Class),
-            ("getAge", TagKind::Method),
-            ("Agent", TagKind::Class)
+            ("Customer", SyntaxType::Class),
+            ("getAge", SyntaxType::Method),
+            ("Agent", SyntaxType::Class)
         ]
     );
     assert_eq!(
@@ -204,18 +204,18 @@ fn test_tags_ruby() {
         tags.iter()
             .map(|t| (
                 substr(source.as_bytes(), &t.name_range),
-                t.kind,
+                t.syntax_type,
                 (t.span.start.row, t.span.start.column),
             ))
             .collect::<Vec<_>>(),
         &[
-            ("foo", TagKind::Method, (2, 0)),
-            ("bar", TagKind::Call, (7, 4)),
-            ("a", TagKind::Call, (7, 8)),
-            ("b", TagKind::Call, (7, 11)),
-            ("each", TagKind::Call, (9, 14)),
-            ("baz", TagKind::Call, (13, 8)),
-            ("b", TagKind::Call, (13, 15),),
+            ("foo", SyntaxType::Method, (2, 0)),
+            ("bar", SyntaxType::Call, (7, 4)),
+            ("a", SyntaxType::Call, (7, 8)),
+            ("b", SyntaxType::Call, (7, 11)),
+            ("each", SyntaxType::Call, (9, 14)),
+            ("baz", SyntaxType::Call, (13, 8)),
+            ("b", SyntaxType::Call, (13, 15),),
         ]
     );
 }
@@ -319,7 +319,7 @@ fn test_tags_via_c_api() {
         assert_eq!(
             tags.iter()
                 .map(|tag| (
-                    tag.kind,
+                    tag.syntax_type,
                     &source_code[tag.name_start_byte as usize..tag.name_end_byte as usize],
                     &source_code[tag.line_start_byte as usize..tag.line_end_byte as usize],
                     &docs[tag.docs_start_byte as usize..tag.docs_end_byte as usize],
@@ -327,18 +327,18 @@ fn test_tags_via_c_api() {
                 .collect::<Vec<_>>(),
             &[
                 (
-                    c::TSTagKind::Function,
+                    c::TSSyntaxType::Function,
                     "b",
                     "function b() {",
                     "one\ntwo\nthree"
                 ),
                 (
-                    c::TSTagKind::Class,
+                    c::TSSyntaxType::Class,
                     "C",
                     "class C extends D {",
                     "four\nfive"
                 ),
-                (c::TSTagKind::Call, "b", "b(a);", "")
+                (c::TSSyntaxType::Call, "b", "b(a);", "")
             ]
         );
 
