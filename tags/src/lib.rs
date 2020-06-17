@@ -500,7 +500,7 @@ fn line_range(text: &[u8], index: usize, max_line_len: usize) -> Range<usize> {
 fn trim_start(text: &[u8], r: Range<usize>) -> Range<usize> {
     for (index, c) in text[r.start..r.end].iter().enumerate() {
         if !c.is_ascii_whitespace(){
-            return index..r.end
+            return (r.start+index)..r.end
         }
     }
     return r
@@ -530,5 +530,6 @@ mod tests {
 
         let text = b"\t func foo\nbar\n";
         assert_eq!(line_range(text, 0, 10), 2..10);
+        assert_eq!(line_range(text, 11, 10), 11..14);
     }
 }
