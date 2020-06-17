@@ -28,7 +28,6 @@ pub struct TagsConfiguration {
     pattern_info: Vec<PatternInfo>,
 }
 
-
 #[derive(Debug)]
 pub struct NamedCapture {
     pub syntax_type: SyntaxType,
