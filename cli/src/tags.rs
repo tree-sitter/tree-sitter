@@ -45,7 +45,7 @@ pub fn generate_tags(loader: &Loader, scope: Option<&str>, paths: &[String]) -> 
                     "  {:<8} {:<40}\t [{}] {:>9}-{:<9}",
                     tag.syntax_type,
                     str::from_utf8(&source[tag.name_range]).unwrap_or(""),
-                    if tag.is_definition { "definition" } else { "reference" },
+                    if tag.is_definition { "def" } else { "ref" },
                     tag.span.start,
                     tag.span.end,
                 )?;
