@@ -495,7 +495,16 @@ fn line_range(text: &[u8], index: usize, max_line_len: usize) -> Range<usize> {
     let start = memrchr(b'\n', &text[0..index]).map_or(0, |i| i + 1);
     let max_line_len = max_line_len.min(text.len() - start);
     let end = start + memchr(b'\n', &text[start..(start + max_line_len)]).unwrap_or(max_line_len);
-    start..end
+    trim_start(text, start..end)
+}
+
+fn trim_start(text: &[u8], r: Range<usize>) -> Range<usize> {
+    for (index, c) in text[r.start..r.end].iter().enumerate() {
+        if !c.is_ascii_whitespace(){
+            return index..r.end
+        }
+    }
+    return r
 }
 
 #[cfg(test)]
@@ -513,5 +522,14 @@ mod tests {
         assert_eq!(line_range(text, 4, 10), 4..8);
         assert_eq!(line_range(text, 5, 10), 4..8);
         assert_eq!(line_range(text, 11, 10), 9..14);
+    }
+
+    #[test]
+    fn test_get_line_trims() {
+        let text = b"   foo\nbar\n";
+        assert_eq!(line_range(text, 0, 10), 3..6);
+
+        let text = b"\t func foo\nbar\n";
+        assert_eq!(line_range(text, 0, 10), 2..10);
     }
 }
