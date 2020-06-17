@@ -1,4 +1,4 @@
-use super::{Error, TagsConfiguration, TagsContext};
+use super::{Error, SyntaxType, TagsConfiguration, TagsContext};
 use std::collections::HashMap;
 use std::ffi::CStr;
 use std::process::abort;
@@ -20,6 +20,19 @@ pub enum TSTagsError {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TSSyntaxType {
+    Function,
+    Method,
+    Class,
+    Module,
+    Call,
+    Type,
+    Interface,
+    Implementation,
+}
+
+#[repr(C)]
 pub struct TSPoint {
     row: u32,
     column: u32,
@@ -37,7 +50,7 @@ pub struct TSTag {
     pub end_point: TSPoint,
     pub docs_start_byte: u32,
     pub docs_end_byte: u32,
-    pub kind: String,
+    pub syntax_type: TSSyntaxType,
     pub is_definition: bool,
 }
 
@@ -160,7 +173,16 @@ pub extern "C" fn ts_tagger_tag(
                 },
                 docs_start_byte: prev_docs_len as u32,
                 docs_end_byte: buffer.docs.len() as u32,
-                kind: tag.kind,
+                syntax_type: match tag.syntax_type {
+                    SyntaxType::Function => TSSyntaxType::Function,
+                    SyntaxType::Method => TSSyntaxType::Method,
+                    SyntaxType::Class => TSSyntaxType::Class,
+                    SyntaxType::Module => TSSyntaxType::Module,
+                    SyntaxType::Call => TSSyntaxType::Call,
+                    SyntaxType::Type => TSSyntaxType::Type,
+                    SyntaxType::Interface => TSSyntaxType::Interface,
+                    SyntaxType::Implementation => TSSyntaxType::Implementation,
+                },
                 is_definition: tag.is_definition,
             });
         }

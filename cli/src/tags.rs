@@ -43,7 +43,7 @@ pub fn generate_tags(loader: &Loader, scope: Option<&str>, paths: &[String]) -> 
                 write!(
                     &mut stdout,
                     "  {:<8} {:<40}\t [{}] {:>9}-{:<9}",
-                    tag.kind,
+                    tag.syntax_type,
                     str::from_utf8(&source[tag.name_range]).unwrap_or(""),
                     if tag.is_definition { "definition" } else { "reference" },
                     tag.span.start,
