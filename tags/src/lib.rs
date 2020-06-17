@@ -465,8 +465,8 @@ impl NamedCapture {
         let syntax_type = match kind.as_ref() {
             "function" => {is_definition = true; SyntaxType::Function},
             "method" => {is_definition = true; SyntaxType::Method},
-            "class" => SyntaxType::Class,
-            "module" => SyntaxType::Module,
+            "class" => {is_definition = true; SyntaxType::Class},
+            "module" => {is_definition = true; SyntaxType::Module},
             "call" => SyntaxType::Call,
             "type" => SyntaxType::Type,
             "interface" => SyntaxType::Interface,
