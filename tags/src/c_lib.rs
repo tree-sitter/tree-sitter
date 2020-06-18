@@ -16,6 +16,7 @@ pub enum TSTagsError {
     InvalidUtf8,
     InvalidRegex,
     InvalidQuery,
+    InvalidCapture,
     Unknown,
 }
 
@@ -93,7 +94,9 @@ pub extern "C" fn ts_tagger_add_language(
         }
         Err(Error::Query(_)) => TSTagsError::InvalidQuery,
         Err(Error::Regex(_)) => TSTagsError::InvalidRegex,
-        Err(_) => TSTagsError::Unknown,
+        Err(Error::Cancelled) => TSTagsError::Timeout,
+        Err(Error::InvalidLanguage) => TSTagsError::InvalidLanguage,
+        Err(Error::InvalidCapture(_)) => TSTagsError::InvalidCapture,
     }
 }
 

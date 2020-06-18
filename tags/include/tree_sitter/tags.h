@@ -16,6 +16,7 @@ typedef enum {
   TSTagsInvalidUtf8,
   TSTagsInvalidRegex,
   TSTagsInvalidQuery,
+  TSTagsInvalidCapture,
 } TSTagsError;
 
 typedef struct {
