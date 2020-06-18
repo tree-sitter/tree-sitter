@@ -494,13 +494,22 @@ fn line_range(text: &[u8], index: usize, max_line_len: usize) -> Range<usize> {
     let start = memrchr(b'\n', &text[0..index]).map_or(0, |i| i + 1);
     let max_line_len = max_line_len.min(text.len() - start);
     let end = start + memchr(b'\n', &text[start..(start + max_line_len)]).unwrap_or(max_line_len);
-    trim_start(text, start..end)
+    trim_end(text, trim_start(text, start..end))
 }
 
 fn trim_start(text: &[u8], r: Range<usize>) -> Range<usize> {
     for (index, c) in text[r.start..r.end].iter().enumerate() {
-        if !c.is_ascii_whitespace(){
+        if !c.is_ascii_whitespace() {
             return (r.start+index)..r.end
+        }
+    }
+    return r
+}
+
+fn trim_end(text: &[u8], r: Range<usize>) -> Range<usize> {
+    for (index, c) in text[r.start..r.end].iter().rev().enumerate() {
+        if !c.is_ascii_whitespace() {
+            return r.start..(r.end-index)
         }
     }
     return r
@@ -528,8 +537,15 @@ mod tests {
         let text = b"   foo\nbar\n";
         assert_eq!(line_range(text, 0, 10), 3..6);
 
-        let text = b"\t func foo\nbar\n";
+        let text = b"\t func foo \nbar\n";
         assert_eq!(line_range(text, 0, 10), 2..10);
-        assert_eq!(line_range(text, 11, 10), 11..14);
+
+        let r = line_range(text, 0, 14);
+        assert_eq!(r, 2..10);
+        assert_eq!(str::from_utf8(&text[r]).unwrap_or(""), "func foo");
+
+        let r = line_range(text, 12, 14);
+        assert_eq!(r, 12..15);
+        assert_eq!(str::from_utf8(&text[r]).unwrap_or(""), "bar");
     }
 }
