@@ -1,4 +1,4 @@
-use super::{Error, SyntaxType, TagsConfiguration, TagsContext};
+use super::{Error, TagsConfiguration, TagsContext};
 use std::collections::HashMap;
 use std::ffi::CStr;
 use std::process::abort;
@@ -20,19 +20,6 @@ pub enum TSTagsError {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TSSyntaxType {
-    Function,
-    Method,
-    Class,
-    Module,
-    Call,
-    Type,
-    Interface,
-    Implementation,
-}
-
-#[repr(C)]
 pub struct TSPoint {
     row: u32,
     column: u32,
@@ -50,7 +37,7 @@ pub struct TSTag {
     pub end_point: TSPoint,
     pub docs_start_byte: u32,
     pub docs_end_byte: u32,
-    pub syntax_type: TSSyntaxType,
+    pub syntax_type_id: u32,
     pub is_definition: bool,
 }
 
@@ -173,16 +160,7 @@ pub extern "C" fn ts_tagger_tag(
                 },
                 docs_start_byte: prev_docs_len as u32,
                 docs_end_byte: buffer.docs.len() as u32,
-                syntax_type: match tag.syntax_type {
-                    SyntaxType::Function => TSSyntaxType::Function,
-                    SyntaxType::Method => TSSyntaxType::Method,
-                    SyntaxType::Class => TSSyntaxType::Class,
-                    SyntaxType::Module => TSSyntaxType::Module,
-                    SyntaxType::Call => TSSyntaxType::Call,
-                    SyntaxType::Type => TSSyntaxType::Type,
-                    SyntaxType::Interface => TSSyntaxType::Interface,
-                    SyntaxType::Implementation => TSSyntaxType::Implementation,
-                },
+                syntax_type_id: tag.syntax_type_id,
                 is_definition: tag.is_definition,
             });
         }
@@ -229,6 +207,24 @@ pub extern "C" fn ts_tags_buffer_docs(this: *const TSTagsBuffer) -> *const i8 {
 pub extern "C" fn ts_tags_buffer_docs_len(this: *const TSTagsBuffer) -> u32 {
     let buffer = unwrap_ptr(this);
     buffer.docs.len() as u32
+}
+
+#[no_mangle]
+pub extern "C" fn ts_tagger_syntax_kinds_for_scope_name(
+    this: *mut TSTagger,
+    scope_name: *const i8,
+    len: *mut u32,
+) -> *const *const i8 {
+    let tagger = unwrap_mut_ptr(this);
+    let scope_name = unsafe { unwrap(CStr::from_ptr(scope_name).to_str()) };
+    let len = unwrap_mut_ptr(len);
+
+    *len = 0;
+    if let Some(config) = tagger.languages.get(scope_name) {
+        *len = config.c_syntax_type_names.len() as u32;
+        return config.c_syntax_type_names.as_ptr() as *const *const i8
+    }
+    std::ptr::null()
 }
 
 fn unwrap_ptr<'a, T>(result: *const T) -> &'a T {

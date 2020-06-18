@@ -18,17 +18,6 @@ typedef enum {
   TSTagsInvalidQuery,
 } TSTagsError;
 
-typedef enum {
-  TSSyntaxTypeFunction,
-  TSSyntaxTypeMethod,
-  TSSyntaxTypeClass,
-  TSSyntaxTypeModule,
-  TSSyntaxTypeCall,
-  TSSyntaxTypeType,
-  TSSyntaxTypeInterface,
-  TSSyntaxTypeImplementation,
-} TSTagSyntaxType;
-
 typedef struct {
   uint32_t start_byte;
   uint32_t end_byte;
@@ -40,7 +29,7 @@ typedef struct {
   TSPoint end_point;
   uint32_t docs_start_byte;
   uint32_t docs_end_byte;
-  TSTagSyntaxType syntax_type;
+  uint32_t syntax_type_id;
   bool is_definition;
 } TSTag;
 
@@ -92,6 +81,9 @@ uint32_t ts_tags_buffer_tags_len(const TSTagsBuffer *);
 // Access the string containing all of the docs
 const char *ts_tags_buffer_docs(const TSTagsBuffer *);
 uint32_t ts_tags_buffer_docs_len(const TSTagsBuffer *);
+
+// Get the syntax kinds for a scope.
+const char **ts_tagger_syntax_kinds_for_scope_name(const TSTagger *, const char *scope_name, uint32_t *len);
 
 #ifdef __cplusplus
 }

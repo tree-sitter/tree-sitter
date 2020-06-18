@@ -5,6 +5,7 @@ use regex::Regex;
 use std::ops::Range;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{fmt, mem, str};
+use std::ffi::CStr;
 use std::collections::HashMap;
 use tree_sitter::{
     Language, Parser, Point, Query, QueryCursor, QueryError, QueryPredicateArg, Tree,
@@ -19,6 +20,8 @@ const CANCELLATION_CHECK_INTERVAL: usize = 100;
 pub struct TagsConfiguration {
     pub language: Language,
     pub query: Query,
+    syntax_type_names: Vec<Box<[u8]>>,
+    c_syntax_type_names: Vec<*const u8>,
     capture_map: HashMap<u32, NamedCapture>,
     doc_capture_index: Option<u32>,
     name_capture_index: Option<u32>,
@@ -30,22 +33,8 @@ pub struct TagsConfiguration {
 
 #[derive(Debug)]
 pub struct NamedCapture {
-    pub syntax_type: SyntaxType,
+    pub syntax_type_id: u32,
     pub is_definition: bool,
-}
-
-// Should stay in sync with list of valid syntax types in semantic.
-// See: https://github.com/github/semantic/blob/621696f5bc523a651f1cf9fc2ac58c557ea02d07/proto/semantic.proto#L165-L174
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum SyntaxType {
-    Function,
-    Method,
-    Class,
-    Module,
-    Call,
-    Type,
-    Interface,
-    Implementation,
 }
 
 pub struct TagsContext {
@@ -61,7 +50,7 @@ pub struct Tag {
     pub span: Range<Point>,
     pub docs: Option<String>,
     pub is_definition: bool,
-    pub syntax_type: SyntaxType,
+    pub syntax_type_id: u32,
 }
 
 #[derive(Debug, PartialEq)]
@@ -70,6 +59,7 @@ pub enum Error {
     Regex(regex::Error),
     Cancelled,
     InvalidLanguage,
+    InvalidCapture(String),
 }
 
 #[derive(Debug, Default)]
@@ -120,11 +110,13 @@ impl TagsConfiguration {
             }
         }
 
-        let mut capture_map: HashMap<u32, NamedCapture> = HashMap::new();
+        let mut capture_map = HashMap::new();
+        let mut syntax_type_names = Vec::new();
         let mut doc_capture_index = None;
         let mut name_capture_index = None;
         let mut local_scope_capture_index = None;
         let mut local_definition_capture_index = None;
+        let mut syntax_type_id = 0;
         for (i, name) in query.capture_names().iter().enumerate() {
             match name.as_str() {
                 "" => continue,
@@ -132,11 +124,31 @@ impl TagsConfiguration {
                 "doc" => doc_capture_index = Some(i as u32),
                 "local.scope" => local_scope_capture_index = Some(i as u32),
                 "local.definition" => local_definition_capture_index = Some(i as u32),
-                _ => if let Some(nc) = NamedCapture::new(name) {
-                    capture_map.insert(i as u32, nc);
+                "local.reference" => continue,
+                _ => {
+                    let mut is_definition = false;
+
+                    let kind = if name.starts_with("definition.") {
+                        is_definition = true;
+                        name.trim_start_matches("definition.")
+                    } else if name.starts_with("reference.") {
+                        name.trim_start_matches("reference.")
+                    } else {
+                        return Err(Error::InvalidCapture(name.to_string()))
+                    }.to_string()+"\0";
+
+                    capture_map.insert(i as u32, NamedCapture{ syntax_type_id, is_definition });
+                    syntax_type_id+=1;
+                    if let Ok(cstr) = CStr::from_bytes_with_nul(kind.as_bytes()) {
+                        syntax_type_names.push(cstr.to_bytes_with_nul().to_vec().into_boxed_slice());
+                    }
                 }
             }
         }
+
+        let c_syntax_type_names = syntax_type_names.iter().map( |s| {
+            s.as_ptr()
+        }).collect();
 
         let pattern_info = (0..query.pattern_count())
             .map(|pattern_index| {
@@ -182,6 +194,8 @@ impl TagsConfiguration {
         Ok(TagsConfiguration {
             language,
             query,
+            syntax_type_names,
+            c_syntax_type_names,
             capture_map,
             doc_capture_index,
             name_capture_index,
@@ -190,6 +204,13 @@ impl TagsConfiguration {
             local_definition_capture_index,
             pattern_info,
         })
+    }
+
+    pub fn syntax_type_name(&self, id: u32) -> &str {
+        unsafe {
+            let cstr = CStr::from_ptr(self.syntax_type_names[id as usize].as_ptr() as *const i8).to_bytes();
+            str::from_utf8(cstr).expect("syntax type name was not valid utf-8")
+        }
     }
 }
 
@@ -301,7 +322,7 @@ where
                 let mut name_range = None;
                 let mut doc_nodes = Vec::new();
                 let mut tag_node = None;
-                let mut syntax_type = SyntaxType::Function;
+                let mut syntax_type_id = 0;
                 let mut is_definition = false;
                 let mut docs_adjacent_node = None;
 
@@ -320,7 +341,7 @@ where
 
                     if let Some(named_capture) = self.config.capture_map.get(&capture.index) {
                         tag_node = Some(capture.node);
-                        syntax_type = named_capture.syntax_type;
+                        syntax_type_id = named_capture.syntax_type_id;
                         is_definition = named_capture.is_definition;
                     }
                 }
@@ -407,7 +428,7 @@ where
                                     range,
                                     name_range,
                                     docs,
-                                    syntax_type,
+                                    syntax_type_id,
                                     is_definition,
                                 };
                             }
@@ -421,7 +442,7 @@ where
                                     range,
                                     name_range,
                                     docs,
-                                    syntax_type,
+                                    syntax_type_id,
                                     is_definition,
                                 },
                                 mat.pattern_index,
@@ -437,44 +458,6 @@ where
                 return None;
             }
         }
-    }
-}
-
-impl NamedCapture {
-    pub fn new(name: &String) -> Option<NamedCapture> {
-        let mut is_definition = false;
-
-        let kind = if name.starts_with("definition.") {
-            is_definition = true;
-            name.trim_start_matches("definition.")
-        } else if name.starts_with("reference.") {
-            name.trim_start_matches("reference.")
-        } else {
-            name
-        };
-
-        let syntax_type = match kind.as_ref() {
-            "function" => {is_definition = true; SyntaxType::Function},
-            "method" => {is_definition = true; SyntaxType::Method},
-            "class" => {is_definition = true; SyntaxType::Class},
-            "module" => {is_definition = true; SyntaxType::Module},
-            "call" => SyntaxType::Call,
-            "type" => SyntaxType::Type,
-            "interface" => SyntaxType::Interface,
-            "implementation" => SyntaxType::Implementation,
-            _ => return None,
-        };
-
-        return Some(NamedCapture{
-            syntax_type,
-            is_definition
-        })
-    }
-}
-
-impl fmt::Display for SyntaxType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        format!("{:?}", self).fmt(f)
     }
 }
 
