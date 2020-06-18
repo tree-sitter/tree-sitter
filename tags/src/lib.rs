@@ -62,6 +62,15 @@ pub enum Error {
     InvalidCapture(String),
 }
 
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::InvalidCapture(name) => write!(f, "Invalid capture @{}. Expected one of: @definition.*, @reference.*, @doc, @name, @local.(scope|definition|reference).", name),
+            _ => write!(f, "{:?}", self)
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 struct PatternInfo {
     docs_adjacent_capture: Option<u32>,
