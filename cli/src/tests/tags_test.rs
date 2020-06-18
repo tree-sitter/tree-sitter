@@ -2,8 +2,9 @@ use super::helpers::allocations;
 use super::helpers::fixtures::{get_language, get_language_queries_path};
 use std::ffi::CString;
 use std::{fs, ptr, slice, str};
+use std::ffi::CStr;
 use tree_sitter_tags::c_lib as c;
-use tree_sitter_tags::{Error, SyntaxType, TagsConfiguration, TagsContext};
+use tree_sitter_tags::{Error, TagsConfiguration, TagsContext};
 
 const PYTHON_TAG_QUERY: &'static str = r#"
 (
@@ -97,14 +98,15 @@ fn test_tags_python() {
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
 
+
     assert_eq!(
         tags.iter()
-            .map(|t| (substr(source, &t.name_range), t.syntax_type))
+            .map(|t| (substr(source, &t.name_range), tags_config.syntax_type_name(t.syntax_type_id)))
             .collect::<Vec<_>>(),
         &[
-            ("Customer", SyntaxType::Class),
-            ("age", SyntaxType::Function),
-            ("compute_age", SyntaxType::Call),
+            ("Customer", "class"),
+            ("age", "function"),
+            ("compute_age", "call"),
         ]
     );
 
@@ -150,12 +152,12 @@ fn test_tags_javascript() {
 
     assert_eq!(
         tags.iter()
-            .map(|t| (substr(source, &t.name_range), t.syntax_type))
+            .map(|t| (substr(source, &t.name_range), tags_config.syntax_type_name(t.syntax_type_id)))
             .collect::<Vec<_>>(),
         &[
-            ("Customer", SyntaxType::Class),
-            ("getAge", SyntaxType::Method),
-            ("Agent", SyntaxType::Class)
+            ("Customer", "class"),
+            ("getAge", "method"),
+            ("Agent", "class")
         ]
     );
     assert_eq!(
@@ -204,18 +206,18 @@ fn test_tags_ruby() {
         tags.iter()
             .map(|t| (
                 substr(source.as_bytes(), &t.name_range),
-                t.syntax_type,
+                tags_config.syntax_type_name(t.syntax_type_id),
                 (t.span.start.row, t.span.start.column),
             ))
             .collect::<Vec<_>>(),
         &[
-            ("foo", SyntaxType::Method, (2, 0)),
-            ("bar", SyntaxType::Call, (7, 4)),
-            ("a", SyntaxType::Call, (7, 8)),
-            ("b", SyntaxType::Call, (7, 11)),
-            ("each", SyntaxType::Call, (9, 14)),
-            ("baz", SyntaxType::Call, (13, 8)),
-            ("b", SyntaxType::Call, (13, 15),),
+            ("foo", "method", (2, 0)),
+            ("bar", "call", (7, 4)),
+            ("a", "call", (7, 8)),
+            ("b", "call", (7, 11)),
+            ("each", "call", (9, 14)),
+            ("baz", "call", (13, 8)),
+            ("b", "call", (13, 15),),
         ]
     );
 }
@@ -251,6 +253,14 @@ fn test_tags_cancellation() {
 
         panic!("Expected to halt tagging with an error");
     });
+}
+
+#[test]
+fn test_invalid_cpature() {
+    let language = get_language("python");
+    let e = TagsConfiguration::new(language, "(identifier) @method", "")
+        .expect_err("expected InvalidCapture error");
+    assert_eq!(e, Error::InvalidCapture("method".to_string()));
 }
 
 #[test]
@@ -316,10 +326,18 @@ fn test_tags_via_c_api() {
         })
         .unwrap();
 
+        let syntax_types: Vec<&str> = unsafe {
+            let mut len: u32 = 0;
+            let ptr = c::ts_tagger_syntax_kinds_for_scope_name(tagger, c_scope_name.as_ptr(), &mut len);
+            slice::from_raw_parts(ptr, len as usize).iter().map(|i| {
+                CStr::from_ptr(*i).to_str().unwrap()
+            }).collect()
+        };
+
         assert_eq!(
             tags.iter()
                 .map(|tag| (
-                    tag.syntax_type,
+                    syntax_types[tag.syntax_type_id as usize],
                     &source_code[tag.name_start_byte as usize..tag.name_end_byte as usize],
                     &source_code[tag.line_start_byte as usize..tag.line_end_byte as usize],
                     &docs[tag.docs_start_byte as usize..tag.docs_end_byte as usize],
@@ -327,18 +345,18 @@ fn test_tags_via_c_api() {
                 .collect::<Vec<_>>(),
             &[
                 (
-                    c::TSSyntaxType::Function,
+                    "function",
                     "b",
                     "function b() {",
                     "one\ntwo\nthree"
                 ),
                 (
-                    c::TSSyntaxType::Class,
+                    "class",
                     "C",
                     "class C extends D {",
                     "four\nfive"
                 ),
-                (c::TSSyntaxType::Call, "b", "b(a);", "")
+                ("call", "b", "b(a);", "")
             ]
         );
 
