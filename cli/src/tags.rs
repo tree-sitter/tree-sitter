@@ -50,7 +50,7 @@ pub fn generate_tags(loader: &Loader, scope: Option<&str>, paths: &[String]) -> 
                     "{}{:<10}\t | {:<8}\t{} {} - {} `{}`",
                     ident,
                     str::from_utf8(&source[tag.name_range]).unwrap_or(""),
-                    tag.syntax_type,
+                    &tags_config.syntax_type_name(tag.syntax_type_id),
                     if tag.is_definition { "def" } else { "ref" },
                     tag.span.start,
                     tag.span.end,
