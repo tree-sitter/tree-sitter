@@ -5,7 +5,7 @@ use regex::Regex;
 use std::ops::Range;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{fmt, mem, str};
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::collections::HashMap;
 use tree_sitter::{
     Language, Parser, Point, Query, QueryCursor, QueryError, QueryPredicateArg, Tree,
@@ -125,7 +125,6 @@ impl TagsConfiguration {
         let mut name_capture_index = None;
         let mut local_scope_capture_index = None;
         let mut local_definition_capture_index = None;
-        let mut syntax_type_id = 0;
         for (i, name) in query.capture_names().iter().enumerate() {
             match name.as_str() {
                 "" => continue,
@@ -144,12 +143,15 @@ impl TagsConfiguration {
                         name.trim_start_matches("reference.")
                     } else {
                         return Err(Error::InvalidCapture(name.to_string()))
-                    }.to_string()+"\0";
+                    };
 
-                    capture_map.insert(i as u32, NamedCapture{ syntax_type_id, is_definition });
-                    syntax_type_id+=1;
-                    if let Ok(cstr) = CStr::from_bytes_with_nul(kind.as_bytes()) {
-                        syntax_type_names.push(cstr.to_bytes_with_nul().to_vec().into_boxed_slice());
+                    if let Ok(cstr) = CString::new(kind) {
+                        let c_kind = cstr.to_bytes_with_nul().to_vec().into_boxed_slice();
+                        let syntax_type_id = syntax_type_names.iter().position(|n| { n == &c_kind }).unwrap_or_else(|| {
+                            syntax_type_names.push(c_kind);
+                            syntax_type_names.len() - 1
+                        }) as u32;
+                        capture_map.insert(i as u32, NamedCapture{ syntax_type_id, is_definition });
                     }
                 }
             }
