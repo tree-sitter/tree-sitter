@@ -10,65 +10,65 @@ const PYTHON_TAG_QUERY: &'static str = r#"
 (
     (function_definition
       name: (identifier) @name
-      body: (block . (expression_statement (string) @doc))) @function
+      body: (block . (expression_statement (string) @doc))) @definition.function
     (#strip! @doc "(^['\"\\s]*)|(['\"\\s]*$)")
 )
 
 (function_definition
-  name: (identifier) @name) @function
+  name: (identifier) @name) @definition.function
 
 (
     (class_definition
         name: (identifier) @name
         body: (block
-            . (expression_statement (string) @doc))) @class
+            . (expression_statement (string) @doc))) @definition.class
     (#strip! @doc "(^['\"\\s]*)|(['\"\\s]*$)")
 )
 
 (class_definition
-  name: (identifier) @name) @class
+  name: (identifier) @name) @definition.class
 
 (call
-  function: (identifier) @name) @call
+  function: (identifier) @name) @reference.call
 "#;
 
 const JS_TAG_QUERY: &'static str = r#"
 (
     (comment)* @doc .
     (class_declaration
-        name: (identifier) @name) @class
-    (#select-adjacent! @doc @class)
+        name: (identifier) @name) @definition.class
+    (#select-adjacent! @doc @definition.class)
     (#strip! @doc "(^[/\\*\\s]*)|([/\\*\\s]*$)")
 )
 
 (
     (comment)* @doc .
     (method_definition
-        name: (property_identifier) @name) @method
-    (#select-adjacent! @doc @method)
+        name: (property_identifier) @name) @definition.method
+    (#select-adjacent! @doc @definition.method)
     (#strip! @doc "(^[/\\*\\s]*)|([/\\*\\s]*$)")
 )
 
 (
     (comment)* @doc .
     (function_declaration
-        name: (identifier) @name) @function
-    (#select-adjacent! @doc @function)
+        name: (identifier) @name) @definition.function
+    (#select-adjacent! @doc @definition.function)
     (#strip! @doc "(^[/\\*\\s]*)|([/\\*\\s]*$)")
 )
 
 (call_expression
-    function: (identifier) @name) @call
+    function: (identifier) @name) @reference.call
 "#;
 
 const RUBY_TAG_QUERY: &'static str = r#"
 (method
-    name: (identifier) @name) @method
+    name: (identifier) @name) @definition.method
 
 (method_call
-    method: (identifier) @name) @call
+    method: (identifier) @name) @reference.call
 
-((identifier) @name @call
+((identifier) @name @reference.call
  (#is-not? local))
 "#;
 
@@ -256,7 +256,7 @@ fn test_tags_cancellation() {
 }
 
 #[test]
-fn test_invalid_cpature() {
+fn test_invalid_capture() {
     let language = get_language("python");
     let e = TagsConfiguration::new(language, "(identifier) @method", "")
         .expect_err("expected InvalidCapture error");
