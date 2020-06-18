@@ -108,10 +108,10 @@ fn test_tags_python() {
         ]
     );
 
-    assert_eq!(substr(source, &tags[0].line_range), "    class Customer:");
+    assert_eq!(substr(source, &tags[0].line_range), "class Customer:");
     assert_eq!(
         substr(source, &tags[1].line_range),
-        "        def age(self):"
+        "def age(self):"
     );
     assert_eq!(tags[0].docs.as_ref().unwrap(), "Data about a customer");
     assert_eq!(tags[1].docs.as_ref().unwrap(), "Get the customer's age");
