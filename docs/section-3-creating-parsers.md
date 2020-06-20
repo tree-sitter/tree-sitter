@@ -52,6 +52,11 @@ The last command will install the CLI into the `node_modules` folder in your wor
 # In your shell profile script
 export PATH=$PATH:./node_modules/.bin
 ```
+Alternatively, in Windows Terminal:
+```pwsh
+# In an init.ps1 file in the directory
+$env:Path += ";.\node_modules\.bin"
+```
 
 Once you have the CLI installed, create a file called `grammar.js` with the following contents:
 
@@ -78,6 +83,11 @@ You can test this parser by creating a source file with the contents "hello" and
 
 ```sh
 echo 'hello' > example-file
+tree-sitter parse example-file
+```
+Alternatively, in Windows Terminal:
+```pwsh
+"hello" | Out-File example-file -Encoding utf8
 tree-sitter parse example-file
 ```
 
