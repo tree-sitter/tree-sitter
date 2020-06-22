@@ -77,10 +77,10 @@ This will generate the C code required to parse this trivial language, as well a
 You can test this parser by creating a source file with the contents "hello" and parsing it:
 
 ```sh
-echo 'hello' > example-file
+echo hello > example-file
 tree-sitter parse example-file
 ```
-Alternatively, in Windows Terminal:
+Alternatively, in Windows PowerShell:
 ```pwsh
 "hello" | Out-File example-file -Encoding utf8
 tree-sitter parse example-file
