@@ -163,6 +163,7 @@ pub enum QueryError {
     Field(usize, String),
     Capture(usize, String),
     Predicate(String),
+    Pattern(usize, String),
 }
 
 #[derive(Debug)]
@@ -1175,27 +1176,42 @@ impl Query {
                 }
             });
 
-            let message = if let Some(line) = line_containing_error {
-                line.to_string() + "\n" + &" ".repeat(offset - line_start) + "^"
-            } else {
-                "Unexpected EOF".to_string()
-            };
-
-            // if line_containing_error
-            return if error_type != ffi::TSQueryError_TSQueryErrorSyntax {
-                let suffix = source.split_at(offset).1;
-                let end_offset = suffix
-                    .find(|c| !char::is_alphanumeric(c) && c != '_' && c != '-')
-                    .unwrap_or(source.len());
-                let name = suffix.split_at(end_offset).0.to_string();
-                match error_type {
-                    ffi::TSQueryError_TSQueryErrorNodeType => Err(QueryError::NodeType(row, name)),
-                    ffi::TSQueryError_TSQueryErrorField => Err(QueryError::Field(row, name)),
-                    ffi::TSQueryError_TSQueryErrorCapture => Err(QueryError::Capture(row, name)),
-                    _ => Err(QueryError::Syntax(row, message)),
+            return match error_type {
+                // Error types that report names
+                ffi::TSQueryError_TSQueryErrorNodeType
+                | ffi::TSQueryError_TSQueryErrorField
+                | ffi::TSQueryError_TSQueryErrorCapture => {
+                    let suffix = source.split_at(offset).1;
+                    let end_offset = suffix
+                        .find(|c| !char::is_alphanumeric(c) && c != '_' && c != '-')
+                        .unwrap_or(source.len());
+                    let name = suffix.split_at(end_offset).0.to_string();
+                    match error_type {
+                        ffi::TSQueryError_TSQueryErrorNodeType => {
+                            Err(QueryError::NodeType(row, name))
+                        }
+                        ffi::TSQueryError_TSQueryErrorField => Err(QueryError::Field(row, name)),
+                        ffi::TSQueryError_TSQueryErrorCapture => {
+                            Err(QueryError::Capture(row, name))
+                        }
+                        _ => unreachable!(),
+                    }
                 }
-            } else {
-                Err(QueryError::Syntax(row, message))
+
+                // Error types that report positions
+                _ => {
+                    let message = if let Some(line) = line_containing_error {
+                        line.to_string() + "\n" + &" ".repeat(offset - line_start) + "^"
+                    } else {
+                        "Unexpected EOF".to_string()
+                    };
+                    match error_type {
+                        ffi::TSQueryError_TSQueryErrorPattern => {
+                            Err(QueryError::Pattern(row, message))
+                        }
+                        _ => Err(QueryError::Syntax(row, message)),
+                    }
+                }
             };
         }
 

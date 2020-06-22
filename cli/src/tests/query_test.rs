@@ -12,7 +12,11 @@ fn test_query_errors_on_invalid_syntax() {
         let language = get_language("javascript");
 
         assert!(Query::new(language, "(if_statement)").is_ok());
-        assert!(Query::new(language, "(if_statement condition:(identifier))").is_ok());
+        assert!(Query::new(
+            language,
+            "(if_statement condition:(parenthesized_expression (identifier)))"
+        )
+        .is_ok());
 
         // Mismatched parens
         assert_eq!(
@@ -176,6 +180,28 @@ fn test_query_errors_on_invalid_conditions() {
         assert_eq!(
             Query::new(language, "((identifier) @id (#eq? @id @ok))"),
             Err(QueryError::Capture(1, "ok".to_string()))
+        );
+    });
+}
+
+#[test]
+fn test_query_errors_on_impossible_patterns() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        assert_eq!(
+            Query::new(
+                language,
+                "(binary_expression left:(identifier) left:(identifier))"
+            ),
+            Err(QueryError::Pattern(
+                1,
+                [
+                    "(binary_expression left:(identifier) left:(identifier))", //
+                    "^"
+                ]
+                .join("\n")
+            ))
         );
     });
 }
@@ -1946,10 +1972,10 @@ fn test_query_capture_names() {
             language,
             r#"
             (if_statement
-              condition: (binary_expression
+              condition: (parenthesized_expression (binary_expression
                 left: _ @left-operand
                 operator: "||"
-                right: _ @right-operand)
+                right: _ @right-operand))
               consequence: (statement_block) @body)
 
             (while_statement
@@ -2051,12 +2077,14 @@ fn test_query_disable_pattern() {
 #[test]
 fn test_query_is_definite() {
     struct Row {
+        language: Language,
         pattern: &'static str,
         results_by_step_index: &'static [(usize, bool)],
     }
 
     let rows = &[
         Row {
+            language: get_language("javascript"),
             pattern: r#"(object "{" "}")"#,
             results_by_step_index: &[
                 (0, false),
@@ -2065,6 +2093,7 @@ fn test_query_is_definite() {
             ],
         },
         Row {
+            language: get_language("javascript"),
             pattern: r#"(pair (property_identifier) ":")"#,
             results_by_step_index: &[
                 (0, false),
@@ -2073,6 +2102,7 @@ fn test_query_is_definite() {
             ],
         },
         Row {
+            language: get_language("javascript"),
             pattern: r#"(object "{" (_) "}")"#,
             results_by_step_index: &[
                 (0, false),
@@ -2083,6 +2113,7 @@ fn test_query_is_definite() {
         },
         Row {
             // Named wildcards, fields
+            language: get_language("javascript"),
             pattern: r#"(binary_expression left: (identifier) right: (_))"#,
             results_by_step_index: &[
                 (0, false),
@@ -2091,6 +2122,7 @@ fn test_query_is_definite() {
             ],
         },
         Row {
+            language: get_language("javascript"),
             pattern: r#"(function_declaration name: (identifier) body: (statement_block))"#,
             results_by_step_index: &[
                 (0, false),
@@ -2098,12 +2130,16 @@ fn test_query_is_definite() {
                 (2, true), // statement_block
             ],
         },
+        Row {
+            language: get_language("javascript"),
+            pattern: r#""#,
+            results_by_step_index: &[],
+        },
     ];
 
     allocations::record(|| {
-        let language = get_language("javascript");
         for row in rows.iter() {
-            let query = Query::new(language, row.pattern).unwrap();
+            let query = Query::new(row.language, row.pattern).unwrap();
             for (step_index, is_definite) in row.results_by_step_index {
                 assert_eq!(
                     query.pattern_is_definite(0, *step_index),

@@ -156,7 +156,8 @@ typedef struct {
   TSStateId state;
   TSSymbol parent_symbol;
   uint16_t child_index;
-  TSFieldId field;
+  TSFieldId field_id: 15;
+  bool done: 1;
 } WalkStateEntry;
 
 typedef struct {
@@ -164,6 +165,19 @@ typedef struct {
   uint16_t depth;
   uint16_t step_index;
 } WalkState;
+
+typedef struct {
+  TSStateId state;
+  uint8_t production_id;
+  uint8_t child_index: 7;
+  bool done: 1;
+} SubgraphNode;
+
+typedef struct {
+  TSSymbol symbol;
+  Array(TSStateId) start_states;
+  Array(SubgraphNode) nodes;
+} SymbolSubgraph;
 
 /*
  * StatePredecessorMap - A map that stores the predecessors of each parse state.
@@ -571,6 +585,16 @@ static inline int walk_state__compare(WalkState *self, WalkState *other) {
   return 0;
 }
 
+static inline int subgraph_node__compare(SubgraphNode *self, SubgraphNode *other) {
+  if (self->state < other->state) return -1;
+  if (self->state > other->state) return 1;
+  if (self->child_index < other->child_index) return -1;
+  if (self->child_index > other->child_index) return 1;
+  if (self->production_id < other->production_id) return -1;
+  if (self->production_id > other->production_id) return 1;
+  return 0;
+}
+
 static inline WalkStateEntry *walk_state__top(WalkState *self) {
   return &self->stack[self->depth - 1];
 }
@@ -647,27 +671,16 @@ static inline void ts_query__pattern_map_insert(
   }));
 }
 
-static void ts_query__analyze_patterns(TSQuery *self) {
+static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index) {
   typedef struct {
     TSSymbol parent_symbol;
     uint32_t parent_step_index;
     Array(uint32_t) child_step_indices;
   } ParentPattern;
 
-  typedef struct {
-    TSStateId state;
-    uint8_t child_index;
-    uint8_t production_id;
-    bool done;
-  } SubgraphNode;
-
-  typedef struct {
-    TSSymbol symbol;
-    Array(TSStateId) start_states;
-    Array(SubgraphNode) nodes;
-  } SymbolSubgraph;
-
   typedef Array(WalkState) WalkStateList;
+
+  bool result = true;
 
   // Identify all of the patterns in the query that have child patterns. This
   // includes both top-level patterns and patterns that are nested within some
@@ -846,7 +859,11 @@ static void ts_query__analyze_patterns(TSQuery *self) {
             .done = false,
           };
           unsigned index, exists;
-          array_search_sorted_by(&subgraph->nodes, 0, .state, predecessor_node.state, &index, &exists);
+          array_search_sorted_with(
+            &subgraph->nodes, 0,
+            subgraph_node__compare, &predecessor_node,
+            &index, &exists
+          );
           if (!exists) {
             array_insert(&subgraph->nodes, index, predecessor_node);
             array_push(&next_nodes, predecessor_node);
@@ -897,7 +914,8 @@ static void ts_query__analyze_patterns(TSQuery *self) {
             .state = state,
             .child_index = 0,
             .parent_symbol = subgraph->symbol,
-            .field = 0,
+            .field_id = 0,
+            .done = false,
           },
         },
         .depth = 1,
@@ -923,20 +941,14 @@ static void ts_query__analyze_patterns(TSQuery *self) {
       //       ts_language_symbol_name(self->language, walk_state->stack[walk_state->depth - 1].parent_symbol)
       //     );
       //   }
-
-      //   printf("\nFinished step indices for %u %s:", i, ts_language_symbol_name(self->language, parent_pattern->parent_symbol));
-      //   for (unsigned j = 0; j < finished_step_indices.size; j++) {
-      //     printf(" %u", finished_step_indices.contents[j]);
-      //   }
-      //   printf("\n\n");
       // }
 
       array_clear(&next_walk_states);
       for (unsigned j = 0; j < walk_states.size; j++) {
         WalkState *walk_state = &walk_states.contents[j];
-        TSStateId state = walk_state->stack[walk_state->depth - 1].state;
-        unsigned child_index = walk_state->stack[walk_state->depth - 1].child_index;
-        TSSymbol parent_symbol = walk_state->stack[walk_state->depth - 1].parent_symbol;
+        TSStateId state = walk_state__top(walk_state)->state;
+        unsigned child_index = walk_state__top(walk_state)->child_index;
+        TSSymbol parent_symbol = walk_state__top(walk_state)->parent_symbol;
 
         unsigned subgraph_index, exists;
         array_search_sorted_by(&subgraphs, 0, .symbol, parent_symbol, &subgraph_index, &exists);
@@ -948,15 +960,14 @@ static void ts_query__analyze_patterns(TSQuery *self) {
           if (successor_state && successor_state != state) {
             unsigned node_index;
             array_search_sorted_by(&subgraph->nodes, 0, .state, successor_state, &node_index, &exists);
-            if (exists) {
-              SubgraphNode *node = &subgraph->nodes.contents[node_index];
-              if (node->child_index != child_index + 1) continue;
+            while (exists && node_index < subgraph->nodes.size) {
+              SubgraphNode *node = &subgraph->nodes.contents[node_index++];
+              if (node->state != successor_state || node->child_index != child_index + 1) continue;
 
               WalkState next_walk_state = *walk_state;
               walk_state__top(&next_walk_state)->child_index++;
               walk_state__top(&next_walk_state)->state = successor_state;
 
-              bool does_match = true;
               unsigned step_index = parent_pattern->child_step_indices.contents[walk_state->step_index];
               QueryStep *step = &self->steps.contents[step_index];
               TSSymbol alias = ts_language_alias_at(self->language, node->production_id, child_index);
@@ -965,21 +976,6 @@ static void ts_query__analyze_patterns(TSQuery *self) {
                 : self->language->symbol_metadata[sym].visible
                   ? self->language->public_symbol_map[sym]
                   : 0;
-              if (visible_symbol) {
-                if (step->symbol == NAMED_WILDCARD_SYMBOL) {
-                  if (!ts_language_symbol_metadata(self->language, visible_symbol).named) does_match = false;
-                } else if (step->symbol != WILDCARD_SYMBOL) {
-                  if (step->symbol != visible_symbol) does_match = false;
-                }
-              } else if (next_walk_state.depth < MAX_WALK_STATE_DEPTH) {
-                does_match = false;
-                next_walk_state.depth++;
-                walk_state__top(&next_walk_state)->state = state;
-                walk_state__top(&next_walk_state)->child_index = 0;
-                walk_state__top(&next_walk_state)->parent_symbol = sym;
-              } else {
-                continue;
-              }
 
               TSFieldId field_id = 0;
               const TSFieldMapEntry *field_map, *field_map_end;
@@ -991,18 +987,45 @@ static void ts_query__analyze_patterns(TSQuery *self) {
                 }
               }
 
+              if (node->done) {
+                walk_state__top(&next_walk_state)->done = true;
+              }
+
+              bool does_match = true;
+              if (visible_symbol) {
+                if (step->symbol == NAMED_WILDCARD_SYMBOL) {
+                  if (!self->language->symbol_metadata[visible_symbol].named) does_match = false;
+                } else if (step->symbol != WILDCARD_SYMBOL) {
+                  if (step->symbol != visible_symbol) does_match = false;
+                }
+
+                if (step->field) {
+                  bool does_match_field = step->field == field_id;
+                  if (!does_match_field) {
+                    for (unsigned i = 0; i < walk_state->depth; i++) {
+                      if (walk_state->stack[i].field_id == step->field) {
+                        does_match_field = true;
+                      }
+                    }
+                  }
+                  does_match &= does_match_field;
+                }
+              } else if (next_walk_state.depth < MAX_WALK_STATE_DEPTH) {
+                does_match = false;
+                next_walk_state.depth++;
+                walk_state__top(&next_walk_state)->state = state;
+                walk_state__top(&next_walk_state)->child_index = 0;
+                walk_state__top(&next_walk_state)->parent_symbol = sym;
+                walk_state__top(&next_walk_state)->field_id = field_id;
+              } else {
+                continue;
+              }
+
               if (does_match) {
                 next_walk_state.step_index++;
               }
 
-              if (node->done) {
-                next_walk_state.depth--;
-              }
-
-              if (
-                next_walk_state.depth == 0 ||
-                next_walk_state.step_index == parent_pattern->child_step_indices.size
-              ) {
+              if (next_walk_state.step_index == parent_pattern->child_step_indices.size) {
                 unsigned index, exists;
                 array_search_sorted_by(&finished_step_indices, 0, , next_walk_state.step_index, &index, &exists);
                 if (!exists) array_insert(&finished_step_indices, index, next_walk_state.step_index);
@@ -1011,17 +1034,37 @@ static void ts_query__analyze_patterns(TSQuery *self) {
 
               unsigned index, exists;
               array_search_sorted_with(
-                &next_walk_states,
-                0,
-                walk_state__compare,
-                &next_walk_state,
-                &index,
-                &exists
+                &next_walk_states, 0,
+                walk_state__compare, &next_walk_state,
+                &index, &exists
               );
-              if (!exists) {
-                array_insert(&next_walk_states, index, next_walk_state);
-              }
+              if (!exists) array_insert(&next_walk_states, index, next_walk_state);
             }
+          }
+        }
+
+        bool did_pop = false;
+        while (walk_state->depth > 0 && walk_state__top(walk_state)->done) {
+          walk_state->depth--;
+          did_pop = true;
+        }
+
+        if (did_pop) {
+          if (walk_state->depth == 0) {
+            unsigned index, exists;
+            array_search_sorted_by(&finished_step_indices, 0, , walk_state->step_index, &index, &exists);
+            if (!exists) array_insert(&finished_step_indices, index, walk_state->step_index);
+          } else {
+            unsigned index, exists;
+            array_search_sorted_with(
+              &next_walk_states,
+              0,
+              walk_state__compare,
+              walk_state,
+              &index,
+              &exists
+            );
+            if (!exists) array_insert(&next_walk_states, index, *walk_state);
           }
         }
       }
@@ -1037,7 +1080,7 @@ static void ts_query__analyze_patterns(TSQuery *self) {
     //   for (unsigned j = 0; j < finished_step_indices.size; j++) {
     //     printf(" %u", finished_step_indices.contents[j]);
     //   }
-    //   printf("\n\n");
+    //   printf(". Length: %u\n\n", parent_pattern->child_step_indices.size);
     // }
 
     // A query step is definite if the containing pattern will definitely match
@@ -1054,6 +1097,16 @@ static void ts_query__analyze_patterns(TSQuery *self) {
           break;
         }
       }
+    }
+
+    if (finished_step_indices.size == 0 || *array_back(&finished_step_indices) < parent_pattern->child_step_indices.size) {
+      unsigned exists;
+      array_search_sorted_by(
+        &self->patterns, 0,
+        .start_step,
+        parent_pattern->parent_step_index, impossible_index, &exists);
+      result = false;
+      goto cleanup;
     }
   }
 
@@ -1090,6 +1143,7 @@ static void ts_query__analyze_patterns(TSQuery *self) {
   // }
 
   // Cleanup
+cleanup:
   for (unsigned i = 0; i < parent_patterns.size; i++) {
     array_delete(&parent_patterns.contents[i].child_step_indices);
   }
@@ -1105,6 +1159,8 @@ static void ts_query__analyze_patterns(TSQuery *self) {
   array_delete(&next_walk_states);
   array_delete(&finished_step_indices);
   state_predecessor_map_delete(&predecessor_map);
+
+  return result;
 }
 
 static void ts_query__finalize_steps(TSQuery *self) {
@@ -1731,7 +1787,13 @@ TSQuery *ts_query_new(
   }
 
   if (self->language->version >= TREE_SITTER_LANGUAGE_VERSION_WITH_STATE_COUNT) {
-    ts_query__analyze_patterns(self);
+    unsigned impossible_pattern_index = 0;
+    if (!ts_query__analyze_patterns(self, &impossible_pattern_index)) {
+      *error_type = TSQueryErrorPattern;
+      *error_offset = self->patterns.contents[impossible_pattern_index].start_byte;
+      ts_query_delete(self);
+      return NULL;
+    }
   }
 
   ts_query__finalize_steps(self);
