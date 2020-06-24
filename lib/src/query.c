@@ -715,7 +715,7 @@ static TSQueryError ts_query__parse_pattern(
   uint32_t *capture_count,
   bool is_immediate
 ) {
-  uint32_t starting_step_index = self->steps.size;
+  const uint32_t starting_step_index = self->steps.size;
 
   if (stream->next == 0) return TSQueryErrorSyntax;
 
@@ -951,7 +951,6 @@ static TSQueryError ts_query__parse_pattern(
     stream_skip_whitespace(stream);
 
     // Parse the pattern
-    uint32_t step_index = self->steps.size;
     TSQueryError e = ts_query__parse_pattern(
       self,
       stream,
@@ -972,7 +971,22 @@ static TSQueryError ts_query__parse_pattern(
       stream->input = field_name;
       return TSQueryErrorField;
     }
-    self->steps.contents[step_index].field = field_id;
+
+    uint32_t step_index = starting_step_index;
+    QueryStep *step = &self->steps.contents[step_index];
+    for (;;) {
+      step->field = field_id;
+      if (
+        step->alternative_index != NONE &&
+        step->alternative_index > step_index &&
+        step->alternative_index < self->steps.size
+      ) {
+        step_index = step->alternative_index;
+        step = &self->steps.contents[step_index];
+      } else {
+        break;
+      }
+    }
   }
 
   else {
@@ -1041,15 +1055,16 @@ static TSQueryError ts_query__parse_pattern(
         length
       );
 
+      uint32_t step_index = starting_step_index;
       for (;;) {
         query_step__add_capture(step, capture_id);
         if (
           step->alternative_index != NONE &&
-          step->alternative_index > starting_step_index &&
+          step->alternative_index > step_index &&
           step->alternative_index < self->steps.size
         ) {
-          starting_step_index = step->alternative_index;
-          step = &self->steps.contents[starting_step_index];
+          step_index = step->alternative_index;
+          step = &self->steps.contents[step_index];
         } else {
           break;
         }

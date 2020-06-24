@@ -1009,6 +1009,41 @@ fn test_query_matches_with_alternatives_at_root() {
 }
 
 #[test]
+fn test_query_matches_with_alternatives_under_fields() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            (assignment_expression
+                left: [
+                    (identifier) @variable
+                    (member_expression property: (property_identifier) @variable)
+                ])
+            "#,
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            "
+            a = b;
+            b = c.d;
+            e.f = g;
+            h.i = j.k;
+            ",
+            &[
+                (0, vec![("variable", "a")]),
+                (0, vec![("variable", "b")]),
+                (0, vec![("variable", "f")]),
+                (0, vec![("variable", "i")]),
+            ],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_in_language_with_simple_aliases() {
     allocations::record(|| {
         let language = get_language("html");
