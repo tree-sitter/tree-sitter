@@ -71,5 +71,3 @@ cache:
   cargo: true
   directories:
     - target/emsdk
-    - test/fixtures/grammars
-    - $HOME/.emscripten_cache
