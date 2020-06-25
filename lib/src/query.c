@@ -1004,6 +1004,11 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
                 continue;
               }
 
+              while (next_walk_state.depth > 0 && walk_state__top(&next_walk_state)->done) {
+                memset(walk_state__top(&next_walk_state), 0, sizeof(WalkStateEntry));
+                next_walk_state.depth--;
+              }
+
               if (does_match) {
                 for (;;) {
                   next_walk_state.step_index++;
@@ -1021,18 +1026,23 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
                 }
               }
 
-              while (next_walk_state.depth > 0 && walk_state__top(&next_walk_state)->done) {
-                memset(walk_state__top(&next_walk_state), 0, sizeof(WalkStateEntry));
-                next_walk_state.depth--;
-              }
-
               if (
                 next_walk_state.depth == 0 ||
                 self->steps.contents[next_walk_state.step_index].depth != parent_depth + 1
               ) {
                 array_insert_sorted_by(&final_step_indices, 0, , next_walk_state.step_index);
               } else {
-                array_insert_sorted_with(&next_walk_states, 0, walk_state__compare, next_walk_state);
+                for (;;) {
+                  const QueryStep *step = &self->steps.contents[next_walk_state.step_index];
+                  if (!step->is_dead_end) {
+                    array_insert_sorted_with(&next_walk_states, 0, walk_state__compare, next_walk_state);
+                  }
+                  if (step->alternative_index != NONE && step->alternative_index > next_walk_state.step_index) {
+                    next_walk_state.step_index = step->alternative_index;
+                  } else {
+                    break;
+                  }
+                }
               }
             }
           }
