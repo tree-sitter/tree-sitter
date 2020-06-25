@@ -569,25 +569,37 @@ static inline const TSStateId *state_predecessor_map_get(
  * WalkState
  ************/
 
-static inline int walk_state__compare(WalkState *self, WalkState *other) {
-  if (self->depth < other->depth) return -1;
-  if (self->depth > other->depth) return 1;
-  if (self->step_index < other->step_index) return -1;
-  if (self->step_index > other->step_index) return 1;
+static inline int walk_state__compare_position(const WalkState *self, const WalkState *other) {
   for (unsigned i = 0; i < self->depth; i++) {
-    if (self->stack[i].state < other->stack[i].state) return -1;
-    if (self->stack[i].state > other->stack[i].state) return 1;
-    if (self->stack[i].parent_symbol < other->stack[i].parent_symbol) return -1;
-    if (self->stack[i].parent_symbol > other->stack[i].parent_symbol) return 1;
+    if (i >= other->depth) return -1;
     if (self->stack[i].child_index < other->stack[i].child_index) return -1;
     if (self->stack[i].child_index > other->stack[i].child_index) return 1;
   }
+  if (self->depth < other->depth) return 1;
   return 0;
 }
 
-static inline int subgraph_node__compare(SubgraphNode *self, SubgraphNode *other) {
+static inline int walk_state__compare(const WalkState *self, const WalkState *other) {
+  int result = walk_state__compare_position(self, other);
+  if (result != 0) return result;
+  for (unsigned i = 0; i < self->depth; i++) {
+    if (self->stack[i].parent_symbol < other->stack[i].parent_symbol) return -1;
+    if (self->stack[i].parent_symbol > other->stack[i].parent_symbol) return 1;
+    if (self->stack[i].state < other->stack[i].state) return -1;
+    if (self->stack[i].state > other->stack[i].state) return 1;
+    if (self->stack[i].field_id < other->stack[i].field_id) return -1;
+    if (self->stack[i].field_id > other->stack[i].field_id) return 1;
+  }
+  if (self->step_index < other->step_index) return -1;
+  if (self->step_index > other->step_index) return 1;
+  return 0;
+}
+
+static inline int subgraph_node__compare(const SubgraphNode *self, const SubgraphNode *other) {
   if (self->state < other->state) return -1;
   if (self->state > other->state) return 1;
+  if (self->done && !other->done) return -1;
+  if (!self->done && other->done) return 1;
   if (self->child_index < other->child_index) return -1;
   if (self->child_index > other->child_index) return 1;
   if (self->production_id < other->production_id) return -1;
@@ -672,97 +684,52 @@ static inline void ts_query__pattern_map_insert(
 }
 
 static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index) {
-  typedef struct {
-    TSSymbol parent_symbol;
-    uint32_t parent_step_index;
-    Array(uint32_t) child_step_indices;
-  } ParentPattern;
-
-  typedef Array(WalkState) WalkStateList;
-
-  bool result = true;
-
   // Identify all of the patterns in the query that have child patterns. This
   // includes both top-level patterns and patterns that are nested within some
   // larger pattern. For each of these, record the parent symbol, the step index
   // and all of the immediate child step indices in reverse order.
-  Array(ParentPattern) parent_patterns = array_new();
-  Array(uint32_t) stack = array_new();
+  Array(uint32_t) parent_step_indices = array_new();
   for (unsigned i = 0; i < self->steps.size; i++) {
     QueryStep *step = &self->steps.contents[i];
-    if (step->depth == PATTERN_DONE_MARKER) {
-      array_clear(&stack);
-    } else {
-      uint32_t parent_pattern_index = 0;
-      while (stack.size > 0) {
-        parent_pattern_index = *array_back(&stack);
-        ParentPattern *parent_pattern = &parent_patterns.contents[parent_pattern_index];
-        QueryStep *parent_step = &self->steps.contents[parent_pattern->parent_step_index];
-        if (parent_step->depth >= step->depth) {
-          stack.size--;
-        } else {
-          break;
-        }
+    if (i + 1 < self->steps.size) {
+      QueryStep *next_step = &self->steps.contents[i + 1];
+      if (
+        step->symbol != WILDCARD_SYMBOL &&
+        step->symbol != NAMED_WILDCARD_SYMBOL &&
+        next_step->depth > step->depth &&
+        next_step->depth != PATTERN_DONE_MARKER
+      ) {
+        array_push(&parent_step_indices, i);
       }
-
-      if (stack.size > 0) {
-        ParentPattern *parent_pattern = &parent_patterns.contents[parent_pattern_index];
-        step->is_definite = true;
-        array_push(&parent_pattern->child_step_indices, i);
-      }
-
-      array_push(&stack, parent_patterns.size);
-      array_push(&parent_patterns, ((ParentPattern) {
-        .parent_symbol = step->symbol,
-        .parent_step_index = i,
-      }));
     }
-  }
-  for (unsigned i = 0; i < parent_patterns.size; i++) {
-    ParentPattern *parent_pattern = &parent_patterns.contents[i];
-    if (parent_pattern->child_step_indices.size == 0) {
-      array_erase(&parent_patterns, i);
-      i--;
+    if (step->depth > 0) {
+      step->is_definite = true;
     }
   }
 
   // Debug
   // {
-  //   printf("\nParent pattern entries\n");
-  //   for (unsigned i = 0; i < parent_patterns.size; i++) {
-  //     ParentPattern *parent_pattern = &parent_patterns.contents[i];
-  //     printf("  %s ->", ts_language_symbol_name(self->language, parent_pattern->parent_symbol));
-  //     for (unsigned j = 0; j < parent_pattern->child_step_indices.size; j++) {
-  //       QueryStep *step = &self->steps.contents[parent_pattern->child_step_indices.contents[j]];
-  //       printf(" %s", ts_language_symbol_name(self->language, step->symbol));
-  //     }
-  //     printf("\n");
+  //   printf("\nParent steps\n");
+  //   for (unsigned i = 0; i < parent_step_indices.size; i++) {
+  //     uint32_t parent_step_index = parent_step_indices.contents[i];
+  //     TSSymbol parent_symbol = self->steps.contents[parent_step_index].symbol;
+  //     printf("  %s %u\n", ts_language_symbol_name(self->language, parent_symbol), parent_step_index);
   //   }
   // }
 
   // Initialize a set of subgraphs, with one subgraph for each parent symbol,
   // in the query, and one subgraph for each hidden symbol.
-  unsigned subgraph_index = 0, exists;
   Array(SymbolSubgraph) subgraphs = array_new();
-  for (unsigned i = 0; i < parent_patterns.size; i++) {
-    TSSymbol parent_symbol = parent_patterns.contents[i].parent_symbol;
-    array_search_sorted_by(&subgraphs, 0, .symbol, parent_symbol, &subgraph_index, &exists);
-    if (!exists) {
-      array_insert(&subgraphs, subgraph_index, ((SymbolSubgraph) { .symbol = parent_symbol, }));
-    }
+  for (unsigned i = 0; i < parent_step_indices.size; i++) {
+    uint32_t parent_step_index = parent_step_indices.contents[i];
+    TSSymbol parent_symbol = self->steps.contents[parent_step_index].symbol;
+    SymbolSubgraph subgraph = { .symbol = parent_symbol };
+    array_insert_sorted_by(&subgraphs, 0, .symbol, subgraph);
   }
-  subgraph_index = 0;
-  for (TSSymbol sym = 0; sym < self->language->symbol_count; sym++) {
+  for (TSSymbol sym = self->language->token_count; sym < self->language->symbol_count; sym++) {
     if (!ts_language_symbol_metadata(self->language, sym).visible) {
-      array_search_sorted_by(
-        &subgraphs, subgraph_index,
-        .symbol, sym,
-        &subgraph_index, &exists
-      );
-      if (!exists) {
-        array_insert(&subgraphs, subgraph_index, ((SymbolSubgraph) { .symbol = sym, }));
-        subgraph_index++;
-      }
+      SymbolSubgraph subgraph = { .symbol = sym };
+      array_insert_sorted_by(&subgraphs, 0, .symbol, subgraph);
     }
   }
 
@@ -889,13 +856,18 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
 
   // For each non-terminal pattern, determine if the pattern can successfully match,
   // and all of the possible children within the pattern where matching could fail.
+  bool result = true;
+  typedef Array(WalkState) WalkStateList;
   WalkStateList walk_states = array_new();
   WalkStateList next_walk_states = array_new();
-  Array(uint16_t) finished_step_indices = array_new();
-  for (unsigned i = 0; i < parent_patterns.size; i++) {
-    ParentPattern *parent_pattern = &parent_patterns.contents[i];
+  Array(uint16_t) final_step_indices = array_new();
+  for (unsigned i = 0; i < parent_step_indices.size; i++) {
+    bool can_finish_pattern = false;
+    uint16_t parent_step_index = parent_step_indices.contents[i];
+    uint16_t parent_depth = self->steps.contents[parent_step_index].depth;
+    TSSymbol parent_symbol = self->steps.contents[parent_step_index].symbol;
     unsigned subgraph_index, exists;
-    array_search_sorted_by(&subgraphs, 0, .symbol, parent_pattern->parent_symbol, &subgraph_index, &exists);
+    array_search_sorted_by(&subgraphs, 0, .symbol, parent_symbol, &subgraph_index, &exists);
     if (!exists) {
       // TODO - what to do for ERROR patterns
       continue;
@@ -908,7 +880,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
     for (unsigned j = 0; j < subgraph->start_states.size; j++) {
       TSStateId state = subgraph->start_states.contents[j];
       array_push(&walk_states, ((WalkState) {
-        .step_index = 0,
+        .step_index = parent_step_index + 1,
         .stack = {
           [0] = {
             .state = state,
@@ -924,36 +896,57 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
 
     // Walk the subgraph for this non-terminal, tracking all of the possible
     // sequences of progress within the pattern.
-    array_clear(&finished_step_indices);
-    while (walk_states.size > 0) {
+    array_clear(&final_step_indices);
+    for (;;) {
       // Debug
       // {
-      //   printf("Walk states for %u %s:\n", i, ts_language_symbol_name(self->language, parent_pattern->parent_symbol));
+      //   printf("Final step indices:");
+      //   for (unsigned j = 0; j < final_step_indices.size; j++) {
+      //     printf(" %u", final_step_indices.contents[j]);
+      //   }
+      //   printf("\nWalk states for %u %s:\n", i, ts_language_symbol_name(self->language, parent_symbol));
       //   for (unsigned j = 0; j < walk_states.size; j++) {
       //     WalkState *walk_state = &walk_states.contents[j];
-      //     printf(
-      //       "  %u: {depth: %u, step: %u, state: %u, child_index: %u, parent: %s}\n",
-      //       j,
-      //       walk_state->depth,
-      //       walk_state->step_index,
-      //       walk_state->stack[walk_state->depth - 1].state,
-      //       walk_state->stack[walk_state->depth - 1].child_index,
-      //       ts_language_symbol_name(self->language, walk_state->stack[walk_state->depth - 1].parent_symbol)
-      //     );
+      //     printf("  %3u: {step: %u, stack: [", j, walk_state->step_index);
+      //     for (unsigned k = 0; k < walk_state->depth; k++) {
+      //       printf(
+      //         " {parent: %s, child_index: %u, field: %s, state: %3u, done:%d}",
+      //         self->language->symbol_names[walk_state->stack[k].parent_symbol],
+      //         walk_state->stack[k].child_index,
+      //         self->language->field_names[walk_state->stack[k].field_id],
+      //         walk_state->stack[k].state,
+      //         walk_state->stack[k].done
+      //       );
+      //     }
+      //     printf(" ]}\n");
       //   }
+      //   printf("\n");
       // }
 
+      if (walk_states.size == 0) break;
       array_clear(&next_walk_states);
-      for (unsigned j = 0; j < walk_states.size; j++) {
-        WalkState *walk_state = &walk_states.contents[j];
-        TSStateId state = walk_state__top(walk_state)->state;
-        unsigned child_index = walk_state__top(walk_state)->child_index;
-        TSSymbol parent_symbol = walk_state__top(walk_state)->parent_symbol;
+
+      unsigned j = 0;
+      for (; j < walk_states.size; j++) {
+        WalkState * const walk_state = &walk_states.contents[j];
+        if (
+          next_walk_states.size > 0 &&
+          walk_state__compare_position(walk_state, array_back(&next_walk_states)) >= 0
+        ) {
+          array_insert_sorted_with(&next_walk_states, 0, walk_state__compare, *walk_state);
+          continue;
+        }
+
+        const TSStateId state = walk_state__top(walk_state)->state;
+        const TSSymbol parent_symbol = walk_state__top(walk_state)->parent_symbol;
+        const TSFieldId parent_field_id = walk_state__top(walk_state)->field_id;
+        const unsigned child_index = walk_state__top(walk_state)->child_index;
+        const QueryStep * const step = &self->steps.contents[walk_state->step_index];
 
         unsigned subgraph_index, exists;
         array_search_sorted_by(&subgraphs, 0, .symbol, parent_symbol, &subgraph_index, &exists);
         if (!exists) continue;
-        SymbolSubgraph *subgraph = &subgraphs.contents[subgraph_index];
+        const SymbolSubgraph *subgraph = &subgraphs.contents[subgraph_index];
 
         for (TSSymbol sym = 0; sym < self->language->symbol_count; sym++) {
           TSStateId successor_state = ts_language_next_state(self->language, state, sym);
@@ -962,111 +955,93 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
             array_search_sorted_by(&subgraph->nodes, 0, .state, successor_state, &node_index, &exists);
             while (exists && node_index < subgraph->nodes.size) {
               SubgraphNode *node = &subgraph->nodes.contents[node_index++];
-              if (node->state != successor_state || node->child_index != child_index + 1) continue;
-
-              WalkState next_walk_state = *walk_state;
-              walk_state__top(&next_walk_state)->child_index++;
-              walk_state__top(&next_walk_state)->state = successor_state;
-
-              unsigned step_index = parent_pattern->child_step_indices.contents[walk_state->step_index];
-              QueryStep *step = &self->steps.contents[step_index];
+              if (node->state != successor_state) break;
+              if (node->child_index != child_index + 1) continue;
               TSSymbol alias = ts_language_alias_at(self->language, node->production_id, child_index);
+
               TSSymbol visible_symbol = alias
                 ? alias
                 : self->language->symbol_metadata[sym].visible
                   ? self->language->public_symbol_map[sym]
                   : 0;
 
-              TSFieldId field_id = 0;
-              const TSFieldMapEntry *field_map, *field_map_end;
-              ts_language_field_map(self->language, node->production_id, &field_map, &field_map_end);
-              for (; field_map != field_map_end; field_map++) {
-                if (field_map->child_index == child_index) {
-                  field_id = field_map->field_id;
-                  break;
+              TSFieldId field_id = parent_field_id;
+              if (!field_id) {
+                const TSFieldMapEntry *field_map, *field_map_end;
+                ts_language_field_map(self->language, node->production_id, &field_map, &field_map_end);
+                for (; field_map != field_map_end; field_map++) {
+                  if (field_map->child_index == child_index) {
+                    field_id = field_map->field_id;
+                    break;
+                  }
                 }
               }
 
-              if (node->done) {
-                walk_state__top(&next_walk_state)->done = true;
-              }
+              WalkState next_walk_state = *walk_state;
+              walk_state__top(&next_walk_state)->child_index++;
+              walk_state__top(&next_walk_state)->state = successor_state;
+              if (node->done) walk_state__top(&next_walk_state)->done = true;
 
-              bool does_match = true;
+              bool does_match = false;
               if (visible_symbol) {
+                does_match = true;
                 if (step->symbol == NAMED_WILDCARD_SYMBOL) {
                   if (!self->language->symbol_metadata[visible_symbol].named) does_match = false;
                 } else if (step->symbol != WILDCARD_SYMBOL) {
                   if (step->symbol != visible_symbol) does_match = false;
                 }
-
-                if (step->field) {
-                  bool does_match_field = step->field == field_id;
-                  if (!does_match_field) {
-                    for (unsigned i = 0; i < walk_state->depth; i++) {
-                      if (walk_state->stack[i].field_id == step->field) {
-                        does_match_field = true;
-                      }
-                    }
-                  }
-                  does_match &= does_match_field;
+                if (step->field && step->field != field_id) {
+                  does_match = false;
                 }
               } else if (next_walk_state.depth < MAX_WALK_STATE_DEPTH) {
-                does_match = false;
                 next_walk_state.depth++;
                 walk_state__top(&next_walk_state)->state = state;
                 walk_state__top(&next_walk_state)->child_index = 0;
                 walk_state__top(&next_walk_state)->parent_symbol = sym;
                 walk_state__top(&next_walk_state)->field_id = field_id;
+                walk_state__top(&next_walk_state)->done = false;
               } else {
                 continue;
               }
 
               if (does_match) {
-                next_walk_state.step_index++;
+                for (;;) {
+                  next_walk_state.step_index++;
+                  const QueryStep *step = &self->steps.contents[next_walk_state.step_index];
+                  if (
+                    step->depth == PATTERN_DONE_MARKER ||
+                    step->depth == parent_depth
+                  ) {
+                    can_finish_pattern = true;
+                    break;
+                  }
+                  if (step->depth == parent_depth + 1) {
+                    break;
+                  }
+                }
               }
 
-              if (next_walk_state.step_index == parent_pattern->child_step_indices.size) {
-                unsigned index, exists;
-                array_search_sorted_by(&finished_step_indices, 0, , next_walk_state.step_index, &index, &exists);
-                if (!exists) array_insert(&finished_step_indices, index, next_walk_state.step_index);
-                continue;
+              while (next_walk_state.depth > 0 && walk_state__top(&next_walk_state)->done) {
+                memset(walk_state__top(&next_walk_state), 0, sizeof(WalkStateEntry));
+                next_walk_state.depth--;
               }
 
-              unsigned index, exists;
-              array_search_sorted_with(
-                &next_walk_states, 0,
-                walk_state__compare, &next_walk_state,
-                &index, &exists
-              );
-              if (!exists) array_insert(&next_walk_states, index, next_walk_state);
+              if (
+                next_walk_state.depth == 0 ||
+                self->steps.contents[next_walk_state.step_index].depth != parent_depth + 1
+              ) {
+                array_insert_sorted_by(&final_step_indices, 0, , next_walk_state.step_index);
+              } else {
+                array_insert_sorted_with(&next_walk_states, 0, walk_state__compare, next_walk_state);
+              }
             }
           }
         }
+      }
 
-        bool did_pop = false;
-        while (walk_state->depth > 0 && walk_state__top(walk_state)->done) {
-          walk_state->depth--;
-          did_pop = true;
-        }
-
-        if (did_pop) {
-          if (walk_state->depth == 0) {
-            unsigned index, exists;
-            array_search_sorted_by(&finished_step_indices, 0, , walk_state->step_index, &index, &exists);
-            if (!exists) array_insert(&finished_step_indices, index, walk_state->step_index);
-          } else {
-            unsigned index, exists;
-            array_search_sorted_with(
-              &next_walk_states,
-              0,
-              walk_state__compare,
-              walk_state,
-              &index,
-              &exists
-            );
-            if (!exists) array_insert(&next_walk_states, index, *walk_state);
-          }
-        }
+      for (; j < walk_states.size; j++) {
+        WalkState *walk_state = &walk_states.contents[j];
+        array_push(&next_walk_states, *walk_state);
       }
 
       WalkStateList _walk_states = walk_states;
@@ -1074,39 +1049,40 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
       next_walk_states = _walk_states;
     }
 
-    // Debug
-    // {
-    //   printf("Finished step indices for %u %s:", i, ts_language_symbol_name(self->language, parent_pattern->parent_symbol));
-    //   for (unsigned j = 0; j < finished_step_indices.size; j++) {
-    //     printf(" %u", finished_step_indices.contents[j]);
-    //   }
-    //   printf(". Length: %u\n\n", parent_pattern->child_step_indices.size);
-    // }
-
     // A query step is definite if the containing pattern will definitely match
     // once the step is reached. In other words, a step is *not* definite if
     // it's possible to create a syntax node that matches up to until that step,
     // but does not match the entire pattern.
-    for (unsigned j = 0, n = parent_pattern->child_step_indices.size; j < n; j++) {
-      uint32_t step_index = parent_pattern->child_step_indices.contents[j];
-      for (unsigned k = 0; k < finished_step_indices.size; k++) {
-        uint32_t finished_step_index = finished_step_indices.contents[k];
-        if (finished_step_index >= j && finished_step_index < n) {
-          QueryStep *step = &self->steps.contents[step_index];
-          step->is_definite = false;
+    uint32_t child_step_index = parent_step_index + 1;
+    QueryStep *child_step = &self->steps.contents[child_step_index];
+    while (child_step->depth == parent_depth + 1) {
+      for (unsigned k = 0; k < final_step_indices.size; k++) {
+        uint32_t final_step_index = final_step_indices.contents[k];
+        if (
+          final_step_index >= child_step_index &&
+          self->steps.contents[final_step_index].depth != PATTERN_DONE_MARKER
+        ) {
+          child_step->is_definite = false;
           break;
         }
       }
+      do {
+        child_step_index++;
+        child_step++;
+      } while (
+        child_step->depth != PATTERN_DONE_MARKER &&
+        child_step->depth > parent_depth + 1
+      );
     }
 
-    if (finished_step_indices.size == 0 || *array_back(&finished_step_indices) < parent_pattern->child_step_indices.size) {
+    if (result && !can_finish_pattern) {
       unsigned exists;
       array_search_sorted_by(
         &self->patterns, 0,
-        .start_step,
-        parent_pattern->parent_step_index, impossible_index, &exists);
+        .start_step, parent_step_index,
+        impossible_index, &exists
+      );
       result = false;
-      goto cleanup;
     }
   }
 
@@ -1131,33 +1107,31 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
   //   for (unsigned i = 0; i < self->steps.size; i++) {
   //     QueryStep *step = &self->steps.contents[i];
   //     if (step->depth == PATTERN_DONE_MARKER) {
-  //       printf("\n");
-  //       continue;
+  //       printf("  %u: DONE\n", i);
+  //     } else {
+  //       printf(
+  //         "  %u: {symbol: %s, is_definite: %d}\n",
+  //         i,
+  //         (step->symbol == WILDCARD_SYMBOL || step->symbol == NAMED_WILDCARD_SYMBOL)
+  //           ? "ANY"
+  //           : ts_language_symbol_name(self->language, step->symbol),
+  //         step->is_definite
+  //       );
   //     }
-  //     printf(
-  //       "  {symbol: %s, is_definite: %d}\n",
-  //       (step->symbol == WILDCARD_SYMBOL || step->symbol == NAMED_WILDCARD_SYMBOL) ? "ANY" : ts_language_symbol_name(self->language, step->symbol),
-  //       step->is_definite
-  //     );
   //   }
   // }
 
   // Cleanup
-cleanup:
-  for (unsigned i = 0; i < parent_patterns.size; i++) {
-    array_delete(&parent_patterns.contents[i].child_step_indices);
-  }
   for (unsigned i = 0; i < subgraphs.size; i++) {
     array_delete(&subgraphs.contents[i].start_states);
     array_delete(&subgraphs.contents[i].nodes);
   }
-  array_delete(&stack);
   array_delete(&subgraphs);
   array_delete(&next_nodes);
   array_delete(&walk_states);
-  array_delete(&parent_patterns);
   array_delete(&next_walk_states);
-  array_delete(&finished_step_indices);
+  array_delete(&final_step_indices);
+  array_delete(&parent_step_indices);
   state_predecessor_map_delete(&predecessor_map);
 
   return result;

@@ -90,6 +90,20 @@ extern "C" {
     } \
   } while (0);
 
+#define array_insert_sorted_by(self, start, field, value) \
+  do { \
+    unsigned index, exists; \
+    array_search_sorted_by(self, start, field, (value) field, &index, &exists); \
+    if (!exists) array_insert(self, index, value); \
+  } while (0);
+
+#define array_insert_sorted_with(self, start, compare, value) \
+  do { \
+    unsigned index, exists; \
+    array_search_sorted_with(self, start, compare, &(value), &index, &exists); \
+    if (!exists) array_insert(self, index, value); \
+  } while (0);
+
 // Private
 
 typedef Array(void) VoidArray;
