@@ -748,10 +748,9 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
       for (unsigned i = 0; i < count; i++) {
         const TSParseAction *action = &actions[i];
         if (action->type == TSParseActionTypeReduce) {
-          unsigned exists;
           array_search_sorted_by(
             &subgraphs,
-            subgraph_index,
+            0,
             .symbol,
             action->params.reduce.symbol,
             &subgraph_index,
@@ -759,13 +758,14 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
           );
           if (exists) {
             SymbolSubgraph *subgraph = &subgraphs.contents[subgraph_index];
+            SubgraphNode node = {
+              .state = state,
+              .production_id = action->params.reduce.production_id,
+              .child_index = action->params.reduce.child_count,
+              .done = true,
+            };
             if (subgraph->nodes.size == 0 || array_back(&subgraph->nodes)->state != state) {
-              array_push(&subgraph->nodes, ((SubgraphNode) {
-                .state = state,
-                .production_id = action->params.reduce.production_id,
-                .child_index = action->params.reduce.child_count,
-                .done = true,
-              }));
+              array_push(&subgraph->nodes, node);
             }
           }
         } else if (

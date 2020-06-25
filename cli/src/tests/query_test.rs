@@ -2084,6 +2084,14 @@ fn test_query_is_definite() {
 
     let rows = &[
         Row {
+            language: get_language("python"),
+            pattern: r#"(expression_statement (string))"#,
+            results_by_step_index: &[
+                (0, false),
+                (1, false), // string
+            ],
+        },
+        Row {
             language: get_language("javascript"),
             pattern: r#"(object "{" "}")"#,
             results_by_step_index: &[
