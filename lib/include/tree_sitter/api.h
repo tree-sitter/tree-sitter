@@ -722,6 +722,7 @@ const TSQueryPredicateStep *ts_query_predicates_for_pattern(
 bool ts_query_pattern_is_definite(
   const TSQuery *self,
   uint32_t pattern_index,
+  TSSymbol symbol,
   uint32_t step_index
 );
 

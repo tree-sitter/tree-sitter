@@ -1467,9 +1467,9 @@ impl Query {
 
     /// Check if a pattern will definitely match after a certain number of steps
     /// have matched.
-    pub fn pattern_is_definite(&self, index: usize, step_index: usize) -> bool {
+    pub fn pattern_is_definite(&self, pattern_index: usize, symbol: u16, step_index: usize) -> bool {
         unsafe {
-            ffi::ts_query_pattern_is_definite(self.ptr.as_ptr(), index as u32, step_index as u32)
+            ffi::ts_query_pattern_is_definite(self.ptr.as_ptr(), pattern_index as u32, symbol, step_index as u32)
         }
     }
 

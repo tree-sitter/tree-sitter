@@ -149,8 +149,7 @@ typedef struct {
 
 /*
  * AnalysisState - The state needed for walking the parse table when analyzing
- * a query pattern, to determine the steps where the pattern could fail
- * to match.
+ * a query pattern, to determine at which steps the pattern might fail to match.
  */
 typedef struct {
   TSStateId parse_state;
@@ -166,6 +165,12 @@ typedef struct {
   uint16_t step_index;
 } AnalysisState;
 
+/*
+ * AnalysisSubgraph - A subset of the states in the parse table that are used
+ * in constructing nodes with a certain symbol. Each state is accompanied by
+ * some information about the possible node that could be produced in
+ * downstream states.
+ */
 typedef struct {
   TSStateId state;
   uint8_t production_id;
@@ -914,7 +919,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
               " {parent: %s, child_index: %u, field: %s, state: %3u, done:%d}",
               self->language->symbol_names[state->stack[k].parent_symbol],
               state->stack[k].child_index,
-              self->language->field_names[state->stack[k].field_id],
+              state->stack[k].field_id ? self->language->field_names[state->stack[k].field_id] : "",
               state->stack[k].parse_state,
               state->stack[k].done
             );
@@ -1018,7 +1023,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
 
               // If this is a hidden child, then push a new entry to the stack, in order to
               // walk through the children of this child.
-              else if (next_state.depth < MAX_ANALYSIS_STATE_DEPTH) {
+              else if (sym >= self->language->token_count && next_state.depth < MAX_ANALYSIS_STATE_DEPTH) {
                 next_state.depth++;
                 analysis_state__top(&next_state)->parse_state = parse_state;
                 analysis_state__top(&next_state)->child_index = 0;
@@ -1122,17 +1127,29 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
     }
   }
 
-  // In order for a parent step to be definite, all of its child steps must
-  // be definite. Propagate the definiteness up the pattern trees by walking
-  // the query's steps in reverse.
+  // In order for a step to be definite, all of its child steps must be definite,
+  // and all of its later sibling steps must be definite. Propagate any indefiniteness
+  // upward and backward through the pattern trees.
   for (unsigned i = self->steps.size - 1; i + 1 > 0; i--) {
     QueryStep *step = &self->steps.contents[i];
-    for (unsigned j = i + 1; j < self->steps.size; j++) {
+    bool all_later_children_definite = true;
+    unsigned end_step_index = i + 1;
+    while (end_step_index < self->steps.size) {
+      QueryStep *child_step = &self->steps.contents[end_step_index];
+      if (child_step->depth <= step->depth || child_step->depth == PATTERN_DONE_MARKER) break;
+      end_step_index++;
+    }
+    for (unsigned j = end_step_index - 1; j > i; j--) {
       QueryStep *child_step = &self->steps.contents[j];
-      if (child_step->depth <= step->depth) break;
-      if (child_step->depth == step->depth + 1 && !child_step->is_definite) {
-        step->is_definite = false;
-        break;
+      if (child_step->depth == step->depth + 1) {
+        if (all_later_children_definite) {
+          if (!child_step->is_definite) {
+            all_later_children_definite = false;
+            step->is_definite = false;
+          }
+        } else {
+          child_step->is_definite = false;
+        }
       }
     }
   }
@@ -1870,29 +1887,21 @@ uint32_t ts_query_start_byte_for_pattern(
 bool ts_query_pattern_is_definite(
   const TSQuery *self,
   uint32_t pattern_index,
-  uint32_t step_count
+  TSSymbol symbol,
+  uint32_t index
 ) {
   uint32_t step_index = self->patterns.contents[pattern_index].start_step;
-  for (;;) {
-    QueryStep *start_step = &self->steps.contents[step_index];
-    if (step_index + step_count < self->steps.size) {
-      QueryStep *step = start_step;
-      for (unsigned i = 0; i < step_count; i++) {
-        if (step->depth == PATTERN_DONE_MARKER) {
-          step = NULL;
-          break;
-        }
-        step++;
-      }
-      if (step && !step->is_definite) return false;
-    }
-    if (start_step->alternative_index != NONE && start_step->alternative_index > step_index) {
-      step_index = start_step->alternative_index;
-    } else {
-      break;
+  QueryStep *step = &self->steps.contents[step_index];
+  for (; step->depth != PATTERN_DONE_MARKER; step++) {
+    bool does_match = symbol ?
+      step->symbol == symbol :
+      step->symbol == WILDCARD_SYMBOL || step->symbol == NAMED_WILDCARD_SYMBOL;
+    if (does_match) {
+      if (index == 0) return step->is_definite;
+      index--;
     }
   }
-  return true;
+  return false;
 }
 
 void ts_query_disable_capture(

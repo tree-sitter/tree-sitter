@@ -654,6 +654,7 @@ extern "C" {
     pub fn ts_query_pattern_is_definite(
         self_: *const TSQuery,
         pattern_index: u32,
+        symbol: TSSymbol,
         step_index: u32,
     ) -> bool;
 }

@@ -2079,90 +2079,111 @@ fn test_query_is_definite() {
     struct Row {
         language: Language,
         pattern: &'static str,
-        results_by_step_index: &'static [(usize, bool)],
+        results_by_symbol: &'static [(&'static str, bool)],
     }
 
     let rows = &[
         Row {
             language: get_language("python"),
             pattern: r#"(expression_statement (string))"#,
-            results_by_step_index: &[
-                (0, false),
-                (1, false), // string
+            results_by_symbol: &[
+                ("expression_statement", false),
+                ("string", false),
             ],
         },
         Row {
             language: get_language("javascript"),
             pattern: r#"(expression_statement (string))"#,
-            results_by_step_index: &[
-                (0, false),
-                (1, false), // string
+            results_by_symbol: &[
+                ("expression_statement", false),
+                ("string", false), // string
             ],
         },
         Row {
             language: get_language("javascript"),
             pattern: r#"(object "{" "}")"#,
-            results_by_step_index: &[
-                (0, false),
-                (1, true), // "{"
-                (2, true), // "}"
+            results_by_symbol: &[
+                ("object", false),
+                ("{", true),
+                ("}", true),
             ],
         },
         Row {
             language: get_language("javascript"),
             pattern: r#"(pair (property_identifier) ":")"#,
-            results_by_step_index: &[
-                (0, false),
-                (1, false), // property_identifier
-                (2, true),  // ":""
+            results_by_symbol: &[
+                ("pair", false),
+                ("property_identifier", false),
+                (":", true),
             ],
         },
         Row {
             language: get_language("javascript"),
             pattern: r#"(object "{" (_) "}")"#,
-            results_by_step_index: &[
-                (0, false),
-                (1, false), // "{""
-                (2, false), // (_)
-                (3, true),  // "}"
+            results_by_symbol: &[
+                ("object", false),
+                ("{", false),
+                ("", false),
+                ("}", true),
             ],
         },
         Row {
-            // Named wildcards, fields
             language: get_language("javascript"),
             pattern: r#"(binary_expression left: (identifier) right: (_))"#,
-            results_by_step_index: &[
-                (0, false),
-                (1, false), // identifier
-                (2, true),  // (_)
+            results_by_symbol: &[
+                ("binary_expression", false),
+                ("identifier", false),
+                ("", true),
             ],
         },
         Row {
             language: get_language("javascript"),
             pattern: r#"(function_declaration name: (identifier) body: (statement_block))"#,
-            results_by_step_index: &[
-                (0, false),
-                (1, true), // identifier
-                (2, true), // statement_block
+            results_by_symbol: &[
+                ("function_declaration", false),
+                ("identifier", true),
+                ("statement_block", true),
+            ],
+        },
+        Row {
+            language: get_language("javascript"),
+            pattern: r#"
+                (function_declaration
+                    name: (identifier)
+                    body: (statement_block "{" (expression_statement) "}"))"#,
+            results_by_symbol: &[
+                ("function_declaration", false),
+                ("identifier", false),
+                ("statement_block", false),
+                ("{", false),
+                ("expression_statement", false),
+                ("}", true),
             ],
         },
         Row {
             language: get_language("javascript"),
             pattern: r#""#,
-            results_by_step_index: &[],
+            results_by_symbol: &[],
         },
     ];
 
     allocations::record(|| {
         for row in rows.iter() {
             let query = Query::new(row.language, row.pattern).unwrap();
-            for (step_index, is_definite) in row.results_by_step_index {
+            for (symbol_name, is_definite) in row.results_by_symbol {
+                let mut symbol = 0;
+                if !symbol_name.is_empty() {
+                    symbol = row.language.id_for_node_kind(symbol_name, true);
+                    if symbol == 0 {
+                        symbol = row.language.id_for_node_kind(symbol_name, false);
+                    }
+                }
                 assert_eq!(
-                    query.pattern_is_definite(0, *step_index),
+                    query.pattern_is_definite(0, symbol, 0),
                     *is_definite,
-                    "Pattern: {:?}, step: {}, expected is_definite to be {}",
+                    "Pattern: {:?}, symbol: {}, expected is_definite to be {}",
                     row.pattern,
-                    step_index,
+                    symbol_name,
                     is_definite,
                 )
             }
