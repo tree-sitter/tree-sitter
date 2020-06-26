@@ -755,11 +755,12 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
       for (unsigned i = 0; i < count; i++) {
         const TSParseAction *action = &actions[i];
         if (action->type == TSParseActionTypeReduce) {
+          TSSymbol symbol = self->language->public_symbol_map[action->params.reduce.symbol];
           array_search_sorted_by(
             &subgraphs,
             0,
             .symbol,
-            action->params.reduce.symbol,
+            symbol,
             &subgraph_index,
             &exists
           );
@@ -784,11 +785,12 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
       TSStateId next_state = ts_language_next_state(self->language, state, sym);
       if (next_state != 0) {
         state_predecessor_map_add(&predecessor_map, next_state, state);
+        TSSymbol symbol = self->language->public_symbol_map[sym];
         array_search_sorted_by(
           &subgraphs,
           subgraph_index,
           .symbol,
-          sym,
+          symbol,
           &subgraph_index,
           &exists
         );
@@ -850,7 +852,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
       printf("  %u, %s:\n", subgraph->symbol, ts_language_symbol_name(self->language, subgraph->symbol));
       for (unsigned j = 0; j < subgraph->nodes.size; j++) {
         AnalysisSubgraphNode *node = &subgraph->nodes.contents[j];
-        printf("    {state: %u, child_index: %u}\n", node->state, node->child_index);
+        printf("    {state: %u, child_index: %u, production_id: %u}\n", node->state, node->child_index, node->production_id);
       }
       printf("\n");
     }
