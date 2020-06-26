@@ -2,8 +2,8 @@ use lazy_static::lazy_static;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
-use std::{env, fs, usize};
-use tree_sitter::{Language, Parser};
+use std::{env, fs, str, usize};
+use tree_sitter::{Language, Parser, Query};
 use tree_sitter_cli::error::Error;
 use tree_sitter_cli::loader::Loader;
 
@@ -18,26 +18,33 @@ lazy_static! {
         .map(|s| usize::from_str_radix(&s, 10).unwrap())
         .unwrap_or(5);
     static ref TEST_LOADER: Loader = Loader::new(SCRATCH_DIR.clone());
-    static ref EXAMPLE_PATHS_BY_LANGUAGE_DIR: BTreeMap<PathBuf, Vec<PathBuf>> = {
-        fn process_dir(result: &mut BTreeMap<PathBuf, Vec<PathBuf>>, dir: &Path) {
+    static ref EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR: BTreeMap<PathBuf, (Vec<PathBuf>, Vec<PathBuf>)> = {
+        fn process_dir(result: &mut BTreeMap<PathBuf, (Vec<PathBuf>, Vec<PathBuf>)>, dir: &Path) {
             if dir.join("grammar.js").exists() {
                 let relative_path = dir.strip_prefix(GRAMMARS_DIR.as_path()).unwrap();
+                let (example_paths, query_paths) =
+                    result.entry(relative_path.to_owned()).or_default();
+
                 if let Ok(example_files) = fs::read_dir(&dir.join("examples")) {
-                    result.insert(
-                        relative_path.to_owned(),
-                        example_files
-                            .filter_map(|p| {
-                                let p = p.unwrap().path();
-                                if p.is_file() {
-                                    Some(p)
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect(),
-                    );
-                } else {
-                    result.insert(relative_path.to_owned(), Vec::new());
+                    example_paths.extend(example_files.filter_map(|p| {
+                        let p = p.unwrap().path();
+                        if p.is_file() {
+                            Some(p.to_owned())
+                        } else {
+                            None
+                        }
+                    }));
+                }
+
+                if let Ok(query_files) = fs::read_dir(&dir.join("queries")) {
+                    query_paths.extend(query_files.filter_map(|p| {
+                        let p = p.unwrap().path();
+                        if p.is_file() {
+                            Some(p.to_owned())
+                        } else {
+                            None
+                        }
+                    }));
                 }
             } else {
                 for entry in fs::read_dir(&dir).unwrap() {
@@ -56,20 +63,25 @@ lazy_static! {
 }
 
 fn main() {
-    let mut parser = Parser::new();
-    let max_path_length = EXAMPLE_PATHS_BY_LANGUAGE_DIR
-        .iter()
-        .flat_map(|(_, paths)| paths.iter())
-        .map(|p| p.file_name().unwrap().to_str().unwrap().chars().count())
+    let max_path_length = EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR
+        .values()
+        .flat_map(|(e, q)| {
+            e.iter()
+                .chain(q.iter())
+                .map(|s| s.file_name().unwrap().to_str().unwrap().len())
+        })
         .max()
-        .unwrap();
-
-    let mut all_normal_speeds = Vec::new();
-    let mut all_error_speeds = Vec::new();
+        .unwrap_or(0);
 
     eprintln!("Benchmarking with {} repetitions", *REPETITION_COUNT);
 
-    for (language_path, example_paths) in EXAMPLE_PATHS_BY_LANGUAGE_DIR.iter() {
+    let mut parser = Parser::new();
+    let mut all_normal_speeds = Vec::new();
+    let mut all_error_speeds = Vec::new();
+
+    for (language_path, (example_paths, query_paths)) in
+        EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR.iter()
+    {
         let language_name = language_path.file_name().unwrap().to_str().unwrap();
 
         if let Some(filter) = LANGUAGE_FILTER.as_ref() {
@@ -79,9 +91,24 @@ fn main() {
         }
 
         eprintln!("\nLanguage: {}", language_name);
-        parser.set_language(get_language(language_path)).unwrap();
+        let language = get_language(language_path);
+        parser.set_language(language).unwrap();
 
-        eprintln!("  Normal examples:");
+        eprintln!("  Constructing Queries");
+        for path in query_paths {
+            if let Some(filter) = EXAMPLE_FILTER.as_ref() {
+                if !path.to_str().unwrap().contains(filter.as_str()) {
+                    continue;
+                }
+            }
+
+            parse(&path, max_path_length, |source| {
+                Query::new(language, str::from_utf8(source).unwrap())
+                    .expect("Failed to parse query");
+            });
+        }
+
+        eprintln!("  Parsing Valid Code:");
         let mut normal_speeds = Vec::new();
         for example_path in example_paths {
             if let Some(filter) = EXAMPLE_FILTER.as_ref() {
@@ -90,12 +117,16 @@ fn main() {
                 }
             }
 
-            normal_speeds.push(parse(&mut parser, example_path, max_path_length));
+            normal_speeds.push(parse(example_path, max_path_length, |code| {
+                parser.parse(code, None).expect("Failed to parse");
+            }));
         }
 
-        eprintln!("  Error examples (mismatched languages):");
+        eprintln!("  Parsing Invalid Code (mismatched languages):");
         let mut error_speeds = Vec::new();
-        for (other_language_path, example_paths) in EXAMPLE_PATHS_BY_LANGUAGE_DIR.iter() {
+        for (other_language_path, (example_paths, _)) in
+            EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR.iter()
+        {
             if other_language_path != language_path {
                 for example_path in example_paths {
                     if let Some(filter) = EXAMPLE_FILTER.as_ref() {
@@ -104,7 +135,9 @@ fn main() {
                         }
                     }
 
-                    error_speeds.push(parse(&mut parser, example_path, max_path_length));
+                    error_speeds.push(parse(example_path, max_path_length, |code| {
+                        parser.parse(code, None).expect("Failed to parse");
+                    }));
                 }
             }
         }
@@ -123,7 +156,7 @@ fn main() {
         all_error_speeds.extend(error_speeds);
     }
 
-    eprintln!("\nOverall");
+    eprintln!("\n  Overall");
     if let Some((average_normal, worst_normal)) = aggregate(&all_normal_speeds) {
         eprintln!("  Average Speed (normal): {} bytes/ms", average_normal);
         eprintln!("  Worst Speed (normal):   {} bytes/ms", worst_normal);
@@ -151,28 +184,25 @@ fn aggregate(speeds: &Vec<usize>) -> Option<(usize, usize)> {
     Some((total / speeds.len(), max))
 }
 
-fn parse(parser: &mut Parser, example_path: &Path, max_path_length: usize) -> usize {
+fn parse(path: &Path, max_path_length: usize, mut action: impl FnMut(&[u8])) -> usize {
     eprint!(
         "    {:width$}\t",
-        example_path.file_name().unwrap().to_str().unwrap(),
+        path.file_name().unwrap().to_str().unwrap(),
         width = max_path_length
     );
 
-    let source_code = fs::read(example_path)
-        .map_err(Error::wrap(|| format!("Failed to read {:?}", example_path)))
+    let source_code = fs::read(path)
+        .map_err(Error::wrap(|| format!("Failed to read {:?}", path)))
         .unwrap();
     let time = Instant::now();
     for _ in 0..*REPETITION_COUNT {
-        parser
-            .parse(&source_code, None)
-            .expect("Incompatible language version");
+        action(&source_code);
     }
     let duration = time.elapsed() / (*REPETITION_COUNT as u32);
-    let duration_ms =
-        duration.as_secs() as f64 * 1000.0 + duration.subsec_nanos() as f64 / 1000000.0;
-    let speed = (source_code.len() as f64 / duration_ms) as usize;
+    let duration_ms = duration.as_millis();
+    let speed = source_code.len() as u128 / (duration_ms + 1);
     eprintln!("time {} ms\tspeed {} bytes/ms", duration_ms as usize, speed);
-    speed
+    speed as usize
 }
 
 fn get_language(path: &Path) -> Language {
