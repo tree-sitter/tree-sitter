@@ -66,43 +66,46 @@ extern "C" {
 #define array_assign(self, other) \
   array__assign((VoidArray *)(self), (const VoidArray *)(other), array__elem_size(self))
 
-#define array_search_sorted_by(self, start, field, needle, out_index, out_exists) \
+#define array__search_sorted(self, start, compare, suffix, needle, index, exists) \
   do { \
-    *(out_exists) = false; \
-    for (*(out_index) = start; *(out_index) < (self)->size; (*(out_index))++) { \
-      int _comparison = (int)((self)->contents[*(out_index)] field) - (int)(needle); \
-      if (_comparison >= 0) { \
-        if (_comparison == 0) *(out_exists) = true; \
-        break; \
-      } \
+    *(index) = start; \
+    *(exists) = false; \
+    uint32_t size = (self)->size - *(index); \
+    if (size == 0) break; \
+    int comparison; \
+    while (size > 1) { \
+      uint32_t half_size = size / 2; \
+      uint32_t mid_index = *(index) + half_size; \
+      comparison = compare(&((self)->contents[mid_index] suffix), (needle)); \
+      if (comparison <= 0) *(index) = mid_index; \
+      size -= half_size; \
     } \
-  } while (0);
+    comparison = compare(&((self)->contents[*(index)] suffix), (needle)); \
+    if (comparison == 0) *(exists) = true; \
+    else if (comparison < 0) *(index) += 1; \
+  } while (0)
 
-#define array_search_sorted_with(self, start, compare, needle, out_index, out_exists) \
-  do { \
-    *(out_exists) = false; \
-    for (*(out_index) = start; *(out_index) < (self)->size; (*(out_index))++) { \
-      int _comparison = compare(&(self)->contents[*(out_index)], (needle)); \
-      if (_comparison >= 0) { \
-        if (_comparison == 0) *(out_exists) = true; \
-        break; \
-      } \
-    } \
-  } while (0);
+#define _compare_int(a, b) ((int)*(a) - (int)(b))
+
+#define array_search_sorted_by(self, start, field, needle, index, exists) \
+  array__search_sorted(self, start, _compare_int, field, needle, index, exists)
+
+#define array_search_sorted_with(self, start, compare, needle, index, exists) \
+  array__search_sorted(self, start, compare, , needle, index, exists)
 
 #define array_insert_sorted_by(self, start, field, value) \
   do { \
     unsigned index, exists; \
     array_search_sorted_by(self, start, field, (value) field, &index, &exists); \
     if (!exists) array_insert(self, index, value); \
-  } while (0);
+  } while (0)
 
 #define array_insert_sorted_with(self, start, compare, value) \
   do { \
     unsigned index, exists; \
     array_search_sorted_with(self, start, compare, &(value), &index, &exists); \
     if (!exists) array_insert(self, index, value); \
-  } while (0);
+  } while (0)
 
 // Private
 

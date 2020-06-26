@@ -612,10 +612,10 @@ static inline AnalysisStateEntry *analysis_state__top(AnalysisState *self) {
 static inline int analysis_subgraph_node__compare(const AnalysisSubgraphNode *self, const AnalysisSubgraphNode *other) {
   if (self->state < other->state) return -1;
   if (self->state > other->state) return 1;
-  if (self->done && !other->done) return -1;
-  if (!self->done && other->done) return 1;
   if (self->child_index < other->child_index) return -1;
   if (self->child_index > other->child_index) return 1;
+  if (self->done < other->done) return -1;
+  if (self->done > other->done) return 1;
   if (self->production_id < other->production_id) return -1;
   if (self->production_id > other->production_id) return 1;
   return 0;
@@ -961,14 +961,20 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
         // Follow every possible path in the parse table, but only visit states that
         // are part of the subgraph for the current symbol.
         for (TSSymbol sym = 0; sym < self->language->symbol_count; sym++) {
-          TSStateId successor_state = ts_language_next_state(self->language, parse_state, sym);
-          if (successor_state && successor_state != parse_state) {
+          AnalysisSubgraphNode successor = {
+            .state = ts_language_next_state(self->language, parse_state, sym),
+            .child_index = child_index + 1,
+          };
+          if (successor.state && successor.state != parse_state) {
             unsigned node_index;
-            array_search_sorted_by(&subgraph->nodes, 0, .state, successor_state, &node_index, &exists);
-            while (exists && node_index < subgraph->nodes.size) {
+            array_search_sorted_with(
+              &subgraph->nodes, 0,
+              analysis_subgraph_node__compare, &successor,
+              &node_index, &exists
+            );
+            while (node_index < subgraph->nodes.size) {
               AnalysisSubgraphNode *node = &subgraph->nodes.contents[node_index++];
-              if (node->state != successor_state) break;
-              if (node->child_index != child_index + 1) continue;
+              if (node->state != successor.state || node->child_index != successor.child_index) break;
 
               // Use the subgraph to determine what alias and field will eventually be applied
               // to this child node.
@@ -992,7 +998,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
 
               AnalysisState next_state = *state;
               analysis_state__top(&next_state)->child_index++;
-              analysis_state__top(&next_state)->parse_state = successor_state;
+              analysis_state__top(&next_state)->parse_state = successor.state;
               if (node->done) analysis_state__top(&next_state)->done = true;
 
               // Determine if this hypothetical child node would match the current step
