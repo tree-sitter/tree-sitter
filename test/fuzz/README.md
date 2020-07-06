@@ -22,10 +22,10 @@ The fuzzers can then be built with:
 export CLANG_DIR=$HOME/src/third_party/llvm-build/Release+Asserts/bin
 CC="$CLANG_DIR/clang" CXX="$CLANG_DIR/clang++" LINK="$CLANG_DIR/clang++" \
   LIB_FUZZER_PATH=$HOME/src/compiler-rt/lib/fuzzer/libFuzzer.a \
-  ./script/build_fuzzers
+  ./script/build-fuzzers
 ```
 
-This will generate a separate fuzzer for each grammar defined in `test/fixtures/grammars` and will be instrumented with [AddressSanitizer](https://clang.llvm.org/docs/AddressSanitizer.html) and [UndefinedBehaviorSanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html). Individual fuzzers can be built with, for example, `./script/build_fuzzers python ruby`.
+This will generate a separate fuzzer for each grammar defined in `test/fixtures/grammars` and will be instrumented with [AddressSanitizer](https://clang.llvm.org/docs/AddressSanitizer.html) and [UndefinedBehaviorSanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html). Individual fuzzers can be built with, for example, `./script/build-fuzzers python ruby`.
 
 The `run-fuzzer` script handles running an individual fuzzer with a sensible default set of arguments:
 ```
