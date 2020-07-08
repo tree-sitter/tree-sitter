@@ -2,6 +2,7 @@ use super::helpers::allocations;
 use super::helpers::fixtures::{get_language, get_language_queries_path};
 use std::ffi::CString;
 use std::{fs, ptr, slice, str};
+use tree_sitter::Point;
 use tree_sitter_tags::c_lib as c;
 use tree_sitter_tags::{Error, TagKind, TagsConfiguration, TagsContext};
 
@@ -150,12 +151,24 @@ fn test_tags_javascript() {
 
     assert_eq!(
         tags.iter()
-            .map(|t| (substr(source, &t.name_range), t.kind))
+            .map(|t| (substr(source, &t.name_range), t.span.clone(), t.kind))
             .collect::<Vec<_>>(),
         &[
-            ("Customer", TagKind::Class),
-            ("getAge", TagKind::Method),
-            ("Agent", TagKind::Class)
+            (
+                "Customer",
+                Point::new(5, 10)..Point::new(5, 18),
+                TagKind::Class
+            ),
+            (
+                "getAge",
+                Point::new(9, 8)..Point::new(9, 14),
+                TagKind::Method
+            ),
+            (
+                "Agent",
+                Point::new(15, 10)..Point::new(15, 15),
+                TagKind::Class
+            )
         ]
     );
     assert_eq!(
@@ -209,7 +222,7 @@ fn test_tags_ruby() {
             ))
             .collect::<Vec<_>>(),
         &[
-            ("foo", TagKind::Method, (2, 0)),
+            ("foo", TagKind::Method, (2, 4)),
             ("bar", TagKind::Call, (7, 4)),
             ("a", TagKind::Call, (7, 8)),
             ("b", TagKind::Call, (7, 11)),

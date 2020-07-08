@@ -300,7 +300,7 @@ where
                     continue;
                 }
 
-                let mut name_range = None;
+                let mut name_node = None;
                 let mut doc_nodes = Vec::new();
                 let mut tag_node = None;
                 let mut kind = TagKind::Call;
@@ -314,7 +314,7 @@ where
                     }
 
                     if index == self.config.name_capture_index {
-                        name_range = Some(capture.node.byte_range());
+                        name_node = Some(capture.node);
                     } else if index == self.config.doc_capture_index {
                         doc_nodes.push(capture.node);
                     } else if index == self.config.call_capture_index {
@@ -335,7 +335,9 @@ where
                     }
                 }
 
-                if let (Some(tag_node), Some(name_range)) = (tag_node, name_range) {
+                if let (Some(tag_node), Some(name_node)) = (tag_node, name_node) {
+                    let name_range = name_node.byte_range();
+
                     if pattern_info.name_must_be_non_local {
                         let mut is_local = false;
                         for scope in self.scopes.iter().rev() {
@@ -413,7 +415,7 @@ where
                                 *pattern_index = mat.pattern_index;
                                 *tag = Tag {
                                     line_range: line_range(self.source, range.start, MAX_LINE_LEN),
-                                    span: tag_node.start_position()..tag_node.end_position(),
+                                    span: name_node.start_position()..name_node.end_position(),
                                     kind,
                                     range,
                                     name_range,
@@ -426,7 +428,7 @@ where
                             (
                                 Tag {
                                     line_range: line_range(self.source, range.start, MAX_LINE_LEN),
-                                    span: tag_node.start_position()..tag_node.end_position(),
+                                    span: name_node.start_position()..name_node.end_position(),
                                     kind,
                                     range,
                                     name_range,
