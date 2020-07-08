@@ -8,21 +8,21 @@ use tree_sitter_tags::{Error, TagKind, TagsConfiguration, TagsContext};
 
 const PYTHON_TAG_QUERY: &'static str = r#"
 (
-    (function_definition
-      name: (identifier) @name
-      body: (block . (expression_statement (string) @doc))) @function
-    (#strip! @doc "(^['\"\\s]*)|(['\"\\s]*$)")
+  (function_definition
+    name: (identifier) @name
+    body: (block . (expression_statement (string) @doc))) @function
+  (#strip! @doc "(^['\"\\s]*)|(['\"\\s]*$)")
 )
 
 (function_definition
   name: (identifier) @name) @function
 
 (
-    (class_definition
-        name: (identifier) @name
-        body: (block
-            . (expression_statement (string) @doc))) @class
-    (#strip! @doc "(^['\"\\s]*)|(['\"\\s]*$)")
+  (class_definition
+    name: (identifier) @name
+    body: (block
+      . (expression_statement (string) @doc))) @class
+  (#strip! @doc "(^['\"\\s]*)|(['\"\\s]*$)")
 )
 
 (class_definition
@@ -30,6 +30,10 @@ const PYTHON_TAG_QUERY: &'static str = r#"
 
 (call
   function: (identifier) @name) @call
+
+(call
+  function: (attribute
+    attribute: (identifier) @name)) @call
 "#;
 
 const JS_TAG_QUERY: &'static str = r#"
@@ -177,6 +181,26 @@ fn test_tags_javascript() {
     );
     assert_eq!(tags[1].docs.as_ref().unwrap(), "Get the customer's age");
     assert_eq!(tags[2].docs, None);
+}
+
+#[test]
+fn test_tags_columns_measured_in_utf16_code_units() {
+    let language = get_language("python");
+    let tags_config = TagsConfiguration::new(language, PYTHON_TAG_QUERY, "").unwrap();
+    let mut tag_context = TagsContext::new();
+
+    let source = r#""❤️❤️❤️".hello_α_ω()"#.as_bytes();
+
+    let tag = tag_context
+        .generate_tags(&tags_config, source, None)
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(substr(source, &tag.name_range), "hello_α_ω");
+    assert_eq!(tag.span, Point::new(0, 21)..Point::new(0, 32));
+    assert_eq!(tag.utf16_column_range, 9..18);
 }
 
 #[test]

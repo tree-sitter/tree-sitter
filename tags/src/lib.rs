@@ -1,10 +1,10 @@
 pub mod c_lib;
 
-use memchr::{memchr, memrchr};
+use memchr::memchr;
 use regex::Regex;
 use std::ops::Range;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{fmt, mem, str};
+use std::{char, fmt, mem, str};
 use tree_sitter::{
     Language, Parser, Point, Query, QueryCursor, QueryError, QueryPredicateArg, Tree,
 };
@@ -43,6 +43,7 @@ pub struct Tag {
     pub name_range: Range<usize>,
     pub line_range: Range<usize>,
     pub span: Range<Point>,
+    pub utf16_column_range: Range<usize>,
     pub docs: Option<String>,
 }
 
@@ -404,39 +405,32 @@ where
                     // Only create one tag per node. The tag queue is sorted by node position
                     // to allow for fast lookup.
                     let range = tag_node.byte_range();
-                    match self
-                        .tag_queue
-                        .binary_search_by_key(&(name_range.end, name_range.start), |(tag, _)| {
-                            (tag.name_range.end, tag.name_range.start)
-                        }) {
+                    let span = name_node.start_position()..name_node.end_position();
+                    let utf16_column_range =
+                        get_utf16_column_range(self.source, &name_range, &span);
+                    let line_range =
+                        line_range(self.source, name_range.start, span.start, MAX_LINE_LEN);
+                    let tag = Tag {
+                        line_range,
+                        span,
+                        utf16_column_range,
+                        kind,
+                        range,
+                        name_range,
+                        docs,
+                    };
+                    match self.tag_queue.binary_search_by_key(
+                        &(tag.name_range.end, tag.name_range.start),
+                        |(tag, _)| (tag.name_range.end, tag.name_range.start),
+                    ) {
                         Ok(i) => {
-                            let (tag, pattern_index) = &mut self.tag_queue[i];
+                            let (existing_tag, pattern_index) = &mut self.tag_queue[i];
                             if *pattern_index > mat.pattern_index {
                                 *pattern_index = mat.pattern_index;
-                                *tag = Tag {
-                                    line_range: line_range(self.source, range.start, MAX_LINE_LEN),
-                                    span: name_node.start_position()..name_node.end_position(),
-                                    kind,
-                                    range,
-                                    name_range,
-                                    docs,
-                                };
+                                *existing_tag = tag;
                             }
                         }
-                        Err(i) => self.tag_queue.insert(
-                            i,
-                            (
-                                Tag {
-                                    line_range: line_range(self.source, range.start, MAX_LINE_LEN),
-                                    span: name_node.start_position()..name_node.end_position(),
-                                    kind,
-                                    range,
-                                    name_range,
-                                    docs,
-                                },
-                                mat.pattern_index,
-                            ),
-                        ),
+                        Err(i) => self.tag_queue.insert(i, (tag, mat.pattern_index)),
                     }
                 }
             }
@@ -475,11 +469,92 @@ impl From<QueryError> for Error {
     }
 }
 
-fn line_range(text: &[u8], index: usize, max_line_len: usize) -> Range<usize> {
-    let start = memrchr(b'\n', &text[0..index]).map_or(0, |i| i + 1);
-    let max_line_len = max_line_len.min(text.len() - start);
-    let end = start + memchr(b'\n', &text[start..(start + max_line_len)]).unwrap_or(max_line_len);
-    start..end
+pub struct LossyUtf8<'a> {
+    bytes: &'a [u8],
+    in_replacement: bool,
+}
+
+impl<'a> LossyUtf8<'a> {
+    pub fn new(bytes: &'a [u8]) -> Self {
+        LossyUtf8 {
+            bytes,
+            in_replacement: false,
+        }
+    }
+}
+
+impl<'a> Iterator for LossyUtf8<'a> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<&'a str> {
+        if self.bytes.is_empty() {
+            return None;
+        }
+        if self.in_replacement {
+            self.in_replacement = false;
+            return Some("\u{fffd}");
+        }
+        match str::from_utf8(self.bytes) {
+            Ok(valid) => {
+                self.bytes = &[];
+                Some(valid)
+            }
+            Err(error) => {
+                if let Some(error_len) = error.error_len() {
+                    let error_start = error.valid_up_to();
+                    if error_start > 0 {
+                        let result =
+                            unsafe { str::from_utf8_unchecked(&self.bytes[..error_start]) };
+                        self.bytes = &self.bytes[(error_start + error_len)..];
+                        self.in_replacement = true;
+                        Some(result)
+                    } else {
+                        self.bytes = &self.bytes[error_len..];
+                        Some("\u{fffd}")
+                    }
+                } else {
+                    None
+                }
+            }
+        }
+    }
+}
+
+fn line_range(
+    text: &[u8],
+    start_byte: usize,
+    start_point: Point,
+    max_line_len: usize,
+) -> Range<usize> {
+    let line_start_byte = start_byte - start_point.column;
+    let max_line_len = max_line_len.min(text.len() - line_start_byte);
+    let text_after_line_start = &text[line_start_byte..(line_start_byte + max_line_len)];
+    let len = if let Some(len) = memchr(b'\n', text_after_line_start) {
+        len
+    } else {
+        match str::from_utf8(text_after_line_start) {
+            Ok(s) => s.len(),
+            Err(e) => e.valid_up_to(),
+        }
+    };
+    line_start_byte..(line_start_byte + len)
+}
+
+fn get_utf16_column_range(
+    text: &[u8],
+    byte_range: &Range<usize>,
+    point_range: &Range<Point>,
+) -> Range<usize> {
+    let start = byte_range.start - point_range.start.column;
+    let preceding_text_on_line = &text[start..byte_range.start];
+    let start_col = utf16_len(preceding_text_on_line);
+    start_col..(start_col + utf16_len(&text[byte_range.clone()]))
+}
+
+fn utf16_len(bytes: &[u8]) -> usize {
+    LossyUtf8::new(bytes)
+        .flat_map(|chunk| chunk.chars().map(char::len_utf16))
+        .sum()
 }
 
 #[cfg(test)]
@@ -488,14 +563,10 @@ mod tests {
 
     #[test]
     fn test_get_line() {
-        let text = b"abc\ndefg\nhijkl";
-        assert_eq!(line_range(text, 0, 10), 0..3);
-        assert_eq!(line_range(text, 1, 10), 0..3);
-        assert_eq!(line_range(text, 2, 10), 0..3);
-        assert_eq!(line_range(text, 3, 10), 0..3);
-        assert_eq!(line_range(text, 1, 2), 0..2);
-        assert_eq!(line_range(text, 4, 10), 4..8);
-        assert_eq!(line_range(text, 5, 10), 4..8);
-        assert_eq!(line_range(text, 11, 10), 9..14);
+        let text = "abc\ndefg❤hij\nklmno".as_bytes();
+        assert_eq!(line_range(text, 5, Point::new(1, 1), 30), 4..14);
+        assert_eq!(line_range(text, 5, Point::new(1, 1), 6), 4..8);
+        assert_eq!(line_range(text, 17, Point::new(2, 2), 30), 15..20);
+        assert_eq!(line_range(text, 17, Point::new(2, 2), 4), 15..19);
     }
 }
