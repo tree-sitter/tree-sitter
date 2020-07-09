@@ -1,12 +1,12 @@
 pub mod c_lib;
 
-use memchr::{memchr, memrchr};
+use memchr::memchr;
 use regex::Regex;
+use std::collections::HashMap;
+use std::ffi::{CStr, CString};
 use std::ops::Range;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{fmt, mem, str};
-use std::ffi::{CStr, CString};
-use std::collections::HashMap;
+use std::{char, fmt, mem, str};
 use tree_sitter::{
     Language, Parser, Point, Query, QueryCursor, QueryError, QueryPredicateArg, Tree,
 };
@@ -48,6 +48,7 @@ pub struct Tag {
     pub name_range: Range<usize>,
     pub line_range: Range<usize>,
     pub span: Range<Point>,
+    pub utf16_column_range: Range<usize>,
     pub docs: Option<String>,
     pub is_definition: bool,
     pub syntax_type_id: u32,
@@ -142,24 +143,31 @@ impl TagsConfiguration {
                     } else if name.starts_with("reference.") {
                         name.trim_start_matches("reference.")
                     } else {
-                        return Err(Error::InvalidCapture(name.to_string()))
+                        return Err(Error::InvalidCapture(name.to_string()));
                     };
 
                     if let Ok(cstr) = CString::new(kind) {
                         let c_kind = cstr.to_bytes_with_nul().to_vec().into_boxed_slice();
-                        let syntax_type_id = syntax_type_names.iter().position(|n| { n == &c_kind }).unwrap_or_else(|| {
-                            syntax_type_names.push(c_kind);
-                            syntax_type_names.len() - 1
-                        }) as u32;
-                        capture_map.insert(i as u32, NamedCapture{ syntax_type_id, is_definition });
+                        let syntax_type_id = syntax_type_names
+                            .iter()
+                            .position(|n| n == &c_kind)
+                            .unwrap_or_else(|| {
+                                syntax_type_names.push(c_kind);
+                                syntax_type_names.len() - 1
+                            }) as u32;
+                        capture_map.insert(
+                            i as u32,
+                            NamedCapture {
+                                syntax_type_id,
+                                is_definition,
+                            },
+                        );
                     }
                 }
             }
         }
 
-        let c_syntax_type_names = syntax_type_names.iter().map( |s| {
-            s.as_ptr()
-        }).collect();
+        let c_syntax_type_names = syntax_type_names.iter().map(|s| s.as_ptr()).collect();
 
         let pattern_info = (0..query.pattern_count())
             .map(|pattern_index| {
@@ -219,7 +227,8 @@ impl TagsConfiguration {
 
     pub fn syntax_type_name(&self, id: u32) -> &str {
         unsafe {
-            let cstr = CStr::from_ptr(self.syntax_type_names[id as usize].as_ptr() as *const i8).to_bytes();
+            let cstr = CStr::from_ptr(self.syntax_type_names[id as usize].as_ptr() as *const i8)
+                .to_bytes();
             str::from_utf8(cstr).expect("syntax type name was not valid utf-8")
         }
     }
@@ -330,7 +339,7 @@ where
                     continue;
                 }
 
-                let mut name_range = None;
+                let mut name_node = None;
                 let mut doc_nodes = Vec::new();
                 let mut tag_node = None;
                 let mut syntax_type_id = 0;
@@ -345,7 +354,7 @@ where
                     }
 
                     if index == self.config.name_capture_index {
-                        name_range = Some(capture.node.byte_range());
+                        name_node = Some(capture.node);
                     } else if index == self.config.doc_capture_index {
                         doc_nodes.push(capture.node);
                     }
@@ -357,7 +366,9 @@ where
                     }
                 }
 
-                if let (Some(tag_node), Some(name_range)) = (tag_node, name_range) {
+                if let (Some(tag_node), Some(name_node)) = (tag_node, name_node) {
+                    let name_range = name_node.byte_range();
+
                     if pattern_info.name_must_be_non_local {
                         let mut is_local = false;
                         for scope in self.scopes.iter().rev() {
@@ -424,41 +435,33 @@ where
                     // Only create one tag per node. The tag queue is sorted by node position
                     // to allow for fast lookup.
                     let range = tag_node.byte_range();
-                    match self
-                        .tag_queue
-                        .binary_search_by_key(&(name_range.end, name_range.start), |(tag, _)| {
-                            (tag.name_range.end, tag.name_range.start)
-                        }) {
+                    let span = name_node.start_position()..name_node.end_position();
+                    let utf16_column_range =
+                        get_utf16_column_range(self.source, &name_range, &span);
+                    let line_range =
+                        line_range(self.source, name_range.start, span.start, MAX_LINE_LEN);
+                    let tag = Tag {
+                        line_range,
+                        span,
+                        utf16_column_range,
+                        range,
+                        name_range,
+                        docs,
+                        is_definition,
+                        syntax_type_id,
+                    };
+                    match self.tag_queue.binary_search_by_key(
+                        &(tag.name_range.end, tag.name_range.start),
+                        |(tag, _)| (tag.name_range.end, tag.name_range.start),
+                    ) {
                         Ok(i) => {
-                            let (tag, pattern_index) = &mut self.tag_queue[i];
+                            let (existing_tag, pattern_index) = &mut self.tag_queue[i];
                             if *pattern_index > mat.pattern_index {
                                 *pattern_index = mat.pattern_index;
-                                *tag = Tag {
-                                    line_range: line_range(self.source, range.start, MAX_LINE_LEN),
-                                    span: tag_node.start_position()..tag_node.end_position(),
-                                    range,
-                                    name_range,
-                                    docs,
-                                    syntax_type_id,
-                                    is_definition,
-                                };
+                                *existing_tag = tag;
                             }
                         }
-                        Err(i) => self.tag_queue.insert(
-                            i,
-                            (
-                                Tag {
-                                    line_range: line_range(self.source, range.start, MAX_LINE_LEN),
-                                    span: tag_node.start_position()..tag_node.end_position(),
-                                    range,
-                                    name_range,
-                                    docs,
-                                    syntax_type_id,
-                                    is_definition,
-                                },
-                                mat.pattern_index,
-                            ),
-                        ),
+                        Err(i) => self.tag_queue.insert(i, (tag, mat.pattern_index)),
                     }
                 }
             }
@@ -484,29 +487,103 @@ impl From<QueryError> for Error {
     }
 }
 
-fn line_range(text: &[u8], index: usize, max_line_len: usize) -> Range<usize> {
-    let start = memrchr(b'\n', &text[0..index]).map_or(0, |i| i + 1);
-    let max_line_len = max_line_len.min(text.len() - start);
-    let end = start + memchr(b'\n', &text[start..(start + max_line_len)]).unwrap_or(max_line_len);
-    trim_end(text, trim_start(text, start..end))
+pub struct LossyUtf8<'a> {
+    bytes: &'a [u8],
+    in_replacement: bool,
 }
 
-fn trim_start(text: &[u8], r: Range<usize>) -> Range<usize> {
-    for (index, c) in text[r.start..r.end].iter().enumerate() {
-        if !c.is_ascii_whitespace() {
-            return (r.start+index)..r.end
+impl<'a> LossyUtf8<'a> {
+    pub fn new(bytes: &'a [u8]) -> Self {
+        LossyUtf8 {
+            bytes,
+            in_replacement: false,
         }
     }
-    return r
 }
 
-fn trim_end(text: &[u8], r: Range<usize>) -> Range<usize> {
-    for (index, c) in text[r.start..r.end].iter().rev().enumerate() {
-        if !c.is_ascii_whitespace() {
-            return r.start..(r.end-index)
+impl<'a> Iterator for LossyUtf8<'a> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<&'a str> {
+        if self.bytes.is_empty() {
+            return None;
+        }
+        if self.in_replacement {
+            self.in_replacement = false;
+            return Some("\u{fffd}");
+        }
+        match str::from_utf8(self.bytes) {
+            Ok(valid) => {
+                self.bytes = &[];
+                Some(valid)
+            }
+            Err(error) => {
+                if let Some(error_len) = error.error_len() {
+                    let error_start = error.valid_up_to();
+                    if error_start > 0 {
+                        let result =
+                            unsafe { str::from_utf8_unchecked(&self.bytes[..error_start]) };
+                        self.bytes = &self.bytes[(error_start + error_len)..];
+                        self.in_replacement = true;
+                        Some(result)
+                    } else {
+                        self.bytes = &self.bytes[error_len..];
+                        Some("\u{fffd}")
+                    }
+                } else {
+                    None
+                }
+            }
         }
     }
-    return r
+}
+
+fn line_range(
+    text: &[u8],
+    start_byte: usize,
+    start_point: Point,
+    max_line_len: usize,
+) -> Range<usize> {
+    // Trim leading whitespace
+    let mut line_start_byte = start_byte - start_point.column;
+    while line_start_byte < text.len() && text[line_start_byte].is_ascii_whitespace() {
+        line_start_byte += 1;
+    }
+
+    let max_line_len = max_line_len.min(text.len() - line_start_byte);
+    let text_after_line_start = &text[line_start_byte..(line_start_byte + max_line_len)];
+    let line_len = if let Some(len) = memchr(b'\n', text_after_line_start) {
+        len
+    } else if let Err(e) = str::from_utf8(text_after_line_start) {
+        e.valid_up_to()
+    } else {
+        max_line_len
+    };
+
+    // Trim trailing whitespace
+    let mut line_end_byte = line_start_byte + line_len;
+    while line_end_byte > line_start_byte && text[line_end_byte - 1].is_ascii_whitespace() {
+        line_end_byte -= 1;
+    }
+
+    line_start_byte..line_end_byte
+}
+
+fn get_utf16_column_range(
+    text: &[u8],
+    byte_range: &Range<usize>,
+    point_range: &Range<Point>,
+) -> Range<usize> {
+    let line_start_byte = byte_range.start - point_range.start.column;
+    let preceding_text_on_line = &text[line_start_byte..byte_range.start];
+    let start_col = utf16_len(preceding_text_on_line);
+    start_col..(start_col + utf16_len(&text[byte_range.clone()]))
+}
+
+fn utf16_len(bytes: &[u8]) -> usize {
+    LossyUtf8::new(bytes)
+        .flat_map(|chunk| chunk.chars().map(char::len_utf16))
+        .sum()
 }
 
 #[cfg(test)]
@@ -515,30 +592,26 @@ mod tests {
 
     #[test]
     fn test_get_line() {
-        let text = b"abc\ndefg\nhijkl";
-        assert_eq!(line_range(text, 0, 10), 0..3);
-        assert_eq!(line_range(text, 1, 10), 0..3);
-        assert_eq!(line_range(text, 2, 10), 0..3);
-        assert_eq!(line_range(text, 3, 10), 0..3);
-        assert_eq!(line_range(text, 1, 2), 0..2);
-        assert_eq!(line_range(text, 4, 10), 4..8);
-        assert_eq!(line_range(text, 5, 10), 4..8);
-        assert_eq!(line_range(text, 11, 10), 9..14);
+        let text = "abc\ndefg❤hij\nklmno".as_bytes();
+        assert_eq!(line_range(text, 5, Point::new(1, 1), 30), 4..14);
+        assert_eq!(line_range(text, 5, Point::new(1, 1), 6), 4..8);
+        assert_eq!(line_range(text, 17, Point::new(2, 2), 30), 15..20);
+        assert_eq!(line_range(text, 17, Point::new(2, 2), 4), 15..19);
     }
 
     #[test]
     fn test_get_line_trims() {
         let text = b"   foo\nbar\n";
-        assert_eq!(line_range(text, 0, 10), 3..6);
+        assert_eq!(line_range(text, 0, Point::new(0, 0), 10), 3..6);
 
         let text = b"\t func foo \nbar\n";
-        assert_eq!(line_range(text, 0, 10), 2..10);
+        assert_eq!(line_range(text, 0, Point::new(0, 0), 10), 2..10);
 
-        let r = line_range(text, 0, 14);
+        let r = line_range(text, 0, Point::new(0, 0), 14);
         assert_eq!(r, 2..10);
         assert_eq!(str::from_utf8(&text[r]).unwrap_or(""), "func foo");
 
-        let r = line_range(text, 12, 14);
+        let r = line_range(text, 12, Point::new(1, 0), 14);
         assert_eq!(r, 12..15);
         assert_eq!(str::from_utf8(&text[r]).unwrap_or(""), "bar");
     }

@@ -764,17 +764,23 @@ static StackVersion ts_parser__reduce(
   bool is_extra
 ) {
   uint32_t initial_version_count = ts_stack_version_count(self->stack);
-  uint32_t removed_version_count = 0;
-  StackSliceArray pop = ts_stack_pop_count(self->stack, version, count);
 
+  // Pop the given number of nodes from the given version of the parse stack.
+  // If stack versions have previously merged, then there may be more than one
+  // path back through the stack. For each path, create a new parent node to
+  // contain the popped children, and push it onto the stack in place of the
+  // children.
+  StackSliceArray pop = ts_stack_pop_count(self->stack, version, count);
+  uint32_t removed_version_count = 0;
   for (uint32_t i = 0; i < pop.size; i++) {
     StackSlice slice = pop.contents[i];
     StackVersion slice_version = slice.version - removed_version_count;
 
-    // Error recovery can sometimes cause lots of stack versions to merge,
-    // such that a single pop operation can produce a lots of slices.
-    // Avoid creating too many stack versions in that situation.
-    if (i > 0 && slice_version > MAX_VERSION_COUNT + MAX_VERSION_COUNT_OVERFLOW) {
+    // This is where new versions are added to the parse stack. The versions
+    // will all be sorted and truncated at the end of the outer parsing loop.
+    // Allow the maximum version count to be temporarily exceeded, but only
+    // by a limited threshold.
+    if (slice_version > MAX_VERSION_COUNT + MAX_VERSION_COUNT_OVERFLOW) {
       ts_stack_remove_version(self->stack, slice_version);
       ts_subtree_array_delete(&self->tree_pool, &slice.subtrees);
       removed_version_count++;
