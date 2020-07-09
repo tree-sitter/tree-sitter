@@ -28,6 +28,8 @@ typedef struct {
   uint32_t line_end_byte;
   TSPoint start_point;
   TSPoint end_point;
+  uint32_t utf16_start_column;
+  uint32_t utf16_end_column;
   uint32_t docs_start_byte;
   uint32_t docs_end_byte;
   uint32_t syntax_type_id;

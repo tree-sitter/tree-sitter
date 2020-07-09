@@ -36,6 +36,8 @@ pub struct TSTag {
     pub line_end_byte: u32,
     pub start_point: TSPoint,
     pub end_point: TSPoint,
+    pub utf16_start_colum: u32,
+    pub utf16_end_colum: u32,
     pub docs_start_byte: u32,
     pub docs_end_byte: u32,
     pub syntax_type_id: u32,
@@ -161,6 +163,8 @@ pub extern "C" fn ts_tagger_tag(
                     row: tag.span.end.row as u32,
                     column: tag.span.end.column as u32,
                 },
+                utf16_start_colum: tag.utf16_column_range.start as u32,
+                utf16_end_colum: tag.utf16_column_range.end as u32,
                 docs_start_byte: prev_docs_len as u32,
                 docs_end_byte: buffer.docs.len() as u32,
                 syntax_type_id: tag.syntax_type_id,
@@ -225,7 +229,7 @@ pub extern "C" fn ts_tagger_syntax_kinds_for_scope_name(
     *len = 0;
     if let Some(config) = tagger.languages.get(scope_name) {
         *len = config.c_syntax_type_names.len() as u32;
-        return config.c_syntax_type_names.as_ptr() as *const *const i8
+        return config.c_syntax_type_names.as_ptr() as *const *const i8;
     }
     std::ptr::null()
 }
