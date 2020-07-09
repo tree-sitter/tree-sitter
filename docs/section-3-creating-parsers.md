@@ -13,7 +13,7 @@ Developing Tree-sitter grammars can have a difficult learning curve, but once yo
 
 In order to develop a Tree-sitter parser, there are two dependencies that you need to install:
 
-* **Node.js** - Tree-sitter grammars are written in JavaScript, and Tree-sitter uses [Node.js][node.js] to interpret JavaScript files. It requires the `node` command to be in one of the directories in your [`PATH`][path-env]. It shouldn't matter what version of Node you have.
+* **Node.js** - Tree-sitter grammars are written in JavaScript, and Tree-sitter uses [Node.js][node.js] to interpret JavaScript files. It requires the `node` command to be in one of the directories in your [`PATH`][path-env]. You'll need Node.js version 6.0 or greater.
 * **A C Compiler** - Tree-sitter creates parsers that are written in C. In order to run and test these parsers with the `tree-sitter parse` or `tree-sitter test` commands, you must have a C/C++ compiler installed. Tree-sitter will try to look for these compilers in the standard places for each platform.
 
 ### Installation
