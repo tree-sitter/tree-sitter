@@ -106,6 +106,11 @@ struct LineInfo {
     line_range: Range<usize>,
 }
 
+struct LossyUtf8<'a> {
+    bytes: &'a [u8],
+    in_replacement: bool,
+}
+
 impl TagsConfiguration {
     pub fn new(language: Language, tags_query: &str, locals_query: &str) -> Result<Self, Error> {
         let query = Query::new(language, &format!("{}{}", locals_query, tags_query))?;
@@ -533,13 +538,11 @@ impl From<QueryError> for Error {
     }
 }
 
-pub struct LossyUtf8<'a> {
-    bytes: &'a [u8],
-    in_replacement: bool,
-}
-
+// TODO: Remove this struct at at some point. If `core::str::lossy::Utf8Lossy`
+// is ever stabilized, we should use that. Otherwise, this struct could be moved
+// into some module that's shared between `tree-sitter-tags` and `tree-sitter-highlight`.
 impl<'a> LossyUtf8<'a> {
-    pub fn new(bytes: &'a [u8]) -> Self {
+    fn new(bytes: &'a [u8]) -> Self {
         LossyUtf8 {
             bytes,
             in_replacement: false,
