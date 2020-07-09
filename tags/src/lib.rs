@@ -91,11 +91,19 @@ where
     matches: I,
     _tree: Tree,
     source: &'a [u8],
+    prev_line_info: Option<LineInfo>,
     config: &'a TagsConfiguration,
     cancellation_flag: Option<&'a AtomicUsize>,
     iter_count: usize,
     tag_queue: Vec<(Tag, usize)>,
     scopes: Vec<LocalScope<'a>>,
+}
+
+struct LineInfo {
+    utf8_position: Point,
+    utf8_byte: usize,
+    utf16_column: usize,
+    line_range: Range<usize>,
 }
 
 impl TagsConfiguration {
@@ -260,6 +268,7 @@ impl TagsContext {
             source,
             config,
             cancellation_flag,
+            prev_line_info: None,
             tag_queue: Vec::new(),
             iter_count: 0,
             scopes: vec![LocalScope {
@@ -425,10 +434,46 @@ where
 
                     let range = tag_node.byte_range();
                     let span = name_node.start_position()..name_node.end_position();
-                    let utf16_column_range =
-                        get_utf16_column_range(self.source, &name_range, &span);
-                    let line_range =
-                        line_range(self.source, name_range.start, span.start, MAX_LINE_LEN);
+
+                    // Compute tag properties that depend on the text of the containing line. If the
+                    // previous tag occurred on the same line, then reuse results from the previous tag.
+                    let line_range;
+                    let mut prev_utf16_column = 0;
+                    let mut prev_utf8_byte = name_range.start - span.start.column;
+                    let line_info = self.prev_line_info.as_ref().and_then(|info| {
+                        if info.utf8_position.row == span.start.row {
+                            Some(info)
+                        } else {
+                            None
+                        }
+                    });
+                    if let Some(line_info) = line_info {
+                        line_range = line_info.line_range.clone();
+                        if line_info.utf8_position.column <= span.start.column {
+                            prev_utf8_byte = line_info.utf8_byte;
+                            prev_utf16_column = line_info.utf16_column;
+                        }
+                    } else {
+                        line_range = self::line_range(
+                            self.source,
+                            name_range.start,
+                            span.start,
+                            MAX_LINE_LEN,
+                        );
+                    }
+
+                    let utf16_start_column = prev_utf16_column
+                        + utf16_len(&self.source[prev_utf8_byte..name_range.start]);
+                    let utf16_end_column =
+                        utf16_start_column + utf16_len(&self.source[name_range.clone()]);
+                    let utf16_column_range = utf16_start_column..utf16_end_column;
+
+                    self.prev_line_info = Some(LineInfo {
+                        utf8_position: span.end,
+                        utf8_byte: name_range.end,
+                        utf16_column: utf16_end_column,
+                        line_range: line_range.clone(),
+                    });
                     let tag = Tag {
                         line_range,
                         span,
@@ -568,17 +613,6 @@ fn line_range(
     }
 
     line_start_byte..line_end_byte
-}
-
-fn get_utf16_column_range(
-    text: &[u8],
-    byte_range: &Range<usize>,
-    point_range: &Range<Point>,
-) -> Range<usize> {
-    let line_start_byte = byte_range.start - point_range.start.column;
-    let preceding_text_on_line = &text[line_start_byte..byte_range.start];
-    let start_col = utf16_len(preceding_text_on_line);
-    start_col..(start_col + utf16_len(&text[byte_range.clone()]))
 }
 
 fn utf16_len(bytes: &[u8]) -> usize {
