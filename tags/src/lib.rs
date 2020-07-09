@@ -423,8 +423,6 @@ where
                         }
                     }
 
-                    // Only create one tag per node. The tag queue is sorted by node position
-                    // to allow for fast lookup.
                     let range = tag_node.byte_range();
                     let span = name_node.start_position()..name_node.end_position();
                     let utf16_column_range =
@@ -441,6 +439,9 @@ where
                         is_definition,
                         syntax_type_id,
                     };
+
+                    // Only create one tag per node. The tag queue is sorted by node position
+                    // to allow for fast lookup.
                     match self.tag_queue.binary_search_by_key(
                         &(tag.name_range.end, tag.name_range.start),
                         |(tag, _)| (tag.name_range.end, tag.name_range.start),
