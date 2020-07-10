@@ -1,10 +1,12 @@
 pub mod c_lib;
 
-use memchr::{memchr, memrchr};
+use memchr::memchr;
 use regex::Regex;
+use std::collections::HashMap;
+use std::ffi::{CStr, CString};
 use std::ops::Range;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{fmt, mem, str};
+use std::{char, fmt, mem, str};
 use tree_sitter::{
     Language, Parser, Point, Query, QueryCursor, QueryError, QueryPredicateArg, Tree,
 };
@@ -18,17 +20,21 @@ const CANCELLATION_CHECK_INTERVAL: usize = 100;
 pub struct TagsConfiguration {
     pub language: Language,
     pub query: Query,
-    call_capture_index: Option<u32>,
-    class_capture_index: Option<u32>,
+    syntax_type_names: Vec<Box<[u8]>>,
+    c_syntax_type_names: Vec<*const u8>,
+    capture_map: HashMap<u32, NamedCapture>,
     doc_capture_index: Option<u32>,
-    function_capture_index: Option<u32>,
-    method_capture_index: Option<u32>,
-    module_capture_index: Option<u32>,
     name_capture_index: Option<u32>,
     local_scope_capture_index: Option<u32>,
     local_definition_capture_index: Option<u32>,
     tags_pattern_index: usize,
     pattern_info: Vec<PatternInfo>,
+}
+
+#[derive(Debug)]
+pub struct NamedCapture {
+    pub syntax_type_id: u32,
+    pub is_definition: bool,
 }
 
 pub struct TagsContext {
@@ -38,21 +44,14 @@ pub struct TagsContext {
 
 #[derive(Debug, Clone)]
 pub struct Tag {
-    pub kind: TagKind,
     pub range: Range<usize>,
     pub name_range: Range<usize>,
     pub line_range: Range<usize>,
     pub span: Range<Point>,
+    pub utf16_column_range: Range<usize>,
     pub docs: Option<String>,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum TagKind {
-    Function,
-    Method,
-    Class,
-    Module,
-    Call,
+    pub is_definition: bool,
+    pub syntax_type_id: u32,
 }
 
 #[derive(Debug, PartialEq)]
@@ -61,6 +60,7 @@ pub enum Error {
     Regex(regex::Error),
     Cancelled,
     InvalidLanguage,
+    InvalidCapture(String),
 }
 
 #[derive(Debug, Default)]
@@ -91,11 +91,24 @@ where
     matches: I,
     _tree: Tree,
     source: &'a [u8],
+    prev_line_info: Option<LineInfo>,
     config: &'a TagsConfiguration,
     cancellation_flag: Option<&'a AtomicUsize>,
     iter_count: usize,
     tag_queue: Vec<(Tag, usize)>,
     scopes: Vec<LocalScope<'a>>,
+}
+
+struct LineInfo {
+    utf8_position: Point,
+    utf8_byte: usize,
+    utf16_column: usize,
+    line_range: Range<usize>,
+}
+
+struct LossyUtf8<'a> {
+    bytes: &'a [u8],
+    in_replacement: bool,
 }
 
 impl TagsConfiguration {
@@ -111,30 +124,54 @@ impl TagsConfiguration {
             }
         }
 
-        let mut call_capture_index = None;
-        let mut class_capture_index = None;
+        let mut capture_map = HashMap::new();
+        let mut syntax_type_names = Vec::new();
         let mut doc_capture_index = None;
-        let mut function_capture_index = None;
-        let mut method_capture_index = None;
-        let mut module_capture_index = None;
         let mut name_capture_index = None;
         let mut local_scope_capture_index = None;
         let mut local_definition_capture_index = None;
         for (i, name) in query.capture_names().iter().enumerate() {
-            let index = match name.as_str() {
-                "call" => &mut call_capture_index,
-                "class" => &mut class_capture_index,
-                "doc" => &mut doc_capture_index,
-                "function" => &mut function_capture_index,
-                "method" => &mut method_capture_index,
-                "module" => &mut module_capture_index,
-                "name" => &mut name_capture_index,
-                "local.scope" => &mut local_scope_capture_index,
-                "local.definition" => &mut local_definition_capture_index,
-                _ => continue,
-            };
-            *index = Some(i as u32);
+            match name.as_str() {
+                "" => continue,
+                "name" => name_capture_index = Some(i as u32),
+                "doc" => doc_capture_index = Some(i as u32),
+                "local.scope" => local_scope_capture_index = Some(i as u32),
+                "local.definition" => local_definition_capture_index = Some(i as u32),
+                "local.reference" => continue,
+                _ => {
+                    let mut is_definition = false;
+
+                    let kind = if name.starts_with("definition.") {
+                        is_definition = true;
+                        name.trim_start_matches("definition.")
+                    } else if name.starts_with("reference.") {
+                        name.trim_start_matches("reference.")
+                    } else {
+                        return Err(Error::InvalidCapture(name.to_string()));
+                    };
+
+                    if let Ok(cstr) = CString::new(kind) {
+                        let c_kind = cstr.to_bytes_with_nul().to_vec().into_boxed_slice();
+                        let syntax_type_id = syntax_type_names
+                            .iter()
+                            .position(|n| n == &c_kind)
+                            .unwrap_or_else(|| {
+                                syntax_type_names.push(c_kind);
+                                syntax_type_names.len() - 1
+                            }) as u32;
+                        capture_map.insert(
+                            i as u32,
+                            NamedCapture {
+                                syntax_type_id,
+                                is_definition,
+                            },
+                        );
+                    }
+                }
+            }
         }
+
+        let c_syntax_type_names = syntax_type_names.iter().map(|s| s.as_ptr()).collect();
 
         let pattern_info = (0..query.pattern_count())
             .map(|pattern_index| {
@@ -180,18 +217,24 @@ impl TagsConfiguration {
         Ok(TagsConfiguration {
             language,
             query,
-            function_capture_index,
-            class_capture_index,
-            method_capture_index,
-            module_capture_index,
+            syntax_type_names,
+            c_syntax_type_names,
+            capture_map,
             doc_capture_index,
-            call_capture_index,
             name_capture_index,
             tags_pattern_index,
             local_scope_capture_index,
             local_definition_capture_index,
             pattern_info,
         })
+    }
+
+    pub fn syntax_type_name(&self, id: u32) -> &str {
+        unsafe {
+            let cstr = CStr::from_ptr(self.syntax_type_names[id as usize].as_ptr() as *const i8)
+                .to_bytes();
+            str::from_utf8(cstr).expect("syntax type name was not valid utf-8")
+        }
     }
 }
 
@@ -230,6 +273,7 @@ impl TagsContext {
             source,
             config,
             cancellation_flag,
+            prev_line_info: None,
             tag_queue: Vec::new(),
             iter_count: 0,
             scopes: vec![LocalScope {
@@ -300,10 +344,11 @@ where
                     continue;
                 }
 
-                let mut name_range = None;
+                let mut name_node = None;
                 let mut doc_nodes = Vec::new();
                 let mut tag_node = None;
-                let mut kind = TagKind::Call;
+                let mut syntax_type_id = 0;
+                let mut is_definition = false;
                 let mut docs_adjacent_node = None;
 
                 for capture in mat.captures {
@@ -314,28 +359,21 @@ where
                     }
 
                     if index == self.config.name_capture_index {
-                        name_range = Some(capture.node.byte_range());
+                        name_node = Some(capture.node);
                     } else if index == self.config.doc_capture_index {
                         doc_nodes.push(capture.node);
-                    } else if index == self.config.call_capture_index {
+                    }
+
+                    if let Some(named_capture) = self.config.capture_map.get(&capture.index) {
                         tag_node = Some(capture.node);
-                        kind = TagKind::Call;
-                    } else if index == self.config.class_capture_index {
-                        tag_node = Some(capture.node);
-                        kind = TagKind::Class;
-                    } else if index == self.config.function_capture_index {
-                        tag_node = Some(capture.node);
-                        kind = TagKind::Function;
-                    } else if index == self.config.method_capture_index {
-                        tag_node = Some(capture.node);
-                        kind = TagKind::Method;
-                    } else if index == self.config.module_capture_index {
-                        tag_node = Some(capture.node);
-                        kind = TagKind::Module;
+                        syntax_type_id = named_capture.syntax_type_id;
+                        is_definition = named_capture.is_definition;
                     }
                 }
 
-                if let (Some(tag_node), Some(name_range)) = (tag_node, name_range) {
+                if let (Some(tag_node), Some(name_node)) = (tag_node, name_node) {
+                    let name_range = name_node.byte_range();
+
                     if pattern_info.name_must_be_non_local {
                         let mut is_local = false;
                         for scope in self.scopes.iter().rev() {
@@ -399,42 +437,73 @@ where
                         }
                     }
 
+                    let range = tag_node.byte_range();
+                    let span = name_node.start_position()..name_node.end_position();
+
+                    // Compute tag properties that depend on the text of the containing line. If the
+                    // previous tag occurred on the same line, then reuse results from the previous tag.
+                    let line_range;
+                    let mut prev_utf16_column = 0;
+                    let mut prev_utf8_byte = name_range.start - span.start.column;
+                    let line_info = self.prev_line_info.as_ref().and_then(|info| {
+                        if info.utf8_position.row == span.start.row {
+                            Some(info)
+                        } else {
+                            None
+                        }
+                    });
+                    if let Some(line_info) = line_info {
+                        line_range = line_info.line_range.clone();
+                        if line_info.utf8_position.column <= span.start.column {
+                            prev_utf8_byte = line_info.utf8_byte;
+                            prev_utf16_column = line_info.utf16_column;
+                        }
+                    } else {
+                        line_range = self::line_range(
+                            self.source,
+                            name_range.start,
+                            span.start,
+                            MAX_LINE_LEN,
+                        );
+                    }
+
+                    let utf16_start_column = prev_utf16_column
+                        + utf16_len(&self.source[prev_utf8_byte..name_range.start]);
+                    let utf16_end_column =
+                        utf16_start_column + utf16_len(&self.source[name_range.clone()]);
+                    let utf16_column_range = utf16_start_column..utf16_end_column;
+
+                    self.prev_line_info = Some(LineInfo {
+                        utf8_position: span.end,
+                        utf8_byte: name_range.end,
+                        utf16_column: utf16_end_column,
+                        line_range: line_range.clone(),
+                    });
+                    let tag = Tag {
+                        line_range,
+                        span,
+                        utf16_column_range,
+                        range,
+                        name_range,
+                        docs,
+                        is_definition,
+                        syntax_type_id,
+                    };
+
                     // Only create one tag per node. The tag queue is sorted by node position
                     // to allow for fast lookup.
-                    let range = tag_node.byte_range();
-                    match self
-                        .tag_queue
-                        .binary_search_by_key(&(name_range.end, name_range.start), |(tag, _)| {
-                            (tag.name_range.end, tag.name_range.start)
-                        }) {
+                    match self.tag_queue.binary_search_by_key(
+                        &(tag.name_range.end, tag.name_range.start),
+                        |(tag, _)| (tag.name_range.end, tag.name_range.start),
+                    ) {
                         Ok(i) => {
-                            let (tag, pattern_index) = &mut self.tag_queue[i];
+                            let (existing_tag, pattern_index) = &mut self.tag_queue[i];
                             if *pattern_index > mat.pattern_index {
                                 *pattern_index = mat.pattern_index;
-                                *tag = Tag {
-                                    line_range: line_range(self.source, range.start, MAX_LINE_LEN),
-                                    span: tag_node.start_position()..tag_node.end_position(),
-                                    kind,
-                                    range,
-                                    name_range,
-                                    docs,
-                                };
+                                *existing_tag = tag;
                             }
                         }
-                        Err(i) => self.tag_queue.insert(
-                            i,
-                            (
-                                Tag {
-                                    line_range: line_range(self.source, range.start, MAX_LINE_LEN),
-                                    span: tag_node.start_position()..tag_node.end_position(),
-                                    kind,
-                                    range,
-                                    name_range,
-                                    docs,
-                                },
-                                mat.pattern_index,
-                            ),
-                        ),
+                        Err(i) => self.tag_queue.insert(i, (tag, mat.pattern_index)),
                     }
                 }
             }
@@ -448,16 +517,12 @@ where
     }
 }
 
-impl fmt::Display for TagKind {
+impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            TagKind::Call => "Call",
-            TagKind::Module => "Module",
-            TagKind::Class => "Class",
-            TagKind::Method => "Method",
-            TagKind::Function => "Function",
+            Error::InvalidCapture(name) => write!(f, "Invalid capture @{}. Expected one of: @definition.*, @reference.*, @doc, @name, @local.(scope|definition|reference).", name),
+            _ => write!(f, "{:?}", self)
         }
-        .fmt(f)
     }
 }
 
@@ -473,11 +538,90 @@ impl From<QueryError> for Error {
     }
 }
 
-fn line_range(text: &[u8], index: usize, max_line_len: usize) -> Range<usize> {
-    let start = memrchr(b'\n', &text[0..index]).map_or(0, |i| i + 1);
-    let max_line_len = max_line_len.min(text.len() - start);
-    let end = start + memchr(b'\n', &text[start..(start + max_line_len)]).unwrap_or(max_line_len);
-    start..end
+// TODO: Remove this struct at at some point. If `core::str::lossy::Utf8Lossy`
+// is ever stabilized, we should use that. Otherwise, this struct could be moved
+// into some module that's shared between `tree-sitter-tags` and `tree-sitter-highlight`.
+impl<'a> LossyUtf8<'a> {
+    fn new(bytes: &'a [u8]) -> Self {
+        LossyUtf8 {
+            bytes,
+            in_replacement: false,
+        }
+    }
+}
+
+impl<'a> Iterator for LossyUtf8<'a> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<&'a str> {
+        if self.bytes.is_empty() {
+            return None;
+        }
+        if self.in_replacement {
+            self.in_replacement = false;
+            return Some("\u{fffd}");
+        }
+        match str::from_utf8(self.bytes) {
+            Ok(valid) => {
+                self.bytes = &[];
+                Some(valid)
+            }
+            Err(error) => {
+                if let Some(error_len) = error.error_len() {
+                    let error_start = error.valid_up_to();
+                    if error_start > 0 {
+                        let result =
+                            unsafe { str::from_utf8_unchecked(&self.bytes[..error_start]) };
+                        self.bytes = &self.bytes[(error_start + error_len)..];
+                        self.in_replacement = true;
+                        Some(result)
+                    } else {
+                        self.bytes = &self.bytes[error_len..];
+                        Some("\u{fffd}")
+                    }
+                } else {
+                    None
+                }
+            }
+        }
+    }
+}
+
+fn line_range(
+    text: &[u8],
+    start_byte: usize,
+    start_point: Point,
+    max_line_len: usize,
+) -> Range<usize> {
+    // Trim leading whitespace
+    let mut line_start_byte = start_byte - start_point.column;
+    while line_start_byte < text.len() && text[line_start_byte].is_ascii_whitespace() {
+        line_start_byte += 1;
+    }
+
+    let max_line_len = max_line_len.min(text.len() - line_start_byte);
+    let text_after_line_start = &text[line_start_byte..(line_start_byte + max_line_len)];
+    let line_len = if let Some(len) = memchr(b'\n', text_after_line_start) {
+        len
+    } else if let Err(e) = str::from_utf8(text_after_line_start) {
+        e.valid_up_to()
+    } else {
+        max_line_len
+    };
+
+    // Trim trailing whitespace
+    let mut line_end_byte = line_start_byte + line_len;
+    while line_end_byte > line_start_byte && text[line_end_byte - 1].is_ascii_whitespace() {
+        line_end_byte -= 1;
+    }
+
+    line_start_byte..line_end_byte
+}
+
+fn utf16_len(bytes: &[u8]) -> usize {
+    LossyUtf8::new(bytes)
+        .flat_map(|chunk| chunk.chars().map(char::len_utf16))
+        .sum()
 }
 
 #[cfg(test)]
@@ -486,14 +630,27 @@ mod tests {
 
     #[test]
     fn test_get_line() {
-        let text = b"abc\ndefg\nhijkl";
-        assert_eq!(line_range(text, 0, 10), 0..3);
-        assert_eq!(line_range(text, 1, 10), 0..3);
-        assert_eq!(line_range(text, 2, 10), 0..3);
-        assert_eq!(line_range(text, 3, 10), 0..3);
-        assert_eq!(line_range(text, 1, 2), 0..2);
-        assert_eq!(line_range(text, 4, 10), 4..8);
-        assert_eq!(line_range(text, 5, 10), 4..8);
-        assert_eq!(line_range(text, 11, 10), 9..14);
+        let text = "abc\ndefg❤hij\nklmno".as_bytes();
+        assert_eq!(line_range(text, 5, Point::new(1, 1), 30), 4..14);
+        assert_eq!(line_range(text, 5, Point::new(1, 1), 6), 4..8);
+        assert_eq!(line_range(text, 17, Point::new(2, 2), 30), 15..20);
+        assert_eq!(line_range(text, 17, Point::new(2, 2), 4), 15..19);
+    }
+
+    #[test]
+    fn test_get_line_trims() {
+        let text = b"   foo\nbar\n";
+        assert_eq!(line_range(text, 0, Point::new(0, 0), 10), 3..6);
+
+        let text = b"\t func foo \nbar\n";
+        assert_eq!(line_range(text, 0, Point::new(0, 0), 10), 2..10);
+
+        let r = line_range(text, 0, Point::new(0, 0), 14);
+        assert_eq!(r, 2..10);
+        assert_eq!(str::from_utf8(&text[r]).unwrap_or(""), "func foo");
+
+        let r = line_range(text, 12, Point::new(1, 0), 14);
+        assert_eq!(r, 12..15);
+        assert_eq!(str::from_utf8(&text[r]).unwrap_or(""), "bar");
     }
 }

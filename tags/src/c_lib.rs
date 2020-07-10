@@ -1,4 +1,4 @@
-use super::{Error, TagKind, TagsConfiguration, TagsContext};
+use super::{Error, TagsConfiguration, TagsContext};
 use std::collections::HashMap;
 use std::ffi::CStr;
 use std::process::abort;
@@ -16,17 +16,8 @@ pub enum TSTagsError {
     InvalidUtf8,
     InvalidRegex,
     InvalidQuery,
+    InvalidCapture,
     Unknown,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TSTagKind {
-    Function,
-    Method,
-    Class,
-    Module,
-    Call,
 }
 
 #[repr(C)]
@@ -37,7 +28,6 @@ pub struct TSPoint {
 
 #[repr(C)]
 pub struct TSTag {
-    pub kind: TSTagKind,
     pub start_byte: u32,
     pub end_byte: u32,
     pub name_start_byte: u32,
@@ -46,8 +36,12 @@ pub struct TSTag {
     pub line_end_byte: u32,
     pub start_point: TSPoint,
     pub end_point: TSPoint,
+    pub utf16_start_colum: u32,
+    pub utf16_end_colum: u32,
     pub docs_start_byte: u32,
     pub docs_end_byte: u32,
+    pub syntax_type_id: u32,
+    pub is_definition: bool,
 }
 
 pub struct TSTagger {
@@ -102,7 +96,9 @@ pub extern "C" fn ts_tagger_add_language(
         }
         Err(Error::Query(_)) => TSTagsError::InvalidQuery,
         Err(Error::Regex(_)) => TSTagsError::InvalidRegex,
-        Err(_) => TSTagsError::Unknown,
+        Err(Error::Cancelled) => TSTagsError::Timeout,
+        Err(Error::InvalidLanguage) => TSTagsError::InvalidLanguage,
+        Err(Error::InvalidCapture(_)) => TSTagsError::InvalidCapture,
     }
 }
 
@@ -153,13 +149,6 @@ pub extern "C" fn ts_tagger_tag(
                 buffer.docs.extend_from_slice(docs.as_bytes());
             }
             buffer.tags.push(TSTag {
-                kind: match tag.kind {
-                    TagKind::Function => TSTagKind::Function,
-                    TagKind::Method => TSTagKind::Method,
-                    TagKind::Class => TSTagKind::Class,
-                    TagKind::Module => TSTagKind::Module,
-                    TagKind::Call => TSTagKind::Call,
-                },
                 start_byte: tag.range.start as u32,
                 end_byte: tag.range.end as u32,
                 name_start_byte: tag.name_range.start as u32,
@@ -174,8 +163,12 @@ pub extern "C" fn ts_tagger_tag(
                     row: tag.span.end.row as u32,
                     column: tag.span.end.column as u32,
                 },
+                utf16_start_colum: tag.utf16_column_range.start as u32,
+                utf16_end_colum: tag.utf16_column_range.end as u32,
                 docs_start_byte: prev_docs_len as u32,
                 docs_end_byte: buffer.docs.len() as u32,
+                syntax_type_id: tag.syntax_type_id,
+                is_definition: tag.is_definition,
             });
         }
 
@@ -221,6 +214,24 @@ pub extern "C" fn ts_tags_buffer_docs(this: *const TSTagsBuffer) -> *const i8 {
 pub extern "C" fn ts_tags_buffer_docs_len(this: *const TSTagsBuffer) -> u32 {
     let buffer = unwrap_ptr(this);
     buffer.docs.len() as u32
+}
+
+#[no_mangle]
+pub extern "C" fn ts_tagger_syntax_kinds_for_scope_name(
+    this: *mut TSTagger,
+    scope_name: *const i8,
+    len: *mut u32,
+) -> *const *const i8 {
+    let tagger = unwrap_mut_ptr(this);
+    let scope_name = unsafe { unwrap(CStr::from_ptr(scope_name).to_str()) };
+    let len = unwrap_mut_ptr(len);
+
+    *len = 0;
+    if let Some(config) = tagger.languages.get(scope_name) {
+        *len = config.c_syntax_type_names.len() as u32;
+        return config.c_syntax_type_names.as_ptr() as *const *const i8;
+    }
+    std::ptr::null()
 }
 
 fn unwrap_ptr<'a, T>(result: *const T) -> &'a T {

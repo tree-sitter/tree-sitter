@@ -90,13 +90,8 @@ fn run() -> error::Result<()> {
         )
         .subcommand(
             SubCommand::with_name("tags")
-                .arg(
-                    Arg::with_name("format")
-                        .short("f")
-                        .long("format")
-                        .value_name("json|protobuf")
-                        .help("Determine output format (default: json)"),
-                )
+                .arg(Arg::with_name("quiet").long("quiet").short("q"))
+                .arg(Arg::with_name("time").long("quiet").short("t"))
                 .arg(Arg::with_name("scope").long("scope").takes_value(true))
                 .arg(
                     Arg::with_name("inputs")
@@ -104,12 +99,6 @@ fn run() -> error::Result<()> {
                         .index(1)
                         .required(true)
                         .multiple(true),
-                )
-                .arg(
-                    Arg::with_name("v")
-                        .short("v")
-                        .multiple(true)
-                        .help("Sets the level of verbosity"),
                 ),
         )
         .subcommand(
@@ -149,8 +138,14 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("path").index(1).multiple(true)),
         )
         .subcommand(
-            SubCommand::with_name("web-ui").about("Test a parser interactively in the browser")
-                .arg(Arg::with_name("quiet").long("quiet").short("q").help("open in default browser")),
+            SubCommand::with_name("web-ui")
+                .about("Test a parser interactively in the browser")
+                .arg(
+                    Arg::with_name("quiet")
+                        .long("quiet")
+                        .short("q")
+                        .help("open in default browser"),
+                ),
         )
         .subcommand(
             SubCommand::with_name("dump-languages")
@@ -268,7 +263,13 @@ fn run() -> error::Result<()> {
     } else if let Some(matches) = matches.subcommand_matches("tags") {
         loader.find_all_languages(&config.parser_directories)?;
         let paths = collect_paths(matches.values_of("inputs").unwrap())?;
-        tags::generate_tags(&loader, matches.value_of("scope"), &paths)?;
+        tags::generate_tags(
+            &loader,
+            matches.value_of("scope"),
+            &paths,
+            matches.is_present("quiet"),
+            matches.is_present("time"),
+        )?;
     } else if let Some(matches) = matches.subcommand_matches("highlight") {
         loader.configure_highlights(&config.theme.highlight_names);
         loader.find_all_languages(&config.parser_directories)?;
