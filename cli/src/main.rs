@@ -90,13 +90,6 @@ fn run() -> error::Result<()> {
         )
         .subcommand(
             SubCommand::with_name("tags")
-                .arg(
-                    Arg::with_name("format")
-                        .short("f")
-                        .long("format")
-                        .value_name("json|protobuf")
-                        .help("Determine output format (default: json)"),
-                )
                 .arg(Arg::with_name("quiet").long("quiet").short("q"))
                 .arg(Arg::with_name("time").long("quiet").short("t"))
                 .arg(Arg::with_name("scope").long("scope").takes_value(true))
@@ -106,12 +99,6 @@ fn run() -> error::Result<()> {
                         .index(1)
                         .required(true)
                         .multiple(true),
-                )
-                .arg(
-                    Arg::with_name("v")
-                        .short("v")
-                        .multiple(true)
-                        .help("Sets the level of verbosity"),
                 ),
         )
         .subcommand(
