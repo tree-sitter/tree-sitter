@@ -620,7 +620,7 @@ where
     type Item = Result<HighlightEvent, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        loop {
+        'main: loop {
             // If we've already determined the next highlight boundary, just return it.
             if let Some(e) = self.next_event.take() {
                 return Some(Ok(e));
@@ -640,29 +640,34 @@ where
 
             // If none of the layers have any more highlight boundaries, terminate.
             if self.layers.is_empty() {
-                if self.byte_offset < self.source.len() {
+                return if self.byte_offset < self.source.len() {
                     let result = Some(Ok(HighlightEvent::Source {
                         start: self.byte_offset,
                         end: self.source.len(),
                     }));
                     self.byte_offset = self.source.len();
-                    return result;
+                    result
                 } else {
-                    return None;
-                }
+                    None
+                };
             }
 
             // Get the next capture from whichever layer has the earliest highlight boundary.
-            let match_;
-            let mut captures;
-            let mut capture;
-            let mut pattern_index;
+            let range;
             let layer = &mut self.layers[0];
-            if let Some((m, capture_index)) = layer.captures.peek() {
-                match_ = m;
-                captures = match_.captures;
-                pattern_index = match_.pattern_index;
-                capture = captures[*capture_index];
+            if let Some((next_match, capture_index)) = layer.captures.peek() {
+                let next_capture = next_match.captures[*capture_index];
+                range = next_capture.node.byte_range();
+
+                // If any previous highlight ends before this node starts, then before
+                // processing this capture, emit the source code up until the end of the
+                // previous highlight, and an end event for that highlight.
+                if let Some(end_byte) = layer.highlight_end_stack.last().cloned() {
+                    if end_byte <= range.start {
+                        layer.highlight_end_stack.pop();
+                        return self.emit_event(end_byte, Some(HighlightEvent::HighlightEnd));
+                    }
+                }
             }
             // If there are no more captures, then emit any remaining highlight end events.
             // And if there are none of those, then just advance to the end of the document.
@@ -673,30 +678,17 @@ where
                 return self.emit_event(self.source.len(), None);
             };
 
-            // If any previous highlight ends before this node starts, then before
-            // processing this capture, emit the source code up until the end of the
-            // previous highlight, and an end event for that highlight.
-            let range = capture.node.byte_range();
-            if let Some(end_byte) = layer.highlight_end_stack.last().cloned() {
-                if end_byte <= range.start {
-                    layer.highlight_end_stack.pop();
-                    return self.emit_event(end_byte, Some(HighlightEvent::HighlightEnd));
-                }
-            }
-
-            // Remove from the local scope stack any local scopes that have already ended.
-            while range.start > layer.scope_stack.last().unwrap().range.end {
-                layer.scope_stack.pop();
-            }
+            let (mut match_, capture_index) = layer.captures.next().unwrap();
+            let mut capture = match_.captures[capture_index];
 
             // If this capture represents an injection, then process the injection.
-            if pattern_index < layer.config.locals_pattern_index {
+            if match_.pattern_index < layer.config.locals_pattern_index {
                 let (language_name, content_node, include_children) =
-                    injection_for_match(&layer.config, &layer.config.query, match_, &self.source);
+                    injection_for_match(&layer.config, &layer.config.query, &match_, &self.source);
 
                 // Explicitly remove this match so that none of its other captures will remain
-                // in the stream of captures. The `unwrap` is ok because
-                layer.captures.next().unwrap().0.remove();
+                // in the stream of captures.
+                match_.remove();
 
                 // If a language is found with the given name, then add a new language layer
                 // to the highlighted document.
@@ -729,16 +721,19 @@ where
                 }
 
                 self.sort_layers();
-                continue;
+                continue 'main;
             }
 
-            layer.captures.next();
+            // Remove from the local scope stack any local scopes that have already ended.
+            while range.start > layer.scope_stack.last().unwrap().range.end {
+                layer.scope_stack.pop();
+            }
 
             // If this capture is for tracking local variables, then process the
             // local variable info.
             let mut reference_highlight = None;
             let mut definition_highlight = None;
-            while pattern_index < layer.config.highlights_pattern_index {
+            while match_.pattern_index < layer.config.highlights_pattern_index {
                 // If the node represents a local scope, push a new local scope onto
                 // the scope stack.
                 if Some(capture.index) == layer.config.local_scope_capture_index {
@@ -748,7 +743,7 @@ where
                         range: range.clone(),
                         local_defs: Vec::new(),
                     };
-                    for prop in layer.config.query.property_settings(pattern_index) {
+                    for prop in layer.config.query.property_settings(match_.pattern_index) {
                         match prop.key.as_ref() {
                             "local.scope-inherits" => {
                                 scope.inherits =
@@ -767,7 +762,7 @@ where
                     let scope = layer.scope_stack.last_mut().unwrap();
 
                     let mut value_range = 0..0;
-                    for capture in captures {
+                    for capture in match_.captures {
                         if Some(capture.index) == layer.config.local_def_value_capture_index {
                             value_range = capture.node.byte_range();
                         }
@@ -810,84 +805,76 @@ where
                     }
                 }
 
-                // Continue processing any additional local-variable-tracking patterns
-                // for the same node.
+                // Continue processing any additional matches for the same node.
                 if let Some((next_match, next_capture_index)) = layer.captures.peek() {
                     let next_capture = next_match.captures[*next_capture_index];
                     if next_capture.node == capture.node {
-                        pattern_index = next_match.pattern_index;
-                        captures = next_match.captures;
                         capture = next_capture;
-                        layer.captures.next();
+                        match_ = layer.captures.next().unwrap().0;
                         continue;
-                    } else {
-                        break;
                     }
                 }
 
-                break;
+                self.sort_layers();
+                continue 'main;
             }
 
             // Otherwise, this capture must represent a highlight.
-            let mut has_highlight = true;
-
             // If this exact range has already been highlighted by an earlier pattern, or by
             // a different layer, then skip over this one.
             if let Some((last_start, last_end, last_depth)) = self.last_highlight_range {
                 if range.start == last_start && range.end == last_end && layer.depth < last_depth {
-                    has_highlight = false;
+                    self.sort_layers();
+                    continue 'main;
                 }
             }
 
             // If the current node was found to be a local variable, then skip over any
             // highlighting patterns that are disabled for local variables.
-            while has_highlight
-                && (definition_highlight.is_some() || reference_highlight.is_some())
-                && layer.config.non_local_variable_patterns[pattern_index]
-            {
-                has_highlight = false;
-                if let Some((next_match, next_capture_index)) = layer.captures.peek() {
-                    let next_capture = next_match.captures[*next_capture_index];
-                    if next_capture.node == capture.node {
-                        capture = next_capture;
-                        has_highlight = true;
-                        pattern_index = next_match.pattern_index;
-                        layer.captures.next();
-                        continue;
+            if definition_highlight.is_some() || reference_highlight.is_some() {
+                while layer.config.non_local_variable_patterns[match_.pattern_index] {
+                    if let Some((next_match, next_capture_index)) = layer.captures.peek() {
+                        let next_capture = next_match.captures[*next_capture_index];
+                        if next_capture.node == capture.node {
+                            capture = next_capture;
+                            match_ = layer.captures.next().unwrap().0;
+                            continue;
+                        }
                     }
+
+                    self.sort_layers();
+                    continue 'main;
                 }
-                break;
             }
 
-            if has_highlight {
-                // Once a highlighting pattern is found for the current node, skip over
-                // any later highlighting patterns that also match this node. Captures
-                // for a given node are ordered by pattern index, so these subsequent
-                // captures are guaranteed to be for highlighting, not injections or
-                // local variables.
-                while let Some((next_match, next_capture_index)) = layer.captures.peek() {
-                    if next_match.captures[*next_capture_index].node == capture.node {
-                        layer.captures.next();
-                    } else {
-                        break;
-                    }
+            // Once a highlighting pattern is found for the current node, skip over
+            // any later highlighting patterns that also match this node. Captures
+            // for a given node are ordered by pattern index, so these subsequent
+            // captures are guaranteed to be for highlighting, not injections or
+            // local variables.
+            while let Some((next_match, next_capture_index)) = layer.captures.peek() {
+                let next_capture = next_match.captures[*next_capture_index];
+                if next_capture.node == capture.node {
+                    layer.captures.next();
+                } else {
+                    break;
                 }
+            }
 
-                let current_highlight = layer.config.highlight_indices[capture.index as usize];
+            let current_highlight = layer.config.highlight_indices[capture.index as usize];
 
-                // If this node represents a local definition, then store the current
-                // highlight value on the local scope entry representing this node.
-                if let Some(definition_highlight) = definition_highlight {
-                    *definition_highlight = current_highlight;
-                }
+            // If this node represents a local definition, then store the current
+            // highlight value on the local scope entry representing this node.
+            if let Some(definition_highlight) = definition_highlight {
+                *definition_highlight = current_highlight;
+            }
 
-                // Emit a scope start event and push the node's end position to the stack.
-                if let Some(highlight) = reference_highlight.or(current_highlight) {
-                    self.last_highlight_range = Some((range.start, range.end, layer.depth));
-                    layer.highlight_end_stack.push(range.end);
-                    return self
-                        .emit_event(range.start, Some(HighlightEvent::HighlightStart(highlight)));
-                }
+            // Emit a scope start event and push the node's end position to the stack.
+            if let Some(highlight) = reference_highlight.or(current_highlight) {
+                self.last_highlight_range = Some((range.start, range.end, layer.depth));
+                layer.highlight_end_stack.push(range.end);
+                return self
+                    .emit_event(range.start, Some(HighlightEvent::HighlightStart(highlight)));
             }
 
             self.sort_layers();
