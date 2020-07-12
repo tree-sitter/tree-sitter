@@ -9,6 +9,7 @@ pub fn query_files_at_paths(
     paths: Vec<&Path>,
     query_path: &Path,
     ordered_captures: bool,
+    range: Option<(usize, usize)>,
 ) -> Result<()> {
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
@@ -20,6 +21,9 @@ pub fn query_files_at_paths(
         .map_err(|e| Error::new(format!("Query compilation failed: {:?}", e)))?;
 
     let mut query_cursor = QueryCursor::new();
+    if let Some((beg, end)) = range {
+        query_cursor.set_byte_range(beg, end);
+    }
 
     let mut parser = Parser::new();
     parser.set_language(language).map_err(|e| e.to_string())?;
