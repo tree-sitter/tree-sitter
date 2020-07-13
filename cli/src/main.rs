@@ -85,6 +85,12 @@ fn run() -> error::Result<()> {
                         .multiple(true)
                         .required(true),
                 )
+                .arg(
+                    Arg::with_name("beg>:<end")
+                        .help("The range of byte offsets in which the query will be executed")
+                        .long("byte-range")
+                        .takes_value(true)
+                )
                 .arg(Arg::with_name("scope").long("scope").takes_value(true))
                 .arg(Arg::with_name("captures").long("captures").short("c")),
         )
@@ -259,7 +265,11 @@ fn run() -> error::Result<()> {
             matches.value_of("scope"),
         )?;
         let query_path = Path::new(matches.value_of("query-path").unwrap());
-        query::query_files_at_paths(language, paths, query_path, ordered_captures)?;
+        let range = matches.value_of("beg>:<end").map(|br| {
+            let r: Vec<&str> = br.split(":").collect();
+            (r[0].parse().unwrap(), r[1].parse().unwrap())
+        });
+        query::query_files_at_paths(language, paths, query_path, ordered_captures, range)?;
     } else if let Some(matches) = matches.subcommand_matches("tags") {
         loader.find_all_languages(&config.parser_directories)?;
         let paths = collect_paths(matches.values_of("inputs").unwrap())?;
