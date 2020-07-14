@@ -6,7 +6,7 @@ use tree_sitter::{Language, Node, Parser, Query, QueryCursor};
 
 pub fn query_files_at_paths(
     language: Language,
-    paths: Vec<&Path>,
+    paths: Vec<String>,
     query_path: &Path,
     ordered_captures: bool,
     range: Option<(usize, usize)>,
@@ -29,9 +29,9 @@ pub fn query_files_at_paths(
     parser.set_language(language).map_err(|e| e.to_string())?;
 
     for path in paths {
-        writeln!(&mut stdout, "{}", path.to_str().unwrap())?;
+        writeln!(&mut stdout, "{}", path)?;
 
-        let source_code = fs::read(path).map_err(Error::wrap(|| {
+        let source_code = fs::read(&path).map_err(Error::wrap(|| {
             format!("Error reading source file {:?}", path)
         }))?;
         let text_callback = |n: Node| &source_code[n.byte_range()];
