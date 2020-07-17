@@ -1190,6 +1190,45 @@ fn test_query_matches_within_byte_range() {
 }
 
 #[test]
+fn test_query_captures_within_byte_range() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            language,
+            "
+            (call_expression
+                function: (identifier) @function
+                arguments: (argument_list (string_literal) @string.arg))
+
+            (string_literal) @string
+           ",
+        )
+        .unwrap();
+
+        let source = r#"DEFUN ("safe-length", Fsafe_length, Ssafe_length, 1, 1, 0)"#;
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+
+        let mut cursor = QueryCursor::new();
+        let captures =
+            cursor
+                .set_byte_range(3, 27)
+                .captures(&query, tree.root_node(), to_callback(source));
+
+        assert_eq!(
+            collect_captures(captures, &query, source),
+            &[
+                ("function", "DEFUN"),
+                ("string.arg", "\"safe-length\""),
+                ("string", "\"safe-length\""),
+            ]
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_different_queries_same_cursor() {
     allocations::record(|| {
         let language = get_language("javascript");
