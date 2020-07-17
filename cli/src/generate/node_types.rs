@@ -196,7 +196,8 @@ pub(crate) fn get_variable_info(
 
                     // Maintain the set of all child types for this variable, and the quantity of
                     // visible children in this production.
-                    did_change |= sorted_vec_insert(&mut variable_info.children.types, &child_type);
+                    did_change |=
+                        extend_sorted(&mut variable_info.children.types, Some(&child_type));
                     if !child_is_hidden {
                         production_children_quantity.append(ChildQuantity::one());
                     }
@@ -208,7 +209,7 @@ pub(crate) fn get_variable_info(
                             .fields
                             .entry(field_name.clone())
                             .or_insert(FieldInfo::default());
-                        did_change |= sorted_vec_insert(&mut field_info.types, &child_type);
+                        did_change |= extend_sorted(&mut field_info.types, Some(&child_type));
 
                         let production_field_quantity = production_field_quantities
                             .entry(field_name)
@@ -217,9 +218,10 @@ pub(crate) fn get_variable_info(
                         // Inherit the types and quantities of hidden children associated with fields.
                         if child_is_hidden {
                             let child_variable_info = &result[child_symbol.index];
-                            for child_type in &child_variable_info.children.types {
-                                did_change |= sorted_vec_insert(&mut field_info.types, &child_type);
-                            }
+                            did_change |= extend_sorted(
+                                &mut field_info.types,
+                                &child_variable_info.children.types,
+                            );
                             production_field_quantity.append(child_variable_info.children.quantity);
                         } else {
                             production_field_quantity.append(ChildQuantity::one());
@@ -228,9 +230,9 @@ pub(crate) fn get_variable_info(
                     // Maintain the set of named children without fields within this variable.
                     else if child_type_is_named(&child_type) {
                         production_children_without_fields_quantity.append(ChildQuantity::one());
-                        did_change |= sorted_vec_insert(
+                        did_change |= extend_sorted(
                             &mut variable_info.children_without_fields.types,
-                            &child_type,
+                            Some(&child_type),
                         );
                     }
 
@@ -251,22 +253,23 @@ pub(crate) fn get_variable_info(
                                 .entry(field_name)
                                 .or_insert(ChildQuantity::zero())
                                 .append(child_field_info.quantity);
-                            let field_info = variable_info
-                                .fields
-                                .entry(field_name.clone())
-                                .or_insert(FieldInfo::default());
-                            for child_type in &child_field_info.types {
-                                did_change |= sorted_vec_insert(&mut field_info.types, &child_type);
-                            }
+                            did_change |= extend_sorted(
+                                &mut variable_info
+                                    .fields
+                                    .entry(field_name.clone())
+                                    .or_insert(FieldInfo::default())
+                                    .types,
+                                &child_field_info.types,
+                            );
                         }
 
                         // If a hidden child has children, then the parent node can appear to have
                         // those same children.
                         production_children_quantity.append(child_variable_info.children.quantity);
-                        for child_type in &child_variable_info.children.types {
-                            did_change |=
-                                sorted_vec_insert(&mut variable_info.children.types, child_type);
-                        }
+                        did_change |= extend_sorted(
+                            &mut variable_info.children.types,
+                            &child_variable_info.children.types,
+                        );
 
                         // If a hidden child can have named children without fields, then the parent
                         // node can appear to have those same children.
@@ -275,13 +278,10 @@ pub(crate) fn get_variable_info(
                             if !grandchildren_info.types.is_empty() {
                                 production_children_without_fields_quantity
                                     .append(child_variable_info.children_without_fields.quantity);
-                                for child_type in &child_variable_info.children_without_fields.types
-                                {
-                                    did_change |= sorted_vec_insert(
-                                        &mut variable_info.children_without_fields.types,
-                                        &child_type,
-                                    );
-                                }
+                                did_change |= extend_sorted(
+                                    &mut variable_info.children_without_fields.types,
+                                    &child_variable_info.children_without_fields.types,
+                                );
                             }
                         }
                     }
@@ -680,16 +680,19 @@ fn variable_type_for_child_type(
     }
 }
 
-fn sorted_vec_insert<T>(vec: &mut Vec<T>, value: &T) -> bool
+fn extend_sorted<'a, T>(vec: &mut Vec<T>, values: impl IntoIterator<Item = &'a T>) -> bool
 where
     T: Clone + Eq + Ord,
+    T: 'a,
 {
-    if let Err(i) = vec.binary_search(&value) {
-        vec.insert(i, value.clone());
-        true
-    } else {
-        false
-    }
+    values.into_iter().any(|value| {
+        if let Err(i) = vec.binary_search(&value) {
+            vec.insert(i, value.clone());
+            true
+        } else {
+            false
+        }
+    })
 }
 
 #[cfg(test)]
