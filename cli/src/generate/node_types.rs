@@ -19,7 +19,7 @@ pub(crate) struct FieldInfo {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct VariableInfo {
     pub fields: HashMap<String, FieldInfo>,
-    pub child_types: Vec<ChildType>,
+    pub children: FieldInfo,
     pub children_without_fields: FieldInfo,
     pub has_multi_step_production: bool,
 }
@@ -70,7 +70,7 @@ impl Default for FieldInfoJSON {
 
 impl Default for ChildQuantity {
     fn default() -> Self {
-        Self::zero()
+        Self::one()
     }
 }
 
@@ -158,7 +158,7 @@ pub(crate) fn get_variable_info(
 
     // Each variable's summary can depend on the summaries of other hidden variables,
     // and variables can have mutually recursive structure. So we compute the summaries
-    // iteratively, in a loop that terminates only when more changes are possible.
+    // iteratively, in a loop that terminates only when no more changes are possible.
     let mut did_change = true;
     let mut all_initialized = false;
     let mut result = vec![VariableInfo::default(); syntax_grammar.variables.len()];
@@ -168,13 +168,14 @@ pub(crate) fn get_variable_info(
         for (i, variable) in syntax_grammar.variables.iter().enumerate() {
             let mut variable_info = result[i].clone();
 
-            // Within a variable, consider each production separately. For each
-            // production, determine which children and fields can occur, and how many
-            // times they can occur.
-            for (production_index, production) in variable.productions.iter().enumerate() {
-                let mut field_quantities = HashMap::new();
-                let mut children_without_fields_quantity = ChildQuantity::zero();
-                let mut has_uninitialized_invisible_children = false;
+            // Examine each of the variable's productions. The variable's child types can be
+            // immediately combined across all productions, but the child quantities must be
+            // recorded separately for each production.
+            for production in &variable.productions {
+                let mut production_field_quantities = HashMap::new();
+                let mut production_children_quantity = ChildQuantity::zero();
+                let mut production_children_without_fields_quantity = ChildQuantity::zero();
+                let mut production_has_uninitialized_invisible_children = false;
 
                 if production.steps.len() > 1 {
                     variable_info.has_multi_step_production = true;
@@ -190,106 +191,92 @@ pub(crate) fn get_variable_info(
                         ChildType::Normal(child_symbol)
                     };
 
-                    // Record all of the types of direct children.
-                    did_change |= sorted_vec_insert(&mut variable_info.child_types, &child_type);
+                    let child_is_hidden = !child_type_is_visible(&child_type)
+                        && !syntax_grammar.supertype_symbols.contains(&child_symbol);
 
-                    // Record all of the field names that occur.
+                    // Maintain the set of all child types for this variable, and the quantity of
+                    // visible children in this production.
+                    did_change |= sorted_vec_insert(&mut variable_info.children.types, &child_type);
+                    if !child_is_hidden {
+                        production_children_quantity.append(ChildQuantity::one());
+                    }
+
+                    // Maintain the set of child types associated with each field, and the quantity
+                    // of children associated with each field in this production.
                     if let Some(field_name) = &step.field_name {
-                        // Record how many times each field occurs in this production.
-                        field_quantities
-                            .entry(field_name)
-                            .or_insert(ChildQuantity::zero())
-                            .append(ChildQuantity::one());
-
-                        // Record the types of children for this field.
-                        let field_info =
-                            variable_info.fields.entry(field_name.clone()).or_insert({
-                                let mut info = FieldInfo {
-                                    types: Vec::new(),
-                                    quantity: ChildQuantity::one(),
-                                };
-
-                                // If this field did *not* occur in an earlier production,
-                                // then it is not required.
-                                if production_index > 0 {
-                                    info.quantity.required = false;
-                                }
-                                info
-                            });
+                        let field_info = variable_info
+                            .fields
+                            .entry(field_name.clone())
+                            .or_insert(FieldInfo::default());
                         did_change |= sorted_vec_insert(&mut field_info.types, &child_type);
-                    }
-                    // Record named children without fields.
-                    else if child_type_is_named(&child_type) {
-                        // Record how many named children without fields occur in this production.
-                        children_without_fields_quantity.append(ChildQuantity::one());
 
-                        // Record the types of all of the named children without fields.
-                        let children_info = &mut variable_info.children_without_fields;
-                        if children_info.types.is_empty() {
-                            children_info.quantity = ChildQuantity::one();
+                        let production_field_quantity = production_field_quantities
+                            .entry(field_name)
+                            .or_insert(ChildQuantity::zero());
+
+                        // Inherit the types and quantities of hidden children associated with fields.
+                        if child_is_hidden {
+                            let child_variable_info = &result[child_symbol.index];
+                            for child_type in &child_variable_info.children.types {
+                                did_change |= sorted_vec_insert(&mut field_info.types, &child_type);
+                            }
+                            production_field_quantity.append(child_variable_info.children.quantity);
+                        } else {
+                            production_field_quantity.append(ChildQuantity::one());
                         }
-                        did_change |= sorted_vec_insert(&mut children_info.types, &child_type);
+                    }
+                    // Maintain the set of named children without fields within this variable.
+                    else if child_type_is_named(&child_type) {
+                        production_children_without_fields_quantity.append(ChildQuantity::one());
+                        did_change |= sorted_vec_insert(
+                            &mut variable_info.children_without_fields.types,
+                            &child_type,
+                        );
                     }
 
-                    // Inherit information from any hidden children.
-                    if child_symbol.is_non_terminal()
-                        && !syntax_grammar.supertype_symbols.contains(&child_symbol)
-                        && step.alias.is_none()
-                        && !child_type_is_visible(&child_type)
-                    {
+                    // Inherit all child information from hidden children.
+                    if child_is_hidden && child_symbol.is_non_terminal() {
                         let child_variable_info = &result[child_symbol.index];
 
-                        // If a hidden child can have multiple children, then this
-                        // node can appear to have multiple children.
+                        // If a hidden child can have multiple children, then its parent node can
+                        // appear to have multiple children.
                         if child_variable_info.has_multi_step_production {
                             variable_info.has_multi_step_production = true;
                         }
 
-                        // Inherit fields from this hidden child
+                        // If a hidden child has fields, then the parent node can appear to have
+                        // those same fields.
                         for (field_name, child_field_info) in &child_variable_info.fields {
-                            field_quantities
+                            production_field_quantities
                                 .entry(field_name)
                                 .or_insert(ChildQuantity::zero())
                                 .append(child_field_info.quantity);
                             let field_info = variable_info
                                 .fields
                                 .entry(field_name.clone())
-                                .or_insert(FieldInfo {
-                                    types: Vec::new(),
-                                    quantity: ChildQuantity::one(),
-                                });
+                                .or_insert(FieldInfo::default());
                             for child_type in &child_field_info.types {
-                                sorted_vec_insert(&mut field_info.types, &child_type);
-                            }
-                        }
-
-                        // Inherit child types from this hidden child
-                        for child_type in &child_variable_info.child_types {
-                            did_change |=
-                                sorted_vec_insert(&mut variable_info.child_types, child_type);
-                        }
-
-                        // If any field points to this hidden child, inherit child types
-                        // for the field.
-                        if let Some(field_name) = &step.field_name {
-                            let field_info = variable_info.fields.get_mut(field_name).unwrap();
-                            for child_type in &child_variable_info.child_types {
                                 did_change |= sorted_vec_insert(&mut field_info.types, &child_type);
                             }
                         }
-                        // Inherit info about children without fields from this hidden child.
-                        else {
+
+                        // If a hidden child has children, then the parent node can appear to have
+                        // those same children.
+                        production_children_quantity.append(child_variable_info.children.quantity);
+                        for child_type in &child_variable_info.children.types {
+                            did_change |=
+                                sorted_vec_insert(&mut variable_info.children.types, child_type);
+                        }
+
+                        // If a hidden child can have named children without fields, then the parent
+                        // node can appear to have those same children.
+                        if step.field_name.is_none() {
                             let grandchildren_info = &child_variable_info.children_without_fields;
                             if !grandchildren_info.types.is_empty() {
-                                children_without_fields_quantity
-                                    .append(grandchildren_info.quantity);
-
-                                if variable_info.children_without_fields.types.is_empty() {
-                                    variable_info.children_without_fields.quantity =
-                                        ChildQuantity::one();
-                                }
-
-                                for child_type in &grandchildren_info.types {
+                                production_children_without_fields_quantity
+                                    .append(child_variable_info.children_without_fields.quantity);
+                                for child_type in &child_variable_info.children_without_fields.types
+                                {
                                     did_change |= sorted_vec_insert(
                                         &mut variable_info.children_without_fields.types,
                                         &child_type,
@@ -302,22 +289,27 @@ pub(crate) fn get_variable_info(
                     // Note whether or not this production contains children whose summaries
                     // have not yet been computed.
                     if child_symbol.index >= i && !all_initialized {
-                        has_uninitialized_invisible_children = true;
+                        production_has_uninitialized_invisible_children = true;
                     }
                 }
 
                 // If this production's children all have had their summaries initialized,
                 // then expand the quantity information with all of the possibilities introduced
                 // by this production.
-                if !has_uninitialized_invisible_children {
+                if !production_has_uninitialized_invisible_children {
+                    did_change |= variable_info
+                        .children
+                        .quantity
+                        .union(production_children_quantity);
+
                     did_change |= variable_info
                         .children_without_fields
                         .quantity
-                        .union(children_without_fields_quantity);
+                        .union(production_children_without_fields_quantity);
 
                     for (field_name, info) in variable_info.fields.iter_mut() {
                         did_change |= info.quantity.union(
-                            field_quantities
+                            production_field_quantities
                                 .get(field_name)
                                 .cloned()
                                 .unwrap_or(ChildQuantity::zero()),
@@ -352,7 +344,8 @@ pub(crate) fn get_variable_info(
     // Update all of the node type lists to eliminate hidden nodes.
     for supertype_symbol in &syntax_grammar.supertype_symbols {
         result[supertype_symbol.index]
-            .child_types
+            .children
+            .types
             .retain(child_type_is_visible);
     }
     for variable_info in result.iter_mut() {
@@ -467,7 +460,8 @@ pub(crate) fn generate_node_types_json(
                         subtypes: None,
                     });
             let mut subtypes = info
-                .child_types
+                .children
+                .types
                 .iter()
                 .map(child_type_to_node_type)
                 .collect::<Vec<_>>();
@@ -1454,6 +1448,71 @@ mod tests {
                         ChildType::Normal(Symbol::terminal(2)),
                         ChildType::Normal(Symbol::terminal(3)),
                     ],
+                }
+            )]
+            .into_iter()
+            .collect::<HashMap<_, _>>()
+        );
+    }
+
+    #[test]
+    fn test_get_variable_info_with_repetitions_inside_fields() {
+        let variable_info = get_variable_info(
+            &build_syntax_grammar(
+                vec![
+                    // Field associated with a repetition.
+                    SyntaxVariable {
+                        name: "rule0".to_string(),
+                        kind: VariableType::Named,
+                        productions: vec![
+                            Production {
+                                dynamic_precedence: 0,
+                                steps: vec![ProductionStep::new(Symbol::non_terminal(1))
+                                    .with_field_name("field1")],
+                            },
+                            Production {
+                                dynamic_precedence: 0,
+                                steps: vec![],
+                            },
+                        ],
+                    },
+                    // Repetition node
+                    SyntaxVariable {
+                        name: "_rule0_repeat".to_string(),
+                        kind: VariableType::Hidden,
+                        productions: vec![
+                            Production {
+                                dynamic_precedence: 0,
+                                steps: vec![ProductionStep::new(Symbol::terminal(1))],
+                            },
+                            Production {
+                                dynamic_precedence: 0,
+                                steps: vec![
+                                    ProductionStep::new(Symbol::non_terminal(1)),
+                                    ProductionStep::new(Symbol::non_terminal(1)),
+                                ],
+                            },
+                        ],
+                    },
+                ],
+                vec![],
+            ),
+            &build_lexical_grammar(),
+            &AliasMap::new(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            variable_info[0].fields,
+            vec![(
+                "field1".to_string(),
+                FieldInfo {
+                    quantity: ChildQuantity {
+                        exists: true,
+                        required: false,
+                        multiple: true,
+                    },
+                    types: vec![ChildType::Normal(Symbol::terminal(1))],
                 }
             )]
             .into_iter()
