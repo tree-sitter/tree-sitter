@@ -2087,6 +2087,35 @@ fn test_query_disable_pattern() {
     });
 }
 
+#[test]
+fn test_query_alternative_predicate_prefix() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(language, r#"
+            ((call_expression
+              function: (identifier) @keyword
+              arguments: (argument_list
+                          (string_literal) @function))
+             (.eq? @keyword "DEFUN"))
+        "#).unwrap();
+        let source = r#"
+            DEFUN ("identity", Fidentity, Sidentity, 1, 1, 0,
+                   doc: /* Return the argument unchanged.  */
+                   attributes: const)
+              (Lisp_Object arg)
+            {
+              return arg;
+            }
+        "#;
+        assert_query_matches(
+            language,
+            &query,
+            source,
+            &[(0, vec![("keyword", "DEFUN"), ("function", "\"identity\"")])],
+        );
+    });
+}
+
 fn assert_query_matches(
     language: Language,
     query: &Query,

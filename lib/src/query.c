@@ -805,8 +805,8 @@ static TSQueryError ts_query__parse_pattern(
       }
     }
 
-    // A pound character indicates the start of a predicate.
-    else if (stream->next == '#') {
+    // A dot/pound character indicates the start of a predicate.
+    else if (stream->next == '.' || stream->next == '#') {
       stream_advance(stream);
       return ts_query__parse_predicate(self, stream);
     }
