@@ -372,6 +372,10 @@ where
                 }
 
                 if let (Some(tag_node), Some(name_node)) = (tag_node, name_node) {
+                    if name_node.has_error() {
+                        continue;
+                    }
+
                     let name_range = name_node.byte_range();
 
                     if pattern_info.name_must_be_non_local {
