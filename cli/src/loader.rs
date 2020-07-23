@@ -160,7 +160,9 @@ impl Loader {
                 // If multiple language configurations match, then determine which
                 // one to use by applying the configurations' content regexes.
                 else {
-                    let file_contents = fs::read_to_string(path)?;
+                    let file_contents = fs::read(path)
+                        .map_err(Error::wrap(|| format!("Failed to read path {:?}", path)))?;
+                    let file_contents = String::from_utf8_lossy(&file_contents);
                     let mut best_score = -2isize;
                     let mut best_configuration_id = None;
                     for configuration_id in configuration_ids {

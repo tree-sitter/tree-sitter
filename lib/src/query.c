@@ -122,6 +122,7 @@ typedef struct {
   uint16_t consumed_capture_count: 14;
   bool seeking_immediate_match: 1;
   bool has_in_progress_alternatives: 1;
+  bool dead: 1;
 } QueryState;
 
 typedef Array(TSQueryCapture) CaptureList;
@@ -1365,6 +1366,7 @@ static bool ts_query_cursor__first_in_progress_capture(
   *pattern_index = UINT32_MAX;
   for (unsigned i = 0; i < self->states.size; i++) {
     const QueryState *state = &self->states.contents[i];
+    if (state->dead) continue;
     const CaptureList *captures = capture_list_pool_get(
       &self->capture_list_pool,
       state->capture_list_id
@@ -1480,44 +1482,88 @@ static bool ts_query_cursor__add_state(
     .start_depth = self->depth - step->depth,
     .consumed_capture_count = 0,
     .seeking_immediate_match = false,
+    .has_in_progress_alternatives = false,
+    .dead = false,
   }));
   return true;
 }
 
+// Acquire a capture list for this state. If there are no capture lists left in the
+// pool, this will steal the capture list from another existing state, and mark that
+// other state as 'dead'.
+static CaptureList *ts_query_cursor__prepare_to_capture(
+  TSQueryCursor *self,
+  QueryState *state,
+  unsigned state_index_to_preserve
+) {
+  if (state->capture_list_id == NONE) {
+    state->capture_list_id = capture_list_pool_acquire(&self->capture_list_pool);
+
+    // If there are no capture lists left in the pool, then terminate whichever
+    // state has captured the earliest node in the document, and steal its
+    // capture list.
+    if (state->capture_list_id == NONE) {
+      uint32_t state_index, byte_offset, pattern_index;
+      if (
+        ts_query_cursor__first_in_progress_capture(
+          self,
+          &state_index,
+          &byte_offset,
+          &pattern_index
+        ) &&
+        state_index != state_index_to_preserve
+      ) {
+        LOG(
+          "  abandon state. index:%u, pattern:%u, offset:%u.\n",
+          state_index, pattern_index, byte_offset
+        );
+        QueryState *other_state = &self->states.contents[state_index];
+        state->capture_list_id = other_state->capture_list_id;
+        other_state->capture_list_id = NONE;
+        other_state->dead = true;
+        CaptureList *list = capture_list_pool_get_mut(
+          &self->capture_list_pool,
+          state->capture_list_id
+        );
+        array_clear(list);
+        return list;
+      } else {
+        LOG("  ran out of capture lists");
+        return NULL;
+      }
+    }
+  }
+  return capture_list_pool_get_mut(&self->capture_list_pool, state->capture_list_id);
+}
+
 // Duplicate the given state and insert the newly-created state immediately after
 // the given state in the `states` array.
-static QueryState *ts_query__cursor_copy_state(
+static QueryState *ts_query_cursor__copy_state(
   TSQueryCursor *self,
-  const QueryState *state
+  unsigned state_index
 ) {
   if (self->states.size >= MAX_STATE_COUNT) {
     LOG("  too many states");
     return NULL;
   }
 
-  // If the state has captures, copy its capture list.
+  const QueryState *state = &self->states.contents[state_index];
   QueryState copy = *state;
-  copy.capture_list_id = state->capture_list_id;
+  copy.capture_list_id = NONE;
+
+  // If the state has captures, copy its capture list.
   if (state->capture_list_id != NONE) {
-    copy.capture_list_id = capture_list_pool_acquire(&self->capture_list_pool);
-    if (copy.capture_list_id == NONE) {
-      LOG("  too many capture lists");
-      return NULL;
-    }
+    CaptureList *new_captures = ts_query_cursor__prepare_to_capture(self, &copy, state_index);
+    if (!new_captures) return NULL;
     const CaptureList *old_captures = capture_list_pool_get(
       &self->capture_list_pool,
       state->capture_list_id
     );
-    CaptureList *new_captures = capture_list_pool_get_mut(
-      &self->capture_list_pool,
-      copy.capture_list_id
-    );
     array_push_all(new_captures, old_captures);
   }
 
-  uint32_t index = (state - self->states.contents) + 1;
-  array_insert(&self->states, index, copy);
-  return &self->states.contents[index];
+  array_insert(&self->states, state_index + 1, copy);
+  return &self->states.contents[state_index + 1];
 }
 
 // Walk the tree, processing patterns until at least one pattern finishes,
@@ -1728,7 +1774,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
           !step->is_pattern_start &&
           step->contains_captures
         ) {
-          if (ts_query__cursor_copy_state(self, state)) {
+          if (ts_query_cursor__copy_state(self, i)) {
             LOG(
               "  split state for capture. pattern:%u, step:%u\n",
               state->pattern_index,
@@ -1739,45 +1785,14 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         }
 
         // If the current node is captured in this pattern, add it to the capture list.
-        // For the first capture in a pattern, lazily acquire a capture list.
         if (step->capture_ids[0] != NONE) {
-          if (state->capture_list_id == NONE) {
-            state->capture_list_id = capture_list_pool_acquire(&self->capture_list_pool);
-
-            // If there are no capture lists left in the pool, then terminate whichever
-            // state has captured the earliest node in the document, and steal its
-            // capture list.
-            if (state->capture_list_id == NONE) {
-              uint32_t state_index, byte_offset, pattern_index;
-              if (ts_query_cursor__first_in_progress_capture(
-                self,
-                &state_index,
-                &byte_offset,
-                &pattern_index
-              )) {
-                LOG(
-                  "  abandon state. index:%u, pattern:%u, offset:%u.\n",
-                  state_index, pattern_index, byte_offset
-                );
-                state->capture_list_id = self->states.contents[state_index].capture_list_id;
-                array_erase(&self->states, state_index);
-                if (state_index < i) {
-                  i--;
-                  state--;
-                }
-              } else {
-                LOG("  too many finished states.\n");
-                array_erase(&self->states, i);
-                i--;
-                continue;
-              }
-            }
+          CaptureList *capture_list = ts_query_cursor__prepare_to_capture(self, state, UINT32_MAX);
+          if (!capture_list) {
+            array_erase(&self->states, i);
+            i--;
+            continue;
           }
 
-          CaptureList *capture_list = capture_list_pool_get_mut(
-            &self->capture_list_pool,
-            state->capture_list_id
-          );
           for (unsigned j = 0; j < MAX_STEP_CAPTURE_COUNT; j++) {
             uint16_t capture_id = step->capture_ids[j];
             if (step->capture_ids[j] == NONE) break;
@@ -1800,10 +1815,9 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
           state->step_index
         );
 
-        // If this state's next step has an 'alternative' step (the step is either optional,
-        // or is the end of a repetition), then copy the state in order to pursue both
-        // alternatives. The alternative step itself may have an alternative, so this is
-        // an interative process.
+        // If this state's next step has an alternative step, then copy the state in order
+        // to pursue both alternatives. The alternative step itself may have an alternative,
+        // so this is an interative process.
         unsigned end_index = i + 1;
         for (unsigned j = i; j < end_index; j++) {
           QueryState *state = &self->states.contents[j];
@@ -1815,7 +1829,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
               continue;
             }
 
-            QueryState *copy = ts_query__cursor_copy_state(self, state);
+            QueryState *copy = ts_query_cursor__copy_state(self, j);
             if (next_step->is_pass_through) {
               state->step_index++;
               j--;
@@ -1841,14 +1855,20 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
 
       for (unsigned i = 0; i < self->states.size; i++) {
         QueryState *state = &self->states.contents[i];
-        bool did_remove = false;
+        if (state->dead) {
+          array_erase(&self->states, i);
+          i--;
+          continue;
+        }
 
         // Enfore the longest-match criteria. When a query pattern contains optional or
         // repeated nodes, this is necesssary to avoid multiple redundant states, where
         // one state has a strict subset of another state's captures.
+        bool did_remove = false;
         for (unsigned j = i + 1; j < self->states.size; j++) {
           QueryState *other_state = &self->states.contents[j];
           if (
+            !other_state->dead &&
             state->pattern_index == other_state->pattern_index &&
             state->start_depth == other_state->start_depth
           ) {

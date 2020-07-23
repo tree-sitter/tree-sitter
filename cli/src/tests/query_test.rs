@@ -1136,6 +1136,43 @@ fn test_query_matches_with_too_many_permutations_to_track() {
 }
 
 #[test]
+fn test_query_matches_with_alternatives_and_too_many_permutations_to_track() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            "
+            (
+                (comment) @doc
+                ; not immediate
+                (class_declaration) @class
+            )
+
+            (call_expression
+                function: [
+                    (identifier) @function
+                    (member_expression property: (property_identifier) @method)
+                ])
+            ",
+        )
+        .unwrap();
+
+        let source = "/* hi */ a.b(); ".repeat(50);
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.matches(&query, tree.root_node(), to_callback(&source));
+
+        assert_eq!(
+            collect_matches(matches, &query, source.as_str()),
+            vec![(1, vec![("method", "b")]); 50],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_anonymous_tokens() {
     allocations::record(|| {
         let language = get_language("javascript");
@@ -2091,13 +2128,17 @@ fn test_query_disable_pattern() {
 fn test_query_alternative_predicate_prefix() {
     allocations::record(|| {
         let language = get_language("c");
-        let query = Query::new(language, r#"
+        let query = Query::new(
+            language,
+            r#"
             ((call_expression
               function: (identifier) @keyword
               arguments: (argument_list
                           (string_literal) @function))
              (.eq? @keyword "DEFUN"))
-        "#).unwrap();
+        "#,
+        )
+        .unwrap();
         let source = r#"
             DEFUN ("identity", Fidentity, Sidentity, 1, 1, 0,
                    doc: /* Return the argument unchanged.  */
