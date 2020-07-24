@@ -169,7 +169,7 @@ pub enum QueryError {
 enum TextPredicate {
     CaptureEqString(u32, String, bool),
     CaptureEqCapture(u32, u32, bool),
-    CaptureMatchString(u32, regex::bytes::Regex),
+    CaptureMatchString(u32, regex::bytes::Regex, bool),
 }
 
 impl Language {
@@ -1298,7 +1298,7 @@ impl Query {
                         });
                     }
 
-                    "match?" => {
+                    "match?" | "not-match?" => {
                         if p.len() != 3 {
                             return Err(QueryError::Predicate(format!(
                                 "Wrong number of arguments to #match? predicate. Expected 2, got {}.",
@@ -1318,12 +1318,14 @@ impl Query {
                             )));
                         }
 
+                        let is_positive = operator_name == "match?";
                         let regex = &string_values[p[2].value_id as usize];
                         text_predicates.push(TextPredicate::CaptureMatchString(
                             p[1].value_id,
                             regex::bytes::Regex::new(regex).map_err(|_| {
                                 QueryError::Predicate(format!("Invalid regex '{}'", regex))
                             })?,
+                            is_positive,
                         ));
                     }
 
@@ -1607,9 +1609,9 @@ impl<'a> QueryMatch<'a> {
                     let node = self.capture_for_index(*i).unwrap();
                     (text_callback(node).as_ref() == s.as_bytes()) == *is_positive
                 }
-                TextPredicate::CaptureMatchString(i, r) => {
+                TextPredicate::CaptureMatchString(i, r, is_positive) => {
                     let node = self.capture_for_index(*i).unwrap();
-                    r.is_match(text_callback(node).as_ref())
+                    r.is_match(text_callback(node).as_ref()) == *is_positive
                 }
             })
     }

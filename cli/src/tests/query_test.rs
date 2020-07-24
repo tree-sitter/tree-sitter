@@ -1470,12 +1470,17 @@ fn test_query_captures_with_text_conditions() {
             ((identifier) @function.builtin
              (#eq? @function.builtin "require"))
 
-             (identifier) @variable
+            ((identifier) @variable
+             (#not-match? @variable "^(lambda|load)$"))
             "#,
         )
         .unwrap();
 
         let source = "
+          toad
+          load
+          panda
+          lambda
           const ab = require('./ab');
           new Cd(EF);
         ";
@@ -1489,6 +1494,8 @@ fn test_query_captures_with_text_conditions() {
         assert_eq!(
             collect_captures(captures, &query, source),
             &[
+                ("variable", "toad"),
+                ("variable", "panda"),
                 ("variable", "ab"),
                 ("function.builtin", "require"),
                 ("variable", "require"),
