@@ -216,7 +216,7 @@ pub(crate) fn get_variable_info(
                             .or_insert(ChildQuantity::zero());
 
                         // Inherit the types and quantities of hidden children associated with fields.
-                        if child_is_hidden {
+                        if child_is_hidden && child_symbol.is_non_terminal() {
                             let child_variable_info = &result[child_symbol.index];
                             did_change |= extend_sorted(
                                 &mut field_info.types,
@@ -352,6 +352,7 @@ pub(crate) fn get_variable_info(
         for (_, field_info) in variable_info.fields.iter_mut() {
             field_info.types.retain(child_type_is_visible);
         }
+        variable_info.fields.retain(|_, v| !v.types.is_empty());
         variable_info
             .children_without_fields
             .types
@@ -1171,6 +1172,38 @@ mod tests {
                     .collect()
                 ),
             }
+        );
+    }
+
+    #[test]
+    fn test_node_types_with_fields_on_hidden_tokens() {
+        let node_types = get_node_types(InputGrammar {
+            name: String::new(),
+            extra_symbols: Vec::new(),
+            external_tokens: Vec::new(),
+            expected_conflicts: Vec::new(),
+            variables_to_inline: Vec::new(),
+            word_token: None,
+            supertype_symbols: vec![],
+            variables: vec![Variable {
+                name: "script".to_string(),
+                kind: VariableType::Named,
+                rule: Rule::seq(vec![
+                    Rule::field("a".to_string(), Rule::pattern("hi")),
+                    Rule::field("b".to_string(), Rule::pattern("bye")),
+                ]),
+            }],
+        });
+
+        assert_eq!(
+            node_types,
+            [NodeInfoJSON {
+                kind: "script".to_string(),
+                named: true,
+                fields: Some(BTreeMap::new()),
+                children: None,
+                subtypes: None
+            }]
         );
     }
 

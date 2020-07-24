@@ -99,7 +99,7 @@ fn run() -> error::Result<()> {
         .subcommand(
             SubCommand::with_name("tags")
                 .arg(Arg::with_name("quiet").long("quiet").short("q"))
-                .arg(Arg::with_name("time").long("quiet").short("t"))
+                .arg(Arg::with_name("time").long("time").short("t"))
                 .arg(Arg::with_name("scope").long("scope").takes_value(true))
                 .arg(Arg::with_name("paths-file").long("paths").takes_value(true))
                 .arg(
