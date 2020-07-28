@@ -355,10 +355,11 @@ static Subtree ts_parser__lex(
   StackVersion version,
   TSStateId parse_state
 ) {
-  Length start_position = ts_stack_position(self->stack, version);
-  Subtree external_token = ts_stack_last_external_token(self->stack, version);
   TSLexMode lex_mode = self->language->lex_modes[parse_state];
   if (lex_mode.lex_state == (uint16_t)-1) return NULL_SUBTREE;
+
+  Length start_position = ts_stack_position(self->stack, version);
+  Subtree external_token = ts_stack_last_external_token(self->stack, version);
   const bool *valid_external_tokens = ts_language_enabled_external_tokens(
     self->language,
     lex_mode.external_lex_state
@@ -1345,24 +1346,26 @@ static bool ts_parser__advance(
     );
   }
 
-lex:
-  // Otherwise, re-run the lexer.
-  if (!lookahead.ptr) {
-    lookahead = ts_parser__lex(self, version, state);
-    if (lookahead.ptr) {
-      ts_parser__set_cached_token(self, position, last_external_token, lookahead);
-      ts_language_table_entry(self->language, state, ts_subtree_symbol(lookahead), &table_entry);
-    }
-
-    // When parsing a non-terminal extra, a null lookahead indicates the
-    // end of the rule. The reduction is stored in the EOF table entry.
-    // After the reduction, the lexer needs to be run again.
-    else {
-      ts_language_table_entry(self->language, state, ts_builtin_sym_end, &table_entry);
-    }
-  }
-
+  bool needs_lex = !lookahead.ptr;
   for (;;) {
+    // Otherwise, re-run the lexer.
+    if (needs_lex) {
+      needs_lex = false;
+      lookahead = ts_parser__lex(self, version, state);
+
+      if (lookahead.ptr) {
+        ts_parser__set_cached_token(self, position, last_external_token, lookahead);
+        ts_language_table_entry(self->language, state, ts_subtree_symbol(lookahead), &table_entry);
+      }
+
+      // When parsing a non-terminal extra, a null lookahead indicates the
+      // end of the rule. The reduction is stored in the EOF table entry.
+      // After the reduction, the lexer needs to be run again.
+      else {
+        ts_language_table_entry(self->language, state, ts_builtin_sym_end, &table_entry);
+      }
+    }
+
     // If a cancellation flag or a timeout was provided, then check every
     // time a fixed number of parse actions has been processed.
     if (++self->operation_count == OP_COUNT_PER_TIMEOUT_CHECK) {
@@ -1459,8 +1462,10 @@ lex:
       // (and completing the non-terminal extra rule) run the lexer again based
       // on the current parse state.
       if (!lookahead.ptr) {
-        lookahead = ts_parser__lex(self, version, state);
+        needs_lex = true;
+        continue;
       }
+
       ts_language_table_entry(
         self->language,
         state,
@@ -1468,6 +1473,11 @@ lex:
         &table_entry
       );
       continue;
+    }
+
+    if (!lookahead.ptr) {
+      ts_stack_pause(self->stack, version, ts_builtin_sym_end);
+      return true;
     }
 
     // If there were no parse actions for the current lookahead token, then
@@ -1509,8 +1519,7 @@ lex:
     if (ts_parser__breakdown_top_of_stack(self, version)) {
       state = ts_stack_state(self->stack, version);
       ts_subtree_release(&self->tree_pool, lookahead);
-      lookahead = NULL_SUBTREE;
-      goto lex;
+      needs_lex = true;
       continue;
     }
 

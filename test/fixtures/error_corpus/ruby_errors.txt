@@ -1,0 +1,19 @@
+==========================
+Heredocs with errors
+==========================
+
+joins(<<~SQL(
+  b
+SQL
+c
+
+---
+
+(program
+  (method_call
+    method: (identifier)
+    (ERROR (heredoc_beginning))
+    arguments: (argument_list
+      (heredoc_body (heredoc_end))
+      (identifier)
+      (MISSING ")"))))
