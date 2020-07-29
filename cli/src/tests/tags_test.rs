@@ -68,10 +68,12 @@ const JS_TAG_QUERY: &'static str = r#"
 
 const RUBY_TAG_QUERY: &'static str = r#"
 (method
-    name: (identifier) @name) @definition.method
+    name: (_) @name) @definition.method
 
 (method_call
     method: (identifier) @name) @reference.call
+
+(setter (identifier) @ignore)
 
 ((identifier) @name @reference.call
  (#is-not? local))
@@ -207,7 +209,7 @@ fn test_tags_ruby() {
         "
         b = 1
 
-        def foo()
+        def foo=()
             c = 1
 
             # a is a method because it is not in scope
@@ -239,7 +241,7 @@ fn test_tags_ruby() {
             ))
             .collect::<Vec<_>>(),
         &[
-            ("foo", "method", (2, 4)),
+            ("foo=", "method", (2, 4)),
             ("bar", "call", (7, 4)),
             ("a", "call", (7, 8)),
             ("b", "call", (7, 11)),

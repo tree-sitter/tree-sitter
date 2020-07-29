@@ -25,6 +25,7 @@ pub struct TagsConfiguration {
     capture_map: HashMap<u32, NamedCapture>,
     doc_capture_index: Option<u32>,
     name_capture_index: Option<u32>,
+    ignore_capture_index: Option<u32>,
     local_scope_capture_index: Option<u32>,
     local_definition_capture_index: Option<u32>,
     tags_pattern_index: usize,
@@ -128,12 +129,14 @@ impl TagsConfiguration {
         let mut syntax_type_names = Vec::new();
         let mut doc_capture_index = None;
         let mut name_capture_index = None;
+        let mut ignore_capture_index = None;
         let mut local_scope_capture_index = None;
         let mut local_definition_capture_index = None;
         for (i, name) in query.capture_names().iter().enumerate() {
             match name.as_str() {
                 "" => continue,
                 "name" => name_capture_index = Some(i as u32),
+                "ignore" => ignore_capture_index = Some(i as u32),
                 "doc" => doc_capture_index = Some(i as u32),
                 "local.scope" => local_scope_capture_index = Some(i as u32),
                 "local.definition" => local_definition_capture_index = Some(i as u32),
@@ -222,6 +225,7 @@ impl TagsConfiguration {
             capture_map,
             doc_capture_index,
             name_capture_index,
+            ignore_capture_index,
             tags_pattern_index,
             local_scope_capture_index,
             local_definition_capture_index,
@@ -311,7 +315,12 @@ where
                 if self.tag_queue.len() > 1
                     && self.tag_queue[0].0.name_range.end < last_entry.0.name_range.start
                 {
-                    return Some(Ok(self.tag_queue.remove(0).0));
+                    let tag = self.tag_queue.remove(0).0;
+                    if tag.is_ignored() {
+                        continue;
+                    } else {
+                        return Some(Ok(tag));
+                    }
                 }
             }
 
@@ -350,9 +359,15 @@ where
                 let mut syntax_type_id = 0;
                 let mut is_definition = false;
                 let mut docs_adjacent_node = None;
+                let mut is_ignored = false;
 
                 for capture in mat.captures {
                     let index = Some(capture.index);
+
+                    if index == self.config.ignore_capture_index {
+                        is_ignored = true;
+                        name_node = Some(capture.node);
+                    }
 
                     if index == self.config.pattern_info[mat.pattern_index].docs_adjacent_capture {
                         docs_adjacent_node = Some(capture.node);
@@ -371,128 +386,136 @@ where
                     }
                 }
 
-                if let (Some(tag_node), Some(name_node)) = (tag_node, name_node) {
-                    if name_node.has_error() {
-                        continue;
-                    }
-
+                if let Some(name_node) = name_node {
                     let name_range = name_node.byte_range();
 
-                    if pattern_info.name_must_be_non_local {
-                        let mut is_local = false;
-                        for scope in self.scopes.iter().rev() {
-                            if scope.range.start <= name_range.start
-                                && scope.range.end >= name_range.end
-                            {
-                                if scope
-                                    .local_defs
-                                    .iter()
-                                    .any(|d| d.name == &self.source[name_range.clone()])
-                                {
-                                    is_local = true;
-                                    break;
-                                }
-                                if !scope.inherits {
-                                    break;
-                                }
-                            }
-                        }
-                        if is_local {
+                    let tag;
+                    if let Some(tag_node) = tag_node {
+                        if name_node.has_error() {
                             continue;
                         }
-                    }
 
-                    // If needed, filter the doc nodes based on their ranges, selecting
-                    // only the slice that are adjacent to some specified node.
-                    let mut docs_start_index = 0;
-                    if let (Some(docs_adjacent_node), false) =
-                        (docs_adjacent_node, doc_nodes.is_empty())
-                    {
-                        docs_start_index = doc_nodes.len();
-                        let mut start_row = docs_adjacent_node.start_position().row;
-                        while docs_start_index > 0 {
-                            let doc_node = &doc_nodes[docs_start_index - 1];
-                            let prev_doc_end_row = doc_node.end_position().row;
-                            if prev_doc_end_row + 1 >= start_row {
-                                docs_start_index -= 1;
-                                start_row = doc_node.start_position().row;
-                            } else {
-                                break;
+                        if pattern_info.name_must_be_non_local {
+                            let mut is_local = false;
+                            for scope in self.scopes.iter().rev() {
+                                if scope.range.start <= name_range.start
+                                    && scope.range.end >= name_range.end
+                                {
+                                    if scope
+                                        .local_defs
+                                        .iter()
+                                        .any(|d| d.name == &self.source[name_range.clone()])
+                                    {
+                                        is_local = true;
+                                        break;
+                                    }
+                                    if !scope.inherits {
+                                        break;
+                                    }
+                                }
+                            }
+                            if is_local {
+                                continue;
                             }
                         }
-                    }
 
-                    // Generate a doc string from all of the doc nodes, applying any strip regexes.
-                    let mut docs = None;
-                    for doc_node in &doc_nodes[docs_start_index..] {
-                        if let Ok(content) = str::from_utf8(&self.source[doc_node.byte_range()]) {
-                            let content = if let Some(regex) = &pattern_info.doc_strip_regex {
-                                regex.replace_all(content, "").to_string()
-                            } else {
-                                content.to_string()
-                            };
-                            match &mut docs {
-                                None => docs = Some(content),
-                                Some(d) => {
-                                    d.push('\n');
-                                    d.push_str(&content);
+                        // If needed, filter the doc nodes based on their ranges, selecting
+                        // only the slice that are adjacent to some specified node.
+                        let mut docs_start_index = 0;
+                        if let (Some(docs_adjacent_node), false) =
+                            (docs_adjacent_node, doc_nodes.is_empty())
+                        {
+                            docs_start_index = doc_nodes.len();
+                            let mut start_row = docs_adjacent_node.start_position().row;
+                            while docs_start_index > 0 {
+                                let doc_node = &doc_nodes[docs_start_index - 1];
+                                let prev_doc_end_row = doc_node.end_position().row;
+                                if prev_doc_end_row + 1 >= start_row {
+                                    docs_start_index -= 1;
+                                    start_row = doc_node.start_position().row;
+                                } else {
+                                    break;
                                 }
                             }
                         }
-                    }
 
-                    let range = tag_node.byte_range();
-                    let span = name_node.start_position()..name_node.end_position();
+                        // Generate a doc string from all of the doc nodes, applying any strip regexes.
+                        let mut docs = None;
+                        for doc_node in &doc_nodes[docs_start_index..] {
+                            if let Ok(content) = str::from_utf8(&self.source[doc_node.byte_range()])
+                            {
+                                let content = if let Some(regex) = &pattern_info.doc_strip_regex {
+                                    regex.replace_all(content, "").to_string()
+                                } else {
+                                    content.to_string()
+                                };
+                                match &mut docs {
+                                    None => docs = Some(content),
+                                    Some(d) => {
+                                        d.push('\n');
+                                        d.push_str(&content);
+                                    }
+                                }
+                            }
+                        }
 
-                    // Compute tag properties that depend on the text of the containing line. If the
-                    // previous tag occurred on the same line, then reuse results from the previous tag.
-                    let line_range;
-                    let mut prev_utf16_column = 0;
-                    let mut prev_utf8_byte = name_range.start - span.start.column;
-                    let line_info = self.prev_line_info.as_ref().and_then(|info| {
-                        if info.utf8_position.row == span.start.row {
-                            Some(info)
+                        let range = tag_node.byte_range();
+                        let span = name_node.start_position()..name_node.end_position();
+
+                        // Compute tag properties that depend on the text of the containing line. If the
+                        // previous tag occurred on the same line, then reuse results from the previous tag.
+                        let line_range;
+                        let mut prev_utf16_column = 0;
+                        let mut prev_utf8_byte = name_range.start - span.start.column;
+                        let line_info = self.prev_line_info.as_ref().and_then(|info| {
+                            if info.utf8_position.row == span.start.row {
+                                Some(info)
+                            } else {
+                                None
+                            }
+                        });
+                        if let Some(line_info) = line_info {
+                            line_range = line_info.line_range.clone();
+                            if line_info.utf8_position.column <= span.start.column {
+                                prev_utf8_byte = line_info.utf8_byte;
+                                prev_utf16_column = line_info.utf16_column;
+                            }
                         } else {
-                            None
+                            line_range = self::line_range(
+                                self.source,
+                                name_range.start,
+                                span.start,
+                                MAX_LINE_LEN,
+                            );
                         }
-                    });
-                    if let Some(line_info) = line_info {
-                        line_range = line_info.line_range.clone();
-                        if line_info.utf8_position.column <= span.start.column {
-                            prev_utf8_byte = line_info.utf8_byte;
-                            prev_utf16_column = line_info.utf16_column;
-                        }
+
+                        let utf16_start_column = prev_utf16_column
+                            + utf16_len(&self.source[prev_utf8_byte..name_range.start]);
+                        let utf16_end_column =
+                            utf16_start_column + utf16_len(&self.source[name_range.clone()]);
+                        let utf16_column_range = utf16_start_column..utf16_end_column;
+
+                        self.prev_line_info = Some(LineInfo {
+                            utf8_position: span.end,
+                            utf8_byte: name_range.end,
+                            utf16_column: utf16_end_column,
+                            line_range: line_range.clone(),
+                        });
+                        tag = Tag {
+                            line_range,
+                            span,
+                            utf16_column_range,
+                            range,
+                            name_range,
+                            docs,
+                            is_definition,
+                            syntax_type_id,
+                        };
+                    } else if is_ignored {
+                        tag = Tag::ignored(name_range);
                     } else {
-                        line_range = self::line_range(
-                            self.source,
-                            name_range.start,
-                            span.start,
-                            MAX_LINE_LEN,
-                        );
+                        continue;
                     }
-
-                    let utf16_start_column = prev_utf16_column
-                        + utf16_len(&self.source[prev_utf8_byte..name_range.start]);
-                    let utf16_end_column =
-                        utf16_start_column + utf16_len(&self.source[name_range.clone()]);
-                    let utf16_column_range = utf16_start_column..utf16_end_column;
-
-                    self.prev_line_info = Some(LineInfo {
-                        utf8_position: span.end,
-                        utf8_byte: name_range.end,
-                        utf16_column: utf16_end_column,
-                        line_range: line_range.clone(),
-                    });
-                    let tag = Tag {
-                        line_range,
-                        span,
-                        utf16_column_range,
-                        range,
-                        name_range,
-                        docs,
-                        is_definition,
-                        syntax_type_id,
-                    };
 
                     // Only create one tag per node. The tag queue is sorted by node position
                     // to allow for fast lookup.
@@ -518,6 +541,25 @@ where
                 return None;
             }
         }
+    }
+}
+
+impl Tag {
+    fn ignored(name_range: Range<usize>) -> Self {
+        Tag {
+            name_range,
+            line_range: 0..0,
+            span: Point::new(0, 0)..Point::new(0, 0),
+            utf16_column_range: 0..0,
+            range: usize::MAX..usize::MAX,
+            docs: None,
+            is_definition: false,
+            syntax_type_id: 0,
+        }
+    }
+
+    fn is_ignored(&self) -> bool {
+        self.range.start == usize::MAX
     }
 }
 
