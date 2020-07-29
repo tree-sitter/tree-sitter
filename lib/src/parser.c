@@ -356,7 +356,10 @@ static Subtree ts_parser__lex(
   TSStateId parse_state
 ) {
   TSLexMode lex_mode = self->language->lex_modes[parse_state];
-  if (lex_mode.lex_state == (uint16_t)-1) return NULL_SUBTREE;
+  if (lex_mode.lex_state == (uint16_t)-1) {
+    LOG("no_lookahead_after_non_terminal_extra");
+    return NULL_SUBTREE;
+  }
 
   Length start_position = ts_stack_position(self->stack, version);
   Subtree external_token = ts_stack_last_external_token(self->stack, version);
@@ -762,7 +765,7 @@ static StackVersion ts_parser__reduce(
   int dynamic_precedence,
   uint16_t production_id,
   bool is_fragile,
-  bool is_extra
+  bool end_of_non_terminal_extra
 ) {
   uint32_t initial_version_count = ts_stack_version_count(self->stack);
 
@@ -833,7 +836,9 @@ static StackVersion ts_parser__reduce(
 
     TSStateId state = ts_stack_state(self->stack, slice_version);
     TSStateId next_state = ts_language_next_state(self->language, state, symbol);
-    if (is_extra) parent.ptr->extra = true;
+    if (end_of_non_terminal_extra && next_state == state) {
+      parent.ptr->extra = true;
+    }
     if (is_fragile || pop.size > 1 || initial_version_count > 1) {
       parent.ptr->fragile_left = true;
       parent.ptr->fragile_right = true;
@@ -1417,12 +1422,12 @@ static bool ts_parser__advance(
 
         case TSParseActionTypeReduce: {
           bool is_fragile = table_entry.action_count > 1;
-          bool is_extra = lookahead.ptr == NULL;
+          bool end_of_non_terminal_extra = lookahead.ptr == NULL;
           LOG("reduce sym:%s, child_count:%u", SYM_NAME(action.params.reduce.symbol), action.params.reduce.child_count);
           StackVersion reduction_version = ts_parser__reduce(
             self, version, action.params.reduce.symbol, action.params.reduce.child_count,
             action.params.reduce.dynamic_precedence, action.params.reduce.production_id,
-            is_fragile, is_extra
+            is_fragile, end_of_non_terminal_extra
           );
           if (reduction_version != STACK_VERSION_NONE) {
             last_reduction_version = reduction_version;
