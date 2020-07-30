@@ -11,7 +11,6 @@
 // #define LOG(...) fprintf(stderr, __VA_ARGS__)
 #define LOG(...)
 
-#define MAX_STATE_COUNT 256
 #define MAX_CAPTURE_LIST_COUNT 32
 #define MAX_STEP_CAPTURE_COUNT 3
 
@@ -1297,8 +1296,8 @@ TSQueryCursor *ts_query_cursor_new(void) {
     .start_point = {0, 0},
     .end_point = POINT_MAX,
   };
-  array_reserve(&self->states, MAX_STATE_COUNT);
-  array_reserve(&self->finished_states, MAX_CAPTURE_LIST_COUNT);
+  array_reserve(&self->states, 8);
+  array_reserve(&self->finished_states, 8);
   return self;
 }
 
@@ -1465,10 +1464,6 @@ static bool ts_query_cursor__add_state(
   TSQueryCursor *self,
   const PatternEntry *pattern
 ) {
-  if (self->states.size >= MAX_STATE_COUNT) {
-    LOG("  too many states");
-    return false;
-  }
   LOG(
     "  start state. pattern:%u, step:%u\n",
     pattern->pattern_index,
@@ -1537,17 +1532,14 @@ static CaptureList *ts_query_cursor__prepare_to_capture(
 }
 
 // Duplicate the given state and insert the newly-created state immediately after
-// the given state in the `states` array.
+// the given state in the `states` array. Ensures that the given state reference is
+// still valid, even if the states array is reallocated.
 static QueryState *ts_query_cursor__copy_state(
   TSQueryCursor *self,
-  unsigned state_index
+  QueryState **state_ref
 ) {
-  if (self->states.size >= MAX_STATE_COUNT) {
-    LOG("  too many states");
-    return NULL;
-  }
-
-  const QueryState *state = &self->states.contents[state_index];
+  const QueryState *state = *state_ref;
+  uint32_t state_index = state - self->states.contents;
   QueryState copy = *state;
   copy.capture_list_id = NONE;
 
@@ -1563,6 +1555,7 @@ static QueryState *ts_query_cursor__copy_state(
   }
 
   array_insert(&self->states, state_index + 1, copy);
+  *state_ref = &self->states.contents[state_index];
   return &self->states.contents[state_index + 1];
 }
 
@@ -1774,7 +1767,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
           !step->is_pattern_start &&
           step->contains_captures
         ) {
-          if (ts_query_cursor__copy_state(self, i)) {
+          if (ts_query_cursor__copy_state(self, &state)) {
             LOG(
               "  split state for capture. pattern:%u, step:%u\n",
               state->pattern_index,
@@ -1829,7 +1822,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
               continue;
             }
 
-            QueryState *copy = ts_query_cursor__copy_state(self, j);
+            QueryState *copy = ts_query_cursor__copy_state(self, &state);
             if (next_step->is_pass_through) {
               state->step_index++;
               j--;
@@ -1862,7 +1855,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         }
 
         // Enfore the longest-match criteria. When a query pattern contains optional or
-        // repeated nodes, this is necesssary to avoid multiple redundant states, where
+        // repeated nodes, this is necessary to avoid multiple redundant states, where
         // one state has a strict subset of another state's captures.
         bool did_remove = false;
         for (unsigned j = i + 1; j < self->states.size; j++) {
