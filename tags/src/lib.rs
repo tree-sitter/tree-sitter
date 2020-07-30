@@ -459,7 +459,8 @@ where
                             }
                         }
 
-                        let range = tag_node.byte_range();
+                        let rng = tag_node.byte_range();
+                        let range = rng.start.min(name_range.start)..rng.end.max(name_range.end);
                         let span = name_node.start_position()..name_node.end_position();
 
                         // Compute tag properties that depend on the text of the containing line. If the
