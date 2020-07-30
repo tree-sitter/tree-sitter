@@ -118,7 +118,7 @@ typedef struct {
   uint16_t step_index;
   uint16_t pattern_index;
   uint16_t capture_list_id;
-  uint16_t consumed_capture_count: 14;
+  uint16_t consumed_capture_count: 12;
   bool seeking_immediate_match: 1;
   bool has_in_progress_alternatives: 1;
   bool dead: 1;
@@ -1860,47 +1860,54 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         bool did_remove = false;
         for (unsigned j = i + 1; j < self->states.size; j++) {
           QueryState *other_state = &self->states.contents[j];
+          if (other_state->dead) {
+            array_erase(&self->states, j);
+            j--;
+            continue;
+          }
+
+          // When query states are copied in order
           if (
-            !other_state->dead &&
-            state->pattern_index == other_state->pattern_index &&
-            state->start_depth == other_state->start_depth
-          ) {
-            bool left_contains_right, right_contains_left;
-            ts_query_cursor__compare_captures(
-              self,
-              state,
-              other_state,
-              &left_contains_right,
-              &right_contains_left
-            );
-            if (left_contains_right) {
-              if (state->step_index == other_state->step_index) {
-                LOG(
-                  "  drop shorter state. pattern: %u, step_index: %u\n",
-                  state->pattern_index,
-                  state->step_index
-                );
-                capture_list_pool_release(&self->capture_list_pool, other_state->capture_list_id);
-                array_erase(&self->states, j);
-                j--;
-                continue;
-              }
-              other_state->has_in_progress_alternatives = true;
+            other_state->start_depth != state->start_depth ||
+            other_state->pattern_index != state->pattern_index
+          ) break;
+
+          bool left_contains_right, right_contains_left;
+          ts_query_cursor__compare_captures(
+            self,
+            state,
+            other_state,
+            &left_contains_right,
+            &right_contains_left
+          );
+          if (left_contains_right) {
+            if (state->step_index == other_state->step_index) {
+              LOG(
+                "  drop shorter state. pattern: %u, step_index: %u\n",
+                state->pattern_index,
+                state->step_index
+              );
+              capture_list_pool_release(&self->capture_list_pool, other_state->capture_list_id);
+              array_erase(&self->states, j);
+              j--;
+              continue;
             }
-            if (right_contains_left) {
-              if (state->step_index == other_state->step_index) {
-                LOG(
-                  "  drop shorter state. pattern: %u, step_index: %u\n",
-                  state->pattern_index,
-                  state->step_index
-                );
-                capture_list_pool_release(&self->capture_list_pool, state->capture_list_id);
-                array_erase(&self->states, i);
-                did_remove = true;
-                break;
-              }
-              state->has_in_progress_alternatives = true;
+            other_state->has_in_progress_alternatives = true;
+          }
+          if (right_contains_left) {
+            if (state->step_index == other_state->step_index) {
+              LOG(
+                "  drop shorter state. pattern: %u, step_index: %u\n",
+                state->pattern_index,
+                state->step_index
+              );
+              capture_list_pool_release(&self->capture_list_pool, state->capture_list_id);
+              array_erase(&self->states, i);
+              i--;
+              did_remove = true;
+              break;
             }
+            state->has_in_progress_alternatives = true;
           }
         }
 
