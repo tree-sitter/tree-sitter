@@ -382,7 +382,7 @@ fn test_query_matches_with_many_overlapping_results() {
         )
         .unwrap();
 
-        let count = 80;
+        let count = 1024;
 
         // Deeply nested chained function calls:
         // a
@@ -547,8 +547,8 @@ fn test_query_matches_with_immediate_siblings() {
             &[
                 (0, vec![("parent", "a"), ("child", "b")]),
                 (0, vec![("parent", "b"), ("child", "c")]),
-                (1, vec![("last-child", "d")]),
                 (0, vec![("parent", "c"), ("child", "d")]),
+                (1, vec![("last-child", "d")]),
                 (2, vec![("first-element", "w")]),
                 (2, vec![("first-element", "1")]),
             ],
@@ -728,6 +728,55 @@ fn test_query_matches_with_nested_repetitions() {
                 ),
                 (0, vec![("x", "g")]),
             ],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_multiple_repetition_patterns_that_intersect_other_pattern() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        // When this query sees a comment, it must keep track of several potential
+        // matches: up to two for each pattern that begins with a comment.
+        let query = Query::new(
+            language,
+            r#"
+            (call_expression
+                function: (member_expression
+                    property: (property_identifier) @name)) @ref.method
+
+            ((comment)* @doc (function_declaration))
+            ((comment)* @doc (generator_function_declaration))
+            ((comment)* @doc (class_declaration))
+            ((comment)* @doc (lexical_declaration))
+            ((comment)* @doc (variable_declaration))
+            ((comment)* @doc (method_definition))
+
+            (comment) @comment
+            "#,
+        )
+        .unwrap();
+
+        // Here, a series of comments occurs in the middle of a match of the first
+        // pattern. To avoid exceeding the storage limits and discarding that outer
+        // match, the comment-related matches need to be managed efficiently.
+        let source = format!(
+            "theObject\n{}\n.theMethod()",
+            "  // the comment\n".repeat(64)
+        );
+
+        assert_query_matches(
+            language,
+            &query,
+            &source,
+            &vec![(7, vec![("comment", "// the comment")]); 64]
+                .into_iter()
+                .chain(vec![(
+                    0,
+                    vec![("ref.method", source.as_str()), ("name", "theMethod")],
+                )])
+                .collect::<Vec<_>>(),
         );
     });
 }
