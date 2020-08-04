@@ -52,6 +52,7 @@ pub struct TSTagsBuffer {
     context: TagsContext,
     tags: Vec<TSTag>,
     docs: Vec<u8>,
+    errors_present: bool,
 }
 
 #[no_mangle]
@@ -184,6 +185,7 @@ pub extern "C" fn ts_tags_buffer_new() -> *mut TSTagsBuffer {
         context: TagsContext::new(),
         tags: Vec::with_capacity(64),
         docs: Vec::with_capacity(64),
+        errors_present: false,
     }))
 }
 
@@ -214,6 +216,12 @@ pub extern "C" fn ts_tags_buffer_docs(this: *const TSTagsBuffer) -> *const i8 {
 pub extern "C" fn ts_tags_buffer_docs_len(this: *const TSTagsBuffer) -> u32 {
     let buffer = unwrap_ptr(this);
     buffer.docs.len() as u32
+}
+
+#[no_mangle]
+pub extern "C" fn ts_tagger_errors_present(this: *const TSTagsBuffer) -> bool {
+    let buffer = unwrap_ptr(this);
+    buffer.errors_present
 }
 
 #[no_mangle]
