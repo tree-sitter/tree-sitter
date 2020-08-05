@@ -55,6 +55,7 @@ pub struct TSTagsBuffer {
     context: TagsContext,
     tags: Vec<TSTag>,
     docs: Vec<u8>,
+    errors_present: bool,
 }
 
 #[no_mangle]
@@ -129,7 +130,10 @@ pub extern "C" fn ts_tagger_tag(
             .context
             .generate_tags(config, source_code, cancellation_flag)
         {
-            Ok(tags) => tags,
+            Ok((tags, found_error)) => {
+                buffer.errors_present = found_error;
+                tags
+            }
             Err(e) => {
                 return match e {
                     Error::InvalidLanguage => TSTagsError::InvalidLanguage,
@@ -188,6 +192,7 @@ pub extern "C" fn ts_tags_buffer_new() -> *mut TSTagsBuffer {
         context: TagsContext::new(),
         tags: Vec::with_capacity(BUFFER_TAGS_RESERVE_CAPACITY),
         docs: Vec::with_capacity(BUFFER_DOCS_RESERVE_CAPACITY),
+        errors_present: false,
     }))
 }
 
@@ -218,6 +223,12 @@ pub extern "C" fn ts_tags_buffer_docs(this: *const TSTagsBuffer) -> *const i8 {
 pub extern "C" fn ts_tags_buffer_docs_len(this: *const TSTagsBuffer) -> u32 {
     let buffer = unwrap_ptr(this);
     buffer.docs.len() as u32
+}
+
+#[no_mangle]
+pub extern "C" fn ts_tags_buffer_found_parse_error(this: *const TSTagsBuffer) -> bool {
+    let buffer = unwrap_ptr(this);
+    buffer.errors_present
 }
 
 #[no_mangle]

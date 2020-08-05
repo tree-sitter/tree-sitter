@@ -102,6 +102,7 @@ fn test_tags_python() {
     let tags = tag_context
         .generate_tags(&tags_config, source, None)
         .unwrap()
+        .0
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
 
@@ -153,6 +154,7 @@ fn test_tags_javascript() {
     let tags = tag_context
         .generate_tags(&tags_config, source, None)
         .unwrap()
+        .0
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
 
@@ -189,6 +191,7 @@ fn test_tags_columns_measured_in_utf16_code_units() {
     let tag = tag_context
         .generate_tags(&tags_config, source, None)
         .unwrap()
+        .0
         .next()
         .unwrap()
         .unwrap();
@@ -229,6 +232,7 @@ fn test_tags_ruby() {
     let tags = tag_context
         .generate_tags(&tags_config, source.as_bytes(), None)
         .unwrap()
+        .0
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
 
@@ -271,7 +275,7 @@ fn test_tags_cancellation() {
             .generate_tags(&tags_config, source.as_bytes(), Some(&cancellation_flag))
             .unwrap();
 
-        for (i, tag) in tags.enumerate() {
+        for (i, tag) in tags.0.enumerate() {
             if i == 150 {
                 cancellation_flag.store(1, Ordering::SeqCst);
             }
@@ -292,6 +296,39 @@ fn test_invalid_capture() {
         .expect_err("expected InvalidCapture error");
     assert_eq!(e, Error::InvalidCapture("method".to_string()));
 }
+
+#[test]
+fn test_tags_with_parse_error() {
+    let language = get_language("python");
+    let tags_config = TagsConfiguration::new(language, PYTHON_TAG_QUERY, "").unwrap();
+    let mut tag_context = TagsContext::new();
+
+    let source = br#"
+    class Fine: pass
+    class Bad
+    "#;
+
+    let (tags, failed) = tag_context
+        .generate_tags(&tags_config, source, None)
+        .unwrap();
+
+    let newtags = tags.collect::<Result<Vec<_>, _>>().unwrap();
+
+    assert!(failed, "syntax error should have been detected");
+
+    assert_eq!(
+        newtags.iter()
+            .map(|t| (
+                substr(source, &t.name_range),
+                tags_config.syntax_type_name(t.syntax_type_id)
+            ))
+            .collect::<Vec<_>>(),
+        &[
+            ("Fine", "class"),
+        ]
+    );
+}
+
 
 #[test]
 fn test_tags_via_c_api() {
