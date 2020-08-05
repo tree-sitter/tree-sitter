@@ -89,7 +89,7 @@ uint32_t ts_tags_buffer_docs_len(const TSTagsBuffer *);
 const char **ts_tagger_syntax_kinds_for_scope_name(const TSTagger *, const char *scope_name, uint32_t *len);
 
 // Determine whether a parse error was encountered while tagging.
-bool ts_tags_buffer_found_parse_error();
+bool ts_tags_buffer_found_parse_error(const TSTagsBuffer*);
 
 #ifdef __cplusplus
 }
