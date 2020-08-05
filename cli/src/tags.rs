@@ -53,7 +53,8 @@ pub fn generate_tags(
 
             let source = fs::read(path)?;
             let t0 = Instant::now();
-            for tag in context.generate_tags(tags_config, &source, Some(&cancellation_flag))? {
+            let (tagged, _) = context.generate_tags(tags_config, &source, Some(&cancellation_flag))?;
+            for tag in tagged {
                 let tag = tag?;
                 if !quiet {
                     write!(

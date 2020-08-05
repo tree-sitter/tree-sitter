@@ -255,7 +255,7 @@ impl TagsContext {
         config: &'a TagsConfiguration,
         source: &'a [u8],
         cancellation_flag: Option<&'a AtomicUsize>,
-    ) -> Result<impl Iterator<Item = Result<Tag, Error>> + 'a, Error> {
+    ) -> Result<(impl Iterator<Item = Result<Tag, Error>> + 'a, bool), Error> {
         self.parser
             .set_language(config.language)
             .map_err(|_| Error::InvalidLanguage)?;
@@ -271,7 +271,7 @@ impl TagsContext {
             .matches(&config.query, tree_ref.root_node(), move |node| {
                 &source[node.byte_range()]
             });
-        Ok(TagsIter {
+        Ok((TagsIter {
             _tree: tree,
             matches,
             source,
@@ -285,7 +285,7 @@ impl TagsContext {
                 inherits: false,
                 local_defs: Vec::new(),
             }],
-        })
+        }, tree_ref.root_node().has_error()))
     }
 }
 

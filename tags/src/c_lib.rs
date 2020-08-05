@@ -126,7 +126,10 @@ pub extern "C" fn ts_tagger_tag(
             .context
             .generate_tags(config, source_code, cancellation_flag)
         {
-            Ok(tags) => tags,
+            Ok((tags, found_error)) => {
+                buffer.errors_present = found_error;
+                tags
+            }
             Err(e) => {
                 return match e {
                     Error::InvalidLanguage => TSTagsError::InvalidLanguage,
