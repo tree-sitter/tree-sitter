@@ -10,6 +10,8 @@ use tree_sitter::{
 };
 
 const CANCELLATION_CHECK_INTERVAL: usize = 100;
+const BUFFER_HTML_RESERVE_CAPACITY: usize = 10 * 1024;
+const BUFFER_LINES_RESERVE_CAPACITY: usize = 1000;
 
 /// Indicates which highlight should be applied to a region of source code.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -884,11 +886,13 @@ where
 
 impl HtmlRenderer {
     pub fn new() -> Self {
-        HtmlRenderer {
-            html: Vec::new(),
-            line_offsets: vec![0],
+        let mut result = HtmlRenderer {
+            html: Vec::with_capacity(BUFFER_HTML_RESERVE_CAPACITY),
+            line_offsets: Vec::with_capacity(BUFFER_LINES_RESERVE_CAPACITY),
             carriage_return_highlight: None,
-        }
+        };
+        result.line_offsets.push(0);
+        result
     }
 
     pub fn set_carriage_return_highlight(&mut self, highlight: Option<Highlight>) {
@@ -896,6 +900,10 @@ impl HtmlRenderer {
     }
 
     pub fn reset(&mut self) {
+        self.html.truncate(BUFFER_HTML_RESERVE_CAPACITY);
+        self.line_offsets.truncate(BUFFER_LINES_RESERVE_CAPACITY);
+        self.html.shrink_to_fit();
+        self.line_offsets.shrink_to_fit();
         self.html.clear();
         self.line_offsets.clear();
         self.line_offsets.push(0);
