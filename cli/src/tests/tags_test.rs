@@ -298,6 +298,39 @@ fn test_invalid_capture() {
 }
 
 #[test]
+fn test_tags_with_parse_error() {
+    let language = get_language("python");
+    let tags_config = TagsConfiguration::new(language, PYTHON_TAG_QUERY, "").unwrap();
+    let mut tag_context = TagsContext::new();
+
+    let source = br#"
+    class Fine: pass
+    class Bad
+    "#;
+
+    let (tags, failed) = tag_context
+        .generate_tags(&tags_config, source, None)
+        .unwrap();
+
+    let newtags = tags.collect::<Result<Vec<_>, _>>().unwrap();
+
+    assert!(failed, "syntax error should have been detected");
+
+    assert_eq!(
+        newtags.iter()
+            .map(|t| (
+                substr(source, &t.name_range),
+                tags_config.syntax_type_name(t.syntax_type_id)
+            ))
+            .collect::<Vec<_>>(),
+        &[
+            ("Fine", "class"),
+        ]
+    );
+}
+
+
+#[test]
 fn test_tags_via_c_api() {
     allocations::record(|| {
         let tagger = c::ts_tagger_new();
