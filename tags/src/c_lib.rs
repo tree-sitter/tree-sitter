@@ -222,7 +222,7 @@ pub extern "C" fn ts_tags_buffer_docs_len(this: *const TSTagsBuffer) -> u32 {
 }
 
 #[no_mangle]
-pub extern "C" fn ts_tagger_errors_present(this: *const TSTagsBuffer) -> bool {
+pub extern "C" fn ts_tags_buffer_found_parse_error(this: *const TSTagsBuffer) -> bool {
     let buffer = unwrap_ptr(this);
     buffer.errors_present
 }
