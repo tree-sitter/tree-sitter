@@ -88,6 +88,9 @@ uint32_t ts_tags_buffer_docs_len(const TSTagsBuffer *);
 // Get the syntax kinds for a scope.
 const char **ts_tagger_syntax_kinds_for_scope_name(const TSTagger *, const char *scope_name, uint32_t *len);
 
+// Determine whether a parse error was encountered while tagging.
+bool ts_tagger_errors_present();
+
 #ifdef __cplusplus
 }
 #endif
