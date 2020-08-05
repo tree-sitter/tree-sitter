@@ -6,6 +6,9 @@ use std::sync::atomic::AtomicUsize;
 use std::{fmt, slice, str};
 use tree_sitter::Language;
 
+const BUFFER_TAGS_RESERVE_CAPACITY: usize = 100;
+const BUFFER_DOCS_RESERVE_CAPACITY: usize = 1024;
+
 #[repr(C)]
 #[derive(Debug, PartialEq, Eq)]
 pub enum TSTagsError {
@@ -116,8 +119,13 @@ pub extern "C" fn ts_tagger_tag(
     let scope_name = unsafe { unwrap(CStr::from_ptr(scope_name).to_str()) };
 
     if let Some(config) = tagger.languages.get(scope_name) {
+        buffer.tags.truncate(BUFFER_TAGS_RESERVE_CAPACITY);
+        buffer.docs.truncate(BUFFER_DOCS_RESERVE_CAPACITY);
+        buffer.tags.shrink_to_fit();
+        buffer.docs.shrink_to_fit();
         buffer.tags.clear();
         buffer.docs.clear();
+
         let source_code = unsafe { slice::from_raw_parts(source_code, source_code_len as usize) };
         let cancellation_flag = unsafe { cancellation_flag.as_ref() };
 
@@ -182,8 +190,8 @@ pub extern "C" fn ts_tagger_tag(
 pub extern "C" fn ts_tags_buffer_new() -> *mut TSTagsBuffer {
     Box::into_raw(Box::new(TSTagsBuffer {
         context: TagsContext::new(),
-        tags: Vec::with_capacity(64),
-        docs: Vec::with_capacity(64),
+        tags: Vec::with_capacity(BUFFER_TAGS_RESERVE_CAPACITY),
+        docs: Vec::with_capacity(BUFFER_DOCS_RESERVE_CAPACITY),
     }))
 }
 
