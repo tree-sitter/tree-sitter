@@ -119,12 +119,8 @@ pub extern "C" fn ts_tagger_tag(
     let scope_name = unsafe { unwrap(CStr::from_ptr(scope_name).to_str()) };
 
     if let Some(config) = tagger.languages.get(scope_name) {
-        buffer.tags.truncate(BUFFER_TAGS_RESERVE_CAPACITY);
-        buffer.docs.truncate(BUFFER_DOCS_RESERVE_CAPACITY);
-        buffer.tags.shrink_to_fit();
-        buffer.docs.shrink_to_fit();
-        buffer.tags.clear();
-        buffer.docs.clear();
+        shrink_and_clear(&mut buffer.tags, BUFFER_TAGS_RESERVE_CAPACITY);
+        shrink_and_clear(&mut buffer.docs, BUFFER_DOCS_RESERVE_CAPACITY);
 
         let source_code = unsafe { slice::from_raw_parts(source_code, source_code_len as usize) };
         let cancellation_flag = unsafe { cancellation_flag.as_ref() };
@@ -261,4 +257,12 @@ fn unwrap<T, E: fmt::Display>(result: Result<T, E>) -> T {
         eprintln!("tree-sitter tag error: {}", error);
         abort();
     })
+}
+
+fn shrink_and_clear<T>(vec: &mut Vec<T>, capacity: usize) {
+    if vec.len() > capacity {
+        vec.truncate(capacity);
+        vec.shrink_to_fit();
+    }
+    vec.clear();
 }

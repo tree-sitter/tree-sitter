@@ -900,12 +900,8 @@ impl HtmlRenderer {
     }
 
     pub fn reset(&mut self) {
-        self.html.truncate(BUFFER_HTML_RESERVE_CAPACITY);
-        self.line_offsets.truncate(BUFFER_LINES_RESERVE_CAPACITY);
-        self.html.shrink_to_fit();
-        self.line_offsets.shrink_to_fit();
-        self.html.clear();
-        self.line_offsets.clear();
+        shrink_and_clear(&mut self.html, BUFFER_HTML_RESERVE_CAPACITY);
+        shrink_and_clear(&mut self.line_offsets, BUFFER_LINES_RESERVE_CAPACITY);
         self.line_offsets.push(0);
     }
 
@@ -1068,4 +1064,12 @@ fn injection_for_match<'a>(
     }
 
     (language_name, content_node, include_children)
+}
+
+fn shrink_and_clear<T>(vec: &mut Vec<T>, capacity: usize) {
+    if vec.len() > capacity {
+        vec.truncate(capacity);
+        vec.shrink_to_fit();
+    }
+    vec.clear();
 }
