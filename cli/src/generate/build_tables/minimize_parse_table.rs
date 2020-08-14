@@ -199,6 +199,9 @@ impl<'a> Minimizer<'a> {
         right_state: &ParseState,
         group_ids_by_state_id: &Vec<ParseStateId>,
     ) -> bool {
+        if left_state.is_non_terminal_extra != right_state.is_non_terminal_extra {
+            return true;
+        }
         for (token, left_entry) in &left_state.terminal_entries {
             if let Some(right_entry) = right_state.terminal_entries.get(token) {
                 if self.entries_conflict(

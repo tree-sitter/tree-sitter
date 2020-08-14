@@ -1,73 +1,81 @@
 use super::helpers::allocations;
 use super::helpers::fixtures::{get_language, get_language_queries_path};
+use std::ffi::CStr;
 use std::ffi::CString;
 use std::{fs, ptr, slice, str};
+use tree_sitter::Point;
 use tree_sitter_tags::c_lib as c;
-use tree_sitter_tags::{Error, TagKind, TagsConfiguration, TagsContext};
+use tree_sitter_tags::{Error, TagsConfiguration, TagsContext};
 
 const PYTHON_TAG_QUERY: &'static str = r#"
 (
-    (function_definition
-      name: (identifier) @name
-      body: (block . (expression_statement (string) @doc))) @function
-    (#strip! @doc "(^['\"\\s]*)|(['\"\\s]*$)")
+  (function_definition
+    name: (identifier) @name
+    body: (block . (expression_statement (string) @doc))) @definition.function
+  (#strip! @doc "(^['\"\\s]*)|(['\"\\s]*$)")
 )
 
 (function_definition
-  name: (identifier) @name) @function
+  name: (identifier) @name) @definition.function
 
 (
-    (class_definition
-        name: (identifier) @name
-        body: (block
-            . (expression_statement (string) @doc))) @class
-    (#strip! @doc "(^['\"\\s]*)|(['\"\\s]*$)")
+  (class_definition
+    name: (identifier) @name
+    body: (block
+      . (expression_statement (string) @doc))) @definition.class
+  (#strip! @doc "(^['\"\\s]*)|(['\"\\s]*$)")
 )
 
 (class_definition
-  name: (identifier) @name) @class
+  name: (identifier) @name) @definition.class
 
 (call
-  function: (identifier) @name) @call
+  function: (identifier) @name) @reference.call
+
+(call
+  function: (attribute
+    attribute: (identifier) @name)) @reference.call
 "#;
 
 const JS_TAG_QUERY: &'static str = r#"
 (
     (comment)* @doc .
     (class_declaration
-        name: (identifier) @name) @class
-    (#select-adjacent! @doc @class)
+        name: (identifier) @name) @definition.class
+    (#select-adjacent! @doc @definition.class)
     (#strip! @doc "(^[/\\*\\s]*)|([/\\*\\s]*$)")
 )
 
 (
     (comment)* @doc .
     (method_definition
-        name: (property_identifier) @name) @method
-    (#select-adjacent! @doc @method)
+        name: (property_identifier) @name) @definition.method
+    (#select-adjacent! @doc @definition.method)
     (#strip! @doc "(^[/\\*\\s]*)|([/\\*\\s]*$)")
 )
 
 (
     (comment)* @doc .
     (function_declaration
-        name: (identifier) @name) @function
-    (#select-adjacent! @doc @function)
+        name: (identifier) @name) @definition.function
+    (#select-adjacent! @doc @definition.function)
     (#strip! @doc "(^[/\\*\\s]*)|([/\\*\\s]*$)")
 )
 
 (call_expression
-    function: (identifier) @name) @call
+    function: (identifier) @name) @reference.call
 "#;
 
 const RUBY_TAG_QUERY: &'static str = r#"
 (method
-    name: (identifier) @name) @method
+    name: (_) @name) @definition.method
 
 (method_call
-    method: (identifier) @name) @call
+    method: (identifier) @name) @reference.call
 
-((identifier) @name @call
+(setter (identifier) @ignore)
+
+((identifier) @name @reference.call
  (#is-not? local))
 "#;
 
@@ -94,25 +102,26 @@ fn test_tags_python() {
     let tags = tag_context
         .generate_tags(&tags_config, source, None)
         .unwrap()
+        .0
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
 
     assert_eq!(
         tags.iter()
-            .map(|t| (substr(source, &t.name_range), t.kind))
+            .map(|t| (
+                substr(source, &t.name_range),
+                tags_config.syntax_type_name(t.syntax_type_id)
+            ))
             .collect::<Vec<_>>(),
         &[
-            ("Customer", TagKind::Class),
-            ("age", TagKind::Function),
-            ("compute_age", TagKind::Call),
+            ("Customer", "class"),
+            ("age", "function"),
+            ("compute_age", "call"),
         ]
     );
 
-    assert_eq!(substr(source, &tags[0].line_range), "    class Customer:");
-    assert_eq!(
-        substr(source, &tags[1].line_range),
-        "        def age(self):"
-    );
+    assert_eq!(substr(source, &tags[0].line_range), "class Customer:");
+    assert_eq!(substr(source, &tags[1].line_range), "def age(self):");
     assert_eq!(tags[0].docs.as_ref().unwrap(), "Data about a customer");
     assert_eq!(tags[1].docs.as_ref().unwrap(), "Get the customer's age");
 }
@@ -145,17 +154,22 @@ fn test_tags_javascript() {
     let tags = tag_context
         .generate_tags(&tags_config, source, None)
         .unwrap()
+        .0
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
 
     assert_eq!(
         tags.iter()
-            .map(|t| (substr(source, &t.name_range), t.kind))
+            .map(|t| (
+                substr(source, &t.name_range),
+                t.span.clone(),
+                tags_config.syntax_type_name(t.syntax_type_id)
+            ))
             .collect::<Vec<_>>(),
         &[
-            ("Customer", TagKind::Class),
-            ("getAge", TagKind::Method),
-            ("Agent", TagKind::Class)
+            ("Customer", Point::new(5, 10)..Point::new(5, 18), "class",),
+            ("getAge", Point::new(9, 8)..Point::new(9, 14), "method",),
+            ("Agent", Point::new(15, 10)..Point::new(15, 15), "class",)
         ]
     );
     assert_eq!(
@@ -164,6 +178,27 @@ fn test_tags_javascript() {
     );
     assert_eq!(tags[1].docs.as_ref().unwrap(), "Get the customer's age");
     assert_eq!(tags[2].docs, None);
+}
+
+#[test]
+fn test_tags_columns_measured_in_utf16_code_units() {
+    let language = get_language("python");
+    let tags_config = TagsConfiguration::new(language, PYTHON_TAG_QUERY, "").unwrap();
+    let mut tag_context = TagsContext::new();
+
+    let source = r#""❤️❤️❤️".hello_α_ω()"#.as_bytes();
+
+    let tag = tag_context
+        .generate_tags(&tags_config, source, None)
+        .unwrap()
+        .0
+        .next()
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(substr(source, &tag.name_range), "hello_α_ω");
+    assert_eq!(tag.span, Point::new(0, 21)..Point::new(0, 32));
+    assert_eq!(tag.utf16_column_range, 9..18);
 }
 
 #[test]
@@ -177,7 +212,7 @@ fn test_tags_ruby() {
         "
         b = 1
 
-        def foo()
+        def foo=()
             c = 1
 
             # a is a method because it is not in scope
@@ -197,6 +232,7 @@ fn test_tags_ruby() {
     let tags = tag_context
         .generate_tags(&tags_config, source.as_bytes(), None)
         .unwrap()
+        .0
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
 
@@ -204,18 +240,18 @@ fn test_tags_ruby() {
         tags.iter()
             .map(|t| (
                 substr(source.as_bytes(), &t.name_range),
-                t.kind,
+                tags_config.syntax_type_name(t.syntax_type_id),
                 (t.span.start.row, t.span.start.column),
             ))
             .collect::<Vec<_>>(),
         &[
-            ("foo", TagKind::Method, (2, 0)),
-            ("bar", TagKind::Call, (7, 4)),
-            ("a", TagKind::Call, (7, 8)),
-            ("b", TagKind::Call, (7, 11)),
-            ("each", TagKind::Call, (9, 14)),
-            ("baz", TagKind::Call, (13, 8)),
-            ("b", TagKind::Call, (13, 15),),
+            ("foo=", "method", (2, 4)),
+            ("bar", "call", (7, 4)),
+            ("a", "call", (7, 8)),
+            ("b", "call", (7, 11)),
+            ("each", "call", (9, 14)),
+            ("baz", "call", (13, 8)),
+            ("b", "call", (13, 15),),
         ]
     );
 }
@@ -239,7 +275,7 @@ fn test_tags_cancellation() {
             .generate_tags(&tags_config, source.as_bytes(), Some(&cancellation_flag))
             .unwrap();
 
-        for (i, tag) in tags.enumerate() {
+        for (i, tag) in tags.0.enumerate() {
             if i == 150 {
                 cancellation_flag.store(1, Ordering::SeqCst);
             }
@@ -252,6 +288,47 @@ fn test_tags_cancellation() {
         panic!("Expected to halt tagging with an error");
     });
 }
+
+#[test]
+fn test_invalid_capture() {
+    let language = get_language("python");
+    let e = TagsConfiguration::new(language, "(identifier) @method", "")
+        .expect_err("expected InvalidCapture error");
+    assert_eq!(e, Error::InvalidCapture("method".to_string()));
+}
+
+#[test]
+fn test_tags_with_parse_error() {
+    let language = get_language("python");
+    let tags_config = TagsConfiguration::new(language, PYTHON_TAG_QUERY, "").unwrap();
+    let mut tag_context = TagsContext::new();
+
+    let source = br#"
+    class Fine: pass
+    class Bad
+    "#;
+
+    let (tags, failed) = tag_context
+        .generate_tags(&tags_config, source, None)
+        .unwrap();
+
+    let newtags = tags.collect::<Result<Vec<_>, _>>().unwrap();
+
+    assert!(failed, "syntax error should have been detected");
+
+    assert_eq!(
+        newtags.iter()
+            .map(|t| (
+                substr(source, &t.name_range),
+                tags_config.syntax_type_name(t.syntax_type_id)
+            ))
+            .collect::<Vec<_>>(),
+        &[
+            ("Fine", "class"),
+        ]
+    );
+}
+
 
 #[test]
 fn test_tags_via_c_api() {
@@ -316,29 +393,29 @@ fn test_tags_via_c_api() {
         })
         .unwrap();
 
+        let syntax_types: Vec<&str> = unsafe {
+            let mut len: u32 = 0;
+            let ptr =
+                c::ts_tagger_syntax_kinds_for_scope_name(tagger, c_scope_name.as_ptr(), &mut len);
+            slice::from_raw_parts(ptr, len as usize)
+                .iter()
+                .map(|i| CStr::from_ptr(*i).to_str().unwrap())
+                .collect()
+        };
+
         assert_eq!(
             tags.iter()
                 .map(|tag| (
-                    tag.kind,
+                    syntax_types[tag.syntax_type_id as usize],
                     &source_code[tag.name_start_byte as usize..tag.name_end_byte as usize],
                     &source_code[tag.line_start_byte as usize..tag.line_end_byte as usize],
                     &docs[tag.docs_start_byte as usize..tag.docs_end_byte as usize],
                 ))
                 .collect::<Vec<_>>(),
             &[
-                (
-                    c::TSTagKind::Function,
-                    "b",
-                    "function b() {",
-                    "one\ntwo\nthree"
-                ),
-                (
-                    c::TSTagKind::Class,
-                    "C",
-                    "class C extends D {",
-                    "four\nfive"
-                ),
-                (c::TSTagKind::Call, "b", "b(a);", "")
+                ("function", "b", "function b() {", "one\ntwo\nthree"),
+                ("class", "C", "class C extends D {", "four\nfive"),
+                ("call", "b", "b(a);", "")
             ]
         );
 

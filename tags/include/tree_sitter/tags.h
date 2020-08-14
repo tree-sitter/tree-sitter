@@ -16,18 +16,10 @@ typedef enum {
   TSTagsInvalidUtf8,
   TSTagsInvalidRegex,
   TSTagsInvalidQuery,
+  TSTagsInvalidCapture,
 } TSTagsError;
 
-typedef enum {
-  TSTagKindFunction,
-  TSTagKindMethod,
-  TSTagKindClass,
-  TSTagKindModule,
-  TSTagKindCall,
-} TSTagKind;
-
 typedef struct {
-  TSTagKind kind;
   uint32_t start_byte;
   uint32_t end_byte;
   uint32_t name_start_byte;
@@ -36,8 +28,12 @@ typedef struct {
   uint32_t line_end_byte;
   TSPoint start_point;
   TSPoint end_point;
+  uint32_t utf16_start_column;
+  uint32_t utf16_end_column;
   uint32_t docs_start_byte;
   uint32_t docs_end_byte;
+  uint32_t syntax_type_id;
+  bool is_definition;
 } TSTag;
 
 typedef struct TSTagger TSTagger;
@@ -88,6 +84,12 @@ uint32_t ts_tags_buffer_tags_len(const TSTagsBuffer *);
 // Access the string containing all of the docs
 const char *ts_tags_buffer_docs(const TSTagsBuffer *);
 uint32_t ts_tags_buffer_docs_len(const TSTagsBuffer *);
+
+// Get the syntax kinds for a scope.
+const char **ts_tagger_syntax_kinds_for_scope_name(const TSTagger *, const char *scope_name, uint32_t *len);
+
+// Determine whether a parse error was encountered while tagging.
+bool ts_tags_buffer_found_parse_error(const TSTagsBuffer*);
 
 #ifdef __cplusplus
 }

@@ -408,7 +408,7 @@ fn test_query_matches_with_many_overlapping_results() {
         )
         .unwrap();
 
-        let count = 80;
+        let count = 1024;
 
         // Deeply nested chained function calls:
         // a
@@ -573,8 +573,8 @@ fn test_query_matches_with_immediate_siblings() {
             &[
                 (0, vec![("parent", "a"), ("child", "b")]),
                 (0, vec![("parent", "b"), ("child", "c")]),
-                (1, vec![("last-child", "d")]),
                 (0, vec![("parent", "c"), ("child", "d")]),
+                (1, vec![("last-child", "d")]),
                 (2, vec![("first-element", "w")]),
                 (2, vec![("first-element", "1")]),
             ],
@@ -754,6 +754,55 @@ fn test_query_matches_with_nested_repetitions() {
                 ),
                 (0, vec![("x", "g")]),
             ],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_multiple_repetition_patterns_that_intersect_other_pattern() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        // When this query sees a comment, it must keep track of several potential
+        // matches: up to two for each pattern that begins with a comment.
+        let query = Query::new(
+            language,
+            r#"
+            (call_expression
+                function: (member_expression
+                    property: (property_identifier) @name)) @ref.method
+
+            ((comment)* @doc (function_declaration))
+            ((comment)* @doc (generator_function_declaration))
+            ((comment)* @doc (class_declaration))
+            ((comment)* @doc (lexical_declaration))
+            ((comment)* @doc (variable_declaration))
+            ((comment)* @doc (method_definition))
+
+            (comment) @comment
+            "#,
+        )
+        .unwrap();
+
+        // Here, a series of comments occurs in the middle of a match of the first
+        // pattern. To avoid exceeding the storage limits and discarding that outer
+        // match, the comment-related matches need to be managed efficiently.
+        let source = format!(
+            "theObject\n{}\n.theMethod()",
+            "  // the comment\n".repeat(64)
+        );
+
+        assert_query_matches(
+            language,
+            &query,
+            &source,
+            &vec![(7, vec![("comment", "// the comment")]); 64]
+                .into_iter()
+                .chain(vec![(
+                    0,
+                    vec![("ref.method", source.as_str()), ("name", "theMethod")],
+                )])
+                .collect::<Vec<_>>(),
         );
     });
 }
@@ -1162,6 +1211,43 @@ fn test_query_matches_with_too_many_permutations_to_track() {
 }
 
 #[test]
+fn test_query_matches_with_alternatives_and_too_many_permutations_to_track() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            "
+            (
+                (comment) @doc
+                ; not immediate
+                (class_declaration) @class
+            )
+
+            (call_expression
+                function: [
+                    (identifier) @function
+                    (member_expression property: (property_identifier) @method)
+                ])
+            ",
+        )
+        .unwrap();
+
+        let source = "/* hi */ a.b(); ".repeat(50);
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.matches(&query, tree.root_node(), to_callback(&source));
+
+        assert_eq!(
+            collect_matches(matches, &query, source.as_str()),
+            vec![(1, vec![("method", "b")]); 50],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_anonymous_tokens() {
     allocations::record(|| {
         let language = get_language("javascript");
@@ -1210,6 +1296,45 @@ fn test_query_matches_within_byte_range() {
                 (0, vec![("element", "c")]),
                 (0, vec![("element", "d")]),
                 (0, vec![("element", "e")]),
+            ]
+        );
+    });
+}
+
+#[test]
+fn test_query_captures_within_byte_range() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            language,
+            "
+            (call_expression
+                function: (identifier) @function
+                arguments: (argument_list (string_literal) @string.arg))
+
+            (string_literal) @string
+           ",
+        )
+        .unwrap();
+
+        let source = r#"DEFUN ("safe-length", Fsafe_length, Ssafe_length, 1, 1, 0)"#;
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+
+        let mut cursor = QueryCursor::new();
+        let captures =
+            cursor
+                .set_byte_range(3, 27)
+                .captures(&query, tree.root_node(), to_callback(source));
+
+        assert_eq!(
+            collect_captures(captures, &query, source),
+            &[
+                ("function", "DEFUN"),
+                ("string.arg", "\"safe-length\""),
+                ("string", "\"safe-length\""),
             ]
         );
     });
@@ -1420,12 +1545,17 @@ fn test_query_captures_with_text_conditions() {
             ((identifier) @function.builtin
              (#eq? @function.builtin "require"))
 
-             (identifier) @variable
+            ((identifier) @variable
+             (#not-match? @variable "^(lambda|load)$"))
             "#,
         )
         .unwrap();
 
         let source = "
+          toad
+          load
+          panda
+          lambda
           const ab = require('./ab');
           new Cd(EF);
         ";
@@ -1439,6 +1569,8 @@ fn test_query_captures_with_text_conditions() {
         assert_eq!(
             collect_captures(captures, &query, source),
             &[
+                ("variable", "toad"),
+                ("variable", "panda"),
                 ("variable", "ab"),
                 ("function.builtin", "require"),
                 ("variable", "require"),
@@ -2075,6 +2207,39 @@ fn test_query_disable_pattern() {
 }
 
 #[test]
+fn test_query_alternative_predicate_prefix() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            language,
+            r#"
+            ((call_expression
+              function: (identifier) @keyword
+              arguments: (argument_list
+                          (string_literal) @function))
+             (.eq? @keyword "DEFUN"))
+        "#,
+        )
+        .unwrap();
+        let source = r#"
+            DEFUN ("identity", Fidentity, Sidentity, 1, 1, 0,
+                   doc: /* Return the argument unchanged.  */
+                   attributes: const)
+              (Lisp_Object arg)
+            {
+              return arg;
+            }
+        "#;
+        assert_query_matches(
+            language,
+            &query,
+            source,
+            &[(0, vec![("keyword", "DEFUN"), ("function", "\"identity\"")])],
+        );
+    });
+}
+
+#[test]
 fn test_query_is_definite() {
     struct Row {
         language: Language,
@@ -2086,10 +2251,7 @@ fn test_query_is_definite() {
         Row {
             language: get_language("python"),
             pattern: r#"(expression_statement (string))"#,
-            results_by_symbol: &[
-                ("expression_statement", false),
-                ("string", false),
-            ],
+            results_by_symbol: &[("expression_statement", false), ("string", false)],
         },
         Row {
             language: get_language("javascript"),
@@ -2102,30 +2264,17 @@ fn test_query_is_definite() {
         Row {
             language: get_language("javascript"),
             pattern: r#"(object "{" "}")"#,
-            results_by_symbol: &[
-                ("object", false),
-                ("{", true),
-                ("}", true),
-            ],
+            results_by_symbol: &[("object", false), ("{", true), ("}", true)],
         },
         Row {
             language: get_language("javascript"),
             pattern: r#"(pair (property_identifier) ":")"#,
-            results_by_symbol: &[
-                ("pair", false),
-                ("property_identifier", false),
-                (":", true),
-            ],
+            results_by_symbol: &[("pair", false), ("property_identifier", false), (":", true)],
         },
         Row {
             language: get_language("javascript"),
             pattern: r#"(object "{" (_) "}")"#,
-            results_by_symbol: &[
-                ("object", false),
-                ("{", false),
-                ("", false),
-                ("}", true),
-            ],
+            results_by_symbol: &[("object", false), ("{", false), ("", false), ("}", true)],
         },
         Row {
             language: get_language("javascript"),

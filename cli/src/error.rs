@@ -87,7 +87,7 @@ impl<'a> From<tree_sitter_highlight::Error> for Error {
 
 impl<'a> From<tree_sitter_tags::Error> for Error {
     fn from(error: tree_sitter_tags::Error) -> Self {
-        Error::new(format!("{:?}", error))
+        Error::new(format!("{}", error))
     }
 }
 

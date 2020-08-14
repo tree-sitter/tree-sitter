@@ -385,6 +385,14 @@ The following query would specify that the contents of the heredoc should be par
   (heredoc_end) @injection.language) @injection.content
 ```
 
+You can also force the language using the `#set!` predicate.
+For example, this will force the language to be always `ruby`.
+
+```
+((heredoc_body) @injection.content
+ (#set! injection.language "ruby"))
+```
+
 ## Unit Testing
 
 Tree-sitter has a built-in way to verify the results of syntax highlighting. The interface is based on [Sublime Text's system](https://www.sublimetext.com/docs/3/syntax.html#testing) for testing highlighting.

@@ -3,10 +3,17 @@ use super::util;
 use crate::error::{Error, Result};
 use std::io::{self, Write};
 use std::path::Path;
+use std::time::Instant;
 use std::{fs, str};
 use tree_sitter_tags::TagsContext;
 
-pub fn generate_tags(loader: &Loader, scope: Option<&str>, paths: &[String]) -> Result<()> {
+pub fn generate_tags(
+    loader: &Loader,
+    scope: Option<&str>,
+    paths: &[String],
+    quiet: bool,
+    time: bool,
+) -> Result<()> {
     let mut lang = None;
     if let Some(scope) = scope {
         lang = loader.language_configuration_for_scope(scope)?;
@@ -34,28 +41,50 @@ pub fn generate_tags(loader: &Loader, scope: Option<&str>, paths: &[String]) -> 
         };
 
         if let Some(tags_config) = language_config.tags_config(language)? {
-            let path_str = format!("{:?}", path);
-            writeln!(&mut stdout, "{}", &path_str[1..path_str.len() - 1])?;
+            let indent;
+            if paths.len() > 1 {
+                if !quiet {
+                    writeln!(&mut stdout, "{}", path.to_string_lossy())?;
+                }
+                indent = "\t"
+            } else {
+                indent = "";
+            };
 
             let source = fs::read(path)?;
-            for tag in context.generate_tags(tags_config, &source, Some(&cancellation_flag))? {
+            let t0 = Instant::now();
+            for tag in context.generate_tags(tags_config, &source, Some(&cancellation_flag))?.0 {
                 let tag = tag?;
-                write!(
-                    &mut stdout,
-                    "  {:<8} {:<40}\t{:>9}-{:<9}",
-                    tag.kind,
-                    str::from_utf8(&source[tag.name_range]).unwrap_or(""),
-                    tag.span.start,
-                    tag.span.end,
-                )?;
-                if let Some(docs) = tag.docs {
-                    if docs.len() > 120 {
-                        write!(&mut stdout, "\t{:?}...", &docs[0..120])?;
-                    } else {
-                        write!(&mut stdout, "\t{:?}", &docs)?;
+                if !quiet {
+                    write!(
+                        &mut stdout,
+                        "{}{:<10}\t | {:<8}\t{} {} - {} `{}`",
+                        indent,
+                        str::from_utf8(&source[tag.name_range]).unwrap_or(""),
+                        &tags_config.syntax_type_name(tag.syntax_type_id),
+                        if tag.is_definition { "def" } else { "ref" },
+                        tag.span.start,
+                        tag.span.end,
+                        str::from_utf8(&source[tag.line_range]).unwrap_or(""),
+                    )?;
+                    if let Some(docs) = tag.docs {
+                        if docs.len() > 120 {
+                            write!(&mut stdout, "\t{:?}...", &docs[0..120])?;
+                        } else {
+                            write!(&mut stdout, "\t{:?}", &docs)?;
+                        }
                     }
+                    writeln!(&mut stdout, "")?;
                 }
-                writeln!(&mut stdout, "")?;
+            }
+
+            if time {
+                writeln!(
+                    &mut stdout,
+                    "{}time: {}ms",
+                    indent,
+                    t0.elapsed().as_millis(),
+                )?;
             }
         } else {
             eprintln!("No tags config found for path {:?}", path);

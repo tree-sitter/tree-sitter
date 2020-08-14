@@ -127,6 +127,9 @@ impl InlinedProductionMapBuilder {
                                     last_inserted_step.associativity = removed_step.associativity;
                                 }
                             }
+                            if p.dynamic_precedence.abs() > production.dynamic_precedence.abs() {
+                                production.dynamic_precedence = p.dynamic_precedence;
+                            }
                             production
                         }),
                     );
@@ -226,7 +229,7 @@ mod tests {
                             ],
                         },
                         Production {
-                            dynamic_precedence: 0,
+                            dynamic_precedence: -2,
                             steps: vec![ProductionStep::new(Symbol::terminal(14))],
                         },
                     ],
@@ -258,7 +261,7 @@ mod tests {
                     ],
                 },
                 Production {
-                    dynamic_precedence: 0,
+                    dynamic_precedence: -2,
                     steps: vec![
                         ProductionStep::new(Symbol::terminal(10)),
                         ProductionStep::new(Symbol::terminal(14)),
