@@ -186,21 +186,40 @@ fn test_query_errors_on_invalid_conditions() {
 
 #[test]
 fn test_query_errors_on_impossible_patterns() {
-    allocations::record(|| {
-        let language = get_language("javascript");
+    let js_lang = get_language("javascript");
+    let rb_lang = get_language("ruby");
 
+    allocations::record(|| {
         assert_eq!(
             Query::new(
-                language,
-                "(binary_expression left:(identifier) left:(identifier))"
+                js_lang,
+                "(binary_expression left: (identifier) left: (identifier))"
             ),
             Err(QueryError::Pattern(
                 1,
-                [
-                    "(binary_expression left:(identifier) left:(identifier))", //
-                    "^"
-                ]
-                .join("\n")
+                "(binary_expression left: (identifier) left: (identifier))\n^".to_string(),
+            ))
+        );
+
+        Query::new(
+            js_lang,
+            "(function_declaration name: (identifier) (statement_block))",
+        )
+        .unwrap();
+        assert_eq!(
+            Query::new(js_lang, "(function_declaration name: (statement_block))"),
+            Err(QueryError::Pattern(
+                1,
+                "(function_declaration name: (statement_block))\n^".to_string(),
+            ))
+        );
+
+        Query::new(rb_lang, "(call receiver:(call))").unwrap();
+        assert_eq!(
+            Query::new(rb_lang, "(call receiver:(binary))"),
+            Err(QueryError::Pattern(
+                1,
+                "(call receiver:(binary))\n^".to_string(),
             ))
         );
     });
