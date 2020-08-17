@@ -2310,9 +2310,17 @@ fn test_query_is_definite() {
             ],
         },
         Row {
-            language: get_language("javascript"),
-            pattern: r#""#,
-            results_by_symbol: &[],
+            language: get_language("ruby"),
+            pattern: r#"
+            (singleton_class
+                value: (constant)
+                "end")
+            "#,
+            results_by_symbol: &[
+                ("singleton_class", false),
+                ("constant", false),
+                ("end", true),
+            ],
         },
     ];
 

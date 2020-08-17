@@ -14,7 +14,7 @@
 #define MAX_CAPTURE_LIST_COUNT 32
 #define MAX_STEP_CAPTURE_COUNT 3
 #define MAX_STATE_PREDECESSOR_COUNT 100
-#define MAX_ANALYSIS_STATE_DEPTH 4
+#define MAX_ANALYSIS_STATE_DEPTH 8
 
 /*
  * Stream - A sequence of unicode characters derived from a UTF8 string.
@@ -804,7 +804,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
     }
     for (TSSymbol sym = self->language->token_count; sym < self->language->symbol_count; sym++) {
       TSStateId next_state = ts_language_next_state(self->language, state, sym);
-      if (next_state != 0) {
+      if (next_state != 0 && next_state != state) {
         state_predecessor_map_add(&predecessor_map, next_state, state);
         TSSymbol symbol = self->language->public_symbol_map[sym];
         array_search_sorted_by(
@@ -873,7 +873,10 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
       printf("  %u, %s:\n", subgraph->symbol, ts_language_symbol_name(self->language, subgraph->symbol));
       for (unsigned j = 0; j < subgraph->nodes.size; j++) {
         AnalysisSubgraphNode *node = &subgraph->nodes.contents[j];
-        printf("    {state: %u, child_index: %u, production_id: %u}\n", node->state, node->child_index, node->production_id);
+        printf(
+          "    {state: %u, child_index: %u, production_id: %u, done: %d}\n",
+          node->state, node->child_index, node->production_id, node->done
+        );
       }
       printf("\n");
     }
@@ -924,23 +927,24 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
       #ifdef DEBUG_ANALYZE_QUERY
         printf("Final step indices:");
         for (unsigned j = 0; j < final_step_indices.size; j++) {
-          printf(" %u", final_step_indices.contents[j]);
+          printf(" %4u", final_step_indices.contents[j]);
         }
         printf("\nWalk states for %u %s:\n", i, ts_language_symbol_name(self->language, parent_symbol));
         for (unsigned j = 0; j < states.size; j++) {
           AnalysisState *state = &states.contents[j];
-          printf("  %3u: {step: %u, stack: [", j, state->step_index);
+          printf("  %3u: step: %u, stack: [", j, state->step_index);
           for (unsigned k = 0; k < state->depth; k++) {
             printf(
-              " {parent: %s, child_index: %u, field: %s, state: %3u, done:%d}",
+              " {%s, child: %u, state: %4u",
               self->language->symbol_names[state->stack[k].parent_symbol],
               state->stack[k].child_index,
-              state->stack[k].field_id ? self->language->field_names[state->stack[k].field_id] : "",
-              state->stack[k].parse_state,
-              state->stack[k].done
+              state->stack[k].parse_state
             );
+            if (state->stack[k].field_id) printf(", field: %s", self->language->field_names[state->stack[k].field_id]);
+            if (state->stack[k].done) printf(", DONE");
+            printf("}");
           }
-          printf(" ]}\n");
+          printf(" ]\n");
         }
       #endif
 
