@@ -1953,6 +1953,54 @@ fn test_query_captures_with_too_many_nested_results() {
 }
 
 #[test]
+fn test_query_captures_with_definite_pattern_containing_many_nested_matches() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            (array
+              "[" @l-bracket
+              "]" @r-bracket)
+
+            "." @dot
+            "#,
+        )
+        .unwrap();
+
+        // The '[' node must be returned before all of the '.' nodes,
+        // even though its pattern does not finish until the ']' node
+        // at the end of the document. But because the '[' is definite,
+        // it can be returned before the pattern finishes matching.
+        let source = "
+        [
+            a.b.c.d.e.f.g.h.i,
+            a.b.c.d.e.f.g.h.i,
+            a.b.c.d.e.f.g.h.i,
+            a.b.c.d.e.f.g.h.i,
+            a.b.c.d.e.f.g.h.i,
+        ]
+        ";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+
+        let captures = cursor.captures(&query, tree.root_node(), to_callback(source));
+        assert_eq!(
+            collect_captures(captures, &query, source),
+            [("l-bracket", "[")]
+                .iter()
+                .chain([("dot", "."); 40].iter())
+                .chain([("r-bracket", "]")].iter())
+                .cloned()
+                .collect::<Vec<_>>(),
+        );
+    });
+}
+
+#[test]
 fn test_query_captures_ordered_by_both_start_and_end_positions() {
     allocations::record(|| {
         let language = get_language("javascript");

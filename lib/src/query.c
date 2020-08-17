@@ -2034,7 +2034,8 @@ static bool ts_query_cursor__first_in_progress_capture(
   TSQueryCursor *self,
   uint32_t *state_index,
   uint32_t *byte_offset,
-  uint32_t *pattern_index
+  uint32_t *pattern_index,
+  bool *is_definite
 ) {
   bool result = false;
   *state_index = UINT32_MAX;
@@ -2047,13 +2048,20 @@ static bool ts_query_cursor__first_in_progress_capture(
       &self->capture_list_pool,
       state->capture_list_id
     );
-    if (captures->size > 0) {
-      uint32_t capture_byte = ts_node_start_byte(captures->contents[0].node);
+    if (captures->size > state->consumed_capture_count) {
+      uint32_t capture_byte = ts_node_start_byte(captures->contents[state->consumed_capture_count].node);
       if (
         !result ||
         capture_byte < *byte_offset ||
         (capture_byte == *byte_offset && state->pattern_index < *pattern_index)
       ) {
+        QueryStep *step = &self->query->steps.contents[state->step_index];
+        if (is_definite) {
+          *is_definite = step->is_definite;
+        } else if (step->is_definite) {
+          continue;
+        }
+
         result = true;
         *state_index = i;
         *byte_offset = capture_byte;
@@ -2216,7 +2224,8 @@ static CaptureList *ts_query_cursor__prepare_to_capture(
           self,
           &state_index,
           &byte_offset,
-          &pattern_index
+          &pattern_index,
+          NULL
         ) &&
         state_index != state_index_to_preserve
       ) {
@@ -2275,7 +2284,10 @@ static QueryState *ts_query_cursor__copy_state(
 // If one or more patterns finish, return `true` and store their states in the
 // `finished_states` array. Multiple patterns can finish on the same node. If
 // there are no more matches, return `false`.
-static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
+static inline bool ts_query_cursor__advance(
+  TSQueryCursor *self,
+  bool stop_on_definite_step
+) {
   bool did_match = false;
   for (;;) {
     if (self->halted) {
@@ -2290,6 +2302,7 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
 
     if (did_match || self->halted) return did_match;
 
+    // Exit the current node.
     if (self->ascending) {
       LOG("leave node. type:%s\n", ts_node_type(ts_tree_cursor_current_node(&self->cursor)));
 
@@ -2342,7 +2355,10 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
         }
       }
       self->states.size -= deleted_count;
-    } else {
+    }
+
+    // Enter a new node.
+    else {
       // If this node is before the selected range, then avoid descending into it.
       TSNode node = ts_tree_cursor_current_node(&self->cursor);
       if (
@@ -2516,6 +2532,9 @@ static inline bool ts_query_cursor__advance(TSQueryCursor *self) {
           state->step_index
         );
 
+        QueryStep *next_step = &self->query->steps.contents[state->step_index];
+        if (stop_on_definite_step && next_step->is_definite) did_match = true;
+
         // If this state's next step has an alternative step, then copy the state in order
         // to pursue both alternatives. The alternative step itself may have an alternative,
         // so this is an interative process.
@@ -2660,7 +2679,7 @@ bool ts_query_cursor_next_match(
   TSQueryMatch *match
 ) {
   if (self->finished_states.size == 0) {
-    if (!ts_query_cursor__advance(self)) {
+    if (!ts_query_cursor__advance(self, false)) {
       return false;
     }
   }
@@ -2701,99 +2720,103 @@ bool ts_query_cursor_next_capture(
   TSQueryMatch *match,
   uint32_t *capture_index
 ) {
+  // The goal here is to return captures in order, even though they may not
+  // be discovered in order, because patterns can overlap. Search for matches
+  // until there is a finished capture that is before any unfinished capture.
   for (;;) {
-    // The goal here is to return captures in order, even though they may not
-    // be discovered in order, because patterns can overlap. If there are any
-    // finished patterns, then try to find one that contains a capture that
-    // is *definitely* before any capture in an *unfinished* pattern.
-    if (self->finished_states.size > 0) {
-      // First, identify the position of the earliest capture in an unfinished
-      // match. For a finished capture to be returned, it must be *before*
-      // this position.
-      uint32_t first_unfinished_capture_byte;
-      uint32_t first_unfinished_pattern_index;
-      uint32_t first_unfinished_state_index;
-      ts_query_cursor__first_in_progress_capture(
-        self,
-        &first_unfinished_state_index,
-        &first_unfinished_capture_byte,
-        &first_unfinished_pattern_index
+    // First, find the earliest capture in an unfinished match.
+    uint32_t first_unfinished_capture_byte;
+    uint32_t first_unfinished_pattern_index;
+    uint32_t first_unfinished_state_index;
+    bool first_unfinished_state_is_definite = false;
+    ts_query_cursor__first_in_progress_capture(
+      self,
+      &first_unfinished_state_index,
+      &first_unfinished_capture_byte,
+      &first_unfinished_pattern_index,
+      &first_unfinished_state_is_definite
+    );
+
+    // Then find the earliest capture in a finished match. It must occur
+    // before the first capture in an *unfinished* match.
+    QueryState *first_finished_state = NULL;
+    uint32_t first_finished_capture_byte = first_unfinished_capture_byte;
+    uint32_t first_finished_pattern_index = first_unfinished_pattern_index;
+    for (unsigned i = 0; i < self->finished_states.size; i++) {
+      QueryState *state = &self->finished_states.contents[i];
+      const CaptureList *captures = capture_list_pool_get(
+        &self->capture_list_pool,
+        state->capture_list_id
       );
-
-      // Find the earliest capture in a finished match.
-      int first_finished_state_index = -1;
-      uint32_t first_finished_capture_byte = first_unfinished_capture_byte;
-      uint32_t first_finished_pattern_index = first_unfinished_pattern_index;
-      for (unsigned i = 0; i < self->finished_states.size; i++) {
-        const QueryState *state = &self->finished_states.contents[i];
-        const CaptureList *captures = capture_list_pool_get(
-          &self->capture_list_pool,
-          state->capture_list_id
+      if (captures->size > state->consumed_capture_count) {
+        uint32_t capture_byte = ts_node_start_byte(
+          captures->contents[state->consumed_capture_count].node
         );
-        if (captures->size > state->consumed_capture_count) {
-          uint32_t capture_byte = ts_node_start_byte(
-            captures->contents[state->consumed_capture_count].node
-          );
-          if (
-            capture_byte < first_finished_capture_byte ||
-            (
-              capture_byte == first_finished_capture_byte &&
-              state->pattern_index < first_finished_pattern_index
-            )
-          ) {
-            first_finished_state_index = i;
-            first_finished_capture_byte = capture_byte;
-            first_finished_pattern_index = state->pattern_index;
-          }
-        } else {
-          capture_list_pool_release(
-            &self->capture_list_pool,
-            state->capture_list_id
-          );
-          array_erase(&self->finished_states, i);
-          i--;
+        if (
+          capture_byte < first_finished_capture_byte ||
+          (
+            capture_byte == first_finished_capture_byte &&
+            state->pattern_index < first_finished_pattern_index
+          )
+        ) {
+          first_finished_state = state;
+          first_finished_capture_byte = capture_byte;
+          first_finished_pattern_index = state->pattern_index;
         }
-      }
-
-      // If there is finished capture that is clearly before any unfinished
-      // capture, then return its match, and its capture index. Internally
-      // record the fact that the capture has been 'consumed'.
-      if (first_finished_state_index != -1) {
-        QueryState *state = &self->finished_states.contents[
-          first_finished_state_index
-        ];
-        match->id = state->id;
-        match->pattern_index = state->pattern_index;
-        const CaptureList *captures = capture_list_pool_get(
-          &self->capture_list_pool,
-          state->capture_list_id
-        );
-        match->captures = captures->contents;
-        match->capture_count = captures->size;
-        *capture_index = state->consumed_capture_count;
-        state->consumed_capture_count++;
-        return true;
-      }
-
-      if (capture_list_pool_is_empty(&self->capture_list_pool)) {
-        LOG(
-          "  abandon state. index:%u, pattern:%u, offset:%u.\n",
-          first_unfinished_state_index,
-          first_unfinished_pattern_index,
-          first_unfinished_capture_byte
-        );
+      } else {
         capture_list_pool_release(
           &self->capture_list_pool,
-          self->states.contents[first_unfinished_state_index].capture_list_id
+          state->capture_list_id
         );
-        array_erase(&self->states, first_unfinished_state_index);
+        array_erase(&self->finished_states, i);
+        i--;
       }
+    }
+
+    // If there is finished capture that is clearly before any unfinished
+    // capture, then return its match, and its capture index. Internally
+    // record the fact that the capture has been 'consumed'.
+    QueryState *state;
+    if (first_finished_state) {
+      state = first_finished_state;
+    } else if (first_unfinished_state_is_definite) {
+      state = &self->states.contents[first_unfinished_state_index];
+    } else {
+      state = NULL;
+    }
+
+    if (state) {
+      match->id = state->id;
+      match->pattern_index = state->pattern_index;
+      const CaptureList *captures = capture_list_pool_get(
+        &self->capture_list_pool,
+        state->capture_list_id
+      );
+      match->captures = captures->contents;
+      match->capture_count = captures->size;
+      *capture_index = state->consumed_capture_count;
+      state->consumed_capture_count++;
+      return true;
+    }
+
+    if (capture_list_pool_is_empty(&self->capture_list_pool)) {
+      LOG(
+        "  abandon state. index:%u, pattern:%u, offset:%u.\n",
+        first_unfinished_state_index,
+        first_unfinished_pattern_index,
+        first_unfinished_capture_byte
+      );
+      capture_list_pool_release(
+        &self->capture_list_pool,
+        self->states.contents[first_unfinished_state_index].capture_list_id
+      );
+      array_erase(&self->states, first_unfinished_state_index);
     }
 
     // If there are no finished matches that are ready to be returned, then
     // continue finding more matches.
     if (
-      !ts_query_cursor__advance(self) &&
+      !ts_query_cursor__advance(self, true) &&
       self->finished_states.size == 0
     ) return false;
   }
