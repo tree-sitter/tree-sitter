@@ -2389,6 +2389,31 @@ fn test_query_is_definite() {
                 ("end", true),
             ],
         },
+        Row {
+            language: get_language("javascript"),
+            pattern: r#"
+            (call_expression
+                function: (member_expression
+                  property: (property_identifier) @template-tag)
+                arguments: (template_string)) @template-call
+            "#,
+            results_by_symbol: &[("property_identifier", false), ("template_string", false)],
+        },
+        Row {
+            language: get_language("javascript"),
+            pattern: r#"
+            (subscript_expression
+                object: (member_expression
+                    object: (identifier) @obj
+                    property: (property_identifier) @prop)
+                "[")
+            "#,
+            results_by_symbol: &[
+                ("identifier", false),
+                ("property_identifier", true),
+                ("[", true),
+            ],
+        },
     ];
 
     allocations::record(|| {

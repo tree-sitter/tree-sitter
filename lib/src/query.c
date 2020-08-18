@@ -1117,16 +1117,20 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
     uint32_t child_step_index = parent_step_index + 1;
     QueryStep *child_step = &self->steps.contents[child_step_index];
     while (child_step->depth == parent_depth + 1) {
+      // Check if there is any way for the pattern to reach this step, but fail
+      // to reach the end of the sub-pattern.
       for (unsigned k = 0; k < final_step_indices.size; k++) {
         uint32_t final_step_index = final_step_indices.contents[k];
         if (
           final_step_index >= child_step_index &&
-          self->steps.contents[final_step_index].depth != PATTERN_DONE_MARKER
+          self->steps.contents[final_step_index].depth == child_step->depth
         ) {
           child_step->is_definite = false;
           break;
         }
       }
+
+      // Advance to the next child step in this sub-pattern.
       do {
         child_step_index++;
         child_step++;
@@ -1136,6 +1140,8 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
       );
     }
 
+    // If this pattern cannot match, store the pattern index so that it can be
+    // returned to the caller.
     if (result && !can_finish_pattern) {
       unsigned exists;
       array_search_sorted_by(
@@ -1150,27 +1156,14 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
   // In order for a step to be definite, all of its child steps must be definite,
   // and all of its later sibling steps must be definite. Propagate any indefiniteness
   // upward and backward through the pattern trees.
+  bool all_later_children_definite = true;
   for (unsigned i = self->steps.size - 1; i + 1 > 0; i--) {
     QueryStep *step = &self->steps.contents[i];
-    bool all_later_children_definite = true;
-    unsigned end_step_index = i + 1;
-    while (end_step_index < self->steps.size) {
-      QueryStep *child_step = &self->steps.contents[end_step_index];
-      if (child_step->depth <= step->depth || child_step->depth == PATTERN_DONE_MARKER) break;
-      end_step_index++;
-    }
-    for (unsigned j = end_step_index - 1; j > i; j--) {
-      QueryStep *child_step = &self->steps.contents[j];
-      if (child_step->depth == step->depth + 1) {
-        if (all_later_children_definite) {
-          if (!child_step->is_definite) {
-            all_later_children_definite = false;
-            step->is_definite = false;
-          }
-        } else {
-          child_step->is_definite = false;
-        }
-      }
+    if (step->depth == PATTERN_DONE_MARKER) {
+      all_later_children_definite = true;
+    } else {
+      if (!all_later_children_definite) step->is_definite = false;
+      if (!step->is_definite) all_later_children_definite = false;
     }
   }
 
