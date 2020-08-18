@@ -2414,6 +2414,22 @@ fn test_query_is_definite() {
                 ("[", true),
             ],
         },
+        Row {
+            language: get_language("javascript"),
+            pattern: r#"
+            (subscript_expression
+                object: (member_expression
+                    object: (identifier) @obj
+                    property: (property_identifier) @prop)
+                "["
+                (#match? @prop "foo"))
+            "#,
+            results_by_symbol: &[
+                ("identifier", false),
+                ("property_identifier", false),
+                ("[", true),
+            ],
+        },
     ];
 
     allocations::record(|| {
@@ -2431,7 +2447,10 @@ fn test_query_is_definite() {
                     query.pattern_is_definite(0, symbol, 0),
                     *is_definite,
                     "Pattern: {:?}, symbol: {}, expected is_definite to be {}",
-                    row.pattern,
+                    row.pattern
+                        .split_ascii_whitespace()
+                        .collect::<Vec<_>>()
+                        .join(" "),
                     symbol_name,
                     is_definite,
                 )

@@ -91,9 +91,9 @@ typedef struct {
 } PatternEntry;
 
 typedef struct {
+  Slice steps;
   Slice predicate_steps;
   uint32_t start_byte;
-  uint32_t start_step;
 } QueryPattern;
 
 /*
@@ -1146,7 +1146,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
       unsigned exists;
       array_search_sorted_by(
         &self->patterns, 0,
-        .start_step, parent_step_index,
+        .steps.offset, parent_step_index,
         impossible_index, &exists
       );
       result = false;
@@ -1156,12 +1156,45 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
   // In order for a step to be definite, all of its child steps must be definite,
   // and all of its later sibling steps must be definite. Propagate any indefiniteness
   // upward and backward through the pattern trees.
-  bool all_later_children_definite = true;
-  for (unsigned i = self->steps.size - 1; i + 1 > 0; i--) {
-    QueryStep *step = &self->steps.contents[i];
-    if (step->depth == PATTERN_DONE_MARKER) {
-      all_later_children_definite = true;
-    } else {
+  Array(uint16_t) predicate_capture_ids = array_new();
+  for (unsigned i = 0; i < self->patterns.size; i++) {
+    QueryPattern *pattern = &self->patterns.contents[i];
+
+    // Gather all of the captures that are used in predicates for this pattern.
+    array_clear(&predicate_capture_ids);
+    for (
+      unsigned start = pattern->predicate_steps.offset,
+      end = start + pattern->predicate_steps.length,
+      j = start; j < end; j++
+    ) {
+      TSQueryPredicateStep *step = &self->predicate_steps.contents[j];
+      if (step->type == TSQueryPredicateStepTypeCapture) {
+        array_insert_sorted_by(&predicate_capture_ids, 0, , step->value_id);
+      }
+    }
+
+    bool all_later_children_definite = true;
+    for (
+      unsigned start = pattern->steps.offset,
+      end = start + pattern->steps.length,
+      j = end - 1; j + 1 > start; j--
+    ) {
+      QueryStep *step = &self->steps.contents[j];
+
+      // If this step has a capture that is used in a predicate,
+      // then it is not definite.
+      for (unsigned k = 0; k < MAX_STEP_CAPTURE_COUNT; k++) {
+        uint16_t capture_id = step->capture_ids[k];
+        if (capture_id == NONE) break;
+        unsigned index, exists;
+        array_search_sorted_by(&predicate_capture_ids, 0, , capture_id, &index, &exists);
+        if (exists) {
+          step->is_definite = false;
+          break;
+        }
+      }
+
+      // If a step is not definite, then none of its predecessors can be definite.
       if (!all_later_children_definite) step->is_definite = false;
       if (!step->is_definite) all_later_children_definite = false;
     }
@@ -1197,6 +1230,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
   array_delete(&next_states);
   array_delete(&final_step_indices);
   array_delete(&parent_step_indices);
+  array_delete(&predicate_capture_ids);
   state_predecessor_map_delete(&predecessor_map);
 
   return result;
@@ -1238,7 +1272,6 @@ static TSQueryError ts_query__parse_predicate(
     predicate_name,
     length
   );
-  array_back(&self->patterns)->predicate_steps.length++;
   array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
     .type = TSQueryPredicateStepTypeString,
     .value_id = id,
@@ -1249,7 +1282,6 @@ static TSQueryError ts_query__parse_predicate(
     if (stream->next == ')') {
       stream_advance(stream);
       stream_skip_whitespace(stream);
-      array_back(&self->patterns)->predicate_steps.length++;
       array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
         .type = TSQueryPredicateStepTypeDone,
         .value_id = 0,
@@ -1278,7 +1310,6 @@ static TSQueryError ts_query__parse_predicate(
         return TSQueryErrorCapture;
       }
 
-      array_back(&self->patterns)->predicate_steps.length++;
       array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
         .type = TSQueryPredicateStepTypeCapture,
         .value_id = capture_id,
@@ -1318,7 +1349,6 @@ static TSQueryError ts_query__parse_predicate(
         string_content,
         length
       );
-      array_back(&self->patterns)->predicate_steps.length++;
       array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
         .type = TSQueryPredicateStepTypeString,
         .value_id = id,
@@ -1338,7 +1368,6 @@ static TSQueryError ts_query__parse_predicate(
         symbol_start,
         length
       );
-      array_back(&self->patterns)->predicate_steps.length++;
       array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
         .type = TSQueryPredicateStepTypeString,
         .value_id = id,
@@ -1778,13 +1807,18 @@ TSQuery *ts_query_new(
   while (stream.input < stream.end) {
     uint32_t pattern_index = self->patterns.size;
     uint32_t start_step_index = self->steps.size;
+    uint32_t start_predicate_step_index = self->predicate_steps.size;
     array_push(&self->patterns, ((QueryPattern) {
-      .predicate_steps = (Slice) {.offset = self->predicate_steps.size, .length = 0},
+      .steps = (Slice) {.offset = start_step_index},
+      .predicate_steps = (Slice) {.offset = start_predicate_step_index},
       .start_byte = stream.input - source,
-      .start_step = self->steps.size,
     }));
     *error_type = ts_query__parse_pattern(self, &stream, 0, false);
     array_push(&self->steps, query_step__new(0, PATTERN_DONE_MARKER, false));
+
+    QueryPattern *pattern = array_back(&self->patterns);
+    pattern->steps.length = self->steps.size - start_step_index;
+    pattern->predicate_steps.length = self->predicate_steps.size - start_predicate_step_index;
 
     // If any pattern could not be parsed, then report the error information
     // and terminate.
@@ -1903,7 +1937,7 @@ bool ts_query_pattern_is_definite(
   TSSymbol symbol,
   uint32_t index
 ) {
-  uint32_t step_index = self->patterns.contents[pattern_index].start_step;
+  uint32_t step_index = self->patterns.contents[pattern_index].steps.offset;
   QueryStep *step = &self->steps.contents[step_index];
   for (; step->depth != PATTERN_DONE_MARKER; step++) {
     bool does_match = symbol ?
