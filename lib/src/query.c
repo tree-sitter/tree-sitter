@@ -599,7 +599,7 @@ static inline int analysis_state__compare(
     if (self->stack[i].parse_state > other->stack[i].parse_state) return 1;
     if (self->stack[i].field_id < other->stack[i].field_id) return -1;
     if (self->stack[i].field_id > other->stack[i].field_id) return 1;
-  }
+    }
   if (self->step_index < other->step_index) return -1;
   if (self->step_index > other->step_index) return 1;
   return 0;
@@ -769,47 +769,44 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
   //   3) A list of predecessor states for each state.
   StatePredecessorMap predecessor_map = state_predecessor_map_new(self->language);
   for (TSStateId state = 1; state < self->language->state_count; state++) {
-    unsigned subgraph_index = 0, exists;
-    for (TSSymbol sym = 0; sym < self->language->token_count; sym++) {
-      unsigned count;
-      const TSParseAction *actions = ts_language_actions(self->language, state, sym, &count);
-      for (unsigned i = 0; i < count; i++) {
-        const TSParseAction *action = &actions[i];
-        if (action->type == TSParseActionTypeReduce) {
-          TSSymbol symbol = self->language->public_symbol_map[action->params.reduce.symbol];
-          array_search_sorted_by(
-            &subgraphs,
-            0,
-            .symbol,
-            symbol,
-            &subgraph_index,
-            &exists
-          );
-          if (exists) {
-            AnalysisSubgraph *subgraph = &subgraphs.contents[subgraph_index];
-            if (subgraph->nodes.size == 0 || array_back(&subgraph->nodes)->state != state) {
-              array_push(&subgraph->nodes, ((AnalysisSubgraphNode) {
-                .state = state,
-                .production_id = action->params.reduce.production_id,
-                .child_index = action->params.reduce.child_count,
-                .done = true,
-              }));
+    unsigned subgraph_index, exists;
+    LookaheadIterator lookahead_iterator = ts_language_lookaheads(self->language, state);
+    while (ts_lookahead_iterator_next(&lookahead_iterator)) {
+      if (lookahead_iterator.action_count) {
+        for (unsigned i = 0; i < lookahead_iterator.action_count; i++) {
+          const TSParseAction *action = &lookahead_iterator.actions[i];
+          if (action->type == TSParseActionTypeReduce) {
+            TSSymbol symbol = self->language->public_symbol_map[action->params.reduce.symbol];
+            array_search_sorted_by(
+              &subgraphs,
+              0,
+              .symbol,
+              symbol,
+              &subgraph_index,
+              &exists
+            );
+            if (exists) {
+              AnalysisSubgraph *subgraph = &subgraphs.contents[subgraph_index];
+              if (subgraph->nodes.size == 0 || array_back(&subgraph->nodes)->state != state) {
+                array_push(&subgraph->nodes, ((AnalysisSubgraphNode) {
+                  .state = state,
+                  .production_id = action->params.reduce.production_id,
+                  .child_index = action->params.reduce.child_count,
+                  .done = true,
+                }));
+              }
             }
+          } else if (action->type == TSParseActionTypeShift && !action->params.shift.extra) {
+            TSStateId next_state = action->params.shift.state;
+            state_predecessor_map_add(&predecessor_map, next_state, state);
           }
-        } else if (action->type == TSParseActionTypeShift && !action->params.shift.extra) {
-          TSStateId next_state = action->params.shift.state;
-          state_predecessor_map_add(&predecessor_map, next_state, state);
         }
-      }
-    }
-    for (TSSymbol sym = self->language->token_count; sym < self->language->symbol_count; sym++) {
-      TSStateId next_state = ts_language_next_state(self->language, state, sym);
-      if (next_state != 0 && next_state != state) {
-        state_predecessor_map_add(&predecessor_map, next_state, state);
-        TSSymbol symbol = self->language->public_symbol_map[sym];
+      } else if (lookahead_iterator.next_state != 0 && lookahead_iterator.next_state != state) {
+        state_predecessor_map_add(&predecessor_map, lookahead_iterator.next_state, state);
+        TSSymbol symbol = self->language->public_symbol_map[lookahead_iterator.symbol];
         array_search_sorted_by(
           &subgraphs,
-          subgraph_index,
+          0,
           .symbol,
           symbol,
           &subgraph_index,
@@ -871,6 +868,12 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
     for (unsigned i = 0; i < subgraphs.size; i++) {
       AnalysisSubgraph *subgraph = &subgraphs.contents[i];
       printf("  %u, %s:\n", subgraph->symbol, ts_language_symbol_name(self->language, subgraph->symbol));
+      for (unsigned j = 0; j < subgraph->start_states.size; j++) {
+        printf(
+          "    {state: %u}\n",
+          subgraph->start_states.contents[j]
+        );
+      }
       for (unsigned j = 0; j < subgraph->nodes.size; j++) {
         AnalysisSubgraphNode *node = &subgraph->nodes.contents[j];
         printf(
@@ -985,120 +988,135 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
 
         // Follow every possible path in the parse table, but only visit states that
         // are part of the subgraph for the current symbol.
-        for (TSSymbol sym = 0; sym < self->language->symbol_count; sym++) {
+        LookaheadIterator lookahead_iterator = ts_language_lookaheads(self->language, parse_state);
+        while (ts_lookahead_iterator_next(&lookahead_iterator)) {
+          TSSymbol sym = lookahead_iterator.symbol;
+
+          TSStateId next_parse_state;
+          if (lookahead_iterator.action_count) {
+            const TSParseAction *action = &lookahead_iterator.actions[lookahead_iterator.action_count - 1];
+            if (action->type == TSParseActionTypeShift && !action->params.shift.extra) {
+              next_parse_state = action->params.shift.state;
+            } else {
+              continue;
+            }
+          } else if (lookahead_iterator.next_state != 0 && lookahead_iterator.next_state != parse_state) {
+            next_parse_state = lookahead_iterator.next_state;
+          } else {
+            continue;
+          }
+
           AnalysisSubgraphNode successor = {
-            .state = ts_language_next_state(self->language, parse_state, sym),
+            .state = next_parse_state,
             .child_index = child_index + 1,
           };
-          if (successor.state && successor.state != parse_state) {
-            unsigned node_index;
-            array_search_sorted_with(
-              &subgraph->nodes, 0,
-              analysis_subgraph_node__compare, &successor,
-              &node_index, &exists
-            );
-            while (node_index < subgraph->nodes.size) {
-              AnalysisSubgraphNode *node = &subgraph->nodes.contents[node_index++];
-              if (node->state != successor.state || node->child_index != successor.child_index) break;
+          unsigned node_index;
+          array_search_sorted_with(
+            &subgraph->nodes, 0,
+            analysis_subgraph_node__compare, &successor,
+            &node_index, &exists
+          );
+          while (node_index < subgraph->nodes.size) {
+            AnalysisSubgraphNode *node = &subgraph->nodes.contents[node_index++];
+            if (node->state != successor.state || node->child_index != successor.child_index) break;
 
-              // Use the subgraph to determine what alias and field will eventually be applied
-              // to this child node.
-              TSSymbol alias = ts_language_alias_at(self->language, node->production_id, child_index);
-              TSSymbol visible_symbol = alias
-                ? alias
-                : self->language->symbol_metadata[sym].visible
-                  ? self->language->public_symbol_map[sym]
-                  : 0;
-              TSFieldId field_id = parent_field_id;
-              if (!field_id) {
-                const TSFieldMapEntry *field_map, *field_map_end;
-                ts_language_field_map(self->language, node->production_id, &field_map, &field_map_end);
-                for (; field_map != field_map_end; field_map++) {
-                  if (field_map->child_index == child_index) {
-                    field_id = field_map->field_id;
-                    break;
-                  }
-                }
-              }
-
-              AnalysisState next_state = *state;
-              analysis_state__top(&next_state)->child_index++;
-              analysis_state__top(&next_state)->parse_state = successor.state;
-              if (node->done) analysis_state__top(&next_state)->done = true;
-
-              // Determine if this hypothetical child node would match the current step
-              // of the query pattern.
-              bool does_match = false;
-              if (visible_symbol) {
-                does_match = true;
-                if (step->symbol == NAMED_WILDCARD_SYMBOL) {
-                  if (!self->language->symbol_metadata[visible_symbol].named) does_match = false;
-                } else if (step->symbol != WILDCARD_SYMBOL) {
-                  if (step->symbol != visible_symbol) does_match = false;
-                }
-                if (step->field && step->field != field_id) {
-                  does_match = false;
-                }
-              }
-
-              // If this is a hidden child, then push a new entry to the stack, in order to
-              // walk through the children of this child.
-              else if (sym >= self->language->token_count && next_state.depth < MAX_ANALYSIS_STATE_DEPTH) {
-                next_state.depth++;
-                analysis_state__top(&next_state)->parse_state = parse_state;
-                analysis_state__top(&next_state)->child_index = 0;
-                analysis_state__top(&next_state)->parent_symbol = sym;
-                analysis_state__top(&next_state)->field_id = field_id;
-                analysis_state__top(&next_state)->done = false;
-              } else {
-                continue;
-              }
-
-              // Pop from the stack when this state reached the end of its current syntax node.
-              while (next_state.depth > 0 && analysis_state__top(&next_state)->done) {
-                next_state.depth--;
-              }
-
-              // If this hypothetical child did match the current step of the query pattern,
-              // then advance to the next step at the current depth. This involves skipping
-              // over any descendant steps of the current child.
-              const QueryStep *next_step = step;
-              if (does_match) {
-                for (;;) {
-                  next_state.step_index++;
-                  next_step = &self->steps.contents[next_state.step_index];
-                  if (
-                    next_step->depth == PATTERN_DONE_MARKER ||
-                    next_step->depth <= parent_depth + 1
-                  ) break;
-                }
-              }
-
-              for (;;) {
-                // If this state can make further progress, then add it to the states for the next iteration.
-                // Otherwise, record the fact that matching can fail at this step of the pattern.
-                if (!next_step->is_dead_end) {
-                  bool did_finish_pattern = self->steps.contents[next_state.step_index].depth != parent_depth + 1;
-                  if (did_finish_pattern) can_finish_pattern = true;
-                  if (next_state.depth > 0 && !did_finish_pattern) {
-                    array_insert_sorted_with(&next_states, 0, analysis_state__compare, next_state);
-                  } else {
-                    array_insert_sorted_by(&final_step_indices, 0, , next_state.step_index);
-                  }
-                }
-
-                // If the state has advanced to a step with an alternative step, then add another state at
-                // that alternative step to the next iteration.
-                if (
-                  does_match &&
-                  next_step->alternative_index != NONE &&
-                  next_step->alternative_index > next_state.step_index
-                ) {
-                  next_state.step_index = next_step->alternative_index;
-                  next_step = &self->steps.contents[next_state.step_index];
-                } else {
+            // Use the subgraph to determine what alias and field will eventually be applied
+            // to this child node.
+            TSSymbol alias = ts_language_alias_at(self->language, node->production_id, child_index);
+            TSSymbol visible_symbol = alias
+              ? alias
+              : self->language->symbol_metadata[sym].visible
+                ? self->language->public_symbol_map[sym]
+                : 0;
+            TSFieldId field_id = parent_field_id;
+            if (!field_id) {
+              const TSFieldMapEntry *field_map, *field_map_end;
+              ts_language_field_map(self->language, node->production_id, &field_map, &field_map_end);
+              for (; field_map != field_map_end; field_map++) {
+                if (field_map->child_index == child_index) {
+                  field_id = field_map->field_id;
                   break;
                 }
+              }
+            }
+
+            AnalysisState next_state = *state;
+            analysis_state__top(&next_state)->child_index++;
+            analysis_state__top(&next_state)->parse_state = successor.state;
+            if (node->done) analysis_state__top(&next_state)->done = true;
+
+            // Determine if this hypothetical child node would match the current step
+            // of the query pattern.
+            bool does_match = false;
+            if (visible_symbol) {
+              does_match = true;
+              if (step->symbol == NAMED_WILDCARD_SYMBOL) {
+                if (!self->language->symbol_metadata[visible_symbol].named) does_match = false;
+              } else if (step->symbol != WILDCARD_SYMBOL) {
+                if (step->symbol != visible_symbol) does_match = false;
+              }
+              if (step->field && step->field != field_id) {
+                does_match = false;
+              }
+            }
+
+            // If this is a hidden child, then push a new entry to the stack, in order to
+            // walk through the children of this child.
+            else if (sym >= self->language->token_count && next_state.depth < MAX_ANALYSIS_STATE_DEPTH) {
+              next_state.depth++;
+              analysis_state__top(&next_state)->parse_state = parse_state;
+              analysis_state__top(&next_state)->child_index = 0;
+              analysis_state__top(&next_state)->parent_symbol = sym;
+              analysis_state__top(&next_state)->field_id = field_id;
+              analysis_state__top(&next_state)->done = false;
+            } else {
+              continue;
+            }
+
+            // Pop from the stack when this state reached the end of its current syntax node.
+            while (next_state.depth > 0 && analysis_state__top(&next_state)->done) {
+              next_state.depth--;
+            }
+
+            // If this hypothetical child did match the current step of the query pattern,
+            // then advance to the next step at the current depth. This involves skipping
+            // over any descendant steps of the current child.
+            const QueryStep *next_step = step;
+            if (does_match) {
+              for (;;) {
+                next_state.step_index++;
+                next_step = &self->steps.contents[next_state.step_index];
+                if (
+                  next_step->depth == PATTERN_DONE_MARKER ||
+                  next_step->depth <= parent_depth + 1
+                ) break;
+              }
+            }
+
+            for (;;) {
+              // If this state can make further progress, then add it to the states for the next iteration.
+              // Otherwise, record the fact that matching can fail at this step of the pattern.
+              if (!next_step->is_dead_end) {
+                bool did_finish_pattern = self->steps.contents[next_state.step_index].depth != parent_depth + 1;
+                if (did_finish_pattern) can_finish_pattern = true;
+                if (next_state.depth > 0 && !did_finish_pattern) {
+                  array_insert_sorted_with(&next_states, 0, analysis_state__compare, next_state);
+                } else {
+                  array_insert_sorted_by(&final_step_indices, 0, , next_state.step_index);
+                }
+              }
+
+              // If the state has advanced to a step with an alternative step, then add another state at
+              // that alternative step to the next iteration.
+              if (
+                does_match &&
+                next_step->alternative_index != NONE &&
+                next_step->alternative_index > next_state.step_index
+              ) {
+                next_state.step_index = next_step->alternative_index;
+                next_step = &self->steps.contents[next_state.step_index];
+              } else {
+                break;
               }
             }
           }
