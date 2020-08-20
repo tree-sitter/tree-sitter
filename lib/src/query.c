@@ -599,7 +599,7 @@ static inline int analysis_state__compare(
     if (self->stack[i].parse_state > other->stack[i].parse_state) return 1;
     if (self->stack[i].field_id < other->stack[i].field_id) return -1;
     if (self->stack[i].field_id > other->stack[i].field_id) return 1;
-    }
+  }
   if (self->step_index < other->step_index) return -1;
   if (self->step_index > other->step_index) return 1;
   return 0;
@@ -814,6 +814,10 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
         );
         if (exists) {
           AnalysisSubgraph *subgraph = &subgraphs.contents[subgraph_index];
+          if (
+            subgraph->start_states.size == 0 ||
+            *array_back(&subgraph->start_states) != state
+          )
           array_push(&subgraph->start_states, state);
         }
       }
