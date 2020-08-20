@@ -130,7 +130,7 @@ typedef enum {
   TSQueryErrorNodeType,
   TSQueryErrorField,
   TSQueryErrorCapture,
-  TSQueryErrorPattern,
+  TSQueryErrorStructure,
 } TSQueryError;
 
 /********************/

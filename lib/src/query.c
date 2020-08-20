@@ -1903,7 +1903,7 @@ TSQuery *ts_query_new(
 
   if (self->language->version >= TREE_SITTER_LANGUAGE_VERSION_WITH_STATE_COUNT) {
     if (!ts_query__analyze_patterns(self, error_offset)) {
-      *error_type = TSQueryErrorPattern;
+      *error_type = TSQueryErrorStructure;
       ts_query_delete(self);
       return NULL;
     }

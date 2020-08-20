@@ -70,7 +70,7 @@ impl<'a> From<QueryError> for Error {
                 "Query error on line {}. Invalid syntax:\n{}",
                 row, l
             )),
-            QueryError::Pattern(row, l) => Error::new(format!(
+            QueryError::Structure(row, l) => Error::new(format!(
                 "Query error on line {}. Impossible pattern:\n{}",
                 row, l
             )),

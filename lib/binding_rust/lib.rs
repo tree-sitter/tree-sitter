@@ -163,7 +163,7 @@ pub enum QueryError {
     Field(usize, String),
     Capture(usize, String),
     Predicate(String),
-    Pattern(usize, String),
+    Structure(usize, String),
 }
 
 #[derive(Debug)]
@@ -1206,8 +1206,8 @@ impl Query {
                         "Unexpected EOF".to_string()
                     };
                     match error_type {
-                        ffi::TSQueryError_TSQueryErrorPattern => {
-                            Err(QueryError::Pattern(row, message))
+                        ffi::TSQueryError_TSQueryErrorStructure => {
+                            Err(QueryError::Structure(row, message))
                         }
                         _ => Err(QueryError::Syntax(row, message)),
                     }

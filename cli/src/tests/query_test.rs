@@ -195,7 +195,7 @@ fn test_query_errors_on_impossible_patterns() {
                 js_lang,
                 "(binary_expression left: (identifier) left: (identifier))"
             ),
-            Err(QueryError::Pattern(
+            Err(QueryError::Structure(
                 1,
                 [
                     "(binary_expression left: (identifier) left: (identifier))",
@@ -212,7 +212,7 @@ fn test_query_errors_on_impossible_patterns() {
         .unwrap();
         assert_eq!(
             Query::new(js_lang, "(function_declaration name: (statement_block))"),
-            Err(QueryError::Pattern(
+            Err(QueryError::Structure(
                 1,
                 [
                     "(function_declaration name: (statement_block))",
@@ -225,7 +225,7 @@ fn test_query_errors_on_impossible_patterns() {
         Query::new(rb_lang, "(call receiver:(call))").unwrap();
         assert_eq!(
             Query::new(rb_lang, "(call receiver:(binary))"),
-            Err(QueryError::Pattern(
+            Err(QueryError::Structure(
                 1,
                 [
                     "(call receiver:(binary))", //

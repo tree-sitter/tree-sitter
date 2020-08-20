@@ -277,7 +277,7 @@ let tree;
         const startPosition = queryEditor.posFromIndex(error.index);
         const endPosition = {
           line: startPosition.line,
-          ch: startPosition.ch + (error.length || 1)
+          ch: startPosition.ch + (error.length || Infinity)
         };
 
         if (error.index === queryText.length) {
