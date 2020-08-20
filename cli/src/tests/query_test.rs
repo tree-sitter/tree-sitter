@@ -1,10 +1,16 @@
 use super::helpers::allocations;
 use super::helpers::fixtures::get_language;
+use lazy_static::lazy_static;
+use std::env;
 use std::fmt::Write;
 use tree_sitter::{
     Language, Node, Parser, Query, QueryCapture, QueryCursor, QueryError, QueryMatch,
     QueryPredicate, QueryPredicateArg, QueryProperty,
 };
+
+lazy_static! {
+    static ref EXAMPLE_FILTER: Option<String> = env::var("TREE_SITTER_TEST_EXAMPLE_FILTER").ok();
+}
 
 #[test]
 fn test_query_errors_on_invalid_syntax() {
@@ -230,6 +236,34 @@ fn test_query_errors_on_impossible_patterns() {
                 [
                     "(call receiver:(binary))", //
                     "      ^",
+                ]
+                .join("\n")
+            ))
+        );
+
+        Query::new(
+            js_lang,
+            "[
+                (function (identifier))
+                (function_declaration (identifier))
+                (generator_function_declaration (identifier))
+            ]",
+        )
+        .unwrap();
+        assert_eq!(
+            Query::new(
+                js_lang,
+                "[
+                    (function (identifier))
+                    (function_declaration (object))
+                    (generator_function_declaration (identifier))
+                ]",
+            ),
+            Err(QueryError::Structure(
+                3,
+                [
+                    "                    (function_declaration (object))", //
+                    "                                          ^",
                 ]
                 .join("\n")
             ))
@@ -2322,37 +2356,92 @@ fn test_query_alternative_predicate_prefix() {
 fn test_query_step_is_definite() {
     struct Row {
         language: Language,
+        description: &'static str,
         pattern: &'static str,
         results_by_substring: &'static [(&'static str, bool)],
     }
 
     let rows = &[
         Row {
+            description: "no definite steps",
             language: get_language("python"),
             pattern: r#"(expression_statement (string))"#,
             results_by_substring: &[("expression_statement", false), ("string", false)],
         },
         Row {
-            language: get_language("javascript"),
-            pattern: r#"(expression_statement (string))"#,
-            results_by_substring: &[("expression_statement", false), ("string", false)],
-        },
-        Row {
+            description: "all definite steps",
             language: get_language("javascript"),
             pattern: r#"(object "{" "}")"#,
             results_by_substring: &[("object", false), ("{", true), ("}", true)],
         },
         Row {
+            description: "an indefinite step that is optional",
+            language: get_language("javascript"),
+            pattern: r#"(object "{" (identifier)? @foo "}")"#,
+            results_by_substring: &[
+                ("object", false),
+                ("{", true),
+                ("(identifier)?", false),
+                ("}", true),
+            ],
+        },
+        Row {
+            description: "multiple indefinite steps that are optional",
+            language: get_language("javascript"),
+            pattern: r#"(object "{" (identifier)? @id1 ("," (identifier) @id2)? "}")"#,
+            results_by_substring: &[
+                ("object", false),
+                ("{", true),
+                ("(identifier)? @id1", false),
+                ("\",\"", false),
+                ("}", true),
+            ],
+        },
+        Row {
+            description: "definite step after indefinite step",
             language: get_language("javascript"),
             pattern: r#"(pair (property_identifier) ":")"#,
             results_by_substring: &[("pair", false), ("property_identifier", false), (":", true)],
         },
         Row {
+            description: "indefinite step in between two definite steps",
             language: get_language("javascript"),
-            pattern: r#"(object "{" (_) "}")"#,
-            results_by_substring: &[("object", false), ("{", false), ("", false), ("}", true)],
+            pattern: r#"(ternary_expression
+                condition: (_)
+                "?"
+                consequence: (call_expression)
+                ":"
+                alternative: (_))"#,
+            results_by_substring: &[
+                ("condition:", false),
+                ("\"?\"", false),
+                ("consequence:", false),
+                ("\":\"", true),
+                ("alternative:", true),
+            ],
         },
         Row {
+            description: "one definite step after a repetition",
+            language: get_language("javascript"),
+            pattern: r#"(object "{" (_) "}")"#,
+            results_by_substring: &[("object", false), ("{", false), ("(_)", false), ("}", true)],
+        },
+        Row {
+            description: "definite steps after multiple repetitions",
+            language: get_language("json"),
+            pattern: r#"(object "{" (pair) "," (pair) "," (_) "}")"#,
+            results_by_substring: &[
+                ("object", false),
+                ("{", false),
+                ("(pair) \",\" (pair)", false),
+                ("(pair) \",\" (_)", false),
+                ("\",\" (_)", false),
+                ("(_)", true),
+                ("}", true),
+            ],
+        },
+        Row {
+            description: "a definite with a field",
             language: get_language("javascript"),
             pattern: r#"(binary_expression left: (identifier) right: (_))"#,
             results_by_substring: &[
@@ -2362,6 +2451,7 @@ fn test_query_step_is_definite() {
             ],
         },
         Row {
+            description: "multiple definite steps with fields",
             language: get_language("javascript"),
             pattern: r#"(function_declaration name: (identifier) body: (statement_block))"#,
             results_by_substring: &[
@@ -2371,6 +2461,7 @@ fn test_query_step_is_definite() {
             ],
         },
         Row {
+            description: "nesting, one definite step",
             language: get_language("javascript"),
             pattern: r#"
                 (function_declaration
@@ -2386,6 +2477,7 @@ fn test_query_step_is_definite() {
             ],
         },
         Row {
+            description: "definite step after some deeply nested hidden nodes",
             language: get_language("ruby"),
             pattern: r#"
             (singleton_class
@@ -2399,6 +2491,7 @@ fn test_query_step_is_definite() {
             ],
         },
         Row {
+            description: "nesting, no definite steps",
             language: get_language("javascript"),
             pattern: r#"
             (call_expression
@@ -2409,6 +2502,7 @@ fn test_query_step_is_definite() {
             results_by_substring: &[("property_identifier", false), ("template_string", false)],
         },
         Row {
+            description: "a definite step after a nested node",
             language: get_language("javascript"),
             pattern: r#"
             (subscript_expression
@@ -2424,6 +2518,7 @@ fn test_query_step_is_definite() {
             ],
         },
         Row {
+            description: "a step that is indefinite due to a predicate",
             language: get_language("javascript"),
             pattern: r#"
             (subscript_expression
@@ -2439,17 +2534,45 @@ fn test_query_step_is_definite() {
                 ("[", true),
             ],
         },
+        Row {
+            description: "alternation where one branch has definite steps",
+            language: get_language("javascript"),
+            pattern: r#"
+            [
+                (unary_expression (identifier))
+                (call_expression
+                  function: (_)
+                  arguments: (_))
+                (binary_expression right:(call_expression))
+            ]
+            "#,
+            results_by_substring: &[
+                ("identifier", false),
+                ("right:", false),
+                ("function:", true),
+                ("arguments:", true),
+            ],
+        },
     ];
 
     allocations::record(|| {
+        eprintln!("");
+
         for row in rows.iter() {
+            if let Some(filter) = EXAMPLE_FILTER.as_ref() {
+                if !row.description.contains(filter.as_str()) {
+                    continue;
+                }
+            }
+            eprintln!("  query example: {:?}", row.description);
             let query = Query::new(row.language, row.pattern).unwrap();
             for (substring, is_definite) in row.results_by_substring {
                 let offset = row.pattern.find(substring).unwrap();
                 assert_eq!(
                     query.step_is_definite(offset),
                     *is_definite,
-                    "Pattern: {:?}, substring: {:?}, expected is_definite to be {}",
+                    "Description: {}, Pattern: {:?}, substring: {:?}, expected is_definite to be {}",
+                    row.description,
                     row.pattern
                         .split_ascii_whitespace()
                         .collect::<Vec<_>>()

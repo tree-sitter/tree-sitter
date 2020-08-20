@@ -1144,34 +1144,18 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
       next_states = _states;
     }
 
-    // A query step is definite if the containing pattern will definitely match
-    // once the step is reached. In other words, a step is *not* definite if
-    // it's possible to create a syntax node that matches up to until that step,
-    // but does not match the entire pattern.
-    uint32_t child_step_index = parent_step_index + 1;
-    QueryStep *child_step = &self->steps.contents[child_step_index];
-    while (child_step->depth == parent_depth + 1) {
-      // Check if there is any way for the pattern to reach this step, but fail
-      // to reach the end of the sub-pattern.
-      for (unsigned k = 0; k < final_step_indices.size; k++) {
-        uint32_t final_step_index = final_step_indices.contents[k];
-        if (
-          final_step_index >= child_step_index &&
-          self->steps.contents[final_step_index].depth == child_step->depth
-        ) {
-          child_step->is_definite = false;
-          break;
-        }
+    // Mark as indefinite any step where a match terminated.
+    // Later, this property will be propagated to all of the step's predecessors.
+    for (unsigned j = 0; j < final_step_indices.size; j++) {
+      uint32_t final_step_index = final_step_indices.contents[j];
+      QueryStep *step = &self->steps.contents[final_step_index];
+      if (
+        step->depth != PATTERN_DONE_MARKER &&
+        step->depth > parent_depth &&
+        !step->is_dead_end
+      ) {
+        step->is_definite = false;
       }
-
-      // Advance to the next child step in this sub-pattern.
-      do {
-        child_step_index++;
-        child_step++;
-      } while (
-        child_step->depth != PATTERN_DONE_MARKER &&
-        child_step->depth > parent_depth + 1
-      );
     }
 
     // If this pattern cannot match, store the pattern index so that it can be
@@ -1187,9 +1171,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     }
   }
 
-  // In order for a step to be definite, all of its child steps must be definite,
-  // and all of its later sibling steps must be definite. Propagate any indefiniteness
-  // upward and backward through the pattern trees.
+  // Mark as indefinite any step with captures that are used in predicates.
   Array(uint16_t) predicate_capture_ids = array_new();
   for (unsigned i = 0; i < self->patterns.size; i++) {
     QueryPattern *pattern = &self->patterns.contents[i];
@@ -1207,16 +1189,13 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
       }
     }
 
-    bool all_later_children_definite = true;
+    // Find all of the steps that have these captures.
     for (
       unsigned start = pattern->steps.offset,
       end = start + pattern->steps.length,
-      j = end - 1; j + 1 > start; j--
+      j = start; j < end; j++
     ) {
       QueryStep *step = &self->steps.contents[j];
-
-      // If this step has a capture that is used in a predicate,
-      // then it is not definite.
       for (unsigned k = 0; k < MAX_STEP_CAPTURE_COUNT; k++) {
         uint16_t capture_id = step->capture_ids[k];
         if (capture_id == NONE) break;
@@ -1227,10 +1206,41 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
           break;
         }
       }
+    }
+  }
 
-      // If a step is not definite, then none of its predecessors can be definite.
-      if (!all_later_children_definite) step->is_definite = false;
-      if (!step->is_definite) all_later_children_definite = false;
+  // Propagate indefiniteness backwards.
+  bool done = self->steps.size == 0;
+  while (!done) {
+    done = true;
+    for (unsigned i = self->steps.size - 1; i > 0; i--) {
+      QueryStep *step = &self->steps.contents[i];
+
+      // Determine if this step is definite or has definite alternatives.
+      bool is_definite = false;
+      for (;;) {
+        if (step->is_definite) {
+          is_definite = true;
+          break;
+        }
+        if (step->alternative_index == NONE || step->alternative_index < i) {
+          break;
+        }
+        step = &self->steps.contents[step->alternative_index];
+      }
+
+      // If not, mark its predecessor as indefinite.
+      if (!is_definite) {
+        QueryStep *prev_step = &self->steps.contents[i - 1];
+        if (
+          !prev_step->is_dead_end &&
+          prev_step->depth != PATTERN_DONE_MARKER &&
+          prev_step->is_definite
+        ) {
+          prev_step->is_definite = false;
+          done = false;
+        }
+      }
     }
   }
 
@@ -1242,11 +1252,12 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
         printf("  %u: DONE\n", i);
       } else {
         printf(
-          "  %u: {symbol: %s, is_definite: %d}\n",
+          "  %u: {symbol: %s, field: %s, is_definite: %d}\n",
           i,
           (step->symbol == WILDCARD_SYMBOL || step->symbol == NAMED_WILDCARD_SYMBOL)
             ? "ANY"
             : ts_language_symbol_name(self->language, step->symbol),
+          (step->field ? ts_language_field_name_for_id(self->language, step->field) : "-"),
           step->is_definite
         );
       }
@@ -1979,7 +1990,7 @@ bool ts_query_step_is_definite(
   uint32_t step_index = UINT32_MAX;
   for (unsigned i = 0; i < self->step_offsets.size; i++) {
     StepOffset *step_offset = &self->step_offsets.contents[i];
-    if (step_offset->byte_offset >= byte_offset) break;
+    if (step_offset->byte_offset > byte_offset) break;
     step_index = step_offset->step_index;
   }
   if (step_index < self->steps.size) {

@@ -83,10 +83,14 @@ done
 
 shift $(expr $OPTIND - 1)
 
-if [[ -n $TREE_SITTER_TEST_LANGUAGE_FILTER || -n $TREE_SITTER_TEST_EXAMPLE_FILTER || -n $TREE_SITTER_TEST_TRIAL_FILTER ]]; then
-  top_level_filter=corpus
-else
-  top_level_filter=$1
+top_level_filter=$1
+
+if [[ \
+  -n $TREE_SITTER_TEST_LANGUAGE_FILTER || \
+  -n $TREE_SITTER_TEST_EXAMPLE_FILTER || \
+  -n $TREE_SITTER_TEST_TRIAL_FILTER \
+]]; then
+  echo ${top_level_filter:=corpus}
 fi
 
 if [[ "${mode}" == "debug" ]]; then
