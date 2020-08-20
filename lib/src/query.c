@@ -22,6 +22,7 @@
  */
 typedef struct {
   const char *input;
+  const char *start;
   const char *end;
   int32_t next;
   uint8_t next_size;
@@ -95,6 +96,11 @@ typedef struct {
   Slice predicate_steps;
   uint32_t start_byte;
 } QueryPattern;
+
+typedef struct {
+  uint32_t byte_offset;
+  uint16_t step_index;
+} StepOffset;
 
 /*
  * QueryState - The state of an in-progress match of a particular pattern
@@ -202,6 +208,7 @@ struct TSQuery {
   Array(PatternEntry) pattern_map;
   Array(TSQueryPredicateStep) predicate_steps;
   Array(QueryPattern) patterns;
+  Array(StepOffset) step_offsets;
   const TSLanguage *language;
   uint16_t wildcard_root_pattern_count;
   TSSymbol *symbol_map;
@@ -268,21 +275,22 @@ static Stream stream_new(const char *string, uint32_t length) {
   Stream self = {
     .next = 0,
     .input = string,
+    .start = string,
     .end = string + length,
   };
   stream_advance(&self);
   return self;
 }
 
-static void stream_skip_whitespace(Stream *stream) {
+static void stream_skip_whitespace(Stream *self) {
   for (;;) {
-    if (iswspace(stream->next)) {
-      stream_advance(stream);
-    } else if (stream->next == ';') {
+    if (iswspace(self->next)) {
+      stream_advance(self);
+    } else if (self->next == ';') {
       // skip over comments
-      stream_advance(stream);
-      while (stream->next && stream->next != '\n') {
-        if (!stream_advance(stream)) break;
+      stream_advance(self);
+      while (self->next && self->next != '\n') {
+        if (!stream_advance(self)) break;
       }
     } else {
       break;
@@ -290,8 +298,8 @@ static void stream_skip_whitespace(Stream *stream) {
   }
 }
 
-static bool stream_is_ident_start(Stream *stream) {
-  return iswalnum(stream->next) || stream->next == '_' || stream->next == '-';
+static bool stream_is_ident_start(Stream *self) {
+  return iswalnum(self->next) || self->next == '_' || self->next == '-';
 }
 
 static void stream_scan_identifier(Stream *stream) {
@@ -305,6 +313,10 @@ static void stream_scan_identifier(Stream *stream) {
     stream->next == '?' ||
     stream->next == '!'
   );
+}
+
+static uint32_t stream_offset(Stream *self) {
+  return self->input - self->start;
 }
 
 /******************
@@ -716,7 +728,7 @@ static inline void ts_query__pattern_map_insert(
 
 // #define DEBUG_ANALYZE_QUERY
 
-static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index) {
+static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   // Identify all of the patterns in the query that have child patterns, both at the
   // top level and nested within other larger patterns. Record the step index where
   // each pattern starts.
@@ -1165,12 +1177,12 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *impossible_index
     // If this pattern cannot match, store the pattern index so that it can be
     // returned to the caller.
     if (result && !can_finish_pattern) {
-      unsigned exists;
-      array_search_sorted_by(
-        &self->patterns, 0,
-        .steps.offset, parent_step_index,
-        impossible_index, &exists
-      );
+      assert(final_step_indices.size > 0);
+      uint16_t *impossible_step_index = array_back(&final_step_indices);
+      uint32_t i, exists;
+      array_search_sorted_by(&self->step_offsets, 0, .step_index, *impossible_step_index, &i, &exists);
+      assert(exists);
+      *error_offset = self->step_offsets.contents[i].byte_offset;
       result = false;
     }
   }
@@ -1415,17 +1427,24 @@ static TSQueryError ts_query__parse_pattern(
   uint32_t depth,
   bool is_immediate
 ) {
+  if (stream->next == 0) return TSQueryErrorSyntax;
+  if (stream->next == ')' || stream->next == ']') return PARENT_DONE;
+
   const uint32_t starting_step_index = self->steps.size;
 
-  if (stream->next == 0) return TSQueryErrorSyntax;
-
-  // Finish the parent S-expression.
-  if (stream->next == ')' || stream->next == ']') {
-    return PARENT_DONE;
+  // Store the byte offset of each step in the query.
+  if (
+    self->step_offsets.size == 0 ||
+    array_back(&self->step_offsets)->step_index != starting_step_index
+  ) {
+    array_push(&self->step_offsets, ((StepOffset) {
+      .step_index = starting_step_index,
+      .byte_offset = stream_offset(stream),
+    }));
   }
 
   // An open bracket is the start of an alternation.
-  else if (stream->next == '[') {
+  if (stream->next == '[') {
     stream_advance(stream);
     stream_skip_whitespace(stream);
 
@@ -1818,6 +1837,7 @@ TSQuery *ts_query_new(
     .predicate_values = symbol_table_new(),
     .predicate_steps = array_new(),
     .patterns = array_new(),
+    .step_offsets = array_new(),
     .symbol_map = symbol_map,
     .wildcard_root_pattern_count = 0,
     .language = language,
@@ -1833,7 +1853,7 @@ TSQuery *ts_query_new(
     array_push(&self->patterns, ((QueryPattern) {
       .steps = (Slice) {.offset = start_step_index},
       .predicate_steps = (Slice) {.offset = start_predicate_step_index},
-      .start_byte = stream.input - source,
+      .start_byte = stream_offset(&stream),
     }));
     *error_type = ts_query__parse_pattern(self, &stream, 0, false);
     array_push(&self->steps, query_step__new(0, PATTERN_DONE_MARKER, false));
@@ -1846,7 +1866,7 @@ TSQuery *ts_query_new(
     // and terminate.
     if (*error_type) {
       if (*error_type == PARENT_DONE) *error_type = TSQueryErrorSyntax;
-      *error_offset = stream.input - source;
+      *error_offset = stream_offset(&stream);
       ts_query_delete(self);
       return NULL;
     }
@@ -1882,10 +1902,8 @@ TSQuery *ts_query_new(
   }
 
   if (self->language->version >= TREE_SITTER_LANGUAGE_VERSION_WITH_STATE_COUNT) {
-    unsigned impossible_pattern_index = 0;
-    if (!ts_query__analyze_patterns(self, &impossible_pattern_index)) {
+    if (!ts_query__analyze_patterns(self, error_offset)) {
       *error_type = TSQueryErrorPattern;
-      *error_offset = self->patterns.contents[impossible_pattern_index].start_byte;
       ts_query_delete(self);
       return NULL;
     }
@@ -1901,6 +1919,7 @@ void ts_query_delete(TSQuery *self) {
     array_delete(&self->pattern_map);
     array_delete(&self->predicate_steps);
     array_delete(&self->patterns);
+    array_delete(&self->step_offsets);
     symbol_table_delete(&self->captures);
     symbol_table_delete(&self->predicate_values);
     ts_free(self->symbol_map);
@@ -1953,24 +1972,21 @@ uint32_t ts_query_start_byte_for_pattern(
   return self->patterns.contents[pattern_index].start_byte;
 }
 
-bool ts_query_pattern_is_definite(
+bool ts_query_step_is_definite(
   const TSQuery *self,
-  uint32_t pattern_index,
-  TSSymbol symbol,
-  uint32_t index
+  uint32_t byte_offset
 ) {
-  uint32_t step_index = self->patterns.contents[pattern_index].steps.offset;
-  QueryStep *step = &self->steps.contents[step_index];
-  for (; step->depth != PATTERN_DONE_MARKER; step++) {
-    bool does_match = symbol ?
-      step->symbol == symbol :
-      step->symbol == WILDCARD_SYMBOL || step->symbol == NAMED_WILDCARD_SYMBOL;
-    if (does_match) {
-      if (index == 0) return step->is_definite;
-      index--;
-    }
+  uint32_t step_index = UINT32_MAX;
+  for (unsigned i = 0; i < self->step_offsets.size; i++) {
+    StepOffset *step_offset = &self->step_offsets.contents[i];
+    if (step_offset->byte_offset >= byte_offset) break;
+    step_index = step_offset->step_index;
   }
-  return false;
+  if (step_index < self->steps.size) {
+    return self->steps.contents[step_index].is_definite;
+  } else {
+    return false;
+  }
 }
 
 void ts_query_disable_capture(

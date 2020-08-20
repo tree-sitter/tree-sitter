@@ -197,7 +197,11 @@ fn test_query_errors_on_impossible_patterns() {
             ),
             Err(QueryError::Pattern(
                 1,
-                "(binary_expression left: (identifier) left: (identifier))\n^".to_string(),
+                [
+                    "(binary_expression left: (identifier) left: (identifier))",
+                    "                                      ^"
+                ]
+                .join("\n"),
             ))
         );
 
@@ -210,7 +214,11 @@ fn test_query_errors_on_impossible_patterns() {
             Query::new(js_lang, "(function_declaration name: (statement_block))"),
             Err(QueryError::Pattern(
                 1,
-                "(function_declaration name: (statement_block))\n^".to_string(),
+                [
+                    "(function_declaration name: (statement_block))",
+                    "                      ^",
+                ]
+                .join("\n")
             ))
         );
 
@@ -219,7 +227,11 @@ fn test_query_errors_on_impossible_patterns() {
             Query::new(rb_lang, "(call receiver:(binary))"),
             Err(QueryError::Pattern(
                 1,
-                "(call receiver:(binary))\n^".to_string(),
+                [
+                    "(call receiver:(binary))", //
+                    "      ^",
+                ]
+                .join("\n")
             ))
         );
     });
@@ -2307,55 +2319,52 @@ fn test_query_alternative_predicate_prefix() {
 }
 
 #[test]
-fn test_query_is_definite() {
+fn test_query_step_is_definite() {
     struct Row {
         language: Language,
         pattern: &'static str,
-        results_by_symbol: &'static [(&'static str, bool)],
+        results_by_substring: &'static [(&'static str, bool)],
     }
 
     let rows = &[
         Row {
             language: get_language("python"),
             pattern: r#"(expression_statement (string))"#,
-            results_by_symbol: &[("expression_statement", false), ("string", false)],
+            results_by_substring: &[("expression_statement", false), ("string", false)],
         },
         Row {
             language: get_language("javascript"),
             pattern: r#"(expression_statement (string))"#,
-            results_by_symbol: &[
-                ("expression_statement", false),
-                ("string", false), // string
-            ],
+            results_by_substring: &[("expression_statement", false), ("string", false)],
         },
         Row {
             language: get_language("javascript"),
             pattern: r#"(object "{" "}")"#,
-            results_by_symbol: &[("object", false), ("{", true), ("}", true)],
+            results_by_substring: &[("object", false), ("{", true), ("}", true)],
         },
         Row {
             language: get_language("javascript"),
             pattern: r#"(pair (property_identifier) ":")"#,
-            results_by_symbol: &[("pair", false), ("property_identifier", false), (":", true)],
+            results_by_substring: &[("pair", false), ("property_identifier", false), (":", true)],
         },
         Row {
             language: get_language("javascript"),
             pattern: r#"(object "{" (_) "}")"#,
-            results_by_symbol: &[("object", false), ("{", false), ("", false), ("}", true)],
+            results_by_substring: &[("object", false), ("{", false), ("", false), ("}", true)],
         },
         Row {
             language: get_language("javascript"),
             pattern: r#"(binary_expression left: (identifier) right: (_))"#,
-            results_by_symbol: &[
+            results_by_substring: &[
                 ("binary_expression", false),
-                ("identifier", false),
-                ("", true),
+                ("(identifier)", false),
+                ("(_)", true),
             ],
         },
         Row {
             language: get_language("javascript"),
             pattern: r#"(function_declaration name: (identifier) body: (statement_block))"#,
-            results_by_symbol: &[
+            results_by_substring: &[
                 ("function_declaration", false),
                 ("identifier", true),
                 ("statement_block", true),
@@ -2367,7 +2376,7 @@ fn test_query_is_definite() {
                 (function_declaration
                     name: (identifier)
                     body: (statement_block "{" (expression_statement) "}"))"#,
-            results_by_symbol: &[
+            results_by_substring: &[
                 ("function_declaration", false),
                 ("identifier", false),
                 ("statement_block", false),
@@ -2383,7 +2392,7 @@ fn test_query_is_definite() {
                 value: (constant)
                 "end")
             "#,
-            results_by_symbol: &[
+            results_by_substring: &[
                 ("singleton_class", false),
                 ("constant", false),
                 ("end", true),
@@ -2397,7 +2406,7 @@ fn test_query_is_definite() {
                   property: (property_identifier) @template-tag)
                 arguments: (template_string)) @template-call
             "#,
-            results_by_symbol: &[("property_identifier", false), ("template_string", false)],
+            results_by_substring: &[("property_identifier", false), ("template_string", false)],
         },
         Row {
             language: get_language("javascript"),
@@ -2408,7 +2417,7 @@ fn test_query_is_definite() {
                     property: (property_identifier) @prop)
                 "[")
             "#,
-            results_by_symbol: &[
+            results_by_substring: &[
                 ("identifier", false),
                 ("property_identifier", true),
                 ("[", true),
@@ -2424,7 +2433,7 @@ fn test_query_is_definite() {
                 "["
                 (#match? @prop "foo"))
             "#,
-            results_by_symbol: &[
+            results_by_substring: &[
                 ("identifier", false),
                 ("property_identifier", false),
                 ("[", true),
@@ -2435,23 +2444,17 @@ fn test_query_is_definite() {
     allocations::record(|| {
         for row in rows.iter() {
             let query = Query::new(row.language, row.pattern).unwrap();
-            for (symbol_name, is_definite) in row.results_by_symbol {
-                let mut symbol = 0;
-                if !symbol_name.is_empty() {
-                    symbol = row.language.id_for_node_kind(symbol_name, true);
-                    if symbol == 0 {
-                        symbol = row.language.id_for_node_kind(symbol_name, false);
-                    }
-                }
+            for (substring, is_definite) in row.results_by_substring {
+                let offset = row.pattern.find(substring).unwrap();
                 assert_eq!(
-                    query.pattern_is_definite(0, symbol, 0),
+                    query.step_is_definite(offset),
                     *is_definite,
-                    "Pattern: {:?}, symbol: {}, expected is_definite to be {}",
+                    "Pattern: {:?}, substring: {:?}, expected is_definite to be {}",
                     row.pattern
                         .split_ascii_whitespace()
                         .collect::<Vec<_>>()
                         .join(" "),
-                    symbol_name,
+                    substring,
                     is_definite,
                 )
             }

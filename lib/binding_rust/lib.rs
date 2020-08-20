@@ -1467,12 +1467,12 @@ impl Query {
         unsafe { ffi::ts_query_disable_pattern(self.ptr.as_ptr(), index as u32) }
     }
 
-    /// Check if a pattern will definitely match after a certain number of steps
-    /// have matched.
-    pub fn pattern_is_definite(&self, pattern_index: usize, symbol: u16, step_index: usize) -> bool {
-        unsafe {
-            ffi::ts_query_pattern_is_definite(self.ptr.as_ptr(), pattern_index as u32, symbol, step_index as u32)
-        }
+    /// Check if a given step in a query is 'definite'.
+    ///
+    /// A query step is 'definite' if its parent pattern will be guaranteed to match
+    /// successfully once it reaches the step.
+    pub fn step_is_definite(&self, byte_offset: usize) -> bool {
+        unsafe { ffi::ts_query_step_is_definite(self.ptr.as_ptr(), byte_offset as u32) }
     }
 
     fn parse_property(

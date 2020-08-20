@@ -651,12 +651,7 @@ extern "C" {
     ) -> *const TSQueryPredicateStep;
 }
 extern "C" {
-    pub fn ts_query_pattern_is_definite(
-        self_: *const TSQuery,
-        pattern_index: u32,
-        symbol: TSSymbol,
-        step_index: u32,
-    ) -> bool;
+    pub fn ts_query_step_is_definite(self_: *const TSQuery, byte_offset: u32) -> bool;
 }
 extern "C" {
     #[doc = " Get the name and length of one of the query\'s captures, or one of the"]
