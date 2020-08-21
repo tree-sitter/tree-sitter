@@ -2553,6 +2553,14 @@ fn test_query_step_is_definite() {
                 ("arguments:", true),
             ],
         },
+        Row {
+            description: "aliased parent node",
+            language: get_language("ruby"),
+            pattern: r#"
+            (method_parameters "(" (identifier) @id")")
+            "#,
+            results_by_substring: &[("\"(\"", false), ("(identifier)", false), ("\")\"", true)],
+        },
     ];
 
     allocations::record(|| {

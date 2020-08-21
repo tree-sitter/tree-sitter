@@ -13,6 +13,7 @@ extern "C" {
 #define TREE_SITTER_LANGUAGE_VERSION_WITH_SYMBOL_DEDUPING 11
 #define TREE_SITTER_LANGUAGE_VERSION_WITH_SMALL_STATES 11
 #define TREE_SITTER_LANGUAGE_VERSION_WITH_STATE_COUNT 12
+#define TREE_SITTER_LANGUAGE_VERSION_WITH_ALIAS_MAP 12
 
 typedef struct {
   const TSParseAction *actions;
@@ -257,6 +258,32 @@ static inline void ts_language_field_map(
   *start = &self->field_map_entries[slice.index];
   *end = &self->field_map_entries[slice.index] + slice.length;
 }
+
+static inline void ts_language_aliases_for_symbol(
+  const TSLanguage *self,
+  TSSymbol original_symbol,
+  const TSSymbol **start,
+  const TSSymbol **end
+) {
+  *start = &self->public_symbol_map[original_symbol];
+  *end = *start + 1;
+
+  if (self->version < TREE_SITTER_LANGUAGE_VERSION_WITH_ALIAS_MAP) return;
+
+  unsigned i = 0;
+  for (;;) {
+    TSSymbol symbol = self->alias_map[i++];
+    if (symbol == 0 || symbol > original_symbol) break;
+    uint16_t count = self->alias_map[i++];
+    if (symbol == original_symbol) {
+      *start = &self->alias_map[i];
+      *end = &self->alias_map[i + count];
+      break;
+    }
+    i += count;
+  }
+}
+
 
 #ifdef __cplusplus
 }

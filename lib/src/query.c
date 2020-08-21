@@ -788,24 +788,32 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
         for (unsigned i = 0; i < lookahead_iterator.action_count; i++) {
           const TSParseAction *action = &lookahead_iterator.actions[i];
           if (action->type == TSParseActionTypeReduce) {
-            TSSymbol symbol = self->language->public_symbol_map[action->params.reduce.symbol];
-            array_search_sorted_by(
-              &subgraphs,
-              0,
-              .symbol,
-              symbol,
-              &subgraph_index,
-              &exists
+            const TSSymbol *aliases, *aliases_end;
+            ts_language_aliases_for_symbol(
+              self->language,
+              action->params.reduce.symbol,
+              &aliases,
+              &aliases_end
             );
-            if (exists) {
-              AnalysisSubgraph *subgraph = &subgraphs.contents[subgraph_index];
-              if (subgraph->nodes.size == 0 || array_back(&subgraph->nodes)->state != state) {
-                array_push(&subgraph->nodes, ((AnalysisSubgraphNode) {
-                  .state = state,
-                  .production_id = action->params.reduce.production_id,
-                  .child_index = action->params.reduce.child_count,
-                  .done = true,
-                }));
+            for (const TSSymbol *symbol = aliases; symbol < aliases_end; symbol++) {
+              array_search_sorted_by(
+                &subgraphs,
+                0,
+                .symbol,
+                *symbol,
+                &subgraph_index,
+                &exists
+              );
+              if (exists) {
+                AnalysisSubgraph *subgraph = &subgraphs.contents[subgraph_index];
+                if (subgraph->nodes.size == 0 || array_back(&subgraph->nodes)->state != state) {
+                  array_push(&subgraph->nodes, ((AnalysisSubgraphNode) {
+                    .state = state,
+                    .production_id = action->params.reduce.production_id,
+                    .child_index = action->params.reduce.child_count,
+                    .done = true,
+                  }));
+                }
               }
             }
           } else if (action->type == TSParseActionTypeShift && !action->params.shift.extra) {
@@ -815,22 +823,30 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
         }
       } else if (lookahead_iterator.next_state != 0 && lookahead_iterator.next_state != state) {
         state_predecessor_map_add(&predecessor_map, lookahead_iterator.next_state, state);
-        TSSymbol symbol = self->language->public_symbol_map[lookahead_iterator.symbol];
-        array_search_sorted_by(
-          &subgraphs,
-          0,
-          .symbol,
-          symbol,
-          &subgraph_index,
-          &exists
+        const TSSymbol *aliases, *aliases_end;
+        ts_language_aliases_for_symbol(
+          self->language,
+          lookahead_iterator.symbol,
+          &aliases,
+          &aliases_end
         );
-        if (exists) {
-          AnalysisSubgraph *subgraph = &subgraphs.contents[subgraph_index];
-          if (
-            subgraph->start_states.size == 0 ||
-            *array_back(&subgraph->start_states) != state
-          )
-          array_push(&subgraph->start_states, state);
+        for (const TSSymbol *symbol = aliases; symbol < aliases_end; symbol++) {
+          array_search_sorted_by(
+            &subgraphs,
+            0,
+            .symbol,
+            *symbol,
+            &subgraph_index,
+            &exists
+          );
+          if (exists) {
+            AnalysisSubgraph *subgraph = &subgraphs.contents[subgraph_index];
+            if (
+              subgraph->start_states.size == 0 ||
+              *array_back(&subgraph->start_states) != state
+            )
+            array_push(&subgraph->start_states, state);
+          }
         }
       }
     }
