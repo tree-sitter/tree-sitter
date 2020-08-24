@@ -8,13 +8,14 @@
 #include "./unicode.h"
 #include <wctype.h>
 
+// #define DEBUG_ANALYZE_QUERY
 // #define LOG(...) fprintf(stderr, __VA_ARGS__)
 #define LOG(...)
 
 #define MAX_CAPTURE_LIST_COUNT 32
 #define MAX_STEP_CAPTURE_COUNT 3
 #define MAX_STATE_PREDECESSOR_COUNT 100
-#define MAX_ANALYSIS_STATE_DEPTH 8
+#define MAX_ANALYSIS_STATE_DEPTH 12
 
 /*
  * Stream - A sequence of unicode characters derived from a UTF8 string.
@@ -169,6 +170,8 @@ typedef struct {
   uint16_t depth;
   uint16_t step_index;
 } AnalysisState;
+
+typedef Array(AnalysisState) AnalysisStateSet;
 
 /*
  * AnalysisSubgraph - A subset of the states in the parse table that are used
@@ -585,6 +588,20 @@ static inline const TSStateId *state_predecessor_map_get(
  * AnalysisState
  ****************/
 
+static unsigned analysis_state__recursion_depth(const AnalysisState *self) {
+  unsigned result = 0;
+  for (unsigned i = 0; i < self->depth; i++) {
+    TSSymbol symbol = self->stack[i].parent_symbol;
+    for (unsigned j = 0; j < i; j++) {
+      if (self->stack[j].parent_symbol == symbol) {
+        result++;
+        break;
+      }
+    }
+  }
+  return result;
+}
+
 static inline int analysis_state__compare_position(
   const AnalysisState *self,
   const AnalysisState *other
@@ -725,8 +742,6 @@ static inline void ts_query__pattern_map_insert(
     .pattern_index = pattern_index,
   }));
 }
-
-// #define DEBUG_ANALYZE_QUERY
 
 static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   // Identify all of the patterns in the query that have child patterns, both at the
@@ -917,23 +932,35 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   // For each non-terminal pattern, determine if the pattern can successfully match,
   // and identify all of the possible children within the pattern where matching could fail.
   bool result = true;
-  typedef Array(AnalysisState) AnalysisStateList;
-  AnalysisStateList states = array_new();
-  AnalysisStateList next_states = array_new();
+  AnalysisStateSet states = array_new();
+  AnalysisStateSet next_states = array_new();
+  AnalysisStateSet deeper_states = array_new();
   Array(uint16_t) final_step_indices = array_new();
   for (unsigned i = 0; i < parent_step_indices.size; i++) {
-    // Find the subgraph that corresponds to this pattern's root symbol.
     uint16_t parent_step_index = parent_step_indices.contents[i];
     uint16_t parent_depth = self->steps.contents[parent_step_index].depth;
     TSSymbol parent_symbol = self->steps.contents[parent_step_index].symbol;
+    if (parent_symbol == ts_builtin_sym_error) continue;
+
+    // Find the subgraph that corresponds to this pattern's root symbol. If the pattern's
+    // root symbols is not a non-terminal, then return an error.
     unsigned subgraph_index, exists;
     array_search_sorted_by(&subgraphs, .symbol, parent_symbol, &subgraph_index, &exists);
-    if (!exists) continue;
-    AnalysisSubgraph *subgraph = &subgraphs.contents[subgraph_index];
+    if (!exists) {
+      unsigned first_child_step_index = parent_step_index + 1;
+      uint32_t i, exists;
+      array_search_sorted_by(&self->step_offsets, .step_index, first_child_step_index, &i, &exists);
+      assert(exists);
+      *error_offset = self->step_offsets.contents[i].byte_offset;
+      result = false;
+      break;
+    }
 
     // Initialize an analysis state at every parse state in the table where
     // this parent symbol can occur.
+    AnalysisSubgraph *subgraph = &subgraphs.contents[subgraph_index];
     array_clear(&states);
+    array_clear(&deeper_states);
     for (unsigned j = 0; j < subgraph->start_states.size; j++) {
       TSStateId parse_state = subgraph->start_states.contents[j];
       array_push(&states, ((AnalysisState) {
@@ -954,6 +981,9 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     // Walk the subgraph for this non-terminal, tracking all of the possible
     // sequences of progress within the pattern.
     bool can_finish_pattern = false;
+    bool did_exceed_max_depth = false;
+    unsigned recursion_depth_limit = 0;
+    unsigned prev_final_step_count = 0;
     array_clear(&final_step_indices);
     for (;;) {
       #ifdef DEBUG_ANALYZE_QUERY
@@ -980,7 +1010,23 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
         }
       #endif
 
-      if (states.size == 0) break;
+      if (states.size == 0) {
+        if (deeper_states.size > 0 && final_step_indices.size > prev_final_step_count) {
+          #ifdef DEBUG_ANALYZE_QUERY
+            printf("Increase recursion depth limit to %u\n", recursion_depth_limit + 1);
+          #endif
+
+          prev_final_step_count = final_step_indices.size;
+          recursion_depth_limit++;
+          AnalysisStateSet _states = states;
+          states = deeper_states;
+          deeper_states = _states;
+          continue;
+        }
+
+        break;
+      }
+
       array_clear(&next_states);
       for (unsigned j = 0; j < states.size; j++) {
         AnalysisState * const state = &states.contents[j];
@@ -1091,13 +1137,23 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
 
             // If this is a hidden child, then push a new entry to the stack, in order to
             // walk through the children of this child.
-            else if (sym >= self->language->token_count && next_state.depth < MAX_ANALYSIS_STATE_DEPTH) {
+            else if (sym >= self->language->token_count) {
+              if (next_state.depth + 1 >= MAX_ANALYSIS_STATE_DEPTH) {
+                did_exceed_max_depth = true;
+                continue;
+              }
+
               next_state.depth++;
               analysis_state__top(&next_state)->parse_state = parse_state;
               analysis_state__top(&next_state)->child_index = 0;
               analysis_state__top(&next_state)->parent_symbol = sym;
               analysis_state__top(&next_state)->field_id = field_id;
               analysis_state__top(&next_state)->done = false;
+
+              if (analysis_state__recursion_depth(&next_state) > recursion_depth_limit) {
+                array_insert_sorted_with(&deeper_states, analysis_state__compare, next_state);
+                continue;
+              }
             } else {
               continue;
             }
@@ -1128,10 +1184,10 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
               if (!next_step->is_dead_end) {
                 bool did_finish_pattern = self->steps.contents[next_state.step_index].depth != parent_depth + 1;
                 if (did_finish_pattern) can_finish_pattern = true;
-                if (next_state.depth > 0 && !did_finish_pattern) {
-                  array_insert_sorted_with(&next_states, analysis_state__compare, next_state);
-                } else {
+                if (did_finish_pattern || next_state.depth == 0) {
                   array_insert_sorted_by(&final_step_indices, , next_state.step_index);
+                } else {
+                  array_insert_sorted_with(&next_states, analysis_state__compare, next_state);
                 }
               }
 
@@ -1152,7 +1208,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
         }
       }
 
-      AnalysisStateList _states = states;
+      AnalysisStateSet _states = states;
       states = next_states;
       next_states = _states;
     }
@@ -1171,16 +1227,30 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
       }
     }
 
+    if (did_exceed_max_depth) {
+      for (unsigned j = parent_step_index + 1; j < self->steps.size; j++) {
+        QueryStep *step = &self->steps.contents[j];
+        if (
+          step->depth <= parent_depth ||
+          step->depth == PATTERN_DONE_MARKER
+        ) break;
+        if (!step->is_dead_end) {
+          step->is_definite = false;
+        }
+      }
+    }
+
     // If this pattern cannot match, store the pattern index so that it can be
     // returned to the caller.
-    if (result && !can_finish_pattern) {
+    if (result && !can_finish_pattern && !did_exceed_max_depth) {
       assert(final_step_indices.size > 0);
-      uint16_t *impossible_step_index = array_back(&final_step_indices);
+      uint16_t impossible_step_index = *array_back(&final_step_indices);
       uint32_t i, exists;
-      array_search_sorted_by(&self->step_offsets, .step_index, *impossible_step_index, &i, &exists);
+      array_search_sorted_by(&self->step_offsets, .step_index, impossible_step_index, &i, &exists);
       assert(exists);
       *error_offset = self->step_offsets.contents[i].byte_offset;
       result = false;
+      break;
     }
   }
 
@@ -1286,6 +1356,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   array_delete(&next_nodes);
   array_delete(&states);
   array_delete(&next_states);
+  array_delete(&deeper_states);
   array_delete(&final_step_indices);
   array_delete(&parent_step_indices);
   array_delete(&predicate_capture_ids);

@@ -268,6 +268,29 @@ fn test_query_errors_on_impossible_patterns() {
                 .join("\n")
             ))
         );
+
+        assert_eq!(
+            Query::new(js_lang, "(identifier (identifier))",),
+            Err(QueryError::Structure(
+                1,
+                [
+                    "(identifier (identifier))", //
+                    "            ^",
+                ]
+                .join("\n")
+            ))
+        );
+        assert_eq!(
+            Query::new(js_lang, "(true (true))",),
+            Err(QueryError::Structure(
+                1,
+                [
+                    "(true (true))", //
+                    "      ^",
+                ]
+                .join("\n")
+            ))
+        );
     });
 }
 
@@ -2560,6 +2583,32 @@ fn test_query_step_is_definite() {
             (method_parameters "(" (identifier) @id")")
             "#,
             results_by_substring: &[("\"(\"", false), ("(identifier)", false), ("\")\"", true)],
+        },
+        Row {
+            description: "long, but not too long to analyze",
+            language: get_language("javascript"),
+            pattern: r#"
+            (object "{" (pair) (pair) (pair) (pair) "}")
+            "#,
+            results_by_substring: &[
+                ("\"{\"", false),
+                ("(pair)", false),
+                ("(pair) \"}\"", false),
+                ("\"}\"", true),
+            ],
+        },
+        Row {
+            description: "too long to analyze",
+            language: get_language("javascript"),
+            pattern: r#"
+            (object "{" (pair) (pair) (pair) (pair) (pair) (pair) (pair) (pair) (pair) (pair) (pair) (pair) "}")
+            "#,
+            results_by_substring: &[
+                ("\"{\"", false),
+                ("(pair)", false),
+                ("(pair) \"}\"", false),
+                ("\"}\"", false),
+            ],
         },
     ];
 
