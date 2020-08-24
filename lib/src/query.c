@@ -764,12 +764,12 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     uint32_t parent_step_index = parent_step_indices.contents[i];
     TSSymbol parent_symbol = self->steps.contents[parent_step_index].symbol;
     AnalysisSubgraph subgraph = { .symbol = parent_symbol };
-    array_insert_sorted_by(&subgraphs, 0, .symbol, subgraph);
+    array_insert_sorted_by(&subgraphs, .symbol, subgraph);
   }
   for (TSSymbol sym = self->language->token_count; sym < self->language->symbol_count; sym++) {
     if (!ts_language_symbol_metadata(self->language, sym).visible) {
       AnalysisSubgraph subgraph = { .symbol = sym };
-      array_insert_sorted_by(&subgraphs, 0, .symbol, subgraph);
+      array_insert_sorted_by(&subgraphs, .symbol, subgraph);
     }
   }
 
@@ -798,7 +798,6 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
             for (const TSSymbol *symbol = aliases; symbol < aliases_end; symbol++) {
               array_search_sorted_by(
                 &subgraphs,
-                0,
                 .symbol,
                 *symbol,
                 &subgraph_index,
@@ -833,7 +832,6 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
         for (const TSSymbol *symbol = aliases; symbol < aliases_end; symbol++) {
           array_search_sorted_by(
             &subgraphs,
-            0,
             .symbol,
             *symbol,
             &subgraph_index,
@@ -882,8 +880,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
           };
           unsigned index, exists;
           array_search_sorted_with(
-            &subgraph->nodes, 0,
-            analysis_subgraph_node__compare, &predecessor_node,
+            &subgraph->nodes, analysis_subgraph_node__compare, &predecessor_node,
             &index, &exists
           );
           if (!exists) {
@@ -930,7 +927,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     uint16_t parent_depth = self->steps.contents[parent_step_index].depth;
     TSSymbol parent_symbol = self->steps.contents[parent_step_index].symbol;
     unsigned subgraph_index, exists;
-    array_search_sorted_by(&subgraphs, 0, .symbol, parent_symbol, &subgraph_index, &exists);
+    array_search_sorted_by(&subgraphs, .symbol, parent_symbol, &subgraph_index, &exists);
     if (!exists) continue;
     AnalysisSubgraph *subgraph = &subgraphs.contents[subgraph_index];
 
@@ -996,7 +993,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
         if (next_states.size > 0) {
           int comparison = analysis_state__compare_position(state, array_back(&next_states));
           if (comparison == 0) {
-            array_insert_sorted_with(&next_states, 0, analysis_state__compare, *state);
+            array_insert_sorted_with(&next_states, analysis_state__compare, *state);
             continue;
           } else if (comparison > 0) {
             while (j < states.size) {
@@ -1014,7 +1011,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
         const QueryStep * const step = &self->steps.contents[state->step_index];
 
         unsigned subgraph_index, exists;
-        array_search_sorted_by(&subgraphs, 0, .symbol, parent_symbol, &subgraph_index, &exists);
+        array_search_sorted_by(&subgraphs, .symbol, parent_symbol, &subgraph_index, &exists);
         if (!exists) continue;
         const AnalysisSubgraph *subgraph = &subgraphs.contents[subgraph_index];
 
@@ -1044,7 +1041,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
           };
           unsigned node_index;
           array_search_sorted_with(
-            &subgraph->nodes, 0,
+            &subgraph->nodes,
             analysis_subgraph_node__compare, &successor,
             &node_index, &exists
           );
@@ -1132,9 +1129,9 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
                 bool did_finish_pattern = self->steps.contents[next_state.step_index].depth != parent_depth + 1;
                 if (did_finish_pattern) can_finish_pattern = true;
                 if (next_state.depth > 0 && !did_finish_pattern) {
-                  array_insert_sorted_with(&next_states, 0, analysis_state__compare, next_state);
+                  array_insert_sorted_with(&next_states, analysis_state__compare, next_state);
                 } else {
-                  array_insert_sorted_by(&final_step_indices, 0, , next_state.step_index);
+                  array_insert_sorted_by(&final_step_indices, , next_state.step_index);
                 }
               }
 
@@ -1180,7 +1177,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
       assert(final_step_indices.size > 0);
       uint16_t *impossible_step_index = array_back(&final_step_indices);
       uint32_t i, exists;
-      array_search_sorted_by(&self->step_offsets, 0, .step_index, *impossible_step_index, &i, &exists);
+      array_search_sorted_by(&self->step_offsets, .step_index, *impossible_step_index, &i, &exists);
       assert(exists);
       *error_offset = self->step_offsets.contents[i].byte_offset;
       result = false;
@@ -1201,7 +1198,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     ) {
       TSQueryPredicateStep *step = &self->predicate_steps.contents[j];
       if (step->type == TSQueryPredicateStepTypeCapture) {
-        array_insert_sorted_by(&predicate_capture_ids, 0, , step->value_id);
+        array_insert_sorted_by(&predicate_capture_ids, , step->value_id);
       }
     }
 
@@ -1216,7 +1213,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
         uint16_t capture_id = step->capture_ids[k];
         if (capture_id == NONE) break;
         unsigned index, exists;
-        array_search_sorted_by(&predicate_capture_ids, 0, , capture_id, &index, &exists);
+        array_search_sorted_by(&predicate_capture_ids, , capture_id, &index, &exists);
         if (exists) {
           step->is_definite = false;
           break;

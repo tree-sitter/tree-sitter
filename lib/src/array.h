@@ -87,23 +87,23 @@ extern "C" {
 
 #define _compare_int(a, b) ((int)*(a) - (int)(b))
 
-#define array_search_sorted_by(self, start, field, needle, index, exists) \
-  array__search_sorted(self, start, _compare_int, field, needle, index, exists)
+#define array_search_sorted_by(self, field, needle, index, exists) \
+  array__search_sorted(self, 0, _compare_int, field, needle, index, exists)
 
-#define array_search_sorted_with(self, start, compare, needle, index, exists) \
-  array__search_sorted(self, start, compare, , needle, index, exists)
+#define array_search_sorted_with(self, compare, needle, index, exists) \
+  array__search_sorted(self, 0, compare, , needle, index, exists)
 
-#define array_insert_sorted_by(self, start, field, value) \
+#define array_insert_sorted_by(self, field, value) \
   do { \
     unsigned index, exists; \
-    array_search_sorted_by(self, start, field, (value) field, &index, &exists); \
+    array_search_sorted_by(self, field, (value) field, &index, &exists); \
     if (!exists) array_insert(self, index, value); \
   } while (0)
 
-#define array_insert_sorted_with(self, start, compare, value) \
+#define array_insert_sorted_with(self, compare, value) \
   do { \
     unsigned index, exists; \
-    array_search_sorted_with(self, start, compare, &(value), &index, &exists); \
+    array_search_sorted_with(self, compare, &(value), &index, &exists); \
     if (!exists) array_insert(self, index, value); \
   } while (0)
 
