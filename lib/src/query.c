@@ -1252,6 +1252,9 @@ const TSQueryPredicateStep *ts_query_predicates_for_pattern(
 ) {
   Slice slice = self->predicates_by_pattern.contents[pattern_index];
   *step_count = slice.length;
+  if (self->predicate_steps.contents == NULL) {
+    return NULL;
+  }
   return &self->predicate_steps.contents[slice.offset];
 }
 
