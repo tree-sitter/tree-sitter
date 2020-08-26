@@ -292,6 +292,7 @@ static bool ts_parser__better_version_exists(
         return true;
       case ErrorComparisonPreferRight:
         if (ts_stack_can_merge(self->stack, i, version)) return true;
+        break;
       default:
         break;
     }
@@ -975,6 +976,7 @@ static bool ts_parser__do_all_potential_reductions(
                 .dynamic_precedence = action.params.reduce.dynamic_precedence,
                 .production_id = action.params.reduce.production_id,
               });
+            break;
           default:
             break;
         }
