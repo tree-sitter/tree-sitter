@@ -14,6 +14,10 @@ macro_rules! resource {
             if let Some(tree_sitter_dir) = tree_sitter_dir {
                 fs::read(tree_sitter_dir.join($path)).unwrap()
             } else {
+                let target = concat!("../../", $path);
+                if !Path::new(target).exists() {
+                    std::compile_error!("Couldn't find required resource files; have you run `script/build-wasm`?")
+                }
                 include_bytes!(concat!("../../", $path)).to_vec()
             }
         }
@@ -27,6 +31,10 @@ macro_rules! posix_resource {
             if let Some(tree_sitter_dir) = tree_sitter_dir {
                 fs::read(tree_sitter_dir.join($path)).unwrap()
             } else {
+                let target = concat!("../../", $path);
+                if !Path::new(target).exists() {
+                    std::compile_error!("Couldn't find required resource files; have you run `script/build-wasm`?")
+                }
                 include_bytes!(concat!("../../", $path)).to_vec()
             }
         }
