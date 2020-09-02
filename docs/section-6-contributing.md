@@ -29,7 +29,7 @@ git clone https://github.com/tree-sitter/tree-sitter
 cd tree-sitter
 ```
 
-Build the WASM library. We do this first because it gets embedded in the CLI to enable the `web-ui` command. If you have emscripten installed, this will use your `emcc` compiler. Otherwise, it will use Docker:
+To use the `web-ui` command, you'll need to build the WASM library. If you have emscripten installed, this will use your `emcc` compiler. Otherwise, it will use Docker:
 
 ```sh
 ./script/build-wasm
