@@ -360,7 +360,7 @@ void ts_subtree_set_children(
   self.ptr->has_external_tokens = false;
   self.ptr->dynamic_precedence = 0;
 
-  uint32_t non_extra_index = 0;
+  uint32_t structural_index = 0;
   const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self.ptr->production_id);
   uint32_t lookahead_end_byte = 0;
 
@@ -387,9 +387,9 @@ void ts_subtree_set_children(
     self.ptr->dynamic_precedence += ts_subtree_dynamic_precedence(child);
     self.ptr->node_count += ts_subtree_node_count(child);
 
-    if (alias_sequence && alias_sequence[non_extra_index] != 0 && !ts_subtree_extra(child)) {
+    if (alias_sequence && alias_sequence[structural_index] != 0 && !ts_subtree_extra(child)) {
       self.ptr->visible_child_count++;
-      if (ts_language_symbol_metadata(language, alias_sequence[non_extra_index]).named) {
+      if (ts_language_symbol_metadata(language, alias_sequence[structural_index]).named) {
         self.ptr->named_child_count++;
       }
     } else if (ts_subtree_visible(child)) {
@@ -407,7 +407,7 @@ void ts_subtree_set_children(
       self.ptr->parse_state = TS_TREE_STATE_NONE;
     }
 
-    if (!ts_subtree_extra(child)) non_extra_index++;
+    if (!ts_subtree_extra(child)) structural_index++;
   }
 
   self.ptr->lookahead_bytes = lookahead_end_byte - self.ptr->size.bytes - self.ptr->padding.bytes;

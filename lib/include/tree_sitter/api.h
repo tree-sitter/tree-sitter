@@ -21,7 +21,7 @@ extern "C" {
  * The Tree-sitter library is generally backwards-compatible with languages
  * generated using older CLI versions, but is not forwards-compatible.
  */
-#define TREE_SITTER_LANGUAGE_VERSION 11
+#define TREE_SITTER_LANGUAGE_VERSION 12
 
 /**
  * The earliest ABI version that is supported by the current version of the
@@ -130,6 +130,7 @@ typedef enum {
   TSQueryErrorNodeType,
   TSQueryErrorField,
   TSQueryErrorCapture,
+  TSQueryErrorStructure,
 } TSQueryError;
 
 /********************/
@@ -716,6 +717,11 @@ const TSQueryPredicateStep *ts_query_predicates_for_pattern(
   const TSQuery *self,
   uint32_t pattern_index,
   uint32_t *length
+);
+
+bool ts_query_step_is_definite(
+  const TSQuery *self,
+  uint32_t byte_offset
 );
 
 /**

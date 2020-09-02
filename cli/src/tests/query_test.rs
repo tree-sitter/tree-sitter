@@ -1,10 +1,16 @@
 use super::helpers::allocations;
 use super::helpers::fixtures::get_language;
+use lazy_static::lazy_static;
+use std::env;
 use std::fmt::Write;
 use tree_sitter::{
     Language, Node, Parser, Query, QueryCapture, QueryCursor, QueryError, QueryMatch,
     QueryPredicate, QueryPredicateArg, QueryProperty,
 };
+
+lazy_static! {
+    static ref EXAMPLE_FILTER: Option<String> = env::var("TREE_SITTER_TEST_EXAMPLE_FILTER").ok();
+}
 
 #[test]
 fn test_query_errors_on_invalid_syntax() {
@@ -12,7 +18,11 @@ fn test_query_errors_on_invalid_syntax() {
         let language = get_language("javascript");
 
         assert!(Query::new(language, "(if_statement)").is_ok());
-        assert!(Query::new(language, "(if_statement condition:(identifier))").is_ok());
+        assert!(Query::new(
+            language,
+            "(if_statement condition:(parenthesized_expression (identifier)))"
+        )
+        .is_ok());
 
         // Mismatched parens
         assert_eq!(
@@ -176,6 +186,110 @@ fn test_query_errors_on_invalid_conditions() {
         assert_eq!(
             Query::new(language, "((identifier) @id (#eq? @id @ok))"),
             Err(QueryError::Capture(1, "ok".to_string()))
+        );
+    });
+}
+
+#[test]
+fn test_query_errors_on_impossible_patterns() {
+    let js_lang = get_language("javascript");
+    let rb_lang = get_language("ruby");
+
+    allocations::record(|| {
+        assert_eq!(
+            Query::new(
+                js_lang,
+                "(binary_expression left: (identifier) left: (identifier))"
+            ),
+            Err(QueryError::Structure(
+                1,
+                [
+                    "(binary_expression left: (identifier) left: (identifier))",
+                    "                                      ^"
+                ]
+                .join("\n"),
+            ))
+        );
+
+        Query::new(
+            js_lang,
+            "(function_declaration name: (identifier) (statement_block))",
+        )
+        .unwrap();
+        assert_eq!(
+            Query::new(js_lang, "(function_declaration name: (statement_block))"),
+            Err(QueryError::Structure(
+                1,
+                [
+                    "(function_declaration name: (statement_block))",
+                    "                      ^",
+                ]
+                .join("\n")
+            ))
+        );
+
+        Query::new(rb_lang, "(call receiver:(call))").unwrap();
+        assert_eq!(
+            Query::new(rb_lang, "(call receiver:(binary))"),
+            Err(QueryError::Structure(
+                1,
+                [
+                    "(call receiver:(binary))", //
+                    "      ^",
+                ]
+                .join("\n")
+            ))
+        );
+
+        Query::new(
+            js_lang,
+            "[
+                (function (identifier))
+                (function_declaration (identifier))
+                (generator_function_declaration (identifier))
+            ]",
+        )
+        .unwrap();
+        assert_eq!(
+            Query::new(
+                js_lang,
+                "[
+                    (function (identifier))
+                    (function_declaration (object))
+                    (generator_function_declaration (identifier))
+                ]",
+            ),
+            Err(QueryError::Structure(
+                3,
+                [
+                    "                    (function_declaration (object))", //
+                    "                                          ^",
+                ]
+                .join("\n")
+            ))
+        );
+
+        assert_eq!(
+            Query::new(js_lang, "(identifier (identifier))",),
+            Err(QueryError::Structure(
+                1,
+                [
+                    "(identifier (identifier))", //
+                    "            ^",
+                ]
+                .join("\n")
+            ))
+        );
+        assert_eq!(
+            Query::new(js_lang, "(true (true))",),
+            Err(QueryError::Structure(
+                1,
+                [
+                    "(true (true))", //
+                    "      ^",
+                ]
+                .join("\n")
+            ))
         );
     });
 }
@@ -1908,6 +2022,54 @@ fn test_query_captures_with_too_many_nested_results() {
 }
 
 #[test]
+fn test_query_captures_with_definite_pattern_containing_many_nested_matches() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            (array
+              "[" @l-bracket
+              "]" @r-bracket)
+
+            "." @dot
+            "#,
+        )
+        .unwrap();
+
+        // The '[' node must be returned before all of the '.' nodes,
+        // even though its pattern does not finish until the ']' node
+        // at the end of the document. But because the '[' is definite,
+        // it can be returned before the pattern finishes matching.
+        let source = "
+        [
+            a.b.c.d.e.f.g.h.i,
+            a.b.c.d.e.f.g.h.i,
+            a.b.c.d.e.f.g.h.i,
+            a.b.c.d.e.f.g.h.i,
+            a.b.c.d.e.f.g.h.i,
+        ]
+        ";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+
+        let captures = cursor.captures(&query, tree.root_node(), to_callback(source));
+        assert_eq!(
+            collect_captures(captures, &query, source),
+            [("l-bracket", "[")]
+                .iter()
+                .chain([("dot", "."); 40].iter())
+                .chain([("r-bracket", "]")].iter())
+                .cloned()
+                .collect::<Vec<_>>(),
+        );
+    });
+}
+
+#[test]
 fn test_query_captures_ordered_by_both_start_and_end_positions() {
     allocations::record(|| {
         let language = get_language("javascript");
@@ -2051,7 +2213,7 @@ fn test_query_start_byte_for_pattern() {
     let patterns_3 = "
         ((identifier) @b (#match? @b i))
         (function_declaration name: (identifier) @c)
-        (method_definition name: (identifier) @d)
+        (method_definition name: (property_identifier) @d)
     "
     .trim_start();
 
@@ -2078,10 +2240,10 @@ fn test_query_capture_names() {
             language,
             r#"
             (if_statement
-              condition: (binary_expression
+              condition: (parenthesized_expression (binary_expression
                 left: _ @left-operand
                 operator: "||"
-                right: _ @right-operand)
+                right: _ @right-operand))
               consequence: (statement_block) @body)
 
             (while_statement
@@ -2210,6 +2372,273 @@ fn test_query_alternative_predicate_prefix() {
             source,
             &[(0, vec![("keyword", "DEFUN"), ("function", "\"identity\"")])],
         );
+    });
+}
+
+#[test]
+fn test_query_step_is_definite() {
+    struct Row {
+        language: Language,
+        description: &'static str,
+        pattern: &'static str,
+        results_by_substring: &'static [(&'static str, bool)],
+    }
+
+    let rows = &[
+        Row {
+            description: "no definite steps",
+            language: get_language("python"),
+            pattern: r#"(expression_statement (string))"#,
+            results_by_substring: &[("expression_statement", false), ("string", false)],
+        },
+        Row {
+            description: "all definite steps",
+            language: get_language("javascript"),
+            pattern: r#"(object "{" "}")"#,
+            results_by_substring: &[("object", false), ("{", true), ("}", true)],
+        },
+        Row {
+            description: "an indefinite step that is optional",
+            language: get_language("javascript"),
+            pattern: r#"(object "{" (identifier)? @foo "}")"#,
+            results_by_substring: &[
+                ("object", false),
+                ("{", true),
+                ("(identifier)?", false),
+                ("}", true),
+            ],
+        },
+        Row {
+            description: "multiple indefinite steps that are optional",
+            language: get_language("javascript"),
+            pattern: r#"(object "{" (identifier)? @id1 ("," (identifier) @id2)? "}")"#,
+            results_by_substring: &[
+                ("object", false),
+                ("{", true),
+                ("(identifier)? @id1", false),
+                ("\",\"", false),
+                ("}", true),
+            ],
+        },
+        Row {
+            description: "definite step after indefinite step",
+            language: get_language("javascript"),
+            pattern: r#"(pair (property_identifier) ":")"#,
+            results_by_substring: &[("pair", false), ("property_identifier", false), (":", true)],
+        },
+        Row {
+            description: "indefinite step in between two definite steps",
+            language: get_language("javascript"),
+            pattern: r#"(ternary_expression
+                condition: (_)
+                "?"
+                consequence: (call_expression)
+                ":"
+                alternative: (_))"#,
+            results_by_substring: &[
+                ("condition:", false),
+                ("\"?\"", false),
+                ("consequence:", false),
+                ("\":\"", true),
+                ("alternative:", true),
+            ],
+        },
+        Row {
+            description: "one definite step after a repetition",
+            language: get_language("javascript"),
+            pattern: r#"(object "{" (_) "}")"#,
+            results_by_substring: &[("object", false), ("{", false), ("(_)", false), ("}", true)],
+        },
+        Row {
+            description: "definite steps after multiple repetitions",
+            language: get_language("json"),
+            pattern: r#"(object "{" (pair) "," (pair) "," (_) "}")"#,
+            results_by_substring: &[
+                ("object", false),
+                ("{", false),
+                ("(pair) \",\" (pair)", false),
+                ("(pair) \",\" (_)", false),
+                ("\",\" (_)", false),
+                ("(_)", true),
+                ("}", true),
+            ],
+        },
+        Row {
+            description: "a definite with a field",
+            language: get_language("javascript"),
+            pattern: r#"(binary_expression left: (identifier) right: (_))"#,
+            results_by_substring: &[
+                ("binary_expression", false),
+                ("(identifier)", false),
+                ("(_)", true),
+            ],
+        },
+        Row {
+            description: "multiple definite steps with fields",
+            language: get_language("javascript"),
+            pattern: r#"(function_declaration name: (identifier) body: (statement_block))"#,
+            results_by_substring: &[
+                ("function_declaration", false),
+                ("identifier", true),
+                ("statement_block", true),
+            ],
+        },
+        Row {
+            description: "nesting, one definite step",
+            language: get_language("javascript"),
+            pattern: r#"
+                (function_declaration
+                    name: (identifier)
+                    body: (statement_block "{" (expression_statement) "}"))"#,
+            results_by_substring: &[
+                ("function_declaration", false),
+                ("identifier", false),
+                ("statement_block", false),
+                ("{", false),
+                ("expression_statement", false),
+                ("}", true),
+            ],
+        },
+        Row {
+            description: "definite step after some deeply nested hidden nodes",
+            language: get_language("ruby"),
+            pattern: r#"
+            (singleton_class
+                value: (constant)
+                "end")
+            "#,
+            results_by_substring: &[
+                ("singleton_class", false),
+                ("constant", false),
+                ("end", true),
+            ],
+        },
+        Row {
+            description: "nesting, no definite steps",
+            language: get_language("javascript"),
+            pattern: r#"
+            (call_expression
+                function: (member_expression
+                  property: (property_identifier) @template-tag)
+                arguments: (template_string)) @template-call
+            "#,
+            results_by_substring: &[("property_identifier", false), ("template_string", false)],
+        },
+        Row {
+            description: "a definite step after a nested node",
+            language: get_language("javascript"),
+            pattern: r#"
+            (subscript_expression
+                object: (member_expression
+                    object: (identifier) @obj
+                    property: (property_identifier) @prop)
+                "[")
+            "#,
+            results_by_substring: &[
+                ("identifier", false),
+                ("property_identifier", true),
+                ("[", true),
+            ],
+        },
+        Row {
+            description: "a step that is indefinite due to a predicate",
+            language: get_language("javascript"),
+            pattern: r#"
+            (subscript_expression
+                object: (member_expression
+                    object: (identifier) @obj
+                    property: (property_identifier) @prop)
+                "["
+                (#match? @prop "foo"))
+            "#,
+            results_by_substring: &[
+                ("identifier", false),
+                ("property_identifier", false),
+                ("[", true),
+            ],
+        },
+        Row {
+            description: "alternation where one branch has definite steps",
+            language: get_language("javascript"),
+            pattern: r#"
+            [
+                (unary_expression (identifier))
+                (call_expression
+                  function: (_)
+                  arguments: (_))
+                (binary_expression right:(call_expression))
+            ]
+            "#,
+            results_by_substring: &[
+                ("identifier", false),
+                ("right:", false),
+                ("function:", true),
+                ("arguments:", true),
+            ],
+        },
+        Row {
+            description: "aliased parent node",
+            language: get_language("ruby"),
+            pattern: r#"
+            (method_parameters "(" (identifier) @id")")
+            "#,
+            results_by_substring: &[("\"(\"", false), ("(identifier)", false), ("\")\"", true)],
+        },
+        Row {
+            description: "long, but not too long to analyze",
+            language: get_language("javascript"),
+            pattern: r#"
+            (object "{" (pair) (pair) (pair) (pair) "}")
+            "#,
+            results_by_substring: &[
+                ("\"{\"", false),
+                ("(pair)", false),
+                ("(pair) \"}\"", false),
+                ("\"}\"", true),
+            ],
+        },
+        Row {
+            description: "too long to analyze",
+            language: get_language("javascript"),
+            pattern: r#"
+            (object "{" (pair) (pair) (pair) (pair) (pair) (pair) (pair) (pair) (pair) (pair) (pair) (pair) "}")
+            "#,
+            results_by_substring: &[
+                ("\"{\"", false),
+                ("(pair)", false),
+                ("(pair) \"}\"", false),
+                ("\"}\"", false),
+            ],
+        },
+    ];
+
+    allocations::record(|| {
+        eprintln!("");
+
+        for row in rows.iter() {
+            if let Some(filter) = EXAMPLE_FILTER.as_ref() {
+                if !row.description.contains(filter.as_str()) {
+                    continue;
+                }
+            }
+            eprintln!("  query example: {:?}", row.description);
+            let query = Query::new(row.language, row.pattern).unwrap();
+            for (substring, is_definite) in row.results_by_substring {
+                let offset = row.pattern.find(substring).unwrap();
+                assert_eq!(
+                    query.step_is_definite(offset),
+                    *is_definite,
+                    "Description: {}, Pattern: {:?}, substring: {:?}, expected is_definite to be {}",
+                    row.description,
+                    row.pattern
+                        .split_ascii_whitespace()
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                    substring,
+                    is_definite,
+                )
+            }
+        }
     });
 }
 

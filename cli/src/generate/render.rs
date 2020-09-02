@@ -7,7 +7,7 @@ use super::tables::{
 };
 use core::ops::Range;
 use std::cmp;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::mem::swap;
 
@@ -69,7 +69,8 @@ struct Generator {
     symbol_order: HashMap<Symbol, usize>,
     symbol_ids: HashMap<Symbol, String>,
     alias_ids: HashMap<Alias, String>,
-    alias_map: BTreeMap<Alias, Option<Symbol>>,
+    unique_aliases: Vec<Alias>,
+    symbol_map: HashMap<Symbol, Symbol>,
     field_names: Vec<String>,
     next_abi: bool,
 }
@@ -95,11 +96,7 @@ impl Generator {
         self.add_stats();
         self.add_symbol_enum();
         self.add_symbol_names_list();
-
-        if self.next_abi {
-            self.add_unique_symbol_map();
-        }
-
+        self.add_unique_symbol_map();
         self.add_symbol_metadata_list();
 
         if !self.field_names.is_empty() {
@@ -111,6 +108,8 @@ impl Generator {
         if !self.parse_table.production_infos.is_empty() {
             self.add_alias_sequences();
         }
+
+        self.add_non_terminal_alias_map();
 
         let mut main_lex_table = LexTable::default();
         swap(&mut main_lex_table, &mut self.main_lex_table);
@@ -163,12 +162,71 @@ impl Generator {
                         format!("anon_alias_sym_{}", self.sanitize_identifier(&alias.value))
                     };
                     self.alias_ids.entry(alias.clone()).or_insert(alias_id);
-                    self.alias_map
-                        .entry(alias.clone())
-                        .or_insert(matching_symbol);
                 }
             }
         }
+
+        self.unique_aliases = self
+            .alias_ids
+            .keys()
+            .filter(|alias| {
+                self.parse_table
+                    .symbols
+                    .iter()
+                    .cloned()
+                    .find(|symbol| {
+                        let (name, kind) = self.metadata_for_symbol(*symbol);
+                        name == alias.value && kind == alias.kind()
+                    })
+                    .is_none()
+            })
+            .cloned()
+            .collect();
+        self.unique_aliases.sort_unstable();
+
+        self.symbol_map = self
+            .parse_table
+            .symbols
+            .iter()
+            .map(|symbol| {
+                let mut mapping = symbol;
+
+                // There can be multiple symbols in the grammar that have the same name and kind,
+                // due to simple aliases. When that happens, ensure that they map to the same
+                // public-facing symbol. If one of the symbols is not aliased, choose that one
+                // to be the public-facing symbol. Otherwise, pick the symbol with the lowest
+                // numeric value.
+                if let Some(alias) = self.simple_aliases.get(symbol) {
+                    let kind = alias.kind();
+                    for other_symbol in &self.parse_table.symbols {
+                        if let Some(other_alias) = self.simple_aliases.get(other_symbol) {
+                            if other_symbol < mapping && other_alias == alias {
+                                mapping = other_symbol;
+                            }
+                        } else if self.metadata_for_symbol(*other_symbol) == (&alias.value, kind) {
+                            mapping = other_symbol;
+                            break;
+                        }
+                    }
+                }
+                // Two anonymous tokens with different flags but the same string value
+                // should be represented with the same symbol in the public API. Examples:
+                // *  "<" and token(prec(1, "<"))
+                // *  "(" and token.immediate("(")
+                else if symbol.is_terminal() {
+                    let metadata = self.metadata_for_symbol(*symbol);
+                    for other_symbol in &self.parse_table.symbols {
+                        let other_metadata = self.metadata_for_symbol(*other_symbol);
+                        if other_metadata == metadata {
+                            mapping = other_symbol;
+                            break;
+                        }
+                    }
+                }
+
+                (*symbol, *mapping)
+            })
+            .collect();
 
         field_names.sort_unstable();
         field_names.dedup();
@@ -177,20 +235,16 @@ impl Generator {
         // If we are opting in to the new unstable language ABI, then use the concept of
         // "small parse states". Otherwise, use the same representation for all parse
         // states.
-        if self.next_abi {
-            let threshold = cmp::min(SMALL_STATE_THRESHOLD, self.parse_table.symbols.len() / 2);
-            self.large_state_count = self
-                .parse_table
-                .states
-                .iter()
-                .enumerate()
-                .take_while(|(i, s)| {
-                    *i <= 1 || s.terminal_entries.len() + s.nonterminal_entries.len() > threshold
-                })
-                .count();
-        } else {
-            self.large_state_count = self.parse_table.states.len();
-        }
+        let threshold = cmp::min(SMALL_STATE_THRESHOLD, self.parse_table.symbols.len() / 2);
+        self.large_state_count = self
+            .parse_table
+            .states
+            .iter()
+            .enumerate()
+            .take_while(|(i, s)| {
+                *i <= 1 || s.terminal_entries.len() + s.nonterminal_entries.len() > threshold
+            })
+            .count();
     }
 
     fn add_includes(&mut self) {
@@ -256,21 +310,14 @@ impl Generator {
             "#define STATE_COUNT {}",
             self.parse_table.states.len()
         );
-
-        if self.next_abi {
-            add_line!(self, "#define LARGE_STATE_COUNT {}", self.large_state_count);
-        }
+        add_line!(self, "#define LARGE_STATE_COUNT {}", self.large_state_count);
 
         add_line!(
             self,
             "#define SYMBOL_COUNT {}",
             self.parse_table.symbols.len()
         );
-        add_line!(
-            self,
-            "#define ALIAS_COUNT {}",
-            self.alias_map.iter().filter(|e| e.1.is_none()).count()
-        );
+        add_line!(self, "#define ALIAS_COUNT {}", self.unique_aliases.len(),);
         add_line!(self, "#define TOKEN_COUNT {}", token_count);
         add_line!(
             self,
@@ -298,11 +345,9 @@ impl Generator {
                 i += 1;
             }
         }
-        for (alias, symbol) in &self.alias_map {
-            if symbol.is_none() {
-                add_line!(self, "{} = {},", self.alias_ids[&alias], i);
-                i += 1;
-            }
+        for alias in &self.unique_aliases {
+            add_line!(self, "{} = {},", self.alias_ids[&alias], i);
+            i += 1;
         }
         dedent!(self);
         add_line!(self, "}};");
@@ -321,15 +366,13 @@ impl Generator {
             );
             add_line!(self, "[{}] = \"{}\",", self.symbol_ids[&symbol], name);
         }
-        for (alias, symbol) in &self.alias_map {
-            if symbol.is_none() {
-                add_line!(
-                    self,
-                    "[{}] = \"{}\",",
-                    self.alias_ids[&alias],
-                    self.sanitize_string(&alias.value)
-                );
-            }
+        for alias in &self.unique_aliases {
+            add_line!(
+                self,
+                "[{}] = \"{}\",",
+                self.alias_ids[&alias],
+                self.sanitize_string(&alias.value)
+            );
         }
         dedent!(self);
         add_line!(self, "}};");
@@ -340,58 +383,21 @@ impl Generator {
         add_line!(self, "static TSSymbol ts_symbol_map[] = {{");
         indent!(self);
         for symbol in &self.parse_table.symbols {
-            let mut mapping = symbol;
-
-            // There can be multiple symbols in the grammar that have the same name and kind,
-            // due to simple aliases. When that happens, ensure that they map to the same
-            // public-facing symbol. If one of the symbols is not aliased, choose that one
-            // to be the public-facing symbol. Otherwise, pick the symbol with the lowest
-            // numeric value.
-            if let Some(alias) = self.simple_aliases.get(symbol) {
-                let kind = alias.kind();
-                for other_symbol in &self.parse_table.symbols {
-                    if let Some(other_alias) = self.simple_aliases.get(other_symbol) {
-                        if other_symbol < mapping && other_alias == alias {
-                            mapping = other_symbol;
-                        }
-                    } else if self.metadata_for_symbol(*other_symbol) == (&alias.value, kind) {
-                        mapping = other_symbol;
-                        break;
-                    }
-                }
-            }
-            // Two anonymous tokens with different flags but the same string value
-            // should be represented with the same symbol in the public API. Examples:
-            // *  "<" and token(prec(1, "<"))
-            // *  "(" and token.immediate("(")
-            else if symbol.is_terminal() {
-                let metadata = self.metadata_for_symbol(*symbol);
-                for other_symbol in &self.parse_table.symbols {
-                    let other_metadata = self.metadata_for_symbol(*other_symbol);
-                    if other_metadata == metadata {
-                        mapping = other_symbol;
-                        break;
-                    }
-                }
-            }
-
             add_line!(
                 self,
                 "[{}] = {},",
-                self.symbol_ids[&symbol],
-                self.symbol_ids[mapping],
+                self.symbol_ids[symbol],
+                self.symbol_ids[&self.symbol_map[symbol]],
             );
         }
 
-        for (alias, symbol) in &self.alias_map {
-            if symbol.is_none() {
-                add_line!(
-                    self,
-                    "[{}] = {},",
-                    self.alias_ids[&alias],
-                    self.alias_ids[&alias],
-                );
-            }
+        for alias in &self.unique_aliases {
+            add_line!(
+                self,
+                "[{}] = {},",
+                self.alias_ids[&alias],
+                self.alias_ids[&alias],
+            );
         }
 
         dedent!(self);
@@ -462,15 +468,13 @@ impl Generator {
             dedent!(self);
             add_line!(self, "}},");
         }
-        for (alias, matching_symbol) in &self.alias_map {
-            if matching_symbol.is_none() {
-                add_line!(self, "[{}] = {{", self.alias_ids[&alias]);
-                indent!(self);
-                add_line!(self, ".visible = true,");
-                add_line!(self, ".named = {},", alias.is_named);
-                dedent!(self);
-                add_line!(self, "}},");
-            }
+        for alias in &self.unique_aliases {
+            add_line!(self, "[{}] = {{", self.alias_ids[&alias]);
+            indent!(self);
+            add_line!(self, ".visible = true,");
+            add_line!(self, ".named = {},", alias.is_named);
+            dedent!(self);
+            add_line!(self, "}},");
         }
         dedent!(self);
         add_line!(self, "}};");
@@ -504,6 +508,50 @@ impl Generator {
             dedent!(self);
             add_line!(self, "}},");
         }
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+    }
+
+    fn add_non_terminal_alias_map(&mut self) {
+        let mut aliases_by_symbol = HashMap::new();
+        for variable in &self.syntax_grammar.variables {
+            for production in &variable.productions {
+                for step in &production.steps {
+                    if let Some(alias) = &step.alias {
+                        if step.symbol.is_non_terminal()
+                            && !self.simple_aliases.contains_key(&step.symbol)
+                        {
+                            if self.symbol_ids.contains_key(&step.symbol) {
+                                let alias_ids =
+                                    aliases_by_symbol.entry(step.symbol).or_insert(Vec::new());
+                                if let Err(i) = alias_ids.binary_search(&alias) {
+                                    alias_ids.insert(i, alias);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut aliases_by_symbol = aliases_by_symbol.iter().collect::<Vec<_>>();
+        aliases_by_symbol.sort_unstable_by_key(|e| e.0);
+
+        add_line!(self, "static uint16_t ts_non_terminal_alias_map[] = {{");
+        indent!(self);
+        for (symbol, aliases) in aliases_by_symbol {
+            let symbol_id = &self.symbol_ids[symbol];
+            let public_symbol_id = &self.symbol_ids[&self.symbol_map[&symbol]];
+            add_line!(self, "{}, {},", symbol_id, 1 + aliases.len());
+            indent!(self);
+            add_line!(self, "{},", public_symbol_id);
+            for alias in aliases {
+                add_line!(self, "{},", &self.alias_ids[&alias]);
+            }
+            dedent!(self);
+        }
+        add_line!(self, "0,");
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
@@ -689,17 +737,12 @@ impl Generator {
             name
         );
         indent!(self);
+
         add_line!(self, "START_LEXER();");
-
-        if self.next_abi {
-            add_line!(self, "eof = lexer->eof(lexer);");
-        } else {
-            add_line!(self, "eof = lookahead == 0;");
-        }
-
+        add_line!(self, "eof = lexer->eof(lexer);");
         add_line!(self, "switch (state) {{");
-        indent!(self);
 
+        indent!(self);
         for (i, state) in lex_table.states.into_iter().enumerate() {
             add_line!(self, "case {}:", i);
             indent!(self);
@@ -714,6 +757,7 @@ impl Generator {
 
         dedent!(self);
         add_line!(self, "}}");
+
         dedent!(self);
         add_line!(self, "}}");
         add_line!(self, "");
@@ -967,12 +1011,7 @@ impl Generator {
 
         add_line!(
             self,
-            "static uint16_t ts_parse_table[{}][SYMBOL_COUNT] = {{",
-            if self.next_abi {
-                "LARGE_STATE_COUNT"
-            } else {
-                "STATE_COUNT"
-            }
+            "static uint16_t ts_parse_table[LARGE_STATE_COUNT][SYMBOL_COUNT] = {{",
         );
         indent!(self);
 
@@ -1224,9 +1263,11 @@ impl Generator {
         add_line!(self, ".symbol_count = SYMBOL_COUNT,");
         add_line!(self, ".alias_count = ALIAS_COUNT,");
         add_line!(self, ".token_count = TOKEN_COUNT,");
+        add_line!(self, ".large_state_count = LARGE_STATE_COUNT,");
 
         if self.next_abi {
-            add_line!(self, ".large_state_count = LARGE_STATE_COUNT,");
+            add_line!(self, ".alias_map = ts_non_terminal_alias_map,");
+            add_line!(self, ".state_count = STATE_COUNT,");
         }
 
         add_line!(self, ".symbol_metadata = ts_symbol_metadata,");
@@ -1249,10 +1290,7 @@ impl Generator {
         add_line!(self, ".parse_actions = ts_parse_actions,");
         add_line!(self, ".lex_modes = ts_lex_modes,");
         add_line!(self, ".symbol_names = ts_symbol_names,");
-
-        if self.next_abi {
-            add_line!(self, ".public_symbol_map = ts_symbol_map,");
-        }
+        add_line!(self, ".public_symbol_map = ts_symbol_map,");
 
         if !self.parse_table.production_infos.is_empty() {
             add_line!(
@@ -1539,7 +1577,8 @@ pub(crate) fn render_c_code(
         symbol_ids: HashMap::new(),
         symbol_order: HashMap::new(),
         alias_ids: HashMap::new(),
-        alias_map: BTreeMap::new(),
+        symbol_map: HashMap::new(),
+        unique_aliases: Vec::new(),
         field_names: Vec::new(),
         next_abi,
     }
