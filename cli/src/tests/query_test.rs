@@ -667,6 +667,41 @@ fn test_query_matches_with_immediate_siblings() {
                 (2, vec![("first-element", "1")]),
             ],
         );
+
+        let query = Query::new(
+            language,
+            "
+            (block . (_) @first-stmt)
+            (block (_) @stmt)
+            (block (_) @last-stmt .)
+            ",
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            "
+            if a:
+                b()
+                c()
+                if d(): e(); f()
+                g()
+            ",
+            &[
+                (0, vec![("first-stmt", "b()")]),
+                (1, vec![("stmt", "b()")]),
+                (1, vec![("stmt", "c()")]),
+                (1, vec![("stmt", "if d(): e(); f()")]),
+                (0, vec![("first-stmt", "e()")]),
+                (1, vec![("stmt", "e()")]),
+                (1, vec![("stmt", "f()")]),
+                (2, vec![("last-stmt", "f()")]),
+                (1, vec![("stmt", "g()")]),
+                (2, vec![("last-stmt", "g()")]),
+            ],
+        );
+
     });
 }
 
