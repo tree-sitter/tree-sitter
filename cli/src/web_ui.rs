@@ -10,6 +10,16 @@ use webbrowser;
 
 macro_rules! resource {
     ($name: tt, $path: tt) => {
+        #[cfg(TREE_SITTER_EMBED_WASM_BINDING)]
+        fn $name(tree_sitter_dir: &Option<PathBuf>) -> Vec<u8> {
+            if let Some(tree_sitter_dir) = tree_sitter_dir {
+                fs::read(tree_sitter_dir.join($path)).unwrap()
+            } else {
+                include_bytes!(concat!("../../", $path)).to_vec()
+            }
+        }
+
+        #[cfg(not(TREE_SITTER_EMBED_WASM_BINDING))]
         fn $name(tree_sitter_dir: &Option<PathBuf>) -> Vec<u8> {
             if let Some(tree_sitter_dir) = tree_sitter_dir {
                 fs::read(tree_sitter_dir.join($path)).unwrap()
@@ -22,12 +32,21 @@ macro_rules! resource {
 
 macro_rules! posix_resource {
     ($name: tt, $path: tt) => {
-        #[cfg(unix)]
+        #[cfg(all(unix, TREE_SITTER_EMBED_WASM_BINDING))]
         fn $name(tree_sitter_dir: &Option<PathBuf>) -> Vec<u8> {
             if let Some(tree_sitter_dir) = tree_sitter_dir {
                 fs::read(tree_sitter_dir.join($path)).unwrap()
             } else {
                 include_bytes!(concat!("../../", $path)).to_vec()
+            }
+        }
+
+        #[cfg(all(unix, not(TREE_SITTER_EMBED_WASM_BINDING)))]
+        fn $name(tree_sitter_dir: &Option<PathBuf>) -> Vec<u8> {
+            if let Some(tree_sitter_dir) = tree_sitter_dir {
+                fs::read(tree_sitter_dir.join($path)).unwrap()
+            } else {
+                Vec::new()
             }
         }
 

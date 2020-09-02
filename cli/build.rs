@@ -1,15 +1,14 @@
 use std::path::{Path, PathBuf};
 use std::{env, fs};
+use std::vec::Vec;
 
 fn main() {
     if let Some(git_sha) = read_git_sha() {
         println!("cargo:rustc-env={}={}", "BUILD_SHA", git_sha);
     }
 
-    if let Some(missing) = wasm_files_present() {
-        println!("error: couldn't find required wasm binding file {}", missing.display());
-        println!("Have you run `script/build-wasm?`");
-        std::process::exit(1);
+    if wasm_files_present() {
+        println!("cargo:rustc-cfg={}", "TREE_SITTER_EMBED_WASM_BINDING");
     }
 
     println!(
@@ -19,7 +18,7 @@ fn main() {
 }
 
 #[cfg(unix)]
-fn required_files() -> std::vec::Vec<&'static Path> {
+fn required_files() -> Vec<&'static Path> {
     return vec![
         Path::new("../cli/src/web_ui.html"),
         Path::new("../docs/assets/js/playground.js"),
@@ -29,20 +28,20 @@ fn required_files() -> std::vec::Vec<&'static Path> {
 }
 
 #[cfg(windows)]
-fn required_files() -> std::vec::Vec<&'static Path> {
+fn required_files() -> Vec<&'static Path> {
     return vec![
         Path::new("../cli/src/web_ui.html"),
         Path::new("../docs/assets/js/playground.js"),
         ];
 }
 
-fn wasm_files_present() -> Option<&'static Path> {
+fn wasm_files_present() -> bool {
     for path in required_files() {
-        if !path.exists() {
-            return Some(path)
+        if path.exists() {
+            return false
         }
     }
-    return None
+    return true
 }
 
 fn read_git_sha() -> Option<String> {
