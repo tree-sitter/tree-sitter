@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{env, fs};
 
 fn main() {
@@ -6,10 +6,43 @@ fn main() {
         println!("cargo:rustc-env={}={}", "BUILD_SHA", git_sha);
     }
 
+    if let Some(missing) = wasm_files_present() {
+        println!("error: couldn't find required wasm binding file {}", missing.display());
+        println!("Have you run `script/build-wasm?`");
+        std::process::exit(1);
+    }
+
     println!(
         "cargo:rustc-env=BUILD_TARGET={}",
         std::env::var("TARGET").unwrap()
     );
+}
+
+#[cfg(unix)]
+fn required_files() -> std::vec::Vec<&'static Path> {
+    return vec![
+        Path::new("../cli/src/web_ui.html"),
+        Path::new("../docs/assets/js/playground.js"),
+        Path::new("../lib/binding_web/tree-sitter.js"),
+        Path::new("../lib/binding_web/tree-sitter.wasm")
+        ];
+}
+
+#[cfg(windows)]
+fn required_files() -> std::vec::Vec<&'static Path> {
+    return vec![
+        Path::new("../cli/src/web_ui.html"),
+        Path::new("../docs/assets/js/playground.js"),
+        ];
+}
+
+fn wasm_files_present() -> Option<&'static Path> {
+    for path in required_files() {
+        if !path.exists() {
+            return Some(path)
+        }
+    }
+    return None
 }
 
 fn read_git_sha() -> Option<String> {
@@ -51,7 +84,6 @@ fn read_git_sha() -> Option<String> {
             }
             return fs::read_to_string(&ref_filename).ok();
         }
-
         // If we're on a detached commit, then the `HEAD` file itself contains the sha.
         else if head_content.len() == 40 {
             return Some(head_content);
