@@ -2549,11 +2549,13 @@ static inline bool ts_query_cursor__advance(
       if (symbol != ts_builtin_sym_error && self->query->symbol_map) {
         symbol = self->query->symbol_map[symbol];
       }
-      bool can_have_later_siblings;
+      bool has_later_siblings;
+      bool has_later_named_siblings;
       bool can_have_later_siblings_with_this_field;
       TSFieldId field_id = ts_tree_cursor_current_status(
         &self->cursor,
-        &can_have_later_siblings,
+        &has_later_siblings,
+        &has_later_named_siblings,
         &can_have_later_siblings_with_this_field
       );
       LOG(
@@ -2613,11 +2615,11 @@ static inline bool ts_query_cursor__advance(
           step->symbol == symbol ||
           step->symbol == WILDCARD_SYMBOL ||
           (step->symbol == NAMED_WILDCARD_SYMBOL && is_named);
-        bool later_sibling_can_match = can_have_later_siblings;
+        bool later_sibling_can_match = has_later_siblings;
         if ((step->is_immediate && is_named) || state->seeking_immediate_match) {
           later_sibling_can_match = false;
         }
-        if (step->is_last_child && can_have_later_siblings) {
+        if (step->is_last_child && has_later_named_siblings) {
           node_does_match = false;
         }
         if (step->field) {
