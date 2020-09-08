@@ -20,8 +20,6 @@ fn main() {
 #[cfg(unix)]
 fn required_files() -> Vec<&'static Path> {
     return vec![
-        Path::new("../cli/src/web_ui.html"),
-        Path::new("../docs/assets/js/playground.js"),
         Path::new("../lib/binding_web/tree-sitter.js"),
         Path::new("../lib/binding_web/tree-sitter.wasm")
         ];
@@ -30,8 +28,6 @@ fn required_files() -> Vec<&'static Path> {
 #[cfg(windows)]
 fn required_files() -> Vec<&'static Path> {
     return vec![
-        Path::new("../cli/src/web_ui.html"),
-        Path::new("../docs/assets/js/playground.js"),
         ];
 }
 
