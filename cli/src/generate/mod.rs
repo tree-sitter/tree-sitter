@@ -31,16 +31,9 @@ lazy_static! {
         .unwrap();
 }
 
-const NEW_HEADER_PARTS: [&'static str; 2] = [
-    "
-  uint32_t large_state_count;
-  const uint16_t *small_parse_table;
-  const uint32_t *small_parse_table_map;
-  const TSSymbol *public_symbol_map;",
-    "
-#define SMALL_STATE(id) id - LARGE_STATE_COUNT
-",
-];
+const NEW_HEADER_PARTS: &[&'static str] = &["
+  const uint16_t *alias_map;
+  uint32_t state_count;"];
 
 struct GeneratedParser {
     c_code: String,
@@ -101,7 +94,7 @@ pub fn generate_parser_in_directory(
     } else {
         let mut header = tree_sitter::PARSER_HEADER.to_string();
 
-        for part in &NEW_HEADER_PARTS {
+        for part in NEW_HEADER_PARTS.iter() {
             let pos = header
                 .find(part)
                 .expect("Missing expected part of parser.h header");

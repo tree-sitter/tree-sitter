@@ -109,7 +109,9 @@ impl Generator {
             self.add_alias_sequences();
         }
 
-        self.add_non_terminal_alias_map();
+        if self.next_abi {
+            self.add_non_terminal_alias_map();
+        }
 
         let mut main_lex_table = LexTable::default();
         swap(&mut main_lex_table, &mut self.main_lex_table);
