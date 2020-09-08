@@ -17,7 +17,6 @@ fn main() {
     );
 }
 
-#[cfg(unix)]
 fn required_files() -> Vec<&'static Path> {
     return vec![
         Path::new("../lib/binding_web/tree-sitter.js"),
@@ -25,15 +24,9 @@ fn required_files() -> Vec<&'static Path> {
         ];
 }
 
-#[cfg(windows)]
-fn required_files() -> Vec<&'static Path> {
-    return vec![
-        ];
-}
-
 fn wasm_files_present() -> bool {
     for path in required_files() {
-        if path.exists() {
+        if !path.exists() {
             return false
         }
     }

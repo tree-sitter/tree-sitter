@@ -32,7 +32,7 @@ macro_rules! resource {
 
 macro_rules! posix_resource {
     ($name: tt, $path: tt) => {
-        #[cfg(all(unix, TREE_SITTER_EMBED_WASM_BINDING))]
+        #[cfg(TREE_SITTER_EMBED_WASM_BINDING)]
         fn $name(tree_sitter_dir: &Option<PathBuf>) -> Vec<u8> {
             if let Some(tree_sitter_dir) = tree_sitter_dir {
                 fs::read(tree_sitter_dir.join($path)).unwrap()
@@ -41,18 +41,13 @@ macro_rules! posix_resource {
             }
         }
 
-        #[cfg(all(unix, not(TREE_SITTER_EMBED_WASM_BINDING)))]
+        #[cfg(not(TREE_SITTER_EMBED_WASM_BINDING))]
         fn $name(tree_sitter_dir: &Option<PathBuf>) -> Vec<u8> {
             if let Some(tree_sitter_dir) = tree_sitter_dir {
                 fs::read(tree_sitter_dir.join($path)).unwrap()
             } else {
                 Vec::new()
             }
-        }
-
-        #[cfg(windows)]
-        fn $name(_: &Option<PathBuf>) -> Vec<u8> {
-            Vec::new()
         }
     };
 }
