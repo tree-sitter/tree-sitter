@@ -30,7 +30,7 @@ macro_rules! resource {
     };
 }
 
-macro_rules! posix_resource {
+macro_rules! optional_resource {
     ($name: tt, $path: tt) => {
         #[cfg(TREE_SITTER_EMBED_WASM_BINDING)]
         fn $name(tree_sitter_dir: &Option<PathBuf>) -> Vec<u8> {
@@ -54,8 +54,8 @@ macro_rules! posix_resource {
 
 resource!(get_main_html, "cli/src/web_ui.html");
 resource!(get_playground_js, "docs/assets/js/playground.js");
-posix_resource!(get_lib_js, "lib/binding_web/tree-sitter.js");
-posix_resource!(get_lib_wasm, "lib/binding_web/tree-sitter.wasm");
+optional_resource!(get_lib_js, "lib/binding_web/tree-sitter.js");
+optional_resource!(get_lib_wasm, "lib/binding_web/tree-sitter.wasm");
 
 pub fn serve(grammar_path: &Path, open_in_browser: bool) {
     let port = get_available_port().expect("Couldn't find an available port");
