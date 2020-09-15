@@ -17,20 +17,13 @@ fn main() {
     );
 }
 
-fn required_files() -> Vec<&'static Path> {
-    return vec![
-        Path::new("../lib/binding_web/tree-sitter.js"),
-        Path::new("../lib/binding_web/tree-sitter.wasm")
-        ];
-}
-
 fn wasm_files_present() -> bool {
-    for path in required_files() {
-        if !path.exists() {
-            return false
-        }
-    }
-    return true
+    let paths = [
+        "../lib/binding_web/tree-sitter.js",
+        "../lib/binding_web/tree-sitter.wasm",
+    ];
+
+    return paths.iter().all(|p| Path::new(p).exists())
 }
 
 fn read_git_sha() -> Option<String> {
