@@ -1,6 +1,5 @@
 use std::path::{Path, PathBuf};
 use std::{env, fs};
-use std::vec::Vec;
 
 fn main() {
     if let Some(git_sha) = read_git_sha() {
@@ -23,7 +22,7 @@ fn wasm_files_present() -> bool {
         "../lib/binding_web/tree-sitter.wasm",
     ];
 
-    return paths.iter().all(|p| Path::new(p).exists())
+    paths.iter().all(|p| Path::new(p).exists())
 }
 
 fn read_git_sha() -> Option<String> {
