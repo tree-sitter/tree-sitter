@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{env, fs};
 
 fn main() {
@@ -6,10 +6,23 @@ fn main() {
         println!("cargo:rustc-env={}={}", "BUILD_SHA", git_sha);
     }
 
+    if wasm_files_present() {
+        println!("cargo:rustc-cfg={}", "TREE_SITTER_EMBED_WASM_BINDING");
+    }
+
     println!(
         "cargo:rustc-env=BUILD_TARGET={}",
         std::env::var("TARGET").unwrap()
     );
+}
+
+fn wasm_files_present() -> bool {
+    let paths = [
+        "../lib/binding_web/tree-sitter.js",
+        "../lib/binding_web/tree-sitter.wasm",
+    ];
+
+    paths.iter().all(|p| Path::new(p).exists())
 }
 
 fn read_git_sha() -> Option<String> {
@@ -51,7 +64,6 @@ fn read_git_sha() -> Option<String> {
             }
             return fs::read_to_string(&ref_filename).ok();
         }
-
         // If we're on a detached commit, then the `HEAD` file itself contains the sha.
         else if head_content.len() == 40 {
             return Some(head_content);
