@@ -352,6 +352,50 @@ TSFieldId ts_tree_cursor_current_status(
   return result;
 }
 
+bool ts_tree_cursor_has_supertype(
+  const TSTreeCursor *_self,
+  TSSymbol supertype_symbol
+) {
+  const TreeCursor *self = (const TreeCursor *)_self;
+
+  // Walk up the tree, visiting the current node and its invisible ancestors,
+  // because fields can refer to nodes through invisible *wrapper* nodes,
+  for (unsigned i = self->stack.size - 1; i > 0; i--) {
+    TreeCursorEntry *entry = &self->stack.contents[i];
+    TreeCursorEntry *parent_entry = &self->stack.contents[i - 1];
+
+    const TSSymbol *alias_sequence = ts_language_alias_sequence(
+      self->tree->language,
+      parent_entry->subtree->ptr->production_id
+    );
+
+    // If the subtree is visible, return its public-facing symbol.
+    // Otherwise, return zero.
+    #define subtree_visible_symbol(subtree, structural_child_index) \
+      ((                                                            \
+        !ts_subtree_extra(subtree) &&                               \
+        alias_sequence &&                                           \
+        alias_sequence[structural_child_index]                      \
+      ) ?                                                           \
+        alias_sequence[structural_child_index] :                    \
+        ts_subtree_visible(subtree) ?                               \
+        ts_subtree_symbol(subtree) :                                \
+        0)                                                          \
+
+    // Stop walking up when a visible ancestor is found.
+    if (
+      i != self->stack.size - 1 &&
+      subtree_visible_symbol(*entry->subtree, entry->structural_child_index)
+    ) break;
+
+    if (ts_subtree_symbol(*entry->subtree) == supertype_symbol) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *_self) {
   const TreeCursor *self = (const TreeCursor *)_self;
 

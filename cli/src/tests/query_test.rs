@@ -701,7 +701,6 @@ fn test_query_matches_with_immediate_siblings() {
                 (2, vec![("last-stmt", "g()")]),
             ],
         );
-
     });
 }
 
@@ -1390,6 +1389,45 @@ fn test_query_matches_with_anonymous_tokens() {
             &[
                 (1, vec![("operator", "&&")]),
                 (0, vec![("punctuation", ";")]),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_supertypes() {
+    allocations::record(|| {
+        let language = get_language("python");
+        let query = Query::new(
+            language,
+            r#"
+            ((_simple_statement) @before . (_simple_statement) @after)
+
+            (assignment
+              left: (left_hand_side (identifier) @def))
+
+            (_primary_expression/identifier) @ref
+            "#,
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            "
+                a = b
+                print c
+                if d: print e.f; print g.h.i
+            ",
+            &[
+                (1, vec![("def", "a")]),
+                (2, vec![("ref", "b")]),
+                (0, vec![("before", "a = b"), ("after", "print c")]),
+                (2, vec![("ref", "c")]),
+                (2, vec![("ref", "d")]),
+                (2, vec![("ref", "e")]),
+                (0, vec![("before", "print e.f"), ("after", "print g.h.i")]),
+                (2, vec![("ref", "g")]),
             ],
         );
     });

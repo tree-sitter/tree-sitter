@@ -17,5 +17,6 @@ typedef struct {
 
 void ts_tree_cursor_init(TreeCursor *, TSNode);
 TSFieldId ts_tree_cursor_current_status(const TSTreeCursor *, bool *, bool *, bool *);
+bool ts_tree_cursor_has_supertype(const TSTreeCursor *, TSSymbol);
 
 #endif  // TREE_SITTER_TREE_CURSOR_H_

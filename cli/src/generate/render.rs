@@ -460,6 +460,9 @@ impl Generator {
                     VariableType::Hidden => {
                         add_line!(self, ".visible = false,");
                         add_line!(self, ".named = true,");
+                        if self.syntax_grammar.supertype_symbols.contains(symbol) {
+                            add_line!(self, ".supertype = true,");
+                        }
                     }
                     VariableType::Auxiliary => {
                         add_line!(self, ".visible = false,");

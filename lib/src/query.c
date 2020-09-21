@@ -47,6 +47,7 @@ typedef struct {
  */
 typedef struct {
   TSSymbol symbol;
+  TSSymbol supertype_symbol;
   TSFieldId field;
   uint16_t capture_ids[MAX_STEP_CAPTURE_COUNT];
   uint16_t alternative_index;
@@ -1626,14 +1627,9 @@ static TSQueryError ts_query__parse_pattern(
     else {
       TSSymbol symbol;
 
-      // Parse the wildcard symbol
-      if (
-        stream->next == '_' ||
-
-        // TODO - remove.
-        // For temporary backward compatibility, handle '*' as a wildcard.
-        stream->next == '*'
-      ) {
+      // TODO - remove.
+      // For temporary backward compatibility, handle '*' as a wildcard.
+      if (stream->next == '*') {
         symbol = depth > 0 ? NAMED_WILDCARD_SYMBOL : WILDCARD_SYMBOL;
         stream_advance(stream);
       }
@@ -1651,15 +1647,22 @@ static TSQueryError ts_query__parse_pattern(
           return ts_query__parse_predicate(self, stream);
         }
 
-        symbol = ts_language_symbol_for_name(
-          self->language,
-          node_name,
-          length,
-          true
-        );
-        if (!symbol) {
-          stream_reset(stream, node_name);
-          return TSQueryErrorNodeType;
+        // Parse the wildcard symbol
+        else if (length == 1 && node_name[0] == '_') {
+          symbol = depth > 0 ? NAMED_WILDCARD_SYMBOL : WILDCARD_SYMBOL;
+        }
+
+        else {
+          symbol = ts_language_symbol_for_name(
+            self->language,
+            node_name,
+            length,
+            true
+          );
+          if (!symbol) {
+            stream_reset(stream, node_name);
+            return TSQueryErrorNodeType;
+          }
         }
       } else {
         return TSQueryErrorSyntax;
@@ -1667,9 +1670,38 @@ static TSQueryError ts_query__parse_pattern(
 
       // Add a step for the node.
       array_push(&self->steps, query_step__new(symbol, depth, is_immediate));
+      if (ts_language_symbol_metadata(self->language, symbol).supertype) {
+        QueryStep *step = array_back(&self->steps);
+        step->supertype_symbol = step->symbol;
+        step->symbol = WILDCARD_SYMBOL;
+      }
+
+      stream_skip_whitespace(stream);
+
+      if (stream->next == '/') {
+        stream_advance(stream);
+        if (!stream_is_ident_start(stream)) {
+          return TSQueryErrorSyntax;
+        }
+
+        const char *node_name = stream->input;
+        stream_scan_identifier(stream);
+        uint32_t length = stream->input - node_name;
+
+        QueryStep *step = array_back(&self->steps);
+        step->symbol = ts_language_symbol_for_name(
+          self->language,
+          node_name,
+          length,
+          true
+        );
+        if (!step->symbol) {
+          stream_reset(stream, node_name);
+          return TSQueryErrorNodeType;
+        }
+      }
 
       // Parse the child patterns
-      stream_skip_whitespace(stream);
       bool child_is_immediate = false;
       uint16_t child_start_step_index = self->steps.size;
       for (;;) {
@@ -2621,6 +2653,21 @@ static inline bool ts_query_cursor__advance(
         }
         if (step->is_last_child && has_later_named_siblings) {
           node_does_match = false;
+        }
+        if (step->supertype_symbol) {
+          bool has_supertype = ts_tree_cursor_has_supertype(&self->cursor, step->supertype_symbol);
+
+          if (symbol == 1) {
+            LOG(
+              "  has supertype %s: %d",
+              ts_language_symbol_name(self->query->language, step->supertype_symbol),
+              has_supertype
+            );
+          }
+
+          if (!has_supertype) {
+            node_does_match = false;
+          }
         }
         if (step->field) {
           if (step->field == field_id) {
