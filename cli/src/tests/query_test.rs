@@ -1401,12 +1401,15 @@ fn test_query_matches_with_supertypes() {
         let query = Query::new(
             language,
             r#"
-            ((_simple_statement) @before . (_simple_statement) @after)
+            (argument_list (_expression) @arg)
+
+            (keyword_argument
+                value: (_expression) @kw_arg)
 
             (assignment
-              left: (left_hand_side (identifier) @def))
+              left: (left_hand_side (identifier) @var_def))
 
-            (_primary_expression/identifier) @ref
+            (_primary_expression/identifier) @var_ref
             "#,
         )
         .unwrap();
@@ -1415,19 +1418,19 @@ fn test_query_matches_with_supertypes() {
             language,
             &query,
             "
-                a = b
-                print c
-                if d: print e.f; print g.h.i
+                a = b.c(
+                    [d],
+                    # a comment
+                    e=f
+                )
             ",
             &[
-                (1, vec![("def", "a")]),
-                (2, vec![("ref", "b")]),
-                (0, vec![("before", "a = b"), ("after", "print c")]),
-                (2, vec![("ref", "c")]),
-                (2, vec![("ref", "d")]),
-                (2, vec![("ref", "e")]),
-                (0, vec![("before", "print e.f"), ("after", "print g.h.i")]),
-                (2, vec![("ref", "g")]),
+                (2, vec![("var_def", "a")]),
+                (3, vec![("var_ref", "b")]),
+                (0, vec![("arg", "[d]")]),
+                (3, vec![("var_ref", "d")]),
+                (1, vec![("kw_arg", "f")]),
+                (3, vec![("var_ref", "f")]),
             ],
         );
     });
