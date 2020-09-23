@@ -1116,7 +1116,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
               const TSFieldMapEntry *field_map, *field_map_end;
               ts_language_field_map(self->language, node->production_id, &field_map, &field_map_end);
               for (; field_map != field_map_end; field_map++) {
-                if (field_map->child_index == child_index) {
+                if (!field_map->inherited && field_map->child_index == child_index) {
                   field_id = field_map->field_id;
                   break;
                 }

@@ -27,6 +27,7 @@ fetch_grammar cpp               master
 fetch_grammar embedded-template master
 fetch_grammar go                master
 fetch_grammar html              master
+fetch_grammar java              master
 fetch_grammar javascript        master
 fetch_grammar jsdoc             master
 fetch_grammar json              master

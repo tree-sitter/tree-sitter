@@ -1419,15 +1419,15 @@ fn test_query_matches_with_supertypes() {
         let query = Query::new(
             language,
             r#"
-            (argument_list (_expression) @arg)
+            (argument_list (expression) @arg)
 
             (keyword_argument
-                value: (_expression) @kw_arg)
+                value: (expression) @kw_arg)
 
             (assignment
               left: (left_hand_side (identifier) @var_def))
 
-            (_primary_expression/identifier) @var_ref
+            (primary_expression/identifier) @var_ref
             "#,
         )
         .unwrap();
@@ -2703,6 +2703,14 @@ fn test_query_step_is_definite() {
                 ("(pair) \"}\"", false),
                 ("\"}\"", false),
             ],
+        },
+        Row {
+            description: "hidden nodes that have several fields",
+            language: get_language("java"),
+            pattern: r#"
+            (method_declaration name: (identifier))
+            "#,
+            results_by_substring: &[("name:", true)],
         },
     ];
 
