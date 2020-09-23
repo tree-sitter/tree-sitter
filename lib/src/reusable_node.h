@@ -20,15 +20,6 @@ static inline void reusable_node_clear(ReusableNode *self) {
   self->last_external_token = NULL_SUBTREE;
 }
 
-static inline void reusable_node_reset(ReusableNode *self, Subtree tree) {
-  reusable_node_clear(self);
-  array_push(&self->stack, ((StackEntry) {
-    .tree = tree,
-    .child_index = 0,
-    .byte_offset = 0,
-  }));
-}
-
 static inline Subtree reusable_node_tree(ReusableNode *self) {
   return self->stack.size > 0
     ? self->stack.contents[self->stack.size - 1].tree
@@ -85,4 +76,20 @@ static inline bool reusable_node_descend(ReusableNode *self) {
 static inline void reusable_node_advance_past_leaf(ReusableNode *self) {
   while (reusable_node_descend(self)) {}
   reusable_node_advance(self);
+}
+
+static inline void reusable_node_reset(ReusableNode *self, Subtree tree) {
+  reusable_node_clear(self);
+  array_push(&self->stack, ((StackEntry) {
+    .tree = tree,
+    .child_index = 0,
+    .byte_offset = 0,
+  }));
+
+  // Never reuse the root node, because it has a non-standard internal structure
+  // due to transformations that are applied when it is accepted: adding the EOF
+  // child and any extra children.
+  if (!reusable_node_descend(self)) {
+    reusable_node_clear(self);
+  }
 }

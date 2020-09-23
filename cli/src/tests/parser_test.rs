@@ -395,6 +395,18 @@ fn test_parsing_after_editing_end_of_code() {
     assert_eq!(recorder.strings_read(), vec![" * ", "abc.d)",]);
 }
 
+#[test]
+fn test_parsing_empty_file_with_reused_tree() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("rust")).unwrap();
+
+    let tree = parser.parse("", None);
+    parser.parse("", tree.as_ref());
+
+    let tree = parser.parse("\n  ", None);
+    parser.parse("\n  ", tree.as_ref());
+}
+
 // Thread safety
 
 #[test]
