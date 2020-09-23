@@ -291,6 +291,24 @@ fn test_query_errors_on_impossible_patterns() {
                 .join("\n")
             ))
         );
+
+        Query::new(
+            js_lang,
+            "(if_statement
+                condition: (parenthesized_expression (_expression) @cond))",
+        )
+        .unwrap();
+        assert_eq!(
+            Query::new(js_lang, "(if_statement condition: (_expression))",),
+            Err(QueryError::Structure(
+                1,
+                [
+                    "(if_statement condition: (_expression))", //
+                    "              ^",
+                ]
+                .join("\n")
+            ))
+        );
     });
 }
 
@@ -701,7 +719,6 @@ fn test_query_matches_with_immediate_siblings() {
                 (2, vec![("last-stmt", "g()")]),
             ],
         );
-
     });
 }
 
@@ -1390,6 +1407,48 @@ fn test_query_matches_with_anonymous_tokens() {
             &[
                 (1, vec![("operator", "&&")]),
                 (0, vec![("punctuation", ";")]),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_supertypes() {
+    allocations::record(|| {
+        let language = get_language("python");
+        let query = Query::new(
+            language,
+            r#"
+            (argument_list (_expression) @arg)
+
+            (keyword_argument
+                value: (_expression) @kw_arg)
+
+            (assignment
+              left: (left_hand_side (identifier) @var_def))
+
+            (_primary_expression/identifier) @var_ref
+            "#,
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            "
+                a = b.c(
+                    [d],
+                    # a comment
+                    e=f
+                )
+            ",
+            &[
+                (2, vec![("var_def", "a")]),
+                (3, vec![("var_ref", "b")]),
+                (0, vec![("arg", "[d]")]),
+                (3, vec![("var_ref", "d")]),
+                (1, vec![("kw_arg", "f")]),
+                (3, vec![("var_ref", "f")]),
             ],
         );
     });

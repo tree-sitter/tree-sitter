@@ -73,6 +73,12 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         );
     }
 
+    for (i, variable) in variables.iter_mut().enumerate() {
+        if supertype_symbols.contains(&Symbol::non_terminal(i)) {
+            variable.kind = VariableType::Hidden;
+        }
+    }
+
     Ok(InternedGrammar {
         variables,
         external_tokens,

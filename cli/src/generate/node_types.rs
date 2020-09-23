@@ -325,15 +325,8 @@ pub(crate) fn get_variable_info(
     }
 
     for supertype_symbol in &syntax_grammar.supertype_symbols {
-        let variable = &syntax_grammar.variables[supertype_symbol.index];
-        if variable.kind != VariableType::Hidden {
-            return Err(Error::grammar(&format!(
-                "Supertype symbols must be hidden, but `{}` is not",
-                variable.name
-            )));
-        }
-
         if result[supertype_symbol.index].has_multi_step_production {
+            let variable = &syntax_grammar.variables[supertype_symbol.index];
             return Err(Error::grammar(&format!(
                 "Supertype symbols must always have a single visible child, but `{}` can have multiple",
                 variable.name

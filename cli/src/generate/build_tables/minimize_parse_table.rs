@@ -68,6 +68,7 @@ impl<'a> Minimizer<'a> {
                             ..
                         } => {
                             if !self.simple_aliases.contains_key(&symbol)
+                                && !self.syntax_grammar.supertype_symbols.contains(&symbol)
                                 && !aliased_symbols.contains(&symbol)
                                 && self.syntax_grammar.variables[symbol.index].kind
                                     != VariableType::Named

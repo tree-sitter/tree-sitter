@@ -47,6 +47,7 @@ typedef struct {
  */
 typedef struct {
   TSSymbol symbol;
+  TSSymbol supertype_symbol;
   TSFieldId field;
   uint16_t capture_ids[MAX_STEP_CAPTURE_COUNT];
   uint16_t alternative_index;
@@ -638,6 +639,13 @@ static inline AnalysisStateEntry *analysis_state__top(AnalysisState *self) {
   return &self->stack[self->depth - 1];
 }
 
+static inline bool analysis_state__has_supertype(AnalysisState *self, TSSymbol symbol) {
+  for (unsigned i = 0; i < self->depth; i++) {
+    if (self->stack[i].parent_symbol == symbol) return true;
+  }
+  return false;
+}
+
 /***********************
  * AnalysisSubgraphNode
  ***********************/
@@ -1133,6 +1141,10 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
               if (step->field && step->field != field_id) {
                 does_match = false;
               }
+              if (
+                step->supertype_symbol &&
+                !analysis_state__has_supertype(state, step->supertype_symbol)
+              ) does_match = false;
             }
 
             // If this is a hidden child, then push a new entry to the stack, in order to
@@ -1626,14 +1638,9 @@ static TSQueryError ts_query__parse_pattern(
     else {
       TSSymbol symbol;
 
-      // Parse the wildcard symbol
-      if (
-        stream->next == '_' ||
-
-        // TODO - remove.
-        // For temporary backward compatibility, handle '*' as a wildcard.
-        stream->next == '*'
-      ) {
+      // TODO - remove.
+      // For temporary backward compatibility, handle '*' as a wildcard.
+      if (stream->next == '*') {
         symbol = depth > 0 ? NAMED_WILDCARD_SYMBOL : WILDCARD_SYMBOL;
         stream_advance(stream);
       }
@@ -1651,15 +1658,22 @@ static TSQueryError ts_query__parse_pattern(
           return ts_query__parse_predicate(self, stream);
         }
 
-        symbol = ts_language_symbol_for_name(
-          self->language,
-          node_name,
-          length,
-          true
-        );
-        if (!symbol) {
-          stream_reset(stream, node_name);
-          return TSQueryErrorNodeType;
+        // Parse the wildcard symbol
+        else if (length == 1 && node_name[0] == '_') {
+          symbol = depth > 0 ? NAMED_WILDCARD_SYMBOL : WILDCARD_SYMBOL;
+        }
+
+        else {
+          symbol = ts_language_symbol_for_name(
+            self->language,
+            node_name,
+            length,
+            true
+          );
+          if (!symbol) {
+            stream_reset(stream, node_name);
+            return TSQueryErrorNodeType;
+          }
         }
       } else {
         return TSQueryErrorSyntax;
@@ -1667,9 +1681,38 @@ static TSQueryError ts_query__parse_pattern(
 
       // Add a step for the node.
       array_push(&self->steps, query_step__new(symbol, depth, is_immediate));
+      if (ts_language_symbol_metadata(self->language, symbol).supertype) {
+        QueryStep *step = array_back(&self->steps);
+        step->supertype_symbol = step->symbol;
+        step->symbol = NAMED_WILDCARD_SYMBOL;
+      }
+
+      stream_skip_whitespace(stream);
+
+      if (stream->next == '/') {
+        stream_advance(stream);
+        if (!stream_is_ident_start(stream)) {
+          return TSQueryErrorSyntax;
+        }
+
+        const char *node_name = stream->input;
+        stream_scan_identifier(stream);
+        uint32_t length = stream->input - node_name;
+
+        QueryStep *step = array_back(&self->steps);
+        step->symbol = ts_language_symbol_for_name(
+          self->language,
+          node_name,
+          length,
+          true
+        );
+        if (!step->symbol) {
+          stream_reset(stream, node_name);
+          return TSQueryErrorNodeType;
+        }
+      }
 
       // Parse the child patterns
-      stream_skip_whitespace(stream);
       bool child_is_immediate = false;
       uint16_t child_start_step_index = self->steps.size;
       for (;;) {
@@ -2552,11 +2595,17 @@ static inline bool ts_query_cursor__advance(
       bool has_later_siblings;
       bool has_later_named_siblings;
       bool can_have_later_siblings_with_this_field;
-      TSFieldId field_id = ts_tree_cursor_current_status(
+      TSFieldId field_id = 0;
+      TSSymbol supertypes[8] = {0};
+      unsigned supertype_count = 8;
+      ts_tree_cursor_current_status(
         &self->cursor,
+        &field_id,
         &has_later_siblings,
         &has_later_named_siblings,
-        &can_have_later_siblings_with_this_field
+        &can_have_later_siblings_with_this_field,
+        supertypes,
+        &supertype_count
       );
       LOG(
         "enter node. type:%s, field:%s, row:%u state_count:%u, finished_state_count:%u\n",
@@ -2575,6 +2624,7 @@ static inline bool ts_query_cursor__advance(
         // If this node matches the first step of the pattern, then add a new
         // state at the start of this pattern.
         if (step->field && field_id != step->field) continue;
+        if (step->supertype_symbol && !supertype_count) continue;
         ts_query_cursor__add_state(self, pattern);
       }
 
@@ -2621,6 +2671,16 @@ static inline bool ts_query_cursor__advance(
         }
         if (step->is_last_child && has_later_named_siblings) {
           node_does_match = false;
+        }
+        if (step->supertype_symbol) {
+          bool has_supertype = false;
+          for (unsigned j = 0; j < supertype_count; j++) {
+            if (supertypes[j] == step->supertype_symbol) {
+              has_supertype = true;
+              break;
+            }
+          }
+          if (!has_supertype) node_does_match = false;
         }
         if (step->field) {
           if (step->field == field_id) {
