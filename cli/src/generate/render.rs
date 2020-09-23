@@ -1509,6 +1509,7 @@ impl Generator {
         for c in name.chars() {
             match c {
                 '\"' => result += "\\\"",
+                '?' => result += "\\?",
                 '\\' => result += "\\\\",
                 '\u{000c}' => result += "\\f",
                 '\n' => result += "\\n",
