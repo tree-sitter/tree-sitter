@@ -246,14 +246,19 @@ TSNode ts_tree_cursor_current_node(const TSTreeCursor *_self) {
 
 // Private - Get various facts about the current node that are needed
 // when executing tree queries.
-TSFieldId ts_tree_cursor_current_status(
+void ts_tree_cursor_current_status(
   const TSTreeCursor *_self,
+  TSFieldId *field_id,
   bool *has_later_siblings,
   bool *has_later_named_siblings,
-  bool *can_have_later_siblings_with_this_field
+  bool *can_have_later_siblings_with_this_field,
+  TSSymbol *supertypes,
+  unsigned *supertype_count
 ) {
   const TreeCursor *self = (const TreeCursor *)_self;
-  TSFieldId result = 0;
+  unsigned max_supertypes = *supertype_count;
+  *field_id = 0;
+  *supertype_count = 0;
   *has_later_siblings = false;
   *has_later_named_siblings = false;
   *can_have_later_siblings_with_this_field = false;
@@ -269,24 +274,31 @@ TSFieldId ts_tree_cursor_current_status(
       parent_entry->subtree->ptr->production_id
     );
 
-    // If the subtree is visible, return its public-facing symbol.
-    // Otherwise, return zero.
-    #define subtree_visible_symbol(subtree, structural_child_index) \
-      ((                                                            \
-        !ts_subtree_extra(subtree) &&                               \
-        alias_sequence &&                                           \
-        alias_sequence[structural_child_index]                      \
-      ) ?                                                           \
-        alias_sequence[structural_child_index] :                    \
-        ts_subtree_visible(subtree) ?                               \
-        ts_subtree_symbol(subtree) :                                \
-        0)                                                          \
+    #define subtree_symbol(subtree, structural_child_index) \
+      ((                                                    \
+        !ts_subtree_extra(subtree) &&                       \
+        alias_sequence &&                                   \
+        alias_sequence[structural_child_index]              \
+      ) ?                                                   \
+        alias_sequence[structural_child_index] :            \
+        ts_subtree_symbol(subtree))
 
     // Stop walking up when a visible ancestor is found.
-    if (
-      i != self->stack.size - 1 &&
-      subtree_visible_symbol(*entry->subtree, entry->structural_child_index)
-    ) break;
+    TSSymbol entry_symbol = subtree_symbol(
+      *entry->subtree,
+      entry->structural_child_index
+    );
+    TSSymbolMetadata entry_metadata = ts_language_symbol_metadata(
+      self->tree->language,
+      entry_symbol
+    );
+    if (i != self->stack.size - 1 && entry_metadata.visible) break;
+
+    // Record any supertypes
+    if (entry_metadata.supertype && *supertype_count < max_supertypes) {
+      supertypes[*supertype_count] = entry_symbol;
+      (*supertype_count)++;
+    }
 
     // Determine if the current node has later siblings.
     if (!*has_later_siblings) {
@@ -295,19 +307,21 @@ TSFieldId ts_tree_cursor_current_status(
       if (!ts_subtree_extra(*entry->subtree)) structural_child_index++;
       for (unsigned j = entry->child_index + 1; j < sibling_count; j++) {
         Subtree sibling = parent_entry->subtree->ptr->children[j];
-        if (ts_subtree_visible_child_count(sibling) > 0) {
+        TSSymbolMetadata sibling_metadata = ts_language_symbol_metadata(
+          self->tree->language,
+          subtree_symbol(sibling, structural_child_index)
+        );
+        if (sibling_metadata.visible) {
           *has_later_siblings = true;
           if (*has_later_named_siblings) break;
-          if (sibling.ptr->named_child_count > 0) {
+          if (sibling_metadata.named) {
             *has_later_named_siblings = true;
             break;
           }
-        }
-        TSSymbol visible_symbol = subtree_visible_symbol(sibling, structural_child_index);
-        if (visible_symbol) {
+        } else if (ts_subtree_visible_child_count(sibling) > 0) {
           *has_later_siblings = true;
           if (*has_later_named_siblings) break;
-          if (ts_language_symbol_metadata(self->tree->language, visible_symbol).named) {
+          if (sibling.ptr->named_child_count > 0) {
             *has_later_named_siblings = true;
             break;
           }
@@ -316,7 +330,7 @@ TSFieldId ts_tree_cursor_current_status(
       }
     }
 
-    #undef subtree_visible_symbol
+    #undef subtree_metadata
 
     if (!ts_subtree_extra(*entry->subtree)) {
       const TSFieldMapEntry *field_map, *field_map_end;
@@ -327,10 +341,10 @@ TSFieldId ts_tree_cursor_current_status(
       );
 
       // Look for a field name associated with the current node.
-      if (!result) {
+      if (!*field_id) {
         for (const TSFieldMapEntry *i = field_map; i < field_map_end; i++) {
           if (!i->inherited && i->child_index == entry->structural_child_index) {
-            result = i->field_id;
+            *field_id = i->field_id;
             *can_have_later_siblings_with_this_field = false;
             break;
           }
@@ -338,9 +352,9 @@ TSFieldId ts_tree_cursor_current_status(
       }
 
       // Determine if the current node can have later siblings with the same field name.
-      if (result) {
+      if (*field_id) {
         for (const TSFieldMapEntry *i = field_map; i < field_map_end; i++) {
-          if (i->field_id == result && i->child_index > entry->structural_child_index) {
+          if (i->field_id == *field_id && i->child_index > entry->structural_child_index) {
             *can_have_later_siblings_with_this_field = true;
             break;
           }
@@ -348,52 +362,6 @@ TSFieldId ts_tree_cursor_current_status(
       }
     }
   }
-
-  return result;
-}
-
-bool ts_tree_cursor_has_supertype(
-  const TSTreeCursor *_self,
-  TSSymbol supertype_symbol
-) {
-  const TreeCursor *self = (const TreeCursor *)_self;
-
-  // Walk up the tree, visiting the current node and its invisible ancestors,
-  // because fields can refer to nodes through invisible *wrapper* nodes,
-  for (unsigned i = self->stack.size - 1; i > 0; i--) {
-    TreeCursorEntry *entry = &self->stack.contents[i];
-    TreeCursorEntry *parent_entry = &self->stack.contents[i - 1];
-
-    const TSSymbol *alias_sequence = ts_language_alias_sequence(
-      self->tree->language,
-      parent_entry->subtree->ptr->production_id
-    );
-
-    // If the subtree is visible, return its public-facing symbol.
-    // Otherwise, return zero.
-    #define subtree_visible_symbol(subtree, structural_child_index) \
-      ((                                                            \
-        !ts_subtree_extra(subtree) &&                               \
-        alias_sequence &&                                           \
-        alias_sequence[structural_child_index]                      \
-      ) ?                                                           \
-        alias_sequence[structural_child_index] :                    \
-        ts_subtree_visible(subtree) ?                               \
-        ts_subtree_symbol(subtree) :                                \
-        0)                                                          \
-
-    // Stop walking up when a visible ancestor is found.
-    if (
-      i != self->stack.size - 1 &&
-      subtree_visible_symbol(*entry->subtree, entry->structural_child_index)
-    ) break;
-
-    if (ts_subtree_symbol(*entry->subtree) == supertype_symbol) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *_self) {

@@ -640,10 +640,10 @@ static inline AnalysisStateEntry *analysis_state__top(AnalysisState *self) {
 }
 
 static inline bool analysis_state__has_supertype(AnalysisState *self, TSSymbol symbol) {
-    for (unsigned i = 0; i < self->depth; i++) {
-      if (self->stack[i].parent_symbol == symbol) return true;
-    }
-    return false;
+  for (unsigned i = 0; i < self->depth; i++) {
+    if (self->stack[i].parent_symbol == symbol) return true;
+  }
+  return false;
 }
 
 /***********************
@@ -1141,9 +1141,10 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
               if (step->field && step->field != field_id) {
                 does_match = false;
               }
-              if (step->supertype_symbol) {
-                if (!analysis_state__has_supertype(state, step->supertype_symbol)) does_match = false;
-              }
+              if (
+                step->supertype_symbol &&
+                !analysis_state__has_supertype(state, step->supertype_symbol)
+              ) does_match = false;
             }
 
             // If this is a hidden child, then push a new entry to the stack, in order to
@@ -2594,11 +2595,17 @@ static inline bool ts_query_cursor__advance(
       bool has_later_siblings;
       bool has_later_named_siblings;
       bool can_have_later_siblings_with_this_field;
-      TSFieldId field_id = ts_tree_cursor_current_status(
+      TSFieldId field_id = 0;
+      TSSymbol supertypes[8] = {0};
+      unsigned supertype_count = 8;
+      ts_tree_cursor_current_status(
         &self->cursor,
+        &field_id,
         &has_later_siblings,
         &has_later_named_siblings,
-        &can_have_later_siblings_with_this_field
+        &can_have_later_siblings_with_this_field,
+        supertypes,
+        &supertype_count
       );
       LOG(
         "enter node. type:%s, field:%s, row:%u state_count:%u, finished_state_count:%u\n",
@@ -2617,6 +2624,7 @@ static inline bool ts_query_cursor__advance(
         // If this node matches the first step of the pattern, then add a new
         // state at the start of this pattern.
         if (step->field && field_id != step->field) continue;
+        if (step->supertype_symbol && !supertype_count) continue;
         ts_query_cursor__add_state(self, pattern);
       }
 
@@ -2665,19 +2673,14 @@ static inline bool ts_query_cursor__advance(
           node_does_match = false;
         }
         if (step->supertype_symbol) {
-          bool has_supertype = ts_tree_cursor_has_supertype(&self->cursor, step->supertype_symbol);
-
-          if (symbol == 1) {
-            LOG(
-              "  has supertype %s: %d",
-              ts_language_symbol_name(self->query->language, step->supertype_symbol),
-              has_supertype
-            );
+          bool has_supertype = false;
+          for (unsigned j = 0; j < supertype_count; j++) {
+            if (supertypes[j] == step->supertype_symbol) {
+              has_supertype = true;
+              break;
+            }
           }
-
-          if (!has_supertype) {
-            node_does_match = false;
-          }
+          if (!has_supertype) node_does_match = false;
         }
         if (step->field) {
           if (step->field == field_id) {
