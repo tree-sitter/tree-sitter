@@ -639,6 +639,13 @@ static inline AnalysisStateEntry *analysis_state__top(AnalysisState *self) {
   return &self->stack[self->depth - 1];
 }
 
+static inline bool analysis_state__has_supertype(AnalysisState *self, TSSymbol symbol) {
+    for (unsigned i = 0; i < self->depth; i++) {
+      if (self->stack[i].parent_symbol == symbol) return true;
+    }
+    return false;
+}
+
 /***********************
  * AnalysisSubgraphNode
  ***********************/
@@ -1133,6 +1140,9 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
               }
               if (step->field && step->field != field_id) {
                 does_match = false;
+              }
+              if (step->supertype_symbol) {
+                if (!analysis_state__has_supertype(state, step->supertype_symbol)) does_match = false;
               }
             }
 
@@ -1673,7 +1683,7 @@ static TSQueryError ts_query__parse_pattern(
       if (ts_language_symbol_metadata(self->language, symbol).supertype) {
         QueryStep *step = array_back(&self->steps);
         step->supertype_symbol = step->symbol;
-        step->symbol = WILDCARD_SYMBOL;
+        step->symbol = NAMED_WILDCARD_SYMBOL;
       }
 
       stream_skip_whitespace(stream);

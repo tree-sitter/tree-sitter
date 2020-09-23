@@ -291,6 +291,24 @@ fn test_query_errors_on_impossible_patterns() {
                 .join("\n")
             ))
         );
+
+        Query::new(
+            js_lang,
+            "(if_statement
+                condition: (parenthesized_expression (_expression) @cond))",
+        )
+        .unwrap();
+        assert_eq!(
+            Query::new(js_lang, "(if_statement condition: (_expression))",),
+            Err(QueryError::Structure(
+                1,
+                [
+                    "(if_statement condition: (_expression))", //
+                    "              ^",
+                ]
+                .join("\n")
+            ))
+        );
     });
 }
 
