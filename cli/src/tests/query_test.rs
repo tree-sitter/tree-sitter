@@ -4,8 +4,8 @@ use lazy_static::lazy_static;
 use std::env;
 use std::fmt::Write;
 use tree_sitter::{
-    Language, Node, Parser, Query, QueryCapture, QueryCursor, QueryError, QueryMatch,
-    QueryPredicate, QueryPredicateArg, QueryProperty,
+    Language, Node, Parser, Query, QueryCapture, QueryCursor, QueryError, QueryErrorKind,
+    QueryMatch, QueryPredicate, QueryPredicateArg, QueryProperty,
 };
 
 lazy_static! {
@@ -26,109 +26,98 @@ fn test_query_errors_on_invalid_syntax() {
 
         // Mismatched parens
         assert_eq!(
-            Query::new(language, "(if_statement"),
-            Err(QueryError::Syntax(
-                1,
-                [
-                    "(if_statement", //
-                    "             ^",
-                ]
-                .join("\n")
-            ))
+            Query::new(language, "(if_statement").unwrap_err().message,
+            [
+                "(if_statement", //
+                "             ^",
+            ]
+            .join("\n")
         );
         assert_eq!(
-            Query::new(language, "; comment 1\n; comment 2\n  (if_statement))"),
-            Err(QueryError::Syntax(
-                3,
-                [
-                    "  (if_statement))", //
-                    "                ^",
-                ]
-                .join("\n")
-            ))
+            Query::new(language, "; comment 1\n; comment 2\n  (if_statement))")
+                .unwrap_err()
+                .message,
+            [
+                "  (if_statement))", //
+                "                ^",
+            ]
+            .join("\n")
         );
 
         // Return an error at the *beginning* of a bare identifier not followed a colon.
         // If there's a colon but no pattern, return an error at the end of the colon.
         assert_eq!(
-            Query::new(language, "(if_statement identifier)"),
-            Err(QueryError::Syntax(
-                1,
-                [
-                    "(if_statement identifier)", //
-                    "              ^",
-                ]
-                .join("\n")
-            ))
+            Query::new(language, "(if_statement identifier)")
+                .unwrap_err()
+                .message,
+            [
+                "(if_statement identifier)", //
+                "              ^",
+            ]
+            .join("\n")
         );
         assert_eq!(
-            Query::new(language, "(if_statement condition:)"),
-            Err(QueryError::Syntax(
-                1,
-                [
-                    "(if_statement condition:)", //
-                    "                        ^",
-                ]
-                .join("\n")
-            ))
+            Query::new(language, "(if_statement condition:)")
+                .unwrap_err()
+                .message,
+            [
+                "(if_statement condition:)", //
+                "                        ^",
+            ]
+            .join("\n")
         );
 
         // Return an error at the beginning of an unterminated string.
         assert_eq!(
-            Query::new(language, r#"(identifier) "h "#),
-            Err(QueryError::Syntax(
-                1,
-                [
-                    r#"(identifier) "h "#, //
-                    r#"             ^"#,
-                ]
-                .join("\n")
-            ))
+            Query::new(language, r#"(identifier) "h "#)
+                .unwrap_err()
+                .message,
+            [
+                r#"(identifier) "h "#, //
+                r#"             ^"#,
+            ]
+            .join("\n")
         );
 
         assert_eq!(
-            Query::new(language, r#"((identifier) ()"#),
-            Err(QueryError::Syntax(
-                1,
-                [
-                    "((identifier) ()", //
-                    "               ^",
-                ]
-                .join("\n")
-            ))
+            Query::new(language, r#"((identifier) ()"#)
+                .unwrap_err()
+                .message,
+            [
+                "((identifier) ()", //
+                "               ^",
+            ]
+            .join("\n")
         );
         assert_eq!(
-            Query::new(language, r#"((identifier) [])"#),
-            Err(QueryError::Syntax(
-                1,
-                [
-                    "((identifier) [])", //
-                    "               ^",
-                ]
-                .join("\n")
-            ))
+            Query::new(language, r#"((identifier) [])"#)
+                .unwrap_err()
+                .message,
+            [
+                "((identifier) [])", //
+                "               ^",
+            ]
+            .join("\n")
         );
         assert_eq!(
-            Query::new(language, r#"((identifier) (#a)"#),
-            Err(QueryError::Syntax(
-                1,
-                [
-                    "((identifier) (#a)", //
-                    "                  ^",
-                ]
-                .join("\n")
-            ))
+            Query::new(language, r#"((identifier) (#a)"#)
+                .unwrap_err()
+                .message,
+            [
+                "((identifier) (#a)", //
+                "                  ^",
+            ]
+            .join("\n")
         );
         assert_eq!(
-            Query::new(language, r#"((identifier) @x (#eq? @x a"#),
-            Err(QueryError::Syntax(
-                1,
-                [
-                    r#"((identifier) @x (#eq? @x a"#,
-                    r#"                           ^"#,
-                ]
-                .join("\n")
-            ))
+            Query::new(language, r#"((identifier) @x (#eq? @x a"#)
+                .unwrap_err()
+                .message,
+            [
+                r#"((identifier) @x (#eq? @x a"#,
+                r#"                           ^"#,
+            ]
+            .join("\n")
         );
     });
 }
@@ -139,53 +128,97 @@ fn test_query_errors_on_invalid_symbols() {
         let language = get_language("javascript");
 
         assert_eq!(
-            Query::new(language, "(clas)"),
-            Err(QueryError::NodeType(1, "clas".to_string()))
+            Query::new(language, "(clas)").unwrap_err(),
+            QueryError {
+                row: 1,
+                offset: 1,
+                column: 1,
+                kind: QueryErrorKind::NodeType,
+                message: "clas".to_string()
+            }
         );
         assert_eq!(
-            Query::new(language, "(if_statement (arrayyyyy))"),
-            Err(QueryError::NodeType(1, "arrayyyyy".to_string()))
+            Query::new(language, "(if_statement (arrayyyyy))").unwrap_err(),
+            QueryError {
+                row: 1,
+                offset: 15,
+                column: 15,
+                kind: QueryErrorKind::NodeType,
+                message: "arrayyyyy".to_string()
+            },
         );
         assert_eq!(
-            Query::new(language, "(if_statement condition: (non_existent3))"),
-            Err(QueryError::NodeType(1, "non_existent3".to_string()))
+            Query::new(language, "(if_statement condition: (non_existent3))").unwrap_err(),
+            QueryError {
+                row: 1,
+                offset: 26,
+                column: 26,
+                kind: QueryErrorKind::NodeType,
+                message: "non_existent3".to_string()
+            },
         );
         assert_eq!(
-            Query::new(language, "(if_statement condit: (identifier))"),
-            Err(QueryError::Field(1, "condit".to_string()))
+            Query::new(language, "(if_statement condit: (identifier))").unwrap_err(),
+            QueryError {
+                row: 1,
+                offset: 14,
+                column: 14,
+                kind: QueryErrorKind::Field,
+                message: "condit".to_string()
+            },
         );
         assert_eq!(
-            Query::new(language, "(if_statement conditioning: (identifier))"),
-            Err(QueryError::Field(1, "conditioning".to_string()))
+            Query::new(language, "(if_statement conditioning: (identifier))").unwrap_err(),
+            QueryError {
+                row: 1,
+                offset: 14,
+                column: 14,
+                kind: QueryErrorKind::Field,
+                message: "conditioning".to_string()
+            }
         );
     });
 }
 
 #[test]
-fn test_query_errors_on_invalid_conditions() {
+fn test_query_errors_on_invalid_predicates() {
     allocations::record(|| {
         let language = get_language("javascript");
 
         assert_eq!(
-            Query::new(language, "((identifier) @id (@id))"),
-            Err(QueryError::Syntax(
-                1,
-                [
+            Query::new(language, "((identifier) @id (@id))").unwrap_err(),
+            QueryError {
+                kind: QueryErrorKind::Syntax,
+                row: 1,
+                column: 19,
+                offset: 19,
+                message: [
                     "((identifier) @id (@id))", //
                     "                   ^"
                 ]
                 .join("\n")
-            ))
+            }
         );
         assert_eq!(
-            Query::new(language, "((identifier) @id (#eq? @id))"),
-            Err(QueryError::Predicate(
-                "Wrong number of arguments to #eq? predicate. Expected 2, got 1.".to_string()
-            ))
+            Query::new(language, "((identifier) @id (#eq? @id))").unwrap_err(),
+            QueryError {
+                kind: QueryErrorKind::Predicate,
+                row: 0,
+                column: 0,
+                offset: 0,
+                message: "Wrong number of arguments to #eq? predicate. Expected 2, got 1."
+                    .to_string()
+            }
         );
         assert_eq!(
-            Query::new(language, "((identifier) @id (#eq? @id @ok))"),
-            Err(QueryError::Capture(1, "ok".to_string()))
+            Query::new(language, "((identifier) @id (#eq? @id @ok))").unwrap_err(),
+            QueryError {
+                kind: QueryErrorKind::Capture,
+                row: 1,
+                column: 29,
+                offset: 29,
+                message: "ok".to_string(),
+            }
         );
     });
 }
@@ -201,14 +234,17 @@ fn test_query_errors_on_impossible_patterns() {
                 js_lang,
                 "(binary_expression left: (identifier) left: (identifier))"
             ),
-            Err(QueryError::Structure(
-                1,
-                [
+            Err(QueryError {
+                kind: QueryErrorKind::Structure,
+                row: 1,
+                offset: 38,
+                column: 38,
+                message: [
                     "(binary_expression left: (identifier) left: (identifier))",
                     "                                      ^"
                 ]
                 .join("\n"),
-            ))
+            })
         );
 
         Query::new(
@@ -218,27 +254,33 @@ fn test_query_errors_on_impossible_patterns() {
         .unwrap();
         assert_eq!(
             Query::new(js_lang, "(function_declaration name: (statement_block))"),
-            Err(QueryError::Structure(
-                1,
-                [
+            Err(QueryError {
+                kind: QueryErrorKind::Structure,
+                row: 1,
+                offset: 22,
+                column: 22,
+                message: [
                     "(function_declaration name: (statement_block))",
                     "                      ^",
                 ]
                 .join("\n")
-            ))
+            })
         );
 
         Query::new(rb_lang, "(call receiver:(call))").unwrap();
         assert_eq!(
             Query::new(rb_lang, "(call receiver:(binary))"),
-            Err(QueryError::Structure(
-                1,
-                [
+            Err(QueryError {
+                kind: QueryErrorKind::Structure,
+                row: 1,
+                offset: 6,
+                column: 6,
+                message: [
                     "(call receiver:(binary))", //
                     "      ^",
                 ]
                 .join("\n")
-            ))
+            })
         );
 
         Query::new(
@@ -259,37 +301,46 @@ fn test_query_errors_on_impossible_patterns() {
                     (generator_function_declaration (identifier))
                 ]",
             ),
-            Err(QueryError::Structure(
-                3,
-                [
+            Err(QueryError {
+                kind: QueryErrorKind::Structure,
+                row: 3,
+                offset: 88,
+                column: 42,
+                message: [
                     "                    (function_declaration (object))", //
                     "                                          ^",
                 ]
                 .join("\n")
-            ))
+            })
         );
 
         assert_eq!(
             Query::new(js_lang, "(identifier (identifier))",),
-            Err(QueryError::Structure(
-                1,
-                [
+            Err(QueryError {
+                kind: QueryErrorKind::Structure,
+                row: 1,
+                offset: 12,
+                column: 12,
+                message: [
                     "(identifier (identifier))", //
                     "            ^",
                 ]
                 .join("\n")
-            ))
+            })
         );
         assert_eq!(
             Query::new(js_lang, "(true (true))",),
-            Err(QueryError::Structure(
-                1,
-                [
+            Err(QueryError {
+                kind: QueryErrorKind::Structure,
+                row: 1,
+                offset: 6,
+                column: 6,
+                message: [
                     "(true (true))", //
                     "      ^",
                 ]
                 .join("\n")
-            ))
+            })
         );
 
         Query::new(
@@ -298,16 +349,20 @@ fn test_query_errors_on_impossible_patterns() {
                 condition: (parenthesized_expression (_expression) @cond))",
         )
         .unwrap();
+
         assert_eq!(
             Query::new(js_lang, "(if_statement condition: (_expression))",),
-            Err(QueryError::Structure(
-                1,
-                [
+            Err(QueryError {
+                kind: QueryErrorKind::Structure,
+                row: 1,
+                offset: 14,
+                column: 14,
+                message: [
                     "(if_statement condition: (_expression))", //
                     "              ^",
                 ]
                 .join("\n")
-            ))
+            })
         );
     });
 }

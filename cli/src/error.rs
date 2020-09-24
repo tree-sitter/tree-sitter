@@ -1,7 +1,7 @@
 use super::test_highlight;
 use std::fmt::Write;
 use std::io;
-use tree_sitter::QueryError;
+use tree_sitter::{QueryError, QueryErrorKind};
 
 #[derive(Debug)]
 pub struct Error(pub Vec<String>);
@@ -51,31 +51,19 @@ impl Error {
     }
 }
 
-impl<'a> From<QueryError> for Error {
-    fn from(error: QueryError) -> Self {
-        match error {
-            QueryError::Capture(row, c) => Error::new(format!(
-                "Query error on line {}: Invalid capture name {}",
-                row, c
-            )),
-            QueryError::Field(row, f) => Error::new(format!(
-                "Query error on line {}: Invalid field name {}",
-                row, f
-            )),
-            QueryError::NodeType(row, t) => Error::new(format!(
-                "Query error on line {}. Invalid node type {}",
-                row, t
-            )),
-            QueryError::Syntax(row, l) => Error::new(format!(
-                "Query error on line {}. Invalid syntax:\n{}",
-                row, l
-            )),
-            QueryError::Structure(row, l) => Error::new(format!(
-                "Query error on line {}. Impossible pattern:\n{}",
-                row, l
-            )),
-            QueryError::Predicate(p) => Error::new(format!("Query error: {}", p)),
+impl<'a> From<(&str, QueryError)> for Error {
+    fn from((path, error): (&str, QueryError)) -> Self {
+        let mut msg = format!("Query error at {}:{}. ", path, error.row + 1);
+        match error.kind {
+            QueryErrorKind::Capture => write!(&mut msg, "Invalid capture name {}", error.message),
+            QueryErrorKind::Field => write!(&mut msg, "Invalid field name {}", error.message),
+            QueryErrorKind::NodeType => write!(&mut msg, "Invalid node type {}", error.message),
+            QueryErrorKind::Syntax => write!(&mut msg, "Invalid syntax:\n{}", error.message),
+            QueryErrorKind::Structure => write!(&mut msg, "Impossible pattern:\n{}", error.message),
+            QueryErrorKind::Predicate => write!(&mut msg, "Invalid predicate: {}", error.message),
         }
+        .unwrap();
+        Self::new(msg)
     }
 }
 

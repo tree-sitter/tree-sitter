@@ -157,13 +157,22 @@ pub struct IncludedRangesError(pub usize);
 
 /// An error that occurred when trying to create a `Query`.
 #[derive(Debug, PartialEq, Eq)]
-pub enum QueryError {
-    Syntax(usize, String),
-    NodeType(usize, String),
-    Field(usize, String),
-    Capture(usize, String),
-    Predicate(String),
-    Structure(usize, String),
+pub struct QueryError {
+    pub row: usize,
+    pub column: usize,
+    pub offset: usize,
+    pub message: String,
+    pub kind: QueryErrorKind,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum QueryErrorKind {
+    Syntax,
+    NodeType,
+    Field,
+    Capture,
+    Predicate,
+    Structure,
 }
 
 #[derive(Debug)]
@@ -1175,8 +1184,11 @@ impl Query {
                     None
                 }
             });
+            let column = offset - line_start;
 
-            return match error_type {
+            let kind;
+            let message;
+            match error_type {
                 // Error types that report names
                 ffi::TSQueryError_TSQueryErrorNodeType
                 | ffi::TSQueryError_TSQueryErrorField
@@ -1185,34 +1197,36 @@ impl Query {
                     let end_offset = suffix
                         .find(|c| !char::is_alphanumeric(c) && c != '_' && c != '-')
                         .unwrap_or(source.len());
-                    let name = suffix.split_at(end_offset).0.to_string();
-                    match error_type {
-                        ffi::TSQueryError_TSQueryErrorNodeType => {
-                            Err(QueryError::NodeType(row, name))
-                        }
-                        ffi::TSQueryError_TSQueryErrorField => Err(QueryError::Field(row, name)),
-                        ffi::TSQueryError_TSQueryErrorCapture => {
-                            Err(QueryError::Capture(row, name))
-                        }
+                    message = suffix.split_at(end_offset).0.to_string();
+                    kind = match error_type {
+                        ffi::TSQueryError_TSQueryErrorNodeType => QueryErrorKind::NodeType,
+                        ffi::TSQueryError_TSQueryErrorField => QueryErrorKind::Field,
+                        ffi::TSQueryError_TSQueryErrorCapture => QueryErrorKind::Capture,
                         _ => unreachable!(),
-                    }
+                    };
                 }
 
                 // Error types that report positions
                 _ => {
-                    let message = if let Some(line) = line_containing_error {
+                    message = if let Some(line) = line_containing_error {
                         line.to_string() + "\n" + &" ".repeat(offset - line_start) + "^"
                     } else {
                         "Unexpected EOF".to_string()
                     };
-                    match error_type {
-                        ffi::TSQueryError_TSQueryErrorStructure => {
-                            Err(QueryError::Structure(row, message))
-                        }
-                        _ => Err(QueryError::Syntax(row, message)),
-                    }
+                    kind = match error_type {
+                        ffi::TSQueryError_TSQueryErrorStructure => QueryErrorKind::Structure,
+                        _ => QueryErrorKind::Syntax,
+                    };
                 }
             };
+
+            return Err(QueryError {
+                row,
+                column,
+                offset,
+                kind,
+                message,
+            });
         }
 
         let string_count = unsafe { ffi::ts_query_string_count(ptr) };
@@ -1261,6 +1275,13 @@ impl Query {
                 slice::from_raw_parts(raw_predicates, length as usize)
             };
 
+            let byte_offset = unsafe { ffi::ts_query_start_byte_for_pattern(ptr, i as u32) };
+            let row = source
+                .char_indices()
+                .take_while(|(i, _)| *i < byte_offset as usize)
+                .filter(|(_, c)| *c == '\n')
+                .count();
+
             let type_done = ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeDone;
             let type_capture = ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture;
             let type_string = ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeString;
@@ -1275,10 +1296,13 @@ impl Query {
                 }
 
                 if p[0].type_ != type_string {
-                    return Err(QueryError::Predicate(format!(
-                        "Expected predicate to start with a function name. Got @{}.",
-                        result.capture_names[p[0].value_id as usize],
-                    )));
+                    return Err(predicate_error(
+                        row,
+                        format!(
+                            "Expected predicate to start with a function name. Got @{}.",
+                            result.capture_names[p[0].value_id as usize],
+                        ),
+                    ));
                 }
 
                 // Build a predicate for each of the known predicate function names.
@@ -1286,13 +1310,16 @@ impl Query {
                 match operator_name.as_str() {
                     "eq?" | "not-eq?" => {
                         if p.len() != 3 {
-                            return Err(QueryError::Predicate(format!(
+                            return Err(predicate_error(
+                                row,
+                                format!(
                                 "Wrong number of arguments to #eq? predicate. Expected 2, got {}.",
                                 p.len() - 1
-                            )));
+                            ),
+                            ));
                         }
                         if p[1].type_ != type_capture {
-                            return Err(QueryError::Predicate(format!(
+                            return Err(predicate_error(row, format!(
                                 "First argument to #eq? predicate must be a capture name. Got literal \"{}\".",
                                 string_values[p[1].value_id as usize],
                             )));
@@ -1316,19 +1343,19 @@ impl Query {
 
                     "match?" | "not-match?" => {
                         if p.len() != 3 {
-                            return Err(QueryError::Predicate(format!(
+                            return Err(predicate_error(row, format!(
                                 "Wrong number of arguments to #match? predicate. Expected 2, got {}.",
                                 p.len() - 1
                             )));
                         }
                         if p[1].type_ != type_capture {
-                            return Err(QueryError::Predicate(format!(
+                            return Err(predicate_error(row, format!(
                                 "First argument to #match? predicate must be a capture name. Got literal \"{}\".",
                                 string_values[p[1].value_id as usize],
                             )));
                         }
                         if p[2].type_ == type_capture {
-                            return Err(QueryError::Predicate(format!(
+                            return Err(predicate_error(row, format!(
                                 "Second argument to #match? predicate must be a literal. Got capture @{}.",
                                 result.capture_names[p[2].value_id as usize],
                             )));
@@ -1339,14 +1366,15 @@ impl Query {
                         text_predicates.push(TextPredicate::CaptureMatchString(
                             p[1].value_id,
                             regex::bytes::Regex::new(regex).map_err(|_| {
-                                QueryError::Predicate(format!("Invalid regex '{}'", regex))
+                                predicate_error(row, format!("Invalid regex '{}'", regex))
                             })?,
                             is_positive,
                         ));
                     }
 
                     "set!" => property_settings.push(Self::parse_property(
-                        "set!",
+                        row,
+                        &operator_name,
                         &result.capture_names,
                         &string_values,
                         &p[1..],
@@ -1354,6 +1382,7 @@ impl Query {
 
                     "is?" | "is-not?" => property_predicates.push((
                         Self::parse_property(
+                            row,
                             &operator_name,
                             &result.capture_names,
                             &string_values,
@@ -1476,17 +1505,21 @@ impl Query {
     }
 
     fn parse_property(
+        row: usize,
         function_name: &str,
         capture_names: &[String],
         string_values: &[String],
         args: &[ffi::TSQueryPredicateStep],
     ) -> Result<QueryProperty, QueryError> {
         if args.len() == 0 || args.len() > 3 {
-            return Err(QueryError::Predicate(format!(
-                "Wrong number of arguments to {} predicate. Expected 1 to 3, got {}.",
-                function_name,
-                args.len(),
-            )));
+            return Err(predicate_error(
+                row,
+                format!(
+                    "Wrong number of arguments to {} predicate. Expected 1 to 3, got {}.",
+                    function_name,
+                    args.len(),
+                ),
+            ));
         }
 
         let mut capture_id = None;
@@ -1496,10 +1529,13 @@ impl Query {
         for arg in args {
             if arg.type_ == ffi::TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture {
                 if capture_id.is_some() {
-                    return Err(QueryError::Predicate(format!(
-                        "Invalid arguments to {} predicate. Unexpected second capture name @{}",
-                        function_name, capture_names[arg.value_id as usize]
-                    )));
+                    return Err(predicate_error(
+                        row,
+                        format!(
+                            "Invalid arguments to {} predicate. Unexpected second capture name @{}",
+                            function_name, capture_names[arg.value_id as usize]
+                        ),
+                    ));
                 }
                 capture_id = Some(arg.value_id as usize);
             } else if key.is_none() {
@@ -1507,20 +1543,26 @@ impl Query {
             } else if value.is_none() {
                 value = Some(string_values[arg.value_id as usize].as_str());
             } else {
-                return Err(QueryError::Predicate(format!(
-                    "Invalid arguments to {} predicate. Unexpected third argument @{}",
-                    function_name, string_values[arg.value_id as usize]
-                )));
+                return Err(predicate_error(
+                    row,
+                    format!(
+                        "Invalid arguments to {} predicate. Unexpected third argument @{}",
+                        function_name, string_values[arg.value_id as usize]
+                    ),
+                ));
             }
         }
 
         if let Some(key) = key {
             Ok(QueryProperty::new(key, value, capture_id))
         } else {
-            return Err(QueryError::Predicate(format!(
-                "Invalid arguments to {} predicate. Missing key argument",
-                function_name,
-            )));
+            return Err(predicate_error(
+                row,
+                format!(
+                    "Invalid arguments to {} predicate. Missing key argument",
+                    function_name,
+                ),
+            ));
         }
     }
 }
@@ -1767,6 +1809,16 @@ impl<'a> Into<ffi::TSInputEdit> for &'a InputEdit {
             old_end_point: self.old_end_position.into(),
             new_end_point: self.new_end_position.into(),
         }
+    }
+}
+
+fn predicate_error(row: usize, message: String) -> QueryError {
+    QueryError {
+        kind: QueryErrorKind::Predicate,
+        row,
+        column: 0,
+        offset: 0,
+        message,
     }
 }
 
