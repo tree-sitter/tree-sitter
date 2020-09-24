@@ -13,7 +13,7 @@ use std::time::SystemTime;
 use std::{fs, mem};
 use tree_sitter::{Language, QueryError};
 use tree_sitter_highlight::HighlightConfiguration;
-use tree_sitter_tags::TagsConfiguration;
+use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
 
 #[cfg(unix)]
 const DYLIB_EXTENSION: &'static str = "so";
@@ -544,25 +544,8 @@ impl Loader {
 
 impl<'a> LanguageConfiguration<'a> {
     pub fn highlight_config(&self, language: Language) -> Result<Option<&HighlightConfiguration>> {
-        fn include_path_in_error<'a>(
-            mut error: QueryError,
-            ranges: &'a Vec<(String, Range<usize>)>,
-            source: &str,
-            start_offset: usize,
-        ) -> (&'a str, QueryError) {
-            let offset = error.offset - start_offset;
-            let (path, range) = ranges
-                .iter()
-                .find(|(_, range)| range.contains(&offset))
-                .unwrap();
-            error.row = source[range.start..offset]
-                .chars()
-                .filter(|c| *c == '\n')
-                .count();
-            (path.as_ref(), error)
-        }
-
-        self.highlight_config
+        return self
+            .highlight_config
             .get_or_try_init(|| {
                 let (highlights_query, highlight_ranges) =
                     self.read_queries(&self.highlights_filenames, "highlights.scm")?;
@@ -582,16 +565,21 @@ impl<'a> LanguageConfiguration<'a> {
                     )
                     .map_err(|error| {
                         if error.offset < injections_query.len() {
-                            include_path_in_error(error, &injection_ranges, &injections_query, 0)
+                            Self::include_path_in_query_error(
+                                error,
+                                &injection_ranges,
+                                &injections_query,
+                                0,
+                            )
                         } else if error.offset < injections_query.len() + locals_query.len() {
-                            include_path_in_error(
+                            Self::include_path_in_query_error(
                                 error,
                                 &locals_ranges,
                                 &locals_query,
                                 injections_query.len(),
                             )
                         } else {
-                            include_path_in_error(
+                            Self::include_path_in_query_error(
                                 error,
                                 &highlight_ranges,
                                 &highlights_query,
@@ -611,25 +599,65 @@ impl<'a> LanguageConfiguration<'a> {
                     Ok(Some(result))
                 }
             })
-            .map(Option::as_ref)
+            .map(Option::as_ref);
     }
 
     pub fn tags_config(&self, language: Language) -> Result<Option<&TagsConfiguration>> {
         self.tags_config
             .get_or_try_init(|| {
-                let (tags_query, _) = self.read_queries(&self.tags_filenames, "tags.scm")?;
-                let (locals_query, _) = self.read_queries(&self.locals_filenames, "locals.scm")?;
+                let (tags_query, tags_ranges) =
+                    self.read_queries(&self.tags_filenames, "tags.scm")?;
+                let (locals_query, locals_ranges) =
+                    self.read_queries(&self.locals_filenames, "locals.scm")?;
                 if tags_query.is_empty() {
                     Ok(None)
                 } else {
                     TagsConfiguration::new(language, &tags_query, &locals_query)
-                        .map_err(Error::wrap(|| {
-                            format!("Failed to load queries in {:?}", self.root_path)
-                        }))
-                        .map(|config| Some(config))
+                        .map(Some)
+                        .map_err(|error| {
+                            if let TagsError::Query(error) = error {
+                                if error.offset < locals_query.len() {
+                                    Self::include_path_in_query_error(
+                                        error,
+                                        &locals_ranges,
+                                        &locals_query,
+                                        0,
+                                    )
+                                } else {
+                                    Self::include_path_in_query_error(
+                                        error,
+                                        &tags_ranges,
+                                        &tags_query,
+                                        locals_query.len(),
+                                    )
+                                }
+                                .into()
+                            } else {
+                                error.into()
+                            }
+                        })
                 }
             })
             .map(Option::as_ref)
+    }
+
+    fn include_path_in_query_error<'b>(
+        mut error: QueryError,
+        ranges: &'b Vec<(String, Range<usize>)>,
+        source: &str,
+        start_offset: usize,
+    ) -> (&'b str, QueryError) {
+        let offset_within_section = error.offset - start_offset;
+        let (path, range) = ranges
+            .iter()
+            .find(|(_, range)| range.contains(&offset_within_section))
+            .unwrap();
+        error.offset = offset_within_section - range.start;
+        error.row = source[range.start..offset_within_section]
+            .chars()
+            .filter(|c| *c == '\n')
+            .count();
+        (path.as_ref(), error)
     }
 
     fn read_queries(

@@ -130,7 +130,7 @@ fn test_query_errors_on_invalid_symbols() {
         assert_eq!(
             Query::new(language, "(clas)").unwrap_err(),
             QueryError {
-                row: 1,
+                row: 0,
                 offset: 1,
                 column: 1,
                 kind: QueryErrorKind::NodeType,
@@ -140,7 +140,7 @@ fn test_query_errors_on_invalid_symbols() {
         assert_eq!(
             Query::new(language, "(if_statement (arrayyyyy))").unwrap_err(),
             QueryError {
-                row: 1,
+                row: 0,
                 offset: 15,
                 column: 15,
                 kind: QueryErrorKind::NodeType,
@@ -150,7 +150,7 @@ fn test_query_errors_on_invalid_symbols() {
         assert_eq!(
             Query::new(language, "(if_statement condition: (non_existent3))").unwrap_err(),
             QueryError {
-                row: 1,
+                row: 0,
                 offset: 26,
                 column: 26,
                 kind: QueryErrorKind::NodeType,
@@ -160,7 +160,7 @@ fn test_query_errors_on_invalid_symbols() {
         assert_eq!(
             Query::new(language, "(if_statement condit: (identifier))").unwrap_err(),
             QueryError {
-                row: 1,
+                row: 0,
                 offset: 14,
                 column: 14,
                 kind: QueryErrorKind::Field,
@@ -170,7 +170,7 @@ fn test_query_errors_on_invalid_symbols() {
         assert_eq!(
             Query::new(language, "(if_statement conditioning: (identifier))").unwrap_err(),
             QueryError {
-                row: 1,
+                row: 0,
                 offset: 14,
                 column: 14,
                 kind: QueryErrorKind::Field,
@@ -189,7 +189,7 @@ fn test_query_errors_on_invalid_predicates() {
             Query::new(language, "((identifier) @id (@id))").unwrap_err(),
             QueryError {
                 kind: QueryErrorKind::Syntax,
-                row: 1,
+                row: 0,
                 column: 19,
                 offset: 19,
                 message: [
@@ -214,7 +214,7 @@ fn test_query_errors_on_invalid_predicates() {
             Query::new(language, "((identifier) @id (#eq? @id @ok))").unwrap_err(),
             QueryError {
                 kind: QueryErrorKind::Capture,
-                row: 1,
+                row: 0,
                 column: 29,
                 offset: 29,
                 message: "ok".to_string(),
@@ -236,7 +236,7 @@ fn test_query_errors_on_impossible_patterns() {
             ),
             Err(QueryError {
                 kind: QueryErrorKind::Structure,
-                row: 1,
+                row: 0,
                 offset: 38,
                 column: 38,
                 message: [
@@ -256,7 +256,7 @@ fn test_query_errors_on_impossible_patterns() {
             Query::new(js_lang, "(function_declaration name: (statement_block))"),
             Err(QueryError {
                 kind: QueryErrorKind::Structure,
-                row: 1,
+                row: 0,
                 offset: 22,
                 column: 22,
                 message: [
@@ -272,7 +272,7 @@ fn test_query_errors_on_impossible_patterns() {
             Query::new(rb_lang, "(call receiver:(binary))"),
             Err(QueryError {
                 kind: QueryErrorKind::Structure,
-                row: 1,
+                row: 0,
                 offset: 6,
                 column: 6,
                 message: [
@@ -303,7 +303,7 @@ fn test_query_errors_on_impossible_patterns() {
             ),
             Err(QueryError {
                 kind: QueryErrorKind::Structure,
-                row: 3,
+                row: 2,
                 offset: 88,
                 column: 42,
                 message: [
@@ -318,7 +318,7 @@ fn test_query_errors_on_impossible_patterns() {
             Query::new(js_lang, "(identifier (identifier))",),
             Err(QueryError {
                 kind: QueryErrorKind::Structure,
-                row: 1,
+                row: 0,
                 offset: 12,
                 column: 12,
                 message: [
@@ -332,7 +332,7 @@ fn test_query_errors_on_impossible_patterns() {
             Query::new(js_lang, "(true (true))",),
             Err(QueryError {
                 kind: QueryErrorKind::Structure,
-                row: 1,
+                row: 0,
                 offset: 6,
                 column: 6,
                 message: [
@@ -354,7 +354,7 @@ fn test_query_errors_on_impossible_patterns() {
             Query::new(js_lang, "(if_statement condition: (_expression))",),
             Err(QueryError {
                 kind: QueryErrorKind::Structure,
-                row: 1,
+                row: 0,
                 offset: 14,
                 column: 14,
                 message: [

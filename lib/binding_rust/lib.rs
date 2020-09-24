@@ -1174,16 +1174,16 @@ impl Query {
             let offset = error_offset as usize;
             let mut line_start = 0;
             let mut row = 0;
-            let line_containing_error = source.split("\n").find_map(|line| {
-                row += 1;
+            let mut line_containing_error = None;
+            for line in source.split("\n") {
                 let line_end = line_start + line.len() + 1;
                 if line_end > offset {
-                    Some(line)
-                } else {
-                    line_start = line_end;
-                    None
+                    line_containing_error = Some(line);
+                    break;
                 }
-            });
+                line_start = line_end;
+                row += 1;
+            }
             let column = offset - line_start;
 
             let kind;

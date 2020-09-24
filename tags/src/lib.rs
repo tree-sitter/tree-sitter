@@ -271,21 +271,24 @@ impl TagsContext {
             .matches(&config.query, tree_ref.root_node(), move |node| {
                 &source[node.byte_range()]
             });
-        Ok((TagsIter {
-            _tree: tree,
-            matches,
-            source,
-            config,
-            cancellation_flag,
-            prev_line_info: None,
-            tag_queue: Vec::new(),
-            iter_count: 0,
-            scopes: vec![LocalScope {
-                range: 0..source.len(),
-                inherits: false,
-                local_defs: Vec::new(),
-            }],
-        }, tree_ref.root_node().has_error()))
+        Ok((
+            TagsIter {
+                _tree: tree,
+                matches,
+                source,
+                config,
+                cancellation_flag,
+                prev_line_info: None,
+                tag_queue: Vec::new(),
+                iter_count: 0,
+                scopes: vec![LocalScope {
+                    range: 0..source.len(),
+                    inherits: false,
+                    local_defs: Vec::new(),
+                }],
+            },
+            tree_ref.root_node().has_error(),
+        ))
     }
 }
 
