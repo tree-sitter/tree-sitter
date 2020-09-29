@@ -16,8 +16,8 @@ pub struct Edit {
 
 #[derive(Debug, Default)]
 pub struct Stats {
-    successful_parses : usize,
-    total_parses : usize,
+    pub successful_parses : usize,
+    pub total_parses : usize,
 }
 
 impl fmt::Display for Stats {
@@ -41,7 +41,6 @@ pub fn parse_file_at_path(
     debug: bool,
     debug_graph: bool,
     allow_cancellation: bool,
-    stats: &mut Stats,
 ) -> Result<bool> {
     let mut _log_session = None;
     let mut parser = Parser::new();
@@ -176,11 +175,6 @@ pub fn parse_file_at_path(
             } else if !cursor.goto_next_sibling() {
                 break;
             }
-        }
-
-        stats.total_parses += 1;
-        if first_error.is_none() {
-            stats.successful_parses += 1;
         }
 
         if first_error.is_some() || print_time {

@@ -236,13 +236,15 @@ fn run() -> error::Result<()> {
         let mut has_error = false;
         loader.find_all_languages(&config.parser_directories)?;
 
+        let should_track_stats = matches.is_present("stat");
         let mut stats : parse::Stats = Default::default();
 
         for path in paths {
             let path = Path::new(&path);
             let language =
                 select_language(&mut loader, path, &current_dir, matches.value_of("scope"))?;
-            has_error |= parse::parse_file_at_path(
+
+            let this_file_errored = parse::parse_file_at_path(
                 language,
                 path,
                 &edits,
@@ -253,11 +255,19 @@ fn run() -> error::Result<()> {
                 debug,
                 debug_graph,
                 allow_cancellation,
-                &mut stats,
             )?;
+
+            if should_track_stats {
+                stats.total_parses += 1;
+                if !this_file_errored {
+                    stats.successful_parses += 1;
+                }
+            }
+
+            has_error |= this_file_errored;
         }
 
-        if matches.is_present("stat") {
+        if should_track_stats {
             println!("{}", stats)
         }
 
