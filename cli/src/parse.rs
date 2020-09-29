@@ -4,7 +4,7 @@ use std::io::{self, Write};
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
-use std::{fs, thread, usize};
+use std::{fmt, fs, thread, usize};
 use tree_sitter::{InputEdit, Language, LogType, Parser, Point, Tree};
 
 #[derive(Debug)]
@@ -12,6 +12,22 @@ pub struct Edit {
     pub position: usize,
     pub deleted_length: usize,
     pub inserted_text: Vec<u8>,
+}
+
+#[derive(Debug, Default)]
+pub struct Stats {
+    successful_parses : usize,
+    total_parses : usize,
+}
+
+impl fmt::Display for Stats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        return writeln!(f, "Total parses: {}; successful parses: {}; failed parses: {}; success percentage: {:.2}%",
+                 self.total_parses,
+                 self.successful_parses,
+                 self.total_parses - self.successful_parses,
+                 (self.successful_parses as f64) / (self.total_parses as f64) * 100.0);
+    }
 }
 
 pub fn parse_file_at_path(
@@ -25,6 +41,7 @@ pub fn parse_file_at_path(
     debug: bool,
     debug_graph: bool,
     allow_cancellation: bool,
+    stats: &mut Stats,
 ) -> Result<bool> {
     let mut _log_session = None;
     let mut parser = Parser::new();
@@ -159,6 +176,11 @@ pub fn parse_file_at_path(
             } else if !cursor.goto_next_sibling() {
                 break;
             }
+        }
+
+        stats.total_parses += 1;
+        if first_error.is_none() {
+            stats.successful_parses += 1;
         }
 
         if first_error.is_some() || print_time {
