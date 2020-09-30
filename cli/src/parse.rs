@@ -16,8 +16,8 @@ pub struct Edit {
 
 #[derive(Debug, Default)]
 pub struct Stats {
-    pub successful_parses : usize,
-    pub total_parses : usize,
+    pub successful_parses: usize,
+    pub total_parses: usize,
 }
 
 impl fmt::Display for Stats {

@@ -237,7 +237,7 @@ fn run() -> error::Result<()> {
         loader.find_all_languages(&config.parser_directories)?;
 
         let should_track_stats = matches.is_present("stat");
-        let mut stats : parse::Stats = Default::default();
+        let mut stats = parse::Stats::default();
 
         for path in paths {
             let path = Path::new(&path);
