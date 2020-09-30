@@ -64,6 +64,7 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("debug").long("debug").short("d"))
                 .arg(Arg::with_name("debug-graph").long("debug-graph").short("D"))
                 .arg(Arg::with_name("quiet").long("quiet").short("q"))
+                .arg(Arg::with_name("stat").long("stat").short("s"))
                 .arg(Arg::with_name("time").long("time").short("t"))
                 .arg(Arg::with_name("allow-cancellation").long("cancel"))
                 .arg(Arg::with_name("timeout").long("timeout").takes_value(true))
@@ -234,11 +235,16 @@ fn run() -> error::Result<()> {
         let max_path_length = paths.iter().map(|p| p.chars().count()).max().unwrap();
         let mut has_error = false;
         loader.find_all_languages(&config.parser_directories)?;
+
+        let should_track_stats = matches.is_present("stat");
+        let mut stats = parse::Stats::default();
+
         for path in paths {
             let path = Path::new(&path);
             let language =
                 select_language(&mut loader, path, &current_dir, matches.value_of("scope"))?;
-            has_error |= parse::parse_file_at_path(
+
+            let this_file_errored = parse::parse_file_at_path(
                 language,
                 path,
                 &edits,
@@ -250,7 +256,21 @@ fn run() -> error::Result<()> {
                 debug_graph,
                 allow_cancellation,
             )?;
+
+            if should_track_stats {
+                stats.total_parses += 1;
+                if !this_file_errored {
+                    stats.successful_parses += 1;
+                }
+            }
+
+            has_error |= this_file_errored;
         }
+
+        if should_track_stats {
+            println!("{}", stats)
+        }
+
         if has_error {
             return Error::err(String::new());
         }

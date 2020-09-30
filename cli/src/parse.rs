@@ -4,7 +4,7 @@ use std::io::{self, Write};
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
-use std::{fs, thread, usize};
+use std::{fmt, fs, thread, usize};
 use tree_sitter::{InputEdit, Language, LogType, Parser, Point, Tree};
 
 #[derive(Debug)]
@@ -12,6 +12,22 @@ pub struct Edit {
     pub position: usize,
     pub deleted_length: usize,
     pub inserted_text: Vec<u8>,
+}
+
+#[derive(Debug, Default)]
+pub struct Stats {
+    pub successful_parses: usize,
+    pub total_parses: usize,
+}
+
+impl fmt::Display for Stats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        return writeln!(f, "Total parses: {}; successful parses: {}; failed parses: {}; success percentage: {:.2}%",
+                 self.total_parses,
+                 self.successful_parses,
+                 self.total_parses - self.successful_parses,
+                 (self.successful_parses as f64) / (self.total_parses as f64) * 100.0);
+    }
 }
 
 pub fn parse_file_at_path(
