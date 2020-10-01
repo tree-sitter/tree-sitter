@@ -1826,5 +1826,6 @@ unsafe impl Send for Language {}
 unsafe impl Send for Parser {}
 unsafe impl Send for Query {}
 unsafe impl Send for Tree {}
+unsafe impl Send for QueryCursor {}
 unsafe impl Sync for Language {}
 unsafe impl Sync for Query {}
