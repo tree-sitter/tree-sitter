@@ -2412,6 +2412,51 @@ fn test_query_start_byte_for_pattern() {
 }
 
 #[test]
+fn test_query_pattern_metadata() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let source = r#"
+        (identifier)
+        {ok}
+
+        (string)
+
+        "{"
+        {a(b)c[d(e{f})]}
+        "#;
+
+        let query = Query::new(language, source).unwrap();
+
+        assert_eq!(
+            &source[query.metadata_range_for_pattern(0).unwrap()],
+            "{ok}"
+        );
+        assert_eq!(query.metadata_range_for_pattern(1), None);
+        assert_eq!(
+            &source[query.metadata_range_for_pattern(2).unwrap()],
+            "{a(b)c[d(e{f})]}"
+        );
+
+        let err = Query::new(language, "(identifier) {)}").unwrap_err();
+        assert_eq!(
+            err,
+            QueryError {
+                kind: QueryErrorKind::Syntax,
+                row: 0,
+                column: 14,
+                offset: 14,
+                message: [
+                    //
+                    "(identifier) {)}",
+                    "              ^",
+                ]
+                .join("\n"),
+            }
+        )
+    });
+}
+
+#[test]
 fn test_query_capture_names() {
     allocations::record(|| {
         let language = get_language("javascript");

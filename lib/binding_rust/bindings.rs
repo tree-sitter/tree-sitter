@@ -630,6 +630,14 @@ extern "C" {
     pub fn ts_query_start_byte_for_pattern(arg1: *const TSQuery, arg2: u32) -> u32;
 }
 extern "C" {
+    pub fn ts_query_metadata_range_for_pattern(
+        arg1: *const TSQuery,
+        arg2: u32,
+        arg3: *mut u32,
+        arg4: *mut u32,
+    ) -> bool;
+}
+extern "C" {
     #[doc = " Get all of the predicates for the given pattern in the query."]
     #[doc = ""]
     #[doc = " The predicates are represented as a single array of steps. There are three"]

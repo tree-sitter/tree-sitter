@@ -10,7 +10,7 @@ use std::mem::MaybeUninit;
 use std::os::raw::{c_char, c_void};
 use std::ptr::NonNull;
 use std::sync::atomic::AtomicUsize;
-use std::{char, fmt, hash, iter, ptr, slice, str, u16};
+use std::{char, fmt, hash, iter, ops, ptr, slice, str, u16};
 
 /// The latest ABI version that is supported by the current version of the
 /// library.
@@ -1273,7 +1273,7 @@ impl Query {
                 let raw_predicates =
                     ffi::ts_query_predicates_for_pattern(ptr, i as u32, &mut length as *mut u32);
                 if length > 0 {
-                slice::from_raw_parts(raw_predicates, length as usize)
+                    slice::from_raw_parts(raw_predicates, length as usize)
                 } else {
                     &[]
                 }
@@ -1440,6 +1440,35 @@ impl Query {
         }
         unsafe {
             ffi::ts_query_start_byte_for_pattern(self.ptr.as_ptr(), pattern_index as u32) as usize
+        }
+    }
+
+    /// Get the byte range where the pattern's metadata is specified in the source.
+    pub fn metadata_range_for_pattern(&self, pattern_index: usize) -> Option<ops::Range<usize>> {
+        if pattern_index >= self.text_predicates.len() {
+            panic!(
+                "Pattern index is {} but the pattern count is {}",
+                pattern_index,
+                self.text_predicates.len(),
+            );
+        }
+        unsafe {
+            let mut start = 0u32;
+            let mut end = 0u32;
+            let result = ffi::ts_query_metadata_range_for_pattern(
+                self.ptr.as_ptr(),
+                pattern_index as u32,
+                &mut start as *mut u32,
+                &mut end as *mut u32,
+            );
+            if result {
+                Some(ops::Range {
+                    start: start as usize,
+                    end: end as usize,
+                })
+            } else {
+                None
+            }
         }
     }
 
@@ -1655,10 +1684,10 @@ impl<'a> QueryMatch<'a> {
             pattern_index: m.pattern_index as usize,
             captures: if m.capture_count > 0 {
                 unsafe {
-                slice::from_raw_parts(
-                    m.captures as *const QueryCapture<'a>,
-                    m.capture_count as usize,
-                )
+                    slice::from_raw_parts(
+                        m.captures as *const QueryCapture<'a>,
+                        m.capture_count as usize,
+                    )
                 }
             } else {
                 &[]

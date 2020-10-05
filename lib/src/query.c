@@ -97,6 +97,8 @@ typedef struct {
   Slice steps;
   Slice predicate_steps;
   uint32_t start_byte;
+  uint32_t metadata_start_byte;
+  uint32_t metadata_end_byte;
 } QueryPattern;
 
 typedef struct {
@@ -1935,6 +1937,48 @@ static TSQueryError ts_query__parse_pattern(
   return 0;
 }
 
+static TSQueryError ts_query__parse_metadata(
+  TSQuery *self,
+  Stream *stream
+) {
+  QueryPattern *pattern = array_back(&self->patterns);
+  pattern->metadata_start_byte = stream_offset(stream);
+
+  char stack[64];
+  unsigned depth = 0;
+  do {
+    switch (stream->next) {
+      case '{':
+      case '[':
+      case '(':
+        if (depth == sizeof(stack) / sizeof(char)) return TSQueryErrorSyntax;
+        stack[depth++] = stream->next;
+        break;
+
+      case '}':
+        if (depth == 0 || stack[depth - 1] != '{') return TSQueryErrorSyntax;
+        depth--;
+        break;
+      case ']':
+        if (depth == 0 || stack[depth - 1] != '[') return TSQueryErrorSyntax;
+        depth--;
+        break;
+      case ')':
+        if (depth == 0 || stack[depth - 1] != '(') return TSQueryErrorSyntax;
+        depth--;
+        break;
+
+      default:
+        break;
+    }
+    if (!stream_advance(stream)) return TSQueryErrorSyntax;
+  } while (depth > 0);
+
+  pattern->metadata_end_byte = stream_offset(stream);
+  stream_skip_whitespace(stream);
+  return 0;
+}
+
 TSQuery *ts_query_new(
   const TSLanguage *language,
   const char *source,
@@ -1994,13 +2038,11 @@ TSQuery *ts_query_new(
       .steps = (Slice) {.offset = start_step_index},
       .predicate_steps = (Slice) {.offset = start_predicate_step_index},
       .start_byte = stream_offset(&stream),
+      .metadata_start_byte = 0,
+      .metadata_end_byte = 0,
     }));
     *error_type = ts_query__parse_pattern(self, &stream, 0, false);
     array_push(&self->steps, query_step__new(0, PATTERN_DONE_MARKER, false));
-
-    QueryPattern *pattern = array_back(&self->patterns);
-    pattern->steps.length = self->steps.size - start_step_index;
-    pattern->predicate_steps.length = self->predicate_steps.size - start_predicate_step_index;
 
     // If any pattern could not be parsed, then report the error information
     // and terminate.
@@ -2009,6 +2051,19 @@ TSQuery *ts_query_new(
       *error_offset = stream_offset(&stream);
       ts_query_delete(self);
       return NULL;
+    }
+
+    QueryPattern *pattern = array_back(&self->patterns);
+    pattern->steps.length = self->steps.size - start_step_index;
+    pattern->predicate_steps.length = self->predicate_steps.size - start_predicate_step_index;
+
+    if (stream.next == '{') {
+      *error_type = ts_query__parse_metadata(self, &stream);
+      if (*error_type) {
+        *error_offset = stream_offset(&stream);
+        ts_query_delete(self);
+        return NULL;
+      }
     }
 
     // If a pattern has a wildcard at its root, optimize the matching process
@@ -2114,6 +2169,24 @@ uint32_t ts_query_start_byte_for_pattern(
 ) {
   return self->patterns.contents[pattern_index].start_byte;
 }
+
+bool ts_query_metadata_range_for_pattern(
+  const TSQuery *self,
+  uint32_t pattern_index,
+  uint32_t *start,
+  uint32_t *end
+)
+{
+  QueryPattern *pattern = &self->patterns.contents[pattern_index];
+  if (pattern->metadata_end_byte != 0) {
+    *start = pattern->metadata_start_byte;
+    *end = pattern->metadata_end_byte;
+    return true;
+  } else {
+    return false;
+  }
+}
+
 
 bool ts_query_step_is_definite(
   const TSQuery *self,

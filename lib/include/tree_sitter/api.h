@@ -697,6 +697,8 @@ uint32_t ts_query_string_count(const TSQuery *);
  */
 uint32_t ts_query_start_byte_for_pattern(const TSQuery *, uint32_t);
 
+bool ts_query_metadata_range_for_pattern(const TSQuery *, uint32_t, uint32_t *, uint32_t *);
+
 /**
  * Get all of the predicates for the given pattern in the query.
  *
