@@ -1710,6 +1710,8 @@ static TSQueryError ts_query__parse_pattern(
           stream_reset(stream, node_name);
           return TSQueryErrorNodeType;
         }
+
+        stream_skip_whitespace(stream);
       }
 
       // Parse the child patterns
@@ -2518,6 +2520,7 @@ static inline bool ts_query_cursor__advance(
       } else if (ts_tree_cursor_goto_parent(&self->cursor)) {
         self->depth--;
       } else {
+        LOG("halt at root");
         self->halted = true;
       }
 
@@ -2582,6 +2585,7 @@ static inline bool ts_query_cursor__advance(
         self->end_byte <= ts_node_start_byte(node) ||
         point_lte(self->end_point, ts_node_start_point(node))
       ) {
+        LOG("halt at end of range");
         self->halted = true;
         continue;
       }

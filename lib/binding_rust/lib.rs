@@ -138,7 +138,7 @@ pub struct QueryCaptures<'a, T: AsRef<[u8]>> {
 }
 
 /// A particular `Node` that has been captured with a particular name within a `Query`.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct QueryCapture<'a> {
     pub node: Node<'a>,
@@ -1272,7 +1272,11 @@ impl Query {
                 let mut length = 0u32;
                 let raw_predicates =
                     ffi::ts_query_predicates_for_pattern(ptr, i as u32, &mut length as *mut u32);
+                if length > 0 {
                 slice::from_raw_parts(raw_predicates, length as usize)
+                } else {
+                    &[]
+                }
             };
 
             let byte_offset = unsafe { ffi::ts_query_start_byte_for_pattern(ptr, i as u32) };
@@ -1649,11 +1653,15 @@ impl<'a> QueryMatch<'a> {
             cursor,
             id: m.id,
             pattern_index: m.pattern_index as usize,
-            captures: unsafe {
+            captures: if m.capture_count > 0 {
+                unsafe {
                 slice::from_raw_parts(
                     m.captures as *const QueryCapture<'a>,
                     m.capture_count as usize,
                 )
+                }
+            } else {
+                &[]
             },
         }
     }
@@ -1726,6 +1734,16 @@ impl<'a, T: AsRef<[u8]>> Iterator for QueryCaptures<'a, T> {
                 }
             }
         }
+    }
+}
+
+impl<'a> fmt::Debug for QueryMatch<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "QueryMatch {{ id: {}, pattern_index: {}, captures: {:?} }}",
+            self.id, self.pattern_index, self.captures
+        )
     }
 }
 
@@ -1826,5 +1844,6 @@ unsafe impl Send for Language {}
 unsafe impl Send for Parser {}
 unsafe impl Send for Query {}
 unsafe impl Send for Tree {}
+unsafe impl Send for QueryCursor {}
 unsafe impl Sync for Language {}
 unsafe impl Sync for Query {}

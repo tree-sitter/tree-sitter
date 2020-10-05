@@ -15,7 +15,9 @@ include = [
   "/binding_rust/*",
   "/Cargo.toml",
   "/include/*",
-  "/src/*",
+  "/src/*.h",
+  "/src/*.c",
+  "/src/unicode/*",
 ]
 
 [dependencies]

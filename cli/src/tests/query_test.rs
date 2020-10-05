@@ -1692,6 +1692,36 @@ fn test_query_matches_with_multiple_captures_on_a_node() {
 }
 
 #[test]
+fn test_query_matches_with_no_captures() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            (identifier)
+            (string) @s
+            "#,
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            "
+            a = 'hi';
+            b = 'bye';
+            ",
+            &[
+                (0, vec![]),
+                (1, vec![("s", "'hi'")]),
+                (0, vec![]),
+                (1, vec![("s", "'bye'")]),
+            ],
+        );
+    });
+}
+
+#[test]
 fn test_query_captures_basic() {
     allocations::record(|| {
         let language = get_language("javascript");
