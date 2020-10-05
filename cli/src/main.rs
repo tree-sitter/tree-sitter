@@ -426,6 +426,10 @@ fn collect_paths<'a>(
             }
         }
 
+        if result.is_empty() {
+            Error::err("No files were found at or matched by the provided pathname/glob".to_string())?;
+        }
+
         return Ok(result);
     }
 
