@@ -292,7 +292,12 @@ function grammar(baseGrammar, options) {
 
     extras = options.extras
       .call(ruleBuilder, ruleBuilder, baseGrammar.extras)
-      .map(normalize);
+
+    if (!Array.isArray(extras)) {
+      throw new Error("Grammar's 'extras' function must return an array.")
+    }
+
+    extras = extras.map(normalize);
   }
 
   let word = baseGrammar.word;
