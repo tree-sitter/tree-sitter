@@ -1692,6 +1692,93 @@ fn test_query_matches_with_multiple_captures_on_a_node() {
 }
 
 #[test]
+fn test_query_matches_with_captured_wildcard_at_root() {
+    allocations::record(|| {
+        let language = get_language("python");
+        let query = Query::new(
+            language,
+            "
+            ; captured wildcard at the root
+            (_ [
+                (except_clause (block) @block)
+                (finally_clause (block) @block)
+            ]) @stmt
+
+            [
+                (while_statement (block) @block)
+                (if_statement (block) @block)
+
+                ; captured wildcard at the root within an alternation
+                (_ [
+                    (else_clause (block) @block)
+                    (elif_clause (block) @block)
+                ])
+
+                (try_statement (block) @block)
+                (for_statement (block) @block)
+            ] @stmt
+            ",
+        )
+        .unwrap();
+
+        let source = "
+        for i in j:
+            while True:
+                if a:
+                    print b
+                elif c:
+                    print d
+                else:
+                    try:
+                        print f
+                    except:
+                        print g
+                    finally:
+                        print h
+            else:
+                print i
+        "
+        .trim();
+
+        let mut parser = Parser::new();
+        let mut cursor = QueryCursor::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+
+        let match_capture_names_and_rows = cursor
+            .matches(&query, tree.root_node(), to_callback(source))
+            .map(|m| {
+                m.captures
+                    .iter()
+                    .map(|c| {
+                        (
+                            query.capture_names()[c.index as usize].as_str(),
+                            c.node.kind(),
+                            c.node.start_position().row,
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            match_capture_names_and_rows,
+            &[
+                vec![("stmt", "for_statement", 0), ("block", "block", 1)],
+                vec![("stmt", "while_statement", 1), ("block", "block", 2)],
+                vec![("stmt", "if_statement", 2), ("block", "block", 3)],
+                vec![("stmt", "if_statement", 2), ("block", "block", 5)],
+                vec![("stmt", "if_statement", 2), ("block", "block", 7)],
+                vec![("stmt", "try_statement", 7), ("block", "block", 8)],
+                vec![("stmt", "try_statement", 7), ("block", "block", 10)],
+                vec![("stmt", "try_statement", 7), ("block", "block", 12)],
+                vec![("stmt", "while_statement", 1), ("block", "block", 14)],
+            ]
+        )
+    });
+}
+
+#[test]
 fn test_query_matches_with_no_captures() {
     allocations::record(|| {
         let language = get_language("javascript");

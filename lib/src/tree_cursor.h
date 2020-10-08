@@ -26,4 +26,6 @@ void ts_tree_cursor_current_status(
   unsigned *
 );
 
+TSNode ts_tree_cursor_parent_node(const TSTreeCursor *);
+
 #endif  // TREE_SITTER_TREE_CURSOR_H_

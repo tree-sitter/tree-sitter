@@ -138,6 +138,7 @@ typedef struct {
   bool seeking_immediate_match: 1;
   bool has_in_progress_alternatives: 1;
   bool dead: 1;
+  bool needs_parent: 1;
 } QueryState;
 
 typedef Array(TSQueryCapture) CaptureList;
@@ -2011,20 +2012,24 @@ TSQuery *ts_query_new(
       return NULL;
     }
 
-    // If a pattern has a wildcard at its root, optimize the matching process
-    // by skipping matching the wildcard.
-    if (
-      self->steps.contents[start_step_index].symbol == WILDCARD_SYMBOL
-    ) {
-      QueryStep *second_step = &self->steps.contents[start_step_index + 1];
-      if (second_step->symbol != WILDCARD_SYMBOL && second_step->depth != PATTERN_DONE_MARKER) {
-        start_step_index += 1;
-      }
-    }
-
     // Maintain a map that can look up patterns for a given root symbol.
+    uint16_t wildcard_root_alternative_index = NONE;
     for (;;) {
       QueryStep *step = &self->steps.contents[start_step_index];
+
+      // If a pattern has a wildcard at its root, but it has a non-wildcard child,
+      // then optimize the matching process by skipping matching the wildcard.
+      // Later, during the matching process, the query cursor will check that
+      // there is a parent node, and capture it if necessary.
+      if (step->symbol == WILDCARD_SYMBOL && step->depth == 0) {
+        QueryStep *second_step = &self->steps.contents[start_step_index + 1];
+        if (second_step->symbol != WILDCARD_SYMBOL && second_step->depth == 1) {
+          wildcard_root_alternative_index = step->alternative_index;
+          start_step_index += 1;
+          step = second_step;
+        }
+      }
+
       ts_query__pattern_map_insert(self, step->symbol, start_step_index, pattern_index);
       if (step->symbol == WILDCARD_SYMBOL) {
         self->wildcard_root_pattern_count++;
@@ -2035,6 +2040,9 @@ TSQuery *ts_query_new(
       if (step->alternative_index != NONE) {
         start_step_index = step->alternative_index;
         step->alternative_index = NONE;
+      } else if (wildcard_root_alternative_index != NONE) {
+        start_step_index = wildcard_root_alternative_index;
+        wildcard_root_alternative_index = NONE;
       } else {
         break;
       }
@@ -2386,8 +2394,8 @@ static void ts_query_cursor__add_state(
     if (prev_state->start_depth == start_depth) {
       if (prev_state->pattern_index < pattern->pattern_index) break;
       if (prev_state->pattern_index == pattern->pattern_index) {
-        // Avoid unnecessarily inserting an unnecessary duplicate state,
-        // which would be immediately pruned by the longest-match criteria.
+        // Avoid inserting an unnecessary duplicate state, which would be
+        // immediately pruned by the longest-match criteria.
         if (prev_state->step_index == pattern->step_index) return;
       }
     }
@@ -2407,6 +2415,7 @@ static void ts_query_cursor__add_state(
     .consumed_capture_count = 0,
     .seeking_immediate_match = true,
     .has_in_progress_alternatives = false,
+    .needs_parent = step->depth == 1,
     .dead = false,
   }));
 }
@@ -2458,6 +2467,33 @@ static CaptureList *ts_query_cursor__prepare_to_capture(
     }
   }
   return capture_list_pool_get_mut(&self->capture_list_pool, state->capture_list_id);
+}
+
+static void ts_query_cursor__capture(
+  TSQueryCursor *self,
+  QueryState *state,
+  QueryStep *step,
+  TSNode node
+) {
+  if (state->dead) return;
+  CaptureList *capture_list = ts_query_cursor__prepare_to_capture(self, state, UINT32_MAX);
+  if (!capture_list) {
+    state->dead = true;
+    return;
+  }
+
+  for (unsigned j = 0; j < MAX_STEP_CAPTURE_COUNT; j++) {
+    uint16_t capture_id = step->capture_ids[j];
+    if (step->capture_ids[j] == NONE) break;
+    array_push(capture_list, ((TSQueryCapture) { node, capture_id }));
+    LOG(
+      "  capture node. type:%s, pattern:%u, capture_id:%u, capture_count:%u\n",
+      ts_node_type(node),
+      state->pattern_index,
+      capture_id,
+      capture_list->size
+    );
+  }
 }
 
 // Duplicate the given state and insert the newly-created state immediately after
@@ -2730,26 +2766,45 @@ static inline bool ts_query_cursor__advance(
           }
         }
 
+        // If this pattern started with a wildcard, such that the pattern map
+        // actually points to the *second* step of the pattern, then check
+        // that the node has a parent, and capture the parent node if necessary.
+        if (state->needs_parent) {
+          TSNode parent = ts_tree_cursor_parent_node(&self->cursor);
+          if (ts_node_is_null(parent)) {
+            LOG("  missing parent node\n");
+            state->dead = true;
+          } else {
+            state->needs_parent = false;
+            QueryStep *skipped_wildcard_step = step;
+            do {
+              skipped_wildcard_step--;
+            } while (
+              skipped_wildcard_step->is_dead_end ||
+              skipped_wildcard_step->is_pass_through ||
+              skipped_wildcard_step->depth > 0
+            );
+            if (skipped_wildcard_step->capture_ids[0] != NONE) {
+              LOG("  capture wildcard parent\n");
+              ts_query_cursor__capture(
+                self,
+                state,
+                skipped_wildcard_step,
+                parent
+              );
+            }
+          }
+        }
+
         // If the current node is captured in this pattern, add it to the capture list.
         if (step->capture_ids[0] != NONE) {
-          CaptureList *capture_list = ts_query_cursor__prepare_to_capture(self, state, UINT32_MAX);
-          if (!capture_list) {
-            array_erase(&self->states, i);
-            i--;
-            continue;
-          }
+          ts_query_cursor__capture(self, state, step, node);
+        }
 
-          for (unsigned j = 0; j < MAX_STEP_CAPTURE_COUNT; j++) {
-            uint16_t capture_id = step->capture_ids[j];
-            if (step->capture_ids[j] == NONE) break;
-            array_push(capture_list, ((TSQueryCapture) { node, capture_id }));
-            LOG(
-              "  capture node. pattern:%u, capture_id:%u, capture_count:%u\n",
-              state->pattern_index,
-              capture_id,
-              capture_list->size
-            );
-          }
+        if (state->dead) {
+          array_erase(&self->states, i);
+          i--;
+          continue;
         }
 
         // Advance this state to the next step of its pattern.
@@ -2772,12 +2827,18 @@ static inline bool ts_query_cursor__advance(
           QueryState *state = &self->states.contents[j];
           QueryStep *next_step = &self->query->steps.contents[state->step_index];
           if (next_step->alternative_index != NONE) {
+            // A "dead-end" step exists only to add a non-sequential jump into the step sequence,
+            // via its alternative index. When a state reaches a dead-end step, it jumps straight
+            // to the step's alternative.
             if (next_step->is_dead_end) {
               state->step_index = next_step->alternative_index;
               j--;
               continue;
             }
 
+            // A "pass-through" step exists only to add a branch into the step sequence,
+            // via its alternative_index. When a state reaches a pass-through step, it splits
+            // in order to process the alternative step, and then it advances to the next step.
             if (next_step->is_pass_through) {
               state->step_index++;
               j--;

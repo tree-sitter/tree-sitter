@@ -1273,7 +1273,7 @@ impl Query {
                 let raw_predicates =
                     ffi::ts_query_predicates_for_pattern(ptr, i as u32, &mut length as *mut u32);
                 if length > 0 {
-                slice::from_raw_parts(raw_predicates, length as usize)
+                    slice::from_raw_parts(raw_predicates, length as usize)
                 } else {
                     &[]
                 }
@@ -1655,10 +1655,10 @@ impl<'a> QueryMatch<'a> {
             pattern_index: m.pattern_index as usize,
             captures: if m.capture_count > 0 {
                 unsafe {
-                slice::from_raw_parts(
-                    m.captures as *const QueryCapture<'a>,
-                    m.capture_count as usize,
-                )
+                    slice::from_raw_parts(
+                        m.captures as *const QueryCapture<'a>,
+                        m.capture_count as usize,
+                    )
                 }
             } else {
                 &[]

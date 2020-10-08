@@ -364,6 +364,33 @@ void ts_tree_cursor_current_status(
   }
 }
 
+TSNode ts_tree_cursor_parent_node(const TSTreeCursor *_self) {
+  const TreeCursor *self = (const TreeCursor *)_self;
+  for (int i = (int)self->stack.size - 2; i >= 0; i--) {
+    TreeCursorEntry *entry = &self->stack.contents[i];
+    bool is_visible = true;
+    TSSymbol alias_symbol = 0;
+    if (i > 0) {
+      TreeCursorEntry *parent_entry = &self->stack.contents[i - 1];
+      alias_symbol = ts_language_alias_at(
+        self->tree->language,
+        parent_entry->subtree->ptr->production_id,
+        entry->structural_child_index
+      );
+      is_visible = (alias_symbol != 0) || ts_subtree_visible(*entry->subtree);
+    }
+    if (is_visible) {
+      return ts_node_new(
+        self->tree,
+        entry->subtree,
+        entry->position,
+        alias_symbol
+      );
+    }
+  }
+  return ts_node_new(NULL, NULL, length_zero(), 0);
+}
+
 TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *_self) {
   const TreeCursor *self = (const TreeCursor *)_self;
 
