@@ -540,6 +540,51 @@ Any of the quantification operators mentioned above (`+`, `*`, and `?`) can also
 )
 ```
 
+#### Alternations
+
+An alternation is written as a pair of square brackets (`[]`) containing a list of alternative patterns.
+This is similar to _character classes_ from regular expressions (`[abc]` matches either a, b, or c).
+
+For example, this pattern would match a call to either a variable or an object property.
+In the case of a variable, capture it as `@function`, and in the case of a property, capture it as `@method`:
+
+```
+(call_expression
+  function: [
+    (identifier) @function
+    (member_expression
+      property: (property_identifier) @method)
+  ])
+```
+
+This pattern would match a set of possible keyword tokens, capturing them as `@keyword`:
+
+```
+[
+  "break"
+  "atch"
+  "delete"
+  "else"
+  "for"
+  "function"
+  "if"
+  "return"
+  "try"
+  "while"
+] @keyword
+```
+
+#### Wildcard Node
+
+A wildcard node is represented with an underscore (`(_)`), it matches any node.
+This is similar to `.` in regular expressions.
+
+For example, this pattern would match any node inside a call:
+
+```
+(call (_) @call.inner)
+```
+
 #### Predicates
 
 You can also specify arbitrary metadata and conditions associed with a pattern by adding _predicate_ S-expressions anywhere within your pattern. Predicate S-expressions start with a _predicate name_ beginning with a `#` character. After that, they can contain an arbitrary number of `@`-prefixed capture names or strings.
