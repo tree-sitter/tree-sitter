@@ -1167,8 +1167,6 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
                 array_insert_sorted_with(&deeper_states, analysis_state__compare, next_state);
                 continue;
               }
-            } else {
-              continue;
             }
 
             // Pop from the stack when this state reached the end of its current syntax node.
