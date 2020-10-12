@@ -21,8 +21,8 @@ fn main() {
 
     let mut config = cc::Build::new();
 
-    println!("cargo:rerun-if-env-changed=DEBUG");
-    if env::var("DEBUG").map(|s| s == "true").unwrap_or(false) {
+    println!("cargo:rerun-if-env-changed=PROFILE");
+    if env::var("PROFILE").map_or(false, |s| s == "debug") {
         config.define("TREE_SITTER_TEST", "");
     }
 
