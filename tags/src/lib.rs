@@ -8,7 +8,7 @@ use std::ops::Range;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{char, fmt, mem, str};
 use tree_sitter::{
-    Language, Parser, Point, Query, QueryCursor, QueryError, QueryPredicateArg, Tree,
+    Language, LossyUtf8, Parser, Point, Query, QueryCursor, QueryError, QueryPredicateArg, Tree,
 };
 
 const MAX_LINE_LEN: usize = 180;
@@ -105,11 +105,6 @@ struct LineInfo {
     utf8_byte: usize,
     utf16_column: usize,
     line_range: Range<usize>,
-}
-
-struct LossyUtf8<'a> {
-    bytes: &'a [u8],
-    in_replacement: bool,
 }
 
 impl TagsConfiguration {
@@ -585,55 +580,6 @@ impl From<regex::Error> for Error {
 impl From<QueryError> for Error {
     fn from(error: QueryError) -> Self {
         Error::Query(error)
-    }
-}
-
-// TODO: Remove this struct at at some point. If `core::str::lossy::Utf8Lossy`
-// is ever stabilized, we should use that. Otherwise, this struct could be moved
-// into some module that's shared between `tree-sitter-tags` and `tree-sitter-highlight`.
-impl<'a> LossyUtf8<'a> {
-    fn new(bytes: &'a [u8]) -> Self {
-        LossyUtf8 {
-            bytes,
-            in_replacement: false,
-        }
-    }
-}
-
-impl<'a> Iterator for LossyUtf8<'a> {
-    type Item = &'a str;
-
-    fn next(&mut self) -> Option<&'a str> {
-        if self.bytes.is_empty() {
-            return None;
-        }
-        if self.in_replacement {
-            self.in_replacement = false;
-            return Some("\u{fffd}");
-        }
-        match str::from_utf8(self.bytes) {
-            Ok(valid) => {
-                self.bytes = &[];
-                Some(valid)
-            }
-            Err(error) => {
-                if let Some(error_len) = error.error_len() {
-                    let error_start = error.valid_up_to();
-                    if error_start > 0 {
-                        let result =
-                            unsafe { str::from_utf8_unchecked(&self.bytes[..error_start]) };
-                        self.bytes = &self.bytes[(error_start + error_len)..];
-                        self.in_replacement = true;
-                        Some(result)
-                    } else {
-                        self.bytes = &self.bytes[error_len..];
-                        Some("\u{fffd}")
-                    }
-                } else {
-                    None
-                }
-            }
-        }
     }
 }
 

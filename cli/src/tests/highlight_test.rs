@@ -588,7 +588,7 @@ fn test_highlighting_via_c_api() {
 
 #[test]
 fn test_decode_utf8_lossy() {
-    use tree_sitter_highlight::util::LossyUtf8;
+    use tree_sitter::LossyUtf8;
 
     let parts = LossyUtf8::new(b"hi").collect::<Vec<_>>();
     assert_eq!(parts, vec!["hi"]);

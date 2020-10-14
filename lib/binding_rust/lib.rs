@@ -12,6 +12,8 @@ use std::ptr::NonNull;
 use std::sync::atomic::AtomicUsize;
 use std::{char, fmt, hash, iter, ptr, slice, str, u16};
 
+pub use util::LossyUtf8;
+
 /// The latest ABI version that is supported by the current version of the
 /// library.
 ///

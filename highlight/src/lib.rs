@@ -5,8 +5,8 @@ pub use c_lib as c;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{iter, mem, ops, str, usize};
 use tree_sitter::{
-    Language, Node, Parser, Point, Query, QueryCaptures, QueryCursor, QueryError, QueryMatch,
-    Range, Tree,
+    Language, LossyUtf8, Node, Parser, Point, Query, QueryCaptures, QueryCursor, QueryError,
+    QueryMatch, Range, Tree,
 };
 
 const CANCELLATION_CHECK_INTERVAL: usize = 100;
@@ -991,7 +991,7 @@ impl HtmlRenderer {
         F: Fn(Highlight) -> &'a [u8],
     {
         let mut last_char_was_cr = false;
-        for c in util::LossyUtf8::new(src).flat_map(|p| p.bytes()) {
+        for c in LossyUtf8::new(src).flat_map(|p| p.bytes()) {
             // Don't render carriage return characters, but allow lone carriage returns (not
             // followed by line feeds) to be styled via the attribute callback.
             if c == b'\r' {
