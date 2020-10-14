@@ -12,8 +12,6 @@ use std::ptr::NonNull;
 use std::sync::atomic::AtomicUsize;
 use std::{char, fmt, hash, iter, ptr, slice, str, u16};
 
-pub use util::LossyUtf8;
-
 /// The latest ABI version that is supported by the current version of the
 /// library.
 ///
@@ -182,6 +180,13 @@ enum TextPredicate {
     CaptureEqString(u32, String, bool),
     CaptureEqCapture(u32, u32, bool),
     CaptureMatchString(u32, regex::bytes::Regex, bool),
+}
+
+// TODO: Remove this struct at at some point. If `core::str::lossy::Utf8Lossy`
+// is ever stabilized.
+pub struct LossyUtf8<'a> {
+    bytes: &'a [u8],
+    in_replacement: bool,
 }
 
 impl Language {
@@ -1828,6 +1833,52 @@ impl<'a> Into<ffi::TSInputEdit> for &'a InputEdit {
             start_point: self.start_position.into(),
             old_end_point: self.old_end_position.into(),
             new_end_point: self.new_end_position.into(),
+        }
+    }
+}
+
+impl<'a> LossyUtf8<'a> {
+    pub fn new(bytes: &'a [u8]) -> Self {
+        LossyUtf8 {
+            bytes,
+            in_replacement: false,
+        }
+    }
+}
+
+impl<'a> Iterator for LossyUtf8<'a> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<&'a str> {
+        if self.bytes.is_empty() {
+            return None;
+        }
+        if self.in_replacement {
+            self.in_replacement = false;
+            return Some("\u{fffd}");
+        }
+        match std::str::from_utf8(self.bytes) {
+            Ok(valid) => {
+                self.bytes = &[];
+                Some(valid)
+            }
+            Err(error) => {
+                if let Some(error_len) = error.error_len() {
+                    let error_start = error.valid_up_to();
+                    if error_start > 0 {
+                        let result =
+                            unsafe { std::str::from_utf8_unchecked(&self.bytes[..error_start]) };
+                        self.bytes = &self.bytes[(error_start + error_len)..];
+                        self.in_replacement = true;
+                        Some(result)
+                    } else {
+                        self.bytes = &self.bytes[error_len..];
+                        Some("\u{fffd}")
+                    }
+                } else {
+                    None
+                }
+            }
         }
     }
 }
