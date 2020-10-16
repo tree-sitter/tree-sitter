@@ -902,7 +902,7 @@ char *ts_subtree_string(
     language, include_all,
     0, false, ROOT_FIELD
   ) + 1;
-  char *result = malloc(size * sizeof(char));
+  char *result = ts_malloc(size * sizeof(char));
   ts_subtree__write_to_string(
     self, result, size,
     language, include_all,
