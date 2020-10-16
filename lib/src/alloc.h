@@ -42,7 +42,20 @@ static inline bool ts_toggle_allocation_recording(bool value) {
   return false;
 }
 
-static inline void *ts_malloc(size_t size) {
+#ifndef ts_malloc
+#define ts_malloc(_sz)       ts_malloc_dflt(_sz)
+#endif
+#ifndef ts_calloc
+#define ts_calloc(_cnt,_sz)  ts_calloc_dflt(_cnt,_sz)
+#endif
+#ifndef ts_realloc
+#define ts_realloc(_ptr,_sz) ts_realloc_dflt(_ptr,_sz)
+#endif
+#ifndef ts_free
+#define ts_free(_ptr)        ts_free_dflt(_ptr)
+#endif
+
+static inline void *ts_malloc_dflt(size_t size) {
   void *result = malloc(size);
   if (size > 0 && !result) {
     fprintf(stderr, "tree-sitter failed to allocate %zu bytes", size);
@@ -51,7 +64,7 @@ static inline void *ts_malloc(size_t size) {
   return result;
 }
 
-static inline void *ts_calloc(size_t count, size_t size) {
+static inline void *ts_calloc_dflt(size_t count, size_t size) {
   void *result = calloc(count, size);
   if (count > 0 && !result) {
     fprintf(stderr, "tree-sitter failed to allocate %zu bytes", count * size);
@@ -60,7 +73,7 @@ static inline void *ts_calloc(size_t count, size_t size) {
   return result;
 }
 
-static inline void *ts_realloc(void *buffer, size_t size) {
+static inline void *ts_realloc_dflt(void *buffer, size_t size) {
   void *result = realloc(buffer, size);
   if (size > 0 && !result) {
     fprintf(stderr, "tree-sitter failed to reallocate %zu bytes", size);
@@ -69,7 +82,7 @@ static inline void *ts_realloc(void *buffer, size_t size) {
   return result;
 }
 
-static inline void ts_free(void *buffer) {
+static inline void ts_free_dflt(void *buffer) {
   free(buffer);
 }
 
