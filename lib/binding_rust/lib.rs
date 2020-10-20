@@ -131,7 +131,7 @@ pub struct QueryMatch<'a> {
 }
 
 /// A sequence of `QueryCapture`s within a `QueryMatch`.
-pub struct QueryCaptures<'a, T: AsRef<[u8]>> {
+pub struct QueryCaptures<'a, T: ExactSizeIterator<Item = u8>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'a Query,
     text_callback: Box<dyn FnMut(Node<'a>) -> T + 'a>,
@@ -1591,20 +1591,21 @@ impl QueryCursor {
     /// Each match contains the index of the pattern that matched, and a list of captures.
     /// Because multiple patterns can match the same set of nodes, one match may contain
     /// captures that appear *before* some of the captures from a previous match.
-    pub fn matches<'a, T: AsRef<[u8]>>(
+    pub fn matches<'a, T: ExactSizeIterator<Item = u8>>(
         &'a mut self,
         query: &'a Query,
         node: Node<'a>,
         mut text_callback: impl FnMut(Node<'a>) -> T + 'a,
     ) -> impl Iterator<Item = QueryMatch<'a>> + 'a {
         let ptr = self.0.as_ptr();
+        let mut scratch = Vec::new();
         unsafe { ffi::ts_query_cursor_exec(ptr, query.ptr.as_ptr(), node.0) };
         std::iter::from_fn(move || loop {
             unsafe {
                 let mut m = MaybeUninit::<ffi::TSQueryMatch>::uninit();
                 if ffi::ts_query_cursor_next_match(ptr, m.as_mut_ptr()) {
                     let result = QueryMatch::new(m.assume_init(), ptr);
-                    if result.satisfies_text_predicates(query, &mut text_callback) {
+                    if result.satisfies_text_predicates(query, &mut text_callback, &mut scratch) {
                         return Some(result);
                     }
                 } else {
@@ -1618,7 +1619,7 @@ impl QueryCursor {
     ///
     /// This is useful if don't care about which pattern matched, and just want a single,
     /// ordered sequence of captures.
-    pub fn captures<'a, T: AsRef<[u8]>>(
+    pub fn captures<'a, T: ExactSizeIterator<Item = u8>>(
         &'a mut self,
         query: &'a Query,
         node: Node<'a>,
@@ -1673,10 +1674,11 @@ impl<'a> QueryMatch<'a> {
         }
     }
 
-    fn satisfies_text_predicates<T: AsRef<[u8]>>(
+    fn satisfies_text_predicates<T: ExactSizeIterator<Item = u8>>(
         &self,
         query: &Query,
         text_callback: &mut impl FnMut(Node<'a>) -> T,
+        scratch: &mut Vec<u8>,
     ) -> bool {
         query.text_predicates[self.pattern_index]
             .iter()
@@ -1684,15 +1686,21 @@ impl<'a> QueryMatch<'a> {
                 TextPredicate::CaptureEqCapture(i, j, is_positive) => {
                     let node1 = self.capture_for_index(*i).unwrap();
                     let node2 = self.capture_for_index(*j).unwrap();
-                    (text_callback(node1).as_ref() == text_callback(node2).as_ref()) == *is_positive
+                    let iter1 = text_callback(node1);
+                    let iter2 = text_callback(node2);
+                    iter1.len() == iter2.len() && iter1.eq(iter2) == *is_positive
                 }
                 TextPredicate::CaptureEqString(i, s, is_positive) => {
                     let node = self.capture_for_index(*i).unwrap();
-                    (text_callback(node).as_ref() == s.as_bytes()) == *is_positive
+                    let iter = text_callback(node);
+
+                    iter.len() == s.len() && iter.eq(s.as_bytes().iter().cloned()) == *is_positive
                 }
                 TextPredicate::CaptureMatchString(i, r, is_positive) => {
                     let node = self.capture_for_index(*i).unwrap();
-                    r.is_match(text_callback(node).as_ref()) == *is_positive
+                    scratch.clear();
+                    scratch.extend(text_callback(node).into_iter());
+                    r.is_match(&scratch) == *is_positive
                 }
             })
     }
@@ -1717,10 +1725,11 @@ impl QueryProperty {
     }
 }
 
-impl<'a, T: AsRef<[u8]>> Iterator for QueryCaptures<'a, T> {
+impl<'a, T: ExactSizeIterator<Item = u8>> Iterator for QueryCaptures<'a, T> {
     type Item = (QueryMatch<'a>, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
+        let mut scratch = Vec::new();
         loop {
             unsafe {
                 let mut capture_index = 0u32;
@@ -1731,7 +1740,11 @@ impl<'a, T: AsRef<[u8]>> Iterator for QueryCaptures<'a, T> {
                     &mut capture_index as *mut u32,
                 ) {
                     let result = QueryMatch::new(m.assume_init(), self.ptr);
-                    if result.satisfies_text_predicates(self.query, &mut self.text_callback) {
+                    if result.satisfies_text_predicates(
+                        self.query,
+                        &mut self.text_callback,
+                        &mut scratch,
+                    ) {
                         return Some((result, capture_index as usize));
                     } else {
                         result.remove();

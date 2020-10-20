@@ -3,6 +3,8 @@ use super::helpers::fixtures::get_language;
 use lazy_static::lazy_static;
 use std::env;
 use std::fmt::Write;
+use std::iter;
+use std::slice;
 use tree_sitter::{
     Language, Node, Parser, Query, QueryCapture, QueryCursor, QueryError, QueryErrorKind,
     QueryMatch, QueryPredicate, QueryPredicateArg, QueryProperty,
@@ -2968,6 +2970,6 @@ fn format_captures<'a>(
         .collect()
 }
 
-fn to_callback<'a>(source: &'a str) -> impl Fn(Node) -> &'a [u8] {
-    move |n| &source.as_bytes()[n.byte_range()]
+fn to_callback<'a>(source: &'a str) -> impl Fn(Node) -> iter::Cloned<slice::Iter<'a, u8>> {
+    move |n| source.as_bytes()[n.byte_range()].iter().cloned()
 }

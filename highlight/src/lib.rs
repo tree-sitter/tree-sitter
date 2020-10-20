@@ -101,7 +101,7 @@ where
 struct HighlightIterLayer<'a> {
     _tree: Tree,
     cursor: QueryCursor,
-    captures: iter::Peekable<QueryCaptures<'a, &'a [u8]>>,
+    captures: iter::Peekable<QueryCaptures<'a, std::iter::Cloned<std::slice::Iter<'a, u8>>>>,
     config: &'a HighlightConfiguration,
     highlight_end_stack: Vec<usize>,
     scope_stack: Vec<LocalScope<'a>>,
@@ -357,7 +357,7 @@ impl<'a> HighlightIterLayer<'a> {
                         vec![(None, Vec::new(), false); combined_injections_query.pattern_count()];
                     let matches =
                         cursor.matches(combined_injections_query, tree.root_node(), |n: Node| {
-                            &source[n.byte_range()]
+                            source[n.byte_range()].iter().cloned()
                         });
                     for mat in matches {
                         let entry = &mut injections_by_pattern_index[mat.pattern_index];
@@ -396,7 +396,7 @@ impl<'a> HighlightIterLayer<'a> {
                     unsafe { mem::transmute::<_, &'static mut QueryCursor>(&mut cursor) };
                 let captures = cursor_ref
                     .captures(&config.query, tree_ref.root_node(), move |n: Node| {
-                        &source[n.byte_range()]
+                        source[n.byte_range()].iter().cloned()
                     })
                     .peekable();
 

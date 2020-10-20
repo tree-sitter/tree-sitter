@@ -34,7 +34,7 @@ pub fn query_files_at_paths(
         let source_code = fs::read(&path).map_err(Error::wrap(|| {
             format!("Error reading source file {:?}", path)
         }))?;
-        let text_callback = |n: Node| &source_code[n.byte_range()];
+        let text_callback = |n: Node| source_code[n.byte_range()].iter().cloned();
         let tree = parser.parse(&source_code, None).unwrap();
 
         if ordered_captures {

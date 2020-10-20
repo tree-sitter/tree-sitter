@@ -264,7 +264,7 @@ impl TagsContext {
         let matches = self
             .cursor
             .matches(&config.query, tree_ref.root_node(), move |node| {
-                &source[node.byte_range()]
+                source[node.byte_range()].iter().cloned()
             });
         Ok((
             TagsIter {
