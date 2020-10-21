@@ -1,6 +1,7 @@
 use super::super::error::Result;
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::fs;
 use tree_sitter::Point;
 
 // TODO: It would be cooler to do this with a comments query rather than with a regex
@@ -21,6 +22,10 @@ struct Assertion {
     capture_type: String,
 }
 
-pub fn assert_expected_captures(_captures: Vec<CaptureInfo>, _path: String) -> Result<()> {
+pub fn assert_expected_captures(_captures: Vec<CaptureInfo>, path: String) -> Result<()> {
+    let contents = fs::read_to_string(path)?;
+    for m in METADATA_PAIR_REGEX.captures_iter(&contents) {
+        println!("pair: {:?}", m);
+    }
     Ok(())
 }
