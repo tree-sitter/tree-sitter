@@ -1,6 +1,8 @@
+use super::super::error;
 use super::super::error::Result;
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::collections::hash_map::HashMap;
 use std::fs;
 use tree_sitter::Point;
 
@@ -10,8 +12,10 @@ lazy_static! {
     static ref METADATA_REGEX: Regex = Regex::new(r#"(\w+): ([^\s,]+), (\d+), (\d+)"#).unwrap();
 }
 
+#[derive(Debug, Eq, PartialEq)]
 pub struct CaptureInfo {
     pub name: String,
+    pub position: Point,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -44,7 +48,7 @@ impl From<regex::Captures<'_>> for Assertion {
     }
 }
 
-pub fn assert_expected_captures(_captures: Vec<CaptureInfo>, path: String) -> Result<()> {
+pub fn assert_expected_captures(captures: Vec<CaptureInfo>, path: String) -> Result<()> {
     let contents = fs::read_to_string(path)?;
 
     let assertions: Vec<Assertion> = METADATA_REGEX
@@ -52,9 +56,22 @@ pub fn assert_expected_captures(_captures: Vec<CaptureInfo>, path: String) -> Re
         .map(|c| Assertion::from(c))
         .collect();
 
-    for a in assertions {
-        println!("a: {:?}", a);
-    }
+    let per_position_index: HashMap<Point, &Assertion> =
+        assertions.iter().map(|a| (a.position, a)).collect();
 
+    for capture in &captures {
+        let oFound = per_position_index.get(&capture.position);
+        if oFound.is_none() {
+            continue;
+        }
+        let found = oFound.unwrap();
+        let joined = format!("{}.{}", found.capture_class, found.capture_type);
+        if joined != capture.name && capture.name != "name" {
+            Err(error::Error::new(format!(
+                "Assertion failed: at {}, found {}, expected {}",
+                capture.position, capture.name, joined
+            )))?
+        }
+    }
     Ok(())
 }

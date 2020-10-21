@@ -60,6 +60,7 @@ pub fn query_files_at_paths(
                 )?;
                 results.push(CaptureInfo {
                     name: capture_name.to_string(),
+                    position: capture.node.start_position(),
                 });
             }
         } else {
@@ -86,6 +87,7 @@ pub fn query_files_at_paths(
                     }
                     results.push(CaptureInfo {
                         name: capture_name.to_string(),
+                        position: capture.node.start_position(),
                     });
                 }
             }
