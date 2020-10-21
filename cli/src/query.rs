@@ -4,12 +4,17 @@ use std::io::{self, Write};
 use std::path::Path;
 use tree_sitter::{Language, Node, Parser, Query, QueryCursor};
 
+mod assert;
+
+use assert::CaptureInfo;
+
 pub fn query_files_at_paths(
     language: Language,
     paths: Vec<String>,
     query_path: &Path,
     ordered_captures: bool,
     range: Option<(usize, usize)>,
+    should_test: bool,
 ) -> Result<()> {
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
@@ -29,6 +34,8 @@ pub fn query_files_at_paths(
     parser.set_language(language).map_err(|e| e.to_string())?;
 
     for path in paths {
+        let mut results = Vec::new();
+
         writeln!(&mut stdout, "{}", path)?;
 
         let source_code = fs::read(&path).map_err(Error::wrap(|| {
@@ -42,14 +49,18 @@ pub fn query_files_at_paths(
                 query_cursor.captures(&query, tree.root_node(), text_callback)
             {
                 let capture = mat.captures[capture_index];
+                let capture_name = &query.capture_names()[capture.index as usize];
                 writeln!(
                     &mut stdout,
                     "    pattern: {}, capture: {}, row: {}, text: {:?}",
                     mat.pattern_index,
-                    &query.capture_names()[capture.index as usize],
+                    capture_name,
                     capture.node.start_position().row,
                     capture.node.utf8_text(&source_code).unwrap_or("")
                 )?;
+                results.push(CaptureInfo {
+                    name: capture_name.to_string(),
+                });
             }
         } else {
             for m in query_cursor.matches(&query, tree.root_node(), text_callback) {
@@ -57,11 +68,12 @@ pub fn query_files_at_paths(
                 for capture in m.captures {
                     let start = capture.node.start_position();
                     let end = capture.node.end_position();
+                    let capture_name = &query.capture_names()[capture.index as usize];
                     if end.row == start.row {
                         writeln!(
                             &mut stdout,
                             "    capture: {}, start: {}, text: {:?}",
-                            &query.capture_names()[capture.index as usize],
+                            capture_name,
                             start,
                             capture.node.utf8_text(&source_code).unwrap_or("")
                         )?;
@@ -69,13 +81,17 @@ pub fn query_files_at_paths(
                         writeln!(
                             &mut stdout,
                             "    capture: {}, start: {}, end: {}",
-                            &query.capture_names()[capture.index as usize],
-                            start,
-                            end,
+                            capture_name, start, end,
                         )?;
                     }
+                    results.push(CaptureInfo {
+                        name: capture_name.to_string(),
+                    });
                 }
             }
+        }
+        if should_test {
+            assert::assert_expected_captures(results, path);
         }
     }
 

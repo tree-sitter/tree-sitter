@@ -95,7 +95,8 @@ fn run() -> error::Result<()> {
                         .takes_value(true),
                 )
                 .arg(Arg::with_name("scope").long("scope").takes_value(true))
-                .arg(Arg::with_name("captures").long("captures").short("c")),
+                .arg(Arg::with_name("captures").long("captures").short("c"))
+                .arg(Arg::with_name("test").long("test")),
         )
         .subcommand(
             SubCommand::with_name("tags")
@@ -289,7 +290,15 @@ fn run() -> error::Result<()> {
             let r: Vec<&str> = br.split(":").collect();
             (r[0].parse().unwrap(), r[1].parse().unwrap())
         });
-        query::query_files_at_paths(language, paths, query_path, ordered_captures, range)?;
+        let should_test = matches.is_present("test");
+        query::query_files_at_paths(
+            language,
+            paths,
+            query_path,
+            ordered_captures,
+            range,
+            should_test,
+        )?;
     } else if let Some(matches) = matches.subcommand_matches("tags") {
         loader.find_all_languages(&config.parser_directories)?;
         let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
