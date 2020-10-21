@@ -1,3 +1,4 @@
+use super::super::error::Result;
 use lazy_static::lazy_static;
 use regex::Regex;
 use tree_sitter::Point;
@@ -20,4 +21,6 @@ struct Assertion {
     capture_type: String,
 }
 
-pub fn assert_expected_captures(_captures: Vec<CaptureInfo>, _path: String) {}
+pub fn assert_expected_captures(_captures: Vec<CaptureInfo>, _path: String) -> Result<()> {
+    Ok(())
+}

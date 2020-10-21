@@ -91,7 +91,7 @@ pub fn query_files_at_paths(
             }
         }
         if should_test {
-            assert::assert_expected_captures(results, path);
+            assert::assert_expected_captures(results, path)?
         }
     }
 
