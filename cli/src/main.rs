@@ -7,7 +7,7 @@ use std::{env, fs, u64};
 use tree_sitter::Language;
 use tree_sitter_cli::{
     config, error, generate, highlight, loader, logger, parse, query, tags, test, test_highlight,
-    wasm, web_ui,
+    util, wasm, web_ui,
 };
 
 const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -66,7 +66,6 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("quiet").long("quiet").short("q"))
                 .arg(Arg::with_name("stat").long("stat").short("s"))
                 .arg(Arg::with_name("time").long("time").short("t"))
-                .arg(Arg::with_name("allow-cancellation").long("cancel"))
                 .arg(Arg::with_name("timeout").long("timeout").takes_value(true))
                 .arg(
                     Arg::with_name("edits")
@@ -135,7 +134,7 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("scope").long("scope").takes_value(true))
                 .arg(Arg::with_name("html").long("html").short("h"))
                 .arg(Arg::with_name("time").long("time").short("t"))
-                .arg(Arg::with_name("q").short("q")),
+                .arg(Arg::with_name("quiet").long("quiet").short("q")),
         )
         .subcommand(
             SubCommand::with_name("build-wasm")
@@ -225,7 +224,8 @@ fn run() -> error::Result<()> {
         let edits = matches
             .values_of("edits")
             .map_or(Vec::new(), |e| e.collect());
-        let allow_cancellation = matches.is_present("allow-cancellation");
+        let cancellation_flag = util::cancel_on_stdin();
+
         let timeout = matches
             .value_of("timeout")
             .map_or(0, |t| u64::from_str_radix(t, 10).unwrap());
@@ -254,7 +254,7 @@ fn run() -> error::Result<()> {
                 timeout,
                 debug,
                 debug_graph,
-                allow_cancellation,
+                Some(&cancellation_flag),
             )?;
 
             if should_track_stats {
@@ -305,11 +305,15 @@ fn run() -> error::Result<()> {
         loader.find_all_languages(&config.parser_directories)?;
 
         let time = matches.is_present("time");
+        let quiet = matches.is_present("quiet");
+        let html_mode = quiet || matches.is_present("html");
         let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
-        let html_mode = matches.is_present("html");
-        if html_mode {
+
+        if html_mode && !quiet {
             println!("{}", highlight::HTML_HEADER);
         }
+
+        let cancellation_flag = util::cancel_on_stdin();
 
         let mut lang = None;
         if let Some(scope) = matches.value_of("scope") {
@@ -335,16 +339,30 @@ fn run() -> error::Result<()> {
             if let Some(highlight_config) = language_config.highlight_config(language)? {
                 let source = fs::read(path)?;
                 if html_mode {
-                    highlight::html(&loader, &config.theme, &source, highlight_config, time)?;
+                    highlight::html(
+                        &loader,
+                        &config.theme,
+                        &source,
+                        highlight_config,
+                        quiet,
+                        time,
+                    )?;
                 } else {
-                    highlight::ansi(&loader, &config.theme, &source, highlight_config, time)?;
+                    highlight::ansi(
+                        &loader,
+                        &config.theme,
+                        &source,
+                        highlight_config,
+                        time,
+                        Some(&cancellation_flag),
+                    )?;
                 }
             } else {
                 eprintln!("No syntax highlighting config found for path {:?}", path);
             }
         }
 
-        if html_mode {
+        if html_mode && !quiet {
             println!("{}", highlight::HTML_FOOTER);
         }
     } else if let Some(matches) = matches.subcommand_matches("build-wasm") {
