@@ -74,6 +74,9 @@ extern "C" {
 #define array_assign(self, other) \
   array__assign((VoidArray *)(self), (const VoidArray *)(other), array__elem_size(self))
 
+#define array_swap(self, other) \
+  array__swap((VoidArray *)(self), (VoidArray *)(other))
+
 // Search a sorted array for a given `needle` value, using the given `compare`
 // callback to determine the order.
 //
@@ -139,7 +142,7 @@ static inline void array__reserve(VoidArray *self, size_t element_size, uint32_t
     if (self->contents) {
       self->contents = ts_realloc(self->contents, new_capacity * element_size);
     } else {
-      self->contents = ts_calloc(new_capacity, element_size);
+      self->contents = ts_malloc(new_capacity * element_size);
     }
     self->capacity = new_capacity;
   }
@@ -149,6 +152,12 @@ static inline void array__assign(VoidArray *self, const VoidArray *other, size_t
   array__reserve(self, element_size, other->size);
   self->size = other->size;
   memcpy(self->contents, other->contents, self->size * element_size);
+}
+
+static inline void array__swap(VoidArray *self, VoidArray *other) {
+  VoidArray swap = *other;
+  *other = *self;
+  *self = swap;
 }
 
 static inline void array__grow(VoidArray *self, size_t count, size_t element_size) {

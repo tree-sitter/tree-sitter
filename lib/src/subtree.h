@@ -68,7 +68,6 @@ typedef struct {
   union {
     // Non-terminal subtrees (`child_count > 0`)
     struct {
-      Subtree *children;
       uint32_t visible_child_count;
       uint32_t named_child_count;
       uint32_t node_count;
@@ -111,8 +110,9 @@ void ts_external_scanner_state_init(ExternalScannerState *, const char *, unsign
 const char *ts_external_scanner_state_data(const ExternalScannerState *);
 
 void ts_subtree_array_copy(SubtreeArray, SubtreeArray *);
+void ts_subtree_array_clear(SubtreePool *, SubtreeArray *);
 void ts_subtree_array_delete(SubtreePool *, SubtreeArray *);
-SubtreeArray ts_subtree_array_remove_trailing_extras(SubtreeArray *);
+void ts_subtree_array_remove_trailing_extras(SubtreeArray *, SubtreeArray *);
 void ts_subtree_array_reverse(SubtreeArray *);
 
 SubtreePool ts_subtree_pool_new(uint32_t capacity);
@@ -125,8 +125,8 @@ Subtree ts_subtree_new_leaf(
 Subtree ts_subtree_new_error(
   SubtreePool *, int32_t, Length, Length, uint32_t, TSStateId, const TSLanguage *
 );
-MutableSubtree ts_subtree_new_node(SubtreePool *, TSSymbol, SubtreeArray *, unsigned, const TSLanguage *);
-Subtree ts_subtree_new_error_node(SubtreePool *, SubtreeArray *, bool, const TSLanguage *);
+MutableSubtree ts_subtree_new_node(TSSymbol, SubtreeArray *, unsigned, const TSLanguage *);
+Subtree ts_subtree_new_error_node(SubtreeArray *, bool, const TSLanguage *);
 Subtree ts_subtree_new_missing_leaf(SubtreePool *, TSSymbol, Length, const TSLanguage *);
 MutableSubtree ts_subtree_make_mut(SubtreePool *, Subtree);
 void ts_subtree_retain(Subtree);
@@ -134,13 +134,15 @@ void ts_subtree_release(SubtreePool *, Subtree);
 bool ts_subtree_eq(Subtree, Subtree);
 int ts_subtree_compare(Subtree, Subtree);
 void ts_subtree_set_symbol(MutableSubtree *, TSSymbol, const TSLanguage *);
-void ts_subtree_set_children(MutableSubtree, Subtree *, uint32_t, const TSLanguage *);
+void ts_subtree_summarize(MutableSubtree, const Subtree *, uint32_t, const TSLanguage *);
+void ts_subtree_summarize_children(MutableSubtree, const TSLanguage *);
 void ts_subtree_balance(Subtree, SubtreePool *, const TSLanguage *);
 Subtree ts_subtree_edit(Subtree, const TSInputEdit *edit, SubtreePool *);
 char *ts_subtree_string(Subtree, const TSLanguage *, bool include_all);
 void ts_subtree_print_dot_graph(Subtree, const TSLanguage *, FILE *);
 Subtree ts_subtree_last_external_token(Subtree);
 bool ts_subtree_external_scanner_state_eq(Subtree, Subtree);
+MutableSubtree ts_subtree_clone(Subtree self, Subtree *buffer_to_reuse);
 
 #define SUBTREE_GET(self, name) (self.data.is_inline ? self.data.name : self.ptr->name)
 
@@ -155,6 +157,10 @@ static inline TSStateId ts_subtree_parse_state(Subtree self) { return SUBTREE_GE
 static inline uint32_t ts_subtree_lookahead_bytes(Subtree self) { return SUBTREE_GET(self, lookahead_bytes); }
 
 #undef SUBTREE_GET
+
+static inline size_t ts_subtree_alloc_size(uint32_t child_count) {
+  return child_count * sizeof(Subtree) + sizeof(SubtreeHeapData);
+}
 
 static inline void ts_subtree_set_extra(MutableSubtree *self) {
   if (self->data.is_inline) {
@@ -201,6 +207,9 @@ static inline Length ts_subtree_total_size(Subtree self) {
 static inline uint32_t ts_subtree_total_bytes(Subtree self) {
   return ts_subtree_total_size(self).bytes;
 }
+
+#define ts_subtree_children(self) \
+  ((self).data.is_inline ? NULL : (Subtree *)((self).ptr) - (self).ptr->child_count)
 
 static inline uint32_t ts_subtree_child_count(Subtree self) {
   return self.data.is_inline ? 0 : self.ptr->child_count;

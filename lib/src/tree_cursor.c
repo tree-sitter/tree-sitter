@@ -38,7 +38,7 @@ static inline bool ts_tree_cursor_child_iterator_next(CursorChildIterator *self,
                                                       TreeCursorEntry *result,
                                                       bool *visible) {
   if (!self->parent.ptr || self->child_index == self->parent.ptr->child_count) return false;
-  const Subtree *child = &self->parent.ptr->children[self->child_index];
+  const Subtree *child = &ts_subtree_children(self->parent)[self->child_index];
   *result = (TreeCursorEntry) {
     .subtree = child,
     .position = self->position,
@@ -56,7 +56,7 @@ static inline bool ts_tree_cursor_child_iterator_next(CursorChildIterator *self,
   self->child_index++;
 
   if (self->child_index < self->parent.ptr->child_count) {
-    Subtree next_child = self->parent.ptr->children[self->child_index];
+    Subtree next_child = ts_subtree_children(self->parent)[self->child_index];
     self->position = length_add(self->position, ts_subtree_padding(next_child));
   }
 
@@ -306,7 +306,7 @@ void ts_tree_cursor_current_status(
       unsigned structural_child_index = entry->structural_child_index;
       if (!ts_subtree_extra(*entry->subtree)) structural_child_index++;
       for (unsigned j = entry->child_index + 1; j < sibling_count; j++) {
-        Subtree sibling = parent_entry->subtree->ptr->children[j];
+        Subtree sibling = ts_subtree_children(*parent_entry->subtree)[j];
         TSSymbolMetadata sibling_metadata = ts_language_symbol_metadata(
           self->tree->language,
           subtree_symbol(sibling, structural_child_index)
