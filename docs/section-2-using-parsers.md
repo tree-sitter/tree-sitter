@@ -586,7 +586,7 @@ For example, this pattern would match any node inside a call:
 ```
 
 
-#### Anchor Nodes
+#### Anchors
 
 The anchor operator, `.`, is used to constrain the ways in which child patterns are matched. It has different behaviors depending on where it's placed inside a query.
 
