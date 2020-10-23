@@ -1,5 +1,5 @@
-use super::super::error;
-use super::super::error::Result;
+use crate::error;
+use crate::error::Result;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::hash_map::HashMap;
@@ -48,7 +48,7 @@ impl From<regex::Captures<'_>> for Assertion {
     }
 }
 
-pub fn assert_expected_captures(captures: Vec<CaptureInfo>, path: String) -> Result<()> {
+pub fn assert_expected_captures(infos: Vec<CaptureInfo>, path: String) -> Result<()> {
     let contents = fs::read_to_string(path)?;
 
     let assertions: Vec<Assertion> = METADATA_REGEX
@@ -59,17 +59,16 @@ pub fn assert_expected_captures(captures: Vec<CaptureInfo>, path: String) -> Res
     let per_position_index: HashMap<Point, &Assertion> =
         assertions.iter().map(|a| (a.position, a)).collect();
 
-    for capture in &captures {
-        let oFound = per_position_index.get(&capture.position);
-        if oFound.is_none() {
+    for info in &infos {
+        if !per_position_index.contains_key(&info.position) {
             continue;
         }
-        let found = oFound.unwrap();
+        let found = per_position_index.get(&info.position).unwrap();
         let joined = format!("{}.{}", found.capture_class, found.capture_type);
-        if joined != capture.name && capture.name != "name" {
+        if joined != info.name && info.name != "name" {
             Err(error::Error::new(format!(
                 "Assertion failed: at {}, found {}, expected {}",
-                capture.position, capture.name, joined
+                info.position, info.name, joined
             )))?
         }
     }
