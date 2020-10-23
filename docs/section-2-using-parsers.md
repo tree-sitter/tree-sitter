@@ -596,7 +596,7 @@ When `.` is placed before the _first_ child within a parent pattern, the child w
 (array . (identifier) @the-element)
 ```
 
-Were this anchor operator elided, the pattern would match once for every identifier in the array, with `@the-element` bound to each matched identifier.
+Without this anchor, the pattern would match once for every identifier in the array, with `@the-element` bound to each matched identifier.
 
 Similarly, an anchor placed after a pattern's _last_ child will cause that child pattern to only match nodes that are the last named child of their parent. The below pattern matches only nodes that are the last named child within a `block`.
 
