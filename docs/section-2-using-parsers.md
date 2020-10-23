@@ -613,7 +613,7 @@ Finally, an anchor _between_ two child patterns will cause the patterns to only 
   (identifier) @next-id)
 ```
 
-Were the anchor elided, non-consecutive pairs like `a, c` and `b, d` would be matched.
+Without the anchor, non-consecutive pairs like `a, c` and `b, d` would also be matched.
 
 The restrictions placed on a pattern by an anchor operator ignore anonymous nodes.
 
