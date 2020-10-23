@@ -254,15 +254,10 @@ Subtree ts_subtree_new_error(
   return result;
 }
 
-// Get the size needed to store a heap-allocated subtree with
-// the given number o children.
 // Clone a subtree.
-//
-// This will reuse the given allocated buffer if it is present. If the
-// buffer is NULL, a new allocation will be created.
-MutableSubtree ts_subtree_clone(Subtree self, Subtree *buffer_to_reuse) {
+MutableSubtree ts_subtree_clone(Subtree self) {
   size_t alloc_size = ts_subtree_alloc_size(self.ptr->child_count);
-  Subtree *children = ts_realloc(buffer_to_reuse, alloc_size);
+  Subtree *children = ts_malloc(alloc_size);
   memcpy(children, ts_subtree_children(self), alloc_size);
   SubtreeHeapData *result = (SubtreeHeapData *)&children[self.ptr->child_count];
   if (self.ptr->child_count > 0) {
@@ -286,7 +281,7 @@ MutableSubtree ts_subtree_clone(Subtree self, Subtree *buffer_to_reuse) {
 MutableSubtree ts_subtree_make_mut(SubtreePool *pool, Subtree self) {
   if (self.data.is_inline) return (MutableSubtree) {self.data};
   if (self.ptr->ref_count == 1) return ts_subtree_to_mut_unsafe(self);
-  MutableSubtree result = ts_subtree_clone(self, NULL);
+  MutableSubtree result = ts_subtree_clone(self);
   ts_subtree_release(pool, self);
   return result;
 }

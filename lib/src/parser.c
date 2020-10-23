@@ -673,6 +673,10 @@ static Subtree ts_parser__reuse_node(
   return NULL_SUBTREE;
 }
 
+// Determine if a given tree should be replaced by an alternative tree.
+//
+// The decision is based on the trees' error costs (if any), their dynamic precedence,
+// and finally, as a default, by a recursive comparison of the trees' symbols.
 static bool ts_parser__select_tree(TSParser *self, Subtree left, Subtree right) {
   if (!left.ptr) return true;
   if (!right.ptr) return false;
@@ -718,18 +722,26 @@ static bool ts_parser__select_tree(TSParser *self, Subtree left, Subtree right) 
   }
 }
 
+// Determine if a given tree's children should be replaced by an alternative
+// array of children.
 static bool ts_parser__select_children(
   TSParser *self,
   Subtree left,
   const SubtreeArray *children
 ) {
   array_assign(&self->scratch_trees, children);
+
+  // Create a temporary subtree using the scratch trees array. This node does
+  // not perform any allocation except for possibly growing the array to make
+  // room for its own heap data. The scratch tree is never explicitly released,
+  // so the same 'scratch trees' array can be reused again later.
   MutableSubtree scratch_tree = ts_subtree_new_node(
     ts_subtree_symbol(left),
     &self->scratch_trees,
     0,
     self->language
   );
+
   return ts_parser__select_tree(
     self,
     left,
@@ -841,9 +853,6 @@ static StackVersion ts_parser__reduce(
       }
     }
 
-    parent.ptr->dynamic_precedence += dynamic_precedence;
-    parent.ptr->production_id = production_id;
-
     TSStateId state = ts_stack_state(self->stack, slice_version);
     TSStateId next_state = ts_language_next_state(self->language, state, symbol);
     if (end_of_non_terminal_extra && next_state == state) {
@@ -856,6 +865,7 @@ static StackVersion ts_parser__reduce(
     } else {
       parent.ptr->parse_state = state;
     }
+    parent.ptr->dynamic_precedence += dynamic_precedence;
 
     // Push the parent node onto the stack, along with any extra tokens that
     // were previously on top of the stack.

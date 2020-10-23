@@ -14,12 +14,19 @@ extern "C" {
 #include "tree_sitter/api.h"
 #include "tree_sitter/parser.h"
 
-static const TSStateId TS_TREE_STATE_NONE = USHRT_MAX;
+#define TS_TREE_STATE_NONE USHRT_MAX
 #define NULL_SUBTREE ((Subtree) {.ptr = NULL})
 
-typedef union Subtree Subtree;
-typedef union MutableSubtree MutableSubtree;
-
+// The serialized state of an external scanner.
+//
+// Every time an external token subtree is created after a call to an
+// external scanner, the scanner's `serialize` function is called to
+// retrieve a serialized copy of its state. The bytes are then copied
+// onto the subtree itself so that the scanner's state can later be
+// restored using its `deserialize` function.
+//
+// Small byte arrays are stored inline, and long ones are allocated
+// separately on the heap.
 typedef struct {
   union {
     char *long_data;
@@ -28,6 +35,10 @@ typedef struct {
   uint32_t length;
 } ExternalScannerState;
 
+// A compact representation of a subtree.
+//
+// This representation is used for small leaf nodes that are not
+// errors, and were not created by an external scanner.
 typedef struct {
   bool is_inline : 1;
   bool visible : 1;
@@ -45,6 +56,11 @@ typedef struct {
   uint16_t parse_state;
 } SubtreeInlineData;
 
+// A heap-allocated representation of a subtree.
+//
+// This representation is used for parent nodes, external tokens,
+// errors, and other leaf nodes whose data is too large to fit into
+// the inlinen representation.
 typedef struct {
   volatile uint32_t ref_count;
   Length padding;
@@ -88,15 +104,17 @@ typedef struct {
   };
 } SubtreeHeapData;
 
-union Subtree {
+// The fundamental building block of a syntax tree.
+typedef union {
   SubtreeInlineData data;
   const SubtreeHeapData *ptr;
-};
+} Subtree;
 
-union MutableSubtree {
+// Like Subtree, but mutable.
+typedef union {
   SubtreeInlineData data;
   SubtreeHeapData *ptr;
-};
+} MutableSubtree;
 
 typedef Array(Subtree) SubtreeArray;
 typedef Array(MutableSubtree) MutableSubtreeArray;
@@ -142,7 +160,6 @@ char *ts_subtree_string(Subtree, const TSLanguage *, bool include_all);
 void ts_subtree_print_dot_graph(Subtree, const TSLanguage *, FILE *);
 Subtree ts_subtree_last_external_token(Subtree);
 bool ts_subtree_external_scanner_state_eq(Subtree, Subtree);
-MutableSubtree ts_subtree_clone(Subtree self, Subtree *buffer_to_reuse);
 
 #define SUBTREE_GET(self, name) (self.data.is_inline ? self.data.name : self.ptr->name)
 
@@ -158,9 +175,16 @@ static inline uint32_t ts_subtree_lookahead_bytes(Subtree self) { return SUBTREE
 
 #undef SUBTREE_GET
 
+// Get the size needed to store a heap-allocated subtree with the given
+// number of children.
 static inline size_t ts_subtree_alloc_size(uint32_t child_count) {
   return child_count * sizeof(Subtree) + sizeof(SubtreeHeapData);
 }
+
+// Get a subtree's children, which are allocated immediately before the
+// tree's own heap data.
+#define ts_subtree_children(self) \
+  ((self).data.is_inline ? NULL : (Subtree *)((self).ptr) - (self).ptr->child_count)
 
 static inline void ts_subtree_set_extra(MutableSubtree *self) {
   if (self->data.is_inline) {
@@ -207,9 +231,6 @@ static inline Length ts_subtree_total_size(Subtree self) {
 static inline uint32_t ts_subtree_total_bytes(Subtree self) {
   return ts_subtree_total_size(self).bytes;
 }
-
-#define ts_subtree_children(self) \
-  ((self).data.is_inline ? NULL : (Subtree *)((self).ptr) - (self).ptr->child_count)
 
 static inline uint32_t ts_subtree_child_count(Subtree self) {
   return self.data.is_inline ? 0 : self.ptr->child_count;
