@@ -288,7 +288,7 @@ inline StackSliceArray stack__iter(Stack *self, StackVersion version,
   bool include_subtrees = false;
   if (goal_subtree_count >= 0) {
     include_subtrees = true;
-    array_reserve(&iterator.subtrees, goal_subtree_count);
+    array_reserve(&iterator.subtrees, ts_subtree_alloc_size(goal_subtree_count) / sizeof(Subtree));
   }
 
   array_push(&self->iterators, iterator);
@@ -304,8 +304,9 @@ inline StackSliceArray stack__iter(Stack *self, StackVersion version,
 
       if (should_pop) {
         SubtreeArray subtrees = iterator->subtrees;
-        if (!should_stop)
+        if (!should_stop) {
           ts_subtree_array_copy(subtrees, &subtrees);
+        }
         ts_subtree_array_reverse(&subtrees);
         ts_stack__add_slice(
           self,

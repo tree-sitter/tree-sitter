@@ -79,7 +79,7 @@ static inline bool ts_node_child_iterator_next(
   TSNode *result
 ) {
   if (!self->parent.ptr || ts_node_child_iterator_done(self)) return false;
-  const Subtree *child = &self->parent.ptr->children[self->child_index];
+  const Subtree *child = &ts_subtree_children(self->parent)[self->child_index];
   TSSymbol alias_symbol = 0;
   if (!ts_subtree_extra(*child)) {
     if (self->alias_sequence) {
@@ -178,7 +178,7 @@ static bool ts_subtree_has_trailing_empty_descendant(
   Subtree other
 ) {
   for (unsigned i = ts_subtree_child_count(self) - 1; i + 1 > 0; i--) {
-    Subtree child = self.ptr->children[i];
+    Subtree child = ts_subtree_children(self)[i];
     if (ts_subtree_total_bytes(child) > 0) break;
     if (child.ptr == other.ptr || ts_subtree_has_trailing_empty_descendant(child, other)) {
       return true;
