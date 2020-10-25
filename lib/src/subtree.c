@@ -257,12 +257,13 @@ Subtree ts_subtree_new_error(
 // Clone a subtree.
 MutableSubtree ts_subtree_clone(Subtree self) {
   size_t alloc_size = ts_subtree_alloc_size(self.ptr->child_count);
-  Subtree *children = ts_malloc(alloc_size);
-  memcpy(children, ts_subtree_children(self), alloc_size);
-  SubtreeHeapData *result = (SubtreeHeapData *)&children[self.ptr->child_count];
+  Subtree *new_children = ts_malloc(alloc_size);
+  Subtree *old_children = ts_subtree_children(self);
+  memcpy(new_children, old_children, alloc_size);
+  SubtreeHeapData *result = (SubtreeHeapData *)&new_children[self.ptr->child_count];
   if (self.ptr->child_count > 0) {
     for (uint32_t i = 0; i < self.ptr->child_count; i++) {
-      ts_subtree_retain(children[i]);
+      ts_subtree_retain(new_children[i]);
     }
   } else if (self.ptr->has_external_tokens) {
     result->external_scanner_state = ts_external_scanner_state_copy(
