@@ -12,6 +12,11 @@ lazy_static! {
     static ref HIGHLIGHT_NAME_REGEX: Regex = Regex::new("[\\w_\\-.]+").unwrap();
 }
 
+pub struct Assertion {
+    pub position: Point,
+    pub expected: String,
+}
+
 pub struct Failure {
     row: usize,
     column: usize,
@@ -102,7 +107,11 @@ pub fn test_highlight(
     // actual highlights.
     let mut i = 0;
     let mut actual_highlights = Vec::<&String>::new();
-    for (position, expected_highlight) in &assertions {
+    for Assertion {
+        position,
+        expected: expected_highlight,
+    } in &assertions
+    {
         let mut passed = false;
         actual_highlights.clear();
 
@@ -163,7 +172,7 @@ pub fn parse_highlight_test(
     parser: &mut Parser,
     language: Language,
     source: &[u8],
-) -> Result<Vec<(Point, String)>> {
+) -> Result<Vec<Assertion>> {
     let mut result = Vec::new();
     let mut assertion_ranges = Vec::new();
 
@@ -213,7 +222,10 @@ pub fn parse_highlight_test(
                         (has_arrow, HIGHLIGHT_NAME_REGEX.find(&text[arrow_end..]))
                     {
                         assertion_ranges.push((node.start_position(), node.end_position()));
-                        result.push((position, mat.as_str().to_string()));
+                        result.push(Assertion {
+                            position: position,
+                            expected: mat.as_str().to_string(),
+                        });
                     }
                 }
             }
@@ -233,15 +245,17 @@ pub fn parse_highlight_test(
     // code *above* the assertion. There can be multiple lines of assertion comments,
     // so the positions may have to be decremented by more than one row.
     let mut i = 0;
-    for (position, _) in result.iter_mut() {
+    for assertion in result.iter_mut() {
         loop {
             let on_assertion_line = assertion_ranges[i..]
                 .iter()
-                .any(|(start, _)| start.row == position.row);
+                .any(|(start, _)| start.row == assertion.position.row);
             if on_assertion_line {
-                position.row -= 1;
+                assertion.position.row -= 1;
             } else {
-                while i < assertion_ranges.len() && assertion_ranges[i].0.row < position.row {
+                while i < assertion_ranges.len()
+                    && assertion_ranges[i].0.row < assertion.position.row
+                {
                     i += 1;
                 }
                 break;
@@ -250,7 +264,7 @@ pub fn parse_highlight_test(
     }
 
     // The assertions can end up out of order due to the line adjustments.
-    result.sort_unstable_by_key(|a| a.0);
+    result.sort_unstable_by_key(|a| a.position);
 
     Ok(result)
 }

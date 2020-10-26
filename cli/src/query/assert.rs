@@ -19,9 +19,9 @@ pub fn assert_expected_captures(
 ) -> Result<()> {
     let contents = fs::read_to_string(path)?;
     let pairs = parse_highlight_test(parser, language, contents.as_bytes())?;
-    println!("{:?}", pairs);
 
-    let per_position_index: HashMap<Point, &String> = pairs.iter().map(|(a, b)| (*a, b)).collect();
+    let per_position_index: HashMap<Point, &String> =
+        pairs.iter().map(|a| (a.position, &a.expected)).collect();
 
     for info in &infos {
         if !per_position_index.contains_key(&info.position) {
