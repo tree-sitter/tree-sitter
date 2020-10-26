@@ -1,10 +1,11 @@
 use crate::error;
 use crate::error::Result;
+use crate::test_highlight::parse_highlight_test;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::hash_map::HashMap;
 use std::fs;
-use tree_sitter::Point;
+use tree_sitter::{Language, Parser, Point};
 
 // TODO: It would be cooler to do this with a comments query rather than with a regex
 // directly.
@@ -48,8 +49,14 @@ impl From<regex::Captures<'_>> for Assertion {
     }
 }
 
-pub fn assert_expected_captures(infos: Vec<CaptureInfo>, path: String) -> Result<()> {
+pub fn assert_expected_captures(
+    infos: Vec<CaptureInfo>,
+    path: String,
+    parser: &mut Parser,
+    language: Language,
+) -> Result<()> {
     let contents = fs::read_to_string(path)?;
+    let _pairs = parse_highlight_test(parser, language, contents.as_bytes());
 
     let assertions: Vec<Assertion> = METADATA_REGEX
         .captures_iter(&contents)

@@ -1,7 +1,7 @@
 def foo(): pass
-# definition: function: 0, 0
+# <- definition.function
 
 def bar():
-# definition: function, 3, 0
+# <- definition.function
     foo()
-# reference: call, 5, 4
+    # <- reference.call
