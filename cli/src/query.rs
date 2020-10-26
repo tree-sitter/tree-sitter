@@ -1,12 +1,9 @@
 use super::error::{Error, Result};
+use crate::query_testing;
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
 use tree_sitter::{Language, Node, Parser, Query, QueryCursor};
-
-mod assert;
-
-use assert::CaptureInfo;
 
 pub fn query_files_at_paths(
     language: Language,
@@ -58,7 +55,7 @@ pub fn query_files_at_paths(
                     capture.node.start_position().row,
                     capture.node.utf8_text(&source_code).unwrap_or("")
                 )?;
-                results.push(CaptureInfo {
+                results.push(query_testing::CaptureInfo {
                     name: capture_name.to_string(),
                     position: capture.node.start_position(),
                 });
@@ -85,7 +82,7 @@ pub fn query_files_at_paths(
                             capture_name, start, end,
                         )?;
                     }
-                    results.push(CaptureInfo {
+                    results.push(query_testing::CaptureInfo {
                         name: capture_name.to_string(),
                         position: capture.node.start_position(),
                     });
@@ -93,7 +90,7 @@ pub fn query_files_at_paths(
             }
         }
         if should_test {
-            assert::assert_expected_captures(results, path, &mut parser, language)?
+            query_testing::assert_expected_captures(results, path, &mut parser, language)?
         }
     }
 
