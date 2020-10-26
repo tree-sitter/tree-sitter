@@ -22,29 +22,15 @@ pub struct CaptureInfo {
 #[derive(Debug, Eq, PartialEq)]
 struct Assertion {
     position: Point,
-    capture_class: String,
-    capture_type: String,
+    expected: String,
 }
 
-impl From<regex::Captures<'_>> for Assertion {
-    fn from(re: regex::Captures) -> Assertion {
+impl From<&(Point, String)> for Assertion {
+    fn from(item: &(Point, String)) -> Assertion {
+        let (pos, info) = item;
         Assertion {
-            capture_class: re.get(1).unwrap().as_str().to_string(),
-            capture_type: re.get(2).unwrap().as_str().to_string(),
-            position: Point {
-                row: re
-                    .get(3)
-                    .iter()
-                    .flat_map(|m| m.as_str().parse::<usize>())
-                    .next()
-                    .unwrap(),
-                column: re
-                    .get(4)
-                    .iter()
-                    .flat_map(|m| m.as_str().parse::<usize>())
-                    .next()
-                    .unwrap(),
-            },
+            position: *pos,
+            expected: info.to_string(),
         }
     }
 }
@@ -56,12 +42,10 @@ pub fn assert_expected_captures(
     language: Language,
 ) -> Result<()> {
     let contents = fs::read_to_string(path)?;
-    let _pairs = parse_highlight_test(parser, language, contents.as_bytes());
+    let pairs = parse_highlight_test(parser, language, contents.as_bytes())?;
+    println!("{:?}", pairs);
 
-    let assertions: Vec<Assertion> = METADATA_REGEX
-        .captures_iter(&contents)
-        .map(|c| Assertion::from(c))
-        .collect();
+    let assertions: Vec<Assertion> = pairs.iter().map(Assertion::from).collect();
 
     let per_position_index: HashMap<Point, &Assertion> =
         assertions.iter().map(|a| (a.position, a)).collect();
@@ -71,11 +55,10 @@ pub fn assert_expected_captures(
             continue;
         }
         let found = per_position_index.get(&info.position).unwrap();
-        let joined = format!("{}.{}", found.capture_class, found.capture_type);
-        if joined != info.name && info.name != "name" {
+        if found.expected != info.name && info.name != "name" {
             Err(error::Error::new(format!(
                 "Assertion failed: at {}, found {}, expected {}",
-                info.position, info.name, joined
+                info.position, info.name, found.expected
             )))?
         }
     }
