@@ -1,6 +1,6 @@
 use super::error::Result;
 use crate::loader::Loader;
-use crate::query_testing::{parse_highlight_test, Assertion};
+use crate::query_testing::{parse_position_comments, Assertion};
 use ansi_term::Colour;
 use std::fs;
 use std::path::Path;
@@ -91,7 +91,8 @@ pub fn test_highlight(
     // Highlight the file, and parse out all of the highlighting assertions.
     let highlight_names = loader.highlight_names();
     let highlights = get_highlight_positions(loader, highlighter, highlight_config, source)?;
-    let assertions = parse_highlight_test(highlighter.parser(), highlight_config.language, source)?;
+    let assertions =
+        parse_position_comments(highlighter.parser(), highlight_config.language, source)?;
 
     // Iterate through all of the highlighting assertions, checking each one against the
     // actual highlights.

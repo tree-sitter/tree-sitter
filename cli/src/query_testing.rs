@@ -16,6 +16,7 @@ pub struct CaptureInfo {
     pub position: Point,
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct Assertion {
     pub position: Point,
     pub expected: String,
@@ -24,7 +25,7 @@ pub struct Assertion {
 /// Parse the given source code, finding all of the comments that contain
 /// highlighting assertions. Return a vector of (position, expected highlight name)
 /// pairs.
-pub fn parse_highlight_test(
+pub fn parse_position_comments(
     parser: &mut Parser,
     language: Language,
     source: &[u8],
@@ -132,7 +133,7 @@ pub fn assert_expected_captures(
     language: Language,
 ) -> Result<()> {
     let contents = fs::read_to_string(path)?;
-    let pairs = parse_highlight_test(parser, language, contents.as_bytes())?;
+    let pairs = parse_position_comments(parser, language, contents.as_bytes())?;
 
     let per_position_index: HashMap<Point, &String> =
         pairs.iter().map(|a| (a.position, &a.expected)).collect();
