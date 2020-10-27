@@ -368,6 +368,30 @@ fn test_query_errors_on_impossible_patterns() {
 }
 
 #[test]
+fn test_query_verifies_possible_patterns_with_aliased_parent_nodes() {
+    allocations::record(|| {
+        let ruby = get_language("ruby");
+
+        Query::new(ruby, "(destructured_parameter (identifier))").unwrap();
+
+        assert_eq!(
+            Query::new(ruby, "(destructured_parameter (string))",),
+            Err(QueryError {
+                kind: QueryErrorKind::Structure,
+                row: 0,
+                offset: 24,
+                column: 24,
+                message: [
+                    "(destructured_parameter (string))", //
+                    "                        ^",
+                ]
+                .join("\n")
+            })
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_simple_pattern() {
     allocations::record(|| {
         let language = get_language("javascript");
