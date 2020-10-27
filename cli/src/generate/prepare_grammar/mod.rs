@@ -1,6 +1,6 @@
 mod expand_repeats;
 mod expand_tokens;
-mod extract_simple_aliases;
+mod extract_default_aliases;
 mod extract_tokens;
 mod flatten_grammar;
 mod intern_symbols;
@@ -8,7 +8,7 @@ mod process_inlines;
 
 use self::expand_repeats::expand_repeats;
 pub(crate) use self::expand_tokens::expand_tokens;
-use self::extract_simple_aliases::extract_simple_aliases;
+use self::extract_default_aliases::extract_default_aliases;
 use self::extract_tokens::extract_tokens;
 use self::flatten_grammar::flatten_grammar;
 use self::intern_symbols::intern_symbols;
@@ -52,7 +52,7 @@ pub(crate) fn prepare_grammar(
     let syntax_grammar = expand_repeats(syntax_grammar);
     let mut syntax_grammar = flatten_grammar(syntax_grammar)?;
     let lexical_grammar = expand_tokens(lexical_grammar)?;
-    let simple_aliases = extract_simple_aliases(&mut syntax_grammar, &lexical_grammar);
+    let default_aliases = extract_default_aliases(&mut syntax_grammar, &lexical_grammar);
     let inlines = process_inlines(&syntax_grammar);
-    Ok((syntax_grammar, lexical_grammar, inlines, simple_aliases))
+    Ok((syntax_grammar, lexical_grammar, inlines, default_aliases))
 }

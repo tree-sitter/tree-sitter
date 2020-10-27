@@ -65,7 +65,7 @@ struct Generator {
     keyword_capture_token: Option<Symbol>,
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
-    simple_aliases: AliasMap,
+    default_aliases: AliasMap,
     symbol_order: HashMap<Symbol, usize>,
     symbol_ids: HashMap<Symbol, String>,
     alias_ids: HashMap<Alias, String>,
@@ -198,10 +198,10 @@ impl Generator {
                 // public-facing symbol. If one of the symbols is not aliased, choose that one
                 // to be the public-facing symbol. Otherwise, pick the symbol with the lowest
                 // numeric value.
-                if let Some(alias) = self.simple_aliases.get(symbol) {
+                if let Some(alias) = self.default_aliases.get(symbol) {
                     let kind = alias.kind();
                     for other_symbol in &self.parse_table.symbols {
-                        if let Some(other_alias) = self.simple_aliases.get(other_symbol) {
+                        if let Some(other_alias) = self.default_aliases.get(other_symbol) {
                             if other_symbol < mapping && other_alias == alias {
                                 mapping = other_symbol;
                             }
@@ -361,7 +361,7 @@ impl Generator {
         indent!(self);
         for symbol in self.parse_table.symbols.iter() {
             let name = self.sanitize_string(
-                self.simple_aliases
+                self.default_aliases
                     .get(symbol)
                     .map(|alias| alias.value.as_str())
                     .unwrap_or(self.metadata_for_symbol(*symbol).0),
@@ -444,7 +444,7 @@ impl Generator {
         for symbol in &self.parse_table.symbols {
             add_line!(self, "[{}] = {{", self.symbol_ids[&symbol]);
             indent!(self);
-            if let Some(Alias { is_named, .. }) = self.simple_aliases.get(symbol) {
+            if let Some(Alias { is_named, .. }) = self.default_aliases.get(symbol) {
                 add_line!(self, ".visible = true,");
                 add_line!(self, ".named = {},", is_named);
             } else {
@@ -525,7 +525,7 @@ impl Generator {
                 for step in &production.steps {
                     if let Some(alias) = &step.alias {
                         if step.symbol.is_non_terminal()
-                            && !self.simple_aliases.contains_key(&step.symbol)
+                            && Some(alias) != self.default_aliases.get(&step.symbol)
                         {
                             if self.symbol_ids.contains_key(&step.symbol) {
                                 let alias_ids =
@@ -1545,7 +1545,7 @@ impl Generator {
 ///    for keyword capture, if any.
 /// * `syntax_grammar` - The syntax grammar extracted from the language's grammar
 /// * `lexical_grammar` - The lexical grammar extracted from the language's grammar
-/// * `simple_aliases` - A map describing the global rename rules that should apply.
+/// * `default_aliases` - A map describing the global rename rules that should apply.
 ///    the keys are symbols that are *always* aliased in the same way, and the values
 ///    are the aliases that are applied to those symbols.
 /// * `next_abi` - A boolean indicating whether to opt into the new, unstable parse
@@ -1558,7 +1558,7 @@ pub(crate) fn render_c_code(
     keyword_capture_token: Option<Symbol>,
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
-    simple_aliases: AliasMap,
+    default_aliases: AliasMap,
     next_abi: bool,
 ) -> String {
     Generator {
@@ -1572,7 +1572,7 @@ pub(crate) fn render_c_code(
         keyword_capture_token,
         syntax_grammar,
         lexical_grammar,
-        simple_aliases,
+        default_aliases,
         symbol_ids: HashMap::new(),
         symbol_order: HashMap::new(),
         alias_ids: HashMap::new(),
