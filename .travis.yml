@@ -38,7 +38,6 @@ script:
   - (eval "$WASM_ENV" && script/generate-fixtures-wasm)
 
   # Run the tests
-  - export TREE_SITTER_STATIC_ANALYSIS=1
   - script/test
   - script/test-wasm
   - script/benchmark

@@ -15,14 +15,16 @@ const HTML_HEADER: &[u8] = b"<!DOCTYPE html>\n<style>svg { width: 100%; }</style
 
 pub fn cancel_on_stdin() -> Arc<AtomicUsize> {
     let result = Arc::new(AtomicUsize::new(0));
-    thread::spawn({
-        let flag = result.clone();
-        move || {
-            let mut line = String::new();
-            io::stdin().read_line(&mut line).unwrap();
-            flag.store(1, Ordering::Relaxed);
-        }
-    });
+    if atty::is(atty::Stream::Stdin) {
+        thread::spawn({
+            let flag = result.clone();
+            move || {
+                let mut line = String::new();
+                io::stdin().read_line(&mut line).unwrap();
+                flag.store(1, Ordering::Relaxed);
+            }
+        });
+    }
     result
 }
 #[cfg(windows)]

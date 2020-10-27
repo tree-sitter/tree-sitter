@@ -21,6 +21,7 @@ harness = false
 [dependencies]
 ansi_term = "0.11"
 cc = "1.0"
+atty = "0.2"
 clap = "2.32"
 difference = "2.0"
 dirs = "2.0.2"

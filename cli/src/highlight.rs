@@ -7,6 +7,7 @@ use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::sync::atomic::AtomicUsize;
 use std::time::Instant;
 use std::{fs, io, path, str, usize};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer};
@@ -278,14 +279,14 @@ pub fn ansi(
     source: &[u8],
     config: &HighlightConfiguration,
     print_time: bool,
+    cancellation_flag: Option<&AtomicUsize>,
 ) -> Result<()> {
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
     let time = Instant::now();
-    let cancellation_flag = util::cancel_on_stdin();
     let mut highlighter = Highlighter::new();
 
-    let events = highlighter.highlight(config, source, Some(&cancellation_flag), |string| {
+    let events = highlighter.highlight(config, source, cancellation_flag, |string| {
         loader.highlight_config_for_injection_string(string)
     })?;
 
@@ -320,6 +321,7 @@ pub fn html(
     theme: &Theme,
     source: &[u8],
     config: &HighlightConfiguration,
+    quiet: bool,
     print_time: bool,
 ) -> Result<()> {
     use std::io::Write;
@@ -343,17 +345,19 @@ pub fn html(
         }
     })?;
 
-    write!(&mut stdout, "<table>\n")?;
-    for (i, line) in renderer.lines().enumerate() {
-        write!(
-            &mut stdout,
-            "<tr><td class=line-number>{}</td><td class=line>{}</td></tr>\n",
-            i + 1,
-            line
-        )?;
-    }
+    if !quiet {
+        write!(&mut stdout, "<table>\n")?;
+        for (i, line) in renderer.lines().enumerate() {
+            write!(
+                &mut stdout,
+                "<tr><td class=line-number>{}</td><td class=line>{}</td></tr>\n",
+                i + 1,
+                line
+            )?;
+        }
 
-    write!(&mut stdout, "</table>\n")?;
+        write!(&mut stdout, "</table>\n")?;
+    }
 
     if print_time {
         eprintln!("Time: {}ms", time.elapsed().as_millis());

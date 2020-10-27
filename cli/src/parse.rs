@@ -2,9 +2,9 @@ use super::error::{Error, Result};
 use super::util;
 use std::io::{self, Write};
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::AtomicUsize;
 use std::time::Instant;
-use std::{fmt, fs, thread, usize};
+use std::{fmt, fs, usize};
 use tree_sitter::{InputEdit, Language, LogType, Parser, Point, Tree};
 
 #[derive(Debug)]
@@ -40,7 +40,7 @@ pub fn parse_file_at_path(
     timeout: u64,
     debug: bool,
     debug_graph: bool,
-    allow_cancellation: bool,
+    cancellation_flag: Option<&AtomicUsize>,
 ) -> Result<bool> {
     let mut _log_session = None;
     let mut parser = Parser::new();
@@ -51,16 +51,7 @@ pub fn parse_file_at_path(
 
     // If the `--cancel` flag was passed, then cancel the parse
     // when the user types a newline.
-    if allow_cancellation {
-        let flag = Box::new(AtomicUsize::new(0));
-        unsafe { parser.set_cancellation_flag(Some(&flag)) };
-        thread::spawn(move || {
-            let mut line = String::new();
-            io::stdin().read_line(&mut line).unwrap();
-            eprintln!("Cancelling");
-            flag.store(1, Ordering::Relaxed);
-        });
-    }
+    unsafe { parser.set_cancellation_flag(cancellation_flag) };
 
     // Set a timeout based on the `--time` flag.
     parser.set_timeout_micros(timeout);
