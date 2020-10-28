@@ -52,14 +52,24 @@ extern "C" {
    (self)->size += (count))
 
 #define array_push_all(self, other)                                       \
-  array_splice((self), (self)->size, 0, (other)->size, (other)->contents)
+  array_extend((self), (other)->size, (other)->contents)
+
+// Append `count` elements to the end of the array, reading their values from the
+// `contents` pointer.
+#define array_extend(self, count, contents)                    \
+  array__splice(                                               \
+    (VoidArray *)(self), array__elem_size(self), (self)->size, \
+    0, count,  contents                                        \
+  )
 
 // Remove `old_count` elements from the array starting at the given `index`. At
 // the same index, insert `new_count` new elements, reading their values from the
 // `new_contents` pointer.
-#define array_splice(self, index, old_count, new_count, new_contents)          \
-  array__splice((VoidArray *)(self), array__elem_size(self), index, old_count, \
-                new_count, new_contents)
+#define array_splice(self, index, old_count, new_count, new_contents)  \
+  array__splice(                                                       \
+    (VoidArray *)(self), array__elem_size(self), index,                \
+    old_count, new_count, new_contents                                 \
+  )
 
 // Insert one `element` into the array at the given `index`.
 #define array_insert(self, index, element) \

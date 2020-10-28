@@ -1475,6 +1475,7 @@ fn test_query_matches_with_anonymous_tokens() {
             r#"
             ";" @punctuation
             "&&" @operator
+            "\"" @quote
             "#,
         )
         .unwrap();
@@ -1482,9 +1483,11 @@ fn test_query_matches_with_anonymous_tokens() {
         assert_query_matches(
             language,
             &query,
-            "foo(a && b);",
+            r#"foo(a && "b");"#,
             &[
                 (1, vec![("operator", "&&")]),
+                (2, vec![("quote", "\"")]),
+                (2, vec![("quote", "\"")]),
                 (0, vec![("punctuation", ";")]),
             ],
         );
