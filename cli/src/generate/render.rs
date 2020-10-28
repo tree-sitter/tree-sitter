@@ -519,7 +519,7 @@ impl Generator {
     }
 
     fn add_non_terminal_alias_map(&mut self) {
-        let mut aliases_by_symbol = HashMap::new();
+        let mut alias_ids_by_symbol = HashMap::new();
         for variable in &self.syntax_grammar.variables {
             for production in &variable.productions {
                 for step in &production.steps {
@@ -528,10 +528,13 @@ impl Generator {
                             && Some(alias) != self.default_aliases.get(&step.symbol)
                         {
                             if self.symbol_ids.contains_key(&step.symbol) {
-                                let alias_ids =
-                                    aliases_by_symbol.entry(step.symbol).or_insert(Vec::new());
-                                if let Err(i) = alias_ids.binary_search(&alias) {
-                                    alias_ids.insert(i, alias);
+                                if let Some(alias_id) = self.alias_ids.get(&alias) {
+                                    let alias_ids = alias_ids_by_symbol
+                                        .entry(step.symbol)
+                                        .or_insert(Vec::new());
+                                    if let Err(i) = alias_ids.binary_search(&alias_id) {
+                                        alias_ids.insert(i, alias_id);
+                                    }
                                 }
                             }
                         }
@@ -540,19 +543,19 @@ impl Generator {
             }
         }
 
-        let mut aliases_by_symbol = aliases_by_symbol.iter().collect::<Vec<_>>();
-        aliases_by_symbol.sort_unstable_by_key(|e| e.0);
+        let mut alias_ids_by_symbol = alias_ids_by_symbol.iter().collect::<Vec<_>>();
+        alias_ids_by_symbol.sort_unstable_by_key(|e| e.0);
 
         add_line!(self, "static uint16_t ts_non_terminal_alias_map[] = {{");
         indent!(self);
-        for (symbol, aliases) in aliases_by_symbol {
+        for (symbol, alias_ids) in alias_ids_by_symbol {
             let symbol_id = &self.symbol_ids[symbol];
             let public_symbol_id = &self.symbol_ids[&self.symbol_map[&symbol]];
-            add_line!(self, "{}, {},", symbol_id, 1 + aliases.len());
+            add_line!(self, "{}, {},", symbol_id, 1 + alias_ids.len());
             indent!(self);
             add_line!(self, "{},", public_symbol_id);
-            for alias in aliases {
-                add_line!(self, "{},", &self.alias_ids[&alias]);
+            for alias_id in alias_ids {
+                add_line!(self, "{},", alias_id);
             }
             dedent!(self);
         }
