@@ -50,6 +50,7 @@ Parsers for these languages are fairly complete:
 * [TOML](https://github.com/ikatyang/tree-sitter-toml)
 * [TypeScript](https://github.com/tree-sitter/tree-sitter-typescript)
 * [Verilog](https://github.com/tree-sitter/tree-sitter-verilog)
+* [VHDL](https://github.com/alemuller/tree-sitter-vhdl)
 * [Vue](https://github.com/ikatyang/tree-sitter-vue)
 * [YAML](https://github.com/ikatyang/tree-sitter-yaml)
 * [WASM](https://github.com/wasm-lsp/tree-sitter-wasm)
