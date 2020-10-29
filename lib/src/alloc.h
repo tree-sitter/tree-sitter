@@ -25,6 +25,7 @@ bool ts_toggle_allocation_recording(bool);
 #else
 
 // Allow clients to override allocation functions
+
 #ifndef ts_malloc
 #define ts_malloc  ts_malloc_default
 #endif
