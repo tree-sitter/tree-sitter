@@ -424,6 +424,14 @@ pub(crate) fn generate_node_types_json(
             aliases
         });
     }
+    for extra_symbol in &syntax_grammar.extra_symbols {
+        if !simple_aliases.contains_key(extra_symbol) {
+            aliases_by_symbol
+                .entry(*extra_symbol)
+                .or_insert(HashSet::new())
+                .insert(None);
+        }
+    }
     for variable in &syntax_grammar.variables {
         for production in &variable.productions {
             for step in &production.steps {
