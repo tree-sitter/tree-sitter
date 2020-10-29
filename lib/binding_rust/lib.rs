@@ -655,6 +655,12 @@ impl Tree {
         self.root_node().walk()
     }
 
+    /// Traverse the [Tree] starting from its root [Node] applying a visitor at
+    /// all nodes.
+    pub fn traverse(&self, visitor: &impl TreeVisitor) {
+        self.root_node().traverse(visitor)
+    }
+
     /// Compare this old edited syntax tree to a new syntax tree representing the same
     /// document, returning a sequence of ranges whose syntactic structure has changed.
     ///
@@ -691,6 +697,17 @@ impl Clone for Tree {
     fn clone(&self) -> Tree {
         unsafe { Tree(NonNull::new_unchecked(ffi::ts_tree_copy(self.0.as_ptr()))) }
     }
+}
+
+pub trait TreeVisitor {
+    /// Function called before visiting child nodes
+    /// If [enter_node] returns `false` the child nodes will be skipped
+    fn enter_node(&self, _cursor: &TreeCursor) -> bool {
+        true
+    }
+
+    /// Function called after all child nodes have been visited
+    fn leave_node(&self, _cursor: &TreeCursor) {}
 }
 
 impl<'tree> Node<'tree> {
@@ -1022,6 +1039,28 @@ impl<'tree> Node<'tree> {
     /// Create a new [TreeCursor] starting from this node.
     pub fn walk(&self) -> TreeCursor<'tree> {
         TreeCursor(unsafe { ffi::ts_tree_cursor_new(self.0) }, PhantomData)
+    }
+
+    /// Traverse this [Node] and all its descendants in a top-down left to right
+    /// manner applying the visitor at each [Node].
+    pub fn traverse(&self, visitor: &impl TreeVisitor) {
+        let cursor = &mut self.walk();
+        visitor.enter_node(cursor);
+        let mut recurse = true;
+        loop {
+            if recurse && cursor.goto_first_child() {
+                recurse = visitor.enter_node(cursor);
+            } else {
+                visitor.leave_node(cursor);
+                if cursor.goto_next_sibling() {
+                    recurse = visitor.enter_node(cursor);
+                } else if cursor.goto_parent() {
+                    recurse = false;
+                } else {
+                    break;
+                }
+            }
+        }
     }
 
     /// Edit this node to keep it in-sync with source code that has been edited.
