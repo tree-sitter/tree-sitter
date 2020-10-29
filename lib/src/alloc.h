@@ -9,21 +9,6 @@ extern "C" {
 #include <stdbool.h>
 #include <stdio.h>
 
-// Allow clients to override allocation functions
-
-#ifndef ts_malloc
-#define ts_malloc(size)         ts_malloc_default(size)
-#endif
-#ifndef ts_calloc
-#define ts_calloc(count,size)   ts_calloc_default(count,size)
-#endif
-#ifndef ts_realloc
-#define ts_realloc(buffer,size) ts_realloc_default(buffer,size)
-#endif
-#ifndef ts_free
-#define ts_free(buffer)         ts_free_default(buffer)
-#endif
-
 #if defined(TREE_SITTER_TEST)
 
 void *ts_record_malloc(size_t);
@@ -32,23 +17,26 @@ void *ts_record_realloc(void *, size_t);
 void ts_record_free(void *);
 bool ts_toggle_allocation_recording(bool);
 
-static inline void *ts_malloc_default(size_t size) {
-  return ts_record_malloc(size);
-}
-
-static inline void *ts_calloc_default(size_t count, size_t size) {
-  return ts_record_calloc(count, size);
-}
-
-static inline void *ts_realloc_default(void *buffer, size_t size) {
-  return ts_record_realloc(buffer, size);
-}
-
-static inline void ts_free_default(void *buffer) {
-  ts_record_free(buffer);
-}
+#define ts_malloc  ts_record_malloc
+#define ts_calloc  ts_record_calloc
+#define ts_realloc ts_record_realloc
+#define ts_free    ts_record_free
 
 #else
+
+// Allow clients to override allocation functions
+#ifndef ts_malloc
+#define ts_malloc  ts_malloc_default
+#endif
+#ifndef ts_calloc
+#define ts_calloc  ts_calloc_default
+#endif
+#ifndef ts_realloc
+#define ts_realloc ts_realloc_default
+#endif
+#ifndef ts_free
+#define ts_free    ts_free_default
+#endif
 
 #include <stdlib.h>
 
