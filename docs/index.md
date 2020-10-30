@@ -57,6 +57,7 @@ Parsers for these languages are fairly complete:
 Parsers for these languages are in development:
 
 * [Agda](https://github.com/tree-sitter/tree-sitter-agda)
+* [COBOL](https://github.com/Neppord/tree-sitter-cobol)
 * [Haskell](https://github.com/tree-sitter/tree-sitter-haskell)
 * [Julia](https://github.com/tree-sitter/tree-sitter-julia)
 * [Nix](https://github.com/cstrahan/tree-sitter-nix)
