@@ -48,6 +48,7 @@ declare module 'web-tree-sitter' {
     ) => string | null;
 
     export interface SyntaxNode {
+      id: number;
       tree: Tree;
       type: string;
       isNamed: boolean;
@@ -136,10 +137,23 @@ declare module 'web-tree-sitter' {
       query(source: string): Query;
     }
 
+    interface QueryResult {
+      pattern: number;
+      captures: { name: string; node: SyntaxNode }[];
+    }
+
+    interface PredicateResult {
+      operator: string;
+      operands: { name: string; type: string }[];
+    }
+
     class Query {
+      captureNames: string[];
+
       delete(): void;
-      matches(node: SyntaxNode, startPosition?: Point, endPosition?: Point);
-      captures(node: SyntaxNode, startPosition?: Point, endPosition?: Point);
+      matches(node: SyntaxNode, startPosition?: Point, endPosition?: Point): QueryResult[];
+      captures(node: SyntaxNode, startPosition?: Point, endPosition?: Point): QueryResult[];
+      predicatesForPattern(patternIndex: number): PredicateResult[];
     }
   }
 
