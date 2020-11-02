@@ -424,6 +424,14 @@ pub(crate) fn generate_node_types_json(
             aliases
         });
     }
+    for extra_symbol in &syntax_grammar.extra_symbols {
+        if !simple_aliases.contains_key(extra_symbol) {
+            aliases_by_symbol
+                .entry(*extra_symbol)
+                .or_insert(HashSet::new())
+                .insert(None);
+        }
+    }
     for variable in &syntax_grammar.variables {
         for production in &variable.productions {
             for step in &production.steps {
@@ -722,8 +730,17 @@ mod tests {
                     kind: VariableType::Named,
                     rule: Rule::string("x"),
                 },
+                // This rule is not reachable from the start symbol
+                // so it won't be present in the node_types
+                Variable {
+                    name: "v3".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("y"),
+                },
             ],
         });
+
+        assert_eq!(node_types.len(), 3);
 
         assert_eq!(
             node_types[0],
@@ -776,6 +793,112 @@ mod tests {
             node_types[2],
             NodeInfoJSON {
                 kind: "v2".to_string(),
+                named: true,
+                subtypes: None,
+                children: None,
+                fields: None
+            }
+        );
+    }
+
+    #[test]
+    fn test_node_types_simple_extras() {
+        let node_types = get_node_types(InputGrammar {
+            name: String::new(),
+            extra_symbols: vec![Rule::named("v3")],
+            external_tokens: Vec::new(),
+            expected_conflicts: Vec::new(),
+            variables_to_inline: Vec::new(),
+            word_token: None,
+            supertype_symbols: vec![],
+            variables: vec![
+                Variable {
+                    name: "v1".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::seq(vec![
+                        Rule::field("f1".to_string(), Rule::named("v2")),
+                        Rule::field("f2".to_string(), Rule::string(";")),
+                    ]),
+                },
+                Variable {
+                    name: "v2".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("x"),
+                },
+                // This rule is not reachable from the start symbol, but
+                // it is reachable from the 'extra_symbols' so it
+                // should be present in the node_types
+                Variable {
+                    name: "v3".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("y"),
+                },
+            ],
+        });
+
+        assert_eq!(node_types.len(), 4);
+
+        assert_eq!(
+            node_types[0],
+            NodeInfoJSON {
+                kind: "v1".to_string(),
+                named: true,
+                subtypes: None,
+                children: None,
+                fields: Some(
+                    vec![
+                        (
+                            "f1".to_string(),
+                            FieldInfoJSON {
+                                multiple: false,
+                                required: true,
+                                types: vec![NodeTypeJSON {
+                                    kind: "v2".to_string(),
+                                    named: true,
+                                }]
+                            }
+                        ),
+                        (
+                            "f2".to_string(),
+                            FieldInfoJSON {
+                                multiple: false,
+                                required: true,
+                                types: vec![NodeTypeJSON {
+                                    kind: ";".to_string(),
+                                    named: false,
+                                }]
+                            }
+                        ),
+                    ]
+                    .into_iter()
+                    .collect()
+                )
+            }
+        );
+        assert_eq!(
+            node_types[1],
+            NodeInfoJSON {
+                kind: ";".to_string(),
+                named: false,
+                subtypes: None,
+                children: None,
+                fields: None
+            }
+        );
+        assert_eq!(
+            node_types[2],
+            NodeInfoJSON {
+                kind: "v2".to_string(),
+                named: true,
+                subtypes: None,
+                children: None,
+                fields: None
+            }
+        );
+        assert_eq!(
+            node_types[3],
+            NodeInfoJSON {
+                kind: "v3".to_string(),
                 named: true,
                 subtypes: None,
                 children: None,
