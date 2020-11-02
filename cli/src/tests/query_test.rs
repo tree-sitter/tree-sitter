@@ -1836,6 +1836,33 @@ fn test_query_matches_with_no_captures() {
 }
 
 #[test]
+fn test_query_matches_with_repeated_fields() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            language,
+            "(field_declaration declarator: (field_identifier) @field)",
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            "
+            struct S {
+                int a, b, c;
+            }
+            ",
+            &[
+                (0, vec![("field", "a")]),
+                (0, vec![("field", "b")]),
+                (0, vec![("field", "c")]),
+            ],
+        );
+    });
+}
+
+#[test]
 fn test_query_captures_basic() {
     allocations::record(|| {
         let language = get_language("javascript");

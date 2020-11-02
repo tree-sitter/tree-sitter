@@ -330,7 +330,7 @@ void ts_tree_cursor_current_status(
       }
     }
 
-    #undef subtree_metadata
+    #undef subtree_symbol
 
     if (!ts_subtree_extra(*entry->subtree)) {
       const TSFieldMapEntry *field_map, *field_map_end;
@@ -345,7 +345,6 @@ void ts_tree_cursor_current_status(
         for (const TSFieldMapEntry *i = field_map; i < field_map_end; i++) {
           if (!i->inherited && i->child_index == entry->structural_child_index) {
             *field_id = i->field_id;
-            *can_have_later_siblings_with_this_field = false;
             break;
           }
         }
@@ -354,9 +353,14 @@ void ts_tree_cursor_current_status(
       // Determine if the current node can have later siblings with the same field name.
       if (*field_id) {
         for (const TSFieldMapEntry *i = field_map; i < field_map_end; i++) {
-          if (i->field_id == *field_id && i->child_index > entry->structural_child_index) {
-            *can_have_later_siblings_with_this_field = true;
-            break;
+          if (i->field_id == *field_id) {
+            if (
+              i->child_index > entry->structural_child_index ||
+              (i->child_index == entry->structural_child_index && *has_later_named_siblings)
+            ) {
+              *can_have_later_siblings_with_this_field = true;
+              break;
+            }
           }
         }
       }
