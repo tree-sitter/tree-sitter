@@ -143,49 +143,6 @@ impl Generator {
             self.assign_symbol_id(self.parse_table.symbols[i], &mut symbol_identifiers);
         }
 
-        let mut field_names = Vec::new();
-        for production_info in &self.parse_table.production_infos {
-            for field_name in production_info.field_map.keys() {
-                field_names.push(field_name);
-            }
-
-            for alias in &production_info.alias_sequence {
-                if let Some(alias) = &alias {
-                    let alias_kind = alias.kind();
-                    let matching_symbol = self.parse_table.symbols.iter().cloned().find(|symbol| {
-                        let (name, kind) = self.metadata_for_symbol(*symbol);
-                        name == alias.value && kind == alias_kind
-                    });
-                    let alias_id = if let Some(symbol) = matching_symbol {
-                        self.symbol_ids[&symbol].clone()
-                    } else if alias.is_named {
-                        format!("alias_sym_{}", self.sanitize_identifier(&alias.value))
-                    } else {
-                        format!("anon_alias_sym_{}", self.sanitize_identifier(&alias.value))
-                    };
-                    self.alias_ids.entry(alias.clone()).or_insert(alias_id);
-                }
-            }
-        }
-
-        self.unique_aliases = self
-            .alias_ids
-            .keys()
-            .filter(|alias| {
-                self.parse_table
-                    .symbols
-                    .iter()
-                    .cloned()
-                    .find(|symbol| {
-                        let (name, kind) = self.metadata_for_symbol(*symbol);
-                        name == alias.value && kind == alias.kind()
-                    })
-                    .is_none()
-            })
-            .cloned()
-            .collect();
-        self.unique_aliases.sort_unstable();
-
         self.symbol_map = self
             .parse_table
             .symbols
@@ -230,13 +187,51 @@ impl Generator {
             })
             .collect();
 
-        field_names.sort_unstable();
-        field_names.dedup();
-        self.field_names = field_names.into_iter().cloned().collect();
+        for production_info in &self.parse_table.production_infos {
+            // Build a list of all field names
+            for field_name in production_info.field_map.keys() {
+                if let Err(i) = self.field_names.binary_search(&field_name) {
+                    self.field_names.insert(i, field_name.clone());
+                }
+            }
 
-        // If we are opting in to the new unstable language ABI, then use the concept of
-        // "small parse states". Otherwise, use the same representation for all parse
-        // states.
+            for alias in &production_info.alias_sequence {
+                // Generate a mapping from aliases to C identifiers.
+                if let Some(alias) = &alias {
+                    let existing_symbol = self.parse_table.symbols.iter().cloned().find(|symbol| {
+                        if let Some(default_alias) = self.default_aliases.get(symbol) {
+                            default_alias == alias
+                        } else {
+                            let (name, kind) = self.metadata_for_symbol(*symbol);
+                            name == alias.value && kind == alias.kind()
+                        }
+                    });
+
+                    // Some aliases match an existing symbol in the grammar.
+                    let alias_id;
+                    if let Some(existing_symbol) = existing_symbol {
+                        alias_id = self.symbol_ids[&self.symbol_map[&existing_symbol]].clone();
+                    }
+                    // Other aliases don't match any existing symbol, and need their own identifiers.
+                    else {
+                        if let Err(i) = self.unique_aliases.binary_search(alias) {
+                            self.unique_aliases.insert(i, alias.clone());
+                        }
+
+                        alias_id = if alias.is_named {
+                            format!("alias_sym_{}", self.sanitize_identifier(&alias.value))
+                        } else {
+                            format!("anon_alias_sym_{}", self.sanitize_identifier(&alias.value))
+                        };
+                    }
+
+                    self.alias_ids.entry(alias.clone()).or_insert(alias_id);
+                }
+            }
+        }
+
+        // Determine which states should use the "small state" representation, and which should
+        // use the normal array representation.
         let threshold = cmp::min(SMALL_STATE_THRESHOLD, self.parse_table.symbols.len() / 2);
         self.large_state_count = self
             .parse_table

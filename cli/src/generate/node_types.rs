@@ -146,7 +146,7 @@ impl ChildQuantity {
 pub(crate) fn get_variable_info(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
-    simple_aliases: &AliasMap,
+    default_aliases: &AliasMap,
 ) -> Result<Vec<VariableInfo>> {
     let child_type_is_visible = |t: &ChildType| {
         variable_type_for_child_type(t, syntax_grammar, lexical_grammar) >= VariableType::Anonymous
@@ -185,7 +185,7 @@ pub(crate) fn get_variable_info(
                     let child_symbol = step.symbol;
                     let child_type = if let Some(alias) = &step.alias {
                         ChildType::Aliased(alias.clone())
-                    } else if let Some(alias) = simple_aliases.get(&step.symbol) {
+                    } else if let Some(alias) = default_aliases.get(&step.symbol) {
                         ChildType::Aliased(alias.clone())
                     } else {
                         ChildType::Normal(child_symbol)
@@ -358,7 +358,7 @@ pub(crate) fn get_variable_info(
 pub(crate) fn generate_node_types_json(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
-    simple_aliases: &AliasMap,
+    default_aliases: &AliasMap,
     variable_info: &Vec<VariableInfo>,
 ) -> Vec<NodeInfoJSON> {
     let mut node_types_json = BTreeMap::new();
@@ -369,7 +369,7 @@ pub(crate) fn generate_node_types_json(
             named: alias.is_named,
         },
         ChildType::Normal(symbol) => {
-            if let Some(alias) = simple_aliases.get(&symbol) {
+            if let Some(alias) = default_aliases.get(&symbol) {
                 NodeTypeJSON {
                     kind: alias.value.clone(),
                     named: alias.is_named,
@@ -417,7 +417,7 @@ pub(crate) fn generate_node_types_json(
     };
 
     let mut aliases_by_symbol = HashMap::new();
-    for (symbol, alias) in simple_aliases {
+    for (symbol, alias) in default_aliases {
         aliases_by_symbol.insert(*symbol, {
             let mut aliases = HashSet::new();
             aliases.insert(Some(alias.clone()));
@@ -425,7 +425,7 @@ pub(crate) fn generate_node_types_json(
         });
     }
     for extra_symbol in &syntax_grammar.extra_symbols {
-        if !simple_aliases.contains_key(extra_symbol) {
+        if !default_aliases.contains_key(extra_symbol) {
             aliases_by_symbol
                 .entry(*extra_symbol)
                 .or_insert(HashSet::new())
@@ -435,12 +435,15 @@ pub(crate) fn generate_node_types_json(
     for variable in &syntax_grammar.variables {
         for production in &variable.productions {
             for step in &production.steps {
-                if !simple_aliases.contains_key(&step.symbol) {
-                    aliases_by_symbol
-                        .entry(step.symbol)
-                        .or_insert(HashSet::new())
-                        .insert(step.alias.clone());
-                }
+                aliases_by_symbol
+                    .entry(step.symbol)
+                    .or_insert(HashSet::new())
+                    .insert(
+                        step.alias
+                            .as_ref()
+                            .or_else(|| default_aliases.get(&step.symbol))
+                            .cloned(),
+                    );
             }
         }
     }
@@ -1808,14 +1811,14 @@ mod tests {
     }
 
     fn get_node_types(grammar: InputGrammar) -> Vec<NodeInfoJSON> {
-        let (syntax_grammar, lexical_grammar, _, simple_aliases) =
+        let (syntax_grammar, lexical_grammar, _, default_aliases) =
             prepare_grammar(&grammar).unwrap();
         let variable_info =
-            get_variable_info(&syntax_grammar, &lexical_grammar, &simple_aliases).unwrap();
+            get_variable_info(&syntax_grammar, &lexical_grammar, &default_aliases).unwrap();
         generate_node_types_json(
             &syntax_grammar,
             &lexical_grammar,
-            &simple_aliases,
+            &default_aliases,
             &variable_info,
         )
     }
