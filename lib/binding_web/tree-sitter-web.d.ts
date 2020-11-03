@@ -51,7 +51,6 @@ declare module 'web-tree-sitter' {
       id: number;
       tree: Tree;
       type: string;
-      isNamed: boolean;
       text: string;
       startPosition: Point;
       endPosition: Point;
@@ -75,6 +74,7 @@ declare module 'web-tree-sitter' {
       hasError(): boolean;
       equals(other: SyntaxNode): boolean;
       isMissing(): boolean;
+      isNamed(): boolean;
       toString(): string;
       child(index: number): SyntaxNode | null;
       namedChild(index: number): SyntaxNode | null;
