@@ -137,9 +137,14 @@ declare module 'web-tree-sitter' {
       query(source: string): Query;
     }
 
-    interface QueryResult {
+    interface QueryCapture {
+      name: string;
+      node: SyntaxNode;
+    }
+
+    interface QueryMatch {
       pattern: number;
-      captures: { name: string; node: SyntaxNode }[];
+      captures: QueryCapture[];
     }
 
     interface PredicateResult {
@@ -151,8 +156,8 @@ declare module 'web-tree-sitter' {
       captureNames: string[];
 
       delete(): void;
-      matches(node: SyntaxNode, startPosition?: Point, endPosition?: Point): QueryResult[];
-      captures(node: SyntaxNode, startPosition?: Point, endPosition?: Point): QueryResult[];
+      matches(node: SyntaxNode, startPosition?: Point, endPosition?: Point): QueryMatch[];
+      captures(node: SyntaxNode, startPosition?: Point, endPosition?: Point): QueryCapture[];
       predicatesForPattern(patternIndex: number): PredicateResult[];
     }
   }
