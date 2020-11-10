@@ -51,6 +51,9 @@ libtree-sitter.$(SOEXTVER): $(OBJ)
 	ln -sf $@ libtree-sitter.$(SOEXT)
 	ln -sf $@ libtree-sitter.$(SOEXTVER_MAJOR)
 
+%.o: %.c
+	$(CC) $(CFLAGS) -c $^ -o $@
+
 install: all
 	install -d '$(DESTDIR)$(LIBDIR)'
 	install -m755 libtree-sitter.a '$(DESTDIR)$(LIBDIR)'/libtree-sitter.a
