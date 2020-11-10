@@ -19,7 +19,7 @@ pub struct CaptureInfo {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Assertion {
     pub position: Point,
-    pub expected: String,
+    pub expected_capture_name: String,
 }
 
 /// Parse the given source code, finding all of the comments that contain
@@ -81,7 +81,7 @@ pub fn parse_position_comments(
                         assertion_ranges.push((node.start_position(), node.end_position()));
                         result.push(Assertion {
                             position: position,
-                            expected: mat.as_str().to_string(),
+                            expected_capture_name: mat.as_str().to_string(),
                         });
                     }
                 }
@@ -135,8 +135,10 @@ pub fn assert_expected_captures(
     let contents = fs::read_to_string(path)?;
     let pairs = parse_position_comments(parser, language, contents.as_bytes())?;
 
-    let per_position_index: HashMap<Point, &String> =
-        pairs.iter().map(|a| (a.position, &a.expected)).collect();
+    let per_position_index: HashMap<Point, &String> = pairs
+        .iter()
+        .map(|a| (a.position, &a.expected_capture_name))
+        .collect();
 
     for info in &infos {
         if !per_position_index.contains_key(&info.position) {

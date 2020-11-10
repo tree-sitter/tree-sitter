@@ -100,7 +100,7 @@ pub fn test_highlight(
     let mut actual_highlights = Vec::<&String>::new();
     for Assertion {
         position,
-        expected: expected_highlight,
+        expected_capture_name: expected_highlight,
     } in &assertions
     {
         let mut passed = false;
