@@ -7,7 +7,7 @@ use std::fs;
 use tree_sitter::{Language, Parser, Point};
 
 lazy_static! {
-    static ref PROPERTY_NAME_REGEX: Regex = Regex::new("[\\w_\\-.]+").unwrap();
+    static ref CAPTURE_NAME_REGEX: Regex = Regex::new("[\\w_\\-.]+").unwrap();
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -76,7 +76,7 @@ pub fn parse_position_comments(
                     // If the comment node contains an arrow and a highlight name, record the
                     // highlight name and the position.
                     if let (true, Some(mat)) =
-                        (has_arrow, PROPERTY_NAME_REGEX.find(&text[arrow_end..]))
+                        (has_arrow, CAPTURE_NAME_REGEX.find(&text[arrow_end..]))
                     {
                         assertion_ranges.push((node.start_position(), node.end_position()));
                         result.push(Assertion {
