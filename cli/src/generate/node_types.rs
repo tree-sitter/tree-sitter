@@ -146,7 +146,7 @@ impl ChildQuantity {
 pub(crate) fn get_variable_info(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
-    simple_aliases: &AliasMap,
+    default_aliases: &AliasMap,
 ) -> Result<Vec<VariableInfo>> {
     let child_type_is_visible = |t: &ChildType| {
         variable_type_for_child_type(t, syntax_grammar, lexical_grammar) >= VariableType::Anonymous
@@ -185,7 +185,7 @@ pub(crate) fn get_variable_info(
                     let child_symbol = step.symbol;
                     let child_type = if let Some(alias) = &step.alias {
                         ChildType::Aliased(alias.clone())
-                    } else if let Some(alias) = simple_aliases.get(&step.symbol) {
+                    } else if let Some(alias) = default_aliases.get(&step.symbol) {
                         ChildType::Aliased(alias.clone())
                     } else {
                         ChildType::Normal(child_symbol)
@@ -358,7 +358,7 @@ pub(crate) fn get_variable_info(
 pub(crate) fn generate_node_types_json(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
-    simple_aliases: &AliasMap,
+    default_aliases: &AliasMap,
     variable_info: &Vec<VariableInfo>,
 ) -> Vec<NodeInfoJSON> {
     let mut node_types_json = BTreeMap::new();
@@ -369,7 +369,7 @@ pub(crate) fn generate_node_types_json(
             named: alias.is_named,
         },
         ChildType::Normal(symbol) => {
-            if let Some(alias) = simple_aliases.get(&symbol) {
+            if let Some(alias) = default_aliases.get(&symbol) {
                 NodeTypeJSON {
                     kind: alias.value.clone(),
                     named: alias.is_named,
@@ -417,22 +417,33 @@ pub(crate) fn generate_node_types_json(
     };
 
     let mut aliases_by_symbol = HashMap::new();
-    for (symbol, alias) in simple_aliases {
+    for (symbol, alias) in default_aliases {
         aliases_by_symbol.insert(*symbol, {
             let mut aliases = HashSet::new();
             aliases.insert(Some(alias.clone()));
             aliases
         });
     }
+    for extra_symbol in &syntax_grammar.extra_symbols {
+        if !default_aliases.contains_key(extra_symbol) {
+            aliases_by_symbol
+                .entry(*extra_symbol)
+                .or_insert(HashSet::new())
+                .insert(None);
+        }
+    }
     for variable in &syntax_grammar.variables {
         for production in &variable.productions {
             for step in &production.steps {
-                if !simple_aliases.contains_key(&step.symbol) {
-                    aliases_by_symbol
-                        .entry(step.symbol)
-                        .or_insert(HashSet::new())
-                        .insert(step.alias.clone());
-                }
+                aliases_by_symbol
+                    .entry(step.symbol)
+                    .or_insert(HashSet::new())
+                    .insert(
+                        step.alias
+                            .as_ref()
+                            .or_else(|| default_aliases.get(&step.symbol))
+                            .cloned(),
+                    );
             }
         }
     }
@@ -722,8 +733,17 @@ mod tests {
                     kind: VariableType::Named,
                     rule: Rule::string("x"),
                 },
+                // This rule is not reachable from the start symbol
+                // so it won't be present in the node_types
+                Variable {
+                    name: "v3".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("y"),
+                },
             ],
         });
+
+        assert_eq!(node_types.len(), 3);
 
         assert_eq!(
             node_types[0],
@@ -776,6 +796,112 @@ mod tests {
             node_types[2],
             NodeInfoJSON {
                 kind: "v2".to_string(),
+                named: true,
+                subtypes: None,
+                children: None,
+                fields: None
+            }
+        );
+    }
+
+    #[test]
+    fn test_node_types_simple_extras() {
+        let node_types = get_node_types(InputGrammar {
+            name: String::new(),
+            extra_symbols: vec![Rule::named("v3")],
+            external_tokens: Vec::new(),
+            expected_conflicts: Vec::new(),
+            variables_to_inline: Vec::new(),
+            word_token: None,
+            supertype_symbols: vec![],
+            variables: vec![
+                Variable {
+                    name: "v1".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::seq(vec![
+                        Rule::field("f1".to_string(), Rule::named("v2")),
+                        Rule::field("f2".to_string(), Rule::string(";")),
+                    ]),
+                },
+                Variable {
+                    name: "v2".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("x"),
+                },
+                // This rule is not reachable from the start symbol, but
+                // it is reachable from the 'extra_symbols' so it
+                // should be present in the node_types
+                Variable {
+                    name: "v3".to_string(),
+                    kind: VariableType::Named,
+                    rule: Rule::string("y"),
+                },
+            ],
+        });
+
+        assert_eq!(node_types.len(), 4);
+
+        assert_eq!(
+            node_types[0],
+            NodeInfoJSON {
+                kind: "v1".to_string(),
+                named: true,
+                subtypes: None,
+                children: None,
+                fields: Some(
+                    vec![
+                        (
+                            "f1".to_string(),
+                            FieldInfoJSON {
+                                multiple: false,
+                                required: true,
+                                types: vec![NodeTypeJSON {
+                                    kind: "v2".to_string(),
+                                    named: true,
+                                }]
+                            }
+                        ),
+                        (
+                            "f2".to_string(),
+                            FieldInfoJSON {
+                                multiple: false,
+                                required: true,
+                                types: vec![NodeTypeJSON {
+                                    kind: ";".to_string(),
+                                    named: false,
+                                }]
+                            }
+                        ),
+                    ]
+                    .into_iter()
+                    .collect()
+                )
+            }
+        );
+        assert_eq!(
+            node_types[1],
+            NodeInfoJSON {
+                kind: ";".to_string(),
+                named: false,
+                subtypes: None,
+                children: None,
+                fields: None
+            }
+        );
+        assert_eq!(
+            node_types[2],
+            NodeInfoJSON {
+                kind: "v2".to_string(),
+                named: true,
+                subtypes: None,
+                children: None,
+                fields: None
+            }
+        );
+        assert_eq!(
+            node_types[3],
+            NodeInfoJSON {
+                kind: "v3".to_string(),
                 named: true,
                 subtypes: None,
                 children: None,
@@ -1685,14 +1811,14 @@ mod tests {
     }
 
     fn get_node_types(grammar: InputGrammar) -> Vec<NodeInfoJSON> {
-        let (syntax_grammar, lexical_grammar, _, simple_aliases) =
+        let (syntax_grammar, lexical_grammar, _, default_aliases) =
             prepare_grammar(&grammar).unwrap();
         let variable_info =
-            get_variable_info(&syntax_grammar, &lexical_grammar, &simple_aliases).unwrap();
+            get_variable_info(&syntax_grammar, &lexical_grammar, &default_aliases).unwrap();
         generate_node_types_json(
             &syntax_grammar,
             &lexical_grammar,
-            &simple_aliases,
+            &default_aliases,
             &variable_info,
         )
     }

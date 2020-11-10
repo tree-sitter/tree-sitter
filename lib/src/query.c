@@ -214,6 +214,7 @@ struct TSQuery {
   Array(TSQueryPredicateStep) predicate_steps;
   Array(QueryPattern) patterns;
   Array(StepOffset) step_offsets;
+  Array(char) string_buffer;
   const TSLanguage *language;
   uint16_t wildcard_root_pattern_count;
   TSSymbol *symbol_map;
@@ -435,67 +436,6 @@ static uint16_t symbol_table_insert_name(
   array_grow_by(&self->characters, length + 1);
   memcpy(&self->characters.contents[slice.offset], name, length);
   self->characters.contents[self->characters.size - 1] = 0;
-  array_push(&self->slices, slice);
-  return self->slices.size - 1;
-}
-
-static uint16_t symbol_table_insert_name_with_escapes(
-  SymbolTable *self,
-  const char *escaped_name,
-  uint32_t escaped_length
-) {
-  Slice slice = {
-    .offset = self->characters.size,
-    .length = 0,
-  };
-  array_grow_by(&self->characters, escaped_length + 1);
-
-  // Copy the contents of the literal into the characters buffer, processing escape
-  // sequences like \n and \". This needs to be done before checking if the literal
-  // is already present, in order to do the string comparison.
-  bool is_escaped = false;
-  for (unsigned i = 0; i < escaped_length; i++) {
-    const char *src = &escaped_name[i];
-    char *dest = &self->characters.contents[slice.offset + slice.length];
-    if (is_escaped) {
-      switch (*src) {
-        case 'n':
-          *dest = '\n';
-          break;
-        case 'r':
-          *dest = '\r';
-          break;
-        case 't':
-          *dest = '\t';
-          break;
-        case '0':
-          *dest = '\0';
-          break;
-        default:
-          *dest = *src;
-          break;
-      }
-      is_escaped = false;
-      slice.length++;
-    } else {
-      if (*src == '\\') {
-        is_escaped = true;
-      } else {
-        *dest = *src;
-        slice.length++;
-      }
-    }
-  }
-
-  // If the string is already present, remove the redundant content from the characters
-  // buffer and return the existing id.
-  int id = symbol_table_id_for_name(self, &self->characters.contents[slice.offset], slice.length);
-  if (id >= 0) {
-    self->characters.size -= (escaped_length + 1);
-    return id;
-  }
-
-  self->characters.contents[slice.offset + slice.length] = 0;
   array_push(&self->slices, slice);
   return self->slices.size - 1;
 }
@@ -1393,6 +1333,59 @@ static void ts_query__finalize_steps(TSQuery *self) {
   }
 }
 
+static TSQueryError ts_query__parse_string_literal(
+  TSQuery *self,
+  Stream *stream
+) {
+  const char *string_start = stream->input;
+  if (stream->next != '"') return TSQueryErrorSyntax;
+  stream_advance(stream);
+  const char *prev_position = stream->input;
+
+  bool is_escaped = false;
+  array_clear(&self->string_buffer);
+  for (;;) {
+    if (is_escaped) {
+      is_escaped = false;
+      switch (stream->next) {
+        case 'n':
+          array_push(&self->string_buffer, '\n');
+          break;
+        case 'r':
+          array_push(&self->string_buffer, '\r');
+          break;
+        case 't':
+          array_push(&self->string_buffer, '\t');
+          break;
+        case '0':
+          array_push(&self->string_buffer, '\0');
+          break;
+        default:
+          array_extend(&self->string_buffer, stream->next_size, stream->input);
+          break;
+      }
+      prev_position = stream->input + stream->next_size;
+    } else {
+      if (stream->next == '\\') {
+        array_extend(&self->string_buffer, (stream->input - prev_position), prev_position);
+        prev_position = stream->input + 1;
+        is_escaped = true;
+      } else if (stream->next == '"') {
+        array_extend(&self->string_buffer, (stream->input - prev_position), prev_position);
+        stream_advance(stream);
+        return TSQueryErrorNone;
+      } else if (stream->next == '\n') {
+        stream_reset(stream, string_start);
+        return TSQueryErrorSyntax;
+      }
+    }
+    if (!stream_advance(stream)) {
+      stream_reset(stream, string_start);
+      return TSQueryErrorSyntax;
+    }
+  }
+}
+
 // Parse a single predicate associated with a pattern, adding it to the
 // query's internal `predicate_steps` array. Predicates are arbitrary
 // S-expressions associated with a pattern which are meant to be handled at
@@ -1458,44 +1451,17 @@ static TSQueryError ts_query__parse_predicate(
 
     // Parse a string literal
     else if (stream->next == '"') {
-      stream_advance(stream);
-
-      // Parse the string content
-      bool is_escaped = false;
-      const char *string_content = stream->input;
-      for (;;) {
-        if (is_escaped) {
-          is_escaped = false;
-        } else {
-          if (stream->next == '\\') {
-            is_escaped = true;
-          } else if (stream->next == '"') {
-            break;
-          } else if (stream->next == '\n') {
-            stream_reset(stream, string_content - 1);
-            return TSQueryErrorSyntax;
-          }
-        }
-        if (!stream_advance(stream)) {
-          stream_reset(stream, string_content - 1);
-          return TSQueryErrorSyntax;
-        }
-      }
-      uint32_t length = stream->input - string_content;
-
-      // Add a step for the node
-      uint16_t id = symbol_table_insert_name_with_escapes(
+      TSQueryError e = ts_query__parse_string_literal(self, stream);
+      if (e) return e;
+      uint16_t id = symbol_table_insert_name(
         &self->predicate_values,
-        string_content,
-        length
+        self->string_buffer.contents,
+        self->string_buffer.size
       );
       array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
         .type = TSQueryPredicateStepTypeString,
         .value_id = id,
       }));
-
-      if (stream->next != '"') return TSQueryErrorSyntax;
-      stream_advance(stream);
     }
 
     // Parse a bare symbol
@@ -1761,33 +1727,22 @@ static TSQueryError ts_query__parse_pattern(
 
   // Parse a double-quoted anonymous leaf node expression
   else if (stream->next == '"') {
-    stream_advance(stream);
-
-    // Parse the string content
-    const char *string_content = stream->input;
-    while (stream->next != '"') {
-      if (!stream_advance(stream)) {
-        stream_reset(stream, string_content - 1);
-        return TSQueryErrorSyntax;
-      }
-    }
-    uint32_t length = stream->input - string_content;
+    const char *string_start = stream->input;
+    TSQueryError e = ts_query__parse_string_literal(self, stream);
+    if (e) return e;
 
     // Add a step for the node
     TSSymbol symbol = ts_language_symbol_for_name(
       self->language,
-      string_content,
-      length,
+      self->string_buffer.contents,
+      self->string_buffer.size,
       false
     );
     if (!symbol) {
-      stream_reset(stream, string_content);
+      stream_reset(stream, string_start + 1);
       return TSQueryErrorNodeType;
     }
     array_push(&self->steps, query_step__new(symbol, depth, is_immediate));
-
-    if (stream->next != '"') return TSQueryErrorSyntax;
-    stream_advance(stream);
   }
 
   // Parse a field-prefixed pattern
@@ -1977,6 +1932,7 @@ TSQuery *ts_query_new(
     .predicate_steps = array_new(),
     .patterns = array_new(),
     .step_offsets = array_new(),
+    .string_buffer = array_new(),
     .symbol_map = symbol_map,
     .wildcard_root_pattern_count = 0,
     .language = language,
@@ -2056,6 +2012,7 @@ TSQuery *ts_query_new(
   }
 
   ts_query__finalize_steps(self);
+  array_delete(&self->string_buffer);
   return self;
 }
 
@@ -2066,6 +2023,7 @@ void ts_query_delete(TSQuery *self) {
     array_delete(&self->predicate_steps);
     array_delete(&self->patterns);
     array_delete(&self->step_offsets);
+    array_delete(&self->string_buffer);
     symbol_table_delete(&self->captures);
     symbol_table_delete(&self->predicate_values);
     ts_free(self->symbol_map);

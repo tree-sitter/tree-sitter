@@ -824,7 +824,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "cc",
  "regex",
@@ -832,7 +832,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-cli"
-version = "0.17.1"
+version = "0.17.3"
 dependencies = [
  "ansi_term",
  "atty",

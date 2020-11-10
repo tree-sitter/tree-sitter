@@ -65,7 +65,7 @@ struct Generator {
     keyword_capture_token: Option<Symbol>,
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
-    simple_aliases: AliasMap,
+    default_aliases: AliasMap,
     symbol_order: HashMap<Symbol, usize>,
     symbol_ids: HashMap<Symbol, String>,
     alias_ids: HashMap<Alias, String>,
@@ -143,49 +143,6 @@ impl Generator {
             self.assign_symbol_id(self.parse_table.symbols[i], &mut symbol_identifiers);
         }
 
-        let mut field_names = Vec::new();
-        for production_info in &self.parse_table.production_infos {
-            for field_name in production_info.field_map.keys() {
-                field_names.push(field_name);
-            }
-
-            for alias in &production_info.alias_sequence {
-                if let Some(alias) = &alias {
-                    let alias_kind = alias.kind();
-                    let matching_symbol = self.parse_table.symbols.iter().cloned().find(|symbol| {
-                        let (name, kind) = self.metadata_for_symbol(*symbol);
-                        name == alias.value && kind == alias_kind
-                    });
-                    let alias_id = if let Some(symbol) = matching_symbol {
-                        self.symbol_ids[&symbol].clone()
-                    } else if alias.is_named {
-                        format!("alias_sym_{}", self.sanitize_identifier(&alias.value))
-                    } else {
-                        format!("anon_alias_sym_{}", self.sanitize_identifier(&alias.value))
-                    };
-                    self.alias_ids.entry(alias.clone()).or_insert(alias_id);
-                }
-            }
-        }
-
-        self.unique_aliases = self
-            .alias_ids
-            .keys()
-            .filter(|alias| {
-                self.parse_table
-                    .symbols
-                    .iter()
-                    .cloned()
-                    .find(|symbol| {
-                        let (name, kind) = self.metadata_for_symbol(*symbol);
-                        name == alias.value && kind == alias.kind()
-                    })
-                    .is_none()
-            })
-            .cloned()
-            .collect();
-        self.unique_aliases.sort_unstable();
-
         self.symbol_map = self
             .parse_table
             .symbols
@@ -198,10 +155,10 @@ impl Generator {
                 // public-facing symbol. If one of the symbols is not aliased, choose that one
                 // to be the public-facing symbol. Otherwise, pick the symbol with the lowest
                 // numeric value.
-                if let Some(alias) = self.simple_aliases.get(symbol) {
+                if let Some(alias) = self.default_aliases.get(symbol) {
                     let kind = alias.kind();
                     for other_symbol in &self.parse_table.symbols {
-                        if let Some(other_alias) = self.simple_aliases.get(other_symbol) {
+                        if let Some(other_alias) = self.default_aliases.get(other_symbol) {
                             if other_symbol < mapping && other_alias == alias {
                                 mapping = other_symbol;
                             }
@@ -230,13 +187,51 @@ impl Generator {
             })
             .collect();
 
-        field_names.sort_unstable();
-        field_names.dedup();
-        self.field_names = field_names.into_iter().cloned().collect();
+        for production_info in &self.parse_table.production_infos {
+            // Build a list of all field names
+            for field_name in production_info.field_map.keys() {
+                if let Err(i) = self.field_names.binary_search(&field_name) {
+                    self.field_names.insert(i, field_name.clone());
+                }
+            }
 
-        // If we are opting in to the new unstable language ABI, then use the concept of
-        // "small parse states". Otherwise, use the same representation for all parse
-        // states.
+            for alias in &production_info.alias_sequence {
+                // Generate a mapping from aliases to C identifiers.
+                if let Some(alias) = &alias {
+                    let existing_symbol = self.parse_table.symbols.iter().cloned().find(|symbol| {
+                        if let Some(default_alias) = self.default_aliases.get(symbol) {
+                            default_alias == alias
+                        } else {
+                            let (name, kind) = self.metadata_for_symbol(*symbol);
+                            name == alias.value && kind == alias.kind()
+                        }
+                    });
+
+                    // Some aliases match an existing symbol in the grammar.
+                    let alias_id;
+                    if let Some(existing_symbol) = existing_symbol {
+                        alias_id = self.symbol_ids[&self.symbol_map[&existing_symbol]].clone();
+                    }
+                    // Other aliases don't match any existing symbol, and need their own identifiers.
+                    else {
+                        if let Err(i) = self.unique_aliases.binary_search(alias) {
+                            self.unique_aliases.insert(i, alias.clone());
+                        }
+
+                        alias_id = if alias.is_named {
+                            format!("alias_sym_{}", self.sanitize_identifier(&alias.value))
+                        } else {
+                            format!("anon_alias_sym_{}", self.sanitize_identifier(&alias.value))
+                        };
+                    }
+
+                    self.alias_ids.entry(alias.clone()).or_insert(alias_id);
+                }
+            }
+        }
+
+        // Determine which states should use the "small state" representation, and which should
+        // use the normal array representation.
         let threshold = cmp::min(SMALL_STATE_THRESHOLD, self.parse_table.symbols.len() / 2);
         self.large_state_count = self
             .parse_table
@@ -361,7 +356,7 @@ impl Generator {
         indent!(self);
         for symbol in self.parse_table.symbols.iter() {
             let name = self.sanitize_string(
-                self.simple_aliases
+                self.default_aliases
                     .get(symbol)
                     .map(|alias| alias.value.as_str())
                     .unwrap_or(self.metadata_for_symbol(*symbol).0),
@@ -444,7 +439,7 @@ impl Generator {
         for symbol in &self.parse_table.symbols {
             add_line!(self, "[{}] = {{", self.symbol_ids[&symbol]);
             indent!(self);
-            if let Some(Alias { is_named, .. }) = self.simple_aliases.get(symbol) {
+            if let Some(Alias { is_named, .. }) = self.default_aliases.get(symbol) {
                 add_line!(self, ".visible = true,");
                 add_line!(self, ".named = {},", is_named);
             } else {
@@ -519,19 +514,22 @@ impl Generator {
     }
 
     fn add_non_terminal_alias_map(&mut self) {
-        let mut aliases_by_symbol = HashMap::new();
+        let mut alias_ids_by_symbol = HashMap::new();
         for variable in &self.syntax_grammar.variables {
             for production in &variable.productions {
                 for step in &production.steps {
                     if let Some(alias) = &step.alias {
                         if step.symbol.is_non_terminal()
-                            && !self.simple_aliases.contains_key(&step.symbol)
+                            && Some(alias) != self.default_aliases.get(&step.symbol)
                         {
                             if self.symbol_ids.contains_key(&step.symbol) {
-                                let alias_ids =
-                                    aliases_by_symbol.entry(step.symbol).or_insert(Vec::new());
-                                if let Err(i) = alias_ids.binary_search(&alias) {
-                                    alias_ids.insert(i, alias);
+                                if let Some(alias_id) = self.alias_ids.get(&alias) {
+                                    let alias_ids = alias_ids_by_symbol
+                                        .entry(step.symbol)
+                                        .or_insert(Vec::new());
+                                    if let Err(i) = alias_ids.binary_search(&alias_id) {
+                                        alias_ids.insert(i, alias_id);
+                                    }
                                 }
                             }
                         }
@@ -540,19 +538,19 @@ impl Generator {
             }
         }
 
-        let mut aliases_by_symbol = aliases_by_symbol.iter().collect::<Vec<_>>();
-        aliases_by_symbol.sort_unstable_by_key(|e| e.0);
+        let mut alias_ids_by_symbol = alias_ids_by_symbol.iter().collect::<Vec<_>>();
+        alias_ids_by_symbol.sort_unstable_by_key(|e| e.0);
 
         add_line!(self, "static uint16_t ts_non_terminal_alias_map[] = {{");
         indent!(self);
-        for (symbol, aliases) in aliases_by_symbol {
+        for (symbol, alias_ids) in alias_ids_by_symbol {
             let symbol_id = &self.symbol_ids[symbol];
             let public_symbol_id = &self.symbol_ids[&self.symbol_map[&symbol]];
-            add_line!(self, "{}, {},", symbol_id, 1 + aliases.len());
+            add_line!(self, "{}, {},", symbol_id, 1 + alias_ids.len());
             indent!(self);
             add_line!(self, "{},", public_symbol_id);
-            for alias in aliases {
-                add_line!(self, "{},", &self.alias_ids[&alias]);
+            for alias_id in alias_ids {
+                add_line!(self, "{},", alias_id);
             }
             dedent!(self);
         }
@@ -1545,7 +1543,7 @@ impl Generator {
 ///    for keyword capture, if any.
 /// * `syntax_grammar` - The syntax grammar extracted from the language's grammar
 /// * `lexical_grammar` - The lexical grammar extracted from the language's grammar
-/// * `simple_aliases` - A map describing the global rename rules that should apply.
+/// * `default_aliases` - A map describing the global rename rules that should apply.
 ///    the keys are symbols that are *always* aliased in the same way, and the values
 ///    are the aliases that are applied to those symbols.
 /// * `next_abi` - A boolean indicating whether to opt into the new, unstable parse
@@ -1558,7 +1556,7 @@ pub(crate) fn render_c_code(
     keyword_capture_token: Option<Symbol>,
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
-    simple_aliases: AliasMap,
+    default_aliases: AliasMap,
     next_abi: bool,
 ) -> String {
     Generator {
@@ -1572,7 +1570,7 @@ pub(crate) fn render_c_code(
         keyword_capture_token,
         syntax_grammar,
         lexical_grammar,
-        simple_aliases,
+        default_aliases,
         symbol_ids: HashMap::new(),
         symbol_order: HashMap::new(),
         alias_ids: HashMap::new(),
