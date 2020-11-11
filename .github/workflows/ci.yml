@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - "**"
+
+env:
+  RUSTFLAGS: -Cdebuginfo=0
+
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  tests:
+    name: Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+        toolchain: [nightly]
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: install ${{ matrix.toolchain }} toolchain
+        id: install_toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          profile: minimal
+          # Don't use a 'components:' entry--we don't need them with beta/nightly, plus nightly often doesn't have them
+          override: true
+
+      - run: cargo test
