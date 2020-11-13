@@ -5,6 +5,7 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::ops::Range;
+use std::os::raw::c_char;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{char, fmt, mem, str};
 use tree_sitter::{
@@ -230,8 +231,9 @@ impl TagsConfiguration {
 
     pub fn syntax_type_name(&self, id: u32) -> &str {
         unsafe {
-            let cstr = CStr::from_ptr(self.syntax_type_names[id as usize].as_ptr() as *const i8)
-                .to_bytes();
+            let cstr =
+                CStr::from_ptr(self.syntax_type_names[id as usize].as_ptr() as *const c_char)
+                    .to_bytes();
             str::from_utf8(cstr).expect("syntax type name was not valid utf-8")
         }
     }
