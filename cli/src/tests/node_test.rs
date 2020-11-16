@@ -739,7 +739,7 @@ fn test_node_numeric_symbols_respect_simple_aliases() {
     let root = tree.root_node();
     assert_eq!(
         root.to_sexp(),
-        "(program (binary left: (unary (identifier)) right: (identifier)))",
+        "(program (binary left: (unary operand: (identifier)) right: (identifier)))",
     );
 
     let binary_node = root.child(0).unwrap();
