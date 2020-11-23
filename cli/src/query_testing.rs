@@ -135,11 +135,9 @@ pub fn assert_expected_captures(
     let contents = fs::read_to_string(path)?;
     let pairs = parse_position_comments(parser, language, contents.as_bytes())?;
     for info in &infos {
-        let found = pairs.iter().find(|p| {
+        if let Some(found) = pairs.iter().find(|p| {
             p.position.row == info.start.row && p.position >= info.start && p.position < info.end
-        });
-
-        if let Some(found) = found {
+        }) {
             if found.expected_capture_name != info.name && info.name != "name" {
                 Err(error::Error::new(format!(
                     "Assertion failed: at {}, found {}, expected {}",
