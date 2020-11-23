@@ -1507,7 +1507,7 @@ fn test_query_matches_with_supertypes() {
                 value: (expression) @kw_arg)
 
             (assignment
-              left: (left_hand_side (identifier) @var_def))
+              left: (identifier) @var_def)
 
             (primary_expression/identifier) @var_ref
             "#,

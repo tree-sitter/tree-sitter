@@ -62,6 +62,7 @@ Parsers for these languages are in development:
 * [Julia](https://github.com/tree-sitter/tree-sitter-julia)
 * [Nix](https://github.com/cstrahan/tree-sitter-nix)
 * [Scala](https://github.com/tree-sitter/tree-sitter-scala)
+* [SPARQL](https://github.com/BonaBeavis/tree-sitter-sparql)
 * [Swift](https://github.com/tree-sitter/tree-sitter-swift)
 
 ### Talks on Tree-sitter

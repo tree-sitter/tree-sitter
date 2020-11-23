@@ -1,6 +1,7 @@
 use super::{Error, TagsConfiguration, TagsContext};
 use std::collections::HashMap;
 use std::ffi::CStr;
+use std::os::raw::c_char;
 use std::process::abort;
 use std::sync::atomic::AtomicUsize;
 use std::{fmt, slice, str};
@@ -73,7 +74,7 @@ pub extern "C" fn ts_tagger_delete(this: *mut TSTagger) {
 #[no_mangle]
 pub extern "C" fn ts_tagger_add_language(
     this: *mut TSTagger,
-    scope_name: *const i8,
+    scope_name: *const c_char,
     language: Language,
     tags_query: *const u8,
     locals_query: *const u8,
@@ -109,7 +110,7 @@ pub extern "C" fn ts_tagger_add_language(
 #[no_mangle]
 pub extern "C" fn ts_tagger_tag(
     this: *mut TSTagger,
-    scope_name: *const i8,
+    scope_name: *const c_char,
     source_code: *const u8,
     source_code_len: u32,
     output: *mut TSTagsBuffer,
@@ -234,7 +235,7 @@ pub extern "C" fn ts_tags_buffer_found_parse_error(this: *const TSTagsBuffer) ->
 #[no_mangle]
 pub extern "C" fn ts_tagger_syntax_kinds_for_scope_name(
     this: *mut TSTagger,
-    scope_name: *const i8,
+    scope_name: *const c_char,
     len: *mut u32,
 ) -> *const *const i8 {
     let tagger = unwrap_mut_ptr(this);
