@@ -33,15 +33,15 @@ fn test_highlight_test_with_basic_test() {
         &[
             Assertion {
                 position: Point::new(0, 5),
-                expected: "function".to_string()
+                expected_capture_name: "function".to_string()
             },
             Assertion {
                 position: Point::new(0, 11),
-                expected: "keyword".to_string()
+                expected_capture_name: "keyword".to_string()
             },
             Assertion {
                 position: Point::new(3, 9),
-                expected: "variable.parameter".to_string()
+                expected_capture_name: "variable.parameter".to_string()
             },
         ]
     );
