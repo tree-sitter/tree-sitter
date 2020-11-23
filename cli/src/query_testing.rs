@@ -12,8 +12,8 @@ lazy_static! {
 #[derive(Debug, Eq, PartialEq)]
 pub struct CaptureInfo {
     pub name: String,
-    pub position: Point,
-    pub terminus: Point,
+    pub start: Point,
+    pub end: Point,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -136,16 +136,14 @@ pub fn assert_expected_captures(
     let pairs = parse_position_comments(parser, language, contents.as_bytes())?;
     for info in &infos {
         let found = pairs.iter().find(|p| {
-            p.position.row == info.position.row
-                && p.position >= info.position
-                && p.position < info.terminus
+            p.position.row == info.start.row && p.position >= info.start && p.position < info.end
         });
 
         if let Some(found) = found {
             if found.expected_capture_name != info.name && info.name != "name" {
                 Err(error::Error::new(format!(
                     "Assertion failed: at {}, found {}, expected {}",
-                    info.position, found.expected_capture_name, info.name
+                    info.start, found.expected_capture_name, info.name
                 )))?
             }
         }

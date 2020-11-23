@@ -57,8 +57,8 @@ pub fn query_files_at_paths(
                 )?;
                 results.push(query_testing::CaptureInfo {
                     name: capture_name.to_string(),
-                    position: capture.node.start_position(),
-                    terminus: capture.node.end_position(),
+                    start: capture.node.start_position(),
+                    end: capture.node.end_position(),
                 });
             }
         } else {
@@ -85,8 +85,8 @@ pub fn query_files_at_paths(
                     }
                     results.push(query_testing::CaptureInfo {
                         name: capture_name.to_string(),
-                        position: capture.node.start_position(),
-                        terminus: capture.node.end_position(),
+                        start: capture.node.start_position(),
+                        end: capture.node.end_position(),
                     });
                 }
             }
