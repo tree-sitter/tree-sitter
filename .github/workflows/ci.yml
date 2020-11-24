@@ -36,7 +36,6 @@ jobs:
           override: true
 
       - run: |
-          make
           cargo build --release
           script/fetch-fixtures
           script/generate-fixtures
