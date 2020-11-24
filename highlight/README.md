@@ -17,7 +17,7 @@ extern "C" tree_sitter_javascript();
 Define the list of highlight names that you will recognize:
 
 ```rust
-let highlight_names = [
+let highlight_names : Vec<String> = [
     "attribute",
     "constant",
     "function.builtin",
@@ -93,14 +93,14 @@ let highlights = highlighter.highlight(
 ).unwrap();
 
 for event in highlights {
-    match event? {
+    match event.unwrap() {
         HighlightEvent::Source {start, end} => {
             eprintln!("source: {}-{}", start, end);
         },
-        HighlightEvent::HighlightStart(s) {
+        HighlightEvent::HighlightStart(s) => {
             eprintln!("highlight style started: {:?}", s);
         },
-        HighlightEvent::HighlightEnd {
+        HighlightEvent::HighlightEnd => {
             eprintln!("highlight style ended");
         },
     }
