@@ -39,7 +39,7 @@ jobs:
           (eval "$WASM_ENV" && script/build-wasm)
           make
           cargo build --release
-          script/fetch-features
+          script/fetch-fixtures
           script/generate-fixtures
           (eval "$WASM_ENV" && script/generate-fixtures-wasm)
           script/test
