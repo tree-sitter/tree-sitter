@@ -16,12 +16,12 @@ env:
 
 jobs:
   tests:
-    name: Tests
+    name: Unix tests
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        os: [macos-latest, ubuntu-latest]
         toolchain: [nightly]
     steps:
       - uses: actions/checkout@v2
@@ -35,4 +35,13 @@ jobs:
           # Don't use a 'components:' entry--we don't need them with beta/nightly, plus nightly often doesn't have them
           override: true
 
-      - run: make
+      - run: |
+          (eval "$WASM_ENV" && script/build-wasm)
+          make
+          cargo build --release
+          script/fetch-features
+          script/generate-fixtures
+          (eval "$WASM_ENV" && script/generate-fixtures-wasm)
+          script/test
+          script/test-wasm
+          script/benchmark
