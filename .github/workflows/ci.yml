@@ -36,12 +36,9 @@ jobs:
           override: true
 
       - run: |
-          (eval "$WASM_ENV" && script/build-wasm)
           make
           cargo build --release
           script/fetch-fixtures
           script/generate-fixtures
-          (eval "$WASM_ENV" && script/generate-fixtures-wasm)
           script/test
-          script/test-wasm
           script/benchmark
