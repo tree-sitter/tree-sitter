@@ -1,5 +1,6 @@
 use super::helpers::fixtures::{get_highlight_config, get_language, test_loader};
-use crate::test_highlight::{get_highlight_positions, parse_highlight_test};
+use crate::query_testing::{parse_position_comments, Assertion};
+use crate::test_highlight::get_highlight_positions;
 use tree_sitter::{Parser, Point};
 use tree_sitter_highlight::{Highlight, Highlighter};
 
@@ -25,13 +26,23 @@ fn test_highlight_test_with_basic_test() {
     ]
     .join("\n");
 
-    let assertions = parse_highlight_test(&mut Parser::new(), language, source.as_bytes()).unwrap();
+    let assertions =
+        parse_position_comments(&mut Parser::new(), language, source.as_bytes()).unwrap();
     assert_eq!(
         assertions,
         &[
-            (Point::new(0, 5), "function".to_string()),
-            (Point::new(0, 11), "keyword".to_string()),
-            (Point::new(3, 9), "variable.parameter".to_string()),
+            Assertion {
+                position: Point::new(0, 5),
+                expected_capture_name: "function".to_string()
+            },
+            Assertion {
+                position: Point::new(0, 11),
+                expected_capture_name: "keyword".to_string()
+            },
+            Assertion {
+                position: Point::new(3, 9),
+                expected_capture_name: "variable.parameter".to_string()
+            },
         ]
     );
 
