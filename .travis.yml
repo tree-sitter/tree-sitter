@@ -58,8 +58,6 @@ deploy:
   file_glob: true
   file:
     - "tree-sitter-*.gz"
-    - "target/release/tree-sitter.js"
-    - "target/release/tree-sitter.wasm"
   draft: true
   overwrite: true
   skip_cleanup: true
