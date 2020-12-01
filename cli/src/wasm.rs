@@ -57,7 +57,7 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
         }
 
         // Run `emcc` in a container using the `emscripten-slim` image
-        command.args(&["trzeci/emscripten-slim", "emcc"]);
+        command.args(&["emscripten/emsdk", "emcc"]);
     } else {
         return Error::err(
             "You must have either emcc or docker on your PATH to run this command".to_string(),

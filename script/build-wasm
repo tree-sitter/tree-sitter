@@ -30,7 +30,6 @@ EOF
 set -e
 
 web_dir=lib/binding_web
-exports=$(cat ${web_dir}/exports.json)
 emscripten_flags="-O3"
 minify_js=1
 force_docker=0
@@ -64,11 +63,11 @@ emcc=
 if which emcc > /dev/null && [[ "$force_docker" == "0" ]]; then
   emcc=emcc
 elif which docker > /dev/null; then
-  emcc="docker run               \
-    --rm                         \
-    -v $(pwd):/src:Z             \
-    -u $(id -u)                  \
-    trzeci/emscripten-slim       \
+  emcc="docker run    \
+    --rm              \
+    -v $(pwd):/src:Z  \
+    -u $(id -u)       \
+    emscripten/emsdk  \
     emcc"
 else
   echo 'You must have either `docker` or `emcc` on your PATH to run this script'
@@ -79,24 +78,27 @@ mkdir -p target/scratch
 
 # Use emscripten to generate `tree-sitter.js` and `tree-sitter.wasm`
 # in the `target/scratch` directory
-$emcc                                \
-  -s WASM=1                          \
-  -s TOTAL_MEMORY=33554432           \
-  -s ALLOW_MEMORY_GROWTH=1           \
-  -s MAIN_MODULE=2                   \
-  -s NO_FILESYSTEM=1                 \
-  -s "EXPORTED_FUNCTIONS=${exports}" \
-  $emscripten_flags                  \
-  -std=c99                           \
-  -D 'fprintf(...)='                 \
-  -D NDEBUG=                         \
-  -I lib/src                         \
-  -I lib/include                     \
-  --js-library ${web_dir}/imports.js \
-  --pre-js ${web_dir}/prefix.js      \
-  --post-js ${web_dir}/binding.js    \
-  lib/src/lib.c                      \
-  ${web_dir}/binding.c               \
+$emcc                                            \
+  -s WASM=1                                      \
+  -s TOTAL_MEMORY=33554432                       \
+  -s ALLOW_MEMORY_GROWTH=1                       \
+  -s MAIN_MODULE=2                               \
+  -s NO_FILESYSTEM=1                             \
+  -s NODEJS_CATCH_EXIT=0                         \
+  -s NODEJS_CATCH_REJECTION=0                    \
+  -s EXPORTED_FUNCTIONS=@${web_dir}/exports.json \
+  $emscripten_flags                              \
+  -std=c99                                       \
+  -D 'fprintf(...)='                             \
+  -D NDEBUG=                                     \
+  -I lib/src                                     \
+  -I lib/include                                 \
+  --js-library ${web_dir}/imports.js             \
+  --pre-js ${web_dir}/prefix.js                  \
+  --post-js ${web_dir}/binding.js                \
+  --post-js ${web_dir}/suffix.js                 \
+  lib/src/lib.c                                  \
+  ${web_dir}/binding.c                           \
   -o target/scratch/tree-sitter.js
 
 # Use terser to write a minified version of `tree-sitter.js` into
