@@ -64,11 +64,11 @@ emcc=
 if which emcc > /dev/null && [[ "$force_docker" == "0" ]]; then
   emcc=emcc
 elif which docker > /dev/null; then
-  emcc="docker run               \
-    --rm                         \
-    -v $(pwd):/src:Z             \
-    -u $(id -u)                  \
-    trzeci/emscripten-slim       \
+  emcc="docker run    \
+    --rm              \
+    -v $(pwd):/src:Z  \
+    -u $(id -u)       \
+    emscripten/emsdk  \
     emcc"
 else
   echo 'You must have either `docker` or `emcc` on your PATH to run this script'
