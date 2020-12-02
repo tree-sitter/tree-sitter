@@ -35,17 +35,8 @@ export RUST_TEST_THREADS=1
 export RUST_BACKTRACE=full
 
 mode=normal
+test_flags="-p tree-sitter-cli"
 
-# Specify a `--target` explicitly. For some reason, this is required for
-# address sanitizer support.
-toolchain=$(rustup show active-toolchain)
-toolchain_regex='(stable|beta|nightly)-([_a-z0-9-]+).*'
-if [[ $toolchain =~ $toolchain_regex ]]; then
-  release=${BASH_REMATCH[1]}
-  current_target=${BASH_REMATCH[2]}
-else
-  echo "Failed to parse toolchain '${toolchain}'"
-fi
 
 while getopts "adDghl:e:s:t:" option; do
   case ${option} in
@@ -55,6 +46,17 @@ while getopts "adDghl:e:s:t:" option; do
       ;;
     a)
       export RUSTFLAGS="-Z sanitizer=address"
+      # Specify a `--target` explicitly. For some reason, this is required for
+      # address sanitizer support.
+      toolchain=$(rustup show active-toolchain)
+      toolchain_regex='(stable|beta|nightly)-([_a-z0-9-]+).*'
+      if [[ $toolchain =~ $toolchain_regex ]]; then
+        release=${BASH_REMATCH[1]}
+        current_target=${BASH_REMATCH[2]}
+      else
+        echo "Failed to parse toolchain '${toolchain}'"
+      fi
+      test_flags="${test_flags} --target ${current_target}"
       ;;
     l)
       export TREE_SITTER_TEST_LANGUAGE_FILTER=${OPTARG}
@@ -94,10 +96,10 @@ fi
 
 if [[ "${mode}" == "debug" ]]; then
   test_binary=$(
-    cargo test -p tree-sitter-cli --no-run --message-format=json 2> /dev/null |\
+    cargo test $test_flags --no-run --message-format=json 2> /dev/null |\
     jq -rs 'map(select(.target.name == "tree-sitter-cli" and .executable))[0].executable'
   )
   lldb "${test_binary}" -- $top_level_filter
 else
-  cargo test --target=${current_target} -p tree-sitter-cli --jobs 1 $top_level_filter -- --nocapture
+  cargo test $test_flags --jobs 1 $top_level_filter -- --nocapture
 fi
