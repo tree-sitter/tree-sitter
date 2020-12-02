@@ -191,10 +191,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "difference"
-version = "2.0.0"
+name = "diffs"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "524cbf6897b527295dff137cec09ecf3a05f4fddffd7dfcd1585403449e74198"
+checksum = "bb4e4582f27b475e229dc0926b12082a6fb8662c7cb25ed1465243486fe181a2"
 
 [[package]]
 name = "dirs"
@@ -838,7 +838,7 @@ dependencies = [
  "atty",
  "cc",
  "clap",
- "difference",
+ "diffs",
  "dirs",
  "glob",
  "lazy_static",

@@ -1,7 +1,7 @@
 use super::error::{Error, Result};
 use super::util;
 use ansi_term::Colour;
-use difference::{Changeset, Difference};
+use diffs;
 use lazy_static::lazy_static;
 use regex::bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder};
 use regex::Regex;
@@ -87,9 +87,9 @@ pub fn run_tests_at_path(
             println!("{} failures:", failures.len())
         }
 
-        print_diff_key();
         for (i, (name, actual, expected)) in failures.iter().enumerate() {
             println!("\n  {}. {}:", i + 1, name);
+            print_diff_key();
             print_diff(actual, expected);
         }
         Error::err(String::new())
@@ -116,31 +116,54 @@ pub fn check_queries_at_path(language: Language, path: &Path) -> Result<()> {
     Ok(())
 }
 
+mod diff_handler { // needed to define fn replace
+    use ansi_term::Colour;
+    pub struct DiffHandler <'a> {
+        pub a: &'a Vec<&'a str>,
+        pub b: &'a Vec<&'a str>
+    }
+    impl <'a> diffs::Diff for DiffHandler <'a> {
+        type Error = ();
+        fn equal(&mut self, pos1: usize, _pos2: usize, len: usize) -> std::result::Result<(), ()> {
+            println!(
+                "  {}", &self.a[pos1..(pos1+len)].join(" ")
+            );
+            Ok(())
+        }
+        fn replace(&mut self, pos1: usize, len1: usize, pos2: usize, len2: usize) -> Result<(), ()> {
+            self.insert(pos1, pos2, len2).ok(); // .ok() = ignore errors
+            self.delete(pos1, len1, pos2).ok();
+            Ok(())
+        }
+        fn insert(&mut self, _pos1: usize, pos2: usize, len2: usize) -> std::result::Result<(), ()> {
+            println!("{}", Colour::Green.paint(format!(
+                "+ {}", &self.b[pos2..(pos2+len2)].join(" ")
+            )));
+            Ok(())
+        }
+        fn delete(&mut self, pos1: usize, len1: usize, _pos2: usize) -> std::result::Result<(), ()> {
+            println!("{}", Colour::Red.paint(format!(
+                "- {}", &self.a[pos1..(pos1+len1)].join(" ")
+            )));
+            Ok(())
+        }
+    }
+}
+
 pub fn print_diff_key() {
     println!(
-        "\n{} / {}",
-        Colour::Green.paint("expected"),
-        Colour::Red.paint("actual")
+        "\n{}\n{}",
+        Colour::Green.paint("+++ expected"),
+        Colour::Red.paint("--- actual")
     );
 }
 
 pub fn print_diff(actual: &String, expected: &String) {
-    let changeset = Changeset::new(actual, expected, " ");
-    print!("    ");
-    for diff in &changeset.diffs {
-        match diff {
-            Difference::Same(part) => {
-                print!("{}{}", part, changeset.split);
-            }
-            Difference::Add(part) => {
-                print!("{}{}", Colour::Green.paint(part), changeset.split);
-            }
-            Difference::Rem(part) => {
-                print!("{}{}", Colour::Red.paint(part), changeset.split);
-            }
-        }
-    }
-    println!("");
+    // compare tokens, split by single space
+    let a: Vec<&str> = actual.split(" ").collect();
+    let b: Vec<&str> = expected.split(" ").collect();
+    let mut diff = diffs::Replace::new( diff_handler::DiffHandler{ a: &a, b: &b } );
+    diffs::myers::diff(&mut diff, &a, 0, a.len(), &b, 0, b.len()).unwrap();
 }
 
 fn run_tests(
