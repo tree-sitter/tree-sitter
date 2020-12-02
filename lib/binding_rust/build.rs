@@ -21,9 +21,9 @@ fn main() {
 
     let mut config = cc::Build::new();
 
-    println!("cargo:rerun-if-env-changed=PROFILE");
-    if env::var("PROFILE").map_or(false, |s| s == "debug") {
-        config.define("TREE_SITTER_TEST", "");
+    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_ALLOCATION_TRACKING");
+    if env::var("CARGO_FEATURE_ALLOCATION_TRACKING").is_ok() {
+        config.define("TREE_SITTER_ALLOCATION_TRACKING", "");
     }
 
     let src_path = Path::new("src");

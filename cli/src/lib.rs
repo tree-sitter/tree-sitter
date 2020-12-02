@@ -16,3 +16,6 @@ pub mod web_ui;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(not(test))]
+mod allocations_stubs;
