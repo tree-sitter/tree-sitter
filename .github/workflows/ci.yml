@@ -9,8 +9,6 @@ on:
       - "**"
 
 env:
-  RUSTFLAGS: -Cdebuginfo=0
-
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
 
@@ -22,17 +20,15 @@ jobs:
       fail-fast: true
       matrix:
         os: [ubuntu-latest]
-        toolchain: [nightly]
+        toolchain: [stable]
     steps:
       - uses: actions/checkout@v2
 
-      - name: install ${{ matrix.toolchain }} toolchain
-        id: install_toolchain
+      - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.toolchain }}
           profile: minimal
-          # Don't use a 'components:' entry--we don't need them with beta/nightly, plus nightly often doesn't have them
           override: true
 
       - run: |
