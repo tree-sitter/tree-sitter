@@ -390,7 +390,7 @@ fn flatten_tests(test: TestEntry) -> Vec<(String, Vec<u8>, String, bool)> {
                 }
                 result.push((name, input, output, has_fields));
             }
-            TestEntry::Group { mut name, children } => {
+            TestEntry::Group { mut name, children, .. } => {
                 if !prefix.is_empty() {
                     name.insert_str(0, " - ");
                     name.insert_str(0, prefix);
