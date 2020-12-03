@@ -1,26 +1,63 @@
 use super::error::Error;
 use super::wasm;
+use std::env;
 use std::fs;
 use std::net::TcpListener;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use tiny_http::{Header, Response, Server};
 use webbrowser;
 
-const HTML: &'static str = include_str!("./web_ui.html");
-const PLAYGROUND_JS: &'static [u8] = include_bytes!("../../docs/assets/js/playground.js");
+macro_rules! resource {
+    ($name: tt, $path: tt) => {
+        #[cfg(TREE_SITTER_EMBED_WASM_BINDING)]
+        fn $name(tree_sitter_dir: &Option<PathBuf>) -> Vec<u8> {
+            if let Some(tree_sitter_dir) = tree_sitter_dir {
+                fs::read(tree_sitter_dir.join($path)).unwrap()
+            } else {
+                include_bytes!(concat!("../../", $path)).to_vec()
+            }
+        }
 
-#[cfg(unix)]
-const LIB_JS: &'static [u8] = include_bytes!("../../lib/binding_web/tree-sitter.js");
-#[cfg(unix)]
-const LIB_WASM: &'static [u8] = include_bytes!("../../lib/binding_web/tree-sitter.wasm");
+        #[cfg(not(TREE_SITTER_EMBED_WASM_BINDING))]
+        fn $name(tree_sitter_dir: &Option<PathBuf>) -> Vec<u8> {
+            if let Some(tree_sitter_dir) = tree_sitter_dir {
+                fs::read(tree_sitter_dir.join($path)).unwrap()
+            } else {
+                include_bytes!(concat!("../../", $path)).to_vec()
+            }
+        }
+    };
+}
 
-#[cfg(windows)]
-const LIB_JS: &'static [u8] = &[];
-#[cfg(windows)]
-const LIB_WASM: &'static [u8] = &[];
+macro_rules! optional_resource {
+    ($name: tt, $path: tt) => {
+        #[cfg(TREE_SITTER_EMBED_WASM_BINDING)]
+        fn $name(tree_sitter_dir: &Option<PathBuf>) -> Vec<u8> {
+            if let Some(tree_sitter_dir) = tree_sitter_dir {
+                fs::read(tree_sitter_dir.join($path)).unwrap()
+            } else {
+                include_bytes!(concat!("../../", $path)).to_vec()
+            }
+        }
 
-pub fn serve(grammar_path: &Path) {
+        #[cfg(not(TREE_SITTER_EMBED_WASM_BINDING))]
+        fn $name(tree_sitter_dir: &Option<PathBuf>) -> Vec<u8> {
+            if let Some(tree_sitter_dir) = tree_sitter_dir {
+                fs::read(tree_sitter_dir.join($path)).unwrap()
+            } else {
+                Vec::new()
+            }
+        }
+    };
+}
+
+resource!(get_main_html, "cli/src/web_ui.html");
+resource!(get_playground_js, "docs/assets/js/playground.js");
+optional_resource!(get_lib_js, "lib/binding_web/tree-sitter.js");
+optional_resource!(get_lib_wasm, "lib/binding_web/tree-sitter.wasm");
+
+pub fn serve(grammar_path: &Path, open_in_browser: bool) {
     let port = get_available_port().expect("Couldn't find an available port");
     let url = format!("127.0.0.1:{}", port);
     let server = Server::http(&url).expect("Failed to start web server");
@@ -36,37 +73,42 @@ pub fn serve(grammar_path: &Path) {
             )
         }))
         .unwrap();
+    if open_in_browser {
+        if let Err(_) = webbrowser::open(&format!("http://127.0.0.1:{}", port)) {
+            eprintln!("Failed to open '{}' in a web browser", url);
+        }
+    }
 
-    webbrowser::open(&format!("http://127.0.0.1:{}", port))
-        .map_err(Error::wrap(|| {
-            format!("Failed to open '{}' in a web browser", url)
-        }))
-        .unwrap();
-
-    let html = HTML
+    let tree_sitter_dir = env::var("TREE_SITTER_BASE_DIR").map(PathBuf::from).ok();
+    let main_html = String::from_utf8(get_main_html(&tree_sitter_dir))
+        .unwrap()
         .replace("THE_LANGUAGE_NAME", &grammar_name)
         .into_bytes();
+    let playground_js = get_playground_js(&tree_sitter_dir);
+    let lib_js = get_lib_js(&tree_sitter_dir);
+    let lib_wasm = get_lib_wasm(&tree_sitter_dir);
+
     let html_header = Header::from_str("Content-Type: text/html").unwrap();
     let js_header = Header::from_str("Content-Type: application/javascript").unwrap();
     let wasm_header = Header::from_str("Content-Type: application/wasm").unwrap();
 
     for request in server.incoming_requests() {
         let res = match request.url() {
-            "/" => response(&html, &html_header),
-            "/playground.js" => response(PLAYGROUND_JS, &js_header),
+            "/" => response(&main_html, &html_header),
+            "/playground.js" => response(&playground_js, &js_header),
             "/tree-sitter-parser.wasm" => response(&language_wasm, &wasm_header),
             "/tree-sitter.js" => {
                 if cfg!(windows) {
                     redirect("https://tree-sitter.github.io/tree-sitter.js")
                 } else {
-                    response(LIB_JS, &js_header)
+                    response(&lib_js, &js_header)
                 }
             }
             "/tree-sitter.wasm" => {
                 if cfg!(windows) {
                     redirect("https://tree-sitter.github.io/tree-sitter.wasm")
                 } else {
-                    response(LIB_WASM, &wasm_header)
+                    response(&lib_wasm, &wasm_header)
                 }
             }
             _ => response(b"Not found", &html_header).with_status_code(404),

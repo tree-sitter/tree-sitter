@@ -1,0 +1,61 @@
+{
+  "name": "aliased_token_rules",
+
+  "extras": [
+    {"type": "PATTERN", "value": "\\s"}
+  ],
+
+  "rules": {
+    "expression": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "a"
+        },
+        {
+          "type": "ALIAS",
+          "value": "X",
+          "named": true,
+          "content": {
+            "type": "TOKEN",
+            "content": {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": "b"
+                },
+                {
+                  "type": "STRING",
+                  "value": "c"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "ALIAS",
+          "value": "Y",
+          "named": true,
+          "content": {
+            "type": "IMMEDIATE_TOKEN",
+            "content": {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": "d"
+                },
+                {
+                  "type": "STRING",
+                  "value": "e"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -158,9 +158,17 @@ int a() {
 (translation_unit
   (function_definition
     (primitive_type)
-    (function_declarator (identifier) (parameter_list))
+    (function_declarator
+      (identifier)
+      (parameter_list))
     (compound_statement
-      (struct_specifier (type_identifier))
-      (ERROR (number_literal))
-      (primitive_type)
-      (ERROR (number_literal)))))
+      (declaration
+        (struct_specifier (type_identifier))
+        (init_declarator
+          (MISSING identifier)
+          (number_literal)))
+      (declaration
+        (primitive_type)
+        (init_declarator
+          (MISSING identifier)
+          (number_literal))))))

@@ -146,17 +146,21 @@ static bool iterator_tree_is_visible(const Iterator *self) {
   if (ts_subtree_visible(*entry.subtree)) return true;
   if (self->cursor.stack.size > 1) {
     Subtree parent = *self->cursor.stack.contents[self->cursor.stack.size - 2].subtree;
-    const TSSymbol *alias_sequence = ts_language_alias_sequence(
+    return ts_language_alias_at(
       self->language,
-      parent.ptr->production_id
-    );
-    return alias_sequence && alias_sequence[entry.structural_child_index] != 0;
+      parent.ptr->production_id,
+      entry.structural_child_index
+    ) != 0;
   }
   return false;
 }
 
-static void iterator_get_visible_state(const Iterator *self, Subtree *tree,
-                                       TSSymbol *alias_symbol, uint32_t *start_byte) {
+static void iterator_get_visible_state(
+  const Iterator *self,
+  Subtree *tree,
+  TSSymbol *alias_symbol,
+  uint32_t *start_byte
+) {
   uint32_t i = self->cursor.stack.size - 1;
 
   if (self->in_padding) {
@@ -169,13 +173,11 @@ static void iterator_get_visible_state(const Iterator *self, Subtree *tree,
 
     if (i > 0) {
       const Subtree *parent = self->cursor.stack.contents[i - 1].subtree;
-      const TSSymbol *alias_sequence = ts_language_alias_sequence(
+      *alias_symbol = ts_language_alias_at(
         self->language,
-        parent->ptr->production_id
+        parent->ptr->production_id,
+        entry.structural_child_index
       );
-      if (alias_sequence) {
-        *alias_symbol = alias_sequence[entry.structural_child_index];
-      }
     }
 
     if (ts_subtree_visible(*entry.subtree) || *alias_symbol) {
@@ -203,7 +205,7 @@ static bool iterator_descend(Iterator *self, uint32_t goal_position) {
     Length position = entry.position;
     uint32_t structural_child_index = 0;
     for (uint32_t i = 0, n = ts_subtree_child_count(*entry.subtree); i < n; i++) {
-      const Subtree *child = &entry.subtree->ptr->children[i];
+      const Subtree *child = &ts_subtree_children(*entry.subtree)[i];
       Length child_left = length_add(position, ts_subtree_padding(*child));
       Length child_right = length_add(child_left, ts_subtree_size(*child));
 
@@ -258,7 +260,7 @@ static void iterator_advance(Iterator *self) {
       Length position = length_add(entry.position, ts_subtree_total_size(*entry.subtree));
       uint32_t structural_child_index = entry.structural_child_index;
       if (!ts_subtree_extra(*entry.subtree)) structural_child_index++;
-      const Subtree *next_child = &parent->ptr->children[child_index];
+      const Subtree *next_child = &ts_subtree_children(*parent)[child_index];
 
       array_push(&self->cursor.stack, ((TreeCursorEntry){
         .subtree = next_child,

@@ -1,7 +1,7 @@
 extern crate cc;
 
-use std::{env, fs};
 use std::path::{Path, PathBuf};
+use std::{env, fs};
 
 fn main() {
     println!("cargo:rerun-if-env-changed=TREE_SITTER_STATIC_ANALYSIS");
@@ -21,13 +21,12 @@ fn main() {
 
     let mut config = cc::Build::new();
 
-    println!("cargo:rerun-if-env-changed=TREE_SITTER_TEST");
-    if env::var("TREE_SITTER_TEST").is_ok() {
+    println!("cargo:rerun-if-env-changed=PROFILE");
+    if env::var("PROFILE").map_or(false, |s| s == "debug") {
         config.define("TREE_SITTER_TEST", "");
     }
 
     let src_path = Path::new("src");
-
     for entry in fs::read_dir(&src_path).unwrap() {
         let entry = entry.unwrap();
         let path = src_path.join(entry.file_name());
@@ -37,10 +36,9 @@ fn main() {
     config
         .flag_if_supported("-std=c99")
         .flag_if_supported("-Wno-unused-parameter")
+        .include(src_path)
         .include("include")
-        .include("utf8proc")
         .file(src_path.join("lib.c"))
-        .file(Path::new("binding_rust").join("helper.c"))
         .compile("tree-sitter");
 }
 

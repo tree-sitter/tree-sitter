@@ -12,9 +12,9 @@ extern "C" {
 #include <stdbool.h>
 #include "./alloc.h"
 
-#define Array(T)     \
-  struct {           \
-    T *contents;     \
+#define Array(T)       \
+  struct {             \
+    T *contents;       \
     uint32_t size;     \
     uint32_t capacity; \
   }
@@ -37,34 +37,93 @@ extern "C" {
 #define array_reserve(self, new_capacity) \
   array__reserve((VoidArray *)(self), array__elem_size(self), new_capacity)
 
-#define array_erase(self, index) \
-  array__erase((VoidArray *)(self), array__elem_size(self), index)
-
+// Free any memory allocated for this array.
 #define array_delete(self) array__delete((VoidArray *)self)
 
 #define array_push(self, element)                            \
   (array__grow((VoidArray *)(self), 1, array__elem_size(self)), \
    (self)->contents[(self)->size++] = (element))
 
+// Increase the array's size by a given number of elements, reallocating
+// if necessary. New elements are zero-initialized.
 #define array_grow_by(self, count) \
   (array__grow((VoidArray *)(self), count, array__elem_size(self)), \
    memset((self)->contents + (self)->size, 0, (count) * array__elem_size(self)), \
    (self)->size += (count))
 
 #define array_push_all(self, other)                                       \
-  array_splice((self), (self)->size, 0, (other)->size, (other)->contents)
+  array_extend((self), (other)->size, (other)->contents)
 
-#define array_splice(self, index, old_count, new_count, new_contents)          \
-  array__splice((VoidArray *)(self), array__elem_size(self), index, old_count, \
-                new_count, new_contents)
+// Append `count` elements to the end of the array, reading their values from the
+// `contents` pointer.
+#define array_extend(self, count, contents)                    \
+  array__splice(                                               \
+    (VoidArray *)(self), array__elem_size(self), (self)->size, \
+    0, count,  contents                                        \
+  )
 
+// Remove `old_count` elements from the array starting at the given `index`. At
+// the same index, insert `new_count` new elements, reading their values from the
+// `new_contents` pointer.
+#define array_splice(self, index, old_count, new_count, new_contents)  \
+  array__splice(                                                       \
+    (VoidArray *)(self), array__elem_size(self), index,                \
+    old_count, new_count, new_contents                                 \
+  )
+
+// Insert one `element` into the array at the given `index`.
 #define array_insert(self, index, element) \
   array__splice((VoidArray *)(self), array__elem_size(self), index, 0, 1, &element)
+
+// Remove one `element` from the array at the given `index`.
+#define array_erase(self, index) \
+  array__erase((VoidArray *)(self), array__elem_size(self), index)
 
 #define array_pop(self) ((self)->contents[--(self)->size])
 
 #define array_assign(self, other) \
   array__assign((VoidArray *)(self), (const VoidArray *)(other), array__elem_size(self))
+
+#define array_swap(self, other) \
+  array__swap((VoidArray *)(self), (VoidArray *)(other))
+
+// Search a sorted array for a given `needle` value, using the given `compare`
+// callback to determine the order.
+//
+// If an existing element is found to be equal to `needle`, then the `index`
+// out-parameter is set to the existing value's index, and the `exists`
+// out-parameter is set to true. Otherwise, `index` is set to an index where
+// `needle` should be inserted in order to preserve the sorting, and `exists`
+// is set to false.
+#define array_search_sorted_with(self, compare, needle, index, exists) \
+  array__search_sorted(self, 0, compare, , needle, index, exists)
+
+// Search a sorted array for a given `needle` value, using integer comparisons
+// of a given struct field (specified with a leading dot) to determine the order.
+//
+// See also `array_search_sorted_with`.
+#define array_search_sorted_by(self, field, needle, index, exists) \
+  array__search_sorted(self, 0, _compare_int, field, needle, index, exists)
+
+// Insert a given `value` into a sorted array, using the given `compare`
+// callback to determine the order.
+#define array_insert_sorted_with(self, compare, value) \
+  do { \
+    unsigned index, exists; \
+    array_search_sorted_with(self, compare, &(value), &index, &exists); \
+    if (!exists) array_insert(self, index, value); \
+  } while (0)
+
+// Insert a given `value` into a sorted array, using integer comparisons of
+// a given struct field (specified with a leading dot) to determine the order.
+//
+// See also `array_search_sorted_by`.
+#define array_insert_sorted_by(self, field, value) \
+  do { \
+    unsigned index, exists; \
+    array_search_sorted_by(self, field, (value) field, &index, &exists); \
+    if (!exists) array_insert(self, index, value); \
+  } while (0)
 
 // Private
 
@@ -93,7 +152,7 @@ static inline void array__reserve(VoidArray *self, size_t element_size, uint32_t
     if (self->contents) {
       self->contents = ts_realloc(self->contents, new_capacity * element_size);
     } else {
-      self->contents = ts_calloc(new_capacity, element_size);
+      self->contents = ts_malloc(new_capacity * element_size);
     }
     self->capacity = new_capacity;
   }
@@ -103,6 +162,12 @@ static inline void array__assign(VoidArray *self, const VoidArray *other, size_t
   array__reserve(self, element_size, other->size);
   self->size = other->size;
   memcpy(self->contents, other->contents, self->size * element_size);
+}
+
+static inline void array__swap(VoidArray *self, VoidArray *other) {
+  VoidArray swap = *other;
+  *other = *self;
+  *self = swap;
 }
 
 static inline void array__grow(VoidArray *self, size_t count, size_t element_size) {
@@ -126,14 +191,54 @@ static inline void array__splice(VoidArray *self, size_t element_size,
   array__reserve(self, element_size, new_size);
 
   char *contents = (char *)self->contents;
-  if (self->size > old_end)
-    memmove(contents + new_end * element_size, contents + old_end * element_size,
-            (self->size - old_end) * element_size);
-  if (new_count > 0)
-    memcpy((contents + index * element_size), elements,
-           new_count * element_size);
+  if (self->size > old_end) {
+    memmove(
+      contents + new_end * element_size,
+      contents + old_end * element_size,
+      (self->size - old_end) * element_size
+    );
+  }
+  if (new_count > 0) {
+    if (elements) {
+      memcpy(
+        (contents + index * element_size),
+        elements,
+        new_count * element_size
+      );
+    } else {
+      memset(
+        (contents + index * element_size),
+        0,
+        new_count * element_size
+      );
+    }
+  }
   self->size += new_count - old_count;
 }
+
+// A binary search routine, based on Rust's `std::slice::binary_search_by`.
+#define array__search_sorted(self, start, compare, suffix, needle, index, exists) \
+  do { \
+    *(index) = start; \
+    *(exists) = false; \
+    uint32_t size = (self)->size - *(index); \
+    if (size == 0) break; \
+    int comparison; \
+    while (size > 1) { \
+      uint32_t half_size = size / 2; \
+      uint32_t mid_index = *(index) + half_size; \
+      comparison = compare(&((self)->contents[mid_index] suffix), (needle)); \
+      if (comparison <= 0) *(index) = mid_index; \
+      size -= half_size; \
+    } \
+    comparison = compare(&((self)->contents[*(index)] suffix), (needle)); \
+    if (comparison == 0) *(exists) = true; \
+    else if (comparison < 0) *(index) += 1; \
+  } while (0)
+
+// Helper macro for the `_sorted_by` routines below. This takes the left (existing)
+// parameter by reference in order to work with the generic sorting function above.
+#define _compare_int(a, b) ((int)*(a) - (int)(b))
 
 #ifdef __cplusplus
 }

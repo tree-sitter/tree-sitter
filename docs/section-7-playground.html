@@ -16,23 +16,34 @@ permalink: playground
   <option value="bash">Bash</option>
   <option value="c">C</option>
   <option value="cpp">C++</option>
+  <option value="c_sharp">C#</option>
   <option value="go">Go</option>
   <option value="html">HTML</option>
   <option value="java">Java</option>
   <option value="javascript" selected="selected">JavaScript</option>
+  <option value="php">PHP</option>
   <option value="python">Python</option>
   <option value="ruby">Ruby</option>
   <option value="rust">Rust</option>
   <option value="toml">TOML</option>
   <option value="typescript">TypeScript</option>
   <option value="yaml">YAML</option>
+  <option value="ql">QL</option>
 </select>
 
 <input id="logging-checkbox" type="checkbox"></input>
 <label for="logging-checkbox">Log</label>
 
+<input id="query-checkbox" type="checkbox"></input>
+<label for="query-checkbox">Query</label>
+
 <textarea id="code-input">
 </textarea>
+
+<div id="query-container" style="visibility: hidden; position: absolute;">
+  <h4>Query</h4>
+  <textarea id="query-input"></textarea>
+</div>
 
 <h4>Tree</h4>
 <span id="update-time"></span>

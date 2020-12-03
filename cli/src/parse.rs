@@ -2,9 +2,9 @@ use super::error::{Error, Result};
 use super::util;
 use std::io::{self, Write};
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::AtomicUsize;
 use std::time::Instant;
-use std::{fs, thread, usize};
+use std::{fmt, fs, usize};
 use tree_sitter::{InputEdit, Language, LogType, Parser, Point, Tree};
 
 #[derive(Debug)]
@@ -12,6 +12,22 @@ pub struct Edit {
     pub position: usize,
     pub deleted_length: usize,
     pub inserted_text: Vec<u8>,
+}
+
+#[derive(Debug, Default)]
+pub struct Stats {
+    pub successful_parses: usize,
+    pub total_parses: usize,
+}
+
+impl fmt::Display for Stats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        return writeln!(f, "Total parses: {}; successful parses: {}; failed parses: {}; success percentage: {:.2}%",
+                 self.total_parses,
+                 self.successful_parses,
+                 self.total_parses - self.successful_parses,
+                 (self.successful_parses as f64) / (self.total_parses as f64) * 100.0);
+    }
 }
 
 pub fn parse_file_at_path(
@@ -24,7 +40,7 @@ pub fn parse_file_at_path(
     timeout: u64,
     debug: bool,
     debug_graph: bool,
-    allow_cancellation: bool,
+    cancellation_flag: Option<&AtomicUsize>,
 ) -> Result<bool> {
     let mut _log_session = None;
     let mut parser = Parser::new();
@@ -35,16 +51,7 @@ pub fn parse_file_at_path(
 
     // If the `--cancel` flag was passed, then cancel the parse
     // when the user types a newline.
-    if allow_cancellation {
-        let flag = Box::new(AtomicUsize::new(0));
-        unsafe { parser.set_cancellation_flag(Some(&flag)) };
-        thread::spawn(move || {
-            let mut line = String::new();
-            io::stdin().read_line(&mut line).unwrap();
-            eprintln!("Cancelling");
-            flag.store(1, Ordering::Relaxed);
-        });
-    }
+    unsafe { parser.set_cancellation_flag(cancellation_flag) };
 
     // Set a timeout based on the `--time` flag.
     parser.set_timeout_micros(timeout);
@@ -70,10 +77,18 @@ pub fn parse_file_at_path(
     let mut stdout = stdout.lock();
 
     if let Some(mut tree) = tree {
-        for edit in edits {
+        if debug_graph && !edits.is_empty() {
+            println!("BEFORE:\n{}", String::from_utf8_lossy(&source_code));
+        }
+
+        for (i, edit) in edits.iter().enumerate() {
             let edit = parse_edit_flag(&source_code, edit)?;
             perform_edit(&mut tree, &mut source_code, &edit);
             tree = parser.parse(&source_code, Some(&tree)).unwrap();
+
+            if debug_graph {
+                println!("AFTER {}:\n{}", i, String::from_utf8_lossy(&source_code));
+            }
         }
 
         let duration = time.elapsed();

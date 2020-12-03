@@ -2,7 +2,7 @@ declare module 'web-tree-sitter' {
   class Parser {
     static init(): Promise<void>;
     delete(): void;
-    parse(input: string | Parser.Input, previousTree?: Parser.Tree): Parser.Tree;
+    parse(input: string | Parser.Input, previousTree?: Parser.Tree, options?: Parser.Options): Parser.Tree;
     getLanguage(): any;
     setLanguage(language: any): void;
     getLogger(): Parser.Logger;
@@ -10,14 +10,20 @@ declare module 'web-tree-sitter' {
   }
 
   namespace Parser {
+    export type Options = {
+      includedRanges?: Range[];
+    };
+
     export type Point = {
       row: number;
       column: number;
     };
 
     export type Range = {
-      start: Point;
-      end: Point;
+      startPosition: Point;
+      endPosition: Point;
+      startIndex: number;
+      endIndex: number;
     };
 
     export type Edit = {
@@ -31,7 +37,7 @@ declare module 'web-tree-sitter' {
 
     export type Logger = (
       message: string,
-      params: {[param: string]: string},
+      params: { [param: string]: string },
       type: "parse" | "lex"
     ) => void;
 
@@ -42,9 +48,9 @@ declare module 'web-tree-sitter' {
     ) => string | null;
 
     export interface SyntaxNode {
+      id: number;
       tree: Tree;
       type: string;
-      isNamed: boolean;
       text: string;
       startPosition: Point;
       endPosition: Point;
@@ -68,6 +74,7 @@ declare module 'web-tree-sitter' {
       hasError(): boolean;
       equals(other: SyntaxNode): boolean;
       isMissing(): boolean;
+      isNamed(): boolean;
       toString(): string;
       child(index: number): SyntaxNode | null;
       namedChild(index: number): SyntaxNode | null;
@@ -120,13 +127,38 @@ declare module 'web-tree-sitter' {
     }
 
     class Language {
-      static load(): Promise<Language>;
+      static load(path: string): Promise<Language>;
 
       readonly version: number;
       readonly fieldCount: number;
 
-      fieldNameForId(fieldId: number): string | null
-      fieldIdForName(fieldName: string): number | null
+      fieldNameForId(fieldId: number): string | null;
+      fieldIdForName(fieldName: string): number | null;
+      query(source: string): Query;
+    }
+
+    interface QueryCapture {
+      name: string;
+      node: SyntaxNode;
+    }
+
+    interface QueryMatch {
+      pattern: number;
+      captures: QueryCapture[];
+    }
+
+    interface PredicateResult {
+      operator: string;
+      operands: { name: string; type: string }[];
+    }
+
+    class Query {
+      captureNames: string[];
+
+      delete(): void;
+      matches(node: SyntaxNode, startPosition?: Point, endPosition?: Point): QueryMatch[];
+      captures(node: SyntaxNode, startPosition?: Point, endPosition?: Point): QueryCapture[];
+      predicatesForPattern(patternIndex: number): PredicateResult[];
     }
   }
 

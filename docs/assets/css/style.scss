@@ -12,6 +12,17 @@ body {
   overflow: scroll;
 }
 
+a[href^="http"]:after {
+  content: "";
+  display: inline-block;
+  transform: translate(0px, 2px);
+  width: .9em;
+  height: .9em;
+  margin-left: 3px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23777'%3E%3Cpath d='M20 3h-5a1 1 0 1 0 0 2h3L8 14a1 1 0 1 0 2 2l9-10v3a1 1 0 1 0 2 0V4a1 1 0 0 0-1-1zM5 3L3 5v14l2 2h14l2-2v-6a1 1 0 1 0-2 0v6H5V5h6a1 1 0 1 0 0-2H5z'/%3E%3C/svg%3E");
+  background-size: cover;
+}
+
 #container {
   position: relative;
   max-width: $container-width;
@@ -31,6 +42,12 @@ body {
   overflow-y: auto;
   border-right: 1px solid #ccc;
   z-index: 1;
+
+  .github-repo {
+    display: inline-block;
+    padding-left: 3.75em;
+    font-size: .85em;
+  }
 }
 
 #sidebar-toggle-link {
@@ -55,6 +72,10 @@ body {
 
 .nav-link.active {
   text-decoration: underline;
+}
+
+a > span {
+  text-decoration: inherit;
 }
 
 .table-of-contents-section {
@@ -118,7 +139,7 @@ body {
 }
 
 #playground-container {
-  > .CodeMirror {
+  .CodeMirror {
     height: auto;
     max-height: 350px;
     border: 1px solid #aaa;
@@ -129,7 +150,7 @@ body {
     max-height: 350px;
   }
 
-  h4, select, .field {
+  h4, select, .field, label {
     display: inline-block;
     margin-right: 20px;
   }
@@ -160,4 +181,8 @@ body {
 a.highlighted {
   background-color: #ddd;
   text-decoration: underline;
+}
+
+.query-error {
+  text-decoration: underline red dashed;
 }

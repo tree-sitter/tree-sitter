@@ -57,9 +57,11 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
         }
 
         // Run `emcc` in a container using the `emscripten-slim` image
-        command.args(&["trzeci/emscripten-slim", "emcc"]);
+        command.args(&["emscripten/emsdk", "emcc"]);
     } else {
-        return Error::err("You must have either emcc or docker on your PATH to run this command".to_string());
+        return Error::err(
+            "You must have either emcc or docker on your PATH to run this command".to_string(),
+        );
     }
 
     command.args(&[
@@ -81,30 +83,21 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
         "src",
     ]);
 
-    // Find source files to pass to emscripten
-    let src_entries = fs::read_dir(&src_dir).map_err(Error::wrap(|| {
-        format!("Failed to read source directory {:?}", src_dir)
-    }))?;
+    let src = Path::new("src");
+    let parser_c_path = src.join("parser.c");
+    let scanner_c_path = src.join("scanner.c");
+    let scanner_cc_path = src.join("scanner.cc");
+    let scanner_cpp_path = src.join("scanner.cpp");
 
-    for entry in src_entries {
-        let entry = entry?;
-        let file_name = entry.file_name();
-
-        // Do not compile the node.js binding file.
-        if file_name
-            .to_str()
-            .map_or(false, |s| s.starts_with("binding"))
-        {
-            continue;
-        }
-
-        // Compile any .c, .cc, or .cpp files
-        if let Some(extension) = Path::new(&file_name).extension().and_then(|s| s.to_str()) {
-            if extension == "c" || extension == "cc" || extension == "cpp" {
-                command.arg(Path::new("src").join(entry.file_name()));
-            }
-        }
+    if language_dir.join(&scanner_cc_path).exists() {
+        command.arg("-xc++").arg(&scanner_cc_path);
+    } else if language_dir.join(&scanner_cpp_path).exists() {
+        command.arg("-xc++").arg(&scanner_cpp_path);
+    } else if language_dir.join(&scanner_c_path).exists() {
+        command.arg(&scanner_c_path);
     }
+
+    command.arg(&parser_c_path);
 
     let output = command
         .output()

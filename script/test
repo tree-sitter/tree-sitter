@@ -37,11 +37,25 @@ export RUST_BACKTRACE=full
 
 mode=normal
 
-while getopts "dDghl:e:s:t:" option; do
+# Specify a `--target` explicitly. For some reason, this is required for
+# address sanitizer support.
+toolchain=$(rustup show active-toolchain)
+toolchain_regex='(stable|beta|nightly)-([_a-z0-9-]+).*'
+if [[ $toolchain =~ $toolchain_regex ]]; then
+  release=${BASH_REMATCH[1]}
+  current_target=${BASH_REMATCH[2]}
+else
+  echo "Failed to parse toolchain '${toolchain}'"
+fi
+
+while getopts "adDghl:e:s:t:" option; do
   case ${option} in
     h)
       usage
       exit
+      ;;
+    a)
+      export RUSTFLAGS="-Z sanitizer=address"
       ;;
     l)
       export TREE_SITTER_TEST_LANGUAGE_FILTER=${OPTARG}
@@ -69,10 +83,14 @@ done
 
 shift $(expr $OPTIND - 1)
 
-if [[ -n $TREE_SITTER_TEST_LANGUAGE_FILTER || -n $TREE_SITTER_TEST_EXAMPLE_FILTER || -n $TREE_SITTER_TEST_TRIAL_FILTER ]]; then
-  top_level_filter=corpus
-else
-  top_level_filter=$1
+top_level_filter=$1
+
+if [[ \
+  -n $TREE_SITTER_TEST_LANGUAGE_FILTER || \
+  -n $TREE_SITTER_TEST_EXAMPLE_FILTER || \
+  -n $TREE_SITTER_TEST_TRIAL_FILTER \
+]]; then
+  : ${top_level_filter:=corpus}
 fi
 
 if [[ "${mode}" == "debug" ]]; then
@@ -82,5 +100,5 @@ if [[ "${mode}" == "debug" ]]; then
   )
   lldb "${test_binary}" -- $top_level_filter
 else
-  cargo test -p tree-sitter-cli --jobs 1 $top_level_filter -- --nocapture
+  cargo test --target=${current_target} -p tree-sitter-cli --jobs 1 $top_level_filter -- --nocapture
 fi

@@ -18,14 +18,21 @@ OPTIONS
 
   -r  parse each sample the given number of times (default 5)
 
+  -g  debug
+
 EOF
 }
 
-while getopts "hl:e:r:" option; do
+mode=normal
+
+while getopts "hgl:e:r:" option; do
   case ${option} in
     h)
       usage
       exit
+      ;;
+    g)
+      mode=debug
       ;;
     e)
       export TREE_SITTER_BENCHMARK_EXAMPLE_FILTER=${OPTARG}
@@ -39,4 +46,13 @@ while getopts "hl:e:r:" option; do
   esac
 done
 
-cargo bench benchmark
+if [[ "${mode}" == "debug" ]]; then
+  test_binary=$(
+    cargo bench benchmark --no-run --message-format=json 2> /dev/null |\
+    jq -rs 'map(select(.target.name == "benchmark" and .executable))[0].executable'
+  )
+  env | grep TREE_SITTER
+  echo $test_binary
+else
+  exec cargo bench benchmark
+fi

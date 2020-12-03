@@ -2,6 +2,9 @@ language: rust
 rust:
   - stable
 
+env:
+  CFLAGS="-Wall -Wextra -Werror -Wstrict-prototypes"
+
 matrix:
   include:
     - os: osx
@@ -11,8 +14,8 @@ matrix:
 
 before_install:
   # Install node
-  - nvm install 10
-  - nvm use 10
+  - nvm install 12
+  - nvm use 12
 
   # Download emscripten and create a shorthand for adding it to the PATH.
   # Don't add it to the path globally because it overrides the default
@@ -23,6 +26,9 @@ script:
   # Build the WASM binding
   - (eval "$WASM_ENV" && script/build-wasm)
 
+  # build the shared/static libraries
+  - make
+
   # Build the CLI
   - cargo build --release
 
@@ -32,7 +38,6 @@ script:
   - (eval "$WASM_ENV" && script/generate-fixtures-wasm)
 
   # Run the tests
-  - export TREE_SITTER_STATIC_ANALYSIS=1
   - script/test
   - script/test-wasm
   - script/benchmark
@@ -53,8 +58,6 @@ deploy:
   file_glob: true
   file:
     - "tree-sitter-*.gz"
-    - "target/release/tree-sitter.js"
-    - "target/release/tree-sitter.wasm"
   draft: true
   overwrite: true
   skip_cleanup: true
@@ -65,5 +68,3 @@ cache:
   cargo: true
   directories:
     - target/emsdk
-    - test/fixtures/grammars
-    - /home/travis/.emscripten_cache

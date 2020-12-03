@@ -1,8 +1,10 @@
 use std::char;
 use std::cmp::max;
 use std::cmp::Ordering;
+use std::collections::HashSet;
 use std::fmt;
 use std::mem::swap;
+use std::ops::Range;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CharacterSet {
@@ -178,6 +180,40 @@ impl CharacterSet {
         }
     }
 
+    pub fn ranges<'a>(
+        chars: &'a Vec<char>,
+        ruled_out_characters: &'a HashSet<u32>,
+    ) -> impl Iterator<Item = Range<char>> + 'a {
+        let mut prev_range: Option<Range<char>> = None;
+        chars
+            .iter()
+            .map(|c| (*c, false))
+            .chain(Some(('\0', true)))
+            .filter_map(move |(c, done)| {
+                if done {
+                    return prev_range.clone();
+                }
+                if ruled_out_characters.contains(&(c as u32)) {
+                    return None;
+                }
+                if let Some(range) = prev_range.clone() {
+                    let mut prev_range_successor = range.end as u32 + 1;
+                    while prev_range_successor < c as u32 {
+                        if !ruled_out_characters.contains(&prev_range_successor) {
+                            prev_range = Some(c..c);
+                            return Some(range);
+                        }
+                        prev_range_successor += 1;
+                    }
+                    prev_range = Some(range.start..c);
+                    None
+                } else {
+                    prev_range = Some(c..c);
+                    None
+                }
+            })
+    }
+
     #[cfg(test)]
     pub fn contains(&self, c: char) -> bool {
         match self {
@@ -266,6 +302,13 @@ fn compare_chars(left: &Vec<char>, right: &Vec<char>) -> SetComparision {
             result.common = true;
         }
     }
+
+    match (i, j) {
+        (Some(_), _) => result.left_only = true,
+        (_, Some(_)) => result.right_only = true,
+        _ => {}
+    }
+
     result
 }
 
@@ -718,7 +761,7 @@ mod tests {
                 .add_range('d', 'e')
         );
 
-        // A whitelist and an intersecting blacklist.
+        // An inclusion and an intersecting exclusion.
         // Both sets contain 'e', 'f', and 'm'
         let mut a = CharacterSet::empty()
             .add_range('c', 'h')
@@ -748,7 +791,7 @@ mod tests {
         assert_eq!(a, CharacterSet::Include(vec!['c', 'd', 'g', 'h', 'k', 'l']));
         assert_eq!(b, CharacterSet::empty().add_range('a', 'm').negate());
 
-        // A blacklist and an overlapping blacklist.
+        // An exclusion and an overlapping inclusion.
         // Both sets exclude 'c', 'd', and 'e'
         let mut a = CharacterSet::empty().add_range('a', 'e').negate();
         let mut b = CharacterSet::empty().add_range('c', 'h').negate();
@@ -759,7 +802,7 @@ mod tests {
         assert_eq!(a, CharacterSet::Include(vec!['f', 'g', 'h']));
         assert_eq!(b, CharacterSet::Include(vec!['a', 'b']));
 
-        // A blacklist and a larger blacklist.
+        // An exclusion and a larger exclusion.
         let mut a = CharacterSet::empty().add_range('b', 'c').negate();
         let mut b = CharacterSet::empty().add_range('a', 'd').negate();
         assert_eq!(
@@ -810,5 +853,53 @@ mod tests {
         );
         assert!(a.does_intersect(&b));
         assert!(b.does_intersect(&a));
+
+        let (a, b) = (
+            CharacterSet::Include(vec!['c']),
+            CharacterSet::Exclude(vec!['a']),
+        );
+        assert!(a.does_intersect(&b));
+        assert!(b.does_intersect(&a));
+    }
+
+    #[test]
+    fn test_character_set_get_ranges() {
+        struct Row {
+            chars: Vec<char>,
+            ruled_out_chars: Vec<char>,
+            expected_ranges: Vec<Range<char>>,
+        }
+
+        let table = [
+            Row {
+                chars: vec!['a'],
+                ruled_out_chars: vec![],
+                expected_ranges: vec!['a'..'a'],
+            },
+            Row {
+                chars: vec!['a', 'b', 'c', 'e', 'z'],
+                ruled_out_chars: vec![],
+                expected_ranges: vec!['a'..'c', 'e'..'e', 'z'..'z'],
+            },
+            Row {
+                chars: vec!['a', 'b', 'c', 'e', 'h', 'z'],
+                ruled_out_chars: vec!['d', 'f', 'g'],
+                expected_ranges: vec!['a'..'h', 'z'..'z'],
+            },
+        ];
+
+        for Row {
+            chars,
+            ruled_out_chars,
+            expected_ranges,
+        } in table.iter()
+        {
+            let ruled_out_chars = ruled_out_chars
+                .into_iter()
+                .map(|c: &char| *c as u32)
+                .collect();
+            let ranges = CharacterSet::ranges(chars, &ruled_out_chars).collect::<Vec<_>>();
+            assert_eq!(ranges, *expected_ranges);
+        }
     }
 }

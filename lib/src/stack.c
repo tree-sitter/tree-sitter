@@ -11,7 +11,7 @@
 #define MAX_NODE_POOL_SIZE 50
 #define MAX_ITERATOR_COUNT 64
 
-#ifdef _WIN32
+#if defined _WIN32 && !defined __GNUC__
 #define inline __forceinline
 #else
 #define inline static inline __attribute__((always_inline))
@@ -288,7 +288,7 @@ inline StackSliceArray stack__iter(Stack *self, StackVersion version,
   bool include_subtrees = false;
   if (goal_subtree_count >= 0) {
     include_subtrees = true;
-    array_reserve(&iterator.subtrees, goal_subtree_count);
+    array_reserve(&iterator.subtrees, ts_subtree_alloc_size(goal_subtree_count) / sizeof(Subtree));
   }
 
   array_push(&self->iterators, iterator);
@@ -304,8 +304,9 @@ inline StackSliceArray stack__iter(Stack *self, StackVersion version,
 
       if (should_pop) {
         SubtreeArray subtrees = iterator->subtrees;
-        if (!should_stop)
+        if (!should_stop) {
           ts_subtree_array_copy(subtrees, &subtrees);
+        }
         ts_subtree_array_reverse(&subtrees);
         ts_stack__add_slice(
           self,
@@ -480,6 +481,7 @@ StackSliceArray ts_stack_pop_count(Stack *self, StackVersion version, uint32_t c
 }
 
 inline StackAction pop_pending_callback(void *payload, const StackIterator *iterator) {
+  (void)payload;
   if (iterator->subtree_count >= 1) {
     if (iterator->is_pending) {
       return StackActionPop | StackActionStop;
@@ -532,6 +534,7 @@ SubtreeArray ts_stack_pop_error(Stack *self, StackVersion version) {
 }
 
 inline StackAction pop_all_callback(void *payload, const StackIterator *iterator) {
+  (void)payload;
   return iterator->node->link_count == 0 ? StackActionPop : StackActionNone;
 }
 
@@ -569,7 +572,12 @@ void ts_stack_record_summary(Stack *self, StackVersion version, unsigned max_dep
   };
   array_init(session.summary);
   stack__iter(self, version, summarize_stack_callback, &session, -1);
-  self->heads.contents[version].summary = session.summary;
+  StackHead *head = &self->heads.contents[version];
+  if (head->summary) {
+    array_delete(head->summary);
+    ts_free(head->summary);
+  }
+  head->summary = session.summary;
 }
 
 StackSummary *ts_stack_get_summary(Stack *self, StackVersion version) {
@@ -740,6 +748,10 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
       ts_stack_node_count_since_error(self, i),
       ts_stack_error_cost(self, i)
     );
+
+    if (head->summary) {
+      fprintf(f, "\nsummary_size: %u", head->summary->size);
+    }
 
     if (head->last_external_token.ptr) {
       const ExternalScannerState *state = &head->last_external_token.ptr->external_scanner_state;

@@ -127,6 +127,9 @@ impl InlinedProductionMapBuilder {
                                     last_inserted_step.associativity = removed_step.associativity;
                                 }
                             }
+                            if p.dynamic_precedence.abs() > production.dynamic_precedence.abs() {
+                                production.dynamic_precedence = p.dynamic_precedence;
+                            }
                             production
                         }),
                     );
@@ -196,7 +199,7 @@ mod tests {
     fn test_basic_inlining() {
         let grammar = SyntaxGrammar {
             expected_conflicts: Vec::new(),
-            extra_tokens: Vec::new(),
+            extra_symbols: Vec::new(),
             external_tokens: Vec::new(),
             supertype_symbols: Vec::new(),
             word_token: None,
@@ -226,7 +229,7 @@ mod tests {
                             ],
                         },
                         Production {
-                            dynamic_precedence: 0,
+                            dynamic_precedence: -2,
                             steps: vec![ProductionStep::new(Symbol::terminal(14))],
                         },
                     ],
@@ -258,7 +261,7 @@ mod tests {
                     ],
                 },
                 Production {
-                    dynamic_precedence: 0,
+                    dynamic_precedence: -2,
                     steps: vec![
                         ProductionStep::new(Symbol::terminal(10)),
                         ProductionStep::new(Symbol::terminal(14)),
@@ -327,7 +330,7 @@ mod tests {
                 Symbol::non_terminal(3),
             ],
             expected_conflicts: Vec::new(),
-            extra_tokens: Vec::new(),
+            extra_symbols: Vec::new(),
             external_tokens: Vec::new(),
             supertype_symbols: Vec::new(),
             word_token: None,
@@ -429,7 +432,7 @@ mod tests {
                 },
             ],
             expected_conflicts: Vec::new(),
-            extra_tokens: Vec::new(),
+            extra_symbols: Vec::new(),
             external_tokens: Vec::new(),
             supertype_symbols: Vec::new(),
             word_token: None,

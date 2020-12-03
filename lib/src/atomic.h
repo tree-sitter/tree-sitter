@@ -3,7 +3,23 @@
 
 #include <stdint.h>
 
-#ifdef _WIN32
+#ifdef __TINYC__
+
+static inline size_t atomic_load(const volatile size_t *p) {
+  return *p;
+}
+
+static inline uint32_t atomic_inc(volatile uint32_t *p) {
+  *p += 1;
+  return *p;
+}
+
+static inline uint32_t atomic_dec(volatile uint32_t *p) {
+  *p-= 1;
+  return *p;
+}
+
+#elif defined(_WIN32)
 
 #include <windows.h>
 
@@ -12,11 +28,11 @@ static inline size_t atomic_load(const volatile size_t *p) {
 }
 
 static inline uint32_t atomic_inc(volatile uint32_t *p) {
-  return InterlockedIncrement(p);
+  return InterlockedIncrement((long volatile *)p);
 }
 
 static inline uint32_t atomic_dec(volatile uint32_t *p) {
-  return InterlockedDecrement(p);
+  return InterlockedDecrement((long volatile *)p);
 }
 
 #else

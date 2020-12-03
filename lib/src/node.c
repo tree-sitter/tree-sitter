@@ -79,7 +79,7 @@ static inline bool ts_node_child_iterator_next(
   TSNode *result
 ) {
   if (!self->parent.ptr || ts_node_child_iterator_done(self)) return false;
-  const Subtree *child = &self->parent.ptr->children[self->child_index];
+  const Subtree *child = &ts_subtree_children(self->parent)[self->child_index];
   TSSymbol alias_symbol = 0;
   if (!ts_subtree_extra(*child)) {
     if (self->alias_sequence) {
@@ -150,7 +150,9 @@ static inline TSNode ts_node__child(
     while (ts_node_child_iterator_next(&iterator, &child)) {
       if (ts_node__is_relevant(child, include_anonymous)) {
         if (index == child_index) {
-          ts_tree_set_cached_parent(self.tree, &child, &self);
+          if (ts_node__is_relevant(self, true)) {
+            ts_tree_set_cached_parent(self.tree, &child, &self);
+          }
           return child;
         }
         index++;
@@ -176,7 +178,7 @@ static bool ts_subtree_has_trailing_empty_descendant(
   Subtree other
 ) {
   for (unsigned i = ts_subtree_child_count(self) - 1; i + 1 > 0; i--) {
-    Subtree child = self.ptr->children[i];
+    Subtree child = ts_subtree_children(self)[i];
     if (ts_subtree_total_bytes(child) > 0) break;
     if (child.ptr == other.ptr || ts_subtree_has_trailing_empty_descendant(child, other)) {
       return true;
@@ -415,13 +417,15 @@ TSPoint ts_node_end_point(TSNode self) {
 }
 
 TSSymbol ts_node_symbol(TSNode self) {
-  return ts_node__alias(&self)
-    ? ts_node__alias(&self)
-    : ts_subtree_symbol(ts_node__subtree(self));
+  TSSymbol symbol = ts_node__alias(&self);
+  if (!symbol) symbol = ts_subtree_symbol(ts_node__subtree(self));
+  return ts_language_public_symbol(self.tree->language, symbol);
 }
 
 const char *ts_node_type(TSNode self) {
-  return ts_language_symbol_name(self.tree->language, ts_node_symbol(self));
+  TSSymbol symbol = ts_node__alias(&self);
+  if (!symbol) symbol = ts_subtree_symbol(ts_node__subtree(self));
+  return ts_language_symbol_name(self.tree->language, symbol);
 }
 
 char *ts_node_string(TSNode self) {

@@ -2,7 +2,7 @@ use super::coincident_tokens::CoincidentTokenIndex;
 use super::token_conflicts::TokenConflictMap;
 use crate::generate::dedup::split_state_id_groups;
 use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar};
-use crate::generate::nfa::{CharacterSet, NfaCursor};
+use crate::generate::nfa::NfaCursor;
 use crate::generate::rules::{Symbol, TokenSet};
 use crate::generate::tables::{AdvanceAction, LexState, LexTable, ParseStateId, ParseTable};
 use log::info;
@@ -189,13 +189,10 @@ impl<'a> LexTableBuilder<'a> {
         // character that leads to the empty set of NFA states.
         if eof_valid {
             let (next_state_id, _) = self.add_state(Vec::new(), false);
-            self.table.states[state_id].advance_actions.push((
-                CharacterSet::empty().add_char('\0'),
-                AdvanceAction {
-                    state: next_state_id,
-                    in_main_token: true,
-                },
-            ));
+            self.table.states[state_id].eof_action = Some(AdvanceAction {
+                state: next_state_id,
+                in_main_token: true,
+            });
         }
 
         for transition in transitions {
@@ -273,6 +270,7 @@ fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
         let signature = (
             i == 0,
             state.accept_action,
+            state.eof_action.is_some(),
             state
                 .advance_actions
                 .iter()
@@ -320,6 +318,9 @@ fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
         for (_, advance_action) in new_state.advance_actions.iter_mut() {
             advance_action.state = group_ids_by_state_id[advance_action.state];
         }
+        if let Some(eof_action) = &mut new_state.eof_action {
+            eof_action.state = group_ids_by_state_id[eof_action.state];
+        }
         new_states.push(new_state);
     }
 
@@ -363,6 +364,9 @@ fn sort_states(table: &mut LexTable, parse_table: &mut ParseTable) {
             mem::swap(&mut state, &mut table.states[*old_id]);
             for (_, advance_action) in state.advance_actions.iter_mut() {
                 advance_action.state = new_ids_by_old_id[advance_action.state];
+            }
+            if let Some(eof_action) = &mut state.eof_action {
+                eof_action.state = new_ids_by_old_id[eof_action.state];
             }
             state
         })

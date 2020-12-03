@@ -20,15 +20,6 @@ static inline void reusable_node_clear(ReusableNode *self) {
   self->last_external_token = NULL_SUBTREE;
 }
 
-static inline void reusable_node_reset(ReusableNode *self, Subtree tree) {
-  reusable_node_clear(self);
-  array_push(&self->stack, ((StackEntry) {
-    .tree = tree,
-    .child_index = 0,
-    .byte_offset = 0,
-  }));
-}
-
 static inline Subtree reusable_node_tree(ReusableNode *self) {
   return self->stack.size > 0
     ? self->stack.contents[self->stack.size - 1].tree
@@ -62,7 +53,7 @@ static inline void reusable_node_advance(ReusableNode *self) {
   } while (ts_subtree_child_count(tree) <= next_index);
 
   array_push(&self->stack, ((StackEntry) {
-    .tree = tree.ptr->children[next_index],
+    .tree = ts_subtree_children(tree)[next_index],
     .child_index = next_index,
     .byte_offset = byte_offset,
   }));
@@ -72,7 +63,7 @@ static inline bool reusable_node_descend(ReusableNode *self) {
   StackEntry last_entry = *array_back(&self->stack);
   if (ts_subtree_child_count(last_entry.tree) > 0) {
     array_push(&self->stack, ((StackEntry) {
-      .tree = last_entry.tree.ptr->children[0],
+      .tree = ts_subtree_children(last_entry.tree)[0],
       .child_index = 0,
       .byte_offset = last_entry.byte_offset,
     }));
@@ -85,4 +76,20 @@ static inline bool reusable_node_descend(ReusableNode *self) {
 static inline void reusable_node_advance_past_leaf(ReusableNode *self) {
   while (reusable_node_descend(self)) {}
   reusable_node_advance(self);
+}
+
+static inline void reusable_node_reset(ReusableNode *self, Subtree tree) {
+  reusable_node_clear(self);
+  array_push(&self->stack, ((StackEntry) {
+    .tree = tree,
+    .child_index = 0,
+    .byte_offset = 0,
+  }));
+
+  // Never reuse the root node, because it has a non-standard internal structure
+  // due to transformations that are applied when it is accepted: adding the EOF
+  // child and any extra children.
+  if (!reusable_node_descend(self)) {
+    reusable_node_clear(self);
+  }
 }

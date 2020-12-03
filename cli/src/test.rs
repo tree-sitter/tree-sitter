@@ -11,7 +11,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::str;
-use tree_sitter::{Language, LogType, Parser};
+use tree_sitter::{Language, LogType, Parser, Query};
 
 lazy_static! {
     static ref HEADER_REGEX: ByteRegex = ByteRegexBuilder::new(r"^===+\r?\n([^=]*)\r?\n===+\r?\n")
@@ -110,6 +110,24 @@ pub fn run_tests_at_path(
     } else {
         Ok(())
     }
+}
+
+pub fn check_queries_at_path(language: Language, path: &Path) -> Result<()> {
+    if path.exists() {
+        for entry in fs::read_dir(path)? {
+            let entry = entry?;
+            let filepath = entry.file_name();
+            let filepath = filepath.to_str().unwrap_or("");
+            let hidden = filepath.starts_with(".");
+            if !hidden {
+                let content = fs::read_to_string(entry.path()).map_err(Error::wrap(|| {
+                    format!("Error reading query file {:?}", entry.file_name())
+                }))?;
+                Query::new(language, &content).map_err(|e| (filepath, e))?;
+            }
+        }
+    }
+    Ok(())
 }
 
 pub fn print_diff_key() {

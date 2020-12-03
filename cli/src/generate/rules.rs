@@ -1,3 +1,4 @@
+use super::grammars::VariableType;
 use smallbitvec::SmallBitVec;
 use std::collections::HashMap;
 use std::iter::FromIterator;
@@ -136,6 +137,16 @@ impl Rule {
 
     pub fn seq(rules: Vec<Rule>) -> Self {
         Rule::Seq(rules)
+    }
+}
+
+impl Alias {
+    pub fn kind(&self) -> VariableType {
+        if self.is_named {
+            VariableType::Named
+        } else {
+            VariableType::Anonymous
+        }
     }
 }
 
@@ -366,7 +377,7 @@ impl FromIterator<Symbol> for TokenSet {
 
 fn add_metadata<T: FnOnce(&mut MetadataParams)>(input: Rule, f: T) -> Rule {
     match input {
-        Rule::Metadata { rule, mut params } => {
+        Rule::Metadata { rule, mut params } if !params.is_token => {
             f(&mut params);
             Rule::Metadata { rule, params }
         }

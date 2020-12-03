@@ -1,15 +1,15 @@
 {
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "tree-sitter grammar specification",
   "type": "object",
 
-  "required": [
-    "name",
-    "rules"
-  ],
+  "required": ["name", "rules"],
 
   "additionalProperties": false,
 
   "properties": {
     "name": {
+      "description": "the name of the grammar",
       "type": "string",
       "pattern": "^[a-zA-Z_]\\w*"
     },
@@ -60,6 +60,15 @@
     "word": {
       "type": "string",
       "pattern": "^[a-zA-Z_]\\w*"
+    },
+
+    "supertypes": {
+      "description": "A list of hidden rule names that should be considered supertypes in the generated node types file. See http://tree-sitter.github.io/tree-sitter/using-parsers#static-node-types.",
+      "type": "array",
+      "items": {
+        "description": "the name of a rule in `rules` or `extras`",
+        "type": "string"
+      }
     }
   },
 
@@ -96,20 +105,19 @@
           "type": "string",
           "pattern": "^PATTERN$"
         },
-        "value": {"type": "string"}
+        "value": { "type": "string" }
       },
       "required": ["type", "value"]
     },
 
     "symbol-rule": {
-      "required": ["name"],
       "type": "object",
       "properties": {
         "type": {
           "type": "string",
           "pattern": "^SYMBOL$"
         },
-        "name": {"type": "string"}
+        "name": { "type": "string" }
       },
       "required": ["type", "name"]
     },
@@ -210,6 +218,20 @@
       "required": ["type", "content"]
     },
 
+    "field-rule": {
+      "properties": {
+        "name": { "type": "string" },
+        "type": {
+          "type": "string",
+          "pattern": "^FIELD$"
+        },
+        "content": {
+          "$ref": "#/definitions/rule"
+        }
+      },
+      "required": ["name", "type", "content"]
+    },
+
     "prec-rule": {
       "type": "object",
       "properties": {
@@ -239,6 +261,7 @@
         { "$ref": "#/definitions/repeat1-rule" },
         { "$ref": "#/definitions/repeat-rule" },
         { "$ref": "#/definitions/token-rule" },
+        { "$ref": "#/definitions/field-rule" },
         { "$ref": "#/definitions/prec-rule" }
       ]
     }

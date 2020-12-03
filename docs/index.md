@@ -28,16 +28,19 @@ Parsers for these languages are fairly complete:
 
 * [Bash](https://github.com/tree-sitter/tree-sitter-bash)
 * [C](https://github.com/tree-sitter/tree-sitter-c)
+* [C#](https://github.com/tree-sitter/tree-sitter-c-sharp)
 * [C++](https://github.com/tree-sitter/tree-sitter-cpp)
 * [CSS](https://github.com/tree-sitter/tree-sitter-css)
 * [Elm](https://github.com/razzeee/tree-sitter-elm)
 * [Eno](https://github.com/eno-lang/tree-sitter-eno)
 * [ERB / EJS](https://github.com/tree-sitter/tree-sitter-embedded-template)
+- [Fennel](https://github.com/travonted/tree-sitter-fennel)
 * [Go](https://github.com/tree-sitter/tree-sitter-go)
 * [HTML](https://github.com/tree-sitter/tree-sitter-html)
 * [Java](https://github.com/tree-sitter/tree-sitter-java)
 * [JavaScript](https://github.com/tree-sitter/tree-sitter-javascript)
 * [Lua](https://github.com/Azganoth/tree-sitter-lua)
+* [Markdown](https://github.com/ikatyang/tree-sitter-markdown)
 * [OCaml](https://github.com/tree-sitter/tree-sitter-ocaml)
 * [PHP](https://github.com/tree-sitter/tree-sitter-php)
 * [Python](https://github.com/tree-sitter/tree-sitter-python)
@@ -47,16 +50,20 @@ Parsers for these languages are fairly complete:
 * [TOML](https://github.com/ikatyang/tree-sitter-toml)
 * [TypeScript](https://github.com/tree-sitter/tree-sitter-typescript)
 * [Verilog](https://github.com/tree-sitter/tree-sitter-verilog)
+* [VHDL](https://github.com/alemuller/tree-sitter-vhdl)
+* [Vue](https://github.com/ikatyang/tree-sitter-vue)
 * [YAML](https://github.com/ikatyang/tree-sitter-yaml)
+* [WASM](https://github.com/wasm-lsp/tree-sitter-wasm)
 
 Parsers for these languages are in development:
 
 * [Agda](https://github.com/tree-sitter/tree-sitter-agda)
-* [C-sharp](https://github.com/tree-sitter/tree-sitter-c-sharp)
 * [Haskell](https://github.com/tree-sitter/tree-sitter-haskell)
 * [Julia](https://github.com/tree-sitter/tree-sitter-julia)
 * [Nix](https://github.com/cstrahan/tree-sitter-nix)
 * [Scala](https://github.com/tree-sitter/tree-sitter-scala)
+* [SPARQL](https://github.com/BonaBeavis/tree-sitter-sparql)
+* [Swift](https://github.com/tree-sitter/tree-sitter-swift)
 
 ### Talks on Tree-sitter
 

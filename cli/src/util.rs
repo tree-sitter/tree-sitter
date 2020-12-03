@@ -1,12 +1,32 @@
+use super::error::{Error, Result};
+use std::io;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use std::thread;
+use tree_sitter::Parser;
+
 #[cfg(unix)]
 use std::path::PathBuf;
 #[cfg(unix)]
 use std::process::{Child, ChildStdin, Command, Stdio};
-use tree_sitter::Parser;
 
 #[cfg(unix)]
 const HTML_HEADER: &[u8] = b"<!DOCTYPE html>\n<style>svg { width: 100%; }</style>\n\n";
 
+pub fn cancel_on_stdin() -> Arc<AtomicUsize> {
+    let result = Arc::new(AtomicUsize::new(0));
+    if atty::is(atty::Stream::Stdin) {
+        thread::spawn({
+            let flag = result.clone();
+            move || {
+                let mut line = String::new();
+                io::stdin().read_line(&mut line).unwrap();
+                flag.store(1, Ordering::Relaxed);
+            }
+        });
+    }
+    result
+}
 #[cfg(windows)]
 pub struct LogSession();
 
@@ -14,12 +34,12 @@ pub struct LogSession();
 pub struct LogSession(PathBuf, Option<Child>, Option<ChildStdin>);
 
 #[cfg(windows)]
-pub fn log_graphs(_parser: &mut Parser, _path: &str) -> std::io::Result<LogSession> {
+pub fn log_graphs(_parser: &mut Parser, _path: &str) -> Result<LogSession> {
     Ok(LogSession())
 }
 
 #[cfg(unix)]
-pub fn log_graphs(parser: &mut Parser, path: &str) -> std::io::Result<LogSession> {
+pub fn log_graphs(parser: &mut Parser, path: &str) -> Result<LogSession> {
     use std::io::Write;
 
     let mut dot_file = std::fs::File::create(path)?;
@@ -29,11 +49,13 @@ pub fn log_graphs(parser: &mut Parser, path: &str) -> std::io::Result<LogSession
         .stdin(Stdio::piped())
         .stdout(dot_file)
         .spawn()
-        .expect("Failed to run Dot");
+        .map_err(Error::wrap(|| {
+            "Failed to run the `dot` command. Check that graphviz is installed."
+        }))?;
     let dot_stdin = dot_process
         .stdin
         .take()
-        .expect("Failed to open stdin for Dot");
+        .ok_or_else(|| Error::new("Failed to open stdin for `dot` process.".to_string()))?;
     parser.print_dot_graphs(&dot_stdin);
     Ok(LogSession(
         PathBuf::from(path),

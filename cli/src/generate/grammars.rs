@@ -23,7 +23,7 @@ pub(crate) struct Variable {
 pub(crate) struct InputGrammar {
     pub name: String,
     pub variables: Vec<Variable>,
-    pub extra_tokens: Vec<Rule>,
+    pub extra_symbols: Vec<Rule>,
     pub expected_conflicts: Vec<Vec<String>>,
     pub external_tokens: Vec<Rule>,
     pub variables_to_inline: Vec<String>,
@@ -87,7 +87,7 @@ pub(crate) struct ExternalToken {
 #[derive(Debug, Default)]
 pub(crate) struct SyntaxGrammar {
     pub variables: Vec<SyntaxVariable>,
-    pub extra_tokens: Vec<Symbol>,
+    pub extra_symbols: Vec<Symbol>,
     pub expected_conflicts: Vec<Vec<Symbol>>,
     pub external_tokens: Vec<ExternalToken>,
     pub supertype_symbols: Vec<Symbol>,

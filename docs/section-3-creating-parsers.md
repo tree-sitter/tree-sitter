@@ -13,16 +13,16 @@ Developing Tree-sitter grammars can have a difficult learning curve, but once yo
 
 In order to develop a Tree-sitter parser, there are two dependencies that you need to install:
 
-* **Node.js** - Tree-sitter grammars are written in JavaScript, and Tree-sitter uses [Node.js][node.js] to interpret JavaScript files. It requires the `node` command to be in one of the directories in your [`PATH`][path-env]. It shouldn't matter what version of Node you have.
+* **Node.js** - Tree-sitter grammars are written in JavaScript, and Tree-sitter uses [Node.js][node.js] to interpret JavaScript files. It requires the `node` command to be in one of the directories in your [`PATH`][path-env]. You'll need Node.js version 6.0 or greater.
 * **A C Compiler** - Tree-sitter creates parsers that are written in C. In order to run and test these parsers with the `tree-sitter parse` or `tree-sitter test` commands, you must have a C/C++ compiler installed. Tree-sitter will try to look for these compilers in the standard places for each platform.
 
 ### Installation
 
-To create a Tree-sitter parser, you need to use the [the `tree-sitter` CLI][tree-sitter-cli]. You can install the CLI in a few different ways:
+To create a Tree-sitter parser, you need to use [the `tree-sitter` CLI][tree-sitter-cli]. You can install the CLI in a few different ways:
 
 * Install the `tree-sitter-cli` [Node.js module][node-module] using [`npm`][npm], the Node package manager. This is the recommended approach, and it is discussed further in the next section.
 * Download a binary for your platform from [the latest GitHub release][releases], and put it into a directory on your `PATH`.
-* Build the `tree-sitter-cli` [Rust crate][crate] from source using [`cargo`][cargo], the Rust package manager.
+* Build the `tree-sitter-cli` [Rust crate][crate] from source using [`cargo`][cargo], the Rust package manager. See [the contributing docs](/docs/section-5-contributing.md#developing-tree-sitter) for more information.
 
 ### Project Setup
 
@@ -66,7 +66,7 @@ module.exports = grammar({
 });
 ```
 
-Then run the the following command:
+Then run the following command:
 
 ```sh
 tree-sitter generate
@@ -110,9 +110,9 @@ If there is an ambiguity or *local ambiguity* in your grammar, Tree-sitter will 
 
 The `tree-sitter test` command allows you to easily test that your parser is working correctly.
 
-For each rule that you add to the grammar, you should first create a *test* that describes how the syntax trees should look when parsing that rule. These tests are written using specially-formatted text files in a `corpus` directory in your parser's root folder.
+For each rule that you add to the grammar, you should first create a *test* that describes how the syntax trees should look when parsing that rule. These tests are written using specially-formatted text files in the `corpus/` or `test/corpus/` directories within your parser's root folder.
 
-For example, you might have a file called `corpus/statements.txt` that contains a series of entries like this:
+For example, you might have a file called `test/corpus/statements.txt` that contains a series of entries like this:
 
 ```
 ==================
@@ -152,7 +152,7 @@ func x() int {
 
 These tests are important. They serve as the parser's API documentation, and they can be run every time you change the grammar to verify that everything still parses correctly.
 
-By default, the `tree-sitter test` command runs all of the tests in your `corpus` folder. To run a particular test, you can use the the `-f` flag:
+By default, the `tree-sitter test` command runs all of the tests in your `corpus` or `test/corpus/` folder. To run a particular test, you can use the `-f` flag:
 
 ```sh
 tree-sitter test -f 'Return statements'
@@ -163,6 +163,10 @@ The recommendation is to be comprehensive in adding tests. If it's a visible nod
 #### Automatic Compilation
 
 You might notice that the first time you run `tree-sitter test` after regenerating your parser, it takes some extra time. This is because Tree-sitter automatically compiles your C code into a dynamically-loadable library. It recompiles your parser as-needed whenever you update it by re-running `tree-sitter generate`.
+
+#### Syntax Highlighting Tests
+
+The `tree-sitter test` command will *also* run any syntax highlighting tests in the `test/highlight` folder, if it exists. For more information about syntax highlighting tests, see [the syntax highlighting page][syntax-highlighting-tests].
 
 ### Command: `parse`
 
@@ -180,11 +184,15 @@ You can run your parser on an arbitrary file using `tree-sitter parse`. This wil
           (int_literal [1, 9] - [1, 10]))))))
 ```
 
-You can pass as many files to `tree-sitter parse` as your OS will allow. The command will exit with a non-zero status code if any parse errors occurred. You can also prevent the syntax trees from being printed using the `--quiet` flag. This makes `tree-sitter parse` usable as a secondary testing strategy: you can check that a large number of files parse without error:
+You can pass any number of file paths and glob patterns to `tree-sitter parse`, and it will parse all of the given files. The command will exit with a non-zero status code if any parse errors occurred. You can also prevent the syntax trees from being printed using the `--quiet` flag. Additionally, the `--stat` flag prints out aggregated parse success/failure information for all processed files. This makes `tree-sitter parse` usable as a secondary testing strategy: you can check that a large number of files parse without error:
 
 ```sh
-find ./examples -name '*.go' | xargs -n 1000 tree-sitter parse --quiet
+tree-sitter parse 'examples/**/*.go' --quiet --stat
 ```
+
+### Command: `highlight`
+
+You can run syntax highlighting on an arbitrary file using `tree-sitter highlight`. This can either output colors directly to your terminal using ansi escape codes, or produce HTML (if the `--html` flag is passed). For more information, see [the syntax highlighting page][syntax-highlighting].
 
 ### The Grammar DSL
 
@@ -196,12 +204,13 @@ The following is a complete list of built-in functions you can use in your `gram
 * **Alternatives : `choice(rule1, rule2, ...)`** - This function creates a rule that matches *one* of a set of possible rules. The order of the arguments does not matter. This is analogous to the `|` (pipe) operator in EBNF notation.
 * **Repetitions : `repeat(rule)`** - This function creates a rule that matches *zero-or-more* occurrences of a given rule. It is analogous to the `{x}` (curly brace) syntax in EBNF notation.
 * **Repetitions : `repeat1(rule)`** - This function creates a rule that matches *one-or-more* occurrences of a given rule. The previous `repeat` rule is implemented in terms of `repeat1` but is included because it is very commonly used.
-* **Options : `optional(rule)`** - This function creates a rule that matches *zero or one* occurrence of a given rule it is analogous to the `[x]` (square bracket) syntax in EBNF notation.
+* **Options : `optional(rule)`** - This function creates a rule that matches *zero or one* occurrence of a given rule. It is analogous to the `[x]` (square bracket) syntax in EBNF notation.
 * **Precedence : `prec(number, rule)`** - This function marks the given rule with a numerical precedence which will be used to resolve [*LR(1) Conflicts*][lr-conflict] at parser-generation time. When two rules overlap in a way that represents either a true ambiguity or a *local* ambiguity given one token of lookahead, Tree-sitter will try to resolve the conflict by matching the rule with the higher precedence. The default precedence of all rules is zero. This works similarly to the [precedence directives][yacc-prec] in Yacc grammars.
 * **Left Associativity : `prec.left([number], rule)`** - This function marks the given rule as left-associative (and optionally applies a numerical precedence). When an LR(1) conflict arises in which all of the rules have the same numerical precedence, Tree-sitter will consult the rules' associativity. If there is a left-associative rule, Tree-sitter will prefer matching a rule that ends *earlier*. This works similarly to [associativity directives][yacc-prec] in Yacc grammars.
 * **Right Associativity : `prec.right([number], rule)`** - This function is like `prec.left`, but it instructs Tree-sitter to prefer matching a rule that ends *later*.
-* **Dynamic Precedence : `prec.dynamic(number, rule)`** - This function is similar to `prec`, but the given numerical precedence is applied at *runtime* instead of at parser generation time. This is only necessary when handling a conflict dynamically using the the `conflicts` field in the grammar, and when there is a genuine *ambiguity*: multiple rules correctly match a given piece of code. In that event, Tree-sitter compares the total dynamic precedence associated with each rule, and selects the one with the highest total. This is similar to [dynamic precedence directives][bison-dprec] in Bison grammars.
+* **Dynamic Precedence : `prec.dynamic(number, rule)`** - This function is similar to `prec`, but the given numerical precedence is applied at *runtime* instead of at parser generation time. This is only necessary when handling a conflict dynamically using the `conflicts` field in the grammar, and when there is a genuine *ambiguity*: multiple rules correctly match a given piece of code. In that event, Tree-sitter compares the total dynamic precedence associated with each rule, and selects the one with the highest total. This is similar to [dynamic precedence directives][bison-dprec] in Bison grammars.
 * **Tokens : `token(rule)`** - This function marks the given rule as producing only a single token. Tree-sitter's default is to treat each String or RegExp literal in the grammar as a separate token. Each token is matched separately by the lexer and returned as its own leaf node in the tree. The `token` function allows you to express a complex rule using the functions described above (rather than as a single regular expression) but still have Tree-sitter treat it as a single token.
+* **Immediate Tokens : `token.immediate(rule)`** - Usually, whitespace (and any other extras, such as comments) is optional before each token. This function means that the token will only match if there is no whitespace.
 * **Aliases : `alias(rule, name)`** - This function causes the given rule to *appear* with an alternative name in the syntax tree. If `name` is a *symbol*, as in `alias($.foo, $.bar)`, then the aliased rule will *appear* as a [named node][named-vs-anonymous-nodes-section] called `bar`. And if `name` is a *string literal*, as in `alias($.foo, 'bar')`, then the aliased rule will appear as an [anonymous node][named-vs-anonymous-nodes-section], as if the rule had been written as the simple string.
 * **Field Names : `field(name, rule)`** - This function assigns a *field name* to the child node(s) matched by the given rule. In the resulting syntax tree, you can then use that field name to access specific children.
 
@@ -212,6 +221,7 @@ In addition to the `name` and `rules` fields, grammars have a few other optional
 * **`conflicts`** - an array of arrays of rule names. Each inner array represents a set of rules that's involved in an *LR(1) conflict* that is *intended to exist* in the grammar. When these conflicts occur at runtime, Tree-sitter will use the GLR algorithm to explore all of the possible interpretations. If *multiple* parses end up succeeding, Tree-sitter will pick the subtree whose corresponding rule has the highest total *dynamic precedence*.
 * **`externals`** - an array of token names which can be returned by an [*external scanner*](#external-scanners). External scanners allow you to write custom C code which runs during the lexing process in order to handle lexical rules (e.g. Python's indentation tokens) that cannot be described by regular expressions.
 * **`word`** - the name of a token that will match keywords for the purpose of the [keyword extraction](#keyword-extraction) optimization.
+* **`supertypes`** an array of hidden rule names which should be considered to be 'supertypes' in the generated [*node types* file][static-node-types].
 
 
 ## Writing the Grammar
@@ -335,7 +345,7 @@ Imagine that you were just starting work on the [Tree-sitter JavaScript parser][
 return x + y;
 ```
 
-According to the specification, this line is a `ReturnStatement`, the fragment `x + y` is an `AdditiveExpression`, and `x` and `y` are both `IdentifierReferences`. The relationship between these constructs is captured by a complex series of production rules:  
+According to the specification, this line is a `ReturnStatement`, the fragment `x + y` is an `AdditiveExpression`, and `x` and `y` are both `IdentifierReferences`. The relationship between these constructs is captured by a complex series of production rules:
 
 ```
 ReturnStatement          ->  'return' Expression
@@ -495,6 +505,8 @@ Grammars often contain multiple tokens that can match the same characters. For e
 3. **Match Length** - If multiple valid tokens with the same precedence match the characters at a given position in a document, Tree-sitter will select the token that matches the [longest sequence of characters][longest-match].
 
 4. **Match Specificity** - If there are two valid tokens with the same precedence and which both match the same number of characters, Tree-sitter will prefer a token that is specified in the grammar as a `String` over a token specified as a `RegExp`.
+
+5. **Rule Order** - If none of the above criteria can be used to select one token over another, Tree-sitter will prefer the token that appears earlier in the grammar.
 
 ### Keywords
 
@@ -656,7 +668,7 @@ bool tree_sitter_my_language_external_scanner_scan(
 
 This function is responsible for recognizing external tokens. It should return `true` if a token was recognized, and `false` otherwise. It is called with a "lexer" struct with the following fields:
 
-* **`uint32_t lookahead`** - The current next character in the input stream, represented as a 32-bit unicode code point.
+* **`int32_t lookahead`** - The current next character in the input stream, represented as a 32-bit unicode code point.
 * **`TSSymbol result_symbol`** - The symbol that was recognized. Your scan function should *assign* to this field one of the values from the `TokenType` enum, described above.
 * **`void (*advance)(TSLexer *, bool skip)`** - A function for advancing to the next character. If you pass `true` for the second argument, the current character will be treated as whitespace.
 * **`void (*mark_end)(TSLexer *)`** - A function for marking the end of the recognized token. This allows matching tokens that require multiple characters of lookahead. By default (if you don't call `mark_end`), any character that you moved past using the `advance` function will be included in the size of the token. But once you call `mark_end`, then any later calls to `advance` will *not* increase the size of the returned token. You can call `mark_end` multiple times to increase the size of the token.
@@ -707,6 +719,7 @@ if (valid_symbols[INDENT] || valid_symbol[DEDENT]) {
 [nan]: https://github.com/nodejs/nan
 [node-module]: https://www.npmjs.com/package/tree-sitter-cli
 [node.js]: https://nodejs.org
+[static-node-types]: ./using-parsers#static-node-types
 [non-terminal]: https://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols
 [npm]: https://docs.npmjs.com
 [path-env]: https://en.wikipedia.org/wiki/PATH_(variable)
@@ -714,6 +727,8 @@ if (valid_symbols[INDENT] || valid_symbol[DEDENT]) {
 [percent-string]: https://docs.ruby-lang.org/en/2.5.0/syntax/literals_rdoc.html#label-Percent+Strings
 [releases]: https://github.com/tree-sitter/tree-sitter/releases/latest
 [s-exp]: https://en.wikipedia.org/wiki/S-expression
+[syntax-highlighting]: ./syntax-highlighting
+[syntax-highlighting-tests]: ./syntax-highlighting#unit-testing
 [tree-sitter-cli]: https://github.com/tree-sitter/tree-sitter/tree/master/cli
 [tree-sitter-javascript]: https://github.com/tree-sitter/tree-sitter-javascript
 [yacc-prec]: https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html

@@ -21,7 +21,11 @@ const LANGUAGES: &'static [&'static str] = &[
     "go",
     "html",
     "javascript",
+    "json",
+    "php",
     "python",
+    "ruby",
+    "rust",
 ];
 
 lazy_static! {
@@ -57,7 +61,11 @@ fn test_real_language_corpus_files() {
         }
 
         let language = get_language(language_name);
-        let corpus_dir = grammars_dir.join(language_name).join("corpus");
+        let mut corpus_dir = grammars_dir.join(language_name).join("corpus");
+        if !corpus_dir.is_dir() {
+            corpus_dir = grammars_dir.join(language_name).join("test").join("corpus");
+        }
+
         let error_corpus_file = error_corpus_dir.join(&format!("{}_errors.txt", language_name));
         let main_tests = parse_tests(&corpus_dir).unwrap();
         let error_tests = parse_tests(&error_corpus_file).unwrap_or(TestEntry::default());
@@ -300,7 +308,8 @@ fn check_consistent_sizes(tree: &Tree, input: &Vec<u8>) {
         let mut last_child_end_point = start_point;
         let mut some_child_has_changes = false;
         let mut actual_named_child_count = 0;
-        for child in node.children() {
+        for i in 0..node.child_count() {
+            let child = node.child(i).unwrap();
             assert!(child.start_byte() >= last_child_end_byte);
             assert!(child.start_position() >= last_child_end_point);
             check(child, line_offsets);

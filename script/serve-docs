@@ -9,14 +9,15 @@ bundle exec ruby <<RUBY &
   require "listen"
 
   def copy_wasm_files
-    `cp $root/target/release/*.{js,wasm} $root/docs/assets/js/`
+    `cp $root/lib/binding_web/tree-sitter.{js,wasm} $root/docs/assets/js/`
+    `cp $root/target/release/*.wasm $root/docs/assets/js/`
   end
 
   puts "Copying WASM files to docs folder..."
   copy_wasm_files
 
   puts "Watching release directory"
-  listener = Listen.to("$root/target/release", only: /^tree-sitter\.(js|wasm)$/, wait_for_delay: 2) do
+  listener = Listen.to("$root/lib/binding_web", only: /^tree-sitter\.(js|wasm)$/, wait_for_delay: 2) do
     puts "WASM files updated. Copying new files to docs folder..."
     copy_wasm_files
   end

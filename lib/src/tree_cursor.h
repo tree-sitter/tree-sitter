@@ -16,5 +16,16 @@ typedef struct {
 } TreeCursor;
 
 void ts_tree_cursor_init(TreeCursor *, TSNode);
+void ts_tree_cursor_current_status(
+  const TSTreeCursor *,
+  TSFieldId *,
+  bool *,
+  bool *,
+  bool *,
+  TSSymbol *,
+  unsigned *
+);
+
+TSNode ts_tree_cursor_parent_node(const TSTreeCursor *);
 
 #endif  // TREE_SITTER_TREE_CURSOR_H_
