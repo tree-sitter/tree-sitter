@@ -77,7 +77,15 @@ pub fn run_tests_at_path(
 
     let mut failures = Vec::new();
     let mut corrected_entries = Vec::new();
-    run_tests(&mut parser, test_entry, filter, 0, &mut failures, update, &mut corrected_entries)?;
+    run_tests(
+        &mut parser,
+        test_entry,
+        filter,
+        0,
+        &mut failures,
+        update,
+        &mut corrected_entries,
+    )?;
 
     if failures.len() > 0 {
         println!("");
@@ -210,7 +218,11 @@ fn run_tests(
                 failures.push((name, actual, output));
             }
         }
-        TestEntry::Group { name, children, file_path } => {
+        TestEntry::Group {
+            name,
+            children,
+            file_path,
+        } => {
             if indent_level > 0 {
                 for _ in 0..indent_level {
                     print!("  ");
@@ -222,7 +234,15 @@ fn run_tests(
 
             indent_level += 1;
             for child in children {
-                run_tests(parser, child, filter, indent_level, failures, update, corrected_entries)?;
+                run_tests(
+                    parser,
+                    child,
+                    filter,
+                    indent_level,
+                    failures,
+                    update,
+                    corrected_entries,
+                )?;
             }
 
             if let Some(file_path) = file_path {
@@ -292,7 +312,7 @@ fn write_tests(file_path: &Path, corrected_entries: &Vec<(String, String, String
 }
 
 fn write_tests_to_buffer(
-    buffer: &mut Write,
+    buffer: &mut impl Write,
     corrected_entries: &Vec<(String, String, String)>,
 ) -> Result<()> {
     for (i, (name, input, output)) in corrected_entries.iter().enumerate() {
@@ -328,7 +348,11 @@ pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
                 children.push(parse_tests(&entry.path())?);
             }
         }
-        Ok(TestEntry::Group { name, children, file_path: None })
+        Ok(TestEntry::Group {
+            name,
+            children,
+            file_path: None,
+        })
     } else {
         let content = fs::read_to_string(path)?;
         Ok(parse_test_content(name, content, Some(path.to_path_buf())))
@@ -390,7 +414,11 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
             .to_string();
         prev_header_end = header_end;
     }
-    TestEntry::Group { name, children, file_path }
+    TestEntry::Group {
+        name,
+        children,
+        file_path,
+    }
 }
 
 #[cfg(test)]
