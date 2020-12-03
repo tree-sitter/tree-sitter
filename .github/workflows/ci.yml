@@ -25,7 +25,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v2
 
-      - name: Setup cache
+      - name: Cache artifacts
         uses: actions/cache@v2
         with:
           path: |
@@ -44,16 +44,23 @@ jobs:
       - name: Build C library
         run: make
 
+      - name: Build wasm library
+        run: script/build-wasm
+
       - name: Build CLI
         run: cargo build --release
 
-      - name: Setup fixture parsers
+      - name: Set up fixture parsers
         run: |
           script/fetch-fixtures
           script/generate-fixtures
+          script/generate-fixtures-wasm
 
-      - name: Run tests
+      - name: Run main tests
         run: script/test
+
+      - name: Run wasm tests
+        run: script/test-wasm
 
       - name: Run benchmarks
         run: script/benchmark
