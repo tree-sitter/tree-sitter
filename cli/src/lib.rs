@@ -7,6 +7,7 @@ pub mod logger;
 pub mod parse;
 pub mod query;
 pub mod query_testing;
+pub mod sexp;
 pub mod tags;
 pub mod test;
 pub mod test_highlight;

@@ -12,6 +12,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::str;
 use tree_sitter::{Language, LogType, Parser, Query};
+use tree_sitter_sexp::Sexp;
 
 lazy_static! {
     static ref HEADER_REGEX: ByteRegex = ByteRegexBuilder::new(r"^===+\r?\n([^=]*)\r?\n===+\r?\n")
@@ -92,13 +93,9 @@ pub fn run_tests_at_path(
 
         if update {
             if failures.len() == 1 {
-                println!("1 update:\n")
+                println!("1 update.\n")
             } else {
-                println!("{} updates:\n", failures.len())
-            }
-
-            for (i, (name, ..)) in failures.iter().enumerate() {
-                println!("  {}. {}", i + 1, name);
+                println!("{} updates.\n", failures.len())
             }
             Ok(())
         } else {
@@ -147,8 +144,10 @@ pub fn print_diff_key() {
 }
 
 pub fn print_diff(actual: &String, expected: &String) {
-    let changeset = Changeset::new(actual, expected, " ");
-    print!("    ");
+    let actual = Sexp::of_str(&actual).unwrap().to_string();
+    let expected = Sexp::of_str(&expected).unwrap().to_string();
+    let changeset = Changeset::new(&actual, &expected, "\n");
+    println!(" ");
     for diff in &changeset.diffs {
         match diff {
             Difference::Same(part) => {
@@ -185,7 +184,7 @@ fn run_tests(
                 if !name.contains(filter) {
                     if update {
                         let input = String::from_utf8(input).unwrap();
-                        let output = format_sexp(&output);
+                        let output = Sexp::of_str(&output).unwrap().to_string();
                         corrected_entries.push((name, input, output));
                     }
                     return Ok(());
@@ -203,7 +202,7 @@ fn run_tests(
                 println!("✓ {}", Colour::Green.paint(&name));
                 if update {
                     let input = String::from_utf8(input).unwrap();
-                    let output = format_sexp(&output);
+                    let output = Sexp::of_str(&output).unwrap().to_string();
                     corrected_entries.push((name, input, output));
                 }
             } else {
@@ -211,7 +210,7 @@ fn run_tests(
                     let input = String::from_utf8(input).unwrap();
                     let output = format_sexp(&actual);
                     corrected_entries.push((name.clone(), input, output));
-                    println!("✓ {}", Colour::Blue.paint(&name));
+                    println!("▲ {}", Colour::Blue.paint(&name));
                 } else {
                     println!("✗ {}", Colour::Red.paint(&name));
                 }
@@ -225,7 +224,7 @@ fn run_tests(
         } => {
             if indent_level > 0 {
                 for _ in 0..indent_level {
-                    print!("  ");
+                    print!(" ");
                 }
                 println!("{}:", name);
             }
@@ -274,7 +273,7 @@ fn format_sexp(sexp: &String) -> String {
                 if indent_level > 0 {
                     writeln!(formatted, "").unwrap();
                     for _ in 0..indent_level {
-                        write!(formatted, "  ").unwrap();
+                        write!(formatted, " ").unwrap();
                     }
                 }
                 indent_level += 1;
@@ -527,24 +526,6 @@ abc
                 ],
                 file_path: None,
             }
-        );
-    }
-
-    #[test]
-    fn test_format_sexp() {
-        assert_eq!(
-            format_sexp(&"(a b: (c) (d) e: (f (g (h (MISSING i)))))".to_string()),
-            r#"
-(a
-  b: (c)
-  (d)
-  e: (f
-    (g
-      (h
-        (MISSING i)))))
-"#
-            .trim()
-            .to_string()
         );
     }
 
