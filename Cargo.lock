@@ -727,6 +727,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "44363f6f51401c34e7be73db0db371c04705d35efbe9f7d6082e03a921a32c55"
 
 [[package]]
+name = "stfu8"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4bf70433e3300a3c395d06606a700cdf4205f4f14dbae2c6833127c6bb22db77"
+dependencies = [
+ "lazy_static",
+ "regex",
+]
+
+[[package]]
 name = "strsim"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -853,6 +863,7 @@ dependencies = [
  "serde_json",
  "smallbitvec",
  "spin",
+ "stfu8",
  "tempfile",
  "tiny_http",
  "tree-sitter",

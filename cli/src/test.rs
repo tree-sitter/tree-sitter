@@ -11,6 +11,7 @@ use std::io::{self, Write};
 use std::path::Path;
 use std::str;
 use tree_sitter::{Language, LogType, Parser, Query};
+use stfu8;
 
 lazy_static! {
     static ref HEADER_REGEX: ByteRegex = ByteRegexBuilder::new(r"^===+\r?\n([^=]*)\r?\n===+\r?\n")
@@ -87,10 +88,27 @@ pub fn run_tests_at_path(
             println!("{} failures:", failures.len())
         }
 
-        for (i, (name, actual, expected)) in failures.iter().enumerate() {
-            println!("\n  {}. {}:", i + 1, name);
+        for (i, (name, expected, tree, input)) in failures.iter().enumerate() {
+            println!("\n  {}. {}:\n", i + 1, name);
+
+            // format expected nodes
+            let expected_lines = parse_sexpr(&expected, "  ");
+
+            // format actual nodes
+            let mut actual_lines: Vec<String> = Vec::new();
+            let mut actual_sources: Vec<String> = Vec::new();
+            walk_tree(tree, &input, &mut actual_lines, &mut actual_sources);
+
+            // compare
             print_diff_key();
-            print_diff(actual, expected);
+            let mut diff = diffs::Replace::new(diff_handler::DiffHandler{
+                a: &actual_lines, b: &expected_lines, a_src: &actual_sources
+            });
+            diffs::myers::diff(
+                &mut diff,
+                &actual_lines, 0, actual_lines.len(),
+                &expected_lines, 0, expected_lines.len()
+            ).unwrap();
         }
         Error::err(String::new())
     } else {
@@ -116,18 +134,20 @@ pub fn check_queries_at_path(language: Language, path: &Path) -> Result<()> {
     Ok(())
 }
 
-mod diff_handler { // needed to define fn replace
+mod diff_handler { // module scope is needed to define fn replace
     use ansi_term::Colour;
+
     pub struct DiffHandler <'a> {
-        pub a: &'a Vec<&'a str>,
-        pub b: &'a Vec<&'a str>
+        pub a: &'a Vec<String>,
+        pub b: &'a Vec<String>,
+        pub a_src: &'a Vec<String>,
     }
+
     impl <'a> diffs::Diff for DiffHandler <'a> {
         type Error = ();
         fn equal(&mut self, pos1: usize, _pos2: usize, len: usize) -> std::result::Result<(), ()> {
-            println!(
-                "  {}", &self.a[pos1..(pos1+len)].join(" ")
-            );
+            for i in pos1..(pos1+len)
+                { println!("  {} {}", &self.a[i], &self.a_src[i]) }
             Ok(())
         }
         fn replace(&mut self, pos1: usize, len1: usize, pos2: usize, len2: usize) -> Result<(), ()> {
@@ -137,33 +157,124 @@ mod diff_handler { // needed to define fn replace
         }
         fn insert(&mut self, _pos1: usize, pos2: usize, len2: usize) -> std::result::Result<(), ()> {
             println!("{}", Colour::Green.paint(format!(
-                "+ {}", &self.b[pos2..(pos2+len2)].join(" ")
+                "+ {}", &self.b[pos2..(pos2+len2)].join("\n+ ")
             )));
             Ok(())
         }
         fn delete(&mut self, pos1: usize, len1: usize, _pos2: usize) -> std::result::Result<(), ()> {
-            println!("{}", Colour::Red.paint(format!(
-                "- {}", &self.a[pos1..(pos1+len1)].join(" ")
-            )));
+            for i in pos1..(pos1+len1) { println!("{} {}",
+                Colour::Red.paint(format!("- {}", &self.a[i])),
+                &self.a_src[i]
+            ) }
             Ok(())
         }
     }
 }
 
+fn parse_sexpr(source: &str, indent_step: &str) -> Vec<String> {
+    let mut depth: i32 = 0;
+    let mut start: usize = 0;
+    let mut result: Vec<String> = Vec::new();
+    let mut in_name: bool;
+    let mut last_in_name = false;
+    // state machine
+    for (i, c) in source.chars().enumerate() {
+        // change state
+        if c == '(' { depth = depth + 1; in_name = false }
+        else if c == ')' || c == ' ' || c == '\n' || c == '\t' || c == '\r'
+            { in_name = false }
+        else { in_name = true }
+        // handle start/end of name
+        if in_name && !last_in_name { start = i }
+        else if !in_name && last_in_name {
+            let num_indent: usize = if depth >= 1 { (depth - 1) as usize } else { 0 };
+            let mut s: String = indent_step.repeat(num_indent);
+            s.push_str(&source[start..i]);
+            result.push(s);
+        }
+        if c == ')' { depth = depth - 1 }
+        // save last state
+        last_in_name = in_name;
+    }
+    if depth != 0 {
+        println!(
+            "{} parse_sexpr: braces mismatch. found {} extra {}-braces in {}",
+            Colour::Red.paint("ERROR"),
+            depth.abs(),
+            if depth > 0 { "open" } else { "close" },
+            source
+        );
+    }
+    return result;
+}
+
+fn format_node(
+    node: tree_sitter::Node, depth: usize, input: &[u8],
+    actual_lines: &mut Vec<String>, actual_sources: &mut Vec<String>
+) {
+    let indent_step = "  ";
+    let source = stfu8::encode_u8(
+        node.utf8_text(input).unwrap_or("").as_bytes()
+    );
+    // print leading/trailing space as grey blocks
+    let mut source_start = 0;
+    for c in source.chars() {
+        if c != ' ' { break }
+        source_start = source_start + 1;
+    }
+    let mut source_end = source.len();
+    for c in source.chars().rev() {
+        if c != ' ' { break }
+        source_end = source_end - 1;
+    }
+
+    let mut s1: String = indent_step.repeat(depth);
+    s1.push_str(node.kind());
+    actual_lines.push(s1);
+
+    let mut s2: String = String::from("");
+    s2.push_str(&format!("{}:{} {}{}{}", // TODO avoid format?
+        node.start_position().row,
+        node.start_position().column,
+        // show space as lightgrey/darkgrey
+        ansi_term::Colour::Fixed(239).on(ansi_term::Colour::Fixed(249))
+            .paint(" ".repeat(source_start)),
+        &source[source_start..source_end],
+        ansi_term::Colour::Fixed(239).on(ansi_term::Colour::Fixed(249))
+            .paint(" ".repeat(source.len() - source_end)),
+    ));
+    actual_sources.push(s2);
+}
+
+fn walk_tree(
+    tree: &tree_sitter::Tree, input: &[u8],
+    actual_lines: &mut Vec<String>, actual_sources: &mut Vec<String>
+) {
+    let mut cursor = tree.walk();
+    let mut depth: usize = 0;
+    loop {
+        let node = cursor.node();
+        if node.is_named() {
+            format_node(node, depth, input, actual_lines, actual_sources);
+        }
+        if cursor.goto_first_child() { depth = depth + 1; continue }
+        if !cursor.goto_next_sibling() {
+            loop {
+                if cursor.goto_parent() { depth = depth - 1 }
+                else { return }
+                if cursor.goto_next_sibling() { break }
+            }
+        }
+    }
+}
+
+
 pub fn print_diff_key() {
     println!(
-        "\n{}\n{}",
+        "{}\n{}",
         Colour::Green.paint("+++ expected"),
         Colour::Red.paint("--- actual")
     );
-}
-
-pub fn print_diff(actual: &String, expected: &String) {
-    // compare tokens, split by single space
-    let a: Vec<&str> = actual.split(" ").collect();
-    let b: Vec<&str> = expected.split(" ").collect();
-    let mut diff = diffs::Replace::new( diff_handler::DiffHandler{ a: &a, b: &b } );
-    diffs::myers::diff(&mut diff, &a, 0, a.len(), &b, 0, b.len()).unwrap();
 }
 
 fn run_tests(
@@ -171,7 +282,7 @@ fn run_tests(
     test_entry: TestEntry,
     filter: Option<&str>,
     mut indent_level: i32,
-    failures: &mut Vec<(String, String, String)>,
+    failures: &mut Vec<(String, String, tree_sitter::Tree, Vec<u8>)>,
 ) -> Result<()> {
     match test_entry {
         TestEntry::Example {
@@ -197,7 +308,7 @@ fn run_tests(
                 println!("✓ {}", Colour::Green.paint(&name));
             } else {
                 println!("✗ {}", Colour::Red.paint(&name));
-                failures.push((name, actual, output));
+                failures.push((name, output, tree, input.to_owned())); // TODO input: move not copy
             }
         }
         TestEntry::Group { name, children } => {

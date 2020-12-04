@@ -34,6 +34,7 @@ regex-syntax = "0.6.4"
 serde = "1.0"
 serde_derive = "1.0"
 smallbitvec = "2.3.0"
+stfu8 = "*"
 tiny_http = "0.6"
 webbrowser = "0.5.1"
 
