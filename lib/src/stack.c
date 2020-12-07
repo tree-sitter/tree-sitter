@@ -12,9 +12,9 @@
 #define MAX_ITERATOR_COUNT 64
 
 #if defined _WIN32 && !defined __GNUC__
-#define inline __forceinline
+#define force_inline __forceinline
 #else
-#define inline static inline __attribute__((always_inline))
+#define force_inline static inline __attribute__((always_inline))
 #endif
 
 typedef struct StackNode StackNode;
@@ -271,7 +271,7 @@ static void ts_stack__add_slice(Stack *self, StackVersion original_version,
   array_push(&self->slices, slice);
 }
 
-inline StackSliceArray stack__iter(Stack *self, StackVersion version,
+force_inline StackSliceArray stack__iter(Stack *self, StackVersion version,
                                    StackCallback callback, void *payload,
                                    int goal_subtree_count) {
   array_clear(&self->slices);
@@ -451,7 +451,7 @@ void ts_stack_push(Stack *self, StackVersion version, Subtree subtree,
   head->node = new_node;
 }
 
-inline StackAction iterate_callback(void *payload, const StackIterator *iterator) {
+force_inline StackAction iterate_callback(void *payload, const StackIterator *iterator) {
   StackIterateSession *session = payload;
   session->callback(
     session->payload,
@@ -467,7 +467,7 @@ void ts_stack_iterate(Stack *self, StackVersion version,
   stack__iter(self, version, iterate_callback, &session, -1);
 }
 
-inline StackAction pop_count_callback(void *payload, const StackIterator *iterator) {
+force_inline StackAction pop_count_callback(void *payload, const StackIterator *iterator) {
   unsigned *goal_subtree_count = payload;
   if (iterator->subtree_count == *goal_subtree_count) {
     return StackActionPop | StackActionStop;
@@ -480,7 +480,7 @@ StackSliceArray ts_stack_pop_count(Stack *self, StackVersion version, uint32_t c
   return stack__iter(self, version, pop_count_callback, &count, count);
 }
 
-inline StackAction pop_pending_callback(void *payload, const StackIterator *iterator) {
+force_inline StackAction pop_pending_callback(void *payload, const StackIterator *iterator) {
   (void)payload;
   if (iterator->subtree_count >= 1) {
     if (iterator->is_pending) {
@@ -502,7 +502,7 @@ StackSliceArray ts_stack_pop_pending(Stack *self, StackVersion version) {
   return pop;
 }
 
-inline StackAction pop_error_callback(void *payload, const StackIterator *iterator) {
+force_inline StackAction pop_error_callback(void *payload, const StackIterator *iterator) {
   if (iterator->subtrees.size > 0) {
     bool *found_error = payload;
     if (!*found_error && ts_subtree_is_error(iterator->subtrees.contents[0])) {
@@ -533,7 +533,7 @@ SubtreeArray ts_stack_pop_error(Stack *self, StackVersion version) {
   return (SubtreeArray){.size = 0};
 }
 
-inline StackAction pop_all_callback(void *payload, const StackIterator *iterator) {
+force_inline StackAction pop_all_callback(void *payload, const StackIterator *iterator) {
   (void)payload;
   return iterator->node->link_count == 0 ? StackActionPop : StackActionNone;
 }
@@ -547,7 +547,7 @@ typedef struct {
   unsigned max_depth;
 } SummarizeStackSession;
 
-inline StackAction summarize_stack_callback(void *payload, const StackIterator *iterator) {
+force_inline StackAction summarize_stack_callback(void *payload, const StackIterator *iterator) {
   SummarizeStackSession *session = payload;
   TSStateId state = iterator->node->state;
   unsigned depth = iterator->subtree_count;
@@ -737,7 +737,7 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
     if (head->status == StackStatusHalted) continue;
 
     fprintf(f, "node_head_%u [shape=none, label=\"\"]\n", i);
-    fprintf(f, "node_head_%u -> node_%p [", i, head->node);
+    fprintf(f, "node_head_%u -> node_%p [", i, (void*)head->node);
 
     if (head->status == StackStatusPaused) {
       fprintf(f, "color=red ");
@@ -782,7 +782,7 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
       if (!node) continue;
       all_iterators_done = false;
 
-      fprintf(f, "node_%p [", node);
+      fprintf(f, "node_%p [", (void*)node);
       if (node->state == ERROR_STATE) {
         fprintf(f, "label=\"?\"");
       } else if (
@@ -807,7 +807,7 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
 
       for (int j = 0; j < node->link_count; j++) {
         StackLink link = node->links[j];
-        fprintf(f, "node_%p -> node_%p [", node, link.node);
+        fprintf(f, "node_%p -> node_%p [", (void*)node, (void*)link.node);
         if (link.is_pending) fprintf(f, "style=dashed ");
         if (link.subtree.ptr && ts_subtree_extra(link.subtree)) fprintf(f, "fontcolor=gray ");
 
@@ -855,4 +855,4 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
   return true;
 }
 
-#undef inline
+#undef force_inline
