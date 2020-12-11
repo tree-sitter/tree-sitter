@@ -79,6 +79,7 @@
   "_ts_query_predicates_for_pattern",
   "_ts_query_string_count",
   "_ts_query_string_value_for_id",
+  "_ts_tree_copy",
   "_ts_tree_cursor_current_field_id_wasm",
   "_ts_tree_cursor_current_node_id_wasm",
   "_ts_tree_cursor_current_node_is_missing_wasm",
