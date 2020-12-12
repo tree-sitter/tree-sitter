@@ -46,6 +46,7 @@ Parsers for these languages are fairly complete:
 * [Python](https://github.com/tree-sitter/tree-sitter-python)
 * [Ruby](https://github.com/tree-sitter/tree-sitter-ruby)
 * [Rust](https://github.com/tree-sitter/tree-sitter-rust)
+* [R](https://github.com/r-lib/tree-sitter-r)
 * [S-expressions](https://github.com/AbstractMachinesLab/tree-sitter-sexp)
 * [SystemRDL](https://github.com/SystemRDL/tree-sitter-systemrdl)
 * [TOML](https://github.com/ikatyang/tree-sitter-toml)
