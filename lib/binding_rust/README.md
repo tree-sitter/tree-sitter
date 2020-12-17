@@ -83,7 +83,7 @@ let new_tree = parser.parse(new_source_code, Some(&tree));
 
 ### Text Input
 
-The source code to parse can be provided either either as a string, a slice, a vector, or as a function that returns a slice. The text can be encoded as either UTF8 or UTF16:
+The source code to parse can be provided either as a string, a slice, a vector, or as a function that returns a slice. The text can be encoded as either UTF8 or UTF16:
 
 ```rust
 // Store some source code in an array of lines.
