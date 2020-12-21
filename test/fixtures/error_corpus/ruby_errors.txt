@@ -10,7 +10,7 @@ c
 ---
 
 (program
-  (method_call
+  (call
     method: (identifier)
     (ERROR (heredoc_beginning))
     arguments: (argument_list
