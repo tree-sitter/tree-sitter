@@ -36,6 +36,7 @@ serde_derive = "1.0"
 smallbitvec = "2.3.0"
 tiny_http = "0.6"
 webbrowser = "0.5.1"
+html-escape = "0.2.6"
 
 [dependencies.tree-sitter]
 version = ">= 0.17.0"
