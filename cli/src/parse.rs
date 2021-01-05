@@ -40,6 +40,7 @@ pub fn parse_file_at_path(
     timeout: u64,
     debug: bool,
     debug_graph: bool,
+    debug_xml: bool,
     cancellation_flag: Option<&AtomicUsize>,
 ) -> Result<bool> {
     let mut _log_session = None;
@@ -144,6 +145,60 @@ pub fn parse_file_at_path(
                         indent_level += 1;
                     } else {
                         did_visit_children = true;
+                    }
+                }
+            }
+            cursor.reset(tree.root_node());
+            println!("");
+        }
+
+        if debug_xml {
+            let mut needs_newline = false;
+            let mut indent_level = 0;
+            let mut did_visit_children = false;
+            let mut tags: Vec<&str> = Vec::new();
+            loop {
+                let node = cursor.node();
+                let is_named = node.is_named();
+                if did_visit_children {
+                    if is_named {
+                        let tag = tags.pop();
+                        write!(&mut stdout, "</{}>\n", tag.expect("there is a tag"))?;
+                        needs_newline = true;
+                    }
+                    if cursor.goto_next_sibling() {
+                        did_visit_children = false;
+                    } else if cursor.goto_parent() {
+                        did_visit_children = true;
+                        indent_level -= 1;
+                    } else {
+                        break;
+                    }
+                } else {
+                    if is_named {
+                        if needs_newline {
+                            stdout.write(b"\n")?;
+                        }
+                        for _ in 0..indent_level {
+                            stdout.write(b"  ")?;
+                        }
+                        write!(&mut stdout, "<{}", node.kind())?;
+                        if let Some(field_name) = cursor.field_name() {
+                            write!(&mut stdout, " type=\"{}\"", field_name)?;
+                        }
+                        write!(&mut stdout, ">")?;
+                        tags.push(node.kind());
+                        needs_newline = true;
+                    }
+                    if cursor.goto_first_child() {
+                        did_visit_children = false;
+                        indent_level += 1;
+                    } else {
+                        did_visit_children = true;
+                        let start = node.start_byte();
+                        let end = node.end_byte();
+                        let value = std::str::from_utf8(&source_code[start..end]).expect("has a string");
+                        write!(&mut stdout, "{}", html_escape::encode_text(value))?;
                     }
                 }
             }
