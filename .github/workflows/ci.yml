@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: [ubuntu-latest]
+        os: [macos-latest, ubuntu-latest]
         toolchain: [stable]
     steps:
       - name: Checkout repo
@@ -40,6 +40,10 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           profile: minimal
           override: true
+
+      - name: Install emscripten
+        run: eval $(script/fetch-emscripten)
+        if: matrix.os == 'macos-latest'
 
       - name: Build C library
         run: make
