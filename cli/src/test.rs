@@ -590,4 +590,54 @@ output 2
             .to_string()
         );
     }
+
+    #[test]
+    fn test_parse_test_content_with_comments_in_sexp() {
+        let entry = parse_test_content(
+            "the-filename".to_string(),
+            r#"
+==================
+Code with comment
+==================
+code
+---
+
+; Line start comment
+(a (b))
+
+=========================
+Code line ending with comment
+=========================
+code
+---
+
+(c (d)) ; Line end comment
+        "#
+            .trim()
+            .to_string(),
+            None,
+        );
+
+        assert_eq!(
+            entry,
+            TestEntry::Group {
+                name: "the-filename".to_string(),
+                children: vec![
+                    TestEntry::Example {
+                        name: "Code with comment".to_string(),
+                        input: "code".as_bytes().to_vec(),
+                        output: "(a (b))".to_string(),
+                        has_fields: false,
+                    },
+                    TestEntry::Example {
+                        name: "Code line ending with comment".to_string(),
+                        input: "code".as_bytes().to_vec(),
+                        output: "(c (d))".to_string(),
+                        has_fields: false,
+                    },
+                ],
+                file_path: None,
+            }
+        );
+    }
 }
