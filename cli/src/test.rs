@@ -22,7 +22,7 @@ lazy_static! {
         .multi_line(true)
         .build()
         .unwrap();
-    static ref COMMENT_REGEX: Regex = Regex::new(r";.*").unwrap();
+    static ref COMMENT_REGEX: Regex = Regex::new(r"(?m)^\s*;.*$").unwrap();
     static ref WHITESPACE_REGEX: Regex = Regex::new(r"\s+").unwrap();
     static ref SEXP_FIELD_REGEX: Regex = Regex::new(r" \w+: \(").unwrap();
 }
@@ -597,7 +597,7 @@ output 2
             "the-filename".to_string(),
             r#"
 ==================
-Code with comment
+sexp with comment
 ==================
 code
 ---
@@ -605,13 +605,26 @@ code
 ; Line start comment
 (a (b))
 
+==================
+sexp with comment between
+==================
+code
+---
+
+; Line start comment
+(a 
+; ignore this
+    (b)
+    ; also ignore this
+)
+
 =========================
-Code line ending with comment
+sexp with ';'
 =========================
 code
 ---
 
-(c (d)) ; Line end comment
+(MISSING ";")
         "#
             .trim()
             .to_string(),
@@ -624,17 +637,23 @@ code
                 name: "the-filename".to_string(),
                 children: vec![
                     TestEntry::Example {
-                        name: "Code with comment".to_string(),
+                        name: "sexp with comment".to_string(),
                         input: "code".as_bytes().to_vec(),
                         output: "(a (b))".to_string(),
                         has_fields: false,
                     },
                     TestEntry::Example {
-                        name: "Code line ending with comment".to_string(),
+                        name: "sexp with comment between".to_string(),
                         input: "code".as_bytes().to_vec(),
-                        output: "(c (d))".to_string(),
+                        output: "(a (b))".to_string(),
                         has_fields: false,
                     },
+                    TestEntry::Example {
+                        name: "sexp with ';'".to_string(),
+                        input: "code".as_bytes().to_vec(),
+                        output: "(MISSING \";\")".to_string(),
+                        has_fields: false,
+                    }
                 ],
                 file_path: None,
             }
