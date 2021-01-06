@@ -22,6 +22,7 @@ lazy_static! {
         .multi_line(true)
         .build()
         .unwrap();
+    static ref COMMENT_REGEX: Regex = Regex::new(r";.*").unwrap();
     static ref WHITESPACE_REGEX: Regex = Regex::new(r"\s+").unwrap();
     static ref SEXP_FIELD_REGEX: Regex = Regex::new(r" \w+: \(").unwrap();
 }
@@ -392,8 +393,10 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
                         input.pop();
                     }
 
+                    // Remove all comments
+                    let output = COMMENT_REGEX.replace_all(output, "").to_string();
                     // Normalize the whitespace in the expected output.
-                    let output = WHITESPACE_REGEX.replace_all(output.trim(), " ").to_string();
+                    let output = WHITESPACE_REGEX.replace_all(output.trim(), " ");
                     let output = output.replace(" )", ")");
 
                     // Identify if the expected output has fields indicated. If not, then
