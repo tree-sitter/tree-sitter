@@ -31,7 +31,6 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            emsdk-cache
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
 
@@ -46,7 +45,6 @@ jobs:
         uses: mymindstorm/setup-emsdk@v7
         with:
           version: 2.0.11
-          actions-cache-folder: emsdk-cache
 
       - name: Build C library
         run: make
