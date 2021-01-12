@@ -11,6 +11,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
+  EMSCRIPTEN_VERSION: 2.0.11
 
 jobs:
   tests:
@@ -33,9 +34,10 @@ jobs:
             ~/.cargo/git
             emsdk-cache-${{ runner.os }}
             target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}-emscripten-${{ env.EMSCRIPTEN_VERSION }}
 
       - name: Install rust
+        if: steps.cache.outputs.cache-hit != 'true'
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.toolchain }}
@@ -45,7 +47,7 @@ jobs:
       - name: Install emscripten
         uses: mymindstorm/setup-emsdk@v7
         with:
-          version: 2.0.11
+          version: ${{ env.EMSCRIPTEN_VERSION }}
           actions-cache-folder: emsdk-cache-${{ runner.os }}
 
       - name: Build C library
