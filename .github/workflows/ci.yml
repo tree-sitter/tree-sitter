@@ -27,6 +27,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Cache artifacts
+        id: cache
         uses: actions/cache@v2
         with:
           path: |
@@ -41,7 +42,6 @@ jobs:
         with:
           toolchain: ${{ matrix.toolchain }}
           profile: minimal
-          override: true
 
       - name: Install emscripten
         uses: mymindstorm/setup-emsdk@v7
