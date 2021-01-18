@@ -1,8 +1,8 @@
 declare module 'web-tree-sitter' {
   class Parser {
     static init(): Promise<void>;
-    delete(): void;
-    parse(input: string | Parser.Input, previousTree?: Parser.Tree, options?: Parser.Options): Parser.Tree;
+    delete();
+    parse(input: string | Parser.Input, previousTree?: Parser.Tree, options?: Parser.Options): Parser.Tree | null;
     getLanguage(): Parser.Language | null;
     setLanguage(language?: Parser.Language): void;
     getLogger(): Parser.Logger | null;
@@ -61,8 +61,8 @@ declare module 'web-tree-sitter' {
       startIndex: number;
       endIndex: number;
       parent: SyntaxNode | null;
-      children: Array<SyntaxNode>;
-      namedChildren: Array<SyntaxNode>;
+      children: SyntaxNode[];
+      namedChildren: SyntaxNode[];
       childCount: number;
       namedChildCount: number;
       firstChild: SyntaxNode | null;
@@ -85,15 +85,15 @@ declare module 'web-tree-sitter' {
       childForFieldId(fieldId: number): SyntaxNode | null;
       childForFieldName(fieldName: string): SyntaxNode | null;
 
-      descendantForIndex(index: number): SyntaxNode;
-      descendantForIndex(startIndex: number, endIndex: number): SyntaxNode;
-      descendantsOfType(type: string | Array<string>, startPosition?: Point, endPosition?: Point): Array<SyntaxNode>;
-      namedDescendantForIndex(index: number): SyntaxNode;
-      namedDescendantForIndex(startIndex: number, endIndex: number): SyntaxNode;
-      descendantForPosition(position: Point): SyntaxNode;
-      descendantForPosition(startPosition: Point, endPosition: Point): SyntaxNode;
-      namedDescendantForPosition(position: Point): SyntaxNode;
-      namedDescendantForPosition(startPosition: Point, endPosition: Point): SyntaxNode;
+      descendantForIndex(index: number): SyntaxNode | null;
+      descendantForIndex(startIndex: number, endIndex: number): SyntaxNode | null;
+      descendantsOfType(type: string | string[], startPosition?: Point, endPosition?: Point): SyntaxNode[];
+      namedDescendantForIndex(index: number): SyntaxNode | null;
+      namedDescendantForIndex(startIndex: number, endIndex: number): SyntaxNode | null;
+      descendantForPosition(position: Point): SyntaxNode | null;
+      descendantForPosition(startPosition: Point, endPosition: Point): SyntaxNode | null;
+      namedDescendantForPosition(position: Point): SyntaxNode | null;
+      namedDescendantForPosition(startPosition: Point, endPosition: Point): SyntaxNode | null;
 
       walk(): TreeCursor;
     }
@@ -108,11 +108,11 @@ declare module 'web-tree-sitter' {
       startIndex: number;
       endIndex: number;
 
-      reset(node: SyntaxNode): void;
-      delete(): void;
+      reset(node: SyntaxNode);
+      delete();
       currentNode(): SyntaxNode;
-      currentFieldId(): number;
-      currentFieldName(): string;
+      currentFieldId(): number | null;
+      currentFieldName(): string | null;
       gotoParent(): boolean;
       gotoFirstChild(): boolean;
       gotoNextSibling(): boolean;
@@ -122,11 +122,11 @@ declare module 'web-tree-sitter' {
       readonly rootNode: SyntaxNode;
 
       copy(): Tree;
-      delete(): void;
+      delete();
       edit(delta: Edit): Tree;
       walk(): TreeCursor;
       getChangedRanges(other: Tree): Range[];
-      getLanguage(): any;
+      getLanguage(): Language;
     }
 
     class Language {
@@ -158,7 +158,7 @@ declare module 'web-tree-sitter' {
     class Query {
       captureNames: string[];
 
-      delete(): void;
+      delete();
       matches(node: SyntaxNode, startPosition?: Point, endPosition?: Point): QueryMatch[];
       captures(node: SyntaxNode, startPosition?: Point, endPosition?: Point): QueryCapture[];
       predicatesForPattern(patternIndex: number): PredicateResult[];
