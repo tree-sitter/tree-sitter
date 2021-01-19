@@ -3,10 +3,13 @@ declare module 'web-tree-sitter' {
     static init(): Promise<void>;
     delete(): void;
     parse(input: string | Parser.Input, previousTree?: Parser.Tree, options?: Parser.Options): Parser.Tree;
-    getLanguage(): any;
-    setLanguage(language: any): void;
-    getLogger(): Parser.Logger;
-    setLogger(logFunc: Parser.Logger): void;
+    getLanguage(): Parser.Language | null;
+    setLanguage(language?: Parser.Language): void;
+    getLogger(): Parser.Logger | null;
+    setLogger(logFunc?: Parser.Logger): void;
+    reset(): void;
+    getTimeoutMicros(): number;
+    setTimeoutMicros(timeout: number);
   }
 
   namespace Parser {
@@ -51,6 +54,7 @@ declare module 'web-tree-sitter' {
       id: number;
       tree: Tree;
       type: string;
+      typeId: number;
       text: string;
       startPosition: Point;
       endPosition: Point;
@@ -97,6 +101,7 @@ declare module 'web-tree-sitter' {
     export interface TreeCursor {
       nodeType: string;
       nodeText: string;
+      nodeIsMissing: boolean;
       nodeIsNamed: boolean;
       startPosition: Point;
       endPosition: Point;
