@@ -115,7 +115,6 @@ declare module 'web-tree-sitter' {
       currentFieldName(): string;
       gotoParent(): boolean;
       gotoFirstChild(): boolean;
-      gotoFirstChildForIndex(index: number): boolean;
       gotoNextSibling(): boolean;
     }
 
@@ -127,7 +126,6 @@ declare module 'web-tree-sitter' {
       edit(delta: Edit): Tree;
       walk(): TreeCursor;
       getChangedRanges(other: Tree): Range[];
-      getEditedRange(other: Tree): Range;
       getLanguage(): any;
     }
 
