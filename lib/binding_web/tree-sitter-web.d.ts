@@ -127,7 +127,7 @@ declare module 'web-tree-sitter' {
     }
 
     class Language {
-      static load(path: string): Promise<Language>;
+      static load(input: string | Uint8Array): Promise<Language>;
 
       readonly version: number;
       readonly fieldCount: number;
