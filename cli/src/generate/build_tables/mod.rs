@@ -13,7 +13,7 @@ use self::minimize_parse_table::minimize_parse_table;
 use self::token_conflicts::TokenConflictMap;
 use crate::error::Result;
 use crate::generate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
-use crate::generate::nfa::{CharacterSet, NfaCursor};
+use crate::generate::nfa::NfaCursor;
 use crate::generate::node_types::VariableInfo;
 use crate::generate::rules::{AliasMap, Symbol, SymbolType, TokenSet};
 use crate::generate::tables::{LexTable, ParseAction, ParseTable, ParseTableEntry};
@@ -472,10 +472,8 @@ fn all_chars_are_alphabetical(cursor: &NfaCursor) -> bool {
     cursor.transition_chars().all(|(chars, is_sep)| {
         if is_sep {
             true
-        } else if let CharacterSet::Include(chars) = chars {
-            chars.iter().all(|c| c.is_alphabetic() || *c == '_')
         } else {
-            false
+            chars.chars().all(|c| c.is_alphabetic() || c == '_')
         }
     })
 }
