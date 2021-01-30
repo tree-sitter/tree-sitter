@@ -6,15 +6,23 @@ use crate::generate::rules::Rule;
 use lazy_static::lazy_static;
 use regex::Regex;
 use regex_syntax::ast::{
-    parse, Ast, Class, ClassPerlKind, ClassSet, ClassSetItem, RepetitionKind, RepetitionRange,
+    parse, Ast, Class, ClassPerlKind, ClassSet, ClassSetItem, ClassUnicodeKind, RepetitionKind,
+    RepetitionRange,
 };
+use std::collections::HashMap;
 use std::i32;
 
 lazy_static! {
     static ref CURLY_BRACE_REGEX: Regex =
-        Regex::new(r#"(^|[^\\])\{([^}]*[^0-9A-Fa-f,}][^}]*)\}"#).unwrap();
+        Regex::new(r#"(^|[^\\p])\{([^}]*[^0-9A-Fa-f,}][^}]*)\}"#).unwrap();
+    static ref UNICODE_CATEGORIES: HashMap<&'static str, Vec<u32>> =
+        serde_json::from_str(UNICODE_CATEGORIES_JSON).unwrap();
+    static ref UNICODE_PROPERTIES: HashMap<&'static str, Vec<u32>> =
+        serde_json::from_str(UNICODE_PROPERTIES_JSON).unwrap();
 }
 
+const UNICODE_CATEGORIES_JSON: &'static str = include_str!("./unicode-categories.json");
+const UNICODE_PROPERTIES_JSON: &'static str = include_str!("./unicode-properties.json");
 const ALLOWED_REDUNDANT_ESCAPED_CHARS: [char; 4] = ['!', '\'', '"', '/'];
 
 struct NfaBuilder {
@@ -196,7 +204,7 @@ impl NfaBuilder {
     fn expand_regex(&mut self, ast: &Ast, mut next_state_id: u32) -> Result<bool> {
         match ast {
             Ast::Empty(_) => Ok(false),
-            Ast::Flags(_) => Err(Error::regex("Flags are not supported")),
+            Ast::Flags(_) => Err(Error::regex("Flags are not supported".to_string())),
             Ast::Literal(literal) => {
                 self.push_advance(CharacterSet::from_char(literal.c), next_state_id);
                 Ok(true)
@@ -205,10 +213,15 @@ impl NfaBuilder {
                 self.push_advance(CharacterSet::from_char('\n').negate(), next_state_id);
                 Ok(true)
             }
-            Ast::Assertion(_) => Err(Error::regex("Assertions are not supported")),
+            Ast::Assertion(_) => Err(Error::regex("Assertions are not supported".to_string())),
             Ast::Class(class) => match class {
-                Class::Unicode(_) => {
-                    Err(Error::regex("Unicode character classes are not supported"))
+                Class::Unicode(class) => {
+                    let mut chars = self.expand_unicode_character_class(&class.kind)?;
+                    if class.negated {
+                        chars = chars.negate();
+                    }
+                    self.push_advance(chars, next_state_id);
+                    Ok(true)
                 }
                 Class::Perl(class) => {
                     let mut chars = self.expand_perl_character_class(&class.kind);
@@ -228,7 +241,7 @@ impl NfaBuilder {
                         Ok(true)
                     }
                     ClassSet::BinaryOp(_) => Err(Error::regex(
-                        "Binary operators in character classes aren't supported",
+                        "Binary operators in character classes aren't supported".to_string(),
                     )),
                 },
             },
@@ -355,11 +368,61 @@ impl NfaBuilder {
                 Ok(result)
             }
             ClassSetItem::Perl(class) => Ok(self.expand_perl_character_class(&class.kind)),
-            _ => Err(Error::regex(&format!(
+            _ => Err(Error::regex(format!(
                 "Unsupported character class syntax {:?}",
                 item
             ))),
         }
+    }
+
+    fn expand_unicode_character_class(&self, class: &ClassUnicodeKind) -> Result<CharacterSet> {
+        let mut chars = CharacterSet::empty();
+
+        let category_letter;
+        match class {
+            ClassUnicodeKind::OneLetter(le) => {
+                category_letter = le.to_string();
+            }
+            ClassUnicodeKind::Named(class_name) => {
+                if class_name.len() == 1 {
+                    category_letter = class_name.clone();
+                } else {
+                    let code_points = UNICODE_CATEGORIES
+                        .get(class_name.as_str())
+                        .or_else(|| UNICODE_PROPERTIES.get(class_name.as_str()))
+                        .ok_or_else(|| {
+                            Error::regex(format!(
+                                "Unsupported unicode character class {}",
+                                class_name
+                            ))
+                        })?;
+                    for c in code_points {
+                        if let Some(c) = std::char::from_u32(*c) {
+                            chars = chars.add_char(c);
+                        }
+                    }
+
+                    return Ok(chars);
+                }
+            }
+            ClassUnicodeKind::NamedValue { .. } => {
+                return Err(Error::regex(
+                    "Key-value unicode properties are not supported".to_string(),
+                ))
+            }
+        }
+
+        for (category, code_points) in UNICODE_CATEGORIES.iter() {
+            if category.starts_with(&category_letter) {
+                for c in code_points {
+                    if let Some(c) = std::char::from_u32(*c) {
+                        chars = chars.add_char(c);
+                    }
+                }
+            }
+        }
+
+        Ok(chars)
     }
 
     fn expand_perl_character_class(&self, item: &ClassPerlKind) -> CharacterSet {

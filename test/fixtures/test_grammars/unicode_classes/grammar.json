@@ -1,0 +1,33 @@
+{
+  "name": "unicode_classes",
+
+  "extras": [
+    {"type": "PATTERN", "value": "\\s"}
+  ],
+
+  "rules": {
+    "expression": {
+      "type": "CHOICE",
+      "members": [
+        {"type": "SYMBOL", "name": "lower"},
+        {"type": "SYMBOL", "name": "upper"},
+        {"type": "SYMBOL", "name": "math_sym"}
+      ]
+    },
+
+    "lower": {
+      "type": "PATTERN",
+      "value": "\\p{Ll}\\p{L}*"
+    },
+
+    "upper": {
+      "type": "PATTERN",
+      "value": "\\p{Lu}\\p{L}*"
+    },
+
+    "math_sym": {
+      "type": "PATTERN",
+      "value": "\\p{Sm}+"
+    }
+  }
+}
