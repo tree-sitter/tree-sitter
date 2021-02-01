@@ -577,7 +577,7 @@ impl<'a> ParseTableBuilder<'a> {
                         "(precedence: {}, associativity: {:?})",
                         precedence, associativity
                     ))
-                } else if precedence > 0 {
+                } else if precedence != 0 {
                     Some(format!("(precedence: {})", precedence))
                 } else {
                     None
@@ -619,6 +619,28 @@ impl<'a> ParseTableBuilder<'a> {
         }
         shift_items.sort_unstable();
         reduce_items.sort_unstable();
+
+        let list_rule_names = |mut msg: &mut String, items: &[&ParseItem]| {
+            let mut last_rule_id = None;
+            for item in items {
+                if last_rule_id == Some(item.variable_index) {
+                    continue;
+                }
+
+                if last_rule_id.is_some() {
+                    write!(&mut msg, " and").unwrap();
+                }
+
+                last_rule_id = Some(item.variable_index);
+                write!(
+                    msg,
+                    " `{}`",
+                    self.symbol_name(&Symbol::non_terminal(item.variable_index as usize))
+                )
+                .unwrap();
+            }
+        };
+
         if actual_conflict.len() > 1 {
             if shift_items.len() > 0 {
                 resolution_count += 1;
@@ -628,17 +650,7 @@ impl<'a> ParseTableBuilder<'a> {
                     resolution_count
                 )
                 .unwrap();
-                for (i, item) in shift_items.iter().enumerate() {
-                    if i > 0 {
-                        write!(&mut msg, " and").unwrap();
-                    }
-                    write!(
-                        &mut msg,
-                        " `{}`",
-                        self.symbol_name(&Symbol::non_terminal(item.variable_index as usize))
-                    )
-                    .unwrap();
-                }
+                list_rule_names(&mut msg, &shift_items);
                 write!(&mut msg, " than in the other rules.\n").unwrap();
             }
 
@@ -658,21 +670,11 @@ impl<'a> ParseTableBuilder<'a> {
             resolution_count += 1;
             write!(
                 &mut msg,
-                "  {}:  Specify a left or right associativity in ",
+                "  {}:  Specify a left or right associativity in",
                 resolution_count
             )
             .unwrap();
-            for (i, item) in reduce_items.iter().enumerate() {
-                if i > 0 {
-                    write!(&mut msg, " and ").unwrap();
-                }
-                write!(
-                    &mut msg,
-                    "`{}`",
-                    self.symbol_name(&Symbol::non_terminal(item.variable_index as usize))
-                )
-                .unwrap();
-            }
+            list_rule_names(&mut msg, &reduce_items);
             write!(&mut msg, "\n").unwrap();
         }
 
