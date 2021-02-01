@@ -184,6 +184,20 @@ TSTree *ts_parser_parse_wasm(
   return ts_parser_parse(self, old_tree, input);
 }
 
+/**********************/
+/* Section - Language */
+/**********************/
+
+int ts_language_type_is_named_wasm(const TSLanguage *self, TSSymbol typeId) {
+  const TSSymbolType symbolType = ts_language_symbol_type(self, typeId);
+  return symbolType == TSSymbolTypeRegular;
+}
+
+int ts_language_type_is_visible_wasm(const TSLanguage *self, TSSymbol typeId) {
+  const TSSymbolType symbolType = ts_language_symbol_type(self, typeId);
+  return symbolType <= TSSymbolTypeAnonymous;
+}
+
 /******************/
 /* Section - Tree */
 /******************/
