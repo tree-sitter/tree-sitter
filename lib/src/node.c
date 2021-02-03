@@ -432,6 +432,10 @@ char *ts_node_string(TSNode self) {
   return ts_subtree_string(ts_node__subtree(self), self.tree->language, false);
 }
 
+char *ts_node_string_extra(TSNode self) {
+  return ts_subtree_string(ts_node__subtree(self), self.tree->language, true);
+}
+
 bool ts_node_eq(TSNode self, TSNode other) {
   return self.tree == other.tree && self.id == other.id;
 }

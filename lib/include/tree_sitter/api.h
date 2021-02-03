@@ -439,6 +439,7 @@ TSPoint ts_node_end_point(TSNode);
  * freeing it using `free`.
  */
 char *ts_node_string(TSNode);
+char *ts_node_string_extra(TSNode);
 
 /**
  * Check if the node is null. Functions like `ts_node_child` and
