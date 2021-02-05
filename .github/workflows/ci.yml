@@ -32,6 +32,14 @@ jobs:
         run: |
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
 
+      - name: Check GNU tar
+        if: matrix.os == 'macos-latest'
+        run: |
+          echo "gtar:"
+          gtar --version
+          echo "tar:"
+          tar --version
+
       - name: Cache artifacts
         id: cache
         uses: actions/cache@v2
