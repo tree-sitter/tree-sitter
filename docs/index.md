@@ -48,6 +48,7 @@ Parsers for these languages are fairly complete:
 * [Rust](https://github.com/tree-sitter/tree-sitter-rust)
 * [R](https://github.com/r-lib/tree-sitter-r)
 * [SystemRDL](https://github.com/SystemRDL/tree-sitter-systemrdl)
+* [Svelte](https://github.com/Himujjal/tree-sitter-svelte)
 * [TOML](https://github.com/ikatyang/tree-sitter-toml)
 * [TypeScript](https://github.com/tree-sitter/tree-sitter-typescript)
 * [Verilog](https://github.com/tree-sitter/tree-sitter-verilog)
