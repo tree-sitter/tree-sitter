@@ -14,8 +14,8 @@ use std::str;
 use tree_sitter::{Language, LogType, Parser, Query};
 
 lazy_static! {
-    // Since parse_test_content() normalizes the line endings, it's not necessary to account for \r\n in these regexs
-    // If you're using these somewhere else, you may need to adding them back
+    // Since parse_test_content() normalizes the line endings, it's not necessary to account for \r\n in these regexes
+    // If you're using these somewhere else, you may need to add them back
     static ref HEADER_REGEX: ByteRegex = ByteRegexBuilder::new(r"^===+\n([^=]*)\n===+\n")
         .multi_line(true)
         .build()
@@ -366,7 +366,7 @@ pub fn strip_sexp_fields(sexp: String) -> String {
 }
 
 fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>) -> TestEntry {
-    // Normalize line ending. Some languages do not treat \r as a line break so we don't normalize these here
+    // Normalize line ending. Some languages do not treat \r as a line break so we don't normalize those here
     let normalized_content = content.replace("\r\n", "\n");
     std::mem::drop(content);
 

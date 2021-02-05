@@ -379,10 +379,13 @@ fn flatten_tests(test: TestEntry) -> Vec<(String, Vec<u8>, String, bool)> {
             if ch == '\n' {
                 // 50% probability of a CRLF
                 if rand.unsigned(1) == 1 {
-                    result.push('\r');
+                    result.push_str("\r\n");
+                } else {
+                    result.push('\n');
                 }
+            } else {
+                result.push(ch);
             }
-            result.push(ch);
         }
         result
     }
