@@ -42,6 +42,11 @@ html-escape = "0.2.6"
 version = ">= 0.17.0"
 path = "../lib"
 
+[dev-dependencies.tree-sitter]
+version = ">= 0.17.0"
+path = "../lib"
+features = ["allocation-tracking"]
+
 [dependencies.tree-sitter-highlight]
 version = ">= 0.3.0"
 path = "../highlight"

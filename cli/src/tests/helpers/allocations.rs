@@ -4,6 +4,7 @@
 use lazy_static::lazy_static;
 use spin::Mutex;
 use std::collections::HashMap;
+use std::env;
 use std::os::raw::{c_ulong, c_void};
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -31,9 +32,14 @@ extern "C" {
 
 pub fn start_recording() {
     let mut recorder = RECORDER.lock();
-    recorder.enabled = true;
     recorder.allocation_count = 0;
     recorder.outstanding_allocations.clear();
+
+    if env::var("RUST_TEST_THREADS").map_or(false, |s| s == "1") {
+        recorder.enabled = true;
+    } else {
+        panic!("This test must be run with RUST_TEST_THREADS=1. Use script/test.");
+    }
 }
 
 pub fn stop_recording() {

@@ -28,3 +28,8 @@ cc = "^1.0.58"
 
 [lib]
 path = "binding_rust/lib.rs"
+
+# This feature is only useful for testing the Tree-sitter library itself.
+# It is exposed because all of Tree-sitter's tests live in the Tree-sitter CLI crate.
+[features]
+allocation-tracking = []
