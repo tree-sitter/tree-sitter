@@ -26,6 +26,12 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v2
 
+      # Work around https://github.com/actions/cache/issues/403.
+      - name: Use GNU tar
+        if: matrix.os == 'macos-latest'
+        run: |
+          echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
+
       - name: Cache artifacts
         id: cache
         uses: actions/cache@v2
