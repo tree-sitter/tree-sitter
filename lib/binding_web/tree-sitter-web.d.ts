@@ -127,13 +127,18 @@ declare module 'web-tree-sitter' {
     }
 
     class Language {
-      static load(path: string): Promise<Language>;
+      static load(input: string | Uint8Array): Promise<Language>;
 
       readonly version: number;
       readonly fieldCount: number;
+      readonly nodeTypeCount: number;
 
       fieldNameForId(fieldId: number): string | null;
       fieldIdForName(fieldName: string): number | null;
+      idForNodeType(type: string, named: boolean): number;
+      nodeTypeForId(typeId: number): string | null;
+      nodeTypeIsNamed(typeId: number): boolean;
+      nodeTypeIsVisible(typeId: number): boolean;
       query(source: string): Query;
     }
 

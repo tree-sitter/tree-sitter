@@ -1,10 +1,14 @@
 try {
   module.exports = require("./build/Release/tree_sitter_PARSER_NAME_binding");
 } catch (error) {
-  try {
-    module.exports = require("./build/Debug/tree_sitter_PARSER_NAME_binding");
-  } catch (_) {
+  if (error.code !== 'MODULE_NOT_FOUND')
     throw error
+  else try {
+    module.exports = require("./build/Debug/tree_sitter_PARSER_NAME_binding");
+  } catch (error2) {
+    if (error2.code === 'MODULE_NOT_FOUND')
+      throw error
+    throw error2
   }
 }
 

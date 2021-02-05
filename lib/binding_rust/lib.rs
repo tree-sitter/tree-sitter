@@ -1147,6 +1147,12 @@ impl<'a> TreeCursor<'a> {
     }
 }
 
+impl<'a> Clone for TreeCursor<'a> {
+    fn clone(&self) -> Self {
+        TreeCursor(unsafe { ffi::ts_tree_cursor_copy(&self.0) }, PhantomData)
+    }
+}
+
 impl<'a> Drop for TreeCursor<'a> {
     fn drop(&mut self) {
         unsafe { ffi::ts_tree_cursor_delete(&mut self.0) }

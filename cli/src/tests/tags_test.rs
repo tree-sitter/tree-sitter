@@ -70,7 +70,7 @@ const RUBY_TAG_QUERY: &'static str = r#"
 (method
     name: (_) @name) @definition.method
 
-(method_call
+(call
     method: (identifier) @name) @reference.call
 
 (setter (identifier) @ignore)
@@ -317,18 +317,16 @@ fn test_tags_with_parse_error() {
     assert!(failed, "syntax error should have been detected");
 
     assert_eq!(
-        newtags.iter()
+        newtags
+            .iter()
             .map(|t| (
                 substr(source, &t.name_range),
                 tags_config.syntax_type_name(t.syntax_type_id)
             ))
             .collect::<Vec<_>>(),
-        &[
-            ("Fine", "class"),
-        ]
+        &[("Fine", "class"),]
     );
 }
-
 
 #[test]
 fn test_tags_via_c_api() {

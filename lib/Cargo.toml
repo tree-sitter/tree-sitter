@@ -24,7 +24,7 @@ include = [
 regex = "1"
 
 [build-dependencies]
-cc = "1.0"
+cc = "^1.0.58"
 
 [lib]
 path = "binding_rust/lib.rs"

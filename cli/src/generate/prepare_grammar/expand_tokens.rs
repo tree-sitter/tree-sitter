@@ -12,7 +12,7 @@ use std::i32;
 
 lazy_static! {
     static ref CURLY_BRACE_REGEX: Regex =
-        Regex::new(r#"(^|[^\\])\{([^}]*[^0-9A-F,}][^}]*)\}"#).unwrap();
+        Regex::new(r#"(^|[^\\])\{([^}]*[^0-9A-Fa-f,}][^}]*)\}"#).unwrap();
 }
 
 const ALLOWED_REDUNDANT_ESCAPED_CHARS: [char; 4] = ['!', '\'', '"', '/'];
@@ -198,11 +198,11 @@ impl NfaBuilder {
             Ast::Empty(_) => Ok(false),
             Ast::Flags(_) => Err(Error::regex("Flags are not supported")),
             Ast::Literal(literal) => {
-                self.push_advance(CharacterSet::Include(vec![literal.c]), next_state_id);
+                self.push_advance(CharacterSet::from_char(literal.c), next_state_id);
                 Ok(true)
             }
             Ast::Dot(_) => {
-                self.push_advance(CharacterSet::Exclude(vec!['\n']), next_state_id);
+                self.push_advance(CharacterSet::from_char('\n').negate(), next_state_id);
                 Ok(true)
             }
             Ast::Assertion(_) => Err(Error::regex("Assertions are not supported")),
@@ -344,11 +344,9 @@ impl NfaBuilder {
 
     fn expand_character_class(&self, item: &ClassSetItem) -> Result<CharacterSet> {
         match item {
-            ClassSetItem::Empty(_) => Ok(CharacterSet::Include(Vec::new())),
-            ClassSetItem::Literal(literal) => Ok(CharacterSet::Include(vec![literal.c])),
-            ClassSetItem::Range(range) => {
-                Ok(CharacterSet::empty().add_range(range.start.c, range.end.c))
-            }
+            ClassSetItem::Empty(_) => Ok(CharacterSet::empty()),
+            ClassSetItem::Literal(literal) => Ok(CharacterSet::from_char(literal.c)),
+            ClassSetItem::Range(range) => Ok(CharacterSet::from_range(range.start.c, range.end.c)),
             ClassSetItem::Union(union) => {
                 let mut result = CharacterSet::empty();
                 for item in &union.items {
@@ -366,7 +364,7 @@ impl NfaBuilder {
 
     fn expand_perl_character_class(&self, item: &ClassPerlKind) -> CharacterSet {
         match item {
-            ClassPerlKind::Digit => CharacterSet::empty().add_range('0', '9'),
+            ClassPerlKind::Digit => CharacterSet::from_range('0', '9'),
             ClassPerlKind::Space => CharacterSet::empty()
                 .add_char(' ')
                 .add_char('\t')
@@ -653,12 +651,15 @@ mod tests {
                     Rule::pattern(r#"\{[ab]{3}\}"#),
                     // Unicode codepoints
                     Rule::pattern(r#"\u{1000A}"#),
+                    // Unicode codepoints (lowercase)
+                    Rule::pattern(r#"\u{1000b}"#),
                 ],
                 separators: vec![],
                 examples: vec![
                     ("u{1234} ok", Some((0, "u{1234}"))),
                     ("{aba}}", Some((1, "{aba}"))),
                     ("\u{1000A}", Some((2, "\u{1000A}"))),
+                    ("\u{1000b}", Some((3, "\u{1000b}"))),
                 ],
             },
         ];

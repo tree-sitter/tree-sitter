@@ -1,5 +1,4 @@
 use super::grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType};
-use super::nfa::CharacterSet;
 use super::rules::{Alias, AliasMap, Symbol, SymbolType};
 use super::tables::{
     AdvanceAction, FieldLocation, GotoAction, LexState, LexTable, ParseAction, ParseTable,
@@ -659,21 +658,19 @@ impl Generator {
                     .advance_actions
                     .iter()
                     .map(|(chars, action)| {
-                        let (chars, is_included) = match chars {
-                            CharacterSet::Include(c) => (c, true),
-                            CharacterSet::Exclude(c) => (c, false),
-                        };
-                        let mut call_id = None;
-                        let mut ranges =
-                            CharacterSet::ranges(chars, &ruled_out_chars).collect::<Vec<_>>();
+                        let is_included = !chars.contains(std::char::MAX);
+                        let mut ranges;
                         if is_included {
-                            ruled_out_chars.extend(chars.iter().map(|c| *c as u32));
+                            ranges = chars.simplify_ignoring(&ruled_out_chars);
+                            ruled_out_chars.extend(chars.iter());
                         } else {
+                            ranges = chars.clone().negate().simplify_ignoring(&ruled_out_chars);
                             ranges.insert(0, '\0'..'\0')
                         }
 
                         // Record any large character sets so that they can be extracted
                         // into helper functions, reducing code duplication.
+                        let mut call_id = None;
                         if extract_helper_functions && ranges.len() > LARGE_CHARACTER_RANGE_COUNT {
                             let char_set_symbol = self
                                 .symbol_for_advance_action(action, &lex_table)
@@ -887,11 +884,16 @@ impl Generator {
                     add!(self, " &&{}lookahead != ", line_break);
                     self.add_character(range.end);
                 } else {
-                    add!(self, "(lookahead < ");
-                    self.add_character(range.start);
-                    add!(self, " || ");
-                    self.add_character(range.end);
-                    add!(self, " < lookahead)");
+                    if range.start != '\0' {
+                        add!(self, "(lookahead < ");
+                        self.add_character(range.start);
+                        add!(self, " || ");
+                        self.add_character(range.end);
+                        add!(self, " < lookahead)");
+                    } else {
+                        add!(self, "lookahead > ");
+                        self.add_character(range.end);
+                    }
                 }
             }
             did_add = true;

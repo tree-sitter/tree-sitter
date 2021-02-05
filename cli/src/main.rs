@@ -63,6 +63,7 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("scope").long("scope").takes_value(true))
                 .arg(Arg::with_name("debug").long("debug").short("d"))
                 .arg(Arg::with_name("debug-graph").long("debug-graph").short("D"))
+                .arg(Arg::with_name("debug-xml").long("xml").short("x"))
                 .arg(Arg::with_name("quiet").long("quiet").short("q"))
                 .arg(Arg::with_name("stat").long("stat").short("s"))
                 .arg(Arg::with_name("time").long("time").short("t"))
@@ -119,6 +120,7 @@ fn run() -> error::Result<()> {
                         .short("f")
                         .takes_value(true),
                 )
+                .arg(Arg::with_name("update").long("update").short("u"))
                 .arg(Arg::with_name("debug").long("debug").short("d"))
                 .arg(Arg::with_name("debug-graph").long("debug-graph").short("D")),
         )
@@ -193,6 +195,7 @@ fn run() -> error::Result<()> {
     } else if let Some(matches) = matches.subcommand_matches("test") {
         let debug = matches.is_present("debug");
         let debug_graph = matches.is_present("debug-graph");
+        let update = matches.is_present("update");
         let filter = matches.value_of("filter");
         let languages = loader.languages_at_path(&current_dir)?;
         let language = languages
@@ -206,7 +209,7 @@ fn run() -> error::Result<()> {
             test_corpus_dir = current_dir.join("corpus");
         }
         if test_corpus_dir.is_dir() {
-            test::run_tests_at_path(*language, &test_corpus_dir, debug, debug_graph, filter)?;
+            test::run_tests_at_path(*language, &test_corpus_dir, debug, debug_graph, filter, update)?;
         }
 
         // Check that all of the queries are valid.
@@ -220,6 +223,7 @@ fn run() -> error::Result<()> {
     } else if let Some(matches) = matches.subcommand_matches("parse") {
         let debug = matches.is_present("debug");
         let debug_graph = matches.is_present("debug-graph");
+        let debug_xml = matches.is_present("debug-xml");
         let quiet = matches.is_present("quiet");
         let time = matches.is_present("time");
         let edits = matches
@@ -255,6 +259,7 @@ fn run() -> error::Result<()> {
                 timeout,
                 debug,
                 debug_graph,
+                debug_xml,
                 Some(&cancellation_flag),
             )?;
 
