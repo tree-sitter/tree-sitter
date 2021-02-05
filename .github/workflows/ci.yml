@@ -39,7 +39,6 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            emsdk-cache-${{ runner.os }}
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}-emscripten-${{ env.EMSCRIPTEN_VERSION }}
 
@@ -54,7 +53,6 @@ jobs:
         uses: mymindstorm/setup-emsdk@v7
         with:
           version: ${{ env.EMSCRIPTEN_VERSION }}
-          actions-cache-folder: emsdk-cache-${{ runner.os }}
 
       - name: Build C library
         run: make
