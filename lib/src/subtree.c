@@ -963,6 +963,165 @@ char *ts_subtree_string(
   return result;
 }
 
+// ---------------------------------------------------------------------
+
+// Generate an error message if the node is ERROR, MISSING, or UNEXPECTED
+// Used for checking children of the node under consideration
+static size_t ts_subtree__write_diagnostic_to_string_child(
+  Subtree self, uint32_t start_offset, char *string, size_t limit,
+  const TSLanguage *language, bool include_all,
+  TSSymbol alias_symbol, bool alias_is_named, const char *field_name
+) {
+  (void)field_name;
+
+#pragma GCC diagnostic ignored "-Wformat-zero-length"
+  if (!self.ptr) return snprintf(string, limit, "");
+#pragma GCC diagnostic warning "-Wformat-zero-length"
+
+  uint32_t end_offset = start_offset + ts_subtree_total_bytes(self);
+  char *cursor = string;
+  char **writer = (limit > 0) ? &cursor : &string;
+  bool is_root = field_name == ROOT_FIELD;
+  bool is_visible =
+    include_all ||
+    ts_subtree_missing(self) ||
+    (
+      alias_symbol
+        ? alias_is_named
+        : ts_subtree_visible(self) && ts_subtree_named(self)
+    );
+
+  if (is_visible) {
+
+    if (ts_subtree_is_error(self) && ts_subtree_child_count(self) == 0 && self.ptr->size.bytes > 0) {
+      cursor += snprintf(*writer, limit, "((%u,%u) (UNEXPECTED ", start_offset, end_offset);
+      cursor += ts_subtree__write_char_to_string(*writer, limit, self.ptr->lookahead_char);
+        cursor += snprintf(*writer, limit, ")),");
+    } else {
+      TSSymbol symbol = alias_symbol ? alias_symbol : ts_subtree_symbol(self);
+      const char *symbol_name = ts_language_symbol_name(language, symbol);
+      if (ts_subtree_missing(self)) {
+        cursor += snprintf(*writer, limit, "((%u,%u) (MISSING ", start_offset, end_offset);
+        if (alias_is_named || ts_subtree_named(self)) {
+          cursor += snprintf(*writer, limit, "{%s}", symbol_name);
+        } else {
+          cursor += snprintf(*writer, limit, "\"%s\"", symbol_name);
+        }
+        cursor += snprintf(*writer, limit, ")),");
+      } else {
+        if (symbol == ts_builtin_sym_error || symbol == ts_builtin_sym_error_repeat) {
+          cursor += snprintf(*writer, limit, "((%u,%u) (%s)),", start_offset, end_offset, symbol_name);
+        }
+      }
+    }
+  } else {
+      cursor += snprintf(*writer, limit, "((%u,%u) *not is_visible. Should not happen*),",
+                         start_offset, end_offset);
+  }
+
+  return cursor - string;
+}
+
+
+// Generate an error message if the node is ERROR, MISSING, or UNEXPECTED
+static size_t ts_subtree__write_diagnostic_to_string(
+  Subtree self, uint32_t start_offset, char *string, size_t limit,
+  const TSLanguage *language, bool include_all,
+  TSSymbol alias_symbol, bool alias_is_named, const char *field_name
+) {
+  if (!self.ptr) return snprintf(string, limit, "(NULL)");
+
+  char *cursor = string;
+  char **writer = (limit > 0) ? &cursor : &string;
+  bool is_root = field_name == ROOT_FIELD;
+  bool is_visible =
+    include_all ||
+    ts_subtree_missing(self) ||
+    (
+      alias_symbol
+        ? alias_is_named
+        : ts_subtree_visible(self) && ts_subtree_named(self)
+    );
+
+  // zero-terminate the string in case nothing shows up
+#pragma GCC diagnostic ignored "-Wformat-zero-length"
+  cursor += snprintf(*writer, limit, "");
+#pragma GCC diagnostic warning "-Wformat-zero-length"
+
+  if (ts_subtree_child_count(self)) {
+    const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self.ptr->production_id);
+    const TSFieldMapEntry *field_map, *field_map_end;
+    ts_language_field_map(
+      language,
+      self.ptr->production_id,
+      &field_map,
+      &field_map_end
+    );
+
+    uint32_t child_start_offset = start_offset;
+    uint32_t structural_child_index = 0;
+    for (uint32_t i = 0; i < self.ptr->child_count; i++) {
+      Subtree child = ts_subtree_children(self)[i];
+
+      if (ts_subtree_extra(child)) {
+        cursor += ts_subtree__write_diagnostic_to_string_child(
+          child, child_start_offset, *writer, limit,
+          language, include_all,
+          0, false, NULL
+        );
+      } else {
+        TSSymbol alias_symbol = alias_sequence
+          ? alias_sequence[structural_child_index]
+          : 0;
+        bool alias_is_named = alias_symbol
+          ? ts_language_symbol_metadata(language, alias_symbol).named
+          : false;
+
+        const char *child_field_name = is_visible ? NULL : field_name;
+        for (const TSFieldMapEntry *i = field_map; i < field_map_end; i++) {
+          if (!i->inherited && i->child_index == structural_child_index) {
+            child_field_name = language->field_names[i->field_id];
+            break;
+          }
+        }
+
+        cursor += ts_subtree__write_diagnostic_to_string_child(
+          child, child_start_offset, *writer, limit,
+          language, include_all,
+          alias_symbol, alias_is_named, child_field_name
+        );
+        structural_child_index++;
+      }
+    child_start_offset += ts_subtree_total_bytes(child);
+    }
+  } else {
+  }
+  return cursor - string;
+}
+
+char *ts_subtree_string_diagnostic(
+  Subtree self, uint32_t start_offset,
+  const TSLanguage *language,
+  bool include_all
+) {
+  char scratch_string[1];
+  size_t size = ts_subtree__write_diagnostic_to_string(
+    self, start_offset, scratch_string, 0,
+    language, include_all,
+    0, false, ROOT_FIELD
+  ) + 1;
+  char *result = malloc(size * sizeof(char));
+  ts_subtree__write_diagnostic_to_string(
+    self, start_offset, result, size,
+    language, include_all,
+    0, false, ROOT_FIELD
+  );
+  return result;
+}
+
+// ---------------------------------------------------------------------
+
+
 void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
                                  const TSLanguage *language, TSSymbol alias_symbol,
                                  FILE *f) {

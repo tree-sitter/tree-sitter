@@ -442,6 +442,15 @@ char *ts_node_string(TSNode);
 char *ts_node_string_extra(TSNode);
 
 /**
+ * Get a string representing any diagnostics on the node. It returns NULL
+ * if no diagnostics are found.
+ *
+ * This string is allocated with `malloc` and the caller is responsible for
+ * freeing it using `free`.
+ */
+char *ts_node_string_diagnostics(TSNode);
+
+/**
  * Check if the node is null. Functions like `ts_node_child` and
  * `ts_node_next_sibling` will return a null node to indicate that no such node
  * was found.
