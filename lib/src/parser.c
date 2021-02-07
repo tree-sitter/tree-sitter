@@ -25,6 +25,41 @@
     ts_parser__log(self);                                                                   \
   }
 
+#define LOG_LOOKAHEAD(symbol_name, size, ...)                \
+  if (self->lexer.logger.log || self->dot_graph_file) {      \
+    char *buf = self->lexer.debug_buffer;                    \
+    const char *symbol = symbol_name;                        \
+    int off = sprintf(buf, "lexed_lookahead sym:");          \
+    for (                                                    \
+      int i = 0;                                             \
+      symbol[i] != '\0'                                      \
+      && off < TREE_SITTER_SERIALIZATION_BUFFER_SIZE;        \
+      i++                                                    \
+    ) {                                                      \
+      switch (symbol[i]) {                                   \
+      case '\t': buf[off++] = '\\'; buf[off++] = 't'; break; \
+      case '\n': buf[off++] = '\\'; buf[off++] = 'n'; break; \
+      case '\v': buf[off++] = '\\'; buf[off++] = 'v'; break; \
+      case '\f': buf[off++] = '\\'; buf[off++] = 'f'; break; \
+      case '\r': buf[off++] = '\\'; buf[off++] = 'r'; break; \
+      default:   buf[off++] = symbol[i]; break;              \
+      }                                                      \
+    }                                                        \
+    off += snprintf(                                         \
+      buf + off,                                             \
+      TREE_SITTER_SERIALIZATION_BUFFER_SIZE - off,           \
+      ", size:%u",                                           \
+      size                                                   \
+    );                                                       \
+    if (sizeof( (char[]){#__VA_ARGS__} ) == 1)               \
+    snprintf(                                                \
+      buf + off,                                             \
+      TREE_SITTER_SERIALIZATION_BUFFER_SIZE - off,           \
+      ", " __VA_ARGS__                                       \
+    );                                                       \
+    ts_parser__log(self);                                    \
+  }
+
 #define LOG_STACK()                                                              \
   if (self->dot_graph_file) {                                                    \
     ts_stack_print_dot_graph(self->stack, self->language, self->dot_graph_file); \
@@ -477,10 +512,10 @@ static Subtree ts_parser__lex(
       self->language
     );
 
-    LOG(
-      "lexed_lookahead sym:%s, size:%u, character:'%c'",
+    LOG_LOOKAHEAD(
       SYM_NAME(ts_subtree_symbol(result)),
       ts_subtree_total_size(result).bytes,
+      "character:'%c'",
       first_error_character
     );
   } else {
@@ -534,8 +569,7 @@ static Subtree ts_parser__lex(
       );
     }
 
-    LOG(
-      "lexed_lookahead sym:%s, size:%u",
+    LOG_LOOKAHEAD(
       SYM_NAME(ts_subtree_symbol(result)),
       ts_subtree_total_size(result).bytes
     );
