@@ -25,33 +25,34 @@
     ts_parser__log(self);                                                                   \
   }
 
-#define LOG_LOOKAHEAD(symbol_name, size)                     \
-  if (self->lexer.logger.log || self->dot_graph_file) {      \
-    char *buf = self->lexer.debug_buffer;                    \
-    const char *symbol = symbol_name;                        \
-    int off = sprintf(buf, "lexed_lookahead sym:");          \
-    for (                                                    \
-      int i = 0;                                             \
-      symbol[i] != '\0'                                      \
-      && off < TREE_SITTER_SERIALIZATION_BUFFER_SIZE;        \
-      i++                                                    \
-    ) {                                                      \
-      switch (symbol[i]) {                                   \
-      case '\t': buf[off++] = '\\'; buf[off++] = 't'; break; \
-      case '\n': buf[off++] = '\\'; buf[off++] = 'n'; break; \
-      case '\v': buf[off++] = '\\'; buf[off++] = 'v'; break; \
-      case '\f': buf[off++] = '\\'; buf[off++] = 'f'; break; \
-      case '\r': buf[off++] = '\\'; buf[off++] = 'r'; break; \
-      default:   buf[off++] = symbol[i]; break;              \
-      }                                                      \
-    }                                                        \
-    snprintf(                                                \
-      buf + off,                                             \
-      TREE_SITTER_SERIALIZATION_BUFFER_SIZE - off,           \
-      ", size:%u",                                           \
-      size                                                   \
-    );                                                       \
-    ts_parser__log(self);                                    \
+#define LOG_LOOKAHEAD(symbol_name, size)                      \
+  if (self->lexer.logger.log || self->dot_graph_file) {       \
+    char *buf = self->lexer.debug_buffer;                     \
+    const char *symbol = symbol_name;                         \
+    int off = sprintf(buf, "lexed_lookahead sym:");           \
+    for (                                                     \
+      int i = 0;                                              \
+      symbol[i] != '\0'                                       \
+      && off < TREE_SITTER_SERIALIZATION_BUFFER_SIZE;         \
+      i++                                                     \
+    ) {                                                       \
+      switch (symbol[i]) {                                    \
+      case '\t': buf[off++] = '\\'; buf[off++] = 't'; break;  \
+      case '\n': buf[off++] = '\\'; buf[off++] = 'n'; break;  \
+      case '\v': buf[off++] = '\\'; buf[off++] = 'v'; break;  \
+      case '\f': buf[off++] = '\\'; buf[off++] = 'f'; break;  \
+      case '\r': buf[off++] = '\\'; buf[off++] = 'r'; break;  \
+      case '\\': buf[off++] = '\\'; buf[off++] = '\\'; break; \
+      default:   buf[off++] = symbol[i]; break;               \
+      }                                                       \
+    }                                                         \
+    snprintf(                                                 \
+      buf + off,                                              \
+      TREE_SITTER_SERIALIZATION_BUFFER_SIZE - off,            \
+      ", size:%u",                                            \
+      size                                                    \
+    );                                                        \
+    ts_parser__log(self);                                     \
   }
 
 #define LOG_STACK()                                                              \
