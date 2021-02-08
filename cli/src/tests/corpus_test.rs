@@ -13,6 +13,7 @@ use tree_sitter::{LogType, Node, Parser, Tree};
 
 const EDIT_COUNT: usize = 3;
 const TRIAL_COUNT: usize = 10;
+const LINE_ENDING_TRIAL_COUNT: usize = 2;
 const LANGUAGES: &'static [&'static str] = &[
     "bash",
     "c",
@@ -410,10 +411,10 @@ fn flatten_tests(test: TestEntry) -> Vec<(String, Vec<u8>, String, bool)> {
                 result.push((name.clone() + " - LF", input.clone(), output.clone(), has_fields));
                 let input_crlf = Vec::from(input_str.replace("\n", "\r\n").as_bytes());
                 result.push((name.clone() + " - CRLF", input_crlf, output.clone(), has_fields));
-                for trial in 1..=TRIAL_COUNT {
+                for trial in 1..=LINE_ENDING_TRIAL_COUNT {
                     let mut rand = Rand::new(*SEED + trial);
                     let input_mix = Vec::from(randomize_line_ending(input_str, &mut rand));
-                    result.push((name.clone() + &format!(" - Mix {}", trial), input_mix, output.clone(), has_fields));
+                    result.push((name.clone() + &format!(" - Random mix {}", trial), input_mix, output.clone(), has_fields));
                 }
             }
             TestEntry::Group { mut name, children, .. } => {
