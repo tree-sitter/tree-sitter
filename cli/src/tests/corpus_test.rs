@@ -13,7 +13,6 @@ use tree_sitter::{LogType, Node, Parser, Tree};
 
 const EDIT_COUNT: usize = 3;
 const TRIAL_COUNT: usize = 10;
-const LINE_ENDING_TRIAL_COUNT: usize = 2;
 const LANGUAGES: &'static [&'static str] = &[
     "bash",
     "c",
@@ -374,22 +373,6 @@ fn get_parser(session: &mut Option<util::LogSession>, log_filename: &str) -> Par
 }
 
 fn flatten_tests(test: TestEntry) -> Vec<(String, Vec<u8>, String, bool)> {
-    fn randomize_line_ending(str: &str, rand: &mut Rand) -> String {
-        let mut result = String::new();
-        for ch in str.chars() {
-            if ch == '\n' {
-                // 50% probability of a CRLF
-                if rand.unsigned(1) == 1 {
-                    result.push_str("\r\n");
-                } else {
-                    result.push('\n');
-                }
-            } else {
-                result.push(ch);
-            }
-        }
-        result
-    }
     fn helper(test: TestEntry, prefix: &str, result: &mut Vec<(String, Vec<u8>, String, bool)>) {
         match test {
             TestEntry::Example {
@@ -411,11 +394,6 @@ fn flatten_tests(test: TestEntry) -> Vec<(String, Vec<u8>, String, bool)> {
                 result.push((name.clone() + " - LF", input.clone(), output.clone(), has_fields));
                 let input_crlf = Vec::from(input_str.replace("\n", "\r\n").as_bytes());
                 result.push((name.clone() + " - CRLF", input_crlf, output.clone(), has_fields));
-                for trial in 1..=LINE_ENDING_TRIAL_COUNT {
-                    let mut rand = Rand::new(*SEED + trial);
-                    let input_mix = Vec::from(randomize_line_ending(input_str, &mut rand));
-                    result.push((name.clone() + &format!(" - Random mix {}", trial), input_mix, output.clone(), has_fields));
-                }
             }
             TestEntry::Group { mut name, children, .. } => {
                 if !prefix.is_empty() {
