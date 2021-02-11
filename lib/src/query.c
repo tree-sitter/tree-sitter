@@ -1348,6 +1348,9 @@ static TSQueryError ts_query__parse_string_literal(
     if (is_escaped) {
       is_escaped = false;
       switch (stream->next) {
+        case '"':
+          array_push(&self->string_buffer, '"');
+          break;
         case 'n':
           array_push(&self->string_buffer, '\n');
           break;
