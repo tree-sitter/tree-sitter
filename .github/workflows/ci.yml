@@ -85,9 +85,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           cp target/release/tree-sitter .
-          gzip --suffix "-${OS,,}-x64.gz" tree-sitter
-        env:
-          OS: ${{ runner.os }}
+          export platform=$(echo ${{ runner.os }} | awk '{print tolower($0)}')
+          gzip --suffix "-${platform}-x64.gz" tree-sitter
 
       - name: Release
         uses: softprops/action-gh-release@v1
