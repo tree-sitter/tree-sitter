@@ -22,8 +22,9 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: [macos-latest, ubuntu-latest]
-        toolchain: [stable]
+        os:
+          - macos-latest
+          - ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
@@ -48,7 +49,7 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{ matrix.toolchain }}
+          toolchain: stable
           profile: minimal
 
       - name: Install emscripten
@@ -84,7 +85,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           cp target/release/tree-sitter .
-          gzip --keep --suffix "-${{ runner.os }}-x64.gz" tree-sitter
+          gzip --suffix "-${OS,,}-x64.gz" tree-sitter
+        env:
+          OS: ${{ runner.os }}
 
       - name: Release
         uses: softprops/action-gh-release@v1
