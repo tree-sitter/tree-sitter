@@ -7,7 +7,7 @@ const packageJSON = require('./package.json');
 
 // Determine the URL of the file.
 const platformName = {
-  'darwin': 'osx',
+  'darwin': 'macos',
   'linux': 'linux',
   'win32': 'windows'
 }[process.platform];
