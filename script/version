@@ -55,7 +55,7 @@ if (arg) {
   fs.writeFileSync(cargoTomlPath, newCargoMetadata, 'utf8');
   execFileSync('cargo', ['build'], {cwd: cliPath});
   execFileSync('git', ['commit', '-a', '-m', newVersion]);
-  execFileSync('git', ['tag', newVersion]);
+  execFileSync('git', ['tag', 'v' + newVersion]);
   console.log(newVersion)
 } else {
   console.log(npmVersion);
