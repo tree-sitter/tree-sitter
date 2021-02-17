@@ -914,28 +914,41 @@ impl Generator {
                     Comparator::Equal => "==",
                     Comparator::GreaterOrEqual => ">=",
                 };
-                add!(self, "(c {} ", op);
-                self.add_character(*value);
-                add!(self, ")");
-
                 let consequence = consequence.as_ref().map(Box::as_ref);
                 let alternative = alternative.as_ref().map(Box::as_ref);
-                if alternative.is_none() {
-                    if consequence != Some(&CharacterTree::Yes) {
+
+                let simple = alternative.is_none() && consequence == Some(&CharacterTree::Yes);
+
+                if !simple {
+                    add!(self, "(");
+                }
+
+                add!(self, "c {} ", op);
+                self.add_character(*value);
+
+                if !simple {
+                    if alternative.is_none() {
                         add!(self, " && ");
                         self.add_character_tree(consequence);
+                    } else if consequence == Some(&CharacterTree::Yes) {
+                        add!(self, " || ");
+                        self.add_character_tree(alternative);
+                    } else {
+                        add!(self, "\n");
+                        indent!(self);
+                        add_whitespace!(self);
+                        add!(self, "? ");
+                        self.add_character_tree(consequence);
+                        add!(self, "\n");
+                        add_whitespace!(self);
+                        add!(self, ": ");
+                        self.add_character_tree(alternative);
+                        dedent!(self);
                     }
-                } else {
-                    add!(self, "\n");
-                    indent!(self);
-                    add_whitespace!(self);
-                    add!(self, "? ");
-                    self.add_character_tree(consequence);
-                    add!(self, "\n");
-                    add_whitespace!(self);
-                    add!(self, ": ");
-                    self.add_character_tree(alternative);
-                    dedent!(self);
+                }
+
+                if !simple {
+                    add!(self, ")");
                 }
             }
             Some(CharacterTree::Yes) => {
