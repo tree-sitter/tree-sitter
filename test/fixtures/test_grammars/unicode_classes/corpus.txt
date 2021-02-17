@@ -1,9 +1,32 @@
-============================
-Letters
-======================
+===============
+Uppercase words
+===============
 
-Aბㄱ
+Δბㄱ  Ψ  Ɓƀ  Ƒ  Ɣ  Śřř
 
 ---
 
-(expression (upper))
+(program
+  (upper) (upper) (upper) (upper) (upper) (upper))
+
+================
+Lowercase words
+================
+
+śś  ťť  ßß
+
+---
+
+(program
+  (lower) (lower) (lower))
+
+================
+Math symbols
+================
+
+≺ ≼ ≠ ≝ ⨔∑
+
+---
+
+(program
+  (math_sym) (math_sym) (math_sym) (math_sym) (math_sym))

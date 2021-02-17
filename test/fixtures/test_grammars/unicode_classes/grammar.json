@@ -6,13 +6,16 @@
   ],
 
   "rules": {
-    "expression": {
-      "type": "CHOICE",
-      "members": [
-        {"type": "SYMBOL", "name": "lower"},
-        {"type": "SYMBOL", "name": "upper"},
-        {"type": "SYMBOL", "name": "math_sym"}
-      ]
+    "program":  {
+      "type": "REPEAT",
+      "content": {
+        "type": "CHOICE",
+        "members": [
+          {"type": "SYMBOL", "name": "lower"},
+          {"type": "SYMBOL", "name": "upper"},
+          {"type": "SYMBOL", "name": "math_sym"}
+        ]
+      }
     },
 
     "lower": {
