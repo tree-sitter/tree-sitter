@@ -1,5 +1,8 @@
 use std::ops::Range;
 
+/// A set of characters represented as a balanced binary tree of comparisons.
+/// This is used as an intermediate step in generating efficient code for
+/// matching a given character set.
 #[derive(PartialEq, Eq)]
 pub enum CharacterTree {
     Yes,

@@ -720,13 +720,11 @@ impl Generator {
                     info.index
                 );
                 indent!(self);
-                add_line!(self, "return");
-                indent!(self);
                 add_whitespace!(self);
+                add!(self, "return ");
                 let tree = CharacterTree::from_ranges(&info.ranges);
                 self.add_character_tree(tree.as_ref());
                 add!(self, ";\n");
-                dedent!(self);
                 dedent!(self);
                 add_line!(self, "}}");
                 add_line!(self, "");
