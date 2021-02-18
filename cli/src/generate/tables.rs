@@ -1,5 +1,5 @@
+use super::nfa::CharacterSet;
 use super::rules::{Alias, Associativity, Symbol, TokenSet};
-use super::{grammars::SyntaxGrammar, nfa::CharacterSet};
 use std::collections::{BTreeMap, HashMap};
 pub(crate) type ProductionInfoId = usize;
 pub(crate) type ParseStateId = usize;
@@ -101,18 +101,9 @@ impl Default for LexTable {
 }
 
 impl ParseState {
-    pub fn is_end_of_non_terminal_extra(&self, grammar: &SyntaxGrammar) -> bool {
-        if let Some(eof_entry) = self.terminal_entries.get(&Symbol::end()) {
-            eof_entry.actions.iter().any(|action| {
-                if let ParseAction::Reduce { symbol, .. } = action {
-                    grammar.extra_symbols.contains(&symbol)
-                } else {
-                    false
-                }
-            })
-        } else {
-            false
-        }
+    pub fn is_end_of_non_terminal_extra(&self) -> bool {
+        self.terminal_entries
+            .contains_key(&Symbol::end_of_nonterminal_extra())
     }
 
     pub fn referenced_states<'a>(&'a self) -> impl Iterator<Item = ParseStateId> + 'a {

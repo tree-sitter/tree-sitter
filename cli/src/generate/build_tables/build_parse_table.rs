@@ -90,7 +90,10 @@ impl<'a> ParseTableBuilder<'a> {
                             production,
                             step_index: 1,
                         },
-                        &[Symbol::end()].iter().cloned().collect(),
+                        &[Symbol::end_of_nonterminal_extra()]
+                            .iter()
+                            .cloned()
+                            .collect(),
                     );
             }
         }
@@ -304,7 +307,7 @@ impl<'a> ParseTableBuilder<'a> {
 
         // Finally, add actions for the grammar's `extra` symbols.
         let state = &mut self.parse_table.states[state_id];
-        let is_end_of_non_terminal_extra = state.is_end_of_non_terminal_extra(&self.syntax_grammar);
+        let is_end_of_non_terminal_extra = state.is_end_of_non_terminal_extra();
 
         // If this state represents the end of a non-terminal extra rule, then make sure that
         // it doesn't have other successor states. Non-terminal extra rules must have
@@ -315,7 +318,7 @@ impl<'a> ParseTableBuilder<'a> {
                     .entries
                     .iter()
                     .filter_map(|(item, _)| {
-                        if item.step_index > 0 {
+                        if !item.is_augmented() && item.step_index > 0 {
                             Some(item.variable_index)
                         } else {
                             None
@@ -817,7 +820,7 @@ impl<'a> ParseTableBuilder<'a> {
 
     fn symbol_name(&self, symbol: &Symbol) -> String {
         match symbol.kind {
-            SymbolType::End => "EOF".to_string(),
+            SymbolType::End | SymbolType::EndOfNonTerminalExtra => "EOF".to_string(),
             SymbolType::External => self.syntax_grammar.external_tokens[symbol.index]
                 .name
                 .clone(),

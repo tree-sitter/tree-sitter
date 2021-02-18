@@ -142,6 +142,10 @@ impl Generator {
         for i in 0..self.parse_table.symbols.len() {
             self.assign_symbol_id(self.parse_table.symbols[i], &mut symbol_identifiers);
         }
+        self.symbol_ids.insert(
+            Symbol::end_of_nonterminal_extra(),
+            self.symbol_ids[&Symbol::end()].clone(),
+        );
 
         self.symbol_map = self
             .parse_table
@@ -970,7 +974,7 @@ impl Generator {
         add_line!(self, "static TSLexMode ts_lex_modes[STATE_COUNT] = {{");
         indent!(self);
         for (i, state) in self.parse_table.states.iter().enumerate() {
-            if state.is_end_of_non_terminal_extra(&self.syntax_grammar) {
+            if state.is_end_of_non_terminal_extra() {
                 add_line!(self, "[{}] = {{(TSStateId)(-1)}},", i,);
             } else if state.external_lex_state_id > 0 {
                 add_line!(
@@ -1479,7 +1483,7 @@ impl Generator {
 
     fn metadata_for_symbol(&self, symbol: Symbol) -> (&str, VariableType) {
         match symbol.kind {
-            SymbolType::End => ("end", VariableType::Hidden),
+            SymbolType::End | SymbolType::EndOfNonTerminalExtra => ("end", VariableType::Hidden),
             SymbolType::NonTerminal => {
                 let variable = &self.syntax_grammar.variables[symbol.index];
                 (&variable.name, variable.kind)

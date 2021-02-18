@@ -7,6 +7,7 @@ use std::iter::FromIterator;
 pub(crate) enum SymbolType {
     External,
     End,
+    EndOfNonTerminalExtra,
     Terminal,
     NonTerminal,
 }
@@ -69,6 +70,7 @@ pub(crate) struct TokenSet {
     terminal_bits: SmallBitVec,
     external_bits: SmallBitVec,
     eof: bool,
+    end_of_nonterminal_extra: bool,
 }
 
 impl Rule {
@@ -221,6 +223,13 @@ impl Symbol {
             index: 0,
         }
     }
+
+    pub fn end_of_nonterminal_extra() -> Self {
+        Symbol {
+            kind: SymbolType::EndOfNonTerminalExtra,
+            index: 0,
+        }
+    }
 }
 
 impl From<Symbol> for Rule {
@@ -235,6 +244,7 @@ impl TokenSet {
             terminal_bits: SmallBitVec::new(),
             external_bits: SmallBitVec::new(),
             eof: false,
+            end_of_nonterminal_extra: false,
         }
     }
 
@@ -262,6 +272,11 @@ impl TokenSet {
                     }),
             )
             .chain(if self.eof { Some(Symbol::end()) } else { None })
+            .chain(if self.end_of_nonterminal_extra {
+                Some(Symbol::end_of_nonterminal_extra())
+            } else {
+                None
+            })
     }
 
     pub fn terminals<'a>(&'a self) -> impl Iterator<Item = Symbol> + 'a {
@@ -283,6 +298,7 @@ impl TokenSet {
             SymbolType::Terminal => self.terminal_bits.get(symbol.index).unwrap_or(false),
             SymbolType::External => self.external_bits.get(symbol.index).unwrap_or(false),
             SymbolType::End => self.eof,
+            SymbolType::EndOfNonTerminalExtra => self.end_of_nonterminal_extra,
         }
     }
 
@@ -297,6 +313,10 @@ impl TokenSet {
             SymbolType::External => &mut self.external_bits,
             SymbolType::End => {
                 self.eof = true;
+                return;
+            }
+            SymbolType::EndOfNonTerminalExtra => {
+                self.end_of_nonterminal_extra = true;
                 return;
             }
         };
@@ -315,6 +335,10 @@ impl TokenSet {
                 self.eof = false;
                 return;
             }
+            SymbolType::EndOfNonTerminalExtra => {
+                self.end_of_nonterminal_extra = false;
+                return;
+            }
         };
         if other.index < vec.len() {
             vec.set(other.index, false);
@@ -322,7 +346,10 @@ impl TokenSet {
     }
 
     pub fn is_empty(&self) -> bool {
-        !self.eof && !self.terminal_bits.iter().any(|a| a) && !self.external_bits.iter().any(|a| a)
+        !self.eof
+            && !self.end_of_nonterminal_extra
+            && !self.terminal_bits.iter().any(|a| a)
+            && !self.external_bits.iter().any(|a| a)
     }
 
     pub fn insert_all_terminals(&mut self, other: &TokenSet) -> bool {
@@ -358,6 +385,10 @@ impl TokenSet {
         if other.eof {
             result |= !self.eof;
             self.eof = true;
+        }
+        if other.end_of_nonterminal_extra {
+            result |= !self.end_of_nonterminal_extra;
+            self.end_of_nonterminal_extra = true;
         }
         result |= self.insert_all_terminals(other);
         result |= self.insert_all_externals(other);
