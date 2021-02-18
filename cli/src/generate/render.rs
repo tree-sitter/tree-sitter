@@ -970,10 +970,7 @@ impl Generator {
         add_line!(self, "static TSLexMode ts_lex_modes[STATE_COUNT] = {{");
         indent!(self);
         for (i, state) in self.parse_table.states.iter().enumerate() {
-            if state.is_non_terminal_extra
-                && state.terminal_entries.len() == 1
-                && *state.terminal_entries.iter().next().unwrap().0 == Symbol::end()
-            {
+            if state.is_end_of_non_terminal_extra(&self.syntax_grammar) {
                 add_line!(self, "[{}] = {{(TSStateId)(-1)}},", i,);
             } else if state.external_lex_state_id > 0 {
                 add_line!(
