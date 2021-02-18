@@ -717,6 +717,22 @@ mod tests {
                     ("ბΨƁ___ƀƔ", Some((0, "ბΨƁ___"))),
                 ],
             },
+            // unicode character escapes
+            Row {
+                rules: vec![
+                    Rule::pattern(r#"\u{00dc}"#),
+                    Rule::pattern(r#"\U{000000dd}"#),
+                    Rule::pattern(r#"\u00de"#),
+                    Rule::pattern(r#"\U000000df"#),
+                ],
+                separators: vec![],
+                examples: vec![
+                    ("\u{00dc}", Some((0, "\u{00dc}"))),
+                    ("\u{00dd}", Some((1, "\u{00dd}"))),
+                    ("\u{00de}", Some((2, "\u{00de}"))),
+                    ("\u{00df}", Some((3, "\u{00df}"))),
+                ],
+            },
             // allowing un-escaped curly braces
             Row {
                 rules: vec![
