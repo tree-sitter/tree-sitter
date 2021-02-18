@@ -14,7 +14,7 @@ use std::i32;
 
 lazy_static! {
     static ref CURLY_BRACE_REGEX: Regex =
-        Regex::new(r#"(^|[^\\p])\{([^}]*[^0-9A-Fa-f,}][^}]*)\}"#).unwrap();
+        Regex::new(r#"(^|[^\\pP])\{([^}]*[^0-9A-Fa-f,}][^}]*)\}"#).unwrap();
     static ref UNICODE_CATEGORIES: HashMap<&'static str, Vec<u32>> =
         serde_json::from_str(UNICODE_CATEGORIES_JSON).unwrap();
     static ref UNICODE_PROPERTIES: HashMap<&'static str, Vec<u32>> =
@@ -703,6 +703,18 @@ mod tests {
                     ("/", Some((0, "/"))),
                     ("\"\'", Some((1, "\"\'"))),
                     (r#"'\'a"#, Some((2, r#"'\'"#))),
+                ],
+            },
+            // unicode property escapes
+            Row {
+                rules: vec![
+                    Rule::pattern(r#"\p{L}+\P{L}+"#),
+                    Rule::pattern(r#"\p{White_Space}+\P{White_Space}+\p{White_Space}*"#),
+                ],
+                separators: vec![],
+                examples: vec![
+                    ("  123   abc", Some((1, "  123   "))),
+                    ("ბΨƁ___ƀƔ", Some((0, "ბΨƁ___"))),
                 ],
             },
             // allowing un-escaped curly braces
