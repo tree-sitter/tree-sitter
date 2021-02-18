@@ -1,0 +1,128 @@
+#!/usr/bin/env node
+
+// This script generates a JSON file that is used by the CLI to handle unicode property escapes.
+
+const CATEGORY_OUTPUT_PATH = './cli/src/generate/prepare_grammar/unicode-categories.json'
+const PROPERTY_OUTPUT_PATH = './cli/src/generate/prepare_grammar/unicode-properties.json'
+
+const CATEGORY_URL = 'https://unicode.org/Public/13.0.0/ucd/UnicodeData.txt'
+const PROPERTY_URL = 'https://unicode.org/Public/13.0.0/ucd/PropList.txt'
+const DERIVED_PROPERTY_URL = 'https://unicode.org/Public/13.0.0/ucd/DerivedCoreProperties.txt'
+
+const fs = require('fs');
+const path = require('path');
+const {spawnSync} = require('child_process');
+
+// Download the unicode data files, caching them inside the 'target' directory.
+const categoryData = cachedDownload(CATEGORY_URL);
+const propertyData = cachedDownload(PROPERTY_URL);
+const derivedPopertyData = cachedDownload(DERIVED_PROPERTY_URL);
+function cachedDownload(url) {
+    let downloadPath = path.join('.', 'target', path.basename(url))
+    if (fs.existsSync(downloadPath)) {
+        return fs.readFileSync(downloadPath, 'utf8');
+    } else {
+        const data = spawnSync('curl', [url], {encoding: 'utf8'}).stdout;
+        fs.writeFileSync(downloadPath, data, 'utf8');
+        return data;
+    }
+}
+
+const categories = {};
+const properties = {};
+let data, row, lineStart, lineEnd;
+
+// Parse the properties
+data = propertyData + derivedPopertyData;
+row = 0;
+lineStart = 0;
+lineEnd = -1;
+const CODE_POINT = /[0-9A-Fa-f]/
+while (lineStart < data.length) {
+    row++;
+    lineStart = lineEnd + 1;
+    lineEnd = data.indexOf('\n', lineStart);
+    if (lineEnd === -1) break;
+
+    // Skip over blank and comment lines
+    if (!CODE_POINT.test(data[lineStart])) continue;
+
+    // Parse the first two semicolon fields:
+    // * code point or code point range
+    // * property
+    const codePointEnd = data.indexOf(';', lineStart);
+    const propertyStart = codePointEnd + 1;
+    const propertyEnd = data.indexOf('#', propertyStart);
+
+    if (
+        codePointEnd === -1 ||
+        propertyEnd === -1
+    ) {
+        throw new Error(`Unexpected format on line ${row}`);
+    }
+
+    // Process ranges (separated by '..)
+    const codePoints = data.slice(lineStart, codePointEnd).trim()
+        .split('..')
+        .map(p => parseInt(p, 16));
+    if (codePoints.length === 1) {
+        codePoints.push(codePoints[0]);
+    }
+
+    const property = data.slice(propertyStart, propertyEnd).trim();
+
+    console.log(codePoints, property);
+
+
+    for (let c = codePoints[0]; c <= codePoints[1]; c++) {
+        if (!properties[property]) {
+            properties[property] = [];
+        }
+        properties[property].push(c);
+    }
+}
+
+// Parse the categories.
+// Each line represents a code point.
+data = categoryData;
+row = 0;
+lineStart = 0;
+lineEnd = -1;
+while (lineStart < data.length) {
+    row++;
+    lineStart = lineEnd + 1;
+    lineEnd = data.indexOf('\n', lineStart);
+    if (lineEnd === -1) break;
+
+    // Parse the first three semicolon-separated fields:
+    // * code point (hexadecimal)
+    // * name
+    // * category
+    const codePointEnd = data.indexOf(';', lineStart);
+    const nameStart = codePointEnd + 1;
+    const nameEnd = data.indexOf(';', nameStart);
+    const categoryStart = nameEnd + 1;
+    const categoryEnd = data.indexOf(';', categoryStart)
+    if (
+        nameStart === 0 ||
+        categoryStart == 0 ||
+        categoryEnd === 0
+    ) {
+        throw new Error(`Unexpected format on line ${row}`);
+    }
+
+    const codePoint = parseInt(data.slice(lineStart, codePointEnd), 16);
+    const name = data.slice(nameStart, nameEnd);
+    const category = data.slice(categoryStart, categoryEnd);
+
+    console.log(codePoint, category, name);
+
+    // Group the code points by their category.
+    if (!categories[category]) {
+        categories[category] = [];
+    }
+    categories[category].push(codePoint);
+}
+
+fs.writeFileSync(CATEGORY_OUTPUT_PATH, JSON.stringify(categories), 'utf8');
+fs.writeFileSync(PROPERTY_OUTPUT_PATH, JSON.stringify(properties), 'utf8');

@@ -13,8 +13,9 @@ impl Error {
         Error(vec![format!("Grammar error: {}", message)])
     }
 
-    pub fn regex(message: &str) -> Self {
-        Error(vec![format!("Regex error: {}", message)])
+    pub fn regex(mut message: String) -> Self {
+        message.insert_str(0, "Regex error: ");
+        Error(vec![message])
     }
 
     pub fn undefined_symbol(name: &str) -> Self {

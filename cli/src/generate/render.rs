@@ -1,3 +1,4 @@
+use super::char_tree::{CharacterTree, Comparator};
 use super::grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType};
 use super::rules::{Alias, AliasMap, Symbol, SymbolType};
 use super::tables::{
@@ -714,7 +715,7 @@ impl Generator {
             if info.usage_count > 1 {
                 add_line!(
                     self,
-                    "static inline bool {}_character_set_{}(int32_t lookahead) {{",
+                    "static inline bool {}_character_set_{}(int32_t c) {{",
                     self.symbol_ids[&info.symbol],
                     info.index
                 );
@@ -722,7 +723,8 @@ impl Generator {
                 add_line!(self, "return");
                 indent!(self);
                 add_whitespace!(self);
-                self.add_character_range_conditions(&info.ranges, true, 0);
+                let tree = CharacterTree::from_ranges(&info.ranges);
+                self.add_character_tree(tree.as_ref());
                 add!(self, ";\n");
                 dedent!(self);
                 dedent!(self);
@@ -844,16 +846,15 @@ impl Generator {
         ranges: &[Range<char>],
         is_included: bool,
         indent_count: usize,
-    ) -> bool {
+    ) {
         let mut line_break = "\n".to_string();
         for _ in 0..self.indent_level + indent_count {
             line_break.push_str("  ");
         }
 
-        let mut did_add = false;
-        for range in ranges {
+        for (i, range) in ranges.iter().enumerate() {
             if is_included {
-                if did_add {
+                if i > 0 {
                     add!(self, " ||{}", line_break);
                 }
                 if range.end == range.start {
@@ -872,7 +873,7 @@ impl Generator {
                     add!(self, ")");
                 }
             } else {
-                if did_add {
+                if i > 0 {
                     add!(self, " &&{}", line_break);
                 }
                 if range.end == range.start {
@@ -896,9 +897,67 @@ impl Generator {
                     }
                 }
             }
-            did_add = true;
         }
-        did_add
+    }
+
+    fn add_character_tree(&mut self, tree: Option<&CharacterTree>) {
+        match tree {
+            Some(CharacterTree::Compare {
+                value,
+                operator,
+                consequence,
+                alternative,
+            }) => {
+                let op = match operator {
+                    Comparator::Less => "<",
+                    Comparator::LessOrEqual => "<=",
+                    Comparator::Equal => "==",
+                    Comparator::GreaterOrEqual => ">=",
+                };
+                let consequence = consequence.as_ref().map(Box::as_ref);
+                let alternative = alternative.as_ref().map(Box::as_ref);
+
+                let simple = alternative.is_none() && consequence == Some(&CharacterTree::Yes);
+
+                if !simple {
+                    add!(self, "(");
+                }
+
+                add!(self, "c {} ", op);
+                self.add_character(*value);
+
+                if !simple {
+                    if alternative.is_none() {
+                        add!(self, " && ");
+                        self.add_character_tree(consequence);
+                    } else if consequence == Some(&CharacterTree::Yes) {
+                        add!(self, " || ");
+                        self.add_character_tree(alternative);
+                    } else {
+                        add!(self, "\n");
+                        indent!(self);
+                        add_whitespace!(self);
+                        add!(self, "? ");
+                        self.add_character_tree(consequence);
+                        add!(self, "\n");
+                        add_whitespace!(self);
+                        add!(self, ": ");
+                        self.add_character_tree(alternative);
+                        dedent!(self);
+                    }
+                }
+
+                if !simple {
+                    add!(self, ")");
+                }
+            }
+            Some(CharacterTree::Yes) => {
+                add!(self, "true");
+            }
+            None => {
+                add!(self, "false");
+            }
+        }
     }
 
     fn add_advance_action(&mut self, action: &AdvanceAction) {

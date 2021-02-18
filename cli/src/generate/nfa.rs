@@ -6,11 +6,13 @@ use std::fmt;
 use std::mem::swap;
 use std::ops::Range;
 
+/// A set of characters represented as a vector of ranges.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct CharacterSet {
     ranges: Vec<Range<u32>>,
 }
 
+/// A state in an NFA representing a regular grammar.
 #[derive(Debug, PartialEq, Eq)]
 pub enum NfaState {
     Advance {
@@ -54,10 +56,12 @@ impl Default for Nfa {
 const END: u32 = char::MAX as u32 + 1;
 
 impl CharacterSet {
+    /// Create a character set with a single character.
     pub fn empty() -> Self {
         CharacterSet { ranges: Vec::new() }
     }
 
+    /// Create a character set with a given *inclusive* range of characters.
     pub fn from_range(mut first: char, mut last: char) -> Self {
         if first > last {
             swap(&mut first, &mut last);
@@ -67,12 +71,15 @@ impl CharacterSet {
         }
     }
 
+    /// Create a character set with a single character.
     pub fn from_char(c: char) -> Self {
         CharacterSet {
             ranges: vec![(c as u32)..(c as u32 + 1)],
         }
     }
 
+    /// Create a character set containing all characters *not* present
+    /// in this character set.
     pub fn negate(mut self) -> CharacterSet {
         let mut i = 0;
         let mut previous_end = 0;
@@ -146,6 +153,9 @@ impl CharacterSet {
         false
     }
 
+    /// Get the set of characters that are present in both this set
+    /// and the other set. Remove those common characters from both
+    /// of the operands.
     pub fn remove_intersection(&mut self, other: &mut CharacterSet) -> CharacterSet {
         let mut intersection = Vec::new();
         let mut left_i = 0;
@@ -271,6 +281,8 @@ impl CharacterSet {
         self.ranges.is_empty()
     }
 
+    /// Get a reduced list of character ranges, assuming that a given
+    /// set of characters can be safely ignored.
     pub fn simplify_ignoring<'a>(
         &'a self,
         ruled_out_characters: &'a HashSet<u32>,
