@@ -368,6 +368,13 @@ impl NfaBuilder {
                 Ok(result)
             }
             ClassSetItem::Perl(class) => Ok(self.expand_perl_character_class(&class.kind)),
+            ClassSetItem::Unicode(class) => {
+                let mut set = self.expand_unicode_character_class(&class.kind)?;
+                if class.negated {
+                    set = set.negate();
+                }
+                Ok(set)
+            }
             _ => Err(Error::regex(format!(
                 "Unsupported character class syntax {:?}",
                 item
@@ -709,13 +716,19 @@ mod tests {
             Row {
                 rules: vec![
                     Rule::pattern(r#"\p{L}+\P{L}+"#),
-                    Rule::pattern(r#"\p{White_Space}+\P{White_Space}+\p{White_Space}*"#),
+                    Rule::pattern(r#"\p{White_Space}+\P{White_Space}+[\p{White_Space}]*"#),
                 ],
                 separators: vec![],
                 examples: vec![
                     ("  123   abc", Some((1, "  123   "))),
                     ("ბΨƁ___ƀƔ", Some((0, "ბΨƁ___"))),
                 ],
+            },
+            // unicode property escapes in bracketed sets
+            Row {
+                rules: vec![Rule::pattern(r#"[\p{L}\p{Nd}]+"#)],
+                separators: vec![],
+                examples: vec![("abΨ12٣٣, ok", Some((0, "abΨ12٣٣")))],
             },
             // unicode character escapes
             Row {
