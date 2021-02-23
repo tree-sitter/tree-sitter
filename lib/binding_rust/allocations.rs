@@ -1,6 +1,3 @@
-#![cfg(test)]
-#![allow(dead_code)]
-
 use lazy_static::lazy_static;
 use spin::Mutex;
 use std::collections::HashMap;
@@ -82,35 +79,38 @@ fn record_dealloc(ptr: *mut c_void) {
 }
 
 #[no_mangle]
-extern "C" fn ts_record_malloc(size: c_ulong) -> *const c_void {
+pub extern "C" fn ts_record_malloc(size: c_ulong) -> *const c_void {
     let result = unsafe { malloc(size) };
     record_alloc(result);
     result
 }
 
 #[no_mangle]
-extern "C" fn ts_record_calloc(count: c_ulong, size: c_ulong) -> *const c_void {
+pub extern "C" fn ts_record_calloc(count: c_ulong, size: c_ulong) -> *const c_void {
     let result = unsafe { calloc(count, size) };
     record_alloc(result);
     result
 }
 
 #[no_mangle]
-extern "C" fn ts_record_realloc(ptr: *mut c_void, size: c_ulong) -> *const c_void {
+pub extern "C" fn ts_record_realloc(ptr: *mut c_void, size: c_ulong) -> *const c_void {
     record_dealloc(ptr);
     let result = unsafe { realloc(ptr, size) };
     record_alloc(result);
     result
 }
 
+// This needs to be unsafe because it's reexported as crate::util::free_ptr, which is mapped to
+// libc's `free` function when the allocation-tracking feature is disabled.  Since `free` is
+// unsafe, this function needs to be too.
 #[no_mangle]
-extern "C" fn ts_record_free(ptr: *mut c_void) {
+pub unsafe extern "C" fn ts_record_free(ptr: *mut c_void) {
     record_dealloc(ptr);
-    unsafe { free(ptr) };
+    free(ptr);
 }
 
 #[no_mangle]
-extern "C" fn ts_toggle_allocation_recording(enabled: bool) -> bool {
+pub extern "C" fn ts_toggle_allocation_recording(enabled: bool) -> bool {
     let mut recorder = RECORDER.lock();
     let was_enabled = recorder.enabled;
     recorder.enabled = enabled;

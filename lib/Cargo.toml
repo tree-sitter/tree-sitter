@@ -3,6 +3,7 @@ name = "tree-sitter"
 description = "Rust bindings to the Tree-sitter parsing library"
 version = "0.17.1"
 authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
+edition = "2018"
 license = "MIT"
 readme = "binding_rust/README.md"
 keywords = ["incremental", "parsing"]
@@ -21,7 +22,9 @@ include = [
 ]
 
 [dependencies]
+lazy_static = { version="1.2.0", optional=true }
 regex = "1"
+spin = { version="0.5", optional=true }
 
 [build-dependencies]
 cc = "^1.0.58"
@@ -32,4 +35,4 @@ path = "binding_rust/lib.rs"
 # This feature is only useful for testing the Tree-sitter library itself.
 # It is exposed because all of Tree-sitter's tests live in the Tree-sitter CLI crate.
 [features]
-allocation-tracking = []
+allocation-tracking = ["lazy_static", "spin"]
