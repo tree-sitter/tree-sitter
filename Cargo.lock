@@ -836,7 +836,9 @@ name = "tree-sitter"
 version = "0.17.1"
 dependencies = [
  "cc",
+ "lazy_static",
  "regex",
+ "spin",
 ]
 
 [[package]]
@@ -862,7 +864,6 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "smallbitvec",
- "spin",
  "tempfile",
  "tiny_http",
  "tree-sitter",

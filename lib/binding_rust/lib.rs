@@ -1,6 +1,9 @@
 mod ffi;
 mod util;
 
+#[cfg(feature = "allocation-tracking")]
+pub mod allocations;
+
 #[cfg(unix)]
 use std::os::unix::io::AsRawFd;
 

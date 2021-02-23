@@ -65,5 +65,4 @@ features = ["std"]
 
 [dev-dependencies]
 rand = "0.7.0"
-spin = "0.5"
 tempfile = "3"

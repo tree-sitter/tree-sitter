@@ -1,4 +1,3 @@
-use super::helpers::allocations;
 use super::helpers::edits::{get_random_edit, invert_edit};
 use super::helpers::fixtures::{fixtures_dir, get_language, get_test_language};
 use super::helpers::random::Rand;
@@ -9,7 +8,7 @@ use crate::test::{parse_tests, print_diff, print_diff_key, strip_sexp_fields, Te
 use crate::util;
 use lazy_static::lazy_static;
 use std::{env, fs, time, usize};
-use tree_sitter::{LogType, Node, Parser, Tree};
+use tree_sitter::{allocations, LogType, Node, Parser, Tree};
 
 const EDIT_COUNT: usize = 3;
 const TRIAL_COUNT: usize = 10;
@@ -390,7 +389,9 @@ fn flatten_tests(test: TestEntry) -> Vec<(String, Vec<u8>, String, bool)> {
                 }
                 result.push((name, input, output, has_fields));
             }
-            TestEntry::Group { mut name, children, .. } => {
+            TestEntry::Group {
+                mut name, children, ..
+            } => {
                 if !prefix.is_empty() {
                     name.insert_str(0, " - ");
                     name.insert_str(0, prefix);
