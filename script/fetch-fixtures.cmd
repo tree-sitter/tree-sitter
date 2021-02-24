@@ -22,9 +22,6 @@ setlocal
 set grammar_dir=test\fixtures\grammars\%~1
 set grammar_url=https://github.com/tree-sitter/tree-sitter-%~1
 set grammar_branch=%~2
-@if exist %~3 {
-  set grammar_url=%~3
-}
 @if not exist %grammar_dir% (
   git clone %grammar_url% %grammar_dir% --depth=1
 )
