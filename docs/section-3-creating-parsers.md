@@ -724,7 +724,7 @@ if (valid_symbols[INDENT] || valid_symbol[DEDENT]) {
 [npm]: https://docs.npmjs.com
 [path-env]: https://en.wikipedia.org/wiki/PATH_(variable)
 [peg]: https://en.wikipedia.org/wiki/Parsing_expression_grammar
-[percent-string]: https://docs.ruby-lang.org/en/2.5.0/syntax/literals_rdoc.html#label-Percent+Strings
+[percent-string]: https://docs.ruby-lang.org/en/2.5.0/doc/syntax/literals_rdoc.html#label-Percent+Strings
 [releases]: https://github.com/tree-sitter/tree-sitter/releases/latest
 [s-exp]: https://en.wikipedia.org/wiki/S-expression
 [syntax-highlighting]: ./syntax-highlighting

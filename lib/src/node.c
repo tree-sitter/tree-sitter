@@ -561,10 +561,16 @@ recur:
         return child;
       }
 
-      // If the field refers to a hidden node, return its first visible
-      // child.
-      else {
+      // If the field refers to a hidden node with visible children,
+      // return the first visible child.
+      else if (ts_node_child_count(child) > 0 ) {
         return ts_node_child(child, 0);
+      }
+
+      // Otherwise, continue searching subsequent children.
+      else {
+        field_map++;
+        if (field_map == field_map_end) return ts_node__null();
       }
     }
   }

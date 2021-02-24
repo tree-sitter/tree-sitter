@@ -232,12 +232,38 @@ fn test_node_parent_of_child_by_field_name() {
     let mut parser = Parser::new();
     parser.set_language(get_language("javascript")).unwrap();
     let tree = parser.parse("foo(a().b[0].c.d.e())", None).unwrap();
-    let call_node = tree.root_node().named_child(0).unwrap().named_child(0).unwrap();
+    let call_node = tree
+        .root_node()
+        .named_child(0)
+        .unwrap()
+        .named_child(0)
+        .unwrap();
     assert_eq!(call_node.kind(), "call_expression");
 
     // Regression test - when a field points to a hidden node (in this case, `_expression`)
     // the hidden node should not be added to the node parent cache.
-    assert_eq!(call_node.child_by_field_name("function").unwrap().parent(), Some(call_node));
+    assert_eq!(
+        call_node.child_by_field_name("function").unwrap().parent(),
+        Some(call_node)
+    );
+}
+
+#[test]
+fn test_node_child_by_field_name_with_extra_hidden_children() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("python")).unwrap();
+
+    // In the Python grammar, some fields are applied to `suite` nodes,
+    // which consist of an invisible `indent` token followed by a block.
+    // Check that when searching for a child with a field name, we don't
+    //
+    let tree = parser.parse("while a:\n  pass", None).unwrap();
+    let while_node = tree.root_node().child(0).unwrap();
+    assert_eq!(while_node.kind(), "while_statement");
+    assert_eq!(
+        while_node.child_by_field_name("body").unwrap(),
+        while_node.child(3).unwrap(),
+    );
 }
 
 #[test]

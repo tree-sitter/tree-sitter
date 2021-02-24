@@ -1,11 +1,10 @@
-use super::helpers::allocations;
 use super::helpers::edits::ReadRecorder;
 use super::helpers::fixtures::{get_language, get_test_language};
 use crate::generate::generate_parser_for_grammar;
 use crate::parse::{perform_edit, Edit};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{thread, time};
-use tree_sitter::{IncludedRangesError, InputEdit, LogType, Parser, Point, Range};
+use tree_sitter::{allocations, IncludedRangesError, InputEdit, LogType, Parser, Point, Range};
 
 #[test]
 fn test_parsing_simple_string() {

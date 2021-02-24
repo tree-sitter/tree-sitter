@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - v*
+  pull_request:
+    branches:
+      - "**"
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  EMSCRIPTEN_VERSION: 2.0.11
+
+jobs:
+  tests:
+    name: Unix tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      # Work around https://github.com/actions/cache/issues/403.
+      - name: Use GNU tar
+        if: matrix.os == 'macos-latest'
+        run: |
+          echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
+
+      - name: Cache artifacts
+        id: cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}-emscripten-${{ env.EMSCRIPTEN_VERSION }}
+
+      - name: Install rust
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - name: Install emscripten
+        uses: mymindstorm/setup-emsdk@v7
+        with:
+          version: ${{ env.EMSCRIPTEN_VERSION }}
+
+      - name: Build C library
+        run: make
+
+      - name: Build wasm library
+        run: script/build-wasm
+
+      - name: Build CLI
+        run: cargo build --release
+
+      - name: Set up fixture parsers
+        run: |
+          script/fetch-fixtures
+          script/generate-fixtures
+          script/generate-fixtures-wasm
+
+      - name: Run main tests
+        run: script/test
+
+      - name: Run wasm tests
+        run: script/test-wasm
+
+      - name: Run benchmarks
+        run: script/benchmark
+
+      - name: Compress CLI binary
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cp target/release/tree-sitter .
+          export platform=$(echo ${{ runner.os }} | awk '{print tolower($0)}')
+          gzip --suffix "-${platform}-x64.gz" tree-sitter
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          draft: true
+          files: |
+            tree-sitter-*.gz
+            lib/binding_web/tree-sitter.js
+            lib/binding_web/tree-sitter.wasm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

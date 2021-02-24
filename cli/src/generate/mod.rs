@@ -1,4 +1,5 @@
 mod build_tables;
+mod char_tree;
 mod dedup;
 mod grammars;
 mod nfa;

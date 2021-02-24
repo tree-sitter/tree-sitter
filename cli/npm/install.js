@@ -7,7 +7,7 @@ const packageJSON = require('./package.json');
 
 // Determine the URL of the file.
 const platformName = {
-  'darwin': 'osx',
+  'darwin': 'macos',
   'linux': 'linux',
   'win32': 'windows'
 }[process.platform];
@@ -24,7 +24,7 @@ if (!archName) {
   throw new Error(`Cannot install tree-sitter-cli for architecture ${process.arch}`);
 }
 
-const releaseURL = `https://github.com/tree-sitter/tree-sitter/releases/download/${packageJSON.version}`;
+const releaseURL = `https://github.com/tree-sitter/tree-sitter/releases/download/v${packageJSON.version}`;
 const assetName = `tree-sitter-${platformName}-${archName}.gz`;
 const assetURL = `${releaseURL}/${assetName}`;
 

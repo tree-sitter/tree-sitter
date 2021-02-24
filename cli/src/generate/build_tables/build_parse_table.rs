@@ -55,7 +55,7 @@ impl<'a> ParseTableBuilder<'a> {
             .push(ProductionInfo::default());
 
         // Add the error state at index 0.
-        self.add_parse_state(&Vec::new(), &Vec::new(), ParseItemSet::default(), false);
+        self.add_parse_state(&Vec::new(), &Vec::new(), ParseItemSet::default());
 
         // Add the starting state at index 1.
         self.add_parse_state(
@@ -69,7 +69,6 @@ impl<'a> ParseTableBuilder<'a> {
                 .iter()
                 .cloned(),
             ),
-            false,
         );
 
         // Compute the possible item sets for non-terminal extras.
@@ -91,7 +90,10 @@ impl<'a> ParseTableBuilder<'a> {
                             production,
                             step_index: 1,
                         },
-                        &[Symbol::end()].iter().cloned().collect(),
+                        &[Symbol::end_of_nonterminal_extra()]
+                            .iter()
+                            .cloned()
+                            .collect(),
                     );
             }
         }
@@ -100,7 +102,7 @@ impl<'a> ParseTableBuilder<'a> {
         for (terminal, item_set) in non_terminal_extra_item_sets_by_first_terminal {
             self.non_terminal_extra_states
                 .push((terminal, self.parse_table.states.len()));
-            self.add_parse_state(&Vec::new(), &Vec::new(), item_set, true);
+            self.add_parse_state(&Vec::new(), &Vec::new(), item_set);
         }
 
         while let Some(entry) = self.parse_state_queue.pop_front() {
@@ -126,7 +128,6 @@ impl<'a> ParseTableBuilder<'a> {
         preceding_symbols: &SymbolSequence,
         preceding_auxiliary_symbols: &AuxiliarySymbolSequence,
         item_set: ParseItemSet<'a>,
-        is_non_terminal_extra: bool,
     ) -> ParseStateId {
         match self.state_ids_by_item_set.entry(item_set) {
             // If an equivalent item set has already been processed, then return
@@ -157,7 +158,6 @@ impl<'a> ParseTableBuilder<'a> {
                     terminal_entries: HashMap::new(),
                     nonterminal_entries: HashMap::new(),
                     core_id,
-                    is_non_terminal_extra,
                 });
                 self.parse_state_queue.push_back(ParseStateQueueEntry {
                     state_id,
@@ -256,7 +256,6 @@ impl<'a> ParseTableBuilder<'a> {
                 &preceding_symbols,
                 &preceding_auxiliary_symbols,
                 next_item_set,
-                self.parse_table.states[state_id].is_non_terminal_extra,
             );
             preceding_symbols.pop();
 
@@ -284,7 +283,6 @@ impl<'a> ParseTableBuilder<'a> {
                 &preceding_symbols,
                 &preceding_auxiliary_symbols,
                 next_item_set,
-                self.parse_table.states[state_id].is_non_terminal_extra,
             );
             preceding_symbols.pop();
             self.parse_table.states[state_id]
@@ -309,15 +307,37 @@ impl<'a> ParseTableBuilder<'a> {
 
         // Finally, add actions for the grammar's `extra` symbols.
         let state = &mut self.parse_table.states[state_id];
-        let is_non_terminal_extra = state.is_non_terminal_extra;
-        let is_end_of_non_terminal_extra =
-            is_non_terminal_extra && state.terminal_entries.len() == 1;
+        let is_end_of_non_terminal_extra = state.is_end_of_non_terminal_extra();
 
+        // If this state represents the end of a non-terminal extra rule, then make sure that
+        // it doesn't have other successor states. Non-terminal extra rules must have
+        // unambiguous endings.
+        if is_end_of_non_terminal_extra {
+            if state.terminal_entries.len() > 1 {
+                let parent_symbols = item_set
+                    .entries
+                    .iter()
+                    .filter_map(|(item, _)| {
+                        if !item.is_augmented() && item.step_index > 0 {
+                            Some(item.variable_index)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<HashSet<_>>();
+                let mut message =
+                    "Extra rules must have unambiguous endings. Conflicting rules: ".to_string();
+                for (i, variable_index) in parent_symbols.iter().enumerate() {
+                    if i > 0 {
+                        message += ", ";
+                    }
+                    message += &self.syntax_grammar.variables[*variable_index as usize].name;
+                }
+                return Err(Error::new(message));
+            }
+        }
         // Add actions for the start tokens of each non-terminal extra rule.
-        // These actions are added to every state except for the states that are
-        // alread within non-terminal extras. Non-terminal extras are not allowed
-        // to nest within each other.
-        if !is_non_terminal_extra {
+        else {
             for (terminal, state_id) in &self.non_terminal_extra_states {
                 state
                     .terminal_entries
@@ -330,12 +350,10 @@ impl<'a> ParseTableBuilder<'a> {
                         }],
                     });
             }
-        }
 
-        // Add ShiftExtra actions for the terminal extra tokens. These actions
-        // are added to every state except for those at the ends of non-terminal
-        // extras.
-        if !is_end_of_non_terminal_extra {
+            // Add ShiftExtra actions for the terminal extra tokens. These actions
+            // are added to every state except for those at the ends of non-terminal
+            // extras.
             for extra_token in &self.syntax_grammar.extra_symbols {
                 if extra_token.is_non_terminal() {
                     state
@@ -802,7 +820,7 @@ impl<'a> ParseTableBuilder<'a> {
 
     fn symbol_name(&self, symbol: &Symbol) -> String {
         match symbol.kind {
-            SymbolType::End => "EOF".to_string(),
+            SymbolType::End | SymbolType::EndOfNonTerminalExtra => "EOF".to_string(),
             SymbolType::External => self.syntax_grammar.external_tokens[symbol.index]
                 .name
                 .clone(),

@@ -44,7 +44,6 @@ pub(crate) struct ParseState {
     pub lex_state_id: usize,
     pub external_lex_state_id: usize,
     pub core_id: usize,
-    pub is_non_terminal_extra: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -102,6 +101,11 @@ impl Default for LexTable {
 }
 
 impl ParseState {
+    pub fn is_end_of_non_terminal_extra(&self) -> bool {
+        self.terminal_entries
+            .contains_key(&Symbol::end_of_nonterminal_extra())
+    }
+
     pub fn referenced_states<'a>(&'a self) -> impl Iterator<Item = ParseStateId> + 'a {
         self.terminal_entries
             .iter()

@@ -306,7 +306,7 @@ impl<'a> fmt::Debug for ParseItemSetBuilder<'a> {
                 SymbolType::NonTerminal => &self.syntax_grammar.variables[symbol.index].name,
                 SymbolType::External => &self.syntax_grammar.external_tokens[symbol.index].name,
                 SymbolType::Terminal => &self.lexical_grammar.variables[symbol.index].name,
-                SymbolType::End => "END",
+                SymbolType::End | SymbolType::EndOfNonTerminalExtra => "END",
             };
             write!(
                 f,
@@ -323,7 +323,7 @@ impl<'a> fmt::Debug for ParseItemSetBuilder<'a> {
                 SymbolType::NonTerminal => &self.syntax_grammar.variables[symbol.index].name,
                 SymbolType::External => &self.syntax_grammar.external_tokens[symbol.index].name,
                 SymbolType::Terminal => &self.lexical_grammar.variables[symbol.index].name,
-                SymbolType::End => "END",
+                SymbolType::End | SymbolType::EndOfNonTerminalExtra => "END",
             };
             write!(
                 f,

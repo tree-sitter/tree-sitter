@@ -1,11 +1,10 @@
-use super::helpers::allocations;
 use super::helpers::fixtures::get_language;
 use lazy_static::lazy_static;
 use std::env;
 use std::fmt::Write;
 use tree_sitter::{
-    Language, Node, Parser, Query, QueryCapture, QueryCursor, QueryError, QueryErrorKind,
-    QueryMatch, QueryPredicate, QueryPredicateArg, QueryProperty,
+    allocations, Language, Node, Parser, Query, QueryCapture, QueryCursor, QueryError,
+    QueryErrorKind, QueryMatch, QueryPredicate, QueryPredicateArg, QueryProperty,
 };
 
 lazy_static! {
