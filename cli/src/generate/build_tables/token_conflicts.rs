@@ -380,7 +380,7 @@ mod tests {
     use super::*;
     use crate::generate::grammars::{Variable, VariableType};
     use crate::generate::prepare_grammar::{expand_tokens, ExtractedLexicalGrammar};
-    use crate::generate::rules::{Rule, Symbol};
+    use crate::generate::rules::{Precedence, Rule, Symbol};
 
     #[test]
     fn test_starting_characters() {
@@ -508,7 +508,7 @@ mod tests {
                 Variable {
                     name: "anything".to_string(),
                     kind: VariableType::Named,
-                    rule: Rule::prec(-1, Rule::pattern(".*")),
+                    rule: Rule::prec(Precedence::Integer(-1), Rule::pattern(".*")),
                 },
             ],
         })

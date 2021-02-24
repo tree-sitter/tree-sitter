@@ -120,7 +120,7 @@ impl InlinedProductionMapBuilder {
                                 }
                             }
                             if let Some(last_inserted_step) = inserted_steps.last_mut() {
-                                if last_inserted_step.precedence == 0 {
+                                if last_inserted_step.precedence.is_none() {
                                     last_inserted_step.precedence = removed_step.precedence;
                                 }
                                 if last_inserted_step.associativity == None {
@@ -193,7 +193,7 @@ pub(super) fn process_inlines(grammar: &SyntaxGrammar) -> InlinedProductionMap {
 mod tests {
     use super::*;
     use crate::generate::grammars::{ProductionStep, SyntaxVariable, VariableType};
-    use crate::generate::rules::{Associativity, Symbol};
+    use crate::generate::rules::{Associativity, Precedence, Symbol};
 
     #[test]
     fn test_basic_inlining() {
@@ -401,7 +401,7 @@ mod tests {
                         steps: vec![
                             // inlined
                             ProductionStep::new(Symbol::non_terminal(1))
-                                .with_prec(1, Some(Associativity::Left)),
+                                .with_prec(Precedence::Integer(1), Some(Associativity::Left)),
                             ProductionStep::new(Symbol::terminal(10)),
                             // inlined
                             ProductionStep::new(Symbol::non_terminal(2))
@@ -416,7 +416,7 @@ mod tests {
                         dynamic_precedence: 0,
                         steps: vec![
                             ProductionStep::new(Symbol::terminal(11))
-                                .with_prec(2, None)
+                                .with_prec(Precedence::Integer(2), None)
                                 .with_alias("inner_alias", true),
                             ProductionStep::new(Symbol::terminal(12)),
                         ],
@@ -453,12 +453,12 @@ mod tests {
                     // The first step in the inlined production retains its precedence
                     // and alias.
                     ProductionStep::new(Symbol::terminal(11))
-                        .with_prec(2, None)
+                        .with_prec(Precedence::Integer(2), None)
                         .with_alias("inner_alias", true),
                     // The final step of the inlined production inherits the precedence of
                     // the inlined step.
                     ProductionStep::new(Symbol::terminal(12))
-                        .with_prec(1, Some(Associativity::Left)),
+                        .with_prec(Precedence::Integer(1), Some(Associativity::Left)),
                     ProductionStep::new(Symbol::terminal(10)),
                     ProductionStep::new(Symbol::non_terminal(2)).with_alias("outer_alias", true),
                 ]
@@ -475,10 +475,10 @@ mod tests {
                 dynamic_precedence: 0,
                 steps: vec![
                     ProductionStep::new(Symbol::terminal(11))
-                        .with_prec(2, None)
+                        .with_prec(Precedence::Integer(2), None)
                         .with_alias("inner_alias", true),
                     ProductionStep::new(Symbol::terminal(12))
-                        .with_prec(1, Some(Associativity::Left)),
+                        .with_prec(Precedence::Integer(1), Some(Associativity::Left)),
                     ProductionStep::new(Symbol::terminal(10)),
                     // All steps of the inlined production inherit their alias from the
                     // inlined step.

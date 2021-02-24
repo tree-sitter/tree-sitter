@@ -1,5 +1,5 @@
 use super::grammars::{InputGrammar, Variable, VariableType};
-use super::rules::Rule;
+use super::rules::{Precedence, Rule};
 use crate::error::Result;
 use serde_derive::Deserialize;
 use serde_json::{Map, Value};
@@ -44,15 +44,15 @@ enum RuleJSON {
         content: Box<RuleJSON>,
     },
     PREC_LEFT {
-        value: i32,
+        value: PrecedenceJSON,
         content: Box<RuleJSON>,
     },
     PREC_RIGHT {
-        value: i32,
+        value: PrecedenceJSON,
         content: Box<RuleJSON>,
     },
     PREC {
-        value: i32,
+        value: PrecedenceJSON,
         content: Box<RuleJSON>,
     },
     TOKEN {
@@ -61,6 +61,13 @@ enum RuleJSON {
     IMMEDIATE_TOKEN {
         content: Box<RuleJSON>,
     },
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum PrecedenceJSON {
+    Integer(i32),
+    Name(String),
 }
 
 #[derive(Deserialize)]
@@ -133,14 +140,27 @@ fn parse_rule(json: RuleJSON) -> Rule {
         RuleJSON::REPEAT { content } => {
             Rule::choice(vec![Rule::repeat(parse_rule(*content)), Rule::Blank])
         }
-        RuleJSON::PREC { value, content } => Rule::prec(value, parse_rule(*content)),
-        RuleJSON::PREC_LEFT { value, content } => Rule::prec_left(value, parse_rule(*content)),
-        RuleJSON::PREC_RIGHT { value, content } => Rule::prec_right(value, parse_rule(*content)),
+        RuleJSON::PREC { value, content } => Rule::prec(value.into(), parse_rule(*content)),
+        RuleJSON::PREC_LEFT { value, content } => {
+            Rule::prec_left(value.into(), parse_rule(*content))
+        }
+        RuleJSON::PREC_RIGHT { value, content } => {
+            Rule::prec_right(value.into(), parse_rule(*content))
+        }
         RuleJSON::PREC_DYNAMIC { value, content } => {
             Rule::prec_dynamic(value, parse_rule(*content))
         }
         RuleJSON::TOKEN { content } => Rule::token(parse_rule(*content)),
         RuleJSON::IMMEDIATE_TOKEN { content } => Rule::immediate_token(parse_rule(*content)),
+    }
+}
+
+impl Into<Precedence> for PrecedenceJSON {
+    fn into(self) -> Precedence {
+        match self {
+            PrecedenceJSON::Integer(i) => Precedence::Integer(i),
+            PrecedenceJSON::Name(i) => Precedence::Name(i),
+        }
     }
 }
 
