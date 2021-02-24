@@ -5,14 +5,9 @@ GRAMMARS_DIR=$(dirname $0)/../test/fixtures/grammars
 fetch_grammar() {
   local grammar=$1
   local ref=$2
-  local external_url=$3
   local grammar_dir=${GRAMMARS_DIR}/${grammar}
 
   local grammar_url=https://github.com/tree-sitter/tree-sitter-${grammar}
-
-  if [ $external_url ]; then
-    local grammar_url=$external_url
-  fi
 
   echo "Updating ${grammar} grammar..."
 
@@ -42,4 +37,3 @@ fetch_grammar python            master
 fetch_grammar ruby              master
 fetch_grammar rust              master
 fetch_grammar typescript        master
-fetch_grammar svelte            master https://github.com/Himujjal/tree-sitter-svelte

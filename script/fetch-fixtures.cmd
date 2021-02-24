@@ -15,7 +15,6 @@ call:fetch_grammar python            master
 call:fetch_grammar ruby              master
 call:fetch_grammar rust              master
 call:fetch_grammar typescript        master
-call:fetch_grammar svelte            master https://github.com/Himujjal/tree-sitter-svelte
 exit /B 0
 
 :fetch_grammar
