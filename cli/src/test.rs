@@ -6,12 +6,14 @@ use lazy_static::lazy_static;
 use regex::bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder};
 use regex::Regex;
 use std::char;
+use std::ffi::OsStr;
 use std::fmt::Write as FmtWrite;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::str;
 use tree_sitter::{Language, LogType, Parser, Query};
+use walkdir::WalkDir;
 
 lazy_static! {
     static ref HEADER_REGEX: ByteRegex = ByteRegexBuilder::new(r"^===+\r?\n([^=]*)\r?\n===+\r?\n")
@@ -122,17 +124,20 @@ pub fn run_tests_at_path(
 
 pub fn check_queries_at_path(language: Language, path: &Path) -> Result<()> {
     if path.exists() {
-        for entry in fs::read_dir(path)? {
-            let entry = entry?;
-            let filepath = entry.file_name();
-            let filepath = filepath.to_str().unwrap_or("");
-            let hidden = filepath.starts_with(".");
-            if !hidden {
-                let content = fs::read_to_string(entry.path()).map_err(Error::wrap(|| {
-                    format!("Error reading query file {:?}", entry.file_name())
-                }))?;
-                Query::new(language, &content).map_err(|e| (filepath, e))?;
-            }
+        for entry in WalkDir::new(path)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                e.file_type().is_file()
+                    && e.path().extension().and_then(OsStr::to_str) == Some("scm")
+                    && !e.path().starts_with(".")
+            })
+        {
+            let filepath = entry.file_name().to_str().unwrap_or("");
+            let content = fs::read_to_string(entry.path()).map_err(Error::wrap(|| {
+                format!("Error reading query file {:?}", entry.file_name())
+            }))?;
+            Query::new(language, &content).map_err(|e| (filepath, e))?;
         }
     }
     Ok(())

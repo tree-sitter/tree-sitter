@@ -20,12 +20,13 @@ harness = false
 
 [dependencies]
 ansi_term = "0.11"
-cc = "^1.0.58"
 atty = "0.2"
+cc = "^1.0.58"
 clap = "2.32"
 difference = "2.0"
 dirs = "2.0.2"
 glob = "0.3.0"
+html-escape = "0.2.6"
 lazy_static = "1.2.0"
 libloading = "0.5"
 once_cell = "0.1.8"
@@ -35,8 +36,8 @@ serde = "1.0"
 serde_derive = "1.0"
 smallbitvec = "2.3.0"
 tiny_http = "0.6"
+walkdir = "2.3"
 webbrowser = "0.5.1"
-html-escape = "0.2.6"
 
 [dependencies.tree-sitter]
 version = ">= 0.17.0"
