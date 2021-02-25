@@ -74,11 +74,18 @@ enum PrecedenceJSON {
 pub(crate) struct GrammarJSON {
     pub(crate) name: String,
     rules: Map<String, Value>,
-    conflicts: Option<Vec<Vec<String>>>,
-    externals: Option<Vec<RuleJSON>>,
-    extras: Option<Vec<RuleJSON>>,
-    inline: Option<Vec<String>>,
-    supertypes: Option<Vec<String>>,
+    #[serde(default)]
+    precedences: Vec<Vec<String>>,
+    #[serde(default)]
+    conflicts: Vec<Vec<String>>,
+    #[serde(default)]
+    externals: Vec<RuleJSON>,
+    #[serde(default)]
+    extras: Vec<RuleJSON>,
+    #[serde(default)]
+    inline: Vec<String>,
+    #[serde(default)]
+    supertypes: Vec<String>,
     word: Option<String>,
 }
 
@@ -94,31 +101,19 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
         })
     }
 
-    let extra_symbols = grammar_json
-        .extras
-        .unwrap_or(Vec::new())
-        .into_iter()
-        .map(parse_rule)
-        .collect();
-    let external_tokens = grammar_json
-        .externals
-        .unwrap_or(Vec::new())
-        .into_iter()
-        .map(parse_rule)
-        .collect();
-    let expected_conflicts = grammar_json.conflicts.unwrap_or(Vec::new());
-    let variables_to_inline = grammar_json.inline.unwrap_or(Vec::new());
-    let supertype_symbols = grammar_json.supertypes.unwrap_or(Vec::new());
+    let extra_symbols = grammar_json.extras.into_iter().map(parse_rule).collect();
+    let external_tokens = grammar_json.externals.into_iter().map(parse_rule).collect();
 
     Ok(InputGrammar {
         name: grammar_json.name,
         word_token: grammar_json.word,
+        expected_conflicts: grammar_json.conflicts,
+        supertype_symbols: grammar_json.supertypes,
+        variables_to_inline: grammar_json.inline,
+        precedence_orderings: grammar_json.precedences,
         variables,
         extra_symbols,
-        expected_conflicts,
         external_tokens,
-        supertype_symbols,
-        variables_to_inline,
     })
 }
 

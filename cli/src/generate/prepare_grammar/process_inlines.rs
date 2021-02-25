@@ -198,11 +198,12 @@ mod tests {
     #[test]
     fn test_basic_inlining() {
         let grammar = SyntaxGrammar {
-            expected_conflicts: Vec::new(),
-            extra_symbols: Vec::new(),
-            external_tokens: Vec::new(),
-            supertype_symbols: Vec::new(),
             word_token: None,
+            extra_symbols: vec![],
+            external_tokens: vec![],
+            supertype_symbols: vec![],
+            expected_conflicts: vec![],
+            precedence_orderings: vec![],
             variables_to_inline: vec![Symbol::non_terminal(1)],
             variables: vec![
                 SyntaxVariable {
@@ -329,10 +330,11 @@ mod tests {
                 Symbol::non_terminal(2),
                 Symbol::non_terminal(3),
             ],
-            expected_conflicts: Vec::new(),
-            extra_symbols: Vec::new(),
-            external_tokens: Vec::new(),
-            supertype_symbols: Vec::new(),
+            extra_symbols: vec![],
+            external_tokens: vec![],
+            supertype_symbols: vec![],
+            expected_conflicts: vec![],
+            precedence_orderings: vec![],
             word_token: None,
         };
         let inline_map = process_inlines(&grammar);
@@ -431,10 +433,11 @@ mod tests {
                     }],
                 },
             ],
-            expected_conflicts: Vec::new(),
-            extra_symbols: Vec::new(),
-            external_tokens: Vec::new(),
-            supertype_symbols: Vec::new(),
+            extra_symbols: vec![],
+            external_tokens: vec![],
+            supertype_symbols: vec![],
+            expected_conflicts: vec![],
+            precedence_orderings: vec![],
             word_token: None,
         };
 

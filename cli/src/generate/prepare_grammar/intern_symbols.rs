@@ -87,6 +87,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         variables_to_inline,
         supertype_symbols,
         word_token,
+        precedence_orderings: grammar.precedence_orderings.clone(),
     })
 }
 
@@ -244,9 +245,10 @@ mod tests {
             name: "the_language".to_string(),
             extra_symbols: Vec::new(),
             external_tokens: Vec::new(),
+            supertype_symbols: Vec::new(),
             expected_conflicts: Vec::new(),
             variables_to_inline: Vec::new(),
-            supertype_symbols: Vec::new(),
+            precedence_orderings: Vec::new(),
             word_token: None,
         }
     }

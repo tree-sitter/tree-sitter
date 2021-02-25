@@ -208,6 +208,7 @@ unless they are used only as the grammar's start rule.
         extra_symbols: grammar.extra_symbols,
         expected_conflicts: grammar.expected_conflicts,
         variables_to_inline: grammar.variables_to_inline,
+        precedence_orderings: grammar.precedence_orderings,
         external_tokens: grammar.external_tokens,
         supertype_symbols: grammar.supertype_symbols,
         word_token: grammar.word_token,

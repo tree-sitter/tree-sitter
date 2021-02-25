@@ -197,11 +197,12 @@ mod tests {
                     }],
                 },
             ],
-            extra_symbols: Vec::new(),
-            expected_conflicts: Vec::new(),
-            variables_to_inline: Vec::new(),
-            supertype_symbols: Vec::new(),
-            external_tokens: Vec::new(),
+            extra_symbols: vec![],
+            external_tokens: vec![],
+            supertype_symbols: vec![],
+            expected_conflicts: vec![],
+            variables_to_inline: vec![],
+            precedence_orderings: vec![],
             word_token: None,
         };
 

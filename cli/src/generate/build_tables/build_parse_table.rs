@@ -730,14 +730,44 @@ impl<'a> ParseTableBuilder<'a> {
     }
 
     fn compare_precedence(
-        _grammar: &SyntaxGrammar,
+        grammar: &SyntaxGrammar,
         left: &Precedence,
         right: &Precedence,
     ) -> Ordering {
-        // TODO - compare named precedence
-        let left_integer = left.as_integer();
-        let right_integer = right.as_integer();
-        left_integer.cmp(&right_integer)
+        match (left, right) {
+            // Integer precedences can be compared to other integer precedences,
+            // and to the default precedence, which is zero.
+            (Precedence::Integer(l), Precedence::Integer(r)) => l.cmp(r),
+            (Precedence::Integer(l), Precedence::None) => l.cmp(&0),
+            (Precedence::None, Precedence::Integer(r)) => 0.cmp(&r),
+
+            // Named precedences can be compared to other named precedences.
+            (Precedence::Name(l), Precedence::Name(r)) => grammar
+                .precedence_orderings
+                .iter()
+                .find_map(|list| {
+                    let mut saw_left = false;
+                    let mut saw_right = false;
+                    for name in list {
+                        if name == l {
+                            saw_left = true;
+                            if saw_right {
+                                return Some(Ordering::Less);
+                            }
+                        } else if name == r {
+                            saw_right = true;
+                            if saw_left {
+                                return Some(Ordering::Greater);
+                            }
+                        }
+                    }
+                    None
+                })
+                .unwrap_or(Ordering::Equal),
+
+            // Other combinations of precedence types are not comparable.
+            _ => Ordering::Equal,
+        }
     }
 
     fn get_auxiliary_node_info(

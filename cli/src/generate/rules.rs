@@ -160,14 +160,6 @@ impl Alias {
 }
 
 impl Precedence {
-    pub fn as_integer(&self) -> i32 {
-        if let Precedence::Integer(i) = self {
-            *i
-        } else {
-            0
-        }
-    }
-
     pub fn is_none(&self) -> bool {
         matches!(self, Precedence::None)
     }
