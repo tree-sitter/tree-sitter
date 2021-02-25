@@ -2,6 +2,7 @@ use super::test_highlight;
 use std::fmt::Write;
 use std::io;
 use tree_sitter::{QueryError, QueryErrorKind};
+use walkdir;
 
 #[derive(Debug)]
 pub struct Error(pub Vec<String>);
@@ -119,5 +120,11 @@ impl From<test_highlight::Failure> for Error {
 impl From<String> for Error {
     fn from(error: String) -> Self {
         Error::new(error)
+    }
+}
+
+impl From<walkdir::Error> for Error {
+    fn from(error: walkdir::Error) -> Self {
+        Error::new(error.to_string())
     }
 }
