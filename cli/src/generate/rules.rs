@@ -1,7 +1,7 @@
 use super::grammars::VariableType;
 use smallbitvec::SmallBitVec;
-use std::collections::HashMap;
 use std::iter::FromIterator;
+use std::{collections::HashMap, fmt};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum SymbolType {
@@ -24,11 +24,18 @@ pub(crate) struct Alias {
     pub is_named: bool,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Precedence {
+    None,
+    Integer(i32),
+    Name(String),
+}
+
 pub(crate) type AliasMap = HashMap<Symbol, Alias>;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub(crate) struct MetadataParams {
-    pub precedence: Option<i32>,
+    pub precedence: Precedence,
     pub dynamic_precedence: i32,
     pub associativity: Option<Associativity>,
     pub is_token: bool,
@@ -99,23 +106,23 @@ impl Rule {
         })
     }
 
-    pub fn prec(value: i32, content: Rule) -> Self {
+    pub fn prec(value: Precedence, content: Rule) -> Self {
         add_metadata(content, |params| {
-            params.precedence = Some(value);
+            params.precedence = value;
         })
     }
 
-    pub fn prec_left(value: i32, content: Rule) -> Self {
+    pub fn prec_left(value: Precedence, content: Rule) -> Self {
         add_metadata(content, |params| {
             params.associativity = Some(Associativity::Left);
-            params.precedence = Some(value);
+            params.precedence = value;
         })
     }
 
-    pub fn prec_right(value: i32, content: Rule) -> Self {
+    pub fn prec_right(value: Precedence, content: Rule) -> Self {
         add_metadata(content, |params| {
             params.associativity = Some(Associativity::Right);
-            params.precedence = Some(value);
+            params.precedence = value;
         })
     }
 
@@ -149,6 +156,12 @@ impl Alias {
         } else {
             VariableType::Anonymous
         }
+    }
+}
+
+impl Precedence {
+    pub fn is_none(&self) -> bool {
+        matches!(self, Precedence::None)
     }
 }
 
@@ -435,5 +448,21 @@ fn choice_helper(result: &mut Vec<Rule>, rule: Rule) {
                 result.push(rule);
             }
         }
+    }
+}
+
+impl fmt::Display for Precedence {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Precedence::Integer(i) => write!(f, "{}", i),
+            Precedence::Name(s) => write!(f, "'{}'", s),
+            Precedence::None => write!(f, "none"),
+        }
+    }
+}
+
+impl Default for Precedence {
+    fn default() -> Self {
+        Precedence::None
     }
 }

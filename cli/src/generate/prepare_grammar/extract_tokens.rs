@@ -155,6 +155,7 @@ pub(super) fn extract_tokens(
             supertype_symbols,
             external_tokens,
             word_token,
+            precedence_orderings: grammar.precedence_orderings,
         },
         ExtractedLexicalGrammar {
             variables: lexical_variables,
@@ -494,9 +495,10 @@ mod test {
             variables,
             extra_symbols: Vec::new(),
             external_tokens: Vec::new(),
+            supertype_symbols: Vec::new(),
             expected_conflicts: Vec::new(),
             variables_to_inline: Vec::new(),
-            supertype_symbols: Vec::new(),
+            precedence_orderings: Vec::new(),
             word_token: None,
         }
     }

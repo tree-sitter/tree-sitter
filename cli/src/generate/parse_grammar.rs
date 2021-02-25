@@ -1,5 +1,5 @@
 use super::grammars::{InputGrammar, Variable, VariableType};
-use super::rules::Rule;
+use super::rules::{Precedence, Rule};
 use crate::error::Result;
 use serde_derive::Deserialize;
 use serde_json::{Map, Value};
@@ -44,15 +44,15 @@ enum RuleJSON {
         content: Box<RuleJSON>,
     },
     PREC_LEFT {
-        value: i32,
+        value: PrecedenceJSON,
         content: Box<RuleJSON>,
     },
     PREC_RIGHT {
-        value: i32,
+        value: PrecedenceJSON,
         content: Box<RuleJSON>,
     },
     PREC {
-        value: i32,
+        value: PrecedenceJSON,
         content: Box<RuleJSON>,
     },
     TOKEN {
@@ -64,14 +64,28 @@ enum RuleJSON {
 }
 
 #[derive(Deserialize)]
+#[serde(untagged)]
+enum PrecedenceJSON {
+    Integer(i32),
+    Name(String),
+}
+
+#[derive(Deserialize)]
 pub(crate) struct GrammarJSON {
     pub(crate) name: String,
     rules: Map<String, Value>,
-    conflicts: Option<Vec<Vec<String>>>,
-    externals: Option<Vec<RuleJSON>>,
-    extras: Option<Vec<RuleJSON>>,
-    inline: Option<Vec<String>>,
-    supertypes: Option<Vec<String>>,
+    #[serde(default)]
+    precedences: Vec<Vec<String>>,
+    #[serde(default)]
+    conflicts: Vec<Vec<String>>,
+    #[serde(default)]
+    externals: Vec<RuleJSON>,
+    #[serde(default)]
+    extras: Vec<RuleJSON>,
+    #[serde(default)]
+    inline: Vec<String>,
+    #[serde(default)]
+    supertypes: Vec<String>,
     word: Option<String>,
 }
 
@@ -87,31 +101,19 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
         })
     }
 
-    let extra_symbols = grammar_json
-        .extras
-        .unwrap_or(Vec::new())
-        .into_iter()
-        .map(parse_rule)
-        .collect();
-    let external_tokens = grammar_json
-        .externals
-        .unwrap_or(Vec::new())
-        .into_iter()
-        .map(parse_rule)
-        .collect();
-    let expected_conflicts = grammar_json.conflicts.unwrap_or(Vec::new());
-    let variables_to_inline = grammar_json.inline.unwrap_or(Vec::new());
-    let supertype_symbols = grammar_json.supertypes.unwrap_or(Vec::new());
+    let extra_symbols = grammar_json.extras.into_iter().map(parse_rule).collect();
+    let external_tokens = grammar_json.externals.into_iter().map(parse_rule).collect();
 
     Ok(InputGrammar {
         name: grammar_json.name,
         word_token: grammar_json.word,
+        expected_conflicts: grammar_json.conflicts,
+        supertype_symbols: grammar_json.supertypes,
+        variables_to_inline: grammar_json.inline,
+        precedence_orderings: grammar_json.precedences,
         variables,
         extra_symbols,
-        expected_conflicts,
         external_tokens,
-        supertype_symbols,
-        variables_to_inline,
     })
 }
 
@@ -133,14 +135,27 @@ fn parse_rule(json: RuleJSON) -> Rule {
         RuleJSON::REPEAT { content } => {
             Rule::choice(vec![Rule::repeat(parse_rule(*content)), Rule::Blank])
         }
-        RuleJSON::PREC { value, content } => Rule::prec(value, parse_rule(*content)),
-        RuleJSON::PREC_LEFT { value, content } => Rule::prec_left(value, parse_rule(*content)),
-        RuleJSON::PREC_RIGHT { value, content } => Rule::prec_right(value, parse_rule(*content)),
+        RuleJSON::PREC { value, content } => Rule::prec(value.into(), parse_rule(*content)),
+        RuleJSON::PREC_LEFT { value, content } => {
+            Rule::prec_left(value.into(), parse_rule(*content))
+        }
+        RuleJSON::PREC_RIGHT { value, content } => {
+            Rule::prec_right(value.into(), parse_rule(*content))
+        }
         RuleJSON::PREC_DYNAMIC { value, content } => {
             Rule::prec_dynamic(value, parse_rule(*content))
         }
         RuleJSON::TOKEN { content } => Rule::token(parse_rule(*content)),
         RuleJSON::IMMEDIATE_TOKEN { content } => Rule::immediate_token(parse_rule(*content)),
+    }
+}
+
+impl Into<Precedence> for PrecedenceJSON {
+    fn into(self) -> Precedence {
+        match self {
+            PrecedenceJSON::Integer(i) => Precedence::Integer(i),
+            PrecedenceJSON::Name(i) => Precedence::Name(i),
+        }
     }
 }
 

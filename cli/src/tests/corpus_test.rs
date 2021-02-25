@@ -247,6 +247,16 @@ fn test_feature_corpus_files() {
                 failure_count += 1;
             }
         } else {
+            if let Err(e) = &generate_result {
+                eprintln!(
+                    "Unexpected error for test grammar '{}':\n{}",
+                    language_name,
+                    e.message()
+                );
+                failure_count += 1;
+                continue;
+            }
+
             let corpus_path = test_path.join("corpus.txt");
             let c_code = generate_result.unwrap().1;
             let language = get_test_language(language_name, &c_code, Some(&test_path));

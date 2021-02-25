@@ -1,8 +1,11 @@
 use super::ExtractedLexicalGrammar;
-use crate::error::{Error, Result};
 use crate::generate::grammars::{LexicalGrammar, LexicalVariable};
 use crate::generate::nfa::{CharacterSet, Nfa, NfaState};
 use crate::generate::rules::Rule;
+use crate::{
+    error::{Error, Result},
+    generate::rules::Precedence,
+};
 use lazy_static::lazy_static;
 use regex::Regex;
 use regex_syntax::ast::{
@@ -46,10 +49,12 @@ fn get_implicit_precedence(rule: &Rule) -> i32 {
 }
 
 fn get_completion_precedence(rule: &Rule) -> i32 {
-    match rule {
-        Rule::Metadata { params, .. } => params.precedence.unwrap_or(0),
-        _ => 0,
+    if let Rule::Metadata { params, .. } = rule {
+        if let Precedence::Integer(p) = params.precedence {
+            return p;
+        }
     }
+    0
 }
 
 fn preprocess_regex(content: &str) -> String {
@@ -187,11 +192,14 @@ impl NfaBuilder {
                 }
             }
             Rule::Metadata { rule, params } => {
-                if let Some(precedence) = params.precedence {
-                    self.precedence_stack.push(precedence);
-                }
+                let has_precedence = if let Precedence::Integer(precedence) = &params.precedence {
+                    self.precedence_stack.push(*precedence);
+                    true
+                } else {
+                    false
+                };
                 let result = self.expand_rule(rule, next_state_id);
-                if params.precedence.is_some() {
+                if has_precedence {
                     self.precedence_stack.pop();
                 }
                 result
@@ -626,8 +634,8 @@ mod tests {
             // shorter tokens with higher precedence
             Row {
                 rules: vec![
-                    Rule::prec(2, Rule::pattern("abc")),
-                    Rule::prec(1, Rule::pattern("ab[cd]e")),
+                    Rule::prec(Precedence::Integer(2), Rule::pattern("abc")),
+                    Rule::prec(Precedence::Integer(1), Rule::pattern("ab[cd]e")),
                     Rule::pattern("[a-e]+"),
                 ],
                 separators: vec![Rule::string("\\\n"), Rule::pattern("\\s")],
@@ -640,8 +648,11 @@ mod tests {
             // immediate tokens with higher precedence
             Row {
                 rules: vec![
-                    Rule::prec(1, Rule::pattern("[^a]+")),
-                    Rule::immediate_token(Rule::prec(2, Rule::pattern("[^ab]+"))),
+                    Rule::prec(Precedence::Integer(1), Rule::pattern("[^a]+")),
+                    Rule::immediate_token(Rule::prec(
+                        Precedence::Integer(2),
+                        Rule::pattern("[^ab]+"),
+                    )),
                 ],
                 separators: vec![Rule::pattern("\\s")],
                 examples: vec![("cccb", Some((1, "ccc")))],

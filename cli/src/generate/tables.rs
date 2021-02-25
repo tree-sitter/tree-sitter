@@ -1,5 +1,5 @@
 use super::nfa::CharacterSet;
-use super::rules::{Alias, Associativity, Symbol, TokenSet};
+use super::rules::{Alias, Symbol, TokenSet};
 use std::collections::{BTreeMap, HashMap};
 pub(crate) type ProductionInfoId = usize;
 pub(crate) type ParseStateId = usize;
@@ -17,9 +17,7 @@ pub(crate) enum ParseAction {
     Reduce {
         symbol: Symbol,
         child_count: usize,
-        precedence: i32,
         dynamic_precedence: i32,
-        associativity: Option<Associativity>,
         production_id: ProductionInfoId,
     },
 }
@@ -160,16 +158,6 @@ impl ParseState {
                     };
                 }
             }
-        }
-    }
-}
-
-impl ParseAction {
-    pub fn precedence(&self) -> i32 {
-        if let ParseAction::Reduce { precedence, .. } = self {
-            *precedence
-        } else {
-            0
         }
     }
 }

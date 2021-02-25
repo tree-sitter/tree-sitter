@@ -1,8 +1,5 @@
-use crate::generate::grammars::{
-    LexicalGrammar, Production, ProductionStep, SyntaxGrammar,
-};
-use crate::generate::rules::Associativity;
-use crate::generate::rules::{Symbol, SymbolType, TokenSet};
+use crate::generate::grammars::{LexicalGrammar, Production, ProductionStep, SyntaxGrammar};
+use crate::generate::rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet};
 use lazy_static::lazy_static;
 use std::cmp::Ordering;
 use std::fmt;
@@ -17,7 +14,7 @@ lazy_static! {
                 index: 0,
                 kind: SymbolType::NonTerminal,
             },
-            precedence: 0,
+            precedence: Precedence::None,
             associativity: None,
             alias: None,
             field_name: None,
@@ -82,8 +79,9 @@ impl<'a> ParseItem<'a> {
         self.prev_step().and_then(|step| step.associativity)
     }
 
-    pub fn precedence(&self) -> i32 {
-        self.prev_step().map_or(0, |step| step.precedence)
+    pub fn precedence(&self) -> &Precedence {
+        self.prev_step()
+            .map_or(&Precedence::None, |step| &step.precedence)
     }
 
     pub fn prev_step(&self) -> Option<&'a ProductionStep> {
@@ -165,12 +163,12 @@ impl<'a> fmt::Display for ParseItemDisplay<'a> {
             if i == self.0.step_index as usize {
                 write!(f, " •")?;
                 if let Some(associativity) = step.associativity {
-                    if step.precedence != 0 {
+                    if !step.precedence.is_none() {
                         write!(f, " ({} {:?})", step.precedence, associativity)?;
                     } else {
                         write!(f, " ({:?})", associativity)?;
                     }
-                } else if step.precedence != 0 {
+                } else if !step.precedence.is_none() {
                     write!(f, " ({})", step.precedence)?;
                 }
             }
@@ -197,12 +195,12 @@ impl<'a> fmt::Display for ParseItemDisplay<'a> {
             write!(f, " •")?;
             if let Some(step) = self.0.production.steps.last() {
                 if let Some(associativity) = step.associativity {
-                    if step.precedence != 0 {
+                    if !step.precedence.is_none() {
                         write!(f, " ({} {:?})", step.precedence, associativity)?;
                     } else {
                         write!(f, " ({:?})", associativity)?;
                     }
-                } else if step.precedence != 0 {
+                } else if !step.precedence.is_none() {
                     write!(f, " ({})", step.precedence)?;
                 }
             }
@@ -257,7 +255,7 @@ impl<'a> Hash for ParseItem<'a> {
         hasher.write_u32(self.step_index);
         hasher.write_i32(self.production.dynamic_precedence);
         hasher.write_usize(self.production.steps.len());
-        hasher.write_i32(self.precedence());
+        self.precedence().hash(hasher);
         self.associativity().hash(hasher);
 
         // When comparing two parse items, the symbols that were already consumed by

@@ -3,12 +3,11 @@ use crate::error::{Error, Result};
 use crate::generate::grammars::{
     Production, ProductionStep, SyntaxGrammar, SyntaxVariable, Variable,
 };
-use crate::generate::rules::Symbol;
-use crate::generate::rules::{Alias, Associativity, Rule};
+use crate::generate::rules::{Alias, Associativity, Precedence, Rule, Symbol};
 
 struct RuleFlattener {
     production: Production,
-    precedence_stack: Vec<i32>,
+    precedence_stack: Vec<Precedence>,
     associativity_stack: Vec<Associativity>,
     alias_stack: Vec<Alias>,
     field_name_stack: Vec<String>,
@@ -45,9 +44,9 @@ impl RuleFlattener {
             }
             Rule::Metadata { rule, params } => {
                 let mut has_precedence = false;
-                if let Some(precedence) = params.precedence {
+                if !params.precedence.is_none() {
                     has_precedence = true;
-                    self.precedence_stack.push(precedence);
+                    self.precedence_stack.push(params.precedence);
                 }
 
                 let mut has_associativity = false;
@@ -77,8 +76,11 @@ impl RuleFlattener {
                 if has_precedence {
                     self.precedence_stack.pop();
                     if did_push && !at_end {
-                        self.production.steps.last_mut().unwrap().precedence =
-                            self.precedence_stack.last().cloned().unwrap_or(0);
+                        self.production.steps.last_mut().unwrap().precedence = self
+                            .precedence_stack
+                            .last()
+                            .cloned()
+                            .unwrap_or(Precedence::None);
                     }
                 }
 
@@ -103,7 +105,11 @@ impl RuleFlattener {
             Rule::Symbol(symbol) => {
                 self.production.steps.push(ProductionStep {
                     symbol,
-                    precedence: self.precedence_stack.last().cloned().unwrap_or(0),
+                    precedence: self
+                        .precedence_stack
+                        .last()
+                        .cloned()
+                        .unwrap_or(Precedence::None),
                     associativity: self.associativity_stack.last().cloned(),
                     alias: self.alias_stack.last().cloned(),
                     field_name: self.field_name_stack.last().cloned(),
@@ -202,6 +208,7 @@ unless they are used only as the grammar's start rule.
         extra_symbols: grammar.extra_symbols,
         expected_conflicts: grammar.expected_conflicts,
         variables_to_inline: grammar.variables_to_inline,
+        precedence_orderings: grammar.precedence_orderings,
         external_tokens: grammar.external_tokens,
         supertype_symbols: grammar.supertype_symbols,
         word_token: grammar.word_token,
@@ -223,12 +230,12 @@ mod tests {
             rule: Rule::seq(vec![
                 Rule::non_terminal(1),
                 Rule::prec_left(
-                    101,
+                    Precedence::Integer(101),
                     Rule::seq(vec![
                         Rule::non_terminal(2),
                         Rule::choice(vec![
                             Rule::prec_right(
-                                102,
+                                Precedence::Integer(102),
                                 Rule::seq(vec![Rule::non_terminal(3), Rule::non_terminal(4)]),
                             ),
                             Rule::non_terminal(5),
@@ -249,11 +256,11 @@ mod tests {
                     steps: vec![
                         ProductionStep::new(Symbol::non_terminal(1)),
                         ProductionStep::new(Symbol::non_terminal(2))
-                            .with_prec(101, Some(Associativity::Left)),
+                            .with_prec(Precedence::Integer(101), Some(Associativity::Left)),
                         ProductionStep::new(Symbol::non_terminal(3))
-                            .with_prec(102, Some(Associativity::Right)),
+                            .with_prec(Precedence::Integer(102), Some(Associativity::Right)),
                         ProductionStep::new(Symbol::non_terminal(4))
-                            .with_prec(101, Some(Associativity::Left)),
+                            .with_prec(Precedence::Integer(101), Some(Associativity::Left)),
                         ProductionStep::new(Symbol::non_terminal(6)),
                         ProductionStep::new(Symbol::non_terminal(7)),
                     ]
@@ -263,9 +270,9 @@ mod tests {
                     steps: vec![
                         ProductionStep::new(Symbol::non_terminal(1)),
                         ProductionStep::new(Symbol::non_terminal(2))
-                            .with_prec(101, Some(Associativity::Left)),
+                            .with_prec(Precedence::Integer(101), Some(Associativity::Left)),
                         ProductionStep::new(Symbol::non_terminal(5))
-                            .with_prec(101, Some(Associativity::Left)),
+                            .with_prec(Precedence::Integer(101), Some(Associativity::Left)),
                         ProductionStep::new(Symbol::non_terminal(6)),
                         ProductionStep::new(Symbol::non_terminal(7)),
                     ]
@@ -334,7 +341,7 @@ mod tests {
             name: "test".to_string(),
             kind: VariableType::Named,
             rule: Rule::prec_left(
-                101,
+                Precedence::Integer(101),
                 Rule::seq(vec![Rule::non_terminal(1), Rule::non_terminal(2)]),
             ),
         })
@@ -346,9 +353,9 @@ mod tests {
                 dynamic_precedence: 0,
                 steps: vec![
                     ProductionStep::new(Symbol::non_terminal(1))
-                        .with_prec(101, Some(Associativity::Left)),
+                        .with_prec(Precedence::Integer(101), Some(Associativity::Left)),
                     ProductionStep::new(Symbol::non_terminal(2))
-                        .with_prec(101, Some(Associativity::Left)),
+                        .with_prec(Precedence::Integer(101), Some(Associativity::Left)),
                 ]
             }]
         );
@@ -356,7 +363,10 @@ mod tests {
         let result = flatten_variable(Variable {
             name: "test".to_string(),
             kind: VariableType::Named,
-            rule: Rule::prec_left(101, Rule::seq(vec![Rule::non_terminal(1)])),
+            rule: Rule::prec_left(
+                Precedence::Integer(101),
+                Rule::seq(vec![Rule::non_terminal(1)]),
+            ),
         })
         .unwrap();
 
@@ -365,7 +375,7 @@ mod tests {
             vec![Production {
                 dynamic_precedence: 0,
                 steps: vec![ProductionStep::new(Symbol::non_terminal(1))
-                    .with_prec(101, Some(Associativity::Left)),]
+                    .with_prec(Precedence::Integer(101), Some(Associativity::Left)),]
             }]
         );
     }

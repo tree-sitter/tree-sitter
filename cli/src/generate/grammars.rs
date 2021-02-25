@@ -1,5 +1,5 @@
 use super::nfa::Nfa;
-use super::rules::{Alias, Associativity, Rule, Symbol};
+use super::rules::{Alias, Associativity, Precedence, Rule, Symbol};
 use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -25,6 +25,7 @@ pub(crate) struct InputGrammar {
     pub variables: Vec<Variable>,
     pub extra_symbols: Vec<Rule>,
     pub expected_conflicts: Vec<Vec<String>>,
+    pub precedence_orderings: Vec<Vec<String>>,
     pub external_tokens: Vec<Rule>,
     pub variables_to_inline: Vec<String>,
     pub supertype_symbols: Vec<String>,
@@ -52,7 +53,7 @@ pub(crate) struct LexicalGrammar {
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) struct ProductionStep {
     pub symbol: Symbol,
-    pub precedence: i32,
+    pub precedence: Precedence,
     pub associativity: Option<Associativity>,
     pub alias: Option<Alias>,
     pub field_name: Option<String>,
@@ -93,6 +94,7 @@ pub(crate) struct SyntaxGrammar {
     pub supertype_symbols: Vec<Symbol>,
     pub variables_to_inline: Vec<Symbol>,
     pub word_token: Option<Symbol>,
+    pub precedence_orderings: Vec<Vec<String>>,
 }
 
 #[cfg(test)]
@@ -100,14 +102,18 @@ impl ProductionStep {
     pub(crate) fn new(symbol: Symbol) -> Self {
         Self {
             symbol,
-            precedence: 0,
+            precedence: Precedence::None,
             associativity: None,
             alias: None,
             field_name: None,
         }
     }
 
-    pub(crate) fn with_prec(self, precedence: i32, associativity: Option<Associativity>) -> Self {
+    pub(crate) fn with_prec(
+        self,
+        precedence: Precedence,
+        associativity: Option<Associativity>,
+    ) -> Self {
         Self {
             symbol: self.symbol,
             precedence,

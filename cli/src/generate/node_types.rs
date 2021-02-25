@@ -713,12 +713,13 @@ mod tests {
     fn test_node_types_simple() {
         let node_types = get_node_types(InputGrammar {
             name: String::new(),
-            extra_symbols: Vec::new(),
-            external_tokens: Vec::new(),
-            expected_conflicts: Vec::new(),
-            variables_to_inline: Vec::new(),
             word_token: None,
+            extra_symbols: vec![],
+            external_tokens: vec![],
             supertype_symbols: vec![],
+            expected_conflicts: vec![],
+            variables_to_inline: vec![],
+            precedence_orderings: vec![],
             variables: vec![
                 Variable {
                     name: "v1".to_string(),
@@ -809,11 +810,12 @@ mod tests {
         let node_types = get_node_types(InputGrammar {
             name: String::new(),
             extra_symbols: vec![Rule::named("v3")],
-            external_tokens: Vec::new(),
-            expected_conflicts: Vec::new(),
-            variables_to_inline: Vec::new(),
             word_token: None,
+            external_tokens: vec![],
             supertype_symbols: vec![],
+            expected_conflicts: vec![],
+            variables_to_inline: vec![],
+            precedence_orderings: vec![],
             variables: vec![
                 Variable {
                     name: "v1".to_string(),
@@ -914,11 +916,12 @@ mod tests {
     fn test_node_types_with_supertypes() {
         let node_types = get_node_types(InputGrammar {
             name: String::new(),
-            extra_symbols: Vec::new(),
-            external_tokens: Vec::new(),
-            expected_conflicts: Vec::new(),
-            variables_to_inline: Vec::new(),
             word_token: None,
+            extra_symbols: vec![],
+            external_tokens: vec![],
+            expected_conflicts: vec![],
+            variables_to_inline: vec![],
+            precedence_orderings: vec![],
             supertype_symbols: vec!["_v2".to_string()],
             variables: vec![
                 Variable {
@@ -1001,12 +1004,13 @@ mod tests {
     fn test_node_types_for_children_without_fields() {
         let node_types = get_node_types(InputGrammar {
             name: String::new(),
-            extra_symbols: Vec::new(),
-            external_tokens: Vec::new(),
-            expected_conflicts: Vec::new(),
-            variables_to_inline: Vec::new(),
             word_token: None,
+            extra_symbols: vec![],
+            external_tokens: vec![],
             supertype_symbols: vec![],
+            expected_conflicts: vec![],
+            variables_to_inline: vec![],
+            precedence_orderings: vec![],
             variables: vec![
                 Variable {
                     name: "v1".to_string(),
@@ -1100,11 +1104,12 @@ mod tests {
         let node_types = get_node_types(InputGrammar {
             name: String::new(),
             word_token: None,
-            extra_symbols: Vec::new(),
-            external_tokens: Vec::new(),
-            expected_conflicts: Vec::new(),
-            variables_to_inline: vec!["v2".to_string()],
+            extra_symbols: vec![],
+            external_tokens: vec![],
             supertype_symbols: vec![],
+            expected_conflicts: vec![],
+            precedence_orderings: vec![],
+            variables_to_inline: vec!["v2".to_string()],
             variables: vec![
                 Variable {
                     name: "v1".to_string(),
@@ -1154,12 +1159,13 @@ mod tests {
     fn test_node_types_for_aliased_nodes() {
         let node_types = get_node_types(InputGrammar {
             name: String::new(),
-            extra_symbols: Vec::new(),
-            external_tokens: Vec::new(),
-            expected_conflicts: Vec::new(),
-            variables_to_inline: Vec::new(),
             word_token: None,
+            extra_symbols: vec![],
+            external_tokens: vec![],
             supertype_symbols: vec![],
+            expected_conflicts: vec![],
+            variables_to_inline: vec![],
+            precedence_orderings: vec![],
             variables: vec![
                 Variable {
                     name: "thing".to_string(),
@@ -1230,12 +1236,13 @@ mod tests {
     fn test_node_types_with_multiple_valued_fields() {
         let node_types = get_node_types(InputGrammar {
             name: String::new(),
-            extra_symbols: Vec::new(),
-            external_tokens: Vec::new(),
-            expected_conflicts: Vec::new(),
-            variables_to_inline: Vec::new(),
             word_token: None,
+            extra_symbols: vec![],
+            external_tokens: vec![],
             supertype_symbols: vec![],
+            expected_conflicts: vec![],
+            variables_to_inline: vec![],
+            precedence_orderings: vec![],
             variables: vec![
                 Variable {
                     name: "a".to_string(),
@@ -1298,12 +1305,13 @@ mod tests {
     fn test_node_types_with_fields_on_hidden_tokens() {
         let node_types = get_node_types(InputGrammar {
             name: String::new(),
-            extra_symbols: Vec::new(),
-            external_tokens: Vec::new(),
-            expected_conflicts: Vec::new(),
-            variables_to_inline: Vec::new(),
             word_token: None,
+            extra_symbols: vec![],
+            external_tokens: vec![],
             supertype_symbols: vec![],
+            expected_conflicts: vec![],
+            variables_to_inline: vec![],
+            precedence_orderings: vec![],
             variables: vec![Variable {
                 name: "script".to_string(),
                 kind: VariableType::Named,
@@ -1330,12 +1338,13 @@ mod tests {
     fn test_node_types_with_multiple_rules_same_alias_name() {
         let node_types = get_node_types(InputGrammar {
             name: String::new(),
-            extra_symbols: Vec::new(),
-            external_tokens: Vec::new(),
-            expected_conflicts: Vec::new(),
-            variables_to_inline: Vec::new(),
             word_token: None,
+            extra_symbols: vec![],
+            external_tokens: vec![],
             supertype_symbols: vec![],
+            expected_conflicts: vec![],
+            variables_to_inline: vec![],
+            precedence_orderings: vec![],
             variables: vec![
                 Variable {
                     name: "script".to_string(),
@@ -1456,12 +1465,13 @@ mod tests {
     fn test_node_types_with_tokens_aliased_to_match_rules() {
         let node_types = get_node_types(InputGrammar {
             name: String::new(),
-            extra_symbols: Vec::new(),
-            external_tokens: Vec::new(),
-            expected_conflicts: Vec::new(),
-            variables_to_inline: Vec::new(),
             word_token: None,
+            extra_symbols: vec![],
+            external_tokens: vec![],
             supertype_symbols: vec![],
+            expected_conflicts: vec![],
+            variables_to_inline: vec![],
+            precedence_orderings: vec![],
             variables: vec![
                 Variable {
                     name: "a".to_string(),
