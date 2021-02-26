@@ -122,6 +122,7 @@ struct TSLanguage {
   const TSSymbol *public_symbol_map;
   const uint16_t *alias_map;
   uint32_t state_count;
+  uint32_t production_id_count;
 };
 
 /*
