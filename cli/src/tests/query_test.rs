@@ -1862,6 +1862,56 @@ fn test_query_matches_with_repeated_fields() {
 }
 
 #[test]
+fn test_query_matches_with_indefinite_step_containing_no_captures() {
+    allocations::record(|| {
+        // This pattern depends on the field declarations within the
+        // struct's body, but doesn't capture anything within the body.
+        // It demonstrates that internally, state-splitting needs to occur
+        // for each field declaration within the body, in order to avoid
+        // prematurely failing if the first field does not match.
+        //
+        // https://github.com/tree-sitter/tree-sitter/issues/937
+        let language = get_language("c");
+        let query = Query::new(
+            language,
+            "(struct_specifier
+                name: (type_identifier) @name
+                body: (field_declaration_list
+                    (field_declaration
+                        type: (union_specifier))))",
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            "
+            struct LacksUnionField {
+                int a;
+                struct {
+                    B c;
+                } d;
+                G *h;
+            };
+
+            struct HasUnionField {
+                int a;
+                struct {
+                    B c;
+                } d;
+                union {
+                    bool e;
+                    float f;
+                } g;
+                G *h;
+            };
+            ",
+            &[(0, vec![("name", "HasUnionField")])],
+        );
+    });
+}
+
+#[test]
 fn test_query_captures_basic() {
     allocations::record(|| {
         let language = get_language("javascript");

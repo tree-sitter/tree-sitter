@@ -2676,7 +2676,7 @@ static inline bool ts_query_cursor__advance(
         // parent, then this query state cannot simply be updated in place. It must be
         // split into two states: one that matches this node, and one which skips over
         // this node, to preserve the possibility of matching later siblings.
-        if (later_sibling_can_match && step->contains_captures) {
+        if (later_sibling_can_match && (step->contains_captures || !step->is_definite)) {
           if (ts_query_cursor__copy_state(self, &state)) {
             LOG(
               "  split state for capture. pattern:%u, step:%u\n",
