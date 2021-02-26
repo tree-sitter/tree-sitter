@@ -11,17 +11,23 @@ const platformName = {
   'linux': 'linux',
   'win32': 'windows'
 }[process.platform];
-if (!platformName) {
-  throw new Error(`Cannot install tree-sitter-cli for platform ${process.platform}`);
-}
 
-const archName = {
+let archName = {
   'x64': 'x64',
   'x86': 'x86',
   'ia32': 'x86'
 }[process.arch];
-if (!archName) {
-  throw new Error(`Cannot install tree-sitter-cli for architecture ${process.arch}`);
+
+// ARM macs can run x64 binaries via Rosetta. Rely on that for now.
+if (platformName === 'macos' && process.arch === 'arm64') {
+  archName = 'x64';
+}
+
+if (!platformName || !archName) {
+  console.error(
+    `Cannot install tree-sitter-cli for platform ${process.platform}, architecture ${process.arch}`
+  );
+  process.exit(1);
 }
 
 const releaseURL = `https://github.com/tree-sitter/tree-sitter/releases/download/v${packageJSON.version}`;
@@ -39,7 +45,7 @@ console.log(`Downloading ${assetURL}`);
 const file = fs.createWriteStream(executableName);
 get(assetURL, response => {
   if (response.statusCode > 299) {
-    throw new Error([
+    console.error([
       'Download failed',
       '',
       `url: ${assetURL}`,
@@ -47,6 +53,7 @@ get(assetURL, response => {
       `headers: ${JSON.stringify(response.headers, null, 2)}`,
       '',
     ].join('\n'));
+    process.exit(1);
   }
   response.pipe(zlib.createGunzip()).pipe(file);
 });
