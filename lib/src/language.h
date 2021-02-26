@@ -54,16 +54,6 @@ static inline const TSParseAction *ts_language_actions(
   return entry.actions;
 }
 
-static inline bool ts_language_has_actions(
-  const TSLanguage *self,
-  TSStateId state,
-  TSSymbol symbol
-) {
-  TableEntry entry;
-  ts_language_table_entry(self, state, symbol, &entry);
-  return entry.action_count > 0;
-}
-
 static inline bool ts_language_has_reduce_action(
   const TSLanguage *self,
   TSStateId state,
@@ -101,6 +91,14 @@ static inline uint16_t ts_language_lookup(
   } else {
     return self->parse_table[state * self->symbol_count + symbol];
   }
+}
+
+static inline bool ts_language_has_actions(
+  const TSLanguage *self,
+  TSStateId state,
+  TSSymbol symbol
+) {
+  return ts_language_lookup(self, state, symbol) != 0;
 }
 
 // Iterate over all of the symbols that are valid in the given state.
