@@ -9,11 +9,6 @@ extern "C" {
 #include "tree_sitter/parser.h"
 
 #define ts_builtin_sym_error_repeat (ts_builtin_sym_error - 1)
-#define TREE_SITTER_LANGUAGE_VERSION_WITH_FIELDS 10
-#define TREE_SITTER_LANGUAGE_VERSION_WITH_SYMBOL_DEDUPING 11
-#define TREE_SITTER_LANGUAGE_VERSION_WITH_SMALL_STATES 11
-#define TREE_SITTER_LANGUAGE_VERSION_WITH_STATE_COUNT 12
-#define TREE_SITTER_LANGUAGE_VERSION_WITH_ALIAS_MAP 12
 
 typedef struct {
   const TSParseAction *actions;
@@ -91,10 +86,7 @@ static inline uint16_t ts_language_lookup(
   TSStateId state,
   TSSymbol symbol
 ) {
-  if (
-    self->version >= TREE_SITTER_LANGUAGE_VERSION_WITH_SMALL_STATES &&
-    state >= self->large_state_count
-  ) {
+  if (state >= self->large_state_count) {
     uint32_t index = self->small_parse_table_map[state - self->large_state_count];
     const uint16_t *data = &self->small_parse_table[index];
     uint16_t group_count = *(data++);
@@ -121,9 +113,7 @@ static inline LookaheadIterator ts_language_lookaheads(
   const TSLanguage *self,
   TSStateId state
 ) {
-  bool is_small_state =
-    self->version >= TREE_SITTER_LANGUAGE_VERSION_WITH_SMALL_STATES &&
-    state >= self->large_state_count;
+  bool is_small_state = state >= self->large_state_count;
   const uint16_t *data;
   const uint16_t *group_end = NULL;
   uint16_t group_count = 0;
@@ -203,7 +193,7 @@ static inline TSStateId ts_language_next_state(
     if (count > 0) {
       TSParseAction action = actions[count - 1];
       if (action.type == TSParseActionTypeShift) {
-        return action.params.shift.extra ? state : action.params.shift.state;
+        return action.shift.extra ? state : action.shift.state;
       }
     }
     return 0;
@@ -248,7 +238,7 @@ static inline void ts_language_field_map(
   const TSFieldMapEntry **start,
   const TSFieldMapEntry **end
 ) {
-  if (self->version < TREE_SITTER_LANGUAGE_VERSION_WITH_FIELDS || self->field_count == 0) {
+  if (self->field_count == 0) {
     *start = NULL;
     *end = NULL;
     return;
@@ -267,8 +257,6 @@ static inline void ts_language_aliases_for_symbol(
 ) {
   *start = &self->public_symbol_map[original_symbol];
   *end = *start + 1;
-
-  if (self->version < TREE_SITTER_LANGUAGE_VERSION_WITH_ALIAS_MAP) return;
 
   unsigned i = 0;
   for (;;) {

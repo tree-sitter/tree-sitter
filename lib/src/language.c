@@ -12,11 +12,7 @@ uint32_t ts_language_version(const TSLanguage *self) {
 }
 
 uint32_t ts_language_field_count(const TSLanguage *self) {
-  if (self->version >= TREE_SITTER_LANGUAGE_VERSION_WITH_FIELDS) {
-    return self->field_count;
-  } else {
-    return 0;
-  }
+  return self->field_count;
 }
 
 void ts_language_table_entry(
@@ -57,11 +53,7 @@ TSSymbol ts_language_public_symbol(
   TSSymbol symbol
 ) {
   if (symbol == ts_builtin_sym_error) return symbol;
-  if (self->version >= TREE_SITTER_LANGUAGE_VERSION_WITH_SYMBOL_DEDUPING) {
-    return self->public_symbol_map[symbol];
-  } else {
-    return symbol;
-  }
+  return self->public_symbol_map[symbol];
 }
 
 const char *ts_language_symbol_name(
@@ -92,11 +84,7 @@ TSSymbol ts_language_symbol_for_name(
     if ((!metadata.visible && !metadata.supertype) || metadata.named != is_named) continue;
     const char *symbol_name = self->symbol_names[i];
     if (!strncmp(symbol_name, string, length) && !symbol_name[length]) {
-      if (self->version >= TREE_SITTER_LANGUAGE_VERSION_WITH_SYMBOL_DEDUPING) {
-        return self->public_symbol_map[i];
-      } else {
-        return i;
-      }
+      return self->public_symbol_map[i];
     }
   }
   return 0;

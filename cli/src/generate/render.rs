@@ -11,11 +11,8 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::mem::swap;
 
-// Currently, the library supports a new ABI version that has not yet been
-// stabilized, and the parser generation does not use it by default.
-const STABLE_LANGUAGE_VERSION: usize = tree_sitter::LANGUAGE_VERSION - 1;
-
 const LARGE_CHARACTER_RANGE_COUNT: usize = 8;
+const SMALL_STATE_THRESHOLD: usize = 64;
 
 macro_rules! add {
     ($this: tt, $($arg: tt)*) => {{
@@ -52,8 +49,6 @@ macro_rules! dedent {
     };
 }
 
-const SMALL_STATE_THRESHOLD: usize = 64;
-
 struct Generator {
     buffer: String,
     indent_level: usize,
@@ -72,6 +67,8 @@ struct Generator {
     unique_aliases: Vec<Alias>,
     symbol_map: HashMap<Symbol, Symbol>,
     field_names: Vec<String>,
+
+    #[allow(unused)]
     next_abi: bool,
 }
 
@@ -109,9 +106,7 @@ impl Generator {
             self.add_alias_sequences();
         }
 
-        if self.next_abi {
-            self.add_non_terminal_alias_map();
-        }
+        self.add_non_terminal_alias_map();
 
         let mut main_lex_table = LexTable::default();
         swap(&mut main_lex_table, &mut self.main_lex_table);
@@ -296,15 +291,11 @@ impl Generator {
             })
             .count();
 
-        if self.next_abi {
-            add_line!(
-                self,
-                "#define LANGUAGE_VERSION {}",
-                tree_sitter::LANGUAGE_VERSION
-            );
-        } else {
-            add_line!(self, "#define LANGUAGE_VERSION {}", STABLE_LANGUAGE_VERSION);
-        }
+        add_line!(
+            self,
+            "#define LANGUAGE_VERSION {}",
+            tree_sitter::LANGUAGE_VERSION
+        );
 
         add_line!(
             self,
@@ -330,6 +321,11 @@ impl Generator {
             self,
             "#define MAX_ALIAS_SEQUENCE_LENGTH {}",
             self.parse_table.max_aliased_production_length
+        );
+        add_line!(
+            self,
+            "#define PRODUCTION_ID_COUNT {}",
+            self.parse_table.production_infos.len()
         );
         add_line!(self, "");
     }
@@ -488,8 +484,7 @@ impl Generator {
     fn add_alias_sequences(&mut self) {
         add_line!(
             self,
-            "static TSSymbol ts_alias_sequences[{}][MAX_ALIAS_SEQUENCE_LENGTH] = {{",
-            self.parse_table.production_infos.len()
+            "static TSSymbol ts_alias_sequences[PRODUCTION_ID_COUNT][MAX_ALIAS_SEQUENCE_LENGTH] = {{",
         );
         indent!(self);
         for (i, production_info) in self.parse_table.production_infos.iter().enumerate() {
@@ -597,8 +592,7 @@ impl Generator {
 
         add_line!(
             self,
-            "static const TSFieldMapSlice ts_field_map_slices[{}] = {{",
-            self.parse_table.production_infos.len(),
+            "static const TSFieldMapSlice ts_field_map_slices[PRODUCTION_ID_COUNT] = {{",
         );
         indent!(self);
         for (production_id, (row_id, length)) in field_map_ids.into_iter().enumerate() {
@@ -1394,11 +1388,9 @@ impl Generator {
         }
 
         add_line!(self, ".public_symbol_map = ts_symbol_map,");
-
-        if self.next_abi {
-            add_line!(self, ".alias_map = ts_non_terminal_alias_map,");
-            add_line!(self, ".state_count = STATE_COUNT,");
-        }
+        add_line!(self, ".alias_map = ts_non_terminal_alias_map,");
+        add_line!(self, ".state_count = STATE_COUNT,");
+        add_line!(self, ".production_id_count = PRODUCTION_ID_COUNT,");
 
         dedent!(self);
         add_line!(self, "}};");

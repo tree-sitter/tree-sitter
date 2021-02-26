@@ -13,6 +13,8 @@ extern "C" {
 #define ts_builtin_sym_end 0
 #define TREE_SITTER_SERIALIZATION_BUFFER_SIZE 1024
 
+typedef uint16_t TSStateId;
+
 #ifndef TREE_SITTER_API_H_
 typedef uint16_t TSSymbol;
 typedef uint16_t TSFieldId;
@@ -30,12 +32,10 @@ typedef struct {
   uint16_t length;
 } TSFieldMapSlice;
 
-typedef uint16_t TSStateId;
-
 typedef struct {
-  bool visible : 1;
-  bool named : 1;
-  bool supertype: 1;
+  bool visible;
+  bool named;
+  bool supertype;
 } TSSymbolMetadata;
 
 typedef struct TSLexer TSLexer;
@@ -57,21 +57,21 @@ typedef enum {
   TSParseActionTypeRecover,
 } TSParseActionType;
 
-typedef struct {
-  union {
-    struct {
-      TSStateId state;
-      bool extra : 1;
-      bool repetition : 1;
-    } shift;
-    struct {
-      TSSymbol symbol;
-      int16_t dynamic_precedence;
-      uint8_t child_count;
-      uint8_t production_id;
-    } reduce;
-  } params;
-  TSParseActionType type : 4;
+typedef union {
+  struct {
+    uint8_t type;
+    TSStateId state;
+    bool extra;
+    bool repetition;
+  } shift;
+  struct {
+    uint8_t type;
+    uint8_t child_count;
+    TSSymbol symbol;
+    int16_t dynamic_precedence;
+    uint16_t production_id;
+  } reduce;
+  uint8_t type;
 } TSParseAction;
 
 typedef struct {
@@ -83,7 +83,7 @@ typedef union {
   TSParseAction action;
   struct {
     uint8_t count;
-    bool reusable : 1;
+    bool reusable;
   } entry;
 } TSParseActionEntry;
 
@@ -122,6 +122,7 @@ struct TSLanguage {
   const TSSymbol *public_symbol_map;
   const uint16_t *alias_map;
   uint32_t state_count;
+  uint32_t production_id_count;
 };
 
 /*
@@ -170,66 +171,50 @@ struct TSLanguage {
 
 #define ACTIONS(id) id
 
-#define SHIFT(state_value)                \
-  {                                       \
-    {                                     \
-      .params = {                         \
-        .shift = {                        \
-          .state = state_value            \
-        }                                 \
-      },                                  \
-      .type = TSParseActionTypeShift      \
-    }                                     \
-  }
+#define SHIFT(state_value)            \
+  {{                                  \
+    .shift = {                        \
+      .type = TSParseActionTypeShift, \
+      .state = state_value            \
+    }                                 \
+  }}
 
 #define SHIFT_REPEAT(state_value)     \
-  {                                   \
-    {                                 \
-      .params = {                     \
-        .shift = {                    \
-          .state = state_value,       \
-          .repetition = true          \
-        }                             \
-      },                              \
-      .type = TSParseActionTypeShift  \
+  {{                                  \
+    .shift = {                        \
+      .type = TSParseActionTypeShift, \
+      .state = state_value,           \
+      .repetition = true              \
     }                                 \
-  }
-
-#define RECOVER()                        \
-  {                                      \
-    { .type = TSParseActionTypeRecover } \
-  }
+  }}
 
 #define SHIFT_EXTRA()                 \
-  {                                   \
-    {                                 \
-      .params = {                     \
-        .shift = {                    \
-          .extra = true               \
-        }                             \
-      },                              \
-      .type = TSParseActionTypeShift  \
+  {{                                  \
+    .shift = {                        \
+      .type = TSParseActionTypeShift, \
+      .extra = true                   \
     }                                 \
-  }
+  }}
 
 #define REDUCE(symbol_val, child_count_val, ...) \
-  {                                              \
-    {                                            \
-      .params = {                                \
-        .reduce = {                              \
-          .symbol = symbol_val,                  \
-          .child_count = child_count_val,        \
-          __VA_ARGS__                            \
-        },                                       \
-      },                                         \
-      .type = TSParseActionTypeReduce            \
-    }                                            \
-  }
+  {{                                             \
+    .reduce = {                                  \
+      .type = TSParseActionTypeReduce,           \
+      .symbol = symbol_val,                      \
+      .child_count = child_count_val,            \
+      __VA_ARGS__                                \
+    },                                           \
+  }}
 
-#define ACCEPT_INPUT()                  \
-  {                                     \
-    { .type = TSParseActionTypeAccept } \
-  }
+#define RECOVER()                    \
+  {{                                 \
+    .type = TSParseActionTypeRecover \
+  }}
+
+#define ACCEPT_INPUT()              \
+  {{                                \
+    .type = TSParseActionTypeAccept \
+  }}
 
 #ifdef __cplusplus
 }
