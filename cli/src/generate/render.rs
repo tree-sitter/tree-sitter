@@ -294,7 +294,11 @@ impl Generator {
         add_line!(
             self,
             "#define LANGUAGE_VERSION {}",
-            tree_sitter::LANGUAGE_VERSION
+            if self.next_abi {
+                tree_sitter::LANGUAGE_VERSION
+            } else {
+                tree_sitter::LANGUAGE_VERSION - 1
+            }
         );
 
         add_line!(
@@ -1390,7 +1394,10 @@ impl Generator {
         add_line!(self, ".public_symbol_map = ts_symbol_map,");
         add_line!(self, ".alias_map = ts_non_terminal_alias_map,");
         add_line!(self, ".state_count = STATE_COUNT,");
-        add_line!(self, ".production_id_count = PRODUCTION_ID_COUNT,");
+
+        if self.next_abi {
+            add_line!(self, ".production_id_count = PRODUCTION_ID_COUNT,");
+        }
 
         dedent!(self);
         add_line!(self, "}};");

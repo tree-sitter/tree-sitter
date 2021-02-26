@@ -32,10 +32,6 @@ lazy_static! {
         .unwrap();
 }
 
-const NEW_HEADER_PARTS: &[&'static str] = &["
-  const uint16_t *alias_map;
-  uint32_t state_count;"];
-
 struct GeneratedParser {
     c_code: String,
     node_types_json: String,
@@ -92,17 +88,6 @@ pub fn generate_parser_in_directory(
 
     if next_abi {
         write_file(&header_path.join("parser.h"), tree_sitter::PARSER_HEADER)?;
-    } else {
-        let mut header = tree_sitter::PARSER_HEADER.to_string();
-
-        for part in NEW_HEADER_PARTS.iter() {
-            let pos = header
-                .find(part)
-                .expect("Missing expected part of parser.h header");
-            header.replace_range(pos..(pos + part.len()), "");
-        }
-
-        write_file(&header_path.join("parser.h"), header)?;
     }
 
     binding_files::generate_binding_files(&repo_path, &language_name)?;
