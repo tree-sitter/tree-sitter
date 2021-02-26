@@ -614,9 +614,13 @@ impl Parser {
     /// returning `None`. See [parse](Parser::parse) for more information.
     pub unsafe fn set_cancellation_flag(&self, flag: Option<&AtomicUsize>) {
         if let Some(flag) = flag {
+            #[cfg(target_os = "windows")]
+            let flag = flag as *const AtomicUsize as *const u32;
+            #[cfg(not(target_os = "windows"))]
+            let flag = flag as *const AtomicUsize as *const u64;
             ffi::ts_parser_set_cancellation_flag(
                 self.0.as_ptr(),
-                flag as *const AtomicUsize as *const usize,
+                flag,
             );
         } else {
             ffi::ts_parser_set_cancellation_flag(self.0.as_ptr(), ptr::null());
