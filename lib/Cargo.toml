@@ -24,7 +24,7 @@ include = [
 [dependencies]
 lazy_static = { version="1.2.0", optional=true }
 regex = "1"
-spin = { version="0.5", optional=true }
+spin = { version="0.7", optional=true }
 
 [build-dependencies]
 cc = "^1.0.58"

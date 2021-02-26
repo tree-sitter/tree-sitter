@@ -105,6 +105,12 @@ impl From<glob::GlobError> for Error {
     }
 }
 
+impl From<libloading::Error> for Error {
+    fn from(error: libloading::Error) -> Self {
+        Error::new(error.to_string())
+    }
+}
+
 impl From<regex_syntax::ast::Error> for Error {
     fn from(error: regex_syntax::ast::Error) -> Self {
         Error::new(error.to_string())
