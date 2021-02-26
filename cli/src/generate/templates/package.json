@@ -1,0 +1,19 @@
+{
+  "name": "tree-sitter-PARSER_NAME",
+  "version": "0.0.1",
+  "description": "PARSER_NAME grammar for tree-sitter",
+  "main": "bindings/node",
+  "keywords": [
+    "parsing",
+    "incremental"
+  ],
+  "dependencies": {
+    "nan": "^2.12.1"
+  },
+  "devDependencies": {
+    "tree-sitter-cli": "^0.17.3"
+  },
+  "scripts": {
+    "test": "tree-sitter test"
+  }
+}
