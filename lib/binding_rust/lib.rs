@@ -618,10 +618,7 @@ impl Parser {
             let flag = flag as *const AtomicUsize as *const u32;
             #[cfg(not(target_os = "windows"))]
             let flag = flag as *const AtomicUsize as *const u64;
-            ffi::ts_parser_set_cancellation_flag(
-                self.0.as_ptr(),
-                flag,
-            );
+            ffi::ts_parser_set_cancellation_flag(self.0.as_ptr(), flag);
         } else {
             ffi::ts_parser_set_cancellation_flag(self.0.as_ptr(), ptr::null());
         }

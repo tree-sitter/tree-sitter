@@ -209,7 +209,14 @@ fn run() -> error::Result<()> {
             test_corpus_dir = current_dir.join("corpus");
         }
         if test_corpus_dir.is_dir() {
-            test::run_tests_at_path(*language, &test_corpus_dir, debug, debug_graph, filter, update)?;
+            test::run_tests_at_path(
+                *language,
+                &test_corpus_dir,
+                debug,
+                debug_graph,
+                filter,
+                update,
+            )?;
         }
 
         // Check that all of the queries are valid.
