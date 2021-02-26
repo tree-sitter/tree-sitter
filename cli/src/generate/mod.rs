@@ -1,10 +1,10 @@
+mod binding_files;
 mod build_tables;
 mod char_tree;
 mod dedup;
 mod grammars;
 mod nfa;
 mod node_types;
-mod npm_files;
 pub mod parse_grammar;
 mod prepare_grammar;
 mod render;
@@ -105,15 +105,7 @@ pub fn generate_parser_in_directory(
         write_file(&header_path.join("parser.h"), header)?;
     }
 
-    ensure_file(&repo_path.join("index.js"), || {
-        npm_files::index_js(&language_name)
-    })?;
-    ensure_file(&src_path.join("binding.cc"), || {
-        npm_files::binding_cc(&language_name)
-    })?;
-    ensure_file(&repo_path.join("binding.gyp"), || {
-        npm_files::binding_gyp(&language_name)
-    })?;
+    binding_files::generate_binding_files(&repo_path, &language_name)?;
 
     Ok(())
 }
@@ -223,12 +215,4 @@ fn write_file(path: &Path, body: impl AsRef<[u8]>) -> Result<()> {
     fs::write(path, body).map_err(Error::wrap(|| {
         format!("Failed to write {:?}", path.file_name().unwrap())
     }))
-}
-
-fn ensure_file<T: AsRef<[u8]>>(path: &PathBuf, f: impl Fn() -> T) -> Result<()> {
-    if path.exists() {
-        Ok(())
-    } else {
-        write_file(path, f().as_ref())
-    }
 }
