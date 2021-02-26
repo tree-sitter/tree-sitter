@@ -852,7 +852,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-cli"
-version = "0.18.2"
+version = "0.18.3"
 dependencies = [
  "ansi_term",
  "atty",
