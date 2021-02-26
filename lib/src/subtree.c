@@ -981,7 +981,6 @@ static size_t ts_subtree__write_diagnostic_to_string_child(
   uint32_t end_offset = start_offset + ts_subtree_total_bytes(self);
   char *cursor = string;
   char **writer = (limit > 0) ? &cursor : &string;
-  bool is_root = field_name == ROOT_FIELD;
   bool is_visible =
     include_all ||
     ts_subtree_missing(self) ||
@@ -992,7 +991,6 @@ static size_t ts_subtree__write_diagnostic_to_string_child(
     );
 
   if (is_visible) {
-
     if (ts_subtree_is_error(self) && ts_subtree_child_count(self) == 0 && self.ptr->size.bytes > 0) {
       cursor += snprintf(*writer, limit, "((%u,%u) (UNEXPECTED ", start_offset, end_offset);
       cursor += ts_subtree__write_char_to_string(*writer, limit, self.ptr->lookahead_char);
@@ -1033,7 +1031,6 @@ static size_t ts_subtree__write_diagnostic_to_string(
 
   char *cursor = string;
   char **writer = (limit > 0) ? &cursor : &string;
-  bool is_root = field_name == ROOT_FIELD;
   bool is_visible =
     include_all ||
     ts_subtree_missing(self) ||

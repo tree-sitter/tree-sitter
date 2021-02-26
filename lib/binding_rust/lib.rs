@@ -951,6 +951,17 @@ impl<'tree> Node<'tree> {
         })
     }
 
+    /// Get a string representing any diagnostics on the node.
+    pub fn diagnostics(&self) -> String {
+        let c_string = unsafe { ffi::ts_node_string_diagnostics(self.0) };
+        let result = unsafe { CStr::from_ptr(c_string) }
+            .to_str()
+            .unwrap()
+            .to_string();
+        unsafe { util::free_ptr(c_string as *mut c_void) };
+        result
+    }
+
     /// Get this node's immediate parent.
     pub fn parent(&self) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_parent(self.0) })

@@ -64,6 +64,7 @@
   "_ts_node_start_index_wasm",
   "_ts_node_start_point_wasm",
   "_ts_node_symbol_wasm",
+  "_ts_node_to_string_diagnostics_wasm",
   "_ts_node_to_string_wasm",
   "_ts_parser_delete",
   "_ts_parser_enable_logger_wasm",

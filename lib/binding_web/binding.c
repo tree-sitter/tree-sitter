@@ -436,6 +436,11 @@ uint32_t ts_node_end_index_wasm(const TSTree *tree) {
   return byte_to_code_unit(ts_node_end_byte(node));
 }
 
+char *ts_node_to_string_diagnostics_wasm(const TSTree *tree) {
+  TSNode node = unmarshal_node(tree);
+  return ts_node_string_diagnostics(node);
+}
+
 char *ts_node_to_string_wasm(const TSTree *tree) {
   TSNode node = unmarshal_node(tree);
   return ts_node_string(node);
