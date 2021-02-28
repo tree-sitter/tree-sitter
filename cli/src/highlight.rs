@@ -7,6 +7,7 @@ use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::sync::atomic::AtomicUsize;
 use std::time::Instant;
 use std::{fs, io, path, str, usize};
@@ -202,6 +203,12 @@ fn parse_style(style: &mut Style, json: Value) {
     } else {
         style.css = None;
     }
+
+    if let Some(Color::RGB(red, green, blue)) = style.ansi.foreground {
+        if !terminal_supports_truecolor() {
+            style.ansi = style.ansi.fg(closest_xterm_color(red, green, blue));
+        }
+    }
 }
 
 fn parse_color(json: Value) -> Option<Color> {
@@ -220,16 +227,8 @@ fn parse_color(json: Value) -> Option<Color> {
             "white" => Some(Color::White),
             "yellow" => Some(Color::Yellow),
             s => {
-                if s.starts_with("#") && s.len() >= 7 {
-                    if let (Ok(red), Ok(green), Ok(blue)) = (
-                        u8::from_str_radix(&s[1..3], 16),
-                        u8::from_str_radix(&s[3..5], 16),
-                        u8::from_str_radix(&s[5..7], 16),
-                    ) {
-                        Some(Color::RGB(red, green, blue))
-                    } else {
-                        None
-                    }
+                if let Some((red, green, blue)) = hex_string_to_rgb(&s) {
+                    Some(Color::RGB(red, green, blue))
                 } else {
                     None
                 }
@@ -239,8 +238,23 @@ fn parse_color(json: Value) -> Option<Color> {
     }
 }
 
+fn hex_string_to_rgb(s: &str) -> Option<(u8, u8, u8)> {
+    if s.starts_with("#") && s.len() >= 7 {
+        if let (Ok(red), Ok(green), Ok(blue)) = (
+            u8::from_str_radix(&s[1..3], 16),
+            u8::from_str_radix(&s[3..5], 16),
+            u8::from_str_radix(&s[5..7], 16),
+        ) {
+            Some((red, green, blue))
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
 fn style_to_css(style: ansi_term::Style) -> String {
-    use std::fmt::Write;
     let mut result = "style='".to_string();
     if style.is_underline {
         write!(&mut result, "text-decoration: underline;").unwrap();
@@ -252,25 +266,66 @@ fn style_to_css(style: ansi_term::Style) -> String {
         write!(&mut result, "font-style: italic;").unwrap();
     }
     if let Some(color) = style.foreground {
-        write!(&mut result, "color: {};", color_to_css(color)).unwrap();
+        write_color(&mut result, color);
     }
     result.push('\'');
     result
 }
 
-fn color_to_css(color: Color) -> &'static str {
-    match color {
-        Color::Black => "black",
-        Color::Blue => "blue",
-        Color::Red => "red",
-        Color::Green => "green",
-        Color::Yellow => "yellow",
-        Color::Cyan => "cyan",
-        Color::Purple => "purple",
-        Color::White => "white",
-        Color::Fixed(n) => CSS_STYLES_BY_COLOR_ID[n as usize].as_str(),
-        _ => panic!("Unsupported color type"),
+fn write_color(buffer: &mut String, color: Color) {
+    if let Color::RGB(r, g, b) = &color {
+        write!(buffer, "color: #{:x?}{:x?}{:x?}", r, g, b).unwrap()
+    } else {
+        write!(
+            buffer,
+            "color: {}",
+            match color {
+                Color::Black => "black",
+                Color::Blue => "blue",
+                Color::Red => "red",
+                Color::Green => "green",
+                Color::Yellow => "yellow",
+                Color::Cyan => "cyan",
+                Color::Purple => "purple",
+                Color::White => "white",
+                Color::Fixed(n) => CSS_STYLES_BY_COLOR_ID[n as usize].as_str(),
+                _ => panic!("unreachable"),
+            }
+        )
+        .unwrap()
     }
+}
+
+fn terminal_supports_truecolor() -> bool {
+    use std::env;
+
+    if let Ok(truecolor) = env::var("COLORTERM") {
+        truecolor == "truecolor" || truecolor == "24bit"
+    } else {
+        false
+    }
+}
+
+fn closest_xterm_color(red: u8, green: u8, blue: u8) -> Color {
+    use std::cmp::{max, min};
+
+    let colors = CSS_STYLES_BY_COLOR_ID
+        .iter()
+        .enumerate()
+        .map(|(color_id, hex)| (color_id as u8, hex_string_to_rgb(hex).unwrap()));
+
+    // Get the xterm color with the minimum Euclidean distance to the target color
+    // i.e.  distance = √ (r2 - r1)² + (g2 - g1)² + (b2 - b1)²
+    let distances = colors.map(|(color_id, (r, g, b))| {
+        let r_delta: u32 = (max(r, red) - min(r, red)).into();
+        let g_delta: u32 = (max(g, green) - min(g, green)).into();
+        let b_delta: u32 = (max(b, blue) - min(b, blue)).into();
+        let distance = r_delta.pow(2) + g_delta.pow(2) + b_delta.pow(2);
+        // don't need to actually take the square root for the sake of comparison
+        (color_id, distance)
+    });
+
+    Color::Fixed(distances.min_by(|(_, d1), (_, d2)| d1.cmp(d2)).unwrap().0)
 }
 
 pub fn ansi(
@@ -364,4 +419,43 @@ pub fn html(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+
+    const JUNGLE_GREEN: &'static str = "#26A69A";
+    const DARK_CYAN: &'static str = "#00AF87";
+
+    #[test]
+    fn test_parse_style() {
+        let original_environment_variable = env::var("COLORTERM");
+
+        let mut style = Style::default();
+        assert_eq!(style.ansi.foreground, None);
+        assert_eq!(style.css, None);
+
+        // darkcyan is an ANSI color and is preserved
+        parse_style(&mut style, Value::String(DARK_CYAN.to_string()));
+        assert_eq!(style.ansi.foreground, Some(Color::Fixed(36)));
+        assert_eq!(style.css, Some("style=\'color: #0af87\'".to_string()));
+
+        // junglegreen is not an ANSI color and is preserved when the terminal supports it
+        env::set_var("COLORTERM", "truecolor");
+        parse_style(&mut style, Value::String(JUNGLE_GREEN.to_string()));
+        assert_eq!(style.ansi.foreground, Some(Color::RGB(38, 166, 154)));
+        assert_eq!(style.css, Some("style=\'color: #26a69a\'".to_string()));
+
+        // junglegreen gets approximated as darkcyan when the terminal does not support it
+        env::set_var("COLORTERM", "");
+        parse_style(&mut style, Value::String(JUNGLE_GREEN.to_string()));
+        assert_eq!(style.ansi.foreground, Some(Color::Fixed(36)));
+        assert_eq!(style.css, Some("style=\'color: #26a69a\'".to_string()));
+
+        if let Ok(environment_variable) = original_environment_variable {
+            env::set_var("COLORTERM", environment_variable);
+        }
+    }
 }
