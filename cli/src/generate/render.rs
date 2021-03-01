@@ -1321,27 +1321,62 @@ impl Generator {
         add_line!(self, "static TSLanguage language = {{");
         indent!(self);
         add_line!(self, ".version = LANGUAGE_VERSION,");
+
+        // Quantities
         add_line!(self, ".symbol_count = SYMBOL_COUNT,");
         add_line!(self, ".alias_count = ALIAS_COUNT,");
         add_line!(self, ".token_count = TOKEN_COUNT,");
         add_line!(self, ".external_token_count = EXTERNAL_TOKEN_COUNT,");
-        add_line!(self, ".symbol_names = ts_symbol_names,");
-        add_line!(self, ".symbol_metadata = ts_symbol_metadata,");
-        add_line!(self, ".parse_table = (const uint16_t *)ts_parse_table,");
-        add_line!(self, ".parse_actions = ts_parse_actions,");
-        add_line!(self, ".lex_modes = ts_lex_modes,");
+        add_line!(self, ".state_count = STATE_COUNT,");
+        add_line!(self, ".large_state_count = LARGE_STATE_COUNT,");
+        if self.next_abi {
+            add_line!(self, ".production_id_count = PRODUCTION_ID_COUNT,");
+        }
+        add_line!(self, ".field_count = FIELD_COUNT,");
+        add_line!(
+            self,
+            ".max_alias_sequence_length = MAX_ALIAS_SEQUENCE_LENGTH,"
+        );
 
+        // Parse table
+        add_line!(self, ".parse_table = (const uint16_t *)ts_parse_table,");
+        if self.large_state_count < self.parse_table.states.len() {
+            add_line!(
+                self,
+                ".small_parse_table = (const uint16_t *)ts_small_parse_table,"
+            );
+            add_line!(
+                self,
+                ".small_parse_table_map = (const uint32_t *)ts_small_parse_table_map,"
+            );
+        }
+        add_line!(self, ".parse_actions = ts_parse_actions,");
+
+        // Metadata
+        add_line!(self, ".symbol_names = ts_symbol_names,");
+        if !self.field_names.is_empty() {
+            add_line!(self, ".field_names = ts_field_names,");
+            add_line!(
+                self,
+                ".field_map_slices = (const TSFieldMapSlice *)ts_field_map_slices,"
+            );
+            add_line!(
+                self,
+                ".field_map_entries = (const TSFieldMapEntry *)ts_field_map_entries,"
+            );
+        }
+        add_line!(self, ".symbol_metadata = ts_symbol_metadata,");
+        add_line!(self, ".public_symbol_map = ts_symbol_map,");
+        add_line!(self, ".alias_map = ts_non_terminal_alias_map,");
         if !self.parse_table.production_infos.is_empty() {
             add_line!(
                 self,
                 ".alias_sequences = (const TSSymbol *)ts_alias_sequences,"
             );
         }
-        add_line!(
-            self,
-            ".max_alias_sequence_length = MAX_ALIAS_SEQUENCE_LENGTH,"
-        );
 
+        // Lexing
+        add_line!(self, ".lex_modes = ts_lex_modes,");
         add_line!(self, ".lex_fn = ts_lex,");
         if let Some(keyword_capture_token) = self.keyword_capture_token {
             add_line!(self, ".keyword_lex_fn = ts_lex_keywords,");
@@ -1364,39 +1399,6 @@ impl Generator {
             add_line!(self, "{}_deserialize,", external_scanner_name);
             dedent!(self);
             add_line!(self, "}},");
-        }
-
-        add_line!(self, ".field_count = FIELD_COUNT,");
-        if !self.field_names.is_empty() {
-            add_line!(
-                self,
-                ".field_map_slices = (const TSFieldMapSlice *)ts_field_map_slices,"
-            );
-            add_line!(
-                self,
-                ".field_map_entries = (const TSFieldMapEntry *)ts_field_map_entries,"
-            );
-            add_line!(self, ".field_names = ts_field_names,");
-        }
-
-        add_line!(self, ".large_state_count = LARGE_STATE_COUNT,");
-        if self.large_state_count < self.parse_table.states.len() {
-            add_line!(
-                self,
-                ".small_parse_table = (const uint16_t *)ts_small_parse_table,"
-            );
-            add_line!(
-                self,
-                ".small_parse_table_map = (const uint32_t *)ts_small_parse_table_map,"
-            );
-        }
-
-        add_line!(self, ".public_symbol_map = ts_symbol_map,");
-        add_line!(self, ".alias_map = ts_non_terminal_alias_map,");
-        add_line!(self, ".state_count = STATE_COUNT,");
-
-        if self.next_abi {
-            add_line!(self, ".production_id_count = PRODUCTION_ID_COUNT,");
         }
 
         dedent!(self);

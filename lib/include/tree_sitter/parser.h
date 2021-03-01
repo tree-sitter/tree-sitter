@@ -93,13 +93,24 @@ struct TSLanguage {
   uint32_t alias_count;
   uint32_t token_count;
   uint32_t external_token_count;
-  const char **symbol_names;
-  const TSSymbolMetadata *symbol_metadata;
-  const uint16_t *parse_table;
-  const TSParseActionEntry *parse_actions;
-  const TSLexMode *lex_modes;
-  const TSSymbol *alias_sequences;
+  uint32_t state_count;
+  uint32_t large_state_count;
+  uint32_t production_id_count;
+  uint32_t field_count;
   uint16_t max_alias_sequence_length;
+  const uint16_t *parse_table;
+  const uint16_t *small_parse_table;
+  const uint32_t *small_parse_table_map;
+  const TSParseActionEntry *parse_actions;
+  const char **symbol_names;
+  const char **field_names;
+  const TSFieldMapSlice *field_map_slices;
+  const TSFieldMapEntry *field_map_entries;
+  const TSSymbolMetadata *symbol_metadata;
+  const TSSymbol *public_symbol_map;
+  const uint16_t *alias_map;
+  const TSSymbol *alias_sequences;
+  const TSLexMode *lex_modes;
   bool (*lex_fn)(TSLexer *, TSStateId);
   bool (*keyword_lex_fn)(TSLexer *, TSStateId);
   TSSymbol keyword_capture_token;
@@ -112,17 +123,6 @@ struct TSLanguage {
     unsigned (*serialize)(void *, char *);
     void (*deserialize)(void *, const char *, unsigned);
   } external_scanner;
-  uint32_t field_count;
-  const TSFieldMapSlice *field_map_slices;
-  const TSFieldMapEntry *field_map_entries;
-  const char **field_names;
-  uint32_t large_state_count;
-  const uint16_t *small_parse_table;
-  const uint32_t *small_parse_table_map;
-  const TSSymbol *public_symbol_map;
-  const uint16_t *alias_map;
-  uint32_t state_count;
-  uint32_t production_id_count;
 };
 
 /*
