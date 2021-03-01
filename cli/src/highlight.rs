@@ -289,7 +289,7 @@ fn write_color(buffer: &mut String, color: Color) {
                 Color::Purple => "purple",
                 Color::White => "white",
                 Color::Fixed(n) => CSS_STYLES_BY_COLOR_ID[n as usize].as_str(),
-                _ => panic!("unreachable"),
+                Color::RGB(_, _, _) => unreachable!(),
             }
         )
         .unwrap()
@@ -456,6 +456,8 @@ mod tests {
 
         if let Ok(environment_variable) = original_environment_variable {
             env::set_var("COLORTERM", environment_variable);
+        } else {
+            env::remove_var("COLORTERM");
         }
     }
 }
