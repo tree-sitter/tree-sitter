@@ -346,7 +346,7 @@ impl Loader {
             }
         }
 
-        let library = Library::new(&library_path).map_err(Error::wrap(|| {
+        let library = unsafe { Library::new(&library_path) }.map_err(Error::wrap(|| {
             format!("Error opening dynamic library {:?}", &library_path)
         }))?;
         let language_fn_name = format!("tree_sitter_{}", replace_dashes_with_underscores(name));
