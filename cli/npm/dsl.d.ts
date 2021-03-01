@@ -68,6 +68,13 @@ interface Grammar<
   rules: Rules;
 
   /**
+   * An array of arrays of precedence names. Each inner array represents
+   * a *descending* ordering. Names listed earlier in one of these arrays
+   * have higher precedence than any names listed later in the same array.
+   */
+  precedences: () => String[][],
+
+  /**
    * An array of arrays of rule names. Each inner array represents a set of
    * rules that's involved in an _LR(1) conflict_ that is _intended to exist_
    * in the grammar. When these conflicts occur at runtime, Tree-sitter will
@@ -206,21 +213,27 @@ declare function choice(...options: RuleOrLiteral[]): ChoiceRule;
 declare function optional(rule: RuleOrLiteral): ChoiceRule;
 
 /**
- * Marks the given rule with a numerical precedence which will be used to
- * resolve LR(1) conflicts at parser-generation time. When two rules overlap
- * in a way that represents either a true ambiguity or a _local_ ambiguity
- * given one token of lookahead, Tree-sitter will try to resolve the conflict by
- * matching the rule with the higher precedence. The default precedence of all
+ * Marks the given rule with a precedence which will be used to resolve LR(1)
+ * conflicts at parser-generation time. When two rules overlap in a way that
+ * represents either a true ambiguity or a _local_ ambiguity given one token
+ * of lookahead, Tree-sitter will try to resolve the conflict by matching the
+ * rule with the higher precedence.
+ *
+ * Precedence values can either be strings or numbers. When comparing rules
+ * with numerical precedence, higher numbers indicate higher precedences. To
+ * compare rules with string precedence, Tree-sitter uses the grammar's `precedences`
+ * field.
+ *
  * rules is zero. This works similarly to the precedence directives in Yacc grammars.
  *
- * @param number precedence weight
+ * @param value precedence weight
  * @param rule rule being weighted
  *
  * @see https://en.wikipedia.org/wiki/LR_parser#Conflicts_in_the_constructed_tables
  * @see https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html
  */
 declare const prec: {
-  (number: number, rule: RuleOrLiteral): PrecRule;
+  (string: String | number, rule: RuleOrLiteral): PrecRule;
 
   /**
    * Marks the given rule as left-associative (and optionally applies a
