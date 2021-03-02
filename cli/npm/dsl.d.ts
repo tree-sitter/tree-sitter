@@ -72,7 +72,7 @@ interface Grammar<
    * a *descending* ordering. Names listed earlier in one of these arrays
    * have higher precedence than any names listed later in the same array.
    */
-  precedences: () => String[][],
+  precedences?: () => String[][],
 
   /**
    * An array of arrays of rule names. Each inner array represents a set of
@@ -233,7 +233,7 @@ declare function optional(rule: RuleOrLiteral): ChoiceRule;
  * @see https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html
  */
 declare const prec: {
-  (string: String | number, rule: RuleOrLiteral): PrecRule;
+  (value: String | number, rule: RuleOrLiteral): PrecRule;
 
   /**
    * Marks the given rule as left-associative (and optionally applies a
