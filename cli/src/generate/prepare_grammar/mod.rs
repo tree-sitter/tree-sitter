@@ -6,31 +6,31 @@ mod flatten_grammar;
 mod intern_symbols;
 mod process_inlines;
 
-use super::{rules::Precedence, Error};
+pub(crate) use self::expand_tokens::expand_tokens;
+
+use self::expand_repeats::expand_repeats;
+use self::extract_default_aliases::extract_default_aliases;
+use self::extract_tokens::extract_tokens;
+use self::flatten_grammar::flatten_grammar;
+use self::intern_symbols::intern_symbols;
+use self::process_inlines::process_inlines;
+use super::grammars::{
+    ExternalToken, InlinedProductionMap, InputGrammar, LexicalGrammar, PrecedenceEntry,
+    SyntaxGrammar, Variable,
+};
+use super::rules::{AliasMap, Precedence, Rule, Symbol};
+use super::{Error, Result};
 use std::{
     cmp::Ordering,
     collections::{hash_map, HashMap, HashSet},
     mem,
 };
 
-use self::expand_repeats::expand_repeats;
-pub(crate) use self::expand_tokens::expand_tokens;
-use self::extract_default_aliases::extract_default_aliases;
-use self::extract_tokens::extract_tokens;
-use self::flatten_grammar::flatten_grammar;
-use self::intern_symbols::intern_symbols;
-use self::process_inlines::process_inlines;
-use crate::error::Result;
-use crate::generate::grammars::{
-    ExternalToken, InlinedProductionMap, InputGrammar, LexicalGrammar, SyntaxGrammar, Variable,
-};
-use crate::generate::rules::{AliasMap, Rule, Symbol};
-
 pub(crate) struct IntermediateGrammar<T, U> {
     variables: Vec<Variable>,
     extra_symbols: Vec<T>,
     expected_conflicts: Vec<Vec<Symbol>>,
-    precedence_orderings: Vec<Vec<String>>,
+    precedence_orderings: Vec<Vec<PrecedenceEntry>>,
     external_tokens: Vec<U>,
     variables_to_inline: Vec<Symbol>,
     supertype_symbols: Vec<Symbol>,
@@ -57,7 +57,7 @@ pub(crate) fn prepare_grammar(
     InlinedProductionMap,
     AliasMap,
 )> {
-    validate_named_precedences(input_grammar)?;
+    validate_precedences(input_grammar)?;
 
     let interned_grammar = intern_symbols(input_grammar)?;
     let (syntax_grammar, lexical_grammar) = extract_tokens(interned_grammar)?;
@@ -72,30 +72,30 @@ pub(crate) fn prepare_grammar(
 /// Check that all of the named precedences used in the grammar are declared
 /// within the `precedences` lists, and also that there are no conflicting
 /// precedence orderings declared in those lists.
-fn validate_named_precedences(grammar: &InputGrammar) -> Result<()> {
+fn validate_precedences(grammar: &InputGrammar) -> Result<()> {
     // For any two precedence names `a` and `b`, if `a` comes before `b`
     // in some list, then it cannot come *after* `b` in any list.
     let mut pairs = HashMap::new();
     for list in &grammar.precedence_orderings {
-        for (i, mut name1) in list.iter().enumerate() {
-            for mut name2 in list.iter().skip(i + 1) {
-                if name2 == name1 {
+        for (i, mut entry1) in list.iter().enumerate() {
+            for mut entry2 in list.iter().skip(i + 1) {
+                if entry2 == entry1 {
                     continue;
                 }
                 let mut ordering = Ordering::Greater;
-                if name1 > name2 {
+                if entry1 > entry2 {
                     ordering = Ordering::Less;
-                    mem::swap(&mut name1, &mut name2);
+                    mem::swap(&mut entry1, &mut entry2);
                 }
-                match pairs.entry((name1, name2)) {
+                match pairs.entry((entry1, entry2)) {
                     hash_map::Entry::Vacant(e) => {
                         e.insert(ordering);
                     }
                     hash_map::Entry::Occupied(e) => {
                         if e.get() != &ordering {
                             return Err(Error::new(format!(
-                                "Conflicting orderings for precedences '{}' and '{}'",
-                                name1, name2
+                                "Conflicting orderings for precedences {} and {}",
+                                entry1, entry2
                             )));
                         }
                     }
@@ -133,6 +133,13 @@ fn validate_named_precedences(grammar: &InputGrammar) -> Result<()> {
         .precedence_orderings
         .iter()
         .flat_map(|l| l.iter())
+        .filter_map(|p| {
+            if let PrecedenceEntry::Name(n) = p {
+                Some(n)
+            } else {
+                None
+            }
+        })
         .collect::<HashSet<&String>>();
     for variable in &grammar.variables {
         validate(&variable.name, &variable.rule, &precedence_names)?;
@@ -147,7 +154,7 @@ mod tests {
     use crate::generate::grammars::{InputGrammar, Variable, VariableType};
 
     #[test]
-    fn test_validate_named_precedences_with_undeclared_precedence() {
+    fn test_validate_precedences_with_undeclared_precedence() {
         let grammar = InputGrammar {
             name: String::new(),
             word_token: None,
@@ -157,8 +164,15 @@ mod tests {
             expected_conflicts: vec![],
             variables_to_inline: vec![],
             precedence_orderings: vec![
-                vec!["a".to_string(), "b".to_string()],
-                vec!["b".to_string(), "c".to_string(), "d".to_string()],
+                vec![
+                    PrecedenceEntry::Name("a".to_string()),
+                    PrecedenceEntry::Name("b".to_string()),
+                ],
+                vec![
+                    PrecedenceEntry::Name("b".to_string()),
+                    PrecedenceEntry::Name("c".to_string()),
+                    PrecedenceEntry::Name("d".to_string()),
+                ],
             ],
             variables: vec![
                 Variable {
@@ -180,7 +194,7 @@ mod tests {
             ],
         };
 
-        let result = validate_named_precedences(&grammar);
+        let result = validate_precedences(&grammar);
         assert_eq!(
             result.unwrap_err().message(),
             "Undeclared precedence 'omg' in rule 'v2'",
@@ -188,7 +202,7 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_named_precedences_with_conflicting_order() {
+    fn test_validate_precedences_with_conflicting_order() {
         let grammar = InputGrammar {
             name: String::new(),
             word_token: None,
@@ -198,8 +212,15 @@ mod tests {
             expected_conflicts: vec![],
             variables_to_inline: vec![],
             precedence_orderings: vec![
-                vec!["a".to_string(), "b".to_string()],
-                vec!["b".to_string(), "c".to_string(), "a".to_string()],
+                vec![
+                    PrecedenceEntry::Name("a".to_string()),
+                    PrecedenceEntry::Name("b".to_string()),
+                ],
+                vec![
+                    PrecedenceEntry::Name("b".to_string()),
+                    PrecedenceEntry::Name("c".to_string()),
+                    PrecedenceEntry::Name("a".to_string()),
+                ],
             ],
             variables: vec![
                 Variable {
@@ -221,7 +242,7 @@ mod tests {
             ],
         };
 
-        let result = validate_named_precedences(&grammar);
+        let result = validate_precedences(&grammar);
         assert_eq!(
             result.unwrap_err().message(),
             "Conflicting orderings for precedences 'a' and 'b'",

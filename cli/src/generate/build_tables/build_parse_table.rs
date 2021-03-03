@@ -1,6 +1,5 @@
 use super::item::{ParseItem, ParseItemSet, ParseItemSetCore};
 use super::item_set_builder::ParseItemSetBuilder;
-use crate::error::{Error, Result};
 use crate::generate::grammars::{
     InlinedProductionMap, LexicalGrammar, SyntaxGrammar, VariableType,
 };
@@ -9,6 +8,10 @@ use crate::generate::rules::{Associativity, Precedence, Symbol, SymbolType, Toke
 use crate::generate::tables::{
     FieldLocation, GotoAction, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
     ProductionInfo, ProductionInfoId,
+};
+use crate::{
+    error::{Error, Result},
+    generate::grammars::PrecedenceEntry,
 };
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fmt::Write;
@@ -31,6 +34,7 @@ struct AuxiliarySymbolInfo {
 #[derive(Debug, Default)]
 struct ReductionInfo {
     precedence: Precedence,
+    symbols: Vec<Symbol>,
     has_left_assoc: bool,
     has_right_assoc: bool,
     has_non_assoc: bool,
@@ -217,11 +221,12 @@ impl<'a> ParseTableBuilder<'a> {
             // If the item is finished, then add a Reduce action to this state based
             // on this item.
             else {
+                let symbol = Symbol::non_terminal(item.variable_index as usize);
                 let action = if item.is_augmented() {
                     ParseAction::Accept
                 } else {
                     ParseAction::Reduce {
-                        symbol: Symbol::non_terminal(item.variable_index as usize),
+                        symbol,
                         child_count: item.step_index as usize,
                         dynamic_precedence: item.production.dynamic_precedence,
                         production_id: self.get_production_id(item),
@@ -246,7 +251,9 @@ impl<'a> ParseTableBuilder<'a> {
                         match Self::compare_precedence(
                             &self.syntax_grammar,
                             precedence,
+                            &[symbol],
                             &reduction_info.precedence,
+                            &reduction_info.symbols,
                         ) {
                             Ordering::Greater => {
                                 table_entry.actions.clear();
@@ -263,6 +270,9 @@ impl<'a> ParseTableBuilder<'a> {
                     }
 
                     reduction_info.precedence = precedence.clone();
+                    if let Err(i) = reduction_info.symbols.binary_search(&symbol) {
+                        reduction_info.symbols.insert(i, symbol);
+                    }
                     match associativity {
                         Some(Associativity::Left) => reduction_info.has_left_assoc = true,
                         Some(Associativity::Right) => reduction_info.has_right_assoc = true,
@@ -421,7 +431,7 @@ impl<'a> ParseTableBuilder<'a> {
         // REDUCE-REDUCE conflicts where all actions have the *same*
         // precedence, and there can still be SHIFT/REDUCE conflicts.
         let mut considered_associativity = false;
-        let mut shift_precedence: Vec<&Precedence> = Vec::new();
+        let mut shift_precedence: Vec<(&Precedence, Symbol)> = Vec::new();
         let mut conflicting_items = HashSet::new();
         for (item, lookaheads) in &item_set.entries {
             if let Some(step) = item.step() {
@@ -435,7 +445,10 @@ impl<'a> ParseTableBuilder<'a> {
                             conflicting_items.insert(item);
                         }
 
-                        let p = item.precedence();
+                        let p = (
+                            item.precedence(),
+                            Symbol::non_terminal(item.variable_index as usize),
+                        );
                         if let Err(i) = shift_precedence.binary_search(&p) {
                             shift_precedence.insert(i, p);
                         }
@@ -469,8 +482,13 @@ impl<'a> ParseTableBuilder<'a> {
             let mut shift_is_less = false;
             let mut shift_is_more = false;
             for p in shift_precedence {
-                match Self::compare_precedence(&self.syntax_grammar, p, &reduction_info.precedence)
-                {
+                match Self::compare_precedence(
+                    &self.syntax_grammar,
+                    p.0,
+                    &[p.1],
+                    &reduction_info.precedence,
+                    &reduction_info.symbols,
+                ) {
                     Ordering::Greater => shift_is_more = true,
                     Ordering::Less => shift_is_less = true,
                     Ordering::Equal => {}
@@ -732,29 +750,49 @@ impl<'a> ParseTableBuilder<'a> {
     fn compare_precedence(
         grammar: &SyntaxGrammar,
         left: &Precedence,
+        left_symbols: &[Symbol],
         right: &Precedence,
+        right_symbols: &[Symbol],
     ) -> Ordering {
+        let precedence_entry_matches =
+            |entry: &PrecedenceEntry, precedence: &Precedence, symbols: &[Symbol]| -> bool {
+                match entry {
+                    PrecedenceEntry::Name(n) => {
+                        if let Precedence::Name(p) = precedence {
+                            n == p
+                        } else {
+                            false
+                        }
+                    }
+                    PrecedenceEntry::Symbol(n) => symbols
+                        .iter()
+                        .any(|s| &grammar.variables[s.index].name == n),
+                }
+            };
+
         match (left, right) {
             // Integer precedences can be compared to other integer precedences,
             // and to the default precedence, which is zero.
-            (Precedence::Integer(l), Precedence::Integer(r)) => l.cmp(r),
-            (Precedence::Integer(l), Precedence::None) => l.cmp(&0),
-            (Precedence::None, Precedence::Integer(r)) => 0.cmp(&r),
+            (Precedence::Integer(l), Precedence::Integer(r)) if *l != 0 || *r != 0 => l.cmp(r),
+            (Precedence::Integer(l), Precedence::None) if *l != 0 => l.cmp(&0),
+            (Precedence::None, Precedence::Integer(r)) if *r != 0 => 0.cmp(&r),
 
             // Named precedences can be compared to other named precedences.
-            (Precedence::Name(l), Precedence::Name(r)) => grammar
+            _ => grammar
                 .precedence_orderings
                 .iter()
                 .find_map(|list| {
                     let mut saw_left = false;
                     let mut saw_right = false;
-                    for name in list {
-                        if name == l {
+                    for entry in list {
+                        let matches_left = precedence_entry_matches(entry, left, left_symbols);
+                        let matches_right = precedence_entry_matches(entry, right, right_symbols);
+                        if matches_left {
                             saw_left = true;
                             if saw_right {
                                 return Some(Ordering::Less);
                             }
-                        } else if name == r {
+                        } else if matches_right {
                             saw_right = true;
                             if saw_left {
                                 return Some(Ordering::Greater);
@@ -764,9 +802,6 @@ impl<'a> ParseTableBuilder<'a> {
                     None
                 })
                 .unwrap_or(Ordering::Equal),
-
-            // Other combinations of precedence types are not comparable.
-            _ => Ordering::Equal,
         }
     }
 

@@ -1,6 +1,7 @@
 use super::nfa::Nfa;
 use super::rules::{Alias, Associativity, Precedence, Rule, Symbol};
 use std::collections::HashMap;
+use std::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum VariableType {
@@ -19,13 +20,19 @@ pub(crate) struct Variable {
     pub rule: Rule,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) enum PrecedenceEntry {
+    Name(String),
+    Symbol(String),
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct InputGrammar {
     pub name: String,
     pub variables: Vec<Variable>,
     pub extra_symbols: Vec<Rule>,
     pub expected_conflicts: Vec<Vec<String>>,
-    pub precedence_orderings: Vec<Vec<String>>,
+    pub precedence_orderings: Vec<Vec<PrecedenceEntry>>,
     pub external_tokens: Vec<Rule>,
     pub variables_to_inline: Vec<String>,
     pub supertype_symbols: Vec<String>,
@@ -94,7 +101,7 @@ pub(crate) struct SyntaxGrammar {
     pub supertype_symbols: Vec<Symbol>,
     pub variables_to_inline: Vec<Symbol>,
     pub word_token: Option<Symbol>,
-    pub precedence_orderings: Vec<Vec<String>>,
+    pub precedence_orderings: Vec<Vec<PrecedenceEntry>>,
 }
 
 #[cfg(test)]
@@ -247,5 +254,14 @@ impl InlinedProductionMap {
                     .cloned()
                     .map(move |index| &self.productions[index])
             })
+    }
+}
+
+impl fmt::Display for PrecedenceEntry {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            PrecedenceEntry::Name(n) => write!(f, "'{}'", n),
+            PrecedenceEntry::Symbol(s) => write!(f, "$.{}", s),
+        }
     }
 }

@@ -10,14 +10,14 @@
 
   "precedences": [
     [
-      "member",
-      "and",
-      "or"
+      {"type": "SYMBOL", "name": "member_expression"},
+      {"type": "STRING", "value": "and"},
+      {"type": "STRING", "value": "or"}
     ],
     [
-      "type_member",
-      "type_intersection",
-      "type_union"
+      {"type": "SYMBOL", "name": "nested_type"},
+      {"type": "STRING", "value": "type_intersection"},
+      {"type": "STRING", "value": "type_union"}
     ]
   ],
 
@@ -65,16 +65,12 @@
     },
 
     "member_expression": {
-      "type": "PREC",
-      "value": "member",
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {"type": "SYMBOL", "name": "expression"},
-          {"type": "STRING", "value": "."},
-          {"type": "SYMBOL", "name": "identifier"}
-        ]
-      }
+      "type": "SEQ",
+      "members": [
+        {"type": "SYMBOL", "name": "expression"},
+        {"type": "STRING", "value": "."},
+        {"type": "SYMBOL", "name": "identifier"}
+      ]
     },
 
     "binary_expression": {
@@ -117,16 +113,12 @@
     },
 
     "nested_type": {
-      "type": "PREC",
-      "value": "type_member",
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {"type": "SYMBOL", "name": "identifier"},
-          {"type": "STRING", "value": "."},
-          {"type": "SYMBOL", "name": "identifier"}
-        ]
-      }
+      "type": "SEQ",
+      "members": [
+        {"type": "SYMBOL", "name": "identifier"},
+        {"type": "STRING", "value": "."},
+        {"type": "SYMBOL", "name": "identifier"}
+      ]
     },
 
     "binary_type": {

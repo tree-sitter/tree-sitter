@@ -368,7 +368,16 @@ function grammar(baseGrammar, options) {
     if (typeof options.precedences !== "function") {
       throw new Error("Grammar's 'precedences' property must be a function");
     }
-    precedences = options.precedences.call(null, baseGrammar.precedences);
+    precedences = options.precedences.call(ruleBuilder, ruleBuilder, baseGrammar.precedences);
+    if (!Array.isArray(precedences)) {
+      throw new Error("Grammar's precedences must be an array of arrays of rules.");
+    }
+    precedences = precedences.map(list => {
+      if (!Array.isArray(list)) {
+        throw new Error("Grammar's precedences must be an array of arrays of rules.");
+      }
+      return list.map(normalize);
+    });
   }
 
   if (Object.keys(rules).length == 0) {

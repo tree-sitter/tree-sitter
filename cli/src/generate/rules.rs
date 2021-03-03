@@ -339,23 +339,35 @@ impl TokenSet {
         vec.set(other.index, true);
     }
 
-    pub fn remove(&mut self, other: &Symbol) {
+    pub fn remove(&mut self, other: &Symbol) -> bool {
         let vec = match other.kind {
             SymbolType::NonTerminal => panic!("Cannot store non-terminals in a TokenSet"),
             SymbolType::Terminal => &mut self.terminal_bits,
             SymbolType::External => &mut self.external_bits,
             SymbolType::End => {
-                self.eof = false;
-                return;
+                return if self.eof {
+                    self.eof = false;
+                    true
+                } else {
+                    false
+                }
             }
             SymbolType::EndOfNonTerminalExtra => {
-                self.end_of_nonterminal_extra = false;
-                return;
+                return if self.end_of_nonterminal_extra {
+                    self.end_of_nonterminal_extra = false;
+                    true
+                } else {
+                    false
+                };
             }
         };
         if other.index < vec.len() {
-            vec.set(other.index, false);
+            if vec[other.index] {
+                vec.set(other.index, false);
+                return true;
+            }
         }
+        false
     }
 
     pub fn is_empty(&self) -> bool {

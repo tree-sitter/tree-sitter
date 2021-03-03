@@ -1,6 +1,6 @@
-use super::grammars::{InputGrammar, Variable, VariableType};
+use super::grammars::{InputGrammar, PrecedenceEntry, Variable, VariableType};
 use super::rules::{Precedence, Rule};
-use crate::error::Result;
+use crate::error::{Error, Result};
 use serde_derive::Deserialize;
 use serde_json::{Map, Value};
 
@@ -44,15 +44,15 @@ enum RuleJSON {
         content: Box<RuleJSON>,
     },
     PREC_LEFT {
-        value: PrecedenceJSON,
+        value: PrecedenceValueJSON,
         content: Box<RuleJSON>,
     },
     PREC_RIGHT {
-        value: PrecedenceJSON,
+        value: PrecedenceValueJSON,
         content: Box<RuleJSON>,
     },
     PREC {
-        value: PrecedenceJSON,
+        value: PrecedenceValueJSON,
         content: Box<RuleJSON>,
     },
     TOKEN {
@@ -65,7 +65,7 @@ enum RuleJSON {
 
 #[derive(Deserialize)]
 #[serde(untagged)]
-enum PrecedenceJSON {
+enum PrecedenceValueJSON {
     Integer(i32),
     Name(String),
 }
@@ -75,7 +75,7 @@ pub(crate) struct GrammarJSON {
     pub(crate) name: String,
     rules: Map<String, Value>,
     #[serde(default)]
-    precedences: Vec<Vec<String>>,
+    precedences: Vec<Vec<RuleJSON>>,
     #[serde(default)]
     conflicts: Vec<Vec<String>>,
     #[serde(default)]
@@ -101,6 +101,24 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
         })
     }
 
+    let mut precedence_orderings = Vec::with_capacity(grammar_json.precedences.len());
+    for list in grammar_json.precedences {
+        let mut ordering = Vec::with_capacity(list.len());
+        for entry in list {
+            ordering.push(match entry {
+                RuleJSON::STRING { value } => PrecedenceEntry::Name(value),
+                RuleJSON::SYMBOL { name } => PrecedenceEntry::Symbol(name),
+                _ => {
+                    return Err(Error::new(
+                        "Invalid rule in precedences array. Only strings and symbols are allowed"
+                            .to_string(),
+                    ))
+                }
+            })
+        }
+        precedence_orderings.push(ordering);
+    }
+
     let extra_symbols = grammar_json.extras.into_iter().map(parse_rule).collect();
     let external_tokens = grammar_json.externals.into_iter().map(parse_rule).collect();
 
@@ -110,7 +128,7 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
         expected_conflicts: grammar_json.conflicts,
         supertype_symbols: grammar_json.supertypes,
         variables_to_inline: grammar_json.inline,
-        precedence_orderings: grammar_json.precedences,
+        precedence_orderings,
         variables,
         extra_symbols,
         external_tokens,
@@ -150,11 +168,11 @@ fn parse_rule(json: RuleJSON) -> Rule {
     }
 }
 
-impl Into<Precedence> for PrecedenceJSON {
+impl Into<Precedence> for PrecedenceValueJSON {
     fn into(self) -> Precedence {
         match self {
-            PrecedenceJSON::Integer(i) => Precedence::Integer(i),
-            PrecedenceJSON::Name(i) => Precedence::Name(i),
+            PrecedenceValueJSON::Integer(i) => Precedence::Integer(i),
+            PrecedenceValueJSON::Name(i) => Precedence::Name(i),
         }
     }
 }
