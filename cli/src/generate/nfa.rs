@@ -128,6 +128,13 @@ impl CharacterSet {
             if range.end >= start {
                 range.end = range.end.max(end);
                 range.start = range.start.min(start);
+
+                // Join this range with the next range if needed.
+                while i + 1 < self.ranges.len() && self.ranges[i + 1].start <= self.ranges[i].end {
+                    self.ranges[i].end = self.ranges[i].end.max(self.ranges[i + 1].end);
+                    self.ranges.remove(i + 1);
+                }
+
                 return i;
             }
             i += 1;
@@ -550,6 +557,65 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_adding_ranges() {
+        let mut set = CharacterSet::empty()
+            .add_range('c', 'm')
+            .add_range('q', 's');
+
+        // within existing range
+        set = set.add_char('d');
+        assert_eq!(
+            set,
+            CharacterSet::empty()
+                .add_range('c', 'm')
+                .add_range('q', 's')
+        );
+
+        // at end of existing range
+        set = set.add_char('m');
+        assert_eq!(
+            set,
+            CharacterSet::empty()
+                .add_range('c', 'm')
+                .add_range('q', 's')
+        );
+
+        // adjacent to end of existing range
+        set = set.add_char('n');
+        assert_eq!(
+            set,
+            CharacterSet::empty()
+                .add_range('c', 'n')
+                .add_range('q', 's')
+        );
+
+        // filling gap between existing ranges
+        set = set.add_range('o', 'p');
+        assert_eq!(set, CharacterSet::empty().add_range('c', 's'));
+
+        set = CharacterSet::empty()
+            .add_range('c', 'f')
+            .add_range('i', 'l')
+            .add_range('n', 'r');
+        set = set.add_range('d', 'o');
+        assert_eq!(set, CharacterSet::empty().add_range('c', 'r'));
+    }
+
+    #[test]
+    fn test_adding_sets() {
+        let set1 = CharacterSet::empty()
+            .add_range('c', 'f')
+            .add_range('i', 'l');
+        let set2 = CharacterSet::empty().add_range('b', 'g').add_char('h');
+        assert_eq!(
+            set1.add(&set2),
+            CharacterSet::empty()
+                .add_range('b', 'g')
+                .add_range('h', 'l')
+        );
+    }
+
+    #[test]
     fn test_group_transitions() {
         let table = [
             // overlapping character classes
@@ -799,6 +865,24 @@ mod tests {
                 right_only: CharacterSet::empty(),
                 intersection: CharacterSet::from_range('d', 'f'),
             },
+            // [    L    ]
+            //         [R]
+            Row {
+                left: CharacterSet::from_range(',', '/'),
+                right: CharacterSet::from_char('/'),
+                left_only: CharacterSet::from_range(',', '.'),
+                right_only: CharacterSet::empty(),
+                intersection: CharacterSet::from_char('/'),
+            },
+            // [    L    ]
+            //         [R]
+            Row {
+                left: CharacterSet::from_range(',', '/'),
+                right: CharacterSet::from_char('/'),
+                left_only: CharacterSet::from_range(',', '.'),
+                right_only: CharacterSet::empty(),
+                intersection: CharacterSet::from_char('/'),
+            },
             // [ L1 ] [ L2 ]
             //    [  R  ]
             Row {
@@ -905,6 +989,13 @@ mod tests {
         let (a, b) = (
             CharacterSet::from_char('c'),
             CharacterSet::from_char('a').negate(),
+        );
+        assert!(a.does_intersect(&b));
+        assert!(b.does_intersect(&a));
+
+        let (a, b) = (
+            CharacterSet::from_range('c', 'f'),
+            CharacterSet::from_char('f'),
         );
         assert!(a.does_intersect(&b));
         assert!(b.does_intersect(&a));
