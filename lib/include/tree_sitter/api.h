@@ -792,6 +792,17 @@ void ts_query_cursor_delete(TSQueryCursor *);
 void ts_query_cursor_exec(TSQueryCursor *, const TSQuery *, TSNode);
 
 /**
+ * Check if this cursor has exceeded its maximum number of in-progress
+ * matches.
+ *
+ * Currently, query cursors have a fixed capacity for storing lists
+ * of in-progress captures. If this capacity is exceeded, then the
+ * earliest-starting match will silently be dropped to make room for
+ * further matches.
+ */
+bool ts_query_cursor_did_exceed_match_limit(const TSQueryCursor *);
+
+/**
  * Set the range of bytes or (row, column) positions in which the query
  * will be executed.
  */

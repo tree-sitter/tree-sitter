@@ -238,6 +238,10 @@ impl SyntaxVariable {
     pub fn is_auxiliary(&self) -> bool {
         self.kind == VariableType::Auxiliary
     }
+
+    pub fn is_hidden(&self) -> bool {
+        self.kind == VariableType::Hidden || self.kind == VariableType::Auxiliary
+    }
 }
 
 impl InlinedProductionMap {

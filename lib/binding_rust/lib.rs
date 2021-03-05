@@ -1595,6 +1595,12 @@ impl QueryCursor {
         QueryCursor(unsafe { NonNull::new_unchecked(ffi::ts_query_cursor_new()) })
     }
 
+    /// Check if, on its last execution, this cursor exceeded its maximum number of
+    /// in-progress matches.
+    pub fn did_exceed_match_limit(&self) -> bool {
+        unsafe { ffi::ts_query_cursor_did_exceed_match_limit(self.0.as_ptr()) }
+    }
+
     /// Iterate over all of the matches in the order that they were found.
     ///
     /// Each match contains the index of the pattern that matched, and a list of captures.

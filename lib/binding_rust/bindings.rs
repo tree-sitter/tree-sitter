@@ -721,6 +721,16 @@ extern "C" {
     pub fn ts_query_cursor_exec(arg1: *mut TSQueryCursor, arg2: *const TSQuery, arg3: TSNode);
 }
 extern "C" {
+    #[doc = " Check if this cursor has exceeded its maximum number of in-progress"]
+    #[doc = " matches."]
+    #[doc = ""]
+    #[doc = " Currently, query cursors have a fixed capacity for storing lists"]
+    #[doc = " of in-progress captures. If this capacity is exceeded, then the"]
+    #[doc = " earliest-starting match will silently be dropped to make room for"]
+    #[doc = " further matches."]
+    pub fn ts_query_cursor_did_exceed_match_limit(arg1: *const TSQueryCursor) -> bool;
+}
+extern "C" {
     #[doc = " Set the range of bytes or (row, column) positions in which the query"]
     #[doc = " will be executed."]
     pub fn ts_query_cursor_set_byte_range(arg1: *mut TSQueryCursor, arg2: u32, arg3: u32);

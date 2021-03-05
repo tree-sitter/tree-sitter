@@ -100,6 +100,7 @@ impl<'a> ParseTableBuilder<'a> {
                             variable_index: extra_non_terminal.index as u32,
                             production,
                             step_index: 1,
+                            has_preceding_inherited_fields: false,
                         },
                         &[Symbol::end_of_nonterminal_extra()]
                             .iter()
@@ -197,14 +198,31 @@ impl<'a> ParseTableBuilder<'a> {
             // next symbol. Advance the item to its next step and insert the resulting
             // item into the successor item set.
             if let Some(next_symbol) = item.symbol() {
-                let successor = item.successor();
+                let mut successor = item.successor();
                 if next_symbol.is_non_terminal() {
+                    let variable = &self.syntax_grammar.variables[next_symbol.index];
+
                     // Keep track of where auxiliary non-terminals (repeat symbols) are
                     // used within visible symbols. This information may be needed later
                     // for conflict resolution.
-                    if self.syntax_grammar.variables[next_symbol.index].is_auxiliary() {
+                    if variable.is_auxiliary() {
                         preceding_auxiliary_symbols
                             .push(self.get_auxiliary_node_info(&item_set, next_symbol));
+                    }
+
+                    // For most parse items, the symbols associated with the preceding children
+                    // don't matter: they have no effect on the REDUCE action that would be
+                    // performed at the end of the item. But the symbols *do* matter for
+                    // children that are hidden and have fields, because those fields are
+                    // "inherited" by the parent node.
+                    //
+                    // If this item has consumed a hidden child with fields, then the symbols
+                    // of its preceding children need to be taken into account when comparing
+                    // it with other items.
+                    if variable.is_hidden()
+                        && !self.variable_info[next_symbol.index].fields.is_empty()
+                    {
+                        successor.has_preceding_inherited_fields = true;
                     }
 
                     non_terminal_successors
