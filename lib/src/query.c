@@ -236,6 +236,7 @@ struct TSQueryCursor {
   TSPoint end_point;
   bool ascending;
   bool halted;
+  bool did_exceed_match_limit;
 };
 
 static const TSQueryError PARENT_DONE = -1;
@@ -2103,6 +2104,7 @@ void ts_query_disable_pattern(
 TSQueryCursor *ts_query_cursor_new(void) {
   TSQueryCursor *self = ts_malloc(sizeof(TSQueryCursor));
   *self = (TSQueryCursor) {
+    .did_exceed_match_limit = false,
     .ascending = false,
     .halted = false,
     .states = array_new(),
@@ -2126,6 +2128,10 @@ void ts_query_cursor_delete(TSQueryCursor *self) {
   ts_free(self);
 }
 
+bool ts_query_cursor_did_exceed_match_limit(const TSQueryCursor *self) {
+  return self->did_exceed_match_limit;
+}
+
 void ts_query_cursor_exec(
   TSQueryCursor *self,
   const TSQuery *query,
@@ -2140,6 +2146,7 @@ void ts_query_cursor_exec(
   self->ascending = false;
   self->halted = false;
   self->query = query;
+  self->did_exceed_match_limit = false;
 }
 
 void ts_query_cursor_set_byte_range(
@@ -2359,6 +2366,7 @@ static CaptureList *ts_query_cursor__prepare_to_capture(
     // state has captured the earliest node in the document, and steal its
     // capture list.
     if (state->capture_list_id == NONE) {
+      self->did_exceed_match_limit = true;
       uint32_t state_index, byte_offset, pattern_index;
       if (
         ts_query_cursor__first_in_progress_capture(

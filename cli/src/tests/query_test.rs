@@ -1425,6 +1425,7 @@ fn test_query_matches_with_too_many_permutations_to_track() {
             collect_matches(matches, &query, source.as_str())[0],
             (0, vec![("pre", "hello"), ("post", "hello")]),
         );
+        assert_eq!(cursor.did_exceed_match_limit(), true);
     });
 }
 
@@ -1462,6 +1463,7 @@ fn test_query_matches_with_alternatives_and_too_many_permutations_to_track() {
             collect_matches(matches, &query, source.as_str()),
             vec![(1, vec![("method", "b")]); 50],
         );
+        assert_eq!(cursor.did_exceed_match_limit(), true);
     });
 }
 
@@ -3119,6 +3121,7 @@ fn assert_query_matches(
     let mut cursor = QueryCursor::new();
     let matches = cursor.matches(&query, tree.root_node(), to_callback(source));
     assert_eq!(collect_matches(matches, &query, source), expected);
+    assert_eq!(cursor.did_exceed_match_limit(), false);
 }
 
 fn collect_matches<'a>(
