@@ -353,14 +353,12 @@ void ts_tree_cursor_current_status(
       // Determine if the current node can have later siblings with the same field name.
       if (*field_id) {
         for (const TSFieldMapEntry *i = field_map; i < field_map_end; i++) {
-          if (i->field_id == *field_id) {
-            if (
-              i->child_index > entry->structural_child_index ||
-              (i->child_index == entry->structural_child_index && *has_later_named_siblings)
-            ) {
-              *can_have_later_siblings_with_this_field = true;
-              break;
-            }
+          if (
+            i->field_id == *field_id &&
+            i->child_index > entry->structural_child_index
+          ) {
+            *can_have_later_siblings_with_this_field = true;
+            break;
           }
         }
       }

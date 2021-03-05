@@ -1850,12 +1850,100 @@ fn test_query_matches_with_repeated_fields() {
             "
             struct S {
                 int a, b, c;
-            }
+            };
             ",
             &[
                 (0, vec![("field", "a")]),
                 (0, vec![("field", "b")]),
                 (0, vec![("field", "c")]),
+            ],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_deeply_nested_patterns_with_fields() {
+    allocations::record(|| {
+        let language = get_language("python");
+        let query = Query::new(
+            language,
+            "
+            (call
+                function: (_) @func
+                arguments: (_) @args)
+            (call
+                function: (attribute
+                    object: (_) @receiver
+                    attribute: (identifier) @method)
+                arguments: (argument_list))
+
+            ; These don't match anything, but they require additional
+            ; states to keep track of their captures.
+            (call
+                function: (_) @fn
+                arguments: (argument_list
+                    (keyword_argument
+                        name: (identifier) @name
+                        value: (_) @val) @arg) @args) @call
+            (call
+                function: (identifier) @fn
+                (#eq? @fn \"super\")) @super_call
+            ",
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            "
+            a(1).b(2).c(3).d(4).e(5).f(6).g(7).h(8)
+            ",
+            &[
+                (0, vec![("func", "a"), ("args", "(1)")]),
+                (0, vec![("func", "a(1).b"), ("args", "(2)")]),
+                (1, vec![("receiver", "a(1)"), ("method", "b")]),
+                (0, vec![("func", "a(1).b(2).c"), ("args", "(3)")]),
+                (1, vec![("receiver", "a(1).b(2)"), ("method", "c")]),
+                (0, vec![("func", "a(1).b(2).c(3).d"), ("args", "(4)")]),
+                (1, vec![("receiver", "a(1).b(2).c(3)"), ("method", "d")]),
+                (0, vec![("func", "a(1).b(2).c(3).d(4).e"), ("args", "(5)")]),
+                (
+                    1,
+                    vec![("receiver", "a(1).b(2).c(3).d(4)"), ("method", "e")],
+                ),
+                (
+                    0,
+                    vec![("func", "a(1).b(2).c(3).d(4).e(5).f"), ("args", "(6)")],
+                ),
+                (
+                    1,
+                    vec![("receiver", "a(1).b(2).c(3).d(4).e(5)"), ("method", "f")],
+                ),
+                (
+                    0,
+                    vec![("func", "a(1).b(2).c(3).d(4).e(5).f(6).g"), ("args", "(7)")],
+                ),
+                (
+                    1,
+                    vec![
+                        ("receiver", "a(1).b(2).c(3).d(4).e(5).f(6)"),
+                        ("method", "g"),
+                    ],
+                ),
+                (
+                    0,
+                    vec![
+                        ("func", "a(1).b(2).c(3).d(4).e(5).f(6).g(7).h"),
+                        ("args", "(8)"),
+                    ],
+                ),
+                (
+                    1,
+                    vec![
+                        ("receiver", "a(1).b(2).c(3).d(4).e(5).f(6).g(7)"),
+                        ("method", "h"),
+                    ],
+                ),
             ],
         );
     });
