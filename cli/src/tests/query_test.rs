@@ -643,6 +643,49 @@ fn test_query_matches_capturing_error_nodes() {
 }
 
 #[test]
+fn test_query_matches_with_extra_children() {
+    allocations::record(|| {
+        let language = get_language("ruby");
+        let query = Query::new(
+            language,
+            "
+            (program(comment) @top_level_comment)
+            (argument_list (heredoc_body) @heredoc_in_args)
+            ",
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            "
+            # top-level
+            puts(
+                # not-top-level
+                <<-IN_ARGS, bar.baz
+                HELLO
+                IN_ARGS
+            )
+
+            puts <<-NOT_IN_ARGS
+            NO
+            NOT_IN_ARGS
+            ",
+            &[
+                (0, vec![("top_level_comment", "# top-level")]),
+                (
+                    1,
+                    vec![(
+                        "heredoc_in_args",
+                        "\n                HELLO\n                IN_ARGS",
+                    )],
+                ),
+            ],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_named_wildcard() {
     allocations::record(|| {
         let language = get_language("javascript");
