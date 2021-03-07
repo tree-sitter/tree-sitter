@@ -118,6 +118,18 @@ fn test_query_errors_on_invalid_syntax() {
             ]
             .join("\n")
         );
+
+        // tree-sitter/tree-sitter/issues/968
+        assert_eq!(
+            Query::new(get_language("c"), r#"(parameter_list [ ")" @foo)"#)
+                .unwrap_err()
+                .message,
+            [
+                r#"(parameter_list [ ")" @foo)"#,
+                r#"                          ^"#
+            ]
+            .join("\n")
+        );
     });
 }
 

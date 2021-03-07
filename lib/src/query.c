@@ -1541,6 +1541,7 @@ static TSQueryError ts_query__parse_pattern(
         stream_advance(stream);
         break;
       } else if (e) {
+        if (e == PARENT_DONE) e = TSQueryErrorSyntax;
         array_delete(&branch_step_indices);
         return e;
       }
