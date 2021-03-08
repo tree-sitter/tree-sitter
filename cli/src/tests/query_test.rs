@@ -3132,6 +3132,20 @@ fn test_query_step_is_definite() {
             "#,
             results_by_substring: &[("name:", true)],
         },
+        Row {
+            description: "top-level non-terminal extra nodes",
+            language: get_language("ruby"),
+            pattern: r#"
+            (heredoc_body
+                (interpolation)
+                (heredoc_end) @end)
+            "#,
+            results_by_substring: &[
+                ("(heredoc_body", false),
+                ("(interpolation)", false),
+                ("(heredoc_end)", true),
+            ],
+        },
     ];
 
     allocations::record(|| {

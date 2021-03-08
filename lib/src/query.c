@@ -784,8 +784,10 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
             state_predecessor_map_add(&predecessor_map, next_state, state);
           }
         }
-      } else if (lookahead_iterator.next_state != 0 && lookahead_iterator.next_state != state) {
-        state_predecessor_map_add(&predecessor_map, lookahead_iterator.next_state, state);
+      } else if (lookahead_iterator.next_state != 0) {
+        if (lookahead_iterator.next_state != state) {
+          state_predecessor_map_add(&predecessor_map, lookahead_iterator.next_state, state);
+        }
         const TSSymbol *aliases, *aliases_end;
         ts_language_aliases_for_symbol(
           self->language,
