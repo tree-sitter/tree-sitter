@@ -784,8 +784,10 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
             state_predecessor_map_add(&predecessor_map, next_state, state);
           }
         }
-      } else if (lookahead_iterator.next_state != 0 && lookahead_iterator.next_state != state) {
-        state_predecessor_map_add(&predecessor_map, lookahead_iterator.next_state, state);
+      } else if (lookahead_iterator.next_state != 0) {
+        if (lookahead_iterator.next_state != state) {
+          state_predecessor_map_add(&predecessor_map, lookahead_iterator.next_state, state);
+        }
         const TSSymbol *aliases, *aliases_end;
         ts_language_aliases_for_symbol(
           self->language,
@@ -959,6 +961,10 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
         }
       #endif
 
+      // If no further progress can be made within the current recursion depth limit, then
+      // bump the depth limit by one, and continue to process the states the exceeded the
+      // limit. But only allow this if progress has been made since the last time the depth
+      // limit was increased.
       if (states.size == 0) {
         if (deeper_states.size > 0 && final_step_indices.size > prev_final_step_count) {
           #ifdef DEBUG_ANALYZE_QUERY
@@ -1019,12 +1025,12 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
           TSStateId next_parse_state;
           if (lookahead_iterator.action_count) {
             const TSParseAction *action = &lookahead_iterator.actions[lookahead_iterator.action_count - 1];
-            if (action->type == TSParseActionTypeShift && !action->shift.extra) {
-              next_parse_state = action->shift.state;
+            if (action->type == TSParseActionTypeShift) {
+              next_parse_state = action->shift.extra ? parse_state : action->shift.state;
             } else {
               continue;
             }
-          } else if (lookahead_iterator.next_state != 0 && lookahead_iterator.next_state != parse_state) {
+          } else if (lookahead_iterator.next_state != 0) {
             next_parse_state = lookahead_iterator.next_state;
           } else {
             continue;
@@ -1127,6 +1133,8 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
                   next_step->depth <= parent_depth + 1
                 ) break;
               }
+            } else if (next_parse_state == parse_state) {
+              continue;
             }
 
             for (;;) {
@@ -1535,6 +1543,7 @@ static TSQueryError ts_query__parse_pattern(
         stream_advance(stream);
         break;
       } else if (e) {
+        if (e == PARENT_DONE) e = TSQueryErrorSyntax;
         array_delete(&branch_step_indices);
         return e;
       }

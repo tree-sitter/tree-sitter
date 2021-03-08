@@ -118,6 +118,18 @@ fn test_query_errors_on_invalid_syntax() {
             ]
             .join("\n")
         );
+
+        // tree-sitter/tree-sitter/issues/968
+        assert_eq!(
+            Query::new(get_language("c"), r#"(parameter_list [ ")" @foo)"#)
+                .unwrap_err()
+                .message,
+            [
+                r#"(parameter_list [ ")" @foo)"#,
+                r#"                          ^"#
+            ]
+            .join("\n")
+        );
     });
 }
 
@@ -638,6 +650,49 @@ fn test_query_matches_capturing_error_nodes() {
             &query,
             "function a(b,, c, d :e:) {}",
             &[(0, vec![("the-error", ":e:"), ("the-error-identifier", "e")])],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_extra_children() {
+    allocations::record(|| {
+        let language = get_language("ruby");
+        let query = Query::new(
+            language,
+            "
+            (program(comment) @top_level_comment)
+            (argument_list (heredoc_body) @heredoc_in_args)
+            ",
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            "
+            # top-level
+            puts(
+                # not-top-level
+                <<-IN_ARGS, bar.baz
+                HELLO
+                IN_ARGS
+            )
+
+            puts <<-NOT_IN_ARGS
+            NO
+            NOT_IN_ARGS
+            ",
+            &[
+                (0, vec![("top_level_comment", "# top-level")]),
+                (
+                    1,
+                    vec![(
+                        "heredoc_in_args",
+                        "\n                HELLO\n                IN_ARGS",
+                    )],
+                ),
+            ],
         );
     });
 }
@@ -3076,6 +3131,20 @@ fn test_query_step_is_definite() {
             (method_declaration name: (identifier))
             "#,
             results_by_substring: &[("name:", true)],
+        },
+        Row {
+            description: "top-level non-terminal extra nodes",
+            language: get_language("ruby"),
+            pattern: r#"
+            (heredoc_body
+                (interpolation)
+                (heredoc_end) @end)
+            "#,
+            results_by_substring: &[
+                ("(heredoc_body", false),
+                ("(interpolation)", false),
+                ("(heredoc_end)", true),
+            ],
         },
     ];
 
