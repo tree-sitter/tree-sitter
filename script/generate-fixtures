@@ -22,6 +22,6 @@ while read -r grammar_file; do
   echo "Regenerating ${grammar_name} parser"
   (
     cd $grammar_dir
-    "$tree_sitter" generate src/grammar.json
+    "$tree_sitter" generate src/grammar.json --no-bindings
   )
 done <<< "$grammar_files"

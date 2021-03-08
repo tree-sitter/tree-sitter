@@ -42,6 +42,7 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("grammar-path").index(1))
                 .arg(Arg::with_name("log").long("log"))
                 .arg(Arg::with_name("prev-abi").long("prev-abi"))
+                .arg(Arg::with_name("no-bindings").long("no-bindings"))
                 .arg(
                     Arg::with_name("report-states-for-rule")
                         .long("report-states-for-rule")
@@ -185,11 +186,13 @@ fn run() -> error::Result<()> {
         if matches.is_present("log") {
             logger::init();
         }
-        let prev_abi = matches.is_present("prev-abi");
+        let new_abi = !matches.is_present("prev-abi");
+        let generate_bindings = !matches.is_present("no-bindings");
         generate::generate_parser_in_directory(
             &current_dir,
             grammar_path,
-            !prev_abi,
+            new_abi,
+            generate_bindings,
             report_symbol_name,
         )?;
     } else if let Some(matches) = matches.subcommand_matches("test") {
@@ -209,7 +212,14 @@ fn run() -> error::Result<()> {
             test_corpus_dir = current_dir.join("corpus");
         }
         if test_corpus_dir.is_dir() {
-            test::run_tests_at_path(*language, &test_corpus_dir, debug, debug_graph, filter, update)?;
+            test::run_tests_at_path(
+                *language,
+                &test_corpus_dir,
+                debug,
+                debug_graph,
+                filter,
+                update,
+            )?;
         }
 
         // Check that all of the queries are valid.

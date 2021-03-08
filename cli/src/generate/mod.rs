@@ -41,6 +41,7 @@ pub fn generate_parser_in_directory(
     repo_path: &PathBuf,
     grammar_path: Option<&str>,
     next_abi: bool,
+    generate_bindings: bool,
     report_symbol_name: Option<&str>,
 ) -> Result<()> {
     let src_path = repo_path.join("src");
@@ -90,7 +91,9 @@ pub fn generate_parser_in_directory(
         write_file(&header_path.join("parser.h"), tree_sitter::PARSER_HEADER)?;
     }
 
-    binding_files::generate_binding_files(&repo_path, &language_name)?;
+    if generate_bindings {
+        binding_files::generate_binding_files(&repo_path, &language_name)?;
+    }
 
     Ok(())
 }
