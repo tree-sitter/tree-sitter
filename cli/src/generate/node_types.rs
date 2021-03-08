@@ -2,6 +2,7 @@ use super::grammars::{LexicalGrammar, SyntaxGrammar, VariableType};
 use super::rules::{Alias, AliasMap, Symbol, SymbolType};
 use crate::error::{Error, Result};
 use serde_derive::Serialize;
+use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -449,7 +450,7 @@ pub(crate) fn generate_node_types_json(
     }
     aliases_by_symbol.insert(Symbol::non_terminal(0), [None].iter().cloned().collect());
 
-    let mut subtype_map = HashMap::new();
+    let mut subtype_map = Vec::new();
     for (i, info) in variable_info.iter().enumerate() {
         let symbol = Symbol::non_terminal(i);
         let variable = &syntax_grammar.variables[i];
@@ -470,15 +471,13 @@ pub(crate) fn generate_node_types_json(
                 .iter()
                 .map(child_type_to_node_type)
                 .collect::<Vec<_>>();
-            subtype_map.insert(
-                NodeTypeJSON {
-                    kind: node_type_json.kind.clone(),
-                    named: true,
-                },
-                subtypes.clone(),
-            );
             subtypes.sort_unstable();
             subtypes.dedup();
+            let supertype = NodeTypeJSON {
+                kind: node_type_json.kind.clone(),
+                named: true,
+            };
+            subtype_map.push((supertype, subtypes.clone()));
             node_type_json.subtypes = Some(subtypes);
         } else if !syntax_grammar.variables_to_inline.contains(&symbol) {
             // If a rule is aliased under multiple names, then its information
@@ -544,6 +543,17 @@ pub(crate) fn generate_node_types_json(
             }
         }
     }
+
+    // Sort the subtype map so that subtypes are listed before their supertypes.
+    subtype_map.sort_by(|a, b| {
+        if b.1.contains(&a.0) {
+            Ordering::Less
+        } else if a.1.contains(&b.0) {
+            Ordering::Greater
+        } else {
+            Ordering::Equal
+        }
+    });
 
     for (_, node_type_json) in node_types_json.iter_mut() {
         if node_type_json
@@ -652,7 +662,7 @@ pub(crate) fn generate_node_types_json(
 
 fn process_supertypes(
     info: &mut FieldInfoJSON,
-    subtype_map: &HashMap<NodeTypeJSON, Vec<NodeTypeJSON>>,
+    subtype_map: &Vec<(NodeTypeJSON, Vec<NodeTypeJSON>)>,
 ) {
     for (supertype, subtypes) in subtype_map {
         if info.types.contains(supertype) {
