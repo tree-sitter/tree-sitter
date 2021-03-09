@@ -82,7 +82,6 @@ struct LargeCharacterSetInfo {
     ranges: Vec<Range<char>>,
     symbol: Symbol,
     index: usize,
-    usage_count: usize,
 }
 
 impl Generator {
@@ -682,7 +681,6 @@ impl Generator {
                             for (i, info) in large_character_sets.iter_mut().enumerate() {
                                 if info.ranges == ranges {
                                     call_id = Some(i);
-                                    info.usage_count += 1;
                                     break;
                                 }
                                 if info.symbol == char_set_symbol {
@@ -695,7 +693,6 @@ impl Generator {
                                     symbol: char_set_symbol,
                                     index: count_for_symbol + 1,
                                     ranges: ranges.clone(),
-                                    usage_count: 1,
                                 });
                             }
                         }
@@ -714,23 +711,21 @@ impl Generator {
         let mut sorted_large_char_sets: Vec<_> = large_character_sets.iter().map(|e| e).collect();
         sorted_large_char_sets.sort_unstable_by_key(|info| (info.symbol, info.index));
         for info in sorted_large_char_sets {
-            if info.usage_count > 1 {
-                add_line!(
-                    self,
-                    "static inline bool {}_character_set_{}(int32_t c) {{",
-                    self.symbol_ids[&info.symbol],
-                    info.index
-                );
-                indent!(self);
-                add_whitespace!(self);
-                add!(self, "return ");
-                let tree = CharacterTree::from_ranges(&info.ranges);
-                self.add_character_tree(tree.as_ref());
-                add!(self, ";\n");
-                dedent!(self);
-                add_line!(self, "}}");
-                add_line!(self, "");
-            }
+            add_line!(
+                self,
+                "static inline bool {}_character_set_{}(int32_t c) {{",
+                self.symbol_ids[&info.symbol],
+                info.index
+            );
+            indent!(self);
+            add_whitespace!(self);
+            add!(self, "return ");
+            let tree = CharacterTree::from_ranges(&info.ranges);
+            self.add_character_tree(tree.as_ref());
+            add!(self, ";\n");
+            dedent!(self);
+            add_line!(self, "}}");
+            add_line!(self, "");
         }
 
         add_line!(
@@ -810,21 +805,19 @@ impl Generator {
             // set, then generate a call to that helper function.
             if let Some(call_id) = transition.call_id {
                 let info = &large_character_sets[call_id];
-                if info.usage_count > 1 {
-                    add!(self, "if (");
-                    if !transition.is_included {
-                        add!(self, "!");
-                    }
-                    add!(
-                        self,
-                        "{}_character_set_{}(lookahead)) ",
-                        self.symbol_ids[&info.symbol],
-                        info.index
-                    );
-                    self.add_advance_action(&action);
-                    add!(self, "\n");
-                    continue;
+                add!(self, "if (");
+                if !transition.is_included {
+                    add!(self, "!");
                 }
+                add!(
+                    self,
+                    "{}_character_set_{}(lookahead)) ",
+                    self.symbol_ids[&info.symbol],
+                    info.index
+                );
+                self.add_advance_action(&action);
+                add!(self, "\n");
+                continue;
             }
 
             // Otherwise, generate code to compare the lookahead character
