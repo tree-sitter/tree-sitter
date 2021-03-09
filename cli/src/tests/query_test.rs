@@ -119,6 +119,19 @@ fn test_query_errors_on_invalid_syntax() {
             .join("\n")
         );
 
+        // Need at least one child node for a child anchor
+        assert_eq!(
+            Query::new(language, r#"(statement_block .)"#)
+                .unwrap_err()
+                .message,
+            [
+                //
+                r#"(statement_block .)"#,
+                r#"                  ^"#
+            ]
+            .join("\n")
+        );
+
         // tree-sitter/tree-sitter/issues/968
         assert_eq!(
             Query::new(get_language("c"), r#"(parameter_list [ ")" @foo)"#)
@@ -851,6 +864,32 @@ fn test_query_matches_with_immediate_siblings() {
                 (1, vec![("stmt", "g()")]),
                 (2, vec![("last-stmt", "g()")]),
             ],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_last_named_child() {
+    allocations::record(|| {
+        let language = get_language("c");
+        let query = Query::new(
+            language,
+            "(compound_statement
+                (_)
+                (_)
+                (expression_statement
+                    (identifier) @last_id) .)",
+        )
+        .unwrap();
+        assert_query_matches(
+            language,
+            &query,
+            "
+            void one() { a; b; c; }
+            void two() { d; e; }
+            void three() { f; g; h; i; }
+            ",
+            &[(0, vec![("last_id", "c")]), (0, vec![("last_id", "i")])],
         );
     });
 }

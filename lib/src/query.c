@@ -1690,7 +1690,7 @@ static TSQueryError ts_query__parse_pattern(
 
       // Parse the child patterns
       bool child_is_immediate = false;
-      uint16_t child_start_step_index = self->steps.size;
+      uint16_t last_child_step_index = 0;
       for (;;) {
         if (stream->next == '.') {
           child_is_immediate = true;
@@ -1698,6 +1698,7 @@ static TSQueryError ts_query__parse_pattern(
           stream_skip_whitespace(stream);
         }
 
+        uint16_t step_index = self->steps.size;
         TSQueryError e = ts_query__parse_pattern(
           self,
           stream,
@@ -1706,7 +1707,10 @@ static TSQueryError ts_query__parse_pattern(
         );
         if (e == PARENT_DONE && stream->next == ')') {
           if (child_is_immediate) {
-            self->steps.contents[child_start_step_index].is_last_child = true;
+            if (last_child_step_index == 0) {
+              return TSQueryErrorSyntax;
+            }
+            self->steps.contents[last_child_step_index].is_last_child = true;
           }
           stream_advance(stream);
           break;
@@ -1714,6 +1718,7 @@ static TSQueryError ts_query__parse_pattern(
           return e;
         }
 
+        last_child_step_index = step_index;
         child_is_immediate = false;
       }
     }
