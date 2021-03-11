@@ -199,10 +199,7 @@ function normalize(value) {
 function RuleBuilder(ruleMap) {
   return new Proxy({}, {
     get(target, propertyName) {
-      const symbol = {
-        type: 'SYMBOL',
-        name: propertyName
-      };
+      const symbol = sym(propertyName);
 
       if (!ruleMap || ruleMap.hasOwnProperty(propertyName)) {
         return symbol;
