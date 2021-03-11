@@ -1487,7 +1487,7 @@ impl Query {
     ///
     /// This includes predicate with operators other than:
     /// * `match?`
-    /// * `eq?` and `not-eq?
+    /// * `eq?` and `not-eq?`
     /// * `is?` and `is-not?`
     /// * `set!`
     pub fn general_predicates(&self, index: usize) -> &[QueryPredicate] {
