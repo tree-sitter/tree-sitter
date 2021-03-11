@@ -78,6 +78,7 @@ typedef struct {
   bool fragile_right : 1;
   bool has_changes : 1;
   bool has_external_tokens : 1;
+  bool depends_on_column: 1;
   bool is_missing : 1;
   bool is_keyword : 1;
 
@@ -138,7 +139,7 @@ void ts_subtree_pool_delete(SubtreePool *);
 
 Subtree ts_subtree_new_leaf(
   SubtreePool *, TSSymbol, Length, Length, uint32_t,
-  TSStateId, bool, bool, const TSLanguage *
+  TSStateId, bool, bool, bool, const TSLanguage *
 );
 Subtree ts_subtree_new_error(
   SubtreePool *, int32_t, Length, Length, uint32_t, TSStateId, const TSLanguage *
@@ -282,6 +283,10 @@ static inline bool ts_subtree_fragile_right(Subtree self) {
 
 static inline bool ts_subtree_has_external_tokens(Subtree self) {
   return self.data.is_inline ? false : self.ptr->has_external_tokens;
+}
+
+static inline bool ts_subtree_depends_on_column(Subtree self) {
+  return self.data.is_inline ? false : self.ptr->depends_on_column;
 }
 
 static inline bool ts_subtree_is_fragile(Subtree self) {

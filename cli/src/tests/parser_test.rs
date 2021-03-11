@@ -1,5 +1,5 @@
 use super::helpers::edits::ReadRecorder;
-use super::helpers::fixtures::{get_language, get_test_language};
+use super::helpers::fixtures::{get_language, get_test_grammar, get_test_language};
 use crate::generate::generate_parser_for_grammar;
 use crate::parse::{perform_edit, Edit};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -404,6 +404,83 @@ fn test_parsing_empty_file_with_reused_tree() {
 
     let tree = parser.parse("\n  ", None);
     parser.parse("\n  ", tree.as_ref());
+}
+
+#[test]
+fn test_parsing_after_editing_tree_that_depends_on_column_values() {
+    let (grammar, path) = get_test_grammar("uses_current_column");
+    let (grammar_name, parser_code) = generate_parser_for_grammar(&grammar).unwrap();
+
+    let mut parser = Parser::new();
+    parser
+        .set_language(get_test_language(
+            &grammar_name,
+            &parser_code,
+            path.as_ref().map(AsRef::as_ref),
+        ))
+        .unwrap();
+
+    let mut code = b"
+a = b
+c = do d
+       e + f
+       g
+h + i
+    "
+    .to_vec();
+    let mut tree = parser.parse(&code, None).unwrap();
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        concat!(
+            "(block ",
+            "(binary_expression (identifier) (identifier)) ",
+            "(binary_expression (identifier) (do_expression (block (identifier) (binary_expression (identifier) (identifier)) (identifier)))) ",
+            "(binary_expression (identifier) (identifier)))",
+        )
+    );
+
+    perform_edit(
+        &mut tree,
+        &mut code,
+        &Edit {
+            position: 8,
+            deleted_length: 0,
+            inserted_text: b"1234".to_vec(),
+        },
+    );
+
+    assert_eq!(
+        code,
+        b"
+a = b
+c1234 = do d
+       e + f
+       g
+h + i
+    "
+    );
+
+    let mut recorder = ReadRecorder::new(&code);
+    let tree = parser
+        .parse_with(&mut |i, _| recorder.read(i), Some(&tree))
+        .unwrap();
+
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        concat!(
+            "(block ",
+            "(binary_expression (identifier) (identifier)) ",
+            "(binary_expression (identifier) (do_expression (block (identifier)))) ",
+            "(binary_expression (identifier) (identifier)) ",
+            "(identifier) ",
+            "(binary_expression (identifier) (identifier)))",
+        )
+    );
+
+    assert_eq!(
+        recorder.strings_read(),
+        vec!["\nc1234 = do d\n       e + f\n       g\n"]
+    );
 }
 
 // Thread safety

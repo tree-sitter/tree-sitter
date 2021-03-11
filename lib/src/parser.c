@@ -403,6 +403,7 @@ static Subtree ts_parser__lex(
   bool found_external_token = false;
   bool error_mode = parse_state == ERROR_STATE;
   bool skipped_error = false;
+  bool called_get_column = false;
   int32_t first_error_character = 0;
   Length error_start_position = length_zero();
   Length error_end_position = length_zero();
@@ -445,6 +446,7 @@ static Subtree ts_parser__lex(
         (!error_mode && ts_stack_has_advanced_since_error(self->stack, version))
       )) {
         found_external_token = true;
+        called_get_column = self->lexer.did_get_column;
         break;
       }
 
@@ -546,6 +548,7 @@ static Subtree ts_parser__lex(
       lookahead_bytes,
       parse_state,
       found_external_token,
+      called_get_column,
       is_keyword,
       self->language
     );

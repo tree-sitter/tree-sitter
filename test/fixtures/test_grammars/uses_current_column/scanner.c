@@ -92,7 +92,7 @@ bool tree_sitter_uses_current_column_external_scanner_scan(
   // If at the end of a statement, then get the current indent
   // level and pop some number of entries off of the indent stack.
   if (valid_symbols[NEWLINE] || valid_symbols[DEDENT]) {
-    while (lexer->lookahead == ' ') {
+    while (iswspace(lexer->lookahead) && lexer->lookahead != '\n') {
       lexer->advance(lexer, false);
     }
 

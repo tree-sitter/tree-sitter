@@ -17,16 +17,17 @@ typedef struct {
   Length token_end_position;
 
   TSRange *included_ranges;
-  size_t included_range_count;
-  size_t current_included_range_index;
-
   const char *chunk;
+  TSInput input;
+  TSLogger logger;
+
+  uint32_t included_range_count;
+  uint32_t current_included_range_index;
   uint32_t chunk_start;
   uint32_t chunk_size;
   uint32_t lookahead_size;
+  bool did_get_column;
 
-  TSInput input;
-  TSLogger logger;
   char debug_buffer[TREE_SITTER_SERIALIZATION_BUFFER_SIZE];
 } Lexer;
 
