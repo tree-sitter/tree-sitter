@@ -24,6 +24,7 @@ lazy_static! {
         .multi_line(true)
         .build()
         .unwrap();
+    static ref COMMENT_REGEX: Regex = Regex::new(r"(?m)^\s*;.*$").unwrap();
     static ref WHITESPACE_REGEX: Regex = Regex::new(r"\s+").unwrap();
     static ref SEXP_FIELD_REGEX: Regex = Regex::new(r" \w+: \(").unwrap();
 }
@@ -397,8 +398,10 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
                         input.pop();
                     }
 
+                    // Remove all comments
+                    let output = COMMENT_REGEX.replace_all(output, "").to_string();
                     // Normalize the whitespace in the expected output.
-                    let output = WHITESPACE_REGEX.replace_all(output.trim(), " ").to_string();
+                    let output = WHITESPACE_REGEX.replace_all(output.trim(), " ");
                     let output = output.replace(" )", ")");
 
                     // Identify if the expected output has fields indicated. If not, then
@@ -590,6 +593,75 @@ output 2
 "#
             .trim_start()
             .to_string()
+        );
+    }
+
+    #[test]
+    fn test_parse_test_content_with_comments_in_sexp() {
+        let entry = parse_test_content(
+            "the-filename".to_string(),
+            r#"
+==================
+sexp with comment
+==================
+code
+---
+
+; Line start comment
+(a (b))
+
+==================
+sexp with comment between
+==================
+code
+---
+
+; Line start comment
+(a 
+; ignore this
+    (b)
+    ; also ignore this
+)
+
+=========================
+sexp with ';'
+=========================
+code
+---
+
+(MISSING ";")
+        "#
+            .trim()
+            .to_string(),
+            None,
+        );
+
+        assert_eq!(
+            entry,
+            TestEntry::Group {
+                name: "the-filename".to_string(),
+                children: vec![
+                    TestEntry::Example {
+                        name: "sexp with comment".to_string(),
+                        input: "code".as_bytes().to_vec(),
+                        output: "(a (b))".to_string(),
+                        has_fields: false,
+                    },
+                    TestEntry::Example {
+                        name: "sexp with comment between".to_string(),
+                        input: "code".as_bytes().to_vec(),
+                        output: "(a (b))".to_string(),
+                        has_fields: false,
+                    },
+                    TestEntry::Example {
+                        name: "sexp with ';'".to_string(),
+                        input: "code".as_bytes().to_vec(),
+                        output: "(MISSING \";\")".to_string(),
+                        has_fields: false,
+                    }
+                ],
+                file_path: None,
+            }
         );
     }
 }
