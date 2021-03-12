@@ -132,6 +132,18 @@ fn test_query_errors_on_invalid_syntax() {
             .join("\n")
         );
 
+        // Need a field name after a negated field operator
+        assert_eq!(
+            Query::new(language, r#"(statement_block ! (if_statement))"#)
+                .unwrap_err()
+                .message,
+            [
+                r#"(statement_block ! (if_statement))"#,
+                r#"                   ^"#
+            ]
+            .join("\n")
+        );
+
         // tree-sitter/tree-sitter/issues/968
         assert_eq!(
             Query::new(get_language("c"), r#"(parameter_list [ ")" @foo)"#)
@@ -199,6 +211,26 @@ fn test_query_errors_on_invalid_symbols() {
                 column: 14,
                 kind: QueryErrorKind::Field,
                 message: "conditioning".to_string()
+            }
+        );
+        assert_eq!(
+            Query::new(language, "(if_statement !alternativ)").unwrap_err(),
+            QueryError {
+                row: 0,
+                offset: 15,
+                column: 15,
+                kind: QueryErrorKind::Field,
+                message: "alternativ".to_string()
+            }
+        );
+        assert_eq!(
+            Query::new(language, "(if_statement !alternatives)").unwrap_err(),
+            QueryError {
+                row: 0,
+                offset: 15,
+                column: 15,
+                kind: QueryErrorKind::Field,
+                message: "alternatives".to_string()
             }
         );
     });
@@ -890,6 +922,71 @@ fn test_query_matches_with_last_named_child() {
             void three() { f; g; h; i; }
             ",
             &[(0, vec![("last_id", "c")]), (0, vec![("last_id", "i")])],
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_negated_fields() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            "
+            (import_specifier
+                !alias
+                name: (identifier) @import_name)
+
+            (export_specifier
+                !alias
+                name: (identifier) @export_name)
+
+            (export_statement
+                !decorator
+                !source
+                (_) @exported)
+
+            ; This negated field list is an extension of a previous
+            ; negated field list. The order of the children and negated
+            ; fields doesn't matter.
+            (export_statement
+                !decorator
+                !source
+                (_) @exported_expr
+                !declaration)
+
+            ; This negated field list is a prefix of a previous
+            ; negated field list.
+            (export_statement
+                !decorator
+                (_) @export_child .)
+            ",
+        )
+        .unwrap();
+        assert_query_matches(
+            language,
+            &query,
+            "
+            import {a as b, c} from 'p1';
+            export {g, h as i} from 'p2';
+
+            @foo
+            export default 1;
+
+            export var j = 1;
+
+            export default k;
+            ",
+            &[
+                (0, vec![("import_name", "c")]),
+                (1, vec![("export_name", "g")]),
+                (4, vec![("export_child", "'p2'")]),
+                (2, vec![("exported", "var j = 1;")]),
+                (4, vec![("export_child", "var j = 1;")]),
+                (2, vec![("exported", "k")]),
+                (3, vec![("exported_expr", "k")]),
+                (4, vec![("export_child", "k")]),
+            ],
         );
     });
 }
