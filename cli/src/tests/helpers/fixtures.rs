@@ -74,3 +74,9 @@ pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> 
         .load_language_from_sources(name, &HEADER_DIR, &parser_c_path, &scanner_path)
         .unwrap()
 }
+
+pub fn get_test_grammar(name: &str) -> (String, Option<PathBuf>) {
+    let dir = fixtures_dir().join("test_grammars").join(name);
+    let grammar = fs::read_to_string(&dir.join("grammar.json")).unwrap();
+    (grammar, Some(dir))
+}
