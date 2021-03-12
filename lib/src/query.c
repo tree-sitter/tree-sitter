@@ -16,6 +16,7 @@
 #define MAX_STEP_CAPTURE_COUNT 3
 #define MAX_STATE_PREDECESSOR_COUNT 100
 #define MAX_ANALYSIS_STATE_DEPTH 12
+#define MAX_NEGATED_FIELD_COUNT 8
 
 /*
  * Stream - A sequence of unicode characters derived from a UTF8 string.
@@ -75,6 +76,7 @@ typedef struct {
   uint16_t capture_ids[MAX_STEP_CAPTURE_COUNT];
   uint16_t depth;
   uint16_t alternative_index;
+  uint16_t negated_field_list_id;
   bool contains_captures: 1;
   bool is_immediate: 1;
   bool is_last_child: 1;
@@ -239,6 +241,7 @@ struct TSQuery {
   Array(TSQueryPredicateStep) predicate_steps;
   Array(QueryPattern) patterns;
   Array(StepOffset) step_offsets;
+  Array(TSFieldId) negated_fields;
   Array(char) string_buffer;
   const TSLanguage *language;
   uint16_t wildcard_root_pattern_count;
@@ -480,6 +483,7 @@ static QueryStep query_step__new(
     .field = 0,
     .capture_ids = {NONE, NONE, NONE},
     .alternative_index = NONE,
+    .negated_field_list_id = 0,
     .contains_captures = false,
     .is_last_child = false,
     .is_pass_through = false,
@@ -1366,6 +1370,58 @@ static void ts_query__finalize_steps(TSQuery *self) {
   }
 }
 
+static void ts_query__add_negated_fields(
+  TSQuery *self,
+  uint16_t step_index,
+  TSFieldId *field_ids,
+  uint16_t field_count
+) {
+  QueryStep *step = &self->steps.contents[step_index];
+
+  // The negated field array stores a list of field lists, separated by zeros.
+  // Try to find the start index of an existing list that matches this new list.
+  bool failed_match = false;
+  unsigned match_count = 0;
+  unsigned start_i = 0;
+  for (unsigned i = 0; i < self->negated_fields.size; i++) {
+    TSFieldId existing_field_id = self->negated_fields.contents[i];
+
+    // At each zero value, terminate the match attempt. If we've exactly
+    // matched the new field list, then reuse this index. Otherwise,
+    // start over the matching process.
+    if (existing_field_id == 0) {
+      if (match_count == field_count) {
+        step->negated_field_list_id = start_i;
+        return;
+      } else {
+        start_i = i + 1;
+        match_count = 0;
+        failed_match = false;
+      }
+    }
+
+    // If the existing list matches our new list so far, then advance
+    // to the next element of the new list.
+    else if (
+      match_count < field_count &&
+      existing_field_id == field_ids[match_count] &&
+      !failed_match
+    ) {
+      match_count++;
+    }
+
+    // Otherwise, this existing list has failed to match.
+    else {
+      match_count = 0;
+      failed_match = true;
+    }
+  }
+
+  step->negated_field_list_id = self->negated_fields.size;
+  array_extend(&self->negated_fields, field_count, field_ids);
+  array_push(&self->negated_fields, 0);
+}
+
 static TSQueryError ts_query__parse_string_literal(
   TSQuery *self,
   Stream *stream
@@ -1716,7 +1772,39 @@ static TSQueryError ts_query__parse_pattern(
       // Parse the child patterns
       bool child_is_immediate = false;
       uint16_t last_child_step_index = 0;
+      uint16_t negated_field_count = 0;
+      TSFieldId negated_field_ids[MAX_NEGATED_FIELD_COUNT];
       for (;;) {
+        // Parse a negated field assertion
+        if (stream->next == '!') {
+          stream_advance(stream);
+          stream_skip_whitespace(stream);
+          if (!stream_is_ident_start(stream)) return TSQueryErrorSyntax;
+          const char *field_name = stream->input;
+          stream_scan_identifier(stream);
+          uint32_t length = stream->input - field_name;
+          stream_skip_whitespace(stream);
+
+          TSFieldId field_id = ts_language_field_id_for_name(
+            self->language,
+            field_name,
+            length
+          );
+          if (!field_id) {
+            stream->input = field_name;
+            return TSQueryErrorField;
+          }
+
+          // Keep the field ids sorted.
+          if (negated_field_count < MAX_NEGATED_FIELD_COUNT) {
+            negated_field_ids[negated_field_count] = field_id;
+            negated_field_count++;
+          }
+
+          continue;
+        }
+
+        // Parse a sibling anchor
         if (stream->next == '.') {
           child_is_immediate = true;
           stream_advance(stream);
@@ -1737,6 +1825,16 @@ static TSQueryError ts_query__parse_pattern(
             }
             self->steps.contents[last_child_step_index].is_last_child = true;
           }
+
+          if (negated_field_count) {
+            ts_query__add_negated_fields(
+              self,
+              starting_step_index,
+              negated_field_ids,
+              negated_field_count
+            );
+          }
+
           stream_advance(stream);
           break;
         } else if (e) {
@@ -1945,9 +2043,12 @@ TSQuery *ts_query_new(
     .patterns = array_new(),
     .step_offsets = array_new(),
     .string_buffer = array_new(),
+    .negated_fields = array_new(),
     .wildcard_root_pattern_count = 0,
     .language = language,
   };
+
+  array_push(&self->negated_fields, 0);
 
   // Parse all of the S-expressions in the given string.
   Stream stream = stream_new(source, source_len);
@@ -2033,6 +2134,7 @@ void ts_query_delete(TSQuery *self) {
     array_delete(&self->patterns);
     array_delete(&self->step_offsets);
     array_delete(&self->string_buffer);
+    array_delete(&self->negated_fields);
     symbol_table_delete(&self->captures);
     symbol_table_delete(&self->predicate_values);
     ts_free(self);
@@ -2697,6 +2799,22 @@ static inline bool ts_query_cursor__advance(
             }
           } else {
             node_does_match = false;
+          }
+        }
+
+        if (step->negated_field_list_id) {
+          TSFieldId *negated_field_ids = &self->query->negated_fields.contents[step->negated_field_list_id];
+          for (;;) {
+            TSFieldId negated_field_id = *negated_field_ids;
+            if (negated_field_id) {
+              negated_field_ids++;
+              if (ts_node_child_by_field_id(node, negated_field_id).id) {
+                node_does_match = false;
+                break;
+              }
+            } else {
+              break;
+            }
           }
         }
 
