@@ -31,9 +31,9 @@ typedef struct {
 
 /*
  * QueryStep - A step in the process of matching a query. Each node within
- * a query S-expression maps to one of these steps. An entire pattern is
- * represented as a sequence of these steps. Fields:
- *
+ * a query S-expression corresponds to one of these steps. An entire pattern
+ * is represented as a sequence of these steps. The basic properties of a
+ * node are represented by these fields:
  * - `symbol` - The grammar symbol to match. A zero value represents the
  *    wildcard symbol, '_'.
  * - `field` - The field name to match. A zero value means that a field name
@@ -42,16 +42,39 @@ typedef struct {
  *    associated with this node in the pattern, terminated by a `NONE` value.
  * - `depth` - The depth where this node occurs in the pattern. The root node
  *    of the pattern has depth zero.
- * - `alternative_index` - The index of a different query step that serves as
- *    an alternative to this step.
+ *
+ * For simple patterns, steps are matched in sequential order. But in order to
+ * handle alternative/repeated/optional sub-patterns, query steps are not always
+ * structured as a linear sequence; they sometimes need to split and merge. This
+ * is done using the following fields:
+ *  - `alternative_index` - The index of a different query step that serves as
+ *    an alternative to this step. A `NONE` value represents no alternative.
+ *    When a query state reaches a step with an alternative index, the state
+ *    is duplicated, with one copy remaining at the original step, and one copy
+ *    moving to the alternative step. The alternative may have its own alternative
+ *    step, so this splitting is an iterative process.
+ * - `is_dead_end` - Indication that this state cannot be passed directly, and
+ *    exists only in order to redirect to an alternative index, with no splitting.
+ * - `is_pass_through` - Indication that state has no matching logic of its own,
+ *    and exists only to split a state. One copy of the state advances immediately
+ *    to the next step, and one moves to the alternative step.
+ *
+ * Steps have some additional fields in order to handle the `.` (or "anchor") operator,
+ * which forbids additional child nodes:
+ * - `is_immediate` - Indication that the node matching this step cannot be preceded
+ *   by other sibling nodes that weren't specified in the pattern.
+ * - `is_last_child` - Indicates that the node matching this step cannot have any
+ *   subsequent named siblings.
+ *
+ *
  */
 typedef struct {
   TSSymbol symbol;
   TSSymbol supertype_symbol;
   TSFieldId field;
   uint16_t capture_ids[MAX_STEP_CAPTURE_COUNT];
-  uint16_t alternative_index;
   uint16_t depth;
+  uint16_t alternative_index;
   bool contains_captures: 1;
   bool is_immediate: 1;
   bool is_last_child: 1;
@@ -126,7 +149,7 @@ typedef struct {
  *    other states that have the same captures as this state, but are at
  *    different steps in their pattern. This means that in order to obey the
  *    'longest-match' rule, this state should not be returned as a match until
- *    it is clear that there can be no longer match.
+ *    it is clear that there can be no other alternative match with more captures.
  */
 typedef struct {
   uint32_t id;
@@ -144,10 +167,10 @@ typedef struct {
 typedef Array(TSQueryCapture) CaptureList;
 
 /*
- * CaptureListPool - A collection of *lists* of captures. Each QueryState
- * needs to maintain its own list of captures. To avoid repeated allocations,
- * the reuses a fixed set of capture lists, and keeps track of which ones
- * are currently in use.
+ * CaptureListPool - A collection of *lists* of captures. Each query state needs
+ * to maintain its own list of captures. To avoid repeated allocations, this struct
+ * maintains a fixed set of capture lists, and keeps track of which ones are
+ * currently in use by a query state.
  */
 typedef struct {
   CaptureList list[MAX_CAPTURE_LIST_COUNT];
@@ -196,6 +219,8 @@ typedef struct {
 
 /*
  * StatePredecessorMap - A map that stores the predecessors of each parse state.
+ * This is used during query analysis to determine which parse states can lead
+ * to which reduce actions.
  */
 typedef struct {
   TSStateId *contents;
