@@ -66,8 +66,6 @@ typedef struct {
  *   by other sibling nodes that weren't specified in the pattern.
  * - `is_last_child` - Indicates that the node matching this step cannot have any
  *   subsequent named siblings.
- *
- *
  */
 typedef struct {
   TSSymbol symbol;

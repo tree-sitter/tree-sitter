@@ -462,6 +462,16 @@ In general, it's a good idea to make patterns more specific by specifying [field
     object: (call_expression)))
 ```
 
+#### Negated Fields
+
+You can also constrain a pattern so that it only mathces nodes that *lack* a certain field. To do this, add a field name prefixed by a `!` within the parent pattern. For example, this pattern would match a class declaration with no type parameters:
+
+```
+(class_declaration
+  name: (identifier) @class_name
+  !type_parameters)
+```
+
 #### Anonymous Nodes
 
 The parenthesized syntax for writing nodes only applies to [named nodes](#named-vs-anonymous-nodes). To match specific anonymous nodes, you write their name between double quotes. For example, this pattern would match any `binary_expression` where the operator is `!=` and the right side is `null`:
@@ -584,7 +594,6 @@ For example, this pattern would match any node inside a call:
 ```
 (call (_) @call.inner)
 ```
-
 
 #### Anchors
 
