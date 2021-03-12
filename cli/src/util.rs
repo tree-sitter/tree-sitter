@@ -1,4 +1,4 @@
-use super::error::{Error, Result};
+use super::error::Result;
 use std::io;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -40,6 +40,7 @@ pub fn log_graphs(_parser: &mut Parser, _path: &str) -> Result<LogSession> {
 
 #[cfg(unix)]
 pub fn log_graphs(parser: &mut Parser, path: &str) -> Result<LogSession> {
+    use super::error::Error;
     use std::io::Write;
 
     let mut dot_file = std::fs::File::create(path)?;
