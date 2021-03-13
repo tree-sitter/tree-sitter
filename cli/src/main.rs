@@ -121,7 +121,7 @@ fn run() -> error::Result<()> {
                         .short("f")
                         .takes_value(true),
                 )
-                .arg(Arg::with_name("update").long("update").short("u"))
+                .arg(Arg::with_name("update").long("update").short("u").help("Update all syntax trees in corpus files with current parser output."))
                 .arg(Arg::with_name("debug").long("debug").short("d"))
                 .arg(Arg::with_name("debug-graph").long("debug-graph").short("D")),
         )
