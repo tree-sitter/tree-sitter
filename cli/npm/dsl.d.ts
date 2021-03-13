@@ -243,13 +243,13 @@ declare const prec: {
    * will prefer matching a rule that ends _earlier_. This works similarly to
    * associativity directives in Yacc grammars.
    *
-   * @param number (optional) precedence weight
+   * @param value (optional) precedence weight
    * @param rule rule to mark as left-associative
    *
    * @see https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html
    */
   left(rule: RuleOrLiteral): PrecLeftRule;
-  left(number: number, rule: RuleOrLiteral): PrecLeftRule;
+  left(value: String | number, rule: RuleOrLiteral): PrecLeftRule;
 
   /**
    * Marks the given rule as right-associative (and optionally applies a
@@ -259,13 +259,13 @@ declare const prec: {
    * will prefer matching a rule that ends _later_. This works similarly to
    * associativity directives in Yacc grammars.
    *
-   * @param number (optional) precedence weight
+   * @param value (optional) precedence weight
    * @param rule rule to mark as right-associative
    *
    * @see https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html
    */
   right(rule: RuleOrLiteral): PrecRightRule;
-  right(number: number, rule: RuleOrLiteral): PrecRightRule;
+  right(value: String | number, rule: RuleOrLiteral): PrecRightRule;
 
   /**
    * Marks the given rule with a numerical precedence which will be used to
@@ -277,12 +277,12 @@ declare const prec: {
    * rule, and selects the one with the highest total. This is similar to
    * dynamic precedence directives in Bison grammars.
    *
-   * @param number precedence weight
+   * @param value precedence weight
    * @param rule rule being weighted
    *
    * @see https://www.gnu.org/software/bison/manual/html_node/Generalized-LR-Parsing.html
    */
-  dynamic(number: number, rule: RuleOrLiteral): PrecDynamicRule;
+  dynamic(value: String | number, rule: RuleOrLiteral): PrecDynamicRule;
 };
 
 /**
