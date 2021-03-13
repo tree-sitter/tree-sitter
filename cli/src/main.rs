@@ -119,7 +119,8 @@ fn run() -> error::Result<()> {
                     Arg::with_name("filter")
                         .long("filter")
                         .short("f")
-                        .takes_value(true),
+                        .takes_value(true)
+                        .help("Only runs tests that include the string passed as argument."),
                 )
                 .arg(Arg::with_name("update").long("update").short("u").help("Update all syntax trees in corpus files with current parser output."))
                 .arg(Arg::with_name("debug").long("debug").short("d"))
