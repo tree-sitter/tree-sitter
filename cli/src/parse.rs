@@ -113,13 +113,9 @@ pub fn parse_file_at_path(
                     if is_named {
                         needs_newline = true;
                         stdout.write(b")")?;
-                    }
-                    if nodes_text_comment && node_text.len() == 0 {
-                        if is_named {
+                        if nodes_text_comment && node_text.len() == 0 {
                             s = format!("`{}`", node.utf8_text(&source_code).unwrap_or(""));
                             node_text = s.as_str();
-                        } else {
-                            node_text = node.kind();
                         }
                     }
                     if cursor.goto_next_sibling() {
