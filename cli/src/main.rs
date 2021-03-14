@@ -76,7 +76,12 @@ fn run() -> error::Result<()> {
                         .takes_value(true)
                         .multiple(true)
                         .number_of_values(1),
-                ),
+                )
+                .arg(
+                    Arg::with_name("nodes-text")
+                        .help("Show leaf nodes text as comments")
+                        .long("nodes-text").short("n"),
+                )
         )
         .subcommand(
             SubCommand::with_name("query")
@@ -255,6 +260,8 @@ fn run() -> error::Result<()> {
         let should_track_stats = matches.is_present("stat");
         let mut stats = parse::Stats::default();
 
+        let nodes_text_comment = matches.is_present("nodes-text");
+
         for path in paths {
             let path = Path::new(&path);
             let language =
@@ -271,6 +278,7 @@ fn run() -> error::Result<()> {
                 debug,
                 debug_graph,
                 debug_xml,
+                nodes_text_comment,
                 Some(&cancellation_flag),
             )?;
 

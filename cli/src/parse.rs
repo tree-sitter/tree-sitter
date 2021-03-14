@@ -1,5 +1,6 @@
 use super::error::{Error, Result};
 use super::util;
+use ansi_term::Colour;
 use std::io::{self, Write};
 use std::path::Path;
 use std::sync::atomic::AtomicUsize;
@@ -41,6 +42,7 @@ pub fn parse_file_at_path(
     debug: bool,
     debug_graph: bool,
     debug_xml: bool,
+    nodes_text_comment: bool,
     cancellation_flag: Option<&AtomicUsize>,
 ) -> Result<bool> {
     let mut _log_session = None;
@@ -102,6 +104,7 @@ pub fn parse_file_at_path(
             let mut did_visit_children = false;
             let mut node_text: &str = "";
             let mut s: String;
+            let c = Colour::RGB(0x76, 0x76, 0x76); // Gray 243 in 256 colors pallete
 
             loop {
                 let node = cursor.node();
@@ -111,7 +114,7 @@ pub fn parse_file_at_path(
                         needs_newline = true;
                         stdout.write(b")")?;
                     }
-                    if node_text.len() == 0 {
+                    if nodes_text_comment && node_text.len() == 0 {
                         if is_named {
                             s = format!("`{}`", node.utf8_text(&source_code).unwrap_or(""));
                             node_text = s.as_str();
@@ -130,11 +133,12 @@ pub fn parse_file_at_path(
                 } else {
                     if is_named {
                         if needs_newline {
-                            if node_text.len() > 0 {
+                            if nodes_text_comment && node_text.len() > 0 {
                                 write!(
                                     &mut stdout,
-                                    "  \x1b[38;5;242m; {}\x1b[0m",
-                                    str::replace(node_text, "\n", "\\n")
+                                    "  {} {}",
+                                    c.paint(";"),
+                                    c.paint(str::replace(node_text, "\n", "\\n")),
                                 )?;
                                 node_text = "";
                             }
