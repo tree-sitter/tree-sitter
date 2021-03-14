@@ -134,7 +134,7 @@ pub fn parse_file_at_path(
                                 write!(
                                     &mut stdout,
                                     "  \x1b[38;5;242m; {}\x1b[0m",
-                                    node_text
+                                    str::replace(node_text, "\n", "\\n")
                                 )?;
                                 node_text = "";
                             }
