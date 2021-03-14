@@ -100,13 +100,24 @@ pub fn parse_file_at_path(
             let mut needs_newline = false;
             let mut indent_level = 0;
             let mut did_visit_children = false;
+            let mut node_text: &str = "";
+            let mut s: String;
+
             loop {
                 let node = cursor.node();
                 let is_named = node.is_named();
                 if did_visit_children {
                     if is_named {
-                        stdout.write(b")")?;
                         needs_newline = true;
+                        stdout.write(b")")?;
+                    }
+                    if node_text.len() == 0 {
+                        if is_named {
+                            s = format!("`{}`", node.utf8_text(&source_code).unwrap_or(""));
+                            node_text = s.as_str();
+                        } else {
+                            node_text = node.kind();
+                        }
                     }
                     if cursor.goto_next_sibling() {
                         did_visit_children = false;
@@ -119,6 +130,14 @@ pub fn parse_file_at_path(
                 } else {
                     if is_named {
                         if needs_newline {
+                            if node_text.len() > 0 {
+                                write!(
+                                    &mut stdout,
+                                    "  \x1b[38;5;242m; {}\x1b[0m",
+                                    node_text
+                                )?;
+                                node_text = "";
+                            }
                             stdout.write(b"\n")?;
                         }
                         for _ in 0..indent_level {
