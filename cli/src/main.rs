@@ -78,9 +78,9 @@ fn run() -> error::Result<()> {
                         .number_of_values(1),
                 )
                 .arg(
-                    Arg::with_name("nodes-text")
+                    Arg::with_name("node-text-comments")
                         .help("Show leaf nodes text as comments")
-                        .long("nodes-text").short("n"),
+                        .long("node-text-comments").short("c"),
                 )
         )
         .subcommand(
@@ -260,7 +260,7 @@ fn run() -> error::Result<()> {
         let should_track_stats = matches.is_present("stat");
         let mut stats = parse::Stats::default();
 
-        let nodes_text_comment = matches.is_present("nodes-text");
+        let nodes_text_comments = matches.is_present("node-text-comments");
 
         for path in paths {
             let path = Path::new(&path);
@@ -278,7 +278,7 @@ fn run() -> error::Result<()> {
                 debug,
                 debug_graph,
                 debug_xml,
-                nodes_text_comment,
+                nodes_text_comments,
                 Some(&cancellation_flag),
             )?;
 

@@ -42,7 +42,7 @@ pub fn parse_file_at_path(
     debug: bool,
     debug_graph: bool,
     debug_xml: bool,
-    nodes_text_comment: bool,
+    nodes_text_comments: bool,
     cancellation_flag: Option<&AtomicUsize>,
 ) -> Result<bool> {
     let mut _log_session = None;
@@ -113,7 +113,7 @@ pub fn parse_file_at_path(
                     if is_named {
                         needs_newline = true;
                         stdout.write(b")")?;
-                        if nodes_text_comment && node_text.len() == 0 {
+                        if nodes_text_comments && node_text.len() == 0 {
                             s = format!("`{}`", node.utf8_text(&source_code).unwrap_or(""));
                             node_text = s.as_str();
                         }
@@ -129,7 +129,7 @@ pub fn parse_file_at_path(
                 } else {
                     if is_named {
                         if needs_newline {
-                            if nodes_text_comment && node_text.len() > 0 {
+                            if nodes_text_comments && node_text.len() > 0 {
                                 write!(
                                     &mut stdout,
                                     "  {} {}",
@@ -167,7 +167,7 @@ pub fn parse_file_at_path(
                     }
                 }
             }
-            if nodes_text_comment && node_text.len() > 0 {
+            if nodes_text_comments && node_text.len() > 0 {
                 write!(
                     &mut stdout,
                     "  {} {}",
