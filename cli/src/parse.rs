@@ -167,6 +167,14 @@ pub fn parse_file_at_path(
                     }
                 }
             }
+            if nodes_text_comment && node_text.len() > 0 {
+                write!(
+                    &mut stdout,
+                    "  {} {}",
+                    c.paint(";"),
+                    c.paint(str::replace(node_text, "\n", "\\n")),
+                )?;
+            }
             cursor.reset(tree.root_node());
             println!("");
         }
