@@ -105,5 +105,6 @@ if [[ "${mode}" == "debug" ]]; then
   )
   lldb "${test_binary}" -- $top_level_filter
 else
-  cargo test $test_flags --jobs 1 $top_level_filter -- --nocapture
+  [ -t 1 ] && color=always || color=never
+  cargo test $test_flags --jobs 1 $top_level_filter -- --nocapture --color "$color"
 fi
