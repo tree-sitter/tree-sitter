@@ -95,7 +95,7 @@ TSSymbolType ts_language_symbol_type(
   TSSymbol symbol
 ) {
   TSSymbolMetadata metadata = ts_language_symbol_metadata(self, symbol);
-  if (metadata.named) {
+  if (metadata.named && metadata.visible) {
     return TSSymbolTypeRegular;
   } else if (metadata.visible) {
     return TSSymbolTypeAnonymous;
