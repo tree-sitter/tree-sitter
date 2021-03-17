@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # vim:ts=2:sw=2:et
 
+shopts=$-
 set -Eeuo pipefail
 
 function usage {
@@ -96,6 +97,23 @@ if [[ \
   -n "$TREE_SITTER_TEST_TRIAL_FILTER" \
 ]]; then
   : ${top_level_filter:=corpus}
+fi
+
+# Allow to source this script to just set
+# shell environment variables and use `cargo test` directly
+if [ "$0" != "$BASH_SOURCE" ]; then
+    eval set +${-//[is]/}
+    eval set -${shopts//[is]/}
+    cargo() {
+      case "$1" in
+        t|test)
+            command cargo test $test_flags "${@:2}"
+            ;;
+        *)  command cargo "$@"
+            ;;
+      esac
+    }
+    return
 fi
 
 if [[ "${mode}" == "debug" ]]; then
