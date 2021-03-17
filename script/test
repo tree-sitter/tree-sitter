@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
+# vim:ts=2:sw=2:et
 
-set -e
+set -Eeuo pipefail
 
 function usage {
   cat <<-EOF
@@ -37,6 +38,9 @@ export RUST_BACKTRACE=full
 mode=normal
 test_flags="-p tree-sitter-cli"
 
+TREE_SITTER_TEST_LANGUAGE_FILTER=
+TREE_SITTER_TEST_EXAMPLE_FILTER=
+TREE_SITTER_TEST_TRIAL_FILTER=
 
 while getopts "adDghl:e:s:t:" option; do
   case ${option} in
@@ -53,10 +57,10 @@ while getopts "adDghl:e:s:t:" option; do
       if [[ $toolchain =~ $toolchain_regex ]]; then
         release=${BASH_REMATCH[1]}
         current_target=${BASH_REMATCH[2]}
+        test_flags="${test_flags} --target ${current_target}"
       else
         echo "Failed to parse toolchain '${toolchain}'"
       fi
-      test_flags="${test_flags} --target ${current_target}"
       ;;
     l)
       export TREE_SITTER_TEST_LANGUAGE_FILTER=${OPTARG}
@@ -84,12 +88,12 @@ done
 
 shift $(expr $OPTIND - 1)
 
-top_level_filter=$1
+top_level_filter=${1-}
 
 if [[ \
-  -n $TREE_SITTER_TEST_LANGUAGE_FILTER || \
-  -n $TREE_SITTER_TEST_EXAMPLE_FILTER || \
-  -n $TREE_SITTER_TEST_TRIAL_FILTER \
+  -n "$TREE_SITTER_TEST_LANGUAGE_FILTER" || \
+  -n "$TREE_SITTER_TEST_EXAMPLE_FILTER" || \
+  -n "$TREE_SITTER_TEST_TRIAL_FILTER" \
 ]]; then
   : ${top_level_filter:=corpus}
 fi
