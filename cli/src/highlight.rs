@@ -438,6 +438,7 @@ mod tests {
         assert_eq!(style.css, None);
 
         // darkcyan is an ANSI color and is preserved
+        env::set_var("COLORTERM", "");
         parse_style(&mut style, Value::String(DARK_CYAN.to_string()));
         assert_eq!(style.ansi.foreground, Some(Color::Fixed(36)));
         assert_eq!(style.css, Some("style=\'color: #0af87\'".to_string()));
