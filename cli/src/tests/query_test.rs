@@ -4,7 +4,7 @@ use std::env;
 use std::fmt::Write;
 use tree_sitter::{
     allocations, Language, Node, Parser, Query, QueryCapture, QueryCursor, QueryError,
-    QueryErrorKind, QueryMatch, QueryPredicate, QueryPredicateArg, QueryProperty,
+    QueryErrorKind, QueryMatch, QueryPredicate, QueryPredicateArg, QueryProperty, Point,
 };
 
 lazy_static! {
@@ -1741,6 +1741,21 @@ fn test_query_matches_within_byte_range() {
         let tree = parser.parse(&source, None).unwrap();
 
         let mut cursor = QueryCursor::new();
+
+        let matches =
+            cursor
+                .set_byte_range(0, 8)
+                .matches(&query, tree.root_node(), to_callback(source));
+
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[
+                (0, vec![("element", "a")]),
+                (0, vec![("element", "b")]),
+                (0, vec![("element", "c")]),
+            ]
+        );
+
         let matches =
             cursor
                 .set_byte_range(5, 15)
@@ -1752,6 +1767,78 @@ fn test_query_matches_within_byte_range() {
                 (0, vec![("element", "c")]),
                 (0, vec![("element", "d")]),
                 (0, vec![("element", "e")]),
+            ]
+        );
+
+        let matches =
+            cursor
+                .set_byte_range(12, 0)
+                .matches(&query, tree.root_node(), to_callback(source));
+
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[
+                (0, vec![("element", "e")]),
+                (0, vec![("element", "f")]),
+                (0, vec![("element", "g")]),
+            ]
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_within_point_range() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(language, "(identifier) @element").unwrap();
+
+        let source = "[a, b,\n c, d,\n e, f,\n g]";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+
+        let mut cursor = QueryCursor::new();
+
+        let matches =
+            cursor
+                .set_point_range(Point::new(0, 0), Point::new(1, 3))
+                .matches(&query, tree.root_node(), to_callback(source));
+
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[
+                (0, vec![("element", "a")]),
+                (0, vec![("element", "b")]),
+                (0, vec![("element", "c")]),
+            ]
+        );
+
+        let matches =
+            cursor
+                .set_point_range(Point::new(1, 0), Point::new(2, 3))
+                .matches(&query, tree.root_node(), to_callback(source));
+
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[
+                (0, vec![("element", "c")]),
+                (0, vec![("element", "d")]),
+                (0, vec![("element", "e")]),
+            ]
+        );
+
+        let matches =
+            cursor
+                .set_point_range(Point::new(2, 1), Point::new(0, 0))
+                .matches(&query, tree.root_node(), to_callback(source));
+
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[
+                (0, vec![("element", "e")]),
+                (0, vec![("element", "f")]),
+                (0, vec![("element", "g")]),
             ]
         );
     });

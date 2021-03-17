@@ -2294,7 +2294,6 @@ void ts_query_cursor_set_byte_range(
   uint32_t end_byte
 ) {
   if (end_byte == 0) {
-    start_byte = 0;
     end_byte = UINT32_MAX;
   }
   self->start_byte = start_byte;
@@ -2307,7 +2306,6 @@ void ts_query_cursor_set_point_range(
   TSPoint end_point
 ) {
   if (end_point.row == 0 && end_point.column == 0) {
-    start_point = POINT_ZERO;
     end_point = POINT_MAX;
   }
   self->start_point = start_point;
