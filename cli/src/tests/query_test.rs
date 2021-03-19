@@ -3,8 +3,8 @@ use lazy_static::lazy_static;
 use std::env;
 use std::fmt::Write;
 use tree_sitter::{
-    allocations, Language, Node, Parser, Query, QueryCapture, QueryCursor, QueryError,
-    QueryErrorKind, QueryMatch, QueryPredicate, QueryPredicateArg, QueryProperty, Point,
+    allocations, Language, Node, Parser, Point, Query, QueryCapture, QueryCursor, QueryError,
+    QueryErrorKind, QueryMatch, QueryPredicate, QueryPredicateArg, QueryProperty,
 };
 
 lazy_static! {
@@ -1110,15 +1110,7 @@ fn test_query_matches_with_top_level_repetitions() {
 fn test_query_matches_with_non_terminal_repetitions_within_root() {
     allocations::record(|| {
         let language = get_language("javascript");
-        let query = Query::new(
-            language,
-            r#"
-            (_
-                (expression_statement
-                  (identifier) @id)+)
-            "#,
-        )
-        .unwrap();
+        let query = Query::new(language, "(_ (expression_statement (identifier) @id)+)").unwrap();
 
         assert_query_matches(
             language,
@@ -1212,6 +1204,34 @@ fn test_query_matches_with_multiple_repetition_patterns_that_intersect_other_pat
                     vec![("ref.method", source.as_str()), ("name", "theMethod")],
                 )])
                 .collect::<Vec<_>>(),
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_trailing_repetitions_of_last_child() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+
+        let query = Query::new(
+            language,
+            "
+            (unary_expression (primary_expression)+ @operand)
+            ",
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            "
+            a = typeof (!b && ~c);
+            ",
+            &[
+                (0, vec![("operand", "b")]),
+                (0, vec![("operand", "c")]),
+                (0, vec![("operand", "(!b && ~c)")]),
+            ],
         );
     });
 }
@@ -1800,10 +1820,9 @@ fn test_query_matches_within_point_range() {
 
         let mut cursor = QueryCursor::new();
 
-        let matches =
-            cursor
-                .set_point_range(Point::new(0, 0), Point::new(1, 3))
-                .matches(&query, tree.root_node(), to_callback(source));
+        let matches = cursor
+            .set_point_range(Point::new(0, 0), Point::new(1, 3))
+            .matches(&query, tree.root_node(), to_callback(source));
 
         assert_eq!(
             collect_matches(matches, &query, source),
@@ -1814,10 +1833,9 @@ fn test_query_matches_within_point_range() {
             ]
         );
 
-        let matches =
-            cursor
-                .set_point_range(Point::new(1, 0), Point::new(2, 3))
-                .matches(&query, tree.root_node(), to_callback(source));
+        let matches = cursor
+            .set_point_range(Point::new(1, 0), Point::new(2, 3))
+            .matches(&query, tree.root_node(), to_callback(source));
 
         assert_eq!(
             collect_matches(matches, &query, source),
@@ -1828,10 +1846,9 @@ fn test_query_matches_within_point_range() {
             ]
         );
 
-        let matches =
-            cursor
-                .set_point_range(Point::new(2, 1), Point::new(0, 0))
-                .matches(&query, tree.root_node(), to_callback(source));
+        let matches = cursor
+            .set_point_range(Point::new(2, 1), Point::new(0, 0))
+            .matches(&query, tree.root_node(), to_callback(source));
 
         assert_eq!(
             collect_matches(matches, &query, source),

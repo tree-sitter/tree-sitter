@@ -909,7 +909,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
 
   // For each non-terminal pattern, determine if the pattern can successfully match,
   // and identify all of the possible children within the pattern where matching could fail.
-  bool result = true;
+  bool all_patterns_are_valid = true;
   AnalysisStateSet states = array_new();
   AnalysisStateSet next_states = array_new();
   AnalysisStateSet deeper_states = array_new();
@@ -930,7 +930,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
       array_search_sorted_by(&self->step_offsets, .step_index, first_child_step_index, &i, &exists);
       assert(exists);
       *error_offset = self->step_offsets.contents[i].byte_offset;
-      result = false;
+      all_patterns_are_valid = false;
       break;
     }
 
@@ -1097,6 +1097,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
               }
             }
 
+            // Create a new state that has advanced past this hypothetical subtree.
             AnalysisState next_state = *state;
             analysis_state__top(&next_state)->child_index++;
             analysis_state__top(&next_state)->parse_state = successor.state;
@@ -1165,8 +1166,18 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
             }
 
             for (;;) {
-              // If this state can make further progress, then add it to the states for the next iteration.
-              // Otherwise, record the fact that matching can fail at this step of the pattern.
+              // Skip pass-through states. Although these states have alternatives, they are only
+              // used to implement repetitions, and query analysis does not need to process
+              // repetitions in order to determine whether steps are possible and definite.
+              if (next_step->is_pass_through) {
+                next_state.step_index++;
+                next_step++;
+                continue;
+              }
+
+              // If the pattern is finished or hypothetical parent node is complete, then
+              // record that matching can terminate at this step of the pattern. Otherwise,
+              // add this state to the list of states to process on the next iteration.
               if (!next_step->is_dead_end) {
                 bool did_finish_pattern = self->steps.contents[next_state.step_index].depth != parent_depth + 1;
                 if (did_finish_pattern) can_finish_pattern = true;
@@ -1177,8 +1188,10 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
                 }
               }
 
-              // If the state has advanced to a step with an alternative step, then add another state at
-              // that alternative step to the next iteration.
+              // If the state has advanced to a step with an alternative step, then add another state
+              // at that alternative step. This process is simpler than the process of actually matching a
+              // pattern during query exection, because for the purposes of query analysis, there is no
+              // need to process repetitions.
               if (
                 does_match &&
                 next_step->alternative_index != NONE &&
@@ -1228,14 +1241,14 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
 
     // If this pattern cannot match, store the pattern index so that it can be
     // returned to the caller.
-    if (result && !can_finish_pattern && !did_exceed_max_depth) {
+    if (all_patterns_are_valid && !can_finish_pattern && !did_exceed_max_depth) {
       assert(final_step_indices.size > 0);
       uint16_t impossible_step_index = *array_back(&final_step_indices);
       uint32_t i, exists;
       array_search_sorted_by(&self->step_offsets, .step_index, impossible_step_index, &i, &exists);
-      assert(exists);
+      if (i >= self->step_offsets.size) i = self->step_offsets.size - 1;
       *error_offset = self->step_offsets.contents[i].byte_offset;
-      result = false;
+      all_patterns_are_valid = false;
       break;
     }
   }
@@ -1348,7 +1361,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   array_delete(&predicate_capture_ids);
   state_predecessor_map_delete(&predecessor_map);
 
-  return result;
+  return all_patterns_are_valid;
 }
 
 static void ts_query__finalize_steps(TSQuery *self) {
@@ -1941,8 +1954,6 @@ static TSQueryError ts_query__parse_pattern(
 
   // Parse suffixes modifiers for this pattern
   for (;;) {
-    QueryStep *step = &self->steps.contents[starting_step_index];
-
     // Parse the one-or-more operator.
     if (stream->next == '+') {
       stream_advance(stream);
@@ -1966,6 +1977,7 @@ static TSQueryError ts_query__parse_pattern(
       repeat_step.alternative_is_immediate = true;
       array_push(&self->steps, repeat_step);
 
+      QueryStep *step = &self->steps.contents[starting_step_index];
       while (step->alternative_index != NONE) {
         step = &self->steps.contents[step->alternative_index];
       }
@@ -1977,6 +1989,7 @@ static TSQueryError ts_query__parse_pattern(
       stream_advance(stream);
       stream_skip_whitespace(stream);
 
+      QueryStep *step = &self->steps.contents[starting_step_index];
       while (step->alternative_index != NONE) {
         step = &self->steps.contents[step->alternative_index];
       }
@@ -2001,6 +2014,7 @@ static TSQueryError ts_query__parse_pattern(
 
       uint32_t step_index = starting_step_index;
       for (;;) {
+        QueryStep *step = &self->steps.contents[step_index];
         query_step__add_capture(step, capture_id);
         if (
           step->alternative_index != NONE &&
