@@ -11,14 +11,8 @@ fetch_grammar() {
   echo "Updating ${grammar} grammar..."
 
   if [ ! -d $grammar_dir ]; then
-    git clone $grammar_url $grammar_dir --depth=1
+    git clone -b $ref $grammar_url $grammar_dir --depth=1
   fi
-
-  (
-    cd $grammar_dir
-    git fetch origin $ref --depth=1
-    git reset --hard FETCH_HEAD
-  )
 }
 
 fetch_grammar bash              master
