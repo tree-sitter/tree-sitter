@@ -2756,8 +2756,9 @@ static inline bool ts_query_cursor__advance(
         do {
           // If this node matches the first step of the pattern, then add a new
           // state at the start of this pattern.
-          if (step->field && field_id != step->field) continue;
-          ts_query_cursor__add_state(self, pattern);
+          if (!step->field || field_id == step->field) {
+            ts_query_cursor__add_state(self, pattern);
+          }
 
           // Advance to the next pattern whose root node matches this node.
           i++;

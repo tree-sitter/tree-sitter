@@ -992,6 +992,24 @@ fn test_query_matches_with_negated_fields() {
 }
 
 #[test]
+fn test_query_matches_with_field_at_root() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(language, "name: (identifier) @name").unwrap();
+        assert_query_matches(
+            language,
+            &query,
+            "
+            a();
+            function b() {}
+            class c extends d {}
+            ",
+            &[(0, vec![("name", "b")]), (0, vec![("name", "c")])],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_repeated_leaf_nodes() {
     allocations::record(|| {
         let language = get_language("javascript");
