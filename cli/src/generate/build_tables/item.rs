@@ -290,6 +290,7 @@ impl<'a> Hash for ParseItem<'a> {
         hasher.write_u32(self.step_index);
         hasher.write_i32(self.production.dynamic_precedence);
         hasher.write_usize(self.production.steps.len());
+        hasher.write_i32(self.has_preceding_inherited_fields as i32);
         self.precedence().hash(hasher);
         self.associativity().hash(hasher);
 
