@@ -21,6 +21,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Python](https://github.com/tree-sitter/py-tree-sitter)
 * [Ruby](https://github.com/tree-sitter/ruby-tree-sitter)
 * [Haskell](https://github.com/tree-sitter/haskell-tree-sitter)
+* [OCaml](https://github.com/returntocorp/ocaml-tree-sitter/)
 
 ### Available Parsers
 
