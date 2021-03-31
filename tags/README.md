@@ -1,13 +1,14 @@
-Tree-sitter Tags
-=========================
+# `tree-sitter-tags`
 
 ### Usage
 
-Compile some languages into your app, and declare them:
+Add this crate, and the language-specific crates for whichever languages you want to parse, to your `Cargo.toml`:
 
-```rust
-extern "C" tree_sitter_python();
-extern "C" tree_sitter_javascript();
+```toml
+[dependencies]
+tree-sitter-tags = "0.19"
+tree-sitter-javascript = "0.19"
+tree-sitter-python = "0.19"
 ```
 
 Create a tag context. You need one of these for each thread that you're using for tag computation:
@@ -21,34 +22,28 @@ let context = TagsContext::new();
 Load some tagging queries from the `queries` directory of some language repositories:
 
 ```rust
-use tree_sitter_highlight::TagsConfiguration;
+use tree_sitter_tags::TagsConfiguration;
 
-let python_language = unsafe { tree_sitter_python() };
-let javascript_language = unsafe { tree_sitter_javascript() };
-
-let python_config = HighlightConfiguration::new(
-    python_language,
-    &fs::read_to_string("./tree-sitter-python/queries/tags.scm").unwrap(),
-    &fs::read_to_string("./tree-sitter-python/queries/locals.scm").unwrap(),
+let python_config = TagsConfiguration::new(
+    tree_sitter_python::language(),
+    tree_sitter_python::TAGGING_QUERY,
+    "",
 ).unwrap();
 
-let javascript_config = HighlightConfiguration::new(
-    javascript_language,
-    &fs::read_to_string("./tree-sitter-javascript/queries/tags.scm").unwrap(),
-    &fs::read_to_string("./tree-sitter-javascript/queries/locals.scm").unwrap(),
+let javascript_config = TagsConfiguration::new(
+    tree_sitter_javascript::language(),
+    tree_sitter_javascript::TAGGING_QUERY,
+    tree_sitter_javascript::LOCALS_QUERY,
 ).unwrap();
 ```
 
 Compute code navigation tags for some source code:
 
 ```rust
-use tree_sitter_highlight::HighlightEvent;
-
 let tags = context.generate_tags(
     &javascript_config,
     b"class A { getB() { return c(); } }",
     None,
-    |_| None
 );
 
 for tag in tags {

@@ -1,5 +1,4 @@
-Tree-sitter Highlight
-=========================
+# `tree-sitter-highlight`
 
 [![Build Status](https://travis-ci.org/tree-sitter/tree-sitter.svg?branch=master)](https://travis-ci.org/tree-sitter/tree-sitter)
 [![Build status](https://ci.appveyor.com/api/projects/status/vtmbd6i92e97l55w/branch/master?svg=true)](https://ci.appveyor.com/project/maxbrunsfeld/tree-sitter/branch/master)
@@ -7,11 +6,13 @@ Tree-sitter Highlight
 
 ### Usage
 
-Compile some languages into your app, and declare them:
+Add this crate, and the language-specific crates for whichever languages you want to parse, to your `Cargo.toml`:
 
-```rust
-extern "C" tree_sitter_html();
-extern "C" tree_sitter_javascript();
+```toml
+[dependencies]
+tree-sitter-highlight = "0.19"
+tree-sitter-html = "0.19"
+tree-sitter-javascript = "0.19"
 ```
 
 Define the list of highlight names that you will recognize:
@@ -60,17 +61,17 @@ let html_language = unsafe { tree_sitter_html() };
 let javascript_language = unsafe { tree_sitter_javascript() };
 
 let html_config = HighlightConfiguration::new(
-    html_language,
-    &fs::read_to_string("./tree-sitter-html/queries/highlights.scm").unwrap(),
-    &fs::read_to_string("./tree-sitter-html/queries/injections.scm").unwrap(),
+    tree_sitter_html::language(),
+    tree_sitter_html::HIGHLIGHTS_QUERY,
+    tree_sitter_html::INJECTIONS_QUERY,
     "",
 ).unwrap();
 
 let javascript_config = HighlightConfiguration::new(
-    javascript_language,
-    &fs::read_to_string("./tree-sitter-javascript/queries/highlights.scm").unwrap(),
-    &fs::read_to_string("./tree-sitter-javascript/queries/injections.scm").unwrap(),
-    &fs::read_to_string("./tree-sitter-javascript/queries/locals.scm").unwrap(),
+    tree_sitter_javascript::language(),
+    tree_sitter_javascript::HIGHLIGHTS_QUERY,
+    tree_sitter_javascript::INJECTIONS_QUERY,
+    tree_sitter_javascript::LCOALS_QUERY,
 ).unwrap();
 ```
 
