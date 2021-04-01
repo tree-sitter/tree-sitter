@@ -1,0 +1,32 @@
+name: Publish on crates.io
+
+on:
+  push:
+    tags:
+      - v*
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  publish:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Publish lib
+        uses: katyo/publish-crates@v1
+        with:
+          path: './lib'
+          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
