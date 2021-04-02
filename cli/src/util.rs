@@ -44,7 +44,7 @@ pub fn log_graphs(parser: &mut Parser, path: &str) -> Result<LogSession> {
     use std::io::Write;
 
     let mut dot_file = std::fs::File::create(path)?;
-    dot_file.write(HTML_HEADER)?;
+    dot_file.write_all(HTML_HEADER)?;
     let mut dot_process = Command::new("dot")
         .arg("-Tsvg")
         .stdin(Stdio::piped())

@@ -168,9 +168,9 @@ fn parse_rule(json: RuleJSON) -> Rule {
     }
 }
 
-impl Into<Precedence> for PrecedenceValueJSON {
-    fn into(self) -> Precedence {
-        match self {
+impl From<PrecedenceValueJSON> for Precedence {
+    fn from(prec: PrecedenceValueJSON) -> Self {
+        match prec {
             PrecedenceValueJSON::Integer(i) => Precedence::Integer(i),
             PrecedenceValueJSON::Name(i) => Precedence::Name(i),
         }

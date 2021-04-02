@@ -22,7 +22,7 @@ use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Stdio};
 
 lazy_static! {
@@ -38,7 +38,7 @@ struct GeneratedParser {
 }
 
 pub fn generate_parser_in_directory(
-    repo_path: &PathBuf,
+    repo_path: &Path,
     grammar_path: Option<&str>,
     next_abi: bool,
     generate_bindings: bool,
@@ -116,7 +116,7 @@ pub fn generate_parser_for_grammar(grammar_json: &str) -> Result<(String, String
 }
 
 fn generate_parser_for_grammar_with_opts(
-    name: &String,
+    name: &str,
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
     inlines: InlinedProductionMap,
@@ -182,7 +182,7 @@ fn load_js_grammar_file(grammar_path: &Path) -> Result<String> {
         .expect("Failed to open stdin for node");
     let javascript_code = include_bytes!("./dsl.js");
     node_stdin
-        .write(javascript_code)
+        .write_all(javascript_code)
         .expect("Failed to write to node's stdin");
     drop(node_stdin);
     let output = node_process

@@ -10,13 +10,13 @@ use tree_sitter_cli::{
     util, wasm, web_ui,
 };
 
-const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const BUILD_VERSION: &str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
 
 fn main() {
     if let Err(e) = run() {
         if !e.message().is_empty() {
-            println!("");
+            println!();
             eprintln!("{}", e.message());
         }
         exit(1);
@@ -122,7 +122,12 @@ fn run() -> error::Result<()> {
                         .takes_value(true)
                         .help("Only run corpus test cases whose name includes the given string"),
                 )
-                .arg(Arg::with_name("update").long("update").short("u").help("Update all syntax trees in corpus files with current parser output"))
+                .arg(
+                    Arg::with_name("update")
+                        .long("update")
+                        .short("u")
+                        .help("Update all syntax trees in corpus files with current parser output"),
+                )
                 .arg(Arg::with_name("debug").long("debug").short("d"))
                 .arg(Arg::with_name("debug-graph").long("debug-graph").short("D")),
         )
@@ -303,7 +308,7 @@ fn run() -> error::Result<()> {
         )?;
         let query_path = Path::new(matches.value_of("query-path").unwrap());
         let range = matches.value_of("byte-range").map(|br| {
-            let r: Vec<&str> = br.split(":").collect();
+            let r: Vec<&str> = br.split(':').collect();
             (r[0].parse().unwrap(), r[1].parse().unwrap())
         });
         let should_test = matches.is_present("test");
@@ -442,18 +447,16 @@ fn collect_paths<'a>(
         let mut incorporate_path = |path: &str, positive| {
             if positive {
                 result.push(path.to_string());
-            } else {
-                if let Some(index) = result.iter().position(|p| p == path) {
-                    result.remove(index);
-                }
+            } else if let Some(index) = result.iter().position(|p| p == path) {
+                result.remove(index);
             }
         };
 
         for mut path in paths {
             let mut positive = true;
-            if path.starts_with("!") {
+            if path.starts_with('!') {
                 positive = false;
-                path = path.trim_start_matches("!");
+                path = path.trim_start_matches('!');
             }
 
             if Path::new(path).exists() {

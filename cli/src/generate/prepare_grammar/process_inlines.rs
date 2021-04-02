@@ -17,7 +17,7 @@ struct InlinedProductionMapBuilder {
 }
 
 impl InlinedProductionMapBuilder {
-    fn build<'a>(mut self, grammar: &'a SyntaxGrammar) -> InlinedProductionMap {
+    fn build(mut self, grammar: &SyntaxGrammar) -> InlinedProductionMap {
         let mut step_ids_to_process = Vec::new();
         for (variable_index, variable) in grammar.variables.iter().enumerate() {
             for production_index in 0..variable.productions.len() {
@@ -34,7 +34,7 @@ impl InlinedProductionMapBuilder {
                             if grammar.variables_to_inline.contains(&step.symbol) {
                                 let inlined_step_ids = self
                                     .inline_production_at_step(step_id, grammar)
-                                    .into_iter()
+                                    .iter()
                                     .cloned()
                                     .map(|production_index| ProductionStepId {
                                         variable_index: None,
@@ -89,7 +89,7 @@ impl InlinedProductionMapBuilder {
         let mut productions_to_add = vec![self.production_for_id(step_id, grammar).clone()];
         while i < productions_to_add.len() {
             if let Some(step) = productions_to_add[i].steps.get(step_index) {
-                let symbol = step.symbol.clone();
+                let symbol = step.symbol;
                 if grammar.variables_to_inline.contains(&symbol) {
                     // Remove the production from the vector, replacing it with a placeholder.
                     let production = productions_to_add

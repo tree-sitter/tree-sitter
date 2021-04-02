@@ -57,7 +57,7 @@ impl<'a> Minimizer<'a> {
         for (i, state) in self.parse_table.states.iter().enumerate() {
             let mut only_unit_reductions = true;
             let mut unit_reduction_symbol = None;
-            for (_, entry) in &state.terminal_entries {
+            for entry in state.terminal_entries.values() {
                 for action in &entry.actions {
                     match action {
                         ParseAction::ShiftExtra => continue,
@@ -198,7 +198,7 @@ impl<'a> Minimizer<'a> {
         &self,
         left_state: &ParseState,
         right_state: &ParseState,
-        group_ids_by_state_id: &Vec<ParseStateId>,
+        group_ids_by_state_id: &[ParseStateId],
     ) -> bool {
         for (token, left_entry) in &left_state.terminal_entries {
             if let Some(right_entry) = right_state.terminal_entries.get(token) {
@@ -223,15 +223,15 @@ impl<'a> Minimizer<'a> {
         }
 
         for token in right_state.terminal_entries.keys() {
-            if !left_state.terminal_entries.contains_key(token) {
-                if self.token_conflicts(
+            if !left_state.terminal_entries.contains_key(token)
+                && self.token_conflicts(
                     left_state.id,
                     right_state.id,
                     left_state.terminal_entries.keys(),
                     *token,
-                ) {
-                    return true;
-                }
+                )
+            {
+                return true;
             }
         }
 
@@ -242,7 +242,7 @@ impl<'a> Minimizer<'a> {
         &self,
         state1: &ParseState,
         state2: &ParseState,
-        group_ids_by_state_id: &Vec<ParseStateId>,
+        group_ids_by_state_id: &[ParseStateId],
     ) -> bool {
         for (token, entry1) in &state1.terminal_entries {
             if let ParseAction::Shift { state: s1, .. } = entry1.actions.last().unwrap() {
@@ -300,7 +300,7 @@ impl<'a> Minimizer<'a> {
         token: &Symbol,
         entry1: &ParseTableEntry,
         entry2: &ParseTableEntry,
-        group_ids_by_state_id: &Vec<ParseStateId>,
+        group_ids_by_state_id: &[ParseStateId],
     ) -> bool {
         // To be compatible, entries need to have the same actions.
         let actions1 = &entry1.actions;
@@ -405,27 +405,26 @@ impl<'a> Minimizer<'a> {
 
         // Do not add a token if it conflicts with an existing token.
         for token in existing_tokens {
-            if token.is_terminal() {
-                if !(self.syntax_grammar.word_token == Some(*token)
+            if token.is_terminal()
+                && !(self.syntax_grammar.word_token == Some(*token)
                     && self.keywords.contains(&new_token))
-                    && !(self.syntax_grammar.word_token == Some(new_token)
-                        && self.keywords.contains(token))
-                    && (self
+                && !(self.syntax_grammar.word_token == Some(new_token)
+                    && self.keywords.contains(token))
+                && (self
+                    .token_conflict_map
+                    .does_conflict(new_token.index, token.index)
+                    || self
                         .token_conflict_map
-                        .does_conflict(new_token.index, token.index)
-                        || self
-                            .token_conflict_map
-                            .does_match_same_string(new_token.index, token.index))
-                {
-                    info!(
-                        "split states {} {} - token {} conflicts with {}",
-                        left_id,
-                        right_id,
-                        self.symbol_name(&new_token),
-                        self.symbol_name(token),
-                    );
-                    return true;
-                }
+                        .does_match_same_string(new_token.index, token.index))
+            {
+                info!(
+                    "split states {} {} - token {} conflicts with {}",
+                    left_id,
+                    right_id,
+                    self.symbol_name(&new_token),
+                    self.symbol_name(token),
+                );
+                return true;
             }
         }
 
@@ -479,7 +478,7 @@ impl<'a> Minimizer<'a> {
     fn reorder_states_by_descending_size(&mut self) {
         // Get a mapping of old state index -> new_state_index
         let mut old_ids_by_new_id = (0..self.parse_table.states.len()).collect::<Vec<_>>();
-        &old_ids_by_new_id.sort_unstable_by_key(|i| {
+        old_ids_by_new_id.sort_unstable_by_key(|i| {
             // Don't changes states 0 (the error state) or 1 (the start state).
             if *i <= 1 {
                 return *i as i64 - 1_000_000;

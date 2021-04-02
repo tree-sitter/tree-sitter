@@ -261,7 +261,7 @@ impl TokenSet {
         }
     }
 
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = Symbol> + 'a {
+    pub fn iter(&self) -> impl Iterator<Item = Symbol> + '_ {
         self.terminal_bits
             .iter()
             .enumerate()
@@ -292,7 +292,7 @@ impl TokenSet {
             })
     }
 
-    pub fn terminals<'a>(&'a self) -> impl Iterator<Item = Symbol> + 'a {
+    pub fn terminals(&self) -> impl Iterator<Item = Symbol> + '_ {
         self.terminal_bits
             .iter()
             .enumerate()
@@ -361,11 +361,9 @@ impl TokenSet {
                 };
             }
         };
-        if other.index < vec.len() {
-            if vec[other.index] {
-                vec.set(other.index, false);
-                return true;
-            }
+        if other.index < vec.len() && vec[other.index] {
+            vec.set(other.index, false);
+            return true;
         }
         false
     }

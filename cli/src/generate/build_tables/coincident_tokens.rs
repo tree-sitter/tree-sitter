@@ -53,20 +53,20 @@ impl<'a> CoincidentTokenIndex<'a> {
 
 impl<'a> fmt::Debug for CoincidentTokenIndex<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "CoincidentTokenIndex {{\n")?;
+        writeln!(f, "CoincidentTokenIndex {{")?;
 
-        write!(f, "  entries: {{\n")?;
+        writeln!(f, "  entries: {{")?;
         for i in 0..self.n {
-            write!(f, "    {}: {{\n", self.grammar.variables[i].name)?;
+            writeln!(f, "    {}: {{", self.grammar.variables[i].name)?;
             for j in 0..self.n {
-                write!(
+                writeln!(
                     f,
-                    "      {}: {:?},\n",
+                    "      {}: {:?},",
                     self.grammar.variables[j].name,
                     self.entries[self.index(i, j)].len()
                 )?;
             }
-            write!(f, "    }},\n")?;
+            writeln!(f, "    }},")?;
         }
         write!(f, "  }},")?;
         write!(f, "}}")?;

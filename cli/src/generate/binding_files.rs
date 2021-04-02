@@ -3,14 +3,14 @@ use crate::error::{Error, Result};
 use std::path::Path;
 use std::{fs, str};
 
-const BINDING_CC_TEMPLATE: &'static str = include_str!("./templates/binding.cc");
-const BINDING_GYP_TEMPLATE: &'static str = include_str!("./templates/binding.gyp");
-const INDEX_JS_TEMPLATE: &'static str = include_str!("./templates/index.js");
-const LIB_RS_TEMPLATE: &'static str = include_str!("./templates/lib.rs");
-const BUILD_RS_TEMPLATE: &'static str = include_str!("./templates/build.rs");
-const CARGO_TOML_TEMPLATE: &'static str = include_str!("./templates/cargo.toml");
-const PACKAGE_JSON_TEMPLATE: &'static str = include_str!("./templates/package.json");
-const PARSER_NAME_PLACEHOLDER: &'static str = "PARSER_NAME";
+const BINDING_CC_TEMPLATE: &str = include_str!("./templates/binding.cc");
+const BINDING_GYP_TEMPLATE: &str = include_str!("./templates/binding.gyp");
+const INDEX_JS_TEMPLATE: &str = include_str!("./templates/index.js");
+const LIB_RS_TEMPLATE: &str = include_str!("./templates/lib.rs");
+const BUILD_RS_TEMPLATE: &str = include_str!("./templates/build.rs");
+const CARGO_TOML_TEMPLATE: &str = include_str!("./templates/cargo.toml");
+const PACKAGE_JSON_TEMPLATE: &str = include_str!("./templates/package.json");
+const PARSER_NAME_PLACEHOLDER: &str = "PARSER_NAME";
 
 pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<()> {
     let bindings_dir = repo_path.join("bindings");

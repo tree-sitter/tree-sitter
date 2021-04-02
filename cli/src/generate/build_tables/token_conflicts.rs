@@ -104,10 +104,10 @@ impl<'a> TokenConflictMap<'a> {
     }
 
     pub fn prefer_token(grammar: &LexicalGrammar, left: (i32, usize), right: (i32, usize)) -> bool {
-        if left.0 > right.0 {
-            return true;
-        } else if left.0 < right.0 {
-            return false;
+        match left.0.cmp(&right.0) {
+            Ordering::Greater => return true,
+            Ordering::Less => return false,
+            Ordering::Equal => {}
         }
 
         match grammar.variables[left.1]
@@ -149,53 +149,53 @@ impl<'a> TokenConflictMap<'a> {
 
 impl<'a> fmt::Debug for TokenConflictMap<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "TokenConflictMap {{\n")?;
+        writeln!(f, "TokenConflictMap {{")?;
 
         let syntax_grammar = SyntaxGrammar::default();
 
-        write!(f, "  following_tokens: {{\n")?;
+        writeln!(f, "  following_tokens: {{")?;
         for (i, following_tokens) in self.following_tokens.iter().enumerate() {
-            write!(
+            writeln!(
                 f,
-                "    follow({:?}): {},\n",
+                "    follow({:?}): {},",
                 self.grammar.variables[i].name,
                 TokenSetDisplay(following_tokens, &syntax_grammar, &self.grammar)
             )?;
         }
-        write!(f, "  }},\n")?;
+        writeln!(f, "  }},")?;
 
-        write!(f, "  starting_characters: {{\n")?;
+        writeln!(f, "  starting_characters: {{")?;
         for i in 0..self.n {
-            write!(
+            writeln!(
                 f,
-                "    {:?}: {:?},\n",
+                "    {:?}: {:?},",
                 self.grammar.variables[i].name, self.starting_chars_by_index[i]
             )?;
         }
-        write!(f, "  }},\n")?;
+        writeln!(f, "  }},")?;
 
-        write!(f, "  following_characters: {{\n")?;
+        writeln!(f, "  following_characters: {{")?;
         for i in 0..self.n {
-            write!(
+            writeln!(
                 f,
-                "    {:?}: {:?},\n",
+                "    {:?}: {:?},",
                 self.grammar.variables[i].name, self.following_chars_by_index[i]
             )?;
         }
-        write!(f, "  }},\n")?;
+        writeln!(f, "  }},")?;
 
-        write!(f, "  status_matrix: {{\n")?;
+        writeln!(f, "  status_matrix: {{")?;
         for i in 0..self.n {
-            write!(f, "    {:?}: {{\n", self.grammar.variables[i].name)?;
+            writeln!(f, "    {:?}: {{", self.grammar.variables[i].name)?;
             for j in 0..self.n {
-                write!(
+                writeln!(
                     f,
-                    "      {:?}: {:?},\n",
+                    "      {:?}: {:?},",
                     self.grammar.variables[j].name,
                     self.status_matrix[matrix_index(self.n, i, j)]
                 )?;
             }
-            write!(f, "    }},\n")?;
+            writeln!(f, "    }},")?;
         }
         write!(f, "  }},")?;
         write!(f, "}}")?;
@@ -221,8 +221,8 @@ fn get_starting_chars(cursor: &mut NfaCursor, grammar: &LexicalGrammar) -> Vec<C
 }
 
 fn get_following_chars(
-    starting_chars: &Vec<CharacterSet>,
-    following_tokens: &Vec<TokenSet>,
+    starting_chars: &[CharacterSet],
+    following_tokens: &[TokenSet],
 ) -> Vec<CharacterSet> {
     following_tokens
         .iter()
@@ -241,7 +241,7 @@ fn get_following_chars(
 fn compute_conflict_status(
     cursor: &mut NfaCursor,
     grammar: &LexicalGrammar,
-    following_chars: &Vec<CharacterSet>,
+    following_chars: &[CharacterSet],
     i: usize,
     j: usize,
 ) -> (TokenConflictStatus, TokenConflictStatus) {
@@ -357,12 +357,10 @@ fn compute_conflict_status(
                                 result.1.does_match_valid_continuation = true;
                             }
                         }
+                    } else if completed_id == i {
+                        result.0.matches_prefix = true;
                     } else {
-                        if completed_id == i {
-                            result.0.matches_prefix = true;
-                        } else {
-                            result.1.matches_prefix = true;
-                        }
+                        result.1.matches_prefix = true;
                     }
                 }
             }

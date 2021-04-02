@@ -80,7 +80,7 @@ pub fn parse_position_comments(
                     {
                         assertion_ranges.push((node.start_position(), node.end_position()));
                         result.push(Assertion {
-                            position: position,
+                            position,
                             expected_capture_name: mat.as_str().to_string(),
                         });
                     }
@@ -139,10 +139,10 @@ pub fn assert_expected_captures(
             p.position.row == info.start.row && p.position >= info.start && p.position < info.end
         }) {
             if found.expected_capture_name != info.name && info.name != "name" {
-                Err(error::Error::new(format!(
+                return Err(error::Error::new(format!(
                     "Assertion failed: at {}, found {}, expected {}",
                     info.start, found.expected_capture_name, info.name
-                )))?
+                )));
             }
         }
     }

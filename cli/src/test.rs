@@ -72,9 +72,9 @@ pub fn run_tests_at_path(
     } else if debug {
         parser.set_logger(Some(Box::new(|log_type, message| {
             if log_type == LogType::Lex {
-                io::stderr().write(b"  ").unwrap();
+                io::stderr().write_all(b"  ").unwrap();
             }
-            write!(&mut io::stderr(), "{}\n", message).unwrap();
+            writeln!(&mut io::stderr(), "{}", message).unwrap();
         })));
     }
 
@@ -90,8 +90,8 @@ pub fn run_tests_at_path(
         &mut corrected_entries,
     )?;
 
-    if failures.len() > 0 {
-        println!("");
+    if !failures.is_empty() {
+        println!();
 
         if update {
             if failures.len() == 1 {
@@ -152,7 +152,7 @@ pub fn print_diff_key() {
     );
 }
 
-pub fn print_diff(actual: &String, expected: &String) {
+pub fn print_diff(actual: &str, expected: &str) {
     let changeset = Changeset::new(actual, expected, " ");
     print!("    ");
     for diff in &changeset.diffs {
@@ -168,7 +168,7 @@ pub fn print_diff(actual: &String, expected: &String) {
             }
         }
     }
-    println!("");
+    println!();
 }
 
 fn run_tests(
@@ -262,7 +262,7 @@ fn run_tests(
     Ok(())
 }
 
-fn format_sexp(sexp: &String) -> String {
+fn format_sexp(sexp: &str) -> String {
     let mut formatted = String::new();
 
     let mut indent_level = 0;
@@ -278,7 +278,7 @@ fn format_sexp(sexp: &String) -> String {
                 has_field = false;
             } else {
                 if indent_level > 0 {
-                    writeln!(formatted, "").unwrap();
+                    writeln!(formatted).unwrap();
                     for _ in 0..indent_level {
                         write!(formatted, "  ").unwrap();
                     }
@@ -299,7 +299,7 @@ fn format_sexp(sexp: &String) -> String {
             }
         } else if s.ends_with(':') {
             // "field:"
-            writeln!(formatted, "").unwrap();
+            writeln!(formatted).unwrap();
             for _ in 0..indent_level {
                 write!(formatted, "  ").unwrap();
             }
@@ -312,22 +312,22 @@ fn format_sexp(sexp: &String) -> String {
     formatted
 }
 
-fn write_tests(file_path: &Path, corrected_entries: &Vec<(String, String, String)>) -> Result<()> {
+fn write_tests(file_path: &Path, corrected_entries: &[(String, String, String)]) -> Result<()> {
     let mut buffer = fs::File::create(file_path)?;
     write_tests_to_buffer(&mut buffer, corrected_entries)
 }
 
 fn write_tests_to_buffer(
     buffer: &mut impl Write,
-    corrected_entries: &Vec<(String, String, String)>,
+    corrected_entries: &[(String, String, String)],
 ) -> Result<()> {
     for (i, (name, input, output)) in corrected_entries.iter().enumerate() {
         if i > 0 {
-            write!(buffer, "\n")?;
+            writeln!(buffer)?;
         }
-        write!(
+        writeln!(
             buffer,
-            "{}\n{}\n{}\n{}\n{}\n\n{}\n",
+            "{}\n{}\n{}\n{}\n{}\n\n{}",
             "=".repeat(80),
             name,
             "=".repeat(80),
@@ -349,7 +349,7 @@ pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
         let mut children = Vec::new();
         for entry in fs::read_dir(path)? {
             let entry = entry?;
-            let hidden = entry.file_name().to_str().unwrap_or("").starts_with(".");
+            let hidden = entry.file_name().to_str().unwrap_or("").starts_with('.');
             if !hidden {
                 children.push(parse_tests(&entry.path())?);
             }
@@ -617,7 +617,7 @@ code
 ---
 
 ; Line start comment
-(a 
+(a
 ; ignore this
     (b)
     ; also ignore this

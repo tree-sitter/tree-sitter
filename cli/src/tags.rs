@@ -77,7 +77,7 @@ pub fn generate_tags(
                             write!(&mut stdout, "\t{:?}", &docs)?;
                         }
                     }
-                    writeln!(&mut stdout, "")?;
+                    writeln!(&mut stdout)?;
                 }
             }
 

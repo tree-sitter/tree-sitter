@@ -86,18 +86,16 @@ pub(super) fn extract_default_aliases(
     for (symbol, status) in symbols_with_statuses {
         if status.appears_unaliased {
             status.aliases.clear();
-        } else {
-            if let Some(default_entry) = status
-                .aliases
-                .iter()
-                .enumerate()
-                .max_by_key(|(i, (_, count))| (count, -(*i as i64)))
-                .map(|(_, entry)| entry.clone())
-            {
-                status.aliases.clear();
-                status.aliases.push(default_entry.clone());
-                result.insert(symbol, default_entry.0);
-            }
+        } else if let Some(default_entry) = status
+            .aliases
+            .iter()
+            .enumerate()
+            .max_by_key(|(i, (_, count))| (count, -(*i as i64)))
+            .map(|(_, entry)| entry.clone())
+        {
+            status.aliases.clear();
+            status.aliases.push(default_entry.clone());
+            result.insert(symbol, default_entry.0);
         }
     }
 

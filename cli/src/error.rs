@@ -2,7 +2,6 @@ use super::test_highlight;
 use std::fmt::Write;
 use std::io;
 use tree_sitter::{QueryError, QueryErrorKind};
-use walkdir;
 
 #[derive(Debug)]
 pub struct Error(pub Vec<String>);

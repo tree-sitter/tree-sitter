@@ -80,7 +80,10 @@ impl<'a> ParseItemSetBuilder<'a> {
         for i in 0..syntax_grammar.variables.len() {
             let symbol = Symbol::non_terminal(i);
 
-            let first_set = &mut result.first_sets.entry(symbol).or_insert(TokenSet::new());
+            let first_set = &mut result
+                .first_sets
+                .entry(symbol)
+                .or_insert_with(TokenSet::new);
             processed_non_terminals.clear();
             symbols_to_process.clear();
             symbols_to_process.push(symbol);
@@ -100,7 +103,7 @@ impl<'a> ParseItemSetBuilder<'a> {
             }
 
             // The LAST set is defined in a similar way to the FIRST set.
-            let last_set = &mut result.last_sets.entry(symbol).or_insert(TokenSet::new());
+            let last_set = &mut result.last_sets.entry(symbol).or_insert_with(TokenSet::new);
             processed_non_terminals.clear();
             symbols_to_process.clear();
             symbols_to_process.push(symbol);
@@ -291,9 +294,9 @@ impl<'a> ParseItemSetBuilder<'a> {
 
 impl<'a> fmt::Debug for ParseItemSetBuilder<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "ParseItemSetBuilder {{\n")?;
+        writeln!(f, "ParseItemSetBuilder {{")?;
 
-        write!(f, "  first_sets: {{\n")?;
+        writeln!(f, "  first_sets: {{")?;
         for (symbol, first_set) in &self.first_sets {
             let name = match symbol.kind {
                 SymbolType::NonTerminal => &self.syntax_grammar.variables[symbol.index].name,
@@ -301,16 +304,16 @@ impl<'a> fmt::Debug for ParseItemSetBuilder<'a> {
                 SymbolType::Terminal => &self.lexical_grammar.variables[symbol.index].name,
                 SymbolType::End | SymbolType::EndOfNonTerminalExtra => "END",
             };
-            write!(
+            writeln!(
                 f,
-                "    first({:?}): {}\n",
+                "    first({:?}): {}",
                 name,
                 TokenSetDisplay(first_set, &self.syntax_grammar, &self.lexical_grammar)
             )?;
         }
-        write!(f, "  }}\n")?;
+        writeln!(f, "  }}")?;
 
-        write!(f, "  last_sets: {{\n")?;
+        writeln!(f, "  last_sets: {{")?;
         for (symbol, last_set) in &self.last_sets {
             let name = match symbol.kind {
                 SymbolType::NonTerminal => &self.syntax_grammar.variables[symbol.index].name,
@@ -318,26 +321,26 @@ impl<'a> fmt::Debug for ParseItemSetBuilder<'a> {
                 SymbolType::Terminal => &self.lexical_grammar.variables[symbol.index].name,
                 SymbolType::End | SymbolType::EndOfNonTerminalExtra => "END",
             };
-            write!(
+            writeln!(
                 f,
-                "    last({:?}): {}\n",
+                "    last({:?}): {}",
                 name,
                 TokenSetDisplay(last_set, &self.syntax_grammar, &self.lexical_grammar)
             )?;
         }
-        write!(f, "  }}\n")?;
+        writeln!(f, "  }}")?;
 
-        write!(f, "  additions: {{\n")?;
+        writeln!(f, "  additions: {{")?;
         for (i, variable) in self.syntax_grammar.variables.iter().enumerate() {
-            write!(f, "    {}: {{\n", variable.name)?;
+            writeln!(f, "    {}: {{", variable.name)?;
             for addition in &self.transitive_closure_additions[i] {
-                write!(
+                writeln!(
                     f,
-                    "      {}\n",
+                    "      {}",
                     ParseItemDisplay(&addition.item, self.syntax_grammar, self.lexical_grammar)
                 )?;
             }
-            write!(f, "    }},\n")?;
+            writeln!(f, "    }},")?;
         }
         write!(f, "  }},")?;
 

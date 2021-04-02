@@ -30,10 +30,11 @@ impl fmt::Display for Stats {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn parse_file_at_path(
     language: Language,
     path: &Path,
-    edits: &Vec<&str>,
+    edits: &[&str],
     max_path_length: usize,
     quiet: bool,
     print_time: bool,
@@ -65,9 +66,9 @@ pub fn parse_file_at_path(
     else if debug {
         parser.set_logger(Some(Box::new(|log_type, message| {
             if log_type == LogType::Lex {
-                io::stderr().write(b"  ").unwrap();
+                io::stderr().write_all(b"  ").unwrap();
             }
-            write!(&mut io::stderr(), "{}\n", message).unwrap();
+            writeln!(&mut io::stderr(), "{}", message).unwrap();
         })));
     }
 
@@ -105,7 +106,7 @@ pub fn parse_file_at_path(
                 let is_named = node.is_named();
                 if did_visit_children {
                     if is_named {
-                        stdout.write(b")")?;
+                        stdout.write_all(b")")?;
                         needs_newline = true;
                     }
                     if cursor.goto_next_sibling() {
@@ -119,10 +120,10 @@ pub fn parse_file_at_path(
                 } else {
                     if is_named {
                         if needs_newline {
-                            stdout.write(b"\n")?;
+                            stdout.write_all(b"\n")?;
                         }
                         for _ in 0..indent_level {
-                            stdout.write(b"  ")?;
+                            stdout.write_all(b"  ")?;
                         }
                         let start = node.start_position();
                         let end = node.end_position();
@@ -149,7 +150,7 @@ pub fn parse_file_at_path(
                 }
             }
             cursor.reset(tree.root_node());
-            println!("");
+            println!();
         }
 
         if debug_xml {
@@ -163,7 +164,7 @@ pub fn parse_file_at_path(
                 if did_visit_children {
                     if is_named {
                         let tag = tags.pop();
-                        write!(&mut stdout, "</{}>\n", tag.expect("there is a tag"))?;
+                        writeln!(&mut stdout, "</{}>", tag.expect("there is a tag"))?;
                         needs_newline = true;
                     }
                     if cursor.goto_next_sibling() {
@@ -177,10 +178,10 @@ pub fn parse_file_at_path(
                 } else {
                     if is_named {
                         if needs_newline {
-                            stdout.write(b"\n")?;
+                            stdout.write_all(b"\n")?;
                         }
                         for _ in 0..indent_level {
-                            stdout.write(b"  ")?;
+                            stdout.write_all(b"  ")?;
                         }
                         write!(&mut stdout, "<{}", node.kind())?;
                         if let Some(field_name) = cursor.field_name() {
@@ -197,13 +198,14 @@ pub fn parse_file_at_path(
                         did_visit_children = true;
                         let start = node.start_byte();
                         let end = node.end_byte();
-                        let value = std::str::from_utf8(&source_code[start..end]).expect("has a string");
+                        let value =
+                            std::str::from_utf8(&source_code[start..end]).expect("has a string");
                         write!(&mut stdout, "{}", html_escape::encode_text(value))?;
                     }
                 }
             }
             cursor.reset(tree.root_node());
-            println!("");
+            println!();
         }
 
         let mut first_error = None;
@@ -213,10 +215,8 @@ pub fn parse_file_at_path(
                 if node.is_error() || node.is_missing() {
                     first_error = Some(node);
                     break;
-                } else {
-                    if !cursor.goto_first_child() {
-                        break;
-                    }
+                } else if !cursor.goto_first_child() {
+                    break;
                 }
             } else if !cursor.goto_next_sibling() {
                 break;
@@ -254,7 +254,7 @@ pub fn parse_file_at_path(
                     start.row, start.column, end.row, end.column
                 )?;
             }
-            write!(&mut stdout, "\n")?;
+            writeln!(&mut stdout)?;
         }
 
         return Ok(first_error.is_some());
@@ -293,7 +293,7 @@ pub fn perform_edit(tree: &mut Tree, input: &mut Vec<u8>, edit: &Edit) -> InputE
     edit
 }
 
-fn parse_edit_flag(source_code: &Vec<u8>, flag: &str) -> Result<Edit> {
+fn parse_edit_flag(source_code: &[u8], flag: &str) -> Result<Edit> {
     let error = || {
         Error::from(format!(concat!(
             "Invalid edit string '{}'. ",
@@ -305,14 +305,14 @@ fn parse_edit_flag(source_code: &Vec<u8>, flag: &str) -> Result<Edit> {
     // * edit position
     // * deleted length
     // * inserted text
-    let mut parts = flag.split(" ");
+    let mut parts = flag.split(' ');
     let position = parts.next().ok_or_else(error)?;
     let deleted_length = parts.next().ok_or_else(error)?;
     let inserted_text = parts.collect::<Vec<_>>().join(" ").into_bytes();
 
     // Position can either be a byte_offset or row,column pair, separated by a comma
-    let position = if position.contains(",") {
-        let mut parts = position.split(",");
+    let position = if position.contains(',') {
+        let mut parts = position.split(',');
         let row = parts.next().ok_or_else(error)?;
         let row = usize::from_str_radix(row, 10).map_err(|_| error())?;
         let column = parts.next().ok_or_else(error)?;
@@ -332,7 +332,7 @@ fn parse_edit_flag(source_code: &Vec<u8>, flag: &str) -> Result<Edit> {
     })
 }
 
-fn offset_for_position(input: &Vec<u8>, position: Point) -> usize {
+fn offset_for_position(input: &[u8], position: Point) -> usize {
     let mut current_position = Point { row: 0, column: 0 };
     for (i, c) in input.iter().enumerate() {
         if *c as char == '\n' {
@@ -345,10 +345,10 @@ fn offset_for_position(input: &Vec<u8>, position: Point) -> usize {
             return i;
         }
     }
-    return input.len();
+    input.len()
 }
 
-fn position_for_offset(input: &Vec<u8>, offset: usize) -> Point {
+fn position_for_offset(input: &[u8], offset: usize) -> Point {
     let mut result = Point { row: 0, column: 0 };
     for c in &input[0..offset] {
         if *c as char == '\n' {

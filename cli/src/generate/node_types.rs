@@ -209,12 +209,12 @@ pub(crate) fn get_variable_info(
                         let field_info = variable_info
                             .fields
                             .entry(field_name.clone())
-                            .or_insert(FieldInfo::default());
+                            .or_insert_with(FieldInfo::default);
                         did_change |= extend_sorted(&mut field_info.types, Some(&child_type));
 
                         let production_field_quantity = production_field_quantities
                             .entry(field_name)
-                            .or_insert(ChildQuantity::zero());
+                            .or_insert_with(ChildQuantity::zero);
 
                         // Inherit the types and quantities of hidden children associated with fields.
                         if child_is_hidden && child_symbol.is_non_terminal() {
@@ -252,13 +252,13 @@ pub(crate) fn get_variable_info(
                         for (field_name, child_field_info) in &child_variable_info.fields {
                             production_field_quantities
                                 .entry(field_name)
-                                .or_insert(ChildQuantity::zero())
+                                .or_insert_with(ChildQuantity::zero)
                                 .append(child_field_info.quantity);
                             did_change |= extend_sorted(
                                 &mut variable_info
                                     .fields
                                     .entry(field_name.clone())
-                                    .or_insert(FieldInfo::default())
+                                    .or_insert_with(FieldInfo::default)
                                     .types,
                                 &child_field_info.types,
                             );
@@ -313,7 +313,7 @@ pub(crate) fn get_variable_info(
                             production_field_quantities
                                 .get(field_name)
                                 .cloned()
-                                .unwrap_or(ChildQuantity::zero()),
+                                .unwrap_or_else(ChildQuantity::zero),
                         );
                     }
                 }
@@ -360,7 +360,7 @@ pub(crate) fn generate_node_types_json(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     default_aliases: &AliasMap,
-    variable_info: &Vec<VariableInfo>,
+    variable_info: &[VariableInfo],
 ) -> Vec<NodeInfoJSON> {
     let mut node_types_json = BTreeMap::new();
 
@@ -405,7 +405,7 @@ pub(crate) fn generate_node_types_json(
     };
 
     let populate_field_info_json = |json: &mut FieldInfoJSON, info: &FieldInfo| {
-        if info.types.len() > 0 {
+        if !info.types.is_empty() {
             json.multiple |= info.quantity.multiple;
             json.required &= info.quantity.required;
             json.types
@@ -429,7 +429,7 @@ pub(crate) fn generate_node_types_json(
         if !default_aliases.contains_key(extra_symbol) {
             aliases_by_symbol
                 .entry(*extra_symbol)
-                .or_insert(HashSet::new())
+                .or_insert_with(HashSet::new)
                 .insert(None);
         }
     }
@@ -438,7 +438,7 @@ pub(crate) fn generate_node_types_json(
             for step in &production.steps {
                 aliases_by_symbol
                     .entry(step.symbol)
-                    .or_insert(HashSet::new())
+                    .or_insert_with(HashSet::new)
                     .insert(
                         step.alias
                             .as_ref()
@@ -660,10 +660,7 @@ pub(crate) fn generate_node_types_json(
     result
 }
 
-fn process_supertypes(
-    info: &mut FieldInfoJSON,
-    subtype_map: &Vec<(NodeTypeJSON, Vec<NodeTypeJSON>)>,
-) {
+fn process_supertypes(info: &mut FieldInfoJSON, subtype_map: &[(NodeTypeJSON, Vec<NodeTypeJSON>)]) {
     for (supertype, subtypes) in subtype_map {
         if info.types.contains(supertype) {
             info.types.retain(|t| !subtypes.contains(t));

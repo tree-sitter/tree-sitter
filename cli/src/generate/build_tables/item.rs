@@ -138,7 +138,7 @@ impl<'a> ParseItem<'a> {
     /// Create an item identical to this one, but with a different production.
     /// This is used when dynamically "inlining" certain symbols in a production.
     pub fn substitute_production(&self, production: &'a Production) -> ParseItem<'a> {
-        let mut result = self.clone();
+        let mut result = *self;
         result.production = production;
         result
     }
@@ -213,7 +213,7 @@ impl<'a> fmt::Display for ParseItemDisplay<'a> {
                 if let Some(variable) = self.2.variables.get(step.symbol.index) {
                     write!(f, "{}", &variable.name)?;
                 } else {
-                    write!(f, "{}-{}", "terminal", step.symbol.index)?;
+                    write!(f, "terminal-{}", step.symbol.index)?;
                 }
             } else if step.symbol.is_external() {
                 write!(f, "{}", &self.1.external_tokens[step.symbol.index].name)?;
@@ -257,7 +257,7 @@ impl<'a> fmt::Display for TokenSetDisplay<'a> {
                 if let Some(variable) = self.2.variables.get(symbol.index) {
                     write!(f, "{}", &variable.name)?;
                 } else {
-                    write!(f, "{}-{}", "terminal", symbol.index)?;
+                    write!(f, "terminal-{}", symbol.index)?;
                 }
             } else if symbol.is_external() {
                 write!(f, "{}", &self.1.external_tokens[symbol.index].name)?;
@@ -346,7 +346,7 @@ impl<'a> PartialEq for ParseItem<'a> {
             }
         }
 
-        return true;
+        true
     }
 }
 
@@ -385,7 +385,7 @@ impl<'a> Ord for ParseItem<'a> {
                         return o;
                     }
                 }
-                return Ordering::Equal;
+                Ordering::Equal
             })
     }
 }

@@ -495,11 +495,13 @@ fn test_highlighting_via_c_api() {
         .iter()
         .map(|h| h.as_bytes().as_ptr() as *const i8)
         .collect::<Vec<_>>();
-    let highlighter = c::ts_highlighter_new(
-        &highlight_names[0] as *const *const i8,
-        &highlight_attrs[0] as *const *const i8,
-        highlights.len() as u32,
-    );
+    let highlighter = unsafe {
+        c::ts_highlighter_new(
+            &highlight_names[0] as *const *const i8,
+            &highlight_attrs[0] as *const *const i8,
+            highlights.len() as u32,
+        )
+    };
 
     let source_code = c_string("<script>\nconst a = b('c');\nc.d();\n</script>");
 
@@ -544,14 +546,16 @@ fn test_highlighting_via_c_api() {
 
     let buffer = c::ts_highlight_buffer_new();
 
-    c::ts_highlighter_highlight(
-        highlighter,
-        html_scope.as_ptr(),
-        source_code.as_ptr(),
-        source_code.as_bytes().len() as u32,
-        buffer,
-        ptr::null_mut(),
-    );
+    unsafe {
+        c::ts_highlighter_highlight(
+            highlighter,
+            html_scope.as_ptr(),
+            source_code.as_ptr(),
+            source_code.as_bytes().len() as u32,
+            buffer,
+            ptr::null_mut(),
+        );
+    }
 
     let output_bytes = c::ts_highlight_buffer_content(buffer);
     let output_line_offsets = c::ts_highlight_buffer_line_offsets(buffer);
@@ -582,8 +586,12 @@ fn test_highlighting_via_c_api() {
         ]
     );
 
-    c::ts_highlighter_delete(highlighter);
-    c::ts_highlight_buffer_delete(buffer);
+    unsafe {
+        c::ts_highlighter_delete(highlighter);
+    }
+    unsafe {
+        c::ts_highlight_buffer_delete(buffer);
+    }
 }
 
 #[test]

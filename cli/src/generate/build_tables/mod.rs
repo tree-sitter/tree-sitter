@@ -24,7 +24,7 @@ pub(crate) fn build_tables(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     simple_aliases: &AliasMap,
-    variable_info: &Vec<VariableInfo>,
+    variable_info: &[VariableInfo],
     inlines: &InlinedProductionMap,
     report_symbol_name: Option<&str>,
 ) -> Result<(ParseTable, LexTable, LexTable, Option<Symbol>)> {
@@ -126,18 +126,19 @@ fn populate_error_state(
     // the *conflict-free tokens* identified above.
     for i in 0..n {
         let symbol = Symbol::terminal(i);
-        if !conflict_free_tokens.contains(&symbol) && !keywords.contains(&symbol) {
-            if syntax_grammar.word_token != Some(symbol) {
-                if let Some(t) = conflict_free_tokens.iter().find(|t| {
-                    !coincident_token_index.contains(symbol, *t)
-                        && token_conflict_map.does_conflict(symbol.index, t.index)
-                }) {
-                    info!(
-                        "error recovery - exclude token {} because of conflict with {}",
-                        lexical_grammar.variables[i].name, lexical_grammar.variables[t.index].name
-                    );
-                    continue;
-                }
+        if !conflict_free_tokens.contains(&symbol)
+            && !keywords.contains(&symbol)
+            && syntax_grammar.word_token != Some(symbol)
+        {
+            if let Some(t) = conflict_free_tokens.iter().find(|t| {
+                !coincident_token_index.contains(symbol, *t)
+                    && token_conflict_map.does_conflict(symbol.index, t.index)
+            }) {
+                info!(
+                    "error recovery - exclude token {} because of conflict with {}",
+                    lexical_grammar.variables[i].name, lexical_grammar.variables[t.index].name
+                );
+                continue;
             }
         }
         info!(
@@ -317,6 +318,7 @@ fn identify_keywords(
                 // If the word token was already valid in every state containing
                 // this keyword candidate, then substituting the word token won't
                 // introduce any new lexical conflicts.
+                #[allow(clippy::blocks_in_if_conditions)]
                 if coincident_token_index
                     .states_with(*token, Symbol::terminal(other_index))
                     .iter()
@@ -372,11 +374,9 @@ fn mark_fragile_tokens(
         for (token, entry) in state.terminal_entries.iter_mut() {
             if token.is_terminal() {
                 for (i, is_valid) in valid_tokens_mask.iter().enumerate() {
-                    if *is_valid {
-                        if token_conflict_map.does_overlap(i, token.index) {
-                            entry.reusable = false;
-                            break;
-                        }
+                    if *is_valid && token_conflict_map.does_overlap(i, token.index) {
+                        entry.reusable = false;
+                        break;
                     }
                 }
             }
@@ -388,7 +388,7 @@ fn report_state_info<'a>(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     parse_table: &ParseTable,
-    parse_state_info: &Vec<ParseStateInfo<'a>>,
+    parse_state_info: &[ParseStateInfo<'a>],
     report_symbol_name: &'a str,
 ) {
     let mut all_state_indices = BTreeSet::new();
@@ -424,7 +424,7 @@ fn report_state_info<'a>(
             width = max_symbol_name_length
         );
     }
-    eprintln!("");
+    eprintln!();
 
     let state_indices = if report_symbol_name == "*" {
         Some(&all_state_indices)
@@ -441,7 +441,7 @@ fn report_state_info<'a>(
     };
 
     if let Some(state_indices) = state_indices {
-        let mut state_indices = state_indices.into_iter().cloned().collect::<Vec<_>>();
+        let mut state_indices = state_indices.iter().cloned().collect::<Vec<_>>();
         state_indices.sort_unstable_by_key(|i| (parse_table.states[*i].core_id, *i));
 
         for state_index in state_indices {

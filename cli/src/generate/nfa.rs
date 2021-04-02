@@ -210,26 +210,28 @@ impl CharacterSet {
                     }
                 }
                 Ordering::Equal => {
-                    // [ L ]
-                    // [  R  ]
-                    if left.end < right.end {
-                        intersection.push(left.start..left.end);
-                        right.start = left.end;
-                        self.ranges.remove(left_i);
-                    }
-                    // [ L ]
-                    // [ R ]
-                    else if left.end == right.end {
-                        intersection.push(left.clone());
-                        self.ranges.remove(left_i);
-                        other.ranges.remove(right_i);
-                    }
-                    // [  L  ]
-                    // [ R ]
-                    else if left.end > right.end {
-                        intersection.push(right.clone());
-                        left.start = right.end;
-                        other.ranges.remove(right_i);
+                    match left.end.cmp(&right.end) {
+                        Ordering::Less => {
+                            // [ L ]
+                            // [  R  ]
+                            intersection.push(left.start..left.end);
+                            right.start = left.end;
+                            self.ranges.remove(left_i);
+                        }
+                        Ordering::Equal => {
+                            // [ L ]
+                            // [ R ]
+                            intersection.push(left.clone());
+                            self.ranges.remove(left_i);
+                            other.ranges.remove(right_i);
+                        }
+                        Ordering::Greater => {
+                            // [  L  ]
+                            // [ R ]
+                            intersection.push(right.clone());
+                            left.start = right.end;
+                            other.ranges.remove(right_i);
+                        }
                     }
                 }
                 Ordering::Greater => {
@@ -276,11 +278,11 @@ impl CharacterSet {
         }
     }
 
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = u32> + 'a {
+    pub fn iter(&self) -> impl Iterator<Item = u32> + '_ {
         self.ranges.iter().flat_map(|r| r.clone())
     }
 
-    pub fn chars<'a>(&'a self) -> impl Iterator<Item = char> + 'a {
+    pub fn chars(&self) -> impl Iterator<Item = char> + '_ {
         self.iter().filter_map(char::from_u32)
     }
 
@@ -354,7 +356,7 @@ impl Ord for CharacterSet {
                 }
             }
         }
-        return Ordering::Equal;
+        Ordering::Equal
     }
 }
 
@@ -395,9 +397,9 @@ impl Nfa {
 
 impl fmt::Debug for Nfa {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Nfa {{ states: {{\n")?;
+        writeln!(f, "Nfa {{ states: {{")?;
         for (i, state) in self.states.iter().enumerate() {
-            write!(f, "  {}: {:?},\n", i, state)?;
+            writeln!(f, "  {}: {:?},", i, state)?;
         }
         write!(f, "}} }}")?;
         Ok(())
@@ -458,9 +460,8 @@ impl<'a> NfaCursor<'a> {
                 let intersection = result[i].characters.remove_intersection(&mut chars);
                 if !intersection.is_empty() {
                     let mut intersection_states = result[i].states.clone();
-                    match intersection_states.binary_search(&state) {
-                        Err(j) => intersection_states.insert(j, state),
-                        _ => {}
+                    if let Err(j) = intersection_states.binary_search(&state) {
+                        intersection_states.insert(j, state)
                     }
                     let intersection_transition = NfaTransition {
                         characters: intersection,

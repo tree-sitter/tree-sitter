@@ -523,15 +523,14 @@ impl Generator {
                     if let Some(alias) = &step.alias {
                         if step.symbol.is_non_terminal()
                             && Some(alias) != self.default_aliases.get(&step.symbol)
+                            && self.symbol_ids.contains_key(&step.symbol)
                         {
-                            if self.symbol_ids.contains_key(&step.symbol) {
-                                if let Some(alias_id) = self.alias_ids.get(&alias) {
-                                    let alias_ids = alias_ids_by_symbol
-                                        .entry(step.symbol)
-                                        .or_insert(Vec::new());
-                                    if let Err(i) = alias_ids.binary_search(&alias_id) {
-                                        alias_ids.insert(i, alias_id);
-                                    }
+                            if let Some(alias_id) = self.alias_ids.get(&alias) {
+                                let alias_ids = alias_ids_by_symbol
+                                    .entry(step.symbol)
+                                    .or_insert_with(Vec::new);
+                                if let Err(i) = alias_ids.binary_search(&alias_id) {
+                                    alias_ids.insert(i, alias_id);
                                 }
                             }
                         }
@@ -708,7 +707,7 @@ impl Generator {
             .collect();
 
         // Generate a helper function for each large character set.
-        let mut sorted_large_char_sets: Vec<_> = large_character_sets.iter().map(|e| e).collect();
+        let mut sorted_large_char_sets: Vec<_> = large_character_sets.iter().collect();
         sorted_large_char_sets.sort_unstable_by_key(|info| (info.symbol, info.index));
         for info in sorted_large_char_sets {
             add_line!(
@@ -780,14 +779,14 @@ impl Generator {
             }
             i += 1;
         }
-        return None;
+        None
     }
 
     fn add_lex_state(
         &mut self,
         state: LexState,
-        transition_info: &Vec<TransitionSummary>,
-        large_character_sets: &Vec<LargeCharacterSetInfo>,
+        transition_info: &[TransitionSummary],
+        large_character_sets: &[LargeCharacterSetInfo],
     ) {
         if let Some(accept_action) = state.accept_action {
             add_line!(self, "ACCEPT_TOKEN({});", self.symbol_ids[&accept_action]);
@@ -822,7 +821,7 @@ impl Generator {
 
             // Otherwise, generate code to compare the lookahead character
             // with all of the character ranges.
-            if transition.ranges.len() > 0 {
+            if !transition.ranges.is_empty() {
                 add!(self, "if (");
                 self.add_character_range_conditions(&transition.ranges, transition.is_included, 2);
                 add!(self, ") ");
@@ -877,17 +876,15 @@ impl Generator {
                     self.add_character(range.start);
                     add!(self, " &&{}lookahead != ", line_break);
                     self.add_character(range.end);
+                } else if range.start != '\0' {
+                    add!(self, "(lookahead < ");
+                    self.add_character(range.start);
+                    add!(self, " || ");
+                    self.add_character(range.end);
+                    add!(self, " < lookahead)");
                 } else {
-                    if range.start != '\0' {
-                        add!(self, "(lookahead < ");
-                        self.add_character(range.start);
-                        add!(self, " || ");
-                        self.add_character(range.end);
-                        add!(self, " < lookahead)");
-                    } else {
-                        add!(self, "lookahead > ");
-                        self.add_character(range.end);
-                    }
+                    add!(self, "lookahead > ");
+                    self.add_character(range.end);
                 }
             }
         }
@@ -1010,7 +1007,7 @@ impl Generator {
             let token = &self.syntax_grammar.external_tokens[i];
             let id_token = token
                 .corresponding_internal_token
-                .unwrap_or(Symbol::external(i));
+                .unwrap_or_else(|| Symbol::external(i));
             add_line!(
                 self,
                 "[{}] = {},",
@@ -1422,7 +1419,7 @@ impl Generator {
 
     fn get_field_map_id(
         &self,
-        flat_field_map: &Vec<(String, FieldLocation)>,
+        flat_field_map: &[(String, FieldLocation)],
         flat_field_maps: &mut Vec<(usize, Vec<(String, FieldLocation)>)>,
         next_flat_field_map_index: &mut usize,
     ) -> usize {
@@ -1431,7 +1428,7 @@ impl Generator {
         }
 
         let result = *next_flat_field_map_index;
-        flat_field_maps.push((result, flat_field_map.clone()));
+        flat_field_maps.push((result, flat_field_map.to_owned()));
         *next_flat_field_map_index += flat_field_map.len();
         result
     }
@@ -1471,7 +1468,7 @@ impl Generator {
         self.symbol_ids.insert(symbol, id);
     }
 
-    fn field_id(&self, field_name: &String) -> String {
+    fn field_id(&self, field_name: &str) -> String {
         format!("field_{}", field_name)
     }
 
@@ -1496,9 +1493,9 @@ impl Generator {
     fn sanitize_identifier(&self, name: &str) -> String {
         let mut result = String::with_capacity(name.len());
         for c in name.chars() {
-            if ('a' <= c && c <= 'z')
-                || ('A' <= c && c <= 'Z')
-                || ('0' <= c && c <= '9')
+            if ('a'..='z').contains(&c)
+                || ('A'..='Z').contains(&c)
+                || ('0'..='9').contains(&c)
                 || c == '_'
             {
                 result.push(c);
@@ -1540,7 +1537,7 @@ impl Generator {
                     '\t' => "TAB",
                     _ => continue,
                 };
-                if !result.is_empty() && !result.ends_with("_") {
+                if !result.is_empty() && !result.ends_with('_') {
                     result.push('_');
                 }
                 result += replacement;
@@ -1602,6 +1599,7 @@ impl Generator {
 ///    are the aliases that are applied to those symbols.
 /// * `next_abi` - A boolean indicating whether to opt into the new, unstable parse
 ///    table format. This is mainly used for testing, when developing Tree-sitter itself.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn render_c_code(
     name: &str,
     parse_table: ParseTable,

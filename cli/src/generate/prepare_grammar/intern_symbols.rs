@@ -145,12 +145,12 @@ impl<'a> Interner<'a> {
             }
         }
 
-        return None;
+        None
     }
 }
 
 fn variable_type_for_name(name: &str) -> VariableType {
-    if name.starts_with("_") {
+    if name.starts_with('_') {
         VariableType::Hidden
     } else {
         VariableType::Named

@@ -94,12 +94,10 @@ pub(super) fn extract_tokens(
     for rule in grammar.extra_symbols {
         if let Rule::Symbol(symbol) = rule {
             extra_symbols.push(symbol_replacer.replace_symbol(symbol));
+        } else if let Some(index) = lexical_variables.iter().position(|v| v.rule == rule) {
+            extra_symbols.push(Symbol::terminal(index));
         } else {
-            if let Some(index) = lexical_variables.iter().position(|v| v.rule == rule) {
-                extra_symbols.push(Symbol::terminal(index));
-            } else {
-                separators.push(rule);
-            }
+            separators.push(rule);
         }
     }
 
@@ -128,9 +126,7 @@ pub(super) fn extract_tokens(
                 })
             }
         } else {
-            return Error::err(format!(
-                "Non-symbol rules cannot be used as external tokens"
-            ));
+            return Error::err("Non-symbol rules cannot be used as external tokens".to_owned());
         }
     }
 
@@ -209,7 +205,7 @@ impl TokenExtractor {
                 } else {
                     Rule::Metadata {
                         params: params.clone(),
-                        rule: Box::new(self.extract_tokens_in_rule((&rule).clone())),
+                        rule: Box::new(self.extract_tokens_in_rule(&(*(rule)).clone())),
                     }
                 }
             }
@@ -304,7 +300,7 @@ impl SymbolReplacer {
             }
         }
 
-        return Symbol::non_terminal(adjusted_index);
+        Symbol::non_terminal(adjusted_index)
     }
 }
 

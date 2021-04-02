@@ -1,3 +1,5 @@
+#![allow(clippy::upper_case_acronyms)]
+
 pub mod config;
 pub mod error;
 pub mod generate;

@@ -155,7 +155,7 @@ impl ProductionStep {
 
 impl Production {
     pub fn first_symbol(&self) -> Option<Symbol> {
-        self.steps.first().map(|s| s.symbol.clone())
+        self.steps.first().map(|s| s.symbol)
     }
 }
 
@@ -212,7 +212,7 @@ impl VariableType {
 impl LexicalGrammar {
     pub fn variable_indices_for_nfa_states<'a>(
         &'a self,
-        state_ids: &'a Vec<u32>,
+        state_ids: &'a [u32],
     ) -> impl Iterator<Item = usize> + 'a {
         let mut prev = None;
         state_ids.iter().filter_map(move |state_id| {

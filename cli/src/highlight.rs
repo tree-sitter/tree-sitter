@@ -13,7 +13,7 @@ use std::time::Instant;
 use std::{fs, io, path, str, usize};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer};
 
-pub const HTML_HEADER: &'static str = "
+pub const HTML_HEADER: &str = "
 <!doctype HTML>
 <head>
   <title>Tree-sitter Highlighting</title>
@@ -35,7 +35,7 @@ pub const HTML_HEADER: &'static str = "
 <body>
 ";
 
-pub const HTML_FOOTER: &'static str = "
+pub const HTML_FOOTER: &str = "
 </body>
 ";
 
@@ -239,7 +239,7 @@ fn parse_color(json: Value) -> Option<Color> {
 }
 
 fn hex_string_to_rgb(s: &str) -> Option<(u8, u8, u8)> {
-    if s.starts_with("#") && s.len() >= 7 {
+    if s.starts_with('#') && s.len() >= 7 {
         if let (Ok(red), Ok(green), Ok(blue)) = (
             u8::from_str_radix(&s[1..3], 16),
             u8::from_str_radix(&s[3..5], 16),
@@ -401,17 +401,17 @@ pub fn html(
     })?;
 
     if !quiet {
-        write!(&mut stdout, "<table>\n")?;
+        writeln!(&mut stdout, "<table>")?;
         for (i, line) in renderer.lines().enumerate() {
-            write!(
+            writeln!(
                 &mut stdout,
-                "<tr><td class=line-number>{}</td><td class=line>{}</td></tr>\n",
+                "<tr><td class=line-number>{}</td><td class=line>{}</td></tr>",
                 i + 1,
                 line
             )?;
         }
 
-        write!(&mut stdout, "</table>\n")?;
+        writeln!(&mut stdout, "</table>")?;
     }
 
     if print_time {

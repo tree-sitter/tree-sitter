@@ -3,11 +3,11 @@ use std::{env, fs};
 
 fn main() {
     if let Some(git_sha) = read_git_sha() {
-        println!("cargo:rustc-env={}={}", "BUILD_SHA", git_sha);
+        println!("cargo:rustc-env=BUILD_SHA={}", git_sha);
     }
 
     if wasm_files_present() {
-        println!("cargo:rustc-cfg={}", "TREE_SITTER_EMBED_WASM_BINDING");
+        println!("cargo:rustc-cfg=TREE_SITTER_EMBED_WASM_BINDING");
     }
 
     println!(
@@ -51,7 +51,7 @@ fn read_git_sha() -> Option<String> {
         println!("cargo:rerun-if-changed={}", path);
     }
     if let Ok(mut head_content) = fs::read_to_string(&git_head_path) {
-        if head_content.ends_with("\n") {
+        if head_content.ends_with('\n') {
             head_content.pop();
         }
 

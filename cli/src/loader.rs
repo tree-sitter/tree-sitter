@@ -16,12 +16,12 @@ use tree_sitter_highlight::HighlightConfiguration;
 use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
 
 #[cfg(unix)]
-const DYLIB_EXTENSION: &'static str = "so";
+const DYLIB_EXTENSION: &str = "so";
 
 #[cfg(windows)]
-const DYLIB_EXTENSION: &'static str = "dll";
+const DYLIB_EXTENSION: &str = "dll";
 
-const BUILD_TARGET: &'static str = env!("BUILD_TARGET");
+const BUILD_TARGET: &str = env!("BUILD_TARGET");
 
 pub struct LanguageConfiguration<'a> {
     pub scope: Option<String>,
@@ -65,7 +65,7 @@ impl Loader {
         }
     }
 
-    pub fn configure_highlights(&mut self, names: &Vec<String>) {
+    pub fn configure_highlights(&mut self, names: &[String]) {
         self.use_all_highlight_names = false;
         let mut highlights = self.highlight_names.lock().unwrap();
         highlights.clear();
@@ -76,7 +76,7 @@ impl Loader {
         self.highlight_names.lock().unwrap().clone()
     }
 
-    pub fn find_all_languages(&mut self, parser_src_paths: &Vec<PathBuf>) -> Result<()> {
+    pub fn find_all_languages(&mut self, parser_src_paths: &[PathBuf]) -> Result<()> {
         for parser_container_dir in parser_src_paths.iter() {
             if let Ok(entries) = fs::read_dir(parser_container_dir) {
                 for entry in entries {
@@ -101,7 +101,7 @@ impl Loader {
                 .iter()
                 .map(|c| c.language_id)
                 .collect::<Vec<_>>();
-            language_ids.sort();
+            language_ids.sort_unstable();
             language_ids.dedup();
             language_ids
                 .into_iter()
@@ -481,7 +481,7 @@ impl Loader {
                         root_path: parser_path.to_path_buf(),
                         scope: config_json.scope,
                         language_id,
-                        file_types: config_json.file_types.unwrap_or(Vec::new()),
+                        file_types: config_json.file_types.unwrap_or_default(),
                         content_regex: Self::regex(config_json.content_regex),
                         _first_line_regex: Self::regex(config_json.first_line_regex),
                         injection_regex: Self::regex(config_json.injection_regex),
@@ -498,7 +498,7 @@ impl Loader {
                     for file_type in &configuration.file_types {
                         self.language_configuration_ids_by_file_type
                             .entry(file_type.to_string())
-                            .or_insert(Vec::new())
+                            .or_insert_with(Vec::new)
                             .push(self.language_configurations.len());
                     }
 
@@ -643,7 +643,7 @@ impl<'a> LanguageConfiguration<'a> {
 
     fn include_path_in_query_error<'b>(
         mut error: QueryError,
-        ranges: &'b Vec<(String, Range<usize>)>,
+        ranges: &'b [(String, Range<usize>)],
         source: &str,
         start_offset: usize,
     ) -> (&'b str, QueryError) {
@@ -660,6 +660,7 @@ impl<'a> LanguageConfiguration<'a> {
         (path.as_ref(), error)
     }
 
+    #[allow(clippy::type_complexity)]
     fn read_queries(
         &self,
         paths: &Option<Vec<String>>,

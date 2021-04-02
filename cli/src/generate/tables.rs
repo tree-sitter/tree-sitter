@@ -104,7 +104,7 @@ impl ParseState {
             .contains_key(&Symbol::end_of_nonterminal_extra())
     }
 
-    pub fn referenced_states<'a>(&'a self) -> impl Iterator<Item = ParseStateId> + 'a {
+    pub fn referenced_states(&self) -> impl Iterator<Item = ParseStateId> + '_ {
         self.terminal_entries
             .iter()
             .flat_map(|(_, entry)| {

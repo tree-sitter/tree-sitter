@@ -111,8 +111,7 @@ fn validate_precedences(grammar: &InputGrammar) -> Result<()> {
             Rule::Repeat(rule) => validate(rule_name, rule, names),
             Rule::Seq(elements) | Rule::Choice(elements) => elements
                 .iter()
-                .map(|e| validate(rule_name, e, names))
-                .collect(),
+                .try_for_each(|e| validate(rule_name, e, names)),
             Rule::Metadata { rule, params } => {
                 if let Precedence::Name(n) = &params.precedence {
                     if !names.contains(n) {

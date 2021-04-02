@@ -248,12 +248,11 @@ fn merge_token_set(
             {
                 return false;
             }
-            if !coincident_token_index.contains(symbol, existing_token) {
-                if token_conflict_map.does_overlap(existing_token.index, i)
-                    || token_conflict_map.does_overlap(i, existing_token.index)
-                {
-                    return false;
-                }
+            if !coincident_token_index.contains(symbol, existing_token)
+                && (token_conflict_map.does_overlap(existing_token.index, i)
+                    || token_conflict_map.does_overlap(i, existing_token.index))
+            {
+                return false;
             }
         }
     }
@@ -279,7 +278,7 @@ fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
         );
         state_ids_by_signature
             .entry(signature)
-            .or_insert(Vec::new())
+            .or_insert_with(Vec::new)
             .push(i);
     }
     let mut state_ids_by_group_id = state_ids_by_signature
@@ -331,11 +330,7 @@ fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
     table.states = new_states;
 }
 
-fn lex_states_differ(
-    left: &LexState,
-    right: &LexState,
-    group_ids_by_state_id: &Vec<usize>,
-) -> bool {
+fn lex_states_differ(left: &LexState, right: &LexState, group_ids_by_state_id: &[usize]) -> bool {
     left.advance_actions
         .iter()
         .zip(right.advance_actions.iter())
@@ -347,7 +342,7 @@ fn lex_states_differ(
 fn sort_states(table: &mut LexTable, parse_table: &mut ParseTable) {
     // Get a mapping of old state index -> new_state_index
     let mut old_ids_by_new_id = (0..table.states.len()).collect::<Vec<_>>();
-    &old_ids_by_new_id[1..].sort_by_key(|id| &table.states[*id]);
+    old_ids_by_new_id[1..].sort_by_key(|id| &table.states[*id]);
 
     // Get the inverse mapping
     let mut new_ids_by_old_id = vec![0; old_ids_by_new_id.len()];

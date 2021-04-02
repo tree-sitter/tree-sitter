@@ -24,8 +24,8 @@ lazy_static! {
         serde_json::from_str(UNICODE_PROPERTIES_JSON).unwrap();
 }
 
-const UNICODE_CATEGORIES_JSON: &'static str = include_str!("./unicode-categories.json");
-const UNICODE_PROPERTIES_JSON: &'static str = include_str!("./unicode-properties.json");
+const UNICODE_CATEGORIES_JSON: &str = include_str!("./unicode-categories.json");
+const UNICODE_PROPERTIES_JSON: &str = include_str!("./unicode-properties.json");
 const ALLOWED_REDUNDANT_ESCAPED_CHARS: [char; 4] = ['!', '\'', '"', '/'];
 
 struct NfaBuilder {
@@ -89,7 +89,7 @@ pub(crate) fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<Lexi
         precedence_stack: vec![0],
     };
 
-    let separator_rule = if grammar.separators.len() > 0 {
+    let separator_rule = if !grammar.separators.is_empty() {
         grammar.separators.push(Rule::Blank);
         Rule::repeat(Rule::choice(grammar.separators))
     } else {
@@ -148,7 +148,7 @@ impl NfaBuilder {
                     self.push_advance(CharacterSet::empty().add_char(c), next_state_id);
                     next_state_id = self.nfa.last_state_id();
                 }
-                Ok(s.len() > 0)
+                Ok(!s.is_empty())
             }
             Rule::Choice(elements) => {
                 let mut alternative_state_ids = Vec::new();
@@ -169,7 +169,7 @@ impl NfaBuilder {
             }
             Rule::Seq(elements) => {
                 let mut result = false;
-                for element in elements.into_iter().rev() {
+                for element in elements.iter().rev() {
                     if self.expand_rule(element, next_state_id)? {
                         result = true;
                     }

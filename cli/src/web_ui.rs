@@ -6,7 +6,6 @@ use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use tiny_http::{Header, Response, Server};
-use webbrowser;
 
 macro_rules! resource {
     ($name: tt, $path: tt) => {
@@ -73,10 +72,8 @@ pub fn serve(grammar_path: &Path, open_in_browser: bool) {
             )
         }))
         .unwrap();
-    if open_in_browser {
-        if let Err(_) = webbrowser::open(&format!("http://127.0.0.1:{}", port)) {
-            eprintln!("Failed to open '{}' in a web browser", url);
-        }
+    if open_in_browser && webbrowser::open(&format!("http://127.0.0.1:{}", port)).is_err() {
+        eprintln!("Failed to open '{}' in a web browser", url);
     }
 
     let tree_sitter_dir = env::var("TREE_SITTER_BASE_DIR").map(PathBuf::from).ok();
@@ -117,7 +114,7 @@ pub fn serve(grammar_path: &Path, open_in_browser: bool) {
     }
 }
 
-fn redirect<'a>(url: &'a str) -> Response<&'a [u8]> {
+fn redirect(url: &str) -> Response<&[u8]> {
     Response::empty(302)
         .with_data("".as_bytes(), Some(0))
         .with_header(Header::from_bytes("Location", url.as_bytes()).unwrap())
