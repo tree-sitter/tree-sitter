@@ -93,9 +93,10 @@ pub extern "C" fn ts_record_calloc(count: c_ulong, size: c_ulong) -> *const c_vo
 }
 
 #[no_mangle]
-pub extern "C" fn ts_record_realloc(ptr: *mut c_void, size: c_ulong) -> *const c_void {
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn ts_record_realloc(ptr: *mut c_void, size: c_ulong) -> *const c_void {
     record_dealloc(ptr);
-    let result = unsafe { realloc(ptr, size) };
+    let result = realloc(ptr, size);
     record_alloc(result);
     result
 }
@@ -104,6 +105,7 @@ pub extern "C" fn ts_record_realloc(ptr: *mut c_void, size: c_ulong) -> *const c
 // libc's `free` function when the allocation-tracking feature is disabled.  Since `free` is
 // unsafe, this function needs to be too.
 #[no_mangle]
+#[allow(clippy::missing_safety_doc)]
 pub unsafe extern "C" fn ts_record_free(ptr: *mut c_void) {
     record_dealloc(ptr);
     free(ptr);
