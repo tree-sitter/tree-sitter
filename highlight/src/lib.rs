@@ -1,3 +1,5 @@
+#![allow(clippy::upper_case_acronyms)]
+
 pub mod c_lib;
 pub mod util;
 pub use c_lib as c;
@@ -109,6 +111,12 @@ struct HighlightIterLayer<'a> {
     depth: usize,
 }
 
+impl Default for Highlighter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Highlighter {
     pub fn new() -> Self {
         Highlighter {
@@ -151,7 +159,7 @@ impl Highlighter {
             cancellation_flag,
             highlighter: self,
             iter_count: 0,
-            layers: layers,
+            layers,
             next_event: None,
             last_highlight_range: None,
         };
@@ -349,7 +357,7 @@ impl<'a> HighlightIterLayer<'a> {
                     .parse(source, None)
                     .ok_or(Error::Cancelled)?;
                 unsafe { highlighter.parser.set_cancellation_flag(None) };
-                let mut cursor = highlighter.cursors.pop().unwrap_or(QueryCursor::new());
+                let mut cursor = highlighter.cursors.pop().unwrap_or_default();
 
                 // Process combined injections.
                 if let Some(combined_injections_query) = &config.combined_injections_query {
@@ -586,7 +594,7 @@ where
                     break;
                 }
                 if i > 0 {
-                    &self.layers[0..(i + 1)].rotate_left(1);
+                    self.layers[0..(i + 1)].rotate_left(1);
                 }
                 break;
             } else {
@@ -746,12 +754,9 @@ where
                         local_defs: Vec::new(),
                     };
                     for prop in layer.config.query.property_settings(match_.pattern_index) {
-                        match prop.key.as_ref() {
-                            "local.scope-inherits" => {
-                                scope.inherits =
-                                    prop.value.as_ref().map_or(true, |r| r.as_ref() == "true");
-                            }
-                            _ => {}
+                        if prop.key.as_ref() == "local.scope-inherits" {
+                            scope.inherits =
+                                prop.value.as_ref().map_or(true, |r| r.as_ref() == "true");
                         }
                     }
                     layer.scope_stack.push(scope);
@@ -782,26 +787,24 @@ where
                 }
                 // If the node represents a reference, then try to find the corresponding
                 // definition in the scope stack.
-                else if Some(capture.index) == layer.config.local_ref_capture_index {
-                    if definition_highlight.is_none() {
-                        definition_highlight = None;
-                        if let Ok(name) = str::from_utf8(&self.source[range.clone()]) {
-                            for scope in layer.scope_stack.iter().rev() {
-                                if let Some(highlight) =
-                                    scope.local_defs.iter().rev().find_map(|def| {
-                                        if def.name == name && range.start >= def.value_range.end {
-                                            Some(def.highlight)
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                {
-                                    reference_highlight = highlight;
-                                    break;
+                else if Some(capture.index) == layer.config.local_ref_capture_index
+                    && definition_highlight.is_none()
+                {
+                    definition_highlight = None;
+                    if let Ok(name) = str::from_utf8(&self.source[range.clone()]) {
+                        for scope in layer.scope_stack.iter().rev() {
+                            if let Some(highlight) = scope.local_defs.iter().rev().find_map(|def| {
+                                if def.name == name && range.start >= def.value_range.end {
+                                    Some(def.highlight)
+                                } else {
+                                    None
                                 }
-                                if !scope.inherits {
-                                    break;
-                                }
+                            }) {
+                                reference_highlight = highlight;
+                                break;
+                            }
+                            if !scope.inherits {
+                                break;
                             }
                         }
                     }
@@ -881,6 +884,12 @@ where
 
             self.sort_layers();
         }
+    }
+}
+
+impl Default for HtmlRenderer {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -986,7 +995,7 @@ impl HtmlRenderer {
         self.html.extend(b"</span>");
     }
 
-    fn add_text<'a, F>(&mut self, src: &[u8], highlights: &Vec<Highlight>, attribute_callback: &F)
+    fn add_text<'a, F>(&mut self, src: &[u8], highlights: &[Highlight], attribute_callback: &F)
     where
         F: Fn(Highlight) -> &'a [u8],
     {

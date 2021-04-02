@@ -32,22 +32,21 @@ pub enum ErrorCode {
 }
 
 #[no_mangle]
-pub extern "C" fn ts_highlighter_new(
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn ts_highlighter_new(
     highlight_names: *const *const c_char,
     attribute_strings: *const *const c_char,
     highlight_count: u32,
 ) -> *mut TSHighlighter {
-    let highlight_names =
-        unsafe { slice::from_raw_parts(highlight_names, highlight_count as usize) };
-    let attribute_strings =
-        unsafe { slice::from_raw_parts(attribute_strings, highlight_count as usize) };
+    let highlight_names = slice::from_raw_parts(highlight_names, highlight_count as usize);
+    let attribute_strings = slice::from_raw_parts(attribute_strings, highlight_count as usize);
     let highlight_names = highlight_names
-        .into_iter()
-        .map(|s| unsafe { CStr::from_ptr(*s).to_string_lossy().to_string() })
+        .iter()
+        .map(|s| CStr::from_ptr(*s).to_string_lossy().to_string())
         .collect::<Vec<_>>();
     let attribute_strings = attribute_strings
-        .into_iter()
-        .map(|s| unsafe { CStr::from_ptr(*s).to_bytes() })
+        .iter()
+        .map(|s| CStr::from_ptr(*s).to_bytes())
         .collect();
     let carriage_return_index = highlight_names.iter().position(|s| s == "carriage-return");
     Box::into_raw(Box::new(TSHighlighter {
@@ -133,13 +132,15 @@ pub extern "C" fn ts_highlight_buffer_new() -> *mut TSHighlightBuffer {
 }
 
 #[no_mangle]
-pub extern "C" fn ts_highlighter_delete(this: *mut TSHighlighter) {
-    drop(unsafe { Box::from_raw(this) })
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn ts_highlighter_delete(this: *mut TSHighlighter) {
+    drop(Box::from_raw(this))
 }
 
 #[no_mangle]
-pub extern "C" fn ts_highlight_buffer_delete(this: *mut TSHighlightBuffer) {
-    drop(unsafe { Box::from_raw(this) })
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn ts_highlight_buffer_delete(this: *mut TSHighlightBuffer) {
+    drop(Box::from_raw(this))
 }
 
 #[no_mangle]
@@ -167,7 +168,8 @@ pub extern "C" fn ts_highlight_buffer_line_count(this: *const TSHighlightBuffer)
 }
 
 #[no_mangle]
-pub extern "C" fn ts_highlighter_highlight(
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn ts_highlighter_highlight(
     this: *const TSHighlighter,
     scope_name: *const c_char,
     source_code: *const c_char,
@@ -177,10 +179,9 @@ pub extern "C" fn ts_highlighter_highlight(
 ) -> ErrorCode {
     let this = unwrap_ptr(this);
     let output = unwrap_mut_ptr(output);
-    let scope_name = unwrap(unsafe { CStr::from_ptr(scope_name).to_str() });
-    let source_code =
-        unsafe { slice::from_raw_parts(source_code as *const u8, source_code_len as usize) };
-    let cancellation_flag = unsafe { cancellation_flag.as_ref() };
+    let scope_name = unwrap(CStr::from_ptr(scope_name).to_str());
+    let source_code = slice::from_raw_parts(source_code as *const u8, source_code_len as usize);
+    let cancellation_flag = cancellation_flag.as_ref();
     this.highlight(source_code, scope_name, output, cancellation_flag)
 }
 
@@ -225,15 +226,9 @@ impl TSHighlighter {
                 .renderer
                 .render(highlights, source_code, &|s| self.attribute_strings[s.0]);
             match result {
-                Err(Error::Cancelled) => {
-                    return ErrorCode::Timeout;
-                }
-                Err(Error::InvalidLanguage) => {
-                    return ErrorCode::InvalidLanguage;
-                }
-                Err(Error::Unknown) => {
-                    return ErrorCode::Timeout;
-                }
+                Err(Error::Cancelled) => ErrorCode::Timeout,
+                Err(Error::InvalidLanguage) => ErrorCode::InvalidLanguage,
+                Err(Error::Unknown) => ErrorCode::Timeout,
                 Ok(()) => ErrorCode::Ok,
             }
         } else {
