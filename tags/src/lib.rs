@@ -1,3 +1,5 @@
+#![allow(clippy::upper_case_acronyms)]
+
 pub mod c_lib;
 
 use memchr::memchr;
@@ -209,7 +211,7 @@ impl TagsConfiguration {
                         }
                     }
                 }
-                return Ok(info);
+                Ok(info)
             })
             .collect::<Result<Vec<_>, Error>>()?;
 
@@ -236,6 +238,12 @@ impl TagsConfiguration {
                     .to_bytes();
             str::from_utf8(cstr).expect("syntax type name was not valid utf-8")
         }
+    }
+}
+
+impl Default for TagsContext {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

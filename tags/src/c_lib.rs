@@ -67,12 +67,14 @@ pub extern "C" fn ts_tagger_new() -> *mut TSTagger {
 }
 
 #[no_mangle]
-pub extern "C" fn ts_tagger_delete(this: *mut TSTagger) {
-    drop(unsafe { Box::from_raw(this) })
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn ts_tagger_delete(this: *mut TSTagger) {
+    drop(Box::from_raw(this))
 }
 
 #[no_mangle]
-pub extern "C" fn ts_tagger_add_language(
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn ts_tagger_add_language(
     this: *mut TSTagger,
     scope_name: *const c_char,
     language: Language,
@@ -82,9 +84,9 @@ pub extern "C" fn ts_tagger_add_language(
     locals_query_len: u32,
 ) -> TSTagsError {
     let tagger = unwrap_mut_ptr(this);
-    let scope_name = unsafe { unwrap(CStr::from_ptr(scope_name).to_str()) };
-    let tags_query = unsafe { slice::from_raw_parts(tags_query, tags_query_len as usize) };
-    let locals_query = unsafe { slice::from_raw_parts(locals_query, locals_query_len as usize) };
+    let scope_name = unwrap(CStr::from_ptr(scope_name).to_str());
+    let tags_query = slice::from_raw_parts(tags_query, tags_query_len as usize);
+    let locals_query = slice::from_raw_parts(locals_query, locals_query_len as usize);
     let tags_query = match str::from_utf8(tags_query) {
         Ok(e) => e,
         Err(_) => return TSTagsError::InvalidUtf8,
@@ -108,7 +110,8 @@ pub extern "C" fn ts_tagger_add_language(
 }
 
 #[no_mangle]
-pub extern "C" fn ts_tagger_tag(
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn ts_tagger_tag(
     this: *mut TSTagger,
     scope_name: *const c_char,
     source_code: *const u8,
@@ -118,14 +121,14 @@ pub extern "C" fn ts_tagger_tag(
 ) -> TSTagsError {
     let tagger = unwrap_mut_ptr(this);
     let buffer = unwrap_mut_ptr(output);
-    let scope_name = unsafe { unwrap(CStr::from_ptr(scope_name).to_str()) };
+    let scope_name = unwrap(CStr::from_ptr(scope_name).to_str());
 
     if let Some(config) = tagger.languages.get(scope_name) {
         shrink_and_clear(&mut buffer.tags, BUFFER_TAGS_RESERVE_CAPACITY);
         shrink_and_clear(&mut buffer.docs, BUFFER_DOCS_RESERVE_CAPACITY);
 
-        let source_code = unsafe { slice::from_raw_parts(source_code, source_code_len as usize) };
-        let cancellation_flag = unsafe { cancellation_flag.as_ref() };
+        let source_code = slice::from_raw_parts(source_code, source_code_len as usize);
+        let cancellation_flag = cancellation_flag.as_ref();
 
         let tags = match buffer
             .context
@@ -198,8 +201,9 @@ pub extern "C" fn ts_tags_buffer_new() -> *mut TSTagsBuffer {
 }
 
 #[no_mangle]
-pub extern "C" fn ts_tags_buffer_delete(this: *mut TSTagsBuffer) {
-    drop(unsafe { Box::from_raw(this) })
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn ts_tags_buffer_delete(this: *mut TSTagsBuffer) {
+    drop(Box::from_raw(this))
 }
 
 #[no_mangle]
@@ -233,13 +237,14 @@ pub extern "C" fn ts_tags_buffer_found_parse_error(this: *const TSTagsBuffer) ->
 }
 
 #[no_mangle]
-pub extern "C" fn ts_tagger_syntax_kinds_for_scope_name(
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn ts_tagger_syntax_kinds_for_scope_name(
     this: *mut TSTagger,
     scope_name: *const c_char,
     len: *mut u32,
 ) -> *const *const i8 {
     let tagger = unwrap_mut_ptr(this);
-    let scope_name = unsafe { unwrap(CStr::from_ptr(scope_name).to_str()) };
+    let scope_name = unwrap(CStr::from_ptr(scope_name).to_str());
     let len = unwrap_mut_ptr(len);
 
     *len = 0;
