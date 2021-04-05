@@ -4,6 +4,7 @@ use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::path::Path;
 use std::process::Command;
+use which::which;
 
 pub fn get_grammar_name(src_dir: &Path) -> Result<String> {
     let grammar_json_path = src_dir.join("grammar.json");
@@ -22,9 +23,23 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
     let output_filename = format!("tree-sitter-{}.wasm", grammar_name);
 
     let mut command;
-    if !force_docker && Command::new("emcc").output().is_ok() {
-        command = Command::new("emcc");
-        command.current_dir(&language_dir);
+    if !force_docker {
+        let emcc_bin;
+        if cfg!(windows) {
+            emcc_bin = "emcc.bat"
+        } else {
+            emcc_bin = "emcc"
+        };
+        let emcc_which = which(emcc_bin).unwrap();
+        let emcc_path = emcc_which.to_str().unwrap();
+        if Command::new(emcc_path).output().is_ok() {
+            command = Command::new(emcc_path);
+            command.current_dir(&language_dir);
+        } else {
+            return Error::err(
+                "You must have either emcc or docker on your PATH to run this command".to_string(),
+            );
+        }
     } else if Command::new("docker").output().is_ok() {
         command = Command::new("docker");
         command.args(&["run", "--rm"]);
