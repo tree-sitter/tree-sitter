@@ -3,7 +3,9 @@ use super::generate::parse_grammar::GrammarJSON;
 use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::path::Path;
+use std::path::PathBuf;
 use std::process::Command;
+use which::which;
 
 pub fn get_grammar_name(src_dir: &Path) -> Result<String> {
     let grammar_json_path = src_dir.join("grammar.json");
@@ -22,9 +24,14 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
     let output_filename = format!("tree-sitter-{}.wasm", grammar_name);
 
     let mut command;
-    if !force_docker && Command::new("emcc").output().is_ok() {
-        command = Command::new("emcc");
-        command.current_dir(&language_dir);
+    if !force_docker {
+        let emcc_path = get_emcc_path();
+        if emcc_path.is_ok() {
+            command = Command::new(emcc_path.unwrap());
+            command.current_dir(&language_dir);
+        } else {
+            return Err(emcc_path.unwrap_err());
+        }
     } else if Command::new("docker").output().is_ok() {
         command = Command::new("docker");
         command.args(&["run", "--rm"]);
@@ -115,4 +122,24 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
     ))?;
 
     Ok(())
+}
+
+fn get_emcc_path() -> Result<PathBuf> {
+    let emcc_bin;
+    if cfg!(windows) {
+        emcc_bin = "emcc.bat";
+    } else {
+        emcc_bin = "emcc";
+    };
+    let emcc_which = which(emcc_bin);
+    let emcc_path;
+    if emcc_which.is_ok() {
+        emcc_path = emcc_which.unwrap();
+    } else {
+        return Error::err("emcc was not found on PATH".to_string());
+    }
+    if Command::new(&emcc_path).output().is_ok() {
+        return Ok(emcc_path);
+    }
+    return Error::err("emcc binary doesn't work properly".to_string());
 }

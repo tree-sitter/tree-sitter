@@ -38,6 +38,7 @@ smallbitvec = "2.3.0"
 tiny_http = "0.8"
 walkdir = "2.3"
 webbrowser = "0.5.1"
+which = "4.1.0"
 
 [dependencies.tree-sitter]
 version = ">= 0.17.0"
