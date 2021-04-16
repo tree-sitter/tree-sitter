@@ -351,7 +351,7 @@ impl Parser {
                     };
                     callback(log_type, message);
                 }
-            };
+            }
 
             let raw_container = Box::into_raw(container);
 
@@ -462,7 +462,7 @@ impl Parser {
             let slice = text.as_ref().unwrap().as_ref();
             *bytes_read = slice.len() as u32;
             return slice.as_ptr() as *const c_char;
-        };
+        }
 
         let c_input = ffi::TSInput {
             payload: &mut payload as *mut (&mut F, Option<T>) as *mut c_void,
@@ -518,7 +518,7 @@ impl Parser {
             let slice = text.as_ref().unwrap().as_ref();
             *bytes_read = slice.len() as u32 * 2;
             slice.as_ptr() as *const c_char
-        };
+        }
 
         let c_input = ffi::TSInput {
             payload: &mut payload as *mut (&mut F, Option<T>) as *mut c_void,
