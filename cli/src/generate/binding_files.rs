@@ -11,6 +11,8 @@ const BUILD_RS_TEMPLATE: &'static str = include_str!("./templates/build.rs");
 const CARGO_TOML_TEMPLATE: &'static str = include_str!("./templates/cargo.toml");
 const PACKAGE_JSON_TEMPLATE: &'static str = include_str!("./templates/package.json");
 const PARSER_NAME_PLACEHOLDER: &'static str = "PARSER_NAME";
+const CLI_VERSION_PLACEHOLDER: &'static str = "CLI_VERSION";
+const CLI_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<()> {
     let bindings_dir = repo_path.join("bindings");
@@ -110,7 +112,9 @@ pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<(
 fn generate_file(path: &Path, template: &str, language_name: &str) -> Result<()> {
     write_file(
         path,
-        template.replace(PARSER_NAME_PLACEHOLDER, language_name),
+        template
+            .replace(PARSER_NAME_PLACEHOLDER, language_name)
+            .replace(CLI_VERSION_PLACEHOLDER, CLI_VERSION),
     )
 }
 
