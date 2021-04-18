@@ -12,7 +12,7 @@ use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::os::raw::{c_char, c_void};
 use std::ptr::NonNull;
-use std::sync::atomic::AtomicUsize;
+use std::sync::{atomic::AtomicUsize, Arc};
 use std::{char, error, fmt, hash, iter, ptr, slice, str, u16};
 
 /// The latest ABI version that is supported by the current version of the
@@ -75,7 +75,7 @@ pub struct InputEdit {
 pub struct Node<'a>(ffi::TSNode, PhantomData<&'a ()>);
 
 /// A stateful object that this is used to produce a `Tree` based on some source code.
-pub struct Parser(NonNull<ffi::TSParser>);
+pub struct Parser(NonNull<ffi::TSParser>, Option<Arc<AtomicUsize>>);
 
 /// A type of log message.
 #[derive(Debug, PartialEq, Eq)]
@@ -276,7 +276,7 @@ impl Parser {
     pub fn new() -> Parser {
         unsafe {
             let parser = ffi::ts_parser_new();
-            Parser(NonNull::new_unchecked(parser))
+            Parser(NonNull::new_unchecked(parser), None)
         }
     }
 
@@ -592,9 +592,30 @@ impl Parser {
             Err(IncludedRangesError(0))
         }
     }
+}
+
+impl Parser {
+    /// Get the parser's current cancellation flag pointer.
+    pub fn cancellation_flag(&self) -> Option<Arc<AtomicUsize>> {
+        self.1.clone()
+    }
+
+    /// Set the parser's current cancellation flag pointer.
+    ///
+    /// If a pointer is assigned, then the parser will periodically read from
+    /// this pointer during parsing. If it reads a non-zero value, it will halt early,
+    /// returning `None`. See [parse](Parser::parse) for more information.
+    pub fn set_cancellation_flag(&mut self, flag: Option<Arc<AtomicUsize>>) {
+        self.1 = flag;
+        let flag = match self.1 {
+            Some(ref x) => Some(x.as_ref()),
+            None => None
+        };
+        unsafe { self.set_cancellation_flag_unchecked(flag) }
+    }
 
     /// Get the parser's current cancellation flag pointer.
-    pub unsafe fn cancellation_flag(&self) -> Option<&AtomicUsize> {
+    pub unsafe fn cancellation_flag_unchecked(&self) -> Option<&AtomicUsize> {
         (ffi::ts_parser_cancellation_flag(self.0.as_ptr()) as *const AtomicUsize).as_ref()
     }
 
@@ -603,7 +624,13 @@ impl Parser {
     /// If a pointer is assigned, then the parser will periodically read from
     /// this pointer during parsing. If it reads a non-zero value, it will halt early,
     /// returning `None`. See [parse](Parser::parse) for more information.
-    pub unsafe fn set_cancellation_flag(&self, flag: Option<&AtomicUsize>) {
+    ///
+    /// # Safety
+    ///
+    /// This can only be called when
+    /// - There is a guaranty that the flag wouldn't be dropped by the end of a scope.
+    ///
+    pub unsafe fn set_cancellation_flag_unchecked(&self, flag: Option<&AtomicUsize>) {
         if let Some(flag) = flag {
             ffi::ts_parser_set_cancellation_flag(
                 self.0.as_ptr(),

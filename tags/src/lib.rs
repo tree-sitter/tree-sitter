@@ -257,7 +257,10 @@ impl TagsContext {
             .set_language(config.language)
             .map_err(|_| Error::InvalidLanguage)?;
         self.parser.reset();
-        unsafe { self.parser.set_cancellation_flag(cancellation_flag) };
+        unsafe {
+            self.parser
+                .set_cancellation_flag_unchecked(cancellation_flag);
+        }
         let tree = self.parser.parse(source, None).ok_or(Error::Cancelled)?;
 
         // The `matches` iterator borrows the `Tree`, which prevents it from being moved.

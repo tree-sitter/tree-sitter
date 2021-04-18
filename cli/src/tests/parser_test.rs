@@ -542,7 +542,7 @@ fn test_parsing_cancelled_by_another_thread() {
 
     let mut parser = Parser::new();
     parser.set_language(get_language("javascript")).unwrap();
-    unsafe { parser.set_cancellation_flag(Some(&cancellation_flag)) };
+    parser.set_cancellation_flag(Some(&cancellation_flag));
 
     // Long input - parsing succeeds
     let tree = parser.parse_with(
