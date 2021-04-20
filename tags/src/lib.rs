@@ -88,7 +88,7 @@ struct LocalScope<'a> {
 
 struct TagsIter<'a, I>
 where
-    I: Iterator<Item = tree_sitter::QueryMatch<'a>>,
+    I: Iterator<Item = tree_sitter::QueryMatch<'a, 'a>>,
 {
     matches: I,
     _tree: Tree,
@@ -291,7 +291,7 @@ impl TagsContext {
 
 impl<'a, I> Iterator for TagsIter<'a, I>
 where
-    I: Iterator<Item = tree_sitter::QueryMatch<'a>>,
+    I: Iterator<Item = tree_sitter::QueryMatch<'a, 'a>>,
 {
     type Item = Result<Tag, Error>;
 

@@ -126,26 +126,27 @@ pub struct QueryPredicate {
 }
 
 /// A match of a `Query` to a particular set of `Node`s.
-pub struct QueryMatch<'a> {
+pub struct QueryMatch<'a, 'tree> {
     pub pattern_index: usize,
-    pub captures: &'a [QueryCapture<'a>],
+    pub captures: &'a [QueryCapture<'a, 'tree>],
     id: u32,
     cursor: *mut ffi::TSQueryCursor,
 }
 
 /// A sequence of `QueryCapture`s within a `QueryMatch`.
-pub struct QueryCaptures<'a, T: AsRef<[u8]>> {
+pub struct QueryCaptures<'a, 'tree, T: AsRef<[u8]>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'a Query,
-    text_callback: Box<dyn FnMut(Node<'a>) -> T + 'a>,
+    text_callback: Box<dyn FnMut(Node<'tree>) -> T + 'a>,
 }
 
 /// A particular `Node` that has been captured with a particular name within a `Query`.
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
-pub struct QueryCapture<'a> {
-    pub node: Node<'a>,
+pub struct QueryCapture<'a, 'tree> {
+    pub node: Node<'tree>,
     pub index: u32,
+    _phantom: PhantomData<&'a ()>,
 }
 
 /// An error that occurred when trying to assign an incompatible `Language` to a `Parser`.
@@ -1606,12 +1607,12 @@ impl QueryCursor {
     /// Each match contains the index of the pattern that matched, and a list of captures.
     /// Because multiple patterns can match the same set of nodes, one match may contain
     /// captures that appear *before* some of the captures from a previous match.
-    pub fn matches<'a, T: AsRef<[u8]>>(
+    pub fn matches<'a, 'tree: 'a, T: AsRef<[u8]>>(
         &'a mut self,
         query: &'a Query,
-        node: Node<'a>,
-        mut text_callback: impl FnMut(Node<'a>) -> T + 'a,
-    ) -> impl Iterator<Item = QueryMatch<'a>> + 'a {
+        node: Node<'tree>,
+        mut text_callback: impl FnMut(Node<'tree>) -> T + 'a,
+    ) -> impl Iterator<Item = QueryMatch<'a, 'tree>> + 'a {
         let ptr = self.0.as_ptr();
         unsafe { ffi::ts_query_cursor_exec(ptr, query.ptr.as_ptr(), node.0) };
         std::iter::from_fn(move || loop {
@@ -1633,12 +1634,12 @@ impl QueryCursor {
     ///
     /// This is useful if don't care about which pattern matched, and just want a single,
     /// ordered sequence of captures.
-    pub fn captures<'a, T: AsRef<[u8]>>(
+    pub fn captures<'a, 'tree, T: AsRef<[u8]>>(
         &'a mut self,
         query: &'a Query,
-        node: Node<'a>,
-        text_callback: impl FnMut(Node<'a>) -> T + 'a,
-    ) -> QueryCaptures<'a, T> {
+        node: Node<'tree>,
+        text_callback: impl FnMut(Node<'tree>) -> T + 'a,
+    ) -> QueryCaptures<'a, 'tree, T> {
         let ptr = self.0.as_ptr();
         unsafe { ffi::ts_query_cursor_exec(ptr, query.ptr.as_ptr(), node.0) };
         QueryCaptures {
@@ -1665,7 +1666,7 @@ impl QueryCursor {
     }
 }
 
-impl<'a> QueryMatch<'a> {
+impl<'a, 'tree> QueryMatch<'a, 'tree> {
     pub fn remove(self) {
         unsafe { ffi::ts_query_cursor_remove_match(self.cursor, self.id) }
     }
@@ -1678,7 +1679,7 @@ impl<'a> QueryMatch<'a> {
             captures: if m.capture_count > 0 {
                 unsafe {
                     slice::from_raw_parts(
-                        m.captures as *const QueryCapture<'a>,
+                        m.captures as *const QueryCapture<'a, 'tree>,
                         m.capture_count as usize,
                     )
                 }
@@ -1691,7 +1692,7 @@ impl<'a> QueryMatch<'a> {
     fn satisfies_text_predicates<T: AsRef<[u8]>>(
         &self,
         query: &Query,
-        text_callback: &mut impl FnMut(Node<'a>) -> T,
+        text_callback: &mut impl FnMut(Node<'tree>) -> T,
     ) -> bool {
         query.text_predicates[self.pattern_index]
             .iter()
@@ -1712,7 +1713,7 @@ impl<'a> QueryMatch<'a> {
             })
     }
 
-    fn capture_for_index(&self, capture_index: u32) -> Option<Node<'a>> {
+    fn capture_for_index(&self, capture_index: u32) -> Option<Node<'tree>> {
         for c in self.captures {
             if c.index == capture_index {
                 return Some(c.node);
@@ -1732,8 +1733,8 @@ impl QueryProperty {
     }
 }
 
-impl<'a, T: AsRef<[u8]>> Iterator for QueryCaptures<'a, T> {
-    type Item = (QueryMatch<'a>, usize);
+impl<'a, 'tree: 'a, T: AsRef<[u8]>> Iterator for QueryCaptures<'a, 'tree, T> {
+    type Item = (QueryMatch<'a, 'tree>, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -1759,7 +1760,7 @@ impl<'a, T: AsRef<[u8]>> Iterator for QueryCaptures<'a, T> {
     }
 }
 
-impl<'a> fmt::Debug for QueryMatch<'a> {
+impl<'a, 'tree> fmt::Debug for QueryMatch<'a, 'tree> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,

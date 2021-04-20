@@ -101,7 +101,7 @@ where
 struct HighlightIterLayer<'a> {
     _tree: Tree,
     cursor: QueryCursor,
-    captures: iter::Peekable<QueryCaptures<'a, &'a [u8]>>,
+    captures: iter::Peekable<QueryCaptures<'a, 'a, &'a [u8]>>,
     config: &'a HighlightConfiguration,
     highlight_end_stack: Vec<usize>,
     scope_stack: Vec<LocalScope<'a>>,
@@ -1022,10 +1022,10 @@ impl HtmlRenderer {
     }
 }
 
-fn injection_for_match<'a>(
+fn injection_for_match<'a, 'tree>(
     config: &HighlightConfiguration,
     query: &'a Query,
-    query_match: &QueryMatch<'a>,
+    query_match: &QueryMatch<'a, 'a>,
     source: &'a [u8],
 ) -> (Option<&'a str>, Option<Node<'a>>, bool) {
     let content_capture_index = config.injection_content_capture_index;
