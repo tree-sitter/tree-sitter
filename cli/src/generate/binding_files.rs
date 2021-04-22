@@ -11,9 +11,14 @@ const BUILD_RS_TEMPLATE: &'static str = include_str!("./templates/build.rs");
 const CARGO_TOML_TEMPLATE: &'static str = include_str!("./templates/cargo.toml");
 const PACKAGE_JSON_TEMPLATE: &'static str = include_str!("./templates/package.json");
 const PARSER_NAME_PLACEHOLDER: &'static str = "PARSER_NAME";
+const CLI_VERSION_PLACEHOLDER: &'static str = "CLI_VERSION";
+const CLI_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<()> {
     let bindings_dir = repo_path.join("bindings");
+
+    let dashed_language_name = language_name.replace("_", "-");
+    let dashed_language_name = dashed_language_name.as_str();
 
     // Generate rust bindings if needed.
     let rust_binding_dir = bindings_dir.join("rust");
@@ -31,7 +36,7 @@ pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<(
         )?;
         let cargo_toml_path = repo_path.join("Cargo.toml");
         if !cargo_toml_path.exists() {
-            generate_file(&cargo_toml_path, CARGO_TOML_TEMPLATE, language_name)?;
+            generate_file(&cargo_toml_path, CARGO_TOML_TEMPLATE, dashed_language_name)?;
         }
     }
 
@@ -90,7 +95,7 @@ pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<(
                 write_file(&package_json_path, package_json_str)?;
             }
         } else {
-            generate_file(&package_json_path, PACKAGE_JSON_TEMPLATE, language_name)?;
+            generate_file(&package_json_path, PACKAGE_JSON_TEMPLATE, dashed_language_name)?;
         }
 
         // Remove files from old node binding paths.
@@ -110,7 +115,9 @@ pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<(
 fn generate_file(path: &Path, template: &str, language_name: &str) -> Result<()> {
     write_file(
         path,
-        template.replace(PARSER_NAME_PLACEHOLDER, language_name),
+        template
+            .replace(PARSER_NAME_PLACEHOLDER, language_name)
+            .replace(CLI_VERSION_PLACEHOLDER, CLI_VERSION),
     )
 }
 
