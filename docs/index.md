@@ -84,8 +84,8 @@ Parsers for these languages are in development:
 The design of Tree-sitter was greatly influenced by the following research papers:
 
 - [Practical Algorithms for Incremental Software Development Environments](https://www2.eecs.berkeley.edu/Pubs/TechRpts/1997/CSD-97-946.pdf)
-- [Context Aware Scanning for Parsing Extensible Languages](http://www.umsec.umn.edu/publications/Context-Aware-Scanning-Parsing-Extensible)
-- [Efficient and Flexible Incremental Parsing](http://ftp.cs.berkeley.edu/sggs/toplas-parsing.ps)
+- [Context Aware Scanning for Parsing Extensible Languages](https://www-users.cs.umn.edu/~evw/pubs/vanwyk07gpce/)
+- [Efficient and Flexible Incremental Parsing](https://www.semanticscholar.org/paper/Efficient-and-flexible-incremental-parsing-Wagner-Graham/fe7d333d718d73e423a9512f40fc69ce35bea22d)
 - [Incremental Analysis of Real Programming Languages](https://pdfs.semanticscholar.org/ca69/018c29cc415820ed207d7e1d391e2da1656f.pdf)
 - [Error Detection and Recovery in LR Parsers](http://what-when-how.com/compiler-writing/bottom-up-parsing-compiler-writing-part-13)
-- [Error Recovery for LR Parsers](http://www.dtic.mil/dtic/tr/fulltext/u2/a043470.pdf)
+- [Error Recovery for LR Parsers](https://apps.dtic.mil/dtic/tr/fulltext/u2/a043470.pdf)
