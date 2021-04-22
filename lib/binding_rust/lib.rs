@@ -134,10 +134,10 @@ pub struct QueryMatch<'a> {
 }
 
 /// A sequence of `QueryCapture`s within a `QueryMatch`.
-pub struct QueryCaptures<'a, T: AsRef<[u8]>> {
+pub struct QueryCaptures<'a, 'tree: 'a, T: AsRef<[u8]>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'a Query,
-    text_callback: Box<dyn FnMut(Node<'a>) -> T + 'a>,
+    text_callback: Box<dyn FnMut(Node<'tree>) -> T + 'a>,
 }
 
 /// A particular `Node` that has been captured with a particular name within a `Query`.
@@ -1633,12 +1633,12 @@ impl<'a> QueryCursor {
     ///
     /// This is useful if don't care about which pattern matched, and just want a single,
     /// ordered sequence of captures.
-    pub fn captures<T: AsRef<[u8]>>(
+    pub fn captures<'tree, T: AsRef<[u8]>>(
         &'a mut self,
         query: &'a Query,
-        node: Node<'a>,
-        text_callback: impl FnMut(Node<'a>) -> T + 'a,
-    ) -> QueryCaptures<'a, T> {
+        node: Node<'tree>,
+        text_callback: impl FnMut(Node<'tree>) -> T + 'a,
+    ) -> QueryCaptures<'a, 'tree, T> {
         let ptr = self.0.as_ptr();
         unsafe { ffi::ts_query_cursor_exec(ptr, query.ptr.as_ptr(), node.0) };
         QueryCaptures {
@@ -1732,8 +1732,8 @@ impl QueryProperty {
     }
 }
 
-impl<'a, T: AsRef<[u8]>> Iterator for QueryCaptures<'a, T> {
-    type Item = (QueryMatch<'a>, usize);
+impl<'a, 'tree: 'a, T: AsRef<[u8]>> Iterator for QueryCaptures<'a, 'tree, T> {
+    type Item = (QueryMatch<'tree>, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
