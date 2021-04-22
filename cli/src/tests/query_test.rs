@@ -3037,6 +3037,57 @@ fn test_query_capture_names() {
 }
 
 #[test]
+fn test_query_lifetime_is_separate_from_nodes_lifetime() {
+    allocations::record(|| {
+        let query = r#"(call_expression) @call"#;
+        let source = "a(1); b(2);";
+
+        let language = get_language("javascript");
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let query = Query::new(language, query).unwrap();
+
+        fn take_first_node_from_captures<'tree>(
+            source: &str,
+            query: &Query,
+            node: Node<'tree>,
+        ) -> Node<'tree> {
+            let mut cursor = QueryCursor::new();
+            let node = cursor
+                .matches(&query, node, to_callback(source))
+                .next()
+                .unwrap()
+                .captures[0]
+                .node;
+            node
+        }
+
+        let node = take_first_node_from_captures(source, &query, tree.root_node());
+        assert_eq!(node.kind(), "call_expression");
+
+        fn take_first_node_from_matches<'tree>(
+            source: &str,
+            query: &Query,
+            node: Node<'tree>,
+        ) -> Node<'tree> {
+            let mut cursor = QueryCursor::new();
+            let node = cursor
+                .captures(&query, node, to_callback(source))
+                .next()
+                .unwrap()
+                .0
+                .captures[0]
+                .node;
+            node
+        }
+
+        let node = take_first_node_from_matches(source, &query, tree.root_node());
+        assert_eq!(node.kind(), "call_expression");
+    });
+}
+
+#[test]
 fn test_query_with_no_patterns() {
     allocations::record(|| {
         let language = get_language("javascript");
