@@ -13,7 +13,7 @@ use std::mem::MaybeUninit;
 use std::os::raw::{c_char, c_void};
 use std::ptr::NonNull;
 use std::sync::atomic::AtomicUsize;
-use std::{char, fmt, hash, iter, ptr, slice, str, u16};
+use std::{char, error, fmt, hash, iter, ptr, slice, str, u16};
 
 /// The latest ABI version that is supported by the current version of the
 /// library.
@@ -268,16 +268,6 @@ impl Language {
         } else {
             Some(id)
         }
-    }
-}
-
-impl fmt::Display for LanguageError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(
-            f,
-            "Incompatible language version {}. Expected minimum {}, maximum {}",
-            self.version, MIN_COMPATIBLE_LANGUAGE_VERSION, LANGUAGE_VERSION,
-        )
     }
 }
 
@@ -573,7 +563,8 @@ impl Parser {
     /// ```text
     ///     ranges[i].end_byte <= ranges[i + 1].start_byte
     /// ```
-    /// If this requirement is not satisfied, method will panic.
+    /// If this requirement is not satisfied, method will return IncludedRangesError
+    /// error with an offset in the passed ranges slice pointing to a first incorrect range.
     pub fn set_included_ranges<'a>(
         &mut self,
         ranges: &'a [Range],
@@ -1907,6 +1898,46 @@ fn predicate_error(row: usize, message: String) -> QueryError {
         message,
     }
 }
+
+impl fmt::Display for IncludedRangesError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Incorrect range by index: {}", self.0)
+    }
+}
+
+impl fmt::Display for LanguageError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Incompatible language version {}. Expected minimum {}, maximum {}",
+            self.version, MIN_COMPATIBLE_LANGUAGE_VERSION, LANGUAGE_VERSION,
+        )
+    }
+}
+
+impl fmt::Display for QueryError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Query error at {}:{}. {}{}",
+            self.row + 1,
+            self.column + 1,
+            match self.kind {
+                QueryErrorKind::Field => "Invalid field name ",
+                QueryErrorKind::NodeType => "Invalid node type ",
+                QueryErrorKind::Capture => "Invalid capture name ",
+                QueryErrorKind::Predicate => "Invalid predicate: ",
+                QueryErrorKind::Structure => "Impossible pattern:\n",
+                QueryErrorKind::Syntax => "Invalid syntax:\n",
+            },
+            self.message
+        )
+    }
+}
+
+impl error::Error for IncludedRangesError {}
+impl error::Error for LanguageError {}
+impl error::Error for QueryError {}
 
 unsafe impl Send for Language {}
 unsafe impl Send for Parser {}
