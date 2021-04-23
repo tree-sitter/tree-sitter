@@ -1917,20 +1917,20 @@ impl fmt::Display for LanguageError {
 
 impl fmt::Display for QueryError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let msg = match self.kind {
-            QueryErrorKind::Capture => format!("Invalid capture name {}", self.message),
-            QueryErrorKind::Field => format!("Invalid field name {}", self.message),
-            QueryErrorKind::NodeType => format!("Invalid node type {}", self.message),
-            QueryErrorKind::Syntax => format!("Invalid syntax:\n{}", self.message),
-            QueryErrorKind::Structure => format!("Impossible pattern:\n{}", self.message),
-            QueryErrorKind::Predicate => format!("Invalid predicate: {}", self.message),
-        };
         write!(
             f,
-            "Query error at {}:{}. {}",
+            "Query error at {}:{}. {}{}",
             self.row + 1,
             self.column + 1,
-            msg
+            match self.kind {
+                QueryErrorKind::Field => "Invalid field name ",
+                QueryErrorKind::NodeType => "Invalid node type ",
+                QueryErrorKind::Capture => "Invalid capture name ",
+                QueryErrorKind::Predicate => "Invalid predicate: ",
+                QueryErrorKind::Structure => "Impossible pattern:\n",
+                QueryErrorKind::Syntax => "Invalid syntax:\n",
+            },
+            self.message
         )
     }
 }
