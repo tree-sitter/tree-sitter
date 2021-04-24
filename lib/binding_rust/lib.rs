@@ -609,9 +609,9 @@ impl Parser {
         self.1 = flag;
         let flag = match self.1 {
             Some(ref x) => Some(x.as_ref()),
-            None => None
+            None => None,
         };
-        unsafe { self.set_cancellation_flag_unchecked(flag) }
+        unsafe { self.ts_set_cancellation_flag(flag) }
     }
 
     /// Get the parser's current cancellation flag pointer.
@@ -630,7 +630,12 @@ impl Parser {
     /// This can only be called when
     /// - There is a guaranty that the flag wouldn't be dropped by the end of a scope.
     ///
-    pub unsafe fn set_cancellation_flag_unchecked(&self, flag: Option<&AtomicUsize>) {
+    pub unsafe fn set_cancellation_flag_unchecked(&mut self, flag: Option<&AtomicUsize>) {
+        self.1 = None;
+        self.ts_set_cancellation_flag(flag);
+    }
+
+    unsafe fn ts_set_cancellation_flag(&self, flag: Option<&AtomicUsize>) {
         if let Some(flag) = flag {
             ffi::ts_parser_set_cancellation_flag(
                 self.0.as_ptr(),
