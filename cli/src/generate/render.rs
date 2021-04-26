@@ -380,7 +380,7 @@ impl Generator {
     }
 
     fn add_unique_symbol_map(&mut self) {
-        add_line!(self, "static TSSymbol ts_symbol_map[] = {{");
+        add_line!(self, "static const TSSymbol ts_symbol_map[] = {{");
         indent!(self);
         for symbol in &self.parse_table.symbols {
             add_line!(
@@ -487,7 +487,7 @@ impl Generator {
     fn add_alias_sequences(&mut self) {
         add_line!(
             self,
-            "static TSSymbol ts_alias_sequences[PRODUCTION_ID_COUNT][MAX_ALIAS_SEQUENCE_LENGTH] = {{",
+            "static const TSSymbol ts_alias_sequences[PRODUCTION_ID_COUNT][MAX_ALIAS_SEQUENCE_LENGTH] = {{",
         );
         indent!(self);
         for (i, production_info) in self.parse_table.production_infos.iter().enumerate() {
@@ -543,7 +543,7 @@ impl Generator {
         let mut alias_ids_by_symbol = alias_ids_by_symbol.iter().collect::<Vec<_>>();
         alias_ids_by_symbol.sort_unstable_by_key(|e| e.0);
 
-        add_line!(self, "static uint16_t ts_non_terminal_alias_map[] = {{");
+        add_line!(self, "static const uint16_t ts_non_terminal_alias_map[] = {{");
         indent!(self);
         for (symbol, alias_ids) in alias_ids_by_symbol {
             let symbol_id = &self.symbol_ids[symbol];
@@ -962,7 +962,7 @@ impl Generator {
     }
 
     fn add_lex_modes_list(&mut self) {
-        add_line!(self, "static TSLexMode ts_lex_modes[STATE_COUNT] = {{");
+        add_line!(self, "static const TSLexMode ts_lex_modes[STATE_COUNT] = {{");
         indent!(self);
         for (i, state) in self.parse_table.states.iter().enumerate() {
             if state.is_end_of_non_terminal_extra() {
@@ -1003,7 +1003,7 @@ impl Generator {
     fn add_external_scanner_symbol_map(&mut self) {
         add_line!(
             self,
-            "static TSSymbol ts_external_scanner_symbol_map[EXTERNAL_TOKEN_COUNT] = {{"
+            "static const TSSymbol ts_external_scanner_symbol_map[EXTERNAL_TOKEN_COUNT] = {{"
         );
         indent!(self);
         for i in 0..self.syntax_grammar.external_tokens.len() {
@@ -1026,7 +1026,7 @@ impl Generator {
     fn add_external_scanner_states_list(&mut self) {
         add_line!(
             self,
-            "static bool ts_external_scanner_states[{}][EXTERNAL_TOKEN_COUNT] = {{",
+            "static const bool ts_external_scanner_states[{}][EXTERNAL_TOKEN_COUNT] = {{",
             self.parse_table.external_lex_states.len(),
         );
         indent!(self);
@@ -1065,7 +1065,7 @@ impl Generator {
 
         add_line!(
             self,
-            "static uint16_t ts_parse_table[LARGE_STATE_COUNT][SYMBOL_COUNT] = {{",
+            "static const uint16_t ts_parse_table[LARGE_STATE_COUNT][SYMBOL_COUNT] = {{",
         );
         indent!(self);
 
@@ -1124,7 +1124,7 @@ impl Generator {
         add_line!(self, "");
 
         if self.large_state_count < self.parse_table.states.len() {
-            add_line!(self, "static uint16_t ts_small_parse_table[] = {{");
+            add_line!(self, "static const uint16_t ts_small_parse_table[] = {{");
             indent!(self);
 
             let mut index = 0;
@@ -1200,7 +1200,7 @@ impl Generator {
             add_line!(self, "}};");
             add_line!(self, "");
 
-            add_line!(self, "static uint32_t ts_small_parse_table_map[] = {{");
+            add_line!(self, "static const uint32_t ts_small_parse_table_map[] = {{");
             indent!(self);
             for i in self.large_state_count..self.parse_table.states.len() {
                 add_line!(
@@ -1219,7 +1219,7 @@ impl Generator {
     }
 
     fn add_parse_action_list(&mut self, parse_table_entries: Vec<(usize, ParseTableEntry)>) {
-        add_line!(self, "static TSParseActionEntry ts_parse_actions[] = {{");
+        add_line!(self, "static const TSParseActionEntry ts_parse_actions[] = {{");
         indent!(self);
         for (i, entry) in parse_table_entries {
             add!(
@@ -1311,7 +1311,7 @@ impl Generator {
             language_function_name
         );
         indent!(self);
-        add_line!(self, "static TSLanguage language = {{");
+        add_line!(self, "static const TSLanguage language = {{");
         indent!(self);
         add_line!(self, ".version = LANGUAGE_VERSION,");
 
@@ -1332,15 +1332,15 @@ impl Generator {
         );
 
         // Parse table
-        add_line!(self, ".parse_table = (const uint16_t *)ts_parse_table,");
+        add_line!(self, ".parse_table = &ts_parse_table[0][0],");
         if self.large_state_count < self.parse_table.states.len() {
             add_line!(
                 self,
-                ".small_parse_table = (const uint16_t *)ts_small_parse_table,"
+                ".small_parse_table = ts_small_parse_table,"
             );
             add_line!(
                 self,
-                ".small_parse_table_map = (const uint32_t *)ts_small_parse_table_map,"
+                ".small_parse_table_map = ts_small_parse_table_map,"
             );
         }
         add_line!(self, ".parse_actions = ts_parse_actions,");
@@ -1351,11 +1351,11 @@ impl Generator {
             add_line!(self, ".field_names = ts_field_names,");
             add_line!(
                 self,
-                ".field_map_slices = (const TSFieldMapSlice *)ts_field_map_slices,"
+                ".field_map_slices = ts_field_map_slices,"
             );
             add_line!(
                 self,
-                ".field_map_entries = (const TSFieldMapEntry *)ts_field_map_entries,"
+                ".field_map_entries = ts_field_map_entries,"
             );
         }
         add_line!(self, ".symbol_metadata = ts_symbol_metadata,");
@@ -1364,7 +1364,7 @@ impl Generator {
         if !self.parse_table.production_infos.is_empty() {
             add_line!(
                 self,
-                ".alias_sequences = (const TSSymbol *)ts_alias_sequences,"
+                ".alias_sequences = &ts_alias_sequences[0][0],"
             );
         }
 
@@ -1383,7 +1383,7 @@ impl Generator {
         if !self.syntax_grammar.external_tokens.is_empty() {
             add_line!(self, ".external_scanner = {{");
             indent!(self);
-            add_line!(self, "(const bool *)ts_external_scanner_states,");
+            add_line!(self, "&ts_external_scanner_states[0][0],");
             add_line!(self, "ts_external_scanner_symbol_map,");
             add_line!(self, "{}_create,", external_scanner_name);
             add_line!(self, "{}_destroy,", external_scanner_name);
