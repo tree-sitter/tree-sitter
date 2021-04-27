@@ -628,7 +628,8 @@ impl Parser {
     /// # Safety
     ///
     /// This can only be called when
-    /// - There is a guaranty that the flag wouldn't be dropped by the end of a scope.
+    /// - The `flag` reference is guaranteed to be valid until either the parser is
+    ///   dropped or the reference is replaced by another call to this method.
     ///
     pub unsafe fn set_cancellation_flag_unchecked(&mut self, flag: Option<&AtomicUsize>) {
         self.1 = None;
