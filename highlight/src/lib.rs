@@ -129,10 +129,13 @@ impl Highlighter {
         cancellation_flag: Option<&'a AtomicUsize>,
         mut injection_callback: impl FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
     ) -> Result<impl Iterator<Item = Result<HighlightEvent, Error>> + 'a, Error> {
+        unsafe {
+            self.parser
+                .set_cancellation_flag_unchecked(cancellation_flag);
+        }
         let layers = HighlightIterLayer::new(
             source,
             self,
-            cancellation_flag,
             &mut injection_callback,
             config,
             0,
@@ -328,7 +331,6 @@ impl<'a, 'tree: 'a> HighlightIterLayer<'a, 'tree> {
     fn new<F: FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a>(
         source: &'a [u8],
         highlighter: &mut Highlighter,
-        cancellation_flag: Option<&'a AtomicUsize>,
         injection_callback: &mut F,
         mut config: &'a HighlightConfiguration,
         mut depth: usize,
@@ -343,16 +345,11 @@ impl<'a, 'tree: 'a> HighlightIterLayer<'a, 'tree> {
                     .set_language(config.language)
                     .map_err(|_| Error::InvalidLanguage)?;
 
-                unsafe {
-                    highlighter
-                        .parser
-                        .set_cancellation_flag_unchecked(cancellation_flag);
-                }
                 let tree = highlighter
                     .parser
                     .parse(source, None)
                     .ok_or(Error::Cancelled)?;
-                unsafe { highlighter.parser.set_cancellation_flag_unchecked(None) }
+
                 let mut cursor = highlighter.cursors.pop().unwrap_or(QueryCursor::new());
 
                 // Process combined injections.
@@ -709,7 +706,6 @@ where
                             match HighlightIterLayer::new(
                                 self.source,
                                 self.highlighter,
-                                self.cancellation_flag,
                                 &mut self.injection_callback,
                                 config,
                                 self.layers[0].depth + 1,
