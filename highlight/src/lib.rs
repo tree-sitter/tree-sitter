@@ -129,6 +129,7 @@ impl Highlighter {
         cancellation_flag: Option<&'a AtomicUsize>,
         mut injection_callback: impl FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
     ) -> Result<impl Iterator<Item = Result<HighlightEvent, Error>> + 'a, Error> {
+        self.parser.reset();
         unsafe {
             self.parser
                 .set_cancellation_flag_unchecked(cancellation_flag);
