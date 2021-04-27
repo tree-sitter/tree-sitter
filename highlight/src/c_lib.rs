@@ -199,22 +199,24 @@ impl TSHighlighter {
         let (_, configuration) = entry.unwrap();
         let languages = &self.languages;
 
-        let highlights = output.highlighter.highlight(
-            configuration,
-            source_code,
-            cancellation_flag,
-            move |injection_string| {
-                languages.values().find_map(|(injection_regex, config)| {
-                    injection_regex.as_ref().and_then(|regex| {
-                        if regex.is_match(injection_string) {
-                            Some(config)
-                        } else {
-                            None
-                        }
+        let highlights = unsafe {
+            output.highlighter.highlight_unchecked(
+                configuration,
+                source_code,
+                cancellation_flag,
+                move |injection_string| {
+                    languages.values().find_map(|(injection_regex, config)| {
+                        injection_regex.as_ref().and_then(|regex| {
+                            if regex.is_match(injection_string) {
+                                Some(config)
+                            } else {
+                                None
+                            }
+                        })
                     })
-                })
-            },
-        );
+                },
+            )
+        };
 
         if let Ok(highlights) = highlights {
             output.renderer.reset();

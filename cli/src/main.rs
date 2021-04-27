@@ -379,7 +379,7 @@ fn run() -> error::Result<()> {
                         &source,
                         highlight_config,
                         time,
-                        Some(&cancellation_flag),
+                        Some(cancellation_flag.clone()),
                     )?;
                 }
             } else {
