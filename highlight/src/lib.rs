@@ -352,7 +352,7 @@ impl<'a, 'tree: 'a> HighlightIterLayer<'a, 'tree> {
                     .parser
                     .parse(source, None)
                     .ok_or(Error::Cancelled)?;
-                highlighter.parser.set_cancellation_flag(None);
+                unsafe { highlighter.parser.set_cancellation_flag_unchecked(None) }
                 let mut cursor = highlighter.cursors.pop().unwrap_or(QueryCursor::new());
 
                 // Process combined injections.

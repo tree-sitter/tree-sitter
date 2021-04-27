@@ -606,12 +606,16 @@ impl Parser {
     /// this pointer during parsing. If it reads a non-zero value, it will halt early,
     /// returning `None`. See [parse](Parser::parse) for more information.
     pub fn set_cancellation_flag(&mut self, flag: Option<Arc<AtomicUsize>>) {
-        self.1 = flag;
-        let flag = match self.1 {
+        if self.1.is_none() && unsafe { self.cancellation_flag_unchecked().is_some() } {
+            panic!("It's prohibited to mix safe and unsafe cancellation flag manipulation");
+        }
+        let f = match flag {
             Some(ref x) => Some(x.as_ref()),
             None => None,
         };
-        unsafe { self.ts_set_cancellation_flag(flag) }
+        self.1 = None; // This is needed to don't trigger panic in the next unchecked call
+        unsafe { self.set_cancellation_flag_unchecked(f) }
+        self.1 = flag;
     }
 
     /// Get the parser's current cancellation flag pointer.
@@ -632,11 +636,9 @@ impl Parser {
     ///   dropped or the reference is replaced by another call to this method.
     ///
     pub unsafe fn set_cancellation_flag_unchecked(&mut self, flag: Option<&AtomicUsize>) {
-        self.1 = None;
-        self.ts_set_cancellation_flag(flag);
-    }
-
-    unsafe fn ts_set_cancellation_flag(&self, flag: Option<&AtomicUsize>) {
+        if self.1.is_some() {
+            panic!("It's prohibited to mix safe and unsafe cancellation flag manipulation");
+        }
         if let Some(flag) = flag {
             ffi::ts_parser_set_cancellation_flag(
                 self.0.as_ptr(),
