@@ -1,4 +1,5 @@
 pub mod c_lib;
+pub use c_lib as c;
 
 use memchr::memchr;
 use regex::Regex;
