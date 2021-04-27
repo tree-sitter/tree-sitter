@@ -670,3 +670,10 @@ void ts_query_captures_wasm(
   TRANSFER_BUFFER[0] = (const void *)(capture_count);
   TRANSFER_BUFFER[1] = result.contents;
 }
+
+bool ts_query_did_exceed_match_limit_wasm(
+  const TSQuery *self
+) {
+  if (!scratch_query_cursor) return false;
+  return ts_query_cursor_did_exceed_match_limit(scratch_query_cursor);
+}
