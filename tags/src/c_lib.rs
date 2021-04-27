@@ -127,19 +127,21 @@ pub extern "C" fn ts_tagger_tag(
         let source_code = unsafe { slice::from_raw_parts(source_code, source_code_len as usize) };
         let cancellation_flag = unsafe { cancellation_flag.as_ref() };
 
-        let tags = match buffer
-            .context
-            .generate_tags(config, source_code, cancellation_flag)
-        {
-            Ok((tags, found_error)) => {
-                buffer.errors_present = found_error;
-                tags
-            }
-            Err(e) => {
-                return match e {
-                    Error::InvalidLanguage => TSTagsError::InvalidLanguage,
-                    Error::Cancelled => TSTagsError::Timeout,
-                    _ => TSTagsError::Timeout,
+        let tags = unsafe {
+            match buffer
+                .context
+                .generate_tags_unchecked(config, source_code, cancellation_flag)
+            {
+                Ok((tags, found_error)) => {
+                    buffer.errors_present = found_error;
+                    tags
+                }
+                Err(e) => {
+                    return match e {
+                        Error::InvalidLanguage => TSTagsError::InvalidLanguage,
+                        Error::Cancelled => TSTagsError::Timeout,
+                        _ => TSTagsError::Timeout,
+                    }
                 }
             }
         };
