@@ -76,7 +76,6 @@
   "_ts_query_capture_name_for_id",
   "_ts_query_captures_wasm",
   "_ts_query_delete",
-  "_ts_query_did_exceed_match_limit_wasm",
   "_ts_query_matches_wasm",
   "_ts_query_new",
   "_ts_query_pattern_count",
