@@ -622,8 +622,11 @@ void ts_query_matches_wasm(
     }
   }
 
+  bool did_exceed_match_limit =
+    ts_query_cursor_did_exceed_match_limit(scratch_query_cursor);
   TRANSFER_BUFFER[0] = (const void *)(match_count);
   TRANSFER_BUFFER[1] = result.contents;
+  TRANSFER_BUFFER[2] = (const void *)(did_exceed_match_limit);
 }
 
 void ts_query_captures_wasm(
@@ -667,6 +670,9 @@ void ts_query_captures_wasm(
     }
   }
 
+  bool did_exceed_match_limit =
+    ts_query_cursor_did_exceed_match_limit(scratch_query_cursor);
   TRANSFER_BUFFER[0] = (const void *)(capture_count);
   TRANSFER_BUFFER[1] = result.contents;
+  TRANSFER_BUFFER[2] = (const void *)(did_exceed_match_limit);
 }
