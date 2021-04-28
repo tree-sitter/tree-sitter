@@ -64,6 +64,7 @@ Parsers for these languages are in development:
 
 * [Agda](https://github.com/tree-sitter/tree-sitter-agda)
 * [Erlang](https://github.com/AbstractMachinesLab/tree-sitter-erlang/)
+* [Go mod](https://github.com/camdencheek/tree-sitter-go-mod)
 * [Haskell](https://github.com/tree-sitter/tree-sitter-haskell)
 * [Julia](https://github.com/tree-sitter/tree-sitter-julia)
 * [Nix](https://github.com/cstrahan/tree-sitter-nix)
