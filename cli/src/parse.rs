@@ -184,7 +184,9 @@ pub fn parse_file_at_path(
                         }
                         write!(&mut stdout, "<{}", node.kind())?;
                         if let Some(field_name) = cursor.field_name() {
-                            write!(&mut stdout, " type=\"{}\"", field_name)?;
+			    let start_pos = node.start_position();
+			    let end_pos = node.end_position();
+                            write!(&mut stdout, " type=\"{}\" start=\"{} {} {}\" end=\"{} {} {}\"", field_name, node.start_byte(), start_pos.row, start_pos.column, node.end_byte(), end_pos.row, end_pos.column)?;
                         }
                         write!(&mut stdout, ">")?;
                         tags.push(node.kind());
@@ -330,6 +332,21 @@ fn parse_edit_flag(source_code: &Vec<u8>, flag: &str) -> Result<Edit> {
         deleted_length,
         inserted_text,
     })
+}
+
+fn offset_for_lines(input: &Vec<u8>) -> Vec<usize> {
+    let mut offsets = Vec::<usize>::new();
+    offsets.push(0);
+    for (i, c) in input.iter().enumerate() {
+        if *c as char == '\n' {
+            offsets.push(i + 1);
+        }
+    }
+    offsets
+}
+
+fn offset_for_position_direct(offsets: &Vec<usize>, position: Point) -> usize {
+    offsets[position.row] + position.column
 }
 
 fn offset_for_position(input: &Vec<u8>, position: Point) -> usize {
