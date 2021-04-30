@@ -596,7 +596,14 @@ impl Parser {
 
 impl Parser {
     /// Get the parser's current cancellation flag pointer.
+    ///
+    /// # Panic
+    /// When there was the usage of unsafe set_cancellation_flag_unchecked
+    /// method and it was set the cancellation flag.
     pub fn cancellation_flag(&self) -> Option<Arc<AtomicUsize>> {
+        if self.1.is_none() && unsafe { self.cancellation_flag_unchecked().is_some() } {
+            panic!("It's prohibited to mix safe and unsafe cancellation flag manipulations");
+        }
         self.1.clone()
     }
 
@@ -605,9 +612,13 @@ impl Parser {
     /// If a pointer is assigned, then the parser will periodically read from
     /// this pointer during parsing. If it reads a non-zero value, it will halt early,
     /// returning `None`. See [parse](Parser::parse) for more information.
+    ///
+    /// # Panic
+    /// When there was the usage of unsafe set_cancellation_flag_unchecked
+    /// method and it was set the cancellation flag.
     pub fn set_cancellation_flag(&mut self, flag: Option<Arc<AtomicUsize>>) {
         if self.1.is_none() && unsafe { self.cancellation_flag_unchecked().is_some() } {
-            panic!("It's prohibited to mix safe and unsafe cancellation flag manipulation");
+            panic!("It's prohibited to mix safe and unsafe cancellation flag manipulations");
         }
         let f = match flag {
             Some(ref x) => Some(x.as_ref()),
@@ -618,7 +629,15 @@ impl Parser {
         self.1 = flag;
     }
 
-    /// Get the parser's current cancellation flag pointer.
+    /// Get the parser's current AtomicUsize cancellation flag pointer.
+    ///
+    /// # Safety
+    /// This method can be used at any time but the returning value isn't thread-safe
+    /// and in the Rust code there is no practical sence to use this method instead of
+    /// its safe alternative the cancellation_flag method.
+    ///
+    /// # Notes
+    /// This unchecked method exist only for the purpose to build C API around the Rust code.
     pub unsafe fn cancellation_flag_unchecked(&self) -> Option<&AtomicUsize> {
         (ffi::ts_parser_cancellation_flag(self.0.as_ptr()) as *const AtomicUsize).as_ref()
     }
@@ -630,14 +649,21 @@ impl Parser {
     /// returning `None`. See [parse](Parser::parse) for more information.
     ///
     /// # Safety
-    ///
     /// This can only be called when
     /// - The `flag` reference is guaranteed to be valid until either the parser is
     ///   dropped or the reference is replaced by another call to this method.
+    /// - There was no calls for the safe set_cancellation_flag method before.
     ///
+    /// # Panic
+    /// When there was the usage of safe set_cancellation_flag
+    /// method and it was set the cancellation flag.
+    ///
+    /// # Notes
+    /// Mixing safe and unsafe API in cancellation flag manipulation is prohibited.
+    /// This unchecked method exist only for the purpose to build C API around the Rust code.
     pub unsafe fn set_cancellation_flag_unchecked(&mut self, flag: Option<&AtomicUsize>) {
         if self.1.is_some() {
-            panic!("It's prohibited to mix safe and unsafe cancellation flag manipulation");
+            panic!("It's prohibited to mix safe and unsafe cancellation flag manipulations");
         }
         if let Some(flag) = flag {
             ffi::ts_parser_set_cancellation_flag(
