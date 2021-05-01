@@ -64,7 +64,7 @@ jobs:
         run: script/build-wasm
 
       - name: Build CLI
-        run: cargo build --release
+        run: RUSTFLAGS="-D warnings" cargo build --release
 
       - name: Set up fixture parsers
         run: |
