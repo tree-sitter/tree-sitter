@@ -65,6 +65,7 @@ fn run() -> error::Result<()> {
                 .arg(Arg::with_name("debug").long("debug").short("d"))
                 .arg(Arg::with_name("debug-graph").long("debug-graph").short("D"))
                 .arg(Arg::with_name("debug-xml").long("xml").short("x"))
+                .arg(Arg::with_name("debug-xml-with-text").long("with-text").short("y"))
                 .arg(Arg::with_name("quiet").long("quiet").short("q"))
                 .arg(Arg::with_name("stat").long("stat").short("s"))
                 .arg(Arg::with_name("time").long("time").short("t"))
@@ -235,6 +236,7 @@ fn run() -> error::Result<()> {
         let debug = matches.is_present("debug");
         let debug_graph = matches.is_present("debug-graph");
         let debug_xml = matches.is_present("debug-xml");
+        let debug_xml_with_text = matches.is_present("debug-xml-with-text");
         let quiet = matches.is_present("quiet");
         let time = matches.is_present("time");
         let edits = matches
@@ -271,6 +273,7 @@ fn run() -> error::Result<()> {
                 debug,
                 debug_graph,
                 debug_xml,
+                debug_xml_with_text,
                 Some(&cancellation_flag),
             )?;
 
