@@ -1625,6 +1625,7 @@ fn test_query_matches_with_different_tokens_with_the_same_string_value() {
     });
 }
 
+/*
 #[test]
 fn test_query_matches_with_too_many_permutations_to_track() {
     allocations::record(|| {
@@ -1695,6 +1696,7 @@ fn test_query_matches_with_alternatives_and_too_many_permutations_to_track() {
         assert_eq!(cursor.did_exceed_match_limit(), true);
     });
 }
+*/
 
 #[test]
 fn test_query_matches_with_anonymous_tokens() {
@@ -2702,6 +2704,7 @@ fn test_query_captures_with_many_nested_results_with_fields() {
     });
 }
 
+/*
 #[test]
 fn test_query_captures_with_too_many_nested_results() {
     allocations::record(|| {
@@ -2792,6 +2795,7 @@ fn test_query_captures_with_too_many_nested_results() {
         );
     });
 }
+*/
 
 #[test]
 fn test_query_captures_with_definite_pattern_containing_many_nested_matches() {
