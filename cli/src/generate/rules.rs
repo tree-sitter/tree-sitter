@@ -66,6 +66,7 @@ pub(crate) enum Rule {
     },
     Repeat(Box<Rule>),
     Seq(Vec<Rule>),
+    Immediate(Box<Rule>),
 }
 
 // Because tokens are represented as small (~400 max) unsigned integers,
@@ -142,6 +143,10 @@ impl Rule {
             choice_helper(&mut elements, rule);
         }
         Rule::Choice(elements)
+    }
+
+    pub fn immediate(rule: Rule) -> Self {
+        Rule::Immediate(Box::new(rule))
     }
 
     pub fn seq(rules: Vec<Rule>) -> Self {

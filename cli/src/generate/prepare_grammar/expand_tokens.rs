@@ -167,6 +167,14 @@ impl NfaBuilder {
                 }
                 Ok(true)
             }
+            Rule::Immediate(element) => {
+                self.is_sep = false;
+                if self.expand_rule(element, next_state_id)? {
+                    Ok(true)
+                } else {
+                    Ok(false)
+                }
+            }
             Rule::Seq(elements) => {
                 let mut result = false;
                 for element in elements.into_iter().rev() {
