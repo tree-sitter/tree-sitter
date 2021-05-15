@@ -578,6 +578,23 @@ recur:
   return ts_node__null();
 }
 
+const char *ts_node_child_field_name(TSNode self, uint32_t child_index) {
+  const TSFieldMapEntry *field_map, *field_map_end;
+  ts_language_field_map(
+    self.tree->language,
+    ts_node__subtree(self).ptr->production_id,
+    &field_map,
+    &field_map_end
+  );
+
+  for (const TSFieldMapEntry *i = field_map; i < field_map_end; i++) {
+    if (i->child_index == child_index) {
+      return self.tree->language->field_names[i->field_id];
+    }
+  }
+  return NULL;
+}
+
 TSNode ts_node_child_by_field_name(
   TSNode self,
   const char *name,
