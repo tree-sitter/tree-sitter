@@ -120,7 +120,22 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
         precedence_orderings.push(ordering);
     }
 
-    let extra_symbols = grammar_json.extras.into_iter().map(parse_rule).collect();
+    let extra_symbols = grammar_json
+        .extras
+        .into_iter()
+        .try_fold(Vec::new(), |mut acc, item| {
+            let rule = parse_rule(item);
+            if let Rule::String(ref value) = rule {
+                if value.is_empty() {
+                    return Err(anyhow!(
+                        "Rules in the `extras` array must not contain empty strings"
+                    ));
+                }
+            }
+            acc.push(rule);
+            Ok(acc)
+        })?;
+
     let external_tokens = grammar_json.externals.into_iter().map(parse_rule).collect();
 
     Ok(InputGrammar {
