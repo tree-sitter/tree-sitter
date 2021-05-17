@@ -69,6 +69,7 @@ Parsers for these languages are in development:
 * [Go mod](https://github.com/camdencheek/tree-sitter-go-mod)
 * [Haskell](https://github.com/tree-sitter/tree-sitter-haskell)
 * [Julia](https://github.com/tree-sitter/tree-sitter-julia)
+* [Kotlin](https://github.com/fwcd/tree-sitter-kotlin)
 * [Nix](https://github.com/cstrahan/tree-sitter-nix)
 * [Perl](https://github.com/ganezdragon/tree-sitter-perl)
 * [Scala](https://github.com/tree-sitter/tree-sitter-scala)
