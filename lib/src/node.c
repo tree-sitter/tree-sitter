@@ -579,15 +579,15 @@ recur:
 }
 
 const char *ts_node_child_field_name(TSNode self, uint32_t child_index) {
-  const TSFieldMapEntry *field_map, *field_map_end;
+  const TSFieldMapEntry *field_map_start = NULL, *field_map_end = NULL;
   ts_language_field_map(
     self.tree->language,
     ts_node__subtree(self).ptr->production_id,
-    &field_map,
+    &field_map_start,
     &field_map_end
   );
 
-  for (const TSFieldMapEntry *i = field_map; i < field_map_end; i++) {
+  for (const TSFieldMapEntry *i = field_map_start; i < field_map_end; i++) {
     if (i->child_index == child_index) {
       return self.tree->language->field_names[i->field_id];
     }
