@@ -661,7 +661,7 @@ impl<'a> LanguageConfiguration<'a> {
                             }
                         }
                     }
-                    result.configure(&all_highlight_names);
+                    result.configure(&all_highlight_names.as_slice());
                     Ok(Some(result))
                 }
             })
