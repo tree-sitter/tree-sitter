@@ -19,6 +19,8 @@
 #include "./subtree.h"
 #include "./tree.h"
 
+#include "./probes.h"
+
 #define LOG(...)                                                                            \
   if (self->lexer.logger.log || self->dot_graph_file) {                                     \
     snprintf(self->lexer.debug_buffer, TREE_SITTER_SERIALIZATION_BUFFER_SIZE, __VA_ARGS__); \
@@ -387,6 +389,9 @@ static Subtree ts_parser__lex(
   StackVersion version,
   TSStateId parse_state
 ) {
+  puts("LEXING!");
+  TREESITTER_PARSER_LEX();
+
   TSLexMode lex_mode = self->language->lex_modes[parse_state];
   if (lex_mode.lex_state == (uint16_t)-1) {
     LOG("no_lookahead_after_non_terminal_extra");
@@ -814,6 +819,7 @@ static StackVersion ts_parser__reduce(
   bool is_fragile,
   bool end_of_non_terminal_extra
 ) {
+  TREESITTER_PARSER_REDUCE();
   uint32_t initial_version_count = ts_stack_version_count(self->stack);
 
   // Pop the given number of nodes from the given version of the parse stack.

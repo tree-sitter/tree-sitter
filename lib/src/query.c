@@ -8,6 +8,8 @@
 #include "./unicode.h"
 #include <wctype.h>
 
+#include "./probes.h"
+
 // #define DEBUG_ANALYZE_QUERY
 // #define LOG(...) fprintf(stderr, __VA_ARGS__)
 #define LOG(...)
@@ -2489,6 +2491,9 @@ static void ts_query_cursor__add_state(
     pattern->pattern_index,
     pattern->step_index
   );
+#if USDT_PROBES
+  TREESITTER_STATE_START(pattern->pattern_index, pattern->step_index);
+#endif
   array_insert(&self->states, index, ((QueryState) {
     .capture_list_id = NONE,
     .step_index = pattern->step_index,
@@ -2533,6 +2538,9 @@ static CaptureList *ts_query_cursor__prepare_to_capture(
           "  abandon state. index:%u, pattern:%u, offset:%u.\n",
           state_index, pattern_index, byte_offset
         );
+#if USDT_PROBES
+        TREESITTER_STATE_ABANDON(state_index, pattern_index, byte_offset);
+#endif
         QueryState *other_state = &self->states.contents[state_index];
         state->capture_list_id = other_state->capture_list_id;
         other_state->capture_list_id = NONE;
@@ -2545,6 +2553,9 @@ static CaptureList *ts_query_cursor__prepare_to_capture(
         return list;
       } else {
         LOG("  ran out of capture lists");
+#if USDT_PROBES
+        TREESITTER_STATE_RAN_OUT_OF_CAPTURE_LISTS();
+#endif
         return NULL;
       }
     }

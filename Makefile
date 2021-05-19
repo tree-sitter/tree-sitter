@@ -17,13 +17,17 @@ else
 endif
 OBJ := $(SRC:.c=.o)
 
+# Toggle USDT probes
+USDT_PROBES ?= 1
+
 # define default flags, and override to append mandatory flags
-CFLAGS ?= -O3 -Wall -Wextra -Werror
+CFLAGS ?= -O3 -Wall -Wextra -Werror -DUSDT_PROBES=$(USDT_PROBES)
 override CFLAGS += -std=gnu99 -fPIC -Ilib/src -Ilib/include
 
 # ABI versioning
 SONAME_MAJOR := 0
 SONAME_MINOR := 0
+
 
 # OS-specific bits
 ifeq ($(shell uname),Darwin)
@@ -31,6 +35,7 @@ ifeq ($(shell uname),Darwin)
 	SOEXTVER_MAJOR = $(SONAME_MAJOR).dylib
 	SOEXTVER = $(SONAME_MAJOR).$(SONAME_MINOR).dylib
 	LINKSHARED += -dynamiclib -Wl,-install_name,$(LIBDIR)/libtree-sitter.$(SONAME_MAJOR).dylib
+	override CFLAGS += -DUSDT_PROBES=1
 else
 	SOEXT = so
 	SOEXTVER_MAJOR = so.$(SONAME_MAJOR)
@@ -47,9 +52,12 @@ libtree-sitter.a: $(OBJ)
 	$(AR) rcs $@ $^
 
 libtree-sitter.$(SOEXTVER): $(OBJ)
-	$(CC) $(LDFLAGS) $(LINKSHARED) $^ $(LDLIBS) -o $@
+	$(CC) $(LDFLAGS) $(LINKSHARED) $^ $(LDLIBS) -DUSDT_PROBES=$(USDT_PROBES) -o $@
 	ln -sf $@ libtree-sitter.$(SOEXT)
 	ln -sf $@ libtree-sitter.$(SOEXTVER_MAJOR)
+
+probes:
+	dtrace -h -s lib/dtrace/tree-sitter-probes.d -o lib/src/probes.h
 
 install: all
 	install -d '$(DESTDIR)$(LIBDIR)'
