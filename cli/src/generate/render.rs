@@ -355,7 +355,7 @@ impl Generator {
     }
 
     fn add_symbol_names_list(&mut self) {
-        add_line!(self, "static const char *ts_symbol_names[] = {{");
+        add_line!(self, "static const char * const ts_symbol_names[] = {{");
         indent!(self);
         for symbol in self.parse_table.symbols.iter() {
             let name = self.sanitize_string(
@@ -417,7 +417,7 @@ impl Generator {
     }
 
     fn add_field_name_names_list(&mut self) {
-        add_line!(self, "static const char *ts_field_names[] = {{");
+        add_line!(self, "static const char * const ts_field_names[] = {{");
         indent!(self);
         add_line!(self, "[0] = NULL,");
         for field_name in &self.field_names {
