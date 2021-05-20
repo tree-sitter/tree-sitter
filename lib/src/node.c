@@ -578,7 +578,7 @@ recur:
   return ts_node__null();
 }
 
-const char *ts_node_child_field_name(TSNode self, uint32_t child_index) {
+const char *ts_node_field_name_for_child(TSNode self, uint32_t child_index) {
   const TSFieldMapEntry *field_map_start = NULL, *field_map_end = NULL;
   ts_language_field_map(
     self.tree->language,
