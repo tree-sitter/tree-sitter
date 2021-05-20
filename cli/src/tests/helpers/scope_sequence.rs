@@ -47,7 +47,10 @@ impl ScopeSequence {
         if self.0.len() != text.len() {
             panic!(
                 "Inconsistent scope sequence: {:?}",
-                self.0.iter().zip(text.iter().map(|c| *c as char)).collect::<Vec<_>>()
+                self.0
+                    .iter()
+                    .zip(text.iter().map(|c| *c as char))
+                    .collect::<Vec<_>>()
             );
         }
 

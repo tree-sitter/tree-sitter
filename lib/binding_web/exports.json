@@ -26,7 +26,6 @@
   "_memcpy",
   "_strlen",
   "_towupper",
-  "abort",
 
   "_ts_init",
   "_ts_language_field_count",

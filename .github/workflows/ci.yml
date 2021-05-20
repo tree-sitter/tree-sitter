@@ -52,6 +52,9 @@ jobs:
           toolchain: stable
           profile: minimal
 
+      - name: Check Rust code formatting
+        run: cargo fmt -- --check
+
       - name: Install emscripten
         uses: mymindstorm/setup-emsdk@v7
         with:

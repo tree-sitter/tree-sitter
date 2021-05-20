@@ -95,7 +95,11 @@ pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<(
                 write_file(&package_json_path, package_json_str)?;
             }
         } else {
-            generate_file(&package_json_path, PACKAGE_JSON_TEMPLATE, dashed_language_name)?;
+            generate_file(
+                &package_json_path,
+                PACKAGE_JSON_TEMPLATE,
+                dashed_language_name,
+            )?;
         }
 
         // Remove files from old node binding paths.
