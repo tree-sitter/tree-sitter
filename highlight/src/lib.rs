@@ -293,10 +293,7 @@ impl HighlightConfiguration {
     ///
     /// When highlighting, results are returned as `Highlight` values, which contain the index
     /// of the matched highlight this list of highlight names.
-    pub fn configure<'a, I, J>(&mut self, recognized_names: &I)
-    where
-        I: IntoIterator<Item = &'a J> + Copy,
-        J: AsRef<str> + 'a,
+    pub fn configure(&mut self, recognized_names: &[impl AsRef<str>])
     {
         let mut capture_parts = Vec::new();
         self.highlight_indices.clear();
