@@ -197,7 +197,8 @@ pub fn parse_file_at_path(
                         did_visit_children = true;
                         let start = node.start_byte();
                         let end = node.end_byte();
-                        let value = std::str::from_utf8(&source_code[start..end]).expect("has a string");
+                        let value =
+                            std::str::from_utf8(&source_code[start..end]).expect("has a string");
                         write!(&mut stdout, "{}", html_escape::encode_text(value))?;
                     }
                 }
