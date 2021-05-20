@@ -355,7 +355,7 @@ impl Generator {
     }
 
     fn add_symbol_names_list(&mut self) {
-        add_line!(self, "static const char *ts_symbol_names[] = {{");
+        add_line!(self, "static const char * const ts_symbol_names[] = {{");
         indent!(self);
         for symbol in self.parse_table.symbols.iter() {
             let name = self.sanitize_string(
@@ -417,7 +417,7 @@ impl Generator {
     }
 
     fn add_field_name_names_list(&mut self) {
-        add_line!(self, "static const char *ts_field_names[] = {{");
+        add_line!(self, "static const char * const ts_field_names[] = {{");
         indent!(self);
         add_line!(self, "[0] = NULL,");
         for field_name in &self.field_names {
@@ -543,7 +543,10 @@ impl Generator {
         let mut alias_ids_by_symbol = alias_ids_by_symbol.iter().collect::<Vec<_>>();
         alias_ids_by_symbol.sort_unstable_by_key(|e| e.0);
 
-        add_line!(self, "static const uint16_t ts_non_terminal_alias_map[] = {{");
+        add_line!(
+            self,
+            "static const uint16_t ts_non_terminal_alias_map[] = {{"
+        );
         indent!(self);
         for (symbol, alias_ids) in alias_ids_by_symbol {
             let symbol_id = &self.symbol_ids[symbol];
@@ -962,7 +965,10 @@ impl Generator {
     }
 
     fn add_lex_modes_list(&mut self) {
-        add_line!(self, "static const TSLexMode ts_lex_modes[STATE_COUNT] = {{");
+        add_line!(
+            self,
+            "static const TSLexMode ts_lex_modes[STATE_COUNT] = {{"
+        );
         indent!(self);
         for (i, state) in self.parse_table.states.iter().enumerate() {
             if state.is_end_of_non_terminal_extra() {
@@ -1200,7 +1206,10 @@ impl Generator {
             add_line!(self, "}};");
             add_line!(self, "");
 
-            add_line!(self, "static const uint32_t ts_small_parse_table_map[] = {{");
+            add_line!(
+                self,
+                "static const uint32_t ts_small_parse_table_map[] = {{"
+            );
             indent!(self);
             for i in self.large_state_count..self.parse_table.states.len() {
                 add_line!(
@@ -1219,7 +1228,10 @@ impl Generator {
     }
 
     fn add_parse_action_list(&mut self, parse_table_entries: Vec<(usize, ParseTableEntry)>) {
-        add_line!(self, "static const TSParseActionEntry ts_parse_actions[] = {{");
+        add_line!(
+            self,
+            "static const TSParseActionEntry ts_parse_actions[] = {{"
+        );
         indent!(self);
         for (i, entry) in parse_table_entries {
             add!(
@@ -1334,14 +1346,8 @@ impl Generator {
         // Parse table
         add_line!(self, ".parse_table = &ts_parse_table[0][0],");
         if self.large_state_count < self.parse_table.states.len() {
-            add_line!(
-                self,
-                ".small_parse_table = ts_small_parse_table,"
-            );
-            add_line!(
-                self,
-                ".small_parse_table_map = ts_small_parse_table_map,"
-            );
+            add_line!(self, ".small_parse_table = ts_small_parse_table,");
+            add_line!(self, ".small_parse_table_map = ts_small_parse_table_map,");
         }
         add_line!(self, ".parse_actions = ts_parse_actions,");
 
@@ -1349,23 +1355,14 @@ impl Generator {
         add_line!(self, ".symbol_names = ts_symbol_names,");
         if !self.field_names.is_empty() {
             add_line!(self, ".field_names = ts_field_names,");
-            add_line!(
-                self,
-                ".field_map_slices = ts_field_map_slices,"
-            );
-            add_line!(
-                self,
-                ".field_map_entries = ts_field_map_entries,"
-            );
+            add_line!(self, ".field_map_slices = ts_field_map_slices,");
+            add_line!(self, ".field_map_entries = ts_field_map_entries,");
         }
         add_line!(self, ".symbol_metadata = ts_symbol_metadata,");
         add_line!(self, ".public_symbol_map = ts_symbol_map,");
         add_line!(self, ".alias_map = ts_non_terminal_alias_map,");
         if !self.parse_table.production_infos.is_empty() {
-            add_line!(
-                self,
-                ".alias_sequences = &ts_alias_sequences[0][0],"
-            );
+            add_line!(self, ".alias_sequences = &ts_alias_sequences[0][0],");
         }
 
         // Lexing

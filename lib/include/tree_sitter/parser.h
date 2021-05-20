@@ -102,8 +102,8 @@ struct TSLanguage {
   const uint16_t *small_parse_table;
   const uint32_t *small_parse_table_map;
   const TSParseActionEntry *parse_actions;
-  const char **symbol_names;
-  const char **field_names;
+  const char * const *symbol_names;
+  const char * const *field_names;
   const TSFieldMapSlice *field_map_slices;
   const TSFieldMapEntry *field_map_entries;
   const TSSymbolMetadata *symbol_metadata;
