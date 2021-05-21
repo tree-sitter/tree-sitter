@@ -1656,6 +1656,92 @@ impl<'a> QueryCursor {
     }
 }
 
+struct CaptureCursor<'tree, 'query> {
+    node: Node<'tree>,
+    query: &'query Query,
+    text_callback: Box<dyn 'query + FnMut(Node<'tree>) -> &'query [u8]>,
+    cursor: NonNull<ffi::TSQueryCursor>,
+    started: bool,
+    buffer: String,
+}
+
+impl<'tree: 'query, 'query> CaptureCursor<'tree, 'query> {
+    pub fn new<F>(node: Node<'tree>, query: &'query Query, text_callback: F) -> Self
+    where
+        F: 'query + FnMut(Node<'tree>) -> &'query [u8],
+    {
+        Self {
+            node,
+            query,
+            text_callback: Box::new(text_callback),
+            cursor: unsafe { NonNull::new_unchecked(ffi::ts_query_cursor_new()) },
+            started: false,
+            buffer: String::new(),
+        }
+    }
+
+    /// Set the range in which the query will be executed, in terms of byte offsets.
+    pub fn set_byte_range(&mut self, start: usize, end: usize) -> &mut Self {
+        self.started = false;
+        unsafe {
+            ffi::ts_query_cursor_set_byte_range(self.cursor.as_ptr(), start as u32, end as u32);
+        }
+        self
+    }
+
+    /// Set the range in which the query will be executed, in terms of rows and columns.
+    pub fn set_point_range(&mut self, start: Point, end: Point) -> &mut Self {
+        self.started = false;
+        unsafe {
+            ffi::ts_query_cursor_set_point_range(self.cursor.as_ptr(), start.into(), end.into());
+        }
+        self
+    }
+}
+
+fn test<'tree: 'query, 'query>(node: Node<'tree>, query: &'query Query) {
+    let mut outside = String::new();
+    CaptureCursor::new(node, query, move |node, buffer| &outside);
+}
+
+impl<'tree: 'query, 'query> Iterator for CaptureCursor<'tree, 'query> {
+    type Item = (QueryMatch<'tree>, usize);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if !self.started {
+            unsafe {
+                ffi::ts_query_cursor_exec(
+                    self.cursor.as_ptr(),
+                    self.query.ptr.as_ptr(),
+                    self.node.0,
+                );
+            }
+            self.started = true;
+        }
+
+        loop {
+            unsafe {
+                let mut capture_index = 0u32;
+                let mut m = MaybeUninit::<ffi::TSQueryMatch>::uninit();
+                if ffi::ts_query_cursor_next_capture(
+                    self.cursor.as_ptr(),
+                    m.as_mut_ptr(),
+                    &mut capture_index as *mut u32,
+                ) {
+                    let result = QueryMatch::new(m.assume_init(), self.cursor.as_ptr());
+                    if result.satisfies_text_predicates(self.query, &mut self.text_callback) {
+                        return Some((result, capture_index as usize));
+                    } else {
+                        result.remove();
+                    }
+                } else {
+                    return None;
+                }
+            }
+        }
+    }
+}
+
 impl<'a> QueryMatch<'a> {
     pub fn remove(self) {
         unsafe { ffi::ts_query_cursor_remove_match(self.cursor, self.id) }
