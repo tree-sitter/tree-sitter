@@ -1656,24 +1656,25 @@ impl<'a> QueryCursor {
     }
 }
 
-struct CaptureCursor<'tree, 'query> {
+struct CaptureCursor<'tree, 'query, F> {
     node: Node<'tree>,
     query: &'query Query,
-    text_callback: Box<dyn 'query + FnMut(Node<'tree>) -> &'query [u8]>,
+    text_callback: F,
     cursor: NonNull<ffi::TSQueryCursor>,
     started: bool,
     buffer: String,
 }
 
-impl<'tree: 'query, 'query> CaptureCursor<'tree, 'query> {
-    pub fn new<F>(node: Node<'tree>, query: &'query Query, text_callback: F) -> Self
-    where
-        F: 'query + FnMut(Node<'tree>) -> &'query [u8],
-    {
+impl<'tree: 'query, 'query, F, I> CaptureCursor<'tree, 'query, F>
+where
+    F: FnMut(Node<'tree>) -> I,
+    I: IntoIterator<Item = &'query [u8]>,
+{
+    pub fn new(node: Node<'tree>, query: &'query Query, text_callback: F) -> Self {
         Self {
             node,
             query,
-            text_callback: Box::new(text_callback),
+            text_callback,
             cursor: unsafe { NonNull::new_unchecked(ffi::ts_query_cursor_new()) },
             started: false,
             buffer: String::new(),
@@ -1699,12 +1700,16 @@ impl<'tree: 'query, 'query> CaptureCursor<'tree, 'query> {
     }
 }
 
-fn test<'tree: 'query, 'query>(node: Node<'tree>, query: &'query Query) {
-    let mut outside = String::new();
-    CaptureCursor::new(node, query, move |node, buffer| &outside);
-}
+// fn test<'tree: 'query, 'query>(node: Node<'tree>, query: &'query Query) {
+//     let mut outside = String::new();
+//     CaptureCursor::new(node, query, move |node, buffer| &outside);
+// }
 
-impl<'tree: 'query, 'query> Iterator for CaptureCursor<'tree, 'query> {
+impl<'tree: 'query, 'query, F, I> Iterator for CaptureCursor<'tree, 'query, F>
+where
+    F: FnMut(Node<'tree>) -> I,
+    I: IntoIterator<Item = &'query [u8]>,
+{
     type Item = (QueryMatch<'tree>, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -1729,7 +1734,11 @@ impl<'tree: 'query, 'query> Iterator for CaptureCursor<'tree, 'query> {
                     &mut capture_index as *mut u32,
                 ) {
                     let result = QueryMatch::new(m.assume_init(), self.cursor.as_ptr());
-                    if result.satisfies_text_predicates(self.query, &mut self.text_callback) {
+                    if result.satisfies_text_predicates_2(
+                        self.query,
+                        &mut self.buffer,
+                        &mut self.text_callback,
+                    ) {
                         return Some((result, capture_index as usize));
                     } else {
                         result.remove();
@@ -1777,6 +1786,66 @@ impl<'a> QueryMatch<'a> {
                     let node1 = self.capture_for_index(*i).unwrap();
                     let node2 = self.capture_for_index(*j).unwrap();
                     (text_callback(node1).as_ref() == text_callback(node2).as_ref()) == *is_positive
+                }
+                TextPredicate::CaptureEqString(i, s, is_positive) => {
+                    let node = self.capture_for_index(*i).unwrap();
+                    (text_callback(node).as_ref() == s.as_bytes()) == *is_positive
+                }
+                TextPredicate::CaptureMatchString(i, r, is_positive) => {
+                    let node = self.capture_for_index(*i).unwrap();
+                    r.is_match(text_callback(node).as_ref()) == *is_positive
+                }
+            })
+    }
+
+    fn satisfies_text_predicates_2<'query, F, I>(
+        &self,
+        query: &'query Query,
+        buffer: &mut Vec<u8>,
+        text_callback: &mut F,
+    ) -> bool
+    where
+        F: FnMut(Node<'a>) -> I,
+        I: IntoIterator<Item = &'query [u8]>,
+    {
+        query.text_predicates[self.pattern_index]
+            .iter()
+            .all(|predicate| match predicate {
+                TextPredicate::CaptureEqCapture(i, j, is_positive) => {
+                    let node1 = self.capture_for_index(*i).unwrap();
+                    let node2 = self.capture_for_index(*j).unwrap();
+
+                    buffer.clear();
+                    let chunks1 = text_callback(node1).into_iter();
+                    let mut text1 = chunks1.next().unwrap_or("".as_bytes());
+                    if let Some(next_chunk) = chunks1.next() {
+                        buffer.extend_from_slice(text1);
+                        buffer.extend_from_slice(next_chunk);
+                        for chunk in chunks1 {
+                            buffer.extend_from_slice(chunk);
+                        }
+                    }
+                    let text1_buffer_end = buffer.len();
+
+                    let chunks2 = text_callback(node2).into_iter();
+                    let mut text2 = chunks2.next().unwrap_or("".as_bytes());
+                    if let Some(next_chunk) = chunks2.next() {
+                        buffer.extend_from_slice(text2);
+                        buffer.extend_from_slice(next_chunk);
+                        for chunk in chunks2 {
+                            buffer.extend_from_slice(chunk);
+                        }
+                    }
+                    let text2_buffer_end = buffer.len();
+
+                    if text1_buffer_end > 0 {
+                        text1 = &buffer[..text1_buffer_end];
+                    }
+                    if text2_buffer_end > text1_buffer_end {
+                        text2 = &buffer[text1_buffer_end..];
+                    }
+
+                    (text1 == text2) == *is_positive
                 }
                 TextPredicate::CaptureEqString(i, s, is_positive) => {
                     let node = self.capture_for_index(*i).unwrap();
