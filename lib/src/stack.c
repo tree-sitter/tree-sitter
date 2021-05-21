@@ -737,7 +737,7 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
     if (head->status == StackStatusHalted) continue;
 
     fprintf(f, "node_head_%u [shape=none, label=\"\"]\n", i);
-    fprintf(f, "node_head_%u -> node_%p [", i, head->node);
+    fprintf(f, "node_head_%u -> node_%p [", i, (void *)head->node);
 
     if (head->status == StackStatusPaused) {
       fprintf(f, "color=red ");
@@ -782,7 +782,7 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
       if (!node) continue;
       all_iterators_done = false;
 
-      fprintf(f, "node_%p [", node);
+      fprintf(f, "node_%p [", (void *)node);
       if (node->state == ERROR_STATE) {
         fprintf(f, "label=\"?\"");
       } else if (
@@ -807,7 +807,7 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
 
       for (int j = 0; j < node->link_count; j++) {
         StackLink link = node->links[j];
-        fprintf(f, "node_%p -> node_%p [", node, link.node);
+        fprintf(f, "node_%p -> node_%p [", (void *)node, (void *)link.node);
         if (link.is_pending) fprintf(f, "style=dashed ");
         if (link.subtree.ptr && ts_subtree_extra(link.subtree)) fprintf(f, "fontcolor=gray ");
 
