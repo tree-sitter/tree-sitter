@@ -1957,5 +1957,7 @@ unsafe impl Send for Query {}
 unsafe impl Send for QueryCursor {}
 unsafe impl Send for Tree {}
 unsafe impl Sync for Language {}
+unsafe impl Sync for Parser {}
 unsafe impl Sync for Query {}
+unsafe impl Sync for QueryCursor {}
 unsafe impl Sync for Tree {}
