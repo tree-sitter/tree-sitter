@@ -859,6 +859,18 @@ impl<'tree> Node<'tree> {
         Self::new(unsafe { ffi::ts_node_child_by_field_id(self.0, field_id) })
     }
 
+    /// Get the field name of this node's child at the given index.
+    pub fn field_name_for_child(&self, child_index: u32) -> Option<&'static str> {
+        unsafe {
+            let ptr = ffi::ts_node_field_name_for_child(self.0, child_index);
+            if ptr.is_null() {
+                None
+            } else {
+                Some(CStr::from_ptr(ptr).to_str().unwrap())
+            }
+        }
+    }
+
     /// Iterate over this node's children.
     ///
     /// A [TreeCursor] is used to retrieve the children efficiently. Obtain

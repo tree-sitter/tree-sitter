@@ -435,6 +435,11 @@ extern "C" {
     pub fn ts_node_child(arg1: TSNode, arg2: u32) -> TSNode;
 }
 extern "C" {
+    #[doc = " Get the field name for node's child at the given index, where zero represents"]
+    #[doc = " the first child. Returns NULL, if no field is found."]
+    pub fn ts_node_field_name_for_child(arg1: TSNode, arg2: u32) -> *const ::std::os::raw::c_char;
+}
+extern "C" {
     #[doc = " Get the node\'s number of children."]
     pub fn ts_node_child_count(arg1: TSNode) -> u32;
 }
