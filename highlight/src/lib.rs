@@ -83,7 +83,7 @@ struct LocalScope<'a> {
     local_defs: Vec<LocalDef<'a>>,
 }
 
-struct HighlightIter<'a, 'tree: 'a, F>
+struct HighlightIter<'a, F>
 where
     F: FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
 {
@@ -92,16 +92,16 @@ where
     highlighter: &'a mut Highlighter,
     injection_callback: F,
     cancellation_flag: Option<&'a AtomicUsize>,
-    layers: Vec<HighlightIterLayer<'a, 'tree>>,
+    layers: Vec<HighlightIterLayer<'a>>,
     iter_count: usize,
     next_event: Option<HighlightEvent>,
     last_highlight_range: Option<(usize, usize, usize)>,
 }
 
-struct HighlightIterLayer<'a, 'tree: 'a> {
+struct HighlightIterLayer<'a> {
     _tree: Tree,
     cursor: QueryCursor,
-    captures: iter::Peekable<QueryCaptures<'a, 'tree, &'a [u8]>>,
+    captures: iter::Peekable<QueryCaptures<'a, 'a, &'a [u8]>>,
     config: &'a HighlightConfiguration,
     highlight_end_stack: Vec<usize>,
     scope_stack: Vec<LocalScope<'a>>,
@@ -319,7 +319,7 @@ impl HighlightConfiguration {
     }
 }
 
-impl<'a, 'tree: 'a> HighlightIterLayer<'a, 'tree> {
+impl<'a> HighlightIterLayer<'a> {
     /// Create a new 'layer' of highlighting for this document.
     ///
     /// In the even that the new layer contains "combined injections" (injections where multiple
@@ -356,9 +356,7 @@ impl<'a, 'tree: 'a> HighlightIterLayer<'a, 'tree> {
                     let mut injections_by_pattern_index =
                         vec![(None, Vec::new(), false); combined_injections_query.pattern_count()];
                     let matches =
-                        cursor.matches(combined_injections_query, tree.root_node(), |n: Node| {
-                            &source[n.byte_range()]
-                        });
+                        cursor.matches(combined_injections_query, tree.root_node(), source);
                     for mat in matches {
                         let entry = &mut injections_by_pattern_index[mat.pattern_index];
                         let (language_name, content_node, include_children) =
@@ -395,9 +393,7 @@ impl<'a, 'tree: 'a> HighlightIterLayer<'a, 'tree> {
                 let cursor_ref =
                     unsafe { mem::transmute::<_, &'static mut QueryCursor>(&mut cursor) };
                 let captures = cursor_ref
-                    .captures(&config.query, tree_ref.root_node(), move |n: Node| {
-                        &source[n.byte_range()]
-                    })
+                    .captures(&config.query, tree_ref.root_node(), source)
                     .peekable();
 
                 result.push(HighlightIterLayer {
@@ -548,7 +544,7 @@ impl<'a, 'tree: 'a> HighlightIterLayer<'a, 'tree> {
     }
 }
 
-impl<'a, 'tree: 'a, F> HighlightIter<'a, 'tree, F>
+impl<'a, F> HighlightIter<'a, F>
 where
     F: FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
 {
@@ -596,7 +592,7 @@ where
         }
     }
 
-    fn insert_layer(&mut self, mut layer: HighlightIterLayer<'a, 'tree>) {
+    fn insert_layer(&mut self, mut layer: HighlightIterLayer<'a>) {
         if let Some(sort_key) = layer.sort_key() {
             let mut i = 1;
             while i < self.layers.len() {
@@ -615,7 +611,7 @@ where
     }
 }
 
-impl<'a, 'tree: 'a, F> Iterator for HighlightIter<'a, 'tree, F>
+impl<'a, F> Iterator for HighlightIter<'a, F>
 where
     F: FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
 {
@@ -1025,7 +1021,7 @@ impl HtmlRenderer {
 fn injection_for_match<'a>(
     config: &HighlightConfiguration,
     query: &'a Query,
-    query_match: &QueryMatch<'a>,
+    query_match: &QueryMatch<'a, 'a>,
     source: &'a [u8],
 ) -> (Option<&'a str>, Option<Node<'a>>, bool) {
     let content_capture_index = config.injection_content_capture_index;

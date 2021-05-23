@@ -3,7 +3,7 @@ use crate::query_testing;
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
-use tree_sitter::{Language, Node, Parser, Query, QueryCursor};
+use tree_sitter::{Language, Parser, Query, QueryCursor};
 
 pub fn query_files_at_paths(
     language: Language,
@@ -38,12 +38,11 @@ pub fn query_files_at_paths(
         let source_code = fs::read(&path).map_err(Error::wrap(|| {
             format!("Error reading source file {:?}", path)
         }))?;
-        let text_callback = |n: Node| &source_code[n.byte_range()];
         let tree = parser.parse(&source_code, None).unwrap();
 
         if ordered_captures {
             for (mat, capture_index) in
-                query_cursor.captures(&query, tree.root_node(), text_callback)
+                query_cursor.captures(&query, tree.root_node(), source_code.as_slice())
             {
                 let capture = mat.captures[capture_index];
                 let capture_name = &query.capture_names()[capture.index as usize];
@@ -62,7 +61,7 @@ pub fn query_files_at_paths(
                 });
             }
         } else {
-            for m in query_cursor.matches(&query, tree.root_node(), text_callback) {
+            for m in query_cursor.matches(&query, tree.root_node(), source_code.as_slice()) {
                 writeln!(&mut stdout, "  pattern: {}", m.pattern_index)?;
                 for capture in m.captures {
                     let start = capture.node.start_position();
