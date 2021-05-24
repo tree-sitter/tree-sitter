@@ -12,7 +12,7 @@ use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::os::raw::{c_char, c_void};
 use std::ptr::NonNull;
-use std::sync::atomic::AtomicUsize;
+use std::sync::{atomic::AtomicUsize, Arc};
 use std::{char, error, fmt, hash, iter, ptr, slice, str, u16};
 
 /// The latest ABI version that is supported by the current version of the
@@ -75,7 +75,7 @@ pub struct InputEdit {
 pub struct Node<'a>(ffi::TSNode, PhantomData<&'a ()>);
 
 /// A stateful object that this is used to produce a `Tree` based on some source code.
-pub struct Parser(NonNull<ffi::TSParser>);
+pub struct Parser(NonNull<ffi::TSParser>, Option<Arc<AtomicUsize>>);
 
 /// A type of log message.
 #[derive(Debug, PartialEq, Eq)]
@@ -276,7 +276,7 @@ impl Parser {
     pub fn new() -> Parser {
         unsafe {
             let parser = ffi::ts_parser_new();
-            Parser(NonNull::new_unchecked(parser))
+            Parser(NonNull::new_unchecked(parser), None)
         }
     }
 
@@ -592,9 +592,53 @@ impl Parser {
             Err(IncludedRangesError(0))
         }
     }
+}
 
+impl Parser {
     /// Get the parser's current cancellation flag pointer.
-    pub unsafe fn cancellation_flag(&self) -> Option<&AtomicUsize> {
+    ///
+    /// # Panic
+    /// When there was the usage of unsafe set_cancellation_flag_unchecked
+    /// method and it was set the cancellation flag.
+    pub fn cancellation_flag(&self) -> Option<Arc<AtomicUsize>> {
+        if self.1.is_none() && unsafe { self.cancellation_flag_unchecked().is_some() } {
+            panic!("It's prohibited to mix safe and unsafe cancellation flag manipulations");
+        }
+        self.1.clone()
+    }
+
+    /// Set the parser's current cancellation flag pointer.
+    ///
+    /// If a pointer is assigned, then the parser will periodically read from
+    /// this pointer during parsing. If it reads a non-zero value, it will halt early,
+    /// returning `None`. See [parse](Parser::parse) for more information.
+    ///
+    /// # Panic
+    /// When there was the usage of unsafe set_cancellation_flag_unchecked
+    /// method and it was set the cancellation flag.
+    pub fn set_cancellation_flag(&mut self, flag: Option<Arc<AtomicUsize>>) {
+        if self.1.is_none() && unsafe { self.cancellation_flag_unchecked().is_some() } {
+            panic!("It's prohibited to mix safe and unsafe cancellation flag manipulations");
+        }
+        let f = match flag {
+            Some(ref x) => Some(x.as_ref()),
+            None => None,
+        };
+        self.1 = None; // This is needed to don't trigger panic in the next unchecked call
+        unsafe { self.set_cancellation_flag_unchecked(f) }
+        self.1 = flag;
+    }
+
+    /// Get the parser's current AtomicUsize cancellation flag pointer.
+    ///
+    /// # Safety
+    /// This method can be used at any time but the returning value isn't thread-safe
+    /// and in the Rust code there is no practical sence to use this method instead of
+    /// its safe alternative the cancellation_flag method.
+    ///
+    /// # Notes
+    /// This unchecked method exist only for the purpose to build C API around the Rust code.
+    pub unsafe fn cancellation_flag_unchecked(&self) -> Option<&AtomicUsize> {
         (ffi::ts_parser_cancellation_flag(self.0.as_ptr()) as *const AtomicUsize).as_ref()
     }
 
@@ -603,7 +647,24 @@ impl Parser {
     /// If a pointer is assigned, then the parser will periodically read from
     /// this pointer during parsing. If it reads a non-zero value, it will halt early,
     /// returning `None`. See [parse](Parser::parse) for more information.
-    pub unsafe fn set_cancellation_flag(&self, flag: Option<&AtomicUsize>) {
+    ///
+    /// # Safety
+    /// This can only be called when
+    /// - The `flag` reference is guaranteed to be valid until either the parser is
+    ///   dropped or the reference is replaced by another call to this method.
+    /// - There was no calls for the safe set_cancellation_flag method before.
+    ///
+    /// # Panic
+    /// When there was the usage of safe set_cancellation_flag
+    /// method and it was set the cancellation flag.
+    ///
+    /// # Notes
+    /// Mixing safe and unsafe API in cancellation flag manipulation is prohibited.
+    /// This unchecked method exist only for the purpose to build C API around the Rust code.
+    pub unsafe fn set_cancellation_flag_unchecked(&mut self, flag: Option<&AtomicUsize>) {
+        if self.1.is_some() {
+            panic!("It's prohibited to mix safe and unsafe cancellation flag manipulations");
+        }
         if let Some(flag) = flag {
             ffi::ts_parser_set_cancellation_flag(
                 self.0.as_ptr(),

@@ -542,7 +542,7 @@ fn test_parsing_cancelled_by_another_thread() {
 
     let mut parser = Parser::new();
     parser.set_language(get_language("javascript")).unwrap();
-    unsafe { parser.set_cancellation_flag(Some(&cancellation_flag)) };
+    parser.set_cancellation_flag(Some(cancellation_flag.clone()));
 
     // Long input - parsing succeeds
     let tree = parser.parse_with(
@@ -559,10 +559,9 @@ fn test_parsing_cancelled_by_another_thread() {
     );
     assert!(tree.is_some());
 
-    let flag = cancellation_flag.clone();
     let cancel_thread = thread::spawn(move || {
         thread::sleep(time::Duration::from_millis(100));
-        flag.store(1, Ordering::SeqCst);
+        cancellation_flag.store(1, Ordering::SeqCst);
     });
 
     // Infinite input

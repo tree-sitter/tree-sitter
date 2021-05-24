@@ -1,7 +1,10 @@
 use super::helpers::fixtures::{get_highlight_config, get_language, get_language_queries_path};
 use lazy_static::lazy_static;
 use std::ffi::CString;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 use std::{fs, ptr, slice, str};
 use tree_sitter_highlight::{
     c, Error, Highlight, HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer,
@@ -450,7 +453,7 @@ fn test_highlighting_cancellation() {
     source += "</script>\n";
 
     // Cancel the highlighting before parsing the injected document.
-    let cancellation_flag = AtomicUsize::new(0);
+    let cancellation_flag = Arc::new(AtomicUsize::new(0));
     let injection_callback = |name: &str| {
         cancellation_flag.store(1, Ordering::SeqCst);
         test_language_for_injection_string(name)
@@ -462,7 +465,7 @@ fn test_highlighting_cancellation() {
         .highlight(
             &HTML_HIGHLIGHT,
             source.as_bytes(),
-            Some(&cancellation_flag),
+            Some(cancellation_flag.clone()),
             injection_callback,
         )
         .unwrap();

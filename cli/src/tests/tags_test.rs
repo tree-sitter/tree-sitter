@@ -1,6 +1,7 @@
 use super::helpers::fixtures::{get_language, get_language_queries_path};
 use std::ffi::CStr;
 use std::ffi::CString;
+use std::sync::Arc;
 use std::{fs, ptr, slice, str};
 use tree_sitter::{allocations, Point};
 use tree_sitter_tags::c_lib as c;
@@ -265,13 +266,13 @@ fn test_tags_cancellation() {
             .map(|_| "/* hi */ class A { /* ok */ b() {} }\n")
             .collect::<String>();
 
-        let cancellation_flag = AtomicUsize::new(0);
+        let cancellation_flag = Arc::new(AtomicUsize::new(0));
         let language = get_language("javascript");
         let tags_config = TagsConfiguration::new(language, JS_TAG_QUERY, "").unwrap();
 
         let mut tag_context = TagsContext::new();
         let tags = tag_context
-            .generate_tags(&tags_config, source.as_bytes(), Some(&cancellation_flag))
+            .generate_tags(&tags_config, source.as_bytes(), Some(cancellation_flag.clone()))
             .unwrap();
 
         for (i, tag) in tags.0.enumerate() {

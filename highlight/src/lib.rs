@@ -2,7 +2,10 @@ pub mod c_lib;
 pub mod util;
 pub use c_lib as c;
 
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 use std::{iter, mem, ops, str, usize};
 use tree_sitter::{
     Language, LossyUtf8, Node, Parser, Point, Query, QueryCaptures, QueryCursor, QueryError,
@@ -91,7 +94,7 @@ where
     byte_offset: usize,
     highlighter: &'a mut Highlighter,
     injection_callback: F,
-    cancellation_flag: Option<&'a AtomicUsize>,
+    cancellation_flag: Option<CancellationVariant<'a>>,
     layers: Vec<HighlightIterLayer<'a, 'tree>>,
     iter_count: usize,
     next_event: Option<HighlightEvent>,
@@ -109,7 +112,28 @@ struct HighlightIterLayer<'a, 'tree: 'a> {
     depth: usize,
 }
 
-impl Highlighter {
+// This enum needed to move flag ownership into HighlighIter struct instances
+// and to avoid an issue in Highlighter::highlight() that a local reference to
+// Arc<AtomicUsize> can't leave long enough to be used inside of HighlighIter::next()
+enum CancellationVariant<'c> {
+    Value(Arc<AtomicUsize>),
+    Borrow(&'c AtomicUsize),
+}
+
+impl<'c> CancellationVariant<'c> {
+    fn check(&self) -> Option<Error> {
+        let flag = match self {
+            CancellationVariant::Borrow(f) => f.load(Ordering::Relaxed),
+            CancellationVariant::Value(f) => f.as_ref().load(Ordering::Relaxed),
+        };
+        if flag != 0 {
+            return Some(Error::Cancelled);
+        }
+        None
+    }
+}
+
+impl<'a> Highlighter {
     pub fn new() -> Self {
         Highlighter {
             parser: Parser::new(),
@@ -122,17 +146,51 @@ impl Highlighter {
     }
 
     /// Iterate over the highlighted regions for a given slice of source code.
-    pub fn highlight<'a>(
+    pub fn highlight(
+        &'a mut self,
+        config: &'a HighlightConfiguration,
+        source: &'a [u8],
+        cancellation_flag: Option<Arc<AtomicUsize>>,
+        injection_callback: impl FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
+    ) -> Result<impl Iterator<Item = Result<HighlightEvent, Error>> + 'a, Error> {
+        self.parser.reset();
+        self.parser.set_cancellation_flag(cancellation_flag.clone());
+        self.do_highlight(
+            config,
+            source,
+            cancellation_flag.and_then(|f| Some(CancellationVariant::Value(f))),
+            injection_callback,
+        )
+    }
+
+    pub unsafe fn highlight_unchecked(
         &'a mut self,
         config: &'a HighlightConfiguration,
         source: &'a [u8],
         cancellation_flag: Option<&'a AtomicUsize>,
+        injection_callback: impl FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
+    ) -> Result<impl Iterator<Item = Result<HighlightEvent, Error>> + 'a, Error> {
+        self.parser.reset();
+        self.parser
+            .set_cancellation_flag_unchecked(cancellation_flag);
+        self.do_highlight(
+            config,
+            source,
+            cancellation_flag.and_then(|f| Some(CancellationVariant::Borrow(f))),
+            injection_callback,
+        )
+    }
+
+    fn do_highlight(
+        &'a mut self,
+        config: &'a HighlightConfiguration,
+        source: &'a [u8],
+        cancellation_flag: Option<CancellationVariant<'a>>,
         mut injection_callback: impl FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
     ) -> Result<impl Iterator<Item = Result<HighlightEvent, Error>> + 'a, Error> {
         let layers = HighlightIterLayer::new(
             source,
             self,
-            cancellation_flag,
             &mut injection_callback,
             config,
             0,
@@ -328,7 +386,6 @@ impl<'a, 'tree: 'a> HighlightIterLayer<'a, 'tree> {
     fn new<F: FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a>(
         source: &'a [u8],
         highlighter: &mut Highlighter,
-        cancellation_flag: Option<&'a AtomicUsize>,
         injection_callback: &mut F,
         mut config: &'a HighlightConfiguration,
         mut depth: usize,
@@ -343,12 +400,11 @@ impl<'a, 'tree: 'a> HighlightIterLayer<'a, 'tree> {
                     .set_language(config.language)
                     .map_err(|_| Error::InvalidLanguage)?;
 
-                unsafe { highlighter.parser.set_cancellation_flag(cancellation_flag) };
                 let tree = highlighter
                     .parser
                     .parse(source, None)
                     .ok_or(Error::Cancelled)?;
-                unsafe { highlighter.parser.set_cancellation_flag(None) };
+
                 let mut cursor = highlighter.cursors.pop().unwrap_or(QueryCursor::new());
 
                 // Process combined injections.
@@ -630,12 +686,12 @@ where
 
             // Periodically check for cancellation, returning `Cancelled` error if the
             // cancellation flag was flipped.
-            if let Some(cancellation_flag) = self.cancellation_flag {
+            if let Some(ref cancellation_flag) = self.cancellation_flag {
                 self.iter_count += 1;
                 if self.iter_count >= CANCELLATION_CHECK_INTERVAL {
                     self.iter_count = 0;
-                    if cancellation_flag.load(Ordering::Relaxed) != 0 {
-                        return Some(Err(Error::Cancelled));
+                    if let Some(e) = cancellation_flag.check() {
+                        return Some(Err(e))
                     }
                 }
             }
@@ -705,7 +761,6 @@ where
                             match HighlightIterLayer::new(
                                 self.source,
                                 self.highlighter,
-                                self.cancellation_flag,
                                 &mut self.injection_callback,
                                 config,
                                 self.layers[0].depth + 1,

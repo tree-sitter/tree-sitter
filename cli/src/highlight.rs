@@ -8,7 +8,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fmt::Write;
-use std::sync::atomic::AtomicUsize;
+use std::sync::{atomic::AtomicUsize, Arc};
 use std::time::Instant;
 use std::{fs, io, path, str, usize};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer};
@@ -334,7 +334,7 @@ pub fn ansi(
     source: &[u8],
     config: &HighlightConfiguration,
     print_time: bool,
-    cancellation_flag: Option<&AtomicUsize>,
+    cancellation_flag: Option<Arc<AtomicUsize>>,
 ) -> Result<()> {
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
@@ -387,7 +387,7 @@ pub fn html(
     let cancellation_flag = util::cancel_on_stdin();
     let mut highlighter = Highlighter::new();
 
-    let events = highlighter.highlight(config, source, Some(&cancellation_flag), |string| {
+    let events = highlighter.highlight(config, source, Some(cancellation_flag), |string| {
         loader.highlight_config_for_injection_string(string)
     })?;
 

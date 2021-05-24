@@ -276,7 +276,7 @@ fn run() -> error::Result<()> {
                 debug,
                 debug_graph,
                 debug_xml,
-                Some(&cancellation_flag),
+                Some(cancellation_flag.clone()),
             )?;
 
             if should_track_stats {
@@ -384,7 +384,7 @@ fn run() -> error::Result<()> {
                         &source,
                         highlight_config,
                         time,
-                        Some(&cancellation_flag),
+                        Some(cancellation_flag.clone()),
                     )?;
                 }
             } else {

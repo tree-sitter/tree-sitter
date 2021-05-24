@@ -1,4 +1,5 @@
 pub mod c_lib;
+pub use c_lib as c;
 
 use memchr::memchr;
 use regex::Regex;
@@ -6,7 +7,10 @@ use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::ops::Range;
 use std::os::raw::c_char;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 use std::{char, fmt, mem, str};
 use tree_sitter::{
     Language, LossyUtf8, Parser, Point, Query, QueryCursor, QueryError, QueryPredicateArg, Tree,
@@ -95,7 +99,7 @@ where
     source: &'a [u8],
     prev_line_info: Option<LineInfo>,
     config: &'a TagsConfiguration,
-    cancellation_flag: Option<&'a AtomicUsize>,
+    cancellation_flag: Option<CancellationVariant<'a>>,
     iter_count: usize,
     tag_queue: Vec<(Tag, usize)>,
     scopes: Vec<LocalScope<'a>>,
@@ -106,6 +110,27 @@ struct LineInfo {
     utf8_byte: usize,
     utf16_column: usize,
     line_range: Range<usize>,
+}
+
+// This enum needed to move flag ownership into HighlighIter struct instances
+// and to avoid an issue in Highlighter::highlight() that a local reference to
+// Arc<AtomicUsize> can't leave long enough to be used inside of HighlighIter::next()
+enum CancellationVariant<'c> {
+    Value(Arc<AtomicUsize>),
+    Borrow(&'c AtomicUsize),
+}
+
+impl<'c> CancellationVariant<'c> {
+    fn check(&self) -> Option<Error> {
+        let flag = match self {
+            CancellationVariant::Borrow(f) => f.load(Ordering::Relaxed),
+            CancellationVariant::Value(f) => f.as_ref().load(Ordering::Relaxed),
+        };
+        if flag != 0 {
+            return Some(Error::Cancelled);
+        }
+        None
+    }
 }
 
 impl TagsConfiguration {
@@ -239,7 +264,7 @@ impl TagsConfiguration {
     }
 }
 
-impl TagsContext {
+impl<'a> TagsContext {
     pub fn new() -> Self {
         TagsContext {
             parser: Parser::new(),
@@ -247,17 +272,51 @@ impl TagsContext {
         }
     }
 
-    pub fn generate_tags<'a>(
+    pub fn parser(&mut self) -> &mut Parser {
+        &mut self.parser
+    }
+
+    pub fn generate_tags(
+        &'a mut self,
+        config: &'a TagsConfiguration,
+        source: &'a [u8],
+        cancellation_flag: Option<Arc<AtomicUsize>>,
+    ) -> Result<(impl Iterator<Item = Result<Tag, Error>> + 'a, bool), Error> {
+        self.parser.reset();
+        self.parser
+            .set_cancellation_flag(cancellation_flag.clone());
+        self.do_generate_tags(
+            config,
+            source,
+            cancellation_flag.and_then(|f| Some(CancellationVariant::Value(f))),
+        )
+    }
+
+    pub unsafe fn generate_tags_unchecked(
         &'a mut self,
         config: &'a TagsConfiguration,
         source: &'a [u8],
         cancellation_flag: Option<&'a AtomicUsize>,
     ) -> Result<(impl Iterator<Item = Result<Tag, Error>> + 'a, bool), Error> {
+        self.parser.reset();
+        self.parser
+            .set_cancellation_flag_unchecked(cancellation_flag);
+        self.do_generate_tags(
+            config,
+            source,
+            cancellation_flag.and_then(|f| Some(CancellationVariant::Borrow(f))),
+        )
+    }
+
+    fn do_generate_tags(
+        &'a mut self,
+        config: &'a TagsConfiguration,
+        source: &'a [u8],
+        cancellation_flag: Option<CancellationVariant<'a>>,
+    ) -> Result<(impl Iterator<Item = Result<Tag, Error>> + 'a, bool), Error> {
         self.parser
             .set_language(config.language)
             .map_err(|_| Error::InvalidLanguage)?;
-        self.parser.reset();
-        unsafe { self.parser.set_cancellation_flag(cancellation_flag) };
         let tree = self.parser.parse(source, None).ok_or(Error::Cancelled)?;
 
         // The `matches` iterator borrows the `Tree`, which prevents it from being moved.
@@ -299,12 +358,12 @@ where
         loop {
             // Periodically check for cancellation, returning `Cancelled` error if the
             // cancellation flag was flipped.
-            if let Some(cancellation_flag) = self.cancellation_flag {
+            if let Some(ref cancellation_flag) = self.cancellation_flag {
                 self.iter_count += 1;
                 if self.iter_count >= CANCELLATION_CHECK_INTERVAL {
                     self.iter_count = 0;
-                    if cancellation_flag.load(Ordering::Relaxed) != 0 {
-                        return Some(Err(Error::Cancelled));
+                    if let Some(e) = cancellation_flag.check() {
+                        return Some(Err(e));
                     }
                 }
             }
