@@ -106,7 +106,7 @@ The main [`tree-sitter/tree-sitter`](https://github.com/tree-sitter/tree-sitter)
 
 There are also several other dependent repositories that contain other published packages:
 
-- [`tree-sitter/node-tree-sitter`](https://github.com/tree-sitter/py-tree-sitter) - Node.js bindings to the core library, published as [`tree-sitter`](https://www.npmjs.com/package/tree-sitter) on npmjs.com
+- [`tree-sitter/node-tree-sitter`](https://github.com/tree-sitter/node-tree-sitter) - Node.js bindings to the core library, published as [`tree-sitter`](https://www.npmjs.com/package/tree-sitter) on npmjs.com
 - [`tree-sitter/py-tree-sitter`](https://github.com/tree-sitter/py-tree-sitter) - Python bindings to the core library, published as [`tree-sitter`](https://pypi.org/project/tree-sitter) on [PyPI.org](https://pypi.org).
 
 ## Publishing New Releases
