@@ -824,8 +824,6 @@ void ts_query_cursor_set_point_range(TSQueryCursor *, TSPoint, TSPoint);
 bool ts_query_cursor_next_match(TSQueryCursor *, TSQueryMatch *match);
 void ts_query_cursor_remove_match(TSQueryCursor *, uint32_t id);
 
-void ts_query_cursor_advance_to_byte(TSQueryCursor *, uint32_t offset);
-
 /**
  * Advance to the next capture of the currently running query.
  *

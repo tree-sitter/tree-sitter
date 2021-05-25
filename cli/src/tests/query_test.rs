@@ -1919,6 +1919,92 @@ fn test_query_captures_within_byte_range() {
 }
 
 #[test]
+fn test_query_captures_within_byte_range_assigned_after_iterating() {
+    allocations::record(|| {
+        let language = get_language("rust");
+        let query = Query::new(
+            language,
+            r#"
+            (function_item
+                name: (identifier) @fn_name)
+
+            (mod_item
+                name: (identifier) @mod_name
+                body: (declaration_list
+                    "{" @lbrace
+                    "}" @rbrace))
+
+            ; functions that return Result<()>
+            ((function_item
+                return_type: (generic_type
+                    type: (type_identifier) @result
+                    type_arguments: (type_arguments
+                        (unit_type)))
+                body: _ @fallible_fn_body)
+             (#eq? @result "Result"))
+            "#,
+        )
+        .unwrap();
+        let source = "
+        mod m1 {
+            mod m2 {
+                fn f1() -> Option<()> { Some(()) }
+            }
+            fn f2() -> Result<()> { Ok(()) }
+            fn f3() {}
+        }
+        ";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let mut captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
+
+        // Retrieve some captures
+        let mut results = Vec::new();
+        for (mat, capture_ix) in captures.by_ref().take(5) {
+            let capture = mat.captures[capture_ix as usize];
+            results.push((
+                query.capture_names()[capture.index as usize].as_str(),
+                &source[capture.node.byte_range()],
+            ));
+        }
+        assert_eq!(
+            results,
+            vec![
+                ("mod_name", "m1"),
+                ("lbrace", "{"),
+                ("mod_name", "m2"),
+                ("lbrace", "{"),
+                ("fn_name", "f1"),
+            ]
+        );
+
+        // Advance to a range that only partially intersects some matches.
+        // Captures from these matches are reported, but only those that
+        // intersect the range.
+        results.clear();
+        captures.set_byte_range(source.find("Ok").unwrap(), source.len());
+        for (mat, capture_ix) in captures {
+            let capture = mat.captures[capture_ix as usize];
+            results.push((
+                query.capture_names()[capture.index as usize].as_str(),
+                &source[capture.node.byte_range()],
+            ));
+        }
+        assert_eq!(
+            results,
+            vec![
+                ("fallible_fn_body", "{ Ok(()) }"),
+                ("fn_name", "f3"),
+                ("rbrace", "}")
+            ]
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_different_queries_same_cursor() {
     allocations::record(|| {
         let language = get_language("javascript");
@@ -3034,137 +3120,6 @@ fn test_query_text_callback_returns_chunks() {
             ]
         );
     });
-}
-
-#[test]
-fn test_query_captures_advance_to_byte() {
-    allocations::record(|| {
-        let language = get_language("rust");
-        let query = Query::new(
-            language,
-            r#"
-            (function_item
-                name: (identifier) @fn_name)
-
-            (mod_item
-                name: (identifier) @mod_name
-                body: (declaration_list
-                    "{" @lbrace
-                    "}" @rbrace))
-
-            ; functions that return Result<()>
-            ((function_item
-                return_type: (generic_type
-                    type: (type_identifier) @result
-                    type_arguments: (type_arguments
-                        (unit_type)))
-                body: _ @fallible_fn_body)
-             (#eq? @result "Result"))
-            "#,
-        )
-        .unwrap();
-        let source = "
-        mod m1 {
-            mod m2 {
-                fn f1() -> Option<()> { Some(()) }
-            }
-            fn f2() -> Result<()> { Ok(()) }
-            fn f3() {}
-        }
-        ";
-
-        let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
-        let mut cursor = QueryCursor::new();
-        let mut captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
-
-        // Retrieve some captures
-        let mut results = Vec::new();
-        for (mat, capture_ix) in captures.by_ref().take(5) {
-            let capture = mat.captures[capture_ix as usize];
-            results.push((
-                query.capture_names()[capture.index as usize].as_str(),
-                &source[capture.node.byte_range()],
-            ));
-        }
-        assert_eq!(
-            results,
-            vec![
-                ("mod_name", "m1"),
-                ("lbrace", "{"),
-                ("mod_name", "m2"),
-                ("lbrace", "{"),
-                ("fn_name", "f1"),
-            ]
-        );
-
-        results.clear();
-        captures.advance_to_byte(source.find("Ok").unwrap());
-
-        // Advance further ahead in the source, retrieve the remaining captures.
-        for (mat, capture_ix) in captures {
-            let capture = mat.captures[capture_ix as usize];
-            results.push((
-                query.capture_names()[capture.index as usize].as_str(),
-                &source[capture.node.byte_range()],
-            ));
-        }
-        assert_eq!(
-            results,
-            vec![
-                ("fallible_fn_body", "{ Ok(()) }"),
-                ("fn_name", "f3"),
-                ("rbrace", "}")
-            ]
-        );
-
-        // Advance past the last capture. There are no more captures.
-        let mut captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
-        captures.advance_to_byte(source.len());
-        assert!(captures.next().is_none());
-        assert!(captures.next().is_none());
-    });
-}
-
-#[test]
-fn test_query_advance_to_byte_within_node() {
-    allocations::record(|| {
-        let language = get_language("rust");
-        let query = Query::new(
-            language,
-            r#"
-            (fn_item
-                name: (identifier) @name
-                return_type: _? @ret)
-
-            (mod_item
-                name: (identifier) @name
-                body: _ @body)
-            "#,
-        )
-        .unwrap();
-        let source = "
-        fn foo() -> i32 {}
-
-        ...
-
-        mod foo {}
-        ";
-
-        let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
-        let mut cursor = QueryCursor::new();
-        let mut captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
-
-        captures.advance_to_byte(source.find("{").unwrap());
-
-        assert_eq!(
-            collect_captures(captures, &query, source),
-            &[("body", "{}"),]
-        );
-    })
 }
 
 #[test]

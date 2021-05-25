@@ -256,6 +256,9 @@ struct TSQueryCursor {
   CaptureListPool capture_list_pool;
   uint32_t depth;
   uint32_t start_byte;
+  uint32_t end_byte;
+  TSPoint start_point;
+  TSPoint end_point;
   uint32_t next_state_id;
   bool ascending;
   bool halted;
@@ -2261,6 +2264,9 @@ TSQueryCursor *ts_query_cursor_new(void) {
     .finished_states = array_new(),
     .capture_list_pool = capture_list_pool_new(),
     .start_byte = 0,
+    .end_byte = UINT32_MAX,
+    .start_point = {0, 0},
+    .end_point = POINT_MAX,
   };
   array_reserve(&self->states, 8);
   array_reserve(&self->finished_states, 8);
@@ -2290,7 +2296,6 @@ void ts_query_cursor_exec(
   capture_list_pool_reset(&self->capture_list_pool);
   self->next_state_id = 0;
   self->depth = 0;
-  self->start_byte = 0;
   self->ascending = false;
   self->halted = false;
   self->query = query;
@@ -2302,6 +2307,11 @@ void ts_query_cursor_set_byte_range(
   uint32_t start_byte,
   uint32_t end_byte
 ) {
+  if (end_byte == 0) {
+    end_byte = UINT32_MAX;
+  }
+  self->start_byte = start_byte;
+  self->end_byte = end_byte;
 }
 
 void ts_query_cursor_set_point_range(
@@ -2309,6 +2319,11 @@ void ts_query_cursor_set_point_range(
   TSPoint start_point,
   TSPoint end_point
 ) {
+  if (end_point.row == 0 && end_point.column == 0) {
+    end_point = POINT_MAX;
+  }
+  self->start_point = start_point;
+  self->end_point = end_point;
 }
 
 // Search through all of the in-progress states, and find the captured
@@ -2337,7 +2352,10 @@ static bool ts_query_cursor__first_in_progress_capture(
     }
 
     TSNode node = captures->contents[state->consumed_capture_count].node;
-    if (ts_node_end_byte(node) <= self->start_byte) {
+    if (
+      ts_node_end_byte(node) <= self->start_byte ||
+      point_lte(ts_node_end_point(node), self->start_point)
+    ) {
       state->consumed_capture_count++;
       i--;
       continue;
@@ -2682,12 +2700,8 @@ static inline bool ts_query_cursor__advance(
 
     // Enter a new node.
     else {
-      // If this node is before the selected range, then avoid descending into it.
-      TSNode node = ts_tree_cursor_current_node(&self->cursor);
-
-      bool node_exceeds_start_byte = ts_node_end_byte(node) > self->start_byte;
-
       // Get the properties of the current node.
+      TSNode node = ts_tree_cursor_current_node(&self->cursor);
       TSSymbol symbol = ts_node_symbol(node);
       bool is_named = ts_node_is_named(node);
       bool has_later_siblings;
@@ -2714,7 +2728,14 @@ static inline bool ts_query_cursor__advance(
         self->finished_states.size
       );
 
-      if (node_exceeds_start_byte) {
+      bool node_intersects_range = (
+        ts_node_end_byte(node) > self->start_byte &&
+        ts_node_start_byte(node) < self->end_byte &&
+        point_gt(ts_node_end_point(node), self->start_point) &&
+        point_lt(ts_node_start_point(node), self->end_point)
+      );
+
+      if (node_intersects_range) {
         // Add new states for any patterns whose root node is a wildcard.
         for (unsigned i = 0; i < self->query->wildcard_root_pattern_count; i++) {
           PatternEntry *pattern = &self->query->pattern_map.contents[i];
@@ -3039,7 +3060,7 @@ static inline bool ts_query_cursor__advance(
 
       // When the current node ends prior to the desired start offset,
       // only descend for the purpose of continuing in-progress matches.
-      bool should_descend = node_exceeds_start_byte;
+      bool should_descend = node_intersects_range;
       if (!should_descend) {
         for (unsigned i = 0; i < self->states.size; i++) {
           QueryState *state = &self->states.contents[i];;
@@ -3069,14 +3090,6 @@ static inline bool ts_query_cursor__advance(
       }
     }
   }
-}
-
-void ts_query_cursor_advance_to_byte(
-  TSQueryCursor *self,
-  uint32_t offset
-) {
-  LOG("advance_to_byte %u\n", offset);
-  self->start_byte = offset;
 }
 
 bool ts_query_cursor_next_match(

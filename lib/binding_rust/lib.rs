@@ -1810,9 +1810,9 @@ impl<'a, 'tree, T: TextProvider<'a>> Iterator for QueryMatches<'a, 'tree, T> {
 }
 
 impl<'a, 'tree, T: TextProvider<'a>> QueryCaptures<'a, 'tree, T> {
-    pub fn advance_to_byte(&mut self, offset: usize) {
+    pub fn set_byte_range(&mut self, start: usize, end: usize) {
         unsafe {
-            ffi::ts_query_cursor_advance_to_byte(self.ptr, offset as u32);
+            ffi::ts_query_cursor_set_byte_range(self.ptr, start as u32, end as u32);
         }
     }
 }
