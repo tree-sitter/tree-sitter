@@ -3039,32 +3039,49 @@ fn test_query_text_callback_returns_chunks() {
 #[test]
 fn test_query_captures_advance_to_byte() {
     allocations::record(|| {
-        let language = get_language("javascript");
+        let language = get_language("rust");
         let query = Query::new(
             language,
             r#"
-            (identifier) @id
-            (array
-              "[" @lbracket
-              "]" @rbracket)
+            (function_item
+                name: (identifier) @fn_name)
+
+            (mod_item
+                name: (identifier) @mod_name
+                body: (declaration_list
+                    "{" @lbrace
+                    "}" @rbrace))
+
+            ; functions that return Result<()>
+            ((function_item
+                return_type: (generic_type
+                    type: (type_identifier) @result
+                    type_arguments: (type_arguments
+                        (unit_type)))
+                body: _ @fallible_fn_body)
+             (#eq? @result "Result"))
             "#,
         )
         .unwrap();
-        let source = "[one, two, [three, four, five, six, seven, eight, nine, ten], eleven, twelve, thirteen]";
+        let source = "
+        mod m1 {
+            mod m2 {
+                fn f1() -> Option<()> { Some(()) }
+            }
+            fn f2() -> Result<()> { Ok(()) }
+            fn f3() {}
+        }
+        ";
 
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
         let tree = parser.parse(&source, None).unwrap();
         let mut cursor = QueryCursor::new();
-        cursor.set_byte_range(
-            source.find("two").unwrap() + 1,
-            source.find(", twelve").unwrap(),
-        );
         let mut captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
 
-        // Retrieve four captures.
+        // Retrieve some captures
         let mut results = Vec::new();
-        for (mat, capture_ix) in captures.by_ref().take(4) {
+        for (mat, capture_ix) in captures.by_ref().take(5) {
             let capture = mat.captures[capture_ix as usize];
             results.push((
                 query.capture_names()[capture.index as usize].as_str(),
@@ -3074,16 +3091,18 @@ fn test_query_captures_advance_to_byte() {
         assert_eq!(
             results,
             vec![
-                ("id", "two"),
-                ("lbracket", "["),
-                ("id", "three"),
-                ("id", "four")
+                ("mod_name", "m1"),
+                ("lbrace", "{"),
+                ("mod_name", "m2"),
+                ("lbrace", "{"),
+                ("fn_name", "f1"),
             ]
         );
 
-        // Advance further ahead in the source, retrieve the remaining captures.
         results.clear();
-        captures.advance_to_byte(source.find("ten").unwrap() + 1);
+        captures.advance_to_byte(source.find("Ok").unwrap());
+
+        // Advance further ahead in the source, retrieve the remaining captures.
         for (mat, capture_ix) in captures {
             let capture = mat.captures[capture_ix as usize];
             results.push((
@@ -3093,7 +3112,11 @@ fn test_query_captures_advance_to_byte() {
         }
         assert_eq!(
             results,
-            vec![("id", "ten"), ("rbracket", "]"), ("id", "eleven"),]
+            vec![
+                ("fallible_fn_body", "{ Ok(()) }"),
+                ("fn_name", "f3"),
+                ("rbrace", "}")
+            ]
         );
 
         // Advance past the last capture. There are no more captures.
@@ -3102,6 +3125,46 @@ fn test_query_captures_advance_to_byte() {
         assert!(captures.next().is_none());
         assert!(captures.next().is_none());
     });
+}
+
+#[test]
+fn test_query_advance_to_byte_within_node() {
+    allocations::record(|| {
+        let language = get_language("rust");
+        let query = Query::new(
+            language,
+            r#"
+            (fn_item
+                name: (identifier) @name
+                return_type: _? @ret)
+
+            (mod_item
+                name: (identifier) @name
+                body: _ @body)
+            "#,
+        )
+        .unwrap();
+        let source = "
+        fn foo() -> i32 {}
+
+        ...
+
+        mod foo {}
+        ";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let mut captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
+
+        captures.advance_to_byte(source.find("{").unwrap());
+
+        assert_eq!(
+            collect_captures(captures, &query, source),
+            &[("body", "{}"),]
+        );
+    })
 }
 
 #[test]

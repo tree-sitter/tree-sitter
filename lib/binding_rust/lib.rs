@@ -1812,27 +1812,7 @@ impl<'a, 'tree, T: TextProvider<'a>> Iterator for QueryMatches<'a, 'tree, T> {
 impl<'a, 'tree, T: TextProvider<'a>> QueryCaptures<'a, 'tree, T> {
     pub fn advance_to_byte(&mut self, offset: usize) {
         unsafe {
-            let mut current_start = 0u32;
-            let mut current_end = 0u32;
-            ffi::ts_query_cursor_byte_range(
-                self.ptr,
-                &mut current_start as *mut u32,
-                &mut current_end as *mut u32,
-            );
-            ffi::ts_query_cursor_set_byte_range(self.ptr, offset as u32, current_end);
-        }
-    }
-
-    pub fn advance_to_point(&mut self, point: Point) {
-        unsafe {
-            let mut current_start = ffi::TSPoint { row: 0, column: 0 };
-            let mut current_end = current_start;
-            ffi::ts_query_cursor_point_range(
-                self.ptr,
-                &mut current_start as *mut _,
-                &mut current_end as *mut _,
-            );
-            ffi::ts_query_cursor_set_point_range(self.ptr, point.into(), current_end);
+            ffi::ts_query_cursor_advance_to_byte(self.ptr, offset as u32);
         }
     }
 }

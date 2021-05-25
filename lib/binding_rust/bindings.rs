@@ -737,18 +737,8 @@ extern "C" {
     pub fn ts_query_cursor_did_exceed_match_limit(arg1: *const TSQueryCursor) -> bool;
 }
 extern "C" {
-    #[doc = " Get or set the range of bytes or (row, column) positions in which the query"]
+    #[doc = " Set the range of bytes or (row, column) positions in which the query"]
     #[doc = " will be executed."]
-    pub fn ts_query_cursor_byte_range(arg1: *const TSQueryCursor, arg2: *mut u32, arg3: *mut u32);
-}
-extern "C" {
-    pub fn ts_query_cursor_point_range(
-        arg1: *const TSQueryCursor,
-        arg2: *mut TSPoint,
-        arg3: *mut TSPoint,
-    );
-}
-extern "C" {
     pub fn ts_query_cursor_set_byte_range(arg1: *mut TSQueryCursor, arg2: u32, arg3: u32);
 }
 extern "C" {
@@ -763,6 +753,9 @@ extern "C" {
 }
 extern "C" {
     pub fn ts_query_cursor_remove_match(arg1: *mut TSQueryCursor, id: u32);
+}
+extern "C" {
+    pub fn ts_query_cursor_advance_to_byte(arg1: *mut TSQueryCursor, offset: u32);
 }
 extern "C" {
     #[doc = " Advance to the next capture of the currently running query."]
