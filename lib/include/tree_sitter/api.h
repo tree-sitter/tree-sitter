@@ -809,9 +809,11 @@ void ts_query_cursor_exec(TSQueryCursor *, const TSQuery *, TSNode);
 bool ts_query_cursor_did_exceed_match_limit(const TSQueryCursor *);
 
 /**
- * Set the range of bytes or (row, column) positions in which the query
+ * Get or set the range of bytes or (row, column) positions in which the query
  * will be executed.
  */
+void ts_query_cursor_byte_range(const TSQueryCursor *, uint32_t *, uint32_t *);
+void ts_query_cursor_point_range(const TSQueryCursor *, TSPoint *, TSPoint *);
 void ts_query_cursor_set_byte_range(TSQueryCursor *, uint32_t, uint32_t);
 void ts_query_cursor_set_point_range(TSQueryCursor *, TSPoint, TSPoint);
 

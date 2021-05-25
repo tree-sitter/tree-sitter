@@ -2302,6 +2302,24 @@ void ts_query_cursor_exec(
   self->did_exceed_match_limit = false;
 }
 
+void ts_query_cursor_byte_range(
+  const TSQueryCursor *self,
+  uint32_t *start_byte,
+  uint32_t *end_byte
+) {
+  *start_byte = self->start_byte;
+  *end_byte = self->end_byte;
+}
+
+void ts_query_cursor_point_range(
+  const TSQueryCursor *self,
+  TSPoint *start_point,
+  TSPoint *end_point
+) {
+  *start_point = self->start_point;
+  *end_point = self->end_point;
+}
+
 void ts_query_cursor_set_byte_range(
   TSQueryCursor *self,
   uint32_t start_byte,
@@ -2639,7 +2657,7 @@ static inline bool ts_query_cursor__advance(
       } else if (ts_tree_cursor_goto_parent(&self->cursor)) {
         self->depth--;
       } else {
-        LOG("halt at root");
+        LOG("halt at root\n");
         self->halted = true;
       }
 
@@ -2696,6 +2714,7 @@ static inline bool ts_query_cursor__advance(
         if (!ts_tree_cursor_goto_next_sibling(&self->cursor)) {
           self->ascending = true;
         }
+        LOG("skip until start of range\n");
         continue;
       }
 
@@ -2704,7 +2723,7 @@ static inline bool ts_query_cursor__advance(
         self->end_byte <= ts_node_start_byte(node) ||
         point_lte(self->end_point, ts_node_start_point(node))
       ) {
-        LOG("halt at end of range");
+        LOG("halt at end of range\n");
         self->halted = true;
         continue;
       }

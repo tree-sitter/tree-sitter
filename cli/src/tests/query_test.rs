@@ -3037,6 +3037,74 @@ fn test_query_text_callback_returns_chunks() {
 }
 
 #[test]
+fn test_query_captures_advance_to_byte() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            r#"
+            (identifier) @id
+            (array
+              "[" @lbracket
+              "]" @rbracket)
+            "#,
+        )
+        .unwrap();
+        let source = "[one, two, [three, four, five, six, seven, eight, nine, ten], eleven, twelve, thirteen]";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        cursor.set_byte_range(
+            source.find("two").unwrap() + 1,
+            source.find(", twelve").unwrap(),
+        );
+        let mut captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
+
+        // Retrieve four captures.
+        let mut results = Vec::new();
+        for (mat, capture_ix) in captures.by_ref().take(4) {
+            let capture = mat.captures[capture_ix as usize];
+            results.push((
+                query.capture_names()[capture.index as usize].as_str(),
+                &source[capture.node.byte_range()],
+            ));
+        }
+        assert_eq!(
+            results,
+            vec![
+                ("id", "two"),
+                ("lbracket", "["),
+                ("id", "three"),
+                ("id", "four")
+            ]
+        );
+
+        // Advance further ahead in the source, retrieve the remaining captures.
+        results.clear();
+        captures.advance_to_byte(source.find("ten").unwrap() + 1);
+        for (mat, capture_ix) in captures {
+            let capture = mat.captures[capture_ix as usize];
+            results.push((
+                query.capture_names()[capture.index as usize].as_str(),
+                &source[capture.node.byte_range()],
+            ));
+        }
+        assert_eq!(
+            results,
+            vec![("id", "ten"), ("rbracket", "]"), ("id", "eleven"),]
+        );
+
+        // Advance past the last capture. There are no more captures.
+        let mut captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
+        captures.advance_to_byte(source.len());
+        assert!(captures.next().is_none());
+        assert!(captures.next().is_none());
+    });
+}
+
+#[test]
 fn test_query_start_byte_for_pattern() {
     let language = get_language("javascript");
 
