@@ -5,6 +5,7 @@ PREFIX ?= /usr/local
 INCLUDEDIR ?= $(PREFIX)/include
 LIBDIR ?= $(PREFIX)/lib
 PCLIBDIR ?= $(LIBDIR)/pkgconfig
+DTRACE_PROBES_DISABLED ?= 1
 
 # collect sources
 ifneq ($(AMALGAMATED),1)
@@ -17,11 +18,8 @@ else
 endif
 OBJ := $(SRC:.c=.o)
 
-# Toggle USDT probes
-USDT_PROBES ?= 1
-
 # define default flags, and override to append mandatory flags
-CFLAGS ?= -O3 -Wall -Wextra -Werror -DUSDT_PROBES=$(USDT_PROBES)
+CFLAGS ?= -O3 -Wall -Wextra -Werror -DDTRACE_PROBES_DISABLED=$(DTRACE_PROBES_DISABLED)
 override CFLAGS += -std=gnu99 -fPIC -Ilib/src -Ilib/include
 
 # ABI versioning
@@ -52,7 +50,7 @@ libtree-sitter.a: $(OBJ)
 	$(AR) rcs $@ $^
 
 libtree-sitter.$(SOEXTVER): $(OBJ)
-	$(CC) $(LDFLAGS) $(LINKSHARED) $^ $(LDLIBS) -DUSDT_PROBES=$(USDT_PROBES) -o $@
+	$(CC) $(LDFLAGS) $(LINKSHARED) $^ $(LDLIBS) -DDTRACE_PROBES_DISABLED=$(DTRACE_PROBES_DISABLED) -o $@
 	ln -sf $@ libtree-sitter.$(SOEXT)
 	ln -sf $@ libtree-sitter.$(SOEXTVER_MAJOR)
 

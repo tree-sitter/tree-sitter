@@ -2491,9 +2491,9 @@ static void ts_query_cursor__add_state(
     pattern->pattern_index,
     pattern->step_index
   );
-#if USDT_PROBES
-  TREESITTER_STATE_START(pattern->pattern_index, pattern->step_index);
-#endif
+
+  TREE_SITTER_QUERY_STATE_START(pattern->pattern_index, pattern->step_index);
+
   array_insert(&self->states, index, ((QueryState) {
     .capture_list_id = NONE,
     .step_index = pattern->step_index,
@@ -2538,9 +2538,9 @@ static CaptureList *ts_query_cursor__prepare_to_capture(
           "  abandon state. index:%u, pattern:%u, offset:%u.\n",
           state_index, pattern_index, byte_offset
         );
-#if USDT_PROBES
-        TREESITTER_STATE_ABANDON(state_index, pattern_index, byte_offset);
-#endif
+
+        TREE_SITTER_QUERY_STATE_ABANDON(state_index, pattern_index, byte_offset);
+
         QueryState *other_state = &self->states.contents[state_index];
         state->capture_list_id = other_state->capture_list_id;
         other_state->capture_list_id = NONE;
@@ -2553,9 +2553,7 @@ static CaptureList *ts_query_cursor__prepare_to_capture(
         return list;
       } else {
         LOG("  ran out of capture lists");
-#if USDT_PROBES
-        TREESITTER_STATE_RAN_OUT_OF_CAPTURE_LISTS();
-#endif
+        TREE_SITTER_QUERY_STATE_NO_CAPTURE_LISTS();
         return NULL;
       }
     }
@@ -2587,6 +2585,7 @@ static void ts_query_cursor__capture(
       capture_id,
       capture_list->size
     );
+    TREE_SITTER_QUERY_CURSOR_CAPTURE(ts_node_type(node), state->pattern_index, capture_id, capture_list->size);
   }
 }
 
@@ -2643,6 +2642,7 @@ static inline bool ts_query_cursor__advance(
     // Exit the current node.
     if (self->ascending) {
       LOG("leave node. type:%s\n", ts_node_type(ts_tree_cursor_current_node(&self->cursor)));
+      TREE_SITTER_QUERY_CURSOR_LEAVE_NODE(ts_node_type(ts_tree_cursor_current_node(&self->cursor)));
 
       // Leave this node by stepping to its next sibling or to its parent.
       if (ts_tree_cursor_goto_next_sibling(&self->cursor)) {
@@ -2651,6 +2651,7 @@ static inline bool ts_query_cursor__advance(
         self->depth--;
       } else {
         LOG("halt at root");
+        TREE_SITTER_QUERY_CURSOR_HALT();
         self->halted = true;
       }
 
@@ -2665,6 +2666,7 @@ static inline bool ts_query_cursor__advance(
         if (step->depth == PATTERN_DONE_MARKER) {
           if (state->start_depth > self->depth || self->halted) {
             LOG("  finish pattern %u\n", state->pattern_index);
+            TREE_SITTER_QUERY_CURSOR_FINISH_PATTERN(state->pattern_index);
             state->id = self->next_state_id++;
             array_push(&self->finished_states, *state);
             did_match = true;
@@ -2681,6 +2683,7 @@ static inline bool ts_query_cursor__advance(
             state->pattern_index,
             state->step_index
           );
+          TREE_SITTER_QUERY_CURSOR_FAILED_MATCH(state->pattern_index, state->step_index);
           capture_list_pool_release(
             &self->capture_list_pool,
             state->capture_list_id
@@ -2716,6 +2719,7 @@ static inline bool ts_query_cursor__advance(
         point_lte(self->end_point, ts_node_start_point(node))
       ) {
         LOG("halt at end of range");
+        TREE_SITTER_QUERY_CURSOR_HALT();
         self->halted = true;
         continue;
       }
@@ -2746,6 +2750,13 @@ static inline bool ts_query_cursor__advance(
         self->states.size,
         self->finished_states.size
       );
+
+      TREE_SITTER_QUERY_CURSOR_ENTER_NODE(
+        ts_node_type(node),
+        ts_language_field_name_for_id(self->query->language, field_id),
+        ts_node_start_point(node).row,
+        self->states.size,
+        self->finished_states.size);
 
       // Add new states for any patterns whose root node is a wildcard.
       for (unsigned i = 0; i < self->query->wildcard_root_pattern_count; i++) {
@@ -2848,6 +2859,7 @@ static inline bool ts_query_cursor__advance(
               state->pattern_index,
               state->step_index
             );
+            TREE_SITTER_QUERY_CURSOR_DISCARD_STATE(state->pattern_index, state->step_index);
             capture_list_pool_release(
               &self->capture_list_pool,
               state->capture_list_id
@@ -2871,6 +2883,7 @@ static inline bool ts_query_cursor__advance(
               state->step_index
             );
             copy_count++;
+            TREE_SITTER_QUERY_CURSOR_SPLIT_STATE(state->pattern_index, state->step_index, copy_count);
           }
         }
 
@@ -2881,6 +2894,7 @@ static inline bool ts_query_cursor__advance(
           TSNode parent = ts_tree_cursor_parent_node(&self->cursor);
           if (ts_node_is_null(parent)) {
             LOG("  missing parent node\n");
+            TREE_SITTER_QUERY_CURSOR_MISSING_PARENT_NODE();
             state->dead = true;
           } else {
             state->needs_parent = false;
@@ -2923,6 +2937,8 @@ static inline bool ts_query_cursor__advance(
           state->pattern_index,
           state->step_index
         );
+        TREE_SITTER_QUERY_CURSOR_ADVANCE_STATE(state->pattern_index, state->step_index);
+
 
         QueryStep *next_step = &self->query->steps.contents[state->step_index];
         if (stop_on_definite_step && next_step->is_definite) did_match = true;

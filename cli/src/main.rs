@@ -21,7 +21,6 @@ fn main() {
         }
         exit(1);
     }
-    loop {}
 }
 
 fn run() -> error::Result<()> {
