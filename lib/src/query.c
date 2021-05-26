@@ -2978,6 +2978,13 @@ static inline bool ts_query_cursor__advance(
                 next_step->alternative_is_immediate,
                 capture_list_pool_get(&self->capture_list_pool, copy->capture_list_id)->size
               );
+              TREE_SITTER_QUERY_CURSOR_BRANCH_STATE(
+                copy->pattern_index,
+                copy->step_index,
+                next_step->alternative_index,
+                next_step->alternative_is_immediate,
+                capture_list_pool_get(&self->capture_list_pool, copy->capture_list_id)->size
+              );
               end_index++;
               copy_count++;
               copy->step_index = next_step->alternative_index;
@@ -3042,6 +3049,7 @@ static inline bool ts_query_cursor__advance(
                 state->pattern_index,
                 state->step_index
               );
+              TREE_SITTER_QUERY_CURSOR_DROP_STATE(state->pattern_index, state->step_index);
               capture_list_pool_release(&self->capture_list_pool, state->capture_list_id);
               array_erase(&self->states, i);
               i--;
@@ -3066,8 +3074,10 @@ static inline bool ts_query_cursor__advance(
           if (next_step->depth == PATTERN_DONE_MARKER) {
             if (state->has_in_progress_alternatives) {
               LOG("  defer finishing pattern %u\n", state->pattern_index);
+              TREE_SITTER_QUERY_CURSOR_DEFER_FINISHING_PATTERN(state->pattern_index);
             } else {
               LOG("  finish pattern %u\n", state->pattern_index);
+              TREE_SITTER_QUERY_CURSOR_FINISH_PATTERN(state->pattern_index);
               state->id = self->next_state_id++;
               array_push(&self->finished_states, *state);
               array_erase(&self->states, state - self->states.contents);
@@ -3220,6 +3230,7 @@ bool ts_query_cursor_next_capture(
         first_unfinished_pattern_index,
         first_unfinished_capture_byte
       );
+      TREE_SITTER_QUERY_STATE_ABANDON(first_unfinished_pattern_index, first_unfinished_pattern_index, first_unfinished_capture_byte);
       capture_list_pool_release(
         &self->capture_list_pool,
         self->states.contents[first_unfinished_state_index].capture_list_id

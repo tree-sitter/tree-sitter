@@ -13,7 +13,9 @@ provider tree_sitter {
   probe query__cursor__split__state(uint32_t, uint32_t, unsigned int);
   probe query__cursor__missing__parent__node();
   probe query__cursor__advance__state(uint32_t, uint32_t);
-  probe query__cursor__branch__state(uint32_t, uint32_t, )
+  probe query__cursor__branch__state(uint16_t, uint16_t, uint16_t, int, uint32_t);
+  probe query__cursor__drop__state(uint32_t, uint32_t);
+  probe query__cursor__defer__finishing__pattern(uint32_t);
 };
 
 // TODO add these to the log macro maybe

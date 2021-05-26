@@ -30,6 +30,16 @@ do { \
 	({ int _r = __dtrace_isenabled$tree_sitter$query__cursor__advance__state$v1(); \
 		__asm__ volatile(""); \
 		_r; })
+#define	TREE_SITTER_QUERY_CURSOR_BRANCH_STATE(arg0, arg1, arg2, arg3, arg4) \
+do { \
+	__asm__ volatile(".reference " TREE_SITTER_TYPEDEFS); \
+	__dtrace_probe$tree_sitter$query__cursor__branch__state$v1$75696e7431365f74$75696e7431365f74$75696e7431365f74$696e74$75696e7433325f74(arg0, arg1, arg2, arg3, arg4); \
+	__asm__ volatile(".reference " TREE_SITTER_STABILITY); \
+} while (0)
+#define	TREE_SITTER_QUERY_CURSOR_BRANCH_STATE_ENABLED() \
+	({ int _r = __dtrace_isenabled$tree_sitter$query__cursor__branch__state$v1(); \
+		__asm__ volatile(""); \
+		_r; })
 #define	TREE_SITTER_QUERY_CURSOR_CAPTURE(arg0, arg1, arg2, arg3) \
 do { \
 	__asm__ volatile(".reference " TREE_SITTER_TYPEDEFS); \
@@ -40,6 +50,16 @@ do { \
 	({ int _r = __dtrace_isenabled$tree_sitter$query__cursor__capture$v1(); \
 		__asm__ volatile(""); \
 		_r; })
+#define	TREE_SITTER_QUERY_CURSOR_DEFER_FINISHING_PATTERN(arg0) \
+do { \
+	__asm__ volatile(".reference " TREE_SITTER_TYPEDEFS); \
+	__dtrace_probe$tree_sitter$query__cursor__defer__finishing__pattern$v1$75696e7433325f74(arg0); \
+	__asm__ volatile(".reference " TREE_SITTER_STABILITY); \
+} while (0)
+#define	TREE_SITTER_QUERY_CURSOR_DEFER_FINISHING_PATTERN_ENABLED() \
+	({ int _r = __dtrace_isenabled$tree_sitter$query__cursor__defer__finishing__pattern$v1(); \
+		__asm__ volatile(""); \
+		_r; })
 #define	TREE_SITTER_QUERY_CURSOR_DISCARD_STATE(arg0, arg1) \
 do { \
 	__asm__ volatile(".reference " TREE_SITTER_TYPEDEFS); \
@@ -48,6 +68,16 @@ do { \
 } while (0)
 #define	TREE_SITTER_QUERY_CURSOR_DISCARD_STATE_ENABLED() \
 	({ int _r = __dtrace_isenabled$tree_sitter$query__cursor__discard__state$v1(); \
+		__asm__ volatile(""); \
+		_r; })
+#define	TREE_SITTER_QUERY_CURSOR_DROP_STATE(arg0, arg1) \
+do { \
+	__asm__ volatile(".reference " TREE_SITTER_TYPEDEFS); \
+	__dtrace_probe$tree_sitter$query__cursor__drop__state$v1$75696e7433325f74$75696e7433325f74(arg0, arg1); \
+	__asm__ volatile(".reference " TREE_SITTER_STABILITY); \
+} while (0)
+#define	TREE_SITTER_QUERY_CURSOR_DROP_STATE_ENABLED() \
+	({ int _r = __dtrace_isenabled$tree_sitter$query__cursor__drop__state$v1(); \
 		__asm__ volatile(""); \
 		_r; })
 #define	TREE_SITTER_QUERY_CURSOR_ENTER_NODE(arg0, arg1, arg2, arg3, arg4) \
@@ -154,10 +184,16 @@ do { \
 
 extern void __dtrace_probe$tree_sitter$query__cursor__advance__state$v1$75696e7433325f74$75696e7433325f74(uint32_t, uint32_t);
 extern int __dtrace_isenabled$tree_sitter$query__cursor__advance__state$v1(void);
+extern void __dtrace_probe$tree_sitter$query__cursor__branch__state$v1$75696e7431365f74$75696e7431365f74$75696e7431365f74$696e74$75696e7433325f74(uint16_t, uint16_t, uint16_t, int, uint32_t);
+extern int __dtrace_isenabled$tree_sitter$query__cursor__branch__state$v1(void);
 extern void __dtrace_probe$tree_sitter$query__cursor__capture$v1$63686172202a$75696e7431365f74$75696e7431365f74$75696e7433325f74(const char *, uint16_t, uint16_t, uint32_t);
 extern int __dtrace_isenabled$tree_sitter$query__cursor__capture$v1(void);
+extern void __dtrace_probe$tree_sitter$query__cursor__defer__finishing__pattern$v1$75696e7433325f74(uint32_t);
+extern int __dtrace_isenabled$tree_sitter$query__cursor__defer__finishing__pattern$v1(void);
 extern void __dtrace_probe$tree_sitter$query__cursor__discard__state$v1$75696e7433325f74$75696e7433325f74(uint32_t, uint32_t);
 extern int __dtrace_isenabled$tree_sitter$query__cursor__discard__state$v1(void);
+extern void __dtrace_probe$tree_sitter$query__cursor__drop__state$v1$75696e7433325f74$75696e7433325f74(uint32_t, uint32_t);
+extern int __dtrace_isenabled$tree_sitter$query__cursor__drop__state$v1(void);
 extern void __dtrace_probe$tree_sitter$query__cursor__enter__node$v1$63686172202a$63686172202a$75696e7433325f74$75696e7433325f74$75696e7433325f74(const char *, const char *, uint32_t, uint32_t, uint32_t);
 extern int __dtrace_isenabled$tree_sitter$query__cursor__enter__node$v1(void);
 extern void __dtrace_probe$tree_sitter$query__cursor__failed__match$v1$75696e7433325f74$75696e7433325f74(uint32_t, uint32_t);
@@ -185,14 +221,26 @@ extern int __dtrace_isenabled$tree_sitter$query__state__start$v1(void);
 do { \
 	} while (0)
 #define	TREE_SITTER_QUERY_CURSOR_ADVANCE_STATE_ENABLED() (0)
+#define	TREE_SITTER_QUERY_CURSOR_BRANCH_STATE(arg0, arg1, arg2, arg3, arg4) \
+do { \
+	} while (0)
+#define	TREE_SITTER_QUERY_CURSOR_BRANCH_STATE_ENABLED() (0)
 #define	TREE_SITTER_QUERY_CURSOR_CAPTURE(arg0, arg1, arg2, arg3) \
 do { \
 	} while (0)
 #define	TREE_SITTER_QUERY_CURSOR_CAPTURE_ENABLED() (0)
+#define	TREE_SITTER_QUERY_CURSOR_DEFER_FINISHING_PATTERN(arg0) \
+do { \
+	} while (0)
+#define	TREE_SITTER_QUERY_CURSOR_DEFER_FINISHING_PATTERN_ENABLED() (0)
 #define	TREE_SITTER_QUERY_CURSOR_DISCARD_STATE(arg0, arg1) \
 do { \
 	} while (0)
 #define	TREE_SITTER_QUERY_CURSOR_DISCARD_STATE_ENABLED() (0)
+#define	TREE_SITTER_QUERY_CURSOR_DROP_STATE(arg0, arg1) \
+do { \
+	} while (0)
+#define	TREE_SITTER_QUERY_CURSOR_DROP_STATE_ENABLED() (0)
 #define	TREE_SITTER_QUERY_CURSOR_ENTER_NODE(arg0, arg1, arg2, arg3, arg4) \
 do { \
 	} while (0)
