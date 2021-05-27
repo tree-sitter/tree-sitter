@@ -651,12 +651,13 @@ bool ts_tree_cursor_goto_first_child(TSTreeCursor *);
 
 /**
  * Move the cursor to the first child of its current node that extends beyond
- * the given byte offset.
+ * the given byte offset or point.
  *
  * This returns the index of the child node if one was found, and returns -1
  * if no such child was found.
  */
 int64_t ts_tree_cursor_goto_first_child_for_byte(TSTreeCursor *, uint32_t);
+int64_t ts_tree_cursor_goto_first_child_for_point(TSTreeCursor *, TSPoint);
 
 TSTreeCursor ts_tree_cursor_copy(const TSTreeCursor *);
 

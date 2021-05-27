@@ -1172,6 +1172,21 @@ impl<'a> TreeCursor<'a> {
         }
     }
 
+    /// Move this cursor to the first child of its current node that extends beyond
+    /// the given byte offset.
+    ///
+    /// This returns the index of the child node if one was found, and returns `None`
+    /// if no such child was found.
+    pub fn goto_first_child_for_point(&mut self, point: Point) -> Option<usize> {
+        let result =
+            unsafe { ffi::ts_tree_cursor_goto_first_child_for_point(&mut self.0, point.into()) };
+        if result < 0 {
+            None
+        } else {
+            Some(result as usize)
+        }
+    }
+
     /// Re-initialize this tree cursor to start at a different node.
     pub fn reset(&mut self, node: Node<'a>) {
         unsafe { ffi::ts_tree_cursor_reset(&mut self.0, node.0) };
