@@ -309,7 +309,7 @@ fn run() -> error::Result<()> {
         let query_path = Path::new(matches.value_of("query-path").unwrap());
         let range = matches.value_of("byte-range").map(|br| {
             let r: Vec<&str> = br.split(":").collect();
-            (r[0].parse().unwrap(), r[1].parse().unwrap())
+            r[0].parse().unwrap()..r[1].parse().unwrap()
         });
         let should_test = matches.is_present("test");
         query::query_files_at_paths(

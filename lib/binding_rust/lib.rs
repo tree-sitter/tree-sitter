@@ -7,13 +7,19 @@ pub mod allocations;
 #[cfg(unix)]
 use std::os::unix::io::AsRawFd;
 
-use std::ffi::CStr;
-use std::marker::PhantomData;
-use std::mem::MaybeUninit;
-use std::os::raw::{c_char, c_void};
-use std::ptr::NonNull;
-use std::sync::atomic::AtomicUsize;
-use std::{char, error, fmt, hash, iter, ptr, slice, str, u16};
+use std::{
+    char, error,
+    ffi::CStr,
+    fmt, hash, iter,
+    marker::PhantomData,
+    mem::MaybeUninit,
+    ops,
+    os::raw::{c_char, c_void},
+    ptr::{self, NonNull},
+    slice, str,
+    sync::atomic::AtomicUsize,
+    u16,
+};
 
 /// The latest ABI version that is supported by the current version of the
 /// library.
@@ -1695,17 +1701,25 @@ impl QueryCursor {
     }
 
     /// Set the range in which the query will be executed, in terms of byte offsets.
-    pub fn set_byte_range(&mut self, start: usize, end: usize) -> &mut Self {
+    pub fn set_byte_range(&mut self, range: ops::Range<usize>) -> &mut Self {
         unsafe {
-            ffi::ts_query_cursor_set_byte_range(self.ptr.as_ptr(), start as u32, end as u32);
+            ffi::ts_query_cursor_set_byte_range(
+                self.ptr.as_ptr(),
+                range.start as u32,
+                range.end as u32,
+            );
         }
         self
     }
 
     /// Set the range in which the query will be executed, in terms of rows and columns.
-    pub fn set_point_range(&mut self, start: Point, end: Point) -> &mut Self {
+    pub fn set_point_range(&mut self, range: ops::Range<Point>) -> &mut Self {
         unsafe {
-            ffi::ts_query_cursor_set_point_range(self.ptr.as_ptr(), start.into(), end.into());
+            ffi::ts_query_cursor_set_point_range(
+                self.ptr.as_ptr(),
+                range.start.into(),
+                range.end.into(),
+            );
         }
         self
     }
@@ -1864,29 +1878,29 @@ impl<'a, 'tree, T: TextProvider<'a>> Iterator for QueryCaptures<'a, 'tree, T> {
 }
 
 impl<'a, 'tree, T: TextProvider<'a>> QueryMatches<'a, 'tree, T> {
-    pub fn set_byte_range(&mut self, start: usize, end: usize) {
+    pub fn set_byte_range(&mut self, range: ops::Range<usize>) {
         unsafe {
-            ffi::ts_query_cursor_set_byte_range(self.ptr, start as u32, end as u32);
+            ffi::ts_query_cursor_set_byte_range(self.ptr, range.start as u32, range.end as u32);
         }
     }
 
-    pub fn set_point_range(&mut self, start: Point, end: Point) {
+    pub fn set_point_range(&mut self, range: ops::Range<Point>) {
         unsafe {
-            ffi::ts_query_cursor_set_point_range(self.ptr, start.into(), end.into());
+            ffi::ts_query_cursor_set_point_range(self.ptr, range.start.into(), range.end.into());
         }
     }
 }
 
 impl<'a, 'tree, T: TextProvider<'a>> QueryCaptures<'a, 'tree, T> {
-    pub fn set_byte_range(&mut self, start: usize, end: usize) {
+    pub fn set_byte_range(&mut self, range: ops::Range<usize>) {
         unsafe {
-            ffi::ts_query_cursor_set_byte_range(self.ptr, start as u32, end as u32);
+            ffi::ts_query_cursor_set_byte_range(self.ptr, range.start as u32, range.end as u32);
         }
     }
 
-    pub fn set_point_range(&mut self, start: Point, end: Point) {
+    pub fn set_point_range(&mut self, range: ops::Range<Point>) {
         unsafe {
-            ffi::ts_query_cursor_set_point_range(self.ptr, start.into(), end.into());
+            ffi::ts_query_cursor_set_point_range(self.ptr, range.start.into(), range.end.into());
         }
     }
 }

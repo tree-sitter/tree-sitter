@@ -1,8 +1,11 @@
 use super::error::{Error, Result};
 use crate::query_testing;
-use std::fs;
-use std::io::{self, Write};
-use std::path::Path;
+use std::{
+    fs,
+    io::{self, Write},
+    ops::Range,
+    path::Path,
+};
 use tree_sitter::{Language, Parser, Query, QueryCursor};
 
 pub fn query_files_at_paths(
@@ -10,7 +13,7 @@ pub fn query_files_at_paths(
     paths: Vec<String>,
     query_path: &Path,
     ordered_captures: bool,
-    range: Option<(usize, usize)>,
+    range: Option<Range<usize>>,
     should_test: bool,
 ) -> Result<()> {
     let stdout = io::stdout();
@@ -23,8 +26,8 @@ pub fn query_files_at_paths(
         .map_err(|e| Error::new(format!("Query compilation failed: {:?}", e)))?;
 
     let mut query_cursor = QueryCursor::new();
-    if let Some((beg, end)) = range {
-        query_cursor.set_byte_range(beg, end);
+    if let Some(range) = range {
+        query_cursor.set_byte_range(range);
     }
 
     let mut parser = Parser::new();

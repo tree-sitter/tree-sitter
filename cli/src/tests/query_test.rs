@@ -1782,7 +1782,7 @@ fn test_query_matches_within_byte_range() {
 
         let matches =
             cursor
-                .set_byte_range(0, 8)
+                .set_byte_range(0..8)
                 .matches(&query, tree.root_node(), source.as_bytes());
 
         assert_eq!(
@@ -1796,7 +1796,7 @@ fn test_query_matches_within_byte_range() {
 
         let matches =
             cursor
-                .set_byte_range(5, 15)
+                .set_byte_range(5..15)
                 .matches(&query, tree.root_node(), source.as_bytes());
 
         assert_eq!(
@@ -1810,7 +1810,7 @@ fn test_query_matches_within_byte_range() {
 
         let matches =
             cursor
-                .set_byte_range(12, 0)
+                .set_byte_range(12..0)
                 .matches(&query, tree.root_node(), source.as_bytes());
 
         assert_eq!(
@@ -1839,7 +1839,7 @@ fn test_query_matches_within_point_range() {
         let mut cursor = QueryCursor::new();
 
         let matches = cursor
-            .set_point_range(Point::new(0, 0), Point::new(1, 3))
+            .set_point_range(Point::new(0, 0)..Point::new(1, 3))
             .matches(&query, tree.root_node(), source.as_bytes());
 
         assert_eq!(
@@ -1852,7 +1852,7 @@ fn test_query_matches_within_point_range() {
         );
 
         let matches = cursor
-            .set_point_range(Point::new(1, 0), Point::new(2, 3))
+            .set_point_range(Point::new(1, 0)..Point::new(2, 3))
             .matches(&query, tree.root_node(), source.as_bytes());
 
         assert_eq!(
@@ -1865,7 +1865,7 @@ fn test_query_matches_within_point_range() {
         );
 
         let matches = cursor
-            .set_point_range(Point::new(2, 1), Point::new(0, 0))
+            .set_point_range(Point::new(2, 1)..Point::new(0, 0))
             .matches(&query, tree.root_node(), source.as_bytes());
 
         assert_eq!(
@@ -1904,7 +1904,7 @@ fn test_query_captures_within_byte_range() {
         let mut cursor = QueryCursor::new();
         let captures =
             cursor
-                .set_byte_range(3, 27)
+                .set_byte_range(3..27)
                 .captures(&query, tree.root_node(), source.as_bytes());
 
         assert_eq!(
@@ -1940,7 +1940,7 @@ fn test_query_matches_with_unrooted_patterns_intersecting_byte_range() {
 
         // within the type parameter list
         let offset = source.find("D: E>").unwrap();
-        let matches = cursor.set_byte_range(offset, offset).matches(
+        let matches = cursor.set_byte_range(offset..offset).matches(
             &query,
             tree.root_node(),
             source.as_bytes(),
@@ -1956,7 +1956,7 @@ fn test_query_matches_with_unrooted_patterns_intersecting_byte_range() {
         // from within the type parameter list to within the function body
         let start_offset = source.find("D: E>").unwrap();
         let end_offset = source.find("g(f)").unwrap();
-        let matches = cursor.set_byte_range(start_offset, end_offset).matches(
+        let matches = cursor.set_byte_range(start_offset..end_offset).matches(
             &query,
             tree.root_node(),
             source.as_bytes(),
@@ -2039,7 +2039,7 @@ fn test_query_captures_within_byte_range_assigned_after_iterating() {
         // Captures from these matches are reported, but only those that
         // intersect the range.
         results.clear();
-        captures.set_byte_range(source.find("Ok").unwrap(), source.len());
+        captures.set_byte_range(source.find("Ok").unwrap()..source.len());
         for (mat, capture_ix) in captures {
             let capture = mat.captures[capture_ix as usize];
             results.push((
