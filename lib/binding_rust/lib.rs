@@ -198,11 +198,6 @@ pub enum QueryErrorKind {
     Structure,
 }
 
-trait TextCallback<'a> {
-    fn call(&mut self, node: Node);
-    fn next_chunk(&mut self) -> Option<&'a [u8]>;
-}
-
 #[derive(Debug)]
 enum TextPredicate {
     CaptureEqString(u32, String, bool),
@@ -1836,14 +1831,6 @@ impl<'a, 'tree, T: TextProvider<'a>> Iterator for QueryMatches<'a, 'tree, T> {
     }
 }
 
-impl<'a, 'tree, T: TextProvider<'a>> QueryCaptures<'a, 'tree, T> {
-    pub fn set_byte_range(&mut self, start: usize, end: usize) {
-        unsafe {
-            ffi::ts_query_cursor_set_byte_range(self.ptr, start as u32, end as u32);
-        }
-    }
-}
-
 impl<'a, 'tree, T: TextProvider<'a>> Iterator for QueryCaptures<'a, 'tree, T> {
     type Item = (QueryMatch<'a, 'tree>, usize);
 
@@ -1872,6 +1859,34 @@ impl<'a, 'tree, T: TextProvider<'a>> Iterator for QueryCaptures<'a, 'tree, T> {
                     return None;
                 }
             }
+        }
+    }
+}
+
+impl<'a, 'tree, T: TextProvider<'a>> QueryMatches<'a, 'tree, T> {
+    pub fn set_byte_range(&mut self, start: usize, end: usize) {
+        unsafe {
+            ffi::ts_query_cursor_set_byte_range(self.ptr, start as u32, end as u32);
+        }
+    }
+
+    pub fn set_point_range(&mut self, start: Point, end: Point) {
+        unsafe {
+            ffi::ts_query_cursor_set_point_range(self.ptr, start.into(), end.into());
+        }
+    }
+}
+
+impl<'a, 'tree, T: TextProvider<'a>> QueryCaptures<'a, 'tree, T> {
+    pub fn set_byte_range(&mut self, start: usize, end: usize) {
+        unsafe {
+            ffi::ts_query_cursor_set_byte_range(self.ptr, start as u32, end as u32);
+        }
+    }
+
+    pub fn set_point_range(&mut self, start: Point, end: Point) {
+        unsafe {
+            ffi::ts_query_cursor_set_point_range(self.ptr, start.into(), end.into());
         }
     }
 }
