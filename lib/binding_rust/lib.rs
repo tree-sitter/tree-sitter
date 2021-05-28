@@ -1512,6 +1512,14 @@ impl Query {
         &self.capture_names
     }
 
+    /// Get the index for a given capture name.
+    pub fn capture_index_for_name(&self, name: &str) -> Option<u32> {
+        self.capture_names
+            .iter()
+            .position(|n| n == name)
+            .map(|ix| ix as u32)
+    }
+
     /// Get the properties that are checked for the given pattern index.
     ///
     /// This includes predicates with the operators `is?` and `is-not?`.
