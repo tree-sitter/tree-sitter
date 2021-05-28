@@ -1919,6 +1919,60 @@ fn test_query_captures_within_byte_range() {
 }
 
 #[test]
+fn test_query_matches_with_unrooted_patterns_intersecting_byte_range() {
+    allocations::record(|| {
+        let language = get_language("rust");
+        let query = Query::new(
+            language,
+            r#"
+            ("{" @left "}" @right)
+            ("<" @left ">" @right)
+            "#,
+        )
+        .unwrap();
+
+        let source = "mod a { fn a<B: C, D: E>(f: B) { g(f) } }";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+
+        // within the type parameter list
+        let offset = source.find("D: E>").unwrap();
+        let matches = cursor.set_byte_range(offset, offset).matches(
+            &query,
+            tree.root_node(),
+            source.as_bytes(),
+        );
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[
+                (1, vec![("left", "<"), ("right", ">")]),
+                (0, vec![("left", "{"), ("right", "}")]),
+            ]
+        );
+
+        // from within the type parameter list to within the function body
+        let start_offset = source.find("D: E>").unwrap();
+        let end_offset = source.find("g(f)").unwrap();
+        let matches = cursor.set_byte_range(start_offset, end_offset).matches(
+            &query,
+            tree.root_node(),
+            source.as_bytes(),
+        );
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[
+                (1, vec![("left", "<"), ("right", ">")]),
+                (0, vec![("left", "{"), ("right", "}")]),
+                (0, vec![("left", "{"), ("right", "}")]),
+            ]
+        );
+    });
+}
+
+#[test]
 fn test_query_captures_within_byte_range_assigned_after_iterating() {
     allocations::record(|| {
         let language = get_language("rust");
