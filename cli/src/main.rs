@@ -14,9 +14,12 @@ const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
 
 fn main() {
-    if let Err(e) = run() {
+    if let Err(ref e) = run() {
+        if e.is_ignored() {
+            exit(0);
+        }
         if !e.message().is_empty() {
-            println!("");
+            eprintln!("");
             eprintln!("{}", e.message());
         }
         exit(1);

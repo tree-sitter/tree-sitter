@@ -5,26 +5,35 @@ use tree_sitter::{QueryError, QueryErrorKind};
 use walkdir;
 
 #[derive(Debug)]
-pub struct Error(pub Vec<String>);
+pub struct Error(Option<Vec<String>>);
 
 pub type Result<T> = std::result::Result<T, Error>;
 
 impl Error {
     pub fn grammar(message: &str) -> Self {
-        Error(vec![format!("Grammar error: {}", message)])
+        Error(Some(vec![format!("Grammar error: {}", message)]))
     }
 
     pub fn regex(mut message: String) -> Self {
         message.insert_str(0, "Regex error: ");
-        Error(vec![message])
+        Error(Some(vec![message]))
     }
 
     pub fn undefined_symbol(name: &str) -> Self {
-        Error(vec![format!("Undefined symbol `{}`", name)])
+        Error(Some(vec![format!("Undefined symbol `{}`", name)]))
     }
 
     pub fn new(message: String) -> Self {
-        Error(vec![message])
+        let e = Error(Some(vec![message]));
+        e
+    }
+
+    pub fn new_ignored() -> Self {
+        Self(None)
+    }
+
+    pub fn is_ignored(&self) -> bool {
+        self.0.is_none()
     }
 
     pub fn err<T>(message: String) -> Result<T> {
@@ -36,20 +45,28 @@ impl Error {
     ) -> impl FnOnce(E) -> Self {
         |e| {
             let mut result = e.into();
-            result.0.push(message_fn().to_string());
+            match result.0 {
+                Some(ref mut e) => e.push(message_fn().to_string()),
+                None => panic!("It's not allowed to wrap an ignored error"),
+            }
             result
         }
     }
 
     pub fn message(&self) -> String {
-        let mut result = self.0.last().unwrap().clone();
-        if self.0.len() > 1 {
-            result.push_str("\nDetails:\n");
-            for msg in self.0[0..self.0.len() - 1].iter().rev() {
-                writeln!(&mut result, "  {}", msg).unwrap();
+        match self.0 {
+            None => "Ignored error".to_string(),
+            Some(ref e) => {
+                let mut result = e.last().unwrap().clone();
+                if e.len() > 1 {
+                    result.push_str("\nDetails:\n");
+                    for msg in e[0..e.len() - 1].iter().rev() {
+                        writeln!(&mut result, "  {}", msg).unwrap();
+                    }
+                }
+                result
             }
         }
-        result
     }
 }
 
@@ -89,6 +106,10 @@ impl From<serde_json::Error> for Error {
 
 impl From<io::Error> for Error {
     fn from(error: io::Error) -> Self {
+        match error.raw_os_error() {
+            Some(32) => return Error::new_ignored(), // Broken pipe
+            _ => (),
+        }
         Error::new(error.to_string())
     }
 }
