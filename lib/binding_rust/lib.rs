@@ -1928,10 +1928,10 @@ where
 }
 
 impl<'a> TextProvider<'a> for &'a [u8] {
-    type I = std::option::IntoIter<&'a [u8]>;
+    type I = iter::Once<&'a [u8]>;
 
     fn text(&mut self, node: Node) -> Self::I {
-        Some(&self[node.byte_range()]).into_iter()
+        iter::once(&self[node.byte_range()])
     }
 }
 
