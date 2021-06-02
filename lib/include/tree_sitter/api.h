@@ -801,16 +801,12 @@ void ts_query_cursor_exec(TSQueryCursor *, const TSQuery *, TSNode);
  * Manage the maximum number of in-progress matches allowed by this query
  * cursor.
  *
- * Query cursors have a maximum capacity for storing lists of in-progress
- * captures. If this capacity is exceeded, then the earliest-starting match will
- * silently be dropped to make room for further matches.
- *
- * By default, this limit is 65,536 pending matches, which is effectively
- * unlimited for most queries and syntax trees. You can optionally set this to a
- * lower number if you want to have (and check) a tighter bound on query
- * complexity.
- *
- * If you update the match limit, it must be > 0 and <= 65536.
+ * Query cursors have an optional maximum capacity for storing lists of
+ * in-progress captures. If this capacity is exceeded, then the
+ * earliest-starting match will silently be dropped to make room for further
+ * matches. This maximum capacity is optional — by default, query cursors allow
+ * any number of pending matches, dynamically allocating new space for them as
+ * needed as the query is executed.
  */
 bool ts_query_cursor_did_exceed_match_limit(const TSQueryCursor *);
 uint32_t ts_query_cursor_match_limit(const TSQueryCursor *);

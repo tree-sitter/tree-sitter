@@ -152,10 +152,10 @@ typedef struct {
  */
 typedef struct {
   uint32_t id;
+  uint32_t capture_list_id;
   uint16_t start_depth;
   uint16_t step_index;
   uint16_t pattern_index;
-  uint16_t capture_list_id;
   uint16_t consumed_capture_count: 12;
   bool seeking_immediate_match: 1;
   bool has_in_progress_alternatives: 1;
@@ -183,7 +183,7 @@ typedef struct {
   // use. We reuse those existing-but-unused capture lists before trying to
   // allocate any new ones. We use an invalid value (UINT32_MAX) for a capture
   // list's length to indicate that it's not in use.
-  uint16_t free_capture_list_count;
+  uint32_t free_capture_list_count;
 } CaptureListPool;
 
 /*
@@ -367,9 +367,7 @@ static CaptureListPool capture_list_pool_new(void) {
   return (CaptureListPool) {
     .list = array_new(),
     .empty_list = array_new(),
-    // The maximum maxmimum is 64K, since we use `uint16_t` as our capture list
-    // index type.
-    .max_capture_list_count = 65536,
+    .max_capture_list_count = UINT32_MAX,
     .free_capture_list_count = 0,
   };
 }
@@ -2318,7 +2316,7 @@ uint32_t ts_query_cursor_match_limit(const TSQueryCursor *self) {
 }
 
 void ts_query_cursor_set_match_limit(TSQueryCursor *self, uint32_t limit) {
-  assert(limit > 0 && limit <= 65536);
+  assert(limit > 0);
   self->capture_list_pool.max_capture_list_count = limit;
 }
 
