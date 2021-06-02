@@ -263,6 +263,113 @@ fn test_tree_cursor_fields() {
 }
 
 #[test]
+fn test_tree_cursor_child_for_point() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("javascript")).unwrap();
+    let source = &"
+    [
+        one,
+        {
+            two: tree
+        },
+        four, five, six
+    ];"[1..];
+    let tree = parser.parse(source, None).unwrap();
+
+    let mut c = tree.walk();
+    assert_eq!(c.node().kind(), "program");
+
+    assert_eq!(c.goto_first_child_for_point(Point::new(7, 0)), None);
+    assert_eq!(c.goto_first_child_for_point(Point::new(6, 6)), None);
+    assert_eq!(c.node().kind(), "program");
+
+    // descend to expression statement
+    assert_eq!(c.goto_first_child_for_point(Point::new(6, 5)), Some(0));
+    assert_eq!(c.node().kind(), "expression_statement");
+
+    // step into ';' and back up
+    assert_eq!(c.goto_first_child_for_point(Point::new(7, 0)), None);
+    assert_eq!(c.goto_first_child_for_point(Point::new(6, 5)), Some(1));
+    assert_eq!(
+        (c.node().kind(), c.node().start_position()),
+        (";", Point::new(6, 5))
+    );
+    assert!(c.goto_parent());
+
+    // descend into array
+    assert_eq!(c.goto_first_child_for_point(Point::new(6, 4)), Some(0));
+    assert_eq!(
+        (c.node().kind(), c.node().start_position()),
+        ("array", Point::new(0, 4))
+    );
+
+    // step into '[' and back up
+    assert_eq!(c.goto_first_child_for_point(Point::new(0, 4)), Some(0));
+    assert_eq!(
+        (c.node().kind(), c.node().start_position()),
+        ("[", Point::new(0, 4))
+    );
+    assert!(c.goto_parent());
+
+    // step into identifier 'one' and back up
+    assert_eq!(c.goto_first_child_for_point(Point::new(0, 5)), Some(1));
+    assert_eq!(
+        (c.node().kind(), c.node().start_position()),
+        ("identifier", Point::new(1, 8))
+    );
+    assert!(c.goto_parent());
+    assert_eq!(c.goto_first_child_for_point(Point::new(1, 10)), Some(1));
+    assert_eq!(
+        (c.node().kind(), c.node().start_position()),
+        ("identifier", Point::new(1, 8))
+    );
+    assert!(c.goto_parent());
+
+    // step into first ',' and back up
+    assert_eq!(c.goto_first_child_for_point(Point::new(1, 11)), Some(2));
+    assert_eq!(
+        (c.node().kind(), c.node().start_position()),
+        (",", Point::new(1, 11))
+    );
+    assert!(c.goto_parent());
+
+    // step into identifier 'four' and back up
+    assert_eq!(c.goto_first_child_for_point(Point::new(4, 10)), Some(5));
+    assert_eq!(
+        (c.node().kind(), c.node().start_position()),
+        ("identifier", Point::new(5, 8))
+    );
+    assert!(c.goto_parent());
+    assert_eq!(c.goto_first_child_for_point(Point::new(5, 0)), Some(5));
+    assert_eq!(
+        (c.node().kind(), c.node().start_position()),
+        ("identifier", Point::new(5, 8))
+    );
+    assert!(c.goto_parent());
+
+    // step into ']' and back up
+    assert_eq!(c.goto_first_child_for_point(Point::new(6, 0)), Some(10));
+    assert_eq!(
+        (c.node().kind(), c.node().start_position()),
+        ("]", Point::new(6, 4))
+    );
+    assert!(c.goto_parent());
+    assert_eq!(c.goto_first_child_for_point(Point::new(5, 23)), Some(10));
+    assert_eq!(
+        (c.node().kind(), c.node().start_position()),
+        ("]", Point::new(6, 4))
+    );
+    assert!(c.goto_parent());
+
+    // descend into object
+    assert_eq!(c.goto_first_child_for_point(Point::new(2, 0)), Some(3));
+    assert_eq!(
+        (c.node().kind(), c.node().start_position()),
+        ("object", Point::new(2, 8))
+    );
+}
+
+#[test]
 fn test_tree_node_equality() {
     let mut parser = Parser::new();
     parser.set_language(get_language("rust")).unwrap();

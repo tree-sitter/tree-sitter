@@ -88,7 +88,7 @@ struct LocalScope<'a> {
 
 struct TagsIter<'a, I>
 where
-    I: Iterator<Item = tree_sitter::QueryMatch<'a>>,
+    I: Iterator<Item = tree_sitter::QueryMatch<'a, 'a>>,
 {
     matches: I,
     _tree: Tree,
@@ -265,9 +265,7 @@ impl TagsContext {
         let tree_ref = unsafe { mem::transmute::<_, &'static Tree>(&tree) };
         let matches = self
             .cursor
-            .matches(&config.query, tree_ref.root_node(), move |node| {
-                &source[node.byte_range()]
-            });
+            .matches(&config.query, tree_ref.root_node(), source);
         Ok((
             TagsIter {
                 _tree: tree,
@@ -291,7 +289,7 @@ impl TagsContext {
 
 impl<'a, I> Iterator for TagsIter<'a, I>
 where
-    I: Iterator<Item = tree_sitter::QueryMatch<'a>>,
+    I: Iterator<Item = tree_sitter::QueryMatch<'a, 'a>>,
 {
     type Item = Result<Tag, Error>;
 

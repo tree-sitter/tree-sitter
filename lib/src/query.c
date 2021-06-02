@@ -102,16 +102,20 @@ typedef struct {
 } SymbolTable;
 
 /*
- * PatternEntry - Information about the starting point for matching a
- * particular pattern, consisting of the index of the pattern within the query,
- * and the index of the patter's first step in the shared `steps` array. These
- * entries are stored in a 'pattern map' - a sorted array that makes it
- * possible to efficiently lookup patterns based on the symbol for their first
- * step.
+ * PatternEntry - Information about the starting point for matching a particular
+ * pattern. These entries are stored in a 'pattern map' - a sorted array that
+ * makes it possible to efficiently lookup patterns based on the symbol for their
+ * first step. The entry consists of the following fields:
+ * - `pattern_index` - the index of the pattern within the query
+ * - `step_index` - the index of the pattern's first step in the shared `steps` array
+ * - `is_rooted` - whether or not the pattern has a single root node. This property
+ *   affects decisions about whether or not to start the pattern for nodes outside
+ *   of a QueryCursor's range restriction.
  */
 typedef struct {
   uint16_t step_index;
   uint16_t pattern_index;
+  bool is_rooted;
 } PatternEntry;
 
 typedef struct {
@@ -263,9 +267,9 @@ struct TSQueryCursor {
   uint32_t depth;
   uint32_t start_byte;
   uint32_t end_byte;
-  uint32_t next_state_id;
   TSPoint start_point;
   TSPoint end_point;
+  uint32_t next_state_id;
   bool ascending;
   bool halted;
   bool did_exceed_match_limit;
@@ -715,8 +719,7 @@ static inline bool ts_query__pattern_map_search(
 static inline void ts_query__pattern_map_insert(
   TSQuery *self,
   TSSymbol symbol,
-  uint32_t start_step_index,
-  uint32_t pattern_index
+  PatternEntry new_entry
 ) {
   uint32_t index;
   ts_query__pattern_map_search(self, symbol, &index);
@@ -729,7 +732,7 @@ static inline void ts_query__pattern_map_insert(
     PatternEntry *entry = &self->pattern_map.contents[index];
     if (
       self->steps.contents[entry->step_index].symbol == symbol &&
-      entry->pattern_index < pattern_index
+      entry->pattern_index < new_entry.pattern_index
     ) {
       index++;
     } else {
@@ -737,10 +740,7 @@ static inline void ts_query__pattern_map_insert(
     }
   }
 
-  array_insert(&self->pattern_map, index, ((PatternEntry) {
-    .step_index = start_step_index,
-    .pattern_index = pattern_index,
-  }));
+  array_insert(&self->pattern_map, index, new_entry);
 }
 
 static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
@@ -2132,7 +2132,24 @@ TSQuery *ts_query_new(
         }
       }
 
-      ts_query__pattern_map_insert(self, step->symbol, start_step_index, pattern_index);
+      // Determine whether the pattern has a single root node. This affects
+      // decisions about whether or not to start matching the pattern when
+      // a query cursor has a range restriction.
+      bool is_rooted = true;
+      uint32_t start_depth = step->depth;
+      for (uint32_t step_index = start_step_index + 1; step_index < self->steps.size; step_index++) {
+        QueryStep *step = &self->steps.contents[step_index];
+        if (step->depth == start_depth) {
+          is_rooted = false;
+          break;
+        }
+      }
+
+      ts_query__pattern_map_insert(self, step->symbol, (PatternEntry) {
+        .step_index = start_step_index,
+        .pattern_index = pattern_index,
+        .is_rooted = is_rooted
+      });
       if (step->symbol == WILDCARD_SYMBOL) {
         self->wildcard_root_pattern_count++;
       }
@@ -2372,31 +2389,44 @@ static bool ts_query_cursor__first_in_progress_capture(
   *byte_offset = UINT32_MAX;
   *pattern_index = UINT32_MAX;
   for (unsigned i = 0; i < self->states.size; i++) {
-    const QueryState *state = &self->states.contents[i];
+    QueryState *state = &self->states.contents[i];
     if (state->dead) continue;
+
     const CaptureList *captures = capture_list_pool_get(
       &self->capture_list_pool,
       state->capture_list_id
     );
-    if (captures->size > state->consumed_capture_count) {
-      uint32_t capture_byte = ts_node_start_byte(captures->contents[state->consumed_capture_count].node);
-      if (
-        !result ||
-        capture_byte < *byte_offset ||
-        (capture_byte == *byte_offset && state->pattern_index < *pattern_index)
-      ) {
-        QueryStep *step = &self->query->steps.contents[state->step_index];
-        if (is_definite) {
-          *is_definite = step->is_definite;
-        } else if (step->is_definite) {
-          continue;
-        }
+    if (state->consumed_capture_count >= captures->size) {
+      continue;
+    }
 
-        result = true;
-        *state_index = i;
-        *byte_offset = capture_byte;
-        *pattern_index = state->pattern_index;
+    TSNode node = captures->contents[state->consumed_capture_count].node;
+    if (
+      ts_node_end_byte(node) <= self->start_byte ||
+      point_lte(ts_node_end_point(node), self->start_point)
+    ) {
+      state->consumed_capture_count++;
+      i--;
+      continue;
+    }
+
+    uint32_t node_start_byte = ts_node_start_byte(node);
+    if (
+      !result ||
+      node_start_byte < *byte_offset ||
+      (node_start_byte == *byte_offset && state->pattern_index < *pattern_index)
+    ) {
+      QueryStep *step = &self->query->steps.contents[state->step_index];
+      if (is_definite) {
+        *is_definite = step->is_definite;
+      } else if (step->is_definite) {
+        continue;
       }
+
+      result = true;
+      *state_index = i;
+      *byte_offset = node_start_byte;
+      *pattern_index = state->pattern_index;
     }
   }
   return result;
@@ -2671,7 +2701,7 @@ static inline bool ts_query_cursor__advance(
       } else if (ts_tree_cursor_goto_parent(&self->cursor)) {
         self->depth--;
       } else {
-        LOG("halt at root");
+        LOG("halt at root\n");
         self->halted = true;
       }
 
@@ -2719,29 +2749,9 @@ static inline bool ts_query_cursor__advance(
 
     // Enter a new node.
     else {
-      // If this node is before the selected range, then avoid descending into it.
-      TSNode node = ts_tree_cursor_current_node(&self->cursor);
-      if (
-        ts_node_end_byte(node) <= self->start_byte ||
-        point_lte(ts_node_end_point(node), self->start_point)
-      ) {
-        if (!ts_tree_cursor_goto_next_sibling(&self->cursor)) {
-          self->ascending = true;
-        }
-        continue;
-      }
-
-      // If this node is after the selected range, then stop walking.
-      if (
-        self->end_byte <= ts_node_start_byte(node) ||
-        point_lte(self->end_point, ts_node_start_point(node))
-      ) {
-        LOG("halt at end of range");
-        self->halted = true;
-        continue;
-      }
-
       // Get the properties of the current node.
+      TSNode node = ts_tree_cursor_current_node(&self->cursor);
+      TSNode parent_node = ts_tree_cursor_parent_node(&self->cursor);
       TSSymbol symbol = ts_node_symbol(node);
       bool is_named = ts_node_is_named(node);
       bool has_later_siblings;
@@ -2768,27 +2778,49 @@ static inline bool ts_query_cursor__advance(
         self->finished_states.size
       );
 
-      // Add new states for any patterns whose root node is a wildcard.
+      bool node_intersects_range = (
+        ts_node_end_byte(node) > self->start_byte &&
+        ts_node_start_byte(node) < self->end_byte &&
+        point_gt(ts_node_end_point(node), self->start_point) &&
+        point_lt(ts_node_start_point(node), self->end_point)
+      );
+
+      bool parent_intersects_range = ts_node_is_null(parent_node) || (
+        ts_node_end_byte(parent_node) > self->start_byte &&
+        ts_node_start_byte(parent_node) < self->end_byte &&
+        point_gt(ts_node_end_point(parent_node), self->start_point) &&
+        point_lt(ts_node_start_point(parent_node), self->end_point)
+      );
+
+        // Add new states for any patterns whose root node is a wildcard.
       for (unsigned i = 0; i < self->query->wildcard_root_pattern_count; i++) {
         PatternEntry *pattern = &self->query->pattern_map.contents[i];
-        QueryStep *step = &self->query->steps.contents[pattern->step_index];
 
         // If this node matches the first step of the pattern, then add a new
         // state at the start of this pattern.
-        if (step->field && field_id != step->field) continue;
-        if (step->supertype_symbol && !supertype_count) continue;
-        ts_query_cursor__add_state(self, pattern);
+        QueryStep *step = &self->query->steps.contents[pattern->step_index];
+        if (
+          (node_intersects_range || (!pattern->is_rooted && parent_intersects_range)) &&
+          (!step->field || field_id == step->field) &&
+          (!step->supertype_symbol || supertype_count > 0)
+        ) {
+          ts_query_cursor__add_state(self, pattern);
+        }
       }
 
       // Add new states for any patterns whose root node matches this node.
       unsigned i;
       if (ts_query__pattern_map_search(self->query, symbol, &i)) {
         PatternEntry *pattern = &self->query->pattern_map.contents[i];
+
         QueryStep *step = &self->query->steps.contents[pattern->step_index];
         do {
           // If this node matches the first step of the pattern, then add a new
           // state at the start of this pattern.
-          if (!step->field || field_id == step->field) {
+          if (
+            (node_intersects_range || (!pattern->is_rooted && parent_intersects_range)) &&
+            (!step->field || field_id == step->field)
+          ) {
             ts_query_cursor__add_state(self, pattern);
           }
 
@@ -3083,8 +3115,32 @@ static inline bool ts_query_cursor__advance(
         }
       }
 
-      // Continue descending if possible.
-      if (ts_tree_cursor_goto_first_child(&self->cursor)) {
+      // When the current node ends prior to the desired start offset,
+      // only descend for the purpose of continuing in-progress matches.
+      bool should_descend = node_intersects_range;
+      if (!should_descend) {
+        for (unsigned i = 0; i < self->states.size; i++) {
+          QueryState *state = &self->states.contents[i];;
+          QueryStep *next_step = &self->query->steps.contents[state->step_index];
+          if (
+            next_step->depth != PATTERN_DONE_MARKER &&
+            state->start_depth + next_step->depth > self->depth
+          ) {
+            should_descend = true;
+            break;
+          }
+        }
+      }
+
+      if (!should_descend) {
+        LOG(
+          "  not descending. node end byte: %u, start byte: %u\n",
+          ts_node_end_byte(node),
+          self->start_byte
+        );
+      }
+
+      if (should_descend && ts_tree_cursor_goto_first_child(&self->cursor)) {
         self->depth++;
       } else {
         self->ascending = true;
@@ -3161,35 +3217,43 @@ bool ts_query_cursor_next_capture(
     QueryState *first_finished_state = NULL;
     uint32_t first_finished_capture_byte = first_unfinished_capture_byte;
     uint32_t first_finished_pattern_index = first_unfinished_pattern_index;
-    for (unsigned i = 0; i < self->finished_states.size; i++) {
+    for (unsigned i = 0; i < self->finished_states.size;) {
       QueryState *state = &self->finished_states.contents[i];
       const CaptureList *captures = capture_list_pool_get(
         &self->capture_list_pool,
         state->capture_list_id
       );
-      if (captures->size > state->consumed_capture_count) {
-        uint32_t capture_byte = ts_node_start_byte(
-          captures->contents[state->consumed_capture_count].node
-        );
-        if (
-          capture_byte < first_finished_capture_byte ||
-          (
-            capture_byte == first_finished_capture_byte &&
-            state->pattern_index < first_finished_pattern_index
-          )
-        ) {
-          first_finished_state = state;
-          first_finished_capture_byte = capture_byte;
-          first_finished_pattern_index = state->pattern_index;
-        }
-      } else {
+
+      // Remove states whose captures are all consumed.
+      if (state->consumed_capture_count >= captures->size) {
         capture_list_pool_release(
           &self->capture_list_pool,
           state->capture_list_id
         );
         array_erase(&self->finished_states, i);
-        i--;
+        continue;
       }
+
+      // Skip captures that precede the cursor's start byte.
+      TSNode node = captures->contents[state->consumed_capture_count].node;
+      if (ts_node_end_byte(node) <= self->start_byte) {
+        state->consumed_capture_count++;
+        continue;
+      }
+
+      uint32_t node_start_byte = ts_node_start_byte(node);
+      if (
+        node_start_byte < first_finished_capture_byte ||
+        (
+          node_start_byte == first_finished_capture_byte &&
+          state->pattern_index < first_finished_pattern_index
+        )
+      ) {
+        first_finished_state = state;
+        first_finished_capture_byte = node_start_byte;
+        first_finished_pattern_index = state->pattern_index;
+      }
+      i++;
     }
 
     // If there is finished capture that is clearly before any unfinished
