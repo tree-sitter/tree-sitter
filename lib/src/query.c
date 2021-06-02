@@ -1,7 +1,6 @@
 #include "tree_sitter/api.h"
 #include "./alloc.h"
 #include "./array.h"
-#include "./bits.h"
 #include "./language.h"
 #include "./point.h"
 #include "./tree_cursor.h"
@@ -12,7 +11,6 @@
 // #define LOG(...) fprintf(stderr, __VA_ARGS__)
 #define LOG(...)
 
-#define MAX_CAPTURE_LIST_COUNT 32
 #define MAX_STEP_CAPTURE_COUNT 3
 #define MAX_STATE_PREDECESSOR_COUNT 100
 #define MAX_ANALYSIS_STATE_DEPTH 12
@@ -157,10 +155,10 @@ typedef struct {
  */
 typedef struct {
   uint32_t id;
+  uint32_t capture_list_id;
   uint16_t start_depth;
   uint16_t step_index;
   uint16_t pattern_index;
-  uint16_t capture_list_id;
   uint16_t consumed_capture_count: 12;
   bool seeking_immediate_match: 1;
   bool has_in_progress_alternatives: 1;
@@ -177,9 +175,17 @@ typedef Array(TSQueryCapture) CaptureList;
  * currently in use by a query state.
  */
 typedef struct {
-  CaptureList list[MAX_CAPTURE_LIST_COUNT];
+  Array(CaptureList) list;
   CaptureList empty_list;
-  uint32_t usage_map;
+  // The maximum number of capture lists that we are allowed to allocate. We
+  // never allow `list` to allocate more entries than this, dropping pending
+  // matches if needed to stay under the limit.
+  uint32_t max_capture_list_count;
+  // The number of capture lists allocated in `list` that are not currently in
+  // use. We reuse those existing-but-unused capture lists before trying to
+  // allocate any new ones. We use an invalid value (UINT32_MAX) for a capture
+  // list's length to indicate that it's not in use.
+  uint32_t free_capture_list_count;
 } CaptureListPool;
 
 /*
@@ -361,54 +367,72 @@ static uint32_t stream_offset(Stream *self) {
 
 static CaptureListPool capture_list_pool_new(void) {
   return (CaptureListPool) {
+    .list = array_new(),
     .empty_list = array_new(),
-    .usage_map = UINT32_MAX,
+    .max_capture_list_count = UINT32_MAX,
+    .free_capture_list_count = 0,
   };
 }
 
 static void capture_list_pool_reset(CaptureListPool *self) {
-  self->usage_map = UINT32_MAX;
-  for (unsigned i = 0; i < MAX_CAPTURE_LIST_COUNT; i++) {
-    array_clear(&self->list[i]);
+  for (uint16_t i = 0; i < self->list.size; i++) {
+    // This invalid size means that the list is not in use.
+    self->list.contents[i].size = UINT32_MAX;
   }
+  self->free_capture_list_count = self->list.size;
 }
 
 static void capture_list_pool_delete(CaptureListPool *self) {
-  for (unsigned i = 0; i < MAX_CAPTURE_LIST_COUNT; i++) {
-    array_delete(&self->list[i]);
+  for (uint16_t i = 0; i < self->list.size; i++) {
+    array_delete(&self->list.contents[i]);
   }
+  array_delete(&self->list);
 }
 
 static const CaptureList *capture_list_pool_get(const CaptureListPool *self, uint16_t id) {
-  if (id >= MAX_CAPTURE_LIST_COUNT) return &self->empty_list;
-  return &self->list[id];
+  if (id >= self->list.size) return &self->empty_list;
+  return &self->list.contents[id];
 }
 
 static CaptureList *capture_list_pool_get_mut(CaptureListPool *self, uint16_t id) {
-  assert(id < MAX_CAPTURE_LIST_COUNT);
-  return &self->list[id];
+  assert(id < self->list.size);
+  return &self->list.contents[id];
 }
 
 static bool capture_list_pool_is_empty(const CaptureListPool *self) {
-  return self->usage_map == 0;
+  // The capture list pool is empty if all allocated lists are in use, and we
+  // have reached the maximum allowed number of allocated lists.
+  return self->free_capture_list_count == 0 && self->list.size >= self->max_capture_list_count;
 }
 
 static uint16_t capture_list_pool_acquire(CaptureListPool *self) {
-  // In the usage_map bitmask, ones represent free lists, and zeros represent
-  // lists that are in use. A free list id can quickly be found by counting
-  // the leading zeros in the usage map. An id of zero corresponds to the
-  // highest-order bit in the bitmask.
-  uint16_t id = count_leading_zeros(self->usage_map);
-  if (id >= MAX_CAPTURE_LIST_COUNT) return NONE;
-  self->usage_map &= ~bitmask_for_index(id);
-  array_clear(&self->list[id]);
-  return id;
+  // First see if any already allocated capture list is currently unused.
+  if (self->free_capture_list_count > 0) {
+    for (uint16_t i = 0; i < self->list.size; i++) {
+      if (self->list.contents[i].size == UINT32_MAX) {
+        array_clear(&self->list.contents[i]);
+        self->free_capture_list_count--;
+        return i;
+      }
+    }
+  }
+
+  // Otherwise allocate and initialize a new capture list, as long as that
+  // doesn't put us over the requested maximum.
+  uint32_t i = self->list.size;
+  if (i >= self->max_capture_list_count) {
+    return NONE;
+  }
+  CaptureList list;
+  array_init(&list);
+  array_push(&self->list, list);
+  return i;
 }
 
 static void capture_list_pool_release(CaptureListPool *self, uint16_t id) {
-  if (id >= MAX_CAPTURE_LIST_COUNT) return;
-  array_clear(&self->list[id]);
-  self->usage_map |= bitmask_for_index(id);
+  if (id >= self->list.size) return;
+  self->list.contents[id].size = UINT32_MAX;
+  self->free_capture_list_count++;
 }
 
 /**************
@@ -2300,6 +2324,14 @@ void ts_query_cursor_delete(TSQueryCursor *self) {
 
 bool ts_query_cursor_did_exceed_match_limit(const TSQueryCursor *self) {
   return self->did_exceed_match_limit;
+}
+
+uint32_t ts_query_cursor_match_limit(const TSQueryCursor *self) {
+  return self->capture_list_pool.max_capture_list_count;
+}
+
+void ts_query_cursor_set_match_limit(TSQueryCursor *self, uint32_t limit) {
+  self->capture_list_pool.max_capture_list_count = limit;
 }
 
 void ts_query_cursor_exec(

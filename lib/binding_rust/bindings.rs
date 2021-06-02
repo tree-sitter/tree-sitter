@@ -730,14 +730,26 @@ extern "C" {
     pub fn ts_query_cursor_exec(arg1: *mut TSQueryCursor, arg2: *const TSQuery, arg3: TSNode);
 }
 extern "C" {
-    #[doc = " Check if this cursor has exceeded its maximum number of in-progress"]
-    #[doc = " matches."]
+    #[doc = " Manage the maximum number of in-progress matches allowed by this query"]
+    #[doc = " cursor."]
     #[doc = ""]
-    #[doc = " Currently, query cursors have a fixed capacity for storing lists"]
-    #[doc = " of in-progress captures. If this capacity is exceeded, then the"]
-    #[doc = " earliest-starting match will silently be dropped to make room for"]
-    #[doc = " further matches."]
+    #[doc = " Query cursors have a maximum capacity for storing lists of in-progress"]
+    #[doc = " captures. If this capacity is exceeded, then the earliest-starting match will"]
+    #[doc = " silently be dropped to make room for further matches."]
+    #[doc = ""]
+    #[doc = " By default, this limit is 65,536 pending matches, which is effectively"]
+    #[doc = " unlimited for most queries and syntax trees. You can optionally set this to a"]
+    #[doc = " lower number if you want to have (and check) a tighter bound on query"]
+    #[doc = " complexity."]
+    #[doc = ""]
+    #[doc = " If you update the match limit, it must be > 0 and <= 65536."]
     pub fn ts_query_cursor_did_exceed_match_limit(arg1: *const TSQueryCursor) -> bool;
+}
+extern "C" {
+    pub fn ts_query_cursor_match_limit(arg1: *const TSQueryCursor) -> u32;
+}
+extern "C" {
+    pub fn ts_query_cursor_set_match_limit(arg1: *mut TSQueryCursor, arg2: u32);
 }
 extern "C" {
     #[doc = " Set the range of bytes or (row, column) positions in which the query"]

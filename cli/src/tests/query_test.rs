@@ -1645,6 +1645,7 @@ fn test_query_matches_with_too_many_permutations_to_track() {
         parser.set_language(language).unwrap();
         let tree = parser.parse(&source, None).unwrap();
         let mut cursor = QueryCursor::new();
+        cursor.set_match_limit(32);
         let matches = cursor.matches(&query, tree.root_node(), source.as_bytes());
 
         // For this pathological query, some match permutations will be dropped.
@@ -1686,6 +1687,7 @@ fn test_query_matches_with_alternatives_and_too_many_permutations_to_track() {
         parser.set_language(language).unwrap();
         let tree = parser.parse(&source, None).unwrap();
         let mut cursor = QueryCursor::new();
+        cursor.set_match_limit(32);
         let matches = cursor.matches(&query, tree.root_node(), source.as_bytes());
 
         assert_eq!(
@@ -2905,6 +2907,7 @@ fn test_query_captures_with_too_many_nested_results() {
         parser.set_language(language).unwrap();
         let tree = parser.parse(&source, None).unwrap();
         let mut cursor = QueryCursor::new();
+        cursor.set_match_limit(32);
         let captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
         let captures = collect_captures(captures, &query, &source);
 
