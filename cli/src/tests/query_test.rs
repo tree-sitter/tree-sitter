@@ -1625,7 +1625,6 @@ fn test_query_matches_with_different_tokens_with_the_same_string_value() {
     });
 }
 
-/*
 #[test]
 fn test_query_matches_with_too_many_permutations_to_track() {
     allocations::record(|| {
@@ -1646,6 +1645,7 @@ fn test_query_matches_with_too_many_permutations_to_track() {
         parser.set_language(language).unwrap();
         let tree = parser.parse(&source, None).unwrap();
         let mut cursor = QueryCursor::new();
+        cursor.set_match_limit(32);
         let matches = cursor.matches(&query, tree.root_node(), to_callback(&source));
 
         // For this pathological query, some match permutations will be dropped.
@@ -1687,6 +1687,7 @@ fn test_query_matches_with_alternatives_and_too_many_permutations_to_track() {
         parser.set_language(language).unwrap();
         let tree = parser.parse(&source, None).unwrap();
         let mut cursor = QueryCursor::new();
+        cursor.set_match_limit(32);
         let matches = cursor.matches(&query, tree.root_node(), to_callback(&source));
 
         assert_eq!(
@@ -1696,7 +1697,6 @@ fn test_query_matches_with_alternatives_and_too_many_permutations_to_track() {
         assert_eq!(cursor.did_exceed_match_limit(), true);
     });
 }
-*/
 
 #[test]
 fn test_query_matches_with_anonymous_tokens() {
@@ -2704,7 +2704,6 @@ fn test_query_captures_with_many_nested_results_with_fields() {
     });
 }
 
-/*
 #[test]
 fn test_query_captures_with_too_many_nested_results() {
     allocations::record(|| {
@@ -2768,6 +2767,7 @@ fn test_query_captures_with_too_many_nested_results() {
         parser.set_language(language).unwrap();
         let tree = parser.parse(&source, None).unwrap();
         let mut cursor = QueryCursor::new();
+        cursor.set_match_limit(32);
         let captures = cursor.captures(&query, tree.root_node(), to_callback(&source));
         let captures = collect_captures(captures, &query, &source);
 
@@ -2795,7 +2795,6 @@ fn test_query_captures_with_too_many_nested_results() {
         );
     });
 }
-*/
 
 #[test]
 fn test_query_captures_with_definite_pattern_containing_many_nested_matches() {

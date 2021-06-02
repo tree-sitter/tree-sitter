@@ -175,6 +175,15 @@ typedef Array(CaptureList) CaptureListPoolEntry;
 typedef struct {
   CaptureListPoolEntry list;
   CaptureList empty_list;
+  // The maximum number of capture lists that we are allowed to allocate. We
+  // never allow `list` to allocate more entries than this, dropping pending
+  // matches if needed to stay under the limit.
+  uint32_t max_capture_list_count;
+  // The number of capture lists allocated in `list` that are not currently in
+  // use. We reuse those existing-but-unused capture lists before trying to
+  // allocate any new ones. We use an invalid value (UINT32_MAX) for a capture
+  // list's length to indicate that it's not in use.
+  uint16_t free_capture_list_count;
 } CaptureListPool;
 
 /*
@@ -358,6 +367,10 @@ static CaptureListPool capture_list_pool_new(void) {
   return (CaptureListPool) {
     .list = array_new(),
     .empty_list = array_new(),
+    // The maximum maxmimum is 64K, since we use `uint16_t` as our capture list
+    // index type.
+    .max_capture_list_count = 65536,
+    .free_capture_list_count = 0,
   };
 }
 
@@ -366,6 +379,7 @@ static void capture_list_pool_reset(CaptureListPool *self) {
     // This invalid size means that the list is not in use.
     self->list.contents[i].size = UINT32_MAX;
   }
+  self->free_capture_list_count = self->list.size;
 }
 
 static void capture_list_pool_delete(CaptureListPool *self) {
@@ -385,17 +399,30 @@ static CaptureList *capture_list_pool_get_mut(CaptureListPool *self, uint16_t id
   return &self->list.contents[id];
 }
 
+static bool capture_list_pool_is_empty(const CaptureListPool *self) {
+  // The capture list pool is empty if all allocated lists are in use, and we
+  // have reached the maximum allowed number of allocated lists.
+  return self->free_capture_list_count == 0 && self->list.size >= self->max_capture_list_count;
+}
+
 static uint16_t capture_list_pool_acquire(CaptureListPool *self) {
-  // First see if any already allocated capture lists are currently unused.
-  for (uint16_t i = 0; i < self->list.size; i++) {
-    if (self->list.contents[i].size == UINT32_MAX) {
-      array_clear(&self->list.contents[i]);
-      return i;
+  // First see if any already allocated capture list is currently unused.
+  if (self->free_capture_list_count > 0) {
+    for (uint16_t i = 0; i < self->list.size; i++) {
+      if (self->list.contents[i].size == UINT32_MAX) {
+        array_clear(&self->list.contents[i]);
+        self->free_capture_list_count--;
+        return i;
+      }
     }
   }
 
-  // Otherwise allocate and initialize a new capture list.
-  uint16_t i = self->list.size;
+  // Otherwise allocate and initialize a new capture list, as long as that
+  // doesn't put us over the requested maximum.
+  uint32_t i = self->list.size;
+  if (i >= self->max_capture_list_count) {
+    return NONE;
+  }
   CaptureList list;
   array_init(&list);
   array_push(&self->list, list);
@@ -405,6 +432,7 @@ static uint16_t capture_list_pool_acquire(CaptureListPool *self) {
 static void capture_list_pool_release(CaptureListPool *self, uint16_t id) {
   if (id >= self->list.size) return;
   self->list.contents[id].size = UINT32_MAX;
+  self->free_capture_list_count++;
 }
 
 /**************
@@ -2285,6 +2313,15 @@ bool ts_query_cursor_did_exceed_match_limit(const TSQueryCursor *self) {
   return self->did_exceed_match_limit;
 }
 
+uint32_t ts_query_cursor_match_limit(const TSQueryCursor *self) {
+  return self->capture_list_pool.max_capture_list_count;
+}
+
+void ts_query_cursor_set_match_limit(TSQueryCursor *self, uint32_t limit) {
+  assert(limit > 0 && limit <= 65536);
+  self->capture_list_pool.max_capture_list_count = limit;
+}
+
 void ts_query_cursor_exec(
   TSQueryCursor *self,
   const TSQuery *query,
@@ -3184,6 +3221,20 @@ bool ts_query_cursor_next_capture(
       *capture_index = state->consumed_capture_count;
       state->consumed_capture_count++;
       return true;
+    }
+
+    if (capture_list_pool_is_empty(&self->capture_list_pool)) {
+      LOG(
+        "  abandon state. index:%u, pattern:%u, offset:%u.\n",
+        first_unfinished_state_index,
+        first_unfinished_pattern_index,
+        first_unfinished_capture_byte
+      );
+      capture_list_pool_release(
+        &self->capture_list_pool,
+        self->states.contents[first_unfinished_state_index].capture_list_id
+      );
+      array_erase(&self->states, first_unfinished_state_index);
     }
 
     // If there are no finished matches that are ready to be returned, then
