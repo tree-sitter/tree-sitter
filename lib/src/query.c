@@ -1,7 +1,6 @@
 #include "tree_sitter/api.h"
 #include "./alloc.h"
 #include "./array.h"
-#include "./bits.h"
 #include "./language.h"
 #include "./point.h"
 #include "./tree_cursor.h"
