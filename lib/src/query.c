@@ -163,7 +163,6 @@ typedef struct {
 } QueryState;
 
 typedef Array(TSQueryCapture) CaptureList;
-typedef Array(CaptureList) CaptureListPoolEntry;
 
 /*
  * CaptureListPool - A collection of *lists* of captures. Each query state needs
@@ -172,7 +171,7 @@ typedef Array(CaptureList) CaptureListPoolEntry;
  * currently in use by a query state.
  */
 typedef struct {
-  CaptureListPoolEntry list;
+  Array(CaptureList) list;
   CaptureList empty_list;
   // The maximum number of capture lists that we are allowed to allocate. We
   // never allow `list` to allocate more entries than this, dropping pending
@@ -2315,7 +2314,6 @@ uint32_t ts_query_cursor_match_limit(const TSQueryCursor *self) {
 }
 
 void ts_query_cursor_set_match_limit(TSQueryCursor *self, uint32_t limit) {
-  assert(limit > 0);
   self->capture_list_pool.max_capture_list_count = limit;
 }
 
