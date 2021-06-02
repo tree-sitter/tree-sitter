@@ -1598,6 +1598,19 @@ impl<'a> QueryCursor {
         QueryCursor(unsafe { NonNull::new_unchecked(ffi::ts_query_cursor_new()) })
     }
 
+    /// Return the maximum number of in-progress matches for this cursor.
+    pub fn match_limit(&self) -> u32 {
+        unsafe { ffi::ts_query_cursor_match_limit(self.0.as_ptr()) }
+    }
+
+    /// Set the maximum number of in-progress matches for this cursor.  The limit must be > 0 and
+    /// <= 65536.
+    pub fn set_match_limit(&mut self, limit: u32) {
+        unsafe {
+            ffi::ts_query_cursor_set_match_limit(self.0.as_ptr(), limit);
+        }
+    }
+
     /// Check if, on its last execution, this cursor exceeded its maximum number of
     /// in-progress matches.
     pub fn did_exceed_match_limit(&self) -> bool {
