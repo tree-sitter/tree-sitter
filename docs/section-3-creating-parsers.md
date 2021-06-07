@@ -100,8 +100,10 @@ The most important command you'll use is `tree-sitter generate`. This command re
 The first time you run `tree-sitter generate`, it will also generate a few other files:
 
 * `binding.gyp` - This file tells Node.js how to compile your language.
-* `index.js` - This is the file that Node.js initially loads when using your language.
-* `src/binding.cc` - This file wraps your language in a JavaScript object when used in Node.js
+* `bindings/node/index.js` - This is the file that Node.js initially loads when using your language.
+* `bindings/node/binding.cc` - This file wraps your language in a JavaScript object when used in Node.js.
+* `bindings/rust/lib.rs` - This file wraps your language in a Rust crate when used in Rust.
+* `bindings/rust/build.rs` - This file wraps the building process for the Rust crate.
 * `src/tree_sitter/parser.h` - This file provides some basic C definitions that are used in your generated `parser.c` file.
 
 If there is an ambiguity or *local ambiguity* in your grammar, Tree-sitter will detect it during parser generation, and it will exit with a `Unresolved conflict` error message. See below for more information on these errors.
@@ -702,7 +704,7 @@ if (valid_symbols[INDENT] || valid_symbol[DEDENT]) {
 [cst]: https://en.wikipedia.org/wiki/Parse_tree
 [dfa]: https://en.wikipedia.org/wiki/Deterministic_finite_automaton
 [ebnf]: https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form
-[ecmascript-spec]: https://www.ecma-international.org/ecma-262/6.0
+[ecmascript-spec]: https://262.ecma-international.org/6.0/
 [ejs]: https://ejs.co
 [enum]: https://en.wikipedia.org/wiki/Enumerated_type#C
 [glr-parsing]: https://en.wikipedia.org/wiki/GLR_parser
