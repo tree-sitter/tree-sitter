@@ -1,6 +1,7 @@
 use super::test_highlight;
 use std::fmt::Write;
 use std::io;
+use std::io::ErrorKind;
 use tree_sitter::{QueryError, QueryErrorKind};
 use walkdir;
 
@@ -106,8 +107,8 @@ impl From<serde_json::Error> for Error {
 
 impl From<io::Error> for Error {
     fn from(error: io::Error) -> Self {
-        match error.raw_os_error() {
-            Some(32) => return Error::new_ignored(), // Broken pipe
+        match error {
+            x if x.kind() == ErrorKind::BrokenPipe => return Error::new_ignored(),
             _ => (),
         }
         Error::new(error.to_string())
