@@ -25,8 +25,7 @@ impl Error {
     }
 
     pub fn new(message: String) -> Self {
-        let e = Error(Some(vec![message]));
-        e
+        Error(Some(vec![message]))
     }
 
     pub fn new_ignored() -> Self {

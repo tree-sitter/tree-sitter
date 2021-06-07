@@ -14,7 +14,7 @@ const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
 
 fn main() {
-    if let Err(ref e) = run() {
+    if let Err(e) = run() {
         if e.is_ignored() {
             exit(0);
         }
