@@ -93,7 +93,7 @@ These keys help to decide whether the language applies to a given file:
 
 * `content-regex` - A regex pattern that will be tested against the contents of the file in order to break ties in cases where multiple grammars matched the file using the above two criteria. If the regex matches, this grammar will be preferred over another grammar with no `content-regex`. If the regex does not match, a grammar with no `content-regex` will be preferred over this one.
 
-* `injection-regex` - A regex pattern that will be tested against a *language name* in order to determine whether this language should be used for a potential *language injection* site. Language injection is described in more detail in [a later section](#language-injection-query).
+* `injection-regex` - A regex pattern that will be tested against a *language name* in order to determine whether this language should be used for a potential *language injection* site. Language injection is described in more detail in [a later section](#language-injection).
 
 ### Query Paths
 
