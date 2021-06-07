@@ -992,7 +992,7 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
   TSSymbol subtree_symbol = ts_subtree_symbol(*self);
   TSSymbol symbol = alias_symbol ? alias_symbol : subtree_symbol;
   uint32_t end_offset = start_offset + ts_subtree_total_bytes(*self);
-  fprintf(f, "tree_%p [label=\"", self);
+  fprintf(f, "tree_%p [label=\"", (void *)self);
   ts_subtree__write_dot_string(f, ts_language_symbol_name(language, symbol));
   fprintf(f, "\"");
 
@@ -1034,7 +1034,7 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
       child_info_offset++;
     }
     ts_subtree__print_dot_graph(child, child_start_offset, language, alias_symbol, f);
-    fprintf(f, "tree_%p -> tree_%p [tooltip=%u]\n", self, child, i);
+    fprintf(f, "tree_%p -> tree_%p [tooltip=%u]\n", (void *)self, (void *)child, i);
     child_start_offset += ts_subtree_total_bytes(*child);
   }
 }
