@@ -106,11 +106,10 @@ impl From<serde_json::Error> for Error {
 
 impl From<io::Error> for Error {
     fn from(error: io::Error) -> Self {
-        match error {
-            x if x.kind() == ErrorKind::BrokenPipe => return Error::new_ignored(),
-            _ => (),
+        match error.kind() {
+            ErrorKind::BrokenPipe => Error::new_ignored(),
+            _ => Error::new(error.to_string()),
         }
-        Error::new(error.to_string())
     }
 }
 
