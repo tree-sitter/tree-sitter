@@ -1,5 +1,5 @@
-use super::error::{Error, Result};
 use crate::query_testing;
+use anyhow::{Context, Result};
 use std::{
     fs,
     io::{self, Write},
@@ -19,11 +19,9 @@ pub fn query_files_at_paths(
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
 
-    let query_source = fs::read_to_string(query_path).map_err(Error::wrap(|| {
-        format!("Error reading query file {:?}", query_path)
-    }))?;
-    let query = Query::new(language, &query_source)
-        .map_err(|e| Error::new(format!("Query compilation failed: {:?}", e)))?;
+    let query_source = fs::read_to_string(query_path)
+        .with_context(|| format!("Error reading query file {:?}", query_path))?;
+    let query = Query::new(language, &query_source).with_context(|| "Query compilation failed")?;
 
     let mut query_cursor = QueryCursor::new();
     if let Some(range) = range {
@@ -31,16 +29,15 @@ pub fn query_files_at_paths(
     }
 
     let mut parser = Parser::new();
-    parser.set_language(language).map_err(|e| e.to_string())?;
+    parser.set_language(language)?;
 
     for path in paths {
         let mut results = Vec::new();
 
         writeln!(&mut stdout, "{}", path)?;
 
-        let source_code = fs::read(&path).map_err(Error::wrap(|| {
-            format!("Error reading source file {:?}", path)
-        }))?;
+        let source_code =
+            fs::read(&path).with_context(|| format!("Error reading source file {:?}", path))?;
         let tree = parser.parse(&source_code, None).unwrap();
 
         if ordered_captures {

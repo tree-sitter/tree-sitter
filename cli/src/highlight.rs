@@ -1,7 +1,7 @@
 use super::util;
-use crate::error::Result;
 use crate::loader::Loader;
 use ansi_term::Color;
+use anyhow::Result;
 use lazy_static::lazy_static;
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};

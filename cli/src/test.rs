@@ -1,6 +1,6 @@
-use super::error::{Error, Result};
 use super::util;
 use ansi_term::Colour;
+use anyhow::{anyhow, Context, Result};
 use difference::{Changeset, Difference};
 use lazy_static::lazy_static;
 use regex::bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder};
@@ -65,7 +65,7 @@ pub fn run_tests_at_path(
     let test_entry = parse_tests(path)?;
     let mut _log_session = None;
     let mut parser = Parser::new();
-    parser.set_language(language).map_err(|e| e.to_string())?;
+    parser.set_language(language)?;
 
     if debug_graph {
         _log_session = Some(util::log_graphs(&mut parser, "log.html")?);
@@ -116,7 +116,7 @@ pub fn run_tests_at_path(
                 println!("\n  {}. {}:", i + 1, name);
                 print_diff(actual, expected);
             }
-            Error::err(String::new())
+            Err(anyhow!(""))
         }
     } else {
         Ok(())
@@ -135,10 +135,10 @@ pub fn check_queries_at_path(language: Language, path: &Path) -> Result<()> {
             })
         {
             let filepath = entry.file_name().to_str().unwrap_or("");
-            let content = fs::read_to_string(entry.path()).map_err(Error::wrap(|| {
-                format!("Error reading query file {:?}", entry.file_name())
-            }))?;
-            Query::new(language, &content).map_err(|e| (filepath, e))?;
+            let content = fs::read_to_string(entry.path())
+                .with_context(|| format!("Error reading query file {:?}", filepath))?;
+            Query::new(language, &content)
+                .with_context(|| format!("Error in query file {:?}", filepath))?;
         }
     }
     Ok(())

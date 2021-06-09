@@ -1,5 +1,4 @@
-use crate::error;
-use crate::error::Result;
+use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::fs;
@@ -139,10 +138,12 @@ pub fn assert_expected_captures(
             p.position.row == info.start.row && p.position >= info.start && p.position < info.end
         }) {
             if found.expected_capture_name != info.name && info.name != "name" {
-                Err(error::Error::new(format!(
+                Err(anyhow!(
                     "Assertion failed: at {}, found {}, expected {}",
-                    info.start, found.expected_capture_name, info.name
-                )))?
+                    info.start,
+                    found.expected_capture_name,
+                    info.name
+                ))?
             }
         }
     }

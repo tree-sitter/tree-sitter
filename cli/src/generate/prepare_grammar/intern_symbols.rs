@@ -1,13 +1,13 @@
 use super::InternedGrammar;
-use crate::error::{Error, Result};
 use crate::generate::grammars::{InputGrammar, Variable, VariableType};
 use crate::generate::rules::{Rule, Symbol};
+use anyhow::{anyhow, Result};
 
 pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> {
     let interner = Interner { grammar };
 
     if variable_type_for_name(&grammar.variables[0].name) == VariableType::Hidden {
-        return Error::err("A grammar's start rule must be visible.".to_string());
+        return Err(anyhow!("A grammar's start rule must be visible."));
     }
 
     let mut variables = Vec::with_capacity(grammar.variables.len());
@@ -40,7 +40,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         supertype_symbols.push(
             interner
                 .intern_name(supertype_symbol_name)
-                .ok_or_else(|| Error::undefined_symbol(supertype_symbol_name))?,
+                .ok_or_else(|| anyhow!("Undefined symbol `{}`", supertype_symbol_name))?,
         );
     }
 
@@ -51,7 +51,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
             interned_conflict.push(
                 interner
                     .intern_name(&name)
-                    .ok_or_else(|| Error::undefined_symbol(name))?,
+                    .ok_or_else(|| anyhow!("Undefined symbol `{}`", name))?,
             );
         }
         expected_conflicts.push(interned_conflict);
@@ -69,7 +69,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         word_token = Some(
             interner
                 .intern_name(&name)
-                .ok_or_else(|| Error::undefined_symbol(&name))?,
+                .ok_or_else(|| anyhow!("Undefined symbol `{}`", &name))?,
         );
     }
 
@@ -122,7 +122,7 @@ impl<'a> Interner<'a> {
                 if let Some(symbol) = self.intern_name(&name) {
                     Ok(Rule::Symbol(symbol))
                 } else {
-                    Err(Error::undefined_symbol(name))
+                    Err(anyhow!("Undefined symbol `{}`", name))
                 }
             }
 
@@ -234,7 +234,7 @@ mod tests {
         let result = intern_symbols(&build_grammar(vec![Variable::named("x", Rule::named("y"))]));
 
         match result {
-            Err(e) => assert_eq!(e.message(), "Undefined symbol `y`"),
+            Err(e) => assert_eq!(e.to_string(), "Undefined symbol `y`"),
             _ => panic!("Expected an error but got none"),
         }
     }

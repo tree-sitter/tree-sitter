@@ -1,6 +1,6 @@
 use super::grammars::{LexicalGrammar, SyntaxGrammar, VariableType};
 use super::rules::{Alias, AliasMap, Symbol, SymbolType};
-use crate::error::{Error, Result};
+use anyhow::{anyhow, Result};
 use serde_derive::Serialize;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -328,10 +328,13 @@ pub(crate) fn get_variable_info(
     for supertype_symbol in &syntax_grammar.supertype_symbols {
         if result[supertype_symbol.index].has_multi_step_production {
             let variable = &syntax_grammar.variables[supertype_symbol.index];
-            return Err(Error::grammar(&format!(
-                "Supertype symbols must always have a single visible child, but `{}` can have multiple",
+            return Err(anyhow!(
+                concat!(
+                    "Grammar error: Supertype symbols must always ",
+                    "have a single visible child, but `{}` can have multiple"
+                ),
                 variable.name
-            )));
+            ));
         }
     }
 

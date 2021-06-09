@@ -231,11 +231,10 @@ fn test_feature_corpus_files() {
 
             let expected_message = fs::read_to_string(&error_message_path).unwrap();
             if let Err(e) = generate_result {
-                if e.message() != expected_message {
+                if e.to_string() != expected_message {
                     eprintln!(
                         "Unexpected error message.\n\nExpected:\n\n{}\nActual:\n\n{}\n",
-                        expected_message,
-                        e.message()
+                        expected_message, e
                     );
                     failure_count += 1;
                 }
@@ -250,8 +249,7 @@ fn test_feature_corpus_files() {
             if let Err(e) = &generate_result {
                 eprintln!(
                     "Unexpected error for test grammar '{}':\n{}",
-                    language_name,
-                    e.message()
+                    language_name, e
                 );
                 failure_count += 1;
                 continue;

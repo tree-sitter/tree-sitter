@@ -7,7 +7,8 @@ use std::ffi::{CStr, CString};
 use std::ops::Range;
 use std::os::raw::c_char;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{char, fmt, mem, str};
+use std::{char, mem, str};
+use thiserror::Error;
 use tree_sitter::{
     Language, LossyUtf8, Parser, Point, Query, QueryCursor, QueryError, QueryPredicateArg, Tree,
 };
@@ -56,12 +57,17 @@ pub struct Tag {
     pub syntax_type_id: u32,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Error, PartialEq)]
 pub enum Error {
-    Query(QueryError),
-    Regex(regex::Error),
+    #[error(transparent)]
+    Query(#[from] QueryError),
+    #[error(transparent)]
+    Regex(#[from] regex::Error),
+    #[error("Cancelled")]
     Cancelled,
+    #[error("Invalid language")]
     InvalidLanguage,
+    #[error("Invalid capture @{0}. Expected one of: @definition.*, @reference.*, @doc, @name, @local.(scope|definition|reference).")]
     InvalidCapture(String),
 }
 
@@ -559,27 +565,6 @@ impl Tag {
 
     fn is_ignored(&self) -> bool {
         self.range.start == usize::MAX
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Error::InvalidCapture(name) => write!(f, "Invalid capture @{}. Expected one of: @definition.*, @reference.*, @doc, @name, @local.(scope|definition|reference).", name),
-            _ => write!(f, "{:?}", self)
-        }
-    }
-}
-
-impl From<regex::Error> for Error {
-    fn from(error: regex::Error) -> Self {
-        Error::Regex(error)
-    }
-}
-
-impl From<QueryError> for Error {
-    fn from(error: QueryError) -> Self {
-        Error::Query(error)
     }
 }
 

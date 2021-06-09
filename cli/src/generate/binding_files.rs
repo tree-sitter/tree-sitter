@@ -1,5 +1,5 @@
 use super::write_file;
-use crate::error::{Error, Result};
+use anyhow::{Context, Result};
 use std::path::Path;
 use std::{fs, str};
 
@@ -61,7 +61,7 @@ pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<(
             eprintln!("Updating binding.gyp with new binding path");
 
             let binding_gyp = fs::read_to_string(&binding_gyp_path)
-                .map_err(Error::wrap(|| "Failed to read binding.gyp"))?;
+                .with_context(|| "Failed to read binding.gyp")?;
             let binding_gyp = binding_gyp.replace("src/binding.cc", "bindings/node/binding.cc");
             write_file(&binding_gyp_path, binding_gyp)?;
         } else {
@@ -72,12 +72,12 @@ pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<(
         let package_json_path = repo_path.join("package.json");
         if package_json_path.exists() {
             let package_json_str = fs::read_to_string(&package_json_path)
-                .map_err(Error::wrap(|| "Failed to read package.json"))?;
+                .with_context(|| "Failed to read package.json")?;
             let mut package_json =
                 serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(
                     &package_json_str,
                 )
-                .map_err(Error::wrap(|| "Failed to parse package.json"))?;
+                .with_context(|| "Failed to parse package.json")?;
             let package_json_main = package_json.get("main");
             let package_json_needs_update = package_json_main.map_or(true, |v| {
                 let main_string = v.as_str();
@@ -126,7 +126,6 @@ fn generate_file(path: &Path, template: &str, language_name: &str) -> Result<()>
 }
 
 fn create_dir(path: &Path) -> Result<()> {
-    fs::create_dir_all(&path).map_err(Error::wrap(|| {
-        format!("Failed to create {:?}", path.to_string_lossy())
-    }))
+    fs::create_dir_all(&path)
+        .with_context(|| format!("Failed to create {:?}", path.to_string_lossy()))
 }

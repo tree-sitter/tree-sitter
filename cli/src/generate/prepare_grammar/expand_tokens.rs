@@ -1,11 +1,8 @@
 use super::ExtractedLexicalGrammar;
 use crate::generate::grammars::{LexicalGrammar, LexicalVariable};
 use crate::generate::nfa::{CharacterSet, Nfa, NfaState};
-use crate::generate::rules::Rule;
-use crate::{
-    error::{Error, Result},
-    generate::rules::Precedence,
-};
+use crate::generate::rules::{Precedence, Rule};
+use anyhow::{anyhow, Context, Result};
 use lazy_static::lazy_static;
 use regex::Regex;
 use regex_syntax::ast::{
@@ -111,9 +108,7 @@ pub(crate) fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<Lexi
         let last_state_id = builder.nfa.last_state_id();
         builder
             .expand_rule(&variable.rule, last_state_id)
-            .map_err(Error::wrap(|| {
-                format!("Error processing rule {}", variable.name)
-            }))?;
+            .with_context(|| format!("Error processing rule {}", variable.name))?;
 
         if !is_immediate_token {
             builder.is_sep = true;
@@ -205,14 +200,14 @@ impl NfaBuilder {
                 result
             }
             Rule::Blank => Ok(false),
-            _ => Err(Error::grammar(&format!("Unexpected rule {:?}", rule))),
+            _ => Err(anyhow!("Grammar error: Unexpected rule {:?}", rule)),
         }
     }
 
     fn expand_regex(&mut self, ast: &Ast, mut next_state_id: u32) -> Result<bool> {
         match ast {
             Ast::Empty(_) => Ok(false),
-            Ast::Flags(_) => Err(Error::regex("Flags are not supported".to_string())),
+            Ast::Flags(_) => Err(anyhow!("Regex error: Flags are not supported")),
             Ast::Literal(literal) => {
                 self.push_advance(CharacterSet::from_char(literal.c), next_state_id);
                 Ok(true)
@@ -221,7 +216,7 @@ impl NfaBuilder {
                 self.push_advance(CharacterSet::from_char('\n').negate(), next_state_id);
                 Ok(true)
             }
-            Ast::Assertion(_) => Err(Error::regex("Assertions are not supported".to_string())),
+            Ast::Assertion(_) => Err(anyhow!("Regex error: Assertions are not supported")),
             Ast::Class(class) => match class {
                 Class::Unicode(class) => {
                     let mut chars = self.expand_unicode_character_class(&class.kind)?;
@@ -248,8 +243,8 @@ impl NfaBuilder {
                         self.push_advance(chars, next_state_id);
                         Ok(true)
                     }
-                    ClassSet::BinaryOp(_) => Err(Error::regex(
-                        "Binary operators in character classes aren't supported".to_string(),
+                    ClassSet::BinaryOp(_) => Err(anyhow!(
+                        "Regex error: Binary operators in character classes aren't supported"
                     )),
                 },
             },
@@ -383,10 +378,10 @@ impl NfaBuilder {
                 }
                 Ok(set)
             }
-            _ => Err(Error::regex(format!(
-                "Unsupported character class syntax {:?}",
+            _ => Err(anyhow!(
+                "Regex error: Unsupported character class syntax {:?}",
                 item
-            ))),
+            )),
         }
     }
 
@@ -406,10 +401,10 @@ impl NfaBuilder {
                         .get(class_name.as_str())
                         .or_else(|| UNICODE_PROPERTIES.get(class_name.as_str()))
                         .ok_or_else(|| {
-                            Error::regex(format!(
-                                "Unsupported unicode character class {}",
+                            anyhow!(
+                                "Regex error: Unsupported unicode character class {}",
                                 class_name
-                            ))
+                            )
                         })?;
                     for c in code_points {
                         if let Some(c) = std::char::from_u32(*c) {
@@ -421,8 +416,8 @@ impl NfaBuilder {
                 }
             }
             ClassUnicodeKind::NamedValue { .. } => {
-                return Err(Error::regex(
-                    "Key-value unicode properties are not supported".to_string(),
+                return Err(anyhow!(
+                    "Regex error: Key-value unicode properties are not supported"
                 ))
             }
         }

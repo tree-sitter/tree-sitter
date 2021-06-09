@@ -4,6 +4,7 @@ pub use c_lib as c;
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{iter, mem, ops, str, usize};
+use thiserror::Error;
 use tree_sitter::{
     Language, LossyUtf8, Node, Parser, Point, Query, QueryCaptures, QueryCursor, QueryError,
     QueryMatch, Range, Tree,
@@ -18,10 +19,13 @@ const BUFFER_LINES_RESERVE_CAPACITY: usize = 1000;
 pub struct Highlight(pub usize);
 
 /// Represents the reason why syntax highlighting failed.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum Error {
+    #[error("Cancelled")]
     Cancelled,
+    #[error("Invalid language")]
     InvalidLanguage,
+    #[error("Unknown error")]
     Unknown,
 }
 
