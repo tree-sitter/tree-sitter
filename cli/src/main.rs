@@ -4,9 +4,9 @@ use glob::glob;
 use std::path::Path;
 use std::{env, fs, u64};
 use tree_sitter_cli::{
-    config, generate, highlight, logger, parse, query, tags, test, test_highlight, util, wasm,
-    web_ui,
+    generate, highlight, logger, parse, query, tags, test, test_highlight, util, wasm, web_ui,
 };
+use tree_sitter_config::Config;
 use tree_sitter_loader as loader;
 
 const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -174,14 +174,15 @@ fn run() -> Result<()> {
         )
         .get_matches();
 
-    let home_dir = dirs::home_dir().expect("Failed to read home directory");
     let current_dir = env::current_dir().unwrap();
-    let config = config::Config::load(&home_dir);
-    let mut loader = loader::Loader::new(config.binary_directory.clone());
+    let config = Config::load()?;
+    let mut loader = loader::Loader::new()?;
 
     if matches.subcommand_matches("init-config").is_some() {
-        let config = config::Config::new(&home_dir);
-        config.save(&home_dir)?;
+        let mut config = Config::initial()?;
+        config.add(tree_sitter_loader::Config::initial())?;
+        config.add(tree_sitter_cli::highlight::ThemeConfig::default())?;
+        config.save()?;
     } else if let Some(matches) = matches.subcommand_matches("generate") {
         let grammar_path = matches.value_of("grammar-path");
         let report_symbol_name = matches.value_of("report-states-for-rule").or_else(|| {
@@ -257,7 +258,8 @@ fn run() -> Result<()> {
 
         let max_path_length = paths.iter().map(|p| p.chars().count()).max().unwrap();
         let mut has_error = false;
-        loader.find_all_languages(&config.parser_directories)?;
+        let loader_config = config.get()?;
+        loader.find_all_languages(&loader_config)?;
 
         let should_track_stats = matches.is_present("stat");
         let mut stats = parse::Stats::default();
@@ -300,7 +302,8 @@ fn run() -> Result<()> {
     } else if let Some(matches) = matches.subcommand_matches("query") {
         let ordered_captures = matches.values_of("captures").is_some();
         let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
-        loader.find_all_languages(&config.parser_directories)?;
+        let loader_config = config.get()?;
+        loader.find_all_languages(&loader_config)?;
         let language = loader.select_language(
             Path::new(&paths[0]),
             &current_dir,
@@ -321,7 +324,8 @@ fn run() -> Result<()> {
             should_test,
         )?;
     } else if let Some(matches) = matches.subcommand_matches("tags") {
-        loader.find_all_languages(&config.parser_directories)?;
+        let loader_config = config.get()?;
+        loader.find_all_languages(&loader_config)?;
         let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
         tags::generate_tags(
             &loader,
@@ -331,8 +335,10 @@ fn run() -> Result<()> {
             matches.is_present("time"),
         )?;
     } else if let Some(matches) = matches.subcommand_matches("highlight") {
-        loader.configure_highlights(&config.theme.highlight_names);
-        loader.find_all_languages(&config.parser_directories)?;
+        let theme_config: tree_sitter_cli::highlight::ThemeConfig = config.get()?;
+        loader.configure_highlights(&theme_config.theme.highlight_names);
+        let loader_config = config.get()?;
+        loader.find_all_languages(&loader_config)?;
 
         let time = matches.is_present("time");
         let quiet = matches.is_present("quiet");
@@ -368,10 +374,11 @@ fn run() -> Result<()> {
 
             if let Some(highlight_config) = language_config.highlight_config(language)? {
                 let source = fs::read(path)?;
+                let theme_config = config.get()?;
                 if html_mode {
                     highlight::html(
                         &loader,
-                        &config.theme,
+                        &theme_config,
                         &source,
                         highlight_config,
                         quiet,
@@ -380,7 +387,7 @@ fn run() -> Result<()> {
                 } else {
                     highlight::ansi(
                         &loader,
-                        &config.theme,
+                        &theme_config,
                         &source,
                         highlight_config,
                         time,
@@ -402,7 +409,8 @@ fn run() -> Result<()> {
         let open_in_browser = !matches.is_present("quiet");
         web_ui::serve(&current_dir, open_in_browser);
     } else if matches.subcommand_matches("dump-languages").is_some() {
-        loader.find_all_languages(&config.parser_directories)?;
+        let loader_config = config.get()?;
+        loader.find_all_languages(&loader_config)?;
         for (configuration, language_path) in loader.get_all_language_configurations() {
             println!(
                 concat!(
