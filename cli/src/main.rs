@@ -13,6 +13,19 @@ const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
 
 fn main() -> Result<()> {
+    let result = run();
+    // Ignore BrokenPipe errors
+    if let Err(err) = &result {
+        if let Some(error) = err.downcast_ref::<std::io::Error>() {
+            if error.kind() == std::io::ErrorKind::BrokenPipe {
+                return Ok(());
+            }
+        }
+    }
+    result
+}
+
+fn run() -> Result<()> {
     let version = if let Some(build_sha) = BUILD_SHA {
         format!("{} ({})", BUILD_VERSION, build_sha)
     } else {
