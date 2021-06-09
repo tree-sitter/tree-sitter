@@ -9,11 +9,6 @@ fn main() {
     if wasm_files_present() {
         println!("cargo:rustc-cfg={}", "TREE_SITTER_EMBED_WASM_BINDING");
     }
-
-    println!(
-        "cargo:rustc-env=BUILD_TARGET={}",
-        std::env::var("TARGET").unwrap()
-    );
 }
 
 fn wasm_files_present() -> bool {

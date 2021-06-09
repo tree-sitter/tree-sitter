@@ -1,9 +1,9 @@
-use crate::loader::Loader;
 use lazy_static::lazy_static;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tree_sitter::Language;
 use tree_sitter_highlight::HighlightConfiguration;
+use tree_sitter_loader::Loader;
 
 include!("./dirs.rs");
 

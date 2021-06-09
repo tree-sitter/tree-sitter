@@ -1,10 +1,10 @@
-use super::loader::Loader;
 use super::util;
 use anyhow::{anyhow, Result};
 use std::io::{self, Write};
 use std::path::Path;
 use std::time::Instant;
 use std::{fs, str};
+use tree_sitter_loader::Loader;
 use tree_sitter_tags::TagsContext;
 
 pub fn generate_tags(
