@@ -19,6 +19,7 @@ crate-type = ["lib", "staticlib"]
 [dependencies]
 regex = "1"
 memchr = "2.3"
+thiserror = "1.0"
 
 [dependencies.tree-sitter]
 version = ">= 0.17.0"

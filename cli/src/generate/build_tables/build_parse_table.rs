@@ -1,5 +1,6 @@
 use super::item::{ParseItem, ParseItemSet, ParseItemSetCore};
 use super::item_set_builder::ParseItemSetBuilder;
+use crate::generate::grammars::PrecedenceEntry;
 use crate::generate::grammars::{
     InlinedProductionMap, LexicalGrammar, SyntaxGrammar, VariableType,
 };
@@ -9,10 +10,7 @@ use crate::generate::tables::{
     FieldLocation, GotoAction, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
     ProductionInfo, ProductionInfoId,
 };
-use crate::{
-    error::{Error, Result},
-    generate::grammars::PrecedenceEntry,
-};
+use anyhow::{anyhow, Result};
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fmt::Write;
 use std::u32;
@@ -387,7 +385,7 @@ impl<'a> ParseTableBuilder<'a> {
                     }
                     message += &self.syntax_grammar.variables[*variable_index as usize].name;
                 }
-                return Err(Error::new(message));
+                return Err(anyhow!(message));
             }
         }
         // Add actions for the start tokens of each non-terminal extra rule.
@@ -762,7 +760,7 @@ impl<'a> ParseTableBuilder<'a> {
         }
         write!(&mut msg, "\n").unwrap();
 
-        Err(Error::new(msg))
+        Err(anyhow!(msg))
     }
 
     fn compare_precedence(

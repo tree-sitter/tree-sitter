@@ -1,32 +1,18 @@
+use anyhow::{anyhow, Context, Result};
 use clap::{App, AppSettings, Arg, SubCommand};
-use error::Error;
 use glob::glob;
 use std::path::Path;
-use std::process::exit;
 use std::{env, fs, u64};
 use tree_sitter::Language;
 use tree_sitter_cli::{
-    config, error, generate, highlight, loader, logger, parse, query, tags, test, test_highlight,
-    util, wasm, web_ui,
+    config, generate, highlight, loader, logger, parse, query, tags, test, test_highlight, util,
+    wasm, web_ui,
 };
 
 const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
 
-fn main() {
-    if let Err(e) = run() {
-        if e.is_ignored() {
-            exit(0);
-        }
-        if !e.message().is_empty() {
-            eprintln!("");
-            eprintln!("{}", e.message());
-        }
-        exit(1);
-    }
-}
-
-fn run() -> error::Result<()> {
+fn main() -> Result<()> {
     let version = if let Some(build_sha) = BUILD_SHA {
         format!("{} ({})", BUILD_VERSION, build_sha)
     } else {
@@ -212,7 +198,7 @@ fn run() -> error::Result<()> {
         let languages = loader.languages_at_path(&current_dir)?;
         let language = languages
             .first()
-            .ok_or_else(|| "No language found".to_string())?;
+            .ok_or_else(|| anyhow!("No language found"))?;
         let test_dir = current_dir.join("test");
 
         // Run the corpus tests. Look for them at two paths: `test/corpus` and `corpus`.
@@ -297,7 +283,7 @@ fn run() -> error::Result<()> {
         }
 
         if has_error {
-            return Error::err(String::new());
+            return Err(anyhow!(""));
         }
     } else if let Some(matches) = matches.subcommand_matches("query") {
         let ordered_captures = matches.values_of("captures").is_some();
@@ -352,7 +338,7 @@ fn run() -> error::Result<()> {
         if let Some(scope) = matches.value_of("scope") {
             lang = loader.language_configuration_for_scope(scope)?;
             if lang.is_none() {
-                return Error::err(format!("Unknown scope '{}'", scope));
+                return Err(anyhow!("Unknown scope '{}'", scope));
             }
         }
 
@@ -432,12 +418,10 @@ fn run() -> error::Result<()> {
 fn collect_paths<'a>(
     paths_file: Option<&str>,
     paths: Option<impl Iterator<Item = &'a str>>,
-) -> error::Result<Vec<String>> {
+) -> Result<Vec<String>> {
     if let Some(paths_file) = paths_file {
         return Ok(fs::read_to_string(paths_file)
-            .map_err(Error::wrap(|| {
-                format!("Failed to read paths file {}", paths_file)
-            }))?
+            .with_context(|| format!("Failed to read paths file {}", paths_file))?
             .trim()
             .split_ascii_whitespace()
             .map(String::from)
@@ -467,8 +451,8 @@ fn collect_paths<'a>(
             if Path::new(path).exists() {
                 incorporate_path(path, positive);
             } else {
-                let paths = glob(path)
-                    .map_err(Error::wrap(|| format!("Invalid glob pattern {:?}", path)))?;
+                let paths =
+                    glob(path).with_context(|| format!("Invalid glob pattern {:?}", path))?;
                 for path in paths {
                     if let Some(path) = path?.to_str() {
                         incorporate_path(path, positive);
@@ -478,15 +462,15 @@ fn collect_paths<'a>(
         }
 
         if result.is_empty() {
-            Error::err(
-                "No files were found at or matched by the provided pathname/glob".to_string(),
-            )?;
+            return Err(anyhow!(
+                "No files were found at or matched by the provided pathname/glob"
+            ));
         }
 
         return Ok(result);
     }
 
-    Err(Error::new("Must provide one or more paths".to_string()))
+    Err(anyhow!("Must provide one or more paths"))
 }
 
 fn select_language(
@@ -494,41 +478,35 @@ fn select_language(
     path: &Path,
     current_dir: &Path,
     scope: Option<&str>,
-) -> Result<Language, Error> {
+) -> Result<Language> {
     if let Some(scope) = scope {
-        if let Some(config) =
-            loader
-                .language_configuration_for_scope(scope)
-                .map_err(Error::wrap(|| {
-                    format!("Failed to load language for scope '{}'", scope)
-                }))?
+        if let Some(config) = loader
+            .language_configuration_for_scope(scope)
+            .with_context(|| format!("Failed to load language for scope '{}'", scope))?
         {
             Ok(config.0)
         } else {
-            return Error::err(format!("Unknown scope '{}'", scope));
+            return Err(anyhow!("Unknown scope '{}'", scope));
         }
-    } else if let Some((lang, _)) =
-        loader
-            .language_configuration_for_file_name(path)
-            .map_err(Error::wrap(|| {
-                format!(
-                    "Failed to load language for file name {:?}",
-                    path.file_name().unwrap()
-                )
-            }))?
+    } else if let Some((lang, _)) = loader
+        .language_configuration_for_file_name(path)
+        .with_context(|| {
+            format!(
+                "Failed to load language for file name {}",
+                &path.file_name().unwrap().to_string_lossy()
+            )
+        })?
     {
         Ok(lang)
     } else if let Some(lang) = loader
         .languages_at_path(&current_dir)
-        .map_err(Error::wrap(|| {
-            "Failed to load language in current directory"
-        }))?
+        .with_context(|| "Failed to load language in current directory")?
         .first()
         .cloned()
     {
         Ok(lang)
     } else {
         eprintln!("No language found");
-        Error::err("No language found".to_string())
+        Err(anyhow!("No language found"))
     }
 }

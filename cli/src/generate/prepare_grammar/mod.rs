@@ -19,7 +19,7 @@ use super::grammars::{
     SyntaxGrammar, Variable,
 };
 use super::rules::{AliasMap, Precedence, Rule, Symbol};
-use super::{Error, Result};
+use anyhow::{anyhow, Result};
 use std::{
     cmp::Ordering,
     collections::{hash_map, HashMap, HashSet},
@@ -93,10 +93,11 @@ fn validate_precedences(grammar: &InputGrammar) -> Result<()> {
                     }
                     hash_map::Entry::Occupied(e) => {
                         if e.get() != &ordering {
-                            return Err(Error::new(format!(
+                            return Err(anyhow!(
                                 "Conflicting orderings for precedences {} and {}",
-                                entry1, entry2
-                            )));
+                                entry1,
+                                entry2
+                            ));
                         }
                     }
                 }
@@ -116,10 +117,11 @@ fn validate_precedences(grammar: &InputGrammar) -> Result<()> {
             Rule::Metadata { rule, params } => {
                 if let Precedence::Name(n) = &params.precedence {
                     if !names.contains(n) {
-                        return Err(Error::new(format!(
+                        return Err(anyhow!(
                             "Undeclared precedence '{}' in rule '{}'",
-                            n, rule_name
-                        )));
+                            n,
+                            rule_name
+                        ));
                     }
                 }
                 validate(rule_name, rule, names)?;
@@ -196,7 +198,7 @@ mod tests {
 
         let result = validate_precedences(&grammar);
         assert_eq!(
-            result.unwrap_err().message(),
+            result.unwrap_err().to_string(),
             "Undeclared precedence 'omg' in rule 'v2'",
         );
     }
@@ -244,7 +246,7 @@ mod tests {
 
         let result = validate_precedences(&grammar);
         assert_eq!(
-            result.unwrap_err().message(),
+            result.unwrap_err().to_string(),
             "Conflicting orderings for precedences 'a' and 'b'",
         );
     }

@@ -1,5 +1,5 @@
-use super::error::{Error, Result};
 use super::util;
+use anyhow::{anyhow, Context, Result};
 use std::io::{self, Write};
 use std::path::Path;
 use std::sync::atomic::AtomicUsize;
@@ -45,10 +45,9 @@ pub fn parse_file_at_path(
 ) -> Result<bool> {
     let mut _log_session = None;
     let mut parser = Parser::new();
-    parser.set_language(language).map_err(|e| e.to_string())?;
-    let mut source_code = fs::read(path).map_err(Error::wrap(|| {
-        format!("Error reading source file {:?}", path)
-    }))?;
+    parser.set_language(language)?;
+    let mut source_code =
+        fs::read(path).with_context(|| format!("Error reading source file {:?}", path))?;
 
     // If the `--cancel` flag was passed, then cancel the parse
     // when the user types a newline.
@@ -296,10 +295,10 @@ pub fn perform_edit(tree: &mut Tree, input: &mut Vec<u8>, edit: &Edit) -> InputE
 
 fn parse_edit_flag(source_code: &Vec<u8>, flag: &str) -> Result<Edit> {
     let error = || {
-        Error::from(format!(concat!(
+        anyhow!(concat!(
             "Invalid edit string '{}'. ",
             "Edit strings must match the pattern '<START_BYTE_OR_POSITION> <REMOVED_LENGTH> <NEW_TEXT>'"
-        ), flag))
+        ), flag)
     };
 
     // Three whitespace-separated parts:

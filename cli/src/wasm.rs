@@ -1,5 +1,5 @@
-use super::error::{Error, Result};
 use super::generate::parse_grammar::GrammarJSON;
+use anyhow::{anyhow, Context, Result};
 use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::path::Path;
@@ -8,12 +8,10 @@ use which::which;
 
 pub fn get_grammar_name(src_dir: &Path) -> Result<String> {
     let grammar_json_path = src_dir.join("grammar.json");
-    let grammar_json = fs::read_to_string(&grammar_json_path).map_err(Error::wrap(|| {
-        format!("Failed to read grammar file {:?}", grammar_json_path)
-    }))?;
-    let grammar: GrammarJSON = serde_json::from_str(&grammar_json).map_err(Error::wrap(|| {
-        format!("Failed to parse grammar file {:?}", grammar_json_path)
-    }))?;
+    let grammar_json = fs::read_to_string(&grammar_json_path)
+        .with_context(|| format!("Failed to read grammar file {:?}", grammar_json_path))?;
+    let grammar: GrammarJSON = serde_json::from_str(&grammar_json)
+        .with_context(|| format!("Failed to parse grammar file {:?}", grammar_json_path))?;
     Ok(grammar.name)
 }
 
@@ -56,7 +54,7 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
             let user_id_output = Command::new("id")
                 .arg("-u")
                 .output()
-                .map_err(Error::wrap(|| "Failed to get get current user id"))?;
+                .with_context(|| "Failed to get get current user id")?;
             let user_id = String::from_utf8_lossy(&user_id_output.stdout);
             let user_id = user_id.trim();
             command.args(&["--user", user_id]);
@@ -65,9 +63,9 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
         // Run `emcc` in a container using the `emscripten-slim` image
         command.args(&["emscripten/emsdk", "emcc"]);
     } else {
-        return Error::err(
-            "You must have either emcc or docker on your PATH to run this command".to_string(),
-        );
+        return Err(anyhow!(
+            "You must have either emcc or docker on your PATH to run this command"
+        ));
     }
 
     command.args(&[
@@ -107,18 +105,17 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
 
     let output = command
         .output()
-        .map_err(Error::wrap(|| "Failed to run emcc command"))?;
+        .with_context(|| "Failed to run emcc command")?;
     if !output.status.success() {
-        return Err(Error::from(format!(
+        return Err(anyhow!(
             "emcc command failed - {}",
             String::from_utf8_lossy(&output.stderr)
-        )));
+        ));
     }
 
     // Move the created `.wasm` file into the current working directory.
-    fs::rename(&language_dir.join(&output_filename), &output_filename).map_err(Error::wrap(
-        || format!("Couldn't find output file {:?}", output_filename),
-    ))?;
+    fs::rename(&language_dir.join(&output_filename), &output_filename)
+        .with_context(|| format!("Couldn't find output file {:?}", output_filename))?;
 
     Ok(())
 }

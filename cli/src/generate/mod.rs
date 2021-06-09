@@ -17,7 +17,7 @@ use self::parse_grammar::parse_grammar;
 use self::prepare_grammar::prepare_grammar;
 use self::render::render_c_code;
 use self::rules::AliasMap;
-use crate::error::{Error, Result};
+use anyhow::{anyhow, Context, Result};
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use std::fs;
@@ -161,10 +161,10 @@ fn load_grammar_file(grammar_path: &Path) -> Result<String> {
     match grammar_path.extension().and_then(|e| e.to_str()) {
         Some("js") => Ok(load_js_grammar_file(grammar_path)?),
         Some("json") => Ok(fs::read_to_string(grammar_path)?),
-        _ => Err(Error::new(format!(
+        _ => Err(anyhow!(
             "Unknown grammar file extension: {:?}",
             grammar_path
-        ))),
+        )),
     }
 }
 
@@ -191,7 +191,7 @@ fn load_js_grammar_file(grammar_path: &Path) -> Result<String> {
     match output.status.code() {
         None => panic!("Node process was killed"),
         Some(0) => {}
-        Some(code) => return Error::err(format!("Node process exited with status {}", code)),
+        Some(code) => return Err(anyhow!("Node process exited with status {}", code)),
     }
 
     let mut result = String::from_utf8(output.stdout).expect("Got invalid UTF8 from node");
@@ -200,7 +200,6 @@ fn load_js_grammar_file(grammar_path: &Path) -> Result<String> {
 }
 
 fn write_file(path: &Path, body: impl AsRef<[u8]>) -> Result<()> {
-    fs::write(path, body).map_err(Error::wrap(|| {
-        format!("Failed to write {:?}", path.file_name().unwrap())
-    }))
+    fs::write(path, body)
+        .with_context(|| format!("Failed to write {:?}", path.file_name().unwrap()))
 }

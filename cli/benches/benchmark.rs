@@ -1,10 +1,10 @@
+use anyhow::Context;
 use lazy_static::lazy_static;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 use std::{env, fs, str, usize};
 use tree_sitter::{Language, Parser, Query};
-use tree_sitter_cli::error::Error;
 use tree_sitter_cli::loader::Loader;
 
 include!("../src/tests/helpers/dirs.rs");
@@ -192,7 +192,7 @@ fn parse(path: &Path, max_path_length: usize, mut action: impl FnMut(&[u8])) -> 
     );
 
     let source_code = fs::read(path)
-        .map_err(Error::wrap(|| format!("Failed to read {:?}", path)))
+        .with_context(|| format!("Failed to read {:?}", path))
         .unwrap();
     let time = Instant::now();
     for _ in 0..*REPETITION_COUNT {
@@ -209,8 +209,6 @@ fn get_language(path: &Path) -> Language {
     let src_dir = GRAMMARS_DIR.join(path).join("src");
     TEST_LOADER
         .load_language_at_path(&src_dir, &src_dir)
-        .map_err(Error::wrap(|| {
-            format!("Failed to load language at path {:?}", src_dir)
-        }))
+        .with_context(|| format!("Failed to load language at path {:?}", src_dir))
         .unwrap()
 }

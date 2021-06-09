@@ -1,7 +1,7 @@
 use super::{ExtractedLexicalGrammar, ExtractedSyntaxGrammar, InternedGrammar};
-use crate::error::{Error, Result};
 use crate::generate::grammars::{ExternalToken, Variable, VariableType};
 use crate::generate::rules::{MetadataParams, Rule, Symbol, SymbolType};
+use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 use std::mem;
 
@@ -108,7 +108,7 @@ pub(super) fn extract_tokens(
         let rule = symbol_replacer.replace_symbols_in_rule(&external_token.rule);
         if let Rule::Symbol(symbol) = rule {
             if symbol.is_non_terminal() {
-                return Error::err(format!(
+                return Err(anyhow!(
                     "Rule '{}' cannot be used as both an external token and a non-terminal rule",
                     &variables[symbol.index].name,
                 ));
@@ -128,7 +128,7 @@ pub(super) fn extract_tokens(
                 })
             }
         } else {
-            return Error::err(format!(
+            return Err(anyhow!(
                 "Non-symbol rules cannot be used as external tokens"
             ));
         }
@@ -138,7 +138,7 @@ pub(super) fn extract_tokens(
     if let Some(token) = grammar.word_token {
         let token = symbol_replacer.replace_symbol(token);
         if token.is_non_terminal() {
-            return Error::err(format!(
+            return Err(anyhow!(
                 "Non-terminal symbol '{}' cannot be used as the word token",
                 &variables[token.index].name
             ));
@@ -482,7 +482,7 @@ mod test {
 
         match extract_tokens(grammar) {
             Err(e) => {
-                assert_eq!(e.message(), "Rule 'rule_1' cannot be used as both an external token and a non-terminal rule");
+                assert_eq!(e.to_string(), "Rule 'rule_1' cannot be used as both an external token and a non-terminal rule");
             }
             _ => {
                 panic!("Expected an error but got no error");
