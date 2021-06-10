@@ -1,5 +1,4 @@
 use super::util;
-use crate::loader::Loader;
 use ansi_term::Color;
 use anyhow::Result;
 use lazy_static::lazy_static;
@@ -12,6 +11,7 @@ use std::sync::atomic::AtomicUsize;
 use std::time::Instant;
 use std::{fs, io, path, str, usize};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer};
+use tree_sitter_loader::Loader;
 
 pub const HTML_HEADER: &'static str = "
 <!doctype HTML>

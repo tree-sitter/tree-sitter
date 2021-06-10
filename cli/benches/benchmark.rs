@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 use std::{env, fs, str, usize};
 use tree_sitter::{Language, Parser, Query};
-use tree_sitter_cli::loader::Loader;
+use tree_sitter_loader::Loader;
 
 include!("../src/tests/helpers/dirs.rs");
 

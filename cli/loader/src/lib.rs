@@ -534,6 +534,43 @@ impl Loader {
     fn regex(pattern: Option<String>) -> Option<Regex> {
         pattern.and_then(|r| RegexBuilder::new(&r).multi_line(true).build().ok())
     }
+
+    pub fn select_language(
+        &mut self,
+        path: &Path,
+        current_dir: &Path,
+        scope: Option<&str>,
+    ) -> Result<Language> {
+        if let Some(scope) = scope {
+            if let Some(config) = self
+                .language_configuration_for_scope(scope)
+                .with_context(|| format!("Failed to load language for scope '{}'", scope))?
+            {
+                Ok(config.0)
+            } else {
+                return Err(anyhow!("Unknown scope '{}'", scope));
+            }
+        } else if let Some((lang, _)) = self
+            .language_configuration_for_file_name(path)
+            .with_context(|| {
+                format!(
+                    "Failed to load language for file name {}",
+                    &path.file_name().unwrap().to_string_lossy()
+                )
+            })?
+        {
+            Ok(lang)
+        } else if let Some(lang) = self
+            .languages_at_path(&current_dir)
+            .with_context(|| "Failed to load language in current directory")?
+            .first()
+            .cloned()
+        {
+            Ok(lang)
+        } else {
+            Err(anyhow!("No language found"))
+        }
+    }
 }
 
 impl<'a> LanguageConfiguration<'a> {

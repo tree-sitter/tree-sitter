@@ -1,4 +1,3 @@
-use crate::loader::Loader;
 use crate::query_testing::{parse_position_comments, Assertion};
 use ansi_term::Colour;
 use anyhow::{anyhow, Result};
@@ -6,6 +5,7 @@ use std::fs;
 use std::path::Path;
 use tree_sitter::Point;
 use tree_sitter_highlight::{Highlight, HighlightConfiguration, HighlightEvent, Highlighter};
+use tree_sitter_loader::Loader;
 
 #[derive(Debug)]
 pub struct Failure {

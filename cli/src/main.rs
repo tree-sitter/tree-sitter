@@ -3,11 +3,11 @@ use clap::{App, AppSettings, Arg, SubCommand};
 use glob::glob;
 use std::path::Path;
 use std::{env, fs, u64};
-use tree_sitter::Language;
 use tree_sitter_cli::{
-    config, generate, highlight, loader, logger, parse, query, tags, test, test_highlight, util,
-    wasm, web_ui,
+    config, generate, highlight, logger, parse, query, tags, test, test_highlight, util, wasm,
+    web_ui,
 };
+use tree_sitter_loader as loader;
 
 const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
@@ -264,8 +264,7 @@ fn run() -> Result<()> {
 
         for path in paths {
             let path = Path::new(&path);
-            let language =
-                select_language(&mut loader, path, &current_dir, matches.value_of("scope"))?;
+            let language = loader.select_language(path, &current_dir, matches.value_of("scope"))?;
 
             let this_file_errored = parse::parse_file_at_path(
                 language,
@@ -302,8 +301,7 @@ fn run() -> Result<()> {
         let ordered_captures = matches.values_of("captures").is_some();
         let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
         loader.find_all_languages(&config.parser_directories)?;
-        let language = select_language(
-            &mut loader,
+        let language = loader.select_language(
             Path::new(&paths[0]),
             &current_dir,
             matches.value_of("scope"),
@@ -484,42 +482,4 @@ fn collect_paths<'a>(
     }
 
     Err(anyhow!("Must provide one or more paths"))
-}
-
-fn select_language(
-    loader: &mut loader::Loader,
-    path: &Path,
-    current_dir: &Path,
-    scope: Option<&str>,
-) -> Result<Language> {
-    if let Some(scope) = scope {
-        if let Some(config) = loader
-            .language_configuration_for_scope(scope)
-            .with_context(|| format!("Failed to load language for scope '{}'", scope))?
-        {
-            Ok(config.0)
-        } else {
-            return Err(anyhow!("Unknown scope '{}'", scope));
-        }
-    } else if let Some((lang, _)) = loader
-        .language_configuration_for_file_name(path)
-        .with_context(|| {
-            format!(
-                "Failed to load language for file name {}",
-                &path.file_name().unwrap().to_string_lossy()
-            )
-        })?
-    {
-        Ok(lang)
-    } else if let Some(lang) = loader
-        .languages_at_path(&current_dir)
-        .with_context(|| "Failed to load language in current directory")?
-        .first()
-        .cloned()
-    {
-        Ok(lang)
-    } else {
-        eprintln!("No language found");
-        Err(anyhow!("No language found"))
-    }
 }

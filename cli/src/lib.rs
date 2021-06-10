@@ -1,7 +1,6 @@
 pub mod config;
 pub mod generate;
 pub mod highlight;
-pub mod loader;
 pub mod logger;
 pub mod parse;
 pub mod query;
