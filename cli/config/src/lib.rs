@@ -15,34 +15,31 @@ use std::{env, fs};
 /// components will use the [`get`][] method to parse that JSON to extract configuration fields
 /// that are specific to that component.
 pub struct Config {
-    location: PathBuf,
-    config: Value,
+    pub location: PathBuf,
+    pub config: Value,
 }
 
 impl Config {
-    fn find_config_file() -> Result<PathBuf> {
+    fn find_config_file() -> Result<Option<PathBuf>> {
         if let Ok(path) = env::var("TREE_SITTER_DIR") {
             let mut path = PathBuf::from(path);
             path.push("config.json");
-            return Ok(path);
+            return Ok(Some(path));
         }
 
         let xdg_path = Self::xdg_config_file()?;
         if xdg_path.is_file() {
-            return Ok(xdg_path);
+            return Ok(Some(xdg_path));
         }
 
         let legacy_path = dirs::home_dir()
             .ok_or(anyhow!("Cannot determine home directory"))?
             .join(".tree-sitter/config.json");
         if legacy_path.is_file() {
-            return Ok(legacy_path);
+            return Ok(Some(legacy_path));
         }
 
-        Err(anyhow!(concat!(
-            "Cannot find a tree-sitter configuration file.\n",
-            "Please run `tree-sitter init-config` to create one!"
-        )))
+        Ok(None)
     }
 
     fn xdg_config_file() -> Result<PathBuf> {
@@ -61,7 +58,10 @@ impl Config {
     ///   - `$HOME/.tree-sitter/config.json` as a fallback from where tree-sitter _used_ to store
     ///     its configuration
     pub fn load() -> Result<Config> {
-        let location = Self::find_config_file()?;
+        let location = match Self::find_config_file()? {
+            Some(location) => location,
+            None => return Config::initial(),
+        };
         let content = fs::read_to_string(&location)?;
         let config = serde_json::from_str(&content)?;
         Ok(Config { location, config })

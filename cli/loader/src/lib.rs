@@ -104,6 +104,13 @@ impl Loader {
     }
 
     pub fn find_all_languages(&mut self, config: &Config) -> Result<()> {
+        if config.parser_directories.is_empty() {
+            eprintln!("Warning: You have not configured any parser directories!");
+            eprintln!("Please run `tree-sitter init-config` and edit the resulting");
+            eprintln!("configuration file to indicate where we should look for");
+            eprintln!("language grammars.");
+            eprintln!("");
+        }
         for parser_container_dir in &config.parser_directories {
             if let Ok(entries) = fs::read_dir(parser_container_dir) {
                 for entry in entries {

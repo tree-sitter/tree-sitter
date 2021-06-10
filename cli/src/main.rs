@@ -183,6 +183,10 @@ fn run() -> Result<()> {
         config.add(tree_sitter_loader::Config::initial())?;
         config.add(tree_sitter_cli::highlight::ThemeConfig::default())?;
         config.save()?;
+        println!(
+            "Saved initial configuration to {}",
+            config.location.display()
+        );
     } else if let Some(matches) = matches.subcommand_matches("generate") {
         let grammar_path = matches.value_of("grammar-path");
         let report_symbol_name = matches.value_of("report-states-for-rule").or_else(|| {
