@@ -8,7 +8,7 @@ use tree_sitter_loader::Loader;
 include!("./dirs.rs");
 
 lazy_static! {
-    static ref TEST_LOADER: Loader = Loader::new(SCRATCH_DIR.clone());
+    static ref TEST_LOADER: Loader = Loader::with_parser_lib_path(SCRATCH_DIR.clone());
 }
 
 pub fn test_loader<'a>() -> &'a Loader {

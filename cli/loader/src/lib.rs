@@ -2,7 +2,7 @@ use anyhow::{anyhow, Context, Error, Result};
 use libloading::{Library, Symbol};
 use once_cell::unsync::OnceCell;
 use regex::{Regex, RegexBuilder};
-use serde_derive::Deserialize;
+use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::BufReader;
 use std::ops::Range;
@@ -14,6 +14,26 @@ use std::{fs, mem};
 use tree_sitter::{Language, QueryError};
 use tree_sitter_highlight::HighlightConfiguration;
 use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
+
+#[derive(Default, Deserialize, Serialize)]
+pub struct Config {
+    #[serde(default)]
+    #[serde(rename = "parser-directories")]
+    pub parser_directories: Vec<PathBuf>,
+}
+
+impl Config {
+    pub fn initial() -> Config {
+        let home_dir = dirs::home_dir().expect("Cannot determine home directory");
+        Config {
+            parser_directories: vec![
+                home_dir.join("github"),
+                home_dir.join("src"),
+                home_dir.join("source"),
+            ],
+        }
+    }
+}
 
 #[cfg(unix)]
 const DYLIB_EXTENSION: &'static str = "so";
@@ -54,7 +74,14 @@ unsafe impl Send for Loader {}
 unsafe impl Sync for Loader {}
 
 impl Loader {
-    pub fn new(parser_lib_path: PathBuf) -> Self {
+    pub fn new() -> Result<Self> {
+        let parser_lib_path = dirs::cache_dir()
+            .ok_or(anyhow!("Cannot determine cache directory"))?
+            .join("tree-sitter/lib");
+        Ok(Self::with_parser_lib_path(parser_lib_path))
+    }
+
+    pub fn with_parser_lib_path(parser_lib_path: PathBuf) -> Self {
         Loader {
             parser_lib_path,
             languages_by_id: Vec::new(),
@@ -76,8 +103,15 @@ impl Loader {
         self.highlight_names.lock().unwrap().clone()
     }
 
-    pub fn find_all_languages(&mut self, parser_src_paths: &Vec<PathBuf>) -> Result<()> {
-        for parser_container_dir in parser_src_paths.iter() {
+    pub fn find_all_languages(&mut self, config: &Config) -> Result<()> {
+        if config.parser_directories.is_empty() {
+            eprintln!("Warning: You have not configured any parser directories!");
+            eprintln!("Please run `tree-sitter init-config` and edit the resulting");
+            eprintln!("configuration file to indicate where we should look for");
+            eprintln!("language grammars.");
+            eprintln!("");
+        }
+        for parser_container_dir in &config.parser_directories {
             if let Ok(entries) = fs::read_dir(parser_container_dir) {
                 for entry in entries {
                     let entry = entry?;
@@ -287,6 +321,7 @@ impl Loader {
             .with_context(|| "Failed to compare source and binary timestamps")?;
 
         if recompile {
+            fs::create_dir_all(&self.parser_lib_path)?;
             let mut config = cc::Build::new();
             config
                 .cpp(true)

@@ -692,12 +692,23 @@ dependencies = [
  "tempfile",
  "tiny_http",
  "tree-sitter",
+ "tree-sitter-config",
  "tree-sitter-highlight",
  "tree-sitter-loader",
  "tree-sitter-tags",
  "walkdir",
  "webbrowser",
  "which",
+]
+
+[[package]]
+name = "tree-sitter-config"
+version = "0.19.0"
+dependencies = [
+ "anyhow",
+ "dirs",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -715,6 +726,7 @@ version = "0.19.0"
 dependencies = [
  "anyhow",
  "cc",
+ "dirs",
  "libloading",
  "once_cell",
  "regex",

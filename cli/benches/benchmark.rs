@@ -17,7 +17,7 @@ lazy_static! {
     static ref REPETITION_COUNT: usize = env::var("TREE_SITTER_BENCHMARK_REPETITION_COUNT")
         .map(|s| usize::from_str_radix(&s, 10).unwrap())
         .unwrap_or(5);
-    static ref TEST_LOADER: Loader = Loader::new(SCRATCH_DIR.clone());
+    static ref TEST_LOADER: Loader = Loader::with_parser_lib_path(SCRATCH_DIR.clone());
     static ref EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR: BTreeMap<PathBuf, (Vec<PathBuf>, Vec<PathBuf>)> = {
         fn process_dir(result: &mut BTreeMap<PathBuf, (Vec<PathBuf>, Vec<PathBuf>)>, dir: &Path) {
             if dir.join("grammar.js").exists() {
