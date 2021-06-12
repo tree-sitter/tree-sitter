@@ -13,6 +13,15 @@ Tree-sitter is a parser generator tool and an incremental parsing library. It ca
 - **Robust** enough to provide useful results even in the presence of syntax errors
 - **Dependency-free** so that the runtime library (which is written in pure C) can be embedded in any application
 
+## Editors
+
+The following editors are making use of tree-sitter for syntax highlighting and other features:
+
+- [Neovim](https://github.com/neovim/neovim): a Vim-fork focused on extensibility and usability.
+- [helix](https://github.com/helix-editor/helix): a post-modern modal text editor.
+- [emacs-tree-sitter](https://github.com/emacs-tree-sitter/elisp-tree-sitter): bindings for Emacs.
+- [lapce](https://github.com/lapce/lapce): an IDE written in pure Rust leveraging OpenGL.
+
 ## Links
 
 - [Documentation](https://tree-sitter.github.io)
