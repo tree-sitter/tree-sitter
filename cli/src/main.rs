@@ -12,17 +12,20 @@ use tree_sitter_loader as loader;
 const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
 
-fn main() -> Result<()> {
+fn main() {
     let result = run();
-    // Ignore BrokenPipe errors
     if let Err(err) = &result {
+        // Ignore BrokenPipe errors
         if let Some(error) = err.downcast_ref::<std::io::Error>() {
             if error.kind() == std::io::ErrorKind::BrokenPipe {
-                return Ok(());
+                return;
             }
         }
+        if !err.to_string().is_empty() {
+            eprintln!("{:?}", err);
+        }
+        std::process::exit(1);
     }
-    result
 }
 
 fn run() -> Result<()> {
