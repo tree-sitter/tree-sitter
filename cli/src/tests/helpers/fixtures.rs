@@ -50,7 +50,7 @@ pub fn get_highlight_config(
         &locals_query,
     )
     .unwrap();
-    result.configure(highlight_names);
+    result.configure(&highlight_names);
     result
 }
 

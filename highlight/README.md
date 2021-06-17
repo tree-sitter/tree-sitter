@@ -18,7 +18,7 @@ tree-sitter-javascript = "0.19"
 Define the list of highlight names that you will recognize:
 
 ```rust
-let highlight_names : Vec<String> = [
+let highlight_names = &[
     "attribute",
     "constant",
     "function.builtin",
@@ -37,11 +37,7 @@ let highlight_names : Vec<String> = [
     "variable",
     "variable.builtin",
     "variable.parameter",
-]
-.iter()
-.cloned()
-.map(String::from)
-.collect();
+];
 ```
 
 Create a highlighter. You need one of these for each thread that you're using for syntax highlighting:

@@ -293,7 +293,7 @@ impl HighlightConfiguration {
     ///
     /// When highlighting, results are returned as `Highlight` values, which contain the index
     /// of the matched highlight this list of highlight names.
-    pub fn configure(&mut self, recognized_names: &[String]) {
+    pub fn configure(&mut self, recognized_names: &[impl AsRef<str>]) {
         let mut capture_parts = Vec::new();
         self.highlight_indices.clear();
         self.highlight_indices
@@ -303,10 +303,10 @@ impl HighlightConfiguration {
 
                 let mut best_index = None;
                 let mut best_match_len = 0;
-                for (i, recognized_name) in recognized_names.iter().enumerate() {
+                for (i, recognized_name) in recognized_names.into_iter().enumerate() {
                     let mut len = 0;
                     let mut matches = true;
-                    for part in recognized_name.split('.') {
+                    for part in recognized_name.as_ref().split('.') {
                         len += 1;
                         if !capture_parts.contains(&part) {
                             matches = false;
