@@ -54,11 +54,15 @@ pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<(
         &binding_gyp_path,
         |path| generate_file(path, BINDING_GYP_TEMPLATE, language_name),
         |path| {
-            eprintln!("Updating binding.gyp with new binding path");
             let binding_gyp =
                 fs::read_to_string(path).with_context(|| "Failed to read binding.gyp")?;
-            let binding_gyp = binding_gyp.replace("\"src/binding.cc\"", "\"bindings/node/binding.cc\"");
-            write_file(path, binding_gyp)
+            let old_path = "\"src/binding.cc\"";
+            if binding_gyp.contains(old_path) {
+                eprintln!("Updating binding.gyp with new binding path");
+                let binding_gyp = binding_gyp.replace(old_path, "\"bindings/node/binding.cc\"");
+                write_file(path, binding_gyp)?;
+            }
+            Ok(())
         },
     )?;
 
@@ -82,7 +86,6 @@ pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<(
             });
             if package_json_needs_update {
                 eprintln!("Updating package.json with new binding path");
-
                 package_json.insert(
                     "main".to_string(),
                     serde_json::Value::String("bindings/node".to_string()),
