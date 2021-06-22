@@ -57,7 +57,7 @@ pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<(
             eprintln!("Updating binding.gyp with new binding path");
             let binding_gyp =
                 fs::read_to_string(path).with_context(|| "Failed to read binding.gyp")?;
-            let binding_gyp = binding_gyp.replace("src/binding.cc", "bindings/node/binding.cc");
+            let binding_gyp = binding_gyp.replace("\"src/binding.cc\"", "\"bindings/node/binding.cc\"");
             write_file(path, binding_gyp)
         },
     )?;
