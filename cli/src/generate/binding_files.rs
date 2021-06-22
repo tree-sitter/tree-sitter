@@ -1,6 +1,6 @@
 use super::write_file;
 use anyhow::{Context, Result};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::{fs, str};
 
 const BINDING_CC_TEMPLATE: &'static str = include_str!("./templates/binding.cc");
@@ -22,39 +22,33 @@ pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<(
 
     // Generate rust bindings if needed.
     let rust_binding_dir = bindings_dir.join("rust");
-    if !rust_binding_dir.exists() {
-        create_dir(&rust_binding_dir)?;
-        generate_file(
-            &rust_binding_dir.join("lib.rs"),
-            LIB_RS_TEMPLATE,
-            language_name,
-        )?;
-        generate_file(
-            &rust_binding_dir.join("build.rs"),
-            BUILD_RS_TEMPLATE,
-            language_name,
-        )?;
-        let cargo_toml_path = repo_path.join("Cargo.toml");
-        if !cargo_toml_path.exists() {
-            generate_file(&cargo_toml_path, CARGO_TOML_TEMPLATE, dashed_language_name)?;
-        }
-    }
+    create_path(&rust_binding_dir, |path| create_dir(path))?;
+
+    create_path(&rust_binding_dir.join("lib.rs").to_owned(), |path| {
+        generate_file(path, LIB_RS_TEMPLATE, language_name)
+    })?;
+
+    create_path(&rust_binding_dir.join("build.rs").to_owned(), |path| {
+        generate_file(path, BUILD_RS_TEMPLATE, language_name)
+    })?;
+
+    create_path(&repo_path.join("Cargo.toml").to_owned(), |path| {
+        generate_file(path, CARGO_TOML_TEMPLATE, dashed_language_name)
+    })?;
 
     // Generate node bindings
     let node_binding_dir = bindings_dir.join("node");
-    if !node_binding_dir.exists() {
-        create_dir(&node_binding_dir)?;
-        generate_file(
-            &node_binding_dir.join("index.js"),
-            INDEX_JS_TEMPLATE,
-            language_name,
-        )?;
-        generate_file(
-            &node_binding_dir.join("binding.cc"),
-            BINDING_CC_TEMPLATE,
-            language_name,
-        )?;
+    let node_binding_dir_created = create_path(&node_binding_dir, |path| create_dir(path))?;
 
+    create_path(&node_binding_dir.join("index.js").to_owned(), |path| {
+        generate_file(path, INDEX_JS_TEMPLATE, language_name)
+    })?;
+
+    create_path(&node_binding_dir.join("binding.cc").to_owned(), |path| {
+        generate_file(path, BINDING_CC_TEMPLATE, language_name)
+    })?;
+
+    if node_binding_dir_created {
         // Create binding.gyp, or update it with new binding path.
         let binding_gyp_path = repo_path.join("binding.gyp");
         if binding_gyp_path.exists() {
@@ -67,50 +61,48 @@ pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<(
         } else {
             generate_file(&binding_gyp_path, BINDING_GYP_TEMPLATE, language_name)?;
         }
+    }
 
-        // Create package.json, or update it with new binding path.
-        let package_json_path = repo_path.join("package.json");
-        if package_json_path.exists() {
-            let package_json_str = fs::read_to_string(&package_json_path)
-                .with_context(|| "Failed to read package.json")?;
-            let mut package_json =
-                serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(
-                    &package_json_str,
-                )
+    // Create package.json, or update it with new binding path.
+    let package_json_path = repo_path.join("package.json");
+    if package_json_path.exists() {
+        let package_json_str = fs::read_to_string(&package_json_path)
+            .with_context(|| "Failed to read package.json")?;
+        let mut package_json =
+            serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(&package_json_str)
                 .with_context(|| "Failed to parse package.json")?;
-            let package_json_main = package_json.get("main");
-            let package_json_needs_update = package_json_main.map_or(true, |v| {
-                let main_string = v.as_str();
-                main_string == Some("index.js") || main_string == Some("./index.js")
-            });
-            if package_json_needs_update {
-                eprintln!("Updating package.json with new binding path");
+        let package_json_main = package_json.get("main");
+        let package_json_needs_update = package_json_main.map_or(true, |v| {
+            let main_string = v.as_str();
+            main_string == Some("index.js") || main_string == Some("./index.js")
+        });
+        if package_json_needs_update {
+            eprintln!("Updating package.json with new binding path");
 
-                package_json.insert(
-                    "main".to_string(),
-                    serde_json::Value::String("bindings/node".to_string()),
-                );
-                let mut package_json_str = serde_json::to_string_pretty(&package_json)?;
-                package_json_str.push('\n');
-                write_file(&package_json_path, package_json_str)?;
-            }
-        } else {
-            generate_file(
-                &package_json_path,
-                PACKAGE_JSON_TEMPLATE,
-                dashed_language_name,
-            )?;
+            package_json.insert(
+                "main".to_string(),
+                serde_json::Value::String("bindings/node".to_string()),
+            );
+            let mut package_json_str = serde_json::to_string_pretty(&package_json)?;
+            package_json_str.push('\n');
+            write_file(&package_json_path, package_json_str)?;
         }
+    } else {
+        generate_file(
+            &package_json_path,
+            PACKAGE_JSON_TEMPLATE,
+            dashed_language_name,
+        )?;
+    }
 
-        // Remove files from old node binding paths.
-        let old_index_js_path = repo_path.join("index.js");
-        let old_binding_cc_path = repo_path.join("src").join("binding.cc");
-        if old_index_js_path.exists() {
-            fs::remove_file(old_index_js_path).ok();
-        }
-        if old_binding_cc_path.exists() {
-            fs::remove_file(old_binding_cc_path).ok();
-        }
+    // Remove files from old node binding paths.
+    let old_index_js_path = repo_path.join("index.js");
+    let old_binding_cc_path = repo_path.join("src").join("binding.cc");
+    if old_index_js_path.exists() {
+        fs::remove_file(old_index_js_path).ok();
+    }
+    if old_binding_cc_path.exists() {
+        fs::remove_file(old_binding_cc_path).ok();
     }
 
     Ok(())
@@ -128,4 +120,15 @@ fn generate_file(path: &Path, template: &str, language_name: &str) -> Result<()>
 fn create_dir(path: &Path) -> Result<()> {
     fs::create_dir_all(&path)
         .with_context(|| format!("Failed to create {:?}", path.to_string_lossy()))
+}
+
+fn create_path<F>(path: &PathBuf, action: F) -> Result<bool>
+where
+    F: Fn(&PathBuf) -> Result<()>,
+{
+    if !path.exists() {
+        action(path)?;
+        return Ok(true);
+    }
+    Ok(false)
 }
