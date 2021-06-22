@@ -9,6 +9,12 @@ fn main() {
     if wasm_files_present() {
         println!("cargo:rustc-cfg={}", "TREE_SITTER_EMBED_WASM_BINDING");
     }
+
+    let rust_binding_version = read_rust_binding_version();
+    println!(
+        "cargo:rustc-env={}={}",
+        "RUST_BINDING_VERSION", rust_binding_version
+    );
 }
 
 fn wasm_files_present() -> bool {
@@ -66,4 +72,15 @@ fn read_git_sha() -> Option<String> {
     }
 
     None
+}
+
+fn read_rust_binding_version() -> String {
+    let path = "../lib/Cargo.toml";
+    let text = fs::read_to_string(path).unwrap();
+    let cargo_toml = toml::from_str::<toml::Value>(text.as_ref()).unwrap();
+    cargo_toml["package"]["version"]
+        .as_str()
+        .unwrap()
+        .trim_matches('"')
+        .to_string()
 }
