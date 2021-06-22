@@ -38,7 +38,7 @@ pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<(
 
     // Generate node bindings
     let node_binding_dir = bindings_dir.join("node");
-    let node_binding_dir_created = create_path(&node_binding_dir, |path| create_dir(path))?;
+    create_path(&node_binding_dir, |path| create_dir(path))?;
 
     create_path(&node_binding_dir.join("index.js").to_owned(), |path| {
         generate_file(path, INDEX_JS_TEMPLATE, language_name)
@@ -48,52 +48,52 @@ pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<(
         generate_file(path, BINDING_CC_TEMPLATE, language_name)
     })?;
 
-    if node_binding_dir_created {
-        // Create binding.gyp, or update it with new binding path.
-        let binding_gyp_path = repo_path.join("binding.gyp");
-        if binding_gyp_path.exists() {
+    // Create binding.gyp, or update it with new binding path.
+    let binding_gyp_path = repo_path.join("binding.gyp");
+    create_path_else(
+        &binding_gyp_path,
+        |path| generate_file(path, BINDING_GYP_TEMPLATE, language_name),
+        |path| {
             eprintln!("Updating binding.gyp with new binding path");
-
-            let binding_gyp = fs::read_to_string(&binding_gyp_path)
-                .with_context(|| "Failed to read binding.gyp")?;
+            let binding_gyp =
+                fs::read_to_string(path).with_context(|| "Failed to read binding.gyp")?;
             let binding_gyp = binding_gyp.replace("src/binding.cc", "bindings/node/binding.cc");
-            write_file(&binding_gyp_path, binding_gyp)?;
-        } else {
-            generate_file(&binding_gyp_path, BINDING_GYP_TEMPLATE, language_name)?;
-        }
-    }
+            write_file(path, binding_gyp)
+        },
+    )?;
 
     // Create package.json, or update it with new binding path.
     let package_json_path = repo_path.join("package.json");
-    if package_json_path.exists() {
-        let package_json_str = fs::read_to_string(&package_json_path)
-            .with_context(|| "Failed to read package.json")?;
-        let mut package_json =
-            serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(&package_json_str)
+    create_path_else(
+        &package_json_path,
+        |path| generate_file(path, PACKAGE_JSON_TEMPLATE, dashed_language_name),
+        |path| {
+            let package_json_str =
+                fs::read_to_string(path).with_context(|| "Failed to read package.json")?;
+            let mut package_json =
+                serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(
+                    &package_json_str,
+                )
                 .with_context(|| "Failed to parse package.json")?;
-        let package_json_main = package_json.get("main");
-        let package_json_needs_update = package_json_main.map_or(true, |v| {
-            let main_string = v.as_str();
-            main_string == Some("index.js") || main_string == Some("./index.js")
-        });
-        if package_json_needs_update {
-            eprintln!("Updating package.json with new binding path");
+            let package_json_main = package_json.get("main");
+            let package_json_needs_update = package_json_main.map_or(true, |v| {
+                let main_string = v.as_str();
+                main_string == Some("index.js") || main_string == Some("./index.js")
+            });
+            if package_json_needs_update {
+                eprintln!("Updating package.json with new binding path");
 
-            package_json.insert(
-                "main".to_string(),
-                serde_json::Value::String("bindings/node".to_string()),
-            );
-            let mut package_json_str = serde_json::to_string_pretty(&package_json)?;
-            package_json_str.push('\n');
-            write_file(&package_json_path, package_json_str)?;
-        }
-    } else {
-        generate_file(
-            &package_json_path,
-            PACKAGE_JSON_TEMPLATE,
-            dashed_language_name,
-        )?;
-    }
+                package_json.insert(
+                    "main".to_string(),
+                    serde_json::Value::String("bindings/node".to_string()),
+                );
+                let mut package_json_str = serde_json::to_string_pretty(&package_json)?;
+                package_json_str.push('\n');
+                write_file(path, package_json_str)?;
+            }
+            Ok(())
+        },
+    )?;
 
     // Remove files from old node binding paths.
     let old_index_js_path = repo_path.join("index.js");
@@ -129,6 +129,20 @@ where
     if !path.exists() {
         action(path)?;
         return Ok(true);
+    }
+    Ok(false)
+}
+
+fn create_path_else<T, F>(path: &PathBuf, action: T, else_action: F) -> Result<bool>
+where
+    T: Fn(&PathBuf) -> Result<()>,
+    F: Fn(&PathBuf) -> Result<()>,
+{
+    if !path.exists() {
+        action(path)?;
+        return Ok(true);
+    } else {
+        else_action(path)?;
     }
     Ok(false)
 }
