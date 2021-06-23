@@ -181,261 +181,284 @@ fn run() -> Result<()> {
     let config = Config::load()?;
     let mut loader = loader::Loader::new()?;
 
-    if matches.subcommand_matches("init-config").is_some() {
-        let mut config = Config::initial()?;
-        config.add(tree_sitter_loader::Config::initial())?;
-        config.add(tree_sitter_cli::highlight::ThemeConfig::default())?;
-        config.save()?;
-        println!(
-            "Saved initial configuration to {}",
-            config.location.display()
-        );
-    } else if let Some(matches) = matches.subcommand_matches("generate") {
-        let grammar_path = matches.value_of("grammar-path");
-        let report_symbol_name = matches.value_of("report-states-for-rule").or_else(|| {
-            if matches.is_present("report-states") {
-                Some("")
-            } else {
-                None
-            }
-        });
-        if matches.is_present("log") {
-            logger::init();
-        }
-        let new_abi = !matches.is_present("prev-abi");
-        let generate_bindings = !matches.is_present("no-bindings");
-        generate::generate_parser_in_directory(
-            &current_dir,
-            grammar_path,
-            new_abi,
-            generate_bindings,
-            report_symbol_name,
-        )?;
-    } else if let Some(matches) = matches.subcommand_matches("test") {
-        let debug = matches.is_present("debug");
-        let debug_graph = matches.is_present("debug-graph");
-        let update = matches.is_present("update");
-        let filter = matches.value_of("filter");
-        let languages = loader.languages_at_path(&current_dir)?;
-        let language = languages
-            .first()
-            .ok_or_else(|| anyhow!("No language found"))?;
-        let test_dir = current_dir.join("test");
-
-        // Run the corpus tests. Look for them at two paths: `test/corpus` and `corpus`.
-        let mut test_corpus_dir = test_dir.join("corpus");
-        if !test_corpus_dir.is_dir() {
-            test_corpus_dir = current_dir.join("corpus");
-        }
-        if test_corpus_dir.is_dir() {
-            test::run_tests_at_path(
-                *language,
-                &test_corpus_dir,
-                debug,
-                debug_graph,
-                filter,
-                update,
-            )?;
-        }
-
-        // Check that all of the queries are valid.
-        test::check_queries_at_path(*language, &current_dir.join("queries"))?;
-
-        // Run the syntax highlighting tests.
-        let test_highlight_dir = test_dir.join("highlight");
-        if test_highlight_dir.is_dir() {
-            test_highlight::test_highlights(&loader, &test_highlight_dir)?;
-        }
-    } else if let Some(matches) = matches.subcommand_matches("parse") {
-        let debug = matches.is_present("debug");
-        let debug_graph = matches.is_present("debug-graph");
-        let debug_xml = matches.is_present("debug-xml");
-        let quiet = matches.is_present("quiet");
-        let time = matches.is_present("time");
-        let edits = matches
-            .values_of("edits")
-            .map_or(Vec::new(), |e| e.collect());
-        let cancellation_flag = util::cancel_on_stdin();
-
-        let timeout = matches
-            .value_of("timeout")
-            .map_or(0, |t| u64::from_str_radix(t, 10).unwrap());
-
-        let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
-
-        let max_path_length = paths.iter().map(|p| p.chars().count()).max().unwrap();
-        let mut has_error = false;
-        let loader_config = config.get()?;
-        loader.find_all_languages(&loader_config)?;
-
-        let should_track_stats = matches.is_present("stat");
-        let mut stats = parse::Stats::default();
-
-        for path in paths {
-            let path = Path::new(&path);
-            let language = loader.select_language(path, &current_dir, matches.value_of("scope"))?;
-
-            let this_file_errored = parse::parse_file_at_path(
-                language,
-                path,
-                &edits,
-                max_path_length,
-                quiet,
-                time,
-                timeout,
-                debug,
-                debug_graph,
-                debug_xml,
-                Some(&cancellation_flag),
-            )?;
-
-            if should_track_stats {
-                stats.total_parses += 1;
-                if !this_file_errored {
-                    stats.successful_parses += 1;
-                }
-            }
-
-            has_error |= this_file_errored;
-        }
-
-        if should_track_stats {
-            println!("{}", stats)
-        }
-
-        if has_error {
-            return Err(anyhow!(""));
-        }
-    } else if let Some(matches) = matches.subcommand_matches("query") {
-        let ordered_captures = matches.values_of("captures").is_some();
-        let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
-        let loader_config = config.get()?;
-        loader.find_all_languages(&loader_config)?;
-        let language = loader.select_language(
-            Path::new(&paths[0]),
-            &current_dir,
-            matches.value_of("scope"),
-        )?;
-        let query_path = Path::new(matches.value_of("query-path").unwrap());
-        let range = matches.value_of("byte-range").map(|br| {
-            let r: Vec<&str> = br.split(":").collect();
-            r[0].parse().unwrap()..r[1].parse().unwrap()
-        });
-        let should_test = matches.is_present("test");
-        query::query_files_at_paths(
-            language,
-            paths,
-            query_path,
-            ordered_captures,
-            range,
-            should_test,
-        )?;
-    } else if let Some(matches) = matches.subcommand_matches("tags") {
-        let loader_config = config.get()?;
-        loader.find_all_languages(&loader_config)?;
-        let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
-        tags::generate_tags(
-            &loader,
-            matches.value_of("scope"),
-            &paths,
-            matches.is_present("quiet"),
-            matches.is_present("time"),
-        )?;
-    } else if let Some(matches) = matches.subcommand_matches("highlight") {
-        let theme_config: tree_sitter_cli::highlight::ThemeConfig = config.get()?;
-        loader.configure_highlights(&theme_config.theme.highlight_names);
-        let loader_config = config.get()?;
-        loader.find_all_languages(&loader_config)?;
-
-        let time = matches.is_present("time");
-        let quiet = matches.is_present("quiet");
-        let html_mode = quiet || matches.is_present("html");
-        let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
-
-        if html_mode && !quiet {
-            println!("{}", highlight::HTML_HEADER);
-        }
-
-        let cancellation_flag = util::cancel_on_stdin();
-
-        let mut lang = None;
-        if let Some(scope) = matches.value_of("scope") {
-            lang = loader.language_configuration_for_scope(scope)?;
-            if lang.is_none() {
-                return Err(anyhow!("Unknown scope '{}'", scope));
-            }
-        }
-
-        for path in paths {
-            let path = Path::new(&path);
-            let (language, language_config) = match lang {
-                Some(v) => v,
-                None => match loader.language_configuration_for_file_name(path)? {
-                    Some(v) => v,
-                    None => {
-                        eprintln!("No language found for path {:?}", path);
-                        continue;
-                    }
-                },
-            };
-
-            if let Some(highlight_config) = language_config.highlight_config(language)? {
-                let source = fs::read(path)?;
-                let theme_config = config.get()?;
-                if html_mode {
-                    highlight::html(
-                        &loader,
-                        &theme_config,
-                        &source,
-                        highlight_config,
-                        quiet,
-                        time,
-                    )?;
-                } else {
-                    highlight::ansi(
-                        &loader,
-                        &theme_config,
-                        &source,
-                        highlight_config,
-                        time,
-                        Some(&cancellation_flag),
-                    )?;
-                }
-            } else {
-                eprintln!("No syntax highlighting config found for path {:?}", path);
-            }
-        }
-
-        if html_mode && !quiet {
-            println!("{}", highlight::HTML_FOOTER);
-        }
-    } else if let Some(matches) = matches.subcommand_matches("build-wasm") {
-        let grammar_path = current_dir.join(matches.value_of("path").unwrap_or(""));
-        wasm::compile_language_to_wasm(&grammar_path, matches.is_present("docker"))?;
-    } else if let Some(matches) = matches.subcommand_matches("web-ui") {
-        let open_in_browser = !matches.is_present("quiet");
-        web_ui::serve(&current_dir, open_in_browser);
-    } else if matches.subcommand_matches("dump-languages").is_some() {
-        let loader_config = config.get()?;
-        loader.find_all_languages(&loader_config)?;
-        for (configuration, language_path) in loader.get_all_language_configurations() {
+    match matches.subcommand() {
+        ("init-config", Some(_)) => {
+            let mut config = Config::initial()?;
+            config.add(tree_sitter_loader::Config::initial())?;
+            config.add(tree_sitter_cli::highlight::ThemeConfig::default())?;
+            config.save()?;
             println!(
-                concat!(
-                    "scope: {}\n",
-                    "parser: {:?}\n",
-                    "highlights: {:?}\n",
-                    "file_types: {:?}\n",
-                    "content_regex: {:?}\n",
-                    "injection_regex: {:?}\n",
-                ),
-                configuration.scope.as_ref().unwrap_or(&String::new()),
-                language_path,
-                configuration.highlights_filenames,
-                configuration.file_types,
-                configuration.content_regex,
-                configuration.injection_regex,
+                "Saved initial configuration to {}",
+                config.location.display()
             );
         }
+
+        ("generate", Some(matches)) => {
+            let grammar_path = matches.value_of("grammar-path");
+            let report_symbol_name = matches.value_of("report-states-for-rule").or_else(|| {
+                if matches.is_present("report-states") {
+                    Some("")
+                } else {
+                    None
+                }
+            });
+            if matches.is_present("log") {
+                logger::init();
+            }
+            let new_abi = !matches.is_present("prev-abi");
+            let generate_bindings = !matches.is_present("no-bindings");
+            generate::generate_parser_in_directory(
+                &current_dir,
+                grammar_path,
+                new_abi,
+                generate_bindings,
+                report_symbol_name,
+            )?;
+        }
+
+        ("test", Some(matches)) => {
+            let debug = matches.is_present("debug");
+            let debug_graph = matches.is_present("debug-graph");
+            let update = matches.is_present("update");
+            let filter = matches.value_of("filter");
+            let languages = loader.languages_at_path(&current_dir)?;
+            let language = languages
+                .first()
+                .ok_or_else(|| anyhow!("No language found"))?;
+            let test_dir = current_dir.join("test");
+
+            // Run the corpus tests. Look for them at two paths: `test/corpus` and `corpus`.
+            let mut test_corpus_dir = test_dir.join("corpus");
+            if !test_corpus_dir.is_dir() {
+                test_corpus_dir = current_dir.join("corpus");
+            }
+            if test_corpus_dir.is_dir() {
+                test::run_tests_at_path(
+                    *language,
+                    &test_corpus_dir,
+                    debug,
+                    debug_graph,
+                    filter,
+                    update,
+                )?;
+            }
+
+            // Check that all of the queries are valid.
+            test::check_queries_at_path(*language, &current_dir.join("queries"))?;
+
+            // Run the syntax highlighting tests.
+            let test_highlight_dir = test_dir.join("highlight");
+            if test_highlight_dir.is_dir() {
+                test_highlight::test_highlights(&loader, &test_highlight_dir)?;
+            }
+        }
+
+        ("parse", Some(matches)) => {
+            let debug = matches.is_present("debug");
+            let debug_graph = matches.is_present("debug-graph");
+            let debug_xml = matches.is_present("debug-xml");
+            let quiet = matches.is_present("quiet");
+            let time = matches.is_present("time");
+            let edits = matches
+                .values_of("edits")
+                .map_or(Vec::new(), |e| e.collect());
+            let cancellation_flag = util::cancel_on_stdin();
+
+            let timeout = matches
+                .value_of("timeout")
+                .map_or(0, |t| u64::from_str_radix(t, 10).unwrap());
+
+            let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
+
+            let max_path_length = paths.iter().map(|p| p.chars().count()).max().unwrap();
+            let mut has_error = false;
+            let loader_config = config.get()?;
+            loader.find_all_languages(&loader_config)?;
+
+            let should_track_stats = matches.is_present("stat");
+            let mut stats = parse::Stats::default();
+
+            for path in paths {
+                let path = Path::new(&path);
+                let language =
+                    loader.select_language(path, &current_dir, matches.value_of("scope"))?;
+
+                let this_file_errored = parse::parse_file_at_path(
+                    language,
+                    path,
+                    &edits,
+                    max_path_length,
+                    quiet,
+                    time,
+                    timeout,
+                    debug,
+                    debug_graph,
+                    debug_xml,
+                    Some(&cancellation_flag),
+                )?;
+
+                if should_track_stats {
+                    stats.total_parses += 1;
+                    if !this_file_errored {
+                        stats.successful_parses += 1;
+                    }
+                }
+
+                has_error |= this_file_errored;
+            }
+
+            if should_track_stats {
+                println!("{}", stats)
+            }
+
+            if has_error {
+                return Err(anyhow!(""));
+            }
+        }
+
+        ("query", Some(matches)) => {
+            let ordered_captures = matches.values_of("captures").is_some();
+            let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
+            let loader_config = config.get()?;
+            loader.find_all_languages(&loader_config)?;
+            let language = loader.select_language(
+                Path::new(&paths[0]),
+                &current_dir,
+                matches.value_of("scope"),
+            )?;
+            let query_path = Path::new(matches.value_of("query-path").unwrap());
+            let range = matches.value_of("byte-range").map(|br| {
+                let r: Vec<&str> = br.split(":").collect();
+                r[0].parse().unwrap()..r[1].parse().unwrap()
+            });
+            let should_test = matches.is_present("test");
+            query::query_files_at_paths(
+                language,
+                paths,
+                query_path,
+                ordered_captures,
+                range,
+                should_test,
+            )?;
+        }
+
+        ("tags", Some(matches)) => {
+            let loader_config = config.get()?;
+            loader.find_all_languages(&loader_config)?;
+            let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
+            tags::generate_tags(
+                &loader,
+                matches.value_of("scope"),
+                &paths,
+                matches.is_present("quiet"),
+                matches.is_present("time"),
+            )?;
+        }
+
+        ("highlight", Some(matches)) => {
+            let theme_config: tree_sitter_cli::highlight::ThemeConfig = config.get()?;
+            loader.configure_highlights(&theme_config.theme.highlight_names);
+            let loader_config = config.get()?;
+            loader.find_all_languages(&loader_config)?;
+
+            let time = matches.is_present("time");
+            let quiet = matches.is_present("quiet");
+            let html_mode = quiet || matches.is_present("html");
+            let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
+
+            if html_mode && !quiet {
+                println!("{}", highlight::HTML_HEADER);
+            }
+
+            let cancellation_flag = util::cancel_on_stdin();
+
+            let mut lang = None;
+            if let Some(scope) = matches.value_of("scope") {
+                lang = loader.language_configuration_for_scope(scope)?;
+                if lang.is_none() {
+                    return Err(anyhow!("Unknown scope '{}'", scope));
+                }
+            }
+
+            for path in paths {
+                let path = Path::new(&path);
+                let (language, language_config) = match lang {
+                    Some(v) => v,
+                    None => match loader.language_configuration_for_file_name(path)? {
+                        Some(v) => v,
+                        None => {
+                            eprintln!("No language found for path {:?}", path);
+                            continue;
+                        }
+                    },
+                };
+
+                if let Some(highlight_config) = language_config.highlight_config(language)? {
+                    let source = fs::read(path)?;
+                    let theme_config = config.get()?;
+                    if html_mode {
+                        highlight::html(
+                            &loader,
+                            &theme_config,
+                            &source,
+                            highlight_config,
+                            quiet,
+                            time,
+                        )?;
+                    } else {
+                        highlight::ansi(
+                            &loader,
+                            &theme_config,
+                            &source,
+                            highlight_config,
+                            time,
+                            Some(&cancellation_flag),
+                        )?;
+                    }
+                } else {
+                    eprintln!("No syntax highlighting config found for path {:?}", path);
+                }
+            }
+
+            if html_mode && !quiet {
+                println!("{}", highlight::HTML_FOOTER);
+            }
+        }
+
+        ("build-wasm", Some(matches)) => {
+            let grammar_path = current_dir.join(matches.value_of("path").unwrap_or(""));
+            wasm::compile_language_to_wasm(&grammar_path, matches.is_present("docker"))?;
+        }
+
+        ("web-ui", Some(matches)) => {
+            let open_in_browser = !matches.is_present("quiet");
+            web_ui::serve(&current_dir, open_in_browser);
+        }
+
+        ("dump-languages", Some(_)) => {
+            let loader_config = config.get()?;
+            loader.find_all_languages(&loader_config)?;
+            for (configuration, language_path) in loader.get_all_language_configurations() {
+                println!(
+                    concat!(
+                        "scope: {}\n",
+                        "parser: {:?}\n",
+                        "highlights: {:?}\n",
+                        "file_types: {:?}\n",
+                        "content_regex: {:?}\n",
+                        "injection_regex: {:?}\n",
+                    ),
+                    configuration.scope.as_ref().unwrap_or(&String::new()),
+                    language_path,
+                    configuration.highlights_filenames,
+                    configuration.file_types,
+                    configuration.content_regex,
+                    configuration.injection_regex,
+                );
+            }
+        }
+
+        _ => unreachable!(),
     }
 
     Ok(())
