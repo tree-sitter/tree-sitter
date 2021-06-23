@@ -311,7 +311,9 @@ fn parse_edit_flag(source_code: &Vec<u8>, flag: &str) -> Result<Edit> {
     let inserted_text = parts.collect::<Vec<_>>().join(" ").into_bytes();
 
     // Position can either be a byte_offset or row,column pair, separated by a comma
-    let position = if position.contains(",") {
+    let position = if position == "$" {
+        source_code.len()
+    } else if position.contains(",") {
         let mut parts = position.split(",");
         let row = parts.next().ok_or_else(error)?;
         let row = usize::from_str_radix(row, 10).map_err(|_| error())?;
