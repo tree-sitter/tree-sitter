@@ -169,8 +169,11 @@ fn run() -> Result<()> {
                 .arg(Arg::with_name("path").index(1).multiple(true)),
         )
         .subcommand(
-            SubCommand::with_name("web-ui")
-                .about("Test a parser interactively in the browser")
+            SubCommand::with_name("playground")
+                .alias("play")
+                .alias("pg")
+                .alias("web-ui")
+                .about("Start local playground for a parser in the browser")
                 .arg(
                     Arg::with_name("quiet")
                         .long("quiet")
@@ -437,7 +440,7 @@ fn run() -> Result<()> {
             wasm::compile_language_to_wasm(&grammar_path, matches.is_present("docker"))?;
         }
 
-        ("web-ui", Some(matches)) => {
+        ("playground", Some(matches)) => {
             let open_in_browser = !matches.is_present("quiet");
             web_ui::serve(&current_dir, open_in_browser);
         }
