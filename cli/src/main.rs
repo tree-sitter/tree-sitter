@@ -44,6 +44,8 @@ fn run() -> Result<()> {
         .subcommand(SubCommand::with_name("init-config").about("Generate a default config file"))
         .subcommand(
             SubCommand::with_name("generate")
+                .alias("gen")
+                .alias("g")
                 .about("Generate a parser")
                 .arg(Arg::with_name("grammar-path").index(1))
                 .arg(Arg::with_name("log").long("log"))
@@ -59,6 +61,7 @@ fn run() -> Result<()> {
         )
         .subcommand(
             SubCommand::with_name("parse")
+                .alias("p")
                 .about("Parse files")
                 .arg(Arg::with_name("paths-file").long("paths").takes_value(true))
                 .arg(
@@ -86,6 +89,7 @@ fn run() -> Result<()> {
         )
         .subcommand(
             SubCommand::with_name("query")
+                .alias("q")
                 .about("Search files using a syntax tree query")
                 .arg(Arg::with_name("query-path").index(1).required(true))
                 .arg(Arg::with_name("paths-file").long("paths").takes_value(true))
@@ -120,6 +124,7 @@ fn run() -> Result<()> {
         )
         .subcommand(
             SubCommand::with_name("test")
+                .alias("t")
                 .about("Run a parser's tests")
                 .arg(
                     Arg::with_name("filter")
@@ -154,6 +159,7 @@ fn run() -> Result<()> {
         )
         .subcommand(
             SubCommand::with_name("build-wasm")
+                .alias("bw")
                 .about("Compile a parser to WASM")
                 .arg(
                     Arg::with_name("docker")
