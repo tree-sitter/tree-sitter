@@ -41,6 +41,7 @@ fn run() -> Result<()> {
         .author("Max Brunsfeld <maxbrunsfeld@gmail.com>")
         .about("Generates and tests parsers")
         .global_setting(AppSettings::ColoredHelp)
+        .global_setting(AppSettings::DisableHelpSubcommand)
         .subcommand(SubCommand::with_name("init-config").about("Generate a default config file"))
         .subcommand(
             SubCommand::with_name("generate")
