@@ -154,7 +154,7 @@ fn run() -> Result<()> {
                         .required(false),
                 )
                 .arg(Arg::with_name("scope").long("scope").takes_value(true))
-                .arg(Arg::with_name("html").long("html").short("h"))
+                .arg(Arg::with_name("html").long("html").short("H"))
                 .arg(Arg::with_name("time").long("time").short("t"))
                 .arg(Arg::with_name("quiet").long("quiet").short("q")),
         )
