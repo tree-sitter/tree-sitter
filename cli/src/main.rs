@@ -40,9 +40,13 @@ fn run() -> Result<()> {
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .author("Max Brunsfeld <maxbrunsfeld@gmail.com>")
         .about("Generates and tests parsers")
+        .global_setting(AppSettings::ColoredHelp)
+        .global_setting(AppSettings::DisableHelpSubcommand)
         .subcommand(SubCommand::with_name("init-config").about("Generate a default config file"))
         .subcommand(
             SubCommand::with_name("generate")
+                .alias("gen")
+                .alias("g")
                 .about("Generate a parser")
                 .arg(Arg::with_name("grammar-path").index(1))
                 .arg(Arg::with_name("log").long("log"))
@@ -58,6 +62,7 @@ fn run() -> Result<()> {
         )
         .subcommand(
             SubCommand::with_name("parse")
+                .alias("p")
                 .about("Parse files")
                 .arg(Arg::with_name("paths-file").long("paths").takes_value(true))
                 .arg(
@@ -85,6 +90,7 @@ fn run() -> Result<()> {
         )
         .subcommand(
             SubCommand::with_name("query")
+                .alias("q")
                 .about("Search files using a syntax tree query")
                 .arg(Arg::with_name("query-path").index(1).required(true))
                 .arg(Arg::with_name("paths-file").long("paths").takes_value(true))
@@ -119,6 +125,7 @@ fn run() -> Result<()> {
         )
         .subcommand(
             SubCommand::with_name("test")
+                .alias("t")
                 .about("Run a parser's tests")
                 .arg(
                     Arg::with_name("filter")
@@ -147,12 +154,13 @@ fn run() -> Result<()> {
                         .required(false),
                 )
                 .arg(Arg::with_name("scope").long("scope").takes_value(true))
-                .arg(Arg::with_name("html").long("html").short("h"))
+                .arg(Arg::with_name("html").long("html").short("H"))
                 .arg(Arg::with_name("time").long("time").short("t"))
                 .arg(Arg::with_name("quiet").long("quiet").short("q")),
         )
         .subcommand(
             SubCommand::with_name("build-wasm")
+                .alias("bw")
                 .about("Compile a parser to WASM")
                 .arg(
                     Arg::with_name("docker")
@@ -162,8 +170,11 @@ fn run() -> Result<()> {
                 .arg(Arg::with_name("path").index(1).multiple(true)),
         )
         .subcommand(
-            SubCommand::with_name("web-ui")
-                .about("Test a parser interactively in the browser")
+            SubCommand::with_name("playground")
+                .alias("play")
+                .alias("pg")
+                .alias("web-ui")
+                .about("Start local playground for a parser in the browser")
                 .arg(
                     Arg::with_name("quiet")
                         .long("quiet")
@@ -430,7 +441,7 @@ fn run() -> Result<()> {
             wasm::compile_language_to_wasm(&grammar_path, matches.is_present("docker"))?;
         }
 
-        ("web-ui", Some(matches)) => {
+        ("playground", Some(matches)) => {
             let open_in_browser = !matches.is_present("quiet");
             web_ui::serve(&current_dir, open_in_browser);
         }
