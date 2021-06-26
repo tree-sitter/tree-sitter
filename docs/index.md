@@ -44,6 +44,7 @@ Parsers for these languages are fairly complete:
 * [Markdown](https://github.com/ikatyang/tree-sitter-markdown)
 * [OCaml](https://github.com/tree-sitter/tree-sitter-ocaml)
 * [PHP](https://github.com/tree-sitter/tree-sitter-php)
+* [Portable Game Notation](https://github.com/rolandwalker/tree-sitter-pgn)
 * [Python](https://github.com/tree-sitter/tree-sitter-python)
 * [Ruby](https://github.com/tree-sitter/tree-sitter-ruby)
 * [Rust](https://github.com/tree-sitter/tree-sitter-rust)
