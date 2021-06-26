@@ -281,7 +281,7 @@ fn run() -> Result<()> {
 
             let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
 
-            let max_path_length = paths.iter().map(|p| p.chars().count()).max().unwrap();
+            let max_path_length = paths.iter().map(|p| p.chars().count()).max().unwrap_or(0);
             let mut has_error = false;
             let loader_config = config.get()?;
             loader.find_all_languages(&loader_config)?;
