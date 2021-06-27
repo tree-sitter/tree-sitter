@@ -20,7 +20,7 @@ pub struct Config {
 }
 
 impl Config {
-    fn find_config_file() -> Result<Option<PathBuf>> {
+    pub fn find_config_file() -> Result<Option<PathBuf>> {
         if let Ok(path) = env::var("TREE_SITTER_DIR") {
             let mut path = PathBuf::from(path);
             path.push("config.json");

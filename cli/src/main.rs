@@ -194,6 +194,12 @@ fn run() -> Result<()> {
 
     match matches.subcommand() {
         ("init-config", Some(_)) => {
+            if let Ok(Some(config_path)) = Config::find_config_file() {
+                return Err(anyhow!(
+                    "Remove your existing config file first: {}",
+                    config_path.to_string_lossy()
+                ));
+            }
             let mut config = Config::initial()?;
             config.add(tree_sitter_loader::Config::initial())?;
             config.add(tree_sitter_cli::highlight::ThemeConfig::default())?;
