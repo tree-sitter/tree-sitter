@@ -873,7 +873,7 @@ fn test_parsing_with_multiple_included_ranges() {
 }
 
 #[test]
-fn test_parsing_with_included_range_at_the_beginning_of_file() {
+fn test_parsing_with_included_range_containing_mismatched_positions() {
     let source_code = "<div>test</div>{_ignore_this_part_}";
 
     let mut parser = Parser::new();
@@ -896,17 +896,10 @@ fn test_parsing_with_included_range_at_the_beginning_of_file() {
 
     parser.set_included_ranges(&[range_to_parse]).unwrap();
 
-    let mut callback = |offset, _point| {
-        if offset == 0 {
-            source_code.as_bytes()
-        } else {
-            &[]
-        }
-    };
 
-    let html_tree = parser.parse_with(&mut callback, None).unwrap();
+    let html_tree = parser.parse(source_code, None).unwrap();
 
-    assert_eq!(html_tree.root_node().range(), range_to_parse,);
+    assert_eq!(html_tree.root_node().range(), range_to_parse);
 
     assert_eq!(
         html_tree.root_node().to_sexp(),
