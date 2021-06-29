@@ -9,6 +9,12 @@ fn main() {
     if wasm_files_present() {
         println!("cargo:rustc-cfg={}", "TREE_SITTER_EMBED_WASM_BINDING");
     }
+
+    let emscripten_version = fs::read_to_string("../emscripten-version").unwrap();
+    println!(
+        "cargo:rustc-env={}={}",
+        "EMSCRIPTEN_VERSION", emscripten_version
+    );
 }
 
 fn wasm_files_present() -> bool {
