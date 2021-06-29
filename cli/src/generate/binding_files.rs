@@ -13,6 +13,8 @@ const PACKAGE_JSON_TEMPLATE: &'static str = include_str!("./templates/package.js
 const PARSER_NAME_PLACEHOLDER: &'static str = "PARSER_NAME";
 const CLI_VERSION_PLACEHOLDER: &'static str = "CLI_VERSION";
 const CLI_VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const RUST_BINDING_VERSION: &'static str = env!("RUST_BINDING_VERSION");
+const RUST_BINDING_VERSION_PLACEHOLDER: &'static str = "RUST_BINDING_VERSION";
 
 pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<()> {
     let bindings_dir = repo_path.join("bindings");
@@ -116,7 +118,8 @@ fn generate_file(path: &Path, template: &str, language_name: &str) -> Result<()>
         path,
         template
             .replace(PARSER_NAME_PLACEHOLDER, language_name)
-            .replace(CLI_VERSION_PLACEHOLDER, CLI_VERSION),
+            .replace(CLI_VERSION_PLACEHOLDER, CLI_VERSION)
+            .replace(RUST_BINDING_VERSION_PLACEHOLDER, RUST_BINDING_VERSION),
     )
 }
 
