@@ -6,6 +6,8 @@ use std::path::Path;
 use std::process::Command;
 use which::which;
 
+const EMSCRIPTEN_TAG: &'static str = concat!("emscripten/emsdk:", env!("EMSCRIPTEN_VERSION"));
+
 pub fn get_grammar_name(src_dir: &Path) -> Result<String> {
     let grammar_json_path = src_dir.join("grammar.json");
     let grammar_json = fs::read_to_string(&grammar_json_path)
@@ -61,7 +63,7 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
         }
 
         // Run `emcc` in a container using the `emscripten-slim` image
-        command.args(&["emscripten/emsdk", "emcc"]);
+        command.args(&[EMSCRIPTEN_TAG, "emcc"]);
     } else {
         return Err(anyhow!(
             "You must have either emcc or docker on your PATH to run this command"

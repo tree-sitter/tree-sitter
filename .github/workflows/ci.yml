@@ -13,7 +13,6 @@ on:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
-  EMSCRIPTEN_VERSION: 2.0.11
 
 jobs:
   tests:
@@ -34,6 +33,10 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
+
+      - name: Read Emscripten version
+        run: |
+          printf 'EMSCRIPTEN_VERSION=%s\n' "$(cat emscripten-version)" >> $GITHUB_ENV
 
       - name: Cache artifacts
         id: cache

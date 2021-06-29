@@ -13,7 +13,13 @@ fn main() {
     let rust_binding_version = read_rust_binding_version();
     println!(
         "cargo:rustc-env={}={}",
-        "RUST_BINDING_VERSION", rust_binding_version
+        "RUST_BINDING_VERSION", rust_binding_version,
+    );
+
+    let emscripten_version = fs::read_to_string("../emscripten-version").unwrap();
+    println!(
+        "cargo:rustc-env={}={}",
+        "EMSCRIPTEN_VERSION", emscripten_version,
     );
 }
 
