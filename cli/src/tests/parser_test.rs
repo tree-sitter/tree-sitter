@@ -896,7 +896,6 @@ fn test_parsing_with_included_range_containing_mismatched_positions() {
 
     parser.set_included_ranges(&[range_to_parse]).unwrap();
 
-
     let html_tree = parser.parse(source_code, None).unwrap();
 
     assert_eq!(html_tree.root_node().range(), range_to_parse);
