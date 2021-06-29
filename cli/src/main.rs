@@ -36,11 +36,12 @@ fn run() -> Result<()> {
     };
 
     let matches = App::new("tree-sitter")
-        .version(version.as_str())
-        .setting(AppSettings::SubcommandRequiredElseHelp)
         .author("Max Brunsfeld <maxbrunsfeld@gmail.com>")
         .about("Generates and tests parsers")
+        .version(version.as_str())
+        .setting(AppSettings::SubcommandRequiredElseHelp)
         .global_setting(AppSettings::ColoredHelp)
+        .global_setting(AppSettings::DeriveDisplayOrder)
         .global_setting(AppSettings::DisableHelpSubcommand)
         .subcommand(SubCommand::with_name("init-config").about("Generate a default config file"))
         .subcommand(
@@ -194,6 +195,12 @@ fn run() -> Result<()> {
 
     match matches.subcommand() {
         ("init-config", Some(_)) => {
+            if let Ok(Some(config_path)) = Config::find_config_file() {
+                return Err(anyhow!(
+                    "Remove your existing config file first: {}",
+                    config_path.to_string_lossy()
+                ));
+            }
             let mut config = Config::initial()?;
             config.add(tree_sitter_loader::Config::initial())?;
             config.add(tree_sitter_cli::highlight::ThemeConfig::default())?;
