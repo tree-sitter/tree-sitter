@@ -282,6 +282,11 @@ fn run() -> Result<()> {
                 .map_or(Vec::new(), |e| e.collect());
             let cancellation_flag = util::cancel_on_stdin();
 
+            if debug {
+                // For augmenting debug logging in external scanners
+                env::set_var("TREE_SITTER_DEBUG", "1");
+            }
+
             let timeout = matches
                 .value_of("timeout")
                 .map_or(0, |t| u64::from_str_radix(t, 10).unwrap());
