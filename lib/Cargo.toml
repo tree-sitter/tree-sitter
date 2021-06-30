@@ -1,7 +1,7 @@
 [package]
 name = "tree-sitter"
 description = "Rust bindings to the Tree-sitter parsing library"
-version = "0.19.5"
+version = "0.20.0"
 authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
 edition = "2018"
 license = "MIT"
