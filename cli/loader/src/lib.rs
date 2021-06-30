@@ -2,6 +2,7 @@ use anyhow::{anyhow, Context, Error, Result};
 use libloading::{Library, Symbol};
 use once_cell::unsync::OnceCell;
 use regex::{Regex, RegexBuilder};
+use serde::{Deserialize, Deserializer};
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::BufReader;
@@ -18,8 +19,40 @@ use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
 #[derive(Default, Deserialize, Serialize)]
 pub struct Config {
     #[serde(default)]
-    #[serde(rename = "parser-directories")]
+    #[serde(
+        rename = "parser-directories",
+        deserialize_with = "deserialize_parser_directories"
+    )]
     pub parser_directories: Vec<PathBuf>,
+}
+
+// Replace `~` or `$HOME` with home path string.
+// (While paths like "~/.tree-sitter/config.json" can be deserialized,
+// they're not valid path for I/O modules.)
+fn deserialize_parser_directories<'de, D>(deserializer: D) -> Result<Vec<PathBuf>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let paths = Vec::<PathBuf>::deserialize(deserializer)?;
+    let home = match dirs::home_dir() {
+        Some(home) => home,
+        None => return Ok(paths),
+    };
+    let standardized = paths
+        .into_iter()
+        .map(|path| standardize_path(path, &home))
+        .collect();
+    Ok(standardized)
+}
+
+fn standardize_path(path: PathBuf, home: &Path) -> PathBuf {
+    if let Ok(p) = path.strip_prefix("~") {
+        return home.join(p);
+    }
+    if let Ok(p) = path.strip_prefix("$HOME") {
+        return home.join(p);
+    }
+    path
 }
 
 impl Config {
