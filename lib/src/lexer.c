@@ -110,7 +110,7 @@ static void ts_lexer_goto(Lexer *self, Length position) {
   for (unsigned i = 0; i < self->included_range_count; i++) {
     TSRange *included_range = &self->included_ranges[i];
     if (included_range->end_byte > position.bytes) {
-      if (included_range->start_byte > position.bytes) {
+      if (included_range->start_byte >= position.bytes) {
         self->current_position = (Length) {
           .bytes = included_range->start_byte,
           .extent = included_range->start_point,

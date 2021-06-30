@@ -873,6 +873,40 @@ fn test_parsing_with_multiple_included_ranges() {
 }
 
 #[test]
+fn test_parsing_with_included_range_containing_mismatched_positions() {
+    let source_code = "<div>test</div>{_ignore_this_part_}";
+
+    let mut parser = Parser::new();
+    parser.set_language(get_language("html")).unwrap();
+
+    let end_byte = source_code.find("{_ignore_this_part_").unwrap();
+
+    let range_to_parse = Range {
+        start_byte: 0,
+        start_point: Point {
+            row: 10,
+            column: 12,
+        },
+        end_byte,
+        end_point: Point {
+            row: 10,
+            column: 12 + end_byte,
+        },
+    };
+
+    parser.set_included_ranges(&[range_to_parse]).unwrap();
+
+    let html_tree = parser.parse(source_code, None).unwrap();
+
+    assert_eq!(html_tree.root_node().range(), range_to_parse);
+
+    assert_eq!(
+        html_tree.root_node().to_sexp(),
+        "(fragment (element (start_tag (tag_name)) (text) (end_tag (tag_name))))"
+    );
+}
+
+#[test]
 fn test_parsing_error_in_invalid_included_ranges() {
     let mut parser = Parser::new();
 
