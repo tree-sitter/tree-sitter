@@ -24,7 +24,9 @@ impl Config {
         if let Ok(path) = env::var("TREE_SITTER_DIR") {
             let mut path = PathBuf::from(path);
             path.push("config.json");
-            return Ok(Some(path));
+            if path.is_file() {
+                return Ok(Some(path));
+            }
         }
 
         let xdg_path = Self::xdg_config_file()?;
