@@ -418,11 +418,10 @@ fn run() -> Result<()> {
 
                 if let Some(highlight_config) = language_config.highlight_config(language)? {
                     let source = fs::read(path)?;
-                    let theme_config = config.get()?;
                     if html_mode {
                         highlight::html(
                             &loader,
-                            &theme_config,
+                            &theme_config.theme,
                             &source,
                             highlight_config,
                             quiet,
@@ -431,7 +430,7 @@ fn run() -> Result<()> {
                     } else {
                         highlight::ansi(
                             &loader,
-                            &theme_config,
+                            &theme_config.theme,
                             &source,
                             highlight_config,
                             time,

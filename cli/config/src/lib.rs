@@ -14,6 +14,7 @@ use std::{env, fs};
 /// This type holds the generic JSON content of the configuration file.  Individual tree-sitter
 /// components will use the [`get`][] method to parse that JSON to extract configuration fields
 /// that are specific to that component.
+#[derive(Debug)]
 pub struct Config {
     pub location: PathBuf,
     pub config: Value,
