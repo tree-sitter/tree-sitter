@@ -35,6 +35,40 @@ fn run() -> Result<()> {
         BUILD_VERSION.to_string()
     };
 
+    let debug_arg = Arg::with_name("debug")
+        .help("Show parsing debug log")
+        .long("debug")
+        .short("d");
+
+    let debug_graph_arg = Arg::with_name("debug-graph")
+        .help("Produce the log.html file with debug graphs")
+        .long("debug-graph")
+        .short("D");
+
+    let paths_file_arg = Arg::with_name("paths-file")
+        .help("The path to a file with paths to source file(s)")
+        .long("paths")
+        .takes_value(true);
+
+    let paths_arg = Arg::with_name("paths")
+        .help("The source file(s) to use")
+        .multiple(true);
+
+    let scope_arg = Arg::with_name("scope")
+        .help("Select a language by the scope instead of a file extension")
+        .long("scope")
+        .takes_value(true);
+
+    let time_arg = Arg::with_name("time")
+        .help("Measure execution time")
+        .long("time")
+        .short("t");
+
+    let quiet_arg = Arg::with_name("quiet")
+        .help("Suppress main output")
+        .long("quiet")
+        .short("q");
+
     let matches = App::new("tree-sitter")
         .author("Max Brunsfeld <maxbrunsfeld@gmail.com>")
         .about("Generates and tests parsers")
@@ -65,23 +99,29 @@ fn run() -> Result<()> {
             SubCommand::with_name("parse")
                 .alias("p")
                 .about("Parse files")
-                .arg(Arg::with_name("paths-file").long("paths").takes_value(true))
-                .arg(
-                    Arg::with_name("paths")
-                        .index(1)
-                        .multiple(true)
-                        .required(false),
-                )
-                .arg(Arg::with_name("scope").long("scope").takes_value(true))
-                .arg(Arg::with_name("debug").long("debug").short("d"))
-                .arg(Arg::with_name("debug-graph").long("debug-graph").short("D"))
+                .arg(&paths_file_arg)
+                .arg(&paths_arg)
+                .arg(&scope_arg)
+                .arg(&debug_arg)
+                .arg(&debug_graph_arg)
                 .arg(Arg::with_name("debug-xml").long("xml").short("x"))
-                .arg(Arg::with_name("quiet").long("quiet").short("q"))
-                .arg(Arg::with_name("stat").long("stat").short("s"))
-                .arg(Arg::with_name("time").long("time").short("t"))
-                .arg(Arg::with_name("timeout").long("timeout").takes_value(true))
+                .arg(
+                    Arg::with_name("stat")
+                        .help("Show parsing statistic")
+                        .long("stat")
+                        .short("s"),
+                )
+                .arg(
+                    Arg::with_name("timeout")
+                        .help("Interrupt the parsing process by timeout (µs)")
+                        .long("timeout")
+                        .takes_value(true),
+                )
+                .arg(&time_arg)
+                .arg(&quiet_arg)
                 .arg(
                     Arg::with_name("edits")
+                        .help("Apply edits in the format: \"row,col del_count insert_text\"")
                         .long("edit")
                         .short("edit")
                         .takes_value(true)
@@ -93,36 +133,32 @@ fn run() -> Result<()> {
             SubCommand::with_name("query")
                 .alias("q")
                 .about("Search files using a syntax tree query")
-                .arg(Arg::with_name("query-path").index(1).required(true))
-                .arg(Arg::with_name("paths-file").long("paths").takes_value(true))
                 .arg(
-                    Arg::with_name("paths")
-                        .index(2)
-                        .multiple(true)
-                        .required(false),
+                    Arg::with_name("query-path")
+                        .help("Path to a file with queries")
+                        .index(1)
+                        .required(true),
                 )
+                .arg(&paths_file_arg)
+                .arg(&paths_arg.clone().index(2))
                 .arg(
                     Arg::with_name("byte-range")
                         .help("The range of byte offsets in which the query will be executed")
                         .long("byte-range")
                         .takes_value(true),
                 )
-                .arg(Arg::with_name("scope").long("scope").takes_value(true))
+                .arg(&scope_arg)
                 .arg(Arg::with_name("captures").long("captures").short("c"))
                 .arg(Arg::with_name("test").long("test")),
         )
         .subcommand(
             SubCommand::with_name("tags")
-                .arg(Arg::with_name("quiet").long("quiet").short("q"))
-                .arg(Arg::with_name("time").long("time").short("t"))
-                .arg(Arg::with_name("scope").long("scope").takes_value(true))
-                .arg(Arg::with_name("paths-file").long("paths").takes_value(true))
-                .arg(
-                    Arg::with_name("paths")
-                        .help("The source file to use")
-                        .index(1)
-                        .multiple(true),
-                ),
+                .about("Generate a list of tags")
+                .arg(&scope_arg)
+                .arg(&time_arg)
+                .arg(&quiet_arg)
+                .arg(&paths_file_arg)
+                .arg(&paths_arg),
         )
         .subcommand(
             SubCommand::with_name("test")
@@ -141,23 +177,23 @@ fn run() -> Result<()> {
                         .short("u")
                         .help("Update all syntax trees in corpus files with current parser output"),
                 )
-                .arg(Arg::with_name("debug").long("debug").short("d"))
-                .arg(Arg::with_name("debug-graph").long("debug-graph").short("D")),
+                .arg(&debug_arg)
+                .arg(&debug_graph_arg),
         )
         .subcommand(
             SubCommand::with_name("highlight")
                 .about("Highlight a file")
-                .arg(Arg::with_name("paths-file").long("paths").takes_value(true))
                 .arg(
-                    Arg::with_name("paths")
-                        .index(1)
-                        .multiple(true)
-                        .required(false),
+                    Arg::with_name("html")
+                        .help("Generate highlighting as an HTML document")
+                        .long("html")
+                        .short("H"),
                 )
-                .arg(Arg::with_name("scope").long("scope").takes_value(true))
-                .arg(Arg::with_name("html").long("html").short("H"))
-                .arg(Arg::with_name("time").long("time").short("t"))
-                .arg(Arg::with_name("quiet").long("quiet").short("q")),
+                .arg(&scope_arg)
+                .arg(&time_arg)
+                .arg(&quiet_arg)
+                .arg(&paths_file_arg)
+                .arg(&paths_arg),
         )
         .subcommand(
             SubCommand::with_name("build-wasm")
