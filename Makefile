@@ -15,50 +15,36 @@ else
 	# use amalgamated build
 	SRC := lib/src/lib.c
 endif
-OBJ := $(SRC:.c=.o)
+OBJ := $(SRC:.c=.lo)
 
 # define default flags, and override to append mandatory flags
 CFLAGS ?= -O3 -Wall -Wextra -Werror
-override CFLAGS += -std=gnu99 -fPIC -Ilib/src -Ilib/include
+override CFLAGS += -std=gnu99 -Ilib/src -Ilib/include
 
 # ABI versioning
-SONAME_MAJOR := 0
-SONAME_MINOR := 0
+LT_CURRENT := 0
+LT_REVISION := 0
+LT_AGE := 0
 
 # OS-specific bits
-ifeq ($(shell uname),Darwin)
-	SOEXT = dylib
-	SOEXTVER_MAJOR = $(SONAME_MAJOR).dylib
-	SOEXTVER = $(SONAME_MAJOR).$(SONAME_MINOR).dylib
-	LINKSHARED += -dynamiclib -Wl,-install_name,$(LIBDIR)/libtree-sitter.$(SONAME_MAJOR).dylib
-else
-	SOEXT = so
-	SOEXTVER_MAJOR = so.$(SONAME_MAJOR)
-	SOEXTVER = so.$(SONAME_MAJOR).$(SONAME_MINOR)
-	LINKSHARED += -shared -Wl,-soname,libtree-sitter.so.$(SONAME_MAJOR)
-endif
 ifneq (,$(filter $(shell uname),FreeBSD NetBSD DragonFly))
 	PCLIBDIR := $(PREFIX)/libdata/pkgconfig
 endif
 
-all: libtree-sitter.a libtree-sitter.$(SOEXTVER)
+all: libtree-sitter.la
 
-libtree-sitter.a: $(OBJ)
-	$(AR) rcs $@ $^
+%.lo : %.c
+	libtool --mode=compile --tag=CC $(CC) $(CFLAGS) -o $@ -c $^
 
-libtree-sitter.$(SOEXTVER): $(OBJ)
-	$(CC) $(LDFLAGS) $(LINKSHARED) $^ $(LDLIBS) -o $@
-	ln -sf $@ libtree-sitter.$(SOEXT)
-	ln -sf $@ libtree-sitter.$(SOEXTVER_MAJOR)
+libtree-sitter.la: $(OBJ)
+	libtool --mode=link --tag=CC $(CC) $(LDFLAGS) \
+		-rpath '$(LIBDIR)' -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) \
+		-o $@ $^ $(LDLIBS)
 
 install: all
-	install -d '$(DESTDIR)$(LIBDIR)'
-	install -m755 libtree-sitter.a '$(DESTDIR)$(LIBDIR)'/libtree-sitter.a
-	install -m755 libtree-sitter.$(SOEXTVER) '$(DESTDIR)$(LIBDIR)'/libtree-sitter.$(SOEXTVER)
-	ln -sf libtree-sitter.$(SOEXTVER) '$(DESTDIR)$(LIBDIR)'/libtree-sitter.$(SOEXTVER_MAJOR)
-	ln -sf libtree-sitter.$(SOEXTVER) '$(DESTDIR)$(LIBDIR)'/libtree-sitter.$(SOEXT)
-	install -d '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter
-	install -m644 lib/include/tree_sitter/*.h '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter/
+	libtool --mode=install install -Dm644 libtree-sitter.la '$(DESTDIR)$(LIBDIR)'/libtree-sitter.la
+	libtool --mode=finish '$(DESTDIR)$(LIBDIR)'
+	install -Dm644 lib/include/tree_sitter/*.h -t '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter/
 	install -d '$(DESTDIR)$(PCLIBDIR)'
 	sed -e 's|@LIBDIR@|$(LIBDIR)|;s|@INCLUDEDIR@|$(INCLUDEDIR)|;s|@VERSION@|$(VERSION)|' \
 	    -e 's|=$(PREFIX)|=$${prefix}|' \
@@ -66,6 +52,6 @@ install: all
 	    tree-sitter.pc.in > '$(DESTDIR)$(PCLIBDIR)'/tree-sitter.pc
 
 clean:
-	rm -f lib/src/*.o libtree-sitter.a libtree-sitter.$(SOEXT) libtree-sitter.$(SOEXTVER_MAJOR) libtree-sitter.$(SOEXTVER)
+	libtool --mode=clean rm $(OBJ) libtree-sitter.la
 
 .PHONY: all install clean

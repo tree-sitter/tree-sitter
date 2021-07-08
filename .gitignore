@@ -23,3 +23,7 @@ docs/assets/js/tree-sitter.js
 *.exp
 *.lib
 *.wasm
+
+.libs/
+*.la
+*.lo
