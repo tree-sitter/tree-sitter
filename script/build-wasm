@@ -87,6 +87,7 @@ $emcc                                            \
   -s NO_FILESYSTEM=1                             \
   -s NODEJS_CATCH_EXIT=0                         \
   -s NODEJS_CATCH_REJECTION=0                    \
+  -s MODULARIZE=1 -s EXPORT_NAME='TreeSitter'    \
   -s EXPORTED_FUNCTIONS=@${web_dir}/exports.json \
   $emscripten_flags                              \
   -std=c99                                       \
@@ -95,9 +96,7 @@ $emcc                                            \
   -I lib/src                                     \
   -I lib/include                                 \
   --js-library ${web_dir}/imports.js             \
-  --pre-js ${web_dir}/prefix.js                  \
   --post-js ${web_dir}/binding.js                \
-  --post-js ${web_dir}/suffix.js                 \
   lib/src/lib.c                                  \
   ${web_dir}/binding.c                           \
   -o target/scratch/tree-sitter.js
