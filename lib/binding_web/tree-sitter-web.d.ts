@@ -1,6 +1,6 @@
 declare module 'web-tree-sitter' {
 
-  declare namespace TreeSitter {
+  namespace TreeSitter {
 
     class Parser {
       static init(): Promise<void>;
@@ -178,7 +178,7 @@ declare module 'web-tree-sitter' {
     [key: string]: any;
   }
 
-  declare function TreeSitter(module?: object): Promise<TreeSitterModule>;
+  function TreeSitter(module?: object): Promise<TreeSitterModule>;
 
   export = TreeSitter
 
