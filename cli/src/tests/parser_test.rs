@@ -849,7 +849,10 @@ fn test_parsing_with_multiple_included_ranges() {
         hello_text_node.start_byte(),
         source_code.find("Hello").unwrap()
     );
-    assert_eq!(hello_text_node.end_byte(), source_code.find("<b>").unwrap());
+    assert_eq!(
+        hello_text_node.end_byte(),
+        source_code.find(" <b>").unwrap()
+    );
 
     assert_eq!(b_start_tag_node.kind(), "start_tag");
     assert_eq!(
