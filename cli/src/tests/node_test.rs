@@ -285,7 +285,11 @@ fn test_node_field_name_for_named_child() {
         .named_child(0)
         .unwrap();
 
-    assert_eq!(binary_expression_node.field_name_for_named_child(0), Some("left"));
+    assert_eq!(
+        binary_expression_node.field_name_for_named_child(0),
+        Some("left")
+    );
+
     // Operator is not a named child, so although operator is a child of binary expression,
     // it is not a named child.
     assert_ne!(
