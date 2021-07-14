@@ -586,6 +586,33 @@ const char *ts_node_field_name_for_child(TSNode self, uint32_t child_index) {
   return NULL;
 }
 
+const char *ts_node_field_name_for_named_child(
+    TSNode self, uint32_t named_child_index) {
+  // Obtain index of child in the list of children from the index of
+  // named child.
+  TSNode child;
+  uint32_t child_index = 0;
+  NodeChildIterator iterator = ts_node_iterate_children(&self);
+  while (ts_node_child_iterator_next(&iterator, &child)) {
+    if (ts_node_is_named(child)) {
+      if (named_child_index == 0) {
+        break;
+      } else {
+        child_index++;
+        named_child_index--;
+      }
+    } else {
+      child_index++;
+    }
+  }
+
+  // If no named child is found for the given index, return NULL.
+  if (named_child_index != 0) {
+    return NULL;
+  }
+  return ts_node_field_name_for_child(self, child_index);
+}
+
 TSNode ts_node_child_by_field_name(
   TSNode self,
   const char *name,

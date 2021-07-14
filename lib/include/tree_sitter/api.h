@@ -494,6 +494,12 @@ TSNode ts_node_child(TSNode, uint32_t);
 const char *ts_node_field_name_for_child(TSNode, uint32_t);
 
 /**
+ * Get the field name for node's named child at the given index, where zero
+ * represents the first named child. Returns NULL, if no field is found.
+ */
+const char *ts_node_field_name_for_named_child(TSNode, uint32_t);
+
+/**
  * Get the node's number of children.
  */
 uint32_t ts_node_child_count(TSNode);

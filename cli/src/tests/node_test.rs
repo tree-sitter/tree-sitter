@@ -274,6 +274,39 @@ fn test_node_field_name_for_child() {
 }
 
 #[test]
+fn test_node_field_name_for_named_child() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("c")).unwrap();
+    let tree = parser.parse("x + y;", None).unwrap();
+    let translation_unit_node = tree.root_node();
+    let binary_expression_node = translation_unit_node
+        .named_child(0)
+        .unwrap()
+        .named_child(0)
+        .unwrap();
+
+    assert_eq!(binary_expression_node.field_name_for_named_child(0), Some("left"));
+    // Operator is not a named child, so although operator is a child of binary expression,
+    // it is not a named child.
+    assert_ne!(
+        binary_expression_node.field_name_for_named_child(1),
+        Some("operator")
+    );
+    // Check operator's presence with unnamed child API.
+    assert_eq!(
+        binary_expression_node.field_name_for_child(1),
+        Some("operator")
+    );
+    // Child with field name "right" is a named child at index 1.
+    assert_eq!(
+        binary_expression_node.field_name_for_named_child(1),
+        Some("right")
+    );
+    // Negative test - Not a valid child index
+    assert_eq!(binary_expression_node.field_name_for_named_child(3), None);
+}
+
+#[test]
 fn test_node_child_by_field_name_with_extra_hidden_children() {
     let mut parser = Parser::new();
     parser.set_language(get_language("python")).unwrap();
