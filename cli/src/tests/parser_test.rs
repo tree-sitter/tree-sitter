@@ -63,9 +63,14 @@ fn test_parsing_with_logging() {
     )));
     assert!(messages.contains(&(LogType::Lex, "skip character:' '".to_string())));
 
+    let mut row_starts_from_0 = false;
     for (_, m) in &messages {
-        assert!(!m.contains("row:0"));
+        if m.contains("row:0") {
+            row_starts_from_0 = true;
+            break;
+        }
     }
+    assert!(row_starts_from_0);
 }
 
 #[test]
