@@ -89,24 +89,19 @@ struct LargeCharacterSetInfo {
 
 impl Generator {
     fn generate(mut self) -> (String, String) {
-        self.init();
+        let mut header_file = GeneratorFile {
+            buffer: String::new(),
+            indent_level: 0,
+        };
 
         let mut impl_file = GeneratorFile {
             buffer: String::new(),
             indent_level: 0,
         };
 
-        let mut header_file = GeneratorFile {
-            buffer: String::new(),
-            indent_level: 0,
-        };
-
-        let header_macro_name = format!("TREE_SITTER_{}_ENUMS_H_", self.language_name.to_uppercase());
-        add_line!(header_file, "#ifndef {}", header_macro_name);
-        add_line!(header_file, "#define {}", header_macro_name);
-        add_line!(header_file, "");
-
-        self.add_includes(&mut impl_file);
+        self.init();
+        self.add_include_guard(&mut header_file);
+        self.add_includes(&mut header_file, &mut impl_file);
         self.add_pragmas(&mut impl_file);
         self.add_stats(&mut impl_file);
         self.add_symbol_enum(&mut header_file);
@@ -145,9 +140,8 @@ impl Generator {
         }
 
         self.add_parse_table(&mut impl_file);
-        self.add_parser_export(&mut impl_file);
-
-        add_line!(header_file, "#endif  // {}", header_macro_name);
+        self.add_parser_export(&mut header_file, &mut impl_file);
+        self.add_include_guard_end(&mut header_file);
 
         (impl_file.buffer, header_file.buffer)
     }
@@ -263,10 +257,11 @@ impl Generator {
             .count();
     }
 
-    fn add_includes(&mut self, gen_file: &mut GeneratorFile) {
-        add_line!(gen_file, "#include <tree_sitter/parser.h>");
-        add_line!(gen_file, "#include \"enums.h\"");
-        add_line!(gen_file, "");
+    fn add_includes(&mut self, header_file: &mut GeneratorFile, impl_file: &mut GeneratorFile) {
+        add_line!(header_file, "#include <tree_sitter/parser.h>");
+        add_line!(header_file, "");
+        add_line!(impl_file, "#include \"parser.h\"");
+        add_line!(impl_file, "");
     }
 
     fn add_pragmas(&mut self, gen_file: &mut GeneratorFile) {
@@ -1308,7 +1303,7 @@ impl Generator {
         add_line!(gen_file, "");
     }
 
-    fn add_parser_export(&mut self, gen_file: &mut GeneratorFile) {
+    fn add_parser_export(&mut self, header_file: &mut GeneratorFile, gen_file: &mut GeneratorFile) {
         let language_function_name = format!("tree_sitter_{}", self.language_name);
         let external_scanner_name = format!("{}_external_scanner", language_function_name);
 
@@ -1342,6 +1337,8 @@ impl Generator {
         add_line!(gen_file, "#endif");
         add_line!(gen_file, "");
 
+        add_line!(header_file, "const TSLanguage *{}();", language_function_name);
+        add_line!(header_file, "");
         add_line!(
             gen_file,
             "extern const TSLanguage *{}(void) {{",
@@ -1424,6 +1421,17 @@ impl Generator {
         add_line!(gen_file, "#ifdef __cplusplus");
         add_line!(gen_file, "}}");
         add_line!(gen_file, "#endif");
+    }
+
+    fn add_include_guard(&mut self, header_file: &mut GeneratorFile) {
+        let header_macro_name = format!("TREE_SITTER_{}_PARSER_H_", self.language_name.to_uppercase());
+        add_line!(header_file, "#ifndef {}", header_macro_name);
+        add_line!(header_file, "#define {}", header_macro_name);
+        add_line!(header_file, "");
+    }
+
+    fn add_include_guard_end(&mut self, header_file: &mut GeneratorFile) {
+        add_line!(header_file, "#endif");
     }
 
     fn get_parse_action_list_id(

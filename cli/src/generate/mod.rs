@@ -87,7 +87,7 @@ pub fn generate_parser_in_directory(
     )?;
 
     write_file(&src_path.join("parser.c"), c_code)?;
-    write_file(&src_path.join("enums.h"), header_code)?;
+    write_file(&src_path.join("parser.h"), header_code)?;
     write_file(&src_path.join("node-types.json"), node_types_json)?;
 
     if next_abi {
