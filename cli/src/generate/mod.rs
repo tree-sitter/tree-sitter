@@ -34,6 +34,7 @@ lazy_static! {
 
 struct GeneratedParser {
     c_code: String,
+    header_code: String,
     node_types_json: String,
 }
 
@@ -73,6 +74,7 @@ pub fn generate_parser_in_directory(
     // Generate the parser and related files.
     let GeneratedParser {
         c_code,
+        header_code,
         node_types_json,
     } = generate_parser_for_grammar_with_opts(
         &language_name,
@@ -85,6 +87,7 @@ pub fn generate_parser_in_directory(
     )?;
 
     write_file(&src_path.join("parser.c"), c_code)?;
+    write_file(&src_path.join("enums.h"), header_code)?;
     write_file(&src_path.join("node-types.json"), node_types_json)?;
 
     if next_abi {
@@ -140,7 +143,7 @@ fn generate_parser_for_grammar_with_opts(
         &inlines,
         report_symbol_name,
     )?;
-    let c_code = render_c_code(
+    let (c_code, header_code) = render_c_code(
         name,
         parse_table,
         main_lex_table,
@@ -153,6 +156,7 @@ fn generate_parser_for_grammar_with_opts(
     );
     Ok(GeneratedParser {
         c_code,
+        header_code,
         node_types_json: serde_json::to_string_pretty(&node_types_json).unwrap(),
     })
 }
