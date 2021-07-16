@@ -54,14 +54,22 @@ pub fn get_highlight_config(
     result
 }
 
-pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> Language {
-    let parser_c_path = SCRATCH_DIR.join(&format!("{}-parser.c", name));
-    if !fs::read_to_string(&parser_c_path)
-        .map(|content| content == parser_code)
+fn write_code(path: &PathBuf, code: &str) {
+    if !fs::read_to_string(&path)
+        .map(|content| content == code)
         .unwrap_or(false)
     {
-        fs::write(&parser_c_path, parser_code).unwrap();
+        fs::write(&path, code).unwrap();
     }
+}
+
+pub fn get_test_language(name: &str, parser_code: &str, header_code: &str, path: Option<&Path>) -> Language {
+    let parser_dir = SCRATCH_DIR.join(name);
+    fs::create_dir_all(&parser_dir).unwrap();
+    let parser_c_path = parser_dir.join("parser.c");
+    let header_path = parser_dir.join("parser.h");
+    write_code(&parser_c_path, parser_code);
+    write_code(&header_path, header_code);
     let scanner_path = path.and_then(|p| {
         let result = p.join("scanner.c");
         if result.exists() {

@@ -101,7 +101,7 @@ pub fn generate_parser_in_directory(
     Ok(())
 }
 
-pub fn generate_parser_for_grammar(grammar_json: &str) -> Result<(String, String)> {
+pub fn generate_parser_for_grammar(grammar_json: &str) -> Result<(String, String, String)> {
     let grammar_json = JSON_COMMENT_REGEX.replace_all(grammar_json, "\n");
     let input_grammar = parse_grammar(&grammar_json)?;
     let (syntax_grammar, lexical_grammar, inlines, simple_aliases) =
@@ -115,7 +115,7 @@ pub fn generate_parser_for_grammar(grammar_json: &str) -> Result<(String, String
         true,
         None,
     )?;
-    Ok((input_grammar.name, parser.c_code))
+    Ok((input_grammar.name, parser.c_code, parser.header_code))
 }
 
 fn generate_parser_for_grammar_with_opts(

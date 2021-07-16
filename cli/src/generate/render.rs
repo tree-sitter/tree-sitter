@@ -1305,6 +1305,7 @@ impl Generator {
 
     fn add_parser_export(&mut self, header_file: &mut GeneratorFile, gen_file: &mut GeneratorFile) {
         let language_function_name = format!("tree_sitter_{}", self.language_name);
+        let language_function_signature = format!("extern const TSLanguage *{}(void)", language_function_name);
         let external_scanner_name = format!("{}_external_scanner", language_function_name);
 
         add_line!(gen_file, "#ifdef __cplusplus");
@@ -1337,13 +1338,9 @@ impl Generator {
         add_line!(gen_file, "#endif");
         add_line!(gen_file, "");
 
-        add_line!(header_file, "const TSLanguage *{}();", language_function_name);
+        add_line!(header_file, "{};", language_function_signature);
         add_line!(header_file, "");
-        add_line!(
-            gen_file,
-            "extern const TSLanguage *{}(void) {{",
-            language_function_name
-        );
+        add_line!(gen_file, "{} {{", language_function_signature);
         indent!(gen_file);
         add_line!(gen_file, "static const TSLanguage language = {{");
         indent!(gen_file);

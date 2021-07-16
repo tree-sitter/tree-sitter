@@ -256,8 +256,8 @@ fn test_feature_corpus_files() {
             }
 
             let corpus_path = test_path.join("corpus.txt");
-            let c_code = generate_result.unwrap().1;
-            let language = get_test_language(language_name, &c_code, Some(&test_path));
+            let (_, c_code, header_code) = generate_result.unwrap();
+            let language = get_test_language(language_name, &c_code, &header_code, Some(&test_path));
             let test = parse_tests(&corpus_path).unwrap();
             let tests = flatten_tests(test);
 

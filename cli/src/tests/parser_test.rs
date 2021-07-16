@@ -409,13 +409,14 @@ fn test_parsing_empty_file_with_reused_tree() {
 #[test]
 fn test_parsing_after_editing_tree_that_depends_on_column_values() {
     let (grammar, path) = get_test_grammar("uses_current_column");
-    let (grammar_name, parser_code) = generate_parser_for_grammar(&grammar).unwrap();
+    let (grammar_name, parser_code, header_code) = generate_parser_for_grammar(&grammar).unwrap();
 
     let mut parser = Parser::new();
     parser
         .set_language(get_test_language(
             &grammar_name,
             &parser_code,
+            &header_code,
             path.as_ref().map(AsRef::as_ref),
         ))
         .unwrap();
@@ -1170,7 +1171,7 @@ fn test_parsing_with_a_newly_included_range() {
 
 #[test]
 fn test_parsing_with_included_ranges_and_missing_tokens() {
-    let (parser_name, parser_code) = generate_parser_for_grammar(
+    let (parser_name, parser_code, header_code) = generate_parser_for_grammar(
         r#"{
             "name": "test_leading_missing_token",
             "rules": {
@@ -1196,7 +1197,7 @@ fn test_parsing_with_included_ranges_and_missing_tokens() {
 
     let mut parser = Parser::new();
     parser
-        .set_language(get_test_language(&parser_name, &parser_code, None))
+        .set_language(get_test_language(&parser_name, &parser_code, &header_code, None))
         .unwrap();
 
     // There's a missing `a` token at the beginning of the code. It must be inserted
