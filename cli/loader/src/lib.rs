@@ -391,6 +391,11 @@ impl Loader {
                     .arg("-o")
                     .arg(&library_path)
                     .arg("-O2");
+
+                // For conditional compilation of external scanner code when
+                // used internally by `tree-siteer parse` and other sub commands.
+                command.arg("-DTREE_SITTER_INTERNAL_BUILD");
+
                 if let Some(scanner_path) = scanner_path.as_ref() {
                     if scanner_path.extension() == Some("c".as_ref()) {
                         command.arg("-xc").arg("-std=c99").arg(scanner_path);
