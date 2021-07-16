@@ -1305,8 +1305,9 @@ impl Generator {
 
     fn add_parser_export(&mut self, header_file: &mut GeneratorFile, gen_file: &mut GeneratorFile) {
         let language_function_name = format!("tree_sitter_{}", self.language_name);
-        let language_function_signature = format!("extern const TSLanguage *{}(void)", language_function_name);
         let external_scanner_name = format!("{}_external_scanner", language_function_name);
+        let extern_macro_name = format!("TS{}EXTERN", self.language_name.to_uppercase());
+        let language_function_signature = format!("{} const TSLanguage *{}(void)", extern_macro_name, language_function_name);
 
         add_line!(gen_file, "#ifdef __cplusplus");
         add_line!(gen_file, r#"extern "C" {{"#);
@@ -1333,13 +1334,15 @@ impl Generator {
             add_line!(gen_file, "");
         }
 
-        add_line!(gen_file, "#ifdef _WIN32");
-        add_line!(gen_file, "#define extern __declspec(dllexport)");
-        add_line!(gen_file, "#endif");
-        add_line!(gen_file, "");
-
+        add_line!(header_file, "#ifdef _WIN32");
+        add_line!(header_file, "#define {} __declspec(dllexport)", extern_macro_name);
+        add_line!(header_file, "#else");
+        add_line!(header_file, "#define {} extern", extern_macro_name);
+        add_line!(header_file, "#endif");
+        add_line!(header_file, "");
         add_line!(header_file, "{};", language_function_signature);
         add_line!(header_file, "");
+
         add_line!(gen_file, "{} {{", language_function_signature);
         indent!(gen_file);
         add_line!(gen_file, "static const TSLanguage language = {{");
