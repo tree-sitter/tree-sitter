@@ -5,6 +5,7 @@ mod util;
 use std::os::unix::io::AsRawFd;
 
 use std::{
+    borrow::Cow,
     char, error,
     ffi::CStr,
     fmt, hash, iter,
@@ -192,7 +193,8 @@ pub struct QueryCaptures<'a, 'tree: 'a, T: TextProvider<'a>> {
 }
 
 pub trait TextProvider<'a> {
-    type I: Iterator<Item = &'a [u8]> + 'a;
+    type I: Iterator<Item = Cow<'a, [u8]>>;
+
     fn text(&mut self, node: Node) -> Self::I;
 }
 
@@ -1960,19 +1962,19 @@ impl<'a, 'tree> QueryMatch<'a, 'tree> {
         buffer2: &mut Vec<u8>,
         text_provider: &mut impl TextProvider<'a>,
     ) -> bool {
-        fn get_text<'a, 'b: 'a, I: Iterator<Item = &'b [u8]>>(
+        fn get_text<'a, 'b: 'a, I: Iterator<Item = Cow<'b, [u8]>>>(
             buffer: &'a mut Vec<u8>,
             mut chunks: I,
-        ) -> &'a [u8] {
-            let first_chunk = chunks.next().unwrap_or(&[]);
+        ) -> Cow<'a, [u8]> {
+            let first_chunk = chunks.next().unwrap_or(Cow::Owned(vec![0u8; 0]));
             if let Some(next_chunk) = chunks.next() {
                 buffer.clear();
-                buffer.extend_from_slice(first_chunk);
-                buffer.extend_from_slice(next_chunk);
+                buffer.extend_from_slice(&first_chunk);
+                buffer.extend_from_slice(&next_chunk);
                 for chunk in chunks {
-                    buffer.extend_from_slice(chunk);
+                    buffer.extend_from_slice(&chunk);
                 }
-                buffer.as_slice()
+                Cow::Borrowed(buffer.as_slice())
             } else {
                 first_chunk
             }
@@ -2008,7 +2010,7 @@ impl<'a, 'tree> QueryMatch<'a, 'tree> {
                     match node {
                         Some(node) => {
                             let text = get_text(buffer1, text_provider.text(node));
-                            r.is_match(text) == *is_positive
+                            r.is_match(&text) == *is_positive
                         }
                         None => true,
                     }
@@ -2126,23 +2128,24 @@ impl<'cursor, 'tree> fmt::Debug for QueryMatch<'cursor, 'tree> {
     }
 }
 
-impl<'a, F, I> TextProvider<'a> for F
+impl<'a, F, I, T> TextProvider<'a> for F
 where
     F: FnMut(Node) -> I,
-    I: Iterator<Item = &'a [u8]> + 'a,
+    T: Into<Cow<'a, [u8]>>,
+    I: Iterator<Item = T>,
 {
-    type I = I;
+    type I = iter::Map<I, fn(T) -> Cow<'a, [u8]>>;
 
     fn text(&mut self, node: Node) -> Self::I {
-        (self)(node)
+        (self)(node).map(T::into)
     }
 }
 
 impl<'a> TextProvider<'a> for &'a [u8] {
-    type I = iter::Once<&'a [u8]>;
+    type I = iter::Once<Cow<'a, [u8]>>;
 
     fn text(&mut self, node: Node) -> Self::I {
-        iter::once(&self[node.byte_range()])
+        iter::once(Cow::Borrowed(&self[node.byte_range()]))
     }
 }
 
