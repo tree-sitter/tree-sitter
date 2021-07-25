@@ -95,7 +95,7 @@ Let's go over all of the functionality of the `tree-sitter` command line tool.
 
 ### Command: `generate`
 
-The most important command you'll use is `tree-sitter generate`. This command reads the `grammar.js` file in your current working directory and creates a file called `src/parser.c`, which implements the parser. After making changes to your grammar, just run `tree-sitter` generate again.
+The most important command you'll use is `tree-sitter generate`. This command reads the `grammar.js` file in your current working directory and creates a file called `src/parser.c`, which implements the parser. After making changes to your grammar, just run `tree-sitter generate` again.
 
 The first time you run `tree-sitter generate`, it will also generate a few other files:
 
