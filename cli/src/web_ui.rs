@@ -73,8 +73,9 @@ pub fn serve(grammar_path: &Path, open_in_browser: bool) {
             )
         })
         .unwrap();
+    println!("Started playground on '{}'", url);
     if open_in_browser {
-        if let Err(_) = webbrowser::open(&format!("http://127.0.0.1:{}", port)) {
+        if let Err(_) = webbrowser::open(&url) {
             eprintln!("Failed to open '{}' in a web browser", url);
         }
     }
