@@ -114,7 +114,9 @@ pub fn run_tests_at_path(
             print_diff_key();
             for (i, (name, actual, expected)) in failures.iter().enumerate() {
                 println!("\n  {}. {}:", i + 1, name);
-                print_diff(actual, expected);
+                let actual = format_sexp_indented(&actual, 2);
+                let expected = format_sexp_indented(&expected, 2);
+                print_diff(&actual, &expected);
             }
             Err(anyhow!(""))
         }
@@ -153,8 +155,7 @@ pub fn print_diff_key() {
 }
 
 pub fn print_diff(actual: &String, expected: &String) {
-    let changeset = Changeset::new(actual, expected, " ");
-    print!("    ");
+    let changeset = Changeset::new(actual, expected, "\n");
     for diff in &changeset.diffs {
         match diff {
             Difference::Same(part) => {
@@ -263,9 +264,13 @@ fn run_tests(
 }
 
 fn format_sexp(sexp: &String) -> String {
+    format_sexp_indented(sexp, 0)
+}
+
+fn format_sexp_indented(sexp: &String, initial_indent_level: u32) -> String {
     let mut formatted = String::new();
 
-    let mut indent_level = 0;
+    let mut indent_level = initial_indent_level;
     let mut has_field = false;
     let mut s_iter = sexp.split(|c| c == ' ' || c == ')');
     while let Some(s) = s_iter.next() {
