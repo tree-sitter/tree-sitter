@@ -216,7 +216,7 @@ fn run() -> Result<()> {
                     Arg::with_name("quiet")
                         .long("quiet")
                         .short("q")
-                        .help("open in default browser"),
+                        .help("Don't open in default browser"),
                 ),
         )
         .subcommand(
