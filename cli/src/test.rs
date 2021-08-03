@@ -16,7 +16,7 @@ use tree_sitter::{Language, LogType, Parser, Query};
 use walkdir::WalkDir;
 
 lazy_static! {
-    static ref HEADER_REGEX: ByteRegex = ByteRegexBuilder::new(r"^===+\r?\n([^=]*)\r?\n===+\r?\n")
+    static ref HEADER_REGEX: ByteRegex = ByteRegexBuilder::new(r"^===+\r?\n(.*)\r?\n===+\r?\n")
         .multi_line(true)
         .build()
         .unwrap();
@@ -535,6 +535,41 @@ abc
                         name: "Code ending with dashes".to_string(),
                         input: "abc\n-----------".as_bytes().to_vec(),
                         output: "(c (d))".to_string(),
+                        has_fields: false,
+                    },
+                ],
+                file_path: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_test_content_with_equals_in_title() {
+        let entry = parse_test_content(
+            "the-filename".to_string(),
+            r#"
+==================
+Test = title = with = equals
+==================
+abc
+
+-------------------
+
+(abc)"#
+            .trim()
+            .to_string(),
+            None,
+        );
+
+        assert_eq!(
+            entry,
+            TestEntry::Group {
+                name: "the-filename".to_string(),
+                children: vec![
+                    TestEntry::Example {
+                        name: "Test = title = with = equals".to_string(),
+                        input: "abc\n".as_bytes().to_vec(),
+                        output: "(abc)".to_string(),
                         has_fields: false,
                     },
                 ],
