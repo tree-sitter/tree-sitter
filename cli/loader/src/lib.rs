@@ -99,7 +99,7 @@ pub struct Loader {
     languages_by_id: Vec<(PathBuf, OnceCell<Language>)>,
     language_configurations: Vec<LanguageConfiguration<'static>>,
     language_configuration_ids_by_file_type: HashMap<String, Vec<usize>>,
-    highlight_names: Box<Mutex<Vec<String>>>,
+    highlight_names: &'static Mutex<Vec<String>>,
     use_all_highlight_names: bool,
 }
 
@@ -120,7 +120,7 @@ impl Loader {
             languages_by_id: Vec::new(),
             language_configurations: Vec::new(),
             language_configuration_ids_by_file_type: HashMap::new(),
-            highlight_names: Box::new(Mutex::new(Vec::new())),
+            highlight_names: Box::leak(Box::new(Mutex::new(Vec::new()))),
             use_all_highlight_names: true,
         }
     }
@@ -558,7 +558,7 @@ impl Loader {
                         highlights_filenames: config_json.highlights.into_vec(),
                         highlight_config: OnceCell::new(),
                         tags_config: OnceCell::new(),
-                        highlight_names: &*self.highlight_names,
+                        highlight_names: self.highlight_names,
                         use_all_highlight_names: self.use_all_highlight_names,
                     };
 
@@ -569,8 +569,7 @@ impl Loader {
                             .push(self.language_configurations.len());
                     }
 
-                    self.language_configurations
-                        .push(unsafe { mem::transmute(configuration) });
+                    self.language_configurations.push(configuration);
                 }
             }
         }
@@ -592,11 +591,10 @@ impl Loader {
                 tags_filenames: None,
                 highlight_config: OnceCell::new(),
                 tags_config: OnceCell::new(),
-                highlight_names: &*self.highlight_names,
+                highlight_names: self.highlight_names,
                 use_all_highlight_names: self.use_all_highlight_names,
             };
-            self.language_configurations
-                .push(unsafe { mem::transmute(configuration) });
+            self.language_configurations.push(configuration);
             self.languages_by_id
                 .push((parser_path.to_owned(), OnceCell::new()));
         }
