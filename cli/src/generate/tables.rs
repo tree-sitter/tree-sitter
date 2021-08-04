@@ -1,9 +1,14 @@
 use super::nfa::CharacterSet;
 use super::rules::{Alias, Symbol, TokenSet};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 pub(crate) type ProductionInfoId = usize;
 pub(crate) type ParseStateId = usize;
 pub(crate) type LexStateId = usize;
+
+use std::hash::BuildHasherDefault;
+
+use indexmap::IndexMap;
+use rustc_hash::FxHasher;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum ParseAction {
@@ -37,8 +42,8 @@ pub(crate) struct ParseTableEntry {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct ParseState {
     pub id: ParseStateId,
-    pub terminal_entries: HashMap<Symbol, ParseTableEntry>,
-    pub nonterminal_entries: HashMap<Symbol, GotoAction>,
+    pub terminal_entries: IndexMap<Symbol, ParseTableEntry, BuildHasherDefault<FxHasher>>,
+    pub nonterminal_entries: IndexMap<Symbol, GotoAction, BuildHasherDefault<FxHasher>>,
     pub lex_state_id: usize,
     pub external_lex_state_id: usize,
     pub core_id: usize,
