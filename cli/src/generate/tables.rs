@@ -10,7 +10,7 @@ use std::hash::BuildHasherDefault;
 use indexmap::IndexMap;
 use rustc_hash::FxHasher;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum ParseAction {
     Accept,
     Shift {
@@ -33,7 +33,7 @@ pub(crate) enum GotoAction {
     ShiftExtra,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct ParseTableEntry {
     pub actions: Vec<ParseAction>,
     pub reusable: bool,
