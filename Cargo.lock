@@ -496,6 +496,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustc-hash"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
+
+[[package]]
 name = "ryu"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -541,9 +547,9 @@ dependencies = [
 
 [[package]]
 name = "smallbitvec"
-version = "2.5.0"
+version = "2.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "797a4eaffb90d896f29698d45676f9f940a71936d7574996a7df54593ba209fa"
+checksum = "75ce4f9dc4a41b4c3476cc925f1efb11b66df373a8fde5d4b8915fa91b5d995e"
 
 [[package]]
 name = "spin"
@@ -689,11 +695,13 @@ dependencies = [
  "dirs",
  "glob",
  "html-escape",
+ "indexmap",
  "lazy_static",
  "log",
  "rand",
  "regex",
  "regex-syntax",
+ "rustc-hash",
  "serde",
  "serde_derive",
  "serde_json",
