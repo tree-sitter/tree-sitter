@@ -347,7 +347,7 @@ fn lex_states_differ(
 fn sort_states(table: &mut LexTable, parse_table: &mut ParseTable) {
     // Get a mapping of old state index -> new_state_index
     let mut old_ids_by_new_id = (0..table.states.len()).collect::<Vec<_>>();
-    &old_ids_by_new_id[1..].sort_by_key(|id| &table.states[*id]);
+    old_ids_by_new_id[1..].sort_by_key(|id| &table.states[*id]);
 
     // Get the inverse mapping
     let mut new_ids_by_old_id = vec![0; old_ids_by_new_id.len()];
