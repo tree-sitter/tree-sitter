@@ -19,10 +19,16 @@ lazy_static! {
         serde_json::from_str(UNICODE_CATEGORIES_JSON).unwrap();
     static ref UNICODE_PROPERTIES: HashMap<&'static str, Vec<u32>> =
         serde_json::from_str(UNICODE_PROPERTIES_JSON).unwrap();
+    static ref UNICODE_CATEGORY_ALIASES: HashMap<&'static str, String> =
+        serde_json::from_str(UNICODE_CATEGORY_ALIASES_JSON).unwrap();
+    static ref UNICODE_PROPERTY_ALIASES: HashMap<&'static str, String> =
+        serde_json::from_str(UNICODE_PROPERTY_ALIASES_JSON).unwrap();
 }
 
 const UNICODE_CATEGORIES_JSON: &'static str = include_str!("./unicode-categories.json");
 const UNICODE_PROPERTIES_JSON: &'static str = include_str!("./unicode-properties.json");
+const UNICODE_CATEGORY_ALIASES_JSON: &'static str = include_str!("./unicode-category-aliases.json");
+const UNICODE_PROPERTY_ALIASES_JSON: &'static str = include_str!("./unicode-property-aliases.json");
 const ALLOWED_REDUNDANT_ESCAPED_CHARS: [char; 4] = ['!', '\'', '"', '/'];
 
 struct NfaBuilder {
@@ -394,12 +400,16 @@ impl NfaBuilder {
                 category_letter = le.to_string();
             }
             ClassUnicodeKind::Named(class_name) => {
-                if class_name.len() == 1 {
-                    category_letter = class_name.clone();
+                let actual_class_name = UNICODE_CATEGORY_ALIASES
+                    .get(class_name.as_str())
+                    .or_else(|| UNICODE_PROPERTY_ALIASES.get(class_name.as_str()))
+                    .unwrap_or(class_name);
+                if actual_class_name.len() == 1 {
+                    category_letter = actual_class_name.clone();
                 } else {
                     let code_points = UNICODE_CATEGORIES
-                        .get(class_name.as_str())
-                        .or_else(|| UNICODE_PROPERTIES.get(class_name.as_str()))
+                        .get(actual_class_name.as_str())
+                        .or_else(|| UNICODE_PROPERTIES.get(actual_class_name.as_str()))
                         .ok_or_else(|| {
                             anyhow!(
                                 "Regex error: Unsupported unicode character class {}",
