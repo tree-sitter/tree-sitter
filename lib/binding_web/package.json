@@ -9,6 +9,7 @@
   },
   "scripts": {
     "test": "mocha",
+    "prepack": "cp ../../LICENSE .",
     "prepublishOnly": "node check-artifacts-fresh.js"
   },
   "repository": {
