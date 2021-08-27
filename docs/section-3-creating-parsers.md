@@ -84,7 +84,7 @@ tree-sitter parse example-file
 This should print the following:
 
 ```
-(source_file [1, 0] - [1, 5])
+(source_file [0, 0] - [1, 0])
 ```
 
 You now have a working parser.
