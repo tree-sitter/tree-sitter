@@ -31,6 +31,7 @@ Parsers for these languages are fairly complete:
 * [C#](https://github.com/tree-sitter/tree-sitter-c-sharp)
 * [C++](https://github.com/tree-sitter/tree-sitter-cpp)
 * [CSS](https://github.com/tree-sitter/tree-sitter-css)
+* [DOT](https://github.com/rydesun/tree-sitter-dot)
 * [Elm](https://github.com/elm-tooling/tree-sitter-elm)
 * [Eno](https://github.com/eno-lang/tree-sitter-eno)
 * [ERB / EJS](https://github.com/tree-sitter/tree-sitter-embedded-template)
