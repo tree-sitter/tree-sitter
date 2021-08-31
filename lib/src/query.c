@@ -159,11 +159,12 @@ typedef struct {
   uint16_t start_depth;
   uint16_t step_index;
   uint16_t pattern_index;
-  uint16_t consumed_capture_count: 12;
+  uint16_t consumed_capture_count: 11;
   bool seeking_immediate_match: 1;
   bool has_in_progress_alternatives: 1;
   bool dead: 1;
   bool needs_parent: 1;
+  bool returned: 1;
 } QueryState;
 
 typedef Array(TSQueryCapture) CaptureList;
@@ -3160,6 +3161,8 @@ bool ts_query_cursor_next_match(
   }
 
   QueryState *state = &self->finished_states.contents[0];
+  state->returned = true;
+  match->first_return = false;
   match->id = state->id;
   match->pattern_index = state->pattern_index;
   const CaptureList *captures = capture_list_pool_get(
@@ -3269,6 +3272,7 @@ bool ts_query_cursor_next_capture(
     }
 
     if (state) {
+      match->first_return = !state->returned;
       match->id = state->id;
       match->pattern_index = state->pattern_index;
       const CaptureList *captures = capture_list_pool_get(
@@ -3279,6 +3283,7 @@ bool ts_query_cursor_next_capture(
       match->capture_count = captures->size;
       *capture_index = state->consumed_capture_count;
       state->consumed_capture_count++;
+      state->returned = true;
       return true;
     }
 
