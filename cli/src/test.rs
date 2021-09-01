@@ -16,10 +16,11 @@ use tree_sitter::{Language, LogType, Parser, Query};
 use walkdir::WalkDir;
 
 lazy_static! {
-    static ref HEADER_REGEX: ByteRegex = ByteRegexBuilder::new(r"^===+\r?\n((?s).*?)\r?\n===+\r?\n")
-        .multi_line(true)
-        .build()
-        .unwrap();
+    static ref HEADER_REGEX: ByteRegex =
+        ByteRegexBuilder::new(r"^===+\r?\n((?s).*?)\r?\n===+\r?\n")
+            .multi_line(true)
+            .build()
+            .unwrap();
     static ref DIVIDER_REGEX: ByteRegex = ByteRegexBuilder::new(r"^---+\r?\n")
         .multi_line(true)
         .build()
@@ -556,8 +557,8 @@ abc
 -------------------
 
 (abc)"#
-            .trim()
-            .to_string(),
+                .trim()
+                .to_string(),
             None,
         );
 
@@ -565,14 +566,12 @@ abc
             entry,
             TestEntry::Group {
                 name: "the-filename".to_string(),
-                children: vec![
-                    TestEntry::Example {
-                        name: "Test = title = with = equals".to_string(),
-                        input: "abc\n".as_bytes().to_vec(),
-                        output: "(abc)".to_string(),
-                        has_fields: false,
-                    },
-                ],
+                children: vec![TestEntry::Example {
+                    name: "Test = title = with = equals".to_string(),
+                    input: "abc\n".as_bytes().to_vec(),
+                    output: "(abc)".to_string(),
+                    has_fields: false,
+                },],
                 file_path: None,
             }
         );
@@ -592,8 +591,8 @@ abc
 -------------------
 
 (abc)"#
-            .trim()
-            .to_string(),
+                .trim()
+                .to_string(),
             None,
         );
 
@@ -601,14 +600,12 @@ abc
             entry,
             TestEntry::Group {
                 name: "the-filename".to_string(),
-                children: vec![
-                    TestEntry::Example {
-                        name: "Hello\nworld".to_string(),
-                        input: "abc\n".as_bytes().to_vec(),
-                        output: "(abc)".to_string(),
-                        has_fields: false,
-                    },
-                ],
+                children: vec![TestEntry::Example {
+                    name: "Hello\nworld".to_string(),
+                    input: "abc\n".as_bytes().to_vec(),
+                    output: "(abc)".to_string(),
+                    has_fields: false,
+                },],
                 file_path: None,
             }
         );
