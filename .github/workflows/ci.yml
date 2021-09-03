@@ -36,7 +36,7 @@ jobs:
 
       - name: Read Emscripten version
         run: |
-          printf 'EMSCRIPTEN_VERSION=%s\n' "$(cat emscripten-version)" >> $GITHUB_ENV
+          printf 'EMSCRIPTEN_VERSION=%s\n' "$(cat cli/emscripten-version)" >> $GITHUB_ENV
 
       - name: Cache artifacts
         id: cache
