@@ -24,28 +24,6 @@ macro_rules! resource {
             if let Some(tree_sitter_dir) = tree_sitter_dir {
                 fs::read(tree_sitter_dir.join($path)).unwrap()
             } else {
-                include_bytes!(concat!("../../", $path)).to_vec()
-            }
-        }
-    };
-}
-
-macro_rules! optional_resource {
-    ($name: tt, $path: tt) => {
-        #[cfg(TREE_SITTER_EMBED_WASM_BINDING)]
-        fn $name(tree_sitter_dir: &Option<PathBuf>) -> Vec<u8> {
-            if let Some(tree_sitter_dir) = tree_sitter_dir {
-                fs::read(tree_sitter_dir.join($path)).unwrap()
-            } else {
-                include_bytes!(concat!("../../", $path)).to_vec()
-            }
-        }
-
-        #[cfg(not(TREE_SITTER_EMBED_WASM_BINDING))]
-        fn $name(tree_sitter_dir: &Option<PathBuf>) -> Vec<u8> {
-            if let Some(tree_sitter_dir) = tree_sitter_dir {
-                fs::read(tree_sitter_dir.join($path)).unwrap()
-            } else {
                 Vec::new()
             }
         }
@@ -54,8 +32,8 @@ macro_rules! optional_resource {
 
 resource!(get_main_html, "cli/src/web_ui.html");
 resource!(get_playground_js, "docs/assets/js/playground.js");
-optional_resource!(get_lib_js, "lib/binding_web/tree-sitter.js");
-optional_resource!(get_lib_wasm, "lib/binding_web/tree-sitter.wasm");
+resource!(get_lib_js, "lib/binding_web/tree-sitter.js");
+resource!(get_lib_wasm, "lib/binding_web/tree-sitter.wasm");
 
 pub fn serve(grammar_path: &Path, open_in_browser: bool) {
     let port = get_available_port().expect("Couldn't find an available port");
@@ -96,17 +74,23 @@ pub fn serve(grammar_path: &Path, open_in_browser: bool) {
     for request in server.incoming_requests() {
         let res = match request.url() {
             "/" => response(&main_html, &html_header),
-            "/playground.js" => response(&playground_js, &js_header),
             "/tree-sitter-parser.wasm" => response(&language_wasm, &wasm_header),
+            "/playground.js" => {
+                if playground_js.is_empty() {
+                    redirect("https://tree-sitter.github.io/tree-sitter/assets/js/playground.js")
+                } else {
+                    response(&playground_js, &js_header)
+                }
+            }
             "/tree-sitter.js" => {
-                if cfg!(windows) {
+                if lib_js.is_empty() {
                     redirect("https://tree-sitter.github.io/tree-sitter.js")
                 } else {
                     response(&lib_js, &js_header)
                 }
             }
             "/tree-sitter.wasm" => {
-                if cfg!(windows) {
+                if lib_wasm.is_empty() {
                     redirect("https://tree-sitter.github.io/tree-sitter.wasm")
                 } else {
                     response(&lib_wasm, &wasm_header)

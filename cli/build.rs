@@ -6,7 +6,7 @@ fn main() {
         println!("cargo:rustc-env={}={}", "BUILD_SHA", git_sha);
     }
 
-    if wasm_files_present() {
+    if web_playground_files_present() {
         println!("cargo:rustc-cfg={}", "TREE_SITTER_EMBED_WASM_BINDING");
     }
 
@@ -23,8 +23,9 @@ fn main() {
     );
 }
 
-fn wasm_files_present() -> bool {
+fn web_playground_files_present() -> bool {
     let paths = [
+        "../docs/assets/js/playground.js",
         "../lib/binding_web/tree-sitter.js",
         "../lib/binding_web/tree-sitter.wasm",
     ];
