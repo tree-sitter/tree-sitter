@@ -202,6 +202,7 @@ pub enum QueryErrorKind {
     Capture,
     Predicate,
     Structure,
+    Language,
 }
 
 #[derive(Debug)]
@@ -1231,6 +1232,19 @@ impl Query {
 
         // On failure, build an error based on the error code and offset.
         if ptr.is_null() {
+            if error_type == ffi::TSQueryError_TSQueryErrorLanguage {
+                return Err(QueryError {
+                    row: 0,
+                    column: 0,
+                    offset: 0,
+                    message: LanguageError {
+                        version: language.version(),
+                    }
+                    .to_string(),
+                    kind: QueryErrorKind::Language,
+                });
+            }
+
             let offset = error_offset as usize;
             let mut line_start = 0;
             let mut row = 0;
@@ -2105,21 +2119,27 @@ impl fmt::Display for LanguageError {
 
 impl fmt::Display for QueryError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Query error at {}:{}. {}{}",
-            self.row + 1,
-            self.column + 1,
-            match self.kind {
-                QueryErrorKind::Field => "Invalid field name ",
-                QueryErrorKind::NodeType => "Invalid node type ",
-                QueryErrorKind::Capture => "Invalid capture name ",
-                QueryErrorKind::Predicate => "Invalid predicate: ",
-                QueryErrorKind::Structure => "Impossible pattern:\n",
-                QueryErrorKind::Syntax => "Invalid syntax:\n",
-            },
-            self.message
-        )
+        let msg = match self.kind {
+            QueryErrorKind::Field => "Invalid field name ",
+            QueryErrorKind::NodeType => "Invalid node type ",
+            QueryErrorKind::Capture => "Invalid capture name ",
+            QueryErrorKind::Predicate => "Invalid predicate: ",
+            QueryErrorKind::Structure => "Impossible pattern:\n",
+            QueryErrorKind::Syntax => "Invalid syntax:\n",
+            QueryErrorKind::Language => "",
+        };
+        if msg.len() > 0 {
+            write!(
+                f,
+                "Query error at {}:{}. {}{}",
+                self.row + 1,
+                self.column + 1,
+                msg,
+                self.message
+            )
+        } else {
+            write!(f, "{}", self.message)
+        }
     }
 }
 

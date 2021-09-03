@@ -133,6 +133,7 @@ pub const TSQueryError_TSQueryErrorNodeType: TSQueryError = 2;
 pub const TSQueryError_TSQueryErrorField: TSQueryError = 3;
 pub const TSQueryError_TSQueryErrorCapture: TSQueryError = 4;
 pub const TSQueryError_TSQueryErrorStructure: TSQueryError = 5;
+pub const TSQueryError_TSQueryErrorLanguage: TSQueryError = 6;
 pub type TSQueryError = u32;
 extern "C" {
     #[doc = " Create a new parser."]
