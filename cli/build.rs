@@ -82,10 +82,10 @@ fn read_git_sha() -> Option<String> {
 }
 
 fn read_rust_binding_version() -> String {
-    let path = "../lib/Cargo.toml";
+    let path = "Cargo.toml";
     let text = fs::read_to_string(path).unwrap();
     let cargo_toml = toml::from_str::<toml::Value>(text.as_ref()).unwrap();
-    cargo_toml["package"]["version"]
+    cargo_toml["dependencies"]["tree-sitter"]["version"]
         .as_str()
         .unwrap()
         .trim_matches('"')
