@@ -2069,6 +2069,15 @@ TSQuery *ts_query_new(
   uint32_t *error_offset,
   TSQueryError *error_type
 ) {
+  if (
+    !language ||
+    language->version > TREE_SITTER_LANGUAGE_VERSION ||
+    language->version < TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
+  ) {
+    *error_type = TSQueryErrorLanguage;
+    return NULL;
+  }
+
   TSQuery *self = ts_malloc(sizeof(TSQuery));
   *self = (TSQuery) {
     .steps = array_new(),

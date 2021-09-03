@@ -12,7 +12,7 @@ use std::process::Command;
 use std::sync::Mutex;
 use std::time::SystemTime;
 use std::{fs, mem};
-use tree_sitter::{Language, QueryError};
+use tree_sitter::{Language, QueryError, QueryErrorKind};
 use tree_sitter_highlight::HighlightConfiguration;
 use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
 
@@ -667,28 +667,31 @@ impl<'a> LanguageConfiguration<'a> {
                         &injections_query,
                         &locals_query,
                     )
-                    .map_err(|error| {
-                        if error.offset < injections_query.len() {
-                            Self::include_path_in_query_error(
-                                error,
-                                &injection_ranges,
-                                &injections_query,
-                                0,
-                            )
-                        } else if error.offset < injections_query.len() + locals_query.len() {
-                            Self::include_path_in_query_error(
-                                error,
-                                &locals_ranges,
-                                &locals_query,
-                                injections_query.len(),
-                            )
-                        } else {
-                            Self::include_path_in_query_error(
-                                error,
-                                &highlight_ranges,
-                                &highlights_query,
-                                injections_query.len() + locals_query.len(),
-                            )
+                    .map_err(|error| match error.kind {
+                        QueryErrorKind::Language => Error::from(error),
+                        _ => {
+                            if error.offset < injections_query.len() {
+                                Self::include_path_in_query_error(
+                                    error,
+                                    &injection_ranges,
+                                    &injections_query,
+                                    0,
+                                )
+                            } else if error.offset < injections_query.len() + locals_query.len() {
+                                Self::include_path_in_query_error(
+                                    error,
+                                    &locals_ranges,
+                                    &locals_query,
+                                    injections_query.len(),
+                                )
+                            } else {
+                                Self::include_path_in_query_error(
+                                    error,
+                                    &highlight_ranges,
+                                    &highlights_query,
+                                    injections_query.len() + locals_query.len(),
+                                )
+                            }
                         }
                     })?;
                     let mut all_highlight_names = self.highlight_names.lock().unwrap();
