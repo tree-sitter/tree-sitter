@@ -2,6 +2,7 @@ log*.html
 
 .idea
 *.xcodeproj
+.vscode
 
 fuzz-results
 
