@@ -45,6 +45,11 @@ fn run() -> Result<()> {
         .long("debug-graph")
         .short("D");
 
+    let debug_build_arg = Arg::with_name("debug-build")
+        .help("Compile a parser in debug mode")
+        .long("debug-build")
+        .short("0");
+
     let paths_file_arg = Arg::with_name("paths-file")
         .help("The path to a file with paths to source file(s)")
         .long("paths")
@@ -103,6 +108,7 @@ fn run() -> Result<()> {
                 .arg(&paths_arg)
                 .arg(&scope_arg)
                 .arg(&debug_arg)
+                .arg(&debug_build_arg)
                 .arg(&debug_graph_arg)
                 .arg(Arg::with_name("debug-xml").long("xml").short("x"))
                 .arg(
@@ -178,6 +184,7 @@ fn run() -> Result<()> {
                         .help("Update all syntax trees in corpus files with current parser output"),
                 )
                 .arg(&debug_arg)
+                .arg(&debug_build_arg)
                 .arg(&debug_graph_arg),
         )
         .subcommand(
@@ -273,8 +280,12 @@ fn run() -> Result<()> {
         ("test", Some(matches)) => {
             let debug = matches.is_present("debug");
             let debug_graph = matches.is_present("debug-graph");
+            let debug_build = matches.is_present("debug-build");
             let update = matches.is_present("update");
             let filter = matches.value_of("filter");
+
+            loader.use_debug_build(debug_build);
+
             let languages = loader.languages_at_path(&current_dir)?;
             let language = languages
                 .first()
@@ -310,6 +321,7 @@ fn run() -> Result<()> {
         ("parse", Some(matches)) => {
             let debug = matches.is_present("debug");
             let debug_graph = matches.is_present("debug-graph");
+            let debug_build = matches.is_present("debug-build");
             let debug_xml = matches.is_present("debug-xml");
             let quiet = matches.is_present("quiet");
             let time = matches.is_present("time");
@@ -322,6 +334,8 @@ fn run() -> Result<()> {
                 // For augmenting debug logging in external scanners
                 env::set_var("TREE_SITTER_DEBUG", "1");
             }
+
+            loader.use_debug_build(debug_build);
 
             let timeout = matches
                 .value_of("timeout")
