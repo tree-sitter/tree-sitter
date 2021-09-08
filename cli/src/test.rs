@@ -5,7 +5,6 @@ use difference::{Changeset, Difference};
 use lazy_static::lazy_static;
 use regex::bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder};
 use regex::Regex;
-use std::char;
 use std::ffi::OsStr;
 use std::fmt::Write as FmtWrite;
 use std::fs;
@@ -16,10 +15,16 @@ use tree_sitter::{Language, LogType, Parser, Query};
 use walkdir::WalkDir;
 
 lazy_static! {
-    static ref HEADER_REGEX: ByteRegex = ByteRegexBuilder::new(r"^===+\r?\n([^=]*)\r?\n===+\r?\n")
-        .multi_line(true)
-        .build()
-        .unwrap();
+    static ref FIRST_HEADER_REGEX: ByteRegex =
+        ByteRegexBuilder::new(r"^===+(?P<suffix>[^=\r\n]*)\r?\n")
+            .multi_line(true)
+            .build()
+            .unwrap();
+    static ref HEADER_REGEX: ByteRegex =
+        ByteRegexBuilder::new(r"^===+\r?\n(?P<test_name>[^=\r\n]*)\r?\n===+\r?\n")
+            .multi_line(true)
+            .build()
+            .unwrap();
     static ref DIVIDER_REGEX: ByteRegex = ByteRegexBuilder::new(r"^---+\r?\n")
         .multi_line(true)
         .build()
@@ -380,16 +385,56 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
     let mut prev_name = String::new();
     let mut prev_header_end = 0;
 
+    let suffix = FIRST_HEADER_REGEX
+        .captures(bytes)
+        .and_then(|c| c.name("suffix"))
+        .map(|m| &bytes[m.range()])
+        .map(|b| String::from_utf8_lossy(b).to_string())
+        .map(|s| regex::escape(&s[..]));
+
+    let suffix_header_pattern: Option<String> = suffix.as_ref().map(|s| {
+        String::from(r"^===+") + s + r"\r?\n(?P<test_name>[^\r\n]*)\r?\n===+" + s + r"\r?\n"
+    });
+
+    let header_regex_from_suffix_header_pattern = suffix_header_pattern
+        .as_ref()
+        .and_then(|s| ByteRegexBuilder::new(&s[..]).multi_line(true).build().ok());
+
+    let header_regex = header_regex_from_suffix_header_pattern
+        .as_ref()
+        .unwrap_or(&HEADER_REGEX);
+
+    let suffix_divider_pattern: Option<String> = suffix
+        .as_ref()
+        .map(|s| String::from(r"^---+") + s + r"\r?\n");
+
+    let divider_regex_from_suffix_divider_pattern = suffix_divider_pattern
+        .as_ref()
+        .and_then(|s| ByteRegexBuilder::new(&s[..]).multi_line(true).build().ok());
+
+    let divider_regex = divider_regex_from_suffix_divider_pattern
+        .as_ref()
+        .unwrap_or(&DIVIDER_REGEX);
+
     // Identify all of the test descriptions using the `======` headers.
-    for (header_start, header_end) in HEADER_REGEX
-        .find_iter(&bytes)
-        .map(|m| (m.start(), m.end()))
-        .chain(Some((bytes.len(), bytes.len())))
+    // Must be followed by custom suffix if defined on first header.
+    // Capture index 0 corresponds to entire match and is guaranteed to exist.
+    for (header_start, header_end, test_name_capture) in header_regex
+        .captures_iter(&bytes)
+        .map(|c| {
+            (
+                c.get(0).unwrap().start(),
+                c.get(0).unwrap().end(),
+                c.name("test_name"),
+            )
+        })
+        .chain(Some((bytes.len(), bytes.len(), None)))
     {
         // Find the longest line of dashes following each test description.
         // That is the divider between input and expected output.
+        // Must be followed by custom suffix if defined on first header.
         if prev_header_end > 0 {
-            let divider_match = DIVIDER_REGEX
+            let divider_match = divider_regex
                 .find_iter(&bytes[prev_header_end..header_start])
                 .map(|m| (prev_header_end + m.start(), prev_header_end + m.end()))
                 .max_by_key(|(start, end)| end - start);
@@ -422,9 +467,10 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
                 }
             }
         }
-        prev_name = String::from_utf8_lossy(&bytes[header_start..header_end])
-            .trim_matches(|c| char::is_whitespace(c) || c == '=')
-            .to_string();
+        prev_name = test_name_capture
+            .map(|m| &bytes[m.range()])
+            .map(|b| String::from_utf8_lossy(b).to_string())
+            .unwrap_or(String::new());
         prev_header_end = header_end;
     }
     TestEntry::Group {
@@ -662,6 +708,90 @@ code
                         name: "sexp with ';'".to_string(),
                         input: "code".as_bytes().to_vec(),
                         output: "(MISSING \";\")".to_string(),
+                        has_fields: false,
+                    }
+                ],
+                file_path: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_test_content_with_suffixes() {
+        let entry = parse_test_content(
+            "the-filename".to_string(),
+            r#"
+==================asdf\()[]|{}*+?^$.-
+First test
+==================asdf\()[]|{}*+?^$.-
+
+=========================
+NOT A TEST HEADER
+=========================
+-------------------------
+
+---asdf\()[]|{}*+?^$.-
+
+(a)
+
+==================asdf\()[]|{}*+?^$.-
+Second test
+==================asdf\()[]|{}*+?^$.-
+
+=========================
+NOT A TEST HEADER
+=========================
+-------------------------
+
+---asdf\()[]|{}*+?^$.-
+
+(a)
+
+=========================asdf\()[]|{}*+?^$.-
+Test name with = symbol
+=========================asdf\()[]|{}*+?^$.-
+
+=========================
+NOT A TEST HEADER
+=========================
+-------------------------
+
+---asdf\()[]|{}*+?^$.-
+
+(a)
+        "#
+            .trim()
+            .to_string(),
+            None,
+        );
+
+        let expected_input = "\n=========================\n\
+            NOT A TEST HEADER\n\
+            =========================\n\
+            -------------------------\n"
+            .as_bytes()
+            .to_vec();
+        assert_eq!(
+            entry,
+            TestEntry::Group {
+                name: "the-filename".to_string(),
+                children: vec![
+                    TestEntry::Example {
+                        name: "First test".to_string(),
+                        input: expected_input.clone(),
+                        output: "(a)".to_string(),
+                        has_fields: false,
+                    },
+                    TestEntry::Example {
+                        name: "Second test".to_string(),
+                        input: expected_input.clone(),
+                        output: "(a)".to_string(),
+                        has_fields: false,
+                    },
+                    TestEntry::Example {
+                        name: "Test name with = symbol".to_string(),
+                        input: expected_input.clone(),
+                        output: "(a)".to_string(),
                         has_fields: false,
                     }
                 ],
