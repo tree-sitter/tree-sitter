@@ -23,6 +23,7 @@
   "_memchr",
   "_memcmp",
   "_memcpy",
+  "_memmove",
   "_strlen",
   "_towupper",
 
