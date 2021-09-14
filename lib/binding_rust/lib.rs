@@ -1753,6 +1753,10 @@ impl QueryCursor {
 }
 
 impl<'a, 'tree> QueryMatch<'a, 'tree> {
+    pub fn id(&self) -> u32 {
+        self.id
+    }
+
     pub fn remove(self) {
         unsafe { ffi::ts_query_cursor_remove_match(self.cursor, self.id) }
     }
