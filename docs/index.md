@@ -15,12 +15,13 @@ Tree-sitter is a parser generator tool and an incremental parsing library. It ca
 
 There are currently bindings that allow Tree-sitter to be used from the following languages:
 
-* [Rust](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_rust)
-* [JavaScript (Wasm)](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web)
+* [Haskell](https://github.com/tree-sitter/haskell-tree-sitter)
 * [JavaScript (Node.js)](https://github.com/tree-sitter/node-tree-sitter)
+* [JavaScript (Wasm)](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web)
+* [OCaml](https://github.com/returntocorp/ocaml-tree-sitter-core)
 * [Python](https://github.com/tree-sitter/py-tree-sitter)
 * [Ruby](https://github.com/tree-sitter/ruby-tree-sitter)
-* [Haskell](https://github.com/tree-sitter/haskell-tree-sitter)
+* [Rust](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_rust)
 
 ### Available Parsers
 
@@ -37,6 +38,7 @@ Parsers for these languages are fairly complete:
 * [ERB / EJS](https://github.com/tree-sitter/tree-sitter-embedded-template)
 * [Fennel](https://github.com/travonted/tree-sitter-fennel)
 * [Go](https://github.com/tree-sitter/tree-sitter-go)
+* [HCL](https://github.com/MichaHoffmann/tree-sitter-hcl)
 * [HTML](https://github.com/tree-sitter/tree-sitter-html)
 * [Java](https://github.com/tree-sitter/tree-sitter-java)
 * [JavaScript](https://github.com/tree-sitter/tree-sitter-javascript)
@@ -68,6 +70,7 @@ Parsers for these languages are in development:
 * [Erlang](https://github.com/AbstractMachinesLab/tree-sitter-erlang/)
 * [Dockerfile](https://github.com/camdencheek/tree-sitter-dockerfile)
 * [Go mod](https://github.com/camdencheek/tree-sitter-go-mod)
+* [Hack](https://github.com/slackhq/tree-sitter-hack)
 * [Haskell](https://github.com/tree-sitter/tree-sitter-haskell)
 * [Julia](https://github.com/tree-sitter/tree-sitter-julia)
 * [Kotlin](https://github.com/fwcd/tree-sitter-kotlin)
