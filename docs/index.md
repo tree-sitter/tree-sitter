@@ -79,6 +79,7 @@ Parsers for these languages are in development:
 * [Scala](https://github.com/tree-sitter/tree-sitter-scala)
 * [Sourcepawn](https://github.com/nilshelmig/tree-sitter-sourcepawn)
 * [Swift](https://github.com/tree-sitter/tree-sitter-swift)
+* [Objective-C](https://github.com/jiyee/tree-sitter-objc)
 
 
 ### Talks on Tree-sitter
