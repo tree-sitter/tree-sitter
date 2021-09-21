@@ -37,8 +37,8 @@ resource!(get_lib_wasm, "lib/binding_web/tree-sitter.wasm");
 
 pub fn serve(grammar_path: &Path, open_in_browser: bool) {
     let port = get_available_port().expect("Couldn't find an available port");
-    let url = format!("127.0.0.1:{}", port);
-    let server = Server::http(&url).expect("Failed to start web server");
+    let addr = format!("127.0.0.1:{}", port);
+    let server = Server::http(&addr).expect("Failed to start web server");
     let grammar_name = wasm::get_grammar_name(&grammar_path.join("src"))
         .with_context(|| "Failed to get wasm filename")
         .unwrap();
@@ -51,7 +51,8 @@ pub fn serve(grammar_path: &Path, open_in_browser: bool) {
             )
         })
         .unwrap();
-    println!("Started playground on '{}'", url);
+    let url = format!("http://{}", addr);
+    println!("Started playground on: {}", url);
     if open_in_browser {
         if let Err(_) = webbrowser::open(&url) {
             eprintln!("Failed to open '{}' in a web browser", url);
