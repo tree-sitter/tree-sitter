@@ -1821,21 +1821,36 @@ impl<'a, 'tree> QueryMatch<'a, 'tree> {
             .iter()
             .all(|predicate| match predicate {
                 TextPredicate::CaptureEqCapture(i, j, is_positive) => {
-                    let node1 = self.nodes_for_capture_index(*i).next().unwrap();
-                    let node2 = self.nodes_for_capture_index(*j).next().unwrap();
-                    let text1 = get_text(buffer1, text_provider.text(node1));
-                    let text2 = get_text(buffer2, text_provider.text(node2));
-                    (text1 == text2) == *is_positive
+                    let node1 = self.nodes_for_capture_index(*i).next();
+                    let node2 = self.nodes_for_capture_index(*j).next();
+                    match (node1, node2) {
+                        (Some(node1), Some(node2)) => {
+                            let text1 = get_text(buffer1, text_provider.text(node1));
+                            let text2 = get_text(buffer2, text_provider.text(node2));
+                            (text1 == text2) == *is_positive
+                        }
+                        _ => true,
+                    }
                 }
                 TextPredicate::CaptureEqString(i, s, is_positive) => {
-                    let node = self.nodes_for_capture_index(*i).next().unwrap();
-                    let text = get_text(buffer1, text_provider.text(node));
-                    (text == s.as_bytes()) == *is_positive
+                    let node = self.nodes_for_capture_index(*i).next();
+                    match node {
+                        Some(node) => {
+                            let text = get_text(buffer1, text_provider.text(node));
+                            (text == s.as_bytes()) == *is_positive
+                        }
+                        None => true,
+                    }
                 }
                 TextPredicate::CaptureMatchString(i, r, is_positive) => {
-                    let node = self.nodes_for_capture_index(*i).next().unwrap();
-                    let text = get_text(buffer1, text_provider.text(node));
-                    r.is_match(text) == *is_positive
+                    let node = self.nodes_for_capture_index(*i).next();
+                    match node {
+                        Some(node) => {
+                            let text = get_text(buffer1, text_provider.text(node));
+                            r.is_match(text) == *is_positive
+                        }
+                        None => true,
+                    }
                 }
             })
     }
