@@ -4,7 +4,7 @@ use glob::glob;
 use std::path::Path;
 use std::{env, fs, u64};
 use tree_sitter_cli::{
-    generate, highlight, logger, parse, query, tags, test, test_highlight, util, wasm, web_ui,
+    generate, highlight, logger, parse, playground, query, tags, test, test_highlight, util, wasm,
 };
 use tree_sitter_config::Config;
 use tree_sitter_loader as loader;
@@ -504,7 +504,7 @@ fn run() -> Result<()> {
 
         ("playground", Some(matches)) => {
             let open_in_browser = !matches.is_present("quiet");
-            web_ui::serve(&current_dir, open_in_browser);
+            playground::serve(&current_dir, open_in_browser);
         }
 
         ("dump-languages", Some(_)) => {

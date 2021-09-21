@@ -30,7 +30,7 @@ macro_rules! resource {
     };
 }
 
-resource!(get_main_html, "cli/src/web_ui.html");
+resource!(get_main_html, "cli/src/playground.html");
 resource!(get_playground_js, "docs/assets/js/playground.js");
 resource!(get_lib_js, "lib/binding_web/tree-sitter.js");
 resource!(get_lib_wasm, "lib/binding_web/tree-sitter.wasm");

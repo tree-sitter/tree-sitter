@@ -29,7 +29,7 @@ git clone https://github.com/tree-sitter/tree-sitter
 cd tree-sitter
 ```
 
-Optionally, build the WASM library. If you skip this step, then the `tree-sitter web-ui` command will require an internet connection. If you have emscripten installed, this will use your `emcc` compiler. Otherwise, it will use Docker:
+Optionally, build the WASM library. If you skip this step, then the `tree-sitter playground` command will require an internet connection. If you have emscripten installed, this will use your `emcc` compiler. Otherwise, it will use Docker:
 
 ```sh
 ./script/build-wasm
