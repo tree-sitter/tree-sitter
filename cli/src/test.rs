@@ -15,17 +15,12 @@ use tree_sitter::{Language, LogType, Parser, Query};
 use walkdir::WalkDir;
 
 lazy_static! {
-    static ref FIRST_HEADER_REGEX: ByteRegex =
-        ByteRegexBuilder::new(r"^===+(?P<suffix>[^=\r\n]*)\r?\n")
-            .multi_line(true)
-            .build()
-            .unwrap();
     static ref HEADER_REGEX: ByteRegex =
-        ByteRegexBuilder::new(r"^===+\r?\n(?P<test_name>[^=\r\n]*)\r?\n===+\r?\n")
+        ByteRegexBuilder::new(r"^===+(?P<suffix1>[^=\r\n][^\r\n]*)?\r?\n(?P<test_name>[^=\r\n][^\r\n]*)\r?\n===+(?P<suffix2>[^=\r\n][^\r\n]*)?\r?\n")
             .multi_line(true)
             .build()
             .unwrap();
-    static ref DIVIDER_REGEX: ByteRegex = ByteRegexBuilder::new(r"^---+\r?\n")
+    static ref DIVIDER_REGEX: ByteRegex = ByteRegexBuilder::new(r"^---+(?P<suffix>[^-\r\n][^\r\n]*)?\r?\n")
         .multi_line(true)
         .build()
         .unwrap();
@@ -385,62 +380,58 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
     let mut prev_name = String::new();
     let mut prev_header_end = 0;
 
-    let suffix = FIRST_HEADER_REGEX
+    // Find the first test header in the file, and determine if it has a
+    // custom suffix. If so, then this suffix will be used to identify
+    // all subsequent headers and divider lines in the file.
+    let first_suffix = HEADER_REGEX
         .captures(bytes)
-        .and_then(|c| c.name("suffix"))
-        .map(|m| &bytes[m.range()])
-        .map(|b| String::from_utf8_lossy(b).to_string())
-        .map(|s| regex::escape(&s[..]));
+        .and_then(|c| c.name("suffix1"))
+        .map(|m| String::from_utf8_lossy(m.as_bytes()));
 
-    let suffix_header_pattern: Option<String> = suffix.as_ref().map(|s| {
-        String::from(r"^===+") + s + r"\r?\n(?P<test_name>[^\r\n]*)\r?\n===+" + s + r"\r?\n"
+    // Find all of the `===` test headers, which contain the test names.
+    // Ignore any matches whose suffix does not match the first header
+    // suffix in the file.
+    let header_matches = HEADER_REGEX.captures_iter(&bytes).filter_map(|c| {
+        let suffix1 = c
+            .name("suffix1")
+            .map(|m| String::from_utf8_lossy(m.as_bytes()));
+        let suffix2 = c
+            .name("suffix2")
+            .map(|m| String::from_utf8_lossy(m.as_bytes()));
+        if suffix1 == first_suffix && suffix2 == first_suffix {
+            let header_range = c.get(0).unwrap().range();
+            let test_name = c
+                .name("test_name")
+                .map(|c| String::from_utf8_lossy(c.as_bytes()).to_string());
+            Some((header_range, test_name))
+        } else {
+            None
+        }
     });
 
-    let header_regex_from_suffix_header_pattern = suffix_header_pattern
-        .as_ref()
-        .and_then(|s| ByteRegexBuilder::new(&s[..]).multi_line(true).build().ok());
-
-    let header_regex = header_regex_from_suffix_header_pattern
-        .as_ref()
-        .unwrap_or(&HEADER_REGEX);
-
-    let suffix_divider_pattern: Option<String> = suffix
-        .as_ref()
-        .map(|s| String::from(r"^---+") + s + r"\r?\n");
-
-    let divider_regex_from_suffix_divider_pattern = suffix_divider_pattern
-        .as_ref()
-        .and_then(|s| ByteRegexBuilder::new(&s[..]).multi_line(true).build().ok());
-
-    let divider_regex = divider_regex_from_suffix_divider_pattern
-        .as_ref()
-        .unwrap_or(&DIVIDER_REGEX);
-
-    // Identify all of the test descriptions using the `======` headers.
-    // Must be followed by custom suffix if defined on first header.
-    // Capture index 0 corresponds to entire match and is guaranteed to exist.
-    for (header_start, header_end, test_name_capture) in header_regex
-        .captures_iter(&bytes)
-        .map(|c| {
-            (
-                c.get(0).unwrap().start(),
-                c.get(0).unwrap().end(),
-                c.name("test_name"),
-            )
-        })
-        .chain(Some((bytes.len(), bytes.len(), None)))
-    {
-        // Find the longest line of dashes following each test description.
-        // That is the divider between input and expected output.
-        // Must be followed by custom suffix if defined on first header.
+    for (header_range, test_name) in header_matches.chain(Some((bytes.len()..bytes.len(), None))) {
+        // Find the longest line of dashes following each test description. That line
+        // separates the input from the expected output. Ignore any matches whose suffix
+        // does not match the first suffix in the file.
         if prev_header_end > 0 {
-            let divider_match = divider_regex
-                .find_iter(&bytes[prev_header_end..header_start])
-                .map(|m| (prev_header_end + m.start(), prev_header_end + m.end()))
-                .max_by_key(|(start, end)| end - start);
-            if let Some((divider_start, divider_end)) = divider_match {
-                if let Ok(output) = str::from_utf8(&bytes[divider_end..header_start]) {
-                    let mut input = bytes[prev_header_end..divider_start].to_vec();
+            let divider_range = DIVIDER_REGEX
+                .captures_iter(&bytes[prev_header_end..header_range.start])
+                .filter_map(|m| {
+                    let suffix = m
+                        .name("suffix")
+                        .map(|m| String::from_utf8_lossy(m.as_bytes()));
+                    if suffix == first_suffix {
+                        let range = m.get(0).unwrap().range();
+                        Some((prev_header_end + range.start)..(prev_header_end + range.end))
+                    } else {
+                        None
+                    }
+                })
+                .max_by_key(|range| range.len());
+
+            if let Some(divider_range) = divider_range {
+                if let Ok(output) = str::from_utf8(&bytes[divider_range.end..header_range.start]) {
+                    let mut input = bytes[prev_header_end..divider_range.start].to_vec();
 
                     // Remove trailing newline from the input.
                     input.pop();
@@ -450,6 +441,7 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
 
                     // Remove all comments
                     let output = COMMENT_REGEX.replace_all(output, "").to_string();
+
                     // Normalize the whitespace in the expected output.
                     let output = WHITESPACE_REGEX.replace_all(output.trim(), " ");
                     let output = output.replace(" )", ")");
@@ -467,11 +459,8 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
                 }
             }
         }
-        prev_name = test_name_capture
-            .map(|m| &bytes[m.range()])
-            .map(|b| String::from_utf8_lossy(b).to_string())
-            .unwrap_or(String::new());
-        prev_header_end = header_end;
+        prev_name = test_name.unwrap_or(String::new());
+        prev_header_end = header_range.end;
     }
     TestEntry::Group {
         name,
@@ -485,7 +474,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_test_content() {
+    fn test_parse_test_content_simple() {
         let entry = parse_test_content(
             "the-filename".to_string(),
             r#"
