@@ -76,11 +76,12 @@ Parsers for these languages are in development:
 * [Julia](https://github.com/tree-sitter/tree-sitter-julia)
 * [Kotlin](https://github.com/fwcd/tree-sitter-kotlin)
 * [Nix](https://github.com/cstrahan/tree-sitter-nix)
+* [Objective-C](https://github.com/jiyee/tree-sitter-objc)
 * [Perl](https://github.com/ganezdragon/tree-sitter-perl)
 * [Scala](https://github.com/tree-sitter/tree-sitter-scala)
 * [Sourcepawn](https://github.com/nilshelmig/tree-sitter-sourcepawn)
 * [Swift](https://github.com/tree-sitter/tree-sitter-swift)
-* [Objective-C](https://github.com/jiyee/tree-sitter-objc)
+* [SQL](https://github.com/m-novikov/tree-sitter-sql) 
 
 
 ### Talks on Tree-sitter
