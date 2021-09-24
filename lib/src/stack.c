@@ -302,7 +302,7 @@ static void ts_stack__add_slice(
   array_push(&self->slices, slice);
 }
 
-inline StackSliceArray stack__iter(
+static StackSliceArray stack__iter(
   Stack *self,
   StackVersion version,
   StackCallback callback,
