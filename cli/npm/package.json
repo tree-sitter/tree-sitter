@@ -14,7 +14,8 @@
   ],
   "main": "lib/api/index.js",
   "scripts": {
-    "install": "node install.js"
+    "install": "node install.js",
+    "prepack": "cp ../../LICENSE ."
   },
   "bin": {
     "tree-sitter": "cli.js"

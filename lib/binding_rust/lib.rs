@@ -202,6 +202,7 @@ pub enum QueryErrorKind {
     Capture,
     Predicate,
     Structure,
+    Language,
 }
 
 #[derive(Debug)]
@@ -629,7 +630,7 @@ impl Parser {
     /// If a pointer is assigned, then the parser will periodically read from
     /// this pointer during parsing. If it reads a non-zero value, it will halt early,
     /// returning `None`. See [parse](Parser::parse) for more information.
-    pub unsafe fn set_cancellation_flag(&self, flag: Option<&AtomicUsize>) {
+    pub unsafe fn set_cancellation_flag(&mut self, flag: Option<&AtomicUsize>) {
         if let Some(flag) = flag {
             ffi::ts_parser_set_cancellation_flag(
                 self.0.as_ptr(),
@@ -1231,6 +1232,19 @@ impl Query {
 
         // On failure, build an error based on the error code and offset.
         if ptr.is_null() {
+            if error_type == ffi::TSQueryError_TSQueryErrorLanguage {
+                return Err(QueryError {
+                    row: 0,
+                    column: 0,
+                    offset: 0,
+                    message: LanguageError {
+                        version: language.version(),
+                    }
+                    .to_string(),
+                    kind: QueryErrorKind::Language,
+                });
+            }
+
             let offset = error_offset as usize;
             let mut line_start = 0;
             let mut row = 0;
@@ -1739,6 +1753,10 @@ impl QueryCursor {
 }
 
 impl<'a, 'tree> QueryMatch<'a, 'tree> {
+    pub fn id(&self) -> u32 {
+        self.id
+    }
+
     pub fn remove(self) {
         unsafe { ffi::ts_query_cursor_remove_match(self.cursor, self.id) }
     }
@@ -1803,21 +1821,36 @@ impl<'a, 'tree> QueryMatch<'a, 'tree> {
             .iter()
             .all(|predicate| match predicate {
                 TextPredicate::CaptureEqCapture(i, j, is_positive) => {
-                    let node1 = self.nodes_for_capture_index(*i).next().unwrap();
-                    let node2 = self.nodes_for_capture_index(*j).next().unwrap();
-                    let text1 = get_text(buffer1, text_provider.text(node1));
-                    let text2 = get_text(buffer2, text_provider.text(node2));
-                    (text1 == text2) == *is_positive
+                    let node1 = self.nodes_for_capture_index(*i).next();
+                    let node2 = self.nodes_for_capture_index(*j).next();
+                    match (node1, node2) {
+                        (Some(node1), Some(node2)) => {
+                            let text1 = get_text(buffer1, text_provider.text(node1));
+                            let text2 = get_text(buffer2, text_provider.text(node2));
+                            (text1 == text2) == *is_positive
+                        }
+                        _ => true,
+                    }
                 }
                 TextPredicate::CaptureEqString(i, s, is_positive) => {
-                    let node = self.nodes_for_capture_index(*i).next().unwrap();
-                    let text = get_text(buffer1, text_provider.text(node));
-                    (text == s.as_bytes()) == *is_positive
+                    let node = self.nodes_for_capture_index(*i).next();
+                    match node {
+                        Some(node) => {
+                            let text = get_text(buffer1, text_provider.text(node));
+                            (text == s.as_bytes()) == *is_positive
+                        }
+                        None => true,
+                    }
                 }
                 TextPredicate::CaptureMatchString(i, r, is_positive) => {
-                    let node = self.nodes_for_capture_index(*i).next().unwrap();
-                    let text = get_text(buffer1, text_provider.text(node));
-                    r.is_match(text) == *is_positive
+                    let node = self.nodes_for_capture_index(*i).next();
+                    match node {
+                        Some(node) => {
+                            let text = get_text(buffer1, text_provider.text(node));
+                            r.is_match(text) == *is_positive
+                        }
+                        None => true,
+                    }
                 }
             })
     }
@@ -2105,21 +2138,27 @@ impl fmt::Display for LanguageError {
 
 impl fmt::Display for QueryError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Query error at {}:{}. {}{}",
-            self.row + 1,
-            self.column + 1,
-            match self.kind {
-                QueryErrorKind::Field => "Invalid field name ",
-                QueryErrorKind::NodeType => "Invalid node type ",
-                QueryErrorKind::Capture => "Invalid capture name ",
-                QueryErrorKind::Predicate => "Invalid predicate: ",
-                QueryErrorKind::Structure => "Impossible pattern:\n",
-                QueryErrorKind::Syntax => "Invalid syntax:\n",
-            },
-            self.message
-        )
+        let msg = match self.kind {
+            QueryErrorKind::Field => "Invalid field name ",
+            QueryErrorKind::NodeType => "Invalid node type ",
+            QueryErrorKind::Capture => "Invalid capture name ",
+            QueryErrorKind::Predicate => "Invalid predicate: ",
+            QueryErrorKind::Structure => "Impossible pattern:\n",
+            QueryErrorKind::Syntax => "Invalid syntax:\n",
+            QueryErrorKind::Language => "",
+        };
+        if msg.len() > 0 {
+            write!(
+                f,
+                "Query error at {}:{}. {}{}",
+                self.row + 1,
+                self.column + 1,
+                msg,
+                self.message
+            )
+        } else {
+            write!(f, "{}", self.message)
+        }
     }
 }
 

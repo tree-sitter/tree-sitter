@@ -464,7 +464,7 @@ In general, it's a good idea to make patterns more specific by specifying [field
 
 #### Negated Fields
 
-You can also constrain a pattern so that it only mathces nodes that *lack* a certain field. To do this, add a field name prefixed by a `!` within the parent pattern. For example, this pattern would match a class declaration with no type parameters:
+You can also constrain a pattern so that it only matches nodes that *lack* a certain field. To do this, add a field name prefixed by a `!` within the parent pattern. For example, this pattern would match a class declaration with no type parameters:
 
 ```
 (class_declaration
@@ -586,8 +586,10 @@ This pattern would match a set of possible keyword tokens, capturing them as `@k
 
 #### Wildcard Node
 
-A wildcard node is represented with an underscore (`(_)`), it matches any node.
+A wildcard node is represented with an underscore (`_`), it matches any node.
 This is similar to `.` in regular expressions.
+There are two types, `(_)` will match any named node,
+and `_` will match any named or anonymous node.
 
 For example, this pattern would match any node inside a call:
 

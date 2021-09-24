@@ -2069,6 +2069,15 @@ TSQuery *ts_query_new(
   uint32_t *error_offset,
   TSQueryError *error_type
 ) {
+  if (
+    !language ||
+    language->version > TREE_SITTER_LANGUAGE_VERSION ||
+    language->version < TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
+  ) {
+    *error_type = TSQueryErrorLanguage;
+    return NULL;
+  }
+
   TSQuery *self = ts_malloc(sizeof(TSQuery));
   *self = (TSQuery) {
     .steps = array_new(),
@@ -2552,6 +2561,7 @@ static void ts_query_cursor__add_state(
     pattern->step_index
   );
   array_insert(&self->states, index, ((QueryState) {
+    .id = UINT32_MAX,
     .capture_list_id = NONE,
     .step_index = pattern->step_index,
     .pattern_index = pattern->pattern_index,
@@ -2716,7 +2726,6 @@ static inline bool ts_query_cursor__advance(
         if (step->depth == PATTERN_DONE_MARKER) {
           if (state->start_depth > self->depth || self->halted) {
             LOG("  finish pattern %u\n", state->pattern_index);
-            state->id = self->next_state_id++;
             array_push(&self->finished_states, *state);
             did_match = true;
             deleted_count++;
@@ -3105,7 +3114,6 @@ static inline bool ts_query_cursor__advance(
               LOG("  defer finishing pattern %u\n", state->pattern_index);
             } else {
               LOG("  finish pattern %u\n", state->pattern_index);
-              state->id = self->next_state_id++;
               array_push(&self->finished_states, *state);
               array_erase(&self->states, state - self->states.contents);
               did_match = true;
@@ -3160,6 +3168,7 @@ bool ts_query_cursor_next_match(
   }
 
   QueryState *state = &self->finished_states.contents[0];
+  if (state->id == UINT32_MAX) state->id = self->next_state_id++;
   match->id = state->id;
   match->pattern_index = state->pattern_index;
   const CaptureList *captures = capture_list_pool_get(
@@ -3269,6 +3278,7 @@ bool ts_query_cursor_next_capture(
     }
 
     if (state) {
+      if (state->id == UINT32_MAX) state->id = self->next_state_id++;
       match->id = state->id;
       match->pattern_index = state->pattern_index;
       const CaptureList *captures = capture_list_pool_get(

@@ -6,7 +6,7 @@ fn main() {
         println!("cargo:rustc-env={}={}", "BUILD_SHA", git_sha);
     }
 
-    if wasm_files_present() {
+    if web_playground_files_present() {
         println!("cargo:rustc-cfg={}", "TREE_SITTER_EMBED_WASM_BINDING");
     }
 
@@ -16,15 +16,16 @@ fn main() {
         "RUST_BINDING_VERSION", rust_binding_version,
     );
 
-    let emscripten_version = fs::read_to_string("../emscripten-version").unwrap();
+    let emscripten_version = fs::read_to_string("emscripten-version").unwrap();
     println!(
         "cargo:rustc-env={}={}",
         "EMSCRIPTEN_VERSION", emscripten_version,
     );
 }
 
-fn wasm_files_present() -> bool {
+fn web_playground_files_present() -> bool {
     let paths = [
+        "../docs/assets/js/playground.js",
         "../lib/binding_web/tree-sitter.js",
         "../lib/binding_web/tree-sitter.wasm",
     ];
@@ -81,10 +82,10 @@ fn read_git_sha() -> Option<String> {
 }
 
 fn read_rust_binding_version() -> String {
-    let path = "../lib/Cargo.toml";
+    let path = "Cargo.toml";
     let text = fs::read_to_string(path).unwrap();
     let cargo_toml = toml::from_str::<toml::Value>(text.as_ref()).unwrap();
-    cargo_toml["package"]["version"]
+    cargo_toml["dependencies"]["tree-sitter"]["version"]
         .as_str()
         .unwrap()
         .trim_matches('"')

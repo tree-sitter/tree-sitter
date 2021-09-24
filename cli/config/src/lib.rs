@@ -1,6 +1,6 @@
 //! Manages tree-sitter's configuration file.
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::PathBuf;
@@ -14,6 +14,7 @@ use std::{env, fs};
 /// This type holds the generic JSON content of the configuration file.  Individual tree-sitter
 /// components will use the [`get`][] method to parse that JSON to extract configuration fields
 /// that are specific to that component.
+#[derive(Debug)]
 pub struct Config {
     pub location: PathBuf,
     pub config: Value,
@@ -64,8 +65,10 @@ impl Config {
             Some(location) => location,
             None => return Config::initial(),
         };
-        let content = fs::read_to_string(&location)?;
-        let config = serde_json::from_str(&content)?;
+        let content = fs::read_to_string(&location)
+            .with_context(|| format!("Failed to read {}", &location.to_string_lossy()))?;
+        let config = serde_json::from_str(&content)
+            .with_context(|| format!("Bad JSON config {}", &location.to_string_lossy()))?;
         Ok(Config { location, config })
     }
 

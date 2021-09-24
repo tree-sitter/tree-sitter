@@ -48,10 +48,12 @@ pub fn query_files_at_paths(
                 let capture_name = &query.capture_names()[capture.index as usize];
                 writeln!(
                     &mut stdout,
-                    "    pattern: {}, capture: {}, row: {}, text: {:?}",
+                    "    pattern: {:>2}, capture: {} - {}, start: {}, end: {}, text: `{}`",
                     mat.pattern_index,
+                    capture.index,
                     capture_name,
-                    capture.node.start_position().row,
+                    capture.node.start_position(),
+                    capture.node.end_position(),
                     capture.node.utf8_text(&source_code).unwrap_or("")
                 )?;
                 results.push(query_testing::CaptureInfo {
@@ -70,9 +72,11 @@ pub fn query_files_at_paths(
                     if end.row == start.row {
                         writeln!(
                             &mut stdout,
-                            "    capture: {}, start: {}, text: {:?}",
+                            "    capture: {} - {}, start: {}, end: {}, text: `{}`",
+                            capture.index,
                             capture_name,
                             start,
+                            end,
                             capture.node.utf8_text(&source_code).unwrap_or("")
                         )?;
                     } else {

@@ -12,7 +12,7 @@ use std::process::Command;
 use std::sync::Mutex;
 use std::time::SystemTime;
 use std::{fs, mem};
-use tree_sitter::{Language, QueryError};
+use tree_sitter::{Language, QueryError, QueryErrorKind};
 use tree_sitter_highlight::HighlightConfiguration;
 use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
 
@@ -101,6 +101,7 @@ pub struct Loader {
     language_configuration_ids_by_file_type: HashMap<String, Vec<usize>>,
     highlight_names: Box<Mutex<Vec<String>>>,
     use_all_highlight_names: bool,
+    debug_build: bool,
 }
 
 unsafe impl Send for Loader {}
@@ -122,6 +123,7 @@ impl Loader {
             language_configuration_ids_by_file_type: HashMap::new(),
             highlight_names: Box::new(Mutex::new(Vec::new())),
             use_all_highlight_names: true,
+            debug_build: false,
         }
     }
 
@@ -347,7 +349,11 @@ impl Loader {
         parser_path: &Path,
         scanner_path: &Option<PathBuf>,
     ) -> Result<Language> {
-        let mut library_path = self.parser_lib_path.join(name);
+        let mut lib_name = name.to_string();
+        if self.debug_build {
+            lib_name.push_str(".debug._");
+        }
+        let mut library_path = self.parser_lib_path.join(lib_name);
         library_path.set_extension(DYLIB_EXTENSION);
 
         let recompile = needs_recompile(&library_path, &parser_path, &scanner_path)
@@ -369,11 +375,13 @@ impl Loader {
             }
 
             if cfg!(windows) {
-                command
-                    .args(&["/nologo", "/LD", "/I"])
-                    .arg(header_path)
-                    .arg("/Od")
-                    .arg(parser_path);
+                command.args(&["/nologo", "/LD", "/I"]).arg(header_path);
+                if self.debug_build {
+                    command.arg("/Od");
+                } else {
+                    command.arg("/O2");
+                }
+                command.arg(parser_path);
                 if let Some(scanner_path) = scanner_path.as_ref() {
                     command.arg(scanner_path);
                 }
@@ -389,8 +397,18 @@ impl Loader {
                     .arg("-I")
                     .arg(header_path)
                     .arg("-o")
-                    .arg(&library_path)
-                    .arg("-O2");
+                    .arg(&library_path);
+
+                if self.debug_build {
+                    command.arg("-O0");
+                } else {
+                    command.arg("-O2");
+                }
+
+                // For conditional compilation of external scanner code when
+                // used internally by `tree-siteer parse` and other sub commands.
+                command.arg("-DTREE_SITTER_INTERNAL_BUILD");
+
                 if let Some(scanner_path) = scanner_path.as_ref() {
                     if scanner_path.extension() == Some("c".as_ref()) {
                         command.arg("-xc").arg("-std=c99").arg(scanner_path);
@@ -639,6 +657,10 @@ impl Loader {
             Err(anyhow!("No language found"))
         }
     }
+
+    pub fn use_debug_build(&mut self, flag: bool) {
+        self.debug_build = flag;
+    }
 }
 
 impl<'a> LanguageConfiguration<'a> {
@@ -662,28 +684,31 @@ impl<'a> LanguageConfiguration<'a> {
                         &injections_query,
                         &locals_query,
                     )
-                    .map_err(|error| {
-                        if error.offset < injections_query.len() {
-                            Self::include_path_in_query_error(
-                                error,
-                                &injection_ranges,
-                                &injections_query,
-                                0,
-                            )
-                        } else if error.offset < injections_query.len() + locals_query.len() {
-                            Self::include_path_in_query_error(
-                                error,
-                                &locals_ranges,
-                                &locals_query,
-                                injections_query.len(),
-                            )
-                        } else {
-                            Self::include_path_in_query_error(
-                                error,
-                                &highlight_ranges,
-                                &highlights_query,
-                                injections_query.len() + locals_query.len(),
-                            )
+                    .map_err(|error| match error.kind {
+                        QueryErrorKind::Language => Error::from(error),
+                        _ => {
+                            if error.offset < injections_query.len() {
+                                Self::include_path_in_query_error(
+                                    error,
+                                    &injection_ranges,
+                                    &injections_query,
+                                    0,
+                                )
+                            } else if error.offset < injections_query.len() + locals_query.len() {
+                                Self::include_path_in_query_error(
+                                    error,
+                                    &locals_ranges,
+                                    &locals_query,
+                                    injections_query.len(),
+                                )
+                            } else {
+                                Self::include_path_in_query_error(
+                                    error,
+                                    &highlight_ranges,
+                                    &highlights_query,
+                                    injections_query.len() + locals_query.len(),
+                                )
+                            }
                         }
                     })?;
                     let mut all_highlight_names = self.highlight_names.lock().unwrap();

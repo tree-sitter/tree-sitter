@@ -13,7 +13,8 @@
         "members": [
           {"type": "SYMBOL", "name": "lower"},
           {"type": "SYMBOL", "name": "upper"},
-          {"type": "SYMBOL", "name": "math_sym"}
+          {"type": "SYMBOL", "name": "math_sym"},
+          {"type": "SYMBOL", "name": "letter_number"}
         ]
       }
     },
@@ -31,6 +32,11 @@
     "math_sym": {
       "type": "PATTERN",
       "value": "\\p{Sm}+"
+    },
+
+    "letter_number": {
+      "type": "PATTERN",
+      "value": "\\p{Letter_Number}"
     }
   }
 }

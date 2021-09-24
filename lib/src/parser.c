@@ -417,7 +417,7 @@ static Subtree ts_parser__lex(
       LOG(
         "lex_external state:%d, row:%u, column:%u",
         lex_mode.external_lex_state,
-        current_position.extent.row + 1,
+        current_position.extent.row,
         current_position.extent.column
       );
       ts_lexer_start(&self->lexer);
@@ -456,7 +456,7 @@ static Subtree ts_parser__lex(
     LOG(
       "lex_internal state:%d, row:%u, column:%u",
       lex_mode.lex_state,
-      current_position.extent.row + 1,
+      current_position.extent.row,
       current_position.extent.column
     );
     ts_lexer_start(&self->lexer);
@@ -1884,7 +1884,7 @@ TSTree *ts_parser_parse(
         LOG("process version:%d, version_count:%u, state:%d, row:%u, col:%u",
             version, ts_stack_version_count(self->stack),
             ts_stack_state(self->stack, version),
-            ts_stack_position(self->stack, version).extent.row + 1,
+            ts_stack_position(self->stack, version).extent.row,
             ts_stack_position(self->stack, version).extent.column);
 
         if (!ts_parser__advance(self, version, allow_node_reuse)) return NULL;

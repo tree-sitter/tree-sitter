@@ -1057,7 +1057,7 @@ impl Generator {
     }
 
     fn add_parse_table(&mut self) {
-        let mut parse_table_entries = Vec::new();
+        let mut parse_table_entries = HashMap::new();
         let mut next_parse_action_list_index = 0;
 
         self.get_parse_action_list_id(
@@ -1224,6 +1224,11 @@ impl Generator {
             add_line!(self, "");
         }
 
+        let mut parse_table_entries: Vec<_> = parse_table_entries
+            .into_iter()
+            .map(|(entry, i)| (i, entry))
+            .collect();
+        parse_table_entries.sort_by_key(|(index, _)| *index);
         self.add_parse_action_list(parse_table_entries);
     }
 
@@ -1404,17 +1409,17 @@ impl Generator {
     fn get_parse_action_list_id(
         &self,
         entry: &ParseTableEntry,
-        parse_table_entries: &mut Vec<(usize, ParseTableEntry)>,
+        parse_table_entries: &mut HashMap<ParseTableEntry, usize>,
         next_parse_action_list_index: &mut usize,
     ) -> usize {
-        if let Some((index, _)) = parse_table_entries.iter().find(|(_, e)| *e == *entry) {
-            return *index;
+        if let Some(&index) = parse_table_entries.get(entry) {
+            index
+        } else {
+            let result = *next_parse_action_list_index;
+            parse_table_entries.insert(entry.clone(), result);
+            *next_parse_action_list_index += 1 + entry.actions.len();
+            result
         }
-
-        let result = *next_parse_action_list_index;
-        parse_table_entries.push((result, entry.clone()));
-        *next_parse_action_list_index += 1 + entry.actions.len();
-        result
     }
 
     fn get_field_map_id(

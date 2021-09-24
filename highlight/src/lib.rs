@@ -586,7 +586,7 @@ where
                     break;
                 }
                 if i > 0 {
-                    &self.layers[0..(i + 1)].rotate_left(1);
+                    self.layers[0..(i + 1)].rotate_left(1);
                 }
                 break;
             } else {

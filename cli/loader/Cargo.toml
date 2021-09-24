@@ -25,13 +25,13 @@ version = "1.0"
 features = ["preserve_order"]
 
 [dependencies.tree-sitter]
-version = ">= 0.19"
+version = "0.20"
 path = "../../lib"
 
 [dependencies.tree-sitter-highlight]
-version = ">= 0.19"
+version = "0.20"
 path = "../../highlight"
 
 [dependencies.tree-sitter-tags]
-version = ">= 0.19"
+version = "0.20"
 path = "../../tags"
