@@ -238,7 +238,7 @@ fn test_feature_corpus_files() {
                     .enumerate()
                     .filter(|(_, (expected, actual))| expected != actual)
                     .next();
-                if let Some((line_number,(expected_line, actual_line))) = first_diff {
+                if let Some((line_number, (expected_line, actual_line))) = first_diff {
                     eprintln!(
                         "Unexpected error message.\n\nExpected:\n\n{}\nActual:\n\n{}\n",
                         expected_message, actual_message
