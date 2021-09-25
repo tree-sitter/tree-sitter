@@ -231,10 +231,21 @@ fn test_feature_corpus_files() {
 
             let expected_message = fs::read_to_string(&error_message_path).unwrap();
             if let Err(e) = generate_result {
-                if e.to_string() != expected_message {
+                let actual_message = e.to_string();
+                let first_diff = expected_message
+                    .lines()
+                    .zip(actual_message.lines())
+                    .enumerate()
+                    .filter(|(_, (expected, actual))| expected != actual)
+                    .next();
+                if let Some((line_number,(expected_line, actual_line))) = first_diff {
                     eprintln!(
                         "Unexpected error message.\n\nExpected:\n\n{}\nActual:\n\n{}\n",
-                        expected_message, e
+                        expected_message, actual_message
+                    );
+                    eprintln!(
+                        "First difference on line {}; expected:\n{}\nActual:\n{}\n",
+                        line_number, expected_line, actual_line
                     );
                     failure_count += 1;
                 }
