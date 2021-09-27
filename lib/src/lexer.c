@@ -233,9 +233,27 @@ static void ts_lexer__mark_end(TSLexer *_self) {
 
 static uint32_t ts_lexer__get_column(TSLexer *_self) {
   Lexer *self = (Lexer *)_self;
+  
+  uint32_t goal_byte = self->current_position.bytes;
+  
   self->did_get_column = true;
-  return self->current_position.extent.column;
+  self->current_position.bytes -= self->current_position.extent.column;
+  self->current_position.extent.column = 0;
+
+  if (self->current_position.bytes < self->chunk_start) {
+    ts_lexer__get_chunk(self);
+  }
+
+  uint32_t result = 0;
+  ts_lexer__get_lookahead(_self);
+  while (self->current_position.bytes < goal_byte && !ts_lexer__eof(_self)) {
+    ts_lexer__advance(_self, false);
+    result++;
+  }
+
+  return result;
 }
+
 
 // Is the lexer at a boundary between two disjoint included ranges of
 // source code? This is exposed as an API because some languages' external
