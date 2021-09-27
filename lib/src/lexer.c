@@ -245,7 +245,7 @@ static uint32_t ts_lexer__get_column(TSLexer *_self) {
   }
 
   uint32_t result = 0;
-  ts_lexer__get_lookahead(_self);
+  ts_lexer__get_lookahead(self);
   while (self->current_position.bytes < goal_byte && !ts_lexer__eof(_self)) {
     ts_lexer__advance(_self, false);
     result++;
