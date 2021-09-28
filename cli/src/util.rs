@@ -6,6 +6,8 @@ use std::thread;
 use tree_sitter::Parser;
 
 #[cfg(unix)]
+use anyhow::{anyhow, Context};
+#[cfg(unix)]
 use std::path::PathBuf;
 #[cfg(unix)]
 use std::process::{Child, ChildStdin, Command, Stdio};
