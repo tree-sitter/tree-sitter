@@ -36,6 +36,7 @@ jobs:
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
 
       - name: Read Emscripten version
+        shell: bash
         run: |
           printf 'EMSCRIPTEN_VERSION=%s\n' "$(cat cli/emscripten-version)" >> $GITHUB_ENV
 
