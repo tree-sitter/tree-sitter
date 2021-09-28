@@ -229,23 +229,13 @@ fn test_feature_corpus_files() {
 
             eprintln!("test language: {:?}", language_name);
 
-            let expected_message = fs::read_to_string(&error_message_path).unwrap();
+            let expected_message = fs::read_to_string(&error_message_path).unwrap().replace("\r\n", "\n");
             if let Err(e) = generate_result {
-                let actual_message = e.to_string();
-                let first_diff = expected_message
-                    .lines()
-                    .zip(actual_message.lines())
-                    .enumerate()
-                    .filter(|(_, (expected, actual))| expected != actual)
-                    .next();
-                if let Some((line_number, (expected_line, actual_line))) = first_diff {
+                let actual_message = e.to_string().replace("\r\n", "\n");
+                if expected_message != actual_message {
                     eprintln!(
                         "Unexpected error message.\n\nExpected:\n\n{}\nActual:\n\n{}\n",
                         expected_message, actual_message
-                    );
-                    eprintln!(
-                        "First difference on line {}; expected:\n{}\nActual:\n{}\n",
-                        line_number, expected_line, actual_line
                     );
                     failure_count += 1;
                 }
