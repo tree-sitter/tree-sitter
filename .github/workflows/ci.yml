@@ -137,8 +137,8 @@ jobs:
 
       - name: Build CLI
         run: |
-        $env:RUSTFLAGS="-D warnings"
-        cargo build --release
+          $env:RUSTFLAGS="-D warnings"
+          cargo build --release
 
       - name: Set up fixture parsers
         run: |
