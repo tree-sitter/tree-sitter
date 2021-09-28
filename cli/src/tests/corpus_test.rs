@@ -229,7 +229,9 @@ fn test_feature_corpus_files() {
 
             eprintln!("test language: {:?}", language_name);
 
-            let expected_message = fs::read_to_string(&error_message_path).unwrap().replace("\r\n", "\n");
+            let expected_message = fs::read_to_string(&error_message_path)
+                .unwrap()
+                .replace("\r\n", "\n");
             if let Err(e) = generate_result {
                 let actual_message = e.to_string().replace("\r\n", "\n");
                 if expected_message != actual_message {
