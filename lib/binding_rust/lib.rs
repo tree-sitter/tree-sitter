@@ -1707,7 +1707,7 @@ impl QueryCursor {
 
     /// Iterate over all of the individual captures in the order that they appear.
     ///
-    /// This is useful if don't care about which pattern matched, and just want a single,
+    /// This is useful if you don't care about which pattern matched, and just want a single,
     /// ordered sequence of captures.
     pub fn captures<'a, 'tree: 'a, T: TextProvider<'a> + 'a>(
         &'a mut self,
