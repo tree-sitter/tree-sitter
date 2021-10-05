@@ -46,7 +46,8 @@ bool tree_sitter_external_tokens_external_scanner_scan(
   if (whitelist[percent_string]) {
     while (lexer->lookahead == ' ' ||
            lexer->lookahead == '\t' ||
-           lexer->lookahead == '\n') {
+           lexer->lookahead == '\n' ||
+           lexer->lookahead == '\r') {
       lexer->advance(lexer, true);
     }
 

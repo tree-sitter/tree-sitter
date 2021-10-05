@@ -1,10 +1,12 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::Result;
 use std::io;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread;
 use tree_sitter::Parser;
 
+#[cfg(unix)]
+use anyhow::{anyhow, Context};
 #[cfg(unix)]
 use std::path::PathBuf;
 #[cfg(unix)]

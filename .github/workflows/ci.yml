@@ -15,7 +15,7 @@ env:
   CARGO_INCREMENTAL: 0
 
 jobs:
-  tests:
+  unix-tests:
     name: Unix tests
     runs-on: ${{ matrix.os }}
     strategy:
@@ -70,7 +70,9 @@ jobs:
         run: script/build-wasm
 
       - name: Build CLI
-        run: RUSTFLAGS="-D warnings" cargo build --release
+        run: |
+          RUSTFLAGS="-D warnings"
+          cargo build --release
 
       - name: Set up fixture parsers
         run: |
@@ -105,3 +107,43 @@ jobs:
             lib/binding_web/tree-sitter.wasm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  windows-tests:
+    name: Windows tests
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Cache artifacts
+        id: cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+
+      - name: Install rust
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - name: Check Rust code formatting
+        run: cargo fmt -- --check
+
+      - name: Build CLI
+        run: |
+          $env:RUSTFLAGS="-D warnings"
+          cargo build --release
+
+      - name: Set up fixture parsers
+        run: |
+          script/fetch-fixtures.cmd
+          script/generate-fixtures.cmd
+
+      - name: Run main tests
+        run: script/test
