@@ -572,7 +572,6 @@ This pattern would match a set of possible keyword tokens, capturing them as `@k
 ```
 [
   "break"
-  "atch"
   "delete"
   "else"
   "for"
@@ -630,7 +629,7 @@ The restrictions placed on a pattern by an anchor operator ignore anonymous node
 
 #### Predicates
 
-You can also specify arbitrary metadata and conditions associed with a pattern by adding _predicate_ S-expressions anywhere within your pattern. Predicate S-expressions start with a _predicate name_ beginning with a `#` character. After that, they can contain an arbitrary number of `@`-prefixed capture names or strings.
+You can also specify arbitrary metadata and conditions associated with a pattern by adding _predicate_ S-expressions anywhere within your pattern. Predicate S-expressions start with a _predicate name_ beginning with a `#` character. After that, they can contain an arbitrary number of `@`-prefixed capture names or strings.
 
 For example, this pattern would match identifier whose names is written in `SCREAMING_SNAKE_CASE`:
 
