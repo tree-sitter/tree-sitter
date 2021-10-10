@@ -7,11 +7,11 @@ const PROPERTY_OUTPUT_PATH = './cli/src/generate/prepare_grammar/unicode-propert
 const CATEGORY_ALIAS_OUTPUT_PATH = './cli/src/generate/prepare_grammar/unicode-category-aliases.json'
 const PROPERTY_ALIAS_OUTPUT_PATH = './cli/src/generate/prepare_grammar/unicode-property-aliases.json'
 
-const CATEGORY_URL = 'https://unicode.org/Public/13.0.0/ucd/UnicodeData.txt'
-const PROPERTY_URL = 'https://unicode.org/Public/13.0.0/ucd/PropList.txt'
-const DERIVED_PROPERTY_URL = 'https://unicode.org/Public/13.0.0/ucd/DerivedCoreProperties.txt'
-const CATEGORY_ALIAS_URL = 'https://unicode.org/Public/13.0.0/ucd/PropertyValueAliases.txt'
-const PROPERTY_ALIAS_URL = 'https://unicode.org/Public/13.0.0/ucd/PropertyAliases.txt'
+const CATEGORY_URL = 'https://unicode.org/Public/14.0.0/ucd/UnicodeData.txt'
+const PROPERTY_URL = 'https://unicode.org/Public/14.0.0/ucd/PropList.txt'
+const DERIVED_PROPERTY_URL = 'https://unicode.org/Public/14.0.0/ucd/DerivedCoreProperties.txt'
+const CATEGORY_ALIAS_URL = 'https://unicode.org/Public/14.0.0/ucd/PropertyValueAliases.txt'
+const PROPERTY_ALIAS_URL = 'https://unicode.org/Public/14.0.0/ucd/PropertyAliases.txt'
 
 const fs = require('fs');
 const path = require('path');
