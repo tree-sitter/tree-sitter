@@ -13,7 +13,7 @@ mod tables;
 
 use self::build_tables::build_tables;
 use self::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
-use self::parse_grammar::parse_grammar;
+use self::parse_grammar::{parse_grammar, GrammarJSON};
 use self::prepare_grammar::prepare_grammar;
 use self::render::render_c_code;
 use self::rules::AliasMap;
@@ -60,12 +60,15 @@ pub fn generate_parser_in_directory(
         None => {
             let grammar_js_path = grammar_path.map_or(repo_path.join("grammar.js"), |s| s.into());
             grammar_json = load_grammar_file(&grammar_js_path)?;
-            fs::write(&src_path.join("grammar.json"), &grammar_json)?;
+            fs::write(
+                &src_path.join("grammar.json"),
+                &serde_json::to_string(&grammar_json)?,
+            )?;
         }
     }
 
     // Parse and preprocess the grammar.
-    let input_grammar = parse_grammar(&grammar_json)?;
+    let input_grammar = parse_grammar(grammar_json)?;
     let (syntax_grammar, lexical_grammar, inlines, simple_aliases) =
         prepare_grammar(&input_grammar)?;
     let language_name = input_grammar.name;
@@ -98,9 +101,10 @@ pub fn generate_parser_in_directory(
     Ok(())
 }
 
+/// Generate c-code parser from json grammar
 pub fn generate_parser_for_grammar(grammar_json: &str) -> Result<(String, String)> {
     let grammar_json = JSON_COMMENT_REGEX.replace_all(grammar_json, "\n");
-    let input_grammar = parse_grammar(&grammar_json)?;
+    let input_grammar = parse_grammar(grammar_json.as_ref())?;
     let (syntax_grammar, lexical_grammar, inlines, simple_aliases) =
         prepare_grammar(&input_grammar)?;
     let parser = generate_parser_for_grammar_with_opts(
@@ -157,15 +161,18 @@ fn generate_parser_for_grammar_with_opts(
     })
 }
 
-fn load_grammar_file(grammar_path: &Path) -> Result<String> {
-    match grammar_path.extension().and_then(|e| e.to_str()) {
-        Some("js") => Ok(load_js_grammar_file(grammar_path)?),
-        Some("json") => Ok(fs::read_to_string(grammar_path)?),
-        _ => Err(anyhow!(
-            "Unknown grammar file extension: {:?}",
-            grammar_path
-        )),
-    }
+fn load_grammar_file(grammar_path: &Path) -> Result<GrammarJSON> {
+    let input = match grammar_path.extension().and_then(|e| e.to_str()) {
+        Some("js") => load_js_grammar_file(grammar_path)?,
+        Some("json") => fs::read_to_string(grammar_path)?,
+        _ => {
+            return Err(anyhow!(
+                "Unknown grammar file extension: {:?}",
+                grammar_path
+            ))
+        }
+    };
+    Ok(serde_json::from_str(&input)?)
 }
 
 fn load_js_grammar_file(grammar_path: &Path) -> Result<String> {

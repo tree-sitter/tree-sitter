@@ -1,13 +1,14 @@
 use super::grammars::{InputGrammar, PrecedenceEntry, Variable, VariableType};
 use super::rules::{Precedence, Rule};
 use anyhow::{anyhow, Result};
-use serde_derive::Deserialize;
-use serde_json::{Map, Value};
+use serde_derive::{Deserialize, Serialize};
+pub use serde_json::{Map, Value};
+use std::convert::{TryFrom, TryInto};
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(tag = "type")]
 #[allow(non_camel_case_types)]
-enum RuleJSON {
+pub enum RuleJSON {
     ALIAS {
         content: Box<RuleJSON>,
         named: bool,
@@ -63,35 +64,36 @@ enum RuleJSON {
     },
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(untagged)]
-enum PrecedenceValueJSON {
+pub enum PrecedenceValueJSON {
     Integer(i32),
     Name(String),
 }
 
-#[derive(Deserialize)]
-pub(crate) struct GrammarJSON {
-    pub(crate) name: String,
-    rules: Map<String, Value>,
+#[derive(Serialize, Deserialize)]
+pub struct GrammarJSON {
+    pub name: String,
+    pub rules: Map<String, Value>,
     #[serde(default)]
-    precedences: Vec<Vec<RuleJSON>>,
+    pub precedences: Vec<Vec<RuleJSON>>,
     #[serde(default)]
-    conflicts: Vec<Vec<String>>,
+    pub conflicts: Vec<Vec<String>>,
     #[serde(default)]
-    externals: Vec<RuleJSON>,
+    pub externals: Vec<RuleJSON>,
     #[serde(default)]
-    extras: Vec<RuleJSON>,
+    pub extras: Vec<RuleJSON>,
     #[serde(default)]
-    inline: Vec<String>,
+    pub inline: Vec<String>,
     #[serde(default)]
-    supertypes: Vec<String>,
-    word: Option<String>,
+    pub supertypes: Vec<String>,
+    pub word: Option<String>,
 }
 
-pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
-    let grammar_json: GrammarJSON = serde_json::from_str(&input)?;
-
+pub fn parse_grammar(input: impl TryInto<GrammarJSON>) -> Result<InputGrammar> {
+    let grammar_json: GrammarJSON = input
+        .try_into()
+        .map_err(|_| anyhow!("input type can't convert to GrammarJSON"))?;
     let mut variables = Vec::with_capacity(grammar_json.rules.len());
     for (name, value) in grammar_json.rules {
         variables.push(Variable {
@@ -173,6 +175,14 @@ impl Into<Precedence> for PrecedenceValueJSON {
             PrecedenceValueJSON::Integer(i) => Precedence::Integer(i),
             PrecedenceValueJSON::Name(i) => Precedence::Name(i),
         }
+    }
+}
+
+impl TryFrom<&str> for GrammarJSON {
+    type Error = serde_json::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        serde_json::from_str(value)
     }
 }
 
