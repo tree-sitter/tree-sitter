@@ -4,7 +4,7 @@ use std::iter::FromIterator;
 use std::{collections::HashMap, fmt};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub(crate) enum SymbolType {
+pub enum SymbolType {
     External,
     End,
     EndOfNonTerminalExtra,
@@ -13,13 +13,13 @@ pub(crate) enum SymbolType {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub(crate) enum Associativity {
+pub enum Associativity {
     Left,
     Right,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub(crate) struct Alias {
+pub struct Alias {
     pub value: String,
     pub is_named: bool,
 }
@@ -34,7 +34,7 @@ pub enum Precedence {
 pub(crate) type AliasMap = HashMap<Symbol, Alias>;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub(crate) struct MetadataParams {
+pub struct MetadataParams {
     pub precedence: Precedence,
     pub dynamic_precedence: i32,
     pub associativity: Option<Associativity>,
@@ -47,13 +47,13 @@ pub(crate) struct MetadataParams {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub(crate) struct Symbol {
+pub struct Symbol {
     pub kind: SymbolType,
     pub index: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub(crate) enum Rule {
+pub enum Rule {
     Blank,
     String(String),
     Pattern(String),

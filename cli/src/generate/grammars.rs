@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum VariableType {
+pub enum VariableType {
     Hidden,
     Auxiliary,
     Anonymous,
@@ -14,20 +14,20 @@ pub(crate) enum VariableType {
 // Input grammar
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Variable {
+pub struct Variable {
     pub name: String,
     pub kind: VariableType,
     pub rule: Rule,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) enum PrecedenceEntry {
+pub enum PrecedenceEntry {
     Name(String),
     Symbol(String),
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct InputGrammar {
+pub struct InputGrammar {
     pub name: String,
     pub variables: Vec<Variable>,
     pub extra_symbols: Vec<Rule>,
@@ -42,7 +42,7 @@ pub(crate) struct InputGrammar {
 // Extracted lexical grammar
 
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct LexicalVariable {
+pub struct LexicalVariable {
     pub name: String,
     pub kind: VariableType,
     pub implicit_precedence: i32,
@@ -50,7 +50,7 @@ pub(crate) struct LexicalVariable {
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
-pub(crate) struct LexicalGrammar {
+pub struct LexicalGrammar {
     pub nfa: Nfa,
     pub variables: Vec<LexicalVariable>,
 }
@@ -58,7 +58,7 @@ pub(crate) struct LexicalGrammar {
 // Extracted syntax grammar
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub(crate) struct ProductionStep {
+pub struct ProductionStep {
     pub symbol: Symbol,
     pub precedence: Precedence,
     pub associativity: Option<Associativity>,
@@ -67,7 +67,7 @@ pub(crate) struct ProductionStep {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Production {
+pub struct Production {
     pub steps: Vec<ProductionStep>,
     pub dynamic_precedence: i32,
 }
@@ -79,21 +79,21 @@ pub(crate) struct InlinedProductionMap {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct SyntaxVariable {
+pub struct SyntaxVariable {
     pub name: String,
     pub kind: VariableType,
     pub productions: Vec<Production>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct ExternalToken {
+pub struct ExternalToken {
     pub name: String,
     pub kind: VariableType,
     pub corresponding_internal_token: Option<Symbol>,
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct SyntaxGrammar {
+pub struct SyntaxGrammar {
     pub variables: Vec<SyntaxVariable>,
     pub extra_symbols: Vec<Symbol>,
     pub expected_conflicts: Vec<Vec<Symbol>>,
