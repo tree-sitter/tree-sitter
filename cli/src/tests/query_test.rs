@@ -78,6 +78,7 @@ fn test_query_errors_on_invalid_syntax() {
             .join("\n")
         );
 
+        // Empty tree pattern
         assert_eq!(
             Query::new(language, r#"((identifier) ()"#)
                 .unwrap_err()
@@ -88,6 +89,8 @@ fn test_query_errors_on_invalid_syntax() {
             ]
             .join("\n")
         );
+
+        // Empty alternation
         assert_eq!(
             Query::new(language, r#"((identifier) [])"#)
                 .unwrap_err()
@@ -98,6 +101,8 @@ fn test_query_errors_on_invalid_syntax() {
             ]
             .join("\n")
         );
+
+        // Unclosed sibling expression with predicate
         assert_eq!(
             Query::new(language, r#"((identifier) (#a)"#)
                 .unwrap_err()
@@ -108,6 +113,8 @@ fn test_query_errors_on_invalid_syntax() {
             ]
             .join("\n")
         );
+
+        // Unclosed predicate
         assert_eq!(
             Query::new(language, r#"((identifier) @x (#eq? @x a"#)
                 .unwrap_err()
@@ -144,6 +151,7 @@ fn test_query_errors_on_invalid_syntax() {
             .join("\n")
         );
 
+        // Unclosed alternation within a tree
         // tree-sitter/tree-sitter/issues/968
         assert_eq!(
             Query::new(get_language("c"), r#"(parameter_list [ ")" @foo)"#)
@@ -152,6 +160,22 @@ fn test_query_errors_on_invalid_syntax() {
             [
                 r#"(parameter_list [ ")" @foo)"#,
                 r#"                          ^"#
+            ]
+            .join("\n")
+        );
+
+        // Unclosed tree within an alternation
+        // tree-sitter/tree-sitter/issues/1436
+        assert_eq!(
+            Query::new(
+                get_language("python"),
+                r#"[(unary_operator (_) @operand) (not_operator (_) @operand]"#
+            )
+            .unwrap_err()
+            .message,
+            [
+                r#"[(unary_operator (_) @operand) (not_operator (_) @operand]"#,
+                r#"                                                         ^"#
             ]
             .join("\n")
         );

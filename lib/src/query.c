@@ -1655,11 +1655,14 @@ static TSQueryError ts_query__parse_pattern(
         is_immediate
       );
 
-      if (e == PARENT_DONE && stream->next == ']' && branch_step_indices.size > 0) {
-        stream_advance(stream);
-        break;
-      } else if (e) {
-        if (e == PARENT_DONE) e = TSQueryErrorSyntax;
+      if (e == PARENT_DONE) {
+        if (stream->next == ']' && branch_step_indices.size > 0) {
+          stream_advance(stream);
+          break;
+        }
+        e = TSQueryErrorSyntax;
+      }
+      if (e) {
         array_delete(&branch_step_indices);
         return e;
       }
@@ -1707,12 +1710,14 @@ static TSQueryError ts_query__parse_pattern(
           depth,
           child_is_immediate
         );
-        if (e == PARENT_DONE && stream->next == ')') {
-          stream_advance(stream);
-          break;
-        } else if (e) {
-          return e;
+        if (e == PARENT_DONE) {
+          if (stream->next == ')') {
+            stream_advance(stream);
+            break;
+          }
+          e = TSQueryErrorSyntax;
         }
+        if (e) return e;
 
         child_is_immediate = false;
       }
@@ -1853,28 +1858,28 @@ static TSQueryError ts_query__parse_pattern(
           depth + 1,
           child_is_immediate
         );
-        if (e == PARENT_DONE && stream->next == ')') {
-          if (child_is_immediate) {
-            if (last_child_step_index == 0) {
-              return TSQueryErrorSyntax;
+        if (e == PARENT_DONE) {
+          if (stream->next == ')') {
+            if (child_is_immediate) {
+              if (last_child_step_index == 0) return TSQueryErrorSyntax;
+              self->steps.contents[last_child_step_index].is_last_child = true;
             }
-            self->steps.contents[last_child_step_index].is_last_child = true;
-          }
 
-          if (negated_field_count) {
-            ts_query__add_negated_fields(
-              self,
-              starting_step_index,
-              negated_field_ids,
-              negated_field_count
-            );
-          }
+            if (negated_field_count) {
+              ts_query__add_negated_fields(
+                self,
+                starting_step_index,
+                negated_field_ids,
+                negated_field_count
+              );
+            }
 
-          stream_advance(stream);
-          break;
-        } else if (e) {
-          return e;
+            stream_advance(stream);
+            break;
+          }
+          e = TSQueryErrorSyntax;
         }
+        if (e) return e;
 
         last_child_step_index = step_index;
         child_is_immediate = false;
