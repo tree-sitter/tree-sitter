@@ -1,14 +1,15 @@
-use super::ExtractedSyntaxGrammar;
-use crate::generate::grammars::{
-    Production, ProductionStep, SyntaxGrammar, SyntaxVariable, Variable,
+use crate::generate::{
+    grammars::{Production, ProductionStep, SyntaxGrammar, SyntaxVariable, Variable},
+    prepare_grammar::ExtractedSyntaxGrammar,
+    rules::{Alias, Associativity, Precedence, Rule, Symbol, TokenSet},
 };
-use crate::generate::rules::{Alias, Associativity, Precedence, Rule, Symbol};
 use anyhow::{anyhow, Result};
 
 struct RuleFlattener {
     production: Production,
     precedence_stack: Vec<Precedence>,
     associativity_stack: Vec<Associativity>,
+    exclusions_stack: Vec<TokenSet>,
     alias_stack: Vec<Alias>,
     field_name_stack: Vec<String>,
 }
@@ -22,6 +23,7 @@ impl RuleFlattener {
             },
             precedence_stack: Vec::new(),
             associativity_stack: Vec::new(),
+            exclusions_stack: Vec::new(),
             alias_stack: Vec::new(),
             field_name_stack: Vec::new(),
         }
@@ -102,6 +104,12 @@ impl RuleFlattener {
 
                 did_push
             }
+            Rule::Exclude { rule, exclusions } => {
+                self.exclusions_stack.push(rules_to_token_set(exclusions));
+                let did_push = self.apply(*rule, at_end);
+                self.exclusions_stack.pop();
+                did_push
+            }
             Rule::Symbol(symbol) => {
                 self.production.steps.push(ProductionStep {
                     symbol,
@@ -111,6 +119,7 @@ impl RuleFlattener {
                         .cloned()
                         .unwrap_or(Precedence::None),
                     associativity: self.associativity_stack.last().cloned(),
+                    exclusions: self.exclusions_stack.last().cloned().map(Box::new),
                     alias: self.alias_stack.last().cloned(),
                     field_name: self.field_name_stack.last().cloned(),
                 });
@@ -119,6 +128,19 @@ impl RuleFlattener {
             _ => false,
         }
     }
+}
+
+fn rules_to_token_set(rules: Vec<Rule>) -> TokenSet {
+    rules
+        .into_iter()
+        .filter_map(|rule| {
+            if let Rule::Symbol(s) = rule {
+                Some(s)
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 fn extract_choices(rule: Rule) -> Vec<Rule> {
@@ -151,6 +173,13 @@ fn extract_choices(rule: Rule) -> Vec<Rule> {
             .map(|rule| Rule::Metadata {
                 rule: Box::new(rule),
                 params: params.clone(),
+            })
+            .collect(),
+        Rule::Exclude { rule, exclusions } => extract_choices(*rule)
+            .into_iter()
+            .map(|rule| Rule::Exclude {
+                rule: Box::new(rule),
+                exclusions: exclusions.clone(),
             })
             .collect(),
         _ => vec![rule],

@@ -172,6 +172,8 @@ struct TSLanguage {
 
 #define ACTIONS(id) id
 
+#define EXCLUDE 1
+
 #define SHIFT(state_value)            \
   {{                                  \
     .shift = {                        \

@@ -64,20 +64,44 @@ pub(crate) enum Rule {
         params: MetadataParams,
         rule: Box<Rule>,
     },
+    Exclude {
+        rule: Box<Rule>,
+        exclusions: Vec<Rule>,
+    },
     Repeat(Box<Rule>),
     Seq(Vec<Rule>),
 }
 
 // Because tokens are represented as small (~400 max) unsigned integers,
 // sets of tokens can be efficiently represented as bit vectors with each
-// index correspoding to a token, and each value representing whether or not
+// index corresponding to a token, and each value representing whether or not
 // the token is present in the set.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct TokenSet {
     terminal_bits: SmallBitVec,
     external_bits: SmallBitVec,
     eof: bool,
     end_of_nonterminal_extra: bool,
+}
+
+impl PartialOrd for TokenSet {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for TokenSet {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.terminal_bits
+            .iter()
+            .cmp(other.terminal_bits.iter())
+            .then_with(|| self.external_bits.iter().cmp(other.external_bits.iter()))
+            .then_with(|| self.eof.cmp(&other.eof))
+            .then_with(|| {
+                self.end_of_nonterminal_extra
+                    .cmp(&other.end_of_nonterminal_extra)
+            })
+    }
 }
 
 impl Rule {
@@ -375,6 +399,13 @@ impl TokenSet {
             && !self.end_of_nonterminal_extra
             && !self.terminal_bits.iter().any(|a| a)
             && !self.external_bits.iter().any(|a| a)
+    }
+
+    pub fn len(&self) -> usize {
+        self.eof as usize
+            + self.end_of_nonterminal_extra as usize
+            + self.terminal_bits.iter().filter(|b| *b).count()
+            + self.external_bits.iter().filter(|b| *b).count()
     }
 
     pub fn insert_all_terminals(&mut self, other: &TokenSet) -> bool {

@@ -16,6 +16,7 @@ function alias(rule, value) {
       result.value = value.symbol.name;
       return result;
     case Object:
+    case GrammarSymbol:
       if (typeof value.type === 'string' && value.type === 'SYMBOL') {
         result.named = true;
         result.value = value.name;
@@ -149,11 +150,23 @@ function seq(...elements) {
   };
 }
 
+class GrammarSymbol {
+  constructor(name) {
+    this.type = "SYMBOL";
+    this.name = name;    
+  }
+
+  exclude(...exclusions) {
+    return {
+      type: "EXCLUDE",
+      content: this,
+      exclusions: exclusions.map(normalize),
+    }
+  }
+}
+
 function sym(name) {
-  return {
-    type: "SYMBOL",
-    name: name
-  };
+  return new GrammarSymbol(name);
 }
 
 function token(value) {

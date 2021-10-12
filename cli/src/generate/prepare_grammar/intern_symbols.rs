@@ -98,24 +98,29 @@ struct Interner<'a> {
 impl<'a> Interner<'a> {
     fn intern_rule(&self, rule: &Rule) -> Result<Rule> {
         match rule {
-            Rule::Choice(elements) => {
-                let mut result = Vec::with_capacity(elements.len());
-                for element in elements {
-                    result.push(self.intern_rule(element)?);
-                }
-                Ok(Rule::Choice(result))
-            }
-            Rule::Seq(elements) => {
-                let mut result = Vec::with_capacity(elements.len());
-                for element in elements {
-                    result.push(self.intern_rule(element)?);
-                }
-                Ok(Rule::Seq(result))
-            }
+            Rule::Choice(elements) => Ok(Rule::Choice(
+                elements
+                    .into_iter()
+                    .map(|r| self.intern_rule(r))
+                    .collect::<Result<Vec<_>>>()?,
+            )),
+            Rule::Seq(elements) => Ok(Rule::Seq(
+                elements
+                    .into_iter()
+                    .map(|r| self.intern_rule(r))
+                    .collect::<Result<Vec<_>>>()?,
+            )),
             Rule::Repeat(content) => Ok(Rule::Repeat(Box::new(self.intern_rule(content)?))),
             Rule::Metadata { rule, params } => Ok(Rule::Metadata {
                 rule: Box::new(self.intern_rule(rule)?),
                 params: params.clone(),
+            }),
+            Rule::Exclude { rule, exclusions } => Ok(Rule::Exclude {
+                rule: Box::new(self.intern_rule(rule)?),
+                exclusions: exclusions
+                    .into_iter()
+                    .map(|r| self.intern_rule(r))
+                    .collect::<Result<Vec<_>>>()?,
             }),
 
             Rule::NamedSymbol(name) => {

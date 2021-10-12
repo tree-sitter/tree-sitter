@@ -18,6 +18,7 @@ lazy_static! {
             associativity: None,
             alias: None,
             field_name: None,
+            exclusions: None,
         }],
     };
 }
@@ -170,6 +171,13 @@ impl<'a> ParseItemSet<'a> {
             entries: self.entries.iter().map(|e| e.0).collect(),
         }
     }
+
+    pub fn exclusions(&self) -> impl Iterator<Item = Symbol> + '_ {
+        self.entries
+            .iter()
+            .filter_map(|(entry, _)| entry.step().and_then(|step| step.exclusions.as_ref()))
+            .flat_map(|exclusions| exclusions.iter())
+    }
 }
 
 impl<'a> Default for ParseItemSet<'a> {
@@ -296,7 +304,7 @@ impl<'a> Hash for ParseItem<'a> {
         // this item, unless any of the following are true:
         //   * the children have fields
         //   * the children have aliases
-        //   * the children are hidden and
+        //   * the children are hidden and represent rules that have fields.
         // See the docs for `has_preceding_inherited_fields`.
         for step in &self.production.steps[0..self.step_index as usize] {
             step.alias.hash(hasher);
