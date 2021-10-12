@@ -173,9 +173,7 @@ extern "C" {
     #[doc = " If `length` is zero, then the entire document will be parsed. Otherwise,"]
     #[doc = " the given ranges must be ordered from earliest to latest in the document,"]
     #[doc = " and they must not overlap. That is, the following must hold for all"]
-    #[doc = " `i` < `length - 1`:"]
-    #[doc = ""]
-    #[doc = "     ranges[i].end_byte <= ranges[i + 1].start_byte"]
+    #[doc = " `i` < `length - 1`: ranges[i].end_byte <= ranges[i + 1].start_byte"]
     #[doc = ""]
     #[doc = " If this requirement is not satisfied, the operation will fail, the ranges"]
     #[doc = " will not be assigned, and this function will return `false`. On success,"]
@@ -558,7 +556,7 @@ extern "C" {
     ) -> *const ::std::os::raw::c_char;
 }
 extern "C" {
-    #[doc = " Get the field name of the tree cursor's current node."]
+    #[doc = " Get the field id of the tree cursor's current node."]
     #[doc = ""]
     #[doc = " This returns zero if the current node doesn't have a field."]
     #[doc = " See also `ts_node_child_by_field_id`, `ts_language_field_id_for_name`."]
@@ -734,16 +732,12 @@ extern "C" {
     #[doc = " Manage the maximum number of in-progress matches allowed by this query"]
     #[doc = " cursor."]
     #[doc = ""]
-    #[doc = " Query cursors have a maximum capacity for storing lists of in-progress"]
-    #[doc = " captures. If this capacity is exceeded, then the earliest-starting match will"]
-    #[doc = " silently be dropped to make room for further matches."]
-    #[doc = ""]
-    #[doc = " By default, this limit is 65,536 pending matches, which is effectively"]
-    #[doc = " unlimited for most queries and syntax trees. You can optionally set this to a"]
-    #[doc = " lower number if you want to have (and check) a tighter bound on query"]
-    #[doc = " complexity."]
-    #[doc = ""]
-    #[doc = " If you update the match limit, it must be > 0 and <= 65536."]
+    #[doc = " Query cursors have an optional maximum capacity for storing lists of"]
+    #[doc = " in-progress captures. If this capacity is exceeded, then the"]
+    #[doc = " earliest-starting match will silently be dropped to make room for further"]
+    #[doc = " matches. This maximum capacity is optional — by default, query cursors allow"]
+    #[doc = " any number of pending matches, dynamically allocating new space for them as"]
+    #[doc = " needed as the query is executed."]
     pub fn ts_query_cursor_did_exceed_match_limit(arg1: *const TSQueryCursor) -> bool;
 }
 extern "C" {

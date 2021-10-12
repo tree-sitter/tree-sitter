@@ -12,20 +12,6 @@ use tree_sitter::{allocations, LogType, Node, Parser, Tree};
 
 const EDIT_COUNT: usize = 3;
 const TRIAL_COUNT: usize = 10;
-const LANGUAGES: &'static [&'static str] = &[
-    "bash",
-    "c",
-    "cpp",
-    "embedded-template",
-    "go",
-    "html",
-    "javascript",
-    "json",
-    "php",
-    "python",
-    "ruby",
-    "rust",
-];
 
 lazy_static! {
     static ref LOG_ENABLED: bool = env::var("TREE_SITTER_TEST_ENABLE_LOG").is_ok();
@@ -36,7 +22,11 @@ lazy_static! {
         .map(|s| usize::from_str_radix(&s, 10).unwrap())
         .ok();
     pub static ref SEED: usize = env::var("TREE_SITTER_TEST_SEED")
-        .map(|s| usize::from_str_radix(&s, 10).unwrap())
+        .map(|s| {
+            let seed = usize::from_str_radix(&s, 10).unwrap();
+            eprintln!("\n\nRandom seed: {}\n", *SEED);
+            seed
+        })
         .unwrap_or(
             time::SystemTime::now()
                 .duration_since(time::UNIX_EPOCH)
@@ -46,40 +36,95 @@ lazy_static! {
 }
 
 #[test]
-fn test_real_language_corpus_files() {
-    eprintln!("\n\nRandom seed: {}\n", *SEED);
+fn test_bash_corpus() {
+    test_language_corpus("bash");
+}
+
+#[test]
+fn test_c_corpus() {
+    test_language_corpus("c");
+}
+
+#[test]
+fn test_cpp_corpus() {
+    test_language_corpus("cpp");
+}
+
+#[test]
+fn test_embedded_template_corpus() {
+    test_language_corpus("embedded-template");
+}
+
+#[test]
+fn test_go_corpus() {
+    test_language_corpus("go");
+}
+
+#[test]
+fn test_html_corpus() {
+    test_language_corpus("html");
+}
+
+#[test]
+fn test_javascript_corpus() {
+    test_language_corpus("javascript");
+}
+
+#[test]
+fn test_json_corpus() {
+    test_language_corpus("json");
+}
+
+#[test]
+fn test_php_corpus() {
+    test_language_corpus("php");
+}
+
+#[test]
+fn test_python_corpus() {
+    test_language_corpus("python");
+}
+
+#[test]
+fn test_ruby_corpus() {
+    test_language_corpus("ruby");
+}
+
+#[test]
+fn test_rust_corpus() {
+    test_language_corpus("rust");
+}
+
+fn test_language_corpus(language_name: &str) {
+    if let Some(language_filter) = LANGUAGE_FILTER.as_ref() {
+        if language_filter != language_name {
+            return;
+        }
+    }
+
     let grammars_dir = fixtures_dir().join("grammars");
     let error_corpus_dir = fixtures_dir().join("error_corpus");
 
     let mut failure_count = 0;
-    for language_name in LANGUAGES.iter().cloned() {
-        if let Some(filter) = LANGUAGE_FILTER.as_ref() {
-            if language_name != filter.as_str() {
-                continue;
-            }
-        }
 
-        let language = get_language(language_name);
-        let mut corpus_dir = grammars_dir.join(language_name).join("corpus");
-        if !corpus_dir.is_dir() {
-            corpus_dir = grammars_dir.join(language_name).join("test").join("corpus");
-        }
+    let language = get_language(language_name);
+    let mut corpus_dir = grammars_dir.join(language_name).join("corpus");
+    if !corpus_dir.is_dir() {
+        corpus_dir = grammars_dir.join(language_name).join("test").join("corpus");
+    }
 
-        let error_corpus_file = error_corpus_dir.join(&format!("{}_errors.txt", language_name));
-        let main_tests = parse_tests(&corpus_dir).unwrap();
-        let error_tests = parse_tests(&error_corpus_file).unwrap_or(TestEntry::default());
-        let mut tests = flatten_tests(main_tests);
-        tests.extend(flatten_tests(error_tests));
+    let error_corpus_file = error_corpus_dir.join(&format!("{}_errors.txt", language_name));
+    let main_tests = parse_tests(&corpus_dir).unwrap();
+    let error_tests = parse_tests(&error_corpus_file).unwrap_or(TestEntry::default());
+    let mut tests = flatten_tests(main_tests);
+    tests.extend(flatten_tests(error_tests));
 
-        if !tests.is_empty() {
-            eprintln!("language: {:?}", language_name);
-        }
+    for (example_name, input, expected_output, has_fields) in tests {
+        println!("  {} example - {}", language_name, example_name);
 
-        for (example_name, input, expected_output, has_fields) in tests {
-            eprintln!("  example: {:?}", example_name);
-
-            if TRIAL_FILTER.map_or(true, |t| t == 0) {
-                allocations::start_recording();
+        let trial = 0;
+        if TRIAL_FILTER.map_or(true, |t| t == trial) {
+            let passed = allocations::record(|| {
                 let mut log_session = None;
                 let mut parser = get_parser(&mut log_session, "log.html");
                 parser.set_language(language).unwrap();
@@ -88,28 +133,36 @@ fn test_real_language_corpus_files() {
                 if !has_fields {
                     actual_output = strip_sexp_fields(actual_output);
                 }
-                drop(tree);
-                drop(parser);
-                if actual_output != expected_output {
+                if actual_output == expected_output {
+                    true
+                } else {
+                    println!(
+                        "Incorrect initial parse for {} - {}",
+                        language_name, example_name,
+                    );
                     print_diff_key();
                     print_diff(&actual_output, &expected_output);
                     println!("");
-                    failure_count += 1;
-                    continue;
+                    false
                 }
-                allocations::stop_recording();
+            });
+
+            if !passed {
+                failure_count += 1;
+                continue;
             }
+        }
 
-            let mut parser = Parser::new();
-            parser.set_language(language).unwrap();
-            let tree = parser.parse(&input, None).unwrap();
-            drop(parser);
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&input, None).unwrap();
+        drop(parser);
 
-            for trial in 1..=TRIAL_COUNT {
-                if TRIAL_FILTER.map_or(true, |filter| filter == trial) {
-                    let mut rand = Rand::new(*SEED + trial);
+        for trial in 1..=TRIAL_COUNT {
+            if TRIAL_FILTER.map_or(true, |filter| filter == trial) {
+                let mut rand = Rand::new(*SEED + trial);
 
-                    allocations::start_recording();
+                let passed = allocations::record(|| {
                     let mut log_session = None;
                     let mut parser = get_parser(&mut log_session, "log.html");
                     parser.set_language(language).unwrap();
@@ -140,8 +193,7 @@ fn test_real_language_corpus_files() {
                             "\nUnexpected scope change in trial {}\n{}\n\n",
                             trial, message
                         );
-                        failure_count += 1;
-                        break;
+                        return false;
                     }
 
                     // Undo all of the edits and re-parse again.
@@ -168,8 +220,7 @@ fn test_real_language_corpus_files() {
                         print_diff_key();
                         print_diff(&actual_output, &expected_output);
                         println!("");
-                        failure_count += 1;
-                        break;
+                        return false;
                     }
 
                     // Check that the edited tree is consistent.
@@ -179,21 +230,22 @@ fn test_real_language_corpus_files() {
                             "Unexpected scope change in trial {}\n{}\n\n",
                             trial, message
                         );
-                        failure_count += 1;
-                        break;
+                        return false;
                     }
 
-                    drop(tree);
-                    drop(tree2);
-                    drop(tree3);
-                    drop(parser);
-                    allocations::stop_recording();
+                    true
+                });
+
+                if !passed {
+                    failure_count += 1;
+                    break;
                 }
             }
         }
     }
+
     if failure_count > 0 {
-        panic!("{} corpus tests failed", failure_count);
+        panic!("{} {} corpus tests failed", failure_count, language_name);
     }
 }
 
@@ -271,26 +323,29 @@ fn test_feature_corpus_files() {
             for (name, input, expected_output, has_fields) in tests {
                 eprintln!("  example: {:?}", name);
 
-                allocations::start_recording();
-                let mut log_session = None;
-                let mut parser = get_parser(&mut log_session, "log.html");
-                parser.set_language(language).unwrap();
-                let tree = parser.parse(&input, None).unwrap();
-                let mut actual_output = tree.root_node().to_sexp();
-                if !has_fields {
-                    actual_output = strip_sexp_fields(actual_output);
-                }
+                let passed = allocations::record(|| {
+                    let mut log_session = None;
+                    let mut parser = get_parser(&mut log_session, "log.html");
+                    parser.set_language(language).unwrap();
+                    let tree = parser.parse(&input, None).unwrap();
+                    let mut actual_output = tree.root_node().to_sexp();
+                    if !has_fields {
+                        actual_output = strip_sexp_fields(actual_output);
+                    }
+                    if actual_output == expected_output {
+                        true
+                    } else {
+                        print_diff_key();
+                        print_diff(&actual_output, &expected_output);
+                        println!("");
+                        false
+                    }
+                });
 
-                drop(tree);
-                drop(parser);
-                if actual_output != expected_output {
-                    print_diff_key();
-                    print_diff(&actual_output, &expected_output);
-                    println!("");
+                if !passed {
                     failure_count += 1;
                     continue;
                 }
-                allocations::stop_recording();
             }
         }
     }
@@ -381,7 +436,12 @@ fn get_parser(session: &mut Option<util::LogSession>, log_filename: &str) -> Par
 }
 
 fn flatten_tests(test: TestEntry) -> Vec<(String, Vec<u8>, String, bool)> {
-    fn helper(test: TestEntry, prefix: &str, result: &mut Vec<(String, Vec<u8>, String, bool)>) {
+    fn helper(
+        test: TestEntry,
+        is_root: bool,
+        prefix: &str,
+        result: &mut Vec<(String, Vec<u8>, String, bool)>,
+    ) {
         match test {
             TestEntry::Example {
                 mut name,
@@ -403,17 +463,17 @@ fn flatten_tests(test: TestEntry) -> Vec<(String, Vec<u8>, String, bool)> {
             TestEntry::Group {
                 mut name, children, ..
             } => {
-                if !prefix.is_empty() {
+                if !is_root && !prefix.is_empty() {
                     name.insert_str(0, " - ");
                     name.insert_str(0, prefix);
                 }
                 for child in children {
-                    helper(child, &name, result);
+                    helper(child, false, &name, result);
                 }
             }
         }
     }
     let mut result = Vec::new();
-    helper(test, "", &mut result);
+    helper(test, true, "", &mut result);
     result
 }

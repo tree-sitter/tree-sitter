@@ -596,23 +596,7 @@ fn test_parsing_with_a_timeout() {
     let mut parser = Parser::new();
     parser.set_language(get_language("json")).unwrap();
 
-    // Parse an infinitely-long array, but pause after 100 microseconds of processing.
-    parser.set_timeout_micros(100);
-    let start_time = time::Instant::now();
-    let tree = parser.parse_with(
-        &mut |offset, _| {
-            if offset == 0 {
-                b" ["
-            } else {
-                b",0"
-            }
-        },
-        None,
-    );
-    assert!(tree.is_none());
-    assert!(start_time.elapsed().as_micros() < 500);
-
-    // Continue parsing, but pause after 300 microseconds of processing.
+    // Parse an infinitely-long array, but pause after 1ms of processing.
     parser.set_timeout_micros(1000);
     let start_time = time::Instant::now();
     let tree = parser.parse_with(
@@ -626,8 +610,24 @@ fn test_parsing_with_a_timeout() {
         None,
     );
     assert!(tree.is_none());
-    assert!(start_time.elapsed().as_micros() > 500);
     assert!(start_time.elapsed().as_micros() < 2000);
+
+    // Continue parsing, but pause after 1 ms of processing.
+    parser.set_timeout_micros(5000);
+    let start_time = time::Instant::now();
+    let tree = parser.parse_with(
+        &mut |offset, _| {
+            if offset == 0 {
+                b" ["
+            } else {
+                b",0"
+            }
+        },
+        None,
+    );
+    assert!(tree.is_none());
+    assert!(start_time.elapsed().as_micros() > 100);
+    assert!(start_time.elapsed().as_micros() < 10000);
 
     // Finish parsing
     parser.set_timeout_micros(0);
