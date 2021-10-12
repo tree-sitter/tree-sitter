@@ -172,6 +172,8 @@ struct TSLanguage {
 
 #define ACTIONS(id) id
 
+#define RESERVED 1
+
 #define SHIFT(state_value)            \
   {{                                  \
     .shift = {                        \

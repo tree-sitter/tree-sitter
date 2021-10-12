@@ -61,6 +61,10 @@ enum RuleJSON {
     IMMEDIATE_TOKEN {
         content: Box<RuleJSON>,
     },
+    RESERVED {
+        content: Box<RuleJSON>,
+        words: Vec<RuleJSON>,
+    },
 }
 
 #[derive(Deserialize)]
@@ -86,7 +90,10 @@ pub(crate) struct GrammarJSON {
     inline: Vec<String>,
     #[serde(default)]
     supertypes: Vec<String>,
+    #[serde(default)]
     word: Option<String>,
+    #[serde(default)]
+    reserved: Vec<RuleJSON>,
 }
 
 pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
@@ -120,6 +127,7 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
 
     let extra_symbols = grammar_json.extras.into_iter().map(parse_rule).collect();
     let external_tokens = grammar_json.externals.into_iter().map(parse_rule).collect();
+    let reserved_words = grammar_json.reserved.into_iter().map(parse_rule).collect();
 
     Ok(InputGrammar {
         name: grammar_json.name,
@@ -131,6 +139,7 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
         variables,
         extra_symbols,
         external_tokens,
+        reserved_words,
     })
 }
 
@@ -162,6 +171,13 @@ fn parse_rule(json: RuleJSON) -> Rule {
         RuleJSON::PREC_DYNAMIC { value, content } => {
             Rule::prec_dynamic(value, parse_rule(*content))
         }
+        RuleJSON::RESERVED {
+            content,
+            words: reserved,
+        } => Rule::Reserved {
+            rule: Box::new(parse_rule(*content)),
+            reserved_words: reserved.into_iter().map(parse_rule).collect(),
+        },
         RuleJSON::TOKEN { content } => Rule::token(parse_rule(*content)),
         RuleJSON::IMMEDIATE_TOKEN { content } => Rule::immediate_token(parse_rule(*content)),
     }

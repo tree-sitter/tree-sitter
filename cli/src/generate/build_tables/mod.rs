@@ -399,9 +399,9 @@ fn report_state_info<'a>(
     for (i, state) in parse_table.states.iter().enumerate() {
         all_state_indices.insert(i);
         let item_set = &parse_state_info[state.id];
-        for (item, _) in item_set.1.entries.iter() {
-            if !item.is_augmented() {
-                symbols_with_state_indices[item.variable_index as usize]
+        for entry in item_set.1.entries.iter() {
+            if !entry.item.is_augmented() {
+                symbols_with_state_indices[entry.item.variable_index as usize]
                     .1
                     .insert(i);
             }

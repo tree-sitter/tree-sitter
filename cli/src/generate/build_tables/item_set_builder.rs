@@ -1,8 +1,14 @@
-use super::item::{ParseItem, ParseItemDisplay, ParseItemSet, TokenSetDisplay};
-use crate::generate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
-use crate::generate::rules::{Symbol, SymbolType, TokenSet};
-use std::collections::{HashMap, HashSet};
-use std::fmt;
+use crate::generate::{
+    build_tables::item::{
+        ParseItem, ParseItemDisplay, ParseItemSet, ParseItemSetEntry, TokenSetDisplay,
+    },
+    grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar},
+    rules::{Symbol, SymbolType, TokenSet},
+};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct TransitiveClosureAddition<'a> {
@@ -10,9 +16,10 @@ struct TransitiveClosureAddition<'a> {
     info: FollowSetInfo,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct FollowSetInfo {
     lookaheads: TokenSet,
+    reserved_lookaheads: TokenSet,
     propagates_lookaheads: bool,
 }
 
@@ -20,6 +27,7 @@ pub(crate) struct ParseItemSetBuilder<'a> {
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
     first_sets: HashMap<Symbol, TokenSet>,
+    reserved_first_sets: HashMap<Symbol, TokenSet>,
     last_sets: HashMap<Symbol, TokenSet>,
     inlines: &'a InlinedProductionMap,
     transitive_closure_additions: Vec<Vec<TransitiveClosureAddition<'a>>>,
@@ -41,6 +49,7 @@ impl<'a> ParseItemSetBuilder<'a> {
             syntax_grammar,
             lexical_grammar,
             first_sets: HashMap::new(),
+            reserved_first_sets: HashMap::new(),
             last_sets: HashMap::new(),
             inlines,
             transitive_closure_additions: vec![Vec::new(); syntax_grammar.variables.len()],
@@ -49,7 +58,7 @@ impl<'a> ParseItemSetBuilder<'a> {
         // For each grammar symbol, populate the FIRST and LAST sets: the set of
         // terminals that appear at the beginning and end that symbol's productions,
         // respectively.
-        //
+
         // For a terminal symbol, the FIRST and LAST set just consists of the
         // terminal itself.
         for i in 0..lexical_grammar.variables.len() {
@@ -68,10 +77,8 @@ impl<'a> ParseItemSetBuilder<'a> {
             result.last_sets.insert(symbol, set);
         }
 
-        // The FIRST set of a non-terminal `i` is the union of the following sets:
-        // * the set of all terminals that appear at the beginings of i's productions
-        // * the FIRST sets of all the non-terminals that appear at the beginnings
-        //   of i's productions
+        // The FIRST set of a non-terminal `i` is the union of all of the the FIRST
+        // sets of all the symbols that appear at the beginnings of i's productions
         //
         // Rather than computing these sets using recursion, we use an explicit stack
         // called `symbols_to_process`.
@@ -80,39 +87,38 @@ impl<'a> ParseItemSetBuilder<'a> {
         for i in 0..syntax_grammar.variables.len() {
             let symbol = Symbol::non_terminal(i);
 
-            let first_set = &mut result.first_sets.entry(symbol).or_insert(TokenSet::new());
+            let first_set = result.first_sets.entry(symbol).or_default();
+            let reserved_first_set = result.reserved_first_sets.entry(symbol).or_default();
             processed_non_terminals.clear();
             symbols_to_process.clear();
             symbols_to_process.push(symbol);
-            while let Some(current_symbol) = symbols_to_process.pop() {
-                if current_symbol.is_terminal() || current_symbol.is_external() {
-                    first_set.insert(current_symbol);
-                } else if processed_non_terminals.insert(current_symbol) {
-                    for production in syntax_grammar.variables[current_symbol.index]
-                        .productions
-                        .iter()
-                    {
-                        if let Some(step) = production.steps.first() {
+            while let Some(sym) = symbols_to_process.pop() {
+                for production in &syntax_grammar.variables[sym.index].productions {
+                    if let Some(step) = production.steps.first() {
+                        if step.symbol.is_terminal() || step.symbol.is_external() {
+                            first_set.insert(step.symbol);
+                        } else if processed_non_terminals.insert(step.symbol) {
                             symbols_to_process.push(step.symbol);
+                        }
+
+                        if let Some(reserved_words) = &step.reserved_words {
+                            reserved_first_set.insert_all(reserved_words);
                         }
                     }
                 }
             }
 
             // The LAST set is defined in a similar way to the FIRST set.
-            let last_set = &mut result.last_sets.entry(symbol).or_insert(TokenSet::new());
+            let last_set = result.last_sets.entry(symbol).or_insert(TokenSet::new());
             processed_non_terminals.clear();
             symbols_to_process.clear();
             symbols_to_process.push(symbol);
-            while let Some(current_symbol) = symbols_to_process.pop() {
-                if current_symbol.is_terminal() || current_symbol.is_external() {
-                    last_set.insert(current_symbol);
-                } else if processed_non_terminals.insert(current_symbol) {
-                    for production in syntax_grammar.variables[current_symbol.index]
-                        .productions
-                        .iter()
-                    {
-                        if let Some(step) = production.steps.last() {
+            while let Some(sym) = symbols_to_process.pop() {
+                for production in &syntax_grammar.variables[sym.index].productions {
+                    if let Some(step) = production.steps.last() {
+                        if step.symbol.is_terminal() || step.symbol.is_external() {
+                            last_set.insert(step.symbol);
+                        } else if processed_non_terminals.insert(step.symbol) {
                             symbols_to_process.push(step.symbol);
                         }
                     }
@@ -125,8 +131,8 @@ impl<'a> ParseItemSetBuilder<'a> {
         // each of that symbols' productions. These productions might themselves begin
         // with non-terminals, so the process continues recursively. In this process,
         // the total set of entries that get added depends only on two things:
-        //   * the set of non-terminal symbols that occur at each item's current position
-        //   * the set of terminals that occurs after each of these non-terminal symbols
+        //   * the non-terminal symbol that occurs next in each item
+        //   * the set of terminals that can follow that non-terminal symbol in the item
         //
         // So we can avoid a lot of duplicated recursive work by precomputing, for each
         // non-terminal symbol `i`, a final list of *additions* that must be made to an
@@ -141,32 +147,37 @@ impl<'a> ParseItemSetBuilder<'a> {
         //
         // Again, rather than computing these additions recursively, we use an explicit
         // stack called `entries_to_process`.
+        let empty_lookaheads = TokenSet::new();
+        let mut entries_to_process = Vec::new();
         for i in 0..syntax_grammar.variables.len() {
-            let empty_lookaheads = TokenSet::new();
-            let mut entries_to_process = vec![(i, &empty_lookaheads, true)];
+            entries_to_process.clear();
+            entries_to_process.push((i, &empty_lookaheads, None, true));
 
             // First, build up a map whose keys are all of the non-terminals that can
             // appear at the beginning of non-terminal `i`, and whose values store
             // information about the tokens that can follow each non-terminal.
-            let mut follow_set_info_by_non_terminal = HashMap::new();
+            let mut follow_set_info_by_non_terminal = HashMap::<usize, FollowSetInfo>::new();
             while let Some(entry) = entries_to_process.pop() {
-                let (variable_index, lookaheads, propagates_lookaheads) = entry;
+                let (variable_index, lookaheads, reserved_lookaheads, propagates_lookaheads) =
+                    entry;
                 let existing_info = follow_set_info_by_non_terminal
                     .entry(variable_index)
-                    .or_insert_with(|| FollowSetInfo {
-                        lookaheads: TokenSet::new(),
-                        propagates_lookaheads: false,
-                    });
+                    .or_default();
 
-                let did_add_follow_set_info;
+                let mut did_add = false;
                 if propagates_lookaheads {
-                    did_add_follow_set_info = !existing_info.propagates_lookaheads;
+                    did_add |= !existing_info.propagates_lookaheads;
                     existing_info.propagates_lookaheads = true;
                 } else {
-                    did_add_follow_set_info = existing_info.lookaheads.insert_all(lookaheads);
+                    did_add |= existing_info.lookaheads.insert_all(lookaheads);
+                    if let Some(reserved_lookaheads) = reserved_lookaheads {
+                        did_add |= existing_info
+                            .reserved_lookaheads
+                            .insert_all(reserved_lookaheads);
+                    }
                 }
 
-                if did_add_follow_set_info {
+                if did_add {
                     for production in &syntax_grammar.variables[variable_index].productions {
                         if let Some(symbol) = production.first_symbol() {
                             if symbol.is_non_terminal() {
@@ -174,12 +185,14 @@ impl<'a> ParseItemSetBuilder<'a> {
                                     entries_to_process.push((
                                         symbol.index,
                                         lookaheads,
+                                        reserved_lookaheads,
                                         propagates_lookaheads,
                                     ));
                                 } else {
                                     entries_to_process.push((
                                         symbol.index,
                                         &result.first_sets[&production.steps[1].symbol],
+                                        result.reserved_first_sets.get(&production.steps[1].symbol),
                                         false,
                                     ));
                                 }
@@ -237,20 +250,23 @@ impl<'a> ParseItemSetBuilder<'a> {
 
     pub(crate) fn transitive_closure(&mut self, item_set: &ParseItemSet<'a>) -> ParseItemSet<'a> {
         let mut result = ParseItemSet::default();
-        for (item, lookaheads) in &item_set.entries {
+        for entry in &item_set.entries {
             if let Some(productions) = self
                 .inlines
-                .inlined_productions(item.production, item.step_index)
+                .inlined_productions(entry.item.production, entry.item.step_index)
             {
                 for production in productions {
                     self.add_item(
                         &mut result,
-                        item.substitute_production(production),
-                        lookaheads,
+                        ParseItemSetEntry {
+                            item: entry.item.substitute_production(production),
+                            lookaheads: entry.lookaheads.clone(),
+                            reserved_lookaheads: entry.reserved_lookaheads.clone(),
+                        },
                     );
                 }
             } else {
-                self.add_item(&mut result, *item, lookaheads);
+                self.add_item(&mut result, entry.clone());
             }
         }
         result
@@ -260,32 +276,51 @@ impl<'a> ParseItemSetBuilder<'a> {
         &self.first_sets[symbol]
     }
 
+    pub fn reserved_first_set(&self, symbol: &Symbol) -> Option<&TokenSet> {
+        self.reserved_first_sets.get(symbol)
+    }
+
     pub fn last_set(&self, symbol: &Symbol) -> &TokenSet {
         &self.last_sets[symbol]
     }
 
-    fn add_item(&self, set: &mut ParseItemSet<'a>, item: ParseItem<'a>, lookaheads: &TokenSet) {
-        if let Some(step) = item.step() {
+    fn add_item(&self, set: &mut ParseItemSet<'a>, entry: ParseItemSetEntry<'a>) {
+        if let Some(step) = entry.item.step() {
             if step.symbol.is_non_terminal() {
-                let next_step = item.successor().step();
+                let next_step = entry.item.successor().step();
 
                 // Determine which tokens can follow this non-terminal.
-                let following_tokens = if let Some(next_step) = next_step {
-                    self.first_sets.get(&next_step.symbol).unwrap()
-                } else {
-                    &lookaheads
-                };
+                let (following_tokens, following_reserved_tokens) =
+                    if let Some(next_step) = next_step {
+                        (
+                            self.first_sets.get(&next_step.symbol).unwrap(),
+                            self.reserved_first_sets.get(&next_step.symbol),
+                        )
+                    } else {
+                        (&entry.lookaheads, Some(&entry.reserved_lookaheads))
+                    };
 
                 // Use the pre-computed *additions* to expand the non-terminal.
                 for addition in &self.transitive_closure_additions[step.symbol.index] {
-                    let lookaheads = set.insert(addition.item, &addition.info.lookaheads);
+                    let entry = set.insert(addition.item);
+                    entry.lookaheads.insert_all(&addition.info.lookaheads);
+                    entry
+                        .reserved_lookaheads
+                        .insert_all(&addition.info.reserved_lookaheads);
                     if addition.info.propagates_lookaheads {
-                        lookaheads.insert_all(following_tokens);
+                        entry.lookaheads.insert_all(following_tokens);
+                        if let Some(following_reserved_tokens) = following_reserved_tokens {
+                            entry
+                                .reserved_lookaheads
+                                .insert_all(&following_reserved_tokens);
+                        }
                     }
                 }
             }
         }
-        set.insert(item, lookaheads);
+        let e = set.insert(entry.item);
+        e.lookaheads.insert_all(&entry.lookaheads);
+        e.reserved_lookaheads.insert_all(&entry.reserved_lookaheads);
     }
 }
 

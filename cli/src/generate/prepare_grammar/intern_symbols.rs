@@ -44,6 +44,11 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         );
     }
 
+    let mut reserved_words = Vec::with_capacity(grammar.reserved_words.len());
+    for reserved_word in grammar.reserved_words.iter() {
+        reserved_words.push(interner.intern_rule(reserved_word)?);
+    }
+
     let mut expected_conflicts = Vec::new();
     for conflict in grammar.expected_conflicts.iter() {
         let mut interned_conflict = Vec::with_capacity(conflict.len());
@@ -88,6 +93,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         supertype_symbols,
         word_token,
         precedence_orderings: grammar.precedence_orderings.clone(),
+        reserved_words,
     })
 }
 
@@ -98,24 +104,32 @@ struct Interner<'a> {
 impl<'a> Interner<'a> {
     fn intern_rule(&self, rule: &Rule) -> Result<Rule> {
         match rule {
-            Rule::Choice(elements) => {
-                let mut result = Vec::with_capacity(elements.len());
-                for element in elements {
-                    result.push(self.intern_rule(element)?);
-                }
-                Ok(Rule::Choice(result))
-            }
-            Rule::Seq(elements) => {
-                let mut result = Vec::with_capacity(elements.len());
-                for element in elements {
-                    result.push(self.intern_rule(element)?);
-                }
-                Ok(Rule::Seq(result))
-            }
+            Rule::Choice(elements) => Ok(Rule::Choice(
+                elements
+                    .into_iter()
+                    .map(|r| self.intern_rule(r))
+                    .collect::<Result<Vec<_>>>()?,
+            )),
+            Rule::Seq(elements) => Ok(Rule::Seq(
+                elements
+                    .into_iter()
+                    .map(|r| self.intern_rule(r))
+                    .collect::<Result<Vec<_>>>()?,
+            )),
             Rule::Repeat(content) => Ok(Rule::Repeat(Box::new(self.intern_rule(content)?))),
             Rule::Metadata { rule, params } => Ok(Rule::Metadata {
                 rule: Box::new(self.intern_rule(rule)?),
                 params: params.clone(),
+            }),
+            Rule::Reserved {
+                rule,
+                reserved_words,
+            } => Ok(Rule::Reserved {
+                rule: Box::new(self.intern_rule(rule)?),
+                reserved_words: reserved_words
+                    .into_iter()
+                    .map(|r| self.intern_rule(r))
+                    .collect::<Result<Vec<_>>>()?,
             }),
 
             Rule::NamedSymbol(name) => {

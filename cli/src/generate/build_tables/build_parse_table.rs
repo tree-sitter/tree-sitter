@@ -1,4 +1,4 @@
-use super::item::{ParseItem, ParseItemSet, ParseItemSetCore};
+use super::item::{ParseItem, ParseItemSet, ParseItemSetCore, ParseItemSetEntry};
 use super::item_set_builder::ParseItemSetBuilder;
 use crate::generate::grammars::PrecedenceEntry;
 use crate::generate::grammars::{
@@ -74,14 +74,13 @@ impl<'a> ParseTableBuilder<'a> {
         self.add_parse_state(
             &Vec::new(),
             &Vec::new(),
-            ParseItemSet::with(
-                [(
-                    ParseItem::start(),
-                    [Symbol::end()].iter().cloned().collect(),
-                )]
-                .iter()
-                .cloned(),
-            ),
+            ParseItemSet {
+                entries: vec![ParseItemSetEntry {
+                    item: ParseItem::start(),
+                    lookaheads: [Symbol::end()].iter().cloned().collect(),
+                    reserved_lookaheads: TokenSet::new(),
+                }],
+            },
         );
 
         // Compute the possible item sets for non-terminal extras.
@@ -97,18 +96,14 @@ impl<'a> ParseTableBuilder<'a> {
                 non_terminal_extra_item_sets_by_first_terminal
                     .entry(production.first_symbol().unwrap())
                     .or_insert(ParseItemSet::default())
-                    .insert(
-                        ParseItem {
-                            variable_index: extra_non_terminal.index as u32,
-                            production,
-                            step_index: 1,
-                            has_preceding_inherited_fields: false,
-                        },
-                        &[Symbol::end_of_nonterminal_extra()]
-                            .iter()
-                            .cloned()
-                            .collect(),
-                    );
+                    .insert(ParseItem {
+                        variable_index: extra_non_terminal.index as u32,
+                        production,
+                        step_index: 1,
+                        has_preceding_inherited_fields: false,
+                    })
+                    .lookaheads
+                    .insert(Symbol::end_of_nonterminal_extra());
             }
         }
 
@@ -163,6 +158,7 @@ impl<'a> ParseTableBuilder<'a> {
                     external_lex_state_id: 0,
                     terminal_entries: IndexMap::default(),
                     nonterminal_entries: IndexMap::default(),
+                    reserved_words: TokenSet::new(),
                     core_id,
                 });
                 self.parse_state_queue.push_back(ParseStateQueueEntry {
@@ -189,13 +185,16 @@ impl<'a> ParseTableBuilder<'a> {
 
         // Each item in the item set contributes to either or a Shift action or a Reduce
         // action in this state.
-        for (item, lookaheads) in &item_set.entries {
+        for ParseItemSetEntry {
+            item, lookaheads, ..
+        } in &item_set.entries
+        {
             // If the item is unfinished, then this state has a transition for the item's
             // next symbol. Advance the item to its next step and insert the resulting
             // item into the successor item set.
             if let Some(next_symbol) = item.symbol() {
                 let mut successor = item.successor();
-                if next_symbol.is_non_terminal() {
+                let successor_set = if next_symbol.is_non_terminal() {
                     let variable = &self.syntax_grammar.variables[next_symbol.index];
 
                     // Keep track of where auxiliary non-terminals (repeat symbols) are
@@ -224,13 +223,15 @@ impl<'a> ParseTableBuilder<'a> {
                     non_terminal_successors
                         .entry(next_symbol)
                         .or_insert_with(|| ParseItemSet::default())
-                        .insert(successor, lookaheads);
                 } else {
                     terminal_successors
                         .entry(next_symbol)
                         .or_insert_with(|| ParseItemSet::default())
-                        .insert(successor, lookaheads);
-                }
+                };
+                successor_set
+                    .insert(successor)
+                    .lookaheads
+                    .insert_all(lookaheads);
             }
             // If the item is finished, then add a Reduce action to this state based
             // on this item.
@@ -355,7 +356,7 @@ impl<'a> ParseTableBuilder<'a> {
             )?;
         }
 
-        // Finally, add actions for the grammar's `extra` symbols.
+        // Add actions for the grammar's `extra` symbols.
         let state = &mut self.parse_table.states[state_id];
         let is_end_of_non_terminal_extra = state.is_end_of_non_terminal_extra();
 
@@ -367,7 +368,7 @@ impl<'a> ParseTableBuilder<'a> {
                 let parent_symbols = item_set
                     .entries
                     .iter()
-                    .filter_map(|(item, _)| {
+                    .filter_map(|ParseItemSetEntry { item, .. }| {
                         if !item.is_augmented() && item.step_index > 0 {
                             Some(item.variable_index)
                         } else {
@@ -421,6 +422,20 @@ impl<'a> ParseTableBuilder<'a> {
             }
         }
 
+        // if let Some(word_token) = self.syntax_grammar.word_token {
+        //     for entry in &item_set.entries {
+        //         if let Some(next_step) = entry.item.step() {
+        //             if next_step.symbol == word_token {
+        //                 for reserved_word in next_step.reserved_words.iter() {
+        //                     if !state.terminal_entries.contains_key(&reserved_word) {
+        //                         state.reserved_words.insert(reserved_word);
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+
         Ok(())
     }
 
@@ -447,7 +462,10 @@ impl<'a> ParseTableBuilder<'a> {
         let mut considered_associativity = false;
         let mut shift_precedence: Vec<(&Precedence, Symbol)> = Vec::new();
         let mut conflicting_items = HashSet::new();
-        for (item, lookaheads) in &item_set.entries {
+        for ParseItemSetEntry {
+            item, lookaheads, ..
+        } in &item_set.entries
+        {
             if let Some(step) = item.step() {
                 if item.step_index > 0 {
                     if self
@@ -827,7 +845,7 @@ impl<'a> ParseTableBuilder<'a> {
         let parent_symbols = item_set
             .entries
             .iter()
-            .filter_map(|(item, _)| {
+            .filter_map(|ParseItemSetEntry { item, .. }| {
                 let variable_index = item.variable_index as usize;
                 if item.symbol() == Some(symbol)
                     && !self.syntax_grammar.variables[variable_index].is_auxiliary()
@@ -941,9 +959,13 @@ fn populate_following_tokens(
         for i in 1..production.steps.len() {
             let left_tokens = builder.last_set(&production.steps[i - 1].symbol);
             let right_tokens = builder.first_set(&production.steps[i].symbol);
+            let right_reserved_tokens = builder.reserved_first_set(&production.steps[i].symbol);
             for left_token in left_tokens.iter() {
                 if left_token.is_terminal() {
                     result[left_token.index].insert_all_terminals(right_tokens);
+                    if let Some(reserved_tokens) = right_reserved_tokens {
+                        result[left_token.index].insert_all_terminals(reserved_tokens);
+                    }
                 }
             }
         }

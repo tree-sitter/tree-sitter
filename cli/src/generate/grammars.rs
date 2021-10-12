@@ -1,5 +1,5 @@
 use super::nfa::Nfa;
-use super::rules::{Alias, Associativity, Precedence, Rule, Symbol};
+use super::rules::{Alias, Associativity, Precedence, Rule, Symbol, TokenSet};
 use std::collections::HashMap;
 use std::fmt;
 
@@ -37,6 +37,7 @@ pub(crate) struct InputGrammar {
     pub variables_to_inline: Vec<String>,
     pub supertype_symbols: Vec<String>,
     pub word_token: Option<String>,
+    pub reserved_words: Vec<Rule>,
 }
 
 // Extracted lexical grammar
@@ -64,6 +65,7 @@ pub(crate) struct ProductionStep {
     pub associativity: Option<Associativity>,
     pub alias: Option<Alias>,
     pub field_name: Option<String>,
+    pub reserved_words: Option<Box<TokenSet>>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -113,43 +115,30 @@ impl ProductionStep {
             associativity: None,
             alias: None,
             field_name: None,
+            reserved_words: None,
         }
     }
 
     pub(crate) fn with_prec(
-        self,
+        mut self,
         precedence: Precedence,
         associativity: Option<Associativity>,
     ) -> Self {
-        Self {
-            symbol: self.symbol,
-            precedence,
-            associativity,
-            alias: self.alias,
-            field_name: self.field_name,
-        }
+        self.precedence = precedence;
+        self.associativity = associativity;
+        self
     }
 
-    pub(crate) fn with_alias(self, value: &str, is_named: bool) -> Self {
-        Self {
-            symbol: self.symbol,
-            precedence: self.precedence,
-            associativity: self.associativity,
-            alias: Some(Alias {
-                value: value.to_string(),
-                is_named,
-            }),
-            field_name: self.field_name,
-        }
+    pub(crate) fn with_alias(mut self, value: &str, is_named: bool) -> Self {
+        self.alias = Some(Alias {
+            value: value.to_string(),
+            is_named,
+        });
+        self
     }
-    pub(crate) fn with_field_name(self, name: &str) -> Self {
-        Self {
-            symbol: self.symbol,
-            precedence: self.precedence,
-            associativity: self.associativity,
-            alias: self.alias,
-            field_name: Some(name.to_string()),
-        }
+    pub(crate) fn with_field_name(mut self, name: &str) -> Self {
+        self.field_name = Some(name.to_string());
+        self
     }
 }
 

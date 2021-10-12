@@ -32,15 +32,17 @@ pub(crate) fn build_lex_table(
         let tokens = state
             .terminal_entries
             .keys()
+            .copied()
+            .chain(state.reserved_words.iter())
             .filter_map(|token| {
                 if token.is_terminal() {
                     if keywords.contains(&token) {
                         syntax_grammar.word_token
                     } else {
-                        Some(*token)
+                        Some(token)
                     }
                 } else if token.is_eof() {
-                    Some(*token)
+                    Some(token)
                 } else {
                     None
                 }

@@ -533,7 +533,7 @@ static Subtree ts_parser__lex(
       if (
         self->language->keyword_lex_fn(&self->lexer.data, 0) &&
         self->lexer.token_end_position.bytes == end_byte &&
-        ts_language_has_actions(self->language, parse_state, self->lexer.data.result_symbol)
+        ts_language_is_valid_lookahead(self->language, parse_state, self->lexer.data.result_symbol)
       ) {
         is_keyword = true;
         symbol = self->lexer.data.result_symbol;
@@ -1513,41 +1513,49 @@ static bool ts_parser__advance(
         continue;
       }
 
+      // Get the parse table entry for this same lookahead token in the new
+      // state after the reduction.
       ts_language_table_entry(
         self->language,
         state,
         ts_subtree_leaf_symbol(lookahead),
         &table_entry
       );
+
+      // If there are no parse actions for the current lookahead token, then
+      // it is not valid in this state. If the current lookahead token is a
+      // keyword, then switch to treating it as the normal word token if that
+      // token is valid in this state.
+      if (
+        !table_entry.is_valid_lookahead &&
+        ts_subtree_is_keyword(lookahead) &&
+        ts_subtree_symbol(lookahead) != self->language->keyword_capture_token
+      ) {
+        ts_language_table_entry(
+          self->language,
+          state,
+          self->language->keyword_capture_token,
+          &table_entry
+        );
+        if (table_entry.action_count > 0) {
+          LOG(
+            "switch from_keyword:%s, to_word_token:%s",
+            TREE_NAME(lookahead),
+            SYM_NAME(self->language->keyword_capture_token)
+          );
+
+          MutableSubtree mutable_lookahead = ts_subtree_make_mut(&self->tree_pool, lookahead);
+          ts_subtree_set_symbol(&mutable_lookahead, self->language->keyword_capture_token, self->language);
+          lookahead = ts_subtree_from_mut(mutable_lookahead);
+        }
+      }
+
       continue;
     }
 
     if (!lookahead.ptr) {
       ts_stack_pause(self->stack, version, ts_builtin_sym_end);
       return true;
-    }
-
-    // If there were no parse actions for the current lookahead token, then
-    // it is not valid in this state. If the current lookahead token is a
-    // keyword, then switch to treating it as the normal word token if that
-    // token is valid in this state.
-    if (
-      ts_subtree_is_keyword(lookahead) &&
-      ts_subtree_symbol(lookahead) != self->language->keyword_capture_token
-    ) {
-      ts_language_table_entry(self->language, state, self->language->keyword_capture_token, &table_entry);
-      if (table_entry.action_count > 0) {
-        LOG(
-          "switch from_keyword:%s, to_word_token:%s",
-          TREE_NAME(lookahead),
-          SYM_NAME(self->language->keyword_capture_token)
-        );
-
-        MutableSubtree mutable_lookahead = ts_subtree_make_mut(&self->tree_pool, lookahead);
-        ts_subtree_set_symbol(&mutable_lookahead, self->language->keyword_capture_token, self->language);
-        lookahead = ts_subtree_from_mut(mutable_lookahead);
-        continue;
-      }
     }
 
     // If the current lookahead token is not valid and the parser is
@@ -1874,9 +1882,11 @@ TSTree *ts_parser_parse(
   }
 
   do {
-    for (StackVersion version = 0;
-         version_count = ts_stack_version_count(self->stack), version < version_count;
-         version++) {
+    for (
+      StackVersion version = 0;
+      version_count = ts_stack_version_count(self->stack), version < version_count;
+      version++
+    ) {
       bool allow_node_reuse = version_count == 1;
       while (ts_stack_is_active(self->stack, version)) {
         LOG("process version:%d, version_count:%u, state:%d, row:%u, col:%u",
