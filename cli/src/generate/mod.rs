@@ -8,7 +8,7 @@ mod node_types;
 pub mod parse_grammar;
 mod prepare_grammar;
 mod render;
-mod rules;
+pub mod rules;
 mod tables;
 
 use self::build_tables::build_tables;
@@ -17,6 +17,7 @@ use self::parse_grammar::{parse_grammar, GrammarJSON};
 use self::prepare_grammar::prepare_grammar;
 use self::render::render_c_code;
 use self::rules::AliasMap;
+use crate::generate::grammars::InputGrammar;
 use anyhow::{anyhow, Context, Result};
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
@@ -105,6 +106,11 @@ pub fn generate_parser_in_directory(
 pub fn generate_parser_for_grammar(grammar_json: &str) -> Result<(String, String)> {
     let grammar_json = JSON_COMMENT_REGEX.replace_all(grammar_json, "\n");
     let input_grammar = parse_grammar(grammar_json.as_ref())?;
+    generate_parser_for_input_grammar(input_grammar)
+}
+
+/// Generate c-code parser from input grammar
+pub fn generate_parser_for_input_grammar(input_grammar: InputGrammar) -> Result<(String, String)> {
     let (syntax_grammar, lexical_grammar, inlines, simple_aliases) =
         prepare_grammar(&input_grammar)?;
     let parser = generate_parser_for_grammar_with_opts(

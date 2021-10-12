@@ -31,7 +31,7 @@ pub enum Precedence {
     Name(String),
 }
 
-pub(crate) type AliasMap = HashMap<Symbol, Alias>;
+pub type AliasMap = HashMap<Symbol, Alias>;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct MetadataParams {
