@@ -3,7 +3,7 @@ pub(crate) fn split_state_id_groups<S>(
     state_ids_by_group_id: &mut Vec<Vec<usize>>,
     group_ids_by_state_id: &mut Vec<usize>,
     start_group_id: usize,
-    mut f: impl FnMut(&S, &S, &Vec<usize>) -> bool,
+    mut should_split: impl FnMut(&S, &S, &Vec<usize>) -> bool,
 ) -> bool {
     let mut result = false;
 
@@ -33,7 +33,7 @@ pub(crate) fn split_state_id_groups<S>(
                 }
                 let right_state = &states[right_state_id];
 
-                if f(left_state, right_state, &group_ids_by_state_id) {
+                if should_split(left_state, right_state, &group_ids_by_state_id) {
                     split_state_ids.push(right_state_id);
                 }
 

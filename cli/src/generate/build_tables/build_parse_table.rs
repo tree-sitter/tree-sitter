@@ -163,6 +163,7 @@ impl<'a> ParseTableBuilder<'a> {
                     external_lex_state_id: 0,
                     terminal_entries: IndexMap::default(),
                     nonterminal_entries: IndexMap::default(),
+                    exclusions: TokenSet::new(),
                     core_id,
                 });
                 self.parse_state_queue.push_back(ParseStateQueueEntry {
@@ -355,7 +356,7 @@ impl<'a> ParseTableBuilder<'a> {
             )?;
         }
 
-        // Finally, add actions for the grammar's `extra` symbols.
+        // Add actions for the grammar's `extra` symbols.
         let state = &mut self.parse_table.states[state_id];
         let is_end_of_non_terminal_extra = state.is_end_of_non_terminal_extra();
 
@@ -421,6 +422,12 @@ impl<'a> ParseTableBuilder<'a> {
             }
         }
 
+        for exclusion in item_set.exclusions() {
+            if !state.terminal_entries.contains_key(&exclusion) {
+                state.exclusions.insert(exclusion);
+            }
+        }
+
         Ok(())
     }
 
@@ -452,7 +459,7 @@ impl<'a> ParseTableBuilder<'a> {
                 if item.step_index > 0 {
                     if self
                         .item_set_builder
-                        .first_set(&step.symbol)
+                        .first_set_without_excluded(&step.symbol)
                         .contains(&conflicting_lookahead)
                     {
                         if item.variable_index != u32::MAX {
@@ -939,8 +946,8 @@ fn populate_following_tokens(
         .collect::<TokenSet>();
     for production in productions {
         for i in 1..production.steps.len() {
-            let left_tokens = builder.last_set(&production.steps[i - 1].symbol);
-            let right_tokens = builder.first_set(&production.steps[i].symbol);
+            let left_tokens = builder.last_set_with_excluded(&production.steps[i - 1].symbol);
+            let right_tokens = builder.first_set_with_excluded(&production.steps[i].symbol);
             for left_token in left_tokens.iter() {
                 if left_token.is_terminal() {
                     result[left_token.index].insert_all_terminals(right_tokens);
