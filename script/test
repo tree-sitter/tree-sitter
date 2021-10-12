@@ -31,12 +31,10 @@ OPTIONS
 EOF
 }
 
-export RUST_TEST_THREADS=1
 export RUST_BACKTRACE=full
 
 mode=normal
 test_flags="-p tree-sitter-cli"
-
 
 while getopts "adDghl:e:s:t:" option; do
   case ${option} in

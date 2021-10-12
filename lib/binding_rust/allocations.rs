@@ -1,8 +1,8 @@
-use lazy_static::lazy_static;
 use spin::Mutex;
-use std::collections::HashMap;
-use std::env;
-use std::os::raw::{c_ulong, c_void};
+use std::{
+    collections::HashMap,
+    os::raw::{c_ulong, c_void},
+};
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 struct Allocation(*const c_void);
@@ -16,8 +16,8 @@ struct AllocationRecorder {
     outstanding_allocations: HashMap<Allocation, u64>,
 }
 
-lazy_static! {
-    static ref RECORDER: Mutex<AllocationRecorder> = Mutex::new(AllocationRecorder::default());
+thread_local! {
+    static RECORDER: Mutex<AllocationRecorder> = Default::default();
 }
 
 extern "C" {
@@ -27,55 +27,55 @@ extern "C" {
     fn free(ptr: *mut c_void);
 }
 
-pub fn start_recording() {
-    let mut recorder = RECORDER.lock();
-    recorder.allocation_count = 0;
-    recorder.outstanding_allocations.clear();
-
-    if env::var("RUST_TEST_THREADS").map_or(false, |s| s == "1") {
+pub fn record<T>(f: impl FnOnce() -> T) -> T {
+    RECORDER.with(|recorder| {
+        let mut recorder = recorder.lock();
         recorder.enabled = true;
-    } else {
-        panic!("This test must be run with RUST_TEST_THREADS=1. Use script/test.");
-    }
-}
+        recorder.allocation_count = 0;
+        recorder.outstanding_allocations.clear();
+    });
 
-pub fn stop_recording() {
-    let mut recorder = RECORDER.lock();
-    recorder.enabled = false;
+    let value = f();
 
-    if !recorder.outstanding_allocations.is_empty() {
-        let mut allocation_indices = recorder
+    let outstanding_allocation_indices = RECORDER.with(|recorder| {
+        let mut recorder = recorder.lock();
+        recorder.enabled = false;
+        recorder.allocation_count = 0;
+        recorder
             .outstanding_allocations
-            .iter()
+            .drain()
             .map(|e| e.1)
-            .collect::<Vec<_>>();
-        allocation_indices.sort_unstable();
-        panic!("Leaked allocation indices: {:?}", allocation_indices);
+            .collect::<Vec<_>>()
+    });
+    if !outstanding_allocation_indices.is_empty() {
+        panic!(
+            "Leaked allocation indices: {:?}",
+            outstanding_allocation_indices
+        );
     }
-}
-
-pub fn record(f: impl FnOnce()) {
-    start_recording();
-    f();
-    stop_recording();
+    value
 }
 
 fn record_alloc(ptr: *mut c_void) {
-    let mut recorder = RECORDER.lock();
-    if recorder.enabled {
-        let count = recorder.allocation_count;
-        recorder.allocation_count += 1;
-        recorder
-            .outstanding_allocations
-            .insert(Allocation(ptr), count);
-    }
+    RECORDER.with(|recorder| {
+        let mut recorder = recorder.lock();
+        if recorder.enabled {
+            let count = recorder.allocation_count;
+            recorder.allocation_count += 1;
+            recorder
+                .outstanding_allocations
+                .insert(Allocation(ptr), count);
+        }
+    });
 }
 
 fn record_dealloc(ptr: *mut c_void) {
-    let mut recorder = RECORDER.lock();
-    if recorder.enabled {
-        recorder.outstanding_allocations.remove(&Allocation(ptr));
-    }
+    RECORDER.with(|recorder| {
+        let mut recorder = recorder.lock();
+        if recorder.enabled {
+            recorder.outstanding_allocations.remove(&Allocation(ptr));
+        }
+    });
 }
 
 #[no_mangle]
@@ -111,8 +111,10 @@ pub unsafe extern "C" fn ts_record_free(ptr: *mut c_void) {
 
 #[no_mangle]
 pub extern "C" fn ts_toggle_allocation_recording(enabled: bool) -> bool {
-    let mut recorder = RECORDER.lock();
-    let was_enabled = recorder.enabled;
-    recorder.enabled = enabled;
-    was_enabled
+    RECORDER.with(|recorder| {
+        let mut recorder = recorder.lock();
+        let was_enabled = recorder.enabled;
+        recorder.enabled = enabled;
+        was_enabled
+    })
 }
