@@ -1017,7 +1017,7 @@ static bool ts_parser__do_all_potential_reductions(
             break;
           case TSParseActionTypeReduce:
             if (action.reduce.child_count > 0)
-              ts_reduce_action_set_add(&self->reduce_actions, (ReduceAction){
+              ts_reduce_action_set_add(&self->reduce_actions, (ReduceAction) {
                 .symbol = action.reduce.symbol,
                 .count = action.reduce.child_count,
                 .dynamic_precedence = action.reduce.dynamic_precedence,
