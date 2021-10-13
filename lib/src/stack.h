@@ -126,8 +126,6 @@ bool ts_stack_print_dot_graph(Stack *, const TSLanguage *, FILE *);
 
 typedef void (*StackIterateCallback)(void *, TSStateId, uint32_t);
 
-void ts_stack_iterate(Stack *, StackVersion, StackIterateCallback, void *);
-
 #ifdef __cplusplus
 }
 #endif

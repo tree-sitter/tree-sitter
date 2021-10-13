@@ -34,9 +34,11 @@ static inline CursorChildIterator ts_tree_cursor_iterate_children(const TreeCurs
   };
 }
 
-static inline bool ts_tree_cursor_child_iterator_next(CursorChildIterator *self,
-                                                      TreeCursorEntry *result,
-                                                      bool *visible) {
+static inline bool ts_tree_cursor_child_iterator_next(
+  CursorChildIterator *self,
+  TreeCursorEntry *result,
+  bool *visible
+) {
   if (!self->parent.ptr || self->child_index == self->parent.ptr->child_count) return false;
   const Subtree *child = &ts_subtree_children(self->parent)[self->child_index];
   *result = (TreeCursorEntry) {
