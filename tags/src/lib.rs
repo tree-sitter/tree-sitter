@@ -82,6 +82,7 @@ struct PatternInfo {
 #[derive(Debug)]
 struct LocalDef<'a> {
     name: &'a [u8],
+    #[allow(dead_code)]
     value_range: Range<usize>,
 }
 
