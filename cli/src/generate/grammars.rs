@@ -3,44 +3,73 @@ use super::rules::{Alias, Associativity, Precedence, Rule, Symbol};
 use std::collections::HashMap;
 use std::fmt;
 
+/// Kind of the rule
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum VariableType {
     Hidden,
     Auxiliary,
+    /// the rule which start with `_`
     Anonymous,
+    /// a named rule
     Named,
 }
 
-// Input grammar
-
+/// A grammar rule
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Variable {
+    /// name of the rule
     pub name: String,
+    /// kind of the rule
     pub kind: VariableType,
+    /// Actual syntax tree
     pub rule: Rule,
 }
 
+/// Precedence entry
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PrecedenceEntry {
     Name(String),
     Symbol(String),
 }
 
+/// Typed syntax DSL
 #[derive(Debug, PartialEq, Eq)]
 pub struct InputGrammar {
+    /// name of your grammar
     pub name: String,
+    /// all of the rules
     pub variables: Vec<Variable>,
+    /// an array of tokens that may appear anywhere in the language.
+    ///
+    /// This is often used for whitespace and comments.
+    ///
+    /// The default value of extras is to accept whitespace.
     pub extra_symbols: Vec<Rule>,
+    /// An array of arrays of rule names.
+    ///
+    /// Each inner array represents a set of rules that’s involved in an LR(1) conflict that is intended to exist in the grammar.
+    ///
+    /// When these conflicts occur at runtime, Tree-sitter will use the GLR algorithm to explore all of the possible interpretations.
+    ///
+    /// If multiple parses end up succeeding, Tree-sitter will pick the subtree whose corresponding rule has the highest total dynamic precedence.
     pub expected_conflicts: Vec<Vec<String>>,
+    /// Precedence ordering entries
     pub precedence_orderings: Vec<Vec<PrecedenceEntry>>,
+    /// An array of token names which can be returned by an external scanner.
+    ///
+    /// External scanners allow you to write custom C code which runs during the lexing process in order to handle lexical rules (e.g. Python’s indentation tokens) that cannot be described by regular expressions.
     pub external_tokens: Vec<Rule>,
+    /// An array of rule names that should be automatically removed from the grammar by replacing all of their usages with a copy of their definition.
+    ///
+    /// This is useful for rules that are used in multiple places but for which you don’t want to create syntax tree nodes at runtime.
     pub variables_to_inline: Vec<String>,
+    /// On array of hidden rule names which should be considered to be ‘supertypes’ in the generated [node types file](https://tree-sitter.github.io/tree-sitter/using-parsers#static-node-types).
     pub supertype_symbols: Vec<String>,
+    /// The name of a token that will match keywords for the purpose of the [keyword extraction](https://tree-sitter.github.io/tree-sitter/creating-parsers#keyword-extraction) optimization.
     pub word_token: Option<String>,
 }
 
-// Extracted lexical grammar
-
+/// Extracted lexical grammar
 #[derive(Debug, PartialEq, Eq)]
 pub struct LexicalVariable {
     pub name: String,
@@ -55,8 +84,7 @@ pub struct LexicalGrammar {
     pub variables: Vec<LexicalVariable>,
 }
 
-// Extracted syntax grammar
-
+/// Extracted syntax grammar
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ProductionStep {
     pub symbol: Symbol,
@@ -73,7 +101,7 @@ pub struct Production {
 }
 
 #[derive(Default)]
-pub(crate) struct InlinedProductionMap {
+pub struct InlinedProductionMap {
     pub productions: Vec<Production>,
     pub production_map: HashMap<(*const Production, u32), Vec<usize>>,
 }
