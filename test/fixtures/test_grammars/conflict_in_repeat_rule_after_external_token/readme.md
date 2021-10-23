@@ -1,1 +1,0 @@
-This grammar is similar to the `conflict_in_repeat_rule` grammar, except that the conflict occurs after an external token is consumed. This tests that the logic for determining the repeat rule's "parent" rule works in the presence of external tokens.
