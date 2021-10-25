@@ -544,7 +544,7 @@ fn collect_paths<'a>(
         return Ok(fs::read_to_string(paths_file)
             .with_context(|| format!("Failed to read paths file {}", paths_file))?
             .trim()
-            .split_ascii_whitespace()
+            .lines()
             .map(String::from)
             .collect::<Vec<_>>());
     }
