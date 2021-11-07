@@ -87,7 +87,7 @@ TSSymbol ts_language_symbol_for_name(
       return self->public_symbol_map[i];
     }
   }
-  return 0;
+  return ts_builtin_sym_end;
 }
 
 TSSymbolType ts_language_symbol_type(
