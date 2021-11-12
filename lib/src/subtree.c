@@ -874,7 +874,7 @@ static size_t ts_subtree__write_to_string(
   if (!self.ptr) return snprintf(string, limit, "(NULL)");
 
   char *cursor = string;
-  char **writer = (limit > 0) ? &cursor : &string;
+  char **writer = (limit > 1) ? &cursor : &string;
   bool is_root = field_name == ROOT_FIELD;
   bool is_visible =
     include_all ||
@@ -973,7 +973,7 @@ char *ts_subtree_string(
 ) {
   char scratch_string[1];
   size_t size = ts_subtree__write_to_string(
-    self, scratch_string, 0,
+    self, scratch_string, 1,
     language, include_all,
     0, false, ROOT_FIELD
   ) + 1;
