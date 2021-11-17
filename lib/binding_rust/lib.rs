@@ -1145,16 +1145,18 @@ impl<'a> TreeCursor<'a> {
 
     /// Move this cursor to the parent of its current node.
     ///
+    /// A TreeCursor are scoped to its starting node, and it can't go outside of it.
     /// This returns `true` if the cursor successfully moved, and returns `false`
-    /// if there was no parent node (the cursor was already on the root node).
+    /// if there was no parent node within the cursor's scope (the cursor was already on the node where it is created).
     pub fn goto_parent(&mut self) -> bool {
         return unsafe { ffi::ts_tree_cursor_goto_parent(&mut self.0) };
     }
 
     /// Move this cursor to the next sibling of its current node.
     ///
+    /// A TreeCursor are scoped to its starting node, and it can't go outside of it.
     /// This returns `true` if the cursor successfully moved, and returns `false`
-    /// if there was no next sibling node.
+    /// if there was no next sibling node within the cursor's scope.
     pub fn goto_next_sibling(&mut self) -> bool {
         return unsafe { ffi::ts_tree_cursor_goto_next_sibling(&mut self.0) };
     }
