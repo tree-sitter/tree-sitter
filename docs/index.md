@@ -22,6 +22,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Python](https://github.com/tree-sitter/py-tree-sitter)
 * [Ruby](https://github.com/tree-sitter/ruby-tree-sitter)
 * [Rust](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_rust)
+* [Swift](https://github.com/ChimeHQ/SwiftTreeSitter)
 
 ### Available Parsers
 
