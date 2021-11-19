@@ -13,7 +13,7 @@
 
 #define MAX_STEP_CAPTURE_COUNT 3
 #define MAX_STATE_PREDECESSOR_COUNT 100
-#define MAX_ANALYSIS_STATE_DEPTH 12
+#define MAX_ANALYSIS_STATE_DEPTH 8
 #define MAX_NEGATED_FIELD_COUNT 8
 
 /*
@@ -1123,9 +1123,10 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
 
             // Create a new state that has advanced past this hypothetical subtree.
             AnalysisState next_state = *state;
-            analysis_state__top(&next_state)->child_index++;
-            analysis_state__top(&next_state)->parse_state = successor.state;
-            if (node->done) analysis_state__top(&next_state)->done = true;
+            AnalysisStateEntry *next_state_top = analysis_state__top(&next_state);
+            next_state_top->child_index++;
+            next_state_top->parse_state = successor.state;
+            if (node->done) next_state_top->done = true;
 
             // Determine if this hypothetical child node would match the current step
             // of the query pattern.
@@ -1146,20 +1147,31 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
               ) does_match = false;
             }
 
-            // If this is a hidden child, then push a new entry to the stack, in order to
-            // walk through the children of this child.
+            // If this child is hidden, then descend into it and walk through its children.
+            // If the top entry of the stack is at the end of its rule, then that entry can
+            // be replaced. Otherwise, push a new entry onto the stack.
             else if (sym >= self->language->token_count) {
-              if (next_state.depth + 1 >= MAX_ANALYSIS_STATE_DEPTH) {
-                did_exceed_max_depth = true;
-                continue;
+              if (!next_state_top->done) {
+                if (next_state.depth + 1 >= MAX_ANALYSIS_STATE_DEPTH) {
+                  #ifdef DEBUG_ANALYZE_QUERY
+                    printf("Exceeded depth limit for state %u\n", j);
+                  #endif
+
+                  did_exceed_max_depth = true;
+                  continue;
+                }
+
+                next_state.depth++;
+                next_state_top = analysis_state__top(&next_state);
               }
 
-              next_state.depth++;
-              analysis_state__top(&next_state)->parse_state = parse_state;
-              analysis_state__top(&next_state)->child_index = 0;
-              analysis_state__top(&next_state)->parent_symbol = sym;
-              analysis_state__top(&next_state)->field_id = field_id;
-              analysis_state__top(&next_state)->done = false;
+              *next_state_top = (AnalysisStateEntry) {
+                .parse_state = parse_state,
+                .parent_symbol = sym,
+                .child_index = 0,
+                .field_id = field_id,
+                .done = false,
+              };
 
               if (analysis_state__recursion_depth(&next_state) > recursion_depth_limit) {
                 array_insert_sorted_with(&deeper_states, analysis_state__compare, next_state);
@@ -1168,8 +1180,9 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
             }
 
             // Pop from the stack when this state reached the end of its current syntax node.
-            while (next_state.depth > 0 && analysis_state__top(&next_state)->done) {
+            while (next_state.depth > 0 && next_state_top->done) {
               next_state.depth--;
+              next_state_top = analysis_state__top(&next_state);
             }
 
             // If this hypothetical child did match the current step of the query pattern,
