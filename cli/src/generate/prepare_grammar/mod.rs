@@ -65,7 +65,7 @@ pub(crate) fn prepare_grammar(
     let mut syntax_grammar = flatten_grammar(syntax_grammar)?;
     let lexical_grammar = expand_tokens(lexical_grammar)?;
     let default_aliases = extract_default_aliases(&mut syntax_grammar, &lexical_grammar);
-    let inlines = process_inlines(&syntax_grammar);
+    let inlines = process_inlines(&syntax_grammar, &lexical_grammar)?;
     Ok((syntax_grammar, lexical_grammar, inlines, default_aliases))
 }
 
