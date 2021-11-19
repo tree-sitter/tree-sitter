@@ -21,18 +21,18 @@ lazy_static! {
     static ref TRIAL_FILTER: Option<usize> = env::var("TREE_SITTER_TEST_TRIAL_FILTER")
         .map(|s| usize::from_str_radix(&s, 10).unwrap())
         .ok();
-    pub static ref SEED: usize = env::var("TREE_SITTER_TEST_SEED")
-        .map(|s| {
-            let seed = usize::from_str_radix(&s, 10).unwrap();
-            eprintln!("\n\nRandom seed: {}\n", *SEED);
-            seed
-        })
-        .unwrap_or(
-            time::SystemTime::now()
-                .duration_since(time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs() as usize,
-        );
+    pub static ref SEED: usize = {
+        let seed = env::var("TREE_SITTER_TEST_SEED")
+            .map(|s| usize::from_str_radix(&s, 10).unwrap())
+            .unwrap_or(
+                time::SystemTime::now()
+                    .duration_since(time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs() as usize,
+            );
+        eprintln!("\n\nRandom seed: {}\n", seed);
+        seed
+    };
 }
 
 #[test]
