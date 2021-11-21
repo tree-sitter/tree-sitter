@@ -1,7 +1,10 @@
-use super::helpers::fixtures::get_language;
+use super::helpers::{
+    fixtures::get_language,
+    query_helpers::{Match, Pattern},
+};
 use lazy_static::lazy_static;
-use std::env;
-use std::fmt::Write;
+use rand::{prelude::StdRng, SeedableRng};
+use std::{env, fmt::Write};
 use tree_sitter::{
     allocations, Language, Node, Parser, Point, Query, QueryCapture, QueryCursor, QueryError,
     QueryErrorKind, QueryMatch, QueryPredicate, QueryPredicateArg, QueryProperty,
@@ -3444,7 +3447,74 @@ fn test_query_alternative_predicate_prefix() {
 }
 
 #[test]
-fn test_query_step_is_definite() {
+fn test_query_random() {
+    use pretty_assertions::assert_eq;
+
+    allocations::record(|| {
+        let language = get_language("rust");
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let mut cursor = QueryCursor::new();
+        cursor.set_match_limit(64);
+
+        let pattern_tree = parser
+            .parse(include_str!("helpers/query_helpers.rs"), None)
+            .unwrap();
+        let test_tree = parser
+            .parse(include_str!("helpers/query_helpers.rs"), None)
+            .unwrap();
+
+        // let start_seed = *SEED;
+        let start_seed = 0;
+
+        for i in 0..100 {
+            let seed = (start_seed + i) as u64;
+            let mut rand = StdRng::seed_from_u64(seed);
+            let (pattern_ast, range) = Pattern::random_pattern_in_tree(&pattern_tree, &mut rand);
+            let pattern = pattern_ast.to_string();
+            let expected_matches = pattern_ast.matches_in_tree(&test_tree);
+
+            eprintln!(
+                "seed: {}\nsource_range: {:?}\npattern:\n{}\nexpected match count: {}\n",
+                seed,
+                range,
+                pattern,
+                expected_matches.len(),
+            );
+
+            let query = Query::new(language, &pattern).unwrap();
+            let mut actual_matches = cursor
+                .matches(
+                    &query,
+                    test_tree.root_node(),
+                    (include_str!("parser_test.rs")).as_bytes(),
+                )
+                .map(|mat| Match {
+                    last_node: None,
+                    captures: mat
+                        .captures
+                        .iter()
+                        .map(|c| (query.capture_names()[c.index as usize].as_str(), c.node))
+                        .collect::<Vec<_>>(),
+                })
+                .collect::<Vec<_>>();
+
+            // actual_matches.sort_unstable();
+            actual_matches.dedup();
+
+            if !cursor.did_exceed_match_limit() {
+                assert_eq!(
+                    actual_matches, expected_matches,
+                    "seed: {}, pattern:\n{}",
+                    seed, pattern
+                );
+            }
+        }
+    });
+}
+
+#[test]
+fn test_query_is_pattern_guaranteed_at_step() {
     struct Row {
         language: Language,
         description: &'static str,
@@ -3454,19 +3524,19 @@ fn test_query_step_is_definite() {
 
     let rows = &[
         Row {
-            description: "no definite steps",
+            description: "no guaranteed steps",
             language: get_language("python"),
             pattern: r#"(expression_statement (string))"#,
             results_by_substring: &[("expression_statement", false), ("string", false)],
         },
         Row {
-            description: "all definite steps",
+            description: "all guaranteed steps",
             language: get_language("javascript"),
             pattern: r#"(object "{" "}")"#,
             results_by_substring: &[("object", false), ("{", true), ("}", true)],
         },
         Row {
-            description: "an indefinite step that is optional",
+            description: "a fallible step that is optional",
             language: get_language("javascript"),
             pattern: r#"(object "{" (identifier)? @foo "}")"#,
             results_by_substring: &[
@@ -3477,7 +3547,7 @@ fn test_query_step_is_definite() {
             ],
         },
         Row {
-            description: "multiple indefinite steps that are optional",
+            description: "multiple fallible steps that are optional",
             language: get_language("javascript"),
             pattern: r#"(object "{" (identifier)? @id1 ("," (identifier) @id2)? "}")"#,
             results_by_substring: &[
@@ -3489,13 +3559,13 @@ fn test_query_step_is_definite() {
             ],
         },
         Row {
-            description: "definite step after indefinite step",
+            description: "guaranteed step after fallibe step",
             language: get_language("javascript"),
             pattern: r#"(pair (property_identifier) ":")"#,
             results_by_substring: &[("pair", false), ("property_identifier", false), (":", true)],
         },
         Row {
-            description: "indefinite step in between two definite steps",
+            description: "fallible step in between two guaranteed steps",
             language: get_language("javascript"),
             pattern: r#"(ternary_expression
                 condition: (_)
@@ -3512,13 +3582,13 @@ fn test_query_step_is_definite() {
             ],
         },
         Row {
-            description: "one definite step after a repetition",
+            description: "one guaranteed step after a repetition",
             language: get_language("javascript"),
             pattern: r#"(object "{" (_) "}")"#,
             results_by_substring: &[("object", false), ("{", false), ("(_)", false), ("}", true)],
         },
         Row {
-            description: "definite steps after multiple repetitions",
+            description: "guaranteed steps after multiple repetitions",
             language: get_language("json"),
             pattern: r#"(object "{" (pair) "," (pair) "," (_) "}")"#,
             results_by_substring: &[
@@ -3532,7 +3602,7 @@ fn test_query_step_is_definite() {
             ],
         },
         Row {
-            description: "a definite with a field",
+            description: "a guaranteed step with a field",
             language: get_language("javascript"),
             pattern: r#"(binary_expression left: (identifier) right: (_))"#,
             results_by_substring: &[
@@ -3542,7 +3612,7 @@ fn test_query_step_is_definite() {
             ],
         },
         Row {
-            description: "multiple definite steps with fields",
+            description: "multiple guaranteed steps with fields",
             language: get_language("javascript"),
             pattern: r#"(function_declaration name: (identifier) body: (statement_block))"#,
             results_by_substring: &[
@@ -3552,7 +3622,7 @@ fn test_query_step_is_definite() {
             ],
         },
         Row {
-            description: "nesting, one definite step",
+            description: "nesting, one guaranteed step",
             language: get_language("javascript"),
             pattern: r#"
                 (function_declaration
@@ -3568,7 +3638,7 @@ fn test_query_step_is_definite() {
             ],
         },
         Row {
-            description: "definite step after some deeply nested hidden nodes",
+            description: "a guaranteed step after some deeply nested hidden nodes",
             language: get_language("ruby"),
             pattern: r#"
             (singleton_class
@@ -3582,7 +3652,7 @@ fn test_query_step_is_definite() {
             ],
         },
         Row {
-            description: "nesting, no definite steps",
+            description: "nesting, no guaranteed steps",
             language: get_language("javascript"),
             pattern: r#"
             (call_expression
@@ -3593,7 +3663,7 @@ fn test_query_step_is_definite() {
             results_by_substring: &[("property_identifier", false), ("template_string", false)],
         },
         Row {
-            description: "a definite step after a nested node",
+            description: "a guaranteed step after a nested node",
             language: get_language("javascript"),
             pattern: r#"
             (subscript_expression
@@ -3609,7 +3679,7 @@ fn test_query_step_is_definite() {
             ],
         },
         Row {
-            description: "a step that is indefinite due to a predicate",
+            description: "a step that is fallible due to a predicate",
             language: get_language("javascript"),
             pattern: r#"
             (subscript_expression
@@ -3626,7 +3696,7 @@ fn test_query_step_is_definite() {
             ],
         },
         Row {
-            description: "alternation where one branch has definite steps",
+            description: "alternation where one branch has guaranteed steps",
             language: get_language("javascript"),
             pattern: r#"
             [
@@ -3645,7 +3715,7 @@ fn test_query_step_is_definite() {
             ],
         },
         Row {
-            description: "aliased parent node",
+            description: "guaranteed step at the end of an aliased parent node",
             language: get_language("ruby"),
             pattern: r#"
             (method_parameters "(" (identifier) @id")")
@@ -3700,6 +3770,21 @@ fn test_query_step_is_definite() {
                 ("(heredoc_end)", true),
             ],
         },
+        Row {
+            description: "multiple extra nodes",
+            language: get_language("rust"),
+            pattern: r#"
+            (call_expression
+                (line_comment) @a
+                (line_comment) @b
+                (arguments))
+            "#,
+            results_by_substring: &[
+                ("(line_comment) @a", false),
+                ("(line_comment) @b", false),
+                ("(arguments)", true),
+            ],
+        },
     ];
 
     allocations::record(|| {
@@ -3716,7 +3801,7 @@ fn test_query_step_is_definite() {
             for (substring, is_definite) in row.results_by_substring {
                 let offset = row.pattern.find(substring).unwrap();
                 assert_eq!(
-                    query.step_is_definite(offset),
+                    query.is_pattern_guaranteed_at_step(offset),
                     *is_definite,
                     "Description: {}, Pattern: {:?}, substring: {:?}, expected is_definite to be {}",
                     row.description,

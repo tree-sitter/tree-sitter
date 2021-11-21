@@ -76,6 +76,7 @@ features = ["std"]
 [dev-dependencies]
 rand = "0.8"
 tempfile = "3"
+pretty_assertions = "0.7.2"
 
 [build-dependencies]
 toml = "0.5"

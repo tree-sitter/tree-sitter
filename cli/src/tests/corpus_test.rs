@@ -1,39 +1,21 @@
-use super::helpers::edits::{get_random_edit, invert_edit};
-use super::helpers::fixtures::{fixtures_dir, get_language, get_test_language};
-use super::helpers::random::Rand;
-use super::helpers::scope_sequence::ScopeSequence;
-use crate::generate;
-use crate::parse::perform_edit;
-use crate::test::{parse_tests, print_diff, print_diff_key, strip_sexp_fields, TestEntry};
-use crate::util;
-use lazy_static::lazy_static;
-use std::{env, fs, time, usize};
+use super::helpers::{
+    edits::{get_random_edit, invert_edit},
+    fixtures::{fixtures_dir, get_language, get_test_language},
+    random::Rand,
+    scope_sequence::ScopeSequence,
+    EXAMPLE_FILTER, LANGUAGE_FILTER, LOG_ENABLED, LOG_GRAPH_ENABLED, SEED, TRIAL_FILTER,
+};
+use crate::{
+    generate,
+    parse::perform_edit,
+    test::{parse_tests, print_diff, print_diff_key, strip_sexp_fields, TestEntry},
+    util,
+};
+use std::{fs, usize};
 use tree_sitter::{allocations, LogType, Node, Parser, Tree};
 
 const EDIT_COUNT: usize = 3;
 const TRIAL_COUNT: usize = 10;
-
-lazy_static! {
-    static ref LOG_ENABLED: bool = env::var("TREE_SITTER_TEST_ENABLE_LOG").is_ok();
-    static ref LOG_GRAPH_ENABLED: bool = env::var("TREE_SITTER_TEST_ENABLE_LOG_GRAPHS").is_ok();
-    static ref LANGUAGE_FILTER: Option<String> = env::var("TREE_SITTER_TEST_LANGUAGE_FILTER").ok();
-    static ref EXAMPLE_FILTER: Option<String> = env::var("TREE_SITTER_TEST_EXAMPLE_FILTER").ok();
-    static ref TRIAL_FILTER: Option<usize> = env::var("TREE_SITTER_TEST_TRIAL_FILTER")
-        .map(|s| usize::from_str_radix(&s, 10).unwrap())
-        .ok();
-    pub static ref SEED: usize = {
-        let seed = env::var("TREE_SITTER_TEST_SEED")
-            .map(|s| usize::from_str_radix(&s, 10).unwrap())
-            .unwrap_or(
-                time::SystemTime::now()
-                    .duration_since(time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs() as usize,
-            );
-        eprintln!("\n\nRandom seed: {}\n", seed);
-        seed
-    };
-}
 
 #[test]
 fn test_bash_corpus() {
