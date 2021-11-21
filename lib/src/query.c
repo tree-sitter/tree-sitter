@@ -2269,7 +2269,7 @@ uint32_t ts_query_start_byte_for_pattern(
   return self->patterns.contents[pattern_index].start_byte;
 }
 
-bool ts_query_step_is_definite(
+bool ts_query_is_pattern_guaranteed_at_step(
   const TSQuery *self,
   uint32_t byte_offset
 ) {

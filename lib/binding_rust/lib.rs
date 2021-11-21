@@ -1586,8 +1586,10 @@ impl Query {
     ///
     /// A query step is 'definite' if its parent pattern will be guaranteed to match
     /// successfully once it reaches the step.
-    pub fn step_is_definite(&self, byte_offset: usize) -> bool {
-        unsafe { ffi::ts_query_step_is_definite(self.ptr.as_ptr(), byte_offset as u32) }
+    pub fn is_pattern_guaranteed_at_step(&self, byte_offset: usize) -> bool {
+        unsafe {
+            ffi::ts_query_is_pattern_guaranteed_at_step(self.ptr.as_ptr(), byte_offset as u32)
+        }
     }
 
     fn parse_property(

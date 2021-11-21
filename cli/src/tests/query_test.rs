@@ -3786,7 +3786,7 @@ fn test_query_is_pattern_guaranteed_at_step() {
             for (substring, is_definite) in row.results_by_substring {
                 let offset = row.pattern.find(substring).unwrap();
                 assert_eq!(
-                    query.step_is_definite(offset),
+                    query.is_pattern_guaranteed_at_step(offset),
                     *is_definite,
                     "Description: {}, Pattern: {:?}, substring: {:?}, expected is_definite to be {}",
                     row.description,
