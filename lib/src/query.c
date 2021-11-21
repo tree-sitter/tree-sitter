@@ -8,8 +8,7 @@
 #include <wctype.h>
 
 // #define DEBUG_ANALYZE_QUERY
-// #define LOG(...) fprintf(stderr, __VA_ARGS__)
-#define LOG(...)
+// #define DEBUG_EXECUTE_QUERY
 
 #define MAX_STEP_CAPTURE_COUNT 3
 #define MAX_STATE_PREDECESSOR_COUNT 100
@@ -2532,6 +2531,12 @@ void ts_query_cursor__compare_captures(
   }
 }
 
+#ifdef DEBUG_EXECUTE_QUERY
+#define LOG(...) fprintf(stderr, __VA_ARGS__)
+#else
+#define LOG(...)
+#endif
+
 static void ts_query_cursor__add_state(
   TSQueryCursor *self,
   const PatternEntry *pattern
@@ -2721,7 +2726,11 @@ static inline bool ts_query_cursor__advance(
 
     // Exit the current node.
     if (self->ascending) {
-      LOG("leave node. type:%s\n", ts_node_type(ts_tree_cursor_current_node(&self->cursor)));
+      LOG(
+        "leave node. depth:%u, type:%s\n",
+        self->depth,
+        ts_node_type(ts_tree_cursor_current_node(&self->cursor))
+      );
 
       // Leave this node by stepping to its next sibling or to its parent.
       if (ts_tree_cursor_goto_next_sibling(&self->cursor)) {
@@ -2797,7 +2806,8 @@ static inline bool ts_query_cursor__advance(
         &supertype_count
       );
       LOG(
-        "enter node. type:%s, field:%s, row:%u state_count:%u, finished_state_count:%u\n",
+        "enter node. depth:%u, type:%s, field:%s, row:%u state_count:%u, finished_state_count:%u\n",
+        self->depth,
         ts_node_type(node),
         ts_language_field_name_for_id(self->query->language, field_id),
         ts_node_start_point(node).row,
