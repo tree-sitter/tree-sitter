@@ -57,7 +57,7 @@ version = "0.20"
 path = "../highlight"
 
 [dependencies.tree-sitter-loader]
-version = "0.19.0"
+version = "0.20"
 path = "loader"
 
 [dependencies.tree-sitter-tags]
