@@ -1,7 +1,7 @@
 [package]
 name = "tree-sitter-tags"
 description = "Library for extracting tag information"
-version = "0.20.0"
+version = "0.20.1"
 authors = [
   "Max Brunsfeld <maxbrunsfeld@gmail.com>",
   "Patrick Thomson <patrickt@github.com>",
