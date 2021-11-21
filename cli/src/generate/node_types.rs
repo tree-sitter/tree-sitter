@@ -1,7 +1,7 @@
 use super::grammars::{LexicalGrammar, SyntaxGrammar, VariableType};
 use super::rules::{Alias, AliasMap, Symbol, SymbolType};
 use anyhow::{anyhow, Result};
-use serde_derive::Serialize;
+use serde::Serialize;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
 

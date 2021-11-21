@@ -744,7 +744,6 @@ dependencies = [
  "regex-syntax",
  "rustc-hash",
  "serde",
- "serde_derive",
  "serde_json",
  "smallbitvec",
  "tempfile",

@@ -13,7 +13,7 @@ repository = "https://github.com/tree-sitter/tree-sitter"
 [dependencies]
 anyhow = "1.0"
 dirs = "3.0"
-serde = "1.0"
+serde = { version = "1.0.130", features = ["derive"] }
 
 [dependencies.serde_json]
 version = "1.0"
