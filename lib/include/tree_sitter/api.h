@@ -740,6 +740,10 @@ const char *ts_query_capture_name_for_id(
   uint32_t id,
   uint32_t *length
 );
+char ts_query_capture_suffix_for_id(
+  const TSQuery *,
+  uint32_t id
+);
 const char *ts_query_string_value_for_id(
   const TSQuery *,
   uint32_t id,

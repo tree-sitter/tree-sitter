@@ -39,6 +39,9 @@ typedef struct {
  *    was not specified.
  * - `capture_ids` - An array of integers representing the names of captures
  *    associated with this node in the pattern, terminated by a `NONE` value.
+ * - `capture_suffixes` - An array of capture suffixes ('\0\, '+', '*', or '?')
+ *    corresponding to the elements in `capture_ids`, terminated by a `NONE`
+ *    value.
  * - `depth` - The depth where this node occurs in the pattern. The root node
  *    of the pattern has depth zero.
  * - `negated_field_list_id` - An id representing a set of fields that must
@@ -72,7 +75,7 @@ typedef struct {
  * Steps also store some derived state that summarizes how they relate to other
  * steps within the same pattern. This is used to optimize the matching process:
  *  - `contains_captures` - Indicates that this step or one of its child steps
- *     has a non-empty `capture_ids` list.
+ *     has non-empty `capture_ids` and `capture_suffixes` lists.
  *  - `parent_pattern_guaranteed` - Indicates that if this step is reached, then
  *     it and all of its subsequent sibling steps within the same parent pattern
  *     are guaranteed to match.
@@ -87,6 +90,7 @@ typedef struct {
   TSSymbol supertype_symbol;
   TSFieldId field;
   uint16_t capture_ids[MAX_STEP_CAPTURE_COUNT];
+  uint16_t capture_suffixes[MAX_STEP_CAPTURE_COUNT];
   uint16_t depth;
   uint16_t alternative_index;
   uint16_t negated_field_list_id;
@@ -118,6 +122,7 @@ typedef struct {
 typedef struct {
   Array(char) characters;
   Array(Slice) slices;
+  Array(char) suffixes;
 } SymbolTable;
 
 /*
@@ -461,12 +466,14 @@ static SymbolTable symbol_table_new(void) {
   return (SymbolTable) {
     .characters = array_new(),
     .slices = array_new(),
+    .suffixes = array_new(),
   };
 }
 
 static void symbol_table_delete(SymbolTable *self) {
   array_delete(&self->characters);
   array_delete(&self->slices);
+  array_delete(&self->suffixes);
 }
 
 static int symbol_table_id_for_name(
@@ -494,10 +501,18 @@ static const char *symbol_table_name_for_id(
   return &self->characters.contents[slice.offset];
 }
 
+static char symbol_table_suffix_for_id(
+  const SymbolTable *self,
+  uint16_t id
+) {
+  return self->suffixes.contents[id];
+}
+
 static uint16_t symbol_table_insert_name(
   SymbolTable *self,
   const char *name,
-  uint32_t length
+  uint32_t length,
+  char suffix
 ) {
   int id = symbol_table_id_for_name(self, name, length);
   if (id >= 0) return (uint16_t)id;
@@ -509,6 +524,7 @@ static uint16_t symbol_table_insert_name(
   memcpy(&self->characters.contents[slice.offset], name, length);
   self->characters.contents[self->characters.size - 1] = 0;
   array_push(&self->slices, slice);
+  array_push(&self->suffixes, suffix);
   return self->slices.size - 1;
 }
 
@@ -526,6 +542,7 @@ static QueryStep query_step__new(
     .depth = depth,
     .field = 0,
     .capture_ids = {NONE, NONE, NONE},
+    .capture_suffixes = {NONE, NONE, NONE},
     .alternative_index = NONE,
     .negated_field_list_id = 0,
     .contains_captures = false,
@@ -539,10 +556,11 @@ static QueryStep query_step__new(
   };
 }
 
-static void query_step__add_capture(QueryStep *self, uint16_t capture_id) {
+static void query_step__add_capture(QueryStep *self, uint16_t capture_id, char capture_suffix) {
   for (unsigned i = 0; i < MAX_STEP_CAPTURE_COUNT; i++) {
     if (self->capture_ids[i] == NONE) {
       self->capture_ids[i] = capture_id;
+      self->capture_suffixes[i] = capture_suffix;
       break;
     }
   }
@@ -552,10 +570,13 @@ static void query_step__remove_capture(QueryStep *self, uint16_t capture_id) {
   for (unsigned i = 0; i < MAX_STEP_CAPTURE_COUNT; i++) {
     if (self->capture_ids[i] == capture_id) {
       self->capture_ids[i] = NONE;
+      self->capture_suffixes[i] = NONE;
       while (i + 1 < MAX_STEP_CAPTURE_COUNT) {
         if (self->capture_ids[i + 1] == NONE) break;
         self->capture_ids[i] = self->capture_ids[i + 1];
+        self->capture_suffixes[i] = self->capture_suffixes[i + 1];
         self->capture_ids[i + 1] = NONE;
+        self->capture_suffixes[i + 1] = NONE;
         i++;
       }
       break;
@@ -1354,7 +1375,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   }
 
   // Mark as indefinite any step with captures that are used in predicates.
-  Array(uint16_t) predicate_capture_ids = array_new();
+  Array(uint16_t) predicate_capture_ids = array_new(); // FIXME
   for (unsigned i = 0; i < self->patterns.size; i++) {
     QueryPattern *pattern = &self->patterns.contents[i];
 
@@ -1462,7 +1483,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   array_delete(&deeper_states);
   array_delete(&final_step_indices);
   array_delete(&parent_step_indices);
-  array_delete(&predicate_capture_ids);
+  array_delete(&predicate_capture_ids); // FIXME
   state_predecessor_map_delete(&predecessor_map);
 
   return all_patterns_are_valid;
@@ -1590,7 +1611,8 @@ static TSQueryError ts_query__parse_predicate(
   uint16_t id = symbol_table_insert_name(
     &self->predicate_values,
     predicate_name,
-    length
+    length,
+    '\0'
   );
   array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
     .type = TSQueryPredicateStepTypeString,
@@ -1643,7 +1665,8 @@ static TSQueryError ts_query__parse_predicate(
       uint16_t id = symbol_table_insert_name(
         &self->predicate_values,
         self->string_buffer.contents,
-        self->string_buffer.size
+        self->string_buffer.size,
+        '\0'
       );
       array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
         .type = TSQueryPredicateStepTypeString,
@@ -1659,7 +1682,8 @@ static TSQueryError ts_query__parse_predicate(
       uint16_t id = symbol_table_insert_name(
         &self->predicate_values,
         symbol_start,
-        length
+        length,
+        '\0'
       );
       array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
         .type = TSQueryPredicateStepTypeString,
@@ -2034,9 +2058,12 @@ static TSQueryError ts_query__parse_pattern(
   stream_skip_whitespace(stream);
 
   // Parse suffixes modifiers for this pattern
+  char suffix = '\0';
   for (;;) {
     // Parse the one-or-more operator.
     if (stream->next == '+') {
+      suffix = '+';
+
       stream_advance(stream);
       stream_skip_whitespace(stream);
 
@@ -2049,6 +2076,8 @@ static TSQueryError ts_query__parse_pattern(
 
     // Parse the zero-or-more repetition operator.
     else if (stream->next == '*') {
+      suffix = '*';
+
       stream_advance(stream);
       stream_skip_whitespace(stream);
 
@@ -2067,6 +2096,8 @@ static TSQueryError ts_query__parse_pattern(
 
     // Parse the optional operator.
     else if (stream->next == '?') {
+      suffix = '?';
+
       stream_advance(stream);
       stream_skip_whitespace(stream);
 
@@ -2090,13 +2121,14 @@ static TSQueryError ts_query__parse_pattern(
       uint16_t capture_id = symbol_table_insert_name(
         &self->captures,
         capture_name,
-        length
+        length,
+        suffix
       );
 
       uint32_t step_index = starting_step_index;
       for (;;) {
         QueryStep *step = &self->steps.contents[step_index];
-        query_step__add_capture(step, capture_id);
+        query_step__add_capture(step, capture_id, suffix);
         if (
           step->alternative_index != NONE &&
           step->alternative_index > step_index &&
@@ -2277,6 +2309,13 @@ const char *ts_query_capture_name_for_id(
   uint32_t *length
 ) {
   return symbol_table_name_for_id(&self->captures, index, length);
+}
+
+char ts_query_capture_suffix_for_id(
+  const TSQuery *self,
+  uint32_t index
+) {
+  return symbol_table_suffix_for_id(&self->captures, index);
 }
 
 const char *ts_query_string_value_for_id(

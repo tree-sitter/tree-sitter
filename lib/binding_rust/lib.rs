@@ -98,10 +98,32 @@ pub struct TreeCursor<'a>(ffi::TSTreeCursor, PhantomData<&'a ()>);
 pub struct Query {
     ptr: NonNull<ffi::TSQuery>,
     capture_names: Vec<String>,
+    capture_suffixes: Vec<QueryCaptureSuffix>,
     text_predicates: Vec<Box<[TextPredicate]>>,
     property_settings: Vec<Box<[QueryProperty]>>,
     property_predicates: Vec<Box<[(QueryProperty, bool)]>>,
     general_predicates: Vec<Box<[QueryPredicate]>>,
+}
+
+/// A suffix indicating the multiplicity of the capture value
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum QueryCaptureSuffix {
+    One,
+    OneOrMore,
+    ZeroOrMore,
+    ZeroOrOne,
+}
+
+impl From<u8> for QueryCaptureSuffix {
+    fn from(value: u8) -> QueryCaptureSuffix {
+        match value {
+            b'\0' => QueryCaptureSuffix::One,
+            b'+' => QueryCaptureSuffix::OneOrMore,
+            b'*' => QueryCaptureSuffix::ZeroOrMore,
+            b'?' => QueryCaptureSuffix::ZeroOrOne,
+            _ => panic!("Unrecognized suffix: {}", value as char),
+        }
+    }
 }
 
 /// A stateful object for executing a `Query` on a syntax `Tree`.
@@ -1306,6 +1328,7 @@ impl Query {
         let mut result = Query {
             ptr: unsafe { NonNull::new_unchecked(ptr) },
             capture_names: Vec::with_capacity(capture_count as usize),
+            capture_suffixes: Vec::with_capacity(capture_count as usize),
             text_predicates: Vec::with_capacity(pattern_count),
             property_predicates: Vec::with_capacity(pattern_count),
             property_settings: Vec::with_capacity(pattern_count),
@@ -1321,6 +1344,8 @@ impl Query {
                 let name = slice::from_raw_parts(name, length as usize);
                 let name = str::from_utf8_unchecked(name);
                 result.capture_names.push(name.to_string());
+                let suffix = ffi::ts_query_capture_suffix_for_id(ptr, i) as u8;
+                result.capture_suffixes.push(suffix.into());
             }
         }
 
@@ -1522,6 +1547,11 @@ impl Query {
     /// Get the names of the captures used in the query.
     pub fn capture_names(&self) -> &[String] {
         &self.capture_names
+    }
+
+    /// Get the suffixes of the captures used in the query.
+    pub fn capture_suffixes(&self) -> &[QueryCaptureSuffix] {
+        &self.capture_suffixes
     }
 
     /// Get the index for a given capture name.

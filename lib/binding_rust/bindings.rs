@@ -666,6 +666,15 @@ extern "C" {
     ) -> *const ::std::os::raw::c_char;
 }
 extern "C" {
+    #[doc = " Get the suffix of one of the query's captures, or one of the query's"]
+    #[doc = " string literals. Each capture and string is associated with a numeric"]
+    #[doc = " id based on the order that it appeared in the query's source."]
+    pub fn ts_query_capture_suffix_for_id(
+        arg1: *const TSQuery,
+        id: u32,
+    ) -> ::std::os::raw::c_char;
+}
+extern "C" {
     pub fn ts_query_string_value_for_id(
         arg1: *const TSQuery,
         id: u32,
