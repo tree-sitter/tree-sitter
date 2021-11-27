@@ -69,7 +69,7 @@ Once you have a syntax tree, you can update it when your source code changes. Pa
 ```rust
 let new_source_code = "fn test(a: u32) {}"
 
-tree.edit(InputEdit {
+tree.edit(&InputEdit {
   start_byte: 8,
   old_end_byte: 8,
   new_end_byte: 14,
