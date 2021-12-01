@@ -98,30 +98,30 @@ pub struct TreeCursor<'a>(ffi::TSTreeCursor, PhantomData<&'a ()>);
 pub struct Query {
     ptr: NonNull<ffi::TSQuery>,
     capture_names: Vec<String>,
-    capture_suffixes: Vec<QueryCaptureSuffix>,
+    capture_quantifiers: Vec<Quantifier>,
     text_predicates: Vec<Box<[TextPredicate]>>,
     property_settings: Vec<Box<[QueryProperty]>>,
     property_predicates: Vec<Box<[(QueryProperty, bool)]>>,
     general_predicates: Vec<Box<[QueryPredicate]>>,
 }
 
-/// A suffix indicating the multiplicity of the capture value
+/// A quantifier for captures
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum QueryCaptureSuffix {
+pub enum Quantifier {
     One,
     OneOrMore,
-    ZeroOrMore,
     ZeroOrOne,
+    ZeroOrMore,
 }
 
-impl From<u8> for QueryCaptureSuffix {
-    fn from(value: u8) -> QueryCaptureSuffix {
+impl From<ffi::TSQuantifier> for Quantifier {
+    fn from(value: ffi::TSQuantifier) -> Self {
         match value {
-            b'\0' => QueryCaptureSuffix::One,
-            b'+' => QueryCaptureSuffix::OneOrMore,
-            b'*' => QueryCaptureSuffix::ZeroOrMore,
-            b'?' => QueryCaptureSuffix::ZeroOrOne,
-            _ => panic!("Unrecognized suffix: {}", value as char),
+            ffi::TSQuantifier_One => Quantifier::One,
+            ffi::TSQuantifier_OneOrMore => Quantifier::OneOrMore,
+            ffi::TSQuantifier_ZeroOrOne => Quantifier::ZeroOrOne,
+            ffi::TSQuantifier_ZeroOrMore => Quantifier::ZeroOrMore,
+            _ => panic!("Unrecognized quantifier: {}", value),
         }
     }
 }
@@ -1328,7 +1328,7 @@ impl Query {
         let mut result = Query {
             ptr: unsafe { NonNull::new_unchecked(ptr) },
             capture_names: Vec::with_capacity(capture_count as usize),
-            capture_suffixes: Vec::with_capacity(capture_count as usize),
+            capture_quantifiers: Vec::with_capacity(capture_count as usize),
             text_predicates: Vec::with_capacity(pattern_count),
             property_predicates: Vec::with_capacity(pattern_count),
             property_settings: Vec::with_capacity(pattern_count),
@@ -1344,8 +1344,8 @@ impl Query {
                 let name = slice::from_raw_parts(name, length as usize);
                 let name = str::from_utf8_unchecked(name);
                 result.capture_names.push(name.to_string());
-                let suffix = ffi::ts_query_capture_suffix_for_id(ptr, i) as u8;
-                result.capture_suffixes.push(suffix.into());
+                let quantifier = ffi::ts_query_capture_quantifier_for_id(ptr, i);
+                result.capture_quantifiers.push(quantifier.into());
             }
         }
 
@@ -1549,9 +1549,9 @@ impl Query {
         &self.capture_names
     }
 
-    /// Get the suffixes of the captures used in the query.
-    pub fn capture_suffixes(&self) -> &[QueryCaptureSuffix] {
-        &self.capture_suffixes
+    /// Get the quantifiers of the captures used in the query.
+    pub fn capture_quantifiers(&self) -> &[Quantifier] {
+        &self.capture_quantifiers
     }
 
     /// Get the index for a given capture name.
