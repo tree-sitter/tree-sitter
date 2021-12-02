@@ -107,10 +107,11 @@ pub struct TSQueryCapture {
     pub node: TSNode,
     pub index: u32,
 }
-pub const TSQuantifier_One: TSQuantifier = 0;
-pub const TSQuantifier_OneOrMore: TSQuantifier = 1;
-pub const TSQuantifier_ZeroOrOne: TSQuantifier = 2;
-pub const TSQuantifier_ZeroOrMore: TSQuantifier = 3;
+pub const TSQuantifier_Zero: TSQuantifier = 0;
+pub const TSQuantifier_ZeroOrOne: TSQuantifier = 1;
+pub const TSQuantifier_ZeroOrMore: TSQuantifier = 2;
+pub const TSQuantifier_One: TSQuantifier = 3;
+pub const TSQuantifier_OneOrMore: TSQuantifier = 4;
 pub type TSQuantifier = u32;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]

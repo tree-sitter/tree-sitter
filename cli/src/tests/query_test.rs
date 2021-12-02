@@ -7,8 +7,8 @@ use lazy_static::lazy_static;
 use rand::{prelude::StdRng, SeedableRng};
 use std::{env, fmt::Write};
 use tree_sitter::{
-    Language, Node, Parser, Point, Query, QueryCapture, QueryCursor, QueryError, QueryErrorKind,
-    QueryMatch, QueryPredicate, QueryPredicateArg, QueryProperty,
+    CaptureQuantifier, Language, Node, Parser, Point, Query, QueryCapture, QueryCursor, QueryError,
+    QueryErrorKind, QueryMatch, QueryPredicate, QueryPredicateArg, QueryProperty,
 };
 
 lazy_static! {
@@ -3812,6 +3812,197 @@ fn test_query_is_pattern_guaranteed_at_step() {
                         .join(" "),
                     substring,
                     is_definite,
+                )
+            }
+        }
+    });
+}
+
+#[test]
+fn test_capture_quantifiers() {
+    struct Row {
+        description: &'static str,
+        language: Language,
+        pattern: &'static str,
+        capture_quantifiers: &'static [(&'static str, CaptureQuantifier)],
+    }
+
+    let rows = &[
+        // Simple quantifiers
+        Row {
+            description: "Top level capture",
+            language: get_language("python"),
+            pattern: r#"
+                (module) @mod
+            "#,
+            capture_quantifiers: &[("mod", CaptureQuantifier::One)],
+        },
+        Row {
+            description: "Nested list capture capture",
+            language: get_language("javascript"),
+            pattern: r#"
+                (array (_)* @elems) @array
+            "#,
+            capture_quantifiers: &[
+                ("array", CaptureQuantifier::One),
+                ("elems", CaptureQuantifier::ZeroOrMore),
+            ],
+        },
+        Row {
+            description: "Nested non-empty list capture capture",
+            language: get_language("javascript"),
+            pattern: r#"
+                (array (_)+ @elems) @array
+            "#,
+            capture_quantifiers: &[
+                ("array", CaptureQuantifier::One),
+                ("elems", CaptureQuantifier::OneOrMore),
+            ],
+        },
+        // Nested quantifiers
+        Row {
+            description: "capture nested in optional pattern",
+            language: get_language("javascript"),
+            pattern: r#"
+                (array (call_expression (arguments (_) @arg))? @call) @array
+            "#,
+            capture_quantifiers: &[
+                ("array", CaptureQuantifier::One),
+                ("call", CaptureQuantifier::ZeroOrOne),
+                ("arg", CaptureQuantifier::ZeroOrOne),
+            ],
+        },
+        Row {
+            description: "optional capture nested in non-empty list pattern",
+            language: get_language("javascript"),
+            pattern: r#"
+                (array (call_expression (arguments (_)? @arg))+ @call) @array
+            "#,
+            capture_quantifiers: &[
+                ("array", CaptureQuantifier::One),
+                ("call", CaptureQuantifier::OneOrMore),
+                ("arg", CaptureQuantifier::ZeroOrMore),
+            ],
+        },
+        Row {
+            description: "non-empty list capture nested in optional pattern",
+            language: get_language("javascript"),
+            pattern: r#"
+                (array (call_expression (arguments (_)+ @args))? @call) @array
+            "#,
+            capture_quantifiers: &[
+                ("array", CaptureQuantifier::One),
+                ("call", CaptureQuantifier::ZeroOrOne),
+                ("args", CaptureQuantifier::ZeroOrMore),
+            ],
+        },
+        // Quantifiers in alternations
+        Row {
+            description: "capture is the same in all alternatives",
+            language: get_language("javascript"),
+            pattern: r#"[
+                (function_declaration name:(identifier) @name)
+                (call_expression function:(identifier) @name)
+            ]"#,
+            capture_quantifiers: &[("name", CaptureQuantifier::One)],
+        },
+        Row {
+            description: "capture appears in some alternatives",
+            language: get_language("javascript"),
+            pattern: r#"[
+                (function_declaration name:(identifier) @name)
+                (function)
+            ] @fun"#,
+            capture_quantifiers: &[
+                ("fun", CaptureQuantifier::One),
+                ("name", CaptureQuantifier::ZeroOrOne),
+            ],
+        },
+        Row {
+            description: "capture has different quantifiers in alternatives",
+            language: get_language("javascript"),
+            pattern: r#"[
+                (call_expression arguments:(arguments (_)+ @args))
+                (new_expression  arguments:(arguments (_)? @args))
+            ] @call"#,
+            capture_quantifiers: &[
+                ("call", CaptureQuantifier::One),
+                ("args", CaptureQuantifier::ZeroOrMore),
+            ],
+        },
+        // Quantifiers in siblings
+        Row {
+            description: "siblings have different captures with different quantifiers",
+            language: get_language("javascript"),
+            pattern: r#"
+                (call_expression (arguments (identifier)? @self (_)* @args)) @call
+            "#,
+            capture_quantifiers: &[
+                ("call", CaptureQuantifier::One),
+                ("self", CaptureQuantifier::ZeroOrOne),
+                ("args", CaptureQuantifier::ZeroOrMore),
+            ],
+        },
+        Row {
+            description: "siblings have same capture with different quantifiers",
+            language: get_language("javascript"),
+            pattern: r#"
+                (call_expression (arguments (identifier) @args (_)* @args)) @call
+            "#,
+            capture_quantifiers: &[
+                ("call", CaptureQuantifier::One),
+                ("args", CaptureQuantifier::OneOrMore),
+            ],
+        },
+        // Combined nesting,
+        Row {
+            description: "combined nesting, alterantives, and siblings",
+            language: get_language("javascript"),
+            pattern: r#"
+                (array
+                    (call_expression
+                        (arguments [
+                            (identifier) @self
+                            (_)+ @args
+                        ])
+                    )+ @call
+                ) @array
+            "#,
+            capture_quantifiers: &[
+                ("array", CaptureQuantifier::One),
+                ("call", CaptureQuantifier::OneOrMore),
+                ("self", CaptureQuantifier::ZeroOrMore),
+                ("args", CaptureQuantifier::ZeroOrMore),
+            ],
+        },
+    ];
+
+    allocations::record(|| {
+        eprintln!("");
+
+        for row in rows.iter() {
+            if let Some(filter) = EXAMPLE_FILTER.as_ref() {
+                if !row.description.contains(filter.as_str()) {
+                    continue;
+                }
+            }
+            eprintln!("  query example: {:?}", row.description);
+            let query = Query::new(row.language, row.pattern).unwrap();
+            for (capture, expected_quantifier) in row.capture_quantifiers {
+                let index = query.capture_index_for_name(capture).unwrap();
+                let actual_quantifier = query.capture_quantifiers()[index as usize];
+                assert_eq!(
+                    actual_quantifier,
+                    *expected_quantifier,
+                    "Description: {}, Pattern: {:?}, expected quantifier of @{} to be {:?} instead of {:?}",
+                    row.description,
+                    row.pattern
+                        .split_ascii_whitespace()
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                    capture,
+                    *expected_quantifier,
+                    actual_quantifier,
                 )
             }
         }

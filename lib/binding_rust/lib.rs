@@ -98,7 +98,7 @@ pub struct TreeCursor<'a>(ffi::TSTreeCursor, PhantomData<&'a ()>);
 pub struct Query {
     ptr: NonNull<ffi::TSQuery>,
     capture_names: Vec<String>,
-    capture_quantifiers: Vec<Quantifier>,
+    capture_quantifiers: Vec<CaptureQuantifier>,
     text_predicates: Vec<Box<[TextPredicate]>>,
     property_settings: Vec<Box<[QueryProperty]>>,
     property_predicates: Vec<Box<[(QueryProperty, bool)]>>,
@@ -107,20 +107,20 @@ pub struct Query {
 
 /// A quantifier for captures
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Quantifier {
+pub enum CaptureQuantifier {
     One,
     OneOrMore,
     ZeroOrOne,
     ZeroOrMore,
 }
 
-impl From<ffi::TSQuantifier> for Quantifier {
+impl From<ffi::TSQuantifier> for CaptureQuantifier {
     fn from(value: ffi::TSQuantifier) -> Self {
         match value {
-            ffi::TSQuantifier_One => Quantifier::One,
-            ffi::TSQuantifier_OneOrMore => Quantifier::OneOrMore,
-            ffi::TSQuantifier_ZeroOrOne => Quantifier::ZeroOrOne,
-            ffi::TSQuantifier_ZeroOrMore => Quantifier::ZeroOrMore,
+            ffi::TSQuantifier_One => CaptureQuantifier::One,
+            ffi::TSQuantifier_OneOrMore => CaptureQuantifier::OneOrMore,
+            ffi::TSQuantifier_ZeroOrOne => CaptureQuantifier::ZeroOrOne,
+            ffi::TSQuantifier_ZeroOrMore => CaptureQuantifier::ZeroOrMore,
             _ => panic!("Unrecognized quantifier: {}", value),
         }
     }
@@ -1550,7 +1550,7 @@ impl Query {
     }
 
     /// Get the quantifiers of the captures used in the query.
-    pub fn capture_quantifiers(&self) -> &[Quantifier] {
+    pub fn capture_quantifiers(&self) -> &[CaptureQuantifier] {
         &self.capture_quantifiers
     }
 

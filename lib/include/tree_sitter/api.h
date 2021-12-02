@@ -107,10 +107,11 @@ typedef struct {
 } TSQueryCapture;
 
 typedef enum {
-  One,
-  OneOrMore,
+  Zero = 0, // must match the array initialization value
   ZeroOrOne,
   ZeroOrMore,
+  One,
+  OneOrMore,
 } TSQuantifier;
 
 typedef struct {
