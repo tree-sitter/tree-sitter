@@ -1,6 +1,28 @@
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
+fn generate_bindings() {
+    const HEADER_FILE: &'static str = "include/tree_sitter/api.h";
+
+    println!("cargo:rerun-if-changed={}", HEADER_FILE);
+    let bindings = bindgen::Builder::default()
+        .header(HEADER_FILE)
+        .layout_tests(false)
+        .allowlist_type("^TS.*")
+        .allowlist_function("^ts_.*")
+        .allowlist_var("^TREE_SITTER.*")
+        .blocklist_function("ts_tree_print_dot_graph")
+        .opaque_type("FILE")
+        .size_t_is_usize(true)
+        .generate()
+        .expect("Unable to generate bindings");
+
+    let output = PathBuf::from(env::var("OUT_DIR").unwrap());
+    bindings
+        .write_to_file(output.join("bindings.rs"))
+        .expect("Unable to write bindings");
+}
+
 fn main() {
     println!("cargo:rerun-if-env-changed=TREE_SITTER_STATIC_ANALYSIS");
     if env::var("TREE_SITTER_STATIC_ANALYSIS").is_ok() {
@@ -16,6 +38,8 @@ fn main() {
             );
         }
     }
+
+    generate_bindings();
 
     let src_path = Path::new("src");
     for entry in fs::read_dir(&src_path).unwrap() {

@@ -25,11 +25,12 @@ use std::{
 /// assigned an ABI version number that corresponds to the current CLI version.
 /// The Tree-sitter library is generally backwards-compatible with languages
 /// generated using older CLI versions, but is not forwards-compatible.
-pub const LANGUAGE_VERSION: usize = ffi::TREE_SITTER_LANGUAGE_VERSION;
+pub const LANGUAGE_VERSION: usize = ffi::TREE_SITTER_LANGUAGE_VERSION as usize;
 
 /// The earliest ABI version that is supported by the current version of the
 /// library.
-pub const MIN_COMPATIBLE_LANGUAGE_VERSION: usize = ffi::TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION;
+pub const MIN_COMPATIBLE_LANGUAGE_VERSION: usize =
+    ffi::TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION as usize;
 
 pub const PARSER_HEADER: &'static str = include_str!("../include/tree_sitter/parser.h");
 
