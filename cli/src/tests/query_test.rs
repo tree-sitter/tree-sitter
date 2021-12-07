@@ -3824,7 +3824,7 @@ fn test_capture_quantifiers() {
         description: &'static str,
         language: Language,
         pattern: &'static str,
-        capture_quantifiers: &'static [(&'static str, CaptureQuantifier)],
+        capture_quantifiers: &'static [(usize, &'static str, CaptureQuantifier)],
     }
 
     let rows = &[
@@ -3835,7 +3835,7 @@ fn test_capture_quantifiers() {
             pattern: r#"
                 (module) @mod
             "#,
-            capture_quantifiers: &[("mod", CaptureQuantifier::One)],
+            capture_quantifiers: &[(0, "mod", CaptureQuantifier::One)],
         },
         Row {
             description: "Nested list capture capture",
@@ -3844,8 +3844,8 @@ fn test_capture_quantifiers() {
                 (array (_)* @elems) @array
             "#,
             capture_quantifiers: &[
-                ("array", CaptureQuantifier::One),
-                ("elems", CaptureQuantifier::ZeroOrMore),
+                (0, "array", CaptureQuantifier::One),
+                (0, "elems", CaptureQuantifier::ZeroOrMore),
             ],
         },
         Row {
@@ -3855,8 +3855,8 @@ fn test_capture_quantifiers() {
                 (array (_)+ @elems) @array
             "#,
             capture_quantifiers: &[
-                ("array", CaptureQuantifier::One),
-                ("elems", CaptureQuantifier::OneOrMore),
+                (0, "array", CaptureQuantifier::One),
+                (0, "elems", CaptureQuantifier::OneOrMore),
             ],
         },
         // Nested quantifiers
@@ -3867,9 +3867,9 @@ fn test_capture_quantifiers() {
                 (array (call_expression (arguments (_) @arg))? @call) @array
             "#,
             capture_quantifiers: &[
-                ("array", CaptureQuantifier::One),
-                ("call", CaptureQuantifier::ZeroOrOne),
-                ("arg", CaptureQuantifier::ZeroOrOne),
+                (0, "array", CaptureQuantifier::One),
+                (0, "call", CaptureQuantifier::ZeroOrOne),
+                (0, "arg", CaptureQuantifier::ZeroOrOne),
             ],
         },
         Row {
@@ -3879,9 +3879,9 @@ fn test_capture_quantifiers() {
                 (array (call_expression (arguments (_)? @arg))+ @call) @array
             "#,
             capture_quantifiers: &[
-                ("array", CaptureQuantifier::One),
-                ("call", CaptureQuantifier::OneOrMore),
-                ("arg", CaptureQuantifier::ZeroOrMore),
+                (0, "array", CaptureQuantifier::One),
+                (0, "call", CaptureQuantifier::OneOrMore),
+                (0, "arg", CaptureQuantifier::ZeroOrMore),
             ],
         },
         Row {
@@ -3891,9 +3891,9 @@ fn test_capture_quantifiers() {
                 (array (call_expression (arguments (_)+ @args))? @call) @array
             "#,
             capture_quantifiers: &[
-                ("array", CaptureQuantifier::One),
-                ("call", CaptureQuantifier::ZeroOrOne),
-                ("args", CaptureQuantifier::ZeroOrMore),
+                (0, "array", CaptureQuantifier::One),
+                (0, "call", CaptureQuantifier::ZeroOrOne),
+                (0, "args", CaptureQuantifier::ZeroOrMore),
             ],
         },
         // Quantifiers in alternations
@@ -3904,7 +3904,7 @@ fn test_capture_quantifiers() {
                 (function_declaration name:(identifier) @name)
                 (call_expression function:(identifier) @name)
             ]"#,
-            capture_quantifiers: &[("name", CaptureQuantifier::One)],
+            capture_quantifiers: &[(0, "name", CaptureQuantifier::One)],
         },
         Row {
             description: "capture appears in some alternatives",
@@ -3914,8 +3914,8 @@ fn test_capture_quantifiers() {
                 (function)
             ] @fun"#,
             capture_quantifiers: &[
-                ("fun", CaptureQuantifier::One),
-                ("name", CaptureQuantifier::ZeroOrOne),
+                (0, "fun", CaptureQuantifier::One),
+                (0, "name", CaptureQuantifier::ZeroOrOne),
             ],
         },
         Row {
@@ -3926,8 +3926,8 @@ fn test_capture_quantifiers() {
                 (new_expression  arguments:(arguments (_)? @args))
             ] @call"#,
             capture_quantifiers: &[
-                ("call", CaptureQuantifier::One),
-                ("args", CaptureQuantifier::ZeroOrMore),
+                (0, "call", CaptureQuantifier::One),
+                (0, "args", CaptureQuantifier::ZeroOrMore),
             ],
         },
         // Quantifiers in siblings
@@ -3938,9 +3938,9 @@ fn test_capture_quantifiers() {
                 (call_expression (arguments (identifier)? @self (_)* @args)) @call
             "#,
             capture_quantifiers: &[
-                ("call", CaptureQuantifier::One),
-                ("self", CaptureQuantifier::ZeroOrOne),
-                ("args", CaptureQuantifier::ZeroOrMore),
+                (0, "call", CaptureQuantifier::One),
+                (0, "self", CaptureQuantifier::ZeroOrOne),
+                (0, "args", CaptureQuantifier::ZeroOrMore),
             ],
         },
         Row {
@@ -3950,13 +3950,13 @@ fn test_capture_quantifiers() {
                 (call_expression (arguments (identifier) @args (_)* @args)) @call
             "#,
             capture_quantifiers: &[
-                ("call", CaptureQuantifier::One),
-                ("args", CaptureQuantifier::OneOrMore),
+                (0, "call", CaptureQuantifier::One),
+                (0, "args", CaptureQuantifier::OneOrMore),
             ],
         },
-        // Combined nesting,
+        // Combined scenarios
         Row {
-            description: "combined nesting, alterantives, and siblings",
+            description: "combined nesting, alternatives, and siblings",
             language: get_language("javascript"),
             pattern: r#"
                 (array
@@ -3969,10 +3969,38 @@ fn test_capture_quantifiers() {
                 ) @array
             "#,
             capture_quantifiers: &[
-                ("array", CaptureQuantifier::One),
-                ("call", CaptureQuantifier::OneOrMore),
-                ("self", CaptureQuantifier::ZeroOrMore),
-                ("args", CaptureQuantifier::ZeroOrMore),
+                (0, "array", CaptureQuantifier::One),
+                (0, "call", CaptureQuantifier::OneOrMore),
+                (0, "self", CaptureQuantifier::ZeroOrMore),
+                (0, "args", CaptureQuantifier::ZeroOrMore),
+            ],
+        },
+        // Multiple patterns
+        Row {
+            description: "multiple patterns",
+            language: get_language("javascript"),
+            pattern: r#"
+                (function_declaration name: (identifier) @x)
+                (statement_identifier) @y
+                (property_identifier)+ @z
+                (array (identifier)* @x)
+            "#,
+            capture_quantifiers: &[
+                // x
+                (0, "x", CaptureQuantifier::One),
+                (1, "x", CaptureQuantifier::Zero),
+                (2, "x", CaptureQuantifier::Zero),
+                (3, "x", CaptureQuantifier::ZeroOrMore),
+                // y
+                (0, "y", CaptureQuantifier::Zero),
+                (1, "y", CaptureQuantifier::One),
+                (2, "y", CaptureQuantifier::Zero),
+                (3, "y", CaptureQuantifier::Zero),
+                // z
+                (0, "z", CaptureQuantifier::Zero),
+                (1, "z", CaptureQuantifier::Zero),
+                (2, "z", CaptureQuantifier::OneOrMore),
+                (3, "z", CaptureQuantifier::Zero),
             ],
         },
     ];
@@ -3988,9 +4016,9 @@ fn test_capture_quantifiers() {
             }
             eprintln!("  query example: {:?}", row.description);
             let query = Query::new(row.language, row.pattern).unwrap();
-            for (capture, expected_quantifier) in row.capture_quantifiers {
+            for (pattern, capture, expected_quantifier) in row.capture_quantifiers {
                 let index = query.capture_index_for_name(capture).unwrap();
-                let actual_quantifier = query.capture_quantifiers()[index as usize];
+                let actual_quantifier = query.capture_quantifiers(*pattern)[index as usize];
                 assert_eq!(
                     actual_quantifier,
                     *expected_quantifier,

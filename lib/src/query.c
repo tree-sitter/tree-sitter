@@ -267,7 +267,7 @@ typedef struct {
  */
 struct TSQuery {
   SymbolTable captures;
-  CaptureQuantifiers capture_quantifiers;
+  Array(CaptureQuantifiers) capture_quantifiers;
   SymbolTable predicate_values;
   Array(QueryStep) steps;
   Array(PatternEntry) pattern_map;
@@ -2500,7 +2500,7 @@ TSQuery *ts_query_new(
     .steps = array_new(),
     .pattern_map = array_new(),
     .captures = symbol_table_new(),
-    .capture_quantifiers = capture_quantifiers_new(),
+    .capture_quantifiers = array_new(),
     .predicate_values = symbol_table_new(),
     .predicate_steps = array_new(),
     .patterns = array_new(),
@@ -2525,7 +2525,8 @@ TSQuery *ts_query_new(
       .predicate_steps = (Slice) {.offset = start_predicate_step_index},
       .start_byte = stream_offset(&stream),
     }));
-    *error_type = ts_query__parse_pattern(self, &stream, 0, false, &self->capture_quantifiers);
+    CaptureQuantifiers capture_quantifiers = capture_quantifiers_new();
+    *error_type = ts_query__parse_pattern(self, &stream, 0, false, &capture_quantifiers);
     array_push(&self->steps, query_step__new(0, PATTERN_DONE_MARKER, false));
 
     QueryPattern *pattern = array_back(&self->patterns);
@@ -2537,9 +2538,13 @@ TSQuery *ts_query_new(
     if (*error_type) {
       if (*error_type == PARENT_DONE) *error_type = TSQueryErrorSyntax;
       *error_offset = stream_offset(&stream);
+      capture_quantifiers_delete(&capture_quantifiers);
       ts_query_delete(self);
       return NULL;
     }
+
+    // Maintain a list of capture quantifiers for each pattern
+    array_push(&self->capture_quantifiers, capture_quantifiers);
 
     // Maintain a map that can look up patterns for a given root symbol.
     uint16_t wildcard_root_alternative_index = NONE;
@@ -2616,7 +2621,11 @@ void ts_query_delete(TSQuery *self) {
     array_delete(&self->negated_fields);
     symbol_table_delete(&self->captures);
     symbol_table_delete(&self->predicate_values);
-    capture_quantifiers_delete(&self->capture_quantifiers);
+    for (uint32_t index = 0; index < self->capture_quantifiers.size; index++) {
+      CaptureQuantifiers *capture_quantifiers = array_get(&self->capture_quantifiers, index);
+      capture_quantifiers_delete(capture_quantifiers);
+    }
+    array_delete(&self->capture_quantifiers);
     ts_free(self);
   }
 }
@@ -2643,9 +2652,11 @@ const char *ts_query_capture_name_for_id(
 
 TSQuantifier ts_query_capture_quantifier_for_id(
   const TSQuery *self,
-  uint32_t index
+  uint32_t pattern_index,
+  uint32_t capture_index
 ) {
-  return capture_quantifier_for_id(&self->capture_quantifiers, index);
+  CaptureQuantifiers *capture_quantifiers = array_get(&self->capture_quantifiers, pattern_index);
+  return capture_quantifier_for_id(capture_quantifiers, capture_index);
 }
 
 const char *ts_query_string_value_for_id(

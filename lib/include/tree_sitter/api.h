@@ -756,8 +756,10 @@ const char *ts_query_capture_name_for_id(
  */
 TSQuantifier ts_query_capture_quantifier_for_id(
   const TSQuery *,
-  uint32_t id
+  uint32_t pattern_id,
+  uint32_t capture_id
 );
+
 const char *ts_query_string_value_for_id(
   const TSQuery *,
   uint32_t id,
