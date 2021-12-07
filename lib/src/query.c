@@ -467,90 +467,82 @@ static TSQuantifier quantifier_mul(
   TSQuantifier left,
   TSQuantifier right
 ) {
+  TSQuantifier result;
   switch (left)
   {
     case Zero:
-      return Zero;
-    case One:
-      return right;
-    case OneOrMore:
-      switch (right) {
-        case Zero:
-          return Zero;
-        case ZeroOrOne:
-        case ZeroOrMore:
-          return ZeroOrMore;
-        case One:
-        case OneOrMore:
-          return OneOrMore;
-      };
+      result = Zero;
       break;
     case ZeroOrOne:
       switch (right) {
         case Zero:
-          return Zero;
+          result = Zero;
+          break;
         case ZeroOrOne:
         case One:
-          return ZeroOrOne;
+          result = ZeroOrOne;
+          break;
         case ZeroOrMore:
         case OneOrMore:
-          return ZeroOrMore;
+          result = ZeroOrMore;
+          break;
       };
       break;
     case ZeroOrMore:
       switch (right) {
         case Zero:
-          return Zero;
+          result = Zero;
+          break;
         case ZeroOrOne:
         case ZeroOrMore:
         case One:
         case OneOrMore:
-          return ZeroOrMore;
+          result = ZeroOrMore;
+          break;
       };
-      return ZeroOrMore;
+      break;
+    case One:
+      result = right;
+      break;
+    case OneOrMore:
+      switch (right) {
+        case Zero:
+          result = Zero;
+          break;
+        case ZeroOrOne:
+        case ZeroOrMore:
+          result = ZeroOrMore;
+          break;
+        case One:
+        case OneOrMore:
+          result = OneOrMore;
+          break;
+      };
+      break;
   }
+  return result;
 }
 
 static TSQuantifier quantifier_join(
   TSQuantifier left,
   TSQuantifier right
 ) {
+  TSQuantifier result;
   switch (left)
   {
     case Zero:
       switch (right) {
         case Zero:
-          return Zero;
+          result = Zero;
+          break;
         case ZeroOrOne:
         case One:
-          return ZeroOrOne;
+          result = ZeroOrOne;
+          break;
         case ZeroOrMore:
         case OneOrMore:
-          return ZeroOrMore;
-      };
-      break;
-    case One:
-      switch (right) {
-        case Zero:
-        case ZeroOrOne:
-          return ZeroOrOne;
-        case ZeroOrMore:
-          return ZeroOrMore;
-        case One:
-          return One;
-        case OneOrMore:
-          return OneOrMore;
-      };
-      break;
-    case OneOrMore:
-      switch (right) {
-        case Zero:
-        case ZeroOrOne:
-        case ZeroOrMore:
-          return ZeroOrMore;
-        case One:
-        case OneOrMore:
-          return OneOrMore;
+          result = ZeroOrMore;
+          break;
       };
       break;
     case ZeroOrOne:
@@ -558,63 +550,109 @@ static TSQuantifier quantifier_join(
         case Zero:
         case ZeroOrOne:
         case One:
-          return ZeroOrOne;
+          result = ZeroOrOne;
+          break;
         case ZeroOrMore:
         case OneOrMore:
-          return ZeroOrMore;
+          result = ZeroOrMore;
+          break;
       };
       break;
     case ZeroOrMore:
-      return ZeroOrMore;
+      result = ZeroOrMore;
+      break;
+    case One:
+      switch (right) {
+        case Zero:
+        case ZeroOrOne:
+          result = ZeroOrOne;
+          break;
+        case ZeroOrMore:
+          result = ZeroOrMore;
+          break;
+        case One:
+          result = One;
+          break;
+        case OneOrMore:
+          result = OneOrMore;
+          break;
+      };
+      break;
+    case OneOrMore:
+      switch (right) {
+        case Zero:
+        case ZeroOrOne:
+        case ZeroOrMore:
+          result = ZeroOrMore;
+          break;
+        case One:
+        case OneOrMore:
+          result = OneOrMore;
+          break;
+      };
+      break;
   }
+  return result;
 }
 
 static TSQuantifier quantifier_add(
   TSQuantifier left,
   TSQuantifier right
 ) {
+  TSQuantifier result;
   switch (left)
   {
     case Zero:
-      return right;
-    case One:
-      switch (right) {
-        case Zero:
-          return One;
-        case ZeroOrOne:
-        case ZeroOrMore:
-        case One:
-        case OneOrMore:
-          return OneOrMore;
-      };
+      result = right;
       break;
-    case OneOrMore:
-      return OneOrMore;
     case ZeroOrOne:
       switch (right) {
         case Zero:
-          return ZeroOrOne;
+          result = ZeroOrOne;
+          break;
         case ZeroOrOne:
         case ZeroOrMore:
-          return ZeroOrMore;
+          result = ZeroOrMore;
+          break;
         case One:
         case OneOrMore:
-          return OneOrMore;
+          result = OneOrMore;
+          break;
       };
       break;
     case ZeroOrMore:
       switch (right) {
         case Zero:
-          return ZeroOrMore;
+          result = ZeroOrMore;
+          break;
         case ZeroOrOne:
         case ZeroOrMore:
-          return ZeroOrMore;
+          result = ZeroOrMore;
+          break;
         case One:
         case OneOrMore:
-          return OneOrMore;
+          result = OneOrMore;
+          break;
       };
       break;
+    case One:
+      switch (right) {
+        case Zero:
+          result = One;
+          break;
+        case ZeroOrOne:
+        case ZeroOrMore:
+        case One:
+        case OneOrMore:
+          result = OneOrMore;
+          break;
+      };
+      break;
+    case OneOrMore:
+      result = OneOrMore;
+      break;
   }
+  return result;
 }
 
 // Create new capture quantifiers structure
