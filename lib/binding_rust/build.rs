@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
+#[cfg(feature = "generate-bindings")]
 fn generate_bindings() {
     const HEADER_FILE: &'static str = "include/tree_sitter/api.h";
 
@@ -39,6 +40,7 @@ fn main() {
         }
     }
 
+    #[cfg(feature = "generate-bindings")]
     generate_bindings();
 
     let src_path = Path::new("src");

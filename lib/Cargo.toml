@@ -26,8 +26,12 @@ lazy_static = { version = "1.2.0", optional = true }
 regex = "1"
 
 [build-dependencies]
-bindgen = "0.59.1"
+bindgen = { version="0.59.1", optional=true }
 cc = "^1.0.58"
 
 [lib]
 path = "binding_rust/lib.rs"
+
+[features]
+# Generate bindings during build instead of using pre-generated code
+generate-bindings = ["bindgen"]
