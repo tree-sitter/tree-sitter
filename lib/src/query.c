@@ -467,7 +467,7 @@ static TSQuantifier quantifier_mul(
   TSQuantifier left,
   TSQuantifier right
 ) {
-  TSQuantifier result;
+  TSQuantifier result = Zero; // initialized to make compiler happy, but all cases should be covered below!
   switch (left)
   {
     case Zero:
@@ -527,7 +527,7 @@ static TSQuantifier quantifier_join(
   TSQuantifier left,
   TSQuantifier right
 ) {
-  TSQuantifier result;
+  TSQuantifier result = Zero; // initialized to make compiler happy, but all cases should be covered below!
   switch (left)
   {
     case Zero:
@@ -599,7 +599,7 @@ static TSQuantifier quantifier_add(
   TSQuantifier left,
   TSQuantifier right
 ) {
-  TSQuantifier result;
+  TSQuantifier result = Zero; // initialized to make compiler happy, but all cases should be covered below!
   switch (left)
   {
     case Zero:
