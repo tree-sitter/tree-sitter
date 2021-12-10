@@ -11,9 +11,10 @@
 // #define DEBUG_EXECUTE_QUERY
 
 #define MAX_STEP_CAPTURE_COUNT 3
-#define MAX_STATE_PREDECESSOR_COUNT 100
-#define MAX_ANALYSIS_STATE_DEPTH 8
 #define MAX_NEGATED_FIELD_COUNT 8
+#define MAX_STATE_PREDECESSOR_COUNT 256
+#define MAX_ANALYSIS_STATE_DEPTH 8
+#define MAX_ANALYSIS_ITERATION_COUNT 256
 
 /*
  * Stream - A sequence of unicode characters derived from a UTF8 string.
@@ -571,7 +572,7 @@ static inline StatePredecessorMap state_predecessor_map_new(
 ) {
   return (StatePredecessorMap) {
     .contents = ts_calloc(
-      language->state_count * (MAX_STATE_PREDECESSOR_COUNT + 1),
+      (size_t)language->state_count * (MAX_STATE_PREDECESSOR_COUNT + 1),
       sizeof(TSStateId)
     ),
   };
@@ -586,7 +587,7 @@ static inline void state_predecessor_map_add(
   TSStateId state,
   TSStateId predecessor
 ) {
-  unsigned index = state * (MAX_STATE_PREDECESSOR_COUNT + 1);
+  size_t index = (size_t)state * (MAX_STATE_PREDECESSOR_COUNT + 1);
   TSStateId *count = &self->contents[index];
   if (
     *count == 0 ||
@@ -602,7 +603,7 @@ static inline const TSStateId *state_predecessor_map_get(
   TSStateId state,
   unsigned *count
 ) {
-  unsigned index = state * (MAX_STATE_PREDECESSOR_COUNT + 1);
+  size_t index = (size_t)state * (MAX_STATE_PREDECESSOR_COUNT + 1);
   *count = self->contents[index];
   return &self->contents[index + 1];
 }
@@ -635,6 +636,8 @@ static inline int analysis_state__compare_position(
     if (self->stack[i].child_index > other->stack[i].child_index) return 1;
   }
   if (self->depth < other->depth) return 1;
+  if (self->step_index < other->step_index) return -1;
+  if (self->step_index > other->step_index) return 1;
   return 0;
 }
 
@@ -652,8 +655,6 @@ static inline int analysis_state__compare(
     if (self->stack[i].field_id < other->stack[i].field_id) return -1;
     if (self->stack[i].field_id > other->stack[i].field_id) return 1;
   }
-  if (self->step_index < other->step_index) return -1;
-  if (self->step_index > other->step_index) return 1;
   return 0;
 }
 
@@ -1023,13 +1024,18 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     // Walk the subgraph for this non-terminal, tracking all of the possible
     // sequences of progress within the pattern.
     bool can_finish_pattern = false;
-    bool did_exceed_max_depth = false;
+    bool did_abort_analysis = false;
     unsigned recursion_depth_limit = 0;
     unsigned prev_final_step_count = 0;
     array_clear(&final_step_indices);
-    for (;;) {
+    for (unsigned iteration = 0;; iteration++) {
+      if (iteration == MAX_ANALYSIS_ITERATION_COUNT) {
+        did_abort_analysis = true;
+        break;
+      }
+
       #ifdef DEBUG_ANALYZE_QUERY
-        printf("Final step indices:");
+        printf("Iteration: %u. Final step indices:", iteration);
         for (unsigned j = 0; j < final_step_indices.size; j++) {
           printf(" %4u", final_step_indices.contents[j]);
         }
@@ -1085,9 +1091,15 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
         if (next_states.size > 0) {
           int comparison = analysis_state__compare_position(state, array_back(&next_states));
           if (comparison == 0) {
+            #ifdef DEBUG_ANALYZE_QUERY
+              printf("Skip iteration for state %u\n", j);
+            #endif
             array_insert_sorted_with(&next_states, analysis_state__compare, *state);
             continue;
           } else if (comparison > 0) {
+            #ifdef DEBUG_ANALYZE_QUERY
+              printf("Terminate iteration at state %u\n", j);
+            #endif
             while (j < states.size) {
               array_push(&next_states, states.contents[j]);
               j++;
@@ -1203,7 +1215,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
                     printf("Exceeded depth limit for state %u\n", j);
                   #endif
 
-                  did_exceed_max_depth = true;
+                  did_abort_analysis = true;
                   continue;
                 }
 
@@ -1295,7 +1307,37 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
       next_states = _states;
     }
 
-    // Mark as indefinite any step where a match terminated.
+    // If this pattern could not be fully analyzed, then every step should
+    // be considered fallible.
+    if (did_abort_analysis) {
+      for (unsigned j = parent_step_index + 1; j < self->steps.size; j++) {
+        QueryStep *step = &self->steps.contents[j];
+        if (
+          step->depth <= parent_depth ||
+          step->depth == PATTERN_DONE_MARKER
+        ) break;
+        if (!step->is_dead_end) {
+          step->parent_pattern_guaranteed = false;
+          step->root_pattern_guaranteed = false;
+        }
+      }
+      continue;
+    }
+
+    // If this pattern cannot match, store the pattern index so that it can be
+    // returned to the caller.
+    if (!can_finish_pattern) {
+      assert(final_step_indices.size > 0);
+      uint16_t impossible_step_index = *array_back(&final_step_indices);
+      uint32_t i, exists;
+      array_search_sorted_by(&self->step_offsets, .step_index, impossible_step_index, &i, &exists);
+      if (i >= self->step_offsets.size) i = self->step_offsets.size - 1;
+      *error_offset = self->step_offsets.contents[i].byte_offset;
+      all_patterns_are_valid = false;
+      break;
+    }
+
+    // Mark as fallible any step where a match terminated.
     // Later, this property will be propagated to all of the step's predecessors.
     for (unsigned j = 0; j < final_step_indices.size; j++) {
       uint32_t final_step_index = final_step_indices.contents[j];
@@ -1308,33 +1350,6 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
         step->parent_pattern_guaranteed = false;
         step->root_pattern_guaranteed = false;
       }
-    }
-
-    if (did_exceed_max_depth) {
-      for (unsigned j = parent_step_index + 1; j < self->steps.size; j++) {
-        QueryStep *step = &self->steps.contents[j];
-        if (
-          step->depth <= parent_depth ||
-          step->depth == PATTERN_DONE_MARKER
-        ) break;
-        if (!step->is_dead_end) {
-          step->parent_pattern_guaranteed = false;
-          step->root_pattern_guaranteed = false;
-        }
-      }
-    }
-
-    // If this pattern cannot match, store the pattern index so that it can be
-    // returned to the caller.
-    if (all_patterns_are_valid && !can_finish_pattern && !did_exceed_max_depth) {
-      assert(final_step_indices.size > 0);
-      uint16_t impossible_step_index = *array_back(&final_step_indices);
-      uint32_t i, exists;
-      array_search_sorted_by(&self->step_offsets, .step_index, impossible_step_index, &i, &exists);
-      if (i >= self->step_offsets.size) i = self->step_offsets.size - 1;
-      *error_offset = self->step_offsets.contents[i].byte_offset;
-      all_patterns_are_valid = false;
-      break;
     }
   }
 
