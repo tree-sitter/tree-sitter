@@ -82,7 +82,6 @@ struct PatternInfo {
 #[derive(Debug)]
 struct LocalDef<'a> {
     name: &'a [u8],
-    value_range: Range<usize>,
 }
 
 #[derive(Debug)]
@@ -349,7 +348,6 @@ where
                             }) {
                                 scope.local_defs.push(LocalDef {
                                     name: &self.source[range.clone()],
-                                    value_range: range,
                                 });
                             }
                         }
