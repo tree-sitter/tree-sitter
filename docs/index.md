@@ -24,6 +24,8 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Ruby](https://github.com/tree-sitter/ruby-tree-sitter)
 * [Rust](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_rust)
 * [Swift](https://github.com/ChimeHQ/SwiftTreeSitter)
+* [Kotlin](https://github.com/oxisto/kotlintree)
+* [Java](https://github.com/serenadeai/java-tree-sitter)
 
 ### Available Parsers
 
