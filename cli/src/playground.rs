@@ -10,8 +10,9 @@ use std::{
 use tiny_http::{Header, Response, Server};
 use webbrowser;
 
-macro_rules! resource {
+macro_rules! optional_resource {
     ($name: tt, $path: tt) => {
+        #[cfg(TREE_SITTER_EMBED_WASM_BINDING)]
         fn $name(tree_sitter_dir: &Option<PathBuf>) -> Cow<'static, [u8]> {
             if let Some(tree_sitter_dir) = tree_sitter_dir {
                 Cow::Owned(fs::read(tree_sitter_dir.join($path)).unwrap())
@@ -19,13 +20,6 @@ macro_rules! resource {
                 Cow::Borrowed(include_bytes!(concat!("../../", $path)))
             }
         }
-    };
-}
-
-macro_rules! optional_resource {
-    ($name: tt, $path: tt) => {
-        #[cfg(TREE_SITTER_EMBED_WASM_BINDING)]
-        resource!($name, $path);
 
         #[cfg(not(TREE_SITTER_EMBED_WASM_BINDING))]
         fn $name(tree_sitter_dir: &Option<PathBuf>) -> Cow<'static, [u8]> {
@@ -38,10 +32,17 @@ macro_rules! optional_resource {
     };
 }
 
-resource!(get_main_html, "cli/src/playground.html");
 optional_resource!(get_playground_js, "docs/assets/js/playground.js");
 optional_resource!(get_lib_js, "lib/binding_web/tree-sitter.js");
 optional_resource!(get_lib_wasm, "lib/binding_web/tree-sitter.wasm");
+
+fn get_main_html(tree_sitter_dir: &Option<PathBuf>) -> Cow<'static, [u8]> {
+    if let Some(tree_sitter_dir) = tree_sitter_dir {
+        Cow::Owned(fs::read(tree_sitter_dir.join("cli/src/playground.html")).unwrap())
+    } else {
+        Cow::Borrowed(include_bytes!("playground.html"))
+    }
+}
 
 pub fn serve(grammar_path: &Path, open_in_browser: bool) {
     let port = get_available_port().expect("Couldn't find an available port");
