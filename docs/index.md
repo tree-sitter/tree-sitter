@@ -74,6 +74,7 @@ Parsers for these languages are fairly complete:
 Parsers for these languages are in development:
 
 * [Agda](https://github.com/tree-sitter/tree-sitter-agda)
+* [Elixir](https://github.com/elixir-lang/tree-sitter-elixir)
 * [Erlang](https://github.com/AbstractMachinesLab/tree-sitter-erlang/)
 * [Dockerfile](https://github.com/camdencheek/tree-sitter-dockerfile)
 * [Go mod](https://github.com/camdencheek/tree-sitter-go-mod)
@@ -87,7 +88,7 @@ Parsers for these languages are in development:
 * [Scala](https://github.com/tree-sitter/tree-sitter-scala)
 * [Sourcepawn](https://github.com/nilshelmig/tree-sitter-sourcepawn)
 * [Swift](https://github.com/tree-sitter/tree-sitter-swift)
-* [SQL](https://github.com/m-novikov/tree-sitter-sql) 
+* [SQL](https://github.com/m-novikov/tree-sitter-sql)
 
 
 ### Talks on Tree-sitter
