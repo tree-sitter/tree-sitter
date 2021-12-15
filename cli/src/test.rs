@@ -27,6 +27,8 @@ lazy_static! {
     static ref COMMENT_REGEX: Regex = Regex::new(r"(?m)^\s*;.*$").unwrap();
     static ref WHITESPACE_REGEX: Regex = Regex::new(r"\s+").unwrap();
     static ref SEXP_FIELD_REGEX: Regex = Regex::new(r" \w+: \(").unwrap();
+
+    static ref TSTEST_FILE_REGEX: Regex = Regex::new(r"(.*)\.tstest\.[\w\d]*").unwrap();
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -354,13 +356,74 @@ pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
         .to_string();
     if path.is_dir() {
         let mut children = Vec::new();
+        let mut children_inputs: Vec<(PathBuf, String)> = Vec::new();
+        let mut children_outputs: Vec<(PathBuf, String)> = Vec::new();
         for entry in fs::read_dir(path)? {
             let entry = entry?;
-            let hidden = entry.file_name().to_str().unwrap_or("").starts_with(".");
+
+            let file_name = entry.file_name();
+            let file_name_str = file_name.to_str().unwrap_or("");
+
+            // detect outputs
+            if file_name_str.ends_with(".tstest.scm") {
+                let test_file_name = &file_name_str[0..file_name_str.len() - ".tstest.scm".len()];
+                children_outputs.push((entry.path(), test_file_name.to_string()));
+                continue;
+            }
+            // detect inputs (matches *.tstest.*)
+            if let Some(caps) = TSTEST_FILE_REGEX.captures(file_name_str) {
+                let test_file_name = caps.get(1).unwrap().as_str();
+                children_inputs.push((entry.path(), test_file_name.to_string()));
+                continue;
+            }
+
+            let hidden = file_name_str.starts_with(".");
             if !hidden {
                 children.push(parse_tests(&entry.path())?);
             }
         }
+
+        // match output files to inputs based on their file paths
+        for (input_path, input_name) in children_inputs {
+            let maybe_match_output = children_outputs
+                .iter()
+                .find(|(_, output_name)| output_name == &input_name);
+
+            if let Some((output_path, _)) = &maybe_match_output {
+                // construct the test entry content
+                let content = format!(
+                    r#"
+===============
+{}
+===============
+
+{}
+
+---
+
+{}
+
+"#,
+                    input_name,
+                    fs::read_to_string(&input_path)?,
+                    fs::read_to_string(output_path)?
+                );
+                children.push(parse_test_content(
+                    input_name,
+                    content,
+                    Some(input_path.to_path_buf()),
+                ));
+            } else {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!(
+                        "No tstest.scm output file for the input path {}",
+                        input_path.to_str().unwrap()
+                    ),
+                ));
+            }
+        }
+
         Ok(TestEntry::Group {
             name,
             children,
