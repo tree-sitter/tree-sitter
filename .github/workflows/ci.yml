@@ -104,6 +104,7 @@ jobs:
           files: |
             tree-sitter-*.gz
             lib/binding_web/tree-sitter.js
+            lib/binding_web/tree-sitter.mjs
             lib/binding_web/tree-sitter.wasm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

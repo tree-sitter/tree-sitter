@@ -34,6 +34,7 @@ macro_rules! optional_resource {
 
 optional_resource!(get_playground_js, "docs/assets/js/playground.js");
 optional_resource!(get_lib_js, "lib/binding_web/tree-sitter.js");
+optional_resource!(get_lib_mjs, "lib/binding_web/tree-sitter.mjs");
 optional_resource!(get_lib_wasm, "lib/binding_web/tree-sitter.wasm");
 
 fn get_main_html(tree_sitter_dir: &Option<PathBuf>) -> Cow<'static, [u8]> {
@@ -75,10 +76,12 @@ pub fn serve(grammar_path: &Path, open_in_browser: bool) {
         .into_bytes();
     let playground_js = get_playground_js(&tree_sitter_dir);
     let lib_js = get_lib_js(&tree_sitter_dir);
+    let lib_mjs = get_lib_mjs(&tree_sitter_dir);
     let lib_wasm = get_lib_wasm(&tree_sitter_dir);
 
     let html_header = Header::from_str("Content-Type: text/html").unwrap();
     let js_header = Header::from_str("Content-Type: application/javascript").unwrap();
+    let mjs_header = Header::from_str("Content-Type: text/javascript").unwrap();
     let wasm_header = Header::from_str("Content-Type: application/wasm").unwrap();
 
     for request in server.incoming_requests() {
@@ -97,6 +100,13 @@ pub fn serve(grammar_path: &Path, open_in_browser: bool) {
                     redirect("https://tree-sitter.github.io/tree-sitter.js")
                 } else {
                     response(&lib_js, &js_header)
+                }
+            }
+            "/tree-sitter.mjs" => {
+                if lib_mjs.is_empty() {
+                    redirect("https://tree-sitter.github.io/tree-sitter.mjs")
+                } else {
+                    response(&lib_mjs, &mjs_header)
                 }
             }
             "/tree-sitter.wasm" => {

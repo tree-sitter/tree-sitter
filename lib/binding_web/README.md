@@ -7,7 +7,7 @@ WebAssembly bindings to the [Tree-sitter](https://github.com/tree-sitter/tree-si
 
 ### Setup
 
-You can download the the `tree-sitter.js` and `tree-sitter.wasm` files from [the latest GitHub release](https://github.com/tree-sitter/tree-sitter/releases/latest) and load them using a standalone script:
+You can download the `tree-sitter.js`, `tree-sitter.mjs` and `tree-sitter.wasm` files from [the latest GitHub release](https://github.com/tree-sitter/tree-sitter/releases/latest) and load them using a standalone script:
 
 ```html
 <script src="/the/path/to/tree-sitter.js"/>
@@ -23,6 +23,18 @@ You can also install [the `web-tree-sitter` module](https://www.npmjs.com/packag
 ```js
 const Parser = require('web-tree-sitter');
 Parser.init().then(() => { /* the library is ready */ });
+```
+
+You can also use the new ES6 Modules syntax by using:
+
+```js
+import Parser from 'https://tree-sitter.github.io/tree-sitter.mjs';
+```
+
+Or
+
+```js
+import Parser from 'web-tree-sitter';
 ```
 
 ### Basic Usage
@@ -128,7 +140,7 @@ If everything is fine, file `tree-sitter-javascript.wasm` should be generated in
 
 #### Running .wasm in Node.js
 
-Notice that executing `.wasm` files in node.js is considerably slower than running [node.js bindings](https://github.com/tree-sitter/node-tree-sitter). However could be useful for testing purposes:
+Notice that executing `.wasm` files in Node.js is considerably slower than running [node.js bindings](https://github.com/tree-sitter/node-tree-sitter). However could be useful for testing purposes:
 
 ```javascript
 const Parser = require('web-tree-sitter');
