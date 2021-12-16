@@ -80,6 +80,7 @@ Parsers for these languages are in development:
 * [Erlang](https://github.com/AbstractMachinesLab/tree-sitter-erlang/)
 * [Dockerfile](https://github.com/camdencheek/tree-sitter-dockerfile)
 * [Go mod](https://github.com/camdencheek/tree-sitter-go-mod)
+* [Go work](https://github.com/omertuc/tree-sitter-go-work)
 * [Hack](https://github.com/slackhq/tree-sitter-hack)
 * [Haskell](https://github.com/tree-sitter/tree-sitter-haskell)
 * [Julia](https://github.com/tree-sitter/tree-sitter-julia)
