@@ -157,6 +157,7 @@ impl Default for Theme {
               "function": 26,
               "keyword": 56,
               "number": {"color": 94, "bold": true},
+              "module": 136,
               "property": 124,
               "operator": {"color": 239, "bold": true},
               "punctuation.bracket": 239,
