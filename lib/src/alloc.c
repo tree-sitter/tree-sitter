@@ -21,7 +21,7 @@ struct allocator *ts_allocator = &ts_tracking_allocator;
 
 #include <stdlib.h>
 
-static inline bool ts_toggle_allocation_recording(bool value) {
+bool ts_toggle_allocation_recording(bool value) {
   (void)value;
   return false;
 }

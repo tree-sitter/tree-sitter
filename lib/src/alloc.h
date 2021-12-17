@@ -32,6 +32,8 @@ extern struct allocator *ts_allocator;
 #define ts_free    ts_allocator->free
 #endif
 
+bool ts_toggle_allocation_recording(bool);
+
 #ifdef __cplusplus
 }
 #endif
