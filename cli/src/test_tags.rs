@@ -88,13 +88,12 @@ pub fn test_tag(
     tags_config: &TagsConfiguration,
     source: &[u8],
 ) -> Result<usize> {
-    let (tags_iter, _has_error) = tags_context.generate_tags(&tags_config, &source, None)?;
-    let tags: Vec<Tag> = tags_iter.filter_map(|t| t.ok()).collect();
+    let tags = get_tag_positions(tags_context, tags_config, source)?;
     let assertions = parse_position_comments(tags_context.parser(), tags_config.language, source)?;
 
     // Iterate through all of the assertions, checking against the actual tags.
     let mut i = 0;
-    let mut actual_tags = Vec::<String>::new();
+    let mut actual_tags = Vec::<&String>::new();
     for Assertion {
         position,
         expected_capture_name: expected_tag,
@@ -104,7 +103,7 @@ pub fn test_tag(
 
         'tag_loop: loop {
             if let Some(tag) = tags.get(i) {
-                if tag.span.end <= *position {
+                if tag.1 <= *position {
                     i += 1;
                     continue;
                 }
@@ -113,18 +112,12 @@ pub fn test_tag(
                 // position, looking for one that matches the assertion
                 let mut j = i;
                 while let (false, Some(tag)) = (passed, tags.get(j)) {
-                    if tag.span.start > *position {
+                    if tag.0 > *position {
                         break 'tag_loop;
                     }
 
-                    let tag_postfix = tags_config.syntax_type_name(tag.syntax_type_id).to_string();
-                    let tag_name = if tag.is_definition {
-                        format!("definition.{}", tag_postfix)
-                    } else {
-                        format!("reference.{}", tag_postfix)
-                    };
-
-                    if tag_name == *expected_tag {
+                    let tag_name = &tag.2;
+                    if *tag_name == *expected_tag {
                         passed = true;
                         break 'tag_loop;
                     } else {
@@ -143,11 +136,32 @@ pub fn test_tag(
                 row: position.row,
                 column: position.column,
                 expected_tag: expected_tag.clone(),
-                actual_tags: actual_tags.into_iter().collect(),
+                actual_tags: actual_tags.into_iter().cloned().collect(),
             }
             .into());
         }
     }
 
     Ok(assertions.len())
+}
+
+pub fn get_tag_positions(
+    tags_context: &mut TagsContext,
+    tags_config: &TagsConfiguration,
+    source: &[u8],
+) -> Result<Vec<(Point, Point, String)>> {
+    let (tags_iter, _has_error) = tags_context.generate_tags(&tags_config, &source, None)?;
+    let tag_positions = tags_iter
+        .filter_map(|t| t.ok())
+        .map(|tag| {
+            let tag_postfix = tags_config.syntax_type_name(tag.syntax_type_id).to_string();
+            let tag_name = if tag.is_definition {
+                format!("definition.{}", tag_postfix)
+            } else {
+                format!("reference.{}", tag_postfix)
+            };
+            (tag.span.start, tag.span.end, tag_name)
+        })
+        .collect();
+    Ok(tag_positions)
 }
