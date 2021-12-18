@@ -148,10 +148,15 @@ typedef struct {
 /**
  * Switch to a new allocator.
  *
- * Returns the old allocator. The caller needs to take care of any allocated
- * memory managed by the old allocator.
+ * Returns true iff the switch successes.
+ *
+ * This function can only be invoked *once*, before tree-sitter has allocated
+ * any memory via malloc/calloc/realloc. Otherwise, memory bugs could occur
+ * since some memory is allocated by the old allocator, but freed by the new
+ * one.
+ *
  */
-TSAllocator *ts_set_allocator(TSAllocator *new_alloc);
+bool ts_set_allocator(TSAllocator *new_alloc);
 
 /**
  * Create a new parser.

@@ -70,10 +70,15 @@ TSAllocator *ts_allocator = &ts_default_allocator;
 
 #endif // defined(TREE_SITTER_ALLOCATION_TRACKING)
 
-TSAllocator *ts_set_allocator(TSAllocator *new_alloc)
+bool ts_set_allocator(TSAllocator *new_alloc)
 {
-	TSAllocator *old = ts_allocator;
-	ts_allocator = new_alloc;
-	return old;
+  static bool using_default_allocator = true;
+  if (!using_default_allocator) {
+    fprintf(stderr, "tree-sitter's allocator can only be set once!");
+    return false;
+  }
+  using_default_allocator = false;
+  ts_allocator = new_alloc;
+  return true;
 }
 
