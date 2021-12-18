@@ -1,6 +1,8 @@
 #ifndef TREE_SITTER_ALLOC_H_
 #define TREE_SITTER_ALLOC_H_
 
+#include "tree_sitter/api.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -9,14 +11,7 @@ extern "C" {
 #include <stdbool.h>
 #include <stdio.h>
 
-struct allocator {
-  void *(*malloc)(size_t);
-  void *(*calloc)(size_t, size_t);
-  void *(*realloc)(void *, size_t);
-  void (*free)(void *);
-};
-
-extern struct allocator *ts_allocator;
+extern TSAllocator *ts_allocator;
 
 // Allow clients to override allocation functions
 #ifndef ts_malloc

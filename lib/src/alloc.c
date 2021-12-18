@@ -8,14 +8,14 @@ void *ts_record_realloc(void *, size_t);
 void ts_record_free(void *);
 bool ts_toggle_allocation_recording(bool);
 
-static struct allocator ts_tracking_allocator = {
+static TSAllocator ts_tracking_allocator = {
   .malloc = ts_record_malloc,
   .calloc = ts_record_calloc,
   .realloc = ts_record_realloc,
   .free = ts_record_free,
 };
 
-struct allocator *ts_allocator = &ts_tracking_allocator;
+TSAllocator *ts_allocator = &ts_tracking_allocator;
 
 #else
 
@@ -58,7 +58,7 @@ static inline void ts_free_default(void *buffer) {
   free(buffer);
 }
 
-static struct allocator ts_default_allocator = {
+static TSAllocator ts_default_allocator = {
   .malloc = ts_malloc_default,
   .calloc = ts_calloc_default,
   .realloc = ts_realloc_default,
@@ -66,7 +66,14 @@ static struct allocator ts_default_allocator = {
 };
 
 // Allow clients to override allocation functions dynamically
-struct allocator *ts_allocator = &ts_default_allocator;
+TSAllocator *ts_allocator = &ts_default_allocator;
 
+#endif // defined(TREE_SITTER_ALLOCATION_TRACKING)
 
-#endif
+TSAllocator *ts_set_allocator(TSAllocator *new_alloc)
+{
+	TSAllocator *old = ts_allocator;
+	ts_allocator = new_alloc;
+	return old;
+}
+

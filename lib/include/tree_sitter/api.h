@@ -134,9 +134,30 @@ typedef enum {
   TSQueryErrorLanguage,
 } TSQueryError;
 
+typedef struct {
+  void *(*malloc)(size_t);
+  void *(*calloc)(size_t, size_t);
+  void *(*realloc)(void *, size_t);
+  void (*free)(void *);
+} TSAllocator;
+
 /********************/
 /* Section - Parser */
 /********************/
+
+
+/**
+ * The allocator.
+ */
+extern TSAllocator *ts_allocator;
+
+/**
+ * Switch to a new allocator.
+ *
+ * Returns the old allocator. The caller needs to take care of any allocated
+ * memory managed by the old allocator.
+ */
+TSAllocator *ts_set_allocator(TSAllocator *new_alloc);
 
 /**
  * Create a new parser.
