@@ -145,12 +145,6 @@ typedef struct {
 /* Section - Parser */
 /********************/
 
-
-/**
- * The allocator.
- */
-extern TSAllocator *ts_allocator;
-
 /**
  * Switch to a new allocator.
  *
