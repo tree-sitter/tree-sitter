@@ -16,7 +16,7 @@ use walkdir::WalkDir;
 
 lazy_static! {
     static ref HEADER_REGEX: ByteRegex =
-        ByteRegexBuilder::new(r"^===+(?P<suffix1>[^=\r\n][^\r\n]*)?\r?\n(?P<test_name>[^=\r\n][^\r\n]*)\r?\n===+(?P<suffix2>[^=\r\n][^\r\n]*)?\r?\n")
+        ByteRegexBuilder::new(r"^===+(?P<suffix1>[^=\r\n][^\r\n]*)?\r?\n(?P<test_name>([^=\r\n][^\r\n]*\r?\n)+)===+(?P<suffix2>[^=\r\n][^\r\n]*)?\r?\n")
             .multi_line(true)
             .build()
             .unwrap();
@@ -404,7 +404,7 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
             let header_range = c.get(0).unwrap().range();
             let test_name = c
                 .name("test_name")
-                .map(|c| String::from_utf8_lossy(c.as_bytes()).to_string());
+                .map(|c| String::from_utf8_lossy(c.as_bytes()).trim_end().to_string());
             Some((header_range, test_name))
         } else {
             None
@@ -788,6 +788,54 @@ NOT A TEST HEADER
                     }
                 ],
                 file_path: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_test_content_with_newlines_in_test_names() {
+        let entry = parse_test_content(
+            "the-filename".to_string(),
+            r#"
+===============
+name
+with
+newlines
+===============
+a
+---
+(b)
+
+====================
+name with === signs
+====================
+code with ----
+---
+(d)
+"#
+            .to_string(),
+            None,
+        );
+
+        assert_eq!(
+            entry,
+            TestEntry::Group {
+                name: "the-filename".to_string(),
+                file_path: None,
+                children: vec![
+                    TestEntry::Example {
+                        name: "name\nwith\nnewlines".to_string(),
+                        input: b"a".to_vec(),
+                        output: "(b)".to_string(),
+                        has_fields: false,
+                    },
+                    TestEntry::Example {
+                        name: "name with === signs".to_string(),
+                        input: b"code with ----".to_vec(),
+                        output: "(d)".to_string(),
+                        has_fields: false,
+                    }
+                ]
             }
         );
     }
