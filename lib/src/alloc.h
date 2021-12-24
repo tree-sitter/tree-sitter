@@ -11,20 +11,23 @@ extern "C" {
 #include <stdbool.h>
 #include <stdio.h>
 
-extern TSAllocator *ts_allocator;
+extern void *(*ts_current_malloc)(size_t);
+extern void *(*ts_current_calloc)(size_t, size_t);
+extern void *(*ts_current_realloc)(void *, size_t);
+extern void (*ts_current_free)(void *);
 
 // Allow clients to override allocation functions
 #ifndef ts_malloc
-#define ts_malloc  ts_allocator->malloc
+#define ts_malloc  ts_current_malloc
 #endif
 #ifndef ts_calloc
-#define ts_calloc  ts_allocator->calloc
+#define ts_calloc  ts_current_calloc
 #endif
 #ifndef ts_realloc
-#define ts_realloc ts_allocator->realloc
+#define ts_realloc ts_current_realloc
 #endif
 #ifndef ts_free
-#define ts_free    ts_allocator->free
+#define ts_free    ts_current_free
 #endif
 
 bool ts_toggle_allocation_recording(bool);
