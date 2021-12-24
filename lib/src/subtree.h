@@ -49,10 +49,9 @@ typedef struct {
 typedef struct {
 #define SUBTREE_3_BYTES \
   uint8_t symbol; \
-  uint8_t padding_bytes; \
-  uint8_t size_bytes; \
+  uint16_t parse_state;
 
-#define SUBTREE_6_BITS \
+#define SUBTREE_BITS \
   bool visible : 1; \
   bool named : 1; \
   bool extra : 1; \
@@ -60,36 +59,39 @@ typedef struct {
   bool is_missing : 1; \
   bool is_keyword : 1;
 
-#define SUBTREE_4_BYTES \
+#define SUBTREE_SIZE \
   uint8_t padding_columns; \
   uint8_t padding_rows : 4; \
   uint8_t lookahead_bytes : 4; \
-  uint16_t parse_state;
+  uint8_t padding_bytes; \
+  uint8_t size_bytes;
 
 #if TS_BIG_ENDIAN
 #if TS_PTR_SIZE == 32
-  SUBTREE_3_BYTES
-  SUBTREE_6_BITS
+  uint16_t parse_state;
+  uint8_t symbol;
+  SUBTREE_BITS
   bool unused : 1;
   bool is_inline : 1;
-  SUBTREE_4_BYTES
+  SUBTREE_SIZE
 #else
-  SUBTREE_4_BYTES
-  SUBTREE_3_BYTES
-  SUBTREE_6_BITS
+  SUBTREE_SIZE
+  uint16_t parse_state;
+  uint8_t symbol;
+  SUBTREE_BITS
   bool unused : 1;
   bool is_inline : 1;
 #endif
 #else
   bool is_inline : 1;
-  SUBTREE_6_BITS
-  SUBTREE_3_BYTES
-  SUBTREE_4_BYTES
+  SUBTREE_BITS
+  uint8_t symbol;
+  uint16_t parse_state;
+  SUBTREE_SIZE
 #endif
 
-#undef SUBTREE_3_BYTES
-#undef SUBTREE_6_BITS
-#undef SUBTREE_4_BYTES
+#undef SUBTREE_BITS
+#undef SUBTREE_SIZE
 } SubtreeInlineData;
 
 // A heap-allocated representation of a subtree.
