@@ -139,6 +139,22 @@ typedef enum {
 /********************/
 
 /**
+ * Switch to a new allocator.
+ *
+ * This function can be invoked more than once. However, the application needs
+ * to pay attention to the memory allocated by the old allocator but might be
+ * freed by the new one.
+ *
+ * Specifically, the application either,
+ *  1. ensures all parsers and trees are freed before calling it;
+ *  2. provides an allocator that shares its state with the old allocator.
+ */
+void ts_set_allocator(void *(*new_malloc)(size_t),
+		      void *(*new_calloc)(size_t, size_t),
+		      void *(*new_realloc)(void *, size_t),
+		      void (*new_free)(void *));
+
+/**
  * Create a new parser.
  */
 TSParser *ts_parser_new(void);
