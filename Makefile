@@ -21,6 +21,12 @@ OBJ := $(SRC:.c=.o)
 CFLAGS ?= -O3 -Wall -Wextra -Werror
 override CFLAGS += -std=gnu99 -fPIC -Ilib/src -Ilib/include
 
+# workaround cflags for old gcc versions
+CC_VERSION := $(shell $(CC) -dumpversion)
+ifeq ($(CC_VERSION), $(filter $(CC_VERSION),7 8))
+override CFLAGS += -Wno-format-truncation
+endif
+
 # ABI versioning
 SONAME_MAJOR := 0
 SONAME_MINOR := 0
