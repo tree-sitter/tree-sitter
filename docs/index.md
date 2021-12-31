@@ -32,9 +32,9 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 Parsers for these languages are fairly complete:
 
 * [Bash](https://github.com/tree-sitter/tree-sitter-bash)
-* [C](https://github.com/tree-sitter/tree-sitter-c)
 * [C#](https://github.com/tree-sitter/tree-sitter-c-sharp)
 * [C++](https://github.com/tree-sitter/tree-sitter-cpp)
+* [C](https://github.com/tree-sitter/tree-sitter-c)
 * [Common Lisp](https://github.com/theHamsta/tree-sitter-commonlisp)
 * [CSS](https://github.com/tree-sitter/tree-sitter-css)
 * [CUDA](https://github.com/theHamsta/tree-sitter-cuda)
@@ -56,22 +56,23 @@ Parsers for these languages are fairly complete:
 * [OCaml](https://github.com/tree-sitter/tree-sitter-ocaml)
 * [PHP](https://github.com/tree-sitter/tree-sitter-php)
 * [Python](https://github.com/tree-sitter/tree-sitter-python)
+* [R](https://github.com/r-lib/tree-sitter-r)
+* [re2c](https://github.com/alemuller/tree-sitter-re2c)
 * [Ruby](https://github.com/tree-sitter/tree-sitter-ruby)
 * [Rust](https://github.com/tree-sitter/tree-sitter-rust)
-* [R](https://github.com/r-lib/tree-sitter-r)
 * [S-expressions](https://github.com/AbstractMachinesLab/tree-sitter-sexp)
 * [SPARQL](https://github.com/BonaBeavis/tree-sitter-sparql)
-* [SystemRDL](https://github.com/SystemRDL/tree-sitter-systemrdl)
 * [Svelte](https://github.com/Himujjal/tree-sitter-svelte)
+* [SystemRDL](https://github.com/SystemRDL/tree-sitter-systemrdl)
 * [TOML](https://github.com/ikatyang/tree-sitter-toml)
 * [Turtle](https://github.com/BonaBeavis/tree-sitter-turtle)
 * [TypeScript](https://github.com/tree-sitter/tree-sitter-typescript)
 * [Verilog](https://github.com/tree-sitter/tree-sitter-verilog)
 * [VHDL](https://github.com/alemuller/tree-sitter-vhdl)
 * [Vue](https://github.com/ikatyang/tree-sitter-vue)
-* [YAML](https://github.com/ikatyang/tree-sitter-yaml)
 * [WASM](https://github.com/wasm-lsp/tree-sitter-wasm)
 * [WGSL WebGPU Shading Language](https://github.com/mehmetoguzderin/tree-sitter-wgsl)
+* [YAML](https://github.com/ikatyang/tree-sitter-yaml)
 
 Parsers for these languages are in development:
 
