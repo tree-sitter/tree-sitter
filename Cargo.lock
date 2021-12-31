@@ -709,7 +709,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter"
-version = "0.20.1"
+version = "0.20.2"
 dependencies = [
  "cc",
  "lazy_static",
