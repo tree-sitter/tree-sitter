@@ -40,65 +40,74 @@ typedef struct {
 //
 // This representation is used for small leaf nodes that are not
 // errors, and were not created by an external scanner.
+//
 // The idea behind the layout of this struct is that the `is_inline`
 // bit will fall exactly into the same location as the least significant
 // bit of the pointer in `Subtree` or `MutableSubtree`, respectively.
 // Because of alignment, for any valid pointer this will be 0, giving
 // us the opportunity to make use of this bit to signify whether to use
 // the pointer or the inline struct.
-typedef struct {
-#define SUBTREE_3_BYTES \
-  uint8_t symbol; \
-  uint16_t parse_state;
+typedef struct SubtreeInlineData SubtreeInlineData;
 
-#define SUBTREE_BITS \
-  bool visible : 1; \
-  bool named : 1; \
-  bool extra : 1; \
+#define SUBTREE_BITS    \
+  bool visible : 1;     \
+  bool named : 1;       \
+  bool extra : 1;       \
   bool has_changes : 1; \
-  bool is_missing : 1; \
+  bool is_missing : 1;  \
   bool is_keyword : 1;
 
-#define SUBTREE_SIZE \
-  uint8_t padding_columns; \
-  uint8_t padding_rows : 4; \
+#define SUBTREE_SIZE           \
+  uint8_t padding_columns;     \
+  uint8_t padding_rows : 4;    \
   uint8_t lookahead_bytes : 4; \
-  uint8_t padding_bytes; \
+  uint8_t padding_bytes;       \
   uint8_t size_bytes;
 
 #if TS_BIG_ENDIAN
 #if TS_PTR_SIZE == 32
+
+struct SubtreeInlineData {
   uint16_t parse_state;
   uint8_t symbol;
   SUBTREE_BITS
   bool unused : 1;
   bool is_inline : 1;
   SUBTREE_SIZE
+};
+
 #else
+
+struct SubtreeInlineData {
   SUBTREE_SIZE
   uint16_t parse_state;
   uint8_t symbol;
   SUBTREE_BITS
   bool unused : 1;
   bool is_inline : 1;
+};
+
 #endif
 #else
+
+struct SubtreeInlineData {
   bool is_inline : 1;
   SUBTREE_BITS
   uint8_t symbol;
   uint16_t parse_state;
   SUBTREE_SIZE
+};
+
 #endif
 
 #undef SUBTREE_BITS
 #undef SUBTREE_SIZE
-} SubtreeInlineData;
 
 // A heap-allocated representation of a subtree.
 //
 // This representation is used for parent nodes, external tokens,
 // errors, and other leaf nodes whose data is too large to fit into
-// the inlinen representation.
+// the inline representation.
 typedef struct {
   volatile uint32_t ref_count;
   Length padding;
