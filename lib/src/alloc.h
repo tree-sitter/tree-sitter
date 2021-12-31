@@ -30,8 +30,6 @@ extern void (*ts_current_free)(void *);
 #define ts_free    ts_current_free
 #endif
 
-bool ts_toggle_allocation_recording(bool);
-
 #ifdef __cplusplus
 }
 #endif

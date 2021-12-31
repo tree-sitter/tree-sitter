@@ -1,4 +1,5 @@
 use super::helpers::{
+    allocations,
     edits::{get_random_edit, invert_edit},
     fixtures::{fixtures_dir, get_language, get_test_language},
     random::Rand,
@@ -11,8 +12,8 @@ use crate::{
     test::{parse_tests, print_diff, print_diff_key, strip_sexp_fields, TestEntry},
     util,
 };
-use std::{fs, usize};
-use tree_sitter::{allocations, LogType, Node, Parser, Tree};
+use std::fs;
+use tree_sitter::{LogType, Node, Parser, Tree};
 
 const EDIT_COUNT: usize = 3;
 const TRIAL_COUNT: usize = 10;

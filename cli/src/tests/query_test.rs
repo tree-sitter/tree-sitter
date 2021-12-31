@@ -1,4 +1,5 @@
 use super::helpers::{
+    allocations,
     fixtures::get_language,
     query_helpers::{Match, Pattern},
 };
@@ -6,8 +7,8 @@ use lazy_static::lazy_static;
 use rand::{prelude::StdRng, SeedableRng};
 use std::{env, fmt::Write};
 use tree_sitter::{
-    allocations, Language, Node, Parser, Point, Query, QueryCapture, QueryCursor, QueryError,
-    QueryErrorKind, QueryMatch, QueryPredicate, QueryPredicateArg, QueryProperty,
+    Language, Node, Parser, Point, Query, QueryCapture, QueryCursor, QueryError, QueryErrorKind,
+    QueryMatch, QueryPredicate, QueryPredicateArg, QueryProperty,
 };
 
 lazy_static! {

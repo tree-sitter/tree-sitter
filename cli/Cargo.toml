@@ -43,11 +43,6 @@ which = "4.1.0"
 version = "0.20"
 path = "../lib"
 
-[dev-dependencies.tree-sitter]
-version = "0.20"
-path = "../lib"
-features = ["allocation-tracking"]
-
 [dependencies.tree-sitter-config]
 version = "0.19.0"
 path = "config"
@@ -76,6 +71,7 @@ features = ["std"]
 rand = "0.8"
 tempfile = "3"
 pretty_assertions = "0.7.2"
+ctor = "0.1"
 
 [build-dependencies]
 toml = "0.5"

@@ -1,10 +1,13 @@
-use super::helpers::fixtures::{get_language, get_language_queries_path};
-use std::ffi::CStr;
-use std::ffi::CString;
-use std::{fs, ptr, slice, str};
-use tree_sitter::{allocations, Point};
-use tree_sitter_tags::c_lib as c;
-use tree_sitter_tags::{Error, TagsConfiguration, TagsContext};
+use super::helpers::{
+    allocations,
+    fixtures::{get_language, get_language_queries_path},
+};
+use std::{
+    ffi::{CStr, CString},
+    fs, ptr, slice, str,
+};
+use tree_sitter::Point;
+use tree_sitter_tags::{c_lib as c, Error, TagsConfiguration, TagsContext};
 
 const PYTHON_TAG_QUERY: &'static str = r#"
 (

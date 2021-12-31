@@ -592,12 +592,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75ce4f9dc4a41b4c3476cc925f1efb11b66df373a8fde5d4b8915fa91b5d995e"
 
 [[package]]
-name = "spin"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13287b4da9d1207a4f4929ac390916d64eacfe236a487e9a9f5b3be392be5162"
-
-[[package]]
 name = "strsim"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -720,7 +714,6 @@ dependencies = [
  "cc",
  "lazy_static",
  "regex",
- "spin",
 ]
 
 [[package]]
@@ -731,6 +724,7 @@ dependencies = [
  "anyhow",
  "atty",
  "clap",
+ "ctor",
  "difference",
  "dirs",
  "glob",

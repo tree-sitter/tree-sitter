@@ -1,9 +1,6 @@
 mod ffi;
 mod util;
 
-#[cfg(feature = "allocation-tracking")]
-pub mod allocations;
-
 #[cfg(unix)]
 use std::os::unix::io::AsRawFd;
 
@@ -1040,7 +1037,7 @@ impl<'tree> Node<'tree> {
             .to_str()
             .unwrap()
             .to_string();
-        unsafe { util::free_ptr(c_string as *mut c_void) };
+        unsafe { (FREE_FN)(c_string as *mut c_void) };
         result
     }
 
@@ -2162,6 +2159,22 @@ impl fmt::Display for QueryError {
             write!(f, "{}", self.message)
         }
     }
+}
+
+extern "C" {
+    fn free(ptr: *mut c_void);
+}
+
+static mut FREE_FN: unsafe extern "C" fn(ptr: *mut c_void) = free;
+
+pub unsafe fn set_allocator(
+    new_malloc: Option<unsafe extern "C" fn(usize) -> *mut c_void>,
+    new_calloc: Option<unsafe extern "C" fn(usize, usize) -> *mut c_void>,
+    new_realloc: Option<unsafe extern "C" fn(*mut c_void, usize) -> *mut c_void>,
+    new_free: Option<unsafe extern "C" fn(*mut c_void)>,
+) {
+    FREE_FN = new_free.unwrap_or(free);
+    ffi::ts_set_allocator(new_malloc, new_calloc, new_realloc, new_free);
 }
 
 impl error::Error for IncludedRangesError {}

@@ -722,7 +722,6 @@ void ts_stack_clear(Stack *self) {
 
 bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) {
   array_reserve(&self->iterators, 32);
-  bool was_recording_allocations = ts_toggle_allocation_recording(false);
   if (!f) f = stderr;
 
   fprintf(f, "digraph stack {\n");
@@ -851,7 +850,6 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
   fprintf(f, "}\n");
 
   array_delete(&visited_nodes);
-  ts_toggle_allocation_recording(was_recording_allocations);
   return true;
 }
 
