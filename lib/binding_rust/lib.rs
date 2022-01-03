@@ -18,6 +18,11 @@ use std::{
     u16,
 };
 
+#[cfg(feature = "wasm")]
+mod wasm_language;
+#[cfg(feature = "wasm")]
+pub use wasm_language::*;
+
 /// The latest ABI version that is supported by the current version of the
 /// library.
 ///

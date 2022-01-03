@@ -853,6 +853,51 @@ extern "C" {
     #[doc = " See also `ts_parser_set_language`."]
     pub fn ts_language_version(arg1: *const TSLanguage) -> u32;
 }
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct wasm_engine_t {
+    _unused: [u8; 0],
+}
+pub type TSWasmEngine = wasm_engine_t;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct TSWasmStore {
+    _unused: [u8; 0],
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct TSWasmLanguage {
+    _unused: [u8; 0],
+}
+extern "C" {
+    pub fn ts_wasm_store_new(engine: *mut TSWasmEngine) -> *mut TSWasmStore;
+}
+extern "C" {
+    pub fn ts_wasm_store_delete(arg1: *mut TSWasmStore);
+}
+extern "C" {
+    pub fn ts_wasm_language_delete(arg1: *const TSWasmLanguage);
+}
+extern "C" {
+    pub fn ts_wasm_store_load_language(
+        arg1: *mut TSWasmStore,
+        name: *const ::std::os::raw::c_char,
+        wasm: *const ::std::os::raw::c_char,
+        wasm_len: u32,
+    ) -> *mut TSWasmLanguage;
+}
+extern "C" {
+    pub fn ts_wasm_store_add_language(arg1: *mut TSWasmStore, arg2: *const TSWasmLanguage);
+}
+extern "C" {
+    pub fn ts_parser_set_wasm_language(arg1: *mut TSParser, arg2: *const TSWasmLanguage);
+}
+extern "C" {
+    pub fn ts_parser_wasm_language(arg1: *mut TSParser) -> *const TSWasmLanguage;
+}
+extern "C" {
+    pub fn ts_parser_set_wasm_store(arg1: *mut TSParser, arg2: *mut TSWasmStore);
+}
 extern "C" {
     #[doc = " Set the allocation functions used by the library."]
     #[doc = ""]

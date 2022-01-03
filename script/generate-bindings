@@ -12,7 +12,10 @@ bindgen                                        \
   --blocklist-type '^__.*'                     \
   --blocklist-function ts_tree_print_dot_graph \
   --size_t-is-usize                            \
-  $header_path > $output_path
+  $header_path                                 \
+  --                                           \
+  -D TREE_SITTER_FEATURE_WASM                  \
+  > $output_path
 
 echo "" >> $output_path
 

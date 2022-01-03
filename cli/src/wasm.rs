@@ -1,14 +1,31 @@
 use super::generate::parse_grammar::GrammarJSON;
 use anyhow::{anyhow, Context, Result};
-use std::ffi::{OsStr, OsString};
-use std::fs;
-use std::path::Path;
-use std::process::Command;
+use std::{
+    ffi::{OsStr, OsString},
+    fs,
+    path::Path,
+    process::Command,
+};
 use which::which;
 
 const EMSCRIPTEN_TAG: &'static str = concat!("emscripten/emsdk:", env!("EMSCRIPTEN_VERSION"));
 
-pub fn get_grammar_name(src_dir: &Path) -> Result<String> {
+pub fn load_language_wasm_file(language_dir: &Path) -> Result<(String, Vec<u8>)> {
+    let grammar_name = get_grammar_name(&language_dir)
+        .with_context(|| "Failed to get wasm filename")
+        .unwrap();
+    let wasm_filename = format!("tree-sitter-{}.wasm", grammar_name);
+    let contents = fs::read(language_dir.join(&wasm_filename)).with_context(|| {
+        format!(
+            "Failed to read {}. Run `tree-sitter build-wasm` first.",
+            wasm_filename
+        )
+    })?;
+    Ok((grammar_name, contents))
+}
+
+pub fn get_grammar_name(language_dir: &Path) -> Result<String> {
+    let src_dir = language_dir.join("src");
     let grammar_json_path = src_dir.join("grammar.json");
     let grammar_json = fs::read_to_string(&grammar_json_path)
         .with_context(|| format!("Failed to read grammar file {:?}", grammar_json_path))?;
@@ -18,8 +35,7 @@ pub fn get_grammar_name(src_dir: &Path) -> Result<String> {
 }
 
 pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Result<()> {
-    let src_dir = language_dir.join("src");
-    let grammar_name = get_grammar_name(&src_dir)?;
+    let grammar_name = get_grammar_name(&language_dir)?;
     let output_filename = format!("tree-sitter-{}.wasm", grammar_name);
 
     let emcc_bin = if cfg!(windows) { "emcc.bat" } else { "emcc" };

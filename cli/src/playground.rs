@@ -1,5 +1,4 @@
 use super::wasm;
-use anyhow::Context;
 use std::{
     borrow::Cow,
     env, fs,
@@ -58,19 +57,8 @@ pub fn serve(grammar_path: &Path, open_in_browser: bool) {
         env::var("TREE_SITTER_PLAYGROUND_ADDR").unwrap_or("127.0.0.1".to_owned()),
         port
     );
+    let (grammar_name, language_wasm) = wasm::load_language_wasm_file(&grammar_path).unwrap();
     let server = Server::http(&addr).expect("Failed to start web server");
-    let grammar_name = wasm::get_grammar_name(&grammar_path.join("src"))
-        .with_context(|| "Failed to get wasm filename")
-        .unwrap();
-    let wasm_filename = format!("tree-sitter-{}.wasm", grammar_name);
-    let language_wasm = fs::read(grammar_path.join(&wasm_filename))
-        .with_context(|| {
-            format!(
-                "Failed to read {}. Run `tree-sitter build-wasm` first.",
-                wasm_filename
-            )
-        })
-        .unwrap();
     let url = format!("http://{}", addr);
     println!("Started playground on: {}", url);
     if open_in_browser {

@@ -937,6 +937,29 @@ TSSymbolType ts_language_symbol_type(const TSLanguage *, TSSymbol);
  */
 uint32_t ts_language_version(const TSLanguage *);
 
+/*************************************/
+/* Section - WebAssembly Integration */
+/************************************/
+
+typedef struct wasm_engine_t TSWasmEngine;
+typedef struct TSWasmStore TSWasmStore;
+typedef struct TSWasmLanguage TSWasmLanguage;
+
+TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine);
+void ts_wasm_store_delete(TSWasmStore *);
+void ts_wasm_language_delete(const TSWasmLanguage *);
+
+TSWasmLanguage *ts_wasm_store_load_language(
+  TSWasmStore *,
+  const char *name,
+  const char *wasm,
+  uint32_t wasm_len
+);
+void ts_wasm_store_add_language(TSWasmStore *, const TSWasmLanguage *);
+void ts_parser_set_wasm_language(TSParser *, const TSWasmLanguage *);
+const TSWasmLanguage *ts_parser_wasm_language(TSParser *);
+void ts_parser_set_wasm_store(TSParser *, TSWasmStore *);
+
 /**********************************/
 /* Section - Global Configuration */
 /**********************************/

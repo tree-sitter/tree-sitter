@@ -124,6 +124,7 @@ fn run() -> Result<()> {
                 .arg(&debug_arg)
                 .arg(&debug_build_arg)
                 .arg(&debug_graph_arg)
+                .arg(Arg::with_name("wasm").long("wasm").help("use wasm file"))
                 .arg(Arg::with_name("debug-xml").long("xml").short("x"))
                 .arg(
                     Arg::with_name("stat")
@@ -353,6 +354,7 @@ fn run() -> Result<()> {
             let debug_xml = matches.is_present("debug-xml");
             let quiet = matches.is_present("quiet");
             let time = matches.is_present("time");
+            let wasm = matches.is_present("wasm");
             let edits = matches
                 .values_of("edits")
                 .map_or(Vec::new(), |e| e.collect());
@@ -379,8 +381,18 @@ fn run() -> Result<()> {
             let should_track_stats = matches.is_present("stat");
             let mut stats = parse::Stats::default();
 
+            let mut wasm_language = None;
+            if wasm {
+                let (language_name, wasm_file) = wasm::load_language_wasm_file(&current_dir)?;
+                let engine = tree_sitter::wasmtime::Engine::default();
+                let mut context = tree_sitter::WasmStore::new(engine);
+                wasm_language = Some(context.load_language(&language_name, &wasm_file));
+                std::mem::forget(context);
+            }
+
             for path in paths {
                 let path = Path::new(&path);
+
                 let language =
                     loader.select_language(path, &current_dir, matches.value_of("scope"))?;
 

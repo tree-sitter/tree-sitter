@@ -18,6 +18,7 @@
 #include "./stack.h"
 #include "./subtree.h"
 #include "./tree.h"
+#include "./wasm.h"
 
 #define LOG(...)                                                                            \
   if (self->lexer.logger.log || self->dot_graph_file) {                                     \
@@ -88,6 +89,8 @@ struct TSParser {
   Stack *stack;
   SubtreePool tree_pool;
   const TSLanguage *language;
+  const TSWasmLanguage *wasm_language;
+  TSWasmStore *wasm_store;
   ReduceActionSet reduce_actions;
   Subtree finished_tree;
   SubtreeArray trailing_extras;
@@ -413,6 +416,7 @@ static Subtree ts_parser__lex(
   ts_lexer_reset(&self->lexer, start_position);
 
   for (;;) {
+    bool found_token = false;
     Length current_position = self->lexer.current_position;
 
     if (valid_external_tokens) {
@@ -424,7 +428,7 @@ static Subtree ts_parser__lex(
       );
       ts_lexer_start(&self->lexer);
       ts_parser__restore_external_scanner(self, external_token);
-      bool found_token = self->language->external_scanner.scan(
+      found_token = self->language->external_scanner.scan(
         self->external_scanner_payload,
         &self->lexer.data,
         valid_external_tokens
@@ -482,7 +486,12 @@ static Subtree ts_parser__lex(
       current_position.extent.column
     );
     ts_lexer_start(&self->lexer);
-    bool found_token = self->language->lex_fn(&self->lexer.data, lex_mode.lex_state);
+    found_token = false;
+    if (self->wasm_language) {
+      found_token = ts_wasm_store_run_main_lex_function(self->wasm_store, lex_mode.lex_state);
+    } else {
+      found_token = self->language->lex_fn(&self->lexer.data, lex_mode.lex_state);
+    }
     ts_lexer_finish(&self->lexer, &lookahead_end_byte);
     if (found_token) break;
 
@@ -543,12 +552,18 @@ static Subtree ts_parser__lex(
       uint32_t end_byte = self->lexer.token_end_position.bytes;
       ts_lexer_reset(&self->lexer, self->lexer.token_start_position);
       ts_lexer_start(&self->lexer);
+
+      if (self->wasm_language) {
+        is_keyword = ts_wasm_store_run_keyword_lex_function(self->wasm_store, 0);
+      } else {
+        is_keyword = self->language->keyword_lex_fn(&self->lexer.data, 0);
+      }
+
       if (
-        self->language->keyword_lex_fn(&self->lexer.data, 0) &&
+        is_keyword &&
         self->lexer.token_end_position.bytes == end_byte &&
         ts_language_has_actions(self->language, parse_state, self->lexer.data.result_symbol)
       ) {
-        is_keyword = true;
         symbol = self->lexer.data.result_symbol;
       }
     }
@@ -1797,6 +1812,14 @@ bool ts_parser_set_language(TSParser *self, const TSLanguage *language) {
   }
 
   self->language = language;
+
+  #ifdef TREE_SITTER_FEATURE_WASM
+    if (self->wasm_language) {
+      ts_wasm_language_delete(self->wasm_language);
+      self->wasm_language = NULL;
+    }
+  #endif
+
   ts_parser_reset(self);
   return true;
 }
@@ -1876,6 +1899,10 @@ TSTree *ts_parser_parse(
   TSInput input
 ) {
   if (!self->language || !input.read) return NULL;
+
+  if (self->wasm_store) {
+    ts_wasm_store_start(self->wasm_store, &self->lexer.data, self->wasm_language);
+  }
 
   ts_lexer_set_input(&self->lexer, input);
 
@@ -1995,5 +2022,29 @@ TSTree *ts_parser_parse_string_encoding(
     encoding,
   });
 }
+
+#ifdef TREE_SITTER_FEATURE_WASM
+
+void ts_parser_set_wasm_language(TSParser *self, const TSWasmLanguage *language) {
+  if (language) {
+    self->language = language->language;
+    ts_wasm_language_retain(language);
+  }
+  self->wasm_language = language;
+  ts_parser_reset(self);
+}
+
+const TSWasmLanguage *ts_parser_wasm_language(TSParser *self) {
+  if (self->wasm_language) {
+    ts_wasm_language_retain(self->wasm_language);
+  }
+  return self->wasm_language;
+}
+
+void ts_parser_set_wasm_store(TSParser *self, TSWasmStore *store) {
+  self->wasm_store = store;
+}
+
+#endif  // TREE_SITTER_FEATURE_WASM
 
 #undef LOG
