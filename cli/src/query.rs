@@ -101,6 +101,7 @@ pub fn query_files_at_paths(
             )?;
         }
         if should_test {
+            results.dedup_by(|a, b| a.start == b.start && a.end == b.end);
             query_testing::assert_expected_captures(results, path, &mut parser, language)?
         }
     }
