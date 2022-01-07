@@ -152,28 +152,7 @@ static void ts_lexer_goto(Lexer *self, Length position) {
   }
 }
 
-// Advance without logging.
-static void ts_lexer__advance_no_log(Lexer *self, bool skip) {
-  if (!self->chunk) return;
-  ts_lexer__do_advance(self, skip);
-}
-
-// Advance to the next character in the source code, retrieving a new
-// chunk of source code if needed.
-static void ts_lexer__advance(TSLexer *_self, bool skip) {
-  Lexer *self = (Lexer *)_self;
-  if (!self->chunk) return;
-
-  if (skip) {
-    LOG("skip", self->data.lookahead);
-  } else {
-    LOG("consume", self->data.lookahead);
-  }
-  
-  ts_lexer__do_advance(self, skip);
-}
-
-// Intended to be called only from functions below that control logging.
+// Intended to be called only from functions that control logging.
 static void ts_lexer__do_advance(Lexer *self, bool skip) {
   if (self->lookahead_size) {
     self->current_position.bytes += self->lookahead_size;
@@ -214,6 +193,27 @@ static void ts_lexer__do_advance(Lexer *self, bool skip) {
     self->data.lookahead = '\0';
     self->lookahead_size = 1;
   }
+}
+
+// Advance to the next character in the source code, retrieving a new
+// chunk of source code if needed.
+static void ts_lexer__advance(TSLexer *_self, bool skip) {
+  Lexer *self = (Lexer *)_self;
+  if (!self->chunk) return;
+
+  if (skip) {
+    LOG("skip", self->data.lookahead);
+  } else {
+    LOG("consume", self->data.lookahead);
+  }
+  
+  ts_lexer__do_advance(self, skip);
+}
+
+// Advance without logging.
+static void ts_lexer__advance_no_log(Lexer *self, bool skip) {
+  if (!self->chunk) return;
+  ts_lexer__do_advance(self, skip);
 }
 
 // Mark that a token match has completed. This can be called multiple
