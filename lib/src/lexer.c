@@ -152,6 +152,12 @@ static void ts_lexer_goto(Lexer *self, Length position) {
   }
 }
 
+// Advance without logging.
+static void ts_lexer__advance_no_log(Lexer *self, bool skip) {
+  if (!self->chunk) return;
+  ts_lexer__do_advance(self, skip);
+}
+
 // Advance to the next character in the source code, retrieving a new
 // chunk of source code if needed.
 static void ts_lexer__advance(TSLexer *_self, bool skip) {
@@ -164,12 +170,6 @@ static void ts_lexer__advance(TSLexer *_self, bool skip) {
     LOG("consume", self->data.lookahead);
   }
   
-  ts_lexer__do_advance(self, skip);
-}
-
-// Advance without logging.
-static void ts_lexer__advance_no_log(Lexer *self, bool skip) {
-  if (!self->chunk) return;
   ts_lexer__do_advance(self, skip);
 }
 
