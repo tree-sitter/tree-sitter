@@ -467,192 +467,149 @@ static TSQuantifier quantifier_mul(
   TSQuantifier left,
   TSQuantifier right
 ) {
-  TSQuantifier result = TSQuantifierZero; // initialized to make compiler happy, but all cases should be covered below!
   switch (left)
   {
     case TSQuantifierZero:
-      result = TSQuantifierZero;
-      break;
+      return TSQuantifierZero;
     case TSQuantifierZeroOrOne:
       switch (right) {
         case TSQuantifierZero:
-          result = TSQuantifierZero;
-          break;
+          return TSQuantifierZero;
         case TSQuantifierZeroOrOne:
         case TSQuantifierOne:
-          result = TSQuantifierZeroOrOne;
-          break;
+          return TSQuantifierZeroOrOne;
         case TSQuantifierZeroOrMore:
         case TSQuantifierOneOrMore:
-          result = TSQuantifierZeroOrMore;
-          break;
+          return TSQuantifierZeroOrMore;
       };
-      break;
     case TSQuantifierZeroOrMore:
       switch (right) {
         case TSQuantifierZero:
-          result = TSQuantifierZero;
-          break;
+          return TSQuantifierZero;
         case TSQuantifierZeroOrOne:
         case TSQuantifierZeroOrMore:
         case TSQuantifierOne:
         case TSQuantifierOneOrMore:
-          result = TSQuantifierZeroOrMore;
-          break;
+          return TSQuantifierZeroOrMore;
       };
-      break;
     case TSQuantifierOne:
-      result = right;
-      break;
+      return right;
     case TSQuantifierOneOrMore:
       switch (right) {
         case TSQuantifierZero:
-          result = TSQuantifierZero;
-          break;
+          return TSQuantifierZero;
         case TSQuantifierZeroOrOne:
         case TSQuantifierZeroOrMore:
-          result = TSQuantifierZeroOrMore;
-          break;
+          return TSQuantifierZeroOrMore;
         case TSQuantifierOne:
         case TSQuantifierOneOrMore:
-          result = TSQuantifierOneOrMore;
-          break;
+          return TSQuantifierOneOrMore;
       };
-      break;
   }
-  return result;
+  return TSQuantifierZero; // to make compiler happy, but all cases should be covered above!
 }
 
 static TSQuantifier quantifier_join(
   TSQuantifier left,
   TSQuantifier right
 ) {
-  TSQuantifier result = TSQuantifierZero; // initialized to make compiler happy, but all cases should be covered below!
   switch (left)
   {
     case TSQuantifierZero:
       switch (right) {
         case TSQuantifierZero:
-          result = TSQuantifierZero;
-          break;
+          return TSQuantifierZero;
         case TSQuantifierZeroOrOne:
         case TSQuantifierOne:
-          result = TSQuantifierZeroOrOne;
-          break;
+          return TSQuantifierZeroOrOne;
         case TSQuantifierZeroOrMore:
         case TSQuantifierOneOrMore:
-          result = TSQuantifierZeroOrMore;
-          break;
+          return TSQuantifierZeroOrMore;
       };
-      break;
     case TSQuantifierZeroOrOne:
       switch (right) {
         case TSQuantifierZero:
         case TSQuantifierZeroOrOne:
         case TSQuantifierOne:
-          result = TSQuantifierZeroOrOne;
+          return TSQuantifierZeroOrOne;
           break;
         case TSQuantifierZeroOrMore:
         case TSQuantifierOneOrMore:
-          result = TSQuantifierZeroOrMore;
+          return TSQuantifierZeroOrMore;
           break;
       };
-      break;
     case TSQuantifierZeroOrMore:
-      result = TSQuantifierZeroOrMore;
-      break;
+      return TSQuantifierZeroOrMore;
     case TSQuantifierOne:
       switch (right) {
         case TSQuantifierZero:
         case TSQuantifierZeroOrOne:
-          result = TSQuantifierZeroOrOne;
-          break;
+          return TSQuantifierZeroOrOne;
         case TSQuantifierZeroOrMore:
-          result = TSQuantifierZeroOrMore;
-          break;
+          return TSQuantifierZeroOrMore;
         case TSQuantifierOne:
-          result = TSQuantifierOne;
-          break;
+          return TSQuantifierOne;
         case TSQuantifierOneOrMore:
-          result = TSQuantifierOneOrMore;
-          break;
+          return TSQuantifierOneOrMore;
       };
-      break;
     case TSQuantifierOneOrMore:
       switch (right) {
         case TSQuantifierZero:
         case TSQuantifierZeroOrOne:
         case TSQuantifierZeroOrMore:
-          result = TSQuantifierZeroOrMore;
-          break;
+          return TSQuantifierZeroOrMore;
         case TSQuantifierOne:
         case TSQuantifierOneOrMore:
-          result = TSQuantifierOneOrMore;
-          break;
+          return TSQuantifierOneOrMore;
       };
-      break;
   }
-  return result;
+  return TSQuantifierZero; // to make compiler happy, but all cases should be covered above!
 }
 
 static TSQuantifier quantifier_add(
   TSQuantifier left,
   TSQuantifier right
 ) {
-  TSQuantifier result = TSQuantifierZero; // initialized to make compiler happy, but all cases should be covered below!
   switch (left)
   {
     case TSQuantifierZero:
-      result = right;
-      break;
+      return right;
     case TSQuantifierZeroOrOne:
       switch (right) {
         case TSQuantifierZero:
-          result = TSQuantifierZeroOrOne;
-          break;
+          return TSQuantifierZeroOrOne;
         case TSQuantifierZeroOrOne:
         case TSQuantifierZeroOrMore:
-          result = TSQuantifierZeroOrMore;
-          break;
+          return TSQuantifierZeroOrMore;
         case TSQuantifierOne:
         case TSQuantifierOneOrMore:
-          result = TSQuantifierOneOrMore;
-          break;
+          return TSQuantifierOneOrMore;
       };
-      break;
     case TSQuantifierZeroOrMore:
       switch (right) {
         case TSQuantifierZero:
-          result = TSQuantifierZeroOrMore;
-          break;
+          return TSQuantifierZeroOrMore;
         case TSQuantifierZeroOrOne:
         case TSQuantifierZeroOrMore:
-          result = TSQuantifierZeroOrMore;
-          break;
+          return TSQuantifierZeroOrMore;
         case TSQuantifierOne:
         case TSQuantifierOneOrMore:
-          result = TSQuantifierOneOrMore;
-          break;
+          return TSQuantifierOneOrMore;
       };
-      break;
     case TSQuantifierOne:
       switch (right) {
         case TSQuantifierZero:
-          result = TSQuantifierOne;
-          break;
+          return TSQuantifierOne;
         case TSQuantifierZeroOrOne:
         case TSQuantifierZeroOrMore:
         case TSQuantifierOne:
         case TSQuantifierOneOrMore:
-          result = TSQuantifierOneOrMore;
-          break;
+          return TSQuantifierOneOrMore;
       };
-      break;
     case TSQuantifierOneOrMore:
-      result = TSQuantifierOneOrMore;
-      break;
+      return TSQuantifierOneOrMore;
   }
-  return result;
+  return TSQuantifierZero; // to make compiler happy, but all cases should be covered above!
 }
 
 // Create new capture quantifiers structure
