@@ -1607,7 +1607,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   }
 
   // Mark as indefinite any step with captures that are used in predicates.
-  Array(uint16_t) predicate_capture_ids = array_new(); // FIXME
+  Array(uint16_t) predicate_capture_ids = array_new();
   for (unsigned i = 0; i < self->patterns.size; i++) {
     QueryPattern *pattern = &self->patterns.contents[i];
 
@@ -1715,7 +1715,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   array_delete(&deeper_states);
   array_delete(&final_step_indices);
   array_delete(&parent_step_indices);
-  array_delete(&predicate_capture_ids); // FIXME
+  array_delete(&predicate_capture_ids);
   state_predecessor_map_delete(&predecessor_map);
 
   return all_patterns_are_valid;
