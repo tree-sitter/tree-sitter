@@ -4003,6 +4003,24 @@ fn test_capture_quantifiers() {
                 (3, "z", CaptureQuantifier::Zero),
             ],
         },
+        Row {
+            description: "multiple alternatives",
+            language: get_language("javascript"),
+            pattern: r#"
+            [
+                (array (identifier) @x)
+                (function_declaration name: (identifier)+ @x)
+            ]
+            [
+                (array (identifier) @x)
+                (function_declaration name: (identifier)+ @x)
+            ]
+            "#,
+            capture_quantifiers: &[
+                (0, "x", CaptureQuantifier::OneOrMore),
+                (1, "x", CaptureQuantifier::OneOrMore),
+            ],
+        },
     ];
 
     allocations::record(|| {

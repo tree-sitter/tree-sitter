@@ -1990,7 +1990,7 @@ static TSQueryError ts_query__parse_pattern(
         return e;
       }
 
-      if(start_index == 0) {
+      if(start_index == starting_step_index) {
         capture_quantifiers_replace(capture_quantifiers, &branch_capture_quantifiers);
       } else {
         capture_quantifiers_join_all(capture_quantifiers, &branch_capture_quantifiers);
