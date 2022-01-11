@@ -2291,12 +2291,9 @@ static TSQueryError ts_query__parse_pattern(
       is_immediate,
       &field_capture_quantifiers
     );
-    if (e == PARENT_DONE) {
-      capture_quantifiers_delete(&field_capture_quantifiers);
-      return TSQueryErrorSyntax;
-    }
     if (e) {
       capture_quantifiers_delete(&field_capture_quantifiers);
+      if (e == PARENT_DONE) e = TSQueryErrorSyntax;
       return e;
     }
 
