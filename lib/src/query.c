@@ -2404,14 +2404,13 @@ static TSQueryError ts_query__parse_pattern(
         length
       );
 
+      // Add the capture quantifier
+      capture_quantifiers_add_for_id(capture_quantifiers, capture_id, TSQuantifierOne);
+
       uint32_t step_index = starting_step_index;
       for (;;) {
         QueryStep *step = &self->steps.contents[step_index];
         query_step__add_capture(step, capture_id);
-        // Add only once, not for every branch, lest the quantifier will be '+' instead of '1'
-        if (step_index == starting_step_index) {
-          capture_quantifiers_add_for_id(capture_quantifiers, capture_id, TSQuantifierOne);
-        }
         if (
           step->alternative_index != NONE &&
           step->alternative_index > step_index &&
