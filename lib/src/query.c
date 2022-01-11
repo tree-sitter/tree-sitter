@@ -123,7 +123,7 @@ typedef struct {
 /**
  * CaptureQuantififers - a data structure holding the quantifiers of pattern captures.
  */
-typedef Array(TSQuantifier) CaptureQuantifiers;
+typedef Array(uint8_t) CaptureQuantifiers;
 
 /*
  * PatternEntry - Information about the starting point for matching a particular
@@ -645,7 +645,7 @@ static TSQuantifier capture_quantifier_for_id(
   const CaptureQuantifiers *self,
   uint16_t id
 ) {
-  return (self->size <= id) ? TSQuantifierZero : *array_get(self, id);
+  return (self->size <= id) ? TSQuantifierZero : (TSQuantifier) *array_get(self, id);
 }
 
 // Add the given quantifier to the current value for id
@@ -657,8 +657,8 @@ static void capture_quantifiers_add_for_id(
   if (self->size <= id) {
     array_grow_by(self, id + 1 - self->size);
   }
-  TSQuantifier *own_quantifier = array_get(self, id);
-  *own_quantifier = quantifier_add(*own_quantifier, quantifier);
+  uint8_t *own_quantifier = array_get(self, id);
+  *own_quantifier = (uint8_t) quantifier_add((TSQuantifier) *own_quantifier, quantifier);
 }
 
 // Point-wise add the given quantifiers to the current values
@@ -670,9 +670,9 @@ static void capture_quantifiers_add_all(
     array_grow_by(self, quantifiers->size - self->size);
   }
   for (uint16_t id = 0; id < quantifiers->size; id++) {
-    TSQuantifier *quantifier = array_get(quantifiers, id);
-    TSQuantifier *own_quantifier = array_get(self, id);
-    *own_quantifier = quantifier_add(*own_quantifier, *quantifier);
+    uint8_t *quantifier = array_get(quantifiers, id);
+    uint8_t *own_quantifier = array_get(self, id);
+    *own_quantifier = (uint8_t) quantifier_add((TSQuantifier) *own_quantifier, (TSQuantifier) *quantifier);
   }
 }
 
@@ -682,8 +682,8 @@ static void capture_quantifiers_mul(
   TSQuantifier quantifier
 ) {
   for (uint16_t id = 0; id < self->size; id++) {
-    TSQuantifier *own_quantifier = array_get(self, id);
-    *own_quantifier = quantifier_mul(*own_quantifier, quantifier);
+    uint8_t *own_quantifier = array_get(self, id);
+    *own_quantifier = (uint8_t) quantifier_mul((TSQuantifier) *own_quantifier, quantifier);
   }
 }
 
@@ -696,13 +696,13 @@ static void capture_quantifiers_join_all(
     array_grow_by(self, quantifiers->size - self->size);
   }
   for (uint32_t id = 0; id < quantifiers->size; id++) {
-    TSQuantifier *quantifier = array_get(quantifiers, id);
-    TSQuantifier *own_quantifier = array_get(self, id);
-    *own_quantifier = quantifier_join(*own_quantifier, *quantifier);
+    uint8_t *quantifier = array_get(quantifiers, id);
+    uint8_t *own_quantifier = array_get(self, id);
+    *own_quantifier = (uint8_t) quantifier_join((TSQuantifier) *own_quantifier, (TSQuantifier) *quantifier);
   }
   for (uint32_t id = quantifiers->size; id < self->size; id++) {
-    TSQuantifier *own_quantifier = array_get(self, id);
-    *own_quantifier = quantifier_join(*own_quantifier, TSQuantifierZero);
+    uint8_t *own_quantifier = array_get(self, id);
+    *own_quantifier = (uint8_t) quantifier_join((TSQuantifier) *own_quantifier, TSQuantifierZero);
   }
 }
 
