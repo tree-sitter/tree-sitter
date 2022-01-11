@@ -750,9 +750,8 @@ const char *ts_query_capture_name_for_id(
 );
 
 /**
- * Get the quantifier of the query's captures, or one of the query's string
- * literals. Each capture and string is associated with a numeric id based
- * on the order that it appeared in the query's source.
+ * Get the quantifier of the query's captures. Each capture is * associated
+ * with a numeric id based on the order that it appeared in the query's source.
  */
 TSQuantifier ts_query_capture_quantifier_for_id(
   const TSQuery *,

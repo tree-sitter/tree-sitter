@@ -672,9 +672,8 @@ extern "C" {
     ) -> *const ::std::os::raw::c_char;
 }
 extern "C" {
-    #[doc = " Get the quantifier of the query's captures, or one of the query's string"]
-    #[doc = " literals. Each capture and string is associated with a numeric id based"]
-    #[doc = " on the order that it appeared in the query's source."]
+    #[doc = " Get the quantifier of the query's captures. Each capture is * associated"]
+    #[doc = " with a numeric id based on the order that it appeared in the query's source."]
     pub fn ts_query_capture_quantifier_for_id(
         arg1: *const TSQuery,
         pattern_id: u32,
