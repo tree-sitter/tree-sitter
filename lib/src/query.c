@@ -467,55 +467,55 @@ static TSQuantifier quantifier_mul(
   TSQuantifier left,
   TSQuantifier right
 ) {
-  TSQuantifier result = Zero; // initialized to make compiler happy, but all cases should be covered below!
+  TSQuantifier result = TSQuantifierZero; // initialized to make compiler happy, but all cases should be covered below!
   switch (left)
   {
-    case Zero:
-      result = Zero;
+    case TSQuantifierZero:
+      result = TSQuantifierZero;
       break;
-    case ZeroOrOne:
+    case TSQuantifierZeroOrOne:
       switch (right) {
-        case Zero:
-          result = Zero;
+        case TSQuantifierZero:
+          result = TSQuantifierZero;
           break;
-        case ZeroOrOne:
-        case One:
-          result = ZeroOrOne;
+        case TSQuantifierZeroOrOne:
+        case TSQuantifierOne:
+          result = TSQuantifierZeroOrOne;
           break;
-        case ZeroOrMore:
-        case OneOrMore:
-          result = ZeroOrMore;
+        case TSQuantifierZeroOrMore:
+        case TSQuantifierOneOrMore:
+          result = TSQuantifierZeroOrMore;
           break;
       };
       break;
-    case ZeroOrMore:
+    case TSQuantifierZeroOrMore:
       switch (right) {
-        case Zero:
-          result = Zero;
+        case TSQuantifierZero:
+          result = TSQuantifierZero;
           break;
-        case ZeroOrOne:
-        case ZeroOrMore:
-        case One:
-        case OneOrMore:
-          result = ZeroOrMore;
+        case TSQuantifierZeroOrOne:
+        case TSQuantifierZeroOrMore:
+        case TSQuantifierOne:
+        case TSQuantifierOneOrMore:
+          result = TSQuantifierZeroOrMore;
           break;
       };
       break;
-    case One:
+    case TSQuantifierOne:
       result = right;
       break;
-    case OneOrMore:
+    case TSQuantifierOneOrMore:
       switch (right) {
-        case Zero:
-          result = Zero;
+        case TSQuantifierZero:
+          result = TSQuantifierZero;
           break;
-        case ZeroOrOne:
-        case ZeroOrMore:
-          result = ZeroOrMore;
+        case TSQuantifierZeroOrOne:
+        case TSQuantifierZeroOrMore:
+          result = TSQuantifierZeroOrMore;
           break;
-        case One:
-        case OneOrMore:
-          result = OneOrMore;
+        case TSQuantifierOne:
+        case TSQuantifierOneOrMore:
+          result = TSQuantifierOneOrMore;
           break;
       };
       break;
@@ -527,67 +527,67 @@ static TSQuantifier quantifier_join(
   TSQuantifier left,
   TSQuantifier right
 ) {
-  TSQuantifier result = Zero; // initialized to make compiler happy, but all cases should be covered below!
+  TSQuantifier result = TSQuantifierZero; // initialized to make compiler happy, but all cases should be covered below!
   switch (left)
   {
-    case Zero:
+    case TSQuantifierZero:
       switch (right) {
-        case Zero:
-          result = Zero;
+        case TSQuantifierZero:
+          result = TSQuantifierZero;
           break;
-        case ZeroOrOne:
-        case One:
-          result = ZeroOrOne;
+        case TSQuantifierZeroOrOne:
+        case TSQuantifierOne:
+          result = TSQuantifierZeroOrOne;
           break;
-        case ZeroOrMore:
-        case OneOrMore:
-          result = ZeroOrMore;
+        case TSQuantifierZeroOrMore:
+        case TSQuantifierOneOrMore:
+          result = TSQuantifierZeroOrMore;
           break;
       };
       break;
-    case ZeroOrOne:
+    case TSQuantifierZeroOrOne:
       switch (right) {
-        case Zero:
-        case ZeroOrOne:
-        case One:
-          result = ZeroOrOne;
+        case TSQuantifierZero:
+        case TSQuantifierZeroOrOne:
+        case TSQuantifierOne:
+          result = TSQuantifierZeroOrOne;
           break;
-        case ZeroOrMore:
-        case OneOrMore:
-          result = ZeroOrMore;
+        case TSQuantifierZeroOrMore:
+        case TSQuantifierOneOrMore:
+          result = TSQuantifierZeroOrMore;
           break;
       };
       break;
-    case ZeroOrMore:
-      result = ZeroOrMore;
+    case TSQuantifierZeroOrMore:
+      result = TSQuantifierZeroOrMore;
       break;
-    case One:
+    case TSQuantifierOne:
       switch (right) {
-        case Zero:
-        case ZeroOrOne:
-          result = ZeroOrOne;
+        case TSQuantifierZero:
+        case TSQuantifierZeroOrOne:
+          result = TSQuantifierZeroOrOne;
           break;
-        case ZeroOrMore:
-          result = ZeroOrMore;
+        case TSQuantifierZeroOrMore:
+          result = TSQuantifierZeroOrMore;
           break;
-        case One:
-          result = One;
+        case TSQuantifierOne:
+          result = TSQuantifierOne;
           break;
-        case OneOrMore:
-          result = OneOrMore;
+        case TSQuantifierOneOrMore:
+          result = TSQuantifierOneOrMore;
           break;
       };
       break;
-    case OneOrMore:
+    case TSQuantifierOneOrMore:
       switch (right) {
-        case Zero:
-        case ZeroOrOne:
-        case ZeroOrMore:
-          result = ZeroOrMore;
+        case TSQuantifierZero:
+        case TSQuantifierZeroOrOne:
+        case TSQuantifierZeroOrMore:
+          result = TSQuantifierZeroOrMore;
           break;
-        case One:
-        case OneOrMore:
-          result = OneOrMore;
+        case TSQuantifierOne:
+        case TSQuantifierOneOrMore:
+          result = TSQuantifierOneOrMore;
           break;
       };
       break;
@@ -599,57 +599,57 @@ static TSQuantifier quantifier_add(
   TSQuantifier left,
   TSQuantifier right
 ) {
-  TSQuantifier result = Zero; // initialized to make compiler happy, but all cases should be covered below!
+  TSQuantifier result = TSQuantifierZero; // initialized to make compiler happy, but all cases should be covered below!
   switch (left)
   {
-    case Zero:
+    case TSQuantifierZero:
       result = right;
       break;
-    case ZeroOrOne:
+    case TSQuantifierZeroOrOne:
       switch (right) {
-        case Zero:
-          result = ZeroOrOne;
+        case TSQuantifierZero:
+          result = TSQuantifierZeroOrOne;
           break;
-        case ZeroOrOne:
-        case ZeroOrMore:
-          result = ZeroOrMore;
+        case TSQuantifierZeroOrOne:
+        case TSQuantifierZeroOrMore:
+          result = TSQuantifierZeroOrMore;
           break;
-        case One:
-        case OneOrMore:
-          result = OneOrMore;
+        case TSQuantifierOne:
+        case TSQuantifierOneOrMore:
+          result = TSQuantifierOneOrMore;
           break;
       };
       break;
-    case ZeroOrMore:
+    case TSQuantifierZeroOrMore:
       switch (right) {
-        case Zero:
-          result = ZeroOrMore;
+        case TSQuantifierZero:
+          result = TSQuantifierZeroOrMore;
           break;
-        case ZeroOrOne:
-        case ZeroOrMore:
-          result = ZeroOrMore;
+        case TSQuantifierZeroOrOne:
+        case TSQuantifierZeroOrMore:
+          result = TSQuantifierZeroOrMore;
           break;
-        case One:
-        case OneOrMore:
-          result = OneOrMore;
+        case TSQuantifierOne:
+        case TSQuantifierOneOrMore:
+          result = TSQuantifierOneOrMore;
           break;
       };
       break;
-    case One:
+    case TSQuantifierOne:
       switch (right) {
-        case Zero:
-          result = One;
+        case TSQuantifierZero:
+          result = TSQuantifierOne;
           break;
-        case ZeroOrOne:
-        case ZeroOrMore:
-        case One:
-        case OneOrMore:
-          result = OneOrMore;
+        case TSQuantifierZeroOrOne:
+        case TSQuantifierZeroOrMore:
+        case TSQuantifierOne:
+        case TSQuantifierOneOrMore:
+          result = TSQuantifierOneOrMore;
           break;
       };
       break;
-    case OneOrMore:
-      result = OneOrMore;
+    case TSQuantifierOneOrMore:
+      result = TSQuantifierOneOrMore;
       break;
   }
   return result;
@@ -688,7 +688,7 @@ static TSQuantifier capture_quantifier_for_id(
   const CaptureQuantifiers *self,
   uint16_t id
 ) {
-  return (self->size <= id) ? Zero : *array_get(self, id);
+  return (self->size <= id) ? TSQuantifierZero : *array_get(self, id);
 }
 
 // Add the given quantifier to the current value for id
@@ -745,7 +745,7 @@ static void capture_quantifiers_join_all(
   }
   for (uint32_t id = quantifiers->size; id < self->size; id++) {
     TSQuantifier *own_quantifier = array_get(self, id);
-    *own_quantifier = quantifier_join(*own_quantifier, Zero);
+    *own_quantifier = quantifier_join(*own_quantifier, TSQuantifierZero);
   }
 }
 
@@ -2381,11 +2381,11 @@ static TSQueryError ts_query__parse_pattern(
   stream_skip_whitespace(stream);
 
   // Parse suffixes modifiers for this pattern
-  TSQuantifier quantifier = One;
+  TSQuantifier quantifier = TSQuantifierOne;
   for (;;) {
     // Parse the one-or-more operator.
     if (stream->next == '+') {
-      quantifier = quantifier_join(OneOrMore, quantifier);
+      quantifier = quantifier_join(TSQuantifierOneOrMore, quantifier);
 
       stream_advance(stream);
       stream_skip_whitespace(stream);
@@ -2399,7 +2399,7 @@ static TSQueryError ts_query__parse_pattern(
 
     // Parse the zero-or-more repetition operator.
     else if (stream->next == '*') {
-      quantifier = quantifier_join(ZeroOrMore, quantifier);
+      quantifier = quantifier_join(TSQuantifierZeroOrMore, quantifier);
 
       stream_advance(stream);
       stream_skip_whitespace(stream);
@@ -2419,7 +2419,7 @@ static TSQueryError ts_query__parse_pattern(
 
     // Parse the optional operator.
     else if (stream->next == '?') {
-      quantifier = quantifier_join(ZeroOrOne, quantifier);
+      quantifier = quantifier_join(TSQuantifierZeroOrOne, quantifier);
 
       stream_advance(stream);
       stream_skip_whitespace(stream);
@@ -2453,7 +2453,7 @@ static TSQueryError ts_query__parse_pattern(
         query_step__add_capture(step, capture_id);
         // Add only once, not for every branch, lest the quantifier will be '+' instead of '1'
         if (step_index == starting_step_index) {
-          capture_quantifiers_add_for_id(capture_quantifiers, capture_id, One);
+          capture_quantifiers_add_for_id(capture_quantifiers, capture_id, TSQuantifierOne);
         }
         if (
           step->alternative_index != NONE &&

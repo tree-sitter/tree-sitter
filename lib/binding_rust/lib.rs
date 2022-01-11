@@ -118,11 +118,11 @@ pub enum CaptureQuantifier {
 impl From<ffi::TSQuantifier> for CaptureQuantifier {
     fn from(value: ffi::TSQuantifier) -> Self {
         match value {
-            ffi::TSQuantifier_Zero => CaptureQuantifier::Zero,
-            ffi::TSQuantifier_ZeroOrOne => CaptureQuantifier::ZeroOrOne,
-            ffi::TSQuantifier_ZeroOrMore => CaptureQuantifier::ZeroOrMore,
-            ffi::TSQuantifier_One => CaptureQuantifier::One,
-            ffi::TSQuantifier_OneOrMore => CaptureQuantifier::OneOrMore,
+            ffi::TSQuantifier_TSQuantifierZero => CaptureQuantifier::Zero,
+            ffi::TSQuantifier_TSQuantifierZeroOrOne => CaptureQuantifier::ZeroOrOne,
+            ffi::TSQuantifier_TSQuantifierZeroOrMore => CaptureQuantifier::ZeroOrMore,
+            ffi::TSQuantifier_TSQuantifierOne => CaptureQuantifier::One,
+            ffi::TSQuantifier_TSQuantifierOneOrMore => CaptureQuantifier::OneOrMore,
             _ => panic!("Unrecognized quantifier: {}", value),
         }
     }
