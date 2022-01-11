@@ -1349,7 +1349,7 @@ impl Query {
             }
         }
 
-        // Build
+        // Build a vector to store capture qunatifiers.
         for i in 0..pattern_count {
             let mut capture_quantifiers = Vec::with_capacity(capture_count as usize);
             for j in 0..capture_count {
