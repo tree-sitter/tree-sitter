@@ -210,12 +210,6 @@ static void ts_lexer__advance(TSLexer *_self, bool skip) {
   ts_lexer__do_advance(self, skip);
 }
 
-// Advance without logging.
-static void ts_lexer__advance_no_log(Lexer *self, bool skip) {
-  if (!self->chunk) return;
-  ts_lexer__do_advance(self, skip);
-}
-
 // Mark that a token match has completed. This can be called multiple
 // times if a longer match is found later.
 static void ts_lexer__mark_end(TSLexer *_self) {
@@ -257,8 +251,8 @@ static uint32_t ts_lexer__get_column(TSLexer *_self) {
 
   uint32_t result = 0;
   ts_lexer__get_lookahead(self);
-  while (self->current_position.bytes < goal_byte && !ts_lexer__eof(_self)) {
-    ts_lexer__advance_no_log(self, false);
+  while (self->current_position.bytes < goal_byte && !ts_lexer__eof(_self) && self->chunk) {
+    ts_lexer__do_advance(self, false);
     result++;
   }
 
