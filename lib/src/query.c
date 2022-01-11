@@ -482,6 +482,7 @@ static TSQuantifier quantifier_mul(
         case TSQuantifierOneOrMore:
           return TSQuantifierZeroOrMore;
       };
+      break;
     case TSQuantifierZeroOrMore:
       switch (right) {
         case TSQuantifierZero:
@@ -492,6 +493,7 @@ static TSQuantifier quantifier_mul(
         case TSQuantifierOneOrMore:
           return TSQuantifierZeroOrMore;
       };
+      break;
     case TSQuantifierOne:
       return right;
     case TSQuantifierOneOrMore:
@@ -505,6 +507,7 @@ static TSQuantifier quantifier_mul(
         case TSQuantifierOneOrMore:
           return TSQuantifierOneOrMore;
       };
+      break;
   }
   return TSQuantifierZero; // to make compiler happy, but all cases should be covered above!
 }
@@ -526,6 +529,7 @@ static TSQuantifier quantifier_join(
         case TSQuantifierOneOrMore:
           return TSQuantifierZeroOrMore;
       };
+      break;
     case TSQuantifierZeroOrOne:
       switch (right) {
         case TSQuantifierZero:
@@ -538,6 +542,7 @@ static TSQuantifier quantifier_join(
           return TSQuantifierZeroOrMore;
           break;
       };
+      break;
     case TSQuantifierZeroOrMore:
       return TSQuantifierZeroOrMore;
     case TSQuantifierOne:
@@ -552,6 +557,7 @@ static TSQuantifier quantifier_join(
         case TSQuantifierOneOrMore:
           return TSQuantifierOneOrMore;
       };
+      break;
     case TSQuantifierOneOrMore:
       switch (right) {
         case TSQuantifierZero:
@@ -562,6 +568,7 @@ static TSQuantifier quantifier_join(
         case TSQuantifierOneOrMore:
           return TSQuantifierOneOrMore;
       };
+      break;
   }
   return TSQuantifierZero; // to make compiler happy, but all cases should be covered above!
 }
@@ -585,6 +592,7 @@ static TSQuantifier quantifier_add(
         case TSQuantifierOneOrMore:
           return TSQuantifierOneOrMore;
       };
+      break;
     case TSQuantifierZeroOrMore:
       switch (right) {
         case TSQuantifierZero:
@@ -596,6 +604,7 @@ static TSQuantifier quantifier_add(
         case TSQuantifierOneOrMore:
           return TSQuantifierOneOrMore;
       };
+      break;
     case TSQuantifierOne:
       switch (right) {
         case TSQuantifierZero:
@@ -606,6 +615,7 @@ static TSQuantifier quantifier_add(
         case TSQuantifierOneOrMore:
           return TSQuantifierOneOrMore;
       };
+      break;
     case TSQuantifierOneOrMore:
       return TSQuantifierOneOrMore;
   }
