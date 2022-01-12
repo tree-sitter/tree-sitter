@@ -52,8 +52,8 @@ bool tree_sitter_external_unicode_column_alignment_external_scanner_scan(
   const bool *whitelist
 ) {
   Scanner *scanner = payload;
-  // 9633 is the int equivalent of □ (U+25A1)
-  while (iswspace(lexer->lookahead) || 9633 == lexer->lookahead) {
+  // U+25A1 is unicode codepoint □
+  while (iswspace(lexer->lookahead) || 0x25A1 == lexer->lookahead) {
     lexer->advance(lexer, true);
   } 
   if ('-' == lexer->lookahead) {
