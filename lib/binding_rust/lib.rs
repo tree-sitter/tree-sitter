@@ -98,10 +98,34 @@ pub struct TreeCursor<'a>(ffi::TSTreeCursor, PhantomData<&'a ()>);
 pub struct Query {
     ptr: NonNull<ffi::TSQuery>,
     capture_names: Vec<String>,
+    capture_quantifiers: Vec<Vec<CaptureQuantifier>>,
     text_predicates: Vec<Box<[TextPredicate]>>,
     property_settings: Vec<Box<[QueryProperty]>>,
     property_predicates: Vec<Box<[(QueryProperty, bool)]>>,
     general_predicates: Vec<Box<[QueryPredicate]>>,
+}
+
+/// A quantifier for captures
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum CaptureQuantifier {
+    Zero,
+    ZeroOrOne,
+    ZeroOrMore,
+    One,
+    OneOrMore,
+}
+
+impl From<ffi::TSQuantifier> for CaptureQuantifier {
+    fn from(value: ffi::TSQuantifier) -> Self {
+        match value {
+            ffi::TSQuantifier_TSQuantifierZero => CaptureQuantifier::Zero,
+            ffi::TSQuantifier_TSQuantifierZeroOrOne => CaptureQuantifier::ZeroOrOne,
+            ffi::TSQuantifier_TSQuantifierZeroOrMore => CaptureQuantifier::ZeroOrMore,
+            ffi::TSQuantifier_TSQuantifierOne => CaptureQuantifier::One,
+            ffi::TSQuantifier_TSQuantifierOneOrMore => CaptureQuantifier::OneOrMore,
+            _ => panic!("Unrecognized quantifier: {}", value),
+        }
+    }
 }
 
 /// A stateful object for executing a `Query` on a syntax `Tree`.
@@ -1306,6 +1330,7 @@ impl Query {
         let mut result = Query {
             ptr: unsafe { NonNull::new_unchecked(ptr) },
             capture_names: Vec::with_capacity(capture_count as usize),
+            capture_quantifiers: Vec::with_capacity(pattern_count as usize),
             text_predicates: Vec::with_capacity(pattern_count),
             property_predicates: Vec::with_capacity(pattern_count),
             property_settings: Vec::with_capacity(pattern_count),
@@ -1322,6 +1347,18 @@ impl Query {
                 let name = str::from_utf8_unchecked(name);
                 result.capture_names.push(name.to_string());
             }
+        }
+
+        // Build a vector to store capture qunatifiers.
+        for i in 0..pattern_count {
+            let mut capture_quantifiers = Vec::with_capacity(capture_count as usize);
+            for j in 0..capture_count {
+                unsafe {
+                    let quantifier = ffi::ts_query_capture_quantifier_for_id(ptr, i as u32, j);
+                    capture_quantifiers.push(quantifier.into());
+                }
+            }
+            result.capture_quantifiers.push(capture_quantifiers);
         }
 
         // Build a vector of strings to represent literal values used in predicates.
@@ -1522,6 +1559,11 @@ impl Query {
     /// Get the names of the captures used in the query.
     pub fn capture_names(&self) -> &[String] {
         &self.capture_names
+    }
+
+    /// Get the quantifiers of the captures used in the query.
+    pub fn capture_quantifiers(&self, index: usize) -> &[CaptureQuantifier] {
+        &self.capture_quantifiers[index]
     }
 
     /// Get the index for a given capture name.

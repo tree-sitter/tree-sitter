@@ -120,6 +120,11 @@ typedef struct {
   Array(Slice) slices;
 } SymbolTable;
 
+/**
+ * CaptureQuantififers - a data structure holding the quantifiers of pattern captures.
+ */
+typedef Array(uint8_t) CaptureQuantifiers;
+
 /*
  * PatternEntry - Information about the starting point for matching a particular
  * pattern. These entries are stored in a 'pattern map' - a sorted array that
@@ -264,6 +269,7 @@ typedef struct {
  */
 struct TSQuery {
   SymbolTable captures;
+  Array(CaptureQuantifiers) capture_quantifiers;
   SymbolTable predicate_values;
   Array(QueryStep) steps;
   Array(PatternEntry) pattern_map;
@@ -453,6 +459,263 @@ static void capture_list_pool_release(CaptureListPool *self, uint16_t id) {
   if (id >= self->list.size) return;
   self->list.contents[id].size = UINT32_MAX;
   self->free_capture_list_count++;
+}
+
+/**************
+ * Quantifiers
+ **************/
+
+static TSQuantifier quantifier_mul(
+  TSQuantifier left,
+  TSQuantifier right
+) {
+  switch (left)
+  {
+    case TSQuantifierZero:
+      return TSQuantifierZero;
+    case TSQuantifierZeroOrOne:
+      switch (right) {
+        case TSQuantifierZero:
+          return TSQuantifierZero;
+        case TSQuantifierZeroOrOne:
+        case TSQuantifierOne:
+          return TSQuantifierZeroOrOne;
+        case TSQuantifierZeroOrMore:
+        case TSQuantifierOneOrMore:
+          return TSQuantifierZeroOrMore;
+      };
+      break;
+    case TSQuantifierZeroOrMore:
+      switch (right) {
+        case TSQuantifierZero:
+          return TSQuantifierZero;
+        case TSQuantifierZeroOrOne:
+        case TSQuantifierZeroOrMore:
+        case TSQuantifierOne:
+        case TSQuantifierOneOrMore:
+          return TSQuantifierZeroOrMore;
+      };
+      break;
+    case TSQuantifierOne:
+      return right;
+    case TSQuantifierOneOrMore:
+      switch (right) {
+        case TSQuantifierZero:
+          return TSQuantifierZero;
+        case TSQuantifierZeroOrOne:
+        case TSQuantifierZeroOrMore:
+          return TSQuantifierZeroOrMore;
+        case TSQuantifierOne:
+        case TSQuantifierOneOrMore:
+          return TSQuantifierOneOrMore;
+      };
+      break;
+  }
+  return TSQuantifierZero; // to make compiler happy, but all cases should be covered above!
+}
+
+static TSQuantifier quantifier_join(
+  TSQuantifier left,
+  TSQuantifier right
+) {
+  switch (left)
+  {
+    case TSQuantifierZero:
+      switch (right) {
+        case TSQuantifierZero:
+          return TSQuantifierZero;
+        case TSQuantifierZeroOrOne:
+        case TSQuantifierOne:
+          return TSQuantifierZeroOrOne;
+        case TSQuantifierZeroOrMore:
+        case TSQuantifierOneOrMore:
+          return TSQuantifierZeroOrMore;
+      };
+      break;
+    case TSQuantifierZeroOrOne:
+      switch (right) {
+        case TSQuantifierZero:
+        case TSQuantifierZeroOrOne:
+        case TSQuantifierOne:
+          return TSQuantifierZeroOrOne;
+          break;
+        case TSQuantifierZeroOrMore:
+        case TSQuantifierOneOrMore:
+          return TSQuantifierZeroOrMore;
+          break;
+      };
+      break;
+    case TSQuantifierZeroOrMore:
+      return TSQuantifierZeroOrMore;
+    case TSQuantifierOne:
+      switch (right) {
+        case TSQuantifierZero:
+        case TSQuantifierZeroOrOne:
+          return TSQuantifierZeroOrOne;
+        case TSQuantifierZeroOrMore:
+          return TSQuantifierZeroOrMore;
+        case TSQuantifierOne:
+          return TSQuantifierOne;
+        case TSQuantifierOneOrMore:
+          return TSQuantifierOneOrMore;
+      };
+      break;
+    case TSQuantifierOneOrMore:
+      switch (right) {
+        case TSQuantifierZero:
+        case TSQuantifierZeroOrOne:
+        case TSQuantifierZeroOrMore:
+          return TSQuantifierZeroOrMore;
+        case TSQuantifierOne:
+        case TSQuantifierOneOrMore:
+          return TSQuantifierOneOrMore;
+      };
+      break;
+  }
+  return TSQuantifierZero; // to make compiler happy, but all cases should be covered above!
+}
+
+static TSQuantifier quantifier_add(
+  TSQuantifier left,
+  TSQuantifier right
+) {
+  switch (left)
+  {
+    case TSQuantifierZero:
+      return right;
+    case TSQuantifierZeroOrOne:
+      switch (right) {
+        case TSQuantifierZero:
+          return TSQuantifierZeroOrOne;
+        case TSQuantifierZeroOrOne:
+        case TSQuantifierZeroOrMore:
+          return TSQuantifierZeroOrMore;
+        case TSQuantifierOne:
+        case TSQuantifierOneOrMore:
+          return TSQuantifierOneOrMore;
+      };
+      break;
+    case TSQuantifierZeroOrMore:
+      switch (right) {
+        case TSQuantifierZero:
+          return TSQuantifierZeroOrMore;
+        case TSQuantifierZeroOrOne:
+        case TSQuantifierZeroOrMore:
+          return TSQuantifierZeroOrMore;
+        case TSQuantifierOne:
+        case TSQuantifierOneOrMore:
+          return TSQuantifierOneOrMore;
+      };
+      break;
+    case TSQuantifierOne:
+      switch (right) {
+        case TSQuantifierZero:
+          return TSQuantifierOne;
+        case TSQuantifierZeroOrOne:
+        case TSQuantifierZeroOrMore:
+        case TSQuantifierOne:
+        case TSQuantifierOneOrMore:
+          return TSQuantifierOneOrMore;
+      };
+      break;
+    case TSQuantifierOneOrMore:
+      return TSQuantifierOneOrMore;
+  }
+  return TSQuantifierZero; // to make compiler happy, but all cases should be covered above!
+}
+
+// Create new capture quantifiers structure
+static CaptureQuantifiers capture_quantifiers_new(void) {
+  return (CaptureQuantifiers) array_new();
+}
+
+// Delete capture quantifiers structure
+static void capture_quantifiers_delete(
+  CaptureQuantifiers *self
+) {
+  array_delete(self);
+}
+
+// Clear capture quantifiers structure
+static void capture_quantifiers_clear(
+  CaptureQuantifiers *self
+) {
+  array_clear(self);
+}
+
+// Replace capture quantifiers with the given quantifiers
+static void capture_quantifiers_replace(
+  CaptureQuantifiers *self,
+  CaptureQuantifiers *quantifiers
+) {
+  array_clear(self);
+  array_push_all(self, quantifiers);
+}
+
+// Return capture quantifier for the given capture id
+static TSQuantifier capture_quantifier_for_id(
+  const CaptureQuantifiers *self,
+  uint16_t id
+) {
+  return (self->size <= id) ? TSQuantifierZero : (TSQuantifier) *array_get(self, id);
+}
+
+// Add the given quantifier to the current value for id
+static void capture_quantifiers_add_for_id(
+  CaptureQuantifiers *self,
+  uint16_t id,
+  TSQuantifier quantifier
+) {
+  if (self->size <= id) {
+    array_grow_by(self, id + 1 - self->size);
+  }
+  uint8_t *own_quantifier = array_get(self, id);
+  *own_quantifier = (uint8_t) quantifier_add((TSQuantifier) *own_quantifier, quantifier);
+}
+
+// Point-wise add the given quantifiers to the current values
+static void capture_quantifiers_add_all(
+  CaptureQuantifiers *self,
+  CaptureQuantifiers *quantifiers
+) {
+  if (self->size < quantifiers->size) {
+    array_grow_by(self, quantifiers->size - self->size);
+  }
+  for (uint16_t id = 0; id < quantifiers->size; id++) {
+    uint8_t *quantifier = array_get(quantifiers, id);
+    uint8_t *own_quantifier = array_get(self, id);
+    *own_quantifier = (uint8_t) quantifier_add((TSQuantifier) *own_quantifier, (TSQuantifier) *quantifier);
+  }
+}
+
+// Join the given quantifier with the current values
+static void capture_quantifiers_mul(
+  CaptureQuantifiers *self,
+  TSQuantifier quantifier
+) {
+  for (uint16_t id = 0; id < self->size; id++) {
+    uint8_t *own_quantifier = array_get(self, id);
+    *own_quantifier = (uint8_t) quantifier_mul((TSQuantifier) *own_quantifier, quantifier);
+  }
+}
+
+// Point-wise join the quantifiers from a list of alternatives with the current values
+static void capture_quantifiers_join_all(
+  CaptureQuantifiers *self,
+  CaptureQuantifiers *quantifiers
+) {
+  if (self->size < quantifiers->size) {
+    array_grow_by(self, quantifiers->size - self->size);
+  }
+  for (uint32_t id = 0; id < quantifiers->size; id++) {
+    uint8_t *quantifier = array_get(quantifiers, id);
+    uint8_t *own_quantifier = array_get(self, id);
+    *own_quantifier = (uint8_t) quantifier_join((TSQuantifier) *own_quantifier, (TSQuantifier) *quantifier);
+  }
+  for (uint32_t id = quantifiers->size; id < self->size; id++) {
+    uint8_t *own_quantifier = array_get(self, id);
+    *own_quantifier = (uint8_t) quantifier_join((TSQuantifier) *own_quantifier, TSQuantifierZero);
+  }
 }
 
 /**************
@@ -1779,11 +2042,15 @@ static TSQueryError ts_query__parse_predicate(
 // Read one S-expression pattern from the stream, and incorporate it into
 // the query's internal state machine representation. For nested patterns,
 // this function calls itself recursively.
+//
+// The caller is repsonsible for passing in a dedicated CaptureQuantifiers.
+// These should not be shared between different calls to ts_query__parse_pattern!
 static TSQueryError ts_query__parse_pattern(
   TSQuery *self,
   Stream *stream,
   uint32_t depth,
-  bool is_immediate
+  bool is_immediate,
+  CaptureQuantifiers *capture_quantifiers
 ) {
   if (stream->next == 0) return TSQueryErrorSyntax;
   if (stream->next == ')' || stream->next == ']') return PARENT_DONE;
@@ -1808,13 +2075,15 @@ static TSQueryError ts_query__parse_pattern(
 
     // Parse each branch, and add a placeholder step in between the branches.
     Array(uint32_t) branch_step_indices = array_new();
+    CaptureQuantifiers branch_capture_quantifiers = capture_quantifiers_new();
     for (;;) {
       uint32_t start_index = self->steps.size;
       TSQueryError e = ts_query__parse_pattern(
         self,
         stream,
         depth,
-        is_immediate
+        is_immediate,
+        &branch_capture_quantifiers
       );
 
       if (e == PARENT_DONE) {
@@ -1825,12 +2094,20 @@ static TSQueryError ts_query__parse_pattern(
         e = TSQueryErrorSyntax;
       }
       if (e) {
+        capture_quantifiers_delete(&branch_capture_quantifiers);
         array_delete(&branch_step_indices);
         return e;
       }
 
+      if(start_index == starting_step_index) {
+        capture_quantifiers_replace(capture_quantifiers, &branch_capture_quantifiers);
+      } else {
+        capture_quantifiers_join_all(capture_quantifiers, &branch_capture_quantifiers);
+      }
+
       array_push(&branch_step_indices, start_index);
       array_push(&self->steps, query_step__new(0, depth, false));
+      capture_quantifiers_clear(&branch_capture_quantifiers);
     }
     (void)array_pop(&self->steps);
 
@@ -1846,6 +2123,7 @@ static TSQueryError ts_query__parse_pattern(
       end_step->is_dead_end = true;
     }
 
+    capture_quantifiers_delete(&branch_capture_quantifiers);
     array_delete(&branch_step_indices);
   }
 
@@ -1860,6 +2138,7 @@ static TSQueryError ts_query__parse_pattern(
     // If this parenthesis is followed by a node, then it represents a grouped sequence.
     if (stream->next == '(' || stream->next == '"' || stream->next == '[') {
       bool child_is_immediate = false;
+      CaptureQuantifiers child_capture_quantifiers = capture_quantifiers_new();
       for (;;) {
         if (stream->next == '.') {
           child_is_immediate = true;
@@ -1870,7 +2149,8 @@ static TSQueryError ts_query__parse_pattern(
           self,
           stream,
           depth,
-          child_is_immediate
+          child_is_immediate,
+          &child_capture_quantifiers
         );
         if (e == PARENT_DONE) {
           if (stream->next == ')') {
@@ -1879,10 +2159,17 @@ static TSQueryError ts_query__parse_pattern(
           }
           e = TSQueryErrorSyntax;
         }
-        if (e) return e;
+        if (e) {
+          capture_quantifiers_delete(&child_capture_quantifiers);
+          return e;
+        }
+
+        capture_quantifiers_add_all(capture_quantifiers, &child_capture_quantifiers);
 
         child_is_immediate = false;
+        capture_quantifiers_clear(&child_capture_quantifiers);
       }
+      capture_quantifiers_delete(&child_capture_quantifiers);
     }
 
     // A dot/pound character indicates the start of a predicate.
@@ -1971,12 +2258,16 @@ static TSQueryError ts_query__parse_pattern(
       uint16_t last_child_step_index = 0;
       uint16_t negated_field_count = 0;
       TSFieldId negated_field_ids[MAX_NEGATED_FIELD_COUNT];
+      CaptureQuantifiers child_capture_quantifiers = capture_quantifiers_new();
       for (;;) {
         // Parse a negated field assertion
         if (stream->next == '!') {
           stream_advance(stream);
           stream_skip_whitespace(stream);
-          if (!stream_is_ident_start(stream)) return TSQueryErrorSyntax;
+          if (!stream_is_ident_start(stream)) {
+            capture_quantifiers_delete(&child_capture_quantifiers);
+            return TSQueryErrorSyntax;
+          }
           const char *field_name = stream->input;
           stream_scan_identifier(stream);
           uint32_t length = stream->input - field_name;
@@ -1989,6 +2280,7 @@ static TSQueryError ts_query__parse_pattern(
           );
           if (!field_id) {
             stream->input = field_name;
+            capture_quantifiers_delete(&child_capture_quantifiers);
             return TSQueryErrorField;
           }
 
@@ -2013,12 +2305,16 @@ static TSQueryError ts_query__parse_pattern(
           self,
           stream,
           depth + 1,
-          child_is_immediate
+          child_is_immediate,
+          &child_capture_quantifiers
         );
         if (e == PARENT_DONE) {
           if (stream->next == ')') {
             if (child_is_immediate) {
-              if (last_child_step_index == 0) return TSQueryErrorSyntax;
+              if (last_child_step_index == 0) {
+                capture_quantifiers_delete(&child_capture_quantifiers);
+                return TSQueryErrorSyntax;
+              }
               self->steps.contents[last_child_step_index].is_last_child = true;
             }
 
@@ -2036,11 +2332,18 @@ static TSQueryError ts_query__parse_pattern(
           }
           e = TSQueryErrorSyntax;
         }
-        if (e) return e;
+        if (e) {
+          capture_quantifiers_delete(&child_capture_quantifiers);
+          return e;
+        }
+
+        capture_quantifiers_add_all(capture_quantifiers, &child_capture_quantifiers);
 
         last_child_step_index = step_index;
         child_is_immediate = false;
+        capture_quantifiers_clear(&child_capture_quantifiers);
       }
+      capture_quantifiers_delete(&child_capture_quantifiers);
     }
   }
 
@@ -2089,14 +2392,19 @@ static TSQueryError ts_query__parse_pattern(
     stream_skip_whitespace(stream);
 
     // Parse the pattern
+    CaptureQuantifiers field_capture_quantifiers = capture_quantifiers_new();
     TSQueryError e = ts_query__parse_pattern(
       self,
       stream,
       depth,
-      is_immediate
+      is_immediate,
+      &field_capture_quantifiers
     );
-    if (e == PARENT_DONE) return TSQueryErrorSyntax;
-    if (e) return e;
+    if (e) {
+      capture_quantifiers_delete(&field_capture_quantifiers);
+      if (e == PARENT_DONE) e = TSQueryErrorSyntax;
+      return e;
+    }
 
     // Add the field name to the first step of the pattern
     TSFieldId field_id = ts_language_field_id_for_name(
@@ -2124,6 +2432,9 @@ static TSQueryError ts_query__parse_pattern(
         break;
       }
     }
+
+    capture_quantifiers_add_all(capture_quantifiers, &field_capture_quantifiers);
+    capture_quantifiers_delete(&field_capture_quantifiers);
   }
 
   else {
@@ -2133,9 +2444,12 @@ static TSQueryError ts_query__parse_pattern(
   stream_skip_whitespace(stream);
 
   // Parse suffixes modifiers for this pattern
+  TSQuantifier quantifier = TSQuantifierOne;
   for (;;) {
     // Parse the one-or-more operator.
     if (stream->next == '+') {
+      quantifier = quantifier_join(TSQuantifierOneOrMore, quantifier);
+
       stream_advance(stream);
       stream_skip_whitespace(stream);
 
@@ -2148,6 +2462,8 @@ static TSQueryError ts_query__parse_pattern(
 
     // Parse the zero-or-more repetition operator.
     else if (stream->next == '*') {
+      quantifier = quantifier_join(TSQuantifierZeroOrMore, quantifier);
+
       stream_advance(stream);
       stream_skip_whitespace(stream);
 
@@ -2166,6 +2482,8 @@ static TSQueryError ts_query__parse_pattern(
 
     // Parse the optional operator.
     else if (stream->next == '?') {
+      quantifier = quantifier_join(TSQuantifierZeroOrOne, quantifier);
+
       stream_advance(stream);
       stream_skip_whitespace(stream);
 
@@ -2192,6 +2510,9 @@ static TSQueryError ts_query__parse_pattern(
         length
       );
 
+      // Add the capture quantifier
+      capture_quantifiers_add_for_id(capture_quantifiers, capture_id, TSQuantifierOne);
+
       uint32_t step_index = starting_step_index;
       for (;;) {
         QueryStep *step = &self->steps.contents[step_index];
@@ -2214,6 +2535,8 @@ static TSQueryError ts_query__parse_pattern(
       break;
     }
   }
+
+  capture_quantifiers_mul(capture_quantifiers, quantifier);
 
   return 0;
 }
@@ -2239,6 +2562,7 @@ TSQuery *ts_query_new(
     .steps = array_new(),
     .pattern_map = array_new(),
     .captures = symbol_table_new(),
+    .capture_quantifiers = array_new(),
     .predicate_values = symbol_table_new(),
     .predicate_steps = array_new(),
     .patterns = array_new(),
@@ -2263,7 +2587,8 @@ TSQuery *ts_query_new(
       .predicate_steps = (Slice) {.offset = start_predicate_step_index},
       .start_byte = stream_offset(&stream),
     }));
-    *error_type = ts_query__parse_pattern(self, &stream, 0, false);
+    CaptureQuantifiers capture_quantifiers = capture_quantifiers_new();
+    *error_type = ts_query__parse_pattern(self, &stream, 0, false, &capture_quantifiers);
     array_push(&self->steps, query_step__new(0, PATTERN_DONE_MARKER, false));
 
     QueryPattern *pattern = array_back(&self->patterns);
@@ -2275,9 +2600,13 @@ TSQuery *ts_query_new(
     if (*error_type) {
       if (*error_type == PARENT_DONE) *error_type = TSQueryErrorSyntax;
       *error_offset = stream_offset(&stream);
+      capture_quantifiers_delete(&capture_quantifiers);
       ts_query_delete(self);
       return NULL;
     }
+
+    // Maintain a list of capture quantifiers for each pattern
+    array_push(&self->capture_quantifiers, capture_quantifiers);
 
     // Maintain a map that can look up patterns for a given root symbol.
     uint16_t wildcard_root_alternative_index = NONE;
@@ -2354,6 +2683,11 @@ void ts_query_delete(TSQuery *self) {
     array_delete(&self->negated_fields);
     symbol_table_delete(&self->captures);
     symbol_table_delete(&self->predicate_values);
+    for (uint32_t index = 0; index < self->capture_quantifiers.size; index++) {
+      CaptureQuantifiers *capture_quantifiers = array_get(&self->capture_quantifiers, index);
+      capture_quantifiers_delete(capture_quantifiers);
+    }
+    array_delete(&self->capture_quantifiers);
     ts_free(self);
   }
 }
@@ -2376,6 +2710,15 @@ const char *ts_query_capture_name_for_id(
   uint32_t *length
 ) {
   return symbol_table_name_for_id(&self->captures, index, length);
+}
+
+TSQuantifier ts_query_capture_quantifier_for_id(
+  const TSQuery *self,
+  uint32_t pattern_index,
+  uint32_t capture_index
+) {
+  CaptureQuantifiers *capture_quantifiers = array_get(&self->capture_quantifiers, pattern_index);
+  return capture_quantifier_for_id(capture_quantifiers, capture_index);
 }
 
 const char *ts_query_string_value_for_id(
