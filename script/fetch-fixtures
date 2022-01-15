@@ -3,10 +3,11 @@
 GRAMMARS_DIR=$(dirname $0)/../test/fixtures/grammars
 
 fetch_grammar() {
-  local grammar=$1
-  local ref=$2
+  local organization=$1
+  local grammar=$2
+  local ref=$3
   local grammar_dir=${GRAMMARS_DIR}/${grammar}
-  local grammar_url=https://github.com/tree-sitter/tree-sitter-${grammar}
+  local grammar_url=https://github.com/${organization}/tree-sitter-${grammar}
 
   echo "Updating ${grammar} grammar..."
 
@@ -21,18 +22,21 @@ fetch_grammar() {
   )
 }
 
-fetch_grammar bash              master
-fetch_grammar c                 master
-fetch_grammar cpp               master
-fetch_grammar embedded-template master
-fetch_grammar go                master
-fetch_grammar html              master
-fetch_grammar java              master
-fetch_grammar javascript        partial-order-precedences
-fetch_grammar jsdoc             master
-fetch_grammar json              master
-fetch_grammar php               master
-fetch_grammar python            master
-fetch_grammar ruby              master
-fetch_grammar rust              master
-fetch_grammar typescript        master
+fetch_grammar tree-sitter bash              master
+fetch_grammar tree-sitter c                 master
+fetch_grammar tree-sitter cpp               master
+fetch_grammar tree-sitter embedded-template master
+fetch_grammar tree-sitter go                master
+fetch_grammar tree-sitter html              master
+fetch_grammar tree-sitter java              master
+fetch_grammar tree-sitter javascript        partial-order-precedences
+fetch_grammar tree-sitter jsdoc             master
+fetch_grammar tree-sitter json              master
+fetch_grammar tree-sitter php               master
+fetch_grammar tree-sitter python            master
+fetch_grammar tree-sitter ruby              master
+fetch_grammar tree-sitter rust              master
+fetch_grammar tree-sitter typescript        master
+fetch_grammar elixir-lang elixir            de20391afe5cb03ef1e8a8e43167e7b58cc52869
+fetch_grammar fwcd        kotlin            0.2.11
+fetch_grammar alex-pinkus swift             0.1.1-with-static-grammar.json
