@@ -40,7 +40,7 @@ struct GeneratedParser {
 pub fn generate_parser_in_directory(
     repo_path: &PathBuf,
     grammar_path: Option<&str>,
-    next_abi: bool,
+    abi_version: usize,
     generate_bindings: bool,
     report_symbol_name: Option<&str>,
 ) -> Result<()> {
@@ -80,14 +80,14 @@ pub fn generate_parser_in_directory(
         lexical_grammar,
         inlines,
         simple_aliases,
-        next_abi,
+        abi_version,
         report_symbol_name,
     )?;
 
     write_file(&src_path.join("parser.c"), c_code)?;
     write_file(&src_path.join("node-types.json"), node_types_json)?;
 
-    if next_abi {
+    if abi_version == tree_sitter::LANGUAGE_VERSION {
         write_file(&header_path.join("parser.h"), tree_sitter::PARSER_HEADER)?;
     }
 
@@ -109,7 +109,7 @@ pub fn generate_parser_for_grammar(grammar_json: &str) -> Result<(String, String
         lexical_grammar,
         inlines,
         simple_aliases,
-        true,
+        tree_sitter::LANGUAGE_VERSION,
         None,
     )?;
     Ok((input_grammar.name, parser.c_code))
@@ -121,7 +121,7 @@ fn generate_parser_for_grammar_with_opts(
     lexical_grammar: LexicalGrammar,
     inlines: InlinedProductionMap,
     simple_aliases: AliasMap,
-    next_abi: bool,
+    abi_version: usize,
     report_symbol_name: Option<&str>,
 ) -> Result<GeneratedParser> {
     let variable_info =
@@ -149,7 +149,7 @@ fn generate_parser_for_grammar_with_opts(
         syntax_grammar,
         lexical_grammar,
         simple_aliases,
-        next_abi,
+        abi_version,
     );
     Ok(GeneratedParser {
         c_code,
