@@ -870,5 +870,5 @@ extern "C" {
     );
 }
 
-pub const TREE_SITTER_LANGUAGE_VERSION: usize = 13;
+pub const TREE_SITTER_LANGUAGE_VERSION: usize = 14;
 pub const TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION: usize = 13;

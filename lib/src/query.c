@@ -1223,28 +1223,30 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
         if (lookahead_iterator.next_state != state) {
           state_predecessor_map_add(&predecessor_map, lookahead_iterator.next_state, state);
         }
-        const TSSymbol *aliases, *aliases_end;
-        ts_language_aliases_for_symbol(
-          self->language,
-          lookahead_iterator.symbol,
-          &aliases,
-          &aliases_end
-        );
-        for (const TSSymbol *symbol = aliases; symbol < aliases_end; symbol++) {
-          array_search_sorted_by(
-            &subgraphs,
-            .symbol,
-            *symbol,
-            &subgraph_index,
-            &exists
+        if (ts_language_state_is_primary(self->language, state)) {
+          const TSSymbol *aliases, *aliases_end;
+          ts_language_aliases_for_symbol(
+            self->language,
+            lookahead_iterator.symbol,
+            &aliases,
+            &aliases_end
           );
-          if (exists) {
-            AnalysisSubgraph *subgraph = &subgraphs.contents[subgraph_index];
-            if (
-              subgraph->start_states.size == 0 ||
-              *array_back(&subgraph->start_states) != state
-            )
-            array_push(&subgraph->start_states, state);
+          for (const TSSymbol *symbol = aliases; symbol < aliases_end; symbol++) {
+            array_search_sorted_by(
+              &subgraphs,
+              .symbol,
+              *symbol,
+              &subgraph_index,
+              &exists
+            );
+            if (exists) {
+              AnalysisSubgraph *subgraph = &subgraphs.contents[subgraph_index];
+              if (
+                subgraph->start_states.size == 0 ||
+                *array_back(&subgraph->start_states) != state
+              )
+              array_push(&subgraph->start_states, state);
+            }
           }
         }
       }

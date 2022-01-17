@@ -110,6 +110,7 @@ struct TSLanguage {
   const TSSymbol *public_symbol_map;
   const uint16_t *alias_map;
   const TSSymbol *alias_sequences;
+  const TSStateId *ts_primary_state_ids;
   const TSLexMode *lex_modes;
   bool (*lex_fn)(TSLexer *, TSStateId);
   bool (*keyword_lex_fn)(TSLexer *, TSStateId);

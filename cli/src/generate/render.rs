@@ -106,6 +106,7 @@ impl Generator {
         }
 
         self.add_non_terminal_alias_map();
+        self.add_primary_state_id_list();
 
         let mut main_lex_table = LexTable::default();
         swap(&mut main_lex_table, &mut self.main_lex_table);
@@ -560,6 +561,29 @@ impl Generator {
             dedent!(self);
         }
         add_line!(self, "0,");
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+    }
+
+    /// Produces a list of the "primary state" for every state in the grammar.
+    ///
+    /// The "primary state" for a given state is the first encountered state that behaves
+    /// identically with respect to query analysis. We derive this by keeping track of the `core_id`
+    /// for each state and treating the first state with a given `core_id` as primary.
+    fn add_primary_state_id_list(&mut self) {
+        add_line!(
+            self,
+            "static const TSStateId ts_primary_state_ids[STATE_COUNT] = {{"
+        );
+        indent!(self);
+        let mut first_state_for_each_core_id = HashMap::new();
+        for (idx, state) in self.parse_table.states.iter().enumerate() {
+            let primary_state = first_state_for_each_core_id
+                .entry(state.core_id)
+                .or_insert(idx);
+            add_line!(self, "[{}] = {},", idx, primary_state);
+        }
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
@@ -1369,6 +1393,7 @@ impl Generator {
         if !self.parse_table.production_infos.is_empty() {
             add_line!(self, ".alias_sequences = &ts_alias_sequences[0][0],");
         }
+        add_line!(self, ".ts_primary_state_ids = ts_primary_state_ids,");
 
         // Lexing
         add_line!(self, ".lex_modes = ts_lex_modes,");
