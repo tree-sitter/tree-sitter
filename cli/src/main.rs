@@ -11,6 +11,7 @@ use tree_sitter_loader as loader;
 
 const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
+const DEFAULT_GENERATE_ABI_VERSION: usize = 13;
 
 fn main() {
     let result = run();
@@ -90,7 +91,19 @@ fn run() -> Result<()> {
                 .about("Generate a parser")
                 .arg(Arg::with_name("grammar-path").index(1))
                 .arg(Arg::with_name("log").long("log"))
-                .arg(Arg::with_name("prev-abi").long("prev-abi"))
+                .arg(
+                    Arg::with_name("abi-version")
+                        .long("abi")
+                        .value_name("version")
+                        .help(&format!(
+                            concat!(
+                                "Select the language ABI version to generate (default {}).\n",
+                                "Use --abi=latest to generate the newest supported version ({}).",
+                            ),
+                            DEFAULT_GENERATE_ABI_VERSION,
+                            tree_sitter::LANGUAGE_VERSION,
+                        )),
+                )
                 .arg(Arg::with_name("no-bindings").long("no-bindings"))
                 .arg(
                     Arg::with_name("report-states-for-rule")
@@ -266,12 +279,21 @@ fn run() -> Result<()> {
             if matches.is_present("log") {
                 logger::init();
             }
-            let new_abi = !matches.is_present("prev-abi");
+            let abi_version =
+                matches
+                    .value_of("abi-version")
+                    .map_or(DEFAULT_GENERATE_ABI_VERSION, |version| {
+                        if version == "latest" {
+                            tree_sitter::LANGUAGE_VERSION
+                        } else {
+                            version.parse().expect("invalid abi version flag")
+                        }
+                    });
             let generate_bindings = !matches.is_present("no-bindings");
             generate::generate_parser_in_directory(
                 &current_dir,
                 grammar_path,
-                new_abi,
+                abi_version,
                 generate_bindings,
                 report_symbol_name,
             )?;

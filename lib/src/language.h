@@ -207,7 +207,7 @@ static inline bool ts_language_state_is_primary(
   TSStateId state
 ) {
   if (self->version >= 14) {
-    return state == self->ts_primary_state_ids[state];
+    return state == self->primary_state_ids[state];
   } else {
     return true;
   }
