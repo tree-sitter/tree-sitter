@@ -111,7 +111,6 @@ struct HighlightIterLayer<'a> {
     scope_stack: Vec<LocalScope<'a>>,
     ranges: Vec<Range>,
     depth: usize,
-    ignore_match_id: i32,
 }
 
 impl Highlighter {
@@ -414,7 +413,6 @@ impl<'a> HighlightIterLayer<'a> {
                     captures,
                     config,
                     ranges,
-                    ignore_match_id: -1,
                 });
             }
 
@@ -685,10 +683,6 @@ where
             let (mut match_, capture_index) = layer.captures.next().unwrap();
             let mut capture = match_.captures[capture_index];
 
-            if layer.ignore_match_id >= match_.id() as i32 {
-                continue 'main;
-            }
-
             // If this capture represents an injection, then process the injection.
             if match_.pattern_index < layer.config.locals_pattern_index {
                 let (language_name, content_node, include_children) =
@@ -841,7 +835,7 @@ where
             // highlighting patterns that are disabled for local variables.
             if definition_highlight.is_some() || reference_highlight.is_some() {
                 while layer.config.non_local_variable_patterns[match_.pattern_index] {
-                    layer.ignore_match_id = match_.id() as i32;
+                    match_.remove();
                     if let Some((next_match, next_capture_index)) = layer.captures.peek() {
                         let next_capture = next_match.captures[*next_capture_index];
                         if next_capture.node == capture.node {
