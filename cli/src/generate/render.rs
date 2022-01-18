@@ -1390,10 +1390,6 @@ impl Generator {
             add_line!(self, ".alias_sequences = &ts_alias_sequences[0][0],");
         }
 
-        if self.abi_version >= ABI_VERSION_WITH_PRIMARY_STATES {
-            add_line!(self, ".primary_state_ids = ts_primary_state_ids,");
-        }
-
         // Lexing
         add_line!(self, ".lex_modes = ts_lex_modes,");
         add_line!(self, ".lex_fn = ts_lex,");
@@ -1418,6 +1414,10 @@ impl Generator {
             add_line!(self, "{}_deserialize,", external_scanner_name);
             dedent!(self);
             add_line!(self, "}},");
+        }
+
+        if self.abi_version >= ABI_VERSION_WITH_PRIMARY_STATES {
+            add_line!(self, ".primary_state_ids = ts_primary_state_ids,");
         }
 
         dedent!(self);
