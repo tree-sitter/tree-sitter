@@ -3092,6 +3092,53 @@ fn test_query_captures_with_matches_removed() {
 }
 
 #[test]
+fn test_query_captures_with_matches_removed_before_they_finish() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        // When Tree-sitter detects that a pattern is guaranteed to match,
+        // it will start to eagerly return the captures that it has found,
+        // even though it hasn't matched the entire pattern yet. A
+        // namespace_import node always has "*", "as" and then an identifier
+        // for children, so captures will be emitted eagerly for this pattern.
+        let query = Query::new(
+            language,
+            r#"
+            (namespace_import
+              "*" @star
+              "as" @as
+              (identifier) @identifier)
+            "#,
+        )
+        .unwrap();
+
+        let source = "
+          import * as name from 'module-name';
+        ";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+
+        let mut captured_strings = Vec::new();
+        for (m, i) in cursor.captures(&query, tree.root_node(), source.as_bytes()) {
+            let capture = m.captures[i];
+            let text = capture.node.utf8_text(source.as_bytes()).unwrap();
+            if text == "as" {
+                m.remove();
+                continue;
+            }
+            captured_strings.push(text);
+        }
+
+        // .remove() removes the match before it is finished. The identifier
+        // "name" is part of this match, so we expect that removing the "as"
+        // capture from the match should prevent "name" from matching:
+        assert_eq!(captured_strings, &["*",]);
+    });
+}
+
+#[test]
 fn test_query_captures_and_matches_iterators_are_fused() {
     allocations::record(|| {
         let language = get_language("javascript");
