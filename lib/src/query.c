@@ -3727,6 +3727,20 @@ void ts_query_cursor_remove_match(
       return;
     }
   }
+
+  // Remove unfinished query states as well to prevent future
+  // captures for a match being removed.
+  for (unsigned i = 0; i < self->states.size; i++) {
+    const QueryState *state = &self->states.contents[i];
+    if (state->id == match_id) {
+      capture_list_pool_release(
+        &self->capture_list_pool,
+        state->capture_list_id
+      );
+      array_erase(&self->states, i);
+      return;
+    }
+  }
 }
 
 bool ts_query_cursor_next_capture(
