@@ -225,11 +225,11 @@ impl TokenExtractor {
                     .map(|e| self.extract_tokens_in_rule(e))
                     .collect(),
             ),
-            Rule::Exclude { rule, exclusions } => Rule::Exclude {
+            Rule::Keywords { rule, keywords } => Rule::Keywords {
                 rule: Box::new(self.extract_tokens_in_rule(rule)),
-                exclusions: exclusions
+                keywords: keywords
                     .into_iter()
-                    .map(|exclusion| self.extract_tokens_in_rule(&exclusion))
+                    .map(|keyword| self.extract_tokens_in_rule(&keyword))
                     .collect(),
             },
             _ => input.clone(),
@@ -290,11 +290,11 @@ impl SymbolReplacer {
                 params: params.clone(),
                 rule: Box::new(self.replace_symbols_in_rule(rule)),
             },
-            Rule::Exclude { rule, exclusions } => Rule::Exclude {
+            Rule::Keywords { rule, keywords } => Rule::Keywords {
                 rule: Box::new(self.replace_symbols_in_rule(rule)),
-                exclusions: exclusions
+                keywords: keywords
                     .into_iter()
-                    .map(|exclusion| self.replace_symbols_in_rule(exclusion))
+                    .map(|keyword| self.replace_symbols_in_rule(keyword))
                     .collect(),
             },
             _ => rule.clone(),

@@ -178,11 +178,9 @@ impl<'a> Minimizer<'a> {
                 parse_state
                     .nonterminal_entries
                     .extend(other_parse_state.nonterminal_entries);
-                parse_state
-                    .exclusions
-                    .insert_all(&other_parse_state.exclusions);
+                parse_state.keywords.insert_all(&other_parse_state.keywords);
                 for symbol in parse_state.terminal_entries.keys() {
-                    parse_state.exclusions.remove(symbol);
+                    parse_state.keywords.remove(symbol);
                 }
             }
 
@@ -376,7 +374,7 @@ impl<'a> Minimizer<'a> {
             return true;
         }
 
-        if right_state.exclusions.contains(&new_token) {
+        if right_state.keywords.contains(&new_token) {
             return false;
         }
 

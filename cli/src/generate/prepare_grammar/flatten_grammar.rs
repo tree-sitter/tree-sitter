@@ -9,7 +9,7 @@ struct RuleFlattener {
     production: Production,
     precedence_stack: Vec<Precedence>,
     associativity_stack: Vec<Associativity>,
-    exclusions_stack: Vec<TokenSet>,
+    keywords_stack: Vec<TokenSet>,
     alias_stack: Vec<Alias>,
     field_name_stack: Vec<String>,
 }
@@ -23,7 +23,7 @@ impl RuleFlattener {
             },
             precedence_stack: Vec::new(),
             associativity_stack: Vec::new(),
-            exclusions_stack: Vec::new(),
+            keywords_stack: Vec::new(),
             alias_stack: Vec::new(),
             field_name_stack: Vec::new(),
         }
@@ -104,10 +104,10 @@ impl RuleFlattener {
 
                 did_push
             }
-            Rule::Exclude { rule, exclusions } => {
-                self.exclusions_stack.push(rules_to_token_set(exclusions));
+            Rule::Keywords { rule, keywords } => {
+                self.keywords_stack.push(rules_to_token_set(keywords));
                 let did_push = self.apply(*rule, at_end);
-                self.exclusions_stack.pop();
+                self.keywords_stack.pop();
                 did_push
             }
             Rule::Symbol(symbol) => {
@@ -119,7 +119,7 @@ impl RuleFlattener {
                         .cloned()
                         .unwrap_or(Precedence::None),
                     associativity: self.associativity_stack.last().cloned(),
-                    exclusions: self.exclusions_stack.last().cloned().map(Box::new),
+                    keywords: self.keywords_stack.last().cloned().map(Box::new),
                     alias: self.alias_stack.last().cloned(),
                     field_name: self.field_name_stack.last().cloned(),
                 });
@@ -175,11 +175,11 @@ fn extract_choices(rule: Rule) -> Vec<Rule> {
                 params: params.clone(),
             })
             .collect(),
-        Rule::Exclude { rule, exclusions } => extract_choices(*rule)
+        Rule::Keywords { rule, keywords } => extract_choices(*rule)
             .into_iter()
-            .map(|rule| Rule::Exclude {
+            .map(|rule| Rule::Keywords {
                 rule: Box::new(rule),
-                exclusions: exclusions.clone(),
+                keywords: keywords.clone(),
             })
             .collect(),
         _ => vec![rule],

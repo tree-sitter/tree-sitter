@@ -115,9 +115,9 @@ impl<'a> Interner<'a> {
                 rule: Box::new(self.intern_rule(rule)?),
                 params: params.clone(),
             }),
-            Rule::Exclude { rule, exclusions } => Ok(Rule::Exclude {
+            Rule::Keywords { rule, keywords } => Ok(Rule::Keywords {
                 rule: Box::new(self.intern_rule(rule)?),
-                exclusions: exclusions
+                keywords: keywords
                     .into_iter()
                     .map(|r| self.intern_rule(r))
                     .collect::<Result<Vec<_>>>()?,

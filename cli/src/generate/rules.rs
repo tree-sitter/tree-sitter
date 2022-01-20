@@ -64,9 +64,9 @@ pub(crate) enum Rule {
         params: MetadataParams,
         rule: Box<Rule>,
     },
-    Exclude {
+    Keywords {
         rule: Box<Rule>,
-        exclusions: Vec<Rule>,
+        keywords: Vec<Rule>,
     },
     Repeat(Box<Rule>),
     Seq(Vec<Rule>),

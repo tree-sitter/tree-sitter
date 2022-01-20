@@ -61,9 +61,9 @@ enum RuleJSON {
     IMMEDIATE_TOKEN {
         content: Box<RuleJSON>,
     },
-    EXCLUDE {
+    KEYWORDS {
         content: Box<RuleJSON>,
-        exclusions: Vec<RuleJSON>,
+        keywords: Vec<RuleJSON>,
     },
 }
 
@@ -166,12 +166,9 @@ fn parse_rule(json: RuleJSON) -> Rule {
         RuleJSON::PREC_DYNAMIC { value, content } => {
             Rule::prec_dynamic(value, parse_rule(*content))
         }
-        RuleJSON::EXCLUDE {
-            content,
-            exclusions,
-        } => Rule::Exclude {
+        RuleJSON::KEYWORDS { content, keywords } => Rule::Keywords {
             rule: Box::new(parse_rule(*content)),
-            exclusions: exclusions.into_iter().map(parse_rule).collect(),
+            keywords: keywords.into_iter().map(parse_rule).collect(),
         },
         RuleJSON::TOKEN { content } => Rule::token(parse_rule(*content)),
         RuleJSON::IMMEDIATE_TOKEN { content } => Rule::immediate_token(parse_rule(*content)),
