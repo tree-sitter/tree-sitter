@@ -18,7 +18,7 @@ lazy_static! {
             associativity: None,
             alias: None,
             field_name: None,
-            exclusions: None,
+            keywords: None,
         }],
     };
 }
@@ -172,11 +172,11 @@ impl<'a> ParseItemSet<'a> {
         }
     }
 
-    pub fn exclusions(&self) -> impl Iterator<Item = Symbol> + '_ {
+    pub fn keywords(&self) -> impl Iterator<Item = Symbol> + '_ {
         self.entries
             .iter()
-            .filter_map(|(entry, _)| entry.step().and_then(|step| step.exclusions.as_ref()))
-            .flat_map(|exclusions| exclusions.iter())
+            .filter_map(|(entry, _)| entry.step().and_then(|step| step.keywords.as_ref()))
+            .flat_map(|keywords| keywords.iter())
     }
 }
 

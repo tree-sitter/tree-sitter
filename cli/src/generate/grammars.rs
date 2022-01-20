@@ -64,7 +64,7 @@ pub(crate) struct ProductionStep {
     pub associativity: Option<Associativity>,
     pub alias: Option<Alias>,
     pub field_name: Option<String>,
-    pub exclusions: Option<Box<TokenSet>>,
+    pub keywords: Option<Box<TokenSet>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -114,7 +114,7 @@ impl ProductionStep {
             associativity: None,
             alias: None,
             field_name: None,
-            exclusions: None,
+            keywords: None,
         }
     }
 

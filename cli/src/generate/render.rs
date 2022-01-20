@@ -1081,7 +1081,7 @@ impl Generator {
     fn add_parse_table(&mut self) {
         // Reserve two special parse action lists:
         // * zero is for the default value, when a symbol is not valid
-        // * one is a second empty list of actions for tokens that have been excluded.
+        // * one is a second empty list of actions for keywords which are not valid.
         //   This second value allows the parser to detect when a given token is
         //   valid for the purpose of tokenization, but invalid syntactically.
         let mut next_parse_action_list_index = 2;
@@ -1148,7 +1148,7 @@ impl Generator {
                 );
             }
 
-            for token in state.exclusions.iter() {
+            for token in state.keywords.iter() {
                 add_line!(self, "[{}] = EXCLUDE,", self.symbol_ids[&token]);
             }
 
@@ -1201,13 +1201,13 @@ impl Generator {
                         .push(*symbol);
                 }
 
-                let exclusion_count = state.exclusions.len();
+                let keyword_count = state.keywords.len();
                 let mut values_with_symbols = symbols_by_value.drain().collect::<Vec<_>>();
                 values_with_symbols.sort_unstable_by_key(|((value, kind), symbols)| {
                     (symbols.len(), *kind, *value, symbols[0])
                 });
                 let mut value_count = values_with_symbols.len();
-                if exclusion_count > 0 {
+                if keyword_count > 0 {
                     value_count += 1;
                 }
 
@@ -1232,12 +1232,12 @@ impl Generator {
                     dedent!(self);
                 }
 
-                if exclusion_count > 0 {
-                    next_table_index += 2 + exclusion_count;
+                if keyword_count > 0 {
+                    next_table_index += 2 + keyword_count;
 
-                    add_line!(self, "EXCLUDE, {},", exclusion_count);
+                    add_line!(self, "KEYWORD, {},", keyword_count);
                     indent!(self);
-                    for symbol in state.exclusions.iter() {
+                    for symbol in state.keywords.iter() {
                         add_line!(self, "{},", self.symbol_ids[&symbol]);
                     }
                     dedent!(self);

@@ -33,7 +33,7 @@ pub(crate) fn build_lex_table(
             .terminal_entries
             .keys()
             .copied()
-            .chain(state.exclusions.iter())
+            .chain(state.keywords.iter())
             .filter_map(|token| {
                 if token.is_terminal() {
                     if keywords.contains(&token) {
