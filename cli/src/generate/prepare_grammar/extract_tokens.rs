@@ -493,13 +493,7 @@ mod test {
     fn build_grammar(variables: Vec<Variable>) -> InternedGrammar {
         InternedGrammar {
             variables,
-            extra_symbols: Vec::new(),
-            external_tokens: Vec::new(),
-            supertype_symbols: Vec::new(),
-            expected_conflicts: Vec::new(),
-            variables_to_inline: Vec::new(),
-            precedence_orderings: Vec::new(),
-            word_token: None,
+            ..Default::default()
         }
     }
 }

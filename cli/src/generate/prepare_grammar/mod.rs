@@ -47,6 +47,21 @@ pub(crate) struct ExtractedLexicalGrammar {
     pub separators: Vec<Rule>,
 }
 
+impl<T, U> Default for IntermediateGrammar<T, U> {
+    fn default() -> Self {
+        Self {
+            variables: Default::default(),
+            extra_symbols: Default::default(),
+            expected_conflicts: Default::default(),
+            precedence_orderings: Default::default(),
+            external_tokens: Default::default(),
+            variables_to_inline: Default::default(),
+            supertype_symbols: Default::default(),
+            word_token: Default::default(),
+        }
+    }
+}
+
 /// Transform an input grammar into separate components that are ready
 /// for parse table construction.
 pub(crate) fn prepare_grammar(
@@ -158,13 +173,6 @@ mod tests {
     #[test]
     fn test_validate_precedences_with_undeclared_precedence() {
         let grammar = InputGrammar {
-            name: String::new(),
-            word_token: None,
-            extra_symbols: vec![],
-            external_tokens: vec![],
-            supertype_symbols: vec![],
-            expected_conflicts: vec![],
-            variables_to_inline: vec![],
             precedence_orderings: vec![
                 vec![
                     PrecedenceEntry::Name("a".to_string()),
@@ -194,6 +202,7 @@ mod tests {
                     ])),
                 },
             ],
+            ..Default::default()
         };
 
         let result = validate_precedences(&grammar);
@@ -206,13 +215,6 @@ mod tests {
     #[test]
     fn test_validate_precedences_with_conflicting_order() {
         let grammar = InputGrammar {
-            name: String::new(),
-            word_token: None,
-            extra_symbols: vec![],
-            external_tokens: vec![],
-            supertype_symbols: vec![],
-            expected_conflicts: vec![],
-            variables_to_inline: vec![],
             precedence_orderings: vec![
                 vec![
                     PrecedenceEntry::Name("a".to_string()),
@@ -242,6 +244,7 @@ mod tests {
                     ])),
                 },
             ],
+            ..Default::default()
         };
 
         let result = validate_precedences(&grammar);
