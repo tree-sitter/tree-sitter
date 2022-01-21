@@ -104,6 +104,8 @@ pub(crate) struct SyntaxGrammar {
     pub variables_to_inline: Vec<Symbol>,
     pub word_token: Option<Symbol>,
     pub precedence_orderings: Vec<Vec<PrecedenceEntry>>,
+    #[allow(unused)]
+    pub reserved_words: TokenSet,
 }
 
 #[cfg(test)]

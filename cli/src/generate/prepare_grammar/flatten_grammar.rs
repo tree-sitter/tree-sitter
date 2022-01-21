@@ -29,9 +29,30 @@ impl RuleFlattener {
         }
     }
 
-    fn flatten(mut self, rule: Rule) -> Production {
+    fn flatten_variable(&mut self, variable: Variable) -> Result<SyntaxVariable> {
+        let mut productions = Vec::new();
+        for rule in extract_choices(variable.rule) {
+            let production = self.flatten_rule(rule);
+            if !productions.contains(&production) {
+                productions.push(production);
+            }
+        }
+        Ok(SyntaxVariable {
+            name: variable.name,
+            kind: variable.kind,
+            productions,
+        })
+    }
+
+    fn flatten_rule(&mut self, rule: Rule) -> Production {
+        self.production = Production::default();
+        self.alias_stack.clear();
+        self.reserved_word_stack.clear();
+        self.precedence_stack.clear();
+        self.associativity_stack.clear();
+        self.field_name_stack.clear();
         self.apply(rule, true);
-        self.production
+        self.production.clone()
     }
 
     fn apply(&mut self, rule: Rule, at_end: bool) -> bool {
@@ -193,21 +214,6 @@ fn extract_choices(rule: Rule) -> Vec<Rule> {
     }
 }
 
-fn flatten_variable(variable: Variable) -> Result<SyntaxVariable> {
-    let mut productions = Vec::new();
-    for rule in extract_choices(variable.rule) {
-        let production = RuleFlattener::new().flatten(rule);
-        if !productions.contains(&production) {
-            productions.push(production);
-        }
-    }
-    Ok(SyntaxVariable {
-        name: variable.name,
-        kind: variable.kind,
-        productions,
-    })
-}
-
 fn symbol_is_used(variables: &Vec<SyntaxVariable>, symbol: Symbol) -> bool {
     for variable in variables {
         for production in &variable.productions {
@@ -222,10 +228,13 @@ fn symbol_is_used(variables: &Vec<SyntaxVariable>, symbol: Symbol) -> bool {
 }
 
 pub(super) fn flatten_grammar(grammar: ExtractedSyntaxGrammar) -> Result<SyntaxGrammar> {
-    let mut variables = Vec::new();
-    for variable in grammar.variables {
-        variables.push(flatten_variable(variable)?);
-    }
+    let mut flattener = RuleFlattener::new();
+    let variables = grammar
+        .variables
+        .into_iter()
+        .map(|variable| flattener.flatten_variable(variable))
+        .collect::<Result<Vec<_>>>()?;
+
     for (i, variable) in variables.iter().enumerate() {
         for production in &variable.productions {
             if production.steps.is_empty() && symbol_is_used(&variables, Symbol::non_terminal(i)) {
@@ -248,6 +257,7 @@ unless they are used only as the grammar's start rule.
         external_tokens: grammar.external_tokens,
         supertype_symbols: grammar.supertype_symbols,
         word_token: grammar.word_token,
+        reserved_words: grammar.reserved_words.into_iter().collect(),
         variables,
     })
 }
@@ -260,29 +270,31 @@ mod tests {
 
     #[test]
     fn test_flatten_grammar() {
-        let result = flatten_variable(Variable {
-            name: "test".to_string(),
-            kind: VariableType::Named,
-            rule: Rule::seq(vec![
-                Rule::non_terminal(1),
-                Rule::prec_left(
-                    Precedence::Integer(101),
-                    Rule::seq(vec![
-                        Rule::non_terminal(2),
-                        Rule::choice(vec![
-                            Rule::prec_right(
-                                Precedence::Integer(102),
-                                Rule::seq(vec![Rule::non_terminal(3), Rule::non_terminal(4)]),
-                            ),
-                            Rule::non_terminal(5),
+        let mut flattener = RuleFlattener::new();
+        let result = flattener
+            .flatten_variable(Variable {
+                name: "test".to_string(),
+                kind: VariableType::Named,
+                rule: Rule::seq(vec![
+                    Rule::non_terminal(1),
+                    Rule::prec_left(
+                        Precedence::Integer(101),
+                        Rule::seq(vec![
+                            Rule::non_terminal(2),
+                            Rule::choice(vec![
+                                Rule::prec_right(
+                                    Precedence::Integer(102),
+                                    Rule::seq(vec![Rule::non_terminal(3), Rule::non_terminal(4)]),
+                                ),
+                                Rule::non_terminal(5),
+                            ]),
+                            Rule::non_terminal(6),
                         ]),
-                        Rule::non_terminal(6),
-                    ]),
-                ),
-                Rule::non_terminal(7),
-            ]),
-        })
-        .unwrap();
+                    ),
+                    Rule::non_terminal(7),
+                ]),
+            })
+            .unwrap();
 
         assert_eq!(
             result.productions,
@@ -319,29 +331,31 @@ mod tests {
 
     #[test]
     fn test_flatten_grammar_with_maximum_dynamic_precedence() {
-        let result = flatten_variable(Variable {
-            name: "test".to_string(),
-            kind: VariableType::Named,
-            rule: Rule::seq(vec![
-                Rule::non_terminal(1),
-                Rule::prec_dynamic(
-                    101,
-                    Rule::seq(vec![
-                        Rule::non_terminal(2),
-                        Rule::choice(vec![
-                            Rule::prec_dynamic(
-                                102,
-                                Rule::seq(vec![Rule::non_terminal(3), Rule::non_terminal(4)]),
-                            ),
-                            Rule::non_terminal(5),
+        let mut flattener = RuleFlattener::new();
+        let result = flattener
+            .flatten_variable(Variable {
+                name: "test".to_string(),
+                kind: VariableType::Named,
+                rule: Rule::seq(vec![
+                    Rule::non_terminal(1),
+                    Rule::prec_dynamic(
+                        101,
+                        Rule::seq(vec![
+                            Rule::non_terminal(2),
+                            Rule::choice(vec![
+                                Rule::prec_dynamic(
+                                    102,
+                                    Rule::seq(vec![Rule::non_terminal(3), Rule::non_terminal(4)]),
+                                ),
+                                Rule::non_terminal(5),
+                            ]),
+                            Rule::non_terminal(6),
                         ]),
-                        Rule::non_terminal(6),
-                    ]),
-                ),
-                Rule::non_terminal(7),
-            ]),
-        })
-        .unwrap();
+                    ),
+                    Rule::non_terminal(7),
+                ]),
+            })
+            .unwrap();
 
         assert_eq!(
             result.productions,
@@ -373,15 +387,17 @@ mod tests {
 
     #[test]
     fn test_flatten_grammar_with_final_precedence() {
-        let result = flatten_variable(Variable {
-            name: "test".to_string(),
-            kind: VariableType::Named,
-            rule: Rule::prec_left(
-                Precedence::Integer(101),
-                Rule::seq(vec![Rule::non_terminal(1), Rule::non_terminal(2)]),
-            ),
-        })
-        .unwrap();
+        let mut flattener = RuleFlattener::new();
+        let result = flattener
+            .flatten_variable(Variable {
+                name: "test".to_string(),
+                kind: VariableType::Named,
+                rule: Rule::prec_left(
+                    Precedence::Integer(101),
+                    Rule::seq(vec![Rule::non_terminal(1), Rule::non_terminal(2)]),
+                ),
+            })
+            .unwrap();
 
         assert_eq!(
             result.productions,
@@ -396,15 +412,16 @@ mod tests {
             }]
         );
 
-        let result = flatten_variable(Variable {
-            name: "test".to_string(),
-            kind: VariableType::Named,
-            rule: Rule::prec_left(
-                Precedence::Integer(101),
-                Rule::seq(vec![Rule::non_terminal(1)]),
-            ),
-        })
-        .unwrap();
+        let result = flattener
+            .flatten_variable(Variable {
+                name: "test".to_string(),
+                kind: VariableType::Named,
+                rule: Rule::prec_left(
+                    Precedence::Integer(101),
+                    Rule::seq(vec![Rule::non_terminal(1)]),
+                ),
+            })
+            .unwrap();
 
         assert_eq!(
             result.productions,
@@ -418,19 +435,21 @@ mod tests {
 
     #[test]
     fn test_flatten_grammar_with_field_names() {
-        let result = flatten_variable(Variable {
-            name: "test".to_string(),
-            kind: VariableType::Named,
-            rule: Rule::seq(vec![
-                Rule::field("first-thing".to_string(), Rule::terminal(1)),
-                Rule::terminal(2),
-                Rule::choice(vec![
-                    Rule::Blank,
-                    Rule::field("second-thing".to_string(), Rule::terminal(3)),
+        let mut flattener = RuleFlattener::new();
+        let result = flattener
+            .flatten_variable(Variable {
+                name: "test".to_string(),
+                kind: VariableType::Named,
+                rule: Rule::seq(vec![
+                    Rule::field("first-thing".to_string(), Rule::terminal(1)),
+                    Rule::terminal(2),
+                    Rule::choice(vec![
+                        Rule::Blank,
+                        Rule::field("second-thing".to_string(), Rule::terminal(3)),
+                    ]),
                 ]),
-            ]),
-        })
-        .unwrap();
+            })
+            .unwrap();
 
         assert_eq!(
             result.productions,
