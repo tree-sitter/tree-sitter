@@ -157,6 +157,26 @@ func x() int {
       (return_statement (number)))))
 ```
 
+* If your language's syntax conflicts with the `===` and `---` test separators, you can optionally add an arbitrary identical suffix (in the below example, `|||`) to disambiguate them:
+
+```
+==================|||
+Basic module
+==================|||
+
+---- MODULE Test ----
+increment(n) == n + 1
+====
+
+---|||
+
+(source_file
+  (module (identifier)
+    (operator (identifier)
+      (parameter_list (identifier))
+      (plus (identifier_ref) (number)))))
+```
+
 These tests are important. They serve as the parser's API documentation, and they can be run every time you change the grammar to verify that everything still parses correctly.
 
 By default, the `tree-sitter test` command runs all of the tests in your `corpus` or `test/corpus/` folder. To run a particular test, you can use the `-f` flag:
@@ -227,6 +247,7 @@ In addition to the `name` and `rules` fields, grammars have a few other optional
 * **`inline`** - an array of rule names that should be automatically *removed* from the grammar by replacing all of their usages with a copy of their definition. This is useful for rules that are used in multiple places but for which you *don't* want to create syntax tree nodes at runtime.
 * **`conflicts`** - an array of arrays of rule names. Each inner array represents a set of rules that's involved in an *LR(1) conflict* that is *intended to exist* in the grammar. When these conflicts occur at runtime, Tree-sitter will use the GLR algorithm to explore all of the possible interpretations. If *multiple* parses end up succeeding, Tree-sitter will pick the subtree whose corresponding rule has the highest total *dynamic precedence*.
 * **`externals`** - an array of token names which can be returned by an [*external scanner*](#external-scanners). External scanners allow you to write custom C code which runs during the lexing process in order to handle lexical rules (e.g. Python's indentation tokens) that cannot be described by regular expressions.
+* **`precedences`** - an array of array of strings, where each array of strings defines named precedence levels in descending order. These names can be used in the `prec` functions to define precedence relative only to other names in the array, rather than globally. Can only be used with parse precedence, not lexical precedence.
 * **`word`** - the name of a token that will match keywords for the purpose of the [keyword extraction](#keyword-extraction) optimization.
 * **`supertypes`** an array of hidden rule names which should be considered to be 'supertypes' in the generated [*node types* file][static-node-types].
 
@@ -503,17 +524,31 @@ Tree-sitter's parsing process is divided into two phases: parsing (which is desc
 
 ### Conflicting Tokens
 
-Grammars often contain multiple tokens that can match the same characters. For example, a grammar might contain the tokens (`"if"` and `/[a-z]+/`). Tree-sitter differentiates between these conflicting tokens in a few ways:
+Grammars often contain multiple tokens that can match the same characters. For example, a grammar might contain the tokens (`"if"` and `/[a-z]+/`). Tree-sitter differentiates between these conflicting tokens in a few ways.
 
-1. **Context-aware Lexing** - Tree-sitter performs lexing on-demand, during the parsing process. At any given position in a source document, the lexer only tries to recognize tokens that are *valid* at that position in the document.
+1. **External Scanning** - If your grammar has an external scanner and one or more tokens in your `externals` array are valid at the current location, your external scanner will always be called first to determine whether those tokens are present.
 
-2. **Lexical Precedence** - When the precedence functions described [above](#the-grammar-dsl) are used within the `token` function, the given precedence values serve as instructions to the lexer. If there are two valid tokens that match the characters at a given position in the document, Tree-sitter will select the one with the higher precedence.
+1. **Context-Aware Lexing** - Tree-sitter performs lexing on-demand, during the parsing process. At any given position in a source document, the lexer only tries to recognize tokens that are *valid* at that position in the document.
 
-3. **Match Length** - If multiple valid tokens with the same precedence match the characters at a given position in a document, Tree-sitter will select the token that matches the [longest sequence of characters][longest-match].
+1. **Earliest Starting Position** - Tree-sitter will prefer tokens with an earlier starting position. This is most often seen with very permissive regular expressions similar to `/.*/`, which are greedy and will consume as much text as possible. In this example the regex would consume all text until hitting a newline - even if text on that line could be interpreted as a different token.
 
-4. **Match Specificity** - If there are two valid tokens with the same precedence and which both match the same number of characters, Tree-sitter will prefer a token that is specified in the grammar as a `String` over a token specified as a `RegExp`.
+1. **Explicit Lexical Precedence** - When the precedence functions described [above](#the-grammar-dsl) are used within the `token` function, the given precedence values serve as instructions to the lexer. If there are two valid tokens that match the characters at a given position in the document, Tree-sitter will select the one with the higher precedence.
 
-5. **Rule Order** - If none of the above criteria can be used to select one token over another, Tree-sitter will prefer the token that appears earlier in the grammar.
+1. **Match Length** - If multiple valid tokens with the same precedence match the characters at a given position in a document, Tree-sitter will select the token that matches the [longest sequence of characters][longest-match].
+
+1. **Match Specificity** - If there are two valid tokens with the same precedence and which both match the same number of characters, Tree-sitter will prefer a token that is specified in the grammar as a `String` over a token specified as a `RegExp`.
+
+1. **Rule Order** - If none of the above criteria can be used to select one token over another, Tree-sitter will prefer the token that appears earlier in the grammar.
+
+### Lexical Precedence vs. Parse Precedence
+
+One common mistake involves not distinguishing lexical precedence from parse precedence.
+Parse precedence determines which rule is chosen to interpret a given sequence of tokens.
+Lexical precedence determines which token is chosen to interpret a given section of text.
+It is a lower-level operation that is done first.
+The above list fully capture tree-sitter's lexical precedence rules, and you will probably refer back to this section of the documentation more often than any other.
+Most of the time when you really get stuck, you're dealing with a lexical precedence problem.
+Pay particular attention to the difference in meaning between using `prec` inside the `token` function vs. outside of it.
 
 ### Keywords
 
@@ -698,6 +733,8 @@ if (valid_symbols[INDENT] || valid_symbol[DEDENT]) {
   }
 }
 ```
+
+Note that if a syntax error is encountered during regular parsing, tree-sitter's first action during error recovery will be to call your external scanner with all tokens marked valid. Your scanner should detect this case and handle it appropriately.
 
 [ambiguous-grammar]: https://en.wikipedia.org/wiki/Ambiguous_grammar
 [antlr]: http://www.antlr.org/
