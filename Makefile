@@ -68,4 +68,8 @@ install: all
 clean:
 	rm -f lib/src/*.o libtree-sitter.a libtree-sitter.$(SOEXT) libtree-sitter.$(SOEXTVER_MAJOR) libtree-sitter.$(SOEXTVER)
 
+cmake: 
+	cmake -S ./ -B ./build -G "Ninja Multi-Config" -DCMAKE_BUILD_TYPE=Release
+	cmake --build ./build --config Release
+	
 .PHONY: all install clean
