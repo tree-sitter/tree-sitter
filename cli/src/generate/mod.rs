@@ -86,10 +86,7 @@ pub fn generate_parser_in_directory(
 
     write_file(&src_path.join("parser.c"), c_code)?;
     write_file(&src_path.join("node-types.json"), node_types_json)?;
-
-    if abi_version == tree_sitter::LANGUAGE_VERSION {
-        write_file(&header_path.join("parser.h"), tree_sitter::PARSER_HEADER)?;
-    }
+    write_file(&header_path.join("parser.h"), tree_sitter::PARSER_HEADER)?;
 
     if generate_bindings {
         binding_files::generate_binding_files(&repo_path, &language_name)?;
