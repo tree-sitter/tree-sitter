@@ -543,7 +543,7 @@ Lexical precedence determines which token is chosen to interpret a given section
 It is a lower-level operation that is done first.
 The above list fully capture tree-sitter's lexical precedence rules, and you will probably refer back to this section of the documentation more often than any other.
 Most of the time when you really get stuck, you're dealing with a lexical precedence problem.
-Pay particular attention to the difference in meaning between using `prec` inside the `token` function vs. outside of it.
+Pay particular attention to the difference in meaning between using `prec` inside the `token` function versus outside of it.
 
 ### Keywords
 
@@ -627,7 +627,7 @@ grammar({
 
 Then, add another C or C++ source file to your project. Currently, its path must be `src/scanner.c` or `src/scanner.cc` for the CLI to recognize it. Be sure to add this file to the `sources` section of your `binding.gyp` file so that it will be included when your project is compiled by Node.js.
 
-In this new source file, define an [`enum`][enum] type containing the names of all of your external tokens. The ordering of this enum must match the order in your grammar's `externals` array.
+In this new source file, define an [`enum`][enum] type containing the names of all of your external tokens. The ordering of this enum must match the order in your grammar's `externals` array; the actual names do not matter.
 
 ```c
 #include <tree_sitter/parser.h>
@@ -690,6 +690,7 @@ void tree_sitter_my_language_external_scanner_deserialize(
 ```
 
 This function should *restore* the state of your scanner based the bytes that were previously written by the `serialize` function. It is called with a pointer to your scanner, a pointer to the buffer of bytes, and the number of bytes that should be read.
+It is good practice to explicitly erase your scanner state variables at the start of this function, before restoring their values from the byte buffer.
 
 #### Scan
 
@@ -707,10 +708,11 @@ This function is responsible for recognizing external tokens. It should return `
 
 * **`int32_t lookahead`** - The current next character in the input stream, represented as a 32-bit unicode code point.
 * **`TSSymbol result_symbol`** - The symbol that was recognized. Your scan function should *assign* to this field one of the values from the `TokenType` enum, described above.
-* **`void (*advance)(TSLexer *, bool skip)`** - A function for advancing to the next character. If you pass `true` for the second argument, the current character will be treated as whitespace.
+* **`void (*advance)(TSLexer *, bool skip)`** - A function for advancing to the next character. If you pass `true` for the second argument, the current character will be treated as whitespace; whitespace won't be included in the text range associated with tokens emitted by the external scanner.
 * **`void (*mark_end)(TSLexer *)`** - A function for marking the end of the recognized token. This allows matching tokens that require multiple characters of lookahead. By default (if you don't call `mark_end`), any character that you moved past using the `advance` function will be included in the size of the token. But once you call `mark_end`, then any later calls to `advance` will *not* increase the size of the returned token. You can call `mark_end` multiple times to increase the size of the token.
 * **`uint32_t (*get_column)(TSLexer *)`** - A function for querying the current column position of the lexer. It returns the number of codepoints since the start of the current line. The codepoint position is recalculated on every call to this function by reading from the start of the line.
-* **`bool (*is_at_included_range_start)(TSLexer *)`** - A function for checking if the parser has just skipped some characters in the document. When parsing an embedded document using the `ts_parser_set_included_ranges` function (described in the [multi-language document section][multi-language-section]), your scanner may want to apply some special behavior when moving to a disjoint part of the document. For example, in [EJS documents][ejs], the JavaScript parser uses this function to enable inserting automatic semicolon tokens in between the code directives, delimited by `<%` and `%>`.
+* **`bool (*is_at_included_range_start)(const TSLexer *)`** - A function for checking whether the parser has just skipped some characters in the document. When parsing an embedded document using the `ts_parser_set_included_ranges` function (described in the [multi-language document section][multi-language-section]), your scanner may want to apply some special behavior when moving to a disjoint part of the document. For example, in [EJS documents][ejs], the JavaScript parser uses this function to enable inserting automatic semicolon tokens in between the code directives, delimited by `<%` and `%>`.
+* **`bool (*eof)(const TSLexer *)`** - A function for determining whether the lexer is at the end of the file. The value of `lookahead` will be `0` at the end of a file, but this function should be used instead of checking for that value because the `0` or "NUL" value is also a valid character that could be present in the file being parsed.
 
 The third argument to the `scan` function is an array of booleans that indicates which of your external tokens are currently expected by the parser. You should only look for a given token if it is valid according to this array. At the same time, you cannot backtrack, so you may need to combine certain pieces of logic.
 
@@ -729,7 +731,20 @@ if (valid_symbols[INDENT] || valid_symbol[DEDENT]) {
 }
 ```
 
-Note that if a syntax error is encountered during regular parsing, tree-sitter's first action during error recovery will be to call your external scanner with all tokens marked valid. Your scanner should detect this case and handle it appropriately.
+#### Other External Scanner Details
+
+If a token in your `externals` array is valid at the current position in the parse, your external scanner will be called first before anything else is done.
+This means your external scanner functions as a powerful override of tree-sitter's lexing behavior, and can be used to solve problems that can't be cracked with ordinary lexical, parse, or dynamic precedence.
+
+If a syntax error is encountered during regular parsing, tree-sitter's first action during error recovery will be to call your external scanner's `scan` function with all tokens marked valid.
+Your scanner should detect this case and handle it appropriately.
+One simple method of detection is to add an unused token to the end of your `externals` array, for example `externals: $ => [$.token1, $.token2, $.error_sentinel]`, then check whether that token is marked valid to determine whether tree-sitter is in error correction mode.
+
+If you put terminal keywords in your `externals` array, for example `externals: $ => ['if', 'then', 'else']`, then any time those terminals are present in your grammar they will be tokenized by your external scanner.
+It is equivalent to writing `externals: [$.if_keyword, $.then_keyword, $.else_keyword]` then using `alias($.if_keyword, 'if')` in your grammar.
+
+External scanners are a common cause of infinite loops.
+Be very careful when emitting zero-width tokens from your external scanner, and if you consume characters in a loop be sure use the `eof` function to check whether you are at the end of the file.
 
 [ambiguous-grammar]: https://en.wikipedia.org/wiki/Ambiguous_grammar
 [antlr]: http://www.antlr.org/
