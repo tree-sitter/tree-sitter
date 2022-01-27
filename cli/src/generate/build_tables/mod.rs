@@ -1,21 +1,26 @@
-pub(crate) mod build_lex_table;
-pub(crate) mod build_parse_table;
+mod build_lex_table;
+mod build_parse_table;
 mod coincident_tokens;
 mod item;
 mod item_set_builder;
 mod minimize_parse_table;
 mod token_conflicts;
 
-use self::build_lex_table::build_lex_table;
-use self::build_parse_table::{build_parse_table, ParseStateInfo};
-use self::coincident_tokens::CoincidentTokenIndex;
-use self::minimize_parse_table::minimize_parse_table;
-use self::token_conflicts::TokenConflictMap;
-use crate::generate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
-use crate::generate::nfa::NfaCursor;
-use crate::generate::node_types::VariableInfo;
-use crate::generate::rules::{AliasMap, Symbol, SymbolType, TokenSet};
-use crate::generate::tables::{LexTable, ParseAction, ParseTable, ParseTableEntry};
+use self::{
+    build_lex_table::build_lex_table,
+    build_parse_table::{build_parse_table, ParseStateInfo},
+    coincident_tokens::CoincidentTokenIndex,
+    item_set_builder::ParseItemSetBuilder,
+    minimize_parse_table::minimize_parse_table,
+    token_conflicts::TokenConflictMap,
+};
+use super::{
+    grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar},
+    nfa::NfaCursor,
+    node_types::VariableInfo,
+    rules::{AliasMap, Symbol, SymbolType, TokenSet},
+    tables::{LexTable, ParseAction, ParseTable, ParseTableEntry},
+};
 use anyhow::Result;
 use log::info;
 use std::collections::{BTreeSet, HashMap};
@@ -28,9 +33,17 @@ pub(crate) fn build_tables(
     inlines: &InlinedProductionMap,
     report_symbol_name: Option<&str>,
 ) -> Result<(ParseTable, LexTable, LexTable, Option<Symbol>)> {
-    let (mut parse_table, following_tokens, parse_state_info) =
-        build_parse_table(syntax_grammar, lexical_grammar, inlines, variable_info)?;
+    let item_set_builder = ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines);
+    let following_tokens =
+        get_following_tokens(syntax_grammar, lexical_grammar, inlines, &item_set_builder);
     let token_conflict_map = TokenConflictMap::new(lexical_grammar, following_tokens);
+    let (mut parse_table, parse_state_info) = build_parse_table(
+        syntax_grammar,
+        lexical_grammar,
+        item_set_builder,
+        variable_info,
+        &token_conflict_map,
+    )?;
     let coincident_token_index = CoincidentTokenIndex::new(&parse_table, lexical_grammar);
     let keywords = identify_keywords(
         lexical_grammar,
@@ -76,12 +89,55 @@ pub(crate) fn build_tables(
             report_symbol_name,
         );
     }
+
     Ok((
         parse_table,
         main_lex_table,
         keyword_lex_table,
         syntax_grammar.word_token,
     ))
+}
+
+fn get_following_tokens(
+    syntax_grammar: &SyntaxGrammar,
+    lexical_grammar: &LexicalGrammar,
+    inlines: &InlinedProductionMap,
+    builder: &ParseItemSetBuilder,
+) -> Vec<TokenSet> {
+    let mut result = vec![TokenSet::new(); lexical_grammar.variables.len()];
+    let productions = syntax_grammar
+        .variables
+        .iter()
+        .flat_map(|v| &v.productions)
+        .chain(&inlines.productions);
+    let all_tokens = (0..result.len())
+        .into_iter()
+        .map(Symbol::terminal)
+        .collect::<TokenSet>();
+    for production in productions {
+        for i in 1..production.steps.len() {
+            let left_tokens = builder.last_set(&production.steps[i - 1].symbol);
+            let right_tokens = builder.first_set(&production.steps[i].symbol);
+            let right_reserved_tokens = builder.reserved_first_set(&production.steps[i].symbol);
+            for left_token in left_tokens.iter() {
+                if left_token.is_terminal() {
+                    result[left_token.index].insert_all_terminals(right_tokens);
+                    if let Some(reserved_tokens) = right_reserved_tokens {
+                        result[left_token.index].insert_all_terminals(reserved_tokens);
+                    }
+                }
+            }
+        }
+    }
+    for extra in &syntax_grammar.extra_symbols {
+        if extra.is_terminal() {
+            for entry in result.iter_mut() {
+                entry.insert(*extra);
+            }
+            result[extra.index] = all_tokens.clone();
+        }
+    }
+    result
 }
 
 fn populate_error_state(

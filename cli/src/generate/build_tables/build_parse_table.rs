@@ -1,24 +1,27 @@
-use super::item::{ParseItem, ParseItemSet, ParseItemSetCore, ParseItemSetEntry};
-use super::item_set_builder::ParseItemSetBuilder;
-use crate::generate::grammars::PrecedenceEntry;
-use crate::generate::grammars::{
-    InlinedProductionMap, LexicalGrammar, SyntaxGrammar, VariableType,
-};
-use crate::generate::node_types::VariableInfo;
-use crate::generate::rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet};
-use crate::generate::tables::{
-    FieldLocation, GotoAction, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
-    ProductionInfo, ProductionInfoId,
+use crate::generate::{
+    build_tables::{
+        item::{ParseItem, ParseItemSet, ParseItemSetCore, ParseItemSetEntry},
+        item_set_builder::ParseItemSetBuilder,
+        token_conflicts::TokenConflictMap,
+    },
+    grammars::{LexicalGrammar, PrecedenceEntry, SyntaxGrammar, VariableType},
+    node_types::VariableInfo,
+    rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
+    tables::{
+        FieldLocation, GotoAction, ParseAction, ParseState, ParseStateId, ParseTable,
+        ParseTableEntry, ProductionInfo, ProductionInfoId,
+    },
 };
 use anyhow::{anyhow, Result};
-use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
-use std::fmt::Write;
-use std::hash::BuildHasherDefault;
-use std::u32;
-
 use indexmap::{map::Entry, IndexMap};
 use rustc_hash::FxHasher;
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, HashMap, HashSet, VecDeque},
+    fmt::Write,
+    hash::BuildHasherDefault,
+    u32,
+};
 
 // For conflict reporting, each parse state is associated with an example
 // sequence of symbols that could lead to that parse state.
@@ -52,6 +55,7 @@ struct ParseTableBuilder<'a> {
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
     variable_info: &'a Vec<VariableInfo>,
+    token_conflict_map: &'a TokenConflictMap<'a>,
     core_ids_by_core: HashMap<ParseItemSetCore<'a>, usize>,
     state_ids_by_item_set: IndexMap<ParseItemSet<'a>, ParseStateId, BuildHasherDefault<FxHasher>>,
     parse_state_info_by_id: Vec<ParseStateInfo<'a>>,
@@ -61,6 +65,34 @@ struct ParseTableBuilder<'a> {
 }
 
 impl<'a> ParseTableBuilder<'a> {
+    fn new(
+        syntax_grammar: &'a SyntaxGrammar,
+        lexical_grammar: &'a LexicalGrammar,
+        item_set_builder: ParseItemSetBuilder<'a>,
+        variable_info: &'a Vec<VariableInfo>,
+        token_conflict_map: &'a TokenConflictMap,
+    ) -> Self {
+        Self {
+            syntax_grammar,
+            lexical_grammar,
+            item_set_builder,
+            variable_info,
+            token_conflict_map,
+            non_terminal_extra_states: Vec::new(),
+            state_ids_by_item_set: IndexMap::default(),
+            core_ids_by_core: HashMap::new(),
+            parse_state_info_by_id: Vec::new(),
+            parse_state_queue: VecDeque::new(),
+            parse_table: ParseTable {
+                states: Vec::new(),
+                symbols: Vec::new(),
+                external_lex_states: Vec::new(),
+                production_infos: Vec::new(),
+                max_aliased_production_length: 1,
+            },
+        }
+    }
+
     fn build(mut self) -> Result<(ParseTable, Vec<ParseStateInfo<'a>>)> {
         // Ensure that the empty alias sequence has index 0.
         self.parse_table
@@ -422,19 +454,38 @@ impl<'a> ParseTableBuilder<'a> {
             }
         }
 
-        // if let Some(word_token) = self.syntax_grammar.word_token {
-        //     for entry in &item_set.entries {
-        //         if let Some(next_step) = entry.item.step() {
-        //             if next_step.symbol == word_token {
-        //                 for reserved_word in next_step.reserved_words.iter() {
-        //                     if !state.terminal_entries.contains_key(&reserved_word) {
-        //                         state.reserved_words.insert(reserved_word);
-        //                     }
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
+        let token_conflict_map = &self.token_conflict_map;
+        for entry in &item_set.entries {
+            if let Some(next_step) = entry.item.step() {
+                if next_step.symbol.is_terminal() {
+                    let reserved_tokens = next_step
+                        .reserved_words
+                        .as_deref()
+                        .unwrap_or(&self.syntax_grammar.reserved_words);
+                    for reserved_token in reserved_tokens.iter() {
+                        if !state.terminal_entries.contains_key(&reserved_token)
+                            && token_conflict_map.does_match_same_string(
+                                reserved_token.index,
+                                next_step.symbol.index,
+                            )
+                        {
+                            state.reserved_words.insert(reserved_token);
+                        }
+                    }
+                }
+            } else {
+                for reserved_token in entry.reserved_lookaheads.iter() {
+                    if !state.terminal_entries.contains_key(&reserved_token)
+                        && entry.lookaheads.iter().any(|valid_token| {
+                            token_conflict_map
+                                .does_match_same_string(reserved_token.index, valid_token.index)
+                        })
+                    {
+                        state.reserved_words.insert(reserved_token);
+                    }
+                }
+            }
+        }
 
         Ok(())
     }
@@ -940,80 +991,19 @@ impl<'a> ParseTableBuilder<'a> {
     }
 }
 
-fn populate_following_tokens(
-    result: &mut Vec<TokenSet>,
-    grammar: &SyntaxGrammar,
-    inlines: &InlinedProductionMap,
-    builder: &ParseItemSetBuilder,
-) {
-    let productions = grammar
-        .variables
-        .iter()
-        .flat_map(|v| &v.productions)
-        .chain(&inlines.productions);
-    let all_tokens = (0..result.len())
-        .into_iter()
-        .map(Symbol::terminal)
-        .collect::<TokenSet>();
-    for production in productions {
-        for i in 1..production.steps.len() {
-            let left_tokens = builder.last_set(&production.steps[i - 1].symbol);
-            let right_tokens = builder.first_set(&production.steps[i].symbol);
-            let right_reserved_tokens = builder.reserved_first_set(&production.steps[i].symbol);
-            for left_token in left_tokens.iter() {
-                if left_token.is_terminal() {
-                    result[left_token.index].insert_all_terminals(right_tokens);
-                    if let Some(reserved_tokens) = right_reserved_tokens {
-                        result[left_token.index].insert_all_terminals(reserved_tokens);
-                    }
-                }
-            }
-        }
-    }
-    for extra in &grammar.extra_symbols {
-        if extra.is_terminal() {
-            for entry in result.iter_mut() {
-                entry.insert(*extra);
-            }
-            result[extra.index] = all_tokens.clone();
-        }
-    }
-}
-
 pub(crate) fn build_parse_table<'a>(
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
-    inlines: &'a InlinedProductionMap,
+    item_set_builder: ParseItemSetBuilder<'a>,
     variable_info: &'a Vec<VariableInfo>,
-) -> Result<(ParseTable, Vec<TokenSet>, Vec<ParseStateInfo<'a>>)> {
-    let item_set_builder = ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines);
-    let mut following_tokens = vec![TokenSet::new(); lexical_grammar.variables.len()];
-    populate_following_tokens(
-        &mut following_tokens,
-        syntax_grammar,
-        inlines,
-        &item_set_builder,
-    );
-
-    let (table, item_sets) = ParseTableBuilder {
+    token_conflict_map: &'a TokenConflictMap,
+) -> Result<(ParseTable, Vec<ParseStateInfo<'a>>)> {
+    ParseTableBuilder::new(
         syntax_grammar,
         lexical_grammar,
         item_set_builder,
         variable_info,
-        non_terminal_extra_states: Vec::new(),
-        state_ids_by_item_set: IndexMap::default(),
-        core_ids_by_core: HashMap::new(),
-        parse_state_info_by_id: Vec::new(),
-        parse_state_queue: VecDeque::new(),
-        parse_table: ParseTable {
-            states: Vec::new(),
-            symbols: Vec::new(),
-            external_lex_states: Vec::new(),
-            production_infos: Vec::new(),
-            max_aliased_production_length: 1,
-        },
-    }
-    .build()?;
-
-    Ok((table, following_tokens, item_sets))
+        token_conflict_map,
+    )
+    .build()
 }
