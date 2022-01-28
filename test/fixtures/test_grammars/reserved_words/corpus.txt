@@ -20,7 +20,7 @@ if (a) {
       (block
         (var_declaration
           (identifier)
-          (object_expression
+          (object
             (pair (identifier) (identifier))
             (pair (identifier) (identifier))))
         (while_statement
@@ -60,7 +60,7 @@ var x = {
 (program
   (var_declaration
     (identifier)
-    (object_expression
+    (object
       (pair (identifier) (identifier))
       (pair (identifier) (identifier)))))
 
@@ -83,3 +83,19 @@ var y = z;
     (identifier)
     (identifier)))
 
+=============================================
+Other tokens that overlap with keyword tokens
+=============================================
+
+var a = /reserved-words-should-no-affect-this/;
+var d = /if/;
+
+---
+
+(program
+  (var_declaration
+    (identifier)
+    (regex (regex_pattern)))
+  (var_declaration
+    (identifier)
+    (regex (regex_pattern))))

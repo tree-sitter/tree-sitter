@@ -36,14 +36,13 @@ pub(crate) fn build_tables(
     let item_set_builder = ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines);
     let following_tokens =
         get_following_tokens(syntax_grammar, lexical_grammar, inlines, &item_set_builder);
-    let token_conflict_map = TokenConflictMap::new(lexical_grammar, following_tokens);
     let (mut parse_table, parse_state_info) = build_parse_table(
         syntax_grammar,
         lexical_grammar,
         item_set_builder,
         variable_info,
-        &token_conflict_map,
     )?;
+    let token_conflict_map = TokenConflictMap::new(lexical_grammar, following_tokens);
     let coincident_token_index = CoincidentTokenIndex::new(&parse_table, lexical_grammar);
     let keywords = identify_keywords(
         lexical_grammar,

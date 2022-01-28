@@ -2,7 +2,6 @@ use crate::generate::{
     build_tables::{
         item::{ParseItem, ParseItemSet, ParseItemSetCore, ParseItemSetEntry},
         item_set_builder::ParseItemSetBuilder,
-        token_conflicts::TokenConflictMap,
     },
     grammars::{LexicalGrammar, PrecedenceEntry, SyntaxGrammar, VariableType},
     node_types::VariableInfo,
@@ -55,7 +54,6 @@ struct ParseTableBuilder<'a> {
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
     variable_info: &'a Vec<VariableInfo>,
-    token_conflict_map: &'a TokenConflictMap<'a>,
     core_ids_by_core: HashMap<ParseItemSetCore<'a>, usize>,
     state_ids_by_item_set: IndexMap<ParseItemSet<'a>, ParseStateId, BuildHasherDefault<FxHasher>>,
     parse_state_info_by_id: Vec<ParseStateInfo<'a>>,
@@ -70,14 +68,12 @@ impl<'a> ParseTableBuilder<'a> {
         lexical_grammar: &'a LexicalGrammar,
         item_set_builder: ParseItemSetBuilder<'a>,
         variable_info: &'a Vec<VariableInfo>,
-        token_conflict_map: &'a TokenConflictMap,
     ) -> Self {
         Self {
             syntax_grammar,
             lexical_grammar,
             item_set_builder,
             variable_info,
-            token_conflict_map,
             non_terminal_extra_states: Vec::new(),
             state_ids_by_item_set: IndexMap::default(),
             core_ids_by_core: HashMap::new(),
@@ -454,34 +450,29 @@ impl<'a> ParseTableBuilder<'a> {
             }
         }
 
-        let token_conflict_map = &self.token_conflict_map;
-        for entry in &item_set.entries {
-            if let Some(next_step) = entry.item.step() {
-                if next_step.symbol.is_terminal() {
-                    let reserved_tokens = next_step
-                        .reserved_words
-                        .as_deref()
-                        .unwrap_or(&self.syntax_grammar.reserved_words);
-                    for reserved_token in reserved_tokens.iter() {
+        if let Some(keyword_capture_token) = self.syntax_grammar.word_token {
+            for entry in &item_set.entries {
+                if let Some(next_step) = entry.item.step() {
+                    if next_step.symbol.is_terminal() {
+                        let reserved_tokens = next_step
+                            .reserved_words
+                            .as_deref()
+                            .unwrap_or(&self.syntax_grammar.reserved_words);
+                        for reserved_token in reserved_tokens.iter() {
+                            if !state.terminal_entries.contains_key(&reserved_token)
+                                && next_step.symbol == keyword_capture_token
+                            {
+                                state.reserved_words.insert(reserved_token);
+                            }
+                        }
+                    }
+                } else {
+                    for reserved_token in entry.reserved_lookaheads.iter() {
                         if !state.terminal_entries.contains_key(&reserved_token)
-                            && token_conflict_map.does_match_same_string(
-                                reserved_token.index,
-                                next_step.symbol.index,
-                            )
+                            && entry.lookaheads.contains(&keyword_capture_token)
                         {
                             state.reserved_words.insert(reserved_token);
                         }
-                    }
-                }
-            } else {
-                for reserved_token in entry.reserved_lookaheads.iter() {
-                    if !state.terminal_entries.contains_key(&reserved_token)
-                        && entry.lookaheads.iter().any(|valid_token| {
-                            token_conflict_map
-                                .does_match_same_string(reserved_token.index, valid_token.index)
-                        })
-                    {
-                        state.reserved_words.insert(reserved_token);
                     }
                 }
             }
@@ -996,14 +987,12 @@ pub(crate) fn build_parse_table<'a>(
     lexical_grammar: &'a LexicalGrammar,
     item_set_builder: ParseItemSetBuilder<'a>,
     variable_info: &'a Vec<VariableInfo>,
-    token_conflict_map: &'a TokenConflictMap,
 ) -> Result<(ParseTable, Vec<ParseStateInfo<'a>>)> {
     ParseTableBuilder::new(
         syntax_grammar,
         lexical_grammar,
         item_set_builder,
         variable_info,
-        token_conflict_map,
     )
     .build()
 }

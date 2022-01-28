@@ -28,15 +28,18 @@ module.exports = grammar({
         $.parenthesized_expression,
         $.call_expression,
         $.member_expression,
-        $.object_expression,
+        $.object,
+        $.regex,
       ),
     parenthesized_expression: $ => seq("(", $._expression, ")"),
     member_expression: $ => seq($._expression, ".", $.identifier),
     call_expression: $ =>
       seq($._expression, "(", repeat(seq($._expression, ",")), ")"),
-    object_expression: $ =>
+    object: $ =>
       seq("{", repeat(seq(choice($.pair, $.getter), ",")), "}"),
+    regex: $ => seq('/', $.regex_pattern, '/'),
 
+    regex_pattern: $ => token(prec(-1, /[^/\n]+/)),
     pair: $ =>
       seq(reserved(RESERVED_PROPERTY_NAMES, $.identifier), ":", $._expression),
     getter: $ =>
