@@ -21,6 +21,13 @@ include = [
   "/src/unicode/*",
 ]
 
+[features]
+logging_lexer = []
+logging_parser = []
+logging_query = []
+logging_changed_ranges = []
+logging = ["logging_lexer", "logging_parser", "logging_query", "logging_changed_ranges"]
+
 [dependencies]
 lazy_static = { version = "1.2.0", optional = true }
 regex = "1"

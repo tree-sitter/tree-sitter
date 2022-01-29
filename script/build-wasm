@@ -23,6 +23,11 @@ OPTIONS
             and more runtime assertions.
   --docker: Run emscripten using docker, even if \`emcc\` is installed.
             By default, \`emcc\` will be run directly when available.
+  --logging-parser: 
+  --logging-lexer:
+  --logging-query:
+  --logging-changed-ranges: 
+            Build the library with logging enabled for parser, lexer, query, or changed ranges.
 
 EOF
 }
@@ -49,6 +54,22 @@ while [[ $# > 0 ]]; do
 
     --docker)
       force_docker=1
+      ;;
+
+    --logging-parser)
+      emscripten_flags="$emscripten_flags -D DEBUG_PARSER"
+      ;;
+
+    --logging-lexer)
+      emscripten_flags="$emscripten_flags -D DEBUG_LEXER"
+      ;;
+
+    --logging-query)
+      emscripten_flags="$emscripten_flags -D DEBUG_ANALYZE_QUERY -D DEBUG_EXECUTE_QUERY"
+      ;;
+
+    --logging-changed-ranges)
+      emscripten_flags="$emscripten_flags -D DEBUG_GET_CHANGED_RANGES"
       ;;
 
     *)
@@ -92,7 +113,7 @@ $emcc                                            \
   -fno-exceptions                                \
   -std=c99                                       \
   -D 'fprintf(...)='                             \
-  -D NDEBUG=                                     \
+  -D NDEBUG                                      \
   -I lib/src                                     \
   -I lib/include                                 \
   --js-library ${web_dir}/imports.js             \

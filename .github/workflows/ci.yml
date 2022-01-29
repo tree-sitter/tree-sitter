@@ -66,8 +66,8 @@ jobs:
       - name: Build C library
         run: make
 
-      - name: Build wasm library
-        run: script/build-wasm
+      - name: Build wasm library with logging
+        run: script/build-wasm --logging-parser --logging-lexer
 
       - name: Build CLI
         run: |
@@ -81,10 +81,16 @@ jobs:
           script/generate-fixtures-wasm
 
       - name: Run main tests
-        run: cargo test
+        run: cargo test --features logging_parser --features logging_lexer
 
       - name: Run wasm tests
         run: script/test-wasm
+
+      - name: Build wasm library
+        run: |
+          rm -rf ./lib/binding_web/tree-sitter.js
+          rm -rf ./lib/binding_web/tree-sitter.wasm
+          script/build-wasm
 
       - name: Run benchmarks
         run: script/benchmark
