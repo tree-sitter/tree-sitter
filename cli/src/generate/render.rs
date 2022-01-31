@@ -130,7 +130,8 @@ impl Generator {
 
         self.add_lex_modes();
 
-        if self.reserved_word_sets.len() > 1 {
+        if self.abi_version >= ABI_VERSION_WITH_RESERVED_WORDS && self.reserved_word_sets.len() > 1
+        {
             self.add_reserved_word_sets();
         }
 
@@ -1021,7 +1022,12 @@ impl Generator {
     fn add_lex_modes(&mut self) {
         add_line!(
             self,
-            "static const TSLexerMode ts_lex_modes[STATE_COUNT] = {{"
+            "static const {} ts_lex_modes[STATE_COUNT] = {{",
+            if self.abi_version >= ABI_VERSION_WITH_RESERVED_WORDS {
+                "TSLexerMode"
+            } else {
+                "TSLexMode"
+            }
         );
         indent!(self);
         for (i, state) in self.parse_table.states.iter().enumerate() {
@@ -1040,9 +1046,11 @@ impl Generator {
                     );
                 }
 
-                let reserved_word_set_id = self.reserved_word_set_ids_by_parse_state[i];
-                if reserved_word_set_id != 0 {
-                    add!(self, ", .reserved_word_set_id = {}", reserved_word_set_id);
+                if self.abi_version >= ABI_VERSION_WITH_RESERVED_WORDS {
+                    let reserved_word_set_id = self.reserved_word_set_ids_by_parse_state[i];
+                    if reserved_word_set_id != 0 {
+                        add!(self, ", .reserved_word_set_id = {}", reserved_word_set_id);
+                    }
                 }
             }
 
