@@ -394,6 +394,9 @@ impl TokenSet {
         if other.index < vec.len() {
             if vec[other.index] {
                 vec.set(other.index, false);
+                while let Some(false) = vec.last() {
+                    vec.pop();
+                }
                 return true;
             }
         }
