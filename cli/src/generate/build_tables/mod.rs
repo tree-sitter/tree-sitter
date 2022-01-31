@@ -32,7 +32,7 @@ pub(crate) fn build_tables(
     variable_info: &Vec<VariableInfo>,
     inlines: &InlinedProductionMap,
     report_symbol_name: Option<&str>,
-) -> Result<(ParseTable, LexTable, LexTable, Option<Symbol>)> {
+) -> Result<(ParseTable, LexTable, LexTable)> {
     let item_set_builder = ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines);
     let following_tokens =
         get_following_tokens(syntax_grammar, lexical_grammar, inlines, &item_set_builder);
@@ -89,12 +89,7 @@ pub(crate) fn build_tables(
         );
     }
 
-    Ok((
-        parse_table,
-        main_lex_table,
-        keyword_lex_table,
-        syntax_grammar.word_token,
-    ))
+    Ok((parse_table, main_lex_table, keyword_lex_table))
 }
 
 fn get_following_tokens(

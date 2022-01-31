@@ -353,10 +353,10 @@ static bool ts_parser__can_reuse_first_leaf(
   Subtree tree,
   TableEntry *table_entry
 ) {
-  TSLexMode current_lex_mode = self->language->lex_modes[state];
   TSSymbol leaf_symbol = ts_subtree_leaf_symbol(tree);
   TSStateId leaf_state = ts_subtree_leaf_parse_state(tree);
-  TSLexMode leaf_lex_mode = self->language->lex_modes[leaf_state];
+  TSLexerMode current_lex_mode = ts_language_lex_mode_for_state(self->language, state);
+  TSLexerMode leaf_lex_mode = ts_language_lex_mode_for_state(self->language, leaf_state);
 
   // At the end of a non-terminal extra node, the lexer normally returns
   // NULL, which indicates that the parser should look for a reduce action
@@ -367,7 +367,7 @@ static bool ts_parser__can_reuse_first_leaf(
   // If the token was created in a state with the same set of lookaheads, it is reusable.
   if (
     table_entry->action_count > 0 &&
-    memcmp(&leaf_lex_mode, &current_lex_mode, sizeof(TSLexMode)) == 0 &&
+    memcmp(&leaf_lex_mode, &current_lex_mode, sizeof(TSLexerMode)) == 0 &&
     (
       leaf_symbol != self->language->keyword_capture_token ||
       (!ts_subtree_is_keyword(tree) && ts_subtree_parse_state(tree) == state)
@@ -387,7 +387,7 @@ static Subtree ts_parser__lex(
   StackVersion version,
   TSStateId parse_state
 ) {
-  TSLexMode lex_mode = self->language->lex_modes[parse_state];
+  TSLexerMode lex_mode = ts_language_lex_mode_for_state(self->language, parse_state);
   if (lex_mode.lex_state == (uint16_t)-1) {
     LOG("no_lookahead_after_non_terminal_extra");
     return NULL_SUBTREE;
@@ -466,7 +466,7 @@ static Subtree ts_parser__lex(
 
     if (!error_mode) {
       error_mode = true;
-      lex_mode = self->language->lex_modes[ERROR_STATE];
+      lex_mode = ts_language_lex_mode_for_state(self->language, ERROR_STATE);
       valid_external_tokens = ts_language_enabled_external_tokens(
         self->language,
         lex_mode.external_lex_state
@@ -533,7 +533,10 @@ static Subtree ts_parser__lex(
       if (
         self->language->keyword_lex_fn(&self->lexer.data, 0) &&
         self->lexer.token_end_position.bytes == end_byte &&
-        ts_language_is_valid_lookahead(self->language, parse_state, self->lexer.data.result_symbol)
+        (
+          ts_language_has_actions(self->language, parse_state, self->lexer.data.result_symbol) ||
+          ts_language_is_reserved_word(self->language, parse_state, self->lexer.data.result_symbol)
+        )
       ) {
         is_keyword = true;
         symbol = self->lexer.data.result_symbol;
@@ -1527,9 +1530,10 @@ static bool ts_parser__advance(
       // keyword, then switch to treating it as the normal word token if that
       // token is valid in this state.
       if (
-        !table_entry.is_valid_lookahead &&
+        table_entry.action_count == 0 &&
         ts_subtree_is_keyword(lookahead) &&
-        ts_subtree_symbol(lookahead) != self->language->keyword_capture_token
+        ts_subtree_symbol(lookahead) != self->language->keyword_capture_token &&
+        !ts_language_is_reserved_word(self->language, state, ts_subtree_symbol(lookahead))
       ) {
         ts_language_table_entry(
           self->language,

@@ -129,7 +129,7 @@ fn generate_parser_for_grammar_with_opts(
         &simple_aliases,
         &variable_info,
     );
-    let (parse_table, main_lex_table, keyword_lex_table, keyword_capture_token) = build_tables(
+    let (parse_table, main_lex_table, keyword_lex_table) = build_tables(
         &syntax_grammar,
         &lexical_grammar,
         &simple_aliases,
@@ -142,7 +142,6 @@ fn generate_parser_for_grammar_with_opts(
         parse_table,
         main_lex_table,
         keyword_lex_table,
-        keyword_capture_token,
         syntax_grammar,
         lexical_grammar,
         simple_aliases,

@@ -1,7 +1,7 @@
 use super::{
     char_tree::{CharacterTree, Comparator},
     grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType},
-    rules::{Alias, AliasMap, Symbol, SymbolType},
+    rules::{Alias, AliasMap, Symbol, SymbolType, TokenSet},
     tables::{
         AdvanceAction, FieldLocation, GotoAction, LexState, LexTable, ParseAction, ParseTable,
         ParseTableEntry,
@@ -20,6 +20,7 @@ const SMALL_STATE_THRESHOLD: usize = 64;
 const ABI_VERSION_MIN: usize = 13;
 const ABI_VERSION_MAX: usize = tree_sitter::LANGUAGE_VERSION;
 const ABI_VERSION_WITH_PRIMARY_STATES: usize = 14;
+const ABI_VERSION_WITH_RESERVED_WORDS: usize = 15;
 
 macro_rules! add {
     ($this: tt, $($arg: tt)*) => {{
@@ -56,6 +57,7 @@ macro_rules! dedent {
     };
 }
 
+#[derive(Default)]
 struct Generator {
     buffer: String,
     indent_level: usize,
@@ -64,7 +66,6 @@ struct Generator {
     main_lex_table: LexTable,
     keyword_lex_table: LexTable,
     large_state_count: usize,
-    keyword_capture_token: Option<Symbol>,
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
     default_aliases: AliasMap,
@@ -73,6 +74,8 @@ struct Generator {
     alias_ids: HashMap<Alias, String>,
     unique_aliases: Vec<Alias>,
     symbol_map: HashMap<Symbol, Symbol>,
+    reserved_word_sets: Vec<TokenSet>,
+    reserved_word_set_ids_by_parse_state: Vec<usize>,
     field_names: Vec<String>,
 
     #[allow(unused)]
@@ -119,13 +122,17 @@ impl Generator {
         swap(&mut main_lex_table, &mut self.main_lex_table);
         self.add_lex_function("ts_lex", main_lex_table, true);
 
-        if self.keyword_capture_token.is_some() {
+        if self.syntax_grammar.word_token.is_some() {
             let mut keyword_lex_table = LexTable::default();
             swap(&mut keyword_lex_table, &mut self.keyword_lex_table);
             self.add_lex_function("ts_lex_keywords", keyword_lex_table, false);
         }
 
-        self.add_lex_modes_list();
+        self.add_lex_modes();
+
+        if self.reserved_word_sets.len() > 1 {
+            self.add_reserved_word_sets();
+        }
 
         if !self.syntax_grammar.external_tokens.is_empty() {
             self.add_external_token_enum();
@@ -236,6 +243,22 @@ impl Generator {
             }
         }
 
+        // Assign an id to each unique reserved word set
+        self.reserved_word_sets.push(TokenSet::new());
+        for state in &self.parse_table.states {
+            let id = if let Some(ix) = self
+                .reserved_word_sets
+                .iter()
+                .position(|set| *set == state.reserved_words)
+            {
+                ix
+            } else {
+                self.reserved_word_sets.push(state.reserved_words.clone());
+                self.reserved_word_sets.len() - 1
+            };
+            self.reserved_word_set_ids_by_parse_state.push(id);
+        }
+
         // Determine which states should use the "small state" representation, and which should
         // use the normal array representation.
         let threshold = cmp::min(SMALL_STATE_THRESHOLD, self.parse_table.symbols.len() / 2);
@@ -323,6 +346,15 @@ impl Generator {
             self,
             "#define MAX_ALIAS_SEQUENCE_LENGTH {}",
             self.parse_table.max_aliased_production_length
+        );
+        add_line!(
+            self,
+            "#define MAX_RESERVED_WORD_SET_SIZE {}",
+            self.reserved_word_sets
+                .iter()
+                .map(TokenSet::len)
+                .max()
+                .unwrap()
         );
         add_line!(
             self,
@@ -986,26 +1018,59 @@ impl Generator {
         }
     }
 
-    fn add_lex_modes_list(&mut self) {
+    fn add_lex_modes(&mut self) {
         add_line!(
             self,
-            "static const TSLexMode ts_lex_modes[STATE_COUNT] = {{"
+            "static const TSLexerMode ts_lex_modes[STATE_COUNT] = {{"
         );
         indent!(self);
         for (i, state) in self.parse_table.states.iter().enumerate() {
+            add_whitespace!(self);
+            add!(self, "[{}] = {{", i);
             if state.is_end_of_non_terminal_extra() {
-                add_line!(self, "[{}] = {{(TSStateId)(-1)}},", i,);
-            } else if state.external_lex_state_id > 0 {
-                add_line!(
-                    self,
-                    "[{}] = {{.lex_state = {}, .external_lex_state = {}}},",
-                    i,
-                    state.lex_state_id,
-                    state.external_lex_state_id
-                );
+                add!(self, "(TSStateId)(-1),");
             } else {
-                add_line!(self, "[{}] = {{.lex_state = {}}},", i, state.lex_state_id);
+                add!(self, ".lex_state = {}", state.lex_state_id);
+
+                if state.external_lex_state_id > 0 {
+                    add!(
+                        self,
+                        ", .external_lex_state = {}",
+                        state.external_lex_state_id
+                    );
+                }
+
+                let reserved_word_set_id = self.reserved_word_set_ids_by_parse_state[i];
+                if reserved_word_set_id != 0 {
+                    add!(self, ", .reserved_word_set_id = {}", reserved_word_set_id);
+                }
             }
+
+            add!(self, "}},\n");
+        }
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+    }
+
+    fn add_reserved_word_sets(&mut self) {
+        add_line!(
+            self,
+            "static const TSSymbol ts_reserved_words[{}][MAX_RESERVED_WORD_SET_SIZE] = {{",
+            self.reserved_word_sets.len(),
+        );
+        indent!(self);
+        for (id, set) in self.reserved_word_sets.iter().enumerate() {
+            if id == 0 {
+                continue;
+            }
+            add_line!(self, "[{}] = {{", id);
+            indent!(self);
+            for token in set.iter() {
+                add_line!(self, "{},", self.symbol_ids[&token]);
+            }
+            dedent!(self);
+            add_line!(self, "}},");
         }
         dedent!(self);
         add_line!(self, "}};");
@@ -1079,19 +1144,17 @@ impl Generator {
     }
 
     fn add_parse_table(&mut self) {
-        // Reserve two special parse action lists:
-        // * zero is for the default value, when a symbol is not valid
-        // * one is a second empty list of actions for tokens that have been reserved.
-        //   This second value allows the parser to detect when a given token is
-        //   valid for the purpose of tokenization, but invalid syntactically.
-        let mut next_parse_action_list_index = 2;
         let mut parse_table_entries = HashMap::new();
-        parse_table_entries.insert(
-            ParseTableEntry {
+        let mut next_parse_action_list_index = 0;
+
+        // Parse action lists zero is for the default value, when a symbol is not valid.
+        self.get_parse_action_list_id(
+            &ParseTableEntry {
                 reusable: false,
                 actions: Vec::new(),
             },
-            0,
+            &mut parse_table_entries,
+            &mut next_parse_action_list_index,
         );
 
         add_line!(
@@ -1148,10 +1211,6 @@ impl Generator {
                 );
             }
 
-            for token in state.reserved_words.iter() {
-                add_line!(self, "[{}] = RESERVED,", self.symbol_ids[&token]);
-            }
-
             dedent!(self);
             add_line!(self, "}},");
         }
@@ -1201,17 +1260,17 @@ impl Generator {
                         .push(*symbol);
                 }
 
-                let reserved_count = state.reserved_words.len();
                 let mut values_with_symbols = symbols_by_value.drain().collect::<Vec<_>>();
                 values_with_symbols.sort_unstable_by_key(|((value, kind), symbols)| {
                     (symbols.len(), *kind, *value, symbols[0])
                 });
-                let mut value_count = values_with_symbols.len();
-                if reserved_count > 0 {
-                    value_count += 1;
-                }
 
-                add_line!(self, "[{}] = {},", next_table_index, value_count);
+                add_line!(
+                    self,
+                    "[{}] = {},",
+                    next_table_index,
+                    values_with_symbols.len()
+                );
                 indent!(self);
                 next_table_index += 1;
 
@@ -1228,17 +1287,6 @@ impl Generator {
                     indent!(self);
                     for symbol in symbols {
                         add_line!(self, "{},", self.symbol_ids[symbol]);
-                    }
-                    dedent!(self);
-                }
-
-                if reserved_count > 0 {
-                    next_table_index += 2 + reserved_count;
-
-                    add_line!(self, "RESERVED, {},", reserved_count);
-                    indent!(self);
-                    for symbol in state.reserved_words.iter() {
-                        add_line!(self, "{},", self.symbol_ids[&symbol]);
                     }
                     dedent!(self);
                 }
@@ -1415,7 +1463,7 @@ impl Generator {
         // Lexing
         add_line!(self, ".lex_modes = ts_lex_modes,");
         add_line!(self, ".lex_fn = ts_lex,");
-        if let Some(keyword_capture_token) = self.keyword_capture_token {
+        if let Some(keyword_capture_token) = self.syntax_grammar.word_token {
             add_line!(self, ".keyword_lex_fn = ts_lex_keywords,");
             add_line!(
                 self,
@@ -1440,6 +1488,22 @@ impl Generator {
 
         if self.abi_version >= ABI_VERSION_WITH_PRIMARY_STATES {
             add_line!(self, ".primary_state_ids = ts_primary_state_ids,");
+        }
+
+        if self.abi_version >= ABI_VERSION_WITH_RESERVED_WORDS {
+            if self.reserved_word_sets.len() > 1 {
+                add_line!(self, ".reserved_words = ts_reserved_words,");
+            }
+
+            add_line!(
+                self,
+                ".max_reserved_word_set_size = {},",
+                self.reserved_word_sets
+                    .iter()
+                    .map(TokenSet::len)
+                    .max()
+                    .unwrap()
+            );
         }
 
         dedent!(self);
@@ -1656,7 +1720,6 @@ pub(crate) fn render_c_code(
     parse_table: ParseTable,
     main_lex_table: LexTable,
     keyword_lex_table: LexTable,
-    keyword_capture_token: Option<Symbol>,
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
     default_aliases: AliasMap,
@@ -1670,24 +1733,15 @@ pub(crate) fn render_c_code(
     }
 
     Generator {
-        buffer: String::new(),
-        indent_level: 0,
         language_name: name.to_string(),
-        large_state_count: 0,
         parse_table,
         main_lex_table,
         keyword_lex_table,
-        keyword_capture_token,
         syntax_grammar,
         lexical_grammar,
         default_aliases,
-        symbol_ids: HashMap::new(),
-        symbol_order: HashMap::new(),
-        alias_ids: HashMap::new(),
-        symbol_map: HashMap::new(),
-        unique_aliases: Vec::new(),
-        field_names: Vec::new(),
         abi_version,
+        ..Default::default()
     }
     .generate()
 }

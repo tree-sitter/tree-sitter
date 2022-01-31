@@ -79,6 +79,12 @@ typedef struct {
   uint16_t external_lex_state;
 } TSLexMode;
 
+typedef struct {
+  uint16_t lex_state;
+  uint16_t external_lex_state;
+  uint16_t reserved_word_set_id;
+} TSLexerMode;
+
 typedef union {
   TSParseAction action;
   struct {
@@ -110,7 +116,7 @@ struct TSLanguage {
   const TSSymbol *public_symbol_map;
   const uint16_t *alias_map;
   const TSSymbol *alias_sequences;
-  const TSLexMode *lex_modes;
+  const TSLexerMode *lex_modes;
   bool (*lex_fn)(TSLexer *, TSStateId);
   bool (*keyword_lex_fn)(TSLexer *, TSStateId);
   TSSymbol keyword_capture_token;
@@ -124,6 +130,8 @@ struct TSLanguage {
     void (*deserialize)(void *, const char *, unsigned);
   } external_scanner;
   const TSStateId *primary_state_ids;
+  const TSSymbol *reserved_words;
+  uint16_t max_reserved_word_set_size;
 };
 
 /*
@@ -171,8 +179,6 @@ struct TSLanguage {
 #define STATE(id) id
 
 #define ACTIONS(id) id
-
-#define RESERVED 1
 
 #define SHIFT(state_value)            \
   {{                                  \

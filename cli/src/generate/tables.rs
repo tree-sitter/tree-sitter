@@ -62,7 +62,7 @@ pub(crate) struct ProductionInfo {
     pub field_map: BTreeMap<String, Vec<FieldLocation>>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub(crate) struct ParseTable {
     pub states: Vec<ParseState>,
     pub symbols: Vec<Symbol>,

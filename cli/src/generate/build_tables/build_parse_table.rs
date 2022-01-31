@@ -453,26 +453,18 @@ impl<'a> ParseTableBuilder<'a> {
         if let Some(keyword_capture_token) = self.syntax_grammar.word_token {
             for entry in &item_set.entries {
                 if let Some(next_step) = entry.item.step() {
-                    if next_step.symbol.is_terminal() {
+                    if next_step.symbol == keyword_capture_token {
                         let reserved_tokens = next_step
                             .reserved_words
                             .as_deref()
                             .unwrap_or(&self.syntax_grammar.reserved_words);
                         for reserved_token in reserved_tokens.iter() {
-                            if !state.terminal_entries.contains_key(&reserved_token)
-                                && next_step.symbol == keyword_capture_token
-                            {
-                                state.reserved_words.insert(reserved_token);
-                            }
-                        }
-                    }
-                } else {
-                    for reserved_token in entry.reserved_lookaheads.iter() {
-                        if !state.terminal_entries.contains_key(&reserved_token)
-                            && entry.lookaheads.contains(&keyword_capture_token)
-                        {
                             state.reserved_words.insert(reserved_token);
                         }
+                    }
+                } else if entry.lookaheads.contains(&keyword_capture_token) {
+                    for reserved_token in entry.reserved_lookaheads.iter() {
+                        state.reserved_words.insert(reserved_token);
                     }
                 }
             }
