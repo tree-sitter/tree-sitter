@@ -73,6 +73,7 @@ typedef struct {
 typedef enum {
   TSLogTypeParse,
   TSLogTypeLex,
+  TSLogTypeColumnCache
 } TSLogType;
 
 typedef struct {
