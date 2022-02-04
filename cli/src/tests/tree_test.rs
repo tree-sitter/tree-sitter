@@ -280,16 +280,16 @@ fn test_tree_cursor_child_for_point() {
     assert_eq!(c.node().kind(), "program");
 
     assert_eq!(c.goto_first_child_for_point(Point::new(7, 0)), None);
-    assert_eq!(c.goto_first_child_for_point(Point::new(6, 6)), None);
+    assert_eq!(c.goto_first_child_for_point(Point::new(6, 7)), None);
     assert_eq!(c.node().kind(), "program");
 
     // descend to expression statement
-    assert_eq!(c.goto_first_child_for_point(Point::new(6, 5)), Some(0));
+    assert_eq!(c.goto_first_child_for_point(Point::new(6, 6)), Some(0));
     assert_eq!(c.node().kind(), "expression_statement");
 
     // step into ';' and back up
     assert_eq!(c.goto_first_child_for_point(Point::new(7, 0)), None);
-    assert_eq!(c.goto_first_child_for_point(Point::new(6, 5)), Some(1));
+    assert_eq!(c.goto_first_child_for_point(Point::new(6, 6)), Some(1));
     assert_eq!(
         (c.node().kind(), c.node().start_position()),
         (";", Point::new(6, 5))
@@ -312,7 +312,7 @@ fn test_tree_cursor_child_for_point() {
     assert!(c.goto_parent());
 
     // step into identifier 'one' and back up
-    assert_eq!(c.goto_first_child_for_point(Point::new(0, 5)), Some(1));
+    assert_eq!(c.goto_first_child_for_point(Point::new(1, 0)), Some(1));
     assert_eq!(
         (c.node().kind(), c.node().start_position()),
         ("identifier", Point::new(1, 8))
@@ -326,7 +326,7 @@ fn test_tree_cursor_child_for_point() {
     assert!(c.goto_parent());
 
     // step into first ',' and back up
-    assert_eq!(c.goto_first_child_for_point(Point::new(1, 11)), Some(2));
+    assert_eq!(c.goto_first_child_for_point(Point::new(1, 12)), Some(2));
     assert_eq!(
         (c.node().kind(), c.node().start_position()),
         (",", Point::new(1, 11))
@@ -334,7 +334,7 @@ fn test_tree_cursor_child_for_point() {
     assert!(c.goto_parent());
 
     // step into identifier 'four' and back up
-    assert_eq!(c.goto_first_child_for_point(Point::new(4, 10)), Some(5));
+    assert_eq!(c.goto_first_child_for_point(Point::new(5, 0)), Some(5));
     assert_eq!(
         (c.node().kind(), c.node().start_position()),
         ("identifier", Point::new(5, 8))
@@ -354,7 +354,7 @@ fn test_tree_cursor_child_for_point() {
         ("]", Point::new(6, 4))
     );
     assert!(c.goto_parent());
-    assert_eq!(c.goto_first_child_for_point(Point::new(5, 23)), Some(10));
+    assert_eq!(c.goto_first_child_for_point(Point::new(6, 0)), Some(10));
     assert_eq!(
         (c.node().kind(), c.node().start_position()),
         ("]", Point::new(6, 4))
