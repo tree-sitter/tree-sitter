@@ -10,6 +10,11 @@ keywords = ["incremental", "parsing"]
 categories = ["command-line-utilities", "parsing"]
 repository = "https://github.com/tree-sitter/tree-sitter"
 
+[features]
+# TODO: For backward compatibility these must be enabled by default,
+# consider removing for the next semver incompatible release
+default = ["tree-sitter-highlight", "tree-sitter-tags"]
+
 [dependencies]
 anyhow = "1.0"
 cc = "^1.0.58"
@@ -30,7 +35,9 @@ path = "../../lib"
 [dependencies.tree-sitter-highlight]
 version = "0.20"
 path = "../../highlight"
+optional = true
 
 [dependencies.tree-sitter-tags]
 version = "0.20"
 path = "../../tags"
+optional = true
