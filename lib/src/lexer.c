@@ -54,7 +54,7 @@ static bool ts_lexer__try_get_cached_column_value(const Lexer *self, uint32_t *o
  * @param self The lexer state.
  * @param val The new value of the column cache.
  */
-static bool ts_lexer__set_column_cache(Lexer *self, uint32_t val) {
+static void ts_lexer__set_column_cache(Lexer *self, uint32_t val) {
   self->column_cache.valid = true;
   self->column_cache.value = val;
 }
