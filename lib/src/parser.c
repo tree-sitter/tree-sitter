@@ -1865,7 +1865,6 @@ TSTree *ts_parser_parse(
     LOG("new_parse");
   }
 
-  uint32_t position = 0, last_position = 0, version_count = 0;
   self->operation_count = 0;
   if (self->timeout_duration) {
     self->end_clock = clock_after(clock_now(), self->timeout_duration);
@@ -1873,17 +1872,24 @@ TSTree *ts_parser_parse(
     self->end_clock = clock_null();
   }
 
+  uint32_t position = 0, last_position = 0, version_count = 0;
   do {
-    for (StackVersion version = 0;
-         version_count = ts_stack_version_count(self->stack), version < version_count;
-         version++) {
+    for (
+      StackVersion version = 0;
+      version_count = ts_stack_version_count(self->stack),
+      version < version_count;
+      version++
+    ) {
       bool allow_node_reuse = version_count == 1;
       while (ts_stack_is_active(self->stack, version)) {
-        LOG("process version:%d, version_count:%u, state:%d, row:%u, col:%u",
-            version, ts_stack_version_count(self->stack),
-            ts_stack_state(self->stack, version),
-            ts_stack_position(self->stack, version).extent.row,
-            ts_stack_position(self->stack, version).extent.column);
+        LOG(
+          "process version:%d, version_count:%u, state:%d, row:%u, col:%u",
+          version,
+          ts_stack_version_count(self->stack),
+          ts_stack_state(self->stack, version),
+          ts_stack_position(self->stack, version).extent.row,
+          ts_stack_position(self->stack, version).extent.column
+        );
 
         if (!ts_parser__advance(self, version, allow_node_reuse)) return NULL;
         LOG_STACK();
@@ -1935,8 +1941,13 @@ TSTree *ts_parser_parse_string(
   return ts_parser_parse_string_encoding(self, old_tree, string, length, TSInputEncodingUTF8);
 }
 
-TSTree *ts_parser_parse_string_encoding(TSParser *self, const TSTree *old_tree,
-                                        const char *string, uint32_t length, TSInputEncoding encoding) {
+TSTree *ts_parser_parse_string_encoding(
+  TSParser *self,
+  const TSTree *old_tree,
+  const char *string,
+  uint32_t length,
+  TSInputEncoding encoding
+) {
   TSStringInput input = {string, length};
   return ts_parser_parse(self, old_tree, (TSInput) {
     &input,
