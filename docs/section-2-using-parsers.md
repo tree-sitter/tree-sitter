@@ -711,6 +711,23 @@ bool ts_query_cursor_next_match(TSQueryCursor *, TSQueryMatch *match);
 
 This function will return `false` when there are no more matches. Otherwise, it will populate the `match` with data about which pattern matched and which nodes were captured.
 
+### Capture Naming Conventions
+
+Applications using Tree-sitter often need to use queries and captures to categorize and label different syntactic nodes, such as functions, built-ins, operators, and variables. We recommend using a reverse-DNS-style notation for these captures, and provide guidelines below for naming captures of a given syntax node. User applications may extend (or only recognize a subset of) these capture names, but we recommend standardizing on the names below.
+
+| Category                 | Tag                         |
+|--------------------------|-----------------------------|
+| Class definitions        | `@definition.class`         |
+| Function definitions     | `@definition.function`      |
+| Interface definitions    | `@definition.interface`     |
+| Method definitions       | `@definition.method`        |
+| Module definitions       | `@definition.module`        |
+| Function/method calls    | `@reference.call`           |
+| Class reference          | `@reference.class`          |
+| Interface implementation | `@reference.implementation` |
+
+To communicate the associated identifier inside one of these syntactic classes, capture the identifier within as `@name`.
+
 ## Static Node Types
 
 In languages with static typing, it can be helpful for syntax trees to provide specific type information about individual syntax nodes. Tree-sitter makes this information available via a generated file called `node-types.json`. This _node types_ file provides structured data about every possible syntax node in a grammar.
@@ -852,20 +869,3 @@ Example:
   }
 }
 ```
-
-## Capture Naming Conventions
-
-Applications using Tree-sitter often need to use queries and captures to categorize and label different syntactic nodes, such as functions, built-ins, operators, and variables. We recommend using a reverse-DNS-style notation for these captures, and provide guidelines below for naming captures of a given syntax node. User applications may extend (or only recognize a subset of) these capture names, but we recommend standardizing on the names below.
-
-| Category                 | Tag                         |
-|--------------------------|-----------------------------|
-| Class definitions        | `@definition.class`         |
-| Function definitions     | `@definition.function`      |
-| Interface definitions    | `@definition.interface`     |
-| Method definitions       | `@definition.method`        |
-| Module definitions       | `@definition.module`        |
-| Function/method calls    | `@reference.call`           |
-| Class reference          | `@reference.class`          |
-| Interface implementation | `@reference.implementation` |
-
-To communicate the associated identifier inside one of these syntactic classes, capture the identifier within as `@name`.
