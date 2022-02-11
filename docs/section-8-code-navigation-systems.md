@@ -9,7 +9,7 @@ Tree-sitter can be used in conjunction with its [tree query language](https://tr
 
 ## Tagging and captures
 
-Code navigation systems using Tree-sitter need to use queries and captures to categorize and label different syntactic nodes, such as functions, built-ins, operators, and variables. A reverse-DNS-style notation is recommendedfor these captures, and provide guidelines below for naming captures of a given syntax node. User applications may extend (or only recognize a subset of) these capture names, but it is desirable to standardize on the names below when supported by a given system or language.
+Code navigation systems using Tree-sitter need to use queries and captures to categorize and label different syntactic nodes, such as functions, built-ins, operators, and variables. A reverse-DNS-style notation is recommended for these captures, and provide guidelines below for naming captures of a given syntax node. User applications may extend (or only recognize a subset of) these capture names, but it is desirable to standardize on the names below when supported by a given system or language.
 
 | Category                 | Tag                         |
 |--------------------------|-----------------------------|
@@ -26,4 +26,4 @@ To communicate the associated identifier inside one of these syntactic classes, 
 
 ## `tree-sitter graph`
 
-Coming soon!
+Documentation forthcoming.
