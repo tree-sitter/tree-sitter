@@ -852,3 +852,20 @@ Example:
   }
 }
 ```
+
+## Capture Naming Conventions
+
+Applications using Tree-sitter often need to use queries and captures to categorize and label different syntactic nodes, such as functions, built-ins, operators, and variables. We recommend using a reverse-DNS-style notation for these captures, and provide guidelines below for naming captures of a given syntax node. User applications may extend (or only recognize a subset of) these capture names, but we recommend standardizing on the names below.
+
+| Category                 | Tag                         |
+|--------------------------|-----------------------------|
+| Class definitions        | `@definition.class`         |
+| Function definitions     | `@definition.function`      |
+| Interface definitions    | `@definition.interface`     |
+| Method definitions       | `@definition.method`        |
+| Module definitions       | `@definition.module`        |
+| Function/method calls    | `@reference.call`           |
+| Class reference          | `@reference.class`          |
+| Interface implementation | `@reference.implementation` |
+
+To communicate the associated identifier inside one of these syntactic classes, capture the identifier within as `@name`.
