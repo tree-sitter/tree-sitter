@@ -1063,7 +1063,7 @@ static bool ts_parser__do_all_potential_reductions(
 static void ts_parser__handle_error(
   TSParser *self,
   StackVersion version,
-  TSSymbol lookahead_symbol
+  Subtree lookahead
 ) {
   uint32_t previous_version_count = ts_stack_version_count(self->stack);
 
@@ -1093,7 +1093,7 @@ static void ts_parser__handle_error(
         if (ts_language_has_reduce_action(
           self->language,
           state_after_missing_symbol,
-          lookahead_symbol
+          ts_subtree_leaf_symbol(lookahead)
         )) {
           // In case the parser is currently outside of any included range, the lexer will
           // snap to the beginning of the next included range. The missing token's padding
@@ -1114,7 +1114,7 @@ static void ts_parser__handle_error(
 
           if (ts_parser__do_all_potential_reductions(
             self, version_with_missing_tree,
-            lookahead_symbol
+            ts_subtree_leaf_symbol(lookahead)
           )) {
             LOG(
               "recover_with_missing symbol:%s, state:%u",
@@ -1138,6 +1138,7 @@ static void ts_parser__handle_error(
   }
 
   ts_stack_record_summary(self->stack, version, MAX_SUMMARY_DEPTH);
+  ts_subtree_release(&self->tree_pool, lookahead);
   LOG_STACK();
 }
 
@@ -1523,7 +1524,7 @@ static bool ts_parser__advance(
     }
 
     if (!lookahead.ptr) {
-      ts_stack_pause(self->stack, version, ts_builtin_sym_end);
+      ts_stack_pause(self->stack, version, lookahead);
       return true;
     }
 
@@ -1576,8 +1577,7 @@ static bool ts_parser__advance(
     // version advances successfully, then this version can simply be removed.
     // But if all versions end up paused, then error recovery is needed.
     LOG("detect_error");
-    ts_stack_pause(self->stack, version, ts_subtree_leaf_symbol(lookahead));
-    ts_subtree_release(&self->tree_pool, lookahead);
+    ts_stack_pause(self->stack, version, lookahead);
     return true;
   }
 }
@@ -1660,8 +1660,8 @@ static unsigned ts_parser__condense_stack(TSParser *self) {
         if (!has_unpaused_version && self->accept_count < MAX_VERSION_COUNT) {
           LOG("resume version:%u", i);
           min_error_cost = ts_stack_error_cost(self->stack, i);
-          TSSymbol lookahead_symbol = ts_stack_resume(self->stack, i);
-          ts_parser__handle_error(self, i, lookahead_symbol);
+          Subtree lookahead = ts_stack_resume(self->stack, i);
+          ts_parser__handle_error(self, i, lookahead);
           has_unpaused_version = true;
         } else {
           ts_stack_remove_version(self->stack, i);
