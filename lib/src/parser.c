@@ -1060,88 +1060,6 @@ static bool ts_parser__do_all_potential_reductions(
   return can_shift_lookahead_symbol;
 }
 
-static void ts_parser__handle_error(
-  TSParser *self,
-  StackVersion version,
-  Subtree lookahead
-) {
-  uint32_t previous_version_count = ts_stack_version_count(self->stack);
-
-  // Perform any reductions that can happen in this state, regardless of the lookahead. After
-  // skipping one or more invalid tokens, the parser might find a token that would have allowed
-  // a reduction to take place.
-  ts_parser__do_all_potential_reductions(self, version, 0);
-  uint32_t version_count = ts_stack_version_count(self->stack);
-  Length position = ts_stack_position(self->stack, version);
-
-  // Push a discontinuity onto the stack. Merge all of the stack versions that
-  // were created in the previous step.
-  bool did_insert_missing_token = false;
-  for (StackVersion v = version; v < version_count;) {
-    if (!did_insert_missing_token) {
-      TSStateId state = ts_stack_state(self->stack, v);
-      for (TSSymbol missing_symbol = 1;
-           missing_symbol < self->language->token_count;
-           missing_symbol++) {
-        TSStateId state_after_missing_symbol = ts_language_next_state(
-          self->language, state, missing_symbol
-        );
-        if (state_after_missing_symbol == 0 || state_after_missing_symbol == state) {
-          continue;
-        }
-
-        if (ts_language_has_reduce_action(
-          self->language,
-          state_after_missing_symbol,
-          ts_subtree_leaf_symbol(lookahead)
-        )) {
-          // In case the parser is currently outside of any included range, the lexer will
-          // snap to the beginning of the next included range. The missing token's padding
-          // must be assigned to position it within the next included range.
-          ts_lexer_reset(&self->lexer, position);
-          ts_lexer_mark_end(&self->lexer);
-          Length padding = length_sub(self->lexer.token_end_position, position);
-
-          StackVersion version_with_missing_tree = ts_stack_copy_version(self->stack, v);
-          Subtree missing_tree = ts_subtree_new_missing_leaf(
-            &self->tree_pool, missing_symbol, padding, self->language
-          );
-          ts_stack_push(
-            self->stack, version_with_missing_tree,
-            missing_tree, false,
-            state_after_missing_symbol
-          );
-
-          if (ts_parser__do_all_potential_reductions(
-            self, version_with_missing_tree,
-            ts_subtree_leaf_symbol(lookahead)
-          )) {
-            LOG(
-              "recover_with_missing symbol:%s, state:%u",
-              SYM_NAME(missing_symbol),
-              ts_stack_state(self->stack, version_with_missing_tree)
-            );
-            did_insert_missing_token = true;
-            break;
-          }
-        }
-      }
-    }
-
-    ts_stack_push(self->stack, v, NULL_SUBTREE, false, ERROR_STATE);
-    v = (v == version) ? previous_version_count : v + 1;
-  }
-
-  for (unsigned i = previous_version_count; i < version_count; i++) {
-    bool did_merge = ts_stack_merge(self->stack, version, previous_version_count);
-    assert(did_merge);
-  }
-
-  ts_stack_record_summary(self->stack, version, MAX_SUMMARY_DEPTH);
-  ts_subtree_release(&self->tree_pool, lookahead);
-  LOG_STACK();
-}
-
 static bool ts_parser__recover_to_state(
   TSParser *self,
   StackVersion version,
@@ -1369,6 +1287,98 @@ static void ts_parser__recover(
   }
 }
 
+static void ts_parser__handle_error(
+  TSParser *self,
+  StackVersion version,
+  Subtree lookahead
+) {
+  uint32_t previous_version_count = ts_stack_version_count(self->stack);
+
+  // Perform any reductions that can happen in this state, regardless of the lookahead. After
+  // skipping one or more invalid tokens, the parser might find a token that would have allowed
+  // a reduction to take place.
+  ts_parser__do_all_potential_reductions(self, version, 0);
+  uint32_t version_count = ts_stack_version_count(self->stack);
+  Length position = ts_stack_position(self->stack, version);
+
+  // Push a discontinuity onto the stack. Merge all of the stack versions that
+  // were created in the previous step.
+  bool did_insert_missing_token = false;
+  for (StackVersion v = version; v < version_count;) {
+    if (!did_insert_missing_token) {
+      TSStateId state = ts_stack_state(self->stack, v);
+      for (TSSymbol missing_symbol = 1;
+           missing_symbol < self->language->token_count;
+           missing_symbol++) {
+        TSStateId state_after_missing_symbol = ts_language_next_state(
+          self->language, state, missing_symbol
+        );
+        if (state_after_missing_symbol == 0 || state_after_missing_symbol == state) {
+          continue;
+        }
+
+        if (ts_language_has_reduce_action(
+          self->language,
+          state_after_missing_symbol,
+          ts_subtree_leaf_symbol(lookahead)
+        )) {
+          // In case the parser is currently outside of any included range, the lexer will
+          // snap to the beginning of the next included range. The missing token's padding
+          // must be assigned to position it within the next included range.
+          ts_lexer_reset(&self->lexer, position);
+          ts_lexer_mark_end(&self->lexer);
+          Length padding = length_sub(self->lexer.token_end_position, position);
+
+          StackVersion version_with_missing_tree = ts_stack_copy_version(self->stack, v);
+          Subtree missing_tree = ts_subtree_new_missing_leaf(
+            &self->tree_pool, missing_symbol, padding, self->language
+          );
+          ts_stack_push(
+            self->stack, version_with_missing_tree,
+            missing_tree, false,
+            state_after_missing_symbol
+          );
+
+          if (ts_parser__do_all_potential_reductions(
+            self, version_with_missing_tree,
+            ts_subtree_leaf_symbol(lookahead)
+          )) {
+            LOG(
+              "recover_with_missing symbol:%s, state:%u",
+              SYM_NAME(missing_symbol),
+              ts_stack_state(self->stack, version_with_missing_tree)
+            );
+            did_insert_missing_token = true;
+            break;
+          }
+        }
+      }
+    }
+
+    ts_stack_push(self->stack, v, NULL_SUBTREE, false, ERROR_STATE);
+    v = (v == version) ? previous_version_count : v + 1;
+  }
+
+  for (unsigned i = previous_version_count; i < version_count; i++) {
+    bool did_merge = ts_stack_merge(self->stack, version, previous_version_count);
+    assert(did_merge);
+  }
+
+  ts_stack_record_summary(self->stack, version, MAX_SUMMARY_DEPTH);
+
+  // Begin recovery with the current lookahead node, rather than waiting for the
+  // next turn of the parse loop. This ensures that the tree accounts for the the
+  // current lookahead token's "lookahead bytes" value, which describes how far
+  // the lexer needed to look ahead beyond the content of the token in order to
+  // recognize it.
+  if (ts_subtree_child_count(lookahead) > 0) {
+    ts_parser__breakdown_lookahead(self, &lookahead, ERROR_STATE, &self->reusable_node);
+  }
+  ts_parser__recover(self, version, lookahead);
+
+  LOG_STACK();
+}
+
 static bool ts_parser__advance(
   TSParser *self,
   StackVersion version,
@@ -1511,21 +1521,16 @@ static bool ts_parser__advance(
       // on the current parse state.
       if (!lookahead.ptr) {
         needs_lex = true;
-        continue;
+      } else {
+        ts_language_table_entry(
+          self->language,
+          state,
+          ts_subtree_leaf_symbol(lookahead),
+          &table_entry
+        );
       }
 
-      ts_language_table_entry(
-        self->language,
-        state,
-        ts_subtree_leaf_symbol(lookahead),
-        &table_entry
-      );
       continue;
-    }
-
-    if (!lookahead.ptr) {
-      ts_stack_pause(self->stack, version, lookahead);
-      return true;
     }
 
     // If there were no parse actions for the current lookahead token, then
