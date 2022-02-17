@@ -77,24 +77,25 @@ The below table describes a standard vocabulary for kinds and roles during the t
 
 ## Command-line invocation
 
-You can use the `tree-sitter tags` command to test out a tags query file. We can run this tool from within the Tree-sitter Ruby repository, over code in a file called `test.rb`
+You can use the `tree-sitter tags` command to test out a tags query file, passing as arguments one or more files to tag. We can run this tool from within the Tree-sitter Ruby repository, over code in a file called `test.rb`:
 
 ``` ruby
 module Foo
   class Bar
+    # wow!
     def baz
     end
   end
 end
 ```
 
-Invoking `tree-sitter tags test.rb` produces the following console output:
+Invoking `tree-sitter tags test.rb` produces the following console output, representing matched entities' name, role, location, first line, and docstring:
 
 ```
     test.rb
-    Foo              | module       def (0, 7) - (0, 10) `module Foo`
+        Foo              | module       def (0, 7) - (0, 10) `module Foo`
         Bar              | class        def (1, 8) - (1, 11) `class Bar`
-        baz              | method       def (2, 8) - (2, 11) `def baz`
+        baz              | method       def (2, 8) - (2, 11) `def baz`  "wow!"
 ```
 
-By convention, tags for a given language are made available in a `queries/tags.scm`file in that language's repository.
+It is expected that tag queries for a given language are located at `queries/tags.scm` in that language's repository.
