@@ -9,7 +9,11 @@ Tree-sitter can be used in conjunction with its [tree query language](https://tr
 
 ## Tagging and captures
 
-Code navigation systems using Tree-sitter need to use queries and captures to categorize and label different syntactic nodes, such as functions, built-ins, operators, and variables. A reverse-DNS-style notation is recommended for these captures, and provide guidelines below for naming captures of a given syntax node. User applications may extend (or only recognize a subset of) these capture names, but it is desirable to standardize on the names below when supported by a given system or language.
+*Tagging* is the act of identifying the entities that can be named in a program. We use Tree-sitter queries to find those entities. Having found them, you use a syntax capture to label the entity and its name.
+
+The essence of a given tag lies in two pieces of data: the _kind_ of entity that is matched (usually a definition or a reference) and the _role_ of that entity, which describes how the entity is used (i.e. whether it's a class definition, function call, variable reference, and so on). Our convention is to use a syntax capture following the `@role.kind` capture name format, and another inner capture, always called `@name`, that pulls out the name of a given identifier.
+
+The below table describes a standard vocabulary for kinds and roles during the tagging process. User applications may extend (or only recognize a subset of) these capture names, but it is desirable to standardize on the names below when supported by a given system or language. Language communities that write tagging rules using these names can work out-of-the-box with a steadily increasing set of analysis tools
 
 | Category                 | Tag                         |
 |--------------------------|-----------------------------|
