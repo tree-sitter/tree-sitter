@@ -5,7 +5,7 @@ permalink: code-navigation-systems
 
 # Code Navigation Systems
 
-Tree-sitter can be used in conjunction with its [tree query language](https://tree-sitter.github.io/tree-sitter/using-parsers#pattern-matching-with-queries) as a part of code navigation systems. An example of such a system can be seen in the `tree-sitter tag` command, which emits a textual dump of the interesting syntactic nodes in its file argument. A notable application of this is GitHub's support for [search-based code navigation](https://docs.github.com/en/repositories/working-with-files/using-files/navigating-code-on-github#precise-and-search-based-navigation). This document exists to describe how to integrate with such systems, and how to extend this functionality to any language with a Tree-sitter grammar.
+Tree-sitter can be used in conjunction with its [tree query language](https://tree-sitter.github.io/tree-sitter/using-parsers#pattern-matching-with-queries) as a part of code navigation systems. An example of such a system can be seen in the `tree-sitter tags` command, which emits a textual dump of the interesting syntactic nodes in its file argument. A notable application of this is GitHub's support for [search-based code navigation](https://docs.github.com/en/repositories/working-with-files/using-files/navigating-code-on-github#precise-and-search-based-navigation). This document exists to describe how to integrate with such systems, and how to extend this functionality to any language with a Tree-sitter grammar.
 
 ## Tagging and captures
 
