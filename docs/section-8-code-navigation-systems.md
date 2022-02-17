@@ -82,7 +82,9 @@ You can use the `tree-sitter tags` command to test out a tags query file, passin
 ``` ruby
 module Foo
   class Bar
-    # wow!
+    # won't be included
+
+    # is adjacent, will be
     def baz
     end
   end
@@ -95,7 +97,7 @@ Invoking `tree-sitter tags test.rb` produces the following console output, repre
     test.rb
         Foo              | module       def (0, 7) - (0, 10) `module Foo`
         Bar              | class        def (1, 8) - (1, 11) `class Bar`
-        baz              | method       def (2, 8) - (2, 11) `def baz`  "wow!"
+        baz              | method       def (2, 8) - (2, 11) `def baz`  "is adjacent, will be"
 ```
 
 It is expected that tag queries for a given language are located at `queries/tags.scm` in that language's repository.
