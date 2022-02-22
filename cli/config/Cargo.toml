@@ -16,5 +16,5 @@ dirs = "3.0"
 serde = { version = "1.0.130", features = ["derive"] }
 
 [dependencies.serde_json]
-version = "1.0"
+version = "1.0.45"
 features = ["preserve_order"]
