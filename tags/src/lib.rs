@@ -252,6 +252,10 @@ impl TagsContext {
         }
     }
 
+    pub fn parser(&mut self) -> &mut Parser {
+        &mut self.parser
+    }
+
     pub fn generate_tags<'a>(
         &'a mut self,
         config: &'a TagsConfiguration,
