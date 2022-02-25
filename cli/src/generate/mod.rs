@@ -20,6 +20,7 @@ use self::rules::AliasMap;
 use anyhow::{anyhow, Context, Result};
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
+use semver::Version;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -178,10 +179,20 @@ fn load_js_grammar_file(grammar_path: &Path) -> Result<String> {
         .stdin
         .take()
         .expect("Failed to open stdin for node");
+    let cli_version = Version::parse(env!("CARGO_PKG_VERSION"))
+        .expect("Could not parse this package's version as semver.");
+    write!(
+        node_stdin,
+        "global.TREE_SITTER_CLI_VERSION_MAJOR = {};
+        global.TREE_SITTER_CLI_VERSION_MINOR = {};
+        global.TREE_SITTER_CLI_VERSION_PATCH = {};",
+        cli_version.major, cli_version.minor, cli_version.patch,
+    )
+    .expect("Failed to write tree-sitter version to node's stdin");
     let javascript_code = include_bytes!("./dsl.js");
     node_stdin
         .write(javascript_code)
-        .expect("Failed to write to node's stdin");
+        .expect("Failed to write grammar dsl to node's stdin");
     drop(node_stdin);
     let output = node_process
         .wait_with_output()

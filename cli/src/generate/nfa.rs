@@ -276,6 +276,20 @@ impl CharacterSet {
         }
     }
 
+    /// Produces a `CharacterSet` containing every character in `self` that is not present in
+    /// `other`.
+    pub fn difference(mut self, mut other: CharacterSet) -> CharacterSet {
+        self.remove_intersection(&mut other);
+        self
+    }
+
+    /// Produces a `CharacterSet` containing every character that is in _exactly one_ of `self` or
+    /// `other`, but is not present in both sets.
+    pub fn symmetric_difference(mut self, mut other: CharacterSet) -> CharacterSet {
+        self.remove_intersection(&mut other);
+        self.add(&other)
+    }
+
     pub fn iter<'a>(&'a self) -> impl Iterator<Item = u32> + 'a {
         self.ranges.iter().flat_map(|r| r.clone())
     }
@@ -817,7 +831,7 @@ mod tests {
     }
 
     #[test]
-    fn test_character_set_remove_intersection() {
+    fn test_character_set_intersection_difference_ops() {
         struct Row {
             left: CharacterSet,
             right: CharacterSet,
@@ -942,6 +956,25 @@ mod tests {
                 "row {}b: {:?} - {:?}",
                 i, row.right, row.left
             );
+
+            assert_eq!(
+                row.left.clone().difference(row.right.clone()),
+                row.left_only,
+                "row {}b: {:?} -- {:?}",
+                i,
+                row.left,
+                row.right
+            );
+
+            let symm_difference = row.left_only.clone().add(&mut row.right_only.clone());
+            assert_eq!(
+                row.left.clone().symmetric_difference(row.right.clone()),
+                symm_difference,
+                "row {}b: {:?} ~~ {:?}",
+                i,
+                row.left,
+                row.right
+            )
         }
     }
 
