@@ -101,3 +101,20 @@ Invoking `tree-sitter tags test.rb` produces the following console output, repre
 ```
 
 It is expected that tag queries for a given language are located at `queries/tags.scm` in that language's repository.
+
+## Unit Testing
+
+Tags queries may be tested with `tree-sitter test`. Files under `test/tags/` are checked using the same comment system as [highlights queries](https://tree-sitter.github.io/tree-sitter/syntax-highlighting#unit-testing). For example, the above Ruby tags can be tested with these comments:
+
+```ruby
+module Foo
+  #     ^ definition.module
+  class Bar
+    #    ^ definition.class
+
+    def baz
+      #  ^ definition.method
+    end
+  end
+end
+```
