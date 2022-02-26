@@ -1,12 +1,17 @@
 use super::helpers::{
     allocations,
+    edits::invert_edit,
     edits::ReadRecorder,
     fixtures::{get_language, get_test_grammar, get_test_language},
 };
-use crate::generate::generate_parser_for_grammar;
-use crate::parse::{perform_edit, Edit};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{thread, time};
+use crate::{
+    generate::generate_parser_for_grammar,
+    parse::{perform_edit, Edit},
+};
+use std::{
+    sync::atomic::{AtomicUsize, Ordering},
+    thread, time,
+};
 use tree_sitter::{IncludedRangesError, InputEdit, LogType, Parser, Point, Range};
 
 #[test]
@@ -489,6 +494,44 @@ h + i
         recorder.strings_read(),
         vec!["\nc1234 = do d\n       e + f\n       g\n"]
     );
+}
+
+#[test]
+fn test_parsing_after_detecting_error_in_the_middle_of_a_string_token() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("python")).unwrap();
+
+    let mut source = b"a = b, 'c, d'".to_vec();
+    let tree = parser.parse(&source, None).unwrap();
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(module (expression_statement (assignment left: (identifier) right: (expression_list (identifier) (string)))))"
+    );
+
+    // Delete a suffix of the source code, starting in the middle of the string
+    // literal, after some whitespace. With this deletion, the remaining string
+    // content: "c, " looks like two valid python tokens: an identifier and a comma.
+    // When this edit is undone, in order correctly recover the orginal tree, the
+    // parser needs to remember that before matching the `c` as an identifier, it
+    // lookahead ahead several bytes, trying to find the closing quotation mark in
+    // order to match the "string content" node.
+    let edit_ix = std::str::from_utf8(&source).unwrap().find("d'").unwrap();
+    let edit = Edit {
+        position: edit_ix,
+        deleted_length: source.len() - edit_ix,
+        inserted_text: Vec::new(),
+    };
+    let undo = invert_edit(&source, &edit);
+
+    let mut tree2 = tree.clone();
+    perform_edit(&mut tree2, &mut source, &edit);
+    tree2 = parser.parse(&source, Some(&tree2)).unwrap();
+    assert!(tree2.root_node().has_error());
+
+    let mut tree3 = tree2.clone();
+    perform_edit(&mut tree3, &mut source, &undo);
+    tree3 = parser.parse(&source, Some(&tree3)).unwrap();
+    assert_eq!(tree3.root_node().to_sexp(), tree.root_node().to_sexp(),);
 }
 
 // Thread safety
