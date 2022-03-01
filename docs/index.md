@@ -76,6 +76,7 @@ Parsers for these languages are fairly complete:
 Parsers for these languages are in development:
 
 * [Agda](https://github.com/tree-sitter/tree-sitter-agda)
+* [Beancount](https://github.com/zwpaper/tree-sitter-beancount)
 * [Elixir](https://github.com/elixir-lang/tree-sitter-elixir)
 * [Erlang](https://github.com/AbstractMachinesLab/tree-sitter-erlang/)
 * [Dockerfile](https://github.com/camdencheek/tree-sitter-dockerfile)
