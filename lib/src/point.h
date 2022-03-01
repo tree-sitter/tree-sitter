@@ -37,6 +37,10 @@ static inline bool point_gt(TSPoint a, TSPoint b) {
   return (a.row > b.row) || (a.row == b.row && a.column > b.column);
 }
 
+static inline bool point_gte(TSPoint a, TSPoint b) {
+  return (a.row > b.row) || (a.row == b.row && a.column >= b.column);
+}
+
 static inline bool point_eq(TSPoint a, TSPoint b) {
   return a.row == b.row && a.column == b.column;
 }

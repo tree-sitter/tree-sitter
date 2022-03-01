@@ -53,10 +53,10 @@ typedef enum {
 
 typedef struct {
   StackNode *node;
-  Subtree last_external_token;
   StackSummary *summary;
   unsigned node_count_at_last_error;
-  TSSymbol lookahead_when_paused;
+  Subtree last_external_token;
+  Subtree lookahead_when_paused;
   StackStatus status;
 } StackHead;
 
@@ -256,6 +256,9 @@ static void stack_head_delete(
     if (self->last_external_token.ptr) {
       ts_subtree_release(subtree_pool, self->last_external_token);
     }
+    if (self->lookahead_when_paused.ptr) {
+      ts_subtree_release(subtree_pool, self->lookahead_when_paused);
+    }
     if (self->summary) {
       array_delete(self->summary);
       ts_free(self->summary);
@@ -274,7 +277,7 @@ static StackVersion ts_stack__add_version(
     .node_count_at_last_error = self->heads.contents[original_version].node_count_at_last_error,
     .last_external_token = self->heads.contents[original_version].last_external_token,
     .status = StackStatusActive,
-    .lookahead_when_paused = 0,
+    .lookahead_when_paused = NULL_SUBTREE,
   };
   array_push(&self->heads, head);
   stack_node_retain(node);
@@ -703,7 +706,7 @@ void ts_stack_halt(Stack *self, StackVersion version) {
   array_get(&self->heads, version)->status = StackStatusHalted;
 }
 
-void ts_stack_pause(Stack *self, StackVersion version, TSSymbol lookahead) {
+void ts_stack_pause(Stack *self, StackVersion version, Subtree lookahead) {
   StackHead *head = array_get(&self->heads, version);
   head->status = StackStatusPaused;
   head->lookahead_when_paused = lookahead;
@@ -722,12 +725,12 @@ bool ts_stack_is_paused(const Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->status == StackStatusPaused;
 }
 
-TSSymbol ts_stack_resume(Stack *self, StackVersion version) {
+Subtree ts_stack_resume(Stack *self, StackVersion version) {
   StackHead *head = array_get(&self->heads, version);
   assert(head->status == StackStatusPaused);
-  TSSymbol result = head->lookahead_when_paused;
+  Subtree result = head->lookahead_when_paused;
   head->status = StackStatusActive;
-  head->lookahead_when_paused = 0;
+  head->lookahead_when_paused = NULL_SUBTREE;
   return result;
 }
 
@@ -739,9 +742,9 @@ void ts_stack_clear(Stack *self) {
   array_clear(&self->heads);
   array_push(&self->heads, ((StackHead) {
     .node = self->base_node,
-    .last_external_token = NULL_SUBTREE,
     .status = StackStatusActive,
-    .lookahead_when_paused = 0,
+    .last_external_token = NULL_SUBTREE,
+    .lookahead_when_paused = NULL_SUBTREE,
   }));
 }
 

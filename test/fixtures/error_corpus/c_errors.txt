@@ -128,8 +128,8 @@ int main() {
       (declaration (primitive_type) (init_declarator
         (identifier)
         (parenthesized_expression
-          (number_literal)
-          (ERROR (number_literal))))))))
+          (ERROR (number_literal))
+          (number_literal)))))))
 
 ========================================
 Extra identifiers in declarations

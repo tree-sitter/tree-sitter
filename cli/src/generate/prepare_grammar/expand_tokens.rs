@@ -6,8 +6,8 @@ use anyhow::{anyhow, Context, Result};
 use lazy_static::lazy_static;
 use regex::Regex;
 use regex_syntax::ast::{
-    parse, Ast, Class, ClassPerlKind, ClassSet, ClassSetItem, ClassUnicodeKind, RepetitionKind,
-    RepetitionRange,
+    parse, Ast, Class, ClassPerlKind, ClassSet, ClassSetBinaryOpKind, ClassSetItem,
+    ClassUnicodeKind, RepetitionKind, RepetitionRange,
 };
 use std::collections::HashMap;
 use std::i32;
@@ -240,19 +240,14 @@ impl NfaBuilder {
                     self.push_advance(chars, next_state_id);
                     Ok(true)
                 }
-                Class::Bracketed(class) => match &class.kind {
-                    ClassSet::Item(item) => {
-                        let mut chars = self.expand_character_class(&item)?;
-                        if class.negated {
-                            chars = chars.negate();
-                        }
-                        self.push_advance(chars, next_state_id);
-                        Ok(true)
+                Class::Bracketed(class) => {
+                    let mut chars = self.translate_class_set(&class.kind)?;
+                    if class.negated {
+                        chars = chars.negate();
                     }
-                    ClassSet::BinaryOp(_) => Err(anyhow!(
-                        "Regex error: Binary operators in character classes aren't supported"
-                    )),
-                },
+                    self.push_advance(chars, next_state_id);
+                    Ok(true)
+                }
             },
             Ast::Repetition(repetition) => match repetition.op.kind {
                 RepetitionKind::ZeroOrOne => {
@@ -319,6 +314,27 @@ impl NfaBuilder {
         }
     }
 
+    fn translate_class_set(&self, class_set: &ClassSet) -> Result<CharacterSet> {
+        match &class_set {
+            ClassSet::Item(item) => self.expand_character_class(&item),
+            ClassSet::BinaryOp(binary_op) => {
+                let mut lhs_char_class = self.translate_class_set(&binary_op.lhs)?;
+                let mut rhs_char_class = self.translate_class_set(&binary_op.rhs)?;
+                match binary_op.kind {
+                    ClassSetBinaryOpKind::Intersection => {
+                        Ok(lhs_char_class.remove_intersection(&mut rhs_char_class))
+                    }
+                    ClassSetBinaryOpKind::Difference => {
+                        Ok(lhs_char_class.difference(rhs_char_class))
+                    }
+                    ClassSetBinaryOpKind::SymmetricDifference => {
+                        Ok(lhs_char_class.symmetric_difference(rhs_char_class))
+                    }
+                }
+            }
+        }
+    }
+
     fn expand_one_or_more(&mut self, ast: &Ast, next_state_id: u32) -> Result<bool> {
         self.nfa.states.push(NfaState::Accept {
             variable_index: 0,
@@ -379,6 +395,13 @@ impl NfaBuilder {
             ClassSetItem::Perl(class) => Ok(self.expand_perl_character_class(&class.kind)),
             ClassSetItem::Unicode(class) => {
                 let mut set = self.expand_unicode_character_class(&class.kind)?;
+                if class.negated {
+                    set = set.negate();
+                }
+                Ok(set)
+            }
+            ClassSetItem::Bracketed(class) => {
+                let mut set = self.translate_class_set(&class.kind)?;
                 if class.negated {
                     set = set.negate();
                 }
@@ -780,6 +803,79 @@ mod tests {
                     ("{aba}}", Some((1, "{aba}"))),
                     ("\u{1000A}", Some((2, "\u{1000A}"))),
                     ("\u{1000b}", Some((3, "\u{1000b}"))),
+                ],
+            },
+            // Emojis
+            Row {
+                rules: vec![Rule::pattern(r"\p{Emoji}+")],
+                separators: vec![],
+                examples: vec![
+                    ("🐎", Some((0, "🐎"))),
+                    ("🐴🐴", Some((0, "🐴🐴"))),
+                    ("#0", Some((0, "#0"))), // These chars are technically emojis!
+                    ("⻢", None),
+                    ("♞", None),
+                    ("horse", None),
+                ],
+            },
+            // Intersection
+            Row {
+                rules: vec![Rule::pattern(r"[[0-7]&&[4-9]]+")],
+                separators: vec![],
+                examples: vec![
+                    ("456", Some((0, "456"))),
+                    ("64", Some((0, "64"))),
+                    ("452", Some((0, "45"))),
+                    ("91", None),
+                    ("8", None),
+                    ("3", None),
+                ],
+            },
+            // Difference
+            Row {
+                rules: vec![Rule::pattern(r"[[0-9]--[4-7]]+")],
+                separators: vec![],
+                examples: vec![
+                    ("123", Some((0, "123"))),
+                    ("83", Some((0, "83"))),
+                    ("9", Some((0, "9"))),
+                    ("124", Some((0, "12"))),
+                    ("67", None),
+                    ("4", None),
+                ],
+            },
+            // Symmetric difference
+            Row {
+                rules: vec![Rule::pattern(r"[[0-7]~~[4-9]]+")],
+                separators: vec![],
+                examples: vec![
+                    ("123", Some((0, "123"))),
+                    ("83", Some((0, "83"))),
+                    ("9", Some((0, "9"))),
+                    ("124", Some((0, "12"))),
+                    ("67", None),
+                    ("4", None),
+                ],
+            },
+            // Nested set operations
+            Row {
+                //               0 1 2 3 4 5 6 7 8 9
+                // [0-5]:        y y y y y y
+                // [2-4]:            y y y
+                // [0-5]--[2-4]: y y       y
+                // [3-9]:              y y y y y y y
+                // [6-7]:                    y y
+                // [3-9]--[5-7]:       y y y     y y
+                // final regex:  y y   y y       y y
+                rules: vec![Rule::pattern(r"[[[0-5]--[2-4]]~~[[3-9]--[6-7]]]+")],
+                separators: vec![],
+                examples: vec![
+                    ("01", Some((0, "01"))),
+                    ("432", Some((0, "43"))),
+                    ("8", Some((0, "8"))),
+                    ("9", Some((0, "9"))),
+                    ("2", None),
+                    ("567", None),
                 ],
             },
         ];
