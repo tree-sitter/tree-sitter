@@ -798,7 +798,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-tags"
-version = "0.20.1"
+version = "0.20.2"
 dependencies = [
  "memchr",
  "regex",
