@@ -559,10 +559,11 @@ Subtree ts_subtree_new_missing_leaf(
   SubtreePool *pool,
   TSSymbol symbol,
   Length padding,
+  uint32_t lookahead_bytes,
   const TSLanguage *language
 ) {
   Subtree result = ts_subtree_new_leaf(
-    pool, symbol, padding, length_zero(), 0,
+    pool, symbol, padding, length_zero(), lookahead_bytes,
     0, false, false, false, language
   );
   if (result.data.is_inline) {
