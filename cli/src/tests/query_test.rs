@@ -3518,17 +3518,9 @@ fn test_query_random() {
         for i in 0..100 {
             let seed = (start_seed + i) as u64;
             let mut rand = StdRng::seed_from_u64(seed);
-            let (pattern_ast, range) = Pattern::random_pattern_in_tree(&pattern_tree, &mut rand);
+            let (pattern_ast, _) = Pattern::random_pattern_in_tree(&pattern_tree, &mut rand);
             let pattern = pattern_ast.to_string();
             let expected_matches = pattern_ast.matches_in_tree(&test_tree);
-
-            eprintln!(
-                "seed: {}\nsource_range: {:?}\npattern:\n{}\nexpected match count: {}\n",
-                seed,
-                range,
-                pattern,
-                expected_matches.len(),
-            );
 
             let query = Query::new(language, &pattern).unwrap();
             let mut actual_matches = cursor
