@@ -56,6 +56,7 @@ Parsers for these languages are fairly complete:
 * [OCaml](https://github.com/tree-sitter/tree-sitter-ocaml)
 * [PHP](https://github.com/tree-sitter/tree-sitter-php)
 * [Python](https://github.com/tree-sitter/tree-sitter-python)
+* [QML](https://github.com/yuja/tree-sitter-qmljs)
 * [Ruby](https://github.com/tree-sitter/tree-sitter-ruby)
 * [Rust](https://github.com/tree-sitter/tree-sitter-rust)
 * [R](https://github.com/r-lib/tree-sitter-r)
