@@ -81,7 +81,7 @@ jobs:
           script/generate-fixtures-wasm
 
       - name: Run main tests
-        run: script/test
+        run: cargo test
 
       - name: Run wasm tests
         run: script/test-wasm
