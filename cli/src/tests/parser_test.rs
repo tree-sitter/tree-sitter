@@ -1,10 +1,18 @@
-use super::helpers::edits::ReadRecorder;
-use super::helpers::fixtures::{get_language, get_test_grammar, get_test_language};
-use crate::generate::generate_parser_for_grammar;
-use crate::parse::{perform_edit, Edit};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{thread, time};
-use tree_sitter::{allocations, IncludedRangesError, InputEdit, LogType, Parser, Point, Range};
+use super::helpers::{
+    allocations,
+    edits::invert_edit,
+    edits::ReadRecorder,
+    fixtures::{get_language, get_test_grammar, get_test_language},
+};
+use crate::{
+    generate::generate_parser_for_grammar,
+    parse::{perform_edit, Edit},
+};
+use std::{
+    sync::atomic::{AtomicUsize, Ordering},
+    thread, time,
+};
+use tree_sitter::{IncludedRangesError, InputEdit, LogType, Parser, Point, Range};
 
 #[test]
 fn test_parsing_simple_string() {
@@ -63,9 +71,14 @@ fn test_parsing_with_logging() {
     )));
     assert!(messages.contains(&(LogType::Lex, "skip character:' '".to_string())));
 
+    let mut row_starts_from_0 = false;
     for (_, m) in &messages {
-        assert!(!m.contains("row:0"));
+        if m.contains("row:0") {
+            row_starts_from_0 = true;
+            break;
+        }
     }
+    assert!(row_starts_from_0);
 }
 
 #[test]
@@ -483,6 +496,44 @@ h + i
     );
 }
 
+#[test]
+fn test_parsing_after_detecting_error_in_the_middle_of_a_string_token() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("python")).unwrap();
+
+    let mut source = b"a = b, 'c, d'".to_vec();
+    let tree = parser.parse(&source, None).unwrap();
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(module (expression_statement (assignment left: (identifier) right: (expression_list (identifier) (string)))))"
+    );
+
+    // Delete a suffix of the source code, starting in the middle of the string
+    // literal, after some whitespace. With this deletion, the remaining string
+    // content: "c, " looks like two valid python tokens: an identifier and a comma.
+    // When this edit is undone, in order correctly recover the orginal tree, the
+    // parser needs to remember that before matching the `c` as an identifier, it
+    // lookahead ahead several bytes, trying to find the closing quotation mark in
+    // order to match the "string content" node.
+    let edit_ix = std::str::from_utf8(&source).unwrap().find("d'").unwrap();
+    let edit = Edit {
+        position: edit_ix,
+        deleted_length: source.len() - edit_ix,
+        inserted_text: Vec::new(),
+    };
+    let undo = invert_edit(&source, &edit);
+
+    let mut tree2 = tree.clone();
+    perform_edit(&mut tree2, &mut source, &edit);
+    tree2 = parser.parse(&source, Some(&tree2)).unwrap();
+    assert!(tree2.root_node().has_error());
+
+    let mut tree3 = tree2.clone();
+    perform_edit(&mut tree3, &mut source, &undo);
+    tree3 = parser.parse(&source, Some(&tree3)).unwrap();
+    assert_eq!(tree3.root_node().to_sexp(), tree.root_node().to_sexp(),);
+}
+
 // Thread safety
 
 #[test]
@@ -591,23 +642,7 @@ fn test_parsing_with_a_timeout() {
     let mut parser = Parser::new();
     parser.set_language(get_language("json")).unwrap();
 
-    // Parse an infinitely-long array, but pause after 100 microseconds of processing.
-    parser.set_timeout_micros(100);
-    let start_time = time::Instant::now();
-    let tree = parser.parse_with(
-        &mut |offset, _| {
-            if offset == 0 {
-                b" ["
-            } else {
-                b",0"
-            }
-        },
-        None,
-    );
-    assert!(tree.is_none());
-    assert!(start_time.elapsed().as_micros() < 500);
-
-    // Continue parsing, but pause after 300 microseconds of processing.
+    // Parse an infinitely-long array, but pause after 1ms of processing.
     parser.set_timeout_micros(1000);
     let start_time = time::Instant::now();
     let tree = parser.parse_with(
@@ -621,8 +656,24 @@ fn test_parsing_with_a_timeout() {
         None,
     );
     assert!(tree.is_none());
-    assert!(start_time.elapsed().as_micros() > 500);
     assert!(start_time.elapsed().as_micros() < 2000);
+
+    // Continue parsing, but pause after 1 ms of processing.
+    parser.set_timeout_micros(5000);
+    let start_time = time::Instant::now();
+    let tree = parser.parse_with(
+        &mut |offset, _| {
+            if offset == 0 {
+                b" ["
+            } else {
+                b",0"
+            }
+        },
+        None,
+    );
+    assert!(tree.is_none());
+    assert!(start_time.elapsed().as_micros() > 100);
+    assert!(start_time.elapsed().as_micros() < 10000);
 
     // Finish parsing
     parser.set_timeout_micros(0);
@@ -849,7 +900,10 @@ fn test_parsing_with_multiple_included_ranges() {
         hello_text_node.start_byte(),
         source_code.find("Hello").unwrap()
     );
-    assert_eq!(hello_text_node.end_byte(), source_code.find("<b>").unwrap());
+    assert_eq!(
+        hello_text_node.end_byte(),
+        source_code.find(" <b>").unwrap()
+    );
 
     assert_eq!(b_start_tag_node.kind(), "start_tag");
     assert_eq!(
@@ -869,6 +923,40 @@ fn test_parsing_with_multiple_included_ranges() {
     assert_eq!(
         b_end_tag_node.end_byte(),
         source_code.find(".</div>").unwrap()
+    );
+}
+
+#[test]
+fn test_parsing_with_included_range_containing_mismatched_positions() {
+    let source_code = "<div>test</div>{_ignore_this_part_}";
+
+    let mut parser = Parser::new();
+    parser.set_language(get_language("html")).unwrap();
+
+    let end_byte = source_code.find("{_ignore_this_part_").unwrap();
+
+    let range_to_parse = Range {
+        start_byte: 0,
+        start_point: Point {
+            row: 10,
+            column: 12,
+        },
+        end_byte,
+        end_point: Point {
+            row: 10,
+            column: 12 + end_byte,
+        },
+    };
+
+    parser.set_included_ranges(&[range_to_parse]).unwrap();
+
+    let html_tree = parser.parse(source_code, None).unwrap();
+
+    assert_eq!(html_tree.root_node().range(), range_to_parse);
+
+    assert_eq!(
+        html_tree.root_node().to_sexp(),
+        "(fragment (element (start_tag (tag_name)) (text) (end_tag (tag_name))))"
     );
 }
 

@@ -72,10 +72,7 @@ pub fn get_random_edit(rand: &mut Rand, input: &Vec<u8>) -> Edit {
         }
     } else if choice < 5 {
         // Delete text from the end
-        let mut deleted_length = rand.unsigned(10);
-        if deleted_length > input.len() {
-            deleted_length = input.len();
-        }
+        let deleted_length = rand.unsigned(30).min(input.len());
         Edit {
             position: input.len() - deleted_length,
             deleted_length,

@@ -99,9 +99,9 @@ bool ts_stack_merge(Stack *, StackVersion, StackVersion);
 // Determine whether the given two stack versions can be merged.
 bool ts_stack_can_merge(Stack *, StackVersion, StackVersion);
 
-TSSymbol ts_stack_resume(Stack *, StackVersion);
+Subtree ts_stack_resume(Stack *, StackVersion);
 
-void ts_stack_pause(Stack *, StackVersion, TSSymbol);
+void ts_stack_pause(Stack *, StackVersion, Subtree);
 
 void ts_stack_halt(Stack *, StackVersion);
 
@@ -125,8 +125,6 @@ void ts_stack_clear(Stack *);
 bool ts_stack_print_dot_graph(Stack *, const TSLanguage *, FILE *);
 
 typedef void (*StackIterateCallback)(void *, TSStateId, uint32_t);
-
-void ts_stack_iterate(Stack *, StackVersion, StackIterateCallback, void *);
 
 #ifdef __cplusplus
 }

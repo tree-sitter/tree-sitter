@@ -1,12 +1,13 @@
-use super::error::Result;
-use crate::loader::Loader;
 use crate::query_testing::{parse_position_comments, Assertion};
 use ansi_term::Colour;
+use anyhow::{anyhow, Result};
 use std::fs;
 use std::path::Path;
 use tree_sitter::Point;
 use tree_sitter_highlight::{Highlight, HighlightConfiguration, HighlightEvent, Highlighter};
+use tree_sitter_loader::Loader;
 
+#[derive(Debug)]
 pub struct Failure {
     row: usize,
     column: usize,
@@ -14,25 +15,26 @@ pub struct Failure {
     actual_highlights: Vec<String>,
 }
 
-impl Failure {
-    pub fn message(&self) -> String {
-        let mut result = format!(
+impl std::error::Error for Failure {}
+
+impl std::fmt::Display for Failure {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
             "Failure - row: {}, column: {}, expected highlight '{}', actual highlights: ",
             self.row, self.column, self.expected_highlight
-        );
+        )?;
         if self.actual_highlights.is_empty() {
-            result += "none.";
+            write!(f, "none.")?;
         } else {
             for (i, actual_highlight) in self.actual_highlights.iter().enumerate() {
                 if i > 0 {
-                    result += ", ";
+                    write!(f, ", ")?;
                 }
-                result += "'";
-                result += actual_highlight;
-                result += "'";
+                write!(f, "'{}'", actual_highlight)?;
             }
         }
-        result
+        Ok(())
     }
 }
 
@@ -47,10 +49,10 @@ pub fn test_highlights(loader: &Loader, directory: &Path) -> Result<()> {
         let test_file_name = highlight_test_file.file_name();
         let (language, language_config) = loader
             .language_configuration_for_file_name(&test_file_path)?
-            .ok_or_else(|| format!("No language found for path {:?}", test_file_path))?;
+            .ok_or_else(|| anyhow!("No language found for path {:?}", test_file_path))?;
         let highlight_config = language_config
             .highlight_config(language)?
-            .ok_or_else(|| format!("No highlighting config found for {:?}", test_file_path))?;
+            .ok_or_else(|| anyhow!("No highlighting config found for {:?}", test_file_path))?;
         match test_highlight(
             &loader,
             &mut highlighter,
@@ -69,14 +71,14 @@ pub fn test_highlights(loader: &Loader, directory: &Path) -> Result<()> {
                     "  ✗ {}",
                     Colour::Red.paint(test_file_name.to_string_lossy().as_ref())
                 );
-                println!("    {}", e.message());
+                println!("    {}", e);
                 failed = true;
             }
         }
     }
 
     if failed {
-        Err(String::new().into())
+        Err(anyhow!(""))
     } else {
         Ok(())
     }

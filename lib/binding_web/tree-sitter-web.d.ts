@@ -1,12 +1,19 @@
 declare module 'web-tree-sitter' {
   class Parser {
-    static init(): Promise<void>;
+    /**
+     * 
+     * @param moduleOptions Optional emscripten module-object, see https://emscripten.org/docs/api_reference/module.html
+     */
+    static init(moduleOptions?: object): Promise<void>;
     delete(): void;
     parse(input: string | Parser.Input, previousTree?: Parser.Tree, options?: Parser.Options): Parser.Tree;
-    getLanguage(): any;
-    setLanguage(language: any): void;
+    reset(): void;
+    getLanguage(): Parser.Language;
+    setLanguage(language?: Parser.Language | undefined | null): void;
     getLogger(): Parser.Logger;
-    setLogger(logFunc: Parser.Logger): void;
+    setLogger(logFunc?: Parser.Logger | undefined | null): void;
+    setTimeoutMicros(value: number): void;
+    getTimeoutMicros(): number;
   }
 
   namespace Parser {
@@ -96,8 +103,11 @@ declare module 'web-tree-sitter' {
 
     export interface TreeCursor {
       nodeType: string;
+      nodeTypeId: number;
       nodeText: string;
+      nodeId: number;
       nodeIsNamed: boolean;
+      nodeIsMissing: boolean;
       startPosition: Point;
       endPosition: Point;
       startIndex: number;
@@ -123,7 +133,7 @@ declare module 'web-tree-sitter' {
       walk(): TreeCursor;
       getChangedRanges(other: Tree): Range[];
       getEditedRange(other: Tree): Range;
-      getLanguage(): any;
+      getLanguage(): Language;
     }
 
     class Language {

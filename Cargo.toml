@@ -1,6 +1,4 @@
 [workspace]
+default-members = ["cli"]
 
-members = [
-    "cli",
-    "lib",
-]
+members = ["cli", "lib"]

@@ -40,9 +40,9 @@ TSSymbolMetadata ts_language_symbol_metadata(
   TSSymbol symbol
 ) {
   if (symbol == ts_builtin_sym_error)  {
-    return (TSSymbolMetadata){.visible = true, .named = true};
+    return (TSSymbolMetadata) {.visible = true, .named = true};
   } else if (symbol == ts_builtin_sym_error_repeat) {
-    return (TSSymbolMetadata){.visible = false, .named = false};
+    return (TSSymbolMetadata) {.visible = false, .named = false};
   } else {
     return self->symbol_metadata[symbol];
   }

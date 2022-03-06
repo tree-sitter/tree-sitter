@@ -4,6 +4,7 @@ pub use c_lib as c;
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{iter, mem, ops, str, usize};
+use thiserror::Error;
 use tree_sitter::{
     Language, LossyUtf8, Node, Parser, Point, Query, QueryCaptures, QueryCursor, QueryError,
     QueryMatch, Range, Tree,
@@ -18,10 +19,13 @@ const BUFFER_LINES_RESERVE_CAPACITY: usize = 1000;
 pub struct Highlight(pub usize);
 
 /// Represents the reason why syntax highlighting failed.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum Error {
+    #[error("Cancelled")]
     Cancelled,
+    #[error("Invalid language")]
     InvalidLanguage,
+    #[error("Unknown error")]
     Unknown,
 }
 
@@ -83,7 +87,7 @@ struct LocalScope<'a> {
     local_defs: Vec<LocalDef<'a>>,
 }
 
-struct HighlightIter<'a, 'tree: 'a, F>
+struct HighlightIter<'a, F>
 where
     F: FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
 {
@@ -92,16 +96,16 @@ where
     highlighter: &'a mut Highlighter,
     injection_callback: F,
     cancellation_flag: Option<&'a AtomicUsize>,
-    layers: Vec<HighlightIterLayer<'a, 'tree>>,
+    layers: Vec<HighlightIterLayer<'a>>,
     iter_count: usize,
     next_event: Option<HighlightEvent>,
     last_highlight_range: Option<(usize, usize, usize)>,
 }
 
-struct HighlightIterLayer<'a, 'tree: 'a> {
+struct HighlightIterLayer<'a> {
     _tree: Tree,
     cursor: QueryCursor,
-    captures: iter::Peekable<QueryCaptures<'a, 'tree, &'a [u8]>>,
+    captures: iter::Peekable<QueryCaptures<'a, 'a, &'a [u8]>>,
     config: &'a HighlightConfiguration,
     highlight_end_stack: Vec<usize>,
     scope_stack: Vec<LocalScope<'a>>,
@@ -289,7 +293,7 @@ impl HighlightConfiguration {
     ///
     /// When highlighting, results are returned as `Highlight` values, which contain the index
     /// of the matched highlight this list of highlight names.
-    pub fn configure(&mut self, recognized_names: &[String]) {
+    pub fn configure(&mut self, recognized_names: &[impl AsRef<str>]) {
         let mut capture_parts = Vec::new();
         self.highlight_indices.clear();
         self.highlight_indices
@@ -299,10 +303,10 @@ impl HighlightConfiguration {
 
                 let mut best_index = None;
                 let mut best_match_len = 0;
-                for (i, recognized_name) in recognized_names.iter().enumerate() {
+                for (i, recognized_name) in recognized_names.into_iter().enumerate() {
                     let mut len = 0;
                     let mut matches = true;
-                    for part in recognized_name.split('.') {
+                    for part in recognized_name.as_ref().split('.') {
                         len += 1;
                         if !capture_parts.contains(&part) {
                             matches = false;
@@ -319,7 +323,7 @@ impl HighlightConfiguration {
     }
 }
 
-impl<'a, 'tree: 'a> HighlightIterLayer<'a, 'tree> {
+impl<'a> HighlightIterLayer<'a> {
     /// Create a new 'layer' of highlighting for this document.
     ///
     /// In the even that the new layer contains "combined injections" (injections where multiple
@@ -356,9 +360,7 @@ impl<'a, 'tree: 'a> HighlightIterLayer<'a, 'tree> {
                     let mut injections_by_pattern_index =
                         vec![(None, Vec::new(), false); combined_injections_query.pattern_count()];
                     let matches =
-                        cursor.matches(combined_injections_query, tree.root_node(), |n: Node| {
-                            &source[n.byte_range()]
-                        });
+                        cursor.matches(combined_injections_query, tree.root_node(), source);
                     for mat in matches {
                         let entry = &mut injections_by_pattern_index[mat.pattern_index];
                         let (language_name, content_node, include_children) =
@@ -395,9 +397,7 @@ impl<'a, 'tree: 'a> HighlightIterLayer<'a, 'tree> {
                 let cursor_ref =
                     unsafe { mem::transmute::<_, &'static mut QueryCursor>(&mut cursor) };
                 let captures = cursor_ref
-                    .captures(&config.query, tree_ref.root_node(), move |n: Node| {
-                        &source[n.byte_range()]
-                    })
+                    .captures(&config.query, tree_ref.root_node(), source)
                     .peekable();
 
                 result.push(HighlightIterLayer {
@@ -548,7 +548,7 @@ impl<'a, 'tree: 'a> HighlightIterLayer<'a, 'tree> {
     }
 }
 
-impl<'a, 'tree: 'a, F> HighlightIter<'a, 'tree, F>
+impl<'a, F> HighlightIter<'a, F>
 where
     F: FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
 {
@@ -586,7 +586,7 @@ where
                     break;
                 }
                 if i > 0 {
-                    &self.layers[0..(i + 1)].rotate_left(1);
+                    self.layers[0..(i + 1)].rotate_left(1);
                 }
                 break;
             } else {
@@ -596,7 +596,7 @@ where
         }
     }
 
-    fn insert_layer(&mut self, mut layer: HighlightIterLayer<'a, 'tree>) {
+    fn insert_layer(&mut self, mut layer: HighlightIterLayer<'a>) {
         if let Some(sort_key) = layer.sort_key() {
             let mut i = 1;
             while i < self.layers.len() {
@@ -615,7 +615,7 @@ where
     }
 }
 
-impl<'a, 'tree: 'a, F> Iterator for HighlightIter<'a, 'tree, F>
+impl<'a, F> Iterator for HighlightIter<'a, F>
 where
     F: FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
 {
@@ -835,6 +835,7 @@ where
             // highlighting patterns that are disabled for local variables.
             if definition_highlight.is_some() || reference_highlight.is_some() {
                 while layer.config.non_local_variable_patterns[match_.pattern_index] {
+                    match_.remove();
                     if let Some((next_match, next_capture_index)) = layer.captures.peek() {
                         let next_capture = next_match.captures[*next_capture_index];
                         if next_capture.node == capture.node {
@@ -1025,7 +1026,7 @@ impl HtmlRenderer {
 fn injection_for_match<'a>(
     config: &HighlightConfiguration,
     query: &'a Query,
-    query_match: &QueryMatch<'a>,
+    query_match: &QueryMatch<'a, 'a>,
     source: &'a [u8],
 ) -> (Option<&'a str>, Option<Node<'a>>, bool) {
     let content_capture_index = config.injection_content_capture_index;

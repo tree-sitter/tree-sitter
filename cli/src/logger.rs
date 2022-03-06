@@ -1,5 +1,6 @@
 use log::{LevelFilter, Log, Metadata, Record};
 
+#[allow(dead_code)]
 struct Logger {
     pub filter: Option<String>,
 }

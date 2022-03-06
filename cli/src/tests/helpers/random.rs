@@ -1,5 +1,7 @@
-use rand::distributions::Alphanumeric;
-use rand::prelude::{Rng, SeedableRng, StdRng};
+use rand::{
+    distributions::Alphanumeric,
+    prelude::{Rng, SeedableRng, StdRng},
+};
 
 const OPERATORS: &[char] = &[
     '+', '-', '<', '>', '(', ')', '*', '/', '&', '|', '!', ',', '.',
@@ -13,7 +15,7 @@ impl Rand {
     }
 
     pub fn unsigned(&mut self, max: usize) -> usize {
-        self.0.gen_range(0 .. max + 1)
+        self.0.gen_range(0..max + 1)
     }
 
     pub fn words(&mut self, max_count: usize) -> Vec<u8> {

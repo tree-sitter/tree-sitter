@@ -1,5 +1,6 @@
 use super::item::{ParseItem, ParseItemSet, ParseItemSetCore};
 use super::item_set_builder::ParseItemSetBuilder;
+use crate::generate::grammars::PrecedenceEntry;
 use crate::generate::grammars::{
     InlinedProductionMap, LexicalGrammar, SyntaxGrammar, VariableType,
 };
@@ -9,14 +10,15 @@ use crate::generate::tables::{
     FieldLocation, GotoAction, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
     ProductionInfo, ProductionInfoId,
 };
-use crate::{
-    error::{Error, Result},
-    generate::grammars::PrecedenceEntry,
-};
+use anyhow::{anyhow, Result};
+use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fmt::Write;
+use std::hash::BuildHasherDefault;
 use std::u32;
-use std::{cmp::Ordering, collections::hash_map::Entry};
+
+use indexmap::{map::Entry, IndexMap};
+use rustc_hash::FxHasher;
 
 // For conflict reporting, each parse state is associated with an example
 // sequence of symbols that could lead to that parse state.
@@ -51,7 +53,7 @@ struct ParseTableBuilder<'a> {
     lexical_grammar: &'a LexicalGrammar,
     variable_info: &'a Vec<VariableInfo>,
     core_ids_by_core: HashMap<ParseItemSetCore<'a>, usize>,
-    state_ids_by_item_set: HashMap<ParseItemSet<'a>, ParseStateId>,
+    state_ids_by_item_set: IndexMap<ParseItemSet<'a>, ParseStateId, BuildHasherDefault<FxHasher>>,
     parse_state_info_by_id: Vec<ParseStateInfo<'a>>,
     parse_state_queue: VecDeque<ParseStateQueueEntry>,
     non_terminal_extra_states: Vec<(Symbol, usize)>,
@@ -149,13 +151,7 @@ impl<'a> ParseTableBuilder<'a> {
             Entry::Vacant(v) => {
                 let core = v.key().core();
                 let core_count = self.core_ids_by_core.len();
-                let core_id = match self.core_ids_by_core.entry(core) {
-                    Entry::Occupied(e) => *e.get(),
-                    Entry::Vacant(e) => {
-                        e.insert(core_count);
-                        core_count
-                    }
-                };
+                let core_id = *self.core_ids_by_core.entry(core).or_insert(core_count);
 
                 let state_id = self.parse_table.states.len();
                 self.parse_state_info_by_id
@@ -165,8 +161,8 @@ impl<'a> ParseTableBuilder<'a> {
                     id: state_id,
                     lex_state_id: 0,
                     external_lex_state_id: 0,
-                    terminal_entries: HashMap::new(),
-                    nonterminal_entries: HashMap::new(),
+                    terminal_entries: IndexMap::default(),
+                    nonterminal_entries: IndexMap::default(),
                     core_id,
                 });
                 self.parse_state_queue.push_back(ParseStateQueueEntry {
@@ -387,7 +383,7 @@ impl<'a> ParseTableBuilder<'a> {
                     }
                     message += &self.syntax_grammar.variables[*variable_index as usize].name;
                 }
-                return Err(Error::new(message));
+                return Err(anyhow!(message));
             }
         }
         // Add actions for the start tokens of each non-terminal extra rule.
@@ -762,7 +758,7 @@ impl<'a> ParseTableBuilder<'a> {
         }
         write!(&mut msg, "\n").unwrap();
 
-        Err(Error::new(msg))
+        Err(anyhow!(msg))
     }
 
     fn compare_precedence(
@@ -983,7 +979,7 @@ pub(crate) fn build_parse_table<'a>(
         item_set_builder,
         variable_info,
         non_terminal_extra_states: Vec::new(),
-        state_ids_by_item_set: HashMap::new(),
+        state_ids_by_item_set: IndexMap::default(),
         core_ids_by_core: HashMap::new(),
         parse_state_info_by_id: Vec::new(),
         parse_state_queue: VecDeque::new(),

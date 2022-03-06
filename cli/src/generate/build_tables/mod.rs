@@ -11,12 +11,12 @@ use self::build_parse_table::{build_parse_table, ParseStateInfo};
 use self::coincident_tokens::CoincidentTokenIndex;
 use self::minimize_parse_table::minimize_parse_table;
 use self::token_conflicts::TokenConflictMap;
-use crate::error::Result;
 use crate::generate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
 use crate::generate::nfa::NfaCursor;
 use crate::generate::node_types::VariableInfo;
 use crate::generate::rules::{AliasMap, Symbol, SymbolType, TokenSet};
 use crate::generate::tables::{LexTable, ParseAction, ParseTable, ParseTableEntry};
+use anyhow::Result;
 use log::info;
 use std::collections::{BTreeSet, HashMap};
 

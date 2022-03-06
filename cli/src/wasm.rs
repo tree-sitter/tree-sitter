@@ -1,20 +1,19 @@
-use super::error::{Error, Result};
 use super::generate::parse_grammar::GrammarJSON;
+use anyhow::{anyhow, Context, Result};
 use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::path::Path;
-use std::path::PathBuf;
 use std::process::Command;
 use which::which;
 
+const EMSCRIPTEN_TAG: &'static str = concat!("emscripten/emsdk:", env!("EMSCRIPTEN_VERSION"));
+
 pub fn get_grammar_name(src_dir: &Path) -> Result<String> {
     let grammar_json_path = src_dir.join("grammar.json");
-    let grammar_json = fs::read_to_string(&grammar_json_path).map_err(Error::wrap(|| {
-        format!("Failed to read grammar file {:?}", grammar_json_path)
-    }))?;
-    let grammar: GrammarJSON = serde_json::from_str(&grammar_json).map_err(Error::wrap(|| {
-        format!("Failed to parse grammar file {:?}", grammar_json_path)
-    }))?;
+    let grammar_json = fs::read_to_string(&grammar_json_path)
+        .with_context(|| format!("Failed to read grammar file {:?}", grammar_json_path))?;
+    let grammar: GrammarJSON = serde_json::from_str(&grammar_json)
+        .with_context(|| format!("Failed to parse grammar file {:?}", grammar_json_path))?;
     Ok(grammar.name)
 }
 
@@ -23,15 +22,15 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
     let grammar_name = get_grammar_name(&src_dir)?;
     let output_filename = format!("tree-sitter-{}.wasm", grammar_name);
 
+    let emcc_bin = if cfg!(windows) { "emcc.bat" } else { "emcc" };
+    let emcc_path = which(emcc_bin)
+        .ok()
+        .and_then(|p| Command::new(&p).output().and(Ok(p)).ok());
+
     let mut command;
-    if !force_docker {
-        let emcc_path = get_emcc_path();
-        if emcc_path.is_ok() {
-            command = Command::new(emcc_path.unwrap());
-            command.current_dir(&language_dir);
-        } else {
-            return Err(emcc_path.unwrap_err());
-        }
+    if !force_docker && emcc_path.is_some() {
+        command = Command::new(emcc_path.unwrap());
+        command.current_dir(&language_dir);
     } else if Command::new("docker").output().is_ok() {
         command = Command::new("docker");
         command.args(&["run", "--rm"]);
@@ -57,18 +56,18 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
             let user_id_output = Command::new("id")
                 .arg("-u")
                 .output()
-                .map_err(Error::wrap(|| "Failed to get get current user id"))?;
+                .with_context(|| "Failed to get get current user id")?;
             let user_id = String::from_utf8_lossy(&user_id_output.stdout);
             let user_id = user_id.trim();
             command.args(&["--user", user_id]);
         }
 
         // Run `emcc` in a container using the `emscripten-slim` image
-        command.args(&["emscripten/emsdk", "emcc"]);
+        command.args(&[EMSCRIPTEN_TAG, "emcc"]);
     } else {
-        return Error::err(
-            "You must have either emcc or docker on your PATH to run this command".to_string(),
-        );
+        return Err(anyhow!(
+            "You must have either emcc or docker on your PATH to run this command"
+        ));
     }
 
     command.args(&[
@@ -108,38 +107,17 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
 
     let output = command
         .output()
-        .map_err(Error::wrap(|| "Failed to run emcc command"))?;
+        .with_context(|| "Failed to run emcc command")?;
     if !output.status.success() {
-        return Err(Error::from(format!(
+        return Err(anyhow!(
             "emcc command failed - {}",
             String::from_utf8_lossy(&output.stderr)
-        )));
+        ));
     }
 
     // Move the created `.wasm` file into the current working directory.
-    fs::rename(&language_dir.join(&output_filename), &output_filename).map_err(Error::wrap(
-        || format!("Couldn't find output file {:?}", output_filename),
-    ))?;
+    fs::rename(&language_dir.join(&output_filename), &output_filename)
+        .with_context(|| format!("Couldn't find output file {:?}", output_filename))?;
 
     Ok(())
-}
-
-fn get_emcc_path() -> Result<PathBuf> {
-    let emcc_bin;
-    if cfg!(windows) {
-        emcc_bin = "emcc.bat";
-    } else {
-        emcc_bin = "emcc";
-    };
-    let emcc_which = which(emcc_bin);
-    let emcc_path;
-    if emcc_which.is_ok() {
-        emcc_path = emcc_which.unwrap();
-    } else {
-        return Error::err("emcc was not found on PATH".to_string());
-    }
-    if Command::new(&emcc_path).output().is_ok() {
-        return Ok(emcc_path);
-    }
-    return Error::err("emcc binary doesn't work properly".to_string());
 }

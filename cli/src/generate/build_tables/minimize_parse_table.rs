@@ -479,7 +479,7 @@ impl<'a> Minimizer<'a> {
     fn reorder_states_by_descending_size(&mut self) {
         // Get a mapping of old state index -> new_state_index
         let mut old_ids_by_new_id = (0..self.parse_table.states.len()).collect::<Vec<_>>();
-        &old_ids_by_new_id.sort_unstable_by_key(|i| {
+        old_ids_by_new_id.sort_unstable_by_key(|i| {
             // Don't changes states 0 (the error state) or 1 (the start state).
             if *i <= 1 {
                 return *i as i64 - 1_000_000;

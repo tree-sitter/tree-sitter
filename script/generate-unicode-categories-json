@@ -4,10 +4,15 @@
 
 const CATEGORY_OUTPUT_PATH = './cli/src/generate/prepare_grammar/unicode-categories.json'
 const PROPERTY_OUTPUT_PATH = './cli/src/generate/prepare_grammar/unicode-properties.json'
+const CATEGORY_ALIAS_OUTPUT_PATH = './cli/src/generate/prepare_grammar/unicode-category-aliases.json'
+const PROPERTY_ALIAS_OUTPUT_PATH = './cli/src/generate/prepare_grammar/unicode-property-aliases.json'
 
-const CATEGORY_URL = 'https://unicode.org/Public/13.0.0/ucd/UnicodeData.txt'
-const PROPERTY_URL = 'https://unicode.org/Public/13.0.0/ucd/PropList.txt'
-const DERIVED_PROPERTY_URL = 'https://unicode.org/Public/13.0.0/ucd/DerivedCoreProperties.txt'
+const CATEGORY_URL = 'https://unicode.org/Public/14.0.0/ucd/UnicodeData.txt'
+const PROPERTY_URL = 'https://unicode.org/Public/14.0.0/ucd/PropList.txt'
+const DERIVED_PROPERTY_URL = 'https://unicode.org/Public/14.0.0/ucd/DerivedCoreProperties.txt'
+const CATEGORY_ALIAS_URL = 'https://unicode.org/Public/14.0.0/ucd/PropertyValueAliases.txt'
+const PROPERTY_ALIAS_URL = 'https://unicode.org/Public/14.0.0/ucd/PropertyAliases.txt'
+const EMOJI_DATA_URL = 'https://unicode.org/Public/14.0.0/ucd/emoji/emoji-data.txt'
 
 const fs = require('fs');
 const path = require('path');
@@ -16,7 +21,10 @@ const {spawnSync} = require('child_process');
 // Download the unicode data files, caching them inside the 'target' directory.
 const categoryData = cachedDownload(CATEGORY_URL);
 const propertyData = cachedDownload(PROPERTY_URL);
-const derivedPopertyData = cachedDownload(DERIVED_PROPERTY_URL);
+const derivedPropertyData = cachedDownload(DERIVED_PROPERTY_URL);
+const categoryAliasData = cachedDownload(CATEGORY_ALIAS_URL);
+const propertyAliasData = cachedDownload(PROPERTY_ALIAS_URL);
+const emojiData = cachedDownload(EMOJI_DATA_URL);
 function cachedDownload(url) {
     let downloadPath = path.join('.', 'target', path.basename(url))
     if (fs.existsSync(downloadPath)) {
@@ -30,10 +38,12 @@ function cachedDownload(url) {
 
 const categories = {};
 const properties = {};
+const categoryAliases = {};
+const propertyAliases = {}
 let data, row, lineStart, lineEnd;
 
 // Parse the properties
-data = propertyData + derivedPopertyData;
+data = propertyData + derivedPropertyData + emojiData;
 row = 0;
 lineStart = 0;
 lineEnd = -1;
@@ -71,7 +81,7 @@ while (lineStart < data.length) {
 
     const property = data.slice(propertyStart, propertyEnd).trim();
 
-    console.log(codePoints, property);
+    console.log("Property:", codePoints, property);
 
 
     for (let c = codePoints[0]; c <= codePoints[1]; c++) {
@@ -106,7 +116,7 @@ while (lineStart < data.length) {
     if (
         nameStart === 0 ||
         categoryStart == 0 ||
-        categoryEnd === 0
+        categoryEnd === -1
     ) {
         throw new Error(`Unexpected format on line ${row}`);
     }
@@ -115,7 +125,7 @@ while (lineStart < data.length) {
     const name = data.slice(nameStart, nameEnd);
     const category = data.slice(categoryStart, categoryEnd);
 
-    console.log(codePoint, category, name);
+    console.log("Category:", codePoint, category, name);
 
     // Group the code points by their category.
     if (!categories[category]) {
@@ -124,5 +134,110 @@ while (lineStart < data.length) {
     categories[category].push(codePoint);
 }
 
+// Parse the category aliases
+data = categoryAliasData;
+row = 0;
+lineStart = 0;
+lineEnd = -1;
+const IGNORE = /[#\s]/
+while (lineStart < data.length) {
+    row++;
+    lineStart = lineEnd + 1;
+    lineEnd = data.indexOf('\n', lineStart);
+    if (lineEnd === -1) break;
+
+    // Skip over blank and comment lines
+    if (IGNORE.test(data[lineStart])) continue;
+
+    // Parse the first three semicolon-separated fields:
+    // * property value type
+    // * short name
+    // * long name
+    // Other aliases may be listed in additional fields
+    const propertyValueTypeEnd = data.indexOf(';', lineStart);
+    const shortNameStart = propertyValueTypeEnd + 1;
+    const shortNameEnd = data.indexOf(';', shortNameStart);
+    const longNameStart = shortNameEnd + 1;
+    if (
+        shortNameStart === 0 ||
+        longNameStart === 0
+    ) {
+        throw new Error(`Unexpected format on line ${row}`);
+    }
+
+    const propertyValueType = data.slice(lineStart, propertyValueTypeEnd).trim();
+    const shortName = data.slice(shortNameStart, shortNameEnd).trim();
+
+    // Filter for General_Category lines
+    if (propertyValueType !== 'gc') continue;
+
+    let aliasStart = longNameStart;
+    let lineDone = false;
+    do {
+        let aliasEnd = data.indexOf(';', aliasStart);
+        if (aliasEnd === -1 || aliasEnd > lineEnd) {
+            aliasEnd = data.indexOf('#', aliasStart);
+            if (aliasEnd === -1 || aliasEnd > lineEnd) {
+                aliasEnd = lineEnd;
+            }
+            lineDone = true;
+        }
+        const alias = data.slice(aliasStart, aliasEnd).trim();
+        console.log("Category alias:", alias, shortName);
+        categoryAliases[alias] = shortName;
+        aliasStart = aliasEnd + 1;
+    } while (!lineDone);
+}
+
+// Parse the property aliases
+data = propertyAliasData;
+row = 0;
+lineStart = 0;
+lineEnd = -1;
+while (lineStart < data.length) {
+    row++;
+    lineStart = lineEnd + 1;
+    lineEnd = data.indexOf('\n', lineStart);
+    if (lineEnd === -1) break;
+
+    // Skip over blank and comment lines
+    if (IGNORE.test(data[lineStart])) continue;
+
+    // Parse the first two semicolon fields:
+    // * short name
+    // * long name
+    const shortNameEnd = data.indexOf(';', lineStart);
+    const longNameStart = shortNameEnd + 1;
+
+    if (longNameStart == 0) {
+        throw new Error(`Unexpected format on line ${row}`);
+    }
+
+    let alias = data.slice(lineStart, shortNameEnd).trim();
+    let longName = null;
+    let nameStart = longNameStart;
+    let lineDone = false;
+    do {
+        let nameEnd = data.indexOf(';', nameStart);
+        if (nameEnd === -1 || nameEnd > lineEnd) {
+            nameEnd = data.indexOf('#', nameStart);
+            if (nameEnd === -1 || nameEnd > lineEnd) {
+                nameEnd = lineEnd;
+            }
+            lineDone = true;
+        }
+        if (longName == null) {
+            longName = data.slice(nameStart, nameEnd).trim();
+        } else {
+            alias = data.slice(nameStart, nameEnd).trim();
+        }
+        console.log("Property alias:", alias, longName);
+        propertyAliases[alias] = longName;
+        nameStart = nameEnd + 1;
+    } while (!lineDone);
+}
+
 fs.writeFileSync(CATEGORY_OUTPUT_PATH, JSON.stringify(categories), 'utf8');
 fs.writeFileSync(PROPERTY_OUTPUT_PATH, JSON.stringify(properties), 'utf8');
+fs.writeFileSync(CATEGORY_ALIAS_OUTPUT_PATH, JSON.stringify(categoryAliases), 'utf8');
+fs.writeFileSync(PROPERTY_ALIAS_OUTPUT_PATH, JSON.stringify(propertyAliases), 'utf8');
