@@ -1,11 +1,10 @@
-use super::error::{Error, Result};
 use super::util;
 use ansi_term::Colour;
+use anyhow::{anyhow, Context, Result};
 use difference::{Changeset, Difference};
 use lazy_static::lazy_static;
 use regex::bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder};
 use regex::Regex;
-use std::char;
 use std::ffi::OsStr;
 use std::fmt::Write as FmtWrite;
 use std::fs;
@@ -16,11 +15,12 @@ use tree_sitter::{Language, LogType, Parser, Query};
 use walkdir::WalkDir;
 
 lazy_static! {
-    static ref HEADER_REGEX: ByteRegex = ByteRegexBuilder::new(r"^===+\r?\n([^=]*)\r?\n===+\r?\n")
-        .multi_line(true)
-        .build()
-        .unwrap();
-    static ref DIVIDER_REGEX: ByteRegex = ByteRegexBuilder::new(r"^---+\r?\n")
+    static ref HEADER_REGEX: ByteRegex =
+        ByteRegexBuilder::new(r"^===+(?P<suffix1>[^=\r\n][^\r\n]*)?\r?\n(?P<test_name>([^=\r\n][^\r\n]*\r?\n)+)===+(?P<suffix2>[^=\r\n][^\r\n]*)?\r?\n")
+            .multi_line(true)
+            .build()
+            .unwrap();
+    static ref DIVIDER_REGEX: ByteRegex = ByteRegexBuilder::new(r"^---+(?P<suffix>[^-\r\n][^\r\n]*)?\r?\n")
         .multi_line(true)
         .build()
         .unwrap();
@@ -65,7 +65,7 @@ pub fn run_tests_at_path(
     let test_entry = parse_tests(path)?;
     let mut _log_session = None;
     let mut parser = Parser::new();
-    parser.set_language(language).map_err(|e| e.to_string())?;
+    parser.set_language(language)?;
 
     if debug_graph {
         _log_session = Some(util::log_graphs(&mut parser, "log.html")?);
@@ -114,9 +114,11 @@ pub fn run_tests_at_path(
             print_diff_key();
             for (i, (name, actual, expected)) in failures.iter().enumerate() {
                 println!("\n  {}. {}:", i + 1, name);
-                print_diff(actual, expected);
+                let actual = format_sexp_indented(&actual, 2);
+                let expected = format_sexp_indented(&expected, 2);
+                print_diff(&actual, &expected);
             }
-            Error::err(String::new())
+            Err(anyhow!(""))
         }
     } else {
         Ok(())
@@ -135,10 +137,10 @@ pub fn check_queries_at_path(language: Language, path: &Path) -> Result<()> {
             })
         {
             let filepath = entry.file_name().to_str().unwrap_or("");
-            let content = fs::read_to_string(entry.path()).map_err(Error::wrap(|| {
-                format!("Error reading query file {:?}", entry.file_name())
-            }))?;
-            Query::new(language, &content).map_err(|e| (filepath, e))?;
+            let content = fs::read_to_string(entry.path())
+                .with_context(|| format!("Error reading query file {:?}", filepath))?;
+            Query::new(language, &content)
+                .with_context(|| format!("Error in query file {:?}", filepath))?;
         }
     }
     Ok(())
@@ -153,8 +155,7 @@ pub fn print_diff_key() {
 }
 
 pub fn print_diff(actual: &String, expected: &String) {
-    let changeset = Changeset::new(actual, expected, " ");
-    print!("    ");
+    let changeset = Changeset::new(actual, expected, "\n");
     for diff in &changeset.diffs {
         match diff {
             Difference::Same(part) => {
@@ -263,9 +264,13 @@ fn run_tests(
 }
 
 fn format_sexp(sexp: &String) -> String {
+    format_sexp_indented(sexp, 0)
+}
+
+fn format_sexp_indented(sexp: &String, initial_indent_level: u32) -> String {
     let mut formatted = String::new();
 
-    let mut indent_level = 0;
+    let mut indent_level = initial_indent_level;
     let mut has_field = false;
     let mut s_iter = sexp.split(|c| c == ' ' || c == ')');
     while let Some(s) = s_iter.next() {
@@ -291,11 +296,13 @@ fn format_sexp(sexp: &String) -> String {
 
             let mut c_iter = s.chars();
             c_iter.next();
-            let second_char = c_iter.next().unwrap();
-            if second_char == 'M' || second_char == 'U' {
-                // "(MISSING node_name" or "(UNEXPECTED 'x'"
-                let s = s_iter.next().unwrap();
-                write!(formatted, " {}", s).unwrap();
+            match c_iter.next() {
+                Some('M') | Some('U') => {
+                    // "(MISSING node_name" or "(UNEXPECTED 'x'"
+                    let s = s_iter.next().unwrap();
+                    write!(formatted, " {}", s).unwrap();
+                }
+                Some(_) | None => {}
             }
         } else if s.ends_with(':') {
             // "field:"
@@ -375,22 +382,58 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
     let mut prev_name = String::new();
     let mut prev_header_end = 0;
 
-    // Identify all of the test descriptions using the `======` headers.
-    for (header_start, header_end) in HEADER_REGEX
-        .find_iter(&bytes)
-        .map(|m| (m.start(), m.end()))
-        .chain(Some((bytes.len(), bytes.len())))
-    {
-        // Find the longest line of dashes following each test description.
-        // That is the divider between input and expected output.
+    // Find the first test header in the file, and determine if it has a
+    // custom suffix. If so, then this suffix will be used to identify
+    // all subsequent headers and divider lines in the file.
+    let first_suffix = HEADER_REGEX
+        .captures(bytes)
+        .and_then(|c| c.name("suffix1"))
+        .map(|m| String::from_utf8_lossy(m.as_bytes()));
+
+    // Find all of the `===` test headers, which contain the test names.
+    // Ignore any matches whose suffix does not match the first header
+    // suffix in the file.
+    let header_matches = HEADER_REGEX.captures_iter(&bytes).filter_map(|c| {
+        let suffix1 = c
+            .name("suffix1")
+            .map(|m| String::from_utf8_lossy(m.as_bytes()));
+        let suffix2 = c
+            .name("suffix2")
+            .map(|m| String::from_utf8_lossy(m.as_bytes()));
+        if suffix1 == first_suffix && suffix2 == first_suffix {
+            let header_range = c.get(0).unwrap().range();
+            let test_name = c
+                .name("test_name")
+                .map(|c| String::from_utf8_lossy(c.as_bytes()).trim_end().to_string());
+            Some((header_range, test_name))
+        } else {
+            None
+        }
+    });
+
+    for (header_range, test_name) in header_matches.chain(Some((bytes.len()..bytes.len(), None))) {
+        // Find the longest line of dashes following each test description. That line
+        // separates the input from the expected output. Ignore any matches whose suffix
+        // does not match the first suffix in the file.
         if prev_header_end > 0 {
-            let divider_match = DIVIDER_REGEX
-                .find_iter(&bytes[prev_header_end..header_start])
-                .map(|m| (prev_header_end + m.start(), prev_header_end + m.end()))
-                .max_by_key(|(start, end)| end - start);
-            if let Some((divider_start, divider_end)) = divider_match {
-                if let Ok(output) = str::from_utf8(&bytes[divider_end..header_start]) {
-                    let mut input = bytes[prev_header_end..divider_start].to_vec();
+            let divider_range = DIVIDER_REGEX
+                .captures_iter(&bytes[prev_header_end..header_range.start])
+                .filter_map(|m| {
+                    let suffix = m
+                        .name("suffix")
+                        .map(|m| String::from_utf8_lossy(m.as_bytes()));
+                    if suffix == first_suffix {
+                        let range = m.get(0).unwrap().range();
+                        Some((prev_header_end + range.start)..(prev_header_end + range.end))
+                    } else {
+                        None
+                    }
+                })
+                .max_by_key(|range| range.len());
+
+            if let Some(divider_range) = divider_range {
+                if let Ok(output) = str::from_utf8(&bytes[divider_range.end..header_range.start]) {
+                    let mut input = bytes[prev_header_end..divider_range.start].to_vec();
 
                     // Remove trailing newline from the input.
                     input.pop();
@@ -400,6 +443,7 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
 
                     // Remove all comments
                     let output = COMMENT_REGEX.replace_all(output, "").to_string();
+
                     // Normalize the whitespace in the expected output.
                     let output = WHITESPACE_REGEX.replace_all(output.trim(), " ");
                     let output = output.replace(" )", ")");
@@ -417,10 +461,8 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
                 }
             }
         }
-        prev_name = String::from_utf8_lossy(&bytes[header_start..header_end])
-            .trim_matches(|c| char::is_whitespace(c) || c == '=')
-            .to_string();
-        prev_header_end = header_end;
+        prev_name = test_name.unwrap_or(String::new());
+        prev_header_end = header_range.end;
     }
     TestEntry::Group {
         name,
@@ -434,7 +476,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_test_content() {
+    fn test_parse_test_content_simple() {
         let entry = parse_test_content(
             "the-filename".to_string(),
             r#"
@@ -554,6 +596,7 @@ abc
             .trim()
             .to_string()
         );
+        assert_eq!(format_sexp(&"()".to_string()), "()".to_string());
     }
 
     #[test]
@@ -661,6 +704,138 @@ code
                     }
                 ],
                 file_path: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_test_content_with_suffixes() {
+        let entry = parse_test_content(
+            "the-filename".to_string(),
+            r#"
+==================asdf\()[]|{}*+?^$.-
+First test
+==================asdf\()[]|{}*+?^$.-
+
+=========================
+NOT A TEST HEADER
+=========================
+-------------------------
+
+---asdf\()[]|{}*+?^$.-
+
+(a)
+
+==================asdf\()[]|{}*+?^$.-
+Second test
+==================asdf\()[]|{}*+?^$.-
+
+=========================
+NOT A TEST HEADER
+=========================
+-------------------------
+
+---asdf\()[]|{}*+?^$.-
+
+(a)
+
+=========================asdf\()[]|{}*+?^$.-
+Test name with = symbol
+=========================asdf\()[]|{}*+?^$.-
+
+=========================
+NOT A TEST HEADER
+=========================
+-------------------------
+
+---asdf\()[]|{}*+?^$.-
+
+(a)
+        "#
+            .trim()
+            .to_string(),
+            None,
+        );
+
+        let expected_input = "\n=========================\n\
+            NOT A TEST HEADER\n\
+            =========================\n\
+            -------------------------\n"
+            .as_bytes()
+            .to_vec();
+        assert_eq!(
+            entry,
+            TestEntry::Group {
+                name: "the-filename".to_string(),
+                children: vec![
+                    TestEntry::Example {
+                        name: "First test".to_string(),
+                        input: expected_input.clone(),
+                        output: "(a)".to_string(),
+                        has_fields: false,
+                    },
+                    TestEntry::Example {
+                        name: "Second test".to_string(),
+                        input: expected_input.clone(),
+                        output: "(a)".to_string(),
+                        has_fields: false,
+                    },
+                    TestEntry::Example {
+                        name: "Test name with = symbol".to_string(),
+                        input: expected_input.clone(),
+                        output: "(a)".to_string(),
+                        has_fields: false,
+                    }
+                ],
+                file_path: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_test_content_with_newlines_in_test_names() {
+        let entry = parse_test_content(
+            "the-filename".to_string(),
+            r#"
+===============
+name
+with
+newlines
+===============
+a
+---
+(b)
+
+====================
+name with === signs
+====================
+code with ----
+---
+(d)
+"#
+            .to_string(),
+            None,
+        );
+
+        assert_eq!(
+            entry,
+            TestEntry::Group {
+                name: "the-filename".to_string(),
+                file_path: None,
+                children: vec![
+                    TestEntry::Example {
+                        name: "name\nwith\nnewlines".to_string(),
+                        input: b"a".to_vec(),
+                        output: "(b)".to_string(),
+                        has_fields: false,
+                    },
+                    TestEntry::Example {
+                        name: "name with === signs".to_string(),
+                        input: b"code with ----".to_vec(),
+                        output: "(d)".to_string(),
+                        has_fields: false,
+                    }
+                ]
             }
         );
     }

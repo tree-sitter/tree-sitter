@@ -1,10 +1,10 @@
 [package]
 name = "tree-sitter-tags"
 description = "Library for extracting tag information"
-version = "0.19.2"
+version = "0.20.2"
 authors = [
   "Max Brunsfeld <maxbrunsfeld@gmail.com>",
-  "Patrick Thomson <patrickt@github.com>"
+  "Patrick Thomson <patrickt@github.com>",
 ]
 license = "MIT"
 readme = "README.md"
@@ -19,7 +19,8 @@ crate-type = ["lib", "staticlib"]
 [dependencies]
 regex = "1"
 memchr = "2.3"
+thiserror = "1.0"
 
 [dependencies.tree-sitter]
-version = ">= 0.17.0"
+version = "0.20"
 path = "../lib"

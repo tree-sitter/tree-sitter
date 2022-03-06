@@ -1,6 +1,6 @@
 {
   "name": "web-tree-sitter",
-  "version": "0.19.2",
+  "version": "0.20.6",
   "description": "Tree-sitter bindings for the web",
   "main": "tree-sitter.js",
   "types": "tree-sitter-web.d.ts",
@@ -9,6 +9,7 @@
   },
   "scripts": {
     "test": "mocha",
+    "prepack": "cp ../../LICENSE .",
     "prepublishOnly": "node check-artifacts-fresh.js"
   },
   "repository": {

@@ -13,10 +13,9 @@ on:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
-  EMSCRIPTEN_VERSION: 2.0.11
 
 jobs:
-  tests:
+  unix-tests:
     name: Unix tests
     runs-on: ${{ matrix.os }}
     strategy:
@@ -35,6 +34,10 @@ jobs:
         run: |
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
 
+      - name: Read Emscripten version
+        run: |
+          printf 'EMSCRIPTEN_VERSION=%s\n' "$(cat cli/emscripten-version)" >> $GITHUB_ENV
+
       - name: Cache artifacts
         id: cache
         uses: actions/cache@v2
@@ -52,8 +55,11 @@ jobs:
           toolchain: stable
           profile: minimal
 
+      - name: Check Rust code formatting
+        run: cargo fmt -- --check
+
       - name: Install emscripten
-        uses: mymindstorm/setup-emsdk@v7
+        uses: mymindstorm/setup-emsdk@v10
         with:
           version: ${{ env.EMSCRIPTEN_VERSION }}
 
@@ -64,7 +70,9 @@ jobs:
         run: script/build-wasm
 
       - name: Build CLI
-        run: cargo build --release
+        run: |
+          RUSTFLAGS="-D warnings"
+          cargo build --release
 
       - name: Set up fixture parsers
         run: |
@@ -73,7 +81,7 @@ jobs:
           script/generate-fixtures-wasm
 
       - name: Run main tests
-        run: script/test
+        run: cargo test
 
       - name: Run wasm tests
         run: script/test-wasm
@@ -99,3 +107,43 @@ jobs:
             lib/binding_web/tree-sitter.wasm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  windows-tests:
+    name: Windows tests
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Cache artifacts
+        id: cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+
+      - name: Install rust
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - name: Check Rust code formatting
+        run: cargo fmt -- --check
+
+      - name: Build CLI
+        run: |
+          $env:RUSTFLAGS="-D warnings"
+          cargo build --release
+
+      - name: Set up fixture parsers
+        run: |
+          script/fetch-fixtures.cmd
+          script/generate-fixtures.cmd
+
+      - name: Run main tests
+        run: script/test

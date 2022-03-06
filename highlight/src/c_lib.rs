@@ -112,7 +112,7 @@ pub extern "C" fn ts_highlighter_add_language(
         let mut config =
             HighlightConfiguration::new(language, highlight_query, injection_query, locals_query)
                 .or(Err(ErrorCode::InvalidQuery))?;
-        config.configure(&this.highlight_names);
+        config.configure(&this.highlight_names.as_slice());
         this.languages.insert(scope_name, (injection_regex, config));
 
         Ok(())

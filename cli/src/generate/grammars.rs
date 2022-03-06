@@ -26,7 +26,7 @@ pub(crate) enum PrecedenceEntry {
     Symbol(String),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub(crate) struct InputGrammar {
     pub name: String,
     pub variables: Vec<Variable>,
@@ -66,7 +66,7 @@ pub(crate) struct ProductionStep {
     pub field_name: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Production {
     pub steps: Vec<ProductionStep>,
     pub dynamic_precedence: i32,
@@ -156,15 +156,6 @@ impl ProductionStep {
 impl Production {
     pub fn first_symbol(&self) -> Option<Symbol> {
         self.steps.first().map(|s| s.symbol.clone())
-    }
-}
-
-impl Default for Production {
-    fn default() -> Self {
-        Production {
-            dynamic_precedence: 0,
-            steps: Vec::new(),
-        }
     }
 }
 

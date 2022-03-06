@@ -464,7 +464,7 @@ In general, it's a good idea to make patterns more specific by specifying [field
 
 #### Negated Fields
 
-You can also constrain a pattern so that it only mathces nodes that *lack* a certain field. To do this, add a field name prefixed by a `!` within the parent pattern. For example, this pattern would match a class declaration with no type parameters:
+You can also constrain a pattern so that it only matches nodes that *lack* a certain field. To do this, add a field name prefixed by a `!` within the parent pattern. For example, this pattern would match a class declaration with no type parameters:
 
 ```
 (class_declaration
@@ -572,7 +572,6 @@ This pattern would match a set of possible keyword tokens, capturing them as `@k
 ```
 [
   "break"
-  "atch"
   "delete"
   "else"
   "for"
@@ -586,8 +585,10 @@ This pattern would match a set of possible keyword tokens, capturing them as `@k
 
 #### Wildcard Node
 
-A wildcard node is represented with an underscore (`(_)`), it matches any node.
+A wildcard node is represented with an underscore (`_`), it matches any node.
 This is similar to `.` in regular expressions.
+There are two types, `(_)` will match any named node,
+and `_` will match any named or anonymous node.
 
 For example, this pattern would match any node inside a call:
 
@@ -628,7 +629,7 @@ The restrictions placed on a pattern by an anchor operator ignore anonymous node
 
 #### Predicates
 
-You can also specify arbitrary metadata and conditions associed with a pattern by adding _predicate_ S-expressions anywhere within your pattern. Predicate S-expressions start with a _predicate name_ beginning with a `#` character. After that, they can contain an arbitrary number of `@`-prefixed capture names or strings.
+You can also specify arbitrary metadata and conditions associated with a pattern by adding _predicate_ S-expressions anywhere within your pattern. Predicate S-expressions start with a _predicate name_ beginning with a `#` character. After that, they can contain an arbitrary number of `@`-prefixed capture names or strings.
 
 For example, this pattern would match identifier whose names is written in `SCREAMING_SNAKE_CASE`:
 

@@ -14,7 +14,7 @@ typedef struct {
 
 void *tree_sitter_external_tokens_external_scanner_create() {
   Scanner *scanner = malloc(sizeof(Scanner));
-  *scanner = (Scanner){
+  *scanner = (Scanner) {
     .open_delimiter = 0,
     .close_delimiter = 0,
     .depth = 0
@@ -46,7 +46,8 @@ bool tree_sitter_external_tokens_external_scanner_scan(
   if (whitelist[percent_string]) {
     while (lexer->lookahead == ' ' ||
            lexer->lookahead == '\t' ||
-           lexer->lookahead == '\n') {
+           lexer->lookahead == '\n' ||
+           lexer->lookahead == '\r') {
       lexer->advance(lexer, true);
     }
 

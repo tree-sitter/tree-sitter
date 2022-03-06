@@ -1,19 +1,22 @@
 mod ffi;
 mod util;
 
-#[cfg(feature = "allocation-tracking")]
-pub mod allocations;
-
 #[cfg(unix)]
 use std::os::unix::io::AsRawFd;
 
-use std::ffi::CStr;
-use std::marker::PhantomData;
-use std::mem::MaybeUninit;
-use std::os::raw::{c_char, c_void};
-use std::ptr::NonNull;
-use std::sync::atomic::AtomicUsize;
-use std::{char, error, fmt, hash, iter, ptr, slice, str, u16};
+use std::{
+    char, error,
+    ffi::CStr,
+    fmt, hash, iter,
+    marker::PhantomData,
+    mem::MaybeUninit,
+    ops,
+    os::raw::{c_char, c_void},
+    ptr::{self, NonNull},
+    slice, str,
+    sync::atomic::AtomicUsize,
+    u16,
+};
 
 /// The latest ABI version that is supported by the current version of the
 /// library.
@@ -95,14 +98,40 @@ pub struct TreeCursor<'a>(ffi::TSTreeCursor, PhantomData<&'a ()>);
 pub struct Query {
     ptr: NonNull<ffi::TSQuery>,
     capture_names: Vec<String>,
+    capture_quantifiers: Vec<Vec<CaptureQuantifier>>,
     text_predicates: Vec<Box<[TextPredicate]>>,
     property_settings: Vec<Box<[QueryProperty]>>,
     property_predicates: Vec<Box<[(QueryProperty, bool)]>>,
     general_predicates: Vec<Box<[QueryPredicate]>>,
 }
 
+/// A quantifier for captures
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum CaptureQuantifier {
+    Zero,
+    ZeroOrOne,
+    ZeroOrMore,
+    One,
+    OneOrMore,
+}
+
+impl From<ffi::TSQuantifier> for CaptureQuantifier {
+    fn from(value: ffi::TSQuantifier) -> Self {
+        match value {
+            ffi::TSQuantifier_TSQuantifierZero => CaptureQuantifier::Zero,
+            ffi::TSQuantifier_TSQuantifierZeroOrOne => CaptureQuantifier::ZeroOrOne,
+            ffi::TSQuantifier_TSQuantifierZeroOrMore => CaptureQuantifier::ZeroOrMore,
+            ffi::TSQuantifier_TSQuantifierOne => CaptureQuantifier::One,
+            ffi::TSQuantifier_TSQuantifierOneOrMore => CaptureQuantifier::OneOrMore,
+            _ => panic!("Unrecognized quantifier: {}", value),
+        }
+    }
+}
+
 /// A stateful object for executing a `Query` on a syntax `Tree`.
-pub struct QueryCursor(NonNull<ffi::TSQueryCursor>);
+pub struct QueryCursor {
+    ptr: NonNull<ffi::TSQueryCursor>,
+}
 
 /// A key-value pair associated with a particular pattern in a `Query`.
 #[derive(Debug, PartialEq, Eq)]
@@ -126,18 +155,36 @@ pub struct QueryPredicate {
 }
 
 /// A match of a `Query` to a particular set of `Node`s.
-pub struct QueryMatch<'a> {
+pub struct QueryMatch<'cursor, 'tree> {
     pub pattern_index: usize,
-    pub captures: &'a [QueryCapture<'a>],
+    pub captures: &'cursor [QueryCapture<'tree>],
     id: u32,
     cursor: *mut ffi::TSQueryCursor,
 }
 
-/// A sequence of `QueryCapture`s within a `QueryMatch`.
-pub struct QueryCaptures<'a, 'tree: 'a, T: AsRef<[u8]>> {
+/// A sequence of `QueryMatch`es associated with a given `QueryCursor`.
+pub struct QueryMatches<'a, 'tree: 'a, T: TextProvider<'a>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'a Query,
-    text_callback: Box<dyn FnMut(Node<'tree>) -> T + 'a>,
+    text_provider: T,
+    buffer1: Vec<u8>,
+    buffer2: Vec<u8>,
+    _tree: PhantomData<&'tree ()>,
+}
+
+/// A sequence of `QueryCapture`s associated with a given `QueryCursor`.
+pub struct QueryCaptures<'a, 'tree: 'a, T: TextProvider<'a>> {
+    ptr: *mut ffi::TSQueryCursor,
+    query: &'a Query,
+    text_provider: T,
+    buffer1: Vec<u8>,
+    buffer2: Vec<u8>,
+    _tree: PhantomData<&'tree ()>,
+}
+
+pub trait TextProvider<'a> {
+    type I: Iterator<Item = &'a [u8]> + 'a;
+    fn text(&mut self, node: Node) -> Self::I;
 }
 
 /// A particular `Node` that has been captured with a particular name within a `Query`.
@@ -176,6 +223,7 @@ pub enum QueryErrorKind {
     Capture,
     Predicate,
     Structure,
+    Language,
 }
 
 #[derive(Debug)]
@@ -603,7 +651,7 @@ impl Parser {
     /// If a pointer is assigned, then the parser will periodically read from
     /// this pointer during parsing. If it reads a non-zero value, it will halt early,
     /// returning `None`. See [parse](Parser::parse) for more information.
-    pub unsafe fn set_cancellation_flag(&self, flag: Option<&AtomicUsize>) {
+    pub unsafe fn set_cancellation_flag(&mut self, flag: Option<&AtomicUsize>) {
         if let Some(flag) = flag {
             ffi::ts_parser_set_cancellation_flag(
                 self.0.as_ptr(),
@@ -859,6 +907,18 @@ impl<'tree> Node<'tree> {
         Self::new(unsafe { ffi::ts_node_child_by_field_id(self.0, field_id) })
     }
 
+    /// Get the field name of this node's child at the given index.
+    pub fn field_name_for_child(&self, child_index: u32) -> Option<&'static str> {
+        unsafe {
+            let ptr = ffi::ts_node_field_name_for_child(self.0, child_index);
+            if ptr.is_null() {
+                None
+            } else {
+                Some(CStr::from_ptr(ptr).to_str().unwrap())
+            }
+        }
+    }
+
     /// Iterate over this node's children.
     ///
     /// A [TreeCursor] is used to retrieve the children efficiently. Obtain
@@ -1001,7 +1061,7 @@ impl<'tree> Node<'tree> {
             .to_str()
             .unwrap()
             .to_string();
-        unsafe { util::free_ptr(c_string as *mut c_void) };
+        unsafe { (FREE_FN)(c_string as *mut c_void) };
         result
     }
 
@@ -1135,6 +1195,21 @@ impl<'a> TreeCursor<'a> {
         }
     }
 
+    /// Move this cursor to the first child of its current node that extends beyond
+    /// the given byte offset.
+    ///
+    /// This returns the index of the child node if one was found, and returns `None`
+    /// if no such child was found.
+    pub fn goto_first_child_for_point(&mut self, point: Point) -> Option<usize> {
+        let result =
+            unsafe { ffi::ts_tree_cursor_goto_first_child_for_point(&mut self.0, point.into()) };
+        if result < 0 {
+            None
+        } else {
+            Some(result as usize)
+        }
+    }
+
     /// Re-initialize this tree cursor to start at a different node.
     pub fn reset(&mut self, node: Node<'a>) {
         unsafe { ffi::ts_tree_cursor_reset(&mut self.0, node.0) };
@@ -1178,6 +1253,19 @@ impl Query {
 
         // On failure, build an error based on the error code and offset.
         if ptr.is_null() {
+            if error_type == ffi::TSQueryError_TSQueryErrorLanguage {
+                return Err(QueryError {
+                    row: 0,
+                    column: 0,
+                    offset: 0,
+                    message: LanguageError {
+                        version: language.version(),
+                    }
+                    .to_string(),
+                    kind: QueryErrorKind::Language,
+                });
+            }
+
             let offset = error_offset as usize;
             let mut line_start = 0;
             let mut row = 0;
@@ -1242,6 +1330,7 @@ impl Query {
         let mut result = Query {
             ptr: unsafe { NonNull::new_unchecked(ptr) },
             capture_names: Vec::with_capacity(capture_count as usize),
+            capture_quantifiers: Vec::with_capacity(pattern_count as usize),
             text_predicates: Vec::with_capacity(pattern_count),
             property_predicates: Vec::with_capacity(pattern_count),
             property_settings: Vec::with_capacity(pattern_count),
@@ -1258,6 +1347,18 @@ impl Query {
                 let name = str::from_utf8_unchecked(name);
                 result.capture_names.push(name.to_string());
             }
+        }
+
+        // Build a vector to store capture qunatifiers.
+        for i in 0..pattern_count {
+            let mut capture_quantifiers = Vec::with_capacity(capture_count as usize);
+            for j in 0..capture_count {
+                unsafe {
+                    let quantifier = ffi::ts_query_capture_quantifier_for_id(ptr, i as u32, j);
+                    capture_quantifiers.push(quantifier.into());
+                }
+            }
+            result.capture_quantifiers.push(capture_quantifiers);
         }
 
         // Build a vector of strings to represent literal values used in predicates.
@@ -1460,6 +1561,19 @@ impl Query {
         &self.capture_names
     }
 
+    /// Get the quantifiers of the captures used in the query.
+    pub fn capture_quantifiers(&self, index: usize) -> &[CaptureQuantifier] {
+        &self.capture_quantifiers[index]
+    }
+
+    /// Get the index for a given capture name.
+    pub fn capture_index_for_name(&self, name: &str) -> Option<u32> {
+        self.capture_names
+            .iter()
+            .position(|n| n == name)
+            .map(|ix| ix as u32)
+    }
+
     /// Get the properties that are checked for the given pattern index.
     ///
     /// This includes predicates with the operators `is?` and `is-not?`.
@@ -1511,8 +1625,10 @@ impl Query {
     ///
     /// A query step is 'definite' if its parent pattern will be guaranteed to match
     /// successfully once it reaches the step.
-    pub fn step_is_definite(&self, byte_offset: usize) -> bool {
-        unsafe { ffi::ts_query_step_is_definite(self.ptr.as_ptr(), byte_offset as u32) }
+    pub fn is_pattern_guaranteed_at_step(&self, byte_offset: usize) -> bool {
+        unsafe {
+            ffi::ts_query_is_pattern_guaranteed_at_step(self.ptr.as_ptr(), byte_offset as u32)
+        }
     }
 
     fn parse_property(
@@ -1578,18 +1694,33 @@ impl Query {
     }
 }
 
-impl<'a> QueryCursor {
+impl QueryCursor {
     /// Create a new cursor for executing a given query.
     ///
     /// The cursor stores the state that is needed to iteratively search for matches.
     pub fn new() -> Self {
-        QueryCursor(unsafe { NonNull::new_unchecked(ffi::ts_query_cursor_new()) })
+        QueryCursor {
+            ptr: unsafe { NonNull::new_unchecked(ffi::ts_query_cursor_new()) },
+        }
+    }
+
+    /// Return the maximum number of in-progress matches for this cursor.
+    pub fn match_limit(&self) -> u32 {
+        unsafe { ffi::ts_query_cursor_match_limit(self.ptr.as_ptr()) }
+    }
+
+    /// Set the maximum number of in-progress matches for this cursor.  The limit must be > 0 and
+    /// <= 65536.
+    pub fn set_match_limit(&mut self, limit: u32) {
+        unsafe {
+            ffi::ts_query_cursor_set_match_limit(self.ptr.as_ptr(), limit);
+        }
     }
 
     /// Check if, on its last execution, this cursor exceeded its maximum number of
     /// in-progress matches.
     pub fn did_exceed_match_limit(&self) -> bool {
-        unsafe { ffi::ts_query_cursor_did_exceed_match_limit(self.0.as_ptr()) }
+        unsafe { ffi::ts_query_cursor_did_exceed_match_limit(self.ptr.as_ptr()) }
     }
 
     /// Iterate over all of the matches in the order that they were found.
@@ -1597,68 +1728,91 @@ impl<'a> QueryCursor {
     /// Each match contains the index of the pattern that matched, and a list of captures.
     /// Because multiple patterns can match the same set of nodes, one match may contain
     /// captures that appear *before* some of the captures from a previous match.
-    pub fn matches<'tree: 'a, T: AsRef<[u8]>>(
+    pub fn matches<'a, 'tree: 'a, T: TextProvider<'a> + 'a>(
         &'a mut self,
         query: &'a Query,
         node: Node<'tree>,
-        mut text_callback: impl FnMut(Node<'tree>) -> T + 'a,
-    ) -> impl Iterator<Item = QueryMatch<'tree>> + 'a {
-        let ptr = self.0.as_ptr();
+        text_provider: T,
+    ) -> QueryMatches<'a, 'tree, T> {
+        let ptr = self.ptr.as_ptr();
         unsafe { ffi::ts_query_cursor_exec(ptr, query.ptr.as_ptr(), node.0) };
-        std::iter::from_fn(move || loop {
-            unsafe {
-                let mut m = MaybeUninit::<ffi::TSQueryMatch>::uninit();
-                if ffi::ts_query_cursor_next_match(ptr, m.as_mut_ptr()) {
-                    let result = QueryMatch::new(m.assume_init(), ptr);
-                    if result.satisfies_text_predicates(query, &mut text_callback) {
-                        return Some(result);
-                    }
-                } else {
-                    return None;
-                }
-            }
-        })
+        QueryMatches {
+            ptr,
+            query,
+            text_provider,
+            buffer1: Default::default(),
+            buffer2: Default::default(),
+            _tree: PhantomData,
+        }
     }
 
     /// Iterate over all of the individual captures in the order that they appear.
     ///
-    /// This is useful if don't care about which pattern matched, and just want a single,
+    /// This is useful if you don't care about which pattern matched, and just want a single,
     /// ordered sequence of captures.
-    pub fn captures<'tree, T: AsRef<[u8]>>(
+    pub fn captures<'a, 'tree: 'a, T: TextProvider<'a> + 'a>(
         &'a mut self,
         query: &'a Query,
         node: Node<'tree>,
-        text_callback: impl FnMut(Node<'tree>) -> T + 'a,
+        text_provider: T,
     ) -> QueryCaptures<'a, 'tree, T> {
-        let ptr = self.0.as_ptr();
-        unsafe { ffi::ts_query_cursor_exec(ptr, query.ptr.as_ptr(), node.0) };
+        let ptr = self.ptr.as_ptr();
+        unsafe { ffi::ts_query_cursor_exec(self.ptr.as_ptr(), query.ptr.as_ptr(), node.0) };
         QueryCaptures {
             ptr,
             query,
-            text_callback: Box::new(text_callback),
+            text_provider,
+            buffer1: Default::default(),
+            buffer2: Default::default(),
+            _tree: PhantomData,
         }
     }
 
     /// Set the range in which the query will be executed, in terms of byte offsets.
-    pub fn set_byte_range(&mut self, start: usize, end: usize) -> &mut Self {
+    pub fn set_byte_range(&mut self, range: ops::Range<usize>) -> &mut Self {
         unsafe {
-            ffi::ts_query_cursor_set_byte_range(self.0.as_ptr(), start as u32, end as u32);
+            ffi::ts_query_cursor_set_byte_range(
+                self.ptr.as_ptr(),
+                range.start as u32,
+                range.end as u32,
+            );
         }
         self
     }
 
     /// Set the range in which the query will be executed, in terms of rows and columns.
-    pub fn set_point_range(&mut self, start: Point, end: Point) -> &mut Self {
+    pub fn set_point_range(&mut self, range: ops::Range<Point>) -> &mut Self {
         unsafe {
-            ffi::ts_query_cursor_set_point_range(self.0.as_ptr(), start.into(), end.into());
+            ffi::ts_query_cursor_set_point_range(
+                self.ptr.as_ptr(),
+                range.start.into(),
+                range.end.into(),
+            );
         }
         self
     }
 }
 
-impl<'a> QueryMatch<'a> {
+impl<'a, 'tree> QueryMatch<'a, 'tree> {
+    pub fn id(&self) -> u32 {
+        self.id
+    }
+
     pub fn remove(self) {
         unsafe { ffi::ts_query_cursor_remove_match(self.cursor, self.id) }
+    }
+
+    pub fn nodes_for_capture_index(
+        &self,
+        capture_ix: u32,
+    ) -> impl Iterator<Item = Node<'tree>> + '_ {
+        self.captures.iter().filter_map(move |capture| {
+            if capture.index == capture_ix {
+                Some(capture.node)
+            } else {
+                None
+            }
+        })
     }
 
     fn new(m: ffi::TSQueryMatch, cursor: *mut ffi::TSQueryCursor) -> Self {
@@ -1669,7 +1823,7 @@ impl<'a> QueryMatch<'a> {
             captures: if m.capture_count > 0 {
                 unsafe {
                     slice::from_raw_parts(
-                        m.captures as *const QueryCapture<'a>,
+                        m.captures as *const QueryCapture<'tree>,
                         m.capture_count as usize,
                     )
                 }
@@ -1679,37 +1833,67 @@ impl<'a> QueryMatch<'a> {
         }
     }
 
-    fn satisfies_text_predicates<T: AsRef<[u8]>>(
+    fn satisfies_text_predicates(
         &self,
         query: &Query,
-        text_callback: &mut impl FnMut(Node<'a>) -> T,
+        buffer1: &mut Vec<u8>,
+        buffer2: &mut Vec<u8>,
+        text_provider: &mut impl TextProvider<'a>,
     ) -> bool {
+        fn get_text<'a, 'b: 'a, I: Iterator<Item = &'b [u8]>>(
+            buffer: &'a mut Vec<u8>,
+            mut chunks: I,
+        ) -> &'a [u8] {
+            let first_chunk = chunks.next().unwrap_or(&[]);
+            if let Some(next_chunk) = chunks.next() {
+                buffer.clear();
+                buffer.extend_from_slice(first_chunk);
+                buffer.extend_from_slice(next_chunk);
+                for chunk in chunks {
+                    buffer.extend_from_slice(chunk);
+                }
+                buffer.as_slice()
+            } else {
+                first_chunk
+            }
+        }
+
         query.text_predicates[self.pattern_index]
             .iter()
             .all(|predicate| match predicate {
                 TextPredicate::CaptureEqCapture(i, j, is_positive) => {
-                    let node1 = self.capture_for_index(*i).unwrap();
-                    let node2 = self.capture_for_index(*j).unwrap();
-                    (text_callback(node1).as_ref() == text_callback(node2).as_ref()) == *is_positive
+                    let node1 = self.nodes_for_capture_index(*i).next();
+                    let node2 = self.nodes_for_capture_index(*j).next();
+                    match (node1, node2) {
+                        (Some(node1), Some(node2)) => {
+                            let text1 = get_text(buffer1, text_provider.text(node1));
+                            let text2 = get_text(buffer2, text_provider.text(node2));
+                            (text1 == text2) == *is_positive
+                        }
+                        _ => true,
+                    }
                 }
                 TextPredicate::CaptureEqString(i, s, is_positive) => {
-                    let node = self.capture_for_index(*i).unwrap();
-                    (text_callback(node).as_ref() == s.as_bytes()) == *is_positive
+                    let node = self.nodes_for_capture_index(*i).next();
+                    match node {
+                        Some(node) => {
+                            let text = get_text(buffer1, text_provider.text(node));
+                            (text == s.as_bytes()) == *is_positive
+                        }
+                        None => true,
+                    }
                 }
                 TextPredicate::CaptureMatchString(i, r, is_positive) => {
-                    let node = self.capture_for_index(*i).unwrap();
-                    r.is_match(text_callback(node).as_ref()) == *is_positive
+                    let node = self.nodes_for_capture_index(*i).next();
+                    match node {
+                        Some(node) => {
+                            let text = get_text(buffer1, text_provider.text(node));
+                            r.is_match(text) == *is_positive
+                        }
+                        None => true,
+                    }
                 }
             })
-    }
-
-    fn capture_for_index(&self, capture_index: u32) -> Option<Node<'a>> {
-        for c in self.captures {
-            if c.index == capture_index {
-                return Some(c.node);
-            }
-        }
-        None
     }
 }
 
@@ -1723,12 +1907,37 @@ impl QueryProperty {
     }
 }
 
-impl<'a, 'tree: 'a, T: AsRef<[u8]>> Iterator for QueryCaptures<'a, 'tree, T> {
-    type Item = (QueryMatch<'tree>, usize);
+impl<'a, 'tree, T: TextProvider<'a>> Iterator for QueryMatches<'a, 'tree, T> {
+    type Item = QueryMatch<'a, 'tree>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            unsafe {
+        unsafe {
+            loop {
+                let mut m = MaybeUninit::<ffi::TSQueryMatch>::uninit();
+                if ffi::ts_query_cursor_next_match(self.ptr, m.as_mut_ptr()) {
+                    let result = QueryMatch::new(m.assume_init(), self.ptr);
+                    if result.satisfies_text_predicates(
+                        self.query,
+                        &mut self.buffer1,
+                        &mut self.buffer2,
+                        &mut self.text_provider,
+                    ) {
+                        return Some(result);
+                    }
+                } else {
+                    return None;
+                }
+            }
+        }
+    }
+}
+
+impl<'a, 'tree, T: TextProvider<'a>> Iterator for QueryCaptures<'a, 'tree, T> {
+    type Item = (QueryMatch<'a, 'tree>, usize);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        unsafe {
+            loop {
                 let mut capture_index = 0u32;
                 let mut m = MaybeUninit::<ffi::TSQueryMatch>::uninit();
                 if ffi::ts_query_cursor_next_capture(
@@ -1737,7 +1946,12 @@ impl<'a, 'tree: 'a, T: AsRef<[u8]>> Iterator for QueryCaptures<'a, 'tree, T> {
                     &mut capture_index as *mut u32,
                 ) {
                     let result = QueryMatch::new(m.assume_init(), self.ptr);
-                    if result.satisfies_text_predicates(self.query, &mut self.text_callback) {
+                    if result.satisfies_text_predicates(
+                        self.query,
+                        &mut self.buffer1,
+                        &mut self.buffer2,
+                        &mut self.text_provider,
+                    ) {
                         return Some((result, capture_index as usize));
                     } else {
                         result.remove();
@@ -1750,13 +1964,61 @@ impl<'a, 'tree: 'a, T: AsRef<[u8]>> Iterator for QueryCaptures<'a, 'tree, T> {
     }
 }
 
-impl<'a> fmt::Debug for QueryMatch<'a> {
+impl<'a, 'tree, T: TextProvider<'a>> QueryMatches<'a, 'tree, T> {
+    pub fn set_byte_range(&mut self, range: ops::Range<usize>) {
+        unsafe {
+            ffi::ts_query_cursor_set_byte_range(self.ptr, range.start as u32, range.end as u32);
+        }
+    }
+
+    pub fn set_point_range(&mut self, range: ops::Range<Point>) {
+        unsafe {
+            ffi::ts_query_cursor_set_point_range(self.ptr, range.start.into(), range.end.into());
+        }
+    }
+}
+
+impl<'a, 'tree, T: TextProvider<'a>> QueryCaptures<'a, 'tree, T> {
+    pub fn set_byte_range(&mut self, range: ops::Range<usize>) {
+        unsafe {
+            ffi::ts_query_cursor_set_byte_range(self.ptr, range.start as u32, range.end as u32);
+        }
+    }
+
+    pub fn set_point_range(&mut self, range: ops::Range<Point>) {
+        unsafe {
+            ffi::ts_query_cursor_set_point_range(self.ptr, range.start.into(), range.end.into());
+        }
+    }
+}
+
+impl<'cursor, 'tree> fmt::Debug for QueryMatch<'cursor, 'tree> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
             "QueryMatch {{ id: {}, pattern_index: {}, captures: {:?} }}",
             self.id, self.pattern_index, self.captures
         )
+    }
+}
+
+impl<'a, F, I> TextProvider<'a> for F
+where
+    F: FnMut(Node) -> I,
+    I: Iterator<Item = &'a [u8]> + 'a,
+{
+    type I = I;
+
+    fn text(&mut self, node: Node) -> Self::I {
+        (self)(node)
+    }
+}
+
+impl<'a> TextProvider<'a> for &'a [u8] {
+    type I = iter::Once<&'a [u8]>;
+
+    fn text(&mut self, node: Node) -> Self::I {
+        iter::once(&self[node.byte_range()])
     }
 }
 
@@ -1774,7 +2036,7 @@ impl Drop for Query {
 
 impl Drop for QueryCursor {
     fn drop(&mut self) {
-        unsafe { ffi::ts_query_cursor_delete(self.0.as_ptr()) }
+        unsafe { ffi::ts_query_cursor_delete(self.ptr.as_ptr()) }
     }
 }
 
@@ -1917,22 +2179,44 @@ impl fmt::Display for LanguageError {
 
 impl fmt::Display for QueryError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Query error at {}:{}. {}{}",
-            self.row + 1,
-            self.column + 1,
-            match self.kind {
-                QueryErrorKind::Field => "Invalid field name ",
-                QueryErrorKind::NodeType => "Invalid node type ",
-                QueryErrorKind::Capture => "Invalid capture name ",
-                QueryErrorKind::Predicate => "Invalid predicate: ",
-                QueryErrorKind::Structure => "Impossible pattern:\n",
-                QueryErrorKind::Syntax => "Invalid syntax:\n",
-            },
-            self.message
-        )
+        let msg = match self.kind {
+            QueryErrorKind::Field => "Invalid field name ",
+            QueryErrorKind::NodeType => "Invalid node type ",
+            QueryErrorKind::Capture => "Invalid capture name ",
+            QueryErrorKind::Predicate => "Invalid predicate: ",
+            QueryErrorKind::Structure => "Impossible pattern:\n",
+            QueryErrorKind::Syntax => "Invalid syntax:\n",
+            QueryErrorKind::Language => "",
+        };
+        if msg.len() > 0 {
+            write!(
+                f,
+                "Query error at {}:{}. {}{}",
+                self.row + 1,
+                self.column + 1,
+                msg,
+                self.message
+            )
+        } else {
+            write!(f, "{}", self.message)
+        }
     }
+}
+
+extern "C" {
+    fn free(ptr: *mut c_void);
+}
+
+static mut FREE_FN: unsafe extern "C" fn(ptr: *mut c_void) = free;
+
+pub unsafe fn set_allocator(
+    new_malloc: Option<unsafe extern "C" fn(usize) -> *mut c_void>,
+    new_calloc: Option<unsafe extern "C" fn(usize, usize) -> *mut c_void>,
+    new_realloc: Option<unsafe extern "C" fn(*mut c_void, usize) -> *mut c_void>,
+    new_free: Option<unsafe extern "C" fn(*mut c_void)>,
+) {
+    FREE_FN = new_free.unwrap_or(free);
+    ffi::ts_set_allocator(new_malloc, new_calloc, new_realloc, new_free);
 }
 
 impl error::Error for IncludedRangesError {}
@@ -1942,7 +2226,10 @@ impl error::Error for QueryError {}
 unsafe impl Send for Language {}
 unsafe impl Send for Parser {}
 unsafe impl Send for Query {}
-unsafe impl Send for Tree {}
 unsafe impl Send for QueryCursor {}
+unsafe impl Send for Tree {}
 unsafe impl Sync for Language {}
+unsafe impl Sync for Parser {}
 unsafe impl Sync for Query {}
+unsafe impl Sync for QueryCursor {}
+unsafe impl Sync for Tree {}

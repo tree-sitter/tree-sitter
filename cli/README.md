@@ -36,4 +36,4 @@ The `tree-sitter` binary itself has no dependencies, but specific commands have 
 
 * `test` - The `tree-sitter test` command will run the unit tests for the Tree-sitter parser in the current working directory. See [the documentation](http://tree-sitter.github.io/tree-sitter/creating-parsers) for more information.
 
-* `parse` - The `tree-sitter parse` command will parse a file (or list of file) using Tree-sitter parsers.
+* `parse` - The `tree-sitter parse` command will parse a file (or list of files) using Tree-sitter parsers.

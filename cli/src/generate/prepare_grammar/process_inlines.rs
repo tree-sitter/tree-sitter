@@ -1,4 +1,8 @@
-use crate::generate::grammars::{InlinedProductionMap, Production, ProductionStep, SyntaxGrammar};
+use crate::generate::{
+    grammars::{InlinedProductionMap, LexicalGrammar, Production, ProductionStep, SyntaxGrammar},
+    rules::SymbolType,
+};
+use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -181,29 +185,46 @@ impl InlinedProductionMapBuilder {
     }
 }
 
-pub(super) fn process_inlines(grammar: &SyntaxGrammar) -> InlinedProductionMap {
-    InlinedProductionMapBuilder {
+pub(super) fn process_inlines(
+    grammar: &SyntaxGrammar,
+    lexical_grammar: &LexicalGrammar,
+) -> Result<InlinedProductionMap> {
+    for symbol in &grammar.variables_to_inline {
+        match symbol.kind {
+            SymbolType::External => {
+                return Err(anyhow!(
+                    "External token `{}` cannot be inlined",
+                    grammar.external_tokens[symbol.index].name
+                ))
+            }
+            SymbolType::Terminal => {
+                return Err(anyhow!(
+                    "Token `{}` cannot be inlined",
+                    lexical_grammar.variables[symbol.index].name,
+                ))
+            }
+            _ => {}
+        }
+    }
+
+    Ok(InlinedProductionMapBuilder {
         productions: Vec::new(),
         production_indices_by_step_id: HashMap::new(),
     }
-    .build(grammar)
+    .build(grammar))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::generate::grammars::{ProductionStep, SyntaxVariable, VariableType};
+    use crate::generate::grammars::{
+        LexicalVariable, ProductionStep, SyntaxVariable, VariableType,
+    };
     use crate::generate::rules::{Associativity, Precedence, Symbol};
 
     #[test]
     fn test_basic_inlining() {
         let grammar = SyntaxGrammar {
-            word_token: None,
-            extra_symbols: vec![],
-            external_tokens: vec![],
-            supertype_symbols: vec![],
-            expected_conflicts: vec![],
-            precedence_orderings: vec![],
             variables_to_inline: vec![Symbol::non_terminal(1)],
             variables: vec![
                 SyntaxVariable {
@@ -236,8 +257,10 @@ mod tests {
                     ],
                 },
             ],
+            ..Default::default()
         };
-        let inline_map = process_inlines(&grammar);
+
+        let inline_map = process_inlines(&grammar, &Default::default()).unwrap();
 
         // Nothing to inline at step 0.
         assert!(inline_map
@@ -330,14 +353,10 @@ mod tests {
                 Symbol::non_terminal(2),
                 Symbol::non_terminal(3),
             ],
-            extra_symbols: vec![],
-            external_tokens: vec![],
-            supertype_symbols: vec![],
-            expected_conflicts: vec![],
-            precedence_orderings: vec![],
-            word_token: None,
+            ..Default::default()
         };
-        let inline_map = process_inlines(&grammar);
+
+        let inline_map = process_inlines(&grammar, &Default::default()).unwrap();
 
         let productions: Vec<&Production> = inline_map
             .inlined_productions(&grammar.variables[0].productions[0], 1)
@@ -433,15 +452,10 @@ mod tests {
                     }],
                 },
             ],
-            extra_symbols: vec![],
-            external_tokens: vec![],
-            supertype_symbols: vec![],
-            expected_conflicts: vec![],
-            precedence_orderings: vec![],
-            word_token: None,
+            ..Default::default()
         };
 
-        let inline_map = process_inlines(&grammar);
+        let inline_map = process_inlines(&grammar, &Default::default()).unwrap();
 
         let productions: Vec<_> = inline_map
             .inlined_productions(&grammar.variables[0].productions[0], 0)
@@ -489,5 +503,37 @@ mod tests {
                 ]
             }],
         );
+    }
+
+    #[test]
+    fn test_error_when_inlining_tokens() {
+        let lexical_grammar = LexicalGrammar {
+            variables: vec![LexicalVariable {
+                name: "something".to_string(),
+                kind: VariableType::Named,
+                implicit_precedence: 0,
+                start_state: 0,
+            }],
+            ..Default::default()
+        };
+
+        let grammar = SyntaxGrammar {
+            variables_to_inline: vec![Symbol::terminal(0)],
+            variables: vec![SyntaxVariable {
+                name: "non-terminal-0".to_string(),
+                kind: VariableType::Named,
+                productions: vec![Production {
+                    dynamic_precedence: 0,
+                    steps: vec![ProductionStep::new(Symbol::terminal(0))],
+                }],
+            }],
+            ..Default::default()
+        };
+
+        if let Err(error) = process_inlines(&grammar, &lexical_grammar) {
+            assert_eq!(error.to_string(), "Token `something` cannot be inlined");
+        } else {
+            panic!("expected an error, but got none");
+        }
     }
 }

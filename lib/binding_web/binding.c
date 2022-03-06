@@ -594,9 +594,15 @@ void ts_query_matches_wasm(
   uint32_t start_row,
   uint32_t start_column,
   uint32_t end_row,
-  uint32_t end_column
+  uint32_t end_column,
+  uint32_t match_limit
 ) {
   if (!scratch_query_cursor) scratch_query_cursor = ts_query_cursor_new();
+  if (match_limit == 0) {
+    ts_query_cursor_set_match_limit(scratch_query_cursor, UINT32_MAX);
+  } else {
+    ts_query_cursor_set_match_limit(scratch_query_cursor, match_limit);
+  }
 
   TSNode node = unmarshal_node(tree);
   TSPoint start_point = {start_row, code_unit_to_byte(start_column)};
@@ -635,9 +641,15 @@ void ts_query_captures_wasm(
   uint32_t start_row,
   uint32_t start_column,
   uint32_t end_row,
-  uint32_t end_column
+  uint32_t end_column,
+  uint32_t match_limit
 ) {
   if (!scratch_query_cursor) scratch_query_cursor = ts_query_cursor_new();
+  if (match_limit == 0) {
+    ts_query_cursor_set_match_limit(scratch_query_cursor, UINT32_MAX);
+  } else {
+    ts_query_cursor_set_match_limit(scratch_query_cursor, match_limit);
+  }
 
   TSNode node = unmarshal_node(tree);
   TSPoint start_point = {start_row, code_unit_to_byte(start_column)};

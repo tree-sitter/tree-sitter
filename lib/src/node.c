@@ -150,9 +150,6 @@ static inline TSNode ts_node__child(
     while (ts_node_child_iterator_next(&iterator, &child)) {
       if (ts_node__is_relevant(child, include_anonymous)) {
         if (index == child_index) {
-          if (ts_node__is_relevant(self, true)) {
-            ts_tree_set_cached_parent(self.tree, &child, &self);
-          }
           return child;
         }
         index++;
@@ -355,7 +352,6 @@ static inline TSNode ts_node__descendant_for_byte_range(
 
       node = child;
       if (ts_node__is_relevant(node, include_anonymous)) {
-        ts_tree_set_cached_parent(self.tree, &child, &last_visible_node);
         last_visible_node = node;
       }
       did_descend = true;
@@ -395,7 +391,6 @@ static inline TSNode ts_node__descendant_for_point_range(
 
       node = child;
       if (ts_node__is_relevant(node, include_anonymous)) {
-        ts_tree_set_cached_parent(self.tree, &child, &last_visible_node);
         last_visible_node = node;
       }
       did_descend = true;
@@ -464,10 +459,7 @@ bool ts_node_has_error(TSNode self) {
 }
 
 TSNode ts_node_parent(TSNode self) {
-  TSNode node = ts_tree_get_cached_parent(self.tree, &self);
-  if (node.id) return node;
-
-  node = ts_tree_root_node(self.tree);
+  TSNode node = ts_tree_root_node(self.tree);
   uint32_t end_byte = ts_node_end_byte(self);
   if (node.id == self.id) return ts_node__null();
 
@@ -486,7 +478,6 @@ TSNode ts_node_parent(TSNode self) {
       if (iterator.position.bytes >= end_byte) {
         node = child;
         if (ts_node__is_relevant(child, true)) {
-          ts_tree_set_cached_parent(self.tree, &node, &last_visible_node);
           last_visible_node = node;
         }
         did_descend = true;
@@ -576,6 +567,23 @@ recur:
   }
 
   return ts_node__null();
+}
+
+const char *ts_node_field_name_for_child(TSNode self, uint32_t child_index) {
+  const TSFieldMapEntry *field_map_start = NULL, *field_map_end = NULL;
+  ts_language_field_map(
+    self.tree->language,
+    ts_node__subtree(self).ptr->production_id,
+    &field_map_start,
+    &field_map_end
+  );
+
+  for (const TSFieldMapEntry *i = field_map_start; i < field_map_end; i++) {
+    if (i->child_index == child_index) {
+      return self.tree->language->field_names[i->field_id];
+    }
+  }
+  return NULL;
 }
 
 TSNode ts_node_child_by_field_name(

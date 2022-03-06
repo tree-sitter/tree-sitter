@@ -15,19 +15,29 @@ This document explains how the Tree-sitter syntax highlighting system works, usi
 
 All of the files needed to highlight a given language are normally included in the same git repository as the Tree-sitter grammar for that language (for example, [`tree-sitter-javascript`](https://github.com/tree-sitter/tree-sitter-javascript), [`tree-sitter-ruby`](https://github.com/tree-sitter/tree-sitter-ruby)). In order to run syntax highlighting from the command-line, three types of files are needed:
 
-1. Global configuration in `~/.tree-sitter/config.json`
+1. Per-user configuration in `~/.config/tree-sitter/config.json`
 2. Language configuration in grammar repositories' `package.json` files.
 3. Tree queries in the grammars repositories' `queries` folders.
 
 For an example of the language-specific files, see the [`package.json` file](https://github.com/tree-sitter/tree-sitter-ruby/blob/master/package.json) and [`queries` directory](https://github.com/tree-sitter/tree-sitter-ruby/tree/master/queries) in the `tree-sitter-ruby` repository. The following sections describe the behavior of each file.
 
-## Global Configuration
+## Per-user Configuration
 
-The Tree-sitter CLI automatically creates a directory in your home folder called `~/.tree-sitter`. This is used to store compiled language binaries, and it can also contain a JSON configuration file. To automatically create a default config file, run this command:
+The Tree-sitter CLI automatically creates two directories in your home folder.  One holds a JSON configuration file, that lets you customize the behavior of the CLI.  The other holds any compiled language parsers that you use.
+
+These directories are created in the "normal" place for your platform:
+
+- On Linux, `~/.config/tree-sitter` and `~/.cache/tree-sitter`
+- On Mac, `~/Library/Application Support/tree-sitter` and `~/Library/Caches/tree-sitter`
+- On Windows, `C:\Users\[username]\AppData\Roaming\tree-sitter` and `C:\Users\[username]\AppData\Local\tree-sitter`
+
+The CLI will work if there's no config file present, falling back on default values for each configuration option.  To create a config file that you can edit, run this command:
 
 ```sh
 tree-sitter init-config
 ```
+
+(This will print out the location of the file that it creates so that you can easily find and modify it.)
 
 ### Paths
 
@@ -42,13 +52,13 @@ The `tree-sitter highlight` command takes one or more file paths, and tries to a
 }
 ```
 
-Currently, any folder within one of these *parser directories* whose name begins with "tree-sitter-" will be treated as a Tree-sitter grammar repository.
+Currently, any folder within one of these *parser directories* whose name begins with `tree-sitter-` will be treated as a Tree-sitter grammar repository.
 
 ### Theme
 
 The Tree-sitter highlighting system works by annotating ranges of source code with logical "highlight names" like `function.method`, `type.builtin`, `keyword`, etc. In order to decide what *color* should be used for rendering each highlight, a *theme* is needed.
 
-In `~/.tree-sitter/config.json`, the `"theme"` value is an object whose keys are dot-separated highlight names like `function.builtin` or `keyword`, and whose values are JSON expressions that represent text styling parameters.
+In your config file, the `"theme"` value is an object whose keys are dot-separated highlight names like `function.builtin` or `keyword`, and whose values are JSON expressions that represent text styling parameters.
 
 #### Highlight Names
 
@@ -93,7 +103,7 @@ These keys help to decide whether the language applies to a given file:
 
 * `content-regex` - A regex pattern that will be tested against the contents of the file in order to break ties in cases where multiple grammars matched the file using the above two criteria. If the regex matches, this grammar will be preferred over another grammar with no `content-regex`. If the regex does not match, a grammar with no `content-regex` will be preferred over this one.
 
-* `injection-regex` - A regex pattern that will be tested against a *language name* in order to determine whether this language should be used for a potential *language injection* site. Language injection is described in more detail in [a later section](#language-injection-query).
+* `injection-regex` - A regex pattern that will be tested against a *language name* in order to determine whether this language should be used for a potential *language injection* site. Language injection is described in more detail in [a later section](#language-injection).
 
 ### Query Paths
 
@@ -187,7 +197,7 @@ We can assign each of these categories a *highlight name* using a query like thi
 (function_declaration name: (identifier) @function)
 ```
 
-Then, in our `~/.tree-sitter/config.json` file, we could map each of these highlight names to a color:
+Then, in our config file, we could map each of these highlight names to a color:
 
 ```json
 {

@@ -249,6 +249,31 @@ fn test_node_parent_of_child_by_field_name() {
 }
 
 #[test]
+fn test_node_field_name_for_child() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("c")).unwrap();
+    let tree = parser.parse("x + y;", None).unwrap();
+    let translation_unit_node = tree.root_node();
+    let binary_expression_node = translation_unit_node
+        .named_child(0)
+        .unwrap()
+        .named_child(0)
+        .unwrap();
+
+    assert_eq!(binary_expression_node.field_name_for_child(0), Some("left"));
+    assert_eq!(
+        binary_expression_node.field_name_for_child(1),
+        Some("operator")
+    );
+    assert_eq!(
+        binary_expression_node.field_name_for_child(2),
+        Some("right")
+    );
+    // Negative test - Not a valid child index
+    assert_eq!(binary_expression_node.field_name_for_child(3), None);
+}
+
+#[test]
 fn test_node_child_by_field_name_with_extra_hidden_children() {
     let mut parser = Parser::new();
     parser.set_language(get_language("python")).unwrap();

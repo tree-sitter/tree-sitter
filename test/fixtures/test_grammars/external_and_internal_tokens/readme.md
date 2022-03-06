@@ -1,1 +1,0 @@
-This grammar has an external scanner whose `scan` method needs to be able to check for the validity of an *internal* token. This is done by including the names of that internal token (`_line_break`) in the grammar's `externals` field.

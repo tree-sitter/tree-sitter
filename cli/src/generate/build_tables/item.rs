@@ -75,7 +75,6 @@ pub(crate) struct TokenSetDisplay<'a>(
     pub &'a LexicalGrammar,
 );
 
-#[allow(dead_code)]
 pub(crate) struct ParseItemSetDisplay<'a>(
     pub &'a ParseItemSet<'a>,
     pub &'a SyntaxGrammar,
@@ -181,7 +180,6 @@ impl<'a> Default for ParseItemSet<'a> {
     }
 }
 
-#[allow(dead_code)]
 impl<'a> fmt::Display for ParseItemDisplay<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         if self.0.is_augmented() {
