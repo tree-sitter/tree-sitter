@@ -705,14 +705,14 @@ impl Tree {
     /// after calling one of the [Parser::parse] functions. Call it on the old tree that
     /// was passed to parse, and pass the new tree that was returned from `parse`.
     pub fn changed_ranges(&self, other: &Tree) -> impl ExactSizeIterator<Item = Range> {
-        let mut count = 0;
+        let mut count = 0u32;
         unsafe {
             let ptr = ffi::ts_tree_get_changed_ranges(
                 self.0.as_ptr(),
                 other.0.as_ptr(),
-                &mut count as *mut _ as *mut u32,
+                &mut count as *mut u32,
             );
-            util::CBufferIter::new(ptr, count).map(|r| r.into())
+            util::CBufferIter::new(ptr, count as usize).map(|r| r.into())
         }
     }
 }
