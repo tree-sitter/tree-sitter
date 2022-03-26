@@ -79,6 +79,7 @@ Parsers for these languages are in development:
 * [Elixir](https://github.com/elixir-lang/tree-sitter-elixir)
 * [Erlang](https://github.com/AbstractMachinesLab/tree-sitter-erlang/)
 * [Dockerfile](https://github.com/camdencheek/tree-sitter-dockerfile)
+* [Formula](https://github.com/siraben/tree-sitter-formula)
 * [Go mod](https://github.com/camdencheek/tree-sitter-go-mod)
 * [Hack](https://github.com/slackhq/tree-sitter-hack)
 * [Haskell](https://github.com/tree-sitter/tree-sitter-haskell)
