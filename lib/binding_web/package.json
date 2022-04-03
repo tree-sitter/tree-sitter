@@ -1,6 +1,6 @@
 {
   "name": "web-tree-sitter",
-  "version": "0.20.3",
+  "version": "0.20.6",
   "description": "Tree-sitter bindings for the web",
   "main": "tree-sitter.js",
   "types": "tree-sitter-web.d.ts",

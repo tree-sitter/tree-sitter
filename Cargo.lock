@@ -715,7 +715,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter"
-version = "0.20.4"
+version = "0.20.6"
 dependencies = [
  "cc",
  "lazy_static",
@@ -724,7 +724,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-cli"
-version = "0.20.4"
+version = "0.20.6"
 dependencies = [
  "ansi_term 0.12.1",
  "anyhow",
@@ -798,7 +798,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-tags"
-version = "0.20.1"
+version = "0.20.2"
 dependencies = [
  "memchr",
  "regex",

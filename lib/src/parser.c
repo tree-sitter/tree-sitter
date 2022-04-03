@@ -1310,9 +1310,11 @@ static void ts_parser__handle_error(
   for (StackVersion v = version; v < version_count;) {
     if (!did_insert_missing_token) {
       TSStateId state = ts_stack_state(self->stack, v);
-      for (TSSymbol missing_symbol = 1;
-           missing_symbol < self->language->token_count;
-           missing_symbol++) {
+      for (
+        TSSymbol missing_symbol = 1;
+        missing_symbol < self->language->token_count;
+        missing_symbol++
+      ) {
         TSStateId state_after_missing_symbol = ts_language_next_state(
           self->language, state, missing_symbol
         );
@@ -1331,10 +1333,13 @@ static void ts_parser__handle_error(
           ts_lexer_reset(&self->lexer, position);
           ts_lexer_mark_end(&self->lexer);
           Length padding = length_sub(self->lexer.token_end_position, position);
+          uint32_t lookahead_bytes = ts_subtree_total_bytes(lookahead) + ts_subtree_lookahead_bytes(lookahead);
 
           StackVersion version_with_missing_tree = ts_stack_copy_version(self->stack, v);
           Subtree missing_tree = ts_subtree_new_missing_leaf(
-            &self->tree_pool, missing_symbol, padding, self->language
+            &self->tree_pool, missing_symbol,
+            padding, lookahead_bytes,
+            self->language
           );
           ts_stack_push(
             self->stack, version_with_missing_tree,
