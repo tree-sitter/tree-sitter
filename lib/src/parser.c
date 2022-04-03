@@ -1367,6 +1367,7 @@ static void ts_parser__handle_error(
   for (unsigned i = previous_version_count; i < version_count; i++) {
     bool did_merge = ts_stack_merge(self->stack, version, previous_version_count);
     assert(did_merge);
+    (void)did_merge;	//	fix warning/error with clang -Os
   }
 
   ts_stack_record_summary(self->stack, version, MAX_SUMMARY_DEPTH);
