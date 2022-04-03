@@ -215,9 +215,9 @@ pub extern "C" fn ts_tags_buffer_tags_len(this: *const TSTagsBuffer) -> u32 {
 }
 
 #[no_mangle]
-pub extern "C" fn ts_tags_buffer_docs(this: *const TSTagsBuffer) -> *const i8 {
+pub extern "C" fn ts_tags_buffer_docs(this: *const TSTagsBuffer) -> *const c_char {
     let buffer = unwrap_ptr(this);
-    buffer.docs.as_ptr() as *const i8
+    buffer.docs.as_ptr() as *const c_char
 }
 
 #[no_mangle]
@@ -237,7 +237,7 @@ pub extern "C" fn ts_tagger_syntax_kinds_for_scope_name(
     this: *mut TSTagger,
     scope_name: *const c_char,
     len: *mut u32,
-) -> *const *const i8 {
+) -> *const *const c_char {
     let tagger = unwrap_mut_ptr(this);
     let scope_name = unsafe { unwrap(CStr::from_ptr(scope_name).to_str()) };
     let len = unwrap_mut_ptr(len);
@@ -245,7 +245,7 @@ pub extern "C" fn ts_tagger_syntax_kinds_for_scope_name(
     *len = 0;
     if let Some(config) = tagger.languages.get(scope_name) {
         *len = config.c_syntax_type_names.len() as u32;
-        return config.c_syntax_type_names.as_ptr() as *const *const i8;
+        return config.c_syntax_type_names.as_ptr() as *const *const c_char;
     }
     std::ptr::null()
 }
