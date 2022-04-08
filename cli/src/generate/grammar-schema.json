@@ -24,6 +24,19 @@
       "additionalProperties": false
     },
 
+    "precedences": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "oneOf": [
+            {"$ref": "#/definitions/symbol-rule"},
+            {"type": "string", "pattern": "^[a-zA-Z_]\\w*$"}
+          ]
+        }
+      }
+    },
+
     "extras": {
       "type": "array",
       "items": {
