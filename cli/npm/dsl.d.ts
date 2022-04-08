@@ -72,7 +72,9 @@ interface Grammar<
    * a *descending* ordering. Names listed earlier in one of these arrays
    * have higher precedence than any names listed later in the same array.
    */
-  precedences?: () => String[][],
+  precedences?: (
+    $: GrammarSymbols<RuleName | BaseGrammarRuleName>
+  ) => Array<string | SymbolRule<string>>[],
 
   /**
    * An array of arrays of rule names. Each inner array represents a set of
