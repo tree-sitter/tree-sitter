@@ -30,8 +30,8 @@
         "type": "array",
         "items": {
           "oneOf": [
-            {"$ref": "#/definitions/symbol-rule"},
-            {"type": "string", "pattern": "^[a-zA-Z_]\\w*$"}
+            { "$ref": "#/definitions/symbol-rule" },
+            { "$ref": "#/defintions/string-rule" }
           ]
         }
       }
