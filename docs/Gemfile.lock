@@ -212,7 +212,7 @@ GEM
     minitest (5.11.3)
     multipart-post (2.1.1)
     net-dns (0.9.0)
-    nokogiri (1.13.3)
+    nokogiri (1.13.4)
       mini_portile2 (~> 2.8.0)
       racc (~> 1.4)
     octokit (4.21.0)
