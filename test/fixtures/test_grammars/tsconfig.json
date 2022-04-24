@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "lib": ["ES2019"],
+    "strict": true,
+    "noEmit": true,
+    "allowJs": true
+  },
+  "include": ["**/*.js", "./typecheck.d.ts"],
+  "exclude": ["node_modules"]
+}

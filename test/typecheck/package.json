@@ -1,0 +1,11 @@
+{
+  "name": "@tree-sitter-cli/typecheck",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ../fixtures/test_grammars/tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "latest"
+  }
+}

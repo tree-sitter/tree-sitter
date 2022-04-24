@@ -83,6 +83,11 @@ jobs:
       - name: Run main tests
         run: cargo test
 
+      - name: Run typecheck tests
+        run: |
+          npm --prefix ./test/typecheck install
+          npm --prefix ./test/typecheck run typecheck
+
       - name: Run wasm tests
         run: script/test-wasm
 
@@ -147,3 +152,8 @@ jobs:
 
       - name: Run main tests
         run: script/test
+
+      - name: Run typecheck tests
+        run: |
+          npm --prefix ./test/typecheck --cwd ./test/typecheck install
+          npm --prefix ./test/typecheck --cwd ./test/typecheck run typecheck
