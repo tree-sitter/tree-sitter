@@ -1,3 +1,5 @@
+const EXTERNAL = Symbol("external rule");
+
 function alias(rule, value) {
   const result = {
     type: "ALIAS",
@@ -226,6 +228,13 @@ function grammar(baseGrammar, options) {
       precedences: [],
     };
   }
+  options = Object.assign({}, options);
+  options.rules = Object.assign({}, options.rules);
+  for (const key in options.rules) {
+    if (options.rules[key] === EXTERNAL) {
+      delete options.rules[key];
+    }
+  }
 
   let externals = baseGrammar.externals;
   if (options.externals) {
@@ -401,6 +410,7 @@ function checkPrecedence(value) {
   }
 }
 
+global.EXTERNAL = EXTERNAL;
 global.alias = alias;
 global.blank = blank;
 global.choice = choice;

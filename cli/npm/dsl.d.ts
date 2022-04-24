@@ -33,6 +33,8 @@ type Rule =
   | SymbolRule<string>
   | TokenRule;
 
+declare const EXTERNAL: unique symbol;
+
 type RuleOrLiteral = Rule | RegExp | string;
 
 type GrammarSymbols<RuleName extends string> = {
@@ -48,7 +50,7 @@ type RuleBuilders<
   RuleName extends string,
   BaseGrammarRuleName extends string
 > = {
-  [name in RuleName]: RuleBuilder<RuleName | BaseGrammarRuleName>;
+  [name in RuleName]: RuleBuilder<RuleName | BaseGrammarRuleName> | typeof EXTERNAL;
 };
 
 interface Grammar<
