@@ -70,6 +70,7 @@ Parsers for these languages are fairly complete:
 * [VHDL](https://github.com/alemuller/tree-sitter-vhdl)
 * [Vue](https://github.com/ikatyang/tree-sitter-vue)
 * [YAML](https://github.com/ikatyang/tree-sitter-yaml)
+* [YANG](https://github.com/Hubro/tree-sitter-yang)
 * [WASM](https://github.com/wasm-lsp/tree-sitter-wasm)
 * [WGSL WebGPU Shading Language](https://github.com/mehmetoguzderin/tree-sitter-wgsl)
 
