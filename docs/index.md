@@ -50,6 +50,7 @@ Parsers for these languages are fairly complete:
 * [HTML](https://github.com/tree-sitter/tree-sitter-html)
 * [Java](https://github.com/tree-sitter/tree-sitter-java)
 * [JavaScript](https://github.com/tree-sitter/tree-sitter-javascript)
+* [JSON](https://github.com/tree-sitter/tree-sitter-json)
 * [Lua](https://github.com/Azganoth/tree-sitter-lua)
 * [Make](https://github.com/alemuller/tree-sitter-make)
 * [Markdown](https://github.com/ikatyang/tree-sitter-markdown)
