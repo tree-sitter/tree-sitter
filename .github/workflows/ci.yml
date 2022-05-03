@@ -74,6 +74,9 @@ jobs:
           RUSTFLAGS="-D warnings"
           cargo build --release
 
+      - name: Build as Swift package
+        run: swift build
+
       - name: Set up fixture parsers
         run: |
           script/fetch-fixtures
