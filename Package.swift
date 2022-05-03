@@ -9,18 +9,20 @@ let package = Package(
             targets: ["TreeSitter"]
         ),
     ],
-    dependencies: [ ],
+    dependencies: [],
     targets: [
         .target(
             name: "TreeSitter",
             dependencies: [],
             path: "lib",
             exclude: [
-               "src/lib.c",
-               "binding_web",
-               "binding_rust",
+                "src/lib.c",
+                "binding_web",
+                "binding_rust",
+            ],
+            cSettings: [
+                .headerSearchPath("./src"),
             ]
         ),
     ]
 )
-
