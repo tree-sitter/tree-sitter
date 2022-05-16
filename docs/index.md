@@ -87,6 +87,7 @@ Parsers for these languages are in development:
 * [Kotlin](https://github.com/fwcd/tree-sitter-kotlin)
 * [Nix](https://github.com/cstrahan/tree-sitter-nix)
 * [Objective-C](https://github.com/jiyee/tree-sitter-objc)
+* [Org](https://github.com/milisims/tree-sitter-org)
 * [Perl](https://github.com/ganezdragon/tree-sitter-perl)
 * [Protocol Buffers](https://github.com/mitchellh/tree-sitter-proto)
 * [Scala](https://github.com/tree-sitter/tree-sitter-scala)
