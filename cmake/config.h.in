@@ -1,0 +1,9 @@
+#ifndef TREE_SITTER_CONFIG_H
+#define TREE_SITTER_CONFIG_H
+
+#define TREE_SITTER_VERSION_MAJOR @tree_sitter_VERSION_MAJOR@
+#define TREE_SITTER_VERSION_MINOR @tree_sitter_VERSION_MINOR@
+#define TREE_SITTER_VERSION_PATCH @tree_sitter_VERSION_PATCH@
+#define TREE_SITTER_VERSION       "@tree_sitter_VERSION@"
+
+#endif /* !TREE_SITTER_CONFIG_H */
