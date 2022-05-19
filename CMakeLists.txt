@@ -55,14 +55,11 @@ endif (BUILD_TESTING)
 #=========#
 
 include(GNUInstallDirs)
-
-install(
-        FILES "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.h"
-        TYPE "INCLUDE"
-)
+install(FILES "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.h"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}")
 include(InstallRequiredSystemLibraries)
 set(CPACK_BUNDLE_NAME "${PROJECT_NAME}")
-set(CPACK_PACKAGE_VENDOR "SamuelMarks")
+set(CPACK_PACKAGE_VENDOR "Max Brunsfeld")
 set(CPACK_PACKAGE_DESCRIPTION "Tree-sitter is a parser generator tool and an incremental parsing library.")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${CPACK_PACKAGE_DESCRIPTION_SUMMARY}")
 if (APPLE)

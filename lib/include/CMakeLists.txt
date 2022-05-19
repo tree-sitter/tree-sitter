@@ -19,4 +19,5 @@ target_include_directories(
 # Install #
 #=========#
 
-install(FILES ${Header_Files} TYPE "INCLUDE")
+install(FILES ${Header_Files}
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}")
