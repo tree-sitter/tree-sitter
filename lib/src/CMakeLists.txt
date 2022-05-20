@@ -1,4 +1,4 @@
-set(LIBRARY_NAME "tree-sitter")
+set(LIBRARY_NAME "tree_sitter")
 
 set(Header_Files
         "alloc.h"
@@ -42,9 +42,9 @@ add_library("${LIBRARY_NAME}" "${Header_Files}" "${Source_Files}")
 
 target_link_libraries("${LIBRARY_NAME}" PRIVATE "${PROJECT_NAME}" "${PROJECT_NAME}_compiler_flags")
 
-include(GenerateExportHeader)
-set(_export_file "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_export.h")
-generate_export_header("${LIBRARY_NAME}" EXPORT_FILE_NAME "${_export_file}")
+#include(GenerateExportHeader)
+#set(_export_file "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_export.h")
+#generate_export_header("${LIBRARY_NAME}" EXPORT_FILE_NAME "${_export_file}")
 
 include(GNUInstallDirs)
 target_include_directories(
@@ -55,10 +55,6 @@ target_include_directories(
         "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 )
 
-if (MSVC)
-    target_compile_definitions("${LIBRARY_NAME}" PRIVATE _CRT_SECURE_NO_WARNINGS)
-endif (MSVC)
-
 #=========#
 # Install #
 #=========#
@@ -67,8 +63,8 @@ endif (MSVC)
 set_property(TARGET "${LIBRARY_NAME}" PROPERTY VERSION "${${PROJECT_NAME}_VERSION}")
 set_property(TARGET "${LIBRARY_NAME}" PROPERTY SOVERSION "${${PROJECT_NAME}_VERSION_MAJOR}")
 
-install(FILES ${Header_Files} "${_export_file}"
-        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}")
+install(FILES ${Header_Files} #"${_export_file}"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/tree_sitter")
 
 #====================#
 # Package to install #

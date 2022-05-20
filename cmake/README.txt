@@ -1,4 +1,4 @@
-tree_sitter
+tree-sitter
 
 Tree-sitter is a parser generator tool and an incremental parsing library.
 

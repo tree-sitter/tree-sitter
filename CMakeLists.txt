@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(tree_sitter VERSION 0.20.6 LANGUAGES C)
+project(tree-sitter VERSION 0.20.6 LANGUAGES C)
 
 #===============#
 # Compiler args #
@@ -56,7 +56,7 @@ endif (BUILD_TESTING)
 
 include(GNUInstallDirs)
 install(FILES "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.h"
-        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}")
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/tree_sitter")
 include(InstallRequiredSystemLibraries)
 set(CPACK_BUNDLE_NAME "${PROJECT_NAME}")
 set(CPACK_PACKAGE_VENDOR "Max Brunsfeld")
