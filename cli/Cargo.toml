@@ -1,7 +1,7 @@
 [package]
 name = "tree-sitter-cli"
 description = "CLI tool for developing, testing, and using Tree-sitter parsers"
-version = "0.20.0"
+version = "0.20.6"
 authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -32,8 +32,8 @@ lazy_static = "1.2.0"
 regex = "1"
 regex-syntax = "0.6.4"
 rustc-hash = "1"
-serde = "1.0"
-serde_derive = "1.0"
+semver = "1.0"
+serde = { version = "1.0.130", features = ["derive"] }
 smallbitvec = "2.5.1"
 tiny_http = "0.8"
 walkdir = "2.3"
@@ -44,11 +44,6 @@ which = "4.1.0"
 version = "0.20"
 path = "../lib"
 
-[dev-dependencies.tree-sitter]
-version = "0.20"
-path = "../lib"
-features = ["allocation-tracking"]
-
 [dependencies.tree-sitter-config]
 version = "0.19.0"
 path = "config"
@@ -58,7 +53,7 @@ version = "0.20"
 path = "../highlight"
 
 [dependencies.tree-sitter-loader]
-version = "0.19.0"
+version = "0.20"
 path = "loader"
 
 [dependencies.tree-sitter-tags]
@@ -76,6 +71,8 @@ features = ["std"]
 [dev-dependencies]
 rand = "0.8"
 tempfile = "3"
+pretty_assertions = "0.7.2"
+ctor = "0.1"
 
 [build-dependencies]
 toml = "0.5"

@@ -18,10 +18,14 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Haskell](https://github.com/tree-sitter/haskell-tree-sitter)
 * [JavaScript (Node.js)](https://github.com/tree-sitter/node-tree-sitter)
 * [JavaScript (Wasm)](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web)
+* [Lua](https://github.com/euclidianAce/ltreesitter)
 * [OCaml](https://github.com/returntocorp/ocaml-tree-sitter-core)
 * [Python](https://github.com/tree-sitter/py-tree-sitter)
 * [Ruby](https://github.com/tree-sitter/ruby-tree-sitter)
 * [Rust](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_rust)
+* [Swift](https://github.com/ChimeHQ/SwiftTreeSitter)
+* [Kotlin](https://github.com/oxisto/kotlintree)
+* [Java](https://github.com/serenadeai/java-tree-sitter)
 
 ### Available Parsers
 
@@ -46,6 +50,7 @@ Parsers for these languages are fairly complete:
 * [HTML](https://github.com/tree-sitter/tree-sitter-html)
 * [Java](https://github.com/tree-sitter/tree-sitter-java)
 * [JavaScript](https://github.com/tree-sitter/tree-sitter-javascript)
+* [JSON](https://github.com/tree-sitter/tree-sitter-json)
 * [Lua](https://github.com/Azganoth/tree-sitter-lua)
 * [Make](https://github.com/alemuller/tree-sitter-make)
 * [Markdown](https://github.com/ikatyang/tree-sitter-markdown)
@@ -72,6 +77,7 @@ Parsers for these languages are fairly complete:
 Parsers for these languages are in development:
 
 * [Agda](https://github.com/tree-sitter/tree-sitter-agda)
+* [Elixir](https://github.com/elixir-lang/tree-sitter-elixir)
 * [Erlang](https://github.com/AbstractMachinesLab/tree-sitter-erlang/)
 * [Dockerfile](https://github.com/camdencheek/tree-sitter-dockerfile)
 * [Go mod](https://github.com/camdencheek/tree-sitter-go-mod)
@@ -81,11 +87,13 @@ Parsers for these languages are in development:
 * [Kotlin](https://github.com/fwcd/tree-sitter-kotlin)
 * [Nix](https://github.com/cstrahan/tree-sitter-nix)
 * [Objective-C](https://github.com/jiyee/tree-sitter-objc)
+* [Org](https://github.com/milisims/tree-sitter-org)
 * [Perl](https://github.com/ganezdragon/tree-sitter-perl)
+* [Protocol Buffers](https://github.com/mitchellh/tree-sitter-proto)
 * [Scala](https://github.com/tree-sitter/tree-sitter-scala)
 * [Sourcepawn](https://github.com/nilshelmig/tree-sitter-sourcepawn)
 * [Swift](https://github.com/tree-sitter/tree-sitter-swift)
-* [SQL](https://github.com/m-novikov/tree-sitter-sql) 
+* [SQL](https://github.com/m-novikov/tree-sitter-sql)
 
 
 ### Talks on Tree-sitter

@@ -3,6 +3,7 @@ log*.html
 .idea
 *.xcodeproj
 .vscode
+.cache
 
 fuzz-results
 

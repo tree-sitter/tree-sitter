@@ -7,7 +7,11 @@
 
 // #define DEBUG_GET_CHANGED_RANGES
 
-static void ts_range_array_add(TSRangeArray *self, Length start, Length end) {
+static void ts_range_array_add(
+  TSRangeArray *self,
+  Length start,
+  Length end
+) {
   if (self->size > 0) {
     TSRange *last_range = array_back(self);
     if (start.bytes <= last_range->end_byte) {
@@ -23,8 +27,12 @@ static void ts_range_array_add(TSRangeArray *self, Length start, Length end) {
   }
 }
 
-bool ts_range_array_intersects(const TSRangeArray *self, unsigned start_index,
-                               uint32_t start_byte, uint32_t end_byte) {
+bool ts_range_array_intersects(
+  const TSRangeArray *self,
+  unsigned start_index,
+  uint32_t start_byte,
+  uint32_t end_byte
+) {
   for (unsigned i = start_index; i < self->size; i++) {
     TSRange *range = &self->contents[i];
     if (range->end_byte > start_byte) {
@@ -102,9 +110,13 @@ typedef struct {
   bool in_padding;
 } Iterator;
 
-static Iterator iterator_new(TreeCursor *cursor, const Subtree *tree, const TSLanguage *language) {
+static Iterator iterator_new(
+  TreeCursor *cursor,
+  const Subtree *tree,
+  const TSLanguage *language
+) {
   array_clear(&cursor->stack);
-  array_push(&cursor->stack, ((TreeCursorEntry){
+  array_push(&cursor->stack, ((TreeCursorEntry) {
     .subtree = tree,
     .position = length_zero(),
     .child_index = 0,
@@ -210,7 +222,7 @@ static bool iterator_descend(Iterator *self, uint32_t goal_position) {
       Length child_right = length_add(child_left, ts_subtree_size(*child));
 
       if (child_right.bytes > goal_position) {
-        array_push(&self->cursor.stack, ((TreeCursorEntry){
+        array_push(&self->cursor.stack, ((TreeCursorEntry) {
           .subtree = child,
           .position = position,
           .child_index = i,
@@ -262,7 +274,7 @@ static void iterator_advance(Iterator *self) {
       if (!ts_subtree_extra(*entry.subtree)) structural_child_index++;
       const Subtree *next_child = &ts_subtree_children(*parent)[child_index];
 
-      array_push(&self->cursor.stack, ((TreeCursorEntry){
+      array_push(&self->cursor.stack, ((TreeCursorEntry) {
         .subtree = next_child,
         .position = position,
         .child_index = child_index,
@@ -289,7 +301,10 @@ typedef enum {
   IteratorMatches,
 } IteratorComparison;
 
-static IteratorComparison iterator_compare(const Iterator *old_iter, const Iterator *new_iter) {
+static IteratorComparison iterator_compare(
+  const Iterator *old_iter,
+  const Iterator *new_iter
+) {
   Subtree old_tree = NULL_SUBTREE;
   Subtree new_tree = NULL_SUBTREE;
   uint32_t old_start = 0;
@@ -339,11 +354,13 @@ static inline void iterator_print_state(Iterator *self) {
 }
 #endif
 
-unsigned ts_subtree_get_changed_ranges(const Subtree *old_tree, const Subtree *new_tree,
-                                       TreeCursor *cursor1, TreeCursor *cursor2,
-                                       const TSLanguage *language,
-                                       const TSRangeArray *included_range_differences,
-                                       TSRange **ranges) {
+unsigned ts_subtree_get_changed_ranges(
+  const Subtree *old_tree, const Subtree *new_tree,
+  TreeCursor *cursor1, TreeCursor *cursor2,
+  const TSLanguage *language,
+  const TSRangeArray *included_range_differences,
+  TSRange **ranges
+) {
   TSRangeArray results = array_new();
 
   Iterator old_iter = iterator_new(cursor1, old_tree, language);

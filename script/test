@@ -34,7 +34,7 @@ EOF
 export RUST_BACKTRACE=full
 
 mode=normal
-test_flags="-p tree-sitter-cli"
+test_flags=""
 
 while getopts "adDghl:e:s:t:" option; do
   case ${option} in
@@ -56,23 +56,17 @@ while getopts "adDghl:e:s:t:" option; do
       fi
       test_flags="${test_flags} --target ${current_target}"
       ;;
-    l)
-      export TREE_SITTER_TEST_LANGUAGE_FILTER=${OPTARG}
-      ;;
     e)
-      export TREE_SITTER_TEST_EXAMPLE_FILTER=${OPTARG}
-      ;;
-    t)
-      export TREE_SITTER_TEST_TRIAL_FILTER=${OPTARG}
+      export TREE_SITTER_EXAMPLE=${OPTARG}
       ;;
     s)
-      export TREE_SITTER_TEST_SEED=${OPTARG}
+      export TREE_SITTER_SEED=${OPTARG}
       ;;
     d)
-      export TREE_SITTER_TEST_ENABLE_LOG=1
+      export TREE_SITTER_LOG=1
       ;;
     D)
-      export TREE_SITTER_TEST_ENABLE_LOG_GRAPHS=1
+      export TREE_SITTER_LOG_GRAPHS=1
       ;;
     g)
       mode=debug
@@ -82,22 +76,12 @@ done
 
 shift $(expr $OPTIND - 1)
 
-top_level_filter=$1
-
-if [[ \
-  -n $TREE_SITTER_TEST_LANGUAGE_FILTER || \
-  -n $TREE_SITTER_TEST_EXAMPLE_FILTER || \
-  -n $TREE_SITTER_TEST_TRIAL_FILTER \
-]]; then
-  : ${top_level_filter:=corpus}
-fi
-
 if [[ "${mode}" == "debug" ]]; then
   test_binary=$(
     cargo test $test_flags --no-run --message-format=json 2> /dev/null |\
     jq -rs 'map(select(.target.name == "tree-sitter-cli" and .executable))[0].executable'
   )
-  lldb "${test_binary}" -- $top_level_filter
+  lldb "${test_binary}" -- $1
 else
-  cargo test $test_flags --jobs 1 $top_level_filter -- --nocapture
+  cargo test $test_flags $1 -- --nocapture
 fi

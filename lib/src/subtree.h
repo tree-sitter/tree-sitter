@@ -11,6 +11,7 @@ extern "C" {
 #include "./length.h"
 #include "./array.h"
 #include "./error_costs.h"
+#include "./host.h"
 #include "tree_sitter/api.h"
 #include "tree_sitter/parser.h"
 
@@ -39,28 +40,74 @@ typedef struct {
 //
 // This representation is used for small leaf nodes that are not
 // errors, and were not created by an external scanner.
-typedef struct {
-  bool is_inline : 1;
-  bool visible : 1;
-  bool named : 1;
-  bool extra : 1;
-  bool has_changes : 1;
-  bool is_missing : 1;
+//
+// The idea behind the layout of this struct is that the `is_inline`
+// bit will fall exactly into the same location as the least significant
+// bit of the pointer in `Subtree` or `MutableSubtree`, respectively.
+// Because of alignment, for any valid pointer this will be 0, giving
+// us the opportunity to make use of this bit to signify whether to use
+// the pointer or the inline struct.
+typedef struct SubtreeInlineData SubtreeInlineData;
+
+#define SUBTREE_BITS    \
+  bool visible : 1;     \
+  bool named : 1;       \
+  bool extra : 1;       \
+  bool has_changes : 1; \
+  bool is_missing : 1;  \
   bool is_keyword : 1;
-  uint8_t symbol;
-  uint8_t padding_bytes;
+
+#define SUBTREE_SIZE           \
+  uint8_t padding_columns;     \
+  uint8_t padding_rows : 4;    \
+  uint8_t lookahead_bytes : 4; \
+  uint8_t padding_bytes;       \
   uint8_t size_bytes;
-  uint8_t padding_columns;
-  uint8_t padding_rows : 4;
-  uint8_t lookahead_bytes : 4;
+
+#if TS_BIG_ENDIAN
+#if TS_PTR_SIZE == 32
+
+struct SubtreeInlineData {
   uint16_t parse_state;
-} SubtreeInlineData;
+  uint8_t symbol;
+  SUBTREE_BITS
+  bool unused : 1;
+  bool is_inline : 1;
+  SUBTREE_SIZE
+};
+
+#else
+
+struct SubtreeInlineData {
+  SUBTREE_SIZE
+  uint16_t parse_state;
+  uint8_t symbol;
+  SUBTREE_BITS
+  bool unused : 1;
+  bool is_inline : 1;
+};
+
+#endif
+#else
+
+struct SubtreeInlineData {
+  bool is_inline : 1;
+  SUBTREE_BITS
+  uint8_t symbol;
+  uint16_t parse_state;
+  SUBTREE_SIZE
+};
+
+#endif
+
+#undef SUBTREE_BITS
+#undef SUBTREE_SIZE
 
 // A heap-allocated representation of a subtree.
 //
 // This representation is used for parent nodes, external tokens,
 // errors, and other leaf nodes whose data is too large to fit into
-// the inlinen representation.
+// the inline representation.
 typedef struct {
   volatile uint32_t ref_count;
   Length padding;
@@ -146,11 +193,10 @@ Subtree ts_subtree_new_error(
 );
 MutableSubtree ts_subtree_new_node(TSSymbol, SubtreeArray *, unsigned, const TSLanguage *);
 Subtree ts_subtree_new_error_node(SubtreeArray *, bool, const TSLanguage *);
-Subtree ts_subtree_new_missing_leaf(SubtreePool *, TSSymbol, Length, const TSLanguage *);
+Subtree ts_subtree_new_missing_leaf(SubtreePool *, TSSymbol, Length, uint32_t, const TSLanguage *);
 MutableSubtree ts_subtree_make_mut(SubtreePool *, Subtree);
 void ts_subtree_retain(Subtree);
 void ts_subtree_release(SubtreePool *, Subtree);
-bool ts_subtree_eq(Subtree, Subtree);
 int ts_subtree_compare(Subtree, Subtree);
 void ts_subtree_set_symbol(MutableSubtree *, TSSymbol, const TSLanguage *);
 void ts_subtree_summarize(MutableSubtree, const Subtree *, uint32_t, const TSLanguage *);
@@ -187,11 +233,11 @@ static inline size_t ts_subtree_alloc_size(uint32_t child_count) {
 #define ts_subtree_children(self) \
   ((self).data.is_inline ? NULL : (Subtree *)((self).ptr) - (self).ptr->child_count)
 
-static inline void ts_subtree_set_extra(MutableSubtree *self) {
+static inline void ts_subtree_set_extra(MutableSubtree *self, bool is_extra) {
   if (self->data.is_inline) {
-    self->data.extra = true;
+    self->data.extra = is_extra;
   } else {
-    self->ptr->extra = true;
+    self->ptr->extra = is_extra;
   }
 }
 

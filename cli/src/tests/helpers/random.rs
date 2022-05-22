@@ -1,5 +1,7 @@
-use rand::distributions::Alphanumeric;
-use rand::prelude::{Rng, SeedableRng, StdRng};
+use rand::{
+    distributions::Alphanumeric,
+    prelude::{Rng, SeedableRng, StdRng},
+};
 
 const OPERATORS: &[char] = &[
     '+', '-', '<', '>', '(', ')', '*', '/', '&', '|', '!', ',', '.',

@@ -1,39 +1,48 @@
 use super::wasm;
 use anyhow::Context;
-use std::env;
-use std::fs;
-use std::net::TcpListener;
-use std::path::{Path, PathBuf};
-use std::str::FromStr;
+use std::{
+    borrow::Cow,
+    env, fs,
+    net::TcpListener,
+    path::{Path, PathBuf},
+    str::{self, FromStr as _},
+};
 use tiny_http::{Header, Response, Server};
 use webbrowser;
 
-macro_rules! resource {
+macro_rules! optional_resource {
     ($name: tt, $path: tt) => {
         #[cfg(TREE_SITTER_EMBED_WASM_BINDING)]
-        fn $name(tree_sitter_dir: &Option<PathBuf>) -> Vec<u8> {
+        fn $name(tree_sitter_dir: &Option<PathBuf>) -> Cow<'static, [u8]> {
             if let Some(tree_sitter_dir) = tree_sitter_dir {
-                fs::read(tree_sitter_dir.join($path)).unwrap()
+                Cow::Owned(fs::read(tree_sitter_dir.join($path)).unwrap())
             } else {
-                include_bytes!(concat!("../../", $path)).to_vec()
+                Cow::Borrowed(include_bytes!(concat!("../../", $path)))
             }
         }
 
         #[cfg(not(TREE_SITTER_EMBED_WASM_BINDING))]
-        fn $name(tree_sitter_dir: &Option<PathBuf>) -> Vec<u8> {
+        fn $name(tree_sitter_dir: &Option<PathBuf>) -> Cow<'static, [u8]> {
             if let Some(tree_sitter_dir) = tree_sitter_dir {
-                fs::read(tree_sitter_dir.join($path)).unwrap()
+                Cow::Owned(fs::read(tree_sitter_dir.join($path)).unwrap())
             } else {
-                Vec::new()
+                Cow::Borrowed(&[])
             }
         }
     };
 }
 
-resource!(get_main_html, "cli/src/playground.html");
-resource!(get_playground_js, "docs/assets/js/playground.js");
-resource!(get_lib_js, "lib/binding_web/tree-sitter.js");
-resource!(get_lib_wasm, "lib/binding_web/tree-sitter.wasm");
+optional_resource!(get_playground_js, "docs/assets/js/playground.js");
+optional_resource!(get_lib_js, "lib/binding_web/tree-sitter.js");
+optional_resource!(get_lib_wasm, "lib/binding_web/tree-sitter.wasm");
+
+fn get_main_html(tree_sitter_dir: &Option<PathBuf>) -> Cow<'static, [u8]> {
+    if let Some(tree_sitter_dir) = tree_sitter_dir {
+        Cow::Owned(fs::read(tree_sitter_dir.join("cli/src/playground.html")).unwrap())
+    } else {
+        Cow::Borrowed(include_bytes!("playground.html"))
+    }
+}
 
 pub fn serve(grammar_path: &Path, open_in_browser: bool) {
     let port = get_available_port().expect("Couldn't find an available port");
@@ -60,7 +69,7 @@ pub fn serve(grammar_path: &Path, open_in_browser: bool) {
     }
 
     let tree_sitter_dir = env::var("TREE_SITTER_BASE_DIR").map(PathBuf::from).ok();
-    let main_html = String::from_utf8(get_main_html(&tree_sitter_dir))
+    let main_html = str::from_utf8(&get_main_html(&tree_sitter_dir))
         .unwrap()
         .replace("THE_LANGUAGE_NAME", &grammar_name)
         .into_bytes();

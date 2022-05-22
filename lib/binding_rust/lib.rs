@@ -1,9 +1,6 @@
 mod ffi;
 mod util;
 
-#[cfg(feature = "allocation-tracking")]
-pub mod allocations;
-
 #[cfg(unix)]
 use std::os::unix::io::AsRawFd;
 
@@ -101,10 +98,34 @@ pub struct TreeCursor<'a>(ffi::TSTreeCursor, PhantomData<&'a ()>);
 pub struct Query {
     ptr: NonNull<ffi::TSQuery>,
     capture_names: Vec<String>,
+    capture_quantifiers: Vec<Vec<CaptureQuantifier>>,
     text_predicates: Vec<Box<[TextPredicate]>>,
     property_settings: Vec<Box<[QueryProperty]>>,
     property_predicates: Vec<Box<[(QueryProperty, bool)]>>,
     general_predicates: Vec<Box<[QueryPredicate]>>,
+}
+
+/// A quantifier for captures
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum CaptureQuantifier {
+    Zero,
+    ZeroOrOne,
+    ZeroOrMore,
+    One,
+    OneOrMore,
+}
+
+impl From<ffi::TSQuantifier> for CaptureQuantifier {
+    fn from(value: ffi::TSQuantifier) -> Self {
+        match value {
+            ffi::TSQuantifier_TSQuantifierZero => CaptureQuantifier::Zero,
+            ffi::TSQuantifier_TSQuantifierZeroOrOne => CaptureQuantifier::ZeroOrOne,
+            ffi::TSQuantifier_TSQuantifierZeroOrMore => CaptureQuantifier::ZeroOrMore,
+            ffi::TSQuantifier_TSQuantifierOne => CaptureQuantifier::One,
+            ffi::TSQuantifier_TSQuantifierOneOrMore => CaptureQuantifier::OneOrMore,
+            _ => panic!("Unrecognized quantifier: {}", value),
+        }
+    }
 }
 
 /// A stateful object for executing a `Query` on a syntax `Tree`.
@@ -684,14 +705,14 @@ impl Tree {
     /// after calling one of the [Parser::parse] functions. Call it on the old tree that
     /// was passed to parse, and pass the new tree that was returned from `parse`.
     pub fn changed_ranges(&self, other: &Tree) -> impl ExactSizeIterator<Item = Range> {
-        let mut count = 0;
+        let mut count = 0u32;
         unsafe {
             let ptr = ffi::ts_tree_get_changed_ranges(
                 self.0.as_ptr(),
                 other.0.as_ptr(),
-                &mut count as *mut _ as *mut u32,
+                &mut count as *mut u32,
             );
-            util::CBufferIter::new(ptr, count).map(|r| r.into())
+            util::CBufferIter::new(ptr, count as usize).map(|r| r.into())
         }
     }
 }
@@ -1040,7 +1061,7 @@ impl<'tree> Node<'tree> {
             .to_str()
             .unwrap()
             .to_string();
-        unsafe { util::free_ptr(c_string as *mut c_void) };
+        unsafe { (FREE_FN)(c_string as *mut c_void) };
         result
     }
 
@@ -1311,6 +1332,7 @@ impl Query {
         let mut result = Query {
             ptr: unsafe { NonNull::new_unchecked(ptr) },
             capture_names: Vec::with_capacity(capture_count as usize),
+            capture_quantifiers: Vec::with_capacity(pattern_count as usize),
             text_predicates: Vec::with_capacity(pattern_count),
             property_predicates: Vec::with_capacity(pattern_count),
             property_settings: Vec::with_capacity(pattern_count),
@@ -1327,6 +1349,18 @@ impl Query {
                 let name = str::from_utf8_unchecked(name);
                 result.capture_names.push(name.to_string());
             }
+        }
+
+        // Build a vector to store capture qunatifiers.
+        for i in 0..pattern_count {
+            let mut capture_quantifiers = Vec::with_capacity(capture_count as usize);
+            for j in 0..capture_count {
+                unsafe {
+                    let quantifier = ffi::ts_query_capture_quantifier_for_id(ptr, i as u32, j);
+                    capture_quantifiers.push(quantifier.into());
+                }
+            }
+            result.capture_quantifiers.push(capture_quantifiers);
         }
 
         // Build a vector of strings to represent literal values used in predicates.
@@ -1529,6 +1563,11 @@ impl Query {
         &self.capture_names
     }
 
+    /// Get the quantifiers of the captures used in the query.
+    pub fn capture_quantifiers(&self, index: usize) -> &[CaptureQuantifier] {
+        &self.capture_quantifiers[index]
+    }
+
     /// Get the index for a given capture name.
     pub fn capture_index_for_name(&self, name: &str) -> Option<u32> {
         self.capture_names
@@ -1588,8 +1627,10 @@ impl Query {
     ///
     /// A query step is 'definite' if its parent pattern will be guaranteed to match
     /// successfully once it reaches the step.
-    pub fn step_is_definite(&self, byte_offset: usize) -> bool {
-        unsafe { ffi::ts_query_step_is_definite(self.ptr.as_ptr(), byte_offset as u32) }
+    pub fn is_pattern_guaranteed_at_step(&self, byte_offset: usize) -> bool {
+        unsafe {
+            ffi::ts_query_is_pattern_guaranteed_at_step(self.ptr.as_ptr(), byte_offset as u32)
+        }
     }
 
     fn parse_property(
@@ -2162,6 +2203,22 @@ impl fmt::Display for QueryError {
             write!(f, "{}", self.message)
         }
     }
+}
+
+extern "C" {
+    fn free(ptr: *mut c_void);
+}
+
+static mut FREE_FN: unsafe extern "C" fn(ptr: *mut c_void) = free;
+
+pub unsafe fn set_allocator(
+    new_malloc: Option<unsafe extern "C" fn(usize) -> *mut c_void>,
+    new_calloc: Option<unsafe extern "C" fn(usize, usize) -> *mut c_void>,
+    new_realloc: Option<unsafe extern "C" fn(*mut c_void, usize) -> *mut c_void>,
+    new_free: Option<unsafe extern "C" fn(*mut c_void)>,
+) {
+    FREE_FN = new_free.unwrap_or(free);
+    ffi::ts_set_allocator(new_malloc, new_calloc, new_realloc, new_free);
 }
 
 impl error::Error for IncludedRangesError {}

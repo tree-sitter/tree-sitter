@@ -34,9 +34,11 @@ static inline CursorChildIterator ts_tree_cursor_iterate_children(const TreeCurs
   };
 }
 
-static inline bool ts_tree_cursor_child_iterator_next(CursorChildIterator *self,
-                                                      TreeCursorEntry *result,
-                                                      bool *visible) {
+static inline bool ts_tree_cursor_child_iterator_next(
+  CursorChildIterator *self,
+  TreeCursorEntry *result,
+  bool *visible
+) {
   if (!self->parent.ptr || self->child_index == self->parent.ptr->child_count) return false;
   const Subtree *child = &ts_subtree_children(self->parent)[self->child_index];
   *result = (TreeCursorEntry) {
@@ -137,7 +139,7 @@ int64_t ts_tree_cursor_goto_first_child_for_byte(TSTreeCursor *_self, uint32_t g
     CursorChildIterator iterator = ts_tree_cursor_iterate_children(self);
     while (ts_tree_cursor_child_iterator_next(&iterator, &entry, &visible)) {
       uint32_t end_byte = entry.position.bytes + ts_subtree_size(*entry.subtree).bytes;
-      bool at_goal = end_byte > goal_byte;
+      bool at_goal = end_byte >= goal_byte;
       uint32_t visible_child_count = ts_subtree_visible_child_count(*entry.subtree);
 
       if (at_goal) {
@@ -177,7 +179,7 @@ int64_t ts_tree_cursor_goto_first_child_for_point(TSTreeCursor *_self, TSPoint g
     CursorChildIterator iterator = ts_tree_cursor_iterate_children(self);
     while (ts_tree_cursor_child_iterator_next(&iterator, &entry, &visible)) {
       TSPoint end_point = point_add(entry.position.extent, ts_subtree_size(*entry.subtree).extent);
-      bool at_goal = point_gt(end_point, goal_point);
+      bool at_goal = point_gte(end_point, goal_point);
       uint32_t visible_child_count = ts_subtree_visible_child_count(*entry.subtree);
       if (at_goal) {
         if (visible) {

@@ -20,6 +20,7 @@ use self::rules::AliasMap;
 use anyhow::{anyhow, Context, Result};
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
+use semver::Version;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -40,7 +41,7 @@ struct GeneratedParser {
 pub fn generate_parser_in_directory(
     repo_path: &PathBuf,
     grammar_path: Option<&str>,
-    next_abi: bool,
+    abi_version: usize,
     generate_bindings: bool,
     report_symbol_name: Option<&str>,
 ) -> Result<()> {
@@ -80,16 +81,13 @@ pub fn generate_parser_in_directory(
         lexical_grammar,
         inlines,
         simple_aliases,
-        next_abi,
+        abi_version,
         report_symbol_name,
     )?;
 
     write_file(&src_path.join("parser.c"), c_code)?;
     write_file(&src_path.join("node-types.json"), node_types_json)?;
-
-    if next_abi {
-        write_file(&header_path.join("parser.h"), tree_sitter::PARSER_HEADER)?;
-    }
+    write_file(&header_path.join("parser.h"), tree_sitter::PARSER_HEADER)?;
 
     if generate_bindings {
         binding_files::generate_binding_files(&repo_path, &language_name)?;
@@ -109,7 +107,7 @@ pub fn generate_parser_for_grammar(grammar_json: &str) -> Result<(String, String
         lexical_grammar,
         inlines,
         simple_aliases,
-        true,
+        tree_sitter::LANGUAGE_VERSION,
         None,
     )?;
     Ok((input_grammar.name, parser.c_code))
@@ -121,7 +119,7 @@ fn generate_parser_for_grammar_with_opts(
     lexical_grammar: LexicalGrammar,
     inlines: InlinedProductionMap,
     simple_aliases: AliasMap,
-    next_abi: bool,
+    abi_version: usize,
     report_symbol_name: Option<&str>,
 ) -> Result<GeneratedParser> {
     let variable_info =
@@ -149,7 +147,7 @@ fn generate_parser_for_grammar_with_opts(
         syntax_grammar,
         lexical_grammar,
         simple_aliases,
-        next_abi,
+        abi_version,
     );
     Ok(GeneratedParser {
         c_code,
@@ -181,10 +179,20 @@ fn load_js_grammar_file(grammar_path: &Path) -> Result<String> {
         .stdin
         .take()
         .expect("Failed to open stdin for node");
+    let cli_version = Version::parse(env!("CARGO_PKG_VERSION"))
+        .expect("Could not parse this package's version as semver.");
+    write!(
+        node_stdin,
+        "global.TREE_SITTER_CLI_VERSION_MAJOR = {};
+        global.TREE_SITTER_CLI_VERSION_MINOR = {};
+        global.TREE_SITTER_CLI_VERSION_PATCH = {};",
+        cli_version.major, cli_version.minor, cli_version.patch,
+    )
+    .expect("Failed to write tree-sitter version to node's stdin");
     let javascript_code = include_bytes!("./dsl.js");
     node_stdin
         .write(javascript_code)
-        .expect("Failed to write to node's stdin");
+        .expect("Failed to write grammar dsl to node's stdin");
     drop(node_stdin);
     let output = node_process
         .wait_with_output()

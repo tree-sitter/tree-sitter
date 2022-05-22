@@ -14,7 +14,7 @@ typedef struct {
 
 void *tree_sitter_external_tokens_external_scanner_create() {
   Scanner *scanner = malloc(sizeof(Scanner));
-  *scanner = (Scanner){
+  *scanner = (Scanner) {
     .open_delimiter = 0,
     .close_delimiter = 0,
     .depth = 0

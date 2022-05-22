@@ -1,1 +1,0 @@
-This grammar demonstrates the usage of the IMMEDIATE_TOKEN rule. It allows the parser to produce a different token based on whether or not there are `extras` preceding the token's main content. When there are *no* leading `extras`, an immediate token is preferred over a normal token which would otherwise match.

@@ -1,5 +1,3 @@
-extern crate cc;
-
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
@@ -19,13 +17,6 @@ fn main() {
         }
     }
 
-    let mut config = cc::Build::new();
-
-    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_ALLOCATION_TRACKING");
-    if env::var("CARGO_FEATURE_ALLOCATION_TRACKING").is_ok() {
-        config.define("TREE_SITTER_ALLOCATION_TRACKING", "");
-    }
-
     let src_path = Path::new("src");
     for entry in fs::read_dir(&src_path).unwrap() {
         let entry = entry.unwrap();
@@ -33,7 +24,7 @@ fn main() {
         println!("cargo:rerun-if-changed={}", path.to_str().unwrap());
     }
 
-    config
+    cc::Build::new()
         .flag_if_supported("-std=c99")
         .flag_if_supported("-Wno-unused-parameter")
         .include(src_path)

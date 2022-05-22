@@ -409,14 +409,19 @@ void ts_subtree_summarize_children(
       self.ptr->padding.bytes +
       self.ptr->size.bytes +
       ts_subtree_lookahead_bytes(child);
-    if (child_lookahead_end_byte > lookahead_end_byte) lookahead_end_byte = child_lookahead_end_byte;
+    if (child_lookahead_end_byte > lookahead_end_byte) {
+      lookahead_end_byte = child_lookahead_end_byte;
+    }
 
     if (ts_subtree_symbol(child) != ts_builtin_sym_error_repeat) {
       self.ptr->error_cost += ts_subtree_error_cost(child);
     }
 
     uint32_t grandchild_count = ts_subtree_child_count(child);
-    if (self.ptr->symbol == ts_builtin_sym_error || self.ptr->symbol == ts_builtin_sym_error_repeat) {
+    if (
+      self.ptr->symbol == ts_builtin_sym_error ||
+      self.ptr->symbol == ts_builtin_sym_error_repeat
+    ) {
       if (!ts_subtree_extra(child) && !(ts_subtree_is_error(child) && grandchild_count == 0)) {
         if (ts_subtree_visible(child)) {
           self.ptr->error_cost += ERROR_COST_PER_SKIPPED_TREE;
@@ -454,7 +459,10 @@ void ts_subtree_summarize_children(
 
   self.ptr->lookahead_bytes = lookahead_end_byte - self.ptr->size.bytes - self.ptr->padding.bytes;
 
-  if (self.ptr->symbol == ts_builtin_sym_error || self.ptr->symbol == ts_builtin_sym_error_repeat) {
+  if (
+    self.ptr->symbol == ts_builtin_sym_error ||
+    self.ptr->symbol == ts_builtin_sym_error_repeat
+  ) {
     self.ptr->error_cost +=
       ERROR_COST_PER_RECOVERY +
       ERROR_COST_PER_SKIPPED_CHAR * self.ptr->size.bytes +
@@ -551,10 +559,11 @@ Subtree ts_subtree_new_missing_leaf(
   SubtreePool *pool,
   TSSymbol symbol,
   Length padding,
+  uint32_t lookahead_bytes,
   const TSLanguage *language
 ) {
   Subtree result = ts_subtree_new_leaf(
-    pool, symbol, padding, length_zero(), 0,
+    pool, symbol, padding, length_zero(), lookahead_bytes,
     0, false, false, false, language
   );
   if (result.data.is_inline) {
@@ -601,37 +610,6 @@ void ts_subtree_release(SubtreePool *pool, Subtree self) {
       ts_subtree_pool_free(pool, tree.ptr);
     }
   }
-}
-
-bool ts_subtree_eq(Subtree self, Subtree other) {
-  if (self.data.is_inline || other.data.is_inline) {
-    return memcmp(&self, &other, sizeof(SubtreeInlineData)) == 0;
-  }
-
-  if (self.ptr) {
-    if (!other.ptr) return false;
-  } else {
-    return !other.ptr;
-  }
-
-  if (self.ptr->symbol != other.ptr->symbol) return false;
-  if (self.ptr->visible != other.ptr->visible) return false;
-  if (self.ptr->named != other.ptr->named) return false;
-  if (self.ptr->padding.bytes != other.ptr->padding.bytes) return false;
-  if (self.ptr->size.bytes != other.ptr->size.bytes) return false;
-  if (self.ptr->symbol == ts_builtin_sym_error) return self.ptr->lookahead_char == other.ptr->lookahead_char;
-  if (self.ptr->child_count != other.ptr->child_count) return false;
-  if (self.ptr->child_count > 0) {
-    if (self.ptr->visible_child_count != other.ptr->visible_child_count) return false;
-    if (self.ptr->named_child_count != other.ptr->named_child_count) return false;
-
-    for (uint32_t i = 0; i < self.ptr->child_count; i++) {
-      if (!ts_subtree_eq(ts_subtree_children(self)[i], ts_subtree_children(other)[i])) {
-        return false;
-      }
-    }
-  }
-  return true;
 }
 
 int ts_subtree_compare(Subtree left, Subtree right) {
@@ -874,7 +852,7 @@ static size_t ts_subtree__write_to_string(
   if (!self.ptr) return snprintf(string, limit, "(NULL)");
 
   char *cursor = string;
-  char **writer = (limit > 0) ? &cursor : &string;
+  char **writer = (limit > 1) ? &cursor : &string;
   bool is_root = field_name == ROOT_FIELD;
   bool is_visible =
     include_all ||
@@ -973,7 +951,7 @@ char *ts_subtree_string(
 ) {
   char scratch_string[1];
   size_t size = ts_subtree__write_to_string(
-    self, scratch_string, 0,
+    self, scratch_string, 1,
     language, include_all,
     0, false, ROOT_FIELD
   ) + 1;

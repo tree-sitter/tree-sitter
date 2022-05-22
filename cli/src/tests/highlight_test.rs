@@ -1,6 +1,7 @@
 use super::helpers::fixtures::{get_highlight_config, get_language, get_language_queries_path};
 use lazy_static::lazy_static;
 use std::ffi::CString;
+use std::os::raw::c_char;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{fs, ptr, slice, str};
 use tree_sitter_highlight::{
@@ -489,15 +490,15 @@ fn test_highlighting_via_c_api() {
     ];
     let highlight_names = highlights
         .iter()
-        .map(|h| h["class=".len()..].as_ptr() as *const i8)
+        .map(|h| h["class=".len()..].as_ptr() as *const c_char)
         .collect::<Vec<_>>();
     let highlight_attrs = highlights
         .iter()
-        .map(|h| h.as_bytes().as_ptr() as *const i8)
+        .map(|h| h.as_bytes().as_ptr() as *const c_char)
         .collect::<Vec<_>>();
     let highlighter = c::ts_highlighter_new(
-        &highlight_names[0] as *const *const i8,
-        &highlight_attrs[0] as *const *const i8,
+        &highlight_names[0] as *const *const c_char,
+        &highlight_attrs[0] as *const *const c_char,
         highlights.len() as u32,
     );
 
@@ -515,9 +516,9 @@ fn test_highlighting_via_c_api() {
         js_scope.as_ptr(),
         js_injection_regex.as_ptr(),
         language,
-        highlights_query.as_ptr() as *const i8,
-        injections_query.as_ptr() as *const i8,
-        locals_query.as_ptr() as *const i8,
+        highlights_query.as_ptr() as *const c_char,
+        injections_query.as_ptr() as *const c_char,
+        locals_query.as_ptr() as *const c_char,
         highlights_query.len() as u32,
         injections_query.len() as u32,
         locals_query.len() as u32,
@@ -534,8 +535,8 @@ fn test_highlighting_via_c_api() {
         html_scope.as_ptr(),
         html_injection_regex.as_ptr(),
         language,
-        highlights_query.as_ptr() as *const i8,
-        injections_query.as_ptr() as *const i8,
+        highlights_query.as_ptr() as *const c_char,
+        injections_query.as_ptr() as *const c_char,
         ptr::null(),
         highlights_query.len() as u32,
         injections_query.len() as u32,

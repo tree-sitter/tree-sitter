@@ -3,14 +3,15 @@
 output_path=lib/binding_rust/bindings.rs
 header_path='lib/include/tree_sitter/api.h'
 
-bindgen                          \
-  --no-layout-tests              \
-  --whitelist-type '^TS.*'       \
-  --whitelist-function '^ts_.*'  \
-  --opaque-type FILE             \
-  --size_t-is-usize              \
-  --translate-enum-integer-types \
-  --distrust-clang-mangling      \
+bindgen                                        \
+  --no-layout-tests                            \
+  --whitelist-type '^TS.*'                     \
+  --whitelist-function '^ts_.*'                \
+  --opaque-type FILE                           \
+  --blocklist-type FILE                        \
+  --blocklist-type '^__.*'                     \
+  --blocklist-function ts_tree_print_dot_graph \
+  --size_t-is-usize                            \
   $header_path > $output_path
 
 echo "" >> $output_path

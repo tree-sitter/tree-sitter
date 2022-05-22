@@ -82,7 +82,6 @@ struct PatternInfo {
 #[derive(Debug)]
 struct LocalDef<'a> {
     name: &'a [u8],
-    value_range: Range<usize>,
 }
 
 #[derive(Debug)]
@@ -253,6 +252,10 @@ impl TagsContext {
         }
     }
 
+    pub fn parser(&mut self) -> &mut Parser {
+        &mut self.parser
+    }
+
     pub fn generate_tags<'a>(
         &'a mut self,
         config: &'a TagsConfiguration,
@@ -349,7 +352,6 @@ where
                             }) {
                                 scope.local_defs.push(LocalDef {
                                     name: &self.source[range.clone()],
-                                    value_range: range,
                                 });
                             }
                         }

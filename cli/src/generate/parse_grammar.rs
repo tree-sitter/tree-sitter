@@ -1,7 +1,7 @@
 use super::grammars::{InputGrammar, PrecedenceEntry, Variable, VariableType};
 use super::rules::{Precedence, Rule};
 use anyhow::{anyhow, Result};
-use serde_derive::Deserialize;
+use serde::Deserialize;
 use serde_json::{Map, Value};
 
 #[derive(Deserialize)]

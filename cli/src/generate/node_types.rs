@@ -1,7 +1,7 @@
 use super::grammars::{LexicalGrammar, SyntaxGrammar, VariableType};
 use super::rules::{Alias, AliasMap, Symbol, SymbolType};
 use anyhow::{anyhow, Result};
-use serde_derive::Serialize;
+use serde::Serialize;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -725,14 +725,6 @@ mod tests {
     #[test]
     fn test_node_types_simple() {
         let node_types = get_node_types(InputGrammar {
-            name: String::new(),
-            word_token: None,
-            extra_symbols: vec![],
-            external_tokens: vec![],
-            supertype_symbols: vec![],
-            expected_conflicts: vec![],
-            variables_to_inline: vec![],
-            precedence_orderings: vec![],
             variables: vec![
                 Variable {
                     name: "v1".to_string(),
@@ -755,6 +747,7 @@ mod tests {
                     rule: Rule::string("y"),
                 },
             ],
+            ..Default::default()
         });
 
         assert_eq!(node_types.len(), 3);
@@ -821,14 +814,7 @@ mod tests {
     #[test]
     fn test_node_types_simple_extras() {
         let node_types = get_node_types(InputGrammar {
-            name: String::new(),
             extra_symbols: vec![Rule::named("v3")],
-            word_token: None,
-            external_tokens: vec![],
-            supertype_symbols: vec![],
-            expected_conflicts: vec![],
-            variables_to_inline: vec![],
-            precedence_orderings: vec![],
             variables: vec![
                 Variable {
                     name: "v1".to_string(),
@@ -852,6 +838,7 @@ mod tests {
                     rule: Rule::string("y"),
                 },
             ],
+            ..Default::default()
         });
 
         assert_eq!(node_types.len(), 4);
@@ -928,13 +915,6 @@ mod tests {
     #[test]
     fn test_node_types_with_supertypes() {
         let node_types = get_node_types(InputGrammar {
-            name: String::new(),
-            word_token: None,
-            extra_symbols: vec![],
-            external_tokens: vec![],
-            expected_conflicts: vec![],
-            variables_to_inline: vec![],
-            precedence_orderings: vec![],
             supertype_symbols: vec!["_v2".to_string()],
             variables: vec![
                 Variable {
@@ -962,6 +942,7 @@ mod tests {
                     rule: Rule::string("y"),
                 },
             ],
+            ..Default::default()
         });
 
         assert_eq!(
@@ -1016,14 +997,6 @@ mod tests {
     #[test]
     fn test_node_types_for_children_without_fields() {
         let node_types = get_node_types(InputGrammar {
-            name: String::new(),
-            word_token: None,
-            extra_symbols: vec![],
-            external_tokens: vec![],
-            supertype_symbols: vec![],
-            expected_conflicts: vec![],
-            variables_to_inline: vec![],
-            precedence_orderings: vec![],
             variables: vec![
                 Variable {
                     name: "v1".to_string(),
@@ -1054,6 +1027,7 @@ mod tests {
                     rule: Rule::string("y"),
                 },
             ],
+            ..Default::default()
         });
 
         assert_eq!(
@@ -1115,13 +1089,6 @@ mod tests {
     #[test]
     fn test_node_types_with_inlined_rules() {
         let node_types = get_node_types(InputGrammar {
-            name: String::new(),
-            word_token: None,
-            extra_symbols: vec![],
-            external_tokens: vec![],
-            supertype_symbols: vec![],
-            expected_conflicts: vec![],
-            precedence_orderings: vec![],
             variables_to_inline: vec!["v2".to_string()],
             variables: vec![
                 Variable {
@@ -1141,6 +1108,7 @@ mod tests {
                     rule: Rule::string("b"),
                 },
             ],
+            ..Default::default()
         });
 
         assert_eq!(
@@ -1171,14 +1139,6 @@ mod tests {
     #[test]
     fn test_node_types_for_aliased_nodes() {
         let node_types = get_node_types(InputGrammar {
-            name: String::new(),
-            word_token: None,
-            extra_symbols: vec![],
-            external_tokens: vec![],
-            supertype_symbols: vec![],
-            expected_conflicts: vec![],
-            variables_to_inline: vec![],
-            precedence_orderings: vec![],
             variables: vec![
                 Variable {
                     name: "thing".to_string(),
@@ -1220,6 +1180,7 @@ mod tests {
                     rule: Rule::pattern("[\\w-]+"),
                 },
             ],
+            ..Default::default()
         });
 
         assert_eq!(node_types.iter().find(|t| t.kind == "foo_identifier"), None);
@@ -1248,14 +1209,6 @@ mod tests {
     #[test]
     fn test_node_types_with_multiple_valued_fields() {
         let node_types = get_node_types(InputGrammar {
-            name: String::new(),
-            word_token: None,
-            extra_symbols: vec![],
-            external_tokens: vec![],
-            supertype_symbols: vec![],
-            expected_conflicts: vec![],
-            variables_to_inline: vec![],
-            precedence_orderings: vec![],
             variables: vec![
                 Variable {
                     name: "a".to_string(),
@@ -1279,6 +1232,7 @@ mod tests {
                     rule: Rule::string("c"),
                 },
             ],
+            ..Default::default()
         });
 
         assert_eq!(
@@ -1317,14 +1271,6 @@ mod tests {
     #[test]
     fn test_node_types_with_fields_on_hidden_tokens() {
         let node_types = get_node_types(InputGrammar {
-            name: String::new(),
-            word_token: None,
-            extra_symbols: vec![],
-            external_tokens: vec![],
-            supertype_symbols: vec![],
-            expected_conflicts: vec![],
-            variables_to_inline: vec![],
-            precedence_orderings: vec![],
             variables: vec![Variable {
                 name: "script".to_string(),
                 kind: VariableType::Named,
@@ -1333,6 +1279,7 @@ mod tests {
                     Rule::field("b".to_string(), Rule::pattern("bye")),
                 ]),
             }],
+            ..Default::default()
         });
 
         assert_eq!(
@@ -1350,14 +1297,6 @@ mod tests {
     #[test]
     fn test_node_types_with_multiple_rules_same_alias_name() {
         let node_types = get_node_types(InputGrammar {
-            name: String::new(),
-            word_token: None,
-            extra_symbols: vec![],
-            external_tokens: vec![],
-            supertype_symbols: vec![],
-            expected_conflicts: vec![],
-            variables_to_inline: vec![],
-            precedence_orderings: vec![],
             variables: vec![
                 Variable {
                     name: "script".to_string(),
@@ -1386,6 +1325,7 @@ mod tests {
                     ]),
                 },
             ],
+            ..Default::default()
         });
 
         assert_eq!(
@@ -1477,14 +1417,6 @@ mod tests {
     #[test]
     fn test_node_types_with_tokens_aliased_to_match_rules() {
         let node_types = get_node_types(InputGrammar {
-            name: String::new(),
-            word_token: None,
-            extra_symbols: vec![],
-            external_tokens: vec![],
-            supertype_symbols: vec![],
-            expected_conflicts: vec![],
-            variables_to_inline: vec![],
-            precedence_orderings: vec![],
             variables: vec![
                 Variable {
                     name: "a".to_string(),
@@ -1508,6 +1440,7 @@ mod tests {
                     ]),
                 },
             ],
+            ..Default::default()
         });
 
         assert_eq!(

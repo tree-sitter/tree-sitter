@@ -1,18 +1,25 @@
-use super::char_tree::{CharacterTree, Comparator};
-use super::grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType};
-use super::rules::{Alias, AliasMap, Symbol, SymbolType};
-use super::tables::{
-    AdvanceAction, FieldLocation, GotoAction, LexState, LexTable, ParseAction, ParseTable,
-    ParseTableEntry,
+use super::{
+    char_tree::{CharacterTree, Comparator},
+    grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType},
+    rules::{Alias, AliasMap, Symbol, SymbolType},
+    tables::{
+        AdvanceAction, FieldLocation, GotoAction, LexState, LexTable, ParseAction, ParseTable,
+        ParseTableEntry,
+    },
 };
 use core::ops::Range;
-use std::cmp;
-use std::collections::{HashMap, HashSet};
-use std::fmt::Write;
-use std::mem::swap;
+use std::{
+    cmp,
+    collections::{HashMap, HashSet},
+    fmt::Write,
+    mem::swap,
+};
 
 const LARGE_CHARACTER_RANGE_COUNT: usize = 8;
 const SMALL_STATE_THRESHOLD: usize = 64;
+const ABI_VERSION_MIN: usize = 13;
+const ABI_VERSION_MAX: usize = tree_sitter::LANGUAGE_VERSION;
+const ABI_VERSION_WITH_PRIMARY_STATES: usize = 14;
 
 macro_rules! add {
     ($this: tt, $($arg: tt)*) => {{
@@ -69,7 +76,7 @@ struct Generator {
     field_names: Vec<String>,
 
     #[allow(unused)]
-    next_abi: bool,
+    abi_version: usize,
 }
 
 struct TransitionSummary {
@@ -106,6 +113,10 @@ impl Generator {
         }
 
         self.add_non_terminal_alias_map();
+
+        if self.abi_version >= ABI_VERSION_WITH_PRIMARY_STATES {
+            self.add_primary_state_id_list();
+        }
 
         let mut main_lex_table = LexTable::default();
         swap(&mut main_lex_table, &mut self.main_lex_table);
@@ -290,16 +301,7 @@ impl Generator {
             })
             .count();
 
-        add_line!(
-            self,
-            "#define LANGUAGE_VERSION {}",
-            if self.next_abi {
-                tree_sitter::LANGUAGE_VERSION
-            } else {
-                tree_sitter::LANGUAGE_VERSION - 1
-            }
-        );
-
+        add_line!(self, "#define LANGUAGE_VERSION {}", self.abi_version);
         add_line!(
             self,
             "#define STATE_COUNT {}",
@@ -560,6 +562,29 @@ impl Generator {
             dedent!(self);
         }
         add_line!(self, "0,");
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
+    }
+
+    /// Produces a list of the "primary state" for every state in the grammar.
+    ///
+    /// The "primary state" for a given state is the first encountered state that behaves
+    /// identically with respect to query analysis. We derive this by keeping track of the `core_id`
+    /// for each state and treating the first state with a given `core_id` as primary.
+    fn add_primary_state_id_list(&mut self) {
+        add_line!(
+            self,
+            "static const TSStateId ts_primary_state_ids[STATE_COUNT] = {{"
+        );
+        indent!(self);
+        let mut first_state_for_each_core_id = HashMap::new();
+        for (idx, state) in self.parse_table.states.iter().enumerate() {
+            let primary_state = first_state_for_each_core_id
+                .entry(state.core_id)
+                .or_insert(idx);
+            add_line!(self, "[{}] = {},", idx, primary_state);
+        }
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
@@ -1339,9 +1364,7 @@ impl Generator {
         add_line!(self, ".external_token_count = EXTERNAL_TOKEN_COUNT,");
         add_line!(self, ".state_count = STATE_COUNT,");
         add_line!(self, ".large_state_count = LARGE_STATE_COUNT,");
-        if self.next_abi {
-            add_line!(self, ".production_id_count = PRODUCTION_ID_COUNT,");
-        }
+        add_line!(self, ".production_id_count = PRODUCTION_ID_COUNT,");
         add_line!(self, ".field_count = FIELD_COUNT,");
         add_line!(
             self,
@@ -1394,6 +1417,10 @@ impl Generator {
             add_line!(self, "{}_deserialize,", external_scanner_name);
             dedent!(self);
             add_line!(self, "}},");
+        }
+
+        if self.abi_version >= ABI_VERSION_WITH_PRIMARY_STATES {
+            add_line!(self, ".primary_state_ids = ts_primary_state_ids,");
         }
 
         dedent!(self);
@@ -1602,8 +1629,9 @@ impl Generator {
 /// * `default_aliases` - A map describing the global rename rules that should apply.
 ///    the keys are symbols that are *always* aliased in the same way, and the values
 ///    are the aliases that are applied to those symbols.
-/// * `next_abi` - A boolean indicating whether to opt into the new, unstable parse
-///    table format. This is mainly used for testing, when developing Tree-sitter itself.
+/// * `abi_version` - The language ABI version that should be generated. Usually
+///    you want Tree-sitter's current version, but right after making an ABI
+///    change, it may be useful to generate code with the previous ABI.
 pub(crate) fn render_c_code(
     name: &str,
     parse_table: ParseTable,
@@ -1613,8 +1641,15 @@ pub(crate) fn render_c_code(
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
     default_aliases: AliasMap,
-    next_abi: bool,
+    abi_version: usize,
 ) -> String {
+    if !(ABI_VERSION_MIN..=ABI_VERSION_MAX).contains(&abi_version) {
+        panic!(
+            "This version of Tree-sitter can only generate parsers with ABI version {} - {}, not {}",
+            ABI_VERSION_MIN, ABI_VERSION_MAX, abi_version
+        );
+    }
+
     Generator {
         buffer: String::new(),
         indent_level: 0,
@@ -1633,7 +1668,7 @@ pub(crate) fn render_c_code(
         symbol_map: HashMap::new(),
         unique_aliases: Vec::new(),
         field_names: Vec::new(),
-        next_abi,
+        abi_version,
     }
     .generate()
 }

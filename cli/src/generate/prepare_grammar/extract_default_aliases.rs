@@ -197,13 +197,7 @@ mod tests {
                     }],
                 },
             ],
-            extra_symbols: vec![],
-            external_tokens: vec![],
-            supertype_symbols: vec![],
-            expected_conflicts: vec![],
-            variables_to_inline: vec![],
-            precedence_orderings: vec![],
-            word_token: None,
+            ..Default::default()
         };
 
         let lexical_grammar = LexicalGrammar {
