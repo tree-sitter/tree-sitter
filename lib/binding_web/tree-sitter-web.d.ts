@@ -113,6 +113,7 @@ declare module 'web-tree-sitter' {
       startIndex: number;
       endIndex: number;
 
+      copy(): TreeCursor;
       reset(node: SyntaxNode): void;
       delete(): void;
       currentNode(): SyntaxNode;

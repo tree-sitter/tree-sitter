@@ -322,6 +322,11 @@ void ts_tree_cursor_current_node_wasm(const TSTree *tree) {
   marshal_node(TRANSFER_BUFFER, ts_tree_cursor_current_node(&cursor));
 }
 
+TSTreeCursor ts_tree_cursor_copy_wasm(const TSTree *tree) {
+  TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, tree);
+  return ts_tree_cursor_copy(&cursor);
+}
+
 /******************/
 /* Section - Node */
 /******************/

@@ -100,6 +100,7 @@
   "_ts_tree_cursor_reset_wasm",
   "_ts_tree_cursor_start_index_wasm",
   "_ts_tree_cursor_start_position_wasm",
+  "_ts_tree_cursor_copy_wasm",
   "_ts_tree_delete",
   "_ts_tree_edit_wasm",
   "_ts_tree_get_changed_ranges_wasm",
