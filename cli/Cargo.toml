@@ -41,7 +41,7 @@ webbrowser = "0.5.1"
 which = "4.1.0"
 
 [dependencies.tree-sitter]
-version = "0.20"
+version = "0.20.3"
 path = "../lib"
 
 [dependencies.tree-sitter-config]
