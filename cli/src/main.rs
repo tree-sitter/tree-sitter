@@ -238,7 +238,8 @@ fn run() -> Result<()> {
                         .long("quiet")
                         .short("q")
                         .help("Don't open in default browser"),
-                ),
+                )
+                .arg(Arg::with_name("grammar-path").index(1)),
         )
         .subcommand(
             SubCommand::with_name("dump-languages")
@@ -532,7 +533,8 @@ fn run() -> Result<()> {
 
         ("playground", Some(matches)) => {
             let open_in_browser = !matches.is_present("quiet");
-            playground::serve(&current_dir, open_in_browser);
+            let grammar_path = matches.value_of("grammar-path").map_or_else(|| current_dir.as_path(), |p| Path::new(p));
+            playground::serve(grammar_path, open_in_browser);
         }
 
         ("dump-languages", Some(_)) => {
