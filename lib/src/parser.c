@@ -1539,6 +1539,13 @@ static bool ts_parser__advance(
       continue;
     }
 
+    // A non-terminal extra rule was reduced and merged into an existing
+    // stack version. This version can be discarded.
+    if (!lookahead.ptr) {
+      ts_stack_halt(self->stack, version);
+      return true;
+    }
+
     // If there were no parse actions for the current lookahead token, then
     // it is not valid in this state. If the current lookahead token is a
     // keyword, then switch to treating it as the normal word token if that
