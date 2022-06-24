@@ -393,8 +393,8 @@ static Subtree ts_parser__lex(
     return NULL_SUBTREE;
   }
 
-  Length start_position = ts_stack_position(self->stack, version);
-  Subtree external_token = ts_stack_last_external_token(self->stack, version);
+  const Length start_position = ts_stack_position(self->stack, version);
+  const Subtree external_token = ts_stack_last_external_token(self->stack, version);
   const bool *valid_external_tokens = ts_language_enabled_external_tokens(
     self->language,
     lex_mode.external_lex_state
@@ -508,11 +508,6 @@ static Subtree ts_parser__lex(
       parse_state,
       self->language
     );
-
-    LOG_LOOKAHEAD(
-      SYM_NAME(ts_subtree_symbol(result)),
-      ts_subtree_total_size(result).bytes
-    );
   } else {
     if (self->lexer.token_end_position.bytes < self->lexer.token_start_position.bytes) {
       self->lexer.token_start_position = self->lexer.token_end_position;
@@ -564,13 +559,12 @@ static Subtree ts_parser__lex(
         length
       );
     }
-
-    LOG_LOOKAHEAD(
-      SYM_NAME(ts_subtree_symbol(result)),
-      ts_subtree_total_size(result).bytes
-    );
   }
 
+  LOG_LOOKAHEAD(
+    SYM_NAME(ts_subtree_symbol(result)),
+    ts_subtree_total_size(result).bytes
+  );
   return result;
 }
 
