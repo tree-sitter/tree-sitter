@@ -40,6 +40,22 @@ d
   (expression_statement (identifier)))
 
 ========================================================
+stray if keyword in function definition
+========================================================
+
+def a():
+  if
+
+---
+
+(module
+  (function_definition
+    name: (identifier)
+    parameters: (parameters)
+    (ERROR)
+    body: (block)))
+
+========================================================
 incomplete if statement in function definition
 ========================================================
 
@@ -74,3 +90,22 @@ def a():
     (ERROR (identifier))
     body: (block
       (expression_statement (string)))))
+
+===========================================
+incomplete definition in class definition
+===========================================
+
+class A:
+  def
+
+b
+
+---
+
+(module
+  (class_definition
+    name: (identifier)
+    (ERROR)
+    body: (block))
+  (expression_statement
+    (identifier)))
