@@ -452,6 +452,10 @@ static Subtree ts_parser__lex(
           (error_mode || !ts_stack_has_advanced_since_error(self->stack, version)) &&
           !external_scanner_state_changed
         ) {
+          LOG(
+            "ignore_empty_external_token symbol:%s",
+            SYM_NAME(self->language->external_scanner.symbol_map[self->lexer.data.result_symbol])
+          )
           found_token = false;
         }
       }
