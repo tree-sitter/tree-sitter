@@ -114,7 +114,7 @@ typedef struct {
   Length size;
   uint32_t lookahead_bytes;
   uint32_t error_cost;
-  uint32_t child_count;
+  uint16_t child_count;
   TSSymbol symbol;
   TSStateId parse_state;
 
@@ -125,6 +125,7 @@ typedef struct {
   bool fragile_right : 1;
   bool has_changes : 1;
   bool has_external_tokens : 1;
+  bool has_external_scanner_state_change : 1;
   bool depends_on_column: 1;
   bool is_missing : 1;
   bool is_keyword : 1;
@@ -135,8 +136,8 @@ typedef struct {
       uint32_t visible_child_count;
       uint32_t named_child_count;
       uint32_t node_count;
-      uint32_t repeat_depth;
       int32_t dynamic_precedence;
+      uint16_t repeat_depth;
       uint16_t production_id;
       struct {
         TSSymbol symbol;
@@ -174,6 +175,8 @@ typedef struct {
 
 void ts_external_scanner_state_init(ExternalScannerState *, const char *, unsigned);
 const char *ts_external_scanner_state_data(const ExternalScannerState *);
+bool ts_external_scanner_state_eq(const ExternalScannerState *a, const char *, unsigned);
+void ts_external_scanner_state_delete(ExternalScannerState *self);
 
 void ts_subtree_array_copy(SubtreeArray, SubtreeArray *);
 void ts_subtree_array_clear(SubtreePool *, SubtreeArray *);
@@ -206,6 +209,7 @@ Subtree ts_subtree_edit(Subtree, const TSInputEdit *edit, SubtreePool *);
 char *ts_subtree_string(Subtree, const TSLanguage *, bool include_all);
 void ts_subtree_print_dot_graph(Subtree, const TSLanguage *, FILE *);
 Subtree ts_subtree_last_external_token(Subtree);
+const ExternalScannerState *ts_subtree_external_scanner_state(Subtree self);
 bool ts_subtree_external_scanner_state_eq(Subtree, Subtree);
 
 #define SUBTREE_GET(self, name) (self.data.is_inline ? self.data.name : self.ptr->name)
@@ -329,6 +333,10 @@ static inline bool ts_subtree_fragile_right(Subtree self) {
 
 static inline bool ts_subtree_has_external_tokens(Subtree self) {
   return self.data.is_inline ? false : self.ptr->has_external_tokens;
+}
+
+static inline bool ts_subtree_has_external_scanner_state_change(Subtree self) {
+  return self.data.is_inline ? false : self.ptr->has_external_scanner_state_change;
 }
 
 static inline bool ts_subtree_depends_on_column(Subtree self) {

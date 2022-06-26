@@ -21,8 +21,6 @@ typedef struct {
 #define TS_MAX_INLINE_TREE_LENGTH UINT8_MAX
 #define TS_MAX_TREE_POOL_SIZE 32
 
-static const ExternalScannerState empty_state = {{.short_data = {0}}, .length = 0};
-
 // ExternalScannerState
 
 void ts_external_scanner_state_init(ExternalScannerState *self, const char *data, unsigned length) {
@@ -58,11 +56,10 @@ const char *ts_external_scanner_state_data(const ExternalScannerState *self) {
   }
 }
 
-bool ts_external_scanner_state_eq(const ExternalScannerState *a, const ExternalScannerState *b) {
-  return a == b || (
-    a->length == b->length &&
-    !memcmp(ts_external_scanner_state_data(a), ts_external_scanner_state_data(b), a->length)
-  );
+bool ts_external_scanner_state_eq(const ExternalScannerState *a, const char *buffer, unsigned length) {
+  return
+    a->length == length &&
+    memcmp(ts_external_scanner_state_data(a), buffer, length) == 0;
 }
 
 // SubtreeArray
@@ -214,6 +211,7 @@ Subtree ts_subtree_new_leaf(
       .fragile_right = false,
       .has_changes = false,
       .has_external_tokens = has_external_tokens,
+      .has_external_scanner_state_change = false,
       .depends_on_column = depends_on_column,
       .is_missing = false,
       .is_keyword = is_keyword,
@@ -381,6 +379,7 @@ void ts_subtree_summarize_children(
   self.ptr->node_count = 1;
   self.ptr->has_external_tokens = false;
   self.ptr->depends_on_column = false;
+  self.ptr->has_external_scanner_state_change = false;
   self.ptr->dynamic_precedence = 0;
 
   uint32_t structural_index = 0;
@@ -396,6 +395,10 @@ void ts_subtree_summarize_children(
       ts_subtree_depends_on_column(child)
     ) {
       self.ptr->depends_on_column = true;
+    }
+
+    if (ts_subtree_has_external_scanner_state_change(child)) {
+      self.ptr->has_external_scanner_state_change = true;
     }
 
     if (i == 0) {
@@ -521,6 +524,7 @@ MutableSubtree ts_subtree_new_node(
     .visible = metadata.visible,
     .named = metadata.named,
     .has_changes = false,
+    .has_external_scanner_state_change = false,
     .fragile_left = fragile,
     .fragile_right = fragile,
     .is_keyword = false,
@@ -830,18 +834,6 @@ static size_t ts_subtree__write_char_to_string(char *s, size_t n, int32_t c) {
     return snprintf(s, n, "%d", c);
 }
 
-static void ts_subtree__write_dot_string(FILE *f, const char *string) {
-  for (const char *c = string; *c; c++) {
-    if (*c == '"') {
-      fputs("\\\"", f);
-    } else if (*c == '\n') {
-      fputs("\\n", f);
-    } else {
-      fputc(*c, f);
-    }
-  }
-}
-
 static const char *ROOT_FIELD = "__ROOT__";
 
 static size_t ts_subtree__write_to_string(
@@ -971,7 +963,7 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
   TSSymbol symbol = alias_symbol ? alias_symbol : subtree_symbol;
   uint32_t end_offset = start_offset + ts_subtree_total_bytes(*self);
   fprintf(f, "tree_%p [label=\"", (void *)self);
-  ts_subtree__write_dot_string(f, ts_language_symbol_name(language, symbol));
+  ts_language_write_symbol_as_dot_string(language, f, symbol);
   fprintf(f, "\"");
 
   if (ts_subtree_child_count(*self) == 0) fprintf(f, ", shape=plaintext");
@@ -1024,14 +1016,26 @@ void ts_subtree_print_dot_graph(Subtree self, const TSLanguage *language, FILE *
   fprintf(f, "}\n");
 }
 
-bool ts_subtree_external_scanner_state_eq(Subtree self, Subtree other) {
-  const ExternalScannerState *state1 = &empty_state;
-  const ExternalScannerState *state2 = &empty_state;
-  if (self.ptr && ts_subtree_has_external_tokens(self) && !self.ptr->child_count) {
-    state1 = &self.ptr->external_scanner_state;
+const ExternalScannerState *ts_subtree_external_scanner_state(Subtree self) {
+  static const ExternalScannerState empty_state = {{.short_data = {0}}, .length = 0};
+  if (
+    self.ptr &&
+    !self.data.is_inline &&
+    self.ptr->has_external_tokens &&
+    self.ptr->child_count == 0
+  ) {
+    return &self.ptr->external_scanner_state;
+  } else {
+    return &empty_state;
   }
-  if (other.ptr && ts_subtree_has_external_tokens(other) && !other.ptr->child_count) {
-    state2 = &other.ptr->external_scanner_state;
-  }
-  return ts_external_scanner_state_eq(state1, state2);
+}
+
+bool ts_subtree_external_scanner_state_eq(Subtree a, Subtree b) {
+  const ExternalScannerState *state_a = ts_subtree_external_scanner_state(a);
+  const ExternalScannerState *state_b = ts_subtree_external_scanner_state(b);
+  return ts_external_scanner_state_eq(
+    state_a,
+    ts_external_scanner_state_data(state_b),
+    state_b->length
+  );
 }

@@ -14,11 +14,9 @@ OPTIONS
 
   -a  Compile C code with the Clang static analyzer
 
-  -l  Run only the corpus tests for the given language
-
   -e  Run only the corpus tests whose name contain the given string
 
-  -t  Run only the given trial number of randomized test
+  -i  Run the given number of iterations of randomized tests (default 10)
 
   -s  Set the seed used to control random behavior
 
@@ -36,7 +34,7 @@ export RUST_BACKTRACE=full
 mode=normal
 test_flags=""
 
-while getopts "adDghl:e:s:t:" option; do
+while getopts "adDghl:e:s:i:" option; do
   case ${option} in
     h)
       usage
@@ -61,6 +59,9 @@ while getopts "adDghl:e:s:t:" option; do
       ;;
     s)
       export TREE_SITTER_SEED=${OPTARG}
+      ;;
+    i)
+      export TREE_SITTER_ITERATIONS=${OPTARG}
       ;;
     d)
       export TREE_SITTER_LOG=1
