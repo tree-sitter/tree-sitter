@@ -160,7 +160,7 @@ static void ts_parser__log(TSParser *self) {
   if (self->dot_graph_file) {
     fprintf(self->dot_graph_file, "graph {\nlabel=\"");
     for (char *c = &self->lexer.debug_buffer[0]; *c != 0; c++) {
-      if (*c == '"') fputc('\\', self->dot_graph_file);
+      if (*c == '"' || *c == '\\') fputc('\\', self->dot_graph_file);
       fputc(*c, self->dot_graph_file);
     }
     fprintf(self->dot_graph_file, "\"\n}\n\n");

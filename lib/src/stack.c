@@ -846,11 +846,7 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
           fprintf(f, "label=\"");
           bool quoted = ts_subtree_visible(link.subtree) && !ts_subtree_named(link.subtree);
           if (quoted) fprintf(f, "'");
-          const char *name = ts_language_symbol_name(language, ts_subtree_symbol(link.subtree));
-          for (const char *c = name; *c; c++) {
-            if (*c == '\"' || *c == '\\') fprintf(f, "\\");
-            fprintf(f, "%c", *c);
-          }
+          ts_language_write_symbol_as_dot_string(language, f, ts_subtree_symbol(link.subtree));
           if (quoted) fprintf(f, "'");
           fprintf(f, "\"");
           fprintf(

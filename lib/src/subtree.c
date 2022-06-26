@@ -834,18 +834,6 @@ static size_t ts_subtree__write_char_to_string(char *s, size_t n, int32_t c) {
     return snprintf(s, n, "%d", c);
 }
 
-static void ts_subtree__write_dot_string(FILE *f, const char *string) {
-  for (const char *c = string; *c; c++) {
-    if (*c == '"') {
-      fputs("\\\"", f);
-    } else if (*c == '\n') {
-      fputs("\\n", f);
-    } else {
-      fputc(*c, f);
-    }
-  }
-}
-
 static const char *ROOT_FIELD = "__ROOT__";
 
 static size_t ts_subtree__write_to_string(
@@ -975,7 +963,7 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
   TSSymbol symbol = alias_symbol ? alias_symbol : subtree_symbol;
   uint32_t end_offset = start_offset + ts_subtree_total_bytes(*self);
   fprintf(f, "tree_%p [label=\"", (void *)self);
-  ts_subtree__write_dot_string(f, ts_language_symbol_name(language, symbol));
+  ts_language_write_symbol_as_dot_string(language, f, symbol);
   fprintf(f, "\"");
 
   if (ts_subtree_child_count(*self) == 0) fprintf(f, ", shape=plaintext");
