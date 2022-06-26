@@ -58,7 +58,7 @@ impl ScopeSequence {
         let mut position = Point { row: 0, column: 0 };
         for (i, stack) in self.0.iter().enumerate() {
             let other_stack = &other.0[i];
-            if *stack != *other_stack {
+            if *stack != *other_stack && ![b'\r', b'\n'].contains(&text[i]) {
                 let containing_range = known_changed_ranges
                     .iter()
                     .find(|range| range.start_point <= position && position < range.end_point);

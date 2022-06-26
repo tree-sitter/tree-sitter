@@ -160,7 +160,7 @@ static void ts_parser__log(TSParser *self) {
   if (self->dot_graph_file) {
     fprintf(self->dot_graph_file, "graph {\nlabel=\"");
     for (char *c = &self->lexer.debug_buffer[0]; *c != 0; c++) {
-      if (*c == '"') fputc('\\', self->dot_graph_file);
+      if (*c == '"' || *c == '\\') fputc('\\', self->dot_graph_file);
       fputc(*c, self->dot_graph_file);
     }
     fprintf(self->dot_graph_file, "\"\n}\n\n");
@@ -393,8 +393,8 @@ static Subtree ts_parser__lex(
     return NULL_SUBTREE;
   }
 
-  Length start_position = ts_stack_position(self->stack, version);
-  Subtree external_token = ts_stack_last_external_token(self->stack, version);
+  const Length start_position = ts_stack_position(self->stack, version);
+  const Subtree external_token = ts_stack_last_external_token(self->stack, version);
   const bool *valid_external_tokens = ts_language_enabled_external_tokens(
     self->language,
     lex_mode.external_lex_state
@@ -408,6 +408,8 @@ static Subtree ts_parser__lex(
   Length error_start_position = length_zero();
   Length error_end_position = length_zero();
   uint32_t lookahead_end_byte = 0;
+  uint32_t external_scanner_state_len = 0;
+  bool external_scanner_state_changed = false;
   ts_lexer_reset(&self->lexer, start_position);
 
   for (;;) {
@@ -429,22 +431,36 @@ static Subtree ts_parser__lex(
       );
       ts_lexer_finish(&self->lexer, &lookahead_end_byte);
 
-      // Zero-length external tokens are generally allowed, but they're not
-      // allowed right after a syntax error. This is for two reasons:
-      // 1. After a syntax error, the lexer is looking for any possible token,
-      //    as opposed to the specific set of tokens that are valid in some
-      //    parse state. In this situation, it's very easy for an external
-      //    scanner to produce unwanted zero-length tokens.
-      // 2. The parser sometimes inserts *missing* tokens to recover from
-      //    errors. These tokens are also zero-length. If we allow more
-      //    zero-length tokens to be created after missing tokens, it
-      //    can lead to infinite loops. Forbidding zero-length tokens
-      //    right at the point of error recovery is a conservative strategy
-      //    for preventing this kind of infinite loop.
-      if (found_token && (
-        self->lexer.token_end_position.bytes > current_position.bytes ||
-        (!error_mode && ts_stack_has_advanced_since_error(self->stack, version))
-      )) {
+      if (found_token) {
+        external_scanner_state_len = self->language->external_scanner.serialize(
+          self->external_scanner_payload,
+          self->lexer.debug_buffer
+        );
+        external_scanner_state_changed = !ts_external_scanner_state_eq(
+          ts_subtree_external_scanner_state(external_token),
+          self->lexer.debug_buffer,
+          external_scanner_state_len
+        );
+
+        // When recovering from an error, ignore any zero-length external tokens
+        // unless they have changed the external scanner's state. This helps to
+        // avoid infinite loops which could otherwise occur, because the lexer is
+        // looking for any possible token, instead of looking for the specific set of
+        // tokens that are valid in some parse state.
+        if (
+          self->lexer.token_end_position.bytes == current_position.bytes &&
+          (error_mode || !ts_stack_has_advanced_since_error(self->stack, version)) &&
+          !external_scanner_state_changed
+        ) {
+          LOG(
+            "ignore_empty_external_token symbol:%s",
+            SYM_NAME(self->language->external_scanner.symbol_map[self->lexer.data.result_symbol])
+          )
+          found_token = false;
+        }
+      }
+
+      if (found_token) {
         found_external_token = true;
         called_get_column = self->lexer.did_get_column;
         break;
@@ -508,11 +524,6 @@ static Subtree ts_parser__lex(
       parse_state,
       self->language
     );
-
-    LOG_LOOKAHEAD(
-      SYM_NAME(ts_subtree_symbol(result)),
-      ts_subtree_total_size(result).bytes
-    );
   } else {
     if (self->lexer.token_end_position.bytes < self->lexer.token_start_position.bytes) {
       self->lexer.token_start_position = self->lexer.token_end_position;
@@ -554,23 +565,20 @@ static Subtree ts_parser__lex(
     );
 
     if (found_external_token) {
-      unsigned length = self->language->external_scanner.serialize(
-        self->external_scanner_payload,
-        self->lexer.debug_buffer
-      );
+      MutableSubtree mut_result = ts_subtree_to_mut_unsafe(result);
       ts_external_scanner_state_init(
-        &((SubtreeHeapData *)result.ptr)->external_scanner_state,
+        &mut_result.ptr->external_scanner_state,
         self->lexer.debug_buffer,
-        length
+        external_scanner_state_len
       );
+      mut_result.ptr->has_external_scanner_state_change = external_scanner_state_changed;
     }
-
-    LOG_LOOKAHEAD(
-      SYM_NAME(ts_subtree_symbol(result)),
-      ts_subtree_total_size(result).bytes
-    );
   }
 
+  LOG_LOOKAHEAD(
+    SYM_NAME(ts_subtree_symbol(result)),
+    ts_subtree_total_size(result).bytes
+  );
   return result;
 }
 
@@ -1205,6 +1213,15 @@ static void ts_parser__recover(
     return;
   }
 
+  if (
+    did_recover &&
+    ts_subtree_has_external_scanner_state_change(lookahead)
+  ) {
+    ts_stack_halt(self->stack, version);
+    ts_subtree_release(&self->tree_pool, lookahead);
+    return;
+  }
+
   // If the parser is still in the error state at the end of the file, just wrap everything
   // in an ERROR node and terminate.
   if (ts_subtree_is_eof(lookahead)) {
@@ -1537,6 +1554,13 @@ static bool ts_parser__advance(
       }
 
       continue;
+    }
+
+    // A non-terminal extra rule was reduced and merged into an existing
+    // stack version. This version can be discarded.
+    if (!lookahead.ptr) {
+      ts_stack_halt(self->stack, version);
+      return true;
     }
 
     // If there were no parse actions for the current lookahead token, then
@@ -1928,6 +1952,7 @@ TSTree *ts_parser_parse(
     }
   } while (version_count != 0);
 
+  assert(self->finished_tree.ptr);
   ts_subtree_balance(self->finished_tree, &self->tree_pool, self->language);
   LOG("done");
   LOG_TREE(self->finished_tree);
