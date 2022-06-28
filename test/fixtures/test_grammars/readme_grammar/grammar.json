@@ -30,7 +30,7 @@
     },
 
     // Tokens like '+' and '*' are described directly within the
-    // grammar's rules, as opposed to in a seperate lexer description.
+    // grammar's rules, as opposed to in a separate lexer description.
     "sum": {
       "type": "PREC_LEFT",
       "value": 1,

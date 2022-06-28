@@ -70,7 +70,7 @@ pub(crate) enum Rule {
 
 // Because tokens are represented as small (~400 max) unsigned integers,
 // sets of tokens can be efficiently represented as bit vectors with each
-// index correspoding to a token, and each value representing whether or not
+// index corresponding to a token, and each value representing whether or not
 // the token is present in the set.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct TokenSet {

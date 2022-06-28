@@ -511,7 +511,7 @@ fn test_parsing_after_detecting_error_in_the_middle_of_a_string_token() {
     // Delete a suffix of the source code, starting in the middle of the string
     // literal, after some whitespace. With this deletion, the remaining string
     // content: "c, " looks like two valid python tokens: an identifier and a comma.
-    // When this edit is undone, in order correctly recover the orginal tree, the
+    // When this edit is undone, in order correctly recover the original tree, the
     // parser needs to remember that before matching the `c` as an identifier, it
     // lookahead ahead several bytes, trying to find the closing quotation mark in
     // order to match the "string content" node.
