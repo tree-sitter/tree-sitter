@@ -3324,6 +3324,10 @@ static inline bool ts_query_cursor__advance(
         point_gt(ts_node_end_point(parent_node), self->start_point) &&
         point_lt(ts_node_start_point(parent_node), self->end_point)
       );
+      bool node_is_error = symbol != ts_builtin_sym_error;
+      bool parent_is_error =
+        !ts_node_is_null(parent_node) &&
+        ts_node_symbol(parent_node) == ts_builtin_sym_error;
 
       // Add new states for any patterns whose root node is a wildcard.
       for (unsigned i = 0; i < self->query->wildcard_root_pattern_count; i++) {
@@ -3333,7 +3337,9 @@ static inline bool ts_query_cursor__advance(
         // state at the start of this pattern.
         QueryStep *step = &self->query->steps.contents[pattern->step_index];
         if (
-          (pattern->is_rooted ? node_intersects_range : parent_intersects_range) &&
+          (pattern->is_rooted ?
+            (node_intersects_range && !node_is_error) :
+            (parent_intersects_range && !parent_is_error)) &&
           (!step->field || field_id == step->field) &&
           (!step->supertype_symbol || supertype_count > 0)
         ) {
@@ -3351,7 +3357,7 @@ static inline bool ts_query_cursor__advance(
           // If this node matches the first step of the pattern, then add a new
           // state at the start of this pattern.
           if (
-            (pattern->is_rooted ? node_intersects_range : parent_intersects_range) &&
+            (pattern->is_rooted ? node_intersects_range : (parent_intersects_range && !parent_is_error)) &&
             (!step->field || field_id == step->field)
           ) {
             ts_query_cursor__add_state(self, pattern);

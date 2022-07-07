@@ -1688,6 +1688,43 @@ fn test_query_matches_with_too_many_permutations_to_track() {
 }
 
 #[test]
+fn test_query_sibling_patterns_dont_match_children_of_an_error() {
+    allocations::record(|| {
+        let language = get_language("rust");
+        let query = Query::new(
+            language,
+            r#"
+            ("{" @open "}" @close)
+            "#,
+        )
+        .unwrap();
+
+        let source = "
+            fn a() {}
+
+            <<<<<<<<<< add pub b fn () {}
+            pub fn b() {
+            ==========
+            pub fn c() {
+            >>>>>>>>>> add pub c fn () {}
+            }
+        ";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+
+        let tree = parser.parse(&source, None).unwrap();
+
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.matches(&query, tree.root_node(), source.as_bytes());
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[(0, vec![("open", "{"), ("close", "}")])],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_alternatives_and_too_many_permutations_to_track() {
     allocations::record(|| {
         let language = get_language("javascript");
