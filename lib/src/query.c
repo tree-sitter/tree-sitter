@@ -3406,7 +3406,7 @@ static inline bool ts_query_cursor__advance(
         // pattern.
         bool node_does_match = false;
         if (step->symbol == WILDCARD_SYMBOL) {
-          node_does_match = is_named || !step->is_named;
+          node_does_match = !node_is_error && (is_named || !step->is_named);
         } else {
           node_does_match = symbol == step->symbol;
         }
