@@ -1699,6 +1699,12 @@ impl Query {
         unsafe { ffi::ts_query_disable_pattern(self.ptr.as_ptr(), index as u32) }
     }
 
+    /// Check if a given pattern within a query has a single root node.
+    #[doc(alias = "ts_query_is_pattern_guaranteed_at_step")]
+    pub fn is_pattern_rooted(&self, index: usize) -> bool {
+        unsafe { ffi::ts_query_is_pattern_rooted(self.ptr.as_ptr(), index as u32) }
+    }
+
     /// Check if a given step in a query is 'definite'.
     ///
     /// A query step is 'definite' if its parent pattern will be guaranteed to match

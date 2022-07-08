@@ -659,6 +659,9 @@ extern "C" {
     ) -> *const TSQueryPredicateStep;
 }
 extern "C" {
+    pub fn ts_query_is_pattern_rooted(self_: *const TSQuery, pattern_index: u32) -> bool;
+}
+extern "C" {
     pub fn ts_query_is_pattern_guaranteed_at_step(self_: *const TSQuery, byte_offset: u32) -> bool;
 }
 extern "C" {
