@@ -167,6 +167,14 @@ pub fn load_grammar_file(grammar_path: &Path) -> Result<String> {
 }
 
 fn load_js_grammar_file(grammar_path: &Path) -> Result<String> {
+    // The error message when canonicalize fails doesn't mention
+    // the path which was looked at, so emit a nicer error here.
+    if !grammar_path.exists() {
+        return Err(anyhow!(
+            "missing grammar file: {}",
+            grammar_path.to_string_lossy()
+        ));
+    }
     let grammar_path = fs::canonicalize(grammar_path)?;
     let mut node_process = Command::new("node")
         .env("TREE_SITTER_GRAMMAR_PATH", grammar_path)
