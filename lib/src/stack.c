@@ -777,7 +777,8 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
     );
 
     if (head->summary) {
-      fprintf(f, "\nsummary_size: %u", head->summary->size);
+      fprintf(f, "\nsummary:");
+      for (uint32_t j = 0; j < head->summary->size; j++) fprintf(f, " %u", head->summary->contents[j].state);
     }
 
     if (head->last_external_token.ptr) {
