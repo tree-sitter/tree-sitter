@@ -15,7 +15,13 @@ All of the API functions shown here are declared and documented in the [`tree_si
 
 ### Building the Library
 
-To build the library on a POSIX system, just run `make` in the Tree-sitter directory. This will create a static library called `libtree-sitter.a` as well as dynamic libraries.
+You can build on any platform with provided CMake script
+
+```bash
+cmake -S lib -B build # -DBUILD_SHARED_LIBS=ON
+cmake --build build
+cmake --install build --prefix /my/install/prefix
+```
 
 Alternatively, you can incorporate the library in a larger project's build system by adding one source file to the build. This source file needs two directories to be in the include path when compiled:
 
