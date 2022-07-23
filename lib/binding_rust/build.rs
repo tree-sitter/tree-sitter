@@ -1,6 +1,33 @@
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
+fn build_cc() {
+    let src_path = Path::new("src");
+    for entry in fs::read_dir(&src_path).unwrap() {
+        let entry = entry.unwrap();
+        let path = src_path.join(entry.file_name());
+        println!("cargo:rerun-if-changed={}", path.to_str().unwrap());
+    }
+
+    cc::Build::new()
+        .flag_if_supported("-std=c99")
+        .flag_if_supported("-Wno-unused-parameter")
+        .include(src_path)
+        .include("include")
+        .file(src_path.join("lib.c"))
+        .compile("tree-sitter");
+}
+
+fn build_cmake() {
+    use cmake::Config;
+    let lib_ts_path = Path::new(".");
+
+    let dst = Config::new(lib_ts_path).define("BUILD_SHARED_LIBS","false").build();
+
+    println!("cargo:rustc-link-search=native={}/lib", dst.display());
+    println!("cargo:rustc-link-lib=static=tree-sitter")
+}
+
 fn main() {
     println!("cargo:rerun-if-env-changed=TREE_SITTER_STATIC_ANALYSIS");
     if env::var("TREE_SITTER_STATIC_ANALYSIS").is_ok() {
@@ -17,20 +44,12 @@ fn main() {
         }
     }
 
-    let src_path = Path::new("src");
-    for entry in fs::read_dir(&src_path).unwrap() {
-        let entry = entry.unwrap();
-        let path = src_path.join(entry.file_name());
-        println!("cargo:rerun-if-changed={}", path.to_str().unwrap());
+    if which("cmake").is_none() {
+        build_cc()
     }
-
-    cc::Build::new()
-        .flag_if_supported("-std=c99")
-        .flag_if_supported("-Wno-unused-parameter")
-        .include(src_path)
-        .include("include")
-        .file(src_path.join("lib.c"))
-        .compile("tree-sitter");
+    else {
+        build_cmake()
+    }
 }
 
 fn which(exe_name: impl AsRef<Path>) -> Option<PathBuf> {
