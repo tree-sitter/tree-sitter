@@ -242,7 +242,7 @@ typedef Array(AnalysisState *) AnalysisStatePool;
  */
 typedef struct {
   TSStateId state;
-  uint8_t production_id;
+  uint16_t production_id;
   uint8_t child_index: 7;
   bool done: 1;
 } AnalysisSubgraphNode;
