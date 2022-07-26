@@ -4,7 +4,7 @@
 #include "./length.h"
 #include "./unicode.h"
 
-#define LOG(message, character)          \
+#define LOG(message, character)              \
   if (self->logger.log) {                    \
     snprintf(                                \
       self->debug_buffer,                    \
