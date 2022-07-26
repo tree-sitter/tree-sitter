@@ -4,7 +4,7 @@
 #include "./length.h"
 #include "./unicode.h"
 
-#define LOG_LEX(message, character)          \
+#define LOG(message, character)          \
   if (self->logger.log) {                    \
     snprintf(                                \
       self->debug_buffer,                    \
@@ -17,22 +17,6 @@
     self->logger.log(                        \
       self->logger.payload,                  \
       TSLogTypeLex,                          \
-      self->debug_buffer                     \
-    );                                       \
-  }
-
-#define LOG_COLUMN_CACHE(hit, col)           \
-  if (self->logger.log) {                    \
-    snprintf(                                \
-      self->debug_buffer,                    \
-      TREE_SITTER_SERIALIZATION_BUFFER_SIZE, \
-      "get_column cache %s; value: %d",      \
-      hit ? "hit" : "miss",                  \
-      col                                    \
-    );                                       \
-    self->logger.log(                        \
-      self->logger.payload,                  \
-      TSLogTypeColumnCache,                  \
       self->debug_buffer                     \
     );                                       \
   }
@@ -267,9 +251,9 @@ static void ts_lexer__advance(TSLexer *_self, bool skip) {
   if (!self->chunk) return;
 
   if (skip) {
-    LOG_LEX("skip", self->data.lookahead);
+    LOG("skip", self->data.lookahead);
   } else {
-    LOG_LEX("consume", self->data.lookahead);
+    LOG("consume", self->data.lookahead);
   }
   
   ts_lexer__do_advance(self, skip);
@@ -322,10 +306,6 @@ static uint32_t ts_lexer__get_column(TSLexer *_self) {
     while (self->current_position.bytes < goal_byte && !ts_lexer__eof(_self) && self->chunk) {
       ts_lexer__do_advance(self, false);
     }
-    
-    LOG_COLUMN_CACHE(false, self->column_cache.value);
-  } else {
-    LOG_COLUMN_CACHE(true, self->column_cache.value);
   }
 
   return self->column_cache.value;
@@ -483,5 +463,4 @@ TSRange *ts_lexer_included_ranges(const Lexer *self, uint32_t *count) {
   return self->included_ranges;
 }
 
-#undef LOG_LEX
-#undef LOG_COLUMN_CACHE
+#undef LOG
