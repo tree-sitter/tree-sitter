@@ -9,6 +9,7 @@ set(TS_SOVERSION_MAJOR 0)
 set(TS_SOVERSION_MINOR 0)
 
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+option(TS_PARSERS_LIST "Build shared libraries" ON)
 
 file(GLOB TS_SRC_FILES "${PROJECT_SOURCE_DIR}/src/*.c")
 list(REMOVE_ITEM TS_SRC_FILES "${PROJECT_SOURCE_DIR}/src/lib.c") # skip amalgamation
@@ -38,3 +39,5 @@ install(EXPORT treesitterConfig
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/tree-sitter)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tree-sitter.pc
         DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/pkgconfig)
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+include(TSParsers)
