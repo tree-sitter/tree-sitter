@@ -26,7 +26,7 @@ SONAME_MAJOR := 0
 SONAME_MINOR := 0
 
 # OS-specific bits
-ifeq ($(shell uname),Darwin)
+ifneq ($(shell $(CC) -print-multiarch | grep -c darwin),0)
 	SOEXT = dylib
 	SOEXTVER_MAJOR = $(SONAME_MAJOR).dylib
 	SOEXTVER = $(SONAME_MAJOR).$(SONAME_MINOR).dylib
