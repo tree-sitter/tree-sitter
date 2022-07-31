@@ -86,6 +86,7 @@ Parsers for these languages are in development:
 * [Haskell](https://github.com/tree-sitter/tree-sitter-haskell)
 * [Julia](https://github.com/tree-sitter/tree-sitter-julia)
 * [Kotlin](https://github.com/fwcd/tree-sitter-kotlin)
+* [LALRPOP](https://github.com/traxys/tree-sitter-lalrpop)
 * [Nix](https://github.com/cstrahan/tree-sitter-nix)
 * [Objective-C](https://github.com/jiyee/tree-sitter-objc)
 * [Org](https://github.com/milisims/tree-sitter-org)
