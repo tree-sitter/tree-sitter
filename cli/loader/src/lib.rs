@@ -395,13 +395,16 @@ impl Loader {
             } else {
                 command
                     .arg("-shared")
-                    .arg("-fPIC")
                     .arg("-fno-exceptions")
                     .arg("-g")
                     .arg("-I")
                     .arg(header_path)
                     .arg("-o")
                     .arg(&library_path);
+
+                if !cfg!(windows) {
+                    command.arg("-fPIC");
+                }
 
                 if self.debug_build {
                     command.arg("-O0");
