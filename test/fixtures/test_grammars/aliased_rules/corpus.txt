@@ -7,7 +7,7 @@ Method calls
 ---
 
 (statement
-  (star_aliased)
+  (star)
   (call_expression
     (member_expression
       (variable_name)
