@@ -1,7 +1,10 @@
 module.exports = grammar({
     name: 'aliased_rules',
 
-    extras: $ => [/\s/],
+    extras: $ => [
+      /\s/,
+      $.star,
+    ],
 
     rules: {
         statement: $ => seq($._expression, ';'),
@@ -25,6 +28,15 @@ module.exports = grammar({
             alias($.identifier, $.property_name)
         )),
 
-        identifier: $ => /[a-z]+/
+        identifier: $ => /[a-z]+/,
+
+        // Tests for https://github.com/tree-sitter/tree-sitter/issues/1834
+        //
+        // Even though the alias is unused, that issue causes all instances of
+        // the extra that appear in the tree to be renamed to `star_aliased`.
+        //
+        // Instead, this alias should have no effect because it is unused.
+        star: $ => '*',
+        unused: $ => alias($.star, $.star_aliased),
     }
 });
