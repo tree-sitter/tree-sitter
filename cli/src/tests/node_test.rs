@@ -530,6 +530,34 @@ fn test_node_edit() {
 }
 
 #[test]
+fn test_root_node_with_offset() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("javascript")).unwrap();
+    let tree = parser.parse("  if (a) b", None).unwrap();
+
+    let node = tree.root_node_with_offset(6, Point::new(2, 2));
+    assert_eq!(node.byte_range(), 8..16);
+    assert_eq!(node.start_position(), Point::new(2, 4));
+    assert_eq!(node.end_position(), Point::new(2, 12));
+
+    let child = node.child(0).unwrap().child(2).unwrap();
+    assert_eq!(child.kind(), "expression_statement");
+    assert_eq!(child.byte_range(), 15..16);
+    assert_eq!(child.start_position(), Point::new(2, 11));
+    assert_eq!(child.end_position(), Point::new(2, 12));
+
+    let mut cursor = node.walk();
+    cursor.goto_first_child();
+    cursor.goto_first_child();
+    cursor.goto_next_sibling();
+    let child = cursor.node();
+    assert_eq!(child.kind(), "parenthesized_expression");
+    assert_eq!(child.byte_range(), 11..14);
+    assert_eq!(child.start_position(), Point::new(2, 7));
+    assert_eq!(child.end_position(), Point::new(2, 10));
+}
+
+#[test]
 fn test_node_is_extra() {
     let mut parser = Parser::new();
     parser.set_language(get_language("javascript")).unwrap();

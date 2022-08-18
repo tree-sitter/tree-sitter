@@ -1,6 +1,7 @@
 #include "tree_sitter/api.h"
 #include "./array.h"
 #include "./get_changed_ranges.h"
+#include "./length.h"
 #include "./subtree.h"
 #include "./tree_cursor.h"
 #include "./tree.h"
@@ -35,6 +36,15 @@ void ts_tree_delete(TSTree *self) {
 
 TSNode ts_tree_root_node(const TSTree *self) {
   return ts_node_new(self, &self->root, ts_subtree_padding(self->root), 0);
+}
+
+TSNode ts_tree_root_node_with_offset(
+  const TSTree *self,
+  uint32_t offset_bytes,
+  TSPoint offset_extent
+) {
+  Length offset = {offset_bytes, offset_extent};
+  return ts_node_new(self, &self->root, length_add(offset, ts_subtree_padding(self->root)), 0);
 }
 
 const TSLanguage *ts_tree_language(const TSTree *self) {
