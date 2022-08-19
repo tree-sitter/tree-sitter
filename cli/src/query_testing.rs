@@ -151,25 +151,34 @@ pub fn parse_position_comments(
 
 pub fn assert_expected_captures(
     infos: Vec<CaptureInfo>,
-    path: String,
+    path: &String,
     parser: &mut Parser,
     language: Language,
-) -> Result<()> {
+) -> Result<usize> {
     let contents = fs::read_to_string(path)?;
     let pairs = parse_position_comments(parser, language, contents.as_bytes())?;
-    for info in &infos {
-        if let Some(found) = pairs.iter().find(|p| {
-            p.position.row == info.start.row && p.position >= info.start && p.position < info.end
+    let nassertions = pairs.len();
+    for assertion in pairs {
+        if let Some(found) = &infos.iter().find(|p| {
+            assertion.position.row == p.start.row
+                && assertion.position >= p.start
+                && assertion.position < p.end
         }) {
-            if found.expected_capture_name != info.name && info.name != "name" {
-                Err(anyhow!(
+            if assertion.expected_capture_name != found.name && found.name != "name" {
+                return Err(anyhow!(
                     "Assertion failed: at {}, found {}, expected {}",
-                    info.start,
-                    found.expected_capture_name,
-                    info.name
-                ))?
+                    found.start,
+                    assertion.expected_capture_name,
+                    found.name
+                ));
             }
+        } else {
+            return Err(anyhow!(
+                "Assertion failed: could not match {} at {}",
+                assertion.expected_capture_name,
+                assertion.position
+            ));
         }
     }
-    Ok(())
+    Ok(nassertions)
 }

@@ -405,6 +405,45 @@ fn run() -> Result<()> {
             if test_tag_dir.is_dir() {
                 test_tags::test_tags(&loader, &test_tag_dir)?;
             }
+
+            // For the rest of the queries, find their tests and run them
+            for entry in walkdir::WalkDir::new(&current_dir.join("queries"))
+                .into_iter()
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_type().is_file())
+            {
+                let stem = entry
+                    .path()
+                    .file_stem()
+                    .map(|s| s.to_str().unwrap_or(""))
+                    .unwrap_or("");
+                if stem != "highlights" && stem != "tags" {
+                    println!("{} query:", stem);
+
+                    let paths = walkdir::WalkDir::new(&test_dir.join(stem))
+                        .into_iter()
+                        .filter_map(|e| {
+                            let entry = e.ok()?;
+                            if entry.file_type().is_file() {
+                                Some(String::from(entry.path().to_string_lossy()))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<String>>();
+                    query::query_files_at_paths(
+                        *language,
+                        paths,
+                        entry.path(),
+                        false,
+                        None,
+                        None,
+                        true,
+                        false,
+                        false,
+                    )?;
+                }
+            }
         }
 
         ("parse", Some(matches)) => {
