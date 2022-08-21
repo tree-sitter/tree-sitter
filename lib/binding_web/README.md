@@ -142,3 +142,47 @@ const Parser = require('web-tree-sitter');
   console.log(tree.rootNode.toString());
 })();
 ```
+
+#### Running .wasm in browser
+
+`web-tree-sitter` can run in the browser, but there are some common pitfalls.
+
+##### Loading the .wasm file
+
+`web-tree-sitter` needs to load the `tree-sitter.wasm` file. By default, it assumes that this file is available in the 
+same path as the JavaScript code. Therefore, if the code is being served from `http://localhost:3000/bundle.js`, then
+the wasm file should be at `http://localhost:3000/tree-sitter.wasm`.
+
+For server side frameworks like NextJS, this can be tricky as pages are often served from a path such as 
+`http://localhost:3000/_next/static/chunks/pages/index.js`. The loader will therefore look for the wasm file at
+`http://localhost:3000/_next/static/chunks/pages/tree-sitter.wasm`. The solution is to pass a `locateFile` function in 
+the `moduleOptions` argument to `Parser.init()`:
+
+```javascript
+await Parser.init({
+  locateFile(scriptName: string, scriptDirectory: string) {
+    return scriptName;
+  },
+});
+```
+
+`locateFile` takes in two parameters, `scriptName`, i.e. the wasm file name, and `scriptDirectory`, i.e. the directory 
+where the loader expects the script to be. It returns the path where the loader will look for the wasm file. In the NextJS
+case, we want to return just the `scriptName` so that the loader will look at `http://localhost:3000/tree-sitter.wasm`
+and not `http://localhost:3000/_next/static/chunks/pages/tree-sitter.wasm`.
+
+##### `Can't resolve 'fs' in 'node_modules/web-tree-sitter'`
+
+Most bundlers will notice that the `tree-sitter.js` file is attempting to import `fs`, i.e. node's file system library. 
+Since this doesn't exist in the browser, the bundlers will get confused. For webpack you can fix this by adding the 
+following to your webpack config:
+
+```javascript
+{
+  resolve: {
+    fallback: {
+      fs: false
+    }
+  }
+}
+```
