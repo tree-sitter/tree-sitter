@@ -666,8 +666,9 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *edit, SubtreePool *pool
 
     Length size = ts_subtree_size(*entry.tree);
     Length padding = ts_subtree_padding(*entry.tree);
+    Length total_size = length_add(padding, size);
     uint32_t lookahead_bytes = ts_subtree_lookahead_bytes(*entry.tree);
-    uint32_t end_byte = padding.bytes + size.bytes + lookahead_bytes;
+    uint32_t end_byte = total_size.bytes + lookahead_bytes;
     if (edit.start.bytes > end_byte || (is_noop && edit.start.bytes == end_byte)) continue;
 
     // If the edit is entirely within the space before this subtree, then shift this
@@ -679,7 +680,7 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *edit, SubtreePool *pool
     // If the edit starts in the space before this subtree and extends into this subtree,
     // shrink the subtree's content to compensate for the change in the space before it.
     else if (edit.start.bytes < padding.bytes) {
-      size = length_sub(size, length_sub(edit.old_end, padding));
+      size = length_saturating_sub(size, length_sub(edit.old_end, padding));
       padding = edit.new_end;
     }
 
@@ -690,15 +691,14 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *edit, SubtreePool *pool
     }
 
     // If the edit is within this subtree, resize the subtree to reflect the edit.
-    else {
-      uint32_t total_bytes = padding.bytes + size.bytes;
-      if (edit.start.bytes < total_bytes ||
-         (edit.start.bytes == total_bytes && is_pure_insertion)) {
-        size = length_add(
-          length_sub(edit.new_end, padding),
-          length_sub(size, length_sub(edit.old_end, padding))
-        );
-      }
+    else if (
+      edit.start.bytes < total_size.bytes ||
+      (edit.start.bytes == total_size.bytes && is_pure_insertion)
+    ) {
+      size = length_add(
+        length_sub(edit.new_end, padding),
+        length_saturating_sub(total_size, edit.old_end)
+      );
     }
 
     MutableSubtree result = ts_subtree_make_mut(pool, *entry.tree);
@@ -764,16 +764,10 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *edit, SubtreePool *pool
 
       // Transform edit into the child's coordinate space.
       Edit child_edit = {
-        .start = length_sub(edit.start, child_left),
-        .old_end = length_sub(edit.old_end, child_left),
-        .new_end = length_sub(edit.new_end, child_left),
+        .start = length_saturating_sub(edit.start, child_left),
+        .old_end = length_saturating_sub(edit.old_end, child_left),
+        .new_end = length_saturating_sub(edit.new_end, child_left),
       };
-
-      // Clamp child_edit to the child's bounds.
-      if (edit.start.bytes < child_left.bytes) child_edit.start = length_zero();
-      if (edit.old_end.bytes < child_left.bytes) child_edit.old_end = length_zero();
-      if (edit.new_end.bytes < child_left.bytes) child_edit.new_end = length_zero();
-      if (edit.old_end.bytes > child_right.bytes) child_edit.old_end = child_size;
 
       // Interpret all inserted text as applying to the *first* child that touches the edit.
       // Subsequent children are only never have any text inserted into them; they are only
