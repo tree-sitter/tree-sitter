@@ -90,6 +90,7 @@ Parsers for these languages are in development:
 * [Org](https://github.com/milisims/tree-sitter-org)
 * [Perl](https://github.com/ganezdragon/tree-sitter-perl)
 * [Protocol Buffers](https://github.com/mitchellh/tree-sitter-proto)
+* [Racket](https://github.com/6cdh/tree-sitter-racket)
 * [Scala](https://github.com/tree-sitter/tree-sitter-scala)
 * [Sourcepawn](https://github.com/nilshelmig/tree-sitter-sourcepawn)
 * [Swift](https://github.com/tree-sitter/tree-sitter-swift)
