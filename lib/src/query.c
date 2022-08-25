@@ -103,7 +103,7 @@ typedef struct {
 
 /*
  * Slice - A slice of an external array. Within a query, capture names,
- * literal string values, and predicate step informations are stored in three
+ * literal string values, and predicate step information are stored in three
  * contiguous arrays. Individual captures, string values, and predicates are
  * represented as slices of these three arrays.
  */
@@ -1645,7 +1645,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
 
               // If the state has advanced to a step with an alternative step, then add another state
               // at that alternative step. This process is simpler than the process of actually matching a
-              // pattern during query exection, because for the purposes of query analysis, there is no
+              // pattern during query execution, because for the purposes of query analysis, there is no
               // need to process repetitions.
               if (
                 does_match &&
@@ -2045,7 +2045,7 @@ static TSQueryError ts_query__parse_predicate(
 // the query's internal state machine representation. For nested patterns,
 // this function calls itself recursively.
 //
-// The caller is repsonsible for passing in a dedicated CaptureQuantifiers.
+// The caller is responsible for passing in a dedicated CaptureQuantifiers.
 // These should not be shared between different calls to ts_query__parse_pattern!
 static TSQueryError ts_query__parse_pattern(
   TSQuery *self,
@@ -3545,7 +3545,7 @@ static inline bool ts_query_cursor__advance(
 
         // If this state's next step has an alternative step, then copy the state in order
         // to pursue both alternatives. The alternative step itself may have an alternative,
-        // so this is an interative process.
+        // so this is an interactive process.
         unsigned end_index = i + 1;
         for (unsigned j = i; j < end_index; j++) {
           QueryState *state = &self->states.contents[j];

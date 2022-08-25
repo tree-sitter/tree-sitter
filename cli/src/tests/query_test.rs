@@ -2947,7 +2947,7 @@ fn test_query_captures_with_many_nested_results_with_fields() {
         .unwrap();
 
         // The outer expression does not match the pattern, but the consequence of the ternary
-        // is an object that *does* contain many occurences of the pattern.
+        // is an object that *does* contain many occurrences of the pattern.
         let count = 50;
         let mut source = "a ? {".to_owned();
         for i in 0..count {

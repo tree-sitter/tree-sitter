@@ -598,7 +598,7 @@ impl<'a> ParseTableBuilder<'a> {
         .unwrap();
         write!(&mut msg, "Possible interpretations:\n\n").unwrap();
 
-        let mut interpretions = conflicting_items
+        let mut interpretations = conflicting_items
             .iter()
             .map(|item| {
                 let mut line = String::new();
@@ -652,13 +652,13 @@ impl<'a> ParseTableBuilder<'a> {
             })
             .collect::<Vec<_>>();
 
-        let max_interpretation_length = interpretions
+        let max_interpretation_length = interpretations
             .iter()
             .map(|i| i.0.chars().count())
             .max()
             .unwrap();
-        interpretions.sort_unstable();
-        for (i, (line, prec_suffix)) in interpretions.into_iter().enumerate() {
+        interpretations.sort_unstable();
+        for (i, (line, prec_suffix)) in interpretations.into_iter().enumerate() {
             write!(&mut msg, "  {}:", i + 1).unwrap();
             msg += &line;
             if let Some(prec_suffix) = prec_suffix {

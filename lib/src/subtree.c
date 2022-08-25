@@ -539,7 +539,7 @@ MutableSubtree ts_subtree_new_node(
   return result;
 }
 
-// Create a new error node contaning the given children.
+// Create a new error node containing the given children.
 //
 // This node is treated as 'extra'. Its children are prevented from having
 // having any effect on the parse state.
