@@ -41,4 +41,12 @@ static inline Length length_zero(void) {
   return result;
 }
 
+static inline Length length_saturating_sub(Length len1, Length len2) {
+  if (len1.bytes > len2.bytes) {
+    return length_sub(len1, len2);
+  } else {
+    return length_zero();
+  }
+}
+
 #endif

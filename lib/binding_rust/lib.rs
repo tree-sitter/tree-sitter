@@ -708,6 +708,20 @@ impl Tree {
         Node::new(unsafe { ffi::ts_tree_root_node(self.0.as_ptr()) }).unwrap()
     }
 
+    /// Get the root node of the syntax tree, but with its position shifted
+    /// forward by the given offset.
+    #[doc(alias = "ts_tree_root_node_with_offset")]
+    pub fn root_node_with_offset(&self, offset_bytes: usize, offset_extent: Point) -> Node {
+        Node::new(unsafe {
+            ffi::ts_tree_root_node_with_offset(
+                self.0.as_ptr(),
+                offset_bytes as u32,
+                offset_extent.into(),
+            )
+        })
+        .unwrap()
+    }
+
     /// Get the language that was used to parse the syntax tree.
     #[doc(alias = "ts_tree_language")]
     pub fn language(&self) -> Language {

@@ -367,6 +367,16 @@ void ts_tree_delete(TSTree *self);
 TSNode ts_tree_root_node(const TSTree *self);
 
 /**
+ * Get the root node of the syntax tree, but with its position
+ * shifted forward by the given offset.
+ */
+TSNode ts_tree_root_node_with_offset(
+  const TSTree *self,
+  uint32_t offset_bytes,
+  TSPoint offset_point
+);
+
+/**
  * Get the language that was used to parse the syntax tree.
  */
 const TSLanguage *ts_tree_language(const TSTree *);

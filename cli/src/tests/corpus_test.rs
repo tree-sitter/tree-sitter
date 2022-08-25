@@ -384,9 +384,26 @@ fn check_consistent_sizes(tree: &Tree, input: &Vec<u8>) {
 }
 
 fn check_changed_ranges(old_tree: &Tree, new_tree: &Tree, input: &Vec<u8>) -> Result<(), String> {
-    let changed_ranges = old_tree.changed_ranges(new_tree).collect();
+    let changed_ranges = old_tree.changed_ranges(new_tree).collect::<Vec<_>>();
     let old_scope_sequence = ScopeSequence::new(old_tree);
     let new_scope_sequence = ScopeSequence::new(new_tree);
+
+    let old_range = old_tree.root_node().range();
+    let new_range = new_tree.root_node().range();
+    let byte_range =
+        old_range.start_byte.min(new_range.start_byte)..old_range.end_byte.max(new_range.end_byte);
+    let point_range = old_range.start_point.min(new_range.start_point)
+        ..old_range.end_point.max(new_range.end_point);
+
+    for range in &changed_ranges {
+        if range.end_byte > byte_range.end || range.end_point > point_range.end {
+            return Err(format!(
+                "changed range extends outside of the old and new trees {:?}",
+                range
+            ));
+        }
+    }
+
     old_scope_sequence.check_changes(&new_scope_sequence, &input, &changed_ranges)
 }
 

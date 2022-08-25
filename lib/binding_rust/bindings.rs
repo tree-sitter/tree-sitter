@@ -333,6 +333,15 @@ extern "C" {
     pub fn ts_tree_root_node(self_: *const TSTree) -> TSNode;
 }
 extern "C" {
+    #[doc = " Get the root node of the syntax tree, but with its position"]
+    #[doc = " shifted forward by the given offset."]
+    pub fn ts_tree_root_node_with_offset(
+        self_: *const TSTree,
+        offset_bytes: u32,
+        offset_point: TSPoint,
+    ) -> TSNode;
+}
+extern "C" {
     #[doc = " Get the language that was used to parse the syntax tree."]
     pub fn ts_tree_language(arg1: *const TSTree) -> *const TSLanguage;
 }
