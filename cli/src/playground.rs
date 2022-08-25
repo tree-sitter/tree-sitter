@@ -45,8 +45,19 @@ fn get_main_html(tree_sitter_dir: &Option<PathBuf>) -> Cow<'static, [u8]> {
 }
 
 pub fn serve(grammar_path: &Path, open_in_browser: bool) {
-    let port = get_available_port().expect("Couldn't find an available port");
-    let addr = format!("127.0.0.1:{}", port);
+    let port = env::var("TREE_SITTER_PLAYGROUND_PORT")
+        .map(|v| v.parse::<u16>().expect("Invalid port specification"))
+        .unwrap_or_else(
+            |_| get_available_port().expect(
+                "Couldn't find an available port, try providing a port number via the TREE_SITTER_PLAYGROUND_PORT \
+                 environment variable"
+            )
+        );
+    let addr = format!(
+        "{}:{}",
+        env::var("TREE_SITTER_PLAYGROUND_ADDR").unwrap_or("127.0.0.1".to_owned()),
+        port
+    );
     let server = Server::http(&addr).expect("Failed to start web server");
     let grammar_name = wasm::get_grammar_name(&grammar_path.join("src"))
         .with_context(|| "Failed to get wasm filename")
