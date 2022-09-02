@@ -12,7 +12,7 @@ use tree_sitter_loader as loader;
 
 const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
-const DEFAULT_GENERATE_ABI_VERSION: usize = 13;
+const DEFAULT_GENERATE_ABI_VERSION: usize = 14;
 
 fn main() {
     let result = run();
