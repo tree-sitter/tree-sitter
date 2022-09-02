@@ -89,6 +89,7 @@ $emcc                                            \
   -s NODEJS_CATCH_REJECTION=0                    \
   -s EXPORTED_FUNCTIONS=@${web_dir}/exports.json \
   $emscripten_flags                              \
+  -fno-exceptions                                \
   -std=c99                                       \
   -D 'fprintf(...)='                             \
   -D NDEBUG=                                     \

@@ -20,15 +20,15 @@ EMSDK_DIR="./target/emsdk"
   git pull
   ./emsdk list
 
-  echo 'Installing latest emscripten...'
+  echo 'Installing emscripten...'
   ./emsdk install $EMSCRIPTEN_VERSION
 
-  echo 'Activating latest emscripten...'
+  echo 'Activating emscripten...'
   ./emsdk activate $EMSCRIPTEN_VERSION
 ) >&2
 
 (
   source "$EMSDK_DIR/emsdk_env.sh" > /dev/null
   emcc --version >&2
-  declare -px
+  echo export $(env | egrep '^(PATH|EM.*)')
 )
