@@ -83,6 +83,7 @@ Parsers for these languages are in development:
 * [Go mod](https://github.com/camdencheek/tree-sitter-go-mod)
 * [Hack](https://github.com/slackhq/tree-sitter-hack)
 * [Haskell](https://github.com/tree-sitter/tree-sitter-haskell)
+* [jq](https://github.com/flurie/tree-sitter-jq)
 * [Julia](https://github.com/tree-sitter/tree-sitter-julia)
 * [Kotlin](https://github.com/fwcd/tree-sitter-kotlin)
 * [Nix](https://github.com/cstrahan/tree-sitter-nix)
