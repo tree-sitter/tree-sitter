@@ -26,6 +26,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Swift](https://github.com/ChimeHQ/SwiftTreeSitter)
 * [Kotlin](https://github.com/oxisto/kotlintree)
 * [Java](https://github.com/serenadeai/java-tree-sitter)
+* [Go](https://github.com/smacker/go-tree-sitter)
 
 ### Available Parsers
 
