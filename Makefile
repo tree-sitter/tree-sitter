@@ -19,7 +19,7 @@ OBJ := $(SRC:.c=.o)
 
 # define default flags, and override to append mandatory flags
 CFLAGS ?= -O3 -Wall -Wextra -Werror
-override CFLAGS += -std=gnu99 -fPIC -Ilib/src -Ilib/include
+override CFLAGS += -std=gnu99 -fPIC -Ilib/src -Ilib/src/wasm -Ilib/include
 
 # ABI versioning
 SONAME_MAJOR := 0
