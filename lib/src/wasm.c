@@ -644,30 +644,24 @@ bool ts_wasm_store_run_lex_function(TSWasmStore *self, TSStateId state, unsigned
   assert(lex_val.kind == WASMTIME_FUNCREF);
   wasmtime_func_t lex_func = lex_val.of.funcref;
 
-  const wasmtime_val_t args[2] = {
-    {.kind = WASMTIME_I32, .of.i32 = LEXER_ADDRESS},
-    {.kind = WASMTIME_I32, .of.i32 = state},
+  wasmtime_val_raw_t args[2] = {
+    {.i32 = LEXER_ADDRESS},
+    {.i32 = state},
   };
-  wasmtime_val_t results[1] = {
-    {.kind = WASMTIME_I32, .of.i32 = 0}
-  };
-
-  wasm_trap_t *trap = NULL;
-  wasmtime_func_call(context, &lex_func, args, 2, results, 1, &trap);
+  wasm_trap_t *trap = wasmtime_func_call_unchecked(context, &lex_func, args);
   if (trap) {
     wasm_message_t message;
     wasm_trap_message(trap, &message);
     printf("error calling lex function index %u: %s\n", function_index, message.data);
     abort();
   }
-  assert(results[0].kind == WASM_I32);
 
   memcpy(
     &self->current_lexer->lookahead,
     &memory_data[LEXER_ADDRESS],
     sizeof(self->current_lexer->lookahead) + sizeof(self->current_lexer->result_symbol)
   );
-  return results[0].of.i32;
+  return args[0].i32;
 }
 
 bool ts_wasm_store_run_main_lex_function(TSWasmStore *self, TSStateId state) {
