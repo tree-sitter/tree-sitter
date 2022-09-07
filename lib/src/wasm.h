@@ -8,10 +8,17 @@ extern "C" {
 #include "tree_sitter/api.h"
 #include "tree_sitter/parser.h"
 
-bool ts_wasm_store_start(TSWasmStore *self, TSLexer *lexer, const TSLanguage *language);
-void ts_wasm_store_stop(TSWasmStore *self);
-bool ts_wasm_store_run_main_lex_function(TSWasmStore *self, TSStateId state);
-bool ts_wasm_store_run_keyword_lex_function(TSWasmStore *self, TSStateId state);
+bool ts_wasm_store_start(TSWasmStore *, TSLexer *, const TSLanguage *);
+void ts_wasm_store_stop(TSWasmStore *);
+
+bool ts_wasm_store_call_lex_main(TSWasmStore *, TSStateId);
+bool ts_wasm_store_call_lex_keyword(TSWasmStore *, TSStateId);
+
+uint32_t ts_wasm_store_call_scanner_create(TSWasmStore *);
+void ts_wasm_store_call_scanner_destroy(TSWasmStore *, uint32_t);
+bool ts_wasm_store_call_scanner_scan(TSWasmStore *, uint32_t, uint32_t);
+uint32_t ts_wasm_store_call_scanner_serialize(TSWasmStore *, uint32_t, char *);
+void ts_wasm_store_call_scanner_deserialize(TSWasmStore *, uint32_t, const char *, unsigned);
 
 #ifdef __cplusplus
 }

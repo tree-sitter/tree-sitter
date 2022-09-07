@@ -334,18 +334,103 @@ static bool ts_parser__better_version_exists(
   return false;
 }
 
-static void ts_parser__restore_external_scanner(
+static void ts_parser__external_scanner_create(
+  TSParser *self
+) {
+  if (self->language && self->language->external_scanner.states) {
+    if (ts_language_is_wasm(self->language)) {
+      self->external_scanner_payload = (void *)(uintptr_t)ts_wasm_store_call_scanner_create(
+        self->wasm_store
+      );
+    } else if (self->language->external_scanner.create) {
+      self->external_scanner_payload = self->language->external_scanner.create();
+    }
+  }
+}
+
+static void ts_parser__external_scanner_destroy(
+  TSParser *self
+) {
+  if (self->language && self->external_scanner_payload) {
+    if (ts_language_is_wasm(self->language)) {
+      ts_wasm_store_call_scanner_destroy(
+        self->wasm_store,
+        (uintptr_t)self->external_scanner_payload
+      );
+    } else if (self->language->external_scanner.destroy) {
+      self->language->external_scanner.destroy(
+        self->external_scanner_payload
+      );
+    }
+    self->external_scanner_payload = NULL;
+  }
+}
+
+static unsigned ts_parser__external_scanner_serialize(
+  TSParser *self
+) {
+  if (ts_language_is_wasm(self->language)) {
+    return ts_wasm_store_call_scanner_serialize(
+      self->wasm_store,
+      (uintptr_t)self->external_scanner_payload,
+      self->lexer.debug_buffer
+    );
+  } else {
+    return self->language->external_scanner.serialize(
+      self->external_scanner_payload,
+      self->lexer.debug_buffer
+    );
+  }
+}
+
+static void ts_parser__external_scanner_deserialize(
   TSParser *self,
   Subtree external_token
 ) {
+  const char *data = NULL;
+  uint32_t length = 0;
   if (external_token.ptr) {
-    self->language->external_scanner.deserialize(
-      self->external_scanner_payload,
-      ts_external_scanner_state_data(&external_token.ptr->external_scanner_state),
-      external_token.ptr->external_scanner_state.length
+    data = ts_external_scanner_state_data(&external_token.ptr->external_scanner_state);
+    length = external_token.ptr->external_scanner_state.length;
+  }
+
+  if (ts_language_is_wasm(self->language)) {
+    ts_wasm_store_call_scanner_deserialize(
+      self->wasm_store,
+      (uintptr_t)self->external_scanner_payload,
+      data,
+      length
     );
   } else {
-    self->language->external_scanner.deserialize(self->external_scanner_payload, NULL, 0);
+    self->language->external_scanner.deserialize(
+      self->external_scanner_payload,
+      data,
+      length
+    );
+  }
+}
+
+static bool ts_parser__external_scanner_scan(
+  TSParser *self,
+  TSStateId external_lex_state
+) {
+
+  if (ts_language_is_wasm(self->language)) {
+    return ts_wasm_store_call_scanner_scan(
+      self->wasm_store,
+      (uintptr_t)self->external_scanner_payload,
+      external_lex_state * self->language->external_token_count
+    );
+  } else {
+    const bool *valid_external_tokens = ts_language_enabled_external_tokens(
+      self->language,
+      external_lex_state
+    );
+    return self->language->external_scanner.scan(
+      self->external_scanner_payload,
+      &self->lexer.data,
+      valid_external_tokens
+    );
   }
 }
 
@@ -397,10 +482,6 @@ static Subtree ts_parser__lex(
 
   const Length start_position = ts_stack_position(self->stack, version);
   const Subtree external_token = ts_stack_last_external_token(self->stack, version);
-  const bool *valid_external_tokens = ts_language_enabled_external_tokens(
-    self->language,
-    lex_mode.external_lex_state
-  );
 
   bool found_external_token = false;
   bool error_mode = parse_state == ERROR_STATE;
@@ -418,7 +499,7 @@ static Subtree ts_parser__lex(
     bool found_token = false;
     Length current_position = self->lexer.current_position;
 
-    if (valid_external_tokens) {
+    if (lex_mode.external_lex_state != 0) {
       LOG(
         "lex_external state:%d, row:%u, column:%u",
         lex_mode.external_lex_state,
@@ -426,19 +507,12 @@ static Subtree ts_parser__lex(
         current_position.extent.column
       );
       ts_lexer_start(&self->lexer);
-      ts_parser__restore_external_scanner(self, external_token);
-      found_token = self->language->external_scanner.scan(
-        self->external_scanner_payload,
-        &self->lexer.data,
-        valid_external_tokens
-      );
+      ts_parser__external_scanner_deserialize(self, external_token);
+      found_token = ts_parser__external_scanner_scan(self, lex_mode.external_lex_state);
       ts_lexer_finish(&self->lexer, &lookahead_end_byte);
 
       if (found_token) {
-        external_scanner_state_len = self->language->external_scanner.serialize(
-          self->external_scanner_payload,
-          self->lexer.debug_buffer
-        );
+        external_scanner_state_len = ts_parser__external_scanner_serialize(self);
         external_scanner_state_changed = !ts_external_scanner_state_eq(
           ts_subtree_external_scanner_state(external_token),
           self->lexer.debug_buffer,
@@ -487,7 +561,7 @@ static Subtree ts_parser__lex(
     ts_lexer_start(&self->lexer);
     found_token = false;
     if (ts_language_is_wasm(self->language)) {
-      found_token = ts_wasm_store_run_main_lex_function(self->wasm_store, lex_mode.lex_state);
+      found_token = ts_wasm_store_call_lex_main(self->wasm_store, lex_mode.lex_state);
     } else {
       found_token = self->language->lex_fn(&self->lexer.data, lex_mode.lex_state);
     }
@@ -497,10 +571,6 @@ static Subtree ts_parser__lex(
     if (!error_mode) {
       error_mode = true;
       lex_mode = self->language->lex_modes[ERROR_STATE];
-      valid_external_tokens = ts_language_enabled_external_tokens(
-        self->language,
-        lex_mode.external_lex_state
-      );
       ts_lexer_reset(&self->lexer, start_position);
       continue;
     }
@@ -553,7 +623,7 @@ static Subtree ts_parser__lex(
       ts_lexer_start(&self->lexer);
 
       if (ts_language_is_wasm(self->language)) {
-        is_keyword = ts_wasm_store_run_keyword_lex_function(self->wasm_store, 0);
+        is_keyword = ts_wasm_store_call_lex_keyword(self->wasm_store, 0);
       } else {
         is_keyword = self->language->keyword_lex_fn(&self->lexer.data, 0);
       }
@@ -1799,18 +1869,10 @@ bool ts_parser_set_language(TSParser *self, const TSLanguage *language) {
     if (language->version > TREE_SITTER_LANGUAGE_VERSION) return false;
     if (language->version < TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION) return false;
   }
-
-  if (self->external_scanner_payload && self->language->external_scanner.destroy) {
-    self->language->external_scanner.destroy(self->external_scanner_payload);
-  }
-
-  if (language && language->external_scanner.create) {
-    self->external_scanner_payload = language->external_scanner.create();
-  } else {
-    self->external_scanner_payload = NULL;
-  }
-
+  ts_parser__external_scanner_destroy(self);
   self->language = language;
+  ts_wasm_store_start(self->wasm_store, &self->lexer.data, language);
+  ts_parser__external_scanner_create(self);
   ts_parser_reset(self);
   return true;
 }

@@ -359,14 +359,16 @@ impl Loader {
             }
         }
 
+        if self.wasm_store.lock().unwrap().is_some() {
+            library_path.set_extension("wasm");
+        } else {
+            library_path.set_extension(DYLIB_EXTENSION);
+        }
+
         let recompile = needs_recompile(&library_path, &parser_path, &scanner_path)
             .with_context(|| "Failed to compare source and binary timestamps")?;
 
         if let Some(wasm_store) = self.wasm_store.lock().unwrap().as_mut() {
-            library_path.set_extension("wasm");
-
-            eprintln!("library_path: {:?}", &library_path);
-
             if recompile {
                 self.compile_parser_to_wasm(
                     name,
@@ -380,11 +382,8 @@ impl Loader {
             }
 
             let wasm_bytes = fs::read(&library_path)?;
-
             Ok(wasm_store.load_language(name, &wasm_bytes))
         } else {
-            library_path.set_extension(DYLIB_EXTENSION);
-
             if recompile {
                 self.compile_parser_to_dylib(
                     header_path,
@@ -548,6 +547,7 @@ impl Loader {
             "-s",
             &format!("EXPORTED_FUNCTIONS=[\"_tree_sitter_{}\"]", language_name),
             "-fno-exceptions",
+            "-fvisibility=hidden",
             "-I",
             ".",
         ]);
