@@ -94,40 +94,29 @@ static const uint32_t LEXER_END_ADDRESS = LEXER_ADDRESS + sizeof(LexerInWasmMemo
 
 static wasm_trap_t *advance_callback(
   void *env,
-  wasmtime_caller_t *caller,
-  const wasmtime_val_t *args,
-  size_t arg_count,
-  wasmtime_val_t *results,
-  size_t result_count
+  wasmtime_caller_t* caller,
+  wasmtime_val_raw_t *args_and_results,
+  size_t num_args_and_results
 ) {
   wasmtime_context_t *context = wasmtime_caller_context(caller);
-  assert(arg_count == 2);
-  assert(args[0].kind == WASMTIME_I32);
-  assert(args[1].kind == WASMTIME_I32);
-  int32_t lexer_address = args[0].of.i32;
+  assert(num_args_and_results == 2);
 
   TSWasmStore *store = env;
   TSLexer *lexer = store->current_lexer;
-  bool skip = args[1].of.i32;
+  bool skip = args_and_results[1].i32;
   lexer->advance(lexer, skip);
 
   uint8_t *memory = wasmtime_memory_data(context, &store->memory);
-  memcpy(&memory[lexer_address], &lexer->lookahead, sizeof(lexer->lookahead));
+  memcpy(&memory[LEXER_ADDRESS], &lexer->lookahead, sizeof(lexer->lookahead));
   return NULL;
 }
 
 static wasm_trap_t *mark_end_callback(
   void *env,
-  wasmtime_caller_t *caller,
-  const wasmtime_val_t *args,
-  size_t arg_count,
-  wasmtime_val_t *results,
-  size_t result_count
+  wasmtime_caller_t* caller,
+  wasmtime_val_raw_t *args_and_results,
+  size_t num_args_and_results
 ) {
-  assert(arg_count == 1);
-  assert(args[0].kind == WASM_I32);
-  int32_t lexer_address = args[0].of.i32;
-
   TSWasmStore *store = env;
   TSLexer *lexer = store->current_lexer;
   lexer->mark_end(lexer);
@@ -136,73 +125,45 @@ static wasm_trap_t *mark_end_callback(
 
 static wasm_trap_t *get_column_callback(
   void *env,
-  wasmtime_caller_t *caller,
-  const wasmtime_val_t *args,
-  size_t arg_count,
-  wasmtime_val_t *results,
-  size_t result_count
+  wasmtime_caller_t* caller,
+  wasmtime_val_raw_t *args_and_results,
+  size_t num_args_and_results
 ) {
-  assert(arg_count == 1);
-  assert(args[0].kind == WASM_I32);
-  int32_t lexer_address = args[0].of.i32;
-
   TSWasmStore *store = env;
   TSLexer *lexer = store->current_lexer;
   uint32_t result = lexer->get_column(lexer);
-  results[0] = (wasmtime_val_t) {
-    .kind = WASMTIME_I32,
-    .of.i32 = result
-  };
+  args_and_results[0].i32 = result;
   return NULL;
 }
 
 static wasm_trap_t *is_at_included_range_start_callback(
   void *env,
-  wasmtime_caller_t *caller,
-  const wasmtime_val_t *args,
-  size_t arg_count,
-  wasmtime_val_t *results,
-  size_t result_count
+  wasmtime_caller_t* caller,
+  wasmtime_val_raw_t *args_and_results,
+  size_t num_args_and_results
 ) {
-  assert(arg_count == 1);
-  assert(args[0].kind == WASM_I32);
-  int32_t lexer_address = args[0].of.i32;
-
   TSWasmStore *store = env;
   TSLexer *lexer = store->current_lexer;
   bool result = lexer->is_at_included_range_start(lexer);
-  results[0] = (wasmtime_val_t) {
-    .kind = WASMTIME_I32,
-    .of.i32 = result
-  };
+  args_and_results[0].i32 = result;
   return NULL;
 }
 
 static wasm_trap_t *eof_callback(
   void *env,
-  wasmtime_caller_t *caller,
-  const wasmtime_val_t *args,
-  size_t arg_count,
-  wasmtime_val_t *results,
-  size_t result_count
+  wasmtime_caller_t* caller,
+  wasmtime_val_raw_t *args_and_results,
+  size_t num_args_and_results
 ) {
-  assert(arg_count == 1);
-  assert(args[0].kind == WASM_I32);
-  int32_t lexer_address = args[0].of.i32;
-
   TSWasmStore *store = env;
   TSLexer *lexer = store->current_lexer;
   bool result = lexer->eof(lexer);
-
-  results[0] = (wasmtime_val_t) {
-    .kind = WASMTIME_I32,
-    .of.i32 = result
-  };
+  args_and_results[0].i32 = result;
   return NULL;
 }
 
 typedef struct {
-  wasmtime_func_callback_t callback;
+  wasmtime_func_unchecked_callback_t callback;
   wasm_functype_t *type;
 } FunctionDefinition;
 
@@ -300,7 +261,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine) {
   for (unsigned i = 0; i < definitions_len; i++) {
     FunctionDefinition *definition = &definitions[i];
     wasmtime_func_t func;
-    wasmtime_func_new(context, definition->type, definition->callback, self, NULL, &func);
+    wasmtime_func_new_unchecked(context, definition->type, definition->callback, self, NULL, &func);
     wasmtime_val_t func_val = {.kind = WASMTIME_FUNCREF, .of.funcref = func};
     error = wasmtime_table_set(context, &function_table, i, &func_val);
     assert(!error);
