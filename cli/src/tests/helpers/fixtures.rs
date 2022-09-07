@@ -9,7 +9,7 @@ use tree_sitter_tags::TagsConfiguration;
 include!("./dirs.rs");
 
 lazy_static! {
-    static ref TEST_LOADER: Loader = Loader::with_parser_lib_path(SCRATCH_DIR.clone());
+    static ref TEST_LOADER: Loader = Loader::with_parser_lib_path(SCRATCH_DIR.join("lib"));
 }
 
 pub fn test_loader<'a>() -> &'a Loader {
@@ -63,29 +63,28 @@ pub fn get_tags_config(language_name: &str) -> TagsConfiguration {
     TagsConfiguration::new(language, &tags_query, &locals_query).unwrap()
 }
 
-pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> Language {
-    let parser_c_path = SCRATCH_DIR.join(&format!("{}-parser.c", name));
-    if !fs::read_to_string(&parser_c_path)
-        .map(|content| content == parser_code)
-        .unwrap_or(false)
-    {
-        fs::write(&parser_c_path, parser_code).unwrap();
-    }
-    let scanner_path = path.and_then(|p| {
-        let result = p.join("scanner.c");
-        if result.exists() {
-            Some(result)
-        } else {
-            None
-        }
-    });
-    TEST_LOADER
-        .load_language_from_sources(name, &HEADER_DIR, &parser_c_path, &scanner_path)
-        .unwrap()
-}
+pub fn get_test_language(
+    name: &str,
+    parser_code: &str,
+    scanner_src_path: Option<&Path>,
+) -> Language {
+    let src_dir = SCRATCH_DIR.join("src").join(name);
+    fs::create_dir_all(&src_dir).unwrap();
 
-pub fn get_test_grammar(name: &str) -> (String, Option<PathBuf>) {
-    let dir = fixtures_dir().join("test_grammars").join(name);
-    let grammar = fs::read_to_string(&dir.join("grammar.json")).unwrap();
-    (grammar, Some(dir))
+    let parser_path = src_dir.join("parser.c");
+    if !fs::read_to_string(&parser_path).map_or(false, |content| content == parser_code) {
+        fs::write(&parser_path, parser_code).unwrap();
+    }
+
+    if let Some(scanner_src_path) = scanner_src_path {
+        let scanner_code = fs::read_to_string(&scanner_src_path).unwrap();
+        let scanner_path = src_dir.join("scanner.c");
+        if !fs::read_to_string(&scanner_path).map_or(false, |content| content == scanner_code) {
+            fs::write(&scanner_path, scanner_code).unwrap();
+        }
+    }
+
+    TEST_LOADER
+        .load_language_at_path_with_name(&src_dir, &HEADER_DIR, name)
+        .unwrap()
 }

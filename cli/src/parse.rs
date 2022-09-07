@@ -5,7 +5,7 @@ use std::path::Path;
 use std::sync::atomic::AtomicUsize;
 use std::time::Instant;
 use std::{fmt, fs, usize};
-use tree_sitter::{InputEdit, Language, LogType, Parser, Point, Tree};
+use tree_sitter::{InputEdit, LogType, Parser, Point, Tree};
 
 #[derive(Debug)]
 pub struct Edit {
@@ -31,7 +31,7 @@ impl fmt::Display for Stats {
 }
 
 pub fn parse_file_at_path(
-    language: Language,
+    parser: &mut Parser,
     path: &Path,
     edits: &Vec<&str>,
     max_path_length: usize,
@@ -44,8 +44,6 @@ pub fn parse_file_at_path(
     cancellation_flag: Option<&AtomicUsize>,
 ) -> Result<bool> {
     let mut _log_session = None;
-    let mut parser = Parser::new();
-    parser.set_language(language)?;
     let mut source_code =
         fs::read(path).with_context(|| format!("Error reading source file {:?}", path))?;
 
@@ -58,7 +56,7 @@ pub fn parse_file_at_path(
 
     // Render an HTML graph if `--debug-graph` was passed
     if debug_graph {
-        _log_session = Some(util::log_graphs(&mut parser, "log.html")?);
+        _log_session = Some(util::log_graphs(parser, "log.html")?);
     }
     // Log to stderr if `--debug` was passed
     else if debug {

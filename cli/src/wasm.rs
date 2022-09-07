@@ -6,9 +6,8 @@ use std::{
     path::Path,
     process::Command,
 };
+use tree_sitter_loader::EMSCRIPTEN_TAG;
 use which::which;
-
-const EMSCRIPTEN_TAG: &'static str = concat!("emscripten/emsdk:", env!("EMSCRIPTEN_VERSION"));
 
 pub fn load_language_wasm_file(language_dir: &Path) -> Result<(String, Vec<u8>)> {
     let grammar_name = get_grammar_name(&language_dir)
@@ -34,9 +33,13 @@ pub fn get_grammar_name(language_dir: &Path) -> Result<String> {
     Ok(grammar.name)
 }
 
-pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Result<()> {
+pub fn compile_language_to_wasm(
+    language_dir: &Path,
+    output_dir: &Path,
+    force_docker: bool,
+) -> Result<()> {
     let grammar_name = get_grammar_name(&language_dir)?;
-    let output_filename = format!("tree-sitter-{}.wasm", grammar_name);
+    let output_filename = output_dir.join(&format!("tree-sitter-{}.wasm", grammar_name));
 
     let emcc_bin = if cfg!(windows) { "emcc.bat" } else { "emcc" };
     let emcc_path = which(emcc_bin)
@@ -86,9 +89,8 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
         ));
     }
 
+    command.arg("-o").arg(&output_filename);
     command.args(&[
-        "-o",
-        &output_filename,
         "-Os",
         "-s",
         "WASM=1",

@@ -3,6 +3,7 @@ use clap::{App, AppSettings, Arg, SubCommand};
 use glob::glob;
 use std::path::Path;
 use std::{env, fs, u64};
+use tree_sitter::{Parser, WasmStore};
 use tree_sitter_cli::{
     generate, highlight, logger, parse, playground, query, tags, test, test_highlight, test_tags,
     util, wasm,
@@ -359,6 +360,7 @@ fn run() -> Result<()> {
                 .values_of("edits")
                 .map_or(Vec::new(), |e| e.collect());
             let cancellation_flag = util::cancel_on_stdin();
+            let mut parser = Parser::new();
 
             if debug {
                 // For augmenting debug logging in external scanners
@@ -366,6 +368,14 @@ fn run() -> Result<()> {
             }
 
             loader.use_debug_build(debug_build);
+
+            if wasm {
+                let engine = tree_sitter::wasmtime::Engine::default();
+                parser
+                    .set_wasm_store(WasmStore::new(engine.clone()))
+                    .unwrap();
+                loader.use_wasm(engine);
+            }
 
             let timeout = matches
                 .value_of("timeout")
@@ -381,23 +391,17 @@ fn run() -> Result<()> {
             let should_track_stats = matches.is_present("stat");
             let mut stats = parse::Stats::default();
 
-            let mut wasm_language = None;
-            if wasm {
-                let (language_name, wasm_file) = wasm::load_language_wasm_file(&current_dir)?;
-                let engine = tree_sitter::wasmtime::Engine::default();
-                let mut context = tree_sitter::WasmStore::new(engine);
-                wasm_language = Some(context.load_language(&language_name, &wasm_file));
-                std::mem::forget(context);
-            }
-
             for path in paths {
                 let path = Path::new(&path);
 
                 let language =
                     loader.select_language(path, &current_dir, matches.value_of("scope"))?;
+                parser
+                    .set_language(language)
+                    .context("incompatible language")?;
 
                 let this_file_errored = parse::parse_file_at_path(
-                    language,
+                    &mut parser,
                     path,
                     &edits,
                     max_path_length,
@@ -539,7 +543,11 @@ fn run() -> Result<()> {
 
         ("build-wasm", Some(matches)) => {
             let grammar_path = current_dir.join(matches.value_of("path").unwrap_or(""));
-            wasm::compile_language_to_wasm(&grammar_path, matches.is_present("docker"))?;
+            wasm::compile_language_to_wasm(
+                &grammar_path,
+                &current_dir,
+                matches.is_present("docker"),
+            )?;
         }
 
         ("playground", Some(matches)) => {

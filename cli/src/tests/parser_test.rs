@@ -2,13 +2,15 @@ use super::helpers::{
     allocations,
     edits::invert_edit,
     edits::ReadRecorder,
-    fixtures::{get_language, get_test_grammar, get_test_language},
+    fixtures::{get_language, get_test_language},
 };
 use crate::{
     generate::generate_parser_for_grammar,
     parse::{perform_edit, Edit},
+    tests::helpers::fixtures::fixtures_dir,
 };
 use std::{
+    fs,
     sync::atomic::{AtomicUsize, Ordering},
     thread, time,
 };
@@ -421,7 +423,11 @@ fn test_parsing_empty_file_with_reused_tree() {
 
 #[test]
 fn test_parsing_after_editing_tree_that_depends_on_column_values() {
-    let (grammar, path) = get_test_grammar("uses_current_column");
+    let dir = fixtures_dir()
+        .join("test_grammars")
+        .join("uses_current_column");
+    let grammar = fs::read_to_string(&dir.join("grammar.json")).unwrap();
+    let scanner_path = dir.join("scanner.c");
     let (grammar_name, parser_code) = generate_parser_for_grammar(&grammar).unwrap();
 
     let mut parser = Parser::new();
@@ -429,7 +435,7 @@ fn test_parsing_after_editing_tree_that_depends_on_column_values() {
         .set_language(get_test_language(
             &grammar_name,
             &parser_code,
-            path.as_ref().map(AsRef::as_ref),
+            Some(&scanner_path),
         ))
         .unwrap();
 

@@ -10,6 +10,9 @@ keywords = ["incremental", "parsing"]
 categories = ["command-line-utilities", "parsing"]
 repository = "https://github.com/tree-sitter/tree-sitter"
 
+[features]
+wasm = ["tree-sitter/wasm"]
+
 [dependencies]
 anyhow = "1.0"
 cc = "^1.0.58"
@@ -18,6 +21,7 @@ libloading = "0.7"
 once_cell = "1.7"
 regex = "1"
 serde = { version = "1.0.130", features = ["derive"] }
+which = "4.1.0"
 
 [dependencies.serde_json]
 version = "1.0"

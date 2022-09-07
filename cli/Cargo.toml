@@ -56,6 +56,7 @@ path = "../highlight"
 [dependencies.tree-sitter-loader]
 version = "0.20"
 path = "loader"
+features = ["wasm"]
 
 [dependencies.tree-sitter-tags]
 version = "0.20"
