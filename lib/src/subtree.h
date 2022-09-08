@@ -114,7 +114,7 @@ typedef struct {
   Length size;
   uint32_t lookahead_bytes;
   uint32_t error_cost;
-  uint16_t child_count;
+  uint32_t child_count;
   TSSymbol symbol;
   TSStateId parse_state;
 
