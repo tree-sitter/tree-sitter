@@ -1,0 +1,22 @@
+[
+  "__ZdlPv",
+  "__Znwm",
+  "_calloc",
+  "_free",
+  "_malloc",
+  "_realloc",
+  "_abort",
+  "_iswalnum",
+  "_iswalpha",
+  "_iswdigit",
+  "_iswlower",
+  "_iswspace",
+  "_memchr",
+  "_memcmp",
+  "_memcpy",
+  "_memmove",
+  "_memset",
+  "_strlen",
+  "_towupper",
+  "_towlower"
+]

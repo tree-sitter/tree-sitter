@@ -1,0 +1,17 @@
+#!/bin/bash
+
+set -e
+
+emcc                                                          \
+    -o stdlib.wasm                                            \
+    -Os                                                       \
+    --no-entry                                                \
+    -s MAIN_MODULE=2                                          \
+    -s 'EXPORTED_FUNCTIONS=@lib/src/wasm/stdlib-symbols.json' \
+    -fvisibility=hidden                                       \
+    -fno-exceptions                                           \
+    -xc                                                       \
+    /dev/null
+
+xxd -C -i stdlib.wasm > lib/src/wasm/wasm-stdlib.h
+mv stdlib.wasm target/

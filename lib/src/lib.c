@@ -11,7 +11,4 @@
 #include "./subtree.c"
 #include "./tree_cursor.c"
 #include "./tree.c"
-
-#ifdef TREE_SITTER_FEATURE_WASM
 #include "./wasm.c"
-#endif
