@@ -94,7 +94,10 @@ Parsers for these languages are in development:
 * [Racket](https://github.com/6cdh/tree-sitter-racket)
 * [Scala](https://github.com/tree-sitter/tree-sitter-scala)
 * [Sourcepawn](https://github.com/nilshelmig/tree-sitter-sourcepawn)
-* [SQL](https://github.com/m-novikov/tree-sitter-sql)
+* SQL
+    * [PostgreSQL-flavor](https://github.com/m-novikov/tree-sitter-sql)
+    * [BigQuery-flavor](https://github.com/takegue/tree-sitter-sql-bigquery)
+    * [SQLite-flavor](https://github.com/dhcmrlchtdj/tree-sitter-sqlite)
 
 
 ### Talks on Tree-sitter
