@@ -109,9 +109,9 @@ extern "C" {
 // callback to determine the order.
 #define array_insert_sorted_with(self, compare, value) \
   do { \
-    unsigned index, exists; \
-    array_search_sorted_with(self, compare, &(value), &index, &exists); \
-    if (!exists) array_insert(self, index, value); \
+    unsigned index__, exists__; \
+    array_search_sorted_with(self, compare, &(value), &index__, &exists__); \
+    if (!exists__) array_insert(self, index__, value); \
   } while (0)
 
 // Insert a given `value` into a sorted array, using integer comparisons of
@@ -120,9 +120,9 @@ extern "C" {
 // See also `array_search_sorted_by`.
 #define array_insert_sorted_by(self, field, value) \
   do { \
-    unsigned index, exists; \
-    array_search_sorted_by(self, field, (value) field, &index, &exists); \
-    if (!exists) array_insert(self, index, value); \
+    unsigned index__, exists__; \
+    array_search_sorted_by(self, field, (value) field, &index__, &exists__); \
+    if (!exists__) array_insert(self, index__, value); \
   } while (0)
 
 // Private

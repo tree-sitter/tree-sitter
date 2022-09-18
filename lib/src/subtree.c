@@ -659,9 +659,9 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *edit, SubtreePool *pool
 
   while (stack.size) {
     StackEntry entry = array_pop(&stack);
-    Edit edit = entry.edit;
-    bool is_noop = edit.old_end.bytes == edit.start.bytes && edit.new_end.bytes == edit.start.bytes;
-    bool is_pure_insertion = edit.old_end.bytes == edit.start.bytes;
+    Edit entry_edit = entry.edit;
+    bool is_noop = entry_edit.old_end.bytes == entry_edit.start.bytes && entry_edit.new_end.bytes == entry_edit.start.bytes;
+    bool is_pure_insertion = entry_edit.old_end.bytes == entry_edit.start.bytes;
     bool invalidate_first_row = ts_subtree_depends_on_column(*entry.tree);
 
     Length size = ts_subtree_size(*entry.tree);
@@ -669,35 +669,35 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *edit, SubtreePool *pool
     Length total_size = length_add(padding, size);
     uint32_t lookahead_bytes = ts_subtree_lookahead_bytes(*entry.tree);
     uint32_t end_byte = total_size.bytes + lookahead_bytes;
-    if (edit.start.bytes > end_byte || (is_noop && edit.start.bytes == end_byte)) continue;
+    if (entry_edit.start.bytes > end_byte || (is_noop && entry_edit.start.bytes == end_byte)) continue;
 
     // If the edit is entirely within the space before this subtree, then shift this
     // subtree over according to the edit without changing its size.
-    if (edit.old_end.bytes <= padding.bytes) {
-      padding = length_add(edit.new_end, length_sub(padding, edit.old_end));
+    if (entry_edit.old_end.bytes <= padding.bytes) {
+      padding = length_add(entry_edit.new_end, length_sub(padding, entry_edit.old_end));
     }
 
     // If the edit starts in the space before this subtree and extends into this subtree,
     // shrink the subtree's content to compensate for the change in the space before it.
-    else if (edit.start.bytes < padding.bytes) {
-      size = length_saturating_sub(size, length_sub(edit.old_end, padding));
-      padding = edit.new_end;
+    else if (entry_edit.start.bytes < padding.bytes) {
+      size = length_saturating_sub(size, length_sub(entry_edit.old_end, padding));
+      padding = entry_edit.new_end;
     }
 
     // If the edit is a pure insertion right at the start of the subtree,
     // shift the subtree over according to the insertion.
-    else if (edit.start.bytes == padding.bytes && is_pure_insertion) {
-      padding = edit.new_end;
+    else if (entry_edit.start.bytes == padding.bytes && is_pure_insertion) {
+      padding = entry_edit.new_end;
     }
 
     // If the edit is within this subtree, resize the subtree to reflect the edit.
     else if (
-      edit.start.bytes < total_size.bytes ||
-      (edit.start.bytes == total_size.bytes && is_pure_insertion)
+      entry_edit.start.bytes < total_size.bytes ||
+      (entry_edit.start.bytes == total_size.bytes && is_pure_insertion)
     ) {
       size = length_add(
-        length_sub(edit.new_end, padding),
-        length_saturating_sub(total_size, edit.old_end)
+        length_sub(entry_edit.new_end, padding),
+        length_saturating_sub(total_size, entry_edit.old_end)
       );
     }
 
@@ -747,14 +747,14 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *edit, SubtreePool *pool
       child_right = length_add(child_left, child_size);
 
       // If this child ends before the edit, it is not affected.
-      if (child_right.bytes + ts_subtree_lookahead_bytes(*child) < edit.start.bytes) continue;
+      if (child_right.bytes + ts_subtree_lookahead_bytes(*child) < entry_edit.start.bytes) continue;
 
       // Keep editing child nodes until a node is reached that starts after the edit.
       // Also, if this node's validity depends on its column position, then continue
       // invaliditing child nodes until reaching a line break.
       if ((
-        (child_left.bytes > edit.old_end.bytes) ||
-        (child_left.bytes == edit.old_end.bytes && child_size.bytes > 0 && i > 0)
+        (child_left.bytes > entry_edit.old_end.bytes) ||
+        (child_left.bytes == entry_edit.old_end.bytes && child_size.bytes > 0 && i > 0)
       ) && (
         !invalidate_first_row ||
         child_left.extent.row > entry.tree->ptr->padding.extent.row
@@ -764,19 +764,19 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *edit, SubtreePool *pool
 
       // Transform edit into the child's coordinate space.
       Edit child_edit = {
-        .start = length_saturating_sub(edit.start, child_left),
-        .old_end = length_saturating_sub(edit.old_end, child_left),
-        .new_end = length_saturating_sub(edit.new_end, child_left),
+        .start = length_saturating_sub(entry_edit.start, child_left),
+        .old_end = length_saturating_sub(entry_edit.old_end, child_left),
+        .new_end = length_saturating_sub(entry_edit.new_end, child_left),
       };
 
       // Interpret all inserted text as applying to the *first* child that touches the edit.
       // Subsequent children are only never have any text inserted into them; they are only
       // shrunk to compensate for the edit.
       if (
-        child_right.bytes > edit.start.bytes ||
-        (child_right.bytes == edit.start.bytes && is_pure_insertion)
+        child_right.bytes > entry_edit.start.bytes ||
+        (child_right.bytes == entry_edit.start.bytes && is_pure_insertion)
       ) {
-        edit.new_end = edit.start;
+        entry_edit.new_end = entry_edit.start;
       }
 
       // Children that occur before the edit are not reshaped by the edit.
@@ -900,17 +900,17 @@ static size_t ts_subtree__write_to_string(
           0, false, NULL
         );
       } else {
-        TSSymbol alias_symbol = alias_sequence
+        TSSymbol alias_symbol_new = alias_sequence
           ? alias_sequence[structural_child_index]
           : 0;
-        bool alias_is_named = alias_symbol
-          ? ts_language_symbol_metadata(language, alias_symbol).named
+        bool alias_is_named_new = alias_symbol_new
+          ? ts_language_symbol_metadata(language, alias_symbol_new).named
           : false;
 
         const char *child_field_name = is_visible ? NULL : field_name;
-        for (const TSFieldMapEntry *i = field_map; i < field_map_end; i++) {
-          if (!i->inherited && i->child_index == structural_child_index) {
-            child_field_name = language->field_names[i->field_id];
+        for (const TSFieldMapEntry *i_field = field_map; i_field < field_map_end; i_field++) {
+          if (!i_field->inherited && i_field->child_index == structural_child_index) {
+            child_field_name = language->field_names[i_field->field_id];
             break;
           }
         }
@@ -918,7 +918,7 @@ static size_t ts_subtree__write_to_string(
         cursor += ts_subtree__write_to_string(
           child, *writer, limit,
           language, include_all,
-          alias_symbol, alias_is_named, child_field_name
+          alias_symbol_new, alias_is_named_new, child_field_name
         );
         structural_child_index++;
       }
@@ -992,12 +992,12 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
     ts_subtree_production_id(*self);
   for (uint32_t i = 0, n = ts_subtree_child_count(*self); i < n; i++) {
     const Subtree *child = &ts_subtree_children(*self)[i];
-    TSSymbol alias_symbol = 0;
+    TSSymbol alias_symbol_new = 0;
     if (!ts_subtree_extra(*child) && child_info_offset) {
-      alias_symbol = language->alias_sequences[child_info_offset];
+      alias_symbol_new = language->alias_sequences[child_info_offset];
       child_info_offset++;
     }
-    ts_subtree__print_dot_graph(child, child_start_offset, language, alias_symbol, f);
+    ts_subtree__print_dot_graph(child, child_start_offset, language, alias_symbol_new, f);
     fprintf(f, "tree_%p -> tree_%p [tooltip=%u]\n", (void *)self, (void *)child, i);
     child_start_offset += ts_subtree_total_bytes(*child);
   }

@@ -83,7 +83,7 @@ static inline uint16_t ts_language_lookup(
     for (unsigned i = 0; i < group_count; i++) {
       uint16_t section_value = *(data++);
       uint16_t symbol_count = *(data++);
-      for (unsigned i = 0; i < symbol_count; i++) {
+      for (unsigned i_symbol = 0; i_symbol < symbol_count; i_symbol++) {
         if (*(data++) == symbol) return section_value;
       }
     }

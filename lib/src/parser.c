@@ -871,19 +871,19 @@ static StackVersion ts_parser__reduce(
       if (next_slice.version != slice.version) break;
       i++;
 
-      SubtreeArray children = next_slice.subtrees;
-      ts_subtree_array_remove_trailing_extras(&children, &self->trailing_extras2);
+      SubtreeArray next_slice_children = next_slice.subtrees;
+      ts_subtree_array_remove_trailing_extras(&next_slice_children, &self->trailing_extras2);
 
       if (ts_parser__select_children(
         self,
         ts_subtree_from_mut(parent),
-        &children
+        &next_slice_children
       )) {
         ts_subtree_array_clear(&self->tree_pool, &self->trailing_extras);
         ts_subtree_release(&self->tree_pool, ts_subtree_from_mut(parent));
         array_swap(&self->trailing_extras, &self->trailing_extras2);
         parent = ts_subtree_new_node(
-          symbol, &children, production_id, self->language
+          symbol, &next_slice_children, production_id, self->language
         );
       } else {
         array_clear(&self->trailing_extras2);
@@ -994,8 +994,8 @@ static bool ts_parser__do_all_potential_reductions(
     if (version >= version_count) break;
 
     bool merged = false;
-    for (StackVersion i = initial_version_count; i < version; i++) {
-      if (ts_stack_merge(self->stack, i, version)) {
+    for (StackVersion i_version = initial_version_count; i_version < version; i_version++) {
+      if (ts_stack_merge(self->stack, i_version, version)) {
         merged = true;
         break;
       }
@@ -1018,8 +1018,8 @@ static bool ts_parser__do_all_potential_reductions(
     for (TSSymbol symbol = first_symbol; symbol < end_symbol; symbol++) {
       TableEntry entry;
       ts_language_table_entry(self->language, state, symbol, &entry);
-      for (uint32_t i = 0; i < entry.action_count; i++) {
-        TSParseAction action = entry.actions[i];
+      for (uint32_t i_action = 0; i_action < entry.action_count; i_action++) {
+        TSParseAction action = entry.actions[i_action];
         switch (action.type) {
           case TSParseActionTypeShift:
           case TSParseActionTypeRecover:
@@ -1041,8 +1041,8 @@ static bool ts_parser__do_all_potential_reductions(
     }
 
     StackVersion reduction_version = STACK_VERSION_NONE;
-    for (uint32_t i = 0; i < self->reduce_actions.size; i++) {
-      ReduceAction action = self->reduce_actions.contents[i];
+    for (uint32_t i_action = 0; i_action < self->reduce_actions.size; i_action++) {
+      ReduceAction action = self->reduce_actions.contents[i_action];
 
       reduction_version = ts_parser__reduce(
         self, version, action.symbol, action.count,
@@ -1682,7 +1682,7 @@ static unsigned ts_parser__condense_stack(TSParser *self) {
     }
   }
 
-  // Enfore a hard upper bound on the number of stack versions by
+  // Enforce a hard upper bound on the number of stack versions by
   // discarding the least promising versions.
   while (ts_stack_version_count(self->stack) > MAX_VERSION_COUNT) {
     ts_stack_remove_version(self->stack, MAX_VERSION_COUNT);

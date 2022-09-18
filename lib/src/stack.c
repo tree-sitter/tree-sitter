@@ -333,15 +333,15 @@ inline StackSliceArray stack__iter(
 
   while (self->iterators.size > 0) {
     for (uint32_t i = 0, size = self->iterators.size; i < size; i++) {
-      StackIterator *iterator = &self->iterators.contents[i];
-      StackNode *node = iterator->node;
+      StackIterator *stack_iterator = &self->iterators.contents[i];
+      StackNode *node = stack_iterator->node;
 
-      StackAction action = callback(payload, iterator);
+      StackAction action = callback(payload, stack_iterator);
       bool should_pop = action & StackActionPop;
       bool should_stop = action & StackActionStop || node->link_count == 0;
 
       if (should_pop) {
-        SubtreeArray subtrees = iterator->subtrees;
+        SubtreeArray subtrees = stack_iterator->subtrees;
         if (!should_stop) {
           ts_subtree_array_copy(subtrees, &subtrees);
         }
@@ -356,7 +356,7 @@ inline StackSliceArray stack__iter(
 
       if (should_stop) {
         if (!should_pop) {
-          ts_subtree_array_delete(self->subtree_pool, &iterator->subtrees);
+          ts_subtree_array_delete(self->subtree_pool, &stack_iterator->subtrees);
         }
         array_erase(&self->iterators, i);
         i--, size--;
