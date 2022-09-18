@@ -44,6 +44,7 @@ Parsers for these languages are fairly complete:
 * [Eno](https://github.com/eno-lang/tree-sitter-eno)
 * [ERB / EJS](https://github.com/tree-sitter/tree-sitter-embedded-template)
 * [Fennel](https://github.com/travonted/tree-sitter-fennel)
+* [Gleam](https://github.com/gleam-lang/tree-sitter-gleam)
 * [GLSL (OpenGL Shading Language)](https://github.com/theHamsta/tree-sitter-glsl)
 * [Go](https://github.com/tree-sitter/tree-sitter-go)
 * [HCL](https://github.com/MichaHoffmann/tree-sitter-hcl)
