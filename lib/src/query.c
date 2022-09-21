@@ -1918,11 +1918,11 @@ static TSQueryError ts_query__parse_string_literal(
       prev_position = stream->input + stream->next_size;
     } else {
       if (stream->next == '\\') {
-        array_extend(&self->string_buffer, (stream->input - prev_position), prev_position);
+        array_extend(&self->string_buffer, (uint32_t)(stream->input - prev_position), prev_position);
         prev_position = stream->input + 1;
         is_escaped = true;
       } else if (stream->next == '"') {
-        array_extend(&self->string_buffer, (stream->input - prev_position), prev_position);
+        array_extend(&self->string_buffer, (uint32_t)(stream->input - prev_position), prev_position);
         stream_advance(stream);
         return TSQueryErrorNone;
       } else if (stream->next == '\n') {
@@ -3669,7 +3669,7 @@ static inline bool ts_query_cursor__advance(
             } else {
               LOG("  finish pattern %u\n", state->pattern_index);
               array_push(&self->finished_states, *state);
-              array_erase(&self->states, state - self->states.contents);
+              array_erase(&self->states, (uint32_t)(state - self->states.contents));
               did_match = true;
               i--;
             }

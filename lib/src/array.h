@@ -154,7 +154,7 @@ static inline void array__reserve(VoidArray *self, size_t element_size, uint32_t
     } else {
       self->contents = ts_malloc(new_capacity * element_size);
     }
-    self->capacity = new_capacity;
+    self->capacity = (uint32_t)new_capacity;
   }
 }
 
@@ -170,10 +170,10 @@ static inline void array__swap(VoidArray *self, VoidArray *other) {
   *self = swap;
 }
 
-static inline void array__grow(VoidArray *self, size_t count, size_t element_size) {
-  size_t new_size = self->size + count;
+static inline void array__grow(VoidArray *self, uint32_t count, size_t element_size) {
+  uint32_t new_size = self->size + count;
   if (new_size > self->capacity) {
-    size_t new_capacity = self->capacity * 2;
+    uint32_t new_capacity = self->capacity * 2;
     if (new_capacity < 8) new_capacity = 8;
     if (new_capacity < new_size) new_capacity = new_size;
     array__reserve(self, element_size, new_capacity);

@@ -326,7 +326,7 @@ inline StackSliceArray stack__iter(
   bool include_subtrees = false;
   if (goal_subtree_count >= 0) {
     include_subtrees = true;
-    array_reserve(&iterator.subtrees, ts_subtree_alloc_size(goal_subtree_count) / sizeof(Subtree));
+    array_reserve(&iterator.subtrees, (uint32_t)ts_subtree_alloc_size(goal_subtree_count) / sizeof(Subtree));
   }
 
   array_push(&self->iterators, iterator);
