@@ -582,9 +582,20 @@ const char *ts_node_field_name_for_child(TSNode self, uint32_t child_index) {
     &field_map_end
   );
 
-  for (const TSFieldMapEntry *i = field_map_start; i < field_map_end; i++) {
-    if (i->child_index == child_index) {
-      return self.tree->language->field_names[i->field_id];
+  uint32_t extra_child_count = 0;
+  for(uint32_t i = 0; i <= child_index; i++) {
+    TSNode child = ts_node_child(self, i);
+    if (ts_node_is_extra(child)) {
+      extra_child_count++;
+    }
+  }
+
+  if (extra_child_count <= child_index) {
+    uint32_t grammar_child_index = child_index - extra_child_count;
+    for (const TSFieldMapEntry *i = field_map_start; i < field_map_end; i++) {
+      if (i->child_index == grammar_child_index) {
+        return self.tree->language->field_names[i->field_id];
+      }
     }
   }
   return NULL;
