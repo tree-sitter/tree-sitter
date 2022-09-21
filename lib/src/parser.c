@@ -605,7 +605,7 @@ static Subtree ts_parser__get_cached_token(
 
 static void ts_parser__set_cached_token(
   TSParser *self,
-  size_t byte_index,
+  uint32_t byte_index,
   Subtree last_external_token,
   Subtree token
 ) {
