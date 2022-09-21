@@ -571,7 +571,7 @@ recur:
 
 const char *ts_node_field_name_for_child(TSNode self, uint32_t child_index) {
   const TSFieldMapEntry *field_map_start = NULL, *field_map_end = NULL;
-  if (!ts_node_child_count(self)) {
+  if (ts_node_child_count(self) <= child_index) {
     return NULL;
   }
 
