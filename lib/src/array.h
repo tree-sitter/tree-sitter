@@ -154,7 +154,7 @@ static inline void array__reserve(VoidArray *self, size_t element_size, uint32_t
     } else {
       self->contents = ts_malloc(new_capacity * element_size);
     }
-    self->capacity = (uint32_t)new_capacity;
+    self->capacity = new_capacity;
   }
 }
 
