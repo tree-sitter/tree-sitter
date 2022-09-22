@@ -348,7 +348,7 @@ void ts_subtree_balance(Subtree self, SubtreePool *pool, const TSLanguage *langu
       Subtree child2 = ts_subtree_children(tree)[tree.ptr->child_count - 1];
       long repeat_delta = (long)ts_subtree_repeat_depth(child1) - (long)ts_subtree_repeat_depth(child2);
       if (repeat_delta > 0) {
-        unsigned n = repeat_delta;
+        unsigned n = (unsigned)repeat_delta;
         for (unsigned i = n / 2; i > 0; i /= 2) {
           ts_subtree__compress(tree, i, language, &pool->tree_stack);
           n -= i;
@@ -513,7 +513,7 @@ MutableSubtree ts_subtree_new_node(
   size_t new_byte_size = ts_subtree_alloc_size(children->size);
   if (children->capacity * sizeof(Subtree) < new_byte_size) {
     children->contents = ts_realloc(children->contents, new_byte_size);
-    children->capacity = new_byte_size / sizeof(Subtree);
+    children->capacity = (uint32_t)(new_byte_size / sizeof(Subtree));
   }
   SubtreeHeapData *data = (SubtreeHeapData *)&children->contents[children->size];
 
