@@ -168,9 +168,13 @@ Contributions and fixes to the grammars in the form of PRs are appreciated. To m
 
 Grammars are versioned independently of the Tree-sitter library. Grammar versions follow an adapted semantic versioning scheme. Given a version number MAJOR.MINOR.PATCH, increment the:
 
-1. MAJOR version when changes break direct consumers. These include changes to the structure of the syntax tree, such as changed node names , new nodes are introduced, or nodes may appear in new positions in the tree.
+1. MAJOR version when changes break direct consumers. Direct consumers are those that process the syntax tree directly, by programmatically traversing and matching nodes, or by executing queries against it.
 
-2. MINOR version for secondary changes. For example, when highlighting or tags queries change.
+   For example, renamed nodes, newly introducted nodes, existing nodes that may appear in new positions in the tree, or changed node children commonly change the structure of the syntax tree in a way that may break direct consumers.
+
+2. MINOR version for secondary changes.
+
+   For example, changed highlighting or tags queries.
 
 3. PATCH version when bugs are fixed.
 
