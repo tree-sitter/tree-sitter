@@ -174,6 +174,8 @@ Grammars are versioned independently of the Tree-sitter library. Grammar version
 
 3. PATCH version when bugs are fixed.
 
+Grammars on major version zero (0.x.y) should increment the minor version when changes break direct consumers.
+
 Versioned grammar releases are generally published to NPM and Cargo.
 
 ### Tree-sitter Dependency
