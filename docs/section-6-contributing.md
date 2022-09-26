@@ -178,7 +178,7 @@ Versioned grammar releases are generally published to NPM and Cargo.
 
 ### Tree-sitter Dependency
 
-Grammars depend on the Tree-sitter library. The version ranges depend on the ABI version that the grammar targets, which is generally the latest.
+Grammars depend on the Tree-sitter library. The version ranges depend on the ABI version that the grammar targets, which should generally be the latest.
 
 - The version of Tree-sitter used to build the grammar is specified as a `devDependency` on `tree-sitter-cli` in `package.json`. This is usually a minor version dependency on the latest Tree-sitter version, such as `"^0.20.1"`.
 
