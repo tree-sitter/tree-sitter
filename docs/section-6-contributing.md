@@ -146,7 +146,7 @@ Publishing a new release of the CLI requires these steps:
 
 ## Developing Individual Language Grammars
 
-Grammars for individual languages are developed in `tree-sitter/tree-sitter-LANGUAGE` repositories. This section describes general practices for language grammars.
+Grammars for individual languages developed in the [Tree-sitter organization](https://github.com/tree-sitter/) live in `tree-sitter/tree-sitter-LANGUAGE` repositories. This section describes general practices for language grammars. Grammars developed outside of the Tree-sitter organization are strongly recommended to follow these practices for greater consistency within the Tree-sitter ecosystem.
 
 ### Contributing
 
