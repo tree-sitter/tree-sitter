@@ -158,6 +158,7 @@ pub fn parse_file_at_path(
             println!("");
         }
 
+        // Render a XML if `--xml` was passed
         if matches!(output, ParseOutput::Xml) {
             let mut needs_newline = false;
             let mut indent_level = 0;
@@ -192,6 +193,12 @@ pub fn parse_file_at_path(
                         if let Some(field_name) = cursor.field_name() {
                             write!(&mut stdout, " type=\"{}\"", field_name)?;
                         }
+                        let start = node.start_position();
+                        let end = node.end_position();
+                        write!(&mut stdout, " srow=\"{}\"", start.row)?;
+                        write!(&mut stdout, " scol=\"{}\"", start.column)?;
+                        write!(&mut stdout, " erow=\"{}\"", end.row)?;
+                        write!(&mut stdout, " ecol=\"{}\"", end.column)?;
                         write!(&mut stdout, ">")?;
                         tags.push(node.kind());
                         needs_newline = true;
