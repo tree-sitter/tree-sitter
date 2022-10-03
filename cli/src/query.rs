@@ -13,6 +13,8 @@ pub fn query_files_at_paths(
     paths: Vec<String>,
     query_path: &Path,
     ordered_captures: bool,
+    quickfix: bool,
+    ignore_hidden: bool,
     range: Option<Range<usize>>,
     should_test: bool,
 ) -> Result<()> {
@@ -34,7 +36,9 @@ pub fn query_files_at_paths(
     for path in paths {
         let mut results = Vec::new();
 
-        writeln!(&mut stdout, "{}", path)?;
+        if !quickfix {
+            writeln!(&mut stdout, "{}", path)?;
+        }
 
         let source_code =
             fs::read(&path).with_context(|| format!("Error reading source file {:?}", path))?;
@@ -46,51 +50,81 @@ pub fn query_files_at_paths(
             {
                 let capture = mat.captures[capture_index];
                 let capture_name = &query.capture_names()[capture.index as usize];
-                writeln!(
-                    &mut stdout,
-                    "    pattern: {:>2}, capture: {} - {}, start: {}, end: {}, text: `{}`",
-                    mat.pattern_index,
-                    capture.index,
-                    capture_name,
-                    capture.node.start_position(),
-                    capture.node.end_position(),
-                    capture.node.utf8_text(&source_code).unwrap_or("")
-                )?;
                 results.push(query_testing::CaptureInfo {
                     name: capture_name.to_string(),
                     start: capture.node.start_position(),
                     end: capture.node.end_position(),
                 });
+                if ignore_hidden && capture_name.starts_with("_") {
+                    continue;
+                }
+                if quickfix {
+                    writeln!(
+                        &mut stdout,
+                        "{}:{}:{}: {}",
+                        path,
+                        capture.node.start_position().row + 1,
+                        capture.node.start_position().column + 1,
+                        capture.node.utf8_text(&source_code).unwrap_or("")
+                    )?;
+                } else {
+                    writeln!(
+                        &mut stdout,
+                        "    pattern: {:>2}, capture: {} - {}, start: {}, end: {}, text: `{}`",
+                        mat.pattern_index,
+                        capture.index,
+                        capture_name,
+                        capture.node.start_position(),
+                        capture.node.end_position(),
+                        capture.node.utf8_text(&source_code).unwrap_or("")
+                    )?;
+                }
             }
         } else {
             for m in query_cursor.matches(&query, tree.root_node(), source_code.as_slice()) {
-                writeln!(&mut stdout, "  pattern: {}", m.pattern_index)?;
+                if !quickfix {
+                    writeln!(&mut stdout, "  pattern: {}", m.pattern_index)?;
+                }
                 for capture in m.captures {
                     let start = capture.node.start_position();
                     let end = capture.node.end_position();
                     let capture_name = &query.capture_names()[capture.index as usize];
-                    if end.row == start.row {
-                        writeln!(
-                            &mut stdout,
-                            "    capture: {} - {}, start: {}, end: {}, text: `{}`",
-                            capture.index,
-                            capture_name,
-                            start,
-                            end,
-                            capture.node.utf8_text(&source_code).unwrap_or("")
-                        )?;
-                    } else {
-                        writeln!(
-                            &mut stdout,
-                            "    capture: {}, start: {}, end: {}",
-                            capture_name, start, end,
-                        )?;
-                    }
                     results.push(query_testing::CaptureInfo {
                         name: capture_name.to_string(),
                         start: capture.node.start_position(),
                         end: capture.node.end_position(),
                     });
+                    if ignore_hidden && capture_name.starts_with("_") {
+                        continue;
+                    }
+                    if quickfix {
+                        writeln!(
+                            &mut stdout,
+                            "{}:{}:{}: {}",
+                            path,
+                            capture.node.start_position().row + 1,
+                            capture.node.start_position().column + 1,
+                            capture.node.utf8_text(&source_code).unwrap_or("")
+                        )?;
+                    } else {
+                        if end.row == start.row {
+                            writeln!(
+                                &mut stdout,
+                                "    capture: {} - {}, start: {}, end: {}, text: `{}`",
+                                capture.index,
+                                capture_name,
+                                start,
+                                end,
+                                capture.node.utf8_text(&source_code).unwrap_or("")
+                            )?;
+                        } else {
+                            writeln!(
+                                &mut stdout,
+                                "    capture: {}, start: {}, end: {}",
+                                capture_name, start, end,
+                            )?;
+                        }
+                    }
                 }
             }
         }

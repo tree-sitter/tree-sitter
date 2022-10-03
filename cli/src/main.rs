@@ -168,6 +168,18 @@ fn run() -> Result<()> {
                         .takes_value(true),
                 )
                 .arg(&scope_arg)
+                .arg(
+                    Arg::with_name("quickfix")
+                        .long("quickfix")
+                        .short("q")
+                        .help("Format output as quickfix list, loadable e.g., by vim"),
+                )
+                .arg(
+                    Arg::with_name("ignore-hidden")
+                        .long("ignore-hidden")
+                        .short("h")
+                        .help("Ignore hidden symbols, that is symbols starting with _"),
+                )
                 .arg(Arg::with_name("captures").long("captures").short("c"))
                 .arg(Arg::with_name("test").long("test")),
         )
@@ -433,11 +445,15 @@ fn run() -> Result<()> {
                 r[0].parse().unwrap()..r[1].parse().unwrap()
             });
             let should_test = matches.is_present("test");
+            let ignore_hidden = matches.is_present("ignore-hidden");
+            let quickfix = matches.is_present("quickfix");
             query::query_files_at_paths(
                 language,
                 paths,
                 query_path,
                 ordered_captures,
+                quickfix,
+                ignore_hidden,
                 range,
                 should_test,
             )?;
