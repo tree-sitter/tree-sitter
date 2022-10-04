@@ -67,6 +67,7 @@ Parsers for these languages are fairly complete:
 * [SystemRDL](https://github.com/SystemRDL/tree-sitter-systemrdl)
 * [TOML](https://github.com/ikatyang/tree-sitter-toml)
 * [Turtle](https://github.com/BonaBeavis/tree-sitter-turtle)
+* [Twig](https://github.com/gbprod/tree-sitter-twig)
 * [TypeScript](https://github.com/tree-sitter/tree-sitter-typescript)
 * [Verilog](https://github.com/tree-sitter/tree-sitter-verilog)
 * [VHDL](https://github.com/alemuller/tree-sitter-vhdl)
