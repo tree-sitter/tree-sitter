@@ -19,11 +19,6 @@ let archName = {
   'ia32': 'x86'
 }[process.arch];
 
-// ARM macs can run x64 binaries via Rosetta. Rely on that for now.
-if (platformName === 'macos' && process.arch === 'arm64') {
-  archName = 'x64';
-}
-
 if (!platformName || !archName) {
   console.error(
     `Cannot install tree-sitter-cli for platform ${process.platform}, architecture ${process.arch}`
