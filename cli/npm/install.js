@@ -14,6 +14,7 @@ const platformName = {
 }[process.platform];
 
 let archName = {
+  'arm64': 'arm64',
   'x64': 'x64',
   'x86': 'x86',
   'ia32': 'x86'
