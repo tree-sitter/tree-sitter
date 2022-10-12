@@ -31,6 +31,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 
 Parsers for these languages are fairly complete:
 
+* [Apex](https://github.com/aheber/tree-sitter-sfapex)
 * [Bash](https://github.com/tree-sitter/tree-sitter-bash)
 * [C](https://github.com/tree-sitter/tree-sitter-c)
 * [C#](https://github.com/tree-sitter/tree-sitter-c-sharp)
