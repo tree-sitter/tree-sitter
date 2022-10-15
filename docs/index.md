@@ -39,6 +39,7 @@ Parsers for these languages are fairly complete:
 * [CSS](https://github.com/tree-sitter/tree-sitter-css)
 * [CUDA](https://github.com/theHamsta/tree-sitter-cuda)
 * [DOT](https://github.com/rydesun/tree-sitter-dot)
+* [Elixir](https://github.com/elixir-lang/tree-sitter-elixir)
 * [Elm](https://github.com/elm-tooling/tree-sitter-elm)
 * [Emacs Lisp](https://github.com/Wilfred/tree-sitter-elisp)
 * [Eno](https://github.com/eno-lang/tree-sitter-eno)
@@ -46,6 +47,7 @@ Parsers for these languages are fairly complete:
 * [Fennel](https://github.com/travonted/tree-sitter-fennel)
 * [GLSL (OpenGL Shading Language)](https://github.com/theHamsta/tree-sitter-glsl)
 * [Go](https://github.com/tree-sitter/tree-sitter-go)
+* [HEEx](https://github.com/phoenixframework/tree-sitter-heex)
 * [HCL](https://github.com/MichaHoffmann/tree-sitter-hcl)
 * [HTML](https://github.com/tree-sitter/tree-sitter-html)
 * [Java](https://github.com/tree-sitter/tree-sitter-java)
@@ -79,7 +81,6 @@ Parsers for these languages are fairly complete:
 Parsers for these languages are in development:
 
 * [Agda](https://github.com/tree-sitter/tree-sitter-agda)
-* [Elixir](https://github.com/elixir-lang/tree-sitter-elixir)
 * [Erlang](https://github.com/AbstractMachinesLab/tree-sitter-erlang/)
 * [Dockerfile](https://github.com/camdencheek/tree-sitter-dockerfile)
 * [Go mod](https://github.com/camdencheek/tree-sitter-go-mod)
