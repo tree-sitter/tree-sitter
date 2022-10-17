@@ -24,6 +24,7 @@
   "_memcmp",
   "_memcpy",
   "_memmove",
+  "_memset",
   "_strlen",
   "_towupper",
 
