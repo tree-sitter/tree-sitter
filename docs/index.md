@@ -38,6 +38,7 @@ Parsers for these languages are fairly complete:
 * [Common Lisp](https://github.com/theHamsta/tree-sitter-commonlisp)
 * [CSS](https://github.com/tree-sitter/tree-sitter-css)
 * [CUDA](https://github.com/theHamsta/tree-sitter-cuda)
+* [D](https://github.com/gdamore/tree-sitter-d)
 * [DOT](https://github.com/rydesun/tree-sitter-dot)
 * [Elm](https://github.com/elm-tooling/tree-sitter-elm)
 * [Emacs Lisp](https://github.com/Wilfred/tree-sitter-elisp)
