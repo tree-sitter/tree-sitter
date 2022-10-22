@@ -88,6 +88,7 @@ Parsers for these languages are in development:
 * [Haskell](https://github.com/tree-sitter/tree-sitter-haskell)
 * [Julia](https://github.com/tree-sitter/tree-sitter-julia)
 * [Kotlin](https://github.com/fwcd/tree-sitter-kotlin)
+* [Meson](https://github.com/Decodetalkers/tree-sitter-meson)
 * [Nix](https://github.com/cstrahan/tree-sitter-nix)
 * [Objective-C](https://github.com/jiyee/tree-sitter-objc)
 * [Org](https://github.com/milisims/tree-sitter-org)
