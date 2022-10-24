@@ -26,10 +26,8 @@ include = [
 
 [dependencies]
 regex = "1"
-# wasmtime = { git = "https://github.com/bytecodealliance/wasmtime", optional = true }
-# wasmtime-c-api = { git = "https://github.com/bytecodealliance/wasmtime", optional = true }
-wasmtime = { path = "../../wasmtime/crates/wasmtime", optional = true }
-wasmtime-c-api = { path = "../../wasmtime/crates/c-api", optional = true }
+wasmtime = { git = "https://github.com/maxbrunsfeld/wasmtime", rev = "669e0aaab1181b23fcc4ee6105a2f12cf9db92c3", optional = true }
+wasmtime-c-api = { git = "https://github.com/maxbrunsfeld/wasmtime", rev = "669e0aaab1181b23fcc4ee6105a2f12cf9db92c3", optional = true }
 
 [build-dependencies]
 cc = "^1.0.58"
