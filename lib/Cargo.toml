@@ -22,12 +22,23 @@ include = [
 ]
 
 [features]
-"wasm" = ["wasmtime", "wasmtime-c-api"]
+wasm = ["wasmtime", "wasmtime-c-api"]
 
 [dependencies]
 regex = "1"
-wasmtime = { git = "https://github.com/maxbrunsfeld/wasmtime", rev = "669e0aaab1181b23fcc4ee6105a2f12cf9db92c3", optional = true }
-wasmtime-c-api = { git = "https://github.com/maxbrunsfeld/wasmtime", rev = "669e0aaab1181b23fcc4ee6105a2f12cf9db92c3", optional = true }
+
+[dependencies.wasmtime]
+git = "https://github.com/maxbrunsfeld/wasmtime"
+rev = "669e0aaab1181b23fcc4ee6105a2f12cf9db92c3"
+optional = true
+default-features = false
+features = ["cranelift"]
+
+[dependencies.wasmtime-c-api]
+git = "https://github.com/maxbrunsfeld/wasmtime"
+rev = "669e0aaab1181b23fcc4ee6105a2f12cf9db92c3"
+optional = true
+default-features = false
 
 [build-dependencies]
 cc = "^1.0.58"
