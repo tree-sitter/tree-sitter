@@ -1865,13 +1865,24 @@ const TSLanguage *ts_parser_language(const TSParser *self) {
 }
 
 bool ts_parser_set_language(TSParser *self, const TSLanguage *language) {
-  if (language) {
-    if (language->version > TREE_SITTER_LANGUAGE_VERSION) return false;
-    if (language->version < TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION) return false;
-  }
   ts_parser__external_scanner_destroy(self);
+  self->language = NULL;
+
+  if (language) {
+    if (
+      language->version > TREE_SITTER_LANGUAGE_VERSION ||
+      language->version < TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
+    ) return false;
+
+    if (ts_language_is_wasm(language)) {
+      if (
+        !self->wasm_store ||
+        !ts_wasm_store_start(self->wasm_store, &self->lexer.data, language)
+      ) return false;
+    }
+  }
+
   self->language = language;
-  ts_wasm_store_start(self->wasm_store, &self->lexer.data, language);
   ts_parser__external_scanner_create(self);
   ts_parser_reset(self);
   return true;

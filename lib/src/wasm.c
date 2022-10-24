@@ -819,11 +819,11 @@ const TSLanguage *ts_wasm_store_load_language(
     ),
     .symbol_metadata = copy(
       &memory[wasm_language.symbol_metadata],
-      wasm_language.symbol_count * sizeof(TSSymbolMetadata)
+      (wasm_language.symbol_count + wasm_language.alias_count) * sizeof(TSSymbolMetadata)
     ),
     .public_symbol_map = copy(
       &memory[wasm_language.public_symbol_map],
-      wasm_language.symbol_count * sizeof(TSSymbol)
+      (wasm_language.symbol_count + wasm_language.alias_count) * sizeof(TSSymbol)
     ),
     .lex_modes = copy(
       &memory[wasm_language.lex_modes],
@@ -881,6 +881,13 @@ const TSLanguage *ts_wasm_store_load_language(
     language->small_parse_table = copy(
       &memory[wasm_language.small_parse_table],
       (index + 64) * sizeof(uint16_t) // TODO - determine actual size
+    );
+  }
+
+  if (language->version >= 14) {
+    language->primary_state_ids = copy(
+      &memory[wasm_language.primary_state_ids],
+      wasm_language.state_count * sizeof(TSStateId)
     );
   }
 
@@ -985,8 +992,6 @@ bool ts_wasm_store_add_language(
 
 bool ts_wasm_store_start(TSWasmStore *self, TSLexer *lexer, const TSLanguage *language) {
   uint32_t instance_index;
-  if (!language) return false;
-  if (!ts_language_is_wasm(language)) return false;
   if (!ts_wasm_store_add_language(self, language, &instance_index)) return false;
   self->current_lexer = lexer;
   self->current_instance = &self->language_instances.contents[instance_index];

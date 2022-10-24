@@ -55,7 +55,7 @@ impl Default for TestEntry {
 }
 
 pub fn run_tests_at_path(
-    language: Language,
+    parser: &mut Parser,
     path: &Path,
     debug: bool,
     debug_graph: bool,
@@ -64,11 +64,9 @@ pub fn run_tests_at_path(
 ) -> Result<()> {
     let test_entry = parse_tests(path)?;
     let mut _log_session = None;
-    let mut parser = Parser::new();
-    parser.set_language(language)?;
 
     if debug_graph {
-        _log_session = Some(util::log_graphs(&mut parser, "log.html")?);
+        _log_session = Some(util::log_graphs(parser, "log.html")?);
     } else if debug {
         parser.set_logger(Some(Box::new(|log_type, message| {
             if log_type == LogType::Lex {
@@ -81,7 +79,7 @@ pub fn run_tests_at_path(
     let mut failures = Vec::new();
     let mut corrected_entries = Vec::new();
     run_tests(
-        &mut parser,
+        parser,
         test_entry,
         filter,
         0,

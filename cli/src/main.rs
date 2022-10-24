@@ -77,6 +77,10 @@ fn run() -> Result<()> {
         .long("quiet")
         .short("q");
 
+    let wasm_arg = Arg::with_name("wasm")
+        .long("wasm")
+        .help("compile parsers to wasm instead of native dynamic libraries");
+
     let matches = App::new("tree-sitter")
         .author("Max Brunsfeld <maxbrunsfeld@gmail.com>")
         .about("Generates and tests parsers")
@@ -125,7 +129,7 @@ fn run() -> Result<()> {
                 .arg(&debug_arg)
                 .arg(&debug_build_arg)
                 .arg(&debug_graph_arg)
-                .arg(Arg::with_name("wasm").long("wasm").help("use wasm file"))
+                .arg(&wasm_arg)
                 .arg(Arg::with_name("debug-xml").long("xml").short("x"))
                 .arg(
                     Arg::with_name("stat")
@@ -201,7 +205,8 @@ fn run() -> Result<()> {
                 )
                 .arg(&debug_arg)
                 .arg(&debug_build_arg)
-                .arg(&debug_graph_arg),
+                .arg(&debug_graph_arg)
+                .arg(&wasm_arg),
         )
         .subcommand(
             SubCommand::with_name("highlight")
@@ -308,13 +313,25 @@ fn run() -> Result<()> {
             let debug_build = matches.is_present("debug-build");
             let update = matches.is_present("update");
             let filter = matches.value_of("filter");
+            let wasm = matches.is_present("wasm");
+            let mut parser = Parser::new();
 
             loader.use_debug_build(debug_build);
+
+            if wasm {
+                let engine = tree_sitter::wasmtime::Engine::default();
+                parser
+                    .set_wasm_store(WasmStore::new(engine.clone()))
+                    .unwrap();
+                loader.use_wasm(engine);
+            }
 
             let languages = loader.languages_at_path(&current_dir)?;
             let language = languages
                 .first()
                 .ok_or_else(|| anyhow!("No language found"))?;
+            parser.set_language(*language)?;
+
             let test_dir = current_dir.join("test");
 
             // Run the corpus tests. Look for them at two paths: `test/corpus` and `corpus`.
@@ -324,7 +341,7 @@ fn run() -> Result<()> {
             }
             if test_corpus_dir.is_dir() {
                 test::run_tests_at_path(
-                    *language,
+                    &mut parser,
                     &test_corpus_dir,
                     debug,
                     debug_graph,
