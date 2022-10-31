@@ -1461,7 +1461,9 @@ static bool ts_parser__advance(
       ((self->cancellation_flag && atomic_load(self->cancellation_flag)) ||
        (!clock_is_null(self->end_clock) && clock_is_gt(clock_now(), self->end_clock)))
     ) {
-      ts_subtree_release(&self->tree_pool, lookahead);
+      if (lookahead.ptr) {
+        ts_subtree_release(&self->tree_pool, lookahead);
+      }
       return false;
     }
 
