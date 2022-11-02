@@ -55,6 +55,7 @@ Parsers for these languages are fairly complete:
 * [Lua](https://github.com/Azganoth/tree-sitter-lua)
 * [Make](https://github.com/alemuller/tree-sitter-make)
 * [Markdown](https://github.com/ikatyang/tree-sitter-markdown)
+* [Meson](https://github.com/staysail/tree-sitter-meson)
 * [OCaml](https://github.com/tree-sitter/tree-sitter-ocaml)
 * [PHP](https://github.com/tree-sitter/tree-sitter-php)
 * [Python](https://github.com/tree-sitter/tree-sitter-python)
