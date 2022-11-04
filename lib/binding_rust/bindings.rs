@@ -346,6 +346,9 @@ extern "C" {
     pub fn ts_tree_language(arg1: *const TSTree) -> *const TSLanguage;
 }
 extern "C" {
+    pub fn ts_tree_included_ranges(arg1: *const TSTree, length: *mut u32) -> *mut TSRange;
+}
+extern "C" {
     #[doc = " Edit the syntax tree to keep it in sync with source code that has been"]
     #[doc = " edited."]
     #[doc = ""]

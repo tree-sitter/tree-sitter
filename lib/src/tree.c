@@ -85,6 +85,13 @@ void ts_tree_edit(TSTree *self, const TSInputEdit *edit) {
   ts_subtree_pool_delete(&pool);
 }
 
+TSRange *ts_tree_included_ranges(const TSTree *self, uint32_t *length) {
+  *length = self->included_range_count;
+  TSRange *ranges = ts_calloc(self->included_range_count, sizeof(TSRange));
+  memcpy(ranges, self->included_ranges, self->included_range_count * sizeof(TSRange));
+  return ranges;
+}
+
 TSRange *ts_tree_get_changed_ranges(const TSTree *self, const TSTree *other, uint32_t *count) {
   TreeCursor cursor1 = {NULL, array_new()};
   TreeCursor cursor2 = {NULL, array_new()};

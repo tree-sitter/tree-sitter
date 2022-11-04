@@ -763,6 +763,15 @@ impl Tree {
             util::CBufferIter::new(ptr, count as usize).map(|r| r.into())
         }
     }
+
+    pub fn included_ranges(&self) -> Vec<Range> {
+        let mut count = 0u32;
+        unsafe {
+            let ptr = ffi::ts_tree_included_ranges(self.0.as_ptr(), &mut count as *mut u32);
+            let ranges = Vec::from_raw_parts(ptr, count as usize, count as usize);
+            ranges.into_iter().map(|range| range.into()).collect()
+        }
+    }
 }
 
 impl fmt::Debug for Tree {
