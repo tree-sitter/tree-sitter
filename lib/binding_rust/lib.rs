@@ -768,8 +768,10 @@ impl Tree {
         let mut count = 0u32;
         unsafe {
             let ptr = ffi::ts_tree_included_ranges(self.0.as_ptr(), &mut count as *mut u32);
-            let ranges = Vec::from_raw_parts(ptr, count as usize, count as usize);
-            ranges.into_iter().map(|range| range.into()).collect()
+            let ranges = slice::from_raw_parts(ptr, count as usize);
+            let result = ranges.iter().copied().map(|range| range.into()).collect();
+            (FREE_FN)(ptr as *mut c_void);
+            result
         }
     }
 }

@@ -829,6 +829,7 @@ fn test_parsing_with_one_included_range() {
         js_tree.root_node().start_position(),
         Point::new(0, source_code.find("console").unwrap())
     );
+    assert_eq!(js_tree.included_ranges(), &[script_content_node.range()]);
 }
 
 #[test]
@@ -853,28 +854,27 @@ fn test_parsing_with_multiple_included_ranges() {
     let close_quote_node = template_string_node.child(3).unwrap();
 
     parser.set_language(get_language("html")).unwrap();
-    parser
-        .set_included_ranges(&[
-            Range {
-                start_byte: open_quote_node.end_byte(),
-                start_point: open_quote_node.end_position(),
-                end_byte: interpolation_node1.start_byte(),
-                end_point: interpolation_node1.start_position(),
-            },
-            Range {
-                start_byte: interpolation_node1.end_byte(),
-                start_point: interpolation_node1.end_position(),
-                end_byte: interpolation_node2.start_byte(),
-                end_point: interpolation_node2.start_position(),
-            },
-            Range {
-                start_byte: interpolation_node2.end_byte(),
-                start_point: interpolation_node2.end_position(),
-                end_byte: close_quote_node.start_byte(),
-                end_point: close_quote_node.start_position(),
-            },
-        ])
-        .unwrap();
+    let html_ranges = &[
+        Range {
+            start_byte: open_quote_node.end_byte(),
+            start_point: open_quote_node.end_position(),
+            end_byte: interpolation_node1.start_byte(),
+            end_point: interpolation_node1.start_position(),
+        },
+        Range {
+            start_byte: interpolation_node1.end_byte(),
+            start_point: interpolation_node1.end_position(),
+            end_byte: interpolation_node2.start_byte(),
+            end_point: interpolation_node2.start_position(),
+        },
+        Range {
+            start_byte: interpolation_node2.end_byte(),
+            start_point: interpolation_node2.end_position(),
+            end_byte: close_quote_node.start_byte(),
+            end_point: close_quote_node.start_position(),
+        },
+    ];
+    parser.set_included_ranges(html_ranges).unwrap();
     let html_tree = parser.parse(source_code, None).unwrap();
 
     assert_eq!(
@@ -888,6 +888,7 @@ fn test_parsing_with_multiple_included_ranges() {
             " (end_tag (tag_name))))",
         )
     );
+    assert_eq!(html_tree.included_ranges(), html_ranges);
 
     let div_element_node = html_tree.root_node().child(0).unwrap();
     let hello_text_node = div_element_node.child(1).unwrap();
