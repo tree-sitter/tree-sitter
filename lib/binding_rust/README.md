@@ -37,14 +37,16 @@ Add the `cc` crate to your `Cargo.toml` under `[build-dependencies]`:
 cc="*"
 ```
 
-To then use languages from rust, you must declare them as `extern "C"` functions and invoke them with `unsafe`. Then you can assign them to the parser.
+To then use languages from rust, you must declare them as `extern "C"` functions and load them with `Language::new` method. Then you can assign them to the parser.
 
 ```rust
-extern "C" { fn tree_sitter_c() -> Language; }
-extern "C" { fn tree_sitter_rust() -> Language; }
-extern "C" { fn tree_sitter_javascript() -> Language; }
+use tree_sitter::Language;
 
-let language = unsafe { tree_sitter_rust() };
+extern "C" { fn tree_sitter_c() -> *const (); }
+extern "C" { fn tree_sitter_rust() -> *const (); }
+extern "C" { fn tree_sitter_javascript() -> *const (); }
+
+let language = Language::new(tree_sitter_rust()).unwrap();
 parser.set_language(language).unwrap();
 ```
 

@@ -8,9 +8,9 @@ Add this crate, and the language-specific crates for whichever languages you wan
 
 ```toml
 [dependencies]
-tree-sitter-highlight = "0.19"
-tree-sitter-html = "0.19"
-tree-sitter-javascript = "0.19"
+tree-sitter-highlight = "0.20"
+tree-sitter-html = "0.20"
+tree-sitter-javascript = "0.20"
 ```
 
 Define the list of highlight names that you will recognize:
@@ -49,20 +49,21 @@ let highlighter = Highlighter::new();
 Load some highlighting queries from the `queries` directory of some language repositories:
 
 ```rust
+use tree_sitter::Language;
 use tree_sitter_highlight::HighlightConfiguration;
 
-let html_language = unsafe { tree_sitter_html() };
-let javascript_language = unsafe { tree_sitter_javascript() };
+let html_language = Language::new(tree_sitter_html::library()).unwrap();
+let javascript_language = Language::new(tree_sitter_javascript::library()).unwrap();
 
 let html_config = HighlightConfiguration::new(
-    tree_sitter_html::language(),
+    html_language,
     tree_sitter_html::HIGHLIGHTS_QUERY,
     tree_sitter_html::INJECTIONS_QUERY,
     "",
 ).unwrap();
 
 let javascript_config = HighlightConfiguration::new(
-    tree_sitter_javascript::language(),
+    javascript_language,
     tree_sitter_javascript::HIGHLIGHTS_QUERY,
     tree_sitter_javascript::INJECTIONS_QUERY,
     tree_sitter_javascript::LCOALS_QUERY,

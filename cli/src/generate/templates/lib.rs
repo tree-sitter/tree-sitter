@@ -1,17 +1,20 @@
 //! This crate provides PARSER_NAME language support for the [tree-sitter][] parsing library.
 //!
-//! Typically, you will use the [language][language func] function to add this language to a
-//! tree-sitter [Parser][], and then use the parser to parse some code:
+//! Typically, you will use the [library][library func] function to access the language library
+//! and make from it the [Language] instance with the [Language::new][new func] method
+//! to add this language to a tree-sitter [Parser][], and then use the parser to parse some code:
 //!
 //! ```
 //! let code = "";
 //! let mut parser = tree_sitter::Parser::new();
-//! parser.set_language(tree_sitter_PARSER_NAME::language()).expect("Error loading PARSER_NAME grammar");
+//! let language = tree_sitter::Language::new(tree_sitter_PARSER_NAME::library()).expect("Error loading language library");
+//! parser.set_language(language).expect("Error loading PARSER_NAME grammar");
 //! let tree = parser.parse(code, None).unwrap();
 //! ```
 //!
 //! [Language]: https://docs.rs/tree-sitter/*/tree_sitter/struct.Language.html
-//! [language func]: fn.language.html
+//! [new func]: https://docs.rs/tree-sitter/*/tree_sitter/struct.Language.html#method.new
+//! [library func]: fn.library.html
 //! [Parser]: https://docs.rs/tree-sitter/*/tree_sitter/struct.Parser.html
 //! [tree-sitter]: https://tree-sitter.github.io/
 
@@ -20,7 +23,7 @@ extern "C" {
 }
 
 /// Get a pointer to the tree-sitter [Language][] library for this grammar.
-/// The library needs to be loaded with the `Language::load` method.
+/// The library needs to be loaded with the `Language::new` method.
 ///
 /// [Language]: https://docs.rs/tree-sitter/*/tree_sitter/struct.Language.html
 pub fn library() -> *const () {
