@@ -15,16 +15,15 @@
 //! [Parser]: https://docs.rs/tree-sitter/*/tree_sitter/struct.Parser.html
 //! [tree-sitter]: https://tree-sitter.github.io/
 
-use tree_sitter::Language;
-
 extern "C" {
-    fn tree_sitter_PARSER_NAME() -> Language;
+    fn tree_sitter_PARSER_NAME() -> *const ();
 }
 
-/// Get the tree-sitter [Language][] for this grammar.
+/// Get a pointer to the tree-sitter [Language][] library for this grammar.
+/// The library needs to be loaded with the `Language::load` method.
 ///
 /// [Language]: https://docs.rs/tree-sitter/*/tree_sitter/struct.Language.html
-pub fn language() -> Language {
+pub fn library() -> *const () {
     unsafe { tree_sitter_PARSER_NAME() }
 }
 
@@ -45,8 +44,9 @@ mod tests {
     #[test]
     fn test_can_load_grammar() {
         let mut parser = tree_sitter::Parser::new();
+        let language = tree_sitter::Language::new(super::library()).unwrap();
         parser
-            .set_language(super::language())
+            .set_language(language)
             .expect("Error loading PARSER_NAME language");
     }
 }
