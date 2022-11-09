@@ -764,6 +764,7 @@ impl Tree {
         }
     }
 
+    /// Get the included ranges that were used to parse the syntax tree.
     pub fn included_ranges(&self) -> Vec<Range> {
         let mut count = 0u32;
         unsafe {
