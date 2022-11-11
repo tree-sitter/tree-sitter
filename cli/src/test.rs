@@ -390,29 +390,24 @@ pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
                 .find(|(_, output_name)| output_name == &input_name);
 
             if let Some((output_path, _)) = &maybe_match_output {
-                // construct the test entry content
-                let content = format!(
-                    r#"
-===============
-{}
-===============
+                // construct the input
+                let input_string = fs::read_to_string(&input_path)?;
+                let mut input = input_string.as_bytes().to_owned();
+                process_input(&mut input);
 
-{}
+                // construct the output
+                let mut output = fs::read_to_string(output_path)?;
+                output = process_output(&output);
 
----
+                // construct the test entry
+                let entry = TestEntry::Example {
+                    name: input_name,
+                    input,
+                    has_fields: output_hash_fields(&output),
+                    output,
+                };
 
-{}
-
-"#,
-                    input_name,
-                    fs::read_to_string(&input_path)?,
-                    fs::read_to_string(output_path)?
-                );
-                children.push(parse_test_content(
-                    input_name,
-                    content,
-                    Some(input_path.to_path_buf()),
-                ));
+                children.push(entry);
             } else {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
@@ -498,22 +493,11 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
                 if let Ok(output) = str::from_utf8(&bytes[divider_range.end..header_range.start]) {
                     let mut input = bytes[prev_header_end..divider_range.start].to_vec();
 
-                    // Remove trailing newline from the input.
-                    input.pop();
-                    if input.last() == Some(&b'\r') {
-                        input.pop();
-                    }
+                    process_input(&mut input);
 
-                    // Remove all comments
-                    let output = COMMENT_REGEX.replace_all(output, "").to_string();
+                    let output = process_output(output);
 
-                    // Normalize the whitespace in the expected output.
-                    let output = WHITESPACE_REGEX.replace_all(output.trim(), " ");
-                    let output = output.replace(" )", ")");
-
-                    // Identify if the expected output has fields indicated. If not, then
-                    // fields will not be checked.
-                    let has_fields = SEXP_FIELD_REGEX.is_match(&output);
+                    let has_fields = output_hash_fields(&output);
 
                     children.push(TestEntry::Example {
                         name: prev_name,
@@ -532,6 +516,33 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
         children,
         file_path,
     }
+}
+
+/// Identify if the expected output has fields indicated. If not, then
+/// fields will not be checked.
+fn output_hash_fields(output: &String) -> bool {
+    let has_fields = SEXP_FIELD_REGEX.is_match(output);
+    has_fields
+}
+
+/// Remove trailing newline from the input.
+fn process_input(input: &mut Vec<u8>) {
+    input.pop();
+    if input.last() == Some(&b'\r') {
+        input.pop();
+    }
+}
+
+/// Remove the comments and normalize the whitespace
+fn process_output(output: &str) -> String {
+    // Remove all comments
+    let output = COMMENT_REGEX.replace_all(output, "").to_string();
+
+    // Normalize the whitespace in the expected output.
+    let output = WHITESPACE_REGEX.replace_all(output.trim(), " ");
+    let output = output.replace(" )", ")");
+
+    return output;
 }
 
 #[cfg(test)]
@@ -723,7 +734,7 @@ code
 ---
 
 ; Line start comment
-(a 
+(a
 ; ignore this
     (b)
     ; also ignore this
