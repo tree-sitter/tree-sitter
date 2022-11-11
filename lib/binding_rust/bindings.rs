@@ -333,6 +333,15 @@ extern "C" {
     pub fn ts_tree_root_node(self_: *const TSTree) -> TSNode;
 }
 extern "C" {
+    #[doc = " Get the root node of the syntax tree, but with its position"]
+    #[doc = " shifted forward by the given offset."]
+    pub fn ts_tree_root_node_with_offset(
+        self_: *const TSTree,
+        offset_bytes: u32,
+        offset_point: TSPoint,
+    ) -> TSNode;
+}
+extern "C" {
     #[doc = " Get the language that was used to parse the syntax tree."]
     pub fn ts_tree_language(arg1: *const TSTree) -> *const TSLanguage;
 }
@@ -657,6 +666,9 @@ extern "C" {
         pattern_index: u32,
         length: *mut u32,
     ) -> *const TSQueryPredicateStep;
+}
+extern "C" {
+    pub fn ts_query_is_pattern_rooted(self_: *const TSQuery, pattern_index: u32) -> bool;
 }
 extern "C" {
     pub fn ts_query_is_pattern_guaranteed_at_step(self_: *const TSQuery, byte_offset: u32) -> bool;

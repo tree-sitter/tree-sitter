@@ -1688,6 +1688,66 @@ fn test_query_matches_with_too_many_permutations_to_track() {
 }
 
 #[test]
+fn test_query_sibling_patterns_dont_match_children_of_an_error() {
+    allocations::record(|| {
+        let language = get_language("rust");
+        let query = Query::new(
+            language,
+            r#"
+            ("{" @open "}" @close)
+
+            [
+              (line_comment)
+              (block_comment)
+            ] @comment
+
+            ("<" @first "<" @second)
+            "#,
+        )
+        .unwrap();
+
+        // Most of the document will fail to parse, resulting in a
+        // large number of tokens that are *direct* children of an
+        // ERROR node.
+        //
+        // These children should still match, unless they are part
+        // of a "non-rooted" pattern, in which there are multiple
+        // top-level sibling nodes. Those patterns should not match
+        // directly inside of an error node, because the contents of
+        // an error node are not syntactically well-structured, so we
+        // would get many spurious matches.
+        let source = "
+            fn a() {}
+
+            <<<<<<<<<< add pub b fn () {}
+            // comment 1
+            pub fn b() {
+            /* comment 2 */
+            ==========
+            pub fn c() {
+            // comment 3
+            >>>>>>>>>> add pub c fn () {}
+            }
+        ";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.matches(&query, tree.root_node(), source.as_bytes());
+        assert_eq!(
+            collect_matches(matches, &query, source),
+            &[
+                (0, vec![("open", "{"), ("close", "}")]),
+                (1, vec![("comment", "// comment 1")]),
+                (1, vec![("comment", "/* comment 2 */")]),
+                (1, vec![("comment", "// comment 3")]),
+            ],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_alternatives_and_too_many_permutations_to_track() {
     allocations::record(|| {
         let language = get_language("javascript");
@@ -1998,6 +2058,68 @@ fn test_query_matches_with_unrooted_patterns_intersecting_byte_range() {
                 (0, vec![("left", "{"), ("right", "}")]),
                 (0, vec![("left", "{"), ("right", "}")]),
             ]
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_with_wildcard_at_root_intersecting_byte_range() {
+    allocations::record(|| {
+        let language = get_language("python");
+        let query = Query::new(
+            language,
+            "
+            [
+                (_ body: (block))
+                (_ consequence: (block))
+            ] @indent
+            ",
+        )
+        .unwrap();
+
+        let source = "
+            class A:
+                def b():
+                    if c:
+                        d
+                    else:
+                        e
+        "
+        .trim();
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+
+        // After the first line of the class definition
+        let offset = source.find("A:").unwrap() + 2;
+        let matches = cursor
+            .set_byte_range(offset..offset)
+            .matches(&query, tree.root_node(), source.as_bytes())
+            .map(|mat| mat.captures[0].node.kind())
+            .collect::<Vec<_>>();
+        assert_eq!(matches, &["class_definition"]);
+
+        // After the first line of the function definition
+        let offset = source.find("b():").unwrap() + 4;
+        let matches = cursor
+            .set_byte_range(offset..offset)
+            .matches(&query, tree.root_node(), source.as_bytes())
+            .map(|mat| mat.captures[0].node.kind())
+            .collect::<Vec<_>>();
+        assert_eq!(matches, &["class_definition", "function_definition"]);
+
+        // After the first line of the if statement
+        let offset = source.find("c:").unwrap() + 2;
+        let matches = cursor
+            .set_byte_range(offset..offset)
+            .matches(&query, tree.root_node(), source.as_bytes())
+            .map(|mat| mat.captures[0].node.kind())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            matches,
+            &["class_definition", "function_definition", "if_statement"]
         );
     });
 }
@@ -2825,7 +2947,7 @@ fn test_query_captures_with_many_nested_results_with_fields() {
         .unwrap();
 
         // The outer expression does not match the pattern, but the consequence of the ternary
-        // is an object that *does* contain many occurences of the pattern.
+        // is an object that *does* contain many occurrences of the pattern.
         let count = 50;
         let mut source = "a ? {".to_owned();
         for i in 0..count {
@@ -3518,17 +3640,9 @@ fn test_query_random() {
         for i in 0..100 {
             let seed = (start_seed + i) as u64;
             let mut rand = StdRng::seed_from_u64(seed);
-            let (pattern_ast, range) = Pattern::random_pattern_in_tree(&pattern_tree, &mut rand);
+            let (pattern_ast, _) = Pattern::random_pattern_in_tree(&pattern_tree, &mut rand);
             let pattern = pattern_ast.to_string();
             let expected_matches = pattern_ast.matches_in_tree(&test_tree);
-
-            eprintln!(
-                "seed: {}\nsource_range: {:?}\npattern:\n{}\nexpected match count: {}\n",
-                seed,
-                range,
-                pattern,
-                expected_matches.len(),
-            );
 
             let query = Query::new(language, &pattern).unwrap();
             let mut actual_matches = cursor
@@ -3861,6 +3975,97 @@ fn test_query_is_pattern_guaranteed_at_step() {
                     is_definite,
                 )
             }
+        }
+    });
+}
+
+#[test]
+fn test_query_is_pattern_rooted() {
+    struct Row {
+        description: &'static str,
+        pattern: &'static str,
+        is_rooted: bool,
+    }
+
+    let rows = [
+        Row {
+            description: "simple token",
+            pattern: r#"(identifier)"#,
+            is_rooted: true,
+        },
+        Row {
+            description: "simple non-terminal",
+            pattern: r#"(function_definition name: (identifier))"#,
+            is_rooted: true,
+        },
+        Row {
+            description: "alternative of many tokens",
+            pattern: r#"["if" "def" (identifier) (comment)]"#,
+            is_rooted: true,
+        },
+        Row {
+            description: "alternative of many non-terminals",
+            pattern: r#"[
+                (function_definition name: (identifier))
+                (class_definition name: (identifier))
+                (block)
+            ]"#,
+            is_rooted: true,
+        },
+        Row {
+            description: "two siblings",
+            pattern: r#"("{" "}")"#,
+            is_rooted: false,
+        },
+        Row {
+            description: "top-level repetition",
+            pattern: r#"(comment)*"#,
+            is_rooted: false,
+        },
+        Row {
+            description: "alternative where one option has two siblings",
+            pattern: r#"[
+                (block)
+                (class_definition)
+                ("(" ")")
+                (function_definition)
+            ]"#,
+            is_rooted: false,
+        },
+        Row {
+            description: "alternative where one option has a top-level repetition",
+            pattern: r#"[
+                (block)
+                (class_definition)
+                (comment)*
+                (function_definition)
+            ]"#,
+            is_rooted: false,
+        },
+    ];
+
+    allocations::record(|| {
+        eprintln!("");
+
+        let language = get_language("python");
+        for row in &rows {
+            if let Some(filter) = EXAMPLE_FILTER.as_ref() {
+                if !row.description.contains(filter.as_str()) {
+                    continue;
+                }
+            }
+            eprintln!("  query example: {:?}", row.description);
+            let query = Query::new(language, row.pattern).unwrap();
+            assert_eq!(
+                query.is_pattern_rooted(0),
+                row.is_rooted,
+                "Description: {}, Pattern: {:?}",
+                row.description,
+                row.pattern
+                    .split_ascii_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" "),
+            )
         }
     });
 }

@@ -4,14 +4,15 @@ use glob::glob;
 use std::path::Path;
 use std::{env, fs, u64};
 use tree_sitter_cli::{
-    generate, highlight, logger, parse, playground, query, tags, test, test_highlight, util, wasm,
+    generate, highlight, logger, parse, playground, query, tags, test, test_highlight, test_tags,
+    util, wasm,
 };
 use tree_sitter_config::Config;
 use tree_sitter_loader as loader;
 
 const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
-const DEFAULT_GENERATE_ABI_VERSION: usize = 13;
+const DEFAULT_GENERATE_ABI_VERSION: usize = 14;
 
 fn main() {
     let result = run();
@@ -337,6 +338,11 @@ fn run() -> Result<()> {
             let test_highlight_dir = test_dir.join("highlight");
             if test_highlight_dir.is_dir() {
                 test_highlight::test_highlights(&loader, &test_highlight_dir)?;
+            }
+
+            let test_tag_dir = test_dir.join("tags");
+            if test_tag_dir.is_dir() {
+                test_tags::test_tags(&loader, &test_tag_dir)?;
             }
         }
 

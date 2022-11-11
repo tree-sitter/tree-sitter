@@ -103,7 +103,7 @@ typedef struct {
 
 /*
  * Slice - A slice of an external array. Within a query, capture names,
- * literal string values, and predicate step informations are stored in three
+ * literal string values, and predicate step information are stored in three
  * contiguous arrays. Individual captures, string values, and predicates are
  * represented as slices of these three arrays.
  */
@@ -242,7 +242,7 @@ typedef Array(AnalysisState *) AnalysisStatePool;
  */
 typedef struct {
   TSStateId state;
-  uint8_t production_id;
+  uint16_t production_id;
   uint8_t child_index: 7;
   bool done: 1;
 } AnalysisSubgraphNode;
@@ -1645,7 +1645,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
 
               // If the state has advanced to a step with an alternative step, then add another state
               // at that alternative step. This process is simpler than the process of actually matching a
-              // pattern during query exection, because for the purposes of query analysis, there is no
+              // pattern during query execution, because for the purposes of query analysis, there is no
               // need to process repetitions.
               if (
                 does_match &&
@@ -1918,11 +1918,11 @@ static TSQueryError ts_query__parse_string_literal(
       prev_position = stream->input + stream->next_size;
     } else {
       if (stream->next == '\\') {
-        array_extend(&self->string_buffer, (stream->input - prev_position), prev_position);
+        array_extend(&self->string_buffer, (uint32_t)(stream->input - prev_position), prev_position);
         prev_position = stream->input + 1;
         is_escaped = true;
       } else if (stream->next == '"') {
-        array_extend(&self->string_buffer, (stream->input - prev_position), prev_position);
+        array_extend(&self->string_buffer, (uint32_t)(stream->input - prev_position), prev_position);
         stream_advance(stream);
         return TSQueryErrorNone;
       } else if (stream->next == '\n') {
@@ -2045,7 +2045,7 @@ static TSQueryError ts_query__parse_predicate(
 // the query's internal state machine representation. For nested patterns,
 // this function calls itself recursively.
 //
-// The caller is repsonsible for passing in a dedicated CaptureQuantifiers.
+// The caller is responsible for passing in a dedicated CaptureQuantifiers.
 // These should not be shared between different calls to ts_query__parse_pattern!
 static TSQueryError ts_query__parse_pattern(
   TSQuery *self,
@@ -2101,7 +2101,7 @@ static TSQueryError ts_query__parse_pattern(
         return e;
       }
 
-      if(start_index == starting_step_index) {
+      if (start_index == starting_step_index) {
         capture_quantifiers_replace(capture_quantifiers, &branch_capture_quantifiers);
       } else {
         capture_quantifiers_join_all(capture_quantifiers, &branch_capture_quantifiers);
@@ -2167,10 +2167,10 @@ static TSQueryError ts_query__parse_pattern(
         }
 
         capture_quantifiers_add_all(capture_quantifiers, &child_capture_quantifiers);
-
-        child_is_immediate = false;
         capture_quantifiers_clear(&child_capture_quantifiers);
+        child_is_immediate = false;
       }
+
       capture_quantifiers_delete(&child_capture_quantifiers);
     }
 
@@ -2630,11 +2630,13 @@ TSQuery *ts_query_new(
 
       // Determine whether the pattern has a single root node. This affects
       // decisions about whether or not to start matching the pattern when
-      // a query cursor has a range restriction.
-      bool is_rooted = true;
+      // a query cursor has a range restriction or when immediately within an
+      // error node.
       uint32_t start_depth = step->depth;
+      bool is_rooted = start_depth == 0;
       for (uint32_t step_index = start_step_index + 1; step_index < self->steps.size; step_index++) {
         QueryStep *step = &self->steps.contents[step_index];
+        if (step->is_dead_end) break;
         if (step->depth == start_depth) {
           is_rooted = false;
           break;
@@ -2749,6 +2751,19 @@ uint32_t ts_query_start_byte_for_pattern(
   uint32_t pattern_index
 ) {
   return self->patterns.contents[pattern_index].start_byte;
+}
+
+bool ts_query_is_pattern_rooted(
+  const TSQuery *self,
+  uint32_t pattern_index
+) {
+  for (unsigned i = 0; i < self->pattern_map.size; i++) {
+    PatternEntry *entry = &self->pattern_map.contents[i];
+    if (entry->pattern_index == pattern_index) {
+      if (!entry->is_rooted) return false;
+    }
+  }
+  return true;
 }
 
 bool ts_query_is_pattern_guaranteed_at_step(
@@ -3318,27 +3333,34 @@ static inline bool ts_query_cursor__advance(
         point_gt(ts_node_end_point(node), self->start_point) &&
         point_lt(ts_node_start_point(node), self->end_point)
       );
-
       bool parent_intersects_range = ts_node_is_null(parent_node) || (
         ts_node_end_byte(parent_node) > self->start_byte &&
         ts_node_start_byte(parent_node) < self->end_byte &&
         point_gt(ts_node_end_point(parent_node), self->start_point) &&
         point_lt(ts_node_start_point(parent_node), self->end_point)
       );
+      bool node_is_error = symbol == ts_builtin_sym_error;
+      bool parent_is_error =
+        !ts_node_is_null(parent_node) &&
+        ts_node_symbol(parent_node) == ts_builtin_sym_error;
 
-        // Add new states for any patterns whose root node is a wildcard.
-      for (unsigned i = 0; i < self->query->wildcard_root_pattern_count; i++) {
-        PatternEntry *pattern = &self->query->pattern_map.contents[i];
+      // Add new states for any patterns whose root node is a wildcard.
+      if (!node_is_error) {
+        for (unsigned i = 0; i < self->query->wildcard_root_pattern_count; i++) {
+          PatternEntry *pattern = &self->query->pattern_map.contents[i];
 
-        // If this node matches the first step of the pattern, then add a new
-        // state at the start of this pattern.
-        QueryStep *step = &self->query->steps.contents[pattern->step_index];
-        if (
-          (node_intersects_range || (!pattern->is_rooted && parent_intersects_range)) &&
-          (!step->field || field_id == step->field) &&
-          (!step->supertype_symbol || supertype_count > 0)
-        ) {
-          ts_query_cursor__add_state(self, pattern);
+          // If this node matches the first step of the pattern, then add a new
+          // state at the start of this pattern.
+          QueryStep *step = &self->query->steps.contents[pattern->step_index];
+          if (
+            (pattern->is_rooted ?
+              node_intersects_range :
+              (parent_intersects_range && !parent_is_error)) &&
+            (!step->field || field_id == step->field) &&
+            (!step->supertype_symbol || supertype_count > 0)
+          ) {
+            ts_query_cursor__add_state(self, pattern);
+          }
         }
       }
 
@@ -3352,7 +3374,9 @@ static inline bool ts_query_cursor__advance(
           // If this node matches the first step of the pattern, then add a new
           // state at the start of this pattern.
           if (
-            (node_intersects_range || (!pattern->is_rooted && parent_intersects_range)) &&
+            (pattern->is_rooted ?
+              node_intersects_range :
+              (parent_intersects_range && !parent_is_error)) &&
             (!step->field || field_id == step->field)
           ) {
             ts_query_cursor__add_state(self, pattern);
@@ -3382,7 +3406,7 @@ static inline bool ts_query_cursor__advance(
         // pattern.
         bool node_does_match = false;
         if (step->symbol == WILDCARD_SYMBOL) {
-          node_does_match = is_named || !step->is_named;
+          node_does_match = !node_is_error && (is_named || !step->is_named);
         } else {
           node_does_match = symbol == step->symbol;
         }
@@ -3521,7 +3545,7 @@ static inline bool ts_query_cursor__advance(
 
         // If this state's next step has an alternative step, then copy the state in order
         // to pursue both alternatives. The alternative step itself may have an alternative,
-        // so this is an interative process.
+        // so this is an interactive process.
         unsigned end_index = i + 1;
         for (unsigned j = i; j < end_index; j++) {
           QueryState *state = &self->states.contents[j];
@@ -3645,7 +3669,7 @@ static inline bool ts_query_cursor__advance(
             } else {
               LOG("  finish pattern %u\n", state->pattern_index);
               array_push(&self->finished_states, *state);
-              array_erase(&self->states, state - self->states.contents);
+              array_erase(&self->states, (uint32_t)(state - self->states.contents));
               did_match = true;
               i--;
             }

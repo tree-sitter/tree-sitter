@@ -99,9 +99,9 @@ bool ts_stack_merge(Stack *, StackVersion, StackVersion);
 // Determine whether the given two stack versions can be merged.
 bool ts_stack_can_merge(Stack *, StackVersion, StackVersion);
 
-TSSymbol ts_stack_resume(Stack *, StackVersion);
+Subtree ts_stack_resume(Stack *, StackVersion);
 
-void ts_stack_pause(Stack *, StackVersion, TSSymbol);
+void ts_stack_pause(Stack *, StackVersion, Subtree);
 
 void ts_stack_halt(Stack *, StackVersion);
 

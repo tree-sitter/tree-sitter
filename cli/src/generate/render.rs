@@ -113,7 +113,10 @@ impl Generator {
         }
 
         self.add_non_terminal_alias_map();
-        self.add_primary_state_id_list();
+
+        if self.abi_version >= ABI_VERSION_WITH_PRIMARY_STATES {
+            self.add_primary_state_id_list();
+        }
 
         let mut main_lex_table = LexTable::default();
         swap(&mut main_lex_table, &mut self.main_lex_table);

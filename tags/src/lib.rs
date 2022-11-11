@@ -16,7 +16,7 @@ use tree_sitter::{
 const MAX_LINE_LEN: usize = 180;
 const CANCELLATION_CHECK_INTERVAL: usize = 100;
 
-/// Contains the data neeeded to compute tags for code written in a
+/// Contains the data needed to compute tags for code written in a
 /// particular language.
 #[derive(Debug)]
 pub struct TagsConfiguration {
@@ -250,6 +250,10 @@ impl TagsContext {
             parser: Parser::new(),
             cursor: QueryCursor::new(),
         }
+    }
+
+    pub fn parser(&mut self) -> &mut Parser {
+        &mut self.parser
     }
 
     pub fn generate_tags<'a>(

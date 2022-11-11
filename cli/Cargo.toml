@@ -1,7 +1,7 @@
 [package]
 name = "tree-sitter-cli"
 description = "CLI tool for developing, testing, and using Tree-sitter parsers"
-version = "0.20.3"
+version = "0.20.7"
 authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -32,6 +32,7 @@ lazy_static = "1.2.0"
 regex = "1"
 regex-syntax = "0.6.4"
 rustc-hash = "1"
+semver = "1.0"
 serde = { version = "1.0.130", features = ["derive"] }
 smallbitvec = "2.5.1"
 tiny_http = "0.8"
@@ -40,7 +41,7 @@ webbrowser = "0.5.1"
 which = "4.1.0"
 
 [dependencies.tree-sitter]
-version = "0.20"
+version = "0.20.3"
 path = "../lib"
 
 [dependencies.tree-sitter-config]

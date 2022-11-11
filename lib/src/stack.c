@@ -53,10 +53,10 @@ typedef enum {
 
 typedef struct {
   StackNode *node;
-  Subtree last_external_token;
   StackSummary *summary;
   unsigned node_count_at_last_error;
-  TSSymbol lookahead_when_paused;
+  Subtree last_external_token;
+  Subtree lookahead_when_paused;
   StackStatus status;
 } StackHead;
 
@@ -256,6 +256,9 @@ static void stack_head_delete(
     if (self->last_external_token.ptr) {
       ts_subtree_release(subtree_pool, self->last_external_token);
     }
+    if (self->lookahead_when_paused.ptr) {
+      ts_subtree_release(subtree_pool, self->lookahead_when_paused);
+    }
     if (self->summary) {
       array_delete(self->summary);
       ts_free(self->summary);
@@ -274,7 +277,7 @@ static StackVersion ts_stack__add_version(
     .node_count_at_last_error = self->heads.contents[original_version].node_count_at_last_error,
     .last_external_token = self->heads.contents[original_version].last_external_token,
     .status = StackStatusActive,
-    .lookahead_when_paused = 0,
+    .lookahead_when_paused = NULL_SUBTREE,
   };
   array_push(&self->heads, head);
   stack_node_retain(node);
@@ -323,7 +326,7 @@ inline StackSliceArray stack__iter(
   bool include_subtrees = false;
   if (goal_subtree_count >= 0) {
     include_subtrees = true;
-    array_reserve(&iterator.subtrees, ts_subtree_alloc_size(goal_subtree_count) / sizeof(Subtree));
+    array_reserve(&iterator.subtrees, (uint32_t)ts_subtree_alloc_size(goal_subtree_count) / sizeof(Subtree));
   }
 
   array_push(&self->iterators, iterator);
@@ -703,7 +706,7 @@ void ts_stack_halt(Stack *self, StackVersion version) {
   array_get(&self->heads, version)->status = StackStatusHalted;
 }
 
-void ts_stack_pause(Stack *self, StackVersion version, TSSymbol lookahead) {
+void ts_stack_pause(Stack *self, StackVersion version, Subtree lookahead) {
   StackHead *head = array_get(&self->heads, version);
   head->status = StackStatusPaused;
   head->lookahead_when_paused = lookahead;
@@ -722,12 +725,12 @@ bool ts_stack_is_paused(const Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->status == StackStatusPaused;
 }
 
-TSSymbol ts_stack_resume(Stack *self, StackVersion version) {
+Subtree ts_stack_resume(Stack *self, StackVersion version) {
   StackHead *head = array_get(&self->heads, version);
   assert(head->status == StackStatusPaused);
-  TSSymbol result = head->lookahead_when_paused;
+  Subtree result = head->lookahead_when_paused;
   head->status = StackStatusActive;
-  head->lookahead_when_paused = 0;
+  head->lookahead_when_paused = NULL_SUBTREE;
   return result;
 }
 
@@ -739,9 +742,9 @@ void ts_stack_clear(Stack *self) {
   array_clear(&self->heads);
   array_push(&self->heads, ((StackHead) {
     .node = self->base_node,
-    .last_external_token = NULL_SUBTREE,
     .status = StackStatusActive,
-    .lookahead_when_paused = 0,
+    .last_external_token = NULL_SUBTREE,
+    .lookahead_when_paused = NULL_SUBTREE,
   }));
 }
 
@@ -774,7 +777,8 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
     );
 
     if (head->summary) {
-      fprintf(f, "\nsummary_size: %u", head->summary->size);
+      fprintf(f, "\nsummary:");
+      for (uint32_t j = 0; j < head->summary->size; j++) fprintf(f, " %u", head->summary->contents[j].state);
     }
 
     if (head->last_external_token.ptr) {
@@ -843,11 +847,7 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
           fprintf(f, "label=\"");
           bool quoted = ts_subtree_visible(link.subtree) && !ts_subtree_named(link.subtree);
           if (quoted) fprintf(f, "'");
-          const char *name = ts_language_symbol_name(language, ts_subtree_symbol(link.subtree));
-          for (const char *c = name; *c; c++) {
-            if (*c == '\"' || *c == '\\') fprintf(f, "\\");
-            fprintf(f, "%c", *c);
-          }
+          ts_language_write_symbol_as_dot_string(language, f, ts_subtree_symbol(link.subtree));
           if (quoted) fprintf(f, "'");
           fprintf(f, "\"");
           fprintf(

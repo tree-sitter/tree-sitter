@@ -41,7 +41,7 @@ if (arg) {
     {encoding: 'utf8'}
   );
   if (diff.length !== 0) {
-    console.error('There are uncommited changes.');
+    console.error('There are uncommitted changes.');
     process.exit(1);
   }
 
