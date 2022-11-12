@@ -424,7 +424,7 @@ pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
                 // construct the input
                 let input_string = fs::read_to_string(&input_path)?;
                 let mut input = input_string.as_bytes().to_owned();
-                process_input(&mut input);
+                remove_trailing_newline(&mut input);
 
                 // construct the output
                 let mut output = fs::read_to_string(output_path)?;
@@ -532,7 +532,8 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
                 if let Ok(output) = str::from_utf8(&bytes[divider_range.end..header_range.start]) {
                     let mut input = bytes[prev_header_end..divider_range.start].to_vec();
 
-                    process_input(&mut input);
+                    input.pop();
+                    remove_trailing_newline(&mut input);
 
                     let output = process_output(output);
 
@@ -566,8 +567,7 @@ fn output_hash_fields(output: &String) -> bool {
 }
 
 /// Remove trailing newline from the input.
-fn process_input(input: &mut Vec<u8>) {
-    input.pop();
+fn remove_trailing_newline(input: &mut Vec<u8>) {
     if input.last() == Some(&b'\r') {
         input.pop();
     }
