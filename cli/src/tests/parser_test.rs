@@ -951,7 +951,9 @@ fn test_parsing_with_included_range_containing_mismatched_positions() {
 
     parser.set_included_ranges(&[range_to_parse]).unwrap();
 
-    let html_tree = parser.parse(source_code, None).unwrap();
+    let html_tree = parser
+        .parse_with(&mut chunked_input(source_code, 3), None)
+        .unwrap();
 
     assert_eq!(html_tree.root_node().range(), range_to_parse);
 
@@ -1078,7 +1080,9 @@ fn test_parsing_with_a_newly_excluded_range() {
     // Parse HTML including the template directive, which will cause an error
     let mut parser = Parser::new();
     parser.set_language(get_language("html")).unwrap();
-    let mut first_tree = parser.parse(&source_code, None).unwrap();
+    let mut first_tree = parser
+        .parse_with(&mut chunked_input(&source_code, 3), None)
+        .unwrap();
 
     // Insert code at the beginning of the document.
     let prefix = "a very very long line of plain text. ";
@@ -1113,7 +1117,9 @@ fn test_parsing_with_a_newly_excluded_range() {
             },
         ])
         .unwrap();
-    let tree = parser.parse(&source_code, Some(&first_tree)).unwrap();
+    let tree = parser
+        .parse_with(&mut chunked_input(&source_code, 3), Some(&first_tree))
+        .unwrap();
 
     assert_eq!(
         tree.root_node().to_sexp(),
@@ -1164,7 +1170,9 @@ fn test_parsing_with_a_newly_included_range() {
     parser
         .set_included_ranges(&[simple_range(range1_start, range1_end)])
         .unwrap();
-    let tree = parser.parse(source_code, None).unwrap();
+    let tree = parser
+        .parse_with(&mut chunked_input(&source_code, 3), None)
+        .unwrap();
     assert_eq!(
         tree.root_node().to_sexp(),
         concat!(
@@ -1181,7 +1189,9 @@ fn test_parsing_with_a_newly_included_range() {
             simple_range(range3_start, range3_end),
         ])
         .unwrap();
-    let tree2 = parser.parse(&source_code, Some(&tree)).unwrap();
+    let tree2 = parser
+        .parse_with(&mut chunked_input(&source_code, 3), Some(&tree))
+        .unwrap();
     assert_eq!(
         tree2.root_node().to_sexp(),
         concat!(
@@ -1288,4 +1298,8 @@ fn simple_range(start: usize, end: usize) -> Range {
         start_point: Point::new(0, start),
         end_point: Point::new(0, end),
     }
+}
+
+fn chunked_input<'a>(text: &'a str, size: usize) -> impl FnMut(usize, Point) -> &'a [u8] {
+    move |offset, _| text[offset..text.len().min(offset + size)].as_bytes()
 }
