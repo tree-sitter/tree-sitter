@@ -346,6 +346,13 @@ void ts_lexer_finish(Lexer *self, uint32_t *lookahead_end_byte) {
     ts_lexer__mark_end(&self->data);
   }
 
+  // If the token ended at an included range boundary, then its end position
+  // will have been reset to the end of the preceding range. Reset the start
+  // position to match.
+  if (self->token_end_position.bytes < self->token_start_position.bytes) {
+    self->token_start_position = self->token_end_position;
+  }
+
   uint32_t current_lookahead_end_byte = self->current_position.bytes + 1;
 
   // In order to determine that a byte sequence is invalid UTF8 or UTF16,
