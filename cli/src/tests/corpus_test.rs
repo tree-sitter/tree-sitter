@@ -14,7 +14,7 @@ use crate::{
     util,
 };
 use std::fs;
-use tree_sitter::{LogType, Node, Parser, Tree};
+use tree_sitter::{LogType, Node, Parser, Point, Range, Tree};
 
 #[test]
 fn test_bash_corpus() {
@@ -79,40 +79,49 @@ fn test_rust_corpus() {
 fn test_language_corpus(language_name: &str) {
     let grammars_dir = fixtures_dir().join("grammars");
     let error_corpus_dir = fixtures_dir().join("error_corpus");
+    let template_corpus_dir = fixtures_dir().join("template_corpus");
     let mut corpus_dir = grammars_dir.join(language_name).join("corpus");
     if !corpus_dir.is_dir() {
         corpus_dir = grammars_dir.join(language_name).join("test").join("corpus");
     }
 
     let error_corpus_file = error_corpus_dir.join(&format!("{}_errors.txt", language_name));
+    let template_corpus_file =
+        template_corpus_dir.join(&format!("{}_templates.txt", language_name));
     let main_tests = parse_tests(&corpus_dir).unwrap();
     let error_tests = parse_tests(&error_corpus_file).unwrap_or(TestEntry::default());
+    let template_tests = parse_tests(&template_corpus_file).unwrap_or(TestEntry::default());
     let mut tests = flatten_tests(main_tests);
     tests.extend(flatten_tests(error_tests));
+    tests.extend(flatten_tests(template_tests).into_iter().map(|mut t| {
+        t.template_delimiters = Some(("<%", "%>"));
+        t
+    }));
 
     let language = get_language(language_name);
     let mut failure_count = 0;
-    for (example_name, input, expected_output, has_fields) in tests {
-        println!("  {} example - {}", language_name, example_name);
+    for test in tests {
+        println!("  {} example - {}", language_name, test.name);
 
         let passed = allocations::record(|| {
             let mut log_session = None;
             let mut parser = get_parser(&mut log_session, "log.html");
             parser.set_language(language).unwrap();
+            set_included_ranges(&mut parser, &test.input, test.template_delimiters);
 
-            let tree = parser.parse(&input, None).unwrap();
+            let tree = parser.parse(&test.input, None).unwrap();
             let mut actual_output = tree.root_node().to_sexp();
-            if !has_fields {
+            if !test.has_fields {
                 actual_output = strip_sexp_fields(actual_output);
             }
 
-            if actual_output != expected_output {
+            if actual_output != test.output {
                 println!(
                     "Incorrect initial parse for {} - {}",
-                    language_name, example_name,
+                    language_name, test.name,
                 );
                 print_diff_key();
-                print_diff(&actual_output, &expected_output);
+                print_diff(&actual_output, &test.output);
                 println!("");
                 return false;
             }
@@ -127,7 +136,7 @@ fn test_language_corpus(language_name: &str) {
 
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
-        let tree = parser.parse(&input, None).unwrap();
+        let tree = parser.parse(&test.input, None).unwrap();
         drop(parser);
 
         for trial in 0..*ITERATION_COUNT {
@@ -138,7 +147,7 @@ fn test_language_corpus(language_name: &str) {
                 let mut parser = get_parser(&mut log_session, "log.html");
                 parser.set_language(language).unwrap();
                 let mut tree = tree.clone();
-                let mut input = input.clone();
+                let mut input = test.input.clone();
 
                 if *LOG_GRAPH_ENABLED {
                     eprintln!("{}\n", String::from_utf8_lossy(&input));
@@ -158,6 +167,7 @@ fn test_language_corpus(language_name: &str) {
                     eprintln!("{}\n", String::from_utf8_lossy(&input));
                 }
 
+                set_included_ranges(&mut parser, &input, test.template_delimiters);
                 let mut tree2 = parser.parse(&input, Some(&tree)).unwrap();
 
                 // Check that the new tree is consistent.
@@ -178,21 +188,22 @@ fn test_language_corpus(language_name: &str) {
                     eprintln!("{}\n", String::from_utf8_lossy(&input));
                 }
 
+                set_included_ranges(&mut parser, &test.input, test.template_delimiters);
                 let tree3 = parser.parse(&input, Some(&tree2)).unwrap();
 
                 // Verify that the final tree matches the expectation from the corpus.
                 let mut actual_output = tree3.root_node().to_sexp();
-                if !has_fields {
+                if !test.has_fields {
                     actual_output = strip_sexp_fields(actual_output);
                 }
 
-                if actual_output != expected_output {
+                if actual_output != test.output {
                     println!(
                         "Incorrect parse for {} - {} - seed {}",
-                        language_name, example_name, seed
+                        language_name, test.name, seed
                     );
                     print_diff_key();
-                    print_diff(&actual_output, &expected_output);
+                    print_diff(&actual_output, &test.output);
                     println!("");
                     return false;
                 }
@@ -293,23 +304,23 @@ fn test_feature_corpus_files() {
                 eprintln!("test language: {:?}", language_name);
             }
 
-            for (name, input, expected_output, has_fields) in tests {
-                eprintln!("  example: {:?}", name);
+            for test in tests {
+                eprintln!("  example: {:?}", test.name);
 
                 let passed = allocations::record(|| {
                     let mut log_session = None;
                     let mut parser = get_parser(&mut log_session, "log.html");
                     parser.set_language(language).unwrap();
-                    let tree = parser.parse(&input, None).unwrap();
+                    let tree = parser.parse(&test.input, None).unwrap();
                     let mut actual_output = tree.root_node().to_sexp();
-                    if !has_fields {
+                    if !test.has_fields {
                         actual_output = strip_sexp_fields(actual_output);
                     }
-                    if actual_output == expected_output {
+                    if actual_output == test.output {
                         true
                     } else {
                         print_diff_key();
-                        print_diff(&actual_output, &expected_output);
+                        print_diff(&actual_output, &test.output);
                         println!("");
                         false
                     }
@@ -390,6 +401,7 @@ fn check_changed_ranges(old_tree: &Tree, new_tree: &Tree, input: &Vec<u8>) -> Re
 
     let old_range = old_tree.root_node().range();
     let new_range = new_tree.root_node().range();
+
     let byte_range =
         old_range.start_byte.min(new_range.start_byte)..old_range.end_byte.max(new_range.end_byte);
     let point_range = old_range.start_point.min(new_range.start_point)
@@ -405,6 +417,45 @@ fn check_changed_ranges(old_tree: &Tree, new_tree: &Tree, input: &Vec<u8>) -> Re
     }
 
     old_scope_sequence.check_changes(&new_scope_sequence, &input, &changed_ranges)
+}
+
+fn set_included_ranges(parser: &mut Parser, input: &[u8], delimiters: Option<(&str, &str)>) {
+    if let Some((start, end)) = delimiters {
+        let mut ranges = Vec::new();
+        let mut ix = 0;
+        while ix < input.len() {
+            let Some(mut start_ix) = input[ix..].windows(2).position(|win| win == start.as_bytes()) else { break };
+            start_ix += ix + start.len();
+            let end_ix = input[start_ix..]
+                .windows(2)
+                .position(|win| win == end.as_bytes())
+                .map_or(input.len(), |ix| start_ix + ix);
+            ix = end_ix;
+            ranges.push(Range {
+                start_byte: start_ix,
+                end_byte: end_ix,
+                start_point: point_for_offset(input, start_ix),
+                end_point: point_for_offset(input, end_ix),
+            });
+        }
+
+        parser.set_included_ranges(&ranges).unwrap();
+    } else {
+        parser.set_included_ranges(&[]).unwrap();
+    }
+}
+
+fn point_for_offset(text: &[u8], offset: usize) -> Point {
+    let mut point = Point::default();
+    for byte in &text[..offset] {
+        if *byte == b'\n' {
+            point.row += 1;
+            point.column = 0;
+        } else {
+            point.column += 1;
+        }
+    }
+    point
 }
 
 fn get_parser(session: &mut Option<util::LogSession>, log_filename: &str) -> Parser {
@@ -425,13 +476,16 @@ fn get_parser(session: &mut Option<util::LogSession>, log_filename: &str) -> Par
     parser
 }
 
-fn flatten_tests(test: TestEntry) -> Vec<(String, Vec<u8>, String, bool)> {
-    fn helper(
-        test: TestEntry,
-        is_root: bool,
-        prefix: &str,
-        result: &mut Vec<(String, Vec<u8>, String, bool)>,
-    ) {
+struct FlattenedTest {
+    name: String,
+    input: Vec<u8>,
+    output: String,
+    has_fields: bool,
+    template_delimiters: Option<(&'static str, &'static str)>,
+}
+
+fn flatten_tests(test: TestEntry) -> Vec<FlattenedTest> {
+    fn helper(test: TestEntry, is_root: bool, prefix: &str, result: &mut Vec<FlattenedTest>) {
         match test {
             TestEntry::Example {
                 mut name,
@@ -448,7 +502,13 @@ fn flatten_tests(test: TestEntry) -> Vec<(String, Vec<u8>, String, bool)> {
                         return;
                     }
                 }
-                result.push((name, input, output, has_fields));
+                result.push(FlattenedTest {
+                    name,
+                    input,
+                    output,
+                    has_fields,
+                    template_delimiters: None,
+                });
             }
             TestEntry::Group {
                 mut name, children, ..

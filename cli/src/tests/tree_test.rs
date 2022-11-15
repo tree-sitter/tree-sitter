@@ -233,6 +233,71 @@ fn test_tree_edit() {
 }
 
 #[test]
+fn test_tree_edit_with_included_ranges() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("html")).unwrap();
+
+    let source = "<div><% if a %><span>a</span><% else %><span>b</span><% end %></div>";
+
+    let ranges = [0..5, 15..29, 39..53, 62..68];
+
+    parser
+        .set_included_ranges(
+            &ranges
+                .iter()
+                .map(|range| Range {
+                    start_byte: range.start,
+                    end_byte: range.end,
+                    start_point: Point::new(0, range.start),
+                    end_point: Point::new(0, range.end),
+                })
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+
+    let mut tree = parser.parse(source, None).unwrap();
+
+    tree.edit(&InputEdit {
+        start_byte: 29,
+        old_end_byte: 53,
+        new_end_byte: 29,
+        start_position: Point::new(0, 29),
+        old_end_position: Point::new(0, 53),
+        new_end_position: Point::new(0, 29),
+    });
+
+    assert_eq!(
+        tree.included_ranges(),
+        &[
+            Range {
+                start_byte: 0,
+                end_byte: 5,
+                start_point: Point::new(0, 0),
+                end_point: Point::new(0, 5),
+            },
+            Range {
+                start_byte: 15,
+                end_byte: 29,
+                start_point: Point::new(0, 15),
+                end_point: Point::new(0, 29),
+            },
+            Range {
+                start_byte: 29,
+                end_byte: 29,
+                start_point: Point::new(0, 29),
+                end_point: Point::new(0, 29),
+            },
+            Range {
+                start_byte: 38,
+                end_byte: 44,
+                start_point: Point::new(0, 38),
+                end_point: Point::new(0, 44),
+            }
+        ]
+    );
+}
+
+#[test]
 fn test_tree_cursor() {
     let mut parser = Parser::new();
     parser.set_language(get_language("rust")).unwrap();

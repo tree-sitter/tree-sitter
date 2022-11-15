@@ -44,20 +44,10 @@ impl ScopeSequence {
         text: &Vec<u8>,
         known_changed_ranges: &Vec<Range>,
     ) -> Result<(), String> {
-        if self.0.len() != text.len() {
-            panic!(
-                "Inconsistent scope sequence: {:?}",
-                self.0
-                    .iter()
-                    .zip(text.iter().map(|c| *c as char))
-                    .collect::<Vec<_>>()
-            );
-        }
-
-        assert_eq!(self.0.len(), other.0.len());
         let mut position = Point { row: 0, column: 0 };
-        for (i, stack) in self.0.iter().enumerate() {
-            let other_stack = &other.0[i];
+        for i in 0..(self.0.len().max(other.0.len())) {
+            let stack = &self.0.get(i);
+            let other_stack = &other.0.get(i);
             if *stack != *other_stack && ![b'\r', b'\n'].contains(&text[i]) {
                 let containing_range = known_changed_ranges
                     .iter()

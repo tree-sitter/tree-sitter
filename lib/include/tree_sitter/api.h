@@ -382,6 +382,13 @@ TSNode ts_tree_root_node_with_offset(
 const TSLanguage *ts_tree_language(const TSTree *);
 
 /**
+ * Get the array of included ranges that was used to parse the syntax tree.
+ *
+ * The returned pointer must be freed by the caller.
+ */
+TSRange *ts_tree_included_ranges(const TSTree *, uint32_t *length);
+
+/**
  * Edit the syntax tree to keep it in sync with source code that has been
  * edited.
  *
