@@ -44,6 +44,7 @@ Parsers for these languages are fairly complete:
 * [Emacs Lisp](https://github.com/Wilfred/tree-sitter-elisp)
 * [Eno](https://github.com/eno-lang/tree-sitter-eno)
 * [ERB / EJS](https://github.com/tree-sitter/tree-sitter-embedded-template)
+* [Erlang](https://github.com/WhatsApp/tree-sitter-erlang/)
 * [Fennel](https://github.com/travonted/tree-sitter-fennel)
 * [GLSL (OpenGL Shading Language)](https://github.com/theHamsta/tree-sitter-glsl)
 * [Go](https://github.com/tree-sitter/tree-sitter-go)
@@ -81,7 +82,6 @@ Parsers for these languages are in development:
 
 * [Agda](https://github.com/tree-sitter/tree-sitter-agda)
 * [Elixir](https://github.com/elixir-lang/tree-sitter-elixir)
-* [Erlang](https://github.com/AbstractMachinesLab/tree-sitter-erlang/)
 * [Dockerfile](https://github.com/camdencheek/tree-sitter-dockerfile)
 * [Go mod](https://github.com/camdencheek/tree-sitter-go-mod)
 * [Hack](https://github.com/slackhq/tree-sitter-hack)
