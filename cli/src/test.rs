@@ -294,15 +294,10 @@ fn format_sexp_indented(sexp: &String, initial_indent_level: u32) -> String {
             // "(node_name"
             write!(formatted, "{}", s).unwrap();
 
-            let mut c_iter = s.chars();
-            c_iter.next();
-            match c_iter.next() {
-                Some('M') | Some('U') => {
-                    // "(MISSING node_name" or "(UNEXPECTED 'x'"
-                    let s = s_iter.next().unwrap();
-                    write!(formatted, " {}", s).unwrap();
-                }
-                Some(_) | None => {}
+            // "(MISSING node_name" or "(UNEXPECTED 'x'"
+            if s.starts_with("(MISSING") || s.starts_with("(UNEXPECTED") {
+                let s = s_iter.next().unwrap();
+                write!(formatted, " {}", s).unwrap();
             }
         } else if s.ends_with(':') {
             // "field:"
@@ -597,6 +592,14 @@ abc
             .to_string()
         );
         assert_eq!(format_sexp(&"()".to_string()), "()".to_string());
+        assert_eq!(
+            format_sexp(&"(A (M (B)))".to_string()),
+            "(A\n  (M\n    (B)))"
+        );
+        assert_eq!(
+            format_sexp(&"(A (U (B)))".to_string()),
+            "(A\n  (U\n    (B)))"
+        );
     }
 
     #[test]
