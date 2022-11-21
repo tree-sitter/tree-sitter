@@ -763,6 +763,18 @@ impl Tree {
             util::CBufferIter::new(ptr, count as usize).map(|r| r.into())
         }
     }
+
+    /// Get the included ranges that were used to parse the syntax tree.
+    pub fn included_ranges(&self) -> Vec<Range> {
+        let mut count = 0u32;
+        unsafe {
+            let ptr = ffi::ts_tree_included_ranges(self.0.as_ptr(), &mut count as *mut u32);
+            let ranges = slice::from_raw_parts(ptr, count as usize);
+            let result = ranges.iter().copied().map(|range| range.into()).collect();
+            (FREE_FN)(ptr as *mut c_void);
+            result
+        }
+    }
 }
 
 impl fmt::Debug for Tree {

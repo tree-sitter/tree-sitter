@@ -77,6 +77,8 @@ fi
 
 mkdir -p target/scratch
 
+runtime_methods='stringToUTF16','AsciiToString'
+
 # Use emscripten to generate `tree-sitter.js` and `tree-sitter.wasm`
 # in the `target/scratch` directory
 $emcc                                            \
@@ -88,6 +90,7 @@ $emcc                                            \
   -s NODEJS_CATCH_EXIT=0                         \
   -s NODEJS_CATCH_REJECTION=0                    \
   -s EXPORTED_FUNCTIONS=@${web_dir}/exports.json \
+  -s EXPORTED_RUNTIME_METHODS=$runtime_methods   \
   $emscripten_flags                              \
   -fno-exceptions                                \
   -std=c99                                       \
