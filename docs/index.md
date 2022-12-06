@@ -35,6 +35,7 @@ Parsers for these languages are fairly complete:
 * [C](https://github.com/tree-sitter/tree-sitter-c)
 * [C#](https://github.com/tree-sitter/tree-sitter-c-sharp)
 * [C++](https://github.com/tree-sitter/tree-sitter-cpp)
+* [Clojure](https://github.com/sogaiu/tree-sitter-clojure)
 * [Common Lisp](https://github.com/theHamsta/tree-sitter-commonlisp)
 * [CSS](https://github.com/tree-sitter/tree-sitter-css)
 * [CUDA](https://github.com/theHamsta/tree-sitter-cuda)
