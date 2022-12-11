@@ -66,7 +66,21 @@ fn read_git_sha() -> Option<String> {
         // If we're on a branch, read the SHA from the ref file.
         if head_content.starts_with("ref: ") {
             head_content.replace_range(0.."ref: ".len(), "");
-            let ref_filename = git_dir_path.join(&head_content);
+            let ref_filename = {
+                let file = git_dir_path.join(&head_content);
+                if file.is_file() {
+                    file
+                } else {
+                    let file = git_dir_path
+                        .parent() // worktrees subfolder
+                        .unwrap()
+                        .parent() // original gitdir
+                        .unwrap()
+                        .join(&head_content);
+                    assert!(file.is_file());
+                    file
+                }
+            };
             if let Some(path) = ref_filename.to_str() {
                 println!("cargo:rerun-if-changed={}", path);
             }
