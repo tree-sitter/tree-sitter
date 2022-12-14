@@ -82,6 +82,10 @@ static inline TSClock clock_after(TSClock base, TSDuration duration) {
   TSClock result = base;
   result.tv_sec += duration / 1000000;
   result.tv_nsec += (duration % 1000000) * 1000;
+  if (result.tv_nsec >= 1000000000) {
+    result.tv_nsec -= 1000000000;
+    ++(result.tv_sec);
+  }
   return result;
 }
 
