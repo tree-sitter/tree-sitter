@@ -80,6 +80,11 @@ You can test this parser by creating a source file with the contents "hello" and
 echo 'hello' > example-file
 tree-sitter parse example-file
 ```
+Alternatively, in Windows PowerShell:
+```pwsh
+"hello" | Out-File example-file -Encoding utf8
+tree-sitter parse example-file
+```
 
 This should print the following:
 
