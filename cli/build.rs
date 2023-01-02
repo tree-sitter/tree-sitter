@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
@@ -67,18 +68,36 @@ fn read_git_sha() -> Option<String> {
         if head_content.starts_with("ref: ") {
             head_content.replace_range(0.."ref: ".len(), "");
             let ref_filename = {
+                // Go to real non-worktree gitdir
+                let git_dir_path = git_dir_path
+                    .parent()
+                    .map(|p| {
+                        p.file_name()
+                            .map(|n| n == OsStr::new("worktrees"))
+                            .and_then(|x| x.then(|| p.parent()))
+                    })
+                    .flatten()
+                    .flatten()
+                    .unwrap_or(&git_dir_path);
+
                 let file = git_dir_path.join(&head_content);
                 if file.is_file() {
                     file
                 } else {
-                    let file = git_dir_path
-                        .parent() // worktrees subfolder
-                        .unwrap()
-                        .parent() // original gitdir
-                        .unwrap()
-                        .join(&head_content);
-                    assert!(file.is_file());
-                    file
+                    let packed_refs = git_dir_path.join("packed-refs");
+                    if let Ok(packed_refs_content) = fs::read_to_string(&packed_refs) {
+                        for line in packed_refs_content.lines() {
+                            if let Some((hash, r#ref)) = line.split_once(' ') {
+                                if r#ref == head_content {
+                                    if let Some(path) = packed_refs.to_str() {
+                                        println!("cargo:rerun-if-changed={}", path);
+                                    }
+                                    return Some(hash.to_string());
+                                }
+                            }
+                        }
+                    }
+                    return None;
                 }
             };
             if let Some(path) = ref_filename.to_str() {
