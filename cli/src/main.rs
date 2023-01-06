@@ -111,8 +111,7 @@ fn run() -> Result<()> {
                         .long("report-states-for-rule")
                         .value_name("rule-name")
                         .takes_value(true),
-                )
-                .arg(Arg::with_name("no-minimize").long("no-minimize")),
+                ),
         )
         .subcommand(
             SubCommand::with_name("parse")
