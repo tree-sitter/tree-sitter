@@ -107,6 +107,11 @@ fn run() -> Result<()> {
                 )
                 .arg(Arg::with_name("no-bindings").long("no-bindings"))
                 .arg(
+                    Arg::with_name("build").long("build").short("b")
+                    .help("Compile all defined languages in the current dir")
+                )
+                .arg(&debug_build_arg)
+                .arg(
                     Arg::with_name("report-states-for-rule")
                         .long("report-states-for-rule")
                         .value_name("rule-name")
@@ -269,6 +274,8 @@ fn run() -> Result<()> {
 
         ("generate", Some(matches)) => {
             let grammar_path = matches.value_of("grammar-path");
+            let debug_build = matches.is_present("debug-build");
+            let build = matches.is_present("build");
             let report_symbol_name = matches.value_of("report-states-for-rule").or_else(|| {
                 if matches.is_present("report-states") {
                     Some("")
@@ -297,6 +304,10 @@ fn run() -> Result<()> {
                 generate_bindings,
                 report_symbol_name,
             )?;
+            if build {
+                loader.use_debug_build(debug_build);
+                loader.languages_at_path(&current_dir)?;
+            }
         }
 
         ("test", Some(matches)) => {
