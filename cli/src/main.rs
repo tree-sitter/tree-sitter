@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{App, AppSettings, Arg, SubCommand};
 use glob::glob;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::{env, fs, u64};
 use tree_sitter_cli::{
     generate, highlight, logger, parse, playground, query, tags, test, test_highlight, test_tags,
@@ -107,12 +107,24 @@ fn run() -> Result<()> {
                 )
                 .arg(Arg::with_name("no-bindings").long("no-bindings"))
                 .arg(
+                    Arg::with_name("build")
+                        .long("build")
+                        .short("b")
+                        .help("Compile all defined languages in the current dir"),
+                )
+                .arg(&debug_build_arg)
+                .arg(
+                    Arg::with_name("libdir")
+                        .long("libdir")
+                        .takes_value(true)
+                        .value_name("path"),
+                )
+                .arg(
                     Arg::with_name("report-states-for-rule")
                         .long("report-states-for-rule")
                         .value_name("rule-name")
                         .takes_value(true),
-                )
-                .arg(Arg::with_name("no-minimize").long("no-minimize")),
+                ),
         )
         .subcommand(
             SubCommand::with_name("parse")
@@ -270,6 +282,9 @@ fn run() -> Result<()> {
 
         ("generate", Some(matches)) => {
             let grammar_path = matches.value_of("grammar-path");
+            let debug_build = matches.is_present("debug-build");
+            let build = matches.is_present("build");
+            let libdir = matches.value_of("libdir");
             let report_symbol_name = matches.value_of("report-states-for-rule").or_else(|| {
                 if matches.is_present("report-states") {
                     Some("")
@@ -298,6 +313,13 @@ fn run() -> Result<()> {
                 generate_bindings,
                 report_symbol_name,
             )?;
+            if build {
+                if let Some(path) = libdir {
+                    loader = loader::Loader::with_parser_lib_path(PathBuf::from(path));
+                }
+                loader.use_debug_build(debug_build);
+                loader.languages_at_path(&current_dir)?;
+            }
         }
 
         ("test", Some(matches)) => {

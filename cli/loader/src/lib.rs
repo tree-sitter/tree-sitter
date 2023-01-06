@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
 use std::time::SystemTime;
-use std::{fs, mem};
+use std::{env, fs, mem};
 use tree_sitter::{Language, QueryError, QueryErrorKind};
 use tree_sitter_highlight::HighlightConfiguration;
 use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
@@ -108,9 +108,12 @@ unsafe impl Sync for Loader {}
 
 impl Loader {
     pub fn new() -> Result<Self> {
-        let parser_lib_path = dirs::cache_dir()
-            .ok_or(anyhow!("Cannot determine cache directory"))?
-            .join("tree-sitter/lib");
+        let parser_lib_path = match env::var("TREE_SITTER_LIBDIR") {
+            Ok(path) => PathBuf::from(path),
+            _ => dirs::cache_dir()
+                .ok_or(anyhow!("Cannot determine cache directory"))?
+                .join("tree-sitter/lib"),
+        };
         Ok(Self::with_parser_lib_path(parser_lib_path))
     }
 
