@@ -71,7 +71,11 @@ elif which docker > /dev/null; then
     emscripten/emsdk:$emscripen_version  \
     emcc"
 else
-  echo 'You must have either `docker` or `emcc` on your PATH to run this script'
+  if [[ "$force_docker" == "1" ]]; then
+    echo 'You must have `docker` on your PATH to run this script with --docker'
+  else
+    echo 'You must have either `docker` or `emcc` on your PATH to run this script'
+  fi
   exit 1
 fi
 
