@@ -1,4 +1,4 @@
-VERSION := 0.6.3
+VERSION := 0.20.9
 
 # install directory layout
 PREFIX ?= /usr/local
