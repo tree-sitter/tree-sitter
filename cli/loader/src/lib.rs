@@ -377,7 +377,6 @@ impl Loader {
                 command.env(key, value);
             }
 
-            let compiler = config.get_compiler();
             if compiler.is_like_msvc() {
                 command.args(&["/nologo", "/LD", "/I"]).arg(header_path);
                 if self.debug_build {
