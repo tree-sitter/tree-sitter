@@ -329,6 +329,11 @@ fn run() -> Result<()> {
             let update = matches.is_present("update");
             let filter = matches.value_of("filter");
 
+            if debug {
+                // For augmenting debug logging in external scanners
+                env::set_var("TREE_SITTER_DEBUG", "1");
+            }
+
             loader.use_debug_build(debug_build);
 
             let languages = loader.languages_at_path(&current_dir)?;
