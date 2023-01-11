@@ -37,7 +37,8 @@ impl Config {
 
         let legacy_path = dirs::home_dir()
             .ok_or(anyhow!("Cannot determine home directory"))?
-            .join(".tree-sitter/config.json");
+            .join(".tree-sitter")
+            .join("config.json");
         if legacy_path.is_file() {
             return Ok(Some(legacy_path));
         }
@@ -48,7 +49,8 @@ impl Config {
     fn xdg_config_file() -> Result<PathBuf> {
         let xdg_path = dirs::config_dir()
             .ok_or(anyhow!("Cannot determine config directory"))?
-            .join("tree-sitter/config.json");
+            .join("tree-sitter")
+            .join("config.json");
         Ok(xdg_path)
     }
 

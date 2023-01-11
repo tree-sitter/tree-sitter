@@ -112,7 +112,8 @@ impl Loader {
             Ok(path) => PathBuf::from(path),
             _ => dirs::cache_dir()
                 .ok_or(anyhow!("Cannot determine cache directory"))?
-                .join("tree-sitter/lib"),
+                .join("tree-sitter")
+                .join("lib"),
         };
         Ok(Self::with_parser_lib_path(parser_lib_path))
     }
