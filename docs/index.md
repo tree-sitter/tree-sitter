@@ -20,6 +20,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [JavaScript (Wasm)](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web)
 * [Lua](https://github.com/euclidianAce/ltreesitter)
 * [OCaml](https://github.com/returntocorp/ocaml-tree-sitter-core)
+* [Perl](https://metacpan.org/pod/Text::Treesitter)
 * [Python](https://github.com/tree-sitter/py-tree-sitter)
 * [Ruby](https://github.com/tree-sitter/ruby-tree-sitter)
 * [Rust](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_rust)
