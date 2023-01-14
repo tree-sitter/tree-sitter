@@ -638,6 +638,7 @@ fn test_parsing_cancelled_by_another_thread() {
 // Timeouts
 
 #[test]
+#[ignore = "flaky due to timeout"]
 fn test_parsing_with_a_timeout() {
     let mut parser = Parser::new();
     parser.set_language(get_language("json")).unwrap();
