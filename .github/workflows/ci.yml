@@ -59,7 +59,7 @@ jobs:
         run: cargo fmt -- --check
 
       - name: Install emscripten
-        uses: mymindstorm/setup-emsdk@v11
+        uses: mymindstorm/setup-emsdk@v12
         with:
           version: ${{ env.EMSCRIPTEN_VERSION }}
 
