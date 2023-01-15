@@ -54,6 +54,7 @@ jobs:
         with:
           toolchain: stable
           profile: minimal
+          components: rustfmt, clippy
 
       - name: Check Rust code formatting
         run: cargo fmt -- --check
