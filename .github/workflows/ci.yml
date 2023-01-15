@@ -78,7 +78,7 @@ jobs:
       - name: Set up fixture parsers
         run: |
           script/fetch-fixtures
-          script/generate-fixtures
+          script/generate-fixtures --build
           script/generate-fixtures-wasm
 
       - name: Install latest nextest release
@@ -150,7 +150,7 @@ jobs:
       - name: Set up fixture parsers
         run: |
           script/fetch-fixtures.cmd
-          script/generate-fixtures.cmd
+          script/generate-fixtures.cmd --build
 
       - name: Install latest nextest release
         uses: taiki-e/install-action@nextest
