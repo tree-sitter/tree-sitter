@@ -152,5 +152,11 @@ jobs:
           script/fetch-fixtures.cmd
           script/generate-fixtures.cmd
 
+      - name: Install latest nextest release
+        uses: taiki-e/install-action@nextest
+
       - name: Run main tests
-        run: script/test
+        run: cargo nextest run --workspace --lib --tests --bins --examples
+
+      - name: Run main flaky tests
+        run: cargo nextest run --workspace --lib --tests --bins --examples --retries 10 -- --ignored
