@@ -8,8 +8,10 @@ install:
   - IF "%PLATFORM%" == "x86" rustup-init -y --default-toolchain stable --default-host i686-pc-windows-msvc
   - IF "%PLATFORM%" == "x64" rustup-init -y --default-toolchain stable --default-host x86_64-pc-windows-msvc
   - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
+  - cargo install cargo-nextest
   - rustc -vV
   - cargo -vV
+  - cargo nextest -vV
 
   # Install dependencies
   - git submodule update --init
@@ -24,8 +26,13 @@ test_script:
   - cargo build --release
   - script\generate-fixtures.cmd
 
-  # Run tests
-  - script\test.cmd
+  # Run main tests
+  - cargo nextest run --workspace --lib --tests --bins --examples
+
+  # Run main flaky tests
+  - cargo nextest run --workspace --lib --tests --bins --examples --retries 10 -- --ignored
+
+  # Run benchmarks
   - script\benchmark.cmd
 
 before_deploy:
