@@ -25,6 +25,9 @@ impl Config {
         if let Ok(path) = env::var("TREE_SITTER_DIR") {
             let mut path = PathBuf::from(path);
             path.push("config.json");
+            if !path.exists() {
+                return Ok(None);
+            }
             if path.is_file() {
                 return Ok(Some(path));
             }
