@@ -1,3 +1,9 @@
+environment:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: 1
+  TREE_SITTER_LIBDIR: "%APPVEYOR_BUILD_FOLDER%\\target\\scratch"
+
 build: false
 install:
   # Terminate early unless building either a tag or a PR.
