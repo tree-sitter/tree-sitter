@@ -14,6 +14,7 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
   RUST_BACKTRACE: 1
+  RUSTFLAGS: -D warnings
 
 jobs:
   unix-tests:
@@ -80,9 +81,7 @@ jobs:
         run: script/build-wasm
 
       - name: Build CLI
-        run: |
-          RUSTFLAGS="-D warnings"
-          cargo build --release
+        run: cargo build --release
 
       - name: Set up fixture parsers
         run: |
@@ -159,9 +158,7 @@ jobs:
         run: cargo fmt -- --check
 
       - name: Build CLI
-        run: |
-          $env:RUSTFLAGS="-D warnings"
-          cargo build --release
+        run: cargo build --release
 
       - name: Set up fixture parsers
         run: |
