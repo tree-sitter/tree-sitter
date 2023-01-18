@@ -34,6 +34,8 @@ jobs:
       - name: Set TREE_SITTER_LIBDIR to a scratch dir
         run: |
           echo TREE_SITTER_LIBDIR=${{ github.workspace }}/target/scratch >> $GITHUB_ENV
+      - run: |
+          env
 
       # Work around https://github.com/actions/cache/issues/403.
       - name: Use GNU tar
@@ -133,6 +135,8 @@ jobs:
       - name: Set TREE_SITTER_LIBDIR to a scratch dir
         run: |
           echo TREE_SITTER_LIBDIR=${{ github.workspace }}\target\scratch | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - run: |
+          dir env:
 
       - name: Cache artifacts
         id: cache
