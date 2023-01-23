@@ -17,6 +17,41 @@
 #include "./lexer.h"
 #include "./wasm/wasm-stdlib.h"
 
+#define STDLIB_SYMBOL_COUNT 30
+const char *STDLIB_SYMBOLS[STDLIB_SYMBOL_COUNT] = {
+  "malloc",
+  "free",
+  "calloc",
+  "realloc",
+  "memchr",
+  "memcmp",
+  "memcpy",
+  "memmove",
+  "memset",
+  "strlen",
+  "towupper",
+  "towlower",
+  "iswdigit",
+  "iswalpha",
+  "iswalnum",
+  "iswspace",
+  "iswupper",
+  "iswlower",
+  "_Znwm",
+  "_ZdlPv",
+  "_ZNKSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE4copyEPcmm",
+  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6__initEPKcm",
+  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE7reserveEm",
+  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9__grow_byEmmmmmm",
+  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9push_backEc",
+  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEED2Ev",
+  "_ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE9push_backEw",
+  "_ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEED2Ev",
+
+  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE25__init_copy_ctor_externalEPKcm",
+  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE17__assign_externalEPKcm",
+};
+
 typedef struct {
   wasmtime_module_t *module;
   uint32_t language_id;
@@ -48,53 +83,8 @@ struct TSWasmStore {
   Array(LanguageWasmInstance) language_instances;
   uint32_t current_memory_offset;
   uint32_t current_function_table_offset;
-
-  uint16_t new_fn_index;
-  uint16_t delete_fn_index;
-  uint16_t malloc_fn_index;
-  uint16_t free_fn_index;
-  uint16_t calloc_fn_index;
-  uint16_t realloc_fn_index;
-  uint16_t abort_fn_index;
-  uint16_t memchr_fn_index;
-  uint16_t memcmp_fn_index;
-  uint16_t memcpy_fn_index;
-  uint16_t memmove_fn_index;
-  uint16_t memset_fn_index;
-  uint16_t strlen_fn_index;
-  uint16_t towupper_fn_index;
-  uint16_t towlower_fn_index;
-  uint16_t iswdigit_fn_index;
-  uint16_t iswalpha_fn_index;
-  uint16_t iswalnum_fn_index;
-  uint16_t iswspace_fn_index;
+  uint16_t fn_indices[STDLIB_SYMBOL_COUNT];
 };
-
-typedef struct {
-  const char *name;
-  uint16_t *address;
-} SymbolMapEntry;
-
-#define STDLIB_SYMBOL_MAP { \
-  {"_Znwm", &self->new_fn_index}, \
-  {"_ZdlPv", &self->delete_fn_index}, \
-  {"malloc", &self->malloc_fn_index}, \
-  {"free", &self->free_fn_index}, \
-  {"calloc", &self->calloc_fn_index}, \
-  {"realloc", &self->realloc_fn_index}, \
-  {"abort", &self->abort_fn_index}, \
-  {"memchr", &self->memchr_fn_index}, \
-  {"memcmp", &self->memcmp_fn_index}, \
-  {"memcpy", &self->memcpy_fn_index}, \
-  {"memmove", &self->memmove_fn_index}, \
-  {"memset", &self->memset_fn_index}, \
-  {"strlen", &self->strlen_fn_index}, \
-  {"towupper", &self->towupper_fn_index}, \
-  {"iswdigit", &self->iswdigit_fn_index}, \
-  {"iswalpha", &self->iswalpha_fn_index}, \
-  {"iswalnum", &self->iswalnum_fn_index}, \
-  {"iswspace", &self->iswspace_fn_index}, \
-}
 
 typedef Array(char) StringData;
 
@@ -167,7 +157,9 @@ static const uint32_t DATA_START_ADDRESS = STACK_SIZE + HEAP_SIZE;
 enum FunctionIx {
   NULL_IX = 0,
   PROC_EXIT_IX,
+  ABORT_IX,
   ASSERT_FAIL_IX,
+  AT_EXIT_IX,
   LEXER_ADVANCE_IX,
   LEXER_MARK_END_IX,
   LEXER_GET_COLUMN_IX,
@@ -250,6 +242,16 @@ static wasm_trap_t *callback__exit(
   size_t args_and_results_len
 ) {
   printf("exit called");
+  abort();
+}
+
+static wasm_trap_t *callback__at_exit(
+  void *env,
+  wasmtime_caller_t* caller,
+  wasmtime_val_raw_t *args_and_results,
+  size_t args_and_results_len
+) {
+  printf("atexit called");
   abort();
 }
 
@@ -435,6 +437,8 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine) {
   FunctionDefinition definitions[] = {
     [NULL_IX] = {NULL, NULL},
     [PROC_EXIT_IX] = {callback__exit, wasm_functype_new_1_0(wasm_valtype_new_i32())},
+    [ABORT_IX] = {callback__exit, wasm_functype_new_0_0()},
+    [AT_EXIT_IX] = {callback__at_exit, wasm_functype_new_3_1(wasm_valtype_new_i32(), wasm_valtype_new_i32(), wasm_valtype_new_i32(), wasm_valtype_new_i32())},
     [ASSERT_FAIL_IX] = {callback__assert_fail, wasm_functype_new_4_0(wasm_valtype_new_i32(), wasm_valtype_new_i32(), wasm_valtype_new_i32(), wasm_valtype_new_i32())},
     [LEXER_ADVANCE_IX] = {callback__lexer_advance, wasm_functype_new_2_0(wasm_valtype_new_i32(), wasm_valtype_new_i32())},
     [LEXER_MARK_END_IX] = {callback__lexer_mark_end, wasm_functype_new_1_0(wasm_valtype_new_i32())},
@@ -546,7 +550,9 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine) {
     .current_function_table_offset = definitions_len + stdlib_info.table_size,
   };
 
-  const SymbolMapEntry symbol_map[] = STDLIB_SYMBOL_MAP;
+  for (unsigned i = 0; i < STDLIB_SYMBOL_COUNT; i++) {
+    self->fn_indices[i] = UINT16_MAX;
+  }
 
   // Process the stdlib module's exports.
   wasm_exporttype_vec_t export_types = WASM_EMPTY_VEC;
@@ -563,9 +569,9 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine) {
 
     bool store_index = false;
     if (export.kind == WASMTIME_EXTERN_FUNC) {
-      for (unsigned j = 0; j < array_len(symbol_map); j++) {
-        if (name_eq(name, symbol_map[j].name)) {
-          *symbol_map[j].address = export.of.func.index;
+      for (unsigned j = 0; j < array_len(STDLIB_SYMBOLS); j++) {
+        if (name_eq(name, STDLIB_SYMBOLS[j])) {
+          self->fn_indices[j] = export.of.func.index;
           store_index = true;
           break;
         }
@@ -575,11 +581,20 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine) {
       }
     } 
   }
+
+  for (unsigned i = 0; i < STDLIB_SYMBOL_COUNT; i++) {
+    if (self->fn_indices[i] == UINT16_MAX) {
+      printf("undefined stdlib import: %s\n", STDLIB_SYMBOLS[i]);
+      abort();
+    }
+  }
+
   wasm_exporttype_vec_delete(&export_types);
   return self;
 }
 
 void ts_wasm_store_delete(TSWasmStore *self) {
+  if (!self) return;
   wasmtime_store_delete(self->store);
   wasm_engine_delete(self->engine);
   array_delete(&self->language_instances);
@@ -624,7 +639,6 @@ static bool ts_wasm_store__instantiate(
   wasm_globaltype_delete(const_i32_type);
 
   const uint64_t store_id = self->function_table.store_id;
-  const SymbolMapEntry symbol_map[] = STDLIB_SYMBOL_MAP;
 
   // Build the imports list for the module.
   wasm_importtype_vec_t import_types = WASM_EMPTY_VEC;
@@ -655,13 +669,18 @@ static bool ts_wasm_store__instantiate(
     // Builtin functions
     else if (name_eq(import_name, "__assert_fail")) {
       imports[i] = get_builtin_func_extern(context, &self->function_table, ASSERT_FAIL_IX);
+    } else if (name_eq(import_name, "__cxa_atexit")) {
+      imports[i] = get_builtin_func_extern(context, &self->function_table, AT_EXIT_IX);
+    } else if (name_eq(import_name, "abort")) {
+      imports[i] = get_builtin_func_extern(context, &self->function_table, ABORT_IX);
     }
 
     else {
       bool defined_in_stdlib = false;
-      for (unsigned j = 0; j < array_len(symbol_map); j++) {
-        if (name_eq(import_name, symbol_map[j].name)) {
-          imports[i] = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_FUNC, .of.func = {store_id, *symbol_map[j].address}};
+      for (unsigned j = 0; j < array_len(STDLIB_SYMBOLS); j++) {
+        if (name_eq(import_name, STDLIB_SYMBOLS[j])) {
+          uint16_t address = self->fn_indices[j];
+          imports[i] = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_FUNC, .of.func = {store_id, address}};
           defined_in_stdlib = true;
           break;
         }
@@ -1158,6 +1177,10 @@ bool ts_language_is_wasm(const TSLanguage *self) {
 }
 
 #else
+
+void ts_wasm_store_delete(TSWasmStore *self) {
+  (void)self;
+}
 
 bool ts_wasm_store_start(
   TSWasmStore *self,
