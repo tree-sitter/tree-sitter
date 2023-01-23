@@ -353,10 +353,12 @@ static void ts_parser__external_scanner_destroy(
 ) {
   if (self->language && self->external_scanner_payload) {
     if (ts_language_is_wasm(self->language)) {
-      ts_wasm_store_call_scanner_destroy(
-        self->wasm_store,
-        (uintptr_t)self->external_scanner_payload
-      );
+      if (self->wasm_store) {
+        ts_wasm_store_call_scanner_destroy(
+          self->wasm_store,
+          (uintptr_t)self->external_scanner_payload
+        );
+      }
     } else if (self->language->external_scanner.destroy) {
       self->language->external_scanner.destroy(
         self->external_scanner_payload
