@@ -38,9 +38,12 @@ impl std::fmt::Display for Failure {
     }
 }
 
-pub fn test_highlights(loader: &Loader, directory: &Path) -> Result<()> {
+pub fn test_highlights(
+    loader: &Loader,
+    highlighter: &mut Highlighter,
+    directory: &Path,
+) -> Result<()> {
     let mut failed = false;
-    let mut highlighter = Highlighter::new();
 
     println!("syntax highlighting:");
     for highlight_test_file in fs::read_dir(directory)? {
@@ -55,7 +58,7 @@ pub fn test_highlights(loader: &Loader, directory: &Path) -> Result<()> {
             .ok_or_else(|| anyhow!("No highlighting config found for {:?}", test_file_path))?;
         match test_highlight(
             &loader,
-            &mut highlighter,
+            highlighter,
             highlight_config,
             fs::read(&test_file_path)?.as_slice(),
         ) {

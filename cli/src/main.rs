@@ -9,7 +9,9 @@ use tree_sitter_cli::{
     util, wasm,
 };
 use tree_sitter_config::Config;
+use tree_sitter_highlight::Highlighter;
 use tree_sitter_loader as loader;
+use tree_sitter_tags::TagsContext;
 
 const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
@@ -350,18 +352,29 @@ fn run() -> Result<()> {
                 )?;
             }
 
+            let mut store = parser.take_wasm_store();
+
             // Check that all of the queries are valid.
             test::check_queries_at_path(*language, &current_dir.join("queries"))?;
 
             // Run the syntax highlighting tests.
             let test_highlight_dir = test_dir.join("highlight");
             if test_highlight_dir.is_dir() {
-                test_highlight::test_highlights(&loader, &test_highlight_dir)?;
+                let mut highlighter = Highlighter::new();
+                if let Some(store) = store.take() {
+                    highlighter.parser().set_wasm_store(store).unwrap();
+                }
+                test_highlight::test_highlights(&loader, &mut highlighter, &test_highlight_dir)?;
+                store = highlighter.parser().take_wasm_store();
             }
 
             let test_tag_dir = test_dir.join("tags");
             if test_tag_dir.is_dir() {
-                test_tags::test_tags(&loader, &test_tag_dir)?;
+                let mut tags_context = TagsContext::new();
+                if let Some(store) = store.take() {
+                    tags_context.parser().set_wasm_store(store).unwrap();
+                }
+                test_tags::test_tags(&loader, &mut tags_context, &test_tag_dir)?;
             }
         }
 

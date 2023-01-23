@@ -346,6 +346,9 @@ extern "C" {
     pub fn ts_tree_language(arg1: *const TSTree) -> *const TSLanguage;
 }
 extern "C" {
+    #[doc = " Get the array of included ranges that was used to parse the syntax tree."]
+    #[doc = ""]
+    #[doc = " The returned pointer must be freed by the caller."]
     pub fn ts_tree_included_ranges(arg1: *const TSTree, length: *mut u32) -> *mut TSRange;
 }
 extern "C" {
@@ -865,12 +868,19 @@ pub struct TSWasmStore {
     _unused: [u8; 0],
 }
 extern "C" {
+    #[doc = " Create a Wasm store."]
     pub fn ts_wasm_store_new(engine: *mut TSWasmEngine) -> *mut TSWasmStore;
 }
 extern "C" {
+    #[doc = " Free the memory associated with the given Wasm store."]
     pub fn ts_wasm_store_delete(arg1: *mut TSWasmStore);
 }
 extern "C" {
+    #[doc = " Create a language from a buffer of Wasm. The resulting language behaves"]
+    #[doc = " like any other Tree-sitter language, except that in order to use it with"]
+    #[doc = " a parser, that parser must have a Wasm store. Note that the language"]
+    #[doc = " can be used with any Wasm store, it doesn't need to be the same store that"]
+    #[doc = " was used to originally load it."]
     pub fn ts_wasm_store_load_language(
         arg1: *mut TSWasmStore,
         name: *const ::std::os::raw::c_char,
@@ -879,13 +889,19 @@ extern "C" {
     ) -> *const TSLanguage;
 }
 extern "C" {
+    #[doc = " Check if the language came from a Wasm module. If so, then in order to use"]
+    #[doc = " this langauge with a Parser, that parser must have a Wasm store assigned."]
     pub fn ts_language_is_wasm(arg1: *const TSLanguage) -> bool;
 }
 extern "C" {
+    #[doc = " Assign the given Wasm store to the parser. A parser must have a Wasm store"]
+    #[doc = " in order to use Wasm languages."]
     pub fn ts_parser_set_wasm_store(arg1: *mut TSParser, arg2: *mut TSWasmStore);
 }
 extern "C" {
-    pub fn ts_parser_wasm_store(arg1: *mut TSParser) -> *mut TSWasmStore;
+    #[doc = " Remove the parser's current Wasm store and return it. This returns NULL if"]
+    #[doc = " the parser doesn't have a Wasm store."]
+    pub fn ts_parser_take_wasm_store(arg1: *mut TSParser) -> *mut TSWasmStore;
 }
 extern "C" {
     #[doc = " Set the allocation functions used by the library."]

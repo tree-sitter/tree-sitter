@@ -38,9 +38,8 @@ impl std::fmt::Display for Failure {
     }
 }
 
-pub fn test_tags(loader: &Loader, directory: &Path) -> Result<()> {
+pub fn test_tags(loader: &Loader, tags_context: &mut TagsContext, directory: &Path) -> Result<()> {
     let mut failed = false;
-    let mut tags_context = TagsContext::new();
 
     println!("tags:");
     for tag_test_file in fs::read_dir(directory)? {
@@ -54,7 +53,7 @@ pub fn test_tags(loader: &Loader, directory: &Path) -> Result<()> {
             .tags_config(language)?
             .ok_or_else(|| anyhow!("No tags config found for {:?}", test_file_path))?;
         match test_tag(
-            &mut tags_context,
+            tags_context,
             tags_config,
             fs::read(&test_file_path)?.as_slice(),
         ) {

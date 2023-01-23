@@ -944,10 +944,23 @@ uint32_t ts_language_version(const TSLanguage *);
 typedef struct wasm_engine_t TSWasmEngine;
 typedef struct TSWasmStore TSWasmStore;
 
+/**
+ * Create a Wasm store.
+ */
 TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine);
 
+/**
+ * Free the memory associated with the given Wasm store.
+ */
 void ts_wasm_store_delete(TSWasmStore *);
 
+/**
+ * Create a language from a buffer of Wasm. The resulting language behaves
+ * like any other Tree-sitter language, except that in order to use it with
+ * a parser, that parser must have a Wasm store. Note that the language
+ * can be used with any Wasm store, it doesn't need to be the same store that
+ * was used to originally load it.
+ */
 const TSLanguage *ts_wasm_store_load_language(
   TSWasmStore *,
   const char *name,
@@ -955,11 +968,23 @@ const TSLanguage *ts_wasm_store_load_language(
   uint32_t wasm_len
 );
 
+/**
+ * Check if the language came from a Wasm module. If so, then in order to use
+ * this langauge with a Parser, that parser must have a Wasm store assigned.
+ */
 bool ts_language_is_wasm(const TSLanguage *);
 
+/**
+ * Assign the given Wasm store to the parser. A parser must have a Wasm store
+ * in order to use Wasm languages.
+ */
 void ts_parser_set_wasm_store(TSParser *, TSWasmStore *);
 
-TSWasmStore *ts_parser_wasm_store(TSParser *);
+/**
+ * Remove the parser's current Wasm store and return it. This returns NULL if
+ * the parser doesn't have a Wasm store.
+ */
+TSWasmStore *ts_parser_take_wasm_store(TSParser *);
 
 /**********************************/
 /* Section - Global Configuration */

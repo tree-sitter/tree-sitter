@@ -48,11 +48,18 @@ impl Language {
 
 impl Parser {
     pub fn set_wasm_store(&mut self, store: WasmStore) -> Result<(), LanguageError> {
-        unsafe {
-            ffi::ts_parser_set_wasm_store(self.0.as_ptr(), store.0);
-        }
+        unsafe { ffi::ts_parser_set_wasm_store(self.0.as_ptr(), store.0) };
         mem::forget(store);
         Ok(())
+    }
+
+    pub fn take_wasm_store(&mut self) -> Option<WasmStore> {
+        let ptr = unsafe { ffi::ts_parser_take_wasm_store(self.0.as_ptr()) };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(WasmStore(ptr))
+        }
     }
 }
 

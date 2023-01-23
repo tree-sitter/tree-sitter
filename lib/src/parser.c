@@ -1850,6 +1850,7 @@ void ts_parser_delete(TSParser *self) {
     ts_subtree_release(&self->tree_pool, self->old_tree);
     self->old_tree = NULL_SUBTREE;
   }
+  ts_wasm_store_delete(self->wasm_store);
   ts_lexer_delete(&self->lexer);
   ts_parser__set_cached_token(self, 0, NULL_SUBTREE, NULL_SUBTREE);
   ts_subtree_pool_delete(&self->tree_pool);
@@ -2092,7 +2093,14 @@ TSTree *ts_parser_parse_string_encoding(
 }
 
 void ts_parser_set_wasm_store(TSParser *self, TSWasmStore *store) {
+  ts_wasm_store_delete(self->wasm_store);
   self->wasm_store = store;
+}
+
+TSWasmStore *ts_parser_take_wasm_store(TSParser *self) {
+  TSWasmStore *result = self->wasm_store;
+  self->wasm_store = NULL;
+  return result;
 }
 
 #undef LOG
