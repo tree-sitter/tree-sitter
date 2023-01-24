@@ -102,7 +102,7 @@ interface Grammar<
   externals?: (
     $: Record<string, SymbolRule<string>>,
     previous: Rule[],
-  ) => SymbolRule<string>[];
+  ) => (SymbolRule<string> | RegExp | string)[];
 
   /**
    * An array of tokens that may appear anywhere in the language. This
