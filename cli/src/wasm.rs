@@ -65,6 +65,11 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
         // Run `emcc` in a container using the `emscripten-slim` image
         command.args(&[EMSCRIPTEN_TAG, "emcc"]);
     } else {
+        if force_docker {
+            return Err(anyhow!(
+                "You must have docker on your PATH to run this command with --docker"
+            ));
+        }
         return Err(anyhow!(
             "You must have either emcc or docker on your PATH to run this command"
         ));
