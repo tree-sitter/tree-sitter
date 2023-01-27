@@ -42,7 +42,6 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [C](https://github.com/tree-sitter/tree-sitter-c)
 * [Dart](https://github.com/UserNobody14/tree-sitter-dart)
 * [Dockerfile](https://github.com/camdencheek/tree-sitter-dockerfile)
-* [Dockerfile](https://github.com/camdencheek/tree-sitter-dockerfile)
 * [DOT](https://github.com/rydesun/tree-sitter-dot)
 * [D](https://github.com/gdamore/tree-sitter-d)
 * [Elixir](https://github.com/elixir-lang/tree-sitter-elixir)
