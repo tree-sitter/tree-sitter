@@ -4,7 +4,7 @@ use super::helpers::random::Rand;
 use crate::generate::generate_parser_for_grammar;
 use crate::parse::perform_edit;
 use std::fs;
-use tree_sitter::{Node, Parser, Point, Tree};
+use tree_sitter::{Node, Parser, Point, Tree, TreeCursor};
 
 const JSON_EXAMPLE: &'static str = r#"
 
@@ -834,6 +834,90 @@ fn test_node_numeric_symbols_respect_simple_aliases() {
     let binary_minus_node = binary_node.child_by_field_name("operator").unwrap();
     assert_eq!(binary_minus_node.kind(), "-");
     assert_eq!(unary_minus_node.kind_id(), binary_minus_node.kind_id());
+}
+
+struct FieldTestData {
+    node_text: String,
+    node_field_name: Option<&'static str>,
+    cursor_field_name: Option<&'static str>,
+}
+
+fn get_field_names(cursor: &mut TreeCursor, data: &mut Vec<FieldTestData>, source_text: &[u8]) {
+    let parent = cursor.node();
+
+    if !cursor.goto_first_child() {
+        return;
+    }
+
+    let mut child_index = 0;
+    loop {
+        data.push(FieldTestData {
+            node_text: String::from(cursor.node().utf8_text(source_text).unwrap()),
+            node_field_name: parent.field_name_for_child(child_index),
+            cursor_field_name: cursor.field_name(),
+        });
+
+        get_field_names(cursor, data, source_text);
+
+        child_index += 1;
+        if !cursor.goto_next_sibling() { break; }
+    }
+
+    cursor.goto_parent();
+}
+
+#[test]
+fn test_node_ts_node_field_name_for_child_matches_cursor_field_names() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("cpp")).unwrap();
+
+
+    // Example 1:
+    // The C++ grammar gives the body of a for loop a label. It also defines comments as
+    // extra nodes, meaning they could appear between the body and the range statement.
+    // Cursors get field names differently than getting them directly from nodes, so we
+    // want to make sure extra nodes are handled approprialty in both methods. 
+    let source = "for(auto i : c) // help
+    i++;";
+
+    let tree = parser.parse(source, None).unwrap();
+    let root = tree.root_node();
+    assert_eq!(
+        root.to_sexp(),
+        "(translation_unit (for_range_loop type: (placeholder_type_specifier (auto)) declarator: (identifier) right: (identifier) (comment) body: (expression_statement (update_expression argument: (identifier)))))",
+    );
+
+    let mut cursor = tree.walk();
+    let mut field_name_data = Vec::new();
+    get_field_names(&mut cursor, &mut field_name_data, source.as_bytes());
+
+    for data in field_name_data.iter() {
+        assert_eq!(data.node_field_name, data.cursor_field_name, "source text: {}", data.node_text);
+    }
+
+    // Example 2:
+    // See https://github.com/tree-sitter/tree-sitter/issues/1642
+    // This test fails, so it has been commented out to allow clean test runs until the issue
+    // has been addressed.
+
+    /*
+    let source = "struct Foo { static const int bar = 10; };";
+
+    let tree = parser.parse(source, None).unwrap();
+    let root = tree.root_node();
+    assert_eq!(
+        root.to_sexp(),
+        "(translation_unit (struct_specifier name: (type_identifier) body: (field_declaration_list (field_declaration (storage_class_specifier) (type_qualifier) type: (primitive_type) declarator: (field_identifier) default_value: (number_literal)))))",
+    );
+
+    let mut cursor = tree.walk();
+    let mut field_name_data = Vec::new();
+    get_field_names(&mut cursor, &mut field_name_data, source.as_bytes());
+
+    for data in field_name_data.iter() {
+        assert_eq!(data.node_field_name, data.cursor_field_name, "source text: {}", data.node_text);
+    }
+    */
 }
 
 fn get_all_nodes(tree: &Tree) -> Vec<Node> {
