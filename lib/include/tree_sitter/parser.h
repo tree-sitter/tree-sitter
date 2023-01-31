@@ -48,6 +48,7 @@ struct TSLexer {
   uint32_t (*get_column)(TSLexer *);
   bool (*is_at_included_range_start)(const TSLexer *);
   bool (*eof)(const TSLexer *);
+  bool force_serialize_state;
 };
 
 typedef enum {

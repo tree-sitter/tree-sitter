@@ -424,6 +424,7 @@ static Subtree ts_parser__lex(
       );
       ts_lexer_start(&self->lexer);
       ts_parser__restore_external_scanner(self, external_token);
+      self->lexer.data.force_serialize_state = false;
       bool found_token = self->language->external_scanner.scan(
         self->external_scanner_payload,
         &self->lexer.data,
@@ -431,7 +432,7 @@ static Subtree ts_parser__lex(
       );
       ts_lexer_finish(&self->lexer, &lookahead_end_byte);
 
-      if (found_token) {
+      if (found_token || self->lexer.data.force_serialize_state) {
         external_scanner_state_len = self->language->external_scanner.serialize(
           self->external_scanner_payload,
           self->lexer.debug_buffer
@@ -441,7 +442,9 @@ static Subtree ts_parser__lex(
           self->lexer.debug_buffer,
           external_scanner_state_len
         );
+      }
 
+      if (found_token) {
         // When recovering from an error, ignore any zero-length external tokens
         // unless they have changed the external scanner's state. This helps to
         // avoid infinite loops which could otherwise occur, because the lexer is
@@ -560,13 +563,13 @@ static Subtree ts_parser__lex(
       size,
       lookahead_bytes,
       parse_state,
-      found_external_token,
+      found_external_token || external_scanner_state_changed,
       called_get_column,
       is_keyword,
       self->language
     );
 
-    if (found_external_token) {
+    if (found_external_token || external_scanner_state_changed) {
       MutableSubtree mut_result = ts_subtree_to_mut_unsafe(result);
       ts_external_scanner_state_init(
         &mut_result.ptr->external_scanner_state,

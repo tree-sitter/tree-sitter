@@ -1,0 +1,9 @@
+========================
+external force serialize
+========================
+
+one two three
+
+---
+
+(root (internal_or_external (internal)) (internal_or_external (internal)) (internal_or_external (external)))
