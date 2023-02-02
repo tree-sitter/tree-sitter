@@ -20,13 +20,18 @@ Define the list of highlight names that you will recognize:
 ```rust
 let highlight_names = &[
     "attribute",
+    "comment",
     "constant",
-    "function.builtin",
+    "constant.builtin",
+    "constructor",
+    "embedded",
     "function",
+    "function.builtin",
     "keyword",
+    "module",
+    "number",
     "operator",
     "property",
-    "punctuation",
     "punctuation.bracket",
     "punctuation.delimiter",
     "string",
@@ -34,7 +39,6 @@ let highlight_names = &[
     "tag",
     "type",
     "type.builtin",
-    "variable",
     "variable.builtin",
     "variable.parameter",
 ];
