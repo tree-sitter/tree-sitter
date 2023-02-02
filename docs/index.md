@@ -85,6 +85,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Lean](https://github.com/Julian/tree-sitter-lean)
 * [LLVM](https://github.com/benwilliamgraham/tree-sitter-llvm)
 * [LLVM MachineIR](https://github.com/Flakebi/tree-sitter-llvm-mir)
+* [LLVM MLIR](https://github.com/artagnon/tree-sitter-mlir)
 * [LLVM TableGen](https://github.com/Flakebi/tree-sitter-tablegen)
 * [Lua](https://github.com/Azganoth/tree-sitter-lua)
 * [Make](https://github.com/alemuller/tree-sitter-make)
