@@ -860,7 +860,9 @@ fn get_field_names(cursor: &mut TreeCursor, data: &mut Vec<FieldTestData>, sourc
         get_field_names(cursor, data, source_text);
 
         child_index += 1;
-        if !cursor.goto_next_sibling() { break; }
+        if !cursor.goto_next_sibling() {
+            break;
+        }
     }
 
     cursor.goto_parent();
@@ -871,12 +873,11 @@ fn test_node_ts_node_field_name_for_child_matches_cursor_field_names() {
     let mut parser = Parser::new();
     parser.set_language(get_language("cpp")).unwrap();
 
-
     // Example 1:
     // The C++ grammar gives the body of a for loop a label. It also defines comments as
     // extra nodes, meaning they could appear between the body and the range statement.
     // Cursors get field names differently than getting them directly from nodes, so we
-    // want to make sure extra nodes are handled approprialty in both methods. 
+    // want to make sure extra nodes are handled approprialty in both methods.
     let source = "for(auto i : c) // help
     i++;";
 
@@ -892,7 +893,11 @@ fn test_node_ts_node_field_name_for_child_matches_cursor_field_names() {
     get_field_names(&mut cursor, &mut field_name_data, source.as_bytes());
 
     for data in field_name_data.iter() {
-        assert_eq!(data.node_field_name, data.cursor_field_name, "source text: {}", data.node_text);
+        assert_eq!(
+            data.node_field_name, data.cursor_field_name,
+            "source text: {}",
+            data.node_text
+        );
     }
 
     // Example 2:
