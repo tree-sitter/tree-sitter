@@ -42,6 +42,7 @@ pub fn parse_file_at_path(
     debug_graph: bool,
     debug_xml: bool,
     cancellation_flag: Option<&AtomicUsize>,
+    sample_chars: Option<usize>,
 ) -> Result<bool> {
     let mut _log_session = None;
     let mut parser = Parser::new();
@@ -137,6 +138,15 @@ pub fn parse_file_at_path(
                             end.row,
                             end.column
                         )?;
+                        if let Some(sample_len) = sample_chars {
+                            let start = node.start_byte();
+                            let orig_len = node.end_byte() - start;
+                            let len = orig_len.min(sample_len);
+                            let sample = &source_code[start..(start + len)];
+                            let sample = String::from_utf8_lossy(sample);
+                            let sample = sample.replace("\n", "\\n");
+                            write!(&mut stdout, " \"{}\"", sample,)?;
+                        }
                         needs_newline = true;
                     }
                     if cursor.goto_first_child() {

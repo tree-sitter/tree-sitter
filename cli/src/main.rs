@@ -144,6 +144,11 @@ fn run() -> Result<()> {
                         .short("s"),
                 )
                 .arg(
+                    Arg::with_name("sample")
+                        .long("sample")
+                        .help("Include sample of matched span in output"),
+                )
+                .arg(
                     Arg::with_name("timeout")
                         .help("Interrupt the parsing process by timeout (µs)")
                         .long("timeout")
@@ -390,6 +395,12 @@ fn run() -> Result<()> {
                 env::set_var("TREE_SITTER_DEBUG", "1");
             }
 
+            let output_sample = if matches.is_present("sample") {
+                Some(32)
+            } else {
+                None
+            };
+
             loader.use_debug_build(debug_build);
 
             let timeout = matches
@@ -423,6 +434,7 @@ fn run() -> Result<()> {
                     debug_graph,
                     debug_xml,
                     Some(&cancellation_flag),
+                    output_sample,
                 )?;
 
                 if should_track_stats {
