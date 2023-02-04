@@ -191,3 +191,10 @@ a.highlighted {
 #docsearch {
   padding: 15px;
 }
+
+@media (max-width: 768px) {
+  .DocSearch::after {
+    content: "Search";
+    padding: 20px;
+  }
+}
