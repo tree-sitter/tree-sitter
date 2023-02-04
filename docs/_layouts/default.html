@@ -8,6 +8,7 @@
   <title>Tree-sitter｜{{ page.title }}</title>
   <link rel="icon" type="image/png" href="{{ '/assets/images/favicon-32x32.png' | relative_url }}" sizes="32x32" />
   <link rel="icon" type="image/png" href="{{ '/assets/images/favicon-16x16.png' | relative_url }}" sizes="16x16" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@docsearch/css@3"/></pre></li>
 </head>
 
 <body class="sidebar-hidden">
@@ -24,7 +25,7 @@
           <img title="Tree-sitter logo, link to github repo" src="{{ '/assets/images/tree-sitter-small.png' | relative_url }}" width=200 height=200 />
           <span class="github-repo">GitHub repository</span>
         </a>
-
+        <div id="docsearch"></div>
         {% for other_page in site.html_pages %}
           {% if page.title == other_page.title %}
             <li class="table-of-contents-section active">
@@ -97,7 +98,18 @@
   </div>
 </body>
 </html>
+<script src="https://cdn.jsdelivr.net/npm/@docsearch/js@3"></script>
+<script type="text/javascript">
+  docsearch({
+    appId: "2HS029ICRY",
+    apiKey: "80758418920baa37410569ad43c1363e",
+    indexName: "tree-sitter",
+    container: '#docsearch',
+    debug: false // Set debug to true if you want to inspect the modal
+  });
+</script>
 
+You can read mo
 <script
   src="https://code.jquery.com/jquery-3.3.1.min.js"
   crossorigin="anonymous">
