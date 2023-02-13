@@ -1941,8 +1941,16 @@ TSTree *ts_parser_parse(
       }
     }
 
+    // After advancing each version of the stack, re-sort the versions by their cost,
+    // removing any versions that are no longer worth pursuing.
     unsigned min_error_cost = ts_parser__condense_stack(self);
+
+    // If there's already a finished parse tree that's better than any in-progress version,
+    // then terminate parsing. Clear the parse stack to remove any extra references to subtrees
+    // within the finished tree, ensuring that these subtrees can be safely mutated in-place
+    // for rebalancing.
     if (self->finished_tree.ptr && ts_subtree_error_cost(self->finished_tree) < min_error_cost) {
+      ts_stack_clear(self->stack);
       break;
     }
 
