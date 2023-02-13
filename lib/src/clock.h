@@ -1,6 +1,7 @@
 #ifndef TREE_SITTER_CLOCK_H_
 #define TREE_SITTER_CLOCK_H_
 
+#include <stdbool.h>
 #include <stdint.h>
 
 typedef uint64_t TSDuration;

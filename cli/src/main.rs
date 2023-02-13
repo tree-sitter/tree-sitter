@@ -3,6 +3,7 @@ use clap::{App, AppSettings, Arg, SubCommand};
 use glob::glob;
 use std::path::{Path, PathBuf};
 use std::{env, fs, u64};
+use tree_sitter_cli::parse::ParseOutput;
 use tree_sitter_cli::{
     generate, highlight, logger, parse, playground, query, tags, test, test_highlight, test_tags,
     util, wasm,
@@ -136,7 +137,8 @@ fn run() -> Result<()> {
                 .arg(&debug_arg)
                 .arg(&debug_build_arg)
                 .arg(&debug_graph_arg)
-                .arg(Arg::with_name("debug-xml").long("xml").short("x"))
+                .arg(Arg::with_name("output-dot").long("dot"))
+                .arg(Arg::with_name("output-xml").long("xml").short("x"))
                 .arg(
                     Arg::with_name("stat")
                         .help("Show parsing statistic")
@@ -377,8 +379,17 @@ fn run() -> Result<()> {
             let debug = matches.is_present("debug");
             let debug_graph = matches.is_present("debug-graph");
             let debug_build = matches.is_present("debug-build");
-            let debug_xml = matches.is_present("debug-xml");
-            let quiet = matches.is_present("quiet");
+
+            let output = if matches.is_present("output-dot") {
+                ParseOutput::Dot
+            } else if matches.is_present("output-xml") {
+                ParseOutput::Xml
+            } else if matches.is_present("quiet") {
+                ParseOutput::Quiet
+            } else {
+                ParseOutput::Normal
+            };
+
             let time = matches.is_present("time");
             let edits = matches
                 .values_of("edits")
@@ -416,12 +427,11 @@ fn run() -> Result<()> {
                     path,
                     &edits,
                     max_path_length,
-                    quiet,
+                    output,
                     time,
                     timeout,
                     debug,
                     debug_graph,
-                    debug_xml,
                     Some(&cancellation_flag),
                 )?;
 

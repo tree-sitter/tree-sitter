@@ -7,10 +7,7 @@ bindgen                                        \
   --no-layout-tests                            \
   --whitelist-type '^TS.*'                     \
   --whitelist-function '^ts_.*'                \
-  --opaque-type FILE                           \
-  --blocklist-type FILE                        \
   --blocklist-type '^__.*'                     \
-  --blocklist-function ts_tree_print_dot_graph \
   --size_t-is-usize                            \
   $header_path > $output_path
 

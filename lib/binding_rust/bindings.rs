@@ -346,6 +346,9 @@ extern "C" {
     pub fn ts_tree_language(arg1: *const TSTree) -> *const TSLanguage;
 }
 extern "C" {
+    #[doc = " Get the array of included ranges that was used to parse the syntax tree."]
+    #[doc = ""]
+    #[doc = " The returned pointer must be freed by the caller."]
     pub fn ts_tree_included_ranges(arg1: *const TSTree, length: *mut u32) -> *mut TSRange;
 }
 extern "C" {
@@ -374,6 +377,10 @@ extern "C" {
         new_tree: *const TSTree,
         length: *mut u32,
     ) -> *mut TSRange;
+}
+extern "C" {
+    #[doc = " Write a DOT graph describing the syntax tree to the given file."]
+    pub fn ts_tree_print_dot_graph(arg1: *const TSTree, file_descriptor: ::std::os::raw::c_int);
 }
 extern "C" {
     #[doc = " Get the node's type as a null-terminated string."]

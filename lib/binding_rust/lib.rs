@@ -775,6 +775,16 @@ impl Tree {
             result
         }
     }
+
+    /// Print a graph of the tree to the given file descriptor.
+    /// The graph is formatted in the DOT language. You may want to pipe this graph
+    /// directly to a `dot(1)` process in order to generate SVG output.
+    #[cfg(unix)]
+    #[doc(alias = "ts_tree_print_dot_graph")]
+    pub fn print_dot_graph(&self, file: &impl AsRawFd) {
+        let fd = file.as_raw_fd();
+        unsafe { ffi::ts_tree_print_dot_graph(self.0.as_ptr(), fd) }
+    }
 }
 
 impl fmt::Debug for Tree {

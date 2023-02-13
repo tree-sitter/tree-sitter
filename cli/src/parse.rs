@@ -30,17 +30,24 @@ impl fmt::Display for Stats {
     }
 }
 
+#[derive(Copy, Clone)]
+pub enum ParseOutput {
+    Normal,
+    Quiet,
+    Xml,
+    Dot,
+}
+
 pub fn parse_file_at_path(
     language: Language,
     path: &Path,
     edits: &Vec<&str>,
     max_path_length: usize,
-    quiet: bool,
+    output: ParseOutput,
     print_time: bool,
     timeout: u64,
     debug: bool,
     debug_graph: bool,
-    debug_xml: bool,
     cancellation_flag: Option<&AtomicUsize>,
 ) -> Result<bool> {
     let mut _log_session = None;
@@ -95,7 +102,7 @@ pub fn parse_file_at_path(
         let duration_ms = duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000;
         let mut cursor = tree.walk();
 
-        if !quiet {
+        if matches!(output, ParseOutput::Normal) {
             let mut needs_newline = false;
             let mut indent_level = 0;
             let mut did_visit_children = false;
@@ -151,7 +158,7 @@ pub fn parse_file_at_path(
             println!("");
         }
 
-        if debug_xml {
+        if matches!(output, ParseOutput::Xml) {
             let mut needs_newline = false;
             let mut indent_level = 0;
             let mut did_visit_children = false;
@@ -204,6 +211,10 @@ pub fn parse_file_at_path(
             }
             cursor.reset(tree.root_node());
             println!("");
+        }
+
+        if matches!(output, ParseOutput::Dot) {
+            util::print_tree_graph(&tree, "log.html").unwrap();
         }
 
         let mut first_error = None;
