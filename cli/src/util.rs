@@ -13,7 +13,14 @@ use std::path::PathBuf;
 use std::process::{Child, ChildStdin, Command, Stdio};
 
 #[cfg(unix)]
-const HTML_HEADER: &[u8] = b"<!DOCTYPE html>\n<style>svg { width: 100%; }</style>\n\n";
+const HTML_HEADER: &[u8] = b"
+<!DOCTYPE html>
+
+<style>
+svg { width: 100%; }
+</style>
+
+";
 
 pub fn cancel_on_stdin() -> Arc<AtomicUsize> {
     let result = Arc::new(AtomicUsize::new(0));
@@ -40,23 +47,28 @@ pub struct LogSession {
     dot_process_stdin: Option<ChildStdin>,
 }
 
+#[cfg(windows)]
+pub fn print_tree_graph(_tree: &Tree, _path: &str) -> Result<()> {
+    Ok(())
+}
+
+#[cfg(windows)]
+pub fn log_graphs(_parser: &mut Parser, _path: &str) -> Result<LogSession> {
+    Ok(LogSession)
+}
+
+#[cfg(unix)]
 pub fn print_tree_graph(tree: &Tree, path: &str) -> Result<()> {
     let session = LogSession::new(path)?;
     tree.print_dot_graph(session.dot_process_stdin.as_ref().unwrap());
     Ok(())
 }
 
+#[cfg(unix)]
 pub fn log_graphs(parser: &mut Parser, path: &str) -> Result<LogSession> {
     let session = LogSession::new(path)?;
     parser.print_dot_graphs(session.dot_process_stdin.as_ref().unwrap());
     Ok(session)
-}
-
-#[cfg(windows)]
-impl LogSession {
-    fn new(path: &str) -> Result<Self> {
-        Ok(Self)
-    }
 }
 
 #[cfg(unix)]
