@@ -5,16 +5,20 @@ use std::{
     io::{self, Write},
     ops::Range,
     path::Path,
+    time::Instant,
 };
-use tree_sitter::{Language, Parser, Query, QueryCursor};
+use tree_sitter::{Language, Parser, Point, Query, QueryCursor};
 
 pub fn query_files_at_paths(
     language: Language,
     paths: Vec<String>,
     query_path: &Path,
     ordered_captures: bool,
-    range: Option<Range<usize>>,
+    byte_range: Option<Range<usize>>,
+    point_range: Option<Range<Point>>,
     should_test: bool,
+    quiet: bool,
+    print_time: bool,
 ) -> Result<()> {
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
@@ -24,8 +28,11 @@ pub fn query_files_at_paths(
     let query = Query::new(language, &query_source).with_context(|| "Query compilation failed")?;
 
     let mut query_cursor = QueryCursor::new();
-    if let Some(range) = range {
+    if let Some(range) = byte_range {
         query_cursor.set_byte_range(range);
+    }
+    if let Some(range) = point_range {
+        query_cursor.set_point_range(range);
     }
 
     let mut parser = Parser::new();
@@ -40,22 +47,25 @@ pub fn query_files_at_paths(
             fs::read(&path).with_context(|| format!("Error reading source file {:?}", path))?;
         let tree = parser.parse(&source_code, None).unwrap();
 
+        let start = Instant::now();
         if ordered_captures {
             for (mat, capture_index) in
                 query_cursor.captures(&query, tree.root_node(), source_code.as_slice())
             {
                 let capture = mat.captures[capture_index];
                 let capture_name = &query.capture_names()[capture.index as usize];
-                writeln!(
-                    &mut stdout,
-                    "    pattern: {:>2}, capture: {} - {}, start: {}, end: {}, text: `{}`",
-                    mat.pattern_index,
-                    capture.index,
-                    capture_name,
-                    capture.node.start_position(),
-                    capture.node.end_position(),
-                    capture.node.utf8_text(&source_code).unwrap_or("")
-                )?;
+                if !quiet {
+                    writeln!(
+                        &mut stdout,
+                        "    pattern: {:>2}, capture: {} - {}, start: {}, end: {}, text: `{}`",
+                        mat.pattern_index,
+                        capture.index,
+                        capture_name,
+                        capture.node.start_position(),
+                        capture.node.end_position(),
+                        capture.node.utf8_text(&source_code).unwrap_or("")
+                    )?;
+                }
                 results.push(query_testing::CaptureInfo {
                     name: capture_name.to_string(),
                     start: capture.node.start_position(),
@@ -64,27 +74,31 @@ pub fn query_files_at_paths(
             }
         } else {
             for m in query_cursor.matches(&query, tree.root_node(), source_code.as_slice()) {
-                writeln!(&mut stdout, "  pattern: {}", m.pattern_index)?;
+                if !quiet {
+                    writeln!(&mut stdout, "  pattern: {}", m.pattern_index)?;
+                }
                 for capture in m.captures {
                     let start = capture.node.start_position();
                     let end = capture.node.end_position();
                     let capture_name = &query.capture_names()[capture.index as usize];
-                    if end.row == start.row {
-                        writeln!(
-                            &mut stdout,
-                            "    capture: {} - {}, start: {}, end: {}, text: `{}`",
-                            capture.index,
-                            capture_name,
-                            start,
-                            end,
-                            capture.node.utf8_text(&source_code).unwrap_or("")
-                        )?;
-                    } else {
-                        writeln!(
-                            &mut stdout,
-                            "    capture: {}, start: {}, end: {}",
-                            capture_name, start, end,
-                        )?;
+                    if !quiet {
+                        if end.row == start.row {
+                            writeln!(
+                                &mut stdout,
+                                "    capture: {} - {}, start: {}, end: {}, text: `{}`",
+                                capture.index,
+                                capture_name,
+                                start,
+                                end,
+                                capture.node.utf8_text(&source_code).unwrap_or("")
+                            )?;
+                        } else {
+                            writeln!(
+                                &mut stdout,
+                                "    capture: {}, start: {}, end: {}",
+                                capture_name, start, end,
+                            )?;
+                        }
                     }
                     results.push(query_testing::CaptureInfo {
                         name: capture_name.to_string(),
@@ -102,6 +116,9 @@ pub fn query_files_at_paths(
         }
         if should_test {
             query_testing::assert_expected_captures(results, path, &mut parser, language)?
+        }
+        if print_time {
+            writeln!(&mut stdout, "{:?}", start.elapsed())?;
         }
     }
 
