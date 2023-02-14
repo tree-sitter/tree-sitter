@@ -233,9 +233,15 @@ typedef struct {
 
 typedef Array(AnalysisState *) AnalysisStateSet;
 
-typedef Array(AnalysisState *) AnalysisStatePool;
-
-typedef Array(uint16_t) StepIndexArray;
+typedef struct {
+  AnalysisStateSet states;
+  AnalysisStateSet next_states;
+  AnalysisStateSet deeper_states;
+  AnalysisStateSet state_pool;
+  Array(uint16_t) final_step_indices;
+  Array(TSSymbol) finished_parent_symbols;
+  bool did_abort;
+} QueryAnalysis;
 
 /*
  * AnalysisSubgraph - A subset of the states in the parse table that are used
@@ -940,30 +946,23 @@ static inline bool analysis_state__has_supertype(AnalysisState *self, TSSymbol s
   return false;
 }
 
-static inline AnalysisState *analysis_state__clone(AnalysisState const *self) {
-  AnalysisState *new_state = ts_malloc(sizeof(AnalysisState));
-  *new_state = *self;
-  return new_state;
-}
-
-/****************
+/******************
  * AnalysisStateSet
- ****************/
+ ******************/
 
 // Obtains an `AnalysisState` instance, either by consuming one from this set's object pool, or by
 // cloning one from scratch.
 static inline AnalysisState *analysis_state_pool__clone_or_reuse(
-  AnalysisStatePool *self,
+  AnalysisStateSet *self,
   AnalysisState *borrowed_item
 ) {
   AnalysisState *new_item;
   if (self->size) {
     new_item = array_pop(self);
-    *new_item = *borrowed_item;
   } else {
-    new_item = analysis_state__clone(borrowed_item);
+    new_item = ts_malloc(sizeof(AnalysisState));
   }
-
+  *new_item = *borrowed_item;
   return new_item;
 }
 
@@ -973,9 +972,9 @@ static inline AnalysisState *analysis_state_pool__clone_or_reuse(
 //
 // The caller retains ownership of the passed-in memory. However, the clone that is created by this
 // function will be managed by the state set.
-static inline void analysis_state_set__insert_sorted_by_clone(
+static inline void analysis_state_set__insert_sorted(
   AnalysisStateSet *self,
-  AnalysisStatePool *pool,
+  AnalysisStateSet *pool,
   AnalysisState *borrowed_item
 ) {
   unsigned index, exists;
@@ -994,9 +993,9 @@ static inline void analysis_state_set__insert_sorted_by_clone(
 //
 // The caller retains ownership of the passed-in memory. However, the clone that is created by this
 // function will be managed by the state set.
-static inline void analysis_state_set__push_by_clone(
+static inline void analysis_state_set__push(
   AnalysisStateSet *self,
-  AnalysisStatePool *pool,
+  AnalysisStateSet *pool,
   AnalysisState *borrowed_item
 ) {
   AnalysisState *new_item = analysis_state_pool__clone_or_reuse(pool, borrowed_item);
@@ -1004,7 +1003,7 @@ static inline void analysis_state_set__push_by_clone(
 }
 
 // Removes all items from this set, returning it to an empty state.
-static inline void analysis_state_set__clear(AnalysisStateSet *self, AnalysisStatePool *pool) {
+static inline void analysis_state_set__clear(AnalysisStateSet *self, AnalysisStateSet *pool) {
   array_push_all(pool, self);
   array_clear(self);
 }
@@ -1016,6 +1015,31 @@ static inline void analysis_state_set__delete(AnalysisStateSet *self) {
     ts_free(self->contents[i]);
   }
   array_delete(self);
+}
+
+/****************
+ * QueryAnalyzer
+ ****************/
+
+static inline QueryAnalysis query_analysis__new() {
+  return (QueryAnalysis) {
+    .states = array_new(),
+    .next_states = array_new(),
+    .deeper_states = array_new(),
+    .state_pool = array_new(),
+    .final_step_indices = array_new(),
+    .finished_parent_symbols = array_new(),
+    .did_abort = false,
+  };
+}
+
+static inline void query_analysis__delete(QueryAnalysis *self) {
+  analysis_state_set__delete(&self->states);
+  analysis_state_set__delete(&self->next_states);
+  analysis_state_set__delete(&self->deeper_states);
+  analysis_state_set__delete(&self->state_pool);
+  array_delete(&self->final_step_indices);
+  array_delete(&self->finished_parent_symbols);
 }
 
 /***********************
@@ -1119,23 +1143,21 @@ static inline void ts_query__pattern_map_insert(
   array_insert(&self->pattern_map, index, new_entry);
 }
 
-static void ts_query__analyze_patterns_from_states(
+// Walk the subgraph for this non-terminal, tracking all of the possible
+// sequences of progress within the pattern.
+static void ts_query__perform_analysis(
   TSQuery *self,
   const AnalysisSubgraphArray *subgraphs,
-  AnalysisStateSet *states,
-  AnalysisStateSet *next_states,
-  AnalysisStateSet *deeper_states,
-  AnalysisStatePool *state_pool,
-  StepIndexArray *finished_parent_symbols,
-  StepIndexArray *final_step_indices,
-  bool *did_abort_analysis
+  QueryAnalysis *analysis
 ) {
   unsigned recursion_depth_limit = 0;
   unsigned prev_final_step_count = 0;
+  array_clear(&analysis->final_step_indices);
+  array_clear(&analysis->finished_parent_symbols);
 
   for (unsigned iteration = 0;; iteration++) {
     if (iteration == MAX_ANALYSIS_ITERATION_COUNT) {
-      *did_abort_analysis = true;
+      analysis->did_abort = true;
       break;
     }
 
@@ -1167,52 +1189,52 @@ static void ts_query__analyze_patterns_from_states(
     // bump the depth limit by one, and continue to process the states the exceeded the
     // limit. But only allow this if progress has been made since the last time the depth
     // limit was increased.
-    if (states->size == 0) {
+    if (analysis->states.size == 0) {
       if (
-          deeper_states->size > 0
-          && final_step_indices->size > prev_final_step_count
+        analysis->deeper_states.size > 0 &&
+        analysis->final_step_indices.size > prev_final_step_count
       ) {
         #ifdef DEBUG_ANALYZE_QUERY
           printf("Increase recursion depth limit to %u\n", recursion_depth_limit + 1);
         #endif
 
-        prev_final_step_count = final_step_indices->size;
+        prev_final_step_count = analysis->final_step_indices.size;
         recursion_depth_limit++;
-        AnalysisStateSet _states = *states;
-        *states = *deeper_states;
-        *deeper_states = _states;
+        AnalysisStateSet _states = analysis->states;
+        analysis->states = analysis->deeper_states;
+        analysis->deeper_states = _states;
         continue;
       }
 
       break;
     }
 
-    analysis_state_set__clear(next_states, state_pool);
-    for (unsigned j = 0; j < states->size; j++) {
-      AnalysisState * const state = states->contents[j];
+    analysis_state_set__clear(&analysis->next_states, &analysis->state_pool);
+    for (unsigned j = 0; j < analysis->states.size; j++) {
+      AnalysisState * const state = analysis->states.contents[j];
 
       // For efficiency, it's important to avoid processing the same analysis state more
       // than once. To achieve this, keep the states in order of ascending position within
       // their hypothetical syntax trees. In each iteration of this loop, start by advancing
       // the states that have made the least progress. Avoid advancing states that have already
       // made more progress.
-      if (next_states->size > 0) {
+      if (analysis->next_states.size > 0) {
         int comparison = analysis_state__compare_position(
           &state,
-          array_back(next_states)
+          array_back(&analysis->next_states)
         );
         if (comparison == 0) {
-          analysis_state_set__insert_sorted_by_clone(next_states, state_pool, state);
+          analysis_state_set__insert_sorted(&analysis->next_states, &analysis->state_pool, state);
           continue;
         } else if (comparison > 0) {
           #ifdef DEBUG_ANALYZE_QUERY
             printf("Terminate iteration at state %u\n", j);
           #endif
-          while (j < states->size) {
-            analysis_state_set__push_by_clone(
-              next_states,
-              state_pool,
-              states->contents[j]
+          while (j < analysis->states.size) {
+            analysis_state_set__push(
+              &analysis->next_states,
+              &analysis->state_pool,
+              analysis->states.contents[j]
             );
             j++;
           }
@@ -1327,7 +1349,7 @@ static void ts_query__analyze_patterns_from_states(
                   printf("Exceeded depth limit for state %u\n", j);
                 #endif
 
-                *did_abort_analysis = true;
+                analysis->did_abort = true;
                 continue;
               }
 
@@ -1344,9 +1366,9 @@ static void ts_query__analyze_patterns_from_states(
             };
 
             if (analysis_state__recursion_depth(&next_state) > recursion_depth_limit) {
-              analysis_state_set__insert_sorted_by_clone(
-                deeper_states,
-                state_pool,
+              analysis_state_set__insert_sorted(
+                &analysis->deeper_states,
+                &analysis->state_pool,
                 &next_state
               );
               continue;
@@ -1392,11 +1414,11 @@ static void ts_query__analyze_patterns_from_states(
             if (!next_step->is_dead_end) {
               bool did_finish_pattern = self->steps.contents[next_state.step_index].depth != step->depth;
               if (did_finish_pattern) {
-                array_insert_sorted_by(finished_parent_symbols, , state->root_symbol);
+                array_insert_sorted_by(&analysis->finished_parent_symbols, , state->root_symbol);
               } else if (next_state.depth == 0) {
-                array_insert_sorted_by(final_step_indices, , next_state.step_index);
+                array_insert_sorted_by(&analysis->final_step_indices, , next_state.step_index);
               } else {
-                analysis_state_set__insert_sorted_by_clone(next_states, state_pool, &next_state);
+                analysis_state_set__insert_sorted(&analysis->next_states, &analysis->state_pool, &next_state);
               }
             }
 
@@ -1419,9 +1441,9 @@ static void ts_query__analyze_patterns_from_states(
       }
     }
 
-    AnalysisStateSet _states = *states;
-    *states = *next_states;
-    *next_states = _states;
+    AnalysisStateSet _states = analysis->states;
+    analysis->states = analysis->next_states;
+    analysis->next_states = _states;
   }
 }
 
@@ -1643,12 +1665,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   // For each non-terminal pattern, determine if the pattern can successfully match,
   // and identify all of the possible children within the pattern where matching could fail.
   bool all_patterns_are_valid = true;
-  AnalysisStateSet states = array_new();
-  AnalysisStateSet next_states = array_new();
-  AnalysisStateSet deeper_states = array_new();
-  AnalysisStatePool state_pool = array_new();
-  StepIndexArray final_step_indices = array_new();
-  StepIndexArray finished_parent_symbols = array_new();
+  QueryAnalysis analysis = query_analysis__new();
   for (unsigned i = 0; i < parent_step_indices.size; i++) {
     uint16_t parent_step_index = parent_step_indices.contents[i];
     uint16_t parent_depth = self->steps.contents[parent_step_index].depth;
@@ -1672,11 +1689,11 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     // Initialize an analysis state at every parse state in the table where
     // this parent symbol can occur.
     AnalysisSubgraph *subgraph = &subgraphs.contents[subgraph_index];
-    analysis_state_set__clear(&states, &state_pool);
-    analysis_state_set__clear(&deeper_states, &state_pool);
+    analysis_state_set__clear(&analysis.states, &analysis.state_pool);
+    analysis_state_set__clear(&analysis.deeper_states, &analysis.state_pool);
     for (unsigned j = 0; j < subgraph->start_states.size; j++) {
       TSStateId parse_state = subgraph->start_states.contents[j];
-      analysis_state_set__push_by_clone(&states, &state_pool, &((AnalysisState) {
+      analysis_state_set__push(&analysis.states, &analysis.state_pool, &((AnalysisState) {
         .step_index = parent_step_index + 1,
         .stack = {
           [0] = {
@@ -1692,31 +1709,16 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
       }));
     }
 
-    // Walk the subgraph for this non-terminal, tracking all of the possible
-    // sequences of progress within the pattern.
-    bool did_abort_analysis = false;
-    array_clear(&final_step_indices);
-    array_clear(&finished_parent_symbols);
-
     #ifdef DEBUG_ANALYZE_QUERY
       printf("\nWalk states for %s:\n", ts_language_symbol_name(self->language, states.contents[0]->stack[0].parent_symbol));
     #endif
 
-    ts_query__analyze_patterns_from_states(
-      self,
-      &subgraphs,
-      &states,
-      &next_states,
-      &deeper_states,
-      &state_pool,
-      &finished_parent_symbols,
-      &final_step_indices,
-      &did_abort_analysis
-    );
+    analysis.did_abort = false;
+    ts_query__perform_analysis(self, &subgraphs, &analysis);
 
     // If this pattern could not be fully analyzed, then every step should
     // be considered fallible.
-    if (did_abort_analysis) {
+    if (analysis.did_abort) {
       for (unsigned j = parent_step_index + 1; j < self->steps.size; j++) {
         QueryStep *step = &self->steps.contents[j];
         if (
@@ -1733,9 +1735,9 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
 
     // If this pattern cannot match, store the pattern index so that it can be
     // returned to the caller.
-    if (finished_parent_symbols.size == 0) {
-      assert(final_step_indices.size > 0);
-      uint16_t impossible_step_index = *array_back(&final_step_indices);
+    if (analysis.finished_parent_symbols.size == 0) {
+      assert(analysis.final_step_indices.size > 0);
+      uint16_t impossible_step_index = *array_back(&analysis.final_step_indices);
       uint32_t i, exists;
       array_search_sorted_by(&self->step_offsets, .step_index, impossible_step_index, &i, &exists);
       if (i >= self->step_offsets.size) i = self->step_offsets.size - 1;
@@ -1746,8 +1748,8 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
 
     // Mark as fallible any step where a match terminated.
     // Later, this property will be propagated to all of the step's predecessors.
-    for (unsigned j = 0; j < final_step_indices.size; j++) {
-      uint32_t final_step_index = final_step_indices.contents[j];
+    for (unsigned j = 0; j < analysis.final_step_indices.size; j++) {
+      uint32_t final_step_index = analysis.final_step_indices.contents[j];
       QueryStep *step = &self->steps.contents[final_step_index];
       if (
         step->depth != PATTERN_DONE_MARKER &&
@@ -1860,20 +1862,20 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   // Determine which repetition symbols in this language have the possibility
   // of matching non-rooted patterns in this query. These repetition symbols
   // prevent certain optimizations with range restrictions.
-  bool did_abort_analysis = false;
+  analysis.did_abort = false;
   for (uint32_t i = 0; i < non_rooted_pattern_start_steps.size; i++) {
     uint16_t step_index = non_rooted_pattern_start_steps.contents[i];
 
-    analysis_state_set__clear(&states, &state_pool);
-    analysis_state_set__clear(&deeper_states, &state_pool);
-
+    analysis_state_set__clear(&analysis.states, &analysis.state_pool);
+    analysis_state_set__clear(&analysis.deeper_states, &analysis.state_pool);
     for (unsigned j = 0; j < subgraphs.size; j++) {
       AnalysisSubgraph *subgraph = &subgraphs.contents[j];
       TSSymbolMetadata metadata = ts_language_symbol_metadata(self->language, subgraph->symbol);
       if (metadata.visible || metadata.named) continue;
+
       for (uint32_t k = 0; k < subgraph->start_states.size; k++) {
         TSStateId parse_state = subgraph->start_states.contents[k];
-        analysis_state_set__push_by_clone(&states, &state_pool, &((AnalysisState) {
+        analysis_state_set__push(&analysis.states, &analysis.state_pool, &((AnalysisState) {
           .step_index = step_index,
           .stack = {
             [0] = {
@@ -1894,22 +1896,14 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
       printf("\nWalk states for rootless pattern step %u:\n", step_index);
     #endif
 
-    array_clear(&final_step_indices);
-    array_clear(&finished_parent_symbols);
-    ts_query__analyze_patterns_from_states(
+    ts_query__perform_analysis(
       self,
       &subgraphs,
-      &states,
-      &next_states,
-      &deeper_states,
-      &state_pool,
-      &finished_parent_symbols,
-      &final_step_indices,
-      &did_abort_analysis
+      &analysis
     );
 
-    for (unsigned k = 0; k < finished_parent_symbols.size; k++) {
-      TSSymbol symbol = finished_parent_symbols.contents[k];
+    for (unsigned k = 0; k < analysis.finished_parent_symbols.size; k++) {
+      TSSymbol symbol = analysis.finished_parent_symbols.contents[k];
       array_insert_sorted_by(&self->repeat_symbols_with_rootless_patterns, , symbol);
     }
   }
@@ -1917,7 +1911,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   #ifdef DEBUG_ANALYZE_QUERY
     if (self->repeat_symbols_with_rootless_patterns.size > 0) {
       printf("\nRepetition symbols with rootless patterns:\n");
-      printf("aborted analysis: %d\n", did_abort_analysis);
+      printf("aborted analysis: %d\n", analyzer.did_abort);
       for (unsigned i = 0; i < self->repeat_symbols_with_rootless_patterns.size; i++) {
         TSSymbol symbol = self->repeat_symbols_with_rootless_patterns.contents[i];
         printf("  %u, %s\n", symbol, ts_language_symbol_name(self->language, symbol));
@@ -1932,17 +1926,9 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     array_delete(&subgraphs.contents[i].nodes);
   }
   array_delete(&subgraphs);
-  for (unsigned i = 0; i < state_pool.size; i++) {
-    ts_free(state_pool.contents[i]);
-  }
-  array_delete(&state_pool);
+  query_analysis__delete(&analysis);
   array_delete(&next_nodes);
   array_delete(&non_rooted_pattern_start_steps);
-  analysis_state_set__delete(&states);
-  analysis_state_set__delete(&next_states);
-  analysis_state_set__delete(&deeper_states);
-  array_delete(&finished_parent_symbols);
-  array_delete(&final_step_indices);
   array_delete(&parent_step_indices);
   array_delete(&predicate_capture_ids);
   state_predecessor_map_delete(&predecessor_map);
