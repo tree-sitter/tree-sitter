@@ -1876,7 +1876,6 @@ fn test_query_matches_within_byte_range() {
             cursor
                 .set_byte_range(0..8)
                 .matches(&query, tree.root_node(), source.as_bytes());
-
         assert_eq!(
             collect_matches(matches, &query, source),
             &[
@@ -1890,7 +1889,6 @@ fn test_query_matches_within_byte_range() {
             cursor
                 .set_byte_range(5..15)
                 .matches(&query, tree.root_node(), source.as_bytes());
-
         assert_eq!(
             collect_matches(matches, &query, source),
             &[
@@ -1904,7 +1902,6 @@ fn test_query_matches_within_byte_range() {
             cursor
                 .set_byte_range(12..0)
                 .matches(&query, tree.root_node(), source.as_bytes());
-
         assert_eq!(
             collect_matches(matches, &query, source),
             &[

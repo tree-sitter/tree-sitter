@@ -3393,21 +3393,28 @@ static inline bool ts_query_cursor__advance(
 
     // Exit the current node.
     if (self->ascending) {
-      LOG(
-        "leave node. depth:%u, type:%s\n",
-        self->depth,
-        ts_node_type(ts_tree_cursor_current_node(&self->cursor))
-      );
+      if (self->on_visible_node) {
+        LOG(
+          "leave node. depth:%u, type:%s\n",
+          self->depth,
+          ts_node_type(ts_tree_cursor_current_node(&self->cursor))
+        );
+      }
 
       // Leave this node by stepping to its next sibling or to its parent.
       switch (ts_tree_cursor_goto_next_sibling_internal(&self->cursor)) {
         case TreeCursorStepVisible:
-          self->on_visible_node = true;
+          if (!self->on_visible_node) {
+            self->depth++;
+            self->on_visible_node = true;
+          }
           self->ascending = false;
           break;
         case TreeCursorStepHidden:
-          self->depth--;
-          self->on_visible_node = false;
+          if (self->on_visible_node) {
+            self->depth--;
+            self->on_visible_node = false;
+          }
           self->ascending = false;
           break;
         default:
@@ -3467,7 +3474,6 @@ static inline bool ts_query_cursor__advance(
       // Get the properties of the current node.
       TSNode node = ts_tree_cursor_current_node(&self->cursor);
       TSNode parent_node = ts_tree_cursor_parent_node(&self->cursor);
-
       bool parent_precedes_range = !ts_node_is_null(parent_node) && (
         ts_node_end_byte(parent_node) <= self->start_byte ||
         point_lte(ts_node_end_point(parent_node), self->start_point)
