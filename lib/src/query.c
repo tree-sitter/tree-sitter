@@ -146,6 +146,7 @@ typedef struct {
   Slice steps;
   Slice predicate_steps;
   uint32_t start_byte;
+  bool is_non_local;
 } QueryPattern;
 
 typedef struct {
@@ -1455,7 +1456,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     if (!pattern->is_rooted) {
       QueryStep *step = &self->steps.contents[pattern->step_index];
       if (step->symbol != WILDCARD_SYMBOL) {
-        array_push(&non_rooted_pattern_start_steps, pattern->step_index);
+        array_push(&non_rooted_pattern_start_steps, i);
       }
     }
   }
@@ -1868,7 +1869,8 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   // prevent certain optimizations with range restrictions.
   analysis.did_abort = false;
   for (uint32_t i = 0; i < non_rooted_pattern_start_steps.size; i++) {
-    uint16_t step_index = non_rooted_pattern_start_steps.contents[i];
+    uint16_t pattern_entry_index = non_rooted_pattern_start_steps.contents[i];
+    PatternEntry *pattern_entry = &self->pattern_map.contents[pattern_entry_index];
 
     analysis_state_set__clear(&analysis.states, &analysis.state_pool);
     analysis_state_set__clear(&analysis.deeper_states, &analysis.state_pool);
@@ -1880,7 +1882,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
       for (uint32_t k = 0; k < subgraph->start_states.size; k++) {
         TSStateId parse_state = subgraph->start_states.contents[k];
         analysis_state_set__push(&analysis.states, &analysis.state_pool, &((AnalysisState) {
-          .step_index = step_index,
+          .step_index = pattern_entry->step_index,
           .stack = {
             [0] = {
               .parse_state = parse_state,
@@ -1905,6 +1907,10 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
       &subgraphs,
       &analysis
     );
+
+    if (analysis.finished_parent_symbols.size > 0) {
+      self->patterns.contents[pattern_entry->pattern_index].is_non_local = true;
+    }
 
     for (unsigned k = 0; k < analysis.finished_parent_symbols.size; k++) {
       TSSymbol symbol = analysis.finished_parent_symbols.contents[k];
@@ -2697,6 +2703,7 @@ TSQuery *ts_query_new(
       .steps = (Slice) {.offset = start_step_index},
       .predicate_steps = (Slice) {.offset = start_predicate_step_index},
       .start_byte = stream_offset(&stream),
+      .is_non_local = false,
     }));
     CaptureQuantifiers capture_quantifiers = capture_quantifiers_new();
     *error_type = ts_query__parse_pattern(self, &stream, 0, false, &capture_quantifiers);
@@ -2874,6 +2881,17 @@ bool ts_query_is_pattern_rooted(
     }
   }
   return true;
+}
+
+bool ts_query_is_pattern_non_local(
+  const TSQuery *self,
+  uint32_t pattern_index
+) {
+  if (pattern_index < self->patterns.size) {
+    return self->patterns.contents[pattern_index].is_non_local;
+  } else {
+    return false;
+  }
 }
 
 bool ts_query_is_pattern_guaranteed_at_step(

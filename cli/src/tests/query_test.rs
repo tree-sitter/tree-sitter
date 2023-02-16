@@ -4085,6 +4085,68 @@ fn test_query_is_pattern_rooted() {
 }
 
 #[test]
+fn test_query_is_pattern_non_local() {
+    struct Row {
+        description: &'static str,
+        pattern: &'static str,
+        is_non_local: bool,
+    }
+
+    let rows = [
+        Row {
+            description: "simple token",
+            pattern: r#"(identifier)"#,
+            is_non_local: false,
+        },
+        Row {
+            description: "siblings that can occur in an argument list",
+            pattern: r#"((identifier) (identifier))"#,
+            is_non_local: true,
+        },
+        Row {
+            description: "siblings that can occur in a statement block",
+            pattern: r#"((return_statement) (return_statement))"#,
+            is_non_local: true,
+        },
+        Row {
+            description: "siblings that can occur in a source file",
+            pattern: r#"((function_definition) (class_definition))"#,
+            is_non_local: true,
+        },
+        Row {
+            description: "siblings that can't occur in any repetition",
+            pattern: r#"("{" "}")"#,
+            is_non_local: false,
+        },
+    ];
+
+    allocations::record(|| {
+        eprintln!("");
+
+        let language = get_language("python");
+        for row in &rows {
+            if let Some(filter) = EXAMPLE_FILTER.as_ref() {
+                if !row.description.contains(filter.as_str()) {
+                    continue;
+                }
+            }
+            eprintln!("  query example: {:?}", row.description);
+            let query = Query::new(language, row.pattern).unwrap();
+            assert_eq!(
+                query.is_pattern_non_local(0),
+                row.is_non_local,
+                "Description: {}, Pattern: {:?}",
+                row.description,
+                row.pattern
+                    .split_ascii_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" "),
+            )
+        }
+    });
+}
+
+#[test]
 fn test_capture_quantifiers() {
     struct Row {
         description: &'static str,

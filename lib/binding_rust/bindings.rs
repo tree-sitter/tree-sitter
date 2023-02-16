@@ -678,6 +678,9 @@ extern "C" {
     ) -> *const TSQueryPredicateStep;
 }
 extern "C" {
+    pub fn ts_query_is_pattern_non_local(self_: *const TSQuery, pattern_index: u32) -> bool;
+}
+extern "C" {
     pub fn ts_query_is_pattern_rooted(self_: *const TSQuery, pattern_index: u32) -> bool;
 }
 extern "C" {
