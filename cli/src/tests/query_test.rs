@@ -2220,6 +2220,57 @@ fn test_query_captures_within_byte_range_assigned_after_iterating() {
 }
 
 #[test]
+fn test_query_matches_within_range_of_long_repetition() {
+    allocations::record(|| {
+        let language = get_language("rust");
+        let query = Query::new(
+            language,
+            "
+            (function_item name: (identifier) @fn-name)
+            ",
+        )
+        .unwrap();
+
+        let source = "
+            fn zero() {}
+            fn one() {}
+            fn two() {}
+            fn three() {}
+            fn four() {}
+            fn five() {}
+            fn six() {}
+            fn seven() {}
+            fn eight() {}
+            fn nine() {}
+            fn ten() {}
+            fn eleven() {}
+            fn twelve() {}
+        "
+        .unindent();
+
+        let mut parser = Parser::new();
+        let mut cursor = QueryCursor::new();
+
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+
+        let matches = cursor
+            .set_point_range(Point::new(8, 0)..Point::new(20, 0))
+            .matches(&query, tree.root_node(), source.as_bytes());
+        assert_eq!(
+            collect_matches(matches, &query, &source),
+            &[
+                (0, vec![("fn-name", "eight")]),
+                (0, vec![("fn-name", "nine")]),
+                (0, vec![("fn-name", "ten")]),
+                (0, vec![("fn-name", "eleven")]),
+                (0, vec![("fn-name", "twelve")]),
+            ]
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_different_queries_same_cursor() {
     allocations::record(|| {
         let language = get_language("javascript");
@@ -4089,6 +4140,7 @@ fn test_query_is_pattern_non_local() {
     struct Row {
         description: &'static str,
         pattern: &'static str,
+        language: Language,
         is_non_local: bool,
     }
 
@@ -4096,26 +4148,61 @@ fn test_query_is_pattern_non_local() {
         Row {
             description: "simple token",
             pattern: r#"(identifier)"#,
+            language: get_language("python"),
             is_non_local: false,
         },
         Row {
             description: "siblings that can occur in an argument list",
             pattern: r#"((identifier) (identifier))"#,
+            language: get_language("python"),
             is_non_local: true,
         },
         Row {
             description: "siblings that can occur in a statement block",
             pattern: r#"((return_statement) (return_statement))"#,
+            language: get_language("python"),
             is_non_local: true,
         },
         Row {
             description: "siblings that can occur in a source file",
             pattern: r#"((function_definition) (class_definition))"#,
+            language: get_language("python"),
             is_non_local: true,
         },
         Row {
             description: "siblings that can't occur in any repetition",
             pattern: r#"("{" "}")"#,
+            language: get_language("python"),
+            is_non_local: false,
+        },
+        Row {
+            description: "siblings that can't occur in any repetition, wildcard root",
+            pattern: r#"(_ "{" "}") @foo"#,
+            language: get_language("javascript"),
+            is_non_local: false,
+        },
+        Row {
+            description: "siblings that can occur in a class body, wildcard root",
+            pattern: r#"(_ (method_definition) (method_definition)) @foo"#,
+            language: get_language("javascript"),
+            is_non_local: true,
+        },
+        Row {
+            description: "top-level repetitions that can occur in a class body",
+            pattern: r#"(method_definition)+ @foo"#,
+            language: get_language("javascript"),
+            is_non_local: true,
+        },
+        Row {
+            description: "top-level repetitions that can occur in a statement block",
+            pattern: r#"(return_statement)+ @foo"#,
+            language: get_language("javascript"),
+            is_non_local: true,
+        },
+        Row {
+            description: "rooted pattern that can occur in a statement block",
+            pattern: r#"(return_statement) @foo"#,
+            language: get_language("javascript"),
             is_non_local: false,
         },
     ];
@@ -4123,7 +4210,6 @@ fn test_query_is_pattern_non_local() {
     allocations::record(|| {
         eprintln!("");
 
-        let language = get_language("python");
         for row in &rows {
             if let Some(filter) = EXAMPLE_FILTER.as_ref() {
                 if !row.description.contains(filter.as_str()) {
@@ -4131,7 +4217,7 @@ fn test_query_is_pattern_non_local() {
                 }
             }
             eprintln!("  query example: {:?}", row.description);
-            let query = Query::new(language, row.pattern).unwrap();
+            let query = Query::new(row.language, row.pattern).unwrap();
             assert_eq!(
                 query.is_pattern_non_local(0),
                 row.is_non_local,
