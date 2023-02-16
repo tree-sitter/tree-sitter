@@ -1736,9 +1736,15 @@ impl Query {
     }
 
     /// Check if a given pattern within a query has a single root node.
-    #[doc(alias = "ts_query_is_pattern_guaranteed_at_step")]
+    #[doc(alias = "ts_query_is_pattern_rooted")]
     pub fn is_pattern_rooted(&self, index: usize) -> bool {
         unsafe { ffi::ts_query_is_pattern_rooted(self.ptr.as_ptr(), index as u32) }
+    }
+
+    /// Check if a given pattern within a query has a single root node.
+    #[doc(alias = "ts_query_is_pattern_non_local")]
+    pub fn is_pattern_non_local(&self, index: usize) -> bool {
+        unsafe { ffi::ts_query_is_pattern_non_local(self.ptr.as_ptr(), index as u32) }
     }
 
     /// Check if a given step in a query is 'definite'.

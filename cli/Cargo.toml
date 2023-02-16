@@ -3,7 +3,7 @@ name = "tree-sitter-cli"
 description = "CLI tool for developing, testing, and using Tree-sitter parsers"
 version = "0.20.7"
 authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 readme = "README.md"
 keywords = ["incremental", "parsing"]
@@ -73,6 +73,7 @@ rand = "0.8"
 tempfile = "3"
 pretty_assertions = "0.7.2"
 ctor = "0.1"
+unindent = "0.2"
 
 [build-dependencies]
 toml = "0.5"

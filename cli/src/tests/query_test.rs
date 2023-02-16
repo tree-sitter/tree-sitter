@@ -2,6 +2,7 @@ use super::helpers::{
     allocations,
     fixtures::get_language,
     query_helpers::{Match, Pattern},
+    ITERATION_COUNT,
 };
 use lazy_static::lazy_static;
 use rand::{prelude::StdRng, SeedableRng};
@@ -10,6 +11,7 @@ use tree_sitter::{
     CaptureQuantifier, Language, Node, Parser, Point, Query, QueryCapture, QueryCursor, QueryError,
     QueryErrorKind, QueryMatch, QueryPredicate, QueryPredicateArg, QueryProperty,
 };
+use unindent::Unindent;
 
 lazy_static! {
     static ref EXAMPLE_FILTER: Option<String> = env::var("TREE_SITTER_TEST_EXAMPLE_FILTER").ok();
@@ -1874,7 +1876,6 @@ fn test_query_matches_within_byte_range() {
             cursor
                 .set_byte_range(0..8)
                 .matches(&query, tree.root_node(), source.as_bytes());
-
         assert_eq!(
             collect_matches(matches, &query, source),
             &[
@@ -1888,7 +1889,6 @@ fn test_query_matches_within_byte_range() {
             cursor
                 .set_byte_range(5..15)
                 .matches(&query, tree.root_node(), source.as_bytes());
-
         assert_eq!(
             collect_matches(matches, &query, source),
             &[
@@ -1902,7 +1902,6 @@ fn test_query_matches_within_byte_range() {
             cursor
                 .set_byte_range(12..0)
                 .matches(&query, tree.root_node(), source.as_bytes());
-
         assert_eq!(
             collect_matches(matches, &query, source),
             &[
@@ -1920,20 +1919,28 @@ fn test_query_matches_within_point_range() {
         let language = get_language("javascript");
         let query = Query::new(language, "(identifier) @element").unwrap();
 
-        let source = "[a, b,\n c, d,\n e, f,\n g]";
+        let source = "
+            [
+              a, b,
+              c, d,
+              e, f,
+              g, h,
+              i, j,
+              k, l,
+            ]
+        "
+        .unindent();
 
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
         let tree = parser.parse(&source, None).unwrap();
-
         let mut cursor = QueryCursor::new();
 
         let matches = cursor
-            .set_point_range(Point::new(0, 0)..Point::new(1, 3))
+            .set_point_range(Point::new(1, 0)..Point::new(2, 3))
             .matches(&query, tree.root_node(), source.as_bytes());
-
         assert_eq!(
-            collect_matches(matches, &query, source),
+            collect_matches(matches, &query, &source),
             &[
                 (0, vec![("element", "a")]),
                 (0, vec![("element", "b")]),
@@ -1942,11 +1949,10 @@ fn test_query_matches_within_point_range() {
         );
 
         let matches = cursor
-            .set_point_range(Point::new(1, 0)..Point::new(2, 3))
+            .set_point_range(Point::new(2, 0)..Point::new(3, 3))
             .matches(&query, tree.root_node(), source.as_bytes());
-
         assert_eq!(
-            collect_matches(matches, &query, source),
+            collect_matches(matches, &query, &source),
             &[
                 (0, vec![("element", "c")]),
                 (0, vec![("element", "d")]),
@@ -1954,16 +1960,19 @@ fn test_query_matches_within_point_range() {
             ]
         );
 
+        // Zero end point is treated like no end point.
         let matches = cursor
-            .set_point_range(Point::new(2, 1)..Point::new(0, 0))
+            .set_point_range(Point::new(4, 1)..Point::new(0, 0))
             .matches(&query, tree.root_node(), source.as_bytes());
-
         assert_eq!(
-            collect_matches(matches, &query, source),
+            collect_matches(matches, &query, &source),
             &[
-                (0, vec![("element", "e")]),
-                (0, vec![("element", "f")]),
                 (0, vec![("element", "g")]),
+                (0, vec![("element", "h")]),
+                (0, vec![("element", "i")]),
+                (0, vec![("element", "j")]),
+                (0, vec![("element", "k")]),
+                (0, vec![("element", "l")]),
             ]
         );
     });
@@ -2205,6 +2214,57 @@ fn test_query_captures_within_byte_range_assigned_after_iterating() {
                 ("fallible_fn_body", "{ Ok(()) }"),
                 ("fn_name", "f3"),
                 ("rbrace", "}")
+            ]
+        );
+    });
+}
+
+#[test]
+fn test_query_matches_within_range_of_long_repetition() {
+    allocations::record(|| {
+        let language = get_language("rust");
+        let query = Query::new(
+            language,
+            "
+            (function_item name: (identifier) @fn-name)
+            ",
+        )
+        .unwrap();
+
+        let source = "
+            fn zero() {}
+            fn one() {}
+            fn two() {}
+            fn three() {}
+            fn four() {}
+            fn five() {}
+            fn six() {}
+            fn seven() {}
+            fn eight() {}
+            fn nine() {}
+            fn ten() {}
+            fn eleven() {}
+            fn twelve() {}
+        "
+        .unindent();
+
+        let mut parser = Parser::new();
+        let mut cursor = QueryCursor::new();
+
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+
+        let matches = cursor
+            .set_point_range(Point::new(8, 0)..Point::new(20, 0))
+            .matches(&query, tree.root_node(), source.as_bytes());
+        assert_eq!(
+            collect_matches(matches, &query, &source),
+            &[
+                (0, vec![("fn-name", "eight")]),
+                (0, vec![("fn-name", "nine")]),
+                (0, vec![("fn-name", "ten")]),
+                (0, vec![("fn-name", "eleven")]),
+                (0, vec![("fn-name", "twelve")]),
             ]
         );
     });
@@ -3634,17 +3694,22 @@ fn test_query_random() {
             .parse(include_str!("helpers/query_helpers.rs"), None)
             .unwrap();
 
-        // let start_seed = *SEED;
         let start_seed = 0;
+        let end_seed = start_seed + *ITERATION_COUNT;
 
-        for i in 0..100 {
-            let seed = (start_seed + i) as u64;
+        for seed in start_seed..(start_seed + end_seed) {
+            let seed = seed as u64;
             let mut rand = StdRng::seed_from_u64(seed);
             let (pattern_ast, _) = Pattern::random_pattern_in_tree(&pattern_tree, &mut rand);
             let pattern = pattern_ast.to_string();
             let expected_matches = pattern_ast.matches_in_tree(&test_tree);
 
-            let query = Query::new(language, &pattern).unwrap();
+            let query = match Query::new(language, &pattern) {
+                Ok(query) => query,
+                Err(e) => {
+                    panic!("failed to build query for pattern {pattern} - {e}. seed: {seed}");
+                }
+            };
             let mut actual_matches = cursor
                 .matches(
                     &query,
@@ -4059,6 +4124,103 @@ fn test_query_is_pattern_rooted() {
             assert_eq!(
                 query.is_pattern_rooted(0),
                 row.is_rooted,
+                "Description: {}, Pattern: {:?}",
+                row.description,
+                row.pattern
+                    .split_ascii_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" "),
+            )
+        }
+    });
+}
+
+#[test]
+fn test_query_is_pattern_non_local() {
+    struct Row {
+        description: &'static str,
+        pattern: &'static str,
+        language: Language,
+        is_non_local: bool,
+    }
+
+    let rows = [
+        Row {
+            description: "simple token",
+            pattern: r#"(identifier)"#,
+            language: get_language("python"),
+            is_non_local: false,
+        },
+        Row {
+            description: "siblings that can occur in an argument list",
+            pattern: r#"((identifier) (identifier))"#,
+            language: get_language("python"),
+            is_non_local: true,
+        },
+        Row {
+            description: "siblings that can occur in a statement block",
+            pattern: r#"((return_statement) (return_statement))"#,
+            language: get_language("python"),
+            is_non_local: true,
+        },
+        Row {
+            description: "siblings that can occur in a source file",
+            pattern: r#"((function_definition) (class_definition))"#,
+            language: get_language("python"),
+            is_non_local: true,
+        },
+        Row {
+            description: "siblings that can't occur in any repetition",
+            pattern: r#"("{" "}")"#,
+            language: get_language("python"),
+            is_non_local: false,
+        },
+        Row {
+            description: "siblings that can't occur in any repetition, wildcard root",
+            pattern: r#"(_ "{" "}") @foo"#,
+            language: get_language("javascript"),
+            is_non_local: false,
+        },
+        Row {
+            description: "siblings that can occur in a class body, wildcard root",
+            pattern: r#"(_ (method_definition) (method_definition)) @foo"#,
+            language: get_language("javascript"),
+            is_non_local: true,
+        },
+        Row {
+            description: "top-level repetitions that can occur in a class body",
+            pattern: r#"(method_definition)+ @foo"#,
+            language: get_language("javascript"),
+            is_non_local: true,
+        },
+        Row {
+            description: "top-level repetitions that can occur in a statement block",
+            pattern: r#"(return_statement)+ @foo"#,
+            language: get_language("javascript"),
+            is_non_local: true,
+        },
+        Row {
+            description: "rooted pattern that can occur in a statement block",
+            pattern: r#"(return_statement) @foo"#,
+            language: get_language("javascript"),
+            is_non_local: false,
+        },
+    ];
+
+    allocations::record(|| {
+        eprintln!("");
+
+        for row in &rows {
+            if let Some(filter) = EXAMPLE_FILTER.as_ref() {
+                if !row.description.contains(filter.as_str()) {
+                    continue;
+                }
+            }
+            eprintln!("  query example: {:?}", row.description);
+            let query = Query::new(row.language, row.pattern).unwrap();
+            assert_eq!(
+                query.is_pattern_non_local(0),
+                row.is_non_local,
                 "Description: {}, Pattern: {:?}",
                 row.description,
                 row.pattern
