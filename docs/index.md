@@ -43,6 +43,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [C#](https://github.com/tree-sitter/tree-sitter-c-sharp)
 * [Clojure](https://github.com/sogaiu/tree-sitter-clojure)
 * [CMake](https://github.com/uyha/tree-sitter-cmake)
+* [COBOL](https://github.com/yutaro-sakamoto/tree-sitter-cobol)
 * [Comment](https://github.com/stsewd/tree-sitter-comment)
 * [Common Lisp](https://github.com/theHamsta/tree-sitter-commonlisp)
 * [CSS](https://github.com/tree-sitter/tree-sitter-css)
