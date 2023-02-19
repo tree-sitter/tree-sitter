@@ -11,8 +11,6 @@ You can download the the `tree-sitter.js` and `tree-sitter.wasm` files from [the
 
 ```html
 <script src="/the/path/to/tree-sitter.js"/>
-
-<script>
   const Parser = window.TreeSitter;
   Parser.init().then(() => { /* the library is ready */ });
 </script>
