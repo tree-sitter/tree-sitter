@@ -137,6 +137,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Turtle](https://github.com/BonaBeavis/tree-sitter-turtle)
 * [Twig](https://github.com/gbprod/tree-sitter-twig)
 * [TypeScript](https://github.com/tree-sitter/tree-sitter-typescript)
+* [Ungrammar](https://github.com/Philipp-M/tree-sitter-ungrammar)
 * [Verilog](https://github.com/tree-sitter/tree-sitter-verilog)
 * [VHDL](https://github.com/alemuller/tree-sitter-vhdl)
 * [Vue](https://github.com/ikatyang/tree-sitter-vue)
@@ -144,6 +145,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [WGSL WebGPU Shading Language](https://github.com/mehmetoguzderin/tree-sitter-wgsl)
 * [YAML](https://github.com/ikatyang/tree-sitter-yaml)
 * [YANG](https://github.com/Hubro/tree-sitter-yang)
+* [Yuck](https://github.com/Philipp-M/tree-sitter-yuck)
 * [Zig](https://github.com/maxxnino/tree-sitter-zig)
 
 ### Talks on Tree-sitter
