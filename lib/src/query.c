@@ -2260,7 +2260,7 @@ static TSQueryError ts_query__parse_pattern(
 
     // If this parenthesis is followed by a node, then it represents a grouped sequence.
     if (stream->next == '(' || stream->next == '"' || stream->next == '[') {
-      bool child_is_immediate = false;
+      bool child_is_immediate = is_immediate;
       CaptureQuantifiers child_capture_quantifiers = capture_quantifiers_new();
       for (;;) {
         if (stream->next == '.') {
