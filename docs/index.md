@@ -125,6 +125,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Sourcepawn](https://github.com/nilshelmig/tree-sitter-sourcepawn)
 * [SPARQL](https://github.com/BonaBeavis/tree-sitter-sparql)
 * [SQL - BigQuery](https://github.com/takegue/tree-sitter-sql-bigquery)
+* [SQL - General](https://github.com/DerekStride/tree-sitter-sql)
 * [SQL - PostgreSQL](https://github.com/m-novikov/tree-sitter-sql)
 * [SQL - SQLite](https://github.com/dhcmrlchtdj/tree-sitter-sqlite)
 * [SSH](https://github.com/metio/tree-sitter-ssh-client-config)
