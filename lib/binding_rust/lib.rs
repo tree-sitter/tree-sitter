@@ -337,7 +337,7 @@ impl Language {
 
     /// Consumes the [Language], returning a raw pointer to the underlying C structure.
     pub fn into_raw(self) -> *const ffi::TSLanguage {
-        self.0
+        ManuallyDrop::new(self).0
     }
 }
 
