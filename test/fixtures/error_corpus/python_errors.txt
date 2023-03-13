@@ -89,7 +89,8 @@ def a():
     parameters: (parameters)
     (ERROR (identifier))
     body: (block
-      (expression_statement (string)))))
+      (expression_statement (string
+        string_content: (string_content))))))
 
 ===========================================
 incomplete definition in class definition
