@@ -505,7 +505,7 @@ fn test_parsing_after_detecting_error_in_the_middle_of_a_string_token() {
     let tree = parser.parse(&source, None).unwrap();
     assert_eq!(
         tree.root_node().to_sexp(),
-        "(module (expression_statement (assignment left: (identifier) right: (expression_list (identifier) (string)))))"
+        "(module (expression_statement (assignment left: (identifier) right: (expression_list (identifier) (string string_content: (string_content))))))"
     );
 
     // Delete a suffix of the source code, starting in the middle of the string
