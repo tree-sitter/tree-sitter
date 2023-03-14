@@ -9,7 +9,7 @@ use std::{
     ffi::CStr,
     fmt, hash, iter,
     marker::PhantomData,
-    mem::{ManuallyDrop, MaybeUninit},
+    mem::MaybeUninit,
     ops,
     os::raw::{c_char, c_void},
     ptr::{self, NonNull},
@@ -333,11 +333,6 @@ impl Language {
         } else {
             Some(id)
         }
-    }
-
-    /// Consumes the [Language], returning a raw pointer to the underlying C structure.
-    pub fn into_raw(self) -> *const ffi::TSLanguage {
-        ManuallyDrop::new(self).0
     }
 }
 
@@ -696,14 +691,6 @@ impl Parser {
             ffi::ts_parser_set_cancellation_flag(self.0.as_ptr(), ptr::null());
         }
     }
-
-    /// Consumes the [Parser], returning a raw pointer to the underlying C structure.
-    pub fn into_raw(mut self) -> *mut ffi::TSParser {
-        self.stop_printing_dot_graphs();
-        self.set_logger(None);
-
-        ManuallyDrop::new(self).0.as_ptr()
-    }
 }
 
 impl Drop for Parser {
@@ -797,11 +784,6 @@ impl Tree {
     pub fn print_dot_graph(&self, file: &impl AsRawFd) {
         let fd = file.as_raw_fd();
         unsafe { ffi::ts_tree_print_dot_graph(self.0.as_ptr(), fd) }
-    }
-
-    /// Consumes the [Tree], returning a raw pointer to the underlying C structure.
-    pub fn into_raw(self) -> *mut ffi::TSTree {
-        ManuallyDrop::new(self).0.as_ptr()
     }
 }
 
@@ -1208,11 +1190,6 @@ impl<'tree> Node<'tree> {
         let edit = edit.into();
         unsafe { ffi::ts_node_edit(&mut self.0 as *mut ffi::TSNode, &edit) }
     }
-
-    /// Consumes the [Node], returning a raw pointer to the underlying C structure.
-    pub fn into_raw(self) -> *mut ffi::TSNode {
-        &mut ManuallyDrop::new(self).0
-    }
 }
 
 impl<'a> PartialEq for Node<'a> {
@@ -1346,11 +1323,6 @@ impl<'a> TreeCursor<'a> {
     #[doc(alias = "ts_tree_cursor_reset")]
     pub fn reset(&mut self, node: Node<'a>) {
         unsafe { ffi::ts_tree_cursor_reset(&mut self.0, node.0) };
-    }
-
-    /// Consumes the [TreeCursor], returning a raw pointer to the underlying C structure.
-    pub fn into_raw(self) -> *mut ffi::TSTreeCursor {
-        &mut ManuallyDrop::new(self).0
     }
 }
 
@@ -1847,11 +1819,6 @@ impl Query {
             ));
         }
     }
-
-    /// Consumes the [Query], returning a raw pointer to the underlying C structure.
-    pub fn into_raw(self) -> *mut ffi::TSQuery {
-        ManuallyDrop::new(self).ptr.as_ptr()
-    }
 }
 
 impl QueryCursor {
@@ -1958,11 +1925,6 @@ impl QueryCursor {
             );
         }
         self
-    }
-
-    /// Consumes the [QueryCursor], returning a raw pointer to the underlying C structure.
-    pub fn into_raw(self) -> *mut ffi::TSQueryCursor {
-        ManuallyDrop::new(self).ptr.as_ptr()
     }
 }
 
