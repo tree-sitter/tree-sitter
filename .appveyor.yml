@@ -1,6 +1,4 @@
-# https://help.appveyor.com/discussions/problems/7115-curl-cant-download-files-through-ssl
-init:
-  - ps: Disable-NetFirewallRule -DisplayName 'Core Networking - Group Policy (LSASS-Out)'
+image: Visual Studio 2015
 
 build: false
 install:
