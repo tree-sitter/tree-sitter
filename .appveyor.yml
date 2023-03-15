@@ -1,3 +1,7 @@
+# https://help.appveyor.com/discussions/problems/7115-curl-cant-download-files-through-ssl
+init:
+  - ps: Disable-NetFirewallRule -DisplayName 'Core Networking - Group Policy (LSASS-Out)'
+
 build: false
 install:
   # Terminate early unless building either a tag or a PR.
