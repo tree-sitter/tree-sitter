@@ -37,7 +37,7 @@ serde = { version = "1.0.130", features = ["derive"] }
 smallbitvec = "2.5.1"
 tiny_http = "0.12.0"
 walkdir = "2.3"
-webbrowser = "0.5.1"
+webbrowser = "0.8.3"
 which = "4.1.0"
 
 [dependencies.tree-sitter]
