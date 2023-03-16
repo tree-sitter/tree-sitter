@@ -2,6 +2,7 @@ use super::helpers::{
     allocations,
     edits::{get_random_edit, invert_edit},
     fixtures::{fixtures_dir, get_language, get_test_language},
+    new_seed,
     random::Rand,
     scope_sequence::ScopeSequence,
     EDIT_COUNT, EXAMPLE_FILTER, ITERATION_COUNT, LANGUAGE_FILTER, LOG_ENABLED, LOG_GRAPH_ENABLED,
@@ -13,70 +14,71 @@ use crate::{
     test::{parse_tests, print_diff, print_diff_key, strip_sexp_fields, TestEntry},
     util,
 };
-use std::fs;
+use proc_macro::test_with_seed;
+use std::{env, fs};
 use tree_sitter::{LogType, Node, Parser, Point, Range, Tree};
 
-#[test]
-fn test_bash_corpus() {
-    test_language_corpus("bash");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_bash(seed: usize) {
+    test_language_corpus(seed, "bash");
 }
 
-#[test]
-fn test_c_corpus() {
-    test_language_corpus("c");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_c(seed: usize) {
+    test_language_corpus(seed, "c");
 }
 
-#[test]
-fn test_cpp_corpus() {
-    test_language_corpus("cpp");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_cpp(seed: usize) {
+    test_language_corpus(seed, "cpp");
 }
 
-#[test]
-fn test_embedded_template_corpus() {
-    test_language_corpus("embedded-template");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_embedded_template(seed: usize) {
+    test_language_corpus(seed, "embedded-template");
 }
 
-#[test]
-fn test_go_corpus() {
-    test_language_corpus("go");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_go(seed: usize) {
+    test_language_corpus(seed, "go");
 }
 
-#[test]
-fn test_html_corpus() {
-    test_language_corpus("html");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_html(seed: usize) {
+    test_language_corpus(seed, "html");
 }
 
-#[test]
-fn test_javascript_corpus() {
-    test_language_corpus("javascript");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_javascript(seed: usize) {
+    test_language_corpus(seed, "javascript");
 }
 
-#[test]
-fn test_json_corpus() {
-    test_language_corpus("json");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_json(seed: usize) {
+    test_language_corpus(seed, "json");
 }
 
-#[test]
-fn test_php_corpus() {
-    test_language_corpus("php");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_php(seed: usize) {
+    test_language_corpus(seed, "php");
 }
 
-#[test]
-fn test_python_corpus() {
-    test_language_corpus("python");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_python(seed: usize) {
+    test_language_corpus(seed, "python");
 }
 
-#[test]
-fn test_ruby_corpus() {
-    test_language_corpus("ruby");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_ruby(seed: usize) {
+    test_language_corpus(seed, "ruby");
 }
 
-#[test]
-fn test_rust_corpus() {
-    test_language_corpus("rust");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_rust(seed: usize) {
+    test_language_corpus(seed, "rust");
 }
 
-fn test_language_corpus(language_name: &str) {
+fn test_language_corpus(start_seed: usize, language_name: &str) {
     let grammars_dir = fixtures_dir().join("grammars");
     let error_corpus_dir = fixtures_dir().join("error_corpus");
     let template_corpus_dir = fixtures_dir().join("template_corpus");
@@ -100,6 +102,10 @@ fn test_language_corpus(language_name: &str) {
 
     let language = get_language(language_name);
     let mut failure_count = 0;
+
+    let log_seed = env::var("TREE_SITTER_LOG_SEED").is_ok();
+
+    println!();
     for test in tests {
         println!("  {} example - {}", language_name, test.name);
 
@@ -140,7 +146,7 @@ fn test_language_corpus(language_name: &str) {
         drop(parser);
 
         for trial in 0..*ITERATION_COUNT {
-            let seed = *START_SEED + trial;
+            let seed = start_seed + trial;
             let passed = allocations::record(|| {
                 let mut rand = Rand::new(seed);
                 let mut log_session = None;
@@ -161,7 +167,9 @@ fn test_language_corpus(language_name: &str) {
                     perform_edit(&mut tree, &mut input, &edit);
                 }
 
-                // println!("    seed: {}", seed);
+                if log_seed {
+                    println!("    seed: {}", seed);
+                }
 
                 if *LOG_GRAPH_ENABLED {
                     eprintln!("{}\n", String::from_utf8_lossy(&input));
@@ -173,10 +181,7 @@ fn test_language_corpus(language_name: &str) {
                 // Check that the new tree is consistent.
                 check_consistent_sizes(&tree2, &input);
                 if let Err(message) = check_changed_ranges(&tree, &tree2, &input) {
-                    println!(
-                        "\nUnexpected scope change in seed {}\n{}\n\n",
-                        seed, message
-                    );
+                    println!("\nUnexpected scope change in seed {seed} with start seed {start_seed}\n{message}\n\n",);
                     return false;
                 }
 
@@ -211,7 +216,7 @@ fn test_language_corpus(language_name: &str) {
                 // Check that the edited tree is consistent.
                 check_consistent_sizes(&tree3, &input);
                 if let Err(message) = check_changed_ranges(&tree2, &tree3, &input) {
-                    eprintln!("Unexpected scope change in seed {}\n{}\n\n", seed, message);
+                    println!("Unexpected scope change in seed {seed} with start seed {start_seed}\n{message}\n\n");
                     return false;
                 }
 

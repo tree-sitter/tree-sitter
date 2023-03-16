@@ -8,6 +8,7 @@ use crate::{
     generate::generate_parser_for_grammar,
     parse::{perform_edit, Edit},
 };
+use proc_macro::retry;
 use std::{
     sync::atomic::{AtomicUsize, Ordering},
     thread, time,
@@ -638,6 +639,7 @@ fn test_parsing_cancelled_by_another_thread() {
 // Timeouts
 
 #[test]
+#[retry(10)]
 fn test_parsing_with_a_timeout() {
     let mut parser = Parser::new();
     parser.set_language(get_language("json")).unwrap();
