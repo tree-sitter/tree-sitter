@@ -120,7 +120,7 @@ jobs:
       shell: bash
       run: script/build-wasm
 
-    - name: Build
+    - name: Build CLI
       shell: bash
       run: $BUILD_CMD build --locked --release --target=${{ matrix.job.target }}
 
@@ -169,7 +169,13 @@ jobs:
         unset CARGO_TEST_OPTIONS ; case ${{ matrix.job.target }} in arm-* | aarch64-*) CARGO_TEST_OPTIONS="--bin ${PROJECT_NAME}" ;; esac;
         echo "CARGO_TEST_OPTIONS=${CARGO_TEST_OPTIONS}" >> $GITHUB_OUTPUT
 
-    - name: Run tests
+    - name: Set up fixture parsers
+      run: |
+        script/fetch-fixtures
+        script/generate-fixtures
+        script/generate-fixtures-wasm
+
+    - name: Run main tests
       shell: bash
       run: $BUILD_CMD test --locked --target=${{ matrix.job.target }} ${{ steps.test-options.outputs.CARGO_TEST_OPTIONS}}
 
