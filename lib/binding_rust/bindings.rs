@@ -566,6 +566,9 @@ extern "C" {
     pub fn ts_query_cursor_set_point_range(arg1: *mut TSQueryCursor, arg2: TSPoint, arg3: TSPoint);
 }
 extern "C" {
+    pub fn ts_query_cursor_set_max_start_depth(arg1: *mut TSQueryCursor, arg2: u32);
+}
+extern "C" {
     #[doc = " Advance to the next match of the currently running query.\n\n If there is a match, write it to `*match` and return `true`.\n Otherwise, return `false`."]
     pub fn ts_query_cursor_next_match(arg1: *mut TSQueryCursor, match_: *mut TSQueryMatch) -> bool;
 }
