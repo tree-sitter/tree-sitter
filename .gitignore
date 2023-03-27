@@ -25,3 +25,10 @@ docs/assets/js/tree-sitter.js
 *.exp
 *.lib
 *.wasm
+
+# CLion projects
+/.idea/
+
+# CMake build directories
+/cmake-build-debug/
+/cmake-build-release/
