@@ -32,7 +32,7 @@ EOF
 export RUST_BACKTRACE=full
 
 mode=normal
-test_flags=""
+test_flags="--features logging_parser --features logging_lexer"
 
 while getopts "adDghl:e:s:i:" option; do
   case ${option} in

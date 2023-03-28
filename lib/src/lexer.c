@@ -4,6 +4,14 @@
 #include "./length.h"
 #include "./unicode.h"
 
+// #define DEBUG_LEXER
+
+#ifndef DEBUG_LEXER
+
+#define LOG(...)
+
+#else // debug mode
+
 #define LOG(message, character)              \
   if (self->logger.log) {                    \
     snprintf(                                \
@@ -20,6 +28,8 @@
       self->debug_buffer                     \
     );                                       \
   }
+
+#endif
 
 static const int32_t BYTE_ORDER_MARK = 0xFEFF;
 
