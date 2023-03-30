@@ -1379,8 +1379,8 @@ static void ts_query__perform_analysis(
 
           // Pop from the stack when this state reached the end of its current syntax node.
           while (next_state.depth > 0 && next_state_top->done) {
-            next_state.depth--;
             next_state_top = analysis_state__top(&next_state);
+            next_state.depth--;
           }
 
           // If this hypothetical child did match the current step of the query pattern,
