@@ -290,7 +290,7 @@ This `ts_node_edit` function is _only_ needed in the case where you have retriev
 
 ### Multi-language Documents
 
-Sometimes, different parts of a file may be written in different languages. For example, templating languages like [EJS](http://ejs.co) and [ERB](https://ruby-doc.org/stdlib-2.5.1/libdoc/erb/rdoc/ERB.html) allow you to generate HTML by writing a mixture of HTML and another language like JavaScript or Ruby.
+Sometimes, different parts of a file may be written in different languages. For example, templating languages like [EJS](https://ejs.co) and [ERB](https://ruby-doc.org/stdlib-2.5.1/libdoc/erb/rdoc/ERB.html) allow you to generate HTML by writing a mixture of HTML and another language like JavaScript or Ruby.
 
 Tree-sitter handles these types of documents by allowing you to create a syntax tree based on the text in certain _ranges_ of a file.
 

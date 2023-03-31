@@ -13,7 +13,7 @@ syntax trees up-to-date as the source code changes. `libtree-sitter` is designed
 
 The CLI is
 used to generate a parser for a language by supplying a [context-free grammar](https://en.wikipedia.org/wiki/Context-free_grammar) describing the
-language. The CLI is a build tool; it is no longer needed once a parser has been generated. It is written in Rust, and is available on [crates.io](https://crates.io), [npm](http://npmjs.com), and as a pre-built binary [on GitHub](https://github.com/tree-sitter/tree-sitter/releases/latest).
+language. The CLI is a build tool; it is no longer needed once a parser has been generated. It is written in Rust, and is available on [crates.io](https://crates.io), [npm](https://npmjs.com), and as a pre-built binary [on GitHub](https://github.com/tree-sitter/tree-sitter/releases/latest).
 
 ## The CLI
 

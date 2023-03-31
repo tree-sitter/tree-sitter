@@ -134,7 +134,7 @@ interface Grammar<
    *
    * @param $ grammar rules
    *
-   * @see http://tree-sitter.github.io/tree-sitter/using-parsers#static-node-types
+   * @see https://tree-sitter.github.io/tree-sitter/using-parsers#static-node-types
    */
   supertypes?: (
     $: GrammarSymbols<RuleName | BaseGrammarRuleName>,
