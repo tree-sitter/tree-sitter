@@ -1,7 +1,10 @@
 [workspace]
 default-members = ["cli"]
-
 members = ["cli", "lib"]
+resolver = "2"
+
+[workspace.package]
+rust-version = "1.65"
 
 [profile.release]
 strip = true
