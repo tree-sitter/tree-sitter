@@ -167,7 +167,7 @@ pub extern "C" fn ts_highlight_buffer_new() -> *mut TSHighlightBuffer {
 /// It cannot be used after this function is called.
 #[no_mangle]
 pub unsafe extern "C" fn ts_highlighter_delete(this: *mut TSHighlighter) {
-    drop(Box::from_raw(this))
+    drop(Box::from_raw(this));
 }
 
 /// Deletes a [`TSHighlightBuffer`] instance.
@@ -180,7 +180,7 @@ pub unsafe extern "C" fn ts_highlighter_delete(this: *mut TSHighlighter) {
 /// It cannot be used after this function is called.
 #[no_mangle]
 pub unsafe extern "C" fn ts_highlight_buffer_delete(this: *mut TSHighlightBuffer) {
-    drop(Box::from_raw(this))
+    drop(Box::from_raw(this));
 }
 
 /// Get the HTML content of a [`TSHighlightBuffer`] instance as a raw pointer.
@@ -309,7 +309,7 @@ impl TSHighlighter {
                 .renderer
                 .render(highlights, source_code, &|s| self.attribute_strings[s.0]);
             match result {
-                Err(Error::Cancelled) | Err(Error::Unknown) => ErrorCode::Timeout,
+                Err(Error::Cancelled | Error::Unknown) => ErrorCode::Timeout,
                 Err(Error::InvalidLanguage) => ErrorCode::InvalidLanguage,
                 Ok(()) => ErrorCode::Ok,
             }

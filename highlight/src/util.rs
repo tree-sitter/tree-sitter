@@ -1,4 +1,5 @@
-pub fn html_escape(c: u8) -> Option<&'static [u8]> {
+#[must_use]
+pub const fn html_escape(c: u8) -> Option<&'static [u8]> {
     match c as char {
         '>' => Some(b"&gt;"),
         '<' => Some(b"&lt;"),
