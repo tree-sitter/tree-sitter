@@ -30,6 +30,8 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Kotlin](https://github.com/oxisto/kotlintree)
 * [Java](https://github.com/serenadeai/java-tree-sitter)
 
+By convention, bindings are named with the language first, eg. ruby-tree-sitter.
+
 ### Parsers
 
 * [Ada](https://github.com/briot/tree-sitter-ada)
@@ -145,6 +147,8 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [YAML](https://github.com/ikatyang/tree-sitter-yaml)
 * [YANG](https://github.com/Hubro/tree-sitter-yang)
 * [Zig](https://github.com/maxxnino/tree-sitter-zig)
+
+By convention, parsers are named with the language last, eg. tree-sitter-ruby.
 
 ### Talks on Tree-sitter
 
