@@ -59,8 +59,8 @@ jobs:
           mkdir -p target
           mv artifacts/tree-sitter.wasm/* target/
           rm -r artifacts/tree-sitter.wasm
-          for platform in $(cd artifacts; ls); do
-            exe=$(ls artifacts/$platform/tree-sitter*)
+          for platform in $(cd artifacts; ls | sed 's/^tree-sitter\.//'); do
+            exe=$(ls artifacts/tree-sitter.$platform/tree-sitter*)
             gzip --stdout --name $exe > target/tree-sitter-$platform.gz
           done
           rm -rf artifacts
@@ -90,9 +90,9 @@ jobs:
           tag_name: ${{ steps.tag_name.outputs.tag }}
           fail_on_unmatched_files: true
           files: |
-            tree-sitter-*.gz
-            tree-sitter.wasm
-            tree-sitter.js
+            target/tree-sitter-*.gz
+            target/tree-sitter.wasm
+            target/tree-sitter.js
 
       - name: Merge release PR
         env:
