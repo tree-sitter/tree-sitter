@@ -1,4 +1,4 @@
-mod ffi;
+pub mod ffi;
 mod util;
 
 #[cfg(unix)]
@@ -1434,6 +1434,11 @@ impl Query {
             });
         }
 
+        unsafe { Query::from_raw_parts(ptr, source) }
+    }
+
+    #[doc(hidden)]
+    unsafe fn from_raw_parts(ptr: *mut ffi::TSQuery, source: &str) -> Result<Query, QueryError> {
         let string_count = unsafe { ffi::ts_query_string_count(ptr) };
         let capture_count = unsafe { ffi::ts_query_capture_count(ptr) };
         let pattern_count = unsafe { ffi::ts_query_pattern_count(ptr) as usize };
@@ -1644,6 +1649,7 @@ impl Query {
                 .general_predicates
                 .push(general_predicates.into_boxed_slice());
         }
+
         Ok(result)
     }
 
