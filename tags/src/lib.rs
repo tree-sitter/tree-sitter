@@ -34,6 +34,9 @@ pub struct TagsConfiguration {
     pattern_info: Vec<PatternInfo>,
 }
 
+unsafe impl Send for TagsConfiguration {}
+unsafe impl Sync for TagsConfiguration {}
+
 #[derive(Debug)]
 pub struct NamedCapture {
     pub syntax_type_id: u32,
@@ -115,7 +118,7 @@ struct LineInfo {
 
 impl TagsConfiguration {
     pub fn new(language: Language, tags_query: &str, locals_query: &str) -> Result<Self, Error> {
-        let query = Query::new(language, &format!("{}{}", locals_query, tags_query))?;
+        let query = Query::new(language, &format!("{locals_query}{tags_query}"))?;
 
         let tags_query_offset = locals_query.len();
         let mut tags_pattern_index = 0;
@@ -135,13 +138,12 @@ impl TagsConfiguration {
         let mut local_definition_capture_index = None;
         for (i, name) in query.capture_names().iter().enumerate() {
             match name.as_str() {
-                "" => continue,
+                "local.reference" | "" => continue,
                 "name" => name_capture_index = Some(i as u32),
                 "ignore" => ignore_capture_index = Some(i as u32),
                 "doc" => doc_capture_index = Some(i as u32),
                 "local.scope" => local_scope_capture_index = Some(i as u32),
                 "local.definition" => local_definition_capture_index = Some(i as u32),
-                "local.reference" => continue,
                 _ => {
                     let mut is_definition = false;
 
@@ -214,11 +216,11 @@ impl TagsConfiguration {
                         }
                     }
                 }
-                return Ok(info);
+                Ok(info)
             })
             .collect::<Result<Vec<_>, Error>>()?;
 
-        Ok(TagsConfiguration {
+        Ok(Self {
             language,
             query,
             syntax_type_names,
@@ -227,13 +229,14 @@ impl TagsConfiguration {
             doc_capture_index,
             name_capture_index,
             ignore_capture_index,
-            tags_pattern_index,
             local_scope_capture_index,
             local_definition_capture_index,
+            tags_pattern_index,
             pattern_info,
         })
     }
 
+    #[must_use]
     pub fn syntax_type_name(&self, id: u32) -> &str {
         unsafe {
             let cstr =
@@ -245,8 +248,9 @@ impl TagsConfiguration {
 }
 
 impl TagsContext {
+    #[must_use]
     pub fn new() -> Self {
-        TagsContext {
+        Self {
             parser: Parser::new(),
             cursor: QueryCursor::new(),
         }
@@ -296,6 +300,12 @@ impl TagsContext {
     }
 }
 
+impl Default for TagsContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'a, I> Iterator for TagsIter<'a, I>
 where
     I: Iterator<Item = tree_sitter::QueryMatch<'a, 'a>>,
@@ -325,9 +335,8 @@ where
                     let tag = self.tag_queue.remove(0).0;
                     if tag.is_ignored() {
                         continue;
-                    } else {
-                        return Some(Ok(tag));
                     }
+                    return Some(Ok(tag));
                 }
             }
 
@@ -509,11 +518,11 @@ where
                             line_range: line_range.clone(),
                         });
                         tag = Tag {
+                            range,
+                            name_range,
                             line_range,
                             span,
                             utf16_column_range,
-                            range,
-                            name_range,
                             docs,
                             is_definition,
                             syntax_type_id,
@@ -552,8 +561,8 @@ where
 }
 
 impl Tag {
-    fn ignored(name_range: Range<usize>) -> Self {
-        Tag {
+    const fn ignored(name_range: Range<usize>) -> Self {
+        Self {
             name_range,
             line_range: 0..0,
             span: Point::new(0, 0)..Point::new(0, 0),
@@ -565,7 +574,7 @@ impl Tag {
         }
     }
 
-    fn is_ignored(&self) -> bool {
+    const fn is_ignored(&self) -> bool {
         self.range.start == usize::MAX
     }
 }

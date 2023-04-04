@@ -66,17 +66,17 @@ pub extern "C" fn ts_tagger_new() -> *mut TSTagger {
     }))
 }
 
-/// Delete a TSTagger.
+/// Delete a [`TSTagger`].
 ///
 /// # Safety
 ///
 /// `this` must be non-null and a valid pointer to a [`TSTagger`] instance.
 #[no_mangle]
 pub unsafe extern "C" fn ts_tagger_delete(this: *mut TSTagger) {
-    drop(Box::from_raw(this))
+    drop(Box::from_raw(this));
 }
 
-/// Add a language to a TSTagger.
+/// Add a language to a [`TSTagger`].
 ///
 /// Returns a [`TSTagsError`] indicating whether the operation was successful or not.
 ///
@@ -105,13 +105,11 @@ pub unsafe extern "C" fn ts_tagger_add_language(
     } else {
         &[]
     };
-    let tags_query = match str::from_utf8(tags_query) {
-        Ok(e) => e,
-        Err(_) => return TSTagsError::InvalidUtf8,
+    let Ok(tags_query) = str::from_utf8(tags_query) else {
+        return TSTagsError::InvalidUtf8;
     };
-    let locals_query = match str::from_utf8(locals_query) {
-        Ok(e) => e,
-        Err(_) => return TSTagsError::InvalidUtf8,
+    let Ok(locals_query) = str::from_utf8(locals_query) else {
+        return TSTagsError::InvalidUtf8;
     };
 
     match TagsConfiguration::new(language, tags_query, locals_query) {
@@ -169,16 +167,13 @@ pub unsafe extern "C" fn ts_tagger_tag(
             Err(e) => {
                 return match e {
                     Error::InvalidLanguage => TSTagsError::InvalidLanguage,
-                    Error::Cancelled => TSTagsError::Timeout,
                     _ => TSTagsError::Timeout,
                 }
             }
         };
 
         for tag in tags {
-            let tag = if let Ok(tag) = tag {
-                tag
-            } else {
+            let Ok(tag) = tag else {
                 buffer.tags.clear();
                 buffer.docs.clear();
                 return TSTagsError::Timeout;
@@ -228,7 +223,7 @@ pub extern "C" fn ts_tags_buffer_new() -> *mut TSTagsBuffer {
     }))
 }
 
-/// Delete a TSTagsBuffer.
+/// Delete a [`TSTagsBuffer`].
 ///
 /// # Safety
 ///
@@ -236,10 +231,10 @@ pub extern "C" fn ts_tags_buffer_new() -> *mut TSTagsBuffer {
 /// [`ts_tags_buffer_new`].
 #[no_mangle]
 pub unsafe extern "C" fn ts_tags_buffer_delete(this: *mut TSTagsBuffer) {
-    drop(Box::from_raw(this))
+    drop(Box::from_raw(this));
 }
 
-/// Get the tags from a TSTagsBuffer.
+/// Get the tags from a [`TSTagsBuffer`].
 ///
 /// # Safety
 ///
@@ -254,7 +249,7 @@ pub unsafe extern "C" fn ts_tags_buffer_tags(this: *const TSTagsBuffer) -> *cons
     buffer.tags.as_ptr()
 }
 
-/// Get the number of tags in a TSTagsBuffer.
+/// Get the number of tags in a [`TSTagsBuffer`].
 ///
 /// # Safety
 ///
@@ -265,7 +260,7 @@ pub unsafe extern "C" fn ts_tags_buffer_tags_len(this: *const TSTagsBuffer) -> u
     buffer.tags.len() as u32
 }
 
-/// Get the documentation strings from a TSTagsBuffer.
+/// Get the documentation strings from a [`TSTagsBuffer`].
 ///
 /// # Safety
 ///
@@ -283,7 +278,7 @@ pub unsafe extern "C" fn ts_tags_buffer_docs(this: *const TSTagsBuffer) -> *cons
     buffer.docs.as_ptr() as *const c_char
 }
 
-/// Get the length of the documentation strings in a TSTagsBuffer.
+/// Get the length of the documentation strings in a [`TSTagsBuffer`].
 ///
 /// # Safety
 ///
@@ -295,7 +290,7 @@ pub unsafe extern "C" fn ts_tags_buffer_docs_len(this: *const TSTagsBuffer) -> u
     buffer.docs.len() as u32
 }
 
-/// Get whether or not a TSTagsBuffer contains any parse errors.
+/// Get whether or not a [`TSTagsBuffer`] contains any parse errors.
 ///
 /// # Safety
 ///
