@@ -331,7 +331,7 @@ static bool stream_advance(Stream *self) {
   if (self->input < self->end) {
     uint32_t size = ts_decode_utf8(
       (const uint8_t *)self->input,
-      self->end - self->input,
+      (uint32_t)(self->end - self->input),
       &self->next
     );
     if (size > 0) {
@@ -398,7 +398,7 @@ static void stream_scan_identifier(Stream *stream) {
 }
 
 static uint32_t stream_offset(Stream *self) {
-  return self->input - self->start;
+  return (uint32_t)(self->input - self->start);
 }
 
 /******************
@@ -2064,7 +2064,7 @@ static TSQueryError ts_query__parse_predicate(
   if (!stream_is_ident_start(stream)) return TSQueryErrorSyntax;
   const char *predicate_name = stream->input;
   stream_scan_identifier(stream);
-  uint32_t length = stream->input - predicate_name;
+  uint32_t length = (uint32_t)(stream->input - predicate_name);
   uint16_t id = symbol_table_insert_name(
     &self->predicate_values,
     predicate_name,
@@ -2095,7 +2095,7 @@ static TSQueryError ts_query__parse_predicate(
       if (!stream_is_ident_start(stream)) return TSQueryErrorSyntax;
       const char *capture_name = stream->input;
       stream_scan_identifier(stream);
-      uint32_t length = stream->input - capture_name;
+      uint32_t length = (uint32_t)(stream->input - capture_name);
 
       // Add the capture id to the first step of the pattern
       int capture_id = symbol_table_id_for_name(
@@ -2133,7 +2133,7 @@ static TSQueryError ts_query__parse_predicate(
     else if (stream_is_ident_start(stream)) {
       const char *symbol_start = stream->input;
       stream_scan_identifier(stream);
-      uint32_t length = stream->input - symbol_start;
+      uint32_t length = (uint32_t)(stream->input - symbol_start);
       uint16_t id = symbol_table_insert_name(
         &self->predicate_values,
         symbol_start,
@@ -2302,7 +2302,7 @@ static TSQueryError ts_query__parse_pattern(
       if (stream_is_ident_start(stream)) {
         const char *node_name = stream->input;
         stream_scan_identifier(stream);
-        uint32_t length = stream->input - node_name;
+        uint32_t length = (uint32_t)(stream->input - node_name);
 
         // TODO - remove.
         // For temporary backward compatibility, handle predicates without the leading '#' sign.
@@ -2353,7 +2353,7 @@ static TSQueryError ts_query__parse_pattern(
 
         const char *node_name = stream->input;
         stream_scan_identifier(stream);
-        uint32_t length = stream->input - node_name;
+        uint32_t length = (uint32_t)(stream->input - node_name);
 
         step->symbol = ts_language_symbol_for_name(
           self->language,
@@ -2386,7 +2386,7 @@ static TSQueryError ts_query__parse_pattern(
           }
           const char *field_name = stream->input;
           stream_scan_identifier(stream);
-          uint32_t length = stream->input - field_name;
+          uint32_t length = (uint32_t)(stream->input - field_name);
           stream_skip_whitespace(stream);
 
           TSFieldId field_id = ts_language_field_id_for_name(
@@ -2497,7 +2497,7 @@ static TSQueryError ts_query__parse_pattern(
     // Parse the field name
     const char *field_name = stream->input;
     stream_scan_identifier(stream);
-    uint32_t length = stream->input - field_name;
+    uint32_t length = (uint32_t)(stream->input - field_name);
     stream_skip_whitespace(stream);
 
     if (stream->next != ':') {
@@ -2616,7 +2616,7 @@ static TSQueryError ts_query__parse_pattern(
       if (!stream_is_ident_start(stream)) return TSQueryErrorSyntax;
       const char *capture_name = stream->input;
       stream_scan_identifier(stream);
-      uint32_t length = stream->input - capture_name;
+      uint32_t length = (uint32_t)(stream->input - capture_name);
       stream_skip_whitespace(stream);
 
       // Add the capture id to the first step of the pattern
@@ -3323,7 +3323,7 @@ static QueryState *ts_query_cursor__copy_state(
   QueryState **state_ref
 ) {
   const QueryState *state = *state_ref;
-  uint32_t state_index = state - self->states.contents;
+  uint32_t state_index = (uint32_t)(state - self->states.contents);
   QueryState copy = *state;
   copy.capture_list_id = NONE;
 
