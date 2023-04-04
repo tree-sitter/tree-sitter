@@ -82,8 +82,8 @@ pub fn test_with_seed(args: TokenStream, input: TokenStream) -> TokenStream {
             }
 
             Ok(Args {
-                retry: retry.expect("`retry` parameter is requred"),
-                seed: seed.expect("`initial_seed` parameter is required"),
+                retry: retry.expect("`retry` parameter is required"),
+                seed: seed.expect("`seed` parameter is required"),
                 seed_fn,
             })
         }
