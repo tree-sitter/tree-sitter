@@ -9,6 +9,7 @@ readme = "README.md"
 keywords = ["incremental", "parsing"]
 categories = ["command-line-utilities", "parsing"]
 repository = "https://github.com/tree-sitter/tree-sitter"
+rust-version.workspace = true
 
 [dependencies]
 anyhow = "1.0"

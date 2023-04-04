@@ -1,0 +1,171 @@
+name: Build & Test
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+  CROSS_DEBUG: 1
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        default: ${{ github.ref }}
+        type: string
+
+jobs:
+  build:
+    name: ${{ matrix.job.name }} (${{ matrix.job.target }}) (${{ matrix.job.os }})
+    runs-on: ${{ matrix.job.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        job:
+          - { name: linux-aarch64 , target: aarch64-unknown-linux-gnu   , os: ubuntu-latest  , use-cross: true }
+          - { name: linux-arm     , target: arm-unknown-linux-gnueabihf , os: ubuntu-latest  , use-cross: true }
+          - { name: linux-x64     , target: x86_64-unknown-linux-gnu    , os: ubuntu-latest                    }
+          - { name: linux-x86     , target: i686-unknown-linux-gnu      , os: ubuntu-latest  , use-cross: true }
+          - { name: windows-x64   , target: x86_64-pc-windows-msvc      , os: windows-latest                   }
+          - { name: windows-x86   , target: i686-pc-windows-msvc        , os: windows-latest                   }
+          - { name: macos-x64     , target: x86_64-apple-darwin         , os: macos-latest                     }
+
+    env:
+      BUILD_CMD: cargo
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ inputs.ref }}
+
+    - name: Read Emscripten version
+      run: |
+        echo "EMSCRIPTEN_VERSION=$(cat cli/emscripten-version)" >> $GITHUB_ENV
+
+    - name: Install Emscripten
+      uses: mymindstorm/setup-emsdk@v12
+      with:
+        version: ${{ env.EMSCRIPTEN_VERSION }}
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ matrix.job.target }}
+
+    - name: Install cross
+      if: matrix.job.use-cross
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cross
+
+    - name: Build custom cross image
+      if: ${{ matrix.job.use-cross && matrix.job.os == 'ubuntu-latest' }}
+      run: |
+        cd ..
+
+        target="${{ matrix.job.target }}"
+        image=ghcr.io/cross-rs/$target:custom
+        echo "CROSS_IMAGE=$image"                                  >> $GITHUB_ENV
+
+        echo "[target.$target]"                                    >> Cross.toml
+        echo "image = \"$image\""                                  >> Cross.toml
+        echo "CROSS_CONFIG=$PWD/Cross.toml"                        >> $GITHUB_ENV
+
+        echo "FROM ghcr.io/cross-rs/$target:edge"                  >> Dockerfile
+        echo "ENV DEBIAN_FRONTEND=noninteractive"                  >> Dockerfile
+        echo "RUN apt-get update && apt-get install -y nodejs"     >> Dockerfile
+        docker build -t $image .
+        docker images
+        docker run --rm $image env
+
+        cd -
+
+    - name: Setup extra env
+      run: |
+        PATH="$PWD/.github/scripts:$PATH"
+        echo "PATH=$PATH" >> $GITHUB_ENV
+        echo "ROOT=$PWD" >> $GITHUB_ENV
+        echo "TREE_SITTER=tree-sitter.sh" >> $GITHUB_ENV
+
+        export TARGET=${{ matrix.job.target }}
+        echo "TARGET=$TARGET" >> $GITHUB_ENV
+
+        USE_CROSS="${{ matrix.job.use-cross }}"
+
+        if [ "$USE_CROSS" == "true" ]; then
+          echo "BUILD_CMD=cross" >> $GITHUB_ENV
+
+          export CROSS=1; echo "CROSS=$CROSS" >> $GITHUB_ENV
+
+          runner=$(cross.sh bash -c "env | sed -nr '/^CARGO_TARGET_.*_RUNNER=/s///p'")
+          [ -n "$runner" ] && echo "CROSS_RUNNER=$runner" >> $GITHUB_ENV
+          echo "runner: $runner"
+
+          case "$TARGET" in
+            i686-unknown-linux-gnu)      CC=i686-linux-gnu-gcc              AR=i686-linux-gnu-ar                  ;;
+            aarch64-unknown-linux-gnu)   CC=aarch64-linux-gnu-gcc           AR=aarch64-linux-gnu-ar               ;;
+            arm-unknown-linux-gnueabihf) CC=arm-unknown-linux-gnueabihf-gcc AR=arm-unknown-linux-gnueabihf-gcc-ar ;;
+          esac
+
+          [ -n "$CC" ] && echo "CC=$CC" >> $GITHUB_ENV
+          [ -n "$AR" ] && echo "AR=$AR" >> $GITHUB_ENV
+        fi
+
+        case "$TARGET" in
+          *-windows-*)
+            echo "RUST_TEST_THREADS=1" >> $GITHUB_ENV # See #2041 tree-sitter issue
+            ;;
+        esac
+
+    - name: Build C library
+      if: "!contains(matrix.job.os, 'windows')" # Requires an additional adapted Makefile for `cl.exe` compiler
+      run: make.sh CFLAGS="-Werror" -j
+
+    - name: Build wasm library
+      run: script/build-wasm
+
+    - name: Build CLI
+      run: $BUILD_CMD build --release --target=${{ matrix.job.target }}
+
+    - name: Fetch fixtures
+      run: script/fetch-fixtures
+
+    - name: Generate fixtures
+      run: script/generate-fixtures
+
+    - name: Generate WASM fixtures
+      if: "!matrix.job.use-cross"
+      run: script/generate-fixtures-wasm
+
+    - name: Run main tests
+      run: $BUILD_CMD test --target=${{ matrix.job.target }}
+
+    - name: Run wasm tests
+      if: "!matrix.job.use-cross" # TODO: Install Emscripten into custom cross images
+      run: script/test-wasm
+
+    - name: Run benchmarks
+      if: "!matrix.job.use-cross" # It doesn't make sense to benchmark something in an emulator
+      run: $BUILD_CMD bench benchmark -p tree-sitter-cli --target=${{ matrix.job.target }}
+
+    - name: Upload CLI artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: tree-sitter.${{ matrix.job.name }}
+        path: target/${{ matrix.job.target }}/release/tree-sitter${{ contains(matrix.job.target, 'windows') && '.exe' || '' }}
+        if-no-files-found: error
+        retention-days: 7
+
+    - name: Upload WASM artifacts
+      if: ${{ matrix.job.name == 'linux-x64' }}
+      uses: actions/upload-artifact@v3
+      with:
+        name: tree-sitter.wasm
+        path: |
+          lib/binding_web/tree-sitter.js
+          lib/binding_web/tree-sitter.wasm
+        if-no-files-found: error
+        retention-days: 7
