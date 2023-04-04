@@ -474,16 +474,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "proc_macro"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "rand",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "quote"
 version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -785,7 +775,6 @@ dependencies = [
  "lazy_static",
  "log",
  "pretty_assertions",
- "proc_macro",
  "rand",
  "regex",
  "regex-syntax",
@@ -802,6 +791,7 @@ dependencies = [
  "tree-sitter-highlight",
  "tree-sitter-loader",
  "tree-sitter-tags",
+ "tree-sitter-tests-proc-macro",
  "unindent",
  "walkdir",
  "webbrowser",
@@ -852,6 +842,16 @@ dependencies = [
  "regex",
  "thiserror",
  "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-tests-proc-macro"
+version = "0.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "rand",
+ "syn 1.0.109",
 ]
 
 [[package]]

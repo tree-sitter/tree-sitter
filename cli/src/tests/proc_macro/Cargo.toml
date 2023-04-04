@@ -1,6 +1,6 @@
 [package]
-name = "proc_macro"
-version = "0.1.0"
+name = "tree-sitter-tests-proc-macro"
+version = "0.0.0"
 edition = "2021"
 publish = false
 rust-version.workspace = true
