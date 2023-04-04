@@ -5,8 +5,8 @@ header_path='lib/include/tree_sitter/api.h'
 
 bindgen                                        \
   --no-layout-tests                            \
-  --whitelist-type '^TS.*'                     \
-  --whitelist-function '^ts_.*'                \
+  --allowlist-type '^TS.*'                     \
+  --allowlist-function '^ts_.*'                \
   --blocklist-type '^__.*'                     \
   --size_t-is-usize                            \
   $header_path > $output_path
