@@ -1,6 +1,6 @@
 # tree-sitter
 
-[![Build Status](https://github.com/tree-sitter/tree-sitter/workflows/CI/badge.svg)](https://github.com/tree-sitter/tree-sitter/actions)
+[![CICD](https://github.com/tree-sitter/tree-sitter/actions/workflows/CICD.yml/badge.svg)](https://github.com/tree-sitter/tree-sitter/actions/workflows/CICD.yml)
 [![DOI](https://zenodo.org/badge/14164618.svg)](https://zenodo.org/badge/latestdoi/14164618)
 
 Tree-sitter is a parser generator tool and an incremental parsing library. It can build a concrete syntax tree for a source file and efficiently update the syntax tree as the source file is edited. Tree-sitter aims to be:
