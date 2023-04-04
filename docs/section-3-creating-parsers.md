@@ -752,7 +752,7 @@ External scanners are a common cause of infinite loops.
 Be very careful when emitting zero-width tokens from your external scanner, and if you consume characters in a loop be sure use the `eof` function to check whether you are at the end of the file.
 
 [ambiguous-grammar]: https://en.wikipedia.org/wiki/Ambiguous_grammar
-[antlr]: http://www.antlr.org/
+[antlr]: https://www.antlr.org
 [bison-dprec]: https://www.gnu.org/software/bison/manual/html_node/Generalized-LR-Parsing.html
 [bison]: https://en.wikipedia.org/wiki/GNU_bison
 [c-linkage]: https://en.cppreference.com/w/cpp/language/language_linkage
