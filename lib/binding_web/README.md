@@ -5,7 +5,7 @@ WebAssembly bindings to the [Tree-sitter](https://github.com/tree-sitter/tree-si
 
 ### Setup
 
-You can download the the `tree-sitter.js` and `tree-sitter.wasm` files from [the latest GitHub release](https://github.com/tree-sitter/tree-sitter/releases/latest) and load them using a standalone script:
+You can download the `tree-sitter.js` and `tree-sitter.wasm` files from [the latest GitHub release](https://github.com/tree-sitter/tree-sitter/releases/latest) and load them using a standalone script:
 
 ```html
 <script src="/the/path/to/tree-sitter.js"/>
