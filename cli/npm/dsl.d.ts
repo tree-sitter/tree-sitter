@@ -11,6 +11,7 @@ type PrecRule = {type: 'PREC'; content: Rule; value: number};
 type Repeat1Rule = {type: 'REPEAT1'; content: Rule};
 type RepeatRule = {type: 'REPEAT'; content: Rule};
 type SeqRule = {type: 'SEQ'; members: Rule[]};
+type ImmediateRule = {type: 'Immediate'; content: Rule};
 type StringRule = {type: 'STRING'; value: string};
 type SymbolRule<Name extends string> = {type: 'SYMBOL'; name: Name};
 type TokenRule = {type: 'TOKEN'; content: Rule};
@@ -28,6 +29,7 @@ type Rule =
   | PrecRule
   | Repeat1Rule
   | RepeatRule
+  | ImmediateRule
   | SeqRule
   | StringRule
   | SymbolRule<string>
@@ -310,6 +312,15 @@ declare function repeat1(rule: RuleOrLiteral): Repeat1Rule;
  * @param rules ordered rules that comprise the sequence
  */
 declare function seq(...rules: RuleOrLiteral[]): SeqRule;
+
+
+/**
+ * Use `immediate(next_rule)` inside `seq` to instruct tree-sitter that this next element
+ * should only be patched if it comes immediately (e.g. with no spaces)
+ *
+ * @param next_rule the next rule that should be checked
+ */
+declare function immediate(next_rule: RuleOrLiteral): ImmediateRule;
 
 /**
  * Creates a symbol rule, representing another rule in the grammar by name.

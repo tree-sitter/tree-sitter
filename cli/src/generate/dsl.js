@@ -142,6 +142,13 @@ function repeat1(rule) {
   };
 }
 
+function immediate(content) {
+  return {
+    type: "IMMEDIATE",
+    content: normalize(content)
+  };
+}
+
 function seq(...elements) {
   return {
     type: "SEQ",
@@ -408,6 +415,7 @@ global.optional = optional;
 global.prec = prec;
 global.repeat = repeat;
 global.repeat1 = repeat1;
+global.immediate = immediate;
 global.seq = seq;
 global.sym = sym;
 global.token = token;

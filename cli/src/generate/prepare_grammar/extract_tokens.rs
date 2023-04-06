@@ -214,6 +214,7 @@ impl TokenExtractor {
                 }
             }
             Rule::Repeat(content) => Rule::Repeat(Box::new(self.extract_tokens_in_rule(content))),
+            Rule::Immediate(element) => self.extract_tokens_in_rule(element),
             Rule::Seq(elements) => Rule::Seq(
                 elements
                     .iter()

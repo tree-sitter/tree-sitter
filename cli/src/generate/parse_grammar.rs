@@ -30,6 +30,9 @@ enum RuleJSON {
         name: String,
         content: Box<RuleJSON>,
     },
+    IMMEDIATE {
+        content: Box<RuleJSON>,
+    },
     SEQ {
         members: Vec<RuleJSON>,
     },
@@ -147,6 +150,7 @@ fn parse_rule(json: RuleJSON) -> Rule {
         RuleJSON::SYMBOL { name } => Rule::NamedSymbol(name),
         RuleJSON::CHOICE { members } => Rule::choice(members.into_iter().map(parse_rule).collect()),
         RuleJSON::FIELD { content, name } => Rule::field(name, parse_rule(*content)),
+        RuleJSON::IMMEDIATE { content } => Rule::immediate(parse_rule(*content)),
         RuleJSON::SEQ { members } => Rule::seq(members.into_iter().map(parse_rule).collect()),
         RuleJSON::REPEAT1 { content } => Rule::repeat(parse_rule(*content)),
         RuleJSON::REPEAT { content } => {
