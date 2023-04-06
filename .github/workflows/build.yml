@@ -6,6 +6,7 @@ env:
   CROSS_DEBUG: 1
 
 on:
+  workflow_dispatch:
   workflow_call:
     inputs:
       ref:
@@ -27,6 +28,7 @@ jobs:
           - { name: windows-x64   , target: x86_64-pc-windows-msvc      , os: windows-latest                   }
           - { name: windows-x86   , target: i686-pc-windows-msvc        , os: windows-latest                   }
           - { name: macos-x64     , target: x86_64-apple-darwin         , os: macos-latest                     }
+          - { name: macos-arm64   , target: aarch64-apple-darwin        , os: macos-latest                     }
 
     env:
       BUILD_CMD: cargo
@@ -125,30 +127,34 @@ jobs:
       run: make.sh CFLAGS="-Werror" -j
 
     - name: Build wasm library
+      if: ${{ !matrix.job.use-cross && matrix.job.name != 'macos-arm64' }} # Not used
       run: script/build-wasm
 
     - name: Build CLI
       run: $BUILD_CMD build --release --target=${{ matrix.job.target }}
 
     - name: Fetch fixtures
+      if: ${{ matrix.job.name != 'macos-arm64' }} # Not used
       run: script/fetch-fixtures
 
     - name: Generate fixtures
+      if: ${{ matrix.job.name != 'macos-arm64' }} # Can't run CLI on host
       run: script/generate-fixtures
 
     - name: Generate WASM fixtures
-      if: "!matrix.job.use-cross"
+      if: ${{ !matrix.job.use-cross && matrix.job.name != 'macos-arm64' }} # Not used
       run: script/generate-fixtures-wasm
 
     - name: Run main tests
+      if: ${{ matrix.job.name != 'macos-arm64' }} # Can't run CLI on host
       run: $BUILD_CMD test --target=${{ matrix.job.target }}
 
     - name: Run wasm tests
-      if: "!matrix.job.use-cross" # TODO: Install Emscripten into custom cross images
+      if: ${{ !matrix.job.use-cross && matrix.job.name != 'macos-arm64' }} # Not used
       run: script/test-wasm
 
     - name: Run benchmarks
-      if: "!matrix.job.use-cross" # It doesn't make sense to benchmark something in an emulator
+      if: ${{ !matrix.job.use-cross && matrix.job.name != 'macos-arm64' }} # Cross-compiled benchmarks make no sense
       run: $BUILD_CMD bench benchmark -p tree-sitter-cli --target=${{ matrix.job.target }}
 
     - name: Upload CLI artifact
