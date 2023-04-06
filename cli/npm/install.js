@@ -16,13 +16,9 @@ const platformName = {
 let archName = {
   'x64': 'x64',
   'x86': 'x86',
-  'ia32': 'x86'
+  'ia32': 'x86',
+  'arm64': 'arm64'
 }[process.arch];
-
-// ARM macs can run x64 binaries via Rosetta. Rely on that for now.
-if (platformName === 'macos' && process.arch === 'arm64') {
-  archName = 'x64';
-}
 
 if (!platformName || !archName) {
   console.error(
