@@ -938,6 +938,9 @@ static inline int analysis_state__compare(
 }
 
 static inline AnalysisStateEntry *analysis_state__top(AnalysisState *self) {
+  if (self->depth == 0) {
+    return &self->stack[0];
+  }
   return &self->stack[self->depth - 1];
 }
 
