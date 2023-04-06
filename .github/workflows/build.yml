@@ -1,6 +1,7 @@
 name: Build & Test
 
 env:
+  EMSCRIPTEN_CACHE_FOLDER: ${{ runner.temp }}/emsdk-cache
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-D warnings"
   CROSS_DEBUG: 1
@@ -45,10 +46,17 @@ jobs:
       run: |
         echo "EMSCRIPTEN_VERSION=$(cat cli/emscripten-version)" >> $GITHUB_ENV
 
+    - name: Setup Emscripten cache
+      uses: actions/cache@v2
+      with:
+        path: ${{ env.EMSCRIPTEN_CACHE_FOLDER }}
+        key: emsdk-${{ env.EMSCRIPTEN_VERSION }}-${{ matrix.job.target }}
+
     - name: Install Emscripten
       uses: mymindstorm/setup-emsdk@v12
       with:
         version: ${{ env.EMSCRIPTEN_VERSION }}
+        actions-cache-folder: ${{ env.EMSCRIPTEN_CACHE_FOLDER }}
 
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
