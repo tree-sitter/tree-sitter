@@ -44,7 +44,7 @@ jobs:
     - name: Read Emscripten version
       run: |
         echo "EMSCRIPTEN_VERSION=$(cat cli/emscripten-version)" >> $GITHUB_ENV
-        echo "EMSCRIPTEN_CACHE_FOLDER=${{ runner.temp }}/emsdk-cache" >> $GITHUB_ENV
+        echo "EMSCRIPTEN_CACHE_FOLDER=${{ github.workspace }}/../emsdk-cache" >> $GITHUB_ENV
 
     - name: Setup Emscripten cache
       uses: actions/cache@v2
@@ -55,8 +55,9 @@ jobs:
     - name: Install Emscripten
       uses: mymindstorm/setup-emsdk@v12
       with:
+        no-cache: true
         version: ${{ env.EMSCRIPTEN_VERSION }}
-        actions-cache-folder: ${{ env.EMSCRIPTEN_CACHE_FOLDER }}
+        actions-cache-folder: ../emsdk-cache
 
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
