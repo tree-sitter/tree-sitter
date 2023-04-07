@@ -81,6 +81,7 @@ By convention, bindings are named with the language first, eg. ruby-tree-sitter.
 * [JSON5](https://github.com/Joakker/tree-sitter-json5)
 * [JSON](https://github.com/tree-sitter/tree-sitter-json)
 * [Julia](https://github.com/tree-sitter/tree-sitter-julia)
+* [Just](https://github.com/IndianBoy42/tree-sitter-just)
 * [Kotlin](https://github.com/fwcd/tree-sitter-kotlin)
 * [LALRPOP](https://github.com/traxys/tree-sitter-lalrpop)
 * [Latex](https://github.com/latex-lsp/tree-sitter-latex)
