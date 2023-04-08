@@ -89,15 +89,15 @@ jobs:
 
         target="${{ matrix.target }}"
         image=ghcr.io/cross-rs/$target:custom
-        echo "CROSS_IMAGE=$image"                                  >> $GITHUB_ENV
+        echo "CROSS_IMAGE=$image"                              >> $GITHUB_ENV
 
-        echo "[target.$target]"                                    >> Cross.toml
-        echo "image = \"$image\""                                  >> Cross.toml
-        echo "CROSS_CONFIG=$PWD/Cross.toml"                        >> $GITHUB_ENV
+        echo "[target.$target]"                                >> Cross.toml
+        echo "image = \"$image\""                              >> Cross.toml
+        echo "CROSS_CONFIG=$PWD/Cross.toml"                    >> $GITHUB_ENV
 
-        echo "FROM ghcr.io/cross-rs/$target:edge"                  >> Dockerfile
-        echo "ENV DEBIAN_FRONTEND=noninteractive"                  >> Dockerfile
-        echo "RUN apt-get update && apt-get install -y nodejs"     >> Dockerfile
+        echo "FROM ghcr.io/cross-rs/$target:edge"              >> Dockerfile
+        echo "ENV DEBIAN_FRONTEND=noninteractive"              >> Dockerfile
+        echo "RUN apt-get update && apt-get install -y nodejs" >> Dockerfile
         docker build -t $image .
         docker images
         docker run --rm $image env
