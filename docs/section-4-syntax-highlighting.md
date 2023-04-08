@@ -9,8 +9,6 @@ Syntax highlighting is a very common feature in applications that deal with code
 
 This document explains how the Tree-sitter syntax highlighting system works, using the command line interface. If you are using `tree-sitter-highlight` library (either from C or from Rust), all of these concepts are still applicable, but the configuration data is provided using in-memory objects, rather than files.
 
-**Note - If you are working on syntax highlighting in the [Atom](https://atom.io/) text editor, you should consult [the grammar-creation page](https://flight-manual.atom.io/hacking-atom/sections/creating-a-grammar/) of the Atom Flight Manual, *not* this document. Atom currently uses a different syntax highlighting system that is also based on Tree-sitter, but is older than the one described here.**
-
 ## Overview
 
 All of the files needed to highlight a given language are normally included in the same git repository as the Tree-sitter grammar for that language (for example, [`tree-sitter-javascript`](https://github.com/tree-sitter/tree-sitter-javascript), [`tree-sitter-ruby`](https://github.com/tree-sitter/tree-sitter-ruby)). In order to run syntax highlighting from the command-line, three types of files are needed:
