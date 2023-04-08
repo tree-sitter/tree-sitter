@@ -46,6 +46,11 @@ jobs:
     with:
       package: tree-sitter-cli
 
+  sanitize:
+    name: Sanitize
+    needs: [init, fast_checks]
+    uses: ./.github/workflows/sanitize.yml
+
   build:
     name: Build & Test
     needs: [init, fast_checks]
@@ -55,7 +60,7 @@ jobs:
 
   release:
     name: Release
-    needs: [init, fast_checks, full_checks, min_version, build]
+    needs: [init, fast_checks, full_checks, min_version, build, sanitize]
     if: >
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.head_ref, 'release/v')
