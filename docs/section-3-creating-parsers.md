@@ -46,7 +46,7 @@ npm install --save nan
 npm install --save-dev tree-sitter-cli
 ```
 
-The last command will install the CLI into the `node_modules` folder in your working directory. An executable program called `tree-sitter` will be created inside of `node_modules/.bin/`. You may want to follow the Node.js convention of adding that folder to your your `PATH` so that you can easily run this program when working in this directory.
+The last command will install the CLI into the `node_modules` folder in your working directory. An executable program called `tree-sitter` will be created inside of `node_modules/.bin/`. You may want to follow the Node.js convention of adding that folder to your `PATH` so that you can easily run this program when working in this directory.
 
 ```sh
 # In your shell profile script
