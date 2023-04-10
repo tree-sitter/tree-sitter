@@ -1,5 +1,6 @@
 use super::generate::parse_grammar::GrammarJSON;
 use anyhow::{anyhow, Context, Result};
+use path_slash::PathExt as _;
 use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::path::Path;
@@ -41,7 +42,7 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
             volume_string = OsString::from(parent);
             volume_string.push(":/src:Z");
             command.arg("--workdir");
-            command.arg(&Path::new("/src").join(filename));
+            command.arg(Path::new("/src").join(filename).to_slash_lossy().as_ref());
         } else {
             volume_string = OsString::from(language_dir);
             volume_string.push(":/src:Z");
@@ -103,14 +104,18 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
     let scanner_cpp_path = src.join("scanner.cpp");
 
     if language_dir.join(&scanner_cc_path).exists() {
-        command.arg("-xc++").arg(&scanner_cc_path);
+        command
+            .arg("-xc++")
+            .arg(scanner_cc_path.to_slash_lossy().as_ref());
     } else if language_dir.join(&scanner_cpp_path).exists() {
-        command.arg("-xc++").arg(&scanner_cpp_path);
+        command
+            .arg("-xc++")
+            .arg(scanner_cpp_path.to_slash_lossy().as_ref());
     } else if language_dir.join(&scanner_c_path).exists() {
-        command.arg(&scanner_c_path);
+        command.arg(scanner_c_path.to_slash_lossy().as_ref());
     }
 
-    command.arg(&parser_c_path);
+    command.arg(parser_c_path.to_slash_lossy().as_ref());
 
     let output = command
         .output()
