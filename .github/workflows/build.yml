@@ -21,7 +21,7 @@ jobs:
       fail-fast: false
       matrix:
         runtime:
-        - linux-aarch64 #
+        - linux-arm64   #
         - linux-arm     #
         - linux-x64     #
         - linux-x86     #
@@ -31,7 +31,10 @@ jobs:
         - macos-x64     #
 
         include:
-        - { runtime: linux-aarch64 , target: aarch64-unknown-linux-gnu   , os: ubuntu-latest  , use-cross: true }
+        # When adding a new `target`:
+        # 1. Define a runtime alias above
+        # 2. Add a record in a matrix map in `cli/npm/install.js`
+        - { runtime: linux-arm64   , target: aarch64-unknown-linux-gnu   , os: ubuntu-latest  , use-cross: true }
         - { runtime: linux-arm     , target: arm-unknown-linux-gnueabihf , os: ubuntu-latest  , use-cross: true }
         - { runtime: linux-x64     , target: x86_64-unknown-linux-gnu    , os: ubuntu-latest                    }
         - { runtime: linux-x86     , target: i686-unknown-linux-gnu      , os: ubuntu-latest  , use-cross: true }
@@ -41,7 +44,7 @@ jobs:
         - { runtime: macos-x64     , target: x86_64-apple-darwin         , os: macos-latest                     }
 
         # Cross compilers for C library
-        - { runtime: linux-aarch64 , cc: aarch64-linux-gnu-gcc           , ar: aarch64-linux-gnu-ar               }
+        - { runtime: linux-arm64   , cc: aarch64-linux-gnu-gcc           , ar: aarch64-linux-gnu-ar               }
         - { runtime: linux-arm     , cc: arm-unknown-linux-gnueabihf-gcc , ar: arm-unknown-linux-gnueabihf-gcc-ar }
         - { runtime: linux-x86     , cc: i686-linux-gnu-gcc              , ar: i686-linux-gnu-ar                  }
 
