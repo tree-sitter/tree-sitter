@@ -103,7 +103,7 @@ where
 }
 
 struct HighlightIterLayer<'a> {
-    _tree: Tree,
+    _tree: Option<Tree>, // needed to keep tree in memory
     cursor: QueryCursor,
     captures: iter::Peekable<QueryCaptures<'a, 'a, &'a [u8]>>,
     config: &'a HighlightConfiguration,
@@ -155,7 +155,32 @@ impl Highlighter {
             cancellation_flag,
             highlighter: self,
             iter_count: 0,
-            layers: layers,
+            layers,
+            next_event: None,
+            last_highlight_range: None,
+        };
+        result.sort_layers();
+        Ok(result)
+    }
+
+    /// Iterate over the highlighted regions for a given node.
+    /// Does not parse anything (and therefore does not support injections).
+    pub fn highlight_existing_tree<'a>(
+        &'a mut self,
+        source: &'a [u8],
+        node: &'a Node,
+        config: &'a HighlightConfiguration,
+        cancellation_flag: Option<&'a AtomicUsize>,
+    ) -> Result<impl Iterator<Item = Result<HighlightEvent, Error>> + 'a, Error> {
+        let layers = vec![HighlightIterLayer::new_from_tree(source, node, config)];
+        let mut result = HighlightIter {
+            source,
+            byte_offset: 0,
+            injection_callback: |_| None,
+            cancellation_flag,
+            highlighter: self,
+            iter_count: 0,
+            layers,
             next_event: None,
             last_highlight_range: None,
         };
@@ -409,7 +434,7 @@ impl<'a> HighlightIterLayer<'a> {
                     }],
                     cursor,
                     depth,
-                    _tree: tree,
+                    _tree: Some(tree),
                     captures,
                     config,
                     ranges,
@@ -427,6 +452,34 @@ impl<'a> HighlightIterLayer<'a> {
         }
 
         Ok(result)
+    }
+
+    fn new_from_tree(source: &'a [u8], node: &'a Node, config: &'a HighlightConfiguration) -> Self {
+        let mut cursor = QueryCursor::new();
+
+        // `QueryCursor` is really just a pointer, so it's ok to move.
+        let cursor_ref = unsafe { mem::transmute::<_, &'static mut QueryCursor>(&mut cursor) };
+        let captures = cursor_ref.captures(&config.query, *node, source).peekable();
+
+        HighlightIterLayer {
+            highlight_end_stack: Vec::new(),
+            scope_stack: vec![LocalScope {
+                inherits: false,
+                range: 0..usize::MAX,
+                local_defs: Vec::new(),
+            }],
+            cursor,
+            depth: 0,
+            _tree: None,
+            captures,
+            config,
+            ranges: vec![Range {
+                start_byte: 0,
+                end_byte: usize::MAX,
+                start_point: Point::new(0, 0),
+                end_point: Point::new(usize::MAX, usize::MAX),
+            }],
+        }
     }
 
     // Compute the ranges that should be included when parsing an injection.
