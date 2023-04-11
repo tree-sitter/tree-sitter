@@ -1,7 +1,12 @@
 Tree-sitter CLI
 ===============
 
-[![Crates.io](https://img.shields.io/crates/v/tree-sitter-cli.svg)](https://crates.io/crates/tree-sitter-cli)
+[![crates.io][crates-badge]][crates-package] [![npmjs.com][npmjs-badge]][npmjs-package]
+
+[crates-package]: https://crates.io/crates/tree-sitter-cli
+[npmjs-package]: https://www.npmjs.org/package/tree-sitter-cli
+[crates-badge]: https://img.shields.io/crates/v/tree-sitter-cli.svg?color=%23B48723
+[npmjs-badge]: https://img.shields.io/npm/v/tree-sitter-cli.svg?color=%23BF4A4A
 
 The Tree-sitter CLI allows you to develop, test, and use Tree-sitter grammars from the command line. It works on MacOS, Linux, and Windows.
 
