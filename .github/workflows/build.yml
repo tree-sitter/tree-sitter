@@ -77,7 +77,7 @@ jobs:
         targets: ${{ matrix.target }}
 
     - name: Install cross
-      if: matrix.use-cross
+      if: ${{ matrix.use-cross }}
       uses: taiki-e/install-action@v2
       with:
         tool: cross
@@ -112,9 +112,9 @@ jobs:
         AR: ${{ matrix.ar }}
       run: |
         PATH="$PWD/.github/scripts:$PATH"
-        echo "PATH=$PATH" >> $GITHUB_ENV
-        echo "ROOT=$PWD" >> $GITHUB_ENV
+        echo "$PWD/.github/scripts" >> $GITHUB_PATH
         echo "TREE_SITTER=tree-sitter.sh" >> $GITHUB_ENV
+        echo "ROOT=$PWD" >> $GITHUB_ENV
 
         export TARGET=${{ matrix.target }}
         echo "TARGET=$TARGET" >> $GITHUB_ENV
