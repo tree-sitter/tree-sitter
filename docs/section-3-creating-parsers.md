@@ -530,8 +530,6 @@ Grammars often contain multiple tokens that can match the same characters. For e
 
 1. **Context-Aware Lexing** - Tree-sitter performs lexing on-demand, during the parsing process. At any given position in a source document, the lexer only tries to recognize tokens that are *valid* at that position in the document.
 
-1. **Earliest Starting Position** - Tree-sitter will prefer tokens with an earlier starting position. This is most often seen with very permissive regular expressions similar to `/.*/`, which are greedy and will consume as much text as possible. In this example the regex would consume all text until hitting a newline - even if text on that line could be interpreted as a different token.
-
 1. **Explicit Lexical Precedence** - When the precedence functions described [above](#the-grammar-dsl) are used within the `token` function, the given precedence values serve as instructions to the lexer. If there are two valid tokens that match the characters at a given position in the document, Tree-sitter will select the one with the higher precedence.
 
 1. **Match Length** - If multiple valid tokens with the same precedence match the characters at a given position in a document, Tree-sitter will select the token that matches the [longest sequence of characters][longest-match].
