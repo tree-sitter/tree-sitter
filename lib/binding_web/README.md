@@ -1,5 +1,9 @@
-Web Tree-sitter
-===============
+# Web Tree-sitter
+
+[![npmjs.com badge]][npmjs.com]
+
+[npmjs.com]: https://www.npmjs.org/package/web-tree-sitter
+[npmjs.com badge]: https://img.shields.io/npm/v/web-tree-sitter.svg?color=%23BF4A4A
 
 WebAssembly bindings to the [Tree-sitter](https://github.com/tree-sitter/tree-sitter) parsing library.
 

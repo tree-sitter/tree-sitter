@@ -80,7 +80,9 @@ You can test this parser by creating a source file with the contents "hello" and
 echo 'hello' > example-file
 tree-sitter parse example-file
 ```
+
 Alternatively, in Windows PowerShell:
+
 ```pwsh
 "hello" | Out-File example-file -Encoding utf8
 tree-sitter parse example-file
@@ -88,7 +90,7 @@ tree-sitter parse example-file
 
 This should print the following:
 
-```
+```text
 (source_file [0, 0] - [1, 0])
 ```
 
@@ -121,7 +123,7 @@ For each rule that you add to the grammar, you should first create a *test* that
 
 For example, you might have a file called `test/corpus/statements.txt` that contains a series of entries like this:
 
-```
+```text
 ==================
 Return statements
 ==================
@@ -147,7 +149,7 @@ func x() int {
 
   The expected output section can also *optionally* show the [*field names*][field-names-section] associated with each child node. To include field names in your tests, you write a node's field name followed by a colon, before the node itself in the S-expression:
 
-```
+```text
 (source_file
   (function_definition
     name: (identifier)
@@ -159,7 +161,7 @@ func x() int {
 
 * If your language's syntax conflicts with the `===` and `---` test separators, you can optionally add an arbitrary identical suffix (in the below example, `|||`) to disambiguate them:
 
-```
+```text
 ==================|||
 Basic module
 ==================|||
@@ -199,7 +201,7 @@ The `tree-sitter test` command will *also* run any syntax highlighting tests in 
 
 You can run your parser on an arbitrary file using `tree-sitter parse`. This will print the resulting the syntax tree, including nodes' ranges and field names, like this:
 
-```
+```text
 (source_file [0, 0] - [3, 0]
   (function_declaration [0, 0] - [2, 1]
     name: (identifier [0, 5] - [0, 9])
@@ -250,7 +252,6 @@ In addition to the `name` and `rules` fields, grammars have a few other optional
 * **`precedences`** - an array of array of strings, where each array of strings defines named precedence levels in descending order. These names can be used in the `prec` functions to define precedence relative only to other names in the array, rather than globally. Can only be used with parse precedence, not lexical precedence.
 * **`word`** - the name of a token that will match keywords for the purpose of the [keyword extraction](#keyword-extraction) optimization.
 * **`supertypes`** an array of hidden rule names which should be considered to be 'supertypes' in the generated [*node types* file][static-node-types].
-
 
 ## Writing the Grammar
 
@@ -375,7 +376,7 @@ return x + y;
 
 According to the specification, this line is a `ReturnStatement`, the fragment `x + y` is an `AdditiveExpression`, and `x` and `y` are both `IdentifierReferences`. The relationship between these constructs is captured by a complex series of production rules:
 
-```
+```text
 ReturnStatement          ->  'return' Expression
 Expression               ->  AssignmentExpression
 AssignmentExpression     ->  ConditionalExpression
@@ -432,7 +433,7 @@ To produce a readable syntax tree, we'd like to model JavaScript expressions usi
 
 Of course, this flat structure is highly ambiguous. If we try to generate a parser, Tree-sitter gives us an error message:
 
-```
+```text
 Error: Unresolved conflict for symbol sequence:
 
   '-'  _expression  •  '*'  …
@@ -468,7 +469,7 @@ For an expression like `-a * b`, it's not clear whether the `-` operator applies
 
 Applying a higher precedence in `unary_expression` fixes that conflict, but there is still another conflict:
 
-```
+```text
 Error: Unresolved conflict for symbol sequence:
 
   _expression  '*'  _expression  •  '*'  …
@@ -526,27 +527,21 @@ Tree-sitter's parsing process is divided into two phases: parsing (which is desc
 
 Grammars often contain multiple tokens that can match the same characters. For example, a grammar might contain the tokens (`"if"` and `/[a-z]+/`). Tree-sitter differentiates between these conflicting tokens in a few ways.
 
-1. **External Scanning** - If your grammar has an external scanner and one or more tokens in your `externals` array are valid at the current location, your external scanner will always be called first to determine whether those tokens are present.
+1. **Context-aware Lexing** - Tree-sitter performs lexing on-demand, during the parsing process. At any given position in a source document, the lexer only tries to recognize tokens that are *valid* at that position in the document.
 
-1. **Context-Aware Lexing** - Tree-sitter performs lexing on-demand, during the parsing process. At any given position in a source document, the lexer only tries to recognize tokens that are *valid* at that position in the document.
+2. **Lexical Precedence** - When the precedence functions described [above](#the-grammar-dsl) are used *within* the `token` function, the given explicit precedence values serve as instructions to the lexer. If there are two valid tokens that match the characters at a given position in the document, Tree-sitter will select the one with the higher precedence.
 
-1. **Explicit Lexical Precedence** - When the precedence functions described [above](#the-grammar-dsl) are used within the `token` function like `token(prec(N, ...))`, the given precedence values serve as instructions to the lexer. If there are two valid tokens that match the characters at a given position in the document, Tree-sitter will select the one with the higher precedence.
+3. **Match Length** - If multiple valid tokens with the same precedence match the characters at a given position in a document, Tree-sitter will select the token that matches the [longest sequence of characters][longest-match].
 
-1. **Match Length** - If multiple valid tokens with the same precedence match the characters at a given position in a document, Tree-sitter will select the token that matches the [longest sequence of characters][longest-match].
+4. **Match Specificity** - If there are two valid tokens with the same precedence and which both match the same number of characters, Tree-sitter will prefer a token that is specified in the grammar as a `String` over a token specified as a `RegExp`.
 
-1. **Match Specificity** - If there are two valid tokens with the same precedence and which both match the same number of characters, Tree-sitter will prefer a token that is specified in the grammar as a `String` over a token specified as a `RegExp`.
+5. **Rule Order** - If none of the above criteria can be used to select one token over another, Tree-sitter will prefer the token that appears earlier in the grammar.
 
-1. **Rule Order** - If none of the above criteria can be used to select one token over another, Tree-sitter will prefer the token that appears earlier in the grammar.
+If there is an external scanner it may have [an additional impact](#other-external-scanner-details) over regular tokens defined in the grammar.
 
 ### Lexical Precedence vs. Parse Precedence
 
-One common mistake involves not distinguishing lexical precedence from parse precedence.
-Parse precedence determines which rule is chosen to interpret a given sequence of tokens.
-Lexical precedence determines which token is chosen to interpret a given section of text.
-It is a lower-level operation that is done first.
-The above list fully capture tree-sitter's lexical precedence rules, and you will probably refer back to this section of the documentation more often than any other.
-Most of the time when you really get stuck, you're dealing with a lexical precedence problem.
-Pay particular attention to the difference in meaning between using `prec` inside the `token` function versus outside of it.
+One common mistake involves not distinguishing *lexical precedence* from *parse precedence*. Parse precedence determines which rule is chosen to interpret a given sequence of tokens. *Lexical precedence* determines which token is chosen to interpret at a given position of text and it is a lower-level operation that is done first. The above list fully captures Tree-sitter's lexical precedence rules, and you will probably refer back to this section of the documentation more often than any other. Most of the time when you really get stuck, you're dealing with a lexical precedence problem. Pay particular attention to the difference in meaning between using `prec` inside of the `token` function versus outside of it. The *lexical precedence* syntax is `token(prec(N, ...))`.
 
 ### Keywords
 
@@ -606,6 +601,7 @@ Aside from improving error detection, keyword extraction also has performance be
 ### External Scanners
 
 Many languages have some tokens whose structure is impossible or inconvenient to describe with a regular expression. Some examples:
+
 * [Indent and dedent][indent-tokens] tokens in Python
 * [Heredocs][heredoc] in Bash and Ruby
 * [Percent strings][percent-string] in Ruby
@@ -653,7 +649,6 @@ void * tree_sitter_my_language_external_scanner_create() {
 ```
 
 This function should create your scanner object. It will only be called once anytime your language is set on a parser. Often, you will want to allocate memory on the heap and return a pointer to it. If your external scanner doesn't need to maintain any state, it's ok to return `NULL`.
-
 
 #### Destroy
 
@@ -714,10 +709,10 @@ This function is responsible for recognizing external tokens. It should return `
 * **`void (*advance)(TSLexer *, bool skip)`** - A function for advancing to the next character. If you pass `true` for the second argument, the current character will be treated as whitespace; whitespace won't be included in the text range associated with tokens emitted by the external scanner.
 * **`void (*mark_end)(TSLexer *)`** - A function for marking the end of the recognized token. This allows matching tokens that require multiple characters of lookahead. By default (if you don't call `mark_end`), any character that you moved past using the `advance` function will be included in the size of the token. But once you call `mark_end`, then any later calls to `advance` will *not* increase the size of the returned token. You can call `mark_end` multiple times to increase the size of the token.
 * **`uint32_t (*get_column)(TSLexer *)`** - A function for querying the current column position of the lexer. It returns the number of codepoints since the start of the current line. The codepoint position is recalculated on every call to this function by reading from the start of the line.
-* **`bool (*is_at_included_range_start)(const TSLexer *)`** - A function for checking whether the parser has just skipped some characters in the document. When parsing an embedded document using the `ts_parser_set_included_ranges` function (described in the [multi-language document section][multi-language-section]), your scanner may want to apply some special behavior when moving to a disjoint part of the document. For example, in [EJS documents][ejs], the JavaScript parser uses this function to enable inserting automatic semicolon tokens in between the code directives, delimited by `<%` and `%>`.
+* **`bool (*is_at_included_range_start)(const TSLexer *)`** - A function for checking whether the parser has just skipped some characters in the document. When parsing an embedded document using the `ts_parser_set_included_ranges` function (described in the [multi-language document section][multi-language-section]), the scanner may want to apply some special behavior when moving to a disjoint part of the document. For example, in [EJS documents][ejs], the JavaScript parser uses this function to enable inserting automatic semicolon tokens in between the code directives, delimited by `<%` and `%>`.
 * **`bool (*eof)(const TSLexer *)`** - A function for determining whether the lexer is at the end of the file. The value of `lookahead` will be `0` at the end of a file, but this function should be used instead of checking for that value because the `0` or "NUL" value is also a valid character that could be present in the file being parsed.
 
-The third argument to the `scan` function is an array of booleans that indicates which of your external tokens are currently expected by the parser. You should only look for a given token if it is valid according to this array. At the same time, you cannot backtrack, so you may need to combine certain pieces of logic.
+The third argument to the `scan` function is an array of booleans that indicates which of external tokens are currently expected by the parser. You should only look for a given token if it is valid according to this array. At the same time, you cannot backtrack, so you may need to combine certain pieces of logic.
 
 ```c
 if (valid_symbols[INDENT] || valid_symbol[DEDENT]) {
@@ -736,15 +731,15 @@ if (valid_symbols[INDENT] || valid_symbol[DEDENT]) {
 
 #### Other External Scanner Details
 
-If a token in your `externals` array is valid at the current position in the parse, your external scanner will be called first before anything else is done.
-This means your external scanner functions as a powerful override of tree-sitter's lexing behavior, and can be used to solve problems that can't be cracked with ordinary lexical, parse, or dynamic precedence.
+If a token in the `externals` array is valid at a given position in the parse, the external scanner will be called first before anything else is done. This means the external scanner functions as a powerful override of Tree-sitter's lexing behavior, and can be used to solve problems that can't be cracked with ordinary lexical, parse, or dynamic precedence.
 
-If a syntax error is encountered during regular parsing, tree-sitter's first action during error recovery will be to call your external scanner's `scan` function with all tokens marked valid.
-Your scanner should detect this case and handle it appropriately.
-One simple method of detection is to add an unused token to the end of your `externals` array, for example `externals: $ => [$.token1, $.token2, $.error_sentinel]`, then check whether that token is marked valid to determine whether tree-sitter is in error correction mode.
+If a syntax error is encountered during regular parsing, Tree-sitter's first action during error recovery will be to call the external scanner's `scan` function with all tokens marked valid. The scanner should detect this case and handle it appropriately. One simple method of detection is to add an unused token to the end of the `externals` array, for example `externals: $ => [$.token1, $.token2, $.error_sentinel]`, then check whether that token is marked valid to determine whether Tree-sitter is in error correction mode.
 
-If you put terminal keywords in your `externals` array, for example `externals: $ => ['if', 'then', 'else']`, then any time those terminals are present in your grammar they will be tokenized by your external scanner.
-It is equivalent to writing `externals: [$.if_keyword, $.then_keyword, $.else_keyword]` then using `alias($.if_keyword, 'if')` in your grammar.
+If you put terminal keywords in the `externals` array, for example `externals: $ => ['if', 'then', 'else']`, then any time those terminals are present in the grammar they will be tokenized by the external scanner. It is similar to writing `externals: [$.if_keyword, $.then_keyword, $.else_keyword]` then using `alias($.if_keyword, 'if')` in the grammar.
+
+If in the `externals` array use literal keywords then lexing works in two steps, the external scanner will be called first and if it sets a resulting token and returns `true` then the token considered as recognized and Tree-sitter moves to a next token. But the external scanner may return `false` and in this case Tree-sitter fallbacks to the internal lexing mechanism.
+
+In case of some keywords defined in the `externals` array in a rule referencing form like `$.if_keyword` and there is no additional definition of that rule in the grammar rules, e.g., `if_keyword: $ => 'if'` then fallback to the internal lexer isn't possible because Tree-sitter doesn't know the actual keyword and it's fully the external scanner resposibilty to recognize such tokens.
 
 External scanners are a common cause of infinite loops.
 Be very careful when emitting zero-width tokens from your external scanner, and if you consume characters in a loop be sure use the `eof` function to check whether you are at the end of the file.
