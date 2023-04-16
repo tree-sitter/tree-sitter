@@ -25,9 +25,9 @@ The Tree-sitter CLI automatically creates two directories in your home folder.  
 
 These directories are created in the "normal" place for your platform:
 
-- On Linux, `~/.config/tree-sitter` and `~/.cache/tree-sitter`
-- On Mac, `~/Library/Application Support/tree-sitter` and `~/Library/Caches/tree-sitter`
-- On Windows, `C:\Users\[username]\AppData\Roaming\tree-sitter` and `C:\Users\[username]\AppData\Local\tree-sitter`
+* On Linux, `~/.config/tree-sitter` and `~/.cache/tree-sitter`
+* On Mac, `~/Library/Application Support/tree-sitter` and `~/Library/Caches/tree-sitter`
+* On Windows, `C:\Users\[username]\AppData\Roaming\tree-sitter` and `C:\Users\[username]\AppData\Local\tree-sitter`
 
 The CLI will work if there's no config file present, falling back on default values for each configuration option.  To create a config file that you can edit, run this command:
 
@@ -61,6 +61,7 @@ In your config file, the `"theme"` value is an object whose keys are dot-separat
 #### Highlight Names
 
 A theme can contain multiple keys that share a common subsequence. Examples:
+
 * `variable` and `variable.parameter`
 * `function`, `function.builtin`, and `function.method`
 
@@ -158,7 +159,7 @@ func increment(a int) int {
 
 With this syntax tree:
 
-```
+```scheme
 (source_file
   (function_declaration
     name: (identifier)
@@ -178,6 +179,7 @@ With this syntax tree:
 #### Example Query
 
 Suppose we wanted to render this code with the following colors:
+
 * keywords `func` and `return` in purple
 * function `increment` in blue
 * type `int` in green
@@ -185,7 +187,7 @@ Suppose we wanted to render this code with the following colors:
 
 We can assign each of these categories a *highlight name* using a query like this:
 
-```
+```scheme
 ; highlights.scm
 
 "func" @keyword
@@ -252,7 +254,7 @@ list = [item]
 
 With this syntax tree:
 
-```
+```scheme
 (program
   (method
     name: (identifier)
@@ -295,7 +297,7 @@ There are several different types of names within this method:
 
 Let's write some queries that let us clearly distinguish between these types of names. First, set up the highlighting query, as described in the previous section. We'll assign distinct colors to method calls, method definitions, and formal parameters:
 
-```
+```scheme
 ; highlights.scm
 
 (call method: (identifier) @function.method)
@@ -312,7 +314,7 @@ Let's write some queries that let us clearly distinguish between these types of 
 
 Then, we'll set up a local variable query to keep track of the variables and scopes. Here, we're indicating that methods and blocks create local *scopes*, parameters and assignments create *definitions*, and other identifiers should be considered *references*:
 
-```
+```scheme
 ; locals.scm
 
 (method) @local.scope
@@ -345,6 +347,7 @@ Running `tree-sitter highlight` on this ruby file would produce output like this
 ### Language Injection
 
 Some source files contain code written in multiple different languages. Examples include:
+
 * HTML files, which can contain JavaScript inside of `<script>` tags and CSS inside of `<style>` tags
 * [ERB](https://en.wikipedia.org/wiki/ERuby) files, which contain Ruby inside of `<% %>` tags, and HTML outside of those tags
 * PHP files, which can contain  HTML between the `<php` tags
@@ -374,7 +377,7 @@ BASH
 
 With this syntax tree:
 
-```
+```scheme
 (program
   (method_call
     method: (identifier)
@@ -388,7 +391,7 @@ With this syntax tree:
 
 The following query would specify that the contents of the heredoc should be parsed using a language named "BASH" (because that is the text of the `heredoc_end` node):
 
-```
+```scheme
 (heredoc_body
   (heredoc_end) @injection.language) @injection.content
 ```
@@ -396,7 +399,7 @@ The following query would specify that the contents of the heredoc should be par
 You can also force the language using the `#set!` predicate.
 For example, this will force the language to be always `ruby`.
 
-```
+```scheme
 ((heredoc_body) @injection.content
  (#set! injection.language "ruby"))
 ```

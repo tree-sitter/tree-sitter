@@ -96,18 +96,18 @@ script/test -l javascript -e Arrays
 
 The main [`tree-sitter/tree-sitter`](https://github.com/tree-sitter/tree-sitter) repository contains the source code for several packages that are published to package registries for different languages:
 
-- Rust crates on [crates.io](https://crates.io):
-  - [`tree-sitter`](https://crates.io/crates/tree-sitter) - A Rust binding to the core library
-  - [`tree-sitter-highlight`](https://crates.io/crates/tree-sitter-highlight) - The syntax-highlighting library
-  - [`tree-sitter-cli`](https://crates.io/crates/tree-sitter-cli) - The command-line tool
-- JavaScript modules on [npmjs.com](https://npmjs.com):
-  - [`web-tree-sitter`](https://www.npmjs.com/package/web-tree-sitter) - A WASM-based JavaScript binding to the core library
-  - [`tree-sitter-cli`](https://www.npmjs.com/package/tree-sitter-cli) - The command-line tool
+* Rust crates on [crates.io](https://crates.io):
+  * [`tree-sitter`](https://crates.io/crates/tree-sitter) - A Rust binding to the core library
+  * [`tree-sitter-highlight`](https://crates.io/crates/tree-sitter-highlight) - The syntax-highlighting library
+  * [`tree-sitter-cli`](https://crates.io/crates/tree-sitter-cli) - The command-line tool
+* JavaScript modules on [npmjs.com](https://npmjs.com):
+  * [`web-tree-sitter`](https://www.npmjs.com/package/web-tree-sitter) - A WASM-based JavaScript binding to the core library
+  * [`tree-sitter-cli`](https://www.npmjs.com/package/tree-sitter-cli) - The command-line tool
 
 There are also several other dependent repositories that contain other published packages:
 
-- [`tree-sitter/node-tree-sitter`](https://github.com/tree-sitter/node-tree-sitter) - Node.js bindings to the core library, published as [`tree-sitter`](https://www.npmjs.com/package/tree-sitter) on npmjs.com
-- [`tree-sitter/py-tree-sitter`](https://github.com/tree-sitter/py-tree-sitter) - Python bindings to the core library, published as [`tree-sitter`](https://pypi.org/project/tree-sitter) on [PyPI.org](https://pypi.org).
+* [`tree-sitter/node-tree-sitter`](https://github.com/tree-sitter/node-tree-sitter) - Node.js bindings to the core library, published as [`tree-sitter`](https://www.npmjs.com/package/tree-sitter) on npmjs.com
+* [`tree-sitter/py-tree-sitter`](https://github.com/tree-sitter/py-tree-sitter) - Python bindings to the core library, published as [`tree-sitter`](https://pypi.org/project/tree-sitter) on [PyPI.org](https://pypi.org).
 
 ## Publishing New Releases
 

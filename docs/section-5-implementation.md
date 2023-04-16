@@ -35,8 +35,6 @@ At the end of these transformations, the initial grammar is split into two gramm
 
 ### Building Parse Tables
 
-
-
 ## The Runtime
 
 WIP

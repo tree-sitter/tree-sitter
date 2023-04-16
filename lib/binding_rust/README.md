@@ -1,6 +1,9 @@
 # Rust Tree-sitter
 
-[![Crates.io](https://img.shields.io/crates/v/tree-sitter.svg)](https://crates.io/crates/tree-sitter)
+[![crates.io badge]][crates.io]
+
+[crates.io]: https://crates.io/crates/tree-sitter
+[crates.io badge]: https://img.shields.io/crates/v/tree-sitter.svg?color=%23B48723
 
 Rust bindings to the [Tree-sitter][] parsing library.
 

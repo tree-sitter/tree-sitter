@@ -80,7 +80,9 @@ You can test this parser by creating a source file with the contents "hello" and
 echo 'hello' > example-file
 tree-sitter parse example-file
 ```
+
 Alternatively, in Windows PowerShell:
+
 ```pwsh
 "hello" | Out-File example-file -Encoding utf8
 tree-sitter parse example-file
@@ -88,7 +90,7 @@ tree-sitter parse example-file
 
 This should print the following:
 
-```
+```text
 (source_file [0, 0] - [1, 0])
 ```
 
@@ -121,7 +123,7 @@ For each rule that you add to the grammar, you should first create a *test* that
 
 For example, you might have a file called `test/corpus/statements.txt` that contains a series of entries like this:
 
-```
+```text
 ==================
 Return statements
 ==================
@@ -147,7 +149,7 @@ func x() int {
 
   The expected output section can also *optionally* show the [*field names*][field-names-section] associated with each child node. To include field names in your tests, you write a node's field name followed by a colon, before the node itself in the S-expression:
 
-```
+```text
 (source_file
   (function_definition
     name: (identifier)
@@ -159,7 +161,7 @@ func x() int {
 
 * If your language's syntax conflicts with the `===` and `---` test separators, you can optionally add an arbitrary identical suffix (in the below example, `|||`) to disambiguate them:
 
-```
+```text
 ==================|||
 Basic module
 ==================|||
@@ -199,7 +201,7 @@ The `tree-sitter test` command will *also* run any syntax highlighting tests in 
 
 You can run your parser on an arbitrary file using `tree-sitter parse`. This will print the resulting the syntax tree, including nodes' ranges and field names, like this:
 
-```
+```text
 (source_file [0, 0] - [3, 0]
   (function_declaration [0, 0] - [2, 1]
     name: (identifier [0, 5] - [0, 9])
@@ -250,7 +252,6 @@ In addition to the `name` and `rules` fields, grammars have a few other optional
 * **`precedences`** - an array of array of strings, where each array of strings defines named precedence levels in descending order. These names can be used in the `prec` functions to define precedence relative only to other names in the array, rather than globally. Can only be used with parse precedence, not lexical precedence.
 * **`word`** - the name of a token that will match keywords for the purpose of the [keyword extraction](#keyword-extraction) optimization.
 * **`supertypes`** an array of hidden rule names which should be considered to be 'supertypes' in the generated [*node types* file][static-node-types].
-
 
 ## Writing the Grammar
 
@@ -375,7 +376,7 @@ return x + y;
 
 According to the specification, this line is a `ReturnStatement`, the fragment `x + y` is an `AdditiveExpression`, and `x` and `y` are both `IdentifierReferences`. The relationship between these constructs is captured by a complex series of production rules:
 
-```
+```text
 ReturnStatement          ->  'return' Expression
 Expression               ->  AssignmentExpression
 AssignmentExpression     ->  ConditionalExpression
@@ -432,7 +433,7 @@ To produce a readable syntax tree, we'd like to model JavaScript expressions usi
 
 Of course, this flat structure is highly ambiguous. If we try to generate a parser, Tree-sitter gives us an error message:
 
-```
+```text
 Error: Unresolved conflict for symbol sequence:
 
   '-'  _expression  •  '*'  …
@@ -468,7 +469,7 @@ For an expression like `-a * b`, it's not clear whether the `-` operator applies
 
 Applying a higher precedence in `unary_expression` fixes that conflict, but there is still another conflict:
 
-```
+```text
 Error: Unresolved conflict for symbol sequence:
 
   _expression  '*'  _expression  •  '*'  …
@@ -606,6 +607,7 @@ Aside from improving error detection, keyword extraction also has performance be
 ### External Scanners
 
 Many languages have some tokens whose structure is impossible or inconvenient to describe with a regular expression. Some examples:
+
 * [Indent and dedent][indent-tokens] tokens in Python
 * [Heredocs][heredoc] in Bash and Ruby
 * [Percent strings][percent-string] in Ruby
@@ -653,7 +655,6 @@ void * tree_sitter_my_language_external_scanner_create() {
 ```
 
 This function should create your scanner object. It will only be called once anytime your language is set on a parser. Often, you will want to allocate memory on the heap and return a pointer to it. If your external scanner doesn't need to maintain any state, it's ok to return `NULL`.
-
 
 #### Destroy
 
@@ -714,10 +715,10 @@ This function is responsible for recognizing external tokens. It should return `
 * **`void (*advance)(TSLexer *, bool skip)`** - A function for advancing to the next character. If you pass `true` for the second argument, the current character will be treated as whitespace; whitespace won't be included in the text range associated with tokens emitted by the external scanner.
 * **`void (*mark_end)(TSLexer *)`** - A function for marking the end of the recognized token. This allows matching tokens that require multiple characters of lookahead. By default (if you don't call `mark_end`), any character that you moved past using the `advance` function will be included in the size of the token. But once you call `mark_end`, then any later calls to `advance` will *not* increase the size of the returned token. You can call `mark_end` multiple times to increase the size of the token.
 * **`uint32_t (*get_column)(TSLexer *)`** - A function for querying the current column position of the lexer. It returns the number of codepoints since the start of the current line. The codepoint position is recalculated on every call to this function by reading from the start of the line.
-* **`bool (*is_at_included_range_start)(const TSLexer *)`** - A function for checking whether the parser has just skipped some characters in the document. When parsing an embedded document using the `ts_parser_set_included_ranges` function (described in the [multi-language document section][multi-language-section]), your scanner may want to apply some special behavior when moving to a disjoint part of the document. For example, in [EJS documents][ejs], the JavaScript parser uses this function to enable inserting automatic semicolon tokens in between the code directives, delimited by `<%` and `%>`.
+* **`bool (*is_at_included_range_start)(const TSLexer *)`** - A function for checking whether the parser has just skipped some characters in the document. When parsing an embedded document using the `ts_parser_set_included_ranges` function (described in the [multi-language document section][multi-language-section]), the scanner may want to apply some special behavior when moving to a disjoint part of the document. For example, in [EJS documents][ejs], the JavaScript parser uses this function to enable inserting automatic semicolon tokens in between the code directives, delimited by `<%` and `%>`.
 * **`bool (*eof)(const TSLexer *)`** - A function for determining whether the lexer is at the end of the file. The value of `lookahead` will be `0` at the end of a file, but this function should be used instead of checking for that value because the `0` or "NUL" value is also a valid character that could be present in the file being parsed.
 
-The third argument to the `scan` function is an array of booleans that indicates which of your external tokens are currently expected by the parser. You should only look for a given token if it is valid according to this array. At the same time, you cannot backtrack, so you may need to combine certain pieces of logic.
+The third argument to the `scan` function is an array of booleans that indicates which of external tokens are currently expected by the parser. You should only look for a given token if it is valid according to this array. At the same time, you cannot backtrack, so you may need to combine certain pieces of logic.
 
 ```c
 if (valid_symbols[INDENT] || valid_symbol[DEDENT]) {

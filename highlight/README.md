@@ -1,6 +1,9 @@
 # `tree-sitter-highlight`
 
-[![Crates.io](https://img.shields.io/crates/v/tree-sitter-highlight.svg)](https://crates.io/crates/tree-sitter-highlight)
+[![crates.io badge]][crates.io]
+
+[crates.io]: https://crates.io/crates/tree-sitter-highlight
+[crates.io badge]: https://img.shields.io/crates/v/tree-sitter-highlight.svg?color=%23B48723
 
 ### Usage
 
