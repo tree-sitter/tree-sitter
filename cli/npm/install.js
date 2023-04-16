@@ -28,6 +28,7 @@ const matrix = {
     'win32': {
       name: 'windows',
       arch: {
+        'arm64': { name: 'arm64' },
         'x64': { name: 'x64' },
         'x86': { name: 'x86' },
         'ia32': { name: 'x86' },
