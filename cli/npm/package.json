@@ -15,7 +15,8 @@
   "main": "lib/api/index.js",
   "scripts": {
     "install": "node install.js",
-    "prepack": "cp ../../LICENSE ."
+    "prepack": "cp ../../LICENSE ../README.md .",
+    "postpack": "rm LICENSE README.md"
   },
   "bin": {
     "tree-sitter": "cli.js"
