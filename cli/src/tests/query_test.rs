@@ -4,6 +4,7 @@ use super::helpers::{
     query_helpers::{Match, Pattern},
     ITERATION_COUNT,
 };
+use indoc::indoc;
 use lazy_static::lazy_static;
 use rand::{prelude::StdRng, SeedableRng};
 use std::{env, fmt::Write};
@@ -4478,7 +4479,7 @@ fn test_query_max_start_depth() {
         matches: &'static [(usize, &'static [(&'static str, &'static str)])],
     }
 
-    let source = r#"
+    let source = indoc! {"
         if (a1 && a2) {
             if (b1 && b2) { }
             if (c) { }
@@ -4487,16 +4488,24 @@ fn test_query_max_start_depth() {
             if (e1 && e2) { }
             if (f) { }
         }
-    "#;
+    "};
 
+    #[rustfmt::skip]
     let rows = &[
         Row {
-            description: "depth 0: match none",
+            description: "depth 0: match all",
             depth: 0,
             pattern: r#"
                 (if_statement) @capture
             "#,
-            matches: &[]
+            matches: &[
+                (0, &[("capture", "if (a1 && a2) {\n    if (b1 && b2) { }\n    if (c) { }\n}")]),
+                (0, &[("capture", "if (b1 && b2) { }")]),
+                (0, &[("capture", "if (c) { }")]),
+                (0, &[("capture", "if (d) {\n    if (e1 && e2) { }\n    if (f) { }\n}")]),
+                (0, &[("capture", "if (e1 && e2) { }")]),
+                (0, &[("capture", "if (f) { }")]),
+            ]
         },
         Row {
             description: "depth 1: match 2 if statements at the top level",
@@ -4505,8 +4514,8 @@ fn test_query_max_start_depth() {
                 (if_statement) @capture
             "#,
             matches : &[
-                (0, &[("capture", "if (a1 && a2) {\n            if (b1 && b2) { }\n            if (c) { }\n        }")]),
-                (0, &[("capture", "if (d) {\n            if (e1 && e2) { }\n            if (f) { }\n        }")])
+                (0, &[("capture", "if (a1 && a2) {\n    if (b1 && b2) { }\n    if (c) { }\n}")]),
+                (0, &[("capture", "if (d) {\n    if (e1 && e2) { }\n    if (f) { }\n}")]),
             ]
         },
         Row {
@@ -4520,7 +4529,7 @@ fn test_query_max_start_depth() {
                 ) @capture
             "#,
             matches: &[
-                (0, &[("capture", "if (a1 && a2) {\n            if (b1 && b2) { }\n            if (c) { }\n        }")]),
+                (0, &[("capture", "if (a1 && a2) {\n    if (b1 && b2) { }\n    if (c) { }\n}")]),
             ]
         },
         Row {
@@ -4534,9 +4543,9 @@ fn test_query_max_start_depth() {
                 ) @capture
             "#,
             matches: &[
-                (0, &[("capture", "if (a1 && a2) {\n            if (b1 && b2) { }\n            if (c) { }\n        }")]),
+                (0, &[("capture", "if (a1 && a2) {\n    if (b1 && b2) { }\n    if (c) { }\n}")]),
                 (0, &[("capture", "if (b1 && b2) { }")]),
-                (0, &[("capture", "if (e1 && e2) { }")])
+                (0, &[("capture", "if (e1 && e2) { }")]),
             ]
         },
     ];
