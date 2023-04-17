@@ -305,6 +305,7 @@ struct TSQueryCursor {
   Array(QueryState) finished_states;
   CaptureListPool capture_list_pool;
   uint32_t depth;
+  uint32_t max_start_depth;
   uint32_t start_byte;
   uint32_t end_byte;
   TSPoint start_point;
@@ -2976,6 +2977,7 @@ TSQueryCursor *ts_query_cursor_new(void) {
     .end_byte = UINT32_MAX,
     .start_point = {0, 0},
     .end_point = POINT_MAX,
+    .max_start_depth = UINT32_MAX,
   };
   array_reserve(&self->states, 8);
   array_reserve(&self->finished_states, 8);
@@ -3346,9 +3348,15 @@ static QueryState *ts_query_cursor__copy_state(
   return &self->states.contents[state_index + 1];
 }
 
-static inline bool ts_query_cursor__should_descend_outside_of_range(
-  TSQueryCursor *self
+static inline bool ts_query_cursor__should_descend(
+  TSQueryCursor *self,
+  bool node_intersects_range
 ) {
+
+  if (node_intersects_range && self->depth < self->max_start_depth) {
+    return true;
+  }
+
   // If there are in-progress matches whose remaining steps occur
   // deeper in the tree, then descend.
   for (unsigned i = 0; i < self->states.size; i++) {
@@ -3360,6 +3368,10 @@ static inline bool ts_query_cursor__should_descend_outside_of_range(
     ) {
       return true;
     }
+  }
+
+  if (self->depth >= self->max_start_depth) {
+    return false;
   }
 
   // If the current node is hidden, then a non-rooted pattern might match
@@ -3555,12 +3567,14 @@ static inline bool ts_query_cursor__advance(
             // If this node matches the first step of the pattern, then add a new
             // state at the start of this pattern.
             QueryStep *step = &self->query->steps.contents[pattern->step_index];
+            uint32_t start_depth = self->depth - step->depth;
             if (
               (pattern->is_rooted ?
                 node_intersects_range :
                 (parent_intersects_range && !parent_is_error)) &&
               (!step->field || field_id == step->field) &&
-              (!step->supertype_symbol || supertype_count > 0)
+              (!step->supertype_symbol || supertype_count > 0) &&
+              (start_depth <= self->max_start_depth)
             ) {
               ts_query_cursor__add_state(self, pattern);
             }
@@ -3573,6 +3587,7 @@ static inline bool ts_query_cursor__advance(
           PatternEntry *pattern = &self->query->pattern_map.contents[i];
 
           QueryStep *step = &self->query->steps.contents[pattern->step_index];
+          uint32_t start_depth = self->depth - step->depth;
           do {
             // If this node matches the first step of the pattern, then add a new
             // state at the start of this pattern.
@@ -3580,7 +3595,8 @@ static inline bool ts_query_cursor__advance(
               (pattern->is_rooted ?
                 node_intersects_range :
                 (parent_intersects_range && !parent_is_error)) &&
-              (!step->field || field_id == step->field)
+              (!step->field || field_id == step->field) &&
+              (start_depth <= self->max_start_depth)
             ) {
               ts_query_cursor__add_state(self, pattern);
             }
@@ -3881,10 +3897,7 @@ static inline bool ts_query_cursor__advance(
         }
       }
 
-      bool should_descend =
-        node_intersects_range ||
-        ts_query_cursor__should_descend_outside_of_range(self);
-      if (should_descend) {
+      if (ts_query_cursor__should_descend(self, node_intersects_range)) {
         switch (ts_tree_cursor_goto_first_child_internal(&self->cursor)) {
           case TreeCursorStepVisible:
             self->depth++;
@@ -4072,6 +4085,17 @@ bool ts_query_cursor_next_capture(
       !ts_query_cursor__advance(self, true) &&
       self->finished_states.size == 0
     ) return false;
+  }
+}
+
+void ts_query_cursor_set_max_start_depth(
+  TSQueryCursor *self,
+  uint32_t max_start_depth
+) {
+  if (max_start_depth == 0) {
+    self->max_start_depth = UINT32_MAX;
+  } else {
+    self->max_start_depth = max_start_depth;
   }
 }
 

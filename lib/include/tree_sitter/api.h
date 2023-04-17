@@ -892,6 +892,16 @@ bool ts_query_cursor_next_capture(
   uint32_t *capture_index
 );
 
+/**
+ * Set the maximum start depth for a cursor.
+ *
+ * This prevents cursors from exploring children nodes at a certain depth.
+ * Note if a pattern includes many children, then they will still be checked.
+ *
+ * Set to `0` to remove the maximum start depth.
+ */
+void ts_query_cursor_set_max_start_depth(TSQueryCursor *, uint32_t);
+
 /**********************/
 /* Section - Language */
 /**********************/
