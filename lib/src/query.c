@@ -801,11 +801,10 @@ static QueryStep query_step__new(
   uint16_t depth,
   bool is_immediate
 ) {
-  return (QueryStep) {
+  QueryStep step = {
     .symbol = symbol,
     .depth = depth,
     .field = 0,
-    .capture_ids = {NONE, NONE, NONE},
     .alternative_index = NONE,
     .negated_field_list_id = 0,
     .contains_captures = false,
@@ -817,6 +816,10 @@ static QueryStep query_step__new(
     .is_immediate = is_immediate,
     .alternative_is_immediate = false,
   };
+  for (unsigned i = 0; i < MAX_STEP_CAPTURE_COUNT; i++) {
+    step.capture_ids[i] = NONE;
+  }
+  return step;
 }
 
 static void query_step__add_capture(QueryStep *self, uint16_t capture_id) {
