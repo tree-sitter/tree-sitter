@@ -276,7 +276,10 @@ fn test_parsing_invalid_chars_at_eof() {
     let mut parser = Parser::new();
     parser.set_language(get_language("json")).unwrap();
     let tree = parser.parse(b"\xdf", None).unwrap();
-    assert_eq!(tree.root_node().to_sexp(), "(ERROR (UNEXPECTED INVALID))");
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(document (ERROR (UNEXPECTED INVALID)))"
+    );
 }
 
 #[test]
