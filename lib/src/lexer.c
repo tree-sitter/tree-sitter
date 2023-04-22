@@ -213,7 +213,7 @@ static void ts_lexer__advance(TSLexer *_self, bool skip) {
   } else {
     LOG("consume", self->data.lookahead);
   }
-  
+
   ts_lexer__do_advance(self, skip);
 }
 
@@ -245,9 +245,9 @@ static void ts_lexer__mark_end(TSLexer *_self) {
 
 static uint32_t ts_lexer__get_column(TSLexer *_self) {
   Lexer *self = (Lexer *)_self;
-  
+
   uint32_t goal_byte = self->current_position.bytes;
-  
+
   self->did_get_column = true;
   self->current_position.bytes -= self->current_position.extent.column;
   self->current_position.extent.column = 0;
@@ -257,10 +257,13 @@ static uint32_t ts_lexer__get_column(TSLexer *_self) {
   }
 
   uint32_t result = 0;
-  ts_lexer__get_lookahead(self);
-  while (self->current_position.bytes < goal_byte && !ts_lexer__eof(_self) && self->chunk) {
-    ts_lexer__do_advance(self, false);
-    result++;
+  if (!ts_lexer__eof(_self)) {
+    ts_lexer__get_lookahead(self);
+    while (self->current_position.bytes < goal_byte && self->chunk) {
+      result++;
+      ts_lexer__do_advance(self, false);
+      if (ts_lexer__eof(_self)) break;
+    }
   }
 
   return result;
