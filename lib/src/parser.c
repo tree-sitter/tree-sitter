@@ -1975,6 +1975,19 @@ TSTree *ts_parser_parse(
     self->lexer.included_ranges,
     self->lexer.included_range_count
   );
+
+  bool finalized = false;
+  if (self->language->external_scanner.finalize) {
+    finalized = self->language->external_scanner.finalize(
+      self->external_scanner_payload,
+      self->lexer.debug_buffer,
+      result);
+  }
+  if (finalized) {
+    LOG("finalize");
+    LOG_TREE(self->finished_tree);
+  }
+
   self->finished_tree = NULL_SUBTREE;
   ts_parser_reset(self);
   return result;

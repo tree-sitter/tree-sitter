@@ -638,7 +638,7 @@ enum TokenType {
 }
 ```
 
-Finally, you must define five functions with specific names, based on your language's name and five actions: *create*, *destroy*, *serialize*, *deserialize*, and *scan*. These functions must all use [C linkage][c-linkage], so if you're writing the scanner in C++, you need to declare them with the `extern "C"` qualifier.
+Finally, you must define six functions with specific names, based on your language's name and six actions: *create*, *destroy*, *serialize*, *finalize*, *deserialize*, and *scan*. These functions must all use [C linkage][c-linkage], so if you're writing the scanner in C++, you need to declare them with the `extern "C"` qualifier.
 
 #### Create
 
@@ -674,6 +674,19 @@ unsigned tree_sitter_my_language_external_scanner_serialize(
 This function should copy the complete state of your scanner into a given byte buffer, and return the number of bytes written. The function is called every time the external scanner successfully recognizes a token. It receives a pointer to your scanner and a pointer to a buffer. The maximum number of bytes that you can write is given by the `TREE_SITTER_SERIALIZATION_BUFFER_SIZE` constant, defined in the `tree_sitter/parser.h` header file.
 
 The data that this function writes will ultimately be stored in the syntax tree so that the scanner can be restored to the right state when handling edits or ambiguities. For your parser to work correctly, the `serialize` function must store its entire state, and `deserialize` must restore the entire state. For good performance, you should design your scanner so that its state can be serialized as quickly and compactly as possible.
+
+#### Finalize
+
+```c
+void tree_sitter_my_language_external_scanner_finalize(void *payload, void *buffer, const void *tree) {
+  // ...
+}
+```
+*This is for advanced use cases only and can be considered a specialized "serialize" call.*
+
+This function is passed the end result of a parsing session. It is passed a constant opaque pointer to `TSTree` that is about to be returned to the user. This is the scanner's chance to modify its own serialized buffer that's embedded in the tree and do last minute wirings. An example use case would be Terraform HCL or CloudFormation JSON where some nodes can reference other already parsed nodes. This allows the scanner to resolve those references before the tree is returned to the user.
+
+In order to achieve that, you need to place `tree-sitter/api.h` next to your generated `tree-sitter/parser.h`. This allows one to use Tree Sitter API inside scanners. Make sure to match the Tree Sitter ABI version with the one used by the parser and the CLI.
 
 #### Deserialize
 

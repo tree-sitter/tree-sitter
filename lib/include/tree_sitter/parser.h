@@ -118,6 +118,7 @@ struct TSLanguage {
     const bool *states;
     const TSSymbol *symbol_map;
     void *(*create)(void);
+    bool *(*finalize)(void *, void *, const void *);
     void (*destroy)(void *);
     bool (*scan)(void *, TSLexer *, const bool *symbol_whitelist);
     unsigned (*serialize)(void *, char *);

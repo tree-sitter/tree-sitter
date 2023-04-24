@@ -20,6 +20,12 @@ void *tree_sitter_external_unicode_column_alignment_external_scanner_create() {
   return scanner;
 }
 
+void tree_sitter_external_unicode_column_alignment_external_scanner_finalize(
+  void *payload,
+  void *buffer,
+  const void *tree
+) {}
+
 void tree_sitter_external_unicode_column_alignment_external_scanner_destroy(void *payload) {
   free(payload);
 }

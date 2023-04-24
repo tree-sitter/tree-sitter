@@ -30,4 +30,10 @@ void tree_sitter_epsilon_external_tokens_external_scanner_deserialize(
   unsigned length
 ) {}
 
+void tree_sitter_epsilon_external_tokens_external_scanner_finalize(
+  void *payload,
+  void *buffer,
+  const void *tree
+) {}
+
 void tree_sitter_epsilon_external_tokens_external_scanner_destroy(void *payload) {}

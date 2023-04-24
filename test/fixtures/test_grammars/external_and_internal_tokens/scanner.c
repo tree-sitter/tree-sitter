@@ -9,6 +9,12 @@ void *tree_sitter_external_and_internal_tokens_external_scanner_create() {
   return NULL;
 }
 
+void tree_sitter_external_and_internal_tokens_external_scanner_finalize(
+  void *payload,
+  void *buffer,
+  const void *tree
+) {}
+
 void tree_sitter_external_and_internal_tokens_external_scanner_destroy(
   void *payload
 ) {}

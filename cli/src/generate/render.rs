@@ -1323,6 +1323,7 @@ impl Generator {
 
         if !self.syntax_grammar.external_tokens.is_empty() {
             add_line!(self, "void *{}_create(void);", external_scanner_name);
+            add_line!(self, "bool *{}_finalize(void *, void *, const void *);", external_scanner_name);
             add_line!(self, "void {}_destroy(void *);", external_scanner_name);
             add_line!(
                 self,
@@ -1411,6 +1412,7 @@ impl Generator {
             add_line!(self, "&ts_external_scanner_states[0][0],");
             add_line!(self, "ts_external_scanner_symbol_map,");
             add_line!(self, "{}_create,", external_scanner_name);
+            add_line!(self, "{}_finalize,", external_scanner_name);
             add_line!(self, "{}_destroy,", external_scanner_name);
             add_line!(self, "{}_scan,", external_scanner_name);
             add_line!(self, "{}_serialize,", external_scanner_name);
