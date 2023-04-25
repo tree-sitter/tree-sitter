@@ -692,6 +692,8 @@ In order to achieve that, you need to place `tree-sitter/api.h` next to your gen
 
 Alternatively, you can use the CLI and pass the `--include-api-header` during parser generation to get a copy of the appropriate `api.h` file, bundled within the CLI's binary.
 
+If your scanner brings in additional dependencies (for example, needing to link against Tree Sitter's own library inside the `finalizer` to traverse the final parsed tree), you can set the environment variable `TREE_SITTER_INTERNAL_BUILD_FLAGS` to something like `-Wl,--whole-archive,--no-undefined;-L/path/to/tree-sitter/lib/directory;-ltree-sitter;-Wl,--no-whole-archive` to pass additional flags to the linker. The variable is a semicolon-separated list of flags.
+
 #### Deserialize
 
 ```c

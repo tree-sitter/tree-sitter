@@ -27,7 +27,7 @@ extern "C" {
  * The earliest ABI version that is supported by the current version of the
  * library.
  */
-#define TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION 13
+#define TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION 15
 
 /*******************/
 /* Section - Types */

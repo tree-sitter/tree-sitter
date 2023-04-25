@@ -411,6 +411,14 @@ impl Loader {
                 // For conditional compilation of external scanner code when
                 // used internally by `tree-siteer parse` and other sub commands.
                 command.arg("-DTREE_SITTER_INTERNAL_BUILD");
+                // can be used to pass additional flags to the C compiler for internal commands
+                // this is useful for example when working with scanners that bring in additional
+                // dependencies through the usage of C/C++ libraries
+                if let Ok(flags) = env::var("TREE_SITTER_INTERNAL_BUILD_FLAGS") {
+                    for flag in flags.split_terminator(';') {
+                        command.arg(flag);
+                    }
+                }
 
                 if let Some(scanner_path) = scanner_path.as_ref() {
                     if scanner_path.extension() == Some("c".as_ref()) {
