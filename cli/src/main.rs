@@ -109,6 +109,11 @@ fn run() -> Result<()> {
                 )
                 .arg(Arg::with_name("no-bindings").long("no-bindings"))
                 .arg(
+                    Arg::with_name("include-api-header")
+                        .long("include-api-header")
+                        .help("Include the tree-sitter/api.h header in the generated parser directory"),
+                )
+                .arg(
                     Arg::with_name("build")
                         .long("build")
                         .short("b")
@@ -317,11 +322,13 @@ fn run() -> Result<()> {
                         }
                     });
             let generate_bindings = !matches.is_present("no-bindings");
+            let include_api_header = matches.is_present("include-api-header");
             generate::generate_parser_in_directory(
                 &current_dir,
                 grammar_path,
                 abi_version,
                 generate_bindings,
+                include_api_header,
                 report_symbol_name,
             )?;
             if build {

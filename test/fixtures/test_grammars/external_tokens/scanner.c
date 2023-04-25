@@ -22,7 +22,7 @@ void *tree_sitter_external_tokens_external_scanner_create() {
   return scanner;
 }
 
-void tree_sitter_external_tokens_external_scanner_finalize(
+bool tree_sitter_external_tokens_external_scanner_finalize(
   void *payload,
   void *buffer,
   const void *tree

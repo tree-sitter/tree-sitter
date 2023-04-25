@@ -678,7 +678,7 @@ The data that this function writes will ultimately be stored in the syntax tree 
 #### Finalize
 
 ```c
-void tree_sitter_my_language_external_scanner_finalize(void *payload, void *buffer, const void *tree) {
+bool tree_sitter_my_language_external_scanner_finalize(void *payload, void *buffer, const void *tree) {
   // ...
 }
 ```
@@ -686,7 +686,11 @@ void tree_sitter_my_language_external_scanner_finalize(void *payload, void *buff
 
 This function is passed the end result of a parsing session. It is passed a constant opaque pointer to `TSTree` that is about to be returned to the user. This is the scanner's chance to modify its own serialized buffer that's embedded in the tree and do last minute wirings. An example use case would be Terraform HCL or CloudFormation JSON where some nodes can reference other already parsed nodes. This allows the scanner to resolve those references before the tree is returned to the user.
 
+Function should return `true` if the buffer was modified and `false` otherwise.
+
 In order to achieve that, you need to place `tree-sitter/api.h` next to your generated `tree-sitter/parser.h`. This allows one to use Tree Sitter API inside scanners. Make sure to match the Tree Sitter ABI version with the one used by the parser and the CLI.
+
+Alternatively, you can use the CLI and pass the `--include-api-header` during parser generation to get a copy of the appropriate `api.h` file, bundled within the CLI's binary.
 
 #### Deserialize
 

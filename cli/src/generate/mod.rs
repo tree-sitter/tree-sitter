@@ -43,6 +43,7 @@ pub fn generate_parser_in_directory(
     grammar_path: Option<&str>,
     abi_version: usize,
     generate_bindings: bool,
+    include_api_header: bool,
     report_symbol_name: Option<&str>,
 ) -> Result<()> {
     let src_path = repo_path.join("src");
@@ -88,6 +89,10 @@ pub fn generate_parser_in_directory(
     write_file(&src_path.join("parser.c"), c_code)?;
     write_file(&src_path.join("node-types.json"), node_types_json)?;
     write_file(&header_path.join("parser.h"), tree_sitter::PARSER_HEADER)?;
+
+    if include_api_header {
+        write_file(&header_path.join("api.h"), tree_sitter::TS_API_HEADER)?;
+    }
 
     if generate_bindings {
         binding_files::generate_binding_files(&repo_path, &language_name)?;

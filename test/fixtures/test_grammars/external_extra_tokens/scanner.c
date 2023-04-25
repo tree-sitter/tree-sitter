@@ -8,7 +8,7 @@ void *tree_sitter_external_extra_tokens_external_scanner_create() {
   return NULL;
 }
 
-void tree_sitter_external_extra_tokens_external_scanner_finalize(
+bool tree_sitter_external_extra_tokens_external_scanner_finalize(
   void *payload,
   void *buffer,
   const void *tree

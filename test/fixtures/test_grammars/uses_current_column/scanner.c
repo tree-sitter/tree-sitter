@@ -22,7 +22,7 @@ void *tree_sitter_uses_current_column_external_scanner_create() {
   return (void *)self;
 }
 
-void tree_sitter_uses_current_column_external_scanner_finalize(
+bool tree_sitter_uses_current_column_external_scanner_finalize(
   void *payload,
   void *buffer,
   const void *tree

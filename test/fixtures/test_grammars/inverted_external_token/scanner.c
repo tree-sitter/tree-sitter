@@ -6,7 +6,7 @@ enum {
 
 void *tree_sitter_inverted_external_token_external_scanner_create() { return NULL; }
 
-void tree_sitter_inverted_external_token_external_scanner_finalize(
+bool tree_sitter_inverted_external_token_external_scanner_finalize(
   void *payload,
   void *buffer,
   const void *tree
