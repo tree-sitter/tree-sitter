@@ -4,23 +4,21 @@ use std::{env, fs};
 
 fn main() {
     if let Some(git_sha) = read_git_sha() {
-        println!("cargo:rustc-env={}={}", "BUILD_SHA", git_sha);
+        println!("cargo:rustc-env=BUILD_SHA={}", git_sha);
     }
 
     if web_playground_files_present() {
-        println!("cargo:rustc-cfg={}", "TREE_SITTER_EMBED_WASM_BINDING");
+        println!("cargo:rustc-cfg=TREE_SITTER_EMBED_WASM_BINDING");
     }
 
     let rust_binding_version = read_rust_binding_version();
     println!(
-        "cargo:rustc-env={}={}",
-        "RUST_BINDING_VERSION", rust_binding_version,
+        "cargo:rustc-env=RUST_BINDING_VERSION={}", rust_binding_version,
     );
 
     let emscripten_version = fs::read_to_string("emscripten-version").unwrap();
     println!(
-        "cargo:rustc-env={}={}",
-        "EMSCRIPTEN_VERSION", emscripten_version,
+        "cargo:rustc-env=EMSCRIPTEN_VERSION={}", emscripten_version,
     );
 }
 
@@ -60,7 +58,7 @@ fn read_git_sha() -> Option<String> {
         println!("cargo:rerun-if-changed={}", path);
     }
     if let Ok(mut head_content) = fs::read_to_string(&git_head_path) {
-        if head_content.ends_with("\n") {
+        if head_content.ends_with('\n') {
             head_content.pop();
         }
 
@@ -71,12 +69,11 @@ fn read_git_sha() -> Option<String> {
                 // Go to real non-worktree gitdir
                 let git_dir_path = git_dir_path
                     .parent()
-                    .map(|p| {
+                    .and_then(|p| {
                         p.file_name()
                             .map(|n| n == OsStr::new("worktrees"))
                             .and_then(|x| x.then(|| p.parent()))
                     })
-                    .flatten()
                     .flatten()
                     .unwrap_or(&git_dir_path);
 
