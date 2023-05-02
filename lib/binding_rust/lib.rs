@@ -237,9 +237,9 @@ pub enum QueryErrorKind {
 
 #[derive(Debug)]
 enum TextPredicate {
-    CaptureEqString(u32, String, bool),
-    CaptureEqCapture(u32, u32, bool),
-    CaptureMatchString(u32, regex::bytes::Regex, bool),
+    EqString(u32, String, bool),
+    EqCapture(u32, u32, bool),
+    MatchString(u32, regex::bytes::Regex, bool),
 }
 
 // TODO: Remove this struct at at some point. If `core::str::lossy::Utf8Lossy`
@@ -500,7 +500,7 @@ impl Parser {
     ///   If the text of the document has changed since `old_tree` was
     ///   created, then you must edit `old_tree` to match the new text using
     ///   [Tree::edit].
-    pub fn parse_with<'a, T: AsRef<[u8]>, F: FnMut(usize, Point) -> T>(
+    pub fn parse_with<T: AsRef<[u8]>, F: FnMut(usize, Point) -> T>(
         &mut self,
         callback: &mut F,
         old_tree: Option<&Tree>,
@@ -513,7 +513,7 @@ impl Parser {
         let mut payload: (&mut F, Option<T>) = (callback, None);
 
         // This C function is passed to Tree-sitter as the input callback.
-        unsafe extern "C" fn read<'a, T: AsRef<[u8]>, F: FnMut(usize, Point) -> T>(
+        unsafe extern "C" fn read<T: AsRef<[u8]>, F: FnMut(usize, Point) -> T>(
             payload: *mut c_void,
             byte_offset: u32,
             position: ffi::TSPoint,
@@ -550,7 +550,7 @@ impl Parser {
     ///   If the text of the document has changed since `old_tree` was
     ///   created, then you must edit `old_tree` to match the new text using
     ///   [Tree::edit].
-    pub fn parse_utf16_with<'a, T: AsRef<[u16]>, F: FnMut(usize, Point) -> T>(
+    pub fn parse_utf16_with<T: AsRef<[u16]>, F: FnMut(usize, Point) -> T>(
         &mut self,
         callback: &mut F,
         old_tree: Option<&Tree>,
@@ -563,7 +563,7 @@ impl Parser {
         let mut payload: (&mut F, Option<T>) = (callback, None);
 
         // This C function is passed to Tree-sitter as the input callback.
-        unsafe extern "C" fn read<'a, T: AsRef<[u16]>, F: FnMut(usize, Point) -> T>(
+        unsafe extern "C" fn read<T: AsRef<[u16]>, F: FnMut(usize, Point) -> T>(
             payload: *mut c_void,
             byte_offset: u32,
             position: ffi::TSPoint,
@@ -641,10 +641,7 @@ impl Parser {
     /// If this requirement is not satisfied, method will return IncludedRangesError
     /// error with an offset in the passed ranges slice pointing to a first incorrect range.
     #[doc(alias = "ts_parser_set_included_ranges")]
-    pub fn set_included_ranges(
-        &mut self,
-        ranges: &[Range],
-    ) -> Result<(), IncludedRangesError> {
+    pub fn set_included_ranges(&mut self, ranges: &[Range]) -> Result<(), IncludedRangesError> {
         let ts_ranges: Vec<ffi::TSRange> =
             ranges.iter().cloned().map(|range| range.into()).collect();
         let result = unsafe {
@@ -690,6 +687,12 @@ impl Parser {
         } else {
             ffi::ts_parser_set_cancellation_flag(self.0.as_ptr(), ptr::null());
         }
+    }
+}
+
+impl Default for Parser {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -1075,19 +1078,19 @@ impl<'tree> Node<'tree> {
         cursor.goto_first_child();
         let mut done = false;
         iter::from_fn(move || {
-            while !done {
-                while cursor.field_id() != Some(field_id) {
-                    if !cursor.goto_next_sibling() {
-                        return None;
-                    }
-                }
-                let result = cursor.node();
-                if !cursor.goto_next_sibling() {
-                    done = true;
-                }
-                return Some(result);
+            if done {
+                return None;
             }
-            None
+            while cursor.field_id() != Some(field_id) {
+                if !cursor.goto_next_sibling() {
+                    return None;
+                }
+            }
+            let result = cursor.node();
+            if !cursor.goto_next_sibling() {
+                done = true;
+            }
+            Some(result)
         })
     }
 
@@ -1481,8 +1484,7 @@ impl Query {
             .map(|i| unsafe {
                 let mut length = 0u32;
                 let value =
-                    ffi::ts_query_string_value_for_id(ptr, i, &mut length as *mut u32)
-                        as *const u8;
+                    ffi::ts_query_string_value_for_id(ptr, i, &mut length as *mut u32) as *const u8;
                 let value = slice::from_raw_parts(value, length as usize);
                 let value = str::from_utf8_unchecked(value);
                 value.to_string()
@@ -1554,13 +1556,9 @@ impl Query {
 
                         let is_positive = operator_name == "eq?";
                         text_predicates.push(if p[2].type_ == type_capture {
-                            TextPredicate::CaptureEqCapture(
-                                p[1].value_id,
-                                p[2].value_id,
-                                is_positive,
-                            )
+                            TextPredicate::EqCapture(p[1].value_id, p[2].value_id, is_positive)
                         } else {
-                            TextPredicate::CaptureEqString(
+                            TextPredicate::EqString(
                                 p[1].value_id,
                                 string_values[p[2].value_id as usize].clone(),
                                 is_positive,
@@ -1590,7 +1588,7 @@ impl Query {
 
                         let is_positive = operator_name == "match?";
                         let regex = &string_values[p[2].value_id as usize];
-                        text_predicates.push(TextPredicate::CaptureMatchString(
+                        text_predicates.push(TextPredicate::MatchString(
                             p[1].value_id,
                             regex::bytes::Regex::new(regex).map_err(|_| {
                                 predicate_error(row, format!("Invalid regex '{}'", regex))
@@ -1942,6 +1940,12 @@ impl QueryCursor {
     }
 }
 
+impl Default for QueryCursor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'a, 'tree> QueryMatch<'a, 'tree> {
     pub fn id(&self) -> u32 {
         self.id
@@ -2011,7 +2015,7 @@ impl<'a, 'tree> QueryMatch<'a, 'tree> {
         query.text_predicates[self.pattern_index]
             .iter()
             .all(|predicate| match predicate {
-                TextPredicate::CaptureEqCapture(i, j, is_positive) => {
+                TextPredicate::EqCapture(i, j, is_positive) => {
                     let node1 = self.nodes_for_capture_index(*i).next();
                     let node2 = self.nodes_for_capture_index(*j).next();
                     match (node1, node2) {
@@ -2023,7 +2027,7 @@ impl<'a, 'tree> QueryMatch<'a, 'tree> {
                         _ => true,
                     }
                 }
-                TextPredicate::CaptureEqString(i, s, is_positive) => {
+                TextPredicate::EqString(i, s, is_positive) => {
                     let node = self.nodes_for_capture_index(*i).next();
                     match node {
                         Some(node) => {
@@ -2033,7 +2037,7 @@ impl<'a, 'tree> QueryMatch<'a, 'tree> {
                         None => true,
                     }
                 }
-                TextPredicate::CaptureMatchString(i, r, is_positive) => {
+                TextPredicate::MatchString(i, r, is_positive) => {
                     let node = self.nodes_for_capture_index(*i).next();
                     match node {
                         Some(node) => {
