@@ -403,7 +403,7 @@ fn run() -> Result<()> {
             let edits = matches
                 .values_of("edits")
                 .map_or(Vec::new(), |e| e.collect());
-            let cancellation_flag = util::cancel_on_stdin();
+            let cancellation_flag = util::cancel_on_signal();
 
             if debug {
                 // For augmenting debug logging in external scanners
@@ -530,7 +530,7 @@ fn run() -> Result<()> {
                 println!("{}", highlight::HTML_HEADER);
             }
 
-            let cancellation_flag = util::cancel_on_stdin();
+            let cancellation_flag = util::cancel_on_signal();
 
             let mut lang = None;
             if let Some(scope) = matches.value_of("scope") {
