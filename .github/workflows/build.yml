@@ -113,16 +113,16 @@ jobs:
       env:
         RUST_TEST_THREADS: ${{ matrix.rust-test-threads }}
         USE_CROSS: ${{ matrix.use-cross }}
+        TARGET: ${{ matrix.target }}
         CC: ${{ matrix.cc }}
         AR: ${{ matrix.ar }}
       run: |
         PATH="$PWD/.github/scripts:$PATH"
         echo "$PWD/.github/scripts" >> $GITHUB_PATH
-        echo "TREE_SITTER=tree-sitter.sh" >> $GITHUB_ENV
-        echo "ROOT=$PWD" >> $GITHUB_ENV
 
-        export TARGET=${{ matrix.target }}
+        echo "TREE_SITTER=tree-sitter.sh" >> $GITHUB_ENV
         echo "TARGET=$TARGET" >> $GITHUB_ENV
+        echo "ROOT=$PWD" >> $GITHUB_ENV
 
         [ -n "$RUST_TEST_THREADS" ] && \
         echo "RUST_TEST_THREADS=$RUST_TEST_THREADS" >> $GITHUB_ENV
@@ -132,8 +132,7 @@ jobs:
 
         if [ "$USE_CROSS" == "true" ]; then
           echo "BUILD_CMD=cross" >> $GITHUB_ENV
-          export CROSS=1; echo "CROSS=1" >> $GITHUB_ENV
-          runner=$(cross.sh bash -c "env | sed -nr '/^CARGO_TARGET_.*_RUNNER=/s///p'")
+          runner=$(BUILD_CMD=cross cross.sh bash -c "env | sed -nr '/^CARGO_TARGET_.*_RUNNER=/s///p'")
           [ -n "$runner" ] && echo "CROSS_RUNNER=$runner" >> $GITHUB_ENV
         fi
 
@@ -142,30 +141,30 @@ jobs:
       run: make.sh CFLAGS="-Werror" -j
 
     - name: Build wasm library
-      if: ${{ !matrix.use-cross && !matrix.cli-only }}
+      if: ${{ !matrix.use-cross && !matrix.cli-only }} # No sense to build on the same Github runner hosts many times
       run: script/build-wasm
 
     - name: Build CLI
       run: $BUILD_CMD build --release --target=${{ matrix.target }}
 
     - name: Fetch fixtures
-      if: ${{ !matrix.cli-only }}
+      if: ${{ !matrix.cli-only }} # Don't fetch fixtures for only CLI building targets
       run: script/fetch-fixtures
 
     - name: Generate fixtures
-      if: ${{ !matrix.cli-only }} # Can't natively run CLI on runner's host
+      if: ${{ !matrix.cli-only }} # Can't natively run CLI on Github runner's host
       run: script/generate-fixtures
 
     - name: Generate WASM fixtures
-      if: ${{ !matrix.use-cross && !matrix.cli-only }}
+      if: ${{ !matrix.use-cross && !matrix.cli-only }} # See comment for the "Build wasm library" step
       run: script/generate-fixtures-wasm
 
     - name: Run main tests
-      if: ${{ !matrix.cli-only }} # Can't natively run CLI on runner's host
+      if: ${{ !matrix.cli-only }} # Can't natively run CLI on Github runner's host
       run: $BUILD_CMD test --target=${{ matrix.target }}
 
     - name: Run wasm tests
-      if: ${{ !matrix.use-cross && !matrix.cli-only }}
+      if: ${{ !matrix.use-cross && !matrix.cli-only }} # See comment for the "Build wasm library" step
       run: script/test-wasm
 
     - name: Run benchmarks
