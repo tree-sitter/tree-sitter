@@ -1,6 +1,8 @@
 use rand::prelude::Rng;
 use std::{cmp::Ordering, fmt::Write, ops::Range};
-use tree_sitter::{Node, Point, Tree, TreeCursor};
+use tree_sitter::{
+    Language, Node, Parser, Point, Query, QueryCapture, QueryCursor, QueryMatch, Tree, TreeCursor,
+};
 
 #[derive(Debug)]
 pub struct Pattern {
@@ -303,4 +305,57 @@ fn compare_depth_first(a: Node, b: Node) -> Ordering {
     let a = a.byte_range();
     let b = b.byte_range();
     a.start.cmp(&b.start).then_with(|| b.end.cmp(&a.end))
+}
+
+pub fn assert_query_matches(
+    language: Language,
+    query: &Query,
+    source: &str,
+    expected: &[(usize, Vec<(&str, &str)>)],
+) {
+    let mut parser = Parser::new();
+    parser.set_language(language).unwrap();
+    let tree = parser.parse(source, None).unwrap();
+    let mut cursor = QueryCursor::new();
+    let matches = cursor.matches(&query, tree.root_node(), source.as_bytes());
+    assert_eq!(collect_matches(matches, &query, source), expected);
+    assert_eq!(cursor.did_exceed_match_limit(), false);
+}
+
+pub fn collect_matches<'a>(
+    matches: impl Iterator<Item = QueryMatch<'a, 'a>>,
+    query: &'a Query,
+    source: &'a str,
+) -> Vec<(usize, Vec<(&'a str, &'a str)>)> {
+    matches
+        .map(|m| {
+            (
+                m.pattern_index,
+                format_captures(m.captures.iter().cloned(), query, source),
+            )
+        })
+        .collect()
+}
+
+pub fn collect_captures<'a>(
+    captures: impl Iterator<Item = (QueryMatch<'a, 'a>, usize)>,
+    query: &'a Query,
+    source: &'a str,
+) -> Vec<(&'a str, &'a str)> {
+    format_captures(captures.map(|(m, i)| m.captures[i]), query, source)
+}
+
+fn format_captures<'a>(
+    captures: impl Iterator<Item = QueryCapture<'a>>,
+    query: &'a Query,
+    source: &'a str,
+) -> Vec<(&'a str, &'a str)> {
+    captures
+        .map(|capture| {
+            (
+                query.capture_names()[capture.index as usize].as_str(),
+                capture.node.utf8_text(source.as_bytes()).unwrap(),
+            )
+        })
+        .collect()
 }
