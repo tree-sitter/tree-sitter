@@ -2,7 +2,7 @@
 
 call:fetch_grammar bash              master
 call:fetch_grammar c                 master
-call:fetch_grammar cpp               master
+call:fetch_grammar cpp               670404d7c689be1c868a46f919ba2a3912f2b7ef
 call:fetch_grammar embedded-template master
 call:fetch_grammar go                master
 call:fetch_grammar html              master

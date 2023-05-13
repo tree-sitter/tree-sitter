@@ -104,6 +104,7 @@ fn main() {
 
             parse(&path, max_path_length, |source| {
                 Query::new(language, str::from_utf8(source).unwrap())
+                    .with_context(|| format!("Query file path: {path:?}"))
                     .expect("Failed to parse query");
             });
         }
