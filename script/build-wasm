@@ -51,6 +51,10 @@ while [[ $# > 0 ]]; do
       force_docker=1
       ;;
 
+    -v|--verbose)
+      emscripten_flags="-s VERBOSE=1 -v $emscripten_flags"
+      ;;
+
     *)
       usage
       echo "Unrecognized argument '$1'"
