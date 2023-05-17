@@ -32,6 +32,10 @@ extern "C" {
 /* Section - Types */
 /*******************/
 
+#ifndef TREE_SITTER_PARSER_H_
+typedef uint16_t TSStateId;
+#endif
+
 typedef uint16_t TSSymbol;
 typedef uint16_t TSFieldId;
 typedef struct TSLanguage TSLanguage;
@@ -39,6 +43,7 @@ typedef struct TSParser TSParser;
 typedef struct TSTree TSTree;
 typedef struct TSQuery TSQuery;
 typedef struct TSQueryCursor TSQueryCursor;
+typedef struct TSLookaheadIterator TSLookaheadIterator;
 
 typedef enum {
   TSInputEncodingUTF8,
@@ -505,6 +510,16 @@ bool ts_node_has_changes(TSNode);
 bool ts_node_has_error(TSNode);
 
 /**
+ * Check if the node is a syntax error.
+*/
+bool ts_node_is_error(TSNode);
+
+/**
+ * Get this node's parse state.
+*/
+TSStateId ts_node_parse_state(TSNode);
+
+/**
  * Get the node's immediate parent.
  */
 TSNode ts_node_parent(TSNode);
@@ -638,6 +653,14 @@ void ts_tree_cursor_delete(TSTreeCursor *);
 void ts_tree_cursor_reset(TSTreeCursor *, TSNode);
 
 /**
+ * Re-initialize a tree cursor to the same position as another cursor.
+ *
+ * Unlike `ts_tree_cursor_reset`, this will not lose parent information and
+ * allows reusing already created cursors.
+*/
+void ts_tree_cursor_reset_to(TSTreeCursor *, const TSTreeCursor *);
+
+/**
  * Get the tree cursor's current node.
  */
 TSNode ts_tree_cursor_current_node(const TSTreeCursor *);
@@ -675,12 +698,21 @@ bool ts_tree_cursor_goto_parent(TSTreeCursor *);
 bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *);
 
 /**
- * Move the cursor to the first child of its current node.
+ * Move the cursor to the previous sibling of its current node.
+ *
+ * This returns `true` if the cursor successfully moved, and returns `false` if
+ * there was no previous sibling node.
+ */
+bool ts_tree_cursor_goto_previous_sibling(TSTreeCursor *);
+
+/**
+ * Move the cursor to the first/last child of its current node.
  *
  * This returns `true` if the cursor successfully moved, and returns `false`
  * if there were no children.
  */
 bool ts_tree_cursor_goto_first_child(TSTreeCursor *);
+bool ts_tree_cursor_goto_last_child(TSTreeCursor *);
 
 /**
  * Move the cursor to the node that is the nth descendant of
@@ -940,6 +972,11 @@ void ts_query_cursor_set_max_start_depth(TSQueryCursor *, uint32_t);
 uint32_t ts_language_symbol_count(const TSLanguage *);
 
 /**
+ * Get the number of valid states in this language.
+*/
+uint32_t ts_language_state_count(const TSLanguage *);
+
+/**
  * Get a node type string for the given numerical id.
  */
 const char *ts_language_symbol_name(const TSLanguage *, TSSymbol);
@@ -985,6 +1022,71 @@ TSSymbolType ts_language_symbol_type(const TSLanguage *, TSSymbol);
  * See also `ts_parser_set_language`.
  */
 uint32_t ts_language_version(const TSLanguage *);
+
+/**
+ * Get the next parse state. Combine this with lookahead iterators to generate
+ * completion suggestions or valid symbols in error nodes.
+*/
+TSStateId ts_language_next_state(const TSLanguage *, TSStateId, TSSymbol);
+
+/********************************/
+/* Section - Lookahead Iterator */
+/********************************/
+
+/**
+ * Create a new lookahead iterator for the given language and parse state.
+ *
+ * This returns `NULL` if state is invalid for the language.
+ *
+ * Repeatedly using `ts_lookahead_iterator_advance` and
+ * `ts_lookahead_iterator_current_symbol` will generate valid symbols in the
+ * given parse state. Newly created lookahead iterators will contain the `ERROR`
+ * symbol.
+ *
+ * Lookahead iterators can be useful to generate suggestions and improve syntax
+ * error diagnostics. To get symbols valid in an ERROR node, use the lookahead
+ * iterator on its first leaf node state. For `MISSING` nodes, a lookahead
+ * iterator created on the previous non-extra leaf node may be appropriate.
+*/
+TSLookaheadIterator *ts_lookahead_iterator_new(const TSLanguage *, TSStateId);
+
+/**
+ * Delete a lookahead iterator freeing all the memory used.
+*/
+void ts_lookahead_iterator_delete(TSLookaheadIterator *);
+
+/**
+ * Reset the lookahead iterator to another state.
+ *
+ * This returns `true` if the iterator was reset to the given state and `false`
+ * otherwise.
+*/
+bool ts_lookahead_iterator_reset_state(TSLookaheadIterator *, TSStateId);
+
+/**
+ * Reset the lookahead iterator.
+ *
+ * This returns `true` if the language was set successfully and `false`
+ * otherwise.
+*/
+bool ts_lookahead_iterator_reset(TSLookaheadIterator *, const TSLanguage *, TSStateId);
+
+/**
+ * Get the current language of the lookahead iterator.
+*/
+const TSLanguage * ts_lookahead_iterator_language(const TSLookaheadIterator *);
+
+/**
+ * Advance the lookahead iterator to the next symbol.
+ *
+ * This returns `true` if there is a new symbol and `false` otherwise.
+*/
+bool ts_lookahead_iterator_advance(TSLookaheadIterator *);
+
+/**
+ * Get the current symbol of the lookahead iterator;
+*/
+TSSymbol ts_lookahead_iterator_current_symbol(const TSLookaheadIterator *);
 
 /**********************************/
 /* Section - Global Configuration */

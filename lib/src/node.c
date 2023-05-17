@@ -468,6 +468,15 @@ uint32_t ts_node_descendant_count(TSNode self) {
   return ts_subtree_visible_descendant_count(ts_node__subtree(self)) + 1;
 }
 
+bool ts_node_is_error(TSNode self) {
+  TSSymbol symbol = ts_node_symbol(self);
+  return symbol == ts_builtin_sym_error;
+}
+
+TSStateId ts_node_parse_state(TSNode self) {
+  return ts_subtree_parse_state(ts_node__subtree(self));
+}
+
 TSNode ts_node_parent(TSNode self) {
   TSNode node = ts_tree_root_node(self.tree);
   uint32_t end_byte = ts_node_end_byte(self);

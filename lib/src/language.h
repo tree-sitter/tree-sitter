@@ -38,6 +38,8 @@ TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *, TSSymbol);
 
 TSSymbol ts_language_public_symbol(const TSLanguage *, TSSymbol);
 
+TSStateId ts_language_next_state(const TSLanguage *self, TSStateId state, TSSymbol symbol);
+
 static inline bool ts_language_is_symbol_external(const TSLanguage *self, TSSymbol symbol) {
   return 0 < symbol && symbol < self->external_token_count + 1;
 }
@@ -176,28 +178,6 @@ static inline bool ts_lookahead_iterator_next(LookaheadIterator *self) {
     self->next_state = self->table_value;
   }
   return true;
-}
-
-static inline TSStateId ts_language_next_state(
-  const TSLanguage *self,
-  TSStateId state,
-  TSSymbol symbol
-) {
-  if (symbol == ts_builtin_sym_error || symbol == ts_builtin_sym_error_repeat) {
-    return 0;
-  } else if (symbol < self->token_count) {
-    uint32_t count;
-    const TSParseAction *actions = ts_language_actions(self, state, symbol, &count);
-    if (count > 0) {
-      TSParseAction action = actions[count - 1];
-      if (action.type == TSParseActionTypeShift) {
-        return action.shift.extra ? state : action.shift.state;
-      }
-    }
-    return 0;
-  } else {
-    return ts_language_lookup(self, state, symbol);
-  }
 }
 
 // Whether the state is a "primary state". If this returns false, it indicates that there exists

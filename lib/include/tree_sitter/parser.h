@@ -13,7 +13,9 @@ extern "C" {
 #define ts_builtin_sym_end 0
 #define TREE_SITTER_SERIALIZATION_BUFFER_SIZE 1024
 
+#ifndef TREE_SITTER_API_H_
 typedef uint16_t TSStateId;
+#endif
 
 #ifndef TREE_SITTER_API_H_
 typedef uint16_t TSSymbol;
