@@ -1,6 +1,7 @@
 {
-  "name": "web-tree-sitter",
-  "version": "0.20.8",
+  "name": "@xeger/web-tree-sitter",
+  "version": "0.20.9",
+  "private": false,
   "description": "Tree-sitter bindings for the web",
   "main": "tree-sitter.js",
   "types": "tree-sitter-web.d.ts",
@@ -14,7 +15,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tree-sitter/tree-sitter.git"
+    "url": "git+https://github.com/xeger/tree-sitter.git"
   },
   "keywords": [
     "incremental",
