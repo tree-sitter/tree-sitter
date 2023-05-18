@@ -37,7 +37,7 @@ jobs:
         # 2. Add a new record to a matrix map in `cli/npm/install.js`
         - { runtime: linux-arm64   , target: aarch64-unknown-linux-gnu   , os: ubuntu-latest  , use-cross: true }
         - { runtime: linux-arm     , target: arm-unknown-linux-gnueabihf , os: ubuntu-latest  , use-cross: true }
-        - { runtime: linux-x64     , target: x86_64-unknown-linux-gnu    , os: ubuntu-latest                    }
+        - { runtime: linux-x64     , target: x86_64-unknown-linux-gnu    , os: ubuntu-20.04                     } #2272
         - { runtime: linux-x86     , target: i686-unknown-linux-gnu      , os: ubuntu-latest  , use-cross: true }
         - { runtime: windows-arm64 , target: aarch64-pc-windows-msvc     , os: windows-latest                   }
         - { runtime: windows-x64   , target: x86_64-pc-windows-msvc      , os: windows-latest                   }
