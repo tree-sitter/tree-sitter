@@ -164,7 +164,7 @@ pub struct QueryPredicate {
 }
 
 /// A match of a `Query` to a particular set of `Node`s.
-pub struct QueryMatch<'cursor, 'tree> {
+pub struct QueryMatch<'tree, 'cursor> {
     pub pattern_index: usize,
     pub captures: &'cursor [QueryCapture<'tree>],
     id: u32,
@@ -172,35 +172,39 @@ pub struct QueryMatch<'cursor, 'tree> {
 }
 
 /// A sequence of `QueryMatch`es associated with a given `QueryCursor`.
-pub struct QueryMatches<'a, 'tree: 'a, T: TextProvider<'a>> {
+pub struct QueryMatches<'query, 'source, 'tree, 'cursor, T: TextProvider<'source>> {
     ptr: *mut ffi::TSQueryCursor,
-    query: &'a Query,
+    query: &'query Query,
     text_provider: T,
     buffer1: Vec<u8>,
     buffer2: Vec<u8>,
+    _source: PhantomData<&'source ()>,
     _tree: PhantomData<&'tree ()>,
+    _cursor: PhantomData<&'cursor ()>,
 }
 
 /// A sequence of `QueryCapture`s associated with a given `QueryCursor`.
-pub struct QueryCaptures<'a, 'tree: 'a, T: TextProvider<'a>> {
+pub struct QueryCaptures<'query, 'source, 'tree, 'cursor, T: TextProvider<'source>> {
     ptr: *mut ffi::TSQueryCursor,
-    query: &'a Query,
+    query: &'query Query,
     text_provider: T,
     buffer1: Vec<u8>,
     buffer2: Vec<u8>,
+    _source: PhantomData<&'source ()>,
     _tree: PhantomData<&'tree ()>,
+    _cursor: PhantomData<&'cursor ()>,
 }
 
-pub trait TextProvider<'a> {
-    type I: Iterator<Item = &'a [u8]> + 'a;
+pub trait TextProvider<'source> {
+    type I: Iterator<Item = &'source [u8]> + 'source;
     fn text(&mut self, node: Node) -> Self::I;
 }
 
 /// A particular `Node` that has been captured with a particular name within a `Query`.
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
-pub struct QueryCapture<'a> {
-    pub node: Node<'a>,
+pub struct QueryCapture<'tree> {
+    pub node: Node<'tree>,
     pub index: u32,
 }
 
@@ -1866,12 +1870,12 @@ impl QueryCursor {
     /// Because multiple patterns can match the same set of nodes, one match may contain
     /// captures that appear *before* some of the captures from a previous match.
     #[doc(alias = "ts_query_cursor_exec")]
-    pub fn matches<'a, 'tree: 'a, T: TextProvider<'a> + 'a>(
-        &'a mut self,
-        query: &'a Query,
+    pub fn matches<'query, 'source, 'tree, 'cursor, T: TextProvider<'source> + 'source>(
+        &'cursor mut self,
+        query: &'query Query,
         node: Node<'tree>,
         text_provider: T,
-    ) -> QueryMatches<'a, 'tree, T> {
+    ) -> QueryMatches<'query, 'source, 'tree, 'cursor, T> {
         let ptr = self.ptr.as_ptr();
         unsafe { ffi::ts_query_cursor_exec(ptr, query.ptr.as_ptr(), node.0) };
         QueryMatches {
@@ -1880,7 +1884,9 @@ impl QueryCursor {
             text_provider,
             buffer1: Default::default(),
             buffer2: Default::default(),
+            _source: PhantomData,
             _tree: PhantomData,
+            _cursor: PhantomData,
         }
     }
 
@@ -1889,12 +1895,12 @@ impl QueryCursor {
     /// This is useful if you don't care about which pattern matched, and just want a single,
     /// ordered sequence of captures.
     #[doc(alias = "ts_query_cursor_exec")]
-    pub fn captures<'a, 'tree: 'a, T: TextProvider<'a> + 'a>(
-        &'a mut self,
-        query: &'a Query,
+    pub fn captures<'query, 'source, 'tree, 'cursor, T: TextProvider<'source> + 'source>(
+        &'cursor mut self,
+        query: &'query Query,
         node: Node<'tree>,
         text_provider: T,
-    ) -> QueryCaptures<'a, 'tree, T> {
+    ) -> QueryCaptures<'query, 'source, 'tree, 'cursor, T> {
         let ptr = self.ptr.as_ptr();
         unsafe { ffi::ts_query_cursor_exec(self.ptr.as_ptr(), query.ptr.as_ptr(), node.0) };
         QueryCaptures {
@@ -1903,7 +1909,9 @@ impl QueryCursor {
             text_provider,
             buffer1: Default::default(),
             buffer2: Default::default(),
+            _source: PhantomData,
             _tree: PhantomData,
+            _cursor: PhantomData,
         }
     }
 
@@ -1942,7 +1950,7 @@ impl QueryCursor {
     }
 }
 
-impl<'a, 'tree> QueryMatch<'a, 'tree> {
+impl<'tree, 'cursor> QueryMatch<'tree, 'cursor> {
     pub fn id(&self) -> u32 {
         self.id
     }
@@ -1983,7 +1991,7 @@ impl<'a, 'tree> QueryMatch<'a, 'tree> {
         }
     }
 
-    fn satisfies_text_predicates(
+    fn satisfies_text_predicates<'a>(
         &self,
         query: &Query,
         buffer1: &mut Vec<u8>,
@@ -2057,8 +2065,10 @@ impl QueryProperty {
     }
 }
 
-impl<'a, 'tree, T: TextProvider<'a>> Iterator for QueryMatches<'a, 'tree, T> {
-    type Item = QueryMatch<'a, 'tree>;
+impl<'query, 'source, 'tree: 'cursor, 'cursor, T: TextProvider<'source>> Iterator
+    for QueryMatches<'query, 'source, 'tree, 'cursor, T>
+{
+    type Item = QueryMatch<'tree, 'cursor>;
 
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
@@ -2082,8 +2092,10 @@ impl<'a, 'tree, T: TextProvider<'a>> Iterator for QueryMatches<'a, 'tree, T> {
     }
 }
 
-impl<'a, 'tree, T: TextProvider<'a>> Iterator for QueryCaptures<'a, 'tree, T> {
-    type Item = (QueryMatch<'a, 'tree>, usize);
+impl<'query, 'source, 'tree: 'cursor, 'cursor, T: TextProvider<'source>> Iterator
+    for QueryCaptures<'query, 'source, 'tree, 'cursor, T>
+{
+    type Item = (QueryMatch<'tree, 'cursor>, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
@@ -2114,7 +2126,9 @@ impl<'a, 'tree, T: TextProvider<'a>> Iterator for QueryCaptures<'a, 'tree, T> {
     }
 }
 
-impl<'a, 'tree, T: TextProvider<'a>> QueryMatches<'a, 'tree, T> {
+impl<'query, 'source, 'tree, 'cursor, T: TextProvider<'source>>
+    QueryMatches<'query, 'source, 'tree, 'cursor, T>
+{
     #[doc(alias = "ts_query_cursor_set_byte_range")]
     pub fn set_byte_range(&mut self, range: ops::Range<usize>) {
         unsafe {
@@ -2130,7 +2144,9 @@ impl<'a, 'tree, T: TextProvider<'a>> QueryMatches<'a, 'tree, T> {
     }
 }
 
-impl<'a, 'tree, T: TextProvider<'a>> QueryCaptures<'a, 'tree, T> {
+impl<'query, 'source, 'tree, 'cursor, T: TextProvider<'source>>
+    QueryCaptures<'query, 'source, 'tree, 'cursor, T>
+{
     #[doc(alias = "ts_query_cursor_set_byte_range")]
     pub fn set_byte_range(&mut self, range: ops::Range<usize>) {
         unsafe {
@@ -2146,7 +2162,7 @@ impl<'a, 'tree, T: TextProvider<'a>> QueryCaptures<'a, 'tree, T> {
     }
 }
 
-impl<'cursor, 'tree> fmt::Debug for QueryMatch<'cursor, 'tree> {
+impl<'tree, 'cursor> fmt::Debug for QueryMatch<'tree, 'cursor> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
