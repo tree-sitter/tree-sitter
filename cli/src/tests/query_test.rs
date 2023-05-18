@@ -4591,3 +4591,36 @@ fn test_query_error_does_not_oob() {
         }
     );
 }
+
+#[test]
+fn test_query_and_cursor_have_distinct_lifetimes() {
+    let language = get_language("javascript");
+    let query = Query::new(language, "(if_statement)").unwrap();
+    let source = "return a + b - c;";
+    let mut parser = Parser::new();
+    parser.set_language(language).unwrap();
+    let tree = parser.parse(source, None).unwrap();
+    let _captures = is_match(&query, tree.root_node(), source.as_bytes());
+}
+
+fn is_match<'query, 'source, 'tree, T>(
+    query: &'query Query,
+    node: Node<'tree>,
+    text_provider: T,
+) -> Option<Vec<tree_sitter::QueryCapture<'tree>>>
+where
+    T: tree_sitter::TextProvider<'source> + 'source,
+{
+    let mut cursor = QueryCursor::new();
+
+    cursor.set_max_start_depth(1);
+
+    let mut query_matches = cursor.matches(query, node, text_provider);
+
+    if let Some(query_match) = query_matches.next() {
+        assert!(query_matches.next().is_none());
+        Some(query_match.captures.to_vec())
+    } else {
+        None
+    }
+}
