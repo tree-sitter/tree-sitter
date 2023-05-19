@@ -20,6 +20,10 @@ on:
         description: Run tests
         default: true
         type: boolean
+      rust-test-threads:
+        description: Number of Rust test threads
+        default: ""
+        type: string
 
 jobs:
   build:
@@ -119,7 +123,7 @@ jobs:
 
     - name: Setup env extras
       env:
-        RUST_TEST_THREADS: ${{ matrix.rust-test-threads }}
+        RUST_TEST_THREADS: ${{ matrix.rust-test-threads || inputs.rust-test-threads || '' }}
         USE_CROSS: ${{ matrix.use-cross }}
         TARGET: ${{ matrix.target }}
         CC: ${{ matrix.cc }}
