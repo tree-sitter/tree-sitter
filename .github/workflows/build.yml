@@ -68,6 +68,8 @@ jobs:
 
     env:
       BUILD_CMD: cargo
+      EMSCRIPTEN_VERSION: ""
+      EXE: ${{ contains(matrix.target, 'windows') && '.exe' || '' }}
 
     defaults:
       run:
@@ -155,6 +157,12 @@ jobs:
     - name: Build CLI
       run: $BUILD_CMD build --release --target=${{ matrix.target }}
 
+    - name: CLI info
+      if: ${{ startsWith(matrix.runtime, 'linux') }}
+      run: |
+        min_glibc=$(objdump -p target/$TARGET/release/tree-sitter${{ env.EXE }} | sed -nr 's/.*(GLIBC_.+).*/\1/p' | sort -uV | tail -n1)
+        echo "🔗 Minimal **glibc** version required for CLI: ${min_glibc}">> $GITHUB_STEP_SUMMARY
+
     - name: Fetch fixtures
       if: ${{ inputs.run-tests && !matrix.cli-only }} # Don't fetch fixtures for only CLI building targets
       run: script/fetch-fixtures
@@ -183,7 +191,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: tree-sitter.${{ matrix.runtime }}
-        path: target/${{ matrix.target }}/release/tree-sitter${{ contains(matrix.target, 'windows') && '.exe' || '' }}
+        path: target/${{ matrix.target }}/release/tree-sitter${{ env.EXE }}
         if-no-files-found: error
         retention-days: 7
 
