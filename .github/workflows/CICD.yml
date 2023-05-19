@@ -72,7 +72,7 @@ jobs:
     name: Release
     needs: [init, fast_checks, full_checks, min_version, build, sanitize]
     if: >
-      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event_name == 'pull_request' &&
       startsWith(github.head_ref, 'release/v') &&
       !github.event.pull_request.draft
     uses: ./.github/workflows/release.yml
