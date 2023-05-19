@@ -4124,11 +4124,7 @@ void ts_query_cursor_set_max_start_depth(
   TSQueryCursor *self,
   uint32_t max_start_depth
 ) {
-  if (max_start_depth == 0) {
-    self->max_start_depth = UINT32_MAX;
-  } else {
-    self->max_start_depth = max_start_depth;
-  }
+  self->max_start_depth = max_start_depth;
 }
 
 #undef LOG

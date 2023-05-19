@@ -4577,19 +4577,22 @@ fn test_query_max_start_depth() {
     #[rustfmt::skip]
     let rows = &[
         Row {
-            description: "depth 0: match all",
+            description: "depth 0: match translation unit",
+            depth: 0,
+            pattern: r#"
+                (translation_unit) @capture
+            "#,
+            matches: &[
+                (0, &[("capture", "if (a1 && a2) {\n    if (b1 && b2) { }\n    if (c) { }\n}\nif (d) {\n    if (e1 && e2) { }\n    if (f) { }\n}\n")]),
+            ]
+        },
+        Row {
+            description: "depth 0: match none",
             depth: 0,
             pattern: r#"
                 (if_statement) @capture
             "#,
-            matches: &[
-                (0, &[("capture", "if (a1 && a2) {\n    if (b1 && b2) { }\n    if (c) { }\n}")]),
-                (0, &[("capture", "if (b1 && b2) { }")]),
-                (0, &[("capture", "if (c) { }")]),
-                (0, &[("capture", "if (d) {\n    if (e1 && e2) { }\n    if (f) { }\n}")]),
-                (0, &[("capture", "if (e1 && e2) { }")]),
-                (0, &[("capture", "if (f) { }")]),
-            ]
+            matches: &[]
         },
         Row {
             description: "depth 1: match 2 if statements at the top level",
