@@ -1401,7 +1401,7 @@ impl Query {
                     let suffix = source.split_at(offset).1;
                     let end_offset = suffix
                         .find(|c| !char::is_alphanumeric(c) && c != '_' && c != '-')
-                        .unwrap_or(source.len());
+                        .unwrap_or(suffix.len());
                     message = suffix.split_at(end_offset).0.to_string();
                     kind = match error_type {
                         ffi::TSQueryError_TSQueryErrorNodeType => QueryErrorKind::NodeType,
