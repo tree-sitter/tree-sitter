@@ -4648,7 +4648,7 @@ fn test_query_max_start_depth() {
             eprintln!("  query example: {:?}", row.description);
 
             let query = Query::new(language, row.pattern).unwrap();
-            cursor.set_max_start_depth(row.depth);
+            cursor.set_max_start_depth(Some(row.depth));
 
             let matches = cursor.matches(&query, tree.root_node(), source.as_bytes());
             let expected = row
@@ -4782,7 +4782,7 @@ fn test_query_max_start_depth_more() {
         for row in rows.iter() {
             eprintln!("  depth: {}", row.depth);
 
-            cursor.set_max_start_depth(row.depth);
+            cursor.set_max_start_depth(Some(row.depth));
 
             let matches = cursor.matches(&query, node, source.as_bytes());
             let expected = row
