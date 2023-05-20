@@ -4575,3 +4575,19 @@ fn test_query_max_start_depth() {
         }
     });
 }
+
+#[test]
+fn test_query_error_does_not_oob() {
+    let language = get_language("javascript");
+
+    assert_eq!(
+        Query::new(language, "(clas").unwrap_err(),
+        QueryError {
+            row: 0,
+            offset: 1,
+            column: 1,
+            kind: QueryErrorKind::NodeType,
+            message: "clas".to_string()
+        }
+    );
+}
