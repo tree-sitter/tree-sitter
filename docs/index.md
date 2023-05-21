@@ -73,6 +73,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Haskell](https://github.com/tree-sitter/tree-sitter-haskell)
 * [HCL](https://github.com/MichaHoffmann/tree-sitter-hcl)
 * [HTML](https://github.com/tree-sitter/tree-sitter-html)
+* [ISPC](https://github.com/fab4100/tree-sitter-ispc)
 * [Java](https://github.com/tree-sitter/tree-sitter-java)
 * [JavaScript](https://github.com/tree-sitter/tree-sitter-javascript)
 * [jq](https://github.com/flurie/tree-sitter-jq)
