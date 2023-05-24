@@ -458,6 +458,7 @@ impl Parser {
     ///  * The parser has not yet had a language assigned with [Parser::set_language]
     ///  * The timeout set with [Parser::set_timeout_micros] expired
     ///  * The cancellation flag set with [Parser::set_cancellation_flag] was flipped
+    ///  * A syntax error was encountered and [Parser::set_early_out_on_syntax_error] was set true
     #[doc(alias = "ts_parser_parse")]
     pub fn parse(&mut self, text: impl AsRef<[u8]>, old_tree: Option<&Tree>) -> Option<Tree> {
         let bytes = text.as_ref();
@@ -597,7 +598,7 @@ impl Parser {
 
     /// Instruct the parser to start the next parse from the beginning.
     ///
-    /// If the parser previously failed because of a timeout or a cancellation, then
+    /// If the parser previously failed because of a timeout, cancellation, or a syntax error, then
     /// by default, it will resume where it left off on the next call to `parse` or
     /// other parsing functions. If you don't want to resume, and instead intend to
     /// use this parser to parse some other document, you must call `reset` first.
@@ -689,6 +690,25 @@ impl Parser {
             );
         } else {
             ffi::ts_parser_set_cancellation_flag(self.0.as_ptr(), ptr::null());
+        }
+    }
+
+    /// Get if the parser will early out due to a syntax error.
+    ///
+    /// This is set via [set_early_out_on_syntax_error](Parser::set_early_out_on_syntax_error).
+    #[doc(alias = "ts_parser_early_out_on_syntax_error")]
+    pub fn early_out_on_syntax_error(&self) -> bool {
+        unsafe { ffi::ts_parser_early_out_on_syntax_error(self.0.as_ptr()) }
+    }
+
+    /// Set if the parser should early out of parsing due to a syntax error.
+    ///
+    /// If a syntax error is encountered, it will halt early, returning `None`.
+    /// See `parse` for more information.
+    #[doc(alias = "ts_parser_set_early_out_on_syntax_error")]
+    pub fn set_early_out_on_syntax_error(&mut self, early_out_on_syntax_error: bool) {
+        unsafe {
+            ffi::ts_parser_set_early_out_on_syntax_error(self.0.as_ptr(), early_out_on_syntax_error)
         }
     }
 }

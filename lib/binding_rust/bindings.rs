@@ -215,6 +215,17 @@ extern "C" {
     pub fn ts_parser_cancellation_flag(self_: *const TSParser) -> *const usize;
 }
 extern "C" {
+    #[doc = " Set if the parser should immediately return after encountering a syntax error while parsing, it will halt early, returning NULL.\n See `ts_parser_parse` for more information."]
+    pub fn ts_parser_set_early_out_on_syntax_error(
+        self_: *mut TSParser,
+        early_out_on_syntax_error: bool,
+    );
+}
+extern "C" {
+    #[doc = " Get the parser's current early out on a syntax error setting."]
+    pub fn ts_parser_early_out_on_syntax_error(self_: *const TSParser) -> bool;
+}
+extern "C" {
     #[doc = " Set the logger that a parser should use during parsing.\n\n The parser does not take ownership over the logger payload. If a logger was\n previously assigned, the caller is responsible for releasing any memory\n owned by the previous logger."]
     pub fn ts_parser_set_logger(self_: *mut TSParser, logger: TSLogger);
 }

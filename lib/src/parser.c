@@ -105,6 +105,7 @@ struct TSParser {
   Subtree old_tree;
   TSRangeArray included_range_differences;
   unsigned included_range_difference_index;
+  bool early_out_on_syntax_error;
 };
 
 typedef struct {
@@ -1461,7 +1462,8 @@ static bool ts_parser__advance(
     if (
       self->operation_count == 0 &&
       ((self->cancellation_flag && atomic_load(self->cancellation_flag)) ||
-       (!clock_is_null(self->end_clock) && clock_is_gt(clock_now(), self->end_clock)))
+       (!clock_is_null(self->end_clock) && clock_is_gt(clock_now(), self->end_clock)) ||
+       (self->early_out_on_syntax_error && state == ERROR_STATE))
     ) {
       if (lookahead.ptr) {
         ts_subtree_release(&self->tree_pool, lookahead);
@@ -1747,6 +1749,7 @@ TSParser *ts_parser_new(void) {
   self->old_tree = NULL_SUBTREE;
   self->included_range_differences = (TSRangeArray) array_new();
   self->included_range_difference_index = 0;
+  self->early_out_on_syntax_error = false;
   ts_parser__set_cached_token(self, 0, NULL_SUBTREE, NULL_SUBTREE);
   return self;
 }
@@ -1827,6 +1830,14 @@ const size_t *ts_parser_cancellation_flag(const TSParser *self) {
 
 void ts_parser_set_cancellation_flag(TSParser *self, const size_t *flag) {
   self->cancellation_flag = (const volatile size_t *)flag;
+}
+
+bool ts_parser_early_out_on_syntax_error(const TSParser *self) {
+  return self->early_out_on_syntax_error;
+}
+
+void ts_parser_set_early_out_on_syntax_error(TSParser *self, bool early_out_on_syntax_error) {
+  self->early_out_on_syntax_error = early_out_on_syntax_error;
 }
 
 uint64_t ts_parser_timeout_micros(const TSParser *self) {
