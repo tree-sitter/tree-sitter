@@ -249,6 +249,9 @@ const TSRange *ts_parser_included_ranges(
  *    earlier call to `ts_parser_set_cancellation_flag`. You can resume parsing
  *    from where the parser left out by calling `ts_parser_parse` again with
  *    the same arguments.
+ * 4. A syntax error was encountered and `ts_parser_set_early_out_on_syntax_error` 
+ *    was set true. You can resume parsing from where the parser left out by
+ *    calling `ts_parser_parse` again with the same arguments.
  */
 TSTree *ts_parser_parse(
   TSParser *self,
@@ -286,11 +289,11 @@ TSTree *ts_parser_parse_string_encoding(
 /**
  * Instruct the parser to start the next parse from the beginning.
  *
- * If the parser previously failed because of a timeout or a cancellation, then
- * by default, it will resume where it left off on the next call to
- * `ts_parser_parse` or other parsing functions. If you don't want to resume,
- * and instead intend to use this parser to parse some other document, you must
- * call `ts_parser_reset` first.
+ * If the parser previously failed because of a timeout, cancellation,
+ * or a syntax error, then by default, it will resume where it left off
+ * on the next call to `ts_parser_parse` or other parsing functions. If
+ * you don't want to resume, and instead intend to use this parser to
+ * parse some other document, you must call `ts_parser_reset` first.
  */
 void ts_parser_reset(TSParser *self);
 
@@ -307,6 +310,19 @@ void ts_parser_set_timeout_micros(TSParser *self, uint64_t timeout);
  * Get the duration in microseconds that parsing is allowed to take.
  */
 uint64_t ts_parser_timeout_micros(const TSParser *self);
+
+/**
+ * Set if the parser should early out of parsing due to a syntax error.
+ *
+ * If a syntax error is encountered, it will halt early, returning `None`.
+ * See `ts_parser_parse` for more information.
+ */
+void ts_parser_set_early_out_on_syntax_error(TSParser *self, bool early_out);
+
+/**
+ * Get if the parser will early out due to a syntax error.
+ */
+bool ts_parser_early_out_on_syntax_error(const TSParser *self);
 
 /**
  * Set the parser's current cancellation flag pointer.
