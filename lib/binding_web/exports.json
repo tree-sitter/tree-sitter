@@ -75,6 +75,8 @@
   "_ts_parser_set_language",
   "_ts_parser_set_timeout_micros",
   "_ts_parser_timeout_micros",
+  "_ts_parser_set_early_out_on_syntax_error",
+  "_ts_parser_early_out_on_syntax_error",
   "_ts_query_capture_count",
   "_ts_query_capture_name_for_id",
   "_ts_query_captures_wasm",
