@@ -1352,8 +1352,11 @@ impl<'a> TreeCursor<'a> {
 
     /// Re-initialize this tree cursor to start at a different node.
     #[doc(alias = "ts_tree_cursor_reset")]
-    pub fn reset(&mut self, node: Node<'a>) {
-        unsafe { ffi::ts_tree_cursor_reset(&mut self.0, node.0) };
+    pub fn reset<'b>(&mut self, node: Node<'b>) {
+        unsafe {
+            std::mem::transmute::<PhantomData<&'a ()>, PhantomData<&'b ()>>(self.1);
+            ffi::ts_tree_cursor_reset(&mut self.0, node.0)
+        }
     }
 }
 
