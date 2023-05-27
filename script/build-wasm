@@ -51,6 +51,10 @@ while [[ $# > 0 ]]; do
       force_docker=1
       ;;
 
+    -v|--verbose)
+      emscripten_flags="-s VERBOSE=1 -v $emscripten_flags"
+      ;;
+
     *)
       usage
       echo "Unrecognized argument '$1'"
@@ -87,10 +91,10 @@ runtime_methods='stringToUTF16','AsciiToString'
 # in the `target/scratch` directory
 $emcc                                            \
   -s WASM=1                                      \
-  -s TOTAL_MEMORY=33554432                       \
+  -s INITIAL_MEMORY=33554432                     \
   -s ALLOW_MEMORY_GROWTH=1                       \
   -s MAIN_MODULE=2                               \
-  -s NO_FILESYSTEM=1                             \
+  -s FILESYSTEM=0                                \
   -s NODEJS_CATCH_EXIT=0                         \
   -s NODEJS_CATCH_REJECTION=0                    \
   -s EXPORTED_FUNCTIONS=@${web_dir}/exports.json \

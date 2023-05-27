@@ -23,7 +23,7 @@ fetch_grammar() {
 
 fetch_grammar bash              master
 fetch_grammar c                 master
-fetch_grammar cpp               master
+fetch_grammar cpp               670404d7c689be1c868a46f919ba2a3912f2b7ef
 fetch_grammar embedded-template master
 fetch_grammar go                master
 fetch_grammar html              master

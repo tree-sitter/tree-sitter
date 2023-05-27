@@ -1,5 +1,10 @@
 # `tree-sitter-tags`
 
+[![crates.io badge]][crates.io]
+
+[crates.io]: https://crates.io/crates/tree-sitter-tags
+[crates.io badge]: https://img.shields.io/crates/v/tree-sitter-tags.svg?color=%23B48723
+
 ### Usage
 
 Add this crate, and the language-specific crates for whichever languages you want to parse, to your `Cargo.toml`:

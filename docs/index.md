@@ -17,8 +17,10 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 
 * [Go](https://github.com/smacker/go-tree-sitter)
 * [Haskell](https://github.com/tree-sitter/haskell-tree-sitter)
+* [Java](https://github.com/serenadeai/java-tree-sitter)
 * [JavaScript (Node.js)](https://github.com/tree-sitter/node-tree-sitter)
 * [JavaScript (Wasm)](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web)
+* [Kotlin](https://github.com/oxisto/kotlintree)
 * [Lua](https://github.com/euclidianAce/ltreesitter)
 * [OCaml](https://github.com/returntocorp/ocaml-tree-sitter-core)
 * [Perl](https://metacpan.org/pod/Text::Treesitter)
@@ -27,10 +29,6 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Ruby](https://github.com/calicoday/ruby-tree-sitter-ffi)
 * [Rust](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_rust)
 * [Swift](https://github.com/ChimeHQ/SwiftTreeSitter)
-* [Kotlin](https://github.com/oxisto/kotlintree)
-* [Java](https://github.com/serenadeai/java-tree-sitter)
-
-By convention, bindings are named with the language first, eg. ruby-tree-sitter.
 
 ### Parsers
 
@@ -148,8 +146,6 @@ By convention, bindings are named with the language first, eg. ruby-tree-sitter.
 * [YANG](https://github.com/Hubro/tree-sitter-yang)
 * [Zig](https://github.com/maxxnino/tree-sitter-zig)
 
-By convention, parsers are named with the language last, eg. tree-sitter-ruby.
-
 ### Talks on Tree-sitter
 
 * [Strange Loop 2018](https://www.thestrangeloop.com/2018/tree-sitter---a-new-parsing-system-for-programming-tools.html)
@@ -160,9 +156,9 @@ By convention, parsers are named with the language last, eg. tree-sitter-ruby.
 
 The design of Tree-sitter was greatly influenced by the following research papers:
 
-- [Practical Algorithms for Incremental Software Development Environments](https://www2.eecs.berkeley.edu/Pubs/TechRpts/1997/CSD-97-946.pdf)
-- [Context Aware Scanning for Parsing Extensible Languages](https://www-users.cse.umn.edu/~evw/pubs/vanwyk07gpce/vanwyk07gpce.pdf)
-- [Efficient and Flexible Incremental Parsing](https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf)
-- [Incremental Analysis of Real Programming Languages](https://harmonia.cs.berkeley.edu/papers/twagner-glr.pdf)
-- [Error Detection and Recovery in LR Parsers](https://what-when-how.com/compiler-writing/bottom-up-parsing-compiler-writing-part-13)
-- [Error Recovery for LR Parsers](https://apps.dtic.mil/sti/pdfs/ADA043470.pdf)
+* [Practical Algorithms for Incremental Software Development Environments](https://www2.eecs.berkeley.edu/Pubs/TechRpts/1997/CSD-97-946.pdf)
+* [Context Aware Scanning for Parsing Extensible Languages](https://www-users.cse.umn.edu/~evw/pubs/vanwyk07gpce/vanwyk07gpce.pdf)
+* [Efficient and Flexible Incremental Parsing](https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf)
+* [Incremental Analysis of Real Programming Languages](https://harmonia.cs.berkeley.edu/papers/twagner-glr.pdf)
+* [Error Detection and Recovery in LR Parsers](https://what-when-how.com/compiler-writing/bottom-up-parsing-compiler-writing-part-13)
+* [Error Recovery for LR Parsers](https://apps.dtic.mil/sti/pdfs/ADA043470.pdf)

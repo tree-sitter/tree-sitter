@@ -11,25 +11,69 @@ on:
       ref:
         default: ${{ github.ref }}
         type: string
+      run-tests:
+        default: true
+        type: boolean
+  workflow_dispatch:
+    inputs:
+      run-tests:
+        description: Run tests
+        default: true
+        type: boolean
+      rust-test-threads:
+        description: Number of Rust test threads
+        default: ""
+        type: string
 
 jobs:
   build:
-    name: ${{ matrix.job.name }} (${{ matrix.job.target }}) (${{ matrix.job.os }})
-    runs-on: ${{ matrix.job.os }}
+    name: ${{ matrix.runtime }} (${{ matrix.target }}) (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        job:
-          - { name: linux-aarch64 , target: aarch64-unknown-linux-gnu   , os: ubuntu-latest  , use-cross: true }
-          - { name: linux-arm     , target: arm-unknown-linux-gnueabihf , os: ubuntu-latest  , use-cross: true }
-          - { name: linux-x64     , target: x86_64-unknown-linux-gnu    , os: ubuntu-latest                    }
-          - { name: linux-x86     , target: i686-unknown-linux-gnu      , os: ubuntu-latest  , use-cross: true }
-          - { name: windows-x64   , target: x86_64-pc-windows-msvc      , os: windows-latest                   }
-          - { name: windows-x86   , target: i686-pc-windows-msvc        , os: windows-latest                   }
-          - { name: macos-x64     , target: x86_64-apple-darwin         , os: macos-latest                     }
+        runtime:
+        - linux-arm64   #
+        - linux-arm     #
+        - linux-x64     #
+        - linux-x86     #
+        - windows-arm64 #
+        - windows-x64   # <-- No C library build - requires an additional adapted Makefile for `cl.exe` compiler
+        - windows-x86   #     -- // --
+        - macos-arm64   # <-- MacOS M1/M2 - no tests, only CLI build to be published on release artifacts
+        - macos-x64     #
+
+        include:
+        # When adding a new `target`:
+        # 1. Define a new runtime alias above
+        # 2. Add a new record to a matrix map in `cli/npm/install.js`
+        - { runtime: linux-arm64   , target: aarch64-unknown-linux-gnu   , os: ubuntu-latest  , use-cross: true }
+        - { runtime: linux-arm     , target: arm-unknown-linux-gnueabihf , os: ubuntu-latest  , use-cross: true }
+        - { runtime: linux-x64     , target: x86_64-unknown-linux-gnu    , os: ubuntu-20.04                     } #2272
+        - { runtime: linux-x86     , target: i686-unknown-linux-gnu      , os: ubuntu-latest  , use-cross: true }
+        - { runtime: windows-arm64 , target: aarch64-pc-windows-msvc     , os: windows-latest                   }
+        - { runtime: windows-x64   , target: x86_64-pc-windows-msvc      , os: windows-latest                   }
+        - { runtime: windows-x86   , target: i686-pc-windows-msvc        , os: windows-latest                   }
+        - { runtime: macos-arm64   , target: aarch64-apple-darwin        , os: macos-latest                     }
+        - { runtime: macos-x64     , target: x86_64-apple-darwin         , os: macos-latest                     }
+
+        # Cross compilers for C library
+        - { runtime: linux-arm64   , cc: aarch64-linux-gnu-gcc           , ar: aarch64-linux-gnu-ar               }
+        - { runtime: linux-arm     , cc: arm-unknown-linux-gnueabihf-gcc , ar: arm-unknown-linux-gnueabihf-gcc-ar }
+        - { runtime: linux-x86     , cc: i686-linux-gnu-gcc              , ar: i686-linux-gnu-ar                  }
+
+        # See #2041 tree-sitter issue
+        - { runtime: windows-x64   , rust-test-threads: 1 }
+        - { runtime: windows-x86   , rust-test-threads: 1 }
+
+        # CLI only build
+        - { runtime: windows-arm64 , cli-only: true }
+        - { runtime: macos-arm64   , cli-only: true }
 
     env:
       BUILD_CMD: cargo
+      EMSCRIPTEN_VERSION: ""
+      EXE: ${{ contains(matrix.target, 'windows') && '.exe' || '' }}
 
     defaults:
       run:
@@ -53,114 +97,110 @@ jobs:
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
       with:
-        targets: ${{ matrix.job.target }}
+        targets: ${{ matrix.target }}
 
     - name: Install cross
-      if: matrix.job.use-cross
+      if: ${{ matrix.use-cross }}
       uses: taiki-e/install-action@v2
       with:
         tool: cross
 
     - name: Build custom cross image
-      if: ${{ matrix.job.use-cross && matrix.job.os == 'ubuntu-latest' }}
+      if: ${{ matrix.use-cross && matrix.os == 'ubuntu-latest' }}
       run: |
         cd ..
 
-        target="${{ matrix.job.target }}"
+        target="${{ matrix.target }}"
         image=ghcr.io/cross-rs/$target:custom
-        echo "CROSS_IMAGE=$image"                                  >> $GITHUB_ENV
+        echo "CROSS_IMAGE=$image"                              >> $GITHUB_ENV
 
-        echo "[target.$target]"                                    >> Cross.toml
-        echo "image = \"$image\""                                  >> Cross.toml
-        echo "CROSS_CONFIG=$PWD/Cross.toml"                        >> $GITHUB_ENV
+        echo "[target.$target]"                                >> Cross.toml
+        echo "image = \"$image\""                              >> Cross.toml
+        echo "CROSS_CONFIG=$PWD/Cross.toml"                    >> $GITHUB_ENV
 
-        echo "FROM ghcr.io/cross-rs/$target:edge"                  >> Dockerfile
-        echo "ENV DEBIAN_FRONTEND=noninteractive"                  >> Dockerfile
-        echo "RUN apt-get update && apt-get install -y nodejs"     >> Dockerfile
+        echo "FROM ghcr.io/cross-rs/$target:edge"              >> Dockerfile
+        echo "ENV DEBIAN_FRONTEND=noninteractive"              >> Dockerfile
+        echo "RUN apt-get update && apt-get install -y nodejs" >> Dockerfile
         docker build -t $image .
-        docker images
-        docker run --rm $image env
 
-        cd -
-
-    - name: Setup extra env
+    - name: Setup env extras
+      env:
+        RUST_TEST_THREADS: ${{ matrix.rust-test-threads || inputs.rust-test-threads || '' }}
+        USE_CROSS: ${{ matrix.use-cross }}
+        TARGET: ${{ matrix.target }}
+        CC: ${{ matrix.cc }}
+        AR: ${{ matrix.ar }}
       run: |
         PATH="$PWD/.github/scripts:$PATH"
-        echo "PATH=$PATH" >> $GITHUB_ENV
-        echo "ROOT=$PWD" >> $GITHUB_ENV
+        echo "$PWD/.github/scripts" >> $GITHUB_PATH
+
         echo "TREE_SITTER=tree-sitter.sh" >> $GITHUB_ENV
-
-        export TARGET=${{ matrix.job.target }}
         echo "TARGET=$TARGET" >> $GITHUB_ENV
+        echo "ROOT=$PWD" >> $GITHUB_ENV
 
-        USE_CROSS="${{ matrix.job.use-cross }}"
+        [ -n "$RUST_TEST_THREADS" ] && \
+        echo "RUST_TEST_THREADS=$RUST_TEST_THREADS" >> $GITHUB_ENV
+
+        [ -n "$CC" ] && echo "CC=$CC" >> $GITHUB_ENV
+        [ -n "$AR" ] && echo "AR=$AR" >> $GITHUB_ENV
 
         if [ "$USE_CROSS" == "true" ]; then
           echo "BUILD_CMD=cross" >> $GITHUB_ENV
-
-          export CROSS=1; echo "CROSS=$CROSS" >> $GITHUB_ENV
-
-          runner=$(cross.sh bash -c "env | sed -nr '/^CARGO_TARGET_.*_RUNNER=/s///p'")
+          runner=$(BUILD_CMD=cross cross.sh bash -c "env | sed -nr '/^CARGO_TARGET_.*_RUNNER=/s///p'")
           [ -n "$runner" ] && echo "CROSS_RUNNER=$runner" >> $GITHUB_ENV
-          echo "runner: $runner"
-
-          case "$TARGET" in
-            i686-unknown-linux-gnu)      CC=i686-linux-gnu-gcc              AR=i686-linux-gnu-ar                  ;;
-            aarch64-unknown-linux-gnu)   CC=aarch64-linux-gnu-gcc           AR=aarch64-linux-gnu-ar               ;;
-            arm-unknown-linux-gnueabihf) CC=arm-unknown-linux-gnueabihf-gcc AR=arm-unknown-linux-gnueabihf-gcc-ar ;;
-          esac
-
-          [ -n "$CC" ] && echo "CC=$CC" >> $GITHUB_ENV
-          [ -n "$AR" ] && echo "AR=$AR" >> $GITHUB_ENV
         fi
 
-        case "$TARGET" in
-          *-windows-*)
-            echo "RUST_TEST_THREADS=1" >> $GITHUB_ENV # See #2041 tree-sitter issue
-            ;;
-        esac
-
     - name: Build C library
-      if: "!contains(matrix.job.os, 'windows')" # Requires an additional adapted Makefile for `cl.exe` compiler
+      if: ${{ !contains(matrix.os, 'windows') }} # Requires an additional adapted Makefile for `cl.exe` compiler
       run: make.sh CFLAGS="-Werror" -j
 
     - name: Build wasm library
+      if: ${{ !matrix.cli-only && !matrix.use-cross }} # No sense to build on the same Github runner hosts many times
       run: script/build-wasm
 
     - name: Build CLI
-      run: $BUILD_CMD build --release --target=${{ matrix.job.target }}
+      run: $BUILD_CMD build --release --target=${{ matrix.target }}
+
+    - name: Info about CLI
+      if: ${{ startsWith(matrix.runtime, 'linux') }}
+      run: |
+        min_glibc=$(objdump -p target/$TARGET/release/tree-sitter${{ env.EXE }} | sed -nr 's/.*(GLIBC_.+).*/\1/p' | sort -uV | tail -n1)
+        echo "🔗 Minimal **glibc** version required for CLI: ${min_glibc}">> $GITHUB_STEP_SUMMARY
 
     - name: Fetch fixtures
+      if: ${{ inputs.run-tests && !matrix.cli-only }} # Don't fetch fixtures for only CLI building targets
       run: script/fetch-fixtures
 
     - name: Generate fixtures
+      if: ${{ inputs.run-tests && !matrix.cli-only }} # Can't natively run CLI on Github runner's host
       run: script/generate-fixtures
 
     - name: Generate WASM fixtures
-      if: "!matrix.job.use-cross"
+      if: ${{ inputs.run-tests && !matrix.cli-only && !matrix.use-cross }} # See comment for the "Build wasm library" step
       run: script/generate-fixtures-wasm
 
     - name: Run main tests
-      run: $BUILD_CMD test --target=${{ matrix.job.target }}
+      if: ${{ inputs.run-tests && !matrix.cli-only }} # Can't natively run CLI on Github runner's host
+      run: $BUILD_CMD test --target=${{ matrix.target }}
 
     - name: Run wasm tests
-      if: "!matrix.job.use-cross" # TODO: Install Emscripten into custom cross images
+      if: ${{ inputs.run-tests && !matrix.cli-only && !matrix.use-cross }} # See comment for the "Build wasm library" step
       run: script/test-wasm
 
     - name: Run benchmarks
-      if: "!matrix.job.use-cross" # It doesn't make sense to benchmark something in an emulator
-      run: $BUILD_CMD bench benchmark -p tree-sitter-cli --target=${{ matrix.job.target }}
+      if: ${{ inputs.run-tests && !matrix.cli-only && !matrix.use-cross }} # Cross-compiled benchmarks make no sense
+      run: $BUILD_CMD bench benchmark -p tree-sitter-cli --target=${{ matrix.target }}
 
     - name: Upload CLI artifact
       uses: actions/upload-artifact@v3
       with:
-        name: tree-sitter.${{ matrix.job.name }}
-        path: target/${{ matrix.job.target }}/release/tree-sitter${{ contains(matrix.job.target, 'windows') && '.exe' || '' }}
+        name: tree-sitter.${{ matrix.runtime }}
+        path: target/${{ matrix.target }}/release/tree-sitter${{ env.EXE }}
         if-no-files-found: error
         retention-days: 7
 
     - name: Upload WASM artifacts
-      if: ${{ matrix.job.name == 'linux-x64' }}
+      if: ${{ matrix.runtime == 'linux-x64' }}
       uses: actions/upload-artifact@v3
       with:
         name: tree-sitter.wasm

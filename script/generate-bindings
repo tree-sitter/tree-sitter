@@ -8,7 +8,6 @@ bindgen                                        \
   --allowlist-type '^TS.*'                     \
   --allowlist-function '^ts_.*'                \
   --blocklist-type '^__.*'                     \
-  --size_t-is-usize                            \
   $header_path > $output_path
 
 echo "" >> $output_path

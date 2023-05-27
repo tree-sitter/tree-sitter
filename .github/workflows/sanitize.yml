@@ -1,0 +1,40 @@
+name: Sunitize
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+on:
+  workflow_call:
+
+jobs:
+  check_undefined_behaviour:
+    name: Undefined behaviour checks
+    runs-on: ubuntu-latest
+    env:
+      TREE_SITTER: ${{ github.workspace }}/target/release/tree-sitter
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v3
+
+    - name: Install UBSAN library
+      run: sudo apt-get install -y libubsan1
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Build CLI
+      run: cargo build --release
+
+    - name: Fetch fixtures
+      run: script/fetch-fixtures
+
+    - name: Generate fixtures
+      run: script/generate-fixtures
+
+    - name: Run main tests with undefined behaviour sanitizer (UBSAN)
+      env:
+        UBSAN_OPTIONS: halt_on_error=1
+        CFLAGS: -fsanitize=undefined
+        RUSTFLAGS: -lubsan
+      run: cargo test -- --test-threads 1

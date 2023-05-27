@@ -391,7 +391,7 @@ pub fn html(
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
     let time = Instant::now();
-    let cancellation_flag = util::cancel_on_stdin();
+    let cancellation_flag = util::cancel_on_signal();
     let mut highlighter = Highlighter::new();
 
     let events = highlighter.highlight(config, source, Some(&cancellation_flag), |string| {

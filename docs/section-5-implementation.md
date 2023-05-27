@@ -21,7 +21,7 @@ The `tree-sitter` CLI's most important feature is the `generate` subcommand. Thi
 
 ### Parsing a Grammar
 
-First, Tree-sitter must must evaluate the JavaScript code in `grammar.js` and convert the grammar to a JSON format. It does this by shelling out to `node`. The format of the grammars is formally specified by the JSON schema in [grammar-schema.json](https://github.com/tree-sitter/tree-sitter/blob/master/cli/src/generate/grammar-schema.json). The parsing is implemented in [parse_grammar.rs](https://github.com/tree-sitter/tree-sitter/blob/master/cli/src/generate/parse_grammar.rs).
+First, Tree-sitter must evaluate the JavaScript code in `grammar.js` and convert the grammar to a JSON format. It does this by shelling out to `node`. The format of the grammars is formally specified by the JSON schema in [grammar-schema.json](https://github.com/tree-sitter/tree-sitter/blob/master/cli/src/generate/grammar-schema.json). The parsing is implemented in [parse_grammar.rs](https://github.com/tree-sitter/tree-sitter/blob/master/cli/src/generate/parse_grammar.rs).
 
 ### Grammar Rules
 
@@ -34,8 +34,6 @@ Once a grammar has been parsed, it must be transformed in several ways before it
 At the end of these transformations, the initial grammar is split into two grammars: a *syntax grammar* and a *lexical grammar*. The syntax grammar describes how the language's [*non-terminal symbols*](https://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols) are constructed from other grammar symbols, and the lexical grammar describes how the grammar's *terminal symbols* (strings and regexes) can be composed from individual characters.
 
 ### Building Parse Tables
-
-
 
 ## The Runtime
 
