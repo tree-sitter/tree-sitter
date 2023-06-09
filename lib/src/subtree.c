@@ -376,7 +376,7 @@ void ts_subtree_summarize_children(
   self.ptr->visible_child_count = 0;
   self.ptr->error_cost = 0;
   self.ptr->repeat_depth = 0;
-  self.ptr->node_count = 1;
+  self.ptr->visible_descendant_count = 0;
   self.ptr->has_external_tokens = false;
   self.ptr->depends_on_column = false;
   self.ptr->has_external_scanner_state_change = false;
@@ -435,14 +435,16 @@ void ts_subtree_summarize_children(
     }
 
     self.ptr->dynamic_precedence += ts_subtree_dynamic_precedence(child);
-    self.ptr->node_count += ts_subtree_node_count(child);
+    self.ptr->visible_descendant_count += ts_subtree_visible_descendant_count(child);
 
     if (alias_sequence && alias_sequence[structural_index] != 0 && !ts_subtree_extra(child)) {
+      self.ptr->visible_descendant_count++;
       self.ptr->visible_child_count++;
       if (ts_language_symbol_metadata(language, alias_sequence[structural_index]).named) {
         self.ptr->named_child_count++;
       }
     } else if (ts_subtree_visible(child)) {
+      self.ptr->visible_descendant_count++;
       self.ptr->visible_child_count++;
       if (ts_subtree_named(child)) self.ptr->named_child_count++;
     } else if (grandchild_count > 0) {
@@ -529,7 +531,7 @@ MutableSubtree ts_subtree_new_node(
     .fragile_right = fragile,
     .is_keyword = false,
     {{
-      .node_count = 0,
+      .visible_descendant_count = 0,
       .production_id = production_id,
       .first_leaf = {.symbol = 0, .parse_state = 0},
     }}

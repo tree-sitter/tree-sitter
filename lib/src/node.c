@@ -458,6 +458,10 @@ bool ts_node_has_error(TSNode self) {
   return ts_subtree_error_cost(ts_node__subtree(self)) > 0;
 }
 
+uint32_t ts_node_descendant_count(TSNode self) {
+  return ts_subtree_visible_descendant_count(ts_node__subtree(self)) + 1;
+}
+
 TSNode ts_node_parent(TSNode self) {
   TSNode node = ts_tree_root_node(self.tree);
   uint32_t end_byte = ts_node_end_byte(self);
