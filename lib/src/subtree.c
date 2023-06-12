@@ -971,6 +971,7 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
     "error-cost: %u\n"
     "has-changes: %u\n"
     "depends-on-column: %u\n"
+    "descendant-count: %u\n"
     "repeat-depth: %u\n"
     "lookahead-bytes: %u",
     start_offset, end_offset,
@@ -978,6 +979,7 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
     ts_subtree_error_cost(*self),
     ts_subtree_has_changes(*self),
     ts_subtree_depends_on_column(*self),
+    ts_subtree_visible_descendant_count(*self),
     ts_subtree_repeat_depth(*self),
     ts_subtree_lookahead_bytes(*self)
   );

@@ -406,6 +406,28 @@ fn test_node_descendant_count() {
 }
 
 #[test]
+fn test_descendant_count_single_node_tree() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(get_language("embedded-template"))
+        .unwrap();
+    let tree = parser.parse("hello", None).unwrap();
+
+    let nodes = get_all_nodes(&tree);
+    assert_eq!(nodes.len(), 2);
+    assert_eq!(tree.root_node().descendant_count(), 2);
+
+    let mut cursor = tree.root_node().walk();
+
+    cursor.goto_descendant(0);
+    assert_eq!(cursor.depth(), 0);
+    assert_eq!(cursor.node(), nodes[0]);
+    cursor.goto_descendant(1);
+    assert_eq!(cursor.depth(), 1);
+    assert_eq!(cursor.node(), nodes[1]);
+}
+
+#[test]
 fn test_node_descendant_for_range() {
     let tree = parse_json_example();
     let array_node = tree.root_node();

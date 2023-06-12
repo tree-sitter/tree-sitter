@@ -18,9 +18,9 @@ typedef struct {
 
 static inline bool ts_tree_cursor_is_entry_visible(const TreeCursor *self, uint32_t i) {
   TreeCursorEntry *entry = &self->stack.contents[i];
-  if (ts_subtree_visible(*entry->subtree)) {
+  if (i == 0 || ts_subtree_visible(*entry->subtree)) {
     return true;
-  } else if (i > 0 && !ts_subtree_extra(*entry->subtree)) {
+  } else if (!ts_subtree_extra(*entry->subtree)) {
     TreeCursorEntry *parent_entry = &self->stack.contents[i - 1];
     return ts_language_alias_at(
       self->tree->language,
@@ -275,12 +275,17 @@ void ts_tree_cursor_goto_descendant(
 ) {
   TreeCursor *self = (TreeCursor *)_self;
 
-  // Ascend to the lowest ancestor that contains the goal descendant.
+  // Ascend to the lowest ancestor that contains the goal node.
   for (;;) {
-    TreeCursorEntry *entry = &self->stack.contents[self->stack.size - 1];
+    uint32_t i = self->stack.size - 1;
+    TreeCursorEntry *entry = &self->stack.contents[i];
+    uint32_t next_descendant_index =
+      entry->descendant_index +
+      (ts_tree_cursor_is_entry_visible(self, i) ? 1 : 0) +
+      ts_subtree_visible_descendant_count(*entry->subtree);
     if (
       (entry->descendant_index <= goal_descendant_index) &&
-      (entry->descendant_index + ts_subtree_visible_descendant_count(*entry->subtree) > goal_descendant_index)
+      (next_descendant_index > goal_descendant_index)
     ) {
       break;
     } else if (self->stack.size <= 1) {
@@ -290,23 +295,19 @@ void ts_tree_cursor_goto_descendant(
     }
   }
 
-  // Descend to the goal descendant.
+  // Descend to the goal node.
   bool did_descend = true;
   do {
     did_descend = false;
     bool visible;
     TreeCursorEntry entry;
     CursorChildIterator iterator = ts_tree_cursor_iterate_children(self);
-
-    // If the goal descendant is the current node, then we're done.
     if (iterator.descendant_index > goal_descendant_index) {
       return;
     }
 
     while (ts_tree_cursor_child_iterator_next(&iterator, &entry, &visible)) {
-      uint32_t next_descendant_index = entry.descendant_index + ts_subtree_visible_descendant_count(*entry.subtree);
-      if (visible) next_descendant_index += 1;
-      if (next_descendant_index > goal_descendant_index) {
+      if (iterator.descendant_index > goal_descendant_index) {
         array_push(&self->stack, entry);
         if (visible && entry.descendant_index == goal_descendant_index) {
           return;
