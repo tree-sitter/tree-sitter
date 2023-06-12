@@ -576,6 +576,11 @@ TSNode ts_node_first_child_for_byte(TSNode, uint32_t);
 TSNode ts_node_first_named_child_for_byte(TSNode, uint32_t);
 
 /**
+ * Get the node's number of descendants, including one for the node itself.
+ */
+uint32_t ts_node_descendant_count(TSNode);
+
+/**
  * Get the smallest node within this node that spans the given range of bytes
  * or (row, column) positions.
  */
@@ -672,6 +677,25 @@ bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *);
  * if there were no children.
  */
 bool ts_tree_cursor_goto_first_child(TSTreeCursor *);
+
+/**
+ * Move the cursor to the node that is the nth descendant of
+ * the original node that the cursor was constructed with, where
+ * zero represents the original node itself.
+ */
+void ts_tree_cursor_goto_descendant(TSTreeCursor *, uint32_t);
+
+/**
+ * Get the index of the cursor's current node out of all of the
+ * descendants of the original node that the cursor was constructed with.
+ */
+uint32_t ts_tree_cursor_current_descendant_index(const TSTreeCursor *);
+
+/**
+ * Get the depth of the cursor's current node relative to the original
+ * node that the cursor was constructed with.
+ */
+uint32_t ts_tree_cursor_current_depth(const TSTreeCursor *);
 
 /**
  * Move the cursor to the first child of its current node that extends beyond
@@ -968,10 +992,10 @@ uint32_t ts_language_version(const TSLanguage *);
  * By default, Tree-sitter uses the standard libc allocation functions,
  * but aborts the process when an allocation fails. This function lets
  * you supply alternative allocation functions at runtime.
- * 
+ *
  * If you pass `NULL` for any parameter, Tree-sitter will switch back to
  * its default implementation of that function.
- * 
+ *
  * If you call this function after the library has already been used, then
  * you must ensure that either:
  *  1. All the existing objects have been freed.

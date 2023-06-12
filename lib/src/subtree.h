@@ -135,7 +135,7 @@ typedef struct {
     struct {
       uint32_t visible_child_count;
       uint32_t named_child_count;
-      uint32_t node_count;
+      uint32_t visible_descendant_count;
       int32_t dynamic_precedence;
       uint16_t repeat_depth;
       uint16_t production_id;
@@ -297,8 +297,16 @@ static inline uint32_t ts_subtree_is_repetition(Subtree self) {
     : !self.ptr->named && !self.ptr->visible && self.ptr->child_count != 0;
 }
 
+static inline uint32_t ts_subtree_visible_descendant_count(Subtree self) {
+  return (self.data.is_inline || self.ptr->child_count == 0)
+    ? 0
+    : self.ptr->visible_descendant_count;
+}
+
 static inline uint32_t ts_subtree_node_count(Subtree self) {
-  return (self.data.is_inline || self.ptr->child_count == 0) ? 1 : self.ptr->node_count;
+  return
+    ts_subtree_visible_descendant_count(self) +
+    (ts_subtree_visible(self) ? 1 : 0);
 }
 
 static inline uint32_t ts_subtree_visible_child_count(Subtree self) {
