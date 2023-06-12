@@ -689,7 +689,13 @@ void ts_tree_cursor_goto_descendant(TSTreeCursor *, uint32_t);
  * Get the index of the cursor's current node out of all of the
  * descendants of the original node that the cursor was constructed with.
  */
-uint32_t ts_tree_cursor_descendant_index(TSTreeCursor *);
+uint32_t ts_tree_cursor_current_descendant_index(const TSTreeCursor *);
+
+/**
+ * Get the depth of the cursor's current node relative to the original
+ * node that the cursor was constructed with.
+ */
+uint32_t ts_tree_cursor_current_depth(const TSTreeCursor *);
 
 /**
  * Move the cursor to the first child of its current node that extends beyond

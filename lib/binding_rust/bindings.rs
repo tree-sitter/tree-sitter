@@ -615,7 +615,12 @@ extern "C" {
 extern "C" {
     #[doc = " Get the index of the cursor's current node out of all of the"]
     #[doc = " descendants of the original node that the cursor was constructed with."]
-    pub fn ts_tree_cursor_descendant_index(arg1: *mut TSTreeCursor) -> u32;
+    pub fn ts_tree_cursor_current_descendant_index(arg1: *const TSTreeCursor) -> u32;
+}
+extern "C" {
+    #[doc = " Get the depth of the cursor's current node relative to the original"]
+    #[doc = " node that the cursor was constructed with."]
+    pub fn ts_tree_cursor_current_depth(arg1: *const TSTreeCursor) -> u32;
 }
 extern "C" {
     #[doc = " Move the cursor to the first child of its current node that extends beyond"]

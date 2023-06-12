@@ -1266,6 +1266,21 @@ impl<'a> TreeCursor<'a> {
         }
     }
 
+    /// Get the numerical field id of this tree cursor's current node.
+    ///
+    /// See also [field_name](TreeCursor::field_name).
+    #[doc(alias = "ts_tree_cursor_current_depth")]
+    pub fn depth(&self) -> u32 {
+        unsafe { ffi::ts_tree_cursor_current_depth(&self.0) }
+    }
+
+    /// Get the index of the cursor's current node out of all of the
+    /// descendants of the original node that the cursor was constructed with
+    #[doc(alias = "ts_tree_cursor_current_descendant_index")]
+    pub fn descendant_index(&self) -> usize {
+        unsafe { ffi::ts_tree_cursor_current_descendant_index(&self.0) as usize }
+    }
+
     /// Move this cursor to the first child of its current node.
     ///
     /// This returns `true` if the cursor successfully moved, and returns `false`

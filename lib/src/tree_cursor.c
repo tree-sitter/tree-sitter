@@ -261,21 +261,9 @@ bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *self) {
 bool ts_tree_cursor_goto_parent(TSTreeCursor *_self) {
   TreeCursor *self = (TreeCursor *)_self;
   for (unsigned i = self->stack.size - 2; i + 1 > 0; i--) {
-    TreeCursorEntry *entry = &self->stack.contents[i];
-    if (ts_subtree_visible(*entry->subtree)) {
+    if (ts_tree_cursor_is_entry_visible(self, i)) {
       self->stack.size = i + 1;
       return true;
-    }
-    if (i > 0 && !ts_subtree_extra(*entry->subtree)) {
-      TreeCursorEntry *parent_entry = &self->stack.contents[i - 1];
-      if (ts_language_alias_at(
-        self->tree->language,
-        parent_entry->subtree->ptr->production_id,
-        entry->structural_child_index
-      )) {
-        self->stack.size = i + 1;
-        return true;
-      }
     }
   }
   return false;
@@ -331,7 +319,7 @@ void ts_tree_cursor_goto_descendant(
   } while (did_descend);
 }
 
-uint32_t ts_tree_cursor_descendant_index(TSTreeCursor *_self) {
+uint32_t ts_tree_cursor_current_descendant_index(const TSTreeCursor *_self) {
   const TreeCursor *self = (const TreeCursor *)_self;
   TreeCursorEntry *last_entry = array_back(&self->stack);
   return last_entry->descendant_index;
@@ -479,6 +467,17 @@ void ts_tree_cursor_current_status(
   }
 }
 
+uint32_t ts_tree_cursor_current_depth(const TSTreeCursor *_self) {
+  const TreeCursor *self = (const TreeCursor *)_self;
+  uint32_t depth = 0;
+  for (unsigned i = 1; i < self->stack.size; i++) {
+    if (ts_tree_cursor_is_entry_visible(self, i)) {
+      depth++;
+    }
+  }
+  return depth;
+}
+
 TSNode ts_tree_cursor_parent_node(const TSTreeCursor *_self) {
   const TreeCursor *self = (const TreeCursor *)_self;
   for (int i = (int)self->stack.size - 2; i >= 0; i--) {
@@ -515,17 +514,10 @@ TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *_self) {
     TreeCursorEntry *parent_entry = &self->stack.contents[i - 1];
 
     // Stop walking up when another visible node is found.
-    if (i != self->stack.size - 1) {
-      if (ts_subtree_visible(*entry->subtree)) break;
-      if (
-        !ts_subtree_extra(*entry->subtree) &&
-        ts_language_alias_at(
-          self->tree->language,
-          parent_entry->subtree->ptr->production_id,
-          entry->structural_child_index
-        )
-      ) break;
-    }
+    if (
+      i != self->stack.size - 1 &&
+      ts_tree_cursor_is_entry_visible(self, i)
+    ) break;
 
     if (ts_subtree_extra(*entry->subtree)) break;
 

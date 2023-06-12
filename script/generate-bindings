@@ -4,6 +4,7 @@ output_path=lib/binding_rust/bindings.rs
 header_path='lib/include/tree_sitter/api.h'
 
 bindgen                                        \
+  --size_t-is-usize                            \
   --no-layout-tests                            \
   --allowlist-type '^TS.*'                     \
   --allowlist-function '^ts_.*'                \
