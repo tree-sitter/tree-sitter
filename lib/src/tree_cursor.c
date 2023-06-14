@@ -291,7 +291,7 @@ void ts_tree_cursor_goto_descendant(
     } else if (self->stack.size <= 1) {
       return;
     } else {
-      array_pop(&self->stack);
+      self->stack.size--;
     }
   }
 
