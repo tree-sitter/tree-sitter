@@ -289,6 +289,14 @@ extern "C" {
     pub fn ts_node_language(arg1: TSNode) -> *const TSLanguage;
 }
 extern "C" {
+    #[doc = " Get the node's type as it appears in the grammar ignoring aliases as a\n null-terminated string."]
+    pub fn ts_node_grammar_type(arg1: TSNode) -> *const ::std::os::raw::c_char;
+}
+extern "C" {
+    #[doc = " Get the node's type as a numerical id as it appears in the grammar ignoring\n aliases. This should be used in `ts_language_next_state` instead of\n `ts_node_symbol`."]
+    pub fn ts_node_grammar_symbol(arg1: TSNode) -> TSSymbol;
+}
+extern "C" {
     #[doc = " Get the node's start byte."]
     pub fn ts_node_start_byte(arg1: TSNode) -> u32;
 }
@@ -339,6 +347,10 @@ extern "C" {
 extern "C" {
     #[doc = " Get this node's parse state."]
     pub fn ts_node_parse_state(arg1: TSNode) -> TSStateId;
+}
+extern "C" {
+    #[doc = " Get the parse state after this node."]
+    pub fn ts_node_next_parse_state(arg1: TSNode) -> TSStateId;
 }
 extern "C" {
     #[doc = " Get the node's immediate parent."]
@@ -681,7 +693,7 @@ extern "C" {
     pub fn ts_language_version(arg1: *const TSLanguage) -> u32;
 }
 extern "C" {
-    #[doc = " Get the next parse state. Combine this with lookahead iterators to generate\n completion suggestions or valid symbols in error nodes."]
+    #[doc = " Get the next parse state. Combine this with lookahead iterators to generate\n completion suggestions or valid symbols in error nodes. Use\n `ts_node_grammar_symbol` for valid symbols."]
     pub fn ts_language_next_state(
         arg1: *const TSLanguage,
         arg2: TSStateId,

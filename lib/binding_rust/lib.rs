@@ -349,6 +349,11 @@ impl Language {
 
     /// Get the next parse state. Combine this with [lookahead_iterator] to
     /// generate completion suggestions or valid symbols in error nodes.
+    ///
+    /// Example:
+    /// ```
+    /// let state = language.next_state(node.parse_state(), node.grammar_id());
+    /// ```
     #[doc(alias = "ts_language_next_state")]
     pub fn next_state(&self, state: u16, id: u16) -> u16 {
         unsafe { ffi::ts_language_next_state(self.0, state, id) }
@@ -872,10 +877,26 @@ impl<'tree> Node<'tree> {
         unsafe { ffi::ts_node_symbol(self.0) }
     }
 
+    /// Get the node's type as a numerical id as it appears in the grammar
+    /// ignoring aliases.
+    #[doc(alias = "ts_node_grammar_symbol")]
+    pub fn grammar_id(&self) -> u16 {
+        unsafe { ffi::ts_node_grammar_symbol(self.0) }
+    }
+
     /// Get this node's type as a string.
     #[doc(alias = "ts_node_type")]
     pub fn kind(&self) -> &'static str {
         unsafe { CStr::from_ptr(ffi::ts_node_type(self.0)) }
+            .to_str()
+            .unwrap()
+    }
+
+    /// Get this node's symbol name as it appears in the grammar ignoring
+    /// aliases as a string.
+    #[doc(alias = "ts_node_grammar_type")]
+    pub fn grammar_name(&self) -> &'static str {
+        unsafe { CStr::from_ptr(ffi::ts_node_grammar_type(self.0)) }
             .to_str()
             .unwrap()
     }
@@ -929,6 +950,12 @@ impl<'tree> Node<'tree> {
     #[doc(alias = "ts_node_parse_state")]
     pub fn parse_state(&self) -> u16 {
         unsafe { ffi::ts_node_parse_state(self.0) }
+    }
+
+    /// Get the parse state after this node.
+    #[doc(alias = "ts_node_next_parse_state")]
+    pub fn next_parse_state(&self) -> u16 {
+        unsafe { ffi::ts_node_next_parse_state(self.0) }
     }
 
     /// Check if this node is *missing*.

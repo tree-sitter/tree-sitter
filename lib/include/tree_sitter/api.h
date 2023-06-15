@@ -446,6 +446,19 @@ TSSymbol ts_node_symbol(TSNode);
 const TSLanguage *ts_node_language(TSNode);
 
 /**
+ * Get the node's type as it appears in the grammar ignoring aliases as a
+ * null-terminated string.
+ */
+const char *ts_node_grammar_type(TSNode);
+
+/**
+ * Get the node's type as a numerical id as it appears in the grammar ignoring
+ * aliases. This should be used in `ts_language_next_state` instead of
+ * `ts_node_symbol`.
+ */
+TSSymbol ts_node_grammar_symbol(TSNode);
+
+/**
  * Get the node's start byte.
  */
 uint32_t ts_node_start_byte(TSNode);
@@ -518,6 +531,11 @@ bool ts_node_is_error(TSNode);
  * Get this node's parse state.
 */
 TSStateId ts_node_parse_state(TSNode);
+
+/**
+ * Get the parse state after this node.
+*/
+TSStateId ts_node_next_parse_state(TSNode);
 
 /**
  * Get the node's immediate parent.
@@ -1025,7 +1043,8 @@ uint32_t ts_language_version(const TSLanguage *);
 
 /**
  * Get the next parse state. Combine this with lookahead iterators to generate
- * completion suggestions or valid symbols in error nodes.
+ * completion suggestions or valid symbols in error nodes. Use
+ * `ts_node_grammar_symbol` for valid symbols.
 */
 TSStateId ts_language_next_state(const TSLanguage *, TSStateId, TSSymbol);
 

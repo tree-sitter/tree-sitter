@@ -55,11 +55,14 @@ declare module 'web-tree-sitter' {
     ) => string | null;
 
     export interface SyntaxNode {
-      id: number;
+      typeId: number;
+      grammarId: number;
       tree: Tree;
       type: string;
+      grammarType: string;
       text: string;
       parseState: number;
+      nextParseState: number;
       startPosition: Point;
       endPosition: Point;
       startIndex: number;
