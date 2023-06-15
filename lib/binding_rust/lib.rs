@@ -1497,6 +1497,18 @@ impl<'a> LookaheadIterator<'a> {
         unsafe { ffi::ts_lookahead_iterator_current_symbol(self.0.as_ptr()) }
     }
 
+    /// Get the current symbol name of the lookahead iterator.
+    #[doc(alias = "ts_lookahead_iterator_current_symbol_name")]
+    pub fn current_symbol_name(&self) -> &'static str {
+        unsafe {
+            CStr::from_ptr(ffi::ts_lookahead_iterator_current_symbol_name(
+                self.0.as_ptr(),
+            ))
+            .to_str()
+            .unwrap()
+        }
+    }
+
     /// Reset the lookahead iterator.
     ///
     /// This returns `true` if the language was set successfully and `false`
@@ -1513,6 +1525,26 @@ impl<'a> LookaheadIterator<'a> {
     #[doc(alias = "ts_lookahead_iterator_reset_state")]
     pub fn reset_state(&self, state: u16) -> bool {
         unsafe { ffi::ts_lookahead_iterator_reset_state(self.0.as_ptr(), state) }
+    }
+
+    /// Iterate symbol names.
+    pub fn iter_names(&'a self) -> impl Iterator<Item = &'static str> + 'a {
+        NameLookaheadIterator(&self)
+    }
+}
+
+struct NameLookaheadIterator<'a>(&'a LookaheadIterator<'a>);
+
+impl<'a> Iterator for NameLookaheadIterator<'a> {
+    type Item = &'static str;
+
+    #[doc(alias = "ts_lookahead_iterator_advance")]
+    fn next(&mut self) -> Option<Self::Item> {
+        if !(unsafe { ffi::ts_lookahead_iterator_advance(self.0 .0.as_ptr()) }) {
+            None
+        } else {
+            Some(self.0.current_symbol_name())
+        }
     }
 }
 

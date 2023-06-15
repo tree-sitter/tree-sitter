@@ -1107,6 +1107,12 @@ bool ts_lookahead_iterator_advance(TSLookaheadIterator *);
 */
 TSSymbol ts_lookahead_iterator_current_symbol(const TSLookaheadIterator *);
 
+/**
+ * Get the current symbol type of the lookahead iterator as a null terminated
+ * string.
+*/
+const char *ts_lookahead_iterator_current_symbol_name(const TSLookaheadIterator *);
+
 /**********************************/
 /* Section - Global Configuration */
 /**********************************/

@@ -181,7 +181,7 @@ bool ts_lookahead_iterator_reset_state(TSLookaheadIterator * self, TSStateId sta
 }
 
 const TSLanguage * ts_lookahead_iterator_language(const TSLookaheadIterator *self) {
-  LookaheadIterator *iterator = (LookaheadIterator *)self;
+  const LookaheadIterator *iterator = (const LookaheadIterator *)self;
   return iterator->language;
 }
 
@@ -198,6 +198,11 @@ bool ts_lookahead_iterator_advance(TSLookaheadIterator *self) {
 }
 
 TSSymbol ts_lookahead_iterator_current_symbol(const TSLookaheadIterator *self) {
-  LookaheadIterator *iterator = (LookaheadIterator *)self;
+  const LookaheadIterator *iterator = (const LookaheadIterator *)self;
   return iterator->symbol;
+}
+
+const char *ts_lookahead_iterator_current_symbol_name(const TSLookaheadIterator *self) {
+  const LookaheadIterator *iterator = (const LookaheadIterator *)self;
+  return ts_language_symbol_name(iterator->language, iterator->symbol);
 }

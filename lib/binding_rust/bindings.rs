@@ -739,6 +739,12 @@ extern "C" {
     pub fn ts_lookahead_iterator_current_symbol(arg1: *const TSLookaheadIterator) -> TSSymbol;
 }
 extern "C" {
+    #[doc = " Get the current symbol type of the lookahead iterator as a null terminated\n string."]
+    pub fn ts_lookahead_iterator_current_symbol_name(
+        arg1: *const TSLookaheadIterator,
+    ) -> *const ::std::os::raw::c_char;
+}
+extern "C" {
     #[doc = " Set the allocation functions used by the library.\n\n By default, Tree-sitter uses the standard libc allocation functions,\n but aborts the process when an allocation fails. This function lets\n you supply alternative allocation functions at runtime.\n\n If you pass `NULL` for any parameter, Tree-sitter will switch back to\n its default implementation of that function.\n\n If you call this function after the library has already been used, then\n you must ensure that either:\n  1. All the existing objects have been freed.\n  2. The new allocator shares its state with the old one, so it is capable\n     of freeing memory that was allocated by the old allocator."]
     pub fn ts_set_allocator(
         new_malloc: ::std::option::Option<
