@@ -205,20 +205,20 @@ TreeCursorStep ts_tree_cursor_goto_last_child_internal(TSTreeCursor *_self) {
   if (!iterator.parent.ptr || iterator.parent.ptr->child_count == 0) return TreeCursorStepNone;
 
   TreeCursorEntry last_entry;
-  bool last_visible;
+  TreeCursorStep last_step = TreeCursorStepNone;
   while (ts_tree_cursor_child_iterator_next(&iterator, &entry, &visible)) {
     if (visible) {
       last_entry = entry;
-      last_visible = true;
+      last_step = TreeCursorStepVisible;
     }
     else if (ts_subtree_visible_child_count(*entry.subtree) > 0) {
       last_entry = entry;
-      last_visible = false;
+      last_step = TreeCursorStepHidden;
     }
   }
   if (last_entry.subtree) {
     array_push(&self->stack, last_entry);
-    return last_visible? TreeCursorStepVisible : TreeCursorStepHidden;
+    return last_step;
   }
 
   return TreeCursorStepNone;
