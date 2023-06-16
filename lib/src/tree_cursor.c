@@ -97,6 +97,16 @@ static inline bool ts_tree_cursor_child_iterator_next(
   return true;
 }
 
+static inline Length length_sub_zero(Length a, Length b) {
+  // length_sub doesn't account for 0 row subtraction, i.e. only columns
+  // should be subtracted, but changing point_sub breaks other tests
+  Length result = length_sub(a, b);
+  if (b.extent.row == 0) {
+    result.extent.column -= b.extent.column;
+  }
+  return result;
+}
+
 static inline bool ts_tree_cursor_child_iterator_previous(
   CursorChildIterator *self,
   TreeCursorEntry *result,
@@ -119,13 +129,14 @@ static inline bool ts_tree_cursor_child_iterator_previous(
     self->structural_child_index--;
   }
 
-  self->position = length_sub(self->position, ts_subtree_padding(*child));
+  self->position = length_sub_zero(self->position, ts_subtree_padding(*child));
   self->child_index--;
 
   // unsigned can underflow so compare it to child_count
   if (self->child_index < self->parent.ptr->child_count) {
     Subtree previous_child = ts_subtree_children(self->parent)[self->child_index];
-    self->position = length_sub(self->position, ts_subtree_size(previous_child));
+    Length size = ts_subtree_size(previous_child);
+    self->position = length_sub_zero(self->position, size);
   }
 
   return true;
