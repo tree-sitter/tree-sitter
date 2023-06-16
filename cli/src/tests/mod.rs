@@ -2,6 +2,7 @@ mod corpus_test;
 mod github_issue_test;
 mod helpers;
 mod highlight_test;
+mod language_test;
 mod node_test;
 mod parser_test;
 mod pathological_test;
