@@ -105,7 +105,7 @@
   "_ts_tree_cursor_end_index_wasm",
   "_ts_tree_cursor_end_position_wasm",
   "_ts_tree_cursor_goto_first_child_wasm",
-  "_ts_tree_cursor_goto_last_child",
+  "_ts_tree_cursor_goto_last_child_wasm",
   "_ts_tree_cursor_goto_next_sibling_wasm",
   "_ts_tree_cursor_goto_previous_sibling_wasm",
   "_ts_tree_cursor_goto_parent_wasm",
