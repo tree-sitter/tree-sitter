@@ -101,7 +101,7 @@ static inline Length length_sub_zero(Length a, Length b) {
   // length_sub doesn't account for 0 row subtraction, i.e. only columns
   // should be subtracted, but changing point_sub breaks other tests
   Length result = length_sub(a, b);
-  if (b.extent.row == 0) {
+  if (b.extent.row == 0 && a.extent.row != 0) {
     result.extent.column -= b.extent.column;
   }
   return result;
