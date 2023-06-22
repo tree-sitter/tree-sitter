@@ -239,6 +239,11 @@ fn run() -> Result<()> {
                         .long("html")
                         .short("H"),
                 )
+                .arg(
+                    Arg::with_name("check")
+                        .help("Check that highlighting captures conform strictly to standards")
+                        .long("check"),
+                )
                 .arg(&scope_arg)
                 .arg(&time_arg)
                 .arg(&quiet_arg)
@@ -543,6 +548,7 @@ fn run() -> Result<()> {
             let time = matches.is_present("time");
             let quiet = matches.is_present("quiet");
             let html_mode = quiet || matches.is_present("html");
+            let should_check = matches.is_present("check");
             let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
 
             if html_mode && !quiet {
@@ -573,6 +579,25 @@ fn run() -> Result<()> {
                 };
 
                 if let Some(highlight_config) = language_config.highlight_config(language)? {
+                    if should_check {
+                        let names = highlight_config.nonconformant_capture_names();
+                        if names.is_empty() {
+                            eprintln!("All highlight captures conform to standards.");
+                        } else {
+                            eprintln!(
+                                "Non-standard highlight {} detected:",
+                                if names.len() > 1 {
+                                    "captures"
+                                } else {
+                                    "capture"
+                                }
+                            );
+                            for name in names {
+                                eprintln!("* {}", name);
+                            }
+                        }
+                    }
+
                     let source = fs::read(path)?;
                     if html_mode {
                         highlight::html(
