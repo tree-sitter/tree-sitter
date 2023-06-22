@@ -47,7 +47,9 @@ lazy_static! {
         "variable",
         "variable.builtin",
         "variable.parameter",
-    ].into_iter().collect();
+    ]
+    .into_iter()
+    .collect();
 }
 
 /// Indicates which highlight should be applied to a region of source code.
@@ -359,7 +361,11 @@ impl HighlightConfiguration {
     }
 
     pub fn nonconformant_capture_names(&self) -> Vec<&String> {
-        return self.names().iter().filter(|&n| !STANDARD_CAPTURE_NAMES.contains(n.as_str())).collect()
+        return self
+            .names()
+            .iter()
+            .filter(|&n| !STANDARD_CAPTURE_NAMES.contains(n.as_str()))
+            .collect();
     }
 }
 

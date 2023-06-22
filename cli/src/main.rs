@@ -236,7 +236,7 @@ fn run() -> Result<()> {
                 .arg(
                     Arg::with_name("check")
                         .help("Check that highlighting captures conform strictly to standards")
-                        .long("check")
+                        .long("check"),
                 )
                 .arg(&scope_arg)
                 .arg(&time_arg)
@@ -565,7 +565,14 @@ fn run() -> Result<()> {
                         if names.is_empty() {
                             eprintln!("All highlight captures conform to standards.");
                         } else {
-                            eprintln!("Non-standard highlight {} detected:", if names.len() > 1 { "captures" } else { "capture"});
+                            eprintln!(
+                                "Non-standard highlight {} detected:",
+                                if names.len() > 1 {
+                                    "captures"
+                                } else {
+                                    "capture"
+                                }
+                            );
                             for name in names {
                                 eprintln!("* {}", name);
                             }
