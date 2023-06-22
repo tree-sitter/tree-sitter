@@ -1,6 +1,6 @@
 use super::util;
 use ansi_term::Color;
-use anyhow::{Result};
+use anyhow::Result;
 use lazy_static::lazy_static;
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};

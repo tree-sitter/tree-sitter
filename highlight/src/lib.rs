@@ -50,7 +50,6 @@ lazy_static! {
     ].into_iter().collect();
 }
 
-
 /// Indicates which highlight should be applied to a region of source code.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Highlight(pub usize);
