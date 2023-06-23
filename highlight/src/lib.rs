@@ -2,6 +2,8 @@ pub mod c_lib;
 pub mod util;
 pub use c_lib as c;
 
+use lazy_static::lazy_static;
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{iter, mem, ops, str, usize};
 use thiserror::Error;
@@ -13,6 +15,42 @@ use tree_sitter::{
 const CANCELLATION_CHECK_INTERVAL: usize = 100;
 const BUFFER_HTML_RESERVE_CAPACITY: usize = 10 * 1024;
 const BUFFER_LINES_RESERVE_CAPACITY: usize = 1000;
+
+lazy_static! {
+    static ref STANDARD_CAPTURE_NAMES: HashSet<&'static str> = vec![
+        "attribute",
+        "carriage-return",
+        "comment",
+        "constant",
+        "constant.builtin",
+        "constructor",
+        "constructor.builtin",
+        "embedded",
+        "escape",
+        "function",
+        "function.builtin",
+        "keyword",
+        "number",
+        "module",
+        "operator",
+        "property",
+        "property.builtin",
+        "punctuation",
+        "punctuation.bracket",
+        "punctuation.delimiter",
+        "punctuation.special",
+        "string",
+        "string.special",
+        "tag",
+        "type",
+        "type.builtin",
+        "variable",
+        "variable.builtin",
+        "variable.parameter",
+    ]
+    .into_iter()
+    .collect();
+}
 
 /// Indicates which highlight should be applied to a region of source code.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -320,6 +358,14 @@ impl HighlightConfiguration {
                 }
                 best_index.map(Highlight)
             }));
+    }
+
+    pub fn nonconformant_capture_names(&self) -> Vec<&String> {
+        return self
+            .names()
+            .iter()
+            .filter(|&n| !STANDARD_CAPTURE_NAMES.contains(n.as_str()))
+            .collect();
     }
 }
 
