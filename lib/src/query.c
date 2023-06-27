@@ -3435,6 +3435,48 @@ static inline bool ts_query_cursor__advance(
           self->depth,
           ts_node_type(ts_tree_cursor_current_node(&self->cursor))
         );
+
+        // After leaving a node, remove any states that cannot make further progress.
+        uint32_t deleted_count = 0;
+        for (unsigned i = 0, n = self->states.size; i < n; i++) {
+          QueryState *state = &self->states.contents[i];
+          QueryStep *step = &self->query->steps.contents[state->step_index];
+
+          // If a state completed its pattern inside of this node, but was deferred from finishing
+          // in order to search for longer matches, mark it as finished.
+          if (
+            step->depth == PATTERN_DONE_MARKER &&
+            (state->start_depth > self->depth || self->depth == 0)
+          ) {
+            LOG("  finish pattern %u\n", state->pattern_index);
+            array_push(&self->finished_states, *state);
+            did_match = true;
+            deleted_count++;
+          }
+
+          // If a state needed to match something within this node, then remove that state
+          // as it has failed to match.
+          else if (
+            step->depth != PATTERN_DONE_MARKER &&
+            (uint32_t)state->start_depth + (uint32_t)step->depth > self->depth
+          ) {
+            LOG(
+              "  failed to match. pattern:%u, step:%u\n",
+              state->pattern_index,
+              state->step_index
+            );
+            capture_list_pool_release(
+              &self->capture_list_pool,
+              state->capture_list_id
+            );
+            deleted_count++;
+          }
+
+          else if (deleted_count > 0) {
+            self->states.contents[i - deleted_count] = *state;
+          }
+        }
+        self->states.size -= deleted_count;
       }
 
       // Leave this node by stepping to its next sibling or to its parent.
@@ -3460,48 +3502,6 @@ static inline bool ts_query_cursor__advance(
             LOG("halt at root\n");
             self->halted = true;
           }
-      }
-
-      if (self->on_visible_node) {
-        // After leaving a node, remove any states that cannot make further progress.
-        uint32_t deleted_count = 0;
-        for (unsigned i = 0, n = self->states.size; i < n; i++) {
-          QueryState *state = &self->states.contents[i];
-          QueryStep *step = &self->query->steps.contents[state->step_index];
-
-          // If a state completed its pattern inside of this node, but was deferred from finishing
-          // in order to search for longer matches, mark it as finished.
-          if (step->depth == PATTERN_DONE_MARKER) {
-            if (state->start_depth > self->depth || self->halted) {
-              LOG("  finish pattern %u\n", state->pattern_index);
-              array_push(&self->finished_states, *state);
-              did_match = true;
-              deleted_count++;
-              continue;
-            }
-          }
-
-          // If a state needed to match something within this node, then remove that state
-          // as it has failed to match.
-          else if ((uint32_t)state->start_depth + (uint32_t)step->depth > self->depth) {
-            LOG(
-              "  failed to match. pattern:%u, step:%u\n",
-              state->pattern_index,
-              state->step_index
-            );
-            capture_list_pool_release(
-              &self->capture_list_pool,
-              state->capture_list_id
-            );
-            deleted_count++;
-            continue;
-          }
-
-          if (deleted_count > 0) {
-            self->states.contents[i - deleted_count] = *state;
-          }
-        }
-        self->states.size -= deleted_count;
       }
     }
 

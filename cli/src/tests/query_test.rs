@@ -854,6 +854,33 @@ fn test_query_matches_with_wildcard_at_the_root() {
 }
 
 #[test]
+fn test_query_matches_with_wildcard_within_wildcard() {
+    allocations::record(|| {
+        let language = get_language("javascript");
+        let query = Query::new(
+            language,
+            "
+            (_ (_) @child) @parent
+            ",
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            "/* a */ b; c;",
+            &[
+                (0, vec![("parent", "/* a */ b; c;"), ("child", "/* a */")]),
+                (0, vec![("parent", "/* a */ b; c;"), ("child", "b;")]),
+                (0, vec![("parent", "b;"), ("child", "b")]),
+                (0, vec![("parent", "/* a */ b; c;"), ("child", "c;")]),
+                (0, vec![("parent", "c;"), ("child", "c")]),
+            ],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_immediate_siblings() {
     allocations::record(|| {
         let language = get_language("python");
@@ -1166,11 +1193,20 @@ fn test_query_matches_with_non_terminal_repetitions_within_root() {
             language,
             &query,
             r#"
+            function f() {
+                d;
+                e;
+                f;
+                g;
+            }
             a;
             b;
             c;
             "#,
-            &[(0, vec![("id", "a"), ("id", "b"), ("id", "c")])],
+            &[
+                (0, vec![("id", "d"), ("id", "e"), ("id", "f"), ("id", "g")]),
+                (0, vec![("id", "a"), ("id", "b"), ("id", "c")]),
+            ],
         );
     });
 }
