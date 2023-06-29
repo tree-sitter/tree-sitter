@@ -4127,4 +4127,178 @@ void ts_query_cursor_set_max_start_depth(
   self->max_start_depth = max_start_depth;
 }
 
+/*******************
+ * (de)serialization
+ ******************/
+
+// The array macros defined for (de)serialization are not added to array.h
+// because they are specific to the serialization layout.
+
+// Size of the array, discarding any additional capacity.
+// Includes the array size which is added in front of the array during
+// serialization
+#define array_size(self)                                                       \
+  array__elem_size(self) * (self)->size + sizeof((self)->size)
+
+// Copies the size of the array first, followed by the elements of the array
+// Any additional capacity is discarded
+#define array_cpy(dest, self) \
+  do { \
+    uint32_t size = (self)->size; \
+    uint32_t content_size = array__elem_size(self) * size; \
+    memcpy((dest), (void *)(&size), sizeof(size)); \
+    (dest) += sizeof(size); \
+    memcpy((dest), (self)->contents, content_size); \
+    (dest) += content_size; \
+  } while (0)
+
+// Calculates the size in bytes a serialized ts_query would take up.
+// Used in ts_query_serialize to calculate the required size of the
+// buffer.
+size_t query_serialize__size(const TSQuery *self) {
+  size_t total_size = 0;
+
+  // A symbol table (struct) containing two arrays
+  total_size += array_size(&self->captures.characters) +
+                array_size(&self->captures.slices);
+
+  // A symbol table (struct) containing two arrays
+  total_size += array_size(&self->predicate_values.characters) +
+                array_size(&self->predicate_values.slices);
+
+  // A multidimensional array of uint8_t, so we cannot just call array_size
+  total_size += sizeof(self->capture_quantifiers.size);
+  for (unsigned i = 0; i < self->capture_quantifiers.size; i++) {
+    total_size += array_size(array_get(&self->capture_quantifiers, i));
+  }
+
+  total_size += array_size(&self->steps);
+  total_size += array_size(&self->pattern_map);
+  total_size += array_size(&self->predicate_steps);
+  total_size += array_size(&self->patterns);
+  total_size += array_size(&self->step_offsets);
+  total_size += array_size(&self->negated_fields);
+  total_size += array_size(&self->string_buffer);
+  total_size += array_size(&self->repeat_symbols_with_rootless_patterns);
+
+  // We skip language serialization, requiring that the user will provide the
+  // language again during deserialization. This is mostly done to reduce
+  // complexity.
+
+  total_size += sizeof(self->wildcard_root_pattern_count);
+
+  return total_size;
+}
+
+// Serializes the provided query. The size of the resulting buffer is returned
+// via the size_t* argument.
+const char *ts_query_serialize(const TSQuery *self, size_t *size) {
+
+  // Calculates the required buffer sie exactly.
+  size_t nr_bytes = query_serialize__size(self);
+
+  // Report buffer size back to caller
+  *size = nr_bytes;
+
+  // bytes points to the start of the allocated buffer and will be returned
+  char *bytes = ts_malloc(nr_bytes);
+
+  // head points to the current head of the writable section of the buffer, this
+  // pointer should be incremented when writing data to it.
+  char *head = bytes;
+
+  array_cpy(head, &self->captures.characters);
+  array_cpy(head, &self->captures.slices);
+
+  array_cpy(head, &self->predicate_values.characters);
+  array_cpy(head, &self->predicate_values.slices);
+
+  // Write the size of the array (of arrays) before serializing it
+  memcpy(head, (void *)&self->capture_quantifiers.size,
+         sizeof(self->capture_quantifiers.size));
+  head += sizeof(self->capture_quantifiers.size);
+
+  for (unsigned i = 0; i < self->capture_quantifiers.size; i++) {
+    array_cpy(head, array_get(&self->capture_quantifiers, i));
+  }
+
+  array_cpy(head, &self->steps);
+  array_cpy(head, &self->pattern_map);
+  array_cpy(head, &self->predicate_steps);
+  array_cpy(head, &self->patterns);
+  array_cpy(head, &self->step_offsets);
+  array_cpy(head, &self->negated_fields);
+  array_cpy(head, &self->string_buffer);
+  array_cpy(head, &self->repeat_symbols_with_rootless_patterns);
+
+  // Don't bother updating head, we return after this
+  memcpy(head, (void *)&self->wildcard_root_pattern_count,
+         sizeof(self->wildcard_root_pattern_count));
+
+  return bytes;
+}
+
+// Reads the size first, content after, sets the capacity to be the exact size
+#define array_read(self, src) \
+  do { \
+    memcpy(&((self)->size), (src), sizeof((self)->size)); \
+    (src) += sizeof((self)->size); \
+    size_t content_size = (self)->size * sizeof(*(self)->contents); \
+    (self)->contents = ts_malloc(content_size); \
+    if (!(self)->contents) { \
+      return NULL; \
+    } \
+    memcpy((void *)(self)->contents, (src), content_size); \
+    src += content_size; \
+    (self)->capacity = (self)->size; \
+  } while (0)
+
+TSQuery *ts_query_deserialize(const char *src, const size_t size,
+                              const TSLanguage *language) {
+  TSQuery *self = ts_malloc(sizeof(TSQuery));
+
+  // Return NULL to indicate failure
+  if (!self) {
+    return NULL;
+  }
+
+  array_read(&self->captures.characters, src);
+  array_read(&self->captures.slices, src);
+
+  array_read(&self->predicate_values.characters, src);
+  array_read(&self->predicate_values.slices, src);
+
+  // Allocate capture_quantifiers manually, and then fill the contents in a
+  // for-loop
+  memcpy(&(self->capture_quantifiers.size), src,
+         sizeof(self->capture_quantifiers.size));
+  src += sizeof(self->capture_quantifiers.size);
+  self->capture_quantifiers.capacity = self->capture_quantifiers.size;
+  self->capture_quantifiers.contents =
+      ts_malloc(self->capture_quantifiers.size * sizeof(Array(uint8_t)));
+  for (unsigned i = 0; i < self->capture_quantifiers.size; i++) {
+    array_read(array_get(&self->capture_quantifiers, i), src);
+  }
+
+  array_read(&self->steps, src);
+  array_read(&self->pattern_map, src);
+  array_read(&self->predicate_steps, src);
+  array_read(&self->patterns, src);
+  array_read(&self->step_offsets, src);
+  array_read(&self->negated_fields, src);
+  array_read(&self->string_buffer, src);
+  array_read(&self->repeat_symbols_with_rootless_patterns, src);
+
+  self->language = language;
+
+  // Dont bother updating src, we return after this anyway
+  memcpy(&(self->wildcard_root_pattern_count), src,
+         sizeof(self->wildcard_root_pattern_count));
+
+  return self;
+}
+
+#undef array_cpy
+#undef array_size
+
 #undef LOG

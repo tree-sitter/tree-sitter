@@ -665,6 +665,21 @@ extern "C" {
     pub fn ts_query_cursor_set_max_start_depth(self_: *mut TSQueryCursor, max_start_depth: u32);
 }
 extern "C" {
+    #[doc = " Serializes a Query to a bytestring."]
+    pub fn ts_query_serialize(
+        arg1: *const TSQuery,
+        arg2: *mut usize,
+    ) -> *const ::std::os::raw::c_char;
+}
+extern "C" {
+    #[doc = " Deserializes a bytestring to a TSQuery."]
+    pub fn ts_query_deserialize(
+        arg1: *const ::std::os::raw::c_char,
+        arg2: *const usize,
+        arg3: *const TSLanguage,
+    ) -> *mut TSQuery;
+}
+extern "C" {
     #[doc = " Get the number of distinct node types in the language."]
     pub fn ts_language_symbol_count(self_: *const TSLanguage) -> u32;
 }

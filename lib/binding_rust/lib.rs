@@ -224,6 +224,14 @@ pub struct LanguageError {
     version: usize,
 }
 
+/// An error that occured during (de)serialization
+#[derive(Debug, PartialEq, Eq)]
+pub enum SerializationError {
+    LanguageError(LanguageError),
+    AllocationError,
+    DeserializationError(QueryError),
+}
+
 /// An error that occurred in [`Parser::set_included_ranges`].
 #[derive(Debug, PartialEq, Eq)]
 pub struct IncludedRangesError(pub usize);
@@ -2085,6 +2093,47 @@ impl Query {
                     function_name,
                 ),
             ));
+        }
+    }
+
+    #[doc(alias = "ts_query_serialize")]
+    pub fn serialize(&self) -> Result<Vec<u8>, SerializationError> {
+        let mut size: usize = 0;
+        let ptr = unsafe { ffi::ts_query_serialize(self.ptr.as_ptr(), &mut size) };
+        if ptr.is_null() {
+            Err(SerializationError::AllocationError)
+        } else {
+            let slice = unsafe { slice::from_raw_parts(ptr as *const u8, size) };
+            let vec = slice.to_vec();
+            unsafe { (FREE_FN)(ptr as *mut c_void) };
+            Ok(vec)
+        }
+    }
+
+    #[doc(alias = "ts_query_deserialize")]
+    pub fn deserialize(
+        bytes: &Vec<u8>,
+        language: &Language,
+        source: &str,
+    ) -> Result<Self, SerializationError> {
+        let version = language.version();
+        if version < MIN_COMPATIBLE_LANGUAGE_VERSION || version > LANGUAGE_VERSION {
+            Err(SerializationError::LanguageError(LanguageError { version }))
+        } else {
+            let size: usize = bytes.len();
+            let ptr = unsafe {
+                ffi::ts_query_deserialize(
+                    bytes.as_slice().as_ptr() as *const i8,
+                    size as *const usize,
+                    language.0,
+                )
+            };
+            if ptr.is_null() {
+                Err(SerializationError::AllocationError)
+            } else {
+                unsafe { Query::from_raw_parts(ptr, source) }
+                    .map_err(SerializationError::DeserializationError)
+            }
         }
     }
 }
