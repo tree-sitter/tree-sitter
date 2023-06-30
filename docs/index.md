@@ -41,6 +41,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [C](https://github.com/tree-sitter/tree-sitter-c)
 * [C++](https://github.com/tree-sitter/tree-sitter-cpp)
 * [C#](https://github.com/tree-sitter/tree-sitter-c-sharp)
+* [CEL](https://github.com/bufbuild/tree-sitter-cel)
 * [Clojure](https://github.com/sogaiu/tree-sitter-clojure)
 * [CMake](https://github.com/uyha/tree-sitter-cmake)
 * [Comment](https://github.com/stsewd/tree-sitter-comment)
