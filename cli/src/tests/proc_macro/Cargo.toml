@@ -9,7 +9,7 @@ rust-version.workspace = true
 proc-macro = true
 
 [dependencies]
-proc-macro2 = "1"
+proc-macro2 = "1.0.63"
 quote = "1"
 rand = "0.8.5"
 syn = { version = "1", features = ["full"] }
