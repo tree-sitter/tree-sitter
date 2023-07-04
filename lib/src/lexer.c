@@ -209,9 +209,9 @@ static void ts_lexer__advance(TSLexer *_self, bool skip) {
   if (!self->chunk) return;
 
   if (skip) {
-    LOG("skip", self->data.lookahead);
+    LOG("skip", self->data.lookahead)
   } else {
-    LOG("consume", self->data.lookahead);
+    LOG("consume", self->data.lookahead)
   }
 
   ts_lexer__do_advance(self, skip);

@@ -316,7 +316,7 @@ inline StackSliceArray stack__iter(
   array_clear(&self->iterators);
 
   StackHead *head = array_get(&self->heads, version);
-  StackIterator iterator = {
+  StackIterator new_iterator = {
     .node = head->node,
     .subtrees = array_new(),
     .subtree_count = 0,
@@ -326,10 +326,10 @@ inline StackSliceArray stack__iter(
   bool include_subtrees = false;
   if (goal_subtree_count >= 0) {
     include_subtrees = true;
-    array_reserve(&iterator.subtrees, (uint32_t)ts_subtree_alloc_size(goal_subtree_count) / sizeof(Subtree));
+    array_reserve(&new_iterator.subtrees, (uint32_t)ts_subtree_alloc_size(goal_subtree_count) / sizeof(Subtree));
   }
 
-  array_push(&self->iterators, iterator);
+  array_push(&self->iterators, new_iterator);
 
   while (self->iterators.size > 0) {
     for (uint32_t i = 0, size = self->iterators.size; i < size; i++) {
@@ -505,7 +505,7 @@ inline StackAction pop_count_callback(void *payload, const StackIterator *iterat
 }
 
 StackSliceArray ts_stack_pop_count(Stack *self, StackVersion version, uint32_t count) {
-  return stack__iter(self, version, pop_count_callback, &count, count);
+  return stack__iter(self, version, pop_count_callback, &count, (int)count);
 }
 
 inline StackAction pop_pending_callback(void *payload, const StackIterator *iterator) {

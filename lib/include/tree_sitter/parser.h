@@ -166,7 +166,7 @@ struct TSLanguage {
  *  Parse Table Macros
  */
 
-#define SMALL_STATE(id) id - LARGE_STATE_COUNT
+#define SMALL_STATE(id) ((id) - LARGE_STATE_COUNT)
 
 #define STATE(id) id
 
@@ -176,7 +176,7 @@ struct TSLanguage {
   {{                                  \
     .shift = {                        \
       .type = TSParseActionTypeShift, \
-      .state = state_value            \
+      .state = (state_value)          \
     }                                 \
   }}
 
@@ -184,7 +184,7 @@ struct TSLanguage {
   {{                                  \
     .shift = {                        \
       .type = TSParseActionTypeShift, \
-      .state = state_value,           \
+      .state = (state_value),         \
       .repetition = true              \
     }                                 \
   }}

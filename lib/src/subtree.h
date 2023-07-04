@@ -175,7 +175,7 @@ typedef struct {
 
 void ts_external_scanner_state_init(ExternalScannerState *, const char *, unsigned);
 const char *ts_external_scanner_state_data(const ExternalScannerState *);
-bool ts_external_scanner_state_eq(const ExternalScannerState *a, const char *, unsigned);
+bool ts_external_scanner_state_eq(const ExternalScannerState *self, const char *, unsigned);
 void ts_external_scanner_state_delete(ExternalScannerState *self);
 
 void ts_subtree_array_copy(SubtreeArray, SubtreeArray *);
@@ -212,7 +212,7 @@ Subtree ts_subtree_last_external_token(Subtree);
 const ExternalScannerState *ts_subtree_external_scanner_state(Subtree self);
 bool ts_subtree_external_scanner_state_eq(Subtree, Subtree);
 
-#define SUBTREE_GET(self, name) (self.data.is_inline ? self.data.name : self.ptr->name)
+#define SUBTREE_GET(self, name) ((self).data.is_inline ? (self).data.name : (self).ptr->name)
 
 static inline TSSymbol ts_subtree_symbol(Subtree self) { return SUBTREE_GET(self, symbol); }
 static inline bool ts_subtree_visible(Subtree self) { return SUBTREE_GET(self, visible); }

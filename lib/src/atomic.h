@@ -46,11 +46,11 @@ static inline size_t atomic_load(const volatile size_t *p) {
 }
 
 static inline uint32_t atomic_inc(volatile uint32_t *p) {
-  return __sync_add_and_fetch(p, 1u);
+  return __sync_add_and_fetch(p, 1U);
 }
 
 static inline uint32_t atomic_dec(volatile uint32_t *p) {
-  return __sync_sub_and_fetch(p, 1u);
+  return __sync_sub_and_fetch(p, 1U);
 }
 
 #endif

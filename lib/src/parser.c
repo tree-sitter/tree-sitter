@@ -132,10 +132,10 @@ typedef struct {
 static const char *ts_string_input_read(
   void *_self,
   uint32_t byte,
-  TSPoint pt,
+  TSPoint point,
   uint32_t *length
 ) {
-  (void)pt;
+  (void)point;
   TSStringInput *self = (TSStringInput *)_self;
   if (byte >= self->length) {
     *length = 0;
@@ -159,9 +159,9 @@ static void ts_parser__log(TSParser *self) {
 
   if (self->dot_graph_file) {
     fprintf(self->dot_graph_file, "graph {\nlabel=\"");
-    for (char *c = &self->lexer.debug_buffer[0]; *c != 0; c++) {
-      if (*c == '"' || *c == '\\') fputc('\\', self->dot_graph_file);
-      fputc(*c, self->dot_graph_file);
+    for (char *chr = &self->lexer.debug_buffer[0]; *chr != 0; chr++) {
+      if (*chr == '"' || *chr == '\\') fputc('\\', self->dot_graph_file);
+      fputc(*chr, self->dot_graph_file);
     }
     fprintf(self->dot_graph_file, "\"\n}\n\n");
   }
@@ -871,19 +871,19 @@ static StackVersion ts_parser__reduce(
       if (next_slice.version != slice.version) break;
       i++;
 
-      SubtreeArray children = next_slice.subtrees;
-      ts_subtree_array_remove_trailing_extras(&children, &self->trailing_extras2);
+      SubtreeArray next_slice_children = next_slice.subtrees;
+      ts_subtree_array_remove_trailing_extras(&next_slice_children, &self->trailing_extras2);
 
       if (ts_parser__select_children(
         self,
         ts_subtree_from_mut(parent),
-        &children
+        &next_slice_children
       )) {
         ts_subtree_array_clear(&self->tree_pool, &self->trailing_extras);
         ts_subtree_release(&self->tree_pool, ts_subtree_from_mut(parent));
         array_swap(&self->trailing_extras, &self->trailing_extras2);
         parent = ts_subtree_new_node(
-          symbol, &children, production_id, self->language
+          symbol, &next_slice_children, production_id, self->language
         );
       } else {
         array_clear(&self->trailing_extras2);
@@ -994,8 +994,8 @@ static bool ts_parser__do_all_potential_reductions(
     if (version >= version_count) break;
 
     bool merged = false;
-    for (StackVersion i = initial_version_count; i < version; i++) {
-      if (ts_stack_merge(self->stack, i, version)) {
+    for (StackVersion j = initial_version_count; j < version; j++) {
+      if (ts_stack_merge(self->stack, j, version)) {
         merged = true;
         break;
       }
@@ -1018,8 +1018,8 @@ static bool ts_parser__do_all_potential_reductions(
     for (TSSymbol symbol = first_symbol; symbol < end_symbol; symbol++) {
       TableEntry entry;
       ts_language_table_entry(self->language, state, symbol, &entry);
-      for (uint32_t i = 0; i < entry.action_count; i++) {
-        TSParseAction action = entry.actions[i];
+      for (uint32_t j = 0; j < entry.action_count; j++) {
+        TSParseAction action = entry.actions[j];
         switch (action.type) {
           case TSParseActionTypeShift:
           case TSParseActionTypeRecover:
@@ -1041,8 +1041,8 @@ static bool ts_parser__do_all_potential_reductions(
     }
 
     StackVersion reduction_version = STACK_VERSION_NONE;
-    for (uint32_t i = 0; i < self->reduce_actions.size; i++) {
-      ReduceAction action = self->reduce_actions.contents[i];
+    for (uint32_t j = 0; j < self->reduce_actions.size; j++) {
+      ReduceAction action = self->reduce_actions.contents[j];
 
       reduction_version = ts_parser__reduce(
         self, version, action.symbol, action.count,

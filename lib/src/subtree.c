@@ -56,10 +56,10 @@ const char *ts_external_scanner_state_data(const ExternalScannerState *self) {
   }
 }
 
-bool ts_external_scanner_state_eq(const ExternalScannerState *a, const char *buffer, unsigned length) {
+bool ts_external_scanner_state_eq(const ExternalScannerState *self, const char *buffer, unsigned length) {
   return
-    a->length == length &&
-    memcmp(ts_external_scanner_state_data(a), buffer, length) == 0;
+    self->length == length &&
+    memcmp(ts_external_scanner_state_data(self), buffer, length) == 0;
 }
 
 // SubtreeArray
@@ -643,7 +643,7 @@ static inline void ts_subtree_set_has_changes(MutableSubtree *self) {
   }
 }
 
-Subtree ts_subtree_edit(Subtree self, const TSInputEdit *edit, SubtreePool *pool) {
+Subtree ts_subtree_edit(Subtree self, const TSInputEdit *input_edit, SubtreePool *pool) {
   typedef struct {
     Subtree *tree;
     Edit edit;
@@ -653,9 +653,9 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *edit, SubtreePool *pool
   array_push(&stack, ((StackEntry) {
     .tree = &self,
     .edit = (Edit) {
-      .start = {edit->start_byte, edit->start_point},
-      .old_end = {edit->old_end_byte, edit->old_end_point},
-      .new_end = {edit->new_end_byte, edit->new_end_point},
+      .start = {input_edit->start_byte, input_edit->start_point},
+      .old_end = {input_edit->old_end_byte, input_edit->old_end_point},
+      .new_end = {input_edit->new_end_byte, input_edit->new_end_point},
     },
   }));
 
@@ -813,24 +813,24 @@ Subtree ts_subtree_last_external_token(Subtree tree) {
   return tree;
 }
 
-static size_t ts_subtree__write_char_to_string(char *s, size_t n, int32_t c) {
-  if (c == -1)
-    return snprintf(s, n, "INVALID");
-  else if (c == '\0')
-    return snprintf(s, n, "'\\0'");
-  else if (c == '\n')
-    return snprintf(s, n, "'\\n'");
-  else if (c == '\t')
-    return snprintf(s, n, "'\\t'");
-  else if (c == '\r')
-    return snprintf(s, n, "'\\r'");
-  else if (0 < c && c < 128 && isprint(c))
-    return snprintf(s, n, "'%c'", c);
+static size_t ts_subtree__write_char_to_string(char *str, size_t n, int32_t chr) {
+  if (chr == -1)
+    return snprintf(str, n, "INVALID");
+  else if (chr == '\0')
+    return snprintf(str, n, "'\\0'");
+  else if (chr == '\n')
+    return snprintf(str, n, "'\\n'");
+  else if (chr == '\t')
+    return snprintf(str, n, "'\\t'");
+  else if (chr == '\r')
+    return snprintf(str, n, "'\\r'");
+  else if (0 < chr && chr < 128 && isprint(chr))
+    return snprintf(str, n, "'%c'", chr);
   else
-    return snprintf(s, n, "%d", c);
+    return snprintf(str, n, "%d", chr);
 }
 
-static const char *ROOT_FIELD = "__ROOT__";
+static const char *const ROOT_FIELD = "__ROOT__";
 
 static size_t ts_subtree__write_to_string(
   Subtree self, char *string, size_t limit,
@@ -902,17 +902,17 @@ static size_t ts_subtree__write_to_string(
           0, false, NULL
         );
       } else {
-        TSSymbol alias_symbol = alias_sequence
+        TSSymbol subtree_alias_symbol = alias_sequence
           ? alias_sequence[structural_child_index]
           : 0;
-        bool alias_is_named = alias_symbol
-          ? ts_language_symbol_metadata(language, alias_symbol).named
+        bool subtree_alias_is_named = subtree_alias_symbol
+          ? ts_language_symbol_metadata(language, subtree_alias_symbol).named
           : false;
 
         const char *child_field_name = is_visible ? NULL : field_name;
-        for (const TSFieldMapEntry *i = field_map; i < field_map_end; i++) {
-          if (!i->inherited && i->child_index == structural_child_index) {
-            child_field_name = language->field_names[i->field_id];
+        for (const TSFieldMapEntry *map = field_map; map < field_map_end; map++) {
+          if (!map->inherited && map->child_index == structural_child_index) {
+            child_field_name = language->field_names[map->field_id];
             break;
           }
         }
@@ -920,7 +920,7 @@ static size_t ts_subtree__write_to_string(
         cursor += ts_subtree__write_to_string(
           child, *writer, limit,
           language, include_all,
-          alias_symbol, alias_is_named, child_field_name
+          subtree_alias_symbol, subtree_alias_is_named, child_field_name
         );
         structural_child_index++;
       }
@@ -996,12 +996,12 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
     ts_subtree_production_id(*self);
   for (uint32_t i = 0, n = ts_subtree_child_count(*self); i < n; i++) {
     const Subtree *child = &ts_subtree_children(*self)[i];
-    TSSymbol alias_symbol = 0;
+    TSSymbol subtree_alias_symbol = 0;
     if (!ts_subtree_extra(*child) && child_info_offset) {
-      alias_symbol = language->alias_sequences[child_info_offset];
+      subtree_alias_symbol = language->alias_sequences[child_info_offset];
       child_info_offset++;
     }
-    ts_subtree__print_dot_graph(child, child_start_offset, language, alias_symbol, f);
+    ts_subtree__print_dot_graph(child, child_start_offset, language, subtree_alias_symbol, f);
     fprintf(f, "tree_%p -> tree_%p [tooltip=%u]\n", (void *)self, (void *)child, i);
     child_start_offset += ts_subtree_total_bytes(*child);
   }
@@ -1028,12 +1028,12 @@ const ExternalScannerState *ts_subtree_external_scanner_state(Subtree self) {
   }
 }
 
-bool ts_subtree_external_scanner_state_eq(Subtree a, Subtree b) {
-  const ExternalScannerState *state_a = ts_subtree_external_scanner_state(a);
-  const ExternalScannerState *state_b = ts_subtree_external_scanner_state(b);
+bool ts_subtree_external_scanner_state_eq(Subtree self, Subtree other) {
+  const ExternalScannerState *state_self = ts_subtree_external_scanner_state(self);
+  const ExternalScannerState *state_other = ts_subtree_external_scanner_state(other);
   return ts_external_scanner_state_eq(
-    state_a,
-    ts_external_scanner_state_data(state_b),
-    state_b->length
+    state_self,
+    ts_external_scanner_state_data(state_other),
+    state_other->length
   );
 }

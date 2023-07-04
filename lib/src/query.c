@@ -1687,10 +1687,10 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     array_search_sorted_by(&subgraphs, .symbol, parent_symbol, &subgraph_index, &exists);
     if (!exists) {
       unsigned first_child_step_index = parent_step_index + 1;
-      uint32_t i, exists;
-      array_search_sorted_by(&self->step_offsets, .step_index, first_child_step_index, &i, &exists);
-      assert(exists);
-      *error_offset = self->step_offsets.contents[i].byte_offset;
+      uint32_t j, child_exists;
+      array_search_sorted_by(&self->step_offsets, .step_index, first_child_step_index, &j, &child_exists);
+      assert(child_exists);
+      *error_offset = self->step_offsets.contents[j].byte_offset;
       all_patterns_are_valid = false;
       break;
     }
@@ -1750,10 +1750,10 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     if (analysis.finished_parent_symbols.size == 0) {
       assert(analysis.final_step_indices.size > 0);
       uint16_t impossible_step_index = *array_back(&analysis.final_step_indices);
-      uint32_t i, exists;
-      array_search_sorted_by(&self->step_offsets, .step_index, impossible_step_index, &i, &exists);
-      if (i >= self->step_offsets.size) i = self->step_offsets.size - 1;
-      *error_offset = self->step_offsets.contents[i].byte_offset;
+      uint32_t j, impossible_exists;
+      array_search_sorted_by(&self->step_offsets, .step_index, impossible_step_index, &j, &impossible_exists);
+      if (j >= self->step_offsets.size) j = self->step_offsets.size - 1;
+      *error_offset = self->step_offsets.contents[j].byte_offset;
       all_patterns_are_valid = false;
       break;
     }
@@ -2103,13 +2103,13 @@ static TSQueryError ts_query__parse_predicate(
       if (!stream_is_ident_start(stream)) return TSQueryErrorSyntax;
       const char *capture_name = stream->input;
       stream_scan_identifier(stream);
-      uint32_t length = (uint32_t)(stream->input - capture_name);
+      uint32_t capture_length = (uint32_t)(stream->input - capture_name);
 
       // Add the capture id to the first step of the pattern
       int capture_id = symbol_table_id_for_name(
         &self->captures,
         capture_name,
-        length
+        capture_length
       );
       if (capture_id == -1) {
         stream_reset(stream, capture_name);
@@ -2126,14 +2126,14 @@ static TSQueryError ts_query__parse_predicate(
     else if (stream->next == '"') {
       TSQueryError e = ts_query__parse_string_literal(self, stream);
       if (e) return e;
-      uint16_t id = symbol_table_insert_name(
+      uint16_t query_id = symbol_table_insert_name(
         &self->predicate_values,
         self->string_buffer.contents,
         self->string_buffer.size
       );
       array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
         .type = TSQueryPredicateStepTypeString,
-        .value_id = id,
+        .value_id = query_id,
       }));
     }
 
@@ -2141,15 +2141,15 @@ static TSQueryError ts_query__parse_predicate(
     else if (stream_is_ident_start(stream)) {
       const char *symbol_start = stream->input;
       stream_scan_identifier(stream);
-      uint32_t length = (uint32_t)(stream->input - symbol_start);
-      uint16_t id = symbol_table_insert_name(
+      uint32_t symbol_length = (uint32_t)(stream->input - symbol_start);
+      uint16_t query_id = symbol_table_insert_name(
         &self->predicate_values,
         symbol_start,
-        length
+        symbol_length
       );
       array_push(&self->predicate_steps, ((TSQueryPredicateStep) {
         .type = TSQueryPredicateStepTypeString,
-        .value_id = id,
+        .value_id = query_id,
       }));
     }
 
@@ -2762,9 +2762,9 @@ TSQuery *ts_query_new(
       uint32_t start_depth = step->depth;
       bool is_rooted = start_depth == 0;
       for (uint32_t step_index = start_step_index + 1; step_index < self->steps.size; step_index++) {
-        QueryStep *step = &self->steps.contents[step_index];
-        if (step->is_dead_end) break;
-        if (step->depth == start_depth) {
+        QueryStep *child_step = &self->steps.contents[step_index];
+        if (child_step->is_dead_end) break;
+        if (child_step->depth == start_depth) {
           is_rooted = false;
           break;
         }
@@ -3642,8 +3642,8 @@ static inline bool ts_query_cursor__advance(
         }
 
         // Update all of the in-progress states with current node.
-        for (unsigned i = 0, copy_count = 0; i < self->states.size; i += 1 + copy_count) {
-          QueryState *state = &self->states.contents[i];
+        for (unsigned j = 0, copy_count = 0; j < self->states.size; j += 1 + copy_count) {
+          QueryState *state = &self->states.contents[j];
           QueryStep *step = &self->query->steps.contents[state->step_index];
           state->has_in_progress_alternatives = false;
           copy_count = 0;
@@ -3670,8 +3670,8 @@ static inline bool ts_query_cursor__advance(
           }
           if (step->supertype_symbol) {
             bool has_supertype = false;
-            for (unsigned j = 0; j < supertype_count; j++) {
-              if (supertypes[j] == step->supertype_symbol) {
+            for (unsigned k = 0; k < supertype_count; k++) {
+              if (supertypes[k] == step->supertype_symbol) {
                 has_supertype = true;
                 break;
               }
@@ -3716,8 +3716,8 @@ static inline bool ts_query_cursor__advance(
                 &self->capture_list_pool,
                 state->capture_list_id
               );
-              array_erase(&self->states, i);
-              i--;
+              array_erase(&self->states, j);
+              j--;
             }
             continue;
           }
@@ -3777,8 +3777,8 @@ static inline bool ts_query_cursor__advance(
           }
 
           if (state->dead) {
-            array_erase(&self->states, i);
-            i--;
+            array_erase(&self->states, j);
+            j--;
             continue;
           }
 
@@ -3797,29 +3797,29 @@ static inline bool ts_query_cursor__advance(
           // If this state's next step has an alternative step, then copy the state in order
           // to pursue both alternatives. The alternative step itself may have an alternative,
           // so this is an interactive process.
-          unsigned end_index = i + 1;
-          for (unsigned j = i; j < end_index; j++) {
-            QueryState *state = &self->states.contents[j];
-            QueryStep *next_step = &self->query->steps.contents[state->step_index];
-            if (next_step->alternative_index != NONE) {
+          unsigned end_index = j + 1;
+          for (unsigned k = j; k < end_index; k++) {
+            QueryState *child_state = &self->states.contents[k];
+            QueryStep *child_step = &self->query->steps.contents[child_state->step_index];
+            if (child_step->alternative_index != NONE) {
               // A "dead-end" step exists only to add a non-sequential jump into the step sequence,
               // via its alternative index. When a state reaches a dead-end step, it jumps straight
               // to the step's alternative.
-              if (next_step->is_dead_end) {
-                state->step_index = next_step->alternative_index;
-                j--;
+              if (child_step->is_dead_end) {
+                child_state->step_index = child_step->alternative_index;
+                k--;
                 continue;
               }
 
               // A "pass-through" step exists only to add a branch into the step sequence,
               // via its alternative_index. When a state reaches a pass-through step, it splits
               // in order to process the alternative step, and then it advances to the next step.
-              if (next_step->is_pass_through) {
-                state->step_index++;
-                j--;
+              if (child_step->is_pass_through) {
+                child_state->step_index++;
+                k--;
               }
 
-              QueryState *copy = ts_query_cursor__copy_state(self, &state);
+              QueryState *copy = ts_query_cursor__copy_state(self, &child_state);
               if (copy) {
                 LOG(
                   "  split state for branch. pattern:%u, from_step:%u, to_step:%u, immediate:%d, capture_count: %u\n",
@@ -3831,8 +3831,8 @@ static inline bool ts_query_cursor__advance(
                 );
                 end_index++;
                 copy_count++;
-                copy->step_index = next_step->alternative_index;
-                if (next_step->alternative_is_immediate) {
+                copy->step_index = child_step->alternative_index;
+                if (child_step->alternative_is_immediate) {
                   copy->seeking_immediate_match = true;
                 }
               }
@@ -3840,11 +3840,11 @@ static inline bool ts_query_cursor__advance(
           }
         }
 
-        for (unsigned i = 0; i < self->states.size; i++) {
-          QueryState *state = &self->states.contents[i];
+        for (unsigned j = 0; j < self->states.size; j++) {
+          QueryState *state = &self->states.contents[j];
           if (state->dead) {
-            array_erase(&self->states, i);
-            i--;
+            array_erase(&self->states, j);
+            j--;
             continue;
           }
 
@@ -3852,8 +3852,8 @@ static inline bool ts_query_cursor__advance(
           // repeated nodes, this is necessary to avoid multiple redundant states, where
           // one state has a strict subset of another state's captures.
           bool did_remove = false;
-          for (unsigned j = i + 1; j < self->states.size; j++) {
-            QueryState *other_state = &self->states.contents[j];
+          for (unsigned k = j + 1; k < self->states.size; k++) {
+            QueryState *other_state = &self->states.contents[k];
 
             // Query states are kept in ascending order of start_depth and pattern_index.
             // Since the longest-match criteria is only used for deduping matches of the same
@@ -3880,8 +3880,8 @@ static inline bool ts_query_cursor__advance(
                   state->step_index
                 );
                 capture_list_pool_release(&self->capture_list_pool, other_state->capture_list_id);
-                array_erase(&self->states, j);
-                j--;
+                array_erase(&self->states, k);
+                k--;
                 continue;
               }
               other_state->has_in_progress_alternatives = true;
@@ -3894,8 +3894,8 @@ static inline bool ts_query_cursor__advance(
                   state->step_index
                 );
                 capture_list_pool_release(&self->capture_list_pool, state->capture_list_id);
-                array_erase(&self->states, i);
-                i--;
+                array_erase(&self->states, j);
+                j--;
                 did_remove = true;
                 break;
               }
@@ -3922,7 +3922,7 @@ static inline bool ts_query_cursor__advance(
                 array_push(&self->finished_states, *state);
                 array_erase(&self->states, (uint32_t)(state - self->states.contents));
                 did_match = true;
-                i--;
+                j--;
               }
             }
           }

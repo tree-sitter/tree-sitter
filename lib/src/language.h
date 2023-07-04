@@ -83,7 +83,7 @@ static inline uint16_t ts_language_lookup(
     for (unsigned i = 0; i < group_count; i++) {
       uint16_t section_value = *(data++);
       uint16_t symbol_count = *(data++);
-      for (unsigned i = 0; i < symbol_count; i++) {
+      for (unsigned j = 0; j < symbol_count; j++) {
         if (*(data++) == symbol) return section_value;
       }
     }
@@ -269,17 +269,17 @@ static inline void ts_language_aliases_for_symbol(
   *start = &self->public_symbol_map[original_symbol];
   *end = *start + 1;
 
-  unsigned i = 0;
+  unsigned idx = 0;
   for (;;) {
-    TSSymbol symbol = self->alias_map[i++];
+    TSSymbol symbol = self->alias_map[idx++];
     if (symbol == 0 || symbol > original_symbol) break;
-    uint16_t count = self->alias_map[i++];
+    uint16_t count = self->alias_map[idx++];
     if (symbol == original_symbol) {
-      *start = &self->alias_map[i];
-      *end = &self->alias_map[i + count];
+      *start = &self->alias_map[idx];
+      *end = &self->alias_map[idx + count];
       break;
     }
-    i += count;
+    idx += count;
   }
 }
 
@@ -289,21 +289,21 @@ static inline void ts_language_write_symbol_as_dot_string(
   TSSymbol symbol
 ) {
   const char *name = ts_language_symbol_name(self, symbol);
-  for (const char *c = name; *c; c++) {
-    switch (*c) {
+  for (const char *chr = name; *chr; chr++) {
+    switch (*chr) {
       case '"':
       case '\\':
         fputc('\\', f);
-        fputc(*c, f);
+        fputc(*chr, f);
         break;
       case '\n':
         fputs("\\n", f);
         break;
       case '\t':
-        fputs("\\n", f);
+        fputs("\\t", f);
         break;
       default:
-        fputc(*c, f);
+        fputc(*chr, f);
         break;
     }
   }
