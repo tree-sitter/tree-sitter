@@ -28,6 +28,8 @@
   "_memmove",
   "_memset",
   "_strlen",
+  "_strcmp",
+  "_strncpy",
   "_towupper",
 
   "_ts_init",
