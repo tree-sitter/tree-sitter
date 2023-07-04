@@ -3,8 +3,8 @@ use clap::{App, AppSettings, Arg, SubCommand};
 use glob::glob;
 use std::path::{Path, PathBuf};
 use std::{env, fs, u64};
-use tree_sitter::Point;
-use tree_sitter_cli::parse::ParseOutput;
+use tree_sitter::{ffi, Point};
+use tree_sitter_cli::parse::{ParseFileOptions, ParseOutput};
 use tree_sitter_cli::{
     generate, highlight, logger, parse, playground, query, tags, test, test_highlight, test_tags,
     util, wasm,
@@ -162,6 +162,12 @@ fn run() -> Result<()> {
                         .takes_value(true)
                         .multiple(true)
                         .number_of_values(1),
+                )
+                .arg(
+                    Arg::with_name("encoding")
+                        .help("The encoding of the input files")
+                        .long("encoding")
+                        .takes_value(true),
                 ),
         )
         .subcommand(
@@ -399,6 +405,16 @@ fn run() -> Result<()> {
                 ParseOutput::Normal
             };
 
+            let encoding =
+                matches
+                    .values_of("encoding")
+                    .map_or(Ok(None), |mut e| match e.next() {
+                        Some("utf16") => Ok(Some(ffi::TSInputEncoding_TSInputEncodingUTF16)),
+                        Some("utf8") => Ok(Some(ffi::TSInputEncoding_TSInputEncodingUTF8)),
+                        Some(_) => Err(anyhow!("Invalid encoding. Expected one of: utf8, utf16")),
+                        None => Ok(None),
+                    })?;
+
             let time = matches.is_present("time");
             let edits = matches
                 .values_of("edits")
@@ -431,18 +447,21 @@ fn run() -> Result<()> {
                 let language =
                     loader.select_language(path, &current_dir, matches.value_of("scope"))?;
 
-                let this_file_errored = parse::parse_file_at_path(
+                let opts = ParseFileOptions {
                     language,
                     path,
-                    &edits,
+                    edits: &edits,
                     max_path_length,
                     output,
-                    time,
+                    print_time: time,
                     timeout,
                     debug,
                     debug_graph,
-                    Some(&cancellation_flag),
-                )?;
+                    cancellation_flag: Some(&cancellation_flag),
+                    encoding,
+                };
+
+                let this_file_errored = parse::parse_file_at_path(opts)?;
 
                 if should_track_stats {
                     stats.total_parses += 1;
