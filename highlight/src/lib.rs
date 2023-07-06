@@ -389,7 +389,7 @@ impl HighlightConfiguration {
         return self
             .names()
             .iter()
-            .filter(|&n| !STANDARD_CAPTURE_NAMES.contains(n.as_str()))
+            .filter(|&n| !(n.starts_with('_') || STANDARD_CAPTURE_NAMES.contains(n.as_str())))
             .collect();
     }
 }
