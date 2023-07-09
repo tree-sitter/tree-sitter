@@ -6,7 +6,8 @@ top-level errors
 
 ---
 
-(ERROR)
+(document
+  (ERROR))
 
 ==========================================
 unexpected tokens
@@ -16,7 +17,9 @@ barf
 
 ---
 
-(ERROR (UNEXPECTED 'b'))
+(document
+  (ERROR
+    (UNEXPECTED 'b')))
 
 ==========================================
 errors inside arrays
@@ -26,10 +29,11 @@ errors inside arrays
 
 ---
 
-(document (array
-  (number)
-  (ERROR)
-  (number)))
+(document
+  (array
+    (number)
+    (ERROR)
+    (number)))
 
 ==========================================
 errors inside objects
@@ -39,9 +43,14 @@ errors inside objects
 
 ---
 
-(document (object
-  (pair (string (string_content)) (number))
-  (ERROR (UNEXPECTED 'o'))))
+(document
+  (object
+    (pair
+      (string
+        (string_content))
+      (number))
+    (ERROR
+      (UNEXPECTED 'o'))))
 
 ==========================================
 errors inside nested objects
@@ -51,12 +60,23 @@ errors inside nested objects
 
 ---
 
-(document (object
-  (pair (string (string_content)) (object
-    (pair (string (string_content)) (number))
-    (ERROR (number))))
-  (pair (string (string_content)) (number))
-  (ERROR)))
+(document
+  (object
+    (pair
+      (string
+        (string_content))
+      (object
+        (pair
+          (string
+            (string_content))
+          (number))
+        (ERROR
+          (number))))
+    (pair
+      (string
+        (string_content))
+      (number))
+    (ERROR)))
 
 ===============================
 incomplete tokens at EOF
@@ -65,4 +85,6 @@ incomplete tokens at EOF
 nul
 ---
 
-(ERROR (UNEXPECTED '\0'))
+(document
+  (ERROR
+    (UNEXPECTED '\0')))

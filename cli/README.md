@@ -1,9 +1,11 @@
-Tree-sitter CLI
-===============
+# Tree-sitter CLI
 
-[![Build Status](https://travis-ci.org/tree-sitter/tree-sitter.svg?branch=master)](https://travis-ci.org/tree-sitter/tree-sitter)
-[![Build status](https://ci.appveyor.com/api/projects/status/vtmbd6i92e97l55w/branch/master?svg=true)](https://ci.appveyor.com/project/maxbrunsfeld/tree-sitter/branch/master)
-[![Crates.io](https://img.shields.io/crates/v/tree-sitter-cli.svg)](https://crates.io/crates/tree-sitter-cli)
+[![crates.io badge]][crates.io] [![npmjs.com badge]][npmjs.com]
+
+[crates.io]: https://crates.io/crates/tree-sitter-cli
+[crates.io badge]: https://img.shields.io/crates/v/tree-sitter-cli.svg?color=%23B48723
+[npmjs.com]: https://www.npmjs.org/package/tree-sitter-cli
+[npmjs.com badge]: https://img.shields.io/npm/v/tree-sitter-cli.svg?color=%23BF4A4A
 
 The Tree-sitter CLI allows you to develop, test, and use Tree-sitter grammars from the command line. It works on MacOS, Linux, and Windows.
 
@@ -21,7 +23,7 @@ or with `npm`:
 npm install tree-sitter-cli
 ```
 
-You can also download a pre-built binary for your platform from [the releases page](https://github.com/tree-sitter/tree-sitter/releases/latest).
+You can also download a pre-built binary for your platform from [the releases page].
 
 ### Dependencies
 
@@ -32,8 +34,11 @@ The `tree-sitter` binary itself has no dependencies, but specific commands have 
 
 ### Commands
 
-* `generate` - The `tree-sitter generate` command will generate a Tree-sitter parser based on the grammar in the current working directory. See [the documentation](http://tree-sitter.github.io/tree-sitter/creating-parsers) for more information.
+* `generate` - The `tree-sitter generate` command will generate a Tree-sitter parser based on the grammar in the current working directory. See [the documentation] for more information.
 
-* `test` - The `tree-sitter test` command will run the unit tests for the Tree-sitter parser in the current working directory. See [the documentation](http://tree-sitter.github.io/tree-sitter/creating-parsers) for more information.
+* `test` - The `tree-sitter test` command will run the unit tests for the Tree-sitter parser in the current working directory. See [the documentation] for more information.
 
 * `parse` - The `tree-sitter parse` command will parse a file (or list of files) using Tree-sitter parsers.
+
+[the documentation]: https://tree-sitter.github.io/tree-sitter/creating-parsers
+[the releases page]: https://github.com/tree-sitter/tree-sitter/releases/latest

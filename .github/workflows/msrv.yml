@@ -1,0 +1,42 @@
+name: Minimum supported rust version
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+on:
+  workflow_call:
+    inputs:
+      package:
+        description: Target cargo package name
+        required: true
+        type: string
+
+
+jobs:
+  run:
+    name: Run checks
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Checkout source code
+      uses: actions/checkout@v3
+
+    - name: Get the MSRV from the package metadata
+      id: msrv
+      run: cargo metadata --no-deps --format-version 1 | jq -r '"version=" + (.packages[] | select(.name == "${{ inputs.package }}").rust_version)' >> $GITHUB_OUTPUT
+
+    - name: Install rust toolchain (v${{ steps.msrv.outputs.version }})
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ steps.msrv.outputs.version }}
+        components: clippy, rustfmt
+
+    - name: Run cargo fmt
+      run: cargo fmt -- --check
+
+    # - name: Run clippy (on minimum supported rust version to prevent warnings we can't fix)
+    #   run: cargo clippy --all-targets
+
+    # - name: Run main tests
+    #   run: cargo test

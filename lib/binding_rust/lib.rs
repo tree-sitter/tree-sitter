@@ -1,4 +1,4 @@
-mod ffi;
+pub mod ffi;
 mod util;
 
 #[cfg(unix)]
@@ -1401,7 +1401,7 @@ impl Query {
                     let suffix = source.split_at(offset).1;
                     let end_offset = suffix
                         .find(|c| !char::is_alphanumeric(c) && c != '_' && c != '-')
-                        .unwrap_or(source.len());
+                        .unwrap_or(suffix.len());
                     message = suffix.split_at(end_offset).0.to_string();
                     kind = match error_type {
                         ffi::TSQueryError_TSQueryErrorNodeType => QueryErrorKind::NodeType,
@@ -1434,6 +1434,11 @@ impl Query {
             });
         }
 
+        unsafe { Query::from_raw_parts(ptr, source) }
+    }
+
+    #[doc(hidden)]
+    unsafe fn from_raw_parts(ptr: *mut ffi::TSQuery, source: &str) -> Result<Query, QueryError> {
         let string_count = unsafe { ffi::ts_query_string_count(ptr) };
         let capture_count = unsafe { ffi::ts_query_capture_count(ptr) };
         let pattern_count = unsafe { ffi::ts_query_pattern_count(ptr) as usize };
@@ -1644,6 +1649,7 @@ impl Query {
                 .general_predicates
                 .push(general_predicates.into_boxed_slice());
         }
+
         Ok(result)
     }
 
@@ -1923,6 +1929,14 @@ impl QueryCursor {
                 range.start.into(),
                 range.end.into(),
             );
+        }
+        self
+    }
+
+    #[doc(alias = "ts_query_cursor_set_max_start_depth")]
+    pub fn set_max_start_depth(&mut self, max_start_depth: u32) -> &mut Self {
+        unsafe {
+            ffi::ts_query_cursor_set_max_start_depth(self.ptr.as_ptr(), max_start_depth);
         }
         self
     }

@@ -1,8 +1,9 @@
 # Rust Tree-sitter
 
-[![Build Status](https://travis-ci.org/tree-sitter/tree-sitter.svg?branch=master)](https://travis-ci.org/tree-sitter/tree-sitter)
-[![Build status](https://ci.appveyor.com/api/projects/status/vtmbd6i92e97l55w/branch/master?svg=true)](https://ci.appveyor.com/project/maxbrunsfeld/tree-sitter/branch/master)
-[![Crates.io](https://img.shields.io/crates/v/tree-sitter.svg)](https://crates.io/crates/tree-sitter)
+[![crates.io badge]][crates.io]
+
+[crates.io]: https://crates.io/crates/tree-sitter
+[crates.io badge]: https://img.shields.io/crates/v/tree-sitter.svg?color=%23B48723
 
 Rust bindings to the [Tree-sitter][] parsing library.
 

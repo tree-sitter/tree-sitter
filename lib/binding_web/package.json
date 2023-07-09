@@ -1,6 +1,6 @@
 {
   "name": "web-tree-sitter",
-  "version": "0.20.7",
+  "version": "0.20.8",
   "description": "Tree-sitter bindings for the web",
   "main": "tree-sitter.js",
   "types": "tree-sitter-web.d.ts",
@@ -27,8 +27,8 @@
   },
   "homepage": "https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web",
   "devDependencies": {
-    "chai": "^4.2.0",
-    "mocha": "^6.1.4",
-    "terser": "^3.17.0"
+    "chai": "^4.3.7",
+    "mocha": "^10.2.0",
+    "terser": "^5.16.6"
   }
 }

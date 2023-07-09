@@ -1,0 +1,15 @@
+[package]
+name = "tree-sitter-tests-proc-macro"
+version = "0.0.0"
+edition = "2021"
+publish = false
+rust-version.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+rand = "0.8.5"
+syn = { version = "1", features = ["full"] }

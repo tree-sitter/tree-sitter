@@ -1,13 +1,15 @@
-Web Tree-sitter
-===============
+# Web Tree-sitter
 
-[![Build Status](https://travis-ci.org/tree-sitter/tree-sitter.svg?branch=master)](https://travis-ci.org/tree-sitter/tree-sitter)
+[![npmjs.com badge]][npmjs.com]
+
+[npmjs.com]: https://www.npmjs.org/package/web-tree-sitter
+[npmjs.com badge]: https://img.shields.io/npm/v/web-tree-sitter.svg?color=%23BF4A4A
 
 WebAssembly bindings to the [Tree-sitter](https://github.com/tree-sitter/tree-sitter) parsing library.
 
 ### Setup
 
-You can download the the `tree-sitter.js` and `tree-sitter.wasm` files from [the latest GitHub release](https://github.com/tree-sitter/tree-sitter/releases/latest) and load them using a standalone script:
+You can download the `tree-sitter.js` and `tree-sitter.wasm` files from [the latest GitHub release](https://github.com/tree-sitter/tree-sitter/releases/latest) and load them using a standalone script:
 
 ```html
 <script src="/the/path/to/tree-sitter.js"/>
@@ -118,7 +120,7 @@ First install `tree-sitter-cli` and the tree-sitter language for which to genera
 npm install --save-dev tree-sitter-cli tree-sitter-javascript
 ```
 
-Then just use tree-sitter cli tool to generate the `.wasm`. 
+Then just use tree-sitter cli tool to generate the `.wasm`.
 
 ```sh
 npx tree-sitter build-wasm node_modules/tree-sitter-javascript
@@ -149,13 +151,13 @@ const Parser = require('web-tree-sitter');
 
 ##### Loading the .wasm file
 
-`web-tree-sitter` needs to load the `tree-sitter.wasm` file. By default, it assumes that this file is available in the 
+`web-tree-sitter` needs to load the `tree-sitter.wasm` file. By default, it assumes that this file is available in the
 same path as the JavaScript code. Therefore, if the code is being served from `http://localhost:3000/bundle.js`, then
 the wasm file should be at `http://localhost:3000/tree-sitter.wasm`.
 
-For server side frameworks like NextJS, this can be tricky as pages are often served from a path such as 
+For server side frameworks like NextJS, this can be tricky as pages are often served from a path such as
 `http://localhost:3000/_next/static/chunks/pages/index.js`. The loader will therefore look for the wasm file at
-`http://localhost:3000/_next/static/chunks/pages/tree-sitter.wasm`. The solution is to pass a `locateFile` function in 
+`http://localhost:3000/_next/static/chunks/pages/tree-sitter.wasm`. The solution is to pass a `locateFile` function in
 the `moduleOptions` argument to `Parser.init()`:
 
 ```javascript
@@ -166,15 +168,15 @@ await Parser.init({
 });
 ```
 
-`locateFile` takes in two parameters, `scriptName`, i.e. the wasm file name, and `scriptDirectory`, i.e. the directory 
+`locateFile` takes in two parameters, `scriptName`, i.e. the wasm file name, and `scriptDirectory`, i.e. the directory
 where the loader expects the script to be. It returns the path where the loader will look for the wasm file. In the NextJS
 case, we want to return just the `scriptName` so that the loader will look at `http://localhost:3000/tree-sitter.wasm`
 and not `http://localhost:3000/_next/static/chunks/pages/tree-sitter.wasm`.
 
 ##### `Can't resolve 'fs' in 'node_modules/web-tree-sitter'`
 
-Most bundlers will notice that the `tree-sitter.js` file is attempting to import `fs`, i.e. node's file system library. 
-Since this doesn't exist in the browser, the bundlers will get confused. For webpack you can fix this by adding the 
+Most bundlers will notice that the `tree-sitter.js` file is attempting to import `fs`, i.e. node's file system library.
+Since this doesn't exist in the browser, the bundlers will get confused. For webpack you can fix this by adding the
 following to your webpack config:
 
 ```javascript
