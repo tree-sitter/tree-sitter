@@ -4,6 +4,8 @@
 #include "array.h"
 #include "point.h"
 
+#define TS_UTF8
+
 /*****************************/
 /* Section - Data marshaling */
 /*****************************/
@@ -23,11 +25,19 @@ void *ts_init() {
 }
 
 static uint32_t code_unit_to_byte(uint32_t unit) {
+#if defined(TS_UTF8)
+  return unit;
+#else
   return unit << 1;
+#endif
 }
 
 static uint32_t byte_to_code_unit(uint32_t byte) {
+#if defined(TS_UTF8)
+  return byte;
+#else
   return byte >> 1;
+#endif
 }
 
 static inline void marshal_node(const void **buffer, TSNode node) {
@@ -170,7 +180,12 @@ TSTree *ts_parser_parse_wasm(
   TSInput input = {
     input_buffer,
     call_parse_callback,
+
+#if defined(TS_UTF8)
+    TSInputEncodingUTF8
+#else
     TSInputEncodingUTF16
+#endif
   };
   if (range_count) {
     for (unsigned i = 0; i < range_count; i++) {
