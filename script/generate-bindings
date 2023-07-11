@@ -2,12 +2,26 @@
 
 output_path=lib/binding_rust/bindings.rs
 header_path='lib/include/tree_sitter/api.h'
+no_derive_copy=(
+  TSInput
+  TSLanguage
+  TSLogger
+  TSParser
+  TSTree
+  TSQuery
+  TSQueryCursor
+  TSQueryCapture
+  TSQueryMatch
+  TSQueryPredicateStep
+)
+no_copy=$(IFS='|'; echo "${no_derive_copy[*]}")
 
 bindgen                                        \
   --no-layout-tests                            \
   --allowlist-type '^TS.*'                     \
   --allowlist-function '^ts_.*'                \
   --blocklist-type '^__.*'                     \
+  --no-copy "$no_copy"                         \
   $header_path > $output_path
 
 echo "" >> $output_path
