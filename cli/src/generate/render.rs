@@ -771,7 +771,12 @@ impl Generator {
         for (i, state) in lex_table.states.into_iter().enumerate() {
             add_line!(self, "case {}:", i);
             indent!(self);
-            self.add_lex_state(state, &state_transition_summaries[i], &large_character_sets);
+            self.add_lex_state(
+                state,
+                &state_transition_summaries[i],
+                &large_character_sets,
+                i,
+            );
             dedent!(self);
         }
 
@@ -816,6 +821,7 @@ impl Generator {
         state: LexState,
         transition_info: &Vec<TransitionSummary>,
         large_character_sets: &Vec<LargeCharacterSetInfo>,
+        id: usize,
     ) {
         if let Some(accept_action) = state.accept_action {
             add_line!(self, "ACCEPT_TOKEN({});", self.symbol_ids[&accept_action]);
@@ -824,8 +830,87 @@ impl Generator {
         if let Some(eof_action) = state.eof_action {
             add_line!(self, "if (eof) ADVANCE({});", eof_action.state);
         }
-
+        let mut map = std::collections::BTreeMap::<u8, _>::new();
+        let mut helpers = vec![];
         for (i, (_, action)) in state.advance_actions.into_iter().enumerate() {
+            let transition = &transition_info[i];
+
+            // If there is a helper function for this transition's character
+            // set, then generate a call to that helper function.
+            if transition.call_id.is_some() {
+                helpers.push((i, action.clone()));
+                continue;
+            }
+
+            // Otherwise, generate code to compare the lookahead character
+            // with all of the character ranges.
+            if transition.ranges.len() > 0 {
+                let marker = action.state
+                    | (if !action.in_main_token {
+                        32768 as usize
+                    } else {
+                        0
+                    });
+                let res = self.add_character_range_conditions(&transition.ranges);
+                if transition.is_included {
+                    for c in res {
+                        map.entry(c.try_into().expect(&format!("character is '{}'", c as u32)))
+                            .or_insert(marker);
+                    }
+                } else {
+                    for c in (0..u8::MAX)
+                        .into_iter()
+                        .filter(|f| !res.contains(&(*f as char)))
+                    {
+                        map.entry(c).or_insert(marker);
+                    }
+                }
+            }
+        }
+        if !map.is_empty() {
+            let top = *map.iter().rfind(|p| p.1 != &0).unwrap().0;
+            for i in 0..top {
+                // Fill in the gaps.
+                map.entry(i).or_insert(top as usize + 1);
+            }
+            add_line!(self, "if (lookahead < {}) {{", top + 1);
+            indent!(self);
+            add_line!(
+                self,
+                "static const uint16_t states_{}[{}] = {{",
+                id,
+                top + 1
+            );
+            indent!(self);
+            let chunks = map.values();
+            let mut to_process = chunks.len();
+            for chunk in chunks
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .chunks(8)
+            {
+                let current_chunk = chunk.join(", ");
+                to_process -= chunk.len();
+                let should_have_trailing_comma = to_process != 0;
+                let line_delimiter = if should_have_trailing_comma { "," } else { "" };
+                add_line!(self, "{}{}", current_chunk, line_delimiter);
+            }
+            dedent!(self);
+            add_line!(self, "}};");
+            add_line!(self, "uint16_t current_state = states_{}[lookahead];", id);
+            add_line!(self, "if (current_state < {}) {{", top as usize + 1);
+            indent!(self);
+            add_line!(self, "ADVANCE(current_state);");
+            dedent!(self);
+            add_line!(self, "}} else if (current_state > {}) {{", top as usize + 1);
+            indent!(self);
+            add_line!(self, "SKIP((current_state - 32768));");
+            dedent!(self);
+            add_line!(self, "}}");
+            dedent!(self);
+            add_line!(self, "}}");
+        }
+        for (i, action) in helpers {
             let transition = &transition_info[i];
             add_whitespace!(self);
 
@@ -847,78 +932,16 @@ impl Generator {
                 add!(self, "\n");
                 continue;
             }
-
-            // Otherwise, generate code to compare the lookahead character
-            // with all of the character ranges.
-            if transition.ranges.len() > 0 {
-                add!(self, "if (");
-                self.add_character_range_conditions(&transition.ranges, transition.is_included, 2);
-                add!(self, ") ");
-            }
-            self.add_advance_action(&action);
-            add!(self, "\n");
         }
 
         add_line!(self, "END_STATE();");
     }
 
-    fn add_character_range_conditions(
-        &mut self,
-        ranges: &[Range<char>],
-        is_included: bool,
-        indent_count: usize,
-    ) {
-        let mut line_break = "\n".to_string();
-        for _ in 0..self.indent_level + indent_count {
-            line_break.push_str("  ");
-        }
-
-        for (i, range) in ranges.iter().enumerate() {
-            if is_included {
-                if i > 0 {
-                    add!(self, " ||{}", line_break);
-                }
-                if range.end == range.start {
-                    add!(self, "lookahead == ");
-                    self.add_character(range.start);
-                } else if range.end as u32 == range.start as u32 + 1 {
-                    add!(self, "lookahead == ");
-                    self.add_character(range.start);
-                    add!(self, " ||{}lookahead == ", line_break);
-                    self.add_character(range.end);
-                } else {
-                    add!(self, "(");
-                    self.add_character(range.start);
-                    add!(self, " <= lookahead && lookahead <= ");
-                    self.add_character(range.end);
-                    add!(self, ")");
-                }
-            } else {
-                if i > 0 {
-                    add!(self, " &&{}", line_break);
-                }
-                if range.end == range.start {
-                    add!(self, "lookahead != ");
-                    self.add_character(range.start);
-                } else if range.end as u32 == range.start as u32 + 1 {
-                    add!(self, "lookahead != ");
-                    self.add_character(range.start);
-                    add!(self, " &&{}lookahead != ", line_break);
-                    self.add_character(range.end);
-                } else {
-                    if range.start != '\0' {
-                        add!(self, "(lookahead < ");
-                        self.add_character(range.start);
-                        add!(self, " || ");
-                        self.add_character(range.end);
-                        add!(self, " < lookahead)");
-                    } else {
-                        add!(self, "lookahead > ");
-                        self.add_character(range.end);
-                    }
-                }
-            }
-        }
+    fn add_character_range_conditions(&mut self, ranges: &[Range<char>]) -> Vec<char> {
+        ranges
+            .iter()
+            .flat_map(|f| (f.start..=f.end).into_iter())
+            .collect()
     }
 
     fn add_character_tree(&mut self, tree: Option<&CharacterTree>) {
