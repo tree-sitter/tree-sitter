@@ -89,7 +89,7 @@ pub struct Parser(NonNull<ffi::TSParser>);
 
 /// A stateful object that is used to look up symbols valid in a specific parse state
 #[doc(alias = "TSLookaheadIterator")]
-pub struct LookaheadIterator<'a>(NonNull<ffi::TSLookaheadIterator>, PhantomData<&'a ()>);
+pub struct LookaheadIterator(NonNull<ffi::TSLookaheadIterator>);
 
 /// A type of log message.
 #[derive(Debug, PartialEq, Eq)]
@@ -373,7 +373,7 @@ impl Language {
     /// lookahead iterator created on the previous non-extra leaf node may be
     /// appropriate.
     #[doc(alias = "ts_lookahead_iterator_new")]
-    pub fn lookahead_iterator<'a>(&self, state: u16) -> Option<LookaheadIterator<'a>> {
+    pub fn lookahead_iterator(&self, state: u16) -> Option<LookaheadIterator> {
         let ptr = unsafe { ffi::ts_lookahead_iterator_new(self.0, state) };
         if ptr.is_null() {
             None
@@ -1484,7 +1484,7 @@ impl<'a> Drop for TreeCursor<'a> {
     }
 }
 
-impl<'a> LookaheadIterator<'a> {
+impl LookaheadIterator {
     /// Get the current language of the lookahead iterator.
     #[doc(alias = "ts_lookahead_iterator_language")]
     pub fn language(&self) -> Language {
@@ -1514,7 +1514,7 @@ impl<'a> LookaheadIterator<'a> {
     /// This returns `true` if the language was set successfully and `false`
     /// otherwise.
     #[doc(alias = "ts_lookahead_iterator_reset")]
-    pub fn reset(&self, language: &'a Language, state: u16) -> bool {
+    pub fn reset(&self, language: &Language, state: u16) -> bool {
         unsafe { ffi::ts_lookahead_iterator_reset(self.0.as_ptr(), language.0, state) }
     }
 
@@ -1528,12 +1528,12 @@ impl<'a> LookaheadIterator<'a> {
     }
 
     /// Iterate symbol names.
-    pub fn iter_names(&'a self) -> impl Iterator<Item = &'static str> + 'a {
+    pub fn iter_names<'a>(&'a self) -> impl Iterator<Item = &'static str> + 'a {
         NameLookaheadIterator(&self)
     }
 }
 
-struct NameLookaheadIterator<'a>(&'a LookaheadIterator<'a>);
+struct NameLookaheadIterator<'a>(&'a LookaheadIterator);
 
 impl<'a> Iterator for NameLookaheadIterator<'a> {
     type Item = &'static str;
@@ -1548,7 +1548,7 @@ impl<'a> Iterator for NameLookaheadIterator<'a> {
     }
 }
 
-impl<'a> Iterator for LookaheadIterator<'a> {
+impl Iterator for LookaheadIterator {
     type Item = u16;
 
     #[doc(alias = "ts_lookahead_iterator_advance")]
@@ -1562,7 +1562,7 @@ impl<'a> Iterator for LookaheadIterator<'a> {
     }
 }
 
-impl<'a> Drop for LookaheadIterator<'a> {
+impl Drop for LookaheadIterator {
     #[doc(alias = "ts_lookahead_iterator_delete")]
     fn drop(&mut self) {
         unsafe { ffi::ts_lookahead_iterator_delete(self.0.as_ptr()) }

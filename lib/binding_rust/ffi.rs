@@ -133,14 +133,14 @@ impl QueryCursor {
     }
 }
 
-impl<'a> LookaheadIterator<'a> {
+impl LookaheadIterator {
     /// Reconstructs a [LookaheadIterator] from a raw pointer.
     ///
     /// # Safety
     ///
     /// `ptr` must be non-null.
-    pub unsafe fn from_raw(ptr: *mut TSLookaheadIterator) -> LookaheadIterator<'a> {
-        LookaheadIterator(NonNull::new_unchecked(ptr), PhantomData)
+    pub unsafe fn from_raw(ptr: *mut TSLookaheadIterator) -> LookaheadIterator {
+        LookaheadIterator(NonNull::new_unchecked(ptr))
     }
 
     /// Consumes the [LookaheadIterator], returning a raw pointer to the underlying C structure.
