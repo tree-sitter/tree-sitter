@@ -832,6 +832,7 @@ impl Generator {
         }
         let mut map = std::collections::BTreeMap::<u8, _>::new();
         let mut helpers = vec![];
+        let mut rejects = vec![];
         for (i, (_, action)) in state.advance_actions.into_iter().enumerate() {
             let transition = &transition_info[i];
 
@@ -853,9 +854,16 @@ impl Generator {
                     });
                 let res = self.add_character_range_conditions(&transition.ranges);
                 if transition.is_included {
+                    let mut non_ascii_items = vec![];
                     for c in res {
-                        map.entry(c.try_into().expect(&format!("character is '{}'", c as u32)))
-                            .or_insert(marker);
+                        let Ok(c) = c.try_into() else {
+                            non_ascii_items.push(c);
+                            continue;
+                        };
+                        map.entry(c).or_insert(marker);
+                    }
+                    if !non_ascii_items.is_empty() {
+                        rejects.push((non_ascii_items, action, i, false))
                     }
                 } else {
                     for c in (0..u8::MAX)
@@ -864,6 +872,7 @@ impl Generator {
                     {
                         map.entry(c).or_insert(marker);
                     }
+                    rejects.push((res, action, i, true))
                 }
             }
         }
@@ -902,13 +911,31 @@ impl Generator {
             indent!(self);
             add_line!(self, "ADVANCE(current_state);");
             dedent!(self);
-            add_line!(self, "}} else if (current_state > {}) {{", top as usize + 1);
-            indent!(self);
-            add_line!(self, "SKIP((current_state - 32768));");
-            dedent!(self);
+            if map.values().max().copied().unwrap_or_default() > (top + 1).into() {
+                add_line!(self, "}} else if (current_state > {}) {{", top as usize + 1);
+                indent!(self);
+                add_line!(self, "SKIP((current_state - 32768));");
+                dedent!(self);
+            }
             add_line!(self, "}}");
             dedent!(self);
             add_line!(self, "}}");
+        }
+        for (chars, action, _, is_negated) in rejects {
+            let cmp_char = if is_negated { " != " } else { " == " };
+            let action_name = if action.in_main_token {
+                "ADVANCE"
+            } else {
+                "SKIP"
+            };
+            let action_id = action.state;
+            let join = if is_negated { "&&" } else { "||" };
+            let full_cmp = chars
+                .into_iter()
+                .map(|c| format!("lookahead {} {}", cmp_char, c as u32))
+                .collect::<Vec<_>>()
+                .join(join);
+            add_line!(self, "if ({}) {}({});", full_cmp, action_name, action_id);
         }
         for (i, action) in helpers {
             let transition = &transition_info[i];
