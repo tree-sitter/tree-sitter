@@ -876,11 +876,11 @@ impl Generator {
                 }
             }
         }
-        if !map.is_empty() {
+        if map.len() > 2 {
             let top = *map.iter().rfind(|p| p.1 != &0).unwrap().0;
             for i in 0..top {
                 // Fill in the gaps.
-                map.entry(i).or_insert(top as usize + 1);
+                map.entry(i).or_insert(65535);
             }
             add_line!(self, "if (lookahead < {}) {{", top + 1);
             indent!(self);
@@ -888,7 +888,7 @@ impl Generator {
                 self,
                 "static const uint16_t states_{}[{}] = {{",
                 id,
-                top + 1
+                top as usize + 1
             );
             indent!(self);
             let chunks = map.values();
@@ -907,12 +907,12 @@ impl Generator {
             dedent!(self);
             add_line!(self, "}};");
             add_line!(self, "uint16_t current_state = states_{}[lookahead];", id);
-            add_line!(self, "if (current_state < {}) {{", top as usize + 1);
+            add_line!(self, "if (current_state < 32768) {{");
             indent!(self);
             add_line!(self, "ADVANCE(current_state);");
             dedent!(self);
-            if map.values().max().copied().unwrap_or_default() > (top + 1).into() {
-                add_line!(self, "}} else if (current_state > {}) {{", top as usize + 1);
+            if map.values().max().copied().unwrap_or_default() > (top as usize + 1) {
+                add_line!(self, "}} else if (current_state != 65535) {{",);
                 indent!(self);
                 add_line!(self, "SKIP((current_state - 32768));");
                 dedent!(self);
@@ -920,6 +920,16 @@ impl Generator {
             add_line!(self, "}}");
             dedent!(self);
             add_line!(self, "}}");
+        } else {
+            for (c, state) in map {
+                let action_name = if state < 32768 { "ADVANCE" } else { "SKIP" };
+
+                let action_id = if state < 32768 { state } else { state - 32768 };
+                add_whitespace!(self);
+                add!(self, "if (lookahead == ");
+                self.add_character(c as char);
+                add!(self, ") {}({});\n", action_name, action_id);
+            }
         }
         for (chars, action, _, is_negated) in rejects {
             let cmp_char = if is_negated { " != " } else { " == " };
