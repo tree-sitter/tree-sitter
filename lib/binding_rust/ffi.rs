@@ -17,7 +17,7 @@ impl Language {
     /// # Safety
     ///
     /// `ptr` must be non-null.
-    pub unsafe fn from_raw(ptr: *mut TSLanguage) -> Language {
+    pub unsafe fn from_raw(ptr: *const TSLanguage) -> Language {
         Language(ptr)
     }
 
@@ -38,10 +38,13 @@ impl Parser {
     }
 
     /// Consumes the [Parser], returning a raw pointer to the underlying C structure.
-    pub fn into_raw(mut self) -> *mut TSParser {
-        self.stop_printing_dot_graphs();
-        self.set_logger(None);
-
+    ///
+    /// # Safety
+    ///
+    /// It's a caller responsibility to adjust parser's state
+    /// like disable logging or dot graphs printing if this
+    /// may cause issues like use after free.
+    pub fn into_raw(self) -> *mut TSParser {
         ManuallyDrop::new(self).0.as_ptr()
     }
 }
@@ -68,13 +71,13 @@ impl<'tree> Node<'tree> {
     /// # Safety
     ///
     /// `ptr` must be non-null.
-    pub unsafe fn from_raw(ptr: *mut TSNode) -> Node<'tree> {
-        Node(*ptr, PhantomData)
+    pub unsafe fn from_raw(raw: TSNode) -> Node<'tree> {
+        Node(raw, PhantomData)
     }
 
     /// Consumes the [Node], returning a raw pointer to the underlying C structure.
-    pub fn into_raw(self) -> *mut TSNode {
-        &mut ManuallyDrop::new(self).0
+    pub fn into_raw(self) -> TSNode {
+        ManuallyDrop::new(self).0
     }
 }
 
@@ -84,13 +87,13 @@ impl<'a> TreeCursor<'a> {
     /// # Safety
     ///
     /// `ptr` must be non-null.
-    pub unsafe fn from_raw(ptr: *mut TSTreeCursor) -> TreeCursor<'a> {
-        TreeCursor(*ptr, PhantomData)
+    pub unsafe fn from_raw(raw: TSTreeCursor) -> TreeCursor<'a> {
+        TreeCursor(raw, PhantomData)
     }
 
     /// Consumes the [TreeCursor], returning a raw pointer to the underlying C structure.
-    pub fn into_raw(self) -> *mut TSTreeCursor {
-        &mut ManuallyDrop::new(self).0
+    pub fn into_raw(self) -> TSTreeCursor {
+        ManuallyDrop::new(self).0
     }
 }
 
