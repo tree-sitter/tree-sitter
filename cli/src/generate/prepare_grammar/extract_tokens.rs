@@ -49,7 +49,7 @@ pub(super) fn extract_tokens(
         }) = variable.rule
         {
             if i > 0 && extractor.extracted_usage_counts[index] == 1 {
-                let mut lexical_variable = &mut lexical_variables[index];
+                let lexical_variable = &mut lexical_variables[index];
                 lexical_variable.kind = variable.kind;
                 lexical_variable.name = variable.name;
                 symbol_replacer.replacements.insert(i, index);
@@ -209,7 +209,7 @@ impl TokenExtractor {
                 } else {
                     Rule::Metadata {
                         params: params.clone(),
-                        rule: Box::new(self.extract_tokens_in_rule((&rule).clone())),
+                        rule: Box::new(self.extract_tokens_in_rule(&rule)),
                     }
                 }
             }

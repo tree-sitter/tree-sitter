@@ -31,7 +31,7 @@ pub(super) fn extract_default_aliases(
     for variable in syntax_grammar.variables.iter() {
         for production in variable.productions.iter() {
             for step in production.steps.iter() {
-                let mut status = match step.symbol.kind {
+                let status = match step.symbol.kind {
                     SymbolType::External => &mut external_status_list[step.symbol.index],
                     SymbolType::NonTerminal => &mut non_terminal_status_list[step.symbol.index],
                     SymbolType::Terminal => &mut terminal_status_list[step.symbol.index],
@@ -63,7 +63,7 @@ pub(super) fn extract_default_aliases(
     }
 
     for symbol in syntax_grammar.extra_symbols.iter() {
-        let mut status = match symbol.kind {
+        let status = match symbol.kind {
             SymbolType::External => &mut external_status_list[symbol.index],
             SymbolType::NonTerminal => &mut non_terminal_status_list[symbol.index],
             SymbolType::Terminal => &mut terminal_status_list[symbol.index],
