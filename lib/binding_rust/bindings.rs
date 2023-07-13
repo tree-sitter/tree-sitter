@@ -3,27 +3,27 @@
 pub type TSSymbol = u16;
 pub type TSFieldId = u16;
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct TSLanguage {
     _unused: [u8; 0],
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct TSParser {
     _unused: [u8; 0],
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct TSTree {
     _unused: [u8; 0],
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct TSQuery {
     _unused: [u8; 0],
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct TSQueryCursor {
     _unused: [u8; 0],
 }
@@ -49,7 +49,7 @@ pub struct TSRange {
     pub end_byte: u32,
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct TSInput {
     pub payload: *mut ::std::os::raw::c_void,
     pub read: ::std::option::Option<
@@ -66,7 +66,7 @@ pub const TSLogType_TSLogTypeParse: TSLogType = 0;
 pub const TSLogType_TSLogTypeLex: TSLogType = 1;
 pub type TSLogType = ::std::os::raw::c_uint;
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct TSLogger {
     pub payload: *mut ::std::os::raw::c_void,
     pub log: ::std::option::Option<
@@ -102,7 +102,7 @@ pub struct TSTreeCursor {
     pub context: [u32; 2usize],
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct TSQueryCapture {
     pub node: TSNode,
     pub index: u32,
@@ -114,7 +114,7 @@ pub const TSQuantifier_TSQuantifierOne: TSQuantifier = 3;
 pub const TSQuantifier_TSQuantifierOneOrMore: TSQuantifier = 4;
 pub type TSQuantifier = ::std::os::raw::c_uint;
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct TSQueryMatch {
     pub id: u32,
     pub pattern_index: u16,
@@ -126,7 +126,7 @@ pub const TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture: TSQueryPredi
 pub const TSQueryPredicateStepType_TSQueryPredicateStepTypeString: TSQueryPredicateStepType = 2;
 pub type TSQueryPredicateStepType = ::std::os::raw::c_uint;
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct TSQueryPredicateStep {
     pub type_: TSQueryPredicateStepType,
     pub value_id: u32,
