@@ -839,9 +839,9 @@ impl<'tree> Node<'tree> {
     }
 
     /// Get the [Language] that was used to parse this node's syntax tree.
-    #[doc(alias = "ts_tree_language")]
+    #[doc(alias = "ts_node_language")]
     pub fn language(&self) -> Language {
-        Language(unsafe { ffi::ts_tree_language(self.0.tree) })
+        Language(unsafe { ffi::ts_node_language(self.0) })
     }
 
     /// Check if this node is *named*.

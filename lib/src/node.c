@@ -423,6 +423,10 @@ const char *ts_node_type(TSNode self) {
   return ts_language_symbol_name(self.tree->language, symbol);
 }
 
+const TSLanguage *ts_node_language(TSNode self) {
+  return self.tree->language;
+}
+
 char *ts_node_string(TSNode self) {
   return ts_subtree_string(ts_node__subtree(self), self.tree->language, false);
 }
