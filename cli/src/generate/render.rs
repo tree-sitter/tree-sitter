@@ -882,7 +882,7 @@ impl Generator {
                 // Fill in the gaps.
                 map.entry(i).or_insert(65535);
             }
-            add_line!(self, "if (lookahead < {}) {{", top + 1);
+            add_line!(self, "if ((uint32_t)lookahead < {}) {{", top + 1);
             indent!(self);
             add_line!(
                 self,
