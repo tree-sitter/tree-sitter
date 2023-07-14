@@ -877,8 +877,8 @@ impl Generator {
             }
         }
         if map.len() > 2 {
-            let top = *map.iter().rfind(|p| p.1 != &0).unwrap().0;
-            for i in 0..top {
+            let top = *map.iter().rfind(|p| p.1 != &0).unwrap().0 as usize;
+            for i in 0..(top as u8) {
                 // Fill in the gaps.
                 map.entry(i).or_insert(65535);
             }
@@ -888,7 +888,7 @@ impl Generator {
                 self,
                 "static const uint16_t states_{}[{}] = {{",
                 id,
-                top as usize + 1
+                top + 1
             );
             indent!(self);
             let chunks = map.values();
@@ -911,7 +911,7 @@ impl Generator {
             indent!(self);
             add_line!(self, "ADVANCE(current_state);");
             dedent!(self);
-            if map.values().max().copied().unwrap_or_default() > (top as usize + 1) {
+            if map.values().max().copied().unwrap_or_default() > (top + 1) {
                 add_line!(self, "}} else if (current_state != 65535) {{",);
                 indent!(self);
                 add_line!(self, "SKIP((current_state - 32768));");
