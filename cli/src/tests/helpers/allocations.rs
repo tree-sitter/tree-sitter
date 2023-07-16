@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     os::raw::c_void,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering::SeqCst},
+        atomic::{AtomicBool, AtomicUsize, Ordering::SeqCst},
         Mutex,
     },
 };
@@ -25,8 +25,8 @@ unsafe impl Sync for Allocation {}
 #[derive(Default)]
 struct AllocationRecorder {
     enabled: AtomicBool,
-    allocation_count: AtomicU64,
-    outstanding_allocations: Mutex<HashMap<Allocation, u64>>,
+    allocation_count: AtomicUsize,
+    outstanding_allocations: Mutex<HashMap<Allocation, usize>>,
 }
 
 thread_local! {

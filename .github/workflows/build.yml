@@ -33,34 +33,53 @@ jobs:
       fail-fast: false
       matrix:
         runtime:
-        - linux-arm64   #
-        - linux-arm     #
-        - linux-x64     #
-        - linux-x86     #
-        - windows-arm64 #
-        - windows-x64   # <-- No C library build - requires an additional adapted Makefile for `cl.exe` compiler
-        - windows-x86   #     -- // --
-        - macos-arm64   # <-- MacOS M1/M2 - no tests, only CLI build to be published on release artifacts
-        - macos-x64     #
+        - linux-arm64     #
+        - linux-arm       #
+        - linux-armv7l    #
+        - linux-x64       #
+        - linux-x86       #
+        - linux-i586      #
+        - linux-mipsel    #
+        - linux-mips64el  #
+        - linux-ppc64el   #
+        - linux-riscv64gc #
+        - windows-arm64   #
+        - windows-x64     # <-- No C library build - requires an additional adapted Makefile for `cl.exe` compiler
+        - windows-x86     #     -- // --
+        - macos-arm64     # <-- MacOS M1/M2 - no tests, only CLI build to be published on release artifacts
+        - macos-x64       #
 
         include:
         # When adding a new `target`:
         # 1. Define a new runtime alias above
         # 2. Add a new record to a matrix map in `cli/npm/install.js`
-        - { runtime: linux-arm64   , target: aarch64-unknown-linux-gnu   , os: ubuntu-latest  , use-cross: true }
-        - { runtime: linux-arm     , target: arm-unknown-linux-gnueabihf , os: ubuntu-latest  , use-cross: true }
-        - { runtime: linux-x64     , target: x86_64-unknown-linux-gnu    , os: ubuntu-20.04                     } #2272
-        - { runtime: linux-x86     , target: i686-unknown-linux-gnu      , os: ubuntu-latest  , use-cross: true }
-        - { runtime: windows-arm64 , target: aarch64-pc-windows-msvc     , os: windows-latest                   }
-        - { runtime: windows-x64   , target: x86_64-pc-windows-msvc      , os: windows-latest                   }
-        - { runtime: windows-x86   , target: i686-pc-windows-msvc        , os: windows-latest                   }
-        - { runtime: macos-arm64   , target: aarch64-apple-darwin        , os: macos-latest                     }
-        - { runtime: macos-x64     , target: x86_64-apple-darwin         , os: macos-latest                     }
+        - { runtime: linux-arm64     , target: aarch64-unknown-linux-gnu       , os: ubuntu-latest  , use-cross: true }
+        - { runtime: linux-arm       , target: arm-unknown-linux-gnueabihf     , os: ubuntu-latest  , use-cross: true }
+        - { runtime: linux-armv7l    , target: armv7-unknown-linux-gnueabihf   , os: ubuntu-latest  , use-cross: true }
+        - { runtime: linux-x64       , target: x86_64-unknown-linux-gnu        , os: ubuntu-20.04                     } #2272
+        - { runtime: linux-x86       , target: i686-unknown-linux-gnu          , os: ubuntu-latest  , use-cross: true }
+        - { runtime: linux-i586      , target: i586-unknown-linux-gnu          , os: ubuntu-latest  , use-cross: true }
+        - { runtime: linux-mipsel    , target: mipsel-unknown-linux-gnu        , os: ubuntu-latest  , use-cross: true }
+        - { runtime: linux-mips64el  , target: mips64el-unknown-linux-gnuabi64 , os: ubuntu-latest  , use-cross: true }
+        - { runtime: linux-ppc64el   , target: powerpc64le-unknown-linux-gnu   , os: ubuntu-latest  , use-cross: true }
+        - { runtime: linux-riscv64gc , target: riscv64gc-unknown-linux-gnu     , os: ubuntu-latest  , use-cross: true }
+        - { runtime: windows-arm64   , target: aarch64-pc-windows-msvc         , os: windows-latest                   }
+        - { runtime: windows-x64     , target: x86_64-pc-windows-msvc          , os: windows-latest                   }
+        - { runtime: windows-x86     , target: i686-pc-windows-msvc            , os: windows-latest                   }
+        - { runtime: macos-arm64     , target: aarch64-apple-darwin            , os: macos-latest                     }
+        - { runtime: macos-x64       , target: x86_64-apple-darwin             , os: macos-latest                     }
 
         # Cross compilers for C library
-        - { runtime: linux-arm64   , cc: aarch64-linux-gnu-gcc           , ar: aarch64-linux-gnu-ar               }
-        - { runtime: linux-arm     , cc: arm-unknown-linux-gnueabihf-gcc , ar: arm-unknown-linux-gnueabihf-gcc-ar }
-        - { runtime: linux-x86     , cc: i686-linux-gnu-gcc              , ar: i686-linux-gnu-ar                  }
+        - { runtime: linux-arm64     , cc: aarch64-linux-gnu-gcc             , ar: aarch64-linux-gnu-ar           }
+        - { runtime: linux-arm       , cc: arm-unknown-linux-gnueabihf-gcc   , ar: arm-unknown-linux-gnueabihf-ar }
+        - { runtime: linux-armv7l    , cc: arm-linux-gnueabihf-gcc           , ar: arm-linux-gnueabihf-ar         }
+        - { runtime: linux-x86       , cc: i686-linux-gnu-gcc                , ar: i686-linux-gnu-ar              }
+        - { runtime: linux-i586      , cc: i686-linux-gnu-gcc                , ar: i686-linux-gnu-ar              }
+        - { runtime: linux-mipsel    , cc: mipsel-linux-gnu-gcc              , ar: mipsel-linux-gnu-ar            }
+        - { runtime: linux-mips64el  , cc: mips64el-linux-gnuabi64-gcc       , ar: mips64el-linux-gnuabi64-ar     }
+        - { runtime: linux-ppc64el   , cc: powerpc64le-linux-gnu-gcc         , ar: powerpc64le-linux-gnu-ar       }
+        - { runtime: linux-riscv64gc , cc: riscv64-linux-gnu-gcc             , ar: riscv64-linux-gnu-ar           }
+
 
         # See #2041 tree-sitter issue
         - { runtime: windows-x64   , rust-test-threads: 1 }
@@ -90,6 +109,7 @@ jobs:
         echo "EMSCRIPTEN_VERSION=$(cat cli/emscripten-version)" >> $GITHUB_ENV
 
     - name: Install Emscripten
+      if: ${{ !matrix.cli-only && !matrix.use-cross }}
       uses: mymindstorm/setup-emsdk@v12
       with:
         version: ${{ env.EMSCRIPTEN_VERSION }}
