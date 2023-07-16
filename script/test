@@ -6,7 +6,7 @@ function usage {
   cat <<-EOF
 USAGE
 
-  $0 [-adDg] [-s SEED] [-l LANGUAGE] [-e EXAMPLE] [-t TRIAL]
+  $0 [-adDg] [-s SEED] [-l LANGUAGE] [-e EXAMPLE]
 
 OPTIONS
 
