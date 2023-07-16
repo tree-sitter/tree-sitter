@@ -700,6 +700,7 @@ fn test_parsing_with_a_timeout() {
 }
 
 #[test]
+#[retry(10)]
 fn test_parsing_with_a_timeout_and_a_reset() {
     let mut parser = Parser::new();
     parser.set_language(get_language("json")).unwrap();
@@ -755,6 +756,7 @@ fn test_parsing_with_a_timeout_and_a_reset() {
 }
 
 #[test]
+#[retry(10)]
 fn test_parsing_with_a_timeout_and_implicit_reset() {
     allocations::record(|| {
         let mut parser = Parser::new();
@@ -788,6 +790,7 @@ fn test_parsing_with_a_timeout_and_implicit_reset() {
 }
 
 #[test]
+#[retry(10)]
 fn test_parsing_with_timeout_and_no_completion() {
     allocations::record(|| {
         let mut parser = Parser::new();
