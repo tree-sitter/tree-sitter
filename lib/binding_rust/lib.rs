@@ -839,9 +839,9 @@ impl<'tree> Node<'tree> {
     }
 
     /// Get the [Language] that was used to parse this node's syntax tree.
-    #[doc(alias = "ts_tree_language")]
+    #[doc(alias = "ts_node_language")]
     pub fn language(&self) -> Language {
-        Language(unsafe { ffi::ts_tree_language(self.0.tree) })
+        Language(unsafe { ffi::ts_node_language(self.0) })
     }
 
     /// Check if this node is *named*.
@@ -1121,6 +1121,12 @@ impl<'tree> Node<'tree> {
         Self::new(unsafe { ffi::ts_node_prev_named_sibling(self.0) })
     }
 
+    /// Get the node's number of descendants, including one for the node itself.
+    #[doc(alias = "ts_node_descendant_count")]
+    pub fn descendant_count(&self) -> usize {
+        unsafe { ffi::ts_node_descendant_count(self.0) as usize }
+    }
+
     /// Get the smallest node within this node that spans the given range.
     #[doc(alias = "ts_node_descendant_for_byte_range")]
     pub fn descendant_for_byte_range(&self, start: usize, end: usize) -> Option<Self> {
@@ -1260,6 +1266,21 @@ impl<'a> TreeCursor<'a> {
         }
     }
 
+    /// Get the numerical field id of this tree cursor's current node.
+    ///
+    /// See also [field_name](TreeCursor::field_name).
+    #[doc(alias = "ts_tree_cursor_current_depth")]
+    pub fn depth(&self) -> u32 {
+        unsafe { ffi::ts_tree_cursor_current_depth(&self.0) }
+    }
+
+    /// Get the index of the cursor's current node out of all of the
+    /// descendants of the original node that the cursor was constructed with
+    #[doc(alias = "ts_tree_cursor_current_descendant_index")]
+    pub fn descendant_index(&self) -> usize {
+        unsafe { ffi::ts_tree_cursor_current_descendant_index(&self.0) as usize }
+    }
+
     /// Move this cursor to the first child of its current node.
     ///
     /// This returns `true` if the cursor successfully moved, and returns `false`
@@ -1285,6 +1306,16 @@ impl<'a> TreeCursor<'a> {
     #[doc(alias = "ts_tree_cursor_goto_next_sibling")]
     pub fn goto_next_sibling(&mut self) -> bool {
         return unsafe { ffi::ts_tree_cursor_goto_next_sibling(&mut self.0) };
+    }
+
+    /// Move the cursor to the node that is the nth descendant of
+    /// the original node that the cursor was constructed with, where
+    /// zero represents the original node itself.
+    #[doc(alias = "ts_tree_cursor_goto_descendant")]
+    pub fn goto_descendant(&mut self, descendant_index: usize) {
+        return unsafe {
+            ffi::ts_tree_cursor_goto_descendant(&mut self.0, descendant_index as u32)
+        };
     }
 
     /// Move this cursor to the first child of its current node that extends beyond
@@ -1401,7 +1432,7 @@ impl Query {
                     let suffix = source.split_at(offset).1;
                     let end_offset = suffix
                         .find(|c| !char::is_alphanumeric(c) && c != '_' && c != '-')
-                        .unwrap_or(source.len());
+                        .unwrap_or(suffix.len());
                     message = suffix.split_at(end_offset).0.to_string();
                     kind = match error_type {
                         ffi::TSQueryError_TSQueryErrorNodeType => QueryErrorKind::NodeType,

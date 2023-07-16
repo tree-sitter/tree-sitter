@@ -377,7 +377,7 @@ impl Loader {
                 command.env(key, value);
             }
 
-            if cfg!(windows) {
+            if compiler.is_like_msvc() {
                 command.args(&["/nologo", "/LD", "/I"]).arg(header_path);
                 if self.debug_build {
                     command.arg("/Od");
@@ -394,13 +394,16 @@ impl Loader {
             } else {
                 command
                     .arg("-shared")
-                    .arg("-fPIC")
                     .arg("-fno-exceptions")
                     .arg("-g")
                     .arg("-I")
                     .arg(header_path)
                     .arg("-o")
                     .arg(&library_path);
+
+                if !cfg!(windows) {
+                    command.arg("-fPIC");
+                }
 
                 if self.debug_build {
                     command.arg("-O0");

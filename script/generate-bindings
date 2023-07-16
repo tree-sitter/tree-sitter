@@ -2,12 +2,38 @@
 
 output_path=lib/binding_rust/bindings.rs
 header_path='lib/include/tree_sitter/api.h'
+no_derive_copy=(
+  TSInput
+  TSLanguage
+  TSLogger
+  TSParser
+  TSTree
+  TSQuery
+  TSQueryCursor
+  TSQueryCapture
+  TSQueryMatch
+  TSQueryPredicateStep
+)
+no_copy=$(IFS='|'; echo "${no_derive_copy[*]}")
+
+file_version=$(head -n1 "$output_path" | cut -d' ' -f6)
+tool_version=$(bindgen --version | cut -d' ' -f2)
+higher_version=$(echo -e "${file_version}\n${tool_version}" | sort -V | tail -n1)
+
+if [ "$higher_version" != "$tool_version" ]; then
+  echo "Latest used bindgen version was $file_version" >&2
+  echo "Currently installed bindgen CLI version is $tool_version" >&2
+  echo >&2
+  echo "It's needed to upgrade bindgen CLI first with \`cargo install bindgen-cli\`" >&2
+  exit 1
+fi
 
 bindgen                                        \
   --no-layout-tests                            \
   --allowlist-type '^TS.*'                     \
   --allowlist-function '^ts_.*'                \
   --blocklist-type '^__.*'                     \
+  --no-copy "$no_copy"                         \
   $header_path > $output_path
 
 echo "" >> $output_path
@@ -17,7 +43,7 @@ defines=(
   TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
 )
 
-for define in ${defines[@]}; do
-  define_value=$(egrep "#define $define (.*)" $header_path | cut -d' ' -f3)
+for define in "${defines[@]}"; do
+  define_value=$(grep -E "#define $define (.*)" $header_path | cut -d' ' -f3)
   echo "pub const $define: usize = $define_value;" >> $output_path
 done

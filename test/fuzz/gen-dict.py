@@ -21,7 +21,7 @@ def main():
     grammar = json.load(f)
 
   literals = set()
-  find_literals(literals, grammar)
+  find_literals(literals, grammar['rules'])
 
   for lit in sorted(literals):
     if lit:

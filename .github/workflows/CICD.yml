@@ -3,6 +3,11 @@ name: CICD
 on:
   workflow_dispatch:
   pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
   push:
     branches-ignore:
       - release/v*
@@ -24,14 +29,14 @@ jobs:
     steps:
       - name: Get PR head ref
         if: ${{ github.event_name == 'pull_request' }}
-        id: ref
+        id: pr_head_ref
         run: |
           echo "ref=refs/pull/${{ github.event.pull_request.number }}/head" >> $GITHUB_OUTPUT
     outputs:
       ref: >-
         ${{
           (github.event_name == 'pull_request' && startsWith(github.head_ref, 'release/v'))
-          && steps.ref.outputs.ref
+          && steps.pr_head_ref.outputs.ref
           || github.ref
         }}
 
@@ -67,8 +72,9 @@ jobs:
     name: Release
     needs: [init, fast_checks, full_checks, min_version, build, sanitize]
     if: >
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      startsWith(github.head_ref, 'release/v')
+      github.event_name == 'pull_request' &&
+      startsWith(github.head_ref, 'release/v') &&
+      !github.event.pull_request.draft
     uses: ./.github/workflows/release.yml
     with:
       ref: ${{ needs.init.outputs.ref }}

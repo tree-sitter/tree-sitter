@@ -1,9 +1,9 @@
 #!/bin/bash
 
-set -x
+# set -x
 set -e
 
-if [ "$CROSS" = 1 ]; then
+if [ "$BUILD_CMD" == "cross" ]; then
     if [ -z "$CC" ]; then
         echo "make.sh: CC is not set" >&2
         exit 111

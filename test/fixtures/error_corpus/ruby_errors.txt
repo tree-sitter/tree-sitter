@@ -1,10 +1,11 @@
 ==========================
-Heredocs with errors
+Heredocs with errors 2
 ==========================
 
-joins(<<~SQL(
+joins <<~SQL
   b
 SQL
+)
 c
 
 ---
@@ -12,8 +13,10 @@ c
 (program
   (call
     method: (identifier)
-    (ERROR (heredoc_beginning))
     arguments: (argument_list
-      (heredoc_body (heredoc_content) (heredoc_end))
-      (identifier)
-      (MISSING ")"))))
+      (heredoc_beginning)))
+  (heredoc_body
+    (heredoc_content)
+    (heredoc_end))
+  (ERROR)
+  (identifier))

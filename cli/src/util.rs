@@ -1,8 +1,6 @@
 use anyhow::Result;
-use std::io;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::thread;
 use tree_sitter::{Parser, Tree};
 
 #[cfg(unix)]
@@ -22,18 +20,15 @@ svg { width: 100%; }
 
 ";
 
-pub fn cancel_on_stdin() -> Arc<AtomicUsize> {
+pub fn cancel_on_signal() -> Arc<AtomicUsize> {
     let result = Arc::new(AtomicUsize::new(0));
-    if atty::is(atty::Stream::Stdin) {
-        thread::spawn({
-            let flag = result.clone();
-            move || {
-                let mut line = String::new();
-                io::stdin().read_line(&mut line).unwrap();
-                flag.store(1, Ordering::Relaxed);
-            }
-        });
-    }
+    ctrlc::set_handler({
+        let flag = result.clone();
+        move || {
+            flag.store(1, Ordering::Relaxed);
+        }
+    })
+    .expect("Error setting Ctrl-C handler");
     result
 }
 

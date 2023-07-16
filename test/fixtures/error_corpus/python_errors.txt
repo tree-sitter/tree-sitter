@@ -90,7 +90,9 @@ def a():
     (ERROR (identifier))
     body: (block
       (expression_statement (string
-        string_content: (string_content))))))
+        (string_start)
+        (string_content)
+        (string_end))))))
 
 ===========================================
 incomplete definition in class definition

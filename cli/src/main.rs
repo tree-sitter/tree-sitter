@@ -3,8 +3,8 @@ use clap::{App, AppSettings, Arg, SubCommand};
 use glob::glob;
 use std::path::{Path, PathBuf};
 use std::{env, fs, u64};
-use tree_sitter::Point;
-use tree_sitter_cli::parse::ParseOutput;
+use tree_sitter::{ffi, Point};
+use tree_sitter_cli::parse::{ParseFileOptions, ParseOutput};
 use tree_sitter_cli::{
     generate, highlight, logger, parse, playground, query, tags, test, test_highlight, test_tags,
     util, wasm,
@@ -162,6 +162,12 @@ fn run() -> Result<()> {
                         .takes_value(true)
                         .multiple(true)
                         .number_of_values(1),
+                )
+                .arg(
+                    Arg::with_name("encoding")
+                        .help("The encoding of the input files")
+                        .long("encoding")
+                        .takes_value(true),
                 ),
         )
         .subcommand(
@@ -232,6 +238,11 @@ fn run() -> Result<()> {
                         .help("Generate highlighting as an HTML document")
                         .long("html")
                         .short("H"),
+                )
+                .arg(
+                    Arg::with_name("check")
+                        .help("Check that highlighting captures conform strictly to standards")
+                        .long("check"),
                 )
                 .arg(&scope_arg)
                 .arg(&time_arg)
@@ -399,11 +410,21 @@ fn run() -> Result<()> {
                 ParseOutput::Normal
             };
 
+            let encoding =
+                matches
+                    .values_of("encoding")
+                    .map_or(Ok(None), |mut e| match e.next() {
+                        Some("utf16") => Ok(Some(ffi::TSInputEncoding_TSInputEncodingUTF16)),
+                        Some("utf8") => Ok(Some(ffi::TSInputEncoding_TSInputEncodingUTF8)),
+                        Some(_) => Err(anyhow!("Invalid encoding. Expected one of: utf8, utf16")),
+                        None => Ok(None),
+                    })?;
+
             let time = matches.is_present("time");
             let edits = matches
                 .values_of("edits")
                 .map_or(Vec::new(), |e| e.collect());
-            let cancellation_flag = util::cancel_on_stdin();
+            let cancellation_flag = util::cancel_on_signal();
 
             if debug {
                 // For augmenting debug logging in external scanners
@@ -431,18 +452,21 @@ fn run() -> Result<()> {
                 let language =
                     loader.select_language(path, &current_dir, matches.value_of("scope"))?;
 
-                let this_file_errored = parse::parse_file_at_path(
+                let opts = ParseFileOptions {
                     language,
                     path,
-                    &edits,
+                    edits: &edits,
                     max_path_length,
                     output,
-                    time,
+                    print_time: time,
                     timeout,
                     debug,
                     debug_graph,
-                    Some(&cancellation_flag),
-                )?;
+                    cancellation_flag: Some(&cancellation_flag),
+                    encoding,
+                };
+
+                let this_file_errored = parse::parse_file_at_path(opts)?;
 
                 if should_track_stats {
                     stats.total_parses += 1;
@@ -524,13 +548,14 @@ fn run() -> Result<()> {
             let time = matches.is_present("time");
             let quiet = matches.is_present("quiet");
             let html_mode = quiet || matches.is_present("html");
+            let should_check = matches.is_present("check");
             let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
 
             if html_mode && !quiet {
                 println!("{}", highlight::HTML_HEADER);
             }
 
-            let cancellation_flag = util::cancel_on_stdin();
+            let cancellation_flag = util::cancel_on_signal();
 
             let mut lang = None;
             if let Some(scope) = matches.value_of("scope") {
@@ -554,6 +579,25 @@ fn run() -> Result<()> {
                 };
 
                 if let Some(highlight_config) = language_config.highlight_config(language)? {
+                    if should_check {
+                        let names = highlight_config.nonconformant_capture_names();
+                        if names.is_empty() {
+                            eprintln!("All highlight captures conform to standards.");
+                        } else {
+                            eprintln!(
+                                "Non-standard highlight {} detected:",
+                                if names.len() > 1 {
+                                    "captures"
+                                } else {
+                                    "capture"
+                                }
+                            );
+                            for name in names {
+                                eprintln!("* {}", name);
+                            }
+                        }
+                    }
+
                     let source = fs::read(path)?;
                     if html_mode {
                         highlight::html(

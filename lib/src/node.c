@@ -423,6 +423,10 @@ const char *ts_node_type(TSNode self) {
   return ts_language_symbol_name(self.tree->language, symbol);
 }
 
+const TSLanguage *ts_node_language(TSNode self) {
+  return self.tree->language;
+}
+
 char *ts_node_string(TSNode self) {
   return ts_subtree_string(ts_node__subtree(self), self.tree->language, false);
 }
@@ -456,6 +460,10 @@ bool ts_node_has_changes(TSNode self) {
 
 bool ts_node_has_error(TSNode self) {
   return ts_subtree_error_cost(ts_node__subtree(self)) > 0;
+}
+
+uint32_t ts_node_descendant_count(TSNode self) {
+  return ts_subtree_visible_descendant_count(ts_node__subtree(self)) + 1;
 }
 
 TSNode ts_node_parent(TSNode self) {

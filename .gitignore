@@ -27,3 +27,4 @@ docs/assets/js/tree-sitter.js
 *.wasm
 
 zig-*
+.swiftpm

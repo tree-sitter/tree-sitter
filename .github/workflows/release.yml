@@ -12,10 +12,15 @@ jobs:
     name: Check permissions
     runs-on: ubuntu-latest
     outputs:
-      release_allowed: ${{ steps.maintainer.outputs.is_maintainer == 'true' }}
+      release_allowed: >
+        ${{
+          github.repository_owner == 'tree-sitter' &&
+          steps.maintainer.outputs.is_maintainer == 'true' &&
+          steps.local_branch.outputs.is_local == 'true'
+        }}
     steps:
 
-    - name: Is maintainer
+    - name: Initated by a maintainer
       id: maintainer
       env:
         GH_TOKEN: ${{ github.token }}
@@ -30,6 +35,13 @@ jobs:
           echo "@${actor} has maintainer level permissions :rocket:" >> $GITHUB_STEP_SUMMARY;
           echo "is_maintainer=true" >> $GITHUB_OUTPUT
         fi
+
+    - name: The ref branch is local
+      id: local_branch
+      env:
+        is_local: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+      run: |
+        echo "is_local=${is_local}" >> $GITHUB_OUTPUT
 
   release:
     name: Release
