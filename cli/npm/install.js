@@ -23,6 +23,11 @@ const matrix = {
         'arm': { name: 'arm' },
         'x64': { name: 'x64' },
         'x86': { name: 'x86' },
+        'mipsel': { name: 'x64' },
+        'mips64el': { name: 'x64' },
+        'ppc64el': { name: 'x64' },
+        'i586': { name: 'x64' },
+        'riscv64gc': { name: 'x86_64' },
       }
     },
     'win32': {
