@@ -2,6 +2,8 @@ pub mod c_lib;
 pub mod util;
 pub use c_lib as c;
 
+use lazy_static::lazy_static;
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{iter, mem, ops, str, usize};
 use thiserror::Error;
@@ -13,6 +15,64 @@ use tree_sitter::{
 const CANCELLATION_CHECK_INTERVAL: usize = 100;
 const BUFFER_HTML_RESERVE_CAPACITY: usize = 10 * 1024;
 const BUFFER_LINES_RESERVE_CAPACITY: usize = 1000;
+
+lazy_static! {
+    static ref STANDARD_CAPTURE_NAMES: HashSet<&'static str> = vec![
+        "attribute",
+        "carriage-return",
+        "comment",
+        "comment.documentation",
+        "constant",
+        "constant.builtin",
+        "constructor",
+        "constructor.builtin",
+        "embedded",
+        "error",
+        "escape",
+        "function",
+        "function.builtin",
+        "keyword",
+        "markup",
+        "markup.bold",
+        "markup.heading",
+        "markup.italic",
+        "markup.link",
+        "markup.link.url",
+        "markup.list",
+        "markup.list.checked",
+        "markup.list.numbered",
+        "markup.list.unchecked",
+        "markup.list.unnumbered",
+        "markup.quote",
+        "markup.raw",
+        "markup.raw.block",
+        "markup.raw.inline",
+        "markup.strikethrough",
+        "module",
+        "number",
+        "operator",
+        "property",
+        "property.builtin",
+        "punctuation",
+        "punctuation.bracket",
+        "punctuation.delimiter",
+        "punctuation.special",
+        "string",
+        "string.escape",
+        "string.regexp",
+        "string.special",
+        "string.special.symbol",
+        "tag",
+        "type",
+        "type.builtin",
+        "variable",
+        "variable.builtin",
+        "variable.member",
+        "variable.parameter",
+    ]
+    .into_iter()
+    .collect();
+}
 
 /// Indicates which highlight should be applied to a region of source code.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -320,6 +380,17 @@ impl HighlightConfiguration {
                 }
                 best_index.map(Highlight)
             }));
+    }
+
+    // Return the list of this configuration's capture names that are neither present in the
+    // list of predefined 'canonical' names nor start with an underscore (denoting 'private' captures
+    // used as part of capture internals).
+    pub fn nonconformant_capture_names(&self) -> Vec<&String> {
+        return self
+            .names()
+            .iter()
+            .filter(|&n| !(n.starts_with('_') || STANDARD_CAPTURE_NAMES.contains(n.as_str())))
+            .collect();
     }
 }
 

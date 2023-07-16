@@ -859,8 +859,9 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-highlight"
-version = "0.20.1"
+version = "0.20.2"
 dependencies = [
+ "lazy_static",
  "regex",
  "thiserror",
  "tree-sitter",
