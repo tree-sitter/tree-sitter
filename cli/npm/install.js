@@ -21,6 +21,7 @@ const matrix = {
       arch: {
         'arm64': { name: 'arm64' },
         'arm': { name: 'arm' },
+        'armv7l': { name: 'armv7l' },
         'x64': { name: 'x64' },
         'x86': { name: 'x86' },
         'i586': { name: 'i586' },
