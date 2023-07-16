@@ -14,6 +14,7 @@ jobs:
     outputs:
       release_allowed: >
         ${{
+          github.repository_owner == 'tree-sitter' &&
           steps.maintainer.outputs.is_maintainer == 'true' &&
           steps.local_branch.outputs.is_local == 'true'
         }}
