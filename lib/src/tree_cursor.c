@@ -97,13 +97,19 @@ static inline bool ts_tree_cursor_child_iterator_next(
   return true;
 }
 
-static inline Length length_sub_zero(Length a, Length b) {
-  // length_sub doesn't account for 0 row subtraction, i.e. only columns
-  // should be subtracted, but changing point_sub breaks other tests
-  Length result = length_sub(a, b);
-  if (b.extent.row == 0 && a.extent.row != 0) {
-    result.extent.column -= b.extent.column;
+// Return a position that, when `b` is added to it, yields `a`. This
+// can only be computed if `b` has zero rows. Otherwise, this function
+// returns `LENGTH_UNDEFINED`, and the caller needs to recompute
+// the position some other way.
+static inline Length length_backtrack(Length a, Length b) {
+  if (length_is_undefined(a) || b.extent.row != 0) {
+    return LENGTH_UNDEFINED;
   }
+
+  Length result;
+  result.bytes = a.bytes - b.bytes;
+  result.extent.row = a.extent.row;
+  result.extent.column = a.extent.column - b.extent.column;
   return result;
 }
 
@@ -129,14 +135,14 @@ static inline bool ts_tree_cursor_child_iterator_previous(
     self->structural_child_index--;
   }
 
-  self->position = length_sub_zero(self->position, ts_subtree_padding(*child));
+  self->position = length_backtrack(self->position, ts_subtree_padding(*child));
   self->child_index--;
 
   // unsigned can underflow so compare it to child_count
   if (self->child_index < self->parent.ptr->child_count) {
     Subtree previous_child = ts_subtree_children(self->parent)[self->child_index];
     Length size = ts_subtree_size(previous_child);
-    self->position = length_sub_zero(self->position, size);
+    self->position = length_backtrack(self->position, size);
   }
 
   return true;
@@ -362,8 +368,8 @@ TreeCursorStep ts_tree_cursor_goto_previous_sibling_internal(TSTreeCursor *_self
   if (step == TreeCursorStepNone)
     return step;
 
-  // if row has not changed, column is still valid
-  if (array_back(&self->stack)->position.extent.row == position.extent.row)
+  // if length is already valid, there's no need to recompute it
+  if (!length_is_undefined(array_back(&self->stack)->position))
     return step;
 
   // restore position from the parent node

@@ -720,16 +720,32 @@ bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *);
  *
  * This returns `true` if the cursor successfully moved, and returns `false` if
  * there was no previous sibling node.
+ *
+ * Note, that this function may be slower than
+ * `ts_tree_cursor_goto_next_sibling` due to how node positions are stored. In
+ * the worst case, this will need to iterate through all the children upto the
+ * previous sibling node to recalculate its position.
  */
 bool ts_tree_cursor_goto_previous_sibling(TSTreeCursor *);
 
 /**
- * Move the cursor to the first/last child of its current node.
+ * Move the cursor to the first child of its current node.
  *
  * This returns `true` if the cursor successfully moved, and returns `false`
  * if there were no children.
  */
 bool ts_tree_cursor_goto_first_child(TSTreeCursor *);
+
+/**
+ * Move the cursor to the last child of its current node.
+ *
+ * This returns `true` if the cursor successfully moved, and returns `false` if
+ * there were no children.
+ *
+ * Note that this function may be slower than `ts_tree_cursor_goto_first_child`
+ * because it needs to iterate through all the children to compute the child's
+ * position.
+ */
 bool ts_tree_cursor_goto_last_child(TSTreeCursor *);
 
 /**

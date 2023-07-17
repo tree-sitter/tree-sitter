@@ -480,14 +480,15 @@ extern "C" {
     pub fn ts_tree_cursor_goto_next_sibling(arg1: *mut TSTreeCursor) -> bool;
 }
 extern "C" {
-    #[doc = " Move the cursor to the previous sibling of its current node.\n\n This returns `true` if the cursor successfully moved, and returns `false` if\n there was no previous sibling node."]
+    #[doc = " Move the cursor to the previous sibling of its current node.\n\n This returns `true` if the cursor successfully moved, and returns `false` if\n there was no previous sibling node.\n\n Note, that this function may be slower than\n `ts_tree_cursor_goto_next_sibling` due to how node positions are stored. In\n the worst case, this will need to iterate through all the children upto the\n previous sibling node to recalculate its position."]
     pub fn ts_tree_cursor_goto_previous_sibling(arg1: *mut TSTreeCursor) -> bool;
 }
 extern "C" {
-    #[doc = " Move the cursor to the first/last child of its current node.\n\n This returns `true` if the cursor successfully moved, and returns `false`\n if there were no children."]
+    #[doc = " Move the cursor to the first child of its current node.\n\n This returns `true` if the cursor successfully moved, and returns `false`\n if there were no children."]
     pub fn ts_tree_cursor_goto_first_child(arg1: *mut TSTreeCursor) -> bool;
 }
 extern "C" {
+    #[doc = " Move the cursor to the last child of its current node.\n\n This returns `true` if the cursor successfully moved, and returns `false` if\n there were no children.\n\n Note that this function may be slower than `ts_tree_cursor_goto_first_child`\n because it needs to iterate through all the children to compute the child's\n position."]
     pub fn ts_tree_cursor_goto_last_child(arg1: *mut TSTreeCursor) -> bool;
 }
 extern "C" {

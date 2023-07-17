@@ -1380,8 +1380,12 @@ impl<'a> TreeCursor<'a> {
 
     /// Move this cursor to the last child of its current node.
     ///
-    /// This returns `true` if the cursor successfully moved, and returns `false`
-    /// if there were no children.
+    /// This returns `true` if the cursor successfully moved, and returns
+    /// `false` if there were no children.
+    ///
+    /// Note that this function may be slower than
+    /// [`goto_first_child`](TreeCursor::goto_first_child) because it needs to
+    /// iterate through all the children to compute the child's position.
     #[doc(alias = "ts_tree_cursor_goto_last_child")]
     pub fn goto_last_child(&mut self) -> bool {
         return unsafe { ffi::ts_tree_cursor_goto_last_child(&mut self.0) };
@@ -1419,6 +1423,12 @@ impl<'a> TreeCursor<'a> {
     ///
     /// This returns `true` if the cursor successfully moved, and returns
     /// `false` if there was no previous sibling node.
+    ///
+    /// Note, that this function may be slower than
+    /// [`goto_next_sibling`](TreeCursor::goto_next_sibling) due to how node
+    /// positions are stored. In the worst case, this will need to iterate
+    /// through all the children upto the previous sibling node to recalculate
+    /// its position.
     #[doc(alias = "ts_tree_cursor_goto_previous_sibling")]
     pub fn goto_previous_sibling(&mut self) -> bool {
         return unsafe { ffi::ts_tree_cursor_goto_previous_sibling(&mut self.0) };
