@@ -29,7 +29,7 @@ pub struct TSQueryCursor {
     _unused: [u8; 0],
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct TSLookaheadIterator {
     _unused: [u8; 0],
 }
