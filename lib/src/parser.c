@@ -18,6 +18,7 @@
 #include "./stack.h"
 #include "./subtree.h"
 #include "./tree.h"
+#include "unicode.h"
 
 #define LOG(...)                                                                            \
   if (self->lexer.logger.log || self->dot_graph_file) {                                     \
@@ -1990,7 +1991,7 @@ TSTree *ts_parser_parse_string(
   const char *string,
   uint32_t length
 ) {
-  return ts_parser_parse_string_encoding(self, old_tree, string, length, TSInputEncodingUTF8);
+  return ts_parser_parse_string_encoding(self, old_tree, string, length, TSInputEncodingUTF8, NULL);
 }
 
 TSTree *ts_parser_parse_string_encoding(
@@ -1998,13 +1999,15 @@ TSTree *ts_parser_parse_string_encoding(
   const TSTree *old_tree,
   const char *string,
   uint32_t length,
-  TSInputEncoding encoding
+  TSInputEncoding encoding,
+  UnicodeDecodeFunction decode_function
 ) {
   TSStringInput input = {string, length};
   return ts_parser_parse(self, old_tree, (TSInput) {
     &input,
     ts_string_input_read,
     encoding,
+    decode_function,
   });
 }
 

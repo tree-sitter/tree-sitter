@@ -495,7 +495,7 @@ impl Parser {
         let bytes = text.as_ref();
         let len = bytes.len();
         self.parse_with(
-            &mut |i, _| (i < len).then(|| &bytes[i..]).unwrap_or_default(),
+            &mut |i, _| (i < len).then_some(&bytes[i..]).unwrap_or_default(),
             old_tree,
         )
     }
@@ -516,8 +516,39 @@ impl Parser {
         let code_points = input.as_ref();
         let len = code_points.len();
         self.parse_utf16_with(
-            &mut |i, _| (i < len).then(|| &code_points[i..]).unwrap_or_default(),
+            &mut |i, _| (i < len).then_some(&code_points[i..]).unwrap_or_default(),
             old_tree,
+        )
+    }
+
+    /// Parse a slice of text with a custom encoding.
+    ///
+    /// # Arguments:
+    /// * `text` The text to parse.
+    /// * `old_tree` A previous syntax tree parsed from the same document.
+    ///   If the text of the document has changed since `old_tree` was
+    ///   created, then you must edit `old_tree` to match the new text using
+    ///   [Tree::edit].
+    /// * `decode_fn` A function that takes a raw uint8_t pointer,
+    ///   a length, and a pointer to a code_point. It should decode the
+    ///   into `code_point` and return the number of bytes consumed.
+    ///   It should also advance the `string` pointer the number of bytes consumed.
+    pub fn parse_custom(
+        &mut self,
+        input: impl AsRef<[u8]>,
+        old_tree: Option<&Tree>,
+        decode_fn: unsafe extern "C" fn(
+            string: *const u8,
+            length: u32,
+            code_point: *mut i32,
+        ) -> u32,
+    ) -> Option<Tree> {
+        let code_points = input.as_ref();
+        let len = code_points.len();
+        self.parse_custom_with(
+            &mut |i, _| (i < len).then_some(&code_points[i..]).unwrap_or_default(),
+            old_tree,
+            decode_fn,
         )
     }
 
@@ -555,13 +586,14 @@ impl Parser {
             *text = Some(callback(byte_offset as usize, position.into()));
             let slice = text.as_ref().unwrap().as_ref();
             *bytes_read = slice.len() as u32;
-            return slice.as_ptr() as *const c_char;
+            slice.as_ptr() as *const c_char
         }
 
         let c_input = ffi::TSInput {
             payload: &mut payload as *mut (&mut F, Option<T>) as *mut c_void,
             read: Some(read::<T, F>),
             encoding: ffi::TSInputEncoding_TSInputEncodingUTF8,
+            decode: None,
         };
 
         let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0.as_ptr());
@@ -618,6 +650,62 @@ impl Parser {
             payload: &mut payload as *mut (&mut F, Option<T>) as *mut c_void,
             read: Some(read::<T, F>),
             encoding: ffi::TSInputEncoding_TSInputEncodingUTF16,
+            decode: None,
+        };
+
+        let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0.as_ptr());
+        unsafe {
+            let c_new_tree = ffi::ts_parser_parse(self.0.as_ptr(), c_old_tree, c_input);
+            NonNull::new(c_new_tree).map(Tree)
+        }
+    }
+
+    /// Parse text in a custom encoding provided in chunks by a callback.
+    ///
+    /// # Arguments:
+    /// * `callback` A function that takes a byte offset and position and
+    ///   returns a slice of UTF8-encoded text starting at that byte offset
+    ///   and position. The slices can be of any length. If the given position
+    ///   is at the end of the text, the callback should return an empty slice.
+    /// * `old_tree` A previous syntax tree parsed from the same document.
+    ///   If the text of the document has changed since `old_tree` was
+    ///   created, then you must edit `old_tree` to match the new text using
+    ///   [Tree::edit].
+    /// * `decode_fn` A function that takes a raw uint8_t pointer,
+    ///   a length, and a pointer to a code_point. It should decode the
+    ///   into `code_point` and return the number of bytes consumed.
+    ///   It should also advance the `string` pointer the number of bytes consumed.
+    pub fn parse_custom_with<T: AsRef<[u8]>, F: FnMut(usize, Point) -> T>(
+        &mut self,
+        callback: &mut F,
+        old_tree: Option<&Tree>,
+        decode_fn: unsafe extern "C" fn(
+            string: *const u8,
+            length: u32,
+            code_point: *mut i32,
+        ) -> u32,
+    ) -> Option<Tree> {
+        let mut payload: (&mut F, Option<T>) = (callback, None);
+
+        // This C function is passed to Tree-sitter as the input callback.
+        unsafe extern "C" fn read<T: AsRef<[u8]>, F: FnMut(usize, Point) -> T>(
+            payload: *mut c_void,
+            byte_offset: u32,
+            position: ffi::TSPoint,
+            bytes_read: *mut u32,
+        ) -> *const c_char {
+            let (callback, text) = (payload as *mut (&mut F, Option<T>)).as_mut().unwrap();
+            *text = Some(callback(byte_offset as usize, position.into()));
+            let slice = text.as_ref().unwrap().as_ref();
+            *bytes_read = slice.len() as u32;
+            slice.as_ptr() as *const c_char
+        }
+
+        let c_input = ffi::TSInput {
+            payload: &mut payload as *mut (&mut F, Option<T>) as *mut c_void,
+            read: Some(read::<T, F>),
+            encoding: ffi::TSInputEncoding_TSInputEncodingCustom,
+            decode: Some(decode_fn),
         };
 
         let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0.as_ptr());
