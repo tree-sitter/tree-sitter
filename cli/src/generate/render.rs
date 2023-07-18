@@ -847,13 +847,6 @@ impl Generator {
             // Otherwise, generate code to compare the lookahead character
             // with all of the character ranges.
             if transition.ranges.len() > 0 {
-                let marker = action.state
-                    | (if !action.in_main_token {
-                        has_skips = true;
-                        32768 as usize
-                    } else {
-                        0
-                    });
                 let res = self.add_character_range_conditions(&transition.ranges);
                 if transition.is_included {
                     let mut non_ascii_items = vec![];
@@ -862,17 +855,17 @@ impl Generator {
                             non_ascii_items.push(c);
                             continue;
                         };
-                        map.entry(c).or_insert(marker);
+                        map.entry(c).or_insert(action.clone());
                     }
                     if !non_ascii_items.is_empty() {
                         rejects.push((non_ascii_items, action, i, false))
                     }
                 } else {
-                    for c in (0..u8::MAX)
+                    for c in (0..u8::MAX / 2)
                         .into_iter()
                         .filter(|f| !res.contains(&(*f as char)))
                     {
-                        map.entry(c).or_insert(marker);
+                        map.entry(c).or_insert(action.clone());
                     }
                     rejects.push((res, action, i, true))
                 }
@@ -880,26 +873,37 @@ impl Generator {
         }
         if map.len() > 2 {
             let top = *map.last_entry().unwrap().key() as usize;
+            let (typ, sentinel_value) = {
+                let top_state = map.values().max().unwrap();
+                if top_state.state < 128 {
+                    ("uint8_t", 128)
+                } else {
+                    assert!(top_state.state < 32768);
+                    ("uint16_t", 32768)
+                }
+            };
+            let missing_value = sentinel_value * 2 - 1;
             for i in 0..(top as u8) {
                 // Fill in the gaps.
-                map.entry(i).or_insert(65535);
+                map.entry(i).or_insert(AdvanceAction {
+                    state: missing_value,
+                    in_main_token: true,
+                });
             }
             add_line!(self, "if ((uint32_t)lookahead < {}) {{", top + 1);
             indent!(self);
-            add_line!(
-                self,
-                "static const uint16_t states_{}[{}] = {{",
-                id,
-                top + 1
-            );
+            add_line!(self, "static const {} states_{}[{}] = {{", typ, id, top + 1);
             indent!(self);
-            let chunks = map.values();
+            let chunks = map.values().map(|v| {
+                if v.in_main_token {
+                    v.state
+                } else {
+                    has_skips = true;
+                    v.state | sentinel_value
+                }
+            });
             let mut to_process = chunks.len();
-            for chunk in chunks
-                .map(ToString::to_string)
-                .collect::<Vec<_>>()
-                .chunks(8)
-            {
+            for chunk in chunks.map(|v| v.to_string()).collect::<Vec<_>>().chunks(8) {
                 let current_chunk = chunk.join(", ");
                 to_process -= chunk.len();
                 let should_have_trailing_comma = to_process != 0;
@@ -908,15 +912,15 @@ impl Generator {
             }
             dedent!(self);
             add_line!(self, "}};");
-            add_line!(self, "uint16_t current_state = states_{}[lookahead];", id);
-            add_line!(self, "if (current_state < 32768) {{");
+            add_line!(self, "{} current_state = states_{}[lookahead];", typ, id);
+            add_line!(self, "if (current_state < {}) {{", sentinel_value);
             indent!(self);
             add_line!(self, "ADVANCE(current_state);");
             dedent!(self);
             if has_skips {
-                add_line!(self, "}} else if (current_state != 65535) {{",);
+                add_line!(self, "}} else if (current_state != {}) {{", missing_value);
                 indent!(self);
-                add_line!(self, "SKIP((current_state - 32768));");
+                add_line!(self, "SKIP((current_state - {}));", sentinel_value);
                 dedent!(self);
             }
             add_line!(self, "}}");
@@ -924,9 +928,13 @@ impl Generator {
             add_line!(self, "}}");
         } else {
             for (c, state) in map {
-                let action_name = if state < 32768 { "ADVANCE" } else { "SKIP" };
+                let action_name = if state.in_main_token {
+                    "ADVANCE"
+                } else {
+                    "SKIP"
+                };
 
-                let action_id = if state < 32768 { state } else { state - 32768 };
+                let action_id = state.state;
                 add_whitespace!(self);
                 add!(self, "if (lookahead == ");
                 self.add_character(c as char);
