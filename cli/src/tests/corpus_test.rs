@@ -429,7 +429,12 @@ fn set_included_ranges(parser: &mut Parser, input: &[u8], delimiters: Option<(&s
         let mut ranges = Vec::new();
         let mut ix = 0;
         while ix < input.len() {
-            let Some(mut start_ix) = input[ix..].windows(2).position(|win| win == start.as_bytes()) else { break };
+            let Some(mut start_ix) = input[ix..]
+                .windows(2)
+                .position(|win| win == start.as_bytes())
+            else {
+                break;
+            };
             start_ix += ix + start.len();
             let end_ix = input[start_ix..]
                 .windows(2)

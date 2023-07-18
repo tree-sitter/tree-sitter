@@ -252,9 +252,13 @@ fn test_node_parent_of_child_by_field_name() {
 fn test_node_field_name_for_child() {
     let mut parser = Parser::new();
     parser.set_language(get_language("c")).unwrap();
-    let tree = parser.parse("x + y;", None).unwrap();
+    let tree = parser.parse("void main() { x + y; }", None).unwrap();
     let translation_unit_node = tree.root_node();
     let binary_expression_node = translation_unit_node
+        .named_child(0)
+        .unwrap()
+        .named_child(2)
+        .unwrap()
         .named_child(0)
         .unwrap()
         .named_child(0)
