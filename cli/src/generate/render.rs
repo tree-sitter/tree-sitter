@@ -923,11 +923,12 @@ impl Generator {
                 add_line!(self, "SKIP((current_state - {}));", sentinel_value);
                 dedent!(self);
             }
-            add_line!(self, "}}");
+            add_line!(self, "}} else {{ goto label_{}; }}", id);
+            //add_line!(self, "}}");
             dedent!(self);
             add_line!(self, "}}");
         } else {
-            for (c, state) in map {
+            for (c, state) in map.iter() {
                 let action_name = if state.in_main_token {
                     "ADVANCE"
                 } else {
@@ -937,10 +938,11 @@ impl Generator {
                 let action_id = state.state;
                 add_whitespace!(self);
                 add!(self, "if (lookahead == ");
-                self.add_character(c as char);
+                self.add_character(*c as char);
                 add!(self, ") {}({});\n", action_name, action_id);
             }
         }
+        let table_range = map.last_entry().map(|e| *e.key() as char);
         for (chars, action, _, is_negated) in rejects {
             let cmp_char = if is_negated { " != " } else { " == " };
             let action_name = if action.in_main_token {
@@ -952,10 +954,21 @@ impl Generator {
             let join = if is_negated { "&&" } else { "||" };
             let full_cmp = chars
                 .into_iter()
-                .map(|c| format!("lookahead {} {}", cmp_char, c as u32))
+                .filter_map(|c| {
+                    if Some(c) > table_range {
+                        Some(format!("lookahead {} {}", cmp_char, c as u32))
+                    } else {
+                        None
+                    }
+                })
                 .collect::<Vec<_>>()
                 .join(join);
-            add_line!(self, "if ({}) {}({});", full_cmp, action_name, action_id);
+            if !full_cmp.is_empty() {
+                add_line!(self, "if ({}) {}({});", full_cmp, action_name, action_id);
+            } else {
+                add_line!(self, "{}({});", action_name, action_id);
+                break;
+            }
         }
         for (i, action) in helpers {
             let transition = &transition_info[i];
@@ -981,7 +994,7 @@ impl Generator {
             }
         }
 
-        add_line!(self, "END_STATE();");
+        add_line!(self, "label_{}: END_STATE();", id);
     }
 
     fn add_character_range_conditions(&mut self, ranges: &[Range<char>]) -> Vec<char> {
