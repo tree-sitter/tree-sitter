@@ -833,6 +833,7 @@ impl Generator {
         let mut map = std::collections::BTreeMap::<u8, _>::new();
         let mut helpers = vec![];
         let mut rejects = vec![];
+        let mut has_skips = false;
         for (i, (_, action)) in state.advance_actions.into_iter().enumerate() {
             let transition = &transition_info[i];
 
@@ -848,6 +849,7 @@ impl Generator {
             if transition.ranges.len() > 0 {
                 let marker = action.state
                     | (if !action.in_main_token {
+                        has_skips = true;
                         32768 as usize
                     } else {
                         0
@@ -877,7 +879,7 @@ impl Generator {
             }
         }
         if map.len() > 2 {
-            let top = *map.iter().rfind(|p| p.1 != &0).unwrap().0 as usize;
+            let top = *map.last_entry().unwrap().key() as usize;
             for i in 0..(top as u8) {
                 // Fill in the gaps.
                 map.entry(i).or_insert(65535);
@@ -911,7 +913,7 @@ impl Generator {
             indent!(self);
             add_line!(self, "ADVANCE(current_state);");
             dedent!(self);
-            if map.values().max().copied().unwrap_or_default() > (top + 1) {
+            if has_skips {
                 add_line!(self, "}} else if (current_state != 65535) {{",);
                 indent!(self);
                 add_line!(self, "SKIP((current_state - 32768));");
