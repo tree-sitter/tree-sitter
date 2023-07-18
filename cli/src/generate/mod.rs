@@ -21,10 +21,10 @@ use anyhow::{anyhow, Context, Result};
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use semver::Version;
-use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::{env, fs};
 
 lazy_static! {
     static ref JSON_COMMENT_REGEX: Regex = RegexBuilder::new("^\\s*//.*")
@@ -44,16 +44,17 @@ pub fn generate_parser_in_directory(
     abi_version: usize,
     generate_bindings: bool,
     report_symbol_name: Option<&str>,
+    js_runtime: Option<&str>,
 ) -> Result<()> {
     let src_path = repo_path.join("src");
     let header_path = src_path.join("tree_sitter");
 
     // Read the grammar.json.
     let grammar_json = match grammar_path {
-        Some(path) => load_grammar_file(path.as_ref())?,
+        Some(path) => load_grammar_file(path.as_ref(), js_runtime)?,
         None => {
             let grammar_js_path = grammar_path.map_or(repo_path.join("grammar.js"), |s| s.into());
-            load_grammar_file(&grammar_js_path)?
+            load_grammar_file(&grammar_js_path, js_runtime)?
         }
     };
 
@@ -156,16 +157,15 @@ fn generate_parser_for_grammar_with_opts(
     })
 }
 
-pub fn load_grammar_file(grammar_path: &Path) -> Result<String> {
+pub fn load_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result<String> {
     if grammar_path.is_dir() {
         return Err(anyhow!(
             "Path to a grammar file with `.js` or `.json` extension is required"
         ));
     }
     match grammar_path.extension().and_then(|e| e.to_str()) {
-        Some("js") => {
-            Ok(load_js_grammar_file(grammar_path).with_context(|| "Failed to load grammar.js")?)
-        }
+        Some("js") => Ok(load_js_grammar_file(grammar_path, js_runtime)
+            .with_context(|| "Failed to load grammar.js")?),
         Some("json") => {
             Ok(fs::read_to_string(grammar_path).with_context(|| "Failed to load grammar.json")?)
         }
@@ -176,14 +176,17 @@ pub fn load_grammar_file(grammar_path: &Path) -> Result<String> {
     }
 }
 
-fn load_js_grammar_file(grammar_path: &Path) -> Result<String> {
+fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result<String> {
     let grammar_path = fs::canonicalize(grammar_path)?;
-    let mut node_process = Command::new("node")
+
+    let js_runtime = js_runtime.unwrap_or("node");
+
+    let mut node_process = Command::new(js_runtime)
         .env("TREE_SITTER_GRAMMAR_PATH", grammar_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
-        .with_context(|| "Failed to run `node`")?;
+        .with_context(|| format!("Failed to run `{js_runtime}`"))?;
 
     let mut node_stdin = node_process
         .stdin

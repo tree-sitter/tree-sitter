@@ -126,6 +126,14 @@ fn run() -> Result<()> {
                         .long("report-states-for-rule")
                         .value_name("rule-name")
                         .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("js-runtime")
+                        .long("js-runtime")
+                        .takes_value(true)
+                        .value_name("executable")
+                        .env("TREE_SITTER_JS_RUNTIME")
+                        .help("Use a JavaScript runtime other than node"),
                 ),
         )
         .subcommand(
@@ -307,6 +315,7 @@ fn run() -> Result<()> {
             let debug_build = matches.is_present("debug-build");
             let build = matches.is_present("build");
             let libdir = matches.value_of("libdir");
+            let js_runtime = matches.value_of("js-runtime");
             let report_symbol_name = matches.value_of("report-states-for-rule").or_else(|| {
                 if matches.is_present("report-states") {
                     Some("")
@@ -336,6 +345,7 @@ fn run() -> Result<()> {
                 abi_version,
                 generate_bindings,
                 report_symbol_name,
+                js_runtime,
             )?;
             if build {
                 if let Some(path) = libdir {
