@@ -923,8 +923,15 @@ impl Generator {
                 add_line!(self, "SKIP((current_state - {}));", sentinel_value);
                 dedent!(self);
             }
-            add_line!(self, "}} else {{ goto label_{}; }}", id);
-            //add_line!(self, "}}");
+            if helpers
+                .iter()
+                .any(|(i, _)| transition_info[*i].call_id.is_some())
+            {
+                add_line!(self, "}} else {{ goto label_{}; }}", id);
+            } else {
+                add_line!(self, "}}");
+            }
+
             dedent!(self);
             add_line!(self, "}}");
         } else {
@@ -970,6 +977,12 @@ impl Generator {
                 break;
             }
         }
+        if helpers
+            .iter()
+            .any(|(i, _)| transition_info[*i].call_id.is_some())
+        {
+            add_line!(self, "label_{}: ", id);
+        }
         for (i, action) in helpers {
             let transition = &transition_info[i];
             add_whitespace!(self);
@@ -994,7 +1007,7 @@ impl Generator {
             }
         }
 
-        add_line!(self, "label_{}: END_STATE();", id);
+        add_line!(self, "END_STATE();");
     }
 
     fn add_character_range_conditions(&mut self, ranges: &[Range<char>]) -> Vec<char> {
