@@ -1,6 +1,7 @@
 use super::{
     char_tree::{CharacterTree, Comparator},
     grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType},
+    nfa::CharacterSet,
     rules::{Alias, AliasMap, Symbol, SymbolType},
     tables::{
         AdvanceAction, FieldLocation, GotoAction, LexState, LexTable, ParseAction, ParseTable,
@@ -89,6 +90,164 @@ struct LargeCharacterSetInfo {
     ranges: Vec<Range<char>>,
     symbol: Symbol,
     index: usize,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum LookupTableValueType {
+    U8,
+    U16,
+    U32,
+}
+
+type MaxLutEntry = usize;
+type CTypeName = &'static str;
+impl LookupTableValueType {
+    const STATES: [(LookupTableValueType, MaxLutEntry, CTypeName); 3] = [
+        (
+            LookupTableValueType::U8,
+            (u8::MAX as usize + 1) / 2,
+            "uint8_t",
+        ),
+        (
+            LookupTableValueType::U16,
+            (u16::MAX as usize + 1) / 2,
+            "uint16_t",
+        ),
+        (
+            LookupTableValueType::U32,
+            (u32::MAX as usize + 1) / 2,
+            "uint32_t",
+        ),
+    ];
+    fn from_max_state_id(max_state_id: usize) -> Self {
+        // We do not check for "greater or equal to", because we need a sentinel state
+        // (and type::MAX is being used for that).
+        // e.g: if `max_state_id` is 255, we must use uint16_t.
+        Self::STATES
+            .iter()
+            .find(|state| state.1 > max_state_id)
+            .expect("Encountered state ID greater than u32::MAX")
+            .0
+    }
+    fn max_value(&self) -> usize {
+        Self::STATES
+            .iter()
+            .find(|state| &state.0 == self)
+            .expect("Encountered state ID greater than u32::MAX")
+            .1
+    }
+    fn name(&self) -> &'static str {
+        Self::STATES
+            .iter()
+            .find(|state| &state.0 == self)
+            .expect("Encountered state ID greater than u32::MAX")
+            .2
+    }
+}
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct OptimizedLexState {
+    pub states: Vec<AdvanceAction>,
+    pub states_outside_of_lut: Vec<(Vec<char>, AdvanceAction, bool)>,
+    pub accept_action: Option<Symbol>,
+    pub eof_action: Option<AdvanceAction>,
+    pub value_type: LookupTableValueType,
+    pub skip_base: usize,
+    pub sentinel: usize,
+    pub helper_function_calls: Vec<(usize, AdvanceAction)>,
+    pub has_skips: bool,
+}
+
+fn should_use_optimized_state(state: &LexState) -> bool {
+    true
+}
+
+fn flatten_character_ranges(ranges: &[Range<char>]) -> Vec<char> {
+    ranges
+        .iter()
+        .flat_map(|f| (f.start..=f.end).into_iter())
+        .collect()
+}
+/// Turns LexState into an optimized form with lookup tables.
+/// `optimization_threshold` is a minimum number of comparisons in a state where we decide to use a lookup table instead.
+fn optimize_lex_state(
+    state: &LexState,
+    transitions: &[TransitionSummary],
+    optimization_threshold: usize,
+) -> Option<OptimizedLexState> {
+    let mut helper_function_calls = vec![];
+    let mut char_to_state = std::collections::BTreeMap::<u8, _>::new();
+    let mut states_outside_of_lut = vec![];
+    for (i, (_, action)) in state.advance_actions.iter().enumerate() {
+        let transition = &transitions[i];
+
+        // If there is a helper function for this transition's character
+        // set, then generate a call to that helper function.
+        if transition.call_id.is_some() {
+            helper_function_calls.push((i, action.clone()));
+            continue;
+        }
+
+        // Otherwise, generate code to compare the lookahead character
+        // with all of the character ranges.
+        if transition.ranges.len() > 0 {
+            const TABLE_ENTRY_UPPER_BOUND: u8 = u8::MAX / 2;
+            let res = flatten_character_ranges(&transition.ranges);
+            if transition.is_included {
+                let mut non_ascii_items = vec![];
+                for c in res {
+                    let Some(c) = c.try_into().ok().filter(|character: &u8| character < &TABLE_ENTRY_UPPER_BOUND) else {
+                        non_ascii_items.push(c);
+                        continue;
+                    };
+                    char_to_state.entry(c).or_insert(action.clone());
+                }
+                if !non_ascii_items.is_empty() {
+                    states_outside_of_lut.push((non_ascii_items, action.clone(), false))
+                }
+            } else {
+                for c in (0..TABLE_ENTRY_UPPER_BOUND)
+                    .into_iter()
+                    .filter(|f| !res.contains(&(*f as char)))
+                {
+                    char_to_state.entry(c).or_insert(action.clone());
+                }
+                states_outside_of_lut.push((res, action.clone(), true))
+            }
+        }
+    }
+    if char_to_state.len() > optimization_threshold {
+        // We've hit an optimization threshold. Cool.
+        let max_character = *char_to_state.last_entry().unwrap().key();
+        let max_state = char_to_state.values().max().unwrap().state;
+        let typ = LookupTableValueType::from_max_state_id(max_state);
+        let max_value = typ.max_value();
+        let sentinel = max_value * 2 - 1;
+        let mut has_skips = false;
+        for i in 0..max_character {
+            // Fill in the gaps.
+            let entry = char_to_state.entry(i).or_insert_with(|| AdvanceAction {
+                state: sentinel,
+                in_main_token: true,
+            });
+            if !entry.in_main_token {
+                has_skips = true;
+            }
+        }
+        let states = char_to_state.into_values().collect();
+        Some(OptimizedLexState {
+            states,
+            sentinel,
+            eof_action: state.eof_action.clone(),
+            states_outside_of_lut,
+            accept_action: state.accept_action.clone(),
+            value_type: typ,
+            skip_base: max_value,
+            helper_function_calls,
+            has_skips,
+        })
+    } else {
+        None
+    }
 }
 
 impl Generator {
@@ -827,79 +986,29 @@ impl Generator {
             add_line!(self, "ACCEPT_TOKEN({});", self.symbol_ids[&accept_action]);
         }
 
-        if let Some(eof_action) = state.eof_action {
+        if let Some(eof_action) = state.eof_action.as_ref() {
             add_line!(self, "if (eof) ADVANCE({});", eof_action.state);
         }
-        let mut map = std::collections::BTreeMap::<u8, _>::new();
-        let mut helpers = vec![];
-        let mut rejects = vec![];
-        let mut has_skips = false;
-        for (i, (_, action)) in state.advance_actions.into_iter().enumerate() {
-            let transition = &transition_info[i];
-
-            // If there is a helper function for this transition's character
-            // set, then generate a call to that helper function.
-            if transition.call_id.is_some() {
-                helpers.push((i, action.clone()));
-                continue;
-            }
-
-            // Otherwise, generate code to compare the lookahead character
-            // with all of the character ranges.
-            if transition.ranges.len() > 0 {
-                let res = self.add_character_range_conditions(&transition.ranges);
-                if transition.is_included {
-                    let mut non_ascii_items = vec![];
-                    for c in res {
-                        let Ok(c) = c.try_into() else {
-                            non_ascii_items.push(c);
-                            continue;
-                        };
-                        map.entry(c).or_insert(action.clone());
-                    }
-                    if !non_ascii_items.is_empty() {
-                        rejects.push((non_ascii_items, action, i, false))
-                    }
-                } else {
-                    for c in (0..u8::MAX / 2)
-                        .into_iter()
-                        .filter(|f| !res.contains(&(*f as char)))
-                    {
-                        map.entry(c).or_insert(action.clone());
-                    }
-                    rejects.push((res, action, i, true))
-                }
-            }
-        }
-        if map.len() > 2 {
-            let top = *map.last_entry().unwrap().key() as usize;
-            let (typ, sentinel_value) = {
-                let top_state = map.values().max().unwrap();
-                if top_state.state < 128 {
-                    ("uint8_t", 128)
-                } else {
-                    assert!(top_state.state < 32768);
-                    ("uint16_t", 32768)
-                }
-            };
-            let missing_value = sentinel_value * 2 - 1;
-            for i in 0..(top as u8) {
-                // Fill in the gaps.
-                map.entry(i).or_insert(AdvanceAction {
-                    state: missing_value,
-                    in_main_token: true,
-                });
-            }
-            add_line!(self, "if ((uint32_t)lookahead < {}) {{", top + 1);
+        if let Some(optimized_table) = optimize_lex_state(&state, transition_info, 2) {
+            add_line!(
+                self,
+                "if ((uint32_t)lookahead < {}) {{",
+                optimized_table.states.len()
+            );
             indent!(self);
-            add_line!(self, "static const {} states_{}[{}] = {{", typ, id, top + 1);
+            add_line!(
+                self,
+                "static const {} states_{}[{}] = {{",
+                optimized_table.value_type.name(),
+                id,
+                optimized_table.states.len()
+            );
             indent!(self);
-            let chunks = map.values().map(|v| {
+            let chunks = optimized_table.states.iter().map(|v| {
                 if v.in_main_token {
                     v.state
                 } else {
-                    has_skips = true;
-                    v.state | sentinel_value
+                    v.state | optimized_table.skip_base
                 }
             });
             let mut to_process = chunks.len();
@@ -912,18 +1021,36 @@ impl Generator {
             }
             dedent!(self);
             add_line!(self, "}};");
-            add_line!(self, "{} current_state = states_{}[lookahead];", typ, id);
-            add_line!(self, "if (current_state < {}) {{", sentinel_value);
+            add_line!(
+                self,
+                "{} current_state = states_{}[lookahead];",
+                optimized_table.value_type.name(),
+                id
+            );
+            add_line!(
+                self,
+                "if (current_state < {}) {{",
+                optimized_table.skip_base
+            );
             indent!(self);
             add_line!(self, "ADVANCE(current_state);");
             dedent!(self);
-            if has_skips {
-                add_line!(self, "}} else if (current_state != {}) {{", missing_value);
+            if optimized_table.has_skips {
+                add_line!(
+                    self,
+                    "}} else if (current_state != {}) {{",
+                    optimized_table.sentinel
+                );
                 indent!(self);
-                add_line!(self, "SKIP((current_state - {}));", sentinel_value);
+                add_line!(
+                    self,
+                    "SKIP((current_state - {}));",
+                    optimized_table.skip_base
+                );
                 dedent!(self);
             }
-            if helpers
+            if optimized_table
+                .helper_function_calls
                 .iter()
                 .any(|(i, _)| transition_info[*i].call_id.is_some())
             {
@@ -934,87 +1061,164 @@ impl Generator {
 
             dedent!(self);
             add_line!(self, "}}");
-        } else {
-            for (c, state) in map.iter() {
-                let action_name = if state.in_main_token {
+            let table_range = (optimized_table.states.len() - 1) as u8 as char;
+            for (chars, action, is_negated) in optimized_table.states_outside_of_lut {
+                let cmp_char = if is_negated { " != " } else { " == " };
+                let action_name = if action.in_main_token {
                     "ADVANCE"
                 } else {
                     "SKIP"
                 };
-
-                let action_id = state.state;
-                add_whitespace!(self);
-                add!(self, "if (lookahead == ");
-                self.add_character(*c as char);
-                add!(self, ") {}({});\n", action_name, action_id);
-            }
-        }
-        let table_range = map.last_entry().map(|e| *e.key() as char);
-        for (chars, action, _, is_negated) in rejects {
-            let cmp_char = if is_negated { " != " } else { " == " };
-            let action_name = if action.in_main_token {
-                "ADVANCE"
-            } else {
-                "SKIP"
-            };
-            let action_id = action.state;
-            let join = if is_negated { "&&" } else { "||" };
-            let full_cmp = chars
-                .into_iter()
-                .filter_map(|c| {
-                    if Some(c) > table_range {
-                        Some(format!("lookahead {} {}", cmp_char, c as u32))
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<_>>()
-                .join(join);
-            if !full_cmp.is_empty() {
-                add_line!(self, "if ({}) {}({});", full_cmp, action_name, action_id);
-            } else {
-                add_line!(self, "{}({});", action_name, action_id);
-                break;
-            }
-        }
-        if helpers
-            .iter()
-            .any(|(i, _)| transition_info[*i].call_id.is_some())
-        {
-            add_line!(self, "label_{}: ", id);
-        }
-        for (i, action) in helpers {
-            let transition = &transition_info[i];
-            add_whitespace!(self);
-
-            // If there is a helper function for this transition's character
-            // set, then generate a call to that helper function.
-            if let Some(call_id) = transition.call_id {
-                let info = &large_character_sets[call_id];
-                add!(self, "if (");
-                if !transition.is_included {
-                    add!(self, "!");
+                let action_id = action.state;
+                let join = if is_negated { "&&" } else { "||" };
+                let full_cmp = chars
+                    .into_iter()
+                    .filter_map(|c| {
+                        if c > table_range {
+                            Some(format!("lookahead {} {}", cmp_char, c as u32))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join(join);
+                if !full_cmp.is_empty() {
+                    add_line!(self, "if ({}) {}({});", full_cmp, action_name, action_id);
+                } else {
+                    add_line!(self, "{}({});", action_name, action_id);
+                    break;
                 }
-                add!(
-                    self,
-                    "{}_character_set_{}(lookahead)) ",
-                    self.symbol_ids[&info.symbol],
-                    info.index
-                );
+            }
+            if optimized_table
+                .helper_function_calls
+                .iter()
+                .any(|(i, _)| transition_info[*i].call_id.is_some())
+            {
+                add_line!(self, "label_{}: ", id);
+            }
+            for (i, action) in optimized_table.helper_function_calls {
+                let transition = &transition_info[i];
+                add_whitespace!(self);
+
+                // If there is a helper function for this transition's character
+                // set, then generate a call to that helper function.
+                if let Some(call_id) = transition.call_id {
+                    let info = &large_character_sets[call_id];
+                    add!(self, "if (");
+                    if !transition.is_included {
+                        add!(self, "!");
+                    }
+                    add!(
+                        self,
+                        "{}_character_set_{}(lookahead)) ",
+                        self.symbol_ids[&info.symbol],
+                        info.index
+                    );
+                    self.add_advance_action(&action);
+                    add!(self, "\n");
+                    continue;
+                }
+            }
+        } else {
+            for (i, (_, action)) in state.advance_actions.into_iter().enumerate() {
+                let transition = &transition_info[i];
+                add_whitespace!(self);
+
+                // If there is a helper function for this transition's character
+                // set, then generate a call to that helper function.
+                if let Some(call_id) = transition.call_id {
+                    let info = &large_character_sets[call_id];
+                    add!(self, "if (");
+                    if !transition.is_included {
+                        add!(self, "!");
+                    }
+                    add!(
+                        self,
+                        "{}_character_set_{}(lookahead)) ",
+                        self.symbol_ids[&info.symbol],
+                        info.index
+                    );
+                    self.add_advance_action(&action);
+                    add!(self, "\n");
+                    continue;
+                }
+
+                // Otherwise, generate code to compare the lookahead character
+                // with all of the character ranges.
+                if transition.ranges.len() > 0 {
+                    add!(self, "if (");
+                    self.add_character_range_conditions(
+                        &transition.ranges,
+                        transition.is_included,
+                        2,
+                    );
+                    add!(self, ") ");
+                }
                 self.add_advance_action(&action);
                 add!(self, "\n");
-                continue;
             }
         }
 
         add_line!(self, "END_STATE();");
     }
 
-    fn add_character_range_conditions(&mut self, ranges: &[Range<char>]) -> Vec<char> {
-        ranges
-            .iter()
-            .flat_map(|f| (f.start..=f.end).into_iter())
-            .collect()
+    fn add_character_range_conditions(
+        &mut self,
+        ranges: &[Range<char>],
+        is_included: bool,
+        indent_count: usize,
+    ) {
+        let mut line_break = "\n".to_string();
+        for _ in 0..self.indent_level + indent_count {
+            line_break.push_str("  ");
+        }
+
+        for (i, range) in ranges.iter().enumerate() {
+            if is_included {
+                if i > 0 {
+                    add!(self, " ||{}", line_break);
+                }
+                if range.end == range.start {
+                    add!(self, "lookahead == ");
+                    self.add_character(range.start);
+                } else if range.end as u32 == range.start as u32 + 1 {
+                    add!(self, "lookahead == ");
+                    self.add_character(range.start);
+                    add!(self, " ||{}lookahead == ", line_break);
+                    self.add_character(range.end);
+                } else {
+                    add!(self, "(");
+                    self.add_character(range.start);
+                    add!(self, " <= lookahead && lookahead <= ");
+                    self.add_character(range.end);
+                    add!(self, ")");
+                }
+            } else {
+                if i > 0 {
+                    add!(self, " &&{}", line_break);
+                }
+                if range.end == range.start {
+                    add!(self, "lookahead != ");
+                    self.add_character(range.start);
+                } else if range.end as u32 == range.start as u32 + 1 {
+                    add!(self, "lookahead != ");
+                    self.add_character(range.start);
+                    add!(self, " &&{}lookahead != ", line_break);
+                    self.add_character(range.end);
+                } else {
+                    if range.start != '\0' {
+                        add!(self, "(lookahead < ");
+                        self.add_character(range.start);
+                        add!(self, " || ");
+                        self.add_character(range.end);
+                        add!(self, " < lookahead)");
+                    } else {
+                        add!(self, "lookahead > ");
+                        self.add_character(range.end);
+                    }
+                }
+            }
+        }
     }
 
     fn add_character_tree(&mut self, tree: Option<&CharacterTree>) {
