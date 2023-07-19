@@ -20,28 +20,28 @@ name = "benchmark"
 harness = false
 
 [dependencies]
-ansi_term = "0.12"
-anyhow = "1.0"
-atty = "0.2"
+ansi_term = "0.12.1"
+anyhow = "1.0.72"
+atty = "0.2.14"
 clap = "2.32"
-ctrlc = { version = "3.2.5", features = ["termination"] }
-difference = "2.0"
-dirs = "3.0"
-glob = "0.3.0"
-html-escape = "0.2.6"
-indexmap = "1"
-lazy_static = "1.2.0"
+ctrlc = { version = "3.4.0", features = ["termination"] }
+difference = "2.0.0"
+dirs = "5.0.1"
+glob = "0.3.1"
+html-escape = "0.2.13"
+indexmap = "2.0.0"
+lazy_static = "1.4.0"
 path-slash = "0.2.1"
-regex = "1"
-regex-syntax = "0.6.4"
-rustc-hash = "1"
-semver = "1.0"
-serde = { version = "1.0.130", features = ["derive"] }
+regex = "1.9.1"
+regex-syntax = "0.7.4"
+rustc-hash = "1.1.0"
+semver = "1.0.18"
+serde = { version = "1.0.171", features = ["derive"] }
 smallbitvec = "2.5.1"
 tiny_http = "0.12.0"
-walkdir = "2.3"
-webbrowser = "0.8.3"
-which = "4.1.0"
+walkdir = "2.3.3"
+webbrowser = "0.8.10"
+which = "4.4.0"
 
 [dependencies.tree-sitter]
 version = "0.20.10"
@@ -64,22 +64,22 @@ version = "0.20"
 path = "../tags"
 
 [dependencies.serde_json]
-version = "1.0"
+version = "1.0.103"
 features = ["preserve_order"]
 
 [dependencies.log]
-version = "0.4.6"
+version = "0.4.19"
 features = ["std"]
 
 [dev-dependencies]
 proc_macro = { path = "src/tests/proc_macro", package = "tree-sitter-tests-proc-macro" }
 
-rand = "0.8"
-tempfile = "3"
-pretty_assertions = "0.7.2"
-ctor = "0.1"
-unindent = "0.2"
-indoc = "2.0.1"
+rand = "0.8.5"
+tempfile = "3.6.0"
+pretty_assertions = "1.4.0"
+ctor = "0.2.4"
+unindent = "0.2.2"
+indoc = "2.0.3"
 
 [build-dependencies]
-toml = "0.5"
+toml = "0.7.6"
