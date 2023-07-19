@@ -167,6 +167,7 @@ fn optimize_lex_state(
     let mut helper_function_calls = vec![];
     let mut char_to_state = std::collections::BTreeMap::<u8, _>::new();
     let mut states_outside_of_lut = vec![];
+    let mut total_comparisons = 0_usize;
     for (i, (_, action)) in state.advance_actions.iter().enumerate() {
         let transition = &transitions[i];
 
@@ -188,6 +189,7 @@ fn optimize_lex_state(
                         continue;
                     }
                     let range = range.start..=range.end;
+                    total_comparisons += if range.start() == range.end() { 1 } else { 2 };
                     for c in range {
                         let c: u8 = c.try_into().unwrap();
                         char_to_state.entry(c).or_insert(action.clone());
@@ -203,12 +205,16 @@ fn optimize_lex_state(
                 }) {
                     char_to_state.entry(c).or_insert(action.clone());
                 }
-
+                total_comparisons += transition
+                    .ranges
+                    .iter()
+                    .map(|r| if r.start == r.end { 1 } else { 2 })
+                    .sum::<usize>();
                 states_outside_of_lut.push((transition.ranges.clone(), action.clone(), true));
             }
         }
     }
-    if char_to_state.len() > optimization_threshold {
+    if total_comparisons > optimization_threshold {
         // We've hit an optimization threshold. Cool.
         let max_character = *char_to_state.last_entry().unwrap().key();
         let max_state = char_to_state.values().max().unwrap().state;
