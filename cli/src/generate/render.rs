@@ -1051,8 +1051,8 @@ impl Generator {
             add_line!(self, "}}");
 
             dedent!(self);
-            add_line!(self, "}}");
-
+            add_line!(self, "}} else {{ ");
+            indent!(self);
             for (chars, action, is_negated) in optimized_table.states_outside_of_lut {
                 add_whitespace!(self);
                 add!(self, "if (");
@@ -1061,6 +1061,8 @@ impl Generator {
                 self.add_advance_action(&action);
                 add!(self, "\n");
             }
+            add_line!(self, "}}");
+            dedent!(self);
             for (i, action) in optimized_table.helper_function_calls {
                 let transition = &transition_info[i];
                 add_whitespace!(self);
