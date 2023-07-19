@@ -144,10 +144,10 @@ impl LookupTableValueType {
             .2
     }
 }
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct OptimizedLexState {
     pub states: Vec<AdvanceAction>,
-    pub states_outside_of_lut: Vec<(Vec<char>, AdvanceAction, bool)>,
+    pub states_outside_of_lut: Vec<(Vec<Range<char>>, AdvanceAction, bool)>,
     pub accept_action: Option<Symbol>,
     pub eof_action: Option<AdvanceAction>,
     pub value_type: LookupTableValueType,
@@ -191,27 +191,33 @@ fn optimize_lex_state(
         // with all of the character ranges.
         if transition.ranges.len() > 0 {
             const TABLE_ENTRY_UPPER_BOUND: u8 = ((u8::MAX as usize + 1) / 2) as u8;
-            let res = flatten_character_ranges(&transition.ranges);
-            if transition.is_included {
-                let mut non_ascii_items = vec![];
-                for c in res {
-                    let Some(c) = c.try_into().ok().filter(|character: &u8| character < &TABLE_ENTRY_UPPER_BOUND) else {
-                        non_ascii_items.push(c);
-                        continue;
-                    };
-                    char_to_state.entry(c).or_insert(action.clone());
+            for range in transition.ranges.clone() {
+                if range.end >= TABLE_ENTRY_UPPER_BOUND as char {
+                    states_outside_of_lut.push((
+                        vec![range],
+                        action.clone(),
+                        !transition.is_included,
+                    ));
+                    continue;
                 }
-                if !non_ascii_items.is_empty() {
-                    states_outside_of_lut.push((non_ascii_items, action.clone(), false))
+                let range = range.start..=range.end;
+                if transition.is_included {
+                    for c in range {
+                        let c: u8 = c.try_into().unwrap();
+                        char_to_state.entry(c).or_insert(action.clone());
+                    }
+                } else {
+                    //assert!(transition.ranges.len() < 2, "{:?}", transition.ranges);
+                    for c in (0..TABLE_ENTRY_UPPER_BOUND)
+                        .into_iter()
+                        .filter(|f| !range.contains(&(*f as char)))
+                    {
+                        char_to_state.entry(c).or_insert(action.clone());
+                    }
                 }
-            } else {
-                for c in (0..TABLE_ENTRY_UPPER_BOUND)
-                    .into_iter()
-                    .filter(|f| !res.contains(&(*f as char)))
-                {
-                    char_to_state.entry(c).or_insert(action.clone());
-                }
-                states_outside_of_lut.push((res, action.clone(), true))
+            }
+            if !transition.is_included {
+                states_outside_of_lut.push((transition.ranges.clone(), action.clone(), true));
             }
         }
     }
@@ -1054,21 +1060,11 @@ impl Generator {
             dedent!(self);
             add_line!(self, "}}");
             for (chars, action, is_negated) in optimized_table.states_outside_of_lut {
-                let cmp_char = if is_negated { " != " } else { " == " };
-                let action_name = if action.in_main_token {
-                    "ADVANCE"
-                } else {
-                    "SKIP"
-                };
-                let action_id = action.state;
-                let join = if is_negated { "&&" } else { "||" };
-                let full_cmp = chars
-                    .into_iter()
-                    .map(|c| format!("lookahead {} {}", cmp_char, c as u32))
-                    .collect::<Vec<_>>()
-                    .join(join);
-
-                add_line!(self, "if ({}) {}({});", full_cmp, action_name, action_id);
+                add!(self, "if (");
+                self.add_character_range_conditions(&chars, !is_negated, 2);
+                add!(self, ") ");
+                self.add_advance_action(&action);
+                add!(self, "\n");
             }
             for (i, action) in optimized_table.helper_function_calls {
                 let transition = &transition_info[i];
