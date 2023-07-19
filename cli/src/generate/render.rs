@@ -157,16 +157,6 @@ struct OptimizedLexState {
     pub has_skips: bool,
 }
 
-fn should_use_optimized_state(state: &LexState) -> bool {
-    true
-}
-
-fn flatten_character_ranges(ranges: &[Range<char>]) -> Vec<char> {
-    ranges
-        .iter()
-        .flat_map(|f| (f.start..=f.end).into_iter())
-        .collect()
-}
 /// Turns LexState into an optimized form with lookup tables.
 /// `optimization_threshold` is a minimum number of comparisons in a state where we decide to use a lookup table instead.
 fn optimize_lex_state(
@@ -191,32 +181,29 @@ fn optimize_lex_state(
         // with all of the character ranges.
         if transition.ranges.len() > 0 {
             const TABLE_ENTRY_UPPER_BOUND: u8 = ((u8::MAX as usize + 1) / 2) as u8;
-            for range in transition.ranges.clone() {
-                if range.end >= TABLE_ENTRY_UPPER_BOUND as char {
-                    states_outside_of_lut.push((
-                        vec![range],
-                        action.clone(),
-                        !transition.is_included,
-                    ));
-                    continue;
-                }
-                let range = range.start..=range.end;
-                if transition.is_included {
+            if transition.is_included {
+                for range in &transition.ranges {
+                    if range.end >= TABLE_ENTRY_UPPER_BOUND as char {
+                        states_outside_of_lut.push((vec![range.clone()], action.clone(), false));
+                        continue;
+                    }
+                    let range = range.start..=range.end;
                     for c in range {
                         let c: u8 = c.try_into().unwrap();
                         char_to_state.entry(c).or_insert(action.clone());
                     }
-                } else {
-                    //assert!(transition.ranges.len() < 2, "{:?}", transition.ranges);
-                    for c in (0..TABLE_ENTRY_UPPER_BOUND)
-                        .into_iter()
-                        .filter(|f| !range.contains(&(*f as char)))
-                    {
-                        char_to_state.entry(c).or_insert(action.clone());
-                    }
                 }
-            }
-            if !transition.is_included {
+            } else {
+                //assert!(transition.ranges.len() < 2, "{:?}", transition.ranges);
+                for c in (0..TABLE_ENTRY_UPPER_BOUND).into_iter().filter(|f| {
+                    !transition
+                        .ranges
+                        .iter()
+                        .any(|r| (r.start..=r.end).contains(&(*f as char)))
+                }) {
+                    char_to_state.entry(c).or_insert(action.clone());
+                }
+
                 states_outside_of_lut.push((transition.ranges.clone(), action.clone(), true));
             }
         }
@@ -1059,7 +1046,9 @@ impl Generator {
 
             dedent!(self);
             add_line!(self, "}}");
+
             for (chars, action, is_negated) in optimized_table.states_outside_of_lut {
+                add_whitespace!(self);
                 add!(self, "if (");
                 self.add_character_range_conditions(&chars, !is_negated, 2);
                 add!(self, ") ");
