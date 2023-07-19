@@ -4674,3 +4674,49 @@ fn test_query_error_does_not_oob() {
         }
     );
 }
+
+#[test]
+fn test_consecutive_zero_or_modifiers() {
+    let language = get_language("javascript");
+    let mut parser = Parser::new();
+    parser.set_language(language).unwrap();
+
+    let zero_source = "";
+    let three_source = "/**/ /**/ /**/";
+
+    let zero_tree = parser.parse(zero_source, None).unwrap();
+    let three_tree = parser.parse(three_source, None).unwrap();
+
+    let tests = [
+        "(comment)*** @capture",
+        "(comment)??? @capture",
+        "(comment)*?* @capture",
+        "(comment)?*? @capture",
+    ];
+
+    for test in tests {
+        let query = Query::new(language, test).unwrap();
+
+        let mut cursor = QueryCursor::new();
+        let mut matches = cursor.matches(&query, zero_tree.root_node(), zero_source.as_bytes());
+        assert!(matches.next().is_some());
+
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.matches(&query, three_tree.root_node(), three_source.as_bytes());
+
+        let mut len_3 = false;
+        let mut len_1 = false;
+
+        for m in matches {
+            if m.captures.len() == 3 {
+                len_3 = true;
+            }
+            if m.captures.len() == 1 {
+                len_1 = true;
+            }
+        }
+
+        assert_eq!(len_3, test.contains('*'));
+        assert_eq!(len_1, test.contains("???"));
+    }
+}

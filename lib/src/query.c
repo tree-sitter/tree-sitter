@@ -2597,8 +2597,11 @@ static TSQueryError ts_query__parse_pattern(
       repeat_step.alternative_is_immediate = true;
       array_push(&self->steps, repeat_step);
 
+      // Stop when `step->alternative_index` is `NONE` or it points to
+      // `repeat_step` or beyond. Note that having just been pushed,
+      // `repeat_step` occupies slot `self->steps.size - 1`.
       QueryStep *step = &self->steps.contents[starting_step_index];
-      while (step->alternative_index != NONE) {
+      while (step->alternative_index != NONE && step->alternative_index < self->steps.size - 1) {
         step = &self->steps.contents[step->alternative_index];
       }
       step->alternative_index = self->steps.size;
@@ -2612,7 +2615,7 @@ static TSQueryError ts_query__parse_pattern(
       stream_skip_whitespace(stream);
 
       QueryStep *step = &self->steps.contents[starting_step_index];
-      while (step->alternative_index != NONE) {
+      while (step->alternative_index != NONE && step->alternative_index < self->steps.size) {
         step = &self->steps.contents[step->alternative_index];
       }
       step->alternative_index = self->steps.size;
