@@ -1,7 +1,6 @@
 use super::{
     char_tree::{CharacterTree, Comparator},
     grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType},
-    nfa::CharacterSet,
     rules::{Alias, AliasMap, Symbol, SymbolType},
     tables::{
         AdvanceAction, FieldLocation, GotoAction, LexState, LexTable, ParseAction, ParseTable,
@@ -177,7 +176,6 @@ fn optimize_lex_state(
             helper_function_calls.push((i, action.clone()));
             continue;
         }
-
         // Otherwise, generate code to compare the lookahead character
         // with all of the character ranges.
         if transition.ranges.len() > 0 {
@@ -196,7 +194,6 @@ fn optimize_lex_state(
                     }
                 }
             } else {
-                //assert!(transition.ranges.len() < 2, "{:?}", transition.ranges);
                 for c in (0..TABLE_ENTRY_UPPER_BOUND).into_iter().filter(|f| {
                     !transition
                         .ranges
