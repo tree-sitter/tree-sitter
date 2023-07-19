@@ -102,21 +102,9 @@ type MaxLutEntry = usize;
 type CTypeName = &'static str;
 impl LookupTableValueType {
     const STATES: [(LookupTableValueType, MaxLutEntry, CTypeName); 3] = [
-        (
-            LookupTableValueType::U8,
-            (u8::MAX as usize + 1) / 2,
-            "uint8_t",
-        ),
-        (
-            LookupTableValueType::U16,
-            (u16::MAX as usize + 1) / 2,
-            "uint16_t",
-        ),
-        (
-            LookupTableValueType::U32,
-            (u32::MAX as usize + 1) / 2,
-            "uint32_t",
-        ),
+        (LookupTableValueType::U8, u8::MAX as usize, "uint8_t"),
+        (LookupTableValueType::U16, u16::MAX as usize, "uint16_t"),
+        (LookupTableValueType::U32, u32::MAX as usize, "uint32_t"),
     ];
     fn from_max_state_id(max_state_id: usize) -> Self {
         // We do not check for "greater or equal to", because we need a sentinel state
@@ -151,6 +139,7 @@ struct OptimizedLexState {
     pub eof_action: Option<AdvanceAction>,
     pub value_type: LookupTableValueType,
     pub skip_base: usize,
+    pub skip_offset: isize,
     pub sentinel: usize,
     pub helper_function_calls: Vec<(usize, AdvanceAction)>,
     pub has_skips: bool,
@@ -214,10 +203,40 @@ fn optimize_lex_state(
     if total_comparisons > optimization_threshold {
         // We've hit an optimization threshold. Cool.
         let max_character = *char_to_state.last_entry().unwrap().key();
-        let max_state = char_to_state.values().max().unwrap().state;
-        let typ = LookupTableValueType::from_max_state_id(max_state);
-        let max_value = typ.max_value();
-        let sentinel = max_value * 2 - 1;
+        let max_advance_state = char_to_state
+            .values()
+            .filter(|f| f.in_main_token)
+            .map(|f| f.state)
+            .max()
+            .unwrap_or(0);
+        let min_skip_state = char_to_state
+            .values()
+            .filter(|f| !f.in_main_token)
+            .map(|f| f.state)
+            .min()
+            .unwrap_or(0);
+        let max_skip_state = char_to_state
+            .values()
+            .filter(|f| !f.in_main_token)
+            .map(|f| f.state)
+            .max()
+            .unwrap_or(0);
+        let skip_span = max_skip_state - min_skip_state;
+        // We need to pick a domain that's big enough to store `max_advance_state` advance elements, followed by
+        // `max_skip_state - min_skip_state` skip states and a single sentinel value.
+        //
+        // Skip states are stored in a table with their value off-set (so that we can actually recognize that they're a skip state).
+        // Skip state as stored in table is always greater than `max_advance_state`. Their raw value can be obtained by computing:
+        // raw_skip_state = skip_state_value + (max_advance_state - min_skip_state_id)
+        //
+        // They're stored as such to save space in the domain of a type. We want to use the smallest type possible
+        // to represent all states, hence the packing. Advance states are not "compact" in the same manner, as
+        // they're more common and packing comes with a slight performance overhead in the form of having to do arithmetic
+        // on value fetched from the table. In theory one could use compact representation for advance states if needed.
+        let typ = LookupTableValueType::from_max_state_id(max_advance_state + skip_span + 1);
+        let sentinel = typ.max_value();
+        let skip_base = max_advance_state + 1;
+        let skip_offset = skip_base as isize - min_skip_state as isize;
         let mut has_skips = false;
         for i in 0..max_character {
             // Fill in the gaps.
@@ -237,7 +256,8 @@ fn optimize_lex_state(
             states_outside_of_lut,
             accept_action: state.accept_action.clone(),
             value_type: typ,
-            skip_base: max_value,
+            skip_base,
+            skip_offset,
             helper_function_calls,
             has_skips,
         })
@@ -1000,15 +1020,23 @@ impl Generator {
                 optimized_table.states.len()
             );
             indent!(self);
+            let min_skip_id = optimized_table.skip_base as isize - optimized_table.skip_offset;
             let chunks = optimized_table.states.iter().map(|v| {
                 if v.in_main_token {
                     v.state
                 } else {
-                    v.state | optimized_table.skip_base
+                    (v.state - min_skip_id as usize) + optimized_table.skip_base
                 }
             });
             let mut to_process = chunks.len();
-            for chunk in chunks.map(|v| v.to_string()).collect::<Vec<_>>().chunks(8) {
+            for chunk in chunks
+                .map(|v| {
+                    assert!(v <= optimized_table.value_type.max_value());
+                    v.to_string()
+                })
+                .collect::<Vec<_>>()
+                .chunks(8)
+            {
                 let current_chunk = chunk.join(", ");
                 to_process -= chunk.len();
                 let should_have_trailing_comma = to_process != 0;
@@ -1041,7 +1069,7 @@ impl Generator {
                 add_line!(
                     self,
                     "SKIP((current_state - {}));",
-                    optimized_table.skip_base
+                    optimized_table.skip_offset
                 );
                 dedent!(self);
             }
