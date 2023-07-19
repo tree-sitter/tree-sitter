@@ -1049,19 +1049,10 @@ impl Generator {
                 );
                 dedent!(self);
             }
-            if optimized_table
-                .helper_function_calls
-                .iter()
-                .any(|(i, _)| transition_info[*i].call_id.is_some())
-            {
-                add_line!(self, "}} else {{ goto label_{}; }}", id);
-            } else {
-                add_line!(self, "}}");
-            }
+            add_line!(self, "}}");
 
             dedent!(self);
             add_line!(self, "}}");
-            let table_range = (optimized_table.states.len() - 1) as u8 as char;
             for (chars, action, is_negated) in optimized_table.states_outside_of_lut {
                 let cmp_char = if is_negated { " != " } else { " == " };
                 let action_name = if action.in_main_token {
@@ -1073,28 +1064,11 @@ impl Generator {
                 let join = if is_negated { "&&" } else { "||" };
                 let full_cmp = chars
                     .into_iter()
-                    .filter_map(|c| {
-                        if c > table_range {
-                            Some(format!("lookahead {} {}", cmp_char, c as u32))
-                        } else {
-                            None
-                        }
-                    })
+                    .map(|c| format!("lookahead {} {}", cmp_char, c as u32))
                     .collect::<Vec<_>>()
                     .join(join);
-                if !full_cmp.is_empty() {
-                    add_line!(self, "if ({}) {}({});", full_cmp, action_name, action_id);
-                } else {
-                    add_line!(self, "{}({});", action_name, action_id);
-                    break;
-                }
-            }
-            if optimized_table
-                .helper_function_calls
-                .iter()
-                .any(|(i, _)| transition_info[*i].call_id.is_some())
-            {
-                add_line!(self, "label_{}: ", id);
+
+                add_line!(self, "if ({}) {}({});", full_cmp, action_name, action_id);
             }
             for (i, action) in optimized_table.helper_function_calls {
                 let transition = &transition_info[i];
