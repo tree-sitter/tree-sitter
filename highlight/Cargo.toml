@@ -3,8 +3,8 @@ name = "tree-sitter-highlight"
 description = "Library for performing syntax highlighting with Tree-sitter"
 version = "0.20.2"
 authors = [
-  "Max Brunsfeld <maxbrunsfeld@gmail.com>",
-  "Tim Clem <timothy.clem@gmail.com>",
+	"Max Brunsfeld <maxbrunsfeld@gmail.com>",
+	"Tim Clem <timothy.clem@gmail.com>",
 ]
 license = "MIT"
 readme = "README.md"
@@ -18,9 +18,9 @@ rust-version.workspace = true
 crate-type = ["lib", "staticlib"]
 
 [dependencies]
-lazy_static = "1.2.0"
-regex = "1"
-thiserror = "1.0"
+lazy_static = "1.4.0"
+regex = "1.9.1"
+thiserror = "1.0.43"
 
 [dependencies.tree-sitter]
 version = "0.20"

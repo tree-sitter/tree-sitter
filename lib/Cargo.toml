@@ -23,11 +23,11 @@ include = [
 ]
 
 [dependencies]
-lazy_static = { version = "1.2.0", optional = true }
-regex = "1"
+lazy_static = { version = "1.4.0", optional = true }
+regex = "1.9.1"
 
 [build-dependencies]
-cc = "^1.0.58"
+cc = "^1.0.79"
 
 [lib]
 path = "binding_rust/lib.rs"
