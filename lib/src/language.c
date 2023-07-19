@@ -78,7 +78,7 @@ TSSymbol ts_language_symbol_for_name(
   bool is_named
 ) {
   if (!strncmp(string, "ERROR", length)) return ts_builtin_sym_error;
-  uint32_t count = ts_language_symbol_count(self);
+  uint16_t count = (uint16_t)ts_language_symbol_count(self);
   for (TSSymbol i = 0; i < count; i++) {
     TSSymbolMetadata metadata = ts_language_symbol_metadata(self, i);
     if ((!metadata.visible && !metadata.supertype) || metadata.named != is_named) continue;
@@ -121,7 +121,7 @@ TSFieldId ts_language_field_id_for_name(
   const char *name,
   uint32_t name_length
 ) {
-  uint32_t count = ts_language_field_count(self);
+  uint16_t count = (uint16_t)ts_language_field_count(self);
   for (TSSymbol i = 1; i < count + 1; i++) {
     switch (strncmp(name, self->field_names[i], name_length)) {
       case 0:

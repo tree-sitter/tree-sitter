@@ -416,7 +416,7 @@ static CaptureListPool capture_list_pool_new(void) {
 }
 
 static void capture_list_pool_reset(CaptureListPool *self) {
-  for (uint16_t i = 0; i < self->list.size; i++) {
+  for (uint16_t i = 0; i < (uint16_t)self->list.size; i++) {
     // This invalid size means that the list is not in use.
     self->list.contents[i].size = UINT32_MAX;
   }
@@ -424,7 +424,7 @@ static void capture_list_pool_reset(CaptureListPool *self) {
 }
 
 static void capture_list_pool_delete(CaptureListPool *self) {
-  for (uint16_t i = 0; i < self->list.size; i++) {
+  for (uint16_t i = 0; i < (uint16_t)self->list.size; i++) {
     array_delete(&self->list.contents[i]);
   }
   array_delete(&self->list);
@@ -449,7 +449,7 @@ static bool capture_list_pool_is_empty(const CaptureListPool *self) {
 static uint16_t capture_list_pool_acquire(CaptureListPool *self) {
   // First see if any already allocated capture list is currently unused.
   if (self->free_capture_list_count > 0) {
-    for (uint16_t i = 0; i < self->list.size; i++) {
+    for (uint16_t i = 0; i < (uint16_t)self->list.size; i++) {
       if (self->list.contents[i].size == UINT32_MAX) {
         array_clear(&self->list.contents[i]);
         self->free_capture_list_count--;
@@ -696,7 +696,7 @@ static void capture_quantifiers_add_all(
   if (self->size < quantifiers->size) {
     array_grow_by(self, quantifiers->size - self->size);
   }
-  for (uint16_t id = 0; id < quantifiers->size; id++) {
+  for (uint16_t id = 0; id < (uint16_t)quantifiers->size; id++) {
     uint8_t *quantifier = array_get(quantifiers, id);
     uint8_t *own_quantifier = array_get(self, id);
     *own_quantifier = (uint8_t) quantifier_add((TSQuantifier) *own_quantifier, (TSQuantifier) *quantifier);
@@ -708,7 +708,7 @@ static void capture_quantifiers_mul(
   CaptureQuantifiers *self,
   TSQuantifier quantifier
 ) {
-  for (uint16_t id = 0; id < self->size; id++) {
+  for (uint16_t id = 0; id < (uint16_t)self->size; id++) {
     uint8_t *own_quantifier = array_get(self, id);
     *own_quantifier = (uint8_t) quantifier_mul((TSQuantifier) *own_quantifier, quantifier);
   }
@@ -1519,7 +1519,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     AnalysisSubgraph subgraph = { .symbol = parent_symbol };
     array_insert_sorted_by(&subgraphs, .symbol, subgraph);
   }
-  for (TSSymbol sym = self->language->token_count; sym < self->language->symbol_count; sym++) {
+  for (TSSymbol sym = (uint16_t)self->language->token_count; sym < (uint16_t)self->language->symbol_count; sym++) {
     if (!ts_language_symbol_metadata(self->language, sym).visible) {
       AnalysisSubgraph subgraph = { .symbol = sym };
       array_insert_sorted_by(&subgraphs, .symbol, subgraph);
@@ -1533,7 +1533,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   //      with information about the node that would be created.
   //   3) A list of predecessor states for each state.
   StatePredecessorMap predecessor_map = state_predecessor_map_new(self->language);
-  for (TSStateId state = 1; state < self->language->state_count; state++) {
+  for (TSStateId state = 1; state < (uint16_t)self->language->state_count; state++) {
     unsigned subgraph_index, exists;
     LookaheadIterator lookahead_iterator = ts_language_lookaheads(self->language, state);
     while (ts_lookahead_iterator_next(&lookahead_iterator)) {

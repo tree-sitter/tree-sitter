@@ -1328,7 +1328,7 @@ static void ts_parser__handle_error(
       TSStateId state = ts_stack_state(self->stack, v);
       for (
         TSSymbol missing_symbol = 1;
-        missing_symbol < self->language->token_count;
+        missing_symbol < (uint16_t)self->language->token_count;
         missing_symbol++
       ) {
         TSStateId state_after_missing_symbol = ts_language_next_state(
