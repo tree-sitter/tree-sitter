@@ -776,7 +776,7 @@ uint32_t ts_query_start_byte_for_pattern(const TSQuery *, uint32_t);
 const TSQueryPredicateStep *ts_query_predicates_for_pattern(
   const TSQuery *self,
   uint32_t pattern_index,
-  uint32_t *length
+  uint32_t *step_count
 );
 
 /*
@@ -807,7 +807,7 @@ bool ts_query_is_pattern_guaranteed_at_step(const TSQuery *self, uint32_t byte_o
  */
 const char *ts_query_capture_name_for_id(
   const TSQuery *,
-  uint32_t id,
+  uint32_t index,
   uint32_t *length
 );
 
@@ -817,13 +817,13 @@ const char *ts_query_capture_name_for_id(
  */
 TSQuantifier ts_query_capture_quantifier_for_id(
   const TSQuery *,
-  uint32_t pattern_id,
-  uint32_t capture_id
+  uint32_t pattern_index,
+  uint32_t capture_index
 );
 
 const char *ts_query_string_value_for_id(
   const TSQuery *,
-  uint32_t id,
+  uint32_t index,
   uint32_t *length
 );
 
@@ -907,7 +907,7 @@ void ts_query_cursor_set_point_range(TSQueryCursor *, TSPoint, TSPoint);
  * Otherwise, return `false`.
  */
 bool ts_query_cursor_next_match(TSQueryCursor *, TSQueryMatch *match);
-void ts_query_cursor_remove_match(TSQueryCursor *, uint32_t id);
+void ts_query_cursor_remove_match(TSQueryCursor *, uint32_t match_id);
 
 /**
  * Advance to the next capture of the currently running query.

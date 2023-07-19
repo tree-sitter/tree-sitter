@@ -16,12 +16,12 @@ typedef struct {
 
 // CursorChildIterator
 
-static inline bool ts_tree_cursor_is_entry_visible(const TreeCursor *self, uint32_t i) {
-  TreeCursorEntry *entry = &self->stack.contents[i];
-  if (i == 0 || ts_subtree_visible(*entry->subtree)) {
+static inline bool ts_tree_cursor_is_entry_visible(const TreeCursor *self, uint32_t index) {
+  TreeCursorEntry *entry = &self->stack.contents[index];
+  if (index == 0 || ts_subtree_visible(*entry->subtree)) {
     return true;
   } else if (!ts_subtree_extra(*entry->subtree)) {
-    TreeCursorEntry *parent_entry = &self->stack.contents[i - 1];
+    TreeCursorEntry *parent_entry = &self->stack.contents[index - 1];
     return ts_language_alias_at(
       self->tree->language,
       parent_entry->subtree->ptr->production_id,
@@ -444,9 +444,9 @@ void ts_tree_cursor_current_status(
 
       // Look for a field name associated with the current node.
       if (!*field_id) {
-        for (const TSFieldMapEntry *i = field_map; i < field_map_end; i++) {
-          if (!i->inherited && i->child_index == entry->structural_child_index) {
-            *field_id = i->field_id;
+        for (const TSFieldMapEntry *map = field_map; map < field_map_end; map++) {
+          if (!map->inherited && map->child_index == entry->structural_child_index) {
+            *field_id = map->field_id;
             break;
           }
         }
@@ -454,10 +454,10 @@ void ts_tree_cursor_current_status(
 
       // Determine if the current node can have later siblings with the same field name.
       if (*field_id) {
-        for (const TSFieldMapEntry *i = field_map; i < field_map_end; i++) {
+        for (const TSFieldMapEntry *map = field_map; map < field_map_end; map++) {
           if (
-            i->field_id == *field_id &&
-            i->child_index > entry->structural_child_index
+            map->field_id == *field_id &&
+            map->child_index > entry->structural_child_index
           ) {
             *can_have_later_siblings_with_this_field = true;
             break;
@@ -528,9 +528,9 @@ TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *_self) {
       parent_entry->subtree->ptr->production_id,
       &field_map, &field_map_end
     );
-    for (const TSFieldMapEntry *i = field_map; i < field_map_end; i++) {
-      if (!i->inherited && i->child_index == entry->structural_child_index) {
-        return i->field_id;
+    for (const TSFieldMapEntry *map = field_map; map < field_map_end; map++) {
+      if (!map->inherited && map->child_index == entry->structural_child_index) {
+        return map->field_id;
       }
     }
   }
