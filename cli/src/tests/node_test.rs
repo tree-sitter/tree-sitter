@@ -252,16 +252,14 @@ fn test_node_parent_of_child_by_field_name() {
 fn test_node_field_name_for_child() {
     let mut parser = Parser::new();
     parser.set_language(get_language("c")).unwrap();
-    let tree = parser.parse("void main() { x + y; }", None).unwrap();
+    let tree = parser.parse("int w = x + y;", None).unwrap();
     let translation_unit_node = tree.root_node();
-    let binary_expression_node = translation_unit_node
-        .named_child(0)
+    let declaration_node = translation_unit_node.named_child(0).unwrap();
+
+    let binary_expression_node = declaration_node
+        .child_by_field_name("declarator")
         .unwrap()
-        .named_child(2)
-        .unwrap()
-        .named_child(0)
-        .unwrap()
-        .named_child(0)
+        .child_by_field_name("value")
         .unwrap();
 
     assert_eq!(binary_expression_node.field_name_for_child(0), Some("left"));
