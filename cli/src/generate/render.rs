@@ -190,7 +190,7 @@ fn optimize_lex_state(
         // Otherwise, generate code to compare the lookahead character
         // with all of the character ranges.
         if transition.ranges.len() > 0 {
-            const TABLE_ENTRY_UPPER_BOUND: u8 = u8::MAX / 2;
+            const TABLE_ENTRY_UPPER_BOUND: u8 = ((u8::MAX as usize + 1) / 2) as u8;
             let res = flatten_character_ranges(&transition.ranges);
             if transition.is_included {
                 let mut non_ascii_items = vec![];
