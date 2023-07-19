@@ -9,16 +9,13 @@ fn main() {
             let scan_build_path = scan_build_path.to_str().unwrap();
             env::set_var(
                 "CC",
-                &format!(
-                    "{} -analyze-headers --use-analyzer={} cc",
-                    scan_build_path, clang_path
-                ),
+                &format!("{scan_build_path} -analyze-headers --use-analyzer={clang_path} cc"),
             );
         }
     }
 
     let src_path = Path::new("src");
-    for entry in fs::read_dir(&src_path).unwrap() {
+    for entry in fs::read_dir(src_path).unwrap() {
         let entry = entry.unwrap();
         let path = src_path.join(entry.file_name());
         println!("cargo:rerun-if-changed={}", path.to_str().unwrap());
