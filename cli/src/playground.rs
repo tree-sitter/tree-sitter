@@ -8,7 +8,6 @@ use std::{
     str::{self, FromStr as _},
 };
 use tiny_http::{Header, Response, Server};
-use webbrowser;
 
 macro_rules! optional_resource {
     ($name: tt, $path: tt) => {
