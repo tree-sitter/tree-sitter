@@ -2780,7 +2780,6 @@ TSQuery *ts_query_new(
       // then add multiple entries to the pattern map.
       if (step->alternative_index != NONE) {
         start_step_index = step->alternative_index;
-        step->alternative_index = NONE;
       } else if (wildcard_root_alternative_index != NONE) {
         start_step_index = wildcard_root_alternative_index;
         wildcard_root_alternative_index = NONE;
@@ -3008,11 +3007,43 @@ void ts_query_cursor_set_match_limit(TSQueryCursor *self, uint32_t limit) {
   self->capture_list_pool.max_capture_list_count = limit;
 }
 
+#ifdef DEBUG_EXECUTE_QUERY
+#define LOG(...) fprintf(stderr, __VA_ARGS__)
+#else
+#define LOG(...)
+#endif
+
 void ts_query_cursor_exec(
   TSQueryCursor *self,
   const TSQuery *query,
   TSNode node
 ) {
+  if  (query) {
+    LOG("query steps:\n");
+    for (unsigned i = 0; i < query->steps.size; i++) {
+      QueryStep *step = &query->steps.contents[i];
+      LOG("  %u: {", i);
+      if (step->depth == PATTERN_DONE_MARKER) {
+        LOG("DONE");
+      } else if (step->is_dead_end) {
+        LOG("dead_end");
+      } else if (step->is_pass_through) {
+        LOG("pass_through");
+      } else if (step->symbol != WILDCARD_SYMBOL) {
+        LOG("symbol: %s", query->language->symbol_names[step->symbol]);
+      } else {
+        LOG("symbol: *");
+      }
+      if (step->field) {
+        LOG(", field: %s", query->language->field_names[step->field]);
+      }
+      if (step->alternative_index != NONE) {
+        LOG(", alternative: %u", step->alternative_index);
+      }
+      LOG("},\n");
+    }
+  }
+
   array_clear(&self->states);
   array_clear(&self->finished_states);
   ts_tree_cursor_reset(&self->cursor, node);
@@ -3179,12 +3210,6 @@ void ts_query_cursor__compare_captures(
     }
   }
 }
-
-#ifdef DEBUG_EXECUTE_QUERY
-#define LOG(...) fprintf(stderr, __VA_ARGS__)
-#else
-#define LOG(...)
-#endif
 
 static void ts_query_cursor__add_state(
   TSQueryCursor *self,
