@@ -7,4 +7,7 @@ resolver = "2"
 rust-version = "1.65"
 
 [profile.release]
-strip = true
+strip = true      # Automatically strip symbols from the binary.
+lto = true        # Link-time optimization.
+opt-level = "s"   # Optimize for speed.
+codegen-units = 1 # Maximum size reduction optimizations.
