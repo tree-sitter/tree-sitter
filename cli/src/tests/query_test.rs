@@ -1827,6 +1827,53 @@ fn test_query_matches_with_alternatives_and_too_many_permutations_to_track() {
 }
 
 #[test]
+fn test_repetitions_before_with_alternatives() {
+    allocations::record(|| {
+        let language = get_language("rust");
+        let query = Query::new(
+            language,
+            r#"
+            (
+                (line_comment)* @comment
+                .
+                [
+                    (struct_item name: (_) @name)
+                    (function_item name: (_) @name)
+                    (enum_item name: (_) @name)
+                    (impl_item type: (_) @name)
+                ]
+            )
+            "#,
+        )
+        .unwrap();
+
+        assert_query_matches(
+            language,
+            &query,
+            r#"
+            // a
+            // b
+            fn c() {}
+
+            // d
+            // e
+            impl F {}
+            "#,
+            &[
+                (
+                    0,
+                    vec![("comment", "// a"), ("comment", "// b"), ("name", "c")],
+                ),
+                (
+                    0,
+                    vec![("comment", "// d"), ("comment", "// e"), ("name", "F")],
+                ),
+            ],
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_anonymous_tokens() {
     allocations::record(|| {
         let language = get_language("javascript");
