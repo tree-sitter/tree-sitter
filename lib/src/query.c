@@ -1788,7 +1788,8 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     ) {
       TSQueryPredicateStep *step = &self->predicate_steps.contents[j];
       if (step->type == TSQueryPredicateStepTypeCapture) {
-        array_insert_sorted_by(&predicate_capture_ids, , step->value_id);
+        uint16_t value_id = step->value_id;
+        array_insert_sorted_by(&predicate_capture_ids, , value_id);
       }
     }
 
