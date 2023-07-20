@@ -484,6 +484,7 @@ impl Loader {
     pub fn highlight_config_for_injection_string<'a>(
         &'a self,
         string: &str,
+        apply_all_captures: bool,
     ) -> Option<&'a HighlightConfiguration> {
         match self.language_configuration_for_injection_string(string) {
             Err(e) => {
@@ -494,17 +495,19 @@ impl Loader {
                 None
             }
             Ok(None) => None,
-            Ok(Some((language, configuration))) => match configuration.highlight_config(language) {
-                Err(e) => {
-                    eprintln!(
-                        "Failed to load property sheet for injection string '{}': {}",
-                        string, e
-                    );
-                    None
+            Ok(Some((language, configuration))) => {
+                match configuration.highlight_config(language, apply_all_captures) {
+                    Err(e) => {
+                        eprintln!(
+                            "Failed to load property sheet for injection string '{}': {}",
+                            string, e
+                        );
+                        None
+                    }
+                    Ok(None) => None,
+                    Ok(Some(config)) => Some(config),
                 }
-                Ok(None) => None,
-                Ok(Some(config)) => Some(config),
-            },
+            }
         }
     }
 
@@ -701,7 +704,11 @@ impl Loader {
 }
 
 impl<'a> LanguageConfiguration<'a> {
-    pub fn highlight_config(&self, language: Language) -> Result<Option<&HighlightConfiguration>> {
+    pub fn highlight_config(
+        &self,
+        language: Language,
+        apply_all_captures: bool,
+    ) -> Result<Option<&HighlightConfiguration>> {
         return self
             .highlight_config
             .get_or_try_init(|| {
@@ -720,6 +727,7 @@ impl<'a> LanguageConfiguration<'a> {
                         &highlights_query,
                         &injections_query,
                         &locals_query,
+                        apply_all_captures,
                     )
                     .map_err(|error| match error.kind {
                         QueryErrorKind::Language => Error::from(error),

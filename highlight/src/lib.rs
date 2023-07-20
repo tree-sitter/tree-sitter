@@ -103,6 +103,7 @@ pub enum HighlightEvent {
 pub struct HighlightConfiguration {
     pub language: Language,
     pub query: Query,
+    pub apply_all_captures: bool,
     combined_injections_query: Option<Query>,
     locals_pattern_index: usize,
     highlights_pattern_index: usize,
@@ -160,6 +161,7 @@ where
     iter_count: usize,
     next_event: Option<HighlightEvent>,
     last_highlight_range: Option<(usize, usize, usize)>,
+    apply_all_captures: bool,
 }
 
 struct HighlightIterLayer<'a> {
@@ -215,9 +217,10 @@ impl Highlighter {
             cancellation_flag,
             highlighter: self,
             iter_count: 0,
-            layers: layers,
+            layers,
             next_event: None,
             last_highlight_range: None,
+            apply_all_captures: config.apply_all_captures,
         };
         result.sort_layers();
         Ok(result)
@@ -244,6 +247,7 @@ impl HighlightConfiguration {
         highlights_query: &str,
         injection_query: &str,
         locals_query: &str,
+        apply_all_captures: bool,
     ) -> Result<Self, QueryError> {
         // Concatenate the query strings, keeping track of the start offset of each section.
         let mut query_source = String::new();
@@ -324,6 +328,7 @@ impl HighlightConfiguration {
         Ok(HighlightConfiguration {
             language,
             query,
+            apply_all_captures,
             combined_injections_query,
             locals_pattern_index,
             highlights_pattern_index,
@@ -929,7 +934,13 @@ where
             while let Some((next_match, next_capture_index)) = layer.captures.peek() {
                 let next_capture = next_match.captures[*next_capture_index];
                 if next_capture.node == capture.node {
-                    layer.captures.next();
+                    if self.apply_all_captures {
+                        match_.remove();
+                        capture = next_capture;
+                        match_ = layer.captures.next().unwrap().0;
+                    } else {
+                        layer.captures.next();
+                    }
                 } else {
                     break;
                 }

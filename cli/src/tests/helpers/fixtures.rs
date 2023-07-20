@@ -55,6 +55,7 @@ pub fn get_highlight_config(
         &highlights_query,
         &injections_query,
         &locals_query,
+        false,
     )
     .unwrap();
     result.configure(&highlight_names);

@@ -348,7 +348,7 @@ pub fn ansi(
     let mut highlighter = Highlighter::new();
 
     let events = highlighter.highlight(config, source, cancellation_flag, |string| {
-        loader.highlight_config_for_injection_string(string)
+        loader.highlight_config_for_injection_string(string, config.apply_all_captures)
     })?;
 
     let mut style_stack = vec![theme.default_style().ansi];
@@ -394,7 +394,7 @@ pub fn html(
     let mut highlighter = Highlighter::new();
 
     let events = highlighter.highlight(config, source, cancellation_flag, |string| {
-        loader.highlight_config_for_injection_string(string)
+        loader.highlight_config_for_injection_string(string, config.apply_all_captures)
     })?;
 
     let mut renderer = HtmlRenderer::new();

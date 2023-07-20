@@ -78,6 +78,10 @@ fn run() -> Result<()> {
         .long("quiet")
         .short("q");
 
+    let apply_all_captures_arg = Arg::with_name("apply-all-captures")
+        .help("Apply all captures to highlights")
+        .long("apply-all-captures");
+
     let matches = App::new("tree-sitter")
         .author("Max Brunsfeld <maxbrunsfeld@gmail.com>")
         .about("Generates and tests parsers")
@@ -236,7 +240,8 @@ fn run() -> Result<()> {
                 )
                 .arg(&debug_arg)
                 .arg(&debug_build_arg)
-                .arg(&debug_graph_arg),
+                .arg(&debug_graph_arg)
+                .arg(&apply_all_captures_arg),
         )
         .subcommand(
             SubCommand::with_name("highlight")
@@ -256,7 +261,8 @@ fn run() -> Result<()> {
                 .arg(&time_arg)
                 .arg(&quiet_arg)
                 .arg(&paths_file_arg)
-                .arg(&paths_arg),
+                .arg(&paths_arg)
+                .arg(&apply_all_captures_arg),
         )
         .subcommand(
             SubCommand::with_name("build-wasm")
@@ -362,6 +368,7 @@ fn run() -> Result<()> {
             let debug_build = matches.is_present("debug-build");
             let update = matches.is_present("update");
             let filter = matches.value_of("filter");
+            let apply_all_captures = matches.is_present("apply-all-captures");
 
             if debug {
                 // For augmenting debug logging in external scanners
@@ -398,7 +405,7 @@ fn run() -> Result<()> {
             // Run the syntax highlighting tests.
             let test_highlight_dir = test_dir.join("highlight");
             if test_highlight_dir.is_dir() {
-                test_highlight::test_highlights(&loader, &test_highlight_dir)?;
+                test_highlight::test_highlights(&loader, &test_highlight_dir, apply_all_captures)?;
             }
 
             let test_tag_dir = test_dir.join("tags");
@@ -562,6 +569,7 @@ fn run() -> Result<()> {
             let html_mode = quiet || matches.is_present("html");
             let should_check = matches.is_present("check");
             let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
+            let apply_all_captures = matches.is_present("apply-all-captures");
 
             if html_mode && !quiet {
                 println!("{}", highlight::HTML_HEADER);
@@ -590,7 +598,9 @@ fn run() -> Result<()> {
                     },
                 };
 
-                if let Some(highlight_config) = language_config.highlight_config(language)? {
+                if let Some(highlight_config) =
+                    language_config.highlight_config(language, apply_all_captures)?
+                {
                     if should_check {
                         let names = highlight_config.nonconformant_capture_names();
                         if names.is_empty() {
