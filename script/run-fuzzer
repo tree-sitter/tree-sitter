@@ -6,7 +6,13 @@ root=$(dirname "$0")/..
 export ASAN_OPTIONS="quarantine_size_mb=10:detect_leaks=1:symbolize=1"
 export UBSAN="print_stacktrace=1:halt_on_error=1:symbolize=1"
 
-declare -A mode_config=( ["halt"]="-timeout=1 -rss_limit_mb=256" ["recover"]="-timeout=10 -rss_limit_mb=256" )
+# check if CI env var exists
+
+if [ -z "${CI:-}" ]; then
+  declare -A mode_config=( ["halt"]="-timeout=1 -rss_limit_mb=2048" ["recover"]="-timeout=10 -rss_limit_mb=2048" )
+else
+  declare -A mode_config=( ["halt"]="-max_total_time=120 -timeout=1 -rss_limit_mb=2048" ["recover"]="-time=120 -timeout=10 -rss_limit_mb=2048" )
+fi
 
 run_fuzzer() {
   if [ "$#" -lt 2 ]; then
@@ -21,7 +27,7 @@ run_fuzzer() {
   # Treat remainder of arguments as libFuzzer arguments
 
   # Fuzzing logs and testcases are always written to `pwd`, so `cd` there first
-  results="${root}/out/fuzz-results/${lang}_${mode}"
+  results="${root}/test/fuzz/out/fuzz-results/${lang}"
   mkdir -p "${results}"
   cd "${results}"
 
@@ -29,7 +35,8 @@ run_fuzzer() {
   # then be loaded on subsequent fuzzing runs
   mkdir -p corpus
 
-  "../../${lang}_fuzzer_${mode}" "-dict=../../${lang}.dict" "-artifact_prefix=${lang}_${mode}_" -max_len=2048 ${mode_config[$mode]} "./corpus" "$@"
+  pwd
+  "../../${lang}_fuzzer" "-dict=../../${lang}.dict" "-artifact_prefix=${lang}_" -max_len=2048 "${mode_config[$mode]}" "./corpus" "$@"
 }
 
 reproduce() {
@@ -46,7 +53,7 @@ reproduce() {
   shift
   # Treat remainder of arguments as libFuzzer arguments
 
-  "${root}/out/${lang}_fuzzer_${mode}" ${mode_config[$mode]} -runs=1 "${testcase}" "$@"
+  "${root}/test/fuzz/out/${lang}_fuzzer" "${mode_config[$mode]}" -runs=1 "${testcase}" "$@"
 }
 
 script=$(basename "$0")
