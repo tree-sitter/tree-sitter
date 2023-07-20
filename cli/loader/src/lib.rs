@@ -370,7 +370,8 @@ impl Loader {
                 .opt_level(2)
                 .cargo_metadata(false)
                 .target(BUILD_TARGET)
-                .host(BUILD_TARGET);
+                .host(BUILD_TARGET)
+                .flag_if_supported("-Werror=implicit-function-declaration");
             let compiler = config.get_compiler();
             let mut command = Command::new(compiler.path());
             for (key, value) in compiler.env() {
