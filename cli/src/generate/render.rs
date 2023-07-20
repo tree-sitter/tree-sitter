@@ -1075,17 +1075,27 @@ impl Generator {
             }
             add_line!(self, "}}");
 
-            dedent!(self);
-            add_line!(self, "}} else {{ ");
-            indent!(self);
-            for (chars, action, is_negated) in optimized_table.states_outside_of_lut {
-                add_whitespace!(self);
-                add!(self, "if (");
-                self.add_character_range_conditions(&chars, !is_negated, 2);
-                add!(self, ") ");
-                self.add_advance_action(&action);
-                add!(self, "\n");
+            if !optimized_table.states_outside_of_lut.is_empty() {
+                dedent!(self);
+                add_line!(self, "}} else {{ ");
+                indent!(self);
+                for (chars, action, is_negated) in optimized_table.states_outside_of_lut {
+                    add_whitespace!(self);
+                    if !is_negated
+                        || chars
+                            .iter()
+                            .any(|r| r.end as usize >= optimized_table.states.len())
+                    {
+                        add!(self, "if (");
+                        self.add_character_range_conditions(&chars, !is_negated, 2);
+                        add!(self, ") ");
+                    }
+
+                    self.add_advance_action(&action);
+                    add!(self, "\n");
+                }
             }
+
             add_line!(self, "}}");
             dedent!(self);
             for (i, action) in optimized_table.helper_function_calls {
