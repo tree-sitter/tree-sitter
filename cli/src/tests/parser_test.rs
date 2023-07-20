@@ -8,12 +8,12 @@ use crate::{
     generate::generate_parser_for_grammar,
     parse::{perform_edit, Edit},
 };
-use proc_macro::retry;
 use std::{
     sync::atomic::{AtomicUsize, Ordering},
     thread, time,
 };
 use tree_sitter::{IncludedRangesError, InputEdit, LogType, Parser, Point, Range};
+use tree_sitter_proc_macro::retry;
 
 #[test]
 fn test_parsing_simple_string() {

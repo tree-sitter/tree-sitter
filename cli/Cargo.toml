@@ -72,7 +72,7 @@ version = "0.4.19"
 features = ["std"]
 
 [dev-dependencies]
-proc_macro = { path = "src/tests/proc_macro", package = "tree-sitter-tests-proc-macro" }
+tree_sitter_proc_macro = { path = "src/tests/proc_macro", package = "tree-sitter-tests-proc-macro" }
 
 rand = "0.8.5"
 tempfile = "3.6.0"
