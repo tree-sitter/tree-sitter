@@ -1,4 +1,4 @@
-name: Sunitize
+name: Sanitize
 
 env:
   CARGO_TERM_COLOR: always
