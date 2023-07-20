@@ -264,6 +264,14 @@ fn run() -> Result<()> {
                         .long("captures-path")
                         .takes_value(true),
                 )
+                .arg(
+                    Arg::with_name("query-paths")
+                        .help("Paths to files with queries")
+                        .long("query-paths")
+                        .takes_value(true)
+                        .multiple(true)
+                        .number_of_values(1),
+                )
                 .arg(&scope_arg)
                 .arg(&time_arg)
                 .arg(&quiet_arg)
@@ -592,6 +600,15 @@ fn run() -> Result<()> {
                 }
             }
 
+            let query_paths = matches.values_of("query-paths").map_or(None, |e| {
+                Some(
+                    e.collect::<Vec<_>>()
+                        .into_iter()
+                        .map(|s| s.to_string())
+                        .collect::<Vec<_>>(),
+                )
+            });
+
             for path in paths {
                 let path = Path::new(&path);
                 let (language, language_config) = match lang {
@@ -605,9 +622,11 @@ fn run() -> Result<()> {
                     },
                 };
 
-                if let Some(highlight_config) =
-                    language_config.highlight_config(language, apply_all_captures)?
-                {
+                if let Some(highlight_config) = language_config.highlight_config(
+                    language,
+                    apply_all_captures,
+                    query_paths.as_deref(),
+                )? {
                     if should_check {
                         let names = if let Some(path) = matches.value_of("captures-path") {
                             let path = Path::new(path);

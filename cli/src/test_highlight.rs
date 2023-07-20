@@ -76,7 +76,7 @@ fn test_highlights_indented(
                 .language_configuration_for_file_name(&test_file_path)?
                 .ok_or_else(|| anyhow!("No language found for path {:?}", test_file_path))?;
             let highlight_config = language_config
-                .highlight_config(language, apply_all_captures)?
+                .highlight_config(language, apply_all_captures, None)?
                 .ok_or_else(|| anyhow!("No highlighting config found for {:?}", test_file_path))?;
             match test_highlight(
                 &loader,
