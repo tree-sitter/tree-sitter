@@ -61,7 +61,8 @@ pub fn generate_parser_in_directory(
         None => {
             let grammar_js_path = grammar_path.map_or(repo_path.join("grammar.js"), |s| s.into());
             grammar_json = load_grammar_file(&grammar_js_path)?;
-            fs::write(&src_path.join("grammar.json"), &grammar_json)?;
+            fs::write(&src_path.join("grammar.json"), &grammar_json)
+                .with_context(|| format!("Failed to write grammar.json to {:?}", src_path))?;
         }
     }
 

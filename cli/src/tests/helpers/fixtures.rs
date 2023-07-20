@@ -86,6 +86,9 @@ pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> 
 
 pub fn get_test_grammar(name: &str) -> (String, Option<PathBuf>) {
     let dir = fixtures_dir().join("test_grammars").join(name);
-    let grammar = fs::read_to_string(&dir.join("grammar.json")).unwrap();
+    let grammar = fs::read_to_string(&dir.join("grammar.json")).expect(&format!(
+        "Can't find grammar.json for test grammar {}",
+        name
+    ));
     (grammar, Some(dir))
 }
