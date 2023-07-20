@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Error, Result};
 use clap::{App, AppSettings, Arg, SubCommand};
 use glob::glob;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::{env, fs, u64};
 use tree_sitter::{ffi, Point};
@@ -256,6 +257,12 @@ fn run() -> Result<()> {
                     Arg::with_name("check")
                         .help("Check that highlighting captures conform strictly to standards")
                         .long("check"),
+                )
+                .arg(
+                    Arg::with_name("captures-path")
+                        .help("Path to a file with captures")
+                        .long("captures-path")
+                        .takes_value(true),
                 )
                 .arg(&scope_arg)
                 .arg(&time_arg)
@@ -602,7 +609,22 @@ fn run() -> Result<()> {
                     language_config.highlight_config(language, apply_all_captures)?
                 {
                     if should_check {
-                        let names = highlight_config.nonconformant_capture_names();
+                        let names = if let Some(path) = matches.value_of("captures-path") {
+                            let path = Path::new(path);
+                            let file = fs::read_to_string(path)?;
+                            let capture_names = file
+                                .lines()
+                                .filter_map(|line| {
+                                    if line.trim().is_empty() || line.trim().starts_with(';') {
+                                        return None;
+                                    }
+                                    line.split(';').next().map(|s| s.trim().trim_matches('"'))
+                                })
+                                .collect::<HashSet<_>>();
+                            highlight_config.nonconformant_capture_names(&capture_names)
+                        } else {
+                            highlight_config.nonconformant_capture_names(&HashSet::new())
+                        };
                         if names.is_empty() {
                             eprintln!("All highlight captures conform to standards.");
                         } else {

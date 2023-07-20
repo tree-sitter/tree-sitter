@@ -390,12 +390,16 @@ impl HighlightConfiguration {
     // Return the list of this configuration's capture names that are neither present in the
     // list of predefined 'canonical' names nor start with an underscore (denoting 'private' captures
     // used as part of capture internals).
-    pub fn nonconformant_capture_names(&self) -> Vec<&String> {
-        return self
-            .names()
+    pub fn nonconformant_capture_names(&self, capture_names: &HashSet<&str>) -> Vec<&String> {
+        let capture_names = if capture_names.is_empty() {
+            &*STANDARD_CAPTURE_NAMES
+        } else {
+            &capture_names
+        };
+        self.names()
             .iter()
-            .filter(|&n| !(n.starts_with('_') || STANDARD_CAPTURE_NAMES.contains(n.as_str())))
-            .collect();
+            .filter(|&n| !(n.starts_with('_') || capture_names.contains(n.as_str())))
+            .collect()
     }
 }
 
