@@ -133,11 +133,10 @@ impl LookupTableValueType {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct OptimizedLexState {
-    pub states: Vec<AdvanceAction>,
+    pub inner: OptimizedLexStates,
     pub states_outside_of_lut: Vec<(Vec<Range<char>>, AdvanceAction, bool)>,
     pub accept_action: Option<Symbol>,
     pub eof_action: Option<AdvanceAction>,
-    pub value_type: LookupTableValueType,
     pub skip_base: usize,
     pub skip_offset: isize,
     pub sentinel: usize,
@@ -145,13 +144,111 @@ struct OptimizedLexState {
     pub has_skips: bool,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum OptimizedLexStates {
+    Owned {
+        states: Vec<AdvanceAction>,
+        value_type: LookupTableValueType,
+    },
+    Reference {
+        id: usize,
+        len: usize,
+        // The actual size needed by on-site use of this reference might be smaller (e.g. all values in a slice we're referencing might fit in a smaller type)
+        // but - to avoid messing with C's semantics too much - we keep it simple.
+        value_type: LookupTableValueType,
+    },
+}
+
+impl OptimizedLexStates {
+    fn value_type(&self) -> LookupTableValueType {
+        match self {
+            OptimizedLexStates::Owned { value_type, .. }
+            | OptimizedLexStates::Reference { value_type, .. } => *value_type,
+        }
+    }
+    fn len(&self) -> usize {
+        match self {
+            OptimizedLexStates::Owned { states, .. } => states.len(),
+            OptimizedLexStates::Reference { len, .. } => *len,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum LexState_ {
+    Normal(LexState),
+    Optimized(OptimizedLexState),
+}
+
+impl LexState_ {
+    fn accept_action(&self) -> Option<&Symbol> {
+        match self {
+            Self::Normal(state) => state.accept_action.as_ref(),
+            Self::Optimized(state) => state.accept_action.as_ref(),
+        }
+    }
+    fn eof_action(&self) -> Option<&AdvanceAction> {
+        match self {
+            Self::Normal(state) => state.eof_action.as_ref(),
+            Self::Optimized(state) => state.eof_action.as_ref(),
+        }
+    }
+}
+
+fn coalesce_lookup_tables(states: &mut [LexState_]) {
+    let mut state_lookup_table_sizes = states.iter().enumerate().filter_map(|(i, state)| {
+        if let LexState_::Optimized(state) = state {
+            if let OptimizedLexStates::Owned { states, .. } = &state.inner {
+                 Some((i, states.len()))
+            } else {
+                unreachable!("coalesce_lookup_tables should only be called with unoptimized lex states or owned optimized states");
+            }
+        } else {
+            None
+        }
+    }).collect::<Vec<_>>();
+    // Imagine you have three tables: A, B, C. A's value type is u8, B's value type is u16 and
+    // C's value type is u32. A is a prefix of B and B is a prefix of C (thus, A is also a prefix of C).
+    state_lookup_table_sizes.sort_by_key(|entry| entry.1);
+    for (current_index, (i, _)) in state_lookup_table_sizes.iter().enumerate() {
+        if current_index == state_lookup_table_sizes.len() - 1 {
+            // There's nothing to compare against when we're at the last element.
+            break;
+        }
+        let search_space = &state_lookup_table_sizes[current_index + 1..];
+        let LexState_::Optimized (OptimizedLexState {inner: OptimizedLexStates::Owned { states: current_state_list, .. }, .. }) =  &states[*i] else {
+            unreachable!("`index` must point at an owned lex state, it is {}", i);
+        };
+        let entry_to_reference = search_space.iter().rfind(|(index, _)| {
+            let LexState_::Optimized (OptimizedLexState {inner: OptimizedLexStates::Owned { states: state_list, .. }, .. }) =  &states[*index] else {
+                unreachable!("`index` must point at an owned lex state, it is {:?}", states[*index]);
+            };
+            state_list.starts_with(current_state_list)
+        });
+        if let Some(entry) = entry_to_reference {
+            // Got it! We've found a pair which can be optimized.
+            // Let's mark that entry as reference.
+            let LexState_::Optimized (OptimizedLexState {inner: OptimizedLexStates::Owned { value_type, .. }, .. }) =  &mut states[entry.0] else {
+                unreachable!();
+            };
+            let value_type = *value_type;
+            if let LexState_::Optimized(ref mut optimized) = &mut states[*i] {
+                optimized.inner = OptimizedLexStates::Reference {
+                    id: entry.0,
+                    len: entry.1,
+                    value_type,
+                }
+            }
+        }
+    }
+}
 /// Turns LexState into an optimized form with lookup tables.
 /// `optimization_threshold` is a minimum number of comparisons in a state where we decide to use a lookup table instead.
 fn optimize_lex_state(
-    state: &LexState,
+    state: LexState,
     transitions: &[TransitionSummary],
     optimization_threshold: usize,
-) -> Option<OptimizedLexState> {
+) -> LexState_ {
     let mut helper_function_calls = vec![];
     let mut char_to_state = std::collections::BTreeMap::<u8, _>::new();
     let mut states_outside_of_lut = vec![];
@@ -233,8 +330,8 @@ fn optimize_lex_state(
         // to represent all states, hence the packing. Advance states are not "compact" in the same manner, as
         // they're more common and packing comes with a slight performance overhead in the form of having to do arithmetic
         // on value fetched from the table. In theory one could use compact representation for advance states if needed.
-        let typ = LookupTableValueType::from_max_state_id(max_advance_state + skip_span + 1);
-        let sentinel = typ.max_value();
+        let value_type = LookupTableValueType::from_max_state_id(max_advance_state + skip_span + 1);
+        let sentinel = value_type.max_value();
         let skip_base = max_advance_state + 1;
         let skip_offset = skip_base as isize - min_skip_state as isize;
         let mut has_skips = false;
@@ -249,20 +346,19 @@ fn optimize_lex_state(
             }
         }
         let states = char_to_state.into_values().collect();
-        Some(OptimizedLexState {
-            states,
+        LexState_::Optimized(OptimizedLexState {
+            inner: OptimizedLexStates::Owned { states, value_type },
             sentinel,
             eof_action: state.eof_action.clone(),
             states_outside_of_lut,
             accept_action: state.accept_action.clone(),
-            value_type: typ,
             skip_base,
             skip_offset,
             helper_function_calls,
             has_skips,
         })
     } else {
-        None
+        LexState_::Normal(state)
     }
 }
 
@@ -940,10 +1036,57 @@ impl Generator {
 
         add_line!(self, "START_LEXER();");
         add_line!(self, "eof = lexer->eof(lexer);");
+        let mut states = lex_table
+            .states
+            .into_iter()
+            .enumerate()
+            .map(|(i, state)| optimize_lex_state(state, &state_transition_summaries[i], 2))
+            .collect::<Vec<_>>();
+        coalesce_lookup_tables(&mut states);
+        // Emit lookup tables.
+        for (i, table) in states.iter().enumerate() {
+            let LexState_::Optimized(table) = table else {continue;};
+            if let OptimizedLexStates::Owned { states, value_type } = &table.inner {
+                let min_skip_id = table.skip_base as isize - table.skip_offset;
+                let chunks = states.iter().map(|v| {
+                    if v.in_main_token {
+                        v.state
+                    } else {
+                        (v.state - min_skip_id as usize) + table.skip_base
+                    }
+                });
+                let mut to_process = chunks.len();
+
+                add_line!(
+                    self,
+                    "static const {} states_{}[{}] = {{",
+                    value_type.name(),
+                    i,
+                    states.len()
+                );
+                indent!(self);
+                for chunk in chunks
+                    .map(|v| {
+                        assert!(v <= value_type.max_value());
+                        v.to_string()
+                    })
+                    .collect::<Vec<_>>()
+                    .chunks(8)
+                {
+                    let current_chunk = chunk.join(", ");
+                    to_process -= chunk.len();
+                    let should_have_trailing_comma = to_process != 0;
+                    let line_delimiter = if should_have_trailing_comma { "," } else { "" };
+                    add_line!(self, "{}{}", current_chunk, line_delimiter);
+                }
+                dedent!(self);
+                add_line!(self, "}};");
+            }
+        }
         add_line!(self, "switch (state) {{");
 
         indent!(self);
-        for (i, state) in lex_table.states.into_iter().enumerate() {
+        for (i, state) in states.into_iter().enumerate() {
             add_line!(self, "case {}:", i);
             indent!(self);
             self.add_lex_state(
@@ -990,138 +1133,99 @@ impl Generator {
         }
         return None;
     }
-
-    fn add_lex_state(
+    fn add_table_lex_state(
         &mut self,
-        state: LexState,
+        state: OptimizedLexState,
         transition_info: &Vec<TransitionSummary>,
         large_character_sets: &Vec<LargeCharacterSetInfo>,
         id: usize,
     ) {
-        if let Some(accept_action) = state.accept_action {
+        let table_length = state.inner.len();
+        add_line!(self, "if ((uint32_t)lookahead < {}) {{", table_length);
+        indent!(self);
+        let table_id = if let OptimizedLexStates::Reference { id, .. } = &state.inner {
+            *id
+        } else {
+            id
+        };
+        add_line!(
+            self,
+            "{} current_state = states_{}[lookahead];",
+            state.inner.value_type().name(),
+            table_id
+        );
+        add_line!(self, "if (current_state < {}) {{", state.skip_base);
+        indent!(self);
+        add_line!(self, "ADVANCE(current_state);");
+        dedent!(self);
+        if state.has_skips {
+            add_line!(self, "}} else if (current_state != {}) {{", state.sentinel);
+            indent!(self);
+            add_line!(self, "SKIP((current_state - {}));", state.skip_offset);
+            dedent!(self);
+        }
+        add_line!(self, "}}");
+
+        if !state.states_outside_of_lut.is_empty() {
+            dedent!(self);
+            add_line!(self, "}} else {{ ");
+            indent!(self);
+            for (chars, action, is_negated) in state.states_outside_of_lut {
+                add_whitespace!(self);
+                if !is_negated || chars.iter().any(|r| r.end as usize >= table_length) {
+                    add!(self, "if (");
+                    self.add_character_range_conditions(&chars, !is_negated, 2);
+                    add!(self, ") ");
+                }
+
+                self.add_advance_action(&action);
+                add!(self, "\n");
+            }
+        }
+
+        add_line!(self, "}}");
+        dedent!(self);
+        for (i, action) in state.helper_function_calls {
+            let transition = &transition_info[i];
+            add_whitespace!(self);
+
+            // If there is a helper function for this transition's character
+            // set, then generate a call to that helper function.
+            if let Some(call_id) = transition.call_id {
+                let info = &large_character_sets[call_id];
+                add!(self, "if (");
+                if !transition.is_included {
+                    add!(self, "!");
+                }
+                add!(
+                    self,
+                    "{}_character_set_{}(lookahead)) ",
+                    self.symbol_ids[&info.symbol],
+                    info.index
+                );
+                self.add_advance_action(&action);
+                add!(self, "\n");
+                continue;
+            }
+        }
+    }
+    fn add_lex_state(
+        &mut self,
+        state: LexState_,
+        transition_info: &Vec<TransitionSummary>,
+        large_character_sets: &Vec<LargeCharacterSetInfo>,
+        id: usize,
+    ) {
+        if let Some(accept_action) = state.accept_action() {
             add_line!(self, "ACCEPT_TOKEN({});", self.symbol_ids[&accept_action]);
         }
 
-        if let Some(eof_action) = state.eof_action.as_ref() {
+        if let Some(eof_action) = state.eof_action() {
             add_line!(self, "if (eof) ADVANCE({});", eof_action.state);
         }
-        if let Some(optimized_table) = optimize_lex_state(&state, transition_info, 2) {
-            add_line!(
-                self,
-                "if ((uint32_t)lookahead < {}) {{",
-                optimized_table.states.len()
-            );
-            indent!(self);
-            add_line!(
-                self,
-                "static const {} states_{}[{}] = {{",
-                optimized_table.value_type.name(),
-                id,
-                optimized_table.states.len()
-            );
-            indent!(self);
-            let min_skip_id = optimized_table.skip_base as isize - optimized_table.skip_offset;
-            let chunks = optimized_table.states.iter().map(|v| {
-                if v.in_main_token {
-                    v.state
-                } else {
-                    (v.state - min_skip_id as usize) + optimized_table.skip_base
-                }
-            });
-            let mut to_process = chunks.len();
-            for chunk in chunks
-                .map(|v| {
-                    assert!(v <= optimized_table.value_type.max_value());
-                    v.to_string()
-                })
-                .collect::<Vec<_>>()
-                .chunks(8)
-            {
-                let current_chunk = chunk.join(", ");
-                to_process -= chunk.len();
-                let should_have_trailing_comma = to_process != 0;
-                let line_delimiter = if should_have_trailing_comma { "," } else { "" };
-                add_line!(self, "{}{}", current_chunk, line_delimiter);
-            }
-            dedent!(self);
-            add_line!(self, "}};");
-            add_line!(
-                self,
-                "{} current_state = states_{}[lookahead];",
-                optimized_table.value_type.name(),
-                id
-            );
-            add_line!(
-                self,
-                "if (current_state < {}) {{",
-                optimized_table.skip_base
-            );
-            indent!(self);
-            add_line!(self, "ADVANCE(current_state);");
-            dedent!(self);
-            if optimized_table.has_skips {
-                add_line!(
-                    self,
-                    "}} else if (current_state != {}) {{",
-                    optimized_table.sentinel
-                );
-                indent!(self);
-                add_line!(
-                    self,
-                    "SKIP((current_state - {}));",
-                    optimized_table.skip_offset
-                );
-                dedent!(self);
-            }
-            add_line!(self, "}}");
-
-            if !optimized_table.states_outside_of_lut.is_empty() {
-                dedent!(self);
-                add_line!(self, "}} else {{ ");
-                indent!(self);
-                for (chars, action, is_negated) in optimized_table.states_outside_of_lut {
-                    add_whitespace!(self);
-                    if !is_negated
-                        || chars
-                            .iter()
-                            .any(|r| r.end as usize >= optimized_table.states.len())
-                    {
-                        add!(self, "if (");
-                        self.add_character_range_conditions(&chars, !is_negated, 2);
-                        add!(self, ") ");
-                    }
-
-                    self.add_advance_action(&action);
-                    add!(self, "\n");
-                }
-            }
-
-            add_line!(self, "}}");
-            dedent!(self);
-            for (i, action) in optimized_table.helper_function_calls {
-                let transition = &transition_info[i];
-                add_whitespace!(self);
-
-                // If there is a helper function for this transition's character
-                // set, then generate a call to that helper function.
-                if let Some(call_id) = transition.call_id {
-                    let info = &large_character_sets[call_id];
-                    add!(self, "if (");
-                    if !transition.is_included {
-                        add!(self, "!");
-                    }
-                    add!(
-                        self,
-                        "{}_character_set_{}(lookahead)) ",
-                        self.symbol_ids[&info.symbol],
-                        info.index
-                    );
-                    self.add_advance_action(&action);
-                    add!(self, "\n");
-                    continue;
-                }
-            }
-        } else {
+        if let LexState_::Optimized(optimized_table) = state {
+            self.add_table_lex_state(optimized_table, transition_info, large_character_sets, id)
+        } else if let LexState_::Normal(state) = state {
             for (i, (_, action)) in state.advance_actions.into_iter().enumerate() {
                 let transition = &transition_info[i];
                 add_whitespace!(self);
