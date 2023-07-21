@@ -247,6 +247,7 @@ fn coalesce_lookup_tables(states: &mut [LexState_]) {
 fn optimize_lex_state(
     state: LexState,
     transitions: &[TransitionSummary],
+    large_character_sets: &[LargeCharacterSetInfo],
     optimization_threshold: usize,
 ) -> LexState_ {
     let mut helper_function_calls = vec![];
@@ -299,7 +300,54 @@ fn optimize_lex_state(
     }
     if total_comparisons > optimization_threshold {
         // We've hit an optimization threshold. Cool.
+        // Push forward helper functions.
         let max_character = *char_to_state.last_entry().unwrap().key();
+        helper_function_calls.retain(|(index, action)| {
+            let transition = &transitions[*index];
+            if let Some(call_id) = transition.call_id {
+                let large_set = &large_character_sets[call_id];
+                let max_range_bound = large_set
+                    .ranges
+                    .iter()
+                    .max_by_key(|range| range.end)
+                    .map(|range| range.end)
+                    .unwrap_or_default();
+                if max_range_bound > max_character as char {
+                    // This call checks for values outside of current table's range, so we cannot prune it.
+                    return true;
+                }
+                if transition.is_included {
+                    // Mark all unmarked states within these ranges.
+                    for range in &large_set.ranges {
+                        let range = range.start..=range.end;
+                        for character in range {
+                            assert!(character as usize <= u8::MAX as usize);
+                            char_to_state
+                                .entry(character as u8)
+                                .or_insert(action.clone());
+                        }
+                    }
+                } else {
+                    // Mark all unmarked states outside of these ranges.
+                    let mut allowed_entries = vec![true; max_character as usize];
+                    for range in &large_set.ranges {
+                        let range = range.start..=range.end;
+                        for character in range {
+                            allowed_entries[character as usize] = false;
+                        }
+                    }
+                    for (i, should_skip) in allowed_entries.into_iter().enumerate() {
+                        if !should_skip {
+                            continue;
+                        }
+                        char_to_state.entry(i as u8).or_insert(action.clone());
+                    }
+                }
+                return false;
+            }
+            unreachable!("XD");
+        });
+
         let max_advance_state = char_to_state
             .values()
             .filter(|f| f.in_main_token)
@@ -335,6 +383,7 @@ fn optimize_lex_state(
         let skip_base = max_advance_state + 1;
         let skip_offset = skip_base as isize - min_skip_state as isize;
         let mut has_skips = false;
+
         for i in 0..max_character {
             // Fill in the gaps.
             let entry = char_to_state.entry(i).or_insert_with(|| AdvanceAction {
@@ -1040,7 +1089,14 @@ impl Generator {
             .states
             .into_iter()
             .enumerate()
-            .map(|(i, state)| optimize_lex_state(state, &state_transition_summaries[i], 2))
+            .map(|(i, state)| {
+                optimize_lex_state(
+                    state,
+                    &state_transition_summaries[i],
+                    &large_character_sets,
+                    2,
+                )
+            })
             .collect::<Vec<_>>();
         coalesce_lookup_tables(&mut states);
         // Emit lookup tables.
