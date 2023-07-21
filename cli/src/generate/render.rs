@@ -312,15 +312,15 @@ fn optimize_lex_state(
                     .max_by_key(|range| range.end)
                     .map(|range| range.end)
                     .unwrap_or_default();
-                if max_range_bound > max_character as char {
-                    // This call checks for values outside of current table's range, so we cannot prune it.
-                    return true;
-                }
+                let should_be_emitted = max_range_bound > max_character as char;
                 if transition.is_included {
                     // Mark all unmarked states within these ranges.
                     for range in &large_set.ranges {
                         let range = range.start..=range.end;
                         for character in range {
+                            if character >= max_character as char {
+                                break;
+                            }
                             assert!(character as usize <= u8::MAX as usize);
                             char_to_state
                                 .entry(character as u8)
@@ -333,6 +333,9 @@ fn optimize_lex_state(
                     for range in &large_set.ranges {
                         let range = range.start..=range.end;
                         for character in range {
+                            if character >= max_character as char {
+                                break;
+                            }
                             allowed_entries[character as usize] = false;
                         }
                     }
@@ -343,9 +346,9 @@ fn optimize_lex_state(
                         char_to_state.entry(i as u8).or_insert(action.clone());
                     }
                 }
-                return false;
+                return should_be_emitted;
             }
-            unreachable!("XD");
+            return false;
         });
 
         let max_advance_state = char_to_state
