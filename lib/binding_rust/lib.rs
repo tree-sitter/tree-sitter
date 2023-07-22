@@ -2213,12 +2213,13 @@ impl<'cursor, 'tree> fmt::Debug for QueryMatch<'cursor, 'tree> {
     }
 }
 
-impl<'a, F, I> TextProvider<&'a [u8]> for F
+impl<F, R, I> TextProvider<I> for F
 where
-    F: FnMut(Node) -> I,
-    I: Iterator<Item = &'a [u8]>,
+    F: FnMut(Node) -> R,
+    R: Iterator<Item = I>,
+    I: AsRef<[u8]>,
 {
-    type I = I;
+    type I = R;
 
     fn text(&mut self, node: Node) -> Self::I {
         (self)(node)
