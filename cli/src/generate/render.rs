@@ -1247,9 +1247,9 @@ impl Generator {
                 add!(self, "\n");
             }
         }
-
-        add_line!(self, "}}");
         dedent!(self);
+        add_line!(self, "}}");
+
         for (i, action) in state.helper_function_calls {
             let transition = &transition_info[i];
             add_whitespace!(self);
