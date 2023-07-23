@@ -259,7 +259,41 @@ fn optimize_lex_state(
 
         // If there is a helper function for this transition's character
         // set, then generate a call to that helper function.
-        if transition.call_id.is_some() {
+        if let Some(call_id) = transition.call_id {
+            let large_set = &large_character_sets[call_id];
+            if transition.is_included {
+                // Mark all unmarked states within these ranges.
+                for range in &large_set.ranges {
+                    let range = range.start..=range.end;
+                    for character in range {
+                        if character as usize >= 128 {
+                            break;
+                        }
+                        assert!(character as usize <= u8::MAX as usize);
+                        char_to_state
+                            .entry(character as u8)
+                            .or_insert(action.clone());
+                    }
+                }
+            } else {
+                // Mark all unmarked states outside of these ranges.
+                let mut allowed_entries = vec![true; 128 as usize];
+                for range in &large_set.ranges {
+                    let range = range.start..=range.end;
+                    for character in range {
+                        if character >= 128 as char {
+                            break;
+                        }
+                        allowed_entries[character as usize] = false;
+                    }
+                }
+                for (i, should_skip) in allowed_entries.into_iter().enumerate() {
+                    if !should_skip {
+                        continue;
+                    }
+                    char_to_state.entry(i as u8).or_insert(action.clone());
+                }
+            }
             helper_function_calls.push((i, action.clone()));
             continue;
         }
@@ -302,7 +336,7 @@ fn optimize_lex_state(
         // We've hit an optimization threshold. Cool.
         // Push forward helper functions.
         let max_character = *char_to_state.last_entry().unwrap().key();
-        helper_function_calls.retain(|(index, action)| {
+        helper_function_calls.retain(|(index, _)| {
             let transition = &transitions[*index];
             if let Some(call_id) = transition.call_id {
                 let large_set = &large_character_sets[call_id];
@@ -313,39 +347,6 @@ fn optimize_lex_state(
                     .map(|range| range.end)
                     .unwrap_or_default();
                 let should_be_emitted = max_range_bound > max_character as char;
-                if transition.is_included {
-                    // Mark all unmarked states within these ranges.
-                    for range in &large_set.ranges {
-                        let range = range.start..=range.end;
-                        for character in range {
-                            if character >= max_character as char {
-                                break;
-                            }
-                            assert!(character as usize <= u8::MAX as usize);
-                            char_to_state
-                                .entry(character as u8)
-                                .or_insert(action.clone());
-                        }
-                    }
-                } else {
-                    // Mark all unmarked states outside of these ranges.
-                    let mut allowed_entries = vec![true; max_character as usize];
-                    for range in &large_set.ranges {
-                        let range = range.start..=range.end;
-                        for character in range {
-                            if character >= max_character as char {
-                                break;
-                            }
-                            allowed_entries[character as usize] = false;
-                        }
-                    }
-                    for (i, should_skip) in allowed_entries.into_iter().enumerate() {
-                        if !should_skip {
-                            continue;
-                        }
-                        char_to_state.entry(i as u8).or_insert(action.clone());
-                    }
-                }
                 return should_be_emitted;
             }
             return false;
@@ -1111,6 +1112,11 @@ impl Generator {
                     if v.in_main_token {
                         v.state
                     } else {
+                        assert_eq!(
+                            v.state as isize,
+                            ((v.state - min_skip_id as usize) + table.skip_base) as isize
+                                - table.skip_offset
+                        );
                         (v.state - min_skip_id as usize) + table.skip_base
                     }
                 });
