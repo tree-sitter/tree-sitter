@@ -265,6 +265,7 @@ fn optimize_lex_state(
                 // Mark all unmarked states within these ranges.
                 for range in &large_set.ranges {
                     let range = range.start..=range.end;
+                    total_comparisons += if range.start() == range.end() { 1 } else { 2 };
                     for character in range {
                         if character as usize >= 128 {
                             break;
@@ -287,6 +288,11 @@ fn optimize_lex_state(
                         allowed_entries[character as usize] = false;
                     }
                 }
+                total_comparisons += transition
+                    .ranges
+                    .iter()
+                    .map(|r| if r.start == r.end { 1 } else { 2 })
+                    .sum::<usize>();
                 for (i, should_skip) in allowed_entries.into_iter().enumerate() {
                     if !should_skip {
                         continue;
