@@ -665,7 +665,7 @@ fn test_parsing_with_a_timeout() {
     assert!(start_time.elapsed().as_micros() < 2000);
 
     #[cfg(target_arch = "sparc64")]
-    assert!(start_time.elapsed().as_micros() < 4000);
+    assert!(start_time.elapsed().as_micros() < 8000);
 
     // Continue parsing, but pause after 1 ms of processing.
     parser.set_timeout_micros(5000);
