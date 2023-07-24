@@ -1,4 +1,4 @@
-name: Sunitize
+name: Sanitize
 
 env:
   CARGO_TERM_COLOR: always
@@ -9,7 +9,7 @@ on:
 
 jobs:
   check_undefined_behaviour:
-    name: Undefined behaviour checks
+    name: Sanitizer checks
     runs-on: ubuntu-latest
     env:
       TREE_SITTER: ${{ github.workspace }}/target/release/tree-sitter
@@ -38,3 +38,12 @@ jobs:
         CFLAGS: -fsanitize=undefined
         RUSTFLAGS: -lubsan
       run: cargo test -- --test-threads 1
+
+    - name: Run main tests with address sanitizer (ASAN)
+      env:
+        CFLAGS: -fsanitize=address
+        RUSTFLAGS: -Zsanitizer=address
+      run: |
+        rustup install nightly
+        rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
+        cargo +nightly test -Z build-std --target x86_64-unknown-linux-gnu -- --test-threads 1

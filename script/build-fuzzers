@@ -6,14 +6,8 @@ if [[ "$(uname -s)" != Linux ]]; then
   exit 1
 fi
 
-if [[ -z "$LIB_FUZZER_PATH" ]]; then
-  echo "LIB_FUZZER_PATH not set"
-  exit 1
-fi
-
 CC=${CC:-clang}
 CXX=${CXX:-clang++}
-LINK=${LINK:-clang++}
 
 default_fuzz_flags="-fsanitize=fuzzer,address,undefined"
 
@@ -21,7 +15,7 @@ CFLAGS=${CFLAGS:-"$default_fuzz_flags"}
 CXXFLAGS=${CXXFLAGS:-"$default_fuzz_flags"}
 
 export CFLAGS
-make
+make CC="$CC" CXX="$CXX"
 
 if [ -z "$@" ]; then
   languages=$(ls test/fixtures/grammars)
@@ -29,7 +23,13 @@ else
   languages="$@"
 fi
 
+mkdir -p test/fuzz/out
+
 for lang in ${languages[@]}; do
+  # skip typescript
+  if [[ $lang == "typescript" ]]; then
+	continue
+  fi
   echo "Building $lang fuzzer..."
   lang_dir="test/fixtures/grammars/$lang"
 
@@ -54,7 +54,7 @@ for lang in ${languages[@]}; do
   highlights_filename="${lang_dir}/queries/highlights.scm"
   if [ -e "${highlights_filename}" ]; then
     ts_lang_query_filename="${lang}.scm"
-    cp "${highlights_filename}" "out/${ts_lang_query_filename}"
+    cp "${highlights_filename}" "test/fuzz/out/${ts_lang_query_filename}"
   else
     ts_lang_query_filename=""
   fi
@@ -62,11 +62,16 @@ for lang in ${languages[@]}; do
   # FIXME: We should extract the grammar name from grammar.js. Use the name of
   # the directory instead. Also, the grammar name needs to be a valid C
   # identifier so replace any '-' characters
-  ts_lang="tree_sitter_$(echo $lang | tr -- - _)"
+  ts_lang="tree_sitter_$(echo "$lang" | tr -- - _)"
   $CXX $CXXFLAGS -std=c++11 -I lib/include -D TS_LANG="$ts_lang" -D TS_LANG_QUERY_FILENAME="\"${ts_lang_query_filename}\"" \
     "test/fuzz/fuzzer.cc" "${objects[@]}" \
-    libtree-sitter.a "$LIB_FUZZER_PATH" \
-    -o "out/${lang}_fuzzer"
+    libtree-sitter.a \
+    -o "test/fuzz/out/${lang}_fuzzer"
 
-  python test/fuzz/gen-dict.py "${lang_dir}/src/grammar.json" > "out/$lang.dict"
+  jq '
+    [ ..
+      | if .type? == "STRING" or (.type? == "ALIAS" and .named? == false) then .value else empty end
+      | select(test("\\S") and length == utf8bytelength)
+    ] | unique | .[]
+  ' | sort
 done

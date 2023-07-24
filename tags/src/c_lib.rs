@@ -84,7 +84,11 @@ pub extern "C" fn ts_tagger_add_language(
     let tagger = unwrap_mut_ptr(this);
     let scope_name = unsafe { unwrap(CStr::from_ptr(scope_name).to_str()) };
     let tags_query = unsafe { slice::from_raw_parts(tags_query, tags_query_len as usize) };
-    let locals_query = unsafe { slice::from_raw_parts(locals_query, locals_query_len as usize) };
+    let locals_query = if locals_query != std::ptr::null() {
+        unsafe { slice::from_raw_parts(locals_query, locals_query_len as usize) }
+    } else {
+        &[]
+    };
     let tags_query = match str::from_utf8(tags_query) {
         Ok(e) => e,
         Err(_) => return TSTagsError::InvalidUtf8,
