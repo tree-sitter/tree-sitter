@@ -237,6 +237,8 @@ static inline TSNode ts_node__prev_sibling(TSNode self, bool include_anonymous) 
       return earlier_node;
     } else {
       node = earlier_node;
+      earlier_node = ts_node__null();
+      earlier_node_is_relevant = false;
     }
   }
 
