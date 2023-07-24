@@ -782,7 +782,7 @@ impl<'a> LanguageConfiguration<'a> {
         let (path, range) = ranges
             .iter()
             .find(|(_, range)| range.contains(&offset_within_section))
-            .unwrap();
+            .unwrap_or(ranges.last().unwrap());
         error.offset = offset_within_section - range.start;
         error.row = source[range.start..offset_within_section]
             .chars()
