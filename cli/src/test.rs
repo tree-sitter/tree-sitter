@@ -27,6 +27,8 @@ lazy_static! {
     static ref COMMENT_REGEX: Regex = Regex::new(r"(?m)^\s*;.*$").unwrap();
     static ref WHITESPACE_REGEX: Regex = Regex::new(r"\s+").unwrap();
     static ref SEXP_FIELD_REGEX: Regex = Regex::new(r" \w+: \(").unwrap();
+
+    static ref TSIN_FILE_REGEX: Regex = Regex::new(r"(.*)\.tsin\.[\w\d]*").unwrap();
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -35,6 +37,7 @@ pub enum TestEntry {
         name: String,
         children: Vec<TestEntry>,
         file_path: Option<PathBuf>,
+        output_file_path: Option<PathBuf>,
     },
     Example {
         name: String,
@@ -50,6 +53,7 @@ impl Default for TestEntry {
             name: String::new(),
             children: Vec::new(),
             file_path: None,
+            output_file_path: None,
         }
     }
 }
@@ -229,6 +233,7 @@ fn run_tests(
             name,
             children,
             file_path,
+            output_file_path,
         } => {
             if indent_level > 0 {
                 for _ in 0..indent_level {
@@ -252,8 +257,15 @@ fn run_tests(
                 )?;
             }
 
-            if let Some(file_path) = file_path {
-                if update && failures.len() - failure_count > 0 {
+            let should_write = update && failures.len() - failure_count > 0;
+
+            if let Some(output_file_path) = output_file_path {
+                if should_write {
+                    write_tests_to_output_file(&output_file_path, corrected_entries)?
+                }
+                corrected_entries.clear();
+            } else if let Some(file_path) = file_path {
+                if should_write {
                     write_tests(&file_path, corrected_entries)?;
                 }
                 corrected_entries.clear();
@@ -319,6 +331,14 @@ fn write_tests(file_path: &Path, corrected_entries: &Vec<(String, String, String
     write_tests_to_buffer(&mut buffer, corrected_entries)
 }
 
+fn write_tests_to_output_file(
+    output_file_path: &Path,
+    corrected_entries: &Vec<(String, String, String)>,
+) -> Result<()> {
+    let mut buffer = fs::File::create(output_file_path)?;
+    write_tests_to_output_file_buffer(&mut buffer, corrected_entries)
+}
+
 fn write_tests_to_buffer(
     buffer: &mut impl Write,
     corrected_entries: &Vec<(String, String, String)>,
@@ -341,6 +361,19 @@ fn write_tests_to_buffer(
     Ok(())
 }
 
+fn write_tests_to_output_file_buffer(
+    buffer: &mut impl Write,
+    corrected_entries: &Vec<(String, String, String)>,
+) -> Result<()> {
+    if corrected_entries.len() != 1 {
+        Err(anyhow!("The output file should have one entry"))
+    } else {
+        let (_name, _input, output) = corrected_entries.get(0).unwrap();
+        write!(buffer, "{}\n", output.trim())?;
+        Ok(())
+    }
+}
+
 pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
     let name = path
         .file_stem()
@@ -349,17 +382,81 @@ pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
         .to_string();
     if path.is_dir() {
         let mut children = Vec::new();
+        let mut children_inputs: Vec<(PathBuf, String)> = Vec::new();
+        let mut children_outputs: Vec<(PathBuf, String)> = Vec::new();
         for entry in fs::read_dir(path)? {
             let entry = entry?;
-            let hidden = entry.file_name().to_str().unwrap_or("").starts_with(".");
+
+            let file_name = entry.file_name();
+            let file_name_str = file_name.to_str().unwrap_or("");
+
+            // detect outputs
+            if file_name_str.ends_with(".tsout.scm") {
+                let test_file_name = &file_name_str[0..file_name_str.len() - ".tsout.scm".len()];
+                children_outputs.push((entry.path(), test_file_name.to_string()));
+                continue;
+            }
+            // detect inputs (matches *.tsin.*)
+            if let Some(caps) = TSIN_FILE_REGEX.captures(file_name_str) {
+                let test_file_name = caps.get(1).unwrap().as_str();
+                children_inputs.push((entry.path(), test_file_name.to_string()));
+                continue;
+            }
+
+            let hidden = file_name_str.starts_with(".");
             if !hidden {
                 children.push(parse_tests(&entry.path())?);
             }
         }
+
+        // match output files to inputs based on their file paths
+        for (input_path, input_name) in children_inputs {
+            let maybe_match_output = children_outputs
+                .iter()
+                .find(|(_, output_name)| output_name == &input_name);
+
+            if let Some((output_path, _)) = &maybe_match_output {
+                // construct the input
+                let input_string = fs::read_to_string(&input_path)?;
+                let mut input = input_string.as_bytes().to_owned();
+                remove_trailing_newline(&mut input);
+
+                // construct the output
+                let mut output = fs::read_to_string(output_path)?;
+                output = process_output(&output);
+
+                // construct the test entry
+                let entry = TestEntry::Example {
+                    name: input_name.clone(),
+                    input,
+                    has_fields: output_hash_fields(&output),
+                    output,
+                };
+
+                let group = TestEntry::Group {
+                    name: input_name,
+                    children: vec![entry],
+                    file_path: Some(input_path),
+                    output_file_path: Some(output_path.to_owned()),
+                };
+
+                children.push(group);
+            } else {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!(
+                        "No tsout.scm output file for the input path {}",
+                        input_path.to_str().unwrap()
+                    ),
+                ));
+            }
+        }
+
         Ok(TestEntry::Group {
             name,
             children,
             file_path: None,
+            output_file_path: None,
         })
     } else {
         let content = fs::read_to_string(path)?;
@@ -430,22 +527,12 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
                 if let Ok(output) = str::from_utf8(&bytes[divider_range.end..header_range.start]) {
                     let mut input = bytes[prev_header_end..divider_range.start].to_vec();
 
-                    // Remove trailing newline from the input.
                     input.pop();
-                    if input.last() == Some(&b'\r') {
-                        input.pop();
-                    }
+                    remove_trailing_newline(&mut input);
 
-                    // Remove all comments
-                    let output = COMMENT_REGEX.replace_all(output, "").to_string();
+                    let output = process_output(output);
 
-                    // Normalize the whitespace in the expected output.
-                    let output = WHITESPACE_REGEX.replace_all(output.trim(), " ");
-                    let output = output.replace(" )", ")");
-
-                    // Identify if the expected output has fields indicated. If not, then
-                    // fields will not be checked.
-                    let has_fields = SEXP_FIELD_REGEX.is_match(&output);
+                    let has_fields = output_hash_fields(&output);
 
                     children.push(TestEntry::Example {
                         name: prev_name,
@@ -463,7 +550,34 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
         name,
         children,
         file_path,
+        output_file_path: None,
     }
+}
+
+/// Identify if the expected output has fields indicated. If not, then
+/// fields will not be checked.
+fn output_hash_fields(output: &String) -> bool {
+    let has_fields = SEXP_FIELD_REGEX.is_match(output);
+    has_fields
+}
+
+/// Remove trailing newline from the input.
+fn remove_trailing_newline(input: &mut Vec<u8>) {
+    if input.last() == Some(&b'\r') {
+        input.pop();
+    }
+}
+
+/// Remove the comments and normalize the whitespace
+fn process_output(output: &str) -> String {
+    // Remove all comments
+    let output = COMMENT_REGEX.replace_all(output, "").to_string();
+
+    // Normalize the whitespace in the expected output.
+    let output = WHITESPACE_REGEX.replace_all(output.trim(), " ");
+    let output = output.replace(" )", ")");
+
+    return output;
 }
 
 #[cfg(test)]
@@ -517,6 +631,7 @@ d
                     },
                 ],
                 file_path: None,
+                output_file_path: None
             }
         );
     }
@@ -571,6 +686,7 @@ abc
                     },
                 ],
                 file_path: None,
+                output_file_path: None
             }
         );
     }
@@ -663,7 +779,7 @@ code
 ---
 
 ; Line start comment
-(a 
+(a
 ; ignore this
     (b)
     ; also ignore this
@@ -707,6 +823,7 @@ code
                     }
                 ],
                 file_path: None,
+                output_file_path: None
             }
         );
     }
@@ -791,6 +908,7 @@ NOT A TEST HEADER
                     }
                 ],
                 file_path: None,
+                output_file_path: None
             }
         );
     }
@@ -838,7 +956,8 @@ code with ----
                         output: "(d)".to_string(),
                         has_fields: false,
                     }
-                ]
+                ],
+                output_file_path: None
             }
         );
     }
