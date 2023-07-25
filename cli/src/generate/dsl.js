@@ -16,6 +16,7 @@ function alias(rule, value) {
       result.value = value.symbol.name;
       return result;
     case Object:
+    case GrammarSymbol:
       if (typeof value.type === 'string' && value.type === 'SYMBOL') {
         result.named = true;
         result.value = value.name;
@@ -149,11 +150,24 @@ function seq(...elements) {
   };
 }
 
-function sym(name) {
+class GrammarSymbol {
+  constructor(name) {
+    this.type = "SYMBOL";
+    this.name = name;    
+  }
+
+}
+
+function reserved(reservedWords, rule) {
   return {
-    type: "SYMBOL",
-    name: name
-  };
+    type: "RESERVED",
+    content: rule,
+    words: reservedWords.map(normalize),
+  }
+}
+
+function sym(name) {
+  return new GrammarSymbol(name);
 }
 
 function token(value) {
@@ -224,6 +238,7 @@ function grammar(baseGrammar, options) {
       inline: [],
       supertypes: [],
       precedences: [],
+      reserved: [],
     };
   }
 
@@ -280,6 +295,21 @@ function grammar(baseGrammar, options) {
       }
       rules[ruleName] = normalize(ruleFn.call(ruleBuilder, ruleBuilder, baseGrammar.rules[ruleName]));
     }
+  }
+
+  let reserved = baseGrammar.reserved;
+  if (options.reserved) {
+    if (typeof options.reserved !== "function") {
+      throw new Error("Grammar's 'reserved' property must be a function.");
+    }
+
+    const reservedTokens = options.reserved.call(ruleBuilder, ruleBuilder, baseGrammar.reserved);
+
+    if (!Array.isArray(reservedTokens)) {
+      throw new Error("Grammar's `reserved` function must return an array of rules.");
+    }
+
+    reserved = reservedTokens.map(normalize);
   }
 
   let extras = baseGrammar.extras.slice();
@@ -381,7 +411,7 @@ function grammar(baseGrammar, options) {
     throw new Error("Grammar must have at least one rule.");
   }
 
-  return {name, word, rules, extras, conflicts, precedences, externals, inline, supertypes};
+  return {name, word, rules, extras, conflicts, precedences, externals, inline, supertypes, reserved};
 }
 
 function checkArguments(ruleCount, caller, callerName, suffix = '') {
@@ -408,6 +438,7 @@ global.optional = optional;
 global.prec = prec;
 global.repeat = repeat;
 global.repeat1 = repeat1;
+global.reserved = reserved;
 global.seq = seq;
 global.sym = sym;
 global.token = token;

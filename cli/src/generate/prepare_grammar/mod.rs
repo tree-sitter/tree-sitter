@@ -35,6 +35,7 @@ pub(crate) struct IntermediateGrammar<T, U> {
     variables_to_inline: Vec<Symbol>,
     supertype_symbols: Vec<Symbol>,
     word_token: Option<Symbol>,
+    reserved_words: Vec<T>,
 }
 
 pub(crate) type InternedGrammar = IntermediateGrammar<Rule, Variable>;
@@ -58,6 +59,7 @@ impl<T, U> Default for IntermediateGrammar<T, U> {
             variables_to_inline: Default::default(),
             supertype_symbols: Default::default(),
             word_token: Default::default(),
+            reserved_words: Default::default(),
         }
     }
 }

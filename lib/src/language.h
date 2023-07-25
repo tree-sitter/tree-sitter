@@ -33,9 +33,9 @@ typedef struct {
 } LookaheadIterator;
 
 void ts_language_table_entry(const TSLanguage *, TSStateId, TSSymbol, TableEntry *);
-
+TSLexerMode ts_language_lex_mode_for_state(const TSLanguage *, TSStateId);
+bool ts_language_is_reserved_word(const TSLanguage *, TSStateId, TSSymbol);
 TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *, TSSymbol);
-
 TSSymbol ts_language_public_symbol(const TSLanguage *, TSSymbol);
 
 static inline bool ts_language_is_symbol_external(const TSLanguage *self, TSSymbol symbol) {

@@ -1,9 +1,10 @@
-use super::{ExtractedLexicalGrammar, ExtractedSyntaxGrammar, InternedGrammar};
-use crate::generate::grammars::{ExternalToken, Variable, VariableType};
-use crate::generate::rules::{MetadataParams, Rule, Symbol, SymbolType};
+use crate::generate::{
+    grammars::{ExternalToken, Variable, VariableType},
+    prepare_grammar::{ExtractedLexicalGrammar, ExtractedSyntaxGrammar, InternedGrammar},
+    rules::{MetadataParams, Rule, Symbol, SymbolType},
+};
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
-use std::mem;
 
 pub(super) fn extract_tokens(
     mut grammar: InternedGrammar,
@@ -146,6 +147,17 @@ pub(super) fn extract_tokens(
         word_token = Some(token);
     }
 
+    let mut reserved_words = Vec::new();
+    for rule in grammar.reserved_words {
+        if let Rule::Symbol(symbol) = rule {
+            reserved_words.push(symbol_replacer.replace_symbol(symbol));
+        } else if let Some(index) = lexical_variables.iter().position(|v| v.rule == rule) {
+            reserved_words.push(Symbol::terminal(index));
+        } else {
+            return Err(anyhow!("Reserved words must be tokens"));
+        }
+    }
+
     Ok((
         ExtractedSyntaxGrammar {
             variables,
@@ -156,6 +168,7 @@ pub(super) fn extract_tokens(
             external_tokens,
             word_token,
             precedence_orderings: grammar.precedence_orderings,
+            reserved_words,
         },
         ExtractedLexicalGrammar {
             variables: lexical_variables,
@@ -180,9 +193,7 @@ impl TokenExtractor {
         self.current_variable_name.clear();
         self.current_variable_name.push_str(&variable.name);
         self.current_variable_token_count = 0;
-        let mut rule = Rule::Blank;
-        mem::swap(&mut rule, &mut variable.rule);
-        variable.rule = self.extract_tokens_in_rule(&rule);
+        variable.rule = self.extract_tokens_in_rule(&variable.rule);
     }
 
     fn extract_tokens_in_rule(&mut self, input: &Rule) -> Rule {
@@ -226,6 +237,16 @@ impl TokenExtractor {
                     .map(|e| self.extract_tokens_in_rule(e))
                     .collect(),
             ),
+            Rule::Reserved {
+                rule,
+                reserved_words,
+            } => Rule::Reserved {
+                rule: Box::new(self.extract_tokens_in_rule(rule)),
+                reserved_words: reserved_words
+                    .into_iter()
+                    .map(|token| self.extract_tokens_in_rule(&token))
+                    .collect(),
+            },
             _ => input.clone(),
         }
     }
@@ -283,6 +304,16 @@ impl SymbolReplacer {
             Rule::Metadata { rule, params } => Rule::Metadata {
                 params: params.clone(),
                 rule: Box::new(self.replace_symbols_in_rule(rule)),
+            },
+            Rule::Reserved {
+                rule,
+                reserved_words,
+            } => Rule::Reserved {
+                rule: Box::new(self.replace_symbols_in_rule(rule)),
+                reserved_words: reserved_words
+                    .into_iter()
+                    .map(|token| self.replace_symbols_in_rule(token))
+                    .collect(),
             },
             _ => rule.clone(),
         }
