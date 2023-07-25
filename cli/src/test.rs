@@ -353,9 +353,18 @@ pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
             let entry = entry?;
             let hidden = entry.file_name().to_str().unwrap_or("").starts_with(".");
             if !hidden {
-                children.push(parse_tests(&entry.path())?);
+                children.push(entry.path());
             }
         }
+        children.sort_by(|a, b| {
+            a.file_name()
+                .unwrap_or_default()
+                .cmp(&b.file_name().unwrap_or_default())
+        });
+        let children = children
+            .iter()
+            .map(|path| parse_tests(path))
+            .collect::<io::Result<Vec<TestEntry>>>()?;
         Ok(TestEntry::Group {
             name,
             children,
