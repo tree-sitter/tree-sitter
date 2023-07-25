@@ -125,6 +125,9 @@ pub fn test_tag(
                     }
 
                     j += 1;
+                    if tag == tags.last().unwrap() {
+                        break 'tag_loop;
+                    }
                 }
             } else {
                 break;
