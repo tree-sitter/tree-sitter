@@ -96,6 +96,7 @@ pub fn test_tag(
     let mut actual_tags = Vec::<&String>::new();
     for Assertion {
         position,
+        negative,
         expected_capture_name: expected_tag,
     } in &assertions
     {
@@ -117,7 +118,7 @@ pub fn test_tag(
                     }
 
                     let tag_name = &tag.2;
-                    if *tag_name == *expected_tag {
+                    if (*tag_name == *expected_tag) == !negative {
                         passed = true;
                         break 'tag_loop;
                     } else {
