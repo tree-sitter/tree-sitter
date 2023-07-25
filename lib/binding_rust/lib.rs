@@ -172,23 +172,25 @@ pub struct QueryMatch<'cursor, 'tree> {
 }
 
 /// A sequence of `QueryMatch`es associated with a given `QueryCursor`.
-pub struct QueryMatches<'a, 'tree: 'a, T: TextProvider<'a>> {
+pub struct QueryMatches<'a, 'tree: 'a, 'b: 'a, T: TextProvider<'b>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'a Query,
     text_provider: T,
     buffer1: Vec<u8>,
     buffer2: Vec<u8>,
     _tree: PhantomData<&'tree ()>,
+    _text_provider: PhantomData<&'b ()>,
 }
 
 /// A sequence of `QueryCapture`s associated with a given `QueryCursor`.
-pub struct QueryCaptures<'a, 'tree: 'a, T: TextProvider<'a>> {
+pub struct QueryCaptures<'a, 'tree: 'a, 'b: 'a, T: TextProvider<'b>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'a Query,
     text_provider: T,
     buffer1: Vec<u8>,
     buffer2: Vec<u8>,
     _tree: PhantomData<&'tree ()>,
+    _text_provider: PhantomData<&'b ()>,
 }
 
 pub trait TextProvider<'a> {
@@ -1897,12 +1899,12 @@ impl QueryCursor {
     /// Because multiple patterns can match the same set of nodes, one match may contain
     /// captures that appear *before* some of the captures from a previous match.
     #[doc(alias = "ts_query_cursor_exec")]
-    pub fn matches<'a, 'tree: 'a, T: TextProvider<'a> + 'a>(
+    pub fn matches<'a, 'tree: 'a, 'b: 'a, T: TextProvider<'b> + 'b>(
         &'a mut self,
         query: &'a Query,
         node: Node<'tree>,
         text_provider: T,
-    ) -> QueryMatches<'a, 'tree, T> {
+    ) -> QueryMatches<'a, 'tree, 'b, T> {
         let ptr = self.ptr.as_ptr();
         unsafe { ffi::ts_query_cursor_exec(ptr, query.ptr.as_ptr(), node.0) };
         QueryMatches {
@@ -1912,6 +1914,7 @@ impl QueryCursor {
             buffer1: Default::default(),
             buffer2: Default::default(),
             _tree: PhantomData,
+            _text_provider: PhantomData,
         }
     }
 
@@ -1920,12 +1923,12 @@ impl QueryCursor {
     /// This is useful if you don't care about which pattern matched, and just want a single,
     /// ordered sequence of captures.
     #[doc(alias = "ts_query_cursor_exec")]
-    pub fn captures<'a, 'tree: 'a, T: TextProvider<'a> + 'a>(
+    pub fn captures<'a, 'tree: 'a, 'b, T: TextProvider<'b> + 'b>(
         &'a mut self,
         query: &'a Query,
         node: Node<'tree>,
         text_provider: T,
-    ) -> QueryCaptures<'a, 'tree, T> {
+    ) -> QueryCaptures<'a, 'tree, 'b, T> {
         let ptr = self.ptr.as_ptr();
         unsafe { ffi::ts_query_cursor_exec(self.ptr.as_ptr(), query.ptr.as_ptr(), node.0) };
         QueryCaptures {
@@ -1935,6 +1938,7 @@ impl QueryCursor {
             buffer1: Default::default(),
             buffer2: Default::default(),
             _tree: PhantomData,
+            _text_provider: PhantomData,
         }
     }
 
@@ -2088,7 +2092,7 @@ impl QueryProperty {
     }
 }
 
-impl<'a, 'tree, T: TextProvider<'a>> Iterator for QueryMatches<'a, 'tree, T> {
+impl<'a, 'tree, 'b, T: TextProvider<'b>> Iterator for QueryMatches<'a, 'tree, 'b, T> {
     type Item = QueryMatch<'a, 'tree>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -2113,7 +2117,7 @@ impl<'a, 'tree, T: TextProvider<'a>> Iterator for QueryMatches<'a, 'tree, T> {
     }
 }
 
-impl<'a, 'tree, T: TextProvider<'a>> Iterator for QueryCaptures<'a, 'tree, T> {
+impl<'a, 'tree, 'b, T: TextProvider<'b>> Iterator for QueryCaptures<'a, 'tree, 'b, T> {
     type Item = (QueryMatch<'a, 'tree>, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -2145,7 +2149,7 @@ impl<'a, 'tree, T: TextProvider<'a>> Iterator for QueryCaptures<'a, 'tree, T> {
     }
 }
 
-impl<'a, 'tree, T: TextProvider<'a>> QueryMatches<'a, 'tree, T> {
+impl<'a, 'tree, 'b, T: TextProvider<'b>> QueryMatches<'a, 'tree, 'b, T> {
     #[doc(alias = "ts_query_cursor_set_byte_range")]
     pub fn set_byte_range(&mut self, range: ops::Range<usize>) {
         unsafe {
@@ -2161,7 +2165,7 @@ impl<'a, 'tree, T: TextProvider<'a>> QueryMatches<'a, 'tree, T> {
     }
 }
 
-impl<'a, 'tree, T: TextProvider<'a>> QueryCaptures<'a, 'tree, T> {
+impl<'a, 'tree, 'b, T: TextProvider<'b>> QueryCaptures<'a, 'tree, 'b, T> {
     #[doc(alias = "ts_query_cursor_set_byte_range")]
     pub fn set_byte_range(&mut self, range: ops::Range<usize>) {
         unsafe {
