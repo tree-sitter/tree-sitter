@@ -10,7 +10,7 @@ use super::{
 use core::ops::Range;
 use std::{
     cmp,
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     fmt::Write,
     mem::swap,
 };
@@ -596,6 +596,10 @@ impl Generator {
             "#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\""
         );
         add_line!(self, "#pragma GCC diagnostic ignored \"-Wunused-function\"");
+        add_line!(
+            self,
+            "#pragma GCC diagnostic ignored \"-Winitializer-overrides\""
+        );
         add_line!(self, "#endif");
         add_line!(self, "");
 
@@ -1115,19 +1119,21 @@ impl Generator {
             let LexState_::Optimized(table) = table else {continue;};
             if let OptimizedLexStates::Owned { states, value_type } = &table.inner {
                 let min_skip_id = table.skip_base as isize - table.skip_offset;
-                let chunks = states.iter().map(|v| {
-                    if v.in_main_token {
-                        v.state
-                    } else {
-                        assert_eq!(
-                            v.state as isize,
-                            ((v.state - min_skip_id as usize) + table.skip_base) as isize
-                                - table.skip_offset
-                        );
-                        (v.state - min_skip_id as usize) + table.skip_base
-                    }
-                });
-                let mut to_process = chunks.len();
+                let chunks = states
+                    .iter()
+                    .map(|v| {
+                        if v.in_main_token {
+                            v.state
+                        } else {
+                            assert_eq!(
+                                v.state as isize,
+                                ((v.state - min_skip_id as usize) + table.skip_base) as isize
+                                    - table.skip_offset
+                            );
+                            (v.state - min_skip_id as usize) + table.skip_base
+                        }
+                    })
+                    .collect::<Vec<_>>();
 
                 add_line!(
                     self,
@@ -1137,19 +1143,61 @@ impl Generator {
                     states.len()
                 );
                 indent!(self);
-                for chunk in chunks
-                    .map(|v| {
-                        assert!(v <= value_type.max_value());
-                        v.to_string()
-                    })
-                    .collect::<Vec<_>>()
-                    .chunks(8)
-                {
-                    let current_chunk = chunk.join(", ");
-                    to_process -= chunk.len();
-                    let should_have_trailing_comma = to_process != 0;
-                    let line_delimiter = if should_have_trailing_comma { "," } else { "" };
-                    add_line!(self, "{}{}", current_chunk, line_delimiter);
+                // We use designated initializers to write out a table.
+                // To make it a bit less verbose, we initialize all elements in a table to it's most common element first
+                // and then overwrite each slot with it's value.
+                let most_common_state = {
+                    let mut m: BTreeMap<usize, usize> = BTreeMap::new();
+                    for state in &chunks {
+                        *m.entry(*state).or_default() += 1;
+                    }
+                    m.into_iter()
+                        .max_by_key(|(_, v)| *v)
+                        .map(|(k, _)| k)
+                        .expect("A non-empty state table must have some maximum")
+                };
+                let mut write_initializer = |range: Range<u8>, state, has_trailing_comma: bool| {
+                    let trailing_comma = has_trailing_comma.then_some(",").unwrap_or_default();
+                    add_whitespace!(self);
+                    add!(self, "[");
+                    self.add_character(range.start as char);
+                    if range.start != range.end - 1 {
+                        add!(self, " ... ");
+                        self.add_character((range.end - 1) as char);
+                    }
+
+                    add!(self, "] = {state}{trailing_comma}\n");
+                };
+                let chunks_len = chunks.len().try_into().unwrap();
+                let mut ranges = vec![(0..chunks.len().try_into().unwrap(), most_common_state)];
+                let mut current_start: u8 = 0;
+                let mut current_state = None;
+                for (i, present_state) in chunks.into_iter().enumerate() {
+                    let i = i.try_into().unwrap();
+                    if let Some(state) = current_state {
+                        if state != present_state {
+                            // Change current state + save current one.
+                            ranges.push((current_start..i, state));
+                            if present_state != most_common_state {
+                                current_start = i;
+                                current_state = Some(present_state);
+                            } else {
+                                current_state = None;
+                            }
+                        }
+                    } else {
+                        if present_state != most_common_state {
+                            current_state = Some(present_state);
+                            current_start = i;
+                        }
+                    }
+                }
+                if let Some(state) = current_state {
+                    ranges.push((current_start..chunks_len, state));
+                }
+                let ranges_len = ranges.len();
+                for (i, (range, state)) in ranges.into_iter().enumerate() {
+                    write_initializer(range, state, i != ranges_len - 1);
                 }
                 dedent!(self);
                 add_line!(self, "}};");
