@@ -595,6 +595,7 @@ impl Generator {
             self,
             "#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\""
         );
+        add_line!(self, "#pragma GCC diagnostic ignored \"-Wunused-function\"");
         add_line!(self, "#endif");
         add_line!(self, "");
 
