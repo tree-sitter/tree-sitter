@@ -140,6 +140,7 @@ fn run() -> Result<()> {
                 .arg(&debug_graph_arg)
                 .arg(Arg::with_name("output-dot").long("dot"))
                 .arg(Arg::with_name("output-xml").long("xml").short("x"))
+                .arg(Arg::with_name("output-context").long("context"))
                 .arg(
                     Arg::with_name("stat")
                         .help("Show parsing statistic")
@@ -406,6 +407,8 @@ fn run() -> Result<()> {
                 ParseOutput::Xml
             } else if matches.is_present("quiet") {
                 ParseOutput::Quiet
+            } else if matches.is_present("output-context") {
+                ParseOutput::Context
             } else {
                 ParseOutput::Normal
             };

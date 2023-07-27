@@ -1,5 +1,6 @@
 use super::util;
 use anyhow::{anyhow, Context, Result};
+use std::cmp::{max, min};
 use std::io::{self, Write};
 use std::path::Path;
 use std::sync::atomic::AtomicUsize;
@@ -36,6 +37,7 @@ pub enum ParseOutput {
     Quiet,
     Xml,
     Dot,
+    Context,
 }
 
 pub struct ParseFileOptions<'a> {
@@ -240,6 +242,69 @@ pub fn parse_file_at_path(opts: ParseFileOptions) -> Result<bool> {
 
         if matches!(opts.output, ParseOutput::Dot) {
             util::print_tree_graph(&tree, "log.html").unwrap();
+        }
+
+        if matches!(opts.output, ParseOutput::Context) {
+            let source_lines: Vec<&str> = std::str::from_utf8(&source_code)?.lines().collect();
+            // Todo: cli option?
+            let context = 4;
+
+            let mut did_visit_children = false;
+            loop {
+                let node = cursor.node();
+                let is_named = node.is_named();
+                if did_visit_children {
+                    if cursor.goto_next_sibling() {
+                        did_visit_children = false;
+                    } else if cursor.goto_parent() {
+                        did_visit_children = true;
+                    } else {
+                        break;
+                    }
+                } else {
+                    if is_named {
+                        let start = node.start_position();
+                        let end = node.end_position();
+
+                        // Todo: also capture MISSING
+                        if node.kind() == "ERROR" {
+                            write!(&mut stdout, "==========\nParsing error:\n")?;
+
+                            if start.row == 0 && end.row == source_lines.len() {
+                                // The error spans the whole file, so don't print it all
+                                write!(&mut stdout, "WHOLE FILE\n")?;
+                            } else {
+                                let start_row = max(0, start.row.saturating_sub(context));
+                                let end_row = min(source_lines.len(), end.row + context - 1);
+                                // Todo: add line numbers
+                                let start_context = source_lines[start_row..start.row+1].join("\n");
+                                let end_context = source_lines[start.row + 1..end_row].join("\n");
+                                let caret = format!("{:>width$}", "^", width=start.column + 1);
+                                let wiggle_length = end.column.saturating_sub(start.column).saturating_sub(1);
+                                let wiggle = format!("{:~<width$}", "", width=wiggle_length);
+                                let error = format!("{:>width$}", node.kind(),
+                                                    width=start.column + node.kind().len());
+                                write!(
+                                    &mut stdout,
+                                    "{}\n{}{}\n{}\n{}\n\n",
+                                    start_context,
+                                    caret,
+                                    wiggle,
+                                    error,
+                                    end_context
+                                )?;
+                            }
+                            write!(&mut stdout, "\n")?;
+                        }
+                    }
+                    if cursor.goto_first_child() {
+                        did_visit_children = false;
+                    } else {
+                        did_visit_children = true;
+                    }
+                }
+            }
+            cursor.reset(tree.root_node());
         }
 
         let mut first_error = None;
