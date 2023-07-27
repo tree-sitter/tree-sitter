@@ -57,6 +57,7 @@ struct ParseTableBuilder<'a> {
     parse_state_info_by_id: Vec<ParseStateInfo<'a>>,
     parse_state_queue: VecDeque<ParseStateQueueEntry>,
     non_terminal_extra_states: Vec<(Symbol, usize)>,
+    actual_conflicts: HashSet<Vec<Symbol>>,
     parse_table: ParseTable,
 }
 
@@ -130,6 +131,20 @@ impl<'a> ParseTableBuilder<'a> {
                 entry.state_id,
                 item_set,
             )?;
+        }
+
+        if !self.actual_conflicts.is_empty() {
+            println!("Warning: unnecessary conflicts");
+            for conflict in &self.actual_conflicts {
+                println!(
+                    "  {}",
+                    conflict
+                        .iter()
+                        .map(|symbol| format!("`{}`", self.symbol_name(symbol)))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+            }
         }
 
         Ok((self.parse_table, self.parse_state_info_by_id))
@@ -582,6 +597,7 @@ impl<'a> ParseTableBuilder<'a> {
             .expected_conflicts
             .contains(&actual_conflict)
         {
+            self.actual_conflicts.remove(&actual_conflict);
             return Ok(());
         }
 
@@ -964,6 +980,7 @@ pub(crate) fn build_parse_table<'a>(
     inlines: &'a InlinedProductionMap,
     variable_info: &'a Vec<VariableInfo>,
 ) -> Result<(ParseTable, Vec<TokenSet>, Vec<ParseStateInfo<'a>>)> {
+    let actual_conflicts = syntax_grammar.expected_conflicts.iter().cloned().collect();
     let item_set_builder = ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines);
     let mut following_tokens = vec![TokenSet::new(); lexical_grammar.variables.len()];
     populate_following_tokens(
@@ -979,6 +996,7 @@ pub(crate) fn build_parse_table<'a>(
         item_set_builder,
         variable_info,
         non_terminal_extra_states: Vec::new(),
+        actual_conflicts,
         state_ids_by_item_set: IndexMap::default(),
         core_ids_by_core: HashMap::new(),
         parse_state_info_by_id: Vec::new(),
