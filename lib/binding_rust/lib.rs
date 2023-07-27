@@ -10,6 +10,7 @@ use std::{
     fmt, hash, iter,
     marker::PhantomData,
     mem::MaybeUninit,
+    num::NonZeroU16,
     ops,
     os::raw::{c_char, c_void},
     ptr::{self, NonNull},
@@ -92,6 +93,8 @@ pub enum LogType {
     Parse,
     Lex,
 }
+
+type FieldId = NonZeroU16;
 
 /// A callback that receives log messages during parser.
 type Logger<'a> = Box<dyn FnMut(LogType, &str) + 'a>;
@@ -319,7 +322,7 @@ impl Language {
 
     /// Get the numerical id for the given field name.
     #[doc(alias = "ts_language_field_id_for_name")]
-    pub fn field_id_for_name(&self, field_name: impl AsRef<[u8]>) -> Option<u16> {
+    pub fn field_id_for_name(&self, field_name: impl AsRef<[u8]>) -> Option<FieldId> {
         let field_name = field_name.as_ref();
         let id = unsafe {
             ffi::ts_language_field_id_for_name(
@@ -331,7 +334,7 @@ impl Language {
         if id == 0 {
             None
         } else {
-            Some(id)
+            Some(FieldId::new(id).unwrap())
         }
     }
 }
@@ -1060,7 +1063,7 @@ impl<'tree> Node<'tree> {
         cursor: &'a mut TreeCursor<'tree>,
     ) -> impl Iterator<Item = Node<'tree>> + 'a {
         let field_id = self.language().field_id_for_name(field_name);
-        self.children_by_field_id(field_id.unwrap_or(0), cursor)
+        self.children_by_field_id(field_id, cursor)
     }
 
     /// Iterate over this node's children with a given field id.
@@ -1068,7 +1071,7 @@ impl<'tree> Node<'tree> {
     /// See also [Node::children_by_field_name].
     pub fn children_by_field_id<'a>(
         &self,
-        field_id: u16,
+        field_id: Option<FieldId>,
         cursor: &'a mut TreeCursor<'tree>,
     ) -> impl Iterator<Item = Node<'tree>> + 'a {
         cursor.reset(*self);
@@ -1076,7 +1079,7 @@ impl<'tree> Node<'tree> {
         let mut done = false;
         iter::from_fn(move || {
             while !done {
-                while cursor.field_id() != Some(field_id) {
+                while cursor.field_id() != field_id {
                     if !cursor.goto_next_sibling() {
                         return None;
                     }
@@ -1242,13 +1245,13 @@ impl<'a> TreeCursor<'a> {
     ///
     /// See also [field_name](TreeCursor::field_name).
     #[doc(alias = "ts_tree_cursor_current_field_id")]
-    pub fn field_id(&self) -> Option<u16> {
+    pub fn field_id(&self) -> Option<FieldId> {
         unsafe {
             let id = ffi::ts_tree_cursor_current_field_id(&self.0);
             if id == 0 {
                 None
             } else {
-                Some(id)
+                Some(FieldId::new(id).unwrap())
             }
         }
     }
