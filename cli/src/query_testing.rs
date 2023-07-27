@@ -18,7 +18,18 @@ pub struct CaptureInfo {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Assertion {
     pub position: Point,
+    pub negative: bool,
     pub expected_capture_name: String,
+}
+
+impl Assertion {
+    pub fn new(row: usize, col: usize, negative: bool, expected_capture_name: String) -> Self {
+        Self {
+            position: Point::new(row, col),
+            negative,
+            expected_capture_name,
+        }
+    }
 }
 
 /// Parse the given source code, finding all of the comments that contain
@@ -54,6 +65,7 @@ pub fn parse_position_comments(
                         // to its own column.
                         let mut has_left_caret = false;
                         let mut has_arrow = false;
+                        let mut negative = false;
                         let mut arrow_end = 0;
                         for (i, c) in text.char_indices() {
                             arrow_end = i + 1;
@@ -69,6 +81,19 @@ pub fn parse_position_comments(
                             has_left_caret = c == '<';
                         }
 
+                        // find any ! after arrows but before capture name
+                        if has_arrow {
+                            for (i, c) in text[arrow_end..].char_indices() {
+                                if c == '!' {
+                                    negative = true;
+                                    arrow_end += i + 1;
+                                    break;
+                                } else if !c.is_whitespace() {
+                                    break;
+                                }
+                            }
+                        }
+
                         // If the comment node contains an arrow and a highlight name, record the
                         // highlight name and the position.
                         if let (true, Some(mat)) =
@@ -76,7 +101,8 @@ pub fn parse_position_comments(
                         {
                             assertion_ranges.push((node.start_position(), node.end_position()));
                             result.push(Assertion {
-                                position: position,
+                                position,
+                                negative,
                                 expected_capture_name: mat.as_str().to_string(),
                             });
                         }

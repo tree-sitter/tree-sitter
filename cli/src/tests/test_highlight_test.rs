@@ -23,6 +23,7 @@ fn test_highlight_test_with_basic_test() {
         "  //       ^ keyword",
         "  return d + e;",
         "  //     ^ variable.parameter",
+        "  //       ^ !variable",
         "};",
     ]
     .join("\n");
@@ -32,18 +33,10 @@ fn test_highlight_test_with_basic_test() {
     assert_eq!(
         assertions,
         &[
-            Assertion {
-                position: Point::new(1, 5),
-                expected_capture_name: "function".to_string()
-            },
-            Assertion {
-                position: Point::new(1, 11),
-                expected_capture_name: "keyword".to_string()
-            },
-            Assertion {
-                position: Point::new(4, 9),
-                expected_capture_name: "variable.parameter".to_string()
-            },
+            Assertion::new(1, 5, false, String::from("function")),
+            Assertion::new(1, 11, false, String::from("keyword")),
+            Assertion::new(4, 9, false, String::from("variable.parameter")),
+            Assertion::new(4, 11, true, String::from("variable")),
         ]
     );
 

@@ -428,6 +428,9 @@ var abc = function(d) {
     //    ^ string
     //          ^ variable
   }
+
+  baz();
+  ^ !variable
 };
 ```
 
@@ -438,3 +441,5 @@ From the Sublime text docs:
 > **Caret**: ^ this will test the following selector against the scope on the most recent non-test line. It will test it at the same column the ^ is in. Consecutive ^s will test each column against the selector.
 >
 > **Arrow**: <- this will test the following selector against the scope on the most recent non-test line. It will test it at the same column as the comment character is in.
+
+Note that an exclamation mark (`!`) can be used to negate a selector. For example, `!keyword` will match any scope that is not the `keyword` class.
