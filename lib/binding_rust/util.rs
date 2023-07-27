@@ -23,7 +23,7 @@ impl<T: Copy> Iterator for CBufferIter<T> {
             None
         } else {
             self.i += 1;
-            Some(unsafe { *self.ptr.offset(i as isize) })
+            Some(unsafe { *self.ptr.add(i) })
         }
     }
 
