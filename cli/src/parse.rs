@@ -95,7 +95,7 @@ pub fn parse_file_at_path(opts: ParseFileOptions) -> Result<bool> {
                 .collect::<Vec<_>>();
             parser.parse_utf16(&source_code_utf16, None)
         }
-        None if is_utf16_bom(&source_code[0..2]) => {
+        None if source_code.len() >= 2 && is_utf16_bom(&source_code[0..2]) => {
             let source_code_utf16 = source_code
                 .chunks_exact(2)
                 .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
