@@ -502,6 +502,7 @@ fn flatten_tests(test: TestEntry) -> Vec<FlattenedTest> {
                 input,
                 output,
                 has_fields,
+                ..
             } => {
                 if !prefix.is_empty() {
                     name.insert_str(0, " - ");
