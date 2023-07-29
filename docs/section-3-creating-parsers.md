@@ -715,7 +715,7 @@ This function is responsible for recognizing external tokens. It should return `
 The third argument to the `scan` function is an array of booleans that indicates which of external tokens are currently expected by the parser. You should only look for a given token if it is valid according to this array. At the same time, you cannot backtrack, so you may need to combine certain pieces of logic.
 
 ```c
-if (valid_symbols[INDENT] || valid_symbol[DEDENT]) {
+if (valid_symbols[INDENT] || valid_symbols[DEDENT]) {
 
   // ... logic that is common to both `INDENT` and `DEDENT`
 
