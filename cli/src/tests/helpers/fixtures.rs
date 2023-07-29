@@ -28,7 +28,7 @@ pub fn fixtures_dir<'a>() -> &'static Path {
 
 pub fn get_language(name: &str) -> Language {
     TEST_LOADER
-        .load_language_at_path(&GRAMMARS_DIR.join(name).join("src"), &HEADER_DIR)
+        .load_language_at_path(&GRAMMARS_DIR.join(name).join("src"), &HEADER_DIR, &None)
         .unwrap()
 }
 
@@ -88,7 +88,13 @@ pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> 
         }
     });
     TEST_LOADER
-        .load_language_from_sources(name, &HEADER_DIR, &parser_c_path, scanner_path.as_deref())
+        .load_language_from_sources(
+            name,
+            &HEADER_DIR,
+            &parser_c_path,
+            scanner_path.as_deref(),
+            &[],
+        )
         .unwrap()
 }
 
