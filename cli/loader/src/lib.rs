@@ -87,6 +87,7 @@ pub struct LanguageConfiguration<'a> {
     pub locals_filenames: Option<Vec<String>>,
     pub tags_filenames: Option<Vec<String>>,
     pub language_name: String,
+    pub external_scanner_config: Option<ExternalScannerConfig>,
     language_id: usize,
     highlight_config: OnceCell<Option<HighlightConfiguration>>,
     tags_config: OnceCell<Option<TagsConfiguration>>,
@@ -94,9 +95,14 @@ pub struct LanguageConfiguration<'a> {
     use_all_highlight_names: bool,
 }
 
+pub struct ExternalScannerConfig {
+    pub include: Option<Vec<String>>,
+    pub files: Option<Vec<String>>,
+}
+
 pub struct Loader {
     parser_lib_path: PathBuf,
-    languages_by_id: Vec<(PathBuf, OnceCell<Language>)>,
+    languages_by_id: Vec<(PathBuf, OnceCell<Language>, Option<ExternalScannerConfig>)>,
     language_configurations: Vec<LanguageConfiguration<'static>>,
     language_configuration_ids_by_file_type: HashMap<String, Vec<usize>>,
     highlight_names: Box<Mutex<Vec<String>>>,
@@ -304,16 +310,21 @@ impl Loader {
     }
 
     fn language_for_id(&self, id: usize) -> Result<Language> {
-        let (path, language) = &self.languages_by_id[id];
+        let (path, language, external_cfg) = &self.languages_by_id[id];
         language
             .get_or_try_init(|| {
                 let src_path = path.join("src");
-                self.load_language_at_path(&src_path, &src_path)
+                self.load_language_at_path(&src_path, &src_path, external_cfg)
             })
             .map(|l| *l)
     }
 
-    pub fn load_language_at_path(&self, src_path: &Path, header_path: &Path) -> Result<Language> {
+    pub fn load_language_at_path(
+        &self,
+        src_path: &Path,
+        header_path: &Path,
+        external_cfg: &Option<ExternalScannerConfig>,
+    ) -> Result<Language> {
         let grammar_path = src_path.join("grammar.json");
         let parser_path = src_path.join("parser.c");
         let mut scanner_path = src_path.join("scanner.c");
@@ -338,11 +349,31 @@ impl Loader {
             }
         };
 
+        let (external_includes, external_files) = if let Some(external_cfg) = external_cfg {
+            let mut external_includes = Vec::new();
+            let mut external_files = Vec::new();
+            if let Some(includes) = &external_cfg.include {
+                for include in includes {
+                    external_includes.push(src_path.join(include));
+                }
+            }
+            if let Some(files) = &external_cfg.files {
+                for path in files {
+                    external_files.push(src_path.join(path));
+                }
+            }
+            (external_includes, external_files)
+        } else {
+            (Vec::new(), Vec::new())
+        };
+
         self.load_language_from_sources(
             &grammar_json.name,
             &header_path,
             &parser_path,
             &scanner_path,
+            &external_includes,
+            &external_files,
         )
     }
 
@@ -352,6 +383,8 @@ impl Loader {
         header_path: &Path,
         parser_path: &Path,
         scanner_path: &Option<PathBuf>,
+        external_includes: &[PathBuf],
+        external_files: &[PathBuf],
     ) -> Result<Language> {
         let mut lib_name = name.to_string();
         if self.debug_build {
@@ -360,8 +393,9 @@ impl Loader {
         let mut library_path = self.parser_lib_path.join(lib_name);
         library_path.set_extension(DYLIB_EXTENSION);
 
-        let recompile = needs_recompile(&library_path, &parser_path, &scanner_path)
-            .with_context(|| "Failed to compare source and binary timestamps")?;
+        let recompile =
+            needs_recompile(&library_path, &parser_path, &scanner_path, &external_files)
+                .with_context(|| "Failed to compare source and binary timestamps")?;
 
         if recompile {
             fs::create_dir_all(&self.parser_lib_path)?;
@@ -389,6 +423,12 @@ impl Loader {
                 command.arg(parser_path);
                 if let Some(scanner_path) = scanner_path.as_ref() {
                     command.arg(scanner_path);
+                }
+                for file in external_files {
+                    command.arg(file);
+                }
+                for path in external_includes {
+                    command.arg("/I").arg(path);
                 }
                 command
                     .arg("/link")
@@ -425,6 +465,14 @@ impl Loader {
                     }
                 }
                 command.arg("-xc").arg(parser_path);
+
+                for file in external_files {
+                    command.arg("-xc").arg(file);
+                }
+
+                for path in external_includes {
+                    command.arg("-I").arg(path);
+                }
             }
 
             let output = command
@@ -516,7 +564,7 @@ impl Loader {
         &'a mut self,
         parser_path: &Path,
     ) -> Result<&[LanguageConfiguration]> {
-        #[derive(Deserialize)]
+        #[derive(Deserialize, Clone)]
         #[serde(untagged)]
         enum PathsJSON {
             Empty,
@@ -536,6 +584,23 @@ impl Loader {
                     PathsJSON::Empty => None,
                     PathsJSON::Single(s) => Some(vec![s]),
                     PathsJSON::Multiple(s) => Some(s),
+                }
+            }
+        }
+
+        #[derive(Default, Deserialize, Clone)]
+        struct ExternalConfigJSON {
+            #[serde(default)]
+            include: PathsJSON,
+            #[serde(default)]
+            files: PathsJSON,
+        }
+
+        impl ExternalConfigJSON {
+            fn to_config(self) -> ExternalScannerConfig {
+                ExternalScannerConfig {
+                    include: self.include.into_vec(),
+                    files: self.files.into_vec(),
                 }
             }
         }
@@ -561,6 +626,8 @@ impl Loader {
             locals: PathsJSON,
             #[serde(default)]
             tags: PathsJSON,
+            #[serde(default)]
+            external_config: ExternalConfigJSON,
         }
 
         #[derive(Deserialize)]
@@ -584,7 +651,7 @@ impl Loader {
                 for config_json in package_json.tree_sitter {
                     // Determine the path to the parser directory. This can be specified in
                     // the package.json, but defaults to the directory containing the package.json.
-                    let language_path = parser_path.join(config_json.path);
+                    let language_path = parser_path.join(config_json.path.clone());
 
                     let grammar_path = language_path.join("src").join("grammar.json");
                     let mut grammar_file = fs::File::open(grammar_path)
@@ -596,7 +663,7 @@ impl Loader {
                     // Determine if a previous language configuration in this package.json file
                     // already uses the same language.
                     let mut language_id = None;
-                    for (id, (path, _)) in
+                    for (id, (path, _, _)) in
                         self.languages_by_id.iter().enumerate().skip(language_count)
                     {
                         if language_path == *path {
@@ -606,7 +673,11 @@ impl Loader {
 
                     // If not, add a new language path to the list.
                     let language_id = language_id.unwrap_or_else(|| {
-                        self.languages_by_id.push((language_path, OnceCell::new()));
+                        self.languages_by_id.push((
+                            language_path,
+                            OnceCell::new(),
+                            Some(config_json.external_config.clone().to_config()),
+                        ));
                         self.languages_by_id.len() - 1
                     });
 
@@ -622,6 +693,12 @@ impl Loader {
                         injections_filenames: config_json.injections.into_vec(),
                         locals_filenames: config_json.locals.into_vec(),
                         tags_filenames: config_json.tags.into_vec(),
+                        external_scanner_config: Some(config_json.external_config).map(|cfg| {
+                            ExternalScannerConfig {
+                                include: cfg.include.into_vec(),
+                                files: cfg.files.into_vec(),
+                            }
+                        }),
                         highlights_filenames: config_json.highlights.into_vec(),
                         highlight_config: OnceCell::new(),
                         tags_config: OnceCell::new(),
@@ -664,6 +741,7 @@ impl Loader {
                 locals_filenames: None,
                 highlights_filenames: None,
                 tags_filenames: None,
+                external_scanner_config: None,
                 highlight_config: OnceCell::new(),
                 tags_config: OnceCell::new(),
                 highlight_names: &*self.highlight_names,
@@ -672,7 +750,7 @@ impl Loader {
             self.language_configurations
                 .push(unsafe { mem::transmute(configuration) });
             self.languages_by_id
-                .push((parser_path.to_owned(), OnceCell::new()));
+                .push((parser_path.to_owned(), OnceCell::new(), None));
         }
 
         Ok(&self.language_configurations[initial_language_configuration_count..])
@@ -929,6 +1007,7 @@ fn needs_recompile(
     lib_path: &Path,
     parser_c_path: &Path,
     scanner_path: &Option<PathBuf>,
+    external_files_paths: &[PathBuf],
 ) -> Result<bool> {
     if !lib_path.exists() {
         return Ok(true);
@@ -939,6 +1018,11 @@ fn needs_recompile(
     }
     if let Some(scanner_path) = scanner_path {
         if mtime(scanner_path)? > lib_mtime {
+            return Ok(true);
+        }
+    }
+    for path in external_files_paths {
+        if mtime(path)? > lib_mtime {
             return Ok(true);
         }
     }
