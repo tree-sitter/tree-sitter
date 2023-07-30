@@ -48,22 +48,22 @@ pub fn generate_parser_in_directory(
     let src_path = repo_path.join("src");
     let header_path = src_path.join("tree_sitter");
 
+    // Read the grammar.json.
+    let grammar_json = match grammar_path {
+        Some(path) => load_grammar_file(path.as_ref())?,
+        None => {
+            let grammar_js_path = grammar_path.map_or(repo_path.join("grammar.js"), |s| s.into());
+            load_grammar_file(&grammar_js_path)?
+        }
+    };
+
     // Ensure that the output directories exist.
     fs::create_dir_all(&src_path)?;
     fs::create_dir_all(&header_path)?;
 
-    // Read the grammar.json.
-    let grammar_json;
-    match grammar_path {
-        Some(path) => {
-            grammar_json = load_grammar_file(path.as_ref())?;
-        }
-        None => {
-            let grammar_js_path = grammar_path.map_or(repo_path.join("grammar.js"), |s| s.into());
-            grammar_json = load_grammar_file(&grammar_js_path)?;
-            fs::write(&src_path.join("grammar.json"), &grammar_json)
-                .with_context(|| format!("Failed to write grammar.json to {:?}", src_path))?;
-        }
+    if grammar_path.is_none() {
+        fs::write(&src_path.join("grammar.json"), &grammar_json)
+            .with_context(|| format!("Failed to write grammar.json to {:?}", src_path))?;
     }
 
     // Parse and preprocess the grammar.
@@ -157,9 +157,18 @@ fn generate_parser_for_grammar_with_opts(
 }
 
 pub fn load_grammar_file(grammar_path: &Path) -> Result<String> {
+    if grammar_path.is_dir() {
+        return Err(anyhow!(
+            "Path to a grammar file with `.js` or `.json` extension is required"
+        ));
+    }
     match grammar_path.extension().and_then(|e| e.to_str()) {
-        Some("js") => Ok(load_js_grammar_file(grammar_path)?),
-        Some("json") => Ok(fs::read_to_string(grammar_path)?),
+        Some("js") => {
+            Ok(load_js_grammar_file(grammar_path).with_context(|| "Failed to load grammar.js")?)
+        }
+        Some("json") => {
+            Ok(fs::read_to_string(grammar_path).with_context(|| "Failed to load grammar.json")?)
+        }
         _ => Err(anyhow!(
             "Unknown grammar file extension: {:?}",
             grammar_path
@@ -174,14 +183,14 @@ fn load_js_grammar_file(grammar_path: &Path) -> Result<String> {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
-        .expect("Failed to run `node`");
+        .with_context(|| "Failed to run `node`")?;
 
     let mut node_stdin = node_process
         .stdin
         .take()
-        .expect("Failed to open stdin for node");
+        .with_context(|| "Failed to open stdin for node")?;
     let cli_version = Version::parse(env!("CARGO_PKG_VERSION"))
-        .expect("Could not parse this package's version as semver.");
+        .with_context(|| "Could not parse this package's version as semver.")?;
     write!(
         node_stdin,
         "global.TREE_SITTER_CLI_VERSION_MAJOR = {};
@@ -189,22 +198,22 @@ fn load_js_grammar_file(grammar_path: &Path) -> Result<String> {
         global.TREE_SITTER_CLI_VERSION_PATCH = {};",
         cli_version.major, cli_version.minor, cli_version.patch,
     )
-    .expect("Failed to write tree-sitter version to node's stdin");
+    .with_context(|| "Failed to write tree-sitter version to node's stdin")?;
     let javascript_code = include_bytes!("./dsl.js");
     node_stdin
         .write(javascript_code)
-        .expect("Failed to write grammar dsl to node's stdin");
+        .with_context(|| "Failed to write grammar dsl to node's stdin")?;
     drop(node_stdin);
     let output = node_process
         .wait_with_output()
-        .expect("Failed to read output from node");
+        .with_context(|| "Failed to read output from node")?;
     match output.status.code() {
         None => panic!("Node process was killed"),
         Some(0) => {}
         Some(code) => return Err(anyhow!("Node process exited with status {}", code)),
     }
-
-    let mut result = String::from_utf8(output.stdout).expect("Got invalid UTF8 from node");
+    let mut result =
+        String::from_utf8(output.stdout).with_context(|| "Got invalid UTF8 from node")?;
     result.push('\n');
     Ok(result)
 }

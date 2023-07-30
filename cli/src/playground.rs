@@ -1,5 +1,5 @@
 use super::wasm;
-use anyhow::Context;
+use anyhow::{anyhow, Context, Result};
 use std::{
     borrow::Cow,
     env, fs,
@@ -43,20 +43,17 @@ fn get_main_html(tree_sitter_dir: &Option<PathBuf>) -> Cow<'static, [u8]> {
     }
 }
 
-pub fn serve(grammar_path: &Path, open_in_browser: bool) {
-    let server = get_server();
+pub fn serve(grammar_path: &Path, open_in_browser: bool) -> Result<()> {
+    let server = get_server()?;
     let grammar_name = wasm::get_grammar_name(&grammar_path.join("src"))
-        .with_context(|| "Failed to get wasm filename")
-        .unwrap();
+        .with_context(|| "Failed to get wasm filename")?;
     let wasm_filename = format!("tree-sitter-{}.wasm", grammar_name);
-    let language_wasm = fs::read(grammar_path.join(&wasm_filename))
-        .with_context(|| {
-            format!(
-                "Failed to read {}. Run `tree-sitter build-wasm` first.",
-                wasm_filename
-            )
-        })
-        .unwrap();
+    let language_wasm = fs::read(grammar_path.join(&wasm_filename)).with_context(|| {
+        format!(
+            "Failed to read {}. Run `tree-sitter build-wasm` first.",
+            wasm_filename
+        )
+    })?;
     let url = format!("http://{}", server.server_addr());
     println!("Started playground on: {}", url);
     if open_in_browser {
@@ -105,8 +102,12 @@ pub fn serve(grammar_path: &Path, open_in_browser: bool) {
             }
             _ => response(b"Not found", &html_header).with_status_code(404),
         };
-        request.respond(res).expect("Failed to write HTTP response");
+        request
+            .respond(res)
+            .with_context(|| "Failed to write HTTP response")?;
     }
+
+    Ok(())
 }
 
 fn redirect<'a>(url: &'a str) -> Response<&'a [u8]> {
@@ -121,18 +122,24 @@ fn response<'a>(data: &'a [u8], header: &Header) -> Response<&'a [u8]> {
         .with_header(header.clone())
 }
 
-fn get_server() -> Server {
+fn get_server() -> Result<Server> {
     let addr = env::var("TREE_SITTER_PLAYGROUND_ADDR").unwrap_or("127.0.0.1".to_owned());
     let port = env::var("TREE_SITTER_PLAYGROUND_PORT")
-        .map(|v| v.parse::<u16>().expect("Invalid port specification"))
+        .map(|v| {
+            v.parse::<u16>()
+                .with_context(|| "Invalid port specification")
+        })
         .ok();
     let listener = match port {
-        Some(port) => bind_to(&*addr, port).expect("Can't bind to the specified port"),
-        None => {
-            get_listener_on_available_port(&*addr).expect("Can't find a free port to bind to it")
+        Some(port) => {
+            bind_to(&*addr, port?).with_context(|| "Failed to bind to the specified port")?
         }
+        None => get_listener_on_available_port(&*addr)
+            .with_context(|| "Failed to find a free port to bind to it")?,
     };
-    Server::from_listener(listener, None).expect("Failed to start web server")
+    let server =
+        Server::from_listener(listener, None).map_err(|_| anyhow!("Failed to start web server"))?;
+    Ok(server)
 }
 
 fn get_listener_on_available_port(addr: &str) -> Option<TcpListener> {
