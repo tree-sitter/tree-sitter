@@ -85,6 +85,39 @@ fn preprocess_regex(content: &str) -> String {
     result
 }
 
+// This is because regex patterns are allowed in a potentially empty context, but nothing else is.
+#[allow(unused)]
+fn find_pattern_rule(rule: &Rule) -> bool {
+    match rule {
+        Rule::Pattern(..) => true,
+        Rule::Metadata { rule, .. } | Rule::Repeat(rule) => find_pattern_rule(rule),
+        Rule::Choice(rules) | Rule::Seq(rules) => rules.iter().any(find_pattern_rule),
+        _ => false,
+    }
+}
+
+fn find_empty_rule(rule: &Rule, is_start_rule: bool, mut layer_above_had_nonempty: bool) -> bool {
+    match rule {
+        Rule::Blank => true,
+        Rule::String(string) => string.is_empty() && is_start_rule,
+        Rule::Pattern(..) | Rule::NamedSymbol(_) | Rule::Symbol(_) => false,
+        Rule::Metadata { rule, .. } | Rule::Repeat(rule) => {
+            find_empty_rule(rule, is_start_rule, layer_above_had_nonempty)
+        }
+        Rule::Choice(rules) => {
+            for rule in rules {
+                if !find_empty_rule(rule, is_start_rule, layer_above_had_nonempty) {
+                    layer_above_had_nonempty = true;
+                }
+            }
+            !layer_above_had_nonempty
+        }
+        Rule::Seq(rules) => rules
+            .iter()
+            .all(|rule| find_empty_rule(rule, is_start_rule, layer_above_had_nonempty)),
+    }
+}
+
 pub(crate) fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<LexicalGrammar> {
     let mut builder = NfaBuilder {
         nfa: Nfa::new(),
@@ -92,7 +125,7 @@ pub(crate) fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<Lexi
         precedence_stack: vec![0],
     };
 
-    let separator_rule = if grammar.separators.len() > 0 {
+    let separator_rule = if !grammar.separators.is_empty() {
         grammar.separators.push(Rule::Blank);
         Rule::repeat(Rule::choice(grammar.separators))
     } else {
@@ -100,7 +133,18 @@ pub(crate) fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<Lexi
     };
 
     let mut variables = Vec::new();
+    println!("{:#?}", grammar.variables);
     for (i, variable) in grammar.variables.into_iter().enumerate() {
+        if find_empty_rule(&variable.rule, i == 0, false) {
+            return Err(anyhow!(
+                "The rule `{}` matches the empty string.
+
+Tree-sitter does not support syntactic rules that match the empty string
+unless they are used only as the grammar's start rule.
+",
+                variable.name
+            ));
+        }
         let is_immediate_token = match &variable.rule {
             Rule::Metadata { params, .. } => params.is_main_token,
             _ => false,
