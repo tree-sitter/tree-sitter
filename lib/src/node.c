@@ -473,13 +473,13 @@ bool ts_node_has_error(TSNode self) {
   return ts_subtree_error_cost(ts_node__subtree(self)) > 0;
 }
 
-uint32_t ts_node_descendant_count(TSNode self) {
-  return ts_subtree_visible_descendant_count(ts_node__subtree(self)) + 1;
-}
-
 bool ts_node_is_error(TSNode self) {
   TSSymbol symbol = ts_node_symbol(self);
   return symbol == ts_builtin_sym_error;
+}
+
+uint32_t ts_node_descendant_count(TSNode self) {
+  return ts_subtree_visible_descendant_count(ts_node__subtree(self)) + 1;
 }
 
 TSStateId ts_node_parse_state(TSNode self) {

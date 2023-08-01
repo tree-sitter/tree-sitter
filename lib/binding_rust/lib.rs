@@ -942,8 +942,9 @@ impl<'tree> Node<'tree> {
     ///
     /// Syntax errors represent parts of the code that could not be incorporated into a
     /// valid syntax tree.
+    #[doc(alias = "ts_node_is_error")]
     pub fn is_error(&self) -> bool {
-        self.kind_id() == u16::MAX
+        unsafe { ffi::ts_node_is_error(self.0) }
     }
 
     /// Get this node's parse state.
