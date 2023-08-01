@@ -87,6 +87,10 @@ pub struct Node<'a>(ffi::TSNode, PhantomData<&'a ()>);
 #[doc(alias = "TSParser")]
 pub struct Parser(NonNull<ffi::TSParser>);
 
+/// A stateful object that is used to look up symbols valid in a specific parse state
+#[doc(alias = "TSLookaheadIterator")]
+pub struct LookaheadIterator(NonNull<ffi::TSLookaheadIterator>);
+
 /// A type of log message.
 #[derive(Debug, PartialEq, Eq)]
 pub enum LogType {
@@ -269,6 +273,12 @@ impl Language {
         unsafe { ffi::ts_language_symbol_count(self.0) as usize }
     }
 
+    /// Get the number of valid states in this language.
+    #[doc(alias = "ts_language_state_count")]
+    pub fn parse_state_count(&self) -> usize {
+        unsafe { ffi::ts_language_state_count(self.0) as usize }
+    }
+
     /// Get the name of the node kind for the given numerical id.
     #[doc(alias = "ts_language_symbol_name")]
     pub fn node_kind_for_id(&self, id: u16) -> Option<&'static str> {
@@ -335,6 +345,41 @@ impl Language {
             )
         };
         FieldId::new(id)
+    }
+
+    /// Get the next parse state. Combine this with [lookahead_iterator] to
+    /// generate completion suggestions or valid symbols in error nodes.
+    ///
+    /// Example:
+    /// ```
+    /// let state = language.next_state(node.parse_state(), node.grammar_id());
+    /// ```
+    #[doc(alias = "ts_language_next_state")]
+    pub fn next_state(&self, state: u16, id: u16) -> u16 {
+        unsafe { ffi::ts_language_next_state(self.0, state, id) }
+    }
+
+    /// Create a new lookahead iterator for this language and parse state.
+    ///
+    /// This returns `None` if state is invalid for this language.
+    ///
+    /// Iterating [LookaheadIterator] will yield valid symbols in the given
+    /// parse state. Newly created lookahead iterators will return the `ERROR`
+    /// symbol from [LookaheadIterator::current_symbol].
+    ///
+    /// Lookahead iterators can be useful to generate suggestions and improve
+    /// syntax error diagnostics. To get symbols valid in an ERROR node, use the
+    /// lookahead iterator on its first leaf node state. For `MISSING` nodes, a
+    /// lookahead iterator created on the previous non-extra leaf node may be
+    /// appropriate.
+    #[doc(alias = "ts_lookahead_iterator_new")]
+    pub fn lookahead_iterator(&self, state: u16) -> Option<LookaheadIterator> {
+        let ptr = unsafe { ffi::ts_lookahead_iterator_new(self.0, state) };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(unsafe { LookaheadIterator::from_raw(ptr) })
+        }
     }
 }
 
@@ -832,10 +877,26 @@ impl<'tree> Node<'tree> {
         unsafe { ffi::ts_node_symbol(self.0) }
     }
 
+    /// Get the node's type as a numerical id as it appears in the grammar
+    /// ignoring aliases.
+    #[doc(alias = "ts_node_grammar_symbol")]
+    pub fn grammar_id(&self) -> u16 {
+        unsafe { ffi::ts_node_grammar_symbol(self.0) }
+    }
+
     /// Get this node's type as a string.
     #[doc(alias = "ts_node_type")]
     pub fn kind(&self) -> &'static str {
         unsafe { CStr::from_ptr(ffi::ts_node_type(self.0)) }
+            .to_str()
+            .unwrap()
+    }
+
+    /// Get this node's symbol name as it appears in the grammar ignoring
+    /// aliases as a string.
+    #[doc(alias = "ts_node_grammar_type")]
+    pub fn grammar_name(&self) -> &'static str {
+        unsafe { CStr::from_ptr(ffi::ts_node_grammar_type(self.0)) }
             .to_str()
             .unwrap()
     }
@@ -881,8 +942,21 @@ impl<'tree> Node<'tree> {
     ///
     /// Syntax errors represent parts of the code that could not be incorporated into a
     /// valid syntax tree.
+    #[doc(alias = "ts_node_is_error")]
     pub fn is_error(&self) -> bool {
-        self.kind_id() == u16::MAX
+        unsafe { ffi::ts_node_is_error(self.0) }
+    }
+
+    /// Get this node's parse state.
+    #[doc(alias = "ts_node_parse_state")]
+    pub fn parse_state(&self) -> u16 {
+        unsafe { ffi::ts_node_parse_state(self.0) }
+    }
+
+    /// Get the parse state after this node.
+    #[doc(alias = "ts_node_next_parse_state")]
+    pub fn next_parse_state(&self) -> u16 {
+        unsafe { ffi::ts_node_next_parse_state(self.0) }
     }
 
     /// Check if this node is *missing*.
@@ -1305,6 +1379,19 @@ impl<'a> TreeCursor<'a> {
         return unsafe { ffi::ts_tree_cursor_goto_first_child(&mut self.0) };
     }
 
+    /// Move this cursor to the last child of its current node.
+    ///
+    /// This returns `true` if the cursor successfully moved, and returns
+    /// `false` if there were no children.
+    ///
+    /// Note that this function may be slower than
+    /// [`goto_first_child`](TreeCursor::goto_first_child) because it needs to
+    /// iterate through all the children to compute the child's position.
+    #[doc(alias = "ts_tree_cursor_goto_last_child")]
+    pub fn goto_last_child(&mut self) -> bool {
+        return unsafe { ffi::ts_tree_cursor_goto_last_child(&mut self.0) };
+    }
+
     /// Move this cursor to the parent of its current node.
     ///
     /// This returns `true` if the cursor successfully moved, and returns `false`
@@ -1331,6 +1418,21 @@ impl<'a> TreeCursor<'a> {
         return unsafe {
             ffi::ts_tree_cursor_goto_descendant(&mut self.0, descendant_index as u32)
         };
+    }
+
+    /// Move this cursor to the previous sibling of its current node.
+    ///
+    /// This returns `true` if the cursor successfully moved, and returns
+    /// `false` if there was no previous sibling node.
+    ///
+    /// Note, that this function may be slower than
+    /// [`goto_next_sibling`](TreeCursor::goto_next_sibling) due to how node
+    /// positions are stored. In the worst case, this will need to iterate
+    /// through all the children upto the previous sibling node to recalculate
+    /// its position.
+    #[doc(alias = "ts_tree_cursor_goto_previous_sibling")]
+    pub fn goto_previous_sibling(&mut self) -> bool {
+        return unsafe { ffi::ts_tree_cursor_goto_previous_sibling(&mut self.0) };
     }
 
     /// Move this cursor to the first child of its current node that extends beyond
@@ -1370,6 +1472,15 @@ impl<'a> TreeCursor<'a> {
     pub fn reset(&mut self, node: Node<'a>) {
         unsafe { ffi::ts_tree_cursor_reset(&mut self.0, node.0) };
     }
+
+    /// Re-initialize a tree cursor to the same position as another cursor.
+    ///
+    /// Unlike `reset`, this will not lose parent information and
+    /// allows reusing already created cursors.
+    #[doc(alias = "ts_tree_cursor_reset_to")]
+    pub fn reset_to(&mut self, cursor: TreeCursor<'a>) {
+        unsafe { ffi::ts_tree_cursor_reset_to(&mut self.0, &cursor.0) };
+    }
 }
 
 impl<'a> Clone for TreeCursor<'a> {
@@ -1381,6 +1492,91 @@ impl<'a> Clone for TreeCursor<'a> {
 impl<'a> Drop for TreeCursor<'a> {
     fn drop(&mut self) {
         unsafe { ffi::ts_tree_cursor_delete(&mut self.0) }
+    }
+}
+
+impl LookaheadIterator {
+    /// Get the current language of the lookahead iterator.
+    #[doc(alias = "ts_lookahead_iterator_language")]
+    pub fn language(&self) -> Language {
+        Language(unsafe { ffi::ts_lookahead_iterator_language(self.0.as_ptr()) })
+    }
+
+    /// Get the current symbol of the lookahead iterator.
+    #[doc(alias = "ts_lookahead_iterator_current_symbol")]
+    pub fn current_symbol(&self) -> u16 {
+        unsafe { ffi::ts_lookahead_iterator_current_symbol(self.0.as_ptr()) }
+    }
+
+    /// Get the current symbol name of the lookahead iterator.
+    #[doc(alias = "ts_lookahead_iterator_current_symbol_name")]
+    pub fn current_symbol_name(&self) -> &'static str {
+        unsafe {
+            CStr::from_ptr(ffi::ts_lookahead_iterator_current_symbol_name(
+                self.0.as_ptr(),
+            ))
+            .to_str()
+            .unwrap()
+        }
+    }
+
+    /// Reset the lookahead iterator.
+    ///
+    /// This returns `true` if the language was set successfully and `false`
+    /// otherwise.
+    #[doc(alias = "ts_lookahead_iterator_reset")]
+    pub fn reset(&self, language: Language, state: u16) -> bool {
+        unsafe { ffi::ts_lookahead_iterator_reset(self.0.as_ptr(), language.0, state) }
+    }
+
+    /// Reset the lookahead iterator to another state.
+    ///
+    /// This returns `true` if the iterator was reset to the given state and `false`
+    /// otherwise.
+    #[doc(alias = "ts_lookahead_iterator_reset_state")]
+    pub fn reset_state(&self, state: u16) -> bool {
+        unsafe { ffi::ts_lookahead_iterator_reset_state(self.0.as_ptr(), state) }
+    }
+
+    /// Iterate symbol names.
+    pub fn iter_names<'a>(&'a self) -> impl Iterator<Item = &'static str> + 'a {
+        NameLookaheadIterator(&self)
+    }
+}
+
+struct NameLookaheadIterator<'a>(&'a LookaheadIterator);
+
+impl<'a> Iterator for NameLookaheadIterator<'a> {
+    type Item = &'static str;
+
+    #[doc(alias = "ts_lookahead_iterator_advance")]
+    fn next(&mut self) -> Option<Self::Item> {
+        if !(unsafe { ffi::ts_lookahead_iterator_advance(self.0 .0.as_ptr()) }) {
+            None
+        } else {
+            Some(self.0.current_symbol_name())
+        }
+    }
+}
+
+impl Iterator for LookaheadIterator {
+    type Item = u16;
+
+    #[doc(alias = "ts_lookahead_iterator_advance")]
+    fn next(&mut self) -> Option<Self::Item> {
+        // the first symbol is always `0` so we can safely skip it
+        if !(unsafe { ffi::ts_lookahead_iterator_advance(self.0.as_ptr()) }) {
+            None
+        } else {
+            Some(self.current_symbol())
+        }
+    }
+}
+
+impl Drop for LookaheadIterator {
+    #[doc(alias = "ts_lookahead_iterator_delete")]
+    fn drop(&mut self) {
+        unsafe { ffi::ts_lookahead_iterator_delete(self.0.as_ptr()) }
     }
 }
 

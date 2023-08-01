@@ -429,6 +429,15 @@ const TSLanguage *ts_node_language(TSNode self) {
   return self.tree->language;
 }
 
+TSSymbol ts_node_grammar_symbol(TSNode self) {
+  return ts_subtree_symbol(ts_node__subtree(self));
+}
+
+const char *ts_node_grammar_type(TSNode self) {
+  TSSymbol symbol = ts_subtree_symbol(ts_node__subtree(self));
+  return ts_language_symbol_name(self.tree->language, symbol);
+}
+
 char *ts_node_string(TSNode self) {
   return ts_subtree_string(ts_node__subtree(self), self.tree->language, false);
 }
@@ -464,8 +473,25 @@ bool ts_node_has_error(TSNode self) {
   return ts_subtree_error_cost(ts_node__subtree(self)) > 0;
 }
 
+bool ts_node_is_error(TSNode self) {
+  TSSymbol symbol = ts_node_symbol(self);
+  return symbol == ts_builtin_sym_error;
+}
+
 uint32_t ts_node_descendant_count(TSNode self) {
   return ts_subtree_visible_descendant_count(ts_node__subtree(self)) + 1;
+}
+
+TSStateId ts_node_parse_state(TSNode self) {
+  return ts_subtree_parse_state(ts_node__subtree(self));
+}
+
+TSStateId ts_node_next_parse_state(TSNode self) {
+  const TSLanguage *language = self.tree->language;
+  uint16_t state = ts_node_parse_state(self);
+  uint16_t symbol = ts_node_grammar_symbol(self);
+
+  return ts_language_next_state(language, state, symbol);
 }
 
 TSNode ts_node_parent(TSNode self) {

@@ -8,7 +8,9 @@ extern "C" {
     pub(crate) fn dup(fd: std::os::raw::c_int) -> std::os::raw::c_int;
 }
 
-use crate::{Language, Node, Parser, Query, QueryCursor, QueryError, Tree, TreeCursor};
+use crate::{
+    Language, LookaheadIterator, Node, Parser, Query, QueryCursor, QueryError, Tree, TreeCursor,
+};
 use std::{marker::PhantomData, mem::ManuallyDrop, ptr::NonNull, str};
 
 impl Language {
@@ -128,5 +130,21 @@ impl QueryCursor {
     /// Consumes the [QueryCursor], returning a raw pointer to the underlying C structure.
     pub fn into_raw(self) -> *mut TSQueryCursor {
         ManuallyDrop::new(self).ptr.as_ptr()
+    }
+}
+
+impl LookaheadIterator {
+    /// Reconstructs a [LookaheadIterator] from a raw pointer.
+    ///
+    /// # Safety
+    ///
+    /// `ptr` must be non-null.
+    pub unsafe fn from_raw(ptr: *mut TSLookaheadIterator) -> LookaheadIterator {
+        LookaheadIterator(NonNull::new_unchecked(ptr))
+    }
+
+    /// Consumes the [LookaheadIterator], returning a raw pointer to the underlying C structure.
+    pub fn into_raw(self) -> *mut TSLookaheadIterator {
+        ManuallyDrop::new(self).0.as_ptr()
     }
 }

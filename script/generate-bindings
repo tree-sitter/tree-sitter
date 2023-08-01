@@ -6,6 +6,7 @@ no_derive_copy=(
   TSInput
   TSLanguage
   TSLogger
+  TSLookaheadIterator
   TSParser
   TSTree
   TSQuery

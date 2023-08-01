@@ -55,10 +55,14 @@ declare module 'web-tree-sitter' {
     ) => string | null;
 
     export interface SyntaxNode {
-      id: number;
+      typeId: number;
+      grammarId: number;
       tree: Tree;
       type: string;
+      grammarType: string;
       text: string;
+      parseState: number;
+      nextParseState: number;
       startPosition: Point;
       endPosition: Point;
       startIndex: number;
@@ -80,6 +84,7 @@ declare module 'web-tree-sitter' {
       hasChanges(): boolean;
       hasError(): boolean;
       equals(other: SyntaxNode): boolean;
+      isError(): boolean;
       isMissing(): boolean;
       isNamed(): boolean;
       toString(): string;
@@ -104,6 +109,7 @@ declare module 'web-tree-sitter' {
     export interface TreeCursor {
       nodeType: string;
       nodeTypeId: number;
+      nodeStateId: number;
       nodeText: string;
       nodeId: number;
       nodeIsNamed: boolean;
@@ -114,14 +120,17 @@ declare module 'web-tree-sitter' {
       endIndex: number;
 
       reset(node: SyntaxNode): void;
+      resetTo(cursor: TreeCursor): void;
       delete(): void;
       currentNode(): SyntaxNode;
       currentFieldId(): number;
       currentFieldName(): string;
       gotoParent(): boolean;
       gotoFirstChild(): boolean;
+      gotoLastChild(): boolean;
       gotoFirstChildForIndex(index: number): boolean;
       gotoNextSibling(): boolean;
+      gotoPreviousSibling(): boolean;
     }
 
     export interface Tree {
@@ -141,6 +150,7 @@ declare module 'web-tree-sitter' {
 
       readonly version: number;
       readonly fieldCount: number;
+      readonly stateCount: number;
       readonly nodeTypeCount: number;
 
       fieldNameForId(fieldId: number): string | null;
@@ -149,7 +159,20 @@ declare module 'web-tree-sitter' {
       nodeTypeForId(typeId: number): string | null;
       nodeTypeIsNamed(typeId: number): boolean;
       nodeTypeIsVisible(typeId: number): boolean;
+      nextState(stateId: number, typeId: number): number;
       query(source: string): Query;
+      lookaheadIterator(stateId: number): LookaheadIterable | null;
+    }
+
+    class LookaheadIterable {
+      readonly language: Language;
+      readonly currentTypeId: number;
+      readonly currentType: string;
+
+      delete(): void;
+      resetState(stateId: number): boolean;
+      reset(language: Language, stateId: number): boolean;
+      [Symbol.iterator](): Iterator<string>;
     }
 
     interface QueryCapture {
