@@ -135,6 +135,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [TOML](https://github.com/ikatyang/tree-sitter-toml)
 * [Tree-sitter Query](https://github.com/nvim-treesitter/tree-sitter-query)
 * [Turtle](https://github.com/BonaBeavis/tree-sitter-turtle)
+* [Twig](https://github.com/kaermorchen/tree-sitter-twig)
 * [Twig](https://github.com/gbprod/tree-sitter-twig)
 * [TypeScript](https://github.com/tree-sitter/tree-sitter-typescript)
 * [Verilog](https://github.com/tree-sitter/tree-sitter-verilog)
