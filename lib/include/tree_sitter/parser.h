@@ -15,9 +15,6 @@ extern "C" {
 
 #ifndef TREE_SITTER_API_H_
 typedef uint16_t TSStateId;
-#endif
-
-#ifndef TREE_SITTER_API_H_
 typedef uint16_t TSSymbol;
 typedef uint16_t TSFieldId;
 typedef struct TSLanguage TSLanguage;

@@ -32,10 +32,7 @@ extern "C" {
 /* Section - Types */
 /*******************/
 
-#ifndef TREE_SITTER_PARSER_H_
 typedef uint16_t TSStateId;
-#endif
-
 typedef uint16_t TSSymbol;
 typedef uint16_t TSFieldId;
 typedef struct TSLanguage TSLanguage;
