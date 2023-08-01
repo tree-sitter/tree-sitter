@@ -509,7 +509,7 @@ extern "C" {
     pub fn ts_query_predicates_for_pattern(
         self_: *const TSQuery,
         pattern_index: u32,
-        length: *mut u32,
+        step_count: *mut u32,
     ) -> *const TSQueryPredicateStep;
 }
 extern "C" {
@@ -525,7 +525,7 @@ extern "C" {
     #[doc = " Get the name and length of one of the query's captures, or one of the\n query's string literals. Each capture and string is associated with a\n numeric id based on the order that it appeared in the query's source."]
     pub fn ts_query_capture_name_for_id(
         arg1: *const TSQuery,
-        id: u32,
+        index: u32,
         length: *mut u32,
     ) -> *const ::std::os::raw::c_char;
 }
@@ -533,14 +533,14 @@ extern "C" {
     #[doc = " Get the quantifier of the query's captures. Each capture is * associated\n with a numeric id based on the order that it appeared in the query's source."]
     pub fn ts_query_capture_quantifier_for_id(
         arg1: *const TSQuery,
-        pattern_id: u32,
-        capture_id: u32,
+        pattern_index: u32,
+        capture_index: u32,
     ) -> TSQuantifier;
 }
 extern "C" {
     pub fn ts_query_string_value_for_id(
         arg1: *const TSQuery,
-        id: u32,
+        index: u32,
         length: *mut u32,
     ) -> *const ::std::os::raw::c_char;
 }
@@ -590,7 +590,7 @@ extern "C" {
     pub fn ts_query_cursor_next_match(arg1: *mut TSQueryCursor, match_: *mut TSQueryMatch) -> bool;
 }
 extern "C" {
-    pub fn ts_query_cursor_remove_match(arg1: *mut TSQueryCursor, id: u32);
+    pub fn ts_query_cursor_remove_match(arg1: *mut TSQueryCursor, match_id: u32);
 }
 extern "C" {
     #[doc = " Advance to the next capture of the currently running query.\n\n If there is a capture, write its match to `*match` and its index within\n the matche's capture list to `*capture_index`. Otherwise, return `false`."]
