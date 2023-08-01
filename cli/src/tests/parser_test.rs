@@ -1303,6 +1303,85 @@ fn test_parsing_with_included_ranges_and_missing_tokens() {
     assert_eq!(root.child(3).unwrap().start_byte(), 4);
 }
 
+#[test]
+fn test_grammars_that_can_hang_on_eof() {
+    let (parser_name, parser_code) = generate_parser_for_grammar(
+        r#"
+        {
+            "name": "test_single_null_char_regex",
+            "rules": {
+                "source_file": {
+                    "type": "SEQ",
+                    "members": [
+                        { "type": "STRING", "value": "\"" },
+                        { "type": "PATTERN", "value": "[\\x00]*" },
+                        { "type": "STRING", "value": "\"" }
+                    ]
+                }
+            },
+            "extras": [ { "type": "PATTERN", "value": "\\s" } ]
+        }
+        "#,
+    )
+    .unwrap();
+
+    let mut parser = Parser::new();
+    parser
+        .set_language(get_test_language(&parser_name, &parser_code, None))
+        .unwrap();
+    parser.parse("\"", None).unwrap();
+
+    let (parser_name, parser_code) = generate_parser_for_grammar(
+        r#"
+        {
+            "name": "test_null_char_with_next_char_regex",
+            "rules": {
+                "source_file": {
+                    "type": "SEQ",
+                    "members": [
+                        { "type": "STRING", "value": "\"" },
+                        { "type": "PATTERN", "value": "[\\x00-\\x01]*" },
+                        { "type": "STRING", "value": "\"" }
+                    ]
+                }
+            },
+            "extras": [ { "type": "PATTERN", "value": "\\s" } ]
+        }
+        "#,
+    )
+    .unwrap();
+
+    parser
+        .set_language(get_test_language(&parser_name, &parser_code, None))
+        .unwrap();
+    parser.parse("\"", None).unwrap();
+
+    let (parser_name, parser_code) = generate_parser_for_grammar(
+        r#"
+        {
+            "name": "test_null_char_with_range_regex",
+            "rules": {
+                "source_file": {
+                    "type": "SEQ",
+                    "members": [
+                        { "type": "STRING", "value": "\"" },
+                        { "type": "PATTERN", "value": "[\\x00-\\x7F]*" },
+                        { "type": "STRING", "value": "\"" }
+                    ]
+                }
+            },
+            "extras": [ { "type": "PATTERN", "value": "\\s" } ]
+        }
+        "#,
+    )
+    .unwrap();
+
+    parser
+        .set_language(get_test_language(&parser_name, &parser_code, None))
+        .unwrap();
+    parser.parse("\"", None).unwrap();
+}
+
 fn simple_range(start: usize, end: usize) -> Range {
     Range {
         start_byte: start,
