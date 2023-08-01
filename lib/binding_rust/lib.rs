@@ -334,11 +334,7 @@ impl Language {
                 field_name.len() as u32,
             )
         };
-        if id == 0 {
-            None
-        } else {
-            Some(FieldId::new(id).unwrap())
-        }
+        FieldId::new(id)
     }
 }
 
@@ -1249,14 +1245,8 @@ impl<'a> TreeCursor<'a> {
     /// See also [field_name](TreeCursor::field_name).
     #[doc(alias = "ts_tree_cursor_current_field_id")]
     pub fn field_id(&self) -> Option<FieldId> {
-        unsafe {
-            let id = ffi::ts_tree_cursor_current_field_id(&self.0);
-            if id == 0 {
-                None
-            } else {
-                Some(FieldId::new(id).unwrap())
-            }
-        }
+        let id = unsafe { ffi::ts_tree_cursor_current_field_id(&self.0) };
+        FieldId::new(id)
     }
 
     /// Get the field name of this tree cursor's current node.
