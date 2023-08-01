@@ -133,6 +133,7 @@ struct TSLanguage {
 #define START_LEXER()           \
   bool result = false;          \
   bool skip = false;            \
+  __attribute__((unused))       \
   bool eof = false;             \
   int32_t lookahead;            \
   goto start;                   \
