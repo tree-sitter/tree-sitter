@@ -1524,7 +1524,7 @@ impl LookaheadIterator {
     /// This returns `true` if the language was set successfully and `false`
     /// otherwise.
     #[doc(alias = "ts_lookahead_iterator_reset")]
-    pub fn reset(&self, language: &Language, state: u16) -> bool {
+    pub fn reset(&self, language: Language, state: u16) -> bool {
         unsafe { ffi::ts_lookahead_iterator_reset(self.0.as_ptr(), language.0, state) }
     }
 
