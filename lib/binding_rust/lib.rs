@@ -175,27 +175,30 @@ pub struct QueryMatch<'cursor, 'tree> {
 }
 
 /// A sequence of `QueryMatch`es associated with a given `QueryCursor`.
-pub struct QueryMatches<'a, 'tree: 'a, T: TextProvider<'a>> {
+pub struct QueryMatches<'a, 'tree: 'a, T: TextProvider<I>, I: AsRef<[u8]>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'a Query,
     text_provider: T,
     buffer1: Vec<u8>,
     buffer2: Vec<u8>,
-    _tree: PhantomData<&'tree ()>,
+    _phantom: PhantomData<(&'tree (), I)>,
 }
 
 /// A sequence of `QueryCapture`s associated with a given `QueryCursor`.
-pub struct QueryCaptures<'a, 'tree: 'a, T: TextProvider<'a>> {
+pub struct QueryCaptures<'a, 'tree: 'a, T: TextProvider<I>, I: AsRef<[u8]>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'a Query,
     text_provider: T,
     buffer1: Vec<u8>,
     buffer2: Vec<u8>,
-    _tree: PhantomData<&'tree ()>,
+    _phantom: PhantomData<(&'tree (), I)>,
 }
 
-pub trait TextProvider<'a> {
-    type I: Iterator<Item = &'a [u8]> + 'a;
+pub trait TextProvider<I>
+where
+    I: AsRef<[u8]>,
+{
+    type I: Iterator<Item = I>;
     fn text(&mut self, node: Node) -> Self::I;
 }
 
@@ -1900,12 +1903,12 @@ impl QueryCursor {
     /// Because multiple patterns can match the same set of nodes, one match may contain
     /// captures that appear *before* some of the captures from a previous match.
     #[doc(alias = "ts_query_cursor_exec")]
-    pub fn matches<'a, 'tree: 'a, T: TextProvider<'a> + 'a>(
+    pub fn matches<'a, 'tree: 'a, T: TextProvider<I>, I: AsRef<[u8]>>(
         &'a mut self,
         query: &'a Query,
         node: Node<'tree>,
         text_provider: T,
-    ) -> QueryMatches<'a, 'tree, T> {
+    ) -> QueryMatches<'a, 'tree, T, I> {
         let ptr = self.ptr.as_ptr();
         unsafe { ffi::ts_query_cursor_exec(ptr, query.ptr.as_ptr(), node.0) };
         QueryMatches {
@@ -1914,7 +1917,7 @@ impl QueryCursor {
             text_provider,
             buffer1: Default::default(),
             buffer2: Default::default(),
-            _tree: PhantomData,
+            _phantom: PhantomData,
         }
     }
 
@@ -1923,12 +1926,12 @@ impl QueryCursor {
     /// This is useful if you don't care about which pattern matched, and just want a single,
     /// ordered sequence of captures.
     #[doc(alias = "ts_query_cursor_exec")]
-    pub fn captures<'a, 'tree: 'a, T: TextProvider<'a> + 'a>(
+    pub fn captures<'a, 'tree: 'a, T: TextProvider<I>, I: AsRef<[u8]>>(
         &'a mut self,
         query: &'a Query,
         node: Node<'tree>,
         text_provider: T,
-    ) -> QueryCaptures<'a, 'tree, T> {
+    ) -> QueryCaptures<'a, 'tree, T, I> {
         let ptr = self.ptr.as_ptr();
         unsafe { ffi::ts_query_cursor_exec(self.ptr.as_ptr(), query.ptr.as_ptr(), node.0) };
         QueryCaptures {
@@ -1937,7 +1940,7 @@ impl QueryCursor {
             text_provider,
             buffer1: Default::default(),
             buffer2: Default::default(),
-            _tree: PhantomData,
+            _phantom: PhantomData,
         }
     }
 
@@ -2017,30 +2020,46 @@ impl<'a, 'tree> QueryMatch<'a, 'tree> {
         }
     }
 
-    fn satisfies_text_predicates(
+    fn satisfies_text_predicates<I: AsRef<[u8]>>(
         &self,
         query: &Query,
-        buffer1: &mut Vec<u8>,
-        buffer2: &mut Vec<u8>,
-        text_provider: &mut impl TextProvider<'a>,
+        buffer1: &'a mut Vec<u8>,
+        buffer2: &'a mut Vec<u8>,
+        text_provider: &mut impl TextProvider<I>,
     ) -> bool {
-        fn get_text<'a, 'b: 'a, I: Iterator<Item = &'b [u8]>>(
+        struct NodeText<'a, T> {
             buffer: &'a mut Vec<u8>,
-            mut chunks: I,
-        ) -> &'a [u8] {
-            let first_chunk = chunks.next().unwrap_or(&[]);
-            if let Some(next_chunk) = chunks.next() {
-                buffer.clear();
-                buffer.extend_from_slice(first_chunk);
-                buffer.extend_from_slice(next_chunk);
-                for chunk in chunks {
-                    buffer.extend_from_slice(chunk);
+            first_chunk: Option<T>,
+        }
+        impl<'a, T: AsRef<[u8]>> NodeText<'a, T> {
+            fn new(buffer: &'a mut Vec<u8>) -> Self {
+                Self {
+                    buffer,
+                    first_chunk: None,
                 }
-                buffer.as_slice()
-            } else {
-                first_chunk
+            }
+
+            fn get_text(&mut self, chunks: &mut impl Iterator<Item = T>) -> &[u8] {
+                self.first_chunk = chunks.next();
+                if let Some(next_chunk) = chunks.next() {
+                    self.buffer.clear();
+                    self.buffer
+                        .extend_from_slice(self.first_chunk.as_ref().unwrap().as_ref());
+                    self.buffer.extend_from_slice(next_chunk.as_ref());
+                    for chunk in chunks {
+                        self.buffer.extend_from_slice(chunk.as_ref());
+                    }
+                    self.buffer.as_slice()
+                } else if let Some(ref first_chunk) = self.first_chunk {
+                    first_chunk.as_ref()
+                } else {
+                    &[]
+                }
             }
         }
+
+        let mut node_text1 = NodeText::new(buffer1);
+        let mut node_text2 = NodeText::new(buffer2);
 
         query.text_predicates[self.pattern_index]
             .iter()
@@ -2050,8 +2069,10 @@ impl<'a, 'tree> QueryMatch<'a, 'tree> {
                     let node2 = self.nodes_for_capture_index(*j).next();
                     match (node1, node2) {
                         (Some(node1), Some(node2)) => {
-                            let text1 = get_text(buffer1, text_provider.text(node1));
-                            let text2 = get_text(buffer2, text_provider.text(node2));
+                            let mut text1 = text_provider.text(node1);
+                            let mut text2 = text_provider.text(node2);
+                            let text1 = node_text1.get_text(&mut text1);
+                            let text2 = node_text2.get_text(&mut text2);
                             (text1 == text2) == *is_positive
                         }
                         _ => true,
@@ -2061,7 +2082,8 @@ impl<'a, 'tree> QueryMatch<'a, 'tree> {
                     let node = self.nodes_for_capture_index(*i).next();
                     match node {
                         Some(node) => {
-                            let text = get_text(buffer1, text_provider.text(node));
+                            let mut text = text_provider.text(node);
+                            let text = node_text1.get_text(&mut text);
                             (text == s.as_bytes()) == *is_positive
                         }
                         None => true,
@@ -2071,7 +2093,8 @@ impl<'a, 'tree> QueryMatch<'a, 'tree> {
                     let node = self.nodes_for_capture_index(*i).next();
                     match node {
                         Some(node) => {
-                            let text = get_text(buffer1, text_provider.text(node));
+                            let mut text = text_provider.text(node);
+                            let text = node_text1.get_text(&mut text);
                             r.is_match(text) == *is_positive
                         }
                         None => true,
@@ -2091,7 +2114,7 @@ impl QueryProperty {
     }
 }
 
-impl<'a, 'tree, T: TextProvider<'a>> Iterator for QueryMatches<'a, 'tree, T> {
+impl<'a, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> Iterator for QueryMatches<'a, 'tree, T, I> {
     type Item = QueryMatch<'a, 'tree>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -2116,7 +2139,7 @@ impl<'a, 'tree, T: TextProvider<'a>> Iterator for QueryMatches<'a, 'tree, T> {
     }
 }
 
-impl<'a, 'tree, T: TextProvider<'a>> Iterator for QueryCaptures<'a, 'tree, T> {
+impl<'a, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> Iterator for QueryCaptures<'a, 'tree, T, I> {
     type Item = (QueryMatch<'a, 'tree>, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -2148,7 +2171,7 @@ impl<'a, 'tree, T: TextProvider<'a>> Iterator for QueryCaptures<'a, 'tree, T> {
     }
 }
 
-impl<'a, 'tree, T: TextProvider<'a>> QueryMatches<'a, 'tree, T> {
+impl<'a, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> QueryMatches<'a, 'tree, T, I> {
     #[doc(alias = "ts_query_cursor_set_byte_range")]
     pub fn set_byte_range(&mut self, range: ops::Range<usize>) {
         unsafe {
@@ -2164,7 +2187,7 @@ impl<'a, 'tree, T: TextProvider<'a>> QueryMatches<'a, 'tree, T> {
     }
 }
 
-impl<'a, 'tree, T: TextProvider<'a>> QueryCaptures<'a, 'tree, T> {
+impl<'a, 'tree, T: TextProvider<I>, I: AsRef<[u8]>> QueryCaptures<'a, 'tree, T, I> {
     #[doc(alias = "ts_query_cursor_set_byte_range")]
     pub fn set_byte_range(&mut self, range: ops::Range<usize>) {
         unsafe {
@@ -2190,19 +2213,20 @@ impl<'cursor, 'tree> fmt::Debug for QueryMatch<'cursor, 'tree> {
     }
 }
 
-impl<'a, F, I> TextProvider<'a> for F
+impl<F, R, I> TextProvider<I> for F
 where
-    F: FnMut(Node) -> I,
-    I: Iterator<Item = &'a [u8]> + 'a,
+    F: FnMut(Node) -> R,
+    R: Iterator<Item = I>,
+    I: AsRef<[u8]>,
 {
-    type I = I;
+    type I = R;
 
     fn text(&mut self, node: Node) -> Self::I {
         (self)(node)
     }
 }
 
-impl<'a> TextProvider<'a> for &'a [u8] {
+impl<'a> TextProvider<&'a [u8]> for &'a [u8] {
     type I = iter::Once<&'a [u8]>;
 
     fn text(&mut self, node: Node) -> Self::I {
