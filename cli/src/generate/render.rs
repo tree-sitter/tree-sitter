@@ -879,14 +879,23 @@ impl Generator {
                     add!(self, " ||{}", line_break);
                 }
                 if range.end == range.start {
+                    if range.start == '\0' {
+                        add!(self, "!eof && ");
+                    }
                     add!(self, "lookahead == ");
                     self.add_character(range.start);
                 } else if range.end as u32 == range.start as u32 + 1 {
+                    if range.start == '\0' {
+                        add!(self, "!eof && ");
+                    }
                     add!(self, "lookahead == ");
                     self.add_character(range.start);
                     add!(self, " ||{}lookahead == ", line_break);
                     self.add_character(range.end);
                 } else {
+                    if range.start == '\0' {
+                        add!(self, "!eof && ");
+                    }
                     add!(self, "(");
                     self.add_character(range.start);
                     add!(self, " <= lookahead && lookahead <= ");
