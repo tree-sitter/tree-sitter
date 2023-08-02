@@ -5,7 +5,9 @@ mod util;
 use std::os::unix::io::AsRawFd;
 
 use std::{
-    char, error,
+    char,
+    cmp::Ordering,
+    error,
     ffi::CStr,
     fmt, hash, iter,
     marker::PhantomData,
@@ -58,12 +60,32 @@ pub struct Point {
 
 /// A range of positions in a multi-line text document, both in terms of bytes and of
 /// rows and columns.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Range {
     pub start_byte: usize,
     pub end_byte: usize,
     pub start_point: Point,
     pub end_point: Point,
+}
+
+impl Ord for Range {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.start_byte.cmp(&other.start_byte) {
+            Ordering::Equal => {}
+            ord => return ord,
+        }
+        match self.end_byte.cmp(&other.end_byte) {
+            Ordering::Equal => Ordering::Equal,
+            Ordering::Less => Ordering::Greater,
+            Ordering::Greater => Ordering::Less,
+        }
+    }
+}
+
+impl PartialOrd for Range {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 /// A summary of a change to a text document.
@@ -2651,3 +2673,52 @@ unsafe impl Sync for Parser {}
 unsafe impl Sync for Query {}
 unsafe impl Sync for QueryCursor {}
 unsafe impl Sync for Tree {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ancestor_range_sorted_before_descendant() {
+        let parent_range = Range {
+            start_byte: 0,
+            end_byte: 10,
+            start_point: Point { row: 0, column: 0 },
+            end_point: Point { row: 0, column: 10 },
+        };
+        let first_child_range = Range {
+            start_byte: 0,
+            end_byte: 2,
+            start_point: Point { row: 0, column: 0 },
+            end_point: Point { row: 0, column: 2 },
+        };
+        let middle_child_range = Range {
+            start_byte: 2,
+            end_byte: 5,
+            start_point: Point { row: 0, column: 2 },
+            end_point: Point { row: 0, column: 5 },
+        };
+        let last_child_range = Range {
+            start_byte: 7,
+            end_byte: 10,
+            start_point: Point { row: 0, column: 7 },
+            end_point: Point { row: 0, column: 10 },
+        };
+        let mut ranges = vec![
+            middle_child_range,
+            first_child_range,
+            parent_range,
+            last_child_range,
+        ];
+        ranges.sort();
+        assert_eq!(
+            ranges,
+            [
+                parent_range,
+                first_child_range,
+                middle_child_range,
+                last_child_range
+            ]
+        );
+    }
+}
