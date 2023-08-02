@@ -609,6 +609,7 @@ fn run() -> Result<()> {
                             highlight_config,
                             quiet,
                             time,
+                            Some(&cancellation_flag),
                         )?;
                     } else {
                         highlight::ansi(
