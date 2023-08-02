@@ -18,4 +18,30 @@ Tree-sitter is a parser generator tool and an incremental parsing library. It ca
 - [Documentation](https://tree-sitter.github.io)
 - [Rust binding](lib/binding_rust/README.md)
 - [WASM binding](lib/binding_web/README.md)
-- [Command-line interface](cli/README.md)
+- [Command-line interface](cli/README.md)// Store some source code in an array of lines.
+let lines = &[
+    "pub fn foo() {",
+    "  1",
+    "}",
+];
+
+// Parse the source code using a custom callback. The callback is called
+// with both a byte offset and a row/column offset.
+let tree = parser.parse_with(&mut |_byte: u32, position: Point| -> &[u8] {
+    let row = position.row as usize;
+    let column = position.column as usize;
+    if row < lines.len() {
+        if column < lines[row].as_bytes().len() {
+            &lines[row].as_bytes()[column..]
+        } else {
+            "\n".as_bytes()
+        }
+    } else {
+        &[]
+    }
+}, None).unwrap();
+
+assert_eq!(
+  tree.root_node().to_sexp(),
+  "(source_file (function_item (visibility_modifier) (identifier) (parameters) (block (number_literal))))"
+);
