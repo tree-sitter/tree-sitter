@@ -1,16 +1,19 @@
-use super::ExtractedLexicalGrammar;
-use crate::generate::grammars::{LexicalGrammar, LexicalVariable};
-use crate::generate::nfa::{CharacterSet, Nfa, NfaState};
-use crate::generate::rules::{Precedence, Rule};
+use std::collections::HashMap;
+use std::i32;
+
 use anyhow::{anyhow, Context, Result};
+use indoc::indoc;
 use lazy_static::lazy_static;
 use regex::Regex;
 use regex_syntax::ast::{
     parse, Ast, Class, ClassPerlKind, ClassSet, ClassSetBinaryOpKind, ClassSetItem,
     ClassUnicodeKind, RepetitionKind, RepetitionRange,
 };
-use std::collections::HashMap;
-use std::i32;
+
+use super::ExtractedLexicalGrammar;
+use crate::generate::grammars::{LexicalGrammar, LexicalVariable};
+use crate::generate::nfa::{CharacterSet, Nfa, NfaState};
+use crate::generate::rules::{Precedence, Rule};
 
 lazy_static! {
     static ref CURLY_BRACE_REGEX: Regex =
@@ -137,11 +140,12 @@ pub(crate) fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<Lexi
     for (i, variable) in grammar.variables.into_iter().enumerate() {
         if find_empty_rule(&variable.rule, i == 0, false) {
             return Err(anyhow!(
-                "The rule `{}` matches the empty string.
+                indoc! {"
+                The rule `{}` matches the empty string.
 
-Tree-sitter does not support syntactic rules that match the empty string
-unless they are used only as the grammar's start rule.
-",
+                Tree-sitter does not support syntactic rules that match the empty string
+                unless they are used only as the grammar's start rule.
+            "},
                 variable.name
             ));
         }
