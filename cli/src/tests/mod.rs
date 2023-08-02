@@ -1,3 +1,4 @@
+mod async_context_test;
 mod corpus_test;
 mod github_issue_test;
 mod helpers;
