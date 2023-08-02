@@ -2646,6 +2646,12 @@ unsafe impl Sync for Language {}
 unsafe impl Send for Node<'_> {}
 unsafe impl Sync for Node<'_> {}
 
+unsafe impl Send for LookaheadIterator {}
+unsafe impl Sync for LookaheadIterator {}
+
+unsafe impl Send for LookaheadNamesIterator<'_> {}
+unsafe impl Sync for LookaheadNamesIterator<'_> {}
+
 unsafe impl Send for Parser {}
 unsafe impl Sync for Parser {}
 
