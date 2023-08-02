@@ -94,6 +94,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Meson](https://github.com/staysail/tree-sitter-meson)
 * [Motorola 68000 Assembly](https://github.com/grahambates/tree-sitter-m68k)
 * [Nix](https://github.com/cstrahan/tree-sitter-nix)
+* [Noir](https://github.com/hhamud/tree-sitter-noir)
 * [Objective-C](https://github.com/jiyee/tree-sitter-objc)
 * [OCaml](https://github.com/tree-sitter/tree-sitter-ocaml)
 * [Org](https://github.com/milisims/tree-sitter-org)
