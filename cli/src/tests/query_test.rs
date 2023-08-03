@@ -4577,19 +4577,22 @@ fn test_query_max_start_depth() {
     #[rustfmt::skip]
     let rows = &[
         Row {
-            description: "depth 0: match all",
+            description: "depth 0: match translation unit",
+            depth: 0,
+            pattern: r#"
+                (translation_unit) @capture
+            "#,
+            matches: &[
+                (0, &[("capture", "if (a1 && a2) {\n    if (b1 && b2) { }\n    if (c) { }\n}\nif (d) {\n    if (e1 && e2) { }\n    if (f) { }\n}\n")]),
+            ]
+        },
+        Row {
+            description: "depth 0: match none",
             depth: 0,
             pattern: r#"
                 (if_statement) @capture
             "#,
-            matches: &[
-                (0, &[("capture", "if (a1 && a2) {\n    if (b1 && b2) { }\n    if (c) { }\n}")]),
-                (0, &[("capture", "if (b1 && b2) { }")]),
-                (0, &[("capture", "if (c) { }")]),
-                (0, &[("capture", "if (d) {\n    if (e1 && e2) { }\n    if (f) { }\n}")]),
-                (0, &[("capture", "if (e1 && e2) { }")]),
-                (0, &[("capture", "if (f) { }")]),
-            ]
+            matches: &[]
         },
         Row {
             description: "depth 1: match 2 if statements at the top level",
@@ -4645,7 +4648,7 @@ fn test_query_max_start_depth() {
             eprintln!("  query example: {:?}", row.description);
 
             let query = Query::new(language, row.pattern).unwrap();
-            cursor.set_max_start_depth(row.depth);
+            cursor.set_max_start_depth(Some(row.depth));
 
             let matches = cursor.matches(&query, tree.root_node(), source.as_bytes());
             let expected = row
@@ -4719,4 +4722,76 @@ fn test_consecutive_zero_or_modifiers() {
         assert_eq!(len_3, test.contains('*'));
         assert_eq!(len_1, test.contains("???"));
     }
+}
+
+#[test]
+fn test_query_max_start_depth_more() {
+    struct Row {
+        depth: u32,
+        matches: &'static [(usize, &'static [(&'static str, &'static str)])],
+    }
+
+    let source = indoc! {"
+        {
+            { }
+            {
+                { }
+            }
+        }
+    "};
+
+    #[rustfmt::skip]
+    let rows = &[
+        Row {
+            depth: 0,
+            matches: &[
+                (0, &[("capture", "{\n    { }\n    {\n        { }\n    }\n}")])
+            ]
+        },
+        Row {
+            depth: 1,
+            matches: &[
+                (0, &[("capture", "{\n    { }\n    {\n        { }\n    }\n}")]),
+                (0, &[("capture", "{ }")]),
+                (0, &[("capture", "{\n        { }\n    }")])
+            ]
+        },
+        Row {
+            depth: 2,
+            matches: &[
+                (0, &[("capture", "{\n    { }\n    {\n        { }\n    }\n}")]),
+                (0, &[("capture", "{ }")]),
+                (0, &[("capture", "{\n        { }\n    }")]),
+                (0, &[("capture", "{ }")]),
+            ]
+        },
+    ];
+
+    allocations::record(|| {
+        let language = get_language("c");
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        let mut cursor = QueryCursor::new();
+        let query = Query::new(language, "(compound_statement) @capture").unwrap();
+
+        let mut matches = cursor.matches(&query, tree.root_node(), source.as_bytes());
+        let node = matches.next().unwrap().captures[0].node;
+        assert_eq!(node.kind(), "compound_statement");
+
+        for row in rows.iter() {
+            eprintln!("  depth: {}", row.depth);
+
+            cursor.set_max_start_depth(Some(row.depth));
+
+            let matches = cursor.matches(&query, node, source.as_bytes());
+            let expected = row
+                .matches
+                .iter()
+                .map(|x| (x.0, x.1.to_vec()))
+                .collect::<Vec<_>>();
+
+            assert_eq!(collect_matches(matches, &query, source), expected);
+        }
+    });
 }

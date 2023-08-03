@@ -639,7 +639,7 @@ extern "C" {
     ) -> bool;
 }
 extern "C" {
-    #[doc = " Set the maximum start depth for a cursor.\n\n This prevents cursors from exploring children nodes at a certain depth.\n Note if a pattern includes many children, then they will still be checked.\n\n Set to `0` to remove the maximum start depth."]
+    #[doc = " Set the maximum start depth for a query cursor.\n\n This prevents cursors from exploring children nodes at a certain depth.\n Note if a pattern includes many children, then they will still be checked.\n\n The zero max start depth value can be used as a special behavior and\n it helps to destructure a subtree by staying on a node and using captures\n for interested parts. Note that the zero max start depth only limit a search\n depth for a pattern's root node but other nodes that are parts of the pattern\n may be searched at any depth what defined by the pattern structure.\n\n Set to `UINT32_MAX` to remove the maximum start depth."]
     pub fn ts_query_cursor_set_max_start_depth(arg1: *mut TSQueryCursor, arg2: u32);
 }
 extern "C" {
