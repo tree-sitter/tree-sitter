@@ -90,6 +90,7 @@ pub struct Parser(NonNull<ffi::TSParser>);
 /// A stateful object that is used to look up symbols valid in a specific parse state
 #[doc(alias = "TSLookaheadIterator")]
 pub struct LookaheadIterator(NonNull<ffi::TSLookaheadIterator>);
+struct LookaheadNamesIterator<'a>(&'a mut LookaheadIterator);
 
 /// A type of log message.
 #[derive(Debug, PartialEq, Eq)]
@@ -1525,7 +1526,7 @@ impl LookaheadIterator {
     /// This returns `true` if the language was set successfully and `false`
     /// otherwise.
     #[doc(alias = "ts_lookahead_iterator_reset")]
-    pub fn reset(&self, language: Language, state: u16) -> bool {
+    pub fn reset(&mut self, language: Language, state: u16) -> bool {
         unsafe { ffi::ts_lookahead_iterator_reset(self.0.as_ptr(), language.0, state) }
     }
 
@@ -1534,19 +1535,17 @@ impl LookaheadIterator {
     /// This returns `true` if the iterator was reset to the given state and `false`
     /// otherwise.
     #[doc(alias = "ts_lookahead_iterator_reset_state")]
-    pub fn reset_state(&self, state: u16) -> bool {
+    pub fn reset_state(&mut self, state: u16) -> bool {
         unsafe { ffi::ts_lookahead_iterator_reset_state(self.0.as_ptr(), state) }
     }
 
     /// Iterate symbol names.
-    pub fn iter_names<'a>(&'a self) -> impl Iterator<Item = &'static str> + 'a {
-        NameLookaheadIterator(&self)
+    pub fn iter_names(&mut self) -> impl Iterator<Item = &'static str> + '_ {
+        LookaheadNamesIterator(self)
     }
 }
 
-struct NameLookaheadIterator<'a>(&'a LookaheadIterator);
-
-impl<'a> Iterator for NameLookaheadIterator<'a> {
+impl Iterator for LookaheadNamesIterator<'_> {
     type Item = &'static str;
 
     #[doc(alias = "ts_lookahead_iterator_advance")]
@@ -2646,6 +2645,12 @@ unsafe impl Sync for Language {}
 
 unsafe impl Send for Node<'_> {}
 unsafe impl Sync for Node<'_> {}
+
+unsafe impl Send for LookaheadIterator {}
+unsafe impl Sync for LookaheadIterator {}
+
+unsafe impl Send for LookaheadNamesIterator<'_> {}
+unsafe impl Sync for LookaheadNamesIterator<'_> {}
 
 unsafe impl Send for Parser {}
 unsafe impl Sync for Parser {}

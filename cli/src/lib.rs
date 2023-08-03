@@ -14,3 +14,7 @@ pub mod wasm;
 
 #[cfg(test)]
 mod tests;
+
+// To run compile fail tests
+#[cfg(doctest)]
+mod tests;
