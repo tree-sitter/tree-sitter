@@ -361,6 +361,11 @@ uint16_t ts_node_symbol_wasm(const TSTree *tree) {
   return ts_node_symbol(node);
 }
 
+const char *ts_node_field_name_for_child_wasm(const TSTree *tree, uint32_t index) {
+  TSNode node = unmarshal_node(tree);
+  return ts_node_field_name_for_child(node, index);
+}
+
 uint16_t ts_node_grammar_symbol_wasm(const TSTree *tree) {
   TSNode node = unmarshal_node(tree);
   return ts_node_grammar_symbol(node);
