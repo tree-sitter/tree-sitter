@@ -180,7 +180,7 @@ bool ts_lookahead_iterator_reset_state(TSLookaheadIterator * self, TSStateId sta
   return true;
 }
 
-const TSLanguage * ts_lookahead_iterator_language(const TSLookaheadIterator *self) {
+const TSLanguage *ts_lookahead_iterator_language(const TSLookaheadIterator *self) {
   const LookaheadIterator *iterator = (const LookaheadIterator *)self;
   return iterator->language;
 }

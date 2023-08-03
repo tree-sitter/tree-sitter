@@ -35,10 +35,10 @@ void *(*ts_current_realloc)(void *, size_t) = ts_realloc_default;
 void (*ts_current_free)(void *) = free;
 
 void ts_set_allocator(
-  void *(*new_malloc)(size_t),
-  void *(*new_calloc)(size_t, size_t),
-  void *(*new_realloc)(void *, size_t),
-  void (*new_free)(void *)
+  void *(*new_malloc)(size_t size),
+  void *(*new_calloc)(size_t count, size_t size),
+  void *(*new_realloc)(void *ptr, size_t size),
+  void (*new_free)(void *ptr)
 ) {
   ts_current_malloc = new_malloc ? new_malloc : ts_malloc_default;
   ts_current_calloc = new_calloc ? new_calloc : ts_calloc_default;
