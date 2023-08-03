@@ -2642,12 +2642,22 @@ impl error::Error for LanguageError {}
 impl error::Error for QueryError {}
 
 unsafe impl Send for Language {}
-unsafe impl Send for Parser {}
-unsafe impl Send for Query {}
-unsafe impl Send for QueryCursor {}
-unsafe impl Send for Tree {}
 unsafe impl Sync for Language {}
+
+unsafe impl Send for Node<'_> {}
+unsafe impl Sync for Node<'_> {}
+
+unsafe impl Send for Parser {}
 unsafe impl Sync for Parser {}
+
+unsafe impl Send for Query {}
 unsafe impl Sync for Query {}
+
+unsafe impl Send for QueryCursor {}
 unsafe impl Sync for QueryCursor {}
+
+unsafe impl Send for Tree {}
 unsafe impl Sync for Tree {}
+
+unsafe impl Send for TreeCursor<'_> {}
+unsafe impl Sync for TreeCursor<'_> {}
