@@ -1382,6 +1382,124 @@ fn test_grammars_that_can_hang_on_eof() {
     parser.parse("\"", None).unwrap();
 }
 
+#[test]
+fn test_grammars_that_should_not_compile() {
+    assert!(generate_parser_for_grammar(
+        r#"
+        {
+            "name": "issue_1111",
+            "rules": {
+                "source_file": { "type": "STRING", "value": "" }
+            },
+            "extras": [ { "type": "PATTERN", "value": "\\s" } ],
+        }
+        "#
+    )
+    .is_err());
+
+    assert!(generate_parser_for_grammar(
+        r#"
+        {
+            "name": "issue_1271",
+            "rules": {
+                "source_file": { "type": "SYMBOL", "name": "identifier" },
+                "identifier": {
+                    "type": "TOKEN",
+                    "content": {
+                        "type": "REPEAT",
+                        "content": { "type": "PATTERN", "value": "a" }
+                    }
+                }
+            },
+            "extras": [ { "type": "PATTERN", "value": "\\s" } ],
+        }
+        "#,
+    )
+    .is_err());
+
+    assert!(generate_parser_for_grammar(
+        r#"
+        {
+            "name": "issue_1156_expl_1",
+            "rules": {
+                "source_file": {
+                    "type": "TOKEN",
+                    "content": {
+                        "type": "REPEAT",
+                        "content": { "type": "STRING", "value": "c" }
+                    }
+                }
+            },
+            "extras": [ { "type": "PATTERN", "value": "\\s" } ],
+        }
+    "#
+    )
+    .is_err());
+
+    assert!(generate_parser_for_grammar(
+        r#"
+        {
+            "name": "issue_1156_expl_2",
+            "rules": {
+                "source_file": {
+                    "type": "TOKEN",
+                    "content": {
+                        "type": "CHOICE",
+                        "members": [
+                            { "type": "STRING", "value": "e" },
+                            { "type": "BLANK" }
+                        ]
+                    }
+                }
+            },
+            "extras": [ { "type": "PATTERN", "value": "\\s" } ],
+        }
+    "#
+    )
+    .is_err());
+
+    assert!(generate_parser_for_grammar(
+        r#"
+        {
+            "name": "issue_1156_expl_3",
+            "rules": {
+                "source_file": {
+                    "type": "IMMEDIATE_TOKEN",
+                    "content": {
+                        "type": "REPEAT",
+                        "content": { "type": "STRING", "value": "p" }
+                    }
+                }
+            },
+            "extras": [ { "type": "PATTERN", "value": "\\s" } ],
+        }
+    "#
+    )
+    .is_err());
+
+    assert!(generate_parser_for_grammar(
+        r#"
+        {
+            "name": "issue_1156_expl_4",
+            "rules": {
+                "source_file": {
+                    "type": "IMMEDIATE_TOKEN",
+                    "content": {
+                        "type": "CHOICE",
+                        "members": [
+                            { "type": "STRING", "value": "r" },
+                            { "type": "BLANK" }
+                        ]
+                    }
+                }
+            },
+            "extras": [ { "type": "PATTERN", "value": "\\s" } ],
+        }
+    "#
+    )
+    .is_err());
+}
+
 fn simple_range(start: usize, end: usize) -> Range {
     Range {
         start_byte: start,
