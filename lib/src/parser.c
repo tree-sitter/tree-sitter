@@ -1815,7 +1815,11 @@ void ts_parser_print_dot_graphs(TSParser *self, int fd) {
   }
 
   if (fd >= 0) {
+    #ifdef _WIN32
+    self->dot_graph_file = _fdopen(fd, "a");
+    #else
     self->dot_graph_file = fdopen(fd, "a");
+    #endif
   } else {
     self->dot_graph_file = NULL;
   }
