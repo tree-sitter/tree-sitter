@@ -260,7 +260,7 @@ fn test_feature_corpus_files() {
             grammar_path = test_path.join("grammar.json");
         }
         let error_message_path = test_path.join("expected_error.txt");
-        let grammar_json = generate::load_grammar_file(&grammar_path).unwrap();
+        let grammar_json = generate::load_grammar_file(&grammar_path, None).unwrap();
         let generate_result = generate::generate_parser_for_grammar(&grammar_json);
 
         if error_message_path.exists() {
