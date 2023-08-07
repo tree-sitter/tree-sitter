@@ -475,7 +475,9 @@ impl NfaBuilder {
                 .add_char(' ')
                 .add_char('\t')
                 .add_char('\r')
-                .add_char('\n'),
+                .add_char('\n')
+                .add_char('\x0B')
+                .add_char('\x0C'),
             ClassPerlKind::Word => CharacterSet::empty()
                 .add_char('_')
                 .add_range('A', 'Z')
