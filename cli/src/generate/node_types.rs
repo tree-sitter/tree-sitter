@@ -1172,12 +1172,12 @@ mod tests {
                 Variable {
                     name: "identifier".to_string(),
                     kind: VariableType::Named,
-                    rule: Rule::pattern("\\w+"),
+                    rule: Rule::pattern("\\w+", ""),
                 },
                 Variable {
                     name: "foo_identifier".to_string(),
                     kind: VariableType::Named,
-                    rule: Rule::pattern("[\\w-]+"),
+                    rule: Rule::pattern("[\\w-]+", ""),
                 },
             ],
             ..Default::default()
@@ -1275,8 +1275,8 @@ mod tests {
                 name: "script".to_string(),
                 kind: VariableType::Named,
                 rule: Rule::seq(vec![
-                    Rule::field("a".to_string(), Rule::pattern("hi")),
-                    Rule::field("b".to_string(), Rule::pattern("bye")),
+                    Rule::field("a".to_string(), Rule::pattern("hi", "")),
+                    Rule::field("b".to_string(), Rule::pattern("bye", "")),
                 ]),
             }],
             ..Default::default()
