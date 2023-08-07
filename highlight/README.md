@@ -11,15 +11,14 @@ Add this crate, and the language-specific crates for whichever languages you wan
 
 ```toml
 [dependencies]
-tree-sitter-highlight = "0.19"
-tree-sitter-html = "0.19"
+tree-sitter-highlight = "^0.20"
 tree-sitter-javascript = "0.19"
 ```
 
 Define the list of highlight names that you will recognize:
 
 ```rust
-let highlight_names = &[
+let highlight_names = [
     "attribute",
     "constant",
     "function.builtin",
@@ -46,29 +45,21 @@ Create a highlighter. You need one of these for each thread that you're using fo
 ```rust
 use tree_sitter_highlight::Highlighter;
 
-let highlighter = Highlighter::new();
+let mut highlighter = Highlighter::new();
 ```
 
-Load some highlighting queries from the `queries` directory of some language repositories:
+Load some highlighting queries from the `queries` directory of the language repository:
 
 ```rust
 use tree_sitter_highlight::HighlightConfiguration;
 
-let html_language = unsafe { tree_sitter_html() };
-let javascript_language = unsafe { tree_sitter_javascript() };
+let javascript_language = tree_sitter_javascript::language();
 
-let html_config = HighlightConfiguration::new(
-    tree_sitter_html::language(),
-    tree_sitter_html::HIGHLIGHTS_QUERY,
-    tree_sitter_html::INJECTIONS_QUERY,
-    "",
-).unwrap();
-
-let javascript_config = HighlightConfiguration::new(
-    tree_sitter_javascript::language(),
-    tree_sitter_javascript::HIGHLIGHTS_QUERY,
-    tree_sitter_javascript::INJECTIONS_QUERY,
-    tree_sitter_javascript::LCOALS_QUERY,
+let mut javascript_config = HighlightConfiguration::new(
+    javascript_language,
+    tree_sitter_javascript::HIGHLIGHT_QUERY,
+    tree_sitter_javascript::INJECTION_QUERY,
+    tree_sitter_javascript::LOCALS_QUERY,
 ).unwrap();
 ```
 
