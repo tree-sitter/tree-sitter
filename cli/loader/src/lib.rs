@@ -85,7 +85,7 @@ const BUILD_TARGET: &str = env!("BUILD_TARGET");
 pub struct LanguageConfiguration<'a> {
     pub scope: Option<String>,
     pub content_regex: Option<Regex>,
-    pub _first_line_regex: Option<Regex>,
+    pub first_line_regex: Option<Regex>,
     pub injection_regex: Option<Regex>,
     pub file_types: Vec<String>,
     pub root_path: PathBuf,
@@ -107,6 +107,7 @@ pub struct Loader {
     language_configurations: Vec<LanguageConfiguration<'static>>,
     language_configuration_ids_by_file_type: HashMap<String, Vec<usize>>,
     language_configuration_in_current_path: Option<usize>,
+    language_configuration_ids_by_first_line_regex: HashMap<String, Vec<usize>>,
     highlight_names: Box<Mutex<Vec<String>>>,
     use_all_highlight_names: bool,
     debug_build: bool,
@@ -138,6 +139,7 @@ impl Loader {
             language_configurations: Vec::new(),
             language_configuration_ids_by_file_type: HashMap::new(),
             language_configuration_in_current_path: None,
+            language_configuration_ids_by_first_line_regex: HashMap::new(),
             highlight_names: Box::new(Mutex::new(Vec::new())),
             use_all_highlight_names: true,
             debug_build: false,
@@ -239,6 +241,26 @@ impl Loader {
                     .and_then(|extension| {
                         self.language_configuration_ids_by_file_type.get(extension)
                     })
+            })
+            .or_else(|| {
+                let Ok(file) = fs::File::open(path) else {
+                    return None;
+                };
+                let reader = BufReader::new(file);
+                let Some(Ok(first_line)) = std::io::BufRead::lines(reader).next() else {
+                    return None;
+                };
+
+                self.language_configuration_ids_by_first_line_regex
+                    .iter()
+                    .find(|(regex, _)| {
+                        if let Some(regex) = Self::regex(Some(regex)) {
+                            regex.is_match(&first_line)
+                        } else {
+                            false
+                        }
+                    })
+                    .map(|(_, ids)| ids)
             });
 
         if let Some(configuration_ids) = configuration_ids {
@@ -869,9 +891,9 @@ impl Loader {
                         scope: config_json.scope,
                         language_id,
                         file_types: config_json.file_types.unwrap_or(Vec::new()),
-                        content_regex: Self::regex(config_json.content_regex),
-                        _first_line_regex: Self::regex(config_json.first_line_regex),
-                        injection_regex: Self::regex(config_json.injection_regex),
+                        content_regex: Self::regex(config_json.content_regex.as_deref()),
+                        first_line_regex: Self::regex(config_json.first_line_regex.as_deref()),
+                        injection_regex: Self::regex(config_json.injection_regex.as_deref()),
                         injections_filenames: config_json.injections.into_vec(),
                         locals_filenames: config_json.locals.into_vec(),
                         tags_filenames: config_json.tags.into_vec(),
@@ -885,6 +907,12 @@ impl Loader {
                     for file_type in &configuration.file_types {
                         self.language_configuration_ids_by_file_type
                             .entry(file_type.to_string())
+                            .or_default()
+                            .push(self.language_configurations.len());
+                    }
+                    if let Some(first_line_regex) = &configuration.first_line_regex {
+                        self.language_configuration_ids_by_first_line_regex
+                            .entry(first_line_regex.to_string())
                             .or_default()
                             .push(self.language_configurations.len());
                     }
@@ -918,7 +946,7 @@ impl Loader {
                 file_types: Vec::new(),
                 scope: None,
                 content_regex: None,
-                _first_line_regex: None,
+                first_line_regex: None,
                 injection_regex: None,
                 injections_filenames: None,
                 locals_filenames: None,
@@ -938,8 +966,8 @@ impl Loader {
         Ok(&self.language_configurations[initial_language_configuration_count..])
     }
 
-    fn regex(pattern: Option<String>) -> Option<Regex> {
-        pattern.and_then(|r| RegexBuilder::new(&r).multi_line(true).build().ok())
+    fn regex(pattern: Option<&str>) -> Option<Regex> {
+        pattern.and_then(|r| RegexBuilder::new(r).multi_line(true).build().ok())
     }
 
     pub fn select_language(
