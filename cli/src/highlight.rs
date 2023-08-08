@@ -280,7 +280,7 @@ fn style_to_css(style: ansi_term::Style) -> String {
 
 fn write_color(buffer: &mut String, color: Color) {
     if let Color::RGB(r, g, b) = &color {
-        write!(buffer, "color: #{:x?}{:x?}{:x?}", r, g, b).unwrap()
+        write!(buffer, "color: #{r:02x}{g:02x}{b:02x}").unwrap()
     } else {
         write!(
             buffer,
@@ -447,7 +447,7 @@ mod tests {
         env::set_var("COLORTERM", "");
         parse_style(&mut style, Value::String(DARK_CYAN.to_string()));
         assert_eq!(style.ansi.foreground, Some(Color::Fixed(36)));
-        assert_eq!(style.css, Some("style=\'color: #0af87\'".to_string()));
+        assert_eq!(style.css, Some("style=\'color: #00af87\'".to_string()));
 
         // junglegreen is not an ANSI color and is preserved when the terminal supports it
         env::set_var("COLORTERM", "truecolor");
