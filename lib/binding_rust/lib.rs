@@ -1509,9 +1509,9 @@ impl LookaheadIterator {
 impl Iterator for LookaheadNamesIterator<'_> {
     type Item = &'static str;
 
-    #[doc(alias = "ts_lookahead_iterator_advance")]
+    #[doc(alias = "ts_lookahead_iterator_next")]
     fn next(&mut self) -> Option<Self::Item> {
-        unsafe { ffi::ts_lookahead_iterator_advance(self.0 .0.as_ptr()) }
+        unsafe { ffi::ts_lookahead_iterator_next(self.0 .0.as_ptr()) }
             .then(|| self.0.current_symbol_name())
     }
 }
@@ -1519,11 +1519,10 @@ impl Iterator for LookaheadNamesIterator<'_> {
 impl Iterator for LookaheadIterator {
     type Item = u16;
 
-    #[doc(alias = "ts_lookahead_iterator_advance")]
+    #[doc(alias = "ts_lookahead_iterator_next")]
     fn next(&mut self) -> Option<Self::Item> {
         // the first symbol is always `0` so we can safely skip it
-        unsafe { ffi::ts_lookahead_iterator_advance(self.0.as_ptr()) }
-            .then(|| self.current_symbol())
+        unsafe { ffi::ts_lookahead_iterator_next(self.0.as_ptr()) }.then(|| self.current_symbol())
     }
 }
 

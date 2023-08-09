@@ -1076,7 +1076,7 @@ TSStateId ts_language_next_state(const TSLanguage *self, TSStateId state, TSSymb
  *
  * This returns `NULL` if state is invalid for the language.
  *
- * Repeatedly using `ts_lookahead_iterator_advance` and
+ * Repeatedly using `ts_lookahead_iterator_next` and
  * `ts_lookahead_iterator_current_symbol` will generate valid symbols in the
  * given parse state. Newly created lookahead iterators will contain the `ERROR`
  * symbol.
@@ -1119,7 +1119,7 @@ const TSLanguage *ts_lookahead_iterator_language(const TSLookaheadIterator *self
  *
  * This returns `true` if there is a new symbol and `false` otherwise.
 */
-bool ts_lookahead_iterator_advance(TSLookaheadIterator *self);
+bool ts_lookahead_iterator_next(TSLookaheadIterator *self);
 
 /**
  * Get the current symbol of the lookahead iterator;

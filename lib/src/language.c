@@ -192,9 +192,9 @@ bool ts_lookahead_iterator_reset(TSLookaheadIterator *self, const TSLanguage *la
   return true;
 }
 
-bool ts_lookahead_iterator_advance(TSLookaheadIterator *self) {
+bool ts_lookahead_iterator_next(TSLookaheadIterator *self) {
   LookaheadIterator *iterator = (LookaheadIterator *)self;
-  return ts_lookahead_iterator_next(iterator);
+  return ts_lookahead_iterator__next(iterator);
 }
 
 TSSymbol ts_lookahead_iterator_current_symbol(const TSLookaheadIterator *self) {
