@@ -122,6 +122,6 @@
   "_ts_lookahead_iterator_delete",
   "_ts_lookahead_iterator_reset_state",
   "_ts_lookahead_iterator_reset",
-  "_ts_lookahead_iterator_advance",
+  "_ts_lookahead_iterator_next",
   "_ts_lookahead_iterator_current_symbol"
 ]

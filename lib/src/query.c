@@ -1265,7 +1265,7 @@ static void ts_query__perform_analysis(
       // Follow every possible path in the parse table, but only visit states that
       // are part of the subgraph for the current symbol.
       LookaheadIterator lookahead_iterator = ts_language_lookaheads(self->language, parse_state);
-      while (ts_lookahead_iterator_next(&lookahead_iterator)) {
+      while (ts_lookahead_iterator__next(&lookahead_iterator)) {
         TSSymbol sym = lookahead_iterator.symbol;
 
         AnalysisSubgraphNode successor = {
@@ -1536,7 +1536,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
   for (TSStateId state = 1; state < (uint16_t)self->language->state_count; state++) {
     unsigned subgraph_index, exists;
     LookaheadIterator lookahead_iterator = ts_language_lookaheads(self->language, state);
-    while (ts_lookahead_iterator_next(&lookahead_iterator)) {
+    while (ts_lookahead_iterator__next(&lookahead_iterator)) {
       if (lookahead_iterator.action_count) {
         for (unsigned i = 0; i < lookahead_iterator.action_count; i++) {
           const TSParseAction *action = &lookahead_iterator.actions[i];

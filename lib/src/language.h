@@ -136,7 +136,7 @@ static inline LookaheadIterator ts_language_lookaheads(
   };
 }
 
-static inline bool ts_lookahead_iterator_next(LookaheadIterator *self) {
+static inline bool ts_lookahead_iterator__next(LookaheadIterator *self) {
   // For small parse states, valid symbols are listed explicitly,
   // grouped by their value. There's no need to look up the actions
   // again until moving to the next group.
