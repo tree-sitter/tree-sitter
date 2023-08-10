@@ -129,16 +129,9 @@ struct TSLanguage {
  *  Lexer Macros
  */
 
-#ifdef _MSC_VER
-#define UNUSED __pragma(warning(suppress : 4101))
-#else
-#define UNUSED __attribute__((unused))
-#endif
-
 #define START_LEXER()           \
   bool result = false;          \
   bool skip = false;            \
-  UNUSED                        \
   bool eof = false;             \
   int32_t lookahead;            \
   goto start;                   \
@@ -146,7 +139,8 @@ struct TSLanguage {
   lexer->advance(lexer, skip);  \
   start:                        \
   skip = false;                 \
-  lookahead = lexer->lookahead;
+  lookahead = lexer->lookahead; \
+  eof = lexer->eof(lexer);
 
 #define ADVANCE(state_value) \
   {                          \
