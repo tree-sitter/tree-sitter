@@ -23,7 +23,6 @@ include = [
 ]
 
 [dependencies]
-lazy_static = { version = "1.4.0", optional = true }
 regex = "1.9.1"
 
 [build-dependencies]
