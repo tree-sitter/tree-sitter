@@ -482,7 +482,7 @@ static Subtree ts_parser__lex(
       current_position.extent.column
     );
     ts_lexer_start(&self->lexer);
-    bool found_token = self->language->lex_fn(&self->lexer.data, lex_mode.lex_state);
+    bool found_token = self->language->lex_fn(&self->lexer.data, lex_mode.lex_state, &self->lexer.accepted_eof);
     ts_lexer_finish(&self->lexer, &lookahead_end_byte);
     if (found_token) break;
 

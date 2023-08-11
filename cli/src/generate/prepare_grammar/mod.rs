@@ -26,6 +26,7 @@ use std::{
     mem,
 };
 
+#[derive(Debug)]
 pub(crate) struct IntermediateGrammar<T, U> {
     variables: Vec<Variable>,
     extra_symbols: Vec<T>,

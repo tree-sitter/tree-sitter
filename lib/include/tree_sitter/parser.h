@@ -110,7 +110,7 @@ struct TSLanguage {
   const uint16_t *alias_map;
   const TSSymbol *alias_sequences;
   const TSLexMode *lex_modes;
-  bool (*lex_fn)(TSLexer *, TSStateId);
+  bool (*lex_fn)(TSLexer *, TSStateId, bool*);
   bool (*keyword_lex_fn)(TSLexer *, TSStateId);
   TSSymbol keyword_capture_token;
   struct {

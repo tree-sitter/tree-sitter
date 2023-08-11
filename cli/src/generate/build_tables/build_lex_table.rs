@@ -192,6 +192,7 @@ impl<'a> LexTableBuilder<'a> {
             self.table.states[state_id].eof_action = Some(AdvanceAction {
                 state: next_state_id,
                 in_main_token: true,
+                eof: false,
             });
         }
 
@@ -215,6 +216,7 @@ impl<'a> LexTableBuilder<'a> {
                 AdvanceAction {
                     state: next_state_id,
                     in_main_token: !transition.is_separator,
+                    eof: transition.eof,
                 },
             ));
         }

@@ -105,12 +105,23 @@ pub(crate) fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<Lexi
             Rule::Metadata { params, .. } => params.is_main_token,
             _ => false,
         };
+        let eof = variable.rule == Rule::EOF;
 
         builder.is_sep = false;
         builder.nfa.states.push(NfaState::Accept {
             variable_index: i,
             precedence: get_completion_precedence(&variable.rule),
+            eof,
         });
+        if eof {
+            builder.nfa.states.push(NfaState::Advance {
+                chars: CharacterSet::empty(),
+                state_id: builder.nfa.last_state_id(),
+                is_sep: false,
+                precedence: 0,
+                eof: true,
+            })
+        }
         let last_state_id = builder.nfa.last_state_id();
         builder
             .expand_rule(&variable.rule, last_state_id)
@@ -182,6 +193,7 @@ impl NfaBuilder {
                 self.nfa.states.push(NfaState::Accept {
                     variable_index: 0,
                     precedence: 0,
+                    eof: false,
                 }); // Placeholder for split
                 let split_state_id = self.nfa.last_state_id();
                 if self.expand_rule(rule, split_state_id)? {
@@ -205,7 +217,7 @@ impl NfaBuilder {
                 }
                 result
             }
-            Rule::Blank => Ok(false),
+            Rule::Blank | Rule::EOF => Ok(false),
             _ => Err(anyhow!("Grammar error: Unexpected rule {:?}", rule)),
         }
     }
@@ -388,6 +400,7 @@ impl NfaBuilder {
         self.nfa.states.push(NfaState::Accept {
             variable_index: 0,
             precedence: 0,
+            eof: false,
         }); // Placeholder for split
         let split_state_id = self.nfa.last_state_id();
         if self.expand_regex(&ast, split_state_id, case_insensitive)? {
@@ -558,6 +571,7 @@ impl NfaBuilder {
             state_id,
             precedence,
             is_sep: self.is_sep,
+            eof: false,
         });
     }
 

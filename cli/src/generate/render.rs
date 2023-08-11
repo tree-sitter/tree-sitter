@@ -464,7 +464,7 @@ impl Generator {
                             add_line!(self, ".supertype = true,");
                         }
                     }
-                    VariableType::Auxiliary => {
+                    VariableType::Auxiliary | VariableType::EOF => {
                         add_line!(self, ".visible = false,");
                         add_line!(self, ".named = false,");
                     }
@@ -758,8 +758,13 @@ impl Generator {
 
         add_line!(
             self,
-            "static bool {}(TSLexer *lexer, TSStateId state) {{",
-            name
+            "static bool {}(TSLexer *lexer, TSStateId state{}) {{",
+            name,
+            if name == "ts_lex" {
+                ", bool* accepted_eof"
+            } else {
+                ""
+            }
         );
         indent!(self);
 
@@ -820,11 +825,25 @@ impl Generator {
             add_line!(self, "ACCEPT_TOKEN({});", self.symbol_ids[&accept_action]);
         }
 
+        state.advance_actions.iter().for_each(|(_, action)| {
+            if action.eof {
+                add_line!(self, "if (!*accepted_eof && eof) {{");
+                indent!(self);
+                add_line!(self, "*accepted_eof = true;");
+                add_line!(self, "ADVANCE({});", action.state);
+                dedent!(self);
+                add_line!(self, "}}");
+            }
+        });
+
         if let Some(eof_action) = state.eof_action {
             add_line!(self, "if (eof) ADVANCE({});", eof_action.state);
         }
 
         for (i, (_, action)) in state.advance_actions.into_iter().enumerate() {
+            if action.eof {
+                continue;
+            }
             let transition = &transition_info[i];
             add_whitespace!(self);
 
@@ -1492,6 +1511,7 @@ impl Generator {
                 VariableType::Hidden | VariableType::Named => {
                     format!("sym_{}", self.sanitize_identifier(name))
                 }
+                VariableType::EOF => "aux_sym_eof".to_string(),
             };
 
             let mut suffix_number = 1;
@@ -1521,7 +1541,11 @@ impl Generator {
             }
             SymbolType::Terminal => {
                 let variable = &self.lexical_grammar.variables[symbol.index];
-                (&variable.name, variable.kind)
+                if variable.kind == VariableType::EOF {
+                    ("EOF", variable.kind)
+                } else {
+                    (&variable.name, variable.kind)
+                }
             }
             SymbolType::External => {
                 let token = &self.syntax_grammar.external_tokens[symbol.index];

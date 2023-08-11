@@ -55,6 +55,7 @@ pub(crate) struct Symbol {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Rule {
     Blank,
+    EOF,
     String(String),
     Pattern(String, String),
     NamedSymbol(String),

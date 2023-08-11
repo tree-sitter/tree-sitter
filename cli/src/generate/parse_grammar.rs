@@ -62,6 +62,7 @@ enum RuleJSON {
     IMMEDIATE_TOKEN {
         content: Box<RuleJSON>,
     },
+    EOF,
 }
 
 #[derive(Deserialize)]
@@ -179,6 +180,7 @@ fn parse_rule(json: RuleJSON) -> Rule {
         }
         RuleJSON::TOKEN { content } => Rule::token(parse_rule(*content)),
         RuleJSON::IMMEDIATE_TOKEN { content } => Rule::immediate_token(parse_rule(*content)),
+        RuleJSON::EOF => Rule::EOF,
     }
 }
 
@@ -232,6 +234,38 @@ mod tests {
                     rule: Rule::String("foo".to_string())
                 },
             ]
+        );
+
+        let grammar = parse_grammar(
+            r#"
+        {
+            "name": "test",
+            "rules": {
+                "file": {
+                    "type": "SEQ",
+                    "members": [
+                        {
+                            "type": "STRING",
+                            "value": "bar"
+                        },
+                        {
+                            "type": "EOF"
+                        }
+                    ]
+                }
+            }
+        }
+        "#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            grammar.variables,
+            vec![Variable {
+                name: "file".to_string(),
+                kind: VariableType::Named,
+                rule: Rule::seq(vec![Rule::String("bar".to_string()), Rule::EOF])
+            }]
         );
     }
 }
