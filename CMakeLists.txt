@@ -62,4 +62,4 @@ project_options(
 
 add_subdirectory("./lib")
 
-package_project(PUBLIC_INCLUDES "${TREE_SITTER_INCLUDE_DIR}")
+package_project()
