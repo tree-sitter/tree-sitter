@@ -390,12 +390,12 @@ mod tests {
                 Variable {
                     name: "token_0".to_string(),
                     kind: VariableType::Named,
-                    rule: Rule::pattern("[a-f]1|0x\\d"),
+                    rule: Rule::pattern("[a-f]1|0x\\d", ""),
                 },
                 Variable {
                     name: "token_1".to_string(),
                     kind: VariableType::Named,
-                    rule: Rule::pattern("d*ef"),
+                    rule: Rule::pattern("d*ef", ""),
                 },
             ],
         })
@@ -426,7 +426,7 @@ mod tests {
                 Variable {
                     name: "identifier".to_string(),
                     kind: VariableType::Named,
-                    rule: Rule::pattern("\\w+"),
+                    rule: Rule::pattern("\\w+", ""),
                 },
                 Variable {
                     name: "instanceof".to_string(),
@@ -471,7 +471,7 @@ mod tests {
     #[test]
     fn test_token_conflicts_with_separators() {
         let grammar = expand_tokens(ExtractedLexicalGrammar {
-            separators: vec![Rule::pattern("\\s")],
+            separators: vec![Rule::pattern("\\s", "")],
             variables: vec![
                 Variable {
                     name: "x".to_string(),
@@ -498,7 +498,7 @@ mod tests {
     #[test]
     fn test_token_conflicts_with_open_ended_tokens() {
         let grammar = expand_tokens(ExtractedLexicalGrammar {
-            separators: vec![Rule::pattern("\\s")],
+            separators: vec![Rule::pattern("\\s", "")],
             variables: vec![
                 Variable {
                     name: "x".to_string(),
@@ -508,7 +508,7 @@ mod tests {
                 Variable {
                     name: "anything".to_string(),
                     kind: VariableType::Named,
-                    rule: Rule::prec(Precedence::Integer(-1), Rule::pattern(".*")),
+                    rule: Rule::prec(Precedence::Integer(-1), Rule::pattern(".*", "")),
                 },
             ],
         })

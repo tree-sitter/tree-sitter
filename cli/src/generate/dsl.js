@@ -183,7 +183,8 @@ function normalize(value) {
     case RegExp:
       return {
         type: 'PATTERN',
-        value: value.source
+        value: value.source,
+        flags: value.flags
       };
     case ReferenceError:
       throw value

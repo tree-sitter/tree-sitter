@@ -320,7 +320,7 @@ mod test {
                 "rule_0",
                 Rule::repeat(Rule::seq(vec![
                     Rule::string("a"),
-                    Rule::pattern("b"),
+                    Rule::pattern("b", ""),
                     Rule::choice(vec![
                         Rule::non_terminal(1),
                         Rule::non_terminal(2),
@@ -331,8 +331,8 @@ mod test {
                     ]),
                 ])),
             ),
-            Variable::named("rule_1", Rule::pattern("e")),
-            Variable::named("rule_2", Rule::pattern("b")),
+            Variable::named("rule_1", Rule::pattern("e", "")),
+            Variable::named("rule_2", Rule::pattern("b", "")),
             Variable::named(
                 "rule_3",
                 Rule::seq(vec![Rule::non_terminal(2), Rule::Blank]),
@@ -378,12 +378,12 @@ mod test {
             lexical_grammar.variables,
             vec![
                 Variable::anonymous("a", Rule::string("a")),
-                Variable::auxiliary("rule_0_token1", Rule::pattern("b")),
+                Variable::auxiliary("rule_0_token1", Rule::pattern("b", "")),
                 Variable::auxiliary(
                     "rule_0_token2",
                     Rule::repeat(Rule::choice(vec![Rule::string("c"), Rule::string("d"),]))
                 ),
-                Variable::named("rule_1", Rule::pattern("e")),
+                Variable::named("rule_1", Rule::pattern("e", "")),
             ]
         );
     }
@@ -411,7 +411,7 @@ mod test {
     fn test_extracting_extra_symbols() {
         let mut grammar = build_grammar(vec![
             Variable::named("rule_0", Rule::string("x")),
-            Variable::named("comment", Rule::pattern("//.*")),
+            Variable::named("comment", Rule::pattern("//.*", "")),
         ]);
         grammar.extra_symbols = vec![Rule::string(" "), Rule::non_terminal(1)];
 

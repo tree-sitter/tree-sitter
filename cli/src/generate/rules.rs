@@ -56,7 +56,7 @@ pub(crate) struct Symbol {
 pub(crate) enum Rule {
     Blank,
     String(String),
-    Pattern(String),
+    Pattern(String, String),
     NamedSymbol(String),
     Symbol(Symbol),
     Choice(Vec<Rule>),
@@ -187,8 +187,8 @@ impl Rule {
         Rule::String(value.to_string())
     }
 
-    pub fn pattern(value: &'static str) -> Self {
-        Rule::Pattern(value.to_string())
+    pub fn pattern(value: &'static str, flags: &'static str) -> Self {
+        Rule::Pattern(value.to_string(), flags.to_string())
     }
 }
 

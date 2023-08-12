@@ -19,6 +19,7 @@ enum RuleJSON {
     },
     PATTERN {
         value: String,
+        flags: Option<String>,
     },
     SYMBOL {
         name: String,
@@ -143,7 +144,21 @@ fn parse_rule(json: RuleJSON) -> Rule {
         } => Rule::alias(parse_rule(*content), value, named),
         RuleJSON::BLANK => Rule::Blank,
         RuleJSON::STRING { value } => Rule::String(value),
-        RuleJSON::PATTERN { value } => Rule::Pattern(value),
+        RuleJSON::PATTERN { value, flags } => Rule::Pattern(
+            value,
+            flags.map_or(String::new(), |f| {
+                f.chars()
+                    .filter(|c| {
+                        if *c != 'i' {
+                            eprintln!("Warning: unsupported flag {}", c);
+                            false
+                        } else {
+                            true
+                        }
+                    })
+                    .collect()
+            }),
+        ),
         RuleJSON::SYMBOL { name } => Rule::NamedSymbol(name),
         RuleJSON::CHOICE { members } => Rule::choice(members.into_iter().map(parse_rule).collect()),
         RuleJSON::FIELD { content, name } => Rule::field(name, parse_rule(*content)),
