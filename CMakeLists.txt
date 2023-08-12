@@ -11,13 +11,11 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
 endif()
 
 # Add project_options from https://github.com/aminya/project_options
-# Change the version in the following URL to update the package
-# (watch the releases of the repository for future updates)
-set(PROJECT_OPTIONS_VERSION "v0.29.0")
+# Change the version in the following URL to update the package (watch the releases of the repository for future updates)
+set(PROJECT_OPTIONS_VERSION "v0.31.0")
 FetchContent_Declare(
   _project_options
-  URL https://github.com/aminya/project_options/archive/refs/tags/${PROJECT_OPTIONS_VERSION}.zip
-)
+  URL https://github.com/aminya/project_options/archive/refs/tags/${PROJECT_OPTIONS_VERSION}.zip)
 FetchContent_MakeAvailable(_project_options)
 include(${_project_options_SOURCE_DIR}/Index.cmake)
 
@@ -25,26 +23,26 @@ include(${_project_options_SOURCE_DIR}/Index.cmake)
 project(
   tree-sitter
   LANGUAGES C CXX
-  VERSION 0.20.7)
+  VERSION 0.20.9)
 
-# Initialize project_options variable related to this project This overwrites
-# `project_options` and sets `project_warnings` uncomment the options to enable
-# them:
+# Initialize project_options variable related to this project
+# This overwrites `project_options` and sets `project_warnings`
+# uncomment to enable the options. Some of them accept one or more inputs:
 project_options(
-  PREFIX "tree-sitter"
+  PREFIX "tree_sitter"
   ENABLE_CACHE
-  # ENABLE_CPPCHECK
-  # ENABLE_CLANG_TIDY
-  # ENABLE_VS_ANALYSIS
-  # ENABLE_GCC_ANALYZER
-  # ENABLE_COVERAGE
-  # ENABLE_DOXYGEN
+  # ${ENABLE_CPPCHECK}
+  # ${ENABLE_CLANG_TIDY}
+  # ${ENABLE_VS_ANALYSIS}
+  # ENABLE_CONAN
   # ENABLE_INTERPROCEDURAL_OPTIMIZATION
   # ENABLE_NATIVE_OPTIMIZATION
-  # ENABLE_SANITIZER_ADDRESS
-  # ENABLE_SANITIZER_UNDEFINED_BEHAVIOR
-  # ENABLE_SANITIZER_THREAD
-  # ENABLE_SANITIZER_MEMORY
+  # ${ENABLE_DOXYGEN}
+  # ${ENABLE_COVERAGE}
+  # ${ENABLE_SANITIZER_ADDRESS}
+  # ${ENABLE_SANITIZER_UNDEFINED_BEHAVIOR}
+  # ${ENABLE_SANITIZER_THREAD}
+  # ${ENABLE_SANITIZER_MEMORY}
   # ENABLE_CONTROL_FLOW_PROTECTION
   # ENABLE_STACK_PROTECTION
   # ENABLE_OVERFLOW_PROTECTION
@@ -54,19 +52,14 @@ project_options(
   # ENABLE_PCH
   # PCH_HEADERS
   # WARNINGS_AS_ERRORS
+  # ENABLE_INCLUDE_WHAT_YOU_USE
+  # ENABLE_GCC_ANALYZER
   # ENABLE_BUILD_WITH_TIME_TRACE
+  # ENABLE_UNITY
   # LINKER "lld"
+  # CONAN_PROFILE ${profile_path}
 )
 
-add_library(tree_sitter ./lib/src/lib.c)
-target_include_directories(tree_sitter PRIVATE ./lib/src)
+add_subdirectory("./lib")
 
-set(INCLUDE_DIR "./lib/include")
-target_include_directories(
-  tree_sitter
-  PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${INCLUDE_DIR}>"
-         "$<INSTALL_INTERFACE:./${CMAKE_INSTALL_INCLUDEDIR}>")
-
-target_link_libraries(tree_sitter PRIVATE project_options project_warnings)
-
-package_project(PUBLIC_INCLUDES ${INCLUDE_DIR})
+package_project(PUBLIC_INCLUDES "${TREE_SITTER_INCLUDE_DIR}")
