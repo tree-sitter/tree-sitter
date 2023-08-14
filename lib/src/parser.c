@@ -529,6 +529,7 @@ static Subtree ts_parser__lex(
   for (;;) {
     bool found_token = false;
     Length current_position = self->lexer.current_position;
+    ColumnData column_data = self->lexer.column_data;
 
     if (lex_mode.external_lex_state != 0) {
       LOG(
@@ -582,6 +583,7 @@ static Subtree ts_parser__lex(
       }
 
       ts_lexer_reset(&self->lexer, current_position);
+      self->lexer.column_data = column_data;
     }
 
     LOG(
