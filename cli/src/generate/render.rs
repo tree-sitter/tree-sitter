@@ -1533,54 +1533,92 @@ impl Generator {
     fn sanitize_identifier(&self, name: &str) -> String {
         let mut result = String::with_capacity(name.len());
         for c in name.chars() {
-            if ('a' <= c && c <= 'z')
-                || ('A' <= c && c <= 'Z')
-                || ('0' <= c && c <= '9')
-                || c == '_'
-            {
+            if c.is_ascii_alphanumeric() || c == '_' {
                 result.push(c);
             } else {
-                let replacement = match c {
-                    '~' => "TILDE",
-                    '`' => "BQUOTE",
-                    '!' => "BANG",
-                    '@' => "AT",
-                    '#' => "POUND",
-                    '$' => "DOLLAR",
-                    '%' => "PERCENT",
-                    '^' => "CARET",
-                    '&' => "AMP",
-                    '*' => "STAR",
-                    '(' => "LPAREN",
-                    ')' => "RPAREN",
-                    '-' => "DASH",
-                    '+' => "PLUS",
-                    '=' => "EQ",
-                    '{' => "LBRACE",
-                    '}' => "RBRACE",
-                    '[' => "LBRACK",
-                    ']' => "RBRACK",
-                    '\\' => "BSLASH",
-                    '|' => "PIPE",
-                    ':' => "COLON",
-                    ';' => "SEMI",
-                    '"' => "DQUOTE",
-                    '\'' => "SQUOTE",
-                    '<' => "LT",
-                    '>' => "GT",
-                    ',' => "COMMA",
-                    '.' => "DOT",
-                    '?' => "QMARK",
-                    '/' => "SLASH",
-                    '\n' => "LF",
-                    '\r' => "CR",
-                    '\t' => "TAB",
-                    _ => continue,
-                };
-                if !result.is_empty() && !result.ends_with("_") {
-                    result.push('_');
+                'special_chars: {
+                    let replacement = match c {
+                        ' ' => "SPACE",
+                        '~' => "TILDE",
+                        '`' => "BQUOTE",
+                        '!' => "BANG",
+                        '@' => "AT",
+                        '#' => "POUND",
+                        '$' => "DOLLAR",
+                        '%' => "PERCENT",
+                        '^' => "CARET",
+                        '&' => "AMP",
+                        '*' => "STAR",
+                        '(' => "LPAREN",
+                        ')' => "RPAREN",
+                        '-' => "DASH",
+                        '+' => "PLUS",
+                        '=' => "EQ",
+                        '{' => "LBRACE",
+                        '}' => "RBRACE",
+                        '[' => "LBRACK",
+                        ']' => "RBRACK",
+                        '\\' => "BSLASH",
+                        '|' => "PIPE",
+                        ':' => "COLON",
+                        ';' => "SEMI",
+                        '"' => "DQUOTE",
+                        '\'' => "SQUOTE",
+                        '<' => "LT",
+                        '>' => "GT",
+                        ',' => "COMMA",
+                        '.' => "DOT",
+                        '?' => "QMARK",
+                        '/' => "SLASH",
+                        '\n' => "LF",
+                        '\r' => "CR",
+                        '\t' => "TAB",
+                        '\0' => "NULL",
+                        '\u{0001}' => "SOH",
+                        '\u{0002}' => "STX",
+                        '\u{0003}' => "ETX",
+                        '\u{0004}' => "EOT",
+                        '\u{0005}' => "ENQ",
+                        '\u{0006}' => "ACK",
+                        '\u{0007}' => "BEL",
+                        '\u{0008}' => "BS",
+                        '\u{000b}' => "VTAB",
+                        '\u{000c}' => "FF",
+                        '\u{000e}' => "SO",
+                        '\u{000f}' => "SI",
+                        '\u{0010}' => "DLE",
+                        '\u{0011}' => "DC1",
+                        '\u{0012}' => "DC2",
+                        '\u{0013}' => "DC3",
+                        '\u{0014}' => "DC4",
+                        '\u{0015}' => "NAK",
+                        '\u{0016}' => "SYN",
+                        '\u{0017}' => "ETB",
+                        '\u{0018}' => "CAN",
+                        '\u{0019}' => "EM",
+                        '\u{001a}' => "SUB",
+                        '\u{001b}' => "ESC",
+                        '\u{001c}' => "FS",
+                        '\u{001d}' => "GS",
+                        '\u{001e}' => "RS",
+                        '\u{001f}' => "US",
+                        '\u{007F}' => "DEL",
+                        '\u{FEFF}' => "BOM",
+                        '\u{0080}'..='\u{FFFF}' => {
+                            result.push_str(&format!("u{:04x}", c as u32));
+                            break 'special_chars;
+                        }
+                        '\u{10000}'..='\u{10FFFF}' => {
+                            result.push_str(&format!("U{:08x}", c as u32));
+                            break 'special_chars;
+                        }
+                        '0'..='9' | 'a'..='z' | 'A'..='Z' | '_' => unreachable!(),
+                    };
+                    if !result.is_empty() && !result.ends_with("_") {
+                        result.push('_');
+                    }
+                    result += replacement;
                 }
-                result += replacement;
             }
         }
         result
@@ -1593,10 +1631,19 @@ impl Generator {
                 '\"' => result += "\\\"",
                 '?' => result += "\\?",
                 '\\' => result += "\\\\",
+                '\u{0007}' => result += "\\a",
+                '\u{0008}' => result += "\\b",
+                '\u{000b}' => result += "\\v",
                 '\u{000c}' => result += "\\f",
                 '\n' => result += "\\n",
                 '\r' => result += "\\r",
                 '\t' => result += "\\t",
+                '\0' => result += "\\0",
+                '\u{0001}'..='\u{001f}' => result += &format!("\\x{:02x}", c as u32),
+                '\u{007F}'..='\u{FFFF}' => result += &format!("\\u{:04x}", c as u32),
+                '\u{10000}'..='\u{10FFFF}' => {
+                    result.push_str(&format!("\\U{:08x}", c as u32));
+                }
                 _ => result.push(c),
             }
         }
