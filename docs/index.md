@@ -114,6 +114,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Rego](https://github.com/FallenAngel97/tree-sitter-rego)
 * [reStructuredText](https://github.com/stsewd/tree-sitter-rst)
 * [R](https://github.com/r-lib/tree-sitter-r)
+* [Robot](https://github.com/Hubro/tree-sitter-robot)
 * [Ruby](https://github.com/tree-sitter/tree-sitter-ruby)
 * [Rust](https://github.com/tree-sitter/tree-sitter-rust)
 * [Scala](https://github.com/tree-sitter/tree-sitter-scala)
