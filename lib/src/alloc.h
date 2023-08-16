@@ -11,10 +11,16 @@ extern "C" {
 #include <stdbool.h>
 #include <stdio.h>
 
-extern void *(*ts_current_malloc)(size_t);
-extern void *(*ts_current_calloc)(size_t, size_t);
-extern void *(*ts_current_realloc)(void *, size_t);
-extern void (*ts_current_free)(void *);
+#ifdef _MSC_VER
+#define INTERNAL
+#else
+#define INTERNAL __attribute__ ((visibility ("internal")))
+#endif
+
+extern void *(*ts_current_malloc)(size_t) INTERNAL;
+extern void *(*ts_current_calloc)(size_t, size_t) INTERNAL;
+extern void *(*ts_current_realloc)(void *, size_t) INTERNAL;
+extern void (*ts_current_free)(void *) INTERNAL;
 
 // Allow clients to override allocation functions
 #ifndef ts_malloc
@@ -29,6 +35,8 @@ extern void (*ts_current_free)(void *);
 #ifndef ts_free
 #define ts_free    ts_current_free
 #endif
+
+#undef INTERNAL
 
 #ifdef __cplusplus
 }
