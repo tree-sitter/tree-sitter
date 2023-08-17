@@ -1,6 +1,6 @@
 use lazy_static::lazy_static;
-use std::fs;
 use std::path::{Path, PathBuf};
+use std::{env, fs};
 use tree_sitter::Language;
 use tree_sitter_highlight::HighlightConfiguration;
 use tree_sitter_loader::Loader;
@@ -9,7 +9,13 @@ use tree_sitter_tags::TagsConfiguration;
 include!("./dirs.rs");
 
 lazy_static! {
-    static ref TEST_LOADER: Loader = Loader::with_parser_lib_path(SCRATCH_DIR.clone());
+    static ref TEST_LOADER: Loader = {
+        let mut loader = Loader::with_parser_lib_path(SCRATCH_DIR.clone());
+        if env::var("TREE_SITTER_GRAMMAR_DEBUG").is_ok() {
+            loader.use_debug_build(true);
+        }
+        loader
+    };
 }
 
 pub fn test_loader<'a>() -> &'a Loader {
