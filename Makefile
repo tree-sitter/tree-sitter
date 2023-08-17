@@ -18,7 +18,7 @@ endif
 OBJ := $(SRC:.c=.o)
 
 # define default flags, and override to append mandatory flags
-override CFLAGS := -O3 -std=gnu99 -fPIC -Wall -Wextra -Werror -Wshadow $(CFLAGS)
+override CFLAGS := -O3 -std=gnu99 -fPIC -fvisibility=hidden -Wall -Wextra -Werror -Wshadow $(CFLAGS)
 override CFLAGS += -Ilib/src -Ilib/include
 
 # ABI versioning
