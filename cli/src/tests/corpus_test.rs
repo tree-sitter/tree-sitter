@@ -105,6 +105,10 @@ fn test_language_corpus(start_seed: usize, language_name: &str) {
 
     let log_seed = env::var("TREE_SITTER_LOG_SEED").is_ok();
 
+    if log_seed {
+        println!("  start seed: {}", start_seed);
+    }
+
     println!();
     for test in tests {
         println!("  {} example - {}", language_name, test.name);

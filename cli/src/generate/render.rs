@@ -1538,7 +1538,7 @@ impl Generator {
             } else {
                 'special_chars: {
                     let replacement = match c {
-                        ' ' => "SPACE",
+                        ' ' if name.len() == 1 => "SPACE",
                         '~' => "TILDE",
                         '`' => "BQUOTE",
                         '!' => "BANG",
@@ -1613,6 +1613,7 @@ impl Generator {
                             break 'special_chars;
                         }
                         '0'..='9' | 'a'..='z' | 'A'..='Z' | '_' => unreachable!(),
+                        ' ' => break 'special_chars,
                     };
                     if !result.is_empty() && !result.ends_with("_") {
                         result.push('_');

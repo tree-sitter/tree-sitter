@@ -438,6 +438,36 @@ impl Loader {
             }
         }
 
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        if scanner_path.is_some() {
+            let command = Command::new("nm")
+                .arg("-W")
+                .arg("-U")
+                .arg(&library_path)
+                .output();
+            if let Ok(output) = command {
+                if output.status.success() {
+                    let mut found_non_static = false;
+                    for line in String::from_utf8_lossy(&output.stdout).lines() {
+                        if line.contains(" T ") && !line.contains("tree_sitter_") {
+                            if let Some(function_name) =
+                                line.split_whitespace().collect::<Vec<_>>().get(2)
+                            {
+                                if !found_non_static {
+                                    found_non_static = true;
+                                    eprintln!("Warning: Found non-static non-tree-sitter functions in external scannner");
+                                }
+                                eprintln!("  `{function_name}`");
+                            }
+                        }
+                    }
+                    if found_non_static {
+                        eprintln!("Consider making these functions static, they can cause conflicts when another tree-sitter project uses the same function name");
+                    }
+                }
+            }
+        }
+
         let library = unsafe { Library::new(&library_path) }
             .with_context(|| format!("Error opening dynamic library {:?}", &library_path))?;
         let language_fn_name = format!("tree_sitter_{}", replace_dashes_with_underscores(name));
