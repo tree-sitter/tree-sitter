@@ -1,7 +1,7 @@
 use super::helpers::{
     allocations,
     edits::{get_random_edit, invert_edit},
-    fixtures::{fixtures_dir, get_language, get_test_language},
+    fixtures::{fixtures_dir, get_language, get_test_language, SCRATCH_BASE_DIR},
     new_seed,
     random::Rand,
     scope_sequence::ScopeSequence,
@@ -104,6 +104,7 @@ fn test_language_corpus(start_seed: usize, language_name: &str) {
     let mut failure_count = 0;
 
     let log_seed = env::var("TREE_SITTER_LOG_SEED").is_ok();
+    let dump_edits = env::var("TREE_SITTER_DUMP_EDITS").is_ok();
 
     if log_seed {
         println!("  start seed: {}", start_seed);
@@ -173,6 +174,10 @@ fn test_language_corpus(start_seed: usize, language_name: &str) {
 
                 if log_seed {
                     println!("    seed: {}", seed);
+                }
+
+                if dump_edits {
+                    fs::write(SCRATCH_BASE_DIR.join(format!("{seed}.edit")), &input).unwrap();
                 }
 
                 if *LOG_GRAPH_ENABLED {

@@ -1,9 +1,14 @@
 lazy_static! {
-    static ref ROOT_DIR: PathBuf = PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_owned();
-    static ref FIXTURES_DIR: PathBuf = ROOT_DIR.join("test").join("fixtures");
-    static ref HEADER_DIR: PathBuf = ROOT_DIR.join("lib").join("include");
-    static ref GRAMMARS_DIR: PathBuf = ROOT_DIR.join("test").join("fixtures").join("grammars");
-    static ref SCRATCH_DIR: PathBuf = {
+    pub static ref ROOT_DIR: PathBuf = PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_owned();
+    pub static ref FIXTURES_DIR: PathBuf = ROOT_DIR.join("test").join("fixtures");
+    pub static ref HEADER_DIR: PathBuf = ROOT_DIR.join("lib").join("include");
+    pub static ref GRAMMARS_DIR: PathBuf = ROOT_DIR.join("test").join("fixtures").join("grammars");
+    pub static ref SCRATCH_BASE_DIR: PathBuf = {
+        let result = ROOT_DIR.join("target").join("scratch");
+        fs::create_dir_all(&result).unwrap();
+        result
+    };
+    pub static ref SCRATCH_DIR: PathBuf = {
         // https://doc.rust-lang.org/reference/conditional-compilation.html
         let vendor = if cfg!(target_vendor = "apple") {
             "apple"
@@ -34,7 +39,7 @@ lazy_static! {
         };
 
         let machine = format!("{}-{}-{}-{}-{}", std::env::consts::ARCH, std::env::consts::OS, vendor, env, endian);
-        let result = ROOT_DIR.join("target").join("scratch").join(machine);
+        let result = SCRATCH_BASE_DIR.join(machine);
         fs::create_dir_all(&result).unwrap();
         result
     };
