@@ -41,6 +41,7 @@ jobs:
 
     - name: Run main tests with address sanitizer (ASAN)
       env:
+        ASAN_OPTIONS: halt_on_error=1
         CFLAGS: -fsanitize=address
         RUSTFLAGS: -Zsanitizer=address
       run: |
