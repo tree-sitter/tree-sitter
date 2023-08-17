@@ -50,6 +50,9 @@ libtree-sitter.$(SOEXTVER): $(OBJ)
 	$(CC) $(LDFLAGS) $(LINKSHARED) $^ $(LDLIBS) -o $@
 	ln -sf $@ libtree-sitter.$(SOEXT)
 	ln -sf $@ libtree-sitter.$(SOEXTVER_MAJOR)
+ifneq ($(STRIP),)
+	$(STRIP) $@
+endif
 
 install: all
 	install -d '$(DESTDIR)$(LIBDIR)'
