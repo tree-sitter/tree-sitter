@@ -261,6 +261,16 @@ pub struct LossyUtf8<'a> {
 }
 
 impl Language {
+    pub fn new(library: *const ()) -> Result<Self, LanguageError> {
+        let language = unsafe { std::mem::transmute::<*const (), Self>(library) };
+        let version = language.version();
+        if version < MIN_COMPATIBLE_LANGUAGE_VERSION || version > LANGUAGE_VERSION {
+            Err(LanguageError { version })
+        } else {
+            Ok(language)
+        }
+    }
+
     /// Get the ABI version number that indicates which version of the Tree-sitter CLI
     /// that was used to generate this `Language`.
     #[doc(alias = "ts_language_version")]
@@ -391,14 +401,11 @@ impl Parser {
     /// [MIN_COMPATIBLE_LANGUAGE_VERSION](MIN_COMPATIBLE_LANGUAGE_VERSION) constants.
     #[doc(alias = "ts_parser_set_language")]
     pub fn set_language(&mut self, language: Language) -> Result<(), LanguageError> {
-        let version = language.version();
-        if version < MIN_COMPATIBLE_LANGUAGE_VERSION || version > LANGUAGE_VERSION {
-            Err(LanguageError { version })
-        } else {
-            unsafe {
-                ffi::ts_parser_set_language(self.0.as_ptr(), language.0);
-            }
+        if unsafe { ffi::ts_parser_set_language(self.0.as_ptr(), language.0) } {
             Ok(())
+        } else {
+            let version = language.version();
+            Err(LanguageError { version })
         }
     }
 

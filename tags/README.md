@@ -11,9 +11,9 @@ Add this crate, and the language-specific crates for whichever languages you wan
 
 ```toml
 [dependencies]
-tree-sitter-tags = "0.19"
-tree-sitter-javascript = "0.19"
-tree-sitter-python = "0.19"
+tree-sitter-tags = "0.20"
+tree-sitter-javascript = "0.20"
+tree-sitter-python = "0.20"
 ```
 
 Create a tag context. You need one of these for each thread that you're using for tag computation:
@@ -27,16 +27,17 @@ let context = TagsContext::new();
 Load some tagging queries from the `queries` directory of some language repositories:
 
 ```rust
+use tree_sitter::Language;
 use tree_sitter_tags::TagsConfiguration;
 
 let python_config = TagsConfiguration::new(
-    tree_sitter_python::language(),
+    Language::new(tree_sitter_python::library()).unwrap(),
     tree_sitter_python::TAGGING_QUERY,
     "",
 ).unwrap();
 
 let javascript_config = TagsConfiguration::new(
-    tree_sitter_javascript::language(),
+    Language::new(tree_sitter_javascript::library()).unwrap(),
     tree_sitter_javascript::TAGGING_QUERY,
     tree_sitter_javascript::LOCALS_QUERY,
 ).unwrap();
