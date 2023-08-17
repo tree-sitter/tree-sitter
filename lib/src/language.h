@@ -14,6 +14,7 @@ typedef struct {
   const TSParseAction *actions;
   uint32_t action_count;
   bool is_reusable;
+  bool is_valid_lookahead;
 } TableEntry;
 
 typedef struct {
@@ -95,12 +96,20 @@ static inline uint16_t ts_language_lookup(
   }
 }
 
-static inline bool ts_language_has_actions(
+static inline bool ts_language_is_valid_lookahead(
   const TSLanguage *self,
   TSStateId state,
   TSSymbol symbol
 ) {
   return ts_language_lookup(self, state, symbol) != 0;
+}
+
+static inline bool ts_language_has_actions(
+  const TSLanguage *self,
+  TSStateId state,
+  TSSymbol symbol
+) {
+  return ts_language_lookup(self, state, symbol) > 1;
 }
 
 // Iterate over all of the symbols that are valid in the given state.
