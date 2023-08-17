@@ -42,8 +42,8 @@ npm init
 # This installs a small module that lets your parser be used from Node
 npm install --save nan
 
-# This installs the Tree-sitter CLI itself
-npm install --save-dev tree-sitter-cli
+# This installs the Tree-sitter CLI itself, also installs node types
+npm install --save-dev tree-sitter-cli @types/node
 ```
 
 The last command will install the CLI into the `node_modules` folder in your working directory. An executable program called `tree-sitter` will be created inside of `node_modules/.bin/`. You may want to follow the Node.js convention of adding that folder to your `PATH` so that you can easily run this program when working in this directory.
@@ -56,6 +56,8 @@ export PATH=$PATH:./node_modules/.bin
 Once you have the CLI installed, create a file called `grammar.js` with the following contents:
 
 ```js
+/// <reference types="./node_modules/tree-sitter-cli/dsl.d.ts" />
+
 module.exports = grammar({
   name: 'YOUR_LANGUAGE_NAME',
 
