@@ -418,5 +418,7 @@ global.token = token;
 global.grammar = grammar;
 global.field = field;
 
+console.log = console.debug = console.info = console.error = console.warn;
 const result = require(process.env.TREE_SITTER_GRAMMAR_PATH);
-console.log(JSON.stringify(result, null, 2));
+process.stdout.write(JSON.stringify(result, null, 2));
+process.stdout.write('\n');
