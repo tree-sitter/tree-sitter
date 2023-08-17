@@ -338,9 +338,14 @@ static inline TSNode ts_node__descendant_for_byte_range(
   while (did_descend) {
     did_descend = false;
 
-    TSNode child;
+    TSNode prev_child;
+    TSNode child = ts_node__null();
     NodeChildIterator iterator = ts_node_iterate_children(&node);
-    while (ts_node_child_iterator_next(&iterator, &child)) {
+    while (true) {
+      prev_child = child;
+      if (!ts_node_child_iterator_next(&iterator, &child)) break;
+
+
       uint32_t node_end = iterator.position.bytes;
 
       // The end of this node must extend far enough forward to touch
@@ -350,7 +355,7 @@ static inline TSNode ts_node__descendant_for_byte_range(
 
       // The start of this node must extend far enough backward to
       // touch the start of the range.
-      if (range_start < ts_node_start_byte(child)) break;
+      if (ts_node_start_byte(child) > range_start) break;
 
       node = child;
       if (ts_node__is_relevant(node, include_anonymous)) {
@@ -385,11 +390,11 @@ static inline TSNode ts_node__descendant_for_point_range(
       // The end of this node must extend far enough forward to touch
       // the end of the range and exceed the start of the range.
       if (point_lt(node_end, range_end)) continue;
-      if (point_lte(node_end, range_start)) continue;
+      if (point_lte(node_end, range_start) && point_gt(range_end, range_start)) continue;
 
       // The start of this node must extend far enough backward to
       // touch the start of the range.
-      if (point_lt(range_start, ts_node_start_point(child))) break;
+      if (point_gt(ts_node_start_point(child), range_start)) break;
 
       node = child;
       if (ts_node__is_relevant(node, include_anonymous)) {

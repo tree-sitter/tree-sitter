@@ -456,25 +456,25 @@ fn test_node_descendant_for_range() {
     assert_eq!(colon_node.end_position(), Point::new(6, 8));
 
     // The given point is between two adjacent leaf nodes - byte query
-    let colon_index = JSON_EXAMPLE.find(":").unwrap();
-    let colon_node = array_node
+    let quote_index = JSON_EXAMPLE.find("\":").unwrap();
+    let quote_node = array_node
         .descendant_for_byte_range(colon_index, colon_index)
         .unwrap();
-    assert_eq!(colon_node.kind(), ":");
-    assert_eq!(colon_node.start_byte(), colon_index);
-    assert_eq!(colon_node.end_byte(), colon_index + 1);
-    assert_eq!(colon_node.start_position(), Point::new(6, 7));
-    assert_eq!(colon_node.end_position(), Point::new(6, 8));
+    assert_eq!(quote_node.kind(), "\"");
+    assert_eq!(quote_node.start_byte(), quote_index);
+    assert_eq!(quote_node.end_byte(), quote_index + 1);
+    assert_eq!(quote_node.start_position(), Point::new(6, 6));
+    assert_eq!(quote_node.end_position(), Point::new(6, 7));
 
     // The given point is between two adjacent leaf nodes - point query
-    let colon_node = array_node
+    let quote_node = array_node
         .descendant_for_point_range(Point::new(6, 7), Point::new(6, 7))
         .unwrap();
-    assert_eq!(colon_node.kind(), ":");
-    assert_eq!(colon_node.start_byte(), colon_index);
-    assert_eq!(colon_node.end_byte(), colon_index + 1);
-    assert_eq!(colon_node.start_position(), Point::new(6, 7));
-    assert_eq!(colon_node.end_position(), Point::new(6, 8));
+    assert_eq!(quote_node.kind(), "\"");
+    assert_eq!(quote_node.start_byte(), quote_index);
+    assert_eq!(quote_node.end_byte(), quote_index + 1);
+    assert_eq!(quote_node.start_position(), Point::new(6, 6));
+    assert_eq!(quote_node.end_position(), Point::new(6, 7));
 
     // Leaf node starts at the lower bound, ends after the upper bound - byte query
     let string_index = JSON_EXAMPLE.find("\"x\"").unwrap();
@@ -539,6 +539,25 @@ fn test_node_descendant_for_range() {
     assert_eq!(pair_node.end_byte(), string_index + 9);
     assert_eq!(pair_node.start_position(), Point::new(6, 4));
     assert_eq!(pair_node.end_position(), Point::new(6, 13));
+
+    // leaf ends at the given empty range - return the leaf
+    let colon_node = array_node
+        .descendant_for_byte_range(colon_index + 1, colon_index + 1)
+        .unwrap();
+    assert_eq!(colon_node.kind(), ":");
+    assert_eq!(colon_node.start_byte(), colon_index);
+    assert_eq!(colon_node.end_byte(), colon_index + 1);
+    assert_eq!(colon_node.start_position(), Point::new(6, 7));
+    assert_eq!(colon_node.end_position(), Point::new(6, 8));
+
+    let colon_node = array_node
+        .descendant_for_point_range(Point::new(6, 8), Point::new(6, 8))
+        .unwrap();
+    assert_eq!(colon_node.kind(), ":");
+    assert_eq!(colon_node.start_byte(), colon_index);
+    assert_eq!(colon_node.end_byte(), colon_index + 1);
+    assert_eq!(colon_node.start_position(), Point::new(6, 7));
+    assert_eq!(colon_node.end_position(), Point::new(6, 8));
 }
 
 #[test]
@@ -624,7 +643,7 @@ fn test_node_sexp() {
     let root_node = tree.root_node();
     let if_node = root_node.descendant_for_byte_range(0, 0).unwrap();
     let paren_node = root_node.descendant_for_byte_range(3, 3).unwrap();
-    let identifier_node = root_node.descendant_for_byte_range(4, 4).unwrap();
+    let identifier_node = root_node.descendant_for_byte_range(4, 5).unwrap();
     assert_eq!(if_node.kind(), "if");
     assert_eq!(if_node.to_sexp(), "(\"if\")");
     assert_eq!(paren_node.kind(), "(");
