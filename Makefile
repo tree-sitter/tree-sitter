@@ -18,8 +18,8 @@ endif
 OBJ := $(SRC:.c=.o)
 
 # define default flags, and override to append mandatory flags
-CFLAGS ?= -O3 -Wall -Wextra -Werror -Wshadow
-override CFLAGS += -std=gnu99 -fPIC -Ilib/src -Ilib/include
+override CFLAGS := -O3 -std=gnu99 -fPIC -fvisibility=hidden -Wall -Wextra -Werror -Wshadow $(CFLAGS)
+override CFLAGS += -Ilib/src -Ilib/include
 
 # ABI versioning
 SONAME_MAJOR := 0
@@ -50,6 +50,9 @@ libtree-sitter.$(SOEXTVER): $(OBJ)
 	$(CC) $(LDFLAGS) $(LINKSHARED) $^ $(LDLIBS) -o $@
 	ln -sf $@ libtree-sitter.$(SOEXT)
 	ln -sf $@ libtree-sitter.$(SOEXTVER_MAJOR)
+ifneq ($(STRIP),)
+	$(STRIP) $@
+endif
 
 install: all
 	install -d '$(DESTDIR)$(LIBDIR)'

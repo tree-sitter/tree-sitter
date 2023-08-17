@@ -647,10 +647,10 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *input_edit, SubtreePool
   typedef struct {
     Subtree *tree;
     Edit edit;
-  } StackEntry;
+  } EditEntry;
 
-  Array(StackEntry) stack = array_new();
-  array_push(&stack, ((StackEntry) {
+  Array(EditEntry) stack = array_new();
+  array_push(&stack, ((EditEntry) {
     .tree = &self,
     .edit = (Edit) {
       .start = {input_edit->start_byte, input_edit->start_point},
@@ -660,7 +660,7 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *input_edit, SubtreePool
   }));
 
   while (stack.size) {
-    StackEntry entry = array_pop(&stack);
+    EditEntry entry = array_pop(&stack);
     Edit edit = entry.edit;
     bool is_noop = edit.old_end.bytes == edit.start.bytes && edit.new_end.bytes == edit.start.bytes;
     bool is_pure_insertion = edit.old_end.bytes == edit.start.bytes;
@@ -788,7 +788,7 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *input_edit, SubtreePool
       }
 
       // Queue processing of this child's subtree.
-      array_push(&stack, ((StackEntry) {
+      array_push(&stack, ((EditEntry) {
         .tree = child,
         .edit = child_edit,
       }));
