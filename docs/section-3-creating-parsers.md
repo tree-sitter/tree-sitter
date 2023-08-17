@@ -56,7 +56,7 @@ export PATH=$PATH:./node_modules/.bin
 Once you have the CLI installed, create a file called `grammar.js` with the following contents:
 
 ```js
-/// <reference types="./node_modules/tree-sitter-cli/dsl.d.ts" />
+/// <reference types="tree-sitter-cli/dsl" />
 
 module.exports = grammar({
   name: 'YOUR_LANGUAGE_NAME',
