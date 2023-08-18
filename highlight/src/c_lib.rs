@@ -29,6 +29,7 @@ pub enum ErrorCode {
     InvalidUtf8,
     InvalidRegex,
     InvalidQuery,
+    InvalidLanguageName,
 }
 
 #[no_mangle]
@@ -61,6 +62,7 @@ pub extern "C" fn ts_highlighter_new(
 #[no_mangle]
 pub extern "C" fn ts_highlighter_add_language(
     this: *mut TSHighlighter,
+    language_name: *const c_char,
     scope_name: *const c_char,
     injection_regex: *const c_char,
     language: Language,
@@ -110,8 +112,13 @@ pub extern "C" fn ts_highlighter_add_language(
             ""
         };
 
+        let lang = unsafe { CStr::from_ptr(language_name) }
+            .to_str()
+            .or(Err(ErrorCode::InvalidLanguageName))?;
+
         let mut config = HighlightConfiguration::new(
             language,
+            lang,
             highlight_query,
             injection_query,
             locals_query,

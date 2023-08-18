@@ -52,6 +52,7 @@ pub fn get_highlight_config(
     let locals_query = fs::read_to_string(queries_path.join("locals.scm")).unwrap_or(String::new());
     let mut result = HighlightConfiguration::new(
         language,
+        language_name,
         &highlights_query,
         &injections_query,
         &locals_query,

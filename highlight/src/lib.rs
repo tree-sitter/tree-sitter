@@ -102,6 +102,7 @@ pub enum HighlightEvent {
 /// This struct is immutable and can be shared between threads.
 pub struct HighlightConfiguration {
     pub language: Language,
+    pub language_name: String,
     pub query: Query,
     pub apply_all_captures: bool,
     combined_injections_query: Option<Query>,
@@ -244,6 +245,7 @@ impl HighlightConfiguration {
     /// Returns a `HighlightConfiguration` that can then be used with the `highlight` method.
     pub fn new(
         language: Language,
+        name: impl Into<String>,
         highlights_query: &str,
         injection_query: &str,
         locals_query: &str,
@@ -327,6 +329,7 @@ impl HighlightConfiguration {
         let highlight_indices = vec![None; query.capture_names().len()];
         Ok(HighlightConfiguration {
             language,
+            language_name: name.into(),
             query,
             apply_all_captures,
             combined_injections_query,
@@ -1110,7 +1113,7 @@ impl HtmlRenderer {
 }
 
 fn injection_for_match<'a>(
-    config: &HighlightConfiguration,
+    config: &'a HighlightConfiguration,
     query: &'a Query,
     query_match: &QueryMatch<'a, 'a>,
     source: &'a [u8],
@@ -1138,6 +1141,12 @@ fn injection_for_match<'a>(
             "injection.language" => {
                 if language_name.is_none() {
                     language_name = prop.value.as_ref().map(|s| s.as_ref())
+                }
+            }
+
+            "injection.self" => {
+                if language_name.is_none() {
+                    language_name = Some(config.language_name.as_str());
                 }
             }
 

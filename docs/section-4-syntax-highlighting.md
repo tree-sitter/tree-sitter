@@ -364,6 +364,7 @@ The language injection behavior can also be configured by some properties associ
 * `injection.language` - can be used to hard-code the name of a specific language.
 * `injection.combined` - indicates that *all* of the matching nodes in the tree should have their content parsed as *one* nested document.
 * `injection.include-children` - indicates that the `@injection.content` node's *entire* text should be re-parsed, including the text of its child nodes. By default, child nodes' text will be *excluded* from the injected document.
+* `injection.self` - indicates that the `@injection.content` node should be parsed using the same language as the parent node. This is useful for cases where the parent node's language is not known until runtime (e.g. via inheriting another language)
 
 #### Examples
 

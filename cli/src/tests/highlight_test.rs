@@ -507,12 +507,14 @@ fn test_highlighting_via_c_api() {
     let js_scope = c_string("source.js");
     let js_injection_regex = c_string("^javascript");
     let language = get_language("javascript");
+    let lang_name = c_string("javascript");
     let queries = get_language_queries_path("javascript");
     let highlights_query = fs::read_to_string(queries.join("highlights.scm")).unwrap();
     let injections_query = fs::read_to_string(queries.join("injections.scm")).unwrap();
     let locals_query = fs::read_to_string(queries.join("locals.scm")).unwrap();
     c::ts_highlighter_add_language(
         highlighter,
+        lang_name.as_ptr(),
         js_scope.as_ptr(),
         js_injection_regex.as_ptr(),
         language,
@@ -528,11 +530,13 @@ fn test_highlighting_via_c_api() {
     let html_scope = c_string("text.html.basic");
     let html_injection_regex = c_string("^html");
     let language = get_language("html");
+    let lang_name = c_string("html");
     let queries = get_language_queries_path("html");
     let highlights_query = fs::read_to_string(queries.join("highlights.scm")).unwrap();
     let injections_query = fs::read_to_string(queries.join("injections.scm")).unwrap();
     c::ts_highlighter_add_language(
         highlighter,
+        lang_name.as_ptr(),
         html_scope.as_ptr(),
         html_injection_regex.as_ptr(),
         language,
@@ -607,7 +611,7 @@ fn test_highlighting_with_all_captures_applied() {
         [ \"{\" \"}\" \"(\" \")\" ] @punctuation.bracket
     "};
     let mut rust_highlight_reverse =
-        HighlightConfiguration::new(language, &highlights_query, "", "", true).unwrap();
+        HighlightConfiguration::new(language, "rust", &highlights_query, "", "", true).unwrap();
     rust_highlight_reverse.configure(&HIGHLIGHT_NAMES);
 
     assert_eq!(
