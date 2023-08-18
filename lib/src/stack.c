@@ -120,6 +120,20 @@ recur:
   }
 }
 
+/// Get the number of nodes in the subtree, for the purpose of measuring
+/// how much progress has been made by a given version of the stack.
+static uint32_t stack__subtree_node_count(Subtree subtree) {
+  uint32_t count = ts_subtree_visible_descendant_count(subtree);
+  if (ts_subtree_visible(subtree)) count++;
+
+  // Count intermediate error nodes even though they are not visible,
+  // because a stack version's node count is used to check whether it
+  // has made any progress since the last time it encountered an error.
+  if (ts_subtree_symbol(subtree) == ts_builtin_sym_error_repeat) count++;
+
+  return count;
+}
+
 static StackNode *stack_node_new(
   StackNode *previous_node,
   Subtree subtree,
@@ -152,7 +166,7 @@ static StackNode *stack_node_new(
     if (subtree.ptr) {
       node->error_cost += ts_subtree_error_cost(subtree);
       node->position = length_add(node->position, ts_subtree_total_size(subtree));
-      node->node_count += ts_subtree_node_count(subtree);
+      node->node_count += stack__subtree_node_count(subtree);
       node->dynamic_precedence += ts_subtree_dynamic_precedence(subtree);
     }
   } else {
@@ -239,7 +253,7 @@ static void stack_node_add_link(
 
   if (link.subtree.ptr) {
     ts_subtree_retain(link.subtree);
-    node_count += ts_subtree_node_count(link.subtree);
+    node_count += stack__subtree_node_count(link.subtree);
     dynamic_precedence += ts_subtree_dynamic_precedence(link.subtree);
   }
 
