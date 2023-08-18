@@ -303,12 +303,6 @@ static inline uint32_t ts_subtree_visible_descendant_count(Subtree self) {
     : self.ptr->visible_descendant_count;
 }
 
-static inline uint32_t ts_subtree_node_count(Subtree self) {
-  return
-    ts_subtree_visible_descendant_count(self) +
-    (ts_subtree_visible(self) ? 1 : 0);
-}
-
 static inline uint32_t ts_subtree_visible_child_count(Subtree self) {
   if (ts_subtree_child_count(self) > 0) {
     return self.ptr->visible_child_count;
