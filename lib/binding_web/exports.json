@@ -44,6 +44,7 @@
   "_ts_language_symbol_type",
   "_ts_language_version",
   "_ts_language_next_state",
+  "_ts_node_field_name_for_child_wasm",
   "_ts_node_child_by_field_id_wasm",
   "_ts_node_child_count_wasm",
   "_ts_node_child_wasm",
