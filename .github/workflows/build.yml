@@ -177,6 +177,7 @@ jobs:
         TARGET: ${{ matrix.target }}
         CC: ${{ matrix.cc }}
         AR: ${{ matrix.ar }}
+        IS_WINDOWS: ${{ contains(matrix.os, 'windows') }}
       run: |
         PATH="$PWD/.github/scripts:$PATH"
         echo "$PWD/.github/scripts" >> $GITHUB_PATH
@@ -191,6 +192,8 @@ jobs:
         [ -n "$CC" ] && echo "CC=$CC" >> $GITHUB_ENV
         [ -n "$AR" ] && echo "AR=$AR" >> $GITHUB_ENV
 
+        [ "$IS_WINDOWS" = "false" ] && echo "CFLAGS=-Werror" >> $GITHUB_ENV
+
         if [ "$USE_CROSS" == "true" ]; then
           echo "BUILD_CMD=cross" >> $GITHUB_ENV
           runner=$(BUILD_CMD=cross cross.sh bash -c "env | sed -nr '/^CARGO_TARGET_.*_RUNNER=/s///p'")
@@ -199,7 +202,7 @@ jobs:
 
     - name: Build C library
       if: ${{ !contains(matrix.os, 'windows') }} # Requires an additional adapted Makefile for `cl.exe` compiler
-      run: make.sh CFLAGS="-Werror" -j
+      run: make.sh -j
 
     - name: Build wasm library
       if: ${{ !matrix.cli-only && !matrix.use-cross }} # No sense to build on the same Github runner hosts many times

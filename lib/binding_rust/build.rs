@@ -28,7 +28,6 @@ fn main() {
         .flag_if_supported("-std=c99")
         .flag_if_supported("-fvisibility=hidden")
         .flag_if_supported("-Wshadow")
-        .flag_if_supported("-Werror")
         .include(src_path)
         .include("include")
         .file(src_path.join("lib.c"))
