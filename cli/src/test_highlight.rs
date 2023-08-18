@@ -38,12 +38,17 @@ impl std::fmt::Display for Failure {
     }
 }
 
-pub fn test_highlights(loader: &Loader, directory: &Path) -> Result<()> {
+pub fn test_highlights(loader: &Loader, directory: &Path, apply_all_captures: bool) -> Result<()> {
     println!("syntax highlighting:");
-    test_highlights_indented(loader, directory, 2)
+    test_highlights_indented(loader, directory, apply_all_captures, 2)
 }
 
-fn test_highlights_indented(loader: &Loader, directory: &Path, indent_level: usize) -> Result<()> {
+fn test_highlights_indented(
+    loader: &Loader,
+    directory: &Path,
+    apply_all_captures: bool,
+    indent_level: usize,
+) -> Result<()> {
     let mut failed = false;
     let mut highlighter = Highlighter::new();
 
@@ -58,7 +63,12 @@ fn test_highlights_indented(loader: &Loader, directory: &Path, indent_level: usi
         );
         if test_file_path.is_dir() && !test_file_path.read_dir()?.next().is_none() {
             println!("{}:", test_file_name.into_string().unwrap());
-            if let Err(_) = test_highlights_indented(loader, &test_file_path, indent_level + 1) {
+            if let Err(_) = test_highlights_indented(
+                loader,
+                &test_file_path,
+                apply_all_captures,
+                indent_level + 1,
+            ) {
                 failed = true;
             }
         } else {
@@ -66,7 +76,7 @@ fn test_highlights_indented(loader: &Loader, directory: &Path, indent_level: usi
                 .language_configuration_for_file_name(&test_file_path)?
                 .ok_or_else(|| anyhow!("No language found for path {:?}", test_file_path))?;
             let highlight_config = language_config
-                .highlight_config(language)?
+                .highlight_config(language, apply_all_captures, None)?
                 .ok_or_else(|| anyhow!("No highlighting config found for {:?}", test_file_path))?;
             match test_highlight(
                 &loader,
@@ -111,7 +121,7 @@ pub fn iterate_assertions(
     // Iterate through all of the highlighting assertions, checking each one against the
     // actual highlights.
     let mut i = 0;
-    let mut actual_highlights = Vec::<&String>::new();
+    let mut actual_highlights = Vec::new();
     for Assertion {
         position,
         negative,
@@ -202,7 +212,7 @@ pub fn get_highlight_positions(
     let source = String::from_utf8_lossy(source);
     let mut char_indices = source.char_indices();
     for event in highlighter.highlight(highlight_config, source.as_bytes(), None, |string| {
-        loader.highlight_config_for_injection_string(string)
+        loader.highlight_config_for_injection_string(string, highlight_config.apply_all_captures)
     })? {
         match event? {
             HighlightEvent::HighlightStart(h) => highlight_stack.push(h),

@@ -484,6 +484,7 @@ impl Loader {
     pub fn highlight_config_for_injection_string<'a>(
         &'a self,
         string: &str,
+        apply_all_captures: bool,
     ) -> Option<&'a HighlightConfiguration> {
         match self.language_configuration_for_injection_string(string) {
             Err(e) => {
@@ -494,17 +495,19 @@ impl Loader {
                 None
             }
             Ok(None) => None,
-            Ok(Some((language, configuration))) => match configuration.highlight_config(language) {
-                Err(e) => {
-                    eprintln!(
-                        "Failed to load property sheet for injection string '{}': {}",
-                        string, e
-                    );
-                    None
+            Ok(Some((language, configuration))) => {
+                match configuration.highlight_config(language, apply_all_captures, None) {
+                    Err(e) => {
+                        eprintln!(
+                            "Failed to load property sheet for injection string '{}': {}",
+                            string, e
+                        );
+                        None
+                    }
+                    Ok(None) => None,
+                    Ok(Some(config)) => Some(config),
                 }
-                Ok(None) => None,
-                Ok(Some(config)) => Some(config),
-            },
+            }
         }
     }
 
@@ -701,16 +704,65 @@ impl Loader {
 }
 
 impl<'a> LanguageConfiguration<'a> {
-    pub fn highlight_config(&self, language: Language) -> Result<Option<&HighlightConfiguration>> {
+    pub fn highlight_config(
+        &self,
+        language: Language,
+        apply_all_captures: bool,
+        paths: Option<&[String]>,
+    ) -> Result<Option<&HighlightConfiguration>> {
+        let (highlights_filenames, injections_filenames, locals_filenames) = match paths {
+            Some(paths) => (
+                Some(
+                    paths
+                        .iter()
+                        .filter(|p| p.ends_with("highlights.scm"))
+                        .cloned()
+                        .collect(),
+                ),
+                Some(
+                    paths
+                        .iter()
+                        .filter(|p| p.ends_with("tags.scm"))
+                        .cloned()
+                        .collect(),
+                ),
+                Some(
+                    paths
+                        .iter()
+                        .filter(|p| p.ends_with("locals.scm"))
+                        .cloned()
+                        .collect(),
+                ),
+            ),
+            None => (None, None, None),
+        };
         return self
             .highlight_config
             .get_or_try_init(|| {
-                let (highlights_query, highlight_ranges) =
-                    self.read_queries(&self.highlights_filenames, "highlights.scm")?;
-                let (injections_query, injection_ranges) =
-                    self.read_queries(&self.injections_filenames, "injections.scm")?;
-                let (locals_query, locals_ranges) =
-                    self.read_queries(&self.locals_filenames, "locals.scm")?;
+                let (highlights_query, highlight_ranges) = self.read_queries(
+                    if highlights_filenames.is_some() {
+                        &highlights_filenames
+                    } else {
+                        &self.highlights_filenames
+                    },
+                    "highlights.scm",
+                )?;
+                let (injections_query, injection_ranges) = self.read_queries(
+                    if injections_filenames.is_some() {
+                        &injections_filenames
+                    } else {
+                        &self.injections_filenames
+                    },
+                    "injections.scm",
+                )?;
+                let (locals_query, locals_ranges) = self.read_queries(
+                    if locals_filenames.is_some() {
+                        &locals_filenames
+                    } else {
+                        &self.locals_filenames
+                    },
+                    "locals.scm",
+                )?;
 
                 if highlights_query.is_empty() {
                     Ok(None)
@@ -720,6 +772,7 @@ impl<'a> LanguageConfiguration<'a> {
                         &highlights_query,
                         &injections_query,
                         &locals_query,
+                        apply_all_captures,
                     )
                     .map_err(|error| match error.kind {
                         QueryErrorKind::Language => Error::from(error),

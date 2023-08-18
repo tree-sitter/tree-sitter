@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Error, Result};
 use clap::{App, AppSettings, Arg, SubCommand};
 use glob::glob;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::{env, fs, u64};
 use tree_sitter::{ffi, Point};
@@ -77,6 +78,10 @@ fn run() -> Result<()> {
         .help("Suppress main output")
         .long("quiet")
         .short("q");
+
+    let apply_all_captures_arg = Arg::with_name("apply-all-captures")
+        .help("Apply all captures to highlights")
+        .long("apply-all-captures");
 
     let matches = App::new("tree-sitter")
         .author("Max Brunsfeld <maxbrunsfeld@gmail.com>")
@@ -236,7 +241,8 @@ fn run() -> Result<()> {
                 )
                 .arg(&debug_arg)
                 .arg(&debug_build_arg)
-                .arg(&debug_graph_arg),
+                .arg(&debug_graph_arg)
+                .arg(&apply_all_captures_arg),
         )
         .subcommand(
             SubCommand::with_name("highlight")
@@ -252,11 +258,26 @@ fn run() -> Result<()> {
                         .help("Check that highlighting captures conform strictly to standards")
                         .long("check"),
                 )
+                .arg(
+                    Arg::with_name("captures-path")
+                        .help("Path to a file with captures")
+                        .long("captures-path")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("query-paths")
+                        .help("Paths to files with queries")
+                        .long("query-paths")
+                        .takes_value(true)
+                        .multiple(true)
+                        .number_of_values(1),
+                )
                 .arg(&scope_arg)
                 .arg(&time_arg)
                 .arg(&quiet_arg)
                 .arg(&paths_file_arg)
-                .arg(&paths_arg),
+                .arg(&paths_arg)
+                .arg(&apply_all_captures_arg),
         )
         .subcommand(
             SubCommand::with_name("build-wasm")
@@ -362,6 +383,7 @@ fn run() -> Result<()> {
             let debug_build = matches.is_present("debug-build");
             let update = matches.is_present("update");
             let filter = matches.value_of("filter");
+            let apply_all_captures = matches.is_present("apply-all-captures");
 
             if debug {
                 // For augmenting debug logging in external scanners
@@ -398,7 +420,7 @@ fn run() -> Result<()> {
             // Run the syntax highlighting tests.
             let test_highlight_dir = test_dir.join("highlight");
             if test_highlight_dir.is_dir() {
-                test_highlight::test_highlights(&loader, &test_highlight_dir)?;
+                test_highlight::test_highlights(&loader, &test_highlight_dir, apply_all_captures)?;
             }
 
             let test_tag_dir = test_dir.join("tags");
@@ -562,6 +584,7 @@ fn run() -> Result<()> {
             let html_mode = quiet || matches.is_present("html");
             let should_check = matches.is_present("check");
             let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
+            let apply_all_captures = matches.is_present("apply-all-captures");
 
             if html_mode && !quiet {
                 println!("{}", highlight::HTML_HEADER);
@@ -577,6 +600,15 @@ fn run() -> Result<()> {
                 }
             }
 
+            let query_paths = matches.values_of("query-paths").map_or(None, |e| {
+                Some(
+                    e.collect::<Vec<_>>()
+                        .into_iter()
+                        .map(|s| s.to_string())
+                        .collect::<Vec<_>>(),
+                )
+            });
+
             for path in paths {
                 let path = Path::new(&path);
                 let (language, language_config) = match lang {
@@ -590,9 +622,28 @@ fn run() -> Result<()> {
                     },
                 };
 
-                if let Some(highlight_config) = language_config.highlight_config(language)? {
+                if let Some(highlight_config) = language_config.highlight_config(
+                    language,
+                    apply_all_captures,
+                    query_paths.as_deref(),
+                )? {
                     if should_check {
-                        let names = highlight_config.nonconformant_capture_names();
+                        let names = if let Some(path) = matches.value_of("captures-path") {
+                            let path = Path::new(path);
+                            let file = fs::read_to_string(path)?;
+                            let capture_names = file
+                                .lines()
+                                .filter_map(|line| {
+                                    if line.trim().is_empty() || line.trim().starts_with(';') {
+                                        return None;
+                                    }
+                                    line.split(';').next().map(|s| s.trim().trim_matches('"'))
+                                })
+                                .collect::<HashSet<_>>();
+                            highlight_config.nonconformant_capture_names(&capture_names)
+                        } else {
+                            highlight_config.nonconformant_capture_names(&HashSet::new())
+                        };
                         if names.is_empty() {
                             eprintln!("All highlight captures conform to standards.");
                         } else {

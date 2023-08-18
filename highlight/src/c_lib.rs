@@ -70,6 +70,7 @@ pub extern "C" fn ts_highlighter_add_language(
     highlight_query_len: u32,
     injection_query_len: u32,
     locals_query_len: u32,
+    apply_all_captures: bool,
 ) -> ErrorCode {
     let f = move || {
         let this = unwrap_mut_ptr(this);
@@ -109,9 +110,14 @@ pub extern "C" fn ts_highlighter_add_language(
             ""
         };
 
-        let mut config =
-            HighlightConfiguration::new(language, highlight_query, injection_query, locals_query)
-                .or(Err(ErrorCode::InvalidQuery))?;
+        let mut config = HighlightConfiguration::new(
+            language,
+            highlight_query,
+            injection_query,
+            locals_query,
+            apply_all_captures,
+        )
+        .or(Err(ErrorCode::InvalidQuery))?;
         config.configure(&this.highlight_names.as_slice());
         this.languages.insert(scope_name, (injection_regex, config));
 

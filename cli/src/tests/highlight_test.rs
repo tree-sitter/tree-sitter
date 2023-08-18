@@ -522,6 +522,7 @@ fn test_highlighting_via_c_api() {
         highlights_query.len() as u32,
         injections_query.len() as u32,
         locals_query.len() as u32,
+        false,
     );
 
     let html_scope = c_string("text.html.basic");
@@ -541,6 +542,7 @@ fn test_highlighting_via_c_api() {
         highlights_query.len() as u32,
         injections_query.len() as u32,
         0,
+        false,
     );
 
     let buffer = c::ts_highlight_buffer_new();
@@ -585,6 +587,65 @@ fn test_highlighting_via_c_api() {
 
     c::ts_highlighter_delete(highlighter);
     c::ts_highlight_buffer_delete(buffer);
+}
+
+#[test]
+fn test_highlighting_with_all_captures_applied() {
+    let source = "fn main(a: u32, b: u32) -> { let c = a + b; }";
+    let language = get_language("rust");
+    let highlights_query = indoc::indoc! {"
+        [
+          \"fn\"
+          \"let\"
+        ] @keyword
+        (identifier) @variable
+        (function_item name: (identifier) @function)
+        (parameter pattern: (identifier) @variable.parameter)
+        (primitive_type) @type.builtin
+        \"=\" @operator
+        [ \"->\" \":\" \";\" ] @punctuation.delimiter
+        [ \"{\" \"}\" \"(\" \")\" ] @punctuation.bracket
+    "};
+    let mut rust_highlight_reverse =
+        HighlightConfiguration::new(language, &highlights_query, "", "", true).unwrap();
+    rust_highlight_reverse.configure(&HIGHLIGHT_NAMES);
+
+    assert_eq!(
+        &to_token_vector(&source, &rust_highlight_reverse).unwrap(),
+        &[[
+            ("fn", vec!["keyword"]),
+            (" ", vec![]),
+            ("main", vec!["function"]),
+            ("(", vec!["punctuation.bracket"]),
+            ("a", vec!["variable.parameter"]),
+            (":", vec!["punctuation.delimiter"]),
+            (" ", vec![]),
+            ("u32", vec!["type.builtin"]),
+            (", ", vec![]),
+            ("b", vec!["variable.parameter"]),
+            (":", vec!["punctuation.delimiter"]),
+            (" ", vec![]),
+            ("u32", vec!["type.builtin"]),
+            (")", vec!["punctuation.bracket"]),
+            (" ", vec![]),
+            ("->", vec!["punctuation.delimiter"]),
+            (" ", vec![]),
+            ("{", vec!["punctuation.bracket"]),
+            (" ", vec![]),
+            ("let", vec!["keyword"]),
+            (" ", vec![]),
+            ("c", vec!["variable"]),
+            (" ", vec![]),
+            ("=", vec!["operator"]),
+            (" ", vec![]),
+            ("a", vec!["variable"]),
+            (" + ", vec![]),
+            ("b", vec!["variable"]),
+            (";", vec!["punctuation.delimiter"]),
+            (" ", vec![]),
+            ("}", vec!["punctuation.bracket"])
+        ]],
+    );
 }
 
 #[test]

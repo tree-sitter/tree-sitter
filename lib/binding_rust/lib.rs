@@ -251,6 +251,7 @@ enum TextPredicate {
     CaptureEqString(u32, String, bool),
     CaptureEqCapture(u32, u32, bool),
     CaptureMatchString(u32, regex::bytes::Regex, bool),
+    CaptureAnyString(u32, Vec<String>, bool),
 }
 
 // TODO: Remove this struct at at some point. If `core::str::lossy::Utf8Lossy`
@@ -1811,6 +1812,38 @@ impl Query {
                         operator_name == "is?",
                     )),
 
+                    "any-of?" | "not-any-of?" => {
+                        if p.len() < 2 {
+                            return Err(predicate_error(row, format!(
+                                "Wrong number of arguments to #any-of? predicate. Expected at least 1, got {}.",
+                                p.len() - 1
+                            )));
+                        }
+                        if p[1].type_ != type_capture {
+                            return Err(predicate_error(row, format!(
+                                "First argument to #any-of? predicate must be a capture name. Got literal \"{}\".",
+                                string_values[p[1].value_id as usize],
+                            )));
+                        }
+
+                        let is_positive = operator_name == "any-of?";
+                        let mut values = Vec::new();
+                        for arg in &p[2..] {
+                            if arg.type_ == type_capture {
+                                return Err(predicate_error(row, format!(
+                                    "Arguments to #any-of? predicate must be literals. Got capture @{}.",
+                                    result.capture_names[arg.value_id as usize],
+                                )));
+                            }
+                            values.push(string_values[arg.value_id as usize].clone());
+                        }
+                        text_predicates.push(TextPredicate::CaptureAnyString(
+                            p[1].value_id,
+                            values,
+                            is_positive,
+                        ));
+                    }
+
                     _ => general_predicates.push(QueryPredicate {
                         operator: operator_name.clone().into_boxed_str(),
                         args: p[1..]
@@ -2261,6 +2294,17 @@ impl<'tree> QueryMatch<'_, 'tree> {
                             let mut text = text_provider.text(node);
                             let text = node_text1.get_text(&mut text);
                             r.is_match(text) == *is_positive
+                        }
+                        None => true,
+                    }
+                }
+                TextPredicate::CaptureAnyString(i, v, is_positive) => {
+                    let node = self.nodes_for_capture_index(*i).next();
+                    match node {
+                        Some(node) => {
+                            let mut text = text_provider.text(node);
+                            let text = node_text1.get_text(&mut text);
+                            v.iter().any(|s| text == s.as_bytes()) == *is_positive
                         }
                         None => true,
                     }

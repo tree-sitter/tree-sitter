@@ -2842,6 +2842,14 @@ fn test_query_captures_with_text_conditions() {
             ((identifier) @function.builtin
              (#eq? @function.builtin "require"))
 
+            ((identifier) @variable.builtin
+              (#any-of? @variable.builtin
+                        "arguments"
+                        "module"
+                        "console"
+                        "window"
+                        "document"))
+
             ((identifier) @variable
              (#not-match? @variable "^(lambda|load)$"))
             "#,
@@ -2855,6 +2863,9 @@ fn test_query_captures_with_text_conditions() {
           lambda
           const ab = require('./ab');
           new Cd(EF);
+          document;
+          module;
+          console;
         ";
 
         let mut parser = Parser::new();
@@ -2876,6 +2887,12 @@ fn test_query_captures_with_text_conditions() {
                 ("constant", "EF"),
                 ("constructor", "EF"),
                 ("variable", "EF"),
+                ("variable.builtin", "document"),
+                ("variable", "document"),
+                ("variable.builtin", "module"),
+                ("variable", "module"),
+                ("variable.builtin", "console"),
+                ("variable", "console"),
             ],
         );
     });
