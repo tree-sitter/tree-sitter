@@ -66,13 +66,23 @@ pub extern "C" fn ts_tagger_new() -> *mut TSTagger {
     }))
 }
 
+/// Delete a TSTagger.
+///
+/// # Safety
+///
+/// `this` must be non-null
 #[no_mangle]
-pub extern "C" fn ts_tagger_delete(this: *mut TSTagger) {
+pub unsafe extern "C" fn ts_tagger_delete(this: *mut TSTagger) {
     drop(unsafe { Box::from_raw(this) })
 }
 
+/// Add a language to a TSTagger.
+///
+/// # Safety
+///
+/// `this` must be non-null
 #[no_mangle]
-pub extern "C" fn ts_tagger_add_language(
+pub unsafe extern "C" fn ts_tagger_add_language(
     this: *mut TSTagger,
     scope_name: *const c_char,
     language: Language,
@@ -84,7 +94,7 @@ pub extern "C" fn ts_tagger_add_language(
     let tagger = unwrap_mut_ptr(this);
     let scope_name = unsafe { unwrap(CStr::from_ptr(scope_name).to_str()) };
     let tags_query = unsafe { slice::from_raw_parts(tags_query, tags_query_len as usize) };
-    let locals_query = if locals_query != std::ptr::null() {
+    let locals_query = if !locals_query.is_null() {
         unsafe { slice::from_raw_parts(locals_query, locals_query_len as usize) }
     } else {
         &[]
@@ -111,8 +121,13 @@ pub extern "C" fn ts_tagger_add_language(
     }
 }
 
+/// Tag some source code.
+///
+/// # Safety
+///
+/// `this` must be non-null
 #[no_mangle]
-pub extern "C" fn ts_tagger_tag(
+pub unsafe extern "C" fn ts_tagger_tag(
     this: *mut TSTagger,
     scope_name: *const c_char,
     source_code: *const u8,
@@ -201,8 +216,13 @@ pub extern "C" fn ts_tags_buffer_new() -> *mut TSTagsBuffer {
     }))
 }
 
+/// Delete a TSTagsBuffer.
+///
+/// # Safety
+///
+/// `this` must be non-null
 #[no_mangle]
-pub extern "C" fn ts_tags_buffer_delete(this: *mut TSTagsBuffer) {
+pub unsafe extern "C" fn ts_tags_buffer_delete(this: *mut TSTagsBuffer) {
     drop(unsafe { Box::from_raw(this) })
 }
 
@@ -236,8 +256,13 @@ pub extern "C" fn ts_tags_buffer_found_parse_error(this: *const TSTagsBuffer) ->
     buffer.errors_present
 }
 
+/// Get the syntax kinds for a given scope name.
+///
+/// # Safety
+///
+/// `this` must be non-null
 #[no_mangle]
-pub extern "C" fn ts_tagger_syntax_kinds_for_scope_name(
+pub unsafe extern "C" fn ts_tagger_syntax_kinds_for_scope_name(
     this: *mut TSTagger,
     scope_name: *const c_char,
     len: *mut u32,

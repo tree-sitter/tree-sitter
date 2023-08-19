@@ -32,8 +32,14 @@ pub enum ErrorCode {
     InvalidLanguageName,
 }
 
+/// Create a new [`TSHighlighter`] instance.
+///
+/// # Safety
+///
+/// The caller must ensure that the `highlight_names` and `attribute_strings` arrays are valid for
+/// the lifetime of the returned [`TSHighlighter`] instance, and are non-null.
 #[no_mangle]
-pub extern "C" fn ts_highlighter_new(
+pub unsafe extern "C" fn ts_highlighter_new(
     highlight_names: *const *const c_char,
     attribute_strings: *const *const c_char,
     highlight_count: u32,
@@ -43,11 +49,11 @@ pub extern "C" fn ts_highlighter_new(
     let attribute_strings =
         unsafe { slice::from_raw_parts(attribute_strings, highlight_count as usize) };
     let highlight_names = highlight_names
-        .into_iter()
+        .iter()
         .map(|s| unsafe { CStr::from_ptr(*s).to_string_lossy().to_string() })
         .collect::<Vec<_>>();
     let attribute_strings = attribute_strings
-        .into_iter()
+        .iter()
         .map(|s| unsafe { CStr::from_ptr(*s).to_bytes() })
         .collect();
     let carriage_return_index = highlight_names.iter().position(|s| s == "carriage-return");
@@ -59,8 +65,14 @@ pub extern "C" fn ts_highlighter_new(
     }))
 }
 
+/// Add a language to a [`TSHighlighter`] instance.
+///
+/// # Safety
+///
+/// The caller must ensure that any `*const c_char` parameters are valid for the lifetime of
+/// the [`TSHighlighter`] instance, and are non-null.
 #[no_mangle]
-pub extern "C" fn ts_highlighter_add_language(
+pub unsafe extern "C" fn ts_highlighter_add_language(
     this: *mut TSHighlighter,
     language_name: *const c_char,
     scope_name: *const c_char,
@@ -125,7 +137,7 @@ pub extern "C" fn ts_highlighter_add_language(
             apply_all_captures,
         )
         .or(Err(ErrorCode::InvalidQuery))?;
-        config.configure(&this.highlight_names.as_slice());
+        config.configure(this.highlight_names.as_slice());
         this.languages.insert(scope_name, (injection_regex, config));
 
         Ok(())
@@ -145,13 +157,23 @@ pub extern "C" fn ts_highlight_buffer_new() -> *mut TSHighlightBuffer {
     }))
 }
 
+/// Deleteis a [`TSHighlighter`] instance.
+///
+/// # Safety
+///
+/// `this` must be non-null.
 #[no_mangle]
-pub extern "C" fn ts_highlighter_delete(this: *mut TSHighlighter) {
+pub unsafe extern "C" fn ts_highlighter_delete(this: *mut TSHighlighter) {
     drop(unsafe { Box::from_raw(this) })
 }
 
+/// Deleteis a [`TSHighlightBuffer`] instance.
+///
+/// # Safety
+///
+/// `this` must be non-null.
 #[no_mangle]
-pub extern "C" fn ts_highlight_buffer_delete(this: *mut TSHighlightBuffer) {
+pub unsafe extern "C" fn ts_highlight_buffer_delete(this: *mut TSHighlightBuffer) {
     drop(unsafe { Box::from_raw(this) })
 }
 
@@ -179,8 +201,14 @@ pub extern "C" fn ts_highlight_buffer_line_count(this: *const TSHighlightBuffer)
     this.renderer.line_offsets.len() as u32
 }
 
+/// Highlight a string of source code.
+///
+/// # Safety
+///
+/// The caller must ensure that `scope_name`, `source_code`, and `cancellation_flag` are valid for
+/// the lifetime of the [`TSHighlighter`] instance, and are non-null.
 #[no_mangle]
-pub extern "C" fn ts_highlighter_highlight(
+pub unsafe extern "C" fn ts_highlighter_highlight(
     this: *const TSHighlighter,
     scope_name: *const c_char,
     source_code: *const c_char,
@@ -238,15 +266,8 @@ impl TSHighlighter {
                 .renderer
                 .render(highlights, source_code, &|s| self.attribute_strings[s.0]);
             match result {
-                Err(Error::Cancelled) => {
-                    return ErrorCode::Timeout;
-                }
-                Err(Error::InvalidLanguage) => {
-                    return ErrorCode::InvalidLanguage;
-                }
-                Err(Error::Unknown) => {
-                    return ErrorCode::Timeout;
-                }
+                Err(Error::Cancelled) | Err(Error::Unknown) => ErrorCode::Timeout,
+                Err(Error::InvalidLanguage) => ErrorCode::InvalidLanguage,
                 Ok(()) => ErrorCode::Ok,
             }
         } else {
