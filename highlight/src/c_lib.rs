@@ -47,11 +47,11 @@ pub unsafe extern "C" fn ts_highlighter_new(
     let highlight_names = slice::from_raw_parts(highlight_names, highlight_count as usize);
     let attribute_strings = slice::from_raw_parts(attribute_strings, highlight_count as usize);
     let highlight_names = highlight_names
-        .into_iter()
+        .iter()
         .map(|s| CStr::from_ptr(*s).to_string_lossy().to_string())
         .collect::<Vec<_>>();
     let attribute_strings = attribute_strings
-        .into_iter()
+        .iter()
         .map(|s| CStr::from_ptr(*s).to_bytes())
         .collect();
     let carriage_return_index = highlight_names.iter().position(|s| s == "carriage-return");
@@ -65,9 +65,14 @@ pub unsafe extern "C" fn ts_highlighter_new(
 
 /// Add a language to a [`TSHighlighter`] instance.
 ///
+/// Returns an [`ErrorCode`] indicating whether the language was added successfully or not.
+///
 /// # Safety
 ///
-/// The caller must ensure that any `*const c_char` parameters are valid for the lifetime of
+/// `this` must be non-null and must be a valid pointer to a [`TSHighlighter`] instance
+/// created by [`ts_highlighter_new`].
+///
+/// The caller must ensure that any `*const c_char` (C-style string) parameters are valid for the lifetime of
 /// the [`TSHighlighter`] instance, and are non-null.
 #[no_mangle]
 pub unsafe extern "C" fn ts_highlighter_add_language(
@@ -119,7 +124,7 @@ pub unsafe extern "C" fn ts_highlighter_add_language(
             ""
         };
 
-        let lang = unsafe { CStr::from_ptr(language_name) }
+        let lang = CStr::from_ptr(language_name)
             .to_str()
             .or(Err(ErrorCode::InvalidLanguageName))?;
 
@@ -152,32 +157,60 @@ pub extern "C" fn ts_highlight_buffer_new() -> *mut TSHighlightBuffer {
     }))
 }
 
-/// Deleteis a [`TSHighlighter`] instance.
+/// Deletes a [`TSHighlighter`] instance.
 ///
 /// # Safety
 ///
-/// `this` must be non-null.
+/// `this` must be non-null and must be a valid pointer to a [`TSHighlighter`] instance
+/// created by [`ts_highlighter_new`].
+///
+/// It cannot be used after this function is called.
 #[no_mangle]
 pub unsafe extern "C" fn ts_highlighter_delete(this: *mut TSHighlighter) {
     drop(Box::from_raw(this))
 }
 
-/// Deleteis a [`TSHighlightBuffer`] instance.
+/// Deletes a [`TSHighlightBuffer`] instance.
 ///
 /// # Safety
 ///
-/// `this` must be non-null.
+/// `this` must be non-null and must be a valid pointer to a [`TSHighlightBuffer`] instance
+/// created by [`ts_highlight_buffer_new`]
+///
+/// It cannot be used after this function is called.
 #[no_mangle]
 pub unsafe extern "C" fn ts_highlight_buffer_delete(this: *mut TSHighlightBuffer) {
     drop(Box::from_raw(this))
 }
 
+/// Get the HTML content of a [`TSHighlightBuffer`] instance as a raw pointer.
+///
+/// # Safety
+///
+/// `this` must be non-null and must be a valid pointer to a [`TSHighlightBuffer`] instance
+/// created by [`ts_highlight_buffer_new`].
+///
+/// The returned pointer, a C-style string, must not outlive the [`TSHighlightBuffer`] instance, else the
+/// data will point to garbage.
+///
+/// To get the length of the HTML content, use [`ts_highlight_buffer_len`].
 #[no_mangle]
 pub unsafe extern "C" fn ts_highlight_buffer_content(this: *const TSHighlightBuffer) -> *const u8 {
     let this = unwrap_ptr(this);
     this.renderer.html.as_slice().as_ptr()
 }
 
+/// Get the line offsets of a [`TSHighlightBuffer`] instance as a C-style array.
+///
+/// # Safety
+///
+/// `this` must be non-null and must be a valid pointer to a [`TSHighlightBuffer`] instance
+/// created by [`ts_highlight_buffer_new`].
+///
+/// The returned pointer, a C-style array of [`u32`]s, must not outlive the [`TSHighlightBuffer`] instance, else the
+/// data will point to garbage.
+///
+/// To get the length of the array, use [`ts_highlight_buffer_line_count`].
 #[no_mangle]
 pub unsafe extern "C" fn ts_highlight_buffer_line_offsets(
     this: *const TSHighlightBuffer,
@@ -186,12 +219,24 @@ pub unsafe extern "C" fn ts_highlight_buffer_line_offsets(
     this.renderer.line_offsets.as_slice().as_ptr()
 }
 
+/// Get the length of the HTML content of a [`TSHighlightBuffer`] instance.
+///
+/// # Safety
+///
+/// `this` must be non-null and must be a valid pointer to a [`TSHighlightBuffer`] instance
+/// created by [`ts_highlight_buffer_new`].
 #[no_mangle]
 pub unsafe extern "C" fn ts_highlight_buffer_len(this: *const TSHighlightBuffer) -> u32 {
     let this = unwrap_ptr(this);
     this.renderer.html.len() as u32
 }
 
+/// Get the number of lines in a [`TSHighlightBuffer`] instance.
+///
+/// # Safety
+///
+/// `this` must be non-null and must be a valid pointer to a [`TSHighlightBuffer`] instance
+/// created by [`ts_highlight_buffer_new`].
 #[no_mangle]
 pub unsafe extern "C" fn ts_highlight_buffer_line_count(this: *const TSHighlightBuffer) -> u32 {
     let this = unwrap_ptr(this);
@@ -202,8 +247,10 @@ pub unsafe extern "C" fn ts_highlight_buffer_line_count(this: *const TSHighlight
 ///
 /// # Safety
 ///
-/// The caller must ensure that `scope_name`, `source_code`, and `cancellation_flag` are valid for
+/// The caller must ensure that `scope_name`, `source_code`, `output`, and `cancellation_flag` are valid for
 /// the lifetime of the [`TSHighlighter`] instance, and are non-null.
+///
+/// `this` must be a non-null pointer to a [`TSHighlighter`] instance created by [`ts_highlighter_new`]
 #[no_mangle]
 pub unsafe extern "C" fn ts_highlighter_highlight(
     this: *const TSHighlighter,
