@@ -568,10 +568,10 @@ fn test_highlighting_via_c_api() {
         );
     }
 
-    let output_bytes = c::ts_highlight_buffer_content(buffer);
-    let output_line_offsets = c::ts_highlight_buffer_line_offsets(buffer);
-    let output_len = c::ts_highlight_buffer_len(buffer);
-    let output_line_count = c::ts_highlight_buffer_line_count(buffer);
+    let output_bytes = unsafe { c::ts_highlight_buffer_content(buffer) };
+    let output_line_offsets = unsafe { c::ts_highlight_buffer_line_offsets(buffer) };
+    let output_len = unsafe { c::ts_highlight_buffer_len(buffer) };
+    let output_line_count = unsafe { c::ts_highlight_buffer_line_count(buffer) };
 
     let output_bytes = unsafe { slice::from_raw_parts(output_bytes, output_len as usize) };
     let output_line_offsets =

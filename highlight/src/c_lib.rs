@@ -44,17 +44,15 @@ pub unsafe extern "C" fn ts_highlighter_new(
     attribute_strings: *const *const c_char,
     highlight_count: u32,
 ) -> *mut TSHighlighter {
-    let highlight_names =
-        unsafe { slice::from_raw_parts(highlight_names, highlight_count as usize) };
-    let attribute_strings =
-        unsafe { slice::from_raw_parts(attribute_strings, highlight_count as usize) };
+    let highlight_names = slice::from_raw_parts(highlight_names, highlight_count as usize);
+    let attribute_strings = slice::from_raw_parts(attribute_strings, highlight_count as usize);
     let highlight_names = highlight_names
-        .iter()
-        .map(|s| unsafe { CStr::from_ptr(*s).to_string_lossy().to_string() })
+        .into_iter()
+        .map(|s| CStr::from_ptr(*s).to_string_lossy().to_string())
         .collect::<Vec<_>>();
     let attribute_strings = attribute_strings
-        .iter()
-        .map(|s| unsafe { CStr::from_ptr(*s).to_bytes() })
+        .into_iter()
+        .map(|s| CStr::from_ptr(*s).to_bytes())
         .collect();
     let carriage_return_index = highlight_names.iter().position(|s| s == "carriage-return");
     Box::into_raw(Box::new(TSHighlighter {
@@ -88,7 +86,7 @@ pub unsafe extern "C" fn ts_highlighter_add_language(
 ) -> ErrorCode {
     let f = move || {
         let this = unwrap_mut_ptr(this);
-        let scope_name = unsafe { CStr::from_ptr(scope_name) };
+        let scope_name = CStr::from_ptr(scope_name);
         let scope_name = scope_name
             .to_str()
             .or(Err(ErrorCode::InvalidUtf8))?
@@ -96,29 +94,26 @@ pub unsafe extern "C" fn ts_highlighter_add_language(
         let injection_regex = if injection_regex.is_null() {
             None
         } else {
-            let pattern = unsafe { CStr::from_ptr(injection_regex) };
+            let pattern = CStr::from_ptr(injection_regex);
             let pattern = pattern.to_str().or(Err(ErrorCode::InvalidUtf8))?;
             Some(Regex::new(pattern).or(Err(ErrorCode::InvalidRegex))?)
         };
 
-        let highlight_query = unsafe {
-            slice::from_raw_parts(highlight_query as *const u8, highlight_query_len as usize)
-        };
+        let highlight_query =
+            slice::from_raw_parts(highlight_query as *const u8, highlight_query_len as usize);
+
         let highlight_query = str::from_utf8(highlight_query).or(Err(ErrorCode::InvalidUtf8))?;
 
         let injection_query = if injection_query_len > 0 {
-            let query = unsafe {
-                slice::from_raw_parts(injection_query as *const u8, injection_query_len as usize)
-            };
+            let query =
+                slice::from_raw_parts(injection_query as *const u8, injection_query_len as usize);
             str::from_utf8(query).or(Err(ErrorCode::InvalidUtf8))?
         } else {
             ""
         };
 
         let locals_query = if locals_query_len > 0 {
-            let query = unsafe {
-                slice::from_raw_parts(locals_query as *const u8, locals_query_len as usize)
-            };
+            let query = slice::from_raw_parts(locals_query as *const u8, locals_query_len as usize);
             str::from_utf8(query).or(Err(ErrorCode::InvalidUtf8))?
         } else {
             ""
@@ -164,7 +159,7 @@ pub extern "C" fn ts_highlight_buffer_new() -> *mut TSHighlightBuffer {
 /// `this` must be non-null.
 #[no_mangle]
 pub unsafe extern "C" fn ts_highlighter_delete(this: *mut TSHighlighter) {
-    drop(unsafe { Box::from_raw(this) })
+    drop(Box::from_raw(this))
 }
 
 /// Deleteis a [`TSHighlightBuffer`] instance.
@@ -174,29 +169,31 @@ pub unsafe extern "C" fn ts_highlighter_delete(this: *mut TSHighlighter) {
 /// `this` must be non-null.
 #[no_mangle]
 pub unsafe extern "C" fn ts_highlight_buffer_delete(this: *mut TSHighlightBuffer) {
-    drop(unsafe { Box::from_raw(this) })
+    drop(Box::from_raw(this))
 }
 
 #[no_mangle]
-pub extern "C" fn ts_highlight_buffer_content(this: *const TSHighlightBuffer) -> *const u8 {
+pub unsafe extern "C" fn ts_highlight_buffer_content(this: *const TSHighlightBuffer) -> *const u8 {
     let this = unwrap_ptr(this);
     this.renderer.html.as_slice().as_ptr()
 }
 
 #[no_mangle]
-pub extern "C" fn ts_highlight_buffer_line_offsets(this: *const TSHighlightBuffer) -> *const u32 {
+pub unsafe extern "C" fn ts_highlight_buffer_line_offsets(
+    this: *const TSHighlightBuffer,
+) -> *const u32 {
     let this = unwrap_ptr(this);
     this.renderer.line_offsets.as_slice().as_ptr()
 }
 
 #[no_mangle]
-pub extern "C" fn ts_highlight_buffer_len(this: *const TSHighlightBuffer) -> u32 {
+pub unsafe extern "C" fn ts_highlight_buffer_len(this: *const TSHighlightBuffer) -> u32 {
     let this = unwrap_ptr(this);
     this.renderer.html.len() as u32
 }
 
 #[no_mangle]
-pub extern "C" fn ts_highlight_buffer_line_count(this: *const TSHighlightBuffer) -> u32 {
+pub unsafe extern "C" fn ts_highlight_buffer_line_count(this: *const TSHighlightBuffer) -> u32 {
     let this = unwrap_ptr(this);
     this.renderer.line_offsets.len() as u32
 }
@@ -218,10 +215,9 @@ pub unsafe extern "C" fn ts_highlighter_highlight(
 ) -> ErrorCode {
     let this = unwrap_ptr(this);
     let output = unwrap_mut_ptr(output);
-    let scope_name = unwrap(unsafe { CStr::from_ptr(scope_name).to_str() });
-    let source_code =
-        unsafe { slice::from_raw_parts(source_code as *const u8, source_code_len as usize) };
-    let cancellation_flag = unsafe { cancellation_flag.as_ref() };
+    let scope_name = unwrap(CStr::from_ptr(scope_name).to_str());
+    let source_code = slice::from_raw_parts(source_code as *const u8, source_code_len as usize);
+    let cancellation_flag = cancellation_flag.as_ref();
     this.highlight(source_code, scope_name, output, cancellation_flag)
 }
 
@@ -276,15 +272,15 @@ impl TSHighlighter {
     }
 }
 
-fn unwrap_ptr<'a, T>(result: *const T) -> &'a T {
-    unsafe { result.as_ref() }.unwrap_or_else(|| {
+unsafe fn unwrap_ptr<'a, T>(result: *const T) -> &'a T {
+    result.as_ref().unwrap_or_else(|| {
         eprintln!("{}:{} - pointer must not be null", file!(), line!());
         abort();
     })
 }
 
-fn unwrap_mut_ptr<'a, T>(result: *mut T) -> &'a mut T {
-    unsafe { result.as_mut() }.unwrap_or_else(|| {
+unsafe fn unwrap_mut_ptr<'a, T>(result: *mut T) -> &'a mut T {
+    result.as_mut().unwrap_or_else(|| {
         eprintln!("{}:{} - pointer must not be null", file!(), line!());
         abort();
     })
