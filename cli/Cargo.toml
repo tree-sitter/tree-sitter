@@ -36,7 +36,8 @@ regex = "1.9.1"
 regex-syntax = "0.7.4"
 rustc-hash = "1.1.0"
 semver = "1.0.18"
-serde = { version = "1.0.171", features = ["derive"] }
+# Due to https://github.com/serde-rs/serde/issues/2538
+serde = { version = "1.0, < 1.0.172", features = ["derive"] }
 smallbitvec = "2.5.1"
 tiny_http = "0.12.0"
 walkdir = "2.3.3"
@@ -64,7 +65,7 @@ version = "0.20"
 path = "../tags"
 
 [dependencies.serde_json]
-version = "1.0.103"
+version = "1.0"
 features = ["preserve_order"]
 
 [dependencies.log]
