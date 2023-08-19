@@ -86,6 +86,7 @@ pub struct LanguageConfiguration<'a> {
     pub injections_filenames: Option<Vec<String>>,
     pub locals_filenames: Option<Vec<String>>,
     pub tags_filenames: Option<Vec<String>>,
+    pub language_name: String,
     language_id: usize,
     highlight_config: OnceCell<Option<HighlightConfiguration>>,
     tags_config: OnceCell<Option<TagsConfiguration>>,
@@ -569,6 +570,11 @@ impl Loader {
             tree_sitter: Vec<LanguageConfigurationJSON>,
         }
 
+        #[derive(Deserialize)]
+        struct GrammarJSON {
+            name: String,
+        }
+
         let initial_language_configuration_count = self.language_configurations.len();
 
         if let Ok(package_json_contents) = fs::read_to_string(&parser_path.join("package.json")) {
@@ -579,6 +585,13 @@ impl Loader {
                     // Determine the path to the parser directory. This can be specified in
                     // the package.json, but defaults to the directory containing the package.json.
                     let language_path = parser_path.join(config_json.path);
+
+                    let grammar_path = language_path.join("src").join("grammar.json");
+                    let mut grammar_file = fs::File::open(grammar_path)
+                        .with_context(|| "Failed to read grammar.json")?;
+                    let grammar_json: GrammarJSON =
+                        serde_json::from_reader(BufReader::new(&mut grammar_file))
+                            .with_context(|| "Failed to parse grammar.json")?;
 
                     // Determine if a previous language configuration in this package.json file
                     // already uses the same language.
@@ -599,6 +612,7 @@ impl Loader {
 
                     let configuration = LanguageConfiguration {
                         root_path: parser_path.to_path_buf(),
+                        language_name: grammar_json.name,
                         scope: config_json.scope,
                         language_id,
                         file_types: config_json.file_types.unwrap_or(Vec::new()),
@@ -631,8 +645,15 @@ impl Loader {
         if self.language_configurations.len() == initial_language_configuration_count
             && parser_path.join("src").join("grammar.json").exists()
         {
+            let grammar_path = parser_path.join("src").join("grammar.json");
+            let mut grammar_file =
+                fs::File::open(grammar_path).with_context(|| "Failed to read grammar.json")?;
+            let grammar_json: GrammarJSON =
+                serde_json::from_reader(BufReader::new(&mut grammar_file))
+                    .with_context(|| "Failed to parse grammar.json")?;
             let configuration = LanguageConfiguration {
                 root_path: parser_path.to_owned(),
+                language_name: grammar_json.name,
                 language_id: self.languages_by_id.len(),
                 file_types: Vec::new(),
                 scope: None,
@@ -769,6 +790,7 @@ impl<'a> LanguageConfiguration<'a> {
                 } else {
                     let mut result = HighlightConfiguration::new(
                         language,
+                        &self.language_name,
                         &highlights_query,
                         &injections_query,
                         &locals_query,
