@@ -4587,7 +4587,7 @@ fn test_query_quantified_captures() {
     // #[rustfmt::skip]
     let rows = &[
         Row {
-            description: "doc comments where all must match the prefiix",
+            description: "doc comments where all must match the prefix",
             language: get_language("c"),
             code: indoc! {"
             /// foo
