@@ -114,7 +114,7 @@ fn test_text_provider_callback_with_str_slice() {
     check_parsing_callback(
         &mut |offset, _point| {
             (offset < text.len())
-                .then(|| text.as_bytes())
+                .then_some(text.as_bytes())
                 .unwrap_or_default()
         },
         |_node: Node<'_>| iter::once(text),
@@ -128,7 +128,7 @@ fn test_text_provider_callback_with_owned_string_slice() {
     check_parsing_callback(
         &mut |offset, _point| {
             (offset < text.len())
-                .then(|| text.as_bytes())
+                .then_some(text.as_bytes())
                 .unwrap_or_default()
         },
         |_node: Node<'_>| {
@@ -145,7 +145,7 @@ fn test_text_provider_callback_with_owned_bytes_vec_slice() {
     check_parsing_callback(
         &mut |offset, _point| {
             (offset < text.len())
-                .then(|| text.as_bytes())
+                .then_some(text.as_bytes())
                 .unwrap_or_default()
         },
         |_node: Node<'_>| {
@@ -162,7 +162,7 @@ fn test_text_provider_callback_with_owned_arc_of_bytes_slice() {
     check_parsing_callback(
         &mut |offset, _point| {
             (offset < text.len())
-                .then(|| text.as_bytes())
+                .then_some(text.as_bytes())
                 .unwrap_or_default()
         },
         |_node: Node<'_>| {

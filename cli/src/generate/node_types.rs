@@ -6,19 +6,19 @@ use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) enum ChildType {
+pub enum ChildType {
     Normal(Symbol),
     Aliased(Alias),
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct FieldInfo {
+pub struct FieldInfo {
     pub quantity: ChildQuantity,
     pub types: Vec<ChildType>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct VariableInfo {
+pub struct VariableInfo {
     pub fields: HashMap<String, FieldInfo>,
     pub children: FieldInfo,
     pub children_without_fields: FieldInfo,
@@ -26,7 +26,7 @@ pub(crate) struct VariableInfo {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Default, PartialOrd, Ord)]
-pub(crate) struct NodeInfoJSON {
+pub struct NodeInfoJSON {
     #[serde(rename = "type")]
     kind: String,
     named: bool,
@@ -39,14 +39,14 @@ pub(crate) struct NodeInfoJSON {
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct NodeTypeJSON {
+pub struct NodeTypeJSON {
     #[serde(rename = "type")]
     kind: String,
     named: bool,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct FieldInfoJSON {
+pub struct FieldInfoJSON {
     multiple: bool,
     required: bool,
     types: Vec<NodeTypeJSON>,
@@ -61,7 +61,7 @@ pub struct ChildQuantity {
 
 impl Default for FieldInfoJSON {
     fn default() -> Self {
-        FieldInfoJSON {
+        Self {
             multiple: false,
             required: true,
             types: Vec::new(),
@@ -76,23 +76,23 @@ impl Default for ChildQuantity {
 }
 
 impl ChildQuantity {
-    fn zero() -> Self {
-        ChildQuantity {
+    const fn zero() -> Self {
+        Self {
             exists: false,
             required: false,
             multiple: false,
         }
     }
 
-    fn one() -> Self {
-        ChildQuantity {
+    const fn one() -> Self {
+        Self {
             exists: true,
             required: true,
             multiple: false,
         }
     }
 
-    fn append(&mut self, other: ChildQuantity) {
+    fn append(&mut self, other: Self) {
         if other.exists {
             if self.exists || other.multiple {
                 self.multiple = true;
@@ -104,7 +104,7 @@ impl ChildQuantity {
         }
     }
 
-    fn union(&mut self, other: ChildQuantity) -> bool {
+    fn union(&mut self, other: Self) -> bool {
         let mut result = false;
         if !self.exists && other.exists {
             result = true;
@@ -144,7 +144,7 @@ impl ChildQuantity {
 /// 2. aliases. If a parent node type `M` is aliased as some other type `N`,
 ///    then nodes which *appear* to have type `N` may have internal structure based
 ///    on `M`.
-pub(crate) fn get_variable_info(
+pub fn get_variable_info(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     default_aliases: &AliasMap,
@@ -308,11 +308,11 @@ pub(crate) fn get_variable_info(
                         .quantity
                         .union(production_children_without_fields_quantity);
 
-                    for (field_name, info) in variable_info.fields.iter_mut() {
+                    for (field_name, info) in &mut variable_info.fields {
                         did_change |= info.quantity.union(
                             production_field_quantities
                                 .get(field_name)
-                                .cloned()
+                                .copied()
                                 .unwrap_or(ChildQuantity::zero()),
                         );
                     }
@@ -345,8 +345,8 @@ pub(crate) fn get_variable_info(
             .types
             .retain(child_type_is_visible);
     }
-    for variable_info in result.iter_mut() {
-        for (_, field_info) in variable_info.fields.iter_mut() {
+    for variable_info in &mut result {
+        for field_info in variable_info.fields.values_mut() {
             field_info.types.retain(child_type_is_visible);
         }
         variable_info.fields.retain(|_, v| !v.types.is_empty());
@@ -359,11 +359,11 @@ pub(crate) fn get_variable_info(
     Ok(result)
 }
 
-pub(crate) fn generate_node_types_json(
+pub fn generate_node_types_json(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     default_aliases: &AliasMap,
-    variable_info: &Vec<VariableInfo>,
+    variable_info: &[VariableInfo],
 ) -> Vec<NodeInfoJSON> {
     let mut node_types_json = BTreeMap::new();
 
@@ -373,7 +373,7 @@ pub(crate) fn generate_node_types_json(
             named: alias.is_named,
         },
         ChildType::Normal(symbol) => {
-            if let Some(alias) = default_aliases.get(&symbol) {
+            if let Some(alias) = default_aliases.get(symbol) {
                 NodeTypeJSON {
                     kind: alias.value.clone(),
                     named: alias.is_named,
@@ -408,15 +408,15 @@ pub(crate) fn generate_node_types_json(
     };
 
     let populate_field_info_json = |json: &mut FieldInfoJSON, info: &FieldInfo| {
-        if info.types.len() > 0 {
+        if info.types.is_empty() {
+            json.required = false;
+        } else {
             json.multiple |= info.quantity.multiple;
             json.required &= info.quantity.required;
             json.types
                 .extend(info.types.iter().map(child_type_to_node_type));
             json.types.sort_unstable();
             json.types.dedup();
-        } else {
-            json.required = false;
         }
     };
 
@@ -451,7 +451,10 @@ pub(crate) fn generate_node_types_json(
             }
         }
     }
-    aliases_by_symbol.insert(Symbol::non_terminal(0), [None].iter().cloned().collect());
+    aliases_by_symbol.insert(
+        Symbol::non_terminal(0),
+        std::iter::once(&None).cloned().collect(),
+    );
 
     let mut subtype_map = Vec::new();
     for (i, info) in variable_info.iter().enumerate() {
@@ -516,7 +519,7 @@ pub(crate) fn generate_node_types_json(
                 });
 
                 let fields_json = node_type_json.fields.as_mut().unwrap();
-                for (new_field, field_info) in info.fields.iter() {
+                for (new_field, field_info) in &info.fields {
                     let field_json = fields_json.entry(new_field.clone()).or_insert_with(|| {
                         // If another rule is aliased with the same name, and does *not* have this field,
                         // then this field cannot be required.
@@ -531,7 +534,7 @@ pub(crate) fn generate_node_types_json(
 
                 // If another rule is aliased with the same name, any fields that aren't present in this
                 // cannot be required.
-                for (existing_field, field_json) in fields_json.iter_mut() {
+                for (existing_field, field_json) in &mut *fields_json {
                     if !info.fields.contains_key(existing_field) {
                         field_json.required = false;
                     }
@@ -558,7 +561,7 @@ pub(crate) fn generate_node_types_json(
         }
     });
 
-    for (_, node_type_json) in node_types_json.iter_mut() {
+    for node_type_json in node_types_json.values_mut() {
         if node_type_json
             .children
             .as_ref()
@@ -571,7 +574,7 @@ pub(crate) fn generate_node_types_json(
             process_supertypes(children, &subtype_map);
         }
         if let Some(fields) = &mut node_type_json.fields {
-            for (_, field_info) in fields.iter_mut() {
+            for field_info in (*fields).values_mut() {
                 process_supertypes(field_info, &subtype_map);
             }
         }
@@ -630,7 +633,7 @@ pub(crate) fn generate_node_types_json(
                     children.required = false;
                 }
                 if let Some(fields) = &mut node_type_json.fields {
-                    for (_, field) in fields.iter_mut() {
+                    for field in (*fields).values_mut() {
                         field.required = false;
                     }
                 }
@@ -647,7 +650,7 @@ pub(crate) fn generate_node_types_json(
     }
 
     let mut result = node_types_json.into_iter().map(|e| e.1).collect::<Vec<_>>();
-    result.extend(anonymous_node_types.into_iter());
+    result.extend(anonymous_node_types);
     result.sort_unstable_by(|a, b| {
         b.subtypes
             .is_some()
@@ -682,9 +685,9 @@ fn variable_type_for_child_type(
     match child_type {
         ChildType::Aliased(alias) => alias.kind(),
         ChildType::Normal(symbol) => {
-            if syntax_grammar.supertype_symbols.contains(&symbol) {
+            if syntax_grammar.supertype_symbols.contains(symbol) {
                 VariableType::Named
-            } else if syntax_grammar.variables_to_inline.contains(&symbol) {
+            } else if syntax_grammar.variables_to_inline.contains(symbol) {
                 VariableType::Hidden
             } else {
                 match symbol.kind {
@@ -700,11 +703,10 @@ fn variable_type_for_child_type(
 
 fn extend_sorted<'a, T>(vec: &mut Vec<T>, values: impl IntoIterator<Item = &'a T>) -> bool
 where
-    T: Clone + Eq + Ord,
-    T: 'a,
+    T: Clone + Eq + Ord + 'a,
 {
     values.into_iter().any(|value| {
-        if let Err(i) = vec.binary_search(&value) {
+        if let Err(i) = vec.binary_search(value) {
             vec.insert(i, value.clone());
             true
         } else {
@@ -1783,10 +1785,11 @@ mod tests {
         variables: Vec<SyntaxVariable>,
         supertype_symbols: Vec<Symbol>,
     ) -> SyntaxGrammar {
-        let mut syntax_grammar = SyntaxGrammar::default();
-        syntax_grammar.variables = variables;
-        syntax_grammar.supertype_symbols = supertype_symbols;
-        syntax_grammar
+        SyntaxGrammar {
+            variables,
+            supertype_symbols,
+            ..Default::default()
+        }
     }
 
     fn build_lexical_grammar() -> LexicalGrammar {

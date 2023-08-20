@@ -21,7 +21,7 @@ struct InlinedProductionMapBuilder {
 }
 
 impl InlinedProductionMapBuilder {
-    fn build<'a>(mut self, grammar: &'a SyntaxGrammar) -> InlinedProductionMap {
+    fn build(mut self, grammar: &SyntaxGrammar) -> InlinedProductionMap {
         let mut step_ids_to_process = Vec::new();
         for (variable_index, variable) in grammar.variables.iter().enumerate() {
             for production_index in 0..variable.productions.len() {
@@ -38,14 +38,14 @@ impl InlinedProductionMapBuilder {
                             if grammar.variables_to_inline.contains(&step.symbol) {
                                 let inlined_step_ids = self
                                     .inline_production_at_step(step_id, grammar)
-                                    .into_iter()
-                                    .cloned()
+                                    .iter()
+                                    .copied()
                                     .map(|production_index| ProductionStepId {
                                         variable_index: None,
                                         production_index,
                                         step_index: step_id.step_index,
                                     });
-                                step_ids_to_process.splice(i..i + 1, inlined_step_ids);
+                                step_ids_to_process.splice(i..=i, inlined_step_ids);
                             } else {
                                 step_ids_to_process[i] = ProductionStepId {
                                     variable_index: step_id.variable_index,
@@ -93,33 +93,33 @@ impl InlinedProductionMapBuilder {
         let mut productions_to_add = vec![self.production_for_id(step_id, grammar).clone()];
         while i < productions_to_add.len() {
             if let Some(step) = productions_to_add[i].steps.get(step_index) {
-                let symbol = step.symbol.clone();
+                let symbol = step.symbol;
                 if grammar.variables_to_inline.contains(&symbol) {
                     // Remove the production from the vector, replacing it with a placeholder.
                     let production = productions_to_add
-                        .splice(i..i + 1, [Production::default()].iter().cloned())
+                        .splice(i..=i, std::iter::once(&Production::default()).cloned())
                         .next()
                         .unwrap();
 
                     // Replace the placeholder with the inlined productions.
                     productions_to_add.splice(
-                        i..i + 1,
+                        i..=i,
                         grammar.variables[symbol.index].productions.iter().map(|p| {
                             let mut production = production.clone();
                             let removed_step = production
                                 .steps
-                                .splice(step_index..(step_index + 1), p.steps.iter().cloned())
+                                .splice(step_index..=step_index, p.steps.iter().cloned())
                                 .next()
                                 .unwrap();
                             let inserted_steps =
                                 &mut production.steps[step_index..(step_index + p.steps.len())];
                             if let Some(alias) = removed_step.alias {
-                                for inserted_step in inserted_steps.iter_mut() {
+                                for inserted_step in &mut *inserted_steps {
                                     inserted_step.alias = Some(alias.clone());
                                 }
                             }
                             if let Some(field_name) = removed_step.field_name {
-                                for inserted_step in inserted_steps.iter_mut() {
+                                for inserted_step in &mut *inserted_steps {
                                     inserted_step.field_name = Some(field_name.clone());
                                 }
                             }
@@ -127,7 +127,7 @@ impl InlinedProductionMapBuilder {
                                 if last_inserted_step.precedence.is_none() {
                                     last_inserted_step.precedence = removed_step.precedence;
                                 }
-                                if last_inserted_step.associativity == None {
+                                if last_inserted_step.associativity.is_none() {
                                     last_inserted_step.associativity = removed_step.associativity;
                                 }
                             }

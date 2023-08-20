@@ -13,7 +13,7 @@ use tree_sitter_cli::{
 use tree_sitter_config::Config;
 use tree_sitter_loader as loader;
 
-const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const BUILD_VERSION: &str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
 const DEFAULT_GENERATE_ABI_VERSION: usize = 14;
 
@@ -27,7 +27,7 @@ fn main() {
             }
         }
         if !err.to_string().is_empty() {
-            eprintln!("{:?}", err);
+            eprintln!("{err:?}");
         }
         std::process::exit(1);
     }
@@ -35,7 +35,7 @@ fn main() {
 
 fn run() -> Result<()> {
     let version = if let Some(build_sha) = BUILD_SHA {
-        format!("{} ({})", BUILD_VERSION, build_sha)
+        format!("{BUILD_VERSION} ({build_sha})")
     } else {
         BUILD_VERSION.to_string()
     };
@@ -457,7 +457,7 @@ fn run() -> Result<()> {
             let time = matches.is_present("time");
             let edits = matches
                 .values_of("edits")
-                .map_or(Vec::new(), |e| e.collect());
+                .map_or(Vec::new(), std::iter::Iterator::collect);
             let cancellation_flag = util::cancel_on_signal();
 
             if debug {
@@ -469,7 +469,7 @@ fn run() -> Result<()> {
 
             let timeout = matches
                 .value_of("timeout")
-                .map_or(0, |t| u64::from_str_radix(t, 10).unwrap());
+                .map_or(0, |t| t.parse::<u64>().unwrap());
 
             let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
 
@@ -500,7 +500,7 @@ fn run() -> Result<()> {
                     encoding,
                 };
 
-                let this_file_errored = parse::parse_file_at_path(opts)?;
+                let this_file_errored = parse::parse_file_at_path(&opts)?;
 
                 if should_track_stats {
                     stats.total_parses += 1;
@@ -513,7 +513,7 @@ fn run() -> Result<()> {
             }
 
             if should_track_stats {
-                println!("{}", stats)
+                println!("{stats}");
             }
 
             if has_error {
@@ -535,19 +535,19 @@ fn run() -> Result<()> {
             )?;
             let query_path = Path::new(matches.value_of("query-path").unwrap());
             let byte_range = matches.value_of("byte-range").and_then(|arg| {
-                let mut parts = arg.split(":");
+                let mut parts = arg.split(':');
                 let start = parts.next()?.parse().ok()?;
                 let end = parts.next().unwrap().parse().ok()?;
                 Some(start..end)
             });
             let point_range = matches.value_of("row-range").and_then(|arg| {
-                let mut parts = arg.split(":");
+                let mut parts = arg.split(':');
                 let start = parts.next()?.parse().ok()?;
                 let end = parts.next().unwrap().parse().ok()?;
                 Some(Point::new(start, 0)..Point::new(end, 0))
             });
             let should_test = matches.is_present("test");
-            query::query_files_at_paths(
+            query::files_at_paths(
                 language,
                 paths,
                 query_path,
@@ -564,7 +564,7 @@ fn run() -> Result<()> {
             let loader_config = config.get()?;
             loader.find_all_languages(&loader_config)?;
             let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
-            tags::generate_tags(
+            tags::generate(
                 &loader,
                 matches.value_of("scope"),
                 &paths,
@@ -600,26 +600,25 @@ fn run() -> Result<()> {
                 }
             }
 
-            let query_paths = matches.values_of("query-paths").map_or(None, |e| {
-                Some(
-                    e.collect::<Vec<_>>()
-                        .into_iter()
-                        .map(|s| s.to_string())
-                        .collect::<Vec<_>>(),
-                )
+            let query_paths = matches.values_of("query-paths").map(|e| {
+                e.collect::<Vec<_>>()
+                    .into_iter()
+                    .map(std::string::ToString::to_string)
+                    .collect::<Vec<_>>()
             });
 
             for path in paths {
                 let path = Path::new(&path);
                 let (language, language_config) = match lang {
                     Some(v) => v,
-                    None => match loader.language_configuration_for_file_name(path)? {
-                        Some(v) => v,
-                        None => {
-                            eprintln!("No language found for path {:?}", path);
+                    None => {
+                        if let Some(v) = loader.language_configuration_for_file_name(path)? {
+                            v
+                        } else {
+                            eprintln!("No language found for path {path:?}");
                             continue;
                         }
-                    },
+                    }
                 };
 
                 if let Some(highlight_config) = language_config.highlight_config(
@@ -656,7 +655,7 @@ fn run() -> Result<()> {
                                 }
                             );
                             for name in names {
-                                eprintln!("* {}", name);
+                                eprintln!("* {name}");
                             }
                         }
                     }
@@ -683,7 +682,7 @@ fn run() -> Result<()> {
                         )?;
                     }
                 } else {
-                    eprintln!("No syntax highlighting config found for path {:?}", path);
+                    eprintln!("No syntax highlighting config found for path {path:?}");
                 }
             }
 
@@ -694,7 +693,7 @@ fn run() -> Result<()> {
 
         ("build-wasm", Some(matches)) => {
             let grammar_path = current_dir.join(matches.value_of("path").unwrap_or(""));
-            wasm::compile_language_to_wasm(&grammar_path, matches.is_present("docker"))?;
+            wasm::compile_language(&grammar_path, matches.is_present("docker"))?;
         }
 
         ("playground", Some(matches)) => {
@@ -750,18 +749,16 @@ fn collect_paths<'a>(
         let mut incorporate_path = |path: &str, positive| {
             if positive {
                 result.push(path.to_string());
-            } else {
-                if let Some(index) = result.iter().position(|p| p == path) {
-                    result.remove(index);
-                }
+            } else if let Some(index) = result.iter().position(|p| p == path) {
+                result.remove(index);
             }
         };
 
         for mut path in paths {
             let mut positive = true;
-            if path.starts_with("!") {
+            if path.starts_with('!') {
                 positive = false;
-                path = path.trim_start_matches("!");
+                path = path.trim_start_matches('!');
             }
 
             if Path::new(path).exists() {

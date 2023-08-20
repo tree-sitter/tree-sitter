@@ -16,7 +16,7 @@ struct TokenConflictStatus {
     matches_different_string: bool,
 }
 
-pub(crate) struct TokenConflictMap<'a> {
+pub struct TokenConflictMap<'a> {
     n: usize,
     status_matrix: Vec<TokenConflictStatus>,
     following_tokens: Vec<TokenSet>,
@@ -135,10 +135,9 @@ impl<'a> TokenConflictMap<'a> {
                 return false;
             }
             if has_separator_transitions
-                && grammar
+                && !grammar
                     .variable_indices_for_nfa_states(&t.states)
-                    .position(|i| i == completed_id)
-                    .is_none()
+                    .any(|i| i == completed_id)
             {
                 return false;
             }
@@ -149,53 +148,53 @@ impl<'a> TokenConflictMap<'a> {
 
 impl<'a> fmt::Debug for TokenConflictMap<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "TokenConflictMap {{\n")?;
+        writeln!(f, "TokenConflictMap {{")?;
 
         let syntax_grammar = SyntaxGrammar::default();
 
-        write!(f, "  following_tokens: {{\n")?;
+        writeln!(f, "  following_tokens: {{")?;
         for (i, following_tokens) in self.following_tokens.iter().enumerate() {
-            write!(
+            writeln!(
                 f,
-                "    follow({:?}): {},\n",
+                "    follow({:?}): {},",
                 self.grammar.variables[i].name,
-                TokenSetDisplay(following_tokens, &syntax_grammar, &self.grammar)
+                TokenSetDisplay(following_tokens, &syntax_grammar, self.grammar)
             )?;
         }
-        write!(f, "  }},\n")?;
+        writeln!(f, "  }},")?;
 
-        write!(f, "  starting_characters: {{\n")?;
+        writeln!(f, "  starting_characters: {{")?;
         for i in 0..self.n {
-            write!(
+            writeln!(
                 f,
-                "    {:?}: {:?},\n",
+                "    {:?}: {:?},",
                 self.grammar.variables[i].name, self.starting_chars_by_index[i]
             )?;
         }
-        write!(f, "  }},\n")?;
+        writeln!(f, "  }},")?;
 
-        write!(f, "  following_characters: {{\n")?;
+        writeln!(f, "  following_characters: {{")?;
         for i in 0..self.n {
-            write!(
+            writeln!(
                 f,
-                "    {:?}: {:?},\n",
+                "    {:?}: {:?},",
                 self.grammar.variables[i].name, self.following_chars_by_index[i]
             )?;
         }
-        write!(f, "  }},\n")?;
+        writeln!(f, "  }},")?;
 
-        write!(f, "  status_matrix: {{\n")?;
+        writeln!(f, "  status_matrix: {{")?;
         for i in 0..self.n {
-            write!(f, "    {:?}: {{\n", self.grammar.variables[i].name)?;
+            writeln!(f, "    {:?}: {{", self.grammar.variables[i].name)?;
             for j in 0..self.n {
-                write!(
+                writeln!(
                     f,
-                    "      {:?}: {:?},\n",
+                    "      {:?}: {:?},",
                     self.grammar.variables[j].name,
                     self.status_matrix[matrix_index(self.n, i, j)]
                 )?;
             }
-            write!(f, "    }},\n")?;
+            writeln!(f, "    }},")?;
         }
         write!(f, "  }},")?;
         write!(f, "}}")?;
@@ -203,7 +202,7 @@ impl<'a> fmt::Debug for TokenConflictMap<'a> {
     }
 }
 
-fn matrix_index(variable_count: usize, i: usize, j: usize) -> usize {
+const fn matrix_index(variable_count: usize, i: usize, j: usize) -> usize {
     variable_count * i + j
 }
 
@@ -221,8 +220,8 @@ fn get_starting_chars(cursor: &mut NfaCursor, grammar: &LexicalGrammar) -> Vec<C
 }
 
 fn get_following_chars(
-    starting_chars: &Vec<CharacterSet>,
-    following_tokens: &Vec<TokenSet>,
+    starting_chars: &[CharacterSet],
+    following_tokens: &[TokenSet],
 ) -> Vec<CharacterSet> {
     following_tokens
         .iter()
@@ -241,7 +240,7 @@ fn get_following_chars(
 fn compute_conflict_status(
     cursor: &mut NfaCursor,
     grammar: &LexicalGrammar,
-    following_chars: &Vec<CharacterSet>,
+    following_chars: &[CharacterSet],
     i: usize,
     j: usize,
 ) -> (TokenConflictStatus, TokenConflictStatus) {
@@ -330,9 +329,8 @@ fn compute_conflict_status(
                     if variable_id == completed_id {
                         successor_contains_completed_id = true;
                         break;
-                    } else {
-                        advanced_id = Some(variable_id);
                     }
+                    advanced_id = Some(variable_id);
                 }
 
                 // Determine which action is preferred: matching the already complete
@@ -357,12 +355,10 @@ fn compute_conflict_status(
                                 result.1.does_match_valid_continuation = true;
                             }
                         }
+                    } else if completed_id == i {
+                        result.0.matches_prefix = true;
                     } else {
-                        if completed_id == i {
-                            result.0.matches_prefix = true;
-                        } else {
-                            result.1.matches_prefix = true;
-                        }
+                        result.1.matches_prefix = true;
                     }
                 }
             }

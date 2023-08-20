@@ -16,7 +16,7 @@ struct FollowSetInfo {
     propagates_lookaheads: bool,
 }
 
-pub(crate) struct ParseItemSetBuilder<'a> {
+pub struct ParseItemSetBuilder<'a> {
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
     first_sets: HashMap<Symbol, TokenSet>,
@@ -80,7 +80,7 @@ impl<'a> ParseItemSetBuilder<'a> {
         for i in 0..syntax_grammar.variables.len() {
             let symbol = Symbol::non_terminal(i);
 
-            let first_set = &mut result.first_sets.entry(symbol).or_insert(TokenSet::new());
+            let first_set = result.first_sets.entry(symbol).or_insert(TokenSet::new());
             processed_non_terminals.clear();
             symbols_to_process.clear();
             symbols_to_process.push(symbol);
@@ -88,10 +88,7 @@ impl<'a> ParseItemSetBuilder<'a> {
                 if current_symbol.is_terminal() || current_symbol.is_external() {
                     first_set.insert(current_symbol);
                 } else if processed_non_terminals.insert(current_symbol) {
-                    for production in syntax_grammar.variables[current_symbol.index]
-                        .productions
-                        .iter()
-                    {
+                    for production in &syntax_grammar.variables[current_symbol.index].productions {
                         if let Some(step) = production.steps.first() {
                             symbols_to_process.push(step.symbol);
                         }
@@ -100,7 +97,7 @@ impl<'a> ParseItemSetBuilder<'a> {
             }
 
             // The LAST set is defined in a similar way to the FIRST set.
-            let last_set = &mut result.last_sets.entry(symbol).or_insert(TokenSet::new());
+            let last_set = result.last_sets.entry(symbol).or_insert(TokenSet::new());
             processed_non_terminals.clear();
             symbols_to_process.clear();
             symbols_to_process.push(symbol);
@@ -108,10 +105,7 @@ impl<'a> ParseItemSetBuilder<'a> {
                 if current_symbol.is_terminal() || current_symbol.is_external() {
                     last_set.insert(current_symbol);
                 } else if processed_non_terminals.insert(current_symbol) {
-                    for production in syntax_grammar.variables[current_symbol.index]
-                        .productions
-                        .iter()
-                    {
+                    for production in &syntax_grammar.variables[current_symbol.index].productions {
                         if let Some(step) = production.steps.last() {
                             symbols_to_process.push(step.symbol);
                         }
@@ -273,7 +267,7 @@ impl<'a> ParseItemSetBuilder<'a> {
                 let following_tokens = if let Some(next_step) = next_step {
                     self.first_sets.get(&next_step.symbol).unwrap()
                 } else {
-                    &lookaheads
+                    lookaheads
                 };
 
                 // Use the pre-computed *additions* to expand the non-terminal.
@@ -291,9 +285,9 @@ impl<'a> ParseItemSetBuilder<'a> {
 
 impl<'a> fmt::Debug for ParseItemSetBuilder<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "ParseItemSetBuilder {{\n")?;
+        writeln!(f, "ParseItemSetBuilder {{")?;
 
-        write!(f, "  first_sets: {{\n")?;
+        writeln!(f, "  first_sets: {{")?;
         for (symbol, first_set) in &self.first_sets {
             let name = match symbol.kind {
                 SymbolType::NonTerminal => &self.syntax_grammar.variables[symbol.index].name,
@@ -301,16 +295,15 @@ impl<'a> fmt::Debug for ParseItemSetBuilder<'a> {
                 SymbolType::Terminal => &self.lexical_grammar.variables[symbol.index].name,
                 SymbolType::End | SymbolType::EndOfNonTerminalExtra => "END",
             };
-            write!(
+            writeln!(
                 f,
-                "    first({:?}): {}\n",
-                name,
-                TokenSetDisplay(first_set, &self.syntax_grammar, &self.lexical_grammar)
+                "    first({name:?}): {}",
+                TokenSetDisplay(first_set, self.syntax_grammar, self.lexical_grammar)
             )?;
         }
-        write!(f, "  }}\n")?;
+        writeln!(f, "  }}")?;
 
-        write!(f, "  last_sets: {{\n")?;
+        writeln!(f, "  last_sets: {{")?;
         for (symbol, last_set) in &self.last_sets {
             let name = match symbol.kind {
                 SymbolType::NonTerminal => &self.syntax_grammar.variables[symbol.index].name,
@@ -318,26 +311,25 @@ impl<'a> fmt::Debug for ParseItemSetBuilder<'a> {
                 SymbolType::Terminal => &self.lexical_grammar.variables[symbol.index].name,
                 SymbolType::End | SymbolType::EndOfNonTerminalExtra => "END",
             };
-            write!(
+            writeln!(
                 f,
-                "    last({:?}): {}\n",
-                name,
-                TokenSetDisplay(last_set, &self.syntax_grammar, &self.lexical_grammar)
+                "    last({name:?}): {}",
+                TokenSetDisplay(last_set, self.syntax_grammar, self.lexical_grammar)
             )?;
         }
-        write!(f, "  }}\n")?;
+        writeln!(f, "  }}")?;
 
-        write!(f, "  additions: {{\n")?;
+        writeln!(f, "  additions: {{")?;
         for (i, variable) in self.syntax_grammar.variables.iter().enumerate() {
-            write!(f, "    {}: {{\n", variable.name)?;
+            writeln!(f, "    {}: {{", variable.name)?;
             for addition in &self.transitive_closure_additions[i] {
-                write!(
+                writeln!(
                     f,
-                    "      {}\n",
+                    "      {}",
                     ParseItemDisplay(&addition.item, self.syntax_grammar, self.lexical_grammar)
                 )?;
             }
-            write!(f, "    }},\n")?;
+            writeln!(f, "    }},")?;
         }
         write!(f, "  }},")?;
 

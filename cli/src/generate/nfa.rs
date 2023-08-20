@@ -28,7 +28,7 @@ pub enum NfaState {
     },
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(Default, PartialEq, Eq)]
 pub struct Nfa {
     pub states: Vec<NfaState>,
 }
@@ -47,18 +47,13 @@ pub struct NfaTransition {
     pub states: Vec<u32>,
 }
 
-impl Default for Nfa {
-    fn default() -> Self {
-        Self { states: Vec::new() }
-    }
-}
-
 const END: u32 = char::MAX as u32 + 1;
 
 impl CharacterSet {
     /// Create a character set with a single character.
-    pub fn empty() -> Self {
-        CharacterSet { ranges: Vec::new() }
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self { ranges: Vec::new() }
     }
 
     /// Create a character set with a given *inclusive* range of characters.
@@ -66,21 +61,21 @@ impl CharacterSet {
         if first > last {
             swap(&mut first, &mut last);
         }
-        CharacterSet {
+        Self {
             ranges: vec![(first as u32)..(last as u32 + 1)],
         }
     }
 
     /// Create a character set with a single character.
     pub fn from_char(c: char) -> Self {
-        CharacterSet {
+        Self {
             ranges: vec![(c as u32)..(c as u32 + 1)],
         }
     }
 
     /// Create a character set containing all characters *not* present
     /// in this character set.
-    pub fn negate(mut self) -> CharacterSet {
+    pub fn negate(mut self) -> Self {
         let mut i = 0;
         let mut previous_end = 0;
         while i < self.ranges.len() {
@@ -110,10 +105,10 @@ impl CharacterSet {
         self
     }
 
-    pub fn add(mut self, other: &CharacterSet) -> Self {
+    pub fn add(mut self, other: &Self) -> Self {
         let mut index = 0;
         for range in &other.ranges {
-            index = self.add_int_range(index, range.start as u32, range.end as u32);
+            index = self.add_int_range(index, range.start, range.end);
         }
         self
     }
@@ -143,7 +138,7 @@ impl CharacterSet {
         i
     }
 
-    pub fn does_intersect(&self, other: &CharacterSet) -> bool {
+    pub fn does_intersect(&self, other: &Self) -> bool {
         let mut left_ranges = self.ranges.iter();
         let mut right_ranges = other.ranges.iter();
         let mut left_range = left_ranges.next();
@@ -163,7 +158,7 @@ impl CharacterSet {
     /// Get the set of characters that are present in both this set
     /// and the other set. Remove those common characters from both
     /// of the operands.
-    pub fn remove_intersection(&mut self, other: &mut CharacterSet) -> CharacterSet {
+    pub fn remove_intersection(&mut self, other: &mut Self) -> Self {
         let mut intersection = Vec::new();
         let mut left_i = 0;
         let mut right_i = 0;
@@ -271,30 +266,30 @@ impl CharacterSet {
                 }
             }
         }
-        CharacterSet {
+        Self {
             ranges: intersection,
         }
     }
 
     /// Produces a `CharacterSet` containing every character in `self` that is not present in
     /// `other`.
-    pub fn difference(mut self, mut other: CharacterSet) -> CharacterSet {
+    pub fn difference(mut self, mut other: Self) -> Self {
         self.remove_intersection(&mut other);
         self
     }
 
     /// Produces a `CharacterSet` containing every character that is in _exactly one_ of `self` or
     /// `other`, but is not present in both sets.
-    pub fn symmetric_difference(mut self, mut other: CharacterSet) -> CharacterSet {
+    pub fn symmetric_difference(mut self, mut other: Self) -> Self {
         self.remove_intersection(&mut other);
         self.add(&other)
     }
 
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = u32> + 'a {
+    pub fn iter(&self) -> impl Iterator<Item = u32> + '_ {
         self.ranges.iter().flat_map(|r| r.clone())
     }
 
-    pub fn chars<'a>(&'a self) -> impl Iterator<Item = char> + 'a {
+    pub fn chars(&self) -> impl Iterator<Item = char> + '_ {
         self.iter().filter_map(char::from_u32)
     }
 
@@ -329,11 +324,10 @@ impl CharacterSet {
                         prev_range_successor += 1;
                     }
                     prev_range = Some(range.start..c);
-                    None
                 } else {
                     prev_range = Some(c..c);
-                    None
                 }
+                None
             })
             .collect()
     }
@@ -344,7 +338,7 @@ impl CharacterSet {
 }
 
 impl Ord for CharacterSet {
-    fn cmp(&self, other: &CharacterSet) -> Ordering {
+    fn cmp(&self, other: &Self) -> Ordering {
         let count_cmp = self
             .ranges
             .iter()
@@ -368,12 +362,12 @@ impl Ord for CharacterSet {
                 }
             }
         }
-        return Ordering::Equal;
+        Ordering::Equal
     }
 }
 
 impl PartialOrd for CharacterSet {
-    fn partial_cmp(&self, other: &CharacterSet) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
@@ -390,7 +384,7 @@ impl fmt::Debug for CharacterSet {
             if i > 0 {
                 write!(f, ", ")?;
             }
-            write!(f, "{:?}", c)?;
+            write!(f, "{c:?}")?;
         }
         write!(f, "]")?;
         Ok(())
@@ -398,10 +392,12 @@ impl fmt::Debug for CharacterSet {
 }
 
 impl Nfa {
-    pub fn new() -> Self {
-        Nfa { states: Vec::new() }
+    #[must_use]
+    pub const fn new() -> Self {
+        Self { states: Vec::new() }
     }
 
+    #[must_use]
     pub fn last_state_id(&self) -> u32 {
         self.states.len() as u32 - 1
     }
@@ -409,9 +405,9 @@ impl Nfa {
 
 impl fmt::Debug for Nfa {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Nfa {{ states: {{\n")?;
+        writeln!(f, "Nfa {{ states: {{")?;
         for (i, state) in self.states.iter().enumerate() {
-            write!(f, "  {}: {:?},\n", i, state)?;
+            writeln!(f, "  {i}: {state:?},")?;
         }
         write!(f, "}} }}")?;
         Ok(())
@@ -434,7 +430,7 @@ impl<'a> NfaCursor<'a> {
     }
 
     pub fn force_reset(&mut self, states: Vec<u32>) {
-        self.state_ids = states
+        self.state_ids = states;
     }
 
     pub fn transition_chars(&self) -> impl Iterator<Item = (&CharacterSet, bool)> {
@@ -472,9 +468,8 @@ impl<'a> NfaCursor<'a> {
                 let intersection = result[i].characters.remove_intersection(&mut chars);
                 if !intersection.is_empty() {
                     let mut intersection_states = result[i].states.clone();
-                    match intersection_states.binary_search(&state) {
-                        Err(j) => intersection_states.insert(j, state),
-                        _ => {}
+                    if let Err(j) = intersection_states.binary_search(&state) {
+                        intersection_states.insert(j, state);
                     }
                     let intersection_transition = NfaTransition {
                         characters: intersection,
@@ -544,7 +539,7 @@ impl<'a> NfaCursor<'a> {
             if let NfaState::Split(left, right) = state {
                 let mut has_left = false;
                 let mut has_right = false;
-                for new_state_id in new_state_ids.iter() {
+                for new_state_id in &*new_state_ids {
                     if *new_state_id == *left {
                         has_left = true;
                     }
@@ -824,8 +819,7 @@ mod tests {
                         .map(|(chars, is_sep, prec, state)| (chars, *is_sep, *prec, *state))
                 ),
                 row.1,
-                "row {}",
-                i
+                "row {i}",
             );
         }
     }
@@ -920,20 +914,19 @@ mod tests {
             assert_eq!(
                 left.remove_intersection(&mut right),
                 row.intersection,
-                "row {}a: {:?} && {:?}",
-                i,
+                "row {i}a: {:?} && {:?}",
                 row.left,
                 row.right
             );
             assert_eq!(
                 left, row.left_only,
-                "row {}a: {:?} - {:?}",
-                i, row.left, row.right
+                "row {i}a: {:?} - {:?}",
+                row.left, row.right
             );
             assert_eq!(
                 right, row.right_only,
-                "row {}a: {:?} - {:?}",
-                i, row.right, row.left
+                "row {i}a: {:?} - {:?}",
+                row.right, row.left
             );
 
             let mut left = row.left.clone();
@@ -941,37 +934,34 @@ mod tests {
             assert_eq!(
                 right.remove_intersection(&mut left),
                 row.intersection,
-                "row {}b: {:?} && {:?}",
-                i,
+                "row {i}b: {:?} && {:?}",
                 row.left,
                 row.right
             );
             assert_eq!(
                 left, row.left_only,
-                "row {}b: {:?} - {:?}",
-                i, row.left, row.right
+                "row {i}b: {:?} - {:?}",
+                row.left, row.right
             );
             assert_eq!(
                 right, row.right_only,
-                "row {}b: {:?} - {:?}",
-                i, row.right, row.left
+                "row {i}b: {:?} - {:?}",
+                row.right, row.left
             );
 
             assert_eq!(
                 row.left.clone().difference(row.right.clone()),
                 row.left_only,
-                "row {}b: {:?} -- {:?}",
-                i,
+                "row {i}b: {:?} -- {:?}",
                 row.left,
                 row.right
             );
 
-            let symm_difference = row.left_only.clone().add(&mut row.right_only.clone());
+            let symm_difference = row.left_only.clone().add(&row.right_only.clone());
             assert_eq!(
                 row.left.clone().symmetric_difference(row.right.clone()),
                 symm_difference,
-                "row {}b: {:?} ~~ {:?}",
-                i,
+                "row {i}b: {:?} ~~ {:?}",
                 row.left,
                 row.right
             )

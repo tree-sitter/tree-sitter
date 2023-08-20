@@ -1,9 +1,9 @@
-pub(crate) fn split_state_id_groups<S>(
-    states: &Vec<S>,
+pub fn split_state_id_groups<S>(
+    states: &[S],
     state_ids_by_group_id: &mut Vec<Vec<usize>>,
-    group_ids_by_state_id: &mut Vec<usize>,
+    group_ids_by_state_id: &mut [usize],
     start_group_id: usize,
-    mut f: impl FnMut(&S, &S, &Vec<usize>) -> bool,
+    mut f: impl FnMut(&S, &S, &[usize]) -> bool,
 ) -> bool {
     let mut result = false;
 
@@ -33,7 +33,7 @@ pub(crate) fn split_state_id_groups<S>(
                 }
                 let right_state = &states[right_state_id];
 
-                if f(left_state, right_state, &group_ids_by_state_id) {
+                if f(left_state, right_state, group_ids_by_state_id) {
                     split_state_ids.push(right_state_id);
                 }
 
@@ -44,9 +44,9 @@ pub(crate) fn split_state_id_groups<S>(
         }
 
         // If any states were removed from the group, add them all as a new group.
-        if split_state_ids.len() > 0 {
+        if !split_state_ids.is_empty() {
             result = true;
-            state_ids_by_group_id[group_id].retain(|i| !split_state_ids.contains(&i));
+            state_ids_by_group_id[group_id].retain(|i| !split_state_ids.contains(i));
 
             let new_group_id = state_ids_by_group_id.len();
             for id in &split_state_ids {

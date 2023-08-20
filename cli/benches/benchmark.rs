@@ -25,29 +25,29 @@ lazy_static! {
                 let (example_paths, query_paths) =
                     result.entry(relative_path.to_owned()).or_default();
 
-                if let Ok(example_files) = fs::read_dir(&dir.join("examples")) {
+                if let Ok(example_files) = fs::read_dir(dir.join("examples")) {
                     example_paths.extend(example_files.filter_map(|p| {
                         let p = p.unwrap().path();
                         if p.is_file() {
-                            Some(p.to_owned())
+                            Some(p)
                         } else {
                             None
                         }
                     }));
                 }
 
-                if let Ok(query_files) = fs::read_dir(&dir.join("queries")) {
+                if let Ok(query_files) = fs::read_dir(dir.join("queries")) {
                     query_paths.extend(query_files.filter_map(|p| {
                         let p = p.unwrap().path();
                         if p.is_file() {
-                            Some(p.to_owned())
+                            Some(p)
                         } else {
                             None
                         }
                     }));
                 }
             } else {
-                for entry in fs::read_dir(&dir).unwrap() {
+                for entry in fs::read_dir(dir).unwrap() {
                     let entry = entry.unwrap().path();
                     if entry.is_dir() {
                         process_dir(result, &entry);
@@ -79,9 +79,7 @@ fn main() {
     let mut all_normal_speeds = Vec::new();
     let mut all_error_speeds = Vec::new();
 
-    for (language_path, (example_paths, query_paths)) in
-        EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR.iter()
-    {
+    for (language_path, (example_paths, query_paths)) in &*EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR {
         let language_name = language_path.file_name().unwrap().to_str().unwrap();
 
         if let Some(filter) = LANGUAGE_FILTER.as_ref() {
@@ -90,7 +88,7 @@ fn main() {
             }
         }
 
-        eprintln!("\nLanguage: {}", language_name);
+        eprintln!("\nLanguage: {language_name}");
         let language = get_language(language_path);
         parser.set_language(language).unwrap();
 
@@ -102,7 +100,7 @@ fn main() {
                 }
             }
 
-            parse(&path, max_path_length, |source| {
+            parse(path, max_path_length, |source| {
                 Query::new(language, str::from_utf8(source).unwrap())
                     .with_context(|| format!("Query file path: {path:?}"))
                     .expect("Failed to parse query");
@@ -125,9 +123,7 @@ fn main() {
 
         eprintln!("  Parsing Invalid Code (mismatched languages):");
         let mut error_speeds = Vec::new();
-        for (other_language_path, (example_paths, _)) in
-            EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR.iter()
-        {
+        for (other_language_path, (example_paths, _)) in &*EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR {
             if other_language_path != language_path {
                 for example_path in example_paths {
                     if let Some(filter) = EXAMPLE_FILTER.as_ref() {
@@ -144,13 +140,13 @@ fn main() {
         }
 
         if let Some((average_normal, worst_normal)) = aggregate(&normal_speeds) {
-            eprintln!("  Average Speed (normal): {} bytes/ms", average_normal);
-            eprintln!("  Worst Speed (normal):   {} bytes/ms", worst_normal);
+            eprintln!("  Average Speed (normal): {average_normal} bytes/ms");
+            eprintln!("  Worst Speed (normal):   {worst_normal} bytes/ms");
         }
 
         if let Some((average_error, worst_error)) = aggregate(&error_speeds) {
-            eprintln!("  Average Speed (errors): {} bytes/ms", average_error);
-            eprintln!("  Worst Speed (errors):   {} bytes/ms", worst_error);
+            eprintln!("  Average Speed (errors): {average_error} bytes/ms");
+            eprintln!("  Worst Speed (errors):   {worst_error} bytes/ms");
         }
 
         all_normal_speeds.extend(normal_speeds);
@@ -159,15 +155,15 @@ fn main() {
 
     eprintln!("\n  Overall");
     if let Some((average_normal, worst_normal)) = aggregate(&all_normal_speeds) {
-        eprintln!("  Average Speed (normal): {} bytes/ms", average_normal);
-        eprintln!("  Worst Speed (normal):   {} bytes/ms", worst_normal);
+        eprintln!("  Average Speed (normal): {average_normal} bytes/ms");
+        eprintln!("  Worst Speed (normal):   {worst_normal} bytes/ms");
     }
 
     if let Some((average_error, worst_error)) = aggregate(&all_error_speeds) {
-        eprintln!("  Average Speed (errors): {} bytes/ms", average_error);
-        eprintln!("  Worst Speed (errors):   {} bytes/ms", worst_error);
+        eprintln!("  Average Speed (errors): {average_error} bytes/ms");
+        eprintln!("  Worst Speed (errors):   {worst_error} bytes/ms");
     }
-    eprintln!("");
+    eprintln!();
 }
 
 fn aggregate(speeds: &Vec<usize>) -> Option<(usize, usize)> {
@@ -176,7 +172,7 @@ fn aggregate(speeds: &Vec<usize>) -> Option<(usize, usize)> {
     }
     let mut total = 0;
     let mut max = usize::MAX;
-    for speed in speeds.iter().cloned() {
+    for speed in speeds.iter().copied() {
         total += speed;
         if speed < max {
             max = speed;

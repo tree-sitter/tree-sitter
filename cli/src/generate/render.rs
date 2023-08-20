@@ -199,7 +199,7 @@ impl Generator {
         for production_info in &self.parse_table.production_infos {
             // Build a list of all field names
             for field_name in production_info.field_map.keys() {
-                if let Err(i) = self.field_names.binary_search(&field_name) {
+                if let Err(i) = self.field_names.binary_search(field_name) {
                     self.field_names.insert(i, field_name.clone());
                 }
             }
@@ -207,7 +207,7 @@ impl Generator {
             for alias in &production_info.alias_sequence {
                 // Generate a mapping from aliases to C identifiers.
                 if let Some(alias) = &alias {
-                    let existing_symbol = self.parse_table.symbols.iter().cloned().find(|symbol| {
+                    let existing_symbol = self.parse_table.symbols.iter().copied().find(|symbol| {
                         if let Some(default_alias) = self.default_aliases.get(symbol) {
                             default_alias == alias
                         } else {
@@ -228,9 +228,9 @@ impl Generator {
                         }
 
                         alias_id = if alias.is_named {
-                            format!("alias_sym_{}", self.sanitize_identifier(&alias.value))
+                            format!("alias_sym_{}", Self::sanitize_identifier(&alias.value))
                         } else {
-                            format!("anon_alias_sym_{}", self.sanitize_identifier(&alias.value))
+                            format!("anon_alias_sym_{}", Self::sanitize_identifier(&alias.value))
                         };
                     }
 
@@ -315,7 +315,7 @@ impl Generator {
             self.parse_table.symbols.len()
         );
         add_line!(self, "#define ALIAS_COUNT {}", self.unique_aliases.len(),);
-        add_line!(self, "#define TOKEN_COUNT {}", token_count);
+        add_line!(self, "#define TOKEN_COUNT {token_count}");
         add_line!(
             self,
             "#define EXTERNAL_TOKEN_COUNT {}",
@@ -340,15 +340,15 @@ impl Generator {
         indent!(self);
         self.symbol_order.insert(Symbol::end(), 0);
         let mut i = 1;
-        for symbol in self.parse_table.symbols.iter() {
+        for symbol in &self.parse_table.symbols {
             if *symbol != Symbol::end() {
                 self.symbol_order.insert(*symbol, i);
-                add_line!(self, "{} = {},", self.symbol_ids[&symbol], i);
+                add_line!(self, "{} = {i},", self.symbol_ids[&symbol]);
                 i += 1;
             }
         }
         for alias in &self.unique_aliases {
-            add_line!(self, "{} = {},", self.alias_ids[&alias], i);
+            add_line!(self, "{} = {i},", self.alias_ids[&alias]);
             i += 1;
         }
         dedent!(self);
@@ -359,21 +359,22 @@ impl Generator {
     fn add_symbol_names_list(&mut self) {
         add_line!(self, "static const char * const ts_symbol_names[] = {{");
         indent!(self);
-        for symbol in self.parse_table.symbols.iter() {
-            let name = self.sanitize_string(
+        for symbol in &self.parse_table.symbols {
+            let name = Self::sanitize_string(
                 self.default_aliases
                     .get(symbol)
-                    .map(|alias| alias.value.as_str())
-                    .unwrap_or(self.metadata_for_symbol(*symbol).0),
+                    .map_or(self.metadata_for_symbol(*symbol).0, |alias| {
+                        alias.value.as_str()
+                    }),
             );
-            add_line!(self, "[{}] = \"{}\",", self.symbol_ids[&symbol], name);
+            add_line!(self, "[{}] = \"{name}\",", self.symbol_ids[&symbol]);
         }
         for alias in &self.unique_aliases {
             add_line!(
                 self,
                 "[{}] = \"{}\",",
                 self.alias_ids[&alias],
-                self.sanitize_string(&alias.value)
+                Self::sanitize_string(&alias.value)
             );
         }
         dedent!(self);
@@ -411,7 +412,7 @@ impl Generator {
         add_line!(self, "enum {{");
         indent!(self);
         for (i, field_name) in self.field_names.iter().enumerate() {
-            add_line!(self, "{} = {},", self.field_id(field_name), i + 1);
+            add_line!(self, "{} = {},", Self::field_id(field_name), i + 1);
         }
         dedent!(self);
         add_line!(self, "}};");
@@ -423,12 +424,7 @@ impl Generator {
         indent!(self);
         add_line!(self, "[0] = NULL,");
         for field_name in &self.field_names {
-            add_line!(
-                self,
-                "[{}] = \"{}\",",
-                self.field_id(field_name),
-                field_name
-            );
+            add_line!(self, "[{}] = \"{field_name}\",", Self::field_id(field_name),);
         }
         dedent!(self);
         add_line!(self, "}};");
@@ -446,7 +442,7 @@ impl Generator {
             indent!(self);
             if let Some(Alias { is_named, .. }) = self.default_aliases.get(symbol) {
                 add_line!(self, ".visible = true,");
-                add_line!(self, ".named = {},", is_named);
+                add_line!(self, ".named = {is_named},");
             } else {
                 match self.metadata_for_symbol(*symbol).1 {
                     VariableType::Named => {
@@ -502,11 +498,11 @@ impl Generator {
                 continue;
             }
 
-            add_line!(self, "[{}] = {{", i);
+            add_line!(self, "[{i}] = {{");
             indent!(self);
             for (j, alias) in production_info.alias_sequence.iter().enumerate() {
                 if let Some(alias) = alias {
-                    add_line!(self, "[{}] = {},", j, self.alias_ids[&alias]);
+                    add_line!(self, "[{j}] = {},", self.alias_ids[&alias]);
                 }
             }
             dedent!(self);
@@ -525,15 +521,13 @@ impl Generator {
                     if let Some(alias) = &step.alias {
                         if step.symbol.is_non_terminal()
                             && Some(alias) != self.default_aliases.get(&step.symbol)
+                            && self.symbol_ids.contains_key(&step.symbol)
                         {
-                            if self.symbol_ids.contains_key(&step.symbol) {
-                                if let Some(alias_id) = self.alias_ids.get(&alias) {
-                                    let alias_ids = alias_ids_by_symbol
-                                        .entry(step.symbol)
-                                        .or_insert(Vec::new());
-                                    if let Err(i) = alias_ids.binary_search(&alias_id) {
-                                        alias_ids.insert(i, alias_id);
-                                    }
+                            if let Some(alias_id) = self.alias_ids.get(alias) {
+                                let alias_ids =
+                                    alias_ids_by_symbol.entry(step.symbol).or_insert(Vec::new());
+                                if let Err(i) = alias_ids.binary_search(&alias_id) {
+                                    alias_ids.insert(i, alias_id);
                                 }
                             }
                         }
@@ -553,11 +547,11 @@ impl Generator {
         for (symbol, alias_ids) in alias_ids_by_symbol {
             let symbol_id = &self.symbol_ids[symbol];
             let public_symbol_id = &self.symbol_ids[&self.symbol_map[&symbol]];
-            add_line!(self, "{}, {},", symbol_id, 1 + alias_ids.len());
+            add_line!(self, "{symbol_id}, {},", 1 + alias_ids.len());
             indent!(self);
-            add_line!(self, "{},", public_symbol_id);
+            add_line!(self, "{public_symbol_id},");
             for alias_id in alias_ids {
-                add_line!(self, "{},", alias_id);
+                add_line!(self, "{alias_id},");
             }
             dedent!(self);
         }
@@ -583,7 +577,7 @@ impl Generator {
             let primary_state = first_state_for_each_core_id
                 .entry(state.core_id)
                 .or_insert(idx);
-            add_line!(self, "[{}] = {},", idx, primary_state);
+            add_line!(self, "[{idx}] = {primary_state},");
         }
         dedent!(self);
         add_line!(self, "}};");
@@ -593,7 +587,7 @@ impl Generator {
     fn add_field_sequences(&mut self) {
         let mut flat_field_maps = vec![];
         let mut next_flat_field_map_index = 0;
-        self.get_field_map_id(
+        Self::get_field_map_id(
             &Vec::new(),
             &mut flat_field_maps,
             &mut next_flat_field_map_index,
@@ -601,7 +595,9 @@ impl Generator {
 
         let mut field_map_ids = Vec::new();
         for production_info in &self.parse_table.production_infos {
-            if !production_info.field_map.is_empty() {
+            if production_info.field_map.is_empty() {
+                field_map_ids.push((0, 0));
+            } else {
                 let mut flat_field_map = Vec::new();
                 for (field_name, locations) in &production_info.field_map {
                     for location in locations {
@@ -609,15 +605,13 @@ impl Generator {
                     }
                 }
                 field_map_ids.push((
-                    self.get_field_map_id(
+                    Self::get_field_map_id(
                         &flat_field_map,
                         &mut flat_field_maps,
                         &mut next_flat_field_map_index,
                     ),
                     flat_field_map.len(),
                 ));
-            } else {
-                field_map_ids.push((0, 0));
             }
         }
 
@@ -630,10 +624,7 @@ impl Generator {
             if length > 0 {
                 add_line!(
                     self,
-                    "[{}] = {{.index = {}, .length = {}}},",
-                    production_id,
-                    row_id,
-                    length
+                    "[{production_id}] = {{.index = {row_id}, .length = {length}}},",
                 );
             }
         }
@@ -647,11 +638,16 @@ impl Generator {
         );
         indent!(self);
         for (row_index, field_pairs) in flat_field_maps.into_iter().skip(1) {
-            add_line!(self, "[{}] =", row_index);
+            add_line!(self, "[{row_index}] =");
             indent!(self);
             for (field_name, location) in field_pairs {
                 add_whitespace!(self);
-                add!(self, "{{{}, {}", self.field_id(&field_name), location.index);
+                add!(
+                    self,
+                    "{{{}, {}",
+                    Self::field_id(&field_name),
+                    location.index
+                );
                 if location.inherited {
                     add!(self, ", .inherited = true");
                 }
@@ -695,16 +691,16 @@ impl Generator {
                             ruled_out_chars.extend(chars.iter());
                         } else {
                             ranges = chars.clone().negate().simplify_ignoring(&ruled_out_chars);
-                            ranges.insert(0, '\0'..'\0')
+                            ranges.insert(0, '\0'..'\0');
                         }
 
                         // Record any large character sets so that they can be extracted
                         // into helper functions, reducing code duplication.
                         let mut call_id = None;
                         if extract_helper_functions && ranges.len() > LARGE_CHARACTER_RANGE_COUNT {
-                            let char_set_symbol = self
-                                .symbol_for_advance_action(action, &lex_table)
-                                .expect("No symbol for lex state");
+                            let char_set_symbol =
+                                Self::symbol_for_advance_action(action, &lex_table)
+                                    .expect("No symbol for lex state");
                             let mut count_for_symbol = 0;
                             for (i, info) in large_character_sets.iter_mut().enumerate() {
                                 if info.ranges == ranges {
@@ -736,7 +732,7 @@ impl Generator {
             .collect();
 
         // Generate a helper function for each large character set.
-        let mut sorted_large_char_sets: Vec<_> = large_character_sets.iter().map(|e| e).collect();
+        let mut sorted_large_char_sets: Vec<_> = large_character_sets.iter().collect();
         sorted_large_char_sets.sort_unstable_by_key(|info| (info.symbol, info.index));
         for info in sorted_large_char_sets {
             add_line!(
@@ -758,8 +754,7 @@ impl Generator {
 
         add_line!(
             self,
-            "static bool {}(TSLexer *lexer, TSStateId state) {{",
-            name
+            "static bool {name}(TSLexer *lexer, TSStateId state) {{",
         );
         indent!(self);
 
@@ -768,7 +763,7 @@ impl Generator {
 
         indent!(self);
         for (i, state) in lex_table.states.into_iter().enumerate() {
-            add_line!(self, "case {}:", i);
+            add_line!(self, "case {i}:");
             indent!(self);
             self.add_lex_state(state, &state_transition_summaries[i], &large_character_sets);
             dedent!(self);
@@ -787,11 +782,7 @@ impl Generator {
         add_line!(self, "");
     }
 
-    fn symbol_for_advance_action(
-        &self,
-        action: &AdvanceAction,
-        lex_table: &LexTable,
-    ) -> Option<Symbol> {
+    fn symbol_for_advance_action(action: &AdvanceAction, lex_table: &LexTable) -> Option<Symbol> {
         let mut state_ids = vec![action.state];
         let mut i = 0;
         while i < state_ids.len() {
@@ -807,14 +798,14 @@ impl Generator {
             }
             i += 1;
         }
-        return None;
+        None
     }
 
     fn add_lex_state(
         &mut self,
         state: LexState,
-        transition_info: &Vec<TransitionSummary>,
-        large_character_sets: &Vec<LargeCharacterSetInfo>,
+        transition_info: &[TransitionSummary],
+        large_character_sets: &[LargeCharacterSetInfo],
     ) {
         if let Some(accept_action) = state.accept_action {
             add_line!(self, "ACCEPT_TOKEN({});", self.symbol_ids[&accept_action]);
@@ -849,7 +840,7 @@ impl Generator {
 
             // Otherwise, generate code to compare the lookahead character
             // with all of the character ranges.
-            if transition.ranges.len() > 0 {
+            if !transition.ranges.is_empty() {
                 add!(self, "if (");
                 self.add_character_range_conditions(&transition.ranges, transition.is_included, 2);
                 add!(self, ") ");
@@ -875,26 +866,20 @@ impl Generator {
         for (i, range) in ranges.iter().enumerate() {
             if is_included {
                 if i > 0 {
-                    add!(self, " ||{}", line_break);
+                    add!(self, " ||{line_break}");
+                }
+                if range.start == '\0' {
+                    add!(self, "!eof && ");
                 }
                 if range.end == range.start {
-                    if range.start == '\0' {
-                        add!(self, "!eof && ");
-                    }
                     add!(self, "lookahead == ");
                     self.add_character(range.start);
                 } else if range.end as u32 == range.start as u32 + 1 {
-                    if range.start == '\0' {
-                        add!(self, "!eof && ");
-                    }
                     add!(self, "lookahead == ");
                     self.add_character(range.start);
-                    add!(self, " ||{}lookahead == ", line_break);
+                    add!(self, " ||{line_break}lookahead == ");
                     self.add_character(range.end);
                 } else {
-                    if range.start == '\0' {
-                        add!(self, "!eof && ");
-                    }
                     add!(self, "(");
                     self.add_character(range.start);
                     add!(self, " <= lookahead && lookahead <= ");
@@ -903,7 +888,7 @@ impl Generator {
                 }
             } else {
                 if i > 0 {
-                    add!(self, " &&{}", line_break);
+                    add!(self, " &&{line_break}");
                 }
                 if range.end == range.start {
                     add!(self, "lookahead != ");
@@ -911,19 +896,17 @@ impl Generator {
                 } else if range.end as u32 == range.start as u32 + 1 {
                     add!(self, "lookahead != ");
                     self.add_character(range.start);
-                    add!(self, " &&{}lookahead != ", line_break);
+                    add!(self, " &&{line_break}lookahead != ");
                     self.add_character(range.end);
+                } else if range.start != '\0' {
+                    add!(self, "(lookahead < ");
+                    self.add_character(range.start);
+                    add!(self, " || ");
+                    self.add_character(range.end);
+                    add!(self, " < lookahead)");
                 } else {
-                    if range.start != '\0' {
-                        add!(self, "(lookahead < ");
-                        self.add_character(range.start);
-                        add!(self, " || ");
-                        self.add_character(range.end);
-                        add!(self, " < lookahead)");
-                    } else {
-                        add!(self, "lookahead > ");
-                        self.add_character(range.end);
-                    }
+                    add!(self, "lookahead > ");
+                    self.add_character(range.end);
                 }
             }
         }
@@ -952,7 +935,7 @@ impl Generator {
                     add!(self, "(");
                 }
 
-                add!(self, "c {} ", op);
+                add!(self, "c {op} ");
                 self.add_character(*value);
 
                 if !simple {
@@ -1005,17 +988,16 @@ impl Generator {
         indent!(self);
         for (i, state) in self.parse_table.states.iter().enumerate() {
             if state.is_end_of_non_terminal_extra() {
-                add_line!(self, "[{}] = {{(TSStateId)(-1)}},", i,);
+                add_line!(self, "[{i}] = {{(TSStateId)(-1)}},");
             } else if state.external_lex_state_id > 0 {
                 add_line!(
                     self,
-                    "[{}] = {{.lex_state = {}, .external_lex_state = {}}},",
-                    i,
+                    "[{i}] = {{.lex_state = {}, .external_lex_state = {}}},",
                     state.lex_state_id,
                     state.external_lex_state_id
                 );
             } else {
-                add_line!(self, "[{}] = {{.lex_state = {}}},", i, state.lex_state_id);
+                add_line!(self, "[{i}] = {{.lex_state = {}}},", state.lex_state_id);
             }
         }
         dedent!(self);
@@ -1029,9 +1011,8 @@ impl Generator {
         for i in 0..self.syntax_grammar.external_tokens.len() {
             add_line!(
                 self,
-                "{} = {},",
-                self.external_token_id(&self.syntax_grammar.external_tokens[i]),
-                i
+                "{} = {i},",
+                Self::external_token_id(&self.syntax_grammar.external_tokens[i]),
             );
         }
         dedent!(self);
@@ -1053,7 +1034,7 @@ impl Generator {
             add_line!(
                 self,
                 "[{}] = {},",
-                self.external_token_id(&token),
+                Self::external_token_id(token),
                 self.symbol_ids[&id_token],
             );
         }
@@ -1071,13 +1052,13 @@ impl Generator {
         indent!(self);
         for i in 0..self.parse_table.external_lex_states.len() {
             if !self.parse_table.external_lex_states[i].is_empty() {
-                add_line!(self, "[{}] = {{", i);
+                add_line!(self, "[{i}] = {{");
                 indent!(self);
                 for token in self.parse_table.external_lex_states[i].iter() {
                     add_line!(
                         self,
                         "[{}] = true,",
-                        self.external_token_id(&self.syntax_grammar.external_tokens[token.index])
+                        Self::external_token_id(&self.syntax_grammar.external_tokens[token.index])
                     );
                 }
                 dedent!(self);
@@ -1093,7 +1074,7 @@ impl Generator {
         let mut parse_table_entries = HashMap::new();
         let mut next_parse_action_list_index = 0;
 
-        self.get_parse_action_list_id(
+        Self::get_parse_action_list_id(
             &ParseTableEntry {
                 actions: Vec::new(),
                 reusable: false,
@@ -1118,7 +1099,7 @@ impl Generator {
             .enumerate()
             .take(self.large_state_count)
         {
-            add_line!(self, "[{}] = {{", i);
+            add_line!(self, "[{i}] = {{");
             indent!(self);
 
             // Ensure the entries are in a deterministic order, since they are
@@ -1143,17 +1124,12 @@ impl Generator {
             }
 
             for (symbol, entry) in &terminal_entries {
-                let entry_id = self.get_parse_action_list_id(
+                let entry_id = Self::get_parse_action_list_id(
                     entry,
                     &mut parse_table_entries,
                     &mut next_parse_action_list_index,
                 );
-                add_line!(
-                    self,
-                    "[{}] = ACTIONS({}),",
-                    self.symbol_ids[symbol],
-                    entry_id
-                );
+                add_line!(self, "[{}] = ACTIONS({entry_id}),", self.symbol_ids[symbol],);
             }
             dedent!(self);
             add_line!(self, "}},");
@@ -1181,7 +1157,7 @@ impl Generator {
                 // So in the "small state" representation, group symbols by their action
                 // in order to avoid repeating the action.
                 for (symbol, entry) in &terminal_entries {
-                    let entry_id = self.get_parse_action_list_id(
+                    let entry_id = Self::get_parse_action_list_id(
                         entry,
                         &mut parse_table_entries,
                         &mut next_parse_action_list_index,
@@ -1209,14 +1185,14 @@ impl Generator {
                     (symbols.len(), *kind, *value, symbols[0])
                 });
 
-                add_line!(self, "[{}] = {},", index, values_with_symbols.len());
+                add_line!(self, "[{index}] = {},", values_with_symbols.len());
                 indent!(self);
 
-                for ((value, kind), symbols) in values_with_symbols.iter_mut() {
+                for ((value, kind), symbols) in &mut values_with_symbols {
                     if *kind == SymbolType::NonTerminal {
-                        add_line!(self, "STATE({}), {},", value, symbols.len());
+                        add_line!(self, "STATE({value}), {},", symbols.len());
                     } else {
-                        add_line!(self, "ACTIONS({}), {},", value, symbols.len());
+                        add_line!(self, "ACTIONS({value}), {},", symbols.len());
                     }
 
                     symbols.sort_unstable();
@@ -1247,8 +1223,7 @@ impl Generator {
             for i in self.large_state_count..self.parse_table.states.len() {
                 add_line!(
                     self,
-                    "[SMALL_STATE({})] = {},",
-                    i,
+                    "[SMALL_STATE({i})] = {},",
                     small_state_indices[i - self.large_state_count]
                 );
             }
@@ -1274,8 +1249,7 @@ impl Generator {
         for (i, entry) in parse_table_entries {
             add!(
                 self,
-                "  [{}] = {{.entry = {{.count = {}, .reusable = {}}}}},",
-                i,
+                "  [{i}] = {{.entry = {{.count = {}, .reusable = {}}}}},",
                 entry.actions.len(),
                 entry.reusable
             );
@@ -1290,9 +1264,9 @@ impl Generator {
                         is_repetition,
                     } => {
                         if is_repetition {
-                            add!(self, "SHIFT_REPEAT({})", state);
+                            add!(self, "SHIFT_REPEAT({state})");
                         } else {
-                            add!(self, "SHIFT({})", state);
+                            add!(self, "SHIFT({state})");
                         }
                     }
                     ParseAction::Reduce {
@@ -1304,15 +1278,15 @@ impl Generator {
                     } => {
                         add!(self, "REDUCE({}, {}", self.symbol_ids[&symbol], child_count);
                         if dynamic_precedence != 0 {
-                            add!(self, ", .dynamic_precedence = {}", dynamic_precedence);
+                            add!(self, ", .dynamic_precedence = {dynamic_precedence}");
                         }
                         if production_id != 0 {
-                            add!(self, ", .production_id = {}", production_id);
+                            add!(self, ", .production_id = {production_id}");
                         }
                         add!(self, ")");
                     }
                 }
-                add!(self, ",")
+                add!(self, ",");
             }
             add!(self, "\n");
         }
@@ -1323,29 +1297,26 @@ impl Generator {
 
     fn add_parser_export(&mut self) {
         let language_function_name = format!("tree_sitter_{}", self.language_name);
-        let external_scanner_name = format!("{}_external_scanner", language_function_name);
+        let external_scanner_name = format!("{language_function_name}_external_scanner");
 
         add_line!(self, "#ifdef __cplusplus");
         add_line!(self, r#"extern "C" {{"#);
         add_line!(self, "#endif");
 
         if !self.syntax_grammar.external_tokens.is_empty() {
-            add_line!(self, "void *{}_create(void);", external_scanner_name);
-            add_line!(self, "void {}_destroy(void *);", external_scanner_name);
+            add_line!(self, "void *{external_scanner_name}_create(void);");
+            add_line!(self, "void {external_scanner_name}_destroy(void *);");
             add_line!(
                 self,
-                "bool {}_scan(void *, TSLexer *, const bool *);",
-                external_scanner_name
+                "bool {external_scanner_name}_scan(void *, TSLexer *, const bool *);",
             );
             add_line!(
                 self,
-                "unsigned {}_serialize(void *, char *);",
-                external_scanner_name
+                "unsigned {external_scanner_name}_serialize(void *, char *);",
             );
             add_line!(
                 self,
-                "void {}_deserialize(void *, const char *, unsigned);",
-                external_scanner_name
+                "void {external_scanner_name}_deserialize(void *, const char *, unsigned);",
             );
             add_line!(self, "");
         }
@@ -1357,8 +1328,7 @@ impl Generator {
 
         add_line!(
             self,
-            "extern const TSLanguage *{}(void) {{",
-            language_function_name
+            "extern const TSLanguage *{language_function_name}(void) {{",
         );
         indent!(self);
         add_line!(self, "static const TSLanguage language = {{");
@@ -1418,11 +1388,11 @@ impl Generator {
             indent!(self);
             add_line!(self, "&ts_external_scanner_states[0][0],");
             add_line!(self, "ts_external_scanner_symbol_map,");
-            add_line!(self, "{}_create,", external_scanner_name);
-            add_line!(self, "{}_destroy,", external_scanner_name);
-            add_line!(self, "{}_scan,", external_scanner_name);
-            add_line!(self, "{}_serialize,", external_scanner_name);
-            add_line!(self, "{}_deserialize,", external_scanner_name);
+            add_line!(self, "{external_scanner_name}_create,");
+            add_line!(self, "{external_scanner_name}_destroy,");
+            add_line!(self, "{external_scanner_name}_scan,");
+            add_line!(self, "{external_scanner_name}_serialize,");
+            add_line!(self, "{external_scanner_name}_deserialize,");
             dedent!(self);
             add_line!(self, "}},");
         }
@@ -1442,7 +1412,6 @@ impl Generator {
     }
 
     fn get_parse_action_list_id(
-        &self,
         entry: &ParseTableEntry,
         parse_table_entries: &mut HashMap<ParseTableEntry, usize>,
         next_parse_action_list_index: &mut usize,
@@ -1458,7 +1427,6 @@ impl Generator {
     }
 
     fn get_field_map_id(
-        &self,
         flat_field_map: &Vec<(String, FieldLocation)>,
         flat_field_maps: &mut Vec<(usize, Vec<(String, FieldLocation)>)>,
         next_flat_field_map_index: &mut usize,
@@ -1473,10 +1441,10 @@ impl Generator {
         result
     }
 
-    fn external_token_id(&self, token: &ExternalToken) -> String {
+    fn external_token_id(token: &ExternalToken) -> String {
         format!(
             "ts_external_token_{}",
-            self.sanitize_identifier(&token.name)
+            Self::sanitize_identifier(&token.name)
         )
     }
 
@@ -1487,10 +1455,10 @@ impl Generator {
         } else {
             let (name, kind) = self.metadata_for_symbol(symbol);
             id = match kind {
-                VariableType::Auxiliary => format!("aux_sym_{}", self.sanitize_identifier(name)),
-                VariableType::Anonymous => format!("anon_sym_{}", self.sanitize_identifier(name)),
+                VariableType::Auxiliary => format!("aux_sym_{}", Self::sanitize_identifier(name)),
+                VariableType::Anonymous => format!("anon_sym_{}", Self::sanitize_identifier(name)),
                 VariableType::Hidden | VariableType::Named => {
-                    format!("sym_{}", self.sanitize_identifier(name))
+                    format!("sym_{}", Self::sanitize_identifier(name))
                 }
             };
 
@@ -1508,8 +1476,8 @@ impl Generator {
         self.symbol_ids.insert(symbol, id);
     }
 
-    fn field_id(&self, field_name: &String) -> String {
-        format!("field_{}", field_name)
+    fn field_id(field_name: &String) -> String {
+        format!("field_{field_name}")
     }
 
     fn metadata_for_symbol(&self, symbol: Symbol) -> (&str, VariableType) {
@@ -1530,7 +1498,7 @@ impl Generator {
         }
     }
 
-    fn sanitize_identifier(&self, name: &str) -> String {
+    fn sanitize_identifier(name: &str) -> String {
         let mut result = String::with_capacity(name.len());
         for c in name.chars() {
             if c.is_ascii_alphanumeric() || c == '_' {
@@ -1615,7 +1583,7 @@ impl Generator {
                         '0'..='9' | 'a'..='z' | 'A'..='Z' | '_' => unreachable!(),
                         ' ' => break 'special_chars,
                     };
-                    if !result.is_empty() && !result.ends_with("_") {
+                    if !result.is_empty() && !result.ends_with('_') {
                         result.push('_');
                     }
                     result += replacement;
@@ -1625,7 +1593,7 @@ impl Generator {
         result
     }
 
-    fn sanitize_string(&self, name: &str) -> String {
+    fn sanitize_string(name: &str) -> String {
         let mut result = String::with_capacity(name.len());
         for c in name.chars() {
             match c {
@@ -1661,9 +1629,9 @@ impl Generator {
             '\r' => add!(self, "'\\r'"),
             _ => {
                 if c == ' ' || c.is_ascii_graphic() {
-                    add!(self, "'{}'", c)
+                    add!(self, "'{c}'");
                 } else {
-                    add!(self, "{}", c as u32)
+                    add!(self, "{}", c as u32);
                 }
             }
         }
@@ -1688,7 +1656,7 @@ impl Generator {
 /// * `abi_version` - The language ABI version that should be generated. Usually
 ///    you want Tree-sitter's current version, but right after making an ABI
 ///    change, it may be useful to generate code with the previous ABI.
-pub(crate) fn render_c_code(
+pub fn render_c_code(
     name: &str,
     parse_table: ParseTable,
     main_lex_table: LexTable,
@@ -1699,12 +1667,10 @@ pub(crate) fn render_c_code(
     default_aliases: AliasMap,
     abi_version: usize,
 ) -> String {
-    if !(ABI_VERSION_MIN..=ABI_VERSION_MAX).contains(&abi_version) {
-        panic!(
-            "This version of Tree-sitter can only generate parsers with ABI version {} - {}, not {}",
-            ABI_VERSION_MIN, ABI_VERSION_MAX, abi_version
-        );
-    }
+    assert!(
+        (ABI_VERSION_MIN..=ABI_VERSION_MAX).contains(&abi_version),
+        "This version of Tree-sitter can only generate parsers with ABI version {ABI_VERSION_MIN} - {ABI_VERSION_MAX}, not {abi_version}",
+    );
 
     Generator {
         buffer: String::new(),

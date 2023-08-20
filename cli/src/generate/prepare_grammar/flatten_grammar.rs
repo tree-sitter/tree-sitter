@@ -88,7 +88,7 @@ impl RuleFlattener {
                     self.associativity_stack.pop();
                     if did_push && !at_end {
                         self.production.steps.last_mut().unwrap().associativity =
-                            self.associativity_stack.last().cloned();
+                            self.associativity_stack.last().copied();
                     }
                 }
 
@@ -110,7 +110,7 @@ impl RuleFlattener {
                         .last()
                         .cloned()
                         .unwrap_or(Precedence::None),
-                    associativity: self.associativity_stack.last().cloned(),
+                    associativity: self.associativity_stack.last().copied(),
                     alias: self.alias_stack.last().cloned(),
                     field_name: self.field_name_stack.last().cloned(),
                 });
@@ -129,7 +129,7 @@ fn extract_choices(rule: Rule) -> Vec<Rule> {
                 let extraction = extract_choices(element);
                 let mut next_result = Vec::new();
                 for entry in result {
-                    for extraction_entry in extraction.iter() {
+                    for extraction_entry in &extraction {
                         next_result.push(Rule::Seq(vec![entry.clone(), extraction_entry.clone()]));
                     }
                 }
@@ -157,7 +157,7 @@ fn extract_choices(rule: Rule) -> Vec<Rule> {
     }
 }
 
-fn flatten_variable(variable: Variable) -> Result<SyntaxVariable> {
+fn flatten_variable(variable: Variable) -> SyntaxVariable {
     let mut productions = Vec::new();
     for rule in extract_choices(variable.rule) {
         let production = RuleFlattener::new().flatten(rule);
@@ -165,11 +165,11 @@ fn flatten_variable(variable: Variable) -> Result<SyntaxVariable> {
             productions.push(production);
         }
     }
-    Ok(SyntaxVariable {
+    SyntaxVariable {
         name: variable.name,
         kind: variable.kind,
         productions,
-    })
+    }
 }
 
 fn symbol_is_used(variables: &Vec<SyntaxVariable>, symbol: Symbol) -> bool {
@@ -188,7 +188,7 @@ fn symbol_is_used(variables: &Vec<SyntaxVariable>, symbol: Symbol) -> bool {
 pub(super) fn flatten_grammar(grammar: ExtractedSyntaxGrammar) -> Result<SyntaxGrammar> {
     let mut variables = Vec::new();
     for variable in grammar.variables {
-        variables.push(flatten_variable(variable)?);
+        variables.push(flatten_variable(variable));
     }
     for (i, variable) in variables.iter().enumerate() {
         for production in &variable.productions {
@@ -245,8 +245,7 @@ mod tests {
                 ),
                 Rule::non_terminal(7),
             ]),
-        })
-        .unwrap();
+        });
 
         assert_eq!(
             result.productions,
@@ -304,8 +303,7 @@ mod tests {
                 ),
                 Rule::non_terminal(7),
             ]),
-        })
-        .unwrap();
+        });
 
         assert_eq!(
             result.productions,
@@ -344,8 +342,7 @@ mod tests {
                 Precedence::Integer(101),
                 Rule::seq(vec![Rule::non_terminal(1), Rule::non_terminal(2)]),
             ),
-        })
-        .unwrap();
+        });
 
         assert_eq!(
             result.productions,
@@ -367,8 +364,7 @@ mod tests {
                 Precedence::Integer(101),
                 Rule::seq(vec![Rule::non_terminal(1)]),
             ),
-        })
-        .unwrap();
+        });
 
         assert_eq!(
             result.productions,
@@ -393,8 +389,7 @@ mod tests {
                     Rule::field("second-thing".to_string(), Rule::terminal(3)),
                 ]),
             ]),
-        })
-        .unwrap();
+        });
 
         assert_eq!(
             result.productions,

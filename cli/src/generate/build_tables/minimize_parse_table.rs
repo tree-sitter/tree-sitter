@@ -9,7 +9,7 @@ use log::info;
 use std::collections::{HashMap, HashSet};
 use std::mem;
 
-pub(crate) fn minimize_parse_table(
+pub fn minimize_parse_table(
     parse_table: &mut ParseTable,
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
@@ -67,9 +67,9 @@ impl<'a> Minimizer<'a> {
                             symbol,
                             ..
                         } => {
-                            if !self.simple_aliases.contains_key(&symbol)
-                                && !self.syntax_grammar.supertype_symbols.contains(&symbol)
-                                && !aliased_symbols.contains(&symbol)
+                            if !self.simple_aliases.contains_key(symbol)
+                                && !self.syntax_grammar.supertype_symbols.contains(symbol)
+                                && !aliased_symbols.contains(symbol)
                                 && self.syntax_grammar.variables[symbol.index].kind
                                     != VariableType::Named
                                 && (unit_reduction_symbol.is_none()
@@ -97,7 +97,7 @@ impl<'a> Minimizer<'a> {
             }
         }
 
-        for state in self.parse_table.states.iter_mut() {
+        for state in &mut self.parse_table.states {
             let mut done = false;
             while !done {
                 done = true;
@@ -111,7 +111,7 @@ impl<'a> Minimizer<'a> {
                     } else {
                         other_state_id
                     }
-                })
+                });
             }
         }
     }
@@ -198,7 +198,7 @@ impl<'a> Minimizer<'a> {
         &self,
         left_state: &ParseState,
         right_state: &ParseState,
-        group_ids_by_state_id: &Vec<ParseStateId>,
+        group_ids_by_state_id: &[ParseStateId],
     ) -> bool {
         for (token, left_entry) in &left_state.terminal_entries {
             if let Some(right_entry) = right_state.terminal_entries.get(token) {
@@ -223,15 +223,15 @@ impl<'a> Minimizer<'a> {
         }
 
         for token in right_state.terminal_entries.keys() {
-            if !left_state.terminal_entries.contains_key(token) {
-                if self.token_conflicts(
+            if !left_state.terminal_entries.contains_key(token)
+                && self.token_conflicts(
                     left_state.id,
                     right_state.id,
                     left_state.terminal_entries.keys(),
                     *token,
-                ) {
-                    return true;
-                }
+                )
+            {
+                return true;
             }
         }
 
@@ -242,7 +242,7 @@ impl<'a> Minimizer<'a> {
         &self,
         state1: &ParseState,
         state2: &ParseState,
-        group_ids_by_state_id: &Vec<ParseStateId>,
+        group_ids_by_state_id: &[ParseStateId],
     ) -> bool {
         for (token, entry1) in &state1.terminal_entries {
             if let ParseAction::Shift { state: s1, .. } = entry1.actions.last().unwrap() {
@@ -300,7 +300,7 @@ impl<'a> Minimizer<'a> {
         token: &Symbol,
         entry1: &ParseTableEntry,
         entry2: &ParseTableEntry,
-        group_ids_by_state_id: &Vec<ParseStateId>,
+        group_ids_by_state_id: &[ParseStateId],
     ) -> bool {
         // To be compatible, entries need to have the same actions.
         let actions1 = &entry1.actions;
@@ -334,17 +334,16 @@ impl<'a> Minimizer<'a> {
                 let group2 = group_ids_by_state_id[*s2];
                 if group1 == group2 && is_repetition1 == is_repetition2 {
                     continue;
-                } else {
-                    info!(
-                        "split states {} {} - successors for {} are split: {} {}",
-                        state_id1,
-                        state_id2,
-                        self.symbol_name(token),
-                        s1,
-                        s2,
-                    );
-                    return true;
                 }
+                info!(
+                    "split states {} {} - successors for {} are split: {} {}",
+                    state_id1,
+                    state_id2,
+                    self.symbol_name(token),
+                    s1,
+                    s2,
+                );
+                return true;
             } else if action1 != action2 {
                 info!(
                     "split states {} {} - unequal actions for {}",
@@ -405,27 +404,26 @@ impl<'a> Minimizer<'a> {
 
         // Do not add a token if it conflicts with an existing token.
         for token in existing_tokens {
-            if token.is_terminal() {
-                if !(self.syntax_grammar.word_token == Some(*token)
+            if token.is_terminal()
+                && !(self.syntax_grammar.word_token == Some(*token)
                     && self.keywords.contains(&new_token))
-                    && !(self.syntax_grammar.word_token == Some(new_token)
-                        && self.keywords.contains(token))
-                    && (self
+                && !(self.syntax_grammar.word_token == Some(new_token)
+                    && self.keywords.contains(token))
+                && (self
+                    .token_conflict_map
+                    .does_conflict(new_token.index, token.index)
+                    || self
                         .token_conflict_map
-                        .does_conflict(new_token.index, token.index)
-                        || self
-                            .token_conflict_map
-                            .does_match_same_string(new_token.index, token.index))
-                {
-                    info!(
-                        "split states {} {} - token {} conflicts with {}",
-                        left_id,
-                        right_id,
-                        self.symbol_name(&new_token),
-                        self.symbol_name(token),
-                    );
-                    return true;
-                }
+                        .does_match_same_string(new_token.index, token.index))
+            {
+                info!(
+                    "split states {} {} - token {} conflicts with {}",
+                    left_id,
+                    right_id,
+                    self.symbol_name(&new_token),
+                    self.symbol_name(token),
+                );
+                return true;
             }
         }
 

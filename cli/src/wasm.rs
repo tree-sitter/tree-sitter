@@ -7,7 +7,7 @@ use std::path::Path;
 use std::process::Command;
 use which::which;
 
-const EMSCRIPTEN_TAG: &'static str = concat!("emscripten/emsdk:", env!("EMSCRIPTEN_VERSION"));
+const EMSCRIPTEN_TAG: &str = concat!("emscripten/emsdk:", env!("EMSCRIPTEN_VERSION"));
 
 pub fn get_grammar_name(src_dir: &Path) -> Result<String> {
     let grammar_json_path = src_dir.join("grammar.json");
@@ -18,10 +18,10 @@ pub fn get_grammar_name(src_dir: &Path) -> Result<String> {
     Ok(grammar.name)
 }
 
-pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Result<()> {
+pub fn compile_language(language_dir: &Path, force_docker: bool) -> Result<()> {
     let src_dir = language_dir.join("src");
     let grammar_name = get_grammar_name(&src_dir)?;
-    let output_filename = format!("tree-sitter-{}.wasm", grammar_name);
+    let output_filename = format!("tree-sitter-{grammar_name}.wasm");
 
     let emcc_bin = if cfg!(windows) { "emcc.bat" } else { "emcc" };
     let emcc_path = which(emcc_bin)
@@ -31,10 +31,10 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
     let mut command;
     if !force_docker && emcc_path.is_some() {
         command = Command::new(emcc_path.unwrap());
-        command.current_dir(&language_dir);
+        command.current_dir(language_dir);
     } else if Command::new("docker").output().is_ok() {
         command = Command::new("docker");
-        command.args(&["run", "--rm"]);
+        command.args(["run", "--rm"]);
 
         // Mount the parser directory as a volume
         let mut volume_string;
@@ -46,10 +46,10 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
         } else {
             volume_string = OsString::from(language_dir);
             volume_string.push(":/src:Z");
-            command.args(&["--workdir", "/src"]);
+            command.args(["--workdir", "/src"]);
         }
 
-        command.args(&[OsStr::new("--volume"), &volume_string]);
+        command.args([OsStr::new("--volume"), &volume_string]);
 
         // Get the current user id so that files created in the docker container will have
         // the same owner.
@@ -60,11 +60,11 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
                 .with_context(|| "Failed to get get current user id")?;
             let user_id = String::from_utf8_lossy(&user_id_output.stdout);
             let user_id = user_id.trim();
-            command.args(&["--user", user_id]);
+            command.args(["--user", user_id]);
         }
 
         // Run `emcc` in a container using the `emscripten-slim` image
-        command.args(&[EMSCRIPTEN_TAG, "emcc"]);
+        command.args([EMSCRIPTEN_TAG, "emcc"]);
     } else {
         if force_docker {
             return Err(anyhow!(
@@ -76,7 +76,7 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
         ));
     }
 
-    command.args(&[
+    command.args([
         "-o",
         &output_filename,
         "-Os",
@@ -91,7 +91,7 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
         "-s",
         "NODEJS_CATCH_REJECTION=0",
         "-s",
-        &format!("EXPORTED_FUNCTIONS=[\"_tree_sitter_{}\"]", grammar_name),
+        &format!("EXPORTED_FUNCTIONS=[\"_tree_sitter_{grammar_name}\"]"),
         "-fno-exceptions",
         "-I",
         "src",
@@ -128,7 +128,7 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
     }
 
     // Move the created `.wasm` file into the current working directory.
-    fs::rename(&language_dir.join(&output_filename), &output_filename)
+    fs::rename(language_dir.join(&output_filename), &output_filename)
         .with_context(|| format!("Couldn't find output file {:?}", output_filename))?;
 
     Ok(())

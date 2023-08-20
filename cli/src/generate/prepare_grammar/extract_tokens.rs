@@ -15,12 +15,12 @@ pub(super) fn extract_tokens(
         extracted_usage_counts: Vec::new(),
     };
 
-    for mut variable in grammar.variables.iter_mut() {
-        extractor.extract_tokens_in_variable(&mut variable);
+    for variable in &mut grammar.variables {
+        extractor.extract_tokens_in_variable(variable);
     }
 
-    for mut variable in grammar.external_tokens.iter_mut() {
-        extractor.extract_tokens_in_variable(&mut variable);
+    for variable in &mut grammar.external_tokens {
+        extractor.extract_tokens_in_variable(variable);
     }
 
     let mut lexical_variables = Vec::with_capacity(extractor.extracted_variables.len());
@@ -59,7 +59,7 @@ pub(super) fn extract_tokens(
         variables.push(variable);
     }
 
-    for variable in variables.iter_mut() {
+    for variable in &mut variables {
         variable.rule = symbol_replacer.replace_symbols_in_rule(&variable.rule);
     }
 
@@ -94,12 +94,10 @@ pub(super) fn extract_tokens(
     for rule in grammar.extra_symbols {
         if let Rule::Symbol(symbol) = rule {
             extra_symbols.push(symbol_replacer.replace_symbol(symbol));
+        } else if let Some(index) = lexical_variables.iter().position(|v| v.rule == rule) {
+            extra_symbols.push(Symbol::terminal(index));
         } else {
-            if let Some(index) = lexical_variables.iter().position(|v| v.rule == rule) {
-                extra_symbols.push(Symbol::terminal(index));
-            } else {
-                separators.push(rule);
-            }
+            separators.push(rule);
         }
     }
 
@@ -119,13 +117,13 @@ pub(super) fn extract_tokens(
                     name: external_token.name,
                     kind: external_token.kind,
                     corresponding_internal_token: None,
-                })
+                });
             } else {
                 external_tokens.push(ExternalToken {
                     name: lexical_variables[symbol.index].name.clone(),
                     kind: external_token.kind,
                     corresponding_internal_token: Some(symbol),
-                })
+                });
             }
         } else {
             return Err(anyhow!(
@@ -209,7 +207,7 @@ impl TokenExtractor {
                 } else {
                     Rule::Metadata {
                         params: params.clone(),
-                        rule: Box::new(self.extract_tokens_in_rule(&rule)),
+                        rule: Box::new(self.extract_tokens_in_rule(rule)),
                     }
                 }
             }
@@ -298,13 +296,13 @@ impl SymbolReplacer {
         }
 
         let mut adjusted_index = symbol.index;
-        for (replaced_index, _) in self.replacements.iter() {
+        for replaced_index in self.replacements.keys() {
             if *replaced_index < symbol.index {
                 adjusted_index -= 1;
             }
         }
 
-        return Symbol::non_terminal(adjusted_index);
+        Symbol::non_terminal(adjusted_index)
     }
 }
 

@@ -91,8 +91,8 @@ fn test_language_corpus(start_seed: usize, language_name: &str) {
     let template_corpus_file =
         template_corpus_dir.join(&format!("{}_templates.txt", language_name));
     let main_tests = parse_tests(&corpus_dir).unwrap();
-    let error_tests = parse_tests(&error_corpus_file).unwrap_or(TestEntry::default());
-    let template_tests = parse_tests(&template_corpus_file).unwrap_or(TestEntry::default());
+    let error_tests = parse_tests(&error_corpus_file).unwrap_or_default();
+    let template_tests = parse_tests(&template_corpus_file).unwrap_or_default();
     let mut tests = flatten_tests(main_tests);
     tests.extend(flatten_tests(error_tests));
     tests.extend(flatten_tests(template_tests).into_iter().map(|mut t| {
@@ -125,7 +125,7 @@ fn test_language_corpus(start_seed: usize, language_name: &str) {
             let tree = parser.parse(&test.input, None).unwrap();
             let mut actual_output = tree.root_node().to_sexp();
             if !test.has_fields {
-                actual_output = strip_sexp_fields(actual_output);
+                actual_output = strip_sexp_fields(&actual_output);
             }
 
             if actual_output != test.output {
@@ -215,7 +215,7 @@ fn test_language_corpus(start_seed: usize, language_name: &str) {
                 // Verify that the final tree matches the expectation from the corpus.
                 let mut actual_output = tree3.root_node().to_sexp();
                 if !test.has_fields {
-                    actual_output = strip_sexp_fields(actual_output);
+                    actual_output = strip_sexp_fields(&actual_output);
                 }
 
                 if actual_output != test.output {
@@ -335,7 +335,7 @@ fn test_feature_corpus_files() {
                     let tree = parser.parse(&test.input, None).unwrap();
                     let mut actual_output = tree.root_node().to_sexp();
                     if !test.has_fields {
-                        actual_output = strip_sexp_fields(actual_output);
+                        actual_output = strip_sexp_fields(&actual_output);
                     }
                     if actual_output == test.output {
                         true
@@ -359,7 +359,7 @@ fn test_feature_corpus_files() {
     }
 }
 
-fn check_consistent_sizes(tree: &Tree, input: &Vec<u8>) {
+fn check_consistent_sizes(tree: &Tree, input: &[u8]) {
     fn check(node: Node, line_offsets: &Vec<usize>) {
         let start_byte = node.start_byte();
         let end_byte = node.end_byte();
@@ -407,7 +407,7 @@ fn check_consistent_sizes(tree: &Tree, input: &Vec<u8>) {
 
     let mut line_offsets = vec![0];
     for (i, c) in input.iter().enumerate() {
-        if *c == '\n' as u8 {
+        if *c == b'\n' {
             line_offsets.push(i + 1);
         }
     }
@@ -437,7 +437,7 @@ fn check_changed_ranges(old_tree: &Tree, new_tree: &Tree, input: &Vec<u8>) -> Re
         }
     }
 
-    old_scope_sequence.check_changes(&new_scope_sequence, &input, &changed_ranges)
+    old_scope_sequence.check_changes(&new_scope_sequence, input, &changed_ranges)
 }
 
 fn set_included_ranges(parser: &mut Parser, input: &[u8], delimiters: Option<(&str, &str)>) {

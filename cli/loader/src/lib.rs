@@ -33,9 +33,8 @@ where
     D: Deserializer<'de>,
 {
     let paths = Vec::<PathBuf>::deserialize(deserializer)?;
-    let home = match dirs::home_dir() {
-        Some(home) => home,
-        None => return Ok(paths),
+    let Some(home) = dirs::home_dir() else {
+        return Ok(paths);
     };
     let standardized = paths
         .into_iter()
@@ -55,9 +54,10 @@ fn standardize_path(path: PathBuf, home: &Path) -> PathBuf {
 }
 
 impl Config {
-    pub fn initial() -> Config {
+    #[must_use]
+    pub fn initial() -> Self {
         let home_dir = dirs::home_dir().expect("Cannot determine home directory");
-        Config {
+        Self {
             parser_directories: vec![
                 home_dir.join("github"),
                 home_dir.join("src"),
@@ -68,12 +68,12 @@ impl Config {
 }
 
 #[cfg(unix)]
-const DYLIB_EXTENSION: &'static str = "so";
+const DYLIB_EXTENSION: &str = "so";
 
 #[cfg(windows)]
 const DYLIB_EXTENSION: &'static str = "dll";
 
-const BUILD_TARGET: &'static str = env!("BUILD_TARGET");
+const BUILD_TARGET: &str = env!("BUILD_TARGET");
 
 pub struct LanguageConfiguration<'a> {
     pub scope: Option<String>,
@@ -119,8 +119,9 @@ impl Loader {
         Ok(Self::with_parser_lib_path(parser_lib_path))
     }
 
+    #[must_use]
     pub fn with_parser_lib_path(parser_lib_path: PathBuf) -> Self {
-        Loader {
+        Self {
             parser_lib_path,
             languages_by_id: Vec::new(),
             language_configurations: Vec::new(),
@@ -131,13 +132,14 @@ impl Loader {
         }
     }
 
-    pub fn configure_highlights(&mut self, names: &Vec<String>) {
+    pub fn configure_highlights(&mut self, names: &[String]) {
         self.use_all_highlight_names = false;
         let mut highlights = self.highlight_names.lock().unwrap();
         highlights.clear();
         highlights.extend(names.iter().cloned());
     }
 
+    #[must_use]
     pub fn highlight_names(&self) -> Vec<String> {
         self.highlight_names.lock().unwrap().clone()
     }
@@ -148,7 +150,7 @@ impl Loader {
             eprintln!("Please run `tree-sitter init-config` and edit the resulting");
             eprintln!("configuration file to indicate where we should look for");
             eprintln!("language grammars.");
-            eprintln!("");
+            eprintln!();
         }
         for parser_container_dir in &config.parser_directories {
             if let Ok(entries) = fs::read_dir(parser_container_dir) {
@@ -174,7 +176,7 @@ impl Loader {
                 .iter()
                 .map(|c| c.language_id)
                 .collect::<Vec<_>>();
-            language_ids.sort();
+            language_ids.sort_unstable();
             language_ids.dedup();
             language_ids
                 .into_iter()
@@ -185,6 +187,7 @@ impl Loader {
         }
     }
 
+    #[must_use]
     pub fn get_all_language_configurations(&self) -> Vec<(&LanguageConfiguration, &Path)> {
         self.language_configurations
             .iter()
@@ -225,15 +228,12 @@ impl Loader {
 
         if let Some(configuration_ids) = configuration_ids {
             if !configuration_ids.is_empty() {
-                let configuration;
-
-                // If there is only one language configuration, then use it.
-                if configuration_ids.len() == 1 {
-                    configuration = &self.language_configurations[configuration_ids[0]];
-                }
-                // If multiple language configurations match, then determine which
-                // one to use by applying the configurations' content regexes.
-                else {
+                let configuration = if configuration_ids.len() == 1 {
+                    // If there is only one language configuration, then use it.
+                    &self.language_configurations[configuration_ids[0]]
+                } else {
+                    // If multiple language configurations match, then determine which
+                    // one to use by applying the configurations' content regexes.
                     let file_contents = fs::read(path)
                         .with_context(|| format!("Failed to read path {:?}", path))?;
                     let file_contents = String::from_utf8_lossy(&file_contents);
@@ -265,8 +265,8 @@ impl Loader {
                         }
                     }
 
-                    configuration = &self.language_configurations[best_configuration_id.unwrap()];
-                }
+                    &self.language_configurations[best_configuration_id.unwrap()]
+                };
 
                 let language = self.language_for_id(configuration.language_id)?;
                 return Ok(Some((language, configuration)));
@@ -340,7 +340,7 @@ impl Loader {
 
         self.load_language_from_sources(
             &grammar_json.name,
-            &header_path,
+            header_path,
             &parser_path,
             &scanner_path,
         )
@@ -360,7 +360,7 @@ impl Loader {
         let mut library_path = self.parser_lib_path.join(lib_name);
         library_path.set_extension(DYLIB_EXTENSION);
 
-        let recompile = needs_recompile(&library_path, &parser_path, &scanner_path)
+        let recompile = needs_recompile(&library_path, parser_path, scanner_path)
             .with_context(|| "Failed to compare source and binary timestamps")?;
 
         if recompile {
@@ -380,7 +380,7 @@ impl Loader {
             }
 
             if compiler.is_like_msvc() {
-                command.args(&["/nologo", "/LD", "/I"]).arg(header_path);
+                command.args(["/nologo", "/LD", "/I"]).arg(header_path);
                 if self.debug_build {
                     command.arg("/Od");
                 } else {
@@ -475,13 +475,14 @@ impl Loader {
         let language = unsafe {
             let language_fn: Symbol<unsafe extern "C" fn() -> Language> = library
                 .get(language_fn_name.as_bytes())
-                .with_context(|| format!("Failed to load symbol {}", language_fn_name))?;
+                .with_context(|| format!("Failed to load symbol {language_fn_name}"))?;
             language_fn()
         };
         mem::forget(library);
         Ok(language)
     }
 
+    #[must_use]
     pub fn highlight_config_for_injection_string<'a>(
         &'a self,
         string: &str,
@@ -489,10 +490,7 @@ impl Loader {
     ) -> Option<&'a HighlightConfiguration> {
         match self.language_configuration_for_injection_string(string) {
             Err(e) => {
-                eprintln!(
-                    "Failed to load language for injection string '{}': {}",
-                    string, e
-                );
+                eprintln!("Failed to load language for injection string '{string}': {e}",);
                 None
             }
             Ok(None) => None,
@@ -500,8 +498,7 @@ impl Loader {
                 match configuration.highlight_config(language, apply_all_captures, None) {
                     Err(e) => {
                         eprintln!(
-                            "Failed to load property sheet for injection string '{}': {}",
-                            string, e
+                            "Failed to load property sheet for injection string '{string}': {e}",
                         );
                         None
                     }
@@ -512,30 +509,25 @@ impl Loader {
         }
     }
 
-    pub fn find_language_configurations_at_path<'a>(
-        &'a mut self,
+    pub fn find_language_configurations_at_path(
+        &mut self,
         parser_path: &Path,
     ) -> Result<&[LanguageConfiguration]> {
-        #[derive(Deserialize)]
+        #[derive(Deserialize, Default)]
         #[serde(untagged)]
         enum PathsJSON {
+            #[default]
             Empty,
             Single(String),
             Multiple(Vec<String>),
         }
 
-        impl Default for PathsJSON {
-            fn default() -> Self {
-                PathsJSON::Empty
-            }
-        }
-
         impl PathsJSON {
             fn into_vec(self) -> Option<Vec<String>> {
                 match self {
-                    PathsJSON::Empty => None,
-                    PathsJSON::Single(s) => Some(vec![s]),
-                    PathsJSON::Multiple(s) => Some(s),
+                    Self::Empty => None,
+                    Self::Single(s) => Some(vec![s]),
+                    Self::Multiple(s) => Some(s),
                 }
             }
         }
@@ -625,14 +617,14 @@ impl Loader {
                         highlights_filenames: config_json.highlights.into_vec(),
                         highlight_config: OnceCell::new(),
                         tags_config: OnceCell::new(),
-                        highlight_names: &*self.highlight_names,
+                        highlight_names: &self.highlight_names,
                         use_all_highlight_names: self.use_all_highlight_names,
                     };
 
                     for file_type in &configuration.file_types {
                         self.language_configuration_ids_by_file_type
                             .entry(file_type.to_string())
-                            .or_insert(Vec::new())
+                            .or_default()
                             .push(self.language_configurations.len());
                     }
 
@@ -666,7 +658,7 @@ impl Loader {
                 tags_filenames: None,
                 highlight_config: OnceCell::new(),
                 tags_config: OnceCell::new(),
-                highlight_names: &*self.highlight_names,
+                highlight_names: &self.highlight_names,
                 use_all_highlight_names: self.use_all_highlight_names,
             };
             self.language_configurations
@@ -691,11 +683,11 @@ impl Loader {
         if let Some(scope) = scope {
             if let Some(config) = self
                 .language_configuration_for_scope(scope)
-                .with_context(|| format!("Failed to load language for scope '{}'", scope))?
+                .with_context(|| format!("Failed to load language for scope '{scope}'"))?
             {
                 Ok(config.0)
             } else {
-                return Err(anyhow!("Unknown scope '{}'", scope));
+                Err(anyhow!("Unknown scope '{scope}'"))
             }
         } else if let Some((lang, _)) = self
             .language_configuration_for_file_name(path)
@@ -708,10 +700,10 @@ impl Loader {
         {
             Ok(lang)
         } else if let Some(lang) = self
-            .languages_at_path(&current_dir)
+            .languages_at_path(current_dir)
             .with_context(|| "Failed to load language in current directory")?
             .first()
-            .cloned()
+            .copied()
         {
             Ok(lang)
         } else {
@@ -831,7 +823,7 @@ impl<'a> LanguageConfiguration<'a> {
                             }
                         }
                     }
-                    result.configure(&all_highlight_names.as_slice());
+                    result.configure(all_highlight_names.as_slice());
                     Ok(Some(result))
                 }
             })
@@ -867,7 +859,6 @@ impl<'a> LanguageConfiguration<'a> {
                                         locals_query.len(),
                                     )
                                 }
-                                .into()
                             } else {
                                 error.into()
                             }
@@ -877,9 +868,9 @@ impl<'a> LanguageConfiguration<'a> {
             .map(Option::as_ref)
     }
 
-    fn include_path_in_query_error<'b>(
+    fn include_path_in_query_error(
         mut error: QueryError,
-        ranges: &'b Vec<(String, Range<usize>)>,
+        ranges: &[(String, Range<usize>)],
         source: &str,
         start_offset: usize,
     ) -> Error {
@@ -893,7 +884,7 @@ impl<'a> LanguageConfiguration<'a> {
             .chars()
             .filter(|c| *c == '\n')
             .count();
-        Error::from(error).context(format!("Error in query file {:?}", path))
+        Error::from(error).context(format!("Error in query file {path:?}"))
     }
 
     fn read_queries(
@@ -908,7 +899,7 @@ impl<'a> LanguageConfiguration<'a> {
                 let abs_path = self.root_path.join(path);
                 let prev_query_len = query.len();
                 query += &fs::read_to_string(&abs_path)
-                    .with_context(|| format!("Failed to read query file {:?}", path))?;
+                    .with_context(|| format!("Failed to read query file {path:?}"))?;
                 path_ranges.push((path.clone(), prev_query_len..query.len()));
             }
         } else {
@@ -916,7 +907,7 @@ impl<'a> LanguageConfiguration<'a> {
             let path = queries_path.join(default_path);
             if path.exists() {
                 query = fs::read_to_string(&path)
-                    .with_context(|| format!("Failed to read query file {:?}", path))?;
+                    .with_context(|| format!("Failed to read query file {path:?}"))?;
                 path_ranges.push((default_path.to_string(), 0..query.len()));
             }
         }

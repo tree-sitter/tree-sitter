@@ -50,7 +50,7 @@ impl<'a> ReadRecorder<'a> {
     }
 }
 
-pub fn invert_edit(input: &Vec<u8>, edit: &Edit) -> Edit {
+pub fn invert_edit(input: &[u8], edit: &Edit) -> Edit {
     let position = edit.position;
     let removed_content = &input[position..(position + edit.deleted_length)];
     Edit {
@@ -60,7 +60,7 @@ pub fn invert_edit(input: &Vec<u8>, edit: &Edit) -> Edit {
     }
 }
 
-pub fn get_random_edit(rand: &mut Rand, input: &Vec<u8>) -> Edit {
+pub fn get_random_edit(rand: &mut Rand, input: &[u8]) -> Edit {
     let choice = rand.unsigned(10);
     if choice < 2 {
         // Insert text at end
