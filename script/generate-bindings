@@ -33,18 +33,7 @@ bindgen                                        \
   --no-layout-tests                            \
   --allowlist-type '^TS.*'                     \
   --allowlist-function '^ts_.*'                \
+  --allowlist-var "^TREE_SITTER.*"             \
   --blocklist-type '^__.*'                     \
   --no-copy "$no_copy"                         \
   $header_path > $output_path
-
-echo "" >> $output_path
-
-defines=(
-  TREE_SITTER_LANGUAGE_VERSION
-  TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
-)
-
-for define in "${defines[@]}"; do
-  define_value=$(grep -E "#define $define (.*)" $header_path | cut -d' ' -f3)
-  echo "pub const $define: usize = $define_value;" >> $output_path
-done
