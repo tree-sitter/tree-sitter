@@ -66,13 +66,29 @@ pub extern "C" fn ts_tagger_new() -> *mut TSTagger {
     }))
 }
 
+/// Delete a TSTagger.
+///
+/// # Safety
+///
+/// `this` must be non-null and a valid pointer to a [`TSTagger`] instance.
 #[no_mangle]
-pub extern "C" fn ts_tagger_delete(this: *mut TSTagger) {
-    drop(unsafe { Box::from_raw(this) })
+pub unsafe extern "C" fn ts_tagger_delete(this: *mut TSTagger) {
+    drop(Box::from_raw(this))
 }
 
+/// Add a language to a TSTagger.
+///
+/// Returns a [`TSTagsError`] indicating whether the operation was successful or not.
+///
+/// # Safety
+///
+/// `this` must be non-null and a valid pointer to a [`TSTagger`] instance.
+/// `scope_name` must be non-null and a valid pointer to a null-terminated string.
+/// `tags_query` and `locals_query` must be non-null and valid pointers to strings.
+///
+/// The caller must ensure that the lengths of `tags_query` and `locals_query` are correct.
 #[no_mangle]
-pub extern "C" fn ts_tagger_add_language(
+pub unsafe extern "C" fn ts_tagger_add_language(
     this: *mut TSTagger,
     scope_name: *const c_char,
     language: Language,
@@ -82,10 +98,10 @@ pub extern "C" fn ts_tagger_add_language(
     locals_query_len: u32,
 ) -> TSTagsError {
     let tagger = unwrap_mut_ptr(this);
-    let scope_name = unsafe { unwrap(CStr::from_ptr(scope_name).to_str()) };
-    let tags_query = unsafe { slice::from_raw_parts(tags_query, tags_query_len as usize) };
-    let locals_query = if locals_query != std::ptr::null() {
-        unsafe { slice::from_raw_parts(locals_query, locals_query_len as usize) }
+    let scope_name = unwrap(CStr::from_ptr(scope_name).to_str());
+    let tags_query = slice::from_raw_parts(tags_query, tags_query_len as usize);
+    let locals_query = if !locals_query.is_null() {
+        slice::from_raw_parts(locals_query, locals_query_len as usize)
     } else {
         &[]
     };
@@ -111,8 +127,19 @@ pub extern "C" fn ts_tagger_add_language(
     }
 }
 
+/// Tags some source code.
+///
+/// Returns a [`TSTagsError`] indicating whether the operation was successful or not.
+///
+/// # Safety
+///
+/// `this` must be a non-null valid pointer to a [`TSTagger`] instance.
+/// `scope_name` must be a non-null valid pointer to a null-terminated string.
+/// `source_code` must be a non-null valid pointer to a slice of bytes.
+/// `output` must be a non-null valid pointer to a [`TSTagsBuffer`] instance.
+/// `cancellation_flag` must be a non-null valid pointer to an [`AtomicUsize`] instance.
 #[no_mangle]
-pub extern "C" fn ts_tagger_tag(
+pub unsafe extern "C" fn ts_tagger_tag(
     this: *mut TSTagger,
     scope_name: *const c_char,
     source_code: *const u8,
@@ -122,14 +149,14 @@ pub extern "C" fn ts_tagger_tag(
 ) -> TSTagsError {
     let tagger = unwrap_mut_ptr(this);
     let buffer = unwrap_mut_ptr(output);
-    let scope_name = unsafe { unwrap(CStr::from_ptr(scope_name).to_str()) };
+    let scope_name = unwrap(CStr::from_ptr(scope_name).to_str());
 
     if let Some(config) = tagger.languages.get(scope_name) {
         shrink_and_clear(&mut buffer.tags, BUFFER_TAGS_RESERVE_CAPACITY);
         shrink_and_clear(&mut buffer.docs, BUFFER_DOCS_RESERVE_CAPACITY);
 
-        let source_code = unsafe { slice::from_raw_parts(source_code, source_code_len as usize) };
-        let cancellation_flag = unsafe { cancellation_flag.as_ref() };
+        let source_code = slice::from_raw_parts(source_code, source_code_len as usize);
+        let cancellation_flag = cancellation_flag.as_ref();
 
         let tags = match buffer
             .context
@@ -201,49 +228,108 @@ pub extern "C" fn ts_tags_buffer_new() -> *mut TSTagsBuffer {
     }))
 }
 
+/// Delete a TSTagsBuffer.
+///
+/// # Safety
+///
+/// `this` must be non-null and a valid pointer to a [`TSTagsBuffer`] instance created by
+/// [`ts_tags_buffer_new`].
 #[no_mangle]
-pub extern "C" fn ts_tags_buffer_delete(this: *mut TSTagsBuffer) {
-    drop(unsafe { Box::from_raw(this) })
+pub unsafe extern "C" fn ts_tags_buffer_delete(this: *mut TSTagsBuffer) {
+    drop(Box::from_raw(this))
 }
 
+/// Get the tags from a TSTagsBuffer.
+///
+/// # Safety
+///
+/// `this` must be non-null and a valid pointer to a [`TSTagsBuffer`] instance created by
+/// [`ts_tags_buffer_new`].
+///
+/// The caller must ensure that the returned pointer is not used after the [`TSTagsBuffer`]
+/// is deleted with [`ts_tags_buffer_delete`], else the data will point to garbage.
 #[no_mangle]
-pub extern "C" fn ts_tags_buffer_tags(this: *const TSTagsBuffer) -> *const TSTag {
+pub unsafe extern "C" fn ts_tags_buffer_tags(this: *const TSTagsBuffer) -> *const TSTag {
     let buffer = unwrap_ptr(this);
     buffer.tags.as_ptr()
 }
 
+/// Get the number of tags in a TSTagsBuffer.
+///
+/// # Safety
+///
+/// `this` must be non-null and a valid pointer to a [`TSTagsBuffer`] instance.
 #[no_mangle]
-pub extern "C" fn ts_tags_buffer_tags_len(this: *const TSTagsBuffer) -> u32 {
+pub unsafe extern "C" fn ts_tags_buffer_tags_len(this: *const TSTagsBuffer) -> u32 {
     let buffer = unwrap_ptr(this);
     buffer.tags.len() as u32
 }
 
+/// Get the documentation strings from a TSTagsBuffer.
+///
+/// # Safety
+///
+/// `this` must be non-null and a valid pointer to a [`TSTagsBuffer`] instance created by
+/// [`ts_tags_buffer_new`].
+///
+/// The caller must ensure that the returned pointer is not used after the [`TSTagsBuffer`]
+/// is deleted with [`ts_tags_buffer_delete`], else the data will point to garbage.
+///
+/// The returned pointer points to a C-style string.
+/// To get the length of the string, use [`ts_tags_buffer_docs_len`].
 #[no_mangle]
-pub extern "C" fn ts_tags_buffer_docs(this: *const TSTagsBuffer) -> *const c_char {
+pub unsafe extern "C" fn ts_tags_buffer_docs(this: *const TSTagsBuffer) -> *const c_char {
     let buffer = unwrap_ptr(this);
     buffer.docs.as_ptr() as *const c_char
 }
 
+/// Get the length of the documentation strings in a TSTagsBuffer.
+///
+/// # Safety
+///
+/// `this` must be non-null and a valid pointer to a [`TSTagsBuffer`] instance created by
+/// [`ts_tags_buffer_new`].
 #[no_mangle]
-pub extern "C" fn ts_tags_buffer_docs_len(this: *const TSTagsBuffer) -> u32 {
+pub unsafe extern "C" fn ts_tags_buffer_docs_len(this: *const TSTagsBuffer) -> u32 {
     let buffer = unwrap_ptr(this);
     buffer.docs.len() as u32
 }
 
+/// Get whether or not a TSTagsBuffer contains any parse errors.
+///
+/// # Safety
+///
+/// `this` must be non-null and a valid pointer to a [`TSTagsBuffer`] instance created by
+/// [`ts_tags_buffer_new`].
 #[no_mangle]
-pub extern "C" fn ts_tags_buffer_found_parse_error(this: *const TSTagsBuffer) -> bool {
+pub unsafe extern "C" fn ts_tags_buffer_found_parse_error(this: *const TSTagsBuffer) -> bool {
     let buffer = unwrap_ptr(this);
     buffer.errors_present
 }
 
+/// Get the syntax kinds for a given scope name.
+///
+/// Returns a pointer to a null-terminated array of null-terminated strings.
+///
+/// # Safety
+///
+/// `this` must be non-null and a valid pointer to a [`TSTagger`] instance created by
+/// [`ts_tagger_new`].
+/// `scope_name` must be non-null and a valid pointer to a null-terminated string.
+/// `len` must be non-null and a valid pointer to a `u32`.
+///
+/// The caller must ensure that the returned pointer is not used after the [`TSTagger`]
+/// is deleted with [`ts_tagger_delete`], else the data will point to garbage.
+///
+/// The returned pointer points to a C-style string array.
 #[no_mangle]
-pub extern "C" fn ts_tagger_syntax_kinds_for_scope_name(
+pub unsafe extern "C" fn ts_tagger_syntax_kinds_for_scope_name(
     this: *mut TSTagger,
     scope_name: *const c_char,
     len: *mut u32,
 ) -> *const *const c_char {
     let tagger = unwrap_mut_ptr(this);
-    let scope_name = unsafe { unwrap(CStr::from_ptr(scope_name).to_str()) };
+    let scope_name = unwrap(CStr::from_ptr(scope_name).to_str());
     let len = unwrap_mut_ptr(len);
 
     *len = 0;
@@ -254,15 +340,15 @@ pub extern "C" fn ts_tagger_syntax_kinds_for_scope_name(
     std::ptr::null()
 }
 
-fn unwrap_ptr<'a, T>(result: *const T) -> &'a T {
-    unsafe { result.as_ref() }.unwrap_or_else(|| {
+unsafe fn unwrap_ptr<'a, T>(result: *const T) -> &'a T {
+    result.as_ref().unwrap_or_else(|| {
         eprintln!("{}:{} - pointer must not be null", file!(), line!());
         abort();
     })
 }
 
-fn unwrap_mut_ptr<'a, T>(result: *mut T) -> &'a mut T {
-    unsafe { result.as_mut() }.unwrap_or_else(|| {
+unsafe fn unwrap_mut_ptr<'a, T>(result: *mut T) -> &'a mut T {
+    result.as_mut().unwrap_or_else(|| {
         eprintln!("{}:{} - pointer must not be null", file!(), line!());
         abort();
     })

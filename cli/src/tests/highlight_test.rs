@@ -496,11 +496,13 @@ fn test_highlighting_via_c_api() {
         .iter()
         .map(|h| h.as_bytes().as_ptr() as *const c_char)
         .collect::<Vec<_>>();
-    let highlighter = c::ts_highlighter_new(
-        &highlight_names[0] as *const *const c_char,
-        &highlight_attrs[0] as *const *const c_char,
-        highlights.len() as u32,
-    );
+    let highlighter = unsafe {
+        c::ts_highlighter_new(
+            &highlight_names[0] as *const *const c_char,
+            &highlight_attrs[0] as *const *const c_char,
+            highlights.len() as u32,
+        )
+    };
 
     let source_code = c_string("<script>\nconst a = b('c');\nc.d();\n</script>");
 
@@ -512,20 +514,22 @@ fn test_highlighting_via_c_api() {
     let highlights_query = fs::read_to_string(queries.join("highlights.scm")).unwrap();
     let injections_query = fs::read_to_string(queries.join("injections.scm")).unwrap();
     let locals_query = fs::read_to_string(queries.join("locals.scm")).unwrap();
-    c::ts_highlighter_add_language(
-        highlighter,
-        lang_name.as_ptr(),
-        js_scope.as_ptr(),
-        js_injection_regex.as_ptr(),
-        language,
-        highlights_query.as_ptr() as *const c_char,
-        injections_query.as_ptr() as *const c_char,
-        locals_query.as_ptr() as *const c_char,
-        highlights_query.len() as u32,
-        injections_query.len() as u32,
-        locals_query.len() as u32,
-        false,
-    );
+    unsafe {
+        c::ts_highlighter_add_language(
+            highlighter,
+            lang_name.as_ptr(),
+            js_scope.as_ptr(),
+            js_injection_regex.as_ptr(),
+            language,
+            highlights_query.as_ptr() as *const c_char,
+            injections_query.as_ptr() as *const c_char,
+            locals_query.as_ptr() as *const c_char,
+            highlights_query.len() as u32,
+            injections_query.len() as u32,
+            locals_query.len() as u32,
+            false,
+        );
+    }
 
     let html_scope = c_string("text.html.basic");
     let html_injection_regex = c_string("^html");
@@ -534,36 +538,40 @@ fn test_highlighting_via_c_api() {
     let queries = get_language_queries_path("html");
     let highlights_query = fs::read_to_string(queries.join("highlights.scm")).unwrap();
     let injections_query = fs::read_to_string(queries.join("injections.scm")).unwrap();
-    c::ts_highlighter_add_language(
-        highlighter,
-        lang_name.as_ptr(),
-        html_scope.as_ptr(),
-        html_injection_regex.as_ptr(),
-        language,
-        highlights_query.as_ptr() as *const c_char,
-        injections_query.as_ptr() as *const c_char,
-        ptr::null(),
-        highlights_query.len() as u32,
-        injections_query.len() as u32,
-        0,
-        false,
-    );
+    unsafe {
+        c::ts_highlighter_add_language(
+            highlighter,
+            lang_name.as_ptr(),
+            html_scope.as_ptr(),
+            html_injection_regex.as_ptr(),
+            language,
+            highlights_query.as_ptr() as *const c_char,
+            injections_query.as_ptr() as *const c_char,
+            ptr::null(),
+            highlights_query.len() as u32,
+            injections_query.len() as u32,
+            0,
+            false,
+        );
+    }
 
     let buffer = c::ts_highlight_buffer_new();
 
-    c::ts_highlighter_highlight(
-        highlighter,
-        html_scope.as_ptr(),
-        source_code.as_ptr(),
-        source_code.as_bytes().len() as u32,
-        buffer,
-        ptr::null_mut(),
-    );
+    unsafe {
+        c::ts_highlighter_highlight(
+            highlighter,
+            html_scope.as_ptr(),
+            source_code.as_ptr(),
+            source_code.as_bytes().len() as u32,
+            buffer,
+            ptr::null_mut(),
+        );
+    }
 
-    let output_bytes = c::ts_highlight_buffer_content(buffer);
-    let output_line_offsets = c::ts_highlight_buffer_line_offsets(buffer);
-    let output_len = c::ts_highlight_buffer_len(buffer);
-    let output_line_count = c::ts_highlight_buffer_line_count(buffer);
+    let output_bytes = unsafe { c::ts_highlight_buffer_content(buffer) };
+    let output_line_offsets = unsafe { c::ts_highlight_buffer_line_offsets(buffer) };
+    let output_len = unsafe { c::ts_highlight_buffer_len(buffer) };
+    let output_line_count = unsafe { c::ts_highlight_buffer_line_count(buffer) };
 
     let output_bytes = unsafe { slice::from_raw_parts(output_bytes, output_len as usize) };
     let output_line_offsets =
@@ -589,8 +597,10 @@ fn test_highlighting_via_c_api() {
         ]
     );
 
-    c::ts_highlighter_delete(highlighter);
-    c::ts_highlight_buffer_delete(buffer);
+    unsafe {
+        c::ts_highlighter_delete(highlighter);
+        c::ts_highlight_buffer_delete(buffer);
+    }
 }
 
 #[test]
