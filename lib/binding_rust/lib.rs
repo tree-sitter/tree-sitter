@@ -27,12 +27,13 @@ use std::{
 /// The Tree-sitter library is generally backwards-compatible with languages
 /// generated using older CLI versions, but is not forwards-compatible.
 #[doc(alias = "TREE_SITTER_LANGUAGE_VERSION")]
-pub const LANGUAGE_VERSION: usize = ffi::TREE_SITTER_LANGUAGE_VERSION;
+pub const LANGUAGE_VERSION: usize = ffi::TREE_SITTER_LANGUAGE_VERSION as usize;
 
 /// The earliest ABI version that is supported by the current version of the
 /// library.
 #[doc(alias = "TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION")]
-pub const MIN_COMPATIBLE_LANGUAGE_VERSION: usize = ffi::TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION;
+pub const MIN_COMPATIBLE_LANGUAGE_VERSION: usize =
+    ffi::TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION as usize;
 
 pub const PARSER_HEADER: &'static str = include_str!("../include/tree_sitter/parser.h");
 

@@ -26,6 +26,7 @@ include = [
 regex = "1.9.1"
 
 [build-dependencies]
+bindgen = { version = "^0.66.1", optional = true }
 cc = "^1.0.79"
 
 [lib]
