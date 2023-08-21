@@ -55,18 +55,22 @@ ifneq ($(STRIP),)
 endif
 
 install: all
-	install -d '$(DESTDIR)$(LIBDIR)'
-	install -m755 libtree-sitter.a '$(DESTDIR)$(LIBDIR)'/libtree-sitter.a
-	install -m755 libtree-sitter.$(SOEXTVER) '$(DESTDIR)$(LIBDIR)'/libtree-sitter.$(SOEXTVER)
-	ln -sf libtree-sitter.$(SOEXTVER) '$(DESTDIR)$(LIBDIR)'/libtree-sitter.$(SOEXTVER_MAJOR)
-	ln -sf libtree-sitter.$(SOEXTVER) '$(DESTDIR)$(LIBDIR)'/libtree-sitter.$(SOEXT)
-	install -d '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter
-	install -m644 lib/include/tree_sitter/*.h '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter/
-	install -d '$(DESTDIR)$(PCLIBDIR)'
 	sed -e 's|@LIBDIR@|$(LIBDIR)|;s|@INCLUDEDIR@|$(INCLUDEDIR)|;s|@VERSION@|$(VERSION)|' \
 	    -e 's|=$(PREFIX)|=$${prefix}|' \
 	    -e 's|@PREFIX@|$(PREFIX)|' \
-	    tree-sitter.pc.in > '$(DESTDIR)$(PCLIBDIR)'/tree-sitter.pc
+	    tree-sitter.pc.in > tree-sitter.pc
+
+	install -d '$(DESTDIR)$(LIBDIR)'
+	install -m644 -t '$(DESTDIR)$(LIBDIR)' libtree-sitter.a
+	install -m755 -t '$(DESTDIR)$(LIBDIR)' libtree-sitter.$(SOEXTVER)
+	ln -sf libtree-sitter.$(SOEXTVER) '$(DESTDIR)$(LIBDIR)'/libtree-sitter.$(SOEXTVER_MAJOR)
+	ln -sf libtree-sitter.$(SOEXTVER) '$(DESTDIR)$(LIBDIR)'/libtree-sitter.$(SOEXT)
+
+	install -d '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter
+	install -m644 -t '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter lib/include/tree_sitter/*.h
+
+	install -d '$(DESTDIR)$(PCLIBDIR)'
+	install -m644 -t '$(DESTDIR)$(PCLIBDIR)' tree-sitter.pc
 
 clean:
 	rm -f lib/src/*.o libtree-sitter.a libtree-sitter.$(SOEXT) libtree-sitter.$(SOEXTVER_MAJOR) libtree-sitter.$(SOEXTVER)
