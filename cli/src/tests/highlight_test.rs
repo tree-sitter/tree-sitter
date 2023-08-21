@@ -24,6 +24,7 @@ lazy_static! {
         get_highlight_config("rust", Some("injections.scm"), &HIGHLIGHT_NAMES);
     static ref HIGHLIGHT_NAMES: Vec<String> = [
         "attribute",
+        "boolean",
         "carriage-return",
         "comment",
         "constant",

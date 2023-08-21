@@ -19,6 +19,7 @@ const BUFFER_LINES_RESERVE_CAPACITY: usize = 1000;
 lazy_static! {
     static ref STANDARD_CAPTURE_NAMES: HashSet<&'static str> = vec![
         "attribute",
+        "boolean",
         "carriage-return",
         "comment",
         "comment.documentation",
@@ -112,6 +113,7 @@ pub struct HighlightConfiguration {
     non_local_variable_patterns: Vec<bool>,
     injection_content_capture_index: Option<u32>,
     injection_language_capture_index: Option<u32>,
+    injection_parent_capture_index: Option<u32>,
     injection_self_capture_index: Option<u32>,
     local_scope_capture_index: Option<u32>,
     local_def_capture_index: Option<u32>,
@@ -155,6 +157,7 @@ where
     F: FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
 {
     source: &'a [u8],
+    language_name: &'a str,
     byte_offset: usize,
     highlighter: &'a mut Highlighter,
     injection_callback: F,
@@ -199,6 +202,7 @@ impl Highlighter {
     ) -> Result<impl Iterator<Item = Result<HighlightEvent, Error>> + 'a, Error> {
         let layers = HighlightIterLayer::new(
             source,
+            None,
             self,
             cancellation_flag,
             &mut injection_callback,
@@ -214,6 +218,7 @@ impl Highlighter {
         assert_ne!(layers.len(), 0);
         let mut result = HighlightIter {
             source,
+            language_name: &config.language_name,
             byte_offset: 0,
             injection_callback,
             cancellation_flag,
@@ -310,6 +315,7 @@ impl HighlightConfiguration {
         // Store the numeric ids for all of the special captures.
         let mut injection_content_capture_index = None;
         let mut injection_language_capture_index = None;
+        let mut injection_parent_capture_index = None;
         let mut injection_self_capture_index = None;
         let mut local_def_capture_index = None;
         let mut local_def_value_capture_index = None;
@@ -320,6 +326,7 @@ impl HighlightConfiguration {
             match name.as_str() {
                 "injection.content" => injection_content_capture_index = i,
                 "injection.language" => injection_language_capture_index = i,
+                "injection.parent" => injection_parent_capture_index = i,
                 "injection.self" => injection_self_capture_index = i,
                 "local.definition" => local_def_capture_index = i,
                 "local.definition-value" => local_def_value_capture_index = i,
@@ -342,6 +349,7 @@ impl HighlightConfiguration {
             non_local_variable_patterns,
             injection_content_capture_index,
             injection_language_capture_index,
+            injection_parent_capture_index,
             injection_self_capture_index,
             local_def_capture_index,
             local_def_value_capture_index,
@@ -418,6 +426,7 @@ impl<'a> HighlightIterLayer<'a> {
     /// added to the returned vector.
     fn new<F: FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a>(
         source: &'a [u8],
+        parent_name: Option<&str>,
         highlighter: &mut Highlighter,
         cancellation_flag: Option<&'a AtomicUsize>,
         injection_callback: &mut F,
@@ -450,8 +459,13 @@ impl<'a> HighlightIterLayer<'a> {
                         cursor.matches(combined_injections_query, tree.root_node(), source);
                     for mat in matches {
                         let entry = &mut injections_by_pattern_index[mat.pattern_index];
-                        let (language_name, content_node, include_children) =
-                            injection_for_match(config, combined_injections_query, &mat, source);
+                        let (language_name, content_node, include_children) = injection_for_match(
+                            config,
+                            parent_name,
+                            combined_injections_query,
+                            &mat,
+                            source,
+                        );
                         if language_name.is_some() {
                             entry.0 = language_name;
                         }
@@ -772,8 +786,13 @@ where
 
             // If this capture represents an injection, then process the injection.
             if match_.pattern_index < layer.config.locals_pattern_index {
-                let (language_name, content_node, include_children) =
-                    injection_for_match(&layer.config, &layer.config.query, &match_, &self.source);
+                let (language_name, content_node, include_children) = injection_for_match(
+                    layer.config,
+                    Some(self.language_name),
+                    &layer.config.query,
+                    &match_,
+                    self.source,
+                );
 
                 // Explicitly remove this match so that none of its other captures will remain
                 // in the stream of captures.
@@ -791,6 +810,7 @@ where
                         if !ranges.is_empty() {
                             match HighlightIterLayer::new(
                                 self.source,
+                                Some(self.language_name),
                                 self.highlighter,
                                 self.cancellation_flag,
                                 &mut self.injection_callback,
@@ -1118,21 +1138,28 @@ impl HtmlRenderer {
 
 fn injection_for_match<'a>(
     config: &'a HighlightConfiguration,
+    parent_name: Option<&'a str>,
     query: &'a Query,
     query_match: &QueryMatch<'a, 'a>,
     source: &'a [u8],
 ) -> (Option<&'a str>, Option<Node<'a>>, bool) {
     let content_capture_index = config.injection_content_capture_index;
     let language_capture_index = config.injection_language_capture_index;
+    let parent_capture_index = config.injection_parent_capture_index;
     let self_capture_index = config.injection_self_capture_index;
 
     let mut language_name = None;
     let mut content_node = None;
+    let parent_name = parent_name.unwrap_or_default();
+
     for capture in query_match.captures {
         let index = Some(capture.index);
         if index == language_capture_index {
             language_name = capture.node.utf8_text(source).ok();
         } else if index == content_capture_index {
+            content_node = Some(capture.node);
+        } else if index == parent_capture_index && !parent_name.is_empty() {
+            language_name = Some(parent_name);
             content_node = Some(capture.node);
         } else if index == self_capture_index {
             if let Ok(name) = capture.node.utf8_text(source) {
@@ -1150,7 +1177,7 @@ fn injection_for_match<'a>(
             // that sets the injection.language key.
             "injection.language" => {
                 if language_name.is_none() {
-                    language_name = prop.value.as_ref().map(|s| s.as_ref())
+                    language_name = prop.value.as_ref().map(|s| s.as_ref());
                 }
             }
 
