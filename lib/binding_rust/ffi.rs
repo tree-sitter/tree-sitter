@@ -2,6 +2,10 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 
+#[cfg(feature = "bindgen")]
+include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+
+#[cfg(not(feature = "bindgen"))]
 include!("./bindings.rs");
 
 extern "C" {
