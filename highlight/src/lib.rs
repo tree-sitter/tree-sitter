@@ -112,6 +112,7 @@ pub struct HighlightConfiguration {
     non_local_variable_patterns: Vec<bool>,
     injection_content_capture_index: Option<u32>,
     injection_language_capture_index: Option<u32>,
+    injection_self_capture_index: Option<u32>,
     local_scope_capture_index: Option<u32>,
     local_def_capture_index: Option<u32>,
     local_def_value_capture_index: Option<u32>,
@@ -309,6 +310,7 @@ impl HighlightConfiguration {
         // Store the numeric ids for all of the special captures.
         let mut injection_content_capture_index = None;
         let mut injection_language_capture_index = None;
+        let mut injection_self_capture_index = None;
         let mut local_def_capture_index = None;
         let mut local_def_value_capture_index = None;
         let mut local_ref_capture_index = None;
@@ -318,6 +320,7 @@ impl HighlightConfiguration {
             match name.as_str() {
                 "injection.content" => injection_content_capture_index = i,
                 "injection.language" => injection_language_capture_index = i,
+                "injection.self" => injection_self_capture_index = i,
                 "local.definition" => local_def_capture_index = i,
                 "local.definition-value" => local_def_value_capture_index = i,
                 "local.reference" => local_ref_capture_index = i,
@@ -339,6 +342,7 @@ impl HighlightConfiguration {
             non_local_variable_patterns,
             injection_content_capture_index,
             injection_language_capture_index,
+            injection_self_capture_index,
             local_def_capture_index,
             local_def_value_capture_index,
             local_ref_capture_index,
@@ -1120,6 +1124,7 @@ fn injection_for_match<'a>(
 ) -> (Option<&'a str>, Option<Node<'a>>, bool) {
     let content_capture_index = config.injection_content_capture_index;
     let language_capture_index = config.injection_language_capture_index;
+    let self_capture_index = config.injection_self_capture_index;
 
     let mut language_name = None;
     let mut content_node = None;
@@ -1129,6 +1134,11 @@ fn injection_for_match<'a>(
             language_name = capture.node.utf8_text(source).ok();
         } else if index == content_capture_index {
             content_node = Some(capture.node);
+        } else if index == self_capture_index {
+            if let Ok(name) = capture.node.utf8_text(source) {
+                language_name = Some(name);
+                content_node = Some(capture.node);
+            }
         }
     }
 
@@ -1144,6 +1154,9 @@ fn injection_for_match<'a>(
                 }
             }
 
+            // Setting the `injection.self` key can be used to specify that the
+            // language name should be the same as the language of the current
+            // layer.
             "injection.self" => {
                 if language_name.is_none() {
                     language_name = Some(config.language_name.as_str());
