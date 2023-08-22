@@ -61,16 +61,16 @@ install: all
 	    tree-sitter.pc.in > tree-sitter.pc
 
 	install -d '$(DESTDIR)$(LIBDIR)'
-	install -m644 -t '$(DESTDIR)$(LIBDIR)' libtree-sitter.a
-	install -m755 -t '$(DESTDIR)$(LIBDIR)' libtree-sitter.$(SOEXTVER)
+	install -m644 libtree-sitter.a '$(DESTDIR)$(LIBDIR)'/
+	install -m755 libtree-sitter.$(SOEXTVER) '$(DESTDIR)$(LIBDIR)'/
 	ln -sf libtree-sitter.$(SOEXTVER) '$(DESTDIR)$(LIBDIR)'/libtree-sitter.$(SOEXTVER_MAJOR)
 	ln -sf libtree-sitter.$(SOEXTVER) '$(DESTDIR)$(LIBDIR)'/libtree-sitter.$(SOEXT)
 
 	install -d '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter
-	install -m644 -t '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter lib/include/tree_sitter/*.h
+	install -m644 lib/include/tree_sitter/*.h '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter/
 
 	install -d '$(DESTDIR)$(PCLIBDIR)'
-	install -m644 -t '$(DESTDIR)$(PCLIBDIR)' tree-sitter.pc
+	install -m644 tree-sitter.pc '$(DESTDIR)$(PCLIBDIR)'/
 
 clean:
 	rm -f lib/src/*.o libtree-sitter.a libtree-sitter.$(SOEXT) libtree-sitter.$(SOEXTVER_MAJOR) libtree-sitter.$(SOEXTVER)
