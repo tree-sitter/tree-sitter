@@ -1,5 +1,7 @@
+use anyhow::Result;
 use lazy_static::lazy_static;
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 use std::{env, fs};
 use tree_sitter::Language;
 use tree_sitter_highlight::HighlightConfiguration;
@@ -87,13 +89,17 @@ pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> 
             None
         }
     });
+
+    let needs_recompile =
+        needs_recompile(&FIXTURES_DIR.join(name), &parser_c_path, &scanner_path, &[]).unwrap();
+
     TEST_LOADER
         .load_language_from_sources(
             name,
             &HEADER_DIR,
             &parser_c_path,
             scanner_path.as_deref(),
-            &[],
+            needs_recompile,
         )
         .unwrap()
 }
@@ -105,4 +111,34 @@ pub fn get_test_grammar(name: &str) -> (String, Option<PathBuf>) {
         name
     ));
     (grammar, Some(dir))
+}
+
+pub fn needs_recompile(
+    lib_path: &Path,
+    parser_c_path: &Path,
+    scanner_path: &Option<PathBuf>,
+    external_files_paths: &[PathBuf],
+) -> Result<bool> {
+    if !lib_path.exists() {
+        return Ok(true);
+    }
+    let lib_mtime = mtime(lib_path)?;
+    if mtime(parser_c_path)? > lib_mtime {
+        return Ok(true);
+    }
+    if let Some(scanner_path) = scanner_path {
+        if mtime(scanner_path)? > lib_mtime {
+            return Ok(true);
+        }
+    }
+    for path in external_files_paths {
+        if mtime(path)? > lib_mtime {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn mtime(path: &Path) -> Result<SystemTime> {
+    Ok(fs::metadata(path)?.modified()?)
 }
