@@ -362,9 +362,18 @@ All of these examples can be modeled in terms of a *parent* syntax tree and one 
 The language injection behavior can also be configured by some properties associated with patterns:
 
 * `injection.language` - can be used to hard-code the name of a specific language.
-* `injection.combined` - indicates that *all* of the matching nodes in the tree should have their content parsed as *one* nested document.
-* `injection.include-children` - indicates that the `@injection.content` node's *entire* text should be re-parsed, including the text of its child nodes. By default, child nodes' text will be *excluded* from the injected document.
-* `injection.self` - indicates that the `@injection.content` node should be parsed using the same language as the parent node. This is useful for cases where the parent node's language is not known until runtime (e.g. via inheriting another language)
+* `injection.combined` - indicates that *all* of the matching nodes in the tree
+  should have their content parsed as *one* nested document.
+* `injection.include-children` - indicates that the `@injection.content` node's
+  *entire* text should be re-parsed, including the text of its child nodes. By default,
+child nodes' text will be *excluded* from the injected document.
+* `injection.self` - indicates that the `@injection.content` node should be parsed
+  using the same language as the node itself. This is useful for cases where the
+  node's language is not known until runtime (e.g. via inheriting another language)
+* `injection.parent` indicates that the `@injection.content` node should be parsed
+  using the same language as the node's parent language. This is only meant for injections
+  that need to refer back to the parent language to parse the node's text inside
+  the injected language.
 
 #### Examples
 
