@@ -1907,7 +1907,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     }
 
     #ifdef DEBUG_ANALYZE_QUERY
-      printf("\nWalk states for rootless pattern step %u:\n", step_index);
+      printf("\nWalk states for rootless pattern step %u:\n", pattern_entry->step_index);
     #endif
 
     ts_query__perform_analysis(
