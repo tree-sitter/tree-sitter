@@ -1,10 +1,13 @@
 use super::helpers::{
     allocations,
-    fixtures::get_language,
+    fixtures::{get_language, get_test_language},
     query_helpers::{assert_query_matches, Match, Pattern},
     ITERATION_COUNT,
 };
-use crate::tests::helpers::query_helpers::{collect_captures, collect_matches};
+use crate::{
+    generate::generate_parser_for_grammar,
+    tests::helpers::query_helpers::{collect_captures, collect_matches},
+};
 use indoc::indoc;
 use lazy_static::lazy_static;
 use rand::{prelude::StdRng, SeedableRng};
@@ -4811,4 +4814,87 @@ fn test_query_max_start_depth_more() {
             assert_eq!(collect_matches(matches, &query, source), expected);
         }
     });
+}
+
+#[test]
+fn test_grammar_with_aliased_literal_query() {
+    // module.exports = grammar({
+    //   name: 'test',
+    //
+    //   rules: {
+    //     source: $ => repeat(choice($.compound_statement, $.expansion)),
+    //
+    //     compound_statement: $ => seq(alias(token(prec(-1, '}')), '}')),
+    //
+    //     expansion: $ => seq('}'),
+    //   },
+    // });
+    let (parser_name, parser_code) = generate_parser_for_grammar(
+        r#"
+        {
+            "name": "test",
+            "rules": {
+                "source": {
+                    "type": "REPEAT",
+                    "content": {
+                        "type": "CHOICE",
+                        "members": [
+                            {
+                                "type": "SYMBOL",
+                                "name": "compound_statement"
+                            },
+                            {
+                                "type": "SYMBOL",
+                                "name": "expansion"
+                            }
+                        ]
+                    }
+                },
+                "compound_statement": {
+                    "type": "SEQ",
+                    "members": [
+                        {
+                            "type": "ALIAS",
+                            "content": {
+                                "type": "TOKEN",
+                                "content": {
+                                    "type": "PREC",
+                                    "value": -1,
+                                    "content": {
+                                        "type": "STRING",
+                                        "value": "}"
+                                    }
+                                }
+                            },
+                            "named": false,
+                            "value": "}"
+                        }
+                    ]
+                },
+                "expansion": {
+                    "type": "SEQ",
+                    "members": [
+                        {
+                            "type": "STRING",
+                            "value": "}"
+                        }
+                    ]
+                }
+            }
+        }
+        "#,
+    )
+    .unwrap();
+
+    let language = get_test_language(&parser_name, &parser_code, None);
+
+    let query = Query::new(
+        language,
+        r#"
+        (compound_statement "}" @bracket1)
+        (expansion "}" @bracket2)
+        "#,
+    );
+
+    assert!(query.is_ok());
 }
