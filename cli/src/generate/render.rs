@@ -152,49 +152,51 @@ impl Generator {
             self.symbol_ids[&Symbol::end()].clone(),
         );
 
-        self.symbol_map = self
-            .parse_table
-            .symbols
-            .iter()
-            .map(|symbol| {
-                let mut mapping = symbol;
+        self.symbol_map = HashMap::new();
 
-                // There can be multiple symbols in the grammar that have the same name and kind,
-                // due to simple aliases. When that happens, ensure that they map to the same
-                // public-facing symbol. If one of the symbols is not aliased, choose that one
-                // to be the public-facing symbol. Otherwise, pick the symbol with the lowest
-                // numeric value.
-                if let Some(alias) = self.default_aliases.get(symbol) {
-                    let kind = alias.kind();
-                    for other_symbol in &self.parse_table.symbols {
-                        if let Some(other_alias) = self.default_aliases.get(other_symbol) {
-                            if other_symbol < mapping && other_alias == alias {
-                                mapping = other_symbol;
+        for symbol in self.parse_table.symbols.iter() {
+            let mut mapping = symbol;
+
+            // There can be multiple symbols in the grammar that have the same name and kind,
+            // due to simple aliases. When that happens, ensure that they map to the same
+            // public-facing symbol. If one of the symbols is not aliased, choose that one
+            // to be the public-facing symbol. Otherwise, pick the symbol with the lowest
+            // numeric value.
+            if let Some(alias) = self.default_aliases.get(symbol) {
+                let kind = alias.kind();
+                for other_symbol in &self.parse_table.symbols {
+                    if let Some(other_alias) = self.default_aliases.get(other_symbol) {
+                        if other_symbol < mapping && other_alias == alias {
+                            mapping = other_symbol;
+                        }
+                    } else if self.metadata_for_symbol(*other_symbol) == (&alias.value, kind) {
+                        mapping = other_symbol;
+                        break;
+                    }
+                }
+            }
+            // Two anonymous tokens with different flags but the same string value
+            // should be represented with the same symbol in the public API. Examples:
+            // *  "<" and token(prec(1, "<"))
+            // *  "(" and token.immediate("(")
+            else if symbol.is_terminal() {
+                let metadata = self.metadata_for_symbol(*symbol);
+                for other_symbol in &self.parse_table.symbols {
+                    let other_metadata = self.metadata_for_symbol(*other_symbol);
+                    if other_metadata == metadata {
+                        if let Some(mapped) = self.symbol_map.get(other_symbol) {
+                            if mapped == symbol {
+                                break;
                             }
-                        } else if self.metadata_for_symbol(*other_symbol) == (&alias.value, kind) {
-                            mapping = other_symbol;
-                            break;
                         }
+                        mapping = other_symbol;
+                        break;
                     }
                 }
-                // Two anonymous tokens with different flags but the same string value
-                // should be represented with the same symbol in the public API. Examples:
-                // *  "<" and token(prec(1, "<"))
-                // *  "(" and token.immediate("(")
-                else if symbol.is_terminal() {
-                    let metadata = self.metadata_for_symbol(*symbol);
-                    for other_symbol in &self.parse_table.symbols {
-                        let other_metadata = self.metadata_for_symbol(*other_symbol);
-                        if other_metadata == metadata {
-                            mapping = other_symbol;
-                            break;
-                        }
-                    }
-                }
+            }
 
-                (*symbol, *mapping)
-            })
-            .collect();
+            self.symbol_map.insert(*symbol, *mapping);
+        }
 
         for production_info in &self.parse_table.production_infos {
             // Build a list of all field names
