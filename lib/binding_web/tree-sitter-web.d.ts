@@ -14,6 +14,8 @@ declare module 'web-tree-sitter' {
     setLogger(logFunc?: Parser.Logger | undefined | null): void;
     setTimeoutMicros(value: number): void;
     getTimeoutMicros(): number;
+    setEarlyOutOnSyntaxError(value: boolean): void;
+    getEarlyOutOnSyntaxError(): boolean;
   }
 
   namespace Parser {

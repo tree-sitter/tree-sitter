@@ -592,6 +592,28 @@ fn test_parsing_on_multiple_threads() {
 }
 
 #[test]
+fn test_early_out_on_syntax_error() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("python")).unwrap();
+
+    let source = b"print(%*^&%*^&%*^&%*^&%*^&%*^&%*^&%*#\"Hello world\")".to_vec();
+
+    //By default return the parsed Tree but with an error
+    let tree = parser
+        .parse(&source, None)
+        .expect("Should not early out due to the syntax error by default");
+    assert!(tree.root_node().has_error());
+
+    //Now just return a None immediately instead of returning a Tree at all
+    parser.set_early_out_on_syntax_error(true);
+    assert!(
+        parser.parse(&source, None).is_none(),
+        "The parsing should have returned None due to the syntax error.
+        May also fail if parser's OP_COUNT_PER_TIMEOUT_CHECK is increased and the test source is no longer sufficently large between checks."
+    );
+}
+
+#[test]
 fn test_parsing_cancelled_by_another_thread() {
     let cancellation_flag = std::sync::Arc::new(AtomicUsize::new(0));
 
