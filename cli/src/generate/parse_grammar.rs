@@ -150,10 +150,10 @@ fn parse_rule(json: RuleJSON) -> Rule {
                 f.chars()
                     .filter(|c| {
                         if *c != 'i' {
-                            eprintln!("Warning: unsupported flag {}", c);
+                            eprintln!("Warning: unsupported flag {c}");
                             false
                         } else {
-                            true
+                            *c != 'u' // silently ignore unicode flag
                         }
                     })
                     .collect()
