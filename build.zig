@@ -8,9 +8,9 @@ pub fn build(b: *std.Build) void {
     });
 
     lib.linkLibC();
-    lib.addCSourceFile("lib/src/lib.c", &.{});
-    lib.addIncludePath("lib/include");
-    lib.addIncludePath("lib/src");
+    lib.addCSourceFile(.{ .file = .{ .path = "lib/src/lib.c" }, .flags = &.{} });
+    lib.addIncludePath(.{ .path = "lib/include" });
+    lib.addIncludePath(.{ .path = "lib/src" });
 
     b.installArtifact(lib);
 }
