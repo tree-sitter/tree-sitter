@@ -129,6 +129,7 @@ impl Generator {
         }
 
         self.add_lex_modes_list();
+        self.add_parse_table();
 
         if !self.syntax_grammar.external_tokens.is_empty() {
             self.add_external_token_enum();
@@ -136,7 +137,6 @@ impl Generator {
             self.add_external_scanner_states_list();
         }
 
-        self.add_parse_table();
         self.add_parser_export();
 
         self.buffer
@@ -338,7 +338,7 @@ impl Generator {
     }
 
     fn add_symbol_enum(&mut self) {
-        add_line!(self, "enum {{");
+        add_line!(self, "enum ts_symbol_identifiers {{");
         indent!(self);
         self.symbol_order.insert(Symbol::end(), 0);
         let mut i = 1;
@@ -410,7 +410,7 @@ impl Generator {
     }
 
     fn add_field_name_enum(&mut self) {
-        add_line!(self, "enum {{");
+        add_line!(self, "enum ts_field_identifiers {{");
         indent!(self);
         for (i, field_name) in self.field_names.iter().enumerate() {
             add_line!(self, "{} = {},", self.field_id(field_name), i + 1);
@@ -1026,7 +1026,7 @@ impl Generator {
     }
 
     fn add_external_token_enum(&mut self) {
-        add_line!(self, "enum {{");
+        add_line!(self, "enum ts_external_scanner_symbol_identifiers {{");
         indent!(self);
         for i in 0..self.syntax_grammar.external_tokens.len() {
             add_line!(
