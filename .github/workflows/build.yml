@@ -107,6 +107,11 @@ jobs:
         - { runtime: linux-sparc64     , cc: sparc64-linux-gnu-gcc             , ar: sparc64-linux-gnu-ar           }
         - { runtime: linux-thumbv7neon , cc: arm-linux-gnueabihf-gcc           , ar: arm-linux-gnueabihf-ar         }
 
+        # Rust toolchains
+        - { runtime: linux-mips        , rust-toolchain: 1.71.1 }
+        - { runtime: linux-mips64      , rust-toolchain: 1.71.1 }
+        - { runtime: linux-mipsel      , rust-toolchain: 1.71.1 }
+        - { runtime: linux-mips64el    , rust-toolchain: 1.71.1 }
 
         # See #2041 tree-sitter issue
         - { runtime: windows-x64   , rust-test-threads: 1 }
@@ -145,6 +150,7 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
       with:
         targets: ${{ matrix.target }}
+        toolchain: ${{ matrix.rust-toolchain || 'stable' }}
 
     - name: Install cross
       if: ${{ matrix.use-cross }}
