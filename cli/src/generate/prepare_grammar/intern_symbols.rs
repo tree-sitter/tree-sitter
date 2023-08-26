@@ -260,6 +260,31 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_interning_a_seq_or_choice_of_one_rule() {
+        let grammar = intern_symbols(&build_grammar(vec![
+            Variable::named("w", Rule::choice(vec![Rule::string("a")])),
+            Variable::named("x", Rule::seq(vec![Rule::pattern("b", "")])),
+            Variable::named("y", Rule::string("a")),
+            Variable::named("z", Rule::pattern("b", "")),
+        ]))
+        .unwrap();
+
+        assert_eq!(
+            grammar.variables,
+            vec![
+                Variable::named("w", Rule::string("a")),
+                Variable::named("x", Rule::pattern("b", "")),
+                Variable::named("y", Rule::string("a")),
+                Variable::named("z", Rule::pattern("b", "")),
+            ]
+        );
+
+        assert_eq!(grammar.variables[0].rule, grammar.variables[2].rule);
+
+        assert_eq!(grammar.variables[1].rule, grammar.variables[3].rule);
+    }
+
     fn build_grammar(variables: Vec<Variable>) -> InputGrammar {
         InputGrammar {
             variables,
