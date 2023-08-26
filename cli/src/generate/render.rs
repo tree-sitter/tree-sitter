@@ -256,7 +256,7 @@ impl Generator {
     }
 
     fn add_includes(&mut self) {
-        add_line!(self, "#include <tree_sitter/parser.h>");
+        add_line!(self, "#include \"tree_sitter/parser.h\"");
         add_line!(self, "");
     }
 
