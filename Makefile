@@ -67,7 +67,7 @@ install: all
 	ln -sf libtree-sitter.$(SOEXTVER) '$(DESTDIR)$(LIBDIR)'/libtree-sitter.$(SOEXT)
 
 	install -d '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter
-	install -m644 lib/include/tree_sitter/*.h '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter/
+	install -m644 lib/include/tree_sitter/api.h '$(DESTDIR)$(INCLUDEDIR)'/tree_sitter/
 
 	install -d '$(DESTDIR)$(PCLIBDIR)'
 	install -m644 tree-sitter.pc '$(DESTDIR)$(PCLIBDIR)'/
