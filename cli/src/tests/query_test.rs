@@ -4824,11 +4824,12 @@ fn test_grammar_with_aliased_literal_query() {
     //   rules: {
     //     source: $ => repeat(choice($.compound_statement, $.expansion)),
     //
-    //     compound_statement: $ => seq(alias(token(prec(-1, '}')), '}')),
+    //     compound_statement: $ => seq('{', alias(token(prec(-1, '}')), '}')),
     //
-    //     expansion: $ => seq('}'),
+    //     expansion: $ => seq('{', '}'),
     //   },
     // });
+
     let (parser_name, parser_code) = generate_parser_for_grammar(
         r#"
         {
@@ -4853,6 +4854,7 @@ fn test_grammar_with_aliased_literal_query() {
                 "compound_statement": {
                     "type": "SEQ",
                     "members": [
+                        {"type": "STRING", "value": "{"},
                         {
                             "type": "ALIAS",
                             "content": {
@@ -4874,10 +4876,8 @@ fn test_grammar_with_aliased_literal_query() {
                 "expansion": {
                     "type": "SEQ",
                     "members": [
-                        {
-                            "type": "STRING",
-                            "value": "}"
-                        }
+                        {"type": "STRING", "value": "{"},
+                        {"type": "STRING", "value": "}"}
                     ]
                 }
             }
