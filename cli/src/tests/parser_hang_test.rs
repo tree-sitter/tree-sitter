@@ -1,61 +1,87 @@
-use pretty_assertions::assert_eq;
-use tree_sitter::Parser;
-
 use crate::{
-    generate::generate_parser_for_grammar,
+    generate::{generate_parser_for_grammar, load_grammar_file},
     tests::helpers::fixtures::{fixtures_dir, get_test_language},
 };
+use std::{
+    env::VarError,
+    process::{Command, Stdio},
+};
+use tree_sitter::Parser;
 
 #[test]
 fn test_grammar_that_should_hang_and_not_segfault() {
-    use std::sync::mpsc;
+    let parent_sleep_millis = 1000;
+    let test_name = "test_grammar_that_should_hang_and_not_segfault";
+    let test_var = "CARGO_HANG_TEST";
 
-    let (tx, rx) = mpsc::channel();
+    eprintln!("  {test_name}");
 
-    std::thread::spawn(move || {
-        let (parser_name, parser_code) = generate_parser_for_grammar(
-            r#"
-            {
-                "name": "get_col_should_hang_not_crash",
-                "rules": {
-                    "source_file": {
-                        "type": "SEQ",
-                        "members": [ { "type": "SYMBOL", "name": "test" } ]
+    let tests_exec_path = std::env::args()
+        .nth(0)
+        .expect("Failed get get tests executable path");
+
+    match std::env::var(test_var) {
+        Ok(v) if v == test_name => {
+            eprintln!("    child process id {}", std::process::id());
+            hang_test();
+        }
+
+        Err(VarError::NotPresent) => {
+            eprintln!("    parent process id {}", std::process::id());
+            if true {
+                let mut command = Command::new(tests_exec_path);
+                command.arg(test_name).env(test_var, test_name);
+                if std::env::args().any(|x| x == "--nocapture") {
+                    command.arg("--nocapture");
+                } else {
+                    command.stdout(Stdio::null()).stderr(Stdio::null());
+                }
+                match command.spawn() {
+                    Ok(mut child) => {
+                        std::thread::sleep(std::time::Duration::from_millis(parent_sleep_millis));
+                        match child.try_wait() {
+                            Ok(Some(status)) if status.success() => {
+                                panic!("Child wasn't hang and exited successfully")
+                            }
+                            Ok(Some(status)) => panic!(
+                                "Child wasn't hang and exited with status code: {:?}",
+                                status.code()
+                            ),
+                            _ => (),
+                        }
+                        if let Err(e) = child.kill() {
+                            eprintln!(
+                                "Failed to kill hang test sub process id: {}, error: {e}",
+                                child.id()
+                            );
+                        }
                     }
-                },
-                "extras": [ { "type": "PATTERN", "value": "\\s" } ],
-                "externals": [ { "type": "SYMBOL", "name": "test" } ]
+                    Err(e) => panic!("{e}"),
+                }
             }
-            "#,
-        )
-        .unwrap();
+        }
+
+        Err(e) => panic!("Env var error: {e}"),
+        _ => unreachable!(),
+    }
+
+    fn hang_test() {
+        let test_grammar_dir = fixtures_dir()
+            .join("test_grammars")
+            .join("get_col_should_hang_not_crash");
+
+        let grammar_json = load_grammar_file(&test_grammar_dir.join("grammar.js"), None).unwrap();
+        let (parser_name, parser_code) =
+            generate_parser_for_grammar(grammar_json.as_str()).unwrap();
+
+        let language =
+            get_test_language(&parser_name, &parser_code, Some(test_grammar_dir.as_path()));
 
         let mut parser = Parser::new();
-        parser
-            .set_language(get_test_language(
-                &parser_name,
-                &parser_code,
-                Some(
-                    fixtures_dir()
-                        .join("test_grammars")
-                        .join("get_col_should_hang_not_crash")
-                        .as_path(),
-                ),
-            ))
-            .unwrap();
+        parser.set_language(language).unwrap();
 
         let code_that_should_hang = "\nHello";
 
         parser.parse(code_that_should_hang, None).unwrap();
-
-        // Won't be reached
-        let _ = tx.send(());
-    });
-
-    // Ok signifies that it did not hang
-    // RecvTimeoutError::Disconnected signifies that the parser thread exited unexpectedly (crashed)
-    assert_eq!(
-        rx.recv_timeout(std::time::Duration::from_secs(5)),
-        Err(mpsc::RecvTimeoutError::Timeout)
-    );
+    }
 }
