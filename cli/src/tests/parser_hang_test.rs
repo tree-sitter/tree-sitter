@@ -15,7 +15,12 @@ use tree_sitter::Parser;
 // because they don't work well with subprocesses _(it's an assumption)_.
 //
 // Bellow are two alternative examples of how to disable tests for some arches
-// if a way with excluding the whole mod from compilation would work well.
+// if a way with excluding the whole mod from compilation wouldn't work well.
+//
+// XXX: Also may be it makes sense to keep such tests as ignored by default
+//      to omit surprises and enable them on CI by passing an extra option explicitly:
+//
+//        > cargo test -- --include-ignored
 //
 // #[cfg(all(any(target_arch = "x86_64", target_arch = "x86"), not(sanitizing)))]
 // #[cfg_attr(not(all(any(target_arch = "x86_64", target_arch = "x86"), not(sanitizing))), ignore)]
