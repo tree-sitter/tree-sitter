@@ -192,8 +192,9 @@ bool ts_parser_set_language(TSParser *self, const TSLanguage *language);
  *
  * If `count` is zero, then the entire document will be parsed. Otherwise,
  * the given ranges must be ordered from earliest to latest in the document,
- * and they must not overlap. That is, the following must hold for all
- * `i` < `count - 1`: ranges[i].end_byte <= ranges[i + 1].start_byte
+ * and they must not overlap. That is, the following must hold for all:
+ *
+ * `i < count - 1`: `ranges[i].end_byte <= ranges[i + 1].start_byte`
  *
  * If this requirement is not satisfied, the operation will fail, the ranges
  * will not be assigned, and this function will return `false`. On success,

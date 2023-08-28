@@ -14,6 +14,7 @@ rust-version.workspace = true
 [[bin]]
 name = "tree-sitter"
 path = "src/main.rs"
+doc = false
 
 [[bench]]
 name = "benchmark"
