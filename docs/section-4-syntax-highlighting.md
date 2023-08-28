@@ -17,7 +17,7 @@ All of the files needed to highlight a given language are normally included in t
 2. Language configuration in grammar repositories' `package.json` files.
 3. Tree queries in the grammars repositories' `queries` folders.
 
-For an example of the language-specific files, see the [`package.json` file](https://github.com/tree-sitter/tree-sitter-ruby/blob/master/package.json) and [`queries` directory](https://github.com/tree-sitter/tree-sitter-ruby/tree/master/queries) in the `tree-sitter-ruby` repository. The following sections describe the behavior of each file.
+For an example of the language-specific files, see the [`package.json` file](https://github.com/tree-sitter/tree-sitter-ruby/blog/master/package.json) and [`queries` directory](https://github.com/tree-sitter/tree-sitter-ruby/tree/master/queries) in the `tree-sitter-ruby` repository. The following sections describe the behavior of each file.
 
 ## Per-user Configuration
 

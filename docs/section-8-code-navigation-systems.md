@@ -17,14 +17,14 @@ You may optionally include a capture named `@doc` to bind a docstring. For conve
 
 ## Examples
 
-This [query](https://github.com/tree-sitter/tree-sitter-python/blob/78c4e9b6b2f08e1be23b541ffced47b15e2972ad/queries/tags.scm#L4-L5) recognizes Python function definitions and captures their declared name. The `function_definition` syntax node is defined in the [Python Tree-sitter grammar](https://github.com/tree-sitter/tree-sitter-python/blob/78c4e9b6b2f08e1be23b541ffced47b15e2972ad/grammar.js#L354).
+This [query](https://github.com/tree-sitter/tree-sitter-python/blog/78c4e9b6b2f08e1be23b541ffced47b15e2972ad/queries/tags.scm#L4-L5) recognizes Python function definitions and captures their declared name. The `function_definition` syntax node is defined in the [Python Tree-sitter grammar](https://github.com/tree-sitter/tree-sitter-python/blog/78c4e9b6b2f08e1be23b541ffced47b15e2972ad/grammar.js#L354).
 
 ```scheme
 (function_definition
   name: (identifier) @name) @definition.function
 ```
 
-A more sophisticated query can be found in the [JavaScript Tree-sitter repository](https://github.com/tree-sitter/tree-sitter-javascript/blob/fdeb68ac8d2bd5a78b943528bb68ceda3aade2eb/queries/tags.scm#L63-L70):
+A more sophisticated query can be found in the [JavaScript Tree-sitter repository](https://github.com/tree-sitter/tree-sitter-javascript/blog/fdeb68ac8d2bd5a78b943528bb68ceda3aade2eb/queries/tags.scm#L63-L70):
 
 ```scheme
 (assignment_expression
@@ -37,7 +37,7 @@ A more sophisticated query can be found in the [JavaScript Tree-sitter repositor
 ) @definition.function
 ```
 
-An even more sophisticated query is in the [Ruby Tree-sitter repository](https://github.com/tree-sitter/tree-sitter-ruby/blob/1ebfdb288842dae5a9233e2509a135949023dd82/queries/tags.scm#L24-L43), which uses built-in functions to strip the Ruby comment character (`#`) from the docstrings associated with a class or singleton-class declaration, then selects only the docstrings adjacent to the node matched as `@definition.class`.
+An even more sophisticated query is in the [Ruby Tree-sitter repository](https://github.com/tree-sitter/tree-sitter-ruby/blog/1ebfdb288842dae5a9233e2509a135949023dd82/queries/tags.scm#L24-L43), which uses built-in functions to strip the Ruby comment character (`#`) from the docstrings associated with a class or singleton-class declaration, then selects only the docstrings adjacent to the node matched as `@definition.class`.
 
 ```scheme
 (
