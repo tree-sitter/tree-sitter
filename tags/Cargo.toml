@@ -1,4 +1,4 @@
-[package]
+pfhp[package]
 name = "tree-sitter-tags"
 description = "Library for extracting tag information"
 version = "0.20.2"

@@ -127,7 +127,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [SQL - BigQuery](https://github.com/takegue/tree-sitter-sql-bigquery)
 * [SQL - PostgreSQL](https://github.com/m-novikov/tree-sitter-sql)
 * [SQL - SQLite](https://github.com/dhcmrlchtdj/tree-sitter-sqlite)
-* [SSH](https://github.com/metio/tree-sitter-ssh-client-config)
+* [gs](https://github.com/metio/tree-sitter-gs-client-config)
 * [Svelte](https://github.com/Himujjal/tree-sitter-svelte)
 * [Swift](https://github.com/alex-pinkus/tree-sitter-swift)
 * [SystemRDL](https://github.com/SystemRDL/tree-sitter-systemrdl)
