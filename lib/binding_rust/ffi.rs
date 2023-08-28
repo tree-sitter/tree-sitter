@@ -18,7 +18,7 @@ use crate::{
 use std::{marker::PhantomData, mem::ManuallyDrop, ptr::NonNull, str};
 
 impl Language {
-    /// Reconstructs a [Language] from a raw pointer.
+    /// Reconstructs a [`Language`] from a raw pointer.
     ///
     /// # Safety
     ///
@@ -27,14 +27,14 @@ impl Language {
         Language(ptr)
     }
 
-    /// Consumes the [Language], returning a raw pointer to the underlying C structure.
+    /// Consumes the [`Language`], returning a raw pointer to the underlying C structure.
     pub fn into_raw(self) -> *const TSLanguage {
         ManuallyDrop::new(self).0
     }
 }
 
 impl Parser {
-    /// Reconstructs a [Parser] from a raw pointer.
+    /// Reconstructs a [`Parser`] from a raw pointer.
     ///
     /// # Safety
     ///
@@ -43,7 +43,7 @@ impl Parser {
         Parser(NonNull::new_unchecked(ptr))
     }
 
-    /// Consumes the [Parser], returning a raw pointer to the underlying C structure.
+    /// Consumes the [`Parser`], returning a raw pointer to the underlying C structure.
     ///
     /// # Safety
     ///
@@ -56,7 +56,7 @@ impl Parser {
 }
 
 impl Tree {
-    /// Reconstructs a [Tree] from a raw pointer.
+    /// Reconstructs a [`Tree`] from a raw pointer.
     ///
     /// # Safety
     ///
@@ -65,14 +65,14 @@ impl Tree {
         Tree(NonNull::new_unchecked(ptr))
     }
 
-    /// Consumes the [Tree], returning a raw pointer to the underlying C structure.
+    /// Consumes the [`Tree`], returning a raw pointer to the underlying C structure.
     pub fn into_raw(self) -> *mut TSTree {
         ManuallyDrop::new(self).0.as_ptr()
     }
 }
 
 impl<'tree> Node<'tree> {
-    /// Reconstructs a [Node] from a raw pointer.
+    /// Reconstructs a [`Node`] from a raw pointer.
     ///
     /// # Safety
     ///
@@ -81,14 +81,14 @@ impl<'tree> Node<'tree> {
         Node(raw, PhantomData)
     }
 
-    /// Consumes the [Node], returning a raw pointer to the underlying C structure.
+    /// Consumes the [`Node`], returning a raw pointer to the underlying C structure.
     pub fn into_raw(self) -> TSNode {
         ManuallyDrop::new(self).0
     }
 }
 
 impl<'a> TreeCursor<'a> {
-    /// Reconstructs a [TreeCursor] from a raw pointer.
+    /// Reconstructs a [`TreeCursor`] from a raw pointer.
     ///
     /// # Safety
     ///
@@ -97,14 +97,14 @@ impl<'a> TreeCursor<'a> {
         TreeCursor(raw, PhantomData)
     }
 
-    /// Consumes the [TreeCursor], returning a raw pointer to the underlying C structure.
+    /// Consumes the [`TreeCursor`], returning a raw pointer to the underlying C structure.
     pub fn into_raw(self) -> TSTreeCursor {
         ManuallyDrop::new(self).0
     }
 }
 
 impl Query {
-    /// Reconstructs a [Query] from a raw pointer.
+    /// Reconstructs a [`Query`] from a raw pointer.
     ///
     /// # Safety
     ///
@@ -113,14 +113,14 @@ impl Query {
         Query::from_raw_parts(ptr, source)
     }
 
-    /// Consumes the [Query], returning a raw pointer to the underlying C structure.
+    /// Consumes the [`Query`], returning a raw pointer to the underlying C structure.
     pub fn into_raw(self) -> *mut TSQuery {
         ManuallyDrop::new(self).ptr.as_ptr()
     }
 }
 
 impl QueryCursor {
-    /// Reconstructs a [QueryCursor] from a raw pointer.
+    /// Reconstructs a [`QueryCursor`] from a raw pointer.
     ///
     /// # Safety
     ///
@@ -131,14 +131,14 @@ impl QueryCursor {
         }
     }
 
-    /// Consumes the [QueryCursor], returning a raw pointer to the underlying C structure.
+    /// Consumes the [`QueryCursor`], returning a raw pointer to the underlying C structure.
     pub fn into_raw(self) -> *mut TSQueryCursor {
         ManuallyDrop::new(self).ptr.as_ptr()
     }
 }
 
 impl LookaheadIterator {
-    /// Reconstructs a [LookaheadIterator] from a raw pointer.
+    /// Reconstructs a [`LookaheadIterator`] from a raw pointer.
     ///
     /// # Safety
     ///
@@ -147,7 +147,7 @@ impl LookaheadIterator {
         LookaheadIterator(NonNull::new_unchecked(ptr))
     }
 
-    /// Consumes the [LookaheadIterator], returning a raw pointer to the underlying C structure.
+    /// Consumes the [`LookaheadIterator`], returning a raw pointer to the underlying C structure.
     pub fn into_raw(self) -> *mut TSLookaheadIterator {
         ManuallyDrop::new(self).0.as_ptr()
     }
