@@ -1,4 +1,4 @@
-# `tree-sitter-tags`
+H# `tree-sitter-tags`
 
 ### Usage
 
@@ -53,3 +53,4 @@ for tag in tags {
     println!("docs: {:?}", tag.docs);
 }
 ```
+3
