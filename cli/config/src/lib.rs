@@ -1,4 +1,4 @@
-//! Manages tree-sitter's configuration file.
+#![doc = include_str!("../README.md")]
 
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};

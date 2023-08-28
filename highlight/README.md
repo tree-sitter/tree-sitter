@@ -1,4 +1,4 @@
-# `tree-sitter-highlight`
+# Tree-sitter Highlight
 
 [![crates.io badge]][crates.io]
 

@@ -172,9 +172,9 @@ const TSLanguage *ts_parser_language(const TSParser *self);
  * Returns a boolean indicating whether or not the language was successfully
  * assigned. True means assignment succeeded. False means there was a version
  * mismatch: the language was generated with an incompatible version of the
- * Tree-sitter CLI. Check the language's version using `ts_language_version`
- * and compare it to this library's `TREE_SITTER_LANGUAGE_VERSION` and
- * `TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION` constants.
+ * Tree-sitter CLI. Check the language's version using [`ts_language_version`]
+ * and compare it to this library's [`TREE_SITTER_LANGUAGE_VERSION`] and
+ * [`TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION`] constants.
  */
 bool ts_parser_set_language(TSParser *self, const TSLanguage *language);
 
@@ -192,8 +192,9 @@ bool ts_parser_set_language(TSParser *self, const TSLanguage *language);
  *
  * If `count` is zero, then the entire document will be parsed. Otherwise,
  * the given ranges must be ordered from earliest to latest in the document,
- * and they must not overlap. That is, the following must hold for all
- * `i` < `count - 1`: ranges[i].end_byte <= ranges[i + 1].start_byte
+ * and they must not overlap. That is, the following must hold for all:
+ *
+ * `i < count - 1`: `ranges[i].end_byte <= ranges[i + 1].start_byte`
  *
  * If this requirement is not satisfied, the operation will fail, the ranges
  * will not be assigned, and this function will return `false`. On success,
@@ -225,35 +226,40 @@ const TSRange *ts_parser_included_ranges(
  * version of this document and the document has since been edited, pass the
  * previous syntax tree so that the unchanged parts of it can be reused.
  * This will save time and memory. For this to work correctly, you must have
- * already edited the old syntax tree using the `ts_tree_edit` function in a
+ * already edited the old syntax tree using the [`ts_tree_edit`] function in a
  * way that exactly matches the source code changes.
  *
- * The `TSInput` parameter lets you specify how to read the text. It has the
+ * The [`TSInput`] parameter lets you specify how to read the text. It has the
  * following three fields:
- * 1. `read`: A function to retrieve a chunk of text at a given byte offset
+ * 1. [`read`]: A function to retrieve a chunk of text at a given byte offset
  *    and (row, column) position. The function should return a pointer to the
- *    text and write its length to the `bytes_read` pointer. The parser does
+ *    text and write its length to the [`bytes_read`] pointer. The parser does
  *    not take ownership of this buffer; it just borrows it until it has
  *    finished reading it. The function should write a zero value to the
- *    `bytes_read` pointer to indicate the end of the document.
- * 2. `payload`: An arbitrary pointer that will be passed to each invocation
- *    of the `read` function.
- * 3. `encoding`: An indication of how the text is encoded. Either
+ *    [`bytes_read`] pointer to indicate the end of the document.
+ * 2. [`payload`]: An arbitrary pointer that will be passed to each invocation
+ *    of the [`read`] function.
+ * 3. [`encoding`]: An indication of how the text is encoded. Either
  *    `TSInputEncodingUTF8` or `TSInputEncodingUTF16`.
  *
  * This function returns a syntax tree on success, and `NULL` on failure. There
  * are three possible reasons for failure:
  * 1. The parser does not have a language assigned. Check for this using the
-      `ts_parser_language` function.
+      [`ts_parser_language`] function.
  * 2. Parsing was cancelled due to a timeout that was set by an earlier call to
- *    the `ts_parser_set_timeout_micros` function. You can resume parsing from
- *    where the parser left out by calling `ts_parser_parse` again with the
+ *    the [`ts_parser_set_timeout_micros`] function. You can resume parsing from
+ *    where the parser left out by calling [`ts_parser_parse`] again with the
  *    same arguments. Or you can start parsing from scratch by first calling
- *    `ts_parser_reset`.
+ *    [`ts_parser_reset`].
  * 3. Parsing was cancelled using a cancellation flag that was set by an
- *    earlier call to `ts_parser_set_cancellation_flag`. You can resume parsing
- *    from where the parser left out by calling `ts_parser_parse` again with
+ *    earlier call to [`ts_parser_set_cancellation_flag`]. You can resume parsing
+ *    from where the parser left out by calling [`ts_parser_parse`] again with
  *    the same arguments.
+ *
+ * [`read`]: TSInput::read
+ * [`payload`]: TSInput::payload
+ * [`encoding`]: TSInput::encoding
+ * [`bytes_read`]: TSInput::read
  */
 TSTree *ts_parser_parse(
   TSParser *self,
@@ -263,7 +269,7 @@ TSTree *ts_parser_parse(
 
 /**
  * Use the parser to parse some source code stored in one contiguous buffer.
- * The first two parameters are the same as in the `ts_parser_parse` function
+ * The first two parameters are the same as in the [`ts_parser_parse`] function
  * above. The second two parameters indicate the location of the buffer and its
  * length in bytes.
  */
@@ -277,7 +283,7 @@ TSTree *ts_parser_parse_string(
 /**
  * Use the parser to parse some source code stored in one contiguous buffer with
  * a given encoding. The first four parameters work the same as in the
- * `ts_parser_parse_string` method above. The final parameter indicates whether
+ * [`ts_parser_parse_string`] method above. The final parameter indicates whether
  * the text is encoded as UTF8 or UTF16.
  */
 TSTree *ts_parser_parse_string_encoding(
@@ -293,9 +299,9 @@ TSTree *ts_parser_parse_string_encoding(
  *
  * If the parser previously failed because of a timeout or a cancellation, then
  * by default, it will resume where it left off on the next call to
- * `ts_parser_parse` or other parsing functions. If you don't want to resume,
+ * [`ts_parser_parse`] or other parsing functions. If you don't want to resume,
  * and instead intend to use this parser to parse some other document, you must
- * call `ts_parser_reset` first.
+ * call [`ts_parser_reset`] first.
  */
 void ts_parser_reset(TSParser *self);
 
@@ -304,7 +310,7 @@ void ts_parser_reset(TSParser *self);
  * take before halting.
  *
  * If parsing takes longer than this, it will halt early, returning NULL.
- * See `ts_parser_parse` for more information.
+ * See [`ts_parser_parse`] for more information.
  */
 void ts_parser_set_timeout_micros(TSParser *self, uint64_t timeout_micros);
 
@@ -318,7 +324,7 @@ uint64_t ts_parser_timeout_micros(const TSParser *self);
  *
  * If a non-null pointer is assigned, then the parser will periodically read
  * from this pointer during parsing. If it reads a non-zero value, it will
- * halt early, returning NULL. See `ts_parser_parse` for more information.
+ * halt early, returning NULL. See [`ts_parser_parse`] for more information.
  */
 void ts_parser_set_cancellation_flag(TSParser *self, const size_t *flag);
 
@@ -408,7 +414,7 @@ void ts_tree_edit(TSTree *self, const TSInputEdit *edit);
  *
  * For this to work correctly, the old syntax tree must have been edited such
  * that its ranges match up to the new tree. Generally, you'll want to call
- * this function right after calling one of the `ts_parser_parse` functions.
+ * this function right after calling one of the [`ts_parser_parse`] functions.
  * You need to pass the old tree that was passed to parse, as well as the new
  * tree that was returned from that function.
  *
@@ -454,8 +460,8 @@ const char *ts_node_grammar_type(TSNode self);
 
 /**
  * Get the node's type as a numerical id as it appears in the grammar ignoring
- * aliases. This should be used in `ts_language_next_state` instead of
- * `ts_node_symbol`.
+ * aliases. This should be used in [`ts_language_next_state`] instead of
+ * [`ts_node_symbol`].
  */
 TSSymbol ts_node_grammar_symbol(TSNode self);
 
@@ -488,8 +494,8 @@ TSPoint ts_node_end_point(TSNode self);
 char *ts_node_string(TSNode self);
 
 /**
- * Check if the node is null. Functions like `ts_node_child` and
- * `ts_node_next_sibling` will return a null node to indicate that no such node
+ * Check if the node is null. Functions like [`ts_node_child`] and
+ * [`ts_node_next_sibling`] will return a null node to indicate that no such node
  * was found.
  */
 bool ts_node_is_null(TSNode self);
@@ -563,14 +569,14 @@ uint32_t ts_node_child_count(TSNode self);
 /**
  * Get the node's *named* child at the given index.
  *
- * See also `ts_node_is_named`.
+ * See also [`ts_node_is_named`].
  */
 TSNode ts_node_named_child(TSNode self, uint32_t child_index);
 
 /**
  * Get the node's number of *named* children.
  *
- * See also `ts_node_is_named`.
+ * See also [`ts_node_is_named`].
  */
 uint32_t ts_node_named_child_count(TSNode self);
 
@@ -587,7 +593,7 @@ TSNode ts_node_child_by_field_name(
  * Get the node's child with the given numerical field id.
  *
  * You can convert a field name to an id using the
- * `ts_language_field_id_for_name` function.
+ * [`ts_language_field_id_for_name`] function.
  */
 TSNode ts_node_child_by_field_id(TSNode self, TSFieldId field_id);
 
@@ -636,9 +642,9 @@ TSNode ts_node_named_descendant_for_point_range(TSNode self, TSPoint start, TSPo
  * Edit the node to keep it in-sync with source code that has been edited.
  *
  * This function is only rarely needed. When you edit a syntax tree with the
- * `ts_tree_edit` function, all of the nodes that you retrieve from the tree
- * afterward will already reflect the edit. You only need to use `ts_node_edit`
- * when you have a `TSNode` instance that you want to keep and continue to use
+ * [`ts_tree_edit`] function, all of the nodes that you retrieve from the tree
+ * afterward will already reflect the edit. You only need to use [`ts_node_edit`]
+ * when you have a [`TSNode`] instance that you want to keep and continue to use
  * after an edit.
  */
 void ts_node_edit(TSNode *self, const TSInputEdit *edit);
@@ -656,7 +662,7 @@ bool ts_node_eq(TSNode self, TSNode other);
  * Create a new tree cursor starting from the given node.
  *
  * A tree cursor allows you to walk a syntax tree more efficiently than is
- * possible using the `TSNode` functions. It is a mutable object that is always
+ * possible using the [`TSNode`] functions. It is a mutable object that is always
  * on a certain syntax node, and can be moved imperatively to different nodes.
  */
 TSTreeCursor ts_tree_cursor_new(TSNode node);
@@ -674,7 +680,7 @@ void ts_tree_cursor_reset(TSTreeCursor *self, TSNode node);
 /**
  * Re-initialize a tree cursor to the same position as another cursor.
  *
- * Unlike `ts_tree_cursor_reset`, this will not lose parent information and
+ * Unlike [`ts_tree_cursor_reset`], this will not lose parent information and
  * allows reusing already created cursors.
 */
 void ts_tree_cursor_reset_to(TSTreeCursor *dst, const TSTreeCursor *src);
@@ -688,7 +694,7 @@ TSNode ts_tree_cursor_current_node(const TSTreeCursor *self);
  * Get the field name of the tree cursor's current node.
  *
  * This returns `NULL` if the current node doesn't have a field.
- * See also `ts_node_child_by_field_name`.
+ * See also [`ts_node_child_by_field_name`].
  */
 const char *ts_tree_cursor_current_field_name(const TSTreeCursor *self);
 
@@ -696,7 +702,7 @@ const char *ts_tree_cursor_current_field_name(const TSTreeCursor *self);
  * Get the field id of the tree cursor's current node.
  *
  * This returns zero if the current node doesn't have a field.
- * See also `ts_node_child_by_field_id`, `ts_language_field_id_for_name`.
+ * See also [`ts_node_child_by_field_id`], [`ts_language_field_id_for_name`].
  */
 TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *self);
 
@@ -723,7 +729,7 @@ bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *self);
  * there was no previous sibling node.
  *
  * Note, that this function may be slower than
- * `ts_tree_cursor_goto_next_sibling` due to how node positions are stored. In
+ * [`ts_tree_cursor_goto_next_sibling`] due to how node positions are stored. In
  * the worst case, this will need to iterate through all the children upto the
  * previous sibling node to recalculate its position.
  */
@@ -743,7 +749,7 @@ bool ts_tree_cursor_goto_first_child(TSTreeCursor *self);
  * This returns `true` if the cursor successfully moved, and returns `false` if
  * there were no children.
  *
- * Note that this function may be slower than `ts_tree_cursor_goto_first_child`
+ * Note that this function may be slower than [`ts_tree_cursor_goto_first_child`]
  * because it needs to iterate through all the children to compute the child's
  * position.
  */
@@ -789,7 +795,7 @@ TSTreeCursor ts_tree_cursor_copy(const TSTreeCursor *cursor);
  * patterns. The query is associated with a particular language, and can
  * only be run on syntax nodes parsed with that language.
  *
- * If all of the given patterns are valid, this returns a `TSQuery`.
+ * If all of the given patterns are valid, this returns a [`TSQuery`].
  * If a pattern is invalid, this returns `NULL`, and provides two pieces
  * of information about the problem:
  * 1. The byte offset of the error is written to the `error_offset` parameter.
@@ -831,10 +837,10 @@ uint32_t ts_query_start_byte_for_pattern(const TSQuery *self, uint32_t pattern_i
  * the `type` field:
  * - `TSQueryPredicateStepTypeCapture` - Steps with this type represent names
  *    of captures. Their `value_id` can be used with the
- *   `ts_query_capture_name_for_id` function to obtain the name of the capture.
+ *   [`ts_query_capture_name_for_id`] function to obtain the name of the capture.
  * - `TSQueryPredicateStepTypeString` - Steps with this type represent literal
  *    strings. Their `value_id` can be used with the
- *    `ts_query_string_value_for_id` function to obtain their string value.
+ *    [`ts_query_string_value_for_id`] function to obtain their string value.
  * - `TSQueryPredicateStepTypeDone` - Steps with this type are *sentinels*
  *    that represent the end of an individual predicate. If a pattern has two
  *    predicates, then there will be two steps with this `type` in the array.
@@ -914,23 +920,23 @@ void ts_query_disable_pattern(TSQuery *self, uint32_t pattern_index);
  * Create a new cursor for executing a given query.
  *
  * The cursor stores the state that is needed to iteratively search
- * for matches. To use the query cursor, first call `ts_query_cursor_exec`
+ * for matches. To use the query cursor, first call [`ts_query_cursor_exec`]
  * to start running a given query on a given syntax node. Then, there are
  * two options for consuming the results of the query:
- * 1. Repeatedly call `ts_query_cursor_next_match` to iterate over all of the
+ * 1. Repeatedly call [`ts_query_cursor_next_match`] to iterate over all of the
  *    *matches* in the order that they were found. Each match contains the
  *    index of the pattern that matched, and an array of captures. Because
  *    multiple patterns can match the same set of nodes, one match may contain
  *    captures that appear *before* some of the captures from a previous match.
- * 2. Repeatedly call `ts_query_cursor_next_capture` to iterate over all of the
+ * 2. Repeatedly call [`ts_query_cursor_next_capture`] to iterate over all of the
  *    individual *captures* in the order that they appear. This is useful if
  *    don't care about which pattern matched, and just want a single ordered
  *    sequence of captures.
  *
  * If you don't care about consuming all of the results, you can stop calling
- * `ts_query_cursor_next_match` or `ts_query_cursor_next_capture` at any point.
+ * [`ts_query_cursor_next_match`] or [`ts_query_cursor_next_capture`] at any point.
  *  You can then start executing another query on another node by calling
- *  `ts_query_cursor_exec` again.
+ *  [`ts_query_cursor_exec`] again.
  */
 TSQueryCursor *ts_query_cursor_new(void);
 
@@ -1051,7 +1057,7 @@ TSFieldId ts_language_field_id_for_name(const TSLanguage *self, const char *name
  * Check whether the given node type id belongs to named nodes, anonymous nodes,
  * or a hidden nodes.
  *
- * See also `ts_node_is_named`. Hidden nodes are never returned from the API.
+ * See also [`ts_node_is_named`]. Hidden nodes are never returned from the API.
  */
 TSSymbolType ts_language_symbol_type(const TSLanguage *self, TSSymbol symbol);
 
@@ -1060,14 +1066,14 @@ TSSymbolType ts_language_symbol_type(const TSLanguage *self, TSSymbol symbol);
  * to ensure that languages were generated by a compatible version of
  * Tree-sitter.
  *
- * See also `ts_parser_set_language`.
+ * See also [`ts_parser_set_language`].
  */
 uint32_t ts_language_version(const TSLanguage *self);
 
 /**
  * Get the next parse state. Combine this with lookahead iterators to generate
  * completion suggestions or valid symbols in error nodes. Use
- * `ts_node_grammar_symbol` for valid symbols.
+ * [`ts_node_grammar_symbol`] for valid symbols.
 */
 TSStateId ts_language_next_state(const TSLanguage *self, TSStateId state, TSSymbol symbol);
 
@@ -1080,8 +1086,8 @@ TSStateId ts_language_next_state(const TSLanguage *self, TSStateId state, TSSymb
  *
  * This returns `NULL` if state is invalid for the language.
  *
- * Repeatedly using `ts_lookahead_iterator_next` and
- * `ts_lookahead_iterator_current_symbol` will generate valid symbols in the
+ * Repeatedly using [`ts_lookahead_iterator_next`] and
+ * [`ts_lookahead_iterator_current_symbol`] will generate valid symbols in the
  * given parse state. Newly created lookahead iterators will contain the `ERROR`
  * symbol.
  *

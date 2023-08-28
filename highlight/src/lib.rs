@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 pub mod c_lib;
 pub mod util;
 pub use c_lib as c;

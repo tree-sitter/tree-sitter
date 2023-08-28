@@ -160,11 +160,11 @@ extern "C" {
     pub fn ts_parser_language(self_: *const TSParser) -> *const TSLanguage;
 }
 extern "C" {
-    #[doc = " Set the language that the parser should use for parsing.\n\n Returns a boolean indicating whether or not the language was successfully\n assigned. True means assignment succeeded. False means there was a version\n mismatch: the language was generated with an incompatible version of the\n Tree-sitter CLI. Check the language's version using `ts_language_version`\n and compare it to this library's `TREE_SITTER_LANGUAGE_VERSION` and\n `TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION` constants."]
+    #[doc = " Set the language that the parser should use for parsing.\n\n Returns a boolean indicating whether or not the language was successfully\n assigned. True means assignment succeeded. False means there was a version\n mismatch: the language was generated with an incompatible version of the\n Tree-sitter CLI. Check the language's version using [`ts_language_version`]\n and compare it to this library's [`TREE_SITTER_LANGUAGE_VERSION`] and\n [`TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION`] constants."]
     pub fn ts_parser_set_language(self_: *mut TSParser, language: *const TSLanguage) -> bool;
 }
 extern "C" {
-    #[doc = " Set the ranges of text that the parser should include when parsing.\n\n By default, the parser will always include entire documents. This function\n allows you to parse only a *portion* of a document but still return a syntax\n tree whose ranges match up with the document as a whole. You can also pass\n multiple disjoint ranges.\n\n The second and third parameters specify the location and length of an array\n of ranges. The parser does *not* take ownership of these ranges; it copies\n the data, so it doesn't matter how these ranges are allocated.\n\n If `count` is zero, then the entire document will be parsed. Otherwise,\n the given ranges must be ordered from earliest to latest in the document,\n and they must not overlap. That is, the following must hold for all\n `i` < `count - 1`: ranges[i].end_byte <= ranges[i + 1].start_byte\n\n If this requirement is not satisfied, the operation will fail, the ranges\n will not be assigned, and this function will return `false`. On success,\n this function returns `true`"]
+    #[doc = " Set the ranges of text that the parser should include when parsing.\n\n By default, the parser will always include entire documents. This function\n allows you to parse only a *portion* of a document but still return a syntax\n tree whose ranges match up with the document as a whole. You can also pass\n multiple disjoint ranges.\n\n The second and third parameters specify the location and length of an array\n of ranges. The parser does *not* take ownership of these ranges; it copies\n the data, so it doesn't matter how these ranges are allocated.\n\n If `count` is zero, then the entire document will be parsed. Otherwise,\n the given ranges must be ordered from earliest to latest in the document,\n and they must not overlap. That is, the following must hold for all:\n\n `i < count - 1`: `ranges[i].end_byte <= ranges[i + 1].start_byte`\n\n If this requirement is not satisfied, the operation will fail, the ranges\n will not be assigned, and this function will return `false`. On success,\n this function returns `true`"]
     pub fn ts_parser_set_included_ranges(
         self_: *mut TSParser,
         ranges: *const TSRange,
@@ -176,7 +176,7 @@ extern "C" {
     pub fn ts_parser_included_ranges(self_: *const TSParser, count: *mut u32) -> *const TSRange;
 }
 extern "C" {
-    #[doc = " Use the parser to parse some source code and create a syntax tree.\n\n If you are parsing this document for the first time, pass `NULL` for the\n `old_tree` parameter. Otherwise, if you have already parsed an earlier\n version of this document and the document has since been edited, pass the\n previous syntax tree so that the unchanged parts of it can be reused.\n This will save time and memory. For this to work correctly, you must have\n already edited the old syntax tree using the `ts_tree_edit` function in a\n way that exactly matches the source code changes.\n\n The `TSInput` parameter lets you specify how to read the text. It has the\n following three fields:\n 1. `read`: A function to retrieve a chunk of text at a given byte offset\n    and (row, column) position. The function should return a pointer to the\n    text and write its length to the `bytes_read` pointer. The parser does\n    not take ownership of this buffer; it just borrows it until it has\n    finished reading it. The function should write a zero value to the\n    `bytes_read` pointer to indicate the end of the document.\n 2. `payload`: An arbitrary pointer that will be passed to each invocation\n    of the `read` function.\n 3. `encoding`: An indication of how the text is encoded. Either\n    `TSInputEncodingUTF8` or `TSInputEncodingUTF16`.\n\n This function returns a syntax tree on success, and `NULL` on failure. There\n are three possible reasons for failure:\n 1. The parser does not have a language assigned. Check for this using the\n`ts_parser_language` function.\n 2. Parsing was cancelled due to a timeout that was set by an earlier call to\n    the `ts_parser_set_timeout_micros` function. You can resume parsing from\n    where the parser left out by calling `ts_parser_parse` again with the\n    same arguments. Or you can start parsing from scratch by first calling\n    `ts_parser_reset`.\n 3. Parsing was cancelled using a cancellation flag that was set by an\n    earlier call to `ts_parser_set_cancellation_flag`. You can resume parsing\n    from where the parser left out by calling `ts_parser_parse` again with\n    the same arguments."]
+    #[doc = " Use the parser to parse some source code and create a syntax tree.\n\n If you are parsing this document for the first time, pass `NULL` for the\n `old_tree` parameter. Otherwise, if you have already parsed an earlier\n version of this document and the document has since been edited, pass the\n previous syntax tree so that the unchanged parts of it can be reused.\n This will save time and memory. For this to work correctly, you must have\n already edited the old syntax tree using the [`ts_tree_edit`] function in a\n way that exactly matches the source code changes.\n\n The [`TSInput`] parameter lets you specify how to read the text. It has the\n following three fields:\n 1. [`read`]: A function to retrieve a chunk of text at a given byte offset\n    and (row, column) position. The function should return a pointer to the\n    text and write its length to the [`bytes_read`] pointer. The parser does\n    not take ownership of this buffer; it just borrows it until it has\n    finished reading it. The function should write a zero value to the\n    [`bytes_read`] pointer to indicate the end of the document.\n 2. [`payload`]: An arbitrary pointer that will be passed to each invocation\n    of the [`read`] function.\n 3. [`encoding`]: An indication of how the text is encoded. Either\n    `TSInputEncodingUTF8` or `TSInputEncodingUTF16`.\n\n This function returns a syntax tree on success, and `NULL` on failure. There\n are three possible reasons for failure:\n 1. The parser does not have a language assigned. Check for this using the\n[`ts_parser_language`] function.\n 2. Parsing was cancelled due to a timeout that was set by an earlier call to\n    the [`ts_parser_set_timeout_micros`] function. You can resume parsing from\n    where the parser left out by calling [`ts_parser_parse`] again with the\n    same arguments. Or you can start parsing from scratch by first calling\n    [`ts_parser_reset`].\n 3. Parsing was cancelled using a cancellation flag that was set by an\n    earlier call to [`ts_parser_set_cancellation_flag`]. You can resume parsing\n    from where the parser left out by calling [`ts_parser_parse`] again with\n    the same arguments.\n\n [`read`]: TSInput::read\n [`payload`]: TSInput::payload\n [`encoding`]: TSInput::encoding\n [`bytes_read`]: TSInput::read"]
     pub fn ts_parser_parse(
         self_: *mut TSParser,
         old_tree: *const TSTree,
@@ -184,7 +184,7 @@ extern "C" {
     ) -> *mut TSTree;
 }
 extern "C" {
-    #[doc = " Use the parser to parse some source code stored in one contiguous buffer.\n The first two parameters are the same as in the `ts_parser_parse` function\n above. The second two parameters indicate the location of the buffer and its\n length in bytes."]
+    #[doc = " Use the parser to parse some source code stored in one contiguous buffer.\n The first two parameters are the same as in the [`ts_parser_parse`] function\n above. The second two parameters indicate the location of the buffer and its\n length in bytes."]
     pub fn ts_parser_parse_string(
         self_: *mut TSParser,
         old_tree: *const TSTree,
@@ -193,7 +193,7 @@ extern "C" {
     ) -> *mut TSTree;
 }
 extern "C" {
-    #[doc = " Use the parser to parse some source code stored in one contiguous buffer with\n a given encoding. The first four parameters work the same as in the\n `ts_parser_parse_string` method above. The final parameter indicates whether\n the text is encoded as UTF8 or UTF16."]
+    #[doc = " Use the parser to parse some source code stored in one contiguous buffer with\n a given encoding. The first four parameters work the same as in the\n [`ts_parser_parse_string`] method above. The final parameter indicates whether\n the text is encoded as UTF8 or UTF16."]
     pub fn ts_parser_parse_string_encoding(
         self_: *mut TSParser,
         old_tree: *const TSTree,
@@ -203,11 +203,11 @@ extern "C" {
     ) -> *mut TSTree;
 }
 extern "C" {
-    #[doc = " Instruct the parser to start the next parse from the beginning.\n\n If the parser previously failed because of a timeout or a cancellation, then\n by default, it will resume where it left off on the next call to\n `ts_parser_parse` or other parsing functions. If you don't want to resume,\n and instead intend to use this parser to parse some other document, you must\n call `ts_parser_reset` first."]
+    #[doc = " Instruct the parser to start the next parse from the beginning.\n\n If the parser previously failed because of a timeout or a cancellation, then\n by default, it will resume where it left off on the next call to\n [`ts_parser_parse`] or other parsing functions. If you don't want to resume,\n and instead intend to use this parser to parse some other document, you must\n call [`ts_parser_reset`] first."]
     pub fn ts_parser_reset(self_: *mut TSParser);
 }
 extern "C" {
-    #[doc = " Set the maximum duration in microseconds that parsing should be allowed to\n take before halting.\n\n If parsing takes longer than this, it will halt early, returning NULL.\n See `ts_parser_parse` for more information."]
+    #[doc = " Set the maximum duration in microseconds that parsing should be allowed to\n take before halting.\n\n If parsing takes longer than this, it will halt early, returning NULL.\n See [`ts_parser_parse`] for more information."]
     pub fn ts_parser_set_timeout_micros(self_: *mut TSParser, timeout_micros: u64);
 }
 extern "C" {
@@ -215,7 +215,7 @@ extern "C" {
     pub fn ts_parser_timeout_micros(self_: *const TSParser) -> u64;
 }
 extern "C" {
-    #[doc = " Set the parser's current cancellation flag pointer.\n\n If a non-null pointer is assigned, then the parser will periodically read\n from this pointer during parsing. If it reads a non-zero value, it will\n halt early, returning NULL. See `ts_parser_parse` for more information."]
+    #[doc = " Set the parser's current cancellation flag pointer.\n\n If a non-null pointer is assigned, then the parser will periodically read\n from this pointer during parsing. If it reads a non-zero value, it will\n halt early, returning NULL. See [`ts_parser_parse`] for more information."]
     pub fn ts_parser_set_cancellation_flag(self_: *mut TSParser, flag: *const usize);
 }
 extern "C" {
@@ -267,7 +267,7 @@ extern "C" {
     pub fn ts_tree_edit(self_: *mut TSTree, edit: *const TSInputEdit);
 }
 extern "C" {
-    #[doc = " Compare an old edited syntax tree to a new syntax tree representing the same\n document, returning an array of ranges whose syntactic structure has changed.\n\n For this to work correctly, the old syntax tree must have been edited such\n that its ranges match up to the new tree. Generally, you'll want to call\n this function right after calling one of the `ts_parser_parse` functions.\n You need to pass the old tree that was passed to parse, as well as the new\n tree that was returned from that function.\n\n The returned array is allocated using `malloc` and the caller is responsible\n for freeing it using `free`. The length of the array will be written to the\n given `length` pointer."]
+    #[doc = " Compare an old edited syntax tree to a new syntax tree representing the same\n document, returning an array of ranges whose syntactic structure has changed.\n\n For this to work correctly, the old syntax tree must have been edited such\n that its ranges match up to the new tree. Generally, you'll want to call\n this function right after calling one of the [`ts_parser_parse`] functions.\n You need to pass the old tree that was passed to parse, as well as the new\n tree that was returned from that function.\n\n The returned array is allocated using `malloc` and the caller is responsible\n for freeing it using `free`. The length of the array will be written to the\n given `length` pointer."]
     pub fn ts_tree_get_changed_ranges(
         old_tree: *const TSTree,
         new_tree: *const TSTree,
@@ -295,7 +295,7 @@ extern "C" {
     pub fn ts_node_grammar_type(self_: TSNode) -> *const ::std::os::raw::c_char;
 }
 extern "C" {
-    #[doc = " Get the node's type as a numerical id as it appears in the grammar ignoring\n aliases. This should be used in `ts_language_next_state` instead of\n `ts_node_symbol`."]
+    #[doc = " Get the node's type as a numerical id as it appears in the grammar ignoring\n aliases. This should be used in [`ts_language_next_state`] instead of\n [`ts_node_symbol`]."]
     pub fn ts_node_grammar_symbol(self_: TSNode) -> TSSymbol;
 }
 extern "C" {
@@ -319,7 +319,7 @@ extern "C" {
     pub fn ts_node_string(self_: TSNode) -> *mut ::std::os::raw::c_char;
 }
 extern "C" {
-    #[doc = " Check if the node is null. Functions like `ts_node_child` and\n `ts_node_next_sibling` will return a null node to indicate that no such node\n was found."]
+    #[doc = " Check if the node is null. Functions like [`ts_node_child`] and\n [`ts_node_next_sibling`] will return a null node to indicate that no such node\n was found."]
     pub fn ts_node_is_null(self_: TSNode) -> bool;
 }
 extern "C" {
@@ -374,11 +374,11 @@ extern "C" {
     pub fn ts_node_child_count(self_: TSNode) -> u32;
 }
 extern "C" {
-    #[doc = " Get the node's *named* child at the given index.\n\n See also `ts_node_is_named`."]
+    #[doc = " Get the node's *named* child at the given index.\n\n See also [`ts_node_is_named`]."]
     pub fn ts_node_named_child(self_: TSNode, child_index: u32) -> TSNode;
 }
 extern "C" {
-    #[doc = " Get the node's number of *named* children.\n\n See also `ts_node_is_named`."]
+    #[doc = " Get the node's number of *named* children.\n\n See also [`ts_node_is_named`]."]
     pub fn ts_node_named_child_count(self_: TSNode) -> u32;
 }
 extern "C" {
@@ -390,7 +390,7 @@ extern "C" {
     ) -> TSNode;
 }
 extern "C" {
-    #[doc = " Get the node's child with the given numerical field id.\n\n You can convert a field name to an id using the\n `ts_language_field_id_for_name` function."]
+    #[doc = " Get the node's child with the given numerical field id.\n\n You can convert a field name to an id using the\n [`ts_language_field_id_for_name`] function."]
     pub fn ts_node_child_by_field_id(self_: TSNode, field_id: TSFieldId) -> TSNode;
 }
 extern "C" {
@@ -442,7 +442,7 @@ extern "C" {
     ) -> TSNode;
 }
 extern "C" {
-    #[doc = " Edit the node to keep it in-sync with source code that has been edited.\n\n This function is only rarely needed. When you edit a syntax tree with the\n `ts_tree_edit` function, all of the nodes that you retrieve from the tree\n afterward will already reflect the edit. You only need to use `ts_node_edit`\n when you have a `TSNode` instance that you want to keep and continue to use\n after an edit."]
+    #[doc = " Edit the node to keep it in-sync with source code that has been edited.\n\n This function is only rarely needed. When you edit a syntax tree with the\n [`ts_tree_edit`] function, all of the nodes that you retrieve from the tree\n afterward will already reflect the edit. You only need to use [`ts_node_edit`]\n when you have a [`TSNode`] instance that you want to keep and continue to use\n after an edit."]
     pub fn ts_node_edit(self_: *mut TSNode, edit: *const TSInputEdit);
 }
 extern "C" {
@@ -450,7 +450,7 @@ extern "C" {
     pub fn ts_node_eq(self_: TSNode, other: TSNode) -> bool;
 }
 extern "C" {
-    #[doc = " Create a new tree cursor starting from the given node.\n\n A tree cursor allows you to walk a syntax tree more efficiently than is\n possible using the `TSNode` functions. It is a mutable object that is always\n on a certain syntax node, and can be moved imperatively to different nodes."]
+    #[doc = " Create a new tree cursor starting from the given node.\n\n A tree cursor allows you to walk a syntax tree more efficiently than is\n possible using the [`TSNode`] functions. It is a mutable object that is always\n on a certain syntax node, and can be moved imperatively to different nodes."]
     pub fn ts_tree_cursor_new(node: TSNode) -> TSTreeCursor;
 }
 extern "C" {
@@ -462,7 +462,7 @@ extern "C" {
     pub fn ts_tree_cursor_reset(self_: *mut TSTreeCursor, node: TSNode);
 }
 extern "C" {
-    #[doc = " Re-initialize a tree cursor to the same position as another cursor.\n\n Unlike `ts_tree_cursor_reset`, this will not lose parent information and\n allows reusing already created cursors."]
+    #[doc = " Re-initialize a tree cursor to the same position as another cursor.\n\n Unlike [`ts_tree_cursor_reset`], this will not lose parent information and\n allows reusing already created cursors."]
     pub fn ts_tree_cursor_reset_to(dst: *mut TSTreeCursor, src: *const TSTreeCursor);
 }
 extern "C" {
@@ -470,13 +470,13 @@ extern "C" {
     pub fn ts_tree_cursor_current_node(self_: *const TSTreeCursor) -> TSNode;
 }
 extern "C" {
-    #[doc = " Get the field name of the tree cursor's current node.\n\n This returns `NULL` if the current node doesn't have a field.\n See also `ts_node_child_by_field_name`."]
+    #[doc = " Get the field name of the tree cursor's current node.\n\n This returns `NULL` if the current node doesn't have a field.\n See also [`ts_node_child_by_field_name`]."]
     pub fn ts_tree_cursor_current_field_name(
         self_: *const TSTreeCursor,
     ) -> *const ::std::os::raw::c_char;
 }
 extern "C" {
-    #[doc = " Get the field id of the tree cursor's current node.\n\n This returns zero if the current node doesn't have a field.\n See also `ts_node_child_by_field_id`, `ts_language_field_id_for_name`."]
+    #[doc = " Get the field id of the tree cursor's current node.\n\n This returns zero if the current node doesn't have a field.\n See also [`ts_node_child_by_field_id`], [`ts_language_field_id_for_name`]."]
     pub fn ts_tree_cursor_current_field_id(self_: *const TSTreeCursor) -> TSFieldId;
 }
 extern "C" {
@@ -488,7 +488,7 @@ extern "C" {
     pub fn ts_tree_cursor_goto_next_sibling(self_: *mut TSTreeCursor) -> bool;
 }
 extern "C" {
-    #[doc = " Move the cursor to the previous sibling of its current node.\n\n This returns `true` if the cursor successfully moved, and returns `false` if\n there was no previous sibling node.\n\n Note, that this function may be slower than\n `ts_tree_cursor_goto_next_sibling` due to how node positions are stored. In\n the worst case, this will need to iterate through all the children upto the\n previous sibling node to recalculate its position."]
+    #[doc = " Move the cursor to the previous sibling of its current node.\n\n This returns `true` if the cursor successfully moved, and returns `false` if\n there was no previous sibling node.\n\n Note, that this function may be slower than\n [`ts_tree_cursor_goto_next_sibling`] due to how node positions are stored. In\n the worst case, this will need to iterate through all the children upto the\n previous sibling node to recalculate its position."]
     pub fn ts_tree_cursor_goto_previous_sibling(self_: *mut TSTreeCursor) -> bool;
 }
 extern "C" {
@@ -496,7 +496,7 @@ extern "C" {
     pub fn ts_tree_cursor_goto_first_child(self_: *mut TSTreeCursor) -> bool;
 }
 extern "C" {
-    #[doc = " Move the cursor to the last child of its current node.\n\n This returns `true` if the cursor successfully moved, and returns `false` if\n there were no children.\n\n Note that this function may be slower than `ts_tree_cursor_goto_first_child`\n because it needs to iterate through all the children to compute the child's\n position."]
+    #[doc = " Move the cursor to the last child of its current node.\n\n This returns `true` if the cursor successfully moved, and returns `false` if\n there were no children.\n\n Note that this function may be slower than [`ts_tree_cursor_goto_first_child`]\n because it needs to iterate through all the children to compute the child's\n position."]
     pub fn ts_tree_cursor_goto_last_child(self_: *mut TSTreeCursor) -> bool;
 }
 extern "C" {
@@ -528,7 +528,7 @@ extern "C" {
     pub fn ts_tree_cursor_copy(cursor: *const TSTreeCursor) -> TSTreeCursor;
 }
 extern "C" {
-    #[doc = " Create a new query from a string containing one or more S-expression\n patterns. The query is associated with a particular language, and can\n only be run on syntax nodes parsed with that language.\n\n If all of the given patterns are valid, this returns a `TSQuery`.\n If a pattern is invalid, this returns `NULL`, and provides two pieces\n of information about the problem:\n 1. The byte offset of the error is written to the `error_offset` parameter.\n 2. The type of error is written to the `error_type` parameter."]
+    #[doc = " Create a new query from a string containing one or more S-expression\n patterns. The query is associated with a particular language, and can\n only be run on syntax nodes parsed with that language.\n\n If all of the given patterns are valid, this returns a [`TSQuery`].\n If a pattern is invalid, this returns `NULL`, and provides two pieces\n of information about the problem:\n 1. The byte offset of the error is written to the `error_offset` parameter.\n 2. The type of error is written to the `error_type` parameter."]
     pub fn ts_query_new(
         language: *const TSLanguage,
         source: *const ::std::os::raw::c_char,
@@ -556,7 +556,7 @@ extern "C" {
     pub fn ts_query_start_byte_for_pattern(self_: *const TSQuery, pattern_index: u32) -> u32;
 }
 extern "C" {
-    #[doc = " Get all of the predicates for the given pattern in the query.\n\n The predicates are represented as a single array of steps. There are three\n types of steps in this array, which correspond to the three legal values for\n the `type` field:\n - `TSQueryPredicateStepTypeCapture` - Steps with this type represent names\n    of captures. Their `value_id` can be used with the\n   `ts_query_capture_name_for_id` function to obtain the name of the capture.\n - `TSQueryPredicateStepTypeString` - Steps with this type represent literal\n    strings. Their `value_id` can be used with the\n    `ts_query_string_value_for_id` function to obtain their string value.\n - `TSQueryPredicateStepTypeDone` - Steps with this type are *sentinels*\n    that represent the end of an individual predicate. If a pattern has two\n    predicates, then there will be two steps with this `type` in the array."]
+    #[doc = " Get all of the predicates for the given pattern in the query.\n\n The predicates are represented as a single array of steps. There are three\n types of steps in this array, which correspond to the three legal values for\n the `type` field:\n - `TSQueryPredicateStepTypeCapture` - Steps with this type represent names\n    of captures. Their `value_id` can be used with the\n   [`ts_query_capture_name_for_id`] function to obtain the name of the capture.\n - `TSQueryPredicateStepTypeString` - Steps with this type represent literal\n    strings. Their `value_id` can be used with the\n    [`ts_query_string_value_for_id`] function to obtain their string value.\n - `TSQueryPredicateStepTypeDone` - Steps with this type are *sentinels*\n    that represent the end of an individual predicate. If a pattern has two\n    predicates, then there will be two steps with this `type` in the array."]
     pub fn ts_query_predicates_for_pattern(
         self_: *const TSQuery,
         pattern_index: u32,
@@ -608,7 +608,7 @@ extern "C" {
     pub fn ts_query_disable_pattern(self_: *mut TSQuery, pattern_index: u32);
 }
 extern "C" {
-    #[doc = " Create a new cursor for executing a given query.\n\n The cursor stores the state that is needed to iteratively search\n for matches. To use the query cursor, first call `ts_query_cursor_exec`\n to start running a given query on a given syntax node. Then, there are\n two options for consuming the results of the query:\n 1. Repeatedly call `ts_query_cursor_next_match` to iterate over all of the\n    *matches* in the order that they were found. Each match contains the\n    index of the pattern that matched, and an array of captures. Because\n    multiple patterns can match the same set of nodes, one match may contain\n    captures that appear *before* some of the captures from a previous match.\n 2. Repeatedly call `ts_query_cursor_next_capture` to iterate over all of the\n    individual *captures* in the order that they appear. This is useful if\n    don't care about which pattern matched, and just want a single ordered\n    sequence of captures.\n\n If you don't care about consuming all of the results, you can stop calling\n `ts_query_cursor_next_match` or `ts_query_cursor_next_capture` at any point.\n  You can then start executing another query on another node by calling\n  `ts_query_cursor_exec` again."]
+    #[doc = " Create a new cursor for executing a given query.\n\n The cursor stores the state that is needed to iteratively search\n for matches. To use the query cursor, first call [`ts_query_cursor_exec`]\n to start running a given query on a given syntax node. Then, there are\n two options for consuming the results of the query:\n 1. Repeatedly call [`ts_query_cursor_next_match`] to iterate over all of the\n    *matches* in the order that they were found. Each match contains the\n    index of the pattern that matched, and an array of captures. Because\n    multiple patterns can match the same set of nodes, one match may contain\n    captures that appear *before* some of the captures from a previous match.\n 2. Repeatedly call [`ts_query_cursor_next_capture`] to iterate over all of the\n    individual *captures* in the order that they appear. This is useful if\n    don't care about which pattern matched, and just want a single ordered\n    sequence of captures.\n\n If you don't care about consuming all of the results, you can stop calling\n [`ts_query_cursor_next_match`] or [`ts_query_cursor_next_capture`] at any point.\n  You can then start executing another query on another node by calling\n  [`ts_query_cursor_exec`] again."]
     pub fn ts_query_cursor_new() -> *mut TSQueryCursor;
 }
 extern "C" {
@@ -708,15 +708,15 @@ extern "C" {
     ) -> TSFieldId;
 }
 extern "C" {
-    #[doc = " Check whether the given node type id belongs to named nodes, anonymous nodes,\n or a hidden nodes.\n\n See also `ts_node_is_named`. Hidden nodes are never returned from the API."]
+    #[doc = " Check whether the given node type id belongs to named nodes, anonymous nodes,\n or a hidden nodes.\n\n See also [`ts_node_is_named`]. Hidden nodes are never returned from the API."]
     pub fn ts_language_symbol_type(self_: *const TSLanguage, symbol: TSSymbol) -> TSSymbolType;
 }
 extern "C" {
-    #[doc = " Get the ABI version number for this language. This version number is used\n to ensure that languages were generated by a compatible version of\n Tree-sitter.\n\n See also `ts_parser_set_language`."]
+    #[doc = " Get the ABI version number for this language. This version number is used\n to ensure that languages were generated by a compatible version of\n Tree-sitter.\n\n See also [`ts_parser_set_language`]."]
     pub fn ts_language_version(self_: *const TSLanguage) -> u32;
 }
 extern "C" {
-    #[doc = " Get the next parse state. Combine this with lookahead iterators to generate\n completion suggestions or valid symbols in error nodes. Use\n `ts_node_grammar_symbol` for valid symbols."]
+    #[doc = " Get the next parse state. Combine this with lookahead iterators to generate\n completion suggestions or valid symbols in error nodes. Use\n [`ts_node_grammar_symbol`] for valid symbols."]
     pub fn ts_language_next_state(
         self_: *const TSLanguage,
         state: TSStateId,
@@ -724,7 +724,7 @@ extern "C" {
     ) -> TSStateId;
 }
 extern "C" {
-    #[doc = " Create a new lookahead iterator for the given language and parse state.\n\n This returns `NULL` if state is invalid for the language.\n\n Repeatedly using `ts_lookahead_iterator_next` and\n `ts_lookahead_iterator_current_symbol` will generate valid symbols in the\n given parse state. Newly created lookahead iterators will contain the `ERROR`\n symbol.\n\n Lookahead iterators can be useful to generate suggestions and improve syntax\n error diagnostics. To get symbols valid in an ERROR node, use the lookahead\n iterator on its first leaf node state. For `MISSING` nodes, a lookahead\n iterator created on the previous non-extra leaf node may be appropriate."]
+    #[doc = " Create a new lookahead iterator for the given language and parse state.\n\n This returns `NULL` if state is invalid for the language.\n\n Repeatedly using [`ts_lookahead_iterator_next`] and\n [`ts_lookahead_iterator_current_symbol`] will generate valid symbols in the\n given parse state. Newly created lookahead iterators will contain the `ERROR`\n symbol.\n\n Lookahead iterators can be useful to generate suggestions and improve syntax\n error diagnostics. To get symbols valid in an ERROR node, use the lookahead\n iterator on its first leaf node state. For `MISSING` nodes, a lookahead\n iterator created on the previous non-extra leaf node may be appropriate."]
     pub fn ts_lookahead_iterator_new(
         self_: *const TSLanguage,
         state: TSStateId,
