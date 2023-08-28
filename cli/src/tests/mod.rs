@@ -5,6 +5,7 @@ mod helpers;
 mod highlight_test;
 mod language_test;
 mod node_test;
+mod parser_hang_test;
 mod parser_test;
 mod pathological_test;
 mod query_test;
