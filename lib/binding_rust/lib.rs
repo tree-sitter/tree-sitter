@@ -105,7 +105,7 @@ type FieldId = NonZeroU16;
 /// A callback that receives log messages during parser.
 type Logger<'a> = Box<dyn FnMut(LogType, &str) + 'a>;
 
-/// A stateful object for walking a syntax [Tree] efficiently.
+/// A stateful object for walking a syntax [`Tree`] efficiently.
 #[doc(alias = "TSTreeCursor")]
 pub struct TreeCursor<'cursor>(ffi::TSTreeCursor, PhantomData<&'cursor ()>);
 
@@ -343,7 +343,7 @@ impl Language {
     }
 
     /// Get the next parse state. Combine this with
-    /// [lookahead_iterator](Language::lookahead_iterator) to
+    /// [`lookahead_iterator`](Language::lookahead_iterator) to
     /// generate completion suggestions or valid symbols in error nodes.
     ///
     /// Example:
@@ -359,9 +359,9 @@ impl Language {
     ///
     /// This returns `None` if state is invalid for this language.
     ///
-    /// Iterating [LookaheadIterator] will yield valid symbols in the given
+    /// Iterating [`LookaheadIterator`] will yield valid symbols in the given
     /// parse state. Newly created lookahead iterators will return the `ERROR`
-    /// symbol from [LookaheadIterator::current_symbol].
+    /// symbol from [`LookaheadIterator::current_symbol`].
     ///
     /// Lookahead iterators can be useful to generate suggestions and improve
     /// syntax error diagnostics. To get symbols valid in an ERROR node, use the
@@ -389,9 +389,9 @@ impl Parser {
     /// Returns a Result indicating whether or not the language was successfully
     /// assigned. True means assignment succeeded. False means there was a version
     /// mismatch: the language was generated with an incompatible version of the
-    /// Tree-sitter CLI. Check the language's version using [Language::version]
-    /// and compare it to this library's [LANGUAGE_VERSION](LANGUAGE_VERSION) and
-    /// [MIN_COMPATIBLE_LANGUAGE_VERSION](MIN_COMPATIBLE_LANGUAGE_VERSION) constants.
+    /// Tree-sitter CLI. Check the language's version using [`Language::version`]
+    /// and compare it to this library's [`LANGUAGE_VERSION`](LANGUAGE_VERSION) and
+    /// [`MIN_COMPATIBLE_LANGUAGE_VERSION`](MIN_COMPATIBLE_LANGUAGE_VERSION) constants.
     #[doc(alias = "ts_parser_set_language")]
     pub fn set_language(&mut self, language: Language) -> Result<(), LanguageError> {
         let version = language.version();
@@ -487,12 +487,12 @@ impl Parser {
     /// * `old_tree` A previous syntax tree parsed from the same document.
     ///   If the text of the document has changed since `old_tree` was
     ///   created, then you must edit `old_tree` to match the new text using
-    ///   [Tree::edit].
+    ///   [`Tree::edit`].
     ///
-    /// Returns a [Tree] if parsing succeeded, or `None` if:
-    ///  * The parser has not yet had a language assigned with [Parser::set_language]
-    ///  * The timeout set with [Parser::set_timeout_micros] expired
-    ///  * The cancellation flag set with [Parser::set_cancellation_flag] was flipped
+    /// Returns a [`Tree`] if parsing succeeded, or `None` if:
+    ///  * The parser has not yet had a language assigned with [`Parser::set_language`]
+    ///  * The timeout set with [`Parser::set_timeout_micros`] expired
+    ///  * The cancellation flag set with [`Parser::set_cancellation_flag`] was flipped
     #[doc(alias = "ts_parser_parse")]
     pub fn parse(&mut self, text: impl AsRef<[u8]>, old_tree: Option<&Tree>) -> Option<Tree> {
         let bytes = text.as_ref();
@@ -510,7 +510,7 @@ impl Parser {
     /// * `old_tree` A previous syntax tree parsed from the same document.
     ///   If the text of the document has changed since `old_tree` was
     ///   created, then you must edit `old_tree` to match the new text using
-    ///   [Tree::edit].
+    ///   [`Tree::edit`].
     pub fn parse_utf16(
         &mut self,
         input: impl AsRef<[u16]>,
@@ -534,7 +534,7 @@ impl Parser {
     /// * `old_tree` A previous syntax tree parsed from the same document.
     ///   If the text of the document has changed since `old_tree` was
     ///   created, then you must edit `old_tree` to match the new text using
-    ///   [Tree::edit].
+    ///   [`Tree::edit`].
     pub fn parse_with<T: AsRef<[u8]>, F: FnMut(usize, Point) -> T>(
         &mut self,
         callback: &mut F,
@@ -584,7 +584,7 @@ impl Parser {
     /// * `old_tree` A previous syntax tree parsed from the same document.
     ///   If the text of the document has changed since `old_tree` was
     ///   created, then you must edit `old_tree` to match the new text using
-    ///   [Tree::edit].
+    ///   [`Tree::edit`].
     pub fn parse_utf16_with<T: AsRef<[u16]>, F: FnMut(usize, Point) -> T>(
         &mut self,
         callback: &mut F,
@@ -643,7 +643,7 @@ impl Parser {
 
     /// Get the duration in microseconds that parsing is allowed to take.
     ///
-    /// This is set via [set_timeout_micros](Parser::set_timeout_micros).
+    /// This is set via [`set_timeout_micros`](Parser::set_timeout_micros).
     #[doc(alias = "ts_parser_timeout_micros")]
     pub fn timeout_micros(&self) -> u64 {
         unsafe { ffi::ts_parser_timeout_micros(self.0.as_ptr()) }
@@ -711,7 +711,7 @@ impl Parser {
     ///
     /// If a pointer is assigned, then the parser will periodically read from
     /// this pointer during parsing. If it reads a non-zero value, it will halt early,
-    /// returning `None`. See [parse](Parser::parse) for more information.
+    /// returning `None`. See [`parse`](Parser::parse) for more information.
     #[doc(alias = "ts_parser_set_cancellation_flag")]
     pub unsafe fn set_cancellation_flag(&mut self, flag: Option<&AtomicUsize>) {
         if let Some(flag) = flag {
@@ -771,7 +771,7 @@ impl Tree {
         unsafe { ffi::ts_tree_edit(self.0.as_ptr(), &edit) };
     }
 
-    /// Create a new [TreeCursor] starting from the root of the tree.
+    /// Create a new [`TreeCursor`] starting from the root of the tree.
     pub fn walk(&self) -> TreeCursor {
         self.root_node().walk()
     }
@@ -781,7 +781,7 @@ impl Tree {
     ///
     /// For this to work correctly, this syntax tree must have been edited such that its
     /// ranges match up to the new tree. Generally, you'll want to call this method right
-    /// after calling one of the [Parser::parse] functions. Call it on the old tree that
+    /// after calling one of the [`Parser::parse`] functions. Call it on the old tree that
     /// was passed to parse, and pass the new tree that was returned from `parse`.
     #[doc(alias = "ts_tree_get_changed_ranges")]
     pub fn changed_ranges(&self, other: &Tree) -> impl ExactSizeIterator<Item = Range> {
@@ -882,7 +882,7 @@ impl<'tree> Node<'tree> {
             .unwrap()
     }
 
-    /// Get the [Language] that was used to parse this node's syntax tree.
+    /// Get the [`Language`] that was used to parse this node's syntax tree.
     #[doc(alias = "ts_node_language")]
     pub fn language(&self) -> Language {
         Language(unsafe { ffi::ts_node_language(self.0) })
@@ -996,7 +996,7 @@ impl<'tree> Node<'tree> {
     ///
     /// This method is fairly fast, but its cost is technically log(i), so you
     /// if you might be iterating over a long list of children, you should use
-    /// [Node::children] instead.
+    /// [`Node::children`] instead.
     #[doc(alias = "ts_node_child")]
     pub fn child(&self, i: usize) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_child(self.0, i as u32) })
@@ -1010,10 +1010,10 @@ impl<'tree> Node<'tree> {
 
     /// Get this node's *named* child at the given index.
     ///
-    /// See also [Node::is_named].
+    /// See also [`Node::is_named`].
     /// This method is fairly fast, but its cost is technically log(i), so you
     /// if you might be iterating over a long list of children, you should use
-    /// [Node::named_children] instead.
+    /// [`Node::named_children`] instead.
     #[doc(alias = "ts_node_named_child")]
     pub fn named_child(&self, i: usize) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_named_child(self.0, i as u32) })
@@ -1021,7 +1021,7 @@ impl<'tree> Node<'tree> {
 
     /// Get this node's number of *named* children.
     ///
-    /// See also [Node::is_named].
+    /// See also [`Node::is_named`].
     #[doc(alias = "ts_node_named_child_count")]
     pub fn named_child_count(&self) -> usize {
         unsafe { ffi::ts_node_named_child_count(self.0) as usize }
@@ -1030,7 +1030,7 @@ impl<'tree> Node<'tree> {
     /// Get the first child with the given field name.
     ///
     /// If multiple children may have the same field name, access them using
-    /// [children_by_field_name](Node::children_by_field_name)
+    /// [`children_by_field_name`](Node::children_by_field_name)
     #[doc(alias = "ts_node_child_by_field_name")]
     pub fn child_by_field_name(&self, field_name: impl AsRef<[u8]>) -> Option<Self> {
         let field_name = field_name.as_ref();
@@ -1045,8 +1045,8 @@ impl<'tree> Node<'tree> {
 
     /// Get this node's child with the given numerical field id.
     ///
-    /// See also [child_by_field_name](Node::child_by_field_name). You can convert a field name to
-    /// an id using [Language::field_id_for_name].
+    /// See also [`child_by_field_name`](Node::child_by_field_name). You can convert a field name to
+    /// an id using [`Language::field_id_for_name`].
     #[doc(alias = "ts_node_child_by_field_id")]
     pub fn child_by_field_id(&self, field_id: u16) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_child_by_field_id(self.0, field_id) })
@@ -1063,8 +1063,8 @@ impl<'tree> Node<'tree> {
 
     /// Iterate over this node's children.
     ///
-    /// A [TreeCursor] is used to retrieve the children efficiently. Obtain
-    /// a [TreeCursor] by calling [Tree::walk] or [Node::walk]. To avoid unnecessary
+    /// A [`TreeCursor`] is used to retrieve the children efficiently. Obtain
+    /// a [`TreeCursor`] by calling [`Tree::walk`] or [`Node::walk`]. To avoid unnecessary
     /// allocations, you should reuse the same cursor for subsequent calls to
     /// this method.
     ///
@@ -1085,7 +1085,7 @@ impl<'tree> Node<'tree> {
 
     /// Iterate over this node's named children.
     ///
-    /// See also [Node::children].
+    /// See also [`Node::children`].
     pub fn named_children<'cursor>(
         &self,
         cursor: &'cursor mut TreeCursor<'tree>,
@@ -1106,7 +1106,7 @@ impl<'tree> Node<'tree> {
 
     /// Iterate over this node's children with a given field name.
     ///
-    /// See also [Node::children].
+    /// See also [`Node::children`].
     pub fn children_by_field_name<'cursor>(
         &self,
         field_name: &str,
@@ -1137,7 +1137,7 @@ impl<'tree> Node<'tree> {
 
     /// Iterate over this node's children with a given field id.
     ///
-    /// See also [Node::children_by_field_name].
+    /// See also [`Node::children_by_field_name`].
     pub fn children_by_field_id<'cursor>(
         &self,
         field_id: FieldId,
@@ -1250,7 +1250,7 @@ impl<'tree> Node<'tree> {
         &source.as_ref()[self.start_byte()..self.end_byte()]
     }
 
-    /// Create a new [TreeCursor] starting from this node.
+    /// Create a new [`TreeCursor`] starting from this node.
     #[doc(alias = "ts_tree_cursor_new")]
     pub fn walk(&self) -> TreeCursor<'tree> {
         TreeCursor(unsafe { ffi::ts_tree_cursor_new(self.0) }, PhantomData)
@@ -1259,9 +1259,9 @@ impl<'tree> Node<'tree> {
     /// Edit this node to keep it in-sync with source code that has been edited.
     ///
     /// This function is only rarely needed. When you edit a syntax tree with the
-    /// [Tree::edit] method, all of the nodes that you retrieve from the tree
-    /// afterward will already reflect the edit. You only need to use [Node::edit]
-    /// when you have a specific [Node] instance that you want to keep and continue
+    /// [`Tree::edit`] method, all of the nodes that you retrieve from the tree
+    /// afterward will already reflect the edit. You only need to use [`Node::edit`]
+    /// when you have a specific [`Node`] instance that you want to keep and continue
     /// to use after an edit.
     #[doc(alias = "ts_node_edit")]
     pub fn edit(&mut self, edit: &InputEdit) {
@@ -1301,7 +1301,7 @@ impl fmt::Debug for Node<'_> {
 }
 
 impl<'cursor> TreeCursor<'cursor> {
-    /// Get the tree cursor's current [Node].
+    /// Get the tree cursor's current [`Node`].
     #[doc(alias = "ts_tree_cursor_current_node")]
     pub fn node(&self) -> Node<'cursor> {
         Node(
@@ -1312,7 +1312,7 @@ impl<'cursor> TreeCursor<'cursor> {
 
     /// Get the numerical field id of this tree cursor's current node.
     ///
-    /// See also [field_name](TreeCursor::field_name).
+    /// See also [`field_name`](TreeCursor::field_name).
     #[doc(alias = "ts_tree_cursor_current_field_id")]
     pub fn field_id(&self) -> Option<FieldId> {
         let id = unsafe { ffi::ts_tree_cursor_current_field_id(&self.0) };
@@ -1330,7 +1330,7 @@ impl<'cursor> TreeCursor<'cursor> {
 
     /// Get the numerical field id of this tree cursor's current node.
     ///
-    /// See also [field_name](TreeCursor::field_name).
+    /// See also [`field_name`](TreeCursor::field_name).
     #[doc(alias = "ts_tree_cursor_current_depth")]
     pub fn depth(&self) -> u32 {
         unsafe { ffi::ts_tree_cursor_current_depth(&self.0) }
