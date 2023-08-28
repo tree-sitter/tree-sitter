@@ -342,7 +342,8 @@ impl Language {
         FieldId::new(id)
     }
 
-    /// Get the next parse state. Combine this with [lookahead_iterator] to
+    /// Get the next parse state. Combine this with
+    /// [lookahead_iterator](Language::lookahead_iterator) to
     /// generate completion suggestions or valid symbols in error nodes.
     ///
     /// Example:
