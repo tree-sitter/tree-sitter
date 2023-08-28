@@ -2,12 +2,12 @@ use super::ExtractedLexicalGrammar;
 use crate::generate::grammars::{LexicalGrammar, LexicalVariable};
 use crate::generate::nfa::{CharacterSet, Nfa, NfaState};
 use crate::generate::rules::{Precedence, Rule};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use lazy_static::lazy_static;
 use regex::Regex;
 use regex_syntax::ast::{
     parse, Ast, ClassPerlKind, ClassSet, ClassSetBinaryOpKind, ClassSetItem, ClassUnicodeKind,
-    RepetitionKind, RepetitionRange,
+    Flag, FlagsItemKind, RepetitionKind, RepetitionRange,
 };
 use std::collections::HashMap;
 use std::i32;
@@ -134,13 +134,26 @@ pub fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<LexicalGram
     })
 }
 
+#[derive(Clone, Debug)]
+struct Flags {
+    case_insensitive: bool,
+}
+
+impl Flags {
+    fn from_str(flags: &str) -> Self {
+        Self {
+            case_insensitive: flags.contains('i'),
+        }
+    }
+}
+
 impl NfaBuilder {
     fn expand_rule(&mut self, rule: &Rule, mut next_state_id: u32) -> Result<bool> {
         match rule {
             Rule::Pattern(s, f) => {
                 let s = preprocess_regex(s);
                 let ast = parse::Parser::new().parse(&s)?;
-                self.expand_regex(&ast, next_state_id, f.contains('i'))
+                self.expand_regex(&ast, next_state_id, Flags::from_str(f))
             }
             Rule::String(s) => {
                 for c in s.chars().rev() {
@@ -208,12 +221,45 @@ impl NfaBuilder {
         }
     }
 
-    fn expand_regex(
-        &mut self,
-        ast: &Ast,
-        mut next_state_id: u32,
-        case_insensitive: bool,
-    ) -> Result<bool> {
+    /// Generates a list of [`Flags`], one for each ast node in `flag_holders`.
+    ///
+    /// This is necessary because we iterate through [consecutive nodes] in reverse order,
+    /// so we need to compute and cache [`Flags`] by iterating forwards before expanding.
+    ///
+    /// [consecutive nodes]: Ast::Concat
+    fn collect_inline_flags(mut state: Flags, flag_holders: &[Ast]) -> Result<Vec<Flags>> {
+        let mut vec = Vec::with_capacity(flag_holders.len());
+        for ast in flag_holders {
+            if let Ast::Flags(set) = ast {
+                let mut new_flag_state = true;
+                for flag in &set.flags.items {
+                    println!("cargo:warning=flag: {flag:?}");
+                    match &flag.kind {
+                        FlagsItemKind::Negation => {
+                            if !new_flag_state {
+                                // Parser should guarantee that only one negation is present,
+                                // but just in case:
+                                bail!("Regex error: Did not expect multiple flag negation tokens ('-').")
+                            }
+                            new_flag_state = false;
+                        }
+                        FlagsItemKind::Flag(Flag::CaseInsensitive) => {
+                            state.case_insensitive = new_flag_state;
+                        }
+                        _ => bail!("Regex error: Flags are not supported"),
+                    };
+                }
+            }
+            vec.push(state.clone());
+        }
+        Ok(vec)
+    }
+
+    fn expand_regex(&mut self, ast: &Ast, mut next_state_id: u32, flags: Flags) -> Result<bool> {
+        for line in format!("tree: {ast:#?}").lines() {
+            println!("cargo:warning={line}");
+        }
+        println!("cargo:warning=flags: {flags:?}");
         const fn inverse_char(c: char) -> char {
             match c {
                 'a'..='z' => (c as u8 - b'a' + b'A') as char,
@@ -233,11 +279,11 @@ impl NfaBuilder {
         }
 
         match ast {
-            Ast::Empty(_) => Ok(false),
-            Ast::Flags(_) => Err(anyhow!("Regex error: Flags are not supported")),
+            // The case for `Ast::Flags` is handled in `Self::collect_inline_flags`.
+            Ast::Empty(_) | Ast::Flags(_) => Ok(false),
             Ast::Literal(literal) => {
                 let mut char_set = CharacterSet::from_char(literal.c);
-                if case_insensitive {
+                if flags.case_insensitive {
                     let inverted = inverse_char(literal.c);
                     if literal.c != inverted {
                         char_set = char_set.add_char(inverted);
@@ -256,7 +302,7 @@ impl NfaBuilder {
                 if class.negated {
                     chars = chars.negate();
                 }
-                if case_insensitive {
+                if flags.case_insensitive {
                     chars = with_inverse_char(chars);
                 }
                 self.push_advance(chars, next_state_id);
@@ -267,7 +313,7 @@ impl NfaBuilder {
                 if class.negated {
                     chars = chars.negate();
                 }
-                if case_insensitive {
+                if flags.case_insensitive {
                     chars = with_inverse_char(chars);
                 }
                 self.push_advance(chars, next_state_id);
@@ -278,7 +324,7 @@ impl NfaBuilder {
                 if class.negated {
                     chars = chars.negate();
                 }
-                if case_insensitive {
+                if flags.case_insensitive {
                     chars = with_inverse_char(chars);
                 }
                 self.push_advance(chars, next_state_id);
@@ -286,47 +332,43 @@ impl NfaBuilder {
             }
             Ast::Repetition(repetition) => match repetition.op.kind {
                 RepetitionKind::ZeroOrOne => {
-                    self.expand_zero_or_one(&repetition.ast, next_state_id, case_insensitive)
+                    self.expand_zero_or_one(&repetition.ast, next_state_id, flags)
                 }
                 RepetitionKind::OneOrMore => {
-                    self.expand_one_or_more(&repetition.ast, next_state_id, case_insensitive)
+                    self.expand_one_or_more(&repetition.ast, next_state_id, flags)
                 }
                 RepetitionKind::ZeroOrMore => {
-                    self.expand_zero_or_more(&repetition.ast, next_state_id, case_insensitive)
+                    self.expand_zero_or_more(&repetition.ast, next_state_id, flags)
                 }
                 RepetitionKind::Range(RepetitionRange::Exactly(count)) => {
-                    self.expand_count(&repetition.ast, count, next_state_id, case_insensitive)
+                    self.expand_count(&repetition.ast, count, next_state_id, flags)
                 }
                 RepetitionKind::Range(RepetitionRange::AtLeast(min)) => {
-                    if self.expand_zero_or_more(&repetition.ast, next_state_id, case_insensitive)? {
-                        self.expand_count(&repetition.ast, min, next_state_id, case_insensitive)
+                    if self.expand_zero_or_more(&repetition.ast, next_state_id, flags.clone())? {
+                        self.expand_count(&repetition.ast, min, next_state_id, flags)
                     } else {
                         Ok(false)
                     }
                 }
                 RepetitionKind::Range(RepetitionRange::Bounded(min, max)) => {
                     let mut result =
-                        self.expand_count(&repetition.ast, min, next_state_id, case_insensitive)?;
+                        self.expand_count(&repetition.ast, min, next_state_id, flags.clone())?;
                     for _ in min..max {
                         if result {
                             next_state_id = self.nfa.last_state_id();
                         }
-                        if self.expand_zero_or_one(
-                            &repetition.ast,
-                            next_state_id,
-                            case_insensitive,
-                        )? {
+                        if self.expand_zero_or_one(&repetition.ast, next_state_id, flags.clone())? {
                             result = true;
                         }
                     }
                     Ok(result)
                 }
             },
-            Ast::Group(group) => self.expand_regex(&group.ast, next_state_id, case_insensitive),
+            Ast::Group(group) => self.expand_regex(&group.ast, next_state_id, flags),
             Ast::Alternation(alternation) => {
                 let mut alternative_state_ids = Vec::new();
                 for ast in &alternation.asts {
-                    if self.expand_regex(ast, next_state_id, case_insensitive)? {
+                    if self.expand_regex(ast, next_state_id, flags.clone())? {
                         alternative_state_ids.push(self.nfa.last_state_id());
                     } else {
                         alternative_state_ids.push(next_state_id);
@@ -343,8 +385,9 @@ impl NfaBuilder {
             }
             Ast::Concat(concat) => {
                 let mut result = false;
-                for ast in concat.asts.iter().rev() {
-                    if self.expand_regex(ast, next_state_id, case_insensitive)? {
+                let flags = Self::collect_inline_flags(flags.clone(), &concat.asts)?;
+                for (ast, flags) in concat.asts.iter().zip(flags).rev() {
+                    if self.expand_regex(ast, next_state_id, flags)? {
                         result = true;
                         next_state_id = self.nfa.last_state_id();
                     }
@@ -375,18 +418,13 @@ impl NfaBuilder {
         }
     }
 
-    fn expand_one_or_more(
-        &mut self,
-        ast: &Ast,
-        next_state_id: u32,
-        case_insensitive: bool,
-    ) -> Result<bool> {
+    fn expand_one_or_more(&mut self, ast: &Ast, next_state_id: u32, flags: Flags) -> Result<bool> {
         self.nfa.states.push(NfaState::Accept {
             variable_index: 0,
             precedence: 0,
         }); // Placeholder for split
         let split_state_id = self.nfa.last_state_id();
-        if self.expand_regex(ast, split_state_id, case_insensitive)? {
+        if self.expand_regex(ast, split_state_id, flags)? {
             self.nfa.states[split_state_id as usize] =
                 NfaState::Split(self.nfa.last_state_id(), next_state_id);
             Ok(true)
@@ -396,13 +434,8 @@ impl NfaBuilder {
         }
     }
 
-    fn expand_zero_or_one(
-        &mut self,
-        ast: &Ast,
-        next_state_id: u32,
-        case_insensitive: bool,
-    ) -> Result<bool> {
-        if self.expand_regex(ast, next_state_id, case_insensitive)? {
+    fn expand_zero_or_one(&mut self, ast: &Ast, next_state_id: u32, flags: Flags) -> Result<bool> {
+        if self.expand_regex(ast, next_state_id, flags)? {
             self.push_split(next_state_id);
             Ok(true)
         } else {
@@ -410,13 +443,8 @@ impl NfaBuilder {
         }
     }
 
-    fn expand_zero_or_more(
-        &mut self,
-        ast: &Ast,
-        next_state_id: u32,
-        case_insensitive: bool,
-    ) -> Result<bool> {
-        if self.expand_one_or_more(ast, next_state_id, case_insensitive)? {
+    fn expand_zero_or_more(&mut self, ast: &Ast, next_state_id: u32, flags: Flags) -> Result<bool> {
+        if self.expand_one_or_more(ast, next_state_id, flags)? {
             self.push_split(next_state_id);
             Ok(true)
         } else {
@@ -429,11 +457,11 @@ impl NfaBuilder {
         ast: &Ast,
         count: u32,
         mut next_state_id: u32,
-        case_insensitive: bool,
+        flags: Flags,
     ) -> Result<bool> {
         let mut result = false;
         for _ in 0..count {
-            if self.expand_regex(ast, next_state_id, case_insensitive)? {
+            if self.expand_regex(ast, next_state_id, flags.clone())? {
                 result = true;
                 next_state_id = self.nfa.last_state_id();
             }
@@ -938,6 +966,39 @@ mod tests {
                     ("9", Some((0, "9"))),
                     ("2", None),
                     ("567", None),
+                ],
+            },
+            // Simple inline flags
+            Row {
+                rules: vec![Rule::pattern(r"a(?i)b", "")],
+                separators: vec![],
+                examples: vec![
+                    ("ab", Some((0, "ab"))),
+                    ("aB", Some((0, "aB"))),
+                    ("Ab", None),
+                ],
+            },
+            // Inline flag negation
+            Row {
+                rules: vec![Rule::pattern(r"a(?i)b(?-i)c", "")],
+                separators: vec![],
+                examples: vec![
+                    ("abc", Some((0, "abc"))),
+                    ("aBc", Some((0, "aBc"))),
+                    ("aBC", None),
+                    ("Abc", None),
+                ],
+            },
+            // Inline flags in nested structures
+            Row {
+                rules: vec![Rule::pattern(r"a((?i)b(c))d", "")],
+                separators: vec![],
+                examples: vec![
+                    ("abcd", Some((0, "abcd"))),
+                    ("aBcd", Some((0, "aBcd"))),
+                    ("aBCd", Some((0, "aBCd"))),
+                    ("abcD", None),
+                    ("Abcd", None),
                 ],
             },
         ];
