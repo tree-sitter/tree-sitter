@@ -78,13 +78,13 @@ pub struct InputEdit {
     pub new_end_position: Point,
 }
 
-/// A single node within a syntax `Tree`.
+/// A single node within a syntax [`Tree`].
 #[doc(alias = "TSNode")]
 #[derive(Clone, Copy)]
 #[repr(transparent)]
 pub struct Node<'tree>(ffi::TSNode, PhantomData<&'tree ()>);
 
-/// A stateful object that this is used to produce a `Tree` based on some source code.
+/// A stateful object that this is used to produce a [`Tree`] based on some source code.
 #[doc(alias = "TSParser")]
 pub struct Parser(NonNull<ffi::TSParser>);
 
@@ -105,7 +105,7 @@ type FieldId = NonZeroU16;
 /// A callback that receives log messages during parser.
 type Logger<'a> = Box<dyn FnMut(LogType, &str) + 'a>;
 
-/// A stateful object for walking a syntax `Tree` efficiently.
+/// A stateful object for walking a syntax [Tree] efficiently.
 #[doc(alias = "TSTreeCursor")]
 pub struct TreeCursor<'cursor>(ffi::TSTreeCursor, PhantomData<&'cursor ()>);
 
@@ -145,13 +145,13 @@ impl From<ffi::TSQuantifier> for CaptureQuantifier {
     }
 }
 
-/// A stateful object for executing a `Query` on a syntax `Tree`.
+/// A stateful object for executing a [`Query`] on a syntax [`Tree`].
 #[doc(alias = "TSQueryCursor")]
 pub struct QueryCursor {
     ptr: NonNull<ffi::TSQueryCursor>,
 }
 
-/// A key-value pair associated with a particular pattern in a `Query`.
+/// A key-value pair associated with a particular pattern in a [`Query`].
 #[derive(Debug, PartialEq, Eq)]
 pub struct QueryProperty {
     pub key: Box<str>,
@@ -165,14 +165,14 @@ pub enum QueryPredicateArg {
     String(Box<str>),
 }
 
-/// A key-value pair associated with a particular pattern in a `Query`.
+/// A key-value pair associated with a particular pattern in a [`Query`].
 #[derive(Debug, PartialEq, Eq)]
 pub struct QueryPredicate {
     pub operator: Box<str>,
     pub args: Vec<QueryPredicateArg>,
 }
 
-/// A match of a `Query` to a particular set of `Node`s.
+/// A match of a [`Query`] to a particular set of [`Node`]s.
 pub struct QueryMatch<'cursor, 'tree> {
     pub pattern_index: usize,
     pub captures: &'cursor [QueryCapture<'tree>],
@@ -180,7 +180,7 @@ pub struct QueryMatch<'cursor, 'tree> {
     cursor: *mut ffi::TSQueryCursor,
 }
 
-/// A sequence of `QueryMatch`es associated with a given `QueryCursor`.
+/// A sequence of [`QueryMatch`]es associated with a given [`QueryCursor`].
 pub struct QueryMatches<'query, 'cursor, T: TextProvider<I>, I: AsRef<[u8]>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'query Query,
@@ -190,7 +190,7 @@ pub struct QueryMatches<'query, 'cursor, T: TextProvider<I>, I: AsRef<[u8]>> {
     _phantom: PhantomData<(&'cursor (), I)>,
 }
 
-/// A sequence of `QueryCapture`s associated with a given `QueryCursor`.
+/// A sequence of [`QueryCapture`]s associated with a given [`QueryCursor`].
 pub struct QueryCaptures<'query, 'cursor, T: TextProvider<I>, I: AsRef<[u8]>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'query Query,
@@ -208,7 +208,7 @@ where
     fn text(&mut self, node: Node) -> Self::I;
 }
 
-/// A particular `Node` that has been captured with a particular name within a `Query`.
+/// A particular [`Node`] that has been captured with a particular name within a [`Query`].
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct QueryCapture<'tree> {
@@ -216,17 +216,17 @@ pub struct QueryCapture<'tree> {
     pub index: u32,
 }
 
-/// An error that occurred when trying to assign an incompatible `Language` to a `Parser`.
+/// An error that occurred when trying to assign an incompatible [`Language`] to a [`Parser`].
 #[derive(Debug, PartialEq, Eq)]
 pub struct LanguageError {
     version: usize,
 }
 
-/// An error that occurred in `Parser::set_included_ranges`.
+/// An error that occurred in [`Parser::set_included_ranges`].
 #[derive(Debug, PartialEq, Eq)]
 pub struct IncludedRangesError(pub usize);
 
-/// An error that occurred when trying to create a `Query`.
+/// An error that occurred when trying to create a [`Query`].
 #[derive(Debug, PartialEq, Eq)]
 pub struct QueryError {
     pub row: usize,
@@ -264,7 +264,7 @@ pub struct LossyUtf8<'a> {
 
 impl Language {
     /// Get the ABI version number that indicates which version of the Tree-sitter CLI
-    /// that was used to generate this `Language`.
+    /// that was used to generate this [`Language`].
     #[doc(alias = "ts_language_version")]
     pub fn version(&self) -> usize {
         unsafe { ffi::ts_language_version(self.0) as usize }
@@ -632,10 +632,10 @@ impl Parser {
 
     /// Instruct the parser to start the next parse from the beginning.
     ///
-    /// If the parser previously failed because of a timeout or a cancellation, then
-    /// by default, it will resume where it left off on the next call to `parse` or
-    /// other parsing functions. If you don't want to resume, and instead intend to
-    /// use this parser to parse some other document, you must call `reset` first.
+    /// If the parser previously failed because of a timeout or a cancellation, then by default, it
+    /// will resume where it left off on the next call to [`parse`](Parser::parse) or other parsing
+    /// functions. If you don't want to resume, and instead intend to use this parser to parse some
+    /// other document, you must call `reset` first.
     #[doc(alias = "ts_parser_reset")]
     pub fn reset(&mut self) {
         unsafe { ffi::ts_parser_reset(self.0.as_ptr()) }
@@ -653,7 +653,7 @@ impl Parser {
     /// take before halting.
     ///
     /// If parsing takes longer than this, it will halt early, returning `None`.
-    /// See `parse` for more information.
+    /// See [`parse`](Parser::parse) for more information.
     #[doc(alias = "ts_parser_set_timeout_micros")]
     pub fn set_timeout_micros(&mut self, timeout_micros: u64) {
         unsafe { ffi::ts_parser_set_timeout_micros(self.0.as_ptr(), timeout_micros) }
@@ -1068,7 +1068,7 @@ impl<'tree> Node<'tree> {
     /// allocations, you should reuse the same cursor for subsequent calls to
     /// this method.
     ///
-    /// If you're walking the tree recursively, you may want to use the `TreeCursor`
+    /// If you're walking the tree recursively, you may want to use the [`TreeCursor`]
     /// APIs directly instead.
     pub fn children<'cursor>(
         &self,
@@ -1440,7 +1440,7 @@ impl<'cursor> TreeCursor<'cursor> {
 
     /// Re-initialize a tree cursor to the same position as another cursor.
     ///
-    /// Unlike `reset`, this will not lose parent information and
+    /// Unlike [`reset`](TreeCursor::reset), this will not lose parent information and
     /// allows reusing already created cursors.
     #[doc(alias = "ts_tree_cursor_reset_to")]
     pub fn reset_to(&mut self, cursor: TreeCursor<'cursor>) {
