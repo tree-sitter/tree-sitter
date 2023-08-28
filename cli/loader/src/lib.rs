@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use anyhow::{anyhow, Context, Error, Result};
 use libloading::{Library, Symbol};
 use once_cell::unsync::OnceCell;

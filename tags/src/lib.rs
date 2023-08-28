@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 pub mod c_lib;
 
 use memchr::memchr;

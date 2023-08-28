@@ -1,4 +1,4 @@
-# `tree-sitter-tags`
+# Tree-sitter Tags
 
 [![crates.io badge]][crates.io]
 
