@@ -233,7 +233,6 @@ impl NfaBuilder {
             if let Ast::Flags(set) = ast {
                 let mut new_flag_state = true;
                 for flag in &set.flags.items {
-                    println!("cargo:warning=flag: {flag:?}");
                     match &flag.kind {
                         FlagsItemKind::Negation => {
                             if !new_flag_state {
@@ -256,10 +255,6 @@ impl NfaBuilder {
     }
 
     fn expand_regex(&mut self, ast: &Ast, mut next_state_id: u32, flags: Flags) -> Result<bool> {
-        for line in format!("tree: {ast:#?}").lines() {
-            println!("cargo:warning={line}");
-        }
-        println!("cargo:warning=flags: {flags:?}");
         const fn inverse_char(c: char) -> char {
             match c {
                 'a'..='z' => (c as u8 - b'a' + b'A') as char,
