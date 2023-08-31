@@ -1382,6 +1382,122 @@ fn test_grammars_that_can_hang_on_eof() {
     parser.parse("\"", None).unwrap();
 }
 
+#[test]
+fn test_decode_utf32() {
+    use widestring::u32cstr;
+
+    let mut parser = Parser::new();
+    parser.set_language(get_language("rust")).unwrap();
+
+    extern "C" fn decode_utf32(string: *const u8, length: u32, code_point: *mut i32) -> u32 {
+        unsafe {
+            let bytes = std::slice::from_raw_parts(string, length as usize);
+            if bytes.len() >= 4 {
+                *code_point = i32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+                return 4;
+            }
+        }
+        0
+    }
+
+    let utf32_text = u32cstr!("pub fn foo() { println!(\"€50\"); }");
+    let utf32_text = unsafe {
+        std::slice::from_raw_parts(utf32_text.as_ptr() as *const u8, utf32_text.len() * 4)
+    };
+
+    let tree = parser
+        .parse_custom(&utf32_text, None, decode_utf32)
+        .unwrap();
+
+    println!("{}", tree.root_node().to_sexp());
+}
+
+#[test]
+fn test_decode_cp1252() {
+    use encoding_rs::WINDOWS_1252;
+
+    let mut parser = Parser::new();
+    parser.set_language(get_language("rust")).unwrap();
+
+    extern "C" fn decode_windows_1252(string: *const u8, length: u32, code_point: *mut i32) -> u32 {
+        unsafe {
+            let bytes = std::slice::from_raw_parts(string, length as usize);
+            if !bytes.is_empty() {
+                let byte = bytes[0];
+                *code_point = byte as i32;
+                return 1;
+            }
+        }
+        0
+    }
+
+    let windows_1252_text = WINDOWS_1252.encode("pub fn foo() { println!(\"€50\"); }").0;
+
+    let tree = parser
+        .parse_custom(&windows_1252_text, None, decode_windows_1252)
+        .unwrap();
+
+    println!("{}", tree.root_node().to_sexp());
+}
+
+#[test]
+fn test_decode_macintosh() {
+    use encoding_rs::MACINTOSH;
+
+    let mut parser = Parser::new();
+    parser.set_language(get_language("rust")).unwrap();
+
+    extern "C" fn decode_macintosh(string: *const u8, length: u32, code_point: *mut i32) -> u32 {
+        unsafe {
+            let bytes = std::slice::from_raw_parts(string, length as usize);
+            if bytes.len() >= 1 {
+                *code_point = bytes[0] as i32;
+                return 1;
+            }
+        }
+        0
+    }
+
+    let macintosh_text = MACINTOSH.encode("pub fn foo() { println!(\"€50\"); }").0;
+
+    let tree = parser
+        .parse_custom(&macintosh_text, None, decode_macintosh)
+        .unwrap();
+
+    println!("{}", tree.root_node().to_sexp());
+}
+
+#[test]
+fn test_decode_utf24le() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("rust")).unwrap();
+
+    extern "C" fn decode_utf24le(string: *const u8, length: u32, code_point: *mut i32) -> u32 {
+        unsafe {
+            let bytes = std::slice::from_raw_parts(string, length as usize);
+            if bytes.len() >= 3 {
+                *code_point = i32::from_le_bytes([bytes[0], bytes[1], bytes[2], 0]);
+                return 3;
+            }
+        }
+        0
+    }
+
+    let mut utf24le_text = Vec::new();
+    for c in "pub fn foo() { println!(\"€50\"); }".chars() {
+        let code_point = c as u32;
+        utf24le_text.push((code_point & 0xFF) as u8);
+        utf24le_text.push(((code_point >> 8) & 0xFF) as u8);
+        utf24le_text.push(((code_point >> 16) & 0xFF) as u8);
+    }
+
+    let tree = parser
+        .parse_custom(&utf24le_text, None, decode_utf24le)
+        .unwrap();
+
+    println!("{}", tree.root_node().to_sexp());
+}
+
 fn simple_range(start: usize, end: usize) -> Range {
     Range {
         start_byte: start,

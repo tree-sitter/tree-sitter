@@ -9,9 +9,10 @@
 extern "C" {
 #endif
 
-#include <stdlib.h>
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 /****************************/
 /* Section - ABI Versioning */
@@ -49,6 +50,8 @@ typedef struct TSLookaheadIterator TSLookaheadIterator;
 typedef enum {
   TSInputEncodingUTF8,
   TSInputEncodingUTF16,
+  _,
+  TSInputEncodingCustom,
 } TSInputEncoding;
 
 typedef enum {
@@ -73,6 +76,7 @@ typedef struct {
   void *payload;
   const char *(*read)(void *payload, uint32_t byte_index, TSPoint position, uint32_t *bytes_read);
   TSInputEncoding encoding;
+  uint32_t (*decode)(const uint8_t *string, uint32_t length, int32_t *code_point);
 } TSInput;
 
 typedef enum {
@@ -291,7 +295,8 @@ TSTree *ts_parser_parse_string_encoding(
   const TSTree *old_tree,
   const char *string,
   uint32_t length,
-  TSInputEncoding encoding
+  TSInputEncoding encoding,
+  uint32_t (*decode)(const uint8_t *string, uint32_t length, int32_t *code_point)
 );
 
 /**

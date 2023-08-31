@@ -37,6 +37,7 @@ pub struct TSLookaheadIterator {
 }
 pub const TSInputEncoding_TSInputEncodingUTF8: TSInputEncoding = 0;
 pub const TSInputEncoding_TSInputEncodingUTF16: TSInputEncoding = 1;
+pub const TSInputEncoding_TSInputEncodingCustom: TSInputEncoding = 3;
 pub type TSInputEncoding = ::std::os::raw::c_uint;
 pub const TSSymbolType_TSSymbolTypeRegular: TSSymbolType = 0;
 pub const TSSymbolType_TSSymbolTypeAnonymous: TSSymbolType = 1;
@@ -69,6 +70,9 @@ pub struct TSInput {
         ) -> *const ::std::os::raw::c_char,
     >,
     pub encoding: TSInputEncoding,
+    pub decode: ::std::option::Option<
+        unsafe extern "C" fn(string: *const u8, length: u32, code_point: *mut i32) -> u32,
+    >,
 }
 pub const TSLogType_TSLogTypeParse: TSLogType = 0;
 pub const TSLogType_TSLogTypeLex: TSLogType = 1;
@@ -200,6 +204,9 @@ extern "C" {
         string: *const ::std::os::raw::c_char,
         length: u32,
         encoding: TSInputEncoding,
+        decode: ::std::option::Option<
+            unsafe extern "C" fn(string: *const u8, length: u32, code_point: *mut i32) -> u32,
+        >,
     ) -> *mut TSTree;
 }
 extern "C" {
