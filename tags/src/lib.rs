@@ -136,7 +136,7 @@ impl TagsConfiguration {
         let mut local_scope_capture_index = None;
         let mut local_definition_capture_index = None;
         for (i, name) in query.capture_names().iter().enumerate() {
-            match *name {
+            match name.as_str() {
                 "" => continue,
                 "name" => name_capture_index = Some(i as u32),
                 "ignore" => ignore_capture_index = Some(i as u32),

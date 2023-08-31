@@ -4144,12 +4144,12 @@ void ts_query_cursor_set_max_start_depth(
 // Any additional capacity is discarded
 #define array_cpy(dest, self) \
   do { \
-    uint32_t size = (self)->size; \
-    uint32_t content_size = array__elem_size(self) * size; \
-    memcpy((dest), (void *)(&size), sizeof(size)); \
-    (dest) += sizeof(size); \
-    memcpy((dest), (self)->contents, content_size); \
-    (dest) += content_size; \
+    uint32_t _size = (self)->size; \
+    uint32_t _content_size = array__elem_size(self) * _size; \
+    memcpy((dest), (void *)(&_size), sizeof(_size)); \
+    (dest) += sizeof(_size); \
+    memcpy((dest), (self)->contents, _content_size); \
+    (dest) += _content_size; \
   } while (0)
 
 // Calculates the size in bytes a serialized ts_query would take up.
@@ -4193,8 +4193,7 @@ size_t query_serialize__size(const TSQuery *self) {
 // Serializes the provided query. The size of the resulting buffer is returned
 // via the size_t* argument.
 const char *ts_query_serialize(const TSQuery *self, size_t *size) {
-
-  // Calculates the required buffer sie exactly.
+  // Calculates the required buffer size exactly.
   size_t nr_bytes = query_serialize__size(self);
 
   // Report buffer size back to caller
@@ -4253,8 +4252,11 @@ const char *ts_query_serialize(const TSQuery *self, size_t *size) {
     (self)->capacity = (self)->size; \
   } while (0)
 
-TSQuery *ts_query_deserialize(const char *src, const size_t size,
-                              const TSLanguage *language) {
+// FIXME: Verify valid length of `src`.
+TSQuery *ts_query_deserialize(
+  const char *src,
+  const TSLanguage *language
+) {
   TSQuery *self = ts_malloc(sizeof(TSQuery));
 
   // Return NULL to indicate failure

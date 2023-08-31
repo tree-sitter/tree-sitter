@@ -757,6 +757,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_regex"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8136f1a4ea815d7eac4101cfd0b16dc0cb5e1fe1b8609dfd728058656b7badf"
+dependencies = [
+ "regex",
+ "serde",
+]
+
+[[package]]
 name = "serde_spanned"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -921,6 +931,8 @@ dependencies = [
  "bindgen",
  "cc",
  "regex",
+ "serde",
+ "serde_regex",
 ]
 
 [[package]]
@@ -982,6 +994,7 @@ version = "0.20.2"
 dependencies = [
  "lazy_static",
  "regex",
+ "serde",
  "thiserror",
  "tree-sitter",
 ]
