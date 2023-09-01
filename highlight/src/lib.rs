@@ -321,7 +321,7 @@ impl HighlightConfiguration {
         let mut local_scope_capture_index = None;
         for (i, name) in query.capture_names().iter().enumerate() {
             let i = Some(i as u32);
-            match name.as_str() {
+            match *name {
                 "injection.content" => injection_content_capture_index = i,
                 "injection.language" => injection_language_capture_index = i,
                 "local.definition" => local_def_capture_index = i,
@@ -353,7 +353,7 @@ impl HighlightConfiguration {
     }
 
     /// Get a slice containing all of the highlight names used in the configuration.
-    pub fn names(&self) -> &[String] {
+    pub fn names(&self) -> &[&str] {
         self.query.capture_names()
     }
 
@@ -399,7 +399,7 @@ impl HighlightConfiguration {
     // Return the list of this configuration's capture names that are neither present in the
     // list of predefined 'canonical' names nor start with an underscore (denoting 'private' captures
     // used as part of capture internals).
-    pub fn nonconformant_capture_names(&self, capture_names: &HashSet<&str>) -> Vec<&String> {
+    pub fn nonconformant_capture_names(&self, capture_names: &HashSet<&str>) -> Vec<&str> {
         let capture_names = if capture_names.is_empty() {
             &*STANDARD_CAPTURE_NAMES
         } else {
@@ -407,7 +407,8 @@ impl HighlightConfiguration {
         };
         self.names()
             .iter()
-            .filter(|&n| !(n.starts_with('_') || capture_names.contains(n.as_str())))
+            .filter(|&n| !(n.starts_with('_') || capture_names.contains(n)))
+            .map(|n| *n)
             .collect()
     }
 }
