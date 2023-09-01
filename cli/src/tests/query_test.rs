@@ -3605,12 +3605,7 @@ fn test_query_capture_names() {
 
         assert_eq!(
             query.capture_names(),
-            &[
-                "left-operand".to_string(),
-                "right-operand".to_string(),
-                "body".to_string(),
-                "loop-condition".to_string(),
-            ]
+            ["left-operand", "right-operand", "body", "loop-condition"]
         );
     });
 }
