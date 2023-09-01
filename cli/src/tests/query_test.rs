@@ -4575,6 +4575,89 @@ fn test_capture_quantifiers() {
 }
 
 #[test]
+fn test_query_quantified_captures() {
+    struct Row {
+        description: &'static str,
+        language: Language,
+        code: &'static str,
+        pattern: &'static str,
+        captures: &'static [(&'static str, &'static str)],
+    }
+
+    // #[rustfmt::skip]
+    let rows = &[
+        Row {
+            description: "doc comments where all must match the prefix",
+            language: get_language("c"),
+            code: indoc! {"
+            /// foo
+            /// bar
+            /// baz
+
+            void main() {}
+
+            /// qux
+            /// quux
+            // quuz
+        "},
+            pattern: r#"
+                ((comment)+ @comment.documentation
+                  (#match? @comment.documentation "^///"))
+            "#,
+            captures: &[
+                ("comment.documentation", "/// foo"),
+                ("comment.documentation", "/// bar"),
+                ("comment.documentation", "/// baz"),
+            ],
+        },
+        Row {
+            description: "doc comments where one must match the prefix",
+            language: get_language("c"),
+            code: indoc! {"
+            /// foo
+            /// bar
+            /// baz
+
+            void main() {}
+
+            /// qux
+            /// quux
+            // quuz
+        "},
+            pattern: r#"
+                ((comment)+ @comment.documentation
+                  (#any-match? @comment.documentation "^///"))
+            "#,
+            captures: &[
+                ("comment.documentation", "/// foo"),
+                ("comment.documentation", "/// bar"),
+                ("comment.documentation", "/// baz"),
+                ("comment.documentation", "/// qux"),
+                ("comment.documentation", "/// quux"),
+                ("comment.documentation", "// quuz"),
+            ],
+        },
+    ];
+
+    allocations::record(|| {
+        for row in rows {
+            eprintln!("  quantified query example: {:?}", row.description);
+
+            let mut parser = Parser::new();
+            parser.set_language(row.language).unwrap();
+            let tree = parser.parse(row.code, None).unwrap();
+
+            let query = Query::new(row.language, row.pattern).unwrap();
+
+            let mut cursor = QueryCursor::new();
+            let matches = cursor.captures(&query, tree.root_node(), row.code.as_bytes());
+
+            assert_eq!(collect_captures(matches, &query, row.code), row.captures);
+        }
+    });
+}
+
+#[test]
 fn test_query_max_start_depth() {
     struct Row {
         description: &'static str,

@@ -17,6 +17,7 @@
   "__Znwm",
   "___cxa_atexit",
   "_abort",
+  "_isalpha",
   "_iswalnum",
   "_iswalpha",
   "_iswdigit",
