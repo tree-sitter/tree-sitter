@@ -344,7 +344,7 @@ impl Loader {
             &grammar_json.name,
             &header_path,
             &parser_path,
-            &scanner_path,
+            scanner_path.as_deref(),
         )
     }
 
@@ -353,7 +353,7 @@ impl Loader {
         name: &str,
         header_path: &Path,
         parser_path: &Path,
-        scanner_path: &Option<PathBuf>,
+        scanner_path: Option<&Path>,
     ) -> Result<Language> {
         let mut lib_name = name.to_string();
         if self.debug_build {
@@ -362,7 +362,7 @@ impl Loader {
         let mut library_path = self.parser_lib_path.join(lib_name);
         library_path.set_extension(DYLIB_EXTENSION);
 
-        let recompile = needs_recompile(&library_path, &parser_path, &scanner_path)
+        let recompile = needs_recompile(&library_path, &parser_path, scanner_path)
             .with_context(|| "Failed to compare source and binary timestamps")?;
 
         if recompile {
@@ -740,21 +740,21 @@ impl<'a> LanguageConfiguration<'a> {
                         .iter()
                         .filter(|p| p.ends_with("highlights.scm"))
                         .cloned()
-                        .collect(),
+                        .collect::<Vec<_>>(),
                 ),
                 Some(
                     paths
                         .iter()
                         .filter(|p| p.ends_with("tags.scm"))
                         .cloned()
-                        .collect(),
+                        .collect::<Vec<_>>(),
                 ),
                 Some(
                     paths
                         .iter()
                         .filter(|p| p.ends_with("locals.scm"))
                         .cloned()
-                        .collect(),
+                        .collect::<Vec<_>>(),
                 ),
             ),
             None => (None, None, None),
@@ -764,25 +764,25 @@ impl<'a> LanguageConfiguration<'a> {
             .get_or_try_init(|| {
                 let (highlights_query, highlight_ranges) = self.read_queries(
                     if highlights_filenames.is_some() {
-                        &highlights_filenames
+                        highlights_filenames.as_deref()
                     } else {
-                        &self.highlights_filenames
+                        self.highlights_filenames.as_deref()
                     },
                     "highlights.scm",
                 )?;
                 let (injections_query, injection_ranges) = self.read_queries(
                     if injections_filenames.is_some() {
-                        &injections_filenames
+                        injections_filenames.as_deref()
                     } else {
-                        &self.injections_filenames
+                        self.injections_filenames.as_deref()
                     },
                     "injections.scm",
                 )?;
                 let (locals_query, locals_ranges) = self.read_queries(
                     if locals_filenames.is_some() {
-                        &locals_filenames
+                        locals_filenames.as_deref()
                     } else {
-                        &self.locals_filenames
+                        self.locals_filenames.as_deref()
                     },
                     "locals.scm",
                 )?;
@@ -844,9 +844,9 @@ impl<'a> LanguageConfiguration<'a> {
         self.tags_config
             .get_or_try_init(|| {
                 let (tags_query, tags_ranges) =
-                    self.read_queries(&self.tags_filenames, "tags.scm")?;
+                    self.read_queries(self.tags_filenames.as_deref(), "tags.scm")?;
                 let (locals_query, locals_ranges) =
-                    self.read_queries(&self.locals_filenames, "locals.scm")?;
+                    self.read_queries(self.locals_filenames.as_deref(), "locals.scm")?;
                 if tags_query.is_empty() {
                     Ok(None)
                 } else {
@@ -900,12 +900,12 @@ impl<'a> LanguageConfiguration<'a> {
 
     fn read_queries(
         &self,
-        paths: &Option<Vec<String>>,
+        paths: Option<&[String]>,
         default_path: &str,
     ) -> Result<(String, Vec<(String, Range<usize>)>)> {
         let mut query = String::new();
         let mut path_ranges = Vec::new();
-        if let Some(paths) = paths.as_ref() {
+        if let Some(paths) = paths {
             for path in paths {
                 let abs_path = self.root_path.join(path);
                 let prev_query_len = query.len();
@@ -930,7 +930,7 @@ impl<'a> LanguageConfiguration<'a> {
 fn needs_recompile(
     lib_path: &Path,
     parser_c_path: &Path,
-    scanner_path: &Option<PathBuf>,
+    scanner_path: Option<&Path>,
 ) -> Result<bool> {
     if !lib_path.exists() {
         return Ok(true);

@@ -88,7 +88,7 @@ pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> 
         }
     });
     TEST_LOADER
-        .load_language_from_sources(name, &HEADER_DIR, &parser_c_path, &scanner_path)
+        .load_language_from_sources(name, &HEADER_DIR, &parser_c_path, scanner_path.as_deref())
         .unwrap()
 }
 
