@@ -116,12 +116,12 @@ pub struct TreeCursor<'cursor>(ffi::TSTreeCursor, PhantomData<&'cursor ()>);
 #[derive(Debug)]
 pub struct Query {
     ptr: NonNull<ffi::TSQuery>,
-    capture_names: Vec<String>,
-    capture_quantifiers: Vec<Vec<CaptureQuantifier>>,
-    text_predicates: Vec<Box<[TextPredicateCapture]>>,
-    property_settings: Vec<Box<[QueryProperty]>>,
-    property_predicates: Vec<Box<[(QueryProperty, bool)]>>,
-    general_predicates: Vec<Box<[QueryPredicate]>>,
+    capture_names: Box<[&'static str]>,
+    capture_quantifiers: Box<[Box<[CaptureQuantifier]>]>,
+    text_predicates: Box<[Box<[TextPredicateCapture]>]>,
+    property_settings: Box<[Box<[QueryProperty]>]>,
+    property_predicates: Box<[Box<[(QueryProperty, bool)]>]>,
+    general_predicates: Box<[Box<[QueryPredicate]>]>,
 }
 
 /// A quantifier for captures
@@ -171,7 +171,7 @@ pub enum QueryPredicateArg {
 #[derive(Debug, PartialEq, Eq)]
 pub struct QueryPredicate {
     pub operator: Box<str>,
-    pub args: Vec<QueryPredicateArg>,
+    pub args: Box<[QueryPredicateArg]>,
 }
 
 /// A match of a [`Query`] to a particular set of [`Node`]s.
@@ -256,10 +256,10 @@ pub enum QueryErrorKind {
 /// The last item is a bool signifying whether or not it's meant to match
 /// any or all captures
 enum TextPredicateCapture {
-    EqString(u32, String, bool, bool),
+    EqString(u32, Box<str>, bool, bool),
     EqCapture(u32, u32, bool, bool),
     MatchString(u32, regex::bytes::Regex, bool, bool),
-    AnyString(u32, Vec<String>, bool),
+    AnyString(u32, Box<[Box<str>]>, bool),
 }
 
 // TODO: Remove this struct at at some point. If `core::str::lossy::Utf8Lossy`
@@ -1643,29 +1643,37 @@ impl Query {
     }
 
     #[doc(hidden)]
-    unsafe fn from_raw_parts(ptr: *mut ffi::TSQuery, source: &str) -> Result<Query, QueryError> {
-        let string_count = unsafe { ffi::ts_query_string_count(ptr) };
-        let capture_count = unsafe { ffi::ts_query_capture_count(ptr) };
-        let pattern_count = unsafe { ffi::ts_query_pattern_count(ptr) as usize };
-        let mut result = Query {
-            ptr: unsafe { NonNull::new_unchecked(ptr) },
-            capture_names: Vec::with_capacity(capture_count as usize),
-            capture_quantifiers: Vec::with_capacity(pattern_count as usize),
-            text_predicates: Vec::with_capacity(pattern_count),
-            property_predicates: Vec::with_capacity(pattern_count),
-            property_settings: Vec::with_capacity(pattern_count),
-            general_predicates: Vec::with_capacity(pattern_count),
+    unsafe fn from_raw_parts(ptr: *mut ffi::TSQuery, source: &str) -> Result<Self, QueryError> {
+        let ptr = {
+            struct TSQueryDrop(*mut ffi::TSQuery);
+            impl Drop for TSQueryDrop {
+                fn drop(&mut self) {
+                    unsafe { ffi::ts_query_delete(self.0) }
+                }
+            }
+            TSQueryDrop(ptr)
         };
+
+        let string_count = unsafe { ffi::ts_query_string_count(ptr.0) };
+        let capture_count = unsafe { ffi::ts_query_capture_count(ptr.0) };
+        let pattern_count = unsafe { ffi::ts_query_pattern_count(ptr.0) as usize };
+
+        let mut capture_names = Vec::with_capacity(capture_count as usize);
+        let mut capture_quantifiers_vec = Vec::with_capacity(pattern_count as usize);
+        let mut text_predicates_vec = Vec::with_capacity(pattern_count);
+        let mut property_predicates_vec = Vec::with_capacity(pattern_count);
+        let mut property_settings_vec = Vec::with_capacity(pattern_count);
+        let mut general_predicates_vec = Vec::with_capacity(pattern_count);
 
         // Build a vector of strings to store the capture names.
         for i in 0..capture_count {
             unsafe {
                 let mut length = 0u32;
-                let name =
-                    ffi::ts_query_capture_name_for_id(ptr, i, &mut length as *mut u32) as *const u8;
+                let name = ffi::ts_query_capture_name_for_id(ptr.0, i, &mut length as *mut u32)
+                    as *const u8;
                 let name = slice::from_raw_parts(name, length as usize);
                 let name = str::from_utf8_unchecked(name);
-                result.capture_names.push(name.to_string());
+                capture_names.push(name);
             }
         }
 
@@ -1674,11 +1682,11 @@ impl Query {
             let mut capture_quantifiers = Vec::with_capacity(capture_count as usize);
             for j in 0..capture_count {
                 unsafe {
-                    let quantifier = ffi::ts_query_capture_quantifier_for_id(ptr, i as u32, j);
+                    let quantifier = ffi::ts_query_capture_quantifier_for_id(ptr.0, i as u32, j);
                     capture_quantifiers.push(quantifier.into());
                 }
             }
-            result.capture_quantifiers.push(capture_quantifiers);
+            capture_quantifiers_vec.push(capture_quantifiers.into());
         }
 
         // Build a vector of strings to represent literal values used in predicates.
@@ -1686,11 +1694,11 @@ impl Query {
             .map(|i| unsafe {
                 let mut length = 0u32;
                 let value =
-                    ffi::ts_query_string_value_for_id(ptr, i as u32, &mut length as *mut u32)
+                    ffi::ts_query_string_value_for_id(ptr.0, i as u32, &mut length as *mut u32)
                         as *const u8;
                 let value = slice::from_raw_parts(value, length as usize);
                 let value = str::from_utf8_unchecked(value);
-                value.to_string()
+                value
             })
             .collect::<Vec<_>>();
 
@@ -1699,13 +1707,13 @@ impl Query {
             let predicate_steps = unsafe {
                 let mut length = 0u32;
                 let raw_predicates =
-                    ffi::ts_query_predicates_for_pattern(ptr, i as u32, &mut length as *mut u32);
+                    ffi::ts_query_predicates_for_pattern(ptr.0, i as u32, &mut length as *mut u32);
                 (length > 0)
                     .then(|| slice::from_raw_parts(raw_predicates, length as usize))
                     .unwrap_or_default()
             };
 
-            let byte_offset = unsafe { ffi::ts_query_start_byte_for_pattern(ptr, i as u32) };
+            let byte_offset = unsafe { ffi::ts_query_start_byte_for_pattern(ptr.0, i as u32) };
             let row = source
                 .char_indices()
                 .take_while(|(i, _)| *i < byte_offset as usize)
@@ -1730,14 +1738,14 @@ impl Query {
                         row,
                         format!(
                             "Expected predicate to start with a function name. Got @{}.",
-                            result.capture_names[p[0].value_id as usize],
+                            capture_names[p[0].value_id as usize],
                         ),
                     ));
                 }
 
                 // Build a predicate for each of the known predicate function names.
-                let operator_name = &string_values[p[0].value_id as usize];
-                match operator_name.as_str() {
+                let operator_name = string_values[p[0].value_id as usize];
+                match operator_name {
                     "eq?" | "not-eq?" | "any-eq?" | "any-not-eq?" => {
                         if p.len() != 3 {
                             return Err(predicate_error(
@@ -1756,7 +1764,7 @@ impl Query {
                         }
 
                         let is_positive = operator_name == "eq?" || operator_name == "any-eq?";
-                        let match_all = match operator_name.as_str() {
+                        let match_all = match operator_name {
                             "eq?" | "not-eq?" => true,
                             "any-eq?" | "any-not-eq?" => false,
                             _ => unreachable!(),
@@ -1771,7 +1779,7 @@ impl Query {
                         } else {
                             TextPredicateCapture::EqString(
                                 p[1].value_id,
-                                string_values[p[2].value_id as usize].clone(),
+                                string_values[p[2].value_id as usize].to_string().into(),
                                 is_positive,
                                 match_all,
                             )
@@ -1794,13 +1802,13 @@ impl Query {
                         if p[2].type_ == type_capture {
                             return Err(predicate_error(row, format!(
                                 "Second argument to #match? predicate must be a literal. Got capture @{}.",
-                                result.capture_names[p[2].value_id as usize],
+                                capture_names[p[2].value_id as usize],
                             )));
                         }
 
                         let is_positive =
                             operator_name == "match?" || operator_name == "any-match?";
-                        let match_all = match operator_name.as_str() {
+                        let match_all = match operator_name {
                             "match?" | "not-match?" => true,
                             "any-match?" | "any-not-match?" => false,
                             _ => unreachable!(),
@@ -1818,8 +1826,8 @@ impl Query {
 
                     "set!" => property_settings.push(Self::parse_property(
                         row,
-                        operator_name,
-                        &result.capture_names,
+                        &operator_name,
+                        &capture_names,
                         &string_values,
                         &p[1..],
                     )?),
@@ -1827,8 +1835,8 @@ impl Query {
                     "is?" | "is-not?" => property_predicates.push((
                         Self::parse_property(
                             row,
-                            operator_name,
-                            &result.capture_names,
+                            &operator_name,
+                            &capture_names,
                             &string_values,
                             &p[1..],
                         )?,
@@ -1855,20 +1863,24 @@ impl Query {
                             if arg.type_ == type_capture {
                                 return Err(predicate_error(row, format!(
                                     "Arguments to #any-of? predicate must be literals. Got capture @{}.",
-                                    result.capture_names[arg.value_id as usize],
+                                    capture_names[arg.value_id as usize],
                                 )));
                             }
-                            values.push(string_values[arg.value_id as usize].clone());
+                            values.push(string_values[arg.value_id as usize]);
                         }
                         text_predicates.push(TextPredicateCapture::AnyString(
                             p[1].value_id,
-                            values,
+                            values
+                                .iter()
+                                .map(|x| x.to_string().into())
+                                .collect::<Vec<_>>()
+                                .into(),
                             is_positive,
                         ));
                     }
 
                     _ => general_predicates.push(QueryPredicate {
-                        operator: operator_name.clone().into_boxed_str(),
+                        operator: operator_name.to_string().into(),
                         args: p[1..]
                             .iter()
                             .map(|a| {
@@ -1876,7 +1888,7 @@ impl Query {
                                     QueryPredicateArg::Capture(a.value_id)
                                 } else {
                                     QueryPredicateArg::String(
-                                        string_values[a.value_id as usize].clone().into_boxed_str(),
+                                        string_values[a.value_id as usize].to_string().into(),
                                     )
                                 }
                             })
@@ -1885,19 +1897,23 @@ impl Query {
                 }
             }
 
-            result
-                .text_predicates
-                .push(text_predicates.into_boxed_slice());
-            result
-                .property_predicates
-                .push(property_predicates.into_boxed_slice());
-            result
-                .property_settings
-                .push(property_settings.into_boxed_slice());
-            result
-                .general_predicates
-                .push(general_predicates.into_boxed_slice());
+            text_predicates_vec.push(text_predicates.into());
+            property_predicates_vec.push(property_predicates.into());
+            property_settings_vec.push(property_settings.into());
+            general_predicates_vec.push(general_predicates.into());
         }
+
+        let result = Query {
+            ptr: unsafe { NonNull::new_unchecked(ptr.0) },
+            capture_names: capture_names.into(),
+            capture_quantifiers: capture_quantifiers_vec.into(),
+            text_predicates: text_predicates_vec.into(),
+            property_predicates: property_predicates_vec.into(),
+            property_settings: property_settings_vec.into(),
+            general_predicates: general_predicates_vec.into(),
+        };
+
+        std::mem::forget(ptr);
 
         Ok(result)
     }
@@ -1924,7 +1940,7 @@ impl Query {
     }
 
     /// Get the names of the captures used in the query.
-    pub fn capture_names(&self) -> &[String] {
+    pub fn capture_names(&self) -> &[&str] {
         &self.capture_names
     }
 
@@ -1937,7 +1953,7 @@ impl Query {
     pub fn capture_index_for_name(&self, name: &str) -> Option<u32> {
         self.capture_names
             .iter()
-            .position(|n| n == name)
+            .position(|n| *n == name)
             .map(|ix| ix as u32)
     }
 
@@ -2016,8 +2032,8 @@ impl Query {
     fn parse_property(
         row: usize,
         function_name: &str,
-        capture_names: &[String],
-        string_values: &[String],
+        capture_names: &[&str],
+        string_values: &[&str],
         args: &[ffi::TSQueryPredicateStep],
     ) -> Result<QueryProperty, QueryError> {
         if args.len() == 0 || args.len() > 3 {
@@ -2050,7 +2066,7 @@ impl Query {
             } else if key.is_none() {
                 key = Some(&string_values[arg.value_id as usize]);
             } else if value.is_none() {
-                value = Some(string_values[arg.value_id as usize].as_str());
+                value = Some(string_values[arg.value_id as usize]);
             } else {
                 return Err(predicate_error(
                     row,
@@ -2349,8 +2365,8 @@ impl QueryProperty {
     pub fn new(key: &str, value: Option<&str>, capture_id: Option<usize>) -> Self {
         QueryProperty {
             capture_id,
-            key: key.to_string().into_boxed_str(),
-            value: value.map(|s| s.to_string().into_boxed_str()),
+            key: key.to_string().into(),
+            value: value.map(|s| s.to_string().into()),
         }
     }
 }

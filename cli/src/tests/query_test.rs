@@ -2269,7 +2269,7 @@ fn test_query_captures_within_byte_range_assigned_after_iterating() {
         for (mat, capture_ix) in captures.by_ref().take(5) {
             let capture = mat.captures[capture_ix as usize];
             results.push((
-                query.capture_names()[capture.index as usize].as_str(),
+                query.capture_names()[capture.index as usize],
                 &source[capture.node.byte_range()],
             ));
         }
@@ -2292,7 +2292,7 @@ fn test_query_captures_within_byte_range_assigned_after_iterating() {
         for (mat, capture_ix) in captures {
             let capture = mat.captures[capture_ix as usize];
             results.push((
-                query.capture_names()[capture.index as usize].as_str(),
+                query.capture_names()[capture.index as usize],
                 &source[capture.node.byte_range()],
             ));
         }
@@ -2533,7 +2533,7 @@ fn test_query_matches_with_captured_wildcard_at_root() {
                     .iter()
                     .map(|c| {
                         (
-                            query.capture_names()[c.index as usize].as_str(),
+                            query.capture_names()[c.index as usize],
                             c.node.kind(),
                             c.node.start_position().row,
                         )
@@ -2934,7 +2934,8 @@ fn test_query_captures_with_predicates() {
                 args: vec![
                     QueryPredicateArg::Capture(0),
                     QueryPredicateArg::String("omg".to_string().into_boxed_str()),
-                ],
+                ]
+                .into_boxed_slice(),
             },]
         );
         assert_eq!(query.property_settings(1), &[]);
@@ -3604,12 +3605,7 @@ fn test_query_capture_names() {
 
         assert_eq!(
             query.capture_names(),
-            &[
-                "left-operand".to_string(),
-                "right-operand".to_string(),
-                "body".to_string(),
-                "loop-condition".to_string(),
-            ]
+            ["left-operand", "right-operand", "body", "loop-condition"]
         );
     });
 }
@@ -3826,7 +3822,7 @@ fn test_query_random() {
                     captures: mat
                         .captures
                         .iter()
-                        .map(|c| (query.capture_names()[c.index as usize].as_str(), c.node))
+                        .map(|c| (query.capture_names()[c.index as usize], c.node))
                         .collect::<Vec<_>>(),
                 })
                 .collect::<Vec<_>>();
