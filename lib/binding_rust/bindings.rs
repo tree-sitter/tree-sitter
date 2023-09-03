@@ -35,12 +35,12 @@ pub struct TSQueryCursor {
 pub struct TSLookaheadIterator {
     _unused: [u8; 0],
 }
-pub const TSInputEncoding_TSInputEncodingUTF8: TSInputEncoding = 0;
-pub const TSInputEncoding_TSInputEncodingUTF16: TSInputEncoding = 1;
+pub const TSInputEncodingUTF8: TSInputEncoding = 0;
+pub const TSInputEncodingUTF16: TSInputEncoding = 1;
 pub type TSInputEncoding = ::std::os::raw::c_uint;
-pub const TSSymbolType_TSSymbolTypeRegular: TSSymbolType = 0;
-pub const TSSymbolType_TSSymbolTypeAnonymous: TSSymbolType = 1;
-pub const TSSymbolType_TSSymbolTypeAuxiliary: TSSymbolType = 2;
+pub const TSSymbolTypeRegular: TSSymbolType = 0;
+pub const TSSymbolTypeAnonymous: TSSymbolType = 1;
+pub const TSSymbolTypeAuxiliary: TSSymbolType = 2;
 pub type TSSymbolType = ::std::os::raw::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -70,8 +70,8 @@ pub struct TSInput {
     >,
     pub encoding: TSInputEncoding,
 }
-pub const TSLogType_TSLogTypeParse: TSLogType = 0;
-pub const TSLogType_TSLogTypeLex: TSLogType = 1;
+pub const TSLogTypeParse: TSLogType = 0;
+pub const TSLogTypeLex: TSLogType = 1;
 pub type TSLogType = ::std::os::raw::c_uint;
 #[repr(C)]
 #[derive(Debug)]
@@ -115,11 +115,11 @@ pub struct TSQueryCapture {
     pub node: TSNode,
     pub index: u32,
 }
-pub const TSQuantifier_TSQuantifierZero: TSQuantifier = 0;
-pub const TSQuantifier_TSQuantifierZeroOrOne: TSQuantifier = 1;
-pub const TSQuantifier_TSQuantifierZeroOrMore: TSQuantifier = 2;
-pub const TSQuantifier_TSQuantifierOne: TSQuantifier = 3;
-pub const TSQuantifier_TSQuantifierOneOrMore: TSQuantifier = 4;
+pub const TSQuantifierZero: TSQuantifier = 0;
+pub const TSQuantifierZeroOrOne: TSQuantifier = 1;
+pub const TSQuantifierZeroOrMore: TSQuantifier = 2;
+pub const TSQuantifierOne: TSQuantifier = 3;
+pub const TSQuantifierOneOrMore: TSQuantifier = 4;
 pub type TSQuantifier = ::std::os::raw::c_uint;
 #[repr(C)]
 #[derive(Debug)]
@@ -129,9 +129,9 @@ pub struct TSQueryMatch {
     pub capture_count: u16,
     pub captures: *const TSQueryCapture,
 }
-pub const TSQueryPredicateStepType_TSQueryPredicateStepTypeDone: TSQueryPredicateStepType = 0;
-pub const TSQueryPredicateStepType_TSQueryPredicateStepTypeCapture: TSQueryPredicateStepType = 1;
-pub const TSQueryPredicateStepType_TSQueryPredicateStepTypeString: TSQueryPredicateStepType = 2;
+pub const TSQueryPredicateStepTypeDone: TSQueryPredicateStepType = 0;
+pub const TSQueryPredicateStepTypeCapture: TSQueryPredicateStepType = 1;
+pub const TSQueryPredicateStepTypeString: TSQueryPredicateStepType = 2;
 pub type TSQueryPredicateStepType = ::std::os::raw::c_uint;
 #[repr(C)]
 #[derive(Debug)]
@@ -139,13 +139,13 @@ pub struct TSQueryPredicateStep {
     pub type_: TSQueryPredicateStepType,
     pub value_id: u32,
 }
-pub const TSQueryError_TSQueryErrorNone: TSQueryError = 0;
-pub const TSQueryError_TSQueryErrorSyntax: TSQueryError = 1;
-pub const TSQueryError_TSQueryErrorNodeType: TSQueryError = 2;
-pub const TSQueryError_TSQueryErrorField: TSQueryError = 3;
-pub const TSQueryError_TSQueryErrorCapture: TSQueryError = 4;
-pub const TSQueryError_TSQueryErrorStructure: TSQueryError = 5;
-pub const TSQueryError_TSQueryErrorLanguage: TSQueryError = 6;
+pub const TSQueryErrorNone: TSQueryError = 0;
+pub const TSQueryErrorSyntax: TSQueryError = 1;
+pub const TSQueryErrorNodeType: TSQueryError = 2;
+pub const TSQueryErrorField: TSQueryError = 3;
+pub const TSQueryErrorCapture: TSQueryError = 4;
+pub const TSQueryErrorStructure: TSQueryError = 5;
+pub const TSQueryErrorLanguage: TSQueryError = 6;
 pub type TSQueryError = ::std::os::raw::c_uint;
 extern "C" {
     #[doc = " Create a new parser."]

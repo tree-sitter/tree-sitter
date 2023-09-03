@@ -35,5 +35,6 @@ bindgen                                        \
   --allowlist-function '^ts_.*'                \
   --allowlist-var "^TREE_SITTER.*"             \
   --blocklist-type '^__.*'                     \
+  --no-prepend-enum-name                       \
   --no-copy "$no_copy"                         \
   $header_path > $output_path
