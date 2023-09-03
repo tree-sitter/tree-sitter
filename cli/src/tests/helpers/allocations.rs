@@ -107,7 +107,9 @@ unsafe extern "C" fn ts_record_calloc(count: usize, size: usize) -> *mut c_void 
 }
 
 unsafe extern "C" fn ts_record_realloc(ptr: *mut c_void, size: usize) -> *mut c_void {
-    record_dealloc(ptr);
+    if !ptr.is_null() {
+        record_dealloc(ptr);
+    }
     let result = realloc(ptr, size);
     record_alloc(result);
     result

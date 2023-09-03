@@ -132,10 +132,12 @@ typedef Array(void) VoidArray;
 #define array__elem_size(self) sizeof(*(self)->contents)
 
 static inline void array__delete(VoidArray *self) {
-  ts_free(self->contents);
-  self->contents = NULL;
-  self->size = 0;
-  self->capacity = 0;
+  if (self->contents) {
+    ts_free(self->contents);
+    self->contents = NULL;
+    self->size = 0;
+    self->capacity = 0;
+  }
 }
 
 static inline void array__erase(VoidArray *self, size_t element_size,
