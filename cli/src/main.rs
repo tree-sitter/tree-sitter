@@ -448,8 +448,8 @@ fn run() -> Result<()> {
                 matches
                     .values_of("encoding")
                     .map_or(Ok(None), |mut e| match e.next() {
-                        Some("utf16") => Ok(Some(ffi::TSInputEncoding_TSInputEncodingUTF16)),
-                        Some("utf8") => Ok(Some(ffi::TSInputEncoding_TSInputEncodingUTF8)),
+                        Some("utf16") => Ok(Some(ffi::TSInputEncodingUTF16)),
+                        Some("utf8") => Ok(Some(ffi::TSInputEncodingUTF8)),
                         Some(_) => Err(anyhow!("Invalid encoding. Expected one of: utf8, utf16")),
                         None => Ok(None),
                     })?;

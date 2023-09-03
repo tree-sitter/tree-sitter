@@ -88,7 +88,7 @@ pub fn parse_file_at_path(opts: ParseFileOptions) -> Result<bool> {
     }
 
     let tree = match opts.encoding {
-        Some(encoding) if encoding == ffi::TSInputEncoding_TSInputEncodingUTF16 => {
+        Some(encoding) if encoding == ffi::TSInputEncodingUTF16 => {
             let source_code_utf16 = source_code
                 .chunks_exact(2)
                 .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))

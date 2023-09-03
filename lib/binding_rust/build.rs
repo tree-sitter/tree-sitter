@@ -64,6 +64,7 @@ fn generate_bindings() {
         .allowlist_function("^ts_.*")
         .allowlist_var("^TREE_SITTER.*")
         .no_copy(no_copy.join("|"))
+        .prepend_enum_name(false)
         .generate()
         .expect("Failed to generate bindings");
 
