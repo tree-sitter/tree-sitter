@@ -1,1 +1,0 @@
-../conan-core/recipes/tree-sitter/conanfile.py
