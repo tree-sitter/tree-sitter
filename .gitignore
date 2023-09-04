@@ -28,3 +28,4 @@ docs/assets/js/tree-sitter.js
 *.wasm
 .swiftpm
 zig-*
+conanfile.py
