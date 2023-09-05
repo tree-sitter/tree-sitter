@@ -11,6 +11,11 @@ extern "C" {
 #include "tree_sitter/parser.h"
 
 typedef struct {
+  uint32_t value;
+  bool valid;
+} ColumnCache;
+
+typedef struct {
   TSLexer data;
   Length current_position;
   Length token_start_position;
@@ -26,7 +31,9 @@ typedef struct {
   uint32_t chunk_start;
   uint32_t chunk_size;
   uint32_t lookahead_size;
+
   bool did_get_column;
+  ColumnCache column_cache;
 
   char debug_buffer[TREE_SITTER_SERIALIZATION_BUFFER_SIZE];
 } Lexer;
