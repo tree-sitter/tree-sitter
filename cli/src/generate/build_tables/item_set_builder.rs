@@ -20,6 +20,7 @@ pub(crate) struct ParseItemSetBuilder<'a> {
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
     first_sets: HashMap<Symbol, TokenSet>,
+    first_sets_with_keywords: HashMap<Symbol, TokenSet>,
     last_sets: HashMap<Symbol, TokenSet>,
     inlines: &'a InlinedProductionMap,
     transitive_closure_additions: Vec<Vec<TransitiveClosureAddition<'a>>>,
@@ -41,6 +42,7 @@ impl<'a> ParseItemSetBuilder<'a> {
             syntax_grammar,
             lexical_grammar,
             first_sets: HashMap::new(),
+            first_sets_with_keywords: HashMap::new(),
             last_sets: HashMap::new(),
             inlines,
             transitive_closure_additions: vec![Vec::new(); syntax_grammar.variables.len()],
@@ -57,6 +59,8 @@ impl<'a> ParseItemSetBuilder<'a> {
             let mut set = TokenSet::new();
             set.insert(symbol);
             result.first_sets.insert(symbol, set.clone());
+            result.first_sets_with_keywords.insert(symbol, set.clone());
+            result.first_sets.insert(symbol, set.clone());
             result.last_sets.insert(symbol, set);
         }
 
@@ -64,14 +68,13 @@ impl<'a> ParseItemSetBuilder<'a> {
             let symbol = Symbol::external(i);
             let mut set = TokenSet::new();
             set.insert(symbol);
+            result.first_sets_with_keywords.insert(symbol, set.clone());
             result.first_sets.insert(symbol, set.clone());
             result.last_sets.insert(symbol, set);
         }
 
-        // The FIRST set of a non-terminal `i` is the union of the following sets:
-        // * the set of all terminals that appear at the beginings of i's productions
-        // * the FIRST sets of all the non-terminals that appear at the beginnings
-        //   of i's productions
+        // The FIRST set of a non-terminal `i` is the union of all of the the FIRST
+        // sets of all the non-terminals that appear at the beginnings of i's productions
         //
         // Rather than computing these sets using recursion, we use an explicit stack
         // called `symbols_to_process`.
@@ -81,18 +84,23 @@ impl<'a> ParseItemSetBuilder<'a> {
             let symbol = Symbol::non_terminal(i);
 
             let first_set = &mut result.first_sets.entry(symbol).or_insert(TokenSet::new());
+            let first_set_with_keywords = &mut result
+                .first_sets_with_keywords
+                .entry(symbol)
+                .or_insert(TokenSet::new());
             processed_non_terminals.clear();
             symbols_to_process.clear();
             symbols_to_process.push(symbol);
-            while let Some(current_symbol) = symbols_to_process.pop() {
-                if current_symbol.is_terminal() || current_symbol.is_external() {
-                    first_set.insert(current_symbol);
-                } else if processed_non_terminals.insert(current_symbol) {
-                    for production in syntax_grammar.variables[current_symbol.index]
-                        .productions
-                        .iter()
-                    {
-                        if let Some(step) = production.steps.first() {
+            while let Some(sym) = symbols_to_process.pop() {
+                for production in &syntax_grammar.variables[sym.index].productions {
+                    if let Some(step) = production.steps.first() {
+                        if let Some(keywords) = &step.keywords {
+                            first_set_with_keywords.insert_all(keywords);
+                        }
+                        if step.symbol.is_terminal() || step.symbol.is_external() {
+                            first_set.insert(step.symbol);
+                            first_set_with_keywords.insert(step.symbol);
+                        } else if processed_non_terminals.insert(step.symbol) {
                             symbols_to_process.push(step.symbol);
                         }
                     }
@@ -104,15 +112,15 @@ impl<'a> ParseItemSetBuilder<'a> {
             processed_non_terminals.clear();
             symbols_to_process.clear();
             symbols_to_process.push(symbol);
-            while let Some(current_symbol) = symbols_to_process.pop() {
-                if current_symbol.is_terminal() || current_symbol.is_external() {
-                    last_set.insert(current_symbol);
-                } else if processed_non_terminals.insert(current_symbol) {
-                    for production in syntax_grammar.variables[current_symbol.index]
-                        .productions
-                        .iter()
-                    {
-                        if let Some(step) = production.steps.last() {
+            while let Some(sym) = symbols_to_process.pop() {
+                for production in &syntax_grammar.variables[sym.index].productions {
+                    if let Some(step) = production.steps.last() {
+                        if let Some(keywords) = &step.keywords {
+                            last_set.insert_all(keywords);
+                        }
+                        if step.symbol.is_terminal() || step.symbol.is_external() {
+                            last_set.insert(step.symbol);
+                        } else if processed_non_terminals.insert(step.symbol) {
                             symbols_to_process.push(step.symbol);
                         }
                     }
@@ -179,7 +187,8 @@ impl<'a> ParseItemSetBuilder<'a> {
                                 } else {
                                     entries_to_process.push((
                                         symbol.index,
-                                        &result.first_sets[&production.steps[1].symbol],
+                                        &result.first_sets_with_keywords
+                                            [&production.steps[1].symbol],
                                         false,
                                     ));
                                 }
@@ -260,7 +269,11 @@ impl<'a> ParseItemSetBuilder<'a> {
         &self.first_sets[symbol]
     }
 
-    pub fn last_set(&self, symbol: &Symbol) -> &TokenSet {
+    pub fn first_set_with_keywords(&self, symbol: &Symbol) -> &TokenSet {
+        &self.first_sets_with_keywords[symbol]
+    }
+
+    pub fn last_set_with_keywords(&self, symbol: &Symbol) -> &TokenSet {
         &self.last_sets[symbol]
     }
 
@@ -271,7 +284,9 @@ impl<'a> ParseItemSetBuilder<'a> {
 
                 // Determine which tokens can follow this non-terminal.
                 let following_tokens = if let Some(next_step) = next_step {
-                    self.first_sets.get(&next_step.symbol).unwrap()
+                    self.first_sets_with_keywords
+                        .get(&next_step.symbol)
+                        .unwrap()
                 } else {
                     &lookaheads
                 };

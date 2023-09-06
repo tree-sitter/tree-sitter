@@ -1092,16 +1092,19 @@ impl Generator {
     }
 
     fn add_parse_table(&mut self) {
+        // Reserve two special parse action lists:
+        // * zero is for the default value, when a symbol is not valid
+        // * one is a second empty list of actions for keywords which are not valid.
+        //   This second value allows the parser to detect when a given token is
+        //   valid for the purpose of tokenization, but invalid syntactically.
+        let mut next_parse_action_list_index = 2;
         let mut parse_table_entries = HashMap::new();
-        let mut next_parse_action_list_index = 0;
-
-        self.get_parse_action_list_id(
-            &ParseTableEntry {
-                actions: Vec::new(),
+        parse_table_entries.insert(
+            ParseTableEntry {
                 reusable: false,
+                actions: Vec::new(),
             },
-            &mut parse_table_entries,
-            &mut next_parse_action_list_index,
+            0,
         );
 
         add_line!(
@@ -1120,7 +1123,7 @@ impl Generator {
             .enumerate()
             .take(self.large_state_count)
         {
-            add_line!(self, "[{}] = {{", i);
+            add_line!(self, "[STATE({})] = {{", i);
             indent!(self);
 
             // Ensure the entries are in a deterministic order, since they are
@@ -1157,6 +1160,11 @@ impl Generator {
                     entry_id
                 );
             }
+
+            for token in state.keywords.iter() {
+                add_line!(self, "[{}] = EXCLUDE,", self.symbol_ids[&token]);
+            }
+
             dedent!(self);
             add_line!(self, "}},");
         }
@@ -1168,11 +1176,11 @@ impl Generator {
             add_line!(self, "static const uint16_t ts_small_parse_table[] = {{");
             indent!(self);
 
-            let mut index = 0;
+            let mut next_table_index = 0;
             let mut small_state_indices = Vec::new();
             let mut symbols_by_value: HashMap<(usize, SymbolType), Vec<Symbol>> = HashMap::new();
             for state in self.parse_table.states.iter().skip(self.large_state_count) {
-                small_state_indices.push(index);
+                small_state_indices.push(next_table_index);
                 symbols_by_value.clear();
 
                 terminal_entries.clear();
@@ -1206,15 +1214,23 @@ impl Generator {
                         .push(*symbol);
                 }
 
+                let keyword_count = state.keywords.len();
                 let mut values_with_symbols = symbols_by_value.drain().collect::<Vec<_>>();
                 values_with_symbols.sort_unstable_by_key(|((value, kind), symbols)| {
                     (symbols.len(), *kind, *value, symbols[0])
                 });
+                let mut value_count = values_with_symbols.len();
+                if keyword_count > 0 {
+                    value_count += 1;
+                }
 
-                add_line!(self, "[{}] = {},", index, values_with_symbols.len());
+                add_line!(self, "[{}] = {},", next_table_index, value_count);
                 indent!(self);
+                next_table_index += 1;
 
                 for ((value, kind), symbols) in values_with_symbols.iter_mut() {
+                    next_table_index += 2 + symbols.len();
+
                     if *kind == SymbolType::NonTerminal {
                         add_line!(self, "STATE({}), {},", value, symbols.len());
                     } else {
@@ -1229,12 +1245,18 @@ impl Generator {
                     dedent!(self);
                 }
 
-                dedent!(self);
+                if keyword_count > 0 {
+                    next_table_index += 2 + keyword_count;
 
-                index += 1 + values_with_symbols
-                    .iter()
-                    .map(|(_, symbols)| 2 + symbols.len())
-                    .sum::<usize>();
+                    add_line!(self, "KEYWORD, {},", keyword_count);
+                    indent!(self);
+                    for symbol in state.keywords.iter() {
+                        add_line!(self, "{},", self.symbol_ids[&symbol]);
+                    }
+                    dedent!(self);
+                }
+
+                dedent!(self);
             }
 
             dedent!(self);

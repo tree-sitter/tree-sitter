@@ -11,7 +11,7 @@ const EMSCRIPTEN_TAG: &'static str = concat!("emscripten/emsdk:", env!("EMSCRIPT
 
 pub fn get_grammar_name(src_dir: &Path) -> Result<String> {
     let grammar_json_path = src_dir.join("grammar.json");
-    let grammar_json = fs::read_to_string(&grammar_json_path)
+    let grammar_json = fs::read_to_string(grammar_json_path)
         .with_context(|| format!("Failed to read grammar file {:?}", grammar_json_path))?;
     let grammar: GrammarJSON = serde_json::from_str(&grammar_json)
         .with_context(|| format!("Failed to parse grammar file {:?}", grammar_json_path))?;
@@ -20,6 +20,7 @@ pub fn get_grammar_name(src_dir: &Path) -> Result<String> {
 
 pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Result<()> {
     let src_dir = language_dir.join("src");
+    drop(src_dir);
     let grammar_name = get_grammar_name(&src_dir)?;
     let output_filename = format!("tree-sitter-{}.wasm", grammar_name);
 
@@ -50,6 +51,7 @@ pub fn compile_language_to_wasm(language_dir: &Path, force_docker: bool) -> Resu
         }
 
         command.args(&[OsStr::new("--volume"), &volume_string]);
+        drop(command);
 
         // Get the current user id so that files created in the docker container will have
         // the same owner.

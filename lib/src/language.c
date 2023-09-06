@@ -28,6 +28,7 @@ void ts_language_table_entry(
   if (symbol == ts_builtin_sym_error || symbol == ts_builtin_sym_error_repeat) {
     result->action_count = 0;
     result->is_reusable = false;
+    result->is_valid_lookahead = false;
     result->actions = NULL;
   } else {
     assert(symbol < self->token_count);
@@ -35,6 +36,7 @@ void ts_language_table_entry(
     const TSParseActionEntry *entry = &self->parse_actions[action_index];
     result->action_count = entry->entry.count;
     result->is_reusable = entry->entry.reusable;
+    result->is_valid_lookahead = action_index > 0;
     result->actions = (const TSParseAction *)(entry + 1);
   }
 }

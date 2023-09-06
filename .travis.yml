@@ -1,0 +1,59 @@
+language: rust
+rust:
+  - stable
+
+matrix:
+  include:
+    - os: osx
+    - os: linux
+      services: docker
+      env: TEST_WASM=1
+
+before_install:
+  # Install node
+  - if [ -n "$TEST_WASM" ]; then nvm install 10 && nvm use 10; fi
+
+script:
+  # Fetch and regenerate the fixture parsers
+  - script/fetch-fixtures
+  - cargo build --release
+  - script/generate-fixtures
+
+  # Run the tests
+  - export TREE_SITTER_STATIC_ANALYSIS=1
+  - script/test
+  - script/benchmark
+
+  # Build and test the WASM binding
+  - if [ -n "$TEST_WASM" ]; then script/build-wasm; fi
+  - if [ -n "$TEST_WASM" ]; then script/generate-fixtures-wasm; fi
+  - if [ -n "$TEST_WASM" ]; then script/test-wasm; fi
+
+branches:
+  only:
+  - master
+  - /\d+\.\d+\.\d+/
+
+before_deploy:
+  - cp target/release/tree-sitter .
+  - gzip --suffix "-${TRAVIS_OS_NAME}-x64.gz" tree-sitter
+
+deploy:
+  provider: releases
+  api_key:
+    secure: "cAd2mQP+Q55v3zedo5ZyOVc3hq3XKMW93lp5LuXV6CYKYbIhkyfym4qfs+C9GJQiIP27cnePYM7B3+OMIFwSPIgXHWWSsuloMtDgYSc/PAwb2dZnJqAyog3BohW/QiGTSnvbVlxPF6P9RMQU6+JP0HJzEJy6QBTa4Und/j0jm24="
+  file_glob: true
+  file:
+    - "tree-sitter-*.gz"
+    - "target/release/tree-sitter.js"
+    - "target/release/tree-sitter.wasm"
+  draft: true
+  overwrite: true
+  skip_cleanup: true
+  on:
+    tags: true
+
+cache:
+  cargo: true
+  directories:
+    - test/fixtures/grammars

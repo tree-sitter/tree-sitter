@@ -62,6 +62,10 @@ enum RuleJSON {
     IMMEDIATE_TOKEN {
         content: Box<RuleJSON>,
     },
+    KEYWORDS {
+        content: Box<RuleJSON>,
+        keywords: Vec<RuleJSON>,
+    },
 }
 
 #[derive(Deserialize)]
@@ -177,6 +181,10 @@ fn parse_rule(json: RuleJSON) -> Rule {
         RuleJSON::PREC_DYNAMIC { value, content } => {
             Rule::prec_dynamic(value, parse_rule(*content))
         }
+        RuleJSON::KEYWORDS { content, keywords } => Rule::Keywords {
+            rule: Box::new(parse_rule(*content)),
+            keywords: keywords.into_iter().map(parse_rule).collect(),
+        },
         RuleJSON::TOKEN { content } => Rule::token(parse_rule(*content)),
         RuleJSON::IMMEDIATE_TOKEN { content } => Rule::immediate_token(parse_rule(*content)),
     }

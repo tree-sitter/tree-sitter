@@ -1,9 +1,10 @@
-use super::{ExtractedLexicalGrammar, ExtractedSyntaxGrammar, InternedGrammar};
-use crate::generate::grammars::{ExternalToken, Variable, VariableType};
-use crate::generate::rules::{MetadataParams, Rule, Symbol, SymbolType};
+use crate::generate::{
+    grammars::{ExternalToken, Variable, VariableType},
+    prepare_grammar::{ExtractedLexicalGrammar, ExtractedSyntaxGrammar, InternedGrammar},
+    rules::{MetadataParams, Rule, Symbol, SymbolType},
+};
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
-use std::mem;
 
 pub(super) fn extract_tokens(
     mut grammar: InternedGrammar,
@@ -180,9 +181,7 @@ impl TokenExtractor {
         self.current_variable_name.clear();
         self.current_variable_name.push_str(&variable.name);
         self.current_variable_token_count = 0;
-        let mut rule = Rule::Blank;
-        mem::swap(&mut rule, &mut variable.rule);
-        variable.rule = self.extract_tokens_in_rule(&rule);
+        variable.rule = self.extract_tokens_in_rule(&variable.rule);
     }
 
     fn extract_tokens_in_rule(&mut self, input: &Rule) -> Rule {
@@ -226,6 +225,13 @@ impl TokenExtractor {
                     .map(|e| self.extract_tokens_in_rule(e))
                     .collect(),
             ),
+            Rule::Keywords { rule, keywords } => Rule::Keywords {
+                rule: Box::new(self.extract_tokens_in_rule(rule)),
+                keywords: keywords
+                    .into_iter()
+                    .map(|keyword| self.extract_tokens_in_rule(&keyword))
+                    .collect(),
+            },
             _ => input.clone(),
         }
     }
@@ -283,6 +289,13 @@ impl SymbolReplacer {
             Rule::Metadata { rule, params } => Rule::Metadata {
                 params: params.clone(),
                 rule: Box::new(self.replace_symbols_in_rule(rule)),
+            },
+            Rule::Keywords { rule, keywords } => Rule::Keywords {
+                rule: Box::new(self.replace_symbols_in_rule(rule)),
+                keywords: keywords
+                    .into_iter()
+                    .map(|keyword| self.replace_symbols_in_rule(keyword))
+                    .collect(),
             },
             _ => rule.clone(),
         }
