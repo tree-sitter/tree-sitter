@@ -103,6 +103,13 @@ struct Generate {
     pub libdir: Option<String>,
     #[arg(
         long,
+        short,
+        value_name = "DIRECTORY",
+        help = "The path to output the generated source files"
+    )]
+    pub output: Option<String>,
+    #[arg(
+        long,
         help = "Produce a report of the states for the given rule, use `-` to report every rule"
     )]
     pub report_states_for_rule: Option<String>,
@@ -693,6 +700,7 @@ impl Generate {
                 });
         tree_sitter_generate::generate_parser_in_directory(
             current_dir,
+            self.output.as_deref(),
             self.grammar_path.as_deref(),
             abi_version,
             self.report_states_for_rule.as_deref(),
