@@ -44,6 +44,7 @@ pub const ARRAY_HEADER: &str = include_str!("templates/array.h");
 
 pub fn generate_parser_in_directory(
     repo_path: &Path,
+    out_path: Option<&str>,
     grammar_path: Option<&str>,
     abi_version: usize,
     report_symbol_name: Option<&str>,
@@ -72,7 +73,9 @@ pub fn generate_parser_in_directory(
     // Read the grammar file.
     let grammar_json = load_grammar_file(&grammar_path, js_runtime)?;
 
-    let src_path = repo_path.join("src");
+    let src_path = out_path
+        .map(PathBuf::from)
+        .unwrap_or_else(|| repo_path.join("src"));
     let header_path = src_path.join("tree_sitter");
 
     // Ensure that the output directories exist.
