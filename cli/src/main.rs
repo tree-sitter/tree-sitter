@@ -139,6 +139,13 @@ fn run() -> Result<()> {
                         .value_name("executable")
                         .env("TREE_SITTER_JS_RUNTIME")
                         .help("Use a JavaScript runtime other than node"),
+                )
+                .arg(
+                    Arg::with_name("outdir")
+                        .long("outdir")
+                        .takes_value(true)
+                        .value_name("directory")
+                        .help("Set location of generated source files. Automatically disables generating bindings"),
                 ),
         )
         .subcommand(
@@ -337,6 +344,7 @@ fn run() -> Result<()> {
             let build = matches.is_present("build");
             let libdir = matches.value_of("libdir");
             let js_runtime = matches.value_of("js-runtime");
+            let outdir = matches.value_of("outdir");
             let report_symbol_name = matches.value_of("report-states-for-rule").or_else(|| {
                 if matches.is_present("report-states") {
                     Some("")
@@ -359,9 +367,10 @@ fn run() -> Result<()> {
                     })
                 },
             )?;
-            let generate_bindings = !matches.is_present("no-bindings");
+            let generate_bindings = !matches.is_present("no-bindings") && outdir.is_none();
             generate::generate_parser_in_directory(
                 &current_dir,
+                outdir,
                 grammar_path,
                 abi_version,
                 generate_bindings,
