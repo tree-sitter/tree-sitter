@@ -107,6 +107,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Protocol Buffers](https://github.com/mitchellh/tree-sitter-proto)
 * [Python](https://github.com/tree-sitter/tree-sitter-python)
 * [QML](https://github.com/yuja/tree-sitter-qmljs)
+* [QuakeC](https://github.com/vkazanov/tree-sitter-quakec)
 * [Racket](https://github.com/6cdh/tree-sitter-racket)
 * [Rasi](https://github.com/Fymyte/tree-sitter-rasi)
 * [re2c](https://github.com/alemuller/tree-sitter-re2c)
