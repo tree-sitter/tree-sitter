@@ -35,6 +35,7 @@
   "_strcmp",
   "_strncpy",
   "_tolower",
+  "_towlower",
   "_towupper",
   "_stderr",
 
