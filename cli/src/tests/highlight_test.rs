@@ -62,7 +62,7 @@ lazy_static! {
 fn test_highlighting_javascript() {
     let source = "const a = function(b) { return b + c; }";
     assert_eq!(
-        &to_token_vector(&source, &JS_HIGHLIGHT).unwrap(),
+        &to_token_vector(source, &JS_HIGHLIGHT).unwrap(),
         &[vec![
             ("const", vec!["keyword"]),
             (" ", vec![]),
@@ -72,14 +72,14 @@ fn test_highlighting_javascript() {
             (" ", vec![]),
             ("function", vec!["keyword"]),
             ("(", vec!["punctuation.bracket"]),
-            ("b", vec!["variable.parameter"]),
+            ("b", vec!["variable"]),
             (")", vec!["punctuation.bracket"]),
             (" ", vec![]),
             ("{", vec!["punctuation.bracket"]),
             (" ", vec![]),
             ("return", vec!["keyword"]),
             (" ", vec![]),
-            ("b", vec!["variable.parameter"]),
+            ("b", vec!["variable"]),
             (" ", vec![]),
             ("+", vec!["operator"]),
             (" ", vec![]),
@@ -93,7 +93,7 @@ fn test_highlighting_javascript() {
 
 #[test]
 fn test_highlighting_injected_html_in_javascript() {
-    let source = vec!["const s = html `<div>${a < b}</div>`;"].join("\n");
+    let source = ["const s = html `<div>${a < b}</div>`;"].join("\n");
 
     assert_eq!(
         &to_token_vector(&source, &JS_HIGHLIGHT).unwrap(),
@@ -157,7 +157,7 @@ fn test_highlighting_injected_javascript_in_html_mini() {
 
 #[test]
 fn test_highlighting_injected_javascript_in_html() {
-    let source = vec![
+    let source = [
         "<body>",
         "  <script>",
         "    const x = new Thing();",
@@ -212,7 +212,7 @@ fn test_highlighting_injected_javascript_in_html() {
 
 #[test]
 fn test_highlighting_multiline_nodes_to_html() {
-    let source = vec![
+    let source = [
         "const SOMETHING = `",
         "  one ${",
         "    two()",
@@ -236,7 +236,7 @@ fn test_highlighting_multiline_nodes_to_html() {
 
 #[test]
 fn test_highlighting_with_local_variable_tracking() {
-    let source = vec![
+    let source = [
         "module.exports = function a(b) {",
         "  const module = c;",
         "  console.log(module, b);",
@@ -258,7 +258,7 @@ fn test_highlighting_with_local_variable_tracking() {
                 (" ", vec![]),
                 ("a", vec!["function"]),
                 ("(", vec!["punctuation.bracket"]),
-                ("b", vec!["variable.parameter"]),
+                ("b", vec!["variable"]),
                 (")", vec!["punctuation.bracket"]),
                 (" ", vec![]),
                 ("{", vec!["punctuation.bracket"])
@@ -285,7 +285,7 @@ fn test_highlighting_with_local_variable_tracking() {
                 (",", vec!["punctuation.delimiter"]),
                 (" ", vec![]),
                 // A parameter, because `b` was defined as a parameter above.
-                ("b", vec!["variable.parameter"]),
+                ("b", vec!["variable"]),
                 (")", vec!["punctuation.bracket"]),
                 (";", vec!["punctuation.delimiter"]),
             ],
@@ -296,7 +296,7 @@ fn test_highlighting_with_local_variable_tracking() {
 
 #[test]
 fn test_highlighting_empty_lines() {
-    let source = vec![
+    let source = [
         "class A {",
         "",
         "  b(c) {",
@@ -314,7 +314,7 @@ fn test_highlighting_empty_lines() {
         &[
             "<span class=keyword>class</span> <span class=constructor>A</span> <span class=punctuation.bracket>{</span>\n".to_string(),
             "\n".to_string(),
-            "  <span class=function>b</span><span class=punctuation.bracket>(</span><span class=variable.parameter>c</span><span class=punctuation.bracket>)</span> <span class=punctuation.bracket>{</span>\n".to_string(),
+            "  <span class=function>b</span><span class=punctuation.bracket>(</span><span class=variable>c</span><span class=punctuation.bracket>)</span> <span class=punctuation.bracket>{</span>\n".to_string(),
             "\n".to_string(),
             "    <span class=function>d</span><span class=punctuation.bracket>(</span><span class=variable>e</span><span class=punctuation.bracket>)</span>\n".to_string(),
             "\n".to_string(),
@@ -330,7 +330,7 @@ fn test_highlighting_carriage_returns() {
     let source = "a = \"a\rb\"\r\nb\r";
 
     assert_eq!(
-        &to_html(&source, &JS_HIGHLIGHT).unwrap(),
+        &to_html(source, &JS_HIGHLIGHT).unwrap(),
         &[
             "<span class=variable>a</span> <span class=operator>=</span> <span class=string>&quot;a<span class=carriage-return></span>b&quot;</span>\n",
             "<span class=variable>b</span>\n",
@@ -340,7 +340,7 @@ fn test_highlighting_carriage_returns() {
 
 #[test]
 fn test_highlighting_ejs_with_html_and_javascript() {
-    let source = vec!["<div><% foo() %></div><script> bar() </script>"].join("\n");
+    let source = ["<div><% foo() %></div><script> bar() </script>"].join("\n");
 
     assert_eq!(
         &to_token_vector(&source, &EJS_HIGHLIGHT).unwrap(),
@@ -377,7 +377,7 @@ fn test_highlighting_ejs_with_html_and_javascript() {
 fn test_highlighting_javascript_with_jsdoc() {
     // Regression test: the middle comment has no highlights. This should not prevent
     // later injections from highlighting properly.
-    let source = vec!["a /* @see a */ b; /* nothing */ c; /* @see b */"].join("\n");
+    let source = ["a /* @see a */ b; /* nothing */ c; /* @see b */"].join("\n");
 
     assert_eq!(
         &to_token_vector(&source, &JS_HIGHLIGHT).unwrap(),
@@ -405,7 +405,7 @@ fn test_highlighting_javascript_with_jsdoc() {
 
 #[test]
 fn test_highlighting_with_content_children_included() {
-    let source = vec!["assert!(", "    a.b.c() < D::e::<F>()", ");"].join("\n");
+    let source = ["assert!(", "    a.b.c() < D::e::<F>()", ");"].join("\n");
 
     assert_eq!(
         &to_token_vector(&source, &RUST_HIGHLIGHT).unwrap(),
@@ -483,7 +483,7 @@ fn test_highlighting_cancellation() {
 
 #[test]
 fn test_highlighting_via_c_api() {
-    let highlights = vec![
+    let highlights = [
         "class=tag\0",
         "class=function\0",
         "class=string\0",
@@ -622,11 +622,11 @@ fn test_highlighting_with_all_captures_applied() {
         [ \"{\" \"}\" \"(\" \")\" ] @punctuation.bracket
     "};
     let mut rust_highlight_reverse =
-        HighlightConfiguration::new(language, "rust", &highlights_query, "", "", true).unwrap();
+        HighlightConfiguration::new(language, "rust", highlights_query, "", "", true).unwrap();
     rust_highlight_reverse.configure(&HIGHLIGHT_NAMES);
 
     assert_eq!(
-        &to_token_vector(&source, &rust_highlight_reverse).unwrap(),
+        &to_token_vector(source, &rust_highlight_reverse).unwrap(),
         &[[
             ("fn", vec!["keyword"]),
             (" ", vec![]),
@@ -743,20 +743,20 @@ fn to_token_vector<'a>(
             }
             HighlightEvent::Source { start, end } => {
                 let s = str::from_utf8(&src[start..end]).unwrap();
-                for (i, l) in s.split("\n").enumerate() {
+                for (i, l) in s.split('\n').enumerate() {
                     let l = l.trim_end_matches('\r');
                     if i > 0 {
                         lines.push(line);
                         line = Vec::new();
                     }
-                    if l.len() > 0 {
+                    if !l.is_empty() {
                         line.push((l, highlights.clone()));
                     }
                 }
             }
         }
     }
-    if line.len() > 0 {
+    if !line.is_empty() {
         lines.push(line);
     }
     Ok(lines)

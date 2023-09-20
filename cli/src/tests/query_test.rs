@@ -323,16 +323,16 @@ fn test_query_errors_on_impossible_patterns() {
         assert_eq!(
             Query::new(
                 js_lang,
-                "(binary_expression left: (identifier) left: (identifier))"
+                "(binary_expression left: (expression (identifier)) left: (expression (identifier)))"
             ),
             Err(QueryError {
                 kind: QueryErrorKind::Structure,
                 row: 0,
-                offset: 38,
-                column: 38,
+                offset: 51,
+                column: 51,
                 message: [
-                    "(binary_expression left: (identifier) left: (identifier))",
-                    "                                      ^"
+                    "(binary_expression left: (expression (identifier)) left: (expression (identifier)))",
+                    "                                                   ^",
                 ]
                 .join("\n"),
             })
@@ -437,19 +437,19 @@ fn test_query_errors_on_impossible_patterns() {
         Query::new(
             js_lang,
             "(if_statement
-                condition: (parenthesized_expression (_expression) @cond))",
+                condition: (parenthesized_expression (expression) @cond))",
         )
         .unwrap();
 
         assert_eq!(
-            Query::new(js_lang, "(if_statement condition: (_expression))",),
+            Query::new(js_lang, "(if_statement condition: (expression))",),
             Err(QueryError {
                 kind: QueryErrorKind::Structure,
                 row: 0,
                 offset: 14,
                 column: 14,
                 message: [
-                    "(if_statement condition: (_expression))", //
+                    "(if_statement condition: (expression))", //
                     "              ^",
                 ]
                 .join("\n")
@@ -1726,7 +1726,7 @@ fn test_query_matches_with_too_many_permutations_to_track() {
             collect_matches(matches, &query, source.as_str())[0],
             (0, vec![("pre", "hello"), ("post", "hello")]),
         );
-        assert_eq!(cursor.did_exceed_match_limit(), true);
+        assert!(cursor.did_exceed_match_limit());
     });
 }
 
@@ -1775,7 +1775,7 @@ fn test_query_sibling_patterns_dont_match_children_of_an_error() {
 
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
         let mut cursor = QueryCursor::new();
         let matches = cursor.matches(&query, tree.root_node(), source.as_bytes());
         assert_eq!(
@@ -1825,7 +1825,7 @@ fn test_query_matches_with_alternatives_and_too_many_permutations_to_track() {
             collect_matches(matches, &query, source.as_str()),
             vec![(1, vec![("method", "b")]); 50],
         );
-        assert_eq!(cursor.did_exceed_match_limit(), true);
+        assert!(cursor.did_exceed_match_limit());
     });
 }
 
@@ -1956,7 +1956,7 @@ fn test_query_matches_within_byte_range() {
 
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
 
         let mut cursor = QueryCursor::new();
 
@@ -2086,7 +2086,7 @@ fn test_query_captures_within_byte_range() {
 
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
 
         let mut cursor = QueryCursor::new();
         let captures =
@@ -2122,7 +2122,7 @@ fn test_query_matches_with_unrooted_patterns_intersecting_byte_range() {
 
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
         let mut cursor = QueryCursor::new();
 
         // within the type parameter list
@@ -2260,14 +2260,14 @@ fn test_query_captures_within_byte_range_assigned_after_iterating() {
 
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
         let mut cursor = QueryCursor::new();
         let mut captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
 
         // Retrieve some captures
         let mut results = Vec::new();
         for (mat, capture_ix) in captures.by_ref().take(5) {
-            let capture = mat.captures[capture_ix as usize];
+            let capture = mat.captures[capture_ix];
             results.push((
                 query.capture_names()[capture.index as usize],
                 &source[capture.node.byte_range()],
@@ -2290,7 +2290,7 @@ fn test_query_captures_within_byte_range_assigned_after_iterating() {
         results.clear();
         captures.set_byte_range(source.find("Ok").unwrap()..source.len());
         for (mat, capture_ix) in captures {
-            let capture = mat.captures[capture_ix as usize];
+            let capture = mat.captures[capture_ix];
             results.push((
                 query.capture_names()[capture.index as usize],
                 &source[capture.node.byte_range()],
@@ -2393,7 +2393,7 @@ fn test_query_matches_different_queries_same_cursor() {
         let mut cursor = QueryCursor::new();
 
         parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
 
         let matches = cursor.matches(&query1, tree.root_node(), source.as_bytes());
         assert_eq!(
@@ -2436,7 +2436,7 @@ fn test_query_matches_with_multiple_captures_on_a_node() {
         let mut cursor = QueryCursor::new();
 
         parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
 
         let matches = cursor.matches(&query, tree.root_node(), source.as_bytes());
         assert_eq!(
@@ -2524,7 +2524,7 @@ fn test_query_matches_with_captured_wildcard_at_root() {
         let mut parser = Parser::new();
         let mut cursor = QueryCursor::new();
         parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
 
         let match_capture_names_and_rows = cursor
             .matches(&query, tree.root_node(), source.as_bytes())
@@ -2790,7 +2790,7 @@ fn test_query_captures_basic() {
 
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
         let mut cursor = QueryCursor::new();
         let matches = cursor.matches(&query, tree.root_node(), source.as_bytes());
 
@@ -2873,7 +2873,7 @@ fn test_query_captures_with_text_conditions() {
 
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
         let mut cursor = QueryCursor::new();
 
         let captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
@@ -3019,7 +3019,7 @@ fn test_query_captures_with_duplicates() {
 
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
         let mut cursor = QueryCursor::new();
 
         let captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
@@ -3221,11 +3221,11 @@ fn test_query_captures_with_too_many_nested_results() {
 
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
         let mut cursor = QueryCursor::new();
         cursor.set_match_limit(32);
         let captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
-        let captures = collect_captures(captures, &query, &source);
+        let captures = collect_captures(captures, &query, source);
 
         assert_eq!(
             &captures[0..4],
@@ -3284,7 +3284,7 @@ fn test_query_captures_with_definite_pattern_containing_many_nested_matches() {
 
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
         let mut cursor = QueryCursor::new();
 
         let captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
@@ -3320,7 +3320,7 @@ fn test_query_captures_ordered_by_both_start_and_end_positions() {
 
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
         let mut cursor = QueryCursor::new();
 
         let captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
@@ -3361,7 +3361,7 @@ fn test_query_captures_with_matches_removed() {
 
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
         let mut cursor = QueryCursor::new();
 
         let mut captured_strings = Vec::new();
@@ -3405,7 +3405,7 @@ fn test_query_captures_with_matches_removed_before_they_finish() {
 
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
         let mut cursor = QueryCursor::new();
 
         let mut captured_strings = Vec::new();
@@ -3447,7 +3447,7 @@ fn test_query_captures_and_matches_iterators_are_fused() {
 
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
         let mut cursor = QueryCursor::new();
         let mut captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
 
@@ -3521,7 +3521,7 @@ fn test_query_text_callback_returns_chunks() {
 
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
         let mut cursor = QueryCursor::new();
         let captures = cursor.captures(&query, tree.root_node(), |node: Node| {
             chunks_in_range(node.byte_range())
@@ -3619,7 +3619,7 @@ fn test_query_lifetime_is_separate_from_nodes_lifetime() {
         let language = get_language("javascript");
         let mut parser = Parser::new();
         parser.set_language(language).unwrap();
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
 
         fn take_first_node_from_captures<'tree>(
             source: &str,
@@ -3932,10 +3932,10 @@ fn test_query_is_pattern_guaranteed_at_step() {
         Row {
             description: "a guaranteed step with a field",
             language: get_language("javascript"),
-            pattern: r#"(binary_expression left: (identifier) right: (_))"#,
+            pattern: r#"(binary_expression left: (expression) right: (_))"#,
             results_by_substring: &[
                 ("binary_expression", false),
-                ("(identifier)", false),
+                ("(expression)", false),
                 ("(_)", true),
             ],
         },
@@ -4002,7 +4002,7 @@ fn test_query_is_pattern_guaranteed_at_step() {
             "#,
             results_by_substring: &[
                 ("identifier", false),
-                ("property_identifier", true),
+                ("property_identifier", false),
                 ("[", true),
             ],
         },

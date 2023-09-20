@@ -148,7 +148,7 @@ fn test_parsing_with_custom_utf8_input() {
         )
     );
     assert_eq!(root.kind(), "source_file");
-    assert_eq!(root.has_error(), false);
+    assert!(!root.has_error());
     assert_eq!(root.child(0).unwrap().kind(), "function_item");
 }
 
@@ -187,7 +187,7 @@ fn test_parsing_with_custom_utf16_input() {
         "(source_file (function_item (visibility_modifier) name: (identifier) parameters: (parameters) body: (block (integer_literal))))"
     );
     assert_eq!(root.kind(), "source_file");
-    assert_eq!(root.has_error(), false);
+    assert!(!root.has_error());
     assert_eq!(root.child(0).unwrap().kind(), "function_item");
 }
 
@@ -834,7 +834,7 @@ fn test_parsing_with_one_included_range() {
         concat!(
             "(program (expression_statement (call_expression ",
             "function: (member_expression object: (identifier) property: (property_identifier)) ",
-            "arguments: (arguments (string)))))",
+            "arguments: (arguments (string (string_fragment))))))",
         )
     );
     assert_eq!(
@@ -1183,7 +1183,7 @@ fn test_parsing_with_a_newly_included_range() {
         .set_included_ranges(&[simple_range(range1_start, range1_end)])
         .unwrap();
     let tree = parser
-        .parse_with(&mut chunked_input(&source_code, 3), None)
+        .parse_with(&mut chunked_input(source_code, 3), None)
         .unwrap();
     assert_eq!(
         tree.root_node().to_sexp(),
@@ -1202,7 +1202,7 @@ fn test_parsing_with_a_newly_included_range() {
         ])
         .unwrap();
     let tree2 = parser
-        .parse_with(&mut chunked_input(&source_code, 3), Some(&tree))
+        .parse_with(&mut chunked_input(source_code, 3), Some(&tree))
         .unwrap();
     assert_eq!(
         tree2.root_node().to_sexp(),
@@ -1226,7 +1226,7 @@ fn test_parsing_with_a_newly_included_range() {
             simple_range(range3_start, range3_end),
         ])
         .unwrap();
-    let tree3 = parser.parse(&source_code, Some(&tree)).unwrap();
+    let tree3 = parser.parse(source_code, Some(&tree)).unwrap();
     assert_eq!(
         tree3.root_node().to_sexp(),
         concat!(

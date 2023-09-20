@@ -12,7 +12,7 @@ fn test_highlight_test_with_basic_test() {
         Some("injections.scm"),
         &[
             "function".to_string(),
-            "variable.parameter".to_string(),
+            "variable".to_string(),
             "keyword".to_string(),
         ],
     );
@@ -22,7 +22,7 @@ fn test_highlight_test_with_basic_test() {
         "  // ^ function",
         "  //       ^ keyword",
         "  return d + e;",
-        "  //     ^ variable.parameter",
+        "  //     ^ variable",
         "  //       ^ !variable",
         "};",
     ]
@@ -35,7 +35,7 @@ fn test_highlight_test_with_basic_test() {
         &[
             Assertion::new(1, 5, false, String::from("function")),
             Assertion::new(1, 11, false, String::from("keyword")),
-            Assertion::new(4, 9, false, String::from("variable.parameter")),
+            Assertion::new(4, 9, false, String::from("variable")),
             Assertion::new(4, 11, true, String::from("variable")),
         ]
     );
@@ -53,6 +53,7 @@ fn test_highlight_test_with_basic_test() {
             (Point::new(1, 19), Point::new(1, 20), Highlight(1)), // "d"
             (Point::new(4, 2), Point::new(4, 8), Highlight(2)), // "return"
             (Point::new(4, 9), Point::new(4, 10), Highlight(1)), // "d"
+            (Point::new(4, 13), Point::new(4, 14), Highlight(1)), // "e"
         ]
     );
 }
