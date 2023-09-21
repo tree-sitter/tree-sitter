@@ -15,3 +15,7 @@ codegen-units = 1 # Maximum size reduction optimizations.
 [profile.size]
 inherits = "release"
 opt-level = "s"      # Optimize for size.
+
+[profile.profile]
+inherits = "release"
+strip = false

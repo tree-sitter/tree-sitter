@@ -70,12 +70,12 @@ impl Config {
 }
 
 #[cfg(unix)]
-const DYLIB_EXTENSION: &'static str = "so";
+const DYLIB_EXTENSION: &str = "so";
 
 #[cfg(windows)]
 const DYLIB_EXTENSION: &'static str = "dll";
 
-const BUILD_TARGET: &'static str = env!("BUILD_TARGET");
+const BUILD_TARGET: &str = env!("BUILD_TARGET");
 
 pub struct LanguageConfiguration<'a> {
     pub scope: Option<String>,
@@ -101,6 +101,7 @@ pub struct Loader {
     languages_by_id: Vec<(PathBuf, OnceCell<Language>)>,
     language_configurations: Vec<LanguageConfiguration<'static>>,
     language_configuration_ids_by_file_type: HashMap<String, Vec<usize>>,
+    language_configuration_in_current_path: Option<usize>,
     highlight_names: Box<Mutex<Vec<String>>>,
     use_all_highlight_names: bool,
     debug_build: bool,
@@ -127,13 +128,14 @@ impl Loader {
             languages_by_id: Vec::new(),
             language_configurations: Vec::new(),
             language_configuration_ids_by_file_type: HashMap::new(),
+            language_configuration_in_current_path: None,
             highlight_names: Box::new(Mutex::new(Vec::new())),
             use_all_highlight_names: true,
             debug_build: false,
         }
     }
 
-    pub fn configure_highlights(&mut self, names: &Vec<String>) {
+    pub fn configure_highlights(&mut self, names: &[String]) {
         self.use_all_highlight_names = false;
         let mut highlights = self.highlight_names.lock().unwrap();
         highlights.clear();
@@ -149,8 +151,7 @@ impl Loader {
             eprintln!("Warning: You have not configured any parser directories!");
             eprintln!("Please run `tree-sitter init-config` and edit the resulting");
             eprintln!("configuration file to indicate where we should look for");
-            eprintln!("language grammars.");
-            eprintln!("");
+            eprintln!("language grammars.\n");
         }
         for parser_container_dir in &config.parser_directories {
             if let Ok(entries) = fs::read_dir(parser_container_dir) {
@@ -160,6 +161,7 @@ impl Loader {
                         if parser_dir_name.starts_with("tree-sitter-") {
                             self.find_language_configurations_at_path(
                                 &parser_container_dir.join(parser_dir_name),
+                                false,
                             )
                             .ok();
                         }
@@ -171,7 +173,7 @@ impl Loader {
     }
 
     pub fn languages_at_path(&mut self, path: &Path) -> Result<Vec<Language>> {
-        if let Ok(configurations) = self.find_language_configurations_at_path(path) {
+        if let Ok(configurations) = self.find_language_configurations_at_path(path, true) {
             let mut language_ids = configurations
                 .iter()
                 .map(|c| c.language_id)
@@ -342,7 +344,7 @@ impl Loader {
 
         self.load_language_from_sources(
             &grammar_json.name,
-            &header_path,
+            header_path,
             &parser_path,
             scanner_path.as_deref(),
         )
@@ -362,7 +364,7 @@ impl Loader {
         let mut library_path = self.parser_lib_path.join(lib_name);
         library_path.set_extension(DYLIB_EXTENSION);
 
-        let recompile = needs_recompile(&library_path, &parser_path, scanner_path)
+        let recompile = needs_recompile(&library_path, parser_path, scanner_path)
             .with_context(|| "Failed to compare source and binary timestamps")?;
 
         if recompile {
@@ -382,7 +384,7 @@ impl Loader {
             }
 
             if compiler.is_like_msvc() {
-                command.args(&["/nologo", "/LD", "/I"]).arg(header_path);
+                command.args(["/nologo", "/LD", "/I"]).arg(header_path);
                 if self.debug_build {
                     command.arg("/Od");
                 } else {
@@ -514,22 +516,18 @@ impl Loader {
         }
     }
 
-    pub fn find_language_configurations_at_path<'a>(
-        &'a mut self,
+    pub fn find_language_configurations_at_path(
+        &mut self,
         parser_path: &Path,
+        set_current_path_config: bool,
     ) -> Result<&[LanguageConfiguration]> {
-        #[derive(Deserialize)]
+        #[derive(Default, Deserialize)]
         #[serde(untagged)]
         enum PathsJSON {
+            #[default]
             Empty,
             Single(String),
             Multiple(Vec<String>),
-        }
-
-        impl Default for PathsJSON {
-            fn default() -> Self {
-                PathsJSON::Empty
-            }
         }
 
         impl PathsJSON {
@@ -614,7 +612,7 @@ impl Loader {
 
                     let configuration = LanguageConfiguration {
                         root_path: parser_path.to_path_buf(),
-                        language_name: grammar_json.name,
+                        language_name: grammar_json.name.clone(),
                         scope: config_json.scope,
                         language_id,
                         file_types: config_json.file_types.unwrap_or(Vec::new()),
@@ -627,19 +625,26 @@ impl Loader {
                         highlights_filenames: config_json.highlights.into_vec(),
                         highlight_config: OnceCell::new(),
                         tags_config: OnceCell::new(),
-                        highlight_names: &*self.highlight_names,
+                        highlight_names: &self.highlight_names,
                         use_all_highlight_names: self.use_all_highlight_names,
                     };
 
                     for file_type in &configuration.file_types {
                         self.language_configuration_ids_by_file_type
                             .entry(file_type.to_string())
-                            .or_insert(Vec::new())
+                            .or_default()
                             .push(self.language_configurations.len());
                     }
 
                     self.language_configurations
                         .push(unsafe { mem::transmute(configuration) });
+
+                    if set_current_path_config
+                        && self.language_configuration_in_current_path.is_none()
+                    {
+                        self.language_configuration_in_current_path =
+                            Some(self.language_configurations.len() - 1);
+                    }
                 }
             }
         }
@@ -668,7 +673,7 @@ impl Loader {
                 tags_filenames: None,
                 highlight_config: OnceCell::new(),
                 tags_config: OnceCell::new(),
-                highlight_names: &*self.highlight_names,
+                highlight_names: &self.highlight_names,
                 use_all_highlight_names: self.use_all_highlight_names,
             };
             self.language_configurations
@@ -693,11 +698,11 @@ impl Loader {
         if let Some(scope) = scope {
             if let Some(config) = self
                 .language_configuration_for_scope(scope)
-                .with_context(|| format!("Failed to load language for scope '{}'", scope))?
+                .with_context(|| format!("Failed to load language for scope '{scope}'"))?
             {
                 Ok(config.0)
             } else {
-                return Err(anyhow!("Unknown scope '{}'", scope));
+                Err(anyhow!("Unknown scope '{scope}'"))
             }
         } else if let Some((lang, _)) = self
             .language_configuration_for_file_name(path)
@@ -709,8 +714,10 @@ impl Loader {
             })?
         {
             Ok(lang)
+        } else if let Some(id) = self.language_configuration_in_current_path {
+            Ok(self.language_for_id(self.language_configurations[id].language_id)?)
         } else if let Some(lang) = self
-            .languages_at_path(&current_dir)
+            .languages_at_path(current_dir)
             .with_context(|| "Failed to load language in current directory")?
             .first()
             .cloned()
@@ -833,7 +840,7 @@ impl<'a> LanguageConfiguration<'a> {
                             }
                         }
                     }
-                    result.configure(&all_highlight_names.as_slice());
+                    result.configure(all_highlight_names.as_slice());
                     Ok(Some(result))
                 }
             })
@@ -869,7 +876,6 @@ impl<'a> LanguageConfiguration<'a> {
                                         locals_query.len(),
                                     )
                                 }
-                                .into()
                             } else {
                                 error.into()
                             }
@@ -879,9 +885,9 @@ impl<'a> LanguageConfiguration<'a> {
             .map(Option::as_ref)
     }
 
-    fn include_path_in_query_error<'b>(
+    fn include_path_in_query_error(
         mut error: QueryError,
-        ranges: &'b Vec<(String, Range<usize>)>,
+        ranges: &[(String, Range<usize>)],
         source: &str,
         start_offset: usize,
     ) -> Error {
