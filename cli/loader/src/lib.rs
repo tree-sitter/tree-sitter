@@ -1,18 +1,23 @@
 #![doc = include_str!("../README.md")]
 
+use std::{
+    collections::HashMap,
+    env, fs,
+    io::BufReader,
+    mem,
+    ops::Range,
+    path::{Path, PathBuf},
+    process::Command,
+    sync::Mutex,
+    time::SystemTime,
+};
+
 use anyhow::{anyhow, Context, Error, Result};
+use fs2::FileExt;
 use libloading::{Library, Symbol};
 use once_cell::unsync::OnceCell;
 use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Deserializer, Serialize};
-use std::collections::HashMap;
-use std::io::BufReader;
-use std::ops::Range;
-use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::sync::Mutex;
-use std::time::SystemTime;
-use std::{env, fs, mem};
 use tree_sitter::{Language, QueryError, QueryErrorKind};
 use tree_sitter_highlight::HighlightConfiguration;
 use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
@@ -73,7 +78,7 @@ impl Config {
 const DYLIB_EXTENSION: &str = "so";
 
 #[cfg(windows)]
-const DYLIB_EXTENSION: &'static str = "dll";
+const DYLIB_EXTENSION: &str = "dll";
 
 const BUILD_TARGET: &str = env!("BUILD_TARGET");
 
@@ -364,10 +369,40 @@ impl Loader {
         let mut library_path = self.parser_lib_path.join(lib_name);
         library_path.set_extension(DYLIB_EXTENSION);
 
-        let recompile = needs_recompile(&library_path, parser_path, scanner_path)
+        let mut recompile = needs_recompile(&library_path, parser_path, scanner_path)
             .with_context(|| "Failed to compare source and binary timestamps")?;
 
+        let lock_path = if env::var("CROSS_RUNNER").is_ok() {
+            PathBuf::from("/tmp")
+                .join("tree-sitter")
+                .join("lock")
+                .join(format!("{name}.lock"))
+        } else {
+            dirs::cache_dir()
+                .ok_or(anyhow!("Cannot determine cache directory"))?
+                .join("tree-sitter")
+                .join("lock")
+                .join(format!("{name}.lock"))
+        };
+
+        if let Ok(lock_file) = fs::OpenOptions::new().write(true).open(&lock_path) {
+            recompile = false;
+            lock_file.lock_exclusive()?;
+        }
+
         if recompile {
+            fs::create_dir_all(lock_path.parent().unwrap()).with_context(|| {
+                format!(
+                    "Failed to create directory {:?}",
+                    lock_path.parent().unwrap()
+                )
+            })?;
+            let lock_file = fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .open(&lock_path)?;
+            lock_file.lock_exclusive()?;
+
             fs::create_dir_all(&self.parser_lib_path)?;
             let mut config = cc::Build::new();
             config
@@ -434,6 +469,11 @@ impl Loader {
             let output = command
                 .output()
                 .with_context(|| "Failed to execute C compiler")?;
+
+            lock_file.unlock()?;
+            drop(lock_file);
+            fs::remove_file(&lock_path)?;
+
             if !output.status.success() {
                 return Err(anyhow!(
                     "Parser compilation failed.\nStdout: {}\nStderr: {}",
