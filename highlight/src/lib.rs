@@ -103,6 +103,7 @@ pub enum HighlightEvent {
 /// Contains the data needed to highlight code written in a particular language.
 ///
 /// This struct is immutable and can be shared between threads.
+#[derive(Clone)]
 pub struct HighlightConfiguration {
     pub language: Language,
     pub language_name: String,

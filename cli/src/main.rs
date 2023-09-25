@@ -3,6 +3,8 @@ use clap::{App, AppSettings, Arg, SubCommand};
 use glob::glob;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::Ordering;
+use std::sync::{Arc, Mutex};
 use std::{env, fs, u64};
 use tree_sitter::{ffi, Point};
 use tree_sitter_cli::parse::{ParseFileOptions, ParseOutput};
@@ -180,6 +182,13 @@ fn run() -> Result<()> {
                     Arg::with_name("encoding")
                         .help("The encoding of the input files")
                         .long("encoding")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("threads")
+                        .help("The number of threads to use for parsing")
+                        .long("threads")
+                        .short("j")
                         .takes_value(true),
                 ),
         )
@@ -457,7 +466,7 @@ fn run() -> Result<()> {
             let time = matches.is_present("time");
             let edits = matches
                 .values_of("edits")
-                .map_or(Vec::new(), |e| e.collect());
+                .map_or(Vec::new(), |e| e.map(String::from).collect());
             let cancellation_flag = util::cancel_on_signal();
 
             if debug {
@@ -479,45 +488,137 @@ fn run() -> Result<()> {
             loader.find_all_languages(&loader_config)?;
 
             let should_track_stats = matches.is_present("stat");
-            let mut stats = parse::Stats::default();
+            let stats = Arc::new(Mutex::new(parse::Stats::default()));
 
-            for path in paths {
-                let path = Path::new(&path);
-                let language =
-                    loader.select_language(path, &current_dir, matches.value_of("scope"))?;
+            let threads = matches.value_of("threads").map_or(1, |t| {
+                t.parse::<usize>().expect("Invalid number of threads")
+            });
 
-                let opts = ParseFileOptions {
-                    language,
-                    path,
-                    edits: &edits,
-                    max_path_length,
-                    output,
-                    print_time: time,
-                    timeout,
-                    debug,
-                    debug_graph,
-                    cancellation_flag: Some(&cancellation_flag),
-                    encoding,
-                };
+            if threads == 1 {
+                for path in paths {
+                    let path = Path::new(&path);
+                    let language =
+                        loader.select_language(path, &current_dir, matches.value_of("scope"))?;
 
-                let this_file_errored = parse::parse_file_at_path(opts)?;
+                    let opts = ParseFileOptions {
+                        language,
+                        path,
+                        edits: &edits,
+                        max_path_length,
+                        output,
+                        print_time: time,
+                        timeout,
+                        debug,
+                        debug_graph,
+                        cancellation_flag: Some(&cancellation_flag),
+                        encoding,
+                    };
+
+                    let this_file_errored = parse::parse_file_at_path(opts)?;
+
+                    if should_track_stats {
+                        stats
+                            .lock()
+                            .unwrap()
+                            .total_parses
+                            .fetch_add(1, Ordering::SeqCst);
+                        if !this_file_errored {
+                            stats
+                                .lock()
+                                .unwrap()
+                                .successful_parses
+                                .fetch_add(1, Ordering::SeqCst);
+                        }
+                    }
+
+                    has_error |= this_file_errored;
+                }
 
                 if should_track_stats {
-                    stats.total_parses += 1;
-                    if !this_file_errored {
-                        stats.successful_parses += 1;
+                    println!("{}", stats.lock().unwrap())
+                }
+
+                return if has_error { Err(anyhow!("")) } else { Ok(()) };
+            } else {
+                let mut tasks = Vec::with_capacity(threads);
+                let base_chunk_size = paths.len() / threads;
+                let remainder = paths.len() % threads;
+
+                let mut current_index = 0;
+
+                for i in 0..threads {
+                    let mut chunk_size = base_chunk_size;
+                    if i < remainder {
+                        chunk_size += 1;
+                    }
+                    let chunk = paths[current_index..current_index + chunk_size].to_vec();
+                    current_index += chunk_size;
+
+                    let mut loader = loader.clone();
+                    let current_dir = current_dir.clone();
+                    let scope = matches.value_of("scope").map(|s| s.to_string());
+                    let edits = edits.clone();
+                    let output = output;
+                    let cancellation_flag = cancellation_flag.clone();
+                    let encoding = encoding;
+                    let stats = stats.clone();
+
+                    let handle = std::thread::spawn(move || {
+                        let mut has_error = false;
+                        for path in chunk {
+                            let path = Path::new(&path);
+                            let language =
+                                loader.select_language(path, &current_dir, scope.as_deref())?;
+
+                            let opts = ParseFileOptions {
+                                language,
+                                path,
+                                edits: &edits,
+                                max_path_length,
+                                output,
+                                print_time: time,
+                                timeout,
+                                debug,
+                                debug_graph,
+                                cancellation_flag: Some(&cancellation_flag),
+                                encoding,
+                            };
+
+                            let this_file_errored = parse::parse_file_at_path(opts)?;
+
+                            if should_track_stats {
+                                let stats = stats.lock().unwrap();
+                                stats.total_parses.fetch_add(1, Ordering::SeqCst);
+                                if !this_file_errored {
+                                    stats.successful_parses.fetch_add(1, Ordering::SeqCst);
+                                }
+                            }
+
+                            has_error |= this_file_errored;
+                        }
+
+                        if has_error {
+                            Err(anyhow!(""))
+                        } else {
+                            Ok(())
+                        }
+                    });
+
+                    tasks.push(handle);
+                }
+
+                for task in tasks {
+                    let result = task.join().unwrap();
+                    if result.is_err() {
+                        has_error = true;
                     }
                 }
 
-                has_error |= this_file_errored;
-            }
+                if should_track_stats {
+                    println!("{}", stats.lock().unwrap())
+                }
 
-            if should_track_stats {
-                println!("{}", stats)
-            }
-
-            if has_error {
-                return Err(anyhow!(""));
+                return if has_error { Err(anyhow!("")) } else { Ok(()) };
             }
         }
 

@@ -8,7 +8,7 @@ use std::{
     ops::Range,
     path::{Path, PathBuf},
     process::Command,
-    sync::Mutex,
+    sync::{Arc, Mutex},
     time::SystemTime,
 };
 
@@ -82,6 +82,7 @@ const DYLIB_EXTENSION: &str = "dll";
 
 const BUILD_TARGET: &str = env!("BUILD_TARGET");
 
+#[derive(Clone)]
 pub struct LanguageConfiguration<'a> {
     pub scope: Option<String>,
     pub content_regex: Option<Regex>,
@@ -101,13 +102,14 @@ pub struct LanguageConfiguration<'a> {
     use_all_highlight_names: bool,
 }
 
+#[derive(Clone)]
 pub struct Loader {
     parser_lib_path: PathBuf,
     languages_by_id: Vec<(PathBuf, OnceCell<Language>)>,
     language_configurations: Vec<LanguageConfiguration<'static>>,
     language_configuration_ids_by_file_type: HashMap<String, Vec<usize>>,
     language_configuration_in_current_path: Option<usize>,
-    highlight_names: Box<Mutex<Vec<String>>>,
+    highlight_names: Arc<Mutex<Vec<String>>>,
     use_all_highlight_names: bool,
     debug_build: bool,
 }
@@ -134,7 +136,7 @@ impl Loader {
             language_configurations: Vec::new(),
             language_configuration_ids_by_file_type: HashMap::new(),
             language_configuration_in_current_path: None,
-            highlight_names: Box::new(Mutex::new(Vec::new())),
+            highlight_names: Arc::new(Mutex::new(Vec::new())),
             use_all_highlight_names: true,
             debug_build: false,
         }

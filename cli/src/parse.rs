@@ -2,7 +2,7 @@ use super::util;
 use anyhow::{anyhow, Context, Result};
 use std::io::{self, Write};
 use std::path::Path;
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 use std::{fmt, fs, usize};
 use tree_sitter::{ffi, InputEdit, Language, LogType, Parser, Point, Tree};
@@ -16,17 +16,17 @@ pub struct Edit {
 
 #[derive(Debug, Default)]
 pub struct Stats {
-    pub successful_parses: usize,
-    pub total_parses: usize,
+    pub successful_parses: AtomicUsize,
+    pub total_parses: AtomicUsize,
 }
 
 impl fmt::Display for Stats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        return writeln!(f, "Total parses: {}; successful parses: {}; failed parses: {}; success percentage: {:.2}%",
-                 self.total_parses,
-                 self.successful_parses,
-                 self.total_parses - self.successful_parses,
-                 (self.successful_parses as f64) / (self.total_parses as f64) * 100.0);
+        writeln!(f, "Total parses: {}; successful parses: {}; failed parses: {}; success percentage: {:.2}%",
+                    self.total_parses.load(Ordering::Relaxed),
+                    self.successful_parses.load(Ordering::Relaxed),
+                    self.total_parses.load(Ordering::Relaxed) - self.successful_parses.load(Ordering::Relaxed),
+                    self.successful_parses.load(Ordering::Relaxed) as f64 / self.total_parses.load(Ordering::Relaxed) as f64 * 100.0)
     }
 }
 
@@ -41,7 +41,7 @@ pub enum ParseOutput {
 pub struct ParseFileOptions<'a> {
     pub language: Language,
     pub path: &'a Path,
-    pub edits: &'a [&'a str],
+    pub edits: &'a [String],
     pub max_path_length: usize,
     pub output: ParseOutput,
     pub print_time: bool,
