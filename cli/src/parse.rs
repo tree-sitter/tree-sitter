@@ -401,15 +401,17 @@ fn offset_for_position(input: &[u8], position: Point) -> usize {
 
 fn position_for_offset(input: &[u8], offset: usize) -> Point {
     let mut result = Point { row: 0, column: 0 };
+    let mut it = input[0..offset].iter().rev();
 
-    for &c in input[0..offset].iter().rev() {
-        if c != b'\n' && result.row == 0 {
-            result.column += 1;
-        }
+    // Count trailing characters of the last line.
+    for &c in &mut it {
         if c == b'\n' {
             result.row += 1;
+            break;
         }
+        result.column += 1;
     }
-
+    // Count the remaining lines if any.
+    result.row += it.filter(|&&c| c == b'\n').count();
     result
 }
