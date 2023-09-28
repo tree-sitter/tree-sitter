@@ -3,7 +3,7 @@ use anyhow::{anyhow, Context, Result};
 use std::io::{self, Write};
 use std::path::Path;
 use std::sync::atomic::AtomicUsize;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use std::{fmt, fs, usize};
 use tree_sitter::{ffi, InputEdit, Language, LogType, Parser, Point, Tree};
 
@@ -18,15 +18,26 @@ pub struct Edit {
 pub struct Stats {
     pub successful_parses: usize,
     pub total_parses: usize,
+    pub total_bytes: usize,
+    pub total_duration: Duration,
 }
 
 impl fmt::Display for Stats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Total parses: {}; successful parses: {}; failed parses: {}; success percentage: {:.2}%",
-                 self.total_parses,
-                 self.successful_parses,
-                 self.total_parses - self.successful_parses,
-                 (self.successful_parses as f64) / (self.total_parses as f64) * 100.0)
+        let duration_us = self.total_duration.as_micros();
+        writeln!(
+            f,
+            "Total parses: {}; successful parses: {}; failed parses: {}; success percentage: {:.2}%; average speed: {} bytes/ms",
+            self.total_parses,
+            self.successful_parses,
+            self.total_parses - self.successful_parses,
+            ((self.successful_parses as f64) / (self.total_parses as f64)) * 100.0,
+            if duration_us != 0 {
+                ((self.total_bytes as u128) * 1_000) / duration_us
+            } else {
+                0
+            }
+        )
     }
 }
 
@@ -52,7 +63,14 @@ pub struct ParseFileOptions<'a> {
     pub encoding: Option<u32>,
 }
 
-pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Result<bool> {
+#[derive(Copy, Clone)]
+pub struct ParseResult {
+    pub successful: bool,
+    pub bytes: usize,
+    pub duration: Option<Duration>,
+}
+
+pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Result<ParseResult> {
     let mut _log_session = None;
     parser.set_language(&opts.language)?;
     let mut source_code = fs::read(opts.path)
@@ -125,8 +143,7 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
         }
 
         let duration = time.elapsed();
-        let duration_ms =
-            duration.as_secs() * 1000 + u64::from(duration.subsec_nanos()) / 1_000_000;
+        let duration_ms = duration.as_micros() as f64 / 1e3;
         let mut cursor = tree.walk();
 
         if matches!(opts.output, ParseOutput::Normal) {
@@ -262,8 +279,9 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
         if first_error.is_some() || opts.print_time {
             write!(
                 &mut stdout,
-                "{:width$}\t{duration_ms} ms",
+                "{:width$}\t{duration_ms:>7.2} ms\t{:>6} bytes/ms",
                 opts.path.to_str().unwrap(),
+                (source_code.len() as u128 * 1_000_000) / duration.as_nanos(),
                 width = opts.max_path_length
             )?;
             if let Some(node) = first_error {
@@ -292,20 +310,27 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
             writeln!(&mut stdout)?;
         }
 
-        return Ok(first_error.is_some());
+        return Ok(ParseResult {
+            successful: first_error.is_none(),
+            bytes: source_code.len(),
+            duration: Some(duration),
+        });
     } else if opts.print_time {
         let duration = time.elapsed();
-        let duration_ms =
-            duration.as_secs() * 1000 + u64::from(duration.subsec_nanos()) / 1_000_000;
+        let duration_ms = duration.as_micros() as f64 / 1e3;
         writeln!(
             &mut stdout,
-            "{:width$}\t{duration_ms} ms (timed out)",
+            "{:width$}\t{duration_ms:>7.2} ms\t(timed out)",
             opts.path.to_str().unwrap(),
             width = opts.max_path_length
         )?;
     }
 
-    Ok(false)
+    Ok(ParseResult {
+        successful: false,
+        bytes: source_code.len(),
+        duration: None,
+    })
 }
 
 pub fn perform_edit(tree: &mut Tree, input: &mut Vec<u8>, edit: &Edit) -> Result<InputEdit> {

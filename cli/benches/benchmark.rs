@@ -200,9 +200,12 @@ fn parse(path: &Path, max_path_length: usize, mut action: impl FnMut(&[u8])) -> 
         action(&source_code);
     }
     let duration = time.elapsed() / (*REPETITION_COUNT as u32);
-    let duration_ms = duration.as_millis();
-    let speed = source_code.len() as u128 / (duration_ms + 1);
-    eprintln!("time {} ms\tspeed {speed} bytes/ms", duration_ms as usize);
+    let duration_ns = duration.as_nanos();
+    let speed = ((source_code.len() as u128) * 1_000_000) / duration_ns;
+    eprintln!(
+        "time {:>7.2} ms\t\tspeed {speed:>6} bytes/ms",
+        (duration_ns as f64) / 1e6,
+    );
     speed as usize
 }
 
