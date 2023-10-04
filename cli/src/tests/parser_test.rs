@@ -342,7 +342,8 @@ fn test_parsing_after_editing_beginning_of_code() {
             deleted_length: 0,
             inserted_text: b" || 5".to_vec(),
         },
-    );
+    )
+    .unwrap();
 
     let mut recorder = ReadRecorder::new(&code);
     let tree = parser
@@ -389,7 +390,8 @@ fn test_parsing_after_editing_end_of_code() {
             deleted_length: 0,
             inserted_text: b".d".to_vec(),
         },
-    );
+    )
+    .unwrap();
 
     let mut recorder = ReadRecorder::new(&code);
     let tree = parser
@@ -464,7 +466,8 @@ h + i
             deleted_length: 0,
             inserted_text: b"1234".to_vec(),
         },
-    );
+    )
+    .unwrap();
 
     assert_eq!(
         code,
@@ -528,12 +531,12 @@ fn test_parsing_after_detecting_error_in_the_middle_of_a_string_token() {
     let undo = invert_edit(&source, &edit);
 
     let mut tree2 = tree.clone();
-    perform_edit(&mut tree2, &mut source, &edit);
+    perform_edit(&mut tree2, &mut source, &edit).unwrap();
     tree2 = parser.parse(&source, Some(&tree2)).unwrap();
     assert!(tree2.root_node().has_error());
 
     let mut tree3 = tree2.clone();
-    perform_edit(&mut tree3, &mut source, &undo);
+    perform_edit(&mut tree3, &mut source, &undo).unwrap();
     tree3 = parser.parse(&source, Some(&tree3)).unwrap();
     assert_eq!(tree3.root_node().to_sexp(), tree.root_node().to_sexp(),);
 }

@@ -115,7 +115,7 @@ pub fn parse_file_at_path(opts: ParseFileOptions) -> Result<bool> {
 
         for (i, edit) in opts.edits.iter().enumerate() {
             let edit = parse_edit_flag(&source_code, edit)?;
-            perform_edit(&mut tree, &mut source_code, &edit);
+            perform_edit(&mut tree, &mut source_code, &edit)?;
             tree = parser.parse(&source_code, Some(&tree)).unwrap();
 
             if opts.debug_graph {
@@ -309,14 +309,14 @@ pub fn parse_file_at_path(opts: ParseFileOptions) -> Result<bool> {
     Ok(false)
 }
 
-pub fn perform_edit(tree: &mut Tree, input: &mut Vec<u8>, edit: &Edit) -> InputEdit {
+pub fn perform_edit(tree: &mut Tree, input: &mut Vec<u8>, edit: &Edit) -> Result<InputEdit> {
     let start_byte = edit.position;
     let old_end_byte = edit.position + edit.deleted_length;
     let new_end_byte = edit.position + edit.inserted_text.len();
-    let start_position = position_for_offset(input, start_byte);
-    let old_end_position = position_for_offset(input, old_end_byte);
+    let start_position = position_for_offset(input, start_byte)?;
+    let old_end_position = position_for_offset(input, old_end_byte)?;
     input.splice(start_byte..old_end_byte, edit.inserted_text.iter().cloned());
-    let new_end_position = position_for_offset(input, new_end_byte);
+    let new_end_position = position_for_offset(input, new_end_byte)?;
     let edit = InputEdit {
         start_byte,
         old_end_byte,
@@ -326,7 +326,7 @@ pub fn perform_edit(tree: &mut Tree, input: &mut Vec<u8>, edit: &Edit) -> InputE
         new_end_position,
     };
     tree.edit(&edit);
-    edit
+    Ok(edit)
 }
 
 fn parse_edit_flag(source_code: &Vec<u8>, flag: &str) -> Result<Edit> {
@@ -355,7 +355,7 @@ fn parse_edit_flag(source_code: &Vec<u8>, flag: &str) -> Result<Edit> {
         let row = usize::from_str_radix(row, 10).map_err(|_| error())?;
         let column = parts.next().ok_or_else(error)?;
         let column = usize::from_str_radix(column, 10).map_err(|_| error())?;
-        offset_for_position(source_code, Point { row, column })
+        offset_for_position(source_code, Point { row, column })?
     } else {
         usize::from_str_radix(position, 10).map_err(|_| error())?
     };
@@ -370,7 +370,7 @@ fn parse_edit_flag(source_code: &Vec<u8>, flag: &str) -> Result<Edit> {
     })
 }
 
-fn offset_for_position(input: &[u8], position: Point) -> usize {
+pub fn offset_for_position(input: &[u8], position: Point) -> Result<usize> {
     let mut row = 0;
     let mut offset = 0;
     let mut iter = memchr::memchr_iter(b'\n', input);
@@ -385,10 +385,23 @@ fn offset_for_position(input: &[u8], position: Point) -> usize {
         offset += 1;
         break;
     }
-    offset + position.column
+    if position.row - row > 0 {
+        return Err(anyhow!("Failed to address a row: {}", position.row));
+    }
+    if let Some(pos) = iter.next() {
+        if (pos - offset < position.column) || (input[offset] == b'\n' && position.column > 0) {
+            return Err(anyhow!("Failed to address a column: {}", position.column));
+        };
+    } else if input.len() - offset < position.column {
+        return Err(anyhow!("Failed to address a column over the end"));
+    }
+    Ok(offset + position.column)
 }
 
-fn position_for_offset(input: &[u8], offset: usize) -> Point {
+pub fn position_for_offset(input: &[u8], offset: usize) -> Result<Point> {
+    if offset > input.len() {
+        return Err(anyhow!("Failed to address an offset: {offset}"));
+    }
     let mut result = Point { row: 0, column: 0 };
     let mut last = 0;
     for pos in memchr::memchr_iter(b'\n', &input[..offset]) {
@@ -400,5 +413,5 @@ fn position_for_offset(input: &[u8], offset: usize) -> Point {
     } else {
         offset
     };
-    result
+    Ok(result)
 }
