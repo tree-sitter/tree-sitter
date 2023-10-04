@@ -370,31 +370,35 @@ fn parse_edit_flag(source_code: &Vec<u8>, flag: &str) -> Result<Edit> {
     })
 }
 
-fn offset_for_position(input: &Vec<u8>, position: Point) -> usize {
-    let mut current_position = Point { row: 0, column: 0 };
-    for (i, c) in input.iter().enumerate() {
-        if *c as char == '\n' {
-            current_position.row += 1;
-            current_position.column = 0;
-        } else {
-            current_position.column += 1;
+fn offset_for_position(input: &[u8], position: Point) -> usize {
+    let mut row = 0;
+    let mut offset = 0;
+    let mut iter = memchr::memchr_iter(b'\n', input);
+    loop {
+        if let Some(pos) = iter.next() {
+            if row < position.row {
+                row += 1;
+                offset = pos;
+                continue;
+            }
         }
-        if current_position > position {
-            return i;
-        }
+        offset += 1;
+        break;
     }
-    return input.len();
+    offset + position.column
 }
 
-fn position_for_offset(input: &Vec<u8>, offset: usize) -> Point {
+fn position_for_offset(input: &[u8], offset: usize) -> Point {
     let mut result = Point { row: 0, column: 0 };
-    for c in &input[0..offset] {
-        if *c as char == '\n' {
-            result.row += 1;
-            result.column = 0;
-        } else {
-            result.column += 1;
-        }
+    let mut last = 0;
+    for pos in memchr::memchr_iter(b'\n', &input[..offset]) {
+        result.row += 1;
+        last = pos;
     }
+    result.column = if result.row > 0 {
+        offset - last - 1
+    } else {
+        offset
+    };
     result
 }
