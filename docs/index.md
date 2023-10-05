@@ -103,7 +103,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Perl POD](https://github.com/tree-sitter-perl/tree-sitter-pod)
 * [PHP](https://github.com/tree-sitter/tree-sitter-php)
 * [Portable Game Notation](https://github.com/rolandwalker/tree-sitter-pgn)
-* [PowerShell](https://github.com/PowerShell/tree-sitter-PowerShell)
+* [PowerShell](https://github.com/airbus-cert/tree-sitter-powershell)
 * [Protocol Buffers](https://github.com/mitchellh/tree-sitter-proto)
 * [Python](https://github.com/tree-sitter/tree-sitter-python)
 * [QML](https://github.com/yuja/tree-sitter-qmljs)
