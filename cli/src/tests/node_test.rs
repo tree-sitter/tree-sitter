@@ -552,7 +552,7 @@ fn test_node_edit() {
 
         let edit = get_random_edit(&mut rand, &mut code);
         let mut tree2 = tree.clone();
-        let edit = perform_edit(&mut tree2, &mut code, &edit);
+        let edit = perform_edit(&mut tree2, &mut code, &edit).unwrap();
         for node in nodes_before.iter_mut() {
             node.edit(&edit);
         }

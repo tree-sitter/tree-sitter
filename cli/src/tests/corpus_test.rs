@@ -187,7 +187,7 @@ fn test_language_corpus(language_name: &str, start_seed: usize, skipped: Option<
                 for _ in 0..1 + rand.unsigned(*EDIT_COUNT) {
                     let edit = get_random_edit(&mut rand, &input);
                     undo_stack.push(invert_edit(&input, &edit));
-                    perform_edit(&mut tree, &mut input, &edit);
+                    perform_edit(&mut tree, &mut input, &edit).unwrap();
                 }
 
                 if log_seed {
@@ -219,7 +219,7 @@ fn test_language_corpus(language_name: &str, start_seed: usize, skipped: Option<
 
                 // Undo all of the edits and re-parse again.
                 while let Some(edit) = undo_stack.pop() {
-                    perform_edit(&mut tree2, &mut input, &edit);
+                    perform_edit(&mut tree2, &mut input, &edit).unwrap();
                 }
                 if *LOG_GRAPH_ENABLED {
                     eprintln!("{}\n", String::from_utf8_lossy(&input));
