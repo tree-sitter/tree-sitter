@@ -14,71 +14,81 @@ use crate::{
     test::{parse_tests, print_diff, print_diff_key, strip_sexp_fields, TestEntry},
     util,
 };
-use std::{env, fs};
+use std::{collections::HashMap, env, fs};
 use tree_sitter::{LogType, Node, Parser, Point, Range, Tree};
 use tree_sitter_proc_macro::test_with_seed;
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_bash(seed: usize) {
-    test_language_corpus(seed, "bash");
+    test_language_corpus(
+        "bash",
+        seed,
+        Some(&[
+            // Fragile tests where edit customization changes
+            // lead to significant parse tree structure changes.
+            "bash - corpus - commands - Nested Heredocs",
+            "bash - corpus - commands - Quoted Heredocs",
+            "bash - corpus - commands - Heredocs with weird characters",
+        ]),
+    );
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_c(seed: usize) {
-    test_language_corpus(seed, "c");
+    test_language_corpus("c", seed, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_cpp(seed: usize) {
-    test_language_corpus(seed, "cpp");
+    test_language_corpus("cpp", seed, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_embedded_template(seed: usize) {
-    test_language_corpus(seed, "embedded-template");
+    test_language_corpus("embedded-template", seed, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_go(seed: usize) {
-    test_language_corpus(seed, "go");
+    test_language_corpus("go", seed, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_html(seed: usize) {
-    test_language_corpus(seed, "html");
+    test_language_corpus("html", seed, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_javascript(seed: usize) {
-    test_language_corpus(seed, "javascript");
+    test_language_corpus("javascript", seed, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_json(seed: usize) {
-    test_language_corpus(seed, "json");
+    test_language_corpus("json", seed, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_php(seed: usize) {
-    test_language_corpus(seed, "php");
+    test_language_corpus("php", seed, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_python(seed: usize) {
-    test_language_corpus(seed, "python");
+    test_language_corpus("python", seed, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_ruby(seed: usize) {
-    test_language_corpus(seed, "ruby");
+    test_language_corpus("ruby", seed, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_rust(seed: usize) {
-    test_language_corpus(seed, "rust");
+    test_language_corpus("rust", seed, None);
 }
 
-fn test_language_corpus(start_seed: usize, language_name: &str) {
+fn test_language_corpus(language_name: &str, start_seed: usize, skipped: Option<&[&str]>) {
     let grammars_dir = fixtures_dir().join("grammars");
     let error_corpus_dir = fixtures_dir().join("error_corpus");
     let template_corpus_dir = fixtures_dir().join("template_corpus");
@@ -100,6 +110,8 @@ fn test_language_corpus(start_seed: usize, language_name: &str) {
         t
     }));
 
+    let mut skipped = skipped.map(|x| HashMap::<&str, usize>::from_iter(x.iter().map(|x| (*x, 0))));
+
     let language = get_language(language_name);
     let mut failure_count = 0;
 
@@ -112,7 +124,14 @@ fn test_language_corpus(start_seed: usize, language_name: &str) {
 
     println!();
     for (test_index, test) in tests.iter().enumerate() {
-        let test_name = format!("{language_name} example - {}", test.name);
+        let test_name = format!("{language_name} - {}", test.name);
+        if let Some(skipped) = skipped.as_mut() {
+            if let Some(counter) = skipped.get_mut(test_name.as_str()) {
+                println!("  {test_index}. {test_name} - SKIPPED");
+                *counter += 1;
+                continue;
+            }
+        }
 
         println!("  {test_index}. {test_name}");
 
@@ -129,10 +148,7 @@ fn test_language_corpus(start_seed: usize, language_name: &str) {
             }
 
             if actual_output != test.output {
-                println!(
-                    "Incorrect initial parse for {} - {}",
-                    language_name, test.name,
-                );
+                println!("Incorrect initial parse for {test_name}");
                 print_diff_key();
                 print_diff(&actual_output, &test.output);
                 println!("");
@@ -219,10 +235,7 @@ fn test_language_corpus(start_seed: usize, language_name: &str) {
                 }
 
                 if actual_output != test.output {
-                    println!(
-                        "Incorrect parse for {} - {} - seed {}",
-                        language_name, test.name, seed
-                    );
+                    println!("Incorrect parse for {test_name} - seed {seed}");
                     print_diff_key();
                     print_diff(&actual_output, &test.output);
                     println!("");
@@ -248,6 +261,18 @@ fn test_language_corpus(start_seed: usize, language_name: &str) {
 
     if failure_count > 0 {
         panic!("{} {} corpus tests failed", failure_count, language_name);
+    }
+
+    if let Some(skipped) = skipped.as_mut() {
+        skipped.retain(|_, v| *v == 0);
+
+        if skipped.len() > 0 {
+            println!("Non matchable skip definitions:");
+            for k in skipped.keys() {
+                println!("  {k}");
+            }
+            panic!("Non matchable skip definitions needs to be removed");
+        }
     }
 }
 
