@@ -14,7 +14,7 @@ use crate::{
     test::{parse_tests, print_diff, print_diff_key, strip_sexp_fields, TestEntry},
     util,
 };
-use std::{collections::HashSet, env, fs};
+use std::{collections::HashMap, env, fs};
 use tree_sitter::{LogType, Node, Parser, Point, Range, Tree};
 use tree_sitter_proc_macro::test_with_seed;
 
@@ -110,7 +110,7 @@ fn test_language_corpus(language_name: &str, start_seed: usize, skipped: Option<
         t
     }));
 
-    let skipped = skipped.map(|x| HashSet::<&str>::from_iter(x.iter().map(|x| *x)));
+    let mut skipped = skipped.map(|x| HashMap::<&str, usize>::from_iter(x.iter().map(|x| (*x, 0))));
 
     let language = get_language(language_name);
     let mut failure_count = 0;
@@ -125,10 +125,10 @@ fn test_language_corpus(language_name: &str, start_seed: usize, skipped: Option<
     println!();
     for (test_index, test) in tests.iter().enumerate() {
         let test_name = format!("{language_name} - {}", test.name);
-
-        if let Some(skipped) = skipped.as_ref() {
-            if skipped.contains(test_name.as_str()) {
+        if let Some(skipped) = skipped.as_mut() {
+            if let Some(counter) = skipped.get_mut(test_name.as_str()) {
                 println!("  {test_index}. {test_name} - SKIPPED");
+                *counter += 1;
                 continue;
             }
         }
@@ -261,6 +261,18 @@ fn test_language_corpus(language_name: &str, start_seed: usize, skipped: Option<
 
     if failure_count > 0 {
         panic!("{} {} corpus tests failed", failure_count, language_name);
+    }
+
+    if let Some(skipped) = skipped.as_mut() {
+        skipped.retain(|_, v| *v == 0);
+
+        if skipped.len() > 0 {
+            println!("Non matchable skip definitions:");
+            for k in skipped.keys() {
+                println!("  {k}");
+            }
+            panic!("Non matchable skip definitions needs to be removed");
+        }
     }
 }
 
