@@ -137,6 +137,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Turtle](https://github.com/BonaBeavis/tree-sitter-turtle)
 * [Twig](https://github.com/gbprod/tree-sitter-twig)
 * [TypeScript](https://github.com/tree-sitter/tree-sitter-typescript)
+* [USD](https://github.com/ColinKennedy/tree-sitter-usd)
 * [Verilog](https://github.com/tree-sitter/tree-sitter-verilog)
 * [VHDL](https://github.com/alemuller/tree-sitter-vhdl)
 * [Vue](https://github.com/ikatyang/tree-sitter-vue)
