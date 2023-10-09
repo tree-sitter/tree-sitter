@@ -35,6 +35,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Ada](https://github.com/briot/tree-sitter-ada)
 * [Agda](https://github.com/tree-sitter/tree-sitter-agda)
 * [Apex](https://github.com/aheber/tree-sitter-sfapex)
+* [Ballerina](https://github.com/lunjon/tree-sitter-ballerina)
 * [Bash](https://github.com/tree-sitter/tree-sitter-bash)
 * [Beancount](https://github.com/zwpaper/tree-sitter-beancount)
 * [Cap'n Proto](https://github.com/amaanq/tree-sitter-capnp)
