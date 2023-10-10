@@ -9,7 +9,9 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 include!("./bindings.rs");
 
 extern "C" {
+    #[doc = " Makes file descriptor which will be used to write a Dot Graph.\n Uses raw file descriptor passed from Rust."]
     pub(crate) fn ts_dot_graph_io_make_fd(fd: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
+    #[doc = " Makes file descriptor which will be used to write a Dot Graph.\n Uses raw Windows file handle passed from Rust."]
     pub(crate) fn ts_dot_graph_io_make_fd_win(osfhandle: isize) -> ::std::os::raw::c_int;
 }
 
