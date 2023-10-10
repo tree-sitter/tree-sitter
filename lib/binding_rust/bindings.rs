@@ -785,3 +785,8 @@ extern "C" {
         new_free: ::std::option::Option<unsafe extern "C" fn(arg1: *mut ::std::os::raw::c_void)>,
     );
 }
+#[cfg(windows)]
+extern "stdcall" {
+    pub fn _open_osfhandle(osfhandle: *mut ::std::os::raw::c_void, flags: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
+    pub fn _dup(fd: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
+}

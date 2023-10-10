@@ -1809,17 +1809,25 @@ void ts_parser_set_logger(TSParser *self, TSLogger logger) {
   self->lexer.logger = logger;
 }
 
+#ifdef _WIN32
+
+#define FDOPEN(fd, mode) _fdopen(fd, mode)
+#define FCLOSE(fd) _close(fd)
+
+#else
+
+#define FDOPEN(fd, mode) fdopen(fd, mode)
+#define FCLOSE(fd) fclose(fd)
+
+#endif
+
 void ts_parser_print_dot_graphs(TSParser *self, int fd) {
   if (self->dot_graph_file) {
-    fclose(self->dot_graph_file);
+    FCLOSE(self->dot_graph_file);
   }
 
   if (fd >= 0) {
-    #ifdef _WIN32
-    self->dot_graph_file = _fdopen(fd, "a");
-    #else
-    self->dot_graph_file = fdopen(fd, "a");
-    #endif
+    self->dot_graph_file = FDOPEN(fd, "a");
   } else {
     self->dot_graph_file = NULL;
   }

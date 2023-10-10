@@ -125,19 +125,22 @@ TSRange *ts_tree_get_changed_ranges(const TSTree *old_tree, const TSTree *new_tr
 
 #ifdef _WIN32
 
-void ts_tree_print_dot_graph(const TSTree *self, int fd) {
-  (void)self;
-  (void)fd;
-}
+#define DUP(fd) _dup(fd)
+#define FDOPEN(fd, mode) _fdopen(fd, mode)
+#define FCLOSE(fd) _close(fd)
 
 #else
 
 #include <unistd.h>
 
-void ts_tree_print_dot_graph(const TSTree *self, int file_descriptor) {
-  FILE *file = fdopen(dup(file_descriptor), "a");
-  ts_subtree_print_dot_graph(self->root, self->language, file);
-  fclose(file);
-}
+#define DUP(fd) dup(fd)
+#define FDOPEN(fd, mode) fdopen(fd, mode)
+#define FCLOSE(fd) fclose(fd)
 
 #endif
+
+void ts_tree_print_dot_graph(const TSTree *self, int file_descriptor) {
+  FILE *file = FDOPEN(DUP(file_descriptor), "a");
+  ts_subtree_print_dot_graph(self->root, self->language, file);
+  FCLOSE(file);
+}
