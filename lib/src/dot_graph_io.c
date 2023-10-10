@@ -18,7 +18,7 @@ FILE* ts_dot_graph_io_open_appendable_fd(int fd) {
 }
 
 int ts_dot_graph_io_close_file(FILE* file) {
-  return _close(file);
+  return fclose(file);
 }
 
 #else
