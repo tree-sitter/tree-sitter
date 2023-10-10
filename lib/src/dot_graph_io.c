@@ -10,7 +10,7 @@ int ts_dot_graph_io_get_appendable_fd(int fd) {
 }
 
 int ts_dot_graph_io_get_appendable_fd_win(intptr_t osfhandle) {
-  return _open_osfhandle(osfhandle, _O_APPEND | _O_TEXT);
+  return _open_osfhandle(osfhandle, _O_TEXT);
 }
 
 FILE* ts_dot_graph_io_open_appendable_fd(int fd) {
