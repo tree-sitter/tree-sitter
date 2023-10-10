@@ -785,11 +785,3 @@ extern "C" {
         new_free: ::std::option::Option<unsafe extern "C" fn(arg1: *mut ::std::os::raw::c_void)>,
     );
 }
-extern "C" {
-    #[doc = " Makes file descriptor which will be used to write a Dot Graph.\n Uses raw file descriptor passed from Rust."]
-    pub fn ts_dot_graph_io_make_fd(fd: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
-}
-extern "C" {
-    #[doc = " Makes file descriptor which will be used to write a Dot Graph.\n Uses raw Windows file handle passed from Rust."]
-    pub fn ts_dot_graph_io_make_fd_win(osfhandle: isize) -> ::std::os::raw::c_int;
-}

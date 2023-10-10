@@ -9,7 +9,8 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 include!("./bindings.rs");
 
 extern "C" {
-    pub(crate) fn dup(fd: std::os::raw::c_int) -> std::os::raw::c_int;
+    pub(crate) fn ts_dot_graph_io_make_fd(fd: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
+    pub(crate) fn ts_dot_graph_io_make_fd_win(osfhandle: isize) -> ::std::os::raw::c_int;
 }
 
 use crate::{

@@ -1169,22 +1169,6 @@ void ts_set_allocator(
 	void (*new_free)(void *)
 );
 
-/**************************/
-/* Section - Dot Graph IO */
-/**************************/
-
-/**
- * Makes file descriptor which will be used to write a Dot Graph.
- * Uses raw file descriptor passed from Rust.
-*/
-int ts_dot_graph_io_make_fd(int fd);
-
-/**
- * Makes file descriptor which will be used to write a Dot Graph.
- * Uses raw Windows file handle passed from Rust.
-*/
-int ts_dot_graph_io_make_fd_win(intptr_t osfhandle);
-
 #ifdef __cplusplus
 }
 #endif
