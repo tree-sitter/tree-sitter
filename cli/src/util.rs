@@ -52,28 +52,22 @@ impl LogSession {
 
         let mut dot_file = std::fs::File::create(path)?;
         dot_file.write(HTML_HEADER)?;
-        let mut tee_process = Command::new("tee")
-            .arg("log.dot")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .spawn()
-            .with_context(|| "Failed to run the `tee` command.")?;
-        let dot_process = Command::new("dot")
+        let mut dot_process = Command::new("dot")
             .arg("-Tsvg")
-            .stdin(Stdio::from(tee_process.stdout.unwrap()))
+            .stdin(Stdio::piped())
             .stdout(dot_file)
             .spawn()
             .with_context(|| {
                 "Failed to run the `dot` command. Check that graphviz is installed."
             })?;
-        let tee_stdin = tee_process
+        let dot_stdin = dot_process
             .stdin
             .take()
             .ok_or_else(|| anyhow!("Failed to open stdin for `dot` process."))?;
         Ok(Self {
             path: PathBuf::from(path),
             dot_process: Some(dot_process),
-            dot_process_stdin: Some(tee_stdin),
+            dot_process_stdin: Some(dot_stdin),
         })
     }
 }
