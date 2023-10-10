@@ -479,10 +479,7 @@ impl Parser {
     pub fn print_dot_graphs(&mut self, file: &impl AsRawFd) {
         let fd = file.as_raw_fd();
         unsafe {
-            ffi::ts_parser_print_dot_graphs(
-                self.0.as_ptr(),
-                ffi::ts_dot_graph_io_get_appendable_fd(fd),
-            )
+            ffi::ts_parser_print_dot_graphs(self.0.as_ptr(), ffi::ts_dot_graph_io_make_fd(fd))
         }
     }
 
@@ -493,7 +490,7 @@ impl Parser {
         unsafe {
             ffi::ts_parser_print_dot_graphs(
                 self.0.as_ptr(),
-                ffi::ts_dot_graph_io_get_appendable_fd_win(handle as isize),
+                ffi::ts_dot_graph_io_make_fd_win(handle as isize),
             )
         };
     }
@@ -839,12 +836,7 @@ impl Tree {
     #[doc(alias = "ts_tree_print_dot_graph")]
     pub fn print_dot_graph(&self, file: &impl AsRawFd) {
         let fd = file.as_raw_fd();
-        unsafe {
-            ffi::ts_tree_print_dot_graph(
-                self.0.as_ptr(),
-                ffi::ts_dot_graph_io_get_appendable_fd(fd),
-            )
-        }
+        unsafe { ffi::ts_tree_print_dot_graph(self.0.as_ptr(), ffi::ts_dot_graph_io_make_fd(fd)) }
     }
 
     #[cfg(windows)]
@@ -854,7 +846,7 @@ impl Tree {
         unsafe {
             ffi::ts_tree_print_dot_graph(
                 self.0.as_ptr(),
-                ffi::ts_dot_graph_io_get_appendable_fd_win(handle as isize),
+                ffi::ts_dot_graph_io_make_fd_win(handle as isize),
             )
         };
     }

@@ -1174,15 +1174,16 @@ void ts_set_allocator(
 /**************************/
 
 /**
- * Get appendable file descriptor for Dot Graph output.
+ * Makes file descriptor which will be used to write a Dot Graph.
+ * Uses raw file descriptor passed from Rust.
 */
-int ts_dot_graph_io_get_appendable_fd(int fd);
+int ts_dot_graph_io_make_fd(int fd);
 
 /**
- * Get appendable file descriptor for Dot Graph output.
- * Windows version uses in file handle.
+ * Makes file descriptor which will be used to write a Dot Graph.
+ * Uses raw Windows file handle passed from Rust.
 */
-int ts_dot_graph_io_get_appendable_fd_win(intptr_t osfhandle);
+int ts_dot_graph_io_make_fd_win(intptr_t osfhandle);
 
 #ifdef __cplusplus
 }

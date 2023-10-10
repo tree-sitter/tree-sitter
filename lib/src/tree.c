@@ -125,7 +125,7 @@ TSRange *ts_tree_get_changed_ranges(const TSTree *old_tree, const TSTree *new_tr
 }
 
 void ts_tree_print_dot_graph(const TSTree *self, int file_descriptor) {
-  FILE *file = ts_dot_graph_io_open_appendable_fd(file_descriptor);
+  FILE *file = ts_dot_graph_io_open(file_descriptor);
   ts_subtree_print_dot_graph(self->root, self->language, file);
-  ts_dot_graph_io_close_file(file);
+  ts_dot_graph_io_close(file);
 }

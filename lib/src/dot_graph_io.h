@@ -5,10 +5,10 @@
 extern "C" {
 #endif
 
-int ts_dot_graph_io_get_appendable_fd(int fd);
-int ts_dot_graph_io_get_appendable_fd_win(intptr_t osfhandle);
-FILE* ts_dot_graph_io_open_appendable_fd(int fd);
-int ts_dot_graph_io_close_file(FILE* fie);
+int ts_dot_graph_io_make_fd(int fd);
+int ts_dot_graph_io_make_fd_win(intptr_t osfhandle);
+FILE* ts_dot_graph_io_open(int fd);
+int ts_dot_graph_io_close(FILE* fie);
 
 #ifdef __cplusplus
 }

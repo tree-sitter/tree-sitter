@@ -1812,11 +1812,11 @@ void ts_parser_set_logger(TSParser *self, TSLogger logger) {
 
 void ts_parser_print_dot_graphs(TSParser *self, int fd) {
   if (self->dot_graph_file) {
-    ts_dot_graph_io_close_file(self->dot_graph_file);
+    ts_dot_graph_io_close(self->dot_graph_file);
   }
 
   if (fd >= 0) {
-    self->dot_graph_file = ts_dot_graph_io_open_appendable_fd(fd);
+    self->dot_graph_file = ts_dot_graph_io_open(fd);
   } else {
     self->dot_graph_file = NULL;
   }
