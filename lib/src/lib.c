@@ -16,3 +16,4 @@
 #include "./subtree.c"
 #include "./tree_cursor.c"
 #include "./tree.c"
+#include "./dot_graph_io.c"
