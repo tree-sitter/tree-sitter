@@ -7,8 +7,6 @@ mod util;
 use std::os::unix::io::AsRawFd;
 #[cfg(windows)]
 use std::os::windows::io::AsRawHandle;
-#[cfg(windows)]
-const OPEN_OSFHANDLE_FLAGS: i32 = 5;
 
 use std::{
     char, error,
@@ -480,14 +478,24 @@ impl Parser {
     #[doc(alias = "ts_parser_print_dot_graphs")]
     pub fn print_dot_graphs(&mut self, file: &impl AsRawFd) {
         let fd = file.as_raw_fd();
-        unsafe { ffi::ts_parser_print_dot_graphs(self.0.as_ptr(), ffi::dup(fd)) }
+        unsafe {
+            ffi::ts_parser_print_dot_graphs(
+                self.0.as_ptr(),
+                ffi::ts_dot_graph_io_get_appendable_fd(fd),
+            )
+        }
     }
 
     #[cfg(windows)]
     #[doc(alias = "ts_parser_print_dot_graphs")]
     pub fn print_dot_graphs(&mut self, file: &impl AsRawHandle) {
         let handle = file.as_raw_handle();
-        unsafe { ffi::ts_parser_print_dot_graphs(self.0.as_ptr(), ffi::_dup(ffi::_open_osfhandle(handle, OPEN_OSFHANDLE_FLAGS))) };
+        unsafe {
+            ffi::ts_parser_print_dot_graphs(
+                self.0.as_ptr(),
+                ffi::ts_dot_graph_io_get_appendable_fd_win(handle as isize),
+            )
+        };
     }
 
     /// Stop the parser from printing debugging graphs while parsing.
@@ -831,14 +839,24 @@ impl Tree {
     #[doc(alias = "ts_tree_print_dot_graph")]
     pub fn print_dot_graph(&self, file: &impl AsRawFd) {
         let fd = file.as_raw_fd();
-        unsafe { ffi::ts_tree_print_dot_graph(self.0.as_ptr(), fd) }
+        unsafe {
+            ffi::ts_tree_print_dot_graph(
+                self.0.as_ptr(),
+                ffi::ts_dot_graph_io_get_appendable_fd(fd),
+            )
+        }
     }
 
     #[cfg(windows)]
     #[doc(alias = "ts_parser_print_dot_graphs")]
     pub fn print_dot_graph(&self, file: &impl AsRawHandle) {
         let handle = file.as_raw_handle();
-        unsafe { ffi::ts_tree_print_dot_graph(self.0.as_ptr(), ffi::_open_osfhandle(handle, OPEN_OSFHANDLE_FLAGS)) };
+        unsafe {
+            ffi::ts_tree_print_dot_graph(
+                self.0.as_ptr(),
+                ffi::ts_dot_graph_io_get_appendable_fd_win(handle as isize),
+            )
+        };
     }
 }
 

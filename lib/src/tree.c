@@ -5,6 +5,7 @@
 #include "./subtree.h"
 #include "./tree_cursor.h"
 #include "./tree.h"
+#include "./dot_graph_io.h"
 
 TSTree *ts_tree_new(
   Subtree root, const TSLanguage *language,
@@ -123,24 +124,8 @@ TSRange *ts_tree_get_changed_ranges(const TSTree *old_tree, const TSTree *new_tr
   return result;
 }
 
-#ifdef _WIN32
-
-#define DUP(fd) _dup(fd)
-#define FDOPEN(fd, mode) _fdopen(fd, mode)
-#define FCLOSE(fd) _close(fd)
-
-#else
-
-#include <unistd.h>
-
-#define DUP(fd) dup(fd)
-#define FDOPEN(fd, mode) fdopen(fd, mode)
-#define FCLOSE(fd) fclose(fd)
-
-#endif
-
 void ts_tree_print_dot_graph(const TSTree *self, int file_descriptor) {
-  FILE *file = FDOPEN(DUP(file_descriptor), "a");
+  FILE *file = ts_dot_graph_io_open_appendable_fd(file_descriptor);
   ts_subtree_print_dot_graph(self->root, self->language, file);
-  FCLOSE(file);
+  ts_dot_graph_io_close_file(file);
 }

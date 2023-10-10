@@ -18,6 +18,7 @@
 #include "./stack.h"
 #include "./subtree.h"
 #include "./tree.h"
+#include "./dot_graph_io.h"
 
 #define LOG(...)                                                                            \
   if (self->lexer.logger.log || self->dot_graph_file) {                                     \
@@ -1809,25 +1810,13 @@ void ts_parser_set_logger(TSParser *self, TSLogger logger) {
   self->lexer.logger = logger;
 }
 
-#ifdef _WIN32
-
-#define FDOPEN(fd, mode) _fdopen(fd, mode)
-#define FCLOSE(fd) _close(fd)
-
-#else
-
-#define FDOPEN(fd, mode) fdopen(fd, mode)
-#define FCLOSE(fd) fclose(fd)
-
-#endif
-
 void ts_parser_print_dot_graphs(TSParser *self, int fd) {
   if (self->dot_graph_file) {
-    FCLOSE(self->dot_graph_file);
+    ts_dot_graph_io_close_file(self->dot_graph_file);
   }
 
   if (fd >= 0) {
-    self->dot_graph_file = FDOPEN(fd, "a");
+    self->dot_graph_file = ts_dot_graph_io_open_appendable_fd(fd);
   } else {
     self->dot_graph_file = NULL;
   }

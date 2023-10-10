@@ -1169,6 +1169,21 @@ void ts_set_allocator(
 	void (*new_free)(void *)
 );
 
+/**************************/
+/* Section - Dot Graph IO */
+/**************************/
+
+/**
+ * Get appendable file descriptor for Dot Graph output.
+*/
+int ts_dot_graph_io_get_appendable_fd(int fd);
+
+/**
+ * Get appendable file descriptor for Dot Graph output.
+ * Windows version uses in file handle.
+*/
+int ts_dot_graph_io_get_appendable_fd_win(intptr_t osfhandle);
+
 #ifdef __cplusplus
 }
 #endif
