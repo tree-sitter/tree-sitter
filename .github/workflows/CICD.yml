@@ -20,7 +20,7 @@ concurrency:
       github.ref == 'refs/heads/master' && github.sha
       || github.event.pull_request.head.label || github.head_ref || github.ref
     }}
-  cancel-in-progress: true
+  cancel-in-progress: 
 
 jobs:
   init:
