@@ -488,10 +488,7 @@ impl Parser {
     pub fn print_dot_graphs(&mut self, file: &impl AsRawHandle) {
         let handle = file.as_raw_handle();
         unsafe {
-            ffi::ts_parser_print_dot_graphs(
-                self.0.as_ptr(),
-                ffi::ts_dot_graph_io_make_fd_win(handle as isize),
-            )
+            ffi::ts_parser_print_dot_graphs(self.0.as_ptr(), ffi::ts_dot_graph_io_make_fd(handle))
         };
     }
 
@@ -844,10 +841,7 @@ impl Tree {
     pub fn print_dot_graph(&self, file: &impl AsRawHandle) {
         let handle = file.as_raw_handle();
         unsafe {
-            ffi::ts_tree_print_dot_graph(
-                self.0.as_ptr(),
-                ffi::ts_dot_graph_io_make_fd_win(handle as isize),
-            )
+            ffi::ts_tree_print_dot_graph(self.0.as_ptr(), ffi::ts_dot_graph_io_make_fd(handle))
         };
     }
 }
