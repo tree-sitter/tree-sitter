@@ -1004,8 +1004,8 @@ impl<'tree> Node<'tree> {
     /// Get the node's child at the given index, where zero represents the first
     /// child.
     ///
-    /// This method is fairly fast, but its cost is technically log(i), so you
-    /// if you might be iterating over a long list of children, you should use
+    /// This method is fairly fast, but its cost is technically log(i), so if
+    /// you might be iterating over a long list of children, you should use
     /// [`Node::children`] instead.
     #[doc(alias = "ts_node_child")]
     pub fn child(&self, i: usize) -> Option<Self> {
@@ -1021,8 +1021,8 @@ impl<'tree> Node<'tree> {
     /// Get this node's *named* child at the given index.
     ///
     /// See also [`Node::is_named`].
-    /// This method is fairly fast, but its cost is technically log(i), so you
-    /// if you might be iterating over a long list of children, you should use
+    /// This method is fairly fast, but its cost is technically log(i), so if
+    /// you might be iterating over a long list of children, you should use
     /// [`Node::named_children`] instead.
     #[doc(alias = "ts_node_named_child")]
     pub fn named_child(&self, i: usize) -> Option<Self> {
