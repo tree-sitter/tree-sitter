@@ -23,10 +23,6 @@ FILE* ts_dot_graph_io_open(int fd) {
   return _fdopen(fd, "a");
 }
 
-int ts_dot_graph_io_close(FILE* file) {
-  return fclose(file);
-}
-
 #else
 
 #include <unistd.h>
@@ -39,8 +35,8 @@ FILE* ts_dot_graph_io_open(int fd) {
   return fdopen(fd, "a");
 }
 
+#endif
+
 int ts_dot_graph_io_close(FILE* file) {
   return fclose(file);
 }
-
-#endif
