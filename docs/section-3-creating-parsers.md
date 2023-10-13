@@ -580,7 +580,7 @@ grammar({
     ),
 
     binary_expression: $ => choice(
-      prec.left(1, seq($._expression, 'instanceof', $._expression)
+      prec.left(1, seq($._expression, 'instanceof', $._expression))
       // ...
     ),
 
