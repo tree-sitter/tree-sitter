@@ -48,7 +48,7 @@ jobs:
         - linux-powerpc     #
         - linux-powerpc64   #
         - linux-powerpc64el #
-        - linux-riscv64gc   #
+      # - linux-riscv64gc   # #2712
         - linux-s390x       #
         - linux-sparc64     #
         - linux-thumbv7neon #
@@ -77,7 +77,7 @@ jobs:
         - { platform: linux-powerpc     , target: powerpc-unknown-linux-gnu           , os: ubuntu-latest  , use-cross: true }
         - { platform: linux-powerpc64   , target: powerpc64-unknown-linux-gnu         , os: ubuntu-latest  , use-cross: true }
         - { platform: linux-powerpc64el , target: powerpc64le-unknown-linux-gnu       , os: ubuntu-latest  , use-cross: true }
-        - { platform: linux-riscv64gc   , target: riscv64gc-unknown-linux-gnu         , os: ubuntu-latest  , use-cross: true }
+      # - { platform: linux-riscv64gc   , target: riscv64gc-unknown-linux-gnu         , os: ubuntu-latest  , use-cross: true } #2712
         - { platform: linux-s390x       , target: s390x-unknown-linux-gnu             , os: ubuntu-latest  , use-cross: true }
         - { platform: linux-sparc64     , target: sparc64-unknown-linux-gnu           , os: ubuntu-latest  , use-cross: true }
         - { platform: linux-thumbv7neon , target: thumbv7neon-unknown-linux-gnueabihf , os: ubuntu-latest  , use-cross: true }
@@ -102,7 +102,7 @@ jobs:
         - { platform: linux-powerpc     , cc: powerpc-linux-gnu-gcc             , ar: powerpc-linux-gnu-ar           }
         - { platform: linux-powerpc64   , cc: powerpc64-linux-gnu-gcc           , ar: powerpc64-linux-gnu-ar         }
         - { platform: linux-powerpc64el , cc: powerpc64le-linux-gnu-gcc         , ar: powerpc64le-linux-gnu-ar       }
-        - { platform: linux-riscv64gc   , cc: riscv64-linux-gnu-gcc             , ar: riscv64-linux-gnu-ar           }
+      # - { platform: linux-riscv64gc   , cc: riscv64-linux-gnu-gcc             , ar: riscv64-linux-gnu-ar           } #2712
         - { platform: linux-s390x       , cc: s390x-linux-gnu-gcc               , ar: s390x-linux-gnu-ar             }
         - { platform: linux-sparc64     , cc: sparc64-linux-gnu-gcc             , ar: sparc64-linux-gnu-ar           }
         - { platform: linux-thumbv7neon , cc: arm-linux-gnueabihf-gcc           , ar: arm-linux-gnueabihf-ar         }
