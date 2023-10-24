@@ -6,8 +6,8 @@ use anyhow::{anyhow, Context, Result};
 use lazy_static::lazy_static;
 use regex::Regex;
 use regex_syntax::ast::{
-    parse, Ast, Class, ClassPerlKind, ClassSet, ClassSetBinaryOpKind, ClassSetItem,
-    ClassUnicodeKind, RepetitionKind, RepetitionRange,
+    parse, Ast, ClassPerlKind, ClassSet, ClassSetBinaryOpKind, ClassSetItem, ClassUnicodeKind,
+    RepetitionKind, RepetitionRange,
 };
 use std::collections::HashMap;
 use std::i32;
@@ -251,41 +251,39 @@ impl NfaBuilder {
                 Ok(true)
             }
             Ast::Assertion(_) => Err(anyhow!("Regex error: Assertions are not supported")),
-            Ast::Class(class) => match class {
-                Class::Unicode(class) => {
-                    let mut chars = self.expand_unicode_character_class(&class.kind)?;
-                    if class.negated {
-                        chars = chars.negate();
-                    }
-                    if case_insensitive {
-                        chars = with_inverse_char(chars);
-                    }
-                    self.push_advance(chars, next_state_id);
-                    Ok(true)
+            Ast::ClassUnicode(class) => {
+                let mut chars = self.expand_unicode_character_class(&class.kind)?;
+                if class.negated {
+                    chars = chars.negate();
                 }
-                Class::Perl(class) => {
-                    let mut chars = self.expand_perl_character_class(&class.kind);
-                    if class.negated {
-                        chars = chars.negate();
-                    }
-                    if case_insensitive {
-                        chars = with_inverse_char(chars);
-                    }
-                    self.push_advance(chars, next_state_id);
-                    Ok(true)
+                if case_insensitive {
+                    chars = with_inverse_char(chars);
                 }
-                Class::Bracketed(class) => {
-                    let mut chars = self.translate_class_set(&class.kind)?;
-                    if class.negated {
-                        chars = chars.negate();
-                    }
-                    if case_insensitive {
-                        chars = with_inverse_char(chars);
-                    }
-                    self.push_advance(chars, next_state_id);
-                    Ok(true)
+                self.push_advance(chars, next_state_id);
+                Ok(true)
+            }
+            Ast::ClassPerl(class) => {
+                let mut chars = self.expand_perl_character_class(&class.kind);
+                if class.negated {
+                    chars = chars.negate();
                 }
-            },
+                if case_insensitive {
+                    chars = with_inverse_char(chars);
+                }
+                self.push_advance(chars, next_state_id);
+                Ok(true)
+            }
+            Ast::ClassBracketed(class) => {
+                let mut chars = self.translate_class_set(&class.kind)?;
+                if class.negated {
+                    chars = chars.negate();
+                }
+                if case_insensitive {
+                    chars = with_inverse_char(chars);
+                }
+                self.push_advance(chars, next_state_id);
+                Ok(true)
+            }
             Ast::Repetition(repetition) => match repetition.op.kind {
                 RepetitionKind::ZeroOrOne => {
                     self.expand_zero_or_one(&repetition.ast, next_state_id, case_insensitive)
