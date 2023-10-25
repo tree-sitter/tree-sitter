@@ -377,7 +377,11 @@ TreeCursorStep ts_tree_cursor_goto_previous_sibling_internal(TSTreeCursor *_self
   position = parent->position;
   uint32_t child_index = array_back(&self->stack)->child_index;
   const Subtree *children = ts_subtree_children((*(parent->subtree)));
-  for (uint32_t i = 0; i < child_index; ++i) {
+
+  // skip first child padding since its position should match the position of the parent
+  if (child_index > 0)
+    position = length_add(position, ts_subtree_size(children[0]));
+  for (uint32_t i = 1; i < child_index; ++i) {
     position = length_add(position, ts_subtree_total_size(children[i]));
   }
   if (child_index > 0)
