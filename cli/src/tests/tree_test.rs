@@ -393,15 +393,24 @@ fn test_tree_cursor_previous_sibling() {
 
     assert!(cursor.goto_last_child());
     assert_eq!(cursor.node().kind(), "line_comment");
-    assert_eq!(cursor.node().utf8_text(text.as_bytes()).unwrap(), "// Another one!");
+    assert_eq!(
+        cursor.node().utf8_text(text.as_bytes()).unwrap(),
+        "// Another one!"
+    );
 
     assert!(cursor.goto_previous_sibling());
     assert_eq!(cursor.node().kind(), "line_comment");
-    assert_eq!(cursor.node().utf8_text(text.as_bytes()).unwrap(), "// This is fun!");
+    assert_eq!(
+        cursor.node().utf8_text(text.as_bytes()).unwrap(),
+        "// This is fun!"
+    );
 
     assert!(cursor.goto_previous_sibling());
     assert_eq!(cursor.node().kind(), "line_comment");
-    assert_eq!(cursor.node().utf8_text(text.as_bytes()).unwrap(), "// Hi there");
+    assert_eq!(
+        cursor.node().utf8_text(text.as_bytes()).unwrap(),
+        "// Hi there"
+    );
 
     assert!(!cursor.goto_previous_sibling());
 }
