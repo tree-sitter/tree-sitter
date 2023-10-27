@@ -17,7 +17,7 @@
 #include "./lexer.h"
 #include "./wasm/wasm-stdlib.h"
 
-#define STDLIB_SYMBOL_COUNT 30
+#define STDLIB_SYMBOL_COUNT 32
 const char *STDLIB_SYMBOLS[STDLIB_SYMBOL_COUNT] = {
   "malloc",
   "free",
@@ -47,7 +47,8 @@ const char *STDLIB_SYMBOLS[STDLIB_SYMBOL_COUNT] = {
   "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEED2Ev",
   "_ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE9push_backEw",
   "_ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEED2Ev",
-
+  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE17__assign_no_aliasILb0EEERS5_PKcm",
+  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE17__assign_no_aliasILb1EEERS5_PKcm",
   "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE25__init_copy_ctor_externalEPKcm",
   "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE17__assign_externalEPKcm",
 };
