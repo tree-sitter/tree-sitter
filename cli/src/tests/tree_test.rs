@@ -377,6 +377,45 @@ fn test_tree_cursor() {
 }
 
 #[test]
+fn test_tree_cursor_previous_sibling() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("rust")).unwrap();
+
+    let text = "
+    // Hi there
+    // This is fun!
+    // Another one!
+";
+    let tree = parser.parse(text, None).unwrap();
+
+    let mut cursor = tree.walk();
+    assert_eq!(cursor.node().kind(), "source_file");
+
+    assert!(cursor.goto_last_child());
+    assert_eq!(cursor.node().kind(), "line_comment");
+    assert_eq!(
+        cursor.node().utf8_text(text.as_bytes()).unwrap(),
+        "// Another one!"
+    );
+
+    assert!(cursor.goto_previous_sibling());
+    assert_eq!(cursor.node().kind(), "line_comment");
+    assert_eq!(
+        cursor.node().utf8_text(text.as_bytes()).unwrap(),
+        "// This is fun!"
+    );
+
+    assert!(cursor.goto_previous_sibling());
+    assert_eq!(cursor.node().kind(), "line_comment");
+    assert_eq!(
+        cursor.node().utf8_text(text.as_bytes()).unwrap(),
+        "// Hi there"
+    );
+
+    assert!(!cursor.goto_previous_sibling());
+}
+
+#[test]
 fn test_tree_cursor_fields() {
     let mut parser = Parser::new();
     parser.set_language(get_language("javascript")).unwrap();
