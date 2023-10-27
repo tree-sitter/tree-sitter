@@ -38,6 +38,7 @@ fn main() {
         .flag_if_supported("-std=c99")
         .flag_if_supported("-fvisibility=hidden")
         .flag_if_supported("-Wshadow")
+        .flag_if_supported("-Wno-unused-parameter")
         .include(src_path)
         .include(src_path.join("wasm"))
         .include("include")

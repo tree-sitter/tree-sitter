@@ -579,7 +579,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine) {
       if (!store_index) {
         printf("  other stdlib name: %.*s\n", (int)name->size, name->data);
       }
-    } 
+    }
   }
 
   for (unsigned i = 0; i < STDLIB_SYMBOL_COUNT; i++) {
@@ -614,12 +614,12 @@ static bool ts_wasm_store__instantiate(
 
   // Construct the language function name as string.
   unsigned prefix_len = strlen("tree_sitter_");
-  unsigned name_len = strlen(language_name);
+  size_t name_len = strlen(language_name);
   char language_function_name[prefix_len + name_len + 1];
   memcpy(&language_function_name[0], "tree_sitter_", prefix_len);
   memcpy(&language_function_name[prefix_len], language_name, name_len);
   language_function_name[prefix_len + name_len] = '\0';
-  
+
   // Construct globals representing the offset in memory and in the function
   // table where the module should be added.
   wasmtime_val_t table_base_val = WASM_I32_VAL(self->current_function_table_offset);
@@ -644,7 +644,7 @@ static bool ts_wasm_store__instantiate(
   wasm_importtype_vec_t import_types = WASM_EMPTY_VEC;
   wasmtime_module_imports(module, &import_types);
   wasmtime_extern_t imports[import_types.size];
-  
+
   printf("import count: %lu\n", import_types.size);
   for (unsigned i = 0; i < import_types.size; i++) {
     const wasm_importtype_t *import_type = import_types.data[i];
@@ -685,7 +685,7 @@ static bool ts_wasm_store__instantiate(
           break;
         }
       }
-  
+
       if (!defined_in_stdlib) {
         printf("unexpected import '%.*s'\n", (int)import_name->size, import_name->data);
         return false;
@@ -720,7 +720,6 @@ static bool ts_wasm_store__instantiate(
     const wasm_name_t *name = wasm_exporttype_name(export_type);
 
     char *export_name;
-    size_t name_len;
     wasmtime_extern_t export = {.kind = WASM_EXTERN_GLOBAL};
     bool exists = wasmtime_instance_export_nth(context, &instance, i, &export_name, &name_len, &export);
     assert(exists);
