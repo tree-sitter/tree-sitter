@@ -867,7 +867,7 @@ const TSLanguage *ts_wasm_store_load_language(
     );
   }
 
-  if (language->alias_count > 0 && language->production_id_count > 0) {
+  if (language->max_alias_sequence_length > 0 && language->production_id_count > 0) {
     // The alias map contains symbols, alias counts, and aliases, terminated by a null symbol.
     int32_t alias_map_size = 0;
     for (;;) {
