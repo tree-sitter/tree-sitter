@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 pub mod generate;
 pub mod highlight;
 pub mod logger;
@@ -13,4 +15,8 @@ pub mod util;
 pub mod wasm;
 
 #[cfg(test)]
+mod tests;
+
+// To run compile fail tests
+#[cfg(doctest)]
 mod tests;

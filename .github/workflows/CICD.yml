@@ -1,0 +1,85 @@
+name: CICD
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+  push:
+    branches-ignore:
+      - release/v*
+
+concurrency:
+  group: >
+    ${{ github.workflow }} @ ${{
+      github.ref == 'refs/heads/master' && github.ref_name || ''
+    }}${{
+      github.ref == 'refs/heads/master' && github.sha
+      || github.event.pull_request.head.label || github.head_ref || github.ref
+    }}
+  cancel-in-progress: true
+
+jobs:
+  init:
+    name: Init
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get PR head ref
+        if: ${{ github.event_name == 'pull_request' }}
+        id: pr_head_ref
+        run: |
+          echo "ref=refs/pull/${{ github.event.pull_request.number }}/head" >> $GITHUB_OUTPUT
+    outputs:
+      ref: >-
+        ${{
+          (github.event_name == 'pull_request' && startsWith(github.head_ref, 'release/v'))
+          && steps.pr_head_ref.outputs.ref
+          || github.ref
+        }}
+
+  fast_checks:
+    name: Fast checks
+    uses: ./.github/workflows/fast_checks.yml
+
+  full_checks:
+    name: Full Rust checks
+    needs: fast_checks
+    uses: ./.github/workflows/full_rust_checks.yml
+
+  min_version:
+    name: Minimum supported rust version
+    needs: fast_checks
+    uses: ./.github/workflows/msrv.yml
+    with:
+      package: tree-sitter-cli
+
+  sanitize:
+    name: Sanitize
+    needs: [init, fast_checks]
+    uses: ./.github/workflows/sanitize.yml
+
+  build:
+    name: Build & Test
+    needs: [init, fast_checks]
+    uses: ./.github/workflows/build.yml
+    with:
+      ref: ${{ needs.init.outputs.ref }}
+
+  release:
+    name: Release
+    needs: [init, fast_checks, full_checks, min_version, build, sanitize]
+    if: >
+      github.event_name == 'pull_request' &&
+      startsWith(github.head_ref, 'release/v') &&
+      !github.event.pull_request.draft
+    uses: ./.github/workflows/release.yml
+    with:
+      ref: ${{ needs.init.outputs.ref }}
+
+  publish:
+    name: Publish
+    needs: release
+    uses: ./.github/workflows/publish.yml

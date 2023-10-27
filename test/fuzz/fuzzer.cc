@@ -47,7 +47,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   TSTree *tree = ts_parser_parse_string(parser, NULL, str, size);
   TSNode root_node = ts_tree_root_node(tree);
 
-  if (lang_query) {
+  if (lang_query != nullptr) {
     {
       TSQueryCursor *cursor = ts_query_cursor_new();
 

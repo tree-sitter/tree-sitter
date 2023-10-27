@@ -7,6 +7,7 @@ log*.html
 
 fuzz-results
 
+/tree-sitter.pc
 test/fixtures/grammars/*
 !test/fixtures/grammars/.gitkeep
 package-lock.json
@@ -25,3 +26,5 @@ docs/assets/js/tree-sitter.js
 *.exp
 *.lib
 *.wasm
+.swiftpm
+zig-*

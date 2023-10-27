@@ -1,12 +1,13 @@
 # Rust Tree-sitter
 
-[![Build Status](https://travis-ci.org/tree-sitter/tree-sitter.svg?branch=master)](https://travis-ci.org/tree-sitter/tree-sitter)
-[![Build status](https://ci.appveyor.com/api/projects/status/vtmbd6i92e97l55w/branch/master?svg=true)](https://ci.appveyor.com/project/maxbrunsfeld/tree-sitter/branch/master)
-[![Crates.io](https://img.shields.io/crates/v/tree-sitter.svg)](https://crates.io/crates/tree-sitter)
+[![crates.io badge]][crates.io]
+
+[crates.io]: https://crates.io/crates/tree-sitter
+[crates.io badge]: https://img.shields.io/crates/v/tree-sitter.svg?color=%23B48723
 
 Rust bindings to the [Tree-sitter][] parsing library.
 
-### Basic Usage
+## Basic Usage
 
 First, create a parser:
 
@@ -16,22 +17,6 @@ use tree_sitter::{Parser, Language};
 let mut parser = Parser::new();
 ```
 
-Tree-sitter languages consist of generated C code. To make sure they're properly compiled and linked, you can create a [build script](https://doc.rust-lang.org/cargo/reference/build-scripts.html) like the following (assuming `tree-sitter-javascript` is in your root directory):
-
-```rust
-use std::path::PathBuf;
-
-fn main() {
-    let dir: PathBuf = ["tree-sitter-javascript", "src"].iter().collect();
-
-    cc::Build::new()
-        .include(&dir)
-        .file(dir.join("parser.c"))
-        .file(dir.join("scanner.c"))
-        .compile("tree-sitter-javascript");
-}
-```
-
 Add the `cc` crate to your `Cargo.toml` under `[build-dependencies]`:
 
 ```toml
@@ -39,15 +24,18 @@ Add the `cc` crate to your `Cargo.toml` under `[build-dependencies]`:
 cc="*"
 ```
 
-To then use languages from rust, you must declare them as `extern "C"` functions and invoke them with `unsafe`. Then you can assign them to the parser.
+Then, add a language as a dependency:
+
+```toml
+[dependencies]
+tree-sitter = "0.20.10"
+tree-sitter-rust = "0.20.3"
+```
+
+To then use a language, you assign them to the parser.
 
 ```rust
-extern "C" { fn tree_sitter_c() -> Language; }
-extern "C" { fn tree_sitter_rust() -> Language; }
-extern "C" { fn tree_sitter_javascript() -> Language; }
-
-let language = unsafe { tree_sitter_rust() };
-parser.set_language(language).unwrap();
+parser.set_language(tree_sitter_rust::language()).expect("Error loading Rust grammar");
 ```
 
 Now you can parse source code:
@@ -64,7 +52,8 @@ assert_eq!(root_node.end_position().column, 12);
 
 ### Editing
 
-Once you have a syntax tree, you can update it when your source code changes. Passing in the previous edited tree makes `parse` run much more quickly:
+Once you have a syntax tree, you can update it when your source code changes.
+Passing in the previous edited tree makes `parse` run much more quickly:
 
 ```rust
 let new_source_code = "fn test(a: u32) {}"
@@ -83,7 +72,8 @@ let new_tree = parser.parse(new_source_code, Some(&tree));
 
 ### Text Input
 
-The source code to parse can be provided either as a string, a slice, a vector, or as a function that returns a slice. The text can be encoded as either UTF8 or UTF16:
+The source code to parse can be provided either as a string, a slice, a vector,
+or as a function that returns a slice. The text can be encoded as either UTF8 or UTF16:
 
 ```rust
 // Store some source code in an array of lines.

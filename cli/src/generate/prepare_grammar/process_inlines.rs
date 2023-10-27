@@ -203,6 +203,12 @@ pub(super) fn process_inlines(
                     lexical_grammar.variables[symbol.index].name,
                 ))
             }
+            SymbolType::NonTerminal if symbol.index == 0 => {
+                return Err(anyhow!(
+                    "Rule `{}` cannot be inlined because it is the first rule",
+                    grammar.variables[symbol.index].name,
+                ))
+            }
             _ => {}
         }
     }

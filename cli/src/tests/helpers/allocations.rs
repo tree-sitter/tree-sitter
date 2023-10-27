@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     os::raw::c_void,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering::SeqCst},
+        atomic::{AtomicBool, AtomicUsize, Ordering::SeqCst},
         Mutex,
     },
 };
@@ -25,8 +25,8 @@ unsafe impl Sync for Allocation {}
 #[derive(Default)]
 struct AllocationRecorder {
     enabled: AtomicBool,
-    allocation_count: AtomicU64,
-    outstanding_allocations: Mutex<HashMap<Allocation, u64>>,
+    allocation_count: AtomicUsize,
+    outstanding_allocations: Mutex<HashMap<Allocation, usize>>,
 }
 
 thread_local! {
@@ -83,6 +83,9 @@ fn record_alloc(ptr: *mut c_void) {
 }
 
 fn record_dealloc(ptr: *mut c_void) {
+    if ptr.is_null() {
+        panic!("Zero pointer deallocation!");
+    }
     RECORDER.with(|recorder| {
         if recorder.enabled.load(SeqCst) {
             recorder
@@ -107,9 +110,13 @@ unsafe extern "C" fn ts_record_calloc(count: usize, size: usize) -> *mut c_void 
 }
 
 unsafe extern "C" fn ts_record_realloc(ptr: *mut c_void, size: usize) -> *mut c_void {
-    record_dealloc(ptr);
     let result = realloc(ptr, size);
-    record_alloc(result);
+    if ptr.is_null() {
+        record_alloc(result);
+    } else if ptr != result {
+        record_dealloc(ptr);
+        record_alloc(result);
+    }
     result
 }
 

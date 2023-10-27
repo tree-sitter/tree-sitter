@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 pub mod c_lib;
 
 use memchr::memchr;
@@ -134,7 +136,7 @@ impl TagsConfiguration {
         let mut local_scope_capture_index = None;
         let mut local_definition_capture_index = None;
         for (i, name) in query.capture_names().iter().enumerate() {
-            match name.as_str() {
+            match *name {
                 "" => continue,
                 "name" => name_capture_index = Some(i as u32),
                 "ignore" => ignore_capture_index = Some(i as u32),

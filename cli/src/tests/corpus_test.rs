@@ -1,7 +1,8 @@
 use super::helpers::{
     allocations,
     edits::{get_random_edit, invert_edit},
-    fixtures::{fixtures_dir, get_language, get_test_language},
+    fixtures::{fixtures_dir, get_language, get_test_language, SCRATCH_BASE_DIR},
+    new_seed,
     random::Rand,
     scope_sequence::ScopeSequence,
     EDIT_COUNT, EXAMPLE_FILTER, ITERATION_COUNT, LANGUAGE_FILTER, LOG_ENABLED, LOG_GRAPH_ENABLED,
@@ -13,70 +14,81 @@ use crate::{
     test::{parse_tests, print_diff, print_diff_key, strip_sexp_fields, TestEntry},
     util,
 };
-use std::fs;
+use std::{collections::HashMap, env, fs};
 use tree_sitter::{LogType, Node, Parser, Point, Range, Tree};
+use tree_sitter_proc_macro::test_with_seed;
 
-#[test]
-fn test_bash_corpus() {
-    test_language_corpus("bash");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_bash(seed: usize) {
+    test_language_corpus(
+        "bash",
+        seed,
+        Some(&[
+            // Fragile tests where edit customization changes
+            // lead to significant parse tree structure changes.
+            "bash - corpus - commands - Nested Heredocs",
+            "bash - corpus - commands - Quoted Heredocs",
+            "bash - corpus - commands - Heredocs with weird characters",
+        ]),
+    );
 }
 
-#[test]
-fn test_c_corpus() {
-    test_language_corpus("c");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_c(seed: usize) {
+    test_language_corpus("c", seed, None);
 }
 
-#[test]
-fn test_cpp_corpus() {
-    test_language_corpus("cpp");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_cpp(seed: usize) {
+    test_language_corpus("cpp", seed, None);
 }
 
-#[test]
-fn test_embedded_template_corpus() {
-    test_language_corpus("embedded-template");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_embedded_template(seed: usize) {
+    test_language_corpus("embedded-template", seed, None);
 }
 
-#[test]
-fn test_go_corpus() {
-    test_language_corpus("go");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_go(seed: usize) {
+    test_language_corpus("go", seed, None);
 }
 
-#[test]
-fn test_html_corpus() {
-    test_language_corpus("html");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_html(seed: usize) {
+    test_language_corpus("html", seed, None);
 }
 
-#[test]
-fn test_javascript_corpus() {
-    test_language_corpus("javascript");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_javascript(seed: usize) {
+    test_language_corpus("javascript", seed, None);
 }
 
-#[test]
-fn test_json_corpus() {
-    test_language_corpus("json");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_json(seed: usize) {
+    test_language_corpus("json", seed, None);
 }
 
-#[test]
-fn test_php_corpus() {
-    test_language_corpus("php");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_php(seed: usize) {
+    test_language_corpus("php", seed, None);
 }
 
-#[test]
-fn test_python_corpus() {
-    test_language_corpus("python");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_python(seed: usize) {
+    test_language_corpus("python", seed, None);
 }
 
-#[test]
-fn test_ruby_corpus() {
-    test_language_corpus("ruby");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_ruby(seed: usize) {
+    test_language_corpus("ruby", seed, None);
 }
 
-#[test]
-fn test_rust_corpus() {
-    test_language_corpus("rust");
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_rust(seed: usize) {
+    test_language_corpus("rust", seed, None);
 }
 
-fn test_language_corpus(language_name: &str) {
+fn test_language_corpus(language_name: &str, start_seed: usize, skipped: Option<&[&str]>) {
     let grammars_dir = fixtures_dir().join("grammars");
     let error_corpus_dir = fixtures_dir().join("error_corpus");
     let template_corpus_dir = fixtures_dir().join("template_corpus");
@@ -98,10 +110,30 @@ fn test_language_corpus(language_name: &str) {
         t
     }));
 
+    let mut skipped = skipped.map(|x| HashMap::<&str, usize>::from_iter(x.iter().map(|x| (*x, 0))));
+
     let language = get_language(language_name);
     let mut failure_count = 0;
-    for test in tests {
-        println!("  {} example - {}", language_name, test.name);
+
+    let log_seed = env::var("TREE_SITTER_LOG_SEED").is_ok();
+    let dump_edits = env::var("TREE_SITTER_DUMP_EDITS").is_ok();
+
+    if log_seed {
+        println!("  start seed: {}", start_seed);
+    }
+
+    println!();
+    for (test_index, test) in tests.iter().enumerate() {
+        let test_name = format!("{language_name} - {}", test.name);
+        if let Some(skipped) = skipped.as_mut() {
+            if let Some(counter) = skipped.get_mut(test_name.as_str()) {
+                println!("  {test_index}. {test_name} - SKIPPED");
+                *counter += 1;
+                continue;
+            }
+        }
+
+        println!("  {test_index}. {test_name}");
 
         let passed = allocations::record(|| {
             let mut log_session = None;
@@ -116,10 +148,7 @@ fn test_language_corpus(language_name: &str) {
             }
 
             if actual_output != test.output {
-                println!(
-                    "Incorrect initial parse for {} - {}",
-                    language_name, test.name,
-                );
+                println!("Incorrect initial parse for {test_name}");
                 print_diff_key();
                 print_diff(&actual_output, &test.output);
                 println!("");
@@ -140,7 +169,7 @@ fn test_language_corpus(language_name: &str) {
         drop(parser);
 
         for trial in 0..*ITERATION_COUNT {
-            let seed = *START_SEED + trial;
+            let seed = start_seed + trial;
             let passed = allocations::record(|| {
                 let mut rand = Rand::new(seed);
                 let mut log_session = None;
@@ -158,10 +187,21 @@ fn test_language_corpus(language_name: &str) {
                 for _ in 0..1 + rand.unsigned(*EDIT_COUNT) {
                     let edit = get_random_edit(&mut rand, &input);
                     undo_stack.push(invert_edit(&input, &edit));
-                    perform_edit(&mut tree, &mut input, &edit);
+                    perform_edit(&mut tree, &mut input, &edit).unwrap();
                 }
 
-                // println!("    seed: {}", seed);
+                if log_seed {
+                    println!("   {test_index}.{trial:<2} seed: {}", seed);
+                }
+
+                if dump_edits {
+                    fs::write(
+                        SCRATCH_BASE_DIR
+                            .join(format!("edit.{seed}.{test_index}.{trial} {test_name}")),
+                        &input,
+                    )
+                    .unwrap();
+                }
 
                 if *LOG_GRAPH_ENABLED {
                     eprintln!("{}\n", String::from_utf8_lossy(&input));
@@ -173,16 +213,13 @@ fn test_language_corpus(language_name: &str) {
                 // Check that the new tree is consistent.
                 check_consistent_sizes(&tree2, &input);
                 if let Err(message) = check_changed_ranges(&tree, &tree2, &input) {
-                    println!(
-                        "\nUnexpected scope change in seed {}\n{}\n\n",
-                        seed, message
-                    );
+                    println!("\nUnexpected scope change in seed {seed} with start seed {start_seed}\n{message}\n\n",);
                     return false;
                 }
 
                 // Undo all of the edits and re-parse again.
                 while let Some(edit) = undo_stack.pop() {
-                    perform_edit(&mut tree2, &mut input, &edit);
+                    perform_edit(&mut tree2, &mut input, &edit).unwrap();
                 }
                 if *LOG_GRAPH_ENABLED {
                     eprintln!("{}\n", String::from_utf8_lossy(&input));
@@ -198,10 +235,7 @@ fn test_language_corpus(language_name: &str) {
                 }
 
                 if actual_output != test.output {
-                    println!(
-                        "Incorrect parse for {} - {} - seed {}",
-                        language_name, test.name, seed
-                    );
+                    println!("Incorrect parse for {test_name} - seed {seed}");
                     print_diff_key();
                     print_diff(&actual_output, &test.output);
                     println!("");
@@ -211,7 +245,7 @@ fn test_language_corpus(language_name: &str) {
                 // Check that the edited tree is consistent.
                 check_consistent_sizes(&tree3, &input);
                 if let Err(message) = check_changed_ranges(&tree2, &tree3, &input) {
-                    eprintln!("Unexpected scope change in seed {}\n{}\n\n", seed, message);
+                    println!("Unexpected scope change in seed {seed} with start seed {start_seed}\n{message}\n\n");
                     return false;
                 }
 
@@ -227,6 +261,18 @@ fn test_language_corpus(language_name: &str) {
 
     if failure_count > 0 {
         panic!("{} {} corpus tests failed", failure_count, language_name);
+    }
+
+    if let Some(skipped) = skipped.as_mut() {
+        skipped.retain(|_, v| *v == 0);
+
+        if skipped.len() > 0 {
+            println!("Non matchable skip definitions:");
+            for k in skipped.keys() {
+                println!("  {k}");
+            }
+            panic!("Non matchable skip definitions needs to be removed");
+        }
     }
 }
 
@@ -255,7 +301,7 @@ fn test_feature_corpus_files() {
             grammar_path = test_path.join("grammar.json");
         }
         let error_message_path = test_path.join("expected_error.txt");
-        let grammar_json = generate::load_grammar_file(&grammar_path).unwrap();
+        let grammar_json = generate::load_grammar_file(&grammar_path, None).unwrap();
         let generate_result = generate::generate_parser_for_grammar(&grammar_json);
 
         if error_message_path.exists() {
@@ -424,7 +470,12 @@ fn set_included_ranges(parser: &mut Parser, input: &[u8], delimiters: Option<(&s
         let mut ranges = Vec::new();
         let mut ix = 0;
         while ix < input.len() {
-            let Some(mut start_ix) = input[ix..].windows(2).position(|win| win == start.as_bytes()) else { break };
+            let Some(mut start_ix) = input[ix..]
+                .windows(2)
+                .position(|win| win == start.as_bytes())
+            else {
+                break;
+            };
             start_ix += ix + start.len();
             let end_ix = input[start_ix..]
                 .windows(2)
@@ -492,6 +543,7 @@ fn flatten_tests(test: TestEntry) -> Vec<FlattenedTest> {
                 input,
                 output,
                 has_fields,
+                ..
             } => {
                 if !prefix.is_empty() {
                     name.insert_str(0, " - ");

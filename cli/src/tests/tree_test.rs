@@ -306,7 +306,7 @@ fn test_tree_cursor() {
         .parse(
             "
                 struct Stuff {
-                    a: A;
+                    a: A,
                     b: Option<B>,
                 }
             ",
@@ -331,6 +331,88 @@ fn test_tree_cursor() {
     assert!(cursor.goto_next_sibling());
     assert_eq!(cursor.node().kind(), "field_declaration_list");
     assert_eq!(cursor.node().is_named(), true);
+
+    assert!(cursor.goto_last_child());
+    assert_eq!(cursor.node().kind(), "}");
+    assert_eq!(cursor.node().is_named(), false);
+    assert_eq!(cursor.node().start_position(), Point { row: 4, column: 16 });
+
+    assert!(cursor.goto_previous_sibling());
+    assert_eq!(cursor.node().kind(), ",");
+    assert_eq!(cursor.node().is_named(), false);
+    assert_eq!(cursor.node().start_position(), Point { row: 3, column: 32 });
+
+    assert!(cursor.goto_previous_sibling());
+    assert_eq!(cursor.node().kind(), "field_declaration");
+    assert_eq!(cursor.node().is_named(), true);
+    assert_eq!(cursor.node().start_position(), Point { row: 3, column: 20 });
+
+    assert!(cursor.goto_previous_sibling());
+    assert_eq!(cursor.node().kind(), ",");
+    assert_eq!(cursor.node().is_named(), false);
+    assert_eq!(cursor.node().start_position(), Point { row: 2, column: 24 });
+
+    assert!(cursor.goto_previous_sibling());
+    assert_eq!(cursor.node().kind(), "field_declaration");
+    assert_eq!(cursor.node().is_named(), true);
+    assert_eq!(cursor.node().start_position(), Point { row: 2, column: 20 });
+
+    assert!(cursor.goto_previous_sibling());
+    assert_eq!(cursor.node().kind(), "{");
+    assert_eq!(cursor.node().is_named(), false);
+    assert_eq!(cursor.node().start_position(), Point { row: 1, column: 29 });
+
+    let mut copy = tree.walk();
+    copy.reset_to(cursor);
+
+    assert_eq!(copy.node().kind(), "{");
+    assert_eq!(copy.node().is_named(), false);
+
+    assert!(copy.goto_parent());
+    assert_eq!(copy.node().kind(), "field_declaration_list");
+    assert_eq!(copy.node().is_named(), true);
+
+    assert!(copy.goto_parent());
+    assert_eq!(copy.node().kind(), "struct_item");
+}
+
+#[test]
+fn test_tree_cursor_previous_sibling() {
+    let mut parser = Parser::new();
+    parser.set_language(get_language("rust")).unwrap();
+
+    let text = "
+    // Hi there
+    // This is fun!
+    // Another one!
+";
+    let tree = parser.parse(text, None).unwrap();
+
+    let mut cursor = tree.walk();
+    assert_eq!(cursor.node().kind(), "source_file");
+
+    assert!(cursor.goto_last_child());
+    assert_eq!(cursor.node().kind(), "line_comment");
+    assert_eq!(
+        cursor.node().utf8_text(text.as_bytes()).unwrap(),
+        "// Another one!"
+    );
+
+    assert!(cursor.goto_previous_sibling());
+    assert_eq!(cursor.node().kind(), "line_comment");
+    assert_eq!(
+        cursor.node().utf8_text(text.as_bytes()).unwrap(),
+        "// This is fun!"
+    );
+
+    assert!(cursor.goto_previous_sibling());
+    assert_eq!(cursor.node().kind(), "line_comment");
+    assert_eq!(
+        cursor.node().utf8_text(text.as_bytes()).unwrap(),
+        "// Hi there"
+    );
+
+    assert!(!cursor.goto_previous_sibling());
 }
 
 #[test]
@@ -620,7 +702,7 @@ fn get_changed_ranges(
     source_code: &mut Vec<u8>,
     edit: Edit,
 ) -> Vec<Range> {
-    perform_edit(tree, source_code, &edit);
+    perform_edit(tree, source_code, &edit).unwrap();
     let new_tree = parser.parse(&source_code, Some(tree)).unwrap();
     let result = tree.changed_ranges(&new_tree).collect();
     *tree = new_tree;

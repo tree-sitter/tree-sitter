@@ -1,14 +1,15 @@
 [package]
 name = "tree-sitter"
 description = "Rust bindings to the Tree-sitter parsing library"
-version = "0.20.9"
+version = "0.20.10"
 authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 readme = "binding_rust/README.md"
 keywords = ["incremental", "parsing"]
 categories = ["api-bindings", "parsing", "text-editors"]
 repository = "https://github.com/tree-sitter/tree-sitter"
+rust-version.workspace = true
 
 build = "binding_rust/build.rs"
 
@@ -25,7 +26,7 @@ include = [
 wasm = ["wasmtime", "wasmtime-c-api"]
 
 [dependencies]
-regex = "1"
+regex = "1.9.1"
 
 [dependencies.wasmtime]
 git = "https://github.com/maxbrunsfeld/wasmtime"
@@ -41,7 +42,8 @@ optional = true
 default-features = false
 
 [build-dependencies]
-cc = "^1.0.58"
+bindgen = { version = "^0.66.1", optional = true }
+cc = "^1.0.79"
 
 [lib]
 path = "binding_rust/lib.rs"

@@ -1,6 +1,6 @@
 use lazy_static::lazy_static;
-use std::fs;
 use std::path::{Path, PathBuf};
+use std::{env, fs};
 use tree_sitter::Language;
 use tree_sitter_highlight::HighlightConfiguration;
 use tree_sitter_loader::Loader;
@@ -9,7 +9,13 @@ use tree_sitter_tags::TagsConfiguration;
 include!("./dirs.rs");
 
 lazy_static! {
-    static ref TEST_LOADER: Loader = Loader::with_parser_lib_path(SCRATCH_DIR.join("lib"));
+    static ref TEST_LOADER: Loader = {
+        let mut loader = Loader::with_parser_lib_path(SCRATCH_DIR.clone());
+        if env::var("TREE_SITTER_GRAMMAR_DEBUG").is_ok() {
+            loader.use_debug_build(true);
+        }
+        loader
+    };
 }
 
 pub fn test_loader<'a>() -> &'a Loader {
@@ -46,9 +52,11 @@ pub fn get_highlight_config(
     let locals_query = fs::read_to_string(queries_path.join("locals.scm")).unwrap_or(String::new());
     let mut result = HighlightConfiguration::new(
         language,
+        language_name,
         &highlights_query,
         &injections_query,
         &locals_query,
+        false,
     )
     .unwrap();
     result.configure(&highlight_names);
@@ -63,11 +71,7 @@ pub fn get_tags_config(language_name: &str) -> TagsConfiguration {
     TagsConfiguration::new(language, &tags_query, &locals_query).unwrap()
 }
 
-pub fn get_test_language(
-    name: &str,
-    parser_code: &str,
-    scanner_src_path: Option<&Path>,
-) -> Language {
+pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> Language {
     let src_dir = SCRATCH_DIR.join("src").join(name);
     fs::create_dir_all(&src_dir).unwrap();
 
@@ -76,11 +80,16 @@ pub fn get_test_language(
         fs::write(&parser_path, parser_code).unwrap();
     }
 
-    if let Some(scanner_src_path) = scanner_src_path {
-        let scanner_code = fs::read_to_string(&scanner_src_path).unwrap();
-        let scanner_path = src_dir.join("scanner.c");
-        if !fs::read_to_string(&scanner_path).map_or(false, |content| content == scanner_code) {
-            fs::write(&scanner_path, scanner_code).unwrap();
+    if let Some(path) = path {
+        let scanner_path = path.join("scanner.c");
+        if scanner_path.exists() {
+            let scanner_code = fs::read_to_string(&scanner_path).unwrap();
+            let scanner_copy_path = src_dir.join("scanner.c");
+            if !fs::read_to_string(&scanner_copy_path)
+                .map_or(false, |content| content == scanner_code)
+            {
+                fs::write(&scanner_copy_path, scanner_code).unwrap();
+            }
         }
     }
 

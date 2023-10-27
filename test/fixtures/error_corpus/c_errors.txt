@@ -14,8 +14,8 @@ int main() {
     (primitive_type)
     (function_declarator (identifier) (parameter_list))
     (compound_statement
-      (expression_statement (call_expression (identifier) (argument_list (string_literal))) (MISSING ";"))
-      (expression_statement (call_expression (identifier) (argument_list (string_literal))) (MISSING ";")))))
+      (expression_statement (call_expression (identifier) (argument_list (string_literal (string_content)))) (MISSING ";"))
+      (expression_statement (call_expression (identifier) (argument_list (string_literal (string_content)))) (MISSING ";")))))
 
 ==============================================
 Top-level declarations with missing semicolons
@@ -53,7 +53,7 @@ int c() {
 
 (translation_unit
   (preproc_ifdef (identifier)
-    (linkage_specification (string_literal) (declaration_list
+    (linkage_specification (string_literal (string_content)) (declaration_list
       (preproc_call (preproc_directive))
       (comment)
       (declaration (primitive_type) (identifier))
@@ -108,7 +108,7 @@ int main() {
     (function_declarator (identifier) (parameter_list))
     (compound_statement
       (declaration (primitive_type) (identifier))
-      (ERROR (primitive_type) (UNEXPECTED '$')))))
+      (ERROR (primitive_type) (ERROR) (identifier) (UNEXPECTED '@')))))
 
 =========================================
 Extra values in parenthesized expressions

@@ -237,6 +237,8 @@ static inline TSNode ts_node__prev_sibling(TSNode self, bool include_anonymous) 
       return earlier_node;
     } else {
       node = earlier_node;
+      earlier_node = ts_node__null();
+      earlier_node_is_relevant = false;
     }
   }
 
@@ -423,6 +425,19 @@ const char *ts_node_type(TSNode self) {
   return ts_language_symbol_name(self.tree->language, symbol);
 }
 
+const TSLanguage *ts_node_language(TSNode self) {
+  return self.tree->language;
+}
+
+TSSymbol ts_node_grammar_symbol(TSNode self) {
+  return ts_subtree_symbol(ts_node__subtree(self));
+}
+
+const char *ts_node_grammar_type(TSNode self) {
+  TSSymbol symbol = ts_subtree_symbol(ts_node__subtree(self));
+  return ts_language_symbol_name(self.tree->language, symbol);
+}
+
 char *ts_node_string(TSNode self) {
   return ts_subtree_string(ts_node__subtree(self), self.tree->language, false);
 }
@@ -456,6 +471,29 @@ bool ts_node_has_changes(TSNode self) {
 
 bool ts_node_has_error(TSNode self) {
   return ts_subtree_error_cost(ts_node__subtree(self)) > 0;
+}
+
+bool ts_node_is_error(TSNode self) {
+  TSSymbol symbol = ts_node_symbol(self);
+  return symbol == ts_builtin_sym_error;
+}
+
+uint32_t ts_node_descendant_count(TSNode self) {
+  return ts_subtree_visible_descendant_count(ts_node__subtree(self)) + 1;
+}
+
+TSStateId ts_node_parse_state(TSNode self) {
+  return ts_subtree_parse_state(ts_node__subtree(self));
+}
+
+TSStateId ts_node_next_parse_state(TSNode self) {
+  const TSLanguage *language = self.tree->language;
+  uint16_t state = ts_node_parse_state(self);
+  if (state == TS_TREE_STATE_NONE) {
+    return TS_TREE_STATE_NONE;
+  }
+  uint16_t symbol = ts_node_grammar_symbol(self);
+  return ts_language_next_state(language, state, symbol);
 }
 
 TSNode ts_node_parent(TSNode self) {
@@ -569,24 +607,58 @@ recur:
   return ts_node__null();
 }
 
-const char *ts_node_field_name_for_child(TSNode self, uint32_t child_index) {
-  const TSFieldMapEntry *field_map_start = NULL, *field_map_end = NULL;
-  if (!ts_node_child_count(self)) {
+static inline const char *ts_node__field_name_from_language(TSNode self, uint32_t structural_child_index) {
+    const TSFieldMapEntry *field_map, *field_map_end;
+    ts_language_field_map(
+      self.tree->language,
+      ts_node__subtree(self).ptr->production_id,
+      &field_map,
+      &field_map_end
+    );
+    for (; field_map != field_map_end; field_map++) {
+      if (!field_map->inherited && field_map->child_index == structural_child_index) {
+        return self.tree->language->field_names[field_map->field_id];
+      }
+    }
     return NULL;
-  }
+}
 
-  ts_language_field_map(
-    self.tree->language,
-    ts_node__subtree(self).ptr->production_id,
-    &field_map_start,
-    &field_map_end
-  );
+const char *ts_node_field_name_for_child(TSNode self, uint32_t child_index) {
+  TSNode result = self;
+  bool did_descend = true;
+  const char *inherited_field_name = NULL;
 
-  for (const TSFieldMapEntry *i = field_map_start; i < field_map_end; i++) {
-    if (i->child_index == child_index) {
-      return self.tree->language->field_names[i->field_id];
+  while (did_descend) {
+    did_descend = false;
+
+    TSNode child;
+    uint32_t index = 0;
+    NodeChildIterator iterator = ts_node_iterate_children(&result);
+    while (ts_node_child_iterator_next(&iterator, &child)) {
+      if (ts_node__is_relevant(child, true)) {
+        if (index == child_index) {
+          const char *field_name = ts_node__field_name_from_language(result, iterator.structural_child_index - 1);
+          if (field_name) return field_name;
+          return inherited_field_name;
+        }
+        index++;
+      } else {
+        uint32_t grandchild_index = child_index - index;
+        uint32_t grandchild_count = ts_node__relevant_child_count(child, true);
+        if (grandchild_index < grandchild_count) {
+          const char *field_name = ts_node__field_name_from_language(result, iterator.structural_child_index - 1);
+          if (field_name) inherited_field_name = field_name;
+
+          did_descend = true;
+          result = child;
+          child_index = grandchild_index;
+          break;
+        }
+        index += grandchild_count;
+      }
     }
   }
+
   return NULL;
 }
 

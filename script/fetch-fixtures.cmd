@@ -7,7 +7,7 @@ call:fetch_grammar embedded-template master
 call:fetch_grammar go                master
 call:fetch_grammar html              master
 call:fetch_grammar java              master
-call:fetch_grammar javascript        partial-order-precedences
+call:fetch_grammar javascript        master
 call:fetch_grammar jsdoc             master
 call:fetch_grammar json              master
 call:fetch_grammar php               master

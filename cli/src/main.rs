@@ -1,12 +1,14 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Context, Error, Result};
 use clap::{App, AppSettings, Arg, SubCommand};
 use glob::glob;
-use std::path::Path;
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 use std::{env, fs, u64};
-use tree_sitter::{Parser, WasmStore};
+use tree_sitter::{ffi, Parser, Point, WasmStore};
 use tree_sitter_cli::{
-    generate, highlight, logger, parse, playground, query, tags, test, test_highlight, test_tags,
-    util, wasm,
+    generate, highlight, logger,
+    parse::{self, ParseFileOptions, ParseOutput},
+    playground, query, tags, test, test_highlight, test_tags, util, wasm,
 };
 use tree_sitter_config::Config;
 use tree_sitter_highlight::Highlighter;
@@ -82,6 +84,9 @@ fn run() -> Result<()> {
     let wasm_arg = Arg::with_name("wasm")
         .long("wasm")
         .help("compile parsers to wasm instead of native dynamic libraries");
+    let apply_all_captures_arg = Arg::with_name("apply-all-captures")
+        .help("Apply all captures to highlights")
+        .long("apply-all-captures");
 
     let matches = App::new("tree-sitter")
         .author("Max Brunsfeld <maxbrunsfeld@gmail.com>")
@@ -114,12 +119,32 @@ fn run() -> Result<()> {
                 )
                 .arg(Arg::with_name("no-bindings").long("no-bindings"))
                 .arg(
+                    Arg::with_name("build")
+                        .long("build")
+                        .short("b")
+                        .help("Compile all defined languages in the current dir"),
+                )
+                .arg(&debug_build_arg)
+                .arg(
+                    Arg::with_name("libdir")
+                        .long("libdir")
+                        .takes_value(true)
+                        .value_name("path"),
+                )
+                .arg(
                     Arg::with_name("report-states-for-rule")
                         .long("report-states-for-rule")
                         .value_name("rule-name")
                         .takes_value(true),
                 )
-                .arg(Arg::with_name("no-minimize").long("no-minimize")),
+                .arg(
+                    Arg::with_name("js-runtime")
+                        .long("js-runtime")
+                        .takes_value(true)
+                        .value_name("executable")
+                        .env("TREE_SITTER_JS_RUNTIME")
+                        .help("Use a JavaScript runtime other than node"),
+                ),
         )
         .subcommand(
             SubCommand::with_name("parse")
@@ -132,7 +157,8 @@ fn run() -> Result<()> {
                 .arg(&debug_build_arg)
                 .arg(&debug_graph_arg)
                 .arg(&wasm_arg)
-                .arg(Arg::with_name("debug-xml").long("xml").short("x"))
+                .arg(Arg::with_name("output-dot").long("dot"))
+                .arg(Arg::with_name("output-xml").long("xml").short("x"))
                 .arg(
                     Arg::with_name("stat")
                         .help("Show parsing statistic")
@@ -155,6 +181,12 @@ fn run() -> Result<()> {
                         .takes_value(true)
                         .multiple(true)
                         .number_of_values(1),
+                )
+                .arg(
+                    Arg::with_name("encoding")
+                        .help("The encoding of the input files")
+                        .long("encoding")
+                        .takes_value(true),
                 ),
         )
         .subcommand(
@@ -167,12 +199,20 @@ fn run() -> Result<()> {
                         .index(1)
                         .required(true),
                 )
+                .arg(&time_arg)
+                .arg(&quiet_arg)
                 .arg(&paths_file_arg)
                 .arg(&paths_arg.clone().index(2))
                 .arg(
                     Arg::with_name("byte-range")
                         .help("The range of byte offsets in which the query will be executed")
                         .long("byte-range")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("row-range")
+                        .help("The range of rows in which the query will be executed")
+                        .long("row-range")
                         .takes_value(true),
                 )
                 .arg(&scope_arg)
@@ -208,7 +248,8 @@ fn run() -> Result<()> {
                 .arg(&debug_arg)
                 .arg(&debug_build_arg)
                 .arg(&debug_graph_arg)
-                .arg(&wasm_arg),
+                .arg(&wasm_arg)
+                .arg(&apply_all_captures_arg),
         )
         .subcommand(
             SubCommand::with_name("highlight")
@@ -219,11 +260,31 @@ fn run() -> Result<()> {
                         .long("html")
                         .short("H"),
                 )
+                .arg(
+                    Arg::with_name("check")
+                        .help("Check that highlighting captures conform strictly to standards")
+                        .long("check"),
+                )
+                .arg(
+                    Arg::with_name("captures-path")
+                        .help("Path to a file with captures")
+                        .long("captures-path")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("query-paths")
+                        .help("Paths to files with queries")
+                        .long("query-paths")
+                        .takes_value(true)
+                        .multiple(true)
+                        .number_of_values(1),
+                )
                 .arg(&scope_arg)
                 .arg(&time_arg)
                 .arg(&quiet_arg)
                 .arg(&paths_file_arg)
-                .arg(&paths_arg),
+                .arg(&paths_arg)
+                .arg(&apply_all_captures_arg),
         )
         .subcommand(
             SubCommand::with_name("build-wasm")
@@ -279,6 +340,10 @@ fn run() -> Result<()> {
 
         ("generate", Some(matches)) => {
             let grammar_path = matches.value_of("grammar-path");
+            let debug_build = matches.is_present("debug-build");
+            let build = matches.is_present("build");
+            let libdir = matches.value_of("libdir");
+            let js_runtime = matches.value_of("js-runtime");
             let report_symbol_name = matches.value_of("report-states-for-rule").or_else(|| {
                 if matches.is_present("report-states") {
                     Some("")
@@ -289,16 +354,18 @@ fn run() -> Result<()> {
             if matches.is_present("log") {
                 logger::init();
             }
-            let abi_version =
-                matches
-                    .value_of("abi-version")
-                    .map_or(DEFAULT_GENERATE_ABI_VERSION, |version| {
-                        if version == "latest" {
-                            tree_sitter::LANGUAGE_VERSION
-                        } else {
-                            version.parse().expect("invalid abi version flag")
-                        }
-                    });
+            let abi_version = matches.value_of("abi-version").map_or(
+                Ok::<_, Error>(DEFAULT_GENERATE_ABI_VERSION),
+                |version| {
+                    Ok(if version == "latest" {
+                        tree_sitter::LANGUAGE_VERSION
+                    } else {
+                        version
+                            .parse()
+                            .with_context(|| "invalid abi version flag")?
+                    })
+                },
+            )?;
             let generate_bindings = !matches.is_present("no-bindings");
             generate::generate_parser_in_directory(
                 &current_dir,
@@ -306,7 +373,15 @@ fn run() -> Result<()> {
                 abi_version,
                 generate_bindings,
                 report_symbol_name,
+                js_runtime,
             )?;
+            if build {
+                if let Some(path) = libdir {
+                    loader = loader::Loader::with_parser_lib_path(PathBuf::from(path));
+                }
+                loader.use_debug_build(debug_build);
+                loader.languages_at_path(&current_dir)?;
+            }
         }
 
         ("test", Some(matches)) => {
@@ -317,6 +392,12 @@ fn run() -> Result<()> {
             let filter = matches.value_of("filter");
             let wasm = matches.is_present("wasm");
             let mut parser = Parser::new();
+            let apply_all_captures = matches.is_present("apply-all-captures");
+
+            if debug {
+                // For augmenting debug logging in external scanners
+                env::set_var("TREE_SITTER_DEBUG", "1");
+            }
 
             loader.use_debug_build(debug_build);
 
@@ -364,7 +445,12 @@ fn run() -> Result<()> {
                 if let Some(store) = store.take() {
                     highlighter.parser().set_wasm_store(store).unwrap();
                 }
-                test_highlight::test_highlights(&loader, &mut highlighter, &test_highlight_dir)?;
+                test_highlight::test_highlights(
+                    &loader,
+                    &mut highlighter,
+                    &test_highlight_dir,
+                    apply_all_captures,
+                )?;
                 store = highlighter.parser().take_wasm_store();
             }
 
@@ -382,14 +468,33 @@ fn run() -> Result<()> {
             let debug = matches.is_present("debug");
             let debug_graph = matches.is_present("debug-graph");
             let debug_build = matches.is_present("debug-build");
-            let debug_xml = matches.is_present("debug-xml");
-            let quiet = matches.is_present("quiet");
+
+            let output = if matches.is_present("output-dot") {
+                ParseOutput::Dot
+            } else if matches.is_present("output-xml") {
+                ParseOutput::Xml
+            } else if matches.is_present("quiet") {
+                ParseOutput::Quiet
+            } else {
+                ParseOutput::Normal
+            };
+
+            let encoding =
+                matches
+                    .values_of("encoding")
+                    .map_or(Ok(None), |mut e| match e.next() {
+                        Some("utf16") => Ok(Some(ffi::TSInputEncodingUTF16)),
+                        Some("utf8") => Ok(Some(ffi::TSInputEncodingUTF8)),
+                        Some(_) => Err(anyhow!("Invalid encoding. Expected one of: utf8, utf16")),
+                        None => Ok(None),
+                    })?;
+
             let time = matches.is_present("time");
             let wasm = matches.is_present("wasm");
             let edits = matches
                 .values_of("edits")
                 .map_or(Vec::new(), |e| e.collect());
-            let cancellation_flag = util::cancel_on_stdin();
+            let cancellation_flag = util::cancel_on_signal();
             let mut parser = Parser::new();
 
             if debug {
@@ -430,19 +535,21 @@ fn run() -> Result<()> {
                     .set_language(language)
                     .context("incompatible language")?;
 
-                let this_file_errored = parse::parse_file_at_path(
-                    &mut parser,
+                let opts = ParseFileOptions {
+                    language,
                     path,
-                    &edits,
+                    edits: &edits,
                     max_path_length,
-                    quiet,
-                    time,
+                    output,
+                    print_time: time,
                     timeout,
                     debug,
                     debug_graph,
-                    debug_xml,
-                    Some(&cancellation_flag),
-                )?;
+                    cancellation_flag: Some(&cancellation_flag),
+                    encoding,
+                };
+
+                let this_file_errored = parse::parse_file_at_path(&mut parser, opts)?;
 
                 if should_track_stats {
                     stats.total_parses += 1;
@@ -465,6 +572,8 @@ fn run() -> Result<()> {
 
         ("query", Some(matches)) => {
             let ordered_captures = matches.values_of("captures").is_some();
+            let quiet = matches.values_of("quiet").is_some();
+            let time = matches.values_of("time").is_some();
             let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
             let loader_config = config.get()?;
             loader.find_all_languages(&loader_config)?;
@@ -474,9 +583,17 @@ fn run() -> Result<()> {
                 matches.value_of("scope"),
             )?;
             let query_path = Path::new(matches.value_of("query-path").unwrap());
-            let range = matches.value_of("byte-range").map(|br| {
-                let r: Vec<&str> = br.split(":").collect();
-                r[0].parse().unwrap()..r[1].parse().unwrap()
+            let byte_range = matches.value_of("byte-range").and_then(|arg| {
+                let mut parts = arg.split(":");
+                let start = parts.next()?.parse().ok()?;
+                let end = parts.next().unwrap().parse().ok()?;
+                Some(start..end)
+            });
+            let point_range = matches.value_of("row-range").and_then(|arg| {
+                let mut parts = arg.split(":");
+                let start = parts.next()?.parse().ok()?;
+                let end = parts.next().unwrap().parse().ok()?;
+                Some(Point::new(start, 0)..Point::new(end, 0))
             });
             let should_test = matches.is_present("test");
             query::query_files_at_paths(
@@ -484,8 +601,11 @@ fn run() -> Result<()> {
                 paths,
                 query_path,
                 ordered_captures,
-                range,
+                byte_range,
+                point_range,
                 should_test,
+                quiet,
+                time,
             )?;
         }
 
@@ -511,13 +631,15 @@ fn run() -> Result<()> {
             let time = matches.is_present("time");
             let quiet = matches.is_present("quiet");
             let html_mode = quiet || matches.is_present("html");
+            let should_check = matches.is_present("check");
             let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
+            let apply_all_captures = matches.is_present("apply-all-captures");
 
             if html_mode && !quiet {
                 println!("{}", highlight::HTML_HEADER);
             }
 
-            let cancellation_flag = util::cancel_on_stdin();
+            let cancellation_flag = util::cancel_on_signal();
 
             let mut lang = None;
             if let Some(scope) = matches.value_of("scope") {
@@ -526,6 +648,15 @@ fn run() -> Result<()> {
                     return Err(anyhow!("Unknown scope '{}'", scope));
                 }
             }
+
+            let query_paths = matches.values_of("query-paths").map_or(None, |e| {
+                Some(
+                    e.collect::<Vec<_>>()
+                        .into_iter()
+                        .map(|s| s.to_string())
+                        .collect::<Vec<_>>(),
+                )
+            });
 
             for path in paths {
                 let path = Path::new(&path);
@@ -540,7 +671,45 @@ fn run() -> Result<()> {
                     },
                 };
 
-                if let Some(highlight_config) = language_config.highlight_config(language)? {
+                if let Some(highlight_config) = language_config.highlight_config(
+                    language,
+                    apply_all_captures,
+                    query_paths.as_deref(),
+                )? {
+                    if should_check {
+                        let names = if let Some(path) = matches.value_of("captures-path") {
+                            let path = Path::new(path);
+                            let file = fs::read_to_string(path)?;
+                            let capture_names = file
+                                .lines()
+                                .filter_map(|line| {
+                                    if line.trim().is_empty() || line.trim().starts_with(';') {
+                                        return None;
+                                    }
+                                    line.split(';').next().map(|s| s.trim().trim_matches('"'))
+                                })
+                                .collect::<HashSet<_>>();
+                            highlight_config.nonconformant_capture_names(&capture_names)
+                        } else {
+                            highlight_config.nonconformant_capture_names(&HashSet::new())
+                        };
+                        if names.is_empty() {
+                            eprintln!("All highlight captures conform to standards.");
+                        } else {
+                            eprintln!(
+                                "Non-standard highlight {} detected:",
+                                if names.len() > 1 {
+                                    "captures"
+                                } else {
+                                    "capture"
+                                }
+                            );
+                            for name in names {
+                                eprintln!("* {}", name);
+                            }
+                        }
+                    }
+
                     let source = fs::read(path)?;
                     if html_mode {
                         highlight::html(
@@ -550,6 +719,7 @@ fn run() -> Result<()> {
                             highlight_config,
                             quiet,
                             time,
+                            Some(&cancellation_flag),
                         )?;
                     } else {
                         highlight::ansi(
@@ -582,7 +752,7 @@ fn run() -> Result<()> {
 
         ("playground", Some(matches)) => {
             let open_in_browser = !matches.is_present("quiet");
-            playground::serve(&current_dir, open_in_browser);
+            playground::serve(&current_dir, open_in_browser)?;
         }
 
         ("dump-languages", Some(_)) => {

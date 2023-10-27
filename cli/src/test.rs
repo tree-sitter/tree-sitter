@@ -16,11 +16,11 @@ use walkdir::WalkDir;
 
 lazy_static! {
     static ref HEADER_REGEX: ByteRegex =
-        ByteRegexBuilder::new(r"^===+(?P<suffix1>[^=\r\n][^\r\n]*)?\r?\n(?P<test_name>([^=\r\n][^\r\n]*\r?\n)+)===+(?P<suffix2>[^=\r\n][^\r\n]*)?\r?\n")
+        ByteRegexBuilder::new(r"^(?P<equals>(?:=+){3,})(?P<suffix1>[^=\r\n][^\r\n]*)?\r?\n(?P<test_name>([^=\r\n][^\r\n]*\r?\n)+)===+(?P<suffix2>[^=\r\n][^\r\n]*)?\r?\n")
             .multi_line(true)
             .build()
             .unwrap();
-    static ref DIVIDER_REGEX: ByteRegex = ByteRegexBuilder::new(r"^---+(?P<suffix>[^-\r\n][^\r\n]*)?\r?\n")
+    static ref DIVIDER_REGEX: ByteRegex = ByteRegexBuilder::new(r"^(?P<hyphens>(?:-+){3,})(?P<suffix>[^-\r\n][^\r\n]*)?\r?\n")
         .multi_line(true)
         .build()
         .unwrap();
@@ -40,6 +40,8 @@ pub enum TestEntry {
         name: String,
         input: Vec<u8>,
         output: String,
+        header_delim_len: usize,
+        divider_delim_len: usize,
         has_fields: bool,
     },
 }
@@ -177,13 +179,15 @@ fn run_tests(
     mut indent_level: i32,
     failures: &mut Vec<(String, String, String)>,
     update: bool,
-    corrected_entries: &mut Vec<(String, String, String)>,
+    corrected_entries: &mut Vec<(String, String, String, usize, usize)>,
 ) -> Result<()> {
     match test_entry {
         TestEntry::Example {
             name,
             input,
             output,
+            header_delim_len,
+            divider_delim_len,
             has_fields,
         } => {
             if let Some(filter) = filter {
@@ -191,7 +195,13 @@ fn run_tests(
                     if update {
                         let input = String::from_utf8(input).unwrap();
                         let output = format_sexp(&output);
-                        corrected_entries.push((name, input, output));
+                        corrected_entries.push((
+                            name,
+                            input,
+                            output,
+                            header_delim_len,
+                            divider_delim_len,
+                        ));
                     }
                     return Ok(());
                 }
@@ -201,21 +211,31 @@ fn run_tests(
             if !has_fields {
                 actual = strip_sexp_fields(actual);
             }
-            for _ in 0..indent_level {
-                print!("  ");
-            }
+            print!("{}", "  ".repeat(indent_level as usize));
             if actual == output {
                 println!("✓ {}", Colour::Green.paint(&name));
                 if update {
                     let input = String::from_utf8(input).unwrap();
                     let output = format_sexp(&output);
-                    corrected_entries.push((name, input, output));
+                    corrected_entries.push((
+                        name,
+                        input,
+                        output,
+                        header_delim_len,
+                        divider_delim_len,
+                    ));
                 }
             } else {
                 if update {
                     let input = String::from_utf8(input).unwrap();
                     let output = format_sexp(&actual);
-                    corrected_entries.push((name.clone(), input, output));
+                    corrected_entries.push((
+                        name.clone(),
+                        input,
+                        output,
+                        header_delim_len,
+                        divider_delim_len,
+                    ));
                     println!("✓ {}", Colour::Blue.paint(&name));
                 } else {
                     println!("✗ {}", Colour::Red.paint(&name));
@@ -229,9 +249,7 @@ fn run_tests(
             file_path,
         } => {
             if indent_level > 0 {
-                for _ in 0..indent_level {
-                    print!("  ");
-                }
+                print!("{}", "  ".repeat(indent_level as usize));
                 println!("{}:", name);
             }
 
@@ -312,27 +330,32 @@ fn format_sexp_indented(sexp: &String, initial_indent_level: u32) -> String {
     formatted
 }
 
-fn write_tests(file_path: &Path, corrected_entries: &Vec<(String, String, String)>) -> Result<()> {
+fn write_tests(
+    file_path: &Path,
+    corrected_entries: &Vec<(String, String, String, usize, usize)>,
+) -> Result<()> {
     let mut buffer = fs::File::create(file_path)?;
     write_tests_to_buffer(&mut buffer, corrected_entries)
 }
 
 fn write_tests_to_buffer(
     buffer: &mut impl Write,
-    corrected_entries: &Vec<(String, String, String)>,
+    corrected_entries: &Vec<(String, String, String, usize, usize)>,
 ) -> Result<()> {
-    for (i, (name, input, output)) in corrected_entries.iter().enumerate() {
+    for (i, (name, input, output, header_delim_len, divider_delim_len)) in
+        corrected_entries.iter().enumerate()
+    {
         if i > 0 {
             write!(buffer, "\n")?;
         }
         write!(
             buffer,
             "{}\n{}\n{}\n{}\n{}\n\n{}\n",
-            "=".repeat(80),
+            "=".repeat(*header_delim_len),
             name,
-            "=".repeat(80),
+            "=".repeat(*header_delim_len),
             input,
-            "-".repeat(80),
+            "-".repeat(*divider_delim_len),
             output.trim()
         )?;
     }
@@ -351,9 +374,18 @@ pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
             let entry = entry?;
             let hidden = entry.file_name().to_str().unwrap_or("").starts_with(".");
             if !hidden {
-                children.push(parse_tests(&entry.path())?);
+                children.push(entry.path());
             }
         }
+        children.sort_by(|a, b| {
+            a.file_name()
+                .unwrap_or_default()
+                .cmp(&b.file_name().unwrap_or_default())
+        });
+        let children = children
+            .iter()
+            .map(|path| parse_tests(path))
+            .collect::<io::Result<Vec<TestEntry>>>()?;
         Ok(TestEntry::Group {
             name,
             children,
@@ -387,6 +419,7 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
     // Ignore any matches whose suffix does not match the first header
     // suffix in the file.
     let header_matches = HEADER_REGEX.captures_iter(&bytes).filter_map(|c| {
+        let header_delim_len = c.name("equals").map(|n| n.as_bytes().len()).unwrap_or(80);
         let suffix1 = c
             .name("suffix1")
             .map(|m| String::from_utf8_lossy(m.as_bytes()));
@@ -398,13 +431,17 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
             let test_name = c
                 .name("test_name")
                 .map(|c| String::from_utf8_lossy(c.as_bytes()).trim_end().to_string());
-            Some((header_range, test_name))
+            let res = Some((header_delim_len, header_range, test_name));
+            res
         } else {
             None
         }
     });
 
-    for (header_range, test_name) in header_matches.chain(Some((bytes.len()..bytes.len(), None))) {
+    let mut prev_header_len = 80;
+    for (header_delim_len, header_range, test_name) in
+        header_matches.chain(Some((80, bytes.len()..bytes.len(), None)))
+    {
         // Find the longest line of dashes following each test description. That line
         // separates the input from the expected output. Ignore any matches whose suffix
         // does not match the first suffix in the file.
@@ -412,19 +449,25 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
             let divider_range = DIVIDER_REGEX
                 .captures_iter(&bytes[prev_header_end..header_range.start])
                 .filter_map(|m| {
+                    let divider_delim_len =
+                        m.name("hyphens").map(|m| m.as_bytes().len()).unwrap_or(80);
                     let suffix = m
                         .name("suffix")
                         .map(|m| String::from_utf8_lossy(m.as_bytes()));
                     if suffix == first_suffix {
                         let range = m.get(0).unwrap().range();
-                        Some((prev_header_end + range.start)..(prev_header_end + range.end))
+                        let res = Some((
+                            divider_delim_len,
+                            (prev_header_end + range.start)..(prev_header_end + range.end),
+                        ));
+                        res
                     } else {
                         None
                     }
                 })
-                .max_by_key(|range| range.len());
+                .max_by_key(|(_, range)| range.len());
 
-            if let Some(divider_range) = divider_range {
+            if let Some((divider_delim_len, divider_range)) = divider_range {
                 if let Ok(output) = str::from_utf8(&bytes[divider_range.end..header_range.start]) {
                     let mut input = bytes[prev_header_end..divider_range.start].to_vec();
 
@@ -449,12 +492,15 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
                         name: prev_name,
                         input,
                         output,
+                        header_delim_len: prev_header_len,
+                        divider_delim_len,
                         has_fields,
                     });
                 }
             }
         }
         prev_name = test_name.unwrap_or(String::new());
+        prev_header_len = header_delim_len;
         prev_header_end = header_range.end;
     }
     TestEntry::Group {
@@ -505,12 +551,16 @@ d
                         name: "The first test".to_string(),
                         input: "\na b c\n".as_bytes().to_vec(),
                         output: "(a (b c))".to_string(),
+                        header_delim_len: 15,
+                        divider_delim_len: 3,
                         has_fields: false,
                     },
                     TestEntry::Example {
                         name: "The second test".to_string(),
                         input: "d".as_bytes().to_vec(),
                         output: "(d)".to_string(),
+                        header_delim_len: 16,
+                        divider_delim_len: 3,
                         has_fields: false,
                     },
                 ],
@@ -559,12 +609,16 @@ abc
                         name: "Code with dashes".to_string(),
                         input: "abc\n---\ndefg\n----\nhijkl".as_bytes().to_vec(),
                         output: "(a (b))".to_string(),
+                        header_delim_len: 18,
+                        divider_delim_len: 7,
                         has_fields: false,
                     },
                     TestEntry::Example {
                         name: "Code ending with dashes".to_string(),
                         input: "abc\n-----------".as_bytes().to_vec(),
                         output: "(c (d))".to_string(),
+                        header_delim_len: 25,
+                        divider_delim_len: 19,
                         has_fields: false,
                     },
                 ],
@@ -608,11 +662,15 @@ abc
                 "title 1".to_string(),
                 "input 1".to_string(),
                 "output 1".to_string(),
+                80,
+                80,
             ),
             (
                 "title 2".to_string(),
                 "input 2".to_string(),
                 "output 2".to_string(),
+                80,
+                80,
             ),
         ];
         write_tests_to_buffer(&mut buffer, &corrected_entries).unwrap();
@@ -689,18 +747,24 @@ code
                         name: "sexp with comment".to_string(),
                         input: "code".as_bytes().to_vec(),
                         output: "(a (b))".to_string(),
+                        header_delim_len: 18,
+                        divider_delim_len: 3,
                         has_fields: false,
                     },
                     TestEntry::Example {
                         name: "sexp with comment between".to_string(),
                         input: "code".as_bytes().to_vec(),
                         output: "(a (b))".to_string(),
+                        header_delim_len: 18,
+                        divider_delim_len: 3,
                         has_fields: false,
                     },
                     TestEntry::Example {
                         name: "sexp with ';'".to_string(),
                         input: "code".as_bytes().to_vec(),
                         output: "(MISSING \";\")".to_string(),
+                        header_delim_len: 25,
+                        divider_delim_len: 3,
                         has_fields: false,
                     }
                 ],
@@ -773,18 +837,24 @@ NOT A TEST HEADER
                         name: "First test".to_string(),
                         input: expected_input.clone(),
                         output: "(a)".to_string(),
+                        header_delim_len: 18,
+                        divider_delim_len: 3,
                         has_fields: false,
                     },
                     TestEntry::Example {
                         name: "Second test".to_string(),
                         input: expected_input.clone(),
                         output: "(a)".to_string(),
+                        header_delim_len: 18,
+                        divider_delim_len: 3,
                         has_fields: false,
                     },
                     TestEntry::Example {
                         name: "Test name with = symbol".to_string(),
                         input: expected_input.clone(),
                         output: "(a)".to_string(),
+                        header_delim_len: 25,
+                        divider_delim_len: 3,
                         has_fields: false,
                     }
                 ],
@@ -828,12 +898,16 @@ code with ----
                         name: "name\nwith\nnewlines".to_string(),
                         input: b"a".to_vec(),
                         output: "(b)".to_string(),
+                        header_delim_len: 15,
+                        divider_delim_len: 3,
                         has_fields: false,
                     },
                     TestEntry::Example {
                         name: "name with === signs".to_string(),
                         input: b"code with ----".to_vec(),
                         output: "(d)".to_string(),
+                        header_delim_len: 20,
+                        divider_delim_len: 3,
                         has_fields: false,
                     }
                 ]

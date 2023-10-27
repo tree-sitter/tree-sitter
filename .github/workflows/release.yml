@@ -1,0 +1,113 @@
+name: Release
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        default: ${{ github.ref }}
+        type: string
+
+jobs:
+  permissions:
+    name: Check permissions
+    runs-on: ubuntu-latest
+    outputs:
+      release_allowed: >
+        ${{
+          github.repository_owner == 'tree-sitter' &&
+          steps.maintainer.outputs.is_maintainer == 'true' &&
+          steps.local_branch.outputs.is_local == 'true'
+        }}
+    steps:
+
+    - name: Initated by a maintainer
+      id: maintainer
+      env:
+        GH_TOKEN: ${{ github.token }}
+        repo: ${{ github.repository }}
+        actor: ${{ github.actor }}
+      run: |
+        maintainer=$(
+          gh api "/repos/${repo}/collaborators" |
+          jq ".[] | {login, maintainer: .permissions | .maintain} | select(.login == \"${actor}\") | .maintainer"
+        );
+        if [ "$maintainer" == "true" ]; then
+          echo "@${actor} has maintainer level permissions :rocket:" >> $GITHUB_STEP_SUMMARY;
+          echo "is_maintainer=true" >> $GITHUB_OUTPUT
+        fi
+
+    - name: The ref branch is local
+      id: local_branch
+      env:
+        is_local: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+      run: |
+        echo "is_local=${is_local}" >> $GITHUB_OUTPUT
+
+  release:
+    name: Release
+    needs: permissions
+    if: needs.permissions.outputs.release_allowed
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+
+      - name: Checkout source code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -lR
+        working-directory: artifacts
+
+      - name: Prepare release artifacts
+        run: |
+          mkdir -p target
+          mv artifacts/tree-sitter.wasm/* target/
+          rm -r artifacts/tree-sitter.wasm
+          for platform in $(cd artifacts; ls | sed 's/^tree-sitter\.//'); do
+            exe=$(ls artifacts/tree-sitter.$platform/tree-sitter*)
+            gzip --stdout --name $exe > target/tree-sitter-$platform.gz
+          done
+          rm -rf artifacts
+          ls -l target/
+
+      - name: Get tag name from a release/v* branch name
+        id: tag_name
+        env:
+          tag: ${{ github.head_ref }}
+        run: echo "tag=${tag#release/}" >> $GITHUB_OUTPUT
+
+      - name: Add a release tag
+        env:
+          ref: ${{ inputs.ref }}
+          tag: ${{ steps.tag_name.outputs.tag }}
+          message: "Release ${{ steps.tag_name.outputs.tag }}"
+        run: |
+          git config user.name "$(git log -1 --pretty='%cn')"
+          git config user.email "$(git log -1 --pretty='%ce')"
+          git tag -a "$tag" HEAD -m "$message"
+          git push origin "$tag"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: ${{ steps.tag_name.outputs.tag }}
+          tag_name: ${{ steps.tag_name.outputs.tag }}
+          fail_on_unmatched_files: true
+          files: |
+            target/tree-sitter-*.gz
+            target/tree-sitter.wasm
+            target/tree-sitter.js
+
+      - name: Merge release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr merge ${{ github.event.pull_request.html_url }} --match-head-commit $(git rev-parse HEAD) --merge --delete-branch

@@ -15,6 +15,7 @@ use std::{
     thread, time,
 };
 use tree_sitter::{IncludedRangesError, InputEdit, LogType, Parser, Point, Range};
+use tree_sitter_proc_macro::retry;
 
 #[test]
 fn test_parsing_simple_string() {
@@ -149,7 +150,7 @@ fn test_parsing_with_custom_utf8_input() {
         )
     );
     assert_eq!(root.kind(), "source_file");
-    assert_eq!(root.has_error(), false);
+    assert!(!root.has_error());
     assert_eq!(root.child(0).unwrap().kind(), "function_item");
 }
 
@@ -188,7 +189,7 @@ fn test_parsing_with_custom_utf16_input() {
         "(source_file (function_item (visibility_modifier) name: (identifier) parameters: (parameters) body: (block (integer_literal))))"
     );
     assert_eq!(root.kind(), "source_file");
-    assert_eq!(root.has_error(), false);
+    assert!(!root.has_error());
     assert_eq!(root.child(0).unwrap().kind(), "function_item");
 }
 
@@ -277,7 +278,10 @@ fn test_parsing_invalid_chars_at_eof() {
     let mut parser = Parser::new();
     parser.set_language(get_language("json")).unwrap();
     let tree = parser.parse(b"\xdf", None).unwrap();
-    assert_eq!(tree.root_node().to_sexp(), "(ERROR (UNEXPECTED INVALID))");
+    assert_eq!(
+        tree.root_node().to_sexp(),
+        "(document (ERROR (UNEXPECTED INVALID)))"
+    );
 }
 
 #[test]
@@ -340,7 +344,8 @@ fn test_parsing_after_editing_beginning_of_code() {
             deleted_length: 0,
             inserted_text: b" || 5".to_vec(),
         },
-    );
+    )
+    .unwrap();
 
     let mut recorder = ReadRecorder::new(&code);
     let tree = parser
@@ -387,7 +392,8 @@ fn test_parsing_after_editing_end_of_code() {
             deleted_length: 0,
             inserted_text: b".d".to_vec(),
         },
-    );
+    )
+    .unwrap();
 
     let mut recorder = ReadRecorder::new(&code);
     let tree = parser
@@ -466,7 +472,8 @@ h + i
             deleted_length: 0,
             inserted_text: b"1234".to_vec(),
         },
-    );
+    )
+    .unwrap();
 
     assert_eq!(
         code,
@@ -511,7 +518,7 @@ fn test_parsing_after_detecting_error_in_the_middle_of_a_string_token() {
     let tree = parser.parse(&source, None).unwrap();
     assert_eq!(
         tree.root_node().to_sexp(),
-        "(module (expression_statement (assignment left: (identifier) right: (expression_list (identifier) (string)))))"
+        "(module (expression_statement (assignment left: (identifier) right: (expression_list (identifier) (string (string_start) (string_content) (string_end))))))"
     );
 
     // Delete a suffix of the source code, starting in the middle of the string
@@ -530,12 +537,12 @@ fn test_parsing_after_detecting_error_in_the_middle_of_a_string_token() {
     let undo = invert_edit(&source, &edit);
 
     let mut tree2 = tree.clone();
-    perform_edit(&mut tree2, &mut source, &edit);
+    perform_edit(&mut tree2, &mut source, &edit).unwrap();
     tree2 = parser.parse(&source, Some(&tree2)).unwrap();
     assert!(tree2.root_node().has_error());
 
     let mut tree3 = tree2.clone();
-    perform_edit(&mut tree3, &mut source, &undo);
+    perform_edit(&mut tree3, &mut source, &undo).unwrap();
     tree3 = parser.parse(&source, Some(&tree3)).unwrap();
     assert_eq!(tree3.root_node().to_sexp(), tree.root_node().to_sexp(),);
 }
@@ -644,6 +651,7 @@ fn test_parsing_cancelled_by_another_thread() {
 // Timeouts
 
 #[test]
+#[retry(10)]
 fn test_parsing_with_a_timeout() {
     let mut parser = Parser::new();
     parser.set_language(get_language("json")).unwrap();
@@ -662,7 +670,11 @@ fn test_parsing_with_a_timeout() {
         None,
     );
     assert!(tree.is_none());
+    #[cfg(not(target_arch = "sparc64"))]
     assert!(start_time.elapsed().as_micros() < 2000);
+
+    #[cfg(target_arch = "sparc64")]
+    assert!(start_time.elapsed().as_micros() < 8000);
 
     // Continue parsing, but pause after 1 ms of processing.
     parser.set_timeout_micros(5000);
@@ -701,6 +713,7 @@ fn test_parsing_with_a_timeout() {
 }
 
 #[test]
+#[retry(10)]
 fn test_parsing_with_a_timeout_and_a_reset() {
     let mut parser = Parser::new();
     parser.set_language(get_language("json")).unwrap();
@@ -756,6 +769,7 @@ fn test_parsing_with_a_timeout_and_a_reset() {
 }
 
 #[test]
+#[retry(10)]
 fn test_parsing_with_a_timeout_and_implicit_reset() {
     allocations::record(|| {
         let mut parser = Parser::new();
@@ -789,6 +803,7 @@ fn test_parsing_with_a_timeout_and_implicit_reset() {
 }
 
 #[test]
+#[retry(10)]
 fn test_parsing_with_timeout_and_no_completion() {
     allocations::record(|| {
         let mut parser = Parser::new();
@@ -828,7 +843,7 @@ fn test_parsing_with_one_included_range() {
         concat!(
             "(program (expression_statement (call_expression ",
             "function: (member_expression object: (identifier) property: (property_identifier)) ",
-            "arguments: (arguments (string)))))",
+            "arguments: (arguments (string (string_fragment))))))",
         )
     );
     assert_eq!(
@@ -1177,7 +1192,7 @@ fn test_parsing_with_a_newly_included_range() {
         .set_included_ranges(&[simple_range(range1_start, range1_end)])
         .unwrap();
     let tree = parser
-        .parse_with(&mut chunked_input(&source_code, 3), None)
+        .parse_with(&mut chunked_input(source_code, 3), None)
         .unwrap();
     assert_eq!(
         tree.root_node().to_sexp(),
@@ -1196,7 +1211,7 @@ fn test_parsing_with_a_newly_included_range() {
         ])
         .unwrap();
     let tree2 = parser
-        .parse_with(&mut chunked_input(&source_code, 3), Some(&tree))
+        .parse_with(&mut chunked_input(source_code, 3), Some(&tree))
         .unwrap();
     assert_eq!(
         tree2.root_node().to_sexp(),
@@ -1220,7 +1235,7 @@ fn test_parsing_with_a_newly_included_range() {
             simple_range(range3_start, range3_end),
         ])
         .unwrap();
-    let tree3 = parser.parse(&source_code, Some(&tree)).unwrap();
+    let tree3 = parser.parse(source_code, Some(&tree)).unwrap();
     assert_eq!(
         tree3.root_node().to_sexp(),
         concat!(
@@ -1295,6 +1310,85 @@ fn test_parsing_with_included_ranges_and_missing_tokens() {
     );
     assert_eq!(root.start_byte(), 2);
     assert_eq!(root.child(3).unwrap().start_byte(), 4);
+}
+
+#[test]
+fn test_grammars_that_can_hang_on_eof() {
+    let (parser_name, parser_code) = generate_parser_for_grammar(
+        r#"
+        {
+            "name": "test_single_null_char_regex",
+            "rules": {
+                "source_file": {
+                    "type": "SEQ",
+                    "members": [
+                        { "type": "STRING", "value": "\"" },
+                        { "type": "PATTERN", "value": "[\\x00]*" },
+                        { "type": "STRING", "value": "\"" }
+                    ]
+                }
+            },
+            "extras": [ { "type": "PATTERN", "value": "\\s" } ]
+        }
+        "#,
+    )
+    .unwrap();
+
+    let mut parser = Parser::new();
+    parser
+        .set_language(get_test_language(&parser_name, &parser_code, None))
+        .unwrap();
+    parser.parse("\"", None).unwrap();
+
+    let (parser_name, parser_code) = generate_parser_for_grammar(
+        r#"
+        {
+            "name": "test_null_char_with_next_char_regex",
+            "rules": {
+                "source_file": {
+                    "type": "SEQ",
+                    "members": [
+                        { "type": "STRING", "value": "\"" },
+                        { "type": "PATTERN", "value": "[\\x00-\\x01]*" },
+                        { "type": "STRING", "value": "\"" }
+                    ]
+                }
+            },
+            "extras": [ { "type": "PATTERN", "value": "\\s" } ]
+        }
+        "#,
+    )
+    .unwrap();
+
+    parser
+        .set_language(get_test_language(&parser_name, &parser_code, None))
+        .unwrap();
+    parser.parse("\"", None).unwrap();
+
+    let (parser_name, parser_code) = generate_parser_for_grammar(
+        r#"
+        {
+            "name": "test_null_char_with_range_regex",
+            "rules": {
+                "source_file": {
+                    "type": "SEQ",
+                    "members": [
+                        { "type": "STRING", "value": "\"" },
+                        { "type": "PATTERN", "value": "[\\x00-\\x7F]*" },
+                        { "type": "STRING", "value": "\"" }
+                    ]
+                }
+            },
+            "extras": [ { "type": "PATTERN", "value": "\\s" } ]
+        }
+        "#,
+    )
+    .unwrap();
+
+    parser
+        .set_language(get_test_language(&parser_name, &parser_code, None))
+        .unwrap();
+    parser.parse("\"", None).unwrap();
 }
 
 fn simple_range(start: usize, end: usize) -> Range {

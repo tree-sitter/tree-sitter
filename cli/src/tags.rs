@@ -23,7 +23,7 @@ pub fn generate_tags(
     }
 
     let mut context = TagsContext::new();
-    let cancellation_flag = util::cancel_on_stdin();
+    let cancellation_flag = util::cancel_on_signal();
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
 

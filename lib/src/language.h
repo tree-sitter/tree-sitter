@@ -38,6 +38,8 @@ TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *, TSSymbol);
 
 TSSymbol ts_language_public_symbol(const TSLanguage *, TSSymbol);
 
+TSStateId ts_language_next_state(const TSLanguage *self, TSStateId state, TSSymbol symbol);
+
 static inline bool ts_language_is_symbol_external(const TSLanguage *self, TSSymbol symbol) {
   return 0 < symbol && symbol < self->external_token_count + 1;
 }
@@ -83,7 +85,7 @@ static inline uint16_t ts_language_lookup(
     for (unsigned i = 0; i < group_count; i++) {
       uint16_t section_value = *(data++);
       uint16_t symbol_count = *(data++);
-      for (unsigned i = 0; i < symbol_count; i++) {
+      for (unsigned j = 0; j < symbol_count; j++) {
         if (*(data++) == symbol) return section_value;
       }
     }
@@ -134,7 +136,7 @@ static inline LookaheadIterator ts_language_lookaheads(
   };
 }
 
-static inline bool ts_lookahead_iterator_next(LookaheadIterator *self) {
+static inline bool ts_lookahead_iterator__next(LookaheadIterator *self) {
   // For small parse states, valid symbols are listed explicitly,
   // grouped by their value. There's no need to look up the actions
   // again until moving to the next group.
@@ -176,28 +178,6 @@ static inline bool ts_lookahead_iterator_next(LookaheadIterator *self) {
     self->next_state = self->table_value;
   }
   return true;
-}
-
-static inline TSStateId ts_language_next_state(
-  const TSLanguage *self,
-  TSStateId state,
-  TSSymbol symbol
-) {
-  if (symbol == ts_builtin_sym_error || symbol == ts_builtin_sym_error_repeat) {
-    return 0;
-  } else if (symbol < self->token_count) {
-    uint32_t count;
-    const TSParseAction *actions = ts_language_actions(self, state, symbol, &count);
-    if (count > 0) {
-      TSParseAction action = actions[count - 1];
-      if (action.type == TSParseActionTypeShift) {
-        return action.shift.extra ? state : action.shift.state;
-      }
-    }
-    return 0;
-  } else {
-    return ts_language_lookup(self, state, symbol);
-  }
 }
 
 // Whether the state is a "primary state". If this returns false, it indicates that there exists
@@ -269,17 +249,17 @@ static inline void ts_language_aliases_for_symbol(
   *start = &self->public_symbol_map[original_symbol];
   *end = *start + 1;
 
-  unsigned i = 0;
+  unsigned idx = 0;
   for (;;) {
-    TSSymbol symbol = self->alias_map[i++];
+    TSSymbol symbol = self->alias_map[idx++];
     if (symbol == 0 || symbol > original_symbol) break;
-    uint16_t count = self->alias_map[i++];
+    uint16_t count = self->alias_map[idx++];
     if (symbol == original_symbol) {
-      *start = &self->alias_map[i];
-      *end = &self->alias_map[i + count];
+      *start = &self->alias_map[idx];
+      *end = &self->alias_map[idx + count];
       break;
     }
-    i += count;
+    idx += count;
   }
 }
 
@@ -289,21 +269,21 @@ static inline void ts_language_write_symbol_as_dot_string(
   TSSymbol symbol
 ) {
   const char *name = ts_language_symbol_name(self, symbol);
-  for (const char *c = name; *c; c++) {
-    switch (*c) {
+  for (const char *chr = name; *chr; chr++) {
+    switch (*chr) {
       case '"':
       case '\\':
         fputc('\\', f);
-        fputc(*c, f);
+        fputc(*chr, f);
         break;
       case '\n':
         fputs("\\n", f);
         break;
       case '\t':
-        fputs("\\n", f);
+        fputs("\\t", f);
         break;
       default:
-        fputc(*c, f);
+        fputc(*chr, f);
         break;
     }
   }

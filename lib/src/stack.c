@@ -120,6 +120,20 @@ recur:
   }
 }
 
+/// Get the number of nodes in the subtree, for the purpose of measuring
+/// how much progress has been made by a given version of the stack.
+static uint32_t stack__subtree_node_count(Subtree subtree) {
+  uint32_t count = ts_subtree_visible_descendant_count(subtree);
+  if (ts_subtree_visible(subtree)) count++;
+
+  // Count intermediate error nodes even though they are not visible,
+  // because a stack version's node count is used to check whether it
+  // has made any progress since the last time it encountered an error.
+  if (ts_subtree_symbol(subtree) == ts_builtin_sym_error_repeat) count++;
+
+  return count;
+}
+
 static StackNode *stack_node_new(
   StackNode *previous_node,
   Subtree subtree,
@@ -152,7 +166,7 @@ static StackNode *stack_node_new(
     if (subtree.ptr) {
       node->error_cost += ts_subtree_error_cost(subtree);
       node->position = length_add(node->position, ts_subtree_total_size(subtree));
-      node->node_count += ts_subtree_node_count(subtree);
+      node->node_count += stack__subtree_node_count(subtree);
       node->dynamic_precedence += ts_subtree_dynamic_precedence(subtree);
     }
   } else {
@@ -239,7 +253,7 @@ static void stack_node_add_link(
 
   if (link.subtree.ptr) {
     ts_subtree_retain(link.subtree);
-    node_count += ts_subtree_node_count(link.subtree);
+    node_count += stack__subtree_node_count(link.subtree);
     dynamic_precedence += ts_subtree_dynamic_precedence(link.subtree);
   }
 
@@ -305,7 +319,7 @@ static void ts_stack__add_slice(
   array_push(&self->slices, slice);
 }
 
-inline StackSliceArray stack__iter(
+static StackSliceArray stack__iter(
   Stack *self,
   StackVersion version,
   StackCallback callback,
@@ -316,7 +330,7 @@ inline StackSliceArray stack__iter(
   array_clear(&self->iterators);
 
   StackHead *head = array_get(&self->heads, version);
-  StackIterator iterator = {
+  StackIterator new_iterator = {
     .node = head->node,
     .subtrees = array_new(),
     .subtree_count = 0,
@@ -326,10 +340,10 @@ inline StackSliceArray stack__iter(
   bool include_subtrees = false;
   if (goal_subtree_count >= 0) {
     include_subtrees = true;
-    array_reserve(&iterator.subtrees, (uint32_t)ts_subtree_alloc_size(goal_subtree_count) / sizeof(Subtree));
+    array_reserve(&new_iterator.subtrees, (uint32_t)ts_subtree_alloc_size(goal_subtree_count) / sizeof(Subtree));
   }
 
-  array_push(&self->iterators, iterator);
+  array_push(&self->iterators, new_iterator);
 
   while (self->iterators.size > 0) {
     for (uint32_t i = 0, size = self->iterators.size; i < size; i++) {
@@ -505,7 +519,7 @@ inline StackAction pop_count_callback(void *payload, const StackIterator *iterat
 }
 
 StackSliceArray ts_stack_pop_count(Stack *self, StackVersion version, uint32_t count) {
-  return stack__iter(self, version, pop_count_callback, &count, count);
+  return stack__iter(self, version, pop_count_callback, &count, (int)count);
 }
 
 inline StackAction pop_pending_callback(void *payload, const StackIterator *iterator) {

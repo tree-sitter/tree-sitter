@@ -9,7 +9,7 @@ Tree-sitter can be used in conjunction with its [tree query language](https://tr
 
 ## Tagging and captures
 
-*Tagging* is the act of identifying the entities that can be named in a program. We use Tree-sitter queries to find those entities. Having found them, you use a syntax capture to label the entity and its name.
+_Tagging_ is the act of identifying the entities that can be named in a program. We use Tree-sitter queries to find those entities. Having found them, you use a syntax capture to label the entity and its name.
 
 The essence of a given tag lies in two pieces of data: the _role_ of the entity that is matched (i.e. whether it is a definition or a reference) and the _kind_ of that entity, which describes how the entity is used (i.e. whether it's a class definition, function call, variable reference, and so on). Our convention is to use a syntax capture following the `@role.kind` capture name format, and another inner capture, always called `@name`, that pulls out the name of a given identifier.
 
@@ -19,14 +19,14 @@ You may optionally include a capture named `@doc` to bind a docstring. For conve
 
 This [query](https://github.com/tree-sitter/tree-sitter-python/blob/78c4e9b6b2f08e1be23b541ffced47b15e2972ad/queries/tags.scm#L4-L5) recognizes Python function definitions and captures their declared name. The `function_definition` syntax node is defined in the [Python Tree-sitter grammar](https://github.com/tree-sitter/tree-sitter-python/blob/78c4e9b6b2f08e1be23b541ffced47b15e2972ad/grammar.js#L354).
 
-``` scheme
+```scheme
 (function_definition
   name: (identifier) @name) @definition.function
 ```
 
 A more sophisticated query can be found in the [JavaScript Tree-sitter repository](https://github.com/tree-sitter/tree-sitter-javascript/blob/fdeb68ac8d2bd5a78b943528bb68ceda3aade2eb/queries/tags.scm#L63-L70):
 
-``` scheme
+```scheme
 (assignment_expression
   left: [
     (identifier) @name
@@ -39,7 +39,7 @@ A more sophisticated query can be found in the [JavaScript Tree-sitter repositor
 
 An even more sophisticated query is in the [Ruby Tree-sitter repository](https://github.com/tree-sitter/tree-sitter-ruby/blob/1ebfdb288842dae5a9233e2509a135949023dd82/queries/tags.scm#L24-L43), which uses built-in functions to strip the Ruby comment character (`#`) from the docstrings associated with a class or singleton-class declaration, then selects only the docstrings adjacent to the node matched as `@definition.class`.
 
-``` scheme
+```scheme
 (
   (comment)* @doc
   .
@@ -79,7 +79,7 @@ The below table describes a standard vocabulary for kinds and roles during the t
 
 You can use the `tree-sitter tags` command to test out a tags query file, passing as arguments one or more files to tag. We can run this tool from within the Tree-sitter Ruby repository, over code in a file called `test.rb`:
 
-``` ruby
+```ruby
 module Foo
   class Bar
     # won't be included
@@ -93,7 +93,7 @@ end
 
 Invoking `tree-sitter tags test.rb` produces the following console output, representing matched entities' name, role, location, first line, and docstring:
 
-```
+```text
     test.rb
         Foo              | module       def (0, 7) - (0, 10) `module Foo`
         Bar              | class        def (1, 8) - (1, 11) `class Bar`

@@ -1,19 +1,19 @@
-type AliasRule = {type: 'ALIAS'; named: boolean; content: Rule; value: string};
-type BlankRule = {type: 'BLANK'};
-type ChoiceRule = {type: 'CHOICE'; members: Rule[]};
-type FieldRule = {type: 'FIELD'; name: string; content: Rule};
-type ImmediateTokenRule = {type: 'IMMEDIATE_TOKEN'; content: Rule};
-type PatternRule = {type: 'PATTERN'; value: string};
-type PrecDynamicRule = {type: 'PREC_DYNAMIC'; content: Rule; value: number};
-type PrecLeftRule = {type: 'PREC_LEFT'; content: Rule; value: number};
-type PrecRightRule = {type: 'PREC_RIGHT'; content: Rule; value: number};
-type PrecRule = {type: 'PREC'; content: Rule; value: number};
-type Repeat1Rule = {type: 'REPEAT1'; content: Rule};
-type RepeatRule = {type: 'REPEAT'; content: Rule};
-type SeqRule = {type: 'SEQ'; members: Rule[]};
-type StringRule = {type: 'STRING'; value: string};
-type SymbolRule<Name extends string> = {type: 'SYMBOL'; name: Name};
-type TokenRule = {type: 'TOKEN'; content: Rule};
+type AliasRule = { type: 'ALIAS'; named: boolean; content: Rule; value: string };
+type BlankRule = { type: 'BLANK' };
+type ChoiceRule = { type: 'CHOICE'; members: Rule[] };
+type FieldRule = { type: 'FIELD'; name: string; content: Rule };
+type ImmediateTokenRule = { type: 'IMMEDIATE_TOKEN'; content: Rule };
+type PatternRule = { type: 'PATTERN'; value: string };
+type PrecDynamicRule = { type: 'PREC_DYNAMIC'; content: Rule; value: number };
+type PrecLeftRule = { type: 'PREC_LEFT'; content: Rule; value: number };
+type PrecRightRule = { type: 'PREC_RIGHT'; content: Rule; value: number };
+type PrecRule = { type: 'PREC'; content: Rule; value: number };
+type Repeat1Rule = { type: 'REPEAT1'; content: Rule };
+type RepeatRule = { type: 'REPEAT'; content: Rule };
+type SeqRule = { type: 'SEQ'; members: Rule[] };
+type StringRule = { type: 'STRING'; value: string };
+type SymbolRule<Name extends string> = { type: 'SYMBOL'; name: Name };
+type TokenRule = { type: 'TOKEN'; content: Rule };
 
 type Rule =
   | AliasRule
@@ -42,14 +42,15 @@ type GrammarSymbols<RuleName extends string> = {
 
 type RuleBuilder<RuleName extends string> = (
   $: GrammarSymbols<RuleName>,
+  previous: Rule,
 ) => RuleOrLiteral;
 
 type RuleBuilders<
   RuleName extends string,
   BaseGrammarRuleName extends string
 > = {
-  [name in RuleName]: RuleBuilder<RuleName | BaseGrammarRuleName>;
-};
+    [name in RuleName]: RuleBuilder<RuleName | BaseGrammarRuleName>;
+  };
 
 interface Grammar<
   RuleName extends string,
@@ -68,11 +69,17 @@ interface Grammar<
   rules: Rules;
 
   /**
-   * An array of arrays of precedence names. Each inner array represents
-   * a *descending* ordering. Names listed earlier in one of these arrays
-   * have higher precedence than any names listed later in the same array.
+   * An array of arrays of precedence names or rules. Each inner array represents
+   * a *descending* ordering. Names/rules listed earlier in one of these arrays
+   * have higher precedence than any names/rules listed later in the same array.
+   *
+   * Using rules is just a shorthand way for using a name then calling prec()
+   * with that name. It is just a convenience.
    */
-  precedences?: () => String[][],
+  precedences?: (
+    $: GrammarSymbols<RuleName | BaseGrammarRuleName>,
+    previous: Rule[][],
+  ) => RuleOrLiteral[][],
 
   /**
    * An array of arrays of rule names. Each inner array represents a set of
@@ -86,6 +93,7 @@ interface Grammar<
    */
   conflicts?: (
     $: GrammarSymbols<RuleName | BaseGrammarRuleName>,
+    previous: Rule[][],
   ) => RuleOrLiteral[][];
 
   /**
@@ -102,7 +110,7 @@ interface Grammar<
   externals?: (
     $: Record<string, SymbolRule<string>>,
     previous: Rule[],
-  ) => SymbolRule<string>[];
+  ) => RuleOrLiteral[];
 
   /**
    * An array of tokens that may appear anywhere in the language. This
@@ -126,6 +134,7 @@ interface Grammar<
    */
   inline?: (
     $: GrammarSymbols<RuleName | BaseGrammarRuleName>,
+    previous: Rule[],
   ) => RuleOrLiteral[];
 
   /**
@@ -134,10 +143,11 @@ interface Grammar<
    *
    * @param $ grammar rules
    *
-   * @see http://tree-sitter.github.io/tree-sitter/using-parsers#static-node-types
+   * @see https://tree-sitter.github.io/tree-sitter/using-parsers#static-node-types
    */
   supertypes?: (
     $: GrammarSymbols<RuleName | BaseGrammarRuleName>,
+    previous: Rule[],
   ) => RuleOrLiteral[];
 
   /**
@@ -153,8 +163,8 @@ interface Grammar<
 
 type GrammarSchema<RuleName extends string> = {
   [K in keyof Grammar<RuleName>]: K extends 'rules'
-    ? Record<RuleName, Rule>
-    : Grammar<RuleName>[K];
+  ? Record<RuleName, Rule>
+  : Grammar<RuleName>[K];
 };
 
 /**

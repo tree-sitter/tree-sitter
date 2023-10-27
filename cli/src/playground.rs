@@ -1,4 +1,5 @@
 use super::wasm;
+use anyhow::{anyhow, Context, Result};
 use std::{
     borrow::Cow,
     env, fs,
@@ -7,12 +8,11 @@ use std::{
     str::{self, FromStr as _},
 };
 use tiny_http::{Header, Response, Server};
-use webbrowser;
 
 macro_rules! optional_resource {
     ($name: tt, $path: tt) => {
         #[cfg(TREE_SITTER_EMBED_WASM_BINDING)]
-        fn $name(tree_sitter_dir: &Option<PathBuf>) -> Cow<'static, [u8]> {
+        fn $name(tree_sitter_dir: Option<&PathBuf>) -> Cow<'static, [u8]> {
             if let Some(tree_sitter_dir) = tree_sitter_dir {
                 Cow::Owned(fs::read(tree_sitter_dir.join($path)).unwrap())
             } else {
@@ -21,7 +21,7 @@ macro_rules! optional_resource {
         }
 
         #[cfg(not(TREE_SITTER_EMBED_WASM_BINDING))]
-        fn $name(tree_sitter_dir: &Option<PathBuf>) -> Cow<'static, [u8]> {
+        fn $name(tree_sitter_dir: Option<&PathBuf>) -> Cow<'static, [u8]> {
             if let Some(tree_sitter_dir) = tree_sitter_dir {
                 Cow::Owned(fs::read(tree_sitter_dir.join($path)).unwrap())
             } else {
@@ -35,7 +35,7 @@ optional_resource!(get_playground_js, "docs/assets/js/playground.js");
 optional_resource!(get_lib_js, "lib/binding_web/tree-sitter.js");
 optional_resource!(get_lib_wasm, "lib/binding_web/tree-sitter.wasm");
 
-fn get_main_html(tree_sitter_dir: &Option<PathBuf>) -> Cow<'static, [u8]> {
+fn get_main_html(tree_sitter_dir: Option<&PathBuf>) -> Cow<'static, [u8]> {
     if let Some(tree_sitter_dir) = tree_sitter_dir {
         Cow::Owned(fs::read(tree_sitter_dir.join("cli/src/playground.html")).unwrap())
     } else {
@@ -43,23 +43,10 @@ fn get_main_html(tree_sitter_dir: &Option<PathBuf>) -> Cow<'static, [u8]> {
     }
 }
 
-pub fn serve(grammar_path: &Path, open_in_browser: bool) {
-    let port = env::var("TREE_SITTER_PLAYGROUND_PORT")
-        .map(|v| v.parse::<u16>().expect("Invalid port specification"))
-        .unwrap_or_else(
-            |_| get_available_port().expect(
-                "Couldn't find an available port, try providing a port number via the TREE_SITTER_PLAYGROUND_PORT \
-                 environment variable"
-            )
-        );
-    let addr = format!(
-        "{}:{}",
-        env::var("TREE_SITTER_PLAYGROUND_ADDR").unwrap_or("127.0.0.1".to_owned()),
-        port
-    );
+pub fn serve(grammar_path: &Path, open_in_browser: bool) -> Result<()> {
+    let server = get_server()?;
     let (grammar_name, language_wasm) = wasm::load_language_wasm_file(&grammar_path).unwrap();
-    let server = Server::http(&addr).expect("Failed to start web server");
-    let url = format!("http://{}", addr);
+    let url = format!("http://{}", server.server_addr());
     println!("Started playground on: {}", url);
     if open_in_browser {
         if let Err(_) = webbrowser::open(&url) {
@@ -68,13 +55,13 @@ pub fn serve(grammar_path: &Path, open_in_browser: bool) {
     }
 
     let tree_sitter_dir = env::var("TREE_SITTER_BASE_DIR").map(PathBuf::from).ok();
-    let main_html = str::from_utf8(&get_main_html(&tree_sitter_dir))
+    let main_html = str::from_utf8(&get_main_html(tree_sitter_dir.as_ref()))
         .unwrap()
         .replace("THE_LANGUAGE_NAME", &grammar_name)
         .into_bytes();
-    let playground_js = get_playground_js(&tree_sitter_dir);
-    let lib_js = get_lib_js(&tree_sitter_dir);
-    let lib_wasm = get_lib_wasm(&tree_sitter_dir);
+    let playground_js = get_playground_js(tree_sitter_dir.as_ref());
+    let lib_js = get_lib_js(tree_sitter_dir.as_ref());
+    let lib_wasm = get_lib_wasm(tree_sitter_dir.as_ref());
 
     let html_header = Header::from_str("Content-Type: text/html").unwrap();
     let js_header = Header::from_str("Content-Type: application/javascript").unwrap();
@@ -107,8 +94,12 @@ pub fn serve(grammar_path: &Path, open_in_browser: bool) {
             }
             _ => response(b"Not found", &html_header).with_status_code(404),
         };
-        request.respond(res).expect("Failed to write HTTP response");
+        request
+            .respond(res)
+            .with_context(|| "Failed to write HTTP response")?;
     }
+
+    Ok(())
 }
 
 fn redirect<'a>(url: &'a str) -> Response<&'a [u8]> {
@@ -123,10 +114,30 @@ fn response<'a>(data: &'a [u8], header: &Header) -> Response<&'a [u8]> {
         .with_header(header.clone())
 }
 
-fn get_available_port() -> Option<u16> {
-    (8000..12000).find(port_is_available)
+fn get_server() -> Result<Server> {
+    let addr = env::var("TREE_SITTER_PLAYGROUND_ADDR").unwrap_or("127.0.0.1".to_owned());
+    let port = env::var("TREE_SITTER_PLAYGROUND_PORT")
+        .map(|v| {
+            v.parse::<u16>()
+                .with_context(|| "Invalid port specification")
+        })
+        .ok();
+    let listener = match port {
+        Some(port) => {
+            bind_to(&*addr, port?).with_context(|| "Failed to bind to the specified port")?
+        }
+        None => get_listener_on_available_port(&*addr)
+            .with_context(|| "Failed to find a free port to bind to it")?,
+    };
+    let server =
+        Server::from_listener(listener, None).map_err(|_| anyhow!("Failed to start web server"))?;
+    Ok(server)
 }
 
-fn port_is_available(port: &u16) -> bool {
-    TcpListener::bind(("127.0.0.1", *port)).is_ok()
+fn get_listener_on_available_port(addr: &str) -> Option<TcpListener> {
+    (8000..12000).find_map(|port| bind_to(addr, port))
+}
+
+fn bind_to(addr: &str, port: u16) -> Option<TcpListener> {
+    TcpListener::bind(format!("{addr}:{port}")).ok()
 }

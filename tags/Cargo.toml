@@ -3,8 +3,8 @@ name = "tree-sitter-tags"
 description = "Library for extracting tag information"
 version = "0.20.2"
 authors = [
-  "Max Brunsfeld <maxbrunsfeld@gmail.com>",
-  "Patrick Thomson <patrickt@github.com>",
+	"Max Brunsfeld <maxbrunsfeld@gmail.com>",
+	"Patrick Thomson <patrickt@github.com>",
 ]
 license = "MIT"
 readme = "README.md"
@@ -12,14 +12,15 @@ edition = "2018"
 keywords = ["incremental", "parsing", "syntax", "tagging"]
 categories = ["parsing", "text-editors"]
 repository = "https://github.com/tree-sitter/tree-sitter"
+rust-version.workspace = true
 
 [lib]
 crate-type = ["lib", "staticlib"]
 
 [dependencies]
-regex = "1"
-memchr = "2.3"
-thiserror = "1.0"
+regex = "1.9.1"
+memchr = "2.5.0"
+thiserror = "1.0.43"
 
 [dependencies.tree-sitter]
 version = "0.20"

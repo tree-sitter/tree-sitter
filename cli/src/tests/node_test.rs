@@ -252,12 +252,14 @@ fn test_node_parent_of_child_by_field_name() {
 fn test_node_field_name_for_child() {
     let mut parser = Parser::new();
     parser.set_language(get_language("c")).unwrap();
-    let tree = parser.parse("x + y;", None).unwrap();
+    let tree = parser.parse("int w = x + y;", None).unwrap();
     let translation_unit_node = tree.root_node();
-    let binary_expression_node = translation_unit_node
-        .named_child(0)
+    let declaration_node = translation_unit_node.named_child(0).unwrap();
+
+    let binary_expression_node = declaration_node
+        .child_by_field_name("declarator")
         .unwrap()
-        .named_child(0)
+        .child_by_field_name("value")
         .unwrap();
 
     assert_eq!(binary_expression_node.field_name_for_child(0), Some("left"));
@@ -386,9 +388,51 @@ fn test_node_named_child_with_aliases_and_extras() {
 }
 
 #[test]
+fn test_node_descendant_count() {
+    let tree = parse_json_example();
+    let value_node = tree.root_node();
+    let all_nodes = get_all_nodes(&tree);
+
+    assert_eq!(value_node.descendant_count(), all_nodes.len());
+
+    let mut cursor = value_node.walk();
+    for (i, node) in all_nodes.iter().enumerate() {
+        cursor.goto_descendant(i);
+        assert_eq!(cursor.node(), *node, "index {i}");
+    }
+
+    for (i, node) in all_nodes.iter().enumerate().rev() {
+        cursor.goto_descendant(i);
+        assert_eq!(cursor.node(), *node, "rev index {i}");
+    }
+}
+
+#[test]
+fn test_descendant_count_single_node_tree() {
+    let mut parser = Parser::new();
+    parser
+        .set_language(get_language("embedded-template"))
+        .unwrap();
+    let tree = parser.parse("hello", None).unwrap();
+
+    let nodes = get_all_nodes(&tree);
+    assert_eq!(nodes.len(), 2);
+    assert_eq!(tree.root_node().descendant_count(), 2);
+
+    let mut cursor = tree.root_node().walk();
+
+    cursor.goto_descendant(0);
+    assert_eq!(cursor.depth(), 0);
+    assert_eq!(cursor.node(), nodes[0]);
+    cursor.goto_descendant(1);
+    assert_eq!(cursor.depth(), 1);
+    assert_eq!(cursor.node(), nodes[1]);
+}
+
+#[test]
 fn test_node_descendant_for_range() {
     let tree = parse_json_example();
-    let array_node = tree.root_node().child(0).unwrap();
+    let array_node = tree.root_node();
 
     // Leaf node exactly matches the given bounds - byte query
     let colon_index = JSON_EXAMPLE.find(":").unwrap();
@@ -508,7 +552,7 @@ fn test_node_edit() {
 
         let edit = get_random_edit(&mut rand, &mut code);
         let mut tree2 = tree.clone();
-        let edit = perform_edit(&mut tree2, &mut code, &edit);
+        let edit = perform_edit(&mut tree2, &mut code, &edit).unwrap();
         for node in nodes_before.iter_mut() {
             node.edit(&edit);
         }
@@ -841,15 +885,17 @@ fn get_all_nodes(tree: &Tree) -> Vec<Node> {
     let mut visited_children = false;
     let mut cursor = tree.walk();
     loop {
-        result.push(cursor.node());
-        if !visited_children && cursor.goto_first_child() {
-            continue;
-        } else if cursor.goto_next_sibling() {
-            visited_children = false;
-        } else if cursor.goto_parent() {
-            visited_children = true;
+        if !visited_children {
+            result.push(cursor.node());
+            if !cursor.goto_first_child() {
+                visited_children = true;
+            }
         } else {
-            break;
+            if cursor.goto_next_sibling() {
+                visited_children = false;
+            } else if !cursor.goto_parent() {
+                break;
+            }
         }
     }
     return result;

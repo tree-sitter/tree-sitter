@@ -9,7 +9,7 @@ use std::{
 use tree_sitter::Point;
 use tree_sitter_tags::{c_lib as c, Error, TagsConfiguration, TagsContext};
 
-const PYTHON_TAG_QUERY: &'static str = r#"
+const PYTHON_TAG_QUERY: &str = r#"
 (
   (function_definition
     name: (identifier) @name
@@ -39,7 +39,7 @@ const PYTHON_TAG_QUERY: &'static str = r#"
     attribute: (identifier) @name)) @reference.call
 "#;
 
-const JS_TAG_QUERY: &'static str = r#"
+const JS_TAG_QUERY: &str = r#"
 (
     (comment)* @doc .
     (class_declaration
@@ -68,7 +68,7 @@ const JS_TAG_QUERY: &'static str = r#"
     function: (identifier) @name) @reference.call
 "#;
 
-const RUBY_TAG_QUERY: &'static str = r#"
+const RUBY_TAG_QUERY: &str = r#"
 (method
     name: (_) @name) @definition.method
 
@@ -359,25 +359,29 @@ fn test_tags_via_c_api() {
         );
 
         let c_scope_name = CString::new(scope_name).unwrap();
-        let result = c::ts_tagger_add_language(
-            tagger,
-            c_scope_name.as_ptr(),
-            language,
-            JS_TAG_QUERY.as_ptr(),
-            ptr::null(),
-            JS_TAG_QUERY.len() as u32,
-            0,
-        );
+        let result = unsafe {
+            c::ts_tagger_add_language(
+                tagger,
+                c_scope_name.as_ptr(),
+                language,
+                JS_TAG_QUERY.as_ptr(),
+                ptr::null(),
+                JS_TAG_QUERY.len() as u32,
+                0,
+            )
+        };
         assert_eq!(result, c::TSTagsError::Ok);
 
-        let result = c::ts_tagger_tag(
-            tagger,
-            c_scope_name.as_ptr(),
-            source_code.as_ptr(),
-            source_code.len() as u32,
-            buffer,
-            ptr::null(),
-        );
+        let result = unsafe {
+            c::ts_tagger_tag(
+                tagger,
+                c_scope_name.as_ptr(),
+                source_code.as_ptr(),
+                source_code.len() as u32,
+                buffer,
+                ptr::null(),
+            )
+        };
         assert_eq!(result, c::TSTagsError::Ok);
         let tags = unsafe {
             slice::from_raw_parts(
@@ -419,8 +423,10 @@ fn test_tags_via_c_api() {
             ]
         );
 
-        c::ts_tags_buffer_delete(buffer);
-        c::ts_tagger_delete(tagger);
+        unsafe {
+            c::ts_tags_buffer_delete(buffer);
+            c::ts_tagger_delete(tagger);
+        }
     });
 }
 

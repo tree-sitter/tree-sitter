@@ -1,4 +1,4 @@
-//! Manages tree-sitter's configuration file.
+#![doc = include_str!("../README.md")]
 
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
@@ -25,6 +25,9 @@ impl Config {
         if let Ok(path) = env::var("TREE_SITTER_DIR") {
             let mut path = PathBuf::from(path);
             path.push("config.json");
+            if !path.exists() {
+                return Ok(None);
+            }
             if path.is_file() {
                 return Ok(Some(path));
             }
@@ -37,7 +40,8 @@ impl Config {
 
         let legacy_path = dirs::home_dir()
             .ok_or(anyhow!("Cannot determine home directory"))?
-            .join(".tree-sitter/config.json");
+            .join(".tree-sitter")
+            .join("config.json");
         if legacy_path.is_file() {
             return Ok(Some(legacy_path));
         }
@@ -48,7 +52,8 @@ impl Config {
     fn xdg_config_file() -> Result<PathBuf> {
         let xdg_path = dirs::config_dir()
             .ok_or(anyhow!("Cannot determine config directory"))?
-            .join("tree-sitter/config.json");
+            .join("tree-sitter")
+            .join("config.json");
         Ok(xdg_path)
     }
 
@@ -79,7 +84,13 @@ impl Config {
     ///
     /// (Note that this is typically only done by the `tree-sitter init-config` command.)
     pub fn initial() -> Result<Config> {
-        let location = Self::xdg_config_file()?;
+        let location = if let Ok(path) = env::var("TREE_SITTER_DIR") {
+            let mut path = PathBuf::from(path);
+            path.push("config.json");
+            path
+        } else {
+            Self::xdg_config_file()?
+        };
         let config = serde_json::json!({});
         Ok(Config { location, config })
     }

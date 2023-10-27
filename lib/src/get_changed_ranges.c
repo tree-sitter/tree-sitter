@@ -210,7 +210,7 @@ static void iterator_ascend(Iterator *self) {
 static bool iterator_descend(Iterator *self, uint32_t goal_position) {
   if (self->in_padding) return false;
 
-  bool did_descend;
+  bool did_descend = false;
   do {
     did_descend = false;
     TreeCursorEntry entry = *array_back(&self->cursor.stack);

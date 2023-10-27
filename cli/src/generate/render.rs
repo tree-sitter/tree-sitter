@@ -129,6 +129,7 @@ impl Generator {
         }
 
         self.add_lex_modes_list();
+        self.add_parse_table();
 
         if !self.syntax_grammar.external_tokens.is_empty() {
             self.add_external_token_enum();
@@ -136,7 +137,6 @@ impl Generator {
             self.add_external_scanner_states_list();
         }
 
-        self.add_parse_table();
         self.add_parser_export();
 
         self.buffer
@@ -152,49 +152,51 @@ impl Generator {
             self.symbol_ids[&Symbol::end()].clone(),
         );
 
-        self.symbol_map = self
-            .parse_table
-            .symbols
-            .iter()
-            .map(|symbol| {
-                let mut mapping = symbol;
+        self.symbol_map = HashMap::new();
 
-                // There can be multiple symbols in the grammar that have the same name and kind,
-                // due to simple aliases. When that happens, ensure that they map to the same
-                // public-facing symbol. If one of the symbols is not aliased, choose that one
-                // to be the public-facing symbol. Otherwise, pick the symbol with the lowest
-                // numeric value.
-                if let Some(alias) = self.default_aliases.get(symbol) {
-                    let kind = alias.kind();
-                    for other_symbol in &self.parse_table.symbols {
-                        if let Some(other_alias) = self.default_aliases.get(other_symbol) {
-                            if other_symbol < mapping && other_alias == alias {
-                                mapping = other_symbol;
+        for symbol in self.parse_table.symbols.iter() {
+            let mut mapping = symbol;
+
+            // There can be multiple symbols in the grammar that have the same name and kind,
+            // due to simple aliases. When that happens, ensure that they map to the same
+            // public-facing symbol. If one of the symbols is not aliased, choose that one
+            // to be the public-facing symbol. Otherwise, pick the symbol with the lowest
+            // numeric value.
+            if let Some(alias) = self.default_aliases.get(symbol) {
+                let kind = alias.kind();
+                for other_symbol in &self.parse_table.symbols {
+                    if let Some(other_alias) = self.default_aliases.get(other_symbol) {
+                        if other_symbol < mapping && other_alias == alias {
+                            mapping = other_symbol;
+                        }
+                    } else if self.metadata_for_symbol(*other_symbol) == (&alias.value, kind) {
+                        mapping = other_symbol;
+                        break;
+                    }
+                }
+            }
+            // Two anonymous tokens with different flags but the same string value
+            // should be represented with the same symbol in the public API. Examples:
+            // *  "<" and token(prec(1, "<"))
+            // *  "(" and token.immediate("(")
+            else if symbol.is_terminal() {
+                let metadata = self.metadata_for_symbol(*symbol);
+                for other_symbol in &self.parse_table.symbols {
+                    let other_metadata = self.metadata_for_symbol(*other_symbol);
+                    if other_metadata == metadata {
+                        if let Some(mapped) = self.symbol_map.get(other_symbol) {
+                            if mapped == symbol {
+                                break;
                             }
-                        } else if self.metadata_for_symbol(*other_symbol) == (&alias.value, kind) {
-                            mapping = other_symbol;
-                            break;
                         }
+                        mapping = other_symbol;
+                        break;
                     }
                 }
-                // Two anonymous tokens with different flags but the same string value
-                // should be represented with the same symbol in the public API. Examples:
-                // *  "<" and token(prec(1, "<"))
-                // *  "(" and token.immediate("(")
-                else if symbol.is_terminal() {
-                    let metadata = self.metadata_for_symbol(*symbol);
-                    for other_symbol in &self.parse_table.symbols {
-                        let other_metadata = self.metadata_for_symbol(*other_symbol);
-                        if other_metadata == metadata {
-                            mapping = other_symbol;
-                            break;
-                        }
-                    }
-                }
+            }
 
-                (*symbol, *mapping)
-            })
-            .collect();
+            self.symbol_map.insert(*symbol, *mapping);
+        }
 
         for production_info in &self.parse_table.production_infos {
             // Build a list of all field names
@@ -254,7 +256,7 @@ impl Generator {
     }
 
     fn add_includes(&mut self) {
-        add_line!(self, "#include <tree_sitter/parser.h>");
+        add_line!(self, "#include \"tree_sitter/parser.h\"");
         add_line!(self, "");
     }
 
@@ -336,7 +338,7 @@ impl Generator {
     }
 
     fn add_symbol_enum(&mut self) {
-        add_line!(self, "enum {{");
+        add_line!(self, "enum ts_symbol_identifiers {{");
         indent!(self);
         self.symbol_order.insert(Symbol::end(), 0);
         let mut i = 1;
@@ -408,7 +410,7 @@ impl Generator {
     }
 
     fn add_field_name_enum(&mut self) {
-        add_line!(self, "enum {{");
+        add_line!(self, "enum ts_field_identifiers {{");
         indent!(self);
         for (i, field_name) in self.field_names.iter().enumerate() {
             add_line!(self, "{} = {},", self.field_id(field_name), i + 1);
@@ -764,7 +766,6 @@ impl Generator {
         indent!(self);
 
         add_line!(self, "START_LEXER();");
-        add_line!(self, "eof = lexer->eof(lexer);");
         add_line!(self, "switch (state) {{");
 
         indent!(self);
@@ -879,14 +880,23 @@ impl Generator {
                     add!(self, " ||{}", line_break);
                 }
                 if range.end == range.start {
+                    if range.start == '\0' {
+                        add!(self, "!eof && ");
+                    }
                     add!(self, "lookahead == ");
                     self.add_character(range.start);
                 } else if range.end as u32 == range.start as u32 + 1 {
+                    if range.start == '\0' {
+                        add!(self, "!eof && ");
+                    }
                     add!(self, "lookahead == ");
                     self.add_character(range.start);
                     add!(self, " ||{}lookahead == ", line_break);
                     self.add_character(range.end);
                 } else {
+                    if range.start == '\0' {
+                        add!(self, "!eof && ");
+                    }
                     add!(self, "(");
                     self.add_character(range.start);
                     add!(self, " <= lookahead && lookahead <= ");
@@ -1016,7 +1026,7 @@ impl Generator {
     }
 
     fn add_external_token_enum(&mut self) {
-        add_line!(self, "enum {{");
+        add_line!(self, "enum ts_external_scanner_symbol_identifiers {{");
         indent!(self);
         for i in 0..self.syntax_grammar.external_tokens.len() {
             add_line!(
@@ -1525,54 +1535,93 @@ impl Generator {
     fn sanitize_identifier(&self, name: &str) -> String {
         let mut result = String::with_capacity(name.len());
         for c in name.chars() {
-            if ('a' <= c && c <= 'z')
-                || ('A' <= c && c <= 'Z')
-                || ('0' <= c && c <= '9')
-                || c == '_'
-            {
+            if c.is_ascii_alphanumeric() || c == '_' {
                 result.push(c);
             } else {
-                let replacement = match c {
-                    '~' => "TILDE",
-                    '`' => "BQUOTE",
-                    '!' => "BANG",
-                    '@' => "AT",
-                    '#' => "POUND",
-                    '$' => "DOLLAR",
-                    '%' => "PERCENT",
-                    '^' => "CARET",
-                    '&' => "AMP",
-                    '*' => "STAR",
-                    '(' => "LPAREN",
-                    ')' => "RPAREN",
-                    '-' => "DASH",
-                    '+' => "PLUS",
-                    '=' => "EQ",
-                    '{' => "LBRACE",
-                    '}' => "RBRACE",
-                    '[' => "LBRACK",
-                    ']' => "RBRACK",
-                    '\\' => "BSLASH",
-                    '|' => "PIPE",
-                    ':' => "COLON",
-                    ';' => "SEMI",
-                    '"' => "DQUOTE",
-                    '\'' => "SQUOTE",
-                    '<' => "LT",
-                    '>' => "GT",
-                    ',' => "COMMA",
-                    '.' => "DOT",
-                    '?' => "QMARK",
-                    '/' => "SLASH",
-                    '\n' => "LF",
-                    '\r' => "CR",
-                    '\t' => "TAB",
-                    _ => continue,
-                };
-                if !result.is_empty() && !result.ends_with("_") {
-                    result.push('_');
+                'special_chars: {
+                    let replacement = match c {
+                        ' ' if name.len() == 1 => "SPACE",
+                        '~' => "TILDE",
+                        '`' => "BQUOTE",
+                        '!' => "BANG",
+                        '@' => "AT",
+                        '#' => "POUND",
+                        '$' => "DOLLAR",
+                        '%' => "PERCENT",
+                        '^' => "CARET",
+                        '&' => "AMP",
+                        '*' => "STAR",
+                        '(' => "LPAREN",
+                        ')' => "RPAREN",
+                        '-' => "DASH",
+                        '+' => "PLUS",
+                        '=' => "EQ",
+                        '{' => "LBRACE",
+                        '}' => "RBRACE",
+                        '[' => "LBRACK",
+                        ']' => "RBRACK",
+                        '\\' => "BSLASH",
+                        '|' => "PIPE",
+                        ':' => "COLON",
+                        ';' => "SEMI",
+                        '"' => "DQUOTE",
+                        '\'' => "SQUOTE",
+                        '<' => "LT",
+                        '>' => "GT",
+                        ',' => "COMMA",
+                        '.' => "DOT",
+                        '?' => "QMARK",
+                        '/' => "SLASH",
+                        '\n' => "LF",
+                        '\r' => "CR",
+                        '\t' => "TAB",
+                        '\0' => "NULL",
+                        '\u{0001}' => "SOH",
+                        '\u{0002}' => "STX",
+                        '\u{0003}' => "ETX",
+                        '\u{0004}' => "EOT",
+                        '\u{0005}' => "ENQ",
+                        '\u{0006}' => "ACK",
+                        '\u{0007}' => "BEL",
+                        '\u{0008}' => "BS",
+                        '\u{000b}' => "VTAB",
+                        '\u{000c}' => "FF",
+                        '\u{000e}' => "SO",
+                        '\u{000f}' => "SI",
+                        '\u{0010}' => "DLE",
+                        '\u{0011}' => "DC1",
+                        '\u{0012}' => "DC2",
+                        '\u{0013}' => "DC3",
+                        '\u{0014}' => "DC4",
+                        '\u{0015}' => "NAK",
+                        '\u{0016}' => "SYN",
+                        '\u{0017}' => "ETB",
+                        '\u{0018}' => "CAN",
+                        '\u{0019}' => "EM",
+                        '\u{001a}' => "SUB",
+                        '\u{001b}' => "ESC",
+                        '\u{001c}' => "FS",
+                        '\u{001d}' => "GS",
+                        '\u{001e}' => "RS",
+                        '\u{001f}' => "US",
+                        '\u{007F}' => "DEL",
+                        '\u{FEFF}' => "BOM",
+                        '\u{0080}'..='\u{FFFF}' => {
+                            result.push_str(&format!("u{:04x}", c as u32));
+                            break 'special_chars;
+                        }
+                        '\u{10000}'..='\u{10FFFF}' => {
+                            result.push_str(&format!("U{:08x}", c as u32));
+                            break 'special_chars;
+                        }
+                        '0'..='9' | 'a'..='z' | 'A'..='Z' | '_' => unreachable!(),
+                        ' ' => break 'special_chars,
+                    };
+                    if !result.is_empty() && !result.ends_with("_") {
+                        result.push('_');
+                    }
+                    result += replacement;
                 }
-                result += replacement;
             }
         }
         result
@@ -1585,10 +1634,19 @@ impl Generator {
                 '\"' => result += "\\\"",
                 '?' => result += "\\?",
                 '\\' => result += "\\\\",
+                '\u{0007}' => result += "\\a",
+                '\u{0008}' => result += "\\b",
+                '\u{000b}' => result += "\\v",
                 '\u{000c}' => result += "\\f",
                 '\n' => result += "\\n",
                 '\r' => result += "\\r",
                 '\t' => result += "\\t",
+                '\0' => result += "\\0",
+                '\u{0001}'..='\u{001f}' => result += &format!("\\x{:02x}", c as u32),
+                '\u{007F}'..='\u{FFFF}' => result += &format!("\\u{:04x}", c as u32),
+                '\u{10000}'..='\u{10FFFF}' => {
+                    result.push_str(&format!("\\U{:08x}", c as u32));
+                }
                 _ => result.push(c),
             }
         }

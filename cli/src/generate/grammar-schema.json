@@ -63,7 +63,7 @@
     },
 
     "supertypes": {
-      "description": "A list of hidden rule names that should be considered supertypes in the generated node types file. See http://tree-sitter.github.io/tree-sitter/using-parsers#static-node-types.",
+      "description": "A list of hidden rule names that should be considered supertypes in the generated node types file. See https://tree-sitter.github.io/tree-sitter/using-parsers#static-node-types.",
       "type": "array",
       "items": {
         "description": "the name of a rule in `rules` or `extras`",

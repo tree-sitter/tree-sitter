@@ -74,8 +74,8 @@ if ({a: 'b'} {c: 'd'}) {
 (program
   (if_statement
     (parenthesized_expression
-      (ERROR (object (pair (property_identifier) (string))))
-      (object (pair (property_identifier) (string))))
+      (ERROR (object (pair (property_identifier) (string (string_fragment)))))
+      (object (pair (property_identifier) (string (string_fragment)))))
     (statement_block
       (expression_statement
         (assignment_expression
@@ -178,12 +178,12 @@ function main(x) {
       (expression_statement
         (call_expression
           (member_expression (identifier) (property_identifier))
-          (arguments (string))))
+          (arguments (string (string_fragment)))))
       (expression_statement
         (binary_expression
           (identifier)
           (ERROR)
           (call_expression
             (member_expression (identifier) (property_identifier))
-            (arguments (string)))))
+            (arguments (string (string_fragment))))))
       (return_statement (object)))))
