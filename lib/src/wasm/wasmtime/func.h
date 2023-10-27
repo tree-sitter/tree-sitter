@@ -233,6 +233,8 @@ WASM_API_EXTERN wasmtime_error_t *wasmtime_func_call(
  *
  * * The `args_and_results` pointer has enough space to hold all the parameters
  *   and all the results (but not at the same time).
+ * * The `args_and_results_len` contains the length of the `args_and_results`
+ *   buffer.
  * * Parameters must all be configured as if they were the correct type.
  * * Values such as `externref` and `funcref` are valid within the store being
  *   called.
@@ -241,10 +243,12 @@ WASM_API_EXTERN wasmtime_error_t *wasmtime_func_call(
  * faster than that function, but the tradeoff is that embeddings must uphold
  * more invariants rather than relying on Wasmtime to check them for you.
  */
-WASM_API_EXTERN wasm_trap_t *wasmtime_func_call_unchecked(
+WASM_API_EXTERN wasmtime_error_t *wasmtime_func_call_unchecked(
     wasmtime_context_t *store,
     const wasmtime_func_t *func,
-    wasmtime_val_raw_t *args_and_results
+    wasmtime_val_raw_t *args_and_results,
+    size_t args_and_results_len,
+    wasm_trap_t **trap
 );
 
 /**
@@ -292,14 +296,14 @@ WASM_API_EXTERN wasmtime_context_t* wasmtime_caller_context(wasmtime_caller_t* c
  */
 WASM_API_EXTERN void wasmtime_func_from_raw(
     wasmtime_context_t* context,
-    size_t raw,
+    void *raw,
     wasmtime_func_t *ret);
 
 /**
  * \brief Converts a `func`  which belongs to `context` into a `usize`
  * parameter that is suitable for insertion into a #wasmtime_val_raw_t.
  */
-WASM_API_EXTERN size_t wasmtime_func_to_raw(
+WASM_API_EXTERN void *wasmtime_func_to_raw(
     wasmtime_context_t* context,
     const wasmtime_func_t *func);
 

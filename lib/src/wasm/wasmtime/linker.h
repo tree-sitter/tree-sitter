@@ -59,6 +59,7 @@ WASM_API_EXTERN void wasmtime_linker_allow_shadowing(wasmtime_linker_t* linker, 
  * \brief Defines a new item in this linker.
  *
  * \param linker the linker the name is being defined in.
+ * \param store the store that the `item` is owned by.
  * \param module the module name the item is defined under.
  * \param module_len the byte length of `module`
  * \param name the field name the item is defined under
@@ -73,6 +74,7 @@ WASM_API_EXTERN void wasmtime_linker_allow_shadowing(wasmtime_linker_t* linker, 
  */
 WASM_API_EXTERN wasmtime_error_t* wasmtime_linker_define(
     wasmtime_linker_t *linker,
+    wasmtime_context_t *store,
     const char *module,
     size_t module_len,
     const char *name,
@@ -289,6 +291,24 @@ WASM_API_EXTERN bool wasmtime_linker_get(
     size_t name_len,
     wasmtime_extern_t *item
 );
+
+/**
+ * \brief Preform all the checks for instantiating `module` with the linker,
+ *        except that instantiation doesn't actually finish.
+ *
+ * \param linker the linker used to instantiate the provided module.
+ * \param module the module that is being instantiated.
+ * \param instance_pre the returned instance_pre, if successful.
+ *
+ * \return An error or `NULL` if successful.
+ *
+ * For more information see the Rust documentation at:
+ * https://docs.wasmtime.dev/api/wasmtime/struct.Linker.html#method.instantiate_pre
+ */
+WASM_API_EXTERN wasmtime_error_t* wasmtime_linker_instantiate_pre(
+    const wasmtime_linker_t *linker,
+    const wasmtime_module_t *module,
+    wasmtime_instance_pre_t **instance_pre);
 
 #ifdef __cplusplus
 }  // extern "C"

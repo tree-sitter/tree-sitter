@@ -70,7 +70,7 @@ WASM_API_EXTERN void wasmtime_externref_delete(wasmtime_externref_t *ref);
  * Note that the returned #wasmtime_externref_t is an owned value that must be
  * deleted via #wasmtime_externref_delete by the caller if it is non-null.
  */
-WASM_API_EXTERN wasmtime_externref_t *wasmtime_externref_from_raw(wasmtime_context_t *context, size_t raw);
+WASM_API_EXTERN wasmtime_externref_t *wasmtime_externref_from_raw(wasmtime_context_t *context, void *raw);
 
 /**
  * \brief Converts a #wasmtime_externref_t to a raw value suitable for storing
@@ -82,7 +82,7 @@ WASM_API_EXTERN wasmtime_externref_t *wasmtime_externref_from_raw(wasmtime_conte
  * context of the store. Do not perform a GC between calling this function and
  * passing it to WebAssembly.
  */
-WASM_API_EXTERN size_t wasmtime_externref_to_raw(
+WASM_API_EXTERN void *wasmtime_externref_to_raw(
     wasmtime_context_t *context,
     const wasmtime_externref_t *ref);
 
@@ -119,38 +119,24 @@ typedef uint8_t wasmtime_v128[16];
  */
 typedef union wasmtime_valunion {
   /// Field used if #wasmtime_val_t::kind is #WASMTIME_I32
-  ///
-  /// Note that this field is always stored in a little-endian format.
   int32_t i32;
   /// Field used if #wasmtime_val_t::kind is #WASMTIME_I64
-  ///
-  /// Note that this field is always stored in a little-endian format.
   int64_t i64;
   /// Field used if #wasmtime_val_t::kind is #WASMTIME_F32
-  ///
-  /// Note that this field is always stored in a little-endian format.
   float32_t f32;
   /// Field used if #wasmtime_val_t::kind is #WASMTIME_F64
-  ///
-  /// Note that this field is always stored in a little-endian format.
   float64_t f64;
   /// Field used if #wasmtime_val_t::kind is #WASMTIME_FUNCREF
   ///
   /// If this value represents a `ref.null func` value then the `store_id` field
   /// is set to zero.
-  ///
-  /// Note that this field is always stored in a little-endian format.
   wasmtime_func_t funcref;
   /// Field used if #wasmtime_val_t::kind is #WASMTIME_EXTERNREF
   ///
   /// If this value represents a `ref.null extern` value then this pointer will
   /// be `NULL`.
-  ///
-  /// Note that this field is always stored in a little-endian format.
   wasmtime_externref_t *externref;
   /// Field used if #wasmtime_val_t::kind is #WASMTIME_V128
-  ///
-  /// Note that this field is always stored in a little-endian format.
   wasmtime_v128 v128;
 } wasmtime_valunion_t;
 
@@ -169,26 +155,40 @@ typedef union wasmtime_valunion {
  */
 typedef union wasmtime_val_raw {
   /// Field for when this val is a WebAssembly `i32` value.
+  ///
+  /// Note that this field is always stored in a little-endian format.
   int32_t i32;
   /// Field for when this val is a WebAssembly `i64` value.
+  ///
+  /// Note that this field is always stored in a little-endian format.
   int64_t i64;
   /// Field for when this val is a WebAssembly `f32` value.
+  ///
+  /// Note that this field is always stored in a little-endian format.
   float32_t f32;
   /// Field for when this val is a WebAssembly `f64` value.
+  ///
+  /// Note that this field is always stored in a little-endian format.
   float64_t f64;
   /// Field for when this val is a WebAssembly `v128` value.
+  ///
+  /// Note that this field is always stored in a little-endian format.
   wasmtime_v128 v128;
   /// Field for when this val is a WebAssembly `funcref` value.
   ///
   /// If this is set to 0 then it's a null funcref, otherwise this must be
   /// passed to `wasmtime_func_from_raw` to determine the `wasmtime_func_t`.
-  size_t funcref;
+  ///
+  /// Note that this field is always stored in a little-endian format.
+  void *funcref;
   /// Field for when this val is a WebAssembly `externref` value.
   ///
   /// If this is set to 0 then it's a null externref, otherwise this must be
   /// passed to `wasmtime_externref_from_raw` to determine the
   /// `wasmtime_externref_t`.
-  size_t externref;
+  ///
+  /// Note that this field is always stored in a little-endian format.
+  void *externref;
 } wasmtime_val_raw_t;
 
 /**
@@ -212,7 +212,7 @@ typedef struct wasmtime_val {
 } wasmtime_val_t;
 
 /**
- * \brief Delets an owned #wasmtime_val_t.
+ * \brief Deletes an owned #wasmtime_val_t.
  *
  * Note that this only deletes the contents, not the memory that `val` points to
  * itself (which is owned by the caller).

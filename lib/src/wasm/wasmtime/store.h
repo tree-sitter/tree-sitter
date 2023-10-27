@@ -80,6 +80,44 @@ WASM_API_EXTERN wasmtime_store_t *wasmtime_store_new(
 WASM_API_EXTERN wasmtime_context_t *wasmtime_store_context(wasmtime_store_t *store);
 
 /**
+ * \brief Provides limits for a store. Used by hosts to limit resource
+ * consumption of instances. Use negative value to keep the default value
+ * for the limit.
+ *
+ * \param store store where the limits should be set.
+ * \param memory_size the maximum number of bytes a linear memory can grow to.
+ * Growing a linear memory beyond this limit will fail. By default,
+ * linear memory will not be limited.
+ * \param table_elements the maximum number of elements in a table.
+ * Growing a table beyond this limit will fail. By default, table elements
+ * will not be limited.
+ * \param instances the maximum number of instances that can be created
+ * for a Store. Module instantiation will fail if this limit is exceeded.
+ * This value defaults to 10,000.
+ * \param tables the maximum number of tables that can be created for a Store.
+ * Module instantiation will fail if this limit is exceeded. This value
+ * defaults to 10,000.
+ * \param memories the maximum number of linear memories that can be created
+ * for a Store. Instantiation will fail with an error if this limit is exceeded.
+ * This value defaults to 10,000.
+ *
+ * Use any negative value for the parameters that should be kept on
+ * the default values.
+ *
+ * Note that the limits are only used to limit the creation/growth of
+ * resources in the future, this does not retroactively attempt to apply
+ * limits to the store.
+ */
+WASM_API_EXTERN void wasmtime_store_limiter(
+        wasmtime_store_t *store,
+        int64_t memory_size,
+        int64_t table_elements,
+        int64_t instances,
+        int64_t tables,
+        int64_t memories
+);
+
+/**
  * \brief Deletes a store.
  */
 WASM_API_EXTERN void wasmtime_store_delete(wasmtime_store_t *store);
@@ -110,7 +148,7 @@ WASM_API_EXTERN void wasmtime_context_set_data(wasmtime_context_t* context, void
 WASM_API_EXTERN void wasmtime_context_gc(wasmtime_context_t* context);
 
 /**
- * \brief Adds fuel to this context's store for wasm to consume while executing.
+ * \brief Set fuel to this context's store for wasm to consume while executing.
  *
  * For this method to work fuel consumption must be enabled via
  * #wasmtime_config_consume_fuel_set. By default a store starts with 0 fuel
@@ -118,40 +156,24 @@ WASM_API_EXTERN void wasmtime_context_gc(wasmtime_context_t* context);
  * This function must be called for the store to have
  * some fuel to allow WebAssembly to execute.
  *
- * Note that at this time when fuel is entirely consumed it will cause
- * wasm to trap. More usages of fuel are planned for the future.
+ * Note that when fuel is entirely consumed it will cause wasm to trap.
  *
  * If fuel is not enabled within this store then an error is returned. If fuel
  * is successfully added then NULL is returned.
  */
-WASM_API_EXTERN wasmtime_error_t *wasmtime_context_add_fuel(wasmtime_context_t *store, uint64_t fuel);
+WASM_API_EXTERN wasmtime_error_t *wasmtime_context_set_fuel(wasmtime_context_t *store, uint64_t fuel);
 
 /**
- * \brief Returns the amount of fuel consumed by this context's store execution
- * so far.
+ * \brief Returns the amount of fuel remaining in this context's store.
  *
  * If fuel consumption is not enabled via #wasmtime_config_consume_fuel_set
- * then this function will return false. Otherwise true is returned and the
- * fuel parameter is filled in with fuel consuemd so far.
+ * then this function will return an error. Otherwise `NULL` is returned and the
+ * fuel parameter is filled in with fuel consumed so far.
  *
  * Also note that fuel, if enabled, must be originally configured via
- * #wasmtime_context_add_fuel.
+ * #wasmtime_context_set_fuel.
  */
-WASM_API_EXTERN bool wasmtime_context_fuel_consumed(const wasmtime_context_t *context, uint64_t *fuel);
-
-/**
- * \brief Attempt to manually consume fuel from the store.
- *
- * If fuel consumption is not enabled via #wasmtime_config_consume_fuel_set then
- * this function will return an error. Otherwise this will attempt to consume
- * the specified amount of `fuel` from the store. If successful the remaining
- * amount of fuel is stored into `remaining`. If `fuel` couldn't be consumed
- * then an error is returned.
- *
- * Also note that fuel, if enabled, must be originally configured via
- * #wasmtime_context_add_fuel.
- */
-WASM_API_EXTERN wasmtime_error_t *wasmtime_context_consume_fuel(wasmtime_context_t *context, uint64_t fuel, uint64_t *remaining);
+WASM_API_EXTERN wasmtime_error_t* wasmtime_context_get_fuel(const wasmtime_context_t *context, uint64_t *fuel);
 
 /**
  * \brief Configures WASI state within the specified store.
@@ -168,14 +190,29 @@ WASM_API_EXTERN wasmtime_error_t *wasmtime_context_set_wasi(wasmtime_context_t *
 
 /**
  * \brief Configures the relative deadline at which point WebAssembly code will
- * trap.
+ * trap or invoke the callback function.
  *
  * This function configures the store-local epoch deadline after which point
- * WebAssembly code will trap.
+ * WebAssembly code will trap or invoke the callback function.
  *
- * See also #wasmtime_config_epoch_interruption_set.
+ * See also #wasmtime_config_epoch_interruption_set and
+ * #wasmtime_store_epoch_deadline_callback.
  */
 WASM_API_EXTERN void wasmtime_context_set_epoch_deadline(wasmtime_context_t *context, uint64_t ticks_beyond_current);
+
+/**
+ * \brief Configures epoch deadline callback to C function.
+ *
+ * This function configures a store-local callback function that will be
+ * called when the running WebAssembly function has exceeded its epoch
+ * deadline. That function can return a #wasmtime_error_t to terminate
+ * the function, or set the delta argument and return NULL to update the
+ * epoch deadline and resume function execution.
+ *
+ * See also #wasmtime_config_epoch_interruption_set and
+ * #wasmtime_context_set_epoch_deadline.
+ */
+WASM_API_EXTERN void wasmtime_store_epoch_deadline_callback(wasmtime_store_t *store, wasmtime_error_t* (*func)(wasmtime_context_t*, void*, uint64_t*), void *data);
 
 #ifdef __cplusplus
 }  // extern "C"

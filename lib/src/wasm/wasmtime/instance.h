@@ -121,6 +121,51 @@ WASM_API_EXTERN bool wasmtime_instance_export_nth(
     wasmtime_extern_t *item
 );
 
+/**
+ * \brief A #wasmtime_instance_t, pre-instantiation, that is ready to be instantiated.
+ *
+ * Must be deleted using #wasmtime_instance_pre_delete.
+ *
+ * For more information see the Rust documentation:
+ * https://docs.wasmtime.dev/api/wasmtime/struct.InstancePre.html
+ */
+typedef struct wasmtime_instance_pre wasmtime_instance_pre_t;
+
+/**
+ * \brief Delete a previously created wasmtime_instance_pre_t.
+ */
+WASM_API_EXTERN void
+wasmtime_instance_pre_delete(wasmtime_instance_pre_t *instance);
+
+/**
+ * \brief Instantiates instance within the given store.
+ *
+ * This will also run the function's startup function, if there is one.
+ *
+ * For more information on instantiation see #wasmtime_instance_new.
+ *
+ * \param instance_pre the pre-initialized instance
+ * \param store the store in which to create the instance
+ * \param instance where to store the returned instance
+ * \param trap_ptr where to store the returned trap
+ *
+ * \return One of three things can happen as a result of this function. First
+ * the module could be successfully instantiated and returned through
+ * `instance`, meaning the return value and `trap` are both set to `NULL`.
+ * Second the start function may trap, meaning the return value and `instance`
+ * are set to `NULL` and `trap` describes the trap that happens. Finally
+ * instantiation may fail for another reason, in which case an error is returned
+ * and `trap` and `instance` are set to `NULL`.
+ *
+ * This function does not take ownership of any of its arguments, and all return
+ * values are owned by the caller.
+ */
+WASM_API_EXTERN wasmtime_error_t* wasmtime_instance_pre_instantiate(
+    const wasmtime_instance_pre_t* instance_pre,
+    wasmtime_store_t *store,
+    wasmtime_instance_t* instance,
+    wasm_trap_t **trap_ptr);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif

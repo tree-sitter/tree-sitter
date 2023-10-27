@@ -31,6 +31,11 @@ extern "C" {
 typedef struct wasmtime_error wasmtime_error_t;
 
 /**
+ * \brief Creates a new error with the provided message.
+ */
+WASM_API_EXTERN wasmtime_error_t *wasmtime_error_new(const char*);
+
+/**
  * \brief Deletes an error.
  */
 WASM_API_EXTERN void wasmtime_error_delete(wasmtime_error_t *error);
@@ -47,6 +52,24 @@ WASM_API_EXTERN void wasmtime_error_message(
     const wasmtime_error_t *error,
     wasm_name_t *message
 );
+
+/**
+ * \brief Attempts to extract a WASI-specific exit status from this error.
+ *
+ * Returns `true` if the error is a WASI "exit" trap and has a return status.
+ * If `true` is returned then the exit status is returned through the `status`
+ * pointer. If `false` is returned then this is not a wasi exit trap.
+ */
+WASM_API_EXTERN bool wasmtime_error_exit_status(const wasmtime_error_t*, int *status);
+
+/**
+ * \brief Attempts to extract a WebAssembly trace from this error.
+ *
+ * This is similar to #wasm_trap_trace except that it takes a #wasmtime_error_t
+ * as input. The `out` argument will be filled in with the wasm trace, if
+ * present.
+ */
+WASM_API_EXTERN void wasmtime_error_wasm_trace(const wasmtime_error_t*, wasm_frame_vec_t *out);
 
 #ifdef __cplusplus
 }  // extern "C"

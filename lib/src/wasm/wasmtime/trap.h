@@ -46,6 +46,8 @@ enum wasmtime_trap_code_enum {
   WASMTIME_TRAP_CODE_UNREACHABLE_CODE_REACHED,
   /// Execution has potentially run too long and may be interrupted.
   WASMTIME_TRAP_CODE_INTERRUPT,
+  /// Execution has run out of the configured fuel amount.
+  WASMTIME_TRAP_CODE_OUT_OF_FUEL,
 };
 
 /**
@@ -68,15 +70,6 @@ WASM_API_EXTERN wasm_trap_t *wasmtime_trap_new(const char *msg, size_t msg_len);
  * or occur with WASI modules exiting with a certain exit code.
  */
 WASM_API_EXTERN bool wasmtime_trap_code(const wasm_trap_t*, wasmtime_trap_code_t *code);
-
-/**
- * \brief Attempts to extract a WASI-specific exit status from this trap.
- *
- * Returns `true` if the trap is a WASI "exit" trap and has a return status. If
- * `true` is returned then the exit status is returned through the `status`
- * pointer. If `false` is returned then this is not a wasi exit trap.
- */
-WASM_API_EXTERN bool wasmtime_trap_exit_status(const wasm_trap_t*, int *status);
 
 /**
  * \brief Returns a human-readable name for this frame's function.

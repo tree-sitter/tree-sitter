@@ -1021,7 +1021,12 @@ void ts_wasm_store_stop(TSWasmStore *self) {
   self->current_instance = NULL;
 }
 
-static void ts_wasm_store__call(TSWasmStore *self, int32_t function_index, wasmtime_val_raw_t *args_and_results) {
+static void ts_wasm_store__call(
+  TSWasmStore *self,
+  int32_t function_index,
+  wasmtime_val_raw_t *args_and_results,
+  size_t args_and_results_len
+) {
   wasmtime_context_t *context = wasmtime_store_context(self->store);
   wasmtime_val_t value;
   bool succeeded = wasmtime_table_get(context, &self->function_table, function_index, &value);
@@ -1029,7 +1034,9 @@ static void ts_wasm_store__call(TSWasmStore *self, int32_t function_index, wasmt
   assert(value.kind == WASMTIME_FUNCREF);
   wasmtime_func_t func = value.of.funcref;
 
-  wasm_trap_t *trap = wasmtime_func_call_unchecked(context, &func, args_and_results);
+  wasm_trap_t *trap = NULL;
+  wasmtime_error_t *error = wasmtime_func_call_unchecked(context, &func, args_and_results, args_and_results_len, &trap);
+  assert(!error);
   if (trap) {
     wasm_message_t message;
     wasm_trap_message(trap, &message);
@@ -1051,7 +1058,7 @@ static bool ts_wasm_store__call_lex_function(TSWasmStore *self, unsigned functio
     {.i32 = LEXER_ADDRESS},
     {.i32 = state},
   };
-  ts_wasm_store__call(self, function_index, args);
+  ts_wasm_store__call(self, function_index, args, 2);
   bool result = args[0].i32;
 
   memcpy(
@@ -1080,13 +1087,13 @@ bool ts_wasm_store_call_lex_keyword(TSWasmStore *self, TSStateId state) {
 
 uint32_t ts_wasm_store_call_scanner_create(TSWasmStore *self) {
   wasmtime_val_raw_t args[1] = {{.i32 = 0}};
-  ts_wasm_store__call(self, self->current_instance->scanner_create_fn_index, args);
+  ts_wasm_store__call(self, self->current_instance->scanner_create_fn_index, args, 1);
   return args[0].i32;
 }
 
 void ts_wasm_store_call_scanner_destroy(TSWasmStore *self, uint32_t scanner_address) {
   wasmtime_val_raw_t args[1] = {{.i32 = scanner_address}};
-  ts_wasm_store__call(self, self->current_instance->scanner_destroy_fn_index, args);
+  ts_wasm_store__call(self, self->current_instance->scanner_destroy_fn_index, args, 1);
 }
 
 bool ts_wasm_store_call_scanner_scan(
@@ -1111,7 +1118,7 @@ bool ts_wasm_store_call_scanner_scan(
     {.i32 = LEXER_ADDRESS},
     {.i32 = valid_tokens_address}
   };
-  ts_wasm_store__call(self, self->current_instance->scanner_scan_fn_index, args);
+  ts_wasm_store__call(self, self->current_instance->scanner_scan_fn_index, args, 3);
 
   memcpy(
     &self->current_lexer->lookahead,
@@ -1133,7 +1140,7 @@ uint32_t ts_wasm_store_call_scanner_serialize(
     {.i32 = scanner_address},
     {.i32 = SERIALIZATION_BUFFER_ADDRESS},
   };
-  ts_wasm_store__call(self, self->current_instance->scanner_serialize_fn_index, args);
+  ts_wasm_store__call(self, self->current_instance->scanner_serialize_fn_index, args, 2);
   uint32_t length = args[0].i32;
 
   if (length > 0) {
@@ -1168,7 +1175,7 @@ void ts_wasm_store_call_scanner_deserialize(
     {.i32 = SERIALIZATION_BUFFER_ADDRESS},
     {.i32 = length},
   };
-  ts_wasm_store__call(self, self->current_instance->scanner_deserialize_fn_index, args);
+  ts_wasm_store__call(self, self->current_instance->scanner_deserialize_fn_index, args, 3);
 }
 
 bool ts_language_is_wasm(const TSLanguage *self) {

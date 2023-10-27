@@ -66,7 +66,7 @@ WASM_API_EXTERN wasmtime_error_t *wasmtime_memory_new(
 );
 
 /**
- * \brief Returns the tyep of the memory specified
+ * \brief Returns the type of the memory specified
  */
 WASM_API_EXTERN wasm_memorytype_t* wasmtime_memory_type(
     const wasmtime_context_t *store,
