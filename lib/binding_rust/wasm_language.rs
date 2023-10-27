@@ -9,6 +9,7 @@ pub fn test() {
 
 #[repr(C)]
 #[derive(Clone)]
+#[allow(non_camel_case_types)]
 pub struct wasm_engine_t {
     pub(crate) engine: wasmtime::Engine,
 }
@@ -17,14 +18,10 @@ pub struct WasmStore(*mut ffi::TSWasmStore);
 
 impl WasmStore {
     pub fn new(engine: wasmtime::Engine) -> Self {
-        let mut c_engine = Box::new(wasm_engine_t {
-            engine: engine.clone(),
-        });
-        let result = WasmStore(unsafe {
-            ffi::ts_wasm_store_new(c_engine.as_mut() as *mut wasm_engine_t as *mut _)
-        });
-        mem::forget(c_engine);
-        result
+        let engine = Box::new(wasm_engine_t { engine });
+        WasmStore(unsafe {
+            ffi::ts_wasm_store_new(Box::leak(engine) as *mut wasm_engine_t as *mut _)
+        })
     }
 
     pub fn load_language(&mut self, name: &str, bytes: &[u8]) -> Language {
