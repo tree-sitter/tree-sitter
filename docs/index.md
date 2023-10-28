@@ -16,6 +16,7 @@ Tree-sitter is a parser generator tool and an incremental parsing library. It ca
 There are currently bindings that allow Tree-sitter to be used from the following languages:
 
 * [Go](https://github.com/smacker/go-tree-sitter)
+* [Guile](https://github.com/Z572/guile-ts)
 * [Haskell](https://github.com/tree-sitter/haskell-tree-sitter)
 * [Java](https://github.com/serenadeai/java-tree-sitter)
 * [JavaScript (Node.js)](https://github.com/tree-sitter/node-tree-sitter)
