@@ -20,6 +20,9 @@ doc = false
 name = "benchmark"
 harness = false
 
+[features]
+wasm = ["tree-sitter/wasm", "tree-sitter-loader/wasm"]
+
 [dependencies]
 ansi_term = "0.12.1"
 anyhow = "1.0.72"
@@ -49,7 +52,6 @@ which = "4.4.0"
 [dependencies.tree-sitter]
 version = "0.20.10"
 path = "../lib"
-features = ["wasm"]
 
 [dependencies.tree-sitter-config]
 version = "0.19.0"
@@ -62,7 +64,6 @@ path = "../highlight"
 [dependencies.tree-sitter-loader]
 version = "0.20"
 path = "loader"
-features = ["wasm"]
 
 [dependencies.tree-sitter-tags]
 version = "0.20"

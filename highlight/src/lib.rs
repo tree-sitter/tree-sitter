@@ -127,7 +127,7 @@ pub struct HighlightConfiguration {
 /// syntax highlighting calls. A separate highlighter is needed for each thread that
 /// is performing highlighting.
 pub struct Highlighter {
-    parser: Parser,
+    pub parser: Parser,
     cursors: Vec<QueryCursor>,
 }
 

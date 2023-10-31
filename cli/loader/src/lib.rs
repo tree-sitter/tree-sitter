@@ -354,29 +354,23 @@ impl Loader {
             lib_name.push_str(".debug._");
         }
 
-        let mut library_path = self.parser_lib_path.join(lib_name);
         fs::create_dir_all(&self.parser_lib_path)?;
 
-        let parser_path = src_path.join("parser.c");
-        let mut scanner_path = None;
-        let mut try_scanner_path = src_path.join("scanner.c");
-        for extension in ["c", "cc", "cpp"] {
-            try_scanner_path.set_extension(extension);
-            if try_scanner_path.exists() {
-                scanner_path = Some(try_scanner_path);
-                break;
-            }
-        }
+        let mut library_path = self.parser_lib_path.join(lib_name);
+        library_path.set_extension(DYLIB_EXTENSION);
 
+        let parser_path = src_path.join("parser.c");
+        let scanner_path = self.get_scanner_path(&src_path);
+
+        #[cfg(feature = "wasm")]
         if self.wasm_store.lock().unwrap().is_some() {
             library_path.set_extension("wasm");
-        } else {
-            library_path.set_extension(DYLIB_EXTENSION);
         }
 
         let recompile = needs_recompile(&library_path, &parser_path, scanner_path.as_deref())
             .with_context(|| "Failed to compare source and binary timestamps")?;
 
+        #[cfg(feature = "wasm")]
         if let Some(wasm_store) = self.wasm_store.lock().unwrap().as_mut() {
             if recompile {
                 self.compile_parser_to_wasm(
@@ -391,8 +385,10 @@ impl Loader {
             }
 
             let wasm_bytes = fs::read(&library_path)?;
-            Ok(wasm_store.load_language(name, &wasm_bytes))
-        } else {
+            return Ok(wasm_store.load_language(name, &wasm_bytes));
+        }
+
+        {
             if recompile {
                 self.compile_parser_to_dylib(
                     header_path,
@@ -411,7 +407,7 @@ impl Loader {
                 language_fn()
             };
             mem::forget(library);
-            Ok(language)
+            return Ok(language);
         }
     }
 
@@ -528,7 +524,7 @@ impl Loader {
         Ok(())
     }
 
-    fn compile_parser_to_wasm(
+    pub fn compile_parser_to_wasm(
         &self,
         language_name: &str,
         src_path: &Path,
@@ -873,6 +869,17 @@ impl Loader {
     #[cfg(feature = "wasm")]
     pub fn use_wasm(&mut self, engine: tree_sitter::wasmtime::Engine) {
         *self.wasm_store.lock().unwrap() = Some(tree_sitter::WasmStore::new(engine))
+    }
+
+    pub fn get_scanner_path(&self, src_path: &Path) -> Option<PathBuf> {
+        let mut path = src_path.join("scanner.c");
+        for extension in ["c", "cc", "cpp"] {
+            path.set_extension(extension);
+            if path.exists() {
+                return Some(path);
+            }
+        }
+        None
     }
 }
 

@@ -4,7 +4,7 @@ use glob::glob;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::{env, fs, u64};
-use tree_sitter::{ffi, Parser, Point, WasmStore};
+use tree_sitter::{ffi, Parser, Point};
 use tree_sitter_cli::{
     generate, highlight, logger,
     parse::{self, ParseFileOptions, ParseOutput},
@@ -390,8 +390,6 @@ fn run() -> Result<()> {
             let debug_build = matches.is_present("debug-build");
             let update = matches.is_present("update");
             let filter = matches.value_of("filter");
-            let wasm = matches.is_present("wasm");
-            let mut parser = Parser::new();
             let apply_all_captures = matches.is_present("apply-all-captures");
 
             if debug {
@@ -401,10 +399,13 @@ fn run() -> Result<()> {
 
             loader.use_debug_build(debug_build);
 
-            if wasm {
+            let mut parser = Parser::new();
+
+            #[cfg(feature = "wasm")]
+            if matches.is_present("wasm") {
                 let engine = tree_sitter::wasmtime::Engine::default();
                 parser
-                    .set_wasm_store(WasmStore::new(engine.clone()))
+                    .set_wasm_store(tree_sitter::WasmStore::new(engine.clone()))
                     .unwrap();
                 loader.use_wasm(engine);
             }
@@ -433,8 +434,6 @@ fn run() -> Result<()> {
                 )?;
             }
 
-            let mut store = parser.take_wasm_store();
-
             // Check that all of the queries are valid.
             test::check_queries_at_path(*language, &current_dir.join("queries"))?;
 
@@ -442,24 +441,20 @@ fn run() -> Result<()> {
             let test_highlight_dir = test_dir.join("highlight");
             if test_highlight_dir.is_dir() {
                 let mut highlighter = Highlighter::new();
-                if let Some(store) = store.take() {
-                    highlighter.parser().set_wasm_store(store).unwrap();
-                }
+                highlighter.parser = parser;
                 test_highlight::test_highlights(
                     &loader,
                     &mut highlighter,
                     &test_highlight_dir,
                     apply_all_captures,
                 )?;
-                store = highlighter.parser().take_wasm_store();
+                parser = highlighter.parser;
             }
 
             let test_tag_dir = test_dir.join("tags");
             if test_tag_dir.is_dir() {
                 let mut tags_context = TagsContext::new();
-                if let Some(store) = store.take() {
-                    tags_context.parser().set_wasm_store(store).unwrap();
-                }
+                tags_context.parser = parser;
                 test_tags::test_tags(&loader, &mut tags_context, &test_tag_dir)?;
             }
         }
@@ -490,7 +485,6 @@ fn run() -> Result<()> {
                     })?;
 
             let time = matches.is_present("time");
-            let wasm = matches.is_present("wasm");
             let edits = matches
                 .values_of("edits")
                 .map_or(Vec::new(), |e| e.collect());
@@ -504,10 +498,11 @@ fn run() -> Result<()> {
 
             loader.use_debug_build(debug_build);
 
-            if wasm {
+            #[cfg(feature = "wasm")]
+            if matches.is_present("wasm") {
                 let engine = tree_sitter::wasmtime::Engine::default();
                 parser
-                    .set_wasm_store(WasmStore::new(engine.clone()))
+                    .set_wasm_store(tree_sitter::WasmStore::new(engine.clone()))
                     .unwrap();
                 loader.use_wasm(engine);
             }
@@ -744,6 +739,7 @@ fn run() -> Result<()> {
         ("build-wasm", Some(matches)) => {
             let grammar_path = current_dir.join(matches.value_of("path").unwrap_or(""));
             wasm::compile_language_to_wasm(
+                &loader,
                 &grammar_path,
                 &current_dir,
                 matches.is_present("docker"),

@@ -43,7 +43,7 @@ pub struct NamedCapture {
 }
 
 pub struct TagsContext {
-    parser: Parser,
+    pub parser: Parser,
     cursor: QueryCursor,
 }
 
