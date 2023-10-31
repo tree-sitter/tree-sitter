@@ -17,29 +17,15 @@
 #include "./lexer.h"
 #include "./wasm/wasm-stdlib.h"
 
-#define STDLIB_SYMBOL_COUNT 32
+// The following symbols from the C and C++ standard libraries are available
+// for external scanners to use.
+#define STDLIB_SYMBOL_COUNT 34
 const char *STDLIB_SYMBOLS[STDLIB_SYMBOL_COUNT] = {
-  "malloc",
-  "free",
-  "calloc",
-  "realloc",
-  "memchr",
-  "memcmp",
-  "memcpy",
-  "memmove",
-  "memset",
-  "strlen",
-  "towupper",
-  "towlower",
-  "iswdigit",
-  "iswalpha",
-  "iswalnum",
-  "iswspace",
-  "iswupper",
-  "iswlower",
-  "_Znwm",
-  "_ZdlPv",
   "_ZNKSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE4copyEPcmm",
+  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE17__assign_externalEPKcm",
+  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE17__assign_no_aliasILb0EEERS5_PKcm",
+  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE17__assign_no_aliasILb1EEERS5_PKcm",
+  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE25__init_copy_ctor_externalEPKcm",
   "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6__initEPKcm",
   "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE7reserveEm",
   "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9__grow_byEmmmmmm",
@@ -47,12 +33,34 @@ const char *STDLIB_SYMBOLS[STDLIB_SYMBOL_COUNT] = {
   "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEED2Ev",
   "_ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE9push_backEw",
   "_ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEED2Ev",
-  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE17__assign_no_aliasILb0EEERS5_PKcm",
-  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE17__assign_no_aliasILb1EEERS5_PKcm",
-  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE25__init_copy_ctor_externalEPKcm",
-  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE17__assign_externalEPKcm",
+  "_ZdlPv",
+  "_Znwm",
+  "calloc",
+  "free",
+  "iswalnum",
+  "iswalpha",
+  "iswdigit",
+  "iswlower",
+  "iswspace",
+  "iswupper",
+  "malloc",
+  "memchr",
+  "memcmp",
+  "memcpy",
+  "memmove",
+  "memset",
+  "realloc",
+  "strcmp",
+  "strlen",
+  "strncpy",
+  "towlower",
+  "towupper"
 };
 
+// LanguageWasmModule - Additional data associated with a wasm-backed
+// `TSLanguage`. This data is read-only and does not reference a particular
+// wasm store, so it can be shared by all users of a `TSLanguage`. A pointer to
+// this is stored on the language itself.
 typedef struct {
   wasmtime_module_t *module;
   uint32_t language_id;
@@ -61,6 +69,9 @@ typedef struct {
   char *field_name_buffer;
 } LanguageWasmModule;
 
+// LanguageWasmInstance - Additional data associated with an instantiation of
+// a `TSLanguage` in a particular wasm store. The wasm store holds one of
+// these structs for each language that it has instantiated.
 typedef struct {
   uint32_t language_id;
   wasmtime_instance_t instance;
@@ -74,6 +85,9 @@ typedef struct {
   int32_t scanner_scan_fn_index;
 } LanguageWasmInstance;
 
+// TSWasmStore - A struct that allows a given `Parser` to use wasm-backed
+// languages. This struct is mutable, and can only be used by one parser at a
+// time.
 struct TSWasmStore {
   wasm_engine_t *engine;
   wasmtime_store_t *store;
@@ -85,10 +99,14 @@ struct TSWasmStore {
   uint32_t current_memory_offset;
   uint32_t current_function_table_offset;
   uint16_t fn_indices[STDLIB_SYMBOL_COUNT];
+  wasm_globaltype_t *const_i32_type;
+  wasm_globaltype_t *var_i32_type;
 };
 
 typedef Array(char) StringData;
 
+// LanguageInWasmMemory - The memory layout of a `TSLanguage` when compiled to
+// wasm32. This is used to copy static language data out of the wasm memory.
 typedef struct {
   uint32_t version;
   uint32_t symbol_count;
@@ -128,6 +146,8 @@ typedef struct {
   int32_t primary_state_ids;
 } LanguageInWasmMemory;
 
+// LexerInWasmMemory - The memory layout of a `TSLexer` when compiled to wasm32.
+// This is used to copy mutable lexing state in and out of the wasm memory.
 typedef struct {
   int32_t lookahead;
   TSSymbol result_symbol;
@@ -138,6 +158,8 @@ typedef struct {
   int32_t eof;
 } LexerInWasmMemory;
 
+// The contents of the `dylink.0` custom section of a wasm module,
+// as specified by the current WebAssembly dynamic linking ABI proposal.
 typedef struct {
   uint32_t memory_size;
   uint32_t memory_align;
@@ -168,6 +190,10 @@ enum FunctionIx {
   LEXER_EOF_IX,
 };
 
+/************************
+ * WasmDylinkMemoryInfo
+ ***********************/
+
 static uint8_t read_u8(const uint8_t **p, const uint8_t *end) {
   return *(*p)++;
 }
@@ -183,7 +209,7 @@ static inline uint64_t read_uleb128(const uint8_t **p, const uint8_t *end) {
   return value;
 }
 
-static bool parse_wasm_dylink_memory_info(
+static bool wasm_dylink_memory_info__parse(
   const uint8_t *bytes,
   size_t length,
   WasmDylinkMemoryInfo *info
@@ -235,6 +261,10 @@ static bool parse_wasm_dylink_memory_info(
   }
   return false;
 }
+
+/*******************************************
+ * Native callbacks exposed to wasm modules
+ *******************************************/
 
 static wasm_trap_t *callback__exit(
   void *env,
@@ -406,6 +436,63 @@ static wasmtime_extern_t get_builtin_func_extern(
   return (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_FUNC, .of.func = val.of.funcref};
 }
 
+static bool ts_wasm_store__provide_builtin_import(
+  TSWasmStore *self,
+  const wasm_name_t *import_name,
+  wasmtime_extern_t *import
+) {
+  if (import_name->size == 0)  return false;
+
+  wasmtime_error_t *error = NULL;
+  wasmtime_context_t *context = wasmtime_store_context(self->store);
+
+  // Dynamic linking parameters
+  if (name_eq(import_name, "__memory_base")) {
+    wasmtime_val_t value = WASM_I32_VAL(self->current_memory_offset);
+    wasmtime_global_t global;
+    error = wasmtime_global_new(context, self->const_i32_type, &value, &global);
+    assert(!error);
+    *import = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_GLOBAL, .of.global = global};
+  } else if (name_eq(import_name, "__table_base")) {
+    wasmtime_val_t value = WASM_I32_VAL(self->current_function_table_offset);
+    wasmtime_global_t global;
+    error = wasmtime_global_new(context, self->const_i32_type, &value, &global);
+    assert(!error);
+    *import = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_GLOBAL, .of.global = global};
+  } else if (name_eq(import_name, "__heap_base")) {
+    wasmtime_val_t value = WASM_I32_VAL(HEAP_START_ADDRESS);
+    wasmtime_global_t global;
+    error = wasmtime_global_new(context, self->var_i32_type, &value, &global);
+    assert(!error);
+    *import = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_GLOBAL, .of.global = global};
+  } else if (name_eq(import_name, "__stack_pointer")) {
+    wasmtime_val_t value = WASM_I32_VAL(INITIAL_STACK_POINTER_ADDRESS);
+    wasmtime_global_t global;
+    error = wasmtime_global_new(context, self->var_i32_type, &value, &global);
+    assert(!error);
+    *import = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_GLOBAL, .of.global = global};
+  } else if (name_eq(import_name, "__indirect_function_table")) {
+    *import = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_TABLE, .of.table = self->function_table};
+  } else if (name_eq(import_name, "memory")) {
+    *import = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_MEMORY, .of.memory = self->memory};
+  }
+
+  // Builtin functions
+  else if (name_eq(import_name, "__assert_fail")) {
+    *import = get_builtin_func_extern(context, &self->function_table, ASSERT_FAIL_IX);
+  } else if (name_eq(import_name, "__cxa_atexit")) {
+    *import = get_builtin_func_extern(context, &self->function_table, AT_EXIT_IX);
+  } else if (name_eq(import_name, "abort")) {
+    *import = get_builtin_func_extern(context, &self->function_table, ABORT_IX);
+  } else if (name_eq(import_name, "proc_exit")) {
+    *import = get_builtin_func_extern(context, &self->function_table, PROC_EXIT_IX);
+  } else {
+    return false;
+  }
+
+  return true;
+}
+
 TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine) {
   TSWasmStore *self = ts_malloc(sizeof(TSWasmStore));
   wasmtime_store_t *store = wasmtime_store_new(engine, self, NULL);
@@ -471,37 +558,27 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine) {
     wasm_functype_delete(definition->type);
   }
 
-  WasmDylinkMemoryInfo stdlib_info;
-  if (!parse_wasm_dylink_memory_info(STDLIB_WASM, STDLIB_WASM_LEN, &stdlib_info)) {
+  *self = (TSWasmStore) {
+    .store = store,
+    .engine = engine,
+    .memory = memory,
+    .language_instances = array_new(),
+    .function_table = function_table,
+    .current_memory_offset = DATA_START_ADDRESS,
+    .current_function_table_offset = definitions_len,
+    .const_i32_type = wasm_globaltype_new(wasm_valtype_new_i32(), WASM_CONST),
+    .var_i32_type = wasm_globaltype_new(wasm_valtype_new_i32(), WASM_VAR),
+  };
+
+  WasmDylinkMemoryInfo dylink_info;
+  if (!wasm_dylink_memory_info__parse(STDLIB_WASM, STDLIB_WASM_LEN, &dylink_info)) {
     printf("failed to parse wasm dylink info\n");
     abort();
   }
-  printf("memory info: %u, %u\n", stdlib_info.memory_size, stdlib_info.table_size);
 
   wasmtime_module_t *stdlib_module;
   error = wasmtime_module_new(engine, STDLIB_WASM, STDLIB_WASM_LEN, &stdlib_module);
   assert(!error);
-
-  wasmtime_val_t table_base_val = WASM_I32_VAL(definitions_len);
-  wasmtime_val_t memory_base_val = WASM_I32_VAL(DATA_START_ADDRESS);
-  wasmtime_val_t stack_pointer_val = WASM_I32_VAL(INITIAL_STACK_POINTER_ADDRESS);
-  wasmtime_val_t heap_base_val = WASM_I32_VAL(HEAP_START_ADDRESS);
-  wasmtime_global_t table_base_global;
-  wasmtime_global_t memory_base_global;
-  wasmtime_global_t heap_base_global;
-  wasmtime_global_t stack_pointer_global;
-  wasm_globaltype_t *const_i32_type = wasm_globaltype_new(wasm_valtype_new_i32(), WASM_CONST);
-  wasm_globaltype_t *var_i32_type = wasm_globaltype_new(wasm_valtype_new_i32(), WASM_VAR);
-  error = wasmtime_global_new(context, const_i32_type, &table_base_val, &table_base_global);
-  assert(!error);
-  error = wasmtime_global_new(context, const_i32_type, &memory_base_val, &memory_base_global);
-  assert(!error);
-  error = wasmtime_global_new(context, var_i32_type, &heap_base_val, &heap_base_global);
-  assert(!error);
-  error = wasmtime_global_new(context, var_i32_type, &stack_pointer_val, &stack_pointer_global);
-  assert(!error);
-  wasm_globaltype_delete(const_i32_type);
-  wasm_globaltype_delete(var_i32_type);
 
   wasmtime_instance_t instance;
   wasm_importtype_vec_t import_types = WASM_EMPTY_VEC;
@@ -510,23 +587,8 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine) {
   for (unsigned i = 0; i < import_types.size; i++) {
     wasm_importtype_t *type = import_types.data[i];
     const wasm_name_t *import_name = wasm_importtype_name(type);
-    printf("stdlib import name: %.*s\n", (int)import_name->size, import_name->data);
-    if (name_eq(import_name, "__memory_base")) {
-      imports[i] = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_GLOBAL, .of.global = memory_base_global};
-    } else if (name_eq(import_name, "__heap_base")) {
-      imports[i] = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_GLOBAL, .of.global = heap_base_global};
-    } else if (name_eq(import_name, "__table_base")) {
-      imports[i] = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_GLOBAL, .of.global = table_base_global};
-    } else if (name_eq(import_name, "__stack_pointer")) {
-      imports[i] = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_GLOBAL, .of.global = stack_pointer_global};
-    } else if (name_eq(import_name, "__indirect_function_table")) {
-      imports[i] = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_TABLE, .of.table = function_table};
-    } else if (name_eq(import_name, "memory")) {
-      imports[i] = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_MEMORY, .of.memory = memory};
-    } else if (name_eq(import_name, "proc_exit")) {
-      imports[i] = get_builtin_func_extern(context, &function_table, PROC_EXIT_IX);
-    } else {
-      printf("unexpected import");
+    if (!ts_wasm_store__provide_builtin_import(self, import_name, &imports[i])) {
+      printf("unexpected import name: %.*s\n", (int)import_name->size, import_name->data);
       abort();
     }
   }
@@ -541,15 +603,8 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine) {
   assert(!error);
   wasm_importtype_vec_delete(&import_types);
 
-  *self = (TSWasmStore) {
-    .store = store,
-    .engine = engine,
-    .memory = memory,
-    .language_instances = array_new(),
-    .function_table = function_table,
-    .current_memory_offset = DATA_START_ADDRESS + stdlib_info.memory_size,
-    .current_function_table_offset = definitions_len + stdlib_info.table_size,
-  };
+  self->current_memory_offset += dylink_info.memory_size;
+  self->current_function_table_offset += dylink_info.table_size;
 
   for (unsigned i = 0; i < STDLIB_SYMBOL_COUNT; i++) {
     self->fn_indices[i] = UINT16_MAX;
@@ -578,7 +633,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine) {
         }
       }
       if (!store_index) {
-        printf("  other stdlib name: %.*s\n", (int)name->size, name->data);
+        printf("  unused export name: %.*s\n", (int)name->size, name->data);
       }
     }
   }
@@ -596,6 +651,8 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine) {
 
 void ts_wasm_store_delete(TSWasmStore *self) {
   if (!self) return;
+  wasm_globaltype_delete(self->const_i32_type);
+  wasm_globaltype_delete(self->var_i32_type);
   wasmtime_store_delete(self->store);
   wasm_engine_delete(self->engine);
   array_delete(&self->language_instances);
@@ -621,24 +678,6 @@ static bool ts_wasm_store__instantiate(
   memcpy(&language_function_name[prefix_len], language_name, name_len);
   language_function_name[prefix_len + name_len] = '\0';
 
-  // Construct globals representing the offset in memory and in the function
-  // table where the module should be added.
-  wasmtime_val_t table_base_val = WASM_I32_VAL(self->current_function_table_offset);
-  wasmtime_val_t memory_base_val = WASM_I32_VAL(self->current_memory_offset);
-  wasmtime_val_t stack_pointer_val = WASM_I32_VAL(INITIAL_STACK_POINTER_ADDRESS);
-  wasmtime_global_t memory_base_global;
-  wasmtime_global_t table_base_global;
-  wasmtime_global_t stack_pointer_global;
-  wasm_globaltype_t *const_i32_type = wasm_globaltype_new(wasm_valtype_new_i32(), WASM_CONST);
-  wasm_globaltype_t *var_i32_type = wasm_globaltype_new(wasm_valtype_new_i32(), WASM_VAR);
-  error = wasmtime_global_new(context, const_i32_type, &memory_base_val, &memory_base_global);
-  assert(!error);
-  error = wasmtime_global_new(context, const_i32_type, &table_base_val, &table_base_global);
-  assert(!error);
-  error = wasmtime_global_new(context, var_i32_type, &stack_pointer_val, &stack_pointer_global);
-  assert(!error);
-  wasm_globaltype_delete(const_i32_type);
-
   const uint64_t store_id = self->function_table.store_id;
 
   // Build the imports list for the module.
@@ -646,7 +685,6 @@ static bool ts_wasm_store__instantiate(
   wasmtime_module_imports(module, &import_types);
   wasmtime_extern_t imports[import_types.size];
 
-  printf("import count: %lu\n", import_types.size);
   for (unsigned i = 0; i < import_types.size; i++) {
     const wasm_importtype_t *import_type = import_types.data[i];
     const wasm_name_t *import_name = wasm_importtype_name(import_type);
@@ -654,43 +692,23 @@ static bool ts_wasm_store__instantiate(
       return false;
     }
 
-    // Initialization parameters
-    if (name_eq(import_name, "__memory_base")) {
-      imports[i] = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_GLOBAL, .of.global = memory_base_global};
-    } else if (name_eq(import_name, "__table_base")) {
-      imports[i] = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_GLOBAL, .of.global = table_base_global};
-    } else if (name_eq(import_name, "__stack_pointer")) {
-      imports[i] = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_GLOBAL, .of.global = stack_pointer_global};
-    } else if (name_eq(import_name, "__indirect_function_table")) {
-      imports[i] = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_TABLE, .of.table = self->function_table};
-    } else if (name_eq(import_name, "memory")) {
-      imports[i] = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_MEMORY, .of.memory = self->memory};
+    if (ts_wasm_store__provide_builtin_import(self, import_name, &imports[i])) {
+      continue;
     }
 
-    // Builtin functions
-    else if (name_eq(import_name, "__assert_fail")) {
-      imports[i] = get_builtin_func_extern(context, &self->function_table, ASSERT_FAIL_IX);
-    } else if (name_eq(import_name, "__cxa_atexit")) {
-      imports[i] = get_builtin_func_extern(context, &self->function_table, AT_EXIT_IX);
-    } else if (name_eq(import_name, "abort")) {
-      imports[i] = get_builtin_func_extern(context, &self->function_table, ABORT_IX);
+    bool defined_in_stdlib = false;
+    for (unsigned j = 0; j < array_len(STDLIB_SYMBOLS); j++) {
+      if (name_eq(import_name, STDLIB_SYMBOLS[j])) {
+        uint16_t address = self->fn_indices[j];
+        imports[i] = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_FUNC, .of.func = {store_id, address}};
+        defined_in_stdlib = true;
+        break;
+      }
     }
 
-    else {
-      bool defined_in_stdlib = false;
-      for (unsigned j = 0; j < array_len(STDLIB_SYMBOLS); j++) {
-        if (name_eq(import_name, STDLIB_SYMBOLS[j])) {
-          uint16_t address = self->fn_indices[j];
-          imports[i] = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_FUNC, .of.func = {store_id, address}};
-          defined_in_stdlib = true;
-          break;
-        }
-      }
-
-      if (!defined_in_stdlib) {
-        printf("unexpected import '%.*s'\n", (int)import_name->size, import_name->data);
-        return false;
-      }
+    if (!defined_in_stdlib) {
+      printf("unexpected import '%.*s'\n", (int)import_name->size, import_name->data);
+      return false;
     }
   }
 
@@ -828,7 +846,7 @@ const TSLanguage *ts_wasm_store_load_language(
     ),
     .parse_actions = copy(
       &memory[wasm_language.parse_actions],
-      5655 * sizeof(TSParseActionEntry) // TODO - determine number of parse actions
+      6542 * sizeof(TSParseActionEntry) // TODO - determine number of parse actions
     ),
     .symbol_names = copy_strings(
       memory,
@@ -1185,6 +1203,9 @@ bool ts_language_is_wasm(const TSLanguage *self) {
 
 #else
 
+// If the WASM feature is not enabled, define dummy versions of all of the
+// wasm-related functions.
+
 void ts_wasm_store_delete(TSWasmStore *self) {
   (void)self;
 }
@@ -1203,7 +1224,6 @@ bool ts_wasm_store_start(
 void ts_wasm_store_stop(TSWasmStore *self) {
   (void)self;
 }
-
 
 bool ts_wasm_store_call_lex_main(TSWasmStore *self, TSStateId state) {
   (void)self;
