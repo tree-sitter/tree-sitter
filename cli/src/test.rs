@@ -90,6 +90,8 @@ pub fn run_tests_at_path(
         &mut corrected_entries,
     )?;
 
+    parser.stop_printing_dot_graphs();
+
     if failures.len() > 0 {
         println!("");
 
@@ -719,7 +721,7 @@ code
 ---
 
 ; Line start comment
-(a 
+(a
 ; ignore this
     (b)
     ; also ignore this

@@ -104,6 +104,8 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: ParseFileOptions) -> Result
         _ => parser.parse(&source_code, None),
     };
 
+    parser.stop_printing_dot_graphs();
+
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
 
