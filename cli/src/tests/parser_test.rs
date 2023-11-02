@@ -433,16 +433,11 @@ fn test_parsing_after_editing_tree_that_depends_on_column_values() {
         .join("test_grammars")
         .join("uses_current_column");
     let grammar = fs::read_to_string(&dir.join("grammar.json")).unwrap();
-    let scanner_path = dir.join("scanner.c");
     let (grammar_name, parser_code) = generate_parser_for_grammar(&grammar).unwrap();
 
     let mut parser = Parser::new();
     parser
-        .set_language(get_test_language(
-            &grammar_name,
-            &parser_code,
-            Some(&scanner_path),
-        ))
+        .set_language(get_test_language(&grammar_name, &parser_code, Some(&dir)))
         .unwrap();
 
     let mut code = b"
