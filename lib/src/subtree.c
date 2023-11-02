@@ -381,6 +381,7 @@ void ts_subtree_summarize_children(
   self.ptr->depends_on_column = false;
   self.ptr->has_external_scanner_state_change = false;
   self.ptr->dynamic_precedence = 0;
+  self.ptr->dynamic_precedence_sum = 0;
 
   uint32_t structural_index = 0;
   const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self.ptr->production_id);
@@ -434,7 +435,12 @@ void ts_subtree_summarize_children(
       }
     }
 
-    self.ptr->dynamic_precedence += ts_subtree_dynamic_precedence(child);
+    // update dynamic precedence to max value of child's precedence
+    int32_t subtree_prec = ts_subtree_dynamic_precedence(child);
+    if (subtree_prec > self.ptr->dynamic_precedence) {
+      self.ptr->dynamic_precedence = subtree_prec;
+    }
+    self.ptr->dynamic_precedence_sum += ts_subtree_dynamic_precedence_sum(child);
     self.ptr->visible_descendant_count += ts_subtree_visible_descendant_count(child);
 
     if (alias_sequence && alias_sequence[structural_index] != 0 && !ts_subtree_extra(child)) {

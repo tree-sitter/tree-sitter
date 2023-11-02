@@ -137,6 +137,7 @@ typedef struct {
       uint32_t named_child_count;
       uint32_t visible_descendant_count;
       int32_t dynamic_precedence;
+      int32_t dynamic_precedence_sum;
       uint16_t repeat_depth;
       uint16_t production_id;
       struct {
@@ -321,6 +322,10 @@ static inline uint32_t ts_subtree_error_cost(Subtree self) {
 
 static inline int32_t ts_subtree_dynamic_precedence(Subtree self) {
   return (self.data.is_inline || self.ptr->child_count == 0) ? 0 : self.ptr->dynamic_precedence;
+}
+
+static inline int32_t ts_subtree_dynamic_precedence_sum(Subtree self) {
+  return (self.data.is_inline || self.ptr->child_count == 0) ? 0 : self.ptr->dynamic_precedence_sum;
 }
 
 static inline uint16_t ts_subtree_production_id(Subtree self) {
