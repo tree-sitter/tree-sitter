@@ -168,6 +168,7 @@ static StackNode *stack_node_new(
       node->position = length_add(node->position, ts_subtree_total_size(subtree));
       node->node_count += stack__subtree_node_count(subtree);
       int32_t subtree_precedence = ts_subtree_dynamic_precedence(subtree);
+      // TODO: change stack's behavior all and test again
       if (subtree_precedence > node->dynamic_precedence) {
         node->dynamic_precedence = subtree_precedence;
       }

@@ -917,7 +917,8 @@ static StackVersion ts_parser__reduce(
     } else {
       parent.ptr->parse_state = state;
     }
-    if (dynamic_precedence > parent.ptr->dynamic_precedence) {
+    if ((dynamic_precedence > parent.ptr->dynamic_precedence && dynamic_precedence != 0)
+    || (dynamic_precedence < 0 && parent.ptr->dynamic_precedence == 0)) {
       parent.ptr->dynamic_precedence = dynamic_precedence;
     }
     parent.ptr->dynamic_precedence_sum += dynamic_precedence;

@@ -437,7 +437,8 @@ void ts_subtree_summarize_children(
 
     // update dynamic precedence to max value of child's precedence
     int32_t subtree_prec = ts_subtree_dynamic_precedence(child);
-    if (subtree_prec > self.ptr->dynamic_precedence) {
+    if ((subtree_prec > self.ptr->dynamic_precedence && subtree_prec != 0)
+    || (subtree_prec < 0 && self.ptr->dynamic_precedence == 0)) {
       self.ptr->dynamic_precedence = subtree_prec;
     }
     self.ptr->dynamic_precedence_sum += ts_subtree_dynamic_precedence_sum(child);
