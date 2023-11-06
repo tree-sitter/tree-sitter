@@ -12,7 +12,7 @@ endif()
 
 # Add project_options from https://github.com/aminya/project_options
 # Change the version in the following URL to update the package (watch the releases of the repository for future updates)
-set(PROJECT_OPTIONS_VERSION "v0.31.0")
+set(PROJECT_OPTIONS_VERSION "v0.32.2")
 FetchContent_Declare(
   _project_options
   URL https://github.com/aminya/project_options/archive/refs/tags/${PROJECT_OPTIONS_VERSION}.zip)
