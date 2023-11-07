@@ -73,7 +73,7 @@ impl Config {
 const DYLIB_EXTENSION: &str = "so";
 
 #[cfg(windows)]
-const DYLIB_EXTENSION: &'static str = "dll";
+const DYLIB_EXTENSION: &str = "dll";
 
 const BUILD_TARGET: &str = env!("BUILD_TARGET");
 
@@ -238,8 +238,8 @@ impl Loader {
                 // If multiple language configurations match, then determine which
                 // one to use by applying the configurations' content regexes.
                 else {
-                    let file_contents = fs::read(path)
-                        .with_context(|| format!("Failed to read path {:?}", path))?;
+                    let file_contents =
+                        fs::read(path).with_context(|| format!("Failed to read path {path:?}"))?;
                     let file_contents = String::from_utf8_lossy(&file_contents);
                     let mut best_score = -2isize;
                     let mut best_configuration_id = None;
@@ -347,8 +347,12 @@ impl Loader {
             }
         };
 
-        let external_scanner_files = if let Some(external_files) = external_files {
-            let mut files = Vec::new();
+        let paths_to_check = if let Some(external_files) = external_files {
+            let mut files = if let Some(scanner_path) = scanner_path.as_ref() {
+                vec![parser_path.clone(), scanner_path.to_path_buf()]
+            } else {
+                vec![parser_path.clone()]
+            };
             for path in external_files {
                 files.push(src_path.join(path));
             }
@@ -359,9 +363,7 @@ impl Loader {
 
         let needs_recompile = needs_recompile(
             &self.parser_lib_path.join(&grammar_json.name),
-            &parser_path,
-            scanner_path.as_deref(),
-            &external_scanner_files,
+            &paths_to_check,
         )?;
 
         self.load_language_from_sources(
@@ -600,7 +602,7 @@ impl Loader {
 
         let initial_language_configuration_count = self.language_configurations.len();
 
-        if let Ok(package_json_contents) = fs::read_to_string(&parser_path.join("package.json")) {
+        if let Ok(package_json_contents) = fs::read_to_string(parser_path.join("package.json")) {
             let package_json = serde_json::from_str::<PackageJSON>(&package_json_contents);
             if let Ok(package_json) = package_json {
                 let language_count = self.languages_by_id.len();
@@ -941,7 +943,7 @@ impl<'a> LanguageConfiguration<'a> {
             .chars()
             .filter(|c| *c == '\n')
             .count();
-        Error::from(error).context(format!("Error in query file {:?}", path))
+        Error::from(error).context(format!("Error in query file {path:?}"))
     }
 
     fn read_queries(
@@ -956,7 +958,7 @@ impl<'a> LanguageConfiguration<'a> {
                 let abs_path = self.root_path.join(path);
                 let prev_query_len = query.len();
                 query += &fs::read_to_string(&abs_path)
-                    .with_context(|| format!("Failed to read query file {:?}", path))?;
+                    .with_context(|| format!("Failed to read query file {path:?}"))?;
                 path_ranges.push((path.clone(), prev_query_len..query.len()));
             }
         } else {
@@ -964,7 +966,7 @@ impl<'a> LanguageConfiguration<'a> {
             let path = queries_path.join(default_path);
             if path.exists() {
                 query = fs::read_to_string(&path)
-                    .with_context(|| format!("Failed to read query file {:?}", path))?;
+                    .with_context(|| format!("Failed to read query file {path:?}"))?;
                 path_ranges.push((default_path.to_string(), 0..query.len()));
             }
         }
@@ -973,25 +975,13 @@ impl<'a> LanguageConfiguration<'a> {
     }
 }
 
-fn needs_recompile(
-    lib_path: &Path,
-    parser_c_path: &Path,
-    scanner_path: Option<&Path>,
-    external_files_paths: &[PathBuf],
-) -> Result<bool> {
+fn needs_recompile(lib_path: &Path, paths_to_check: &[PathBuf]) -> Result<bool> {
     if !lib_path.exists() {
         return Ok(true);
     }
     let lib_mtime = mtime(lib_path)?;
-    if mtime(parser_c_path)? > lib_mtime {
-        return Ok(true);
-    }
-    if let Some(scanner_path) = scanner_path {
-        if mtime(scanner_path)? > lib_mtime {
-            return Ok(true);
-        }
-    }
-    for path in external_files_paths {
+
+    for path in paths_to_check {
         if mtime(path)? > lib_mtime {
             return Ok(true);
         }
