@@ -226,6 +226,7 @@ impl TokenExtractor {
                     .map(|e| self.extract_tokens_in_rule(e))
                     .collect(),
             ),
+            Rule::EOF => self.extract_token(input, None).into(),
             _ => input.clone(),
         }
     }
@@ -243,6 +244,12 @@ impl TokenExtractor {
             Variable {
                 name: string_value.clone(),
                 kind: VariableType::Anonymous,
+                rule: rule.clone(),
+            }
+        } else if *rule == Rule::EOF {
+            Variable {
+                name: String::from("aux_sym_eof"),
+                kind: VariableType::EOF,
                 rule: rule.clone(),
             }
         } else {

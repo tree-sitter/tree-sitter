@@ -27,6 +27,7 @@ typedef struct {
   uint32_t chunk_size;
   uint32_t lookahead_size;
   bool did_get_column;
+  bool accepted_eof;
 
   char debug_buffer[TREE_SITTER_SERIALIZATION_BUFFER_SIZE];
 } Lexer;

@@ -309,6 +309,7 @@ void ts_lexer_init(Lexer *self) {
     .included_ranges = NULL,
     .included_range_count = 0,
     .current_included_range_index = 0,
+	.accepted_eof = 0,
   };
   ts_lexer_set_included_ranges(self, NULL, 0);
 }

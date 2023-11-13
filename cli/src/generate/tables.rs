@@ -74,6 +74,7 @@ pub(crate) struct ParseTable {
 pub(crate) struct AdvanceAction {
     pub state: LexStateId,
     pub in_main_token: bool,
+    pub eof: bool,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]

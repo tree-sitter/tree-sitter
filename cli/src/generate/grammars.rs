@@ -9,6 +9,7 @@ pub(crate) enum VariableType {
     Auxiliary,
     Anonymous,
     Named,
+    EOF,
 }
 
 // Input grammar
