@@ -116,7 +116,17 @@ pub struct TreeCursor<'cursor>(ffi::TSTreeCursor, PhantomData<&'cursor ()>);
 #[derive(Debug)]
 pub struct Query {
     ptr: NonNull<ffi::TSQuery>,
-    capture_names: Box<[&'static str]>,
+    metadata: QueryMetadata,
+}
+
+#[derive(Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct SerializableQuery(Vec<u8>, QueryMetadata);
+
+#[derive(Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct QueryMetadata {
+    capture_names: Box<[String]>,
     capture_quantifiers: Box<[Box<[CaptureQuantifier]>]>,
     text_predicates: Box<[Box<[TextPredicateCapture]>]>,
     property_settings: Box<[Box<[QueryProperty]>]>,
@@ -126,6 +136,7 @@ pub struct Query {
 
 /// A quantifier for captures
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum CaptureQuantifier {
     Zero,
     ZeroOrOne,
@@ -155,6 +166,7 @@ pub struct QueryCursor {
 
 /// A key-value pair associated with a particular pattern in a [`Query`].
 #[derive(Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct QueryProperty {
     pub key: Box<str>,
     pub value: Option<Box<str>>,
@@ -162,6 +174,7 @@ pub struct QueryProperty {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum QueryPredicateArg {
     Capture(u32),
     String(Box<str>),
@@ -169,6 +182,7 @@ pub enum QueryPredicateArg {
 
 /// A key-value pair associated with a particular pattern in a [`Query`].
 #[derive(Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct QueryPredicate {
     pub operator: Box<str>,
     pub args: Box<[QueryPredicateArg]>,
@@ -224,6 +238,14 @@ pub struct LanguageError {
     version: usize,
 }
 
+/// An error that occured during (de)serialization
+#[derive(Debug, PartialEq, Eq)]
+pub enum SerializationError {
+    LanguageError(LanguageError),
+    AllocationError,
+    DeserializationError(QueryError),
+}
+
 /// An error that occurred in [`Parser::set_included_ranges`].
 #[derive(Debug, PartialEq, Eq)]
 pub struct IncludedRangesError(pub usize);
@@ -255,10 +277,16 @@ pub enum QueryErrorKind {
 /// The first bool is if the capture is positive
 /// The last item is a bool signifying whether or not it's meant to match
 /// any or all captures
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 enum TextPredicateCapture {
     EqString(u32, Box<str>, bool, bool),
     EqCapture(u32, u32, bool, bool),
-    MatchString(u32, regex::bytes::Regex, bool, bool),
+    MatchString(
+        u32,
+        #[cfg_attr(feature = "serde", serde(with = "serde_regex"))]
+        regex::bytes::Regex,
+        bool, bool
+    ),
     AnyString(u32, Box<[Box<str>]>, bool),
 }
 
@@ -1669,7 +1697,7 @@ impl Query {
                     as *const u8;
                 let name = slice::from_raw_parts(name, length as usize);
                 let name = str::from_utf8_unchecked(name);
-                capture_names.push(name);
+                capture_names.push(name.to_string());
             }
         }
 
@@ -1902,12 +1930,14 @@ impl Query {
 
         let result = Query {
             ptr: unsafe { NonNull::new_unchecked(ptr.0) },
-            capture_names: capture_names.into(),
-            capture_quantifiers: capture_quantifiers_vec.into(),
-            text_predicates: text_predicates_vec.into(),
-            property_predicates: property_predicates_vec.into(),
-            property_settings: property_settings_vec.into(),
-            general_predicates: general_predicates_vec.into(),
+            metadata: QueryMetadata {
+                capture_names: capture_names.into(),
+                capture_quantifiers: capture_quantifiers_vec.into(),
+                text_predicates: text_predicates_vec.into(),
+                property_predicates: property_predicates_vec.into(),
+                property_settings: property_settings_vec.into(),
+                general_predicates: general_predicates_vec.into(),
+            },
         };
 
         std::mem::forget(ptr);
@@ -1937,7 +1967,7 @@ impl Query {
     }
 
     /// Get the names of the captures used in the query.
-    pub fn capture_names(&self) -> &[&str] {
+    pub fn capture_names(&self) -> &[String] {
         &self.capture_names
     }
 
@@ -2029,7 +2059,7 @@ impl Query {
     fn parse_property(
         row: usize,
         function_name: &str,
-        capture_names: &[&str],
+        capture_names: &[String],
         string_values: &[&str],
         args: &[ffi::TSQueryPredicateStep],
     ) -> Result<QueryProperty, QueryError> {
@@ -2085,6 +2115,47 @@ impl Query {
                     function_name,
                 ),
             ));
+        }
+    }
+
+    /// Convert `self` into a serializable version of itself.
+    #[doc(alias = "ts_query_serialize")]
+    pub fn serializable(mut self) -> Result<SerializableQuery, SerializationError> {
+        let mut size: usize = 0;
+        let ptr = unsafe { ffi::ts_query_serialize(self.ptr.as_ptr(), &mut size) };
+        if ptr.is_null() {
+            Err(SerializationError::AllocationError)
+        } else {
+            let slice = unsafe { slice::from_raw_parts(ptr as *const u8, size) };
+            let vec = slice.to_vec();
+            unsafe { (FREE_FN)(ptr as *mut c_void) };
+            let metadata = std::mem::replace(&mut self.metadata, QueryMetadata::default());
+            Ok(SerializableQuery(vec, metadata))
+        }
+    }
+
+    /// Deserialize the serializable version of a query.
+    #[doc(alias = "ts_query_deserialize")]
+    pub fn deserialize(
+        data: SerializableQuery,
+        language: Language,
+    ) -> Result<Self, SerializationError> {
+        let version = language.version();
+        if version < MIN_COMPATIBLE_LANGUAGE_VERSION || version > LANGUAGE_VERSION {
+            Err(SerializationError::LanguageError(LanguageError { version }))
+        } else {
+            let ptr = unsafe {
+                let data_ptr = data.0.as_slice().as_ptr() as *const c_char;
+                ffi::ts_query_deserialize(data_ptr, language.0)
+            };
+            if ptr.is_null() {
+                Err(SerializationError::AllocationError)
+            } else {
+                Ok(Query {
+                    ptr: unsafe { NonNull::new_unchecked(ptr) },
+                    metadata: data.1,
+                })
+            }
         }
     }
 }
@@ -2355,6 +2426,20 @@ impl<'tree> QueryMatch<'_, 'tree> {
                     true
                 }
             })
+    }
+}
+
+impl std::ops::Deref for Query {
+    type Target = QueryMetadata;
+
+    fn deref(&self) -> &Self::Target {
+        &self.metadata
+    }
+}
+
+impl std::ops::DerefMut for Query {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.metadata
     }
 }
 

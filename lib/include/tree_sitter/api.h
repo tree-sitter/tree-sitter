@@ -1009,6 +1009,19 @@ bool ts_query_cursor_next_capture(
  */
 void ts_query_cursor_set_max_start_depth(TSQueryCursor *self, uint32_t max_start_depth);
 
+/**
+ * Serialize a query.
+ */
+const char *ts_query_serialize(const TSQuery *self, size_t *size);
+
+/**
+ * Deserialize a query.
+ */
+TSQuery *ts_query_deserialize(
+  const char *src,
+  const TSLanguage *language
+);
+
 /**********************/
 /* Section - Language */
 /**********************/

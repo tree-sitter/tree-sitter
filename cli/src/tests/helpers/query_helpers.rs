@@ -353,7 +353,7 @@ fn format_captures<'a>(
     captures
         .map(|capture| {
             (
-                query.capture_names()[capture.index as usize],
+                query.capture_names()[capture.index as usize].as_str(),
                 capture.node.utf8_text(source.as_bytes()).unwrap(),
             )
         })

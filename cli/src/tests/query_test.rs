@@ -2336,7 +2336,7 @@ fn test_query_captures_within_byte_range_assigned_after_iterating() {
         for (mat, capture_ix) in captures.by_ref().take(5) {
             let capture = mat.captures[capture_ix];
             results.push((
-                query.capture_names()[capture.index as usize],
+                query.capture_names()[capture.index as usize].as_str(),
                 &source[capture.node.byte_range()],
             ));
         }
@@ -2359,7 +2359,7 @@ fn test_query_captures_within_byte_range_assigned_after_iterating() {
         for (mat, capture_ix) in captures {
             let capture = mat.captures[capture_ix];
             results.push((
-                query.capture_names()[capture.index as usize],
+                query.capture_names()[capture.index as usize].as_str(),
                 &source[capture.node.byte_range()],
             ));
         }
@@ -2600,7 +2600,7 @@ fn test_query_matches_with_captured_wildcard_at_root() {
                     .iter()
                     .map(|c| {
                         (
-                            query.capture_names()[c.index as usize],
+                            query.capture_names()[c.index as usize].as_str(),
                             c.node.kind(),
                             c.node.start_position().row,
                         )
@@ -3889,7 +3889,7 @@ fn test_query_random() {
                     captures: mat
                         .captures
                         .iter()
-                        .map(|c| (query.capture_names()[c.index as usize], c.node))
+                        .map(|c| (query.capture_names()[c.index as usize].as_str(), c.node))
                         .collect::<Vec<_>>(),
                 })
                 .collect::<Vec<_>>();

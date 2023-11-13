@@ -17,10 +17,14 @@ rust-version.workspace = true
 [lib]
 crate-type = ["lib", "staticlib"]
 
+[features]
+serde = ["dep:serde", "tree-sitter/serde"]
+
 [dependencies]
 lazy_static = "1.4.0"
 regex = "1.9.1"
 thiserror = "1.0.43"
+serde = { version = "1.0", features = ["derive"], optional = true }
 
 [dependencies.tree-sitter]
 version = "0.20"

@@ -11,7 +11,7 @@ use std::{iter, mem, ops, str, usize};
 use thiserror::Error;
 use tree_sitter::{
     Language, LossyUtf8, Node, Parser, Point, Query, QueryCaptures, QueryCursor, QueryError,
-    QueryMatch, Range, Tree,
+    QueryMatch, Range, SerializableQuery, SerializationError, Tree,
 };
 
 const CANCELLATION_CHECK_INTERVAL: usize = 100;
@@ -79,6 +79,7 @@ lazy_static! {
 
 /// Indicates which highlight should be applied to a region of source code.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Highlight(pub usize);
 
 /// Represents the reason why syntax highlighting failed.
@@ -105,10 +106,16 @@ pub enum HighlightEvent {
 /// This struct is immutable and can be shared between threads.
 pub struct HighlightConfiguration {
     pub language: Language,
-    pub language_name: String,
     pub query: Query,
-    pub apply_all_captures: bool,
     combined_injections_query: Option<Query>,
+    metadata: HighlightConfigurationMetadata,
+}
+
+#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct HighlightConfigurationMetadata {
+    pub language_name: String,
+    pub apply_all_captures: bool,
     locals_pattern_index: usize,
     highlights_pattern_index: usize,
     highlight_indices: Vec<Option<Highlight>>,
@@ -119,6 +126,20 @@ pub struct HighlightConfiguration {
     local_def_capture_index: Option<u32>,
     local_def_value_capture_index: Option<u32>,
     local_ref_capture_index: Option<u32>,
+}
+
+impl std::ops::Deref for HighlightConfiguration {
+    type Target = HighlightConfigurationMetadata;
+
+    fn deref(&self) -> &Self::Target {
+        &self.metadata
+    }
+}
+
+impl std::ops::DerefMut for HighlightConfiguration {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.metadata
+    }
 }
 
 /// Performs syntax highlighting, recognizing a given list of highlight names.
@@ -234,6 +255,14 @@ impl Highlighter {
     }
 }
 
+#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct SerializableHighlightConfig {
+    query: SerializableQuery,
+    combined_injections_query: Option<SerializableQuery>,
+    pub metadata: HighlightConfigurationMetadata,
+}
+
 impl HighlightConfiguration {
     /// Creates a `HighlightConfiguration` for a given `Language` and set of highlighting
     /// queries.
@@ -321,7 +350,7 @@ impl HighlightConfiguration {
         let mut local_scope_capture_index = None;
         for (i, name) in query.capture_names().iter().enumerate() {
             let i = Some(i as u32);
-            match *name {
+            match name.as_str() {
                 "injection.content" => injection_content_capture_index = i,
                 "injection.language" => injection_language_capture_index = i,
                 "local.definition" => local_def_capture_index = i,
@@ -335,25 +364,27 @@ impl HighlightConfiguration {
         let highlight_indices = vec![None; query.capture_names().len()];
         Ok(HighlightConfiguration {
             language,
-            language_name: name.into(),
             query,
-            apply_all_captures,
             combined_injections_query,
-            locals_pattern_index,
-            highlights_pattern_index,
-            highlight_indices,
-            non_local_variable_patterns,
-            injection_content_capture_index,
-            injection_language_capture_index,
-            local_def_capture_index,
-            local_def_value_capture_index,
-            local_ref_capture_index,
-            local_scope_capture_index,
+            metadata: HighlightConfigurationMetadata {
+                language_name: name.into(),
+                apply_all_captures,
+                locals_pattern_index,
+                highlights_pattern_index,
+                highlight_indices,
+                non_local_variable_patterns,
+                injection_content_capture_index,
+                injection_language_capture_index,
+                local_def_capture_index,
+                local_def_value_capture_index,
+                local_ref_capture_index,
+                local_scope_capture_index,
+            },
         })
     }
 
     /// Get a slice containing all of the highlight names used in the configuration.
-    pub fn names(&self) -> &[&str] {
+    pub fn names(&self) -> &[String] {
         self.query.capture_names()
     }
 
@@ -370,7 +401,8 @@ impl HighlightConfiguration {
     pub fn configure(&mut self, recognized_names: &[impl AsRef<str>]) {
         let mut capture_parts = Vec::new();
         self.highlight_indices.clear();
-        self.highlight_indices
+        self.metadata
+            .highlight_indices
             .extend(self.query.capture_names().iter().map(move |capture_name| {
                 capture_parts.clear();
                 capture_parts.extend(capture_name.split('.'));
@@ -407,9 +439,37 @@ impl HighlightConfiguration {
         };
         self.names()
             .iter()
-            .filter(|&n| !(n.starts_with('_') || capture_names.contains(n)))
-            .map(|n| *n)
+            .filter(|&n| !(n.starts_with('_') || capture_names.contains(n.as_str())))
+            .map(|n| n.as_str())
             .collect()
+    }
+
+    /// Convert `self` into a serializable version.
+    pub fn serializable(self) -> Result<SerializableHighlightConfig, SerializationError> {
+        Ok(SerializableHighlightConfig {
+            query: self.query.serializable()?,
+            combined_injections_query: self
+                .combined_injections_query
+                .map(|q| q.serializable())
+                .transpose()?,
+            metadata: self.metadata,
+        })
+    }
+
+    /// Deserialize the serializable version of a highlight configuration.
+    pub fn deserialize(
+        serialized: SerializableHighlightConfig,
+        language: Language,
+    ) -> Result<Self, SerializationError> {
+        Ok(HighlightConfiguration {
+            query: Query::deserialize(serialized.query, language)?,
+            combined_injections_query: serialized
+                .combined_injections_query
+                .map(|data| Query::deserialize(data, language))
+                .transpose()?,
+            metadata: serialized.metadata,
+            language,
+        })
     }
 }
 
