@@ -2106,6 +2106,73 @@ fn test_query_captures_within_byte_range() {
 }
 
 #[test]
+fn test_query_cursor_next_capture_with_byte_range() {
+    allocations::record(|| {
+        let language = get_language("python");
+        let query = Query::new(
+            language,
+            "(function_definition name: (identifier) @function)
+             (attribute attribute: (identifier) @property)
+             ((identifier) @variable)",
+        )
+        .unwrap();
+
+        let source = "def func():\n  foo.bar.baz()\n";
+        //            ^            ^    ^          ^
+        // byte_pos   0           12    17        27
+        // point_pos (0,0)      (1,0)  (1,5)    (1,15)
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+
+        let mut cursor = QueryCursor::new();
+        let captures =
+            cursor
+                .set_byte_range(12..17)
+                .captures(&query, tree.root_node(), source.as_bytes());
+
+        assert_eq!(
+            collect_captures(captures, &query, source),
+            &[("variable", "foo"),]
+        );
+    });
+}
+
+#[test]
+fn test_query_cursor_next_capture_with_point_range() {
+    allocations::record(|| {
+        let language = get_language("python");
+        let query = Query::new(
+            language,
+            "(function_definition name: (identifier) @function)
+             (attribute attribute: (identifier) @property)
+             ((identifier) @variable)",
+        )
+        .unwrap();
+
+        let source = "def func():\n  foo.bar.baz()\n";
+        //            ^            ^    ^          ^
+        // byte_pos   0           12    17        27
+        // point_pos (0,0)      (1,0)  (1,5)    (1,15)
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+
+        let mut cursor = QueryCursor::new();
+        let captures = cursor
+            .set_point_range(Point::new(1, 0)..Point::new(1, 5))
+            .captures(&query, tree.root_node(), source.as_bytes());
+
+        assert_eq!(
+            collect_captures(captures, &query, source),
+            &[("variable", "foo"),]
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_with_unrooted_patterns_intersecting_byte_range() {
     allocations::record(|| {
         let language = get_language("rust");
