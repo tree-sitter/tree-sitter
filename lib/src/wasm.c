@@ -60,6 +60,15 @@ const char *STDLIB_SYMBOLS[STDLIB_SYMBOL_COUNT] = {
 #define BUILTIN_SYMBOL_COUNT 10
 #define MAX_IMPORT_COUNT (BUILTIN_SYMBOL_COUNT + STDLIB_SYMBOL_COUNT)
 
+// The contents of the `dylink.0` custom section of a wasm module,
+// as specified by the current WebAssembly dynamic linking ABI proposal.
+typedef struct {
+  uint32_t memory_size;
+  uint32_t memory_align;
+  uint32_t table_size;
+  uint32_t table_align;
+} WasmDylinkInfo;
+
 // LanguageWasmModule - Additional data associated with a wasm-backed
 // `TSLanguage`. This data is read-only and does not reference a particular
 // wasm store, so it can be shared by all users of a `TSLanguage`. A pointer to
@@ -70,6 +79,7 @@ typedef struct {
   const char *name;
   char *symbol_name_buffer;
   char *field_name_buffer;
+  WasmDylinkInfo dylink_info;
 } LanguageWasmModule;
 
 // LanguageWasmInstance - Additional data associated with an instantiation of
@@ -161,15 +171,6 @@ typedef struct {
   int32_t eof;
 } LexerInWasmMemory;
 
-// The contents of the `dylink.0` custom section of a wasm module,
-// as specified by the current WebAssembly dynamic linking ABI proposal.
-typedef struct {
-  uint32_t memory_size;
-  uint32_t memory_align;
-  uint32_t table_size;
-  uint32_t table_align;
-} WasmDylinkMemoryInfo;
-
 static volatile uint32_t NEXT_LANGUAGE_ID;
 
 // Linear memory layout:
@@ -214,10 +215,10 @@ static inline uint64_t read_uleb128(const uint8_t **p, const uint8_t *end) {
   return value;
 }
 
-static bool wasm_dylink_memory_info__parse(
+static bool wasm_dylink_info__parse(
   const uint8_t *bytes,
   size_t length,
-  WasmDylinkMemoryInfo *info
+  WasmDylinkInfo *info
 ) {
   const uint8_t WASM_MAGIC_NUMBER[4] = {0, 'a', 's', 'm'};
   const uint8_t WASM_VERSION[4] = {1, 0, 0, 0};
@@ -575,8 +576,8 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine) {
     .var_i32_type = wasm_globaltype_new(wasm_valtype_new_i32(), WASM_VAR),
   };
 
-  WasmDylinkMemoryInfo dylink_info;
-  if (!wasm_dylink_memory_info__parse(STDLIB_WASM, STDLIB_WASM_LEN, &dylink_info)) {
+  WasmDylinkInfo dylink_info;
+  if (!wasm_dylink_info__parse(STDLIB_WASM, STDLIB_WASM_LEN, &dylink_info)) {
     printf("failed to parse wasm dylink info\n");
     abort();
   }
@@ -675,6 +676,7 @@ static bool ts_wasm_store__instantiate(
   TSWasmStore *self,
   wasmtime_module_t *module,
   const char *language_name,
+  const WasmDylinkInfo *dylink_info,
   wasmtime_instance_t *result,
   int32_t *language_address
 ) {
@@ -734,13 +736,15 @@ static bool ts_wasm_store__instantiate(
     printf("error instantiating wasm module: %s\n", message.data);
     goto error;
   }
-  assert(!error);
   if (trap) {
     wasm_message_t message;
     wasm_trap_message(trap, &message);
     printf("error instantiating wasm module: %s\n", message.data);
     goto error;
   }
+
+  self->current_memory_offset += dylink_info->memory_size;
+  self->current_function_table_offset += dylink_info->table_size;
 
   // Process the module's exports.
   wasmtime_extern_t language_extern;
@@ -812,6 +816,12 @@ const TSLanguage *ts_wasm_store_load_language(
   const char *wasm,
   uint32_t wasm_len
 ) {
+  WasmDylinkInfo dylink_info;
+  if (!wasm_dylink_info__parse((const unsigned char *)wasm, wasm_len, &dylink_info)) {
+    printf("failed to parse wasm dylink info\n");
+    return  NULL;
+  }
+
   // Compile the wasm code.
   wasmtime_module_t *module;
   wasmtime_error_t *error = wasmtime_module_new(self->engine, (const uint8_t *)wasm, wasm_len, &module);
@@ -829,6 +839,7 @@ const TSLanguage *ts_wasm_store_load_language(
     self,
     module,
     language_name,
+    &dylink_info,
     &instance,
     &language_address
   )) return NULL;
@@ -964,6 +975,7 @@ const TSLanguage *ts_wasm_store_load_language(
     .name = name,
     .symbol_name_buffer = symbol_name_buffer.contents,
     .field_name_buffer = field_name_buffer.contents,
+    .dylink_info = dylink_info,
   };
 
   // The lex functions are not used for wasm languages. Use those two fields
@@ -1017,6 +1029,7 @@ bool ts_wasm_store_add_language(
       self,
       language_module->module,
       language_module->name,
+      &language_module->dylink_info,
       &instance,
       &language_address
     )) {
