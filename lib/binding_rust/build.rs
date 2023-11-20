@@ -32,8 +32,11 @@ fn main() {
         config.define("TREE_SITTER_FEATURE_WASM", "");
     }
 
-    let src_path = Path::new("src");
-    for entry in fs::read_dir(src_path).unwrap() {
+    let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let include_path = manifest_path.join("include");
+    let src_path = manifest_path.join("src");
+    let wasm_path = src_path.join("wasm");
+    for entry in fs::read_dir(&src_path).unwrap() {
         let entry = entry.unwrap();
         let path = src_path.join(entry.file_name());
         println!("cargo:rerun-if-changed={}", path.to_str().unwrap());
@@ -44,11 +47,13 @@ fn main() {
         .flag_if_supported("-fvisibility=hidden")
         .flag_if_supported("-Wshadow")
         .flag_if_supported("-Wno-unused-parameter")
-        .include(src_path)
-        .include(src_path.join("wasm"))
-        .include("include")
+        .include(&src_path)
+        .include(&wasm_path)
+        .include(&include_path)
         .file(src_path.join("lib.c"))
         .compile("tree-sitter");
+
+    println!("cargo:include={}", include_path.display());
 }
 
 #[cfg(feature = "bindgen")]
