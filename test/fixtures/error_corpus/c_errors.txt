@@ -108,7 +108,7 @@ int main() {
     (function_declarator (identifier) (parameter_list))
     (compound_statement
       (declaration (primitive_type) (identifier))
-      (ERROR (primitive_type) (UNEXPECTED '$')))))
+      (ERROR (primitive_type) (ERROR) (identifier) (UNEXPECTED '@')))))
 
 =========================================
 Extra values in parenthesized expressions

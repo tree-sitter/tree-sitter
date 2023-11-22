@@ -4048,9 +4048,20 @@ bool ts_query_cursor_next_capture(
         continue;
       }
 
-      // Skip captures that precede the cursor's start byte.
       TSNode node = captures->contents[state->consumed_capture_count].node;
-      if (ts_node_end_byte(node) <= self->start_byte) {
+
+      bool node_precedes_range = (
+        ts_node_end_byte(node) <= self->start_byte ||
+        point_lte(ts_node_end_point(node), self->start_point)
+      );
+      bool node_follows_range = (
+        ts_node_start_byte(node) >= self->end_byte ||
+        point_gte(ts_node_start_point(node), self->end_point)
+      );
+      bool node_outside_of_range = node_precedes_range || node_follows_range;
+
+      // Skip captures that are outside of the cursor's range.
+      if (node_outside_of_range) {
         state->consumed_capture_count++;
         continue;
       }

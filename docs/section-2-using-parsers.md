@@ -332,7 +332,7 @@ const TSLanguage *tree_sitter_ruby();
 
 int main(int argc, const char **argv) {
   const char *text = argv[1];
-  unsigned len = strlen(src);
+  unsigned len = strlen(text);
 
   // Parse the entire text as ERB.
   TSParser *parser = ts_parser_new();
