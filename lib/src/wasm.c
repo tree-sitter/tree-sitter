@@ -1,15 +1,13 @@
 #include "tree_sitter/api.h"
 #include "tree_sitter/parser.h"
-#include "./language.h"
+#include <stdint.h>
 
 #ifdef TREE_SITTER_FEATURE_WASM
 
 #include <wasmtime.h>
 #include <wasm.h>
-#include <wctype.h>
 #include <string.h>
 #include "./alloc.h"
-#include "./language.h"
 #include "./array.h"
 #include "./atomic.h"
 #include "./lexer.h"
@@ -382,6 +380,28 @@ typedef struct {
 static void *copy(const void *data, size_t size) {
   void *result = ts_malloc(size);
   memcpy(result, data, size);
+  return result;
+}
+
+static void *copy_unsized_static_array(
+  const uint8_t *data,
+  int32_t start_address,
+  const int32_t all_addresses[],
+  size_t address_count
+) {
+  int32_t end_address = 0;
+  for (unsigned i = 0; i < address_count; i++) {
+    if (all_addresses[i] > start_address) {
+      if (!end_address || all_addresses[i] < end_address) {
+        end_address = all_addresses[i];
+      }
+    }
+  }
+
+  if (!end_address) return NULL;
+  size_t size = end_address - start_address;
+  void *result = ts_malloc(size);
+  memcpy(result, &data[start_address], size);
   return result;
 }
 
@@ -851,6 +871,37 @@ const TSLanguage *ts_wasm_store_load_language(
   const uint8_t *memory = wasmtime_memory_data(context, &self->memory);
   memcpy(&wasm_language, &memory[language_address], sizeof(LanguageInWasmMemory));
 
+  int32_t addresses[] = {
+    wasm_language.alias_map,
+    wasm_language.alias_sequences,
+    wasm_language.field_map_entries,
+    wasm_language.field_map_slices,
+    wasm_language.field_names,
+    wasm_language.keyword_lex_fn,
+    wasm_language.lex_fn,
+    wasm_language.lex_modes,
+    wasm_language.parse_actions,
+    wasm_language.parse_table,
+    wasm_language.primary_state_ids,
+    wasm_language.primary_state_ids,
+    wasm_language.public_symbol_map,
+    wasm_language.small_parse_table,
+    wasm_language.small_parse_table_map,
+    wasm_language.symbol_metadata,
+    wasm_language.symbol_metadata,
+    wasm_language.symbol_names,
+    wasm_language.external_token_count > 0 ? wasm_language.external_scanner.states : 0,
+    wasm_language.external_token_count > 0 ? wasm_language.external_scanner.symbol_map : 0,
+    wasm_language.external_token_count > 0 ? wasm_language.external_scanner.create : 0,
+    wasm_language.external_token_count > 0 ? wasm_language.external_scanner.destroy : 0,
+    wasm_language.external_token_count > 0 ? wasm_language.external_scanner.scan : 0,
+    wasm_language.external_token_count > 0 ? wasm_language.external_scanner.serialize : 0,
+    wasm_language.external_token_count > 0 ? wasm_language.external_scanner.deserialize : 0,
+    language_address,
+    self->current_memory_offset,
+  };
+  uint32_t address_count = array_len(addresses);
+
   TSLanguage *language = ts_malloc(sizeof(TSLanguage));
   StringData symbol_name_buffer = array_new();
   StringData field_name_buffer = array_new();
@@ -871,9 +922,11 @@ const TSLanguage *ts_wasm_store_load_language(
       &memory[wasm_language.parse_table],
       wasm_language.large_state_count * wasm_language.symbol_count * sizeof(uint16_t)
     ),
-    .parse_actions = copy(
-      &memory[wasm_language.parse_actions],
-      6542 * sizeof(TSParseActionEntry) // TODO - determine number of parse actions
+    .parse_actions = copy_unsized_static_array(
+      memory,
+      wasm_language.parse_actions,
+      addresses,
+      address_count
     ),
     .symbol_names = copy_strings(
       memory,
@@ -941,10 +994,11 @@ const TSLanguage *ts_wasm_store_load_language(
       &memory[wasm_language.small_parse_table_map],
       small_state_count * sizeof(uint32_t)
     );
-    uint32_t index = language->small_parse_table_map[small_state_count - 1];
-    language->small_parse_table = copy(
-      &memory[wasm_language.small_parse_table],
-      (index + 64) * sizeof(uint16_t) // TODO - determine actual size
+    language->small_parse_table = copy_unsized_static_array(
+      memory,
+      wasm_language.small_parse_table,
+      addresses,
+      address_count
     );
   }
 
