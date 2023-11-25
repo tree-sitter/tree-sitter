@@ -773,6 +773,7 @@ static bool ts_wasm_store__instantiate(
   self->current_function_table_offset += dylink_info->table_size;
 
   // Process the module's exports.
+  bool found_language = false;
   wasmtime_extern_t language_extern;
   wasm_exporttype_vec_t export_types = WASM_EMPTY_VEC;
   wasmtime_module_exports(module, &export_types);
@@ -801,11 +802,12 @@ static bool ts_wasm_store__instantiate(
     // Find the main language function for the module.
     else if (name_eq(name, language_function_name)) {
       language_extern = export;
+      found_language = true;
     }
   }
   wasm_exporttype_vec_delete(&export_types);
 
-  if (language_extern.kind != WASMTIME_EXTERN_FUNC) {
+  if (!found_language) {
     printf("failed to find function %s\n", language_function_name);
     goto error;
   }

@@ -1,6 +1,4 @@
 #include "./language.h"
-#include "./subtree.h"
-#include "./error_costs.h"
 #include <string.h>
 
 uint32_t ts_language_symbol_count(const TSLanguage *self) {
