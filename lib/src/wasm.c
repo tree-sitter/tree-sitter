@@ -704,6 +704,12 @@ static bool ts_wasm_store__instantiate(
   wasmtime_error_t *error = NULL;
   wasm_trap_t *trap = NULL;
 
+  // Grow the function table to make room for the new functions.
+  wasmtime_val_t initializer = {.kind = WASMTIME_FUNCREF};
+  uint32_t prev_size;
+  error = wasmtime_table_grow(context, &self->function_table, dylink_info->table_size, &initializer, &prev_size);
+  assert(!error);
+
   // Construct the language function name as string.
   unsigned prefix_len = strlen("tree_sitter_");
   size_t name_len = strlen(language_name);

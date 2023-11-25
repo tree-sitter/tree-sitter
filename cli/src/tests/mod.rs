@@ -14,3 +14,6 @@ mod test_highlight_test;
 mod test_tags_test;
 mod text_provider_test;
 mod tree_test;
+
+#[cfg(feature = "wasm")]
+mod wasm_language_test;
