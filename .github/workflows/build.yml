@@ -41,10 +41,6 @@ jobs:
         - linux-x64         #
         - linux-x86         #
         - linux-i586        #
-        - linux-mips        #
-        - linux-mips64      #
-        - linux-mipsel      #
-        - linux-mips64el    #
         - linux-powerpc     #
         - linux-powerpc64   #
         - linux-powerpc64el #
@@ -70,10 +66,6 @@ jobs:
         - { platform: linux-x64         , target: x86_64-unknown-linux-gnu            , os: ubuntu-20.04   , enable-wasm: true } #2272
         - { platform: linux-x86         , target: i686-unknown-linux-gnu              , os: ubuntu-latest  , use-cross: true }
         - { platform: linux-i586        , target: i586-unknown-linux-gnu              , os: ubuntu-latest  , use-cross: true }
-        - { platform: linux-mips        , target: mips-unknown-linux-gnu              , os: ubuntu-latest  , use-cross: true }
-        - { platform: linux-mips64      , target: mips64-unknown-linux-gnuabi64       , os: ubuntu-latest  , use-cross: true }
-        - { platform: linux-mipsel      , target: mipsel-unknown-linux-gnu            , os: ubuntu-latest  , use-cross: true }
-        - { platform: linux-mips64el    , target: mips64el-unknown-linux-gnuabi64     , os: ubuntu-latest  , use-cross: true }
         - { platform: linux-powerpc     , target: powerpc-unknown-linux-gnu           , os: ubuntu-latest  , use-cross: true }
         - { platform: linux-powerpc64   , target: powerpc64-unknown-linux-gnu         , os: ubuntu-latest  , use-cross: true }
         - { platform: linux-powerpc64el , target: powerpc64le-unknown-linux-gnu       , os: ubuntu-latest  , use-cross: true }
@@ -95,10 +87,6 @@ jobs:
         - { platform: linux-armv7l      , cc: arm-linux-gnueabihf-gcc           , ar: arm-linux-gnueabihf-ar         }
         - { platform: linux-x86         , cc: i686-linux-gnu-gcc                , ar: i686-linux-gnu-ar              }
         - { platform: linux-i586        , cc: i686-linux-gnu-gcc                , ar: i686-linux-gnu-ar              }
-        - { platform: linux-mips        , cc: mips-linux-gnu-gcc                , ar: mips-linux-gnu-ar              }
-        - { platform: linux-mips64      , cc: mips64-linux-gnuabi64-gcc         , ar: mips64-linux-gnuabi64-ar       }
-        - { platform: linux-mipsel      , cc: mipsel-linux-gnu-gcc              , ar: mipsel-linux-gnu-ar            }
-        - { platform: linux-mips64el    , cc: mips64el-linux-gnuabi64-gcc       , ar: mips64el-linux-gnuabi64-ar     }
         - { platform: linux-powerpc     , cc: powerpc-linux-gnu-gcc             , ar: powerpc-linux-gnu-ar           }
         - { platform: linux-powerpc64   , cc: powerpc64-linux-gnu-gcc           , ar: powerpc64-linux-gnu-ar         }
         - { platform: linux-powerpc64el , cc: powerpc64le-linux-gnu-gcc         , ar: powerpc64le-linux-gnu-ar       }
@@ -106,12 +94,6 @@ jobs:
         - { platform: linux-s390x       , cc: s390x-linux-gnu-gcc               , ar: s390x-linux-gnu-ar             }
         - { platform: linux-sparc64     , cc: sparc64-linux-gnu-gcc             , ar: sparc64-linux-gnu-ar           }
         - { platform: linux-thumbv7neon , cc: arm-linux-gnueabihf-gcc           , ar: arm-linux-gnueabihf-ar         }
-
-        # Rust toolchains
-        - { platform: linux-mips        , rust-toolchain: 1.71.1 }
-        - { platform: linux-mips64      , rust-toolchain: 1.71.1 }
-        - { platform: linux-mipsel      , rust-toolchain: 1.71.1 }
-        - { platform: linux-mips64el    , rust-toolchain: 1.71.1 }
 
         # See #2041 tree-sitter issue
         - { platform: windows-x64   , rust-test-threads: 1 }
