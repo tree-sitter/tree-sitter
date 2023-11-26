@@ -1,5 +1,11 @@
 use crate::{ffi, Language, LanguageError, Parser};
-use std::{ffi::CString, mem, os::raw::c_char};
+use std::{
+    error,
+    ffi::CString,
+    fmt,
+    mem::{self, MaybeUninit},
+    os::raw::c_char,
+};
 pub use wasmtime;
 
 #[cfg(feature = "wasm")]
@@ -18,6 +24,20 @@ pub struct wasm_engine_t {
 
 pub struct WasmStore(*mut ffi::TSWasmStore);
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct WasmError {
+    pub kind: WasmErrorKind,
+    pub message: String,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum WasmErrorKind {
+    Parse,
+    Compile,
+    Instantiate,
+    Other,
+}
+
 impl WasmStore {
     pub fn new(engine: wasmtime::Engine) -> Self {
         let engine = Box::new(wasm_engine_t { engine });
@@ -26,16 +46,37 @@ impl WasmStore {
         })
     }
 
-    pub fn load_language(&mut self, name: &str, bytes: &[u8]) -> Language {
+    pub fn load_language(&mut self, name: &str, bytes: &[u8]) -> Result<Language, WasmError> {
         let name = CString::new(name).unwrap();
-        Language(unsafe {
-            ffi::ts_wasm_store_load_language(
+        unsafe {
+            let mut error = MaybeUninit::<ffi::TSWasmError>::uninit();
+            let mut message = MaybeUninit::<*mut c_char>::uninit();
+            let language = ffi::ts_wasm_store_load_language(
                 self.0,
                 name.as_ptr(),
                 bytes.as_ptr() as *const c_char,
                 bytes.len() as u32,
-            )
-        })
+                error.as_mut_ptr(),
+                message.as_mut_ptr(),
+            );
+
+            if language.is_null() {
+                let error = error.assume_init();
+                let message = message.assume_init();
+                let message = CString::from_raw(message);
+                Err(WasmError {
+                    kind: match error {
+                        ffi::TSWasmErrorParse => WasmErrorKind::Parse,
+                        ffi::TSWasmErrorCompile => WasmErrorKind::Compile,
+                        ffi::TSWasmErrorInstantiate => WasmErrorKind::Instantiate,
+                        _ => WasmErrorKind::Other,
+                    },
+                    message: message.into_string().unwrap(),
+                })
+            } else {
+                Ok(Language(language))
+            }
+        }
     }
 }
 
@@ -67,3 +108,17 @@ impl Drop for WasmStore {
         unsafe { ffi::ts_wasm_store_delete(self.0) };
     }
 }
+
+impl fmt::Display for WasmError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let kind = match self.kind {
+            WasmErrorKind::Parse => "Failed to parse wasm",
+            WasmErrorKind::Compile => "Failed to compile wasm",
+            WasmErrorKind::Instantiate => "Failed to instantiate wasm module",
+            WasmErrorKind::Other => "Unknown error",
+        };
+        write!(f, "{kind} {}", self.message)
+    }
+}
+
+impl error::Error for WasmError {}

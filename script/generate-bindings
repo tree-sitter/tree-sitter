@@ -37,21 +37,7 @@ bindgen                                        \
   --blocklist-type '^__.*'                     \
   --no-prepend-enum-name                       \
   --no-copy "$no_copy"                         \
-  --blocklist-function ts_tree_print_dot_graph \
-  --size_t-is-usize                            \
   $header_path                                 \
   --                                           \
   -D TREE_SITTER_FEATURE_WASM                  \
   > $output_path
-
-echo "" >> $output_path
-
-defines=(
-  TREE_SITTER_LANGUAGE_VERSION
-  TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
-)
-
-for define in ${defines[@]}; do
-  define_value=$(egrep "#define $define (.*)" $header_path | cut -d' ' -f3)
-  echo "pub const $define: usize = $define_value;" >> $output_path
-done

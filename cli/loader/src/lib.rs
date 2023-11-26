@@ -385,7 +385,7 @@ impl Loader {
             }
 
             let wasm_bytes = fs::read(&library_path)?;
-            return Ok(wasm_store.load_language(name, &wasm_bytes));
+            return Ok(wasm_store.load_language(name, &wasm_bytes)?);
         }
 
         {

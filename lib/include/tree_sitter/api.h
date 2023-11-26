@@ -1149,6 +1149,12 @@ const char *ts_lookahead_iterator_current_symbol_name(const TSLookaheadIterator 
 typedef struct wasm_engine_t TSWasmEngine;
 typedef struct TSWasmStore TSWasmStore;
 
+typedef enum {
+  TSWasmErrorParse,
+  TSWasmErrorCompile,
+  TSWasmErrorInstantiate,
+} TSWasmError;
+
 /**
  * Create a Wasm store.
  */
@@ -1170,7 +1176,9 @@ const TSLanguage *ts_wasm_store_load_language(
   TSWasmStore *,
   const char *name,
   const char *wasm,
-  uint32_t wasm_len
+  uint32_t wasm_len,
+  TSWasmError *error,
+  char **message
 );
 
 /**

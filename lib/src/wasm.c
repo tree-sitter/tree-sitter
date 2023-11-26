@@ -692,31 +692,39 @@ void ts_wasm_store_delete(TSWasmStore *self) {
   ts_free(self);
 }
 
+#define format(output, ...) \
+  do { \
+    size_t message_length = snprintf((char *)NULL, 0, __VA_ARGS__); \
+    *output = ts_malloc(message_length + 1); \
+    snprintf(*output, message_length + 1, __VA_ARGS__); \
+  } while (0)
+
 static bool ts_wasm_store__instantiate(
   TSWasmStore *self,
   wasmtime_module_t *module,
   const char *language_name,
   const WasmDylinkInfo *dylink_info,
   wasmtime_instance_t *result,
-  int32_t *language_address
+  int32_t *language_address,
+  char **error_message
 ) {
-  wasmtime_context_t *context = wasmtime_store_context(self->store);
   wasmtime_error_t *error = NULL;
   wasm_trap_t *trap = NULL;
+  wasm_message_t message = WASM_EMPTY_VEC;
+  char *language_function_name = NULL;
 
   // Grow the function table to make room for the new functions.
+  wasmtime_context_t *context = wasmtime_store_context(self->store);
   wasmtime_val_t initializer = {.kind = WASMTIME_FUNCREF};
   uint32_t prev_size;
   error = wasmtime_table_grow(context, &self->function_table, dylink_info->table_size, &initializer, &prev_size);
-  assert(!error);
+  if (error) {
+    format(error_message, "invalid function table size %u", dylink_info->table_size);
+    goto error;
+  }
 
   // Construct the language function name as string.
-  unsigned prefix_len = strlen("tree_sitter_");
-  size_t name_len = strlen(language_name);
-  char *language_function_name = ts_malloc(prefix_len + name_len + 1);
-  memcpy(&language_function_name[0], "tree_sitter_", prefix_len);
-  memcpy(&language_function_name[prefix_len], language_name, name_len);
-  language_function_name[prefix_len + name_len] = '\0';
+  format(&language_function_name, "tree_sitter_%s", language_name);
 
   const uint64_t store_id = self->function_table.store_id;
 
@@ -730,6 +738,7 @@ static bool ts_wasm_store__instantiate(
     const wasm_importtype_t *import_type = import_types.data[i];
     const wasm_name_t *import_name = wasm_importtype_name(import_type);
     if (import_name->size == 0) {
+      format(error_message, "empty import name");
       goto error;
     }
 
@@ -748,7 +757,11 @@ static bool ts_wasm_store__instantiate(
     }
 
     if (!defined_in_stdlib) {
-      printf("unexpected import '%.*s'\n", (int)import_name->size, import_name->data);
+      format(
+        error_message,
+        "invalid import '%.*s'\n",
+        (int)import_name->size, import_name->data
+      );
       goto error;
     }
   }
@@ -757,15 +770,21 @@ static bool ts_wasm_store__instantiate(
   error = wasmtime_instance_new(context, module, imports, import_types.size, &instance, &trap);
   wasm_importtype_vec_delete(&import_types);
   if (error) {
-    wasm_message_t message;
     wasmtime_error_message(error, &message);
-    printf("error instantiating wasm module: %s\n", message.data);
+    format(
+      error_message,
+      "error instantiating wasm module: %.*s\n",
+      (int)message.size, message.data
+    );
     goto error;
   }
   if (trap) {
-    wasm_message_t message;
     wasm_trap_message(trap, &message);
-    printf("error instantiating wasm module: %s\n", message.data);
+    format(
+      error_message,
+      "trap when instantiating wasm module: %.*s\n",
+      (int)message.size, message.data
+    );
     goto error;
   }
 
@@ -781,6 +800,7 @@ static bool ts_wasm_store__instantiate(
     wasm_exporttype_t *export_type = export_types.data[i];
     const wasm_name_t *name = wasm_exporttype_name(export_type);
 
+    size_t name_len;
     char *export_name;
     wasmtime_extern_t export = {.kind = WASM_EXTERN_GLOBAL};
     bool exists = wasmtime_instance_export_nth(context, &instance, i, &export_name, &name_len, &export);
@@ -792,9 +812,12 @@ static bool ts_wasm_store__instantiate(
       error = wasmtime_func_call(context, &apply_relocation_func, NULL, 0, NULL, 0, &trap);
       assert(!error);
       if (trap) {
-        wasm_message_t message;
         wasm_trap_message(trap, &message);
-        printf("error calling relocation function: %s\n", message.data);
+        format(
+          error_message,
+          "trap when calling data relocation function: %.*s\n",
+          (int)message.size, message.data
+        );
         goto error;
       }
     }
@@ -808,7 +831,11 @@ static bool ts_wasm_store__instantiate(
   wasm_exporttype_vec_delete(&export_types);
 
   if (!found_language) {
-    printf("failed to find function %s\n", language_function_name);
+    format(
+      error_message,
+      "module did not contain language function: %s",
+      language_function_name
+    );
     goto error;
   }
 
@@ -818,19 +845,34 @@ static bool ts_wasm_store__instantiate(
   error = wasmtime_func_call(context, &language_func, NULL, 0, &language_address_val, 1, &trap);
   assert(!error);
   if (trap) {
-    wasm_message_t message;
     wasm_trap_message(trap, &message);
-    printf("error calling language function: %s\n", message.data);
+    format(
+      error_message,
+      "trapped when calling language function: %s: %.*s\n",
+      language_function_name, (int)message.size, message.data
+    );
     goto error;
   }
 
-  assert(language_address_val.kind == WASMTIME_I32);
+  if (language_address_val.kind != WASMTIME_I32) {
+    format(
+      error_message,
+      "language function did not return an integer: %s\n",
+      language_function_name
+    );
+    goto error;
+  }
+
+  ts_free(language_function_name);
   *result = instance;
   *language_address = language_address_val.of.i32;
   return true;
 
 error:
-  ts_free(language_function_name);
+  if (language_function_name) ts_free(language_function_name);
+  if (message.size) wasm_byte_vec_delete(&message);
+  if (error) wasmtime_error_delete(error);
+  if (trap) wasm_trap_delete(trap);
   return false;
 }
 
@@ -842,22 +884,29 @@ const TSLanguage *ts_wasm_store_load_language(
   TSWasmStore *self,
   const char *language_name,
   const char *wasm,
-  uint32_t wasm_len
+  uint32_t wasm_len,
+  TSWasmError *wasm_error,
+  char **error_message
 ) {
   WasmDylinkInfo dylink_info;
+  wasmtime_module_t *module = NULL;
+  wasmtime_error_t *error = NULL;
+
   if (!wasm_dylink_info__parse((const unsigned char *)wasm, wasm_len, &dylink_info)) {
-    printf("failed to parse wasm dylink info\n");
-    return  NULL;
+    *wasm_error = TSWasmErrorParse;
+    format(error_message, "failed to parse dylink section of wasm module");
+    goto error;
   }
 
   // Compile the wasm code.
-  wasmtime_module_t *module;
-  wasmtime_error_t *error = wasmtime_module_new(self->engine, (const uint8_t *)wasm, wasm_len, &module);
+  error = wasmtime_module_new(self->engine, (const uint8_t *)wasm, wasm_len, &module);
   if (error) {
     wasm_message_t message;
     wasmtime_error_message(error, &message);
-    printf("failed to load wasm language: %s", message.data);
-    return NULL;
+    *wasm_error = TSWasmErrorCompile;
+    format(error_message, "error compiling wasm module: %.*s", (int)message.size, message.data);
+    wasm_byte_vec_delete(&message);
+    goto error;
   }
 
   // Instantiate the module in this store.
@@ -869,8 +918,12 @@ const TSLanguage *ts_wasm_store_load_language(
     language_name,
     &dylink_info,
     &instance,
-    &language_address
-  )) return NULL;
+    &language_address,
+    error_message
+  )) {
+    *wasm_error = TSWasmErrorInstantiate;
+    goto error;
+  }
 
   // Copy all of the static data out of the language object in wasm memory,
   // constructing a native language object.
@@ -1062,6 +1115,10 @@ const TSLanguage *ts_wasm_store_load_language(
   }));
 
   return language;
+
+error:
+  if (module) wasmtime_module_delete(module);
+  return NULL;
 }
 
 bool ts_wasm_store_add_language(
@@ -1085,6 +1142,7 @@ bool ts_wasm_store_add_language(
   // If the language module has not been instantiated in this store, then add
   // it to this store.
   if (!exists) {
+    char *message;
     wasmtime_instance_t instance;
     int32_t language_address;
     if (!ts_wasm_store__instantiate(
@@ -1093,8 +1151,10 @@ bool ts_wasm_store_add_language(
       language_module->name,
       &language_module->dylink_info,
       &instance,
-      &language_address
+      &language_address,
+      &message
     )) {
+      ts_free(message);
       return false;
     }
 
