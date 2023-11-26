@@ -1,4 +1,4 @@
-#!/bin/bash
+ c#!/bin/bash
 
 # set -x
 set -e
