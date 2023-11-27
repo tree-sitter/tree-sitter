@@ -24,9 +24,10 @@ on:
         description: Number of Rust test threads
         type: string
         default: ""
-      include_tier:
-        description: "Include tier level, default: 1, range: 1-3"
-        type: number
+      all-targets:
+        description: Run for all CI targets
+        type: boolean
+        default: false
 
 jobs:
   matrix:
@@ -42,14 +43,14 @@ jobs:
       - id: matrix
         name: Compute matrix
         env:
-          include_tier: ${{ inputs.include_tier || ( endsWith(inputs.ref, 'all-tiers') && 10 || 1 ) }}
+          all-targets: ${{ inputs.all-targets || ( endsWith(inputs.ref, 'all-targets') ) }}
         run: |
           filter='
-              .jobs.matrix.strategy.matrix as $matrix
-            | ([$matrix.include[] | select(.tier > ${{ env.include_tier }}) | .platform] | sort | unique) as $exclude
+            .jobs.matrix.strategy.matrix as $matrix
+            | ([$matrix.include[] | select(.ci == true or ${{ env.all-targets }}) | .platform] | sort | unique) as $match
             | {
-                "platform": $matrix.platform | map(select(. as $e | $exclude | any_c(. == $e) | not)),
-                "include": $matrix.include | map(select(.platform as $e | $exclude | any_c(. == $e) | not))
+                "platform": $matrix.platform | map(select(. as $x | $match | any_c(. == $x))),
+                "include": $matrix.include | map(select(.platform as $x | $match | any_c(. == $x)))
               }
           '
           echo -n matrix= >> $GITHUB_OUTPUT
