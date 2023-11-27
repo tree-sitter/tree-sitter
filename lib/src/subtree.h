@@ -200,7 +200,7 @@ Subtree ts_subtree_new_missing_leaf(SubtreePool *, TSSymbol, Length, uint32_t, c
 MutableSubtree ts_subtree_make_mut(SubtreePool *, Subtree);
 void ts_subtree_retain(Subtree);
 void ts_subtree_release(SubtreePool *, Subtree);
-int ts_subtree_compare(Subtree, Subtree);
+int ts_subtree_compare(Subtree, Subtree, SubtreePool *);
 void ts_subtree_set_symbol(MutableSubtree *, TSSymbol, const TSLanguage *);
 void ts_subtree_summarize(MutableSubtree, const Subtree *, uint32_t, const TSLanguage *);
 void ts_subtree_summarize_children(MutableSubtree, const TSLanguage *);

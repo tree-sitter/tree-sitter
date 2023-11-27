@@ -747,7 +747,7 @@ static bool ts_parser__select_tree(TSParser *self, Subtree left, Subtree right) 
 
   if (ts_subtree_error_cost(left) > 0) return true;
 
-  int comparison = ts_subtree_compare(left, right);
+  int comparison = ts_subtree_compare(left, right, &self->tree_pool);
   switch (comparison) {
     case -1:
       LOG("select_earlier symbol:%s, over_symbol:%s", TREE_NAME(left), TREE_NAME(right));
