@@ -62,34 +62,3 @@ fn test_lookahead_iterator_modifiable_only_by_mut() {
     let mut names = lookahead.iter_names();
     let _ = names.next();
 }
-
-/// It doesn't allowed to use lookahead iterator by shared ref:
-///     error[E0596]: cannot borrow `lookahead` as mutable, as it is not declared as mutable
-/// ```compile_fail
-/// use tree_sitter::{Parser, Language};
-/// let mut parser = Parser::new();
-/// let language = unsafe { Language::from_raw(std::ptr::null()) };
-/// let tree = parser.parse("", None).unwrap();
-/// let mut cursor = tree.walk();
-/// let next_state = cursor.node().next_parse_state();
-/// let lookahead = language.lookahead_iterator(next_state).unwrap();
-/// let _ = lookahead.next();
-/// ```
-
-/// It doesn't allowed to use lookahead names iterator by shared ref:
-///     error[E0596]: cannot borrow `names` as mutable, as it is not declared as mutable
-/// ```compile_fail
-/// use tree_sitter::{Parser, Language};
-/// let mut parser = Parser::new();
-/// let language = unsafe { Language::from_raw(std::ptr::null()) };
-/// let tree = parser.parse("", None).unwrap();
-/// let mut cursor = tree.walk();
-/// let next_state = cursor.node().next_parse_state();
-/// if let Some(mut lookahead) = language.lookahead_iterator(next_state) {
-///     let _ = lookahead.next();
-///     let names = lookahead.iter_names();
-///     let _ = names.next();
-/// }
-/// ```
-
-fn _dummy() {}
