@@ -92,7 +92,7 @@ fn main() {
 
         eprintln!("\nLanguage: {}", language_name);
         let language = get_language(language_path);
-        parser.set_language(language).unwrap();
+        parser.set_language(&language).unwrap();
 
         eprintln!("  Constructing Queries");
         for path in query_paths {
@@ -103,7 +103,7 @@ fn main() {
             }
 
             parse(&path, max_path_length, |source| {
-                Query::new(language, str::from_utf8(source).unwrap())
+                Query::new(&language, str::from_utf8(source).unwrap())
                     .with_context(|| format!("Query file path: {path:?}"))
                     .expect("Failed to parse query");
             });

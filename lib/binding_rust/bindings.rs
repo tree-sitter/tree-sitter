@@ -665,6 +665,14 @@ extern "C" {
     pub fn ts_query_cursor_set_max_start_depth(self_: *mut TSQueryCursor, max_start_depth: u32);
 }
 extern "C" {
+    #[doc = " Get another reference to the given language."]
+    pub fn ts_language_copy(self_: *const TSLanguage) -> *const TSLanguage;
+}
+extern "C" {
+    #[doc = " Free any dynamically-allocated resources for this language, if\n this is the last reference."]
+    pub fn ts_language_delete(self_: *const TSLanguage);
+}
+extern "C" {
     #[doc = " Get the number of distinct node types in the language."]
     pub fn ts_language_symbol_count(self_: *const TSLanguage) -> u32;
 }

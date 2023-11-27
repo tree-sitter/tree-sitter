@@ -1,6 +1,15 @@
 #include "./language.h"
 #include <string.h>
 
+const TSLanguage *ts_language_copy(const TSLanguage *self) {
+  // TODO - increment reference count for wasm languages
+  return self;
+}
+
+void ts_language_delete(const TSLanguage *_self) {
+  // TODO - decrement reference count for wasm languages
+}
+
 uint32_t ts_language_symbol_count(const TSLanguage *self) {
   return self->symbol_count + self->alias_count;
 }

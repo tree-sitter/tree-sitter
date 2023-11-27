@@ -1014,6 +1014,17 @@ void ts_query_cursor_set_max_start_depth(TSQueryCursor *self, uint32_t max_start
 /**********************/
 
 /**
+ * Get another reference to the given language.
+ */
+const TSLanguage *ts_language_copy(const TSLanguage *self);
+
+/**
+ * Free any dynamically-allocated resources for this language, if
+ * this is the last reference.
+ */
+void ts_language_delete(const TSLanguage *self);
+
+/**
  * Get the number of distinct node types in the language.
  */
 uint32_t ts_language_symbol_count(const TSLanguage *self);
