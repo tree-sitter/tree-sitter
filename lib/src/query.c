@@ -143,8 +143,8 @@ typedef struct {
 } PatternEntry;
 
 typedef struct {
-  Slice step;
-  Slice predicate_step;
+  Slice steps;
+  Slice predicate_steps;
   uint32_t start_byte;
   bool is_non_local;
 } QueryPattern;
@@ -1782,8 +1782,8 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     // Gather all of the captures that are used in predicates for this pattern.
     array_clear(&predicate_capture_ids);
     for (
-      unsigned start = pattern->predicate_step.offset,
-      end = start + pattern->predicate_step.length,
+      unsigned start = pattern->predicate_steps.offset,
+      end = start + pattern->predicate_steps.length,
       j = start; j < end; j++
     ) {
       TSQueryPredicateStep *step = &self->predicate_steps.contents[j];
@@ -1795,8 +1795,8 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
 
     // Find all of the steps that have these captures.
     for (
-      unsigned start = pattern->step.offset,
-      end = start + pattern->step.length,
+      unsigned start = pattern->steps.offset,
+      end = start + pattern->steps.length,
       j = start; j < end; j++
     ) {
       QueryStep *step = &self->steps.contents[j];
@@ -2711,8 +2711,8 @@ TSQuery *ts_query_new(
     uint32_t start_step_index = self->steps.size;
     uint32_t start_predicate_step_index = self->predicate_steps.size;
     array_push(&self->patterns, ((QueryPattern) {
-      .step = (Slice) {.offset = start_step_index},
-      .predicate_step = (Slice) {.offset = start_predicate_step_index},
+      .steps = (Slice) {.offset = start_step_index},
+      .predicate_steps = (Slice) {.offset = start_predicate_step_index},
       .start_byte = stream_offset(&stream),
       .is_non_local = false,
     }));
@@ -2721,8 +2721,8 @@ TSQuery *ts_query_new(
     array_push(&self->steps, query_step__new(0, PATTERN_DONE_MARKER, false));
 
     QueryPattern *pattern = array_back(&self->patterns);
-    pattern->step.length = self->steps.size - start_step_index;
-    pattern->predicate_step.length = self->predicate_steps.size - start_predicate_step_index;
+    pattern->steps.length = self->steps.size - start_step_index;
+    pattern->predicate_steps.length = self->predicate_steps.size - start_predicate_step_index;
 
     // If any pattern could not be parsed, then report the error information
     // and terminate.
@@ -2865,7 +2865,7 @@ const TSQueryPredicateStep *ts_query_predicates_for_pattern(
   uint32_t pattern_index,
   uint32_t *step_count
 ) {
-  Slice slice = self->patterns.contents[pattern_index].predicate_step;
+  Slice slice = self->patterns.contents[pattern_index].predicate_steps;
   *step_count = slice.length;
   if (self->predicate_steps.contents == NULL) {
     return NULL;
