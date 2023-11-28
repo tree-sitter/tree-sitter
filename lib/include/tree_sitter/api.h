@@ -1150,15 +1150,25 @@ typedef struct wasm_engine_t TSWasmEngine;
 typedef struct TSWasmStore TSWasmStore;
 
 typedef enum {
-  TSWasmErrorParse,
-  TSWasmErrorCompile,
-  TSWasmErrorInstantiate,
+  TSWasmErrorKindNone = 0,
+  TSWasmErrorKindParse,
+  TSWasmErrorKindCompile,
+  TSWasmErrorKindInstantiate,
+  TSWasmErrorKindAllocate,
+} TSWasmErrorKind;
+
+typedef struct {
+  TSWasmErrorKind kind;
+  char *message;
 } TSWasmError;
 
 /**
  * Create a Wasm store.
  */
-TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine);
+TSWasmStore *ts_wasm_store_new(
+  TSWasmEngine *engine,
+  TSWasmError *error
+);
 
 /**
  * Free the memory associated with the given Wasm store.
@@ -1177,8 +1187,7 @@ const TSLanguage *ts_wasm_store_load_language(
   const char *name,
   const char *wasm,
   uint32_t wasm_len,
-  TSWasmError *error,
-  char **message
+  TSWasmError *error
 );
 
 /**

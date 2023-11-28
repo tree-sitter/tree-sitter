@@ -21,6 +21,7 @@ name = "benchmark"
 harness = false
 
 [features]
+# default = ["wasm"]
 wasm = ["tree-sitter/wasm", "tree-sitter-loader/wasm"]
 
 [dependencies]

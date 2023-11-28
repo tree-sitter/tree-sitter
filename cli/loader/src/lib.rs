@@ -868,7 +868,7 @@ impl Loader {
 
     #[cfg(feature = "wasm")]
     pub fn use_wasm(&mut self, engine: tree_sitter::wasmtime::Engine) {
-        *self.wasm_store.lock().unwrap() = Some(tree_sitter::WasmStore::new(engine))
+        *self.wasm_store.lock().unwrap() = Some(tree_sitter::WasmStore::new(engine).unwrap())
     }
 
     pub fn get_scanner_path(&self, src_path: &Path) -> Option<PathBuf> {

@@ -39,43 +39,53 @@ pub enum WasmErrorKind {
 }
 
 impl WasmStore {
-    pub fn new(engine: wasmtime::Engine) -> Self {
-        let engine = Box::new(wasm_engine_t { engine });
-        WasmStore(unsafe {
-            ffi::ts_wasm_store_new(Box::leak(engine) as *mut wasm_engine_t as *mut _)
-        })
+    pub fn new(engine: wasmtime::Engine) -> Result<Self, WasmError> {
+        unsafe {
+            let mut error = MaybeUninit::<ffi::TSWasmError>::uninit();
+            let engine = Box::new(wasm_engine_t { engine });
+            let store = ffi::ts_wasm_store_new(
+                Box::leak(engine) as *mut wasm_engine_t as *mut _,
+                error.as_mut_ptr(),
+            );
+            if store.is_null() {
+                Err(WasmError::new(error.assume_init()))
+            } else {
+                Ok(WasmStore(store))
+            }
+        }
     }
 
     pub fn load_language(&mut self, name: &str, bytes: &[u8]) -> Result<Language, WasmError> {
         let name = CString::new(name).unwrap();
         unsafe {
             let mut error = MaybeUninit::<ffi::TSWasmError>::uninit();
-            let mut message = MaybeUninit::<*mut c_char>::uninit();
             let language = ffi::ts_wasm_store_load_language(
                 self.0,
                 name.as_ptr(),
                 bytes.as_ptr() as *const c_char,
                 bytes.len() as u32,
                 error.as_mut_ptr(),
-                message.as_mut_ptr(),
             );
-
             if language.is_null() {
-                let error = error.assume_init();
-                let message = message.assume_init();
-                let message = CString::from_raw(message);
-                Err(WasmError {
-                    kind: match error {
-                        ffi::TSWasmErrorParse => WasmErrorKind::Parse,
-                        ffi::TSWasmErrorCompile => WasmErrorKind::Compile,
-                        ffi::TSWasmErrorInstantiate => WasmErrorKind::Instantiate,
-                        _ => WasmErrorKind::Other,
-                    },
-                    message: message.into_string().unwrap(),
-                })
+                Err(WasmError::new(error.assume_init()))
             } else {
                 Ok(Language(language))
             }
+        }
+    }
+}
+
+impl WasmError {
+    unsafe fn new(error: ffi::TSWasmError) -> Self {
+        let message = CString::from_raw(error.message);
+        Self {
+            kind: match error.kind {
+                ffi::TSWasmErrorKindParse => WasmErrorKind::Parse,
+                ffi::TSWasmErrorKindCompile => WasmErrorKind::Compile,
+                ffi::TSWasmErrorKindInstantiate => WasmErrorKind::Instantiate,
+                _ => WasmErrorKind::Other,
+            },
+            message: message.into_string().unwrap(),
         }
     }
 }

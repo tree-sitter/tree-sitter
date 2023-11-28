@@ -778,13 +778,24 @@ pub type TSWasmEngine = wasm_engine_t;
 pub struct TSWasmStore {
     _unused: [u8; 0],
 }
-pub const TSWasmErrorParse: TSWasmError = 0;
-pub const TSWasmErrorCompile: TSWasmError = 1;
-pub const TSWasmErrorInstantiate: TSWasmError = 2;
-pub type TSWasmError = ::std::os::raw::c_uint;
+pub const TSWasmErrorKindNone: TSWasmErrorKind = 0;
+pub const TSWasmErrorKindParse: TSWasmErrorKind = 1;
+pub const TSWasmErrorKindCompile: TSWasmErrorKind = 2;
+pub const TSWasmErrorKindInstantiate: TSWasmErrorKind = 3;
+pub const TSWasmErrorKindAllocate: TSWasmErrorKind = 4;
+pub type TSWasmErrorKind = ::std::os::raw::c_uint;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct TSWasmError {
+    pub kind: TSWasmErrorKind,
+    pub message: *mut ::std::os::raw::c_char,
+}
 extern "C" {
     #[doc = " Create a Wasm store."]
-    pub fn ts_wasm_store_new(engine: *mut TSWasmEngine) -> *mut TSWasmStore;
+    pub fn ts_wasm_store_new(
+        engine: *mut TSWasmEngine,
+        error: *mut TSWasmError,
+    ) -> *mut TSWasmStore;
 }
 extern "C" {
     #[doc = " Free the memory associated with the given Wasm store."]
@@ -798,7 +809,6 @@ extern "C" {
         wasm: *const ::std::os::raw::c_char,
         wasm_len: u32,
         error: *mut TSWasmError,
-        message: *mut *mut ::std::os::raw::c_char,
     ) -> *const TSLanguage;
 }
 extern "C" {

@@ -405,7 +405,7 @@ fn run() -> Result<()> {
             if matches.is_present("wasm") {
                 let engine = tree_sitter::wasmtime::Engine::default();
                 parser
-                    .set_wasm_store(tree_sitter::WasmStore::new(engine.clone()))
+                    .set_wasm_store(tree_sitter::WasmStore::new(engine.clone()).unwrap())
                     .unwrap();
                 loader.use_wasm(engine);
             }
@@ -502,7 +502,7 @@ fn run() -> Result<()> {
             if matches.is_present("wasm") {
                 let engine = tree_sitter::wasmtime::Engine::default();
                 parser
-                    .set_wasm_store(tree_sitter::WasmStore::new(engine.clone()))
+                    .set_wasm_store(tree_sitter::WasmStore::new(engine.clone()).unwrap())
                     .unwrap();
                 loader.use_wasm(engine);
             }
