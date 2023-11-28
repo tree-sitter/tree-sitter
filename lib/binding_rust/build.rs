@@ -20,6 +20,13 @@ fn main() {
     #[cfg(feature = "bindgen")]
     generate_bindings();
 
+    let mut config = cc::Build::new();
+
+    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_WASM");
+    if env::var("CARGO_FEATURE_WASM").is_ok() {
+        config.define("TREE_SITTER_FEATURE_WASM", "");
+    }
+
     let src_path = Path::new("src");
     for entry in fs::read_dir(&src_path).unwrap() {
         let entry = entry.unwrap();
@@ -27,11 +34,13 @@ fn main() {
         println!("cargo:rerun-if-changed={}", path.to_str().unwrap());
     }
 
-    cc::Build::new()
+    config
         .flag_if_supported("-std=c99")
         .flag_if_supported("-fvisibility=hidden")
         .flag_if_supported("-Wshadow")
+        .flag_if_supported("-Wno-unused-parameter")
         .include(src_path)
+        .include(src_path.join("wasm"))
         .include("include")
         .file(src_path.join("lib.c"))
         .compile("tree-sitter");

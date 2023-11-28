@@ -41,10 +41,6 @@ jobs:
         - linux-x64         #
         - linux-x86         #
         - linux-i586        #
-        - linux-mips        #
-        - linux-mips64      #
-        - linux-mipsel      #
-        - linux-mips64el    #
         - linux-powerpc     #
         - linux-powerpc64   #
         - linux-powerpc64el #
@@ -67,13 +63,9 @@ jobs:
         - { platform: linux-armhf       , target: arm-unknown-linux-gnueabihf         , os: ubuntu-latest  , use-cross: true }
         - { platform: linux-armv5te     , target: armv5te-unknown-linux-gnueabi       , os: ubuntu-latest  , use-cross: true }
         - { platform: linux-armv7l      , target: armv7-unknown-linux-gnueabihf       , os: ubuntu-latest  , use-cross: true }
-        - { platform: linux-x64         , target: x86_64-unknown-linux-gnu            , os: ubuntu-20.04                     } #2272
+        - { platform: linux-x64         , target: x86_64-unknown-linux-gnu            , os: ubuntu-20.04   , enable-wasm: true } #2272
         - { platform: linux-x86         , target: i686-unknown-linux-gnu              , os: ubuntu-latest  , use-cross: true }
         - { platform: linux-i586        , target: i586-unknown-linux-gnu              , os: ubuntu-latest  , use-cross: true }
-        - { platform: linux-mips        , target: mips-unknown-linux-gnu              , os: ubuntu-latest  , use-cross: true }
-        - { platform: linux-mips64      , target: mips64-unknown-linux-gnuabi64       , os: ubuntu-latest  , use-cross: true }
-        - { platform: linux-mipsel      , target: mipsel-unknown-linux-gnu            , os: ubuntu-latest  , use-cross: true }
-        - { platform: linux-mips64el    , target: mips64el-unknown-linux-gnuabi64     , os: ubuntu-latest  , use-cross: true }
         - { platform: linux-powerpc     , target: powerpc-unknown-linux-gnu           , os: ubuntu-latest  , use-cross: true }
         - { platform: linux-powerpc64   , target: powerpc64-unknown-linux-gnu         , os: ubuntu-latest  , use-cross: true }
         - { platform: linux-powerpc64el , target: powerpc64le-unknown-linux-gnu       , os: ubuntu-latest  , use-cross: true }
@@ -82,10 +74,10 @@ jobs:
         - { platform: linux-sparc64     , target: sparc64-unknown-linux-gnu           , os: ubuntu-latest  , use-cross: true }
         - { platform: linux-thumbv7neon , target: thumbv7neon-unknown-linux-gnueabihf , os: ubuntu-latest  , use-cross: true }
         - { platform: windows-arm64     , target: aarch64-pc-windows-msvc             , os: windows-latest                   }
-        - { platform: windows-x64       , target: x86_64-pc-windows-msvc              , os: windows-latest                   }
+        - { platform: windows-x64       , target: x86_64-pc-windows-msvc              , os: windows-latest , enable-wasm: true }
         - { platform: windows-x86       , target: i686-pc-windows-msvc                , os: windows-latest                   }
-        - { platform: macos-arm64       , target: aarch64-apple-darwin                , os: macos-latest                     }
-        - { platform: macos-x64         , target: x86_64-apple-darwin                 , os: macos-latest                     }
+        - { platform: macos-arm64       , target: aarch64-apple-darwin                , os: macos-latest   , enable-wasm: true }
+        - { platform: macos-x64         , target: x86_64-apple-darwin                 , os: macos-latest   , enable-wasm: true }
 
         # Cross compilers for C library
         - { platform: linux-arm64       , cc: aarch64-linux-gnu-gcc             , ar: aarch64-linux-gnu-ar           }
@@ -95,10 +87,6 @@ jobs:
         - { platform: linux-armv7l      , cc: arm-linux-gnueabihf-gcc           , ar: arm-linux-gnueabihf-ar         }
         - { platform: linux-x86         , cc: i686-linux-gnu-gcc                , ar: i686-linux-gnu-ar              }
         - { platform: linux-i586        , cc: i686-linux-gnu-gcc                , ar: i686-linux-gnu-ar              }
-        - { platform: linux-mips        , cc: mips-linux-gnu-gcc                , ar: mips-linux-gnu-ar              }
-        - { platform: linux-mips64      , cc: mips64-linux-gnuabi64-gcc         , ar: mips64-linux-gnuabi64-ar       }
-        - { platform: linux-mipsel      , cc: mipsel-linux-gnu-gcc              , ar: mipsel-linux-gnu-ar            }
-        - { platform: linux-mips64el    , cc: mips64el-linux-gnuabi64-gcc       , ar: mips64el-linux-gnuabi64-ar     }
         - { platform: linux-powerpc     , cc: powerpc-linux-gnu-gcc             , ar: powerpc-linux-gnu-ar           }
         - { platform: linux-powerpc64   , cc: powerpc64-linux-gnu-gcc           , ar: powerpc64-linux-gnu-ar         }
         - { platform: linux-powerpc64el , cc: powerpc64le-linux-gnu-gcc         , ar: powerpc64le-linux-gnu-ar       }
@@ -106,12 +94,6 @@ jobs:
         - { platform: linux-s390x       , cc: s390x-linux-gnu-gcc               , ar: s390x-linux-gnu-ar             }
         - { platform: linux-sparc64     , cc: sparc64-linux-gnu-gcc             , ar: sparc64-linux-gnu-ar           }
         - { platform: linux-thumbv7neon , cc: arm-linux-gnueabihf-gcc           , ar: arm-linux-gnueabihf-ar         }
-
-        # Rust toolchains
-        - { platform: linux-mips        , rust-toolchain: 1.71.1 }
-        - { platform: linux-mips64      , rust-toolchain: 1.71.1 }
-        - { platform: linux-mipsel      , rust-toolchain: 1.71.1 }
-        - { platform: linux-mips64el    , rust-toolchain: 1.71.1 }
 
         # See #2041 tree-sitter issue
         - { platform: windows-x64   , rust-test-threads: 1 }
@@ -138,7 +120,7 @@ jobs:
 
     - name: Read Emscripten version
       run: |
-        echo "EMSCRIPTEN_VERSION=$(cat cli/emscripten-version)" >> $GITHUB_ENV
+        echo "EMSCRIPTEN_VERSION=$(cat cli/loader/emscripten-version)" >> $GITHUB_ENV
 
     - name: Install Emscripten
       if: ${{ !matrix.cli-only && !matrix.use-cross }}
@@ -184,6 +166,7 @@ jobs:
         CC: ${{ matrix.cc }}
         AR: ${{ matrix.ar }}
         IS_WINDOWS: ${{ contains(matrix.os, 'windows') }}
+        ENABLE_WASM: ${{ matrix.enable-wasm }}
       run: |
         PATH="$PWD/.github/scripts:$PATH"
         echo "$PWD/.github/scripts" >> $GITHUB_PATH
@@ -200,6 +183,10 @@ jobs:
 
         [ "$IS_WINDOWS" = "false" ] && echo "CFLAGS=-Werror" >> $GITHUB_ENV
 
+        if [ "$ENABLE_WASM" == "true" ]; then
+          echo "CLI_FEATURES=wasm" >> $GITHUB_ENV
+        fi
+
         if [ "$USE_CROSS" == "true" ]; then
           echo "BUILD_CMD=cross" >> $GITHUB_ENV
           runner=$(BUILD_CMD=cross cross.sh bash -c "env | sed -nr '/^CARGO_TARGET_.*_RUNNER=/s///p'")
@@ -215,7 +202,7 @@ jobs:
       run: script/build-wasm
 
     - name: Build CLI
-      run: $BUILD_CMD build --release --target=${{ matrix.target }}
+      run: $BUILD_CMD build --release --target=${{ matrix.target }} --features=${CLI_FEATURES}
 
     - name: Info about CLI
       if: ${{ startsWith(matrix.platform, 'linux') }}

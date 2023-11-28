@@ -8,6 +8,7 @@ lazy_static! {
         fs::create_dir_all(&result).unwrap();
         result
     };
+    pub static ref WASM_DIR: PathBuf = ROOT_DIR.join("target").join("release");
     pub static ref SCRATCH_DIR: PathBuf = {
         // https://doc.rust-lang.org/reference/conditional-compilation.html
         let vendor = if cfg!(target_vendor = "apple") {

@@ -52,9 +52,8 @@ pub struct ParseFileOptions<'a> {
     pub encoding: Option<u32>,
 }
 
-pub fn parse_file_at_path(opts: ParseFileOptions) -> Result<bool> {
+pub fn parse_file_at_path(parser: &mut Parser, opts: ParseFileOptions) -> Result<bool> {
     let mut _log_session = None;
-    let mut parser = Parser::new();
     parser.set_language(opts.language)?;
     let mut source_code = fs::read(opts.path)
         .with_context(|| format!("Error reading source file {:?}", opts.path))?;
@@ -68,7 +67,7 @@ pub fn parse_file_at_path(opts: ParseFileOptions) -> Result<bool> {
 
     // Render an HTML graph if `--debug-graph` was passed
     if opts.debug_graph {
-        _log_session = Some(util::log_graphs(&mut parser, "log.html")?);
+        _log_session = Some(util::log_graphs(parser, "log.html")?);
     }
     // Log to stderr if `--debug` was passed
     else if opts.debug {
@@ -104,6 +103,8 @@ pub fn parse_file_at_path(opts: ParseFileOptions) -> Result<bool> {
         }
         _ => parser.parse(&source_code, None),
     };
+
+    parser.stop_printing_dot_graphs();
 
     let stdout = io::stdout();
     let mut stdout = stdout.lock();

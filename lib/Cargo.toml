@@ -22,8 +22,25 @@ include = [
   "/src/unicode/*",
 ]
 
+[features]
+wasm = ["wasmtime", "wasmtime-c-api"]
+
 [dependencies]
 regex = "1.9.1"
+
+[dependencies.wasmtime]
+git = "https://github.com/bytecodealliance/wasmtime"
+rev = "fa6fcd946b8f6d60c2d191a1b14b9399e261a76d"
+optional = true
+default-features = false
+features = ["cranelift"]
+
+[dependencies.wasmtime-c-api]
+git = "https://github.com/bytecodealliance/wasmtime"
+rev = "fa6fcd946b8f6d60c2d191a1b14b9399e261a76d"
+optional = true
+package = "wasmtime-c-api-impl"
+default-features = false
 
 [build-dependencies]
 bindgen = { version = "^0.66.1", optional = true }

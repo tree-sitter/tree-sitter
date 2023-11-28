@@ -1,3 +1,4 @@
 -std=c99
--Isrc
+-Isrc/wasm
 -Iinclude
+-D TREE_SITTER_FEATURE_WASM

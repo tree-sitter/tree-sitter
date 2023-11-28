@@ -38,19 +38,24 @@ impl std::fmt::Display for Failure {
     }
 }
 
-pub fn test_highlights(loader: &Loader, directory: &Path, apply_all_captures: bool) -> Result<()> {
+pub fn test_highlights(
+    loader: &Loader,
+    highlighter: &mut Highlighter,
+    directory: &Path,
+    apply_all_captures: bool,
+) -> Result<()> {
     println!("syntax highlighting:");
-    test_highlights_indented(loader, directory, apply_all_captures, 2)
+    test_highlights_indented(loader, highlighter, directory, apply_all_captures, 2)
 }
 
 fn test_highlights_indented(
     loader: &Loader,
+    highlighter: &mut Highlighter,
     directory: &Path,
     apply_all_captures: bool,
     indent_level: usize,
 ) -> Result<()> {
     let mut failed = false;
-    let mut highlighter = Highlighter::new();
 
     for highlight_test_file in fs::read_dir(directory)? {
         let highlight_test_file = highlight_test_file?;
@@ -65,6 +70,7 @@ fn test_highlights_indented(
             println!("{}:", test_file_name.into_string().unwrap());
             if let Err(_) = test_highlights_indented(
                 loader,
+                highlighter,
                 &test_file_path,
                 apply_all_captures,
                 indent_level + 1,
@@ -80,7 +86,7 @@ fn test_highlights_indented(
                 .ok_or_else(|| anyhow!("No highlighting config found for {:?}", test_file_path))?;
             match test_highlight(
                 &loader,
-                &mut highlighter,
+                highlighter,
                 highlight_config,
                 fs::read(&test_file_path)?.as_slice(),
             ) {

@@ -14,8 +14,7 @@ rust-version.workspace = true
 [dependencies]
 anyhow = "1.0"
 dirs = "3.0"
-# Due to https://github.com/serde-rs/serde/issues/2538
-serde = { version = "1.0, < 1.0.172", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
 
 [dependencies.serde_json]
 version = "1.0"

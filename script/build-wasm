@@ -33,7 +33,7 @@ web_dir=lib/binding_web
 emscripten_flags="-O3"
 minify_js=1
 force_docker=0
-emscripen_version=$(cat "$(dirname "$0")"/../cli/emscripten-version)
+emscripen_version=$(cat "$(dirname "$0")"/../cli/loader/emscripten-version)
 
 while [[ $# > 0 ]]; do
   case "$1" in

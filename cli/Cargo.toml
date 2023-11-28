@@ -20,6 +20,10 @@ doc = false
 name = "benchmark"
 harness = false
 
+[features]
+# default = ["wasm"]
+wasm = ["tree-sitter/wasm", "tree-sitter-loader/wasm"]
+
 [dependencies]
 ansi_term = "0.12.1"
 anyhow = "1.0.72"
@@ -38,8 +42,8 @@ regex = "1.9.1"
 regex-syntax = "0.7.4"
 rustc-hash = "1.1.0"
 semver = "1.0.18"
-# Due to https://github.com/serde-rs/serde/issues/2538
-serde = { version = "1.0, < 1.0.172", features = ["derive"] }
+serde = "1.0.188"
+serde_derive = "1.0"
 smallbitvec = "2.5.1"
 tiny_http = "0.12.0"
 walkdir = "2.3.3"

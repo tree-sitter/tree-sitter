@@ -4,14 +4,16 @@ use glob::glob;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::{env, fs, u64};
-use tree_sitter::{ffi, Point};
-use tree_sitter_cli::parse::{ParseFileOptions, ParseOutput};
+use tree_sitter::{ffi, Parser, Point};
 use tree_sitter_cli::{
-    generate, highlight, logger, parse, playground, query, tags, test, test_highlight, test_tags,
-    util, wasm,
+    generate, highlight, logger,
+    parse::{self, ParseFileOptions, ParseOutput},
+    playground, query, tags, test, test_highlight, test_tags, util, wasm,
 };
 use tree_sitter_config::Config;
+use tree_sitter_highlight::Highlighter;
 use tree_sitter_loader as loader;
+use tree_sitter_tags::TagsContext;
 
 const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
@@ -79,6 +81,9 @@ fn run() -> Result<()> {
         .long("quiet")
         .short("q");
 
+    let wasm_arg = Arg::with_name("wasm")
+        .long("wasm")
+        .help("compile parsers to wasm instead of native dynamic libraries");
     let apply_all_captures_arg = Arg::with_name("apply-all-captures")
         .help("Apply all captures to highlights")
         .long("apply-all-captures");
@@ -151,6 +156,7 @@ fn run() -> Result<()> {
                 .arg(&debug_arg)
                 .arg(&debug_build_arg)
                 .arg(&debug_graph_arg)
+                .arg(&wasm_arg)
                 .arg(Arg::with_name("output-dot").long("dot"))
                 .arg(Arg::with_name("output-xml").long("xml").short("x"))
                 .arg(
@@ -242,6 +248,7 @@ fn run() -> Result<()> {
                 .arg(&debug_arg)
                 .arg(&debug_build_arg)
                 .arg(&debug_graph_arg)
+                .arg(&wasm_arg)
                 .arg(&apply_all_captures_arg),
         )
         .subcommand(
@@ -392,10 +399,23 @@ fn run() -> Result<()> {
 
             loader.use_debug_build(debug_build);
 
+            let mut parser = Parser::new();
+
+            #[cfg(feature = "wasm")]
+            if matches.is_present("wasm") {
+                let engine = tree_sitter::wasmtime::Engine::default();
+                parser
+                    .set_wasm_store(tree_sitter::WasmStore::new(engine.clone()).unwrap())
+                    .unwrap();
+                loader.use_wasm(engine);
+            }
+
             let languages = loader.languages_at_path(&current_dir)?;
             let language = languages
                 .first()
                 .ok_or_else(|| anyhow!("No language found"))?;
+            parser.set_language(*language)?;
+
             let test_dir = current_dir.join("test");
 
             // Run the corpus tests. Look for them at two paths: `test/corpus` and `corpus`.
@@ -405,7 +425,7 @@ fn run() -> Result<()> {
             }
             if test_corpus_dir.is_dir() {
                 test::run_tests_at_path(
-                    *language,
+                    &mut parser,
                     &test_corpus_dir,
                     debug,
                     debug_graph,
@@ -420,12 +440,22 @@ fn run() -> Result<()> {
             // Run the syntax highlighting tests.
             let test_highlight_dir = test_dir.join("highlight");
             if test_highlight_dir.is_dir() {
-                test_highlight::test_highlights(&loader, &test_highlight_dir, apply_all_captures)?;
+                let mut highlighter = Highlighter::new();
+                highlighter.parser = parser;
+                test_highlight::test_highlights(
+                    &loader,
+                    &mut highlighter,
+                    &test_highlight_dir,
+                    apply_all_captures,
+                )?;
+                parser = highlighter.parser;
             }
 
             let test_tag_dir = test_dir.join("tags");
             if test_tag_dir.is_dir() {
-                test_tags::test_tags(&loader, &test_tag_dir)?;
+                let mut tags_context = TagsContext::new();
+                tags_context.parser = parser;
+                test_tags::test_tags(&loader, &mut tags_context, &test_tag_dir)?;
             }
         }
 
@@ -459,6 +489,7 @@ fn run() -> Result<()> {
                 .values_of("edits")
                 .map_or(Vec::new(), |e| e.collect());
             let cancellation_flag = util::cancel_on_signal();
+            let mut parser = Parser::new();
 
             if debug {
                 // For augmenting debug logging in external scanners
@@ -466,6 +497,15 @@ fn run() -> Result<()> {
             }
 
             loader.use_debug_build(debug_build);
+
+            #[cfg(feature = "wasm")]
+            if matches.is_present("wasm") {
+                let engine = tree_sitter::wasmtime::Engine::default();
+                parser
+                    .set_wasm_store(tree_sitter::WasmStore::new(engine.clone()).unwrap())
+                    .unwrap();
+                loader.use_wasm(engine);
+            }
 
             let timeout = matches
                 .value_of("timeout")
@@ -483,8 +523,12 @@ fn run() -> Result<()> {
 
             for path in paths {
                 let path = Path::new(&path);
+
                 let language =
                     loader.select_language(path, &current_dir, matches.value_of("scope"))?;
+                parser
+                    .set_language(language)
+                    .context("incompatible language")?;
 
                 let opts = ParseFileOptions {
                     language,
@@ -500,7 +544,7 @@ fn run() -> Result<()> {
                     encoding,
                 };
 
-                let this_file_errored = parse::parse_file_at_path(opts)?;
+                let this_file_errored = parse::parse_file_at_path(&mut parser, opts)?;
 
                 if should_track_stats {
                     stats.total_parses += 1;
@@ -694,7 +738,12 @@ fn run() -> Result<()> {
 
         ("build-wasm", Some(matches)) => {
             let grammar_path = current_dir.join(matches.value_of("path").unwrap_or(""));
-            wasm::compile_language_to_wasm(&grammar_path, matches.is_present("docker"))?;
+            wasm::compile_language_to_wasm(
+                &loader,
+                &grammar_path,
+                &current_dir,
+                matches.is_present("docker"),
+            )?;
         }
 
         ("playground", Some(matches)) => {
