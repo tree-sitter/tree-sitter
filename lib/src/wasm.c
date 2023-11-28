@@ -1,5 +1,5 @@
 #include "tree_sitter/api.h"
-#include "tree_sitter/parser.h"
+#include "./parser.h"
 #include <stdint.h>
 
 #ifdef TREE_SITTER_FEATURE_WASM
