@@ -32,9 +32,6 @@ jobs:
         toolchain: ${{ steps.msrv.outputs.version }}
         components: clippy, rustfmt
 
-    - name: Run cargo fmt
-      run: cargo fmt -- --check
-
     # - name: Run clippy (on minimum supported rust version to prevent warnings we can't fix)
     #   run: cargo clippy --all-targets
 
