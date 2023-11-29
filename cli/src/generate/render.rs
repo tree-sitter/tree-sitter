@@ -766,6 +766,7 @@ impl Generator {
         indent!(self);
 
         add_line!(self, "START_LEXER();");
+        add_line!(self, "eof = lexer->eof(lexer);");
         add_line!(self, "switch (state) {{");
 
         indent!(self);
