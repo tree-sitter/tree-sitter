@@ -8,12 +8,12 @@ extern "C" {
 #include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include "./parser.h"
 #include "./length.h"
 #include "./array.h"
 #include "./error_costs.h"
 #include "./host.h"
 #include "tree_sitter/api.h"
-#include "tree_sitter/parser.h"
 
 #define TS_TREE_STATE_NONE USHRT_MAX
 #define NULL_SUBTREE ((Subtree) {.ptr = NULL})
