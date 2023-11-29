@@ -6,16 +6,17 @@ resolver = "2"
 [workspace.package]
 rust-version = "1.65"
 
-[profile.release]
+[profile.optimize]
+inherits = "release"
 strip = true      # Automatically strip symbols from the binary.
 lto = true        # Link-time optimization.
 opt-level = 3     # Optimization level 3.
 codegen-units = 1 # Maximum size reduction optimizations.
 
 [profile.size]
-inherits = "release"
-opt-level = "s"      # Optimize for size.
+inherits = "optimize"
+opt-level = "s"   # Optimize for size.
 
 [profile.profile]
-inherits = "release"
+inherits = "optimize"
 strip = false
