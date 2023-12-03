@@ -45,4 +45,3 @@ void ts_set_allocator(
   ts_current_realloc = new_realloc ? new_realloc : ts_realloc_default;
   ts_current_free = new_free ? new_free : free;
 }
-

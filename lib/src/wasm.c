@@ -108,6 +108,7 @@ struct TSWasmStore {
   LanguageWasmInstance *current_instance;
   Array(LanguageWasmInstance) language_instances;
   uint32_t current_memory_offset;
+  uint32_t current_memory_size;
   uint32_t current_function_table_offset;
   uint16_t fn_indices[STDLIB_SYMBOL_COUNT];
   wasm_globaltype_t *const_i32_type;
@@ -172,20 +173,22 @@ typedef struct {
 static volatile uint32_t NEXT_LANGUAGE_ID;
 
 // Linear memory layout:
-// [ <-- stack grows down | fixed data | heap grows up --> | per-language static data ]
+// [ <-- stack | built-in data | heap --> | static data ]
 #define STACK_SIZE (64 * 1024)
 #define HEAP_SIZE (1024 * 1024)
-#define SERIALIZATION_BUFFER_ADDRESS (STACK_SIZE - TREE_SITTER_SERIALIZATION_BUFFER_SIZE)
-#define LEXER_ADDRESS (SERIALIZATION_BUFFER_ADDRESS - sizeof(LexerInWasmMemory))
-#define INITIAL_STACK_POINTER_ADDRESS (LEXER_ADDRESS)
-#define HEAP_START_ADDRESS (STACK_SIZE)
-#define DATA_START_ADDRESS (STACK_SIZE + HEAP_SIZE)
+#define INITIAL_MEMORY_SIZE (4 * 1024 * 1024 / MEMORY_PAGE_SIZE)
+#define MAX_MEMORY_SIZE 32768
+#define SERIALIZATION_BUFFER_ADDRESS (STACK_SIZE)
+#define LEXER_ADDRESS (SERIALIZATION_BUFFER_ADDRESS + TREE_SITTER_SERIALIZATION_BUFFER_SIZE)
+#define HEAP_START_ADDRESS (LEXER_ADDRESS + sizeof(LexerInWasmMemory))
+#define DATA_START_ADDRESS (HEAP_START_ADDRESS + HEAP_SIZE)
 
 enum FunctionIx {
   NULL_IX = 0,
   PROC_EXIT_IX,
   ABORT_IX,
   ASSERT_FAIL_IX,
+  NOTIFY_MEMORY_GROWTH_IX,
   AT_EXIT_IX,
   LEXER_ADVANCE_IX,
   LEXER_MARK_END_IX,
@@ -271,6 +274,16 @@ static bool wasm_dylink_info__parse(
  *******************************************/
 
  static wasm_trap_t *callback__exit(
+  void *env,
+  wasmtime_caller_t* caller,
+  wasmtime_val_raw_t *args_and_results,
+  size_t args_and_results_len
+) {
+  fprintf(stderr, "wasm module called exit");
+  abort();
+}
+
+static wasm_trap_t *callback__notify_memory_growth(
   void *env,
   wasmtime_caller_t* caller,
   wasmtime_val_raw_t *args_and_results,
@@ -486,7 +499,7 @@ static bool ts_wasm_store__provide_builtin_import(
     assert(!error);
     *import = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_GLOBAL, .of.global = global};
   } else if (name_eq(import_name, "__stack_pointer")) {
-    wasmtime_val_t value = WASM_I32_VAL(INITIAL_STACK_POINTER_ADDRESS);
+    wasmtime_val_t value = WASM_I32_VAL(STACK_SIZE);
     wasmtime_global_t global;
     error = wasmtime_global_new(context, self->var_i32_type, &value, &global);
     assert(!error);
@@ -506,6 +519,8 @@ static bool ts_wasm_store__provide_builtin_import(
     *import = get_builtin_func_extern(context, &self->function_table, ABORT_IX);
   } else if (name_eq(import_name, "proc_exit")) {
     *import = get_builtin_func_extern(context, &self->function_table, PROC_EXIT_IX);
+  } else if (name_eq(import_name, "emscripten_notify_memory_growth")) {
+    *import = get_builtin_func_extern(context, &self->function_table, NOTIFY_MEMORY_GROWTH_IX);
   } else {
     return false;
   }
@@ -540,9 +555,10 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
   wasmtime_error_t *error = NULL;
   wasm_trap_t *trap = NULL;
   wasm_message_t message = WASM_EMPTY_VEC;
+  wasm_exporttype_vec_t export_types = WASM_EMPTY_VEC;
 
   // Initialize store's memory
-  wasm_limits_t memory_limits = {.min = 256, .max = 256};
+  wasm_limits_t memory_limits = {.min = INITIAL_MEMORY_SIZE, .max = MAX_MEMORY_SIZE};
   wasm_memorytype_t *memory_type = wasm_memorytype_new(&memory_limits);
   wasmtime_memory_t memory;
   error = wasmtime_memory_new(context, memory_type, &memory);
@@ -577,6 +593,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
     [PROC_EXIT_IX] = {callback__exit, wasm_functype_new_1_0(wasm_valtype_new_i32())},
     [ABORT_IX] = {callback__exit, wasm_functype_new_0_0()},
     [ASSERT_FAIL_IX] = {callback__exit, wasm_functype_new_4_0(wasm_valtype_new_i32(), wasm_valtype_new_i32(), wasm_valtype_new_i32(), wasm_valtype_new_i32())},
+    [NOTIFY_MEMORY_GROWTH_IX] = {callback__notify_memory_growth, wasm_functype_new_1_0(wasm_valtype_new_i32())},
     [AT_EXIT_IX] = {callback__at_exit, wasm_functype_new_3_1(wasm_valtype_new_i32(), wasm_valtype_new_i32(), wasm_valtype_new_i32(), wasm_valtype_new_i32())},
     [LEXER_ADVANCE_IX] = {callback__lexer_advance, wasm_functype_new_2_0(wasm_valtype_new_i32(), wasm_valtype_new_i32())},
     [LEXER_MARK_END_IX] = {callback__lexer_mark_end, wasm_functype_new_1_0(wasm_valtype_new_i32())},
@@ -633,7 +650,8 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
     .memory = memory,
     .language_instances = array_new(),
     .function_table = function_table,
-    .current_memory_offset = DATA_START_ADDRESS,
+    .current_memory_offset = 0,
+    .current_memory_size = 64 * MEMORY_PAGE_SIZE,
     .current_function_table_offset = definitions_len,
     .const_i32_type = wasm_globaltype_new(wasm_valtype_new_i32(), WASM_CONST),
     .var_i32_type = wasm_globaltype_new(wasm_valtype_new_i32(), WASM_VAR),
@@ -702,7 +720,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
   }
   wasm_importtype_vec_delete(&import_types);
 
-  self->current_memory_offset += dylink_info.memory_size;
+  self->current_memory_offset = DATA_START_ADDRESS + dylink_info.memory_size;
   self->current_function_table_offset += dylink_info.table_size;
 
   for (unsigned i = 0; i < STDLIB_SYMBOL_COUNT; i++) {
@@ -710,7 +728,6 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
   }
 
   // Process the stdlib module's exports.
-  wasm_exporttype_vec_t export_types = WASM_EMPTY_VEC;
   wasmtime_module_exports(stdlib_module, &export_types);
   for (unsigned i = 0; i < export_types.size; i++) {
     wasm_exporttype_t *export_type = export_types.data[i];
@@ -794,15 +811,30 @@ static bool ts_wasm_store__instantiate(
   wasm_trap_t *trap = NULL;
   wasm_message_t message = WASM_EMPTY_VEC;
   char *language_function_name = NULL;
+  wasmtime_context_t *context = wasmtime_store_context(self->store);
 
   // Grow the function table to make room for the new functions.
-  wasmtime_context_t *context = wasmtime_store_context(self->store);
   wasmtime_val_t initializer = {.kind = WASMTIME_FUNCREF};
-  uint32_t prev_size;
-  error = wasmtime_table_grow(context, &self->function_table, dylink_info->table_size, &initializer, &prev_size);
+  uint32_t prev_table_size;
+  error = wasmtime_table_grow(context, &self->function_table, dylink_info->table_size, &initializer, &prev_table_size);
   if (error) {
     format(error_message, "invalid function table size %u", dylink_info->table_size);
     goto error;
+  }
+
+  // Grow the memory to make room for the new data.
+  uint32_t needed_memory_size = self->current_memory_offset + dylink_info->memory_size;
+  if (needed_memory_size > self->current_memory_size) {
+    uint32_t pages_to_grow = (
+      needed_memory_size - self->current_memory_size + MEMORY_PAGE_SIZE - 1) /
+      MEMORY_PAGE_SIZE;
+    uint64_t prev_memory_size;
+    error = wasmtime_memory_grow(context, &self->memory, pages_to_grow, &prev_memory_size);
+    if (error) {
+      format(error_message, "invalid memory size %u", dylink_info->memory_size);
+      goto error;
+    }
+    self->current_memory_size += pages_to_grow * MEMORY_PAGE_SIZE;
   }
 
   // Construct the language function name as string.
