@@ -540,6 +540,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
   wasmtime_error_t *error = NULL;
   wasm_trap_t *trap = NULL;
   wasm_message_t message = WASM_EMPTY_VEC;
+  wasm_exporttype_vec_t export_types = WASM_EMPTY_VEC;
 
   // Initialize store's memory
   wasm_limits_t memory_limits = {.min = 256, .max = 256};
@@ -710,7 +711,6 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
   }
 
   // Process the stdlib module's exports.
-  wasm_exporttype_vec_t export_types = WASM_EMPTY_VEC;
   wasmtime_module_exports(stdlib_module, &export_types);
   for (unsigned i = 0; i < export_types.size; i++) {
     wasm_exporttype_t *export_type = export_types.data[i];
