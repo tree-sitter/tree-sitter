@@ -8,6 +8,8 @@ emcc                                                          \
     --no-entry                                                \
     -s MAIN_MODULE=2                                          \
     -s 'EXPORTED_FUNCTIONS=@lib/src/wasm/stdlib-symbols.json' \
+    -s 'ALLOW_MEMORY_GROWTH'                                  \
+    -s 'TOTAL_MEMORY=4MB'                                     \
     -fvisibility=hidden                                       \
     -fno-exceptions                                           \
     -xc                                                       \
