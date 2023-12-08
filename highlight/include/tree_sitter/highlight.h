@@ -40,6 +40,7 @@ void ts_highlighter_delete(TSHighlighter *);
 // written in a different language.
 TSHighlightError ts_highlighter_add_language(
   TSHighlighter *self,
+  const char *lang_name,
   const char *scope_name,
   const char *injection_regex,
   const TSLanguage *language,
