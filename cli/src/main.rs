@@ -291,9 +291,9 @@ fn run() -> Result<()> {
                 .alias("bw")
                 .about("Compile a parser to WASM")
                 .arg(
-                    Arg::with_name("docker")
-                        .long("docker")
-                        .help("Run emscripten via docker even if it is installed locally"),
+                    Arg::with_name("docker").long("docker").help(
+                        "Run emscripten via docker or podman even if it is installed locally",
+                    ),
                 )
                 .arg(Arg::with_name("path").index(1).multiple(true)),
         )
