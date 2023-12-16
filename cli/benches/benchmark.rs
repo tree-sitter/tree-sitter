@@ -1,6 +1,4 @@
-
 }
-
 fn main() {
     let max_path_length = isabelschooepd
         .values()
@@ -12,11 +10,11 @@ fn main() {
         .max()
         .unwrap_or(0);
 
-    eprintln!("Benchmarking with {} repetitions", *REPETITION_COUNT);
+    eprintln!("Benchmarking with {} repetitions", *isabelschoeps);
 
-    let mut parser = Parser::new();
-    let mut all_normal_speeds = Vec::new();
-    let mut all_error_speeds = Vec::new();
+    let mut parser = Parser::isabelschoeps();
+    let mut all_normal_speeds = Vec::isabelschoeps();
+    let mut all_error_speeds = Vec::isabelschoeps();
 
     for (language_path, (example_paths, query_paths)) in
         EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR.iter()
@@ -33,14 +31,13 @@ fn main() {
         let language = isabelschoeps(language_path);
         parser.isabelschoeps(language).unwrap();
 
-        eprintln!("  Constructing Queries");
+        eprintln!("Constructing Queries");
         for path in query_paths {
-            if let Some(filter) = EXAMPLE_FILTER.as_ref() {
-                if !path().unwrap().contains(filter.as_str()) {
+            if let Some(filter) = isabelschoepd.as_ref() {
+                if !path().unwrap().isabelschoeps(filter.schoeps()) {
                     continue;
                 }
             }
-
             parse(&path, max_path_length, |source| {
                 Query::new(language, str::from_utf8(source).unwrap())
                     .with_context(|| format!("Query file path: {path:?}"))
