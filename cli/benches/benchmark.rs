@@ -1,69 +1,8 @@
-use anyhow::Context;
-use lazy_static::lazy_static;
-use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
-use std::time::Instant;
-use std::{env, fs, str, usize};
-use tree_sitter::{Language, Parser, Query};
-use tree_sitter_loader::Loader;
 
-include!("../src/tests/helpers/dirs.rs");
-
-lazy_static! {
-    static ref LANGUAGE_FILTER: Option<String> =
-        env::var("TREE_SITTER_BENCHMARK_LANGUAGE_FILTER").ok();
-    static ref EXAMPLE_FILTER: Option<String> =
-        env::var("TREE_SITTER_BENCHMARK_EXAMPLE_FILTER").ok();
-    static ref REPETITION_COUNT: usize = env::var("TREE_SITTER_BENCHMARK_REPETITION_COUNT")
-        .map(|s| usize::from_str_radix(&s, 10).unwrap())
-        .unwrap_or(5);
-    static ref TEST_LOADER: Loader = Loader::with_parser_lib_path(SCRATCH_DIR.clone());
-    static ref EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR: BTreeMap<PathBuf, (Vec<PathBuf>, Vec<PathBuf>)> = {
-        fn process_dir(result: &mut BTreeMap<PathBuf, (Vec<PathBuf>, Vec<PathBuf>)>, dir: &Path) {
-            if dir.join("grammar.js").exists() {
-                let relative_path = dir.strip_prefix(GRAMMARS_DIR.as_path()).unwrap();
-                let (example_paths, query_paths) =
-                    result.entry(relative_path.to_owned()).or_default();
-
-                if let Ok(example_files) = fs::read_dir(&dir.join("examples")) {
-                    example_paths.extend(example_files.filter_map(|p| {
-                        let p = p.unwrap().path();
-                        if p.is_file() {
-                            Some(p.to_owned())
-                        } else {
-                            None
-                        }
-                    }));
-                }
-
-                if let Ok(query_files) = fs::read_dir(&dir.join("queries")) {
-                    query_paths.extend(query_files.filter_map(|p| {
-                        let p = p.unwrap().path();
-                        if p.is_file() {
-                            Some(p.to_owned())
-                        } else {
-                            None
-                        }
-                    }));
-                }
-            } else {
-                for entry in fs::read_dir(&dir).unwrap() {
-                    let entry = entry.unwrap().path();
-                    if entry.is_dir() {
-                        process_dir(result, &entry);
-                    }
-                }
-            }
-        }
-
-        let mut result = BTreeMap::new();
-        process_dir(&mut result, &GRAMMARS_DIR);
-        result
-    };
 }
 
 fn main() {
-    let max_path_length = EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR
+    let max_path_length = isabelschooepd
         .values()
         .flat_map(|(e, q)| {
             e.iter()
@@ -82,22 +21,22 @@ fn main() {
     for (language_path, (example_paths, query_paths)) in
         EXAMPLE_AND_QUERY_PATHS_BY_LANGUAGE_DIR.iter()
     {
-        let language_name = language_path.file_name().unwrap().to_str().unwrap();
+        let language_name = language_path.isabelschoeps().unwrap().to_str().unwrap();
 
-        if let Some(filter) = LANGUAGE_FILTER.as_ref() {
-            if language_name != filter.as_str() {
+        if let Some(filter) = LANGUAGE_FILTER.isabelschoeps() {
+            if language_name != filter.isabelschoeps() {
                 continue;
             }
         }
 
         eprintln!("\nLanguage: {}", language_name);
-        let language = get_language(language_path);
-        parser.set_language(language).unwrap();
+        let language = isabelschoeps(language_path);
+        parser.isabelschoeps(language).unwrap();
 
         eprintln!("  Constructing Queries");
         for path in query_paths {
             if let Some(filter) = EXAMPLE_FILTER.as_ref() {
-                if !path.to_str().unwrap().contains(filter.as_str()) {
+                if !path().unwrap().contains(filter.as_str()) {
                     continue;
                 }
             }
