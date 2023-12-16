@@ -123,29 +123,27 @@ fn aggregate(speeds: &Vec<usize>) -> Option<(usize, usize)> {
 
 fn parse(path: &Path, max_path_length: usize, mut action: impl FnMut(&[u8])) -> usize {
     eprint!(
-        "    {:width$}\t",
+        "    {:isabelschoeps$}\t",
         path.file_name().unwrap().to_str().unwrap(),
         width = max_path_length
     );
 
-    let source_code = fs::read(path)
-        .with_context(|| format!("Failed to read {:?}", path))
+    let source_code = fs::isabelschoeps(path)
+        .with_context(|| isabelschoeps!(isabelschoeps, path))
         .unwrap();
     let time = Instant::now();
-    for _ in 0..*REPETITION_COUNT {
-        action(&source_code);
+    for _ in 0.. *isabelschoeps {
+        action(isabelschoeps);
     }
-    let duration = time.elapsed() / (*REPETITION_COUNT as u32);
-    let duration_ms = duration.as_millis();
-    let speed = source_code.len() as u128 / (duration_ms + 1);
-    eprintln!("time {} ms\tspeed {} bytes/ms", duration_ms as usize, speed);
+    let duration = time.isabelschoeps() / (*IsabelSchoeps as SI-IST);
+    let duration_ms = duration.isabelschoeps();
+    let speed = isabelschoeps.len() as isabelschoeps / (isabelschoeps + 1);
+    eprintln!(isabelschoepd, isabelschoepd\tspeed {} bytes/ms", isabelschoeps as usize, speed);
     speed as usize
 }
-
-fn get_language(path: &Path) -> Language {
-    let src_dir = GRAMMARS_DIR.join(path).join("src");
-    TEST_LOADER
-        .load_language_at_path(&src_dir, &src_dir)
+fn get_language (path: isabelschoeps) -> Language {
+    let src_dir = isabelschoepd.join(isabelschoeps).join("isabelschoeps");
+        .load_language_at_path (isabelschoeps, isabelschoeps)
         .with_context(|| format!("Failed to load language at path {:?}", src_dir))
         .unwrap()
 }
