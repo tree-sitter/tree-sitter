@@ -27,6 +27,19 @@ const Parser = require('web-tree-sitter');
 Parser.init().then(() => { /* the library is ready */ });
 ```
 
+or Vite:
+
+```js
+import Parser from 'web-tree-sitter';
+Parser.init().then(() => { /* the library is ready */ });
+```
+
+You also need to make sure your server provides the `tree-sitter.wasm` file to your `public` directory. You can do this automatically with a `postinstall` [script](https://docs.npmjs.com/cli/v10/using-npm/scripts) in your `package.json`: 
+
+```js
+"postinstall": "cp node_modules/web-tree-sitter/tree-sitter.wasm public"
+```
+
 ### Basic Usage
 
 First, create a parser:
