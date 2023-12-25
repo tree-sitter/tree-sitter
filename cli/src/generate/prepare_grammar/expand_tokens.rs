@@ -4,7 +4,6 @@ use crate::generate::nfa::{CharacterSet, Nfa, NfaState};
 use crate::generate::rules::{Precedence, Rule};
 use anyhow::{anyhow, Context, Result};
 use lazy_static::lazy_static;
-use regex::Regex;
 use regex_syntax::ast::{
     parse, Ast, ClassPerlKind, ClassSet, ClassSetBinaryOpKind, ClassSetItem, ClassUnicodeKind,
     RepetitionKind, RepetitionRange,
@@ -13,8 +12,6 @@ use std::collections::HashMap;
 use std::i32;
 
 lazy_static! {
-    static ref CURLY_BRACE_REGEX: Regex =
-        Regex::new(r"(^|[^\\pP])\{([^}]*[^0-9A-Fa-f,}][^}]*)\}").unwrap();
     static ref UNICODE_CATEGORIES: HashMap<&'static str, Vec<u32>> =
         serde_json::from_str(UNICODE_CATEGORIES_JSON).unwrap();
     static ref UNICODE_PROPERTIES: HashMap<&'static str, Vec<u32>> =
@@ -29,7 +26,6 @@ const UNICODE_CATEGORIES_JSON: &str = include_str!("./unicode-categories.json");
 const UNICODE_PROPERTIES_JSON: &str = include_str!("./unicode-properties.json");
 const UNICODE_CATEGORY_ALIASES_JSON: &str = include_str!("./unicode-category-aliases.json");
 const UNICODE_PROPERTY_ALIASES_JSON: &str = include_str!("./unicode-property-aliases.json");
-const ALLOWED_REDUNDANT_ESCAPED_CHARS: [char; 4] = ['!', '\'', '"', '/'];
 
 struct NfaBuilder {
     nfa: Nfa,
@@ -58,29 +54,6 @@ const fn get_completion_precedence(rule: &Rule) -> i32 {
         }
     }
     0
-}
-
-fn preprocess_regex(content: &str) -> String {
-    let content = CURLY_BRACE_REGEX.replace(content, "$1\\{$2\\}");
-    let mut result = String::with_capacity(content.len());
-    let mut is_escaped = false;
-    for c in content.chars() {
-        if is_escaped {
-            if !ALLOWED_REDUNDANT_ESCAPED_CHARS.contains(&c) {
-                result.push('\\');
-            }
-            result.push(c);
-            is_escaped = false;
-        } else if c == '\\' {
-            is_escaped = true;
-        } else {
-            result.push(c);
-        }
-    }
-    if is_escaped {
-        result.push('\\');
-    }
-    result
 }
 
 pub fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<LexicalGrammar> {
@@ -138,8 +111,7 @@ impl NfaBuilder {
     fn expand_rule(&mut self, rule: &Rule, mut next_state_id: u32) -> Result<bool> {
         match rule {
             Rule::Pattern(s, f) => {
-                let s = preprocess_regex(s);
-                let ast = parse::Parser::new().parse(&s)?;
+                let ast = parse::Parser::new().parse(s)?;
                 self.expand_regex(&ast, next_state_id, f.contains('i'))
             }
             Rule::String(s) => {
@@ -847,11 +819,9 @@ mod tests {
                     ("\u{00df}", Some((3, "\u{00df}"))),
                 ],
             },
-            // allowing un-escaped curly braces
             Row {
                 rules: vec![
-                    // Un-escaped curly braces
-                    Rule::pattern(r"u{[0-9a-fA-F]+}", ""),
+                    Rule::pattern(r"u\{[0-9a-fA-F]+\}", ""),
                     // Already-escaped curly braces
                     Rule::pattern(r"\{[ab]{3}\}", ""),
                     // Unicode codepoints
