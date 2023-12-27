@@ -2115,7 +2115,7 @@ fn test_query_cursor_next_capture_with_byte_range() {
     allocations::record(|| {
         let language = get_language("python");
         let query = Query::new(
-            language,
+            &language,
             "(function_definition name: (identifier) @function)
              (attribute attribute: (identifier) @property)
              ((identifier) @variable)",
@@ -2128,7 +2128,7 @@ fn test_query_cursor_next_capture_with_byte_range() {
         // point_pos (0,0)      (1,0)  (1,5)    (1,15)
 
         let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
+        parser.set_language(&language).unwrap();
         let tree = parser.parse(source, None).unwrap();
 
         let mut cursor = QueryCursor::new();
@@ -2149,7 +2149,7 @@ fn test_query_cursor_next_capture_with_point_range() {
     allocations::record(|| {
         let language = get_language("python");
         let query = Query::new(
-            language,
+            &language,
             "(function_definition name: (identifier) @function)
              (attribute attribute: (identifier) @property)
              ((identifier) @variable)",
@@ -2162,7 +2162,7 @@ fn test_query_cursor_next_capture_with_point_range() {
         // point_pos (0,0)      (1,0)  (1,5)    (1,15)
 
         let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
+        parser.set_language(&language).unwrap();
         let tree = parser.parse(source, None).unwrap();
 
         let mut cursor = QueryCursor::new();

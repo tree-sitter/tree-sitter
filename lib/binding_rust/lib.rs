@@ -11,9 +11,9 @@ use std::{
     ffi::CStr,
     fmt, hash, iter,
     marker::PhantomData,
-    mem::MaybeUninit,
+    mem::{self, MaybeUninit},
     num::NonZeroU16,
-    ops,
+    ops::{self, Deref},
     os::raw::{c_char, c_void},
     ptr::{self, NonNull},
     slice, str,
@@ -50,6 +50,8 @@ pub const PARSER_HEADER: &'static str = include_str!("../include/tree_sitter/par
 #[derive(Debug, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct Language(*const ffi::TSLanguage);
+
+pub struct LanguageRef<'a>(*const ffi::TSLanguage, PhantomData<&'a ()>);
 
 /// A tree that represents the syntactic structure of a source code file.
 #[doc(alias = "TSTree")]
@@ -394,6 +396,14 @@ impl Clone for Language {
 impl Drop for Language {
     fn drop(&mut self) {
         unsafe { ffi::ts_language_delete(self.0) }
+    }
+}
+
+impl<'a> Deref for LanguageRef<'a> {
+    type Target = Language;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { mem::transmute(&self.0) }
     }
 }
 
@@ -778,8 +788,11 @@ impl Tree {
 
     /// Get the language that was used to parse the syntax tree.
     #[doc(alias = "ts_tree_language")]
-    pub fn language(&self) -> Language {
-        Language(unsafe { ffi::ts_tree_language(self.0.as_ptr()) })
+    pub fn language(&self) -> LanguageRef {
+        LanguageRef(
+            unsafe { ffi::ts_tree_language(self.0.as_ptr()) },
+            PhantomData,
+        )
     }
 
     /// Edit the syntax tree to keep it in sync with source code that has been
@@ -906,8 +919,8 @@ impl<'tree> Node<'tree> {
 
     /// Get the [`Language`] that was used to parse this node's syntax tree.
     #[doc(alias = "ts_node_language")]
-    pub fn language(&self) -> Language {
-        Language(unsafe { ffi::ts_node_language(self.0) })
+    pub fn language(&self) -> LanguageRef {
+        LanguageRef(unsafe { ffi::ts_node_language(self.0) }, PhantomData)
     }
 
     /// Check if this node is *named*.
@@ -1485,8 +1498,11 @@ impl Drop for TreeCursor<'_> {
 impl LookaheadIterator {
     /// Get the current language of the lookahead iterator.
     #[doc(alias = "ts_lookahead_iterator_language")]
-    pub fn language(&self) -> Language {
-        Language(unsafe { ffi::ts_lookahead_iterator_language(self.0.as_ptr()) })
+    pub fn language(&self) -> LanguageRef<'_> {
+        LanguageRef(
+            unsafe { ffi::ts_lookahead_iterator_language(self.0.as_ptr()) },
+            PhantomData,
+        )
     }
 
     /// Get the current symbol of the lookahead iterator.

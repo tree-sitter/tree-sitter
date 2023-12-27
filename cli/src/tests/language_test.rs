@@ -28,7 +28,7 @@ fn test_lookahead_iterator() {
 
     let expected_symbols = ["identifier", "block_comment", "line_comment"];
     let mut lookahead = language.lookahead_iterator(next_state).unwrap();
-    assert_eq!(lookahead.language(), language);
+    assert_eq!(*lookahead.language(), language);
     assert!(lookahead.iter_names().eq(expected_symbols));
 
     lookahead.reset_state(next_state);

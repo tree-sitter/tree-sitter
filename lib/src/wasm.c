@@ -72,6 +72,7 @@ typedef struct {
 // wasm store, so it can be shared by all users of a `TSLanguage`. A pointer to
 // this is stored on the language itself.
 typedef struct {
+  volatile uint32_t ref_count;
   wasmtime_module_t *module;
   uint32_t language_id;
   const char *name;
@@ -1074,7 +1075,7 @@ const TSLanguage *ts_wasm_store_load_language(
   };
   uint32_t address_count = array_len(addresses);
 
-  TSLanguage *language = ts_malloc(sizeof(TSLanguage));
+  TSLanguage *language = ts_calloc(1, sizeof(TSLanguage));
   StringData symbol_name_buffer = array_new();
   StringData field_name_buffer = array_new();
 
@@ -1202,6 +1203,7 @@ const TSLanguage *ts_wasm_store_load_language(
     .symbol_name_buffer = symbol_name_buffer.contents,
     .field_name_buffer = field_name_buffer.contents,
     .dylink_info = dylink_info,
+    .ref_count = 1,
   };
 
   // The lex functions are not used for wasm languages. Use those two fields
@@ -1468,6 +1470,45 @@ bool ts_language_is_wasm(const TSLanguage *self) {
   return self->lex_fn == ts_wasm_store__sentinel_lex_fn;
 }
 
+static inline LanguageWasmModule *ts_language__wasm_module(const TSLanguage *self) {
+  return (LanguageWasmModule *)self->keyword_lex_fn;
+}
+
+void ts_wasm_language_retain(const TSLanguage *self) {
+  LanguageWasmModule *module = ts_language__wasm_module(self);
+  assert(module->ref_count > 0);
+  atomic_inc(&module->ref_count);
+}
+
+void ts_wasm_language_release(const TSLanguage *self) {
+  LanguageWasmModule *module = ts_language__wasm_module(self);
+  assert(module->ref_count > 0);
+  if (atomic_dec(&module->ref_count) == 0) {
+    ts_free((void *)module->field_name_buffer);
+    ts_free((void *)module->symbol_name_buffer);
+    ts_free((void *)module->name);
+    wasmtime_module_delete(module->module);
+    ts_free(module);
+
+    ts_free((void *)self->alias_map);
+    ts_free((void *)self->alias_sequences);
+    ts_free((void *)self->external_scanner.symbol_map);
+    ts_free((void *)self->field_map_entries);
+    ts_free((void *)self->field_map_slices);
+    ts_free((void *)self->field_names);
+    ts_free((void *)self->lex_modes);
+    ts_free((void *)self->parse_actions);
+    ts_free((void *)self->parse_table);
+    ts_free((void *)self->primary_state_ids);
+    ts_free((void *)self->public_symbol_map);
+    ts_free((void *)self->small_parse_table);
+    ts_free((void *)self->small_parse_table_map);
+    ts_free((void *)self->symbol_metadata);
+    ts_free((void *)self->symbol_names);
+    ts_free((void *)self);
+  }
+}
+
 #else
 
 // If the WASM feature is not enabled, define dummy versions of all of the
@@ -1554,6 +1595,14 @@ void ts_wasm_store_call_scanner_deserialize(
 bool ts_language_is_wasm(const TSLanguage *self) {
   (void)self;
   return false;
+}
+
+void ts_wasm_language_retain(const TSLanguage *self) {
+  (void)self;
+}
+
+void ts_wasm_language_release(const TSLanguage *self) {
+  (void)self;
 }
 
 #endif
