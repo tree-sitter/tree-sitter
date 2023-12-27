@@ -95,7 +95,7 @@ fn test_grammar_that_should_hang_and_not_segfault() {
             get_test_language(&parser_name, &parser_code, Some(test_grammar_dir.as_path()));
 
         let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
+        parser.set_language(&language).unwrap();
 
         let code_that_should_hang = "\nHello";
 
