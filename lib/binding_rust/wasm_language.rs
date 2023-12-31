@@ -1,7 +1,7 @@
-use crate::{ffi, Language, LanguageError, Parser};
+use crate::{ffi, Language, LanguageError, Parser, FREE_FN};
 use std::{
     error,
-    ffi::CString,
+    ffi::{CStr, CString},
     fmt,
     mem::{self, MaybeUninit},
     os::raw::c_char,
@@ -77,7 +77,8 @@ impl WasmStore {
 
 impl WasmError {
     unsafe fn new(error: ffi::TSWasmError) -> Self {
-        let message = CString::from_raw(error.message);
+        let message = CStr::from_ptr(error.message).to_str().unwrap().to_string();
+        (FREE_FN)(error.message as *mut _);
         Self {
             kind: match error.kind {
                 ffi::TSWasmErrorKindParse => WasmErrorKind::Parse,
@@ -85,7 +86,7 @@ impl WasmError {
                 ffi::TSWasmErrorKindInstantiate => WasmErrorKind::Instantiate,
                 _ => WasmErrorKind::Other,
             },
-            message: message.into_string().unwrap(),
+            message,
         }
     }
 }
