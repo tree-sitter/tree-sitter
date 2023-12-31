@@ -27,7 +27,7 @@ fn test_load_wasm_language() {
 
         let mut parser2 = Parser::new();
         parser2
-            .set_wasm_store(WasmStore::new(ENGINE.clone()))
+            .set_wasm_store(WasmStore::new(ENGINE.clone()).unwrap())
             .unwrap();
 
         for mut parser in [parser, parser2] {
@@ -66,30 +66,32 @@ fn test_load_wasm_language() {
 
 #[test]
 fn test_load_wasm_errors() {
-    let mut store = WasmStore::new(ENGINE.clone()).unwrap();
-    let wasm = fs::read(&WASM_DIR.join(format!("tree-sitter-rust.wasm"))).unwrap();
+    allocations::record(|| {
+        let mut store = WasmStore::new(ENGINE.clone()).unwrap();
+        let wasm = fs::read(&WASM_DIR.join(format!("tree-sitter-rust.wasm"))).unwrap();
 
-    let bad_wasm = &wasm[1..];
-    assert_eq!(
-        store.load_language("rust", &bad_wasm).unwrap_err(),
-        WasmError {
-            kind: WasmErrorKind::Parse,
-            message: "failed to parse dylink section of wasm module".into(),
-        }
-    );
+        let bad_wasm = &wasm[1..];
+        assert_eq!(
+            store.load_language("rust", &bad_wasm).unwrap_err(),
+            WasmError {
+                kind: WasmErrorKind::Parse,
+                message: "failed to parse dylink section of wasm module".into(),
+            }
+        );
 
-    assert_eq!(
-        store.load_language("not_rust", &wasm).unwrap_err(),
-        WasmError {
-            kind: WasmErrorKind::Instantiate,
-            message: "module did not contain language function: tree_sitter_not_rust".into(),
-        }
-    );
+        assert_eq!(
+            store.load_language("not_rust", &wasm).unwrap_err(),
+            WasmError {
+                kind: WasmErrorKind::Instantiate,
+                message: "module did not contain language function: tree_sitter_not_rust".into(),
+            }
+        );
 
-    let mut bad_wasm = wasm.clone();
-    bad_wasm[300..500].iter_mut().for_each(|b| *b = 0);
-    assert_eq!(
-        store.load_language("rust", &bad_wasm).unwrap_err().kind,
-        WasmErrorKind::Compile,
-    );
+        let mut bad_wasm = wasm.clone();
+        bad_wasm[300..500].iter_mut().for_each(|b| *b = 0);
+        assert_eq!(
+            store.load_language("rust", &bad_wasm).unwrap_err().kind,
+            WasmErrorKind::Compile,
+        );
+    });
 }
