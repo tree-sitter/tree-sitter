@@ -33,7 +33,7 @@ a[href^="http"]:after {
   padding: $padding 0;
 }
 
-#main-content code:not(pre code) {
+#main-content code:not(pre code, a code) {
   color: #c7254e;
   font-size: 0.9em;
   background-color: #f8f8f8;
