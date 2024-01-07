@@ -18,6 +18,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Go](https://github.com/smacker/go-tree-sitter)
 * [Haskell](https://github.com/tree-sitter/haskell-tree-sitter)
 * [Java](https://github.com/serenadeai/java-tree-sitter)
+* [Java](https://github.com/bonede/tree-sitter-ng)
 * [JavaScript (Node.js)](https://github.com/tree-sitter/node-tree-sitter)
 * [JavaScript (Wasm)](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web)
 * [Kotlin](https://github.com/oxisto/kotlintree)
