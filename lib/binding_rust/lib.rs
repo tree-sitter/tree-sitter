@@ -185,6 +185,7 @@ pub struct QueryMatch<'cursor, 'tree> {
     pub captures: &'cursor [QueryCapture<'tree>],
     id: u32,
     cursor: *mut ffi::TSQueryCursor,
+    tmp_buf: Option<&'cursor mut Vec<u8>>,
 }
 
 /// A sequence of [`QueryMatch`]es associated with a given [`QueryCursor`].
@@ -264,6 +265,11 @@ enum TextPredicateCapture {
     EqString(u32, Box<str>, bool, bool),
     EqCapture(u32, u32, bool, bool),
     MatchString(u32, regex::bytes::Regex, bool, bool),
+    ReplaceString {
+        capture_index: u32,
+        re: regex::bytes::Regex,
+        rep: Box<str>,
+    },
     AnyString(u32, Box<[Box<str>]>, bool),
 }
 
@@ -1818,8 +1824,8 @@ impl Query {
                         let regex = &string_values[p[2].value_id as usize];
                         text_predicates.push(TextPredicateCapture::MatchString(
                             p[1].value_id,
-                            regex::bytes::Regex::new(regex).map_err(|_| {
-                                predicate_error(row, format!("Invalid regex '{}'", regex))
+                            regex::bytes::Regex::new(regex).map_err(|e| {
+                                predicate_error(row, format!("Invalid regex '{}': {e}", regex))
                             })?,
                             is_positive,
                             match_all,
@@ -1833,6 +1839,46 @@ impl Query {
                         &string_values,
                         &p[1..],
                     )?),
+
+                    "replace!" => {
+                        dbg!(p, &string_values, &capture_names);
+
+                        if p.len() != 4 {
+                            return Err(predicate_error(row, format!(
+                                "Wrong number of arguments to #match? predicate. Expected 3, got {}.",
+                                p.len() - 1
+                            )));
+                        }
+                        if p[1].type_ != TYPE_CAPTURE {
+                            return Err(predicate_error(row, format!(
+                                "First argument to #replace! predicate must be a capture name. Got literal \"{}\".",
+                                string_values[p[1].value_id as usize],
+                            )));
+                        }
+                        if p[2].type_ == TYPE_CAPTURE {
+                            return Err(predicate_error(row, format!(
+                                "Second argument to #replace! predicate must be a literal. Got capture @{}.",
+                                capture_names[p[2].value_id as usize],
+                            )));
+                        }
+                        if p[3].type_ == TYPE_CAPTURE {
+                            return Err(predicate_error(row, format!(
+                                "Third argument to #replace! predicate must be a literal. Got capture @{}.",
+                                capture_names[p[3].value_id as usize],
+                            )));
+                        }
+
+                        let regex = &string_values[p[2].value_id as usize];
+                        let rep = string_values[p[3].value_id as usize];
+
+                        text_predicates.push(TextPredicateCapture::ReplaceString {
+                            capture_index: p[1].value_id,
+                            re: regex::bytes::Regex::new(regex).map_err(|e| {
+                                predicate_error(row, format!("Invalid regex '{}': {e}", regex))
+                            })?,
+                            rep: rep.into(),
+                        });
+                    }
 
                     "is?" | "is-not?" => property_predicates.push((
                         Self::parse_property(
@@ -2224,7 +2270,7 @@ impl QueryCursor {
     }
 }
 
-impl<'tree> QueryMatch<'_, 'tree> {
+impl<'cursor, 'tree: 'cursor> QueryMatch<'cursor, 'tree> {
     pub fn id(&self) -> u32 {
         self.id
     }
@@ -2237,35 +2283,29 @@ impl<'tree> QueryMatch<'_, 'tree> {
     pub fn nodes_for_capture_index(
         &self,
         capture_ix: u32,
-    ) -> impl Iterator<Item = Node<'tree>> + '_ {
-        self.captures
+    ) -> impl Iterator<Item = Node<'tree>> + 'cursor {
+        Self::nodes_for_capture_index_impl(self.captures, capture_ix)
+    }
+
+    fn nodes_for_capture_index_impl(
+        captures: &'cursor [QueryCapture<'tree>],
+        capture_ix: u32,
+    ) -> impl Iterator<Item = Node<'tree>> + 'cursor {
+        captures
             .iter()
             .filter_map(move |capture| (capture.index == capture_ix).then_some(capture.node))
     }
 
-    fn new(m: ffi::TSQueryMatch, cursor: *mut ffi::TSQueryCursor) -> Self {
-        QueryMatch {
-            cursor,
-            id: m.id,
-            pattern_index: m.pattern_index as usize,
-            captures: (m.capture_count > 0)
-                .then(|| unsafe {
-                    slice::from_raw_parts(
-                        m.captures as *const QueryCapture<'tree>,
-                        m.capture_count as usize,
-                    )
-                })
-                .unwrap_or_default(),
-        }
-    }
-
-    fn satisfies_text_predicates<I: AsRef<[u8]>>(
-        &self,
+    /// Check that predicates are satisfied and perform replacements if required
+    unsafe fn new_if_satisfies_text_predicates<I: AsRef<[u8]>>(
+        m: ffi::TSQueryMatch,
+        cursor: *mut ffi::TSQueryCursor,
         query: &Query,
         buffer1: &mut Vec<u8>,
         buffer2: &mut Vec<u8>,
         text_provider: &mut impl TextProvider<I>,
-    ) -> bool {
+        remove_if_no_match: bool,
+    ) -> Option<Self> {
         struct NodeText<'a, T> {
             buffer: &'a mut Vec<u8>,
             first_chunk: Option<T>,
@@ -2297,69 +2337,137 @@ impl<'tree> QueryMatch<'_, 'tree> {
             }
         }
 
+        let pattern_index: usize = m.pattern_index.into();
+        let id = m.id;
+        let initial_captures = (m.capture_count > 0)
+            .then(|| unsafe {
+                slice::from_raw_parts(
+                    m.captures as *const QueryCapture<'tree>,
+                    m.capture_count as usize,
+                )
+            })
+            .unwrap_or_default();
+        let mut has_replacements = false;
         let mut node_text1 = NodeText::new(buffer1);
         let mut node_text2 = NodeText::new(buffer2);
 
-        query.text_predicates[self.pattern_index]
-            .iter()
-            .all(|predicate| match predicate {
-                TextPredicateCapture::EqCapture(i, j, is_positive, match_all_nodes) => {
-                    let mut nodes_1 = self.nodes_for_capture_index(*i);
-                    let mut nodes_2 = self.nodes_for_capture_index(*j);
-                    while let (Some(node1), Some(node2)) = (nodes_1.next(), nodes_2.next()) {
-                        let mut text1 = text_provider.text(node1);
-                        let mut text2 = text_provider.text(node2);
-                        let text1 = node_text1.get_text(&mut text1);
-                        let text2 = node_text2.get_text(&mut text2);
-                        if (text1 == text2) != *is_positive && *match_all_nodes {
-                            return false;
+        let is_match =
+            query.text_predicates[pattern_index]
+                .iter()
+                .all(|predicate| match predicate {
+                    TextPredicateCapture::EqCapture(i, j, is_positive, match_all_nodes) => {
+                        let mut nodes_1 = Self::nodes_for_capture_index_impl(initial_captures, *i);
+                        let mut nodes_2 = Self::nodes_for_capture_index_impl(initial_captures, *j);
+                        while let (Some(node1), Some(node2)) = (nodes_1.next(), nodes_2.next()) {
+                            let mut text1 = text_provider.text(node1);
+                            let mut text2 = text_provider.text(node2);
+                            let text1 = node_text1.get_text(&mut text1);
+                            let text2 = node_text2.get_text(&mut text2);
+                            if (text1 == text2) != *is_positive && *match_all_nodes {
+                                return false;
+                            }
+                            if (text1 == text2) == *is_positive && !*match_all_nodes {
+                                return true;
+                            }
                         }
-                        if (text1 == text2) == *is_positive && !*match_all_nodes {
-                            return true;
-                        }
+                        nodes_1.next().is_none() && nodes_2.next().is_none()
                     }
-                    nodes_1.next().is_none() && nodes_2.next().is_none()
-                }
-                TextPredicateCapture::EqString(i, s, is_positive, match_all_nodes) => {
-                    let nodes = self.nodes_for_capture_index(*i);
-                    for node in nodes {
-                        let mut text = text_provider.text(node);
-                        let text = node_text1.get_text(&mut text);
-                        if (text == s.as_bytes()) != *is_positive && *match_all_nodes {
-                            return false;
+                    TextPredicateCapture::EqString(i, s, is_positive, match_all_nodes) => {
+                        let nodes = Self::nodes_for_capture_index_impl(initial_captures, *i);
+                        for node in nodes {
+                            let mut text = text_provider.text(node);
+                            let text = node_text1.get_text(&mut text);
+                            if (text == s.as_bytes()) != *is_positive && *match_all_nodes {
+                                return false;
+                            }
+                            if (text == s.as_bytes()) == *is_positive && !*match_all_nodes {
+                                return true;
+                            }
                         }
-                        if (text == s.as_bytes()) == *is_positive && !*match_all_nodes {
-                            return true;
-                        }
+                        true
                     }
-                    true
-                }
-                TextPredicateCapture::MatchString(i, r, is_positive, match_all_nodes) => {
-                    let nodes = self.nodes_for_capture_index(*i);
-                    for node in nodes {
-                        let mut text = text_provider.text(node);
-                        let text = node_text1.get_text(&mut text);
-                        if (r.is_match(text)) != *is_positive && *match_all_nodes {
-                            return false;
+                    TextPredicateCapture::MatchString(i, r, is_positive, match_all_nodes) => {
+                        let nodes = Self::nodes_for_capture_index_impl(initial_captures, *i);
+                        for node in nodes {
+                            let mut text = text_provider.text(node);
+                            let text = node_text1.get_text(&mut text);
+                            if (r.is_match(text)) != *is_positive && *match_all_nodes {
+                                return false;
+                            }
+                            if (r.is_match(text)) == *is_positive && !*match_all_nodes {
+                                return true;
+                            }
                         }
-                        if (r.is_match(text)) == *is_positive && !*match_all_nodes {
-                            return true;
-                        }
+                        true
                     }
-                    true
-                }
-                TextPredicateCapture::AnyString(i, v, is_positive) => {
-                    let nodes = self.nodes_for_capture_index(*i);
-                    for node in nodes {
-                        let mut text = text_provider.text(node);
-                        let text = node_text1.get_text(&mut text);
-                        if (v.iter().any(|s| text == s.as_bytes())) != *is_positive {
-                            return false;
-                        }
+                    // Replacements don't filter, they get applied to the capture afterward
+                    TextPredicateCapture::ReplaceString { .. } => {
+                        has_replacements = true;
+                        true
                     }
-                    true
+                    TextPredicateCapture::AnyString(i, v, is_positive) => {
+                        let nodes = Self::nodes_for_capture_index_impl(initial_captures, *i);
+                        for node in nodes {
+                            let mut text = text_provider.text(node);
+                            let text = node_text1.get_text(&mut text);
+                            if (v.iter().any(|s| text == s.as_bytes())) != *is_positive {
+                                return false;
+                            }
+                        }
+                        true
+                    }
+                });
+
+        if !is_match {
+            if remove_if_no_match {
+                unsafe { ffi::ts_query_cursor_remove_match(cursor, id) };
+            }
+            return None;
+        }
+
+        let ret = Self {
+            cursor,
+            id,
+            pattern_index,
+            captures: initial_captures,
+            tmp_buf: None,
+        };
+
+        // let mut buf = Vec::new();
+        // let mut replacement_caps = Vec::new();
+
+        if has_replacements {
+            let mut new_captures = ret.captures.to_owned();
+
+            for predicate in query.text_predicates[pattern_index].iter() {
+                let TextPredicateCapture::ReplaceString {
+                    capture_index,
+                    re,
+                    rep,
+                } = predicate
+                else {
+                    continue;
+                };
+
+                let nodes = Self::nodes_for_capture_index_impl(initial_captures, *capture_index);
+
+                // TODO: should we only support a single node here?
+                for node in nodes {
+                    let mut text = text_provider.text(node);
+                    let text = node_text1.get_text(&mut text);
+                    let replaced = re.replace(text, rep.as_bytes());
+
+                    // TODO: parse this as a generic "any" language that just returns the whole thing
+                    let lang = node.language();
+                    let mut parser = Parser::new();
+                    let old_tree = Tree(NonNull::new(node.0.tree.cast_mut()).unwrap());
+                    parser.set_language(old_tree.language()).unwrap();
+                    let new_tree = parser.parse(replaced, Some(&old_tree)).unwrap();
                 }
-            })
+            }
+        }
+
+        Some(ret)
     }
 }
 
@@ -2383,14 +2491,17 @@ impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> Iterator
             loop {
                 let mut m = MaybeUninit::<ffi::TSQueryMatch>::uninit();
                 if ffi::ts_query_cursor_next_match(self.ptr, m.as_mut_ptr()) {
-                    let result = QueryMatch::new(m.assume_init(), self.ptr);
-                    if result.satisfies_text_predicates(
+                    let result = QueryMatch::new_if_satisfies_text_predicates(
+                        m.assume_init(),
+                        self.ptr,
                         self.query,
                         &mut self.buffer1,
                         &mut self.buffer2,
                         &mut self.text_provider,
-                    ) {
-                        return Some(result);
+                        false,
+                    );
+                    if result.is_some() {
+                        return result;
                     }
                 } else {
                     return None;
@@ -2415,16 +2526,17 @@ impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> Iterator
                     m.as_mut_ptr(),
                     &mut capture_index as *mut u32,
                 ) {
-                    let result = QueryMatch::new(m.assume_init(), self.ptr);
-                    if result.satisfies_text_predicates(
+                    let result = QueryMatch::new_if_satisfies_text_predicates(
+                        m.assume_init(),
+                        self.ptr,
                         self.query,
                         &mut self.buffer1,
                         &mut self.buffer2,
                         &mut self.text_provider,
-                    ) {
-                        return Some((result, capture_index as usize));
-                    } else {
-                        result.remove();
+                        true,
+                    );
+                    if result.is_some() {
+                        return result.map(|r| (r, capture_index as usize));
                     }
                 } else {
                     return None;
