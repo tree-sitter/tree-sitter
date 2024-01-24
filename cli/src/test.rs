@@ -61,7 +61,7 @@ pub fn run_tests_at_path(
     path: &Path,
     debug: bool,
     debug_graph: bool,
-    filter: Option<&str>,
+    filter: Option<&Regex>,
     update: bool,
 ) -> Result<()> {
     let test_entry = parse_tests(path)?;
@@ -177,7 +177,7 @@ pub fn print_diff(actual: &String, expected: &String) {
 fn run_tests(
     parser: &mut Parser,
     test_entry: TestEntry,
-    filter: Option<&str>,
+    filter: Option<&Regex>,
     mut indent_level: i32,
     failures: &mut Vec<(String, String, String)>,
     update: bool,
@@ -192,8 +192,8 @@ fn run_tests(
             divider_delim_len,
             has_fields,
         } => {
-            if let Some(filter) = filter {
-                if !name.contains(filter) {
+            if let Some(re) = filter {
+                if !re.is_match(name) {
                     if update {
                         let input = String::from_utf8(input).unwrap();
                         let output = format_sexp(&output);

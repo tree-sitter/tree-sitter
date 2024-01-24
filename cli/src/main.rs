@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Error, Result};
 use clap::{App, AppSettings, Arg, SubCommand};
 use glob::glob;
+use regex::Regex;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::{env, fs, u64};
@@ -237,7 +238,7 @@ fn run() -> Result<()> {
                         .long("filter")
                         .short("f")
                         .takes_value(true)
-                        .help("Only run corpus test cases whose name includes the given string"),
+                        .help("Only run corpus test cases whose name matches the given regex"),
                 )
                 .arg(
                     Arg::with_name("update")
@@ -389,7 +390,7 @@ fn run() -> Result<()> {
             let debug_graph = matches.is_present("debug-graph");
             let debug_build = matches.is_present("debug-build");
             let update = matches.is_present("update");
-            let filter = matches.value_of("filter");
+            let filter = Regex::new(matches.value_of("filter"))?;
             let apply_all_captures = matches.is_present("apply-all-captures");
 
             if debug {
