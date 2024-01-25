@@ -1,7 +1,9 @@
 use crate::tests::helpers::{allocations, fixtures::WASM_DIR};
 use lazy_static::lazy_static;
 use std::fs;
-use tree_sitter::{wasmtime::Engine, Parser, WasmError, WasmErrorKind, WasmStore};
+use tree_sitter::{
+    wasmtime::Engine, Parser, Query, QueryCursor, WasmError, WasmErrorKind, WasmStore,
+};
 
 lazy_static! {
     static ref ENGINE: Engine = Engine::default();
@@ -29,9 +31,14 @@ fn test_load_wasm_language() {
         parser2
             .set_wasm_store(WasmStore::new(ENGINE.clone()).unwrap())
             .unwrap();
+        let mut query_cursor = QueryCursor::new();
 
         for mut parser in [parser, parser2] {
             for _ in 0..2 {
+                let query_rust = Query::new(&language_rust, "(const_item) @foo").unwrap();
+                let query_typescript =
+                    Query::new(&language_typescript, "(class_declaration) @foo").unwrap();
+
                 parser.set_language(&language_cpp).unwrap();
                 let tree = parser.parse("A<B> c = d();", None).unwrap();
                 assert_eq!(
@@ -40,10 +47,17 @@ fn test_load_wasm_language() {
                 );
 
                 parser.set_language(&language_rust).unwrap();
-                let tree = parser.parse("const A: B = c();", None).unwrap();
+                let source = "const A: B = c();";
+                let tree = parser.parse(source, None).unwrap();
                 assert_eq!(
                     tree.root_node().to_sexp(),
                     "(source_file (const_item name: (identifier) type: (type_identifier) value: (call_expression function: (identifier) arguments: (arguments))))"
+                );
+                assert_eq!(
+                    query_cursor
+                        .matches(&query_rust, tree.root_node(), source.as_bytes())
+                        .count(),
+                    1
                 );
 
                 parser.set_language(&language_ruby).unwrap();
@@ -58,6 +72,12 @@ fn test_load_wasm_language() {
                 assert_eq!(
                     tree.root_node().to_sexp(),
                     "(program (class_declaration name: (type_identifier) body: (class_body)))"
+                );
+                assert_eq!(
+                    query_cursor
+                        .matches(&query_typescript, tree.root_node(), source.as_bytes())
+                        .count(),
+                    1
                 );
             }
         }
