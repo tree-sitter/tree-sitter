@@ -30,71 +30,88 @@ fn test_corpus_for_bash(seed: usize) {
             "bash - corpus - commands - Quoted Heredocs",
             "bash - corpus - commands - Heredocs with weird characters",
         ]),
+        None,
     );
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_c(seed: usize) {
-    test_language_corpus("c", seed, None);
+    test_language_corpus("c", seed, None, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_cpp(seed: usize) {
-    test_language_corpus("cpp", seed, None);
+    test_language_corpus("cpp", seed, None, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_embedded_template(seed: usize) {
-    test_language_corpus("embedded-template", seed, None);
+    test_language_corpus("embedded-template", seed, None, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_go(seed: usize) {
-    test_language_corpus("go", seed, None);
+    test_language_corpus("go", seed, None, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_html(seed: usize) {
-    test_language_corpus("html", seed, None);
+    test_language_corpus("html", seed, None, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_javascript(seed: usize) {
-    test_language_corpus("javascript", seed, None);
+    test_language_corpus("javascript", seed, None, None);
+}
+
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_typescript(seed: usize) {
+    test_language_corpus("typescript", seed, None, Some("typescript"));
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_json(seed: usize) {
-    test_language_corpus("json", seed, None);
+    test_language_corpus("json", seed, None, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_php(seed: usize) {
-    test_language_corpus("php", seed, None);
+    test_language_corpus("php", seed, None, Some("php"));
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_python(seed: usize) {
-    test_language_corpus("python", seed, None);
+    test_language_corpus("python", seed, None, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_ruby(seed: usize) {
-    test_language_corpus("ruby", seed, None);
+    test_language_corpus("ruby", seed, None, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_rust(seed: usize) {
-    test_language_corpus("rust", seed, None);
+    test_language_corpus("rust", seed, None, None);
 }
 
-fn test_language_corpus(language_name: &str, start_seed: usize, skipped: Option<&[&str]>) {
+fn test_language_corpus(
+    language_name: &str,
+    start_seed: usize,
+    skipped: Option<&[&str]>,
+    subdir: Option<&str>,
+) {
+    let subdir = subdir.unwrap_or_default();
+
     let grammars_dir = fixtures_dir().join("grammars");
     let error_corpus_dir = fixtures_dir().join("error_corpus");
     let template_corpus_dir = fixtures_dir().join("template_corpus");
-    let mut corpus_dir = grammars_dir.join(language_name).join("corpus");
+    let mut corpus_dir = grammars_dir.join(language_name).join(subdir).join("corpus");
     if !corpus_dir.is_dir() {
-        corpus_dir = grammars_dir.join(language_name).join("test").join("corpus");
+        corpus_dir = grammars_dir
+            .join(language_name)
+            .join(subdir)
+            .join("test")
+            .join("corpus");
     }
 
     let error_corpus_file = error_corpus_dir.join(&format!("{}_errors.txt", language_name));
@@ -112,7 +129,12 @@ fn test_language_corpus(language_name: &str, start_seed: usize, skipped: Option<
 
     let mut skipped = skipped.map(|x| HashMap::<&str, usize>::from_iter(x.iter().map(|x| (*x, 0))));
 
-    let language = get_language(language_name);
+    let language_path = if subdir.is_empty() {
+        language_name.to_string()
+    } else {
+        format!("{language_name}/{subdir}")
+    };
+    let language = get_language(&language_path);
     let mut failure_count = 0;
 
     let log_seed = env::var("TREE_SITTER_LOG_SEED").is_ok();
