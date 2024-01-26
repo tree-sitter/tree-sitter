@@ -422,10 +422,11 @@ impl Loader {
         config
             .cpp(true)
             .opt_level(2)
-            .cargo_metadata(false)
-            .target(BUILD_TARGET)
             .host(BUILD_TARGET)
-            .flag_if_supported("-Werror=implicit-function-declaration");
+            .target(BUILD_TARGET)
+            .flag_if_supported("-Werror=implicit-function-declaration")
+            .out_dir(env::temp_dir())
+            .cargo_metadata(false);
         let compiler = config.get_compiler();
         let mut command = Command::new(compiler.path());
         for (key, value) in compiler.env() {
