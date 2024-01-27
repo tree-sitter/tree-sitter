@@ -95,6 +95,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [LLVM MLIR](https://github.com/artagnon/tree-sitter-mlir)
 * [LLVM TableGen](https://github.com/Flakebi/tree-sitter-tablegen)
 * [Lua](https://github.com/Azganoth/tree-sitter-lua)
+* [Magik](https://github.com/krn-robin/tree-sitter-magik)
 * [Make](https://github.com/alemuller/tree-sitter-make)
 * [Markdown](https://github.com/ikatyang/tree-sitter-markdown)
 * [Markdown](https://github.com/MDeiml/tree-sitter-markdown)
