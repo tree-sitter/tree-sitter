@@ -19,7 +19,7 @@ use tree_sitter_highlight::HighlightConfiguration;
 use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
 use which::which;
 
-pub const EMSCRIPTEN_TAG: &'static str = concat!("emscripten/emsdk:", env!("EMSCRIPTEN_VERSION"));
+pub const EMSCRIPTEN_TAG: &str = concat!("docker.io/emscripten/emsdk:", env!("EMSCRIPTEN_VERSION"));
 
 #[derive(Default, Deserialize, Serialize)]
 pub struct Config {
@@ -532,49 +532,109 @@ impl Loader {
         output_path: &PathBuf,
         force_docker: bool,
     ) -> Result<(), Error> {
-        let emcc_bin = if cfg!(windows) { "emcc.bat" } else { "emcc" };
-        let emcc_path = which(emcc_bin)
-            .ok()
-            .and_then(|p| Command::new(&p).output().and(Ok(p)).ok());
+        #[derive(PartialEq, Eq)]
+        enum EmccSource {
+            Native(PathBuf),
+            Docker,
+            Podman,
+        }
 
-        let mut command;
-        if emcc_path.is_some() && !force_docker {
-            command = Command::new(emcc_path.unwrap());
-            command.current_dir(&src_path);
-        } else if Command::new("docker").output().is_ok() {
-            command = Command::new("docker");
-            command.args(&["run", "--rm"]);
-
-            // Mount the parser directory as a volume
-            command.args(&["--workdir", "/src"]);
-
-            let mut volume_string = OsString::from(&src_path);
-            volume_string.push(":/src:Z");
-            command.args(&[OsStr::new("--volume"), &volume_string]);
-
-            // Get the current user id so that files created in the docker container will have
-            // the same owner.
-            if cfg!(unix) {
-                let user_id_output = Command::new("id")
-                    .arg("-u")
-                    .output()
-                    .with_context(|| "Failed to get get current user id")?;
-                let user_id = String::from_utf8_lossy(&user_id_output.stdout);
-                let user_id = user_id.trim();
-                command.args(&["--user", user_id]);
+        fn path_of_bin(
+            name: &str,
+            test: impl Fn(&Path) -> std::io::Result<std::process::Output>,
+        ) -> Option<PathBuf> {
+            let bin_path = which(name).ok()?;
+            if test(&bin_path).is_ok() {
+                Some(bin_path)
+            } else {
+                None
             }
+        }
 
-            // Run `emcc` in a container using the `emscripten-slim` image
-            command.args(&[EMSCRIPTEN_TAG, "emcc"]);
+        // Order of preference: emscripten > docker > podman > error
+        let source = if force_docker {
+            None
         } else {
+            path_of_bin(if cfg!(windows) { "emcc.bat" } else { "emcc" }, |p| {
+                Command::new(p).output()
+            })
+            .map(EmccSource::Native)
+        }
+        .or_else(|| {
+            path_of_bin("docker", |docker| {
+                // `docker info` should succeed iff the daemon is running
+                // see https://docs.docker.com/config/daemon/troubleshoot/#check-whether-docker-is-running
+                Command::new(docker).args(["info"]).output()
+            })
+            .map(|_| EmccSource::Docker)
+        })
+        .or_else(|| {
+            path_of_bin("podman", |podman| {
+                Command::new(podman).arg("--version").output()
+            })
+            .map(|_| EmccSource::Podman)
+        });
+
+        let Some(cmd) = source else {
             return Err(anyhow!(
                 "You must have either emcc or docker on your PATH to run this command"
             ));
-        }
+        };
+
+        let mut command = match cmd {
+            EmccSource::Native(emcc_path) => {
+                let mut command = Command::new(emcc_path);
+                command.current_dir(src_path);
+                command
+            }
+
+            EmccSource::Docker | EmccSource::Podman => {
+                let mut command = match cmd {
+                    EmccSource::Docker => Command::new("docker"),
+                    EmccSource::Podman => Command::new("podman"),
+                    _ => unreachable!(),
+                };
+                command.args(["run", "--rm"]);
+
+                // Mount the parser directory as a volume
+                command.args(["--workdir", "/src"]);
+
+                let mut volume_string = OsString::from(&src_path);
+                volume_string.push(":/src:Z");
+                command.args([OsStr::new("--volume"), &volume_string]);
+
+                // In case `docker` is an alias to `podman`, ensure that podman
+                // mounts the current directory as writable by the container
+                // user which has the same uid as the host user. Setting the
+                // podman-specific variable is more reliable than attempting to
+                // detect whether `docker` is an alias for `podman`.
+                // see https://docs.podman.io/en/latest/markdown/podman-run.1.html#userns-mode
+                command.env("PODMAN_USERNS", "keep-id");
+
+                // Get the current user id so that files created in the docker container will have
+                // the same owner.
+                #[cfg(unix)]
+                {
+                    #[link(name = "c")]
+                    extern "C" {
+                        fn getuid() -> u32;
+                    }
+                    // don't need to set user for podman since PODMAN_USERNS=keep-id is already set
+                    if cmd == EmccSource::Docker {
+                        let user_id = unsafe { getuid() };
+                        command.args(["--user", &user_id.to_string()]);
+                    }
+                };
+
+                // Run `emcc` in a container using the `emscripten-slim` image
+                command.args([EMSCRIPTEN_TAG, "emcc"]);
+                command
+            }
+        };
 
         let output_name = "output.wasm";
 
-        command.args(&[
+        command.args([
             "-o",
             output_name,
             "-Os",
@@ -587,7 +647,7 @@ impl Loader {
             "-s",
             "NODEJS_CATCH_EXIT=0",
             "-s",
-            &format!("EXPORTED_FUNCTIONS=[\"_tree_sitter_{}\"]", language_name),
+            &format!("EXPORTED_FUNCTIONS=[\"_tree_sitter_{language_name}\"]"),
             "-fno-exceptions",
             "-fvisibility=hidden",
             "-I",
@@ -602,11 +662,10 @@ impl Loader {
             {
                 command.arg("-xc++");
             }
-            command.arg(&scanner_filename);
+            command.arg(scanner_filename);
         }
 
         command.arg("parser.c");
-
         let output = command.output().context("Failed to run emcc command")?;
         if !output.status.success() {
             return Err(anyhow!(
@@ -615,7 +674,7 @@ impl Loader {
             ));
         }
 
-        fs::rename(&src_path.join(output_name), &output_path)
+        fs::rename(src_path.join(output_name), output_path)
             .context("failed to rename wasm output file")?;
         Ok(())
     }

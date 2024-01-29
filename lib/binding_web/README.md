@@ -112,7 +112,7 @@ const tree = parser.parse((index, position) => {
 
 The following example shows how to generate `.wasm` file for tree-sitter JavaScript grammar.
 
-**IMPORTANT**: [emscripten](https://emscripten.org/docs/getting_started/downloads.html) or [docker](https://www.docker.com/) need to be installed.
+**IMPORTANT**: [emscripten](https://emscripten.org/docs/getting_started/downloads.html), [docker](https://www.docker.com/), or [podman](https://podman.io) need to be installed.
 
 First install `tree-sitter-cli` and the tree-sitter language for which to generate `.wasm` (`tree-sitter-javascript` in this example):
 

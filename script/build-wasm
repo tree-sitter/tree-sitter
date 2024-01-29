@@ -64,21 +64,32 @@ while [[ $# > 0 ]]; do
   shift
 done
 
-emcc=
+emcc=""
+docker=""
 if which emcc > /dev/null && [[ "$force_docker" == "0" ]]; then
   emcc=emcc
 elif which docker > /dev/null; then
-  emcc="docker run                       \
+  # detect which one to use
+  docker=docker
+elif which podman > /dev/null; then
+  docker=podman
+fi
+
+if [ -z "$emcc" ] && [ -n "$docker" ]; then
+  export PODMAN_USERNS=keep-id
+  emcc="$docker run                      \
     --rm                                 \
     -v $(pwd):/src:Z                     \
     -u $(id -u)                          \
     emscripten/emsdk:$emscripen_version  \
     emcc"
-else
+fi
+
+if [ -z "$emcc" ]; then
   if [[ "$force_docker" == "1" ]]; then
-    echo 'You must have `docker` on your PATH to run this script with --docker'
+    echo 'You must have `docker` or `podman` on your PATH to run this script with --docker'
   else
-    echo 'You must have either `docker` or `emcc` on your PATH to run this script'
+    echo 'You must have either `docker`, `podman`, or `emcc` on your PATH to run this script'
   fi
   exit 1
 fi
