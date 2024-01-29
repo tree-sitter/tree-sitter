@@ -121,16 +121,19 @@ pub fn parse_position_comments(
         }
     }
 
-    // Adjust the row number in each assertion's position to refer to the line of
-    // code *above* the assertion. There can be multiple lines of assertion comments,
-    // so the positions may have to be decremented by more than one row.
+    // Adjust the row number in each assertion's position to refer to the line of code *above* the
+    // assertion. There can be multiple lines of assertion comments and empty lines so the
+    // positions may have to be decremented by more than one row.
     let mut i = 0;
+    let source_string = String::from_utf8(source.to_vec())?;
+    let lines = source_string.lines().collect::<Vec<&str>>();
     for assertion in result.iter_mut() {
         loop {
             let on_assertion_line = assertion_ranges[i..]
                 .iter()
                 .any(|(start, _)| start.row == assertion.position.row);
-            if on_assertion_line {
+            let on_empty_line = lines[assertion.position.row].len() <= assertion.position.column;
+            if on_assertion_line || on_empty_line {
                 assertion.position.row -= 1;
             } else {
                 while i < assertion_ranges.len()
@@ -151,25 +154,33 @@ pub fn parse_position_comments(
 
 pub fn assert_expected_captures(
     infos: Vec<CaptureInfo>,
-    path: String,
+    path: &String,
     parser: &mut Parser,
     language: Language,
-) -> Result<()> {
+) -> Result<usize> {
     let contents = fs::read_to_string(path)?;
     let pairs = parse_position_comments(parser, language, contents.as_bytes())?;
-    for info in &infos {
-        if let Some(found) = pairs.iter().find(|p| {
-            p.position.row == info.start.row && p.position >= info.start && p.position < info.end
-        }) {
-            if found.expected_capture_name != info.name && info.name != "name" {
-                Err(anyhow!(
+    let nassertions = pairs.len();
+    for assertion in pairs {
+        if let Some(found) = &infos
+            .iter()
+            .find(|p| assertion.position >= p.start && assertion.position < p.end)
+        {
+            if assertion.expected_capture_name != found.name && found.name != "name" {
+                return Err(anyhow!(
                     "Assertion failed: at {}, found {}, expected {}",
-                    info.start,
-                    found.expected_capture_name,
-                    info.name
-                ))?
+                    found.start,
+                    assertion.expected_capture_name,
+                    found.name
+                ));
             }
+        } else {
+            return Err(anyhow!(
+                "Assertion failed: could not match {} at {}",
+                assertion.expected_capture_name,
+                assertion.position
+            ));
         }
     }
-    Ok(())
+    Ok(nassertions)
 }
