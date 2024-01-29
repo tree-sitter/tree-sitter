@@ -73,6 +73,10 @@ impl WasmStore {
             }
         }
     }
+
+    pub fn language_count(&self) -> usize {
+        unsafe { ffi::ts_wasm_store_language_count(self.0) as usize }
+    }
 }
 
 impl WasmError {

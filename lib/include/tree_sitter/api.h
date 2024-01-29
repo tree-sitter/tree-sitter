@@ -1202,6 +1202,11 @@ const TSLanguage *ts_wasm_store_load_language(
 );
 
 /**
+ * Get the number of languages instantiated in the given wasm store.
+ */
+size_t ts_wasm_store_language_count(const TSWasmStore *);
+
+/**
  * Check if the language came from a Wasm module. If so, then in order to use
  * this langauge with a Parser, that parser must have a Wasm store assigned.
  */

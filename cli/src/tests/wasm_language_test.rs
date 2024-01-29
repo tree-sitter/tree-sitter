@@ -85,6 +85,32 @@ fn test_load_wasm_language() {
 }
 
 #[test]
+fn test_load_and_reload_wasm_language() {
+    allocations::record(|| {
+        let mut store = WasmStore::new(ENGINE.clone()).unwrap();
+
+        let wasm_rust = fs::read(&WASM_DIR.join(format!("tree-sitter-rust.wasm"))).unwrap();
+        let wasm_typescript =
+            fs::read(&WASM_DIR.join(format!("tree-sitter-typescript.wasm"))).unwrap();
+
+        let language_rust = store.load_language("rust", &wasm_rust).unwrap();
+        let language_typescript = store.load_language("typescript", &wasm_typescript).unwrap();
+        assert_eq!(store.language_count(), 2);
+
+        // When a language is dropped, stores can release their instances of that language.
+        drop(language_rust);
+        assert_eq!(store.language_count(), 1);
+
+        let language_rust = store.load_language("rust", &wasm_rust).unwrap();
+        assert_eq!(store.language_count(), 2);
+
+        drop(language_rust);
+        drop(language_typescript);
+        assert_eq!(store.language_count(), 0);
+    });
+}
+
+#[test]
 fn test_load_wasm_errors() {
     allocations::record(|| {
         let mut store = WasmStore::new(ENGINE.clone()).unwrap();
