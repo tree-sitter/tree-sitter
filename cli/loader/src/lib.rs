@@ -324,7 +324,7 @@ impl Loader {
                 let src_path = path.join("src");
                 self.load_language_at_path(&src_path, &src_path)
             })
-            .map(|l| *l)
+            .cloned()
     }
 
     pub fn load_language_at_path(&self, src_path: &Path, header_path: &Path) -> Result<Language> {

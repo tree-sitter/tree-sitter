@@ -224,7 +224,7 @@ jobs:
 
     - name: Run main tests
       if: ${{ inputs.run-tests && !matrix.cli-only }} # Can't natively run CLI on Github runner's host
-      run: $BUILD_CMD test --target=${{ matrix.target }}
+      run: $BUILD_CMD test --target=${{ matrix.target }} --features=${CLI_FEATURES}
 
     - name: Run wasm tests
       if: ${{ inputs.run-tests && !matrix.cli-only && !matrix.use-cross }} # See comment for the "Build wasm library" step

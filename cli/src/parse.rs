@@ -54,7 +54,7 @@ pub struct ParseFileOptions<'a> {
 
 pub fn parse_file_at_path(parser: &mut Parser, opts: ParseFileOptions) -> Result<bool> {
     let mut _log_session = None;
-    parser.set_language(opts.language)?;
+    parser.set_language(&opts.language)?;
     let mut source_code = fs::read(opts.path)
         .with_context(|| format!("Error reading source file {:?}", opts.path))?;
 

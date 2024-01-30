@@ -7,7 +7,7 @@ use tree_sitter::{InputEdit, Parser, Point, Range, Tree};
 #[test]
 fn test_tree_edit() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("javascript")).unwrap();
+    parser.set_language(&get_language("javascript")).unwrap();
     let tree = parser.parse("  abc  !==  def", None).unwrap();
 
     assert_eq!(
@@ -235,7 +235,7 @@ fn test_tree_edit() {
 #[test]
 fn test_tree_edit_with_included_ranges() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("html")).unwrap();
+    parser.set_language(&get_language("html")).unwrap();
 
     let source = "<div><% if a %><span>a</span><% else %><span>b</span><% end %></div>";
 
@@ -300,7 +300,7 @@ fn test_tree_edit_with_included_ranges() {
 #[test]
 fn test_tree_cursor() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("rust")).unwrap();
+    parser.set_language(&get_language("rust")).unwrap();
 
     let tree = parser
         .parse(
@@ -379,7 +379,7 @@ fn test_tree_cursor() {
 #[test]
 fn test_tree_cursor_previous_sibling() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("rust")).unwrap();
+    parser.set_language(&get_language("rust")).unwrap();
 
     let text = "
     // Hi there
@@ -418,7 +418,7 @@ fn test_tree_cursor_previous_sibling() {
 #[test]
 fn test_tree_cursor_fields() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("javascript")).unwrap();
+    parser.set_language(&get_language("javascript")).unwrap();
 
     let tree = parser
         .parse("function /*1*/ bar /*2*/ () {}", None)
@@ -455,7 +455,7 @@ fn test_tree_cursor_fields() {
 #[test]
 fn test_tree_cursor_child_for_point() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("javascript")).unwrap();
+    parser.set_language(&get_language("javascript")).unwrap();
     let source = &"
     [
         one,
@@ -562,7 +562,7 @@ fn test_tree_cursor_child_for_point() {
 #[test]
 fn test_tree_node_equality() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("rust")).unwrap();
+    parser.set_language(&get_language("rust")).unwrap();
     let tree = parser.parse("struct A {}", None).unwrap();
     let node1 = tree.root_node();
     let node2 = tree.root_node();
@@ -576,7 +576,7 @@ fn test_get_changed_ranges() {
     let source_code = b"{a: null};\n".to_vec();
 
     let mut parser = Parser::new();
-    parser.set_language(get_language("javascript")).unwrap();
+    parser.set_language(&get_language("javascript")).unwrap();
     let tree = parser.parse(&source_code, None).unwrap();
 
     assert_eq!(

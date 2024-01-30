@@ -25,7 +25,7 @@ pub fn query_files_at_paths(
 
     let query_source = fs::read_to_string(query_path)
         .with_context(|| format!("Error reading query file {:?}", query_path))?;
-    let query = Query::new(language, &query_source).with_context(|| "Query compilation failed")?;
+    let query = Query::new(&language, &query_source).with_context(|| "Query compilation failed")?;
 
     let mut query_cursor = QueryCursor::new();
     if let Some(range) = byte_range {
@@ -36,7 +36,7 @@ pub fn query_files_at_paths(
     }
 
     let mut parser = Parser::new();
-    parser.set_language(language)?;
+    parser.set_language(&language)?;
 
     for path in paths {
         let mut results = Vec::new();
@@ -115,7 +115,7 @@ pub fn query_files_at_paths(
             )?;
         }
         if should_test {
-            query_testing::assert_expected_captures(results, path, &mut parser, language)?
+            query_testing::assert_expected_captures(results, path, &mut parser, language.clone())?
         }
         if print_time {
             writeln!(&mut stdout, "{:?}", start.elapsed())?;

@@ -67,13 +67,22 @@ typedef struct {
   uint32_t table_align;
 } WasmDylinkInfo;
 
+// WasmLanguageId - A pointer used to identify a language. This language id is
+// reference-counted, so that its ownership can be shared between the language
+// itself and the instances of the language that are held in wasm stores.
+typedef struct {
+  volatile uint32_t ref_count;
+  volatile uint32_t is_language_deleted;
+} WasmLanguageId;
+
 // LanguageWasmModule - Additional data associated with a wasm-backed
 // `TSLanguage`. This data is read-only and does not reference a particular
 // wasm store, so it can be shared by all users of a `TSLanguage`. A pointer to
 // this is stored on the language itself.
 typedef struct {
+  volatile uint32_t ref_count;
+  WasmLanguageId *language_id;
   wasmtime_module_t *module;
-  uint32_t language_id;
   const char *name;
   char *symbol_name_buffer;
   char *field_name_buffer;
@@ -84,7 +93,7 @@ typedef struct {
 // a `TSLanguage` in a particular wasm store. The wasm store holds one of
 // these structs for each language that it has instantiated.
 typedef struct {
-  uint32_t language_id;
+  WasmLanguageId *language_id;
   wasmtime_instance_t instance;
   int32_t external_states_address;
   int32_t lex_main_fn_index;
@@ -471,6 +480,24 @@ static wasmtime_extern_t get_builtin_func_extern(
     snprintf(*output, message_length + 1, __VA_ARGS__); \
   } while (0)
 
+WasmLanguageId *language_id_new() {
+  WasmLanguageId *self = ts_malloc(sizeof(WasmLanguageId));
+  self->is_language_deleted = false;
+  self->ref_count = 1;
+  return self;
+}
+
+WasmLanguageId *language_id_clone(WasmLanguageId *self) {
+  atomic_inc(&self->ref_count);
+  return self;
+}
+
+void language_id_delete(WasmLanguageId *self) {
+  if (atomic_dec(&self->ref_count) == 0) {
+    ts_free(self);
+  }
+}
+
 static bool ts_wasm_store__provide_builtin_import(
   TSWasmStore *self,
   const wasm_name_t *import_name,
@@ -794,8 +821,23 @@ void ts_wasm_store_delete(TSWasmStore *self) {
   wasm_globaltype_delete(self->var_i32_type);
   wasmtime_store_delete(self->store);
   wasm_engine_delete(self->engine);
+  for (unsigned i = 0; i < self->language_instances.size; i++) {
+    LanguageWasmInstance *instance = &self->language_instances.contents[i];
+    language_id_delete(instance->language_id);
+  }
   array_delete(&self->language_instances);
   ts_free(self);
+}
+
+size_t ts_wasm_store_language_count(const TSWasmStore *self) {
+  size_t result = 0;
+  for (unsigned i = 0; i < self->language_instances.size; i++) {
+    const WasmLanguageId *id = self->language_instances.contents[i].language_id;
+    if (!id->is_language_deleted) {
+      result++;
+    }
+  }
+  return result;
 }
 
 static bool ts_wasm_store__instantiate(
@@ -1074,7 +1116,7 @@ const TSLanguage *ts_wasm_store_load_language(
   };
   uint32_t address_count = array_len(addresses);
 
-  TSLanguage *language = ts_malloc(sizeof(TSLanguage));
+  TSLanguage *language = ts_calloc(1, sizeof(TSLanguage));
   StringData symbol_name_buffer = array_new();
   StringData field_name_buffer = array_new();
 
@@ -1196,12 +1238,13 @@ const TSLanguage *ts_wasm_store_load_language(
 
   LanguageWasmModule *language_module = ts_malloc(sizeof(LanguageWasmModule));
   *language_module = (LanguageWasmModule) {
-    .language_id = atomic_inc(&NEXT_LANGUAGE_ID),
+    .language_id = language_id_new(),
     .module = module,
     .name = name,
     .symbol_name_buffer = symbol_name_buffer.contents,
     .field_name_buffer = field_name_buffer.contents,
     .dylink_info = dylink_info,
+    .ref_count = 1,
   };
 
   // The lex functions are not used for wasm languages. Use those two fields
@@ -1210,10 +1253,19 @@ const TSLanguage *ts_wasm_store_load_language(
   language->lex_fn = ts_wasm_store__sentinel_lex_fn;
   language->keyword_lex_fn = (void *)language_module;
 
-  // Store some information about this store's specific instance of this
-  // language module, keyed by the language's id.
+  // Clear out any instances of languages that have been deleted.
+  for (unsigned i = 0; i < self->language_instances.size; i++) {
+    WasmLanguageId *id = self->language_instances.contents[i].language_id;
+    if (id->is_language_deleted) {
+      language_id_delete(id);
+      array_erase(&self->language_instances, i);
+      i--;
+    }
+  }
+
+  // Store this store's instance of this language module.
   array_push(&self->language_instances, ((LanguageWasmInstance) {
-    .language_id = language_module->language_id,
+    .language_id = language_id_clone(language_module->language_id),
     .instance = instance,
     .external_states_address = wasm_language.external_scanner.states,
     .lex_main_fn_index = wasm_language.lex_fn,
@@ -1240,19 +1292,25 @@ bool ts_wasm_store_add_language(
   wasmtime_context_t *context = wasmtime_store_context(self->store);
   const LanguageWasmModule *language_module = (void *)language->keyword_lex_fn;
 
-  // Search for the information about this store's instance of the language module.
+  // Search for this store's instance of the language module. Also clear out any
+  // instances of languages that have been deleted.
   bool exists = false;
-  array_search_sorted_by(
-    &self->language_instances,
-    .language_id,
-    language_module->language_id,
-    index,
-    &exists
-  );
+  for (unsigned i = 0; i < self->language_instances.size; i++) {
+    WasmLanguageId *id = self->language_instances.contents[i].language_id;
+    if (id->is_language_deleted) {
+      language_id_delete(id);
+      array_erase(&self->language_instances, i);
+      i--;
+    } else if (id == language_module->language_id) {
+      exists = true;
+      *index = i;
+    }
+  }
 
   // If the language module has not been instantiated in this store, then add
   // it to this store.
   if (!exists) {
+    *index = self->language_instances.size;
     char *message;
     wasmtime_instance_t instance;
     int32_t language_address;
@@ -1272,8 +1330,8 @@ bool ts_wasm_store_add_language(
     LanguageInWasmMemory wasm_language;
     const uint8_t *memory = wasmtime_memory_data(context, &self->memory);
     memcpy(&wasm_language, &memory[language_address], sizeof(LanguageInWasmMemory));
-    array_insert(&self->language_instances, *index, ((LanguageWasmInstance) {
-      .language_id = language_module->language_id,
+    array_push(&self->language_instances, ((LanguageWasmInstance) {
+      .language_id = language_id_clone(language_module->language_id),
       .instance = instance,
       .external_states_address = wasm_language.external_scanner.states,
       .lex_main_fn_index = wasm_language.lex_fn,
@@ -1468,6 +1526,50 @@ bool ts_language_is_wasm(const TSLanguage *self) {
   return self->lex_fn == ts_wasm_store__sentinel_lex_fn;
 }
 
+static inline LanguageWasmModule *ts_language__wasm_module(const TSLanguage *self) {
+  return (LanguageWasmModule *)self->keyword_lex_fn;
+}
+
+void ts_wasm_language_retain(const TSLanguage *self) {
+  LanguageWasmModule *module = ts_language__wasm_module(self);
+  assert(module->ref_count > 0);
+  atomic_inc(&module->ref_count);
+}
+
+void ts_wasm_language_release(const TSLanguage *self) {
+  LanguageWasmModule *module = ts_language__wasm_module(self);
+  assert(module->ref_count > 0);
+  if (atomic_dec(&module->ref_count) == 0) {
+    // Update the language id to reflect that the language is deleted. This allows any wasm stores
+    // that hold wasm instances for this language to delete those instances.
+    atomic_inc(&module->language_id->is_language_deleted);
+    language_id_delete(module->language_id);
+
+    ts_free((void *)module->field_name_buffer);
+    ts_free((void *)module->symbol_name_buffer);
+    ts_free((void *)module->name);
+    wasmtime_module_delete(module->module);
+    ts_free(module);
+
+    ts_free((void *)self->alias_map);
+    ts_free((void *)self->alias_sequences);
+    ts_free((void *)self->external_scanner.symbol_map);
+    ts_free((void *)self->field_map_entries);
+    ts_free((void *)self->field_map_slices);
+    ts_free((void *)self->field_names);
+    ts_free((void *)self->lex_modes);
+    ts_free((void *)self->parse_actions);
+    ts_free((void *)self->parse_table);
+    ts_free((void *)self->primary_state_ids);
+    ts_free((void *)self->public_symbol_map);
+    ts_free((void *)self->small_parse_table);
+    ts_free((void *)self->small_parse_table_map);
+    ts_free((void *)self->symbol_metadata);
+    ts_free((void *)self->symbol_names);
+    ts_free((void *)self);
+  }
+}
+
 #else
 
 // If the WASM feature is not enabled, define dummy versions of all of the
@@ -1554,6 +1656,14 @@ void ts_wasm_store_call_scanner_deserialize(
 bool ts_language_is_wasm(const TSLanguage *self) {
   (void)self;
   return false;
+}
+
+void ts_wasm_language_retain(const TSLanguage *self) {
+  (void)self;
+}
+
+void ts_wasm_language_release(const TSLanguage *self) {
+  (void)self;
 }
 
 #endif

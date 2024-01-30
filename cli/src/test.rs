@@ -141,7 +141,7 @@ pub fn check_queries_at_path(language: Language, path: &Path) -> Result<()> {
             let filepath = entry.file_name().to_str().unwrap_or("");
             let content = fs::read_to_string(entry.path())
                 .with_context(|| format!("Error reading query file {:?}", filepath))?;
-            Query::new(language, &content)
+            Query::new(&language, &content)
                 .with_context(|| format!("Error in query file {:?}", filepath))?;
         }
     }

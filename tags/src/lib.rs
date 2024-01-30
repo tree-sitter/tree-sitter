@@ -117,7 +117,7 @@ struct LineInfo {
 
 impl TagsConfiguration {
     pub fn new(language: Language, tags_query: &str, locals_query: &str) -> Result<Self, Error> {
-        let query = Query::new(language, &format!("{}{}", locals_query, tags_query))?;
+        let query = Query::new(&language, &format!("{}{}", locals_query, tags_query))?;
 
         let tags_query_offset = locals_query.len();
         let mut tags_pattern_index = 0;
@@ -265,7 +265,7 @@ impl TagsContext {
         cancellation_flag: Option<&'a AtomicUsize>,
     ) -> Result<(impl Iterator<Item = Result<Tag, Error>> + 'a, bool), Error> {
         self.parser
-            .set_language(config.language)
+            .set_language(&config.language)
             .map_err(|_| Error::InvalidLanguage)?;
         self.parser.reset();
         unsafe { self.parser.set_cancellation_flag(cancellation_flag) };

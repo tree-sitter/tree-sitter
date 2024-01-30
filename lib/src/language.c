@@ -1,5 +1,20 @@
 #include "./language.h"
+#include "./wasm.h"
+#include "tree_sitter/api.h"
 #include <string.h>
+
+const TSLanguage *ts_language_copy(const TSLanguage *self) {
+  if (self && ts_language_is_wasm(self)) {
+    ts_wasm_language_retain(self);
+  }
+  return self;
+}
+
+void ts_language_delete(const TSLanguage *self) {
+  if (self && ts_language_is_wasm(self)) {
+    ts_wasm_language_release(self);
+  }
+}
 
 uint32_t ts_language_symbol_count(const TSLanguage *self) {
   return self->symbol_count + self->alias_count;

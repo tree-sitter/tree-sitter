@@ -12,7 +12,7 @@ TSTree *ts_tree_new(
 ) {
   TSTree *result = ts_malloc(sizeof(TSTree));
   result->root = root;
-  result->language = language;
+  result->language = ts_language_copy(language);
   result->included_ranges = ts_calloc(included_range_count, sizeof(TSRange));
   memcpy(result->included_ranges, included_ranges, included_range_count * sizeof(TSRange));
   result->included_range_count = included_range_count;
@@ -30,6 +30,7 @@ void ts_tree_delete(TSTree *self) {
   SubtreePool pool = ts_subtree_pool_new(0);
   ts_subtree_release(&pool, self->root);
   ts_subtree_pool_delete(&pool);
+  ts_language_delete(self->language);
   ts_free(self->included_ranges);
   ts_free(self);
 }

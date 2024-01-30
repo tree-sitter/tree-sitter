@@ -2698,7 +2698,7 @@ TSQuery *ts_query_new(
     .negated_fields = array_new(),
     .repeat_symbols_with_rootless_patterns = array_new(),
     .wildcard_root_pattern_count = 0,
-    .language = language,
+    .language = ts_language_copy(language),
   };
 
   array_push(&self->negated_fields, 0);
@@ -2812,6 +2812,7 @@ void ts_query_delete(TSQuery *self) {
     array_delete(&self->string_buffer);
     array_delete(&self->negated_fields);
     array_delete(&self->repeat_symbols_with_rootless_patterns);
+    ts_language_delete(self->language);
     symbol_table_delete(&self->captures);
     symbol_table_delete(&self->predicate_values);
     for (uint32_t index = 0; index < self->capture_quantifiers.size; index++) {

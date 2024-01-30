@@ -414,7 +414,7 @@ fn run() -> Result<()> {
             let language = languages
                 .first()
                 .ok_or_else(|| anyhow!("No language found"))?;
-            parser.set_language(*language)?;
+            parser.set_language(&language)?;
 
             let test_dir = current_dir.join("test");
 
@@ -435,7 +435,7 @@ fn run() -> Result<()> {
             }
 
             // Check that all of the queries are valid.
-            test::check_queries_at_path(*language, &current_dir.join("queries"))?;
+            test::check_queries_at_path(language.clone(), &current_dir.join("queries"))?;
 
             // Run the syntax highlighting tests.
             let test_highlight_dir = test_dir.join("highlight");
@@ -527,11 +527,11 @@ fn run() -> Result<()> {
                 let language =
                     loader.select_language(path, &current_dir, matches.value_of("scope"))?;
                 parser
-                    .set_language(language)
+                    .set_language(&language)
                     .context("incompatible language")?;
 
                 let opts = ParseFileOptions {
-                    language,
+                    language: language.clone(),
                     path,
                     edits: &edits,
                     max_path_length,
@@ -636,10 +636,10 @@ fn run() -> Result<()> {
 
             let cancellation_flag = util::cancel_on_signal();
 
-            let mut lang = None;
+            let mut language = None;
             if let Some(scope) = matches.value_of("scope") {
-                lang = loader.language_configuration_for_scope(scope)?;
-                if lang.is_none() {
+                language = loader.language_configuration_for_scope(scope)?;
+                if language.is_none() {
                     return Err(anyhow!("Unknown scope '{}'", scope));
                 }
             }
@@ -655,7 +655,7 @@ fn run() -> Result<()> {
 
             for path in paths {
                 let path = Path::new(&path);
-                let (language, language_config) = match lang {
+                let (language, language_config) = match language.clone() {
                     Some(v) => v,
                     None => match loader.language_configuration_for_file_name(path)? {
                         Some(v) => v,

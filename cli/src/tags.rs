@@ -29,7 +29,7 @@ pub fn generate_tags(
 
     for path in paths {
         let path = Path::new(&path);
-        let (language, language_config) = match lang {
+        let (language, language_config) = match lang.clone() {
             Some(v) => v,
             None => match loader.language_configuration_for_file_name(path)? {
                 Some(v) => v,

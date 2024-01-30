@@ -267,7 +267,7 @@ impl HighlightConfiguration {
 
         // Construct a single query by concatenating the three query strings, but record the
         // range of pattern indices that belong to each individual string.
-        let mut query = Query::new(language, &query_source)?;
+        let mut query = Query::new(&language, &query_source)?;
         let mut locals_pattern_index = 0;
         let mut highlights_pattern_index = 0;
         for i in 0..(query.pattern_count()) {
@@ -284,7 +284,7 @@ impl HighlightConfiguration {
 
         // Construct a separate query just for dealing with the 'combined injections'.
         // Disable the combined injection patterns in the main query.
-        let mut combined_injections_query = Query::new(language, injection_query)?;
+        let mut combined_injections_query = Query::new(&language, injection_query)?;
         let mut has_combined_queries = false;
         for pattern_index in 0..locals_pattern_index {
             let settings = query.property_settings(pattern_index);
@@ -435,7 +435,7 @@ impl<'a> HighlightIterLayer<'a> {
             if highlighter.parser.set_included_ranges(&ranges).is_ok() {
                 highlighter
                     .parser
-                    .set_language(config.language)
+                    .set_language(&config.language)
                     .map_err(|_| Error::InvalidLanguage)?;
 
                 unsafe { highlighter.parser.set_cancellation_flag(cancellation_flag) };
