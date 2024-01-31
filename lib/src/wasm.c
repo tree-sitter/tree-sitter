@@ -16,46 +16,11 @@
 
 // The following symbols from the C and C++ standard libraries are available
 // for external scanners to use.
-#define STDLIB_SYMBOL_COUNT 34
-const char *STDLIB_SYMBOLS[STDLIB_SYMBOL_COUNT] = {
-  "_ZNKSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE4copyEPcmm",
-  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE17__assign_externalEPKcm",
-  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE17__assign_no_aliasILb0EEERS5_PKcm",
-  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE17__assign_no_aliasILb1EEERS5_PKcm",
-  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE25__init_copy_ctor_externalEPKcm",
-  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6__initEPKcm",
-  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE7reserveEm",
-  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9__grow_byEmmmmmm",
-  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9push_backEc",
-  "_ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEED2Ev",
-  "_ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE9push_backEw",
-  "_ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEED2Ev",
-  "_ZdlPv",
-  "_Znwm",
-  "calloc",
-  "free",
-  "iswalnum",
-  "iswalpha",
-  "iswdigit",
-  "iswlower",
-  "iswspace",
-  "iswupper",
-  "malloc",
-  "memchr",
-  "memcmp",
-  "memcpy",
-  "memmove",
-  "memset",
-  "realloc",
-  "strcmp",
-  "strlen",
-  "strncpy",
-  "towlower",
-  "towupper"
+const char *STDLIB_SYMBOLS[] = {
+  #include "./stdlib-symbols.txt"
 };
 
-#define BUILTIN_SYMBOL_COUNT 10
-#define MAX_IMPORT_COUNT (BUILTIN_SYMBOL_COUNT + STDLIB_SYMBOL_COUNT)
+#define STDLIB_SYMBOL_COUNT (sizeof(STDLIB_SYMBOLS) / sizeof(STDLIB_SYMBOLS[0]))
 
 // The contents of the `dylink.0` custom section of a wasm module,
 // as specified by the current WebAssembly dynamic linking ABI proposal.
@@ -118,7 +83,7 @@ struct TSWasmStore {
   uint32_t current_memory_offset;
   uint32_t current_memory_size;
   uint32_t current_function_table_offset;
-  uint16_t fn_indices[STDLIB_SYMBOL_COUNT];
+  uint16_t *fn_indices;
   wasm_globaltype_t *const_i32_type;
   wasm_globaltype_t *var_i32_type;
 };
@@ -582,6 +547,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
   wasm_trap_t *trap = NULL;
   wasm_message_t message = WASM_EMPTY_VEC;
   wasm_exporttype_vec_t export_types = WASM_EMPTY_VEC;
+  wasmtime_extern_t *imports = NULL;
 
   // Initialize store's memory
   wasm_limits_t memory_limits = {.min = INITIAL_MEMORY_SIZE, .max = MAX_MEMORY_SIZE};
@@ -677,6 +643,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
     .language_instances = array_new(),
     .function_table = function_table,
     .current_memory_offset = 0,
+    .fn_indices = ts_calloc(STDLIB_SYMBOL_COUNT, sizeof(uint16_t)),
     .current_memory_size = 64 * MEMORY_PAGE_SIZE,
     .current_function_table_offset = definitions_len,
     .const_i32_type = wasm_globaltype_new(wasm_valtype_new_i32(), WASM_CONST),
@@ -706,10 +673,9 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
   wasmtime_instance_t instance;
   wasm_importtype_vec_t import_types = WASM_EMPTY_VEC;
   wasmtime_module_imports(stdlib_module, &import_types);
-  if (import_types.size > MAX_IMPORT_COUNT) goto error;
 
-  wasmtime_extern_t imports[MAX_IMPORT_COUNT];
-  for (unsigned i = 0; i < import_types.size && i < MAX_IMPORT_COUNT; i++) {
+  imports = ts_calloc(import_types.size, sizeof(wasmtime_extern_t));
+  for (unsigned i = 0; i < import_types.size; i++) {
     wasm_importtype_t *type = import_types.data[i];
     const wasm_name_t *import_name = wasm_importtype_name(type);
     if (!ts_wasm_store__provide_builtin_import(self, import_name, &imports[i])) {
@@ -724,6 +690,8 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
   }
 
   error = wasmtime_instance_new(context, stdlib_module, imports, import_types.size, &instance, &trap);
+  ts_free(imports);
+  imports = NULL;
   if (error) {
     wasmtime_error_message(error, &message);
     wasm_error->kind = TSWasmErrorKindInstantiate;
@@ -811,11 +779,13 @@ error:
   if (error) wasmtime_error_delete(error);
   if (message.size) wasm_byte_vec_delete(&message);
   if (export_types.size) wasm_exporttype_vec_delete(&export_types);
+  if (imports) ts_free(imports);
   return NULL;
 }
 
 void ts_wasm_store_delete(TSWasmStore *self) {
   if (!self) return;
+  ts_free(self->fn_indices);
   wasm_globaltype_delete(self->const_i32_type);
   wasm_globaltype_delete(self->var_i32_type);
   wasmtime_store_delete(self->store);
@@ -852,6 +822,7 @@ static bool ts_wasm_store__instantiate(
   wasm_trap_t *trap = NULL;
   wasm_message_t message = WASM_EMPTY_VEC;
   char *language_function_name = NULL;
+  wasmtime_extern_t *imports = NULL;
   wasmtime_context_t *context = wasmtime_store_context(self->store);
 
   // Grow the function table to make room for the new functions.
@@ -886,8 +857,7 @@ static bool ts_wasm_store__instantiate(
   // Build the imports list for the module.
   wasm_importtype_vec_t import_types = WASM_EMPTY_VEC;
   wasmtime_module_imports(module, &import_types);
-  if (import_types.size > MAX_IMPORT_COUNT) goto error;
-  wasmtime_extern_t imports[MAX_IMPORT_COUNT];
+  imports = ts_calloc(import_types.size, sizeof(wasmtime_extern_t));
 
   for (unsigned i = 0; i < import_types.size; i++) {
     const wasm_importtype_t *import_type = import_types.data[i];
@@ -924,6 +894,8 @@ static bool ts_wasm_store__instantiate(
   wasmtime_instance_t instance;
   error = wasmtime_instance_new(context, module, imports, import_types.size, &instance, &trap);
   wasm_importtype_vec_delete(&import_types);
+  ts_free(imports);
+  imports = NULL;
   if (error) {
     wasmtime_error_message(error, &message);
     format(
@@ -1025,6 +997,7 @@ error:
   if (message.size) wasm_byte_vec_delete(&message);
   if (error) wasmtime_error_delete(error);
   if (trap) wasm_trap_delete(trap);
+  if (imports) ts_free(imports);
   return false;
 }
 
