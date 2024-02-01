@@ -30,6 +30,7 @@ EOF
 set -e
 
 web_dir=lib/binding_web
+src_dir=lib/src
 emscripten_flags="-O3"
 minify_js=1
 force_docker=0
@@ -98,6 +99,15 @@ mkdir -p target/scratch
 
 runtime_methods='stringToUTF16','AsciiToString'
 
+# Remove quotes, add leading underscores, remove newlines, remove trailing comma.
+EXPORTED_FUNCTIONS=$(                                                \
+    cat ${src_dir}/wasm/stdlib-symbols.txt ${web_dir}/exports.txt  | \
+    sed -e 's/"//g'                                                | \
+    sed -e 's/^/_/g'                                               | \
+    tr -d '\n"'                                                    | \
+    sed -e 's/,$//'                                                  \
+)
+
 # Use emscripten to generate `tree-sitter.js` and `tree-sitter.wasm`
 # in the `target/scratch` directory
 $emcc                                            \
@@ -108,14 +118,14 @@ $emcc                                            \
   -s FILESYSTEM=0                                \
   -s NODEJS_CATCH_EXIT=0                         \
   -s NODEJS_CATCH_REJECTION=0                    \
-  -s EXPORTED_FUNCTIONS=@${web_dir}/exports.json \
+  -s EXPORTED_FUNCTIONS=${EXPORTED_FUNCTIONS} \
   -s EXPORTED_RUNTIME_METHODS=$runtime_methods   \
   $emscripten_flags                              \
   -fno-exceptions                                \
   -std=c99                                       \
   -D 'fprintf(...)='                             \
   -D NDEBUG=                                     \
-  -I lib/src                                     \
+  -I ${src_dir}                                  \
   -I lib/include                                 \
   --js-library ${web_dir}/imports.js             \
   --pre-js ${web_dir}/prefix.js                  \
@@ -139,9 +149,9 @@ if [[ "$minify_js" == "1" ]]; then
     --mangle                         \
     --keep-classnames                \
     -- target/scratch/tree-sitter.js \
-    > $web_dir/tree-sitter.js
+    > ${web_dir}/tree-sitter.js
 else
-  cp target/scratch/tree-sitter.js $web_dir/tree-sitter.js
+  cp target/scratch/tree-sitter.js ${web_dir}/tree-sitter.js
 fi
 
-mv target/scratch/tree-sitter.wasm $web_dir/tree-sitter.wasm
+mv target/scratch/tree-sitter.wasm ${web_dir}/tree-sitter.wasm
