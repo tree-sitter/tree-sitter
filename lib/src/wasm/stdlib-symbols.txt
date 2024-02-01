@@ -16,6 +16,7 @@
 "free",
 "iswalnum",
 "iswalpha",
+"iswblank",
 "iswdigit",
 "iswlower",
 "iswspace",
