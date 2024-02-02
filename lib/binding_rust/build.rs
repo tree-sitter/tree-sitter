@@ -2,6 +2,8 @@ use std::path::{Path, PathBuf};
 use std::{env, fs};
 
 fn main() {
+    let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+
     println!("cargo:rerun-if-env-changed=TREE_SITTER_STATIC_ANALYSIS");
     if env::var("TREE_SITTER_STATIC_ANALYSIS").is_ok() {
         if let (Some(clang_path), Some(scan_build_path)) = (which("clang"), which("scan-build")) {
@@ -18,7 +20,13 @@ fn main() {
     }
 
     #[cfg(feature = "bindgen")]
-    generate_bindings();
+    generate_bindings(&out_dir);
+
+    fs::copy(
+        "src/wasm/stdlib-symbols.txt",
+        out_dir.join("stdlib-symbols.txt"),
+    )
+    .unwrap();
 
     let mut config = cc::Build::new();
 
@@ -47,7 +55,7 @@ fn main() {
 }
 
 #[cfg(feature = "bindgen")]
-fn generate_bindings() {
+fn generate_bindings(out_dir: &PathBuf) {
     const HEADER_PATH: &str = "include/tree_sitter/api.h";
 
     println!("cargo:rerun-if-changed={}", HEADER_PATH);
@@ -77,9 +85,7 @@ fn generate_bindings() {
         .generate()
         .expect("Failed to generate bindings");
 
-    let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let bindings_rs = out_dir.join("bindings.rs");
-
     bindings.write_to_file(&bindings_rs).expect(&*format!(
         "Failed to write bindings into path: {bindings_rs:?}"
     ));
