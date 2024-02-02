@@ -80,10 +80,10 @@ if ({a: 'b'} {c: 'd'}) {
       (expression_statement
         (assignment_expression
           (identifier)
-          (function (formal_parameters (identifier)) (statement_block (expression_statement (identifier)))))
+          (function_expression (formal_parameters (identifier)) (statement_block (expression_statement (identifier)))))
         (MISSING ";"))
       (expression_statement
-        (function (formal_parameters (identifier)) (statement_block (expression_statement (identifier))))))))
+        (function_expression (formal_parameters (identifier)) (statement_block (expression_statement (identifier))))))))
 
 ===================================================
 Extra tokens at the end of the file
@@ -148,14 +148,14 @@ const h = `i ${j(k} l`
   (lexical_declaration
     (variable_declarator
       (identifier)
-      (template_string (template_substitution
-        (augmented_assignment_expression (identifier) (MISSING identifier))))))
+      (template_string (string_fragment) (template_substitution
+        (augmented_assignment_expression (identifier) (MISSING identifier))) (string_fragment))))
   (lexical_declaration
     (variable_declarator
       (identifier)
-      (template_string (template_substitution (call_expression
+      (template_string (string_fragment) (template_substitution (call_expression
         (identifier)
-        (arguments (identifier) (MISSING ")"))))))))
+        (arguments (identifier) (MISSING ")")))) (string_fragment)))))
 
 =========================================================
 Long sequences of invalid tokens

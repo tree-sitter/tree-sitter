@@ -1,5 +1,5 @@
 #include "tree_sitter/api.h"
-#include "tree_sitter/parser.h"
+#include "./parser.h"
 #include <stdint.h>
 
 #ifdef TREE_SITTER_FEATURE_WASM
@@ -12,7 +12,6 @@
 #include "./atomic.h"
 #include "./lexer.h"
 #include "./wasm.h"
-#include "./lexer.h"
 #include "./wasm/wasm-stdlib.h"
 
 // The following symbols from the C and C++ standard libraries are available

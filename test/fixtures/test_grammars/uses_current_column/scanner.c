@@ -1,6 +1,7 @@
+#include "tree_sitter/parser.h"
+
 #include <stdlib.h>
 #include <wctype.h>
-#include <tree_sitter/parser.h>
 
 enum TokenType {
   INDENT,

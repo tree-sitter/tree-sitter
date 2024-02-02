@@ -1,4 +1,4 @@
-#include <tree_sitter/parser.h>
+#include "tree_sitter/parser.h"
 
 unsigned tree_sitter_get_col_should_hang_not_crash_external_scanner_serialize() { return 0; }
 
