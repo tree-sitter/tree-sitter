@@ -78,8 +78,9 @@ fi
 if [ -z "$emcc" ] && [ -n "$docker" ]; then
   export PODMAN_USERNS=keep-id
   emcc="$docker run                      \
+  --platform linux/amd64                 \
     --rm                                 \
-    -v $(pwd):/src:Z                     \
+    -v \"$(pwd)\":/src:Z                 \
     -u $(id -u)                          \
     emscripten/emsdk:$emscripen_version  \
     emcc"
