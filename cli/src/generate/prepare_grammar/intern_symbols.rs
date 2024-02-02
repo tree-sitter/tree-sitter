@@ -15,15 +15,15 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         variables.push(Variable {
             name: variable.name.clone(),
             kind: variable_type_for_name(&variable.name),
-            rule: interner.intern_rule(&variable.rule)?,
+            rule: interner.intern_rule(&variable.rule, Some(&variable.name))?,
         });
     }
 
     let mut external_tokens = Vec::with_capacity(grammar.external_tokens.len());
     for external_token in grammar.external_tokens.iter() {
-        let rule = interner.intern_rule(&external_token)?;
+        let rule = interner.intern_rule(external_token, None)?;
         let (name, kind) = if let Rule::NamedSymbol(name) = external_token {
-            (name.clone(), variable_type_for_name(&name))
+            (name.clone(), variable_type_for_name(name))
         } else {
             (String::new(), VariableType::Anonymous)
         };
@@ -32,7 +32,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
 
     let mut extra_symbols = Vec::with_capacity(grammar.extra_symbols.len());
     for extra_token in grammar.extra_symbols.iter() {
-        extra_symbols.push(interner.intern_rule(extra_token)?);
+        extra_symbols.push(interner.intern_rule(extra_token, None)?);
     }
 
     let mut supertype_symbols = Vec::with_capacity(grammar.supertype_symbols.len());
@@ -40,7 +40,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         supertype_symbols.push(
             interner
                 .intern_name(supertype_symbol_name)
-                .ok_or_else(|| anyhow!("Undefined symbol `{}`", supertype_symbol_name))?,
+                .ok_or_else(|| anyhow!("Undefined symbol `{supertype_symbol_name}`"))?,
         );
     }
 
@@ -50,8 +50,8 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         for name in conflict {
             interned_conflict.push(
                 interner
-                    .intern_name(&name)
-                    .ok_or_else(|| anyhow!("Undefined symbol `{}`", name))?,
+                    .intern_name(name)
+                    .ok_or_else(|| anyhow!("Undefined symbol `{name}`"))?,
             );
         }
         expected_conflicts.push(interned_conflict);
@@ -59,7 +59,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
 
     let mut variables_to_inline = Vec::new();
     for name in grammar.variables_to_inline.iter() {
-        if let Some(symbol) = interner.intern_name(&name) {
+        if let Some(symbol) = interner.intern_name(name) {
             variables_to_inline.push(symbol);
         }
     }
@@ -68,7 +68,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
     if let Some(name) = grammar.word_token.as_ref() {
         word_token = Some(
             interner
-                .intern_name(&name)
+                .intern_name(name)
                 .ok_or_else(|| anyhow!("Undefined symbol `{}`", &name))?,
         );
     }
@@ -96,33 +96,39 @@ struct Interner<'a> {
 }
 
 impl<'a> Interner<'a> {
-    fn intern_rule(&self, rule: &Rule) -> Result<Rule> {
+    fn intern_rule(&self, rule: &Rule, name: Option<&str>) -> Result<Rule> {
         match rule {
             Rule::Choice(elements) => {
+                if let Some(result) = self.intern_single(elements, name) {
+                    return result;
+                }
                 let mut result = Vec::with_capacity(elements.len());
                 for element in elements {
-                    result.push(self.intern_rule(element)?);
+                    result.push(self.intern_rule(element, name)?);
                 }
                 Ok(Rule::Choice(result))
             }
             Rule::Seq(elements) => {
+                if let Some(result) = self.intern_single(elements, name) {
+                    return result;
+                }
                 let mut result = Vec::with_capacity(elements.len());
                 for element in elements {
-                    result.push(self.intern_rule(element)?);
+                    result.push(self.intern_rule(element, name)?);
                 }
                 Ok(Rule::Seq(result))
             }
-            Rule::Repeat(content) => Ok(Rule::Repeat(Box::new(self.intern_rule(content)?))),
+            Rule::Repeat(content) => Ok(Rule::Repeat(Box::new(self.intern_rule(content, name)?))),
             Rule::Metadata { rule, params } => Ok(Rule::Metadata {
-                rule: Box::new(self.intern_rule(rule)?),
+                rule: Box::new(self.intern_rule(rule, name)?),
                 params: params.clone(),
             }),
 
             Rule::NamedSymbol(name) => {
-                if let Some(symbol) = self.intern_name(&name) {
+                if let Some(symbol) = self.intern_name(name) {
                     Ok(Rule::Symbol(symbol))
                 } else {
-                    Err(anyhow!("Undefined symbol `{}`", name))
+                    Err(anyhow!("Undefined symbol `{name}`"))
                 }
             }
 
@@ -145,12 +151,27 @@ impl<'a> Interner<'a> {
             }
         }
 
-        return None;
+        None
+    }
+
+    // In the case of a seq or choice rule of 1 element in a hidden rule, weird
+    // inconsistent behavior w/ queries can occur. So we should treat it as that single rule itself
+    // in this case.
+    fn intern_single(&self, elements: &[Rule], name: Option<&str>) -> Option<Result<Rule>> {
+        if elements.len() == 1 && matches!(elements[0], Rule::String(_) | Rule::Pattern(_, _)) {
+            eprintln!(
+                "Warning: rule {} is just a `seq` or `choice` rule with a single element. This is redundant.",
+                name.unwrap_or_default()
+            );
+            Some(self.intern_rule(&elements[0], name))
+        } else {
+            None
+        }
     }
 }
 
 fn variable_type_for_name(name: &str) -> VariableType {
-    if name.starts_with("_") {
+    if name.starts_with('_') {
         VariableType::Hidden
     } else {
         VariableType::Named
@@ -237,6 +258,31 @@ mod tests {
             Err(e) => assert_eq!(e.to_string(), "Undefined symbol `y`"),
             _ => panic!("Expected an error but got none"),
         }
+    }
+
+    #[test]
+    fn test_interning_a_seq_or_choice_of_one_rule() {
+        let grammar = intern_symbols(&build_grammar(vec![
+            Variable::named("w", Rule::choice(vec![Rule::string("a")])),
+            Variable::named("x", Rule::seq(vec![Rule::pattern("b", "")])),
+            Variable::named("y", Rule::string("a")),
+            Variable::named("z", Rule::pattern("b", "")),
+        ]))
+        .unwrap();
+
+        assert_eq!(
+            grammar.variables,
+            vec![
+                Variable::named("w", Rule::string("a")),
+                Variable::named("x", Rule::pattern("b", "")),
+                Variable::named("y", Rule::string("a")),
+                Variable::named("z", Rule::pattern("b", "")),
+            ]
+        );
+
+        assert_eq!(grammar.variables[0].rule, grammar.variables[2].rule);
+
+        assert_eq!(grammar.variables[1].rule, grammar.variables[3].rule);
     }
 
     fn build_grammar(variables: Vec<Variable>) -> InputGrammar {
