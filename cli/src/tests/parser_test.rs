@@ -858,16 +858,16 @@ fn test_parsing_with_multiple_included_ranges() {
     let template_string_node = js_tree
         .root_node()
         .descendant_for_byte_range(
-            source_code.find("<div>").unwrap(),
-            source_code.find("Hello").unwrap(),
+            source_code.find("`<").unwrap(),
+            source_code.find(">`").unwrap(),
         )
         .unwrap();
     assert_eq!(template_string_node.kind(), "template_string");
 
     let open_quote_node = template_string_node.child(0).unwrap();
-    let interpolation_node1 = template_string_node.child(1).unwrap();
-    let interpolation_node2 = template_string_node.child(2).unwrap();
-    let close_quote_node = template_string_node.child(3).unwrap();
+    let interpolation_node1 = template_string_node.child(2).unwrap();
+    let interpolation_node2 = template_string_node.child(4).unwrap();
+    let close_quote_node = template_string_node.child(6).unwrap();
 
     parser.set_language(&get_language("html")).unwrap();
     let html_ranges = &[

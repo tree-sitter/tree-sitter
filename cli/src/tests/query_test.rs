@@ -377,7 +377,7 @@ fn test_query_errors_on_impossible_patterns() {
         Query::new(
             &js_lang,
             "[
-                (function (identifier))
+                (function_expression (identifier))
                 (function_declaration (identifier))
                 (generator_function_declaration (identifier))
             ]",
@@ -387,7 +387,7 @@ fn test_query_errors_on_impossible_patterns() {
             Query::new(
                 &js_lang,
                 "[
-                    (function (identifier))
+                    (function_expression (identifier))
                     (function_declaration (object))
                     (generator_function_declaration (identifier))
                 ]",
@@ -395,7 +395,7 @@ fn test_query_errors_on_impossible_patterns() {
             Err(QueryError {
                 kind: QueryErrorKind::Structure,
                 row: 2,
-                offset: 88,
+                offset: 99,
                 column: 42,
                 message: [
                     "                    (function_declaration (object))", //
@@ -589,7 +589,7 @@ fn test_query_matches_with_multiple_patterns_same_root() {
             "
               (pair
                 key: (property_identifier) @method-def
-                value: (function))
+                value: (function_expression))
 
               (pair
                 key: (property_identifier) @method-def
@@ -1499,7 +1499,7 @@ fn test_query_matches_with_simple_alternatives() {
             "
             (pair
                 key: [(property_identifier) (string)] @key
-                value: [(function) @val1 (arrow_function) @val2])
+                value: [(function_expression) @val1 (arrow_function) @val2])
             ",
         )
         .unwrap();
@@ -2835,12 +2835,12 @@ fn test_query_captures_basic() {
             r#"
             (pair
               key: _ @method.def
-              (function
+              (function_expression
                 name: (identifier) @method.alias))
 
             (variable_declarator
               name: _ @function.def
-              value: (function
+              value: (function_expression
                 name: (identifier) @function.alias))
 
             ":" @delimiter
@@ -3078,7 +3078,7 @@ fn test_query_captures_with_duplicates() {
             r#"
             (variable_declarator
                 name: (identifier) @function
-                value: (function))
+                value: (function_expression))
 
             (identifier) @variable
             "#,
@@ -4498,7 +4498,7 @@ fn test_capture_quantifiers() {
             language: get_language("javascript"),
             pattern: r#"[
                 (function_declaration name:(identifier) @name)
-                (function)
+                (function_expression)
             ] @fun"#,
             capture_quantifiers: &[
                 (0, "fun", CaptureQuantifier::One),
