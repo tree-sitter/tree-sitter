@@ -432,7 +432,7 @@ fn test_parsing_after_editing_tree_that_depends_on_column_values() {
     let dir = fixtures_dir()
         .join("test_grammars")
         .join("uses_current_column");
-    let grammar = fs::read_to_string(&dir.join("grammar.json")).unwrap();
+    let grammar = fs::read_to_string(dir.join("grammar.json")).unwrap();
     let (grammar_name, parser_code) = generate_parser_for_grammar(&grammar).unwrap();
 
     let mut parser = Parser::new();

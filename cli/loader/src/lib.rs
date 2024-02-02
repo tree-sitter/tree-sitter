@@ -322,12 +322,16 @@ impl Loader {
         language
             .get_or_try_init(|| {
                 let src_path = path.join("src");
-                self.load_language_at_path(&src_path, &src_path)
+                self.load_language_at_path(&src_path, &[&src_path])
             })
             .cloned()
     }
 
-    pub fn load_language_at_path(&self, src_path: &Path, header_path: &Path) -> Result<Language> {
+    pub fn load_language_at_path(
+        &self,
+        src_path: &Path,
+        header_paths: &[&Path],
+    ) -> Result<Language> {
         let grammar_path = src_path.join("grammar.json");
 
         #[derive(Deserialize)]
@@ -339,13 +343,13 @@ impl Loader {
         let grammar_json: GrammarJSON = serde_json::from_reader(BufReader::new(&mut grammar_file))
             .with_context(|| "Failed to parse grammar.json")?;
 
-        self.load_language_at_path_with_name(src_path, &header_path, &grammar_json.name)
+        self.load_language_at_path_with_name(src_path, header_paths, &grammar_json.name)
     }
 
     pub fn load_language_at_path_with_name(
         &self,
         src_path: &Path,
-        header_path: &Path,
+        header_paths: &[&Path],
         name: &str,
     ) -> Result<Language> {
         let mut lib_name = name.to_string();
@@ -391,7 +395,7 @@ impl Loader {
         {
             if recompile {
                 self.compile_parser_to_dylib(
-                    header_path,
+                    header_paths,
                     &parser_path,
                     &scanner_path,
                     &library_path,
@@ -413,7 +417,7 @@ impl Loader {
 
     fn compile_parser_to_dylib(
         &self,
-        header_path: &Path,
+        header_paths: &[&Path],
         parser_path: &Path,
         scanner_path: &Option<PathBuf>,
         library_path: &PathBuf,
@@ -433,7 +437,10 @@ impl Loader {
         }
 
         if compiler.is_like_msvc() {
-            command.args(&["/nologo", "/LD", "/I"]).arg(header_path);
+            command.args(&["/nologo", "/LD"]);
+            header_paths.iter().for_each(|path| {
+                command.arg(format!("/I{}", path.to_string_lossy()));
+            });
             if self.debug_build {
                 command.arg("/Od");
             } else {
@@ -451,10 +458,12 @@ impl Loader {
                 .arg("-shared")
                 .arg("-fno-exceptions")
                 .arg("-g")
-                .arg("-I")
-                .arg(header_path)
                 .arg("-o")
                 .arg(&library_path);
+
+            header_paths.iter().for_each(|path| {
+                command.arg(format!("-I{}", path.to_string_lossy()));
+            });
 
             if !cfg!(windows) {
                 command.arg("-fPIC");

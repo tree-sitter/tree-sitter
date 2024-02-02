@@ -1,3 +1,4 @@
+use anyhow::Context;
 use lazy_static::lazy_static;
 use std::path::{Path, PathBuf};
 use std::{env, fs};
@@ -28,7 +29,10 @@ pub fn fixtures_dir<'a>() -> &'static Path {
 
 pub fn get_language(name: &str) -> Language {
     TEST_LOADER
-        .load_language_at_path(&GRAMMARS_DIR.join(name).join("src"), &HEADER_DIR)
+        .load_language_at_path(
+            &GRAMMARS_DIR.join(name).join("src"),
+            &[&HEADER_DIR, &GRAMMARS_DIR.join(name).join("src")],
+        )
         .unwrap()
 }
 
@@ -93,7 +97,18 @@ pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> 
         }
     }
 
+    let header_path = src_dir.join("tree_sitter");
+    fs::create_dir_all(&header_path).unwrap();
+    fs::write(&header_path.join("parser.h"), tree_sitter::PARSER_HEADER)
+        .with_context(|| {
+            format!(
+                "Failed to write {:?}",
+                header_path.join("parser.h").file_name().unwrap()
+            )
+        })
+        .unwrap();
+
     TEST_LOADER
-        .load_language_at_path_with_name(&src_dir, &HEADER_DIR, name)
+        .load_language_at_path_with_name(&src_dir, &[&HEADER_DIR], name)
         .unwrap()
 }
