@@ -1,0 +1,32 @@
+name: Full Rust codebase checks
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+on:
+  workflow_call:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install rust toolchain
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: stable
+        components: clippy, rustfmt
+
+    - run: cargo fmt -- --check
+    - run: cargo check --workspace --examples --tests --benches --bins
+
+  check_c_warnings:
+    name: Check C warnings
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Make C library to check that it's able to compile without warnings
+      run: make -j CFLAGS="-Werror"
