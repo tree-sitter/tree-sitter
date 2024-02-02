@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 #include "tree_sitter/api.h"
-#include "tree_sitter/parser.h"
+#include "./parser.h"
 
 bool ts_wasm_store_start(TSWasmStore *, TSLexer *, const TSLanguage *);
 void ts_wasm_store_stop(TSWasmStore *);

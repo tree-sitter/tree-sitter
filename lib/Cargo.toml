@@ -14,12 +14,12 @@ rust-version.workspace = true
 build = "binding_rust/build.rs"
 
 include = [
-  "/binding_rust/*",
-  "/Cargo.toml",
-  "/include/*",
-  "/src/*.h",
-  "/src/*.c",
-  "/src/unicode/*",
+	"/binding_rust/*",
+	"/Cargo.toml",
+	"/src/*.h",
+	"/src/*.c",
+	"/src/unicode/*",
+	"/include/tree_sitter/api.h",
 ]
 
 [features]
