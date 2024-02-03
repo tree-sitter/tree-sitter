@@ -12,7 +12,6 @@ on:
         required: true
         type: string
 
-
 jobs:
   run:
     name: Run checks
@@ -34,9 +33,3 @@ jobs:
 
     - name: Run cargo fmt
       run: cargo fmt -- --check
-
-    # - name: Run clippy (on minimum supported rust version to prevent warnings we can't fix)
-    #   run: cargo clippy --all-targets
-
-    # - name: Run main tests
-    #   run: cargo test
