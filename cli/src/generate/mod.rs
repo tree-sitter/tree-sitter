@@ -40,13 +40,18 @@ struct GeneratedParser {
 
 pub fn generate_parser_in_directory(
     repo_path: &PathBuf,
+    outdir: Option<&str>,
     grammar_path: Option<&str>,
     abi_version: usize,
     generate_bindings: bool,
     report_symbol_name: Option<&str>,
     js_runtime: Option<&str>,
 ) -> Result<()> {
-    let src_path = repo_path.join("src");
+    let src_path = if let Some(outdir) = outdir {
+        PathBuf::from(outdir)
+    } else {
+        repo_path.join("src")
+    };
     let header_path = src_path.join("tree_sitter");
 
     // Read the grammar.json.
