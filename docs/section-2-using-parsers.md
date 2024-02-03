@@ -714,6 +714,18 @@ Here's another example finding Cgo comments to potentially inject with C
   (#match? @injection.content "^//"))
 ```
 
+##### replace!
+
+This predicate will replace the value received by a capture using regex. It does
+not affect other patterns that happen to capture the same node.
+
+```scheme
+(fenced_block
+  (shebang) @injection.language
+  (body) @injection.content
+  (#replace? @injection.language "#!\S*[/ ](?P<lang>\S+).*" "$lang"))
+```
+
 ##### any-of?, not-any-of?
 
 The "any-of?" predicate allows you to match a capture against multiple strings,

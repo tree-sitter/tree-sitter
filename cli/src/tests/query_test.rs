@@ -714,6 +714,54 @@ fn test_query_matches_with_many_overlapping_results() {
 }
 
 #[test]
+fn test_query_predicate_replace() {
+    allocations::record(|| {
+        let language = get_language("ruby");
+        let query = Query::new(
+            language,
+            r#"(program
+                (assignment (heredoc_beginning) @injection.language)
+                (heredoc_body) @injection.content
+                (#replace! @injection.language "<<[-~]?(?P<lang>\S+)" "$lang"))
+            "#,
+        )
+        .unwrap();
+
+        let source = "
+            query = <<-SQL
+            SELECT * FROM tab
+            where idx > 100;";
+
+        let mut parser = Parser::new();
+        parser.set_language(language).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        tree.print_dot_graph(&mut std::io::stdout());
+        // panic!("{:#?}", tree.walk());c
+
+        let mut cursor = QueryCursor::new();
+        let caps = cursor.captures(&query, tree.root_node(), source.as_bytes());
+        for c in caps {
+            dbg!(c);
+        }
+
+        let mut cursor = QueryCursor::new();
+        let caps = cursor.captures(&query, tree.root_node(), source.as_bytes());
+        let caps = collect_captures(caps, &query, source);
+
+        assert_eq!(
+            caps,
+            [
+                ("injection.language", "SQL"),
+                (
+                    "injection.content",
+                    "\n            SELECT * FROM tab\n            where idx > 100;"
+                )
+            ]
+        );
+    });
+}
+
+#[test]
 fn test_query_matches_capturing_error_nodes() {
     allocations::record(|| {
         let language = get_language("javascript");
