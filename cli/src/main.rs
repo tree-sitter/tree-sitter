@@ -1,10 +1,12 @@
 use anyhow::{anyhow, Context, Error, Result};
 use clap::{App, AppSettings, Arg, SubCommand};
 use glob::glob;
+use regex::Regex;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::{env, fs, u64};
 use tree_sitter::{ffi, Parser, Point};
+use tree_sitter_cli::test::TestOptions;
 use tree_sitter_cli::{
     generate, highlight, logger,
     parse::{self, ParseFileOptions, ParseOutput},
@@ -236,7 +238,23 @@ fn run() -> Result<()> {
                         .long("filter")
                         .short("f")
                         .takes_value(true)
-                        .help("Only run corpus test cases whose name includes the given string"),
+                        .help("[DEPRECATED in favor of include]\nOnly run corpus test cases whose name includes the given string"),
+                )
+                .arg(
+                    Arg::with_name("include")
+                        .long("include")
+                        .short("i")
+                        .takes_value(true)
+                        .help("Only run corpus test cases whose name matches the given regex"),
+                )
+                .arg(
+                    Arg::with_name("exclude")
+                        .long("exclude")
+                        .short("e")
+                        .takes_value(true)
+                        .help(
+                            "Only run corpus test cases whose name does not match the given regex",
+                        ),
                 )
                 .arg(
                     Arg::with_name("update")
@@ -389,6 +407,10 @@ fn run() -> Result<()> {
             let debug_build = matches.is_present("debug-build");
             let update = matches.is_present("update");
             let filter = matches.value_of("filter");
+            let include: Option<Regex> =
+                matches.value_of("include").and_then(|s| Regex::new(s).ok());
+            let exclude: Option<Regex> =
+                matches.value_of("exclude").and_then(|s| Regex::new(s).ok());
             let apply_all_captures = matches.is_present("apply-all-captures");
 
             if debug {
@@ -423,14 +445,17 @@ fn run() -> Result<()> {
                 test_corpus_dir = current_dir.join("corpus");
             }
             if test_corpus_dir.is_dir() {
-                test::run_tests_at_path(
-                    &mut parser,
-                    &test_corpus_dir,
+                let mut opts = TestOptions {
+                    path: test_corpus_dir,
                     debug,
                     debug_graph,
                     filter,
+                    include,
+                    exclude,
                     update,
-                )?;
+                };
+
+                test::run_tests_at_path(&mut parser, &mut opts)?;
             }
 
             // Check that all of the queries are valid.

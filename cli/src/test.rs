@@ -56,20 +56,23 @@ impl Default for TestEntry {
     }
 }
 
-pub fn run_tests_at_path(
-    parser: &mut Parser,
-    path: &Path,
-    debug: bool,
-    debug_graph: bool,
-    filter: Option<&str>,
-    update: bool,
-) -> Result<()> {
-    let test_entry = parse_tests(path)?;
+pub struct TestOptions<'a> {
+    pub path: PathBuf,
+    pub debug: bool,
+    pub debug_graph: bool,
+    pub filter: Option<&'a str>,
+    pub include: Option<Regex>,
+    pub exclude: Option<Regex>,
+    pub update: bool,
+}
+
+pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<()> {
+    let test_entry = parse_tests(&opts.path)?;
     let mut _log_session = None;
 
-    if debug_graph {
+    if opts.debug_graph {
         _log_session = Some(util::log_graphs(parser, "log.html")?);
-    } else if debug {
+    } else if opts.debug {
         parser.set_logger(Some(Box::new(|log_type, message| {
             if log_type == LogType::Lex {
                 io::stderr().write_all(b"  ").unwrap();
@@ -83,10 +86,9 @@ pub fn run_tests_at_path(
     run_tests(
         parser,
         test_entry,
-        filter,
+        opts,
         0,
         &mut failures,
-        update,
         &mut corrected_entries,
     )?;
 
@@ -97,7 +99,7 @@ pub fn run_tests_at_path(
     } else {
         println!();
 
-        if update {
+        if opts.update {
             if failures.len() == 1 {
                 println!("1 update:\n");
             } else {
@@ -177,10 +179,9 @@ pub fn print_diff(actual: &str, expected: &str) {
 fn run_tests(
     parser: &mut Parser,
     test_entry: TestEntry,
-    filter: Option<&str>,
+    opts: &mut TestOptions,
     mut indent_level: i32,
     failures: &mut Vec<(String, String, String)>,
-    update: bool,
     corrected_entries: &mut Vec<(String, String, String, usize, usize)>,
 ) -> Result<()> {
     match test_entry {
@@ -192,22 +193,6 @@ fn run_tests(
             divider_delim_len,
             has_fields,
         } => {
-            if let Some(filter) = filter {
-                if !name.contains(filter) {
-                    if update {
-                        let input = String::from_utf8(input).unwrap();
-                        let output = format_sexp(&output);
-                        corrected_entries.push((
-                            name,
-                            input,
-                            output,
-                            header_delim_len,
-                            divider_delim_len,
-                        ));
-                    }
-                    return Ok(());
-                }
-            }
             let tree = parser.parse(&input, None).unwrap();
             let mut actual = tree.root_node().to_sexp();
             if !has_fields {
@@ -216,7 +201,7 @@ fn run_tests(
             print!("{}", "  ".repeat(indent_level as usize));
             if actual == output {
                 println!("✓ {}", Colour::Green.paint(&name));
-                if update {
+                if opts.update {
                     let input = String::from_utf8(input).unwrap();
                     let output = format_sexp(&output);
                     corrected_entries.push((
@@ -228,7 +213,7 @@ fn run_tests(
                     ));
                 }
             } else {
-                if update {
+                if opts.update {
                     let input = String::from_utf8(input).unwrap();
                     let output = format_sexp(&actual);
                     corrected_entries.push((
@@ -247,9 +232,34 @@ fn run_tests(
         }
         TestEntry::Group {
             name,
-            children,
+            mut children,
             file_path,
         } => {
+            children.retain(|child| {
+                if let TestEntry::Example { name, .. } = child {
+                    if let Some(filter) = opts.filter {
+                        if !name.contains(filter) {
+                            return false;
+                        }
+                    }
+                    if let Some(include) = &opts.include {
+                        if !include.is_match(name) {
+                            return false;
+                        }
+                    }
+                    if let Some(exclude) = &opts.exclude {
+                        if exclude.is_match(name) {
+                            return false;
+                        }
+                    }
+                }
+                true
+            });
+
+            if children.is_empty() {
+                return Ok(());
+            }
+
             if indent_level > 0 {
                 print!("{}", "  ".repeat(indent_level as usize));
                 println!("{name}:");
@@ -262,16 +272,15 @@ fn run_tests(
                 run_tests(
                     parser,
                     child,
-                    filter,
+                    opts,
                     indent_level,
                     failures,
-                    update,
                     corrected_entries,
                 )?;
             }
 
             if let Some(file_path) = file_path {
-                if update && failures.len() - failure_count > 0 {
+                if opts.update && failures.len() - failure_count > 0 {
                     write_tests(&file_path, corrected_entries)?;
                 }
                 corrected_entries.clear();
