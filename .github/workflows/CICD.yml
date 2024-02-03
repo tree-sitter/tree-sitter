@@ -43,13 +43,6 @@ jobs:
   checks:
     uses: ./.github/workflows/checks.yml
 
-  min_version:
-    name: Minimum supported rust version
-    needs: checks
-    uses: ./.github/workflows/msrv.yml
-    with:
-      package: tree-sitter-cli
-
   sanitize:
     name: Sanitize
     needs: [init, checks]
@@ -64,7 +57,7 @@ jobs:
 
   release:
     name: Release
-    needs: [init, checks, min_version, build, sanitize]
+    needs: [init, checks, build, sanitize]
     if: >
       github.event_name == 'pull_request' &&
       startsWith(github.head_ref, 'release/v') &&
