@@ -40,37 +40,31 @@ jobs:
           || github.ref
         }}
 
-  fast_checks:
-    name: Fast checks
-    uses: ./.github/workflows/fast_checks.yml
-
-  full_checks:
-    name: Full Rust checks
-    needs: fast_checks
-    uses: ./.github/workflows/full_rust_checks.yml
+  checks:
+    uses: ./.github/workflows/checks.yml
 
   min_version:
     name: Minimum supported rust version
-    needs: fast_checks
+    needs: checks
     uses: ./.github/workflows/msrv.yml
     with:
       package: tree-sitter-cli
 
   sanitize:
     name: Sanitize
-    needs: [init, fast_checks]
+    needs: [init, checks]
     uses: ./.github/workflows/sanitize.yml
 
   build:
     name: Build & Test
-    needs: [init, fast_checks]
+    needs: [init, checks]
     uses: ./.github/workflows/build.yml
     with:
       ref: ${{ needs.init.outputs.ref }}
 
   release:
     name: Release
-    needs: [init, fast_checks, full_checks, min_version, build, sanitize]
+    needs: [init, checks, min_version, build, sanitize]
     if: >
       github.event_name == 'pull_request' &&
       startsWith(github.head_ref, 'release/v') &&
