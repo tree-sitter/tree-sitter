@@ -20,8 +20,8 @@ jobs:
     - name: Install UBSAN library
       run: sudo apt-get update -y && sudo apt-get install -y libubsan1
 
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+    - run: rustup toolchain install stable --profile minimal
+    - uses: Swatinem/rust-cache@v2
 
     - name: Build CLI
       run: cargo build --release

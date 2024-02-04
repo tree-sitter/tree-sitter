@@ -102,7 +102,7 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
       with:
         targets: ${{ matrix.target }}
-        toolchain: ${{ matrix.rust-toolchain || 'stable' }}
+        toolchain: 'stable'
 
     - name: Install cross
       if: ${{ matrix.use-cross }}
