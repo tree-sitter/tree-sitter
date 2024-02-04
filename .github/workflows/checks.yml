@@ -19,8 +19,9 @@ jobs:
         toolchain: stable
         components: clippy, rustfmt
 
-    - run: cargo fmt -- --check
     - run: cargo check --workspace --examples --tests --benches --bins
+    - run: cargo fmt -- --check
+    - run: cargo clippy --workspace
 
   check_c_warnings:
     name: Check C warnings
