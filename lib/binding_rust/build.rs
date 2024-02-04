@@ -9,10 +9,7 @@ fn main() {
             let scan_build_path = scan_build_path.to_str().unwrap();
             env::set_var(
                 "CC",
-                &format!(
-                    "{} -analyze-headers --use-analyzer={} cc",
-                    scan_build_path, clang_path
-                ),
+                format!("{scan_build_path} -analyze-headers --use-analyzer={clang_path} cc",),
             );
         }
     }
@@ -28,7 +25,7 @@ fn main() {
     }
 
     let src_path = Path::new("src");
-    for entry in fs::read_dir(&src_path).unwrap() {
+    for entry in fs::read_dir(src_path).unwrap() {
         let entry = entry.unwrap();
         let path = src_path.join(entry.file_name());
         println!("cargo:rerun-if-changed={}", path.to_str().unwrap());
@@ -80,9 +77,9 @@ fn generate_bindings() {
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let bindings_rs = out_dir.join("bindings.rs");
 
-    bindings.write_to_file(&bindings_rs).expect(&*format!(
-        "Failed to write bindings into path: {bindings_rs:?}"
-    ));
+    bindings
+        .write_to_file(&bindings_rs)
+        .unwrap_or_else(|_| panic!("Failed to write bindings into path: {bindings_rs:?}"));
 }
 
 fn which(exe_name: impl AsRef<Path>) -> Option<PathBuf> {
