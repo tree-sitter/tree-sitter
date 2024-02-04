@@ -9,17 +9,11 @@ on:
       - synchronize
       - ready_for_review
   push:
-    branches-ignore:
-      - release/v*
+    branches:
+      - 'master'
 
 concurrency:
-  group: >
-    ${{ github.workflow }} @ ${{
-      github.ref == 'refs/heads/master' && github.ref_name || ''
-    }}${{
-      github.ref == 'refs/heads/master' && github.sha
-      || github.event.pull_request.head.label || github.head_ref || github.ref
-    }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
