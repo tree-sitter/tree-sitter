@@ -94,7 +94,7 @@ jobs:
 
     - name: Install Emscripten
       if: ${{ !matrix.cli-only && !matrix.use-cross }}
-      uses: mymindstorm/setup-emsdk@v12
+      uses: mymindstorm/setup-emsdk@v14
       with:
         version: ${{ env.EMSCRIPTEN_VERSION }}
 
