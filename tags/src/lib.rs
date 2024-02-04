@@ -117,7 +117,7 @@ struct LineInfo {
 
 impl TagsConfiguration {
     pub fn new(language: Language, tags_query: &str, locals_query: &str) -> Result<Self, Error> {
-        let query = Query::new(&language, &format!("{}{}", locals_query, tags_query))?;
+        let query = Query::new(&language, &format!("{locals_query}{tags_query}"))?;
 
         let tags_query_offset = locals_query.len();
         let mut tags_pattern_index = 0;
@@ -137,13 +137,12 @@ impl TagsConfiguration {
         let mut local_definition_capture_index = None;
         for (i, name) in query.capture_names().iter().enumerate() {
             match *name {
-                "" => continue,
                 "name" => name_capture_index = Some(i as u32),
                 "ignore" => ignore_capture_index = Some(i as u32),
                 "doc" => doc_capture_index = Some(i as u32),
                 "local.scope" => local_scope_capture_index = Some(i as u32),
                 "local.definition" => local_definition_capture_index = Some(i as u32),
-                "local.reference" => continue,
+                "local.reference" | "" => continue,
                 _ => {
                     let mut is_definition = false;
 
@@ -153,7 +152,7 @@ impl TagsConfiguration {
                     } else if name.starts_with("reference.") {
                         name.trim_start_matches("reference.")
                     } else {
-                        return Err(Error::InvalidCapture(name.to_string()));
+                        return Err(Error::InvalidCapture((*name).to_string()));
                     };
 
                     if let Ok(cstr) = CString::new(kind) {
@@ -200,7 +199,7 @@ impl TagsConfiguration {
                 }
                 if let Some(doc_capture_index) = doc_capture_index {
                     for predicate in query.general_predicates(pattern_index) {
-                        if predicate.args.get(0)
+                        if predicate.args.first()
                             == Some(&QueryPredicateArg::Capture(doc_capture_index))
                         {
                             match (predicate.operator.as_ref(), predicate.args.get(1)) {
@@ -216,11 +215,11 @@ impl TagsConfiguration {
                         }
                     }
                 }
-                return Ok(info);
+                Ok(info)
             })
             .collect::<Result<Vec<_>, Error>>()?;
 
-        Ok(TagsConfiguration {
+        Ok(Self {
             language,
             query,
             syntax_type_names,
@@ -229,26 +228,37 @@ impl TagsConfiguration {
             doc_capture_index,
             name_capture_index,
             ignore_capture_index,
-            tags_pattern_index,
             local_scope_capture_index,
             local_definition_capture_index,
+            tags_pattern_index,
             pattern_info,
         })
     }
 
+    #[must_use]
     pub fn syntax_type_name(&self, id: u32) -> &str {
         unsafe {
-            let cstr =
-                CStr::from_ptr(self.syntax_type_names[id as usize].as_ptr() as *const c_char)
-                    .to_bytes();
+            let cstr = CStr::from_ptr(
+                self.syntax_type_names[id as usize]
+                    .as_ptr()
+                    .cast::<c_char>(),
+            )
+            .to_bytes();
             str::from_utf8(cstr).expect("syntax type name was not valid utf-8")
         }
     }
 }
 
+impl Default for TagsContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TagsContext {
+    #[must_use]
     pub fn new() -> Self {
-        TagsContext {
+        Self {
             parser: Parser::new(),
             cursor: QueryCursor::new(),
         }
@@ -327,9 +337,8 @@ where
                     let tag = self.tag_queue.remove(0).0;
                     if tag.is_ignored() {
                         continue;
-                    } else {
-                        return Some(Ok(tag));
                     }
+                    return Some(Ok(tag));
                 }
             }
 
@@ -452,11 +461,10 @@ where
                         for doc_node in &doc_nodes[docs_start_index..] {
                             if let Ok(content) = str::from_utf8(&self.source[doc_node.byte_range()])
                             {
-                                let content = if let Some(regex) = &pattern_info.doc_strip_regex {
-                                    regex.replace_all(content, "").to_string()
-                                } else {
-                                    content.to_string()
-                                };
+                                let content = pattern_info.doc_strip_regex.as_ref().map_or_else(
+                                    || content.to_string(),
+                                    |regex| regex.replace_all(content, "").to_string(),
+                                );
                                 match &mut docs {
                                     None => docs = Some(content),
                                     Some(d) => {
@@ -511,11 +519,11 @@ where
                             line_range: line_range.clone(),
                         });
                         tag = Tag {
+                            range,
+                            name_range,
                             line_range,
                             span,
                             utf16_column_range,
-                            range,
-                            name_range,
                             docs,
                             is_definition,
                             syntax_type_id,
@@ -554,8 +562,9 @@ where
 }
 
 impl Tag {
-    fn ignored(name_range: Range<usize>) -> Self {
-        Tag {
+    #[must_use]
+    const fn ignored(name_range: Range<usize>) -> Self {
+        Self {
             name_range,
             line_range: 0..0,
             span: Point::new(0, 0)..Point::new(0, 0),
@@ -567,7 +576,8 @@ impl Tag {
         }
     }
 
-    fn is_ignored(&self) -> bool {
+    #[must_use]
+    const fn is_ignored(&self) -> bool {
         self.range.start == usize::MAX
     }
 }
