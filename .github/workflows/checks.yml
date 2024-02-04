@@ -13,11 +13,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install rust toolchain
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: stable
-        components: clippy, rustfmt
+    - run: rustup toolchain install stable --profile minimal
+    - uses: Swatinem/rust-cache@v2
 
     - run: cargo fmt -- --check
     - run: cargo check --workspace --examples --tests --benches --bins
