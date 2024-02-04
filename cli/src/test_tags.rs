@@ -31,7 +31,7 @@ impl std::fmt::Display for Failure {
                 if i > 0 {
                     write!(f, ", ")?;
                 }
-                write!(f, "'{}'", actual_tag)?;
+                write!(f, "'{actual_tag}'")?;
             }
         }
         Ok(())
@@ -59,9 +59,8 @@ pub fn test_tags(loader: &Loader, tags_context: &mut TagsContext, directory: &Pa
         ) {
             Ok(assertion_count) => {
                 println!(
-                    "  ✓ {} ({} assertions)",
+                    "  ✓ {} ({assertion_count} assertions)",
                     Colour::Green.paint(test_file_name.to_string_lossy().as_ref()),
-                    assertion_count
                 );
             }
             Err(e) => {
@@ -69,7 +68,7 @@ pub fn test_tags(loader: &Loader, tags_context: &mut TagsContext, directory: &Pa
                     "  ✗ {}",
                     Colour::Red.paint(test_file_name.to_string_lossy().as_ref())
                 );
-                println!("    {}", e);
+                println!("    {e}");
                 failed = true;
             }
         }
@@ -88,8 +87,7 @@ pub fn test_tag(
     source: &[u8],
 ) -> Result<usize> {
     let tags = get_tag_positions(tags_context, tags_config, source)?;
-    let assertions =
-        parse_position_comments(tags_context.parser(), tags_config.language.clone(), source)?;
+    let assertions = parse_position_comments(tags_context.parser(), &tags_config.language, source)?;
 
     // Iterate through all of the assertions, checking against the actual tags.
     let mut i = 0;
@@ -102,36 +100,32 @@ pub fn test_tag(
     {
         let mut passed = false;
 
-        'tag_loop: loop {
-            if let Some(tag) = tags.get(i) {
-                if tag.1 <= *position {
-                    i += 1;
-                    continue;
+        'tag_loop: while let Some(tag) = tags.get(i) {
+            if tag.1 <= *position {
+                i += 1;
+                continue;
+            }
+
+            // Iterate through all of the tags that start at or before this assertion's
+            // position, looking for one that matches the assertion
+            let mut j = i;
+            while let (false, Some(tag)) = (passed, tags.get(j)) {
+                if tag.0 > *position {
+                    break 'tag_loop;
                 }
 
-                // Iterate through all of the tags that start at or before this assertion's
-                // position, looking for one that matches the assertion
-                let mut j = i;
-                while let (false, Some(tag)) = (passed, tags.get(j)) {
-                    if tag.0 > *position {
-                        break 'tag_loop;
-                    }
-
-                    let tag_name = &tag.2;
-                    if (*tag_name == *expected_tag) == !negative {
-                        passed = true;
-                        break 'tag_loop;
-                    } else {
-                        actual_tags.push(tag_name);
-                    }
-
-                    j += 1;
-                    if tag == tags.last().unwrap() {
-                        break 'tag_loop;
-                    }
+                let tag_name = &tag.2;
+                if (*tag_name == *expected_tag) == *negative {
+                    actual_tags.push(tag_name);
+                } else {
+                    passed = true;
+                    break 'tag_loop;
                 }
-            } else {
-                break;
+
+                j += 1;
+                if tag == tags.last().unwrap() {
+                    break 'tag_loop;
+                }
             }
         }
 
@@ -154,15 +148,15 @@ pub fn get_tag_positions(
     tags_config: &TagsConfiguration,
     source: &[u8],
 ) -> Result<Vec<(Point, Point, String)>> {
-    let (tags_iter, _has_error) = tags_context.generate_tags(&tags_config, &source, None)?;
+    let (tags_iter, _has_error) = tags_context.generate_tags(tags_config, source, None)?;
     let tag_positions = tags_iter
-        .filter_map(|t| t.ok())
+        .filter_map(std::result::Result::ok)
         .map(|tag| {
             let tag_postfix = tags_config.syntax_type_name(tag.syntax_type_id).to_string();
             let tag_name = if tag.is_definition {
-                format!("definition.{}", tag_postfix)
+                format!("definition.{tag_postfix}")
             } else {
-                format!("reference.{}", tag_postfix)
+                format!("reference.{tag_postfix}")
             };
             (tag.span.start, tag.span.end, tag_name)
         })

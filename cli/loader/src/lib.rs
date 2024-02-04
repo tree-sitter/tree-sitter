@@ -1123,6 +1123,7 @@ impl<'a> LanguageConfiguration<'a> {
         Error::from(error).context(format!("Error in query file {path:?}"))
     }
 
+    #[allow(clippy::type_complexity)]
     fn read_queries(
         &self,
         paths: Option<&[String]>,

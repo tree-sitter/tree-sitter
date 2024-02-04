@@ -22,7 +22,7 @@ use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use semver::Version;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Stdio};
 use std::{env, fs};
 
@@ -39,7 +39,7 @@ struct GeneratedParser {
 }
 
 pub fn generate_parser_in_directory(
-    repo_path: &PathBuf,
+    repo_path: &Path,
     grammar_path: Option<&str>,
     abi_version: usize,
     generate_bindings: bool,
@@ -50,12 +50,12 @@ pub fn generate_parser_in_directory(
     let header_path = src_path.join("tree_sitter");
 
     // Read the grammar.json.
-    let grammar_json = match grammar_path {
-        Some(path) => load_grammar_file(path.as_ref(), js_runtime)?,
-        None => {
-            let grammar_js_path = grammar_path.map_or(repo_path.join("grammar.js"), |s| s.into());
-            load_grammar_file(&grammar_js_path, js_runtime)?
-        }
+    let grammar_json = if let Some(path) = grammar_path {
+        load_grammar_file(path.as_ref(), js_runtime)?
+    } else {
+        let grammar_js_path =
+            grammar_path.map_or(repo_path.join("grammar.js"), std::convert::Into::into);
+        load_grammar_file(&grammar_js_path, js_runtime)?
     };
 
     // Ensure that the output directories exist.
@@ -63,8 +63,8 @@ pub fn generate_parser_in_directory(
     fs::create_dir_all(&header_path)?;
 
     if grammar_path.is_none() {
-        fs::write(&src_path.join("grammar.json"), &grammar_json)
-            .with_context(|| format!("Failed to write grammar.json to {:?}", src_path))?;
+        fs::write(src_path.join("grammar.json"), &grammar_json)
+            .with_context(|| format!("Failed to write grammar.json to {src_path:?}"))?;
     }
 
     // Parse and preprocess the grammar.
@@ -81,7 +81,7 @@ pub fn generate_parser_in_directory(
         &language_name,
         syntax_grammar,
         lexical_grammar,
-        inlines,
+        &inlines,
         simple_aliases,
         abi_version,
         report_symbol_name,
@@ -92,7 +92,7 @@ pub fn generate_parser_in_directory(
     write_file(&header_path.join("parser.h"), tree_sitter::PARSER_HEADER)?;
 
     if generate_bindings {
-        binding_files::generate_binding_files(&repo_path, &language_name)?;
+        binding_files::generate_binding_files(repo_path, &language_name)?;
     }
 
     Ok(())
@@ -107,7 +107,7 @@ pub fn generate_parser_for_grammar(grammar_json: &str) -> Result<(String, String
         &input_grammar.name,
         syntax_grammar,
         lexical_grammar,
-        inlines,
+        &inlines,
         simple_aliases,
         tree_sitter::LANGUAGE_VERSION,
         None,
@@ -116,10 +116,10 @@ pub fn generate_parser_for_grammar(grammar_json: &str) -> Result<(String, String
 }
 
 fn generate_parser_for_grammar_with_opts(
-    name: &String,
+    name: &str,
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
-    inlines: InlinedProductionMap,
+    inlines: &InlinedProductionMap,
     simple_aliases: AliasMap,
     abi_version: usize,
     report_symbol_name: Option<&str>,
@@ -137,7 +137,7 @@ fn generate_parser_for_grammar_with_opts(
         &lexical_grammar,
         &simple_aliases,
         &variable_info,
-        &inlines,
+        inlines,
         report_symbol_name,
     )?;
     let c_code = render_c_code(
@@ -169,10 +169,7 @@ pub fn load_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Resul
         Some("json") => {
             Ok(fs::read_to_string(grammar_path).with_context(|| "Failed to load grammar.json")?)
         }
-        _ => Err(anyhow!(
-            "Unknown grammar file extension: {:?}",
-            grammar_path
-        )),
+        _ => Err(anyhow!("Unknown grammar file extension: {grammar_path:?}",)),
     }
 }
 
@@ -213,7 +210,7 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result
     match output.status.code() {
         None => panic!("Node process was killed"),
         Some(0) => {}
-        Some(code) => return Err(anyhow!("Node process exited with status {}", code)),
+        Some(code) => return Err(anyhow!("Node process exited with status {code}")),
     }
     let mut result =
         String::from_utf8(output.stdout).with_context(|| "Got invalid UTF8 from node")?;

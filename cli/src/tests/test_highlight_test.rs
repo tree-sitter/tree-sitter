@@ -29,7 +29,7 @@ fn test_highlight_test_with_basic_test() {
     .join("\n");
 
     let assertions =
-        parse_position_comments(&mut Parser::new(), language, source.as_bytes()).unwrap();
+        parse_position_comments(&mut Parser::new(), &language, source.as_bytes()).unwrap();
     assert_eq!(
         assertions,
         &[

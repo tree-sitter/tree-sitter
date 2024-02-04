@@ -363,7 +363,7 @@ fn test_tree_cursor() {
     assert_eq!(cursor.node().start_position(), Point { row: 1, column: 29 });
 
     let mut copy = tree.walk();
-    copy.reset_to(cursor);
+    copy.reset_to(&cursor);
 
     assert_eq!(copy.node().kind(), "{");
     assert_eq!(copy.node().is_named(), false);

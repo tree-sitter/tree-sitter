@@ -3,7 +3,7 @@ use crate::generate::rules::Symbol;
 use crate::generate::tables::{ParseStateId, ParseTable};
 use std::fmt;
 
-pub(crate) struct CoincidentTokenIndex<'a> {
+pub struct CoincidentTokenIndex<'a> {
     entries: Vec<Vec<ParseStateId>>,
     grammar: &'a LexicalGrammar,
     n: usize,
@@ -23,7 +23,7 @@ impl<'a> CoincidentTokenIndex<'a> {
                     for other_symbol in state.terminal_entries.keys() {
                         if other_symbol.is_terminal() {
                             let index = result.index(symbol.index, other_symbol.index);
-                            if result.entries[index].last().cloned() != Some(i) {
+                            if result.entries[index].last().copied() != Some(i) {
                                 result.entries[index].push(i);
                             }
                         }
@@ -42,7 +42,8 @@ impl<'a> CoincidentTokenIndex<'a> {
         !self.entries[self.index(a.index, b.index)].is_empty()
     }
 
-    fn index(&self, a: usize, b: usize) -> usize {
+    #[must_use]
+    const fn index(&self, a: usize, b: usize) -> usize {
         if a < b {
             a * self.n + b
         } else {
@@ -53,20 +54,20 @@ impl<'a> CoincidentTokenIndex<'a> {
 
 impl<'a> fmt::Debug for CoincidentTokenIndex<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "CoincidentTokenIndex {{\n")?;
+        writeln!(f, "CoincidentTokenIndex {{")?;
 
-        write!(f, "  entries: {{\n")?;
+        writeln!(f, "  entries: {{")?;
         for i in 0..self.n {
-            write!(f, "    {}: {{\n", self.grammar.variables[i].name)?;
+            writeln!(f, "    {}: {{", self.grammar.variables[i].name)?;
             for j in 0..self.n {
-                write!(
+                writeln!(
                     f,
-                    "      {}: {:?},\n",
+                    "      {}: {:?},",
                     self.grammar.variables[j].name,
                     self.entries[self.index(i, j)].len()
                 )?;
             }
-            write!(f, "    }},\n")?;
+            writeln!(f, "    }},")?;
         }
         write!(f, "  }},")?;
         write!(f, "}}")?;

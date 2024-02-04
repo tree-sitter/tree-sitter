@@ -166,7 +166,7 @@ fn test_language_corpus(
             let tree = parser.parse(&test.input, None).unwrap();
             let mut actual_output = tree.root_node().to_sexp();
             if !test.has_fields {
-                actual_output = strip_sexp_fields(actual_output);
+                actual_output = strip_sexp_fields(&actual_output);
             }
 
             if actual_output != test.output {
@@ -253,7 +253,7 @@ fn test_language_corpus(
                 // Verify that the final tree matches the expectation from the corpus.
                 let mut actual_output = tree3.root_node().to_sexp();
                 if !test.has_fields {
-                    actual_output = strip_sexp_fields(actual_output);
+                    actual_output = strip_sexp_fields(&actual_output);
                 }
 
                 if actual_output != test.output {
@@ -382,7 +382,7 @@ fn test_feature_corpus_files() {
                     let tree = parser.parse(&test.input, None).unwrap();
                     let mut actual_output = tree.root_node().to_sexp();
                     if !test.has_fields {
-                        actual_output = strip_sexp_fields(actual_output);
+                        actual_output = strip_sexp_fields(&actual_output);
                     }
                     if actual_output == test.output {
                         true
