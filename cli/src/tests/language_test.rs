@@ -5,7 +5,7 @@ use tree_sitter::Parser;
 fn test_lookahead_iterator() {
     let mut parser = Parser::new();
     let language = get_language("rust");
-    parser.set_language(language).unwrap();
+    parser.set_language(&language).unwrap();
 
     let tree = parser.parse("struct Stuff {}", None).unwrap();
 
@@ -28,13 +28,13 @@ fn test_lookahead_iterator() {
 
     let expected_symbols = ["identifier", "block_comment", "line_comment"];
     let mut lookahead = language.lookahead_iterator(next_state).unwrap();
-    assert_eq!(lookahead.language(), language);
+    assert_eq!(*lookahead.language(), language);
     assert!(lookahead.iter_names().eq(expected_symbols));
 
     lookahead.reset_state(next_state);
     assert!(lookahead.iter_names().eq(expected_symbols));
 
-    lookahead.reset(language, next_state);
+    lookahead.reset(language.clone(), next_state);
     assert!(lookahead
         .map(|s| language.node_kind_for_id(s).unwrap())
         .eq(expected_symbols));
@@ -44,7 +44,7 @@ fn test_lookahead_iterator() {
 fn test_lookahead_iterator_modifiable_only_by_mut() {
     let mut parser = Parser::new();
     let language = get_language("rust");
-    parser.set_language(language).unwrap();
+    parser.set_language(&language).unwrap();
 
     let tree = parser.parse("struct Stuff {}", None).unwrap();
 

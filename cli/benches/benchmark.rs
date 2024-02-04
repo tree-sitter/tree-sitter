@@ -92,7 +92,7 @@ fn main() {
 
         eprintln!("\nLanguage: {}", language_name);
         let language = get_language(language_path);
-        parser.set_language(language).unwrap();
+        parser.set_language(&language).unwrap();
 
         eprintln!("  Constructing Queries");
         for path in query_paths {
@@ -103,7 +103,7 @@ fn main() {
             }
 
             parse(&path, max_path_length, |source| {
-                Query::new(language, str::from_utf8(source).unwrap())
+                Query::new(&language, str::from_utf8(source).unwrap())
                     .with_context(|| format!("Query file path: {path:?}"))
                     .expect("Failed to parse query");
             });
@@ -209,7 +209,7 @@ fn parse(path: &Path, max_path_length: usize, mut action: impl FnMut(&[u8])) -> 
 fn get_language(path: &Path) -> Language {
     let src_dir = GRAMMARS_DIR.join(path).join("src");
     TEST_LOADER
-        .load_language_at_path(&src_dir, &src_dir)
+        .load_language_at_path(&src_dir, &[&src_dir])
         .with_context(|| format!("Failed to load language at path {:?}", src_dir))
         .unwrap()
 }

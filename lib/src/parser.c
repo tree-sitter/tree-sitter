@@ -1869,6 +1869,7 @@ const TSLanguage *ts_parser_language(const TSParser *self) {
 
 bool ts_parser_set_language(TSParser *self, const TSLanguage *language) {
   ts_parser__external_scanner_destroy(self);
+  ts_language_delete(self->language);
   self->language = NULL;
 
   if (language) {
@@ -1885,7 +1886,7 @@ bool ts_parser_set_language(TSParser *self, const TSLanguage *language) {
     }
   }
 
-  self->language = language;
+  self->language = ts_language_copy(language);
   ts_parser__external_scanner_create(self);
   ts_parser_reset(self);
   return true;

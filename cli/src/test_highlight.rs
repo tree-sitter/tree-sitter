@@ -197,8 +197,11 @@ pub fn test_highlight(
     // Highlight the file, and parse out all of the highlighting assertions.
     let highlight_names = loader.highlight_names();
     let highlights = get_highlight_positions(loader, highlighter, highlight_config, source)?;
-    let assertions =
-        parse_position_comments(highlighter.parser(), highlight_config.language, source)?;
+    let assertions = parse_position_comments(
+        highlighter.parser(),
+        highlight_config.language.clone(),
+        source,
+    )?;
 
     iterate_assertions(&assertions, &highlights, &highlight_names)
 }

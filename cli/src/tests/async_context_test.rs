@@ -10,7 +10,7 @@ fn test_node_in_fut() {
     let (ret, pended) = tokio_like_spawn(async {
         let mut parser = Parser::new();
         let language = get_language("bash");
-        parser.set_language(language).unwrap();
+        parser.set_language(&language).unwrap();
 
         let tree = parser.parse("#", None).unwrap();
 
@@ -64,7 +64,7 @@ fn test_node_and_cursor_ref_in_fut() {
     let (_, pended) = tokio_like_spawn(async {
         let mut parser = Parser::new();
         let language = get_language("bash");
-        parser.set_language(language).unwrap();
+        parser.set_language(&language).unwrap();
 
         let tree = parser.parse("#", None).unwrap();
 
@@ -103,7 +103,7 @@ fn test_node_and_cursor_ref_in_fut_with_fut_fabrics() {
     let (_, pended) = tokio_like_spawn(async {
         let mut parser = Parser::new();
         let language = get_language("bash");
-        parser.set_language(language).unwrap();
+        parser.set_language(&language).unwrap();
 
         let tree = parser.parse("#", None).unwrap();
 
@@ -141,7 +141,7 @@ fn test_node_and_cursor_ref_in_fut_with_inner_spawns() {
     let (ret, pended) = tokio_like_spawn(async {
         let mut parser = Parser::new();
         let language = get_language("bash");
-        parser.set_language(language).unwrap();
+        parser.set_language(&language).unwrap();
 
         let tree = parser.parse("#", None).unwrap();
 

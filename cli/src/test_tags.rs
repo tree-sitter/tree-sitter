@@ -88,7 +88,8 @@ pub fn test_tag(
     source: &[u8],
 ) -> Result<usize> {
     let tags = get_tag_positions(tags_context, tags_config, source)?;
-    let assertions = parse_position_comments(tags_context.parser(), tags_config.language, source)?;
+    let assertions =
+        parse_position_comments(tags_context.parser(), tags_config.language.clone(), source)?;
 
     // Iterate through all of the assertions, checking against the actual tags.
     let mut i = 0;

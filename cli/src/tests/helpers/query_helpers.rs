@@ -308,13 +308,13 @@ fn compare_depth_first(a: Node, b: Node) -> Ordering {
 }
 
 pub fn assert_query_matches(
-    language: Language,
+    language: &Language,
     query: &Query,
     source: &str,
     expected: &[(usize, Vec<(&str, &str)>)],
 ) {
     let mut parser = Parser::new();
-    parser.set_language(language).unwrap();
+    parser.set_language(&language).unwrap();
     let tree = parser.parse(source, None).unwrap();
     let mut cursor = QueryCursor::new();
     let matches = cursor.matches(&query, tree.root_node(), source.as_bytes());

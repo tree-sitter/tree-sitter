@@ -45,7 +45,7 @@ pub fn parse_position_comments(
 
     // Parse the code.
     parser.set_included_ranges(&[]).unwrap();
-    parser.set_language(language).unwrap();
+    parser.set_language(&language).unwrap();
     let tree = parser.parse(source, None).unwrap();
 
     // Walk the tree, finding comment nodes that contain assertions.

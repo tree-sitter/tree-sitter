@@ -202,7 +202,7 @@ fn test_node_children() {
 #[test]
 fn test_node_children_by_field_name() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("python")).unwrap();
+    parser.set_language(&get_language("python")).unwrap();
     let source = "
         if one:
             a()
@@ -230,7 +230,7 @@ fn test_node_children_by_field_name() {
 #[test]
 fn test_node_parent_of_child_by_field_name() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("javascript")).unwrap();
+    parser.set_language(&get_language("javascript")).unwrap();
     let tree = parser.parse("foo(a().b[0].c.d.e())", None).unwrap();
     let call_node = tree
         .root_node()
@@ -251,7 +251,7 @@ fn test_node_parent_of_child_by_field_name() {
 #[test]
 fn test_node_field_name_for_child() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("c")).unwrap();
+    parser.set_language(&get_language("c")).unwrap();
     let tree = parser.parse("int w = x + y;", None).unwrap();
     let translation_unit_node = tree.root_node();
     let declaration_node = translation_unit_node.named_child(0).unwrap();
@@ -278,7 +278,7 @@ fn test_node_field_name_for_child() {
 #[test]
 fn test_node_child_by_field_name_with_extra_hidden_children() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("python")).unwrap();
+    parser.set_language(&get_language("python")).unwrap();
 
     // In the Python grammar, some fields are applied to `suite` nodes,
     // which consist of an invisible `indent` token followed by a block.
@@ -373,7 +373,7 @@ fn test_node_named_child_with_aliases_and_extras() {
 
     let mut parser = Parser::new();
     parser
-        .set_language(get_test_language(&parser_name, &parser_code, None))
+        .set_language(&get_test_language(&parser_name, &parser_code, None))
         .unwrap();
 
     let tree = parser.parse("b ... b ... c", None).unwrap();
@@ -411,7 +411,7 @@ fn test_node_descendant_count() {
 fn test_descendant_count_single_node_tree() {
     let mut parser = Parser::new();
     parser
-        .set_language(get_language("embedded-template"))
+        .set_language(&get_language("embedded-template"))
         .unwrap();
     let tree = parser.parse("hello", None).unwrap();
 
@@ -576,7 +576,7 @@ fn test_node_edit() {
 #[test]
 fn test_root_node_with_offset() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("javascript")).unwrap();
+    parser.set_language(&get_language("javascript")).unwrap();
     let tree = parser.parse("  if (a) b", None).unwrap();
 
     let node = tree.root_node_with_offset(6, Point::new(2, 2));
@@ -604,7 +604,7 @@ fn test_root_node_with_offset() {
 #[test]
 fn test_node_is_extra() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("javascript")).unwrap();
+    parser.set_language(&get_language("javascript")).unwrap();
     let tree = parser.parse("foo(/* hi */);", None).unwrap();
 
     let root_node = tree.root_node();
@@ -619,7 +619,7 @@ fn test_node_is_extra() {
 #[test]
 fn test_node_sexp() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("javascript")).unwrap();
+    parser.set_language(&get_language("javascript")).unwrap();
     let tree = parser.parse("if (a) b", None).unwrap();
     let root_node = tree.root_node();
     let if_node = root_node.descendant_for_byte_range(0, 0).unwrap();
@@ -708,7 +708,7 @@ fn test_node_field_names() {
 
     let mut parser = Parser::new();
     let language = get_test_language(&parser_name, &parser_code, None);
-    parser.set_language(language).unwrap();
+    parser.set_language(&language).unwrap();
 
     let tree = parser
         .parse("child-0 child-1 child-2 child-3 child-4", None)
@@ -778,7 +778,7 @@ fn test_node_field_calls_in_language_without_fields() {
 
     let mut parser = Parser::new();
     let language = get_test_language(&parser_name, &parser_code, None);
-    parser.set_language(language).unwrap();
+    parser.set_language(&language).unwrap();
 
     let tree = parser.parse("b c d", None).unwrap();
 
@@ -807,7 +807,7 @@ fn test_node_is_named_but_aliased_as_anonymous() {
 
     let mut parser = Parser::new();
     let language = get_test_language(&parser_name, &parser_code, None);
-    parser.set_language(language).unwrap();
+    parser.set_language(&language).unwrap();
 
     let tree = parser.parse("B C B", None).unwrap();
 
@@ -826,7 +826,7 @@ fn test_node_is_named_but_aliased_as_anonymous() {
 #[test]
 fn test_node_numeric_symbols_respect_simple_aliases() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("python")).unwrap();
+    parser.set_language(&get_language("python")).unwrap();
 
     // Example 1:
     // Python argument lists can contain "splat" arguments, which are not allowed within
@@ -857,7 +857,7 @@ fn test_node_numeric_symbols_respect_simple_aliases() {
     // Ruby handles the unary (negative) and binary (minus) `-` operators using two different
     // tokens. One or more of these is an external token that's aliased as `-`. Their numeric
     // kind ids should match.
-    parser.set_language(get_language("ruby")).unwrap();
+    parser.set_language(&get_language("ruby")).unwrap();
     let tree = parser.parse("-a - b", None).unwrap();
     let root = tree.root_node();
     assert_eq!(
@@ -903,6 +903,6 @@ fn get_all_nodes(tree: &Tree) -> Vec<Node> {
 
 fn parse_json_example() -> Tree {
     let mut parser = Parser::new();
-    parser.set_language(get_language("json")).unwrap();
+    parser.set_language(&get_language("json")).unwrap();
     parser.parse(JSON_EXAMPLE, None).unwrap()
 }

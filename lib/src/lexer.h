@@ -8,7 +8,7 @@ extern "C" {
 #include "./length.h"
 #include "./subtree.h"
 #include "tree_sitter/api.h"
-#include "tree_sitter/parser.h"
+#include "./parser.h"
 
 typedef struct {
   TSLexer data;
