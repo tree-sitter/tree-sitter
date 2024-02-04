@@ -5,9 +5,10 @@
 [crates.io]: https://crates.io/crates/tree-sitter-highlight
 [crates.io badge]: https://img.shields.io/crates/v/tree-sitter-highlight.svg?color=%23B48723
 
-### Usage
+## Usage
 
-Add this crate, and the language-specific crates for whichever languages you want to parse, to your `Cargo.toml`:
+Add this crate, and the language-specific crates for whichever languages you want
+to parse, to your `Cargo.toml`:
 
 ```toml
 [dependencies]
@@ -40,7 +41,8 @@ let highlight_names = [
 ];
 ```
 
-Create a highlighter. You need one of these for each thread that you're using for syntax highlighting:
+Create a highlighter. You need one of these for each thread that you're using for
+syntax highlighting:
 
 ```rust
 use tree_sitter_highlight::Highlighter;
@@ -57,9 +59,11 @@ let javascript_language = tree_sitter_javascript::language();
 
 let mut javascript_config = HighlightConfiguration::new(
     javascript_language,
+    "javascript",
     tree_sitter_javascript::HIGHLIGHT_QUERY,
     tree_sitter_javascript::INJECTION_QUERY,
     tree_sitter_javascript::LOCALS_QUERY,
+    false,
 ).unwrap();
 ```
 
@@ -96,4 +100,6 @@ for event in highlights {
 }
 ```
 
-The last parameter to `highlight` is a *language injection* callback. This allows other languages to be retrieved when Tree-sitter detects an embedded document (for example, a piece of JavaScript code inside of a `script` tag within HTML).
+The last parameter to `highlight` is a _language injection_ callback. This allows
+other languages to be retrieved when Tree-sitter detects an embedded document
+(for example, a piece of JavaScript code inside a `script` tag within HTML).

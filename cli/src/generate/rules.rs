@@ -4,7 +4,7 @@ use std::iter::FromIterator;
 use std::{collections::HashMap, fmt};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub(crate) enum SymbolType {
+pub enum SymbolType {
     External,
     End,
     EndOfNonTerminalExtra,
@@ -13,28 +13,29 @@ pub(crate) enum SymbolType {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub(crate) enum Associativity {
+pub enum Associativity {
     Left,
     Right,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub(crate) struct Alias {
+pub struct Alias {
     pub value: String,
     pub is_named: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub enum Precedence {
+    #[default]
     None,
     Integer(i32),
     Name(String),
 }
 
-pub(crate) type AliasMap = HashMap<Symbol, Alias>;
+pub type AliasMap = HashMap<Symbol, Alias>;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub(crate) struct MetadataParams {
+pub struct MetadataParams {
     pub precedence: Precedence,
     pub dynamic_precedence: i32,
     pub associativity: Option<Associativity>,
@@ -47,13 +48,13 @@ pub(crate) struct MetadataParams {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub(crate) struct Symbol {
+pub struct Symbol {
     pub kind: SymbolType,
     pub index: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub(crate) enum Rule {
+pub enum Rule {
     Blank,
     String(String),
     Pattern(String, String),
@@ -73,7 +74,7 @@ pub(crate) enum Rule {
 // index corresponding to a token, and each value representing whether or not
 // the token is present in the set.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) struct TokenSet {
+pub struct TokenSet {
     terminal_bits: SmallBitVec,
     external_bits: SmallBitVec,
     eof: bool,
@@ -81,76 +82,76 @@ pub(crate) struct TokenSet {
 }
 
 impl Rule {
-    pub fn field(name: String, content: Rule) -> Self {
+    pub fn field(name: String, content: Self) -> Self {
         add_metadata(content, move |params| {
             params.field_name = Some(name);
         })
     }
 
-    pub fn alias(content: Rule, value: String, is_named: bool) -> Self {
+    pub fn alias(content: Self, value: String, is_named: bool) -> Self {
         add_metadata(content, move |params| {
-            params.alias = Some(Alias { is_named, value });
+            params.alias = Some(Alias { value, is_named });
         })
     }
 
-    pub fn token(content: Rule) -> Self {
+    pub fn token(content: Self) -> Self {
         add_metadata(content, |params| {
             params.is_token = true;
         })
     }
 
-    pub fn immediate_token(content: Rule) -> Self {
+    pub fn immediate_token(content: Self) -> Self {
         add_metadata(content, |params| {
             params.is_token = true;
             params.is_main_token = true;
         })
     }
 
-    pub fn prec(value: Precedence, content: Rule) -> Self {
+    pub fn prec(value: Precedence, content: Self) -> Self {
         add_metadata(content, |params| {
             params.precedence = value;
         })
     }
 
-    pub fn prec_left(value: Precedence, content: Rule) -> Self {
+    pub fn prec_left(value: Precedence, content: Self) -> Self {
         add_metadata(content, |params| {
             params.associativity = Some(Associativity::Left);
             params.precedence = value;
         })
     }
 
-    pub fn prec_right(value: Precedence, content: Rule) -> Self {
+    pub fn prec_right(value: Precedence, content: Self) -> Self {
         add_metadata(content, |params| {
             params.associativity = Some(Associativity::Right);
             params.precedence = value;
         })
     }
 
-    pub fn prec_dynamic(value: i32, content: Rule) -> Self {
+    pub fn prec_dynamic(value: i32, content: Self) -> Self {
         add_metadata(content, |params| {
             params.dynamic_precedence = value;
         })
     }
 
-    pub fn repeat(rule: Rule) -> Self {
-        Rule::Repeat(Box::new(rule))
+    pub fn repeat(rule: Self) -> Self {
+        Self::Repeat(Box::new(rule))
     }
 
-    pub fn choice(rules: Vec<Rule>) -> Self {
+    pub fn choice(rules: Vec<Self>) -> Self {
         let mut elements = Vec::with_capacity(rules.len());
         for rule in rules {
             choice_helper(&mut elements, rule);
         }
-        Rule::Choice(elements)
+        Self::Choice(elements)
     }
 
-    pub fn seq(rules: Vec<Rule>) -> Self {
-        Rule::Seq(rules)
+    pub fn seq(rules: Vec<Self>) -> Self {
+        Self::Seq(rules)
     }
 }
 
 impl Alias {
-    pub fn kind(&self) -> VariableType {
+    pub const fn kind(&self) -> VariableType {
         if self.is_named {
             VariableType::Named
         } else {
@@ -160,35 +161,35 @@ impl Alias {
 }
 
 impl Precedence {
-    pub fn is_none(&self) -> bool {
-        matches!(self, Precedence::None)
+    pub const fn is_none(&self) -> bool {
+        matches!(self, Self::None)
     }
 }
 
 #[cfg(test)]
 impl Rule {
     pub fn terminal(index: usize) -> Self {
-        Rule::Symbol(Symbol::terminal(index))
+        Self::Symbol(Symbol::terminal(index))
     }
 
     pub fn non_terminal(index: usize) -> Self {
-        Rule::Symbol(Symbol::non_terminal(index))
+        Self::Symbol(Symbol::non_terminal(index))
     }
 
     pub fn external(index: usize) -> Self {
-        Rule::Symbol(Symbol::external(index))
+        Self::Symbol(Symbol::external(index))
     }
 
     pub fn named(name: &'static str) -> Self {
-        Rule::NamedSymbol(name.to_string())
+        Self::NamedSymbol(name.to_string())
     }
 
     pub fn string(value: &'static str) -> Self {
-        Rule::String(value.to_string())
+        Self::String(value.to_string())
     }
 
     pub fn pattern(value: &'static str, flags: &'static str) -> Self {
-        Rule::Pattern(value.to_string(), flags.to_string())
+        Self::Pattern(value.to_string(), flags.to_string())
     }
 }
 
@@ -209,36 +210,36 @@ impl Symbol {
         self.kind == SymbolType::End
     }
 
-    pub fn non_terminal(index: usize) -> Self {
-        Symbol {
+    pub const fn non_terminal(index: usize) -> Self {
+        Self {
             kind: SymbolType::NonTerminal,
             index,
         }
     }
 
-    pub fn terminal(index: usize) -> Self {
-        Symbol {
+    pub const fn terminal(index: usize) -> Self {
+        Self {
             kind: SymbolType::Terminal,
             index,
         }
     }
 
-    pub fn external(index: usize) -> Self {
-        Symbol {
+    pub const fn external(index: usize) -> Self {
+        Self {
             kind: SymbolType::External,
             index,
         }
     }
 
-    pub fn end() -> Self {
-        Symbol {
+    pub const fn end() -> Self {
+        Self {
             kind: SymbolType::End,
             index: 0,
         }
     }
 
-    pub fn end_of_nonterminal_extra() -> Self {
-        Symbol {
+    pub const fn end_of_nonterminal_extra() -> Self {
+        Self {
             kind: SymbolType::EndOfNonTerminalExtra,
             index: 0,
         }
@@ -247,7 +248,7 @@ impl Symbol {
 
 impl From<Symbol> for Rule {
     fn from(symbol: Symbol) -> Self {
-        Rule::Symbol(symbol)
+        Self::Symbol(symbol)
     }
 }
 
@@ -261,7 +262,7 @@ impl TokenSet {
         }
     }
 
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = Symbol> + 'a {
+    pub fn iter(&self) -> impl Iterator<Item = Symbol> + '_ {
         self.terminal_bits
             .iter()
             .enumerate()
@@ -292,7 +293,7 @@ impl TokenSet {
             })
     }
 
-    pub fn terminals<'a>(&'a self) -> impl Iterator<Item = Symbol> + 'a {
+    pub fn terminals(&self) -> impl Iterator<Item = Symbol> + '_ {
         self.terminal_bits
             .iter()
             .enumerate()
@@ -361,11 +362,9 @@ impl TokenSet {
                 };
             }
         };
-        if other.index < vec.len() {
-            if vec[other.index] {
-                vec.set(other.index, false);
-                return true;
-            }
+        if other.index < vec.len() && vec[other.index] {
+            vec.set(other.index, false);
+            return true;
         }
         false
     }
@@ -377,7 +376,7 @@ impl TokenSet {
             && !self.external_bits.iter().any(|a| a)
     }
 
-    pub fn insert_all_terminals(&mut self, other: &TokenSet) -> bool {
+    pub fn insert_all_terminals(&mut self, other: &Self) -> bool {
         let mut result = false;
         if other.terminal_bits.len() > self.terminal_bits.len() {
             self.terminal_bits.resize(other.terminal_bits.len(), false);
@@ -391,7 +390,7 @@ impl TokenSet {
         result
     }
 
-    fn insert_all_externals(&mut self, other: &TokenSet) -> bool {
+    fn insert_all_externals(&mut self, other: &Self) -> bool {
         let mut result = false;
         if other.external_bits.len() > self.external_bits.len() {
             self.external_bits.resize(other.external_bits.len(), false);
@@ -405,7 +404,7 @@ impl TokenSet {
         result
     }
 
-    pub fn insert_all(&mut self, other: &TokenSet) -> bool {
+    pub fn insert_all(&mut self, other: &Self) -> bool {
         let mut result = false;
         if other.eof {
             result |= !self.eof;
@@ -466,15 +465,9 @@ fn choice_helper(result: &mut Vec<Rule>, rule: Rule) {
 impl fmt::Display for Precedence {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Precedence::Integer(i) => write!(f, "{}", i),
-            Precedence::Name(s) => write!(f, "'{}'", s),
-            Precedence::None => write!(f, "none"),
+            Self::Integer(i) => write!(f, "{i}"),
+            Self::Name(s) => write!(f, "'{s}'"),
+            Self::None => write!(f, "none"),
         }
-    }
-}
-
-impl Default for Precedence {
-    fn default() -> Self {
-        Precedence::None
     }
 }

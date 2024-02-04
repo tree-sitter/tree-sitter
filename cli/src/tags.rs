@@ -18,7 +18,7 @@ pub fn generate_tags(
     if let Some(scope) = scope {
         lang = loader.language_configuration_for_scope(scope)?;
         if lang.is_none() {
-            return Err(anyhow!("Unknown scope '{}'", scope));
+            return Err(anyhow!("Unknown scope '{scope}'"));
         }
     }
 
@@ -31,24 +31,24 @@ pub fn generate_tags(
         let path = Path::new(&path);
         let (language, language_config) = match lang.clone() {
             Some(v) => v,
-            None => match loader.language_configuration_for_file_name(path)? {
-                Some(v) => v,
-                None => {
-                    eprintln!("No language found for path {:?}", path);
+            None => {
+                if let Some(v) = loader.language_configuration_for_file_name(path)? {
+                    v
+                } else {
+                    eprintln!("No language found for path {path:?}");
                     continue;
                 }
-            },
+            }
         };
 
         if let Some(tags_config) = language_config.tags_config(language)? {
-            let indent;
-            if paths.len() > 1 {
+            let indent = if paths.len() > 1 {
                 if !quiet {
                     writeln!(&mut stdout, "{}", path.to_string_lossy())?;
                 }
-                indent = "\t"
+                "\t"
             } else {
-                indent = "";
+                ""
             };
 
             let source = fs::read(path)?;
@@ -61,8 +61,7 @@ pub fn generate_tags(
                 if !quiet {
                     write!(
                         &mut stdout,
-                        "{}{:<10}\t | {:<8}\t{} {} - {} `{}`",
-                        indent,
+                        "{indent}{:<10}\t | {:<8}\t{} {} - {} `{}`",
                         str::from_utf8(&source[tag.name_range]).unwrap_or(""),
                         &tags_config.syntax_type_name(tag.syntax_type_id),
                         if tag.is_definition { "def" } else { "ref" },
@@ -77,20 +76,15 @@ pub fn generate_tags(
                             write!(&mut stdout, "\t{:?}", &docs)?;
                         }
                     }
-                    writeln!(&mut stdout, "")?;
+                    writeln!(&mut stdout)?;
                 }
             }
 
             if time {
-                writeln!(
-                    &mut stdout,
-                    "{}time: {}ms",
-                    indent,
-                    t0.elapsed().as_millis(),
-                )?;
+                writeln!(&mut stdout, "{indent}time: {}ms", t0.elapsed().as_millis(),)?;
             }
         } else {
-            eprintln!("No tags config found for path {:?}", path);
+            eprintln!("No tags config found for path {path:?}");
         }
     }
 

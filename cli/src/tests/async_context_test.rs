@@ -78,14 +78,14 @@ fn test_node_and_cursor_ref_in_fut() {
 
         let fut_val = async {
             yield_now().await;
-            root.to_sexp();
+            let _ = root.to_sexp();
         };
 
         yield_now().await;
 
         let fut_ref = async {
             yield_now().await;
-            root_ref.to_sexp();
+            let _ = root_ref.to_sexp();
             cursor_ref.goto_first_child();
         };
 
@@ -117,14 +117,14 @@ fn test_node_and_cursor_ref_in_fut_with_fut_fabrics() {
 
         let fut_val = || async {
             yield_now().await;
-            root.to_sexp();
+            let _ = root.to_sexp();
         };
 
         yield_now().await;
 
         let fut_ref = || async move {
             yield_now().await;
-            root_ref.to_sexp();
+            let _ = root_ref.to_sexp();
             cursor_ref.goto_first_child();
         };
 
@@ -157,7 +157,7 @@ fn test_node_and_cursor_ref_in_fut_with_inner_spawns() {
                 let mut cursor = tree.walk();
                 let cursor_ref = &mut cursor;
                 yield_now().await;
-                root.to_sexp();
+                let _ = root.to_sexp();
                 cursor_ref.goto_first_child();
             }
         };
@@ -172,7 +172,7 @@ fn test_node_and_cursor_ref_in_fut_with_inner_spawns() {
                 let mut cursor = tree.walk();
                 let cursor_ref = &mut cursor;
                 yield_now().await;
-                root_ref.to_sexp();
+                let _ = root_ref.to_sexp();
                 cursor_ref.goto_first_child();
             }
         };
@@ -228,7 +228,7 @@ async fn yield_now() {
         type Output = ();
 
         fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()> {
-            cx.waker().clone().wake();
+            cx.waker().wake_by_ref();
             if self.yielded {
                 return Poll::Ready(());
             }

@@ -21,20 +21,9 @@ const matrix = {
       arch: {
         'arm64': { name: 'arm64' },
         'arm': { name: 'arm' },
-        'armv7l': { name: 'armv7l' },
         'x64': { name: 'x64' },
         'x86': { name: 'x86' },
-        'i586': { name: 'i586' },
-        'mips': { name: 'mips' },
-        'mips64': { name: 'mips64' },
-        'mipsel': { name: 'mipsel' },
-        'mips64el': { name: 'mips64el' },
-        'ppc': { name: 'powerpc' },
         'ppc64': { name: 'powerpc64' },
-        'ppc64el': { name: 'powerpc64el' },
-        'riscv64gc': { name: 'riscv64gc' },
-        's390x': { name: 's390x' },
-        'sparc64': { name: 'sparc64' },
       }
     },
     'win32': {

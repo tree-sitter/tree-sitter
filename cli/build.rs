@@ -4,18 +4,15 @@ use std::{env, fs};
 
 fn main() {
     if let Some(git_sha) = read_git_sha() {
-        println!("cargo:rustc-env={}={}", "BUILD_SHA", git_sha);
+        println!("cargo:rustc-env=BUILD_SHA={git_sha}");
     }
 
     if web_playground_files_present() {
-        println!("cargo:rustc-cfg={}", "TREE_SITTER_EMBED_WASM_BINDING");
+        println!("cargo:rustc-cfg=TREE_SITTER_EMBED_WASM_BINDING");
     }
 
     let rust_binding_version = read_rust_binding_version();
-    println!(
-        "cargo:rustc-env={}={}",
-        "RUST_BINDING_VERSION", rust_binding_version,
-    );
+    println!("cargo:rustc-env=RUST_BINDING_VERSION={rust_binding_version}");
 }
 
 fn web_playground_files_present() -> bool {
@@ -51,10 +48,10 @@ fn read_git_sha() -> Option<String> {
     }
     let git_head_path = git_dir_path.join("HEAD");
     if let Some(path) = git_head_path.to_str() {
-        println!("cargo:rerun-if-changed={}", path);
+        println!("cargo:rerun-if-changed={path}");
     }
     if let Ok(mut head_content) = fs::read_to_string(&git_head_path) {
-        if head_content.ends_with("\n") {
+        if head_content.ends_with('\n') {
             head_content.pop();
         }
 
@@ -65,12 +62,11 @@ fn read_git_sha() -> Option<String> {
                 // Go to real non-worktree gitdir
                 let git_dir_path = git_dir_path
                     .parent()
-                    .map(|p| {
+                    .and_then(|p| {
                         p.file_name()
                             .map(|n| n == OsStr::new("worktrees"))
                             .and_then(|x| x.then(|| p.parent()))
                     })
-                    .flatten()
                     .flatten()
                     .unwrap_or(&git_dir_path);
 
@@ -84,7 +80,7 @@ fn read_git_sha() -> Option<String> {
                             if let Some((hash, r#ref)) = line.split_once(' ') {
                                 if r#ref == head_content {
                                     if let Some(path) = packed_refs.to_str() {
-                                        println!("cargo:rerun-if-changed={}", path);
+                                        println!("cargo:rerun-if-changed={path}");
                                     }
                                     return Some(hash.to_string());
                                 }
@@ -95,7 +91,7 @@ fn read_git_sha() -> Option<String> {
                 }
             };
             if let Some(path) = ref_filename.to_str() {
-                println!("cargo:rerun-if-changed={}", path);
+                println!("cargo:rerun-if-changed={path}");
             }
             return fs::read_to_string(&ref_filename).ok();
         }
