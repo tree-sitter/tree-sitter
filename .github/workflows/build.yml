@@ -98,11 +98,9 @@ jobs:
       with:
         version: ${{ env.EMSCRIPTEN_VERSION }}
 
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: ${{ matrix.target }}
-        toolchain: 'stable'
+    - run: rustup toolchain install stable --profile minimal
+    - run: rustup target add ${{ matrix.target }}
+    - uses: Swatinem/rust-cache@v2
 
     - name: Install cross
       if: ${{ matrix.use-cross }}
