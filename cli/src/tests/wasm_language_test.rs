@@ -10,6 +10,25 @@ lazy_static! {
 }
 
 #[test]
+fn test_wasm_stdlib_symbols() {
+    let symbols = tree_sitter::wasm_stdlib_symbols().collect::<Vec<_>>();
+    assert_eq!(
+        symbols,
+        {
+            let mut symbols = symbols.clone();
+            symbols.sort();
+            symbols
+        },
+        "symbols aren't sorted"
+    );
+
+    assert!(symbols.contains(&"malloc"));
+    assert!(symbols.contains(&"free"));
+    assert!(symbols.contains(&"memset"));
+    assert!(symbols.contains(&"memcpy"));
+}
+
+#[test]
 fn test_load_wasm_language() {
     allocations::record(|| {
         let mut store = WasmStore::new(ENGINE.clone()).unwrap();

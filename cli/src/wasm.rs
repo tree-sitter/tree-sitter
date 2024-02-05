@@ -1,7 +1,9 @@
 use super::generate::parse_grammar::GrammarJSON;
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use std::{fs, path::Path};
+use tree_sitter::wasm_stdlib_symbols;
 use tree_sitter_loader::Loader;
+use wasmparser::Parser;
 
 pub fn load_language_wasm_file(language_dir: &Path) -> Result<(String, Vec<u8>)> {
     let grammar_name = get_grammar_name(language_dir)
@@ -43,5 +45,58 @@ pub fn compile_language_to_wasm(
         &output_filename,
         force_docker,
     )?;
+
+    // Exit with an error if the external scanner uses symbols from the
+    // C or C++ standard libraries that aren't available to wasm parsers.
+    let stdlib_symbols: Vec<_> = wasm_stdlib_symbols().collect();
+    let dylink_symbols = [
+        "__indirect_function_table",
+        "__memory_base",
+        "__stack_pointer",
+        "__table_base",
+        "__table_base",
+        "memory",
+    ];
+    let builtin_symbols = [
+        "__assert_fail",
+        "__cxa_atexit",
+        "abort",
+        "emscripten_notify_memory_growth",
+        "proc_exit",
+    ];
+
+    let mut missing_symbols = Vec::new();
+    let wasm_bytes = fs::read(&output_filename)?;
+    let parser = Parser::new(0);
+    for payload in parser.parse_all(&wasm_bytes) {
+        if let wasmparser::Payload::ImportSection(imports) = payload? {
+            for import in imports {
+                let import = import?.name;
+                if !builtin_symbols.contains(&import)
+                    && !stdlib_symbols.contains(&import)
+                    && !dylink_symbols.contains(&import)
+                {
+                    missing_symbols.push(import);
+                }
+            }
+        }
+    }
+
+    if !missing_symbols.is_empty() {
+        Err(anyhow!(
+            concat!(
+                "This external scanner uses a symbol that isn't available to wasm parsers.\n",
+                "\n",
+                "Missing symbols:\n",
+                "    {}\n",
+                "\n",
+                "Available symbols:\n",
+                "    {}",
+            ),
+            missing_symbols.join("\n    "),
+            stdlib_symbols.join("\n    ")
+        ))?;
+    }
+
     Ok(())
 }

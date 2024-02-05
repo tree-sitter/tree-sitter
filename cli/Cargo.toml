@@ -46,6 +46,7 @@ serde_derive = "1.0"
 smallbitvec = "2.5.1"
 tiny_http = "0.12.0"
 walkdir = "2.3.3"
+wasmparser = "0.121"
 webbrowser = "0.8.10"
 which = "4.4.0"
 

@@ -2820,6 +2820,14 @@ impl fmt::Display for QueryError {
     }
 }
 
+pub fn wasm_stdlib_symbols() -> impl Iterator<Item = &'static str> {
+    const WASM_STDLIB_SYMBOLS: &str = include_str!(concat!(env!("OUT_DIR"), "/stdlib-symbols.txt"));
+
+    WASM_STDLIB_SYMBOLS
+        .lines()
+        .map(|s| s.trim_matches(|c| c == '"' || c == ','))
+}
+
 extern "C" {
     fn free(ptr: *mut c_void);
 }

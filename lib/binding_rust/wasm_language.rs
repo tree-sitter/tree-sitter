@@ -8,10 +8,10 @@ use std::{
 };
 pub use wasmtime;
 
-#[cfg(feature = "wasm")]
-pub fn test() {
-    // Force Cargo to include wasmtime-c-api as a dependency of this crate,
-    // even though it is only used by the C code.
+// Force Cargo to include wasmtime-c-api as a dependency of this crate,
+// even though it is only used by the C code.
+#[allow(unused)]
+fn _use_wasmtime() {
     wasmtime_c_api::wasm_engine_new();
 }
 
