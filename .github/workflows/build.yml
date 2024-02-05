@@ -16,6 +16,7 @@ jobs:
   build:
     name: ${{ matrix.platform }} (${{ matrix.target }}) (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
