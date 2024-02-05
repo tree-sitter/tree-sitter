@@ -21,6 +21,7 @@
 "iswlower",
 "iswspace",
 "iswupper",
+"iswxdigit",
 "malloc",
 "memchr",
 "memcmp",
