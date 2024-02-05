@@ -52,11 +52,20 @@ pub fn compile_language_to_wasm(
     // Exit with an error if the external scanner uses symbols from the
     // C or C++ standard libraries that aren't available to wasm parsers.
     let stdlib_symbols: Vec<_> = wasm_stdlib_symbols().collect();
-    let builtin_symbols = [
+    let dylink_symbols = [
         "__indirect_function_table",
         "__memory_base",
+        "__stack_pointer",
+        "__table_base",
         "__table_base",
         "memory",
+    ];
+    let builtin_symbols = [
+        "__assert_fail",
+        "__cxa_atexit",
+        "abort",
+        "emscripten_notify_memory_growth",
+        "proc_exit",
     ];
 
     let mut missing_symbols = Vec::new();
@@ -66,7 +75,10 @@ pub fn compile_language_to_wasm(
         if let wasmparser::Payload::ImportSection(imports) = payload? {
             for import in imports {
                 let import = import?.name;
-                if !builtin_symbols.contains(&import) && !stdlib_symbols.contains(&import) {
+                if !builtin_symbols.contains(&import)
+                    && !stdlib_symbols.contains(&import)
+                    && !dylink_symbols.contains(&import)
+                {
                     missing_symbols.push(import);
                 }
             }
