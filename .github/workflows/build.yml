@@ -11,19 +11,6 @@ on:
       ref:
         default: ${{ github.ref }}
         type: string
-      run-tests:
-        default: true
-        type: boolean
-  workflow_dispatch:
-    inputs:
-      run-tests:
-        description: Run tests
-        default: true
-        type: boolean
-      rust-test-threads:
-        description: Number of Rust test threads
-        default: ""
-        type: string
 
 jobs:
   build:
@@ -128,7 +115,7 @@ jobs:
 
     - name: Setup env extras
       env:
-        RUST_TEST_THREADS: ${{ matrix.rust-test-threads || inputs.rust-test-threads || '' }}
+        RUST_TEST_THREADS: ${{ matrix.rust-test-threads || '' }}
         USE_CROSS: ${{ matrix.use-cross }}
         TARGET: ${{ matrix.target }}
         CC: ${{ matrix.cc }}
@@ -179,27 +166,27 @@ jobs:
         echo "🔗 Minimal **glibc** version required for CLI: ${min_glibc}">> $GITHUB_STEP_SUMMARY
 
     - name: Fetch fixtures
-      if: ${{ inputs.run-tests && !matrix.cli-only }} # Don't fetch fixtures for only CLI building targets
+      if: ${{ !matrix.cli-only }} # Don't fetch fixtures for only CLI building targets
       run: script/fetch-fixtures
 
     - name: Generate fixtures
-      if: ${{ inputs.run-tests && !matrix.cli-only }} # Can't natively run CLI on Github runner's host
+      if: ${{ !matrix.cli-only }} # Can't natively run CLI on Github runner's host
       run: script/generate-fixtures
 
     - name: Generate WASM fixtures
-      if: ${{ inputs.run-tests && !matrix.cli-only && !matrix.use-cross }} # See comment for the "Build wasm library" step
+      if: ${{ !matrix.cli-only && !matrix.use-cross }} # See comment for the "Build wasm library" step
       run: script/generate-fixtures-wasm
 
     - name: Run main tests
-      if: ${{ inputs.run-tests && !matrix.cli-only }} # Can't natively run CLI on Github runner's host
+      if: ${{ !matrix.cli-only }} # Can't natively run CLI on Github runner's host
       run: $BUILD_CMD test --target=${{ matrix.target }} --features=${CLI_FEATURES}
 
     - name: Run wasm tests
-      if: ${{ inputs.run-tests && !matrix.cli-only && !matrix.use-cross }} # See comment for the "Build wasm library" step
+      if: ${{ !matrix.cli-only && !matrix.use-cross }} # See comment for the "Build wasm library" step
       run: script/test-wasm
 
     - name: Run benchmarks
-      if: ${{ inputs.run-tests && !matrix.cli-only && !matrix.use-cross }} # Cross-compiled benchmarks make no sense
+      if: ${{ !matrix.cli-only && !matrix.use-cross }} # Cross-compiled benchmarks make no sense
       run: $BUILD_CMD bench benchmark -p tree-sitter-cli --target=${{ matrix.target }}
 
     - name: Upload CLI artifact
