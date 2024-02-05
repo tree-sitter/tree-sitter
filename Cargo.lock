@@ -1239,7 +1239,6 @@ version = "0.20.9"
 dependencies = [
  "ansi_term",
  "anyhow",
- "atty",
  "clap",
  "ctor",
  "ctrlc",
