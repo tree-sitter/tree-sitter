@@ -209,13 +209,36 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result
         .with_context(|| "Failed to read output from node")?;
     match output.status.code() {
         None => panic!("Node process was killed"),
-        Some(0) => {}
-        Some(code) => return Err(anyhow!("Node process exited with status {code}")),
+        Some(0) => {
+            let stdout =
+                String::from_utf8(output.stdout).with_context(|| "Got invalid UTF8 from node")?;
+
+            let mut node_output = "";
+            let mut grammar_json = &stdout[..];
+
+            if let Some(pos) = stdout.rfind('\n') {
+                // If there's a newline, split the last line from the rest of the output
+                node_output = &stdout[..pos];
+                grammar_json = &stdout[pos + 1..];
+            }
+
+            // If we got any output from the node process that isn't the grammar JSON
+            if !node_output.is_empty() {
+                let mut stdout = std::io::stdout().lock();
+                stdout.write_all(node_output.as_bytes())?;
+                stdout.write_all(b"\n")?;
+                stdout.flush()?;
+            }
+
+            Ok(serde_json::to_string_pretty(
+                &serde_json::from_str::<serde_json::Value>(grammar_json)
+                    .with_context(|| "Failed to parse grammar JSON")?,
+            )
+            .with_context(|| "Failed to serialize grammar JSON")?
+                + "\n")
+        }
+        Some(code) => Err(anyhow!("Node process exited with status {code}")),
     }
-    let mut result =
-        String::from_utf8(output.stdout).with_context(|| "Got invalid UTF8 from node")?;
-    result.push('\n');
-    Ok(result)
 }
 
 fn write_file(path: &Path, body: impl AsRef<[u8]>) -> Result<()> {
