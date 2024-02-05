@@ -88,4 +88,4 @@ unindent = "0.2.2"
 indoc = "2.0.3"
 
 [build-dependencies]
-toml = "0.7.6"
+toml = "0.8.9"
