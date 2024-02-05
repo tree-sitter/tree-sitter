@@ -34,7 +34,7 @@ fn test_lookahead_iterator() {
     lookahead.reset_state(next_state);
     assert!(lookahead.iter_names().eq(expected_symbols));
 
-    lookahead.reset(language.clone(), next_state);
+    lookahead.reset(&language, next_state);
     assert!(lookahead
         .map(|s| language.node_kind_for_id(s).unwrap())
         .eq(expected_symbols));

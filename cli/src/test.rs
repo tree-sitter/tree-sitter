@@ -48,7 +48,7 @@ pub enum TestEntry {
 
 impl Default for TestEntry {
     fn default() -> Self {
-        TestEntry::Group {
+        Self::Group {
             name: String::new(),
             children: Vec::new(),
             file_path: None,
@@ -72,9 +72,9 @@ pub fn run_tests_at_path(
     } else if debug {
         parser.set_logger(Some(Box::new(|log_type, message| {
             if log_type == LogType::Lex {
-                io::stderr().write(b"  ").unwrap();
+                io::stderr().write_all(b"  ").unwrap();
             }
-            write!(&mut io::stderr(), "{}\n", message).unwrap();
+            writeln!(&mut io::stderr(), "{message}").unwrap();
         })));
     }
 
@@ -92,32 +92,32 @@ pub fn run_tests_at_path(
 
     parser.stop_printing_dot_graphs();
 
-    if failures.len() > 0 {
-        println!("");
+    if !failures.is_empty() {
+        println!();
 
         if update {
             if failures.len() == 1 {
-                println!("1 update:\n")
+                println!("1 update:\n");
             } else {
-                println!("{} updates:\n", failures.len())
+                println!("{} updates:\n", failures.len());
             }
 
             for (i, (name, ..)) in failures.iter().enumerate() {
-                println!("  {}. {}", i + 1, name);
+                println!("  {}. {name}", i + 1);
             }
             Ok(())
         } else {
             if failures.len() == 1 {
-                println!("1 failure:")
+                println!("1 failure:");
             } else {
-                println!("{} failures:", failures.len())
+                println!("{} failures:", failures.len());
             }
 
             print_diff_key();
             for (i, (name, actual, expected)) in failures.iter().enumerate() {
-                println!("\n  {}. {}:", i + 1, name);
-                let actual = format_sexp_indented(&actual, 2);
-                let expected = format_sexp_indented(&expected, 2);
+                println!("\n  {}. {name}:", i + 1);
+                let actual = format_sexp_indented(actual, 2);
+                let expected = format_sexp_indented(expected, 2);
                 print_diff(&actual, &expected);
             }
             Err(anyhow!(""))
@@ -127,11 +127,11 @@ pub fn run_tests_at_path(
     }
 }
 
-pub fn check_queries_at_path(language: Language, path: &Path) -> Result<()> {
+pub fn check_queries_at_path(language: &Language, path: &Path) -> Result<()> {
     if path.exists() {
         for entry in WalkDir::new(path)
             .into_iter()
-            .filter_map(|e| e.ok())
+            .filter_map(std::result::Result::ok)
             .filter(|e| {
                 e.file_type().is_file()
                     && e.path().extension().and_then(OsStr::to_str) == Some("scm")
@@ -140,9 +140,9 @@ pub fn check_queries_at_path(language: Language, path: &Path) -> Result<()> {
         {
             let filepath = entry.file_name().to_str().unwrap_or("");
             let content = fs::read_to_string(entry.path())
-                .with_context(|| format!("Error reading query file {:?}", filepath))?;
-            Query::new(&language, &content)
-                .with_context(|| format!("Error in query file {:?}", filepath))?;
+                .with_context(|| format!("Error reading query file {filepath:?}"))?;
+            Query::new(language, &content)
+                .with_context(|| format!("Error in query file {filepath:?}"))?;
         }
     }
     Ok(())
@@ -156,12 +156,12 @@ pub fn print_diff_key() {
     );
 }
 
-pub fn print_diff(actual: &String, expected: &String) {
+pub fn print_diff(actual: &str, expected: &str) {
     let changeset = Changeset::new(actual, expected, "\n");
     for diff in &changeset.diffs {
         match diff {
             Difference::Same(part) => {
-                print!("{}{}", part, changeset.split);
+                print!("{part}{}", changeset.split);
             }
             Difference::Add(part) => {
                 print!("{}{}", Colour::Green.paint(part), changeset.split);
@@ -171,7 +171,7 @@ pub fn print_diff(actual: &String, expected: &String) {
             }
         }
     }
-    println!("");
+    println!();
 }
 
 fn run_tests(
@@ -211,7 +211,7 @@ fn run_tests(
             let tree = parser.parse(&input, None).unwrap();
             let mut actual = tree.root_node().to_sexp();
             if !has_fields {
-                actual = strip_sexp_fields(actual);
+                actual = strip_sexp_fields(&actual);
             }
             print!("{}", "  ".repeat(indent_level as usize));
             if actual == output {
@@ -252,7 +252,7 @@ fn run_tests(
         } => {
             if indent_level > 0 {
                 print!("{}", "  ".repeat(indent_level as usize));
-                println!("{}:", name);
+                println!("{name}:");
             }
 
             let failure_count = failures.len();
@@ -281,11 +281,11 @@ fn run_tests(
     Ok(())
 }
 
-fn format_sexp(sexp: &String) -> String {
+fn format_sexp(sexp: &str) -> String {
     format_sexp_indented(sexp, 0)
 }
 
-fn format_sexp_indented(sexp: &String, initial_indent_level: u32) -> String {
+fn format_sexp_indented(sexp: &str, initial_indent_level: u32) -> String {
     let mut formatted = String::new();
 
     let mut indent_level = initial_indent_level;
@@ -301,7 +301,7 @@ fn format_sexp_indented(sexp: &String, initial_indent_level: u32) -> String {
                 has_field = false;
             } else {
                 if indent_level > 0 {
-                    writeln!(formatted, "").unwrap();
+                    writeln!(formatted).unwrap();
                     for _ in 0..indent_level {
                         write!(formatted, "  ").unwrap();
                     }
@@ -310,20 +310,20 @@ fn format_sexp_indented(sexp: &String, initial_indent_level: u32) -> String {
             }
 
             // "(node_name"
-            write!(formatted, "{}", s).unwrap();
+            write!(formatted, "{s}").unwrap();
 
             // "(MISSING node_name" or "(UNEXPECTED 'x'"
             if s.starts_with("(MISSING") || s.starts_with("(UNEXPECTED") {
                 let s = s_iter.next().unwrap();
-                write!(formatted, " {}", s).unwrap();
+                write!(formatted, " {s}").unwrap();
             }
         } else if s.ends_with(':') {
             // "field:"
-            writeln!(formatted, "").unwrap();
+            writeln!(formatted).unwrap();
             for _ in 0..indent_level {
                 write!(formatted, "  ").unwrap();
             }
-            write!(formatted, "{} ", s).unwrap();
+            write!(formatted, "{s} ").unwrap();
             has_field = true;
             indent_level += 1;
         }
@@ -334,7 +334,7 @@ fn format_sexp_indented(sexp: &String, initial_indent_level: u32) -> String {
 
 fn write_tests(
     file_path: &Path,
-    corrected_entries: &Vec<(String, String, String, usize, usize)>,
+    corrected_entries: &[(String, String, String, usize, usize)],
 ) -> Result<()> {
     let mut buffer = fs::File::create(file_path)?;
     write_tests_to_buffer(&mut buffer, corrected_entries)
@@ -342,21 +342,19 @@ fn write_tests(
 
 fn write_tests_to_buffer(
     buffer: &mut impl Write,
-    corrected_entries: &Vec<(String, String, String, usize, usize)>,
+    corrected_entries: &[(String, String, String, usize, usize)],
 ) -> Result<()> {
     for (i, (name, input, output, header_delim_len, divider_delim_len)) in
         corrected_entries.iter().enumerate()
     {
         if i > 0 {
-            write!(buffer, "\n")?;
+            writeln!(buffer)?;
         }
         write!(
             buffer,
-            "{}\n{}\n{}\n{}\n{}\n\n{}\n",
+            "{}\n{name}\n{}\n{input}\n{}\n\n{}\n",
             "=".repeat(*header_delim_len),
-            name,
             "=".repeat(*header_delim_len),
-            input,
             "-".repeat(*divider_delim_len),
             output.trim()
         )?;
@@ -374,7 +372,7 @@ pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
         let mut children = Vec::new();
         for entry in fs::read_dir(path)? {
             let entry = entry?;
-            let hidden = entry.file_name().to_str().unwrap_or("").starts_with(".");
+            let hidden = entry.file_name().to_str().unwrap_or("").starts_with('.');
             if !hidden {
                 children.push(entry.path());
             }
@@ -382,7 +380,7 @@ pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
         children.sort_by(|a, b| {
             a.file_name()
                 .unwrap_or_default()
-                .cmp(&b.file_name().unwrap_or_default())
+                .cmp(b.file_name().unwrap_or_default())
         });
         let children = children
             .iter()
@@ -395,15 +393,16 @@ pub fn parse_tests(path: &Path) -> io::Result<TestEntry> {
         })
     } else {
         let content = fs::read_to_string(path)?;
-        Ok(parse_test_content(name, content, Some(path.to_path_buf())))
+        Ok(parse_test_content(name, &content, Some(path.to_path_buf())))
     }
 }
 
-pub fn strip_sexp_fields(sexp: String) -> String {
-    SEXP_FIELD_REGEX.replace_all(&sexp, " (").to_string()
+#[must_use]
+pub fn strip_sexp_fields(sexp: &str) -> String {
+    SEXP_FIELD_REGEX.replace_all(sexp, " (").to_string()
 }
 
-fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>) -> TestEntry {
+fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -> TestEntry {
     let mut children = Vec::new();
     let bytes = content.as_bytes();
     let mut prev_name = String::new();
@@ -420,8 +419,8 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
     // Find all of the `===` test headers, which contain the test names.
     // Ignore any matches whose suffix does not match the first header
     // suffix in the file.
-    let header_matches = HEADER_REGEX.captures_iter(&bytes).filter_map(|c| {
-        let header_delim_len = c.name("equals").map(|n| n.as_bytes().len()).unwrap_or(80);
+    let header_matches = HEADER_REGEX.captures_iter(bytes).filter_map(|c| {
+        let header_delim_len = c.name("equals").map_or(80, |m| m.as_bytes().len());
         let suffix1 = c
             .name("suffix1")
             .map(|m| String::from_utf8_lossy(m.as_bytes()));
@@ -433,8 +432,7 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
             let test_name = c
                 .name("test_name")
                 .map(|c| String::from_utf8_lossy(c.as_bytes()).trim_end().to_string());
-            let res = Some((header_delim_len, header_range, test_name));
-            res
+            Some((header_delim_len, header_range, test_name))
         } else {
             None
         }
@@ -451,18 +449,16 @@ fn parse_test_content(name: String, content: String, file_path: Option<PathBuf>)
             let divider_range = DIVIDER_REGEX
                 .captures_iter(&bytes[prev_header_end..header_range.start])
                 .filter_map(|m| {
-                    let divider_delim_len =
-                        m.name("hyphens").map(|m| m.as_bytes().len()).unwrap_or(80);
+                    let divider_delim_len = m.name("hyphens").map_or(80, |m| m.as_bytes().len());
                     let suffix = m
                         .name("suffix")
                         .map(|m| String::from_utf8_lossy(m.as_bytes()));
                     if suffix == first_suffix {
                         let range = m.get(0).unwrap().range();
-                        let res = Some((
+                        Some((
                             divider_delim_len,
                             (prev_header_end + range.start)..(prev_header_end + range.end),
-                        ));
-                        res
+                        ))
                     } else {
                         None
                     }
@@ -539,8 +535,7 @@ d
 ---
 (d)
         "#
-            .trim()
-            .to_string(),
+            .trim(),
             None,
         );
 
@@ -597,8 +592,7 @@ abc
 
 (c (d))
         "#
-            .trim()
-            .to_string(),
+            .trim(),
             None,
         );
 
@@ -735,8 +729,7 @@ code
 
 (MISSING ";")
         "#
-            .trim()
-            .to_string(),
+            .trim(),
             None,
         );
 
@@ -819,8 +812,7 @@ NOT A TEST HEADER
 
 (a)
         "#
-            .trim()
-            .to_string(),
+            .trim(),
             None,
         );
 
@@ -885,8 +877,7 @@ name with === signs
 code with ----
 ---
 (d)
-"#
-            .to_string(),
+"#,
             None,
         );
 

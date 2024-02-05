@@ -15,7 +15,7 @@ use tree_sitter_highlight::Highlighter;
 use tree_sitter_loader as loader;
 use tree_sitter_tags::TagsContext;
 
-const BUILD_VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const BUILD_VERSION: &str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
 const DEFAULT_GENERATE_ABI_VERSION: usize = 14;
 
@@ -29,18 +29,17 @@ fn main() {
             }
         }
         if !err.to_string().is_empty() {
-            eprintln!("{:?}", err);
+            eprintln!("{err:?}");
         }
         std::process::exit(1);
     }
 }
 
 fn run() -> Result<()> {
-    let version = if let Some(build_sha) = BUILD_SHA {
-        format!("{} ({})", BUILD_VERSION, build_sha)
-    } else {
-        BUILD_VERSION.to_string()
-    };
+    let version = BUILD_SHA.map_or_else(
+        || BUILD_VERSION.to_string(),
+        |build_sha| format!("{BUILD_VERSION} ({build_sha})"),
+    );
 
     let debug_arg = Arg::with_name("debug")
         .help("Show parsing debug log")
@@ -414,7 +413,7 @@ fn run() -> Result<()> {
             let language = languages
                 .first()
                 .ok_or_else(|| anyhow!("No language found"))?;
-            parser.set_language(&language)?;
+            parser.set_language(language)?;
 
             let test_dir = current_dir.join("test");
 
@@ -435,7 +434,7 @@ fn run() -> Result<()> {
             }
 
             // Check that all of the queries are valid.
-            test::check_queries_at_path(language.clone(), &current_dir.join("queries"))?;
+            test::check_queries_at_path(language, &current_dir.join("queries"))?;
 
             // Run the syntax highlighting tests.
             let test_highlight_dir = test_dir.join("highlight");
@@ -487,7 +486,7 @@ fn run() -> Result<()> {
             let time = matches.is_present("time");
             let edits = matches
                 .values_of("edits")
-                .map_or(Vec::new(), |e| e.collect());
+                .map_or(Vec::new(), std::iter::Iterator::collect);
             let cancellation_flag = util::cancel_on_signal();
             let mut parser = Parser::new();
 
@@ -509,7 +508,7 @@ fn run() -> Result<()> {
 
             let timeout = matches
                 .value_of("timeout")
-                .map_or(0, |t| u64::from_str_radix(t, 10).unwrap());
+                .map_or(0, |t| t.parse::<u64>().unwrap());
 
             let paths = collect_paths(matches.value_of("paths-file"), matches.values_of("paths"))?;
 
@@ -544,7 +543,7 @@ fn run() -> Result<()> {
                     encoding,
                 };
 
-                let this_file_errored = parse::parse_file_at_path(&mut parser, opts)?;
+                let this_file_errored = parse::parse_file_at_path(&mut parser, &opts)?;
 
                 if should_track_stats {
                     stats.total_parses += 1;
@@ -557,7 +556,7 @@ fn run() -> Result<()> {
             }
 
             if should_track_stats {
-                println!("{}", stats)
+                println!("{stats}");
             }
 
             if has_error {
@@ -579,20 +578,20 @@ fn run() -> Result<()> {
             )?;
             let query_path = Path::new(matches.value_of("query-path").unwrap());
             let byte_range = matches.value_of("byte-range").and_then(|arg| {
-                let mut parts = arg.split(":");
+                let mut parts = arg.split(':');
                 let start = parts.next()?.parse().ok()?;
                 let end = parts.next().unwrap().parse().ok()?;
                 Some(start..end)
             });
             let point_range = matches.value_of("row-range").and_then(|arg| {
-                let mut parts = arg.split(":");
+                let mut parts = arg.split(':');
                 let start = parts.next()?.parse().ok()?;
                 let end = parts.next().unwrap().parse().ok()?;
                 Some(Point::new(start, 0)..Point::new(end, 0))
             });
             let should_test = matches.is_present("test");
             query::query_files_at_paths(
-                language,
+                &language,
                 paths,
                 query_path,
                 ordered_captures,
@@ -640,30 +639,29 @@ fn run() -> Result<()> {
             if let Some(scope) = matches.value_of("scope") {
                 language = loader.language_configuration_for_scope(scope)?;
                 if language.is_none() {
-                    return Err(anyhow!("Unknown scope '{}'", scope));
+                    return Err(anyhow!("Unknown scope '{scope}'"));
                 }
             }
 
-            let query_paths = matches.values_of("query-paths").map_or(None, |e| {
-                Some(
-                    e.collect::<Vec<_>>()
-                        .into_iter()
-                        .map(|s| s.to_string())
-                        .collect::<Vec<_>>(),
-                )
+            let query_paths = matches.values_of("query-paths").map(|e| {
+                e.collect::<Vec<_>>()
+                    .into_iter()
+                    .map(std::string::ToString::to_string)
+                    .collect::<Vec<_>>()
             });
 
             for path in paths {
                 let path = Path::new(&path);
                 let (language, language_config) = match language.clone() {
                     Some(v) => v,
-                    None => match loader.language_configuration_for_file_name(path)? {
-                        Some(v) => v,
-                        None => {
-                            eprintln!("No language found for path {:?}", path);
+                    None => {
+                        if let Some(v) = loader.language_configuration_for_file_name(path)? {
+                            v
+                        } else {
+                            eprintln!("No language found for path {path:?}");
                             continue;
                         }
-                    },
+                    }
                 };
 
                 if let Some(highlight_config) = language_config.highlight_config(
@@ -700,7 +698,7 @@ fn run() -> Result<()> {
                                 }
                             );
                             for name in names {
-                                eprintln!("* {}", name);
+                                eprintln!("* {name}");
                             }
                         }
                     }
@@ -727,7 +725,7 @@ fn run() -> Result<()> {
                         )?;
                     }
                 } else {
-                    eprintln!("No syntax highlighting config found for path {:?}", path);
+                    eprintln!("No syntax highlighting config found for path {path:?}");
                 }
             }
 
@@ -786,7 +784,7 @@ fn collect_paths<'a>(
 ) -> Result<Vec<String>> {
     if let Some(paths_file) = paths_file {
         return Ok(fs::read_to_string(paths_file)
-            .with_context(|| format!("Failed to read paths file {}", paths_file))?
+            .with_context(|| format!("Failed to read paths file {paths_file}"))?
             .trim()
             .lines()
             .map(String::from)
@@ -799,25 +797,22 @@ fn collect_paths<'a>(
         let mut incorporate_path = |path: &str, positive| {
             if positive {
                 result.push(path.to_string());
-            } else {
-                if let Some(index) = result.iter().position(|p| p == path) {
-                    result.remove(index);
-                }
+            } else if let Some(index) = result.iter().position(|p| p == path) {
+                result.remove(index);
             }
         };
 
         for mut path in paths {
             let mut positive = true;
-            if path.starts_with("!") {
+            if path.starts_with('!') {
                 positive = false;
-                path = path.trim_start_matches("!");
+                path = path.trim_start_matches('!');
             }
 
             if Path::new(path).exists() {
                 incorporate_path(path, positive);
             } else {
-                let paths =
-                    glob(path).with_context(|| format!("Invalid glob pattern {:?}", path))?;
+                let paths = glob(path).with_context(|| format!("Invalid glob pattern {path:?}"))?;
                 for path in paths {
                     if let Some(path) = path?.to_str() {
                         incorporate_path(path, positive);

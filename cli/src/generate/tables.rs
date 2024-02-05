@@ -1,9 +1,9 @@
 use super::nfa::CharacterSet;
 use super::rules::{Alias, Symbol, TokenSet};
 use std::collections::BTreeMap;
-pub(crate) type ProductionInfoId = usize;
-pub(crate) type ParseStateId = usize;
-pub(crate) type LexStateId = usize;
+pub type ProductionInfoId = usize;
+pub type ParseStateId = usize;
+pub type LexStateId = usize;
 
 use std::hash::BuildHasherDefault;
 
@@ -11,7 +11,7 @@ use indexmap::IndexMap;
 use rustc_hash::FxHasher;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) enum ParseAction {
+pub enum ParseAction {
     Accept,
     Shift {
         state: ParseStateId,
@@ -28,19 +28,19 @@ pub(crate) enum ParseAction {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum GotoAction {
+pub enum GotoAction {
     Goto(ParseStateId),
     ShiftExtra,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub(crate) struct ParseTableEntry {
+pub struct ParseTableEntry {
     pub actions: Vec<ParseAction>,
     pub reusable: bool,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct ParseState {
+pub struct ParseState {
     pub id: ParseStateId,
     pub terminal_entries: IndexMap<Symbol, ParseTableEntry, BuildHasherDefault<FxHasher>>,
     pub nonterminal_entries: IndexMap<Symbol, GotoAction, BuildHasherDefault<FxHasher>>,
@@ -50,19 +50,19 @@ pub(crate) struct ParseState {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(crate) struct FieldLocation {
+pub struct FieldLocation {
     pub index: usize,
     pub inherited: bool,
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
-pub(crate) struct ProductionInfo {
+pub struct ProductionInfo {
     pub alias_sequence: Vec<Option<Alias>>,
     pub field_map: BTreeMap<String, Vec<FieldLocation>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct ParseTable {
+pub struct ParseTable {
     pub states: Vec<ParseState>,
     pub symbols: Vec<Symbol>,
     pub production_infos: Vec<ProductionInfo>,
@@ -71,35 +71,29 @@ pub(crate) struct ParseTable {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct AdvanceAction {
+pub struct AdvanceAction {
     pub state: LexStateId,
     pub in_main_token: bool,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct LexState {
+pub struct LexState {
     pub accept_action: Option<Symbol>,
     pub eof_action: Option<AdvanceAction>,
     pub advance_actions: Vec<(CharacterSet, AdvanceAction)>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) struct LexTable {
+#[derive(Debug, PartialEq, Eq, Default)]
+pub struct LexTable {
     pub states: Vec<LexState>,
 }
 
 impl ParseTableEntry {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             reusable: true,
             actions: Vec::new(),
         }
-    }
-}
-
-impl Default for LexTable {
-    fn default() -> Self {
-        LexTable { states: Vec::new() }
     }
 }
 
@@ -109,7 +103,7 @@ impl ParseState {
             .contains_key(&Symbol::end_of_nonterminal_extra())
     }
 
-    pub fn referenced_states<'a>(&'a self) -> impl Iterator<Item = ParseStateId> + 'a {
+    pub fn referenced_states(&self) -> impl Iterator<Item = ParseStateId> + '_ {
         self.terminal_entries
             .iter()
             .flat_map(|(_, entry)| {
@@ -129,7 +123,7 @@ impl ParseState {
 
     pub fn update_referenced_states<F>(&mut self, mut f: F)
     where
-        F: FnMut(usize, &ParseState) -> usize,
+        F: FnMut(usize, &Self) -> usize,
     {
         let mut updates = Vec::new();
         for (symbol, entry) in &self.terminal_entries {

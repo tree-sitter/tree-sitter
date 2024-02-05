@@ -23,11 +23,13 @@ impl Language {
     /// # Safety
     ///
     /// `ptr` must be non-null.
-    pub unsafe fn from_raw(ptr: *const TSLanguage) -> Language {
-        Language(ptr)
+    #[must_use]
+    pub const unsafe fn from_raw(ptr: *const TSLanguage) -> Self {
+        Self(ptr)
     }
 
     /// Consumes the [`Language`], returning a raw pointer to the underlying C structure.
+    #[must_use]
     pub fn into_raw(self) -> *const TSLanguage {
         ManuallyDrop::new(self).0
     }
@@ -39,8 +41,9 @@ impl Parser {
     /// # Safety
     ///
     /// `ptr` must be non-null.
-    pub unsafe fn from_raw(ptr: *mut TSParser) -> Parser {
-        Parser(NonNull::new_unchecked(ptr))
+    #[must_use]
+    pub const unsafe fn from_raw(ptr: *mut TSParser) -> Self {
+        Self(NonNull::new_unchecked(ptr))
     }
 
     /// Consumes the [`Parser`], returning a raw pointer to the underlying C structure.
@@ -50,6 +53,7 @@ impl Parser {
     /// It's a caller responsibility to adjust parser's state
     /// like disable logging or dot graphs printing if this
     /// may cause issues like use after free.
+    #[must_use]
     pub fn into_raw(self) -> *mut TSParser {
         ManuallyDrop::new(self).0.as_ptr()
     }
@@ -61,11 +65,13 @@ impl Tree {
     /// # Safety
     ///
     /// `ptr` must be non-null.
-    pub unsafe fn from_raw(ptr: *mut TSTree) -> Tree {
-        Tree(NonNull::new_unchecked(ptr))
+    #[must_use]
+    pub const unsafe fn from_raw(ptr: *mut TSTree) -> Self {
+        Self(NonNull::new_unchecked(ptr))
     }
 
     /// Consumes the [`Tree`], returning a raw pointer to the underlying C structure.
+    #[must_use]
     pub fn into_raw(self) -> *mut TSTree {
         ManuallyDrop::new(self).0.as_ptr()
     }
@@ -77,11 +83,13 @@ impl<'tree> Node<'tree> {
     /// # Safety
     ///
     /// `ptr` must be non-null.
-    pub unsafe fn from_raw(raw: TSNode) -> Node<'tree> {
-        Node(raw, PhantomData)
+    #[must_use]
+    pub const unsafe fn from_raw(raw: TSNode) -> Node<'tree> {
+        Self(raw, PhantomData)
     }
 
     /// Consumes the [`Node`], returning a raw pointer to the underlying C structure.
+    #[must_use]
     pub fn into_raw(self) -> TSNode {
         ManuallyDrop::new(self).0
     }
@@ -93,11 +101,13 @@ impl<'a> TreeCursor<'a> {
     /// # Safety
     ///
     /// `ptr` must be non-null.
-    pub unsafe fn from_raw(raw: TSTreeCursor) -> TreeCursor<'a> {
-        TreeCursor(raw, PhantomData)
+    #[must_use]
+    pub const unsafe fn from_raw(raw: TSTreeCursor) -> TreeCursor<'a> {
+        Self(raw, PhantomData)
     }
 
     /// Consumes the [`TreeCursor`], returning a raw pointer to the underlying C structure.
+    #[must_use]
     pub fn into_raw(self) -> TSTreeCursor {
         ManuallyDrop::new(self).0
     }
@@ -109,11 +119,12 @@ impl Query {
     /// # Safety
     ///
     /// `ptr` must be non-null.
-    pub unsafe fn from_raw(ptr: *mut TSQuery, source: &str) -> Result<Query, QueryError> {
-        Query::from_raw_parts(ptr, source)
+    pub unsafe fn from_raw(ptr: *mut TSQuery, source: &str) -> Result<Self, QueryError> {
+        Self::from_raw_parts(ptr, source)
     }
 
     /// Consumes the [`Query`], returning a raw pointer to the underlying C structure.
+    #[must_use]
     pub fn into_raw(self) -> *mut TSQuery {
         ManuallyDrop::new(self).ptr.as_ptr()
     }
@@ -125,13 +136,15 @@ impl QueryCursor {
     /// # Safety
     ///
     /// `ptr` must be non-null.
-    pub unsafe fn from_raw(ptr: *mut TSQueryCursor) -> QueryCursor {
-        QueryCursor {
+    #[must_use]
+    pub const unsafe fn from_raw(ptr: *mut TSQueryCursor) -> Self {
+        Self {
             ptr: NonNull::new_unchecked(ptr),
         }
     }
 
     /// Consumes the [`QueryCursor`], returning a raw pointer to the underlying C structure.
+    #[must_use]
     pub fn into_raw(self) -> *mut TSQueryCursor {
         ManuallyDrop::new(self).ptr.as_ptr()
     }
@@ -143,11 +156,13 @@ impl LookaheadIterator {
     /// # Safety
     ///
     /// `ptr` must be non-null.
-    pub unsafe fn from_raw(ptr: *mut TSLookaheadIterator) -> LookaheadIterator {
-        LookaheadIterator(NonNull::new_unchecked(ptr))
+    #[must_use]
+    pub const unsafe fn from_raw(ptr: *mut TSLookaheadIterator) -> Self {
+        Self(NonNull::new_unchecked(ptr))
     }
 
     /// Consumes the [`LookaheadIterator`], returning a raw pointer to the underlying C structure.
+    #[must_use]
     pub fn into_raw(self) -> *mut TSLookaheadIterator {
         ManuallyDrop::new(self).0.as_ptr()
     }

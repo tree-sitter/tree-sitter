@@ -25,7 +25,7 @@ lazy_static! {
                 let (example_paths, query_paths) =
                     result.entry(relative_path.to_owned()).or_default();
 
-                if let Ok(example_files) = fs::read_dir(&dir.join("examples")) {
+                if let Ok(example_files) = fs::read_dir(dir.join("examples")) {
                     example_paths.extend(example_files.filter_map(|p| {
                         let p = p.unwrap().path();
                         if p.is_file() {
@@ -36,7 +36,7 @@ lazy_static! {
                     }));
                 }
 
-                if let Ok(query_files) = fs::read_dir(&dir.join("queries")) {
+                if let Ok(query_files) = fs::read_dir(dir.join("queries")) {
                     query_paths.extend(query_files.filter_map(|p| {
                         let p = p.unwrap().path();
                         if p.is_file() {
@@ -47,7 +47,7 @@ lazy_static! {
                     }));
                 }
             } else {
-                for entry in fs::read_dir(&dir).unwrap() {
+                for entry in fs::read_dir(dir).unwrap() {
                     let entry = entry.unwrap().path();
                     if entry.is_dir() {
                         process_dir(result, &entry);
@@ -102,7 +102,7 @@ fn main() {
                 }
             }
 
-            parse(&path, max_path_length, |source| {
+            parse(path, max_path_length, |source| {
                 Query::new(&language, str::from_utf8(source).unwrap())
                     .with_context(|| format!("Query file path: {path:?}"))
                     .expect("Failed to parse query");
@@ -167,7 +167,7 @@ fn main() {
         eprintln!("  Average Speed (errors): {} bytes/ms", average_error);
         eprintln!("  Worst Speed (errors):   {} bytes/ms", worst_error);
     }
-    eprintln!("");
+    eprintln!();
 }
 
 fn aggregate(speeds: &Vec<usize>) -> Option<(usize, usize)> {

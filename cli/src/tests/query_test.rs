@@ -4188,7 +4188,7 @@ fn test_query_is_pattern_guaranteed_at_step() {
     ];
 
     allocations::record(|| {
-        eprintln!("");
+        eprintln!();
 
         for row in rows.iter() {
             if let Some(filter) = EXAMPLE_FILTER.as_ref() {
@@ -4283,7 +4283,7 @@ fn test_query_is_pattern_rooted() {
     ];
 
     allocations::record(|| {
-        eprintln!("");
+        eprintln!();
 
         let language = get_language("python");
         for row in &rows {
@@ -4381,7 +4381,7 @@ fn test_query_is_pattern_non_local() {
     ];
 
     allocations::record(|| {
-        eprintln!("");
+        eprintln!();
 
         for row in &rows {
             if let Some(filter) = EXAMPLE_FILTER.as_ref() {
@@ -4611,7 +4611,7 @@ fn test_capture_quantifiers() {
     ];
 
     allocations::record(|| {
-        eprintln!("");
+        eprintln!();
 
         for row in rows.iter() {
             if let Some(filter) = EXAMPLE_FILTER.as_ref() {

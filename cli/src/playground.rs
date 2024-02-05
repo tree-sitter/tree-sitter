@@ -36,22 +36,21 @@ optional_resource!(get_lib_js, "lib/binding_web/tree-sitter.js");
 optional_resource!(get_lib_wasm, "lib/binding_web/tree-sitter.wasm");
 
 fn get_main_html(tree_sitter_dir: Option<&PathBuf>) -> Cow<'static, [u8]> {
-    if let Some(tree_sitter_dir) = tree_sitter_dir {
-        Cow::Owned(fs::read(tree_sitter_dir.join("cli/src/playground.html")).unwrap())
-    } else {
-        Cow::Borrowed(include_bytes!("playground.html"))
-    }
+    tree_sitter_dir.map_or(
+        Cow::Borrowed(include_bytes!("playground.html")),
+        |tree_sitter_dir| {
+            Cow::Owned(fs::read(tree_sitter_dir.join("cli/src/playground.html")).unwrap())
+        },
+    )
 }
 
 pub fn serve(grammar_path: &Path, open_in_browser: bool) -> Result<()> {
     let server = get_server()?;
-    let (grammar_name, language_wasm) = wasm::load_language_wasm_file(&grammar_path).unwrap();
+    let (grammar_name, language_wasm) = wasm::load_language_wasm_file(grammar_path).unwrap();
     let url = format!("http://{}", server.server_addr());
-    println!("Started playground on: {}", url);
-    if open_in_browser {
-        if let Err(_) = webbrowser::open(&url) {
-            eprintln!("Failed to open '{}' in a web browser", url);
-        }
+    println!("Started playground on: {url}");
+    if open_in_browser && webbrowser::open(&url).is_err() {
+        eprintln!("Failed to open '{url}' in a web browser");
     }
 
     let tree_sitter_dir = env::var("TREE_SITTER_BASE_DIR").map(PathBuf::from).ok();
@@ -102,7 +101,7 @@ pub fn serve(grammar_path: &Path, open_in_browser: bool) -> Result<()> {
     Ok(())
 }
 
-fn redirect<'a>(url: &'a str) -> Response<&'a [u8]> {
+fn redirect(url: &str) -> Response<&[u8]> {
     Response::empty(302)
         .with_data("".as_bytes(), Some(0))
         .with_header(Header::from_bytes("Location", url.as_bytes()).unwrap())
@@ -115,7 +114,7 @@ fn response<'a>(data: &'a [u8], header: &Header) -> Response<&'a [u8]> {
 }
 
 fn get_server() -> Result<Server> {
-    let addr = env::var("TREE_SITTER_PLAYGROUND_ADDR").unwrap_or("127.0.0.1".to_owned());
+    let addr = env::var("TREE_SITTER_PLAYGROUND_ADDR").unwrap_or_else(|_| "127.0.0.1".to_owned());
     let port = env::var("TREE_SITTER_PLAYGROUND_PORT")
         .map(|v| {
             v.parse::<u16>()
@@ -124,9 +123,9 @@ fn get_server() -> Result<Server> {
         .ok();
     let listener = match port {
         Some(port) => {
-            bind_to(&*addr, port?).with_context(|| "Failed to bind to the specified port")?
+            bind_to(&addr, port?).with_context(|| "Failed to bind to the specified port")?
         }
-        None => get_listener_on_available_port(&*addr)
+        None => get_listener_on_available_port(&addr)
             .with_context(|| "Failed to find a free port to bind to it")?,
     };
     let server =

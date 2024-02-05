@@ -11,7 +11,7 @@ use std::{
     ffi::CStr,
     fmt, hash, iter,
     marker::PhantomData,
-    mem::{self, MaybeUninit},
+    mem::MaybeUninit,
     num::NonZeroU16,
     ops::{self, Deref},
     os::raw::{c_char, c_void},
@@ -121,6 +121,7 @@ pub struct TreeCursor<'cursor>(ffi::TSTreeCursor, PhantomData<&'cursor ()>);
 /// A set of patterns that match nodes in a syntax tree.
 #[doc(alias = "TSQuery")]
 #[derive(Debug)]
+#[allow(clippy::type_complexity)]
 pub struct Query {
     ptr: NonNull<ffi::TSQuery>,
     capture_names: Box<[&'static str]>,
@@ -144,12 +145,12 @@ pub enum CaptureQuantifier {
 impl From<ffi::TSQuantifier> for CaptureQuantifier {
     fn from(value: ffi::TSQuantifier) -> Self {
         match value {
-            ffi::TSQuantifierZero => CaptureQuantifier::Zero,
-            ffi::TSQuantifierZeroOrOne => CaptureQuantifier::ZeroOrOne,
-            ffi::TSQuantifierZeroOrMore => CaptureQuantifier::ZeroOrMore,
-            ffi::TSQuantifierOne => CaptureQuantifier::One,
-            ffi::TSQuantifierOneOrMore => CaptureQuantifier::OneOrMore,
-            _ => panic!("Unrecognized quantifier: {}", value),
+            ffi::TSQuantifierZero => Self::Zero,
+            ffi::TSQuantifierZeroOrOne => Self::ZeroOrOne,
+            ffi::TSQuantifierZeroOrMore => Self::ZeroOrMore,
+            ffi::TSQuantifierOne => Self::One,
+            ffi::TSQuantifierOneOrMore => Self::OneOrMore,
+            _ => panic!("Unrecognized quantifier: {value}"),
         }
     }
 }
@@ -280,24 +281,28 @@ impl Language {
     /// Get the ABI version number that indicates which version of the Tree-sitter CLI
     /// that was used to generate this [`Language`].
     #[doc(alias = "ts_language_version")]
+    #[must_use]
     pub fn version(&self) -> usize {
         unsafe { ffi::ts_language_version(self.0) as usize }
     }
 
     /// Get the number of distinct node types in this language.
     #[doc(alias = "ts_language_symbol_count")]
+    #[must_use]
     pub fn node_kind_count(&self) -> usize {
         unsafe { ffi::ts_language_symbol_count(self.0) as usize }
     }
 
     /// Get the number of valid states in this language.
     #[doc(alias = "ts_language_state_count")]
+    #[must_use]
     pub fn parse_state_count(&self) -> usize {
         unsafe { ffi::ts_language_state_count(self.0) as usize }
     }
 
     /// Get the name of the node kind for the given numerical id.
     #[doc(alias = "ts_language_symbol_name")]
+    #[must_use]
     pub fn node_kind_for_id(&self, id: u16) -> Option<&'static str> {
         let ptr = unsafe { ffi::ts_language_symbol_name(self.0, id) };
         (!ptr.is_null()).then(|| unsafe { CStr::from_ptr(ptr) }.to_str().unwrap())
@@ -305,11 +310,12 @@ impl Language {
 
     /// Get the numeric id for the given node kind.
     #[doc(alias = "ts_language_symbol_for_name")]
+    #[must_use]
     pub fn id_for_node_kind(&self, kind: &str, named: bool) -> u16 {
         unsafe {
             ffi::ts_language_symbol_for_name(
                 self.0,
-                kind.as_bytes().as_ptr() as *const c_char,
+                kind.as_bytes().as_ptr().cast::<c_char>(),
                 kind.len() as u32,
                 named,
             )
@@ -318,23 +324,27 @@ impl Language {
 
     /// Check if the node type for the given numerical id is named (as opposed
     /// to an anonymous node type).
+    #[must_use]
     pub fn node_kind_is_named(&self, id: u16) -> bool {
         unsafe { ffi::ts_language_symbol_type(self.0, id) == ffi::TSSymbolTypeRegular }
     }
 
     #[doc(alias = "ts_language_symbol_type")]
+    #[must_use]
     pub fn node_kind_is_visible(&self, id: u16) -> bool {
         unsafe { ffi::ts_language_symbol_type(self.0, id) <= ffi::TSSymbolTypeAnonymous }
     }
 
     /// Get the number of distinct field names in this language.
     #[doc(alias = "ts_language_field_count")]
+    #[must_use]
     pub fn field_count(&self) -> usize {
         unsafe { ffi::ts_language_field_count(self.0) as usize }
     }
 
     /// Get the field names for the given numerical id.
     #[doc(alias = "ts_language_field_name_for_id")]
+    #[must_use]
     pub fn field_name_for_id(&self, field_id: u16) -> Option<&'static str> {
         let ptr = unsafe { ffi::ts_language_field_name_for_id(self.0, field_id) };
         (!ptr.is_null()).then(|| unsafe { CStr::from_ptr(ptr) }.to_str().unwrap())
@@ -342,12 +352,13 @@ impl Language {
 
     /// Get the numerical id for the given field name.
     #[doc(alias = "ts_language_field_id_for_name")]
+    #[must_use]
     pub fn field_id_for_name(&self, field_name: impl AsRef<[u8]>) -> Option<FieldId> {
         let field_name = field_name.as_ref();
         let id = unsafe {
             ffi::ts_language_field_id_for_name(
                 self.0,
-                field_name.as_ptr() as *const c_char,
+                field_name.as_ptr().cast::<c_char>(),
                 field_name.len() as u32,
             )
         };
@@ -363,6 +374,7 @@ impl Language {
     /// let state = language.next_state(node.parse_state(), node.grammar_id());
     /// ```
     #[doc(alias = "ts_language_next_state")]
+    #[must_use]
     pub fn next_state(&self, state: u16, id: u16) -> u16 {
         unsafe { ffi::ts_language_next_state(self.0, state, id) }
     }
@@ -381,6 +393,7 @@ impl Language {
     /// lookahead iterator created on the previous non-extra leaf node may be
     /// appropriate.
     #[doc(alias = "ts_lookahead_iterator_new")]
+    #[must_use]
     pub fn lookahead_iterator(&self, state: u16) -> Option<LookaheadIterator> {
         let ptr = unsafe { ffi::ts_lookahead_iterator_new(self.0, state) };
         (!ptr.is_null()).then(|| unsafe { LookaheadIterator::from_raw(ptr) })
@@ -403,16 +416,23 @@ impl<'a> Deref for LanguageRef<'a> {
     type Target = Language;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { mem::transmute(&self.0) }
+        unsafe { &*(std::ptr::addr_of!(self.0).cast::<Language>()) }
+    }
+}
+
+impl Default for Parser {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 impl Parser {
     /// Create a new parser.
-    pub fn new() -> Parser {
+    #[must_use]
+    pub fn new() -> Self {
         unsafe {
             let parser = ffi::ts_parser_new();
-            Parser(NonNull::new_unchecked(parser))
+            Self(NonNull::new_unchecked(parser))
         }
     }
 
@@ -427,18 +447,19 @@ impl Parser {
     #[doc(alias = "ts_parser_set_language")]
     pub fn set_language(&mut self, language: &Language) -> Result<(), LanguageError> {
         let version = language.version();
-        if version < MIN_COMPATIBLE_LANGUAGE_VERSION || version > LANGUAGE_VERSION {
-            Err(LanguageError { version })
-        } else {
+        if (MIN_COMPATIBLE_LANGUAGE_VERSION..=LANGUAGE_VERSION).contains(&version) {
             unsafe {
                 ffi::ts_parser_set_language(self.0.as_ptr(), language.0);
             }
             Ok(())
+        } else {
+            Err(LanguageError { version })
         }
     }
 
     /// Get the parser's current language.
     #[doc(alias = "ts_parser_language")]
+    #[must_use]
     pub fn language(&self) -> Option<Language> {
         let ptr = unsafe { ffi::ts_parser_language(self.0.as_ptr()) };
         (!ptr.is_null()).then(|| Language(ptr))
@@ -446,9 +467,10 @@ impl Parser {
 
     /// Get the parser's current logger.
     #[doc(alias = "ts_parser_logger")]
+    #[must_use]
     pub fn logger(&self) -> Option<&Logger> {
         let logger = unsafe { ffi::ts_parser_logger(self.0.as_ptr()) };
-        unsafe { (logger.payload as *mut Logger).as_ref() }
+        unsafe { logger.payload.cast::<Logger>().as_ref() }
     }
 
     /// Set the logging callback that a parser should use during parsing.
@@ -456,7 +478,7 @@ impl Parser {
     pub fn set_logger(&mut self, logger: Option<Logger>) {
         let prev_logger = unsafe { ffi::ts_parser_logger(self.0.as_ptr()) };
         if !prev_logger.payload.is_null() {
-            drop(unsafe { Box::from_raw(prev_logger.payload as *mut Logger) });
+            drop(unsafe { Box::from_raw(prev_logger.payload.cast::<Logger>()) });
         }
 
         let c_logger;
@@ -468,7 +490,7 @@ impl Parser {
                 c_log_type: ffi::TSLogType,
                 c_message: *const c_char,
             ) {
-                let callback = (payload as *mut Logger).as_mut().unwrap();
+                let callback = payload.cast::<Logger>().as_mut().unwrap();
                 if let Ok(message) = CStr::from_ptr(c_message).to_str() {
                     let log_type = if c_log_type == ffi::TSLogTypeParse {
                         LogType::Parse
@@ -482,7 +504,7 @@ impl Parser {
             let raw_container = Box::into_raw(container);
 
             c_logger = ffi::TSLogger {
-                payload: raw_container as *mut c_void,
+                payload: raw_container.cast::<c_void>(),
                 log: Some(log),
             };
         } else {
@@ -586,15 +608,15 @@ impl Parser {
             position: ffi::TSPoint,
             bytes_read: *mut u32,
         ) -> *const c_char {
-            let (callback, text) = (payload as *mut (&mut F, Option<T>)).as_mut().unwrap();
+            let (callback, text) = payload.cast::<(&mut F, Option<T>)>().as_mut().unwrap();
             *text = Some(callback(byte_offset as usize, position.into()));
             let slice = text.as_ref().unwrap().as_ref();
             *bytes_read = slice.len() as u32;
-            return slice.as_ptr() as *const c_char;
+            slice.as_ptr().cast::<c_char>()
         }
 
         let c_input = ffi::TSInput {
-            payload: &mut payload as *mut (&mut F, Option<T>) as *mut c_void,
+            payload: std::ptr::addr_of_mut!(payload).cast::<c_void>(),
             read: Some(read::<T, F>),
             encoding: ffi::TSInputEncodingUTF8,
         };
@@ -636,7 +658,7 @@ impl Parser {
             position: ffi::TSPoint,
             bytes_read: *mut u32,
         ) -> *const c_char {
-            let (callback, text) = (payload as *mut (&mut F, Option<T>)).as_mut().unwrap();
+            let (callback, text) = payload.cast::<(&mut F, Option<T>)>().as_mut().unwrap();
             *text = Some(callback(
                 (byte_offset / 2) as usize,
                 Point {
@@ -646,11 +668,11 @@ impl Parser {
             ));
             let slice = text.as_ref().unwrap().as_ref();
             *bytes_read = slice.len() as u32 * 2;
-            slice.as_ptr() as *const c_char
+            slice.as_ptr().cast::<c_char>()
         }
 
         let c_input = ffi::TSInput {
-            payload: &mut payload as *mut (&mut F, Option<T>) as *mut c_void,
+            payload: std::ptr::addr_of_mut!(payload).cast::<c_void>(),
             read: Some(read::<T, F>),
             encoding: ffi::TSInputEncodingUTF16,
         };
@@ -677,6 +699,7 @@ impl Parser {
     ///
     /// This is set via [`set_timeout_micros`](Parser::set_timeout_micros).
     #[doc(alias = "ts_parser_timeout_micros")]
+    #[must_use]
     pub fn timeout_micros(&self) -> u64 {
         unsafe { ffi::ts_parser_timeout_micros(self.0.as_ptr()) }
     }
@@ -705,12 +728,15 @@ impl Parser {
     /// ```text
     ///     ranges[i].end_byte <= ranges[i + 1].start_byte
     /// ```
-    /// If this requirement is not satisfied, method will return IncludedRangesError
+    /// If this requirement is not satisfied, method will return [`IncludedRangesError`]
     /// error with an offset in the passed ranges slice pointing to a first incorrect range.
     #[doc(alias = "ts_parser_set_included_ranges")]
     pub fn set_included_ranges(&mut self, ranges: &[Range]) -> Result<(), IncludedRangesError> {
-        let ts_ranges: Vec<ffi::TSRange> =
-            ranges.iter().cloned().map(|range| range.into()).collect();
+        let ts_ranges = ranges
+            .iter()
+            .copied()
+            .map(std::convert::Into::into)
+            .collect::<Vec<_>>();
         let result = unsafe {
             ffi::ts_parser_set_included_ranges(
                 self.0.as_ptr(),
@@ -734,9 +760,16 @@ impl Parser {
     }
 
     /// Get the parser's current cancellation flag pointer.
+    ///
+    /// # Safety
+    ///
+    /// It uses FFI
     #[doc(alias = "ts_parser_cancellation_flag")]
+    #[must_use]
     pub unsafe fn cancellation_flag(&self) -> Option<&AtomicUsize> {
-        (ffi::ts_parser_cancellation_flag(self.0.as_ptr()) as *const AtomicUsize).as_ref()
+        ffi::ts_parser_cancellation_flag(self.0.as_ptr())
+            .cast::<AtomicUsize>()
+            .as_ref()
     }
 
     /// Set the parser's current cancellation flag pointer.
@@ -744,12 +777,16 @@ impl Parser {
     /// If a pointer is assigned, then the parser will periodically read from
     /// this pointer during parsing. If it reads a non-zero value, it will halt early,
     /// returning `None`. See [`parse`](Parser::parse) for more information.
+    ///
+    /// # Safety
+    ///
+    /// It uses FFI
     #[doc(alias = "ts_parser_set_cancellation_flag")]
     pub unsafe fn set_cancellation_flag(&mut self, flag: Option<&AtomicUsize>) {
         if let Some(flag) = flag {
             ffi::ts_parser_set_cancellation_flag(
                 self.0.as_ptr(),
-                flag as *const AtomicUsize as *const usize,
+                (flag as *const AtomicUsize).cast::<usize>(),
             );
         } else {
             ffi::ts_parser_set_cancellation_flag(self.0.as_ptr(), ptr::null());
@@ -768,6 +805,7 @@ impl Drop for Parser {
 impl Tree {
     /// Get the root node of the syntax tree.
     #[doc(alias = "ts_tree_root_node")]
+    #[must_use]
     pub fn root_node(&self) -> Node {
         Node::new(unsafe { ffi::ts_tree_root_node(self.0.as_ptr()) }).unwrap()
     }
@@ -775,6 +813,7 @@ impl Tree {
     /// Get the root node of the syntax tree, but with its position shifted
     /// forward by the given offset.
     #[doc(alias = "ts_tree_root_node_with_offset")]
+    #[must_use]
     pub fn root_node_with_offset(&self, offset_bytes: usize, offset_extent: Point) -> Node {
         Node::new(unsafe {
             ffi::ts_tree_root_node_with_offset(
@@ -788,6 +827,7 @@ impl Tree {
 
     /// Get the language that was used to parse the syntax tree.
     #[doc(alias = "ts_tree_language")]
+    #[must_use]
     pub fn language(&self) -> LanguageRef {
         LanguageRef(
             unsafe { ffi::ts_tree_language(self.0.as_ptr()) },
@@ -807,6 +847,7 @@ impl Tree {
     }
 
     /// Create a new [`TreeCursor`] starting from the root of the tree.
+    #[must_use]
     pub fn walk(&self) -> TreeCursor {
         self.root_node().walk()
     }
@@ -819,26 +860,32 @@ impl Tree {
     /// after calling one of the [`Parser::parse`] functions. Call it on the old tree that
     /// was passed to parse, and pass the new tree that was returned from `parse`.
     #[doc(alias = "ts_tree_get_changed_ranges")]
-    pub fn changed_ranges(&self, other: &Tree) -> impl ExactSizeIterator<Item = Range> {
+    #[must_use]
+    pub fn changed_ranges(&self, other: &Self) -> impl ExactSizeIterator<Item = Range> {
         let mut count = 0u32;
         unsafe {
             let ptr = ffi::ts_tree_get_changed_ranges(
                 self.0.as_ptr(),
                 other.0.as_ptr(),
-                &mut count as *mut u32,
+                std::ptr::addr_of_mut!(count),
             );
-            util::CBufferIter::new(ptr, count as usize).map(|r| r.into())
+            util::CBufferIter::new(ptr, count as usize).map(std::convert::Into::into)
         }
     }
 
     /// Get the included ranges that were used to parse the syntax tree.
+    #[must_use]
     pub fn included_ranges(&self) -> Vec<Range> {
         let mut count = 0u32;
         unsafe {
-            let ptr = ffi::ts_tree_included_ranges(self.0.as_ptr(), &mut count as *mut u32);
+            let ptr = ffi::ts_tree_included_ranges(self.0.as_ptr(), std::ptr::addr_of_mut!(count));
             let ranges = slice::from_raw_parts(ptr, count as usize);
-            let result = ranges.iter().copied().map(|range| range.into()).collect();
-            (FREE_FN)(ptr as *mut c_void);
+            let result = ranges
+                .iter()
+                .copied()
+                .map(std::convert::Into::into)
+                .collect();
+            (FREE_FN)(ptr.cast::<c_void>());
             result
         }
     }
@@ -867,14 +914,14 @@ impl Drop for Tree {
 }
 
 impl Clone for Tree {
-    fn clone(&self) -> Tree {
-        unsafe { Tree(NonNull::new_unchecked(ffi::ts_tree_copy(self.0.as_ptr()))) }
+    fn clone(&self) -> Self {
+        unsafe { Self(NonNull::new_unchecked(ffi::ts_tree_copy(self.0.as_ptr()))) }
     }
 }
 
 impl<'tree> Node<'tree> {
     fn new(node: ffi::TSNode) -> Option<Self> {
-        (!node.id.is_null()).then(|| Node(node, PhantomData))
+        (!node.id.is_null()).then_some(Node(node, PhantomData))
     }
 
     /// Get a numeric id for this node that is unique.
@@ -883,12 +930,14 @@ impl<'tree> Node<'tree> {
     /// a new tree is created based on an older tree, and a node from the old
     /// tree is reused in the process, then that node will have the same id in
     /// both trees.
+    #[must_use]
     pub fn id(&self) -> usize {
         self.0.id as usize
     }
 
     /// Get this node's type as a numerical id.
     #[doc(alias = "ts_node_symbol")]
+    #[must_use]
     pub fn kind_id(&self) -> u16 {
         unsafe { ffi::ts_node_symbol(self.0) }
     }
@@ -896,12 +945,14 @@ impl<'tree> Node<'tree> {
     /// Get the node's type as a numerical id as it appears in the grammar
     /// ignoring aliases.
     #[doc(alias = "ts_node_grammar_symbol")]
+    #[must_use]
     pub fn grammar_id(&self) -> u16 {
         unsafe { ffi::ts_node_grammar_symbol(self.0) }
     }
 
     /// Get this node's type as a string.
     #[doc(alias = "ts_node_type")]
+    #[must_use]
     pub fn kind(&self) -> &'static str {
         unsafe { CStr::from_ptr(ffi::ts_node_type(self.0)) }
             .to_str()
@@ -911,6 +962,7 @@ impl<'tree> Node<'tree> {
     /// Get this node's symbol name as it appears in the grammar ignoring
     /// aliases as a string.
     #[doc(alias = "ts_node_grammar_type")]
+    #[must_use]
     pub fn grammar_name(&self) -> &'static str {
         unsafe { CStr::from_ptr(ffi::ts_node_grammar_type(self.0)) }
             .to_str()
@@ -919,6 +971,7 @@ impl<'tree> Node<'tree> {
 
     /// Get the [`Language`] that was used to parse this node's syntax tree.
     #[doc(alias = "ts_node_language")]
+    #[must_use]
     pub fn language(&self) -> LanguageRef {
         LanguageRef(unsafe { ffi::ts_node_language(self.0) }, PhantomData)
     }
@@ -928,6 +981,7 @@ impl<'tree> Node<'tree> {
     /// Named nodes correspond to named rules in the grammar, whereas *anonymous* nodes
     /// correspond to string literals in the grammar.
     #[doc(alias = "ts_node_is_named")]
+    #[must_use]
     pub fn is_named(&self) -> bool {
         unsafe { ffi::ts_node_is_named(self.0) }
     }
@@ -937,12 +991,14 @@ impl<'tree> Node<'tree> {
     /// Extra nodes represent things like comments, which are not required the grammar,
     /// but can appear anywhere.
     #[doc(alias = "ts_node_is_extra")]
+    #[must_use]
     pub fn is_extra(&self) -> bool {
         unsafe { ffi::ts_node_is_extra(self.0) }
     }
 
     /// Check if this node has been edited.
     #[doc(alias = "ts_node_has_changes")]
+    #[must_use]
     pub fn has_changes(&self) -> bool {
         unsafe { ffi::ts_node_has_changes(self.0) }
     }
@@ -950,6 +1006,7 @@ impl<'tree> Node<'tree> {
     /// Check if this node represents a syntax error or contains any syntax errors anywhere
     /// within it.
     #[doc(alias = "ts_node_has_error")]
+    #[must_use]
     pub fn has_error(&self) -> bool {
         unsafe { ffi::ts_node_has_error(self.0) }
     }
@@ -959,18 +1016,21 @@ impl<'tree> Node<'tree> {
     /// Syntax errors represent parts of the code that could not be incorporated into a
     /// valid syntax tree.
     #[doc(alias = "ts_node_is_error")]
+    #[must_use]
     pub fn is_error(&self) -> bool {
         unsafe { ffi::ts_node_is_error(self.0) }
     }
 
     /// Get this node's parse state.
     #[doc(alias = "ts_node_parse_state")]
+    #[must_use]
     pub fn parse_state(&self) -> u16 {
         unsafe { ffi::ts_node_parse_state(self.0) }
     }
 
     /// Get the parse state after this node.
     #[doc(alias = "ts_node_next_parse_state")]
+    #[must_use]
     pub fn next_parse_state(&self) -> u16 {
         unsafe { ffi::ts_node_next_parse_state(self.0) }
     }
@@ -980,29 +1040,34 @@ impl<'tree> Node<'tree> {
     /// Missing nodes are inserted by the parser in order to recover from certain kinds of
     /// syntax errors.
     #[doc(alias = "ts_node_is_missing")]
+    #[must_use]
     pub fn is_missing(&self) -> bool {
         unsafe { ffi::ts_node_is_missing(self.0) }
     }
 
     /// Get the byte offsets where this node starts.
     #[doc(alias = "ts_node_start_byte")]
+    #[must_use]
     pub fn start_byte(&self) -> usize {
         unsafe { ffi::ts_node_start_byte(self.0) as usize }
     }
 
     /// Get the byte offsets where this node end.
     #[doc(alias = "ts_node_end_byte")]
+    #[must_use]
     pub fn end_byte(&self) -> usize {
         unsafe { ffi::ts_node_end_byte(self.0) as usize }
     }
 
     /// Get the byte range of source code that this node represents.
+    #[must_use]
     pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.start_byte()..self.end_byte()
     }
 
     /// Get the range of source code that this node represents, both in terms of raw bytes
     /// and of row/column coordinates.
+    #[must_use]
     pub fn range(&self) -> Range {
         Range {
             start_byte: self.start_byte(),
@@ -1014,6 +1079,7 @@ impl<'tree> Node<'tree> {
 
     /// Get this node's start position in terms of rows and columns.
     #[doc(alias = "ts_node_start_point")]
+    #[must_use]
     pub fn start_position(&self) -> Point {
         let result = unsafe { ffi::ts_node_start_point(self.0) };
         result.into()
@@ -1021,6 +1087,7 @@ impl<'tree> Node<'tree> {
 
     /// Get this node's end position in terms of rows and columns.
     #[doc(alias = "ts_node_end_point")]
+    #[must_use]
     pub fn end_position(&self) -> Point {
         let result = unsafe { ffi::ts_node_end_point(self.0) };
         result.into()
@@ -1033,12 +1100,14 @@ impl<'tree> Node<'tree> {
     /// you might be iterating over a long list of children, you should use
     /// [`Node::children`] instead.
     #[doc(alias = "ts_node_child")]
+    #[must_use]
     pub fn child(&self, i: usize) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_child(self.0, i as u32) })
     }
 
     /// Get this node's number of children.
     #[doc(alias = "ts_node_child_count")]
+    #[must_use]
     pub fn child_count(&self) -> usize {
         unsafe { ffi::ts_node_child_count(self.0) as usize }
     }
@@ -1050,6 +1119,7 @@ impl<'tree> Node<'tree> {
     /// you might be iterating over a long list of children, you should use
     /// [`Node::named_children`] instead.
     #[doc(alias = "ts_node_named_child")]
+    #[must_use]
     pub fn named_child(&self, i: usize) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_named_child(self.0, i as u32) })
     }
@@ -1058,6 +1128,7 @@ impl<'tree> Node<'tree> {
     ///
     /// See also [`Node::is_named`].
     #[doc(alias = "ts_node_named_child_count")]
+    #[must_use]
     pub fn named_child_count(&self) -> usize {
         unsafe { ffi::ts_node_named_child_count(self.0) as usize }
     }
@@ -1067,12 +1138,13 @@ impl<'tree> Node<'tree> {
     /// If multiple children may have the same field name, access them using
     /// [`children_by_field_name`](Node::children_by_field_name)
     #[doc(alias = "ts_node_child_by_field_name")]
+    #[must_use]
     pub fn child_by_field_name(&self, field_name: impl AsRef<[u8]>) -> Option<Self> {
         let field_name = field_name.as_ref();
         Self::new(unsafe {
             ffi::ts_node_child_by_field_name(
                 self.0,
-                field_name.as_ptr() as *const c_char,
+                field_name.as_ptr().cast::<c_char>(),
                 field_name.len() as u32,
             )
         })
@@ -1083,12 +1155,14 @@ impl<'tree> Node<'tree> {
     /// See also [`child_by_field_name`](Node::child_by_field_name). You can convert a field name to
     /// an id using [`Language::field_id_for_name`].
     #[doc(alias = "ts_node_child_by_field_id")]
+    #[must_use]
     pub fn child_by_field_id(&self, field_id: u16) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_child_by_field_id(self.0, field_id) })
     }
 
     /// Get the field name of this node's child at the given index.
     #[doc(alias = "ts_node_field_name_for_child")]
+    #[must_use]
     pub fn field_name_for_child(&self, child_index: u32) -> Option<&'static str> {
         unsafe {
             let ptr = ffi::ts_node_field_name_for_child(self.0, child_index);
@@ -1111,7 +1185,7 @@ impl<'tree> Node<'tree> {
     ) -> impl ExactSizeIterator<Item = Node<'tree>> + 'cursor {
         cursor.reset(*self);
         cursor.goto_first_child();
-        (0..self.child_count()).into_iter().map(move |_| {
+        (0..self.child_count()).map(move |_| {
             let result = cursor.node();
             cursor.goto_next_sibling();
             result
@@ -1127,7 +1201,7 @@ impl<'tree> Node<'tree> {
     ) -> impl ExactSizeIterator<Item = Node<'tree>> + 'cursor {
         cursor.reset(*self);
         cursor.goto_first_child();
-        (0..self.named_child_count()).into_iter().map(move |_| {
+        (0..self.named_child_count()).map(move |_| {
             while !cursor.node().is_named() {
                 if !cursor.goto_next_sibling() {
                     break;
@@ -1200,42 +1274,49 @@ impl<'tree> Node<'tree> {
 
     /// Get this node's immediate parent.
     #[doc(alias = "ts_node_parent")]
+    #[must_use]
     pub fn parent(&self) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_parent(self.0) })
     }
 
     /// Get this node's next sibling.
     #[doc(alias = "ts_node_next_sibling")]
+    #[must_use]
     pub fn next_sibling(&self) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_next_sibling(self.0) })
     }
 
     /// Get this node's previous sibling.
     #[doc(alias = "ts_node_prev_sibling")]
+    #[must_use]
     pub fn prev_sibling(&self) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_prev_sibling(self.0) })
     }
 
     /// Get this node's next named sibling.
     #[doc(alias = "ts_node_next_named_sibling")]
+    #[must_use]
     pub fn next_named_sibling(&self) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_next_named_sibling(self.0) })
     }
 
     /// Get this node's previous named sibling.
     #[doc(alias = "ts_node_prev_named_sibling")]
+    #[must_use]
     pub fn prev_named_sibling(&self) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_prev_named_sibling(self.0) })
     }
 
     /// Get the node's number of descendants, including one for the node itself.
     #[doc(alias = "ts_node_descendant_count")]
+    #[must_use]
     pub fn descendant_count(&self) -> usize {
         unsafe { ffi::ts_node_descendant_count(self.0) as usize }
     }
 
     /// Get the smallest node within this node that spans the given range.
     #[doc(alias = "ts_node_descendant_for_byte_range")]
+    #[must_use]
     pub fn descendant_for_byte_range(&self, start: usize, end: usize) -> Option<Self> {
         Self::new(unsafe {
             ffi::ts_node_descendant_for_byte_range(self.0, start as u32, end as u32)
@@ -1244,6 +1325,7 @@ impl<'tree> Node<'tree> {
 
     /// Get the smallest named node within this node that spans the given range.
     #[doc(alias = "ts_node_named_descendant_for_byte_range")]
+    #[must_use]
     pub fn named_descendant_for_byte_range(&self, start: usize, end: usize) -> Option<Self> {
         Self::new(unsafe {
             ffi::ts_node_named_descendant_for_byte_range(self.0, start as u32, end as u32)
@@ -1252,6 +1334,7 @@ impl<'tree> Node<'tree> {
 
     /// Get the smallest node within this node that spans the given range.
     #[doc(alias = "ts_node_descendant_for_point_range")]
+    #[must_use]
     pub fn descendant_for_point_range(&self, start: Point, end: Point) -> Option<Self> {
         Self::new(unsafe {
             ffi::ts_node_descendant_for_point_range(self.0, start.into(), end.into())
@@ -1260,6 +1343,7 @@ impl<'tree> Node<'tree> {
 
     /// Get the smallest named node within this node that spans the given range.
     #[doc(alias = "ts_node_named_descendant_for_point_range")]
+    #[must_use]
     pub fn named_descendant_for_point_range(&self, start: Point, end: Point) -> Option<Self> {
         Self::new(unsafe {
             ffi::ts_node_named_descendant_for_point_range(self.0, start.into(), end.into())
@@ -1267,13 +1351,14 @@ impl<'tree> Node<'tree> {
     }
 
     #[doc(alias = "ts_node_string")]
+    #[must_use]
     pub fn to_sexp(&self) -> String {
         let c_string = unsafe { ffi::ts_node_string(self.0) };
         let result = unsafe { CStr::from_ptr(c_string) }
             .to_str()
             .unwrap()
             .to_string();
-        unsafe { (FREE_FN)(c_string as *mut c_void) };
+        unsafe { (FREE_FN)(c_string.cast::<c_void>()) };
         result
     }
 
@@ -1281,12 +1366,14 @@ impl<'tree> Node<'tree> {
         str::from_utf8(&source[self.start_byte()..self.end_byte()])
     }
 
+    #[must_use]
     pub fn utf16_text<'a>(&self, source: &'a [u16]) -> &'a [u16] {
-        &source.as_ref()[self.start_byte()..self.end_byte()]
+        &source[self.start_byte()..self.end_byte()]
     }
 
     /// Create a new [`TreeCursor`] starting from this node.
     #[doc(alias = "ts_tree_cursor_new")]
+    #[must_use]
     pub fn walk(&self) -> TreeCursor<'tree> {
         TreeCursor(unsafe { ffi::ts_tree_cursor_new(self.0) }, PhantomData)
     }
@@ -1301,7 +1388,7 @@ impl<'tree> Node<'tree> {
     #[doc(alias = "ts_node_edit")]
     pub fn edit(&mut self, edit: &InputEdit) {
         let edit = edit.into();
-        unsafe { ffi::ts_node_edit(&mut self.0 as *mut ffi::TSNode, &edit) }
+        unsafe { ffi::ts_node_edit(std::ptr::addr_of_mut!(self.0), &edit) }
     }
 }
 
@@ -1338,6 +1425,7 @@ impl fmt::Debug for Node<'_> {
 impl<'cursor> TreeCursor<'cursor> {
     /// Get the tree cursor's current [`Node`].
     #[doc(alias = "ts_tree_cursor_current_node")]
+    #[must_use]
     pub fn node(&self) -> Node<'cursor> {
         Node(
             unsafe { ffi::ts_tree_cursor_current_node(&self.0) },
@@ -1349,6 +1437,7 @@ impl<'cursor> TreeCursor<'cursor> {
     ///
     /// See also [`field_name`](TreeCursor::field_name).
     #[doc(alias = "ts_tree_cursor_current_field_id")]
+    #[must_use]
     pub fn field_id(&self) -> Option<FieldId> {
         let id = unsafe { ffi::ts_tree_cursor_current_field_id(&self.0) };
         FieldId::new(id)
@@ -1356,6 +1445,7 @@ impl<'cursor> TreeCursor<'cursor> {
 
     /// Get the field name of this tree cursor's current node.
     #[doc(alias = "ts_tree_cursor_current_field_name")]
+    #[must_use]
     pub fn field_name(&self) -> Option<&'static str> {
         unsafe {
             let ptr = ffi::ts_tree_cursor_current_field_name(&self.0);
@@ -1367,6 +1457,7 @@ impl<'cursor> TreeCursor<'cursor> {
     ///
     /// See also [`field_name`](TreeCursor::field_name).
     #[doc(alias = "ts_tree_cursor_current_depth")]
+    #[must_use]
     pub fn depth(&self) -> u32 {
         unsafe { ffi::ts_tree_cursor_current_depth(&self.0) }
     }
@@ -1374,6 +1465,7 @@ impl<'cursor> TreeCursor<'cursor> {
     /// Get the index of the cursor's current node out of all of the
     /// descendants of the original node that the cursor was constructed with
     #[doc(alias = "ts_tree_cursor_current_descendant_index")]
+    #[must_use]
     pub fn descendant_index(&self) -> usize {
         unsafe { ffi::ts_tree_cursor_current_descendant_index(&self.0) as usize }
     }
@@ -1384,7 +1476,7 @@ impl<'cursor> TreeCursor<'cursor> {
     /// if there were no children.
     #[doc(alias = "ts_tree_cursor_goto_first_child")]
     pub fn goto_first_child(&mut self) -> bool {
-        return unsafe { ffi::ts_tree_cursor_goto_first_child(&mut self.0) };
+        unsafe { ffi::ts_tree_cursor_goto_first_child(&mut self.0) }
     }
 
     /// Move this cursor to the last child of its current node.
@@ -1397,7 +1489,7 @@ impl<'cursor> TreeCursor<'cursor> {
     /// iterate through all the children to compute the child's position.
     #[doc(alias = "ts_tree_cursor_goto_last_child")]
     pub fn goto_last_child(&mut self) -> bool {
-        return unsafe { ffi::ts_tree_cursor_goto_last_child(&mut self.0) };
+        unsafe { ffi::ts_tree_cursor_goto_last_child(&mut self.0) }
     }
 
     /// Move this cursor to the parent of its current node.
@@ -1406,7 +1498,7 @@ impl<'cursor> TreeCursor<'cursor> {
     /// if there was no parent node (the cursor was already on the root node).
     #[doc(alias = "ts_tree_cursor_goto_parent")]
     pub fn goto_parent(&mut self) -> bool {
-        return unsafe { ffi::ts_tree_cursor_goto_parent(&mut self.0) };
+        unsafe { ffi::ts_tree_cursor_goto_parent(&mut self.0) }
     }
 
     /// Move this cursor to the next sibling of its current node.
@@ -1415,7 +1507,7 @@ impl<'cursor> TreeCursor<'cursor> {
     /// if there was no next sibling node.
     #[doc(alias = "ts_tree_cursor_goto_next_sibling")]
     pub fn goto_next_sibling(&mut self) -> bool {
-        return unsafe { ffi::ts_tree_cursor_goto_next_sibling(&mut self.0) };
+        unsafe { ffi::ts_tree_cursor_goto_next_sibling(&mut self.0) }
     }
 
     /// Move the cursor to the node that is the nth descendant of
@@ -1423,9 +1515,7 @@ impl<'cursor> TreeCursor<'cursor> {
     /// zero represents the original node itself.
     #[doc(alias = "ts_tree_cursor_goto_descendant")]
     pub fn goto_descendant(&mut self, descendant_index: usize) {
-        return unsafe {
-            ffi::ts_tree_cursor_goto_descendant(&mut self.0, descendant_index as u32)
-        };
+        unsafe { ffi::ts_tree_cursor_goto_descendant(&mut self.0, descendant_index as u32) }
     }
 
     /// Move this cursor to the previous sibling of its current node.
@@ -1440,7 +1530,7 @@ impl<'cursor> TreeCursor<'cursor> {
     /// its position.
     #[doc(alias = "ts_tree_cursor_goto_previous_sibling")]
     pub fn goto_previous_sibling(&mut self) -> bool {
-        return unsafe { ffi::ts_tree_cursor_goto_previous_sibling(&mut self.0) };
+        unsafe { ffi::ts_tree_cursor_goto_previous_sibling(&mut self.0) }
     }
 
     /// Move this cursor to the first child of its current node that extends beyond
@@ -1478,7 +1568,7 @@ impl<'cursor> TreeCursor<'cursor> {
     /// Unlike [`reset`](TreeCursor::reset), this will not lose parent information and
     /// allows reusing already created cursors.
     #[doc(alias = "ts_tree_cursor_reset_to")]
-    pub fn reset_to(&mut self, cursor: TreeCursor<'cursor>) {
+    pub fn reset_to(&mut self, cursor: &TreeCursor<'cursor>) {
         unsafe { ffi::ts_tree_cursor_reset_to(&mut self.0, &cursor.0) };
     }
 }
@@ -1498,6 +1588,7 @@ impl Drop for TreeCursor<'_> {
 impl LookaheadIterator {
     /// Get the current language of the lookahead iterator.
     #[doc(alias = "ts_lookahead_iterator_language")]
+    #[must_use]
     pub fn language(&self) -> LanguageRef<'_> {
         LanguageRef(
             unsafe { ffi::ts_lookahead_iterator_language(self.0.as_ptr()) },
@@ -1507,12 +1598,14 @@ impl LookaheadIterator {
 
     /// Get the current symbol of the lookahead iterator.
     #[doc(alias = "ts_lookahead_iterator_current_symbol")]
+    #[must_use]
     pub fn current_symbol(&self) -> u16 {
         unsafe { ffi::ts_lookahead_iterator_current_symbol(self.0.as_ptr()) }
     }
 
     /// Get the current symbol name of the lookahead iterator.
     #[doc(alias = "ts_lookahead_iterator_current_symbol_name")]
+    #[must_use]
     pub fn current_symbol_name(&self) -> &'static str {
         unsafe {
             CStr::from_ptr(ffi::ts_lookahead_iterator_current_symbol_name(
@@ -1528,7 +1621,7 @@ impl LookaheadIterator {
     /// This returns `true` if the language was set successfully and `false`
     /// otherwise.
     #[doc(alias = "ts_lookahead_iterator_reset")]
-    pub fn reset(&mut self, language: Language, state: u16) -> bool {
+    pub fn reset(&mut self, language: &Language, state: u16) -> bool {
         unsafe { ffi::ts_lookahead_iterator_reset(self.0.as_ptr(), language.0, state) }
     }
 
@@ -1590,10 +1683,10 @@ impl Query {
         let ptr = unsafe {
             ffi::ts_query_new(
                 language.0,
-                bytes.as_ptr() as *const c_char,
+                bytes.as_ptr().cast::<c_char>(),
                 bytes.len() as u32,
-                &mut error_offset as *mut u32,
-                &mut error_type as *mut ffi::TSQueryError,
+                std::ptr::addr_of_mut!(error_offset),
+                std::ptr::addr_of_mut!(error_type),
             )
         };
 
@@ -1616,7 +1709,7 @@ impl Query {
             let mut line_start = 0;
             let mut row = 0;
             let mut line_containing_error = None;
-            for line in source.split("\n") {
+            for line in source.split('\n') {
                 let line_end = line_start + line.len() + 1;
                 if line_end > offset {
                     line_containing_error = Some(line);
@@ -1647,11 +1740,10 @@ impl Query {
 
                 // Error types that report positions
                 _ => {
-                    message = if let Some(line) = line_containing_error {
-                        line.to_string() + "\n" + &" ".repeat(offset - line_start) + "^"
-                    } else {
-                        "Unexpected EOF".to_string()
-                    };
+                    message = line_containing_error.map_or_else(
+                        || "Unexpected EOF".to_string(),
+                        |line| line.to_string() + "\n" + &" ".repeat(offset - line_start) + "^",
+                    );
                     kind = match error_type {
                         ffi::TSQueryErrorStructure => QueryErrorKind::Structure,
                         _ => QueryErrorKind::Syntax,
@@ -1663,12 +1755,12 @@ impl Query {
                 row,
                 column,
                 offset,
-                kind,
                 message,
+                kind,
             });
         }
 
-        unsafe { Query::from_raw_parts(ptr, source) }
+        unsafe { Self::from_raw_parts(ptr, source) }
     }
 
     #[doc(hidden)]
@@ -1698,8 +1790,9 @@ impl Query {
         for i in 0..capture_count {
             unsafe {
                 let mut length = 0u32;
-                let name = ffi::ts_query_capture_name_for_id(ptr.0, i, &mut length as *mut u32)
-                    as *const u8;
+                let name =
+                    ffi::ts_query_capture_name_for_id(ptr.0, i, std::ptr::addr_of_mut!(length))
+                        .cast::<u8>();
                 let name = slice::from_raw_parts(name, length as usize);
                 let name = str::from_utf8_unchecked(name);
                 capture_names.push(name);
@@ -1723,8 +1816,8 @@ impl Query {
             .map(|i| unsafe {
                 let mut length = 0u32;
                 let value =
-                    ffi::ts_query_string_value_for_id(ptr.0, i as u32, &mut length as *mut u32)
-                        as *const u8;
+                    ffi::ts_query_string_value_for_id(ptr.0, i, std::ptr::addr_of_mut!(length))
+                        .cast::<u8>();
                 let value = slice::from_raw_parts(value, length as usize);
                 let value = str::from_utf8_unchecked(value);
                 value
@@ -1735,8 +1828,11 @@ impl Query {
         for i in 0..pattern_count {
             let predicate_steps = unsafe {
                 let mut length = 0u32;
-                let raw_predicates =
-                    ffi::ts_query_predicates_for_pattern(ptr.0, i as u32, &mut length as *mut u32);
+                let raw_predicates = ffi::ts_query_predicates_for_pattern(
+                    ptr.0,
+                    i as u32,
+                    std::ptr::addr_of_mut!(length),
+                );
                 (length > 0)
                     .then(|| slice::from_raw_parts(raw_predicates, length as usize))
                     .unwrap_or_default()
@@ -1847,7 +1943,7 @@ impl Query {
                         text_predicates.push(TextPredicateCapture::MatchString(
                             p[1].value_id,
                             regex::bytes::Regex::new(regex).map_err(|_| {
-                                predicate_error(row, format!("Invalid regex '{}'", regex))
+                                predicate_error(row, format!("Invalid regex '{regex}'"))
                             })?,
                             is_positive,
                             match_all,
@@ -1856,7 +1952,7 @@ impl Query {
 
                     "set!" => property_settings.push(Self::parse_property(
                         row,
-                        &operator_name,
+                        operator_name,
                         &capture_names,
                         &string_values,
                         &p[1..],
@@ -1865,7 +1961,7 @@ impl Query {
                     "is?" | "is-not?" => property_predicates.push((
                         Self::parse_property(
                             row,
-                            &operator_name,
+                            operator_name,
                             &capture_names,
                             &string_values,
                             &p[1..],
@@ -1902,7 +1998,7 @@ impl Query {
                             p[1].value_id,
                             values
                                 .iter()
-                                .map(|x| x.to_string().into())
+                                .map(|x| (*x).to_string().into())
                                 .collect::<Vec<_>>()
                                 .into(),
                             is_positive,
@@ -1933,7 +2029,7 @@ impl Query {
             general_predicates_vec.push(general_predicates.into());
         }
 
-        let result = Query {
+        let result = Self {
             ptr: unsafe { NonNull::new_unchecked(ptr.0) },
             capture_names: capture_names.into(),
             capture_quantifiers: capture_quantifiers_vec.into(),
@@ -1950,14 +2046,13 @@ impl Query {
 
     /// Get the byte offset where the given pattern starts in the query's source.
     #[doc(alias = "ts_query_start_byte_for_pattern")]
+    #[must_use]
     pub fn start_byte_for_pattern(&self, pattern_index: usize) -> usize {
-        if pattern_index >= self.text_predicates.len() {
-            panic!(
-                "Pattern index is {} but the pattern count is {}",
-                pattern_index,
-                self.text_predicates.len(),
-            );
-        }
+        assert!(
+            pattern_index < self.text_predicates.len(),
+            "Pattern index is {pattern_index} but the pattern count is {}",
+            self.text_predicates.len(),
+        );
         unsafe {
             ffi::ts_query_start_byte_for_pattern(self.ptr.as_ptr(), pattern_index as u32) as usize
         }
@@ -1965,21 +2060,25 @@ impl Query {
 
     /// Get the number of patterns in the query.
     #[doc(alias = "ts_query_pattern_count")]
+    #[must_use]
     pub fn pattern_count(&self) -> usize {
         unsafe { ffi::ts_query_pattern_count(self.ptr.as_ptr()) as usize }
     }
 
     /// Get the names of the captures used in the query.
-    pub fn capture_names(&self) -> &[&str] {
+    #[must_use]
+    pub const fn capture_names(&self) -> &[&str] {
         &self.capture_names
     }
 
     /// Get the quantifiers of the captures used in the query.
-    pub fn capture_quantifiers(&self, index: usize) -> &[CaptureQuantifier] {
+    #[must_use]
+    pub const fn capture_quantifiers(&self, index: usize) -> &[CaptureQuantifier] {
         &self.capture_quantifiers[index]
     }
 
     /// Get the index for a given capture name.
+    #[must_use]
     pub fn capture_index_for_name(&self, name: &str) -> Option<u32> {
         self.capture_names
             .iter()
@@ -1990,14 +2089,16 @@ impl Query {
     /// Get the properties that are checked for the given pattern index.
     ///
     /// This includes predicates with the operators `is?` and `is-not?`.
-    pub fn property_predicates(&self, index: usize) -> &[(QueryProperty, bool)] {
+    #[must_use]
+    pub const fn property_predicates(&self, index: usize) -> &[(QueryProperty, bool)] {
         &self.property_predicates[index]
     }
 
     /// Get the properties that are set for the given pattern index.
     ///
     /// This includes predicates with the operator `set!`.
-    pub fn property_settings(&self, index: usize) -> &[QueryProperty] {
+    #[must_use]
+    pub const fn property_settings(&self, index: usize) -> &[QueryProperty] {
         &self.property_settings[index]
     }
 
@@ -2008,7 +2109,8 @@ impl Query {
     /// * `eq?` and `not-eq?`
     /// * `is?` and `is-not?`
     /// * `set!`
-    pub fn general_predicates(&self, index: usize) -> &[QueryPredicate] {
+    #[must_use]
+    pub const fn general_predicates(&self, index: usize) -> &[QueryPredicate] {
         &self.general_predicates[index]
     }
 
@@ -2021,7 +2123,7 @@ impl Query {
         unsafe {
             ffi::ts_query_disable_capture(
                 self.ptr.as_ptr(),
-                name.as_bytes().as_ptr() as *const c_char,
+                name.as_bytes().as_ptr().cast::<c_char>(),
                 name.len() as u32,
             );
         }
@@ -2038,12 +2140,14 @@ impl Query {
 
     /// Check if a given pattern within a query has a single root node.
     #[doc(alias = "ts_query_is_pattern_rooted")]
+    #[must_use]
     pub fn is_pattern_rooted(&self, index: usize) -> bool {
         unsafe { ffi::ts_query_is_pattern_rooted(self.ptr.as_ptr(), index as u32) }
     }
 
     /// Check if a given pattern within a query has a single root node.
     #[doc(alias = "ts_query_is_pattern_non_local")]
+    #[must_use]
     pub fn is_pattern_non_local(&self, index: usize) -> bool {
         unsafe { ffi::ts_query_is_pattern_non_local(self.ptr.as_ptr(), index as u32) }
     }
@@ -2053,6 +2157,7 @@ impl Query {
     /// A query step is 'definite' if its parent pattern will be guaranteed to match
     /// successfully once it reaches the step.
     #[doc(alias = "ts_query_is_pattern_guaranteed_at_step")]
+    #[must_use]
     pub fn is_pattern_guaranteed_at_step(&self, byte_offset: usize) -> bool {
         unsafe {
             ffi::ts_query_is_pattern_guaranteed_at_step(self.ptr.as_ptr(), byte_offset as u32)
@@ -2066,12 +2171,11 @@ impl Query {
         string_values: &[&str],
         args: &[ffi::TSQueryPredicateStep],
     ) -> Result<QueryProperty, QueryError> {
-        if args.len() == 0 || args.len() > 3 {
+        if args.is_empty() || args.len() > 3 {
             return Err(predicate_error(
                 row,
                 format!(
-                    "Wrong number of arguments to {} predicate. Expected 1 to 3, got {}.",
-                    function_name,
+                    "Wrong number of arguments to {function_name} predicate. Expected 1 to 3, got {}.",
                     args.len(),
                 ),
             ));
@@ -2087,8 +2191,8 @@ impl Query {
                     return Err(predicate_error(
                         row,
                         format!(
-                            "Invalid arguments to {} predicate. Unexpected second capture name @{}",
-                            function_name, capture_names[arg.value_id as usize]
+                            "Invalid arguments to {function_name} predicate. Unexpected second capture name @{}",
+                            capture_names[arg.value_id as usize]
                         ),
                     ));
                 }
@@ -2101,8 +2205,8 @@ impl Query {
                 return Err(predicate_error(
                     row,
                     format!(
-                        "Invalid arguments to {} predicate. Unexpected third argument @{}",
-                        function_name, string_values[arg.value_id as usize]
+                        "Invalid arguments to {function_name} predicate. Unexpected third argument @{}",
+                        string_values[arg.value_id as usize]
                     ),
                 ));
             }
@@ -2111,14 +2215,17 @@ impl Query {
         if let Some(key) = key {
             Ok(QueryProperty::new(key, value, capture_id))
         } else {
-            return Err(predicate_error(
+            Err(predicate_error(
                 row,
-                format!(
-                    "Invalid arguments to {} predicate. Missing key argument",
-                    function_name,
-                ),
-            ));
+                format!("Invalid arguments to {function_name} predicate. Missing key argument",),
+            ))
         }
+    }
+}
+
+impl Default for QueryCursor {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -2127,14 +2234,16 @@ impl QueryCursor {
     ///
     /// The cursor stores the state that is needed to iteratively search for matches.
     #[doc(alias = "ts_query_cursor_new")]
+    #[must_use]
     pub fn new() -> Self {
-        QueryCursor {
+        Self {
             ptr: unsafe { NonNull::new_unchecked(ffi::ts_query_cursor_new()) },
         }
     }
 
     /// Return the maximum number of in-progress matches for this cursor.
     #[doc(alias = "ts_query_cursor_match_limit")]
+    #[must_use]
     pub fn match_limit(&self) -> u32 {
         unsafe { ffi::ts_query_cursor_match_limit(self.ptr.as_ptr()) }
     }
@@ -2151,6 +2260,7 @@ impl QueryCursor {
     /// Check if, on its last execution, this cursor exceeded its maximum number of
     /// in-progress matches.
     #[doc(alias = "ts_query_cursor_did_exceed_match_limit")]
+    #[must_use]
     pub fn did_exceed_match_limit(&self) -> bool {
         unsafe { ffi::ts_query_cursor_did_exceed_match_limit(self.ptr.as_ptr()) }
     }
@@ -2173,8 +2283,8 @@ impl QueryCursor {
             ptr,
             query,
             text_provider,
-            buffer1: Default::default(),
-            buffer2: Default::default(),
+            buffer1: Vec::default(),
+            buffer2: Vec::default(),
             _phantom: PhantomData,
         }
     }
@@ -2196,8 +2306,8 @@ impl QueryCursor {
             ptr,
             query,
             text_provider,
-            buffer1: Default::default(),
-            buffer2: Default::default(),
+            buffer1: Vec::default(),
+            buffer2: Vec::default(),
             _phantom: PhantomData,
         }
     }
@@ -2253,7 +2363,8 @@ impl QueryCursor {
 }
 
 impl<'tree> QueryMatch<'_, 'tree> {
-    pub fn id(&self) -> u32 {
+    #[must_use]
+    pub const fn id(&self) -> u32 {
         self.id
     }
 
@@ -2271,7 +2382,7 @@ impl<'tree> QueryMatch<'_, 'tree> {
             .filter_map(move |capture| (capture.index == capture_ix).then_some(capture.node))
     }
 
-    fn new(m: ffi::TSQueryMatch, cursor: *mut ffi::TSQueryCursor) -> Self {
+    fn new(m: &ffi::TSQueryMatch, cursor: *mut ffi::TSQueryCursor) -> Self {
         QueryMatch {
             cursor,
             id: m.id,
@@ -2279,7 +2390,7 @@ impl<'tree> QueryMatch<'_, 'tree> {
             captures: (m.capture_count > 0)
                 .then(|| unsafe {
                     slice::from_raw_parts(
-                        m.captures as *const QueryCapture<'tree>,
+                        m.captures.cast::<QueryCapture<'tree>>(),
                         m.capture_count as usize,
                     )
                 })
@@ -2392,8 +2503,9 @@ impl<'tree> QueryMatch<'_, 'tree> {
 }
 
 impl QueryProperty {
+    #[must_use]
     pub fn new(key: &str, value: Option<&str>, capture_id: Option<usize>) -> Self {
-        QueryProperty {
+        Self {
             capture_id,
             key: key.to_string().into(),
             value: value.map(|s| s.to_string().into()),
@@ -2411,7 +2523,7 @@ impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> Iterator
             loop {
                 let mut m = MaybeUninit::<ffi::TSQueryMatch>::uninit();
                 if ffi::ts_query_cursor_next_match(self.ptr, m.as_mut_ptr()) {
-                    let result = QueryMatch::new(m.assume_init(), self.ptr);
+                    let result = QueryMatch::new(&m.assume_init(), self.ptr);
                     if result.satisfies_text_predicates(
                         self.query,
                         &mut self.buffer1,
@@ -2441,9 +2553,9 @@ impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> Iterator
                 if ffi::ts_query_cursor_next_capture(
                     self.ptr,
                     m.as_mut_ptr(),
-                    &mut capture_index as *mut u32,
+                    std::ptr::addr_of_mut!(capture_index),
                 ) {
-                    let result = QueryMatch::new(m.assume_init(), self.ptr);
+                    let result = QueryMatch::new(&m.assume_init(), self.ptr);
                     if result.satisfies_text_predicates(
                         self.query,
                         &mut self.buffer1,
@@ -2451,9 +2563,8 @@ impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> Iterator
                         &mut self.text_provider,
                     ) {
                         return Some((result, capture_index as usize));
-                    } else {
-                        result.remove();
                     }
+                    result.remove();
                 } else {
                     return None;
                 }
@@ -2544,8 +2655,9 @@ impl Drop for QueryCursor {
 }
 
 impl Point {
-    pub fn new(row: usize, column: usize) -> Self {
-        Point { row, column }
+    #[must_use]
+    pub const fn new(row: usize, column: usize) -> Self {
+        Self { row, column }
     }
 }
 
@@ -2555,11 +2667,11 @@ impl fmt::Display for Point {
     }
 }
 
-impl Into<ffi::TSPoint> for Point {
-    fn into(self) -> ffi::TSPoint {
-        ffi::TSPoint {
-            row: self.row as u32,
-            column: self.column as u32,
+impl From<Point> for ffi::TSPoint {
+    fn from(val: Point) -> Self {
+        Self {
+            row: val.row as u32,
+            column: val.column as u32,
         }
     }
 }
@@ -2573,13 +2685,13 @@ impl From<ffi::TSPoint> for Point {
     }
 }
 
-impl Into<ffi::TSRange> for Range {
-    fn into(self) -> ffi::TSRange {
-        ffi::TSRange {
-            start_byte: self.start_byte as u32,
-            end_byte: self.end_byte as u32,
-            start_point: self.start_point.into(),
-            end_point: self.end_point.into(),
+impl From<Range> for ffi::TSRange {
+    fn from(val: Range) -> Self {
+        Self {
+            start_byte: val.start_byte as u32,
+            end_byte: val.end_byte as u32,
+            start_point: val.start_point.into(),
+            end_point: val.end_point.into(),
         }
     }
 }
@@ -2595,21 +2707,22 @@ impl From<ffi::TSRange> for Range {
     }
 }
 
-impl Into<ffi::TSInputEdit> for &'_ InputEdit {
-    fn into(self) -> ffi::TSInputEdit {
-        ffi::TSInputEdit {
-            start_byte: self.start_byte as u32,
-            old_end_byte: self.old_end_byte as u32,
-            new_end_byte: self.new_end_byte as u32,
-            start_point: self.start_position.into(),
-            old_end_point: self.old_end_position.into(),
-            new_end_point: self.new_end_position.into(),
+impl From<&'_ InputEdit> for ffi::TSInputEdit {
+    fn from(val: &'_ InputEdit) -> Self {
+        Self {
+            start_byte: val.start_byte as u32,
+            old_end_byte: val.old_end_byte as u32,
+            new_end_byte: val.new_end_byte as u32,
+            start_point: val.start_position.into(),
+            old_end_point: val.old_end_position.into(),
+            new_end_point: val.new_end_position.into(),
         }
     }
 }
 
 impl<'a> LossyUtf8<'a> {
-    pub fn new(bytes: &'a [u8]) -> Self {
+    #[must_use]
+    pub const fn new(bytes: &'a [u8]) -> Self {
         LossyUtf8 {
             bytes,
             in_replacement: false,
@@ -2654,7 +2767,8 @@ impl<'a> Iterator for LossyUtf8<'a> {
     }
 }
 
-fn predicate_error(row: usize, message: String) -> QueryError {
+#[must_use]
+const fn predicate_error(row: usize, message: String) -> QueryError {
     QueryError {
         kind: QueryErrorKind::Predicate,
         row,
@@ -2691,7 +2805,9 @@ impl fmt::Display for QueryError {
             QueryErrorKind::Syntax => "Invalid syntax:\n",
             QueryErrorKind::Language => "",
         };
-        if msg.len() > 0 {
+        if msg.is_empty() {
+            write!(f, "{}", self.message)
+        } else {
             write!(
                 f,
                 "Query error at {}:{}. {}{}",
@@ -2700,8 +2816,6 @@ impl fmt::Display for QueryError {
                 msg,
                 self.message
             )
-        } else {
-            write!(f, "{}", self.message)
         }
     }
 }
@@ -2721,6 +2835,11 @@ extern "C" {
 
 static mut FREE_FN: unsafe extern "C" fn(ptr: *mut c_void) = free;
 
+/// Sets the memory allocation functions that the core library should use.
+///
+/// # Safety
+///
+/// This function uses FFI and mutates a static global.
 #[doc(alias = "ts_set_allocator")]
 pub unsafe fn set_allocator(
     new_malloc: Option<unsafe extern "C" fn(usize) -> *mut c_void>,

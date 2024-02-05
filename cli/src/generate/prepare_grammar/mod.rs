@@ -6,7 +6,7 @@ mod flatten_grammar;
 mod intern_symbols;
 mod process_inlines;
 
-pub(crate) use self::expand_tokens::expand_tokens;
+pub use self::expand_tokens::expand_tokens;
 
 use self::expand_repeats::expand_repeats;
 use self::extract_default_aliases::extract_default_aliases;
@@ -26,7 +26,7 @@ use std::{
     mem,
 };
 
-pub(crate) struct IntermediateGrammar<T, U> {
+pub struct IntermediateGrammar<T, U> {
     variables: Vec<Variable>,
     extra_symbols: Vec<T>,
     expected_conflicts: Vec<Vec<Symbol>>,
@@ -37,12 +37,12 @@ pub(crate) struct IntermediateGrammar<T, U> {
     word_token: Option<Symbol>,
 }
 
-pub(crate) type InternedGrammar = IntermediateGrammar<Rule, Variable>;
+pub type InternedGrammar = IntermediateGrammar<Rule, Variable>;
 
-pub(crate) type ExtractedSyntaxGrammar = IntermediateGrammar<Symbol, ExternalToken>;
+pub type ExtractedSyntaxGrammar = IntermediateGrammar<Symbol, ExternalToken>;
 
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct ExtractedLexicalGrammar {
+pub struct ExtractedLexicalGrammar {
     pub variables: Vec<Variable>,
     pub separators: Vec<Rule>,
 }
@@ -50,21 +50,21 @@ pub(crate) struct ExtractedLexicalGrammar {
 impl<T, U> Default for IntermediateGrammar<T, U> {
     fn default() -> Self {
         Self {
-            variables: Default::default(),
-            extra_symbols: Default::default(),
-            expected_conflicts: Default::default(),
-            precedence_orderings: Default::default(),
-            external_tokens: Default::default(),
-            variables_to_inline: Default::default(),
-            supertype_symbols: Default::default(),
-            word_token: Default::default(),
+            variables: Vec::default(),
+            extra_symbols: Vec::default(),
+            expected_conflicts: Vec::default(),
+            precedence_orderings: Vec::default(),
+            external_tokens: Vec::default(),
+            variables_to_inline: Vec::default(),
+            supertype_symbols: Vec::default(),
+            word_token: Option::default(),
         }
     }
 }
 
 /// Transform an input grammar into separate components that are ready
 /// for parse table construction.
-pub(crate) fn prepare_grammar(
+pub fn prepare_grammar(
     input_grammar: &InputGrammar,
 ) -> Result<(
     SyntaxGrammar,
@@ -109,9 +109,7 @@ fn validate_precedences(grammar: &InputGrammar) -> Result<()> {
                     hash_map::Entry::Occupied(e) => {
                         if e.get() != &ordering {
                             return Err(anyhow!(
-                                "Conflicting orderings for precedences {} and {}",
-                                entry1,
-                                entry2
+                                "Conflicting orderings for precedences {entry1} and {entry2}",
                             ));
                         }
                     }
@@ -127,16 +125,11 @@ fn validate_precedences(grammar: &InputGrammar) -> Result<()> {
             Rule::Repeat(rule) => validate(rule_name, rule, names),
             Rule::Seq(elements) | Rule::Choice(elements) => elements
                 .iter()
-                .map(|e| validate(rule_name, e, names))
-                .collect(),
+                .try_for_each(|e| validate(rule_name, e, names)),
             Rule::Metadata { rule, params } => {
                 if let Precedence::Name(n) = &params.precedence {
                     if !names.contains(n) {
-                        return Err(anyhow!(
-                            "Undeclared precedence '{}' in rule '{}'",
-                            n,
-                            rule_name
-                        ));
+                        return Err(anyhow!("Undeclared precedence '{n}' in rule '{rule_name}'"));
                     }
                 }
                 validate(rule_name, rule, names)?;
