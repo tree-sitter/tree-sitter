@@ -402,7 +402,7 @@ mod test {
         assert_eq!(
             lexical_grammar.variables,
             vec![Variable::anonymous("hello", Rule::string("hello")),]
-        )
+        );
     }
 
     #[test]

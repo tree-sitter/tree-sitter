@@ -81,7 +81,7 @@ pub fn test_with_seed(args: TokenStream, input: TokenStream) -> TokenStream {
                 retry.replace(LitInt::new("0", Span::mixed_site()));
             }
 
-            Ok(Args {
+            Ok(Self {
                 retry: retry.expect("`retry` parameter is required"),
                 seed: seed.expect("`seed` parameter is required"),
                 seed_fn,
@@ -100,8 +100,6 @@ pub fn test_with_seed(args: TokenStream, input: TokenStream) -> TokenStream {
     let func = parse_macro_input!(input as ItemFn);
     let attrs = func.attrs.clone();
     let name = func.sig.ident.clone();
-
-    // dbg!(quote::ToTokens::into_token_stream(&func));
 
     TokenStream::from(quote! {
         #[test]

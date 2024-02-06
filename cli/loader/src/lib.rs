@@ -142,7 +142,7 @@ impl Loader {
             debug_build: false,
 
             #[cfg(feature = "wasm")]
-            wasm_store: Default::default(),
+            wasm_store: Mutex::default(),
         }
     }
 
@@ -935,7 +935,7 @@ impl Loader {
 
     #[cfg(feature = "wasm")]
     pub fn use_wasm(&mut self, engine: tree_sitter::wasmtime::Engine) {
-        *self.wasm_store.lock().unwrap() = Some(tree_sitter::WasmStore::new(engine).unwrap())
+        *self.wasm_store.lock().unwrap() = Some(tree_sitter::WasmStore::new(engine).unwrap());
     }
 
     #[must_use]

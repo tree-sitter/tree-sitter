@@ -266,7 +266,7 @@ mod tests {
             ..Default::default()
         };
 
-        let inline_map = process_inlines(&grammar, &Default::default()).unwrap();
+        let inline_map = process_inlines(&grammar, &LexicalGrammar::default()).unwrap();
 
         // Nothing to inline at step 0.
         assert!(inline_map
@@ -362,7 +362,7 @@ mod tests {
             ..Default::default()
         };
 
-        let inline_map = process_inlines(&grammar, &Default::default()).unwrap();
+        let inline_map = process_inlines(&grammar, &LexicalGrammar::default()).unwrap();
 
         let productions: Vec<&Production> = inline_map
             .inlined_productions(&grammar.variables[0].productions[0], 1)
@@ -370,7 +370,7 @@ mod tests {
             .collect();
 
         assert_eq!(
-            productions.iter().cloned().cloned().collect::<Vec<_>>(),
+            productions.iter().copied().cloned().collect::<Vec<_>>(),
             vec![
                 Production {
                     dynamic_precedence: 0,
@@ -461,7 +461,7 @@ mod tests {
             ..Default::default()
         };
 
-        let inline_map = process_inlines(&grammar, &Default::default()).unwrap();
+        let inline_map = process_inlines(&grammar, &LexicalGrammar::default()).unwrap();
 
         let productions: Vec<_> = inline_map
             .inlined_productions(&grammar.variables[0].productions[0], 0)
@@ -469,7 +469,7 @@ mod tests {
             .collect();
 
         assert_eq!(
-            productions.iter().cloned().cloned().collect::<Vec<_>>(),
+            productions.iter().copied().cloned().collect::<Vec<_>>(),
             vec![Production {
                 dynamic_precedence: 0,
                 steps: vec![

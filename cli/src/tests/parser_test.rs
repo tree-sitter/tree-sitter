@@ -105,8 +105,7 @@ fn test_parsing_with_debug_graph_enabled() {
     for line in log_reader {
         assert!(
             !has_zero_indexed_row(&line),
-            "Graph log output includes zero-indexed row: {}",
-            line
+            "Graph log output includes zero-indexed row: {line}",
         );
     }
 }
@@ -688,14 +687,10 @@ fn test_parsing_with_a_timeout() {
     parser.set_timeout_micros(0);
     let tree = parser
         .parse_with(
-            &mut |offset, _| {
-                if offset > 5000 {
-                    "".as_bytes()
-                } else if offset == 5000 {
-                    "]".as_bytes()
-                } else {
-                    ",0".as_bytes()
-                }
+            &mut |offset, _| match offset {
+                5001.. => "".as_bytes(),
+                5000 => "]".as_bytes(),
+                _ => ",0".as_bytes(),
             },
             None,
         )
@@ -1019,7 +1014,11 @@ fn test_parsing_error_in_invalid_included_ranges() {
 #[test]
 fn test_parsing_utf16_code_with_errors_at_the_end_of_an_included_range() {
     let source_code = "<script>a.</script>";
-    let utf16_source_code: Vec<u16> = source_code.as_bytes().iter().map(|c| *c as u16).collect();
+    let utf16_source_code: Vec<u16> = source_code
+        .as_bytes()
+        .iter()
+        .map(|c| u16::from(*c))
+        .collect();
 
     let start_byte = 2 * source_code.find("a.").unwrap();
     let end_byte = 2 * source_code.find("</script>").unwrap();
@@ -1382,7 +1381,7 @@ fn test_grammars_that_can_hang_on_eof() {
     parser.parse("\"", None).unwrap();
 }
 
-fn simple_range(start: usize, end: usize) -> Range {
+const fn simple_range(start: usize, end: usize) -> Range {
     Range {
         start_byte: start,
         end_byte: end,

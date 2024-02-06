@@ -436,14 +436,14 @@ mod tests {
         let token_map = TokenConflictMap::new(
             &grammar,
             vec![
-                [Symbol::terminal(var("identifier"))]
-                    .iter()
-                    .cloned()
+                std::iter::once(&Symbol::terminal(var("identifier")))
+                    .copied()
                     .collect(),
-                [Symbol::terminal(var("in"))].iter().cloned().collect(),
-                [Symbol::terminal(var("identifier"))]
-                    .iter()
-                    .cloned()
+                std::iter::once(&Symbol::terminal(var("in")))
+                    .copied()
+                    .collect(),
+                std::iter::once(&Symbol::terminal(var("identifier")))
+                    .copied()
                     .collect(),
             ],
         );

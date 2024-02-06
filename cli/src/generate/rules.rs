@@ -151,6 +151,7 @@ impl Rule {
 }
 
 impl Alias {
+    #[must_use]
     pub const fn kind(&self) -> VariableType {
         if self.is_named {
             VariableType::Named
@@ -161,6 +162,7 @@ impl Alias {
 }
 
 impl Precedence {
+    #[must_use]
     pub const fn is_none(&self) -> bool {
         matches!(self, Self::None)
     }
@@ -168,48 +170,59 @@ impl Precedence {
 
 #[cfg(test)]
 impl Rule {
-    pub fn terminal(index: usize) -> Self {
+    #[must_use]
+    pub const fn terminal(index: usize) -> Self {
         Self::Symbol(Symbol::terminal(index))
     }
 
-    pub fn non_terminal(index: usize) -> Self {
+    #[must_use]
+    pub const fn non_terminal(index: usize) -> Self {
         Self::Symbol(Symbol::non_terminal(index))
     }
 
-    pub fn external(index: usize) -> Self {
+    #[must_use]
+    pub const fn external(index: usize) -> Self {
         Self::Symbol(Symbol::external(index))
     }
 
+    #[must_use]
     pub fn named(name: &'static str) -> Self {
         Self::NamedSymbol(name.to_string())
     }
 
+    #[must_use]
     pub fn string(value: &'static str) -> Self {
         Self::String(value.to_string())
     }
 
+    #[must_use]
     pub fn pattern(value: &'static str, flags: &'static str) -> Self {
         Self::Pattern(value.to_string(), flags.to_string())
     }
 }
 
 impl Symbol {
+    #[must_use]
     pub fn is_terminal(&self) -> bool {
         self.kind == SymbolType::Terminal
     }
 
+    #[must_use]
     pub fn is_non_terminal(&self) -> bool {
         self.kind == SymbolType::NonTerminal
     }
 
+    #[must_use]
     pub fn is_external(&self) -> bool {
         self.kind == SymbolType::External
     }
 
+    #[must_use]
     pub fn is_eof(&self) -> bool {
         self.kind == SymbolType::End
     }
 
+    #[must_use]
     pub const fn non_terminal(index: usize) -> Self {
         Self {
             kind: SymbolType::NonTerminal,
@@ -217,6 +230,7 @@ impl Symbol {
         }
     }
 
+    #[must_use]
     pub const fn terminal(index: usize) -> Self {
         Self {
             kind: SymbolType::Terminal,
@@ -224,6 +238,7 @@ impl Symbol {
         }
     }
 
+    #[must_use]
     pub const fn external(index: usize) -> Self {
         Self {
             kind: SymbolType::External,
@@ -231,6 +246,7 @@ impl Symbol {
         }
     }
 
+    #[must_use]
     pub const fn end() -> Self {
         Self {
             kind: SymbolType::End,
@@ -238,6 +254,7 @@ impl Symbol {
         }
     }
 
+    #[must_use]
     pub const fn end_of_nonterminal_extra() -> Self {
         Self {
             kind: SymbolType::EndOfNonTerminalExtra,
@@ -247,6 +264,7 @@ impl Symbol {
 }
 
 impl From<Symbol> for Rule {
+    #[must_use]
     fn from(symbol: Symbol) -> Self {
         Self::Symbol(symbol)
     }

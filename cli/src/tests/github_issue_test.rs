@@ -20,9 +20,9 @@ fn issue_2162_out_of_bound() {
 #[test]
 fn issue_2107_first_child_group_anchor_had_no_effect() {
     let language = get_language("c");
-    let source_code = indoc! {r#"
+    let source_code = indoc! {r"
         void fun(int a, char b, int c) { };
-    "#};
+    "};
     let query = indoc! {r#"
         (parameter_list
             .

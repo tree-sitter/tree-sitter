@@ -61,7 +61,7 @@ fn test_node_in_fut() {
 
 #[test]
 fn test_node_and_cursor_ref_in_fut() {
-    let (_, pended) = tokio_like_spawn(async {
+    let ((), pended) = tokio_like_spawn(async {
         let mut parser = Parser::new();
         let language = get_language("bash");
         parser.set_language(&language).unwrap();
@@ -100,7 +100,7 @@ fn test_node_and_cursor_ref_in_fut() {
 
 #[test]
 fn test_node_and_cursor_ref_in_fut_with_fut_fabrics() {
-    let (_, pended) = tokio_like_spawn(async {
+    let ((), pended) = tokio_like_spawn(async {
         let mut parser = Parser::new();
         let language = get_language("bash");
         parser.set_language(&language).unwrap();
@@ -177,8 +177,8 @@ fn test_node_and_cursor_ref_in_fut_with_inner_spawns() {
             }
         };
 
-        let (_, p1) = tokio_like_spawn(fut_val()).await.unwrap();
-        let (_, p2) = tokio_like_spawn(fut_ref()).await.unwrap();
+        let ((), p1) = tokio_like_spawn(fut_val()).await.unwrap();
+        let ((), p2) = tokio_like_spawn(fut_ref()).await.unwrap();
 
         cursor_ref.goto_first_child();
 
@@ -237,7 +237,7 @@ async fn yield_now() {
         }
     }
 
-    SimpleYieldNow { yielded: false }.await
+    SimpleYieldNow { yielded: false }.await;
 }
 
 pub fn noop_waker() -> Waker {
@@ -260,7 +260,8 @@ struct JoinHandle<T> {
 }
 
 impl<T> JoinHandle<T> {
-    fn new(data: T) -> Self {
+    #[must_use]
+    const fn new(data: T) -> Self {
         Self { data: Some(data) }
     }
 

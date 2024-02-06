@@ -971,7 +971,7 @@ mod tests {
                 "row {i}b: {:?} ~~ {:?}",
                 row.left,
                 row.right
-            )
+            );
         }
     }
 
@@ -1032,6 +1032,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::single_range_in_vec_init)]
     fn test_character_set_get_ranges() {
         struct Row {
             chars: Vec<char>,
@@ -1061,7 +1062,7 @@ mod tests {
             chars,
             ruled_out_chars,
             expected_ranges,
-        } in table.iter()
+        } in &table
         {
             let ruled_out_chars = ruled_out_chars.iter().map(|c: &char| *c as u32).collect();
             let mut set = CharacterSet::empty();

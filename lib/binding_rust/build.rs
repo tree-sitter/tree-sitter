@@ -57,10 +57,10 @@ fn main() {
 }
 
 #[cfg(feature = "bindgen")]
-fn generate_bindings(out_dir: &PathBuf) {
+fn generate_bindings(out_dir: &Path) {
     const HEADER_PATH: &str = "include/tree_sitter/api.h";
 
-    println!("cargo:rerun-if-changed={}", HEADER_PATH);
+    println!("cargo:rerun-if-changed={HEADER_PATH}");
 
     let no_copy = [
         "TSInput",

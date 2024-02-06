@@ -19,7 +19,7 @@ pub struct Match<'a, 'tree> {
     pub last_node: Option<Node<'tree>>,
 }
 
-const CAPTURE_NAMES: &'static [&'static str] = &[
+const CAPTURE_NAMES: &[&str] = &[
     "one", "two", "three", "four", "five", "six", "seven", "eight",
 ];
 
@@ -57,12 +57,11 @@ impl Pattern {
             children: roots,
         };
 
-        if pattern.children.len() == 1 {
-            pattern = pattern.children.pop().unwrap();
-        }
+        if pattern.children.len() == 1 ||
         // In a parenthesized list of sibling patterns, the first
         // sibling can't be an anonymous `_` wildcard.
-        else if pattern.children[0].kind == Some("_") && !pattern.children[0].named {
+        (pattern.children[0].kind == Some("_") && !pattern.children[0].named)
+        {
             pattern = pattern.children.pop().unwrap();
         }
         // In a parenthesized list of sibling patterns, the first
@@ -123,22 +122,16 @@ impl Pattern {
         }
     }
 
-    pub fn to_string(&self) -> String {
-        let mut result = String::new();
-        self.write_to_string(&mut result, 0);
-        result
-    }
-
     fn write_to_string(&self, string: &mut String, indent: usize) {
         if let Some(field) = self.field {
-            write!(string, "{}: ", field).unwrap();
+            write!(string, "{field}: ").unwrap();
         }
 
         if self.named {
             string.push('(');
             let mut has_contents = false;
             if let Some(kind) = &self.kind {
-                write!(string, "{}", kind).unwrap();
+                write!(string, "{kind}").unwrap();
                 has_contents = true;
             }
             for child in &self.children {
@@ -154,11 +147,11 @@ impl Pattern {
         } else if self.kind == Some("_") {
             string.push('_');
         } else {
-            write!(string, "\"{}\"", self.kind.unwrap().replace("\"", "\\\"")).unwrap();
+            write!(string, "\"{}\"", self.kind.unwrap().replace('\"', "\\\"")).unwrap();
         }
 
         if let Some(capture) = &self.capture {
-            write!(string, " @{}", capture).unwrap();
+            write!(string, " @{capture}").unwrap();
         }
     }
 
@@ -214,11 +207,10 @@ impl Pattern {
 
         // Create a match for the current node.
         let mat = Match {
-            captures: if let Some(name) = &self.capture {
-                vec![(name.as_str(), node)]
-            } else {
-                Vec::new()
-            },
+            captures: self
+                .capture
+                .as_ref()
+                .map_or_else(Vec::new, |name| vec![(name.as_str(), node)]),
             last_node: Some(node),
         };
 
@@ -246,7 +238,7 @@ impl Pattern {
                             new_match_states.push((*pattern_index + 1, combined_match));
                         } else {
                             let mut existing = false;
-                            for existing_match in finished_matches.iter_mut() {
+                            for existing_match in &mut finished_matches {
                                 if existing_match.captures == combined_match.captures {
                                     if child_pattern.capture.is_some() {
                                         existing_match.last_node = combined_match.last_node;
@@ -268,6 +260,14 @@ impl Pattern {
             cursor.goto_parent();
         }
         finished_matches
+    }
+}
+
+impl ToString for Pattern {
+    fn to_string(&self) -> String {
+        let mut result = String::new();
+        self.write_to_string(&mut result, 0);
+        result
     }
 }
 
@@ -314,11 +314,11 @@ pub fn assert_query_matches(
     expected: &[(usize, Vec<(&str, &str)>)],
 ) {
     let mut parser = Parser::new();
-    parser.set_language(&language).unwrap();
+    parser.set_language(language).unwrap();
     let tree = parser.parse(source, None).unwrap();
     let mut cursor = QueryCursor::new();
-    let matches = cursor.matches(&query, tree.root_node(), source.as_bytes());
-    pretty_assertions::assert_eq!(collect_matches(matches, &query, source), expected);
+    let matches = cursor.matches(query, tree.root_node(), source.as_bytes());
+    pretty_assertions::assert_eq!(collect_matches(matches, query, source), expected);
     pretty_assertions::assert_eq!(cursor.did_exceed_match_limit(), false);
 }
 
@@ -331,7 +331,7 @@ pub fn collect_matches<'a>(
         .map(|m| {
             (
                 m.pattern_index,
-                format_captures(m.captures.iter().cloned(), query, source),
+                format_captures(m.captures.iter().copied(), query, source),
             )
         })
         .collect()
