@@ -288,11 +288,61 @@ fn format_sexp(sexp: &str) -> String {
 fn format_sexp_indented(sexp: &str, initial_indent_level: u32) -> String {
     let mut formatted = String::new();
 
+    if sexp.is_empty() {
+        return formatted;
+    }
+
     let mut indent_level = initial_indent_level;
     let mut has_field = false;
-    let mut s_iter = sexp.split(|c| c == ' ' || c == ')');
-    while let Some(s) = s_iter.next() {
-        if s.is_empty() {
+
+    let mut c_iter = sexp.chars().peekable();
+    let mut s = String::with_capacity(sexp.len());
+    let mut quote = '\0';
+    let mut saw_paren = false;
+    let mut did_last = false;
+
+    let mut fetch_next_str = |next: &mut String| {
+        next.clear();
+        while let Some(c) = c_iter.next() {
+            if c == '\'' || c == '"' {
+                quote = c;
+            } else if c == ' ' {
+                if let Some(next_c) = c_iter.peek() {
+                    if *next_c == quote {
+                        next.push(c);
+                        next.push(*next_c);
+                        c_iter.next();
+                        quote = '\0';
+                        continue;
+                    }
+                }
+                break;
+            } else if c == ')' {
+                saw_paren = true;
+                break;
+            }
+            next.push(c);
+        }
+
+        // at the end
+        if c_iter.peek().is_none() && next.is_empty() {
+            if saw_paren {
+                // but did we see a ) before ending?
+                saw_paren = false;
+                return Some(());
+            } else if !did_last {
+                // but did we account for the end empty string as if we're splitting?
+                did_last = true;
+                return Some(());
+            } else {
+                return None;
+            }
+        }
+        Some(())
+    };
+
+    while fetch_next_str(&mut s).is_some() {
+        if s.is_empty() && indent_level > 0 {
             // ")"
             indent_level -= 1;
             write!(formatted, ")").unwrap();
@@ -314,7 +364,7 @@ fn format_sexp_indented(sexp: &str, initial_indent_level: u32) -> String {
 
             // "(MISSING node_name" or "(UNEXPECTED 'x'"
             if s.starts_with("(MISSING") || s.starts_with("(UNEXPECTED") {
-                let s = s_iter.next().unwrap();
+                fetch_next_str(&mut s).unwrap();
                 write!(formatted, " {s}").unwrap();
             }
         } else if s.ends_with(':') {
@@ -625,8 +675,9 @@ abc
 
     #[test]
     fn test_format_sexp() {
+        assert_eq!(format_sexp(""), "");
         assert_eq!(
-            format_sexp(&"(a b: (c) (d) e: (f (g (h (MISSING i)))))".to_string()),
+            format_sexp("(a b: (c) (d) e: (f (g (h (MISSING i)))))"),
             r#"
 (a
   b: (c)
@@ -637,16 +688,19 @@ abc
         (MISSING i)))))
 "#
             .trim()
-            .to_string()
         );
-        assert_eq!(format_sexp(&"()".to_string()), "()".to_string());
+        assert_eq!(format_sexp("()"), "()");
+        assert_eq!(format_sexp("(A (M (B)))"), "(A\n  (M\n    (B)))");
+        assert_eq!(format_sexp("(A (U (B)))"), "(A\n  (U\n    (B)))");
         assert_eq!(
-            format_sexp(&"(A (M (B)))".to_string()),
-            "(A\n  (M\n    (B)))"
-        );
-        assert_eq!(
-            format_sexp(&"(A (U (B)))".to_string()),
-            "(A\n  (U\n    (B)))"
+            format_sexp("(program (ERROR (UNEXPECTED ' ')) (identifier))"),
+            r#"
+(program
+  (ERROR
+    (UNEXPECTED ' '))
+  (identifier))
+"#
+            .trim()
         );
     }
 
