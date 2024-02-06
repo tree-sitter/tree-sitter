@@ -1,6 +1,12 @@
 #include "alloc.h"
 #include <stdlib.h>
 
+#ifdef _WIN32
+#define PUBLIC __declspec(dllexport)
+#else
+#define PUBLIC __attribute__((visibility("default")))
+#endif
+
 static void *ts_malloc_default(size_t size) {
   void *result = malloc(size);
   if (size > 0 && !result) {
@@ -29,10 +35,10 @@ static void *ts_realloc_default(void *buffer, size_t size) {
 }
 
 // Allow clients to override allocation functions dynamically
-void *(*ts_current_malloc)(size_t) = ts_malloc_default;
-void *(*ts_current_calloc)(size_t, size_t) = ts_calloc_default;
-void *(*ts_current_realloc)(void *, size_t) = ts_realloc_default;
-void (*ts_current_free)(void *) = free;
+PUBLIC void *(*ts_current_malloc)(size_t) = ts_malloc_default;
+PUBLIC void *(*ts_current_calloc)(size_t, size_t) = ts_calloc_default;
+PUBLIC void *(*ts_current_realloc)(void *, size_t) = ts_realloc_default;
+PUBLIC void (*ts_current_free)(void *) = free;
 
 void ts_set_allocator(
   void *(*new_malloc)(size_t size),
