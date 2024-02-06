@@ -5,6 +5,8 @@ mod util;
 
 #[cfg(unix)]
 use std::os::unix::io::AsRawFd;
+#[cfg(windows)]
+use std::os::windows::io::AsRawHandle;
 
 use std::{
     char, error,
@@ -521,11 +523,27 @@ impl Parser {
     /// during parsing. The graphs are formatted in the DOT language. You may want
     /// to pipe these graphs directly to a `dot(1)` process in order to generate
     /// SVG output.
-    #[cfg(unix)]
     #[doc(alias = "ts_parser_print_dot_graphs")]
-    pub fn print_dot_graphs(&mut self, file: &impl AsRawFd) {
-        let fd = file.as_raw_fd();
-        unsafe { ffi::ts_parser_print_dot_graphs(self.0.as_ptr(), ffi::dup(fd)) }
+    pub fn print_dot_graphs(
+        &mut self,
+        #[cfg(not(windows))] file: &impl AsRawFd,
+        #[cfg(windows)] file: &impl AsRawHandle,
+    ) {
+        #[cfg(not(windows))]
+        {
+            let fd = file.as_raw_fd();
+            unsafe {
+                ffi::ts_parser_print_dot_graphs(self.0.as_ptr(), ffi::_ts_dup(fd));
+            }
+        }
+
+        #[cfg(windows)]
+        {
+            let handle = file.as_raw_handle();
+            unsafe {
+                ffi::ts_parser_print_dot_graphs(self.0.as_ptr(), ffi::_ts_dup(handle));
+            }
+        }
     }
 
     /// Stop the parser from printing debugging graphs while parsing.
@@ -893,11 +911,23 @@ impl Tree {
     /// Print a graph of the tree to the given file descriptor.
     /// The graph is formatted in the DOT language. You may want to pipe this graph
     /// directly to a `dot(1)` process in order to generate SVG output.
-    #[cfg(unix)]
     #[doc(alias = "ts_tree_print_dot_graph")]
-    pub fn print_dot_graph(&self, file: &impl AsRawFd) {
-        let fd = file.as_raw_fd();
-        unsafe { ffi::ts_tree_print_dot_graph(self.0.as_ptr(), fd) }
+    pub fn print_dot_graph(
+        &self,
+        #[cfg(unix)] file: &impl AsRawFd,
+        #[cfg(windows)] file: &impl AsRawHandle,
+    ) {
+        #[cfg(unix)]
+        {
+            let fd = file.as_raw_fd();
+            unsafe { ffi::ts_tree_print_dot_graph(self.0.as_ptr(), fd) }
+        }
+
+        #[cfg(windows)]
+        {
+            let handle = file.as_raw_handle();
+            unsafe { ffi::ts_tree_print_dot_graph(self.0.as_ptr(), handle as i32) }
+        }
     }
 }
 
