@@ -152,9 +152,10 @@ pub fn check_queries_at_path(language: &Language, path: &Path) -> Result<()> {
 
 pub fn print_diff_key() {
     println!(
-        "\n{} / {}",
+        "\n{} / {} / {}",
+        Colour::White.paint("correct"),
         Colour::Green.paint("expected"),
-        Colour::Red.paint("actual")
+        Colour::Red.paint("unexpected")
     );
 }
 
