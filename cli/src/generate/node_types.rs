@@ -666,10 +666,7 @@ pub fn generate_node_types_json(
     result
 }
 
-fn process_supertypes(
-    info: &mut FieldInfoJSON,
-    subtype_map: &Vec<(NodeTypeJSON, Vec<NodeTypeJSON>)>,
-) {
+fn process_supertypes(info: &mut FieldInfoJSON, subtype_map: &[(NodeTypeJSON, Vec<NodeTypeJSON>)]) {
     for (supertype, subtypes) in subtype_map {
         if info.types.contains(supertype) {
             info.types.retain(|t| !subtypes.contains(t));

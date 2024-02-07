@@ -678,14 +678,11 @@ fn test_get_changed_ranges() {
     }
 }
 
-fn index_of(text: &Vec<u8>, substring: &str) -> usize {
-    str::from_utf8(text.as_slice())
-        .unwrap()
-        .find(substring)
-        .unwrap()
+fn index_of(text: &[u8], substring: &str) -> usize {
+    str::from_utf8(text).unwrap().find(substring).unwrap()
 }
 
-fn range_of(text: &Vec<u8>, substring: &str) -> Range {
+fn range_of(text: &[u8], substring: &str) -> Range {
     let start_byte = index_of(text, substring);
     let end_byte = start_byte + substring.as_bytes().len();
     Range {

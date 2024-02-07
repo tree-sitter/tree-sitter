@@ -5,13 +5,13 @@ use std::str;
 
 #[derive(Debug)]
 pub struct ReadRecorder<'a> {
-    content: &'a Vec<u8>,
+    content: &'a [u8],
     indices_read: Vec<usize>,
 }
 
 impl<'a> ReadRecorder<'a> {
     #[must_use]
-    pub const fn new(content: &'a Vec<u8>) -> Self {
+    pub const fn new(content: &'a [u8]) -> Self {
         Self {
             content,
             indices_read: Vec::new(),

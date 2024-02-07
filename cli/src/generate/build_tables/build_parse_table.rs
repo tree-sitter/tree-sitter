@@ -51,7 +51,7 @@ struct ParseTableBuilder<'a> {
     item_set_builder: ParseItemSetBuilder<'a>,
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
-    variable_info: &'a Vec<VariableInfo>,
+    variable_info: &'a [VariableInfo],
     core_ids_by_core: HashMap<ParseItemSetCore<'a>, usize>,
     state_ids_by_item_set: IndexMap<ParseItemSet<'a>, ParseStateId, BuildHasherDefault<FxHasher>>,
     parse_state_info_by_id: Vec<ParseStateInfo<'a>>,
@@ -965,7 +965,7 @@ pub fn build_parse_table<'a>(
     syntax_grammar: &'a SyntaxGrammar,
     lexical_grammar: &'a LexicalGrammar,
     inlines: &'a InlinedProductionMap,
-    variable_info: &'a Vec<VariableInfo>,
+    variable_info: &'a [VariableInfo],
 ) -> Result<(ParseTable, Vec<TokenSet>, Vec<ParseStateInfo<'a>>)> {
     let actual_conflicts = syntax_grammar.expected_conflicts.iter().cloned().collect();
     let item_set_builder = ParseItemSetBuilder::new(syntax_grammar, lexical_grammar, inlines);
