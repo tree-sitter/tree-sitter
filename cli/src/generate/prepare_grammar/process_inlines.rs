@@ -87,7 +87,7 @@ impl InlinedProductionMapBuilder {
         &'a mut self,
         step_id: ProductionStepId,
         grammar: &'a SyntaxGrammar,
-    ) -> &'a Vec<usize> {
+    ) -> &'a [usize] {
         // Build a list of productions produced by inlining rules.
         let mut i = 0;
         let step_index = step_id.step_index;

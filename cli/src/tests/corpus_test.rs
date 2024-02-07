@@ -399,7 +399,7 @@ fn test_feature_corpus_files() {
 }
 
 fn check_consistent_sizes(tree: &Tree, input: &[u8]) {
-    fn check(node: Node, line_offsets: &Vec<usize>) {
+    fn check(node: Node, line_offsets: &[usize]) {
         let start_byte = node.start_byte();
         let end_byte = node.end_byte();
         let start_point = node.start_position();

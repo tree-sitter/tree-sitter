@@ -596,7 +596,7 @@ impl Generator {
         let mut flat_field_maps = vec![];
         let mut next_flat_field_map_index = 0;
         self.get_field_map_id(
-            &Vec::new(),
+            Vec::new(),
             &mut flat_field_maps,
             &mut next_flat_field_map_index,
         );
@@ -614,7 +614,7 @@ impl Generator {
                 }
                 field_map_ids.push((
                     self.get_field_map_id(
-                        &flat_field_map,
+                        flat_field_map.clone(),
                         &mut flat_field_maps,
                         &mut next_flat_field_map_index,
                     ),
@@ -1438,7 +1438,7 @@ impl Generator {
 
     fn get_field_map_id(
         &self,
-        flat_field_map: &Vec<(String, FieldLocation)>,
+        flat_field_map: Vec<(String, FieldLocation)>,
         flat_field_maps: &mut Vec<(usize, Vec<(String, FieldLocation)>)>,
         next_flat_field_map_index: &mut usize,
     ) -> usize {
@@ -1447,8 +1447,8 @@ impl Generator {
         }
 
         let result = *next_flat_field_map_index;
-        flat_field_maps.push((result, flat_field_map.clone()));
         *next_flat_field_map_index += flat_field_map.len();
+        flat_field_maps.push((result, flat_field_map));
         result
     }
 

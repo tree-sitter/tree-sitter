@@ -34,7 +34,7 @@ impl<'a> CoincidentTokenIndex<'a> {
         result
     }
 
-    pub fn states_with(&self, a: Symbol, b: Symbol) -> &Vec<ParseStateId> {
+    pub fn states_with(&self, a: Symbol, b: Symbol) -> &[ParseStateId] {
         &self.entries[self.index(a.index, b.index)]
     }
 

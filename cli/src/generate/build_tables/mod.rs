@@ -24,7 +24,7 @@ pub fn build_tables(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     simple_aliases: &AliasMap,
-    variable_info: &Vec<VariableInfo>,
+    variable_info: &[VariableInfo],
     inlines: &InlinedProductionMap,
     report_symbol_name: Option<&str>,
 ) -> Result<(ParseTable, LexTable, LexTable, Option<Symbol>)> {
