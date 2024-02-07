@@ -4,7 +4,7 @@ members = ["cli", "lib"]
 resolver = "2"
 
 [workspace.package]
-rust-version = "1.65"
+rust-version = "1.70"
 
 [profile.optimize]
 inherits = "release"
