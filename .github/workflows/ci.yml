@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - 'master'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    uses: ./.github/workflows/checks.yml
+
+  sanitize:
+    needs: checks
+    uses: ./.github/workflows/sanitize.yml
+
+  build:
+    needs: checks
+    uses: ./.github/workflows/build.yml

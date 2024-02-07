@@ -1,61 +1,24 @@
 name: Release
-
 on:
-  workflow_call:
-    inputs:
-      ref:
-        default: ${{ github.ref }}
-        type: string
+  workflow_dispatch:
+  push:
+    tags:
+      - v*
 
 jobs:
-  permissions:
-    name: Check permissions
-    runs-on: ubuntu-latest
-    outputs:
-      release_allowed: >
-        ${{
-          github.repository_owner == 'tree-sitter' &&
-          steps.maintainer.outputs.is_maintainer == 'true' &&
-          steps.local_branch.outputs.is_local == 'true'
-        }}
-    steps:
-
-    - name: Initated by a maintainer
-      id: maintainer
-      env:
-        GH_TOKEN: ${{ github.token }}
-        repo: ${{ github.repository }}
-        actor: ${{ github.actor }}
-      run: |
-        maintainer=$(
-          gh api "/repos/${repo}/collaborators" |
-          jq ".[] | {login, maintainer: .permissions | .maintain} | select(.login == \"${actor}\") | .maintainer"
-        );
-        if [ "$maintainer" == "true" ]; then
-          echo "@${actor} has maintainer level permissions :rocket:" >> $GITHUB_STEP_SUMMARY;
-          echo "is_maintainer=true" >> $GITHUB_OUTPUT
-        fi
-
-    - name: The ref branch is local
-      id: local_branch
-      env:
-        is_local: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
-      run: |
-        echo "is_local=${is_local}" >> $GITHUB_OUTPUT
+  build:
+    uses: ./.github/workflows/build.yml
+    with:
+      run_test: false
 
   release:
     name: Release
-    needs: permissions
-    if: needs.permissions.outputs.release_allowed
     runs-on: ubuntu-latest
+    needs: build
     permissions:
       contents: write
     steps:
-
-      - name: Checkout source code
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.ref }}
+      - uses: actions/checkout@v4
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
@@ -78,36 +41,56 @@ jobs:
           rm -rf artifacts
           ls -l target/
 
-      - name: Get tag name from a release/v* branch name
-        id: tag_name
-        env:
-          tag: ${{ github.head_ref }}
-        run: echo "tag=${tag#release/}" >> $GITHUB_OUTPUT
-
-      - name: Add a release tag
-        env:
-          ref: ${{ inputs.ref }}
-          tag: ${{ steps.tag_name.outputs.tag }}
-          message: "Release ${{ steps.tag_name.outputs.tag }}"
-        run: |
-          git config user.name "$(git log -1 --pretty='%cn')"
-          git config user.email "$(git log -1 --pretty='%ce')"
-          git tag -a "$tag" HEAD -m "$message"
-          git push origin "$tag"
-
       - name: Create release
         uses: softprops/action-gh-release@v1
         with:
-          name: ${{ steps.tag_name.outputs.tag }}
-          tag_name: ${{ steps.tag_name.outputs.tag }}
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
           fail_on_unmatched_files: true
           files: |
             target/tree-sitter-*.gz
             target/tree-sitter.wasm
             target/tree-sitter.js
 
-      - name: Merge release PR
+  crates_io:
+    name: Publish CLI to Crates.io
+    runs-on: ubuntu-latest
+    needs: release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Publish CLI to Crates.io
+        uses: katyo/publish-crates@v2
+        with:
+          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  npm:
+    name: Publish lib to npmjs.com
+    runs-on: ubuntu-latest
+    needs: release
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: ["cli/npm", "lib/binding_web"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Publish lib to npmjs.com
         env:
-          GH_TOKEN: ${{ github.token }}
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
         run: |
-          gh pr merge ${{ github.event.pull_request.html_url }} --match-head-commit $(git rev-parse HEAD) --merge --delete-branch
+          cd ${{ matrix.directory }}
+          npm publish

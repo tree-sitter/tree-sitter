@@ -8,9 +8,9 @@ env:
 on:
   workflow_call:
     inputs:
-      ref:
-        default: ${{ github.ref }}
-        type: string
+      run_test:
+        default: true
+        type: boolean
 
 jobs:
   build:
@@ -71,10 +71,7 @@ jobs:
         shell: bash
 
     steps:
-    - name: Checkout source code
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ inputs.ref }}
+    - uses: actions/checkout@v4
 
     - name: Read Emscripten version
       run: |
@@ -167,27 +164,27 @@ jobs:
         echo "🔗 Minimal **glibc** version required for CLI: ${min_glibc}">> $GITHUB_STEP_SUMMARY
 
     - name: Fetch fixtures
-      if: ${{ !matrix.cli-only }} # Don't fetch fixtures for only CLI building targets
+      if: ${{ !matrix.cli-only && inputs.run_test }} # Don't fetch fixtures for only CLI building targets
       run: script/fetch-fixtures
 
     - name: Generate fixtures
-      if: ${{ !matrix.cli-only }} # Can't natively run CLI on Github runner's host
+      if: ${{ !matrix.cli-only && inputs.run_test }} # Can't natively run CLI on Github runner's host
       run: script/generate-fixtures
 
     - name: Generate WASM fixtures
-      if: ${{ !matrix.cli-only && !matrix.use-cross }} # See comment for the "Build wasm library" step
+      if: ${{ !matrix.cli-only && !matrix.use-cross && inputs.run_test }} # See comment for the "Build wasm library" step
       run: script/generate-fixtures-wasm
 
     - name: Run main tests
-      if: ${{ !matrix.cli-only }} # Can't natively run CLI on Github runner's host
+      if: ${{ !matrix.cli-only && inputs.run_test }} # Can't natively run CLI on Github runner's host
       run: $BUILD_CMD test --target=${{ matrix.target }} --features=${CLI_FEATURES}
 
     - name: Run wasm tests
-      if: ${{ !matrix.cli-only && !matrix.use-cross }} # See comment for the "Build wasm library" step
+      if: ${{ !matrix.cli-only && !matrix.use-cross && inputs.run_test }} # See comment for the "Build wasm library" step
       run: script/test-wasm
 
     - name: Run benchmarks
-      if: ${{ !matrix.cli-only && !matrix.use-cross }} # Cross-compiled benchmarks make no sense
+      if: ${{ !matrix.cli-only && !matrix.use-cross && inputs.run_test }} # Cross-compiled benchmarks make no sense
       run: $BUILD_CMD bench benchmark -p tree-sitter-cli --target=${{ matrix.target }}
 
     - name: Upload CLI artifact
