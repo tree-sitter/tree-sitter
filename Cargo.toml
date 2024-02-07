@@ -27,16 +27,17 @@ anstyle = "1.0.6"
 anyhow = "1.0.79"
 cc = "1.0.83"
 clap = { version = "4.4.18", features = [
-	"cargo",
-	"derive",
-	"env",
-	"help",
-	"unstable-styles",
+  "cargo",
+  "derive",
+  "env",
+  "help",
+  "unstable-styles",
 ] }
 ctor = "0.2.6"
 ctrlc = { version = "3.4.2", features = ["termination"] }
 difference = "2.0.0"
 dirs = "5.0.1"
+fs4 = "0.7.0"
 glob = "0.3.1"
 html-escape = "0.2.13"
 indexmap = "2.2.2"
