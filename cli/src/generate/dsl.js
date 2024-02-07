@@ -385,7 +385,7 @@ function grammar(baseGrammar, options) {
     throw new Error("Grammar must have at least one rule.");
   }
 
-  return { name, word, rules, extras, conflicts, precedences, externals, inline, supertypes };
+  return { grammar: { name, word, rules, extras, conflicts, precedences, externals, inline, supertypes } };
 }
 
 function checkArguments(ruleCount, caller, callerName, suffix = '') {
@@ -419,4 +419,4 @@ global.grammar = grammar;
 global.field = field;
 
 const result = require(process.env.TREE_SITTER_GRAMMAR_PATH);
-process.stdout.write(JSON.stringify(result, null, null));
+process.stdout.write(JSON.stringify(result.grammar, null, null));
