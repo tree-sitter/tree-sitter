@@ -213,17 +213,13 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result
             let stdout =
                 String::from_utf8(output.stdout).with_context(|| "Got invalid UTF8 from node")?;
 
-            let mut node_output = "";
             let mut grammar_json = &stdout[..];
 
             if let Some(pos) = stdout.rfind('\n') {
                 // If there's a newline, split the last line from the rest of the output
-                node_output = &stdout[..pos];
+                let node_output = &stdout[..pos];
                 grammar_json = &stdout[pos + 1..];
-            }
 
-            // If we got any output from the node process that isn't the grammar JSON
-            if !node_output.is_empty() {
                 let mut stdout = std::io::stdout().lock();
                 stdout.write_all(node_output.as_bytes())?;
                 stdout.write_all(b"\n")?;
