@@ -28,6 +28,8 @@
   "homepage": "https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web",
   "devDependencies": {
     "chai": "^4.3.7",
+    "eslint": ">=8.56.0",
+    "eslint-config-google": "^0.14.0",
     "mocha": "^10.2.0",
     "terser": "^5.16.6"
   }
