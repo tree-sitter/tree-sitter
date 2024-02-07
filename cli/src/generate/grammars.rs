@@ -106,7 +106,7 @@ pub struct SyntaxGrammar {
 
 #[cfg(test)]
 impl ProductionStep {
-    pub fn new(symbol: Symbol) -> Self {
+    pub const fn new(symbol: Symbol) -> Self {
         Self {
             symbol,
             precedence: Precedence::None,

@@ -34,7 +34,7 @@ fn test_grammar_that_should_hang_and_not_segfault() {
     eprintln!("  {test_name}");
 
     let tests_exec_path = std::env::args()
-        .nth(0)
+        .next()
         .expect("Failed get get tests executable path");
 
     match std::env::var(test_var) {

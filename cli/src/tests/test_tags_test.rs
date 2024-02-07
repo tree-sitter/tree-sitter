@@ -55,5 +55,5 @@ fn test_tags_test_with_basic_test() {
                 "reference.call".to_string()
             ),
         ]
-    )
+    );
 }

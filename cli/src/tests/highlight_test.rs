@@ -49,12 +49,12 @@ lazy_static! {
         "variable",
     ]
     .iter()
-    .cloned()
+    .copied()
     .map(String::from)
     .collect();
     static ref HTML_ATTRS: Vec<String> = HIGHLIGHT_NAMES
         .iter()
-        .map(|s| format!("class={}", s))
+        .map(|s| format!("class={s}"))
         .collect();
 }
 
@@ -492,16 +492,16 @@ fn test_highlighting_via_c_api() {
     ];
     let highlight_names = highlights
         .iter()
-        .map(|h| h["class=".len()..].as_ptr() as *const c_char)
+        .map(|h| h["class=".len()..].as_ptr().cast::<c_char>())
         .collect::<Vec<_>>();
     let highlight_attrs = highlights
         .iter()
-        .map(|h| h.as_bytes().as_ptr() as *const c_char)
+        .map(|h| h.as_bytes().as_ptr().cast::<c_char>())
         .collect::<Vec<_>>();
     let highlighter = unsafe {
         c::ts_highlighter_new(
-            &highlight_names[0] as *const *const c_char,
-            &highlight_attrs[0] as *const *const c_char,
+            std::ptr::addr_of!(highlight_names[0]),
+            std::ptr::addr_of!(highlight_attrs[0]),
             highlights.len() as u32,
         )
     };
@@ -523,9 +523,9 @@ fn test_highlighting_via_c_api() {
             js_scope.as_ptr(),
             js_injection_regex.as_ptr(),
             language,
-            highlights_query.as_ptr() as *const c_char,
-            injections_query.as_ptr() as *const c_char,
-            locals_query.as_ptr() as *const c_char,
+            highlights_query.as_ptr().cast::<c_char>(),
+            injections_query.as_ptr().cast::<c_char>(),
+            locals_query.as_ptr().cast::<c_char>(),
             highlights_query.len() as u32,
             injections_query.len() as u32,
             locals_query.len() as u32,
@@ -547,8 +547,8 @@ fn test_highlighting_via_c_api() {
             html_scope.as_ptr(),
             html_injection_regex.as_ptr(),
             language,
-            highlights_query.as_ptr() as *const c_char,
-            injections_query.as_ptr() as *const c_char,
+            highlights_query.as_ptr().cast::<c_char>(),
+            injections_query.as_ptr().cast::<c_char>(),
             ptr::null(),
             highlights_query.len() as u32,
             injections_query.len() as u32,
@@ -584,8 +584,7 @@ fn test_highlighting_via_c_api() {
         let line_start = output_line_offsets[i] as usize;
         let line_end = output_line_offsets
             .get(i + 1)
-            .map(|x| *x as usize)
-            .unwrap_or(output_bytes.len());
+            .map_or(output_bytes.len(), |x| *x as usize);
         lines.push(str::from_utf8(&output_bytes[line_start..line_end]).unwrap());
     }
 
@@ -718,9 +717,13 @@ fn to_html<'a>(
     renderer
         .render(events, src, &|highlight| HTML_ATTRS[highlight.0].as_bytes())
         .unwrap();
-    Ok(renderer.lines().map(|s| s.to_string()).collect())
+    Ok(renderer
+        .lines()
+        .map(std::string::ToString::to_string)
+        .collect())
 }
 
+#[allow(clippy::type_complexity)]
 fn to_token_vector<'a>(
     src: &'a str,
     language_config: &'a HighlightConfiguration,

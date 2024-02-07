@@ -92,7 +92,9 @@ pub fn run_tests_at_path(
 
     parser.stop_printing_dot_graphs();
 
-    if !failures.is_empty() {
+    if failures.is_empty() {
+        Ok(())
+    } else {
         println!();
 
         if update {
@@ -122,8 +124,6 @@ pub fn run_tests_at_path(
             }
             Err(anyhow!(""))
         }
-    } else {
-        Ok(())
     }
 }
 
@@ -566,7 +566,7 @@ mod tests {
     fn test_parse_test_content_simple() {
         let entry = parse_test_content(
             "the-filename".to_string(),
-            r#"
+            r"
 ===============
 The first test
 ===============
@@ -584,7 +584,7 @@ The second test
 d
 ---
 (d)
-        "#
+        "
             .trim(),
             None,
         );
@@ -620,7 +620,7 @@ d
     fn test_parse_test_content_with_dashes_in_source_code() {
         let entry = parse_test_content(
             "the-filename".to_string(),
-            r#"
+            r"
 ==================
 Code with dashes
 ==================
@@ -641,7 +641,7 @@ abc
 -------------------
 
 (c (d))
-        "#
+        "
             .trim(),
             None,
         );
@@ -678,7 +678,7 @@ abc
         assert_eq!(format_sexp(""), "");
         assert_eq!(
             format_sexp("(a b: (c) (d) e: (f (g (h (MISSING i)))))"),
-            r#"
+            r"
 (a
   b: (c)
   (d)
@@ -686,7 +686,7 @@ abc
     (g
       (h
         (MISSING i)))))
-"#
+"
             .trim()
         );
         assert_eq!(format_sexp("()"), "()");
@@ -694,12 +694,12 @@ abc
         assert_eq!(format_sexp("(A (U (B)))"), "(A\n  (U\n    (B)))");
         assert_eq!(
             format_sexp("(program (ERROR (UNEXPECTED ' ')) (identifier))"),
-            r#"
+            r"
 (program
   (ERROR
     (UNEXPECTED ' '))
   (identifier))
-"#
+"
             .trim()
         );
     }
@@ -726,7 +726,7 @@ abc
         write_tests_to_buffer(&mut buffer, &corrected_entries).unwrap();
         assert_eq!(
             String::from_utf8(buffer).unwrap(),
-            r#"
+            r"
 ================================================================================
 title 1
 ================================================================================
@@ -742,7 +742,7 @@ input 2
 --------------------------------------------------------------------------------
 
 output 2
-"#
+"
             .trim_start()
             .to_string()
         );
@@ -826,7 +826,7 @@ code
     fn test_parse_test_content_with_suffixes() {
         let entry = parse_test_content(
             "the-filename".to_string(),
-            r#"
+            r"
 ==================asdf\()[]|{}*+?^$.-
 First test
 ==================asdf\()[]|{}*+?^$.-
@@ -865,7 +865,7 @@ NOT A TEST HEADER
 ---asdf\()[]|{}*+?^$.-
 
 (a)
-        "#
+        "
             .trim(),
             None,
         );
@@ -899,7 +899,7 @@ NOT A TEST HEADER
                     },
                     TestEntry::Example {
                         name: "Test name with = symbol".to_string(),
-                        input: expected_input.clone(),
+                        input: expected_input,
                         output: "(a)".to_string(),
                         header_delim_len: 25,
                         divider_delim_len: 3,
@@ -915,7 +915,7 @@ NOT A TEST HEADER
     fn test_parse_test_content_with_newlines_in_test_names() {
         let entry = parse_test_content(
             "the-filename".to_string(),
-            r#"
+            r"
 ===============
 name
 with
@@ -931,7 +931,7 @@ name with === signs
 code with ----
 ---
 (d)
-"#,
+",
             None,
         );
 

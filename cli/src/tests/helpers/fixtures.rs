@@ -19,11 +19,11 @@ lazy_static! {
     };
 }
 
-pub fn test_loader<'a>() -> &'a Loader {
-    &*TEST_LOADER
+pub fn test_loader() -> &'static Loader {
+    &TEST_LOADER
 }
 
-pub fn fixtures_dir<'a>() -> &'static Path {
+pub fn fixtures_dir() -> &'static Path {
     &FIXTURES_DIR
 }
 
@@ -48,12 +48,11 @@ pub fn get_highlight_config(
     let language = get_language(language_name);
     let queries_path = get_language_queries_path(language_name);
     let highlights_query = fs::read_to_string(queries_path.join("highlights.scm")).unwrap();
-    let injections_query = if let Some(injection_query_filename) = injection_query_filename {
-        fs::read_to_string(queries_path.join(injection_query_filename)).unwrap()
-    } else {
-        String::new()
-    };
-    let locals_query = fs::read_to_string(queries_path.join("locals.scm")).unwrap_or(String::new());
+    let injections_query =
+        injection_query_filename.map_or_else(String::new, |injection_query_filename| {
+            fs::read_to_string(queries_path.join(injection_query_filename)).unwrap()
+        });
+    let locals_query = fs::read_to_string(queries_path.join("locals.scm")).unwrap_or_default();
     let mut result = HighlightConfiguration::new(
         language,
         language_name,
@@ -63,7 +62,7 @@ pub fn get_highlight_config(
         false,
     )
     .unwrap();
-    result.configure(&highlight_names);
+    result.configure(highlight_names);
     result
 }
 
@@ -71,7 +70,7 @@ pub fn get_tags_config(language_name: &str) -> TagsConfiguration {
     let language = get_language(language_name);
     let queries_path = get_language_queries_path(language_name);
     let tags_query = fs::read_to_string(queries_path.join("tags.scm")).unwrap();
-    let locals_query = fs::read_to_string(queries_path.join("locals.scm")).unwrap_or(String::new());
+    let locals_query = fs::read_to_string(queries_path.join("locals.scm")).unwrap_or_default();
     TagsConfiguration::new(language, &tags_query, &locals_query).unwrap()
 }
 
@@ -99,7 +98,7 @@ pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> 
 
     let header_path = src_dir.join("tree_sitter");
     fs::create_dir_all(&header_path).unwrap();
-    fs::write(&header_path.join("parser.h"), tree_sitter::PARSER_HEADER)
+    fs::write(header_path.join("parser.h"), tree_sitter::PARSER_HEADER)
         .with_context(|| {
             format!(
                 "Failed to write {:?}",

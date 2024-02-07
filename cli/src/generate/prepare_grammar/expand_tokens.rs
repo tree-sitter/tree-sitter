@@ -792,7 +792,7 @@ mod tests {
             },
             // nested groups
             Row {
-                rules: vec![Rule::seq(vec![Rule::pattern(r#"([^x\\]|\\(.|\n))+"#, "")])],
+                rules: vec![Rule::seq(vec![Rule::pattern(r"([^x\\]|\\(.|\n))+", "")])],
                 separators: vec![],
                 examples: vec![("abcx", Some((0, "abc"))), ("abc\\0x", Some((0, "abc\\0")))],
             },
@@ -800,24 +800,24 @@ mod tests {
             Row {
                 rules: vec![
                     // Escaped forward slash (used in JS because '/' is the regex delimiter)
-                    Rule::pattern(r#"\/"#, ""),
+                    Rule::pattern(r"\/", ""),
                     // Escaped quotes
                     Rule::pattern(r#"\"\'"#, ""),
                     // Quote preceded by a literal backslash
-                    Rule::pattern(r#"[\\']+"#, ""),
+                    Rule::pattern(r"[\\']+", ""),
                 ],
                 separators: vec![],
                 examples: vec![
                     ("/", Some((0, "/"))),
                     ("\"\'", Some((1, "\"\'"))),
-                    (r#"'\'a"#, Some((2, r#"'\'"#))),
+                    (r"'\'a", Some((2, r"'\'"))),
                 ],
             },
             // unicode property escapes
             Row {
                 rules: vec![
-                    Rule::pattern(r#"\p{L}+\P{L}+"#, ""),
-                    Rule::pattern(r#"\p{White_Space}+\P{White_Space}+[\p{White_Space}]*"#, ""),
+                    Rule::pattern(r"\p{L}+\P{L}+", ""),
+                    Rule::pattern(r"\p{White_Space}+\P{White_Space}+[\p{White_Space}]*", ""),
                 ],
                 separators: vec![],
                 examples: vec![
@@ -827,17 +827,17 @@ mod tests {
             },
             // unicode property escapes in bracketed sets
             Row {
-                rules: vec![Rule::pattern(r#"[\p{L}\p{Nd}]+"#, "")],
+                rules: vec![Rule::pattern(r"[\p{L}\p{Nd}]+", "")],
                 separators: vec![],
                 examples: vec![("abΨ12٣٣, ok", Some((0, "abΨ12٣٣")))],
             },
             // unicode character escapes
             Row {
                 rules: vec![
-                    Rule::pattern(r#"\u{00dc}"#, ""),
-                    Rule::pattern(r#"\U{000000dd}"#, ""),
-                    Rule::pattern(r#"\u00de"#, ""),
-                    Rule::pattern(r#"\U000000df"#, ""),
+                    Rule::pattern(r"\u{00dc}", ""),
+                    Rule::pattern(r"\U{000000dd}", ""),
+                    Rule::pattern(r"\u00de", ""),
+                    Rule::pattern(r"\U000000df", ""),
                 ],
                 separators: vec![],
                 examples: vec![
@@ -851,13 +851,13 @@ mod tests {
             Row {
                 rules: vec![
                     // Un-escaped curly braces
-                    Rule::pattern(r#"u{[0-9a-fA-F]+}"#, ""),
+                    Rule::pattern(r"u{[0-9a-fA-F]+}", ""),
                     // Already-escaped curly braces
-                    Rule::pattern(r#"\{[ab]{3}\}"#, ""),
+                    Rule::pattern(r"\{[ab]{3}\}", ""),
                     // Unicode codepoints
-                    Rule::pattern(r#"\u{1000A}"#, ""),
+                    Rule::pattern(r"\u{1000A}", ""),
                     // Unicode codepoints (lowercase)
-                    Rule::pattern(r#"\u{1000b}"#, ""),
+                    Rule::pattern(r"\u{1000b}", ""),
                 ],
                 separators: vec![],
                 examples: vec![
@@ -957,7 +957,7 @@ mod tests {
             })
             .unwrap();
 
-            for (haystack, needle) in examples.iter() {
+            for (haystack, needle) in examples {
                 assert_eq!(simulate_nfa(&grammar, haystack), *needle);
             }
         }

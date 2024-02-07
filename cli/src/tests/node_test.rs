@@ -6,7 +6,7 @@ use crate::parse::perform_edit;
 use std::fs;
 use tree_sitter::{Node, Parser, Point, Tree};
 
-const JSON_EXAMPLE: &'static str = r#"
+const JSON_EXAMPLE: &str = r#"
 
 [
   123,
@@ -17,7 +17,7 @@ const JSON_EXAMPLE: &'static str = r#"
 ]
 "#;
 
-const GRAMMAR_WITH_ALIASES_AND_EXTRAS: &'static str = r#"{
+const GRAMMAR_WITH_ALIASES_AND_EXTRAS: &str = r#"{
   "name": "aliases_and_extras",
 
   "extras": [
@@ -60,8 +60,8 @@ fn test_node_child() {
 
     assert_eq!(array_node.kind(), "array");
     assert_eq!(array_node.named_child_count(), 3);
-    assert_eq!(array_node.start_byte(), JSON_EXAMPLE.find("[").unwrap());
-    assert_eq!(array_node.end_byte(), JSON_EXAMPLE.find("]").unwrap() + 1);
+    assert_eq!(array_node.start_byte(), JSON_EXAMPLE.find('[').unwrap());
+    assert_eq!(array_node.end_byte(), JSON_EXAMPLE.find(']').unwrap() + 1);
     assert_eq!(array_node.start_position(), Point::new(2, 0));
     assert_eq!(array_node.end_position(), Point::new(8, 1));
     assert_eq!(array_node.child_count(), 7);
@@ -82,13 +82,13 @@ fn test_node_child() {
     assert_eq!(object_node.kind(), "object");
     assert_eq!(right_bracket_node.kind(), "]");
 
-    assert_eq!(left_bracket_node.is_named(), false);
-    assert_eq!(number_node.is_named(), true);
-    assert_eq!(comma_node1.is_named(), false);
-    assert_eq!(false_node.is_named(), true);
-    assert_eq!(comma_node2.is_named(), false);
-    assert_eq!(object_node.is_named(), true);
-    assert_eq!(right_bracket_node.is_named(), false);
+    assert!(!left_bracket_node.is_named());
+    assert!(number_node.is_named());
+    assert!(!comma_node1.is_named());
+    assert!(false_node.is_named());
+    assert!(!comma_node2.is_named());
+    assert!(object_node.is_named());
+    assert!(!right_bracket_node.is_named());
 
     assert_eq!(number_node.start_byte(), JSON_EXAMPLE.find("123").unwrap());
     assert_eq!(
@@ -106,7 +106,7 @@ fn test_node_child() {
     assert_eq!(false_node.start_position(), Point::new(4, 2));
     assert_eq!(false_node.end_position(), Point::new(4, 7));
 
-    assert_eq!(object_node.start_byte(), JSON_EXAMPLE.find("{").unwrap());
+    assert_eq!(object_node.start_byte(), JSON_EXAMPLE.find('{').unwrap());
     assert_eq!(object_node.start_position(), Point::new(5, 2));
     assert_eq!(object_node.end_position(), Point::new(7, 3));
 
@@ -119,9 +119,9 @@ fn test_node_child() {
     assert_eq!(pair_node.kind(), "pair");
     assert_eq!(right_brace_node.kind(), "}");
 
-    assert_eq!(left_brace_node.is_named(), false);
-    assert_eq!(pair_node.is_named(), true);
-    assert_eq!(right_brace_node.is_named(), false);
+    assert!(!left_brace_node.is_named());
+    assert!(pair_node.is_named());
+    assert!(!right_brace_node.is_named());
 
     assert_eq!(pair_node.start_byte(), JSON_EXAMPLE.find("\"x\"").unwrap());
     assert_eq!(pair_node.end_byte(), JSON_EXAMPLE.find("null").unwrap() + 4);
@@ -137,9 +137,9 @@ fn test_node_child() {
     assert_eq!(colon_node.kind(), ":");
     assert_eq!(null_node.kind(), "null");
 
-    assert_eq!(string_node.is_named(), true);
-    assert_eq!(colon_node.is_named(), false);
-    assert_eq!(null_node.is_named(), true);
+    assert!(string_node.is_named());
+    assert!(!colon_node.is_named());
+    assert!(null_node.is_named());
 
     assert_eq!(
         string_node.start_byte(),
@@ -321,7 +321,7 @@ fn test_node_named_child() {
     assert_eq!(false_node.end_position(), Point::new(4, 7));
 
     assert_eq!(object_node.kind(), "object");
-    assert_eq!(object_node.start_byte(), JSON_EXAMPLE.find("{").unwrap());
+    assert_eq!(object_node.start_byte(), JSON_EXAMPLE.find('{').unwrap());
     assert_eq!(object_node.start_position(), Point::new(5, 2));
     assert_eq!(object_node.end_position(), Point::new(7, 3));
 
@@ -435,7 +435,7 @@ fn test_node_descendant_for_range() {
     let array_node = tree.root_node();
 
     // Leaf node exactly matches the given bounds - byte query
-    let colon_index = JSON_EXAMPLE.find(":").unwrap();
+    let colon_index = JSON_EXAMPLE.find(':').unwrap();
     let colon_node = array_node
         .descendant_for_byte_range(colon_index, colon_index + 1)
         .unwrap();
@@ -456,7 +456,7 @@ fn test_node_descendant_for_range() {
     assert_eq!(colon_node.end_position(), Point::new(6, 8));
 
     // The given point is between two adjacent leaf nodes - byte query
-    let colon_index = JSON_EXAMPLE.find(":").unwrap();
+    let colon_index = JSON_EXAMPLE.find(':').unwrap();
     let colon_node = array_node
         .descendant_for_byte_range(colon_index, colon_index)
         .unwrap();
@@ -550,10 +550,10 @@ fn test_node_edit() {
     for _ in 0..10 {
         let mut nodes_before = get_all_nodes(&tree);
 
-        let edit = get_random_edit(&mut rand, &mut code);
+        let edit = get_random_edit(&mut rand, &code);
         let mut tree2 = tree.clone();
         let edit = perform_edit(&mut tree2, &mut code, &edit).unwrap();
-        for node in nodes_before.iter_mut() {
+        for node in &mut nodes_before {
             node.edit(&edit);
         }
 
@@ -788,7 +788,7 @@ fn test_node_field_calls_in_language_without_fields() {
 
     let mut cursor = root_node.walk();
     assert_eq!(cursor.field_name(), None);
-    assert_eq!(cursor.goto_first_child(), true);
+    assert!(cursor.goto_first_child());
     assert_eq!(cursor.field_name(), None);
 }
 
@@ -796,7 +796,7 @@ fn test_node_field_calls_in_language_without_fields() {
 fn test_node_is_named_but_aliased_as_anonymous() {
     let (parser_name, parser_code) = generate_parser_for_grammar(
         &fs::read_to_string(
-            &fixtures_dir()
+            fixtures_dir()
                 .join("test_grammars")
                 .join("named_rule_aliased_as_anonymous")
                 .join("grammar.json"),
@@ -890,15 +890,13 @@ fn get_all_nodes(tree: &Tree) -> Vec<Node> {
             if !cursor.goto_first_child() {
                 visited_children = true;
             }
-        } else {
-            if cursor.goto_next_sibling() {
-                visited_children = false;
-            } else if !cursor.goto_parent() {
-                break;
-            }
+        } else if cursor.goto_next_sibling() {
+            visited_children = false;
+        } else if !cursor.goto_parent() {
+            break;
         }
     }
-    return result;
+    result
 }
 
 fn parse_json_example() -> Tree {

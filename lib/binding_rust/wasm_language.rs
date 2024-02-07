@@ -44,13 +44,13 @@ impl WasmStore {
             let mut error = MaybeUninit::<ffi::TSWasmError>::uninit();
             let engine = Box::new(wasm_engine_t { engine });
             let store = ffi::ts_wasm_store_new(
-                Box::leak(engine) as *mut wasm_engine_t as *mut _,
+                (Box::leak(engine) as *mut wasm_engine_t).cast(),
                 error.as_mut_ptr(),
             );
             if store.is_null() {
                 Err(WasmError::new(error.assume_init()))
             } else {
-                Ok(WasmStore(store))
+                Ok(Self(store))
             }
         }
     }
@@ -62,7 +62,7 @@ impl WasmStore {
             let language = ffi::ts_wasm_store_load_language(
                 self.0,
                 name.as_ptr(),
-                bytes.as_ptr() as *const c_char,
+                bytes.as_ptr().cast::<c_char>(),
                 bytes.len() as u32,
                 error.as_mut_ptr(),
             );
@@ -74,15 +74,16 @@ impl WasmStore {
         }
     }
 
+    #[must_use]
     pub fn language_count(&self) -> usize {
-        unsafe { ffi::ts_wasm_store_language_count(self.0) as usize }
+        unsafe { ffi::ts_wasm_store_language_count(self.0) }
     }
 }
 
 impl WasmError {
     unsafe fn new(error: ffi::TSWasmError) -> Self {
         let message = CStr::from_ptr(error.message).to_str().unwrap().to_string();
-        (FREE_FN)(error.message as *mut _);
+        (FREE_FN)(error.message.cast());
         Self {
             kind: match error.kind {
                 ffi::TSWasmErrorKindParse => WasmErrorKind::Parse,
@@ -96,6 +97,7 @@ impl WasmError {
 }
 
 impl Language {
+    #[must_use]
     pub fn is_wasm(&self) -> bool {
         unsafe { ffi::ts_language_is_wasm(self.0) }
     }

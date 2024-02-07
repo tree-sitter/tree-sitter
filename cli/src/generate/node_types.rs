@@ -726,7 +726,7 @@ mod tests {
 
     #[test]
     fn test_node_types_simple() {
-        let node_types = get_node_types(InputGrammar {
+        let node_types = get_node_types(&InputGrammar {
             variables: vec![
                 Variable {
                     name: "v1".to_string(),
@@ -815,7 +815,7 @@ mod tests {
 
     #[test]
     fn test_node_types_simple_extras() {
-        let node_types = get_node_types(InputGrammar {
+        let node_types = get_node_types(&InputGrammar {
             extra_symbols: vec![Rule::named("v3")],
             variables: vec![
                 Variable {
@@ -916,7 +916,7 @@ mod tests {
 
     #[test]
     fn test_node_types_with_supertypes() {
-        let node_types = get_node_types(InputGrammar {
+        let node_types = get_node_types(&InputGrammar {
             supertype_symbols: vec!["_v2".to_string()],
             variables: vec![
                 Variable {
@@ -998,7 +998,7 @@ mod tests {
 
     #[test]
     fn test_node_types_for_children_without_fields() {
-        let node_types = get_node_types(InputGrammar {
+        let node_types = get_node_types(&InputGrammar {
             variables: vec![
                 Variable {
                     name: "v1".to_string(),
@@ -1090,7 +1090,7 @@ mod tests {
 
     #[test]
     fn test_node_types_with_inlined_rules() {
-        let node_types = get_node_types(InputGrammar {
+        let node_types = get_node_types(&InputGrammar {
             variables_to_inline: vec!["v2".to_string()],
             variables: vec![
                 Variable {
@@ -1140,7 +1140,7 @@ mod tests {
 
     #[test]
     fn test_node_types_for_aliased_nodes() {
-        let node_types = get_node_types(InputGrammar {
+        let node_types = get_node_types(&InputGrammar {
             variables: vec![
                 Variable {
                     name: "thing".to_string(),
@@ -1210,7 +1210,7 @@ mod tests {
 
     #[test]
     fn test_node_types_with_multiple_valued_fields() {
-        let node_types = get_node_types(InputGrammar {
+        let node_types = get_node_types(&InputGrammar {
             variables: vec![
                 Variable {
                     name: "a".to_string(),
@@ -1272,7 +1272,7 @@ mod tests {
 
     #[test]
     fn test_node_types_with_fields_on_hidden_tokens() {
-        let node_types = get_node_types(InputGrammar {
+        let node_types = get_node_types(&InputGrammar {
             variables: vec![Variable {
                 name: "script".to_string(),
                 kind: VariableType::Named,
@@ -1298,7 +1298,7 @@ mod tests {
 
     #[test]
     fn test_node_types_with_multiple_rules_same_alias_name() {
-        let node_types = get_node_types(InputGrammar {
+        let node_types = get_node_types(&InputGrammar {
             variables: vec![
                 Variable {
                     name: "script".to_string(),
@@ -1418,7 +1418,7 @@ mod tests {
 
     #[test]
     fn test_node_types_with_tokens_aliased_to_match_rules() {
-        let node_types = get_node_types(InputGrammar {
+        let node_types = get_node_types(&InputGrammar {
             variables: vec![
                 Variable {
                     name: "a".to_string(),
@@ -1768,9 +1768,9 @@ mod tests {
         );
     }
 
-    fn get_node_types(grammar: InputGrammar) -> Vec<NodeInfoJSON> {
+    fn get_node_types(grammar: &InputGrammar) -> Vec<NodeInfoJSON> {
         let (syntax_grammar, lexical_grammar, _, default_aliases) =
-            prepare_grammar(&grammar).unwrap();
+            prepare_grammar(grammar).unwrap();
         let variable_info =
             get_variable_info(&syntax_grammar, &lexical_grammar, &default_aliases).unwrap();
         generate_node_types_json(

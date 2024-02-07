@@ -18,7 +18,7 @@ jobs:
 
     - run: cargo check --workspace --examples --tests --benches --bins
     - run: cargo fmt -- --check
-    - run: cargo clippy --workspace
+    - run: cargo clippy --workspace --all-targets
 
   check_c_warnings:
     name: Check C warnings
