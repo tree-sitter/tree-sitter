@@ -310,7 +310,7 @@ fn test_highlighting_empty_lines() {
     .join("\n");
 
     assert_eq!(
-        &to_html(&source, &JS_HIGHLIGHT,).unwrap(),
+        &to_html(&source, &JS_HIGHLIGHT).unwrap(),
         &[
             "<span class=keyword>class</span> <span class=constructor>A</span> <span class=punctuation.bracket>{</span>\n".to_string(),
             "\n".to_string(),
@@ -529,7 +529,6 @@ fn test_highlighting_via_c_api() {
             highlights_query.len() as u32,
             injections_query.len() as u32,
             locals_query.len() as u32,
-            false,
         );
     }
 
@@ -553,7 +552,6 @@ fn test_highlighting_via_c_api() {
             highlights_query.len() as u32,
             injections_query.len() as u32,
             0,
-            false,
         );
     }
 
@@ -622,7 +620,7 @@ fn test_highlighting_with_all_captures_applied() {
         [ \"{\" \"}\" \"(\" \")\" ] @punctuation.bracket
     "};
     let mut rust_highlight_reverse =
-        HighlightConfiguration::new(language, "rust", highlights_query, "", "", true).unwrap();
+        HighlightConfiguration::new(language, "rust", highlights_query, "", "").unwrap();
     rust_highlight_reverse.configure(&HIGHLIGHT_NAMES);
 
     assert_eq!(

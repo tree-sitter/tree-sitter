@@ -48,17 +48,9 @@ pub fn test_highlights(
     loader_config: &Config,
     highlighter: &mut Highlighter,
     directory: &Path,
-    apply_all_captures: bool,
 ) -> Result<()> {
     println!("syntax highlighting:");
-    test_highlights_indented(
-        loader,
-        loader_config,
-        highlighter,
-        directory,
-        apply_all_captures,
-        2,
-    )
+    test_highlights_indented(loader, loader_config, highlighter, directory, 2)
 }
 
 fn test_highlights_indented(
@@ -66,7 +58,6 @@ fn test_highlights_indented(
     loader_config: &Config,
     highlighter: &mut Highlighter,
     directory: &Path,
-    apply_all_captures: bool,
     indent_level: usize,
 ) -> Result<()> {
     let mut failed = false;
@@ -87,7 +78,6 @@ fn test_highlights_indented(
                 loader_config,
                 highlighter,
                 &test_file_path,
-                apply_all_captures,
                 indent_level + 1,
             )
             .is_err()
@@ -104,7 +94,7 @@ fn test_highlights_indented(
                     )
                 })?;
             let highlight_config = language_config
-                .highlight_config(language, apply_all_captures, None)?
+                .highlight_config(language, None)?
                 .ok_or_else(|| anyhow!("No highlighting config found for {test_file_path:?}"))?;
             match test_highlight(
                 loader,
@@ -235,7 +225,7 @@ pub fn get_highlight_positions(
     let source = String::from_utf8_lossy(source);
     let mut char_indices = source.char_indices();
     for event in highlighter.highlight(highlight_config, source.as_bytes(), None, |string| {
-        loader.highlight_config_for_injection_string(string, highlight_config.apply_all_captures)
+        loader.highlight_config_for_injection_string(string)
     })? {
         match event? {
             HighlightEvent::HighlightStart(h) => highlight_stack.push(h),
