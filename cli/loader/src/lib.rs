@@ -677,12 +677,12 @@ impl Loader {
         }
 
         command.arg("parser.c");
-        let output = command.output().context("Failed to run emcc command")?;
-        if !output.status.success() {
-            return Err(anyhow!(
-                "emcc command failed - {}",
-                String::from_utf8_lossy(&output.stderr)
-            ));
+        let status = command
+            .spawn()
+            .with_context(|| "Failed to run emcc command")?
+            .wait()?;
+        if !status.success() {
+            return Err(anyhow!("emcc command failed"));
         }
 
         fs::rename(src_path.join(output_name), output_path)
