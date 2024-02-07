@@ -69,7 +69,7 @@ impl<'a> ParseItemSetBuilder<'a> {
         }
 
         // The FIRST set of a non-terminal `i` is the union of the following sets:
-        // * the set of all terminals that appear at the beginings of i's productions
+        // * the set of all terminals that appear at the beginnings of i's productions
         // * the FIRST sets of all the non-terminals that appear at the beginnings
         //   of i's productions
         //

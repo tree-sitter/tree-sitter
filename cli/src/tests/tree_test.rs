@@ -44,7 +44,7 @@ fn test_tree_edit() {
     }
 
     // edit starting in the tree's padding but extending into its content:
-    // shrink the content to compenstate for the expanded padding.
+    // shrink the content to compensate for the expanded padding.
     {
         let mut tree = tree.clone();
         tree.edit(&InputEdit {

@@ -337,7 +337,7 @@ WASM_API_EXTERN wasmtime_error_t* wasmtime_config_cache_config_load(wasm_config_
  *
  * This option defaults to the native host. Calling this method will
  * additionally disable inference of the native features of the host (e.g.
- * detection of SSE4.2 on x86_64 hosts). Native features can be reenabled with
+ * detection of SSE4.2 on x86_64 hosts). Native features can be re-enabled with
  * the `cranelift_flag_{set,enable}` properties.
  *
  * For more information see the Rust documentation at
