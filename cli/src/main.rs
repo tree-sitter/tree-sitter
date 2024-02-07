@@ -568,20 +568,24 @@ fn run() -> Result<()> {
                     encoding,
                 };
 
-                let this_file_errored = parse::parse_file_at_path(&mut parser, &opts)?;
+                let parse_result = parse::parse_file_at_path(&mut parser, &opts)?;
 
                 if should_track_stats {
                     stats.total_parses += 1;
-                    if !this_file_errored {
+                    if parse_result.successful {
                         stats.successful_parses += 1;
+                    }
+                    if let Some(duration) = parse_result.duration {
+                        stats.total_bytes += parse_result.bytes;
+                        stats.total_duration += duration;
                     }
                 }
 
-                has_error |= this_file_errored;
+                has_error |= !parse_result.successful;
             }
 
             if should_track_stats {
-                println!("{stats}");
+                println!("\n{stats}");
             }
 
             if has_error {
