@@ -58,7 +58,7 @@ Passing in the previous edited tree makes `parse` run much more quickly:
 ```rust
 let new_source_code = "fn test(a: u32) {}"
 
-tree.edit(InputEdit {
+tree.edit(&InputEdit {
   start_byte: 8,
   old_end_byte: 8,
   new_end_byte: 14,
