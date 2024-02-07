@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 use anyhow::{anyhow, Context, Error, Result};
+use fs4::FileExt;
 use libloading::{Library, Symbol};
 use once_cell::unsync::OnceCell;
 use regex::{Regex, RegexBuilder};
@@ -371,7 +372,7 @@ impl Loader {
             library_path.set_extension("wasm");
         }
 
-        let recompile = needs_recompile(&library_path, &parser_path, scanner_path.as_deref())
+        let mut recompile = needs_recompile(&library_path, &parser_path, scanner_path.as_deref())
             .with_context(|| "Failed to compare source and binary timestamps")?;
 
         #[cfg(feature = "wasm")]
@@ -392,27 +393,71 @@ impl Loader {
             return Ok(wasm_store.load_language(name, &wasm_bytes)?);
         }
 
-        {
-            if recompile {
-                self.compile_parser_to_dylib(
-                    header_paths,
-                    &parser_path,
-                    &scanner_path,
-                    &library_path,
-                )?;
-            }
+        let lock_path = if env::var("CROSS_RUNNER").is_ok() {
+            PathBuf::from("/tmp")
+                .join("tree-sitter")
+                .join("lock")
+                .join(format!("{name}.lock"))
+        } else {
+            dirs::cache_dir()
+                .ok_or(anyhow!("Cannot determine cache directory"))?
+                .join("tree-sitter")
+                .join("lock")
+                .join(format!("{name}.lock"))
+        };
 
-            let library = unsafe { Library::new(&library_path) }
-                .with_context(|| format!("Error opening dynamic library {library_path:?}"))?;
-            let language = unsafe {
-                let language_fn: Symbol<unsafe extern "C" fn() -> Language> = library
-                    .get(language_fn_name.as_bytes())
-                    .with_context(|| format!("Failed to load symbol {language_fn_name}"))?;
-                language_fn()
-            };
-            mem::forget(library);
-            Ok(language)
+        if let Ok(lock_file) = fs::OpenOptions::new().write(true).open(&lock_path) {
+            recompile = false;
+            if lock_file.try_lock_exclusive().is_err() {
+                // if we can't acquire the lock, another process is compiling the parser, wait for it and don't recompile
+                lock_file.lock_exclusive()?;
+                recompile = false;
+            } else {
+                // if we can acquire the lock, check if the lock file is older than 30 seconds, a
+                // run that was interrupted and left the lock file behind should not block
+                // subsequent runs
+                let time = lock_file.metadata()?.modified()?.elapsed()?.as_secs();
+                if time > 30 {
+                    fs::remove_file(&lock_path)?;
+                    recompile = true;
+                }
+            }
         }
+
+        if recompile {
+            fs::create_dir_all(lock_path.parent().unwrap()).with_context(|| {
+                format!(
+                    "Failed to create directory {:?}",
+                    lock_path.parent().unwrap()
+                )
+            })?;
+            let lock_file = fs::OpenOptions::new()
+                .create(true)
+                .truncate(true)
+                .write(true)
+                .open(&lock_path)?;
+            lock_file.lock_exclusive()?;
+
+            self.compile_parser_to_dylib(
+                header_paths,
+                &parser_path,
+                &scanner_path,
+                &library_path,
+                &lock_file,
+                &lock_path,
+            )?;
+        }
+
+        let library = unsafe { Library::new(&library_path) }
+            .with_context(|| format!("Error opening dynamic library {library_path:?}"))?;
+        let language = unsafe {
+            let language_fn: Symbol<unsafe extern "C" fn() -> Language> = library
+                .get(language_fn_name.as_bytes())
+                .with_context(|| format!("Failed to load symbol {language_fn_name}"))?;
+            language_fn()
+        };
+        mem::forget(library);
+        Ok(language)
     }
 
     fn compile_parser_to_dylib(
@@ -421,6 +466,8 @@ impl Loader {
         parser_path: &Path,
         scanner_path: &Option<PathBuf>,
         library_path: &PathBuf,
+        lock_file: &fs::File,
+        lock_path: &Path,
     ) -> Result<(), Error> {
         let mut config = cc::Build::new();
         config
@@ -494,6 +541,10 @@ impl Loader {
         let output = command
             .output()
             .with_context(|| "Failed to execute C compiler")?;
+
+        lock_file.unlock()?;
+        fs::remove_file(lock_path)?;
+
         if !output.status.success() {
             return Err(anyhow!(
                 "Parser compilation failed.\nStdout: {}\nStderr: {}",
@@ -687,6 +738,7 @@ impl Loader {
 
         fs::rename(src_path.join(output_name), output_path)
             .context("failed to rename wasm output file")?;
+
         Ok(())
     }
 
