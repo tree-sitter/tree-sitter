@@ -23,9 +23,7 @@ typedef struct TSHighlightBuffer TSHighlightBuffer;
 // Construct a `TSHighlighter` by providing a list of strings containing
 // the HTML attributes that should be applied for each highlight value.
 TSHighlighter *ts_highlighter_new(
-  const char **highlight_names,
-  const char **attribute_strings,
-  uint32_t highlight_count
+  const char **highlight_names, const char **attribute_strings, uint32_t highlight_count
 );
 
 // Delete a syntax highlighter.
@@ -39,28 +37,17 @@ void ts_highlighter_delete(TSHighlighter *);
 // which is used to detect when this language has been embedded in a document
 // written in a different language.
 TSHighlightError ts_highlighter_add_language(
-  TSHighlighter *self,
-  const char *scope_name,
-  const char *injection_regex,
-  const TSLanguage *language,
-  const char *highlight_query,
-  const char *injection_query,
-  const char *locals_query,
-  uint32_t highlight_query_len,
-  uint32_t injection_query_len,
-  uint32_t locals_query_len,
-  bool apply_all_captures
+  TSHighlighter *self, const char *scope_name, const char *injection_regex,
+  const TSLanguage *language, const char *highlight_query, const char *injection_query,
+  const char *locals_query, uint32_t highlight_query_len, uint32_t injection_query_len,
+  uint32_t locals_query_len, bool apply_all_captures
 );
 
 // Compute syntax highlighting for a given document. You must first
 // create a `TSHighlightBuffer` to hold the output.
 TSHighlightError ts_highlighter_highlight(
-  const TSHighlighter *self,
-  const char *scope_name,
-  const char *source_code,
-  uint32_t source_code_len,
-  TSHighlightBuffer *output,
-  const size_t *cancellation_flag
+  const TSHighlighter *self, const char *scope_name, const char *source_code,
+  uint32_t source_code_len, TSHighlightBuffer *output, const size_t *cancellation_flag
 );
 
 // TSHighlightBuffer: This struct stores the HTML output of syntax

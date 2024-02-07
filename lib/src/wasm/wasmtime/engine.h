@@ -31,6 +31,4 @@ WASM_API_EXTERN void wasmtime_engine_increment_epoch(wasm_engine_t *engine);
 }  // extern "C"
 #endif
 
-#endif // WASMTIME_ENGINE_H
-
-
+#endif  // WASMTIME_ENGINE_H

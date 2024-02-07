@@ -69,7 +69,7 @@ WASM_API_EXTERN wasm_trap_t *wasmtime_trap_new(const char *msg, size_t msg_len);
  * an instruction trap -- traps can also be created using wasm_trap_new,
  * or occur with WASI modules exiting with a certain exit code.
  */
-WASM_API_EXTERN bool wasmtime_trap_code(const wasm_trap_t*, wasmtime_trap_code_t *code);
+WASM_API_EXTERN bool wasmtime_trap_code(const wasm_trap_t *, wasmtime_trap_code_t *code);
 
 /**
  * \brief Returns a human-readable name for this frame's function.
@@ -79,7 +79,7 @@ WASM_API_EXTERN bool wasmtime_trap_code(const wasm_trap_t*, wasmtime_trap_code_t
  *
  * The lifetime of the returned name is the same as the #wasm_frame_t itself.
  */
-WASM_API_EXTERN const wasm_name_t *wasmtime_frame_func_name(const wasm_frame_t*);
+WASM_API_EXTERN const wasm_name_t *wasmtime_frame_func_name(const wasm_frame_t *);
 
 /**
  * \brief Returns a human-readable name for this frame's module.
@@ -89,11 +89,10 @@ WASM_API_EXTERN const wasm_name_t *wasmtime_frame_func_name(const wasm_frame_t*)
  *
  * The lifetime of the returned name is the same as the #wasm_frame_t itself.
  */
-WASM_API_EXTERN const wasm_name_t *wasmtime_frame_module_name(const wasm_frame_t*);
-
+WASM_API_EXTERN const wasm_name_t *wasmtime_frame_module_name(const wasm_frame_t *);
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
 
-#endif // WASMTIME_TRAP_H
+#endif  // WASMTIME_TRAP_H

@@ -5,22 +5,22 @@
 extern "C" {
 #endif
 
-#include <string.h>
-#include <stdlib.h>
-#include <stdint.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "./alloc.h"
 
-#define Array(T)       \
-  struct {             \
-    T *contents;       \
-    uint32_t size;     \
+#define Array(T) \
+  struct { \
+    T *contents; \
+    uint32_t size; \
     uint32_t capacity; \
   }
 
-#define array_init(self) \
-  ((self)->size = 0, (self)->capacity = 0, (self)->contents = NULL)
+#define array_init(self) ((self)->size = 0, (self)->capacity = 0, (self)->contents = NULL)
 
 #define array_new() \
   { NULL, 0, 0 }
@@ -30,7 +30,7 @@ extern "C" {
 
 #define array_front(self) array_get(self, 0)
 
-#define array_back(self) array_get(self, (self)->size - 1)
+#define array_back(self)  array_get(self, (self)->size - 1)
 
 #define array_clear(self) ((self)->size = 0)
 
@@ -40,7 +40,7 @@ extern "C" {
 // Free any memory allocated for this array.
 #define array_delete(self) array__delete((VoidArray *)(self))
 
-#define array_push(self, element)                            \
+#define array_push(self, element) \
   (array__grow((VoidArray *)(self), 1, array__elem_size(self)), \
    (self)->contents[(self)->size++] = (element))
 
@@ -51,24 +51,19 @@ extern "C" {
    memset((self)->contents + (self)->size, 0, (count) * array__elem_size(self)), \
    (self)->size += (count))
 
-#define array_push_all(self, other)                                       \
-  array_extend((self), (other)->size, (other)->contents)
+#define array_push_all(self, other) array_extend((self), (other)->size, (other)->contents)
 
 // Append `count` elements to the end of the array, reading their values from the
 // `contents` pointer.
-#define array_extend(self, count, contents)                    \
-  array__splice(                                               \
-    (VoidArray *)(self), array__elem_size(self), (self)->size, \
-    0, count,  contents                                        \
-  )
+#define array_extend(self, count, contents) \
+  array__splice((VoidArray *)(self), array__elem_size(self), (self)->size, 0, count, contents)
 
 // Remove `old_count` elements from the array starting at the given `index`. At
 // the same index, insert `new_count` new elements, reading their values from the
 // `new_contents` pointer.
-#define array_splice(self, _index, old_count, new_count, new_contents)  \
-  array__splice(                                                       \
-    (VoidArray *)(self), array__elem_size(self), _index,                \
-    old_count, new_count, new_contents                                 \
+#define array_splice(self, _index, old_count, new_count, new_contents) \
+  array__splice( \
+    (VoidArray *)(self), array__elem_size(self), _index, old_count, new_count, new_contents \
   )
 
 // Insert one `element` into the array at the given `index`.
@@ -76,16 +71,14 @@ extern "C" {
   array__splice((VoidArray *)(self), array__elem_size(self), _index, 0, 1, &(element))
 
 // Remove one `element` from the array at the given `index`.
-#define array_erase(self, _index) \
-  array__erase((VoidArray *)(self), array__elem_size(self), _index)
+#define array_erase(self, _index) array__erase((VoidArray *)(self), array__elem_size(self), _index)
 
-#define array_pop(self) ((self)->contents[--(self)->size])
+#define array_pop(self)           ((self)->contents[--(self)->size])
 
 #define array_assign(self, other) \
   array__assign((VoidArray *)(self), (const VoidArray *)(other), array__elem_size(self))
 
-#define array_swap(self, other) \
-  array__swap((VoidArray *)(self), (VoidArray *)(other))
+#define array_swap(self, other) array__swap((VoidArray *)(self), (VoidArray *)(other))
 
 // Search a sorted array for a given `needle` value, using the given `compare`
 // callback to determine the order.
@@ -111,7 +104,8 @@ extern "C" {
   do { \
     unsigned _index, _exists; \
     array_search_sorted_with(self, compare, &(value), &_index, &_exists); \
-    if (!_exists) array_insert(self, _index, value); \
+    if (!_exists) \
+      array_insert(self, _index, value); \
   } while (0)
 
 // Insert a given `value` into a sorted array, using integer comparisons of
@@ -121,8 +115,9 @@ extern "C" {
 #define array_insert_sorted_by(self, field, value) \
   do { \
     unsigned _index, _exists; \
-    array_search_sorted_by(self, field, (value) field, &_index, &_exists); \
-    if (!_exists) array_insert(self, _index, value); \
+    array_search_sorted_by(self, field, (value)field, &_index, &_exists); \
+    if (!_exists) \
+      array_insert(self, _index, value); \
   } while (0)
 
 // Private
@@ -140,12 +135,13 @@ static inline void array__delete(VoidArray *self) {
   }
 }
 
-static inline void array__erase(VoidArray *self, size_t element_size,
-                                uint32_t index) {
+static inline void array__erase(VoidArray *self, size_t element_size, uint32_t index) {
   assert(index < self->size);
   char *contents = (char *)self->contents;
-  memmove(contents + index * element_size, contents + (index + 1) * element_size,
-          (self->size - index - 1) * element_size);
+  memmove(
+    contents + index * element_size, contents + (index + 1) * element_size,
+    (self->size - index - 1) * element_size
+  );
   self->size--;
 }
 
@@ -176,15 +172,18 @@ static inline void array__grow(VoidArray *self, uint32_t count, size_t element_s
   uint32_t new_size = self->size + count;
   if (new_size > self->capacity) {
     uint32_t new_capacity = self->capacity * 2;
-    if (new_capacity < 8) new_capacity = 8;
-    if (new_capacity < new_size) new_capacity = new_size;
+    if (new_capacity < 8)
+      new_capacity = 8;
+    if (new_capacity < new_size)
+      new_capacity = new_size;
     array__reserve(self, element_size, new_capacity);
   }
 }
 
-static inline void array__splice(VoidArray *self, size_t element_size,
-                                 uint32_t index, uint32_t old_count,
-                                 uint32_t new_count, const void *elements) {
+static inline void array__splice(
+  VoidArray *self, size_t element_size, uint32_t index, uint32_t old_count, uint32_t new_count,
+  const void *elements
+) {
   uint32_t new_size = self->size + new_count - old_count;
   uint32_t old_end = index + old_count;
   uint32_t new_end = index + new_count;
@@ -195,24 +194,15 @@ static inline void array__splice(VoidArray *self, size_t element_size,
   char *contents = (char *)self->contents;
   if (self->size > old_end) {
     memmove(
-      contents + new_end * element_size,
-      contents + old_end * element_size,
+      contents + new_end * element_size, contents + old_end * element_size,
       (self->size - old_end) * element_size
     );
   }
   if (new_count > 0) {
     if (elements) {
-      memcpy(
-        (contents + index * element_size),
-        elements,
-        new_count * element_size
-      );
+      memcpy((contents + index * element_size), elements, new_count * element_size);
     } else {
-      memset(
-        (contents + index * element_size),
-        0,
-        new_count * element_size
-      );
+      memset((contents + index * element_size), 0, new_count * element_size);
     }
   }
   self->size += new_count - old_count;
@@ -224,18 +214,22 @@ static inline void array__splice(VoidArray *self, size_t element_size,
     *(_index) = start; \
     *(_exists) = false; \
     uint32_t size = (self)->size - *(_index); \
-    if (size == 0) break; \
+    if (size == 0) \
+      break; \
     int comparison; \
     while (size > 1) { \
       uint32_t half_size = size / 2; \
       uint32_t mid_index = *(_index) + half_size; \
       comparison = compare(&((self)->contents[mid_index] suffix), (needle)); \
-      if (comparison <= 0) *(_index) = mid_index; \
+      if (comparison <= 0) \
+        *(_index) = mid_index; \
       size -= half_size; \
     } \
     comparison = compare(&((self)->contents[*(_index)] suffix), (needle)); \
-    if (comparison == 0) *(_exists) = true; \
-    else if (comparison < 0) *(_index) += 1; \
+    if (comparison == 0) \
+      *(_exists) = true; \
+    else if (comparison < 0) \
+      *(_index) += 1; \
   } while (0)
 
 // Helper macro for the `_sorted_by` routines below. This takes the left (existing)

@@ -23,15 +23,7 @@ typedef enum {
 } TreeCursorStep;
 
 void ts_tree_cursor_init(TreeCursor *, TSNode);
-void ts_tree_cursor_current_status(
-  const TSTreeCursor *,
-  TSFieldId *,
-  bool *,
-  bool *,
-  bool *,
-  TSSymbol *,
-  unsigned *
-);
+void ts_tree_cursor_current_status(const TSTreeCursor *, TSFieldId *, bool *, bool *, bool *, TSSymbol *, unsigned *);
 
 TreeCursorStep ts_tree_cursor_goto_first_child_internal(TSTreeCursor *);
 TreeCursorStep ts_tree_cursor_goto_next_sibling_internal(TSTreeCursor *);

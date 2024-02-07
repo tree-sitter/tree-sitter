@@ -34,10 +34,8 @@ extern "C" {
  * owned by the caller.
  */
 WASM_API_EXTERN wasmtime_error_t *wasmtime_global_new(
-    wasmtime_context_t *store,
-    const wasm_globaltype_t *type,
-    const wasmtime_val_t *val,
-    wasmtime_global_t *ret
+  wasmtime_context_t *store, const wasm_globaltype_t *type, const wasmtime_val_t *val,
+  wasmtime_global_t *ret
 );
 
 /**
@@ -45,9 +43,8 @@ WASM_API_EXTERN wasmtime_error_t *wasmtime_global_new(
  *
  * The returned #wasm_globaltype_t is owned by the caller.
  */
-WASM_API_EXTERN wasm_globaltype_t* wasmtime_global_type(
-    const wasmtime_context_t *store,
-    const wasmtime_global_t *global
+WASM_API_EXTERN wasm_globaltype_t *wasmtime_global_type(
+  const wasmtime_context_t *store, const wasmtime_global_t *global
 );
 
 /**
@@ -61,9 +58,7 @@ WASM_API_EXTERN wasm_globaltype_t* wasmtime_global_type(
  * #wasmtime_val_delete may need to be called on the value.
  */
 WASM_API_EXTERN void wasmtime_global_get(
-    wasmtime_context_t *store,
-    const wasmtime_global_t *global,
-    wasmtime_val_t *out
+  wasmtime_context_t *store, const wasmtime_global_t *global, wasmtime_val_t *out
 );
 
 /**
@@ -79,13 +74,11 @@ WASM_API_EXTERN void wasmtime_global_get(
  * THis does not take ownership of any argument but returns ownership of the error.
  */
 WASM_API_EXTERN wasmtime_error_t *wasmtime_global_set(
-    wasmtime_context_t *store,
-    const wasmtime_global_t *global,
-    const wasmtime_val_t *val
+  wasmtime_context_t *store, const wasmtime_global_t *global, const wasmtime_val_t *val
 );
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
 
-#endif // WASMTIME_GLOBAL_H
+#endif  // WASMTIME_GLOBAL_H

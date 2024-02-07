@@ -9,6 +9,6 @@
 #include "./query.c"
 #include "./stack.c"
 #include "./subtree.c"
-#include "./tree_cursor.c"
 #include "./tree.c"
+#include "./tree_cursor.c"
 #include "./wasm.c"

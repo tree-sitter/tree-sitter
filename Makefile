@@ -76,3 +76,16 @@ clean:
 	rm -f lib/src/*.o libtree-sitter.a libtree-sitter.$(SOEXT) libtree-sitter.$(SOEXTVER_MAJOR) libtree-sitter.$(SOEXTVER)
 
 .PHONY: all install clean
+
+
+##### Dev targets #####
+
+C_FILES := $(shell find . -name '*.c' -o -name '*.h')
+
+lint:
+	clang-format --dry-run -Werror $(C_FILES)
+
+format:
+	clang-format -i $(C_FILES)
+
+.PHONY: lint format

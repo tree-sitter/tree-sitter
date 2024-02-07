@@ -97,14 +97,14 @@ typedef uint8_t wasmtime_extern_kind_t;
  * various kinds of items an extern wasm item can be.
  */
 typedef union wasmtime_extern_union {
-    /// Field used if #wasmtime_extern_t::kind is #WASMTIME_EXTERN_FUNC
-    wasmtime_func_t func;
-    /// Field used if #wasmtime_extern_t::kind is #WASMTIME_EXTERN_GLOBAL
-    wasmtime_global_t global;
-    /// Field used if #wasmtime_extern_t::kind is #WASMTIME_EXTERN_TABLE
-    wasmtime_table_t table;
-    /// Field used if #wasmtime_extern_t::kind is #WASMTIME_EXTERN_MEMORY
-    wasmtime_memory_t memory;
+  /// Field used if #wasmtime_extern_t::kind is #WASMTIME_EXTERN_FUNC
+  wasmtime_func_t func;
+  /// Field used if #wasmtime_extern_t::kind is #WASMTIME_EXTERN_GLOBAL
+  wasmtime_global_t global;
+  /// Field used if #wasmtime_extern_t::kind is #WASMTIME_EXTERN_TABLE
+  wasmtime_table_t table;
+  /// Field used if #wasmtime_extern_t::kind is #WASMTIME_EXTERN_MEMORY
+  wasmtime_memory_t memory;
 } wasmtime_extern_union_t;
 
 /**
@@ -121,10 +121,10 @@ typedef union wasmtime_extern_union {
  * deallocate the value.
  */
 typedef struct wasmtime_extern {
-    /// Discriminant of which field of #of is valid.
-    wasmtime_extern_kind_t kind;
-    /// Container for the extern item's value.
-    wasmtime_extern_union_t of;
+  /// Discriminant of which field of #of is valid.
+  wasmtime_extern_kind_t kind;
+  /// Container for the extern item's value.
+  wasmtime_extern_union_t of;
 } wasmtime_extern_t;
 
 /// \brief Deletes a #wasmtime_extern_t.
@@ -141,5 +141,4 @@ wasm_externtype_t *wasmtime_extern_type(wasmtime_context_t *context, wasmtime_ex
 }  // extern "C"
 #endif
 
-#endif // WASMTIME_EXTERN_H
-
+#endif  // WASMTIME_EXTERN_H

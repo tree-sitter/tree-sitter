@@ -215,14 +215,12 @@ extern "C" {
  * This function does not take ownership of `wat`, and the caller is expected to
  * deallocate the returned #wasmtime_error_t and #wasm_byte_vec_t.
  */
-WASM_API_EXTERN wasmtime_error_t* wasmtime_wat2wasm(
-    const char *wat,
-    size_t wat_len,
-    wasm_byte_vec_t *ret
+WASM_API_EXTERN wasmtime_error_t *wasmtime_wat2wasm(
+  const char *wat, size_t wat_len, wasm_byte_vec_t *ret
 );
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
 
-#endif // WASMTIME_API_H
+#endif  // WASMTIME_API_H

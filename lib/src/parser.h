@@ -9,8 +9,8 @@ extern "C" {
 #include <stdint.h>
 #include <stdlib.h>
 
-#define ts_builtin_sym_error ((TSSymbol)-1)
-#define ts_builtin_sym_end 0
+#define ts_builtin_sym_error                  ((TSSymbol)-1)
+#define ts_builtin_sym_end                    0
 #define TREE_SITTER_SERIALIZATION_BUFFER_SIZE 1024
 
 #ifndef TREE_SITTER_API_H_
@@ -101,8 +101,8 @@ struct TSLanguage {
   const uint16_t *small_parse_table;
   const uint32_t *small_parse_table_map;
   const TSParseActionEntry *parse_actions;
-  const char * const *symbol_names;
-  const char * const *field_names;
+  const char *const *symbol_names;
+  const char *const *field_names;
   const TSFieldMapSlice *field_map_slices;
   const TSFieldMapEntry *field_map_entries;
   const TSSymbolMetadata *symbol_metadata;
@@ -130,39 +130,39 @@ struct TSLanguage {
  */
 
 #ifdef _MSC_VER
-#define UNUSED __pragma(warning(suppress : 4101))
+# define UNUSED __pragma(warning(suppress : 4101))
 #else
-#define UNUSED __attribute__((unused))
+# define UNUSED __attribute__((unused))
 #endif
 
-#define START_LEXER()           \
-  bool result = false;          \
-  bool skip = false;            \
-  UNUSED                        \
-  bool eof = false;             \
-  int32_t lookahead;            \
-  goto start;                   \
-  next_state:                   \
-  lexer->advance(lexer, skip);  \
-  start:                        \
-  skip = false;                 \
+#define START_LEXER() \
+  bool result = false; \
+  bool skip = false; \
+  UNUSED \
+  bool eof = false; \
+  int32_t lookahead; \
+  goto start; \
+next_state: \
+  lexer->advance(lexer, skip); \
+start: \
+  skip = false; \
   lookahead = lexer->lookahead;
 
 #define ADVANCE(state_value) \
-  {                          \
-    state = state_value;     \
-    goto next_state;         \
+  { \
+    state = state_value; \
+    goto next_state; \
   }
 
 #define SKIP(state_value) \
-  {                       \
-    skip = true;          \
-    state = state_value;  \
-    goto next_state;      \
+  { \
+    skip = true; \
+    state = state_value; \
+    goto next_state; \
   }
 
-#define ACCEPT_TOKEN(symbol_value)     \
-  result = true;                       \
+#define ACCEPT_TOKEN(symbol_value) \
+  result = true; \
   lexer->result_symbol = symbol_value; \
   lexer->mark_end(lexer);
 
@@ -172,56 +172,52 @@ struct TSLanguage {
  *  Parse Table Macros
  */
 
-#define SMALL_STATE(id) ((id) - LARGE_STATE_COUNT)
+#define SMALL_STATE(id) ((id)-LARGE_STATE_COUNT)
 
-#define STATE(id) id
+#define STATE(id)       id
 
-#define ACTIONS(id) id
+#define ACTIONS(id)     id
 
-#define SHIFT(state_value)            \
-  {{                                  \
-    .shift = {                        \
-      .type = TSParseActionTypeShift, \
-      .state = (state_value)          \
-    }                                 \
-  }}
+#define SHIFT(state_value) \
+  { \
+    { \
+      .shift = {.type = TSParseActionTypeShift, .state = (state_value) } \
+    } \
+  }
 
-#define SHIFT_REPEAT(state_value)     \
-  {{                                  \
-    .shift = {                        \
-      .type = TSParseActionTypeShift, \
-      .state = (state_value),         \
-      .repetition = true              \
-    }                                 \
-  }}
+#define SHIFT_REPEAT(state_value) \
+  { \
+    { \
+      .shift = {.type = TSParseActionTypeShift, .state = (state_value), .repetition = true } \
+    } \
+  }
 
-#define SHIFT_EXTRA()                 \
-  {{                                  \
-    .shift = {                        \
-      .type = TSParseActionTypeShift, \
-      .extra = true                   \
-    }                                 \
-  }}
+#define SHIFT_EXTRA() \
+  { \
+    { \
+      .shift = {.type = TSParseActionTypeShift, .extra = true } \
+    } \
+  }
 
 #define REDUCE(symbol_val, child_count_val, ...) \
-  {{                                             \
-    .reduce = {                                  \
-      .type = TSParseActionTypeReduce,           \
-      .symbol = symbol_val,                      \
-      .child_count = child_count_val,            \
-      __VA_ARGS__                                \
-    },                                           \
-  }}
+  { \
+    { \
+      .reduce = { .type = TSParseActionTypeReduce, \
+                  .symbol = symbol_val, \
+                  .child_count = child_count_val, \
+                  __VA_ARGS__ }, \
+    } \
+  }
 
-#define RECOVER()                    \
-  {{                                 \
-    .type = TSParseActionTypeRecover \
-  }}
+#define RECOVER() \
+  { \
+    { .type = TSParseActionTypeRecover } \
+  }
 
-#define ACCEPT_INPUT()              \
-  {{                                \
-    .type = TSParseActionTypeAccept \
-  }}
+#define ACCEPT_INPUT() \
+  { \
+    { .type = TSParseActionTypeAccept } \
+  }
 
 #ifdef __cplusplus
 }

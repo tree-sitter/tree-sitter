@@ -1,17 +1,14 @@
 #include "./get_changed_ranges.h"
-#include "./subtree.h"
-#include "./language.h"
-#include "./error_costs.h"
-#include "./tree_cursor.h"
 #include <assert.h>
+
+#include "./error_costs.h"
+#include "./language.h"
+#include "./subtree.h"
+#include "./tree_cursor.h"
 
 // #define DEBUG_GET_CHANGED_RANGES
 
-static void ts_range_array_add(
-  TSRangeArray *self,
-  Length start,
-  Length end
-) {
+static void ts_range_array_add(TSRangeArray *self, Length start, Length end) {
   if (self->size > 0) {
     TSRange *last_range = array_back(self);
     if (start.bytes <= last_range->end_byte) {
@@ -28,15 +25,13 @@ static void ts_range_array_add(
 }
 
 bool ts_range_array_intersects(
-  const TSRangeArray *self,
-  unsigned start_index,
-  uint32_t start_byte,
-  uint32_t end_byte
+  const TSRangeArray *self, unsigned start_index, uint32_t start_byte, uint32_t end_byte
 ) {
   for (unsigned i = start_index; i < self->size; i++) {
     TSRange *range = &self->contents[i];
     if (range->end_byte > start_byte) {
-      if (range->start_byte >= end_byte) break;
+      if (range->start_byte >= end_byte)
+        break;
       return true;
     }
   }
@@ -44,9 +39,8 @@ bool ts_range_array_intersects(
 }
 
 void ts_range_array_get_changed_ranges(
-  const TSRange *old_ranges, unsigned old_range_count,
-  const TSRange *new_ranges, unsigned new_range_count,
-  TSRangeArray *differences
+  const TSRange *old_ranges, unsigned old_range_count, const TSRange *new_ranges,
+  unsigned new_range_count, TSRangeArray *differences
 ) {
   unsigned new_index = 0;
   unsigned old_index = 0;
@@ -60,18 +54,18 @@ void ts_range_array_get_changed_ranges(
 
     Length next_old_position;
     if (in_old_range) {
-      next_old_position = (Length) {old_range->end_byte, old_range->end_point};
+      next_old_position = (Length){ old_range->end_byte, old_range->end_point };
     } else if (old_index < old_range_count) {
-      next_old_position = (Length) {old_range->start_byte, old_range->start_point};
+      next_old_position = (Length){ old_range->start_byte, old_range->start_point };
     } else {
       next_old_position = LENGTH_MAX;
     }
 
     Length next_new_position;
     if (in_new_range) {
-      next_new_position = (Length) {new_range->end_byte, new_range->end_point};
+      next_new_position = (Length){ new_range->end_byte, new_range->end_point };
     } else if (new_index < new_range_count) {
-      next_new_position = (Length) {new_range->start_byte, new_range->start_point};
+      next_new_position = (Length){ new_range->start_byte, new_range->start_point };
     } else {
       next_new_position = LENGTH_MAX;
     }
@@ -80,22 +74,26 @@ void ts_range_array_get_changed_ranges(
       if (in_old_range != in_new_range) {
         ts_range_array_add(differences, current_position, next_old_position);
       }
-      if (in_old_range) old_index++;
+      if (in_old_range)
+        old_index++;
       current_position = next_old_position;
       in_old_range = !in_old_range;
     } else if (next_new_position.bytes < next_old_position.bytes) {
       if (in_old_range != in_new_range) {
         ts_range_array_add(differences, current_position, next_new_position);
       }
-      if (in_new_range) new_index++;
+      if (in_new_range)
+        new_index++;
       current_position = next_new_position;
       in_new_range = !in_new_range;
     } else {
       if (in_old_range != in_new_range) {
         ts_range_array_add(differences, current_position, next_new_position);
       }
-      if (in_old_range) old_index++;
-      if (in_new_range) new_index++;
+      if (in_old_range)
+        old_index++;
+      if (in_new_range)
+        new_index++;
       in_old_range = !in_old_range;
       in_new_range = !in_new_range;
       current_position = next_new_position;
@@ -110,19 +108,17 @@ typedef struct {
   bool in_padding;
 } Iterator;
 
-static Iterator iterator_new(
-  TreeCursor *cursor,
-  const Subtree *tree,
-  const TSLanguage *language
-) {
+static Iterator iterator_new(TreeCursor *cursor, const Subtree *tree, const TSLanguage *language) {
   array_clear(&cursor->stack);
-  array_push(&cursor->stack, ((TreeCursorEntry) {
-    .subtree = tree,
-    .position = length_zero(),
-    .child_index = 0,
-    .structural_child_index = 0,
-  }));
-  return (Iterator) {
+  array_push(
+    &cursor->stack, ((TreeCursorEntry){
+                      .subtree = tree,
+                      .position = length_zero(),
+                      .child_index = 0,
+                      .structural_child_index = 0,
+                    })
+  );
+  return (Iterator){
     .cursor = *cursor,
     .language = language,
     .visible_depth = 1,
@@ -155,28 +151,26 @@ static Length iterator_end_position(Iterator *self) {
 
 static bool iterator_tree_is_visible(const Iterator *self) {
   TreeCursorEntry entry = *array_back(&self->cursor.stack);
-  if (ts_subtree_visible(*entry.subtree)) return true;
+  if (ts_subtree_visible(*entry.subtree))
+    return true;
   if (self->cursor.stack.size > 1) {
     Subtree parent = *self->cursor.stack.contents[self->cursor.stack.size - 2].subtree;
     return ts_language_alias_at(
-      self->language,
-      parent.ptr->production_id,
-      entry.structural_child_index
-    ) != 0;
+             self->language, parent.ptr->production_id, entry.structural_child_index
+           )
+           != 0;
   }
   return false;
 }
 
 static void iterator_get_visible_state(
-  const Iterator *self,
-  Subtree *tree,
-  TSSymbol *alias_symbol,
-  uint32_t *start_byte
+  const Iterator *self, Subtree *tree, TSSymbol *alias_symbol, uint32_t *start_byte
 ) {
   uint32_t i = self->cursor.stack.size - 1;
 
   if (self->in_padding) {
-    if (i == 0) return;
+    if (i == 0)
+      return;
     i--;
   }
 
@@ -186,9 +180,7 @@ static void iterator_get_visible_state(
     if (i > 0) {
       const Subtree *parent = self->cursor.stack.contents[i - 1].subtree;
       *alias_symbol = ts_language_alias_at(
-        self->language,
-        parent->ptr->production_id,
-        entry.structural_child_index
+        self->language, parent->ptr->production_id, entry.structural_child_index
       );
     }
 
@@ -201,14 +193,18 @@ static void iterator_get_visible_state(
 }
 
 static void iterator_ascend(Iterator *self) {
-  if (iterator_done(self)) return;
-  if (iterator_tree_is_visible(self) && !self->in_padding) self->visible_depth--;
-  if (array_back(&self->cursor.stack)->child_index > 0) self->in_padding = false;
+  if (iterator_done(self))
+    return;
+  if (iterator_tree_is_visible(self) && !self->in_padding)
+    self->visible_depth--;
+  if (array_back(&self->cursor.stack)->child_index > 0)
+    self->in_padding = false;
   self->cursor.stack.size--;
 }
 
 static bool iterator_descend(Iterator *self, uint32_t goal_position) {
-  if (self->in_padding) return false;
+  if (self->in_padding)
+    return false;
 
   bool did_descend = false;
   do {
@@ -222,12 +218,14 @@ static bool iterator_descend(Iterator *self, uint32_t goal_position) {
       Length child_right = length_add(child_left, ts_subtree_size(*child));
 
       if (child_right.bytes > goal_position) {
-        array_push(&self->cursor.stack, ((TreeCursorEntry) {
-          .subtree = child,
-          .position = position,
-          .child_index = i,
-          .structural_child_index = structural_child_index,
-        }));
+        array_push(
+          &self->cursor.stack, ((TreeCursorEntry){
+                                 .subtree = child,
+                                 .position = position,
+                                 .child_index = i,
+                                 .structural_child_index = structural_child_index,
+                               })
+        );
 
         if (iterator_tree_is_visible(self)) {
           if (child_left.bytes > goal_position) {
@@ -243,7 +241,8 @@ static bool iterator_descend(Iterator *self, uint32_t goal_position) {
       }
 
       position = child_right;
-      if (!ts_subtree_extra(*child)) structural_child_index++;
+      if (!ts_subtree_extra(*child))
+        structural_child_index++;
     }
   } while (did_descend);
 
@@ -262,24 +261,29 @@ static void iterator_advance(Iterator *self) {
   }
 
   for (;;) {
-    if (iterator_tree_is_visible(self)) self->visible_depth--;
+    if (iterator_tree_is_visible(self))
+      self->visible_depth--;
     TreeCursorEntry entry = array_pop(&self->cursor.stack);
-    if (iterator_done(self)) return;
+    if (iterator_done(self))
+      return;
 
     const Subtree *parent = array_back(&self->cursor.stack)->subtree;
     uint32_t child_index = entry.child_index + 1;
     if (ts_subtree_child_count(*parent) > child_index) {
       Length position = length_add(entry.position, ts_subtree_total_size(*entry.subtree));
       uint32_t structural_child_index = entry.structural_child_index;
-      if (!ts_subtree_extra(*entry.subtree)) structural_child_index++;
+      if (!ts_subtree_extra(*entry.subtree))
+        structural_child_index++;
       const Subtree *next_child = &ts_subtree_children(*parent)[child_index];
 
-      array_push(&self->cursor.stack, ((TreeCursorEntry) {
-        .subtree = next_child,
-        .position = position,
-        .child_index = child_index,
-        .structural_child_index = structural_child_index,
-      }));
+      array_push(
+        &self->cursor.stack, ((TreeCursorEntry){
+                               .subtree = next_child,
+                               .position = position,
+                               .child_index = child_index,
+                               .structural_child_index = structural_child_index,
+                             })
+      );
 
       if (iterator_tree_is_visible(self)) {
         if (ts_subtree_padding(*next_child).bytes > 0) {
@@ -301,10 +305,7 @@ typedef enum {
   IteratorMatches,
 } IteratorComparison;
 
-static IteratorComparison iterator_compare(
-  const Iterator *old_iter,
-  const Iterator *new_iter
-) {
+static IteratorComparison iterator_compare(const Iterator *old_iter, const Iterator *new_iter) {
   Subtree old_tree = NULL_SUBTREE;
   Subtree new_tree = NULL_SUBTREE;
   uint32_t old_start = 0;
@@ -314,21 +315,19 @@ static IteratorComparison iterator_compare(
   iterator_get_visible_state(old_iter, &old_tree, &old_alias_symbol, &old_start);
   iterator_get_visible_state(new_iter, &new_tree, &new_alias_symbol, &new_start);
 
-  if (!old_tree.ptr && !new_tree.ptr) return IteratorMatches;
-  if (!old_tree.ptr || !new_tree.ptr) return IteratorDiffers;
+  if (!old_tree.ptr && !new_tree.ptr)
+    return IteratorMatches;
+  if (!old_tree.ptr || !new_tree.ptr)
+    return IteratorDiffers;
 
-  if (
-    old_alias_symbol == new_alias_symbol &&
-    ts_subtree_symbol(old_tree) == ts_subtree_symbol(new_tree)
-  ) {
-    if (old_start == new_start &&
-        !ts_subtree_has_changes(old_tree) &&
-        ts_subtree_symbol(old_tree) != ts_builtin_sym_error &&
-        ts_subtree_size(old_tree).bytes == ts_subtree_size(new_tree).bytes &&
-        ts_subtree_parse_state(old_tree) != TS_TREE_STATE_NONE &&
-        ts_subtree_parse_state(new_tree) != TS_TREE_STATE_NONE &&
-        (ts_subtree_parse_state(old_tree) == ERROR_STATE) ==
-        (ts_subtree_parse_state(new_tree) == ERROR_STATE)) {
+  if (old_alias_symbol == new_alias_symbol && ts_subtree_symbol(old_tree) == ts_subtree_symbol(new_tree)) {
+    if (old_start == new_start && !ts_subtree_has_changes(old_tree)
+        && ts_subtree_symbol(old_tree) != ts_builtin_sym_error
+        && ts_subtree_size(old_tree).bytes == ts_subtree_size(new_tree).bytes
+        && ts_subtree_parse_state(old_tree) != TS_TREE_STATE_NONE
+        && ts_subtree_parse_state(new_tree) != TS_TREE_STATE_NONE
+        && (ts_subtree_parse_state(old_tree) == ERROR_STATE)
+             == (ts_subtree_parse_state(new_tree) == ERROR_STATE)) {
       return IteratorMatches;
     } else {
       return IteratorMayDiffer;
@@ -345,21 +344,15 @@ static inline void iterator_print_state(Iterator *self) {
   TSPoint end = iterator_end_position(self).extent;
   const char *name = ts_language_symbol_name(self->language, ts_subtree_symbol(*entry.subtree));
   printf(
-    "(%-25s %s\t depth:%u [%u, %u] - [%u, %u])",
-    name, self->in_padding ? "(p)" : "   ",
-    self->visible_depth,
-    start.row + 1, start.column,
-    end.row + 1, end.column
+    "(%-25s %s\t depth:%u [%u, %u] - [%u, %u])", name, self->in_padding ? "(p)" : "   ",
+    self->visible_depth, start.row + 1, start.column, end.row + 1, end.column
   );
 }
 #endif
 
 unsigned ts_subtree_get_changed_ranges(
-  const Subtree *old_tree, const Subtree *new_tree,
-  TreeCursor *cursor1, TreeCursor *cursor2,
-  const TSLanguage *language,
-  const TSRangeArray *included_range_differences,
-  TSRange **ranges
+  const Subtree *old_tree, const Subtree *new_tree, TreeCursor *cursor1, TreeCursor *cursor2,
+  const TSLanguage *language, const TSRangeArray *included_range_differences, TSRange **ranges
 ) {
   TSRangeArray results = array_new();
 
@@ -379,13 +372,13 @@ unsigned ts_subtree_get_changed_ranges(
   }
 
   do {
-    #ifdef DEBUG_GET_CHANGED_RANGES
+#ifdef DEBUG_GET_CHANGED_RANGES
     printf("At [%-2u, %-2u] Compare ", position.extent.row + 1, position.extent.column);
     iterator_print_state(&old_iter);
     printf("\tvs\t");
     iterator_print_state(&new_iter);
     puts("");
-    #endif
+#endif
 
     // Compare the old and new subtrees.
     IteratorComparison comparison = iterator_compare(&old_iter, &new_iter);
@@ -393,62 +386,53 @@ unsigned ts_subtree_get_changed_ranges(
     // Even if the two subtrees appear to be identical, they could differ
     // internally if they contain a range of text that was previously
     // excluded from the parse, and is now included, or vice-versa.
-    if (comparison == IteratorMatches && ts_range_array_intersects(
-      included_range_differences,
-      included_range_difference_index,
-      position.bytes,
-      iterator_end_position(&old_iter).bytes
-    )) {
+    if (comparison == IteratorMatches
+        && ts_range_array_intersects(included_range_differences, included_range_difference_index,
+                                     position.bytes, iterator_end_position(&old_iter).bytes)) {
       comparison = IteratorMayDiffer;
     }
 
     bool is_changed = false;
     switch (comparison) {
-      // If the subtrees are definitely identical, move to the end
-      // of both subtrees.
-      case IteratorMatches:
-        next_position = iterator_end_position(&old_iter);
-        break;
+    // If the subtrees are definitely identical, move to the end
+    // of both subtrees.
+    case IteratorMatches:
+      next_position = iterator_end_position(&old_iter);
+      break;
 
-      // If the subtrees might differ internally, descend into both
-      // subtrees, finding the first child that spans the current position.
-      case IteratorMayDiffer:
-        if (iterator_descend(&old_iter, position.bytes)) {
-          if (!iterator_descend(&new_iter, position.bytes)) {
-            is_changed = true;
-            next_position = iterator_end_position(&old_iter);
-          }
-        } else if (iterator_descend(&new_iter, position.bytes)) {
+    // If the subtrees might differ internally, descend into both
+    // subtrees, finding the first child that spans the current position.
+    case IteratorMayDiffer:
+      if (iterator_descend(&old_iter, position.bytes)) {
+        if (!iterator_descend(&new_iter, position.bytes)) {
           is_changed = true;
-          next_position = iterator_end_position(&new_iter);
-        } else {
-          next_position = length_min(
-            iterator_end_position(&old_iter),
-            iterator_end_position(&new_iter)
-          );
+          next_position = iterator_end_position(&old_iter);
         }
-        break;
-
-      // If the subtrees are different, record a change and then move
-      // to the end of both subtrees.
-      case IteratorDiffers:
+      } else if (iterator_descend(&new_iter, position.bytes)) {
         is_changed = true;
-        next_position = length_min(
-          iterator_end_position(&old_iter),
-          iterator_end_position(&new_iter)
-        );
-        break;
+        next_position = iterator_end_position(&new_iter);
+      } else {
+        next_position
+          = length_min(iterator_end_position(&old_iter), iterator_end_position(&new_iter));
+      }
+      break;
+
+    // If the subtrees are different, record a change and then move
+    // to the end of both subtrees.
+    case IteratorDiffers:
+      is_changed = true;
+      next_position
+        = length_min(iterator_end_position(&old_iter), iterator_end_position(&new_iter));
+      break;
     }
 
     // Ensure that both iterators are caught up to the current position.
-    while (
-      !iterator_done(&old_iter) &&
-      iterator_end_position(&old_iter).bytes <= next_position.bytes
-    ) iterator_advance(&old_iter);
-    while (
-      !iterator_done(&new_iter) &&
-      iterator_end_position(&new_iter).bytes <= next_position.bytes
-    ) iterator_advance(&new_iter);
+    while (!iterator_done(&old_iter)
+           && iterator_end_position(&old_iter).bytes <= next_position.bytes)
+      iterator_advance(&old_iter);
+    while (!iterator_done(&new_iter)
+           && iterator_end_position(&new_iter).bytes <= next_position.bytes)
+      iterator_advance(&new_iter);
 
     // Ensure that both iterators are at the same depth in the tree.
     while (old_iter.visible_depth > new_iter.visible_depth) {
@@ -459,13 +443,12 @@ unsigned ts_subtree_get_changed_ranges(
     }
 
     if (is_changed) {
-      #ifdef DEBUG_GET_CHANGED_RANGES
+#ifdef DEBUG_GET_CHANGED_RANGES
       printf(
-        "  change: [[%u, %u] - [%u, %u]]\n",
-        position.extent.row + 1, position.extent.column,
+        "  change: [[%u, %u] - [%u, %u]]\n", position.extent.row + 1, position.extent.column,
         next_position.extent.row + 1, next_position.extent.column
       );
-      #endif
+#endif
 
       ts_range_array_add(&results, position, next_position);
     }
@@ -475,9 +458,7 @@ unsigned ts_subtree_get_changed_ranges(
     // Keep track of the current position in the included range differences
     // array in order to avoid scanning the entire array on each iteration.
     while (included_range_difference_index < included_range_differences->size) {
-      const TSRange *range = &included_range_differences->contents[
-        included_range_difference_index
-      ];
+      const TSRange *range = &included_range_differences->contents[included_range_difference_index];
       if (range->end_byte <= position.bytes) {
         included_range_difference_index++;
       } else {

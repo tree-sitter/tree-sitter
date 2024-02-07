@@ -9,8 +9,8 @@
 
 #include <wasm.h>
 #include <wasmtime/error.h>
-#include <wasmtime/store.h>
 #include <wasmtime/extern.h>
+#include <wasmtime/store.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,12 +40,12 @@ typedef struct wasmtime_linker wasmtime_linker_t;
  * This function does not take ownership of the engine argument, and the caller
  * is expected to delete the returned linker.
  */
-WASM_API_EXTERN wasmtime_linker_t* wasmtime_linker_new(wasm_engine_t* engine);
+WASM_API_EXTERN wasmtime_linker_t *wasmtime_linker_new(wasm_engine_t *engine);
 
 /**
  * \brief Deletes a linker
  */
-WASM_API_EXTERN void wasmtime_linker_delete(wasmtime_linker_t* linker);
+WASM_API_EXTERN void wasmtime_linker_delete(wasmtime_linker_t *linker);
 
 /**
  * \brief Configures whether this linker allows later definitions to shadow
@@ -53,7 +53,9 @@ WASM_API_EXTERN void wasmtime_linker_delete(wasmtime_linker_t* linker);
  *
  * By default this setting is `false`.
  */
-WASM_API_EXTERN void wasmtime_linker_allow_shadowing(wasmtime_linker_t* linker, bool allow_shadowing);
+WASM_API_EXTERN void wasmtime_linker_allow_shadowing(
+  wasmtime_linker_t *linker, bool allow_shadowing
+);
 
 /**
  * \brief Defines a new item in this linker.
@@ -72,14 +74,9 @@ WASM_API_EXTERN void wasmtime_linker_allow_shadowing(wasmtime_linker_t* linker, 
  * For more information about name resolution consult the [Rust
  * documentation](https://bytecodealliance.github.io/wasmtime/api/wasmtime/struct.Linker.html#name-resolution).
  */
-WASM_API_EXTERN wasmtime_error_t* wasmtime_linker_define(
-    wasmtime_linker_t *linker,
-    wasmtime_context_t *store,
-    const char *module,
-    size_t module_len,
-    const char *name,
-    size_t name_len,
-    const wasmtime_extern_t *item
+WASM_API_EXTERN wasmtime_error_t *wasmtime_linker_define(
+  wasmtime_linker_t *linker, wasmtime_context_t *store, const char *module, size_t module_len,
+  const char *name, size_t name_len, const wasmtime_extern_t *item
 );
 
 /**
@@ -107,16 +104,10 @@ WASM_API_EXTERN wasmtime_error_t* wasmtime_linker_define(
  *
  * For more information about host callbacks see #wasmtime_func_new.
  */
-WASM_API_EXTERN wasmtime_error_t* wasmtime_linker_define_func(
-    wasmtime_linker_t *linker,
-    const char *module,
-    size_t module_len,
-    const char *name,
-    size_t name_len,
-    const wasm_functype_t *ty,
-    wasmtime_func_callback_t cb,
-    void *data,
-    void (*finalizer)(void*)
+WASM_API_EXTERN wasmtime_error_t *wasmtime_linker_define_func(
+  wasmtime_linker_t *linker, const char *module, size_t module_len, const char *name,
+  size_t name_len, const wasm_functype_t *ty, wasmtime_func_callback_t cb, void *data,
+  void (*finalizer)(void *)
 );
 
 /**
@@ -128,16 +119,10 @@ WASM_API_EXTERN wasmtime_error_t* wasmtime_linker_define_func(
  * information as well as #wasmtime_func_new_unchecked for why this is an
  * unsafe API.
  */
-WASM_API_EXTERN wasmtime_error_t* wasmtime_linker_define_func_unchecked(
-    wasmtime_linker_t *linker,
-    const char *module,
-    size_t module_len,
-    const char *name,
-    size_t name_len,
-    const wasm_functype_t *ty,
-    wasmtime_func_unchecked_callback_t cb,
-    void *data,
-    void (*finalizer)(void*)
+WASM_API_EXTERN wasmtime_error_t *wasmtime_linker_define_func_unchecked(
+  wasmtime_linker_t *linker, const char *module, size_t module_len, const char *name,
+  size_t name_len, const wasm_functype_t *ty, wasmtime_func_unchecked_callback_t cb, void *data,
+  void (*finalizer)(void *)
 );
 
 /**
@@ -157,9 +142,7 @@ WASM_API_EXTERN wasmtime_error_t* wasmtime_linker_define_func_unchecked(
  * For more information about name resolution consult the [Rust
  * documentation](https://bytecodealliance.github.io/wasmtime/api/wasmtime/struct.Linker.html#name-resolution).
  */
-WASM_API_EXTERN wasmtime_error_t* wasmtime_linker_define_wasi(
-    wasmtime_linker_t *linker
-);
+WASM_API_EXTERN wasmtime_error_t *wasmtime_linker_define_wasi(wasmtime_linker_t *linker);
 
 /**
  * \brief Defines an instance under the specified name in this linker.
@@ -180,12 +163,9 @@ WASM_API_EXTERN wasmtime_error_t* wasmtime_linker_define_wasi(
  * For more information about name resolution consult the [Rust
  * documentation](https://bytecodealliance.github.io/wasmtime/api/wasmtime/struct.Linker.html#name-resolution).
  */
-WASM_API_EXTERN wasmtime_error_t* wasmtime_linker_define_instance(
-    wasmtime_linker_t *linker,
-    wasmtime_context_t *store,
-    const char *name,
-    size_t name_len,
-    const wasmtime_instance_t *instance
+WASM_API_EXTERN wasmtime_error_t *wasmtime_linker_define_instance(
+  wasmtime_linker_t *linker, wasmtime_context_t *store, const char *name, size_t name_len,
+  const wasmtime_instance_t *instance
 );
 
 /**
@@ -210,12 +190,9 @@ WASM_API_EXTERN wasmtime_error_t* wasmtime_linker_define_instance(
  * defined in the linker than an error is returned. (or if the previously
  * defined item is of the wrong type).
  */
-WASM_API_EXTERN wasmtime_error_t* wasmtime_linker_instantiate(
-    const wasmtime_linker_t *linker,
-    wasmtime_context_t *store,
-    const wasmtime_module_t *module,
-    wasmtime_instance_t *instance,
-    wasm_trap_t **trap
+WASM_API_EXTERN wasmtime_error_t *wasmtime_linker_instantiate(
+  const wasmtime_linker_t *linker, wasmtime_context_t *store, const wasmtime_module_t *module,
+  wasmtime_instance_t *instance, wasm_trap_t **trap
 );
 
 /**
@@ -237,12 +214,9 @@ WASM_API_EXTERN wasmtime_error_t* wasmtime_linker_instantiate(
  * For more information see the [Rust
  * documentation](https://bytecodealliance.github.io/wasmtime/api/wasmtime/struct.Linker.html#method.module).
  */
-WASM_API_EXTERN wasmtime_error_t* wasmtime_linker_module(
-    wasmtime_linker_t *linker,
-    wasmtime_context_t *store,
-    const char *name,
-    size_t name_len,
-    const wasmtime_module_t *module
+WASM_API_EXTERN wasmtime_error_t *wasmtime_linker_module(
+  wasmtime_linker_t *linker, wasmtime_context_t *store, const char *name, size_t name_len,
+  const wasmtime_module_t *module
 );
 
 /**
@@ -260,12 +234,9 @@ WASM_API_EXTERN wasmtime_error_t* wasmtime_linker_module(
  * For more information see the [Rust
  * documentation](https://bytecodealliance.github.io/wasmtime/api/wasmtime/struct.Linker.html#method.get_default).
  */
-WASM_API_EXTERN wasmtime_error_t* wasmtime_linker_get_default(
-    const wasmtime_linker_t *linker,
-    wasmtime_context_t *store,
-    const char *name,
-    size_t name_len,
-    wasmtime_func_t *func
+WASM_API_EXTERN wasmtime_error_t *wasmtime_linker_get_default(
+  const wasmtime_linker_t *linker, wasmtime_context_t *store, const char *name, size_t name_len,
+  wasmtime_func_t *func
 );
 
 /**
@@ -283,13 +254,8 @@ WASM_API_EXTERN wasmtime_error_t* wasmtime_linker_get_default(
  * filled in. Otherwise zero is returned.
  */
 WASM_API_EXTERN bool wasmtime_linker_get(
-    const wasmtime_linker_t *linker,
-    wasmtime_context_t *store,
-    const char *module,
-    size_t module_len,
-    const char *name,
-    size_t name_len,
-    wasmtime_extern_t *item
+  const wasmtime_linker_t *linker, wasmtime_context_t *store, const char *module, size_t module_len,
+  const char *name, size_t name_len, wasmtime_extern_t *item
 );
 
 /**
@@ -305,13 +271,13 @@ WASM_API_EXTERN bool wasmtime_linker_get(
  * For more information see the Rust documentation at:
  * https://docs.wasmtime.dev/api/wasmtime/struct.Linker.html#method.instantiate_pre
  */
-WASM_API_EXTERN wasmtime_error_t* wasmtime_linker_instantiate_pre(
-    const wasmtime_linker_t *linker,
-    const wasmtime_module_t *module,
-    wasmtime_instance_pre_t **instance_pre);
+WASM_API_EXTERN wasmtime_error_t *wasmtime_linker_instantiate_pre(
+  const wasmtime_linker_t *linker, const wasmtime_module_t *module,
+  wasmtime_instance_pre_t **instance_pre
+);
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
 
-#endif // WASMTIME_LINKER_H
+#endif  // WASMTIME_LINKER_H

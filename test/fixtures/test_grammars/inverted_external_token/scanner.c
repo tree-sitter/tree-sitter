@@ -1,28 +1,31 @@
 #include "tree_sitter/parser.h"
 
-enum {
-  LINE_BREAK
-};
+enum { LINE_BREAK };
 
-void *tree_sitter_inverted_external_token_external_scanner_create() { return NULL; }
+void *tree_sitter_inverted_external_token_external_scanner_create() {
+  return NULL;
+}
 
-void tree_sitter_inverted_external_token_external_scanner_destroy(void *payload) {}
+void tree_sitter_inverted_external_token_external_scanner_destroy(void *payload) {
+}
 
-void tree_sitter_inverted_external_token_external_scanner_reset(void *payload) {}
+void tree_sitter_inverted_external_token_external_scanner_reset(void *payload) {
+}
 
 unsigned tree_sitter_inverted_external_token_external_scanner_serialize(
-  void *payload,
-  char *buffer
-) { return true; }
+  void *payload, char *buffer
+) {
+  return true;
+}
 
 void tree_sitter_inverted_external_token_external_scanner_deserialize(
-  void *payload,
-  const char *buffer,
-  unsigned length
-) {}
+  void *payload, const char *buffer, unsigned length
+) {
+}
 
 bool tree_sitter_inverted_external_token_external_scanner_scan(
-  void *payload, TSLexer *lexer, const bool *whitelist) {
+  void *payload, TSLexer *lexer, const bool *whitelist
+) {
   while (lexer->lookahead == ' ' || lexer->lookahead == '\r') {
     lexer->advance(lexer, true);
   }

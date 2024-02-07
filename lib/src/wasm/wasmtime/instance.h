@@ -63,12 +63,8 @@ typedef struct wasmtime_instance {
  * values are owned by the caller.
  */
 WASM_API_EXTERN wasmtime_error_t *wasmtime_instance_new(
-    wasmtime_context_t *store,
-    const wasmtime_module_t *module,
-    const wasmtime_extern_t* imports,
-    size_t nimports,
-    wasmtime_instance_t *instance,
-    wasm_trap_t **trap
+  wasmtime_context_t *store, const wasmtime_module_t *module, const wasmtime_extern_t *imports,
+  size_t nimports, wasmtime_instance_t *instance, wasm_trap_t **trap
 );
 
 /**
@@ -87,11 +83,8 @@ WASM_API_EXTERN wasmtime_error_t *wasmtime_instance_new(
  * #wasmtime_extern_t.
  */
 WASM_API_EXTERN bool wasmtime_instance_export_get(
-    wasmtime_context_t *store,
-    const wasmtime_instance_t *instance,
-    const char *name,
-    size_t name_len,
-    wasmtime_extern_t *item
+  wasmtime_context_t *store, const wasmtime_instance_t *instance, const char *name, size_t name_len,
+  wasmtime_extern_t *item
 );
 
 /**
@@ -113,12 +106,8 @@ WASM_API_EXTERN bool wasmtime_instance_export_get(
  * #wasmtime_context_t.
  */
 WASM_API_EXTERN bool wasmtime_instance_export_nth(
-    wasmtime_context_t *store,
-    const wasmtime_instance_t *instance,
-    size_t index,
-    char **name,
-    size_t *name_len,
-    wasmtime_extern_t *item
+  wasmtime_context_t *store, const wasmtime_instance_t *instance, size_t index, char **name,
+  size_t *name_len, wasmtime_extern_t *item
 );
 
 /**
@@ -134,8 +123,7 @@ typedef struct wasmtime_instance_pre wasmtime_instance_pre_t;
 /**
  * \brief Delete a previously created wasmtime_instance_pre_t.
  */
-WASM_API_EXTERN void
-wasmtime_instance_pre_delete(wasmtime_instance_pre_t *instance);
+WASM_API_EXTERN void wasmtime_instance_pre_delete(wasmtime_instance_pre_t *instance);
 
 /**
  * \brief Instantiates instance within the given store.
@@ -160,14 +148,13 @@ wasmtime_instance_pre_delete(wasmtime_instance_pre_t *instance);
  * This function does not take ownership of any of its arguments, and all return
  * values are owned by the caller.
  */
-WASM_API_EXTERN wasmtime_error_t* wasmtime_instance_pre_instantiate(
-    const wasmtime_instance_pre_t* instance_pre,
-    wasmtime_store_t *store,
-    wasmtime_instance_t* instance,
-    wasm_trap_t **trap_ptr);
+WASM_API_EXTERN wasmtime_error_t *wasmtime_instance_pre_instantiate(
+  const wasmtime_instance_pre_t *instance_pre, wasmtime_store_t *store,
+  wasmtime_instance_t *instance, wasm_trap_t **trap_ptr
+);
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
 
-#endif // WASMTIME_INSTANCE_H
+#endif  // WASMTIME_INSTANCE_H

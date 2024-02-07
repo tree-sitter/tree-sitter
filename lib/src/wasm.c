@@ -1,26 +1,29 @@
+// clang-format off
 #include "tree_sitter/api.h"
 #include "./parser.h"
 #include <stdint.h>
+// clang-format on
 
 #ifdef TREE_SITTER_FEATURE_WASM
 
-#include <wasmtime.h>
-#include <wasm.h>
-#include <string.h>
-#include "./alloc.h"
-#include "./array.h"
-#include "./atomic.h"
-#include "./lexer.h"
-#include "./wasm.h"
-#include "./wasm/wasm-stdlib.h"
+# include <string.h>
+# include <wasm.h>
+# include <wasmtime.h>
+
+# include "./alloc.h"
+# include "./array.h"
+# include "./atomic.h"
+# include "./lexer.h"
+# include "./wasm.h"
+# include "./wasm/wasm-stdlib.h"
 
 // The following symbols from the C and C++ standard libraries are available
 // for external scanners to use.
 const char *STDLIB_SYMBOLS[] = {
-  #include "./stdlib-symbols.txt"
+# include "./stdlib-symbols.txt"
 };
 
-#define STDLIB_SYMBOL_COUNT (sizeof(STDLIB_SYMBOLS) / sizeof(STDLIB_SYMBOLS[0]))
+# define STDLIB_SYMBOL_COUNT (sizeof(STDLIB_SYMBOLS) / sizeof(STDLIB_SYMBOLS[0]))
 
 // The contents of the `dylink.0` custom section of a wasm module,
 // as specified by the current WebAssembly dynamic linking ABI proposal.
@@ -147,14 +150,14 @@ static volatile uint32_t NEXT_LANGUAGE_ID;
 
 // Linear memory layout:
 // [ <-- stack | built-in data | heap --> | static data ]
-#define STACK_SIZE (64 * 1024)
-#define HEAP_SIZE (1024 * 1024)
-#define INITIAL_MEMORY_SIZE (4 * 1024 * 1024 / MEMORY_PAGE_SIZE)
-#define MAX_MEMORY_SIZE 32768
-#define SERIALIZATION_BUFFER_ADDRESS (STACK_SIZE)
-#define LEXER_ADDRESS (SERIALIZATION_BUFFER_ADDRESS + TREE_SITTER_SERIALIZATION_BUFFER_SIZE)
-#define HEAP_START_ADDRESS (LEXER_ADDRESS + sizeof(LexerInWasmMemory))
-#define DATA_START_ADDRESS (HEAP_START_ADDRESS + HEAP_SIZE)
+# define STACK_SIZE                   (64 * 1024)
+# define HEAP_SIZE                    (1024 * 1024)
+# define INITIAL_MEMORY_SIZE          (4 * 1024 * 1024 / MEMORY_PAGE_SIZE)
+# define MAX_MEMORY_SIZE              32768
+# define SERIALIZATION_BUFFER_ADDRESS (STACK_SIZE)
+# define LEXER_ADDRESS                (SERIALIZATION_BUFFER_ADDRESS + TREE_SITTER_SERIALIZATION_BUFFER_SIZE)
+# define HEAP_START_ADDRESS           (LEXER_ADDRESS + sizeof(LexerInWasmMemory))
+# define DATA_START_ADDRESS           (HEAP_START_ADDRESS + HEAP_SIZE)
 
 enum FunctionIx {
   NULL_IX = 0,
@@ -182,42 +185,44 @@ static inline uint64_t read_uleb128(const uint8_t **p, const uint8_t *end) {
   uint64_t value = 0;
   unsigned shift = 0;
   do {
-    if (*p == end)  return UINT64_MAX;
+    if (*p == end)
+      return UINT64_MAX;
     value += (uint64_t)(**p & 0x7f) << shift;
     shift += 7;
   } while (*((*p)++) >= 128);
   return value;
 }
 
-static bool wasm_dylink_info__parse(
-  const uint8_t *bytes,
-  size_t length,
-  WasmDylinkInfo *info
-) {
-  const uint8_t WASM_MAGIC_NUMBER[4] = {0, 'a', 's', 'm'};
-  const uint8_t WASM_VERSION[4] = {1, 0, 0, 0};
+static bool wasm_dylink_info__parse(const uint8_t *bytes, size_t length, WasmDylinkInfo *info) {
+  const uint8_t WASM_MAGIC_NUMBER[4] = { 0, 'a', 's', 'm' };
+  const uint8_t WASM_VERSION[4] = { 1, 0, 0, 0 };
   const uint8_t WASM_CUSTOM_SECTION = 0x0;
   const uint8_t WASM_DYLINK_MEM_INFO = 0x1;
 
   const uint8_t *p = bytes;
   const uint8_t *end = bytes + length;
 
-  if (length < 8) return false;
-  if (memcmp(p, WASM_MAGIC_NUMBER, 4) != 0) return false;
+  if (length < 8)
+    return false;
+  if (memcmp(p, WASM_MAGIC_NUMBER, 4) != 0)
+    return false;
   p += 4;
-  if (memcmp(p, WASM_VERSION, 4) != 0) return false;
+  if (memcmp(p, WASM_VERSION, 4) != 0)
+    return false;
   p += 4;
 
   while (p < end) {
     uint8_t section_id = read_u8(&p, end);
     uint32_t section_length = read_uleb128(&p, end);
     const uint8_t *section_end = p + section_length;
-    if (section_end > end) return false;
+    if (section_end > end)
+      return false;
 
     if (section_id == WASM_CUSTOM_SECTION) {
       uint32_t name_length = read_uleb128(&p, section_end);
       const uint8_t *name_end = p + name_length;
-      if (name_end > section_end) return false;
+      if (name_end > section_end)
+        return false;
 
       if (name_length == 8 && memcmp(p, "dylink.0", 8) == 0) {
         p = name_end;
@@ -225,7 +230,8 @@ static bool wasm_dylink_info__parse(
           uint8_t subsection_type = read_u8(&p, section_end);
           uint32_t subsection_size = read_uleb128(&p, section_end);
           const uint8_t *subsection_end = p + subsection_size;
-          if (subsection_end > section_end) return false;
+          if (subsection_end > section_end)
+            return false;
           if (subsection_type == WASM_DYLINK_MEM_INFO) {
             info->memory_size = read_uleb128(&p, subsection_end);
             info->memory_align = read_uleb128(&p, subsection_end);
@@ -246,10 +252,8 @@ static bool wasm_dylink_info__parse(
  * Native callbacks exposed to wasm modules
  *******************************************/
 
- static wasm_trap_t *callback__exit(
-  void *env,
-  wasmtime_caller_t* caller,
-  wasmtime_val_raw_t *args_and_results,
+static wasm_trap_t *callback__exit(
+  void *env, wasmtime_caller_t *caller, wasmtime_val_raw_t *args_and_results,
   size_t args_and_results_len
 ) {
   fprintf(stderr, "wasm module called exit");
@@ -257,9 +261,7 @@ static bool wasm_dylink_info__parse(
 }
 
 static wasm_trap_t *callback__notify_memory_growth(
-  void *env,
-  wasmtime_caller_t* caller,
-  wasmtime_val_raw_t *args_and_results,
+  void *env, wasmtime_caller_t *caller, wasmtime_val_raw_t *args_and_results,
   size_t args_and_results_len
 ) {
   fprintf(stderr, "wasm module called exit");
@@ -267,18 +269,14 @@ static wasm_trap_t *callback__notify_memory_growth(
 }
 
 static wasm_trap_t *callback__at_exit(
-  void *env,
-  wasmtime_caller_t* caller,
-  wasmtime_val_raw_t *args_and_results,
+  void *env, wasmtime_caller_t *caller, wasmtime_val_raw_t *args_and_results,
   size_t args_and_results_len
 ) {
   return NULL;
 }
 
 static wasm_trap_t *callback__lexer_advance(
-  void *env,
-  wasmtime_caller_t* caller,
-  wasmtime_val_raw_t *args_and_results,
+  void *env, wasmtime_caller_t *caller, wasmtime_val_raw_t *args_and_results,
   size_t args_and_results_len
 ) {
   wasmtime_context_t *context = wasmtime_caller_context(caller);
@@ -295,9 +293,7 @@ static wasm_trap_t *callback__lexer_advance(
 }
 
 static wasm_trap_t *callback__lexer_mark_end(
-  void *env,
-  wasmtime_caller_t* caller,
-  wasmtime_val_raw_t *args_and_results,
+  void *env, wasmtime_caller_t *caller, wasmtime_val_raw_t *args_and_results,
   size_t args_and_results_len
 ) {
   TSWasmStore *store = env;
@@ -307,9 +303,7 @@ static wasm_trap_t *callback__lexer_mark_end(
 }
 
 static wasm_trap_t *callback__lexer_get_column(
-  void *env,
-  wasmtime_caller_t* caller,
-  wasmtime_val_raw_t *args_and_results,
+  void *env, wasmtime_caller_t *caller, wasmtime_val_raw_t *args_and_results,
   size_t args_and_results_len
 ) {
   TSWasmStore *store = env;
@@ -320,9 +314,7 @@ static wasm_trap_t *callback__lexer_get_column(
 }
 
 static wasm_trap_t *callback__lexer_is_at_included_range_start(
-  void *env,
-  wasmtime_caller_t* caller,
-  wasmtime_val_raw_t *args_and_results,
+  void *env, wasmtime_caller_t *caller, wasmtime_val_raw_t *args_and_results,
   size_t args_and_results_len
 ) {
   TSWasmStore *store = env;
@@ -333,9 +325,7 @@ static wasm_trap_t *callback__lexer_is_at_included_range_start(
 }
 
 static wasm_trap_t *callback__lexer_eof(
-  void *env,
-  wasmtime_caller_t* caller,
-  wasmtime_val_raw_t *args_and_results,
+  void *env, wasmtime_caller_t *caller, wasmtime_val_raw_t *args_and_results,
   size_t args_and_results_len
 ) {
   TSWasmStore *store = env;
@@ -350,7 +340,7 @@ typedef struct {
   wasm_functype_t *type;
 } FunctionDefinition;
 
-#define array_len(a) (sizeof(a) / sizeof(a[0]))
+# define array_len(a) (sizeof(a) / sizeof(a[0]))
 
 static void *copy(const void *data, size_t size) {
   void *result = ts_malloc(size);
@@ -359,10 +349,7 @@ static void *copy(const void *data, size_t size) {
 }
 
 static void *copy_unsized_static_array(
-  const uint8_t *data,
-  int32_t start_address,
-  const int32_t all_addresses[],
-  size_t address_count
+  const uint8_t *data, int32_t start_address, const int32_t all_addresses[], size_t address_count
 ) {
   int32_t end_address = 0;
   for (unsigned i = 0; i < address_count; i++) {
@@ -373,7 +360,8 @@ static void *copy_unsized_static_array(
     }
   }
 
-  if (!end_address) return NULL;
+  if (!end_address)
+    return NULL;
   size_t size = end_address - start_address;
   void *result = ts_malloc(size);
   memcpy(result, &data[start_address], size);
@@ -381,10 +369,7 @@ static void *copy_unsized_static_array(
 }
 
 static void *copy_strings(
-  const uint8_t *data,
-  int32_t array_address,
-  size_t count,
-  StringData *string_data
+  const uint8_t *data, int32_t array_address, size_t count, StringData *string_data
 ) {
   const char **result = ts_malloc(count * sizeof(char *));
   for (unsigned i = 0; i < count; i++) {
@@ -413,13 +398,10 @@ static bool name_eq(const wasm_name_t *name, const char *string) {
   return strncmp(string, name->data, name->size) == 0;
 }
 
-static inline wasm_functype_t* wasm_functype_new_4_0(
-  wasm_valtype_t* p1,
-  wasm_valtype_t* p2,
-  wasm_valtype_t* p3,
-  wasm_valtype_t* p4
+static inline wasm_functype_t *wasm_functype_new_4_0(
+  wasm_valtype_t *p1, wasm_valtype_t *p2, wasm_valtype_t *p3, wasm_valtype_t *p4
 ) {
-  wasm_valtype_t* ps[4] = {p1, p2, p3, p4};
+  wasm_valtype_t *ps[4] = { p1, p2, p3, p4 };
   wasm_valtype_vec_t params, results;
   wasm_valtype_vec_new(&params, 4, ps);
   wasm_valtype_vec_new_empty(&results);
@@ -427,22 +409,20 @@ static inline wasm_functype_t* wasm_functype_new_4_0(
 }
 
 static wasmtime_extern_t get_builtin_func_extern(
-  wasmtime_context_t *context,
-  wasmtime_table_t *table,
-  unsigned index
+  wasmtime_context_t *context, wasmtime_table_t *table, unsigned index
 ) {
   wasmtime_val_t val;
   bool exists = wasmtime_table_get(context, table, index, &val);
   assert(exists);
-  return (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_FUNC, .of.func = val.of.funcref};
+  return (wasmtime_extern_t){ .kind = WASMTIME_EXTERN_FUNC, .of.func = val.of.funcref };
 }
 
-#define format(output, ...) \
-  do { \
-    size_t message_length = snprintf((char *)NULL, 0, __VA_ARGS__); \
-    *output = ts_malloc(message_length + 1); \
-    snprintf(*output, message_length + 1, __VA_ARGS__); \
-  } while (0)
+# define format(output, ...) \
+   do { \
+     size_t message_length = snprintf((char *)NULL, 0, __VA_ARGS__); \
+     *output = ts_malloc(message_length + 1); \
+     snprintf(*output, message_length + 1, __VA_ARGS__); \
+   } while (0)
 
 WasmLanguageId *language_id_new() {
   WasmLanguageId *self = ts_malloc(sizeof(WasmLanguageId));
@@ -463,9 +443,7 @@ void language_id_delete(WasmLanguageId *self) {
 }
 
 static bool ts_wasm_store__provide_builtin_import(
-  TSWasmStore *self,
-  const wasm_name_t *import_name,
-  wasmtime_extern_t *import
+  TSWasmStore *self, const wasm_name_t *import_name, wasmtime_extern_t *import
 ) {
   wasmtime_error_t *error = NULL;
   wasmtime_context_t *context = wasmtime_store_context(self->store);
@@ -476,29 +454,30 @@ static bool ts_wasm_store__provide_builtin_import(
     wasmtime_global_t global;
     error = wasmtime_global_new(context, self->const_i32_type, &value, &global);
     assert(!error);
-    *import = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_GLOBAL, .of.global = global};
+    *import = (wasmtime_extern_t){ .kind = WASMTIME_EXTERN_GLOBAL, .of.global = global };
   } else if (name_eq(import_name, "__table_base")) {
     wasmtime_val_t value = WASM_I32_VAL(self->current_function_table_offset);
     wasmtime_global_t global;
     error = wasmtime_global_new(context, self->const_i32_type, &value, &global);
     assert(!error);
-    *import = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_GLOBAL, .of.global = global};
+    *import = (wasmtime_extern_t){ .kind = WASMTIME_EXTERN_GLOBAL, .of.global = global };
   } else if (name_eq(import_name, "__heap_base")) {
     wasmtime_val_t value = WASM_I32_VAL(HEAP_START_ADDRESS);
     wasmtime_global_t global;
     error = wasmtime_global_new(context, self->var_i32_type, &value, &global);
     assert(!error);
-    *import = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_GLOBAL, .of.global = global};
+    *import = (wasmtime_extern_t){ .kind = WASMTIME_EXTERN_GLOBAL, .of.global = global };
   } else if (name_eq(import_name, "__stack_pointer")) {
     wasmtime_val_t value = WASM_I32_VAL(STACK_SIZE);
     wasmtime_global_t global;
     error = wasmtime_global_new(context, self->var_i32_type, &value, &global);
     assert(!error);
-    *import = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_GLOBAL, .of.global = global};
+    *import = (wasmtime_extern_t){ .kind = WASMTIME_EXTERN_GLOBAL, .of.global = global };
   } else if (name_eq(import_name, "__indirect_function_table")) {
-    *import = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_TABLE, .of.table = self->function_table};
+    *import
+      = (wasmtime_extern_t){ .kind = WASMTIME_EXTERN_TABLE, .of.table = self->function_table };
   } else if (name_eq(import_name, "memory")) {
-    *import = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_MEMORY, .of.memory = self->memory};
+    *import = (wasmtime_extern_t){ .kind = WASMTIME_EXTERN_MEMORY, .of.memory = self->memory };
   }
 
   // Builtin functions
@@ -520,18 +499,13 @@ static bool ts_wasm_store__provide_builtin_import(
 }
 
 static bool ts_wasm_store__call_module_initializer(
-  TSWasmStore *self,
-  const wasm_name_t *export_name,
-  wasmtime_extern_t *export,
-  wasm_trap_t **trap
+  TSWasmStore *self, const wasm_name_t *export_name, wasmtime_extern_t *export, wasm_trap_t **trap
 ) {
-  if (
-    name_eq(export_name, "_initialize") ||
-    name_eq(export_name, "__wasm_apply_data_relocs")
-  ) {
+  if (name_eq(export_name, "_initialize") || name_eq(export_name, "__wasm_apply_data_relocs")) {
     wasmtime_context_t *context = wasmtime_store_context(self->store);
     wasmtime_func_t initialization_func = export->of.func;
-    wasmtime_error_t *error = wasmtime_func_call(context, &initialization_func, NULL, 0, NULL, 0, trap);
+    wasmtime_error_t *error
+      = wasmtime_func_call(context, &initialization_func, NULL, 0, NULL, 0, trap);
     assert(!error);
     return true;
   } else {
@@ -550,7 +524,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
   wasmtime_extern_t *imports = NULL;
 
   // Initialize store's memory
-  wasm_limits_t memory_limits = {.min = INITIAL_MEMORY_SIZE, .max = MAX_MEMORY_SIZE};
+  wasm_limits_t memory_limits = { .min = INITIAL_MEMORY_SIZE, .max = MAX_MEMORY_SIZE };
   wasm_memorytype_t *memory_type = wasm_memorytype_new(&memory_limits);
   wasmtime_memory_t memory;
   error = wasmtime_memory_new(context, memory_type, &memory);
@@ -558,9 +532,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
     wasmtime_error_message(error, &message);
     wasm_error->kind = TSWasmErrorKindAllocate;
     format(
-      &wasm_error->message,
-      "failed to allocate wasm memory: %.*s",
-      (int)message.size, message.data
+      &wasm_error->message, "failed to allocate wasm memory: %.*s", (int)message.size, message.data
     );
     goto error;
   }
@@ -581,33 +553,45 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
 
   // Define builtin functions.
   FunctionDefinition definitions[] = {
-    [NULL_IX] = {NULL, NULL},
-    [PROC_EXIT_IX] = {callback__exit, wasm_functype_new_1_0(wasm_valtype_new_i32())},
-    [ABORT_IX] = {callback__exit, wasm_functype_new_0_0()},
-    [ASSERT_FAIL_IX] = {callback__exit, wasm_functype_new_4_0(wasm_valtype_new_i32(), wasm_valtype_new_i32(), wasm_valtype_new_i32(), wasm_valtype_new_i32())},
-    [NOTIFY_MEMORY_GROWTH_IX] = {callback__notify_memory_growth, wasm_functype_new_1_0(wasm_valtype_new_i32())},
-    [AT_EXIT_IX] = {callback__at_exit, wasm_functype_new_3_1(wasm_valtype_new_i32(), wasm_valtype_new_i32(), wasm_valtype_new_i32(), wasm_valtype_new_i32())},
-    [LEXER_ADVANCE_IX] = {callback__lexer_advance, wasm_functype_new_2_0(wasm_valtype_new_i32(), wasm_valtype_new_i32())},
-    [LEXER_MARK_END_IX] = {callback__lexer_mark_end, wasm_functype_new_1_0(wasm_valtype_new_i32())},
-    [LEXER_GET_COLUMN_IX] = {callback__lexer_get_column, wasm_functype_new_1_1(wasm_valtype_new_i32(), wasm_valtype_new_i32())},
-    [LEXER_IS_AT_INCLUDED_RANGE_START_IX] = {callback__lexer_is_at_included_range_start, wasm_functype_new_1_1(wasm_valtype_new_i32(), wasm_valtype_new_i32())},
-    [LEXER_EOF_IX] = {callback__lexer_eof, wasm_functype_new_1_1(wasm_valtype_new_i32(), wasm_valtype_new_i32())},
+    [NULL_IX] = { NULL, NULL },
+    [PROC_EXIT_IX] = { callback__exit, wasm_functype_new_1_0(wasm_valtype_new_i32()) },
+    [ABORT_IX] = { callback__exit, wasm_functype_new_0_0() },
+    [ASSERT_FAIL_IX] = { callback__exit, wasm_functype_new_4_0(
+                                           wasm_valtype_new_i32(), wasm_valtype_new_i32(),
+                                           wasm_valtype_new_i32(), wasm_valtype_new_i32()
+                                         ) },
+    [NOTIFY_MEMORY_GROWTH_IX]
+    = { callback__notify_memory_growth, wasm_functype_new_1_0(wasm_valtype_new_i32()) },
+    [AT_EXIT_IX] = { callback__at_exit, wasm_functype_new_3_1(
+                                          wasm_valtype_new_i32(), wasm_valtype_new_i32(),
+                                          wasm_valtype_new_i32(), wasm_valtype_new_i32()
+                                        ) },
+    [LEXER_ADVANCE_IX] = { callback__lexer_advance,
+                           wasm_functype_new_2_0(wasm_valtype_new_i32(), wasm_valtype_new_i32()) },
+    [LEXER_MARK_END_IX]
+    = { callback__lexer_mark_end, wasm_functype_new_1_0(wasm_valtype_new_i32()) },
+    [LEXER_GET_COLUMN_IX]
+    = { callback__lexer_get_column,
+        wasm_functype_new_1_1(wasm_valtype_new_i32(), wasm_valtype_new_i32()) },
+    [LEXER_IS_AT_INCLUDED_RANGE_START_IX]
+    = { callback__lexer_is_at_included_range_start,
+        wasm_functype_new_1_1(wasm_valtype_new_i32(), wasm_valtype_new_i32()) },
+    [LEXER_EOF_IX] = { callback__lexer_eof,
+                       wasm_functype_new_1_1(wasm_valtype_new_i32(), wasm_valtype_new_i32()) },
   };
   unsigned definitions_len = array_len(definitions);
 
   // Add builtin functions to the store's function table.
   wasmtime_table_t function_table;
-  wasm_limits_t table_limits = {.min = definitions_len, .max = wasm_limits_max_default};
+  wasm_limits_t table_limits = { .min = definitions_len, .max = wasm_limits_max_default };
   wasm_tabletype_t *table_type = wasm_tabletype_new(wasm_valtype_new(WASM_FUNCREF), &table_limits);
-  wasmtime_val_t initializer = {.kind = WASMTIME_FUNCREF};
+  wasmtime_val_t initializer = { .kind = WASMTIME_FUNCREF };
   error = wasmtime_table_new(context, table_type, &initializer, &function_table);
   if (error) {
     wasmtime_error_message(error, &message);
     wasm_error->kind = TSWasmErrorKindAllocate;
     format(
-      &wasm_error->message,
-      "failed to allocate wasm table: %.*s",
-      (int)message.size, message.data
+      &wasm_error->message, "failed to allocate wasm table: %.*s", (int)message.size, message.data
     );
     goto error;
   }
@@ -619,9 +603,8 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
     wasmtime_error_message(error, &message);
     wasm_error->kind = TSWasmErrorKindAllocate;
     format(
-      &wasm_error->message,
-      "failed to grow wasm table to initial size: %.*s",
-      (int)message.size, message.data
+      &wasm_error->message, "failed to grow wasm table to initial size: %.*s", (int)message.size,
+      message.data
     );
     goto error;
   }
@@ -630,13 +613,13 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
     FunctionDefinition *definition = &definitions[i];
     wasmtime_func_t func;
     wasmtime_func_new_unchecked(context, definition->type, definition->callback, self, NULL, &func);
-    wasmtime_val_t func_val = {.kind = WASMTIME_FUNCREF, .of.funcref = func};
+    wasmtime_val_t func_val = { .kind = WASMTIME_FUNCREF, .of.funcref = func };
     error = wasmtime_table_set(context, &function_table, i, &func_val);
     assert(!error);
     wasm_functype_delete(definition->type);
   }
 
-  *self = (TSWasmStore) {
+  *self = (TSWasmStore){
     .store = store,
     .engine = engine,
     .memory = memory,
@@ -663,9 +646,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
     wasmtime_error_message(error, &message);
     wasm_error->kind = TSWasmErrorKindCompile;
     format(
-      &wasm_error->message,
-      "failed to compile wasm stdlib: %.*s",
-      (int)message.size, message.data
+      &wasm_error->message, "failed to compile wasm stdlib: %.*s", (int)message.size, message.data
     );
     goto error;
   }
@@ -681,24 +662,23 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
     if (!ts_wasm_store__provide_builtin_import(self, import_name, &imports[i])) {
       wasm_error->kind = TSWasmErrorKindInstantiate;
       format(
-        &wasm_error->message,
-        "unexpected import in wasm stdlib: %.*s\n",
-        (int)import_name->size, import_name->data
+        &wasm_error->message, "unexpected import in wasm stdlib: %.*s\n", (int)import_name->size,
+        import_name->data
       );
       goto error;
     }
   }
 
-  error = wasmtime_instance_new(context, stdlib_module, imports, import_types.size, &instance, &trap);
+  error
+    = wasmtime_instance_new(context, stdlib_module, imports, import_types.size, &instance, &trap);
   ts_free(imports);
   imports = NULL;
   if (error) {
     wasmtime_error_message(error, &message);
     wasm_error->kind = TSWasmErrorKindInstantiate;
     format(
-      &wasm_error->message,
-      "failed to instantiate wasm stdlib module: %.*s",
-      (int)message.size, message.data
+      &wasm_error->message, "failed to instantiate wasm stdlib module: %.*s", (int)message.size,
+      message.data
     );
     goto error;
   }
@@ -706,8 +686,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
     wasm_trap_message(trap, &message);
     wasm_error->kind = TSWasmErrorKindInstantiate;
     format(
-      &wasm_error->message,
-      "trapped when instantiating wasm stdlib module: %.*s",
+      &wasm_error->message, "trapped when instantiating wasm stdlib module: %.*s",
       (int)message.size, message.data
     );
     goto error;
@@ -729,8 +708,9 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
 
     char *export_name;
     size_t name_len;
-    wasmtime_extern_t export = {.kind = WASM_EXTERN_GLOBAL};
-    bool exists = wasmtime_instance_export_nth(context, &instance, i, &export_name, &name_len, &export);
+    wasmtime_extern_t export = { .kind = WASM_EXTERN_GLOBAL };
+    bool exists
+      = wasmtime_instance_export_nth(context, &instance, i, &export_name, &name_len, &export);
     assert(exists);
 
     if (export.kind == WASMTIME_EXTERN_FUNC) {
@@ -739,8 +719,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
           wasm_trap_message(trap, &message);
           wasm_error->kind = TSWasmErrorKindInstantiate;
           format(
-            &wasm_error->message,
-            "trap when calling stdlib relocation function: %.*s\n",
+            &wasm_error->message, "trap when calling stdlib relocation function: %.*s\n",
             (int)message.size, message.data
           );
           goto error;
@@ -760,11 +739,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
   for (unsigned i = 0; i < STDLIB_SYMBOL_COUNT; i++) {
     if (self->fn_indices[i] == UINT16_MAX) {
       wasm_error->kind = TSWasmErrorKindInstantiate;
-      format(
-        &wasm_error->message,
-        "missing exported symbol in wasm stdlib: %s",
-        STDLIB_SYMBOLS[i]
-      );
+      format(&wasm_error->message, "missing exported symbol in wasm stdlib: %s", STDLIB_SYMBOLS[i]);
       goto error;
     }
   }
@@ -774,17 +749,24 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
 
 error:
   ts_free(self);
-  if (store) wasmtime_store_delete(store);
-  if (trap) wasm_trap_delete(trap);
-  if (error) wasmtime_error_delete(error);
-  if (message.size) wasm_byte_vec_delete(&message);
-  if (export_types.size) wasm_exporttype_vec_delete(&export_types);
-  if (imports) ts_free(imports);
+  if (store)
+    wasmtime_store_delete(store);
+  if (trap)
+    wasm_trap_delete(trap);
+  if (error)
+    wasmtime_error_delete(error);
+  if (message.size)
+    wasm_byte_vec_delete(&message);
+  if (export_types.size)
+    wasm_exporttype_vec_delete(&export_types);
+  if (imports)
+    ts_free(imports);
   return NULL;
 }
 
 void ts_wasm_store_delete(TSWasmStore *self) {
-  if (!self) return;
+  if (!self)
+    return;
   ts_free(self->fn_indices);
   wasm_globaltype_delete(self->const_i32_type);
   wasm_globaltype_delete(self->var_i32_type);
@@ -810,12 +792,8 @@ size_t ts_wasm_store_language_count(const TSWasmStore *self) {
 }
 
 static bool ts_wasm_store__instantiate(
-  TSWasmStore *self,
-  wasmtime_module_t *module,
-  const char *language_name,
-  const WasmDylinkInfo *dylink_info,
-  wasmtime_instance_t *result,
-  int32_t *language_address,
+  TSWasmStore *self, wasmtime_module_t *module, const char *language_name,
+  const WasmDylinkInfo *dylink_info, wasmtime_instance_t *result, int32_t *language_address,
   char **error_message
 ) {
   wasmtime_error_t *error = NULL;
@@ -826,9 +804,11 @@ static bool ts_wasm_store__instantiate(
   wasmtime_context_t *context = wasmtime_store_context(self->store);
 
   // Grow the function table to make room for the new functions.
-  wasmtime_val_t initializer = {.kind = WASMTIME_FUNCREF};
+  wasmtime_val_t initializer = { .kind = WASMTIME_FUNCREF };
   uint32_t prev_table_size;
-  error = wasmtime_table_grow(context, &self->function_table, dylink_info->table_size, &initializer, &prev_table_size);
+  error = wasmtime_table_grow(
+    context, &self->function_table, dylink_info->table_size, &initializer, &prev_table_size
+  );
   if (error) {
     format(error_message, "invalid function table size %u", dylink_info->table_size);
     goto error;
@@ -837,9 +817,8 @@ static bool ts_wasm_store__instantiate(
   // Grow the memory to make room for the new data.
   uint32_t needed_memory_size = self->current_memory_offset + dylink_info->memory_size;
   if (needed_memory_size > self->current_memory_size) {
-    uint32_t pages_to_grow = (
-      needed_memory_size - self->current_memory_size + MEMORY_PAGE_SIZE - 1) /
-      MEMORY_PAGE_SIZE;
+    uint32_t pages_to_grow
+      = (needed_memory_size - self->current_memory_size + MEMORY_PAGE_SIZE - 1) / MEMORY_PAGE_SIZE;
     uint64_t prev_memory_size;
     error = wasmtime_memory_grow(context, &self->memory, pages_to_grow, &prev_memory_size);
     if (error) {
@@ -875,18 +854,15 @@ static bool ts_wasm_store__instantiate(
     for (unsigned j = 0; j < array_len(STDLIB_SYMBOLS); j++) {
       if (name_eq(import_name, STDLIB_SYMBOLS[j])) {
         uint16_t address = self->fn_indices[j];
-        imports[i] = (wasmtime_extern_t) {.kind = WASMTIME_EXTERN_FUNC, .of.func = {store_id, address}};
+        imports[i]
+          = (wasmtime_extern_t){ .kind = WASMTIME_EXTERN_FUNC, .of.func = { store_id, address } };
         defined_in_stdlib = true;
         break;
       }
     }
 
     if (!defined_in_stdlib) {
-      format(
-        error_message,
-        "invalid import '%.*s'\n",
-        (int)import_name->size, import_name->data
-      );
+      format(error_message, "invalid import '%.*s'\n", (int)import_name->size, import_name->data);
       goto error;
     }
   }
@@ -899,18 +875,14 @@ static bool ts_wasm_store__instantiate(
   if (error) {
     wasmtime_error_message(error, &message);
     format(
-      error_message,
-      "error instantiating wasm module: %.*s\n",
-      (int)message.size, message.data
+      error_message, "error instantiating wasm module: %.*s\n", (int)message.size, message.data
     );
     goto error;
   }
   if (trap) {
     wasm_trap_message(trap, &message);
     format(
-      error_message,
-      "trap when instantiating wasm module: %.*s\n",
-      (int)message.size, message.data
+      error_message, "trap when instantiating wasm module: %.*s\n", (int)message.size, message.data
     );
     goto error;
   }
@@ -929,8 +901,9 @@ static bool ts_wasm_store__instantiate(
 
     size_t name_len;
     char *export_name;
-    wasmtime_extern_t export = {.kind = WASM_EXTERN_GLOBAL};
-    bool exists = wasmtime_instance_export_nth(context, &instance, i, &export_name, &name_len, &export);
+    wasmtime_extern_t export = { .kind = WASM_EXTERN_GLOBAL };
+    bool exists
+      = wasmtime_instance_export_nth(context, &instance, i, &export_name, &name_len, &export);
     assert(exists);
 
     // If the module exports an initialization or data-relocation function, call it.
@@ -938,9 +911,8 @@ static bool ts_wasm_store__instantiate(
       if (trap) {
         wasm_trap_message(trap, &message);
         format(
-          error_message,
-          "trap when calling data relocation function: %.*s\n",
-          (int)message.size, message.data
+          error_message, "trap when calling data relocation function: %.*s\n", (int)message.size,
+          message.data
         );
         goto error;
       }
@@ -955,11 +927,7 @@ static bool ts_wasm_store__instantiate(
   wasm_exporttype_vec_delete(&export_types);
 
   if (!found_language) {
-    format(
-      error_message,
-      "module did not contain language function: %s",
-      language_function_name
-    );
+    format(error_message, "module did not contain language function: %s", language_function_name);
     goto error;
   }
 
@@ -971,18 +939,15 @@ static bool ts_wasm_store__instantiate(
   if (trap) {
     wasm_trap_message(trap, &message);
     format(
-      error_message,
-      "trapped when calling language function: %s: %.*s\n",
-      language_function_name, (int)message.size, message.data
+      error_message, "trapped when calling language function: %s: %.*s\n", language_function_name,
+      (int)message.size, message.data
     );
     goto error;
   }
 
   if (language_address_val.kind != WASMTIME_I32) {
     format(
-      error_message,
-      "language function did not return an integer: %s\n",
-      language_function_name
+      error_message, "language function did not return an integer: %s\n", language_function_name
     );
     goto error;
   }
@@ -993,11 +958,16 @@ static bool ts_wasm_store__instantiate(
   return true;
 
 error:
-  if (language_function_name) ts_free(language_function_name);
-  if (message.size) wasm_byte_vec_delete(&message);
-  if (error) wasmtime_error_delete(error);
-  if (trap) wasm_trap_delete(trap);
-  if (imports) ts_free(imports);
+  if (language_function_name)
+    ts_free(language_function_name);
+  if (message.size)
+    wasm_byte_vec_delete(&message);
+  if (error)
+    wasmtime_error_delete(error);
+  if (trap)
+    wasm_trap_delete(trap);
+  if (imports)
+    ts_free(imports);
   return false;
 }
 
@@ -1006,10 +976,7 @@ static bool ts_wasm_store__sentinel_lex_fn(TSLexer *_lexer, TSStateId state) {
 }
 
 const TSLanguage *ts_wasm_store_load_language(
-  TSWasmStore *self,
-  const char *language_name,
-  const char *wasm,
-  uint32_t wasm_len,
+  TSWasmStore *self, const char *language_name, const char *wasm, uint32_t wasm_len,
   TSWasmError *wasm_error
 ) {
   WasmDylinkInfo dylink_info;
@@ -1029,7 +996,9 @@ const TSLanguage *ts_wasm_store_load_language(
     wasm_message_t message;
     wasmtime_error_message(error, &message);
     wasm_error->kind = TSWasmErrorKindCompile;
-    format(&wasm_error->message, "error compiling wasm module: %.*s", (int)message.size, message.data);
+    format(
+      &wasm_error->message, "error compiling wasm module: %.*s", (int)message.size, message.data
+    );
     wasm_byte_vec_delete(&message);
     goto error;
   }
@@ -1038,14 +1007,9 @@ const TSLanguage *ts_wasm_store_load_language(
   wasmtime_instance_t instance;
   int32_t language_address;
   if (!ts_wasm_store__instantiate(
-    self,
-    module,
-    language_name,
-    &dylink_info,
-    &instance,
-    &language_address,
-    &wasm_error->message
-  )) {
+        self, module, language_name, &dylink_info, &instance, &language_address,
+        &wasm_error->message
+      )) {
     wasm_error->kind = TSWasmErrorKindInstantiate;
     goto error;
   }
@@ -1092,7 +1056,7 @@ const TSLanguage *ts_wasm_store_load_language(
   StringData symbol_name_buffer = array_new();
   StringData field_name_buffer = array_new();
 
-  *language = (TSLanguage) {
+  *language = (TSLanguage){
     .version = wasm_language.version,
     .symbol_count = wasm_language.symbol_count,
     .alias_count = wasm_language.alias_count,
@@ -1108,16 +1072,10 @@ const TSLanguage *ts_wasm_store_load_language(
       &memory[wasm_language.parse_table],
       wasm_language.large_state_count * wasm_language.symbol_count * sizeof(uint16_t)
     ),
-    .parse_actions = copy_unsized_static_array(
-      memory,
-      wasm_language.parse_actions,
-      addresses,
-      address_count
-    ),
+    .parse_actions
+    = copy_unsized_static_array(memory, wasm_language.parse_actions, addresses, address_count),
     .symbol_names = copy_strings(
-      memory,
-      wasm_language.symbol_names,
-      wasm_language.symbol_count + wasm_language.alias_count,
+      memory, wasm_language.symbol_names, wasm_language.symbol_count + wasm_language.alias_count,
       &symbol_name_buffer
     ),
     .symbol_metadata = copy(
@@ -1128,10 +1086,8 @@ const TSLanguage *ts_wasm_store_load_language(
       &memory[wasm_language.public_symbol_map],
       (wasm_language.symbol_count + wasm_language.alias_count) * sizeof(TSSymbol)
     ),
-    .lex_modes = copy(
-      &memory[wasm_language.lex_modes],
-      wasm_language.state_count * sizeof(TSLexMode)
-    ),
+    .lex_modes
+    = copy(&memory[wasm_language.lex_modes], wasm_language.state_count * sizeof(TSLexMode)),
   };
 
   if (language->field_count > 0 && language->production_id_count > 0) {
@@ -1139,16 +1095,14 @@ const TSLanguage *ts_wasm_store_load_language(
       &memory[wasm_language.field_map_slices],
       wasm_language.production_id_count * sizeof(TSFieldMapSlice)
     );
-    const TSFieldMapSlice last_field_map_slice = language->field_map_slices[language->production_id_count - 1];
+    const TSFieldMapSlice last_field_map_slice
+      = language->field_map_slices[language->production_id_count - 1];
     language->field_map_entries = copy(
       &memory[wasm_language.field_map_entries],
       (last_field_map_slice.index + last_field_map_slice.length) * sizeof(TSFieldMapEntry)
     );
     language->field_names = copy_strings(
-      memory,
-      wasm_language.field_names,
-      wasm_language.field_count + 1,
-      &field_name_buffer
+      memory, wasm_language.field_names, wasm_language.field_count + 1, &field_name_buffer
     );
   }
 
@@ -1159,15 +1113,13 @@ const TSLanguage *ts_wasm_store_load_language(
       TSSymbol symbol;
       memcpy(&symbol, &memory[wasm_language.alias_map + alias_map_size], sizeof(symbol));
       alias_map_size += sizeof(TSSymbol);
-      if (symbol == 0) break;
+      if (symbol == 0)
+        break;
       uint16_t value_count;
       memcpy(&value_count, &memory[wasm_language.alias_map + alias_map_size], sizeof(value_count));
       alias_map_size += value_count * sizeof(TSSymbol);
     }
-    language->alias_map = copy(
-      &memory[wasm_language.alias_map],
-      alias_map_size * sizeof(TSSymbol)
-    );
+    language->alias_map = copy(&memory[wasm_language.alias_map], alias_map_size * sizeof(TSSymbol));
     language->alias_sequences = copy(
       &memory[wasm_language.alias_sequences],
       wasm_language.production_id_count * wasm_language.max_alias_sequence_length * sizeof(TSSymbol)
@@ -1176,22 +1128,16 @@ const TSLanguage *ts_wasm_store_load_language(
 
   if (language->state_count > language->large_state_count) {
     uint32_t small_state_count = wasm_language.state_count - wasm_language.large_state_count;
-    language->small_parse_table_map = copy(
-      &memory[wasm_language.small_parse_table_map],
-      small_state_count * sizeof(uint32_t)
-    );
+    language->small_parse_table_map
+      = copy(&memory[wasm_language.small_parse_table_map], small_state_count * sizeof(uint32_t));
     language->small_parse_table = copy_unsized_static_array(
-      memory,
-      wasm_language.small_parse_table,
-      addresses,
-      address_count
+      memory, wasm_language.small_parse_table, addresses, address_count
     );
   }
 
   if (language->version >= 14) {
     language->primary_state_ids = copy(
-      &memory[wasm_language.primary_state_ids],
-      wasm_language.state_count * sizeof(TSStateId)
+      &memory[wasm_language.primary_state_ids], wasm_language.state_count * sizeof(TSStateId)
     );
   }
 
@@ -1209,7 +1155,7 @@ const TSLanguage *ts_wasm_store_load_language(
   name[name_len] = '\0';
 
   LanguageWasmModule *language_module = ts_malloc(sizeof(LanguageWasmModule));
-  *language_module = (LanguageWasmModule) {
+  *language_module = (LanguageWasmModule){
     .language_id = language_id_new(),
     .module = module,
     .name = name,
@@ -1236,31 +1182,31 @@ const TSLanguage *ts_wasm_store_load_language(
   }
 
   // Store this store's instance of this language module.
-  array_push(&self->language_instances, ((LanguageWasmInstance) {
-    .language_id = language_id_clone(language_module->language_id),
-    .instance = instance,
-    .external_states_address = wasm_language.external_scanner.states,
-    .lex_main_fn_index = wasm_language.lex_fn,
-    .lex_keyword_fn_index = wasm_language.keyword_lex_fn,
-    .scanner_create_fn_index = wasm_language.external_scanner.create,
-    .scanner_destroy_fn_index = wasm_language.external_scanner.destroy,
-    .scanner_serialize_fn_index = wasm_language.external_scanner.serialize,
-    .scanner_deserialize_fn_index = wasm_language.external_scanner.deserialize,
-    .scanner_scan_fn_index = wasm_language.external_scanner.scan,
-  }));
+  array_push(
+    &self->language_instances,
+    ((LanguageWasmInstance){
+      .language_id = language_id_clone(language_module->language_id),
+      .instance = instance,
+      .external_states_address = wasm_language.external_scanner.states,
+      .lex_main_fn_index = wasm_language.lex_fn,
+      .lex_keyword_fn_index = wasm_language.keyword_lex_fn,
+      .scanner_create_fn_index = wasm_language.external_scanner.create,
+      .scanner_destroy_fn_index = wasm_language.external_scanner.destroy,
+      .scanner_serialize_fn_index = wasm_language.external_scanner.serialize,
+      .scanner_deserialize_fn_index = wasm_language.external_scanner.deserialize,
+      .scanner_scan_fn_index = wasm_language.external_scanner.scan,
+    })
+  );
 
   return language;
 
 error:
-  if (module) wasmtime_module_delete(module);
+  if (module)
+    wasmtime_module_delete(module);
   return NULL;
 }
 
-bool ts_wasm_store_add_language(
-  TSWasmStore *self,
-  const TSLanguage *language,
-  uint32_t *index
-) {
+bool ts_wasm_store_add_language(TSWasmStore *self, const TSLanguage *language, uint32_t *index) {
   wasmtime_context_t *context = wasmtime_store_context(self->store);
   const LanguageWasmModule *language_module = (void *)language->keyword_lex_fn;
 
@@ -1287,14 +1233,9 @@ bool ts_wasm_store_add_language(
     wasmtime_instance_t instance;
     int32_t language_address;
     if (!ts_wasm_store__instantiate(
-      self,
-      language_module->module,
-      language_module->name,
-      &language_module->dylink_info,
-      &instance,
-      &language_address,
-      &message
-    )) {
+          self, language_module->module, language_module->name, &language_module->dylink_info,
+          &instance, &language_address, &message
+        )) {
       ts_free(message);
       return false;
     }
@@ -1302,18 +1243,21 @@ bool ts_wasm_store_add_language(
     LanguageInWasmMemory wasm_language;
     const uint8_t *memory = wasmtime_memory_data(context, &self->memory);
     memcpy(&wasm_language, &memory[language_address], sizeof(LanguageInWasmMemory));
-    array_push(&self->language_instances, ((LanguageWasmInstance) {
-      .language_id = language_id_clone(language_module->language_id),
-      .instance = instance,
-      .external_states_address = wasm_language.external_scanner.states,
-      .lex_main_fn_index = wasm_language.lex_fn,
-      .lex_keyword_fn_index = wasm_language.keyword_lex_fn,
-      .scanner_create_fn_index = wasm_language.external_scanner.create,
-      .scanner_destroy_fn_index = wasm_language.external_scanner.destroy,
-      .scanner_serialize_fn_index = wasm_language.external_scanner.serialize,
-      .scanner_deserialize_fn_index = wasm_language.external_scanner.deserialize,
-      .scanner_scan_fn_index = wasm_language.external_scanner.scan,
-    }));
+    array_push(
+      &self->language_instances,
+      ((LanguageWasmInstance){
+        .language_id = language_id_clone(language_module->language_id),
+        .instance = instance,
+        .external_states_address = wasm_language.external_scanner.states,
+        .lex_main_fn_index = wasm_language.lex_fn,
+        .lex_keyword_fn_index = wasm_language.keyword_lex_fn,
+        .scanner_create_fn_index = wasm_language.external_scanner.create,
+        .scanner_destroy_fn_index = wasm_language.external_scanner.destroy,
+        .scanner_serialize_fn_index = wasm_language.external_scanner.serialize,
+        .scanner_deserialize_fn_index = wasm_language.external_scanner.deserialize,
+        .scanner_scan_fn_index = wasm_language.external_scanner.scan,
+      })
+    );
   }
 
   return true;
@@ -1321,7 +1265,8 @@ bool ts_wasm_store_add_language(
 
 bool ts_wasm_store_start(TSWasmStore *self, TSLexer *lexer, const TSLanguage *language) {
   uint32_t instance_index;
-  if (!ts_wasm_store_add_language(self, language, &instance_index)) return false;
+  if (!ts_wasm_store_add_language(self, language, &instance_index))
+    return false;
   self->current_lexer = lexer;
   self->current_instance = &self->language_instances.contents[instance_index];
   return true;
@@ -1333,9 +1278,7 @@ void ts_wasm_store_stop(TSWasmStore *self) {
 }
 
 static void ts_wasm_store__call(
-  TSWasmStore *self,
-  int32_t function_index,
-  wasmtime_val_raw_t *args_and_results,
+  TSWasmStore *self, int32_t function_index, wasmtime_val_raw_t *args_and_results,
   size_t args_and_results_len
 ) {
   wasmtime_context_t *context = wasmtime_store_context(self->store);
@@ -1346,123 +1289,105 @@ static void ts_wasm_store__call(
   wasmtime_func_t func = value.of.funcref;
 
   wasm_trap_t *trap = NULL;
-  wasmtime_error_t *error = wasmtime_func_call_unchecked(context, &func, args_and_results, args_and_results_len, &trap);
+  wasmtime_error_t *error
+    = wasmtime_func_call_unchecked(context, &func, args_and_results, args_and_results_len, &trap);
   assert(!error);
   if (trap) {
     wasm_message_t message;
     wasm_trap_message(trap, &message);
     fprintf(
-      stderr,
-      "trap when calling wasm lexing function %u: %.*s\n",
-      function_index,
+      stderr, "trap when calling wasm lexing function %u: %.*s\n", function_index,
       (int)message.size, message.data
     );
     abort();
   }
 }
 
-static bool ts_wasm_store__call_lex_function(TSWasmStore *self, unsigned function_index, TSStateId state) {
+static bool ts_wasm_store__call_lex_function(
+  TSWasmStore *self, unsigned function_index, TSStateId state
+) {
   wasmtime_context_t *context = wasmtime_store_context(self->store);
   uint8_t *memory_data = wasmtime_memory_data(context, &self->memory);
   memcpy(
-    &memory_data[LEXER_ADDRESS],
-    &self->current_lexer->lookahead,
+    &memory_data[LEXER_ADDRESS], &self->current_lexer->lookahead,
     sizeof(self->current_lexer->lookahead)
   );
 
   wasmtime_val_raw_t args[2] = {
-    {.i32 = LEXER_ADDRESS},
-    {.i32 = state},
+    { .i32 = LEXER_ADDRESS },
+    { .i32 = state },
   };
   ts_wasm_store__call(self, function_index, args, 2);
   bool result = args[0].i32;
 
   memcpy(
-    &self->current_lexer->lookahead,
-    &memory_data[LEXER_ADDRESS],
+    &self->current_lexer->lookahead, &memory_data[LEXER_ADDRESS],
     sizeof(self->current_lexer->lookahead) + sizeof(self->current_lexer->result_symbol)
   );
   return result;
 }
 
 bool ts_wasm_store_call_lex_main(TSWasmStore *self, TSStateId state) {
-  return ts_wasm_store__call_lex_function(
-    self,
-    self->current_instance->lex_main_fn_index,
-    state
-  );
+  return ts_wasm_store__call_lex_function(self, self->current_instance->lex_main_fn_index, state);
 }
 
 bool ts_wasm_store_call_lex_keyword(TSWasmStore *self, TSStateId state) {
   return ts_wasm_store__call_lex_function(
-    self,
-    self->current_instance->lex_keyword_fn_index,
-    state
+    self, self->current_instance->lex_keyword_fn_index, state
   );
 }
 
 uint32_t ts_wasm_store_call_scanner_create(TSWasmStore *self) {
-  wasmtime_val_raw_t args[1] = {{.i32 = 0}};
+  wasmtime_val_raw_t args[1] = { { .i32 = 0 } };
   ts_wasm_store__call(self, self->current_instance->scanner_create_fn_index, args, 1);
   return args[0].i32;
 }
 
 void ts_wasm_store_call_scanner_destroy(TSWasmStore *self, uint32_t scanner_address) {
-  wasmtime_val_raw_t args[1] = {{.i32 = scanner_address}};
+  wasmtime_val_raw_t args[1] = { { .i32 = scanner_address } };
   ts_wasm_store__call(self, self->current_instance->scanner_destroy_fn_index, args, 1);
 }
 
 bool ts_wasm_store_call_scanner_scan(
-  TSWasmStore *self,
-  uint32_t scanner_address,
-  uint32_t valid_tokens_ix
+  TSWasmStore *self, uint32_t scanner_address, uint32_t valid_tokens_ix
 ) {
   wasmtime_context_t *context = wasmtime_store_context(self->store);
   uint8_t *memory_data = wasmtime_memory_data(context, &self->memory);
 
   memcpy(
-    &memory_data[LEXER_ADDRESS],
-    &self->current_lexer->lookahead,
+    &memory_data[LEXER_ADDRESS], &self->current_lexer->lookahead,
     sizeof(self->current_lexer->lookahead)
   );
 
-  uint32_t valid_tokens_address =
-    self->current_instance->external_states_address +
-    (valid_tokens_ix * sizeof(bool));
-  wasmtime_val_raw_t args[3] = {
-    {.i32 = scanner_address},
-    {.i32 = LEXER_ADDRESS},
-    {.i32 = valid_tokens_address}
-  };
+  uint32_t valid_tokens_address
+    = self->current_instance->external_states_address + (valid_tokens_ix * sizeof(bool));
+  wasmtime_val_raw_t args[3]
+    = { { .i32 = scanner_address }, { .i32 = LEXER_ADDRESS }, { .i32 = valid_tokens_address } };
   ts_wasm_store__call(self, self->current_instance->scanner_scan_fn_index, args, 3);
 
   memcpy(
-    &self->current_lexer->lookahead,
-    &memory_data[LEXER_ADDRESS],
+    &self->current_lexer->lookahead, &memory_data[LEXER_ADDRESS],
     sizeof(self->current_lexer->lookahead) + sizeof(self->current_lexer->result_symbol)
   );
   return args[0].i32;
 }
 
 uint32_t ts_wasm_store_call_scanner_serialize(
-  TSWasmStore *self,
-  uint32_t scanner_address,
-  char *buffer
+  TSWasmStore *self, uint32_t scanner_address, char *buffer
 ) {
   wasmtime_context_t *context = wasmtime_store_context(self->store);
   uint8_t *memory_data = wasmtime_memory_data(context, &self->memory);
 
   wasmtime_val_raw_t args[2] = {
-    {.i32 = scanner_address},
-    {.i32 = SERIALIZATION_BUFFER_ADDRESS},
+    { .i32 = scanner_address },
+    { .i32 = SERIALIZATION_BUFFER_ADDRESS },
   };
   ts_wasm_store__call(self, self->current_instance->scanner_serialize_fn_index, args, 2);
   uint32_t length = args[0].i32;
 
   if (length > 0) {
     memcpy(
-      ((Lexer *)self->current_lexer)->debug_buffer,
-      &memory_data[SERIALIZATION_BUFFER_ADDRESS],
+      ((Lexer *)self->current_lexer)->debug_buffer, &memory_data[SERIALIZATION_BUFFER_ADDRESS],
       length
     );
   }
@@ -1470,26 +1395,19 @@ uint32_t ts_wasm_store_call_scanner_serialize(
 }
 
 void ts_wasm_store_call_scanner_deserialize(
-  TSWasmStore *self,
-  uint32_t scanner_address,
-  const char *buffer,
-  unsigned length
+  TSWasmStore *self, uint32_t scanner_address, const char *buffer, unsigned length
 ) {
   wasmtime_context_t *context = wasmtime_store_context(self->store);
   uint8_t *memory_data = wasmtime_memory_data(context, &self->memory);
 
   if (length > 0) {
-    memcpy(
-      &memory_data[SERIALIZATION_BUFFER_ADDRESS],
-      buffer,
-      length
-    );
+    memcpy(&memory_data[SERIALIZATION_BUFFER_ADDRESS], buffer, length);
   }
 
   wasmtime_val_raw_t args[3] = {
-    {.i32 = scanner_address},
-    {.i32 = SERIALIZATION_BUFFER_ADDRESS},
-    {.i32 = length},
+    { .i32 = scanner_address },
+    { .i32 = SERIALIZATION_BUFFER_ADDRESS },
+    { .i32 = length },
   };
   ts_wasm_store__call(self, self->current_instance->scanner_deserialize_fn_index, args, 3);
 }
@@ -1551,11 +1469,7 @@ void ts_wasm_store_delete(TSWasmStore *self) {
   (void)self;
 }
 
-bool ts_wasm_store_start(
-  TSWasmStore *self,
-  TSLexer *lexer,
-  const TSLanguage *language
-) {
+bool ts_wasm_store_start(TSWasmStore *self, TSLexer *lexer, const TSLanguage *language) {
   (void)self;
   (void)lexer;
   (void)language;
@@ -1583,18 +1497,13 @@ uint32_t ts_wasm_store_call_scanner_create(TSWasmStore *self) {
   return 0;
 }
 
-void ts_wasm_store_call_scanner_destroy(
-  TSWasmStore *self,
-  uint32_t scanner_address
-) {
+void ts_wasm_store_call_scanner_destroy(TSWasmStore *self, uint32_t scanner_address) {
   (void)self;
   (void)scanner_address;
 }
 
 bool ts_wasm_store_call_scanner_scan(
-  TSWasmStore *self,
-  uint32_t scanner_address,
-  uint32_t valid_tokens_ix
+  TSWasmStore *self, uint32_t scanner_address, uint32_t valid_tokens_ix
 ) {
   (void)self;
   (void)scanner_address;
@@ -1603,9 +1512,7 @@ bool ts_wasm_store_call_scanner_scan(
 }
 
 uint32_t ts_wasm_store_call_scanner_serialize(
-  TSWasmStore *self,
-  uint32_t scanner_address,
-  char *buffer
+  TSWasmStore *self, uint32_t scanner_address, char *buffer
 ) {
   (void)self;
   (void)scanner_address;
@@ -1614,10 +1521,7 @@ uint32_t ts_wasm_store_call_scanner_serialize(
 }
 
 void ts_wasm_store_call_scanner_deserialize(
-  TSWasmStore *self,
-  uint32_t scanner_address,
-  const char *buffer,
-  unsigned length
+  TSWasmStore *self, uint32_t scanner_address, const char *buffer, unsigned length
 ) {
   (void)self;
   (void)scanner_address;

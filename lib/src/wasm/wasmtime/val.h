@@ -41,7 +41,7 @@ typedef struct wasmtime_externref wasmtime_externref_t;
  *
  * The returned value must be deleted with #wasmtime_externref_delete
  */
-WASM_API_EXTERN wasmtime_externref_t *wasmtime_externref_new(void *data, void (*finalizer)(void*));
+WASM_API_EXTERN wasmtime_externref_t *wasmtime_externref_new(void *data, void (*finalizer)(void *));
 
 /**
  * \brief Get an `externref`'s wrapped data
@@ -70,7 +70,9 @@ WASM_API_EXTERN void wasmtime_externref_delete(wasmtime_externref_t *ref);
  * Note that the returned #wasmtime_externref_t is an owned value that must be
  * deleted via #wasmtime_externref_delete by the caller if it is non-null.
  */
-WASM_API_EXTERN wasmtime_externref_t *wasmtime_externref_from_raw(wasmtime_context_t *context, void *raw);
+WASM_API_EXTERN wasmtime_externref_t *wasmtime_externref_from_raw(
+  wasmtime_context_t *context, void *raw
+);
 
 /**
  * \brief Converts a #wasmtime_externref_t to a raw value suitable for storing
@@ -83,8 +85,8 @@ WASM_API_EXTERN wasmtime_externref_t *wasmtime_externref_from_raw(wasmtime_conte
  * passing it to WebAssembly.
  */
 WASM_API_EXTERN void *wasmtime_externref_to_raw(
-    wasmtime_context_t *context,
-    const wasmtime_externref_t *ref);
+  wasmtime_context_t *context, const wasmtime_externref_t *ref
+);
 
 /// \brief Discriminant stored in #wasmtime_val::kind
 typedef uint8_t wasmtime_valkind_t;
@@ -228,5 +230,4 @@ WASM_API_EXTERN void wasmtime_val_copy(wasmtime_val_t *dst, const wasmtime_val_t
 }  // extern "C"
 #endif
 
-#endif // WASMTIME_VAL_H
-
+#endif  // WASMTIME_VAL_H

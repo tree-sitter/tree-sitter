@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include <stdint.h>
+
 #include "tree_sitter/api.h"
 
 typedef enum {
@@ -50,24 +51,15 @@ void ts_tagger_delete(TSTagger *);
 // you must provide two tree query strings, one for matching tags themselves, and one
 // specifying local variable definitions.
 TSTagsError ts_tagger_add_language(
-  TSTagger *self,
-  const char *scope_name,
-  const TSLanguage *language,
-  const char *tags_query,
-  const char *locals_query,
-  uint32_t tags_query_len,
-  uint32_t locals_query_len
+  TSTagger *self, const char *scope_name, const TSLanguage *language, const char *tags_query,
+  const char *locals_query, uint32_t tags_query_len, uint32_t locals_query_len
 );
 
 // Compute syntax highlighting for a given document. You must first
 // create a `TSTagsBuffer` to hold the output.
 TSTagsError ts_tagger_tag(
-  const TSTagger *self,
-  const char *scope_name,
-  const char *source_code,
-  uint32_t source_code_len,
-  TSTagsBuffer *output,
-  const size_t *cancellation_flag
+  const TSTagger *self, const char *scope_name, const char *source_code, uint32_t source_code_len,
+  TSTagsBuffer *output, const size_t *cancellation_flag
 );
 
 // A tags buffer stores the results produced by a tagging call. It can be reused
@@ -86,10 +78,12 @@ const char *ts_tags_buffer_docs(const TSTagsBuffer *);
 uint32_t ts_tags_buffer_docs_len(const TSTagsBuffer *);
 
 // Get the syntax kinds for a scope.
-const char **ts_tagger_syntax_kinds_for_scope_name(const TSTagger *, const char *scope_name, uint32_t *len);
+const char **ts_tagger_syntax_kinds_for_scope_name(
+  const TSTagger *, const char *scope_name, uint32_t *len
+);
 
 // Determine whether a parse error was encountered while tagging.
-bool ts_tags_buffer_found_parse_error(const TSTagsBuffer*);
+bool ts_tags_buffer_found_parse_error(const TSTagsBuffer *);
 
 #ifdef __cplusplus
 }
