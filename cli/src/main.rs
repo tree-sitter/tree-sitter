@@ -194,8 +194,6 @@ struct Test {
         help = "Compile parsers to wasm instead of native dynamic libraries"
     )]
     pub wasm: bool,
-    #[arg(long, help = "Apply all captures to highlights")]
-    pub apply_all_captures: bool,
     #[arg(
         long,
         help = "Open `log.html` in the default browser, if `--debug-graph` is supplied"
@@ -267,8 +265,6 @@ struct Highlight {
     pub paths_file: Option<String>,
     #[arg(num_args = 1.., help = "The source file(s) to use")]
     pub paths: Option<Vec<String>>,
-    #[arg(long, help = "Apply all captures to highlights")]
-    pub apply_all_captures: bool,
 }
 
 #[derive(Args)]
@@ -583,7 +579,6 @@ fn run() -> Result<()> {
                     &config.get()?,
                     &mut highlighter,
                     &test_highlight_dir,
-                    test_options.apply_all_captures,
                 )?;
                 parser = highlighter.parser;
             }
@@ -674,11 +669,9 @@ fn run() -> Result<()> {
                     }
                 };
 
-                if let Some(highlight_config) = language_config.highlight_config(
-                    language,
-                    highlight_options.apply_all_captures,
-                    highlight_options.query_paths.as_deref(),
-                )? {
+                if let Some(highlight_config) = language_config
+                    .highlight_config(language, highlight_options.query_paths.as_deref())?
+                {
                     if highlight_options.check {
                         let names = if let Some(path) = highlight_options.captures_path.as_deref() {
                             let path = Path::new(path);

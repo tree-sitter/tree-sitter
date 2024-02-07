@@ -49,7 +49,6 @@ TSHighlightError ts_highlighter_add_language(
   uint32_t highlight_query_len,
   uint32_t injection_query_len,
   uint32_t locals_query_len,
-  bool apply_all_captures
 );
 
 // Compute syntax highlighting for a given document. You must first
