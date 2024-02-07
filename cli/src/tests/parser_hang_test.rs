@@ -14,7 +14,7 @@ use tree_sitter::Parser;
 // The `sanitizing` cfg is required to don't run tests under specific sunitizer
 // because they don't work well with subprocesses _(it's an assumption)_.
 //
-// Bellow are two alternative examples of how to disable tests for some arches
+// Below are two alternative examples of how to disable tests for some arches
 // if a way with excluding the whole mod from compilation wouldn't work well.
 //
 // XXX: Also may be it makes sense to keep such tests as ignored by default

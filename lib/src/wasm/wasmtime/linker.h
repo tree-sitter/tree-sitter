@@ -293,7 +293,7 @@ WASM_API_EXTERN bool wasmtime_linker_get(
 );
 
 /**
- * \brief Preform all the checks for instantiating `module` with the linker,
+ * \brief Perform all the checks for instantiating `module` with the linker,
  *        except that instantiation doesn't actually finish.
  *
  * \param linker the linker used to instantiate the provided module.

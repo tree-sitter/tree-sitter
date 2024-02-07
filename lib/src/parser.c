@@ -1768,7 +1768,7 @@ static unsigned ts_parser__condense_stack(TSParser *self) {
     }
   }
 
-  // Enfore a hard upper bound on the number of stack versions by
+  // Enforce a hard upper bound on the number of stack versions by
   // discarding the least promising versions.
   while (ts_stack_version_count(self->stack) > MAX_VERSION_COUNT) {
     ts_stack_remove_version(self->stack, MAX_VERSION_COUNT);
