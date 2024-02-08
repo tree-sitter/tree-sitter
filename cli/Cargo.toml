@@ -21,41 +21,36 @@ name = "benchmark"
 harness = false
 
 [features]
-# default = ["wasm"]
 wasm = ["tree-sitter/wasm", "tree-sitter-loader/wasm"]
 
 [dependencies]
-ansi_term = "0.12.1"
-anstyle = "1.0.4"
-anyhow = "1.0.72"
-clap = { version = "4.4.18", features = [
-	"cargo",
-	"derive",
-	"env",
-	"help",
-	"unstable-styles",
-] }
-ctrlc = { version = "3.4.0", features = ["termination"] }
-difference = "2.0.0"
-dirs = "5.0.1"
-glob = "0.3.1"
-html-escape = "0.2.13"
-indexmap = "2.0.0"
-lazy_static = "1.4.0"
-memchr = "2.7.1"
-path-slash = "0.2.1"
-regex = "1.9.1"
-regex-syntax = "0.8"
-rustc-hash = "1.1.0"
-semver = "1.0.18"
-serde = "1.0.188"
-serde_derive = "1.0"
-smallbitvec = "2.5.1"
-tiny_http = "0.12.0"
-walkdir = "2.3.3"
-wasmparser = "0.121"
-webbrowser = "0.8.10"
-which = "6.0.0"
+ansi_term.workspace = true
+anstyle.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+ctrlc.workspace = true
+difference.workspace = true
+dirs.workspace = true
+glob.workspace = true
+html-escape.workspace = true
+indexmap.workspace = true
+lazy_static.workspace = true
+log.workspace = true
+memchr.workspace = true
+path-slash.workspace = true
+regex.workspace = true
+regex-syntax.workspace = true
+rustc-hash.workspace = true
+semver.workspace = true
+serde.workspace = true
+serde_derive.workspace = true
+serde_json.workspace = true
+smallbitvec.workspace = true
+tiny_http.workspace = true
+walkdir.workspace = true
+wasmparser.workspace = true
+webbrowser.workspace = true
+which.workspace = true
 
 [dependencies.tree-sitter]
 version = "0.20.10"
@@ -66,34 +61,26 @@ version = "0.19.0"
 path = "config"
 
 [dependencies.tree-sitter-highlight]
-version = "0.20"
+version = "0.20.2"
 path = "../highlight"
 
 [dependencies.tree-sitter-loader]
-version = "0.20"
+version = "0.20.0"
 path = "loader"
 
 [dependencies.tree-sitter-tags]
-version = "0.20"
+version = "0.20.2"
 path = "../tags"
-
-[dependencies.serde_json]
-version = "1.0"
-features = ["preserve_order"]
-
-[dependencies.log]
-version = "0.4.19"
-features = ["std"]
 
 [dev-dependencies]
 tree_sitter_proc_macro = { path = "src/tests/proc_macro", package = "tree-sitter-tests-proc-macro" }
 
-rand = "0.8.5"
-tempfile = "3.6.0"
-pretty_assertions = "1.4.0"
-ctor = "0.2.4"
-unindent = "0.2.2"
-indoc = "2.0.3"
+rand.workspace = true
+tempfile.workspace = true
+pretty_assertions.workspace = true
+ctor.workspace = true
+unindent.workspace = true
+indoc.workspace = true
 
 [build-dependencies]
-toml = "0.8.9"
+toml.workspace = true

@@ -27,7 +27,7 @@ include = [
 wasm = ["wasmtime", "wasmtime-c-api"]
 
 [dependencies]
-regex = "1.9.1"
+regex.workspace = true
 
 [dependencies.wasmtime]
 git = "https://github.com/bytecodealliance/wasmtime"
@@ -45,7 +45,7 @@ default-features = false
 
 [build-dependencies]
 bindgen = { version = "0.69.4", optional = true }
-cc = "1.0.79"
+cc.workspace = true
 
 [lib]
 path = "binding_rust/lib.rs"
