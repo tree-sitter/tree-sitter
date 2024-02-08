@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <inttypes.h>
 #include "tree_sitter/api.h"
 #include "./alloc.h"
 #include "./array.h"
@@ -818,14 +819,14 @@ static bool ts_parser__select_tree(TSParser *self, Subtree left, Subtree right) 
   }
 
   if (ts_subtree_dynamic_precedence(right) > ts_subtree_dynamic_precedence(left)) {
-    LOG("select_higher_precedence symbol:%s, prec:%u, over_symbol:%s, other_prec:%u",
+    LOG("select_higher_precedence symbol:%s, prec:%" PRId32 ", over_symbol:%s, other_prec:%u",
         TREE_NAME(right), ts_subtree_dynamic_precedence(right), TREE_NAME(left),
         ts_subtree_dynamic_precedence(left));
     return true;
   }
 
   if (ts_subtree_dynamic_precedence(left) > ts_subtree_dynamic_precedence(right)) {
-    LOG("select_higher_precedence symbol:%s, prec:%u, over_symbol:%s, other_prec:%u",
+    LOG("select_higher_precedence symbol:%s, prec:%" PRId32 ", over_symbol:%s, other_prec:%u",
         TREE_NAME(left), ts_subtree_dynamic_precedence(left), TREE_NAME(right),
         ts_subtree_dynamic_precedence(right));
     return false;
@@ -2025,7 +2026,7 @@ TSTree *ts_parser_parse(
       bool allow_node_reuse = version_count == 1;
       while (ts_stack_is_active(self->stack, version)) {
         LOG(
-          "process version:%d, version_count:%u, state:%d, row:%u, col:%u",
+          "process version:%u, version_count:%u, state:%d, row:%u, col:%u",
           version,
           ts_stack_version_count(self->stack),
           ts_stack_state(self->stack, version),
