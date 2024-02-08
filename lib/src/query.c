@@ -1030,7 +1030,7 @@ static inline void analysis_state_set__delete(AnalysisStateSet *self) {
  * QueryAnalyzer
  ****************/
 
-static inline QueryAnalysis query_analysis__new(void) {
+static inline QueryAnalysis query_analysis__new() {
   return (QueryAnalysis) {
     .states = array_new(),
     .next_states = array_new(),

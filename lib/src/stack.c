@@ -12,9 +12,9 @@
 #define MAX_ITERATOR_COUNT 64
 
 #if defined _WIN32 && !defined __GNUC__
-#define forceinline __forceinline
+#define inline __forceinline
 #else
-#define forceinline static inline __attribute__((always_inline))
+#define inline static inline __attribute__((always_inline))
 #endif
 
 typedef struct StackNode StackNode;
@@ -509,7 +509,7 @@ void ts_stack_push(
   head->node = new_node;
 }
 
-forceinline StackAction pop_count_callback(void *payload, const StackIterator *iterator) {
+inline StackAction pop_count_callback(void *payload, const StackIterator *iterator) {
   unsigned *goal_subtree_count = payload;
   if (iterator->subtree_count == *goal_subtree_count) {
     return StackActionPop | StackActionStop;
@@ -522,7 +522,7 @@ StackSliceArray ts_stack_pop_count(Stack *self, StackVersion version, uint32_t c
   return stack__iter(self, version, pop_count_callback, &count, (int)count);
 }
 
-forceinline StackAction pop_pending_callback(void *payload, const StackIterator *iterator) {
+inline StackAction pop_pending_callback(void *payload, const StackIterator *iterator) {
   (void)payload;
   if (iterator->subtree_count >= 1) {
     if (iterator->is_pending) {
@@ -544,7 +544,7 @@ StackSliceArray ts_stack_pop_pending(Stack *self, StackVersion version) {
   return pop;
 }
 
-forceinline StackAction pop_error_callback(void *payload, const StackIterator *iterator) {
+inline StackAction pop_error_callback(void *payload, const StackIterator *iterator) {
   if (iterator->subtrees.size > 0) {
     bool *found_error = payload;
     if (!*found_error && ts_subtree_is_error(iterator->subtrees.contents[0])) {
@@ -575,7 +575,7 @@ SubtreeArray ts_stack_pop_error(Stack *self, StackVersion version) {
   return (SubtreeArray) {.size = 0};
 }
 
-forceinline StackAction pop_all_callback(void *payload, const StackIterator *iterator) {
+inline StackAction pop_all_callback(void *payload, const StackIterator *iterator) {
   (void)payload;
   return iterator->node->link_count == 0 ? StackActionPop : StackActionNone;
 }
@@ -589,7 +589,7 @@ typedef struct {
   unsigned max_depth;
 } SummarizeStackSession;
 
-forceinline StackAction summarize_stack_callback(void *payload, const StackIterator *iterator) {
+inline StackAction summarize_stack_callback(void *payload, const StackIterator *iterator) {
   SummarizeStackSession *session = payload;
   TSStateId state = iterator->node->state;
   unsigned depth = iterator->subtree_count;
@@ -894,4 +894,4 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
   return true;
 }
 
-#undef forceinline
+#undef inline
