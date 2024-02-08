@@ -20,6 +20,7 @@ svg { width: 100%; }
 
 ";
 
+#[must_use]
 pub fn cancel_on_signal() -> Arc<AtomicUsize> {
     let result = Arc::new(AtomicUsize::new(0));
     ctrlc::set_handler({
@@ -72,7 +73,7 @@ impl LogSession {
         use std::io::Write;
 
         let mut dot_file = std::fs::File::create(path)?;
-        dot_file.write(HTML_HEADER)?;
+        dot_file.write_all(HTML_HEADER)?;
         let mut dot_process = Command::new("dot")
             .arg("-Tsvg")
             .stdin(Stdio::piped())

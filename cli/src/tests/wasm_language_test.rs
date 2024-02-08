@@ -10,16 +10,34 @@ lazy_static! {
 }
 
 #[test]
+fn test_wasm_stdlib_symbols() {
+    let symbols = tree_sitter::wasm_stdlib_symbols().collect::<Vec<_>>();
+    assert_eq!(
+        symbols,
+        {
+            let mut symbols = symbols.clone();
+            symbols.sort_unstable();
+            symbols
+        },
+        "symbols aren't sorted"
+    );
+
+    assert!(symbols.contains(&"malloc"));
+    assert!(symbols.contains(&"free"));
+    assert!(symbols.contains(&"memset"));
+    assert!(symbols.contains(&"memcpy"));
+}
+
+#[test]
 fn test_load_wasm_language() {
     allocations::record(|| {
         let mut store = WasmStore::new(ENGINE.clone()).unwrap();
         let mut parser = Parser::new();
 
-        let wasm_cpp = fs::read(&WASM_DIR.join(format!("tree-sitter-cpp.wasm"))).unwrap();
-        let wasm_rs = fs::read(&WASM_DIR.join(format!("tree-sitter-rust.wasm"))).unwrap();
-        let wasm_rb = fs::read(&WASM_DIR.join(format!("tree-sitter-ruby.wasm"))).unwrap();
-        let wasm_typescript =
-            fs::read(&WASM_DIR.join(format!("tree-sitter-typescript.wasm"))).unwrap();
+        let wasm_cpp = fs::read(WASM_DIR.join("tree-sitter-cpp.wasm")).unwrap();
+        let wasm_rs = fs::read(WASM_DIR.join("tree-sitter-rust.wasm")).unwrap();
+        let wasm_rb = fs::read(WASM_DIR.join("tree-sitter-ruby.wasm")).unwrap();
+        let wasm_typescript = fs::read(WASM_DIR.join("tree-sitter-typescript.wasm")).unwrap();
 
         let language_rust = store.load_language("rust", &wasm_rs).unwrap();
         let language_cpp = store.load_language("cpp", &wasm_cpp).unwrap();
@@ -89,9 +107,8 @@ fn test_load_and_reload_wasm_language() {
     allocations::record(|| {
         let mut store = WasmStore::new(ENGINE.clone()).unwrap();
 
-        let wasm_rust = fs::read(&WASM_DIR.join(format!("tree-sitter-rust.wasm"))).unwrap();
-        let wasm_typescript =
-            fs::read(&WASM_DIR.join(format!("tree-sitter-typescript.wasm"))).unwrap();
+        let wasm_rust = fs::read(WASM_DIR.join("tree-sitter-rust.wasm")).unwrap();
+        let wasm_typescript = fs::read(WASM_DIR.join("tree-sitter-typescript.wasm")).unwrap();
 
         let language_rust = store.load_language("rust", &wasm_rust).unwrap();
         let language_typescript = store.load_language("typescript", &wasm_typescript).unwrap();
@@ -114,11 +131,11 @@ fn test_load_and_reload_wasm_language() {
 fn test_load_wasm_errors() {
     allocations::record(|| {
         let mut store = WasmStore::new(ENGINE.clone()).unwrap();
-        let wasm = fs::read(&WASM_DIR.join(format!("tree-sitter-rust.wasm"))).unwrap();
+        let wasm = fs::read(WASM_DIR.join("tree-sitter-rust.wasm")).unwrap();
 
         let bad_wasm = &wasm[1..];
         assert_eq!(
-            store.load_language("rust", &bad_wasm).unwrap_err(),
+            store.load_language("rust", bad_wasm).unwrap_err(),
             WasmError {
                 kind: WasmErrorKind::Parse,
                 message: "failed to parse dylink section of wasm module".into(),

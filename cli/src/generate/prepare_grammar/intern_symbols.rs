@@ -11,7 +11,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
     }
 
     let mut variables = Vec::with_capacity(grammar.variables.len());
-    for variable in grammar.variables.iter() {
+    for variable in &grammar.variables {
         variables.push(Variable {
             name: variable.name.clone(),
             kind: variable_type_for_name(&variable.name),
@@ -20,10 +20,10 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
     }
 
     let mut external_tokens = Vec::with_capacity(grammar.external_tokens.len());
-    for external_token in grammar.external_tokens.iter() {
-        let rule = interner.intern_rule(&external_token)?;
+    for external_token in &grammar.external_tokens {
+        let rule = interner.intern_rule(external_token)?;
         let (name, kind) = if let Rule::NamedSymbol(name) = external_token {
-            (name.clone(), variable_type_for_name(&name))
+            (name.clone(), variable_type_for_name(name))
         } else {
             (String::new(), VariableType::Anonymous)
         };
@@ -31,35 +31,35 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
     }
 
     let mut extra_symbols = Vec::with_capacity(grammar.extra_symbols.len());
-    for extra_token in grammar.extra_symbols.iter() {
+    for extra_token in &grammar.extra_symbols {
         extra_symbols.push(interner.intern_rule(extra_token)?);
     }
 
     let mut supertype_symbols = Vec::with_capacity(grammar.supertype_symbols.len());
-    for supertype_symbol_name in grammar.supertype_symbols.iter() {
+    for supertype_symbol_name in &grammar.supertype_symbols {
         supertype_symbols.push(
             interner
                 .intern_name(supertype_symbol_name)
-                .ok_or_else(|| anyhow!("Undefined symbol `{}`", supertype_symbol_name))?,
+                .ok_or_else(|| anyhow!("Undefined symbol `{supertype_symbol_name}`"))?,
         );
     }
 
     let mut expected_conflicts = Vec::new();
-    for conflict in grammar.expected_conflicts.iter() {
+    for conflict in &grammar.expected_conflicts {
         let mut interned_conflict = Vec::with_capacity(conflict.len());
         for name in conflict {
             interned_conflict.push(
                 interner
-                    .intern_name(&name)
-                    .ok_or_else(|| anyhow!("Undefined symbol `{}`", name))?,
+                    .intern_name(name)
+                    .ok_or_else(|| anyhow!("Undefined symbol `{name}`"))?,
             );
         }
         expected_conflicts.push(interned_conflict);
     }
 
     let mut variables_to_inline = Vec::new();
-    for name in grammar.variables_to_inline.iter() {
-        if let Some(symbol) = interner.intern_name(&name) {
+    for name in &grammar.variables_to_inline {
+        if let Some(symbol) = interner.intern_name(name) {
             variables_to_inline.push(symbol);
         }
     }
@@ -68,8 +68,8 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
     if let Some(name) = grammar.word_token.as_ref() {
         word_token = Some(
             interner
-                .intern_name(&name)
-                .ok_or_else(|| anyhow!("Undefined symbol `{}`", &name))?,
+                .intern_name(name)
+                .ok_or_else(|| anyhow!("Undefined symbol `{name}`"))?,
         );
     }
 
@@ -118,13 +118,10 @@ impl<'a> Interner<'a> {
                 params: params.clone(),
             }),
 
-            Rule::NamedSymbol(name) => {
-                if let Some(symbol) = self.intern_name(&name) {
-                    Ok(Rule::Symbol(symbol))
-                } else {
-                    Err(anyhow!("Undefined symbol `{}`", name))
-                }
-            }
+            Rule::NamedSymbol(name) => self.intern_name(name).map_or_else(
+                || Err(anyhow!("Undefined symbol `{name}`")),
+                |symbol| Ok(Rule::Symbol(symbol)),
+            ),
 
             _ => Ok(rule.clone()),
         }
@@ -145,12 +142,12 @@ impl<'a> Interner<'a> {
             }
         }
 
-        return None;
+        None
     }
 }
 
 fn variable_type_for_name(name: &str) -> VariableType {
-    if name.starts_with("_") {
+    if name.starts_with('_') {
         VariableType::Hidden
     } else {
         VariableType::Named

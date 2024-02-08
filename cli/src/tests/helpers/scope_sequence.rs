@@ -7,7 +7,7 @@ type ScopeStack = Vec<&'static str>;
 
 impl ScopeSequence {
     pub fn new(tree: &Tree) -> Self {
-        let mut result = ScopeSequence(Vec::new());
+        let mut result = Self(Vec::new());
         let mut scope_stack = Vec::new();
 
         let mut cursor = tree.walk();
@@ -40,9 +40,9 @@ impl ScopeSequence {
 
     pub fn check_changes(
         &self,
-        other: &ScopeSequence,
-        text: &Vec<u8>,
-        known_changed_ranges: &Vec<Range>,
+        other: &Self,
+        text: &[u8],
+        known_changed_ranges: &[Range],
     ) -> Result<(), String> {
         let mut position = Point { row: 0, column: 0 };
         for i in 0..(self.0.len().max(other.0.len())) {
@@ -54,7 +54,7 @@ impl ScopeSequence {
                     .find(|range| range.start_point <= position && position < range.end_point);
                 if containing_range.is_none() {
                     let line = &text[(i - position.column)..]
-                        .split(|c| *c == '\n' as u8)
+                        .split(|c| *c == b'\n')
                         .next()
                         .unwrap();
                     return Err(format!(
@@ -78,7 +78,7 @@ impl ScopeSequence {
                 }
             }
 
-            if text[i] == '\n' as u8 {
+            if text[i] == b'\n' {
                 position.row += 1;
                 position.column = 0;
             } else {

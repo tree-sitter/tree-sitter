@@ -7,6 +7,7 @@ use serde_json::{Map, Value};
 #[derive(Deserialize)]
 #[serde(tag = "type")]
 #[allow(non_camel_case_types)]
+#[allow(clippy::upper_case_acronyms)]
 enum RuleJSON {
     ALIAS {
         content: Box<RuleJSON>,
@@ -91,15 +92,15 @@ pub(crate) struct GrammarJSON {
 }
 
 pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
-    let grammar_json: GrammarJSON = serde_json::from_str(&input)?;
+    let grammar_json: GrammarJSON = serde_json::from_str(input)?;
 
     let mut variables = Vec::with_capacity(grammar_json.rules.len());
     for (name, value) in grammar_json.rules {
         variables.push(Variable {
-            name: name.to_owned(),
+            name: name.clone(),
             kind: VariableType::Named,
             rule: parse_rule(serde_json::from_value(value)?),
-        })
+        });
     }
 
     let mut precedence_orderings = Vec::with_capacity(grammar_json.precedences.len());
@@ -114,7 +115,7 @@ pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
                         "Invalid rule in precedences array. Only strings and symbols are allowed"
                     ))
                 }
-            })
+            });
         }
         precedence_orderings.push(ordering);
     }
@@ -149,11 +150,11 @@ fn parse_rule(json: RuleJSON) -> Rule {
             flags.map_or(String::new(), |f| {
                 f.chars()
                     .filter(|c| {
-                        if *c != 'i' {
+                        if *c == 'i' {
+                            *c != 'u' // silently ignore unicode flag
+                        } else {
                             eprintln!("Warning: unsupported flag {c}");
                             false
-                        } else {
-                            *c != 'u' // silently ignore unicode flag
                         }
                     })
                     .collect()
@@ -182,11 +183,11 @@ fn parse_rule(json: RuleJSON) -> Rule {
     }
 }
 
-impl Into<Precedence> for PrecedenceValueJSON {
-    fn into(self) -> Precedence {
-        match self {
-            PrecedenceValueJSON::Integer(i) => Precedence::Integer(i),
-            PrecedenceValueJSON::Name(i) => Precedence::Name(i),
+impl From<PrecedenceValueJSON> for Precedence {
+    fn from(val: PrecedenceValueJSON) -> Self {
+        match val {
+            PrecedenceValueJSON::Integer(i) => Self::Integer(i),
+            PrecedenceValueJSON::Name(i) => Self::Name(i),
         }
     }
 }

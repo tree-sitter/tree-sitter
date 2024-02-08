@@ -24,7 +24,7 @@ impl Expander {
         // convert that rule itself into a binary tree structure instead of introducing
         // another auxiliary rule.
         if let (VariableType::Hidden, Rule::Repeat(repeated_content)) = (variable.kind, &rule) {
-            let inner_rule = self.expand_rule(&repeated_content);
+            let inner_rule = self.expand_rule(repeated_content);
             variable.rule = self.wrap_rule_in_binary_tree(Symbol::non_terminal(index), inner_rule);
             variable.kind = VariableType::Auxiliary;
             return true;
@@ -107,8 +107,8 @@ pub(super) fn expand_repeats(mut grammar: ExtractedSyntaxGrammar) -> ExtractedSy
         existing_repeats: HashMap::new(),
     };
 
-    for (i, mut variable) in grammar.variables.iter_mut().enumerate() {
-        let expanded_top_level_repetition = expander.expand_variable(i, &mut variable);
+    for (i, variable) in grammar.variables.iter_mut().enumerate() {
+        let expanded_top_level_repetition = expander.expand_variable(i, variable);
 
         // If a hidden variable had a top-level repetition and it was converted to
         // a recursive rule, then it can't be inlined.
@@ -119,9 +119,7 @@ pub(super) fn expand_repeats(mut grammar: ExtractedSyntaxGrammar) -> ExtractedSy
         }
     }
 
-    grammar
-        .variables
-        .extend(expander.auxiliary_variables.into_iter());
+    grammar.variables.extend(expander.auxiliary_variables);
     grammar
 }
 

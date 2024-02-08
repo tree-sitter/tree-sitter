@@ -23,6 +23,7 @@ pub struct Assertion {
 }
 
 impl Assertion {
+    #[must_use]
     pub fn new(row: usize, col: usize, negative: bool, expected_capture_name: String) -> Self {
         Self {
             position: Point::new(row, col),
@@ -37,7 +38,7 @@ impl Assertion {
 /// pairs.
 pub fn parse_position_comments(
     parser: &mut Parser,
-    language: Language,
+    language: &Language,
     source: &[u8],
 ) -> Result<Vec<Assertion>> {
     let mut result = Vec::new();
@@ -45,7 +46,7 @@ pub fn parse_position_comments(
 
     // Parse the code.
     parser.set_included_ranges(&[]).unwrap();
-    parser.set_language(&language).unwrap();
+    parser.set_language(language).unwrap();
     let tree = parser.parse(source, None).unwrap();
 
     // Walk the tree, finding comment nodes that contain assertions.
@@ -125,7 +126,7 @@ pub fn parse_position_comments(
     // code *above* the assertion. There can be multiple lines of assertion comments,
     // so the positions may have to be decremented by more than one row.
     let mut i = 0;
-    for assertion in result.iter_mut() {
+    for assertion in &mut result {
         loop {
             let on_assertion_line = assertion_ranges[i..]
                 .iter()
@@ -150,14 +151,14 @@ pub fn parse_position_comments(
 }
 
 pub fn assert_expected_captures(
-    infos: Vec<CaptureInfo>,
+    infos: &[CaptureInfo],
     path: String,
     parser: &mut Parser,
-    language: Language,
+    language: &Language,
 ) -> Result<()> {
     let contents = fs::read_to_string(path)?;
     let pairs = parse_position_comments(parser, language, contents.as_bytes())?;
-    for info in &infos {
+    for info in infos {
         if let Some(found) = pairs.iter().find(|p| {
             p.position.row == info.start.row && p.position >= info.start && p.position < info.end
         }) {
@@ -167,7 +168,7 @@ pub fn assert_expected_captures(
                     info.start,
                     found.expected_capture_name,
                     info.name
-                ))?
+                ))?;
             }
         }
     }

@@ -5,12 +5,13 @@ use std::str;
 
 #[derive(Debug)]
 pub struct ReadRecorder<'a> {
-    content: &'a Vec<u8>,
+    content: &'a [u8],
     indices_read: Vec<usize>,
 }
 
 impl<'a> ReadRecorder<'a> {
-    pub fn new(content: &'a Vec<u8>) -> Self {
+    #[must_use]
+    pub const fn new(content: &'a [u8]) -> Self {
         Self {
             content,
             indices_read: Vec::new(),
@@ -31,7 +32,7 @@ impl<'a> ReadRecorder<'a> {
     pub fn strings_read(&self) -> Vec<&'a str> {
         let mut result = Vec::new();
         let mut last_range: Option<Range<usize>> = None;
-        for index in self.indices_read.iter() {
+        for index in &self.indices_read {
             if let Some(ref mut range) = &mut last_range {
                 if range.end == *index {
                     range.end += 1;
@@ -44,13 +45,13 @@ impl<'a> ReadRecorder<'a> {
             }
         }
         if let Some(range) = last_range {
-            result.push(str::from_utf8(&self.content[range.clone()]).unwrap());
+            result.push(str::from_utf8(&self.content[range]).unwrap());
         }
         result
     }
 }
 
-pub fn invert_edit(input: &Vec<u8>, edit: &Edit) -> Edit {
+pub fn invert_edit(input: &[u8], edit: &Edit) -> Edit {
     let position = edit.position;
     let removed_content = &input[position..(position + edit.deleted_length)];
     Edit {
@@ -60,7 +61,7 @@ pub fn invert_edit(input: &Vec<u8>, edit: &Edit) -> Edit {
     }
 }
 
-pub fn get_random_edit(rand: &mut Rand, input: &Vec<u8>) -> Edit {
+pub fn get_random_edit(rand: &mut Rand, input: &[u8]) -> Edit {
     let choice = rand.unsigned(10);
     if choice < 2 {
         // Insert text at end

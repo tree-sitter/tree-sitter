@@ -43,7 +43,7 @@ typedef struct wasmtime_store wasmtime_store_t;
  * \brief An interior pointer into a #wasmtime_store_t which is used as
  * "context" for many functions.
  *
- * This context pointer is used pervasively throught Wasmtime's API. This can be
+ * This context pointer is used pervasively throughout Wasmtime's API. This can be
  * acquired from #wasmtime_store_context or #wasmtime_caller_context. The
  * context pointer for a store is the same for the entire lifetime of a store,
  * so it can safely be stored adjacent to a #wasmtime_store_t itself.

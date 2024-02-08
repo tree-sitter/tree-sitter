@@ -31,7 +31,7 @@ impl std::fmt::Display for Failure {
                 if i > 0 {
                     write!(f, ", ")?;
                 }
-                write!(f, "'{}'", actual_highlight)?;
+                write!(f, "'{actual_highlight}'")?;
             }
         }
         Ok(())
@@ -66,35 +66,36 @@ fn test_highlights_indented(
             indent = "",
             indent_level = indent_level * 2
         );
-        if test_file_path.is_dir() && !test_file_path.read_dir()?.next().is_none() {
+        if test_file_path.is_dir() && test_file_path.read_dir()?.next().is_some() {
             println!("{}:", test_file_name.into_string().unwrap());
-            if let Err(_) = test_highlights_indented(
+            if test_highlights_indented(
                 loader,
                 highlighter,
                 &test_file_path,
                 apply_all_captures,
                 indent_level + 1,
-            ) {
+            )
+            .is_err()
+            {
                 failed = true;
             }
         } else {
             let (language, language_config) = loader
                 .language_configuration_for_file_name(&test_file_path)?
-                .ok_or_else(|| anyhow!("No language found for path {:?}", test_file_path))?;
+                .ok_or_else(|| anyhow!("No language found for path {test_file_path:?}"))?;
             let highlight_config = language_config
                 .highlight_config(language, apply_all_captures, None)?
-                .ok_or_else(|| anyhow!("No highlighting config found for {:?}", test_file_path))?;
+                .ok_or_else(|| anyhow!("No highlighting config found for {test_file_path:?}"))?;
             match test_highlight(
-                &loader,
+                loader,
                 highlighter,
                 highlight_config,
                 fs::read(&test_file_path)?.as_slice(),
             ) {
                 Ok(assertion_count) => {
                     println!(
-                        "✓ {} ({} assertions)",
+                        "✓ {} ({assertion_count} assertions)",
                         Colour::Green.paint(test_file_name.to_string_lossy().as_ref()),
-                        assertion_count
                     );
                 }
                 Err(e) => {
@@ -120,9 +121,9 @@ fn test_highlights_indented(
     }
 }
 pub fn iterate_assertions(
-    assertions: &Vec<Assertion>,
-    highlights: &Vec<(Point, Point, Highlight)>,
-    highlight_names: &Vec<String>,
+    assertions: &[Assertion],
+    highlights: &[(Point, Point, Highlight)],
+    highlight_names: &[String],
 ) -> Result<usize> {
     // Iterate through all of the highlighting assertions, checking each one against the
     // actual highlights.
@@ -137,40 +138,36 @@ pub fn iterate_assertions(
         let mut passed = false;
         actual_highlights.clear();
 
-        'highlight_loop: loop {
-            // The assertions are ordered by position, so skip past all of the highlights that
-            // end at or before this assertion's position.
-            if let Some(highlight) = highlights.get(i) {
-                if highlight.1 <= *position {
-                    i += 1;
-                    continue;
+        // The assertions are ordered by position, so skip past all of the highlights that
+        // end at or before this assertion's position.
+        'highlight_loop: while let Some(highlight) = highlights.get(i) {
+            if highlight.1 <= *position {
+                i += 1;
+                continue;
+            }
+
+            // Iterate through all of the highlights that start at or before this assertion's,
+            // position, looking for one that matches the assertion.
+            let mut j = i;
+            while let (false, Some(highlight)) = (passed, highlights.get(j)) {
+                if highlight.0 > *position {
+                    break 'highlight_loop;
                 }
 
-                // Iterate through all of the highlights that start at or before this assertion's,
-                // position, looking for one that matches the assertion.
-                let mut j = i;
-                while let (false, Some(highlight)) = (passed, highlights.get(j)) {
-                    if highlight.0 > *position {
-                        break 'highlight_loop;
-                    }
-
-                    // If the highlight matches the assertion, or if the highlight doesn't
-                    // match the assertion but it's negative, this test passes. Otherwise,
-                    // add this highlight to the list of actual highlights that span the
-                    // assertion's position, in order to generate an error message in the event
-                    // of a failure.
-                    let highlight_name = &highlight_names[(highlight.2).0];
-                    if (*highlight_name == *expected_highlight) == !negative {
-                        passed = true;
-                        break 'highlight_loop;
-                    } else {
-                        actual_highlights.push(highlight_name);
-                    }
-
-                    j += 1;
+                // If the highlight matches the assertion, or if the highlight doesn't
+                // match the assertion but it's negative, this test passes. Otherwise,
+                // add this highlight to the list of actual highlights that span the
+                // assertion's position, in order to generate an error message in the event
+                // of a failure.
+                let highlight_name = &highlight_names[(highlight.2).0];
+                if (*highlight_name == *expected_highlight) == *negative {
+                    actual_highlights.push(highlight_name);
+                } else {
+                    passed = true;
+                    break 'highlight_loop;
                 }
-            } else {
-                break;
+
+                j += 1;
             }
         }
 
@@ -197,11 +194,8 @@ pub fn test_highlight(
     // Highlight the file, and parse out all of the highlighting assertions.
     let highlight_names = loader.highlight_names();
     let highlights = get_highlight_positions(loader, highlighter, highlight_config, source)?;
-    let assertions = parse_position_comments(
-        highlighter.parser(),
-        highlight_config.language.clone(),
-        source,
-    )?;
+    let assertions =
+        parse_position_comments(highlighter.parser(), &highlight_config.language, source)?;
 
     iterate_assertions(&assertions, &highlights, &highlight_names)
 }
@@ -248,7 +242,7 @@ pub fn get_highlight_positions(
                     }
                 }
                 if let Some(highlight) = highlight_stack.last() {
-                    result.push((start_position, Point::new(row, column), *highlight))
+                    result.push((start_position, Point::new(row, column), *highlight));
                 }
             }
         }

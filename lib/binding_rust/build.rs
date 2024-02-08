@@ -2,6 +2,8 @@ use std::path::{Path, PathBuf};
 use std::{env, fs};
 
 fn main() {
+    let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+
     println!("cargo:rerun-if-env-changed=TREE_SITTER_STATIC_ANALYSIS");
     if env::var("TREE_SITTER_STATIC_ANALYSIS").is_ok() {
         if let (Some(clang_path), Some(scan_build_path)) = (which("clang"), which("scan-build")) {
@@ -9,16 +11,19 @@ fn main() {
             let scan_build_path = scan_build_path.to_str().unwrap();
             env::set_var(
                 "CC",
-                &format!(
-                    "{} -analyze-headers --use-analyzer={} cc",
-                    scan_build_path, clang_path
-                ),
+                format!("{scan_build_path} -analyze-headers --use-analyzer={clang_path} cc",),
             );
         }
     }
 
     #[cfg(feature = "bindgen")]
-    generate_bindings();
+    generate_bindings(&out_dir);
+
+    fs::copy(
+        "src/wasm/stdlib-symbols.txt",
+        out_dir.join("stdlib-symbols.txt"),
+    )
+    .unwrap();
 
     let mut config = cc::Build::new();
 
@@ -27,7 +32,10 @@ fn main() {
         config.define("TREE_SITTER_FEATURE_WASM", "");
     }
 
-    let src_path = Path::new("src");
+    let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let include_path = manifest_path.join("include");
+    let src_path = manifest_path.join("src");
+    let wasm_path = src_path.join("wasm");
     for entry in fs::read_dir(&src_path).unwrap() {
         let entry = entry.unwrap();
         let path = src_path.join(entry.file_name());
@@ -39,18 +47,20 @@ fn main() {
         .flag_if_supported("-fvisibility=hidden")
         .flag_if_supported("-Wshadow")
         .flag_if_supported("-Wno-unused-parameter")
-        .include(src_path)
-        .include(src_path.join("wasm"))
-        .include("include")
+        .include(&src_path)
+        .include(&wasm_path)
+        .include(&include_path)
         .file(src_path.join("lib.c"))
         .compile("tree-sitter");
+
+    println!("cargo:include={}", include_path.display());
 }
 
 #[cfg(feature = "bindgen")]
-fn generate_bindings() {
+fn generate_bindings(out_dir: &Path) {
     const HEADER_PATH: &str = "include/tree_sitter/api.h";
 
-    println!("cargo:rerun-if-changed={}", HEADER_PATH);
+    println!("cargo:rerun-if-changed={HEADER_PATH}");
 
     let no_copy = [
         "TSInput",
@@ -77,12 +87,10 @@ fn generate_bindings() {
         .generate()
         .expect("Failed to generate bindings");
 
-    let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let bindings_rs = out_dir.join("bindings.rs");
-
-    bindings.write_to_file(&bindings_rs).expect(&*format!(
-        "Failed to write bindings into path: {bindings_rs:?}"
-    ));
+    bindings
+        .write_to_file(&bindings_rs)
+        .unwrap_or_else(|_| panic!("Failed to write bindings into path: {bindings_rs:?}"));
 }
 
 fn which(exe_name: impl AsRef<Path>) -> Option<PathBuf> {

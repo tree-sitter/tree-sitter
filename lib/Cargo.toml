@@ -12,6 +12,7 @@ repository = "https://github.com/tree-sitter/tree-sitter"
 rust-version.workspace = true
 
 build = "binding_rust/build.rs"
+links = "tree-sitter"
 
 include = [
 	"/binding_rust/*",
@@ -43,8 +44,8 @@ package = "wasmtime-c-api-impl"
 default-features = false
 
 [build-dependencies]
-bindgen = { version = "^0.66.1", optional = true }
-cc = "^1.0.79"
+bindgen = { version = "0.69.4", optional = true }
+cc = "1.0.79"
 
 [lib]
 path = "binding_rust/lib.rs"

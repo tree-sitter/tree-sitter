@@ -8,46 +8,24 @@ env:
 on:
   workflow_call:
     inputs:
-      ref:
-        default: ${{ github.ref }}
-        type: string
-      run-tests:
+      run_test:
         default: true
         type: boolean
-  workflow_dispatch:
-    inputs:
-      run-tests:
-        description: Run tests
-        default: true
-        type: boolean
-      rust-test-threads:
-        description: Number of Rust test threads
-        default: ""
-        type: string
 
 jobs:
   build:
     name: ${{ matrix.platform }} (${{ matrix.target }}) (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
         platform:
         - linux-arm64       #
         - linux-arm         #
-        - linux-armhf       #
-        - linux-armv5te     #
-        - linux-armv7l      #
         - linux-x64         #
         - linux-x86         #
-        - linux-i586        #
-        - linux-powerpc     #
         - linux-powerpc64   #
-        - linux-powerpc64el #
-      # - linux-riscv64gc   # #2712
-        - linux-s390x       #
-        - linux-sparc64     #
-        - linux-thumbv7neon #
         - windows-arm64     #
         - windows-x64       # <-- No C library build - requires an additional adapted Makefile for `cl.exe` compiler
         - windows-x86       #     -- // --
@@ -60,19 +38,9 @@ jobs:
         # 2. Add a new record to a matrix map in `cli/npm/install.js`
         - { platform: linux-arm64       , target: aarch64-unknown-linux-gnu           , os: ubuntu-latest  , use-cross: true }
         - { platform: linux-arm         , target: arm-unknown-linux-gnueabi           , os: ubuntu-latest  , use-cross: true }
-        - { platform: linux-armhf       , target: arm-unknown-linux-gnueabihf         , os: ubuntu-latest  , use-cross: true }
-        - { platform: linux-armv5te     , target: armv5te-unknown-linux-gnueabi       , os: ubuntu-latest  , use-cross: true }
-        - { platform: linux-armv7l      , target: armv7-unknown-linux-gnueabihf       , os: ubuntu-latest  , use-cross: true }
         - { platform: linux-x64         , target: x86_64-unknown-linux-gnu            , os: ubuntu-20.04   , enable-wasm: true } #2272
         - { platform: linux-x86         , target: i686-unknown-linux-gnu              , os: ubuntu-latest  , use-cross: true }
-        - { platform: linux-i586        , target: i586-unknown-linux-gnu              , os: ubuntu-latest  , use-cross: true }
-        - { platform: linux-powerpc     , target: powerpc-unknown-linux-gnu           , os: ubuntu-latest  , use-cross: true }
         - { platform: linux-powerpc64   , target: powerpc64-unknown-linux-gnu         , os: ubuntu-latest  , use-cross: true }
-        - { platform: linux-powerpc64el , target: powerpc64le-unknown-linux-gnu       , os: ubuntu-latest  , use-cross: true }
-      # - { platform: linux-riscv64gc   , target: riscv64gc-unknown-linux-gnu         , os: ubuntu-latest  , use-cross: true } #2712
-        - { platform: linux-s390x       , target: s390x-unknown-linux-gnu             , os: ubuntu-latest  , use-cross: true }
-        - { platform: linux-sparc64     , target: sparc64-unknown-linux-gnu           , os: ubuntu-latest  , use-cross: true }
-        - { platform: linux-thumbv7neon , target: thumbv7neon-unknown-linux-gnueabihf , os: ubuntu-latest  , use-cross: true }
         - { platform: windows-arm64     , target: aarch64-pc-windows-msvc             , os: windows-latest                   }
         - { platform: windows-x64       , target: x86_64-pc-windows-msvc              , os: windows-latest , enable-wasm: true }
         - { platform: windows-x86       , target: i686-pc-windows-msvc                , os: windows-latest                   }
@@ -82,18 +50,8 @@ jobs:
         # Cross compilers for C library
         - { platform: linux-arm64       , cc: aarch64-linux-gnu-gcc             , ar: aarch64-linux-gnu-ar           }
         - { platform: linux-arm         , cc: arm-linux-gnueabi-gcc             , ar: arm-linux-gnueabi-ar           }
-        - { platform: linux-armhf       , cc: arm-unknown-linux-gnueabihf-gcc   , ar: arm-unknown-linux-gnueabihf-ar }
-        - { platform: linux-armv5te     , cc: arm-linux-gnueabi-gcc             , ar: arm-linux-gnueabi-ar           }
-        - { platform: linux-armv7l      , cc: arm-linux-gnueabihf-gcc           , ar: arm-linux-gnueabihf-ar         }
         - { platform: linux-x86         , cc: i686-linux-gnu-gcc                , ar: i686-linux-gnu-ar              }
-        - { platform: linux-i586        , cc: i686-linux-gnu-gcc                , ar: i686-linux-gnu-ar              }
-        - { platform: linux-powerpc     , cc: powerpc-linux-gnu-gcc             , ar: powerpc-linux-gnu-ar           }
         - { platform: linux-powerpc64   , cc: powerpc64-linux-gnu-gcc           , ar: powerpc64-linux-gnu-ar         }
-        - { platform: linux-powerpc64el , cc: powerpc64le-linux-gnu-gcc         , ar: powerpc64le-linux-gnu-ar       }
-      # - { platform: linux-riscv64gc   , cc: riscv64-linux-gnu-gcc             , ar: riscv64-linux-gnu-ar           } #2712
-        - { platform: linux-s390x       , cc: s390x-linux-gnu-gcc               , ar: s390x-linux-gnu-ar             }
-        - { platform: linux-sparc64     , cc: sparc64-linux-gnu-gcc             , ar: sparc64-linux-gnu-ar           }
-        - { platform: linux-thumbv7neon , cc: arm-linux-gnueabihf-gcc           , ar: arm-linux-gnueabihf-ar         }
 
         # See #2041 tree-sitter issue
         - { platform: windows-x64   , rust-test-threads: 1 }
@@ -113,10 +71,7 @@ jobs:
         shell: bash
 
     steps:
-    - name: Checkout source code
-      uses: actions/checkout@v3
-      with:
-        ref: ${{ inputs.ref }}
+    - uses: actions/checkout@v4
 
     - name: Read Emscripten version
       run: |
@@ -124,15 +79,13 @@ jobs:
 
     - name: Install Emscripten
       if: ${{ !matrix.cli-only && !matrix.use-cross }}
-      uses: mymindstorm/setup-emsdk@v12
+      uses: mymindstorm/setup-emsdk@v14
       with:
         version: ${{ env.EMSCRIPTEN_VERSION }}
 
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: ${{ matrix.target }}
-        toolchain: ${{ matrix.rust-toolchain || 'stable' }}
+    - run: rustup toolchain install stable --profile minimal
+    - run: rustup target add ${{ matrix.target }}
+    - uses: Swatinem/rust-cache@v2
 
     - name: Install cross
       if: ${{ matrix.use-cross }}
@@ -160,7 +113,7 @@ jobs:
 
     - name: Setup env extras
       env:
-        RUST_TEST_THREADS: ${{ matrix.rust-test-threads || inputs.rust-test-threads || '' }}
+        RUST_TEST_THREADS: ${{ matrix.rust-test-threads || '' }}
         USE_CROSS: ${{ matrix.use-cross }}
         TARGET: ${{ matrix.target }}
         CC: ${{ matrix.cc }}
@@ -211,31 +164,31 @@ jobs:
         echo "🔗 Minimal **glibc** version required for CLI: ${min_glibc}">> $GITHUB_STEP_SUMMARY
 
     - name: Fetch fixtures
-      if: ${{ inputs.run-tests && !matrix.cli-only }} # Don't fetch fixtures for only CLI building targets
+      if: ${{ !matrix.cli-only && inputs.run_test }} # Don't fetch fixtures for only CLI building targets
       run: script/fetch-fixtures
 
     - name: Generate fixtures
-      if: ${{ inputs.run-tests && !matrix.cli-only }} # Can't natively run CLI on Github runner's host
+      if: ${{ !matrix.cli-only && inputs.run_test }} # Can't natively run CLI on Github runner's host
       run: script/generate-fixtures
 
     - name: Generate WASM fixtures
-      if: ${{ inputs.run-tests && !matrix.cli-only && !matrix.use-cross }} # See comment for the "Build wasm library" step
+      if: ${{ !matrix.cli-only && !matrix.use-cross && inputs.run_test }} # See comment for the "Build wasm library" step
       run: script/generate-fixtures-wasm
 
     - name: Run main tests
-      if: ${{ inputs.run-tests && !matrix.cli-only }} # Can't natively run CLI on Github runner's host
+      if: ${{ !matrix.cli-only && inputs.run_test }} # Can't natively run CLI on Github runner's host
       run: $BUILD_CMD test --target=${{ matrix.target }} --features=${CLI_FEATURES}
 
     - name: Run wasm tests
-      if: ${{ inputs.run-tests && !matrix.cli-only && !matrix.use-cross }} # See comment for the "Build wasm library" step
+      if: ${{ !matrix.cli-only && !matrix.use-cross && inputs.run_test }} # See comment for the "Build wasm library" step
       run: script/test-wasm
 
     - name: Run benchmarks
-      if: ${{ inputs.run-tests && !matrix.cli-only && !matrix.use-cross }} # Cross-compiled benchmarks make no sense
+      if: ${{ !matrix.cli-only && !matrix.use-cross && inputs.run_test }} # Cross-compiled benchmarks make no sense
       run: $BUILD_CMD bench benchmark -p tree-sitter-cli --target=${{ matrix.target }}
 
     - name: Upload CLI artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: tree-sitter.${{ matrix.platform }}
         path: target/${{ matrix.target }}/release/tree-sitter${{ env.EXE }}
@@ -244,7 +197,7 @@ jobs:
 
     - name: Upload WASM artifacts
       if: ${{ matrix.platform == 'linux-x64' }}
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: tree-sitter.wasm
         path: |

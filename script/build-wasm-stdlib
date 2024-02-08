@@ -2,12 +2,21 @@
 
 set -e
 
+# Remove quotes, add leading underscores, remove newlines, remove trailing comma.
+EXPORTED_FUNCTIONS=$(                     \
+    cat lib/src/wasm/stdlib-symbols.txt | \
+    sed -e 's/"//g'                     | \
+    sed -e 's/^/_/g'                    | \
+    tr -d '\n"'                         | \
+    sed -e 's/,$//'                       \
+)
+
 emcc                                                          \
     -o stdlib.wasm                                            \
     -Os                                                       \
     --no-entry                                                \
     -s MAIN_MODULE=2                                          \
-    -s 'EXPORTED_FUNCTIONS=@lib/src/wasm/stdlib-symbols.json' \
+    -s "EXPORTED_FUNCTIONS=${EXPORTED_FUNCTIONS}" \
     -s 'ALLOW_MEMORY_GROWTH'                                  \
     -s 'TOTAL_MEMORY=4MB'                                     \
     -fvisibility=hidden                                       \

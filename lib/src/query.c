@@ -3849,7 +3849,7 @@ static inline bool ts_query_cursor__advance(
             continue;
           }
 
-          // Enfore the longest-match criteria. When a query pattern contains optional or
+          // Enforce the longest-match criteria. When a query pattern contains optional or
           // repeated nodes, this is necessary to avoid multiple redundant states, where
           // one state has a strict subset of another state's captures.
           bool did_remove = false;

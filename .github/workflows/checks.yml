@@ -11,22 +11,20 @@ jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
-    - name: Install rust toolchain
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: stable
-        components: clippy, rustfmt
+    - run: rustup toolchain install stable --profile minimal
+    - uses: Swatinem/rust-cache@v2
 
-    - run: cargo fmt -- --check
     - run: cargo check --workspace --examples --tests --benches --bins
+    - run: cargo fmt -- --check
+    - run: cargo clippy --workspace --all-targets
 
   check_c_warnings:
     name: Check C warnings
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Make C library to check that it's able to compile without warnings
       run: make -j CFLAGS="-Werror"

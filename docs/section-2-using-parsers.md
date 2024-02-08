@@ -137,7 +137,7 @@ TSTree *ts_parser_parse(
 );
 ```
 
-The `TSInput` structure lets you to provide your own function for reading a chunk of text at a given byte offset and row/column position. The function can return text encoded in either UTF8 or UTF16. This interface allows you to efficiently parse text that is stored in your own data structure.
+The `TSInput` structure lets you provide your own function for reading a chunk of text at a given byte offset and row/column position. The function can return text encoded in either UTF8 or UTF16. This interface allows you to efficiently parse text that is stored in your own data structure.
 
 ```c
 typedef struct {

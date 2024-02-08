@@ -68,7 +68,7 @@ const JS_TAG_QUERY: &str = r#"
     function: (identifier) @name) @reference.call
 "#;
 
-const RUBY_TAG_QUERY: &str = r#"
+const RUBY_TAG_QUERY: &str = r"
 (method
     name: (_) @name) @definition.method
 
@@ -79,7 +79,7 @@ const RUBY_TAG_QUERY: &str = r#"
 
 ((identifier) @name @reference.call
  (#is-not? local))
-"#;
+";
 
 #[test]
 fn test_tags_python() {
@@ -132,7 +132,7 @@ fn test_tags_python() {
 fn test_tags_javascript() {
     let language = get_language("javascript");
     let tags_config = TagsConfiguration::new(language, JS_TAG_QUERY, "").unwrap();
-    let source = br#"
+    let source = br"
     // hi
 
     // Data about a customer.
@@ -150,7 +150,7 @@ fn test_tags_javascript() {
     class Agent {
 
     }
-    "#;
+    ";
 
     let mut tag_context = TagsContext::new();
     let tags = tag_context
@@ -305,10 +305,10 @@ fn test_tags_with_parse_error() {
     let tags_config = TagsConfiguration::new(language, PYTHON_TAG_QUERY, "").unwrap();
     let mut tag_context = TagsContext::new();
 
-    let source = br#"
+    let source = br"
     class Fine: pass
     class Bad
-    "#;
+    ";
 
     let (tags, failed) = tag_context
         .generate_tags(&tags_config, source, None)
@@ -391,7 +391,7 @@ fn test_tags_via_c_api() {
         };
         let docs = str::from_utf8(unsafe {
             slice::from_raw_parts(
-                c::ts_tags_buffer_docs(buffer) as *const u8,
+                c::ts_tags_buffer_docs(buffer).cast::<u8>(),
                 c::ts_tags_buffer_docs_len(buffer) as usize,
             )
         })

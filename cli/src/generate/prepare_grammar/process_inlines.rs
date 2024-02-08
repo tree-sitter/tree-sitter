@@ -21,7 +21,7 @@ struct InlinedProductionMapBuilder {
 }
 
 impl InlinedProductionMapBuilder {
-    fn build<'a>(mut self, grammar: &'a SyntaxGrammar) -> InlinedProductionMap {
+    fn build(mut self, grammar: &SyntaxGrammar) -> InlinedProductionMap {
         let mut step_ids_to_process = Vec::new();
         for (variable_index, variable) in grammar.variables.iter().enumerate() {
             for production_index in 0..variable.productions.len() {
@@ -38,14 +38,14 @@ impl InlinedProductionMapBuilder {
                             if grammar.variables_to_inline.contains(&step.symbol) {
                                 let inlined_step_ids = self
                                     .inline_production_at_step(step_id, grammar)
-                                    .into_iter()
-                                    .cloned()
+                                    .iter()
+                                    .copied()
                                     .map(|production_index| ProductionStepId {
                                         variable_index: None,
                                         production_index,
                                         step_index: step_id.step_index,
                                     });
-                                step_ids_to_process.splice(i..i + 1, inlined_step_ids);
+                                step_ids_to_process.splice(i..=i, inlined_step_ids);
                             } else {
                                 step_ids_to_process[i] = ProductionStepId {
                                     variable_index: step_id.variable_index,
@@ -67,11 +67,12 @@ impl InlinedProductionMapBuilder {
         let production_map = production_indices_by_step_id
             .into_iter()
             .map(|(step_id, production_indices)| {
-                let production = if let Some(variable_index) = step_id.variable_index {
-                    &grammar.variables[variable_index].productions[step_id.production_index]
-                } else {
-                    &productions[step_id.production_index]
-                } as *const Production;
+                let production = step_id.variable_index.map_or_else(
+                    || &productions[step_id.production_index],
+                    |variable_index| {
+                        &grammar.variables[variable_index].productions[step_id.production_index]
+                    },
+                ) as *const Production;
                 ((production, step_id.step_index as u32), production_indices)
             })
             .collect();
@@ -86,29 +87,29 @@ impl InlinedProductionMapBuilder {
         &'a mut self,
         step_id: ProductionStepId,
         grammar: &'a SyntaxGrammar,
-    ) -> &'a Vec<usize> {
+    ) -> &'a [usize] {
         // Build a list of productions produced by inlining rules.
         let mut i = 0;
         let step_index = step_id.step_index;
         let mut productions_to_add = vec![self.production_for_id(step_id, grammar).clone()];
         while i < productions_to_add.len() {
             if let Some(step) = productions_to_add[i].steps.get(step_index) {
-                let symbol = step.symbol.clone();
+                let symbol = step.symbol;
                 if grammar.variables_to_inline.contains(&symbol) {
                     // Remove the production from the vector, replacing it with a placeholder.
                     let production = productions_to_add
-                        .splice(i..i + 1, [Production::default()].iter().cloned())
+                        .splice(i..=i, std::iter::once(&Production::default()).cloned())
                         .next()
                         .unwrap();
 
                     // Replace the placeholder with the inlined productions.
                     productions_to_add.splice(
-                        i..i + 1,
+                        i..=i,
                         grammar.variables[symbol.index].productions.iter().map(|p| {
                             let mut production = production.clone();
                             let removed_step = production
                                 .steps
-                                .splice(step_index..(step_index + 1), p.steps.iter().cloned())
+                                .splice(step_index..=step_index, p.steps.iter().cloned())
                                 .next()
                                 .unwrap();
                             let inserted_steps =
@@ -127,7 +128,7 @@ impl InlinedProductionMapBuilder {
                                 if last_inserted_step.precedence.is_none() {
                                     last_inserted_step.precedence = removed_step.precedence;
                                 }
-                                if last_inserted_step.associativity == None {
+                                if last_inserted_step.associativity.is_none() {
                                     last_inserted_step.associativity = removed_step.associativity;
                                 }
                             }
@@ -169,11 +170,10 @@ impl InlinedProductionMapBuilder {
         id: ProductionStepId,
         grammar: &'a SyntaxGrammar,
     ) -> &'a Production {
-        if let Some(variable_index) = id.variable_index {
-            &grammar.variables[variable_index].productions[id.production_index]
-        } else {
-            &self.productions[id.production_index]
-        }
+        id.variable_index.map_or_else(
+            || &self.productions[id.production_index],
+            |variable_index| &grammar.variables[variable_index].productions[id.production_index],
+        )
     }
 
     fn production_step_for_id<'a>(
@@ -266,7 +266,7 @@ mod tests {
             ..Default::default()
         };
 
-        let inline_map = process_inlines(&grammar, &Default::default()).unwrap();
+        let inline_map = process_inlines(&grammar, &LexicalGrammar::default()).unwrap();
 
         // Nothing to inline at step 0.
         assert!(inline_map
@@ -362,7 +362,7 @@ mod tests {
             ..Default::default()
         };
 
-        let inline_map = process_inlines(&grammar, &Default::default()).unwrap();
+        let inline_map = process_inlines(&grammar, &LexicalGrammar::default()).unwrap();
 
         let productions: Vec<&Production> = inline_map
             .inlined_productions(&grammar.variables[0].productions[0], 1)
@@ -370,7 +370,7 @@ mod tests {
             .collect();
 
         assert_eq!(
-            productions.iter().cloned().cloned().collect::<Vec<_>>(),
+            productions.iter().copied().cloned().collect::<Vec<_>>(),
             vec![
                 Production {
                     dynamic_precedence: 0,
@@ -461,7 +461,7 @@ mod tests {
             ..Default::default()
         };
 
-        let inline_map = process_inlines(&grammar, &Default::default()).unwrap();
+        let inline_map = process_inlines(&grammar, &LexicalGrammar::default()).unwrap();
 
         let productions: Vec<_> = inline_map
             .inlined_productions(&grammar.variables[0].productions[0], 0)
@@ -469,7 +469,7 @@ mod tests {
             .collect();
 
         assert_eq!(
-            productions.iter().cloned().cloned().collect::<Vec<_>>(),
+            productions.iter().copied().cloned().collect::<Vec<_>>(),
             vec![Production {
                 dynamic_precedence: 0,
                 steps: vec![

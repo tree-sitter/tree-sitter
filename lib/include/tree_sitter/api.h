@@ -1208,7 +1208,7 @@ size_t ts_wasm_store_language_count(const TSWasmStore *);
 
 /**
  * Check if the language came from a Wasm module. If so, then in order to use
- * this langauge with a Parser, that parser must have a Wasm store assigned.
+ * this language with a Parser, that parser must have a Wasm store assigned.
  */
 bool ts_language_is_wasm(const TSLanguage *);
 

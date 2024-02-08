@@ -9,7 +9,7 @@ pub struct CBufferIter<T> {
 }
 
 impl<T> CBufferIter<T> {
-    pub unsafe fn new(ptr: *mut T, count: usize) -> Self {
+    pub const unsafe fn new(ptr: *mut T, count: usize) -> Self {
         Self { ptr, count, i: 0 }
     }
 }
@@ -23,7 +23,7 @@ impl<T: Copy> Iterator for CBufferIter<T> {
             None
         } else {
             self.i += 1;
-            Some(unsafe { *self.ptr.offset(i as isize) })
+            Some(unsafe { *self.ptr.add(i) })
         }
     }
 
@@ -38,7 +38,7 @@ impl<T: Copy> ExactSizeIterator for CBufferIter<T> {}
 impl<T> Drop for CBufferIter<T> {
     fn drop(&mut self) {
         if !self.ptr.is_null() {
-            unsafe { (FREE_FN)(self.ptr as *mut c_void) };
+            unsafe { (FREE_FN)(self.ptr.cast::<c_void>()) };
         }
     }
 }

@@ -26,7 +26,7 @@ fn int_env_var(name: &'static str) -> Option<usize> {
     env::var(name).ok().and_then(|e| e.parse().ok())
 }
 
-pub(crate) fn new_seed() -> usize {
+pub fn new_seed() -> usize {
     int_env_var("TREE_SITTER_SEED").unwrap_or_else(|| {
         let mut rng = rand::thread_rng();
         rng.gen::<usize>()

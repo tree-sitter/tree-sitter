@@ -29,20 +29,20 @@ impl CharacterTree {
             1 => {
                 let range = &ranges[0];
                 if range.start == range.end {
-                    Some(CharacterTree::Compare {
+                    Some(Self::Compare {
                         operator: Comparator::Equal,
                         value: range.start,
-                        consequence: Some(Box::new(CharacterTree::Yes)),
+                        consequence: Some(Box::new(Self::Yes)),
                         alternative: None,
                     })
                 } else {
-                    Some(CharacterTree::Compare {
+                    Some(Self::Compare {
                         operator: Comparator::GreaterOrEqual,
                         value: range.start,
-                        consequence: Some(Box::new(CharacterTree::Compare {
+                        consequence: Some(Box::new(Self::Compare {
                             operator: Comparator::LessOrEqual,
                             value: range.end,
-                            consequence: Some(Box::new(CharacterTree::Yes)),
+                            consequence: Some(Box::new(Self::Yes)),
                             alternative: None,
                         })),
                         alternative: None,
@@ -52,14 +52,14 @@ impl CharacterTree {
             len => {
                 let mid = len / 2;
                 let mid_range = &ranges[mid];
-                Some(CharacterTree::Compare {
+                Some(Self::Compare {
                     operator: Comparator::Less,
                     value: mid_range.start,
                     consequence: Self::from_ranges(&ranges[0..mid]).map(Box::new),
-                    alternative: Some(Box::new(CharacterTree::Compare {
+                    alternative: Some(Box::new(Self::Compare {
                         operator: Comparator::LessOrEqual,
                         value: mid_range.end,
-                        consequence: Some(Box::new(CharacterTree::Yes)),
+                        consequence: Some(Box::new(Self::Yes)),
                         alternative: Self::from_ranges(&ranges[(mid + 1)..]).map(Box::new),
                     })),
                 })
@@ -70,8 +70,8 @@ impl CharacterTree {
     #[cfg(test)]
     fn contains(&self, c: char) -> bool {
         match self {
-            CharacterTree::Yes => true,
-            CharacterTree::Compare {
+            Self::Yes => true,
+            Self::Compare {
                 value,
                 operator,
                 alternative,

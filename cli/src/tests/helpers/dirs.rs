@@ -39,7 +39,7 @@ lazy_static! {
             "unknown"
         };
 
-        let machine = format!("{}-{}-{}-{}-{}", std::env::consts::ARCH, std::env::consts::OS, vendor, env, endian);
+        let machine = format!("{}-{}-{vendor}-{env}-{endian}", std::env::consts::ARCH, std::env::consts::OS);
         let result = SCRATCH_BASE_DIR.join(machine);
         fs::create_dir_all(&result).unwrap();
         result
