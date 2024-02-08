@@ -8,7 +8,7 @@ authors = [
 ]
 license = "MIT"
 readme = "README.md"
-edition = "2018"
+edition = "2021"
 keywords = ["incremental", "parsing", "syntax", "tagging"]
 categories = ["parsing", "text-editors"]
 repository = "https://github.com/tree-sitter/tree-sitter"
@@ -18,10 +18,10 @@ rust-version.workspace = true
 crate-type = ["lib", "staticlib"]
 
 [dependencies]
-regex = "1.9.1"
-memchr = "2.5.0"
-thiserror = "1.0.43"
+regex.workspace = true
+memchr.workspace = true
+thiserror.workspace = true
 
 [dependencies.tree-sitter]
-version = "0.20"
+version = "0.20.10"
 path = "../lib"
