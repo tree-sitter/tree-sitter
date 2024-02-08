@@ -41,7 +41,7 @@ impl fmt::Display for Stats {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum ParseOutput {
     Normal,
     Quiet,
@@ -146,7 +146,7 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
         let duration_ms = duration.as_micros() as f64 / 1e3;
         let mut cursor = tree.walk();
 
-        if matches!(opts.output, ParseOutput::Normal) {
+        if opts.output == ParseOutput::Normal {
             let mut needs_newline = false;
             let mut indent_level = 0;
             let mut did_visit_children = false;
@@ -202,25 +202,46 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
             println!();
         }
 
-        if matches!(opts.output, ParseOutput::Xml) {
+        if opts.output == ParseOutput::Xml {
             let mut needs_newline = false;
             let mut indent_level = 0;
             let mut did_visit_children = false;
+            let mut had_named_children = false;
             let mut tags: Vec<&str> = Vec::new();
+            writeln!(&mut stdout, "<?xml version=\"1.0\"?>")?;
             loop {
                 let node = cursor.node();
                 let is_named = node.is_named();
                 if did_visit_children {
                     if is_named {
                         let tag = tags.pop();
-                        writeln!(&mut stdout, "</{}>", tag.expect("there is a tag"))?;
+                        if had_named_children {
+                            for _ in 0..indent_level {
+                                stdout.write_all(b"  ")?;
+                            }
+                        }
+                        write!(&mut stdout, "</{}>", tag.expect("there is a tag"))?;
+                        // we only write a line in the case where it's the last sibling
+                        if let Some(parent) = node.parent() {
+                            if parent.child(parent.child_count() - 1).unwrap() == node {
+                                stdout.write_all(b"\n")?;
+                            }
+                        }
                         needs_newline = true;
                     }
                     if cursor.goto_next_sibling() {
                         did_visit_children = false;
+                        had_named_children = false;
                     } else if cursor.goto_parent() {
                         did_visit_children = true;
+                        had_named_children = is_named;
                         indent_level -= 1;
+                        if !is_named && needs_newline {
+                            stdout.write_all(b"\n")?;
+                            for _ in 0..indent_level {
+                                stdout.write_all(b"  ")?;
+                            }
+                        }
                     } else {
                         break;
                     }
@@ -234,14 +255,21 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
                         }
                         write!(&mut stdout, "<{}", node.kind())?;
                         if let Some(field_name) = cursor.field_name() {
-                            write!(&mut stdout, " type=\"{field_name}\"")?;
+                            write!(&mut stdout, " field=\"{field_name}\"")?;
                         }
+                        let start = node.start_position();
+                        let end = node.end_position();
+                        write!(&mut stdout, " srow=\"{}\"", start.row)?;
+                        write!(&mut stdout, " scol=\"{}\"", start.column)?;
+                        write!(&mut stdout, " erow=\"{}\"", end.row)?;
+                        write!(&mut stdout, " ecol=\"{}\"", end.column)?;
                         write!(&mut stdout, ">")?;
                         tags.push(node.kind());
                         needs_newline = true;
                     }
                     if cursor.goto_first_child() {
                         did_visit_children = false;
+                        had_named_children = false;
                         indent_level += 1;
                     } else {
                         did_visit_children = true;
@@ -249,6 +277,17 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
                         let end = node.end_byte();
                         let value =
                             std::str::from_utf8(&source_code[start..end]).expect("has a string");
+                        // if !is_named {
+                        //     for _ in 0..indent_level {
+                        //         stdout.write_all(b"  ")?;
+                        //     }
+                        // }
+                        if !is_named && needs_newline {
+                            stdout.write_all(b"\n")?;
+                            for _ in 0..indent_level {
+                                stdout.write_all(b"  ")?;
+                            }
+                        }
                         write!(&mut stdout, "{}", html_escape::encode_text(value))?;
                     }
                 }
@@ -257,7 +296,7 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
             println!();
         }
 
-        if matches!(opts.output, ParseOutput::Dot) {
+        if opts.output == ParseOutput::Dot {
             util::print_tree_graph(&tree, "log.html").unwrap();
         }
 
