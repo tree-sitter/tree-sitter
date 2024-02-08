@@ -26,8 +26,15 @@ wasm = ["tree-sitter/wasm", "tree-sitter-loader/wasm"]
 
 [dependencies]
 ansi_term = "0.12.1"
+anstyle = "1.0.4"
 anyhow = "1.0.72"
-clap = "2.32"
+clap = { version = "4.4.18", features = [
+	"cargo",
+	"derive",
+	"env",
+	"help",
+	"unstable-styles",
+] }
 ctrlc = { version = "3.4.0", features = ["termination"] }
 difference = "2.0.0"
 dirs = "5.0.1"
