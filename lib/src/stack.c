@@ -5,6 +5,7 @@
 #include "./stack.h"
 #include "./length.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 
 #define MAX_LINK_COUNT 8
@@ -866,7 +867,7 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
           fprintf(f, "\"");
           fprintf(
             f,
-            "labeltooltip=\"error_cost: %u\ndynamic_precedence: %u\"",
+            "labeltooltip=\"error_cost: %u\ndynamic_precedence: %" PRId32 "\"",
             ts_subtree_error_cost(link.subtree),
             ts_subtree_dynamic_precedence(link.subtree)
           );
