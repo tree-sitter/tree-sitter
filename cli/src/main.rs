@@ -227,6 +227,43 @@ struct Query {
     pub test: bool,
 }
 
+impl Query {
+    fn run(self, config: Config, mut loader: loader::Loader, current_dir: PathBuf) -> Result<()> {
+        let paths = collect_paths(self.paths_file.as_deref(), self.paths)?;
+        let loader_config = config.get()?;
+        loader.find_all_languages(&loader_config)?;
+        let language =
+            loader.select_language(Path::new(&paths[0]), &current_dir, self.scope.as_deref())?;
+        let query_path = Path::new(&self.query_path);
+
+        let byte_range = self.byte_range.as_ref().and_then(|range| {
+            let mut parts = range.split(':');
+            let start = parts.next()?.parse().ok()?;
+            let end = parts.next().unwrap().parse().ok()?;
+            Some(start..end)
+        });
+        let point_range = self.row_range.as_ref().and_then(|range| {
+            let mut parts = range.split(':');
+            let start = parts.next()?.parse().ok()?;
+            let end = parts.next().unwrap().parse().ok()?;
+            Some(Point::new(start, 0)..Point::new(end, 0))
+        });
+
+        query::query_files_at_paths(
+            &language,
+            paths,
+            query_path,
+            self.captures,
+            byte_range,
+            point_range,
+            self.test,
+            self.quiet,
+            self.time,
+        )?;
+        Ok(())
+    }
+}
+
 #[derive(Args)]
 #[command(about = "Highlight a file", alias = "hi")]
 struct Highlight {
@@ -743,42 +780,7 @@ fn run() -> Result<()> {
             }
         }
 
-        Commands::Query(query_options) => {
-            let paths = collect_paths(query_options.paths_file.as_deref(), query_options.paths)?;
-            let loader_config = config.get()?;
-            loader.find_all_languages(&loader_config)?;
-            let language = loader.select_language(
-                Path::new(&paths[0]),
-                &current_dir,
-                query_options.scope.as_deref(),
-            )?;
-            let query_path = Path::new(&query_options.query_path);
-
-            let byte_range = query_options.byte_range.as_ref().and_then(|range| {
-                let mut parts = range.split(':');
-                let start = parts.next()?.parse().ok()?;
-                let end = parts.next().unwrap().parse().ok()?;
-                Some(start..end)
-            });
-            let point_range = query_options.row_range.as_ref().and_then(|range| {
-                let mut parts = range.split(':');
-                let start = parts.next()?.parse().ok()?;
-                let end = parts.next().unwrap().parse().ok()?;
-                Some(Point::new(start, 0)..Point::new(end, 0))
-            });
-
-            query::query_files_at_paths(
-                &language,
-                paths,
-                query_path,
-                query_options.captures,
-                byte_range,
-                point_range,
-                query_options.test,
-                query_options.quiet,
-                query_options.time,
-            )?;
-        }
+        Commands::Query(query_options) => return query_options.run(),
 
         Commands::Highlight(highlight_options) => return highlight_options.run(config, loader),
 
