@@ -310,6 +310,32 @@ struct Playground {
 #[command(about = "Print info about all known language parsers", alias = "langs")]
 struct DumpLanguages;
 
+impl DumpLanguages {
+    fn run(&self, config: Config, mut loader: loader::Loader) -> Result<()> {
+        let loader_config = config.get()?;
+        loader.find_all_languages(&loader_config)?;
+        for (configuration, language_path) in loader.get_all_language_configurations() {
+            println!(
+                concat!(
+                    "scope: {}\n",
+                    "parser: {:?}\n",
+                    "highlights: {:?}\n",
+                    "file_types: {:?}\n",
+                    "content_regex: {:?}\n",
+                    "injection_regex: {:?}\n",
+                ),
+                configuration.scope.as_ref().unwrap_or(&String::new()),
+                language_path,
+                configuration.highlights_filenames,
+                configuration.file_types,
+                configuration.content_regex,
+                configuration.injection_regex,
+            );
+        }
+        Ok(())
+    }
+}
+
 fn main() {
     let result = run();
     if let Err(err) = &result {
@@ -754,28 +780,7 @@ fn run() -> Result<()> {
             playground::serve(&current_dir, open_in_browser)?;
         }
 
-        Commands::DumpLanguages(_) => {
-            let loader_config = config.get()?;
-            loader.find_all_languages(&loader_config)?;
-            for (configuration, language_path) in loader.get_all_language_configurations() {
-                println!(
-                    concat!(
-                        "scope: {}\n",
-                        "parser: {:?}\n",
-                        "highlights: {:?}\n",
-                        "file_types: {:?}\n",
-                        "content_regex: {:?}\n",
-                        "injection_regex: {:?}\n",
-                    ),
-                    configuration.scope.as_ref().unwrap_or(&String::new()),
-                    language_path,
-                    configuration.highlights_filenames,
-                    configuration.file_types,
-                    configuration.content_regex,
-                    configuration.injection_regex,
-                );
-            }
-        }
+        Commands::DumpLanguages(command) => return command.run(config, loader),
     }
 
     Ok(())
