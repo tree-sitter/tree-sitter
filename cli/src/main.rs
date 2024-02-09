@@ -282,6 +282,22 @@ struct Tags {
     pub paths: Option<Vec<String>>,
 }
 
+impl Tags {
+    fn run(&self, config: Config, mut loader: loader::Loader) -> Result<()> {
+        let loader_config = config.get()?;
+        loader.find_all_languages(&loader_config)?;
+        let paths = collect_paths(self.paths_file.as_deref(), self.paths)?;
+        tags::generate_tags(
+            &loader,
+            self.scope.as_deref(),
+            &paths,
+            self.quiet,
+            self.time,
+        )?;
+        Ok(())
+    }
+}
+
 #[derive(Args)]
 #[command(about = "Compile a parser to WASM", alias = "bw")]
 struct BuildWasm {
@@ -764,18 +780,7 @@ fn run() -> Result<()> {
             }
         }
 
-        Commands::Tags(tags_options) => {
-            let loader_config = config.get()?;
-            loader.find_all_languages(&loader_config)?;
-            let paths = collect_paths(tags_options.paths_file.as_deref(), tags_options.paths)?;
-            tags::generate_tags(
-                &loader,
-                tags_options.scope.as_deref(),
-                &paths,
-                tags_options.quiet,
-                tags_options.time,
-            )?;
-        }
+        Commands::Tags(tags_options) => return tags_options.run(config, loader),
 
         Commands::BuildWasm(wasm_options) => return wasm_options.run(current_dir, loader),
 
