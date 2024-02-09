@@ -715,6 +715,14 @@ struct Playground {
     pub quiet: bool,
 }
 
+impl Playground {
+    fn run(self, current_dir: PathBuf) -> Result<()> {
+        let open_in_browser = !self.quiet;
+        playground::serve(&current_dir, open_in_browser)?;
+        Ok(())
+    }
+}
+
 #[derive(Args)]
 #[command(about = "Print info about all known language parsers", alias = "langs")]
 struct DumpLanguages;
@@ -808,10 +816,6 @@ fn run() -> Result<()> {
 
         Commands::BuildWasm(wasm_options) => return wasm_options.run(current_dir, loader),
 
-        Commands::Playground(playground_options) => {
-            let open_in_browser = !playground_options.quiet;
-            playground::serve(&current_dir, open_in_browser)?;
-        }
 
         Commands::DumpLanguages(command) => return command.run(config, loader),
     }
