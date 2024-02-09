@@ -800,24 +800,16 @@ fn run() -> Result<()> {
     let mut loader = loader::Loader::new()?;
 
     match command {
-        Commands::InitConfig(command) => return command.run(),
-
-        Commands::Generate(generate_options) => return generate_options.run(loader, current_dir),
-
-        Commands::Parse(parse_options) => return parse_options.run(config, loader, current_dir),
-
-        Commands::Test(test_options) => return test_options.run(loader, current_dir),
-
-        Commands::Query(query_options) => return query_options.run(config, loader, current_dir),
-
-        Commands::Highlight(highlight_options) => return highlight_options.run(config, loader),
-
-        Commands::Tags(tags_options) => return tags_options.run(config, loader),
-
-        Commands::BuildWasm(wasm_options) => return wasm_options.run(current_dir, loader),
-
-
-        Commands::DumpLanguages(command) => return command.run(config, loader),
+        Commands::InitConfig(command) => command.run()?,
+        Commands::Generate(generate_options) => generate_options.run(loader, current_dir)?,
+        Commands::Parse(parse_options) => parse_options.run(config, loader, current_dir)?,
+        Commands::Test(test_options) => test_options.run(loader, current_dir)?,
+        Commands::Query(query_options) => query_options.run(config, loader, current_dir)?,
+        Commands::Highlight(highlight_options) => highlight_options.run(config, loader)?,
+        Commands::Tags(tags_options) => tags_options.run(config, loader)?,
+        Commands::BuildWasm(wasm_options) => wasm_options.run(current_dir, loader)?,
+        Commands::Playground(playground_options) => playground_options.run(current_dir)?,
+        Commands::DumpLanguages(command) => command.run(config, loader)?,
     }
 
     Ok(())
