@@ -147,6 +147,111 @@ struct Parse {
     pub encoding: Option<String>,
 }
 
+impl Parse {
+    fn run(self, config: Config, mut loader: loader::Loader, current_dir: PathBuf) -> Result<()> {
+        let output = if self.output_dot {
+            ParseOutput::Dot
+        } else if self.output_xml {
+            ParseOutput::Xml
+        } else if self.quiet {
+            ParseOutput::Quiet
+        } else {
+            ParseOutput::Normal
+        };
+
+        let encoding = if let Some(encoding) = self.encoding {
+            match encoding.as_str() {
+                "utf16" => Some(ffi::TSInputEncodingUTF16),
+                "utf8" => Some(ffi::TSInputEncodingUTF8),
+                _ => return Err(anyhow!("Invalid encoding. Expected one of: utf8, utf16")),
+            }
+        } else {
+            None
+        };
+
+        let time = self.time;
+        let edits = self.edits.unwrap_or_default();
+        let cancellation_flag = util::cancel_on_signal();
+        let mut parser = Parser::new();
+
+        if self.debug {
+            // For augmenting debug logging in external scanners
+            env::set_var("TREE_SITTER_DEBUG", "1");
+        }
+
+        loader.use_debug_build(self.debug_build);
+
+        #[cfg(feature = "wasm")]
+        if self.wasm {
+            let engine = tree_sitter::wasmtime::Engine::default();
+            parser
+                .set_wasm_store(tree_sitter::WasmStore::new(engine.clone()).unwrap())
+                .unwrap();
+            loader.use_wasm(engine);
+        }
+
+        let timeout = self.timeout.unwrap_or_default();
+
+        let paths = collect_paths(self.paths_file.as_deref(), self.paths)?;
+
+        let max_path_length = paths.iter().map(|p| p.chars().count()).max().unwrap_or(0);
+        let mut has_error = false;
+        let loader_config = config.get()?;
+        loader.find_all_languages(&loader_config)?;
+
+        let should_track_stats = self.stat;
+        let mut stats = parse::Stats::default();
+
+        for path in paths {
+            let path = Path::new(&path);
+
+            let language = loader.select_language(path, &current_dir, self.scope.as_deref())?;
+            parser
+                .set_language(&language)
+                .context("incompatible language")?;
+
+            let opts = ParseFileOptions {
+                language: language.clone(),
+                path,
+                edits: &edits.iter().map(|s| s.as_str()).collect::<Vec<&str>>(),
+                max_path_length,
+                output,
+                print_time: time,
+                timeout,
+                debug: self.debug,
+                debug_graph: self.debug_graph,
+                cancellation_flag: Some(&cancellation_flag),
+                encoding,
+            };
+
+            let parse_result = parse::parse_file_at_path(&mut parser, &opts)?;
+
+            if should_track_stats {
+                stats.total_parses += 1;
+                if parse_result.successful {
+                    stats.successful_parses += 1;
+                }
+                if let Some(duration) = parse_result.duration {
+                    stats.total_bytes += parse_result.bytes;
+                    stats.total_duration += duration;
+                }
+            }
+
+            has_error |= !parse_result.successful;
+        }
+
+        if should_track_stats {
+            println!("\n{stats}");
+        }
+
+        if has_error {
+            return Err(anyhow!(""));
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Args)]
 #[command(about = "Run a parser's tests", alias = "t")]
 struct Test {
@@ -681,107 +786,7 @@ fn run() -> Result<()> {
             }
         }
 
-        Commands::Parse(parse_options) => {
-            let output = if parse_options.output_dot {
-                ParseOutput::Dot
-            } else if parse_options.output_xml {
-                ParseOutput::Xml
-            } else if parse_options.quiet {
-                ParseOutput::Quiet
-            } else {
-                ParseOutput::Normal
-            };
-
-            let encoding = if let Some(encoding) = parse_options.encoding {
-                match encoding.as_str() {
-                    "utf16" => Some(ffi::TSInputEncodingUTF16),
-                    "utf8" => Some(ffi::TSInputEncodingUTF8),
-                    _ => return Err(anyhow!("Invalid encoding. Expected one of: utf8, utf16")),
-                }
-            } else {
-                None
-            };
-
-            let time = parse_options.time;
-            let edits = parse_options.edits.unwrap_or_default();
-            let cancellation_flag = util::cancel_on_signal();
-            let mut parser = Parser::new();
-
-            if parse_options.debug {
-                // For augmenting debug logging in external scanners
-                env::set_var("TREE_SITTER_DEBUG", "1");
-            }
-
-            loader.use_debug_build(parse_options.debug_build);
-
-            #[cfg(feature = "wasm")]
-            if parse_options.wasm {
-                let engine = tree_sitter::wasmtime::Engine::default();
-                parser
-                    .set_wasm_store(tree_sitter::WasmStore::new(engine.clone()).unwrap())
-                    .unwrap();
-                loader.use_wasm(engine);
-            }
-
-            let timeout = parse_options.timeout.unwrap_or_default();
-
-            let paths = collect_paths(parse_options.paths_file.as_deref(), parse_options.paths)?;
-
-            let max_path_length = paths.iter().map(|p| p.chars().count()).max().unwrap_or(0);
-            let mut has_error = false;
-            let loader_config = config.get()?;
-            loader.find_all_languages(&loader_config)?;
-
-            let should_track_stats = parse_options.stat;
-            let mut stats = parse::Stats::default();
-
-            for path in paths {
-                let path = Path::new(&path);
-
-                let language =
-                    loader.select_language(path, &current_dir, parse_options.scope.as_deref())?;
-                parser
-                    .set_language(&language)
-                    .context("incompatible language")?;
-
-                let opts = ParseFileOptions {
-                    language: language.clone(),
-                    path,
-                    edits: &edits.iter().map(|s| s.as_str()).collect::<Vec<&str>>(),
-                    max_path_length,
-                    output,
-                    print_time: time,
-                    timeout,
-                    debug: parse_options.debug,
-                    debug_graph: parse_options.debug_graph,
-                    cancellation_flag: Some(&cancellation_flag),
-                    encoding,
-                };
-
-                let parse_result = parse::parse_file_at_path(&mut parser, &opts)?;
-
-                if should_track_stats {
-                    stats.total_parses += 1;
-                    if parse_result.successful {
-                        stats.successful_parses += 1;
-                    }
-                    if let Some(duration) = parse_result.duration {
-                        stats.total_bytes += parse_result.bytes;
-                        stats.total_duration += duration;
-                    }
-                }
-
-                has_error |= !parse_result.successful;
-            }
-
-            if should_track_stats {
-                println!("\n{stats}");
-            }
-
-            if has_error {
-                return Err(anyhow!(""));
-            }
-        }
+        Commands::Parse(parse_options) => return parse_options.run(config, loader, current_dir),
 
         Commands::Test(test_options) => return test_options.run(loader, current_dir),
 
