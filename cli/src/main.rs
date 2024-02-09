@@ -261,6 +261,117 @@ struct Highlight {
     pub apply_all_captures: bool,
 }
 
+impl Highlight {
+    fn run(self, config: Config, mut loader: loader::Loader) -> Result<()> {
+        let theme_config: tree_sitter_cli::highlight::ThemeConfig = config.get()?;
+        loader.configure_highlights(&theme_config.theme.highlight_names);
+        let loader_config = config.get()?;
+        loader.find_all_languages(&loader_config)?;
+
+        let quiet = self.quiet;
+        let html_mode = quiet || self.html;
+        let paths = collect_paths(self.paths_file.as_deref(), self.paths)?;
+
+        if html_mode && !quiet {
+            println!("{}", highlight::HTML_HEADER);
+        }
+
+        let cancellation_flag = util::cancel_on_signal();
+
+        let mut language = None;
+        if let Some(scope) = self.scope.as_deref() {
+            language = loader.language_configuration_for_scope(scope)?;
+            if language.is_none() {
+                return Err(anyhow!("Unknown scope '{scope}'"));
+            }
+        }
+
+        for path in paths {
+            let path = Path::new(&path);
+            let (language, language_config) = match language.clone() {
+                Some(v) => v,
+                None => {
+                    if let Some(v) = loader.language_configuration_for_file_name(path)? {
+                        v
+                    } else {
+                        eprintln!("No language found for path {path:?}");
+                        continue;
+                    }
+                }
+            };
+
+            if let Some(highlight_config) = language_config.highlight_config(
+                language,
+                self.apply_all_captures,
+                self.query_paths.as_deref(),
+            )? {
+                if self.check {
+                    let names = if let Some(path) = self.captures_path.as_deref() {
+                        let path = Path::new(path);
+                        let file = fs::read_to_string(path)?;
+                        let capture_names = file
+                            .lines()
+                            .filter_map(|line| {
+                                if line.trim().is_empty() || line.trim().starts_with(';') {
+                                    return None;
+                                }
+                                line.split(';').next().map(|s| s.trim().trim_matches('"'))
+                            })
+                            .collect::<HashSet<_>>();
+                        highlight_config.nonconformant_capture_names(&capture_names)
+                    } else {
+                        highlight_config.nonconformant_capture_names(&HashSet::new())
+                    };
+                    if names.is_empty() {
+                        eprintln!("All highlight captures conform to standards.");
+                    } else {
+                        eprintln!(
+                            "Non-standard highlight {} detected:",
+                            if names.len() > 1 {
+                                "captures"
+                            } else {
+                                "capture"
+                            }
+                        );
+                        for name in names {
+                            eprintln!("* {name}");
+                        }
+                    }
+                }
+
+                let source = fs::read(path)?;
+                if html_mode {
+                    highlight::html(
+                        &loader,
+                        &theme_config.theme,
+                        &source,
+                        highlight_config,
+                        quiet,
+                        self.time,
+                        Some(&cancellation_flag),
+                    )?;
+                } else {
+                    highlight::ansi(
+                        &loader,
+                        &theme_config.theme,
+                        &source,
+                        highlight_config,
+                        self.time,
+                        Some(&cancellation_flag),
+                    )?;
+                }
+            } else {
+                eprintln!("No syntax highlighting config found for path {path:?}");
+            }
+        }
+
+        if html_mode && !quiet {
+            println!("{}", highlight::HTML_FOOTER);
+        }
+        Ok(())
+    }
+}
+
 #[derive(Args)]
 #[command(about = "Generate a list of tags")]
 struct Tags {
@@ -283,7 +394,7 @@ struct Tags {
 }
 
 impl Tags {
-    fn run(&self, config: Config, mut loader: loader::Loader) -> Result<()> {
+    fn run(self, config: Config, mut loader: loader::Loader) -> Result<()> {
         let loader_config = config.get()?;
         loader.find_all_languages(&loader_config)?;
         let paths = collect_paths(self.paths_file.as_deref(), self.paths)?;
@@ -669,116 +780,7 @@ fn run() -> Result<()> {
             )?;
         }
 
-        Commands::Highlight(highlight_options) => {
-            let theme_config: tree_sitter_cli::highlight::ThemeConfig = config.get()?;
-            loader.configure_highlights(&theme_config.theme.highlight_names);
-            let loader_config = config.get()?;
-            loader.find_all_languages(&loader_config)?;
-
-            let quiet = highlight_options.quiet;
-            let html_mode = quiet || highlight_options.html;
-            let paths = collect_paths(
-                highlight_options.paths_file.as_deref(),
-                highlight_options.paths,
-            )?;
-
-            if html_mode && !quiet {
-                println!("{}", highlight::HTML_HEADER);
-            }
-
-            let cancellation_flag = util::cancel_on_signal();
-
-            let mut language = None;
-            if let Some(scope) = highlight_options.scope.as_deref() {
-                language = loader.language_configuration_for_scope(scope)?;
-                if language.is_none() {
-                    return Err(anyhow!("Unknown scope '{scope}'"));
-                }
-            }
-
-            for path in paths {
-                let path = Path::new(&path);
-                let (language, language_config) = match language.clone() {
-                    Some(v) => v,
-                    None => {
-                        if let Some(v) = loader.language_configuration_for_file_name(path)? {
-                            v
-                        } else {
-                            eprintln!("No language found for path {path:?}");
-                            continue;
-                        }
-                    }
-                };
-
-                if let Some(highlight_config) = language_config.highlight_config(
-                    language,
-                    highlight_options.apply_all_captures,
-                    highlight_options.query_paths.as_deref(),
-                )? {
-                    if highlight_options.check {
-                        let names = if let Some(path) = highlight_options.captures_path.as_deref() {
-                            let path = Path::new(path);
-                            let file = fs::read_to_string(path)?;
-                            let capture_names = file
-                                .lines()
-                                .filter_map(|line| {
-                                    if line.trim().is_empty() || line.trim().starts_with(';') {
-                                        return None;
-                                    }
-                                    line.split(';').next().map(|s| s.trim().trim_matches('"'))
-                                })
-                                .collect::<HashSet<_>>();
-                            highlight_config.nonconformant_capture_names(&capture_names)
-                        } else {
-                            highlight_config.nonconformant_capture_names(&HashSet::new())
-                        };
-                        if names.is_empty() {
-                            eprintln!("All highlight captures conform to standards.");
-                        } else {
-                            eprintln!(
-                                "Non-standard highlight {} detected:",
-                                if names.len() > 1 {
-                                    "captures"
-                                } else {
-                                    "capture"
-                                }
-                            );
-                            for name in names {
-                                eprintln!("* {name}");
-                            }
-                        }
-                    }
-
-                    let source = fs::read(path)?;
-                    if html_mode {
-                        highlight::html(
-                            &loader,
-                            &theme_config.theme,
-                            &source,
-                            highlight_config,
-                            quiet,
-                            highlight_options.time,
-                            Some(&cancellation_flag),
-                        )?;
-                    } else {
-                        highlight::ansi(
-                            &loader,
-                            &theme_config.theme,
-                            &source,
-                            highlight_config,
-                            highlight_options.time,
-                            Some(&cancellation_flag),
-                        )?;
-                    }
-                } else {
-                    eprintln!("No syntax highlighting config found for path {path:?}");
-                }
-            }
-
-            if html_mode && !quiet {
-                println!("{}", highlight::HTML_FOOTER);
-            }
-        }
+        Commands::Highlight(highlight_options) => return highlight_options.run(config, loader),
 
         Commands::Tags(tags_options) => return tags_options.run(config, loader),
 
