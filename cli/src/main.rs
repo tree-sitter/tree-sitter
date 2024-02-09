@@ -694,11 +694,7 @@ struct BuildWasm {
 impl BuildWasm {
     fn run(self, current_dir: PathBuf, loader: loader::Loader) -> Result<()> {
         let grammar_path = current_dir.join(self.path.unwrap_or_default());
-        wasm::compile_language_to_wasm(
-            &loader,
-            &grammar_path,
-            &current_dir,
-            self.docker)?;
+        wasm::compile_language_to_wasm(&loader, &grammar_path, &current_dir, self.docker)?;
         Ok(())
     }
 }
