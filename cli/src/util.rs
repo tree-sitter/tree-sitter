@@ -1,16 +1,14 @@
-use anyhow::Result;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use anyhow::{anyhow, Context, Result};
+use std::{
+    path::PathBuf,
+    process::{Child, ChildStdin, Command, Stdio},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+};
 use tree_sitter::{Parser, Tree};
 
-#[cfg(unix)]
-use anyhow::{anyhow, Context};
-#[cfg(unix)]
-use std::path::PathBuf;
-#[cfg(unix)]
-use std::process::{Child, ChildStdin, Command, Stdio};
-
-#[cfg(unix)]
 const HTML_HEADER: &[u8] = b"
 <!DOCTYPE html>
 
@@ -33,41 +31,24 @@ pub fn cancel_on_signal() -> Arc<AtomicUsize> {
     result
 }
 
-#[cfg(windows)]
-pub struct LogSession;
-
-#[cfg(unix)]
 pub struct LogSession {
     path: PathBuf,
     dot_process: Option<Child>,
     dot_process_stdin: Option<ChildStdin>,
 }
 
-#[cfg(windows)]
-pub fn print_tree_graph(_tree: &Tree, _path: &str) -> Result<()> {
-    Ok(())
-}
-
-#[cfg(windows)]
-pub fn log_graphs(_parser: &mut Parser, _path: &str) -> Result<LogSession> {
-    Ok(LogSession)
-}
-
-#[cfg(unix)]
 pub fn print_tree_graph(tree: &Tree, path: &str) -> Result<()> {
     let session = LogSession::new(path)?;
     tree.print_dot_graph(session.dot_process_stdin.as_ref().unwrap());
     Ok(())
 }
 
-#[cfg(unix)]
 pub fn log_graphs(parser: &mut Parser, path: &str) -> Result<LogSession> {
     let session = LogSession::new(path)?;
     parser.print_dot_graphs(session.dot_process_stdin.as_ref().unwrap());
     Ok(session)
 }
 
-#[cfg(unix)]
 impl LogSession {
     fn new(path: &str) -> Result<Self> {
         use std::io::Write;
@@ -94,7 +75,6 @@ impl LogSession {
     }
 }
 
-#[cfg(unix)]
 impl Drop for LogSession {
     fn drop(&mut self) {
         use std::fs;

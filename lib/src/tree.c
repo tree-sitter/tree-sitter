@@ -126,17 +126,36 @@ TSRange *ts_tree_get_changed_ranges(const TSTree *old_tree, const TSTree *new_tr
 
 #ifdef _WIN32
 
+#include <io.h>
+#include <windows.h>
+
+int _ts_dup(HANDLE handle) {
+  HANDLE dup_handle;
+  if (!DuplicateHandle(
+    GetCurrentProcess(), handle,
+    GetCurrentProcess(), &dup_handle,
+    0, FALSE, DUPLICATE_SAME_ACCESS
+  )) return -1;
+
+  return _open_osfhandle((intptr_t)dup_handle, 0);
+}
+
 void ts_tree_print_dot_graph(const TSTree *self, int fd) {
-  (void)self;
-  (void)fd;
+  FILE *file = _fdopen(_ts_dup((HANDLE)_get_osfhandle(fd)), "a");
+  ts_subtree_print_dot_graph(self->root, self->language, file);
+  fclose(file);
 }
 
 #else
 
 #include <unistd.h>
 
+int _ts_dup(int file_descriptor) {
+  return dup(file_descriptor);
+}
+
 void ts_tree_print_dot_graph(const TSTree *self, int file_descriptor) {
-  FILE *file = fdopen(dup(file_descriptor), "a");
+  FILE *file = fdopen(_ts_dup(file_descriptor), "a");
   ts_subtree_print_dot_graph(self->root, self->language, file);
   fclose(file);
 }

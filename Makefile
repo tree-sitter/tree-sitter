@@ -18,7 +18,7 @@ endif
 OBJ := $(SRC:.c=.o)
 
 # define default flags, and override to append mandatory flags
-override CFLAGS := -O3 -std=gnu99 -fPIC -fvisibility=hidden -Wall -Wextra -Wshadow $(CFLAGS)
+override CFLAGS := -O3 -std=gnu11 -fPIC -fvisibility=hidden -Wall -Wextra -Wshadow -pedantic $(CFLAGS)
 override CFLAGS += -Ilib/src -Ilib/src/wasm -Ilib/include
 
 # ABI versioning
@@ -76,3 +76,25 @@ clean:
 	rm -f lib/src/*.o libtree-sitter.a libtree-sitter.$(SOEXT) libtree-sitter.$(SOEXTVER_MAJOR) libtree-sitter.$(SOEXTVER)
 
 .PHONY: all install clean
+
+
+##### Dev targets #####
+
+test:
+	script/fetch-fixtures
+	script/generate-fixtures
+	script/test
+
+test_wasm:
+	script/generate-fixtures-wasm
+	script/test-wasm
+
+lint:
+	cargo check --workspace --all-targets
+	cargo fmt --all --check
+	cargo clippy --workspace --all-targets -- -D warnings
+
+format:
+	cargo fmt --all
+
+.PHONY: test test_wasm lint format
