@@ -797,7 +797,7 @@ fn run() -> Result<()> {
 
     let current_dir = env::current_dir().unwrap();
     let config = Config::load()?;
-    let mut loader = loader::Loader::new()?;
+    let loader = loader::Loader::new()?;
 
     match command {
         Commands::InitConfig(command) => command.run()?,
