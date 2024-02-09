@@ -294,6 +294,18 @@ struct BuildWasm {
     pub path: Option<String>,
 }
 
+impl BuildWasm {
+    fn run(self, current_dir: PathBuf, loader: loader::Loader) -> Result<()> {
+        let grammar_path = current_dir.join(self.path.unwrap_or_default());
+        wasm::compile_language_to_wasm(
+            &loader,
+            &grammar_path,
+            &current_dir,
+            self.docker)?;
+        Ok(())
+    }
+}
+
 #[derive(Args)]
 #[command(
     about = "Start local playground for a parser in the browser",
@@ -765,15 +777,7 @@ fn run() -> Result<()> {
             )?;
         }
 
-        Commands::BuildWasm(wasm_options) => {
-            let grammar_path = current_dir.join(wasm_options.path.unwrap_or_default());
-            wasm::compile_language_to_wasm(
-                &loader,
-                &grammar_path,
-                &current_dir,
-                wasm_options.docker,
-            )?;
-        }
+        Commands::BuildWasm(wasm_options) => return wasm_options.run(current_dir, loader),
 
         Commands::Playground(playground_options) => {
             let open_in_browser = !playground_options.quiet;
