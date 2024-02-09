@@ -41,6 +41,26 @@ enum Commands {
 #[command(about = "Generate a default config file")]
 struct InitConfig;
 
+impl InitConfig {
+    fn run(self) -> Result<()> {
+        if let Ok(Some(config_path)) = Config::find_config_file() {
+            return Err(anyhow!(
+                "Remove your existing config file first: {}",
+                config_path.to_string_lossy()
+            ));
+        }
+        let mut config = Config::initial()?;
+        config.add(tree_sitter_loader::Config::initial())?;
+        config.add(tree_sitter_cli::highlight::ThemeConfig::default())?;
+        config.save()?;
+        println!(
+            "Saved initial configuration to {}",
+            config.location.display()
+        );
+        Ok(())
+    }
+}
+
 #[derive(Args)]
 #[command(about = "Generate a parser", alias = "gen", alias = "g")]
 struct Generate {
@@ -772,22 +792,7 @@ fn run() -> Result<()> {
     let mut loader = loader::Loader::new()?;
 
     match command {
-        Commands::InitConfig(_) => {
-            if let Ok(Some(config_path)) = Config::find_config_file() {
-                return Err(anyhow!(
-                    "Remove your existing config file first: {}",
-                    config_path.to_string_lossy()
-                ));
-            }
-            let mut config = Config::initial()?;
-            config.add(tree_sitter_loader::Config::initial())?;
-            config.add(tree_sitter_cli::highlight::ThemeConfig::default())?;
-            config.save()?;
-            println!(
-                "Saved initial configuration to {}",
-                config.location.display()
-            );
-        }
+        Commands::InitConfig(command) => return command.run(),
 
         Commands::Generate(generate_options) => return generate_options.run(loader, current_dir),
 
