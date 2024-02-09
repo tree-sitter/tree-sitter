@@ -91,6 +91,40 @@ struct Generate {
     pub js_runtime: Option<String>,
 }
 
+impl Generate {
+    fn run(self, mut loader: loader::Loader, current_dir: PathBuf) -> Result<()> {
+        if self.log {
+            logger::init();
+        }
+        let abi_version = match self.abi_version {
+            Some(ref version) => {
+                if version == "latest" {
+                    tree_sitter::LANGUAGE_VERSION
+                } else {
+                    version.parse().expect("invalid abi version flag")
+                }
+            }
+            None => DEFAULT_GENERATE_ABI_VERSION,
+        };
+        generate::generate_parser_in_directory(
+            &current_dir,
+            self.grammar_path.as_deref(),
+            abi_version,
+            !self.no_bindings,
+            self.report_states_for_rule.as_deref(),
+            self.js_runtime.as_deref(),
+        )?;
+        if self.build {
+            if let Some(path) = self.libdir {
+                loader = loader::Loader::with_parser_lib_path(PathBuf::from(path));
+            }
+            loader.use_debug_build(self.debug_build);
+            loader.languages_at_path(&current_dir)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Args)]
 #[command(about = "Parse files", alias = "p")]
 struct Parse {
@@ -755,36 +789,7 @@ fn run() -> Result<()> {
             );
         }
 
-        Commands::Generate(generate_options) => {
-            if generate_options.log {
-                logger::init();
-            }
-            let abi_version = match generate_options.abi_version {
-                Some(ref version) => {
-                    if version == "latest" {
-                        tree_sitter::LANGUAGE_VERSION
-                    } else {
-                        version.parse().expect("invalid abi version flag")
-                    }
-                }
-                None => DEFAULT_GENERATE_ABI_VERSION,
-            };
-            generate::generate_parser_in_directory(
-                &current_dir,
-                generate_options.grammar_path.as_deref(),
-                abi_version,
-                !generate_options.no_bindings,
-                generate_options.report_states_for_rule.as_deref(),
-                generate_options.js_runtime.as_deref(),
-            )?;
-            if generate_options.build {
-                if let Some(path) = generate_options.libdir {
-                    loader = loader::Loader::with_parser_lib_path(PathBuf::from(path));
-                }
-                loader.use_debug_build(generate_options.debug_build);
-                loader.languages_at_path(&current_dir)?;
-            }
-        }
+        Commands::Generate(generate_options) => return generate_options.run(loader, current_dir),
 
         Commands::Parse(parse_options) => return parse_options.run(config, loader, current_dir),
 
