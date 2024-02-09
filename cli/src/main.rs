@@ -193,6 +193,80 @@ struct Test {
     pub apply_all_captures: bool,
 }
 
+impl Test {
+    fn run(self, mut loader: loader::Loader, current_dir: PathBuf) -> Result<()> {
+        if self.debug {
+            // For augmenting debug logging in external scanners
+            env::set_var("TREE_SITTER_DEBUG", "1");
+        }
+
+        loader.use_debug_build(self.debug_build);
+
+        let mut parser = Parser::new();
+
+        #[cfg(feature = "wasm")]
+        if self.wasm {
+            let engine = tree_sitter::wasmtime::Engine::default();
+            parser
+                .set_wasm_store(tree_sitter::WasmStore::new(engine.clone()).unwrap())
+                .unwrap();
+            loader.use_wasm(engine);
+        }
+
+        let languages = loader.languages_at_path(&current_dir)?;
+        let language = languages
+            .first()
+            .ok_or_else(|| anyhow!("No language found"))?;
+        parser.set_language(language)?;
+
+        let test_dir = current_dir.join("test");
+
+        // Run the corpus tests. Look for them at two paths: `test/corpus` and `corpus`.
+        let mut test_corpus_dir = test_dir.join("corpus");
+        if !test_corpus_dir.is_dir() {
+            test_corpus_dir = current_dir.join("corpus");
+        }
+        if test_corpus_dir.is_dir() {
+            let mut opts = TestOptions {
+                path: test_corpus_dir,
+                debug: self.debug,
+                debug_graph: self.debug_graph,
+                filter: self.filter.as_deref(),
+                include: self.include,
+                exclude: self.exclude,
+                update: self.update,
+            };
+
+            test::run_tests_at_path(&mut parser, &mut opts)?;
+        }
+
+        // Check that all of the queries are valid.
+        test::check_queries_at_path(language, &current_dir.join("queries"))?;
+
+        // Run the syntax highlighting tests.
+        let test_highlight_dir = test_dir.join("highlight");
+        if test_highlight_dir.is_dir() {
+            let mut highlighter = Highlighter::new();
+            highlighter.parser = parser;
+            test_highlight::test_highlights(
+                &loader,
+                &mut highlighter,
+                &test_highlight_dir,
+                self.apply_all_captures,
+            )?;
+            parser = highlighter.parser;
+        }
+
+        let test_tag_dir = test_dir.join("tags");
+        if test_tag_dir.is_dir() {
+            let mut tags_context = TagsContext::new();
+            tags_context.parser = parser;
+            test_tags::test_tags(&loader, &mut tags_context, &test_tag_dir)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Args)]
 #[command(about = "Search files using a syntax tree query", alias = "q")]
 struct Query {
@@ -709,78 +783,9 @@ fn run() -> Result<()> {
             }
         }
 
-        Commands::Test(test_options) => {
-            if test_options.debug {
-                // For augmenting debug logging in external scanners
-                env::set_var("TREE_SITTER_DEBUG", "1");
-            }
+        Commands::Test(test_options) => return test_options.run(loader, current_dir),
 
-            loader.use_debug_build(test_options.debug_build);
-
-            let mut parser = Parser::new();
-
-            #[cfg(feature = "wasm")]
-            if test_options.wasm {
-                let engine = tree_sitter::wasmtime::Engine::default();
-                parser
-                    .set_wasm_store(tree_sitter::WasmStore::new(engine.clone()).unwrap())
-                    .unwrap();
-                loader.use_wasm(engine);
-            }
-
-            let languages = loader.languages_at_path(&current_dir)?;
-            let language = languages
-                .first()
-                .ok_or_else(|| anyhow!("No language found"))?;
-            parser.set_language(language)?;
-
-            let test_dir = current_dir.join("test");
-
-            // Run the corpus tests. Look for them at two paths: `test/corpus` and `corpus`.
-            let mut test_corpus_dir = test_dir.join("corpus");
-            if !test_corpus_dir.is_dir() {
-                test_corpus_dir = current_dir.join("corpus");
-            }
-            if test_corpus_dir.is_dir() {
-                let mut opts = TestOptions {
-                    path: test_corpus_dir,
-                    debug: test_options.debug,
-                    debug_graph: test_options.debug_graph,
-                    filter: test_options.filter.as_deref(),
-                    include: test_options.include,
-                    exclude: test_options.exclude,
-                    update: test_options.update,
-                };
-
-                test::run_tests_at_path(&mut parser, &mut opts)?;
-            }
-
-            // Check that all of the queries are valid.
-            test::check_queries_at_path(language, &current_dir.join("queries"))?;
-
-            // Run the syntax highlighting tests.
-            let test_highlight_dir = test_dir.join("highlight");
-            if test_highlight_dir.is_dir() {
-                let mut highlighter = Highlighter::new();
-                highlighter.parser = parser;
-                test_highlight::test_highlights(
-                    &loader,
-                    &mut highlighter,
-                    &test_highlight_dir,
-                    test_options.apply_all_captures,
-                )?;
-                parser = highlighter.parser;
-            }
-
-            let test_tag_dir = test_dir.join("tags");
-            if test_tag_dir.is_dir() {
-                let mut tags_context = TagsContext::new();
-                tags_context.parser = parser;
-                test_tags::test_tags(&loader, &mut tags_context, &test_tag_dir)?;
-            }
-        }
-
-        Commands::Query(query_options) => return query_options.run(),
+        Commands::Query(query_options) => return query_options.run(config, loader, current_dir),
 
         Commands::Highlight(highlight_options) => return highlight_options.run(config, loader),
 
