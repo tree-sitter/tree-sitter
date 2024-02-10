@@ -229,6 +229,8 @@ function grammar(baseGrammar, options) {
       supertypes: [],
       precedences: [],
     };
+  } else {
+    baseGrammar = baseGrammar.grammar;
   }
 
   let externals = baseGrammar.externals;
