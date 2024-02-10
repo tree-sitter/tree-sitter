@@ -20,6 +20,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Guile](https://github.com/Z572/guile-ts)
 * [Haskell](https://github.com/tree-sitter/haskell-tree-sitter)
 * [Java](https://github.com/serenadeai/java-tree-sitter)
+* [Java](https://github.com/bonede/tree-sitter-ng)
 * [Java (Android)](https://github.com/AndroidIDEOfficial/android-tree-sitter)
 * [JavaScript (Node.js)](https://github.com/tree-sitter/node-tree-sitter)
 * [JavaScript (Wasm)](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web)

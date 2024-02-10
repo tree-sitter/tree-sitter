@@ -661,7 +661,7 @@ Consider the following example targeting C:
   (#eq? @variable.builtin "self"))
 ```
 
-This pattern would match any identifier that is `self` or `this`.
+This pattern would match any identifier that is `self`.
 
 And this pattern would match key-value pairs where the `value` is an identifier
 with the same name as the key:
