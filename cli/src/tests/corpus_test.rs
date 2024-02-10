@@ -60,13 +60,13 @@ fn test_corpus_for_html(seed: usize) {
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
-fn test_corpus_for_javascript(seed: usize) {
-    test_language_corpus("javascript", seed, None, None);
+fn test_corpus_for_java(seed: usize) {
+    test_language_corpus("java", seed, None, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
-fn test_corpus_for_typescript(seed: usize) {
-    test_language_corpus("typescript", seed, None, Some("typescript"));
+fn test_corpus_for_javascript(seed: usize) {
+    test_language_corpus("javascript", seed, None, None);
 }
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
@@ -92,6 +92,16 @@ fn test_corpus_for_ruby(seed: usize) {
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_rust(seed: usize) {
     test_language_corpus("rust", seed, None, None);
+}
+
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_typescript(seed: usize) {
+    test_language_corpus("typescript", seed, None, Some("typescript"));
+}
+
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_tsx(seed: usize) {
+    test_language_corpus("typescript", seed, None, Some("tsx"));
 }
 
 fn test_language_corpus(
