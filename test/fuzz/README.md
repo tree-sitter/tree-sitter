@@ -34,7 +34,7 @@ The `run-fuzzer` script handles running an individual fuzzer with a sensible def
 
 which will log information to stdout. Failing testcases and a fuzz corpus will be saved to `fuzz-results/<grammar-name>`. The most important extra `libFuzzer` options are `-jobs` and `-workers` which allow parallel fuzzing. This is can done with, e.g.:
 ```
-./script/run-fuzzer <grammer-name> halt -jobs=32 -workers=32
+./script/run-fuzzer <grammar-name> halt -jobs=32 -workers=32
 ```
 
 The testcase can be used to reproduce the crash by running:
