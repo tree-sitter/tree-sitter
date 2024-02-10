@@ -157,12 +157,6 @@ jobs:
     - name: Build CLI
       run: $BUILD_CMD build --release --target=${{ matrix.target }} --features=${CLI_FEATURES}
 
-    - name: Info about CLI
-      if: ${{ startsWith(matrix.platform, 'linux') }}
-      run: |
-        min_glibc=$(objdump -p target/$TARGET/release/tree-sitter${{ env.EXE }} | sed -nr 's/.*(GLIBC_.+).*/\1/p' | sort -uV | tail -n1)
-        echo "🔗 Minimal **glibc** version required for CLI: ${min_glibc}">> $GITHUB_STEP_SUMMARY
-
     - name: Fetch fixtures
       if: ${{ !matrix.cli-only && inputs.run_test }} # Don't fetch fixtures for only CLI building targets
       run: script/fetch-fixtures
