@@ -1,5 +1,4 @@
 name: CI
-
 on:
   pull_request:
   push:
@@ -12,7 +11,12 @@ concurrency:
 
 jobs:
   checks:
-    uses: ./.github/workflows/checks.yml
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - run: rustup toolchain install stable --profile minimal
+    - uses: Swatinem/rust-cache@v2
+    - run: make lint
 
   sanitize:
     uses: ./.github/workflows/sanitize.yml
