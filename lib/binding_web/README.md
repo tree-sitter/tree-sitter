@@ -27,6 +27,14 @@ const Parser = require('web-tree-sitter');
 Parser.init().then(() => { /* the library is ready */ });
 ```
 
+You can use this module with [deno](https://deno.land/):
+
+```js
+import Parser from "npm:web-tree-sitter";
+await Parser.init();
+// the library is ready
+```
+
 ### Basic Usage
 
 First, create a parser:
