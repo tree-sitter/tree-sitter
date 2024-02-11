@@ -310,6 +310,10 @@ function grammar(baseGrammar, options) {
     if (typeof word != 'string') {
       throw new Error("Grammar's 'word' property must be a named rule.");
     }
+
+    if (word === 'ReferenceError') {
+      throw new Error("Grammar's 'word' property must be a valid rule name.");
+    }
   }
 
   let conflicts = baseGrammar.conflicts;
