@@ -29,22 +29,22 @@ jobs:
         - windows-arm64     #
         - windows-x64       # <-- No C library build - requires an additional adapted Makefile for `cl.exe` compiler
         - windows-x86       #     -- // --
-        - macos-arm64       # <-- MacOS M1/M2 - no tests, only CLI build to be published on release artifacts
+        - macos-arm64       #
         - macos-x64         #
 
         include:
         # When adding a new `target`:
         # 1. Define a new platform alias above
         # 2. Add a new record to a matrix map in `cli/npm/install.js`
-        - { platform: linux-arm64       , target: aarch64-unknown-linux-gnu           , os: ubuntu-latest  , use-cross: true }
-        - { platform: linux-arm         , target: arm-unknown-linux-gnueabi           , os: ubuntu-latest  , use-cross: true }
+        - { platform: linux-arm64       , target: aarch64-unknown-linux-gnu           , os: ubuntu-latest  , use-cross: true   }
+        - { platform: linux-arm         , target: arm-unknown-linux-gnueabi           , os: ubuntu-latest  , use-cross: true   }
         - { platform: linux-x64         , target: x86_64-unknown-linux-gnu            , os: ubuntu-20.04   , enable-wasm: true } #2272
-        - { platform: linux-x86         , target: i686-unknown-linux-gnu              , os: ubuntu-latest  , use-cross: true }
-        - { platform: linux-powerpc64   , target: powerpc64-unknown-linux-gnu         , os: ubuntu-latest  , use-cross: true }
-        - { platform: windows-arm64     , target: aarch64-pc-windows-msvc             , os: windows-latest                   }
+        - { platform: linux-x86         , target: i686-unknown-linux-gnu              , os: ubuntu-latest  , use-cross: true   }
+        - { platform: linux-powerpc64   , target: powerpc64-unknown-linux-gnu         , os: ubuntu-latest  , use-cross: true   }
+        - { platform: windows-arm64     , target: aarch64-pc-windows-msvc             , os: windows-latest                     }
         - { platform: windows-x64       , target: x86_64-pc-windows-msvc              , os: windows-latest , enable-wasm: true }
-        - { platform: windows-x86       , target: i686-pc-windows-msvc                , os: windows-latest                   }
-        - { platform: macos-arm64       , target: aarch64-apple-darwin                , os: macos-latest   , enable-wasm: true }
+        - { platform: windows-x86       , target: i686-pc-windows-msvc                , os: windows-latest                     }
+        - { platform: macos-arm64       , target: aarch64-apple-darwin                , os: macos-14       , enable-wasm: true }
         - { platform: macos-x64         , target: x86_64-apple-darwin                 , os: macos-latest   , enable-wasm: true }
 
         # Cross compilers for C library
@@ -59,7 +59,6 @@ jobs:
 
         # CLI only build
         - { platform: windows-arm64 , cli-only: true }
-        - { platform: macos-arm64   , cli-only: true }
 
     env:
       BUILD_CMD: cargo
