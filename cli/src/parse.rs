@@ -61,6 +61,7 @@ pub struct ParseFileOptions<'a> {
     pub debug_graph: bool,
     pub cancellation_flag: Option<&'a AtomicUsize>,
     pub encoding: Option<u32>,
+    pub open_log: bool,
 }
 
 #[derive(Copy, Clone)]
@@ -85,7 +86,7 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
 
     // Render an HTML graph if `--debug-graph` was passed
     if opts.debug_graph {
-        _log_session = Some(util::log_graphs(parser, "log.html")?);
+        _log_session = Some(util::log_graphs(parser, "log.html", opts.open_log)?);
     }
     // Log to stderr if `--debug` was passed
     else if opts.debug {
@@ -297,7 +298,7 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
         }
 
         if opts.output == ParseOutput::Dot {
-            util::print_tree_graph(&tree, "log.html").unwrap();
+            util::print_tree_graph(&tree, "log.html", opts.open_log).unwrap();
         }
 
         let mut first_error = None;

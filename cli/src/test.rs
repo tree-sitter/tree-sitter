@@ -64,6 +64,7 @@ pub struct TestOptions<'a> {
     pub include: Option<Regex>,
     pub exclude: Option<Regex>,
     pub update: bool,
+    pub open_log: bool,
 }
 
 pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<()> {
@@ -71,7 +72,7 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
     let mut _log_session = None;
 
     if opts.debug_graph {
-        _log_session = Some(util::log_graphs(parser, "log.html")?);
+        _log_session = Some(util::log_graphs(parser, "log.html", opts.open_log)?);
     } else if opts.debug {
         parser.set_logger(Some(Box::new(|log_type, message| {
             if log_type == LogType::Lex {
