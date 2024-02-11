@@ -544,7 +544,7 @@ fn get_parser(session: &mut Option<util::LogSession>, log_filename: &str) -> Par
             }
         })));
     } else if *LOG_GRAPH_ENABLED {
-        *session = Some(util::log_graphs(&mut parser, log_filename).unwrap());
+        *session = Some(util::log_graphs(&mut parser, log_filename, false).unwrap());
     }
 
     parser

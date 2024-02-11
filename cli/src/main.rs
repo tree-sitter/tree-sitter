@@ -145,6 +145,11 @@ struct Parse {
     pub edits: Option<Vec<String>>,
     #[arg(long, help = "The encoding of the input files")]
     pub encoding: Option<String>,
+    #[arg(
+        long,
+        help = "Open `log.html` in the default browser, if `--debug-graph` is supplied"
+    )]
+    pub open_log: bool,
 }
 
 #[derive(Args)]
@@ -191,6 +196,11 @@ struct Test {
     pub wasm: bool,
     #[arg(long, help = "Apply all captures to highlights")]
     pub apply_all_captures: bool,
+    #[arg(
+        long,
+        help = "Open `log.html` in the default browser, if `--debug-graph` is supplied"
+    )]
+    pub open_log: bool,
 }
 
 #[derive(Args)]
@@ -480,6 +490,7 @@ fn run() -> Result<()> {
                     debug_graph: parse_options.debug_graph,
                     cancellation_flag: Some(&cancellation_flag),
                     encoding,
+                    open_log: parse_options.open_log,
                 };
 
                 let parse_result = parse::parse_file_at_path(&mut parser, &opts)?;
@@ -548,6 +559,7 @@ fn run() -> Result<()> {
                     include: test_options.include,
                     exclude: test_options.exclude,
                     update: test_options.update,
+                    open_log: test_options.open_log,
                 };
 
                 test::run_tests_at_path(&mut parser, &mut opts)?;
