@@ -351,7 +351,17 @@ function grammar(baseGrammar, options) {
       throw new Error("Grammar's inline must be an array of rules.");
     }
 
-    inline = inlineRules.map(symbol => symbol.name);
+    inline = inlineRules.filter((symbol, index, self) => {
+      if (self.findIndex(s => s.name === symbol.name) !== index) {
+        console.log(`Warning: duplicate inline rule '${symbol.name}'`);
+        return false;
+      }
+      if (symbol.name === 'ReferenceError') {
+        console.log(`Warning: inline rule '${symbol.symbol.name}' is not defined.`);
+        return false;
+      }
+      return true;
+    }).map(symbol => symbol.name);
   }
 
   let supertypes = baseGrammar.supertypes;
