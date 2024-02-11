@@ -1,1 +1,30 @@
-run-fuzzer
+#!/bin/bash
+
+set -eux
+
+root=$(dirname "$0")/..
+export ASAN_OPTIONS="quarantine_size_mb=10:detect_leaks=1:symbolize=1"
+export UBSAN="print_stacktrace=1:halt_on_error=1:symbolize=1"
+
+# check if CI env var exists
+
+if [ -z "${CI:-}" ]; then
+  declare -A mode_config=( ["halt"]="-timeout=1 -rss_limit_mb=2048" ["recover"]="-timeout=10 -rss_limit_mb=2048" )
+else
+  declare -A mode_config=( ["halt"]="-max_total_time=120 -timeout=1 -rss_limit_mb=2048" ["recover"]="-time=120 -timeout=10 -rss_limit_mb=2048" )
+fi
+
+if [ "$#" -lt 3 ]; then
+  echo "usage: $0 <language> (halt|recover) <testcase> <libFuzzer args...>"
+  exit 1
+fi
+
+lang="$1"
+shift
+mode="$1"
+shift
+testcase="$1"
+shift
+# Treat remainder of arguments as libFuzzer arguments
+
+"${root}/test/fuzz/out/${lang}_fuzzer" "${mode_config[$mode]}" -runs=1 "${testcase}" "$@"

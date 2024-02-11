@@ -14,51 +14,25 @@ else
   declare -A mode_config=( ["halt"]="-max_total_time=120 -timeout=1 -rss_limit_mb=2048" ["recover"]="-time=120 -timeout=10 -rss_limit_mb=2048" )
 fi
 
-run_fuzzer() {
-  if [ "$#" -lt 2 ]; then
-    echo "usage: $0 <language> <halt|recover> <libFuzzer args...>"
-    exit 1
-  fi
-
-  lang="$1"
-  shift
-  mode="$1"
-  shift
-  # Treat remainder of arguments as libFuzzer arguments
-
-  # Fuzzing logs and testcases are always written to `pwd`, so `cd` there first
-  results="${root}/test/fuzz/out/fuzz-results/${lang}"
-  mkdir -p "${results}"
-  cd "${results}"
-
-  # Create a corpus directory, so new discoveries are stored on disk. These will
-  # then be loaded on subsequent fuzzing runs
-  mkdir -p corpus
-
-  pwd
-  "../../${lang}_fuzzer" "-dict=../../${lang}.dict" "-artifact_prefix=${lang}_" -max_len=2048 "${mode_config[$mode]}" "./corpus" "$@"
-}
-
-reproduce() {
-  if [ "$#" -lt 3 ]; then
-    echo "usage: $0 <language> (halt|recover) <testcase> <libFuzzer args...>"
-    exit 1
-  fi
-
-  lang="$1"
-  shift
-  mode="$1"
-  shift
-  testcase="$1"
-  shift
-  # Treat remainder of arguments as libFuzzer arguments
-
-  "${root}/test/fuzz/out/${lang}_fuzzer" "${mode_config[$mode]}" -runs=1 "${testcase}" "$@"
-}
-
-script=$(basename "$0")
-if [ "$script" == "run-fuzzer" ]; then
-  run_fuzzer "$@"
-elif [ "$script" == "reproduce" ]; then
-  reproduce "$@"
+if [ "$#" -lt 2 ]; then
+  echo "usage: $0 <language> <halt|recover> <libFuzzer args...>"
+  exit 1
 fi
+
+lang="$1"
+shift
+mode="$1"
+shift
+# Treat remainder of arguments as libFuzzer arguments
+
+# Fuzzing logs and testcases are always written to `pwd`, so `cd` there first
+results="${root}/test/fuzz/out/fuzz-results/${lang}"
+mkdir -p "${results}"
+cd "${results}"
+
+# Create a corpus directory, so new discoveries are stored on disk. These will
+# then be loaded on subsequent fuzzing runs
+mkdir -p corpus
+
+pwd
+"../../${lang}_fuzzer" "-dict=../../${lang}.dict" "-artifact_prefix=${lang}_" -max_len=2048 "${mode_config[$mode]}" "./corpus" "$@"
