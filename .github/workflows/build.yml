@@ -36,16 +36,16 @@ jobs:
         # When adding a new `target`:
         # 1. Define a new platform alias above
         # 2. Add a new record to a matrix map in `cli/npm/install.js`
-        - { platform: linux-arm64       , target: aarch64-unknown-linux-gnu           , os: ubuntu-latest  , use-cross: true   }
-        - { platform: linux-arm         , target: arm-unknown-linux-gnueabi           , os: ubuntu-latest  , use-cross: true   }
-        - { platform: linux-x64         , target: x86_64-unknown-linux-gnu            , os: ubuntu-20.04   , enable-wasm: true } #2272
-        - { platform: linux-x86         , target: i686-unknown-linux-gnu              , os: ubuntu-latest  , use-cross: true   }
-        - { platform: linux-powerpc64   , target: powerpc64-unknown-linux-gnu         , os: ubuntu-latest  , use-cross: true   }
-        - { platform: windows-arm64     , target: aarch64-pc-windows-msvc             , os: windows-latest                     }
-        - { platform: windows-x64       , target: x86_64-pc-windows-msvc              , os: windows-latest , enable-wasm: true }
-        - { platform: windows-x86       , target: i686-pc-windows-msvc                , os: windows-latest                     }
-        - { platform: macos-arm64       , target: aarch64-apple-darwin                , os: macos-14       , enable-wasm: true }
-        - { platform: macos-x64         , target: x86_64-apple-darwin                 , os: macos-latest   , enable-wasm: true }
+        - { platform: linux-arm64       , target: aarch64-unknown-linux-gnu           , os: ubuntu-latest  , use-cross: true    }
+        - { platform: linux-arm         , target: arm-unknown-linux-gnueabi           , os: ubuntu-latest  , use-cross: true    }
+        - { platform: linux-x64         , target: x86_64-unknown-linux-gnu            , os: ubuntu-20.04   , cli_features: wasm } #2272
+        - { platform: linux-x86         , target: i686-unknown-linux-gnu              , os: ubuntu-latest  , use-cross: true    }
+        - { platform: linux-powerpc64   , target: powerpc64-unknown-linux-gnu         , os: ubuntu-latest  , use-cross: true    }
+        - { platform: windows-arm64     , target: aarch64-pc-windows-msvc             , os: windows-latest                      }
+        - { platform: windows-x64       , target: x86_64-pc-windows-msvc              , os: windows-latest , cli_features: wasm }
+        - { platform: windows-x86       , target: i686-pc-windows-msvc                , os: windows-latest                      }
+        - { platform: macos-arm64       , target: aarch64-apple-darwin                , os: macos-14       , cli_features: wasm }
+        - { platform: macos-x64         , target: x86_64-apple-darwin                 , os: macos-latest   , cli_features: wasm }
 
         # Cross compilers for C library
         - { platform: linux-arm64       , cc: aarch64-linux-gnu-gcc             , ar: aarch64-linux-gnu-ar           }
@@ -62,7 +62,6 @@ jobs:
 
     env:
       BUILD_CMD: cargo
-      EMSCRIPTEN_VERSION: ""
       EXE: ${{ contains(matrix.target, 'windows') && '.exe' || '' }}
 
     defaults:
@@ -73,8 +72,7 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Read Emscripten version
-      run: |
-        echo "EMSCRIPTEN_VERSION=$(cat cli/loader/emscripten-version)" >> $GITHUB_ENV
+      run: echo "EMSCRIPTEN_VERSION=$(cat cli/loader/emscripten-version)" >> $GITHUB_ENV
 
     - name: Install Emscripten
       if: ${{ !matrix.cli-only && !matrix.use-cross }}
@@ -95,8 +93,6 @@ jobs:
     - name: Build custom cross image
       if: ${{ matrix.use-cross && matrix.os == 'ubuntu-latest' }}
       run: |
-        cd ..
-
         target="${{ matrix.target }}"
         image=ghcr.io/cross-rs/$target:custom
         echo "CROSS_IMAGE=$image"                              >> $GITHUB_ENV
@@ -112,13 +108,11 @@ jobs:
 
     - name: Setup env extras
       env:
-        RUST_TEST_THREADS: ${{ matrix.rust-test-threads || '' }}
+        RUST_TEST_THREADS: ${{ matrix.rust-test-threads }}
         USE_CROSS: ${{ matrix.use-cross }}
         TARGET: ${{ matrix.target }}
         CC: ${{ matrix.cc }}
         AR: ${{ matrix.ar }}
-        IS_WINDOWS: ${{ contains(matrix.os, 'windows') }}
-        ENABLE_WASM: ${{ matrix.enable-wasm }}
       run: |
         PATH="$PWD/.github/scripts:$PATH"
         echo "$PWD/.github/scripts" >> $GITHUB_PATH
@@ -133,12 +127,6 @@ jobs:
         [ -n "$CC" ] && echo "CC=$CC" >> $GITHUB_ENV
         [ -n "$AR" ] && echo "AR=$AR" >> $GITHUB_ENV
 
-        [ "$IS_WINDOWS" = "false" ] && echo "CFLAGS=-Werror" >> $GITHUB_ENV
-
-        if [ "$ENABLE_WASM" == "true" ]; then
-          echo "CLI_FEATURES=wasm" >> $GITHUB_ENV
-        fi
-
         if [ "$USE_CROSS" == "true" ]; then
           echo "BUILD_CMD=cross" >> $GITHUB_ENV
           runner=$(BUILD_CMD=cross cross.sh bash -c "env | sed -nr '/^CARGO_TARGET_.*_RUNNER=/s///p'")
@@ -147,14 +135,13 @@ jobs:
 
     - name: Build C library
       if: ${{ !contains(matrix.os, 'windows') }} # Requires an additional adapted Makefile for `cl.exe` compiler
-      run: make.sh -j
+      run: make.sh -j CFLAGS="-Werror"
 
     - name: Build wasm library
       if: ${{ !matrix.cli-only && !matrix.use-cross }} # No sense to build on the same Github runner hosts many times
       run: script/build-wasm
 
-    - name: Build CLI
-      run: $BUILD_CMD build --release --target=${{ matrix.target }} --features=${CLI_FEATURES}
+    - run: $BUILD_CMD build --release --target=${{ matrix.target }} --features=${{ matrix.cli_features }}
 
     - run: script/fetch-fixtures
 
@@ -171,7 +158,7 @@ jobs:
 
     - name: Run main tests
       if: ${{ !matrix.cli-only && inputs.run_test }} # Can't natively run CLI on Github runner's host
-      run: $BUILD_CMD test --target=${{ matrix.target }} --features=${CLI_FEATURES}
+      run: $BUILD_CMD test --target=${{ matrix.target }} --features=${{ matrix.cli_features }}
 
     - name: Run wasm tests
       if: ${{ !matrix.cli-only && !matrix.use-cross && inputs.run_test }} # See comment for the "Build wasm library" step
