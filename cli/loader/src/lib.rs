@@ -652,7 +652,7 @@ impl Loader {
             "-s",
             "WASM=1",
             "-s",
-            "SIDE_MODULE=1",
+            "SIDE_MODULE=2",
             "-s",
             "TOTAL_MEMORY=33554432",
             "-s",

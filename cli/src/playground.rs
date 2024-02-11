@@ -46,7 +46,7 @@ fn get_main_html(tree_sitter_dir: Option<&PathBuf>) -> Cow<'static, [u8]> {
 
 pub fn serve(grammar_path: &Path, open_in_browser: bool) -> Result<()> {
     let server = get_server()?;
-    let (grammar_name, language_wasm) = wasm::load_language_wasm_file(grammar_path).unwrap();
+    let (grammar_name, language_wasm) = wasm::load_language_wasm_file(grammar_path)?;
     let url = format!("http://{}", server.server_addr());
     println!("Started playground on: {url}");
     if open_in_browser && webbrowser::open(&url).is_err() {
