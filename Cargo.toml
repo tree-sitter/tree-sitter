@@ -26,7 +26,7 @@ ansi_term = "0.12.1"
 anstyle = "1.0.6"
 anyhow = "1.0.79"
 cc = "1.0.83"
-clap = { version = "4.4.18", features = [
+clap = { version = "4.5.0", features = [
   "cargo",
   "derive",
   "env",
