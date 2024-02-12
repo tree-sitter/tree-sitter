@@ -1340,6 +1340,7 @@ dependencies = [
  "cc",
  "dirs",
  "fs4",
+ "indoc",
  "libloading",
  "once_cell",
  "regex",

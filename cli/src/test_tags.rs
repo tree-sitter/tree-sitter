@@ -1,11 +1,16 @@
-use crate::query_testing::{parse_position_comments, Assertion};
-use ansi_term::Colour;
-use anyhow::{anyhow, Result};
 use std::fs;
 use std::path::Path;
+
+use ansi_term::Colour;
+use anyhow::{anyhow, Result};
 use tree_sitter::Point;
-use tree_sitter_loader::Loader;
+use tree_sitter_loader::{Config, Loader};
 use tree_sitter_tags::{TagsConfiguration, TagsContext};
+
+use super::{
+    query_testing::{parse_position_comments, Assertion},
+    util,
+};
 
 #[derive(Debug)]
 pub struct Failure {
@@ -38,7 +43,12 @@ impl std::fmt::Display for Failure {
     }
 }
 
-pub fn test_tags(loader: &Loader, tags_context: &mut TagsContext, directory: &Path) -> Result<()> {
+pub fn test_tags(
+    loader: &Loader,
+    loader_config: &Config,
+    tags_context: &mut TagsContext,
+    directory: &Path,
+) -> Result<()> {
     let mut failed = false;
 
     println!("tags:");
@@ -48,7 +58,12 @@ pub fn test_tags(loader: &Loader, tags_context: &mut TagsContext, directory: &Pa
         let test_file_name = tag_test_file.file_name();
         let (language, language_config) = loader
             .language_configuration_for_file_name(&test_file_path)?
-            .ok_or_else(|| anyhow!("No language found for path {:?}", test_file_path))?;
+            .ok_or_else(|| {
+                anyhow!(
+                    "{}",
+                    util::lang_not_found_for_path(test_file_path.as_path(), loader_config)
+                )
+            })?;
         let tags_config = language_config
             .tags_config(language)?
             .ok_or_else(|| anyhow!("No tags config found for {:?}", test_file_path))?;

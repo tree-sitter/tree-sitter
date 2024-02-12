@@ -1,13 +1,17 @@
-use anyhow::{anyhow, Context, Result};
 use std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Child, ChildStdin, Command, Stdio},
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
     },
 };
+
+use anyhow::{anyhow, Context, Result};
+use indoc::indoc;
 use tree_sitter::{Parser, Tree};
+use tree_sitter_config::Config;
+use tree_sitter_loader::Config as LoaderConfig;
 
 const HTML_HEADER: &[u8] = b"
 <!DOCTYPE html>
@@ -17,6 +21,33 @@ svg { width: 100%; }
 </style>
 
 ";
+
+pub fn lang_not_found_for_path(path: &Path, loader_config: &LoaderConfig) -> String {
+    let path = path.display();
+    format!(
+        indoc! {"
+            No language found for path `{}`
+
+            If a language should be associated with this file extension, please ensure the path to `{}` is inside one of the following directories as specified by your 'config.json':\n\n{}\n
+            If the directory that contains the relevant grammar for `{}` is not listed above, please add the directory to the list of directories in your config file, {}
+        "},
+        path,
+        path,
+        loader_config
+            .parser_directories
+            .iter()
+            .enumerate()
+            .map(|(i, d)| format!("  {}. {}", i + 1, d.display()))
+            .collect::<Vec<_>>()
+            .join("  \n"),
+        path,
+        if let Ok(Some(config_path)) = Config::find_config_file() {
+            format!("located at {}", config_path.display())
+        } else {
+            String::from("which you need to create by running `tree-sitter init-config`")
+        }
+    )
+}
 
 #[must_use]
 pub fn cancel_on_signal() -> Arc<AtomicUsize> {

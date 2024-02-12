@@ -4,11 +4,12 @@ use std::io::{self, Write};
 use std::path::Path;
 use std::time::Instant;
 use std::{fs, str};
-use tree_sitter_loader::Loader;
+use tree_sitter_loader::{Config, Loader};
 use tree_sitter_tags::TagsContext;
 
 pub fn generate_tags(
     loader: &Loader,
+    loader_config: &Config,
     scope: Option<&str>,
     paths: &[String],
     quiet: bool,
@@ -35,7 +36,7 @@ pub fn generate_tags(
                 if let Some(v) = loader.language_configuration_for_file_name(path)? {
                     v
                 } else {
-                    eprintln!("No language found for path {path:?}");
+                    eprintln!("{}", util::lang_not_found_for_path(path, loader_config));
                     continue;
                 }
             }
