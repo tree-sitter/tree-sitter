@@ -34,6 +34,7 @@ dirs.workspace = true
 glob.workspace = true
 html-escape.workspace = true
 indexmap.workspace = true
+indoc.workspace = true
 lazy_static.workspace = true
 log.workspace = true
 memchr.workspace = true
@@ -80,7 +81,6 @@ tempfile.workspace = true
 pretty_assertions.workspace = true
 ctor.workspace = true
 unindent.workspace = true
-indoc.workspace = true
 
 [build-dependencies]
 toml.workspace = true

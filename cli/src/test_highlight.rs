@@ -1,11 +1,16 @@
-use crate::query_testing::{parse_position_comments, Assertion};
-use ansi_term::Colour;
-use anyhow::{anyhow, Result};
 use std::fs;
 use std::path::Path;
+
+use ansi_term::Colour;
+use anyhow::{anyhow, Result};
 use tree_sitter::Point;
 use tree_sitter_highlight::{Highlight, HighlightConfiguration, HighlightEvent, Highlighter};
-use tree_sitter_loader::Loader;
+use tree_sitter_loader::{Config, Loader};
+
+use super::{
+    query_testing::{parse_position_comments, Assertion},
+    util,
+};
 
 #[derive(Debug)]
 pub struct Failure {
@@ -40,16 +45,25 @@ impl std::fmt::Display for Failure {
 
 pub fn test_highlights(
     loader: &Loader,
+    loader_config: &Config,
     highlighter: &mut Highlighter,
     directory: &Path,
     apply_all_captures: bool,
 ) -> Result<()> {
     println!("syntax highlighting:");
-    test_highlights_indented(loader, highlighter, directory, apply_all_captures, 2)
+    test_highlights_indented(
+        loader,
+        loader_config,
+        highlighter,
+        directory,
+        apply_all_captures,
+        2,
+    )
 }
 
 fn test_highlights_indented(
     loader: &Loader,
+    loader_config: &Config,
     highlighter: &mut Highlighter,
     directory: &Path,
     apply_all_captures: bool,
@@ -70,6 +84,7 @@ fn test_highlights_indented(
             println!("{}:", test_file_name.into_string().unwrap());
             if test_highlights_indented(
                 loader,
+                loader_config,
                 highlighter,
                 &test_file_path,
                 apply_all_captures,
@@ -82,7 +97,12 @@ fn test_highlights_indented(
         } else {
             let (language, language_config) = loader
                 .language_configuration_for_file_name(&test_file_path)?
-                .ok_or_else(|| anyhow!("No language found for path {test_file_path:?}"))?;
+                .ok_or_else(|| {
+                    anyhow!(
+                        "{}",
+                        util::lang_not_found_for_path(test_file_path.as_path(), loader_config)
+                    )
+                })?;
             let highlight_config = language_config
                 .highlight_config(language, apply_all_captures, None)?
                 .ok_or_else(|| anyhow!("No highlighting config found for {test_file_path:?}"))?;
