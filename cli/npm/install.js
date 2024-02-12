@@ -21,20 +21,9 @@ const matrix = {
       arch: {
         'arm64': { name: 'arm64' },
         'arm': { name: 'arm' },
-        'armv7l': { name: 'armv7l' },
         'x64': { name: 'x64' },
         'x86': { name: 'x86' },
-        'i586': { name: 'i586' },
-        'mips': { name: 'mips' },
-        'mips64': { name: 'mips64' },
-        'mipsel': { name: 'mipsel' },
-        'mips64el': { name: 'mips64el' },
-        'ppc': { name: 'powerpc' },
         'ppc64': { name: 'powerpc64' },
-        'ppc64el': { name: 'powerpc64el' },
-        'riscv64gc': { name: 'riscv64gc' },
-        's390x': { name: 's390x' },
-        'sparc64': { name: 'sparc64' },
       }
     },
     'win32': {
@@ -94,29 +83,42 @@ file.on('finish', () => {
 
 // Follow redirects.
 function get(url, callback) {
-  const requestUrl = new URL(url)
-  let request = https
-  let requestConfig = requestUrl
-  const proxyEnv = process.env['HTTPS_PROXY'] || process.env['https_proxy']
-
-  if (proxyEnv) {
-    const proxyUrl = new URL(proxyEnv)
-    request = proxyUrl.protocol === 'https:' ? https : http
-    requestConfig = {
-      hostname: proxyUrl.hostname,
-      port: proxyUrl.port,
-      path: requestUrl.toString(),
-      headers: {
-        Host: requestUrl.hostname
-      }
-    }
-  }
-
-  request.get(requestConfig, response => {
+  const processResponse = (response) => {
     if (response.statusCode === 301 || response.statusCode === 302) {
       get(response.headers.location, callback);
     } else {
       callback(response);
     }
-  });
+  };
+
+  const proxyEnv = process.env['HTTPS_PROXY'] || process.env['https_proxy'];
+  if (!proxyEnv) {
+    https.get(url, processResponse);
+    return;
+  }
+
+  const requestUrl = new URL(url);
+  const requestPort = requestUrl.port || (requestUrl.protocol === 'https:' ? 443 : 80);
+  const proxyUrl = new URL(proxyEnv);
+  const request = proxyUrl.protocol === 'https:' ? https : http;
+  request.request({
+    host: proxyUrl.hostname,
+    port: proxyUrl.port || (proxyUrl.protocol === 'https:' ? 443 : 80),
+    method: 'CONNECT',
+    path: `${requestUrl.hostname}:${requestPort}`,
+  }).on('connect', (response, socket, _head) => {
+    if (response.statusCode !== 200) {
+      // let caller handle error
+      callback(response);
+      return;
+    }
+
+    const agent = https.Agent({ socket });
+    https.get({
+      host: requestUrl.host,
+      port: requestPort,
+      path: `${requestUrl.pathname}${requestUrl.search}`,
+      agent,
+    }, processResponse);
+  }).end();
 }

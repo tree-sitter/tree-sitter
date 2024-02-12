@@ -1,5 +1,5 @@
-pub(crate) mod build_lex_table;
-pub(crate) mod build_parse_table;
+pub mod build_lex_table;
+pub mod build_parse_table;
 mod coincident_tokens;
 mod item;
 mod item_set_builder;
@@ -20,11 +20,11 @@ use anyhow::Result;
 use log::info;
 use std::collections::{BTreeSet, HashMap};
 
-pub(crate) fn build_tables(
+pub fn build_tables(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     simple_aliases: &AliasMap,
-    variable_info: &Vec<VariableInfo>,
+    variable_info: &[VariableInfo],
     inlines: &InlinedProductionMap,
     report_symbol_name: Option<&str>,
 ) -> Result<(ParseTable, LexTable, LexTable, Option<Symbol>)> {
@@ -69,8 +69,8 @@ pub(crate) fn build_tables(
 
     if let Some(report_symbol_name) = report_symbol_name {
         report_state_info(
-            &syntax_grammar,
-            &lexical_grammar,
+            syntax_grammar,
+            lexical_grammar,
             &parse_table,
             &parse_state_info,
             report_symbol_name,
@@ -98,9 +98,8 @@ fn populate_error_state(
     // First identify the *conflict-free tokens*: tokens that do not overlap with
     // any other token in any way, besides matching exactly the same string.
     let conflict_free_tokens: TokenSet = (0..n)
-        .into_iter()
         .filter_map(|i| {
-            let conflicts_with_other_tokens = (0..n).into_iter().any(|j| {
+            let conflicts_with_other_tokens = (0..n).any(|j| {
                 j != i
                     && !coincident_token_index.contains(Symbol::terminal(i), Symbol::terminal(j))
                     && token_conflict_map.does_match_shorter_or_longer(i, j)
@@ -126,18 +125,19 @@ fn populate_error_state(
     // the *conflict-free tokens* identified above.
     for i in 0..n {
         let symbol = Symbol::terminal(i);
-        if !conflict_free_tokens.contains(&symbol) && !keywords.contains(&symbol) {
-            if syntax_grammar.word_token != Some(symbol) {
-                if let Some(t) = conflict_free_tokens.iter().find(|t| {
-                    !coincident_token_index.contains(symbol, *t)
-                        && token_conflict_map.does_conflict(symbol.index, t.index)
-                }) {
-                    info!(
-                        "error recovery - exclude token {} because of conflict with {}",
-                        lexical_grammar.variables[i].name, lexical_grammar.variables[t.index].name
-                    );
-                    continue;
-                }
+        if !conflict_free_tokens.contains(&symbol)
+            && !keywords.contains(&symbol)
+            && syntax_grammar.word_token != Some(symbol)
+        {
+            if let Some(t) = conflict_free_tokens.iter().find(|t| {
+                !coincident_token_index.contains(symbol, *t)
+                    && token_conflict_map.does_conflict(symbol.index, t.index)
+            }) {
+                info!(
+                    "error recovery - exclude token {} because of conflict with {}",
+                    lexical_grammar.variables[i].name, lexical_grammar.variables[t.index].name
+                );
+                continue;
             }
         }
         info!(
@@ -361,7 +361,7 @@ fn mark_fragile_tokens(
 ) {
     let n = lexical_grammar.variables.len();
     let mut valid_tokens_mask = Vec::with_capacity(n);
-    for state in parse_table.states.iter_mut() {
+    for state in &mut parse_table.states {
         valid_tokens_mask.clear();
         valid_tokens_mask.resize(n, false);
         for token in state.terminal_entries.keys() {
@@ -369,14 +369,12 @@ fn mark_fragile_tokens(
                 valid_tokens_mask[token.index] = true;
             }
         }
-        for (token, entry) in state.terminal_entries.iter_mut() {
+        for (token, entry) in &mut state.terminal_entries {
             if token.is_terminal() {
                 for (i, is_valid) in valid_tokens_mask.iter().enumerate() {
-                    if *is_valid {
-                        if token_conflict_map.does_overlap(i, token.index) {
-                            entry.reusable = false;
-                            break;
-                        }
+                    if *is_valid && token_conflict_map.does_overlap(i, token.index) {
+                        entry.reusable = false;
+                        break;
                     }
                 }
             }
@@ -388,7 +386,7 @@ fn report_state_info<'a>(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     parse_table: &ParseTable,
-    parse_state_info: &Vec<ParseStateInfo<'a>>,
+    parse_state_info: &[ParseStateInfo<'a>],
     report_symbol_name: &'a str,
 ) {
     let mut all_state_indices = BTreeSet::new();
@@ -399,7 +397,7 @@ fn report_state_info<'a>(
     for (i, state) in parse_table.states.iter().enumerate() {
         all_state_indices.insert(i);
         let item_set = &parse_state_info[state.id];
-        for (item, _) in item_set.1.entries.iter() {
+        for (item, _) in &item_set.1.entries {
             if !item.is_augmented() {
                 symbols_with_state_indices[item.variable_index as usize]
                     .1
@@ -424,7 +422,7 @@ fn report_state_info<'a>(
             width = max_symbol_name_length
         );
     }
-    eprintln!("");
+    eprintln!();
 
     let state_indices = if report_symbol_name == "*" {
         Some(&all_state_indices)
@@ -441,14 +439,14 @@ fn report_state_info<'a>(
     };
 
     if let Some(state_indices) = state_indices {
-        let mut state_indices = state_indices.into_iter().cloned().collect::<Vec<_>>();
+        let mut state_indices = state_indices.iter().copied().collect::<Vec<_>>();
         state_indices.sort_unstable_by_key(|i| (parse_table.states[*i].core_id, *i));
 
         for state_index in state_indices {
             let id = parse_table.states[state_index].id;
             let (preceding_symbols, item_set) = &parse_state_info[id];
-            eprintln!("state index: {}", state_index);
-            eprintln!("state id: {}", id);
+            eprintln!("state index: {state_index}");
+            eprintln!("state id: {id}");
             eprint!("symbol sequence:");
             for symbol in preceding_symbols {
                 let name = if symbol.is_terminal() {
@@ -458,11 +456,11 @@ fn report_state_info<'a>(
                 } else {
                     &syntax_grammar.variables[symbol.index].name
                 };
-                eprint!(" {}", name);
+                eprint!(" {name}");
             }
             eprintln!(
                 "\nitems:\n{}",
-                self::item::ParseItemSetDisplay(&item_set, syntax_grammar, lexical_grammar,),
+                self::item::ParseItemSetDisplay(item_set, syntax_grammar, lexical_grammar,),
             );
         }
     }

@@ -3,38 +3,38 @@ use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use std::{fs, str};
 
-const BINDING_CC_TEMPLATE: &'static str = include_str!("./templates/binding.cc");
-const BINDING_GYP_TEMPLATE: &'static str = include_str!("./templates/binding.gyp");
-const INDEX_JS_TEMPLATE: &'static str = include_str!("./templates/index.js");
-const LIB_RS_TEMPLATE: &'static str = include_str!("./templates/lib.rs");
-const BUILD_RS_TEMPLATE: &'static str = include_str!("./templates/build.rs");
-const CARGO_TOML_TEMPLATE: &'static str = include_str!("./templates/cargo.toml");
-const PACKAGE_JSON_TEMPLATE: &'static str = include_str!("./templates/package.json");
-const PARSER_NAME_PLACEHOLDER: &'static str = "PARSER_NAME";
-const CLI_VERSION_PLACEHOLDER: &'static str = "CLI_VERSION";
-const CLI_VERSION: &'static str = env!("CARGO_PKG_VERSION");
-const RUST_BINDING_VERSION: &'static str = env!("RUST_BINDING_VERSION");
-const RUST_BINDING_VERSION_PLACEHOLDER: &'static str = "RUST_BINDING_VERSION";
+const BINDING_CC_TEMPLATE: &str = include_str!("./templates/binding.cc");
+const BINDING_GYP_TEMPLATE: &str = include_str!("./templates/binding.gyp");
+const INDEX_JS_TEMPLATE: &str = include_str!("./templates/index.js");
+const LIB_RS_TEMPLATE: &str = include_str!("./templates/lib.rs");
+const BUILD_RS_TEMPLATE: &str = include_str!("./templates/build.rs");
+const CARGO_TOML_TEMPLATE: &str = include_str!("./templates/cargo.toml");
+const PACKAGE_JSON_TEMPLATE: &str = include_str!("./templates/package.json");
+const PARSER_NAME_PLACEHOLDER: &str = "PARSER_NAME";
+const CLI_VERSION_PLACEHOLDER: &str = "CLI_VERSION";
+const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
+const RUST_BINDING_VERSION: &str = env!("RUST_BINDING_VERSION");
+const RUST_BINDING_VERSION_PLACEHOLDER: &str = "RUST_BINDING_VERSION";
 
 pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<()> {
     let bindings_dir = repo_path.join("bindings");
 
-    let dashed_language_name = language_name.replace("_", "-");
+    let dashed_language_name = language_name.replace('_', "-");
     let dashed_language_name = dashed_language_name.as_str();
 
     // Generate rust bindings if needed.
     let rust_binding_dir = bindings_dir.join("rust");
     create_path(&rust_binding_dir, |path| create_dir(path))?;
 
-    create_path(&rust_binding_dir.join("lib.rs").to_owned(), |path| {
+    create_path(&rust_binding_dir.join("lib.rs"), |path| {
         generate_file(path, LIB_RS_TEMPLATE, language_name)
     })?;
 
-    create_path(&rust_binding_dir.join("build.rs").to_owned(), |path| {
+    create_path(&rust_binding_dir.join("build.rs"), |path| {
         generate_file(path, BUILD_RS_TEMPLATE, language_name)
     })?;
 
-    create_path(&repo_path.join("Cargo.toml").to_owned(), |path| {
+    create_path(&repo_path.join("Cargo.toml"), |path| {
         generate_file(path, CARGO_TOML_TEMPLATE, dashed_language_name)
     })?;
 
@@ -42,11 +42,11 @@ pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<(
     let node_binding_dir = bindings_dir.join("node");
     create_path(&node_binding_dir, |path| create_dir(path))?;
 
-    create_path(&node_binding_dir.join("index.js").to_owned(), |path| {
+    create_path(&node_binding_dir.join("index.js"), |path| {
         generate_file(path, INDEX_JS_TEMPLATE, language_name)
     })?;
 
-    create_path(&node_binding_dir.join("binding.cc").to_owned(), |path| {
+    create_path(&node_binding_dir.join("binding.cc"), |path| {
         generate_file(path, BINDING_CC_TEMPLATE, language_name)
     })?;
 
@@ -124,7 +124,7 @@ fn generate_file(path: &Path, template: &str, language_name: &str) -> Result<()>
 }
 
 fn create_dir(path: &Path) -> Result<()> {
-    fs::create_dir_all(&path)
+    fs::create_dir_all(path)
         .with_context(|| format!("Failed to create {:?}", path.to_string_lossy()))
 }
 
@@ -147,8 +147,7 @@ where
     if !path.exists() {
         action(path)?;
         return Ok(true);
-    } else {
-        else_action(path)?;
     }
+    else_action(path)?;
     Ok(false)
 }

@@ -18,7 +18,7 @@ To make changes to Tree-sitter, you should have:
 1. A C compiler, for compiling the core library and the generated parsers.
 2. A [Rust toolchain](https://rustup.rs/), for compiling the Rust bindings, the highlighting library, and the CLI.
 3. Node.js and NPM, for generating parsers from `grammar.js` files.
-4. Either [Emscripten](https://emscripten.org/) or [Docker](https://www.docker.com/), for compiling the library to WASM.
+4. Either [Emscripten](https://emscripten.org/), [Docker](https://www.docker.com/), or [podman](https://podman.io/) for compiling the library to WASM.
 
 ### Building
 
@@ -29,7 +29,7 @@ git clone https://github.com/tree-sitter/tree-sitter
 cd tree-sitter
 ```
 
-Optionally, build the WASM library. If you skip this step, then the `tree-sitter playground` command will require an internet connection. If you have emscripten installed, this will use your `emcc` compiler. Otherwise, it will use Docker:
+Optionally, build the WASM library. If you skip this step, then the `tree-sitter playground` command will require an internet connection. If you have emscripten installed, this will use your `emcc` compiler. Otherwise, it will use Docker or Podman:
 
 ```sh
 ./script/build-wasm

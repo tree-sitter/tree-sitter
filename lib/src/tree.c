@@ -12,7 +12,7 @@ TSTree *ts_tree_new(
 ) {
   TSTree *result = ts_malloc(sizeof(TSTree));
   result->root = root;
-  result->language = language;
+  result->language = ts_language_copy(language);
   result->included_ranges = ts_calloc(included_range_count, sizeof(TSRange));
   memcpy(result->included_ranges, included_ranges, included_range_count * sizeof(TSRange));
   result->included_range_count = included_range_count;
@@ -30,6 +30,7 @@ void ts_tree_delete(TSTree *self) {
   SubtreePool pool = ts_subtree_pool_new(0);
   ts_subtree_release(&pool, self->root);
   ts_subtree_pool_delete(&pool);
+  ts_language_delete(self->language);
   ts_free(self->included_ranges);
   ts_free(self);
 }
@@ -125,17 +126,36 @@ TSRange *ts_tree_get_changed_ranges(const TSTree *old_tree, const TSTree *new_tr
 
 #ifdef _WIN32
 
+#include <io.h>
+#include <windows.h>
+
+int _ts_dup(HANDLE handle) {
+  HANDLE dup_handle;
+  if (!DuplicateHandle(
+    GetCurrentProcess(), handle,
+    GetCurrentProcess(), &dup_handle,
+    0, FALSE, DUPLICATE_SAME_ACCESS
+  )) return -1;
+
+  return _open_osfhandle((intptr_t)dup_handle, 0);
+}
+
 void ts_tree_print_dot_graph(const TSTree *self, int fd) {
-  (void)self;
-  (void)fd;
+  FILE *file = _fdopen(_ts_dup((HANDLE)_get_osfhandle(fd)), "a");
+  ts_subtree_print_dot_graph(self->root, self->language, file);
+  fclose(file);
 }
 
 #else
 
 #include <unistd.h>
 
+int _ts_dup(int file_descriptor) {
+  return dup(file_descriptor);
+}
+
 void ts_tree_print_dot_graph(const TSTree *self, int file_descriptor) {
-  FILE *file = fdopen(dup(file_descriptor), "a");
+  FILE *file = fdopen(_ts_dup(file_descriptor), "a");
   ts_subtree_print_dot_graph(self->root, self->language, file);
   fclose(file);
 }

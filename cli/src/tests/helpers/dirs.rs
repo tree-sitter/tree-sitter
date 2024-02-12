@@ -8,6 +8,7 @@ lazy_static! {
         fs::create_dir_all(&result).unwrap();
         result
     };
+    pub static ref WASM_DIR: PathBuf = ROOT_DIR.join("target").join("release");
     pub static ref SCRATCH_DIR: PathBuf = {
         // https://doc.rust-lang.org/reference/conditional-compilation.html
         let vendor = if cfg!(target_vendor = "apple") {
@@ -38,7 +39,7 @@ lazy_static! {
             "unknown"
         };
 
-        let machine = format!("{}-{}-{}-{}-{}", std::env::consts::ARCH, std::env::consts::OS, vendor, env, endian);
+        let machine = format!("{}-{}-{vendor}-{env}-{endian}", std::env::consts::ARCH, std::env::consts::OS);
         let result = SCRATCH_BASE_DIR.join(machine);
         fs::create_dir_all(&result).unwrap();
         result

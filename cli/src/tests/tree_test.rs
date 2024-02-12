@@ -7,7 +7,7 @@ use tree_sitter::{InputEdit, Parser, Point, Range, Tree};
 #[test]
 fn test_tree_edit() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("javascript")).unwrap();
+    parser.set_language(&get_language("javascript")).unwrap();
     let tree = parser.parse("  abc  !==  def", None).unwrap();
 
     assert_eq!(
@@ -44,7 +44,7 @@ fn test_tree_edit() {
     }
 
     // edit starting in the tree's padding but extending into its content:
-    // shrink the content to compenstate for the expanded padding.
+    // shrink the content to compensate for the expanded padding.
     {
         let mut tree = tree.clone();
         tree.edit(&InputEdit {
@@ -207,7 +207,7 @@ fn test_tree_edit() {
     // replacement that starts in whitespace and extends beyond the end of the tree:
     // shift the token's start position and empty out its content.
     {
-        let mut tree = tree.clone();
+        let mut tree = tree;
         tree.edit(&InputEdit {
             start_byte: 6,
             old_end_byte: 90,
@@ -235,7 +235,7 @@ fn test_tree_edit() {
 #[test]
 fn test_tree_edit_with_included_ranges() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("html")).unwrap();
+    parser.set_language(&get_language("html")).unwrap();
 
     let source = "<div><% if a %><span>a</span><% else %><span>b</span><% end %></div>";
 
@@ -300,7 +300,7 @@ fn test_tree_edit_with_included_ranges() {
 #[test]
 fn test_tree_cursor() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("rust")).unwrap();
+    parser.set_language(&get_language("rust")).unwrap();
 
     let tree = parser
         .parse(
@@ -322,55 +322,55 @@ fn test_tree_cursor() {
 
     assert!(cursor.goto_first_child());
     assert_eq!(cursor.node().kind(), "struct");
-    assert_eq!(cursor.node().is_named(), false);
+    assert!(!cursor.node().is_named());
 
     assert!(cursor.goto_next_sibling());
     assert_eq!(cursor.node().kind(), "type_identifier");
-    assert_eq!(cursor.node().is_named(), true);
+    assert!(cursor.node().is_named());
 
     assert!(cursor.goto_next_sibling());
     assert_eq!(cursor.node().kind(), "field_declaration_list");
-    assert_eq!(cursor.node().is_named(), true);
+    assert!(cursor.node().is_named());
 
     assert!(cursor.goto_last_child());
     assert_eq!(cursor.node().kind(), "}");
-    assert_eq!(cursor.node().is_named(), false);
+    assert!(!cursor.node().is_named());
     assert_eq!(cursor.node().start_position(), Point { row: 4, column: 16 });
 
     assert!(cursor.goto_previous_sibling());
     assert_eq!(cursor.node().kind(), ",");
-    assert_eq!(cursor.node().is_named(), false);
+    assert!(!cursor.node().is_named());
     assert_eq!(cursor.node().start_position(), Point { row: 3, column: 32 });
 
     assert!(cursor.goto_previous_sibling());
     assert_eq!(cursor.node().kind(), "field_declaration");
-    assert_eq!(cursor.node().is_named(), true);
+    assert!(cursor.node().is_named());
     assert_eq!(cursor.node().start_position(), Point { row: 3, column: 20 });
 
     assert!(cursor.goto_previous_sibling());
     assert_eq!(cursor.node().kind(), ",");
-    assert_eq!(cursor.node().is_named(), false);
+    assert!(!cursor.node().is_named());
     assert_eq!(cursor.node().start_position(), Point { row: 2, column: 24 });
 
     assert!(cursor.goto_previous_sibling());
     assert_eq!(cursor.node().kind(), "field_declaration");
-    assert_eq!(cursor.node().is_named(), true);
+    assert!(cursor.node().is_named());
     assert_eq!(cursor.node().start_position(), Point { row: 2, column: 20 });
 
     assert!(cursor.goto_previous_sibling());
     assert_eq!(cursor.node().kind(), "{");
-    assert_eq!(cursor.node().is_named(), false);
+    assert!(!cursor.node().is_named());
     assert_eq!(cursor.node().start_position(), Point { row: 1, column: 29 });
 
     let mut copy = tree.walk();
-    copy.reset_to(cursor);
+    copy.reset_to(&cursor);
 
     assert_eq!(copy.node().kind(), "{");
-    assert_eq!(copy.node().is_named(), false);
+    assert!(!copy.node().is_named());
 
     assert!(copy.goto_parent());
     assert_eq!(copy.node().kind(), "field_declaration_list");
-    assert_eq!(copy.node().is_named(), true);
+    assert!(copy.node().is_named());
 
     assert!(copy.goto_parent());
     assert_eq!(copy.node().kind(), "struct_item");
@@ -379,7 +379,7 @@ fn test_tree_cursor() {
 #[test]
 fn test_tree_cursor_previous_sibling() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("rust")).unwrap();
+    parser.set_language(&get_language("rust")).unwrap();
 
     let text = "
     // Hi there
@@ -418,7 +418,7 @@ fn test_tree_cursor_previous_sibling() {
 #[test]
 fn test_tree_cursor_fields() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("javascript")).unwrap();
+    parser.set_language(&get_language("javascript")).unwrap();
 
     let tree = parser
         .parse("function /*1*/ bar /*2*/ () {}", None)
@@ -455,7 +455,7 @@ fn test_tree_cursor_fields() {
 #[test]
 fn test_tree_cursor_child_for_point() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("javascript")).unwrap();
+    parser.set_language(&get_language("javascript")).unwrap();
     let source = &"
     [
         one,
@@ -562,7 +562,7 @@ fn test_tree_cursor_child_for_point() {
 #[test]
 fn test_tree_node_equality() {
     let mut parser = Parser::new();
-    parser.set_language(get_language("rust")).unwrap();
+    parser.set_language(&get_language("rust")).unwrap();
     let tree = parser.parse("struct A {}", None).unwrap();
     let node1 = tree.root_node();
     let node2 = tree.root_node();
@@ -576,7 +576,7 @@ fn test_get_changed_ranges() {
     let source_code = b"{a: null};\n".to_vec();
 
     let mut parser = Parser::new();
-    parser.set_language(get_language("javascript")).unwrap();
+    parser.set_language(&get_language("javascript")).unwrap();
     let tree = parser.parse(&source_code, None).unwrap();
 
     assert_eq!(
@@ -596,11 +596,11 @@ fn test_get_changed_ranges() {
             inserted_text: b"othing".to_vec(),
         };
         let inverse_edit = invert_edit(&source_code, &edit);
-        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, edit);
+        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, &edit);
         assert_eq!(ranges, vec![range_of(&source_code, "nothing")]);
 
         // Replace `nothing` with `null` - that token has changed syntax
-        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, inverse_edit);
+        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, &inverse_edit);
         assert_eq!(ranges, vec![range_of(&source_code, "null")]);
     }
 
@@ -616,11 +616,11 @@ fn test_get_changed_ranges() {
             inserted_text: b"\n".to_vec(),
         };
         let inverse_edit = invert_edit(&source_code, &edit);
-        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, edit);
+        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, &edit);
         assert_eq!(ranges, vec![]);
 
         // Remove leading newline - no changed ranges
-        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, inverse_edit);
+        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, &inverse_edit);
         assert_eq!(ranges, vec![]);
     }
 
@@ -636,7 +636,7 @@ fn test_get_changed_ranges() {
             inserted_text: b", b: false".to_vec(),
         };
         let inverse_edit1 = invert_edit(&source_code, &edit1);
-        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, edit1);
+        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, &edit1);
         assert_eq!(ranges, vec![range_of(&source_code, ", b: false")]);
 
         let edit2 = Edit {
@@ -645,21 +645,21 @@ fn test_get_changed_ranges() {
             inserted_text: b", c: 1".to_vec(),
         };
         let inverse_edit2 = invert_edit(&source_code, &edit2);
-        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, edit2);
+        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, &edit2);
         assert_eq!(ranges, vec![range_of(&source_code, ", c: 1")]);
 
         // Remove the middle pair
-        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, inverse_edit2);
+        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, &inverse_edit2);
         assert_eq!(ranges, vec![]);
 
         // Remove the second pair
-        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, inverse_edit1);
+        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, &inverse_edit1);
         assert_eq!(ranges, vec![]);
     }
 
     // Wrapping elements in larger expressions
     {
-        let mut tree = tree.clone();
+        let mut tree = tree;
         let mut source_code = source_code.clone();
 
         // Replace `null` with the binary expression `b === null`
@@ -669,23 +669,20 @@ fn test_get_changed_ranges() {
             inserted_text: b"b === ".to_vec(),
         };
         let inverse_edit1 = invert_edit(&source_code, &edit1);
-        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, edit1);
+        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, &edit1);
         assert_eq!(ranges, vec![range_of(&source_code, "b === null")]);
 
         // Undo
-        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, inverse_edit1);
+        let ranges = get_changed_ranges(&mut parser, &mut tree, &mut source_code, &inverse_edit1);
         assert_eq!(ranges, vec![range_of(&source_code, "null")]);
     }
 }
 
-fn index_of(text: &Vec<u8>, substring: &str) -> usize {
-    str::from_utf8(text.as_slice())
-        .unwrap()
-        .find(substring)
-        .unwrap()
+fn index_of(text: &[u8], substring: &str) -> usize {
+    str::from_utf8(text).unwrap().find(substring).unwrap()
 }
 
-fn range_of(text: &Vec<u8>, substring: &str) -> Range {
+fn range_of(text: &[u8], substring: &str) -> Range {
     let start_byte = index_of(text, substring);
     let end_byte = start_byte + substring.as_bytes().len();
     Range {
@@ -700,9 +697,9 @@ fn get_changed_ranges(
     parser: &mut Parser,
     tree: &mut Tree,
     source_code: &mut Vec<u8>,
-    edit: Edit,
+    edit: &Edit,
 ) -> Vec<Range> {
-    perform_edit(tree, source_code, &edit).unwrap();
+    perform_edit(tree, source_code, edit).unwrap();
     let new_tree = parser.parse(&source_code, Some(tree)).unwrap();
     let result = tree.changed_ranges(&new_tree).collect();
     *tree = new_tree;

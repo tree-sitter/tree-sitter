@@ -28,9 +28,9 @@ pub(super) fn extract_default_aliases(
 
     // For each grammar symbol, find all of the aliases under which the symbol appears,
     // and determine whether or not the symbol ever appears *unaliased*.
-    for variable in syntax_grammar.variables.iter() {
-        for production in variable.productions.iter() {
-            for step in production.steps.iter() {
+    for variable in &syntax_grammar.variables {
+        for production in &variable.productions {
+            for step in &production.steps {
                 let status = match step.symbol.kind {
                     SymbolType::External => &mut external_status_list[step.symbol.index],
                     SymbolType::NonTerminal => &mut non_terminal_status_list[step.symbol.index],
@@ -62,7 +62,7 @@ pub(super) fn extract_default_aliases(
         }
     }
 
-    for symbol in syntax_grammar.extra_symbols.iter() {
+    for symbol in &syntax_grammar.extra_symbols {
         let status = match symbol.kind {
             SymbolType::External => &mut external_status_list[symbol.index],
             SymbolType::NonTerminal => &mut non_terminal_status_list[symbol.index],
@@ -98,25 +98,23 @@ pub(super) fn extract_default_aliases(
     for (symbol, status) in symbols_with_statuses {
         if status.appears_unaliased {
             status.aliases.clear();
-        } else {
-            if let Some(default_entry) = status
-                .aliases
-                .iter()
-                .enumerate()
-                .max_by_key(|(i, (_, count))| (count, -(*i as i64)))
-                .map(|(_, entry)| entry.clone())
-            {
-                status.aliases.clear();
-                status.aliases.push(default_entry.clone());
-                result.insert(symbol, default_entry.0);
-            }
+        } else if let Some(default_entry) = status
+            .aliases
+            .iter()
+            .enumerate()
+            .max_by_key(|(i, (_, count))| (count, -(*i as i64)))
+            .map(|(_, entry)| entry.clone())
+        {
+            status.aliases.clear();
+            status.aliases.push(default_entry.clone());
+            result.insert(symbol, default_entry.0);
         }
     }
 
     // Wherever a symbol is aliased as its default alias, remove the usage of the alias,
     // because it will now be redundant.
     let mut alias_positions_to_clear = Vec::new();
-    for variable in syntax_grammar.variables.iter_mut() {
+    for variable in &mut syntax_grammar.variables {
         alias_positions_to_clear.clear();
 
         for (i, production) in variable.productions.iter().enumerate() {
@@ -132,7 +130,7 @@ pub(super) fn extract_default_aliases(
 
                 // If this step is aliased as the symbol's default alias, then remove that alias.
                 if step.alias.is_some()
-                    && step.alias.as_ref() == status.aliases.get(0).map(|t| &t.0)
+                    && step.alias.as_ref() == status.aliases.first().map(|t| &t.0)
                 {
                     let mut other_productions_must_use_this_alias_at_this_index = false;
                     for (other_i, other_production) in variable.productions.iter().enumerate() {

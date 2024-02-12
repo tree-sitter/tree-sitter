@@ -10,7 +10,7 @@ use std::collections::hash_map::Entry;
 use std::collections::{HashMap, VecDeque};
 use std::mem;
 
-pub(crate) fn build_lex_table(
+pub fn build_lex_table(
     parse_table: &mut ParseTable,
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
@@ -18,14 +18,13 @@ pub(crate) fn build_lex_table(
     coincident_token_index: &CoincidentTokenIndex,
     token_conflict_map: &TokenConflictMap,
 ) -> (LexTable, LexTable) {
-    let keyword_lex_table;
-    if syntax_grammar.word_token.is_some() {
+    let keyword_lex_table = if syntax_grammar.word_token.is_some() {
         let mut builder = LexTableBuilder::new(lexical_grammar);
         builder.add_state_for_tokens(keywords);
-        keyword_lex_table = builder.table;
+        builder.table
     } else {
-        keyword_lex_table = LexTable::default();
-    }
+        LexTable::default()
+    };
 
     let mut parse_state_ids_by_token_set: Vec<(TokenSet, Vec<ParseStateId>)> = Vec::new();
     for (i, state) in parse_table.states.iter().enumerate() {
@@ -34,7 +33,7 @@ pub(crate) fn build_lex_table(
             .keys()
             .filter_map(|token| {
                 if token.is_terminal() {
-                    if keywords.contains(&token) {
+                    if keywords.contains(token) {
                         syntax_grammar.word_token
                     } else {
                         Some(*token)
@@ -48,7 +47,7 @@ pub(crate) fn build_lex_table(
             .collect();
 
         let mut did_merge = false;
-        for entry in parse_state_ids_by_token_set.iter_mut() {
+        for entry in &mut parse_state_ids_by_token_set {
             if merge_token_set(
                 &mut entry.0,
                 &tokens,
@@ -198,7 +197,7 @@ impl<'a> LexTableBuilder<'a> {
         for transition in transitions {
             if let Some((completed_id, completed_precedence)) = completion {
                 if !TokenConflictMap::prefer_transition(
-                    &self.lexical_grammar,
+                    self.lexical_grammar,
                     &transition,
                     completed_id,
                     completed_precedence,
@@ -248,12 +247,11 @@ fn merge_token_set(
             {
                 return false;
             }
-            if !coincident_token_index.contains(symbol, existing_token) {
-                if token_conflict_map.does_overlap(existing_token.index, i)
-                    || token_conflict_map.does_overlap(i, existing_token.index)
-                {
-                    return false;
-                }
+            if !coincident_token_index.contains(symbol, existing_token)
+                && (token_conflict_map.does_overlap(existing_token.index, i)
+                    || token_conflict_map.does_overlap(i, existing_token.index))
+            {
+                return false;
             }
         }
     }
@@ -315,7 +313,7 @@ fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
         let mut new_state = LexState::default();
         mem::swap(&mut new_state, &mut table.states[state_ids[0]]);
 
-        for (_, advance_action) in new_state.advance_actions.iter_mut() {
+        for (_, advance_action) in &mut new_state.advance_actions {
             advance_action.state = group_ids_by_state_id[advance_action.state];
         }
         if let Some(eof_action) = &mut new_state.eof_action {
@@ -324,18 +322,14 @@ fn minimize_lex_table(table: &mut LexTable, parse_table: &mut ParseTable) {
         new_states.push(new_state);
     }
 
-    for state in parse_table.states.iter_mut() {
+    for state in &mut parse_table.states {
         state.lex_state_id = group_ids_by_state_id[state.lex_state_id];
     }
 
     table.states = new_states;
 }
 
-fn lex_states_differ(
-    left: &LexState,
-    right: &LexState,
-    group_ids_by_state_id: &Vec<usize>,
-) -> bool {
+fn lex_states_differ(left: &LexState, right: &LexState, group_ids_by_state_id: &[usize]) -> bool {
     left.advance_actions
         .iter()
         .zip(right.advance_actions.iter())
@@ -362,7 +356,7 @@ fn sort_states(table: &mut LexTable, parse_table: &mut ParseTable) {
         .map(|old_id| {
             let mut state = LexState::default();
             mem::swap(&mut state, &mut table.states[*old_id]);
-            for (_, advance_action) in state.advance_actions.iter_mut() {
+            for (_, advance_action) in &mut state.advance_actions {
                 advance_action.state = new_ids_by_old_id[advance_action.state];
             }
             if let Some(eof_action) = &mut state.eof_action {
@@ -373,7 +367,7 @@ fn sort_states(table: &mut LexTable, parse_table: &mut ParseTable) {
         .collect();
 
     // Update the parse table's lex state references
-    for state in parse_table.states.iter_mut() {
+    for state in &mut parse_table.states {
         state.lex_state_id = new_ids_by_old_id[state.lex_state_id];
     }
 }

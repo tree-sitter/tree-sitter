@@ -5,7 +5,7 @@ use tree_sitter::Parser;
 fn test_lookahead_iterator() {
     let mut parser = Parser::new();
     let language = get_language("rust");
-    parser.set_language(language).unwrap();
+    parser.set_language(&language).unwrap();
 
     let tree = parser.parse("struct Stuff {}", None).unwrap();
 
@@ -28,13 +28,13 @@ fn test_lookahead_iterator() {
 
     let expected_symbols = ["identifier", "block_comment", "line_comment"];
     let mut lookahead = language.lookahead_iterator(next_state).unwrap();
-    assert_eq!(lookahead.language(), language);
+    assert_eq!(*lookahead.language(), language);
     assert!(lookahead.iter_names().eq(expected_symbols));
 
     lookahead.reset_state(next_state);
     assert!(lookahead.iter_names().eq(expected_symbols));
 
-    lookahead.reset(language, next_state);
+    lookahead.reset(&language, next_state);
     assert!(lookahead
         .map(|s| language.node_kind_for_id(s).unwrap())
         .eq(expected_symbols));
@@ -44,7 +44,7 @@ fn test_lookahead_iterator() {
 fn test_lookahead_iterator_modifiable_only_by_mut() {
     let mut parser = Parser::new();
     let language = get_language("rust");
-    parser.set_language(language).unwrap();
+    parser.set_language(&language).unwrap();
 
     let tree = parser.parse("struct Stuff {}", None).unwrap();
 
@@ -62,34 +62,3 @@ fn test_lookahead_iterator_modifiable_only_by_mut() {
     let mut names = lookahead.iter_names();
     let _ = names.next();
 }
-
-/// It doesn't allowed to use lookahead iterator by shared ref:
-///     error[E0596]: cannot borrow `lookahead` as mutable, as it is not declared as mutable
-/// ```compile_fail
-/// use tree_sitter::{Parser, Language};
-/// let mut parser = Parser::new();
-/// let language = unsafe { Language::from_raw(std::ptr::null()) };
-/// let tree = parser.parse("", None).unwrap();
-/// let mut cursor = tree.walk();
-/// let next_state = cursor.node().next_parse_state();
-/// let lookahead = language.lookahead_iterator(next_state).unwrap();
-/// let _ = lookahead.next();
-/// ```
-
-/// It doesn't allowed to use lookahead names iterator by shared ref:
-///     error[E0596]: cannot borrow `names` as mutable, as it is not declared as mutable
-/// ```compile_fail
-/// use tree_sitter::{Parser, Language};
-/// let mut parser = Parser::new();
-/// let language = unsafe { Language::from_raw(std::ptr::null()) };
-/// let tree = parser.parse("", None).unwrap();
-/// let mut cursor = tree.walk();
-/// let next_state = cursor.node().next_parse_state();
-/// if let Some(mut lookahead) = language.lookahead_iterator(next_state) {
-///     let _ = lookahead.next();
-///     let names = lookahead.iter_names();
-///     let _ = names.next();
-/// }
-/// ```
-
-fn _dummy() {}

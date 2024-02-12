@@ -5,7 +5,7 @@ permalink: creating-parsers
 
 # Creating parsers
 
-Developing Tree-sitter grammars can have a difficult learning curve, but once you get the hang of it, it can be fun and even zen-like. This document will help get you to get started and to develop a useful mental model.
+Developing Tree-sitter grammars can have a difficult learning curve, but once you get the hang of it, it can be fun and even zen-like. This document will help you to get started and to develop a useful mental model.
 
 ## Getting Started
 
@@ -20,7 +20,7 @@ In order to develop a Tree-sitter parser, there are two dependencies that you ne
 
 To create a Tree-sitter parser, you need to use [the `tree-sitter` CLI][tree-sitter-cli]. You can install the CLI in a few different ways:
 
-* Build the `tree-sitter-cli` [Rust crate][crate] from source using [`cargo`][cargo], the Rust package manager. This works on any platform. See [the contributing docs](/docs/section-5-contributing.md#developing-tree-sitter) for more information.
+* Build the `tree-sitter-cli` [Rust crate][crate] from source using [`cargo`][cargo], the Rust package manager. This works on any platform. See [the contributing docs](./contributing#developing-tree-sitter) for more information.
 * Install the `tree-sitter-cli` [Node.js module][node-module] using [`npm`][npm], the Node package manager. This approach is fast, but is only works on certain platforms, because it relies on pre-built binaries.
 * Download a binary for your platform from [the latest GitHub release][releases], and put it into a directory on your `PATH`.
 
@@ -580,7 +580,7 @@ grammar({
     ),
 
     binary_expression: $ => choice(
-      prec.left(1, seq($._expression, 'instanceof', $._expression)
+      prec.left(1, seq($._expression, 'instanceof', $._expression))
       // ...
     ),
 
@@ -625,6 +625,9 @@ grammar({
 ```
 
 Then, add another C or C++ source file to your project. Currently, its path must be `src/scanner.c` or `src/scanner.cc` for the CLI to recognize it. Be sure to add this file to the `sources` section of your `binding.gyp` file so that it will be included when your project is compiled by Node.js and uncomment the appropriate block in your `bindings/rust/build.rs` file so that it will be included in your Rust crate.
+
+> **Note**
+> While it is possible to write an external scanner in C++, it can be difficult to get working cross-platform and introduces extra requirements; therefore it is *greatly* preferred to use C.
 
 In this new source file, define an [`enum`][enum] type containing the names of all of your external tokens. The ordering of this enum must match the order in your grammar's `externals` array; the actual names do not matter.
 

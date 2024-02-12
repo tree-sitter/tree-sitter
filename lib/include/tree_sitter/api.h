@@ -1014,6 +1014,17 @@ void ts_query_cursor_set_max_start_depth(TSQueryCursor *self, uint32_t max_start
 /**********************/
 
 /**
+ * Get another reference to the given language.
+ */
+const TSLanguage *ts_language_copy(const TSLanguage *self);
+
+/**
+ * Free any dynamically-allocated resources for this language, if
+ * this is the last reference.
+ */
+void ts_language_delete(const TSLanguage *self);
+
+/**
  * Get the number of distinct node types in the language.
  */
 uint32_t ts_language_symbol_count(const TSLanguage *self);
@@ -1141,6 +1152,77 @@ TSSymbol ts_lookahead_iterator_current_symbol(const TSLookaheadIterator *self);
  * string.
 */
 const char *ts_lookahead_iterator_current_symbol_name(const TSLookaheadIterator *self);
+
+/*************************************/
+/* Section - WebAssembly Integration */
+/************************************/
+
+typedef struct wasm_engine_t TSWasmEngine;
+typedef struct TSWasmStore TSWasmStore;
+
+typedef enum {
+  TSWasmErrorKindNone = 0,
+  TSWasmErrorKindParse,
+  TSWasmErrorKindCompile,
+  TSWasmErrorKindInstantiate,
+  TSWasmErrorKindAllocate,
+} TSWasmErrorKind;
+
+typedef struct {
+  TSWasmErrorKind kind;
+  char *message;
+} TSWasmError;
+
+/**
+ * Create a Wasm store.
+ */
+TSWasmStore *ts_wasm_store_new(
+  TSWasmEngine *engine,
+  TSWasmError *error
+);
+
+/**
+ * Free the memory associated with the given Wasm store.
+ */
+void ts_wasm_store_delete(TSWasmStore *);
+
+/**
+ * Create a language from a buffer of Wasm. The resulting language behaves
+ * like any other Tree-sitter language, except that in order to use it with
+ * a parser, that parser must have a Wasm store. Note that the language
+ * can be used with any Wasm store, it doesn't need to be the same store that
+ * was used to originally load it.
+ */
+const TSLanguage *ts_wasm_store_load_language(
+  TSWasmStore *,
+  const char *name,
+  const char *wasm,
+  uint32_t wasm_len,
+  TSWasmError *error
+);
+
+/**
+ * Get the number of languages instantiated in the given wasm store.
+ */
+size_t ts_wasm_store_language_count(const TSWasmStore *);
+
+/**
+ * Check if the language came from a Wasm module. If so, then in order to use
+ * this language with a Parser, that parser must have a Wasm store assigned.
+ */
+bool ts_language_is_wasm(const TSLanguage *);
+
+/**
+ * Assign the given Wasm store to the parser. A parser must have a Wasm store
+ * in order to use Wasm languages.
+ */
+void ts_parser_set_wasm_store(TSParser *, TSWasmStore *);
+
+/**
+ * Remove the parser's current Wasm store and return it. This returns NULL if
+ * the parser doesn't have a Wasm store.
+ */
+TSWasmStore *ts_parser_take_wasm_store(TSParser *);
 
 /**********************************/
 /* Section - Global Configuration */

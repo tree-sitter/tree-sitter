@@ -2,7 +2,7 @@
 
 set -e
 
-EMSCRIPTEN_VERSION=$(cat "$(dirname "$0")/../cli/emscripten-version")
+EMSCRIPTEN_VERSION=$(cat "$(dirname "$0")/../cli/loader/emscripten-version")
 
 mkdir -p target
 EMSDK_DIR="./target/emsdk"
@@ -28,7 +28,5 @@ EMSDK_DIR="./target/emsdk"
 ) >&2
 
 (
-  source "$EMSDK_DIR/emsdk_env.sh" > /dev/null
-  emcc --version >&2
-  echo export $(env | egrep '^(PATH|EM.*)')
+  echo "source \"$EMSDK_DIR/emsdk_env.sh\""
 )

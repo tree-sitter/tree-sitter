@@ -14,15 +14,15 @@ use tree_sitter::Query;
 #[test]
 fn issue_2162_out_of_bound() {
     let language = get_language("java");
-    assert!(Query::new(language, "(package_declaration _ (_) @name _)").is_ok());
+    assert!(Query::new(&language, "(package_declaration _ (_) @name _)").is_ok());
 }
 
 #[test]
 fn issue_2107_first_child_group_anchor_had_no_effect() {
     let language = get_language("c");
-    let source_code = indoc! {r#"
+    let source_code = indoc! {r"
         void fun(int a, char b, int c) { };
-    "#};
+    "};
     let query = indoc! {r#"
         (parameter_list
             .
@@ -32,9 +32,9 @@ fn issue_2107_first_child_group_anchor_had_no_effect() {
             )
         )
     "#};
-    let query = Query::new(language, query).unwrap();
+    let query = Query::new(&language, query).unwrap();
     assert_query_matches(
-        language,
+        &language,
         &query,
         source_code,
         &[(0, vec![("constant", "int a")])],

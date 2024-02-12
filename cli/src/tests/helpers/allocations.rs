@@ -30,7 +30,7 @@ struct AllocationRecorder {
 }
 
 thread_local! {
-    static RECORDER: AllocationRecorder = Default::default();
+    static RECORDER: AllocationRecorder = AllocationRecorder::default();
 }
 
 extern "C" {
@@ -60,12 +60,10 @@ pub fn record<T>(f: impl FnOnce() -> T) -> T {
             .map(|e| e.1)
             .collect::<Vec<_>>()
     });
-    if !outstanding_allocation_indices.is_empty() {
-        panic!(
-            "Leaked allocation indices: {:?}",
-            outstanding_allocation_indices
-        );
-    }
+    assert!(
+        outstanding_allocation_indices.is_empty(),
+        "Leaked allocation indices: {outstanding_allocation_indices:?}"
+    );
     value
 }
 
@@ -83,9 +81,7 @@ fn record_alloc(ptr: *mut c_void) {
 }
 
 fn record_dealloc(ptr: *mut c_void) {
-    if ptr.is_null() {
-        panic!("Zero pointer deallocation!");
-    }
+    assert!(!ptr.is_null(), "Zero pointer deallocation!");
     RECORDER.with(|recorder| {
         if recorder.enabled.load(SeqCst) {
             recorder

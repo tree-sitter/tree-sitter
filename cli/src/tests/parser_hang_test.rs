@@ -14,7 +14,7 @@ use tree_sitter::Parser;
 // The `sanitizing` cfg is required to don't run tests under specific sunitizer
 // because they don't work well with subprocesses _(it's an assumption)_.
 //
-// Bellow are two alternative examples of how to disable tests for some arches
+// Below are two alternative examples of how to disable tests for some arches
 // if a way with excluding the whole mod from compilation wouldn't work well.
 //
 // XXX: Also may be it makes sense to keep such tests as ignored by default
@@ -34,7 +34,7 @@ fn test_grammar_that_should_hang_and_not_segfault() {
     eprintln!("  {test_name}");
 
     let tests_exec_path = std::env::args()
-        .nth(0)
+        .next()
         .expect("Failed get get tests executable path");
 
     match std::env::var(test_var) {
@@ -95,7 +95,7 @@ fn test_grammar_that_should_hang_and_not_segfault() {
             get_test_language(&parser_name, &parser_code, Some(test_grammar_dir.as_path()));
 
         let mut parser = Parser::new();
-        parser.set_language(language).unwrap();
+        parser.set_language(&language).unwrap();
 
         let code_that_should_hang = "\nHello";
 

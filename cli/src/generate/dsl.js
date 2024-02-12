@@ -229,6 +229,8 @@ function grammar(baseGrammar, options) {
       supertypes: [],
       precedences: [],
     };
+  } else {
+    baseGrammar = baseGrammar.grammar;
   }
 
   let externals = baseGrammar.externals;
@@ -308,6 +310,10 @@ function grammar(baseGrammar, options) {
     if (typeof word != 'string') {
       throw new Error("Grammar's 'word' property must be a named rule.");
     }
+
+    if (word === 'ReferenceError') {
+      throw new Error("Grammar's 'word' property must be a valid rule name.");
+    }
   }
 
   let conflicts = baseGrammar.conflicts;
@@ -345,7 +351,17 @@ function grammar(baseGrammar, options) {
       throw new Error("Grammar's inline must be an array of rules.");
     }
 
-    inline = inlineRules.map(symbol => symbol.name);
+    inline = inlineRules.filter((symbol, index, self) => {
+      if (self.findIndex(s => s.name === symbol.name) !== index) {
+        console.log(`Warning: duplicate inline rule '${symbol.name}'`);
+        return false;
+      }
+      if (symbol.name === 'ReferenceError') {
+        console.log(`Warning: inline rule '${symbol.symbol.name}' is not defined.`);
+        return false;
+      }
+      return true;
+    }).map(symbol => symbol.name);
   }
 
   let supertypes = baseGrammar.supertypes;
@@ -385,7 +401,7 @@ function grammar(baseGrammar, options) {
     throw new Error("Grammar must have at least one rule.");
   }
 
-  return {name, word, rules, extras, conflicts, precedences, externals, inline, supertypes};
+  return { grammar: { name, word, rules, extras, conflicts, precedences, externals, inline, supertypes } };
 }
 
 function checkArguments(ruleCount, caller, callerName, suffix = '') {
@@ -419,4 +435,4 @@ global.grammar = grammar;
 global.field = field;
 
 const result = require(process.env.TREE_SITTER_GRAMMAR_PATH);
-console.log(JSON.stringify(result, null, 2));
+process.stdout.write(JSON.stringify(result.grammar, null, null));

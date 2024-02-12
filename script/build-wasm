@@ -30,10 +30,11 @@ EOF
 set -e
 
 web_dir=lib/binding_web
+src_dir=lib/src
 emscripten_flags="-O3"
 minify_js=1
 force_docker=0
-emscripen_version=$(cat "$(dirname "$0")"/../cli/emscripten-version)
+emscripen_version=$(cat "$(dirname "$0")"/../cli/loader/emscripten-version)
 
 while [[ $# > 0 ]]; do
   case "$1" in
@@ -64,21 +65,32 @@ while [[ $# > 0 ]]; do
   shift
 done
 
-emcc=
+emcc=""
+docker=""
 if which emcc > /dev/null && [[ "$force_docker" == "0" ]]; then
   emcc=emcc
 elif which docker > /dev/null; then
-  emcc="docker run                       \
+  # detect which one to use
+  docker=docker
+elif which podman > /dev/null; then
+  docker=podman
+fi
+
+if [ -z "$emcc" ] && [ -n "$docker" ]; then
+  export PODMAN_USERNS=keep-id
+  emcc="$docker run                      \
     --rm                                 \
     -v $(pwd):/src:Z                     \
     -u $(id -u)                          \
     emscripten/emsdk:$emscripen_version  \
     emcc"
-else
+fi
+
+if [ -z "$emcc" ]; then
   if [[ "$force_docker" == "1" ]]; then
-    echo 'You must have `docker` on your PATH to run this script with --docker'
+    echo 'You must have `docker` or `podman` on your PATH to run this script with --docker'
   else
-    echo 'You must have either `docker` or `emcc` on your PATH to run this script'
+    echo 'You must have either `docker`, `podman`, or `emcc` on your PATH to run this script'
   fi
   exit 1
 fi
@@ -86,6 +98,15 @@ fi
 mkdir -p target/scratch
 
 runtime_methods='stringToUTF16','AsciiToString'
+
+# Remove quotes, add leading underscores, remove newlines, remove trailing comma.
+EXPORTED_FUNCTIONS=$(                                                \
+    cat ${src_dir}/wasm/stdlib-symbols.txt ${web_dir}/exports.txt  | \
+    sed -e 's/"//g'                                                | \
+    sed -e 's/^/_/g'                                               | \
+    tr -d '\n"'                                                    | \
+    sed -e 's/,$//'                                                  \
+)
 
 # Use emscripten to generate `tree-sitter.js` and `tree-sitter.wasm`
 # in the `target/scratch` directory
@@ -97,14 +118,14 @@ $emcc                                            \
   -s FILESYSTEM=0                                \
   -s NODEJS_CATCH_EXIT=0                         \
   -s NODEJS_CATCH_REJECTION=0                    \
-  -s EXPORTED_FUNCTIONS=@${web_dir}/exports.json \
+  -s EXPORTED_FUNCTIONS=${EXPORTED_FUNCTIONS} \
   -s EXPORTED_RUNTIME_METHODS=$runtime_methods   \
   $emscripten_flags                              \
   -fno-exceptions                                \
   -std=c99                                       \
   -D 'fprintf(...)='                             \
   -D NDEBUG=                                     \
-  -I lib/src                                     \
+  -I ${src_dir}                                  \
   -I lib/include                                 \
   --js-library ${web_dir}/imports.js             \
   --pre-js ${web_dir}/prefix.js                  \
@@ -128,9 +149,9 @@ if [[ "$minify_js" == "1" ]]; then
     --mangle                         \
     --keep-classnames                \
     -- target/scratch/tree-sitter.js \
-    > $web_dir/tree-sitter.js
+    > ${web_dir}/tree-sitter.js
 else
-  cp target/scratch/tree-sitter.js $web_dir/tree-sitter.js
+  cp target/scratch/tree-sitter.js ${web_dir}/tree-sitter.js
 fi
 
-mv target/scratch/tree-sitter.wasm $web_dir/tree-sitter.wasm
+mv target/scratch/tree-sitter.wasm ${web_dir}/tree-sitter.wasm

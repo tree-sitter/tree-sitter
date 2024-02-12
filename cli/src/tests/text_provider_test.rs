@@ -6,7 +6,7 @@ use tree_sitter::{Language, Node, Parser, Point, Query, QueryCursor, TextProvide
 fn parse_text(text: impl AsRef<[u8]>) -> (Tree, Language) {
     let language = get_language("c");
     let mut parser = Parser::new();
-    parser.set_language(language).unwrap();
+    parser.set_language(&language).unwrap();
     (parser.parse(text, None).unwrap(), language)
 }
 
@@ -17,14 +17,14 @@ where
 {
     let language = get_language("c");
     let mut parser = Parser::new();
-    parser.set_language(language).unwrap();
+    parser.set_language(&language).unwrap();
     let tree = parser.parse_with(callback, None).unwrap();
     // eprintln!("{}", tree.clone().root_node().to_sexp());
-    assert_eq!("comment", tree.clone().root_node().child(0).unwrap().kind());
+    assert_eq!("comment", tree.root_node().child(0).unwrap().kind());
     (tree, language)
 }
 
-fn tree_query<I: AsRef<[u8]>>(tree: &Tree, text: impl TextProvider<I>, language: Language) {
+fn tree_query<I: AsRef<[u8]>>(tree: &Tree, text: impl TextProvider<I>, language: &Language) {
     let query = Query::new(language, "((comment) @c (#eq? @c \"// comment\"))").unwrap();
     let mut cursor = QueryCursor::new();
     let mut captures = cursor.captures(&query, tree.root_node(), text);
@@ -39,7 +39,7 @@ fn check_parsing<I: AsRef<[u8]>>(
     text_provider: impl TextProvider<I>,
 ) {
     let (tree, language) = parse_text(parser_text);
-    tree_query(&tree, text_provider, language);
+    tree_query(&tree, text_provider, &language);
 }
 
 fn check_parsing_callback<T, F, I: AsRef<[u8]>>(
@@ -50,7 +50,7 @@ fn check_parsing_callback<T, F, I: AsRef<[u8]>>(
     F: FnMut(usize, Point) -> T,
 {
     let (tree, language) = parse_text_with(parser_callback);
-    tree_query(&tree, text_provider, language);
+    tree_query(&tree, text_provider, &language);
 }
 
 #[test]
@@ -114,7 +114,7 @@ fn test_text_provider_callback_with_str_slice() {
     check_parsing_callback(
         &mut |offset, _point| {
             (offset < text.len())
-                .then(|| text.as_bytes())
+                .then_some(text.as_bytes())
                 .unwrap_or_default()
         },
         |_node: Node<'_>| iter::once(text),
@@ -128,7 +128,7 @@ fn test_text_provider_callback_with_owned_string_slice() {
     check_parsing_callback(
         &mut |offset, _point| {
             (offset < text.len())
-                .then(|| text.as_bytes())
+                .then_some(text.as_bytes())
                 .unwrap_or_default()
         },
         |_node: Node<'_>| {
@@ -145,7 +145,7 @@ fn test_text_provider_callback_with_owned_bytes_vec_slice() {
     check_parsing_callback(
         &mut |offset, _point| {
             (offset < text.len())
-                .then(|| text.as_bytes())
+                .then_some(text.as_bytes())
                 .unwrap_or_default()
         },
         |_node: Node<'_>| {
@@ -162,7 +162,7 @@ fn test_text_provider_callback_with_owned_arc_of_bytes_slice() {
     check_parsing_callback(
         &mut |offset, _point| {
             (offset < text.len())
-                .then(|| text.as_bytes())
+                .then_some(text.as_bytes())
                 .unwrap_or_default()
         },
         |_node: Node<'_>| {

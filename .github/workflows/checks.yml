@@ -1,0 +1,24 @@
+name: Full Rust codebase checks
+
+on:
+  workflow_call:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - run: rustup toolchain install stable --profile minimal
+    - uses: Swatinem/rust-cache@v2
+
+    - run: make lint
+
+  check_c_warnings:
+    name: Check C warnings
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Make C library to check that it's able to compile without warnings
+      run: make -j CFLAGS="-Werror"

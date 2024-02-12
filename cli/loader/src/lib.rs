@@ -6,6 +6,7 @@ use once_cell::unsync::OnceCell;
 use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
+use std::ffi::{OsStr, OsString};
 use std::io::BufReader;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -16,6 +17,9 @@ use std::{env, fs, mem};
 use tree_sitter::{Language, QueryError, QueryErrorKind};
 use tree_sitter_highlight::HighlightConfiguration;
 use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
+use which::which;
+
+pub const EMSCRIPTEN_TAG: &str = concat!("docker.io/emscripten/emsdk:", env!("EMSCRIPTEN_VERSION"));
 
 #[derive(Default, Deserialize, Serialize)]
 pub struct Config {
@@ -35,9 +39,8 @@ where
     D: Deserializer<'de>,
 {
     let paths = Vec::<PathBuf>::deserialize(deserializer)?;
-    let home = match dirs::home_dir() {
-        Some(home) => home,
-        None => return Ok(paths),
+    let Some(home) = dirs::home_dir() else {
+        return Ok(paths);
     };
     let standardized = paths
         .into_iter()
@@ -57,9 +60,10 @@ fn standardize_path(path: PathBuf, home: &Path) -> PathBuf {
 }
 
 impl Config {
-    pub fn initial() -> Config {
+    #[must_use]
+    pub fn initial() -> Self {
         let home_dir = dirs::home_dir().expect("Cannot determine home directory");
-        Config {
+        Self {
             parser_directories: vec![
                 home_dir.join("github"),
                 home_dir.join("src"),
@@ -73,7 +77,7 @@ impl Config {
 const DYLIB_EXTENSION: &str = "so";
 
 #[cfg(windows)]
-const DYLIB_EXTENSION: &'static str = "dll";
+const DYLIB_EXTENSION: &str = "dll";
 
 const BUILD_TARGET: &str = env!("BUILD_TARGET");
 
@@ -105,6 +109,9 @@ pub struct Loader {
     highlight_names: Box<Mutex<Vec<String>>>,
     use_all_highlight_names: bool,
     debug_build: bool,
+
+    #[cfg(feature = "wasm")]
+    wasm_store: Mutex<Option<tree_sitter::WasmStore>>,
 }
 
 unsafe impl Send for Loader {}
@@ -115,15 +122,16 @@ impl Loader {
         let parser_lib_path = match env::var("TREE_SITTER_LIBDIR") {
             Ok(path) => PathBuf::from(path),
             _ => dirs::cache_dir()
-                .ok_or(anyhow!("Cannot determine cache directory"))?
+                .ok_or_else(|| anyhow!("Cannot determine cache directory"))?
                 .join("tree-sitter")
                 .join("lib"),
         };
         Ok(Self::with_parser_lib_path(parser_lib_path))
     }
 
+    #[must_use]
     pub fn with_parser_lib_path(parser_lib_path: PathBuf) -> Self {
-        Loader {
+        Self {
             parser_lib_path,
             languages_by_id: Vec::new(),
             language_configurations: Vec::new(),
@@ -132,6 +140,9 @@ impl Loader {
             highlight_names: Box::new(Mutex::new(Vec::new())),
             use_all_highlight_names: true,
             debug_build: false,
+
+            #[cfg(feature = "wasm")]
+            wasm_store: Mutex::default(),
         }
     }
 
@@ -142,6 +153,7 @@ impl Loader {
         highlights.extend(names.iter().cloned());
     }
 
+    #[must_use]
     pub fn highlight_names(&self) -> Vec<String> {
         self.highlight_names.lock().unwrap().clone()
     }
@@ -178,7 +190,7 @@ impl Loader {
                 .iter()
                 .map(|c| c.language_id)
                 .collect::<Vec<_>>();
-            language_ids.sort();
+            language_ids.sort_unstable();
             language_ids.dedup();
             language_ids
                 .into_iter()
@@ -189,6 +201,7 @@ impl Loader {
         }
     }
 
+    #[must_use]
     pub fn get_all_language_configurations(&self) -> Vec<(&LanguageConfiguration, &Path)> {
         self.language_configurations
             .iter()
@@ -229,17 +242,14 @@ impl Loader {
 
         if let Some(configuration_ids) = configuration_ids {
             if !configuration_ids.is_empty() {
-                let configuration;
-
-                // If there is only one language configuration, then use it.
-                if configuration_ids.len() == 1 {
-                    configuration = &self.language_configurations[configuration_ids[0]];
+                let configuration = if configuration_ids.len() == 1 {
+                    &self.language_configurations[configuration_ids[0]]
                 }
                 // If multiple language configurations match, then determine which
                 // one to use by applying the configurations' content regexes.
                 else {
-                    let file_contents = fs::read(path)
-                        .with_context(|| format!("Failed to read path {:?}", path))?;
+                    let file_contents =
+                        fs::read(path).with_context(|| format!("Failed to read path {path:?}"))?;
                     let file_contents = String::from_utf8_lossy(&file_contents);
                     let mut best_score = -2isize;
                     let mut best_configuration_id = None;
@@ -269,8 +279,8 @@ impl Loader {
                         }
                     }
 
-                    configuration = &self.language_configurations[best_configuration_id.unwrap()];
-                }
+                    &self.language_configurations[best_configuration_id.unwrap()]
+                };
 
                 let language = self.language_for_id(configuration.language_id)?;
                 return Ok(Some((language, configuration)));
@@ -312,15 +322,17 @@ impl Loader {
         language
             .get_or_try_init(|| {
                 let src_path = path.join("src");
-                self.load_language_at_path(&src_path, &src_path)
+                self.load_language_at_path(&src_path, &[&src_path])
             })
-            .map(|l| *l)
+            .cloned()
     }
 
-    pub fn load_language_at_path(&self, src_path: &Path, header_path: &Path) -> Result<Language> {
+    pub fn load_language_at_path(
+        &self,
+        src_path: &Path,
+        header_paths: &[&Path],
+    ) -> Result<Language> {
         let grammar_path = src_path.join("grammar.json");
-        let parser_path = src_path.join("parser.c");
-        let mut scanner_path = src_path.join("scanner.c");
 
         #[derive(Deserialize)]
         struct GrammarJSON {
@@ -331,116 +343,163 @@ impl Loader {
         let grammar_json: GrammarJSON = serde_json::from_reader(BufReader::new(&mut grammar_file))
             .with_context(|| "Failed to parse grammar.json")?;
 
-        let scanner_path = if scanner_path.exists() {
-            Some(scanner_path)
-        } else {
-            scanner_path.set_extension("cc");
-            if scanner_path.exists() {
-                Some(scanner_path)
-            } else {
-                None
-            }
-        };
-
-        self.load_language_from_sources(
-            &grammar_json.name,
-            header_path,
-            &parser_path,
-            scanner_path.as_deref(),
-        )
+        self.load_language_at_path_with_name(src_path, header_paths, &grammar_json.name)
     }
 
-    pub fn load_language_from_sources(
+    pub fn load_language_at_path_with_name(
         &self,
+        src_path: &Path,
+        header_paths: &[&Path],
         name: &str,
-        header_path: &Path,
-        parser_path: &Path,
-        scanner_path: Option<&Path>,
     ) -> Result<Language> {
         let mut lib_name = name.to_string();
+        let language_fn_name = format!("tree_sitter_{}", replace_dashes_with_underscores(name));
         if self.debug_build {
             lib_name.push_str(".debug._");
         }
+
+        fs::create_dir_all(&self.parser_lib_path)?;
+
         let mut library_path = self.parser_lib_path.join(lib_name);
         library_path.set_extension(DYLIB_EXTENSION);
 
-        let recompile = needs_recompile(&library_path, parser_path, scanner_path)
+        let parser_path = src_path.join("parser.c");
+        let scanner_path = self.get_scanner_path(src_path);
+
+        #[cfg(feature = "wasm")]
+        if self.wasm_store.lock().unwrap().is_some() {
+            library_path.set_extension("wasm");
+        }
+
+        let recompile = needs_recompile(&library_path, &parser_path, scanner_path.as_deref())
             .with_context(|| "Failed to compare source and binary timestamps")?;
 
-        if recompile {
-            fs::create_dir_all(&self.parser_lib_path)?;
-            let mut config = cc::Build::new();
-            config
-                .cpp(true)
-                .opt_level(2)
-                .cargo_metadata(false)
-                .target(BUILD_TARGET)
-                .host(BUILD_TARGET)
-                .flag_if_supported("-Werror=implicit-function-declaration");
-            let compiler = config.get_compiler();
-            let mut command = Command::new(compiler.path());
-            for (key, value) in compiler.env() {
-                command.env(key, value);
+        #[cfg(feature = "wasm")]
+        if let Some(wasm_store) = self.wasm_store.lock().unwrap().as_mut() {
+            if recompile {
+                self.compile_parser_to_wasm(
+                    name,
+                    src_path,
+                    scanner_path
+                        .as_ref()
+                        .and_then(|p| p.strip_prefix(src_path).ok()),
+                    &library_path,
+                    false,
+                )?;
             }
 
-            if compiler.is_like_msvc() {
-                command.args(["/nologo", "/LD", "/I"]).arg(header_path);
-                if self.debug_build {
-                    command.arg("/Od");
+            let wasm_bytes = fs::read(&library_path)?;
+            return Ok(wasm_store.load_language(name, &wasm_bytes)?);
+        }
+
+        {
+            if recompile {
+                self.compile_parser_to_dylib(
+                    header_paths,
+                    &parser_path,
+                    &scanner_path,
+                    &library_path,
+                )?;
+            }
+
+            let library = unsafe { Library::new(&library_path) }
+                .with_context(|| format!("Error opening dynamic library {library_path:?}"))?;
+            let language = unsafe {
+                let language_fn: Symbol<unsafe extern "C" fn() -> Language> = library
+                    .get(language_fn_name.as_bytes())
+                    .with_context(|| format!("Failed to load symbol {language_fn_name}"))?;
+                language_fn()
+            };
+            mem::forget(library);
+            Ok(language)
+        }
+    }
+
+    fn compile_parser_to_dylib(
+        &self,
+        header_paths: &[&Path],
+        parser_path: &Path,
+        scanner_path: &Option<PathBuf>,
+        library_path: &PathBuf,
+    ) -> Result<(), Error> {
+        let mut config = cc::Build::new();
+        config
+            .cpp(true)
+            .opt_level(2)
+            .cargo_metadata(false)
+            .target(BUILD_TARGET)
+            .host(BUILD_TARGET)
+            .flag_if_supported("-Werror=implicit-function-declaration");
+        let compiler = config.get_compiler();
+        let mut command = Command::new(compiler.path());
+        for (key, value) in compiler.env() {
+            command.env(key, value);
+        }
+
+        if compiler.is_like_msvc() {
+            command.args(["/nologo", "/LD"]);
+
+            for path in header_paths {
+                command.arg(format!("/I{}", path.to_string_lossy()));
+            }
+
+            if self.debug_build {
+                command.arg("/Od");
+            } else {
+                command.arg("/O2");
+            }
+            command.arg(parser_path);
+            if let Some(scanner_path) = scanner_path.as_ref() {
+                command.arg(scanner_path);
+            }
+            command
+                .arg("/link")
+                .arg(format!("/out:{}", library_path.to_str().unwrap()));
+        } else {
+            command
+                .arg("-shared")
+                .arg("-fno-exceptions")
+                .arg("-g")
+                .arg("-o")
+                .arg(library_path);
+
+            for path in header_paths {
+                command.arg(format!("-I{}", path.to_string_lossy()));
+            }
+
+            if !cfg!(windows) {
+                command.arg("-fPIC");
+            }
+
+            if self.debug_build {
+                command.arg("-O0");
+            } else {
+                command.arg("-O2");
+            }
+
+            // For conditional compilation of external scanner code when
+            // used internally by `tree-siteer parse` and other sub commands.
+            command.arg("-DTREE_SITTER_INTERNAL_BUILD");
+
+            if let Some(scanner_path) = scanner_path.as_ref() {
+                if scanner_path.extension() == Some("c".as_ref()) {
+                    command.arg("-xc").arg("-std=c99").arg(scanner_path);
                 } else {
-                    command.arg("/O2");
-                }
-                command.arg(parser_path);
-                if let Some(scanner_path) = scanner_path.as_ref() {
                     command.arg(scanner_path);
                 }
-                command
-                    .arg("/link")
-                    .arg(format!("/out:{}", library_path.to_str().unwrap()));
-            } else {
-                command
-                    .arg("-shared")
-                    .arg("-fno-exceptions")
-                    .arg("-g")
-                    .arg("-I")
-                    .arg(header_path)
-                    .arg("-o")
-                    .arg(&library_path);
-
-                if !cfg!(windows) {
-                    command.arg("-fPIC");
-                }
-
-                if self.debug_build {
-                    command.arg("-O0");
-                } else {
-                    command.arg("-O2");
-                }
-
-                // For conditional compilation of external scanner code when
-                // used internally by `tree-siteer parse` and other sub commands.
-                command.arg("-DTREE_SITTER_INTERNAL_BUILD");
-
-                if let Some(scanner_path) = scanner_path.as_ref() {
-                    if scanner_path.extension() == Some("c".as_ref()) {
-                        command.arg("-xc").arg("-std=c99").arg(scanner_path);
-                    } else {
-                        command.arg(scanner_path);
-                    }
-                }
-                command.arg("-xc").arg(parser_path);
             }
+            command.arg("-xc").arg(parser_path);
+        }
 
-            let output = command
-                .output()
-                .with_context(|| "Failed to execute C compiler")?;
-            if !output.status.success() {
-                return Err(anyhow!(
-                    "Parser compilation failed.\nStdout: {}\nStderr: {}",
-                    String::from_utf8_lossy(&output.stdout),
-                    String::from_utf8_lossy(&output.stderr)
-                ));
-            }
+        let output = command
+            .output()
+            .with_context(|| "Failed to execute C compiler")?;
+        if !output.status.success() {
+            return Err(anyhow!(
+                "Parser compilation failed.\nStdout: {}\nStderr: {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            ));
         }
 
         #[cfg(any(target_os = "macos", target_os = "linux"))]
@@ -448,7 +507,7 @@ impl Loader {
             let command = Command::new("nm")
                 .arg("-W")
                 .arg("-U")
-                .arg(&library_path)
+                .arg(library_path)
                 .output();
             if let Ok(output) = command {
                 if output.status.success() {
@@ -473,19 +532,165 @@ impl Loader {
             }
         }
 
-        let library = unsafe { Library::new(&library_path) }
-            .with_context(|| format!("Error opening dynamic library {:?}", &library_path))?;
-        let language_fn_name = format!("tree_sitter_{}", replace_dashes_with_underscores(name));
-        let language = unsafe {
-            let language_fn: Symbol<unsafe extern "C" fn() -> Language> = library
-                .get(language_fn_name.as_bytes())
-                .with_context(|| format!("Failed to load symbol {}", language_fn_name))?;
-            language_fn()
-        };
-        mem::forget(library);
-        Ok(language)
+        Ok(())
     }
 
+    pub fn compile_parser_to_wasm(
+        &self,
+        language_name: &str,
+        src_path: &Path,
+        scanner_filename: Option<&Path>,
+        output_path: &PathBuf,
+        force_docker: bool,
+    ) -> Result<(), Error> {
+        #[derive(PartialEq, Eq)]
+        enum EmccSource {
+            Native(PathBuf),
+            Docker,
+            Podman,
+        }
+
+        fn path_of_bin(
+            name: &str,
+            test: impl Fn(&Path) -> std::io::Result<std::process::Output>,
+        ) -> Option<PathBuf> {
+            let bin_path = which(name).ok()?;
+            if test(&bin_path).is_ok() {
+                Some(bin_path)
+            } else {
+                None
+            }
+        }
+
+        // Order of preference: emscripten > docker > podman > error
+        let source = if force_docker {
+            None
+        } else {
+            path_of_bin(if cfg!(windows) { "emcc.bat" } else { "emcc" }, |p| {
+                Command::new(p).output()
+            })
+            .map(EmccSource::Native)
+        }
+        .or_else(|| {
+            path_of_bin("docker", |docker| {
+                // `docker info` should succeed iff the daemon is running
+                // see https://docs.docker.com/config/daemon/troubleshoot/#check-whether-docker-is-running
+                Command::new(docker).args(["info"]).output()
+            })
+            .map(|_| EmccSource::Docker)
+        })
+        .or_else(|| {
+            path_of_bin("podman", |podman| {
+                Command::new(podman).arg("--version").output()
+            })
+            .map(|_| EmccSource::Podman)
+        });
+
+        let Some(cmd) = source else {
+            return Err(anyhow!(
+                "You must have either emcc or docker on your PATH to run this command"
+            ));
+        };
+
+        let mut command = match cmd {
+            EmccSource::Native(emcc_path) => {
+                let mut command = Command::new(emcc_path);
+                command.current_dir(src_path);
+                command
+            }
+
+            EmccSource::Docker | EmccSource::Podman => {
+                let mut command = match cmd {
+                    EmccSource::Docker => Command::new("docker"),
+                    EmccSource::Podman => Command::new("podman"),
+                    _ => unreachable!(),
+                };
+                command.args(["run", "--rm"]);
+
+                // Mount the parser directory as a volume
+                command.args(["--workdir", "/src"]);
+
+                let mut volume_string = OsString::from(&src_path);
+                volume_string.push(":/src:Z");
+                command.args([OsStr::new("--volume"), &volume_string]);
+
+                // In case `docker` is an alias to `podman`, ensure that podman
+                // mounts the current directory as writable by the container
+                // user which has the same uid as the host user. Setting the
+                // podman-specific variable is more reliable than attempting to
+                // detect whether `docker` is an alias for `podman`.
+                // see https://docs.podman.io/en/latest/markdown/podman-run.1.html#userns-mode
+                command.env("PODMAN_USERNS", "keep-id");
+
+                // Get the current user id so that files created in the docker container will have
+                // the same owner.
+                #[cfg(unix)]
+                {
+                    #[link(name = "c")]
+                    extern "C" {
+                        fn getuid() -> u32;
+                    }
+                    // don't need to set user for podman since PODMAN_USERNS=keep-id is already set
+                    if cmd == EmccSource::Docker {
+                        let user_id = unsafe { getuid() };
+                        command.args(["--user", &user_id.to_string()]);
+                    }
+                };
+
+                // Run `emcc` in a container using the `emscripten-slim` image
+                command.args([EMSCRIPTEN_TAG, "emcc"]);
+                command
+            }
+        };
+
+        let output_name = "output.wasm";
+
+        command.args([
+            "-o",
+            output_name,
+            "-Os",
+            "-s",
+            "WASM=1",
+            "-s",
+            "SIDE_MODULE=2",
+            "-s",
+            "TOTAL_MEMORY=33554432",
+            "-s",
+            "NODEJS_CATCH_EXIT=0",
+            "-s",
+            &format!("EXPORTED_FUNCTIONS=[\"_tree_sitter_{language_name}\"]"),
+            "-fno-exceptions",
+            "-fvisibility=hidden",
+            "-I",
+            ".",
+        ]);
+
+        if let Some(scanner_filename) = scanner_filename {
+            if scanner_filename
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .map_or(false, |ext| ["cc", "cpp"].contains(&ext))
+            {
+                command.arg("-xc++");
+            }
+            command.arg(scanner_filename);
+        }
+
+        command.arg("parser.c");
+        let status = command
+            .spawn()
+            .with_context(|| "Failed to run emcc command")?
+            .wait()?;
+        if !status.success() {
+            return Err(anyhow!("emcc command failed"));
+        }
+
+        fs::rename(src_path.join(output_name), output_path)
+            .context("failed to rename wasm output file")?;
+        Ok(())
+    }
+
+    #[must_use]
     pub fn highlight_config_for_injection_string<'a>(
         &'a self,
         string: &str,
@@ -493,10 +698,7 @@ impl Loader {
     ) -> Option<&'a HighlightConfiguration> {
         match self.language_configuration_for_injection_string(string) {
             Err(e) => {
-                eprintln!(
-                    "Failed to load language for injection string '{}': {}",
-                    string, e
-                );
+                eprintln!("Failed to load language for injection string '{string}': {e}",);
                 None
             }
             Ok(None) => None,
@@ -504,8 +706,7 @@ impl Loader {
                 match configuration.highlight_config(language, apply_all_captures, None) {
                     Err(e) => {
                         eprintln!(
-                            "Failed to load property sheet for injection string '{}': {}",
-                            string, e
+                            "Failed to load property sheet for injection string '{string}': {e}",
                         );
                         None
                     }
@@ -533,9 +734,9 @@ impl Loader {
         impl PathsJSON {
             fn into_vec(self) -> Option<Vec<String>> {
                 match self {
-                    PathsJSON::Empty => None,
-                    PathsJSON::Single(s) => Some(vec![s]),
-                    PathsJSON::Multiple(s) => Some(s),
+                    Self::Empty => None,
+                    Self::Single(s) => Some(vec![s]),
+                    Self::Multiple(s) => Some(s),
                 }
             }
         }
@@ -577,7 +778,7 @@ impl Loader {
 
         let initial_language_configuration_count = self.language_configurations.len();
 
-        if let Ok(package_json_contents) = fs::read_to_string(&parser_path.join("package.json")) {
+        if let Ok(package_json_contents) = fs::read_to_string(parser_path.join("package.json")) {
             let package_json = serde_json::from_str::<PackageJSON>(&package_json_contents);
             if let Ok(package_json) = package_json {
                 let language_count = self.languages_by_id.len();
@@ -731,6 +932,23 @@ impl Loader {
     pub fn use_debug_build(&mut self, flag: bool) {
         self.debug_build = flag;
     }
+
+    #[cfg(feature = "wasm")]
+    pub fn use_wasm(&mut self, engine: tree_sitter::wasmtime::Engine) {
+        *self.wasm_store.lock().unwrap() = Some(tree_sitter::WasmStore::new(engine).unwrap());
+    }
+
+    #[must_use]
+    pub fn get_scanner_path(&self, src_path: &Path) -> Option<PathBuf> {
+        let mut path = src_path.join("scanner.c");
+        for extension in ["c", "cc", "cpp"] {
+            path.set_extension(extension);
+            if path.exists() {
+                return Some(path);
+            }
+        }
+        None
+    }
 }
 
 impl<'a> LanguageConfiguration<'a> {
@@ -836,11 +1054,12 @@ impl<'a> LanguageConfiguration<'a> {
                     if self.use_all_highlight_names {
                         for capture_name in result.query.capture_names() {
                             if !all_highlight_names.iter().any(|x| x == capture_name) {
-                                all_highlight_names.push(capture_name.to_string());
+                                all_highlight_names.push((*capture_name).to_string());
                             }
                         }
                     }
                     result.configure(all_highlight_names.as_slice());
+                    drop(all_highlight_names);
                     Ok(Some(result))
                 }
             })
@@ -895,15 +1114,16 @@ impl<'a> LanguageConfiguration<'a> {
         let (path, range) = ranges
             .iter()
             .find(|(_, range)| range.contains(&offset_within_section))
-            .unwrap_or(ranges.last().unwrap());
+            .unwrap_or_else(|| ranges.last().unwrap());
         error.offset = offset_within_section - range.start;
         error.row = source[range.start..offset_within_section]
             .chars()
             .filter(|c| *c == '\n')
             .count();
-        Error::from(error).context(format!("Error in query file {:?}", path))
+        Error::from(error).context(format!("Error in query file {path:?}"))
     }
 
+    #[allow(clippy::type_complexity)]
     fn read_queries(
         &self,
         paths: Option<&[String]>,
@@ -916,7 +1136,7 @@ impl<'a> LanguageConfiguration<'a> {
                 let abs_path = self.root_path.join(path);
                 let prev_query_len = query.len();
                 query += &fs::read_to_string(&abs_path)
-                    .with_context(|| format!("Failed to read query file {:?}", path))?;
+                    .with_context(|| format!("Failed to read query file {path:?}"))?;
                 path_ranges.push((path.clone(), prev_query_len..query.len()));
             }
         } else {
@@ -924,7 +1144,7 @@ impl<'a> LanguageConfiguration<'a> {
             let path = queries_path.join(default_path);
             if path.exists() {
                 query = fs::read_to_string(&path)
-                    .with_context(|| format!("Failed to read query file {:?}", path))?;
+                    .with_context(|| format!("Failed to read query file {path:?}"))?;
                 path_ranges.push((default_path.to_string(), 0..query.len()));
             }
         }
