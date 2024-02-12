@@ -31,14 +31,14 @@ regex.workspace = true
 
 [dependencies.wasmtime]
 git = "https://github.com/bytecodealliance/wasmtime"
-rev = "v16.0.0"
+rev = "v17.0.1"
 optional = true
 default-features = false
 features = ["cranelift"]
 
 [dependencies.wasmtime-c-api]
 git = "https://github.com/bytecodealliance/wasmtime"
-rev = "v16.0.0"
+rev = "v17.0.1"
 optional = true
 package = "wasmtime-c-api-impl"
 default-features = false
