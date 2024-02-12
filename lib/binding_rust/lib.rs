@@ -282,10 +282,31 @@ pub struct LossyUtf8<'a> {
 impl Language {
     /// Get the ABI version number that indicates which version of the Tree-sitter CLI
     /// that was used to generate this [`Language`].
-    #[doc(alias = "ts_language_version")]
+    #[doc(alias = "ts_language_abi_version")]
     #[must_use]
-    pub fn version(&self) -> usize {
-        unsafe { ffi::ts_language_version(self.0) as usize }
+    pub fn abi_version(&self) -> usize {
+        unsafe { ffi::ts_language_abi_version(self.0) as usize }
+    }
+
+    /// Get the [Semantic Version](https://semver.org/) for this language. This
+    /// version number is used to signal if a given parser might be incompatible
+    /// with existing queries when upgraded between major versions.
+    ///
+    /// The Semantic Version is encoded as an unsigned 32-bit integer, where the
+    /// major, minor, and patch version numbers are encoded in the 24 least significant
+    /// bits of the integer, using 8 bits for each number.
+    ///
+    /// Layout of the returned integer:
+    ///
+    /// MSB                               LSB
+    /// +--------+--------+--------+--------+
+    /// |00000000|  Major |  Minor |  Patch |
+    /// +--------+--------+--------+--------+
+    /// 31      24 23    16 15     8 7      0
+    #[doc(alias = "ts_language_semantic_version")]
+    #[must_use]
+    pub fn semantic_version(&self) -> usize {
+        unsafe { ffi::ts_language_semantic_version(self.0) as usize }
     }
 
     /// Get the number of distinct node types in this language.
@@ -448,7 +469,7 @@ impl Parser {
     /// [`MIN_COMPATIBLE_LANGUAGE_VERSION`](MIN_COMPATIBLE_LANGUAGE_VERSION) constants.
     #[doc(alias = "ts_parser_set_language")]
     pub fn set_language(&mut self, language: &Language) -> Result<(), LanguageError> {
-        let version = language.version();
+        let version = language.abi_version();
         if (MIN_COMPATIBLE_LANGUAGE_VERSION..=LANGUAGE_VERSION).contains(&version) {
             unsafe {
                 ffi::ts_parser_set_language(self.0.as_ptr(), language.0);
@@ -1728,7 +1749,7 @@ impl Query {
                     column: 0,
                     offset: 0,
                     message: LanguageError {
-                        version: language.version(),
+                        version: language.abi_version(),
                     }
                     .to_string(),
                     kind: QueryErrorKind::Language,

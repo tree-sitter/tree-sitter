@@ -24,8 +24,12 @@ uint32_t ts_language_state_count(const TSLanguage *self) {
   return self->state_count;
 }
 
-uint32_t ts_language_version(const TSLanguage *self) {
-  return self->version;
+uint32_t ts_language_abi_version(const TSLanguage *self) {
+  return self->abi_version;
+}
+
+uint32_t ts_language_semantic_version(const TSLanguage *self) {
+    return self->major_version << 16 | self->minor_version << 8 | self->patch_version;
 }
 
 uint32_t ts_language_field_count(const TSLanguage *self) {

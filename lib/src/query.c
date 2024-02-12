@@ -2677,8 +2677,8 @@ TSQuery *ts_query_new(
 ) {
   if (
     !language ||
-    language->version > TREE_SITTER_LANGUAGE_VERSION ||
-    language->version < TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
+    language->abi_version > TREE_SITTER_LANGUAGE_VERSION ||
+    language->abi_version < TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
   ) {
     *error_type = TSQueryErrorLanguage;
     return NULL;

@@ -110,7 +110,7 @@ typedef union {
 } TSParseActionEntry;
 
 struct TSLanguage {
-  uint32_t version;
+  uint32_t abi_version;
   uint32_t symbol_count;
   uint32_t alias_count;
   uint32_t token_count;
@@ -146,6 +146,9 @@ struct TSLanguage {
     void (*deserialize)(void *, const char *, unsigned);
   } external_scanner;
   const TSStateId *primary_state_ids;
+  uint32_t major_version;
+  uint32_t minor_version;
+  uint32_t patch_version;
 };
 
 /*

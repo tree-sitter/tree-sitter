@@ -11,20 +11,23 @@ mod render;
 mod rules;
 mod tables;
 
+use std::io::Write;
+use std::path::Path;
+use std::process::{Command, Stdio};
+use std::{env, fs};
+
+use anyhow::{anyhow, Context, Result};
+use lazy_static::lazy_static;
+use regex::{Regex, RegexBuilder};
+use semver::Version;
+use serde::Deserialize;
+
 use self::build_tables::build_tables;
 use self::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
 use self::parse_grammar::parse_grammar;
 use self::prepare_grammar::prepare_grammar;
 use self::render::render_c_code;
 use self::rules::AliasMap;
-use anyhow::{anyhow, Context, Result};
-use lazy_static::lazy_static;
-use regex::{Regex, RegexBuilder};
-use semver::Version;
-use std::io::Write;
-use std::path::Path;
-use std::process::{Command, Stdio};
-use std::{env, fs};
 
 lazy_static! {
     static ref JSON_COMMENT_REGEX: Regex = RegexBuilder::new("^\\s*//.*")
@@ -73,6 +76,19 @@ pub fn generate_parser_in_directory(
         prepare_grammar(&input_grammar)?;
     let language_name = input_grammar.name;
 
+    let language_semver = read_package_json_version()?;
+    let rust_binding_version = read_rust_binding_version()?;
+    if language_semver != rust_binding_version {
+        anyhow::bail!(
+            "Error:
+            The version of your language grammar in `package.json` is `{language_semver}`, but the version of your language grammar in `Cargo.toml` is `{rust_binding_version}`.
+            These versions must match. Please adjust one of these files to match the other, and then try running `tree-sitter generate` again.
+
+            Consider delegating this process to the `release` subcommand, which will handle git tags, GitHub releases, and publishing to crates.io, npmjs, and PyPI for you.
+            Read more here: https://tree-sitter.github.io/tree-sitter/creating-parsers#releasing-a-new-grammar-version",
+        );
+    }
+
     // Generate the parser and related files.
     let GeneratedParser {
         c_code,
@@ -85,6 +101,11 @@ pub fn generate_parser_in_directory(
         simple_aliases,
         abi_version,
         report_symbol_name,
+        (
+            language_semver.major as u8,
+            language_semver.minor as u8,
+            language_semver.patch as u8,
+        ),
     )?;
 
     write_file(&src_path.join("parser.c"), c_code)?;
@@ -111,6 +132,7 @@ pub fn generate_parser_for_grammar(grammar_json: &str) -> Result<(String, String
         simple_aliases,
         tree_sitter::LANGUAGE_VERSION,
         None,
+        (0, 0, 0),
     )?;
     Ok((input_grammar.name, parser.c_code))
 }
@@ -123,6 +145,7 @@ fn generate_parser_for_grammar_with_opts(
     simple_aliases: AliasMap,
     abi_version: usize,
     report_symbol_name: Option<&str>,
+    semantic_version: (u8, u8, u8),
 ) -> Result<GeneratedParser> {
     let variable_info =
         node_types::get_variable_info(&syntax_grammar, &lexical_grammar, &simple_aliases)?;
@@ -150,11 +173,36 @@ fn generate_parser_for_grammar_with_opts(
         lexical_grammar,
         simple_aliases,
         abi_version,
+        semantic_version,
     );
     Ok(GeneratedParser {
         c_code,
         node_types_json: serde_json::to_string_pretty(&node_types_json).unwrap(),
     })
+}
+
+fn read_package_json_version() -> Result<Version> {
+    #[derive(Deserialize)]
+    struct PackageJSON {
+        version: String,
+    }
+
+    let path = "package.json";
+    let text = fs::read_to_string(path).with_context(|| format!("Failed to read {path:?}"))?;
+
+    let package_json: PackageJSON =
+        serde_json::from_str(&text).with_context(|| format!("Failed to parse {path:?} as JSON"))?;
+
+    Ok(Version::parse(&package_json.version)?)
+}
+
+fn read_rust_binding_version() -> Result<Version> {
+    let path = "Cargo.toml";
+    let text = fs::read_to_string(path)?;
+    let cargo_toml = toml::from_str::<toml::Value>(text.as_ref())?;
+    Ok(Version::parse(
+        cargo_toml["package"]["version"].as_str().unwrap(),
+    )?)
 }
 
 pub fn load_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result<String> {

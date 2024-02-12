@@ -186,7 +186,7 @@ static inline bool ts_language_state_is_primary(
   const TSLanguage *self,
   TSStateId state
 ) {
-  if (self->version >= 14) {
+  if (self->abi_version >= 14) {
     return state == self->primary_state_ids[state];
   } else {
     return true;

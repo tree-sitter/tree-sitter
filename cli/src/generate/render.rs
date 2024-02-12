@@ -17,9 +17,9 @@ use std::{
 
 const LARGE_CHARACTER_RANGE_COUNT: usize = 8;
 const SMALL_STATE_THRESHOLD: usize = 64;
-const ABI_VERSION_MIN: usize = 13;
+const ABI_VERSION_MIN: usize = 15;
 const ABI_VERSION_MAX: usize = tree_sitter::LANGUAGE_VERSION;
-const ABI_VERSION_WITH_PRIMARY_STATES: usize = 14;
+const ABI_VERSION_WITH_PRIMARY_STATES: usize = 15;
 
 macro_rules! add {
     ($this: tt, $($arg: tt)*) => {{
@@ -74,9 +74,10 @@ struct Generator {
     unique_aliases: Vec<Alias>,
     symbol_map: HashMap<Symbol, Symbol>,
     field_names: Vec<String>,
-
-    #[allow(unused)]
     abi_version: usize,
+    major_version: u8,
+    minor_version: u8,
+    patch_version: u8,
 }
 
 struct TransitionSummary {
@@ -984,7 +985,7 @@ impl Generator {
         if action.in_main_token {
             add!(self, "ADVANCE({});", action.state);
         } else {
-            add!(self, "SKIP({})", action.state);
+            add!(self, "SKIP({});", action.state);
         }
     }
 
@@ -1342,7 +1343,7 @@ impl Generator {
         indent!(self);
         add_line!(self, "static const TSLanguage language = {{");
         indent!(self);
-        add_line!(self, ".version = LANGUAGE_VERSION,");
+        add_line!(self, ".abi_version = LANGUAGE_VERSION,");
 
         // Quantities
         add_line!(self, ".symbol_count = SYMBOL_COUNT,");
@@ -1406,9 +1407,11 @@ impl Generator {
             add_line!(self, "}},");
         }
 
-        if self.abi_version >= ABI_VERSION_WITH_PRIMARY_STATES {
-            add_line!(self, ".primary_state_ids = ts_primary_state_ids,");
-        }
+        add_line!(self, ".primary_state_ids = ts_primary_state_ids,");
+
+        add_line!(self, ".major_version = {},", self.major_version);
+        add_line!(self, ".minor_version = {},", self.minor_version);
+        add_line!(self, ".patch_version = {},", self.patch_version);
 
         dedent!(self);
         add_line!(self, "}};");
@@ -1678,6 +1681,7 @@ pub fn render_c_code(
     lexical_grammar: LexicalGrammar,
     default_aliases: AliasMap,
     abi_version: usize,
+    semantic_version: (u8, u8, u8),
 ) -> String {
     assert!(
         (ABI_VERSION_MIN..=ABI_VERSION_MAX).contains(&abi_version),
@@ -1703,6 +1707,9 @@ pub fn render_c_code(
         unique_aliases: Vec::new(),
         field_names: Vec::new(),
         abi_version,
+        major_version: semantic_version.0,
+        minor_version: semantic_version.1,
+        patch_version: semantic_version.2,
     }
     .generate()
 }

@@ -1188,7 +1188,7 @@ const TSLanguage *ts_wasm_store_load_language(
     );
   }
 
-  if (language->version >= 14) {
+  if (language->abi_version >= 14) {
     language->primary_state_ids = copy(
       &memory[wasm_language.primary_state_ids],
       wasm_language.state_count * sizeof(TSStateId)

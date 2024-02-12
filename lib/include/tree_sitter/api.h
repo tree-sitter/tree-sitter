@@ -9,9 +9,9 @@
 extern "C" {
 #endif
 
-#include <stdlib.h>
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
 
 /****************************/
 /* Section - ABI Versioning */
@@ -24,13 +24,13 @@ extern "C" {
  * The Tree-sitter library is generally backwards-compatible with languages
  * generated using older CLI versions, but is not forwards-compatible.
  */
-#define TREE_SITTER_LANGUAGE_VERSION 14
+#define TREE_SITTER_LANGUAGE_VERSION 15
 
 /**
  * The earliest ABI version that is supported by the current version of the
  * library.
  */
-#define TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION 13
+#define TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION 15
 
 /*******************/
 /* Section - Types */
@@ -1079,7 +1079,27 @@ TSSymbolType ts_language_symbol_type(const TSLanguage *self, TSSymbol symbol);
  *
  * See also [`ts_parser_set_language`].
  */
-uint32_t ts_language_version(const TSLanguage *self);
+uint32_t ts_language_abi_version(const TSLanguage *self);
+
+/**
+ * Get the [Semantic Version](https://semver.org/) for this language. This
+ * version number is used to signal if a given parser might be incompatible
+ * with existing queries when upgraded between major versions.
+ *
+ * The Semantic Version is encoded as an unsigned 32-bit integer, where the
+ * major, minor, and patch version numbers are encoded in the 24 least significant
+ * bits of the integer, using 8 bits for each number.
+ *
+ * Layout of the returned integer:
+ *
+ * MSB                               LSB
+ * +--------+--------+--------+--------+
+ * |00000000|  Major |  Minor |  Patch |
+ * +--------+--------+--------+--------+
+ * 31      24 23    16 15     8 7      0
+ *
+ */
+uint32_t ts_language_semantic_version(const TSLanguage *self);
 
 /**
  * Get the next parse state. Combine this with lookahead iterators to generate

@@ -47,6 +47,7 @@ serde_derive.workspace = true
 serde_json.workspace = true
 smallbitvec.workspace = true
 tiny_http.workspace = true
+toml.workspace = true
 walkdir.workspace = true
 wasmparser.workspace = true
 webbrowser.workspace = true
