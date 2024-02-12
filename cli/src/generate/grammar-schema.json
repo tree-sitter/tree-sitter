@@ -115,7 +115,8 @@
           "type": "string",
           "pattern": "^PATTERN$"
         },
-        "value": { "type": "string" }
+        "value": { "type": "string" },
+        "flags": { "type": "string" }
       },
       "required": ["type", "value"]
     },
