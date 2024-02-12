@@ -19,6 +19,7 @@ anyhow.workspace = true
 cc.workspace = true
 dirs.workspace = true
 fs4.workspace = true
+indoc.workspace = true
 libloading.workspace = true
 once_cell.workspace = true
 regex.workspace = true

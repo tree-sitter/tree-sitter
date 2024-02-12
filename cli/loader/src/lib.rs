@@ -1,11 +1,5 @@
 #![doc = include_str!("../README.md")]
 
-use anyhow::{anyhow, Context, Error, Result};
-use fs4::FileExt;
-use libloading::{Library, Symbol};
-use once_cell::unsync::OnceCell;
-use regex::{Regex, RegexBuilder};
-use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::io::BufReader;
@@ -15,6 +9,14 @@ use std::process::Command;
 use std::sync::Mutex;
 use std::time::SystemTime;
 use std::{env, fs, mem};
+
+use anyhow::{anyhow, Context, Error, Result};
+use fs4::FileExt;
+use indoc::indoc;
+use libloading::{Library, Symbol};
+use once_cell::unsync::OnceCell;
+use regex::{Regex, RegexBuilder};
+use serde::{Deserialize, Deserializer, Serialize};
 use tree_sitter::{Language, QueryError, QueryErrorKind};
 use tree_sitter_highlight::HighlightConfiguration;
 use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
@@ -1192,6 +1194,16 @@ impl<'a> LanguageConfiguration<'a> {
                 path_ranges.push((path.clone(), prev_query_len..query.len()));
             }
         } else {
+            // highlights.scm is needed to test highlights, and tags.scm to test tags
+            if default_path == "highlights.scm" || default_path == "tags.scm" {
+                eprintln!(
+                    indoc! {"
+                        Warning: you should add a `{}` entry pointing to the highlights path in `tree-sitter` language list in the grammar's package.json
+                        See more here: https://tree-sitter.github.io/tree-sitter/syntax-highlighting#query-paths
+                    "},
+                    default_path.replace(".scm", "")
+                );
+            }
             let queries_path = self.root_path.join("queries");
             let path = queries_path.join(default_path);
             if path.exists() {
