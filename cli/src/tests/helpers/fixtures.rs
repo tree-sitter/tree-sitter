@@ -79,7 +79,7 @@ pub fn get_tags_config(language_name: &str) -> TagsConfiguration {
 }
 
 pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> Language {
-    let src_dir = SCRATCH_DIR.join("src").join(name);
+    let src_dir = scratch_dir().join("src").join(name);
     fs::create_dir_all(&src_dir).unwrap();
 
     let parser_path = src_dir.join("parser.c");
