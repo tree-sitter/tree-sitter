@@ -27,6 +27,10 @@ pub fn fixtures_dir() -> &'static Path {
     &FIXTURES_DIR
 }
 
+pub fn scratch_dir() -> &'static Path {
+    &SCRATCH_DIR
+}
+
 pub fn get_language(name: &str) -> Language {
     TEST_LOADER
         .load_language_at_path(
