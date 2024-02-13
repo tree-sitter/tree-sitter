@@ -317,7 +317,7 @@ fn format_sexp_indented(sexp: &str, initial_indent_level: u32) -> String {
         while let Some(c) = c_iter.next() {
             if c == '\'' || c == '"' {
                 quote = c;
-            } else if c == ' ' {
+            } else if c == ' ' || (c == ')' && quote != '\0') {
                 if let Some(next_c) = c_iter.peek() {
                     if *next_c == quote {
                         next.push(c);
@@ -328,7 +328,8 @@ fn format_sexp_indented(sexp: &str, initial_indent_level: u32) -> String {
                     }
                 }
                 break;
-            } else if c == ')' {
+            }
+            if c == ')' {
                 saw_paren = true;
                 break;
             }
@@ -341,13 +342,13 @@ fn format_sexp_indented(sexp: &str, initial_indent_level: u32) -> String {
                 // but did we see a ) before ending?
                 saw_paren = false;
                 return Some(());
-            } else if !did_last {
+            }
+            if !did_last {
                 // but did we account for the end empty string as if we're splitting?
                 did_last = true;
                 return Some(());
-            } else {
-                return None;
             }
+            return None;
         }
         Some(())
     };
@@ -713,6 +714,14 @@ abc
 "
             .trim()
         );
+        assert_eq!(
+            format_sexp(r#"(source_file (MISSING ")"))"#),
+            r#"
+(source_file
+  (MISSING ")"))
+"#
+            .trim()
+        )
     }
 
     #[test]
