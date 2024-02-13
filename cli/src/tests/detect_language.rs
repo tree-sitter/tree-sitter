@@ -117,6 +117,16 @@ fn tree_sitter_dir(package_json: &str, name: &str) -> tempfile::TempDir {
 fn get_lang_scope(loader: &mut Loader, file_name: &Path) -> Option<String> {
     loader
         .language_configuration_for_file_name(file_name)
-        .unwrap()
-        .and_then(|r| r.1.scope.clone())
+        .ok()
+        .and_then(|config| {
+            if let Some((_, config)) = config {
+                config.scope.clone()
+            } else if let Ok(Some((_, config))) =
+                loader.language_configuration_for_first_line_regex(file_name)
+            {
+                config.scope.clone()
+            } else {
+                None
+            }
+        })
 }

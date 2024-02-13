@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
-use std::io::BufReader;
+use std::io::{BufRead, BufReader};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -227,6 +227,30 @@ impl Loader {
         Ok(None)
     }
 
+    pub fn language_configuration_for_first_line_regex(
+        &self,
+        path: &Path,
+    ) -> Result<Option<(Language, &LanguageConfiguration)>> {
+        self.language_configuration_ids_by_first_line_regex
+            .iter()
+            .try_fold(None, |_, (regex, ids)| {
+                if let Some(regex) = Self::regex(Some(regex)) {
+                    let file = fs::File::open(path)?;
+                    let reader = BufReader::new(file);
+                    let first_line = reader.lines().next().transpose()?;
+                    if let Some(first_line) = first_line {
+                        if regex.is_match(&first_line) && !ids.is_empty() {
+                            let configuration = &self.language_configurations[ids[0]];
+                            let language = self.language_for_id(configuration.language_id)?;
+                            return Ok(Some((language, configuration)));
+                        }
+                    }
+                }
+
+                Ok(None)
+            })
+    }
+
     pub fn language_configuration_for_file_name(
         &self,
         path: &Path,
@@ -243,26 +267,6 @@ impl Loader {
                     .and_then(|extension| {
                         self.language_configuration_ids_by_file_type.get(extension)
                     })
-            })
-            .or_else(|| {
-                let Ok(file) = fs::File::open(path) else {
-                    return None;
-                };
-                let reader = BufReader::new(file);
-                let Some(Ok(first_line)) = std::io::BufRead::lines(reader).next() else {
-                    return None;
-                };
-
-                self.language_configuration_ids_by_first_line_regex
-                    .iter()
-                    .find(|(regex, _)| {
-                        if let Some(regex) = Self::regex(Some(regex)) {
-                            regex.is_match(&first_line)
-                        } else {
-                            false
-                        }
-                    })
-                    .map(|(_, ids)| ids)
             });
 
         if let Some(configuration_ids) = configuration_ids {
@@ -1006,6 +1010,8 @@ impl Loader {
             .cloned()
         {
             Ok(lang)
+        } else if let Some(lang) = self.language_configuration_for_first_line_regex(path)? {
+            Ok(lang.0)
         } else {
             Err(anyhow!("No language found"))
         }
@@ -1066,8 +1072,7 @@ impl<'a> LanguageConfiguration<'a> {
             ),
             None => (None, None, None),
         };
-        return self
-            .highlight_config
+        self.highlight_config
             .get_or_try_init(|| {
                 let (highlights_query, highlight_ranges) = self.read_queries(
                     if highlights_filenames.is_some() {
@@ -1145,7 +1150,7 @@ impl<'a> LanguageConfiguration<'a> {
                     Ok(Some(result))
                 }
             })
-            .map(Option::as_ref);
+            .map(Option::as_ref)
     }
 
     pub fn tags_config(&self, language: Language) -> Result<Option<&TagsConfiguration>> {
