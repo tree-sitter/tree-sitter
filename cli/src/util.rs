@@ -22,6 +22,7 @@ svg { width: 100%; }
 
 ";
 
+#[must_use]
 pub fn lang_not_found_for_path(path: &Path, loader_config: &LoaderConfig) -> String {
     let path = path.display();
     format!(
