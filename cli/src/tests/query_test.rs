@@ -3020,6 +3020,26 @@ fn test_query_captures_with_predicates() {
                 (QueryProperty::new("name", Some("something"), None), false),
             ]
         );
+
+        let source = "const a = window.b";
+        let mut parser = Parser::new();
+        parser.set_language(&language).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+
+        let query = Query::new(
+            &language,
+            r#"((identifier) @variable.builtin
+                (#match? @variable.builtin "^(arguments|module|console|window|document)$")
+                (#is-not? local))
+            "#,
+        )
+        .unwrap();
+
+        let mut cursor = QueryCursor::new();
+        let matches = cursor.matches(&query, tree.root_node(), source.as_bytes());
+        let matches = collect_matches(matches, &query, source);
+
+        assert_eq!(matches, &[(0, vec![("variable.builtin", "window")])]);
     });
 }
 
