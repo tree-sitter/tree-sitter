@@ -346,12 +346,12 @@ impl Generator {
         for symbol in &self.parse_table.symbols {
             if *symbol != Symbol::end() {
                 self.symbol_order.insert(*symbol, i);
-                add_line!(self, "{} = {},", self.symbol_ids[&symbol], i);
+                add_line!(self, "{} = {},", self.symbol_ids[symbol], i);
                 i += 1;
             }
         }
         for alias in &self.unique_aliases {
-            add_line!(self, "{} = {},", self.alias_ids[&alias], i);
+            add_line!(self, "{} = {},", self.alias_ids[alias], i);
             i += 1;
         }
         dedent!(self);
@@ -370,13 +370,13 @@ impl Generator {
                         alias.value.as_str()
                     }),
             );
-            add_line!(self, "[{}] = \"{}\",", self.symbol_ids[&symbol], name);
+            add_line!(self, "[{}] = \"{}\",", self.symbol_ids[symbol], name);
         }
         for alias in &self.unique_aliases {
             add_line!(
                 self,
                 "[{}] = \"{}\",",
-                self.alias_ids[&alias],
+                self.alias_ids[alias],
                 self.sanitize_string(&alias.value)
             );
         }
@@ -401,8 +401,8 @@ impl Generator {
             add_line!(
                 self,
                 "[{}] = {},",
-                self.alias_ids[&alias],
-                self.alias_ids[&alias],
+                self.alias_ids[alias],
+                self.alias_ids[alias],
             );
         }
 
@@ -446,7 +446,7 @@ impl Generator {
         );
         indent!(self);
         for symbol in &self.parse_table.symbols {
-            add_line!(self, "[{}] = {{", self.symbol_ids[&symbol]);
+            add_line!(self, "[{}] = {{", self.symbol_ids[symbol]);
             indent!(self);
             if let Some(Alias { is_named, .. }) = self.default_aliases.get(symbol) {
                 add_line!(self, ".visible = true,");
@@ -478,7 +478,7 @@ impl Generator {
             add_line!(self, "}},");
         }
         for alias in &self.unique_aliases {
-            add_line!(self, "[{}] = {{", self.alias_ids[&alias]);
+            add_line!(self, "[{}] = {{", self.alias_ids[alias]);
             indent!(self);
             add_line!(self, ".visible = true,");
             add_line!(self, ".named = {},", alias.is_named);
@@ -510,7 +510,7 @@ impl Generator {
             indent!(self);
             for (j, alias) in production_info.alias_sequence.iter().enumerate() {
                 if let Some(alias) = alias {
-                    add_line!(self, "[{}] = {},", j, self.alias_ids[&alias]);
+                    add_line!(self, "[{}] = {},", j, self.alias_ids[alias]);
                 }
             }
             dedent!(self);
@@ -554,7 +554,7 @@ impl Generator {
         indent!(self);
         for (symbol, alias_ids) in alias_ids_by_symbol {
             let symbol_id = &self.symbol_ids[symbol];
-            let public_symbol_id = &self.symbol_ids[&self.symbol_map[&symbol]];
+            let public_symbol_id = &self.symbol_ids[&self.symbol_map[symbol]];
             add_line!(self, "{symbol_id}, {},", 1 + alias_ids.len());
             indent!(self);
             add_line!(self, "{public_symbol_id},");
