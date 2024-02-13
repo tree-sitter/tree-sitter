@@ -2312,15 +2312,8 @@ static TSQueryError ts_query__parse_pattern(
         stream_scan_identifier(stream);
         uint32_t length = (uint32_t)(stream->input - node_name);
 
-        // TODO - remove.
-        // For temporary backward compatibility, handle predicates without the leading '#' sign.
-        if (length > 0 && (node_name[length - 1] == '!' || node_name[length - 1] == '?')) {
-          stream_reset(stream, node_name);
-          return ts_query__parse_predicate(self, stream);
-        }
-
         // Parse the wildcard symbol
-        else if (length == 1 && node_name[0] == '_') {
+        if (length == 1 && node_name[0] == '_') {
           symbol = WILDCARD_SYMBOL;
         }
 
