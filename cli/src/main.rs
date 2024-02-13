@@ -314,6 +314,11 @@ struct BuildWasm {
 struct Playground {
     #[arg(long, short, help = "Don't open in default browser")]
     pub quiet: bool,
+    #[arg(
+        long,
+        help = "Path to the directory containing the grammar and wasm files"
+    )]
+    pub grammar_path: Option<String>,
 }
 
 #[derive(Args)]
@@ -765,7 +770,11 @@ fn run() -> Result<()> {
 
         Commands::Playground(playground_options) => {
             let open_in_browser = !playground_options.quiet;
-            playground::serve(&current_dir, open_in_browser)?;
+            let grammar_path = playground_options
+                .grammar_path
+                .map(PathBuf::from)
+                .unwrap_or(current_dir);
+            playground::serve(&grammar_path, open_in_browser)?;
         }
 
         Commands::DumpLanguages(_) => {
