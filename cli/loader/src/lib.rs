@@ -524,7 +524,12 @@ impl Loader {
                 command.arg("/O2");
             }
             command.arg(parser_path);
+
             if let Some(scanner_path) = scanner_path.as_ref() {
+                if scanner_path.extension() != Some("c".as_ref()) {
+                    eprintln!("Warning: Using a C++ scanner is now deprecated. Please migrate your scanner code to C, as C++ support will be removed in the near future.");
+                }
+
                 command.arg(scanner_path);
             }
             command
@@ -560,6 +565,7 @@ impl Loader {
                 if scanner_path.extension() == Some("c".as_ref()) {
                     command.arg("-xc").arg("-std=c99").arg(scanner_path);
                 } else {
+                    eprintln!("Warning: Using a C++ scanner is now deprecated. Please migrate your scanner code to C, as C++ support will be removed in the near future.");
                     command.arg(scanner_path);
                 }
             }
@@ -750,6 +756,7 @@ impl Loader {
                 .and_then(|ext| ext.to_str())
                 .map_or(false, |ext| ["cc", "cpp"].contains(&ext))
             {
+                eprintln!("Warning: Using a C++ scanner is now deprecated. Please migrate your scanner code to C, as C++ support will be removed in the near future.");
                 command.arg("-xc++");
             }
             command.arg(scanner_filename);
