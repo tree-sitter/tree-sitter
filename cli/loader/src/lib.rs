@@ -566,9 +566,9 @@ impl Loader {
             command.arg("-xc").arg(parser_path);
         }
 
-        let output = command
-            .output()
-            .with_context(|| "Failed to execute C compiler")?;
+        let output = command.output().with_context(|| {
+            format!("Failed to execute the C compiler with the following command:\n{command:?}")
+        })?;
 
         lock_file.unlock()?;
         fs::remove_file(lock_path)?;
