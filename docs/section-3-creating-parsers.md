@@ -649,7 +649,11 @@ grammar({
 Then, add another C or C++ source file to your project. Currently, its path must be `src/scanner.c` or `src/scanner.cc` for the CLI to recognize it. Be sure to add this file to the `sources` section of your `binding.gyp` file so that it will be included when your project is compiled by Node.js and uncomment the appropriate block in your `bindings/rust/build.rs` file so that it will be included in your Rust crate.
 
 > **Note**
-> While it is possible to write an external scanner in C++, it can be difficult to get working cross-platform and introduces extra requirements; therefore it is *greatly* preferred to use C.
+>
+> C++ scanners are now deprecated and will be removed in the near future.
+> While it is currently possible to write an external scanner in C++, it can be difficult
+> to get working cross-platform and introduces extra requirements; therefore it
+> is *greatly* preferred to use C.
 
 In this new source file, define an [`enum`][enum] type containing the names of all of your external tokens. The ordering of this enum must match the order in your grammar's `externals` array; the actual names do not matter.
 
