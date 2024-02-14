@@ -4,7 +4,14 @@ members = ["cli", "cli/config", "cli/loader", "lib", "tags", "highlight"]
 resolver = "2"
 
 [workspace.package]
+authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
+edition = "2021"
 rust-version = "1.70"
+homepage = "https://tree-sitter.github.io/tree-sitter"
+repository = "https://github.com/tree-sitter/tree-sitter"
+license = "MIT"
+keywords = ["incremental", "parsing"]
+categories = ["command-line-utilities", "parsing"]
 
 [profile.optimize]
 inherits = "release"
