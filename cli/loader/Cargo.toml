@@ -2,14 +2,15 @@
 name = "tree-sitter-loader"
 description = "Locates, builds, and loads tree-sitter grammars at runtime"
 version = "0.20.0"
-authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
-edition = "2021"
-license = "MIT"
-readme = "README.md"
-keywords = ["incremental", "parsing"]
-categories = ["command-line-utilities", "parsing"]
-repository = "https://github.com/tree-sitter/tree-sitter"
+authors.workspace = true
+edition.workspace = true
 rust-version.workspace = true
+readme = "README.md"
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [features]
 wasm = ["tree-sitter/wasm"]

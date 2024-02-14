@@ -2,25 +2,26 @@
 name = "tree-sitter"
 description = "Rust bindings to the Tree-sitter parsing library"
 version = "0.20.10"
-authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
-edition = "2021"
-license = "MIT"
-readme = "binding_rust/README.md"
-keywords = ["incremental", "parsing"]
-categories = ["api-bindings", "parsing", "text-editors"]
-repository = "https://github.com/tree-sitter/tree-sitter"
+authors.workspace = true
+edition.workspace = true
 rust-version.workspace = true
+readme = "binding_rust/README.md"
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories = ["api-bindings", "parsing", "text-editors"]
 
 build = "binding_rust/build.rs"
 links = "tree-sitter"
 
 include = [
-	"/binding_rust/*",
-	"/Cargo.toml",
-	"/src/*.h",
-	"/src/*.c",
-	"/src/unicode/*",
-	"/include/tree_sitter/api.h",
+  "/binding_rust/*",
+  "/Cargo.toml",
+  "/src/*.h",
+  "/src/*.c",
+  "/src/unicode/*",
+  "/include/tree_sitter/api.h",
 ]
 
 [features]

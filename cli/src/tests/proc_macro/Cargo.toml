@@ -1,9 +1,9 @@
 [package]
 name = "tree-sitter-tests-proc-macro"
 version = "0.0.0"
-edition = "2021"
-publish = false
+edition.workspace = true
 rust-version.workspace = true
+publish = false
 
 [lib]
 proc-macro = true
