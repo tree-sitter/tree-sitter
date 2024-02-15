@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-GRAMMARS_DIR=$(dirname $0)/../test/fixtures/grammars
+GRAMMARS_DIR=$(dirname "$0")/../test/fixtures/grammars
 
 fetch_grammar() {
   local grammar=$1
@@ -10,13 +10,13 @@ fetch_grammar() {
 
   echo "Updating ${grammar} grammar..."
 
-  if [ ! -d $grammar_dir ]; then
-    git clone $grammar_url $grammar_dir --depth=1
+  if [ ! -d "$grammar_dir" ]; then
+    git clone "$grammar_url" "$grammar_dir" --depth=1
   fi
 
   (
-    cd $grammar_dir
-    git fetch origin $ref --depth=1
+    cd "$grammar_dir" || exit
+    git fetch origin "$ref" --depth=1
     git reset --hard FETCH_HEAD
   )
 }
