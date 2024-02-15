@@ -15,7 +15,7 @@ fi
 filter_grammar_name=$1
 
 grammars_dir=${root_dir}/test/fixtures/grammars
-grammar_files=$(find $grammars_dir -name grammar.js | grep -v node_modules)
+grammar_files=$(find "$grammars_dir" -name grammar.js | grep -v node_modules)
 
 while read -r grammar_file; do
   grammar_dir=$(dirname "$grammar_file")
@@ -27,7 +27,7 @@ while read -r grammar_file; do
 
   echo "Regenerating ${grammar_name} parser"
   (
-    cd $grammar_dir
+    cd "$grammar_dir"
     "$tree_sitter" generate src/grammar.json --no-bindings --abi=latest
   )
 done <<< "$grammar_files"
