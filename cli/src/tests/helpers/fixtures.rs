@@ -36,6 +36,7 @@ pub fn get_language(name: &str) -> Language {
         .load_language_at_path(
             &GRAMMARS_DIR.join(name).join("src"),
             &[&HEADER_DIR, &GRAMMARS_DIR.join(name).join("src")],
+            None,
         )
         .unwrap()
 }
@@ -86,7 +87,7 @@ pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> 
         fs::write(&parser_path, parser_code).unwrap();
     }
 
-    if let Some(path) = path {
+    let scanner_path = if let Some(path) = path {
         let scanner_path = path.join("scanner.c");
         if scanner_path.exists() {
             let scanner_code = fs::read_to_string(&scanner_path).unwrap();
@@ -96,8 +97,13 @@ pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> 
             {
                 fs::write(&scanner_copy_path, scanner_code).unwrap();
             }
+            Some(scanner_copy_path)
+        } else {
+            None
         }
-    }
+    } else {
+        None
+    };
 
     let header_path = src_dir.join("tree_sitter");
     fs::create_dir_all(&header_path).unwrap();
@@ -110,7 +116,13 @@ pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> 
         })
         .unwrap();
 
+    let paths_to_check = if let Some(scanner_path) = &scanner_path {
+        vec![parser_path.clone(), scanner_path.to_path_buf()]
+    } else {
+        vec![parser_path.clone()]
+    };
+
     TEST_LOADER
-        .load_language_at_path_with_name(&src_dir, &[&HEADER_DIR], name)
+        .load_language_at_path_with_name(&src_dir, &[&HEADER_DIR], name, Some(&paths_to_check))
         .unwrap()
 }

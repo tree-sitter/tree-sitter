@@ -212,7 +212,7 @@ fn parse(path: &Path, max_path_length: usize, mut action: impl FnMut(&[u8])) -> 
 fn get_language(path: &Path) -> Language {
     let src_dir = GRAMMARS_DIR.join(path).join("src");
     TEST_LOADER
-        .load_language_at_path(&src_dir, &[&src_dir])
+        .load_language_at_path(&src_dir, &[&src_dir], None)
         .with_context(|| format!("Failed to load language at path {src_dir:?}"))
         .unwrap()
 }

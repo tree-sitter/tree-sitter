@@ -92,6 +92,11 @@ These keys specify basic information about the parser:
 
 * `path` (optional) - A relative path from the directory containing `package.json` to another directory containing the `src/` folder, which contains the actual generated parser. The default value is `"."` (so that `src/` is in the same folder as `package.json`), and this very rarely needs to be overridden.
 
+* `external-files` (optional) - A list of relative paths from the root dir of a
+parser to files that should be checked for modifications during recompilation.
+This is useful during development to have changes to other files besides scanner.c
+be picked up by the cli.
+
 ### Language Detection
 
 These keys help to decide whether the language applies to a given file:

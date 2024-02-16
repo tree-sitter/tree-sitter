@@ -105,7 +105,7 @@ pub struct LanguageConfiguration<'a> {
 
 pub struct Loader {
     parser_lib_path: PathBuf,
-    languages_by_id: Vec<(PathBuf, OnceCell<Language>)>,
+    languages_by_id: Vec<(PathBuf, OnceCell<Language>, Option<Vec<PathBuf>>)>,
     language_configurations: Vec<LanguageConfiguration<'static>>,
     language_configuration_ids_by_file_type: HashMap<String, Vec<usize>>,
     language_configuration_in_current_path: Option<usize>,
@@ -347,11 +347,11 @@ impl Loader {
     }
 
     fn language_for_id(&self, id: usize) -> Result<Language> {
-        let (path, language) = &self.languages_by_id[id];
+        let (path, language, externals) = &self.languages_by_id[id];
         language
             .get_or_try_init(|| {
                 let src_path = path.join("src");
-                self.load_language_at_path(&src_path, &[&src_path])
+                self.load_language_at_path(&src_path, &[&src_path], externals.as_deref())
             })
             .cloned()
     }
@@ -360,6 +360,7 @@ impl Loader {
         &self,
         src_path: &Path,
         header_paths: &[&Path],
+        external_files: Option<&[PathBuf]>,
     ) -> Result<Language> {
         let grammar_path = src_path.join("grammar.json");
 
@@ -372,7 +373,12 @@ impl Loader {
         let grammar_json: GrammarJSON = serde_json::from_reader(BufReader::new(&mut grammar_file))
             .with_context(|| "Failed to parse grammar.json")?;
 
-        self.load_language_at_path_with_name(src_path, header_paths, &grammar_json.name)
+        self.load_language_at_path_with_name(
+            src_path,
+            header_paths,
+            &grammar_json.name,
+            external_files,
+        )
     }
 
     pub fn load_language_at_path_with_name(
@@ -380,6 +386,7 @@ impl Loader {
         src_path: &Path,
         header_paths: &[&Path],
         name: &str,
+        external_files: Option<&[PathBuf]>,
     ) -> Result<Language> {
         let mut lib_name = name.to_string();
         let language_fn_name = format!("tree_sitter_{}", replace_dashes_with_underscores(name));
@@ -395,12 +402,26 @@ impl Loader {
         let parser_path = src_path.join("parser.c");
         let scanner_path = self.get_scanner_path(src_path);
 
+        let paths_to_check = if let Some(external_files) = external_files {
+            let mut files = if let Some(scanner_path) = scanner_path.as_ref() {
+                vec![parser_path.clone(), scanner_path.to_path_buf()]
+            } else {
+                vec![parser_path.clone()]
+            };
+            for path in external_files {
+                files.push(src_path.join(path));
+            }
+            files
+        } else {
+            Vec::new()
+        };
+
         #[cfg(feature = "wasm")]
         if self.wasm_store.lock().unwrap().is_some() {
             library_path.set_extension("wasm");
         }
 
-        let mut recompile = needs_recompile(&library_path, &parser_path, scanner_path.as_deref())
+        let mut recompile = needs_recompile(&library_path, &paths_to_check)
             .with_context(|| "Failed to compare source and binary timestamps")?;
 
         #[cfg(feature = "wasm")]
@@ -808,7 +829,7 @@ impl Loader {
         parser_path: &Path,
         set_current_path_config: bool,
     ) -> Result<&[LanguageConfiguration]> {
-        #[derive(Default, Deserialize)]
+        #[derive(Deserialize, Clone, Default)]
         #[serde(untagged)]
         enum PathsJSON {
             #[default]
@@ -848,6 +869,8 @@ impl Loader {
             locals: PathsJSON,
             #[serde(default)]
             tags: PathsJSON,
+            #[serde(default, rename = "external-files")]
+            external_files: PathsJSON,
         }
 
         #[derive(Deserialize)]
@@ -883,7 +906,7 @@ impl Loader {
                     // Determine if a previous language configuration in this package.json file
                     // already uses the same language.
                     let mut language_id = None;
-                    for (id, (path, _)) in
+                    for (id, (path, _, _)) in
                         self.languages_by_id.iter().enumerate().skip(language_count)
                     {
                         if language_path == *path {
@@ -892,10 +915,29 @@ impl Loader {
                     }
 
                     // If not, add a new language path to the list.
-                    let language_id = language_id.unwrap_or_else(|| {
-                        self.languages_by_id.push((language_path, OnceCell::new()));
+                    let language_id = if let Some(language_id) = language_id {
+                        language_id
+                    } else {
+                        self.languages_by_id.push((
+                            language_path,
+                            OnceCell::new(),
+                            config_json.external_files.clone().into_vec().map(|files| {
+                                files.into_iter()
+                                    .map(|path| {
+                                       let path = parser_path.join(path);
+                                        // prevent p being above/outside of parser_path
+
+                                        if path.starts_with(parser_path) {
+                                            Ok(path)
+                                        } else {
+                                            Err(anyhow!("External file path {path:?} is outside of parser directory {parser_path:?}"))
+                                        }
+                                    })
+                                    .collect::<Result<Vec<_>>>()
+                            }).transpose()?,
+                        ));
                         self.languages_by_id.len() - 1
-                    });
+                    };
 
                     let configuration = LanguageConfiguration {
                         root_path: parser_path.to_path_buf(),
@@ -972,7 +1014,7 @@ impl Loader {
             self.language_configurations
                 .push(unsafe { mem::transmute(configuration) });
             self.languages_by_id
-                .push((parser_path.to_owned(), OnceCell::new()));
+                .push((parser_path.to_owned(), OnceCell::new(), None));
         }
 
         Ok(&self.language_configurations[initial_language_configuration_count..])
@@ -1254,20 +1296,14 @@ impl<'a> LanguageConfiguration<'a> {
     }
 }
 
-fn needs_recompile(
-    lib_path: &Path,
-    parser_c_path: &Path,
-    scanner_path: Option<&Path>,
-) -> Result<bool> {
+fn needs_recompile(lib_path: &Path, paths_to_check: &[PathBuf]) -> Result<bool> {
     if !lib_path.exists() {
         return Ok(true);
     }
-    let lib_mtime = mtime(lib_path)?;
-    if mtime(parser_c_path)? > lib_mtime {
-        return Ok(true);
-    }
-    if let Some(scanner_path) = scanner_path {
-        if mtime(scanner_path)? > lib_mtime {
+    let lib_mtime =
+        mtime(lib_path).with_context(|| format!("Failed to read mtime of {lib_path:?}"))?;
+    for path in paths_to_check {
+        if mtime(path)? > lib_mtime {
             return Ok(true);
         }
     }
