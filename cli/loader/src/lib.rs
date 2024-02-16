@@ -428,7 +428,7 @@ impl Loader {
                 .join(format!("{name}.lock"))
         } else {
             dirs::cache_dir()
-                .ok_or(anyhow!("Cannot determine cache directory"))?
+                .ok_or_else(|| anyhow!("Cannot determine cache directory"))?
                 .join("tree-sitter")
                 .join("lock")
                 .join(format!("{name}.lock"))

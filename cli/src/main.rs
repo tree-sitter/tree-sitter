@@ -389,16 +389,16 @@ fn run() -> Result<()> {
             if generate_options.log {
                 logger::init();
             }
-            let abi_version = match generate_options.abi_version {
-                Some(ref version) => {
+            let abi_version = generate_options.abi_version.as_ref().map_or(
+                DEFAULT_GENERATE_ABI_VERSION,
+                |version| {
                     if version == "latest" {
                         tree_sitter::LANGUAGE_VERSION
                     } else {
                         version.parse().expect("invalid abi version flag")
                     }
-                }
-                None => DEFAULT_GENERATE_ABI_VERSION,
-            };
+                },
+            );
             generate::generate_parser_in_directory(
                 &current_dir,
                 generate_options.grammar_path.as_deref(),
@@ -482,7 +482,10 @@ fn run() -> Result<()> {
                 let opts = ParseFileOptions {
                     language: language.clone(),
                     path,
-                    edits: &edits.iter().map(|s| s.as_str()).collect::<Vec<&str>>(),
+                    edits: &edits
+                        .iter()
+                        .map(std::string::String::as_str)
+                        .collect::<Vec<&str>>(),
                     max_path_length,
                     output,
                     print_time: time,
