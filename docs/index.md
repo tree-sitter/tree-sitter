@@ -151,6 +151,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Svelte](https://github.com/Himujjal/tree-sitter-svelte)
 * [Swift](https://github.com/alex-pinkus/tree-sitter-swift)
 * [SystemRDL](https://github.com/SystemRDL/tree-sitter-systemrdl)
+* [Tact](https://github.com/tact-lang/tree-sitter-tact)
 * [Thrift](https://github.com/duskmoon314/tree-sitter-thrift)
 * ["TODO:" comments](https://github.com/stsewd/tree-sitter-comment)
 * [TOML](https://github.com/ikatyang/tree-sitter-toml)
