@@ -34,24 +34,24 @@ fn detect_language_by_first_line_regex() {
     let file_name = strace_dir.path().join("strace.log");
     std::fs::write(&file_name, "execve\nworld").unwrap();
     assert_eq!(
-        get_lang_scope(&mut loader, &file_name),
+        get_lang_scope(&loader, &file_name),
         Some("source.strace".into())
     );
 
     let file_name = strace_dir.path().join("strace.log");
     std::fs::write(&file_name, "447845 execve\nworld").unwrap();
     assert_eq!(
-        get_lang_scope(&mut loader, &file_name),
+        get_lang_scope(&loader, &file_name),
         Some("source.strace".into())
     );
 
     let file_name = strace_dir.path().join("strace.log");
     std::fs::write(&file_name, "hello\nexecve").unwrap();
-    assert!(get_lang_scope(&mut loader, &file_name).is_none());
+    assert!(get_lang_scope(&loader, &file_name).is_none());
 
     let file_name = strace_dir.path().join("strace.log");
     std::fs::write(&file_name, "").unwrap();
-    assert!(get_lang_scope(&mut loader, &file_name).is_none());
+    assert!(get_lang_scope(&loader, &file_name).is_none());
 
     let dummy_dir = tree_sitter_dir(
         r#"{
@@ -77,7 +77,7 @@ fn detect_language_by_first_line_regex() {
     let file_name = dummy_dir.path().join("strace.dummy");
     std::fs::write(&file_name, "execve").unwrap();
     assert_eq!(
-        get_lang_scope(&mut loader, &file_name),
+        get_lang_scope(&loader, &file_name),
         Some("source.dummy".into())
     );
 }
@@ -114,7 +114,7 @@ fn tree_sitter_dir(package_json: &str, name: &str) -> tempfile::TempDir {
 }
 
 // if we manage to get the language scope, it means we correctly detected the file-type
-fn get_lang_scope(loader: &mut Loader, file_name: &Path) -> Option<String> {
+fn get_lang_scope(loader: &Loader, file_name: &Path) -> Option<String> {
     loader
         .language_configuration_for_file_name(file_name)
         .ok()

@@ -721,7 +721,7 @@ abc
   (MISSING ")"))
 "#
             .trim()
-        )
+        );
     }
 
     #[test]
