@@ -157,6 +157,7 @@ function sym(name) {
 }
 
 function token(value) {
+  checkArguments(arguments.length, token, 'token', '', 'literal');
   return {
     type: "TOKEN",
     content: normalize(value)
@@ -164,6 +165,7 @@ function token(value) {
 }
 
 token.immediate = function(value) {
+  checkArguments(arguments.length, token.immediate, 'token.immediate', '', 'literal');
   return {
     type: "IMMEDIATE_TOKEN",
     content: normalize(value)
@@ -404,11 +406,11 @@ function grammar(baseGrammar, options) {
   return { grammar: { name, word, rules, extras, conflicts, precedences, externals, inline, supertypes } };
 }
 
-function checkArguments(ruleCount, caller, callerName, suffix = '') {
+function checkArguments(ruleCount, caller, callerName, suffix = '', argType = 'rule') {
   if (ruleCount > 1) {
     const error = new Error([
-      `The \`${callerName}\` function only takes one rule argument${suffix}.`,
-      'You passed multiple rules. Did you mean to call `seq`?\n'
+      `The \`${callerName}\` function only takes one ${argType} argument${suffix}.`,
+      `You passed in multiple ${argType}s. Did you mean to call \`seq\`?\n`
     ].join('\n'));
     Error.captureStackTrace(error, caller);
     throw error
