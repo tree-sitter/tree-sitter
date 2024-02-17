@@ -27,10 +27,12 @@ jobs:
     - name: Build CLI
       run: cargo build --release
 
-    - name: Fetch fixtures
-      run: script/fetch-fixtures
+    - run: script/fetch-fixtures
 
-    - name: Generate fixtures
+    - uses: ./.github/actions/cache
+      id: cache
+
+    - if: ${{ steps.cache.outputs.cache-hit != 'true' }}
       run: script/generate-fixtures
 
     - name: Run main tests with undefined behaviour sanitizer (UBSAN)
