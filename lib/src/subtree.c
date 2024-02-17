@@ -997,7 +997,7 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
     ts_subtree_lookahead_bytes(*self)
   );
 
-  if (ts_subtree_is_error(*self) && ts_subtree_child_count(*self) == 0) {
+  if (ts_subtree_is_error(*self) && ts_subtree_child_count(*self) == 0 && self->ptr->lookahead_char != 0) {
     fprintf(f, "\ncharacter: '%c'", self->ptr->lookahead_char);
   }
 
