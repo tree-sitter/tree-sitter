@@ -46,46 +46,46 @@ typedef struct TSQuery TSQuery;
 typedef struct TSQueryCursor TSQueryCursor;
 typedef struct TSLookaheadIterator TSLookaheadIterator;
 
-typedef enum {
+typedef enum TSInputEncoding {
   TSInputEncodingUTF8,
   TSInputEncodingUTF16,
 } TSInputEncoding;
 
-typedef enum {
+typedef enum TSSymbolType {
   TSSymbolTypeRegular,
   TSSymbolTypeAnonymous,
   TSSymbolTypeAuxiliary,
 } TSSymbolType;
 
-typedef struct {
+typedef struct TSPoint {
   uint32_t row;
   uint32_t column;
 } TSPoint;
 
-typedef struct {
+typedef struct TSRange {
   TSPoint start_point;
   TSPoint end_point;
   uint32_t start_byte;
   uint32_t end_byte;
 } TSRange;
 
-typedef struct {
+typedef struct TSInput {
   void *payload;
   const char *(*read)(void *payload, uint32_t byte_index, TSPoint position, uint32_t *bytes_read);
   TSInputEncoding encoding;
 } TSInput;
 
-typedef enum {
+typedef enum TSLogType {
   TSLogTypeParse,
   TSLogTypeLex,
 } TSLogType;
 
-typedef struct {
+typedef struct TSLogger {
   void *payload;
   void (*log)(void *payload, TSLogType log_type, const char *buffer);
 } TSLogger;
 
-typedef struct {
+typedef struct TSInputEdit {
   uint32_t start_byte;
   uint32_t old_end_byte;
   uint32_t new_end_byte;
@@ -94,24 +94,24 @@ typedef struct {
   TSPoint new_end_point;
 } TSInputEdit;
 
-typedef struct {
+typedef struct TSNode {
   uint32_t context[4];
   const void *id;
   const TSTree *tree;
 } TSNode;
 
-typedef struct {
+typedef struct TSTreeCursor {
   const void *tree;
   const void *id;
   uint32_t context[2];
 } TSTreeCursor;
 
-typedef struct {
+typedef struct TSQueryCapture {
   TSNode node;
   uint32_t index;
 } TSQueryCapture;
 
-typedef enum {
+typedef enum TSQuantifier {
   TSQuantifierZero = 0, // must match the array initialization value
   TSQuantifierZeroOrOne,
   TSQuantifierZeroOrMore,
@@ -119,25 +119,25 @@ typedef enum {
   TSQuantifierOneOrMore,
 } TSQuantifier;
 
-typedef struct {
+typedef struct TSQueryMatch {
   uint32_t id;
   uint16_t pattern_index;
   uint16_t capture_count;
   const TSQueryCapture *captures;
 } TSQueryMatch;
 
-typedef enum {
+typedef enum TSQueryPredicateStepType {
   TSQueryPredicateStepTypeDone,
   TSQueryPredicateStepTypeCapture,
   TSQueryPredicateStepTypeString,
 } TSQueryPredicateStepType;
 
-typedef struct {
+typedef struct TSQueryPredicateStep {
   TSQueryPredicateStepType type;
   uint32_t value_id;
 } TSQueryPredicateStep;
 
-typedef enum {
+typedef enum TSQueryError {
   TSQueryErrorNone = 0,
   TSQueryErrorSyntax,
   TSQueryErrorNodeType,
