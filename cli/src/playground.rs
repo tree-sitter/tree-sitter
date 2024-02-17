@@ -12,7 +12,7 @@ use tiny_http::{Header, Response, Server};
 macro_rules! optional_resource {
     ($name: tt, $path: tt) => {
         #[cfg(TREE_SITTER_EMBED_WASM_BINDING)]
-        fn $name(tree_sitter_dir: Option<&PathBuf>) -> Cow<'static, [u8]> {
+        fn $name(tree_sitter_dir: Option<&Path>) -> Cow<'static, [u8]> {
             if let Some(tree_sitter_dir) = tree_sitter_dir {
                 Cow::Owned(fs::read(tree_sitter_dir.join($path)).unwrap())
             } else {
@@ -21,7 +21,7 @@ macro_rules! optional_resource {
         }
 
         #[cfg(not(TREE_SITTER_EMBED_WASM_BINDING))]
-        fn $name(tree_sitter_dir: Option<&PathBuf>) -> Cow<'static, [u8]> {
+        fn $name(tree_sitter_dir: Option<&Path>) -> Cow<'static, [u8]> {
             if let Some(tree_sitter_dir) = tree_sitter_dir {
                 Cow::Owned(fs::read(tree_sitter_dir.join($path)).unwrap())
             } else {
@@ -35,7 +35,7 @@ optional_resource!(get_playground_js, "docs/assets/js/playground.js");
 optional_resource!(get_lib_js, "lib/binding_web/tree-sitter.js");
 optional_resource!(get_lib_wasm, "lib/binding_web/tree-sitter.wasm");
 
-fn get_main_html(tree_sitter_dir: Option<&PathBuf>) -> Cow<'static, [u8]> {
+fn get_main_html(tree_sitter_dir: Option<&Path>) -> Cow<'static, [u8]> {
     tree_sitter_dir.map_or(
         Cow::Borrowed(include_bytes!("playground.html")),
         |tree_sitter_dir| {
@@ -54,13 +54,13 @@ pub fn serve(grammar_path: &Path, open_in_browser: bool) -> Result<()> {
     }
 
     let tree_sitter_dir = env::var("TREE_SITTER_BASE_DIR").map(PathBuf::from).ok();
-    let main_html = str::from_utf8(&get_main_html(tree_sitter_dir.as_ref()))
+    let main_html = str::from_utf8(&get_main_html(tree_sitter_dir.as_deref()))
         .unwrap()
         .replace("THE_LANGUAGE_NAME", &grammar_name)
         .into_bytes();
-    let playground_js = get_playground_js(tree_sitter_dir.as_ref());
-    let lib_js = get_lib_js(tree_sitter_dir.as_ref());
-    let lib_wasm = get_lib_wasm(tree_sitter_dir.as_ref());
+    let playground_js = get_playground_js(tree_sitter_dir.as_deref());
+    let lib_js = get_lib_js(tree_sitter_dir.as_deref());
+    let lib_wasm = get_lib_wasm(tree_sitter_dir.as_deref());
 
     let html_header = Header::from_str("Content-Type: text/html").unwrap();
     let js_header = Header::from_str("Content-Type: application/javascript").unwrap();
