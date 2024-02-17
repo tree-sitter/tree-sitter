@@ -97,4 +97,7 @@ lint:
 format:
 	cargo fmt --all
 
-.PHONY: test test_wasm lint format
+changelog:
+	git-cliff --config script/cliff.toml --output CHANGELOG.md --latest
+
+.PHONY: test test_wasm lint format changelog
