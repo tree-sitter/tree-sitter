@@ -156,16 +156,17 @@ jobs:
     - name: Build CLI
       run: $BUILD_CMD build --release --target=${{ matrix.target }} --features=${CLI_FEATURES}
 
-    - name: Fetch fixtures
-      if: ${{ !matrix.cli-only && inputs.run_test }} # Don't fetch fixtures for only CLI building targets
-      run: script/fetch-fixtures
+    - run: script/fetch-fixtures
+
+    - uses: ./.github/actions/cache
+      id: cache
 
     - name: Generate fixtures
-      if: ${{ !matrix.cli-only && inputs.run_test }} # Can't natively run CLI on Github runner's host
+      if: ${{ !matrix.cli-only && inputs.run_test && steps.cache.outputs.cache-hit != 'true' }} # Can't natively run CLI on Github runner's host
       run: script/generate-fixtures
 
     - name: Generate WASM fixtures
-      if: ${{ !matrix.cli-only && !matrix.use-cross && inputs.run_test }} # See comment for the "Build wasm library" step
+      if: ${{ !matrix.cli-only && !matrix.use-cross && inputs.run_test && steps.cache.outputs.cache-hit != 'true' }} # See comment for the "Build wasm library" step
       run: script/generate-fixtures-wasm
 
     - name: Run main tests
