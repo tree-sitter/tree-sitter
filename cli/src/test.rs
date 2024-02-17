@@ -2,6 +2,7 @@ use super::util;
 use ansi_term::Colour;
 use anyhow::{anyhow, Context, Result};
 use difference::{Changeset, Difference};
+use indoc::indoc;
 use lazy_static::lazy_static;
 use regex::bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder};
 use regex::Regex;
@@ -84,6 +85,7 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
 
     let mut failures = Vec::new();
     let mut corrected_entries = Vec::new();
+    let mut has_parse_errors = false;
     run_tests(
         parser,
         test_entry,
@@ -91,6 +93,7 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
         0,
         &mut failures,
         &mut corrected_entries,
+        &mut has_parse_errors,
     )?;
 
     parser.stop_printing_dot_graphs();
@@ -100,7 +103,7 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
     } else {
         println!();
 
-        if opts.update {
+        if opts.update && !has_parse_errors {
             if failures.len() == 1 {
                 println!("1 update:\n");
             } else {
@@ -110,12 +113,17 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
             for (i, (name, ..)) in failures.iter().enumerate() {
                 println!("  {}. {name}", i + 1);
             }
+
             Ok(())
         } else {
-            if failures.len() == 1 {
-                println!("1 failure:");
-            } else {
-                println!("{} failures:", failures.len());
+            has_parse_errors = opts.update && has_parse_errors;
+
+            if !has_parse_errors {
+                if failures.len() == 1 {
+                    println!("1 failure:");
+                } else {
+                    println!("{} failures:", failures.len());
+                }
             }
 
             print_diff_key();
@@ -125,7 +133,14 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
                 let expected = format_sexp_indented(expected, 2);
                 print_diff(&actual, &expected);
             }
-            Err(anyhow!(""))
+
+            if has_parse_errors {
+                Err(anyhow!(indoc! {"
+                    Some tests failed to parse with unexpected `ERROR` or `MISSING` nodes, as shown above, and cannot be updated automatically.
+                    Either fix the grammar or manually update the tests if this is expected."}))
+            } else {
+                Err(anyhow!(""))
+            }
         }
     }
 }
@@ -153,8 +168,7 @@ pub fn check_queries_at_path(language: &Language, path: &Path) -> Result<()> {
 
 pub fn print_diff_key() {
     println!(
-        "\n{} / {} / {}",
-        Colour::White.paint("correct"),
+        "\ncorrect / {} / {}",
         Colour::Green.paint("expected"),
         Colour::Red.paint("unexpected")
     );
@@ -185,6 +199,7 @@ fn run_tests(
     mut indent_level: i32,
     failures: &mut Vec<(String, String, String)>,
     corrected_entries: &mut Vec<(String, String, String, usize, usize)>,
+    has_parse_errors: &mut bool,
 ) -> Result<()> {
     match test_entry {
         TestEntry::Example {
@@ -218,6 +233,13 @@ fn run_tests(
                 if opts.update {
                     let input = String::from_utf8(input).unwrap();
                     let output = format_sexp(&actual);
+
+                    // Only bail early before updating if the actual is not the output, sometimes
+                    // users want to test cases that are intended to have errors, hence why this
+                    // check isn't shown above
+                    if actual.contains("ERROR") || actual.contains("MISSING") {
+                        *has_parse_errors = true;
+                    }
                     corrected_entries.push((
                         name.clone(),
                         input,
@@ -278,11 +300,12 @@ fn run_tests(
                     indent_level,
                     failures,
                     corrected_entries,
+                    has_parse_errors,
                 )?;
             }
 
             if let Some(file_path) = file_path {
-                if opts.update && failures.len() - failure_count > 0 {
+                if opts.update && failures.len() - failure_count > 0 && !*has_parse_errors {
                     write_tests(&file_path, corrected_entries)?;
                 }
                 corrected_entries.clear();
