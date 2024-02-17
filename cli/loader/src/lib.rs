@@ -402,19 +402,18 @@ impl Loader {
         let parser_path = src_path.join("parser.c");
         let scanner_path = self.get_scanner_path(src_path);
 
-        let paths_to_check = if let Some(external_files) = external_files {
-            let mut files = if let Some(scanner_path) = scanner_path.as_ref() {
-                vec![parser_path.clone(), scanner_path.to_path_buf()]
-            } else {
-                vec![parser_path.clone()]
-            };
-            for path in external_files {
-                files.push(src_path.join(path));
-            }
-            files
-        } else {
-            Vec::new()
-        };
+        let mut paths_to_check = vec![parser_path.clone()];
+
+        if let Some(scanner_path) = scanner_path.as_ref() {
+            paths_to_check.push(scanner_path.to_path_buf());
+        }
+
+        paths_to_check.extend(
+            external_files
+                .unwrap_or_default()
+                .iter()
+                .map(|p| src_path.join(p)),
+        );
 
         #[cfg(feature = "wasm")]
         if self.wasm_store.lock().unwrap().is_some() {
