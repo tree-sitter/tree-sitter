@@ -48,13 +48,14 @@ function choice(...elements) {
 }
 
 function optional(value) {
-  checkArguments(arguments.length, optional, 'optional');
+  checkArguments(arguments, arguments.length, optional, 'optional');
   return choice(value, blank());
 }
 
 function prec(number, rule) {
   checkPrecedence(number);
   checkArguments(
+    arguments,
     arguments.length - 1,
     prec,
     'prec',
@@ -76,6 +77,7 @@ prec.left = function(number, rule) {
 
   checkPrecedence(number);
   checkArguments(
+    arguments,
     arguments.length - 1,
     prec.left,
     'prec.left',
@@ -97,6 +99,7 @@ prec.right = function(number, rule) {
 
   checkPrecedence(number);
   checkArguments(
+    arguments,
     arguments.length - 1,
     prec.right,
     'prec.right',
@@ -113,6 +116,7 @@ prec.right = function(number, rule) {
 prec.dynamic = function(number, rule) {
   checkPrecedence(number);
   checkArguments(
+    arguments,
     arguments.length - 1,
     prec.dynamic,
     'prec.dynamic',
@@ -127,7 +131,7 @@ prec.dynamic = function(number, rule) {
 }
 
 function repeat(rule) {
-  checkArguments(arguments.length, repeat, 'repeat');
+  checkArguments(arguments, arguments.length, repeat, 'repeat');
   return {
     type: "REPEAT",
     content: normalize(rule)
@@ -135,7 +139,7 @@ function repeat(rule) {
 }
 
 function repeat1(rule) {
-  checkArguments(arguments.length, repeat1, 'repeat1');
+  checkArguments(arguments, arguments.length, repeat1, 'repeat1');
   return {
     type: "REPEAT1",
     content: normalize(rule)
@@ -157,7 +161,7 @@ function sym(name) {
 }
 
 function token(value) {
-  checkArguments(arguments.length, token, 'token', '', 'literal');
+  checkArguments(arguments, arguments.length, token, 'token', '', 'literal');
   return {
     type: "TOKEN",
     content: normalize(value)
@@ -165,7 +169,7 @@ function token(value) {
 }
 
 token.immediate = function(value) {
-  checkArguments(arguments.length, token.immediate, 'token.immediate', '', 'literal');
+  checkArguments(arguments, arguments.length, token.immediate, 'token.immediate', '', 'literal');
   return {
     type: "IMMEDIATE_TOKEN",
     content: normalize(value)
@@ -406,8 +410,13 @@ function grammar(baseGrammar, options) {
   return { grammar: { name, word, rules, extras, conflicts, precedences, externals, inline, supertypes } };
 }
 
-function checkArguments(ruleCount, caller, callerName, suffix = '', argType = 'rule') {
-  if (ruleCount > 1) {
+function checkArguments(args, ruleCount, caller, callerName, suffix = '', argType = 'rule') {
+  // Allow for .map() usage where additional arguments are index and the entire array.
+  const isMapCall = ruleCount === 3 && typeof args[1] === 'number' && Array.isArray(args[2]);
+  if (isMapCall) {
+    ruleCount = typeof args[2] === 'number' ? 1 : args[2].length;
+  }
+  if (ruleCount > 1 && !isMapCall) {
     const error = new Error([
       `The \`${callerName}\` function only takes one ${argType} argument${suffix}.`,
       `You passed in multiple ${argType}s. Did you mean to call \`seq\`?\n`
