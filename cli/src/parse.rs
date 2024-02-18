@@ -308,7 +308,8 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
                 if node.is_error() || node.is_missing() {
                     first_error = Some(node);
                     break;
-                } else if !cursor.goto_first_child() {
+                }
+                if !cursor.goto_first_child() {
                     break;
                 }
             } else if !cursor.goto_next_sibling() {
@@ -355,7 +356,9 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
             bytes: source_code.len(),
             duration: Some(duration),
         });
-    } else if opts.print_time {
+    }
+
+    if opts.print_time {
         let duration = time.elapsed();
         let duration_ms = duration.as_micros() as f64 / 1e3;
         writeln!(

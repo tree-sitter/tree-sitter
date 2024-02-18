@@ -117,9 +117,9 @@ pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> 
         .unwrap();
 
     let paths_to_check = if let Some(scanner_path) = &scanner_path {
-        vec![parser_path.clone(), scanner_path.to_path_buf()]
+        vec![parser_path, scanner_path.clone()]
     } else {
-        vec![parser_path.clone()]
+        vec![parser_path]
     };
 
     TEST_LOADER

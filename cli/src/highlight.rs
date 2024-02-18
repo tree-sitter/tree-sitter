@@ -144,9 +144,7 @@ impl Serialize for Theme {
 
 impl Default for Theme {
     fn default() -> Self {
-        serde_json::from_str(
-            r#"
-            {
+        serde_json::from_value(json!({
               "attribute": {"color": 124, "italic": true},
               "comment": {"color": 245, "italic": true},
               "constant.builtin": {"color": 94, "bold": true},
@@ -169,9 +167,7 @@ impl Default for Theme {
               "type.builtin": {"color": 23, "bold": true},
               "variable.builtin": {"bold": true},
               "variable.parameter": {"underline": true}
-            }
-            "#,
-        )
+        }))
         .unwrap()
     }
 }

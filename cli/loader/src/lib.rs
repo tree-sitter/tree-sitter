@@ -405,7 +405,7 @@ impl Loader {
         let mut paths_to_check = vec![parser_path.clone()];
 
         if let Some(scanner_path) = scanner_path.as_ref() {
-            paths_to_check.push(scanner_path.to_path_buf());
+            paths_to_check.push(scanner_path.clone());
         }
 
         paths_to_check.extend(
