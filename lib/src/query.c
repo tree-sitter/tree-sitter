@@ -42,7 +42,7 @@ typedef struct {
  * - `depth` - The depth where this node occurs in the pattern. The root node
  *    of the pattern has depth zero.
  * - `negated_field_list_id` - An id representing a set of fields that must
- *    that must not be present on a node matching this step.
+ *    not be present on a node matching this step.
  *
  * Steps have some additional fields in order to handle the `.` (or "anchor") operator,
  * which forbids additional child nodes:
