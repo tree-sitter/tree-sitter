@@ -81,6 +81,7 @@ jobs:
       uses: mymindstorm/setup-emsdk@v14
       with:
         version: ${{ env.EMSCRIPTEN_VERSION }}
+        actions-cache-folder: 'emsdk-cache'
 
     - run: rustup toolchain install stable --profile minimal
     - run: rustup target add ${{ matrix.target }}
