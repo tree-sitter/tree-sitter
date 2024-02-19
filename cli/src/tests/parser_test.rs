@@ -887,7 +887,7 @@ fn test_parsing_with_multiple_included_ranges() {
     assert_eq!(
         html_tree.root_node().to_sexp(),
         concat!(
-            "(fragment (element",
+            "(document (element",
             " (start_tag (tag_name))",
             " (text)",
             " (element (start_tag (tag_name)) (end_tag (tag_name)))",
@@ -966,7 +966,7 @@ fn test_parsing_with_included_range_containing_mismatched_positions() {
 
     assert_eq!(
         html_tree.root_node().to_sexp(),
-        "(fragment (element (start_tag (tag_name)) (text) (end_tag (tag_name))))"
+        "(document (element (start_tag (tag_name)) (text) (end_tag (tag_name))))"
     );
 }
 
@@ -1135,7 +1135,7 @@ fn test_parsing_with_a_newly_excluded_range() {
     assert_eq!(
         tree.root_node().to_sexp(),
         concat!(
-            "(fragment (text) (element",
+            "(document (text) (element",
             " (start_tag (tag_name))",
             " (element (start_tag (tag_name)) (end_tag (tag_name)))",
             " (end_tag (tag_name))))"
