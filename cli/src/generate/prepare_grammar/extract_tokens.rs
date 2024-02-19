@@ -309,7 +309,6 @@ impl SymbolReplacer {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::generate::grammars::VariableType;
 
     #[test]
     fn test_extraction() {
