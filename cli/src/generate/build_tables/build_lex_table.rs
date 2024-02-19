@@ -26,7 +26,7 @@ pub fn build_lex_table(
         LexTable::default()
     };
 
-    let mut parse_state_ids_by_token_set: Vec<(TokenSet, Vec<ParseStateId>)> = Vec::new();
+    let mut parse_state_ids_by_token_set = Vec::<(TokenSet, Vec<ParseStateId>)>::new();
     for (i, state) in parse_table.states.iter().enumerate() {
         let tokens = state
             .terminal_entries

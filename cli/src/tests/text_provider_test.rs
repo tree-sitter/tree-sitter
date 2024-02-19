@@ -72,7 +72,7 @@ fn test_text_provider_for_string() {
 
 #[test]
 fn test_text_provider_for_box_of_str_slice() {
-    let text: Box<str> = "// comment".to_owned().into_boxed_str();
+    let text = "// comment".to_owned().into_boxed_str();
 
     check_parsing(text.as_bytes(), text.as_bytes());
     check_parsing(<_ as AsRef<str>>::as_ref(&text), text.as_bytes());
@@ -82,7 +82,7 @@ fn test_text_provider_for_box_of_str_slice() {
 
 #[test]
 fn test_text_provider_for_box_of_bytes_slice() {
-    let text: Box<[u8]> = "// comment".to_owned().into_boxed_str().into_boxed_bytes();
+    let text = "// comment".to_owned().into_boxed_str().into_boxed_bytes();
 
     check_parsing(text.as_ref(), text.as_ref());
     check_parsing(text.as_ref(), &*text);
@@ -91,15 +91,14 @@ fn test_text_provider_for_box_of_bytes_slice() {
 
 #[test]
 fn test_text_provider_for_vec_of_bytes() {
-    let text: Vec<u8> = "// comment".to_owned().into_bytes();
+    let text = "// comment".to_owned().into_bytes();
 
     check_parsing(&*text, &*text);
 }
 
 #[test]
 fn test_text_provider_for_arc_of_bytes_slice() {
-    let text: Vec<u8> = "// comment".to_owned().into_bytes();
-    let text: Arc<[u8]> = Arc::from(text);
+    let text: Arc<[u8]> = Arc::from("// comment".to_owned().into_bytes());
 
     check_parsing(&*text, &*text);
     check_parsing(text.as_ref(), text.as_ref());
@@ -149,7 +148,7 @@ fn test_text_provider_callback_with_owned_bytes_vec_slice() {
                 .unwrap_or_default()
         },
         |_node: Node<'_>| {
-            let slice: Vec<u8> = text.to_owned().into_bytes();
+            let slice = text.to_owned().into_bytes();
             iter::once(slice)
         },
     );

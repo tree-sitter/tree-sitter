@@ -158,10 +158,10 @@ fn test_parsing_with_custom_utf16_input() {
     let mut parser = Parser::new();
     parser.set_language(&get_language("rust")).unwrap();
 
-    let lines: Vec<Vec<u16>> = ["pub fn foo() {", "  1", "}"]
+    let lines = ["pub fn foo() {", "  1", "}"]
         .iter()
-        .map(|s| s.encode_utf16().collect())
-        .collect();
+        .map(|s| s.encode_utf16().collect::<Vec<_>>())
+        .collect::<Vec<_>>();
 
     let tree = parser
         .parse_utf16_with(
@@ -1014,11 +1014,11 @@ fn test_parsing_error_in_invalid_included_ranges() {
 #[test]
 fn test_parsing_utf16_code_with_errors_at_the_end_of_an_included_range() {
     let source_code = "<script>a.</script>";
-    let utf16_source_code: Vec<u16> = source_code
+    let utf16_source_code = source_code
         .as_bytes()
         .iter()
         .map(|c| u16::from(*c))
-        .collect();
+        .collect::<Vec<_>>();
 
     let start_byte = 2 * source_code.find("a.").unwrap();
     let end_byte = 2 * source_code.find("</script>").unwrap();

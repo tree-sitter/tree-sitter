@@ -48,7 +48,7 @@ pub fn compile_language_to_wasm(
 
     // Exit with an error if the external scanner uses symbols from the
     // C or C++ standard libraries that aren't available to wasm parsers.
-    let stdlib_symbols: Vec<_> = wasm_stdlib_symbols().collect();
+    let stdlib_symbols = wasm_stdlib_symbols().collect::<Vec<_>>();
     let dylink_symbols = [
         "__indirect_function_table",
         "__memory_base",

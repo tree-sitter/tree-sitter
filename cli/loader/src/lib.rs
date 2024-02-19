@@ -503,8 +503,8 @@ impl Loader {
         let library = unsafe { Library::new(&library_path) }
             .with_context(|| format!("Error opening dynamic library {library_path:?}"))?;
         let language = unsafe {
-            let language_fn: Symbol<unsafe extern "C" fn() -> Language> = library
-                .get(language_fn_name.as_bytes())
+            let language_fn = library
+                .get::<Symbol<unsafe extern "C" fn() -> Language>>(language_fn_name.as_bytes())
                 .with_context(|| format!("Failed to load symbol {language_fn_name}"))?;
             language_fn()
         };
