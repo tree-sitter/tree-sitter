@@ -44,7 +44,7 @@ struct InitConfig;
 #[derive(Args)]
 #[command(about = "Generate a parser", alias = "gen", alias = "g")]
 struct Generate {
-    #[arg(long, index = 1, help = "The path to the grammar file")]
+    #[arg(index = 1, help = "The path to the grammar file")]
     pub grammar_path: Option<String>,
     #[arg(long, short, help = "Show debug log during generation")]
     pub log: bool,
