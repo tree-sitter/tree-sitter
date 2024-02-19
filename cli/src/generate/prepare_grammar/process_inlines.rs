@@ -223,9 +223,7 @@ pub(super) fn process_inlines(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::generate::grammars::{
-        LexicalVariable, ProductionStep, SyntaxVariable, VariableType,
-    };
+    use crate::generate::grammars::{LexicalVariable, SyntaxVariable, VariableType};
     use crate::generate::rules::{Associativity, Precedence, Symbol};
 
     #[test]

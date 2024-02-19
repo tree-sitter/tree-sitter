@@ -220,7 +220,6 @@ unless they are used only as the grammar's start rule.
 mod tests {
     use super::*;
     use crate::generate::grammars::VariableType;
-    use crate::generate::rules::Symbol;
 
     #[test]
     fn test_flatten_grammar() {

@@ -1,6 +1,5 @@
 use super::grammars::VariableType;
 use smallbitvec::SmallBitVec;
-use std::iter::FromIterator;
 use std::{collections::HashMap, fmt};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
