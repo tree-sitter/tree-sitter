@@ -208,7 +208,7 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
             let mut indent_level = 0;
             let mut did_visit_children = false;
             let mut had_named_children = false;
-            let mut tags: Vec<&str> = Vec::new();
+            let mut tags = Vec::<&str>::new();
             writeln!(&mut stdout, "<?xml version=\"1.0\"?>")?;
             loop {
                 let node = cursor.node();

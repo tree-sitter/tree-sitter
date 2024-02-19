@@ -362,10 +362,10 @@ mod tests {
 
         let inline_map = process_inlines(&grammar, &LexicalGrammar::default()).unwrap();
 
-        let productions: Vec<&Production> = inline_map
+        let productions = inline_map
             .inlined_productions(&grammar.variables[0].productions[0], 1)
             .unwrap()
-            .collect();
+            .collect::<Vec<_>>();
 
         assert_eq!(
             productions.iter().copied().cloned().collect::<Vec<_>>(),
@@ -461,10 +461,10 @@ mod tests {
 
         let inline_map = process_inlines(&grammar, &LexicalGrammar::default()).unwrap();
 
-        let productions: Vec<_> = inline_map
+        let productions = inline_map
             .inlined_productions(&grammar.variables[0].productions[0], 0)
             .unwrap()
-            .collect();
+            .collect::<Vec<_>>();
 
         assert_eq!(
             productions.iter().copied().cloned().collect::<Vec<_>>(),

@@ -455,7 +455,7 @@ impl<'a> ParseTableBuilder<'a> {
         // REDUCE-REDUCE conflicts where all actions have the *same*
         // precedence, and there can still be SHIFT/REDUCE conflicts.
         let mut considered_associativity = false;
-        let mut shift_precedence: Vec<(&Precedence, Symbol)> = Vec::new();
+        let mut shift_precedence = Vec::<(&Precedence, Symbol)>::new();
         let mut conflicting_items = HashSet::new();
         for (item, lookaheads) in &item_set.entries {
             if let Some(step) = item.step() {

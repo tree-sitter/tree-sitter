@@ -675,7 +675,7 @@ impl Generator {
 
         // For each lex state, compute a summary of the code that needs to be
         // generated.
-        let state_transition_summaries: Vec<Vec<TransitionSummary>> = lex_table
+        let state_transition_summaries = lex_table
             .states
             .iter()
             .map(|state| {
@@ -732,7 +732,7 @@ impl Generator {
                     })
                     .collect()
             })
-            .collect();
+            .collect::<Vec<Vec<_>>>();
 
         // Generate a helper function for each large character set.
         let mut sorted_large_char_sets = large_character_sets.iter().collect::<Vec<_>>();
@@ -1153,7 +1153,7 @@ impl Generator {
 
             let mut index = 0;
             let mut small_state_indices = Vec::new();
-            let mut symbols_by_value: HashMap<(usize, SymbolType), Vec<Symbol>> = HashMap::new();
+            let mut symbols_by_value = HashMap::<(usize, SymbolType), Vec<Symbol>>::new();
             for state in self.parse_table.states.iter().skip(self.large_state_count) {
                 small_state_indices.push(index);
                 symbols_by_value.clear();
