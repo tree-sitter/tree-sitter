@@ -14,11 +14,10 @@ runs:
           test/fixtures/grammars
           target/release/tree-sitter-*.wasm
         key: fixtures-${{ join(matrix.*, '_') }}-${{ hashFiles(
-          '.github/workflows/builds.yml',
-          '.github/workflows/sanitize.yml',
           'cli/src/generate/**',
           'script/generate-fixtures*',
-          'test/fixtures/grammars/*/**/src/*.c') }}
+          'test/fixtures/grammars/*/**/src/*.c',
+          '.github/actions/cache/action.yml') }}
 
     - run: echo "cache-hit=${{ steps.cache_fixtures.outputs.cache-hit }}" >> $GITHUB_OUTPUT
       shell: bash
