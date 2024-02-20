@@ -11,7 +11,7 @@ jobs:
   check_undefined_behaviour:
     name: Sanitizer checks
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 20
     env:
       TREE_SITTER: ${{ github.workspace }}/target/release/tree-sitter
     steps:
