@@ -71,6 +71,9 @@ impl Config {
                 home_dir.join("github"),
                 home_dir.join("src"),
                 home_dir.join("source"),
+                home_dir.join("projects"),
+                home_dir.join("dev"),
+                home_dir.join("git"),
             ],
         }
     }
