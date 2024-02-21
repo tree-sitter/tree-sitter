@@ -556,9 +556,10 @@ fn run() -> Result<()> {
             }
 
             let languages = loader.languages_at_path(&current_dir)?;
-            let language = languages
+            let language = &languages
                 .first()
-                .ok_or_else(|| anyhow!("No language found"))?;
+                .ok_or_else(|| anyhow!("No language found"))?
+                .0;
             parser.set_language(language)?;
 
             let test_dir = current_dir.join("test");
@@ -578,6 +579,7 @@ fn run() -> Result<()> {
                     exclude: test_options.exclude,
                     update: test_options.update,
                     open_log: test_options.open_log,
+                    languages: languages.iter().map(|(l, n)| (n.as_str(), l)).collect(),
                 };
 
                 test::run_tests_at_path(&mut parser, &mut opts)?;

@@ -192,17 +192,17 @@ impl Loader {
         Ok(())
     }
 
-    pub fn languages_at_path(&mut self, path: &Path) -> Result<Vec<Language>> {
+    pub fn languages_at_path(&mut self, path: &Path) -> Result<Vec<(Language, String)>> {
         if let Ok(configurations) = self.find_language_configurations_at_path(path, true) {
             let mut language_ids = configurations
                 .iter()
-                .map(|c| c.language_id)
+                .map(|c| (c.language_id, c.language_name.clone()))
                 .collect::<Vec<_>>();
             language_ids.sort_unstable();
             language_ids.dedup();
             language_ids
                 .into_iter()
-                .map(|id| self.language_for_id(id))
+                .map(|(id, name)| Ok((self.language_for_id(id)?, name)))
                 .collect::<Result<Vec<_>>>()
         } else {
             Ok(Vec::new())
@@ -1118,7 +1118,7 @@ impl Loader {
             .first()
             .cloned()
         {
-            Ok(lang)
+            Ok(lang.0)
         } else if let Some(lang) = self.language_configuration_for_first_line_regex(path)? {
             Ok(lang.0)
         } else {
