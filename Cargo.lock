@@ -1275,7 +1275,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-cli"
-version = "0.20.9"
+version = "0.21.0"
 dependencies = [
  "ansi_term",
  "anstyle",
