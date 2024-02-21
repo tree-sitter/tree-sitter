@@ -104,14 +104,46 @@ Let's go over all of the functionality of the `tree-sitter` command line tool.
 
 The most important command you'll use is `tree-sitter generate`. This command reads the `grammar.js` file in your current working directory and creates a file called `src/parser.c`, which implements the parser. After making changes to your grammar, just run `tree-sitter generate` again.
 
-The first time you run `tree-sitter generate`, it will also generate a few other files:
+The first time you run `tree-sitter generate`, it will also generate a few other files for bindings for the following languages:
+
+#### C/C++
+
+* `Makefile` - This file tells `make` how to compile your language.
+* `bindings/c/tree-sitter-language.h` - This file provides the C interface of your language.
+* `bindings/c/tree-sitter-language.pc` - This file provides pkg-config metadata about your language's C library.
+* `src/tree_sitter/parser.h` - This file provides some basic C definitions that are used in your generated `parser.c` file.
+
+#### Go
+
+* `bindings/go/binding.go` - This file wraps your language in a Go module.
+* `bindings/go/binding_test.go` - This file contains a test for the Go package.
+
+#### Node
 
 * `binding.gyp` - This file tells Node.js how to compile your language.
 * `bindings/node/index.js` - This is the file that Node.js initially loads when using your language.
-* `bindings/node/binding.cc` - This file wraps your language in a JavaScript object when used in Node.js.
+* `bindings/node/binding.cc` - This file wraps your language in a JavaScript module for Node.js.
+
+#### Python
+
+* `pyproject.toml` - This file is the manifest of the Python package.
+* `setup.py` - This file tells Python how to compile your language.
+* `bindings/python/binding.c` - This file wraps your language in a Python module.
+* `bindings/python/tree_sitter_language/__init__.py` - This file tells Python how to load your language.
+* `bindings/python/tree_sitter_language/__init__.pyi` - This file provides type hints for your parser when used in Python.
+* `bindings/python/tree_sitter_language/py.typed` - This file provides type hints for your parser when used in Python.
+
+#### Rust
+
+* `Cargo.toml` - This file is the manifest of the Rust package.
 * `bindings/rust/lib.rs` - This file wraps your language in a Rust crate when used in Rust.
 * `bindings/rust/build.rs` - This file wraps the building process for the Rust crate.
-* `src/tree_sitter/parser.h` - This file provides some basic C definitions that are used in your generated `parser.c` file.
+
+#### Swift
+
+* `Package.swift` - This file tells Swift how to compile your language.
+* `bindings/swift/TreeSitterLanguage/language.h` - This file wraps your language in a Swift module when used in Swift.
+
 
 If there is an ambiguity or *local ambiguity* in your grammar, Tree-sitter will detect it during parser generation, and it will exit with a `Unresolved conflict` error message. See below for more information on these errors.
 

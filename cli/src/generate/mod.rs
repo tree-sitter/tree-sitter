@@ -1,7 +1,25 @@
-mod binding_files;
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+use std::{env, fs};
+
+use anyhow::{anyhow, Context, Result};
+use lazy_static::lazy_static;
+use regex::{Regex, RegexBuilder};
+use semver::Version;
+
+use build_tables::build_tables;
+use grammar_files::path_in_ignore;
+use grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
+use parse_grammar::parse_grammar;
+use prepare_grammar::prepare_grammar;
+use render::render_c_code;
+use rules::AliasMap;
+
 mod build_tables;
 mod char_tree;
 mod dedup;
+mod grammar_files;
 mod grammars;
 mod nfa;
 mod node_types;
@@ -10,21 +28,6 @@ mod prepare_grammar;
 mod render;
 mod rules;
 mod tables;
-
-use self::build_tables::build_tables;
-use self::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
-use self::parse_grammar::parse_grammar;
-use self::prepare_grammar::prepare_grammar;
-use self::render::render_c_code;
-use self::rules::AliasMap;
-use anyhow::{anyhow, Context, Result};
-use lazy_static::lazy_static;
-use regex::{Regex, RegexBuilder};
-use semver::Version;
-use std::io::Write;
-use std::path::Path;
-use std::process::{Command, Stdio};
-use std::{env, fs};
 
 lazy_static! {
     static ref JSON_COMMENT_REGEX: Regex = RegexBuilder::new("^\\s*//.*")
@@ -46,8 +49,35 @@ pub fn generate_parser_in_directory(
     report_symbol_name: Option<&str>,
     js_runtime: Option<&str>,
 ) -> Result<()> {
-    let src_path = repo_path.join("src");
-    let header_path = src_path.join("tree_sitter");
+    let mut repo_path = repo_path.to_owned();
+    let mut grammar_path = grammar_path;
+
+    // Populate a new empty grammar directory.
+    if let Some(path) = grammar_path {
+        let path = PathBuf::from(path);
+        if !path
+            .try_exists()
+            .with_context(|| "Some error with specified path")?
+        {
+            fs::create_dir_all(&path)?;
+            grammar_path = None;
+            repo_path = path;
+        }
+    }
+
+    if repo_path.is_dir() && !repo_path.join("grammar.js").exists() && !path_in_ignore(&repo_path) {
+        if let Some(dir_name) = repo_path
+            .file_name()
+            .map(|x| x.to_string_lossy().to_ascii_lowercase())
+        {
+            if let Some(language_name) = dir_name
+                .strip_prefix("tree-sitter-")
+                .or_else(|| Some(dir_name.as_ref()))
+            {
+                grammar_files::generate_grammar_files(&repo_path, language_name, false)?;
+            }
+        }
+    }
 
     // Read the grammar.json.
     let grammar_json = if let Some(path) = grammar_path {
@@ -57,6 +87,9 @@ pub fn generate_parser_in_directory(
             grammar_path.map_or(repo_path.join("grammar.js"), std::convert::Into::into);
         load_grammar_file(&grammar_js_path, js_runtime)?
     };
+
+    let src_path = repo_path.join("src");
+    let header_path = src_path.join("tree_sitter");
 
     // Ensure that the output directories exist.
     fs::create_dir_all(&src_path)?;
@@ -91,8 +124,8 @@ pub fn generate_parser_in_directory(
     write_file(&src_path.join("node-types.json"), node_types_json)?;
     write_file(&header_path.join("parser.h"), tree_sitter::PARSER_HEADER)?;
 
-    if generate_bindings {
-        binding_files::generate_binding_files(repo_path, &language_name)?;
+    if !path_in_ignore(&repo_path) {
+        grammar_files::generate_grammar_files(&repo_path, &language_name, generate_bindings)?;
     }
 
     Ok(())

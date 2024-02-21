@@ -1,0 +1,36 @@
+# Rust artifacts
+/Cargo.lock
+/target/
+
+# Node artifacts
+/build/
+/node_modules/
+
+# Swift artifacts
+/.build/
+
+# Python artifacts
+/dist/
+*.egg-info
+*.whl
+
+# Zig artifacts
+/zig-cache/
+/zig-out/
+
+# C artifacts
+*.a
+*.so
+*.so.*
+*.dylib
+*.dll
+*.pc
+
+# Example dirs
+/examples/*/
+
+# Grammar volatiles
+dsl.d.ts
+*.wasm
+*.obj
+*.o
