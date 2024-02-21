@@ -19,19 +19,6 @@ jobs:
           toolchain: stable
           override: true
 
-
-      - name: Publish `tree-sitter` (dry run)
-        run: cargo publish --dry-run -p tree-sitter
-
-      - name: Publish `tree-sitter`
-        run: cargo publish -p tree-sitter
-
-      - name: Publish `tree-sitter-loader` (dry run)
-        run: cargo publish --dry-run -p tree-sitter-loader
-
-      - name: Publish `tree-sitter-loader`
-        run: cargo publish -p tree-sitter-loader
-
       - name: Publish `tree-sitter-config` (dry run)
         run: cargo publish --dry-run -p tree-sitter-config
 
@@ -49,6 +36,12 @@ jobs:
 
       - name: Publish `tree-sitter-tags`
         run: cargo publish -p tree-sitter-tags
+
+      - name: Publish `tree-sitter-loader` (dry run)
+        run: cargo publish --dry-run -p tree-sitter-loader
+
+      - name: Publish `tree-sitter-loader`
+        run: cargo publish -p tree-sitter-loader
 
       - name: Publish `tree-sitter-cli` (dry run)
         run: cargo publish --dry-run -p tree-sitter-cli
