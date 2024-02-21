@@ -313,9 +313,9 @@ fn closest_xterm_color(red: u8, green: u8, blue: u8) -> Color {
     // Get the xterm color with the minimum Euclidean distance to the target color
     // i.e.  distance = √ (r2 - r1)² + (g2 - g1)² + (b2 - b1)²
     let distances = colors.map(|(color_id, (r, g, b))| {
-        let r_delta: u32 = (max(r, red) - min(r, red)).into();
-        let g_delta: u32 = (max(g, green) - min(g, green)).into();
-        let b_delta: u32 = (max(b, blue) - min(b, blue)).into();
+        let r_delta = (max(r, red) - min(r, red)) as u32;
+        let g_delta = (max(g, green) - min(g, green)) as u32;
+        let b_delta = (max(b, blue) - min(b, blue)) as u32;
         let distance = r_delta.pow(2) + g_delta.pow(2) + b_delta.pow(2);
         // don't need to actually take the square root for the sake of comparison
         (color_id, distance)
