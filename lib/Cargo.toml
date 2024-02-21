@@ -31,13 +31,13 @@ wasm = ["wasmtime", "wasmtime-c-api"]
 regex.workspace = true
 
 [dependencies.wasmtime]
-version = "18"
+version = "18.0.1"
 optional = true
 default-features = false
 features = ["cranelift"]
 
 [dependencies.wasmtime-c-api]
-version = "18"
+version = "18.0.1"
 optional = true
 package = "wasmtime-c-api-impl"
 default-features = false
