@@ -51,7 +51,7 @@ Here's an example of a simple C program that uses the Tree-sitter [JSON parser](
 
 // Declare the `tree_sitter_json` function, which is
 // implemented by the `tree-sitter-json` library.
-TSLanguage *tree_sitter_json();
+extern const TSLanguage *tree_sitter_json();
 
 int main() {
   // Create a parser.
@@ -326,9 +326,9 @@ Conceptually, it can be represented by three syntax trees with overlapping range
 #include <tree_sitter/api.h>
 
 // These functions are each implemented in their own repo.
-const TSLanguage *tree_sitter_embedded_template();
-const TSLanguage *tree_sitter_html();
-const TSLanguage *tree_sitter_ruby();
+extern const TSLanguage *tree_sitter_embedded_template();
+extern const TSLanguage *tree_sitter_html();
+extern const TSLanguage *tree_sitter_ruby();
 
 int main(int argc, const char **argv) {
   const char *text = argv[1];

@@ -1,19 +1,31 @@
 {
   "name": "tree-sitter-PARSER_NAME",
   "version": "0.0.1",
-  "description": "PARSER_NAME grammar for tree-sitter",
+  "description": "CAMEL_PARSER_NAME grammar for tree-sitter",
+  "repository": "github:tree-sitter/tree-sitter-PARSER_NAME",
+  "license": "MIT",
   "main": "bindings/node",
   "keywords": [
     "parsing",
-    "incremental"
+    "incremental",
+    "LOWER_PARSER_NAME"
   ],
   "dependencies": {
-    "nan": "^2.12.1"
+    "nan": "^2.18.0"
   },
   "devDependencies": {
     "tree-sitter-cli": "^CLI_VERSION"
   },
   "scripts": {
-    "test": "tree-sitter test"
-  }
+    "build": "tree-sitter generate --no-bindings",
+    "build-wasm": "tree-sitter build-wasm",
+    "test": "tree-sitter test",
+    "parse": "tree-sitter parse"
+  },
+  "tree-sitter": [
+    {
+      "scope": "source.LOWER_PARSER_NAME",
+      "injection-regex": "LOWER_PARSER_NAME"
+    }
+  ]
 }

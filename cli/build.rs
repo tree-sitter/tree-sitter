@@ -1,6 +1,10 @@
-use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
-use std::{env, fs};
+use std::{
+    env,
+    ffi::OsStr,
+    fs,
+    path::{Path, PathBuf},
+    time::SystemTime,
+};
 
 fn main() {
     if let Some(git_sha) = read_git_sha() {
@@ -10,6 +14,12 @@ fn main() {
     if web_playground_files_present() {
         println!("cargo:rustc-cfg=TREE_SITTER_EMBED_WASM_BINDING");
     }
+
+    let build_time = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_secs_f64();
+    println!("cargo:rustc-env=BUILD_TIME={build_time}");
 }
 
 fn web_playground_files_present() -> bool {
@@ -30,7 +40,8 @@ fn read_git_sha() -> Option<String> {
         git_path = repo_path.join(".git");
         if git_path.exists() {
             break;
-        } else if !repo_path.pop() {
+        }
+        if !repo_path.pop() {
             return None;
         }
     }
@@ -93,7 +104,7 @@ fn read_git_sha() -> Option<String> {
             return fs::read_to_string(&ref_filename).ok();
         }
         // If we're on a detached commit, then the `HEAD` file itself contains the sha.
-        else if head_content.len() == 40 {
+        if head_content.len() == 40 {
             return Some(head_content);
         }
     }
