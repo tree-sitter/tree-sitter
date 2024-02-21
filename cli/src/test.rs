@@ -411,7 +411,14 @@ fn format_sexp_indented(sexp: &str, initial_indent_level: u32) -> String {
             // "(MISSING node_name" or "(UNEXPECTED 'x'"
             if s.starts_with("(MISSING") || s.starts_with("(UNEXPECTED") {
                 fetch_next_str(&mut s).unwrap();
-                write!(formatted, " {s}").unwrap();
+                if s.is_empty() {
+                    while indent_level > 0 {
+                        indent_level -= 1;
+                        write!(formatted, ")").unwrap();
+                    }
+                } else {
+                    write!(formatted, " {s}").unwrap();
+                }
             }
         } else if s.ends_with(':') {
             // "field:"
@@ -753,6 +760,16 @@ abc
             r#"
 (source_file
   (MISSING ")"))
+        "#
+            .trim()
+        );
+        assert_eq!(
+            format_sexp(r#"(source_file (ERROR (UNEXPECTED 'f') (UNEXPECTED '+')))"#),
+            r#"
+(source_file
+  (ERROR
+    (UNEXPECTED 'f')
+    (UNEXPECTED '+')))
 "#
             .trim()
         );
