@@ -55,23 +55,23 @@ webbrowser.workspace = true
 which.workspace = true
 
 [dependencies.tree-sitter]
-version = "0.20.10"
+version = "0.21.0"
 path = "../lib"
 
 [dependencies.tree-sitter-config]
-version = "0.19.0"
+version = "0.21.0"
 path = "config"
 
 [dependencies.tree-sitter-highlight]
-version = "0.20.2"
+version = "0.21.0"
 path = "../highlight"
 
 [dependencies.tree-sitter-loader]
-version = "0.20.0"
+version = "0.21.0"
 path = "loader"
 
 [dependencies.tree-sitter-tags]
-version = "0.20.2"
+version = "0.21.0"
 path = "../tags"
 
 [dev-dependencies]

@@ -12,8 +12,8 @@ to parse, to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-tree-sitter-highlight = "^0.20"
-tree-sitter-javascript = "0.19"
+tree-sitter-highlight = "^0.21.0"
+tree-sitter-javascript = "0.20.3"
 ```
 
 Define the list of highlight names that you will recognize:

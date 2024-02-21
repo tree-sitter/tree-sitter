@@ -1,4 +1,4 @@
-VERSION := 0.20.10
+VERSION := 0.21.0
 
 # install directory layout
 PREFIX ?= /usr/local

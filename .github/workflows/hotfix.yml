@@ -1,0 +1,76 @@
+name: Hotfix
+
+on:
+  workflow_dispatch:
+
+jobs:
+  lib:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+
+      - name: Publish `tree-sitter` (dry run)
+        run: cargo publish --dry-run -p tree-sitter
+
+      - name: Publish `tree-sitter`
+        run: cargo publish -p tree-sitter
+
+      - name: Publish `tree-sitter-loader` (dry run)
+        run: cargo publish --dry-run -p tree-sitter-loader
+
+      - name: Publish `tree-sitter-loader`
+        run: cargo publish -p tree-sitter-loader
+
+      - name: Publish `tree-sitter-config` (dry run)
+        run: cargo publish --dry-run -p tree-sitter-config
+
+      - name: Publish `tree-sitter-config`
+        run: cargo publish -p tree-sitter-config
+
+      - name: Publish `tree-sitter-highlight` (dry run)
+        run: cargo publish --dry-run -p tree-sitter-highlight
+
+      - name: Publish `tree-sitter-highlight`
+        run: cargo publish -p tree-sitter-highlight
+
+      - name: Publish `tree-sitter-tags` (dry run)
+        run: cargo publish --dry-run -p tree-sitter-tags
+
+      - name: Publish `tree-sitter-tags`
+        run: cargo publish -p tree-sitter-tags
+
+      - name: Publish `tree-sitter-cli` (dry run)
+        run: cargo publish --dry-run -p tree-sitter-cli
+
+      - name: Publish `tree-sitter-cli`
+        run: cargo publish -p tree-sitter-cli
+
+      - name: Re-build wasm file for `web-tree-sitter`
+        run: ./script/build-wasm
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Publish to npmjs.com
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+        run: |
+          cd lib/binding_web
+          npm publish
+          cd ../../cli/npm
+          npm publish
+
