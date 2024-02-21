@@ -562,7 +562,6 @@ static Subtree ts_parser__lex(
       current_position.extent.column
     );
     ts_lexer_start(&self->lexer);
-    found_token = false;
     if (ts_language_is_wasm(self->language)) {
       found_token = ts_wasm_store_call_lex_main(self->wasm_store, lex_mode.lex_state);
     } else {

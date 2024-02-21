@@ -221,7 +221,7 @@ TreeCursorStep ts_tree_cursor_goto_last_child_internal(TSTreeCursor *_self) {
   CursorChildIterator iterator = ts_tree_cursor_iterate_children(self);
   if (!iterator.parent.ptr || iterator.parent.ptr->child_count == 0) return TreeCursorStepNone;
 
-  TreeCursorEntry last_entry;
+  TreeCursorEntry last_entry = {0};
   TreeCursorStep last_step = TreeCursorStepNone;
   while (ts_tree_cursor_child_iterator_next(&iterator, &entry, &visible)) {
     if (visible) {
@@ -362,7 +362,6 @@ TreeCursorStep ts_tree_cursor_goto_previous_sibling_internal(TSTreeCursor *_self
   TreeCursor *self = (TreeCursor *)_self;
 
   // for that, save current position before traversing
-  Length position = array_back(&self->stack)->position;
   TreeCursorStep step = ts_tree_cursor_goto_sibling_internal(
       _self, ts_tree_cursor_child_iterator_previous);
   if (step == TreeCursorStepNone)
@@ -374,7 +373,7 @@ TreeCursorStep ts_tree_cursor_goto_previous_sibling_internal(TSTreeCursor *_self
 
   // restore position from the parent node
   const TreeCursorEntry *parent = &self->stack.contents[self->stack.size - 2];
-  position = parent->position;
+  Length position = parent->position;
   uint32_t child_index = array_back(&self->stack)->child_index;
   const Subtree *children = ts_subtree_children((*(parent->subtree)));
 

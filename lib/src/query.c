@@ -2643,7 +2643,6 @@ static TSQueryError ts_query__parse_pattern(
           step->alternative_index < self->steps.size
         ) {
           step_index = step->alternative_index;
-          step = &self->steps.contents[step_index];
         } else {
           break;
         }
