@@ -150,7 +150,7 @@ struct Parse {
         help = "Open `log.html` in the default browser, if `--debug-graph` is supplied"
     )]
     pub open_log: bool,
-    #[arg(long, help = "The path to an alternate config.json file")]
+    #[arg(long, help = "The path to an alternative config.json file")]
     pub config_path: Option<PathBuf>,
 }
 
@@ -201,7 +201,7 @@ struct Test {
         help = "Open `log.html` in the default browser, if `--debug-graph` is supplied"
     )]
     pub open_log: bool,
-    #[arg(long, help = "The path to an alternate config.json file")]
+    #[arg(long, help = "The path to an alternative config.json file")]
     pub config_path: Option<PathBuf>,
 }
 
@@ -237,7 +237,7 @@ struct Query {
     pub captures: bool,
     #[arg(long, help = "Whether to run query tests or not")]
     pub test: bool,
-    #[arg(long, help = "The path to an alternate config.json file")]
+    #[arg(long, help = "The path to an alternative config.json file")]
     pub config_path: Option<PathBuf>,
 }
 
@@ -271,7 +271,7 @@ struct Highlight {
     pub paths_file: Option<String>,
     #[arg(num_args = 1.., help = "The source file(s) to use")]
     pub paths: Option<Vec<String>>,
-    #[arg(long, help = "The path to an alternate config.json file")]
+    #[arg(long, help = "The path to an alternative config.json file")]
     pub config_path: Option<PathBuf>,
 }
 
@@ -294,7 +294,7 @@ struct Tags {
     pub paths_file: Option<String>,
     #[arg(num_args = 1.., help = "The source file(s) to use")]
     pub paths: Option<Vec<String>>,
-    #[arg(long, help = "The path to an alternate config.json file")]
+    #[arg(long, help = "The path to an alternative config.json file")]
     pub config_path: Option<PathBuf>,
 }
 
@@ -330,7 +330,7 @@ struct Playground {
 #[derive(Args)]
 #[command(about = "Print info about all known language parsers", alias = "langs")]
 struct DumpLanguages {
-    #[arg(long, help = "The path to an alternate config.json file")]
+    #[arg(long, help = "The path to an alternative config.json file")]
     pub config_path: Option<PathBuf>,
 }
 
