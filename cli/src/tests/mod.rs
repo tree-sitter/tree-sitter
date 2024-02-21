@@ -1,7 +1,6 @@
 mod async_context_test;
 mod corpus_test;
 mod detect_language;
-mod github_issue_test;
 mod helpers;
 mod highlight_test;
 mod language_test;

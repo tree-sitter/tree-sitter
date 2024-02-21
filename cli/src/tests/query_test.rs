@@ -5072,3 +5072,35 @@ fn test_grammar_with_aliased_literal_query() {
 
     assert!(query.is_ok());
 }
+
+#[test]
+fn test_query_with_first_child_in_group_is_anchor() {
+    let language = get_language("c");
+    let source_code = r"void fun(int a, char b, int c) { };";
+    let query = r#"
+            (parameter_list
+              .
+              ((parameter_declaration) @constant
+                (#match? @constant "^int")))"#;
+    let query = Query::new(&language, query).unwrap();
+    assert_query_matches(
+        &language,
+        &query,
+        source_code,
+        &[(0, vec![("constant", "int a")])],
+    );
+}
+
+// This test needs be executed with UBSAN enabled to check for regressions:
+// ```
+// UBSAN_OPTIONS="halt_on_error=1" \
+// CFLAGS="-fsanitize=undefined"   \
+// RUSTFLAGS="-lubsan"             \
+// cargo test --target $(rustc -vV | sed -nr 's/^host: //p') -- --test-threads 1
+// ```
+#[test]
+fn test_query_compiler_oob_access() {
+    let language = get_language("java");
+    // UBSAN should not report any OOB access
+    assert!(Query::new(&language, "(package_declaration _ (_) @name _)").is_ok());
+}
