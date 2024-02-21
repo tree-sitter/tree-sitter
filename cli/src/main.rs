@@ -150,6 +150,8 @@ struct Parse {
         help = "Open `log.html` in the default browser, if `--debug-graph` is supplied"
     )]
     pub open_log: bool,
+    #[arg(long, help = "The path to an alternative config.json file")]
+    pub config_path: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -199,6 +201,8 @@ struct Test {
         help = "Open `log.html` in the default browser, if `--debug-graph` is supplied"
     )]
     pub open_log: bool,
+    #[arg(long, help = "The path to an alternative config.json file")]
+    pub config_path: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -233,6 +237,8 @@ struct Query {
     pub captures: bool,
     #[arg(long, help = "Whether to run query tests or not")]
     pub test: bool,
+    #[arg(long, help = "The path to an alternative config.json file")]
+    pub config_path: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -265,6 +271,8 @@ struct Highlight {
     pub paths_file: Option<String>,
     #[arg(num_args = 1.., help = "The source file(s) to use")]
     pub paths: Option<Vec<String>>,
+    #[arg(long, help = "The path to an alternative config.json file")]
+    pub config_path: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -286,6 +294,8 @@ struct Tags {
     pub paths_file: Option<String>,
     #[arg(num_args = 1.., help = "The source file(s) to use")]
     pub paths: Option<Vec<String>>,
+    #[arg(long, help = "The path to an alternative config.json file")]
+    pub config_path: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -319,7 +329,10 @@ struct Playground {
 
 #[derive(Args)]
 #[command(about = "Print info about all known language parsers", alias = "langs")]
-struct DumpLanguages;
+struct DumpLanguages {
+    #[arg(long, help = "The path to an alternative config.json file")]
+    pub config_path: Option<PathBuf>,
+}
 
 fn main() {
     let result = run();
@@ -364,7 +377,6 @@ fn run() -> Result<()> {
     let command = Commands::from_arg_matches(&cli.get_matches())?;
 
     let current_dir = env::current_dir().unwrap();
-    let config = Config::load()?;
     let mut loader = loader::Loader::new()?;
 
     match command {
@@ -417,6 +429,7 @@ fn run() -> Result<()> {
         }
 
         Commands::Parse(parse_options) => {
+            let config = Config::load(parse_options.config_path)?;
             let output = if parse_options.output_dot {
                 ParseOutput::Dot
             } else if parse_options.output_xml {
@@ -523,6 +536,7 @@ fn run() -> Result<()> {
         }
 
         Commands::Test(test_options) => {
+            let config = Config::load(test_options.config_path)?;
             if test_options.debug {
                 // For augmenting debug logging in external scanners
                 env::set_var("TREE_SITTER_DEBUG", "1");
@@ -595,6 +609,7 @@ fn run() -> Result<()> {
         }
 
         Commands::Query(query_options) => {
+            let config = Config::load(query_options.config_path)?;
             let paths = collect_paths(query_options.paths_file.as_deref(), query_options.paths)?;
             let loader_config = config.get()?;
             loader.find_all_languages(&loader_config)?;
@@ -632,6 +647,7 @@ fn run() -> Result<()> {
         }
 
         Commands::Highlight(highlight_options) => {
+            let config = Config::load(highlight_options.config_path)?;
             let theme_config: tree_sitter_cli::highlight::ThemeConfig = config.get()?;
             loader.configure_highlights(&theme_config.theme.highlight_names);
             let loader_config = config.get()?;
@@ -741,6 +757,7 @@ fn run() -> Result<()> {
         }
 
         Commands::Tags(tags_options) => {
+            let config = Config::load(tags_options.config_path)?;
             let loader_config = config.get()?;
             loader.find_all_languages(&loader_config)?;
             let paths = collect_paths(tags_options.paths_file.as_deref(), tags_options.paths)?;
@@ -773,7 +790,8 @@ fn run() -> Result<()> {
             playground::serve(&grammar_path, open_in_browser)?;
         }
 
-        Commands::DumpLanguages(_) => {
+        Commands::DumpLanguages(dump_options) => {
+            let config = Config::load(dump_options.config_path)?;
             let loader_config = config.get()?;
             loader.find_all_languages(&loader_config)?;
             for (configuration, language_path) in loader.get_all_language_configurations() {

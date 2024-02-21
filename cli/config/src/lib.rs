@@ -60,15 +60,21 @@ impl Config {
     /// Locates and loads in the user's configuration file.  We search for the configuration file
     /// in the following locations, in order:
     ///
+    ///   - Location specified by the path parameter if provided
     ///   - `$TREE_SITTER_DIR/config.json`, if the `TREE_SITTER_DIR` environment variable is set
     ///   - `tree-sitter/config.json` in your default user configuration directory, as determined
     ///     by [`dirs::config_dir`](https://docs.rs/dirs/*/dirs/fn.config_dir.html)
     ///   - `$HOME/.tree-sitter/config.json` as a fallback from where tree-sitter _used_ to store
     ///     its configuration
-    pub fn load() -> Result<Self> {
-        let Some(location) = Self::find_config_file()? else {
+    pub fn load(path: Option<PathBuf>) -> Result<Self> {
+        let location = if let Some(path) = path {
+            path
+        } else if let Some(path) = Self::find_config_file()? {
+            path
+        } else {
             return Self::initial();
         };
+
         let content = fs::read_to_string(&location)
             .with_context(|| format!("Failed to read {}", &location.to_string_lossy()))?;
         let config = serde_json::from_str(&content)
