@@ -232,22 +232,33 @@ fn run_tests(
             } else {
                 if opts.update {
                     let input = String::from_utf8(input).unwrap();
-                    let output = format_sexp(&actual);
+                    let expected_output = format_sexp(&output);
+                    let actual_output = format_sexp(&actual);
 
                     // Only bail early before updating if the actual is not the output, sometimes
                     // users want to test cases that are intended to have errors, hence why this
                     // check isn't shown above
                     if actual.contains("ERROR") || actual.contains("MISSING") {
                         *has_parse_errors = true;
+
+                        // keep the original `expected` output if the actual output has an error
+                        corrected_entries.push((
+                            name.clone(),
+                            input,
+                            expected_output,
+                            header_delim_len,
+                            divider_delim_len,
+                        ));
+                    } else {
+                        corrected_entries.push((
+                            name.clone(),
+                            input,
+                            actual_output,
+                            header_delim_len,
+                            divider_delim_len,
+                        ));
+                        println!("✓ {}", Colour::Blue.paint(&name));
                     }
-                    corrected_entries.push((
-                        name.clone(),
-                        input,
-                        output,
-                        header_delim_len,
-                        divider_delim_len,
-                    ));
-                    println!("✓ {}", Colour::Blue.paint(&name));
                 } else {
                     println!("✗ {}", Colour::Red.paint(&name));
                 }
@@ -305,7 +316,7 @@ fn run_tests(
             }
 
             if let Some(file_path) = file_path {
-                if opts.update && failures.len() - failure_count > 0 && !*has_parse_errors {
+                if opts.update && failures.len() - failure_count > 0 {
                     write_tests(&file_path, corrected_entries)?;
                 }
                 corrected_entries.clear();
