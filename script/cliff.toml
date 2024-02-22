@@ -17,12 +17,16 @@ body = """
     ### {{ group | upper_first }}
     {% for commit in commits%}\
         {% if not commit.scope %}\
-            - {{ commit.message | upper_first }}
+            - {{ commit.message | upper_first }}\
+              {% if commit.github.username %} *by* @{{ commit.github.username }}{%- endif %}\
+              {% if commit.github.pr_number %} *in* #{{ commit.github.pr_number }}{%- endif %}
         {% endif %}\
     {% endfor %}\
     {% for group, commits in commits | group_by(attribute="scope") %}\
         {% for commit in commits %}\
-            - **{{commit.scope}}**: {{ commit.message | upper_first }}
+            - **{{commit.scope}}**: {{ commit.message | upper_first }}\
+                {% if commit.github.username %} *by* @{{ commit.github.username }}{%- endif %}\
+                {% if commit.github.pr_number %} *in* #{{ commit.github.pr_number }}{%- endif %}
         {% endfor %}\
     {% endfor %}
 {% endfor %}\n
@@ -66,3 +70,7 @@ ignore_tags = ""
 date_order = false
 # sort the commits inside sections by oldest/newest order
 sort_commits = "oldest"
+
+[remote.github]
+owner = "tree-sitter"
+repo = "tree-sitter"
