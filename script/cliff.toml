@@ -1,5 +1,3 @@
-# configuration file for git-cliff (0.1.0)
-
 [changelog]
 # changelog header
 header = """
@@ -14,22 +12,20 @@ body = """
     ## [unreleased]
 {% endif %}\
 {% for group, commits in commits | group_by(attribute="group") %}
-    ### {{ group | upper_first }}
+    ### {{ group | striptags | upper_first }}
     {% for commit in commits%}\
         {% if not commit.scope %}\
             - {{ commit.message | upper_first }}\
-              {% if commit.github.username %} *by* @{{ commit.github.username }}{%- endif %}\
-              {% if commit.github.pr_number %} *in* #{{ commit.github.pr_number }}{%- endif %}
+              {% if commit.github.pr_number %} (https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/pull/{{ commit.github.pr_number }}){%- endif %}
         {% endif %}\
     {% endfor %}\
     {% for group, commits in commits | group_by(attribute="scope") %}\
         {% for commit in commits %}\
             - **{{commit.scope}}**: {{ commit.message | upper_first }}\
-                {% if commit.github.username %} *by* @{{ commit.github.username }}{%- endif %}\
-                {% if commit.github.pr_number %} *in* #{{ commit.github.pr_number }}{%- endif %}
+                {% if commit.github.pr_number %} (https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/pull/{{ commit.github.pr_number }}){%- endif %}
         {% endfor %}\
     {% endfor %}
-{% endfor %}\n
+{% endfor %}
 """
 # remove the leading and trailing whitespace from the template
 trim = true
@@ -38,7 +34,7 @@ trim = true
 # parse the commits based on https://www.conventionalcommits.org
 conventional_commits = true
 # filter out the commits that are not conventional
-filter_unconventional = true
+filter_unconventional = false
 # process each line of a commit as an individual commit
 split_commits = false
 # regex for preprocessing the commit messages
@@ -47,19 +43,19 @@ commit_preprocessors = [
 ]
 # regex for parsing and grouping commits
 commit_parsers = [
-    { message = "!:", group = "Breaking"},
-    { message = "^feat", group = "Features"},
-    { message = "^fix", group = "Bug Fixes"},
-    { message = "^doc", group = "Documentation"},
-    { message = "^perf", group = "Performance"},
-    { message = "^refactor", group = "Refactor"},
-    { message = "^test", group = "Testing"},
-    { message = "^chore", group = "Miscellaneous Tasks"},
-    { message = "^build", group = "Build System"},
-    { message = "^Revert", group = "Reverted Changes"},
+    { message = "!:", group = "<!-- 0 -->Breaking"},
+    { message = "^feat", group = "<!-- 1 -->Features"},
+    { message = "^fix", group = "<!-- 2 -->Bug Fixes"},
+    { message = "^perf", group = "<!-- 3 -->Performance"},
+    { message = "^doc", group = "<!-- 4 -->Documentation"},
+    { message = "^refactor", group = "<!-- 5 -->Refactor"},
+    { message = "^test", group = "<!-- 6 -->Testing"},
+    { message = "^build", group = "<!-- 7 -->Build System and CI"},
+    { message = "^ci", group = "<!-- 7 -->Build System and CI"},
+    { message = ".*", group = "<!-- 8 -->Other"},
 ]
 # filter out the commits that are not matched by commit parsers
-filter_commits = true
+filter_commits = false
 # glob pattern for matching git tags
 tag_pattern = "v[0-9]*"
 # regex for skipping tags
