@@ -98,6 +98,6 @@ format:
 	cargo fmt --all
 
 changelog:
-	git-cliff --config script/cliff.toml --output CHANGELOG.md --latest
+	@git-cliff --config script/cliff.toml --output CHANGELOG.md --latest --github-token $(shell gh auth token)
 
 .PHONY: test test_wasm lint format changelog
