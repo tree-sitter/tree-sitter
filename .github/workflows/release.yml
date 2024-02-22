@@ -66,7 +66,7 @@ jobs:
           toolchain: stable
           override: true
 
-      - name: Publish CLI to Crates.io
+      - name: Publish crates to Crates.io
         uses: katyo/publish-crates@v2
         with:
           registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
@@ -81,6 +81,10 @@ jobs:
         directory: ["cli/npm", "lib/binding_web"]
     steps:
       - uses: actions/checkout@v4
+
+      - name: Build wasm
+        if: matrix.directory == 'lib/binding_web'
+        run: ./script/build-wasm
 
       - name: Setup Node
         uses: actions/setup-node@v4

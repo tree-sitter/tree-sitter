@@ -1,6 +1,14 @@
 [workspace]
 default-members = ["cli"]
-members = ["cli", "cli/config", "cli/loader", "lib", "tags", "highlight"]
+members = [
+  "cli",
+  "cli/config",
+  "cli/loader",
+  "lib",
+  "tags",
+  "highlight",
+  "xtask",
+]
 resolver = "2"
 
 [workspace.package]
@@ -46,6 +54,7 @@ ctrlc = { version = "3.4.2", features = ["termination"] }
 difference = "2.0.0"
 dirs = "5.0.1"
 fs4 = "0.7.0"
+git2 = "0.18.2"
 glob = "0.3.1"
 html-escape = "0.2.13"
 indexmap = "2.2.2"
