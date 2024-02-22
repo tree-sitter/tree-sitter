@@ -122,6 +122,8 @@ pub fn generate_parser_in_directory(
 
     write_file(&src_path.join("parser.c"), c_code)?;
     write_file(&src_path.join("node-types.json"), node_types_json)?;
+    write_file(&header_path.join("alloc.h"), tree_sitter::ALLOC_HEADER)?;
+    write_file(&header_path.join("array.h"), tree_sitter::ARRAY_HEADER)?;
     write_file(&header_path.join("parser.h"), tree_sitter::PARSER_HEADER)?;
 
     if !path_in_ignore(&repo_path) {
