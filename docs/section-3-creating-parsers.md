@@ -112,6 +112,8 @@ The first time you run `tree-sitter generate`, it will also generate a few other
 * `bindings/c/tree-sitter-language.h` - This file provides the C interface of your language.
 * `bindings/c/tree-sitter-language.pc` - This file provides pkg-config metadata about your language's C library.
 * `src/tree_sitter/parser.h` - This file provides some basic C definitions that are used in your generated `parser.c` file.
+* `src/tree_sitter/alloc.h` - This file provides some memory allocation macros that are to be used in your external scanner, if you have one.
+* `src/tree_sitter/array.h` - This file provides some array macros that are to be used in your external scanner, if you have one.
 
 #### Go
 
@@ -143,7 +145,6 @@ The first time you run `tree-sitter generate`, it will also generate a few other
 
 * `Package.swift` - This file tells Swift how to compile your language.
 * `bindings/swift/TreeSitterLanguage/language.h` - This file wraps your language in a Swift module when used in Swift.
-
 
 If there is an ambiguity or *local ambiguity* in your grammar, Tree-sitter will detect it during parser generation, and it will exit with a `Unresolved conflict` error message. See below for more information on these errors.
 
@@ -690,7 +691,9 @@ Then, add another C or C++ source file to your project. Currently, its path must
 In this new source file, define an [`enum`][enum] type containing the names of all of your external tokens. The ordering of this enum must match the order in your grammar's `externals` array; the actual names do not matter.
 
 ```c
-#include <tree_sitter/parser.h>
+#include "tree_sitter/parser.h"
+#include "tree_sitter/alloc.h"
+#include "tree_sitter/array.h"
 
 enum TokenType {
   INDENT,
@@ -788,6 +791,109 @@ if (valid_symbols[INDENT] || valid_symbols[DEDENT]) {
     return true;
   }
 }
+```
+
+#### External Scanner Helpers
+
+##### Allocator
+
+Instead of using libc's `malloc`, `calloc`, `realloc`, and `free`, you should use the versions prefixed with `ts_` from `tree_sitter/alloc.h`.
+These macros can allow a potential consumer to override the default allocator with their own implementation, but by default will use the libc functions.
+
+As a consumer of the tree-sitter core library as well as any parser libraries that might use allocations, you can enable overriding the default allocator and have it use the same one as the library allocator, of which you can set with `ts_set_allocator`.
+To enable this overriding in scanners, you must compile them with the `TS_REUSE_ALLOCATOR` macro defined, and tree-sitter the library must be linked into your final app dynamically, since it needs to resolve the internal functions at runtime. If you are compiling
+an executable binary that uses the core library, but want to load parsers dynamically at runtime, then you will have to use a special linker flag on Unix. For non-Darwin systems, that would be `--dynamic-list` and for Darwin systems, that would be `-exported_symbols_list`.
+The CLI does exactly this, so you can use it as a reference (check out `cli/build.rs`).
+
+For example, assuming you wanted to allocate 100 bytes for your scanner, you'd do so like the following example:
+
+```c
+#include "tree_sitter/parser.h"
+#include "tree_sitter/alloc.h"
+#include "tree_sitter/array.h"
+
+// ...
+
+void* tree_sitter_my_language_external_scanner_create() {
+  return ts_calloc(100, 1); // or ts_malloc(100)
+}
+
+// ...
+
+```
+
+##### Arrays
+
+If you need to use array-like types in your scanner, such as tracking a stack of indentations or tags, you should use the array macros from `tree_sitter/array.h`.
+
+There are quite a few of them provided for you, but here's how you could get started tracking some . Check out the header itself for more detailed documentation.
+
+**NOTE**: Do not use any of the array functions or macros that are prefixed with an underscore and have comments saying that it is not what you are looking for.
+These are internal functions used as helpers by other macros that are public. They are not meant to be used directly, nor are they what you want.
+
+```c
+#include "tree_sitter/parser.h"
+#include "tree_sitter/alloc.h"
+#include "tree_sitter/array.h"
+
+enum TokenType {
+  INDENT,
+  DEDENT,
+  NEWLINE,
+  STRING,
+}
+
+// Create the array in your create function
+
+void* tree_sitter_my_language_external_scanner_create() {
+  return ts_calloc(1, sizeof(Array(int)));
+
+  // or if you want to zero out the memory yourself
+
+  Array(int) *stack = ts_malloc(sizeof(Array(int)));
+  array_init(&stack);
+  return stack;
+}
+
+bool tree_sitter_my_language_external_scanner_scan(
+  void *payload,
+  TSLexer *lexer,
+  const bool *valid_symbols
+) {
+  Array(int) *stack = payload;
+  if (valid_symbols[INDENT]) {
+    array_push(stack, lexer->get_column(lexer));
+    lexer->result_symbol = INDENT;
+    return true;
+  }
+  if (valid_symbols[DEDENT]) {
+    array_pop(stack); // this returns the popped element by value, but we don't need it
+    lexer->result_symbol = DEDENT;
+    return true;
+  }
+
+  // we can also use an array on the stack to keep track of a string
+
+  Array(char) next_string = array_new();
+
+  if (valid_symbols[STRING] && lexer->lookahead == '"') {
+    lexer->advance(lexer, false);
+    while (lexer->lookahead != '"' && lexer->lookahead != '\n' && !lexer->eof(lexer)) {
+      array_push(&next_string, lexer->lookahead);
+      lexer->advance(lexer, false);
+    }
+
+    // assume we have some arbitrary constraint of not having more than 100 characters in a string
+    if (lexer->lookahead == '"' && next_string.size <= 100) {
+      lexer->advance(lexer, false);
+      lexer->result_symbol = STRING;
+      return true;
+    }
+  }
+
+  return false;
+}
+
 ```
 
 #### Other External Scanner Details
