@@ -78,12 +78,6 @@ impl Config {
     }
 }
 
-#[cfg(unix)]
-const DYLIB_EXTENSION: &str = "so";
-
-#[cfg(windows)]
-const DYLIB_EXTENSION: &str = "dll";
-
 const BUILD_TARGET: &str = env!("BUILD_TARGET");
 
 pub struct LanguageConfiguration<'a> {
@@ -106,7 +100,7 @@ pub struct LanguageConfiguration<'a> {
 }
 
 pub struct Loader {
-    parser_lib_path: PathBuf,
+    pub parser_lib_path: PathBuf,
     languages_by_id: Vec<(PathBuf, OnceCell<Language>, Option<Vec<PathBuf>>)>,
     language_configurations: Vec<LanguageConfiguration<'static>>,
     language_configuration_ids_by_file_type: HashMap<String, Vec<usize>>,
@@ -118,6 +112,36 @@ pub struct Loader {
 
     #[cfg(feature = "wasm")]
     wasm_store: Mutex<Option<tree_sitter::WasmStore>>,
+}
+
+pub struct CompileConfig<'a> {
+    pub src_path: &'a Path,
+    pub header_paths: Vec<&'a Path>,
+    pub parser_path: PathBuf,
+    pub scanner_path: Option<PathBuf>,
+    pub external_files: Option<&'a [PathBuf]>,
+    pub output_path: Option<PathBuf>,
+    pub flags: &'a [&'a str],
+    pub name: String,
+}
+
+impl<'a> CompileConfig<'a> {
+    pub fn new(
+        src_path: &'a Path,
+        externals: Option<&'a [PathBuf]>,
+        output_path: Option<PathBuf>,
+    ) -> CompileConfig<'a> {
+        Self {
+            src_path,
+            header_paths: vec![src_path],
+            parser_path: src_path.join("parser.c"),
+            scanner_path: None,
+            external_files: externals,
+            output_path,
+            flags: &["TREE_SITTER_REUSE_ALLOCATOR", "TREE_SITTER_INTERNAL_BUILD"],
+            name: String::new(),
+        }
+    }
 }
 
 unsafe impl Send for Loader {}
@@ -353,18 +377,29 @@ impl Loader {
         language
             .get_or_try_init(|| {
                 let src_path = path.join("src");
-                self.load_language_at_path(&src_path, &[&src_path], externals.as_deref())
+                self.load_language_at_path(CompileConfig::new(
+                    &src_path,
+                    externals.as_deref(),
+                    None,
+                ))
             })
             .cloned()
     }
 
-    pub fn load_language_at_path(
+    pub fn compile_parser_at_path(
         &self,
-        src_path: &Path,
-        header_paths: &[&Path],
-        external_files: Option<&[PathBuf]>,
-    ) -> Result<Language> {
-        let grammar_path = src_path.join("grammar.json");
+        grammar_path: &Path,
+        output_path: PathBuf,
+        flags: &[&str],
+    ) -> Result<()> {
+        let src_path = grammar_path.join("src");
+        let mut config = CompileConfig::new(&src_path, None, Some(output_path));
+        config.flags = flags;
+        self.load_language_at_path(config).map(|_| ())
+    }
+
+    pub fn load_language_at_path(&self, mut config: CompileConfig) -> Result<Language> {
+        let grammar_path = config.src_path.join("grammar.json");
 
         #[derive(Deserialize)]
         struct GrammarJSON {
@@ -375,85 +410,90 @@ impl Loader {
         let grammar_json: GrammarJSON = serde_json::from_reader(BufReader::new(&mut grammar_file))
             .with_context(|| "Failed to parse grammar.json")?;
 
-        self.load_language_at_path_with_name(
-            src_path,
-            header_paths,
-            &grammar_json.name,
-            external_files,
-        )
+        config.name = grammar_json.name;
+
+        self.load_language_at_path_with_name(config)
     }
 
-    pub fn load_language_at_path_with_name(
-        &self,
-        src_path: &Path,
-        header_paths: &[&Path],
-        name: &str,
-        external_files: Option<&[PathBuf]>,
-    ) -> Result<Language> {
-        let mut lib_name = name.to_string();
-        let language_fn_name = format!("tree_sitter_{}", replace_dashes_with_underscores(name));
+    pub fn load_language_at_path_with_name(&self, mut config: CompileConfig) -> Result<Language> {
+        let mut lib_name = config.name.to_string();
+        let language_fn_name = format!(
+            "tree_sitter_{}",
+            replace_dashes_with_underscores(&config.name)
+        );
         if self.debug_build {
             lib_name.push_str(".debug._");
         }
 
-        fs::create_dir_all(&self.parser_lib_path)?;
+        if config.output_path.is_none() {
+            fs::create_dir_all(&self.parser_lib_path)?;
+        }
 
-        let mut library_path = self.parser_lib_path.join(lib_name);
-        library_path.set_extension(DYLIB_EXTENSION);
+        let mut recompile = config.output_path.is_some(); // if specified, always recompile
 
-        let parser_path = src_path.join("parser.c");
-        let scanner_path = self.get_scanner_path(src_path);
+        let output_path = config.output_path.unwrap_or_else(|| {
+            let mut path = self.parser_lib_path.join(lib_name);
+            path.set_extension(env::consts::DLL_EXTENSION);
+            #[cfg(feature = "wasm")]
+            if self.wasm_store.lock().unwrap().is_some() {
+                path.set_extension("wasm");
+            }
+            path
+        });
+        config.output_path = Some(output_path.clone());
+
+        let parser_path = config.src_path.join("parser.c");
+        config.scanner_path = self.get_scanner_path(config.src_path);
 
         let mut paths_to_check = vec![parser_path.clone()];
 
-        if let Some(scanner_path) = scanner_path.as_ref() {
+        if let Some(scanner_path) = config.scanner_path.as_ref() {
             paths_to_check.push(scanner_path.clone());
         }
 
         paths_to_check.extend(
-            external_files
+            config
+                .external_files
                 .unwrap_or_default()
                 .iter()
-                .map(|p| src_path.join(p)),
+                .map(|p| config.src_path.join(p)),
         );
 
-        #[cfg(feature = "wasm")]
-        if self.wasm_store.lock().unwrap().is_some() {
-            library_path.set_extension("wasm");
+        if !recompile {
+            recompile = needs_recompile(&output_path, &paths_to_check)
+                .with_context(|| "Failed to compare source and binary timestamps")?;
         }
-
-        let mut recompile = needs_recompile(&library_path, &paths_to_check)
-            .with_context(|| "Failed to compare source and binary timestamps")?;
 
         #[cfg(feature = "wasm")]
         if let Some(wasm_store) = self.wasm_store.lock().unwrap().as_mut() {
             if recompile {
                 self.compile_parser_to_wasm(
-                    name,
-                    src_path,
-                    scanner_path
+                    &config.name,
+                    config.src_path,
+                    config
+                        .scanner_path
                         .as_ref()
-                        .and_then(|p| p.strip_prefix(src_path).ok()),
-                    &library_path,
+                        .and_then(|p| p.strip_prefix(config.src_path).ok()),
+                    &output_path,
                     false,
                 )?;
             }
 
-            let wasm_bytes = fs::read(&library_path)?;
-            return Ok(wasm_store.load_language(name, &wasm_bytes)?);
+            let wasm_bytes = fs::read(&output_path)?;
+            return Ok(wasm_store.load_language(&config.name, &wasm_bytes)?);
         }
 
         let lock_path = if env::var("CROSS_RUNNER").is_ok() {
             PathBuf::from("/tmp")
                 .join("tree-sitter")
                 .join("lock")
-                .join(format!("{name}.lock"))
+                .join(format!("{}.lock", config.name))
         } else {
             dirs::cache_dir()
                 .ok_or_else(|| anyhow!("Cannot determine cache directory"))?
                 .join("tree-sitter")
                 .join("lock")
-                .join(format!("{name}.lock"))
+                .join(format!("{}.lock", config.name))
         };
 
         if let Ok(lock_file) = fs::OpenOptions::new().write(true).open(&lock_path) {
@@ -488,22 +528,15 @@ impl Loader {
                 .open(&lock_path)?;
             lock_file.lock_exclusive()?;
 
-            self.compile_parser_to_dylib(
-                header_paths,
-                &parser_path,
-                scanner_path.as_deref(),
-                &library_path,
-                &lock_file,
-                &lock_path,
-            )?;
+            self.compile_parser_to_dylib(&config, &lock_file, &lock_path)?;
 
-            if scanner_path.is_some() {
-                self.check_external_scanner(name, &library_path)?;
+            if config.scanner_path.is_some() {
+                self.check_external_scanner(&config.name, &output_path)?;
             }
         }
 
-        let library = unsafe { Library::new(&library_path) }
-            .with_context(|| format!("Error opening dynamic library {library_path:?}"))?;
+        let library = unsafe { Library::new(&output_path) }
+            .with_context(|| format!("Error opening dynamic library {output_path:?}"))?;
         let language = unsafe {
             let language_fn = library
                 .get::<Symbol<unsafe extern "C" fn() -> Language>>(language_fn_name.as_bytes())
@@ -516,32 +549,30 @@ impl Loader {
 
     fn compile_parser_to_dylib(
         &self,
-        header_paths: &[&Path],
-        parser_path: &Path,
-        scanner_path: Option<&Path>,
-        library_path: &Path,
+        config: &CompileConfig,
         lock_file: &fs::File,
         lock_path: &Path,
     ) -> Result<(), Error> {
-        let mut config = cc::Build::new();
-        config
-            .cpp(true)
+        let mut cc = cc::Build::new();
+        cc.cpp(true)
             .opt_level(2)
             .cargo_metadata(false)
             .cargo_warnings(false)
             .target(BUILD_TARGET)
             .host(BUILD_TARGET)
             .flag_if_supported("-Werror=implicit-function-declaration");
-        let compiler = config.get_compiler();
+        let compiler = cc.get_compiler();
         let mut command = Command::new(compiler.path());
         for (key, value) in compiler.env() {
             command.env(key, value);
         }
 
+        let output_path = config.output_path.as_ref().unwrap();
+
         if compiler.is_like_msvc() {
             command.args(["/nologo", "/LD"]);
 
-            for path in header_paths {
+            for path in &config.header_paths {
                 command.arg(format!("/I{}", path.to_string_lossy()));
             }
 
@@ -550,9 +581,9 @@ impl Loader {
             } else {
                 command.arg("/O2");
             }
-            command.arg(parser_path);
+            command.arg(&config.parser_path);
 
-            if let Some(scanner_path) = scanner_path.as_ref() {
+            if let Some(scanner_path) = config.scanner_path.as_ref() {
                 if scanner_path.extension() != Some("c".as_ref()) {
                     eprintln!("Warning: Using a C++ scanner is now deprecated. Please migrate your scanner code to C, as C++ support will be removed in the near future.");
                 }
@@ -561,16 +592,16 @@ impl Loader {
             }
             command
                 .arg("/link")
-                .arg(format!("/out:{}", library_path.to_str().unwrap()));
+                .arg(format!("/out:{}", output_path.to_str().unwrap()));
         } else {
             command
                 .arg("-shared")
                 .arg("-fno-exceptions")
                 .arg("-g")
                 .arg("-o")
-                .arg(library_path);
+                .arg(output_path);
 
-            for path in header_paths {
+            for path in &config.header_paths {
                 command.arg(format!("-I{}", path.to_string_lossy()));
             }
 
@@ -584,7 +615,7 @@ impl Loader {
                 command.arg("-O2");
             }
 
-            if let Some(scanner_path) = scanner_path.as_ref() {
+            if let Some(scanner_path) = config.scanner_path.as_ref() {
                 if scanner_path.extension() == Some("c".as_ref()) {
                     command.arg("-xc").arg("-std=c11").arg(scanner_path);
                 } else {
@@ -592,7 +623,7 @@ impl Loader {
                     command.arg(scanner_path);
                 }
             }
-            command.arg("-xc").arg(parser_path);
+            command.arg("-xc").arg(&config.parser_path);
         }
 
         // For conditional compilation of external scanner code when
@@ -967,7 +998,6 @@ impl Loader {
                                     .map(|path| {
                                        let path = parser_path.join(path);
                                         // prevent p being above/outside of parser_path
-
                                         if path.starts_with(parser_path) {
                                             Ok(path)
                                         } else {

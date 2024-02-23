@@ -1,6 +1,9 @@
 use super::generate::parse_grammar::GrammarJSON;
 use anyhow::{anyhow, Context, Result};
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 use tree_sitter::wasm_stdlib_symbols;
 use tree_sitter_loader::Loader;
 use wasmparser::Parser;
@@ -11,7 +14,7 @@ pub fn load_language_wasm_file(language_dir: &Path) -> Result<(String, Vec<u8>)>
         .unwrap();
     let wasm_filename = format!("tree-sitter-{grammar_name}.wasm");
     let contents = fs::read(language_dir.join(&wasm_filename)).with_context(|| {
-        format!("Failed to read {wasm_filename}. Run `tree-sitter build-wasm` first.",)
+        format!("Failed to read {wasm_filename}. Run `tree-sitter build --wasm` first.",)
     })?;
     Ok((grammar_name, contents))
 }
@@ -30,10 +33,12 @@ pub fn compile_language_to_wasm(
     loader: &Loader,
     language_dir: &Path,
     output_dir: &Path,
+    output_file: Option<PathBuf>,
     force_docker: bool,
 ) -> Result<()> {
     let grammar_name = get_grammar_name(language_dir)?;
-    let output_filename = output_dir.join(format!("tree-sitter-{grammar_name}.wasm"));
+    let output_filename =
+        output_file.unwrap_or_else(|| output_dir.join(format!("tree-sitter-{grammar_name}.wasm")));
     let src_path = language_dir.join("src");
     let scanner_path = loader.get_scanner_path(&src_path);
     loader.compile_parser_to_wasm(

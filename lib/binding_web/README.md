@@ -131,7 +131,7 @@ npm install --save-dev tree-sitter-cli tree-sitter-javascript
 Then just use tree-sitter cli tool to generate the `.wasm`.
 
 ```sh
-npx tree-sitter build-wasm node_modules/tree-sitter-javascript
+npx tree-sitter build --wasm node_modules/tree-sitter-javascript
 ```
 
 If everything is fine, file `tree-sitter-javascript.wasm` should be generated in current directory.
