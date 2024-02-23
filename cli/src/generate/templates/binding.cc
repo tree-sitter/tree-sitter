@@ -23,6 +23,6 @@ void Init(Local<Object> exports, Local<Object> module) {
   Nan::Set(module, Nan::New("exports").ToLocalChecked(), instance);
 }
 
-NODE_MODULE(tree_sitter_PARSER_NAME_binding, Init)
+NODE_MODULE_CONTEXT_AWARE(tree_sitter_PARSER_NAME_binding, Init)
 
 }  // namespace
