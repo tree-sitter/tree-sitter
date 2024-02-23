@@ -227,6 +227,8 @@ struct Test {
     pub open_log: bool,
     #[arg(long, help = "The path to an alternative config.json file")]
     pub config_path: Option<PathBuf>,
+    #[arg(long, help = "List all tests with their number")]
+    pub list: bool,
 }
 
 #[derive(Args)]
@@ -649,7 +651,12 @@ fn run() -> Result<()> {
                     languages: languages.iter().map(|(l, n)| (n.as_str(), l)).collect(),
                 };
 
-                test::run_tests_at_path(&mut parser, &mut opts)?;
+                if test_options.list {
+                    test::list_tests_at_path(&opts)?;
+                    return Ok(());
+                } else {
+                    test::run_tests_at_path(&mut parser, &mut opts)?;
+                }
             }
 
             // Check that all of the queries are valid.
