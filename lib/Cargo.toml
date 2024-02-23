@@ -30,6 +30,7 @@ wasm = ["wasmtime-c-api"]
 
 [dependencies]
 regex.workspace = true
+tree-sitter-language = { version = "0.1", path = "language" }
 
 [dependencies.wasmtime-c-api]
 version = "19"

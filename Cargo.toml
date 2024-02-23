@@ -5,6 +5,7 @@ members = [
   "cli/config",
   "cli/loader",
   "lib",
+  "lib/language",
   "tags",
   "highlight",
   "xtask",
