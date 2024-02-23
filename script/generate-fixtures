@@ -30,4 +30,4 @@ while read -r grammar_file; do
     cd "$grammar_dir"
     "$tree_sitter" generate src/grammar.json --no-bindings --abi=latest
   )
-done <<< "$grammar_files"
+done <<<"$grammar_files"

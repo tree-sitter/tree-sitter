@@ -27,12 +27,12 @@ const DEFAULT_GENERATE_ABI_VERSION: usize = 14;
 enum Commands {
     InitConfig(InitConfig),
     Generate(Generate),
+    Build(Build),
     Parse(Parse),
     Test(Test),
     Query(Query),
     Highlight(Highlight),
     Tags(Tags),
-    BuildWasm(BuildWasm),
     Playground(Playground),
     DumpLanguages(DumpLanguages),
 }
@@ -89,6 +89,30 @@ struct Generate {
         help = "The path to the JavaScript runtime to use for generating parsers"
     )]
     pub js_runtime: Option<String>,
+}
+
+#[derive(Args)]
+#[command(about = "Compile a parser", alias = "b")]
+struct Build {
+    #[arg(short, long, help = "Build a WASM module instead of a dynamic library")]
+    pub wasm: bool,
+    #[arg(
+        short,
+        long,
+        help = "Run emscripten via docker even if it is installed locally (only if building a WASM module with --wasm)"
+    )]
+    pub docker: bool,
+    #[arg(short, long, help = "The path to output the compiled file")]
+    pub output: Option<String>,
+    #[arg(index = 1, num_args = 1, help = "The path to the grammar directory")]
+    pub path: Option<String>,
+    #[arg(long, help = "Make the parser reuse the same allocator as the library")]
+    pub reuse_allocator: bool,
+    #[arg(
+        long,
+        help = "Build the parser with `TREE_SITTER_INTERNAL_BUILD` defined"
+    )]
+    pub internal_build: bool,
 }
 
 #[derive(Args)]
@@ -299,18 +323,6 @@ struct Tags {
 }
 
 #[derive(Args)]
-#[command(about = "Compile a parser to WASM", alias = "bw")]
-struct BuildWasm {
-    #[arg(
-        long,
-        help = "Run emscripten via docker even if it is installed locally"
-    )]
-    pub docker: bool,
-    #[arg(index = 1, num_args = 1.., help = "The path to output the wasm file")]
-    pub path: Option<String>,
-}
-
-#[derive(Args)]
 #[command(
     about = "Start local playground for a parser in the browser",
     alias = "play",
@@ -425,6 +437,64 @@ fn run() -> Result<()> {
                 }
                 loader.use_debug_build(generate_options.debug_build);
                 loader.languages_at_path(&current_dir)?;
+            }
+        }
+
+        Commands::Build(build_options) => {
+            if build_options.wasm {
+                let grammar_path =
+                    current_dir.join(build_options.path.as_deref().unwrap_or_default());
+                let (output_dir, output_path) = if let Some(ref path) = build_options.output {
+                    (current_dir.clone(), Some(current_dir.join(path)))
+                } else {
+                    (loader.parser_lib_path.clone(), None)
+                };
+                wasm::compile_language_to_wasm(
+                    &loader,
+                    &grammar_path,
+                    &output_dir,
+                    output_path,
+                    build_options.docker,
+                )?;
+            } else {
+                let grammar_path =
+                    current_dir.join(build_options.path.as_deref().unwrap_or_default());
+                let output_path = if let Some(ref path) = build_options.output {
+                    let path = Path::new(path);
+                    if path.is_absolute() {
+                        path.to_path_buf()
+                    } else {
+                        current_dir.join(path)
+                    }
+                } else {
+                    let file_name = grammar_path
+                        .file_stem()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .strip_prefix("tree-sitter-")
+                        .unwrap_or("parser");
+                    current_dir
+                        .join(file_name)
+                        .with_extension(env::consts::DLL_EXTENSION)
+                };
+
+                let flags: &[&str] =
+                    match (build_options.reuse_allocator, build_options.internal_build) {
+                        (true, true) => {
+                            &["TREE_SITTER_REUSE_ALLOCATOR", "TREE_SITTER_INTERNAL_BUILD"]
+                        }
+                        (true, false) => &["TREE_SITTER_REUSE_ALLOCATOR"],
+                        (false, true) => &["TREE_SITTER_INTERNAL_BUILD"],
+                        (false, false) => &[""],
+                    };
+
+                let config = Config::load(None)?;
+                let loader_config = config.get()?;
+                loader.find_all_languages(&loader_config).unwrap();
+                loader
+                    .compile_parser_at_path(&grammar_path, output_path, flags)
+                    .unwrap();
             }
         }
 
@@ -767,16 +837,6 @@ fn run() -> Result<()> {
                 &paths,
                 tags_options.quiet,
                 tags_options.time,
-            )?;
-        }
-
-        Commands::BuildWasm(wasm_options) => {
-            let grammar_path = current_dir.join(wasm_options.path.unwrap_or_default());
-            wasm::compile_language_to_wasm(
-                &loader,
-                &grammar_path,
-                &current_dir,
-                wasm_options.docker,
             )?;
         }
 

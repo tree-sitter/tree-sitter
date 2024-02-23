@@ -40,7 +40,7 @@
     "install": "node-gyp-build",
     "prebuildify": "prebuildify --napi --strip",
     "build": "tree-sitter generate --no-bindings",
-    "build-wasm": "tree-sitter build-wasm",
+    "build-wasm": "tree-sitter build --wasm",
     "test": "tree-sitter test",
     "parse": "tree-sitter parse"
   },
