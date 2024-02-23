@@ -871,6 +871,9 @@ impl Generator {
             line_break.push_str("  ");
         }
 
+        // parenthesis needed if we add the `!eof` condition to explicitly avoid confusion with
+        // precedence of `&&` and `||`
+        let (mut need_open_paren, mut need_close_paren) = (false, false);
         for (i, range) in ranges.iter().enumerate() {
             if is_included {
                 if i > 0 {
@@ -878,10 +881,19 @@ impl Generator {
                 }
                 if range.start == '\0' {
                     add!(self, "!eof && ");
+                    (need_open_paren, need_close_paren) = (true, true);
                 }
                 if range.end == range.start {
+                    if need_open_paren {
+                        add!(self, "(");
+                        need_open_paren = false;
+                    }
                     add!(self, "lookahead == ");
                     self.add_character(range.start);
+                    if need_close_paren && i == ranges.len() - 1 {
+                        add!(self, ")");
+                        need_close_paren = false;
+                    }
                 } else if range.end as u32 == range.start as u32 + 1 {
                     add!(self, "lookahead == ");
                     self.add_character(range.start);
