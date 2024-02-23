@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashSet},
     ffi::OsStr,
     fs,
     io::{self, Write},
@@ -105,6 +105,7 @@ pub struct TestOptions<'a> {
     pub open_log: bool,
     pub languages: BTreeMap<&'a str, &'a Language>,
     pub color: bool,
+    pub test_num: usize,
 }
 
 pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<()> {
@@ -186,6 +187,65 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
     }
 }
 
+#[allow(clippy::type_complexity)]
+pub fn get_test_info<'test>(
+    test_entry: &'test TestEntry,
+    target_test: u32,
+    test_num: &mut u32,
+) -> Option<(&'test str, &'test [u8], Vec<Box<str>>)> {
+    match test_entry {
+        TestEntry::Example {
+            name,
+            input,
+            attributes,
+            ..
+        } => {
+            if *test_num == target_test {
+                return Some((name, input, attributes.languages.clone()));
+            } else {
+                *test_num += 1;
+            }
+        }
+        TestEntry::Group { children, .. } => {
+            for child in children {
+                if let Some((name, input, languages)) = get_test_info(child, target_test, test_num)
+                {
+                    return Some((name, input, languages));
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Writes the input of `target_test` to a temporary file and returns the path
+pub fn get_tmp_test_file(target_test: u32, color: bool) -> Result<(PathBuf, Vec<Box<str>>)> {
+    let current_dir = std::env::current_dir().unwrap();
+    let test_dir = current_dir.join("test").join("corpus");
+
+    // Get the input of the target test
+    let test_entry = parse_tests(&test_dir)?;
+    let mut test_num = 0;
+    let Some((test_name, test_contents, languages)) =
+        get_test_info(&test_entry, target_test - 1, &mut test_num)
+    else {
+        return Err(anyhow!("Failed to fetch contents of test #{target_test}"));
+    };
+
+    // Write the test contents to a temporary file
+    let test_path = std::env::temp_dir().join(".tree-sitter-test");
+    let mut test_file = std::fs::File::create(&test_path)?;
+    test_file.write_all(test_contents)?;
+
+    println!(
+        "{target_test}. {}\n",
+        opt_color(color, Colour::Green, test_name)
+    );
+
+    Ok((test_path, languages))
+}
+
 pub fn check_queries_at_path(language: &Language, path: &Path) -> Result<()> {
     if path.exists() {
         for entry in WalkDir::new(path)
@@ -253,6 +313,7 @@ pub fn opt_color(use_color: bool, color: ansi_term::Colour, text: &str) -> Strin
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_tests(
     parser: &mut Parser,
     test_entry: TestEntry,
@@ -275,12 +336,20 @@ fn run_tests(
             print!("{}", "  ".repeat(indent_level as usize));
 
             if attributes.skip {
-                println!(" {}", opt_color(opts.color, Colour::Yellow, &name));
+                println!(
+                    "{:>3}.  {}",
+                    opts.test_num,
+                    opt_color(opts.color, Colour::Yellow, &name),
+                );
                 return Ok(true);
             }
 
             if !attributes.platform {
-                println!(" {}", opt_color(opts.color, Colour::Purple, &name));
+                println!(
+                    "{:>3}.  {}",
+                    opts.test_num,
+                    opt_color(opts.color, Colour::Purple, &name)
+                );
                 return Ok(true);
             }
 
@@ -296,9 +365,17 @@ fn run_tests(
 
                 if attributes.error {
                     if tree.root_node().has_error() {
-                        println!(" {}", opt_color(opts.color, Colour::Green, &name));
+                        println!(
+                            "{:>3}.  {}",
+                            opts.test_num,
+                            opt_color(opts.color, Colour::Green, &name)
+                        );
                     } else {
-                        println!(" {}", opt_color(opts.color, Colour::Red, &name));
+                        println!(
+                            "{:>3}.  {}",
+                            opts.test_num,
+                            opt_color(opts.color, Colour::Red, &name)
+                        );
                     }
 
                     if attributes.fail_fast {
@@ -311,7 +388,11 @@ fn run_tests(
                     }
 
                     if actual == output {
-                        println!("✓ {}", opt_color(opts.color, Colour::Green, &name));
+                        println!(
+                            "{:>3}. ✓ {}",
+                            opts.test_num,
+                            opt_color(opts.color, Colour::Green, &name),
+                        );
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
                             let output = format_sexp(&output, 0);
@@ -353,10 +434,18 @@ fn run_tests(
                                     header_delim_len,
                                     divider_delim_len,
                                 ));
-                                println!("✓ {}", opt_color(opts.color, Colour::Blue, &name));
+                                println!(
+                                    "{:>3}. ✓ {}",
+                                    opts.test_num,
+                                    opt_color(opts.color, Colour::Blue, &name)
+                                );
                             }
                         } else {
-                            println!("✗ {}", opt_color(opts.color, Colour::Red, &name));
+                            println!(
+                                "{:>3}. ✗ {}",
+                                opts.test_num,
+                                opt_color(opts.color, Colour::Red, &name)
+                            );
                         }
                         failures.push((name.clone(), actual, output.clone()));
 
@@ -372,34 +461,51 @@ fn run_tests(
                     }
                 }
             }
+            opts.test_num += 1;
         }
         TestEntry::Group {
             name,
             mut children,
             file_path,
         } => {
-            children.retain(|child| {
-                if let TestEntry::Example { name, .. } = child {
+            // track which tests are being skipped to maintain consistent numbering while using
+            // filters
+            let mut skipped_tests = HashSet::new();
+            let mut advance_counter = opts.test_num;
+            children.retain(|child| match child {
+                TestEntry::Example { name, .. } => {
                     if let Some(filter) = opts.filter {
                         if !name.contains(filter) {
+                            skipped_tests.insert(advance_counter);
+                            advance_counter += 1;
                             return false;
                         }
                     }
                     if let Some(include) = &opts.include {
                         if !include.is_match(name) {
+                            skipped_tests.insert(advance_counter);
+                            advance_counter += 1;
                             return false;
                         }
                     }
                     if let Some(exclude) = &opts.exclude {
                         if exclude.is_match(name) {
+                            skipped_tests.insert(advance_counter);
+                            advance_counter += 1;
                             return false;
                         }
                     }
+                    advance_counter += 1;
+                    true
                 }
-                true
+                TestEntry::Group { .. } => {
+                    advance_counter += count_subtests(child);
+                    true
+                }
             });
 
             if children.is_empty() {
+                opts.test_num = advance_counter;
                 return Ok(true);
             }
 
@@ -412,6 +518,11 @@ fn run_tests(
 
             indent_level += 1;
             for child in children {
+                if let TestEntry::Example { .. } = child {
+                    while skipped_tests.remove(&opts.test_num) {
+                        opts.test_num += 1;
+                    }
+                }
                 if !run_tests(
                     parser,
                     child,
@@ -426,6 +537,8 @@ fn run_tests(
                 }
             }
 
+            opts.test_num += skipped_tests.len();
+
             if let Some(file_path) = file_path {
                 if opts.update && failures.len() - failure_count > 0 {
                     write_tests(&file_path, corrected_entries)?;
@@ -435,6 +548,15 @@ fn run_tests(
         }
     }
     Ok(true)
+}
+
+fn count_subtests(test_entry: &TestEntry) -> usize {
+    match test_entry {
+        TestEntry::Example { .. } => 1,
+        TestEntry::Group { children, .. } => children
+            .iter()
+            .fold(0, |count, child| count + count_subtests(child)),
+    }
 }
 
 fn write_tests(
