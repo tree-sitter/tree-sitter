@@ -274,9 +274,19 @@ pub fn generate_grammar_files(
 
     // Generate Rust bindings
     missing_path(bindings_dir.join("rust"), create_dir)?.apply(|path| {
-        missing_path(path.join("lib.rs"), |path| {
-            generate_file(path, LIB_RS_TEMPLATE, language_name)
-        })?;
+        missing_path_else(
+            path.join("lib.rs"),
+            |path| generate_file(path, LIB_RS_TEMPLATE, language_name),
+            |path| {
+                let lib_rs =
+                    fs::read_to_string(path).with_context(|| "Failed to read lib.rs")?;
+                if !lib_rs.contains("tree_sitter_language") {
+                    generate_file(path, LIB_RS_TEMPLATE, language_name)?;
+                    eprintln!("Updated lib.rs with `tree_sitter_language` dependency");
+                }
+                Ok(())
+            },
+        )?;
 
         missing_path_else(
             path.join("build.rs"),
@@ -306,9 +316,36 @@ pub fn generate_grammar_files(
             },
         )?;
 
-        missing_path(repo_path.join("Cargo.toml"), |path| {
-            generate_file(path, CARGO_TOML_TEMPLATE, dashed_language_name.as_str())
-        })?;
+        missing_path_else(
+            repo_path.join("Cargo.toml"),
+            |path| generate_file(path, CARGO_TOML_TEMPLATE, dashed_language_name.as_str()),
+            |path| {
+                let cargo_toml =
+                    fs::read_to_string(path).with_context(|| "Failed to read Cargo.toml")?;
+                if !cargo_toml.contains("tree-sitter-language") {
+                    let start_index = cargo_toml
+                        .find("tree-sitter = \"")
+                        .ok_or_else(|| anyhow!("Failed to find the `tree-sitter` dependency in Cargo.toml"))?;
+
+                    let version_start_index = start_index + "tree-sitter = \"".len();
+                    let version_end_index = cargo_toml[version_start_index..]
+                        .find('\"')
+                        .map(|i| i + version_start_index)
+                        .ok_or_else(|| anyhow!("Failed to find the end of the `tree-sitter` version in Cargo.toml"))?;
+
+                    let cargo_toml = format!(
+                        "{}{}{}",
+                        &cargo_toml[..start_index],
+                        "tree-sitter-language = \"0.1.0\"",
+                        &cargo_toml[version_end_index + 1..],
+                    );
+
+                    write_file(path, cargo_toml)?;
+                    eprintln!("Updated Cargo.toml with the `tree-sitter-language` dependency");
+                }
+                Ok(())
+            },
+        )?;
 
         Ok(())
     })?;

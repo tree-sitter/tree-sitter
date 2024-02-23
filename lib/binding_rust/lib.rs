@@ -22,6 +22,8 @@ use std::{
     sync::atomic::AtomicUsize,
 };
 
+use tree_sitter_language::LanguageFn;
+
 #[cfg(feature = "wasm")]
 mod wasm_language;
 #[cfg(feature = "wasm")]
@@ -284,6 +286,10 @@ pub struct LossyUtf8<'a> {
 }
 
 impl Language {
+    pub fn new(builder: LanguageFn) -> Self {
+        Self(unsafe { (builder.into_raw())() as _ })
+    }
+
     /// Get the ABI version number that indicates which version of the
     /// Tree-sitter CLI that was used to generate this [`Language`].
     #[doc(alias = "ts_language_version")]
@@ -403,6 +409,12 @@ impl Language {
     pub fn lookahead_iterator(&self, state: u16) -> Option<LookaheadIterator> {
         let ptr = unsafe { ffi::ts_lookahead_iterator_new(self.0, state) };
         (!ptr.is_null()).then(|| unsafe { LookaheadIterator::from_raw(ptr) })
+    }
+}
+
+impl From<LanguageFn> for Language {
+    fn from(value: LanguageFn) -> Self {
+        Self::new(value)
     }
 }
 
