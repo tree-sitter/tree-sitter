@@ -134,7 +134,7 @@ impl fmt::Display for WasmError {
             WasmErrorKind::Instantiate => "Failed to instantiate wasm module",
             WasmErrorKind::Other => "Unknown error",
         };
-        write!(f, "{kind} {}", self.message)
+        write!(f, "{kind}: {}", self.message)
     }
 }
 
