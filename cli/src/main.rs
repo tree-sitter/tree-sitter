@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::{env, fs, u64};
 use tree_sitter::{ffi, Parser, Point};
-use tree_sitter_cli::test::TestOptions;
+use tree_sitter_cli::test::{get_tmp_test_file, TestOptions};
 use tree_sitter_cli::{
     generate, highlight, logger,
     parse::{self, ParseFileOptions, ParseOutput},
@@ -176,6 +176,9 @@ struct Parse {
     pub open_log: bool,
     #[arg(long, help = "The path to an alternative config.json file")]
     pub config_path: Option<PathBuf>,
+    #[arg(long, help = "Parse the contents of a test")]
+    #[clap(conflicts_with = "paths", conflicts_with = "paths_file")]
+    pub test_input: Option<u32>,
 }
 
 #[derive(Args)]
@@ -227,7 +230,7 @@ struct Test {
     pub open_log: bool,
     #[arg(long, help = "The path to an alternative config.json file")]
     pub config_path: Option<PathBuf>,
-    #[arg(long, help = "List all tests with their number")]
+    #[arg(long, help = "List each test with its number")]
     pub list: bool,
 }
 
@@ -545,7 +548,12 @@ fn run() -> Result<()> {
 
             let timeout = parse_options.timeout.unwrap_or_default();
 
-            let paths = collect_paths(parse_options.paths_file.as_deref(), parse_options.paths)?;
+            let paths = if let Some(target_test) = parse_options.test_input {
+                let test_path = get_tmp_test_file(target_test)?;
+                collect_paths(None, Some(vec![test_path.to_str().unwrap().to_owned()]))?
+            } else {
+                collect_paths(parse_options.paths_file.as_deref(), parse_options.paths)?
+            };
 
             let max_path_length = paths.iter().map(|p| p.chars().count()).max().unwrap_or(0);
             let mut has_error = false;

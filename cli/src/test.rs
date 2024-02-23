@@ -182,9 +182,78 @@ pub fn list_tests_at_path(opts: &TestOptions) -> Result<()> {
     let test_entry = parse_tests(&opts.path)?;
 
     let mut test_num = 0;
-    print_tests(test_entry, opts, 0, &mut test_num)?;
+    print_tests(test_entry, opts, 0, &mut test_num)
+}
 
-    Ok(())
+pub fn get_test_contents(
+    test_entry: &TestEntry,
+    target_test: u32,
+    test_num: &mut u32,
+) -> Option<Vec<u8>> {
+    match test_entry {
+        TestEntry::Example {
+            name: _,
+            input,
+            output: _,
+            header_delim_len: _,
+            divider_delim_len: _,
+            has_fields: _,
+            attributes: _,
+        } => {
+            if *test_num == target_test {
+                return Some(input.to_owned());
+            } else {
+                *test_num += 1;
+            }
+        }
+        TestEntry::Group {
+            name: _,
+            children,
+            file_path: _,
+        } => {
+            if children.is_empty() {
+                return None;
+            }
+
+            for child in children {
+                let conts = get_test_contents(child, target_test, test_num);
+                if conts.is_some() {
+                    return conts;
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Writes the input of `target_test` to a temporary file and returns the path
+pub fn get_tmp_test_file(target_test: u32) -> Result<PathBuf> {
+    let current_dir = std::env::current_dir().unwrap();
+    let test_dir = current_dir.join("test");
+
+    // Search the corpus tests. Look for them at two paths: `test/corpus` and `corpus`.
+    let mut test_corpus_dir = test_dir.join("corpus");
+    if !test_corpus_dir.is_dir() {
+        test_corpus_dir = current_dir.join("corpus");
+    }
+
+    // Get the input of the target test
+    let test_entry = parse_tests(&test_corpus_dir)?;
+    let mut test_num = 0;
+    let test_conts = match get_test_contents(&test_entry, target_test, &mut test_num) {
+        Some(conts) => conts,
+        None => {
+            return Err(anyhow!("Failed to fetch contents of test {}", target_test));
+        }
+    };
+
+    // Write the test contents to a temporary file
+    let test_path = std::env::temp_dir().join(".tree-sitter-test");
+    let mut test_file = std::fs::File::create(&test_path)?;
+    test_file.write_all(&test_conts)?;
+
+    Ok(test_path)
 }
 
 pub fn check_queries_at_path(language: &Language, path: &Path) -> Result<()> {
@@ -419,8 +488,8 @@ fn run_tests(
 fn print_tests(
     test_entry: TestEntry,
     opts: &TestOptions,
-    mut indent_level: i32,
-    test_num: &mut i32,
+    mut indent_level: u32,
+    test_num: &mut u32,
 ) -> Result<()> {
     match test_entry {
         TestEntry::Example {
@@ -430,6 +499,7 @@ fn print_tests(
             header_delim_len: _,
             divider_delim_len: _,
             has_fields: _,
+            attributes: _,
         } => {
             let mut skip_test = false;
             if let Some(filter) = opts.filter {
@@ -479,116 +549,6 @@ fn print_tests(
         }
     }
     Ok(())
-}
-
-fn format_sexp(sexp: &str) -> String {
-    format_sexp_indented(sexp, 0)
-}
-
-fn format_sexp_indented(sexp: &str, initial_indent_level: u32) -> String {
-    let mut formatted = String::new();
-
-    if sexp.is_empty() {
-        return formatted;
-    }
-
-    let mut indent_level = initial_indent_level;
-    let mut has_field = false;
-
-    let mut c_iter = sexp.chars().peekable();
-    let mut s = String::with_capacity(sexp.len());
-    let mut quote = '\0';
-    let mut saw_paren = false;
-    let mut did_last = false;
-
-    let mut fetch_next_str = |next: &mut String| {
-        next.clear();
-        while let Some(c) = c_iter.next() {
-            if c == '\'' || c == '"' {
-                quote = c;
-            } else if c == ' ' || (c == ')' && quote != '\0') {
-                if let Some(next_c) = c_iter.peek() {
-                    if *next_c == quote {
-                        next.push(c);
-                        next.push(*next_c);
-                        c_iter.next();
-                        quote = '\0';
-                        continue;
-                    }
-                }
-                break;
-            }
-            if c == ')' {
-                saw_paren = true;
-                break;
-            }
-            next.push(c);
-        }
-
-        // at the end
-        if c_iter.peek().is_none() && next.is_empty() {
-            if saw_paren {
-                // but did we see a ) before ending?
-                saw_paren = false;
-                return Some(());
-            }
-            if !did_last {
-                // but did we account for the end empty string as if we're splitting?
-                did_last = true;
-                return Some(());
-            }
-            return None;
-        }
-        Some(())
-    };
-
-    while fetch_next_str(&mut s).is_some() {
-        if s.is_empty() && indent_level > 0 {
-            // ")"
-            indent_level -= 1;
-            write!(formatted, ")").unwrap();
-        } else if s.starts_with('(') {
-            if has_field {
-                has_field = false;
-            } else {
-                if indent_level > 0 {
-                    writeln!(formatted).unwrap();
-                    for _ in 0..indent_level {
-                        write!(formatted, "  ").unwrap();
-                    }
-                }
-                indent_level += 1;
-            }
-
-            // "(node_name"
-            write!(formatted, "{s}").unwrap();
-
-            // "(MISSING node_name" or "(UNEXPECTED 'x'"
-            if s.starts_with("(MISSING") || s.starts_with("(UNEXPECTED") {
-                fetch_next_str(&mut s).unwrap();
-                if s.is_empty() {
-                    while indent_level > 0 {
-                        indent_level -= 1;
-                        write!(formatted, ")").unwrap();
-                    }
-                } else {
-                    write!(formatted, " {s}").unwrap();
-                }
-            }
-        } else if s.ends_with(':') {
-            // "field:"
-            writeln!(formatted).unwrap();
-            for _ in 0..indent_level {
-                write!(formatted, "  ").unwrap();
-            }
-            write!(formatted, "{s} ").unwrap();
-            has_field = true;
-            indent_level += 1;
-        }
-    }
-
-    formatted
->>>>>>> bf0e530b (feat(cli): test listing)
 }
 
 fn write_tests(
