@@ -10,6 +10,9 @@ extern "C" {
 
 #define ts_builtin_sym_error_repeat (ts_builtin_sym_error - 1)
 
+#define LANGUAGE_VERSION_WITH_PRIMARY_STATES 14
+#define LANGUAGE_VERSION_USABLE_VIA_WASM 13
+
 typedef struct {
   const TSParseAction *actions;
   uint32_t action_count;
@@ -186,7 +189,7 @@ static inline bool ts_language_state_is_primary(
   const TSLanguage *self,
   TSStateId state
 ) {
-  if (self->version >= 14) {
+  if (self->version >= LANGUAGE_VERSION_WITH_PRIMARY_STATES) {
     return state == self->primary_state_ids[state];
   } else {
     return true;
