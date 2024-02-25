@@ -33,7 +33,7 @@ strip = false
 ansi_term = "0.12.1"
 anstyle = "1.0.6"
 anyhow = "1.0.79"
-cc = "1.0.83"
+cc = "1.0.88"
 clap = { version = "4.5.0", features = [
   "cargo",
   "derive",
