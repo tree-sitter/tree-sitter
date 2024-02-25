@@ -8,7 +8,7 @@
     "incremental"
   ],
   "dependencies": {
-    "nan": "^2.12.1"
+    "node-addon-api": "^7.1.0"
   },
   "devDependencies": {
     "tree-sitter-cli": "^CLI_VERSION"
