@@ -84,3 +84,9 @@ walkdir = "2.4.0"
 wasmparser = "0.200.0"
 webbrowser = "0.8.12"
 which = "6.0.0"
+
+tree-sitter = { version = "=0.21.0", path = "./lib" }
+tree-sitter-loader = { version = "=0.21.0", path = "./cli/loader" }
+tree-sitter-config = { version = "=0.21.0", path = "./cli/config" }
+tree-sitter-highlight = { version = "=0.21.0", path = "./highlight" }
+tree-sitter-tags = { version = "=0.21.0", path = "./tags" }
