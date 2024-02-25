@@ -28,14 +28,6 @@ serde.workspace = true
 serde_json.workspace = true
 which.workspace = true
 
-[dependencies.tree-sitter]
-version = "0.21.0"
-path = "../../lib"
-
-[dependencies.tree-sitter-highlight]
-version = "0.21.0"
-path = "../../highlight"
-
-[dependencies.tree-sitter-tags]
-version = "0.21.0"
-path = "../../tags"
+tree-sitter.workspace = true
+tree-sitter-highlight.workspace = true
+tree-sitter-tags.workspace = true

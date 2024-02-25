@@ -54,25 +54,11 @@ wasmparser.workspace = true
 webbrowser.workspace = true
 which.workspace = true
 
-[dependencies.tree-sitter]
-version = "0.21.0"
-path = "../lib"
-
-[dependencies.tree-sitter-config]
-version = "0.21.0"
-path = "config"
-
-[dependencies.tree-sitter-highlight]
-version = "0.21.0"
-path = "../highlight"
-
-[dependencies.tree-sitter-loader]
-version = "0.21.0"
-path = "loader"
-
-[dependencies.tree-sitter-tags]
-version = "0.21.0"
-path = "../tags"
+tree-sitter.workspace = true
+tree-sitter-config.workspace = true
+tree-sitter-highlight.workspace = true
+tree-sitter-loader.workspace = true
+tree-sitter-tags.workspace = true
 
 [dev-dependencies]
 tree_sitter_proc_macro = { path = "src/tests/proc_macro", package = "tree-sitter-tests-proc-macro" }
