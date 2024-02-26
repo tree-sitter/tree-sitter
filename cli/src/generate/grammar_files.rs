@@ -26,6 +26,7 @@ const PACKAGE_JSON_TEMPLATE: &str = include_str!("./templates/package.json");
 const GITIGNORE_TEMPLATE: &str = include_str!("./templates/gitignore");
 const GITATTRIBUTES_TEMPLATE: &str = include_str!("./templates/gitattributes");
 const EDITORCONFIG_TEMPLATE: &str = include_str!("./templates/.editorconfig");
+const NPMIGNORE_TEMPLATE: &str = include_str!("./templates/npmignore");
 
 const RUST_BINDING_VERSION: &str = env!("CARGO_PKG_VERSION");
 const RUST_BINDING_VERSION_PLACEHOLDER: &str = "RUST_BINDING_VERSION";
@@ -165,6 +166,11 @@ pub fn generate_grammar_files(
     // Write .editorconfig file
     missing_path(repo_path.join(".editorconfig"), |path| {
         generate_file(path, EDITORCONFIG_TEMPLATE, language_name)
+    })?;
+
+    // Write .npmignore file
+    missing_path(repo_path.join(".npmignore"), |path| {
+        generate_file(path, NPMIGNORE_TEMPLATE, language_name)
     })?;
 
     if generate_bindings {
