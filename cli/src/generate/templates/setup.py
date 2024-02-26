@@ -1,4 +1,6 @@
-from os.path import join
+from os.path import isdir, join
+from platform import system
+
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build import build
 from wheel.bdist_wheel import bdist_wheel
@@ -6,11 +8,9 @@ from wheel.bdist_wheel import bdist_wheel
 
 class Build(build):
     def run(self):
-        dest = join(self.build_lib, "tree_sitter_PARSER_NAME", "queries")
-        try:
+        if isdir("queries"):
+            dest = join(self.build_lib, "tree_sitter_PARSER_NAME", "queries")
             self.copy_tree("queries", dest)
-        except:
-            pass
         super().run()
 
 
@@ -38,12 +38,20 @@ setup(
                 "src/parser.c",
                 # NOTE: if your language uses an external scanner, add it here.
             ],
-            extra_compile_args=["-std=c11"],
-            define_macros=[("Py_LIMITED_API", "0x03080000"), ("PY_SSIZE_T_CLEAN", None)],
+            extra_compile_args=(
+                ["-std=c11"] if system() != 'Windows' else []
+            ),
+            define_macros=[
+                ("Py_LIMITED_API", "0x03080000"),
+                ("PY_SSIZE_T_CLEAN", None)
+            ],
             include_dirs=["src"],
             py_limited_api=True,
         )
     ],
-    cmdclass={"build": Build, "bdist_wheel": BdistWheel},
+    cmdclass={
+        "build": Build,
+        "bdist_wheel": BdistWheel
+    },
     zip_safe=False,
 )

@@ -25,7 +25,7 @@ const GRAMMAR_JS_TEMPLATE: &str = include_str!("./templates/grammar.js");
 const PACKAGE_JSON_TEMPLATE: &str = include_str!("./templates/package.json");
 const GITIGNORE_TEMPLATE: &str = include_str!("./templates/gitignore");
 const GITATTRIBUTES_TEMPLATE: &str = include_str!("./templates/gitattributes");
-const EDITORCONFIG_TEMPLATE: &str = include_str!("./templates/gitattributes");
+const EDITORCONFIG_TEMPLATE: &str = include_str!("./templates/.editorconfig");
 
 const RUST_BINDING_VERSION: &str = env!("CARGO_PKG_VERSION");
 const RUST_BINDING_VERSION_PLACEHOLDER: &str = "RUST_BINDING_VERSION";
