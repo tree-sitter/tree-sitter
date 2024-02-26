@@ -49,7 +49,7 @@ clap = { version = "4.5.0", features = [
   "help",
   "unstable-styles",
 ] }
-ctor = "0.2.6"
+ctor = "0.2.7"
 ctrlc = { version = "3.4.2", features = ["termination"] }
 difference = "2.0.0"
 dirs = "5.0.1"
