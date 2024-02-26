@@ -14,11 +14,11 @@
       "cflags_c": [
         "-std=c99",
       ],
-      'conditions': [
-        ['OS=="mac"', {
-            'cflags+': ['-fvisibility=hidden'],
-            'xcode_settings': {
-              'GCC_SYMBOLS_PRIVATE_EXTERN': 'YES', # -fvisibility=hidden
+      "conditions": [
+        ["OS=='mac'", {
+            "cflags+": ["-fvisibility=hidden"],
+            "xcode_settings": {
+              "GCC_SYMBOLS_PRIVATE_EXTERN": "YES", # -fvisibility=hidden
             }
         }]
       ],
