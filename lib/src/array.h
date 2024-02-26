@@ -13,6 +13,16 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _MSC_VER
+#pragma warning(disable : 4101)
+#elif defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-variable"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
+
 #define Array(T)       \
   struct {             \
     T *contents;       \
@@ -264,6 +274,14 @@ static inline void _array__splice(Array *self, size_t element_size,
 /// Helper macro for the `_sorted_by` routines below. This takes the left (existing)
 /// parameter by reference in order to work with the generic sorting function above.
 #define compare_int(a, b) ((int)*(a) - (int)(b))
+
+#ifdef _MSC_VER
+#pragma warning(default : 4101)
+#elif defined(__clang__)
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 #ifdef __cplusplus
 }
