@@ -12,7 +12,7 @@
 #include "./atomic.h"
 #include "./language.h"
 #include "./lexer.h"
-#include "./wasm.h"
+#include "./wasm_store.h"
 #include "./wasm/wasm-stdlib.h"
 
 // The following symbols from the C and C++ standard libraries are available

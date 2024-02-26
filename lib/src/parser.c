@@ -19,7 +19,7 @@
 #include "./stack.h"
 #include "./subtree.h"
 #include "./tree.h"
-#include "./wasm.h"
+#include "./wasm_store.h"
 
 #define LOG(...)                                                                            \
   if (self->lexer.logger.log || self->dot_graph_file) {                                     \

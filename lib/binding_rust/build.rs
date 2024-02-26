@@ -29,7 +29,11 @@ fn main() {
 
     println!("cargo:rerun-if-env-changed=CARGO_FEATURE_WASM");
     if env::var("CARGO_FEATURE_WASM").is_ok() {
-        config.define("TREE_SITTER_FEATURE_WASM", "");
+        config
+            .define("TREE_SITTER_FEATURE_WASM", "")
+            .define("static_assert(...)", "")
+            .include(env::var("DEP_WASMTIME_C_API_INCLUDE").unwrap())
+            .include(env::var("DEP_WASMTIME_C_API_WASM_INCLUDE").unwrap());
     }
 
     let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR"));
