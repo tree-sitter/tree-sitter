@@ -228,7 +228,8 @@ static void stack_node_add_link(
       // If the previous nodes are mergeable, merge them recursively.
       if (
         existing_link->node->state == link.node->state &&
-        existing_link->node->position.bytes == link.node->position.bytes
+        existing_link->node->position.bytes == link.node->position.bytes &&
+        existing_link->node->error_cost == link.node->error_cost
       ) {
         for (int j = 0; j < link.node->link_count; j++) {
           stack_node_add_link(existing_link->node, link.node->links[j], subtree_pool);
