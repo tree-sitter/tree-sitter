@@ -1,0 +1,4 @@
+_ts_current_malloc
+_ts_current_calloc
+_ts_current_realloc
+_ts_current_free

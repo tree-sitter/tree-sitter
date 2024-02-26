@@ -529,6 +529,7 @@ impl Loader {
             .cpp(true)
             .opt_level(2)
             .cargo_metadata(false)
+            .cargo_warnings(false)
             .target(BUILD_TARGET)
             .host(BUILD_TARGET)
             .flag_if_supported("-Werror=implicit-function-declaration");
@@ -584,10 +585,6 @@ impl Loader {
                 command.arg("-O2");
             }
 
-            // For conditional compilation of external scanner code when
-            // used internally by `tree-siteer parse` and other sub commands.
-            command.arg("-DTREE_SITTER_INTERNAL_BUILD");
-
             if let Some(scanner_path) = scanner_path.as_ref() {
                 if scanner_path.extension() == Some("c".as_ref()) {
                     command.arg("-xc").arg("-std=c99").arg(scanner_path);
@@ -598,6 +595,14 @@ impl Loader {
             }
             command.arg("-xc").arg(parser_path);
         }
+
+        // For conditional compilation of external scanner code when
+        // used internally by `tree-sitter parse` and other sub commands.
+        command.arg("-DTREE_SITTER_INTERNAL_BUILD");
+
+        // Always use the same allocator in the CLI as any scanner, useful for debugging and
+        // tracking memory leaks in tests.
+        command.arg("-DTS_REUSE_ALLOCATOR");
 
         let output = command.output().with_context(|| {
             format!("Failed to execute the C compiler with the following command:\n{command:?}")

@@ -49,13 +49,15 @@ clap = { version = "4.5.0", features = [
   "help",
   "unstable-styles",
 ] }
-ctor = "0.2.6"
+ctor = "0.2.7"
 ctrlc = { version = "3.4.2", features = ["termination"] }
 difference = "2.0.0"
 dirs = "5.0.1"
+filetime = "0.2.23"
 fs4 = "0.7.0"
 git2 = "0.18.2"
 glob = "0.3.1"
+heck = "0.4.1"
 html-escape = "0.2.13"
 indexmap = "2.2.2"
 indoc = "2.0.4"
@@ -84,3 +86,9 @@ walkdir = "2.4.0"
 wasmparser = "0.200.0"
 webbrowser = "0.8.12"
 which = "6.0.0"
+
+tree-sitter = { version = "=0.21.0", path = "./lib" }
+tree-sitter-loader = { version = "=0.21.0", path = "./cli/loader" }
+tree-sitter-config = { version = "=0.21.0", path = "./cli/config" }
+tree-sitter-highlight = { version = "=0.21.0", path = "./highlight" }
+tree-sitter-tags = { version = "=0.21.0", path = "./tags" }

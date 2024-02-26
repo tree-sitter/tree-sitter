@@ -1,6 +1,10 @@
-use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
-use std::{env, fs};
+use std::{
+    env,
+    ffi::OsStr,
+    fs,
+    path::{Path, PathBuf},
+    time::SystemTime,
+};
 
 fn main() {
     if let Some(git_sha) = read_git_sha() {
@@ -11,8 +15,24 @@ fn main() {
         println!("cargo:rustc-cfg=TREE_SITTER_EMBED_WASM_BINDING");
     }
 
-    let rust_binding_version = read_rust_binding_version();
-    println!("cargo:rustc-env=RUST_BINDING_VERSION={rust_binding_version}");
+    let build_time = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_secs_f64();
+    println!("cargo:rustc-env=BUILD_TIME={build_time}");
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "openbsd",
+        target_os = "netbsd",
+        target_os = "dragonfly",
+    ))]
+    println!("cargo:rustc-link-arg=-Wl,--dynamic-list=cli/dynamic-symbols.txt");
+
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    println!("cargo:rustc-link-arg=-Wl,-exported_symbols_list,cli/dynamic-symbols-darwin.txt");
 }
 
 fn web_playground_files_present() -> bool {
@@ -33,7 +53,8 @@ fn read_git_sha() -> Option<String> {
         git_path = repo_path.join(".git");
         if git_path.exists() {
             break;
-        } else if !repo_path.pop() {
+        }
+        if !repo_path.pop() {
             return None;
         }
     }
@@ -96,21 +117,10 @@ fn read_git_sha() -> Option<String> {
             return fs::read_to_string(&ref_filename).ok();
         }
         // If we're on a detached commit, then the `HEAD` file itself contains the sha.
-        else if head_content.len() == 40 {
+        if head_content.len() == 40 {
             return Some(head_content);
         }
     }
 
     None
-}
-
-fn read_rust_binding_version() -> String {
-    let path = "Cargo.toml";
-    let text = fs::read_to_string(path).unwrap();
-    let cargo_toml = toml::from_str::<toml::Value>(text.as_ref()).unwrap();
-    cargo_toml["dependencies"]["tree-sitter"]["version"]
-        .as_str()
-        .unwrap()
-        .trim_matches('"')
-        .to_string()
 }

@@ -23,6 +23,4 @@ lazy_static.workspace = true
 regex.workspace = true
 thiserror.workspace = true
 
-[dependencies.tree-sitter]
-version = "0.21.0"
-path = "../lib"
+tree-sitter.workspace = true

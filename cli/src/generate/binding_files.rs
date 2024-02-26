@@ -12,8 +12,7 @@ const CARGO_TOML_TEMPLATE: &str = include_str!("./templates/cargo.toml");
 const PACKAGE_JSON_TEMPLATE: &str = include_str!("./templates/package.json");
 const PARSER_NAME_PLACEHOLDER: &str = "PARSER_NAME";
 const CLI_VERSION_PLACEHOLDER: &str = "CLI_VERSION";
-const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
-const RUST_BINDING_VERSION: &str = env!("RUST_BINDING_VERSION");
+const TREE_SITTER_VERSION: &str = env!("CARGO_PKG_VERSION");
 const RUST_BINDING_VERSION_PLACEHOLDER: &str = "RUST_BINDING_VERSION";
 
 pub fn generate_binding_files(repo_path: &Path, language_name: &str) -> Result<()> {
@@ -118,8 +117,8 @@ fn generate_file(path: &Path, template: &str, language_name: &str) -> Result<()>
         path,
         template
             .replace(PARSER_NAME_PLACEHOLDER, language_name)
-            .replace(CLI_VERSION_PLACEHOLDER, CLI_VERSION)
-            .replace(RUST_BINDING_VERSION_PLACEHOLDER, RUST_BINDING_VERSION),
+            .replace(CLI_VERSION_PLACEHOLDER, TREE_SITTER_VERSION)
+            .replace(RUST_BINDING_VERSION_PLACEHOLDER, TREE_SITTER_VERSION),
     )
 }
 
