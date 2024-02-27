@@ -5,6 +5,14 @@
   "repository": "github:tree-sitter/tree-sitter-PARSER_NAME",
   "license": "MIT",
   "main": "bindings/node",
+  "files": [
+    "grammar.js",
+    "binding.gyp",
+    "types/dsl.d.ts",
+    "bindings/node/*",
+    "queries/*",
+    "src/**"
+  ],
   "keywords": [
     "parsing",
     "incremental",
