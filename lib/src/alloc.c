@@ -1,4 +1,5 @@
 #include "alloc.h"
+#include "tree_sitter/api.h"
 #include <stdlib.h>
 
 static void *ts_malloc_default(size_t size) {
