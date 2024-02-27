@@ -49,6 +49,6 @@ mod tests {
         let mut parser = tree_sitter::Parser::new();
         parser
             .set_language(&super::language())
-            .expect("Error loading CAMEL_PARSER_NAME language");
+            .expect("Error loading CAMEL_PARSER_NAME grammar");
     }
 }
