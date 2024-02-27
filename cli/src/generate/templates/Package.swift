@@ -33,7 +33,6 @@ let package = Package(
                     ".gitignore",
                     ".gitattributes",
                     ".gitmodules",
-                    ".npmignore",
                 ],
                 sources: [
                     "src/parser.c",
