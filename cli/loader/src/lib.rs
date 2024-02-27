@@ -587,7 +587,7 @@ impl Loader {
 
             if let Some(scanner_path) = scanner_path.as_ref() {
                 if scanner_path.extension() == Some("c".as_ref()) {
-                    command.arg("-xc").arg("-std=c99").arg(scanner_path);
+                    command.arg("-xc").arg("-std=c11").arg(scanner_path);
                 } else {
                     eprintln!("Warning: Using a C++ scanner is now deprecated. Please migrate your scanner code to C, as C++ support will be removed in the near future.");
                     command.arg(scanner_path);
