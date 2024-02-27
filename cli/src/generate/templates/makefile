@@ -30,7 +30,7 @@ OBJS := $(patsubst %.c,%.o,$(wildcard $(SRC_DIR)/*.c))
 
 # flags
 ARFLAGS := rcs
-override CFLAGS += -I$(SRC_DIR) -std=c11
+override CFLAGS += -I$(SRC_DIR) -std=c11 -fPIC
 
 # OS-specific bits
 ifeq ($(shell uname),Darwin)
@@ -60,14 +60,11 @@ endif
 
 all: lib$(LANGUAGE_NAME).a lib$(LANGUAGE_NAME).$(SOEXT) $(LANGUAGE_NAME).pc
 
-$(SRC_DIR)/%.o: $(SRC_DIR)/%.c
-	$(CC) -c $^ -o $@
-
 lib$(LANGUAGE_NAME).a: $(OBJS)
 	$(AR) $(ARFLAGS) $@ $^
 
 lib$(LANGUAGE_NAME).$(SOEXT): $(OBJS)
-	$(CC) -fPIC $(LDFLAGS) $(LINKSHARED) $^ $(LDLIBS) -o $@
+	$(CC) $(LDFLAGS) $(LINKSHARED) $^ $(LDLIBS) -o $@
 
 $(LANGUAGE_NAME).pc:
 	sed > $@ bindings/c/$(LANGUAGE_NAME).pc.in \

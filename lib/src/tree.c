@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200112L
+
 #include "tree_sitter/api.h"
 #include "./array.h"
 #include "./get_changed_ranges.h"

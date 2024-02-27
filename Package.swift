@@ -11,6 +11,7 @@ let package = Package(
             name: "TreeSitter",
             targets: ["TreeSitter"]),
     ],
+    cLanguageStandard: .c11,
     targets: [
         .target(name: "TreeSitter",
                 path: "lib",
