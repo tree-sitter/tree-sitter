@@ -77,7 +77,7 @@ serde = { version = "1.0.196", features = ["derive"] }
 serde_derive = "1.0.196"
 serde_json = { version = "1.0.113", features = ["preserve_order"] }
 smallbitvec = "2.5.1"
-tempfile = "3.10.0"
+tempfile = "3.10.1"
 thiserror = "1.0.56"
 tiny_http = "0.12.0"
 toml = "0.8.10"
