@@ -193,23 +193,30 @@ pub fn generate_grammar_files(
                 generate_file(path, INDEX_JS_TEMPLATE, language_name)
             })?;
 
-            missing_path(path.join("binding.cc"), |path| {
-                generate_file(path, JS_BINDING_CC_TEMPLATE, language_name)
-            })?;
+            missing_path_else(
+                path.join("binding.cc"),
+                |path| generate_file(path, JS_BINDING_CC_TEMPLATE, language_name),
+                |path| {
+                    let binding_cc =
+                        fs::read_to_string(path).with_context(|| "Failed to read binding.cc")?;
+                    if binding_cc.contains("NAN_METHOD(New) {}") {
+                        eprintln!("Replacing binding.cc with new binding API");
+                        write_file(path, JS_BINDING_CC_TEMPLATE)?;
+                    }
+                    Ok(())
+                },
+            )?;
 
-            // Create binding.gyp, or update it with new binding path.
+            // Create binding.gyp, or update it with new binding API.
             missing_path_else(
                 repo_path.join("binding.gyp"),
                 |path| generate_file(path, BINDING_GYP_TEMPLATE, language_name),
                 |path| {
                     let binding_gyp =
                         fs::read_to_string(path).with_context(|| "Failed to read binding.gyp")?;
-                    let old_path = "\"src/binding.cc\"";
-                    if binding_gyp.contains(old_path) {
-                        eprintln!("Updating binding.gyp with new binding path");
-                        let binding_gyp =
-                            binding_gyp.replace(old_path, "\"bindings/node/binding.cc\"");
-                        write_file(path, binding_gyp)?;
+                    if binding_gyp.contains("require('nan')") {
+                        eprintln!("Replacing binding.gyp with new binding API");
+                        write_file(path, BINDING_GYP_TEMPLATE)?;
                     }
                     Ok(())
                 },

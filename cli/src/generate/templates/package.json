@@ -20,7 +20,7 @@
     "LOWER_PARSER_NAME"
   ],
   "dependencies": {
-    "nan": "^2.18.0"
+    "node-addon-api": "^7.1.0"
   },
   "devDependencies": {
     "tree-sitter-cli": "^CLI_VERSION"
