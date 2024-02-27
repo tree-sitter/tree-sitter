@@ -53,5 +53,5 @@ setup(
         "build": Build,
         "bdist_wheel": BdistWheel
     },
-    zip_safe=False,
+    zip_safe=False
 )
