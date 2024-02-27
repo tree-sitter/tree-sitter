@@ -6,8 +6,9 @@
   "license": "MIT",
   "main": "bindings/node",
   "keywords": [
-    "parsing",
     "incremental",
+    "parsing",
+    "tree-sitter",
     "LOWER_PARSER_NAME"
   ],
   "dependencies": {
@@ -25,7 +26,7 @@
   "tree-sitter": [
     {
       "scope": "source.LOWER_PARSER_NAME",
-      "injection-regex": "LOWER_PARSER_NAME"
+      "injection-regex": "^LOWER_PARSER_NAME$"
     }
   ]
 }
