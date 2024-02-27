@@ -1,7 +1,6 @@
 use super::helpers::{
     allocations,
-    edits::invert_edit,
-    edits::ReadRecorder,
+    edits::{invert_edit, ReadRecorder},
     fixtures::{get_language, get_test_language},
 };
 use crate::{
@@ -1379,6 +1378,39 @@ fn test_grammars_that_can_hang_on_eof() {
         .set_language(&get_test_language(&parser_name, &parser_code, None))
         .unwrap();
     parser.parse("\"", None).unwrap();
+}
+
+#[test]
+fn test_parse_stack_recursive_merge_error_cost_calculation_bug() {
+    let source_code = r#"
+fn main() {
+  if n == 1 {
+  } else if n == 2 {
+  } else {
+  }
+}
+
+let y = if x == 5 { 10 } else { 15 };
+
+if foo && bar {}
+
+if foo && bar || baz {}
+"#;
+
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("rust")).unwrap();
+
+    let mut tree = parser.parse(source_code, None).unwrap();
+
+    let edit = Edit {
+        position: 60,
+        deleted_length: 63,
+        inserted_text: Vec::new(),
+    };
+    let mut input = source_code.as_bytes().to_vec();
+    perform_edit(&mut tree, &mut input, &edit).unwrap();
+
+    parser.parse(&input, Some(&tree)).unwrap();
 }
 
 const fn simple_range(start: usize, end: usize) -> Range {
