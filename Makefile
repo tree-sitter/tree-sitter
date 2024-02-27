@@ -74,7 +74,15 @@ install: all
 	ln -sf libtree-sitter.$(SOEXTVER) '$(DESTDIR)$(LIBDIR)'/libtree-sitter.$(SOEXTVER_MAJOR)
 	ln -sf libtree-sitter.$(SOEXTVER_MAJOR) '$(DESTDIR)$(LIBDIR)'/libtree-sitter.$(SOEXT)
 
-.PHONY: all install clean
+uninstall:
+	$(RM) '$(DESTDIR)$(LIBDIR)'/libtree-sitter.a \
+		'$(DESTDIR)$(LIBDIR)'/libtree-sitter.$(SOEXTVER) \
+		'$(DESTDIR)$(LIBDIR)'/libtree-sitter.$(SOEXTVER_MAJOR) \
+		'$(DESTDIR)$(LIBDIR)'/libtree-sitter.$(SOEXT) \
+		'$(DESTDIR)$(INCLUDEDIR)'/tree_sitter/api.h \
+		'$(DESTDIR)$(PCLIBDIR)'/tree-sitter.pc
+
+.PHONY: all install uninstall clean
 
 
 ##### Dev targets #####
