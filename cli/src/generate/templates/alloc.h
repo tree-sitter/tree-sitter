@@ -21,7 +21,7 @@ TS_PUBLIC extern void *(*ts_current_realloc)(void *, size_t);
 TS_PUBLIC extern void (*ts_current_free)(void *);
 
 // Allow clients to override allocation functions
-#ifdef TS_REUSE_ALLOCATOR
+#ifdef TREE_SITTER_REUSE_ALLOCATOR
 
 #ifndef ts_malloc
 #define ts_malloc  ts_current_malloc

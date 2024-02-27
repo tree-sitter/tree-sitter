@@ -603,7 +603,7 @@ impl Loader {
         // Always use the same allocator in the CLI as any scanner, useful for debugging and
         // tracking memory leaks in tests.
         #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        command.arg("-DTS_REUSE_ALLOCATOR");
+        command.arg("-DTREE_SITTER_REUSE_ALLOCATOR");
 
         let output = command.output().with_context(|| {
             format!("Failed to execute the C compiler with the following command:\n{command:?}")

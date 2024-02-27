@@ -801,7 +801,7 @@ Instead of using libc's `malloc`, `calloc`, `realloc`, and `free`, you should us
 These macros can allow a potential consumer to override the default allocator with their own implementation, but by default will use the libc functions.
 
 As a consumer of the tree-sitter core library as well as any parser libraries that might use allocations, you can enable overriding the default allocator and have it use the same one as the library allocator, of which you can set with `ts_set_allocator`.
-To enable this overriding in scanners, you must compile them with the `TS_REUSE_ALLOCATOR` macro defined, and tree-sitter the library must be linked into your final app dynamically, since it needs to resolve the internal functions at runtime. If you are compiling
+To enable this overriding in scanners, you must compile them with the `TREE_SITTER_REUSE_ALLOCATOR` macro defined, and tree-sitter the library must be linked into your final app dynamically, since it needs to resolve the internal functions at runtime. If you are compiling
 an executable binary that uses the core library, but want to load parsers dynamically at runtime, then you will have to use a special linker flag on Unix. For non-Darwin systems, that would be `--dynamic-list` and for Darwin systems, that would be `-exported_symbols_list`.
 The CLI does exactly this, so you can use it as a reference (check out `cli/build.rs`).
 
@@ -810,7 +810,6 @@ For example, assuming you wanted to allocate 100 bytes for your scanner, you'd d
 ```c
 #include "tree_sitter/parser.h"
 #include "tree_sitter/alloc.h"
-#include "tree_sitter/array.h"
 
 // ...
 
@@ -833,7 +832,6 @@ These are internal functions used as helpers by other macros that are public. Th
 
 ```c
 #include "tree_sitter/parser.h"
-#include "tree_sitter/alloc.h"
 #include "tree_sitter/array.h"
 
 enum TokenType {
