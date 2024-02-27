@@ -911,6 +911,38 @@ In case of some keywords defined in the `externals` array in a rule referencing 
 External scanners are a common cause of infinite loops.
 Be very careful when emitting zero-width tokens from your external scanner, and if you consume characters in a loop be sure use the `eof` function to check whether you are at the end of the file.
 
+## Releasing Grammars
+
+Once you are happy with the state of your grammar, you should consider releasing it for other people to use. As [mentioned above](#command-generate), the `tree-sitter generate` command creates _bindings_ for your grammar in a number of languages. This means that language support in Tree-sitter is a _matrix_, since you have to consider both the language that you want to parse and the language that you want to write your analysis tool in. As the author of a grammar, you should strive to release grammar packages for each of the languages that `tree-sitter generate` creates bindings for.
+
+To make this job easier, many grammar authors have set up CI jobs that will automatically publish new binding package releases whenever you push a new git tag to the grammar repository. If you are hosting your grammar repository on GitHub, you can use [this Actions workflow][python autorelease] from the Python grammar repository as a template. (Note that you will have to add secrets to your CI configuration so that it has permission to publish the new packages to the binding language's package registry.) With this kind of CI job in place, to release a new grammar version you would:
+
+1. Update any hard-coded grammar versions wherever they may appear in the grammar repository.
+2. Create and merge PR with those changes.
+3. Create and push a new git tag.
+4. Watch the ✨magic✨ happen.
+
+### A note on versions
+
+Implicit in the above is that you have to start applying version numbers to your grammar, which means you must decide on a strategy for assigning version numbers.
+
+In the early days of the Tree-sitter project, the only grammars that were available were written by the Tree-sitter maintainers themselves. New versions of the grammar packages were released in lockstep with new versions of Tree-sitter itself, and all of the packages were given the same version numbers. So in a Rust tool for analyzing Python code, you might have see a dependency on both `tree-sitter = 0.18.1` and `tree-sitter-python = 0.18.1`.
+
+Over time, we came to realize that this is not a helpful versioning scheme for the grammars. Tree-sitter provides an [ABI versioning mechanism][abi], so that the Tree-sitter version that you use at runtime does not have to be exactly the same as the Tree-sitter version used to generate the parser library. That means that grammar packages do not need to depend on specific versions of Tree-sitter.
+
+Moreover, by using the same version number for Tree-sitter and for the grammars, we were not communicating any useful information about the content of the grammar itself. Consumers of a grammar care most about which language constructs it is able to parse, and what shape of parse tree is produced as a result. When either of these things change, downstream consumers might have to update how they are using your grammar. _That_ is the information that we should communicate in a grammar version.
+
+Given all of this, we now recommend that grammar authors use [semantic versioning][semver] to assign version numbers to their grammars, and that those version numbers should describe the content of the parse trees that the grammar produces:
+
+- If you fix a bug in the grammar, but the parse trees have the same overall shape and node names, create a PATCH release.
+- If you add support for a new language construct, but the parse trees for all previously supported constructs are exactly the same, create a MINOR release.
+- If you change the node names, or the tree structure that your grammar produces, create a MAJOR release.
+
+This allows downstream consumers to use version constraints if they care about the particular structure that is produced (for instance, if they are using [queries](./using-parsers#pattern-matching-with-queries) to consume particular patterns of nodes in the parse tree).  On the other hand, if they are only consuming parse trees generically (for instance, by printing out the tree structure without interpreting the node names at all), they can use _any_ version of the grammar package.
+
+(Note that none of this is meant to be prescriptive! As the grammar author, it is entirely your call whether to release grammar packages, and if so, how to version them. That said, the Tree-sitter community has found this to strike the right balance between maintainer overhead and utility to downstream consumers. We strongly recommend grammar authors follow these recommendations unless there is a very good reason to deviate from them.)
+
+[abi]: https://github.com/tree-sitter/tree-sitter/blob/e75a36232b0237f54d9d394b459564b7c79ebcea/lib/include/tree_sitter/api.h#L16-L33
 [ambiguous-grammar]: https://en.wikipedia.org/wiki/Ambiguous_grammar
 [antlr]: https://www.antlr.org
 [bison-dprec]: https://www.gnu.org/software/bison/manual/html_node/Generalized-LR-Parsing.html
@@ -944,8 +976,10 @@ Be very careful when emitting zero-width tokens from your external scanner, and 
 [path-env]: https://en.wikipedia.org/wiki/PATH_(variable)
 [peg]: https://en.wikipedia.org/wiki/Parsing_expression_grammar
 [percent-string]: https://docs.ruby-lang.org/en/2.5.0/doc/syntax/literals_rdoc.html#label-Percent+Strings
+[python autorelease]: https://github.com/tree-sitter/tree-sitter-python/blob/master/.github/workflows/release.yml
 [releases]: https://github.com/tree-sitter/tree-sitter/releases/latest
 [s-exp]: https://en.wikipedia.org/wiki/S-expression
+[semver]: https://semver.org/
 [syntax-highlighting]: ./syntax-highlighting
 [syntax-highlighting-tests]: ./syntax-highlighting#unit-testing
 [tree-sitter-cli]: https://github.com/tree-sitter/tree-sitter/tree/master/cli
