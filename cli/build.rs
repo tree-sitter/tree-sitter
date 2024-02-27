@@ -30,9 +30,6 @@ fn main() {
         target_os = "dragonfly",
     ))]
     println!("cargo:rustc-link-arg=-Wl,--dynamic-list=cli/dynamic-symbols.txt");
-
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    println!("cargo:rustc-link-arg=-Wl,-exported_symbols_list,cli/dynamic-symbols-darwin.txt");
 }
 
 fn web_playground_files_present() -> bool {
