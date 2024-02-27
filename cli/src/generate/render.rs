@@ -263,7 +263,6 @@ impl Generator {
 
     fn add_pragmas(&mut self) {
         add_line!(self, "#if defined(__GNUC__) || defined(__clang__)");
-        add_line!(self, "#pragma GCC diagnostic push");
         add_line!(
             self,
             "#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\""
@@ -1342,14 +1341,23 @@ impl Generator {
             add_line!(self, "");
         }
 
+        add_line!(self, "#ifdef TS_PUBLIC");
+        add_line!(self, "#undef TS_PUBLIC");
+        add_line!(self, "#endif");
+        add_line!(self, "");
         add_line!(self, "#ifdef _WIN32");
-        add_line!(self, "#define extern __declspec(dllexport)");
+        add_line!(self, "#define TS_PUBLIC __declspec(dllexport)");
+        add_line!(self, "#else");
+        add_line!(
+            self,
+            "#define TS_PUBLIC __attribute__((visibility(\"default\")))"
+        );
         add_line!(self, "#endif");
         add_line!(self, "");
 
         add_line!(
             self,
-            "extern const TSLanguage *{language_function_name}(void) {{",
+            "TS_PUBLIC const TSLanguage *{language_function_name}() {{",
         );
         indent!(self);
         add_line!(self, "static const TSLanguage language = {{");
