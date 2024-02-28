@@ -1,7 +1,7 @@
 declare module 'web-tree-sitter' {
   class Parser {
     /**
-     * 
+     *
      * @param moduleOptions Optional emscripten module-object, see https://emscripten.org/docs/api_reference/module.html
      */
     static init(moduleOptions?: object): Promise<void>;
@@ -27,10 +27,10 @@ declare module 'web-tree-sitter' {
     };
 
     export type Range = {
-      startPosition: Point;
-      endPosition: Point;
-      startIndex: number;
-      endIndex: number;
+      startIndex: number,
+      endIndex: number,
+      startPosition: Point,
+      endPosition: Point
     };
 
     export type Edit = {
@@ -55,11 +55,16 @@ declare module 'web-tree-sitter' {
     ) => string | null;
 
     export interface SyntaxNode {
-      typeId: number;
       grammarId: number;
       tree: Tree;
       type: string;
+      typeId: number;
       grammarType: string;
+      isNamed: boolean;
+      isMissing: boolean;
+      hasChanges: boolean;
+      hasError: boolean;
+      isError: boolean;
       text: string;
       parseState: number;
       nextParseState: number;
@@ -81,12 +86,7 @@ declare module 'web-tree-sitter' {
       previousSibling: SyntaxNode | null;
       previousNamedSibling: SyntaxNode | null;
 
-      hasChanges(): boolean;
-      hasError(): boolean;
       equals(other: SyntaxNode): boolean;
-      isError(): boolean;
-      isMissing(): boolean;
-      isNamed(): boolean;
       toString(): string;
       child(index: number): SyntaxNode | null;
       namedChild(index: number): SyntaxNode | null;
@@ -95,13 +95,13 @@ declare module 'web-tree-sitter' {
 
       descendantForIndex(index: number): SyntaxNode;
       descendantForIndex(startIndex: number, endIndex: number): SyntaxNode;
-      descendantsOfType(type: string | Array<string>, startPosition?: Point, endPosition?: Point): Array<SyntaxNode>;
       namedDescendantForIndex(index: number): SyntaxNode;
       namedDescendantForIndex(startIndex: number, endIndex: number): SyntaxNode;
       descendantForPosition(position: Point): SyntaxNode;
       descendantForPosition(startPosition: Point, endPosition: Point): SyntaxNode;
       namedDescendantForPosition(position: Point): SyntaxNode;
       namedDescendantForPosition(startPosition: Point, endPosition: Point): SyntaxNode;
+      descendantsOfType(types: String | Array<String>, startPosition?: Point, endPosition?: Point): Array<SyntaxNode>;
 
       walk(): TreeCursor;
     }
@@ -118,13 +118,13 @@ declare module 'web-tree-sitter' {
       endPosition: Point;
       startIndex: number;
       endIndex: number;
+      readonly currentNode: SyntaxNode;
+      readonly currentFieldId: number;
+      readonly currentFieldName: string;
 
       reset(node: SyntaxNode): void;
       resetTo(cursor: TreeCursor): void;
       delete(): void;
-      currentNode(): SyntaxNode;
-      currentFieldId(): number;
-      currentFieldName(): string;
       gotoParent(): boolean;
       gotoFirstChild(): boolean;
       gotoLastChild(): boolean;
