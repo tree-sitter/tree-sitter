@@ -15,10 +15,7 @@ extern "C" {
 
 #ifdef _MSC_VER
 #pragma warning(disable : 4101)
-#elif defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-variable"
-#elif defined(__GNUC__)
+#elif defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #endif
@@ -109,8 +106,12 @@ extern "C" {
 #define array_assign(self, other) \
   _array__assign((Array *)(self), (const Array *)(other), array_elem_size(self))
 
+/// Swap one array with another
 #define array_swap(self, other) \
   _array__swap((Array *)(self), (Array *)(other))
+
+/// Get the size of the array contents
+#define array_elem_size(self) (sizeof *(self)->contents)
 
 /// Search a sorted array for a given `needle` value, using the given `compare`
 /// callback to determine the order.
@@ -128,7 +129,7 @@ extern "C" {
 ///
 /// See also `array_search_sorted_with`.
 #define array_search_sorted_by(self, field, needle, _index, _exists) \
-  _array__search_sorted(self, 0, compare_int, field, needle, _index, _exists)
+  _array__search_sorted(self, 0, _compare_int, field, needle, _index, _exists)
 
 /// Insert a given `value` into a sorted array, using the given `compare`
 /// callback to determine the order.
@@ -153,8 +154,6 @@ extern "C" {
 // Private
 
 typedef Array(void) Array;
-
-#define array_elem_size(self) sizeof(*(self)->contents)
 
 /// This is not what you're looking for, see `array_delete`.
 static inline void _array__delete(Array *self) {
@@ -273,13 +272,11 @@ static inline void _array__splice(Array *self, size_t element_size,
 
 /// Helper macro for the `_sorted_by` routines below. This takes the left (existing)
 /// parameter by reference in order to work with the generic sorting function above.
-#define compare_int(a, b) ((int)*(a) - (int)(b))
+#define _compare_int(a, b) ((int)*(a) - (int)(b))
 
 #ifdef _MSC_VER
 #pragma warning(default : 4101)
-#elif defined(__clang__)
-#pragma clang diagnostic pop
-#elif defined(__GNUC__)
+#elif defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 
