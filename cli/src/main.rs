@@ -564,11 +564,8 @@ fn run() -> Result<()> {
 
             let test_dir = current_dir.join("test");
 
-            // Run the corpus tests. Look for them at two paths: `test/corpus` and `corpus`.
-            let mut test_corpus_dir = test_dir.join("corpus");
-            if !test_corpus_dir.is_dir() {
-                test_corpus_dir = current_dir.join("corpus");
-            }
+            // Run the corpus tests. Look for them in `test/corpus`.
+            let test_corpus_dir = test_dir.join("corpus");
             if test_corpus_dir.is_dir() {
                 let mut opts = TestOptions {
                     path: test_corpus_dir,

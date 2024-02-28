@@ -152,7 +152,7 @@ If there is an ambiguity or *local ambiguity* in your grammar, Tree-sitter will 
 
 The `tree-sitter test` command allows you to easily test that your parser is working correctly.
 
-For each rule that you add to the grammar, you should first create a *test* that describes how the syntax trees should look when parsing that rule. These tests are written using specially-formatted text files in the `corpus/` or `test/corpus/` directories within your parser's root folder.
+For each rule that you add to the grammar, you should first create a *test* that describes how the syntax trees should look when parsing that rule. These tests are written using specially-formatted text files in the `test/corpus/` directory within your parser's root folder.
 
 For example, you might have a file called `test/corpus/statements.txt` that contains a series of entries like this:
 
@@ -214,13 +214,13 @@ increment(n) == n + 1
 
 These tests are important. They serve as the parser's API documentation, and they can be run every time you change the grammar to verify that everything still parses correctly.
 
-By default, the `tree-sitter test` command runs all of the tests in your `corpus` or `test/corpus/` folder. To run a particular test, you can use the `-f` flag:
+By default, the `tree-sitter test` command runs all of the tests in your `test/corpus/` folder. To run a particular test, you can use the `-f` flag:
 
 ```sh
 tree-sitter test -f 'Return statements'
 ```
 
-The recommendation is to be comprehensive in adding tests. If it's a visible node, add it to a test file in your `corpus` directory. It's typically a good idea to test all of the permutations of each language construct. This increases test coverage, but doubly acquaints readers with a way to examine expected outputs and understand the "edges" of a language.
+The recommendation is to be comprehensive in adding tests. If it's a visible node, add it to a test file in your `test/corpus` directory. It's typically a good idea to test all of the permutations of each language construct. This increases test coverage, but doubly acquaints readers with a way to examine expected outputs and understand the "edges" of a language.
 
 #### Automatic Compilation
 
@@ -419,7 +419,7 @@ With this structure in place, you can now freely decide what part of the grammar
 
 After developing the *type* sublanguage a bit further, you might decide to switch to working on *statements* or *expressions* instead. It's often useful to check your progress by trying to parse some real code using `tree-sitter parse`.
 
-**And remember to add tests for each rule in your `corpus` folder!**
+**And remember to add tests for each rule in your `test/corpus` folder!**
 
 ### Structuring Rules Well
 
