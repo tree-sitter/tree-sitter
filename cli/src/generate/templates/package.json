@@ -4,6 +4,7 @@
   "description": "CAMEL_PARSER_NAME grammar for tree-sitter",
   "repository": "github:tree-sitter/tree-sitter-PARSER_NAME",
   "license": "MIT",
+  "types": "bindings/node",
   "main": "bindings/node",
   "files": [
     "grammar.js",

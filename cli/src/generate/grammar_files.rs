@@ -35,6 +35,7 @@ const BUILD_RS_TEMPLATE: &str = include_str!("./templates/build.rs");
 const CARGO_TOML_TEMPLATE: &str = include_str!("./templates/cargo.toml");
 
 const INDEX_JS_TEMPLATE: &str = include_str!("./templates/index.js");
+const INDEX_D_TS_TEMPLATE: &str = include_str!("./templates/index.d.ts");
 const JS_BINDING_CC_TEMPLATE: &str = include_str!("./templates/js-binding.cc");
 const BINDING_GYP_TEMPLATE: &str = include_str!("./templates/binding.gyp");
 
@@ -97,14 +98,19 @@ pub fn generate_grammar_files(
             let mut package_json = serde_json::from_str::<Map<String, Value>>(&package_json_str)
                 .with_context(|| "Failed to parse package.json")?;
             let package_json_main = package_json.get("main");
+            let package_json_types = package_json.get("types");
             let package_json_needs_update = package_json_main.map_or(true, |v| {
                 let main_string = v.as_str();
                 main_string == Some("index.js") || main_string == Some("./index.js")
-            });
+            }) || package_json_types.is_none();
             if package_json_needs_update {
                 eprintln!("Updating package.json with new binding path");
                 package_json.insert(
                     "main".to_string(),
+                    Value::String("bindings/node".to_string()),
+                );
+                package_json.insert(
+                    "types".to_string(),
                     Value::String("bindings/node".to_string()),
                 );
                 let mut package_json_str = serde_json::to_string_pretty(&package_json)?;
@@ -191,6 +197,10 @@ pub fn generate_grammar_files(
         missing_path(bindings_dir.join("node"), create_dir)?.apply(|path| {
             missing_path(path.join("index.js"), |path| {
                 generate_file(path, INDEX_JS_TEMPLATE, language_name)
+            })?;
+
+            missing_path(path.join("index.d.ts"), |path| {
+                generate_file(path, INDEX_D_TS_TEMPLATE, language_name)
             })?;
 
             missing_path_else(
