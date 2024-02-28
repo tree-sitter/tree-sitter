@@ -11,7 +11,6 @@ let package = Package(
             name: "TreeSitter",
             targets: ["TreeSitter"]),
     ],
-    cLanguageStandard: .c11,
     targets: [
         .target(name: "TreeSitter",
                 path: "lib",
@@ -36,5 +35,6 @@ let package = Package(
                     "src/query.c"
                 ],
                 sources: ["src/lib.c"]),
-    ]
+    ],
+    cLanguageStandard: .c11
 )
