@@ -92,7 +92,7 @@ let tree = parser.parse_with(&mut |_byte: u32, position: Point| -> &[u8] {
         if column < lines[row].as_bytes().len() {
             &lines[row].as_bytes()[column..]
         } else {
-            "\n".as_bytes()
+            b"\n"
         }
     } else {
         &[]

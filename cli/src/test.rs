@@ -653,6 +653,11 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
             error = false;
         }
 
+        // add a default language if none are specified, will defer to the first language
+        if languages.is_empty() {
+            languages.push("".into());
+        }
+
         if suffix1 == first_suffix && suffix2 == first_suffix {
             let header_range = c.get(0).unwrap().range();
             let test_name = c
@@ -667,12 +672,7 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
                     platform: platform.unwrap_or(true),
                     fail_fast,
                     error,
-                    languages: if languages.is_empty() {
-                        languages.push("".into());
-                        languages
-                    } else {
-                        languages
-                    },
+                    languages,
                 },
             ))
         } else {
@@ -795,7 +795,7 @@ d
                 children: vec![
                     TestEntry::Example {
                         name: "The first test".to_string(),
-                        input: "\na b c\n".as_bytes().to_vec(),
+                        input: b"\na b c\n".to_vec(),
                         output: "(a (b c))".to_string(),
                         header_delim_len: 15,
                         divider_delim_len: 3,
@@ -804,7 +804,7 @@ d
                     },
                     TestEntry::Example {
                         name: "The second test".to_string(),
-                        input: "d".as_bytes().to_vec(),
+                        input: b"d".to_vec(),
                         output: "(d)".to_string(),
                         header_delim_len: 16,
                         divider_delim_len: 3,
@@ -854,7 +854,7 @@ abc
                 children: vec![
                     TestEntry::Example {
                         name: "Code with dashes".to_string(),
-                        input: "abc\n---\ndefg\n----\nhijkl".as_bytes().to_vec(),
+                        input: b"abc\n---\ndefg\n----\nhijkl".to_vec(),
                         output: "(a (b))".to_string(),
                         header_delim_len: 18,
                         divider_delim_len: 7,
@@ -863,7 +863,7 @@ abc
                     },
                     TestEntry::Example {
                         name: "Code ending with dashes".to_string(),
-                        input: "abc\n-----------".as_bytes().to_vec(),
+                        input: b"abc\n-----------".to_vec(),
                         output: "(c (d))".to_string(),
                         header_delim_len: 25,
                         divider_delim_len: 19,
@@ -914,7 +914,7 @@ abc
             .trim()
         );
         assert_eq!(
-            format_sexp(r#"(source_file (ERROR (UNEXPECTED 'f') (UNEXPECTED '+')))"#),
+            format_sexp(r"(source_file (ERROR (UNEXPECTED 'f') (UNEXPECTED '+')))"),
             r#"
 (source_file
   (ERROR
@@ -1015,7 +1015,7 @@ code
                 children: vec![
                     TestEntry::Example {
                         name: "sexp with comment".to_string(),
-                        input: "code".as_bytes().to_vec(),
+                        input: b"code".to_vec(),
                         output: "(a (b))".to_string(),
                         header_delim_len: 18,
                         divider_delim_len: 3,
@@ -1024,7 +1024,7 @@ code
                     },
                     TestEntry::Example {
                         name: "sexp with comment between".to_string(),
-                        input: "code".as_bytes().to_vec(),
+                        input: b"code".to_vec(),
                         output: "(a (b))".to_string(),
                         header_delim_len: 18,
                         divider_delim_len: 3,
@@ -1033,7 +1033,7 @@ code
                     },
                     TestEntry::Example {
                         name: "sexp with ';'".to_string(),
-                        input: "code".as_bytes().to_vec(),
+                        input: b"code".to_vec(),
                         output: "(MISSING \";\")".to_string(),
                         header_delim_len: 25,
                         divider_delim_len: 3,
@@ -1094,11 +1094,10 @@ NOT A TEST HEADER
             None,
         );
 
-        let expected_input = "\n=========================\n\
+        let expected_input = b"\n=========================\n\
             NOT A TEST HEADER\n\
             =========================\n\
             -------------------------\n"
-            .as_bytes()
             .to_vec();
         assert_eq!(
             entry,

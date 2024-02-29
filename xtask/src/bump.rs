@@ -155,14 +155,14 @@ pub fn bump_versions() -> Result<(), Box<dyn std::error::Error>> {
 
         update_npm(next_version)?;
 
-        tag_next_version(repo, next_version)?;
+        tag_next_version(&repo, next_version)?;
     }
 
     Ok(())
 }
 
 fn tag_next_version(
-    repo: Repository,
+    repo: &Repository,
     next_version: &Version,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // first add the manifests

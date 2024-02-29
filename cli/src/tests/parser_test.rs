@@ -125,7 +125,7 @@ fn test_parsing_with_custom_utf8_input() {
                     if column < lines[row].as_bytes().len() {
                         &lines[row].as_bytes()[column..]
                     } else {
-                        "\n".as_bytes()
+                        b"\n"
                     }
                 } else {
                     &[]
