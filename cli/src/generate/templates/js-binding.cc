@@ -4,8 +4,13 @@ typedef struct TSLanguage TSLanguage;
 
 extern "C" TSLanguage *tree_sitter_PARSER_NAME();
 
+// tstag() {
+//   b2sum -l64 <(printf tree-sitter) <(printf "$1") | \
+//   awk '{printf "0x" toupper($1) (NR == 1 ? ", " : "\n")}'
+// }
+// tstag language # => 0x8AF2E5212AD58ABF, 0xD5006CAD83ABBA16
 const napi_type_tag LANGUAGE_TYPE_TAG = {
-  0x95840BEBF71E4E90, 0x9DC9419B874C0271
+  0x8AF2E5212AD58ABF, 0xD5006CAD83ABBA16
 };
 
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
