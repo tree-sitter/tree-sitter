@@ -40,9 +40,9 @@ strip = false
 [workspace.dependencies]
 ansi_term = "0.12.1"
 anstyle = "1.0.6"
-anyhow = "1.0.79"
+anyhow = "1.0.80"
 cc = "1.0.88"
-clap = { version = "4.5.0", features = [
+clap = { version = "4.5.1", features = [
   "cargo",
   "derive",
   "env",
@@ -54,16 +54,16 @@ ctrlc = { version = "3.4.2", features = ["termination"] }
 difference = "2.0.0"
 dirs = "5.0.1"
 filetime = "0.2.23"
-fs4 = "0.7.0"
+fs4 = "0.8.0"
 git2 = "0.18.2"
 glob = "0.3.1"
 heck = "0.4.1"
 html-escape = "0.2.13"
-indexmap = "2.2.2"
+indexmap = "2.2.4"
 indoc = "2.0.4"
 lazy_static = "1.4.0"
 libloading = "0.8.1"
-log = { version = "0.4.20", features = ["std"] }
+log = { version = "0.4.21", features = ["std"] }
 memchr = "2.7.1"
 once_cell = "1.19.0"
 path-slash = "0.2.1"
@@ -72,18 +72,18 @@ rand = "0.8.5"
 regex = "1.10.3"
 regex-syntax = "0.8.2"
 rustc-hash = "1.1.0"
-semver = "1.0.21"
-serde = { version = "1.0.196", features = ["derive"] }
-serde_derive = "1.0.196"
-serde_json = { version = "1.0.113", features = ["preserve_order"] }
+semver = "1.0.22"
+serde = { version = "1.0.197", features = ["derive"] }
+serde_derive = "1.0.197"
+serde_json = { version = "1.0.114", features = ["preserve_order"] }
 smallbitvec = "2.5.1"
 tempfile = "3.10.1"
-thiserror = "1.0.56"
+thiserror = "1.0.57"
 tiny_http = "0.12.0"
 toml = "0.8.10"
 unindent = "0.2.3"
 walkdir = "2.4.0"
-wasmparser = "0.200.0"
+wasmparser = "0.201.0"
 webbrowser = "0.8.12"
 which = "6.0.0"
 
