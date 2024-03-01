@@ -216,7 +216,7 @@ pub fn generate_grammar_files(
                         fs::read_to_string(path).with_context(|| "Failed to read binding.gyp")?;
                     if binding_gyp.contains("require('nan')") {
                         eprintln!("Replacing binding.gyp with new binding API");
-                        write_file(path, BINDING_GYP_TEMPLATE)?;
+                        generate_file(path, BINDING_GYP_TEMPLATE, language_name)?;
                     }
                     Ok(())
                 },
