@@ -111,6 +111,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Objective-C](https://github.com/jiyee/tree-sitter-objc)
 * [OCaml](https://github.com/tree-sitter/tree-sitter-ocaml)
 * [Odin](https://github.com/amaanq/tree-sitter-odin)
+* [Ohm](https://github.com/novusnota/tree-sitter-ohm)
 * [Org](https://github.com/milisims/tree-sitter-org)
 * [P4](https://github.com/ace-design/tree-sitter-p4)
 * [Pascal](https://github.com/Isopod/tree-sitter-pascal)
