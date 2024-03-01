@@ -201,7 +201,7 @@ pub fn generate_grammar_files(
                         fs::read_to_string(path).with_context(|| "Failed to read binding.cc")?;
                     if binding_cc.contains("NAN_METHOD(New) {}") {
                         eprintln!("Replacing binding.cc with new binding API");
-                        write_file(path, JS_BINDING_CC_TEMPLATE)?;
+                        generate_file(path, JS_BINDING_CC_TEMPLATE, language_name)?;
                     }
                     Ok(())
                 },
