@@ -81,6 +81,22 @@ pub fn path_in_ignore(repo_path: &Path) -> bool {
     .any(|dir| repo_path.ends_with(dir))
 }
 
+fn insert_after(
+    map: Map<String, Value>,
+    key: &str,
+    after: &str,
+    value: Value,
+) -> Map<String, Value> {
+    let mut entries = map.into_iter().collect::<Vec<_>>();
+    let after_index = entries
+        .iter()
+        .position(|(k, _)| k == after)
+        .unwrap_or(entries.len() - 1)
+        + 1;
+    entries.insert(after_index, (key.to_string(), value));
+    entries.into_iter().collect()
+}
+
 pub fn generate_grammar_files(
     repo_path: &Path,
     language_name: &str,
@@ -114,10 +130,15 @@ pub fn generate_grammar_files(
                     "node-addon-api".to_string(),
                     Value::String("^7.1.0".to_string()),
                 );
-                package_json.insert(
-                    "types".to_string(),
+
+                // insert `types` right after `main`
+                package_json = insert_after(
+                    package_json,
+                    "types",
+                    "main",
                     Value::String("bindings/node".to_string()),
                 );
+
                 let mut package_json_str = serde_json::to_string_pretty(&package_json)?;
                 package_json_str.push('\n');
                 write_file(path, package_json_str)?;
