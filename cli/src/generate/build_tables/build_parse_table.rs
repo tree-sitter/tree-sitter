@@ -306,7 +306,7 @@ impl<'a> ParseTableBuilder<'a> {
             }
         }
 
-        // Having computed the the successor item sets for each symbol, add a new
+        // Having computed the successor item sets for each symbol, add a new
         // parse state for each of these item sets, and add a corresponding Shift
         // action to this state.
         for (symbol, next_item_set) in terminal_successors {

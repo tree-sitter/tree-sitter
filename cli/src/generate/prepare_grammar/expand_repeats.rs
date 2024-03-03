@@ -57,7 +57,7 @@ impl Expander {
                 params: params.clone(),
             },
 
-            // For repetitions, introduce an auxiliary rule that contains the the
+            // For repetitions, introduce an auxiliary rule that contains the
             // repeated content, but can also contain a recursive binary tree structure.
             Rule::Repeat(content) => {
                 let inner_rule = self.expand_rule(content);
