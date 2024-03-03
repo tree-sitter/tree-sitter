@@ -1480,7 +1480,7 @@ static void ts_parser__handle_error(
   ts_stack_record_summary(self->stack, version, MAX_SUMMARY_DEPTH);
 
   // Begin recovery with the current lookahead node, rather than waiting for the
-  // next turn of the parse loop. This ensures that the tree accounts for the the
+  // next turn of the parse loop. This ensures that the tree accounts for the
   // current lookahead token's "lookahead bytes" value, which describes how far
   // the lexer needed to look ahead beyond the content of the token in order to
   // recognize it.
