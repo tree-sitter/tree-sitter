@@ -113,11 +113,11 @@ pub fn generate_grammar_files(
                 fs::read_to_string(path).with_context(|| "Failed to read package.json")?;
             let mut package_json = serde_json::from_str::<Map<String, Value>>(&package_json_str)
                 .with_context(|| "Failed to parse package.json")?;
-            let package_json_types = package_json.get("types");
-            let package_json_needs_update = package_json
-                .get("dependencies")
-                .map_or(false, |d| d.get("nan").is_some())
-                || package_json_types.is_none();
+            let package_json_needs_update = generate_bindings
+                && (package_json
+                    .get("dependencies")
+                    .map_or(false, |d| d.get("nan").is_some())
+                    || package_json.get("types").is_none());
             if package_json_needs_update {
                 let dependencies = package_json
                     .entry("dependencies".to_string())
@@ -155,6 +155,11 @@ pub fn generate_grammar_files(
         missing_path(repo_path.join("grammar.js"), |path| {
             generate_file(path, GRAMMAR_JS_TEMPLATE, language_name)
         })?;
+    }
+
+    if !generate_bindings {
+        // our job is done
+        return Ok(());
     }
 
     // Rewrite dsl.d.ts only if its mtime differs from what was set on its creation
@@ -199,162 +204,160 @@ pub fn generate_grammar_files(
         generate_file(path, EDITORCONFIG_TEMPLATE, language_name)
     })?;
 
-    if generate_bindings {
-        let bindings_dir = repo_path.join("bindings");
+    let bindings_dir = repo_path.join("bindings");
 
-        // Generate Rust bindings
-        missing_path(bindings_dir.join("rust"), create_dir)?.apply(|path| {
-            missing_path(path.join("lib.rs"), |path| {
-                generate_file(path, LIB_RS_TEMPLATE, language_name)
-            })?;
-
-            missing_path(path.join("build.rs"), |path| {
-                generate_file(path, BUILD_RS_TEMPLATE, language_name)
-            })?;
-
-            missing_path(repo_path.join("Cargo.toml"), |path| {
-                generate_file(path, CARGO_TOML_TEMPLATE, dashed_language_name.as_str())
-            })?;
-
-            Ok(())
+    // Generate Rust bindings
+    missing_path(bindings_dir.join("rust"), create_dir)?.apply(|path| {
+        missing_path(path.join("lib.rs"), |path| {
+            generate_file(path, LIB_RS_TEMPLATE, language_name)
         })?;
 
-        // Generate Node bindings
-        missing_path(bindings_dir.join("node"), create_dir)?.apply(|path| {
-            missing_path(path.join("index.js"), |path| {
-                generate_file(path, INDEX_JS_TEMPLATE, language_name)
-            })?;
-
-            missing_path(path.join("index.d.ts"), |path| {
-                generate_file(path, INDEX_D_TS_TEMPLATE, language_name)
-            })?;
-
-            missing_path_else(
-                path.join("binding.cc"),
-                |path| generate_file(path, JS_BINDING_CC_TEMPLATE, language_name),
-                |path| {
-                    let binding_cc =
-                        fs::read_to_string(path).with_context(|| "Failed to read binding.cc")?;
-                    if binding_cc.contains("NAN_METHOD(New) {}") {
-                        eprintln!("Replacing binding.cc with new binding API");
-                        generate_file(path, JS_BINDING_CC_TEMPLATE, language_name)?;
-                    }
-                    Ok(())
-                },
-            )?;
-
-            // Create binding.gyp, or update it with new binding API.
-            missing_path_else(
-                repo_path.join("binding.gyp"),
-                |path| generate_file(path, BINDING_GYP_TEMPLATE, language_name),
-                |path| {
-                    let binding_gyp =
-                        fs::read_to_string(path).with_context(|| "Failed to read binding.gyp")?;
-                    if binding_gyp.contains("require('nan')") {
-                        eprintln!("Replacing binding.gyp with new binding API");
-                        generate_file(path, BINDING_GYP_TEMPLATE, language_name)?;
-                    }
-                    Ok(())
-                },
-            )?;
-
-            // Remove files from old node binding paths.
-            existing_path(repo_path.join("index.js"), remove_file)?;
-            existing_path(repo_path.join("src").join("binding.cc"), remove_file)?;
-
-            Ok(())
+        missing_path(path.join("build.rs"), |path| {
+            generate_file(path, BUILD_RS_TEMPLATE, language_name)
         })?;
 
-        // Generate C bindings
-        missing_path(bindings_dir.join("c"), create_dir)?.apply(|path| {
-            missing_path(
-                path.join(format!("tree-sitter-{language_name}.h")),
-                |path| generate_file(path, PARSER_NAME_H_TEMPLATE, language_name),
-            )?;
-
-            missing_path(
-                path.join(format!("tree-sitter-{language_name}.pc.in")),
-                |path| generate_file(path, PARSER_NAME_PC_IN_TEMPLATE, language_name),
-            )?;
-
-            missing_path(repo_path.join("Makefile"), |path| {
-                generate_file(path, MAKEFILE_TEMPLATE, language_name)
-            })?;
-
-            Ok(())
+        missing_path(repo_path.join("Cargo.toml"), |path| {
+            generate_file(path, CARGO_TOML_TEMPLATE, dashed_language_name.as_str())
         })?;
 
-        // Generate Go bindings
-        missing_path(bindings_dir.join("go"), create_dir)?.apply(|path| {
-            missing_path(path.join("binding.go"), |path| {
-                generate_file(path, BINDING_GO_TEMPLATE, language_name)
-            })?;
+        Ok(())
+    })?;
 
-            missing_path(path.join("binding_test.go"), |path| {
-                generate_file(path, BINDING_GO_TEST_TEMPLATE, language_name)
-            })?;
-
-            missing_path(path.join("go.mod"), |path| {
-                generate_file(path, GO_MOD_TEMPLATE, language_name)
-            })?;
-
-            Ok(())
+    // Generate Node bindings
+    missing_path(bindings_dir.join("node"), create_dir)?.apply(|path| {
+        missing_path(path.join("index.js"), |path| {
+            generate_file(path, INDEX_JS_TEMPLATE, language_name)
         })?;
 
-        // Generate Python bindings
+        missing_path(path.join("index.d.ts"), |path| {
+            generate_file(path, INDEX_D_TS_TEMPLATE, language_name)
+        })?;
+
+        missing_path_else(
+            path.join("binding.cc"),
+            |path| generate_file(path, JS_BINDING_CC_TEMPLATE, language_name),
+            |path| {
+                let binding_cc =
+                    fs::read_to_string(path).with_context(|| "Failed to read binding.cc")?;
+                if binding_cc.contains("NAN_METHOD(New) {}") {
+                    eprintln!("Replacing binding.cc with new binding API");
+                    generate_file(path, JS_BINDING_CC_TEMPLATE, language_name)?;
+                }
+                Ok(())
+            },
+        )?;
+
+        // Create binding.gyp, or update it with new binding API.
+        missing_path_else(
+            repo_path.join("binding.gyp"),
+            |path| generate_file(path, BINDING_GYP_TEMPLATE, language_name),
+            |path| {
+                let binding_gyp =
+                    fs::read_to_string(path).with_context(|| "Failed to read binding.gyp")?;
+                if binding_gyp.contains("require('nan')") {
+                    eprintln!("Replacing binding.gyp with new binding API");
+                    generate_file(path, BINDING_GYP_TEMPLATE, language_name)?;
+                }
+                Ok(())
+            },
+        )?;
+
+        // Remove files from old node binding paths.
+        existing_path(repo_path.join("index.js"), remove_file)?;
+        existing_path(repo_path.join("src").join("binding.cc"), remove_file)?;
+
+        Ok(())
+    })?;
+
+    // Generate C bindings
+    missing_path(bindings_dir.join("c"), create_dir)?.apply(|path| {
         missing_path(
-            bindings_dir
-                .join("python")
-                .join(format!("tree_sitter_{}", language_name.to_snake_case())),
-            create_dir,
-        )?
-        .apply(|path| {
-            missing_path(path.join("binding.c"), |path| {
-                generate_file(path, PY_BINDING_C_TEMPLATE, language_name)
-            })?;
+            path.join(format!("tree-sitter-{language_name}.h")),
+            |path| generate_file(path, PARSER_NAME_H_TEMPLATE, language_name),
+        )?;
 
-            missing_path(path.join("__init__.py"), |path| {
-                generate_file(path, INIT_PY_TEMPLATE, language_name)
-            })?;
-
-            missing_path(path.join("__init__.pyi"), |path| {
-                generate_file(path, INIT_PYI_TEMPLATE, language_name)
-            })?;
-
-            missing_path(path.join("py.typed"), |path| {
-                generate_file(path, "", language_name) // py.typed is empty
-            })?;
-
-            missing_path(repo_path.join("setup.py"), |path| {
-                generate_file(path, SETUP_PY_TEMPLATE, language_name)
-            })?;
-
-            missing_path(repo_path.join("pyproject.toml"), |path| {
-                generate_file(path, PYPROJECT_TOML_TEMPLATE, dashed_language_name.as_str())
-            })?;
-
-            Ok(())
-        })?;
-
-        // Generate Swift bindings
         missing_path(
-            bindings_dir
-                .join("swift")
-                .join(format!("TreeSitter{}", language_name.to_upper_camel_case())),
-            create_dir,
-        )?
-        .apply(|path| {
-            missing_path(path.join(format!("{language_name}.h")), |path| {
-                generate_file(path, PARSER_NAME_H_TEMPLATE, language_name)
-            })?;
+            path.join(format!("tree-sitter-{language_name}.pc.in")),
+            |path| generate_file(path, PARSER_NAME_PC_IN_TEMPLATE, language_name),
+        )?;
 
-            missing_path(repo_path.join("Package.swift"), |path| {
-                generate_file(path, PACKAGE_SWIFT_TEMPLATE, language_name)
-            })?;
-
-            Ok(())
+        missing_path(repo_path.join("Makefile"), |path| {
+            generate_file(path, MAKEFILE_TEMPLATE, language_name)
         })?;
-    }
+
+        Ok(())
+    })?;
+
+    // Generate Go bindings
+    missing_path(bindings_dir.join("go"), create_dir)?.apply(|path| {
+        missing_path(path.join("binding.go"), |path| {
+            generate_file(path, BINDING_GO_TEMPLATE, language_name)
+        })?;
+
+        missing_path(path.join("binding_test.go"), |path| {
+            generate_file(path, BINDING_GO_TEST_TEMPLATE, language_name)
+        })?;
+
+        missing_path(path.join("go.mod"), |path| {
+            generate_file(path, GO_MOD_TEMPLATE, language_name)
+        })?;
+
+        Ok(())
+    })?;
+
+    // Generate Python bindings
+    missing_path(
+        bindings_dir
+            .join("python")
+            .join(format!("tree_sitter_{}", language_name.to_snake_case())),
+        create_dir,
+    )?
+    .apply(|path| {
+        missing_path(path.join("binding.c"), |path| {
+            generate_file(path, PY_BINDING_C_TEMPLATE, language_name)
+        })?;
+
+        missing_path(path.join("__init__.py"), |path| {
+            generate_file(path, INIT_PY_TEMPLATE, language_name)
+        })?;
+
+        missing_path(path.join("__init__.pyi"), |path| {
+            generate_file(path, INIT_PYI_TEMPLATE, language_name)
+        })?;
+
+        missing_path(path.join("py.typed"), |path| {
+            generate_file(path, "", language_name) // py.typed is empty
+        })?;
+
+        missing_path(repo_path.join("setup.py"), |path| {
+            generate_file(path, SETUP_PY_TEMPLATE, language_name)
+        })?;
+
+        missing_path(repo_path.join("pyproject.toml"), |path| {
+            generate_file(path, PYPROJECT_TOML_TEMPLATE, dashed_language_name.as_str())
+        })?;
+
+        Ok(())
+    })?;
+
+    // Generate Swift bindings
+    missing_path(
+        bindings_dir
+            .join("swift")
+            .join(format!("TreeSitter{}", language_name.to_upper_camel_case())),
+        create_dir,
+    )?
+    .apply(|path| {
+        missing_path(path.join(format!("{language_name}.h")), |path| {
+            generate_file(path, PARSER_NAME_H_TEMPLATE, language_name)
+        })?;
+
+        missing_path(repo_path.join("Package.swift"), |path| {
+            generate_file(path, PACKAGE_SWIFT_TEMPLATE, language_name)
+        })?;
+
+        Ok(())
+    })?;
 
     Ok(())
 }
