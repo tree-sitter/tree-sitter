@@ -104,7 +104,7 @@ pub fn generate_grammar_files(
 ) -> Result<()> {
     let dashed_language_name = language_name.to_kebab_case();
 
-    // Create package.json, or update it with new binding path
+    // Create or update package.json
     let package_json_path_state = missing_path_else(
         repo_path.join("package.json"),
         |path| generate_file(path, PACKAGE_JSON_TEMPLATE, dashed_language_name.as_str()),
@@ -117,7 +117,9 @@ pub fn generate_grammar_files(
                 && (package_json
                     .get("dependencies")
                     .map_or(false, |d| d.get("nan").is_some())
-                    || package_json.get("types").is_none());
+                    || !package_json.contains_key("peerDependencies")
+                    || !package_json.contains_key("types")
+                    || !package_json.contains_key("files"));
             if package_json_needs_update {
                 let dependencies = package_json
                     .entry("dependencies".to_string())
@@ -125,19 +127,64 @@ pub fn generate_grammar_files(
                 let dependencies = dependencies.as_object_mut().unwrap();
                 if dependencies.remove("nan").is_some() {
                     eprintln!("Replacing package.json's nan dependency with node-addon-api");
+                    dependencies.insert(
+                        "node-addon-api".to_string(),
+                        Value::String("^7.1.0".to_string()),
+                    );
                 }
-                dependencies.insert(
-                    "node-addon-api".to_string(),
-                    Value::String("^7.1.0".to_string()),
-                );
+
+                // insert `peerDependencies` after `dependencies`
+                if !package_json.contains_key("peerDependencies") {
+                    eprintln!("Adding peerDependencies to package.json");
+                    let mut peer_dependencies = Map::new();
+                    peer_dependencies.insert(
+                        "tree-sitter".to_string(),
+                        Value::String("^0.21.0".to_string()),
+                    );
+                    package_json = insert_after(
+                        package_json,
+                        "peerDependencies",
+                        "dependencies",
+                        Value::Object(peer_dependencies),
+                    );
+
+                    let mut tree_sitter_meta = Map::new();
+                    tree_sitter_meta.insert("optional".to_string(), Value::Bool(true));
+                    let mut peer_dependencies_meta = Map::new();
+                    peer_dependencies_meta
+                        .insert("tree_sitter".to_string(), Value::Object(tree_sitter_meta));
+                    package_json = insert_after(
+                        package_json,
+                        "peerDependencies",
+                        "dependencies",
+                        Value::Object(peer_dependencies_meta),
+                    );
+                }
 
                 // insert `types` right after `main`
-                package_json = insert_after(
-                    package_json,
-                    "types",
-                    "main",
-                    Value::String("bindings/node".to_string()),
-                );
+                if !package_json.contains_key("types") {
+                    eprintln!("Adding types to package.json");
+                    package_json = insert_after(
+                        package_json,
+                        "types",
+                        "main",
+                        Value::String("bindings/node".to_string()),
+                    );
+                }
+
+                // insert `files` right after `keywords`
+                if !package_json.contains_key("files") {
+                    eprintln!("Adding files to package.json");
+                    let files = Value::Array(vec![
+                        Value::String("grammar.js".to_string()),
+                        Value::String("binding.gyp".to_string()),
+                        Value::String("types/dsl.d.ts".to_string()),
+                        Value::String("bindings/node/*".to_string()),
+                        Value::String("queries/*".to_string()),
+                        Value::String("src/**".to_string()),
+                    ]);
+                    package_json = insert_after(package_json, "files", "keywords", files);
+                }
 
                 let mut package_json_str = serde_json::to_string_pretty(&package_json)?;
                 package_json_str.push('\n');
