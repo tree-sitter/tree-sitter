@@ -4,8 +4,14 @@
   "description": "CAMEL_PARSER_NAME grammar for tree-sitter",
   "repository": "github:tree-sitter/tree-sitter-PARSER_NAME",
   "license": "MIT",
-  "types": "bindings/node",
   "main": "bindings/node",
+  "types": "bindings/node",
+  "keywords": [
+    "incremental",
+    "parsing",
+    "tree-sitter",
+    "LOWER_PARSER_NAME"
+  ],
   "files": [
     "grammar.js",
     "binding.gyp",
@@ -14,17 +20,19 @@
     "queries/*",
     "src/**"
   ],
-  "keywords": [
-    "incremental",
-    "parsing",
-    "tree-sitter",
-    "LOWER_PARSER_NAME"
-  ],
   "dependencies": {
     "node-addon-api": "^7.1.0"
   },
   "devDependencies": {
     "tree-sitter-cli": "^CLI_VERSION"
+  },
+  "peerDependencies": {
+    "tree-sitter": "^0.21.0"
+  },
+  "peerDependenciesMeta": {
+    "tree-sitter": {
+      "optional": true
+    }
   },
   "scripts": {
     "build": "tree-sitter generate --no-bindings",
