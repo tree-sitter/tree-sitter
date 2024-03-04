@@ -10,7 +10,7 @@ extern "C" {
 #include <stdlib.h>
 
 #ifdef _WIN32
-#define TS_PUBLIC __declspec(dllexport)
+#define TS_PUBLIC
 #else
 #define TS_PUBLIC __attribute__((visibility("default")))
 #endif
