@@ -1394,6 +1394,40 @@ impl<'tree> Node<'tree> {
         result
     }
 
+    pub fn to_sexp_pretty(&self) -> String {
+        let sexp = self.to_sexp();
+        let mut pre = String::new();
+        for seg in sexp.split(' ') {
+            if seg.ends_with(':') {
+                // @ never exits in name
+                pre.push_str(&format!("@{}", seg));
+            } else {
+                pre.push_str(seg);
+            }
+        }
+
+        let mut pretty = String::new();
+        let mut indent = 0;
+        for ch in pre.chars() {
+            match ch {
+                '(' => {
+                    pretty.push_str(&format!("\n{}(", &"\t".repeat(indent)));
+                    indent += 1;
+                }
+                '@' => {
+                    pretty.push_str(&format!("\n{}", &"\t".repeat(indent)));
+                    indent += 1;
+                }
+                c if c == ')' || c == ':' => {
+                    indent -= 1;
+                    pretty.push(c);
+                }
+                c => pretty.push(c),
+            }
+        }
+        pretty
+    }
+
     pub fn utf8_text<'a>(&self, source: &'a [u8]) -> Result<&'a str, str::Utf8Error> {
         str::from_utf8(&source[self.start_byte()..self.end_byte()])
     }
