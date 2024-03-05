@@ -9,19 +9,13 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef _WIN32
-#define TS_PUBLIC
-#else
-#define TS_PUBLIC __attribute__((visibility("default")))
-#endif
-
-TS_PUBLIC extern void *(*ts_current_malloc)(size_t);
-TS_PUBLIC extern void *(*ts_current_calloc)(size_t, size_t);
-TS_PUBLIC extern void *(*ts_current_realloc)(void *, size_t);
-TS_PUBLIC extern void (*ts_current_free)(void *);
-
 // Allow clients to override allocation functions
 #ifdef TREE_SITTER_REUSE_ALLOCATOR
+
+extern void *(*ts_current_malloc)(size_t);
+extern void *(*ts_current_calloc)(size_t, size_t);
+extern void *(*ts_current_realloc)(void *, size_t);
+extern void (*ts_current_free)(void *);
 
 #ifndef ts_malloc
 #define ts_malloc  ts_current_malloc

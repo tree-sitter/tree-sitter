@@ -1341,10 +1341,6 @@ impl Generator {
             add_line!(self, "");
         }
 
-        add_line!(self, "#ifdef TS_PUBLIC");
-        add_line!(self, "#undef TS_PUBLIC");
-        add_line!(self, "#endif");
-        add_line!(self, "");
         add_line!(self, "#ifdef _WIN32");
         add_line!(self, "#define TS_PUBLIC __declspec(dllexport)");
         add_line!(self, "#else");
