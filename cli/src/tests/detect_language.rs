@@ -97,9 +97,6 @@ fn tree_sitter_dir(package_json: &str, name: &str) -> tempfile::TempDir {
         format!(
             r##"
                 #include "tree_sitter/parser.h"
-                #ifdef TS_PUBLIC
-                #undef TS_PUBLIC
-                #endif
                 #ifdef _WIN32
                 #define TS_PUBLIC __declspec(dllexport)
                 #else
