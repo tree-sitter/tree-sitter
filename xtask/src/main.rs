@@ -4,6 +4,7 @@ use semver::Version;
 
 mod benchmark;
 mod clippy;
+mod fixtures;
 mod version;
 
 #[derive(Parser)]
@@ -21,6 +22,8 @@ enum CliCommand {
     BumpVersion(BumpVersion),
     /// Runs `cargo benchmark` with some optional environment variables set.
     Benchmark(Benchmark),
+    /// Fetches the fixtures for testing tree-sitter.
+    FetchFixtures,
 }
 
 #[derive(Parser)]
@@ -95,6 +98,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         CliCommand::Benchmark(benchmark_args) => {
             benchmark::run(&benchmark_args)?;
+        }
+        CliCommand::FetchFixtures => {
+            fixtures::fetch()?;
         }
     }
 
