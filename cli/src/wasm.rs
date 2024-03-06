@@ -11,7 +11,7 @@ pub fn load_language_wasm_file(language_dir: &Path) -> Result<(String, Vec<u8>)>
         .unwrap();
     let wasm_filename = format!("tree-sitter-{grammar_name}.wasm");
     let contents = fs::read(language_dir.join(&wasm_filename)).with_context(|| {
-        format!("Failed to read {wasm_filename}. Run `tree-sitter build-wasm` first.",)
+        format!("Failed to read {wasm_filename}. Run `tree-sitter build-wasm` first.")
     })?;
     Ok((grammar_name, contents))
 }

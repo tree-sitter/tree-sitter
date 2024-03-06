@@ -121,6 +121,9 @@ pub struct Loader {
     wasm_store: Mutex<Option<tree_sitter::WasmStore>>,
 }
 
+unsafe impl Send for LanguageConfiguration<'_> {}
+unsafe impl Sync for LanguageConfiguration<'_> {}
+
 unsafe impl Send for Loader {}
 unsafe impl Sync for Loader {}
 
@@ -866,7 +869,7 @@ impl Loader {
     ) -> Option<&'a HighlightConfiguration> {
         match self.language_configuration_for_injection_string(string) {
             Err(e) => {
-                eprintln!("Failed to load language for injection string '{string}': {e}",);
+                eprintln!("Failed to load language for injection string '{string}': {e}");
                 None
             }
             Ok(None) => None,

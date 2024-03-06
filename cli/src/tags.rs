@@ -82,7 +82,7 @@ pub fn generate_tags(
             }
 
             if time {
-                writeln!(&mut stdout, "{indent}time: {}ms", t0.elapsed().as_millis(),)?;
+                writeln!(&mut stdout, "{indent}time: {}ms", t0.elapsed().as_millis())?;
             }
         } else {
             eprintln!("No tags config found for path {path:?}");

@@ -537,7 +537,7 @@ fn test_parsing_after_detecting_error_in_the_middle_of_a_string_token() {
     let mut tree3 = tree2.clone();
     perform_edit(&mut tree3, &mut source, &undo).unwrap();
     tree3 = parser.parse(&source, Some(&tree3)).unwrap();
-    assert_eq!(tree3.root_node().to_sexp(), tree.root_node().to_sexp(),);
+    assert_eq!(tree3.root_node().to_sexp(), tree.root_node().to_sexp());
 }
 
 // Thread safety
@@ -1382,7 +1382,7 @@ fn test_grammars_that_can_hang_on_eof() {
 
 #[test]
 fn test_parse_stack_recursive_merge_error_cost_calculation_bug() {
-    let source_code = r#"
+    let source_code = r"
 fn main() {
   if n == 1 {
   } else if n == 2 {
@@ -1395,7 +1395,7 @@ let y = if x == 5 { 10 } else { 15 };
 if foo && bar {}
 
 if foo && bar || baz {}
-"#;
+";
 
     let mut parser = Parser::new();
     parser.set_language(&get_language("rust")).unwrap();

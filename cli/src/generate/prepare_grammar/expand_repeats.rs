@@ -265,7 +265,7 @@ mod tests {
         assert_eq!(
             grammar.variables,
             vec![
-                Variable::named("rule0", Rule::non_terminal(1),),
+                Variable::named("rule0", Rule::non_terminal(1)),
                 Variable::auxiliary(
                     "_rule1",
                     Rule::choice(vec![

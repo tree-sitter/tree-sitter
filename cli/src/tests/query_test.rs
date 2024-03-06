@@ -406,7 +406,7 @@ fn test_query_errors_on_impossible_patterns() {
         );
 
         assert_eq!(
-            Query::new(&js_lang, "(identifier (identifier))",),
+            Query::new(&js_lang, "(identifier (identifier))"),
             Err(QueryError {
                 kind: QueryErrorKind::Structure,
                 row: 0,
@@ -420,7 +420,7 @@ fn test_query_errors_on_impossible_patterns() {
             })
         );
         assert_eq!(
-            Query::new(&js_lang, "(true (true))",),
+            Query::new(&js_lang, "(true (true))"),
             Err(QueryError {
                 kind: QueryErrorKind::Structure,
                 row: 0,
@@ -466,7 +466,7 @@ fn test_query_verifies_possible_patterns_with_aliased_parent_nodes() {
         Query::new(&language, "(destructured_parameter (identifier))").unwrap();
 
         assert_eq!(
-            Query::new(&language, "(destructured_parameter (string))",),
+            Query::new(&language, "(destructured_parameter (string))"),
             Err(QueryError {
                 kind: QueryErrorKind::Structure,
                 row: 0,

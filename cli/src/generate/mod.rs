@@ -204,7 +204,7 @@ pub fn load_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Resul
         Some("json") => {
             Ok(fs::read_to_string(grammar_path).with_context(|| "Failed to load grammar.json")?)
         }
-        _ => Err(anyhow!("Unknown grammar file extension: {grammar_path:?}",)),
+        _ => Err(anyhow!("Unknown grammar file extension: {grammar_path:?}")),
     }
 }
 

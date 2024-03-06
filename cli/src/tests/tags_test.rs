@@ -169,9 +169,9 @@ fn test_tags_javascript() {
             ))
             .collect::<Vec<_>>(),
         &[
-            ("Customer", Point::new(5, 10)..Point::new(5, 18), "class",),
-            ("getAge", Point::new(9, 8)..Point::new(9, 14), "method",),
-            ("Agent", Point::new(15, 10)..Point::new(15, 15), "class",)
+            ("Customer", Point::new(5, 10)..Point::new(5, 18), "class"),
+            ("getAge", Point::new(9, 8)..Point::new(9, 14), "method"),
+            ("Agent", Point::new(15, 10)..Point::new(15, 15), "class")
         ]
     );
     assert_eq!(
@@ -253,7 +253,7 @@ fn test_tags_ruby() {
             ("b", "call", (7, 11)),
             ("each", "call", (9, 14)),
             ("baz", "call", (13, 8)),
-            ("b", "call", (13, 15),),
+            ("b", "call", (13, 15)),
         ]
     );
 }

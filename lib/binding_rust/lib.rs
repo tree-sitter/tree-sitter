@@ -2244,14 +2244,15 @@ impl Query {
             }
         }
 
-        if let Some(key) = key {
-            Ok(QueryProperty::new(key, value, capture_id))
-        } else {
-            Err(predicate_error(
-                row,
-                format!("Invalid arguments to {function_name} predicate. Missing key argument",),
-            ))
-        }
+        key.map_or_else(
+            || {
+                Err(predicate_error(
+                    row,
+                    format!("Invalid arguments to {function_name} predicate. Missing key argument"),
+                ))
+            },
+            |key| Ok(QueryProperty::new(key, value, capture_id)),
+        )
     }
 }
 

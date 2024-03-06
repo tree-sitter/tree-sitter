@@ -244,7 +244,7 @@ fn test_language_corpus(
                 // Check that the new tree is consistent.
                 check_consistent_sizes(&tree2, &input);
                 if let Err(message) = check_changed_ranges(&tree, &tree2, &input) {
-                    println!("\nUnexpected scope change in seed {seed} with start seed {start_seed}\n{message}\n\n",);
+                    println!("\nUnexpected scope change in seed {seed} with start seed {start_seed}\n{message}\n\n");
                     return false;
                 }
 
@@ -355,12 +355,12 @@ fn test_feature_corpus_files() {
                     failure_count += 1;
                 }
             } else {
-                eprintln!("Expected error message but got none for test grammar '{language_name}'",);
+                eprintln!("Expected error message but got none for test grammar '{language_name}'");
                 failure_count += 1;
             }
         } else {
             if let Err(e) = &generate_result {
-                eprintln!("Unexpected error for test grammar '{language_name}':\n{e}",);
+                eprintln!("Unexpected error for test grammar '{language_name}':\n{e}");
                 failure_count += 1;
                 continue;
             }

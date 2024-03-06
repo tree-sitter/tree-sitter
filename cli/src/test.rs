@@ -915,12 +915,12 @@ abc
         );
         assert_eq!(
             format_sexp(r"(source_file (ERROR (UNEXPECTED 'f') (UNEXPECTED '+')))"),
-            r#"
+            r"
 (source_file
   (ERROR
     (UNEXPECTED 'f')
     (UNEXPECTED '+')))
-"#
+"
             .trim()
         );
     }
