@@ -1,6 +1,6 @@
 [package]
 name = "tree-sitter-PARSER_NAME"
-description = "PARSER_NAME grammar for tree-sitter"
+description = "CAMEL_PARSER_NAME grammar for tree-sitter"
 version = "0.0.1"
 license = "MIT"
 readme = "README.md"
