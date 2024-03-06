@@ -40,7 +40,7 @@ pub fn get_latest_tag(repo: &Repository) -> Result<String, Box<dyn std::error::E
         .ok_or_else(|| "No tags found".into())
 }
 
-pub fn bump_versions() -> Result<(), Box<dyn std::error::Error>> {
+pub fn bump(version: Option<Version>) -> Result<(), Box<dyn std::error::Error>> {
     let repo = Repository::open(".")?;
     let latest_tag = get_latest_tag(&repo)?;
     let latest_tag_sha = repo.revparse_single(&format!("v{latest_tag}"))?.id();
@@ -63,7 +63,8 @@ pub fn bump_versions() -> Result<(), Box<dyn std::error::Error>> {
     let mut diff_options = DiffOptions::new();
 
     let current_version = Version::parse(&latest_tag)?;
-    let mut next_version = None;
+    let r#override = version.is_some();
+    let mut next_version = version;
 
     for oid in revwalk {
         let oid = oid?;
@@ -96,7 +97,7 @@ pub fn bump_versions() -> Result<(), Box<dyn std::error::Error>> {
             None,
         )?;
 
-        if update {
+        if update && !r#override {
             let Some((prefix, _)) = message.split_once(':') else {
                 continue;
             };
