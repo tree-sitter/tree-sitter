@@ -11,7 +11,7 @@ fn main() {
             let scan_build_path = scan_build_path.to_str().unwrap();
             env::set_var(
                 "CC",
-                format!("{scan_build_path} -analyze-headers --use-analyzer={clang_path} cc",),
+                format!("{scan_build_path} -analyze-headers --use-analyzer={clang_path} cc"),
             );
         }
     }

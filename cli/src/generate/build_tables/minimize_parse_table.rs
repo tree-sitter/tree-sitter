@@ -335,7 +335,8 @@ impl<'a> Minimizer<'a> {
                     self.symbol_name(token),
                 );
                 return true;
-            } else if action1 != action2 {
+            }
+            if action1 != action2 {
                 info!(
                     "split states {state_id1} {state_id2} - unequal actions for {}",
                     self.symbol_name(token),
@@ -355,7 +356,7 @@ impl<'a> Minimizer<'a> {
         new_token: Symbol,
     ) -> bool {
         if new_token == Symbol::end_of_nonterminal_extra() {
-            info!("split states {left_id} {right_id} - end of non-terminal extra",);
+            info!("split states {left_id} {right_id} - end of non-terminal extra");
             return true;
         }
 
