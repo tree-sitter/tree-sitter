@@ -24,6 +24,7 @@ enum CliCommand {
     Benchmark(Benchmark),
     /// Fetches the fixtures for testing tree-sitter.
     FetchFixtures,
+    GenerateBindings,
 }
 
 #[derive(Parser)]
@@ -101,6 +102,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         CliCommand::FetchFixtures => {
             fixtures::fetch()?;
+        }
+        CliCommand::GenerateBindings => {
+            bindings::generate()?;
         }
     }
 
