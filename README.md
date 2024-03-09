@@ -10,8 +10,8 @@ Tree-sitter is a parser generator tool and an incremental parsing library. It ca
 - **Dependency-free** so that the runtime library (which is written in pure C) can be embedded in any application
 
 ## Links
-
 - [Documentation](https://tree-sitter.github.io)
 - [Rust binding](lib/binding_rust/README.md)
 - [WASM binding](lib/binding_web/README.md)
 - [Command-line interface](cli/README.md)
+- [Discord](https://discord.com/invite/w7nTvsVJhm) or [Matrix](https://matrix.to/#/#tree-sitter-chat:matrix.org)
