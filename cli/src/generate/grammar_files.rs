@@ -3,7 +3,7 @@ use anyhow::{anyhow, Context, Result};
 use filetime::FileTime;
 use heck::{ToKebabCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
 use serde::Deserialize;
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
@@ -83,8 +83,8 @@ pub fn path_in_ignore(repo_path: &Path) -> bool {
 
 fn insert_after(
     map: Map<String, Value>,
-    key: &str,
     after: &str,
+    key: &str,
     value: Value,
 ) -> Map<String, Value> {
     let mut entries = map.into_iter().collect::<Vec<_>>();
@@ -104,6 +104,8 @@ pub fn generate_grammar_files(
 ) -> Result<()> {
     let dashed_language_name = language_name.to_kebab_case();
 
+    // TODO: remove legacy code updates in v0.24.0
+
     // Create or update package.json
     let package_json_path_state = missing_path_else(
         repo_path.join("package.json"),
@@ -113,82 +115,115 @@ pub fn generate_grammar_files(
                 fs::read_to_string(path).with_context(|| "Failed to read package.json")?;
             let mut package_json = serde_json::from_str::<Map<String, Value>>(&package_json_str)
                 .with_context(|| "Failed to parse package.json")?;
-            let package_json_needs_update = generate_bindings
-                && (package_json
-                    .get("dependencies")
-                    .map_or(false, |d| d.get("nan").is_some())
-                    || !package_json.contains_key("peerDependencies")
-                    || !package_json.contains_key("types")
-                    || !package_json.contains_key("files"));
-            if package_json_needs_update {
+            if generate_bindings {
+                let mut updated = false;
+
                 let dependencies = package_json
                     .entry("dependencies".to_string())
-                    .or_insert_with(|| Value::Object(Map::new()));
-                let dependencies = dependencies.as_object_mut().unwrap();
+                    .or_insert_with(|| Value::Object(Map::new()))
+                    .as_object_mut()
+                    .unwrap();
                 if dependencies.remove("nan").is_some() {
-                    eprintln!("Replacing package.json's nan dependency with node-addon-api");
-                    dependencies.insert(
-                        "node-addon-api".to_string(),
-                        Value::String("^7.1.0".to_string()),
+                    eprintln!("Replacing nan dependency with node-addon-api in package.json");
+                    dependencies.insert("node-addon-api".to_string(), "^7.1.0".into());
+                    updated = true;
+                }
+                if !dependencies.contains_key("node-gyp-build") {
+                    eprintln!("Adding node-gyp-build dependency to package.json");
+                    dependencies.insert("node-gyp-build".to_string(), "^4.8.0".into());
+                    updated = true;
+                }
+
+                let dev_dependencies = package_json
+                    .entry("devDependencies".to_string())
+                    .or_insert_with(|| Value::Object(Map::new()))
+                    .as_object_mut()
+                    .unwrap();
+                if !dev_dependencies.contains_key("prebuildify") {
+                    eprintln!("Adding prebuildify devDependency to package.json");
+                    dev_dependencies.insert("prebuildify".to_string(), "^6.0.0".into());
+                    updated = true;
+                }
+
+                let scripts = package_json
+                    .entry("scripts".to_string())
+                    .or_insert_with(|| Value::Object(Map::new()))
+                    .as_object_mut()
+                    .unwrap();
+                match scripts.get("install") {
+                    None => {
+                        eprintln!("Adding an install script to package.json");
+                        scripts.insert("install".to_string(), "node-gyp-build".into());
+                        updated = true;
+                    }
+                    Some(Value::String(v)) if v != "node-gyp-build" => {
+                        eprintln!("Updating the install script in package.json");
+                        scripts.insert("install".to_string(), "node-gyp-build".into());
+                        updated = true;
+                    }
+                    Some(_) => {}
+                }
+                if !scripts.contains_key("prebuildify") {
+                    eprintln!("Adding a prebuildify script to package.json");
+                    scripts.insert(
+                        "prebuildify".to_string(),
+                        "prebuildify --napi --strip".into(),
                     );
+                    updated = true;
                 }
 
                 // insert `peerDependencies` after `dependencies`
                 if !package_json.contains_key("peerDependencies") {
                     eprintln!("Adding peerDependencies to package.json");
-                    let mut peer_dependencies = Map::new();
-                    peer_dependencies.insert(
-                        "tree-sitter".to_string(),
-                        Value::String("^0.21.0".to_string()),
-                    );
                     package_json = insert_after(
                         package_json,
-                        "peerDependencies",
                         "dependencies",
-                        Value::Object(peer_dependencies),
+                        "peerDependencies",
+                        json!({"tree-sitter": "^0.21.0"}),
                     );
 
-                    let mut tree_sitter_meta = Map::new();
-                    tree_sitter_meta.insert("optional".to_string(), Value::Bool(true));
-                    let mut peer_dependencies_meta = Map::new();
-                    peer_dependencies_meta
-                        .insert("tree_sitter".to_string(), Value::Object(tree_sitter_meta));
                     package_json = insert_after(
                         package_json,
                         "peerDependencies",
-                        "dependencies",
-                        Value::Object(peer_dependencies_meta),
+                        "peerDependenciesMeta",
+                        json!({"tree_sitter": {"optional": true}}),
                     );
+                    updated = true;
                 }
 
                 // insert `types` right after `main`
                 if !package_json.contains_key("types") {
                     eprintln!("Adding types to package.json");
-                    package_json = insert_after(
-                        package_json,
-                        "types",
-                        "main",
-                        Value::String("bindings/node".to_string()),
-                    );
+                    package_json =
+                        insert_after(package_json, "main", "types", "bindings/node".into());
+                    updated = true;
                 }
 
                 // insert `files` right after `keywords`
                 if !package_json.contains_key("files") {
                     eprintln!("Adding files to package.json");
-                    let files = Value::Array(vec![
-                        Value::String("grammar.js".to_string()),
-                        Value::String("binding.gyp".to_string()),
-                        Value::String("types/dsl.d.ts".to_string()),
-                        Value::String("bindings/node/*".to_string()),
-                        Value::String("queries/*".to_string()),
-                        Value::String("src/**".to_string()),
-                    ]);
-                    package_json = insert_after(package_json, "files", "keywords", files);
+                    package_json = insert_after(
+                        package_json,
+                        "keywords",
+                        "files",
+                        json!([
+                            "grammar.js",
+                            "binding.gyp",
+                            "types/dsl.d.ts",
+                            "prebuilds/**",
+                            "bindings/node/*",
+                            "queries/*",
+                            "src/**",
+                        ]),
+                    );
+                    updated = true;
                 }
 
-                let mut package_json_str = serde_json::to_string_pretty(&package_json)?;
-                package_json_str.push('\n');
-                write_file(path, package_json_str)?;
+                if updated {
+                    let mut package_json_str = serde_json::to_string_pretty(&package_json)?;
+                    package_json_str.push('\n');
+                    write_file(path, package_json_str)?;
+                }
             }
 
             Ok(())
@@ -272,9 +307,19 @@ pub fn generate_grammar_files(
 
     // Generate Node bindings
     missing_path(bindings_dir.join("node"), create_dir)?.apply(|path| {
-        missing_path(path.join("index.js"), |path| {
-            generate_file(path, INDEX_JS_TEMPLATE, language_name)
-        })?;
+        missing_path_else(
+            path.join("index.js"),
+            |path| generate_file(path, INDEX_JS_TEMPLATE, language_name),
+            |path| {
+                let index_js =
+                    fs::read_to_string(path).with_context(|| "Failed to read index.js")?;
+                if index_js.contains("../../build/Release") {
+                    eprintln!("Replacing index.js with new binding API");
+                    generate_file(path, INDEX_JS_TEMPLATE, language_name)?;
+                }
+                Ok(())
+            },
+        )?;
 
         missing_path(path.join("index.d.ts"), |path| {
             generate_file(path, INDEX_D_TS_TEMPLATE, language_name)
@@ -308,10 +353,6 @@ pub fn generate_grammar_files(
                 Ok(())
             },
         )?;
-
-        // Remove files from old node binding paths.
-        existing_path(repo_path.join("index.js"), remove_file)?;
-        existing_path(repo_path.join("src").join("binding.cc"), remove_file)?;
 
         Ok(())
     })?;
@@ -464,11 +505,6 @@ fn create_dir(path: &Path) -> Result<()> {
         .with_context(|| format!("Failed to create {:?}", path.to_string_lossy()))
 }
 
-fn remove_file(path: &Path) -> Result<()> {
-    fs::remove_file(path).ok();
-    Ok(())
-}
-
 #[derive(PartialEq, Eq, Debug)]
 enum PathState {
     Exists(PathBuf),
@@ -505,18 +541,6 @@ impl PathState {
         match self {
             Self::Exists(path) | Self::Missing(path) => path.as_path(),
         }
-    }
-}
-
-fn existing_path<F>(path: PathBuf, mut action: F) -> Result<PathState>
-where
-    F: FnMut(&Path) -> Result<()>,
-{
-    if path.exists() {
-        action(path.as_path())?;
-        Ok(PathState::Exists(path))
-    } else {
-        Ok(PathState::Missing(path))
     }
 }
 
