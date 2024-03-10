@@ -166,9 +166,12 @@ fn parse_rule(json: RuleJSON) -> Rule {
                 f.chars()
                     .filter(|c| {
                         if *c == 'i' {
-                            *c != 'u' // silently ignore unicode flag
+                            true
                         } else {
-                            eprintln!("Warning: unsupported flag {c}");
+                            // silently ignore unicode flags
+                            if *c != 'u' && *c != 'v' {
+                                eprintln!("Warning: unsupported flag {c}");
+                            }
                             false
                         }
                     })
