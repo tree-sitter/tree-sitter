@@ -1369,7 +1369,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "bindgen",
  "cc",
@@ -1380,7 +1380,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-cli"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "ansi_term",
  "anstyle",
@@ -1426,7 +1426,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-config"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "anyhow",
  "dirs",
@@ -1436,7 +1436,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-highlight"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "lazy_static",
  "regex",
@@ -1446,7 +1446,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-loader"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "anyhow",
  "cc",
@@ -1466,7 +1466,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-tags"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "memchr",
  "regex",

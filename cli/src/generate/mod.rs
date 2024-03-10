@@ -41,6 +41,8 @@ struct GeneratedParser {
     node_types_json: String,
 }
 
+pub const ALLOC_HEADER: &str = include_str!("./templates/alloc.h");
+
 pub fn generate_parser_in_directory(
     repo_path: &Path,
     grammar_path: Option<&str>,
@@ -122,7 +124,7 @@ pub fn generate_parser_in_directory(
 
     write_file(&src_path.join("parser.c"), c_code)?;
     write_file(&src_path.join("node-types.json"), node_types_json)?;
-    write_file(&header_path.join("alloc.h"), tree_sitter::ALLOC_HEADER)?;
+    write_file(&header_path.join("alloc.h"), ALLOC_HEADER)?;
     write_file(&header_path.join("array.h"), tree_sitter::ARRAY_HEADER)?;
     write_file(&header_path.join("parser.h"), tree_sitter::PARSER_HEADER)?;
 
