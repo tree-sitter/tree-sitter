@@ -1,6 +1,0 @@
-{
-  ts_current_malloc;
-  ts_current_calloc;
-  ts_current_realloc;
-  ts_current_free;
-};

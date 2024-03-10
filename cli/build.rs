@@ -29,7 +29,23 @@ fn main() {
         target_os = "netbsd",
         target_os = "dragonfly",
     ))]
-    println!("cargo:rustc-link-arg=-Wl,--dynamic-list=cli/dynamic-symbols.txt");
+    {
+        let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap()).join("dynamic-symbols.txt");
+        std::fs::write(
+            &out_dir,
+            "{
+                ts_current_malloc;
+                ts_current_calloc;
+                ts_current_realloc;
+                ts_current_free;
+            };",
+        )
+        .unwrap();
+        println!(
+            "cargo:rustc-link-arg=-Wl,--dynamic-list={}",
+            out_dir.display()
+        );
+    }
 }
 
 fn web_playground_files_present() -> bool {
