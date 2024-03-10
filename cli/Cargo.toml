@@ -41,7 +41,6 @@ indoc.workspace = true
 lazy_static.workspace = true
 log.workspace = true
 memchr.workspace = true
-path-slash.workspace = true
 regex.workspace = true
 regex-syntax.workspace = true
 rustc-hash.workspace = true
@@ -70,6 +69,3 @@ tempfile.workspace = true
 pretty_assertions.workspace = true
 ctor.workspace = true
 unindent.workspace = true
-
-[build-dependencies]
-toml.workspace = true
