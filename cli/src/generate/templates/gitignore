@@ -33,7 +33,6 @@ dist/
 /examples/*/
 
 # Grammar volatiles
-dsl.d.ts
 *.wasm
 *.obj
 *.o

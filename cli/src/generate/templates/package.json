@@ -15,7 +15,6 @@
   "files": [
     "grammar.js",
     "binding.gyp",
-    "types/dsl.d.ts",
     "prebuilds/**",
     "bindings/node/*",
     "queries/*",
