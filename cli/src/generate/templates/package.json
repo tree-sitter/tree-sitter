@@ -4,29 +4,41 @@
   "description": "CAMEL_PARSER_NAME grammar for tree-sitter",
   "repository": "github:tree-sitter/tree-sitter-PARSER_NAME",
   "license": "MIT",
-  "types": "bindings/node",
   "main": "bindings/node",
-  "files": [
-    "grammar.js",
-    "binding.gyp",
-    "types/dsl.d.ts",
-    "bindings/node/*",
-    "queries/*",
-    "src/**"
-  ],
+  "types": "bindings/node",
   "keywords": [
     "incremental",
     "parsing",
     "tree-sitter",
     "LOWER_PARSER_NAME"
   ],
+  "files": [
+    "grammar.js",
+    "binding.gyp",
+    "prebuilds/**",
+    "bindings/node/*",
+    "queries/*",
+    "src/**"
+  ],
   "dependencies": {
-    "node-addon-api": "^7.1.0"
+    "node-addon-api": "^7.1.0",
+    "node-gyp-build": "^4.8.0"
   },
   "devDependencies": {
+    "prebuildify": "^6.0.0",
     "tree-sitter-cli": "^CLI_VERSION"
   },
+  "peerDependencies": {
+    "tree-sitter": "^0.21.0"
+  },
+  "peerDependenciesMeta": {
+    "tree-sitter": {
+      "optional": true
+    }
+  },
   "scripts": {
+    "install": "node-gyp-build",
+    "prebuildify": "prebuildify --napi --strip",
     "build": "tree-sitter generate --no-bindings",
     "build-wasm": "tree-sitter build-wasm",
     "test": "tree-sitter test",

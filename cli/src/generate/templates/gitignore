@@ -4,6 +4,7 @@ target/
 
 # Node artifacts
 build/
+prebuilds/
 node_modules/
 *.tgz
 
@@ -32,7 +33,6 @@ dist/
 /examples/*/
 
 # Grammar volatiles
-dsl.d.ts
 *.wasm
 *.obj
 *.o
