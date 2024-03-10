@@ -1,16 +1,12 @@
 use super::write_file;
 use anyhow::{anyhow, Context, Result};
-use filetime::FileTime;
 use heck::{ToKebabCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime};
 use std::{fs, str};
-
-const BUILD_TIME: &str = env!("BUILD_TIME");
 
 const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CLI_VERSION_PLACEHOLDER: &str = "CLI_VERSION";
@@ -20,7 +16,6 @@ const CAMEL_PARSER_NAME_PLACEHOLDER: &str = "CAMEL_PARSER_NAME";
 const UPPER_PARSER_NAME_PLACEHOLDER: &str = "UPPER_PARSER_NAME";
 const LOWER_PARSER_NAME_PLACEHOLDER: &str = "LOWER_PARSER_NAME";
 
-const DSL_D_TS_FILE: &str = include_str!("../../npm/dsl.d.ts");
 const GRAMMAR_JS_TEMPLATE: &str = include_str!("./templates/grammar.js");
 const PACKAGE_JSON_TEMPLATE: &str = include_str!("./templates/package.json");
 const GITIGNORE_TEMPLATE: &str = include_str!("./templates/gitignore");
@@ -209,7 +204,6 @@ pub fn generate_grammar_files(
                         json!([
                             "grammar.js",
                             "binding.gyp",
-                            "types/dsl.d.ts",
                             "prebuilds/**",
                             "bindings/node/*",
                             "queries/*",
@@ -243,33 +237,6 @@ pub fn generate_grammar_files(
         // our job is done
         return Ok(());
     }
-
-    // Rewrite dsl.d.ts only if its mtime differs from what was set on its creation
-    missing_path(repo_path.join("types"), create_dir)?.apply(|path| {
-        missing_path(path.join("dsl.d.ts"), |path| {
-            write_file(path, DSL_D_TS_FILE)
-        })?
-        .apply_state(|state| {
-            let build_time =
-                SystemTime::UNIX_EPOCH + Duration::from_secs_f64(BUILD_TIME.parse::<f64>()?);
-
-            match state {
-                PathState::Exists(path) => {
-                    let mtime = fs::metadata(path)?.modified()?;
-                    if mtime != build_time {
-                        write_file(path, DSL_D_TS_FILE)?;
-                        filetime::set_file_mtime(path, FileTime::from_system_time(build_time))?;
-                    }
-                }
-                PathState::Missing(path) => {
-                    filetime::set_file_mtime(path, FileTime::from_system_time(build_time))?;
-                }
-            }
-
-            Ok(())
-        })?;
-        Ok(())
-    })?;
 
     // Write .gitignore file
     missing_path(repo_path.join(".gitignore"), |path| {
