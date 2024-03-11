@@ -147,6 +147,7 @@ struct Parse {
     )]
     pub position: bool,
     #[arg(
+        long,
         num_args = 1..,
         help = "Apply edits in the format: \"row, col delcount insert_text\""
     )]
