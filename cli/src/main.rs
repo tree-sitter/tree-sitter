@@ -1,6 +1,6 @@
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::{anyhow, Context, Result};
-use clap::{crate_authors, Args, Command, FromArgMatches as _, Subcommand};
+use clap::{crate_authors, ArgAction, Args, Command, FromArgMatches as _, Subcommand};
 use glob::glob;
 use regex::Regex;
 use std::collections::HashSet;
@@ -138,7 +138,15 @@ struct Parse {
     #[arg(long, short, help = "Suppress main output")]
     pub quiet: bool,
     #[arg(
-        long,
+        long = "no-position",
+        short,
+        help = "Suppress output node position",
+        conflicts_with = "quiet",
+        action = ArgAction::SetFalse,
+        default_value_t = true,
+    )]
+    pub position: bool,
+    #[arg(
         num_args = 1..,
         help = "Apply edits in the format: \"row, col delcount insert_text\""
     )]
@@ -508,6 +516,7 @@ fn run() -> Result<()> {
                     cancellation_flag: Some(&cancellation_flag),
                     encoding,
                     open_log: parse_options.open_log,
+                    position: parse_options.position,
                 };
 
                 let parse_result = parse::parse_file_at_path(&mut parser, &opts)?;
