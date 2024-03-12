@@ -263,12 +263,15 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
                         if let Some(field_name) = cursor.field_name() {
                             write!(&mut stdout, " field=\"{field_name}\"")?;
                         }
-                        let start = node.start_position();
-                        let end = node.end_position();
-                        write!(&mut stdout, " srow=\"{}\"", start.row)?;
-                        write!(&mut stdout, " scol=\"{}\"", start.column)?;
-                        write!(&mut stdout, " erow=\"{}\"", end.row)?;
-                        write!(&mut stdout, " ecol=\"{}\"", end.column)?;
+                        if opts.position {
+                            let start = node.start_position();
+                            let end = node.end_position();
+                            write!(
+                                &mut stdout,
+                                r#" srow="{}" scol="{}" erow="{}" ecol="{}""#,
+                                start.row, start.column, end.row, end.column,
+                            )?;
+                        }
                         write!(&mut stdout, ">")?;
                         tags.push(node.kind());
                         needs_newline = true;
