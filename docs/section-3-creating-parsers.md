@@ -620,7 +620,7 @@ You may have noticed in the above examples that some of the grammar rule name li
 
 ### Using Fields
 
-Often, it's easier to analyze a syntax nodes if you can refer to its children by *name* instead of by their position in an ordered list. Tree-sitter grammars support this using the `field` function. This function allows you to assign unique names to some or all of a node's children:
+Often, it's easier to analyze a syntax node if you can refer to its children by *name* instead of by their position in an ordered list. Tree-sitter grammars support this using the `field` function. This function allows you to assign unique names to some or all of a node's children:
 
 ```js
 function_definition: $ => seq(
