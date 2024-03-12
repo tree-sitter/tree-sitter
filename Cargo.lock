@@ -133,7 +133,7 @@ dependencies = [
  "rustc-hash",
  "shlex",
  "syn",
- "which 4.4.2",
+ "which",
 ]
 
 [[package]]
@@ -1421,7 +1421,6 @@ dependencies = [
  "walkdir",
  "wasmparser 0.201.0",
  "webbrowser",
- "which 6.0.0",
 ]
 
 [[package]]
@@ -1461,7 +1460,6 @@ dependencies = [
  "tree-sitter",
  "tree-sitter-highlight",
  "tree-sitter-tags",
- "which 6.0.0",
 ]
 
 [[package]]
@@ -1877,19 +1875,6 @@ dependencies = [
  "home",
  "once_cell",
  "rustix",
-]
-
-[[package]]
-name = "which"
-version = "6.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fa5e0c10bf77f44aac573e498d1a82d5fbd5e91f6fc0a99e7be4b38e85e101c"
-dependencies = [
- "either",
- "home",
- "once_cell",
- "rustix",
- "windows-sys 0.52.0",
 ]
 
 [[package]]

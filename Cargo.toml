@@ -84,7 +84,6 @@ unindent = "0.2.3"
 walkdir = "2.5.0"
 wasmparser = "0.201.0"
 webbrowser = "0.8.13"
-which = "6.0.0"
 
 tree-sitter = { version = "0.22.0", path = "./lib" }
 tree-sitter-loader = { version = "0.22.0", path = "./cli/loader" }
