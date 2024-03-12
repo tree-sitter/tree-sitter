@@ -150,7 +150,7 @@ declare module 'web-tree-sitter' {
       rootNodeWithOffset(offsetBytes: number, offsetExtent: Point): SyntaxNode;
       copy(): Tree;
       delete(): void;
-      edit(delta: Edit): Tree;
+      edit(edit: Edit): Tree;
       walk(): TreeCursor;
       getChangedRanges(other: Tree): Range[];
       getIncludedRanges(): Range[];

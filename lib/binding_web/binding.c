@@ -184,6 +184,18 @@ TSTree *ts_parser_parse_wasm(
   return ts_parser_parse(self, old_tree, input);
 }
 
+void ts_parser_included_ranges_wasm(TSParser *self) {
+  uint32_t range_count = 0;
+  const TSRange *ranges = ts_parser_included_ranges(self, &range_count);
+  TSRange *copied_ranges = malloc(sizeof(TSRange) * range_count);
+  memcpy(copied_ranges, ranges, sizeof(TSRange) * range_count);
+  for (unsigned i = 0; i < range_count; i++) {
+    marshal_range(&copied_ranges[i]);
+  }
+  TRANSFER_BUFFER[0] = range_count ? (const void *)range_count : NULL;
+  TRANSFER_BUFFER[1] = copied_ranges;
+}
+
 /**********************/
 /* Section - Language */
 /**********************/

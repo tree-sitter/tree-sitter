@@ -53,6 +53,8 @@
 "ts_parser_parse_wasm",
 "ts_parser_reset",
 "ts_parser_set_language",
+"ts_parser_set_included_ranges",
+"ts_parser_included_ranges_wasm",
 "ts_parser_set_timeout_micros",
 "ts_parser_timeout_micros",
 "ts_query_capture_count",
