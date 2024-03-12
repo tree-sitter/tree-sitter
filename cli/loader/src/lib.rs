@@ -20,7 +20,6 @@ use serde::{Deserialize, Deserializer, Serialize};
 use tree_sitter::{Language, QueryError, QueryErrorKind};
 use tree_sitter_highlight::HighlightConfiguration;
 use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
-use which::which;
 
 pub const EMSCRIPTEN_TAG: &str = concat!("docker.io/emscripten/emsdk:", env!("EMSCRIPTEN_VERSION"));
 
@@ -712,62 +711,43 @@ impl Loader {
     ) -> Result<(), Error> {
         #[derive(PartialEq, Eq)]
         enum EmccSource {
-            Native(PathBuf),
+            Native,
             Docker,
             Podman,
         }
 
-        fn path_of_bin(
-            name: &str,
-            test: impl Fn(&Path) -> std::io::Result<std::process::Output>,
-        ) -> Option<PathBuf> {
-            let bin_path = which(name).ok()?;
-            if test(&bin_path).is_ok() {
-                Some(bin_path)
-            } else {
-                None
-            }
-        }
+        let emcc_name = if cfg!(windows) { "emcc.bat" } else { "emcc" };
 
         // Order of preference: emscripten > docker > podman > error
-        let source = if force_docker {
-            None
+        let source = if !force_docker && Command::new(emcc_name).output().is_ok() {
+            EmccSource::Native
+        } else if Command::new("docker")
+            .arg("info")
+            .output()
+            .map_or(false, |out| out.status.success())
+        {
+            EmccSource::Docker
+        } else if Command::new("podman")
+            .arg("--version")
+            .output()
+            .map_or(false, |out| out.status.success())
+        {
+            EmccSource::Podman
         } else {
-            path_of_bin(if cfg!(windows) { "emcc.bat" } else { "emcc" }, |p| {
-                Command::new(p).output()
-            })
-            .map(EmccSource::Native)
-        }
-        .or_else(|| {
-            path_of_bin("docker", |docker| {
-                // `docker info` should succeed iff the daemon is running
-                // see https://docs.docker.com/config/daemon/troubleshoot/#check-whether-docker-is-running
-                Command::new(docker).args(["info"]).output()
-            })
-            .map(|_| EmccSource::Docker)
-        })
-        .or_else(|| {
-            path_of_bin("podman", |podman| {
-                Command::new(podman).arg("--version").output()
-            })
-            .map(|_| EmccSource::Podman)
-        });
-
-        let Some(cmd) = source else {
             return Err(anyhow!(
-                "You must have either emcc or docker on your PATH to run this command"
+                "You must have either emcc, docker, or podman on your PATH to run this command"
             ));
         };
 
-        let mut command = match cmd {
-            EmccSource::Native(emcc_path) => {
-                let mut command = Command::new(emcc_path);
+        let mut command = match source {
+            EmccSource::Native => {
+                let mut command = Command::new(emcc_name);
                 command.current_dir(src_path);
                 command
             }
 
             EmccSource::Docker | EmccSource::Podman => {
-                let mut command = match cmd {
+                let mut command = match source {
                     EmccSource::Docker => Command::new("docker"),
                     EmccSource::Podman => Command::new("podman"),
                     _ => unreachable!(),
@@ -798,7 +778,7 @@ impl Loader {
                         fn getuid() -> u32;
                     }
                     // don't need to set user for podman since PODMAN_USERNS=keep-id is already set
-                    if cmd == EmccSource::Docker {
+                    if source == EmccSource::Docker {
                         let user_id = unsafe { getuid() };
                         command.args(["--user", &user_id.to_string()]);
                     }

@@ -53,7 +53,6 @@ tiny_http.workspace = true
 walkdir.workspace = true
 wasmparser.workspace = true
 webbrowser.workspace = true
-which.workspace = true
 
 tree-sitter.workspace = true
 tree-sitter-config.workspace = true
