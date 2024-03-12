@@ -431,6 +431,7 @@ impl Default for Parser {
 
 impl Parser {
     /// Create a new parser.
+    #[doc(alias = "ts_parser_new")]
     #[must_use]
     pub fn new() -> Self {
         unsafe {
@@ -778,6 +779,24 @@ impl Parser {
         }
     }
 
+    /// Get the ranges of text that the parser will include when parsing.
+    #[doc(alias = "ts_parser_included_ranges")]
+    #[must_use]
+    pub fn included_ranges(&self) -> Vec<Range> {
+        let mut count = 0u32;
+        unsafe {
+            let ptr =
+                ffi::ts_parser_included_ranges(self.0.as_ptr(), std::ptr::addr_of_mut!(count));
+            let ranges = slice::from_raw_parts(ptr, count as usize);
+            let result = ranges
+                .iter()
+                .copied()
+                .map(std::convert::Into::into)
+                .collect();
+            result
+        }
+    }
+
     /// Get the parser's current cancellation flag pointer.
     ///
     /// # Safety
@@ -893,6 +912,7 @@ impl Tree {
     }
 
     /// Get the included ranges that were used to parse the syntax tree.
+    #[doc(alias = "ts_tree_included_ranges")]
     #[must_use]
     pub fn included_ranges(&self) -> Vec<Range> {
         let mut count = 0u32;

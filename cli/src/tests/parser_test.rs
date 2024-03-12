@@ -817,9 +817,19 @@ fn test_parsing_with_one_included_range() {
     let script_content_node = html_tree.root_node().child(1).unwrap().child(1).unwrap();
     assert_eq!(script_content_node.kind(), "raw_text");
 
+    assert_eq!(
+        parser.included_ranges(),
+        &[Range {
+            start_byte: 0,
+            end_byte: u32::MAX as usize,
+            start_point: Point::new(0, 0),
+            end_point: Point::new(u32::MAX as usize, u32::MAX as usize),
+        }]
+    );
     parser
         .set_included_ranges(&[script_content_node.range()])
         .unwrap();
+    assert_eq!(parser.included_ranges(), &[script_content_node.range()]);
     parser.set_language(&get_language("javascript")).unwrap();
     let js_tree = parser.parse(source_code, None).unwrap();
 
