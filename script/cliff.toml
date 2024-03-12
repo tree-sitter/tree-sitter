@@ -16,13 +16,13 @@ body = """
     {% for commit in commits%}\
         {% if not commit.scope %}\
             - {{ commit.message | upper_first }}\
-              {% if commit.github.pr_number %} (https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/pull/{{ commit.github.pr_number }}){%- endif %}
+              {% if commit.github.pr_number %} (<https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/pull/{{ commit.github.pr_number }}>){%- endif %}
         {% endif %}\
     {% endfor %}\
     {% for group, commits in commits | group_by(attribute="scope") %}\
         {% for commit in commits %}\
             - **{{commit.scope}}**: {{ commit.message | upper_first }}\
-                {% if commit.github.pr_number %} (https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/pull/{{ commit.github.pr_number }}){%- endif %}
+                {% if commit.github.pr_number %} (<https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/pull/{{ commit.github.pr_number }}>){%- endif %}
         {% endfor %}\
     {% endfor %}
 {% endfor %}
@@ -39,20 +39,20 @@ filter_unconventional = false
 split_commits = false
 # regex for preprocessing the commit messages
 commit_preprocessors = [
-#    { pattern = '\((\w+\s)?#([0-9]+)\)', replace = "([#${2}](https://github.com/neovim/neovim/issues/${2}))"},
+  #    { pattern = '\((\w+\s)?#([0-9]+)\)', replace = "([#${2}](https://github.com/neovim/neovim/issues/${2}))"},
 ]
 # regex for parsing and grouping commits
 commit_parsers = [
-    { message = "!:", group = "<!-- 0 -->Breaking"},
-    { message = "^feat", group = "<!-- 1 -->Features"},
-    { message = "^fix", group = "<!-- 2 -->Bug Fixes"},
-    { message = "^perf", group = "<!-- 3 -->Performance"},
-    { message = "^doc", group = "<!-- 4 -->Documentation"},
-    { message = "^refactor", group = "<!-- 5 -->Refactor"},
-    { message = "^test", group = "<!-- 6 -->Testing"},
-    { message = "^build", group = "<!-- 7 -->Build System and CI"},
-    { message = "^ci", group = "<!-- 7 -->Build System and CI"},
-    { message = ".*", group = "<!-- 8 -->Other"},
+  { message = "!:", group = "<!-- 0 -->Breaking" },
+  { message = "^feat", group = "<!-- 1 -->Features" },
+  { message = "^fix", group = "<!-- 2 -->Bug Fixes" },
+  { message = "^perf", group = "<!-- 3 -->Performance" },
+  { message = "^doc", group = "<!-- 4 -->Documentation" },
+  { message = "^refactor", group = "<!-- 5 -->Refactor" },
+  { message = "^test", group = "<!-- 6 -->Testing" },
+  { message = "^build", group = "<!-- 7 -->Build System and CI" },
+  { message = "^ci", group = "<!-- 7 -->Build System and CI" },
+  { message = ".*", group = "<!-- 8 -->Other" },
 ]
 # filter out the commits that are not matched by commit parsers
 filter_commits = false
