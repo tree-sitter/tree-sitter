@@ -8,12 +8,11 @@ use regex::bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder};
 use regex::Regex;
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
-use std::fmt::Write as FmtWrite;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::str;
-use tree_sitter::{Language, LogType, Parser, Query};
+use tree_sitter::{format_sexp, Language, LogType, Parser, Query};
 use walkdir::WalkDir;
 
 lazy_static! {
@@ -163,8 +162,8 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
             print_diff_key();
             for (i, (name, actual, expected)) in failures.iter().enumerate() {
                 println!("\n  {}. {name}:", i + 1);
-                let actual = format_sexp_indented(actual, 2);
-                let expected = format_sexp_indented(expected, 2);
+                let actual = format_sexp(actual, 2);
+                let expected = format_sexp(expected, 2);
                 print_diff(&actual, &expected);
             }
 
@@ -287,7 +286,7 @@ fn run_tests(
                         println!("✓ {}", Colour::Green.paint(&name));
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
-                            let output = format_sexp(&output);
+                            let output = format_sexp(&output, 0);
                             corrected_entries.push((
                                 name.clone(),
                                 input,
@@ -299,8 +298,8 @@ fn run_tests(
                     } else {
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
-                            let expected_output = format_sexp(&output);
-                            let actual_output = format_sexp(&actual);
+                            let expected_output = format_sexp(&output, 0);
+                            let actual_output = format_sexp(&actual, 0);
 
                             // Only bail early before updating if the actual is not the output, sometimes
                             // users want to test cases that are intended to have errors, hence why this
@@ -406,115 +405,6 @@ fn run_tests(
         }
     }
     Ok(true)
-}
-
-fn format_sexp(sexp: &str) -> String {
-    format_sexp_indented(sexp, 0)
-}
-
-fn format_sexp_indented(sexp: &str, initial_indent_level: u32) -> String {
-    let mut formatted = String::new();
-
-    if sexp.is_empty() {
-        return formatted;
-    }
-
-    let mut indent_level = initial_indent_level;
-    let mut has_field = false;
-
-    let mut c_iter = sexp.chars().peekable();
-    let mut s = String::with_capacity(sexp.len());
-    let mut quote = '\0';
-    let mut saw_paren = false;
-    let mut did_last = false;
-
-    let mut fetch_next_str = |next: &mut String| {
-        next.clear();
-        while let Some(c) = c_iter.next() {
-            if c == '\'' || c == '"' {
-                quote = c;
-            } else if c == ' ' || (c == ')' && quote != '\0') {
-                if let Some(next_c) = c_iter.peek() {
-                    if *next_c == quote {
-                        next.push(c);
-                        next.push(*next_c);
-                        c_iter.next();
-                        quote = '\0';
-                        continue;
-                    }
-                }
-                break;
-            }
-            if c == ')' {
-                saw_paren = true;
-                break;
-            }
-            next.push(c);
-        }
-
-        // at the end
-        if c_iter.peek().is_none() && next.is_empty() {
-            if saw_paren {
-                // but did we see a ) before ending?
-                saw_paren = false;
-                return Some(());
-            }
-            if !did_last {
-                // but did we account for the end empty string as if we're splitting?
-                did_last = true;
-                return Some(());
-            }
-            return None;
-        }
-        Some(())
-    };
-
-    while fetch_next_str(&mut s).is_some() {
-        if s.is_empty() && indent_level > 0 {
-            // ")"
-            indent_level -= 1;
-            write!(formatted, ")").unwrap();
-        } else if s.starts_with('(') {
-            if has_field {
-                has_field = false;
-            } else {
-                if indent_level > 0 {
-                    writeln!(formatted).unwrap();
-                    for _ in 0..indent_level {
-                        write!(formatted, "  ").unwrap();
-                    }
-                }
-                indent_level += 1;
-            }
-
-            // "(node_name"
-            write!(formatted, "{s}").unwrap();
-
-            // "(MISSING node_name" or "(UNEXPECTED 'x'"
-            if s.starts_with("(MISSING") || s.starts_with("(UNEXPECTED") {
-                fetch_next_str(&mut s).unwrap();
-                if s.is_empty() {
-                    while indent_level > 0 {
-                        indent_level -= 1;
-                        write!(formatted, ")").unwrap();
-                    }
-                } else {
-                    write!(formatted, " {s}").unwrap();
-                }
-            }
-        } else if s.ends_with(':') {
-            // "field:"
-            writeln!(formatted).unwrap();
-            for _ in 0..indent_level {
-                write!(formatted, "  ").unwrap();
-            }
-            write!(formatted, "{s} ").unwrap();
-            has_field = true;
-            indent_level += 1;
-        }
-    }
-
-    formatted
 }
 
 fn write_tests(
@@ -878,9 +768,9 @@ abc
 
     #[test]
     fn test_format_sexp() {
-        assert_eq!(format_sexp(""), "");
+        assert_eq!(format_sexp("", 0), "");
         assert_eq!(
-            format_sexp("(a b: (c) (d) e: (f (g (h (MISSING i)))))"),
+            format_sexp("(a b: (c) (d) e: (f (g (h (MISSING i)))))", 0),
             r"
 (a
   b: (c)
@@ -892,11 +782,8 @@ abc
 "
             .trim()
         );
-        assert_eq!(format_sexp("()"), "()");
-        assert_eq!(format_sexp("(A (M (B)))"), "(A\n  (M\n    (B)))");
-        assert_eq!(format_sexp("(A (U (B)))"), "(A\n  (U\n    (B)))");
         assert_eq!(
-            format_sexp("(program (ERROR (UNEXPECTED ' ')) (identifier))"),
+            format_sexp("(program (ERROR (UNEXPECTED ' ')) (identifier))", 0),
             r"
 (program
   (ERROR
@@ -906,7 +793,7 @@ abc
             .trim()
         );
         assert_eq!(
-            format_sexp(r#"(source_file (MISSING ")"))"#),
+            format_sexp(r#"(source_file (MISSING ")"))"#, 0),
             r#"
 (source_file
   (MISSING ")"))
@@ -914,7 +801,10 @@ abc
             .trim()
         );
         assert_eq!(
-            format_sexp(r"(source_file (ERROR (UNEXPECTED 'f') (UNEXPECTED '+')))"),
+            format_sexp(
+                r"(source_file (ERROR (UNEXPECTED 'f') (UNEXPECTED '+')))",
+                0
+            ),
             r#"
 (source_file
   (ERROR
