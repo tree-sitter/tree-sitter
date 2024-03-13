@@ -39,6 +39,7 @@ const INDEX_JS_TEMPLATE: &str = include_str!("./templates/index.js");
 const INDEX_D_TS_TEMPLATE: &str = include_str!("./templates/index.d.ts");
 const JS_BINDING_CC_TEMPLATE: &str = include_str!("./templates/js-binding.cc");
 const BINDING_GYP_TEMPLATE: &str = include_str!("./templates/binding.gyp");
+const BINDING_TEST_JS_TEMPLATE: &str = include_str!("./templates/binding_test.js");
 
 const MAKEFILE_TEMPLATE: &str = include_str!("./templates/makefile");
 const PARSER_NAME_H_TEMPLATE: &str = include_str!("./templates/PARSER_NAME.h");
@@ -46,15 +47,17 @@ const PARSER_NAME_PC_IN_TEMPLATE: &str = include_str!("./templates/PARSER_NAME.p
 
 const GO_MOD_TEMPLATE: &str = include_str!("./templates/go.mod");
 const BINDING_GO_TEMPLATE: &str = include_str!("./templates/binding.go");
-const BINDING_GO_TEST_TEMPLATE: &str = include_str!("./templates/binding_test.go");
+const BINDING_TEST_GO_TEMPLATE: &str = include_str!("./templates/binding_test.go");
 
 const SETUP_PY_TEMPLATE: &str = include_str!("./templates/setup.py");
 const INIT_PY_TEMPLATE: &str = include_str!("./templates/__init__.py");
 const INIT_PYI_TEMPLATE: &str = include_str!("./templates/__init__.pyi");
 const PYPROJECT_TOML_TEMPLATE: &str = include_str!("./templates/pyproject.toml");
 const PY_BINDING_C_TEMPLATE: &str = include_str!("./templates/py-binding.c");
+const TEST_BINDING_PY_TEMPLATE: &str = include_str!("./templates/test_binding.py");
 
-const PACKAGE_SWIFT_TEMPLATE: &str = include_str!("./templates/Package.swift");
+const PACKAGE_SWIFT_TEMPLATE: &str = include_str!("./templates/package.swift");
+const TESTS_SWIFT_TEMPLATE: &str = include_str!("./templates/tests.swift");
 
 #[derive(Deserialize, Debug)]
 struct LanguageConfiguration {}
@@ -339,6 +342,10 @@ pub fn generate_grammar_files(
             generate_file(path, INDEX_D_TS_TEMPLATE, language_name)
         })?;
 
+        missing_path(path.join("binding_test.js"), |path| {
+            generate_file(path, BINDING_TEST_JS_TEMPLATE, language_name)
+        })?;
+
         missing_path_else(
             path.join("binding.cc"),
             |path| generate_file(path, JS_BINDING_CC_TEMPLATE, language_name),
@@ -397,7 +404,7 @@ pub fn generate_grammar_files(
         })?;
 
         missing_path(path.join("binding_test.go"), |path| {
-            generate_file(path, BINDING_GO_TEST_TEMPLATE, language_name)
+            generate_file(path, BINDING_TEST_GO_TEMPLATE, language_name)
         })?;
 
         missing_path(path.join("go.mod"), |path| {
@@ -428,6 +435,13 @@ pub fn generate_grammar_files(
             generate_file(path, "", language_name) // py.typed is empty
         })?;
 
+        missing_path(path.join("tests"), create_dir)?.apply(|path| {
+            missing_path(path.join("test_binding.py"), |path| {
+                generate_file(path, TEST_BINDING_PY_TEMPLATE, language_name)
+            })?;
+            Ok(())
+        })?;
+
         missing_path(repo_path.join("setup.py"), |path| {
             generate_file(path, SETUP_PY_TEMPLATE, language_name)
         })?;
@@ -446,6 +460,25 @@ pub fn generate_grammar_files(
 
         missing_path(lang_path.join(format!("{language_name}.h")), |path| {
             generate_file(path, PARSER_NAME_H_TEMPLATE, language_name)
+        })?;
+
+        missing_path(
+            path.join(format!(
+                "TreeSitter{}Tests",
+                language_name.to_upper_camel_case()
+            )),
+            create_dir,
+        )?
+        .apply(|path| {
+            missing_path(
+                path.join(format!(
+                    "TreeSitter{}Tests.swift",
+                    language_name.to_upper_camel_case()
+                )),
+                |path| generate_file(path, TESTS_SWIFT_TEMPLATE, language_name),
+            )?;
+
+            Ok(())
         })?;
 
         missing_path(repo_path.join("Package.swift"), |path| {
