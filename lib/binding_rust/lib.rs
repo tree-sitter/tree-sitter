@@ -11,7 +11,8 @@ use std::os::windows::io::AsRawHandle;
 use std::{
     char, error,
     ffi::CStr,
-    fmt, hash, iter,
+    fmt::{self, Write},
+    hash, iter,
     marker::PhantomData,
     mem::MaybeUninit,
     num::NonZeroU16,
@@ -953,7 +954,7 @@ impl Tree {
 }
 
 impl fmt::Debug for Tree {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{{Tree {:?}}}", self.root_node())
     }
 }
@@ -1462,7 +1463,7 @@ impl hash::Hash for Node<'_> {
 }
 
 impl fmt::Debug for Node<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
             "{{Node {} {} - {}}}",
@@ -1470,6 +1471,19 @@ impl fmt::Debug for Node<'_> {
             self.start_position(),
             self.end_position()
         )
+    }
+}
+
+impl fmt::Display for Node<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let sexp = self.to_sexp();
+        if sexp.is_empty() {
+            write!(f, "")
+        } else if !f.alternate() {
+            write!(f, "{}", sexp)
+        } else {
+            write!(f, "{}", format_sexp(&sexp, f.width().unwrap_or(0)))
+        }
     }
 }
 
@@ -2713,7 +2727,7 @@ impl Point {
 }
 
 impl fmt::Display for Point {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "({}, {})", self.row, self.column)
     }
 }
@@ -2869,6 +2883,107 @@ impl fmt::Display for QueryError {
             )
         }
     }
+}
+
+#[doc(hidden)]
+pub fn format_sexp(sexp: &str, initial_indent_level: usize) -> String {
+    let mut indent_level = initial_indent_level;
+    let mut formatted = String::new();
+    let mut has_field = false;
+
+    let mut c_iter = sexp.chars().peekable();
+    let mut s = String::with_capacity(sexp.len());
+    let mut quote = '\0';
+    let mut saw_paren = false;
+    let mut did_last = false;
+
+    let mut fetch_next_str = |next: &mut String| {
+        next.clear();
+        while let Some(c) = c_iter.next() {
+            if c == '\'' || c == '"' {
+                quote = c;
+            } else if c == ' ' || (c == ')' && quote != '\0') {
+                if let Some(next_c) = c_iter.peek() {
+                    if *next_c == quote {
+                        next.push(c);
+                        next.push(*next_c);
+                        c_iter.next();
+                        quote = '\0';
+                        continue;
+                    }
+                }
+                break;
+            }
+            if c == ')' {
+                saw_paren = true;
+                break;
+            }
+            next.push(c);
+        }
+
+        // at the end
+        if c_iter.peek().is_none() && next.is_empty() {
+            if saw_paren {
+                // but did we see a ) before ending?
+                saw_paren = false;
+                return Some(());
+            }
+            if !did_last {
+                // but did we account for the end empty string as if we're splitting?
+                did_last = true;
+                return Some(());
+            }
+            return None;
+        }
+        Some(())
+    };
+
+    while fetch_next_str(&mut s).is_some() {
+        if s.is_empty() && indent_level > 0 {
+            // ")"
+            indent_level -= 1;
+            write!(formatted, ")").unwrap();
+        } else if s.starts_with('(') {
+            if has_field {
+                has_field = false;
+            } else {
+                if indent_level > 0 {
+                    writeln!(formatted).unwrap();
+                    for _ in 0..indent_level {
+                        write!(formatted, "  ").unwrap();
+                    }
+                }
+                indent_level += 1;
+            }
+
+            // "(node_name"
+            write!(formatted, "{s}").unwrap();
+
+            // "(MISSING node_name" or "(UNEXPECTED 'x'"
+            if s.starts_with("(MISSING") || s.starts_with("(UNEXPECTED") {
+                fetch_next_str(&mut s).unwrap();
+                if s.is_empty() {
+                    while indent_level > 0 {
+                        indent_level -= 1;
+                        write!(formatted, ")").unwrap();
+                    }
+                } else {
+                    write!(formatted, " {s}").unwrap();
+                }
+            }
+        } else if s.ends_with(':') {
+            // "field:"
+            writeln!(formatted).unwrap();
+            for _ in 0..indent_level {
+                write!(formatted, "  ").unwrap();
+            }
+            write!(formatted, "{s} ").unwrap();
+            has_field = true;
+            indent_level += 1;
+        }
+    }
+
+    formatted
 }
 
 pub fn wasm_stdlib_symbols() -> impl Iterator<Item = &'static str> {
