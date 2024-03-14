@@ -1,8 +1,10 @@
 #ifndef TREE_SITTER_API_H_
 #define TREE_SITTER_API_H_
 
+#ifndef TREE_SITTER_HIDE_SYMBOLS
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC visibility push(default)
+#endif
 #endif
 
 #ifdef __cplusplus
@@ -1255,8 +1257,10 @@ void ts_set_allocator(
 }
 #endif
 
+#ifndef TREE_SITTER_HIDE_SYMBOLS
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC visibility pop
+#endif
 #endif
 
 #endif  // TREE_SITTER_API_H_

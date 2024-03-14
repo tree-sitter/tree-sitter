@@ -1341,7 +1341,9 @@ impl Generator {
             add_line!(self, "");
         }
 
-        add_line!(self, "#ifdef _WIN32");
+        add_line!(self, "#ifdef TREE_SITTER_HIDE_SYMBOLS");
+        add_line!(self, "#define TS_PUBLIC");
+        add_line!(self, "#elif defined(_WIN32)");
         add_line!(self, "#define TS_PUBLIC __declspec(dllexport)");
         add_line!(self, "#else");
         add_line!(

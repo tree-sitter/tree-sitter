@@ -9,7 +9,7 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef _WIN32
+#if defined(TREE_SITTER_HIDDEN_SYMBOLS) || defined(_WIN32)
 #define TS_PUBLIC
 #else
 #define TS_PUBLIC __attribute__((visibility("default")))
