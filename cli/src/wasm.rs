@@ -62,6 +62,7 @@ pub fn compile_language_to_wasm(
         "__cxa_atexit",
         "abort",
         "emscripten_notify_memory_growth",
+        "tree_sitter_debug_message",
         "proc_exit",
     ];
 

@@ -2,27 +2,33 @@
 
 set -e
 
-# Remove quotes, add leading underscores, remove newlines, remove trailing comma.
+# Remove quotes and commas
 EXPORTED_FUNCTIONS=$(                     \
     cat lib/src/wasm/stdlib-symbols.txt | \
-    sed -e 's/"//g'                     | \
-    sed -e 's/^/_/g'                    | \
-    tr -d '\n"'                         | \
-    sed -e 's/,$//'                       \
+    tr -d ',"'                            \
 )
 
-emcc                                                          \
-    -o stdlib.wasm                                            \
-    -Os                                                       \
-    --no-entry                                                \
-    -s MAIN_MODULE=2                                          \
-    -s "EXPORTED_FUNCTIONS=${EXPORTED_FUNCTIONS}" \
-    -s 'ALLOW_MEMORY_GROWTH'                                  \
-    -s 'TOTAL_MEMORY=4MB'                                     \
-    -fvisibility=hidden                                       \
-    -fno-exceptions                                           \
-    -xc                                                       \
-    /dev/null
+EXPORT_FLAGS=""
+for function in ${EXPORTED_FUNCTIONS}; do
+    EXPORT_FLAGS+=" -Wl,--export=${function}"
+done
+
+target/wasi-sdk-21.0/bin/clang-17   \
+    -o stdlib.wasm                  \
+    -Os                             \
+    -fPIC                           \
+    -Wl,--no-entry                  \
+    -Wl,--stack-first               \
+    -Wl,-z -Wl,stack-size=65536     \
+    -Wl,--import-undefined          \
+    -Wl,--import-memory             \
+    -Wl,--import-table              \
+    -Wl,--strip-debug               \
+    -Wl,--export=reset_heap         \
+    -Wl,--export=__wasm_call_ctors  \
+    -Wl,--export=__stack_pointer    \
+    ${EXPORT_FLAGS}                 \
+    lib/src/wasm/stdlib.c
 
 xxd -C -i stdlib.wasm > lib/src/wasm/wasm-stdlib.h
 mv stdlib.wasm target/
