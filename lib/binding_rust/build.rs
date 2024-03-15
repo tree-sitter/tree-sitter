@@ -4,18 +4,6 @@ use std::{env, fs};
 fn main() {
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
 
-    println!("cargo:rerun-if-env-changed=TREE_SITTER_STATIC_ANALYSIS");
-    if env::var("TREE_SITTER_STATIC_ANALYSIS").is_ok() {
-        if let (Some(clang_path), Some(scan_build_path)) = (which("clang"), which("scan-build")) {
-            let clang_path = clang_path.to_str().unwrap();
-            let scan_build_path = scan_build_path.to_str().unwrap();
-            env::set_var(
-                "CC",
-                format!("{scan_build_path} -analyze-headers --use-analyzer={clang_path} cc",),
-            );
-        }
-    }
-
     #[cfg(feature = "bindgen")]
     generate_bindings(&out_dir);
 
@@ -95,17 +83,4 @@ fn generate_bindings(out_dir: &Path) {
     bindings
         .write_to_file(&bindings_rs)
         .unwrap_or_else(|_| panic!("Failed to write bindings into path: {bindings_rs:?}"));
-}
-
-fn which(exe_name: impl AsRef<Path>) -> Option<PathBuf> {
-    env::var_os("PATH").and_then(|paths| {
-        env::split_paths(&paths).find_map(|dir| {
-            let full_path = dir.join(&exe_name);
-            if full_path.is_file() {
-                Some(full_path)
-            } else {
-                None
-            }
-        })
-    })
 }
