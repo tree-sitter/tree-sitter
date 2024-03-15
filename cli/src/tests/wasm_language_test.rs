@@ -115,6 +115,9 @@ fn test_load_multiple_wasm_languages() {
             .unwrap();
         let mut query_cursor = QueryCursor::new();
 
+        // First, parse with the store that originally loaded the languages.
+        // Then parse with a new parser and wasm store, so that the languages
+        // are added one-by-one, in between parses.
         for mut parser in [parser, parser2] {
             for _ in 0..2 {
                 let query_rust = Query::new(&language_rust, "(const_item) @foo").unwrap();
