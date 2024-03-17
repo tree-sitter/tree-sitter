@@ -500,7 +500,7 @@ fn run() -> Result<()> {
                         }
                         (true, false) => &["TREE_SITTER_REUSE_ALLOCATOR"],
                         (false, true) => &["TREE_SITTER_INTERNAL_BUILD"],
-                        (false, false) => &[""],
+                        (false, false) => &[],
                     };
 
                 let config = Config::load(None)?;

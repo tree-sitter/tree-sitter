@@ -256,7 +256,7 @@ impl Generator {
                 .count()
                 + 1;
             let constant_name = if let Some(symbol) = symbol {
-                format!("{}_character_set_{}", self.symbol_ids[&symbol], count)
+                format!("{}_character_set_{}", self.symbol_ids[symbol], count)
             } else {
                 format!("extras_character_set_{}", count)
             };
