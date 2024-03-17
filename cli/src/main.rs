@@ -108,11 +108,6 @@ struct Build {
     pub path: Option<String>,
     #[arg(long, help = "Make the parser reuse the same allocator as the library")]
     pub reuse_allocator: bool,
-    #[arg(
-        long,
-        help = "Build the parser with `TREE_SITTER_INTERNAL_BUILD` defined"
-    )]
-    pub internal_build: bool,
 }
 
 #[derive(Args)]
@@ -479,15 +474,10 @@ fn run() -> Result<()> {
                         .with_extension(env::consts::DLL_EXTENSION)
                 };
 
-                let flags: &[&str] =
-                    match (build_options.reuse_allocator, build_options.internal_build) {
-                        (true, true) => {
-                            &["TREE_SITTER_REUSE_ALLOCATOR", "TREE_SITTER_INTERNAL_BUILD"]
-                        }
-                        (true, false) => &["TREE_SITTER_REUSE_ALLOCATOR"],
-                        (false, true) => &["TREE_SITTER_INTERNAL_BUILD"],
-                        (false, false) => &[""],
-                    };
+                let flags: &[&str] = match build_options.reuse_allocator {
+                    true => &["TREE_SITTER_REUSE_ALLOCATOR"],
+                    false => &[],
+                };
 
                 let config = Config::load(None)?;
                 let loader_config = config.get()?;
