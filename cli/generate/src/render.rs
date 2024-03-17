@@ -20,6 +20,7 @@ const SMALL_STATE_THRESHOLD: usize = 64;
 const ABI_VERSION_MIN: usize = 14;
 const ABI_VERSION_MAX: usize = tree_sitter::LANGUAGE_VERSION;
 const BUILD_VERSION: &str = env!("CARGO_PKG_VERSION");
+const ABI_VERSION_WITH_METADATA: usize = 15;
 
 macro_rules! add {
     ($this: tt, $($arg: tt)*) => {{
@@ -1436,6 +1437,11 @@ impl Generator {
         }
 
         add_line!(self, ".primary_state_ids = ts_primary_state_ids,");
+
+        if self.abi_version >= ABI_VERSION_WITH_METADATA {
+            add_line!(self, ".name = \"{}\",", self.language_name);
+        }
+
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "return &language;");
