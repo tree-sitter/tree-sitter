@@ -83,6 +83,7 @@ impl Config {
 }
 
 const BUILD_TARGET: &str = env!("BUILD_TARGET");
+const BUILD_HOST: &str = env!("BUILD_HOST");
 
 pub struct LanguageConfiguration<'a> {
     pub scope: Option<String>,
@@ -143,7 +144,7 @@ impl<'a> CompileConfig<'a> {
             scanner_path: None,
             external_files: externals,
             output_path,
-            flags: &["TREE_SITTER_REUSE_ALLOCATOR", "TREE_SITTER_INTERNAL_BUILD"],
+            flags: &[],
             name: String::new(),
         }
     }
@@ -561,16 +562,38 @@ impl Loader {
         lock_file: &fs::File,
         lock_path: &Path,
     ) -> Result<(), Error> {
-        let mut cc = cc::Build::new();
-        cc.cpp(true)
-            .opt_level(2)
+        let mut cc_config = cc::Build::new();
+        cc_config
             .cargo_metadata(false)
             .cargo_warnings(false)
             .target(BUILD_TARGET)
-            .host(BUILD_TARGET)
-            .flag_if_supported("-Werror=implicit-function-declaration");
-        let compiler = cc.get_compiler();
+            .host(BUILD_HOST)
+            .file(&config.parser_path)
+            .includes(&config.header_paths);
+
+        if let Some(scanner_path) = config.scanner_path.as_ref() {
+            if scanner_path.extension() != Some("c".as_ref()) {
+                cc_config.cpp(true);
+                eprintln!("Warning: Using a C++ scanner is now deprecated. Please migrate your scanner code to C, as C++ support will be removed in the near future.");
+            } else {
+                cc_config.std("c11");
+            }
+            cc_config.file(scanner_path);
+        }
+
+        if self.debug_build {
+            cc_config.opt_level(0).extra_warnings(true);
+        } else {
+            cc_config.opt_level(2).extra_warnings(false);
+        }
+
+        for flag in config.flags {
+            cc_config.define(flag, None);
+        }
+
+        let compiler = cc_config.get_compiler();
         let mut command = Command::new(compiler.path());
+        command.args(compiler.args());
         for (key, value) in compiler.env() {
             command.env(key, value);
         }
@@ -578,71 +601,23 @@ impl Loader {
         let output_path = config.output_path.as_ref().unwrap();
 
         if compiler.is_like_msvc() {
-            command.args(["/nologo", "/LD"]);
-
-            for path in &config.header_paths {
-                command.arg(format!("/I{}", path.to_string_lossy()));
-            }
-
-            if self.debug_build {
-                command.arg("/Od");
-            } else {
-                command.arg("/O2");
-            }
-            command.arg(&config.parser_path);
-
-            if let Some(scanner_path) = config.scanner_path.as_ref() {
-                if scanner_path.extension() != Some("c".as_ref()) {
-                    eprintln!("Warning: Using a C++ scanner is now deprecated. Please migrate your scanner code to C, as C++ support will be removed in the near future.");
-                }
-
-                command.arg(scanner_path);
-            }
-            command
-                .arg("/utf-8")
-                .arg("/link")
-                .arg(format!("/out:{}", output_path.to_str().unwrap()));
+            let out = format!("-out:{}", output_path.to_str().unwrap());
+            command.arg(if self.debug_build { "-LDd" } else { "-LD" });
+            command.arg("-utf-8");
+            command.args(cc_config.get_files());
+            command.arg("-link").arg(out);
         } else {
-            command
-                .arg("-shared")
-                .arg("-fno-exceptions")
-                .arg("-g")
-                .arg("-o")
-                .arg(output_path);
-
-            for path in &config.header_paths {
-                command.arg(format!("-I{}", path.to_string_lossy()));
-            }
-
-            if !cfg!(windows) {
-                command.arg("-fPIC");
-            }
-
-            if self.debug_build {
-                command.arg("-O0");
+            command.args(["-Werror=implicit-function-declaration", "-g"]);
+            if cfg!(any(target_os = "macos", target_os = "ios")) {
+                command.arg("-dynamiclib");
+                // TODO: remove when supported
+                command.arg("-UTREE_SITTER_REUSE_ALLOCATOR");
             } else {
-                command.arg("-O2");
+                command.arg("-shared");
             }
-
-            if let Some(scanner_path) = config.scanner_path.as_ref() {
-                if scanner_path.extension() == Some("c".as_ref()) {
-                    command.arg("-xc").arg("-std=c11").arg(scanner_path);
-                } else {
-                    eprintln!("Warning: Using a C++ scanner is now deprecated. Please migrate your scanner code to C, as C++ support will be removed in the near future.");
-                    command.arg(scanner_path);
-                }
-            }
-            command.arg("-xc").arg(&config.parser_path);
+            command.args(cc_config.get_files());
+            command.arg("-o").arg(output_path);
         }
-
-        // For conditional compilation of external scanner code when
-        // used internally by `tree-sitter parse` and other sub commands.
-        command.arg("-DTREE_SITTER_INTERNAL_BUILD");
-
-        // Always use the same allocator in the CLI as any scanner, useful for debugging and
-        // tracking memory leaks in tests.
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        command.arg("-DTREE_SITTER_REUSE_ALLOCATOR");
 
         let output = command.output().with_context(|| {
             format!("Failed to execute the C compiler with the following command:\n{command:?}")
@@ -651,20 +626,24 @@ impl Loader {
         lock_file.unlock()?;
         fs::remove_file(lock_path)?;
 
-        if !output.status.success() {
-            return Err(anyhow!(
+        if output.status.success() {
+            Ok(())
+        } else {
+            Err(anyhow!(
                 "Parser compilation failed.\nStdout: {}\nStderr: {}",
                 String::from_utf8_lossy(&output.stdout),
                 String::from_utf8_lossy(&output.stderr)
-            ));
+            ))
         }
-
-        Ok(())
     }
 
     #[cfg(unix)]
     fn check_external_scanner(&self, name: &str, library_path: &Path) -> Result<()> {
-        let prefix = if cfg!(target_os = "macos") { "_" } else { "" };
+        let prefix = if cfg!(any(target_os = "macos", target_os = "ios")) {
+            "_"
+        } else {
+            ""
+        };
         let mut must_have = vec![
             format!("{prefix}tree_sitter_{name}_external_scanner_create"),
             format!("{prefix}tree_sitter_{name}_external_scanner_destroy"),
