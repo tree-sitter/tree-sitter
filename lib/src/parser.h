@@ -128,6 +128,7 @@ struct TSLanguage {
     void (*deserialize)(void *, const char *, unsigned);
   } external_scanner;
   const TSStateId *primary_state_ids;
+  const char *name;
 };
 
 static inline bool set_contains(TSCharacterRange *ranges, uint32_t len, int32_t lookahead) {
