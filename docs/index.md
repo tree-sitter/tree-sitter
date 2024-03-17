@@ -105,6 +105,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Meson](https://github.com/Decodetalkers/tree-sitter-meson)
 * [Meson](https://github.com/staysail/tree-sitter-meson)
 * [Motorola 68000 assembly](https://github.com/grahambates/tree-sitter-m68k)
+* [NGINX](https://gitlab.com/joncoole/tree-sitter-nginx)
 * [Nim](https://github.com/alaviss/tree-sitter-nim)
 * [Nix](https://github.com/cstrahan/tree-sitter-nix)
 * [Noir](https://github.com/hhamud/tree-sitter-noir)
