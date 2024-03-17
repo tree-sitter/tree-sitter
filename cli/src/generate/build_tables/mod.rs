@@ -97,7 +97,7 @@ fn populate_error_state(
 
     // First identify the *conflict-free tokens*: tokens that do not overlap with
     // any other token in any way, besides matching exactly the same string.
-    let conflict_free_tokens: TokenSet = (0..n)
+    let conflict_free_tokens = (0..n)
         .filter_map(|i| {
             let conflicts_with_other_tokens = (0..n).any(|j| {
                 j != i
@@ -114,7 +114,7 @@ fn populate_error_state(
                 Some(Symbol::terminal(i))
             }
         })
-        .collect();
+        .collect::<TokenSet>();
 
     let recover_entry = ParseTableEntry {
         reusable: false,
@@ -263,7 +263,7 @@ fn identify_keywords(
 
     // First find all of the candidate keyword tokens: tokens that start with
     // letters or underscore and can match the same string as a word token.
-    let keyword_candidates: TokenSet = lexical_grammar
+    let keyword_candidates = lexical_grammar
         .variables
         .iter()
         .enumerate()
@@ -282,10 +282,10 @@ fn identify_keywords(
                 None
             }
         })
-        .collect();
+        .collect::<TokenSet>();
 
     // Exclude keyword candidates that shadow another keyword candidate.
-    let keywords: TokenSet = keyword_candidates
+    let keywords = keyword_candidates
         .iter()
         .filter(|token| {
             for other_token in keyword_candidates.iter() {
@@ -302,7 +302,7 @@ fn identify_keywords(
             }
             true
         })
-        .collect();
+        .collect::<TokenSet>();
 
     // Exclude keyword candidates for which substituting the keyword capture
     // token would introduce new lexical conflicts with other tokens.

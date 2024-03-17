@@ -398,7 +398,7 @@ fn test_tags_via_c_api() {
         .unwrap();
 
         let syntax_types = unsafe {
-            let mut len: u32 = 0;
+            let mut len = 0;
             let ptr =
                 c::ts_tagger_syntax_kinds_for_scope_name(tagger, c_scope_name.as_ptr(), &mut len);
             slice::from_raw_parts(ptr, len as usize)
