@@ -7,6 +7,8 @@ use tree_sitter_highlight::HighlightConfiguration;
 use tree_sitter_loader::{CompileConfig, Loader};
 use tree_sitter_tags::TagsConfiguration;
 
+use crate::generate::ALLOC_HEADER;
+
 include!("./dirs.rs");
 
 lazy_static! {
@@ -105,32 +107,18 @@ pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> 
     let header_path = src_dir.join("tree_sitter");
     fs::create_dir_all(&header_path).unwrap();
 
-    fs::write(header_path.join("alloc.h"), tree_sitter::PARSER_HEADER)
-        .with_context(|| {
-            format!(
-                "Failed to write {:?}",
-                header_path.join("alloc.h").file_name().unwrap()
-            )
-        })
-        .unwrap();
-
-    fs::write(header_path.join("array.h"), tree_sitter::PARSER_HEADER)
-        .with_context(|| {
-            format!(
-                "Failed to write {:?}",
-                header_path.join("array.h").file_name().unwrap()
-            )
-        })
-        .unwrap();
-
-    fs::write(header_path.join("parser.h"), tree_sitter::PARSER_HEADER)
-        .with_context(|| {
-            format!(
-                "Failed to write {:?}",
-                header_path.join("parser.h").file_name().unwrap()
-            )
-        })
-        .unwrap();
+    [
+        ("alloc.h", ALLOC_HEADER),
+        ("array.h", tree_sitter::ARRAY_HEADER),
+        ("parser.h", tree_sitter::PARSER_HEADER),
+    ]
+    .iter()
+    .for_each(|(file, content)| {
+        let file = header_path.join(file);
+        fs::write(&file, content)
+            .with_context(|| format!("Failed to write {:?}", file.file_name().unwrap()))
+            .unwrap();
+    });
 
     let paths_to_check = if let Some(scanner_path) = &scanner_path {
         vec![parser_path, scanner_path.clone()]
