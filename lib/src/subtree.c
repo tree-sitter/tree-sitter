@@ -890,9 +890,15 @@ static size_t ts_subtree__write_to_string(
       }
     }
   } else if (is_root) {
-    TSSymbol symbol = ts_subtree_symbol(self);
+    TSSymbol symbol = alias_symbol ? alias_symbol : ts_subtree_symbol(self);
     const char *symbol_name = ts_language_symbol_name(language, symbol);
-    cursor += snprintf(*writer, limit, "(\"%s\")", symbol_name);
+    if (ts_subtree_child_count(self) > 0) {
+      cursor += snprintf(*writer, limit, "(%s", symbol_name);
+    } else if (ts_subtree_named(self)) {
+      cursor += snprintf(*writer, limit, "(%s)", symbol_name);
+    } else {
+      cursor += snprintf(*writer, limit, "(\"%s\")", symbol_name);
+    }
   }
 
   if (ts_subtree_child_count(self)) {
@@ -947,6 +953,8 @@ static size_t ts_subtree__write_to_string(
 
 char *ts_subtree_string(
   Subtree self,
+  TSSymbol alias_symbol,
+  bool alias_is_named,
   const TSLanguage *language,
   bool include_all
 ) {
@@ -954,13 +962,13 @@ char *ts_subtree_string(
   size_t size = ts_subtree__write_to_string(
     self, scratch_string, 1,
     language, include_all,
-    0, false, ROOT_FIELD
+    alias_symbol, alias_is_named, ROOT_FIELD
   ) + 1;
   char *result = ts_malloc(size * sizeof(char));
   ts_subtree__write_to_string(
     self, result, size,
     language, include_all,
-    0, false, ROOT_FIELD
+    alias_symbol, alias_is_named, ROOT_FIELD
   );
   return result;
 }

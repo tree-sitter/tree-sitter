@@ -439,7 +439,14 @@ const char *ts_node_grammar_type(TSNode self) {
 }
 
 char *ts_node_string(TSNode self) {
-  return ts_subtree_string(ts_node__subtree(self), self.tree->language, false);
+  TSSymbol alias_symbol = ts_node__alias(&self);
+  return ts_subtree_string(
+    ts_node__subtree(self),
+    alias_symbol,
+    ts_language_symbol_metadata(self.tree->language, alias_symbol).visible,
+    self.tree->language,
+    false
+  );
 }
 
 bool ts_node_eq(TSNode self, TSNode other) {
