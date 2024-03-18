@@ -206,7 +206,7 @@ void ts_subtree_summarize(MutableSubtree, const Subtree *, uint32_t, const TSLan
 void ts_subtree_summarize_children(MutableSubtree, const TSLanguage *);
 void ts_subtree_balance(Subtree, SubtreePool *, const TSLanguage *);
 Subtree ts_subtree_edit(Subtree, const TSInputEdit *edit, SubtreePool *);
-char *ts_subtree_string(Subtree, const TSLanguage *, bool include_all);
+char *ts_subtree_string(Subtree, TSSymbol, bool, const TSLanguage *, bool include_all);
 void ts_subtree_print_dot_graph(Subtree, const TSLanguage *, FILE *);
 Subtree ts_subtree_last_external_token(Subtree);
 const ExternalScannerState *ts_subtree_external_scanner_state(Subtree self);
