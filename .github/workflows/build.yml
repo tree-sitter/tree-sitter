@@ -53,13 +53,6 @@ jobs:
         - { platform: linux-x86         , cc: i686-linux-gnu-gcc                , ar: i686-linux-gnu-ar              }
         - { platform: linux-powerpc64   , cc: powerpc64-linux-gnu-gcc           , ar: powerpc64-linux-gnu-ar         }
 
-        # See #2041 tree-sitter issue
-        - { platform: windows-x64   , rust-test-threads: 1 }
-        - { platform: windows-x86   , rust-test-threads: 1 }
-
-        # CLI only build
-        - { platform: windows-arm64 , cli-only: true }
-
     env:
       BUILD_CMD: cargo
       EXE: ${{ contains(matrix.target, 'windows') && '.exe' || '' }}
