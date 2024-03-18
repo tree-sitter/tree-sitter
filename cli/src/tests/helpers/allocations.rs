@@ -81,7 +81,6 @@ fn record_alloc(ptr: *mut c_void) {
 }
 
 fn record_dealloc(ptr: *mut c_void) {
-    assert!(!ptr.is_null(), "Zero pointer deallocation!");
     RECORDER.with(|recorder| {
         if recorder.enabled.load(SeqCst) {
             recorder

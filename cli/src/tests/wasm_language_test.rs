@@ -29,7 +29,71 @@ fn test_wasm_stdlib_symbols() {
 }
 
 #[test]
-fn test_load_wasm_language() {
+fn test_load_wasm_ruby_language() {
+    allocations::record(|| {
+        let mut store = WasmStore::new(ENGINE.clone()).unwrap();
+        let mut parser = Parser::new();
+        let wasm = fs::read(WASM_DIR.join("tree-sitter-ruby.wasm")).unwrap();
+        let language = store.load_language("ruby", &wasm).unwrap();
+        parser.set_wasm_store(store).unwrap();
+        parser.set_language(&language).unwrap();
+        let tree = parser.parse("class A; end", None).unwrap();
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            "(program (class name: (constant)))"
+        );
+    });
+}
+
+#[test]
+fn test_load_wasm_html_language() {
+    allocations::record(|| {
+        let mut store = WasmStore::new(ENGINE.clone()).unwrap();
+        let mut parser = Parser::new();
+        let wasm = fs::read(WASM_DIR.join("tree-sitter-html.wasm")).unwrap();
+        let language = store.load_language("html", &wasm).unwrap();
+        parser.set_wasm_store(store).unwrap();
+        parser.set_language(&language).unwrap();
+        let tree = parser
+            .parse("<div><span></span><p></p></div>", None)
+            .unwrap();
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            "(document (element (start_tag (tag_name)) (element (start_tag (tag_name)) (end_tag (tag_name))) (element (start_tag (tag_name)) (end_tag (tag_name))) (end_tag (tag_name))))"
+        );
+    });
+}
+
+#[test]
+fn test_load_wasm_rust_language() {
+    allocations::record(|| {
+        let mut store = WasmStore::new(ENGINE.clone()).unwrap();
+        let mut parser = Parser::new();
+        let wasm = fs::read(WASM_DIR.join("tree-sitter-rust.wasm")).unwrap();
+        let language = store.load_language("rust", &wasm).unwrap();
+        parser.set_wasm_store(store).unwrap();
+        parser.set_language(&language).unwrap();
+        let tree = parser.parse("fn main() {}", None).unwrap();
+        assert_eq!(tree.root_node().to_sexp(), "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))");
+    });
+}
+
+#[test]
+fn test_load_wasm_javascript_language() {
+    allocations::record(|| {
+        let mut store = WasmStore::new(ENGINE.clone()).unwrap();
+        let mut parser = Parser::new();
+        let wasm = fs::read(WASM_DIR.join("tree-sitter-javascript.wasm")).unwrap();
+        let language = store.load_language("javascript", &wasm).unwrap();
+        parser.set_wasm_store(store).unwrap();
+        parser.set_language(&language).unwrap();
+        let tree = parser.parse("const a = b\nconst c = d", None).unwrap();
+        assert_eq!(tree.root_node().to_sexp(), "(program (lexical_declaration (variable_declarator name: (identifier) value: (identifier))) (lexical_declaration (variable_declarator name: (identifier) value: (identifier))))");
+    });
+}
+
+#[test]
+fn test_load_multiple_wasm_languages() {
     allocations::record(|| {
         let mut store = WasmStore::new(ENGINE.clone()).unwrap();
         let mut parser = Parser::new();
@@ -51,6 +115,9 @@ fn test_load_wasm_language() {
             .unwrap();
         let mut query_cursor = QueryCursor::new();
 
+        // First, parse with the store that originally loaded the languages.
+        // Then parse with a new parser and wasm store, so that the languages
+        // are added one-by-one, in between parses.
         for mut parser in [parser, parser2] {
             for _ in 0..2 {
                 let query_rust = Query::new(&language_rust, "(const_item) @foo").unwrap();
@@ -155,6 +222,31 @@ fn test_load_wasm_errors() {
         assert_eq!(
             store.load_language("rust", &bad_wasm).unwrap_err().kind,
             WasmErrorKind::Compile,
+        );
+    });
+}
+
+#[test]
+fn test_wasm_oom() {
+    allocations::record(|| {
+        let mut store = WasmStore::new(ENGINE.clone()).unwrap();
+        let mut parser = Parser::new();
+        let wasm = fs::read(WASM_DIR.join("tree-sitter-html.wasm")).unwrap();
+        let language = store.load_language("html", &wasm).unwrap();
+        parser.set_wasm_store(store).unwrap();
+        parser.set_language(&language).unwrap();
+
+        let tag_name = "a-b".repeat(2 * 1024 * 1024);
+        let code = format!("<{tag_name}>hello world</{tag_name}>");
+        assert!(parser.parse(&code, None).is_none());
+
+        let tag_name = "a-b".repeat(20);
+        let code = format!("<{tag_name}>hello world</{tag_name}>");
+        parser.set_language(&language).unwrap();
+        let tree = parser.parse(&code, None).unwrap();
+        assert_eq!(
+            tree.root_node().to_sexp(),
+            "(document (element (start_tag (tag_name)) (text) (end_tag (tag_name))))"
         );
     });
 }
