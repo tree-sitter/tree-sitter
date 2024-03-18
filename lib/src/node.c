@@ -513,7 +513,7 @@ TSNode ts_node_parent(TSNode self) {
         ts_node_start_byte(child) > ts_node_start_byte(self) ||
         child.id == self.id
       ) break;
-      if (iterator.position.bytes >= end_byte) {
+      if (iterator.position.bytes >= end_byte && ts_node_child_count(child) > 0) {
         node = child;
         if (ts_node__is_relevant(child, true)) {
           last_visible_node = node;
