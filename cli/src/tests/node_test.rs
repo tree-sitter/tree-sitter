@@ -249,6 +249,24 @@ fn test_node_parent_of_child_by_field_name() {
 }
 
 #[test]
+fn test_parent_of_zero_width_node() {
+    let code = "def dupa(foo):";
+
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("python")).unwrap();
+
+    let tree = parser.parse(code, None).unwrap();
+    let root = tree.root_node();
+    let function_definition = root.child(0).unwrap();
+    let block = function_definition.child(4).unwrap();
+    let block_parent = block.parent().unwrap();
+
+    assert_eq!(block.to_string(), "(block)");
+    assert_eq!(block_parent.kind(), "function_definition");
+    assert_eq!(block_parent.to_string(), "(function_definition name: (identifier) parameters: (parameters (identifier)) body: (block))");
+}
+
+#[test]
 fn test_node_field_name_for_child() {
     let mut parser = Parser::new();
     parser.set_language(&get_language("c")).unwrap();
