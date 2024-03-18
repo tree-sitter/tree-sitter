@@ -1355,7 +1355,7 @@ impl Generator {
 
         add_line!(
             self,
-            "TS_PUBLIC const TSLanguage *{language_function_name}() {{",
+            "TS_PUBLIC const TSLanguage *{language_function_name}(void) {{",
         );
         indent!(self);
         add_line!(self, "static const TSLanguage language = {{");

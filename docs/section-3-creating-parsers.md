@@ -785,7 +785,7 @@ Finally, you must define five functions with specific names, based on your langu
 #### Create
 
 ```c
-void * tree_sitter_my_language_external_scanner_create() {
+void *tree_sitter_my_language_external_scanner_create(void) {
   // ...
 }
 ```
@@ -891,7 +891,7 @@ For example, assuming you wanted to allocate 100 bytes for your scanner, you'd d
 
 // ...
 
-void* tree_sitter_my_language_external_scanner_create() {
+void *tree_sitter_my_language_external_scanner_create(void) {
   return ts_calloc(100, 1); // or ts_malloc(100)
 }
 
@@ -921,7 +921,7 @@ enum TokenType {
 
 // Create the array in your create function
 
-void* tree_sitter_my_language_external_scanner_create() {
+void *tree_sitter_my_language_external_scanner_create(void) {
   return ts_calloc(1, sizeof(Array(int)));
 
   // or if you want to zero out the memory yourself
