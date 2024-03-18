@@ -107,7 +107,7 @@ pub struct TSNode {
 pub struct TSTreeCursor {
     pub tree: *const ::std::os::raw::c_void,
     pub id: *const ::std::os::raw::c_void,
-    pub context: [u32; 2usize],
+    pub context: [u32; 3usize],
 }
 #[repr(C)]
 #[derive(Debug)]

@@ -14,6 +14,7 @@ typedef struct {
 typedef struct {
   const TSTree *tree;
   Array(TreeCursorEntry) stack;
+  TSSymbol root_alias_symbol;
 } TreeCursor;
 
 typedef enum {

@@ -53,6 +53,7 @@ static inline void marshal_cursor(const TSTreeCursor *cursor) {
   TRANSFER_BUFFER[0] = cursor->id;
   TRANSFER_BUFFER[1] = (const void *)cursor->context[0];
   TRANSFER_BUFFER[2] = (const void *)cursor->context[1];
+  TRANSFER_BUFFER[3] = (const void *)cursor->context[2];
 }
 
 static inline TSTreeCursor unmarshal_cursor(const void **buffer, const TSTree *tree) {
@@ -60,6 +61,7 @@ static inline TSTreeCursor unmarshal_cursor(const void **buffer, const TSTree *t
   cursor.id = buffer[0];
   cursor.context[0] = (uint32_t)buffer[1];
   cursor.context[1] = (uint32_t)buffer[2];
+  cursor.context[2] = (uint32_t)buffer[3];
   cursor.tree = tree;
   return cursor;
 }
@@ -276,7 +278,7 @@ void ts_tree_cursor_reset_wasm(const TSTree *tree) {
 
 void ts_tree_cursor_reset_to_wasm(const TSTree *_dst, const TSTree *_src) {
   TSTreeCursor cursor = unmarshal_cursor(TRANSFER_BUFFER, _dst);
-  TSTreeCursor src = unmarshal_cursor(&TRANSFER_BUFFER[3], _src);
+  TSTreeCursor src = unmarshal_cursor(&TRANSFER_BUFFER[4], _src);
   ts_tree_cursor_reset_to(&cursor, &src);
   marshal_cursor(&cursor);
 }
