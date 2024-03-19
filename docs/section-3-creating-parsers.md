@@ -56,6 +56,12 @@ export PATH=$PATH:./node_modules/.bin
 Once you have the CLI installed, create a file called `grammar.js` with the following contents:
 
 ```js
+/// <reference types="tree-sitter-cli/dsl" />
+// @ts-check
+// NOTE: The above two lines are optional.
+// They allow your editor to provide type inference on this javascript file,
+// provided you have a TypeScript LSP installed.
+
 module.exports = grammar({
   name: 'YOUR_LANGUAGE_NAME',
 
