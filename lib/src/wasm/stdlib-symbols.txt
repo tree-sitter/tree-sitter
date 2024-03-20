@@ -16,6 +16,7 @@
 "memset",
 "realloc",
 "strcmp",
+"strncmp",
 "strlen",
 "strncpy",
 "towlower",
