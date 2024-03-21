@@ -26,19 +26,13 @@ include = [
 ]
 
 [features]
-wasm = ["wasmtime", "wasmtime-c-api"]
+wasm = ["wasmtime-c-api"]
 
 [dependencies]
 regex.workspace = true
 
-[dependencies.wasmtime]
-version = "18.0.1"
-optional = true
-default-features = false
-features = ["cranelift"]
-
 [dependencies.wasmtime-c-api]
-version = "18.0.1"
+version = "19"
 optional = true
 package = "wasmtime-c-api-impl"
 default-features = false

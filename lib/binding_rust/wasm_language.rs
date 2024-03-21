@@ -6,7 +6,7 @@ use std::{
     mem::{self, MaybeUninit},
     os::raw::c_char,
 };
-pub use wasmtime;
+pub use wasmtime_c_api::wasmtime;
 
 // Force Cargo to include wasmtime-c-api as a dependency of this crate,
 // even though it is only used by the C code.
