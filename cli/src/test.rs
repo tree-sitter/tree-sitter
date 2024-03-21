@@ -116,6 +116,7 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
         })));
     }
 
+    let mut test_num = 0;
     let mut failures = Vec::new();
     let mut corrected_entries = Vec::new();
     let mut has_parse_errors = false;
@@ -124,6 +125,7 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
         test_entry,
         opts,
         0,
+        &mut test_num,
         &mut failures,
         &mut corrected_entries,
         &mut has_parse_errors,
@@ -176,13 +178,6 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
             }
         }
     }
-}
-
-pub fn list_tests_at_path(opts: &TestOptions) -> Result<()> {
-    let test_entry = parse_tests(&opts.path)?;
-
-    let mut test_num = 0;
-    print_tests(test_entry, opts, 0, &mut test_num)
 }
 
 pub fn get_test_contents(
@@ -303,15 +298,18 @@ pub fn print_diff(actual: &str, expected: &str) {
     println!();
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_tests(
     parser: &mut Parser,
     test_entry: TestEntry,
     opts: &mut TestOptions,
     mut indent_level: i32,
+    test_num: &mut u32,
     failures: &mut Vec<(String, String, String)>,
     corrected_entries: &mut Vec<(String, String, String, usize, usize)>,
     has_parse_errors: &mut bool,
 ) -> Result<bool> {
+    let test_num_str = format!("{:>3}:", test_num);
     match test_entry {
         TestEntry::Example {
             name,
@@ -322,15 +320,42 @@ fn run_tests(
             has_fields,
             attributes,
         } => {
+            if let Some(filter) = opts.filter {
+                if !name.contains(filter) {
+                    *test_num += 1;
+                    return Ok(true);
+                }
+            }
+            if let Some(include) = &opts.include {
+                if !include.is_match(&name) {
+                    *test_num += 1;
+                    return Ok(true);
+                }
+            }
+            if let Some(exclude) = &opts.exclude {
+                if exclude.is_match(&name) {
+                    *test_num += 1;
+                    return Ok(true);
+                }
+            }
+
             print!("{}", "  ".repeat(indent_level as usize));
 
             if attributes.skip {
-                println!(" {}", Colour::Yellow.paint(&name));
+                println!(
+                    "{}  {}",
+                    Colour::Yellow.paint(&test_num_str),
+                    Colour::Yellow.paint(&name)
+                );
                 return Ok(true);
             }
 
             if !attributes.platform {
-                println!(" {}", Colour::Purple.paint(&name));
+                println!(
+                    "{}  {}",
+                    Colour::Purple.paint(&test_num_str),
+                    Colour::Purple.paint(&name)
+                );
                 return Ok(true);
             }
 
@@ -346,9 +371,17 @@ fn run_tests(
 
                 if attributes.error {
                     if tree.root_node().has_error() {
-                        println!(" {}", Colour::Green.paint(&name));
+                        println!(
+                            "{}  {}",
+                            Colour::Green.paint(&test_num_str),
+                            Colour::Green.paint(&name)
+                        );
                     } else {
-                        println!(" {}", Colour::Red.paint(&name));
+                        println!(
+                            "{}  {}",
+                            Colour::Red.paint(&test_num_str),
+                            Colour::Red.paint(&name)
+                        );
                     }
 
                     if attributes.fail_fast {
@@ -361,7 +394,11 @@ fn run_tests(
                     }
 
                     if actual == output {
-                        println!("✓ {}", Colour::Green.paint(&name));
+                        println!(
+                            "{} ✓ {}",
+                            Colour::Green.paint(&test_num_str),
+                            Colour::Green.paint(&name)
+                        );
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
                             let output = format_sexp(&output, 0);
@@ -401,10 +438,18 @@ fn run_tests(
                                     header_delim_len,
                                     divider_delim_len,
                                 ));
-                                println!("✓ {}", Colour::Blue.paint(&name));
+                                println!(
+                                    "{} ✓ {}",
+                                    Colour::Blue.paint(&test_num_str),
+                                    Colour::Blue.paint(&name)
+                                );
                             }
                         } else {
-                            println!("✗ {}", Colour::Red.paint(&name));
+                            println!(
+                                "{} ✗ {}",
+                                Colour::Red.paint(&test_num_str),
+                                Colour::Red.paint(&name)
+                            );
                         }
                         failures.push((name.clone(), actual, output.clone()));
 
@@ -420,33 +465,13 @@ fn run_tests(
                     }
                 }
             }
+            *test_num += 1;
         }
         TestEntry::Group {
             name,
-            mut children,
+            children,
             file_path,
         } => {
-            children.retain(|child| {
-                if let TestEntry::Example { name, .. } = child {
-                    if let Some(filter) = opts.filter {
-                        if !name.contains(filter) {
-                            return false;
-                        }
-                    }
-                    if let Some(include) = &opts.include {
-                        if !include.is_match(name) {
-                            return false;
-                        }
-                    }
-                    if let Some(exclude) = &opts.exclude {
-                        if exclude.is_match(name) {
-                            return false;
-                        }
-                    }
-                }
-                true
-            });
-
             if children.is_empty() {
                 return Ok(true);
             }
@@ -465,6 +490,7 @@ fn run_tests(
                     child,
                     opts,
                     indent_level,
+                    test_num,
                     failures,
                     corrected_entries,
                     has_parse_errors,
@@ -483,72 +509,6 @@ fn run_tests(
         }
     }
     Ok(true)
-}
-
-fn print_tests(
-    test_entry: TestEntry,
-    opts: &TestOptions,
-    mut indent_level: u32,
-    test_num: &mut u32,
-) -> Result<()> {
-    match test_entry {
-        TestEntry::Example {
-            name,
-            input: _,
-            output: _,
-            header_delim_len: _,
-            divider_delim_len: _,
-            has_fields: _,
-            attributes: _,
-        } => {
-            let mut skip_test = false;
-            if let Some(filter) = opts.filter {
-                if !name.contains(filter) {
-                    skip_test = true;
-                }
-            }
-            if let Some(include) = &opts.include {
-                if !include.is_match(&name) {
-                    skip_test = true;
-                }
-            }
-            if let Some(exclude) = &opts.exclude {
-                if exclude.is_match(&name) {
-                    skip_test = true;
-                }
-            }
-
-            if !skip_test {
-                println!(
-                    "{}{}: {}",
-                    "  ".repeat(indent_level as usize),
-                    *test_num,
-                    name
-                );
-            }
-
-            *test_num += 1;
-        }
-        TestEntry::Group {
-            name,
-            children,
-            file_path: _,
-        } => {
-            if children.is_empty() {
-                return Ok(());
-            }
-
-            if indent_level > 0 {
-                println!("{}{}:", "  ".repeat(indent_level as usize), name);
-            }
-
-            indent_level += 1;
-            for child in children {
-                print_tests(child, opts, indent_level, test_num)?;
-            }
-        }
-    }
-    Ok(())
 }
 
 fn write_tests(
