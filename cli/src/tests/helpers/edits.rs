@@ -63,6 +63,19 @@ pub fn invert_edit(input: &[u8], edit: &Edit) -> Edit {
 
 pub fn get_random_edit(rand: &mut Rand, input: &[u8]) -> Edit {
     let choice = rand.unsigned(10);
+    let is_utf8 = str::from_utf8(input).is_ok();
+
+    let nearest_utf8_boundary = |position: usize| {
+        if is_utf8 {
+            input
+                .iter()
+                .rposition(|&b| !(0x80..0xC0).contains(&b))
+                .map_or(0, |i| i + 1)
+        } else {
+            position
+        }
+    };
+
     if choice < 2 {
         // Insert text at end
         let inserted_text = rand.words(3);
@@ -81,7 +94,7 @@ pub fn get_random_edit(rand: &mut Rand, input: &[u8]) -> Edit {
         }
     } else if choice < 8 {
         // Insert at a random position
-        let position = rand.unsigned(input.len());
+        let position = nearest_utf8_boundary(rand.unsigned(input.len()));
         let word_count = 1 + rand.unsigned(3);
         let inserted_text = rand.words(word_count);
         Edit {
@@ -91,7 +104,7 @@ pub fn get_random_edit(rand: &mut Rand, input: &[u8]) -> Edit {
         }
     } else {
         // Replace at random position
-        let position = rand.unsigned(input.len());
+        let position = nearest_utf8_boundary(rand.unsigned(input.len()));
         let deleted_length = rand.unsigned(input.len() - position);
         let word_count = 1 + rand.unsigned(3);
         let inserted_text = rand.words(word_count);
