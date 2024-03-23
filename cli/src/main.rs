@@ -447,7 +447,7 @@ fn run() -> Result<()> {
                 let (output_dir, output_path) = if let Some(ref path) = build_options.output {
                     (current_dir.clone(), Some(current_dir.join(path)))
                 } else {
-                    (loader.parser_lib_path.clone(), None)
+                    (current_dir.clone(), None)
                 };
                 wasm::compile_language_to_wasm(
                     &loader,
