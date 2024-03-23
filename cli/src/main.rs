@@ -444,15 +444,11 @@ fn run() -> Result<()> {
             if build_options.wasm {
                 let grammar_path =
                     current_dir.join(build_options.path.as_deref().unwrap_or_default());
-                let (output_dir, output_path) = if let Some(ref path) = build_options.output {
-                    (current_dir.clone(), Some(current_dir.join(path)))
-                } else {
-                    (loader.parser_lib_path.clone(), None)
-                };
+                let output_path = build_options.output.map(|path| current_dir.join(path));
                 wasm::compile_language_to_wasm(
                     &loader,
                     &grammar_path,
-                    &output_dir,
+                    &current_dir,
                     output_path,
                     build_options.docker,
                 )?;
