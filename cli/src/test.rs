@@ -6,7 +6,7 @@ use indoc::indoc;
 use lazy_static::lazy_static;
 use regex::bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder};
 use regex::Regex;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::ffi::OsStr;
 use std::fs;
 use std::io::{self, Write};
@@ -320,25 +320,6 @@ fn run_tests(
             has_fields,
             attributes,
         } => {
-            if let Some(filter) = opts.filter {
-                if !name.contains(filter) {
-                    *test_num += 1;
-                    return Ok(true);
-                }
-            }
-            if let Some(include) = &opts.include {
-                if !include.is_match(&name) {
-                    *test_num += 1;
-                    return Ok(true);
-                }
-            }
-            if let Some(exclude) = &opts.exclude {
-                if exclude.is_match(&name) {
-                    *test_num += 1;
-                    return Ok(true);
-                }
-            }
-
             print!("{}", "  ".repeat(indent_level as usize));
 
             if attributes.skip {
@@ -469,10 +450,46 @@ fn run_tests(
         }
         TestEntry::Group {
             name,
-            children,
+            mut children,
             file_path,
         } => {
+            // track which tests are being skipped to maintain consistent numbering while using filters
+            let mut skipped_tests = HashSet::new();
+            let mut advance_counter = *test_num;
+            children.retain(|child| match child {
+                TestEntry::Example { name, .. } => {
+                    if let Some(filter) = opts.filter {
+                        if !name.contains(filter) {
+                            skipped_tests.insert(advance_counter);
+                            advance_counter += 1;
+                            return false;
+                        }
+                    }
+                    if let Some(include) = &opts.include {
+                        if !include.is_match(name) {
+                            skipped_tests.insert(advance_counter);
+                            advance_counter += 1;
+                            return false;
+                        }
+                    }
+                    if let Some(exclude) = &opts.exclude {
+                        if exclude.is_match(name) {
+                            skipped_tests.insert(advance_counter);
+                            advance_counter += 1;
+                            return false;
+                        }
+                    }
+                    advance_counter += 1;
+                    true
+                }
+                TestEntry::Group { .. } => {
+                    advance_counter += count_subtests(child);
+                    true
+                }
+            });
+
             if children.is_empty() {
+                *test_num = advance_counter;
                 return Ok(true);
             }
 
@@ -485,6 +502,11 @@ fn run_tests(
 
             indent_level += 1;
             for child in children {
+                if let TestEntry::Example { .. } = child {
+                    while skipped_tests.remove(test_num) {
+                        *test_num += 1;
+                    }
+                }
                 if !run_tests(
                     parser,
                     child,
@@ -500,6 +522,8 @@ fn run_tests(
                 }
             }
 
+            *test_num += skipped_tests.len() as u32;
+
             if let Some(file_path) = file_path {
                 if opts.update && failures.len() - failure_count > 0 {
                     write_tests(&file_path, corrected_entries)?;
@@ -509,6 +533,15 @@ fn run_tests(
         }
     }
     Ok(true)
+}
+
+fn count_subtests(test_entry: &TestEntry) -> u32 {
+    match test_entry {
+        TestEntry::Example { .. } => 1,
+        TestEntry::Group { children, .. } => children
+            .iter()
+            .fold(0u32, |count, child| count + count_subtests(child)),
+    }
 }
 
 fn write_tests(
