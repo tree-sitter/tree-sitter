@@ -284,6 +284,15 @@ static bool ts_lexer__is_at_included_range_start(const TSLexer *_self) {
   }
 }
 
+static void ts_lexer__log(const TSLexer *_self, const char *message) {
+  Lexer *self = (Lexer *)_self;
+  if (self->logger.log) {
+    snprintf(self->debug_buffer, TREE_SITTER_SERIALIZATION_BUFFER_SIZE, "%s",
+             message);
+    self->logger.log(self->logger.payload, TSLogTypeLex, self->debug_buffer);
+  }
+}
+
 void ts_lexer_init(Lexer *self) {
   *self = (Lexer) {
     .data = {
@@ -295,6 +304,7 @@ void ts_lexer_init(Lexer *self) {
       .get_column = ts_lexer__get_column,
       .is_at_included_range_start = ts_lexer__is_at_included_range_start,
       .eof = ts_lexer__eof,
+      .log = ts_lexer__log,
       .lookahead = 0,
       .result_symbol = 0,
     },
