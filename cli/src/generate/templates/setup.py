@@ -29,6 +29,16 @@ setup(
         "tree_sitter_LOWER_PARSER_NAME": ["*.pyi", "py.typed"],
         "tree_sitter_LOWER_PARSER_NAME.queries": ["*.scm"],
     },
+    data_files=[
+        (
+            "src/tree_sitter",
+            [
+                "src/tree_sitter/alloc.h",
+                "src/tree_sitter/array.h",
+                "src/tree_sitter/parser.h",
+            ],
+        )
+    ],
     ext_package="tree_sitter_LOWER_PARSER_NAME",
     ext_modules=[
         Extension(
