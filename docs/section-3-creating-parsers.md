@@ -53,6 +53,12 @@ The last command will install the CLI into the `node_modules` folder in your wor
 export PATH=$PATH:./node_modules/.bin
 ```
 
+Next, add the following entry to your `package.json`:
+```js
+// In package.json
+"tree-sitter": []
+```
+
 Once you have the CLI installed, create a file called `grammar.js` with the following contents:
 
 ```js
