@@ -505,33 +505,35 @@ TSStateId ts_node_next_parse_state(TSNode self) {
 
 TSNode ts_node_parent(TSNode self) {
   TSNode node = ts_tree_root_node(self.tree);
-  uint32_t end_byte = ts_node_end_byte(self);
   if (node.id == self.id) return ts_node__null();
 
-  TSNode last_visible_node = node;
-  bool did_descend = true;
-  while (did_descend) {
-    did_descend = false;
-
-    TSNode child;
-    NodeChildIterator iterator = ts_node_iterate_children(&node);
-    while (ts_node_child_iterator_next(&iterator, &child)) {
-      if (
-        ts_node_start_byte(child) > ts_node_start_byte(self) ||
-        child.id == self.id
-      ) break;
-      if (iterator.position.bytes >= end_byte && ts_node_child_count(child) > 0) {
-        node = child;
-        if (ts_node__is_relevant(child, true)) {
-          last_visible_node = node;
-        }
-        did_descend = true;
-        break;
-      }
-    }
+  while (true) {
+   TSNode next_node = ts_node_child_containing_descendant(node, self);
+   if (ts_node_is_null(next_node)) break;
+   node = next_node;
   }
 
-  return last_visible_node;
+  return node;
+}
+
+TSNode ts_node_child_containing_descendant(TSNode self, TSNode subnode) {
+  uint32_t start_byte = ts_node_start_byte(subnode);
+  uint32_t end_byte = ts_node_end_byte(subnode);
+
+  do {
+    NodeChildIterator iter = ts_node_iterate_children(&self);
+    do {
+      if (
+        !ts_node_child_iterator_next(&iter, &self)
+        || ts_node_start_byte(self) > start_byte
+        || self.id == subnode.id
+      ) {
+        return ts_node__null();
+      }
+    } while (iter.position.bytes < end_byte || ts_node_child_count(self) == 0);
+  } while (!ts_node__is_relevant(self, true));
+
+  return self;
 }
 
 TSNode ts_node_child(TSNode self, uint32_t child_index) {
