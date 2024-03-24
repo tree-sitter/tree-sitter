@@ -126,12 +126,12 @@ pub fn generate_grammar_files(
                     .unwrap();
                 if dependencies.remove("nan").is_some() {
                     eprintln!("Replacing nan dependency with node-addon-api in package.json");
-                    dependencies.insert("node-addon-api".to_string(), "^7.1.0".into());
+                    dependencies.insert("node-addon-api".to_string(), "^8.0.0".into());
                     updated = true;
                 }
                 if !dependencies.contains_key("node-gyp-build") {
                     eprintln!("Adding node-gyp-build dependency to package.json");
-                    dependencies.insert("node-gyp-build".to_string(), "^4.8.0".into());
+                    dependencies.insert("node-gyp-build".to_string(), "^4.8.1".into());
                     updated = true;
                 }
 
@@ -142,34 +142,24 @@ pub fn generate_grammar_files(
                     .unwrap();
                 if !dev_dependencies.contains_key("prebuildify") {
                     eprintln!("Adding prebuildify devDependency to package.json");
-                    dev_dependencies.insert("prebuildify".to_string(), "^6.0.0".into());
+                    dev_dependencies.insert("prebuildify".to_string(), "^6.0.1".into());
                     updated = true;
                 }
 
+                let node_test = "node --test bindings/node/*_test.js";
                 let scripts = package_json
                     .entry("scripts".to_string())
                     .or_insert_with(|| Value::Object(Map::new()))
                     .as_object_mut()
                     .unwrap();
-                match scripts.get("install") {
-                    None => {
-                        eprintln!("Adding an install script to package.json");
-                        scripts.insert("install".to_string(), "node-gyp-build".into());
-                        updated = true;
-                    }
-                    Some(Value::String(v)) if v != "node-gyp-build" => {
-                        eprintln!("Updating the install script in package.json");
-                        scripts.insert("install".to_string(), "node-gyp-build".into());
-                        updated = true;
-                    }
-                    Some(_) => {}
-                }
-                if !scripts.contains_key("prebuildify") {
-                    eprintln!("Adding a prebuildify script to package.json");
-                    scripts.insert(
-                        "prebuildify".to_string(),
-                        "prebuildify --napi --strip".into(),
-                    );
+                if !scripts.get("test").is_some_and(|v| v == node_test) {
+                    eprintln!("Updating package.json scripts");
+                    *scripts = Map::from_iter([
+                        ("install".to_string(), "node-gyp-build".into()),
+                        ("prestart".to_string(), "tree-sitter build --wasm".into()),
+                        ("start".to_string(), "tree-sitter playground".into()),
+                        ("test".to_string(), node_test.into()),
+                    ]);
                     updated = true;
                 }
 
@@ -180,7 +170,7 @@ pub fn generate_grammar_files(
                         package_json,
                         "dependencies",
                         "peerDependencies",
-                        json!({"tree-sitter": "^0.21.0"}),
+                        json!({"tree-sitter": "^0.21.1"}),
                     );
 
                     package_json = insert_after(
@@ -214,6 +204,7 @@ pub fn generate_grammar_files(
                             "bindings/node/*",
                             "queries/*",
                             "src/**",
+                            "*.wasm"
                         ]),
                     );
                     updated = true;
