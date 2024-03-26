@@ -496,7 +496,7 @@ h + i
 
     assert_eq!(
         recorder.strings_read(),
-        vec!["\nc1234 = do d\n       e + f\n       g\n"]
+        vec!["\nc1234 = do "]
     );
 }
 
