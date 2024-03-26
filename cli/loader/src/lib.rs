@@ -139,7 +139,7 @@ impl<'a> CompileConfig<'a> {
             scanner_path: None,
             external_files: externals,
             output_path,
-            flags: &["TREE_SITTER_REUSE_ALLOCATOR"],
+            flags: &[],
             name: String::new(),
         }
     }
@@ -560,6 +560,7 @@ impl Loader {
             .cargo_warnings(false)
             .target(BUILD_TARGET)
             .host(BUILD_HOST)
+            .debug(self.debug_build)
             .file(&config.parser_path)
             .includes(&config.header_paths);
 
@@ -593,18 +594,19 @@ impl Loader {
         let output_path = config.output_path.as_ref().unwrap();
 
         if compiler.is_like_msvc() {
-            command.args(["/nologo", "/LD"]);
+            let out = format!("-out:{}", output_path.to_str().unwrap());
+            command.arg(if self.debug_build { "-LDd" } else { "-LD" });
             command.args(cc_config.get_files());
-            command
-                .arg("/link")
-                .arg(format!("/out:{}", output_path.to_str().unwrap()));
+            command.arg("-link").arg(out);
         } else {
-            command.args(["-Werror=implicit-function-declaration", "-g"]);
+            command.arg("-Werror=implicit-function-declaration");
             if cfg!(any(target_os = "macos", target_os = "ios")) {
-                command.arg("-dynamiclib")
+                command.arg("-dynamiclib");
+                // TODO: remove when supported
+                command.arg("-UTREE_SITTER_REUSE_ALLOCATOR");
             } else {
-                command.arg("-shared")
-            };
+                command.arg("-shared");
+            }
             command.args(cc_config.get_files());
             command.arg("-o").arg(output_path);
         }
