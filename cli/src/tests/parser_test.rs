@@ -489,9 +489,7 @@ h + i
         concat!(
             "(block ",
             "(binary_expression (identifier) (identifier)) ",
-            "(binary_expression (identifier) (do_expression (block (identifier)))) ",
-            "(binary_expression (identifier) (identifier)) ",
-            "(identifier) ",
+            "(binary_expression (identifier) (do_expression (block (identifier) (binary_expression (identifier) (identifier)) (identifier)))) ",
             "(binary_expression (identifier) (identifier)))",
         )
     );
