@@ -494,10 +494,7 @@ h + i
         )
     );
 
-    assert_eq!(
-        recorder.strings_read(),
-        vec!["\nc1234 = do "]
-    );
+    assert_eq!(recorder.strings_read(), vec!["\nc1234 = do "]);
 }
 
 #[test]
