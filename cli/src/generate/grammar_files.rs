@@ -261,9 +261,19 @@ pub fn generate_grammar_files(
             generate_file(path, LIB_RS_TEMPLATE, language_name)
         })?;
 
-        missing_path(path.join("build.rs"), |path| {
-            generate_file(path, BUILD_RS_TEMPLATE, language_name)
-        })?;
+        missing_path_else(
+            path.join("build.rs"),
+            |path| generate_file(path, BUILD_RS_TEMPLATE, language_name),
+            |path| {
+                let build_rs =
+                    fs::read_to_string(path).with_context(|| "Failed to read build.rs")?;
+                if !build_rs.contains("/utf-8") {
+                    eprintln!("Updating build.rs with the /utf-8 flag for Windows");
+                    generate_file(path, BUILD_RS_TEMPLATE, language_name)?;
+                }
+                Ok(())
+            },
+        )?;
 
         missing_path(repo_path.join("Cargo.toml"), |path| {
             generate_file(path, CARGO_TOML_TEMPLATE, dashed_language_name.as_str())
