@@ -213,6 +213,18 @@ pub fn generate_grammar_files(
                     updated = true;
                 }
 
+                // insert `tree-sitter` right after `files`
+                if !package_json.contains_key("tree-sitter") {
+                    eprintln!("Adding tree-sitter to package.json");
+                    package_json = insert_after(
+                        package_json,
+                        "files",
+                        "tree-sitter",
+                        json!([{"file-types": language_name}]),
+                    );
+                    updated = true;
+                }
+
                 if updated {
                     let mut package_json_str = serde_json::to_string_pretty(&package_json)?;
                     package_json_str.push('\n');
@@ -417,17 +429,18 @@ pub fn generate_grammar_files(
     Ok(())
 }
 
+fn open_package_json(path: &Path) -> Result<PackageJSON> {
+    let file = File::open(path).with_context(|| "Failed to open package.json")?;
+    let package_json: PackageJSON = serde_json::from_reader(BufReader::new(file))?;
+    Ok(package_json)
+}
+
 fn lookup_package_json_for_path(path: &Path) -> Result<(PathBuf, PackageJSON)> {
     let mut pathbuf = path.to_owned();
     loop {
         let package_json = pathbuf
             .exists()
-            .then(|| -> Result<PackageJSON> {
-                let file =
-                    File::open(pathbuf.as_path()).with_context(|| "Failed to open package.json")?;
-                let package_json: PackageJSON = serde_json::from_reader(BufReader::new(file))?;
-                Ok(package_json)
-            })
+            .then(|| open_package_json(&pathbuf))
             .transpose()?;
         if let Some(package_json) = package_json {
             if package_json.tree_sitter.is_some() {
@@ -436,6 +449,10 @@ fn lookup_package_json_for_path(path: &Path) -> Result<(PathBuf, PackageJSON)> {
         }
         pathbuf.pop(); // package.json
         if !pathbuf.pop() {
+            if path.exists() {
+                // use current directory's package.json, no "tree-sitter" section required
+                return Ok((path.to_owned(), open_package_json(path).unwrap()));
+            }
             return Err(anyhow!(concat!(
                 "Failed to locate a package.json file that has a \"tree-sitter\" section,",
                 " please ensure you have one, and if you don't then consult the docs",
