@@ -1,6 +1,7 @@
 use super::write_file;
 use anyhow::{anyhow, Context, Result};
 use heck::{ToKebabCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
+use indoc::indoc;
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
 use std::fs::File;
@@ -261,9 +262,33 @@ pub fn generate_grammar_files(
             generate_file(path, LIB_RS_TEMPLATE, language_name)
         })?;
 
-        missing_path(path.join("build.rs"), |path| {
-            generate_file(path, BUILD_RS_TEMPLATE, language_name)
-        })?;
+        missing_path_else(
+            path.join("build.rs"),
+            |path| generate_file(path, BUILD_RS_TEMPLATE, language_name),
+            |path| {
+                let build_rs =
+                    fs::read_to_string(path).with_context(|| "Failed to read build.rs")?;
+                if !build_rs.contains("/utf-8") {
+                    let index = build_rs
+                        .find("    let parser_path = src_dir.join(\"parser.c\")")
+                        .ok_or_else(|| anyhow!(indoc!{
+                            "Failed to auto-update build.rs with the `/utf-8` flag for windows.
+                             To fix this, remove `bindings/rust/build.rs` and re-run `tree-sitter generate`"}))?;
+
+                    let build_rs = format!(
+                        "{}{}{}\n{}",
+                        &build_rs[..index],
+                        "    #[cfg(target_env = \"msvc\")]\n",
+                        "    c_config.flag(\"-utf-8\");\n",
+                        &build_rs[index..]
+                    );
+
+                    write_file(path, build_rs)?;
+                    eprintln!("Updated build.rs with the /utf-8 flag for Windows compilation");
+                }
+                Ok(())
+            },
+        )?;
 
         missing_path(repo_path.join("Cargo.toml"), |path| {
             generate_file(path, CARGO_TOML_TEMPLATE, dashed_language_name.as_str())
