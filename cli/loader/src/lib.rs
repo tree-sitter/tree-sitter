@@ -591,6 +591,7 @@ impl Loader {
                 command.arg(scanner_path);
             }
             command
+                .arg("/utf-8")
                 .arg("/link")
                 .arg(format!("/out:{}", output_path.to_str().unwrap()));
         } else {
