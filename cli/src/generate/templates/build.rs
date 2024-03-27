@@ -8,6 +8,9 @@ fn main() {
     c_config.file(&parser_path);
     println!("cargo:rerun-if-changed={}", parser_path.to_str().unwrap());
 
+    #[cfg(target_os = "windows")]
+    c_config.flag("/utf-8");
+
     // NOTE: if your language uses an external scanner, uncomment this block:
     /*
     let scanner_path = src_dir.join("scanner.c");

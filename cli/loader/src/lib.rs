@@ -592,6 +592,7 @@ impl Loader {
             }
             command
                 .arg("/link")
+                .arg("/utf-8")
                 .arg(format!("/out:{}", output_path.to_str().unwrap()));
         } else {
             command
