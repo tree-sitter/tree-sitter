@@ -6,7 +6,7 @@ use indoc::indoc;
 use lazy_static::lazy_static;
 use regex::bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder};
 use regex::Regex;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::ffi::OsStr;
 use std::fs;
 use std::io::{self, Write};
@@ -116,6 +116,7 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
         })));
     }
 
+    let mut test_num = 0;
     let mut failures = Vec::new();
     let mut corrected_entries = Vec::new();
     let mut has_parse_errors = false;
@@ -124,6 +125,7 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
         test_entry,
         opts,
         0,
+        &mut test_num,
         &mut failures,
         &mut corrected_entries,
         &mut has_parse_errors,
@@ -178,6 +180,77 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
     }
 }
 
+pub fn get_test_contents(
+    test_entry: &TestEntry,
+    target_test: u32,
+    test_num: &mut u32,
+) -> Option<Vec<u8>> {
+    match test_entry {
+        TestEntry::Example {
+            name: _,
+            input,
+            output: _,
+            header_delim_len: _,
+            divider_delim_len: _,
+            has_fields: _,
+            attributes: _,
+        } => {
+            if *test_num == target_test {
+                return Some(input.to_owned());
+            } else {
+                *test_num += 1;
+            }
+        }
+        TestEntry::Group {
+            name: _,
+            children,
+            file_path: _,
+        } => {
+            if children.is_empty() {
+                return None;
+            }
+
+            for child in children {
+                let conts = get_test_contents(child, target_test, test_num);
+                if conts.is_some() {
+                    return conts;
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Writes the input of `target_test` to a temporary file and returns the path
+pub fn get_tmp_test_file(target_test: u32) -> Result<PathBuf> {
+    let current_dir = std::env::current_dir().unwrap();
+    let test_dir = current_dir.join("test");
+
+    // Search the corpus tests. Look for them at two paths: `test/corpus` and `corpus`.
+    let mut test_corpus_dir = test_dir.join("corpus");
+    if !test_corpus_dir.is_dir() {
+        test_corpus_dir = current_dir.join("corpus");
+    }
+
+    // Get the input of the target test
+    let test_entry = parse_tests(&test_corpus_dir)?;
+    let mut test_num = 0;
+    let test_conts = match get_test_contents(&test_entry, target_test, &mut test_num) {
+        Some(conts) => conts,
+        None => {
+            return Err(anyhow!("Failed to fetch contents of test {}", target_test));
+        }
+    };
+
+    // Write the test contents to a temporary file
+    let test_path = std::env::temp_dir().join(".tree-sitter-test");
+    let mut test_file = std::fs::File::create(&test_path)?;
+    test_file.write_all(&test_conts)?;
+
+    Ok(test_path)
+}
+
 pub fn check_queries_at_path(language: &Language, path: &Path) -> Result<()> {
     if path.exists() {
         for entry in WalkDir::new(path)
@@ -225,15 +298,18 @@ pub fn print_diff(actual: &str, expected: &str) {
     println!();
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_tests(
     parser: &mut Parser,
     test_entry: TestEntry,
     opts: &mut TestOptions,
     mut indent_level: i32,
+    test_num: &mut u32,
     failures: &mut Vec<(String, String, String)>,
     corrected_entries: &mut Vec<(String, String, String, usize, usize)>,
     has_parse_errors: &mut bool,
 ) -> Result<bool> {
+    let test_num_str = format!("{:>3}:", test_num);
     match test_entry {
         TestEntry::Example {
             name,
@@ -247,12 +323,20 @@ fn run_tests(
             print!("{}", "  ".repeat(indent_level as usize));
 
             if attributes.skip {
-                println!(" {}", Colour::Yellow.paint(&name));
+                println!(
+                    "{}  {}",
+                    Colour::Yellow.paint(&test_num_str),
+                    Colour::Yellow.paint(&name)
+                );
                 return Ok(true);
             }
 
             if !attributes.platform {
-                println!(" {}", Colour::Purple.paint(&name));
+                println!(
+                    "{}  {}",
+                    Colour::Purple.paint(&test_num_str),
+                    Colour::Purple.paint(&name)
+                );
                 return Ok(true);
             }
 
@@ -268,9 +352,17 @@ fn run_tests(
 
                 if attributes.error {
                     if tree.root_node().has_error() {
-                        println!(" {}", Colour::Green.paint(&name));
+                        println!(
+                            "{}  {}",
+                            Colour::Green.paint(&test_num_str),
+                            Colour::Green.paint(&name)
+                        );
                     } else {
-                        println!(" {}", Colour::Red.paint(&name));
+                        println!(
+                            "{}  {}",
+                            Colour::Red.paint(&test_num_str),
+                            Colour::Red.paint(&name)
+                        );
                     }
 
                     if attributes.fail_fast {
@@ -283,7 +375,11 @@ fn run_tests(
                     }
 
                     if actual == output {
-                        println!("✓ {}", Colour::Green.paint(&name));
+                        println!(
+                            "{} ✓ {}",
+                            Colour::Green.paint(&test_num_str),
+                            Colour::Green.paint(&name)
+                        );
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
                             let output = format_sexp(&output, 0);
@@ -323,10 +419,18 @@ fn run_tests(
                                     header_delim_len,
                                     divider_delim_len,
                                 ));
-                                println!("✓ {}", Colour::Blue.paint(&name));
+                                println!(
+                                    "{} ✓ {}",
+                                    Colour::Blue.paint(&test_num_str),
+                                    Colour::Blue.paint(&name)
+                                );
                             }
                         } else {
-                            println!("✗ {}", Colour::Red.paint(&name));
+                            println!(
+                                "{} ✗ {}",
+                                Colour::Red.paint(&test_num_str),
+                                Colour::Red.paint(&name)
+                            );
                         }
                         failures.push((name.clone(), actual, output.clone()));
 
@@ -342,34 +446,50 @@ fn run_tests(
                     }
                 }
             }
+            *test_num += 1;
         }
         TestEntry::Group {
             name,
             mut children,
             file_path,
         } => {
-            children.retain(|child| {
-                if let TestEntry::Example { name, .. } = child {
+            // track which tests are being skipped to maintain consistent numbering while using filters
+            let mut skipped_tests = HashSet::new();
+            let mut advance_counter = *test_num;
+            children.retain(|child| match child {
+                TestEntry::Example { name, .. } => {
                     if let Some(filter) = opts.filter {
                         if !name.contains(filter) {
+                            skipped_tests.insert(advance_counter);
+                            advance_counter += 1;
                             return false;
                         }
                     }
                     if let Some(include) = &opts.include {
                         if !include.is_match(name) {
+                            skipped_tests.insert(advance_counter);
+                            advance_counter += 1;
                             return false;
                         }
                     }
                     if let Some(exclude) = &opts.exclude {
                         if exclude.is_match(name) {
+                            skipped_tests.insert(advance_counter);
+                            advance_counter += 1;
                             return false;
                         }
                     }
+                    advance_counter += 1;
+                    true
                 }
-                true
+                TestEntry::Group { .. } => {
+                    advance_counter += count_subtests(child);
+                    true
+                }
             });
 
             if children.is_empty() {
+                *test_num = advance_counter;
                 return Ok(true);
             }
 
@@ -382,11 +502,17 @@ fn run_tests(
 
             indent_level += 1;
             for child in children {
+                if let TestEntry::Example { .. } = child {
+                    while skipped_tests.remove(test_num) {
+                        *test_num += 1;
+                    }
+                }
                 if !run_tests(
                     parser,
                     child,
                     opts,
                     indent_level,
+                    test_num,
                     failures,
                     corrected_entries,
                     has_parse_errors,
@@ -395,6 +521,8 @@ fn run_tests(
                     return Ok(false);
                 }
             }
+
+            *test_num += skipped_tests.len() as u32;
 
             if let Some(file_path) = file_path {
                 if opts.update && failures.len() - failure_count > 0 {
@@ -405,6 +533,15 @@ fn run_tests(
         }
     }
     Ok(true)
+}
+
+fn count_subtests(test_entry: &TestEntry) -> u32 {
+    match test_entry {
+        TestEntry::Example { .. } => 1,
+        TestEntry::Group { children, .. } => children
+            .iter()
+            .fold(0u32, |count, child| count + count_subtests(child)),
+    }
 }
 
 fn write_tests(

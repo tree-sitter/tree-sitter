@@ -176,6 +176,9 @@ struct Parse {
     pub open_log: bool,
     #[arg(long, help = "The path to an alternative config.json file")]
     pub config_path: Option<PathBuf>,
+    #[arg(long, short = 'n', help = "Parse the contents of a test")]
+    #[clap(conflicts_with = "paths", conflicts_with = "paths_file")]
+    pub test_number: Option<u32>,
 }
 
 #[derive(Args)]
@@ -543,7 +546,12 @@ fn run() -> Result<()> {
 
             let timeout = parse_options.timeout.unwrap_or_default();
 
-            let paths = collect_paths(parse_options.paths_file.as_deref(), parse_options.paths)?;
+            let paths = if let Some(target_test) = parse_options.test_number {
+                let test_path = test::get_tmp_test_file(target_test)?;
+                collect_paths(None, Some(vec![test_path.to_str().unwrap().to_owned()]))?
+            } else {
+                collect_paths(parse_options.paths_file.as_deref(), parse_options.paths)?
+            };
 
             let max_path_length = paths.iter().map(|p| p.chars().count()).max().unwrap_or(0);
             let mut has_error = false;
