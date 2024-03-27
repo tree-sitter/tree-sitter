@@ -152,7 +152,9 @@ If there is an ambiguity or *local ambiguity* in your grammar, Tree-sitter will 
 
 The `build` command compiles your parser into a dynamically-loadable library, either as a shared object (`.so`, `.dylib`, or `.dll`) or as a WASM module.
 
-You can specify whether to compile it as a wasm module with the `--wasm`/`-w` flag, and you can opt in to use docker or podman to supply emscripten with the `--docker`/`-d` flag. This removes the need to install emscripten on your machine locally.
+You can change the compiler executable via the `CC` environment variable and add extra flags via `CFLAGS`. For macOS or iOS, you can set `MACOSX_DEPLOYMENT_TARGET` or `IPHONEOS_DEPLOYMENT_TARGET` respectively to define the minimum supported version.
+
+You can specify whether to compile it as a wasm module with the `--wasm`/`-w` flag, and you can opt to use docker or podman to supply emscripten with the `--docker`/`-d` flag. This removes the need to install emscripten on your machine locally.
 
 You can specify where to output the shared object file (native or WASM) with the `--output`/`-o` flag, which accepts either an absolute path or relative path. Note that if you don't supply this flag, the CLI will attempt to figure out what the language name is based on the parent directory (so building in `tree-sitter-javascript` will resolve to `javascript`) to use for the output file. If it can't figure it out, it will default to `parser`, thus generating `parser.so` or `parser.wasm` in the current working directory.
 
@@ -785,7 +787,7 @@ Finally, you must define five functions with specific names, based on your langu
 #### Create
 
 ```c
-void * tree_sitter_my_language_external_scanner_create() {
+void *tree_sitter_my_language_external_scanner_create(void) {
   // ...
 }
 ```
@@ -891,7 +893,7 @@ For example, assuming you wanted to allocate 100 bytes for your scanner, you'd d
 
 // ...
 
-void* tree_sitter_my_language_external_scanner_create() {
+void *tree_sitter_my_language_external_scanner_create(void) {
   return ts_calloc(100, 1); // or ts_malloc(100)
 }
 
@@ -921,7 +923,7 @@ enum TokenType {
 
 // Create the array in your create function
 
-void* tree_sitter_my_language_external_scanner_create() {
+void *tree_sitter_my_language_external_scanner_create(void) {
   return ts_calloc(1, sizeof(Array(int)));
 
   // or if you want to zero out the memory yourself
