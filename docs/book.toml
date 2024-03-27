@@ -1,0 +1,9 @@
+[book]
+authors = ["Max Brunsfeld"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Tree-sitter"
+
+[output.html]
+additional-js = ["assets/js/playground.js"]
