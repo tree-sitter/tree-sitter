@@ -214,6 +214,19 @@ pub fn generate_grammar_files(
                     updated = true;
                 }
 
+                // insert `tree-sitter` at the end
+                if !package_json.contains_key("tree-sitter") {
+                    eprintln!("Adding a `tree-sitter` section to package.json");
+                    package_json.insert(
+                        "tree-sitter".to_string(),
+                        json!([{
+                            "scope": format!("source.{language_name}"),
+                            "injection-regex": format!("^{language_name}$"),
+                        }]),
+                    );
+                    updated = true;
+                }
+
                 if updated {
                     let mut package_json_str = serde_json::to_string_pretty(&package_json)?;
                     package_json_str.push('\n');
@@ -450,8 +463,7 @@ fn lookup_package_json_for_path(path: &Path) -> Result<(PathBuf, PackageJSON)> {
             .then(|| -> Result<PackageJSON> {
                 let file =
                     File::open(pathbuf.as_path()).with_context(|| "Failed to open package.json")?;
-                let package_json: PackageJSON = serde_json::from_reader(BufReader::new(file))?;
-                Ok(package_json)
+                Ok(serde_json::from_reader(BufReader::new(file))?)
             })
             .transpose()?;
         if let Some(package_json) = package_json {
