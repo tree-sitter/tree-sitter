@@ -489,17 +489,12 @@ h + i
         concat!(
             "(block ",
             "(binary_expression (identifier) (identifier)) ",
-            "(binary_expression (identifier) (do_expression (block (identifier)))) ",
-            "(binary_expression (identifier) (identifier)) ",
-            "(identifier) ",
+            "(binary_expression (identifier) (do_expression (block (identifier) (binary_expression (identifier) (identifier)) (identifier)))) ",
             "(binary_expression (identifier) (identifier)))",
         )
     );
 
-    assert_eq!(
-        recorder.strings_read(),
-        vec!["\nc1234 = do d\n       e + f\n       g\n"]
-    );
+    assert_eq!(recorder.strings_read(), vec!["\nc1234 = do "]);
 }
 
 #[test]
