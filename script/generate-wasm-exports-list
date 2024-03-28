@@ -3,16 +3,15 @@
 set -e
 
 symbol_file=$(mktemp)
-wasm_files=$(find target -maxdepth 2 -name 'tree-sitter-*.wasm')
 
 while read -r wasm_file; do
   wasm-objdump                   \
     --details "$wasm_file"    \
     --section Import             \
-    | egrep -o '<\w+>'           \
+    | grep -Eo '<\w+>'           \
     | tr -d '<>'                 \
-    >> $symbol_file
-done <<< "$wasm_files"
+    >> "$symbol_file"
+done < <(find target -maxdepth 2 -name 'tree-sitter-*.wasm')
 
-sort -u -o $symbol_file $symbol_file
-cat $symbol_file
+sort -u -o "$symbol_file" "$symbol_file"
+cat "$symbol_file"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#
+
 # Usage:
 #   script/heap-profile
 #
@@ -11,24 +11,26 @@
 
 set -e
 
-GRAMMARS_DIR=$PWD/test/fixtures/grammars
+GRAMMARS_DIR="$PWD/test/fixtures/grammars"
 
 # Build the library
-make
+make libtree-sitter.a
 
 # Build the heap-profiling harness
-clang++                               \
-  -I lib/include                      \
-  -I $GRAMMARS_DIR                    \
-  -D GRAMMARS_DIR=\"${GRAMMARS_DIR}/\" \
-  -l tcmalloc                         \
-  ./libtree-sitter.a                  \
-  test/profile/heap.cc                \
+clang++                                  \
+  -Wno-reorder-init-list                 \
+  -Wno-c99-designator                    \
+  -I lib/include                         \
+  -I "$GRAMMARS_DIR"                     \
+  -D GRAMMARS_DIR="\"${GRAMMARS_DIR}/\"" \
+  test/profile/heap.cc                   \
+  -l tcmalloc                            \
+  libtree-sitter.a                       \
   -o target/heap-profile
 
 # Run the harness with heap profiling enabled.
-export HEAPPROFILE=$PWD/profile
-target/heap-profile $@
+export HEAPPROFILE="$PWD/profile"
+target/heap-profile "$@"
 
 # Extract statistics using pprof.
 pprof -top -cum profile.0001.heap
