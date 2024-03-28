@@ -120,7 +120,7 @@ pub fn generate_grammar_files(
                     .unwrap();
                 if dependencies.remove("nan").is_some() {
                     eprintln!("Replacing nan dependency with node-addon-api in package.json");
-                    dependencies.insert("node-addon-api".to_string(), "^7.1.0".into());
+                    dependencies.insert("node-addon-api".to_string(), "^8.0.0".into());
                     updated = true;
                 }
                 if !dependencies.contains_key("node-gyp-build") {
@@ -145,24 +145,20 @@ pub fn generate_grammar_files(
                     .or_insert_with(|| Value::Object(Map::new()))
                     .as_object_mut()
                     .unwrap();
-                match scripts.get("install") {
-                    None => {
-                        eprintln!("Adding an install script to package.json");
-                        scripts.insert("install".to_string(), "node-gyp-build".into());
-                        updated = true;
-                    }
-                    Some(Value::String(v)) if v != "node-gyp-build" => {
-                        eprintln!("Updating the install script in package.json");
-                        scripts.insert("install".to_string(), "node-gyp-build".into());
-                        updated = true;
-                    }
-                    Some(_) => {}
-                }
-                if !scripts.contains_key("prebuildify") {
-                    eprintln!("Adding a prebuildify script to package.json");
-                    scripts.insert(
-                        "prebuildify".to_string(),
-                        "prebuildify --napi --strip".into(),
+                if !scripts.contains_key("prestart") {
+                    eprintln!("Updating package.json scripts");
+                    scripts.clear();
+                    let prestart =
+                        format!("tree-sitter build --wasm -o tree-sitter-{language_name}.wasm");
+                    scripts.append(
+                        json!({
+                            "install": "node-gyp-build",
+                            "prestart": prestart,
+                            "start": "tree-sitter playground",
+                            "test": "node --test"
+                        })
+                        .as_object_mut()
+                        .unwrap(),
                     );
                     updated = true;
                 }
