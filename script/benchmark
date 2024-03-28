@@ -3,7 +3,7 @@
 set -e
 
 function usage {
-  cat <<-EOF
+  cat <<EOF
 USAGE
 
   $0  [-h] [-l language-name] [-e example-file-name] [-r repetition-count]
@@ -43,16 +43,20 @@ while getopts "hgl:e:r:" option; do
     r)
       export TREE_SITTER_BENCHMARK_REPETITION_COUNT=${OPTARG}
       ;;
+    *)
+      usage
+      exit 1
+      ;;
   esac
 done
 
-if [[ "${mode}" == "debug" ]]; then
+if [[ $mode == debug ]]; then
   test_binary=$(
-    cargo bench benchmark -p tree-sitter-cli --no-run --message-format=json 2> /dev/null |\
+    cargo bench benchmark -p tree-sitter-cli --no-run --message-format=json 2> /dev/null |
     jq -rs 'map(select(.target.name == "benchmark" and .executable))[0].executable'
   )
   env | grep TREE_SITTER
-  echo $test_binary
+  echo "$test_binary"
 else
   exec cargo bench benchmark -p tree-sitter-cli
 fi
