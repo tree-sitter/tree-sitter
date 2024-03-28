@@ -28,6 +28,10 @@ uint32_t ts_language_version(const TSLanguage *self) {
   return self->version;
 }
 
+const char *ts_language_name(const TSLanguage *self) {
+  return self->version >= LANGUAGE_VERSION_WITH_NAMES ? self->name : NULL;
+}
+
 uint32_t ts_language_field_count(const TSLanguage *self) {
   return self->field_count;
 }
