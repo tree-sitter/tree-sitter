@@ -1,17 +1,11 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 
-# Remove quotes and commas
-EXPORTED_FUNCTIONS=$(                     \
-    cat lib/src/wasm/stdlib-symbols.txt | \
-    tr -d ',"'                            \
-)
-
-EXPORT_FLAGS=""
-for function in ${EXPORTED_FUNCTIONS}; do
-    EXPORT_FLAGS+=" -Wl,--export=${function}"
-done
+declare -a EXPORT_FLAGS
+while read -r -d, function; do
+    EXPORT_FLAGS+=("-Wl,--export=${function:1:-1}")
+done < lib/src/wasm/stdlib-symbols.txt
 
 target/wasi-sdk-21.0/bin/clang-17   \
     -o stdlib.wasm                  \
@@ -27,7 +21,7 @@ target/wasi-sdk-21.0/bin/clang-17   \
     -Wl,--export=reset_heap         \
     -Wl,--export=__wasm_call_ctors  \
     -Wl,--export=__stack_pointer    \
-    ${EXPORT_FLAGS}                 \
+    "${EXPORT_FLAGS[@]}"            \
     lib/src/wasm/stdlib.c
 
 xxd -C -i stdlib.wasm > lib/src/wasm/wasm-stdlib.h
