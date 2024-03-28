@@ -203,12 +203,10 @@ struct TSLanguage {
     }                                 \
   }}
 
-#define REDUCE(symbol_val, child_count_val, ...) \
+#define REDUCE(...) \
   {{                                             \
     .reduce = {                                  \
       .type = TSParseActionTypeReduce,           \
-      .symbol = symbol_val,                      \
-      .child_count = child_count_val,            \
       __VA_ARGS__                                \
     },                                           \
   }}
