@@ -168,7 +168,11 @@ static StackNode *stack_node_new(
       node->error_cost += ts_subtree_error_cost(subtree);
       node->position = length_add(node->position, ts_subtree_total_size(subtree));
       node->node_count += stack__subtree_node_count(subtree);
-      node->dynamic_precedence += ts_subtree_dynamic_precedence(subtree);
+      int32_t subtree_precedence = ts_subtree_dynamic_precedence(subtree);
+      // TODO: change stack's behavior all and test again
+      if (subtree_precedence > node->dynamic_precedence) {
+        node->dynamic_precedence = subtree_precedence;
+      }
     }
   } else {
     node->position = length_zero();
@@ -219,8 +223,11 @@ static void stack_node_add_link(
           ts_subtree_retain(link.subtree);
           ts_subtree_release(subtree_pool, existing_link->subtree);
           existing_link->subtree = link.subtree;
-          self->dynamic_precedence =
-            link.node->dynamic_precedence + ts_subtree_dynamic_precedence(link.subtree);
+          self->dynamic_precedence = link.node->dynamic_precedence;
+          int32_t subtree_precedence = ts_subtree_dynamic_precedence(link.subtree);
+          if (subtree_precedence > self->dynamic_precedence) {
+            self->dynamic_precedence = subtree_precedence;
+          }
         }
         return;
       }
@@ -236,7 +243,10 @@ static void stack_node_add_link(
         }
         int32_t dynamic_precedence = link.node->dynamic_precedence;
         if (link.subtree.ptr) {
-          dynamic_precedence += ts_subtree_dynamic_precedence(link.subtree);
+          int32_t subtree_prec = ts_subtree_dynamic_precedence(link.subtree);
+          if (subtree_prec > dynamic_precedence) {
+            dynamic_precedence = subtree_prec;
+          }
         }
         if (dynamic_precedence > self->dynamic_precedence) {
           self->dynamic_precedence = dynamic_precedence;
@@ -256,7 +266,10 @@ static void stack_node_add_link(
   if (link.subtree.ptr) {
     ts_subtree_retain(link.subtree);
     node_count += stack__subtree_node_count(link.subtree);
-    dynamic_precedence += ts_subtree_dynamic_precedence(link.subtree);
+    int32_t subtree_prec = ts_subtree_dynamic_precedence(link.subtree);
+    if (subtree_prec > dynamic_precedence) {
+      dynamic_precedence = subtree_prec;
+    }
   }
 
   if (node_count > self->node_count) self->node_count = node_count;

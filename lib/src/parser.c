@@ -848,6 +848,20 @@ static bool ts_parser__select_tree(TSParser *self, Subtree left, Subtree right) 
     return false;
   }
 
+  if (ts_subtree_dynamic_precedence_sum(right) > ts_subtree_dynamic_precedence_sum(left)) {
+    LOG("select_higher_precedence_sum symbol:%s, prec:%d, over_symbol:%s, other_prec:%d",
+        TREE_NAME(right), ts_subtree_dynamic_precedence_sum(right), TREE_NAME(left),
+        ts_subtree_dynamic_precedence_sum(left));
+    return true;
+  }
+
+  if (ts_subtree_dynamic_precedence_sum(left) > ts_subtree_dynamic_precedence_sum(right)) {
+    LOG("select_higher_precedence_sum symbol:%s, prec:%d, over_symbol:%s, other_prec:%d",
+        TREE_NAME(left), ts_subtree_dynamic_precedence_sum(left), TREE_NAME(right),
+        ts_subtree_dynamic_precedence_sum(right));
+    return false;
+  }
+
   if (ts_subtree_error_cost(left) > 0) return true;
 
   int comparison = ts_subtree_compare(left, right, &self->tree_pool);
@@ -1006,7 +1020,11 @@ static StackVersion ts_parser__reduce(
     } else {
       parent.ptr->parse_state = state;
     }
-    parent.ptr->dynamic_precedence += dynamic_precedence;
+    if ((dynamic_precedence > parent.ptr->dynamic_precedence && dynamic_precedence != 0)
+    || (dynamic_precedence < 0 && parent.ptr->dynamic_precedence == 0)) {
+      parent.ptr->dynamic_precedence = dynamic_precedence;
+    }
+    parent.ptr->dynamic_precedence_sum += dynamic_precedence;
 
     // Push the parent node onto the stack, along with any extra tokens that
     // were previously on top of the stack.
