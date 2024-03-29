@@ -17,7 +17,6 @@ use render::render_c_code;
 use rules::AliasMap;
 
 mod build_tables;
-mod char_tree;
 mod dedup;
 mod grammar_files;
 mod grammars;
