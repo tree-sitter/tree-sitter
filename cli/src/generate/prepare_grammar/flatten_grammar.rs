@@ -192,7 +192,13 @@ pub(super) fn flatten_grammar(grammar: ExtractedSyntaxGrammar) -> Result<SyntaxG
     }
     for (i, variable) in variables.iter().enumerate() {
         for production in &variable.productions {
-            if production.steps.is_empty() && symbol_is_used(&variables, Symbol::non_terminal(i)) {
+            if production.steps.is_empty()
+                && symbol_is_used(&variables, Symbol::non_terminal(i))
+                && !grammar
+                    .variables_to_inline
+                    .iter()
+                    .any(|symbol| symbol.index == i)
+            {
                 return Err(anyhow!(
                     "The rule `{}` matches the empty string.
 
