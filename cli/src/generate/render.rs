@@ -686,7 +686,7 @@ impl Generator {
                     .advance_actions
                     .iter()
                     .map(|(chars, action)| {
-                        let is_included = !chars.contains(std::char::MAX);
+                        let is_included = !chars.contains(char::MAX);
                         let mut ranges;
                         if is_included {
                             ranges = chars.simplify_ignoring(&ruled_out_chars);
