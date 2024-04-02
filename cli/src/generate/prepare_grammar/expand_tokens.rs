@@ -472,7 +472,7 @@ impl NfaBuilder {
                                 )
                             })?;
                     for c in code_points {
-                        if let Some(c) = std::char::from_u32(*c) {
+                        if let Some(c) = char::from_u32(*c) {
                             chars = chars.add_char(c);
                         }
                     }
@@ -490,7 +490,7 @@ impl NfaBuilder {
         for (category, code_points) in UNICODE_CATEGORIES.iter() {
             if category.starts_with(&category_letter) {
                 for c in code_points {
-                    if let Some(c) = std::char::from_u32(*c) {
+                    if let Some(c) = char::from_u32(*c) {
                         chars = chars.add_char(c);
                     }
                 }
