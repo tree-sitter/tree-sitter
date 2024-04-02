@@ -28,6 +28,7 @@ enum Commands {
     InitConfig(InitConfig),
     Generate(Generate),
     Build(Build),
+    BuildWasm(BuildWasm),
     Parse(Parse),
     Test(Test),
     Query(Query),
@@ -113,6 +114,19 @@ struct Build {
         help = "Build the parser with `TREE_SITTER_INTERNAL_BUILD` defined"
     )]
     pub internal_build: bool,
+}
+
+#[derive(Args)]
+#[command(about = "Compile a parser to WASM", alias = "bw")]
+struct BuildWasm {
+    #[arg(
+        short,
+        long,
+        help = "Run emscripten via docker even if it is installed locally"
+    )]
+    pub docker: bool,
+    #[arg(index = 1, num_args = 1, help = "The path to output the wasm file")]
+    pub path: Option<String>,
 }
 
 #[derive(Args)]
@@ -492,6 +506,18 @@ fn run() -> Result<()> {
                     .compile_parser_at_path(&grammar_path, output_path, flags)
                     .unwrap();
             }
+        }
+
+        Commands::BuildWasm(wasm_options) => {
+            eprintln!("`build-wasm` is deprecated and will be removed in v0.24.0. You should use `build --wasm` instead");
+            let grammar_path = current_dir.join(wasm_options.path.unwrap_or_default());
+            wasm::compile_language_to_wasm(
+                &loader,
+                &grammar_path,
+                &current_dir,
+                None,
+                wasm_options.docker,
+            )?;
         }
 
         Commands::Parse(parse_options) => {
