@@ -677,7 +677,6 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *input_edit, SubtreePool
     Edit edit = entry.edit;
     bool is_noop = edit.old_end.bytes == edit.start.bytes && edit.new_end.bytes == edit.start.bytes;
     bool is_pure_insertion = edit.old_end.bytes == edit.start.bytes;
-    bool depends_on_column = ts_subtree_depends_on_column(*entry.tree);
     bool column_shifted = edit.new_end.extent.column != edit.old_end.extent.column;
 
     Length size = ts_subtree_size(*entry.tree);
@@ -761,6 +760,7 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *input_edit, SubtreePool
       Length child_size = ts_subtree_total_size(*child);
       child_left = child_right;
       child_right = length_add(child_left, child_size);
+      bool depends_on_column = ts_subtree_depends_on_column(*child);
 
       // If this child ends before the edit, it is not affected.
       if (child_right.bytes + ts_subtree_lookahead_bytes(*child) < edit.start.bytes) continue;
