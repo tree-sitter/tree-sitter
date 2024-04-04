@@ -2336,8 +2336,8 @@ impl QueryCursor {
     /// Because multiple patterns can match the same set of nodes, one match may contain
     /// captures that appear *before* some of the captures from a previous match.
     #[doc(alias = "ts_query_cursor_exec")]
-    pub fn matches<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>>(
-        &mut self,
+    pub fn matches<'query, 'cursor: 'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>>(
+        &'cursor mut self,
         query: &'query Query,
         node: Node<'tree>,
         text_provider: T,
