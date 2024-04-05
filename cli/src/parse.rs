@@ -317,7 +317,7 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
             }
         }
 
-        if first_error.is_some() || opts.print_time {
+        if opts.print_time {
             write!(
                 &mut stdout,
                 "{:width$}\t{duration_ms:>7.2} ms\t{:>6} bytes/ms",
@@ -325,30 +325,30 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
                 (source_code.len() as u128 * 1_000_000) / duration.as_nanos(),
                 width = opts.max_path_length
             )?;
-            if let Some(node) = first_error {
-                let start = node.start_position();
-                let end = node.end_position();
-                write!(&mut stdout, "\t(")?;
-                if node.is_missing() {
-                    if node.is_named() {
-                        write!(&mut stdout, "MISSING {}", node.kind())?;
-                    } else {
-                        write!(
-                            &mut stdout,
-                            "MISSING \"{}\"",
-                            node.kind().replace('\n', "\\n")
-                        )?;
-                    }
+        }
+
+        if let Some(node) = first_error {
+            let start = node.start_position();
+            let end = node.end_position();
+            write!(&mut stdout, "\t(")?;
+            if node.is_missing() {
+                if node.is_named() {
+                    write!(&mut stdout, "MISSING {}", node.kind())?;
                 } else {
-                    write!(&mut stdout, "{}", node.kind())?;
+                    write!(
+                        &mut stdout,
+                        "MISSING \"{}\"",
+                        node.kind().replace('\n', "\\n")
+                    )?;
                 }
-                write!(
-                    &mut stdout,
-                    " [{}, {}] - [{}, {}])",
-                    start.row, start.column, end.row, end.column
-                )?;
+            } else {
+                write!(&mut stdout, "{}", node.kind())?;
             }
-            writeln!(&mut stdout)?;
+            writeln!(
+                &mut stdout,
+                " [{}, {}] - [{}, {}])",
+                start.row, start.column, end.row, end.column
+            )?;
         }
 
         return Ok(ParseResult {
