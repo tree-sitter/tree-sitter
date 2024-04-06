@@ -650,6 +650,15 @@ fn run() -> Result<()> {
                 };
 
                 test::run_tests_at_path(&mut parser, &mut opts)?;
+            } else if test_options.debug {
+                println!(
+                    "Corpus test directory not found: `{}`",
+                    test_corpus_dir.display()
+                );
+                let old_corpus_dir = current_dir.join("corpus");
+                if old_corpus_dir.is_dir() {
+                    println!("Top-level Corpus test directories are no longer supported. Corpus files must be located in directory `{}`", test_corpus_dir.display());
+                }
             }
 
             // Check that all of the queries are valid.
@@ -667,6 +676,11 @@ fn run() -> Result<()> {
                     &test_highlight_dir,
                 )?;
                 parser = highlighter.parser;
+            } else if test_options.debug {
+                println!(
+                    "Highlights test directory not found: `{}`",
+                    test_highlight_dir.display()
+                );
             }
 
             let test_tag_dir = test_dir.join("tags");
@@ -674,6 +688,11 @@ fn run() -> Result<()> {
                 let mut tags_context = TagsContext::new();
                 tags_context.parser = parser;
                 test_tags::test_tags(&loader, &config.get()?, &mut tags_context, &test_tag_dir)?;
+            } else if test_options.debug {
+                println!(
+                    "Tags test directory not found: `{}`",
+                    test_tag_dir.display()
+                );
             }
         }
 
