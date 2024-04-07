@@ -995,7 +995,7 @@ impl Generator {
         if action.in_main_token {
             add!(self, "ADVANCE({});", action.state);
         } else {
-            add!(self, "SKIP({})", action.state);
+            add!(self, "SKIP({});", action.state);
         }
     }
 
