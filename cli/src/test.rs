@@ -21,8 +21,7 @@ lazy_static! {
            (?P<equals>(?:=+){3,})
            (?P<suffix1>[^=\r\n][^\r\n]*)?
            \r?\n
-           (?P<test_name>(?:[^=\r\n:][^\r\n]*\r?\n)+(?:(?:[ \t]*\r?\n)+)?)
-           (?P<markers>((?::(?:skip|error|fail-fast|(language|platform)\([^\r\n)]+\))\r?\n)*))
+           (?P<test_name_and_markers>(?:[^=\r\n][^\r\n]*\r?\n)+)
            ===+
            (?P<suffix2>[^=\r\n][^\r\n]*)?\r?\n"
     )
@@ -511,28 +510,45 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
         let (mut skip, mut platform, mut fail_fast, mut error, mut languages) =
             (false, None, false, false, vec![]);
 
-        let markers = c.name("markers").map_or("".as_bytes(), |m| m.as_bytes());
+        let test_name_and_markers = c
+            .name("test_name_and_markers")
+            .map_or("".as_bytes(), |m| m.as_bytes());
 
-        for marker in markers.split(|&c| c == b'\n').filter(|s| !s.is_empty()) {
-            let marker = str::from_utf8(marker).unwrap();
-            let (marker, right) = marker.split_at(marker.find('(').unwrap_or(marker.len()));
-            match marker {
-                ":skip" => skip = true,
+        let mut test_name = String::new();
+        let mut seen_marker = false;
+
+        for line in test_name_and_markers
+            .split(|&c| c == b'\n')
+            .filter(|s| !s.is_empty())
+        {
+            let line = str::from_utf8(line).unwrap();
+            match line.split('(').next().unwrap() {
+                ":skip" => (seen_marker, skip) = (true, true),
                 ":platform" => {
-                    if let Some(platforms) =
-                        right.strip_prefix('(').and_then(|s| s.strip_suffix(')'))
-                    {
+                    if let Some(platforms) = line.strip_prefix(':').and_then(|s| {
+                        s.strip_prefix("platform(")
+                            .and_then(|s| s.strip_suffix(')'))
+                    }) {
+                        seen_marker = true;
                         platform = Some(
                             platform.unwrap_or(false) || platforms.trim() == std::env::consts::OS,
                         );
                     }
                 }
-                ":fail-fast" => fail_fast = true,
-                ":error" => error = true,
+                ":fail-fast" => (seen_marker, fail_fast) = (true, true),
+                ":error" => (seen_marker, error) = (true, true),
                 ":language" => {
-                    if let Some(lang) = right.strip_prefix('(').and_then(|s| s.strip_suffix(')')) {
+                    if let Some(lang) = line.strip_prefix(':').and_then(|s| {
+                        s.strip_prefix("language(")
+                            .and_then(|s| s.strip_suffix(')'))
+                    }) {
+                        seen_marker = true;
                         languages.push(lang.into());
                     }
+                }
+                _ if !seen_marker => {
+                    test_name.push_str(line);
+                    test_name.push('\n');
                 }
                 _ => {}
             }
@@ -550,9 +566,11 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
 
         if suffix1 == first_suffix && suffix2 == first_suffix {
             let header_range = c.get(0).unwrap().range();
-            let test_name = c
-                .name("test_name")
-                .map(|c| String::from_utf8_lossy(c.as_bytes()).trim_end().to_string());
+            let test_name = if test_name.is_empty() {
+                None
+            } else {
+                Some(test_name.trim_end().to_string())
+            };
             Some((
                 header_delim_len,
                 header_range,
