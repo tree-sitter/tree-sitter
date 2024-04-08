@@ -3,7 +3,6 @@ import PackageDescription
 
 let package = Package(
     name: "TreeSitterCAMEL_PARSER_NAME",
-    platforms: [.macOS(.v10_13), .iOS(.v11)],
     products: [
         .library(name: "TreeSitterCAMEL_PARSER_NAME", targets: ["TreeSitterCAMEL_PARSER_NAME"]),
     ],
