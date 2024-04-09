@@ -1,7 +1,7 @@
+use std::{ops::Range, str};
+
 use super::random::Rand;
 use crate::parse::Edit;
-use std::ops::Range;
-use std::str;
 
 #[derive(Debug)]
 pub struct ReadRecorder<'a> {

@@ -18,10 +18,11 @@ extern "C" {
     pub(crate) fn _ts_dup(handle: *mut std::os::raw::c_void) -> std::os::raw::c_int;
 }
 
+use std::{marker::PhantomData, mem::ManuallyDrop, ptr::NonNull, str};
+
 use crate::{
     Language, LookaheadIterator, Node, Parser, Query, QueryCursor, QueryError, Tree, TreeCursor,
 };
-use std::{marker::PhantomData, mem::ManuallyDrop, ptr::NonNull, str};
 
 impl Language {
     /// Reconstructs a [`Language`] from a raw pointer.

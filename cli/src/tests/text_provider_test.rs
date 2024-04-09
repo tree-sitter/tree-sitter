@@ -1,7 +1,8 @@
 use std::{iter, sync::Arc};
 
-use crate::tests::helpers::fixtures::get_language;
 use tree_sitter::{Language, Node, Parser, Point, Query, QueryCursor, TextProvider, Tree};
+
+use crate::tests::helpers::fixtures::get_language;
 
 fn parse_text(text: impl AsRef<[u8]>) -> (Tree, Language) {
     let language = get_language("c");

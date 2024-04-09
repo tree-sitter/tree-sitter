@@ -1,20 +1,21 @@
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
-use std::{env, fs};
+use std::{
+    env, fs,
+    io::Write,
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+};
 
 use anyhow::{anyhow, Context, Result};
-use lazy_static::lazy_static;
-use regex::{Regex, RegexBuilder};
-use semver::Version;
-
 use build_tables::build_tables;
 use grammar_files::path_in_ignore;
 use grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
+use lazy_static::lazy_static;
 use parse_grammar::parse_grammar;
 use prepare_grammar::prepare_grammar;
+use regex::{Regex, RegexBuilder};
 use render::render_c_code;
 use rules::AliasMap;
+use semver::Version;
 
 mod build_tables;
 mod char_tree;

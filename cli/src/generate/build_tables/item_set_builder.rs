@@ -1,8 +1,13 @@
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+};
+
 use super::item::{ParseItem, ParseItemDisplay, ParseItemSet, TokenSetDisplay};
-use crate::generate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
-use crate::generate::rules::{Symbol, SymbolType, TokenSet};
-use std::collections::{HashMap, HashSet};
-use std::fmt;
+use crate::generate::{
+    grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar},
+    rules::{Symbol, SymbolType, TokenSet},
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct TransitiveClosureAddition<'a> {

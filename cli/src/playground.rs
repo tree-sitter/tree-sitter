@@ -1,5 +1,3 @@
-use super::wasm;
-use anyhow::{anyhow, Context, Result};
 use std::{
     borrow::Cow,
     env, fs,
@@ -7,7 +5,11 @@ use std::{
     path::{Path, PathBuf},
     str::{self, FromStr as _},
 };
+
+use anyhow::{anyhow, Context, Result};
 use tiny_http::{Header, Response, Server};
+
+use super::wasm;
 
 macro_rules! optional_resource {
     ($name: tt, $path: tt) => {

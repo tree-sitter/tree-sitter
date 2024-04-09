@@ -1,5 +1,6 @@
-use super::helpers::{allocations, fixtures::get_language};
 use tree_sitter::Parser;
+
+use super::helpers::{allocations, fixtures::get_language};
 
 #[test]
 fn test_pathological_example_1() {

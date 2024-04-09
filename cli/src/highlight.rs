@@ -1,14 +1,12 @@
+use std::{
+    collections::HashMap, fmt::Write, fs, io, path, str, sync::atomic::AtomicUsize, time::Instant,
+};
+
 use ansi_term::Color;
 use anyhow::Result;
 use lazy_static::lazy_static;
-use serde::ser::SerializeMap;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
-use std::collections::HashMap;
-use std::fmt::Write;
-use std::sync::atomic::AtomicUsize;
-use std::time::Instant;
-use std::{fs, io, path, str, usize};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer};
 use tree_sitter_loader::Loader;
 
@@ -417,8 +415,9 @@ pub fn html(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::env;
+
+    use super::*;
 
     const JUNGLE_GREEN: &str = "#26A69A";
     const DARK_CYAN: &str = "#00AF87";

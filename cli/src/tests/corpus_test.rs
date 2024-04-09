@@ -1,3 +1,8 @@
+use std::{collections::HashMap, env, fs};
+
+use tree_sitter::{LogType, Node, Parser, Point, Range, Tree};
+use tree_sitter_proc_macro::test_with_seed;
+
 use super::helpers::{
     allocations,
     edits::{get_random_edit, invert_edit},
@@ -14,9 +19,6 @@ use crate::{
     test::{parse_tests, print_diff, print_diff_key, strip_sexp_fields, TestEntry},
     util,
 };
-use std::{collections::HashMap, env, fs};
-use tree_sitter::{LogType, Node, Parser, Point, Range, Tree};
-use tree_sitter_proc_macro::test_with_seed;
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_bash(seed: usize) {

@@ -5,9 +5,10 @@ pub(super) mod query_helpers;
 pub(super) mod random;
 pub(super) mod scope_sequence;
 
+use std::env;
+
 use lazy_static::lazy_static;
 use rand::Rng;
-use std::env;
 
 lazy_static! {
     pub static ref LOG_ENABLED: bool = env::var("TREE_SITTER_LOG").is_ok();

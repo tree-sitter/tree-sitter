@@ -6,19 +6,25 @@ mod item_set_builder;
 mod minimize_parse_table;
 mod token_conflicts;
 
-use self::build_lex_table::build_lex_table;
-use self::build_parse_table::{build_parse_table, ParseStateInfo};
-use self::coincident_tokens::CoincidentTokenIndex;
-use self::minimize_parse_table::minimize_parse_table;
-use self::token_conflicts::TokenConflictMap;
-use crate::generate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
-use crate::generate::nfa::NfaCursor;
-use crate::generate::node_types::VariableInfo;
-use crate::generate::rules::{AliasMap, Symbol, SymbolType, TokenSet};
-use crate::generate::tables::{LexTable, ParseAction, ParseTable, ParseTableEntry};
+use std::collections::{BTreeSet, HashMap};
+
 use anyhow::Result;
 use log::info;
-use std::collections::{BTreeSet, HashMap};
+
+use self::{
+    build_lex_table::build_lex_table,
+    build_parse_table::{build_parse_table, ParseStateInfo},
+    coincident_tokens::CoincidentTokenIndex,
+    minimize_parse_table::minimize_parse_table,
+    token_conflicts::TokenConflictMap,
+};
+use crate::generate::{
+    grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar},
+    nfa::NfaCursor,
+    node_types::VariableInfo,
+    rules::{AliasMap, Symbol, SymbolType, TokenSet},
+    tables::{LexTable, ParseAction, ParseTable, ParseTableEntry},
+};
 
 pub fn build_tables(
     syntax_grammar: &SyntaxGrammar,

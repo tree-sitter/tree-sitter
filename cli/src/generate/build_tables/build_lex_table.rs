@@ -1,14 +1,18 @@
-use super::coincident_tokens::CoincidentTokenIndex;
-use super::token_conflicts::TokenConflictMap;
-use crate::generate::dedup::split_state_id_groups;
-use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar};
-use crate::generate::nfa::NfaCursor;
-use crate::generate::rules::{Symbol, TokenSet};
-use crate::generate::tables::{AdvanceAction, LexState, LexTable, ParseStateId, ParseTable};
+use std::{
+    collections::{hash_map::Entry, HashMap, VecDeque},
+    mem,
+};
+
 use log::info;
-use std::collections::hash_map::Entry;
-use std::collections::{HashMap, VecDeque};
-use std::mem;
+
+use super::{coincident_tokens::CoincidentTokenIndex, token_conflicts::TokenConflictMap};
+use crate::generate::{
+    dedup::split_state_id_groups,
+    grammars::{LexicalGrammar, SyntaxGrammar},
+    nfa::NfaCursor,
+    rules::{Symbol, TokenSet},
+    tables::{AdvanceAction, LexState, LexTable, ParseStateId, ParseTable},
+};
 
 pub fn build_lex_table(
     parse_table: &mut ParseTable,

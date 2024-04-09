@@ -1,14 +1,18 @@
 #![doc = include_str!("../README.md")]
 
-use std::collections::HashMap;
-use std::ffi::{OsStr, OsString};
-use std::io::{BufRead, BufReader};
-use std::ops::Range;
-use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::sync::Mutex;
-use std::time::SystemTime;
-use std::{env, fs, mem};
+use std::{
+    collections::HashMap,
+    env,
+    ffi::{OsStr, OsString},
+    fs,
+    io::{BufRead, BufReader},
+    mem,
+    ops::Range,
+    path::{Path, PathBuf},
+    process::Command,
+    sync::Mutex,
+    time::SystemTime,
+};
 
 use anyhow::{anyhow, Context, Error, Result};
 use fs4::FileExt;

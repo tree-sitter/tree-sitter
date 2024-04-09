@@ -1,10 +1,11 @@
-use std::char;
-use std::cmp::max;
-use std::cmp::Ordering;
-use std::collections::HashSet;
-use std::fmt;
-use std::mem::swap;
-use std::ops::Range;
+use std::{
+    char,
+    cmp::{max, Ordering},
+    collections::HashSet,
+    fmt,
+    mem::swap,
+    ops::Range,
+};
 
 /// A set of characters represented as a vector of ranges.
 #[derive(Clone, PartialEq, Eq, Hash)]

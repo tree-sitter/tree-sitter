@@ -1,12 +1,17 @@
-use super::write_file;
+use std::{
+    fs,
+    fs::File,
+    io::BufReader,
+    path::{Path, PathBuf},
+    str,
+};
+
 use anyhow::{anyhow, Context, Result};
 use heck::{ToKebabCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
-use std::fs::File;
-use std::io::BufReader;
-use std::path::{Path, PathBuf};
-use std::{fs, str};
+
+use super::write_file;
 
 const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CLI_VERSION_PLACEHOLDER: &str = "CLI_VERSION";

@@ -1,9 +1,12 @@
-use super::{ExtractedLexicalGrammar, ExtractedSyntaxGrammar, InternedGrammar};
-use crate::generate::grammars::{ExternalToken, Variable, VariableType};
-use crate::generate::rules::{MetadataParams, Rule, Symbol, SymbolType};
+use std::{collections::HashMap, mem};
+
 use anyhow::{anyhow, Result};
-use std::collections::HashMap;
-use std::mem;
+
+use super::{ExtractedLexicalGrammar, ExtractedSyntaxGrammar, InternedGrammar};
+use crate::generate::{
+    grammars::{ExternalToken, Variable, VariableType},
+    rules::{MetadataParams, Rule, Symbol, SymbolType},
+};
 
 pub(super) fn extract_tokens(
     mut grammar: InternedGrammar,

@@ -1,12 +1,14 @@
 #![doc = include_str!("../README.md")]
 
 pub mod c_lib;
-pub use c_lib as c;
+use std::{
+    collections::HashSet,
+    iter, mem, ops, str,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
+pub use c_lib as c;
 use lazy_static::lazy_static;
-use std::collections::HashSet;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{iter, mem, ops, str, usize};
 use thiserror::Error;
 use tree_sitter::{
     Language, LossyUtf8, Node, Parser, Point, Query, QueryCaptures, QueryCursor, QueryError,

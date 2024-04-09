@@ -1,8 +1,11 @@
-use super::grammars::{InputGrammar, PrecedenceEntry, Variable, VariableType};
-use super::rules::{Precedence, Rule};
 use anyhow::{anyhow, Result};
 use serde::Deserialize;
 use serde_json::{Map, Value};
+
+use super::{
+    grammars::{InputGrammar, PrecedenceEntry, Variable, VariableType},
+    rules::{Precedence, Rule},
+};
 
 #[derive(Deserialize)]
 #[serde(tag = "type")]

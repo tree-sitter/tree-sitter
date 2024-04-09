@@ -1,5 +1,7 @@
-use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar};
-use crate::generate::rules::{Alias, AliasMap, Symbol, SymbolType};
+use crate::generate::{
+    grammars::{LexicalGrammar, SyntaxGrammar},
+    rules::{Alias, AliasMap, Symbol, SymbolType},
+};
 
 #[derive(Clone, Default)]
 struct SymbolStatus {

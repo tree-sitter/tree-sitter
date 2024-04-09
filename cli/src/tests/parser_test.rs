@@ -1,3 +1,12 @@
+use std::{
+    fs,
+    sync::atomic::{AtomicUsize, Ordering},
+    thread, time,
+};
+
+use tree_sitter::{IncludedRangesError, InputEdit, LogType, Parser, Point, Range};
+use tree_sitter_proc_macro::retry;
+
 use super::helpers::{
     allocations,
     edits::{invert_edit, ReadRecorder},
@@ -8,13 +17,6 @@ use crate::{
     parse::{perform_edit, Edit},
     tests::helpers::fixtures::fixtures_dir,
 };
-use std::{
-    fs,
-    sync::atomic::{AtomicUsize, Ordering},
-    thread, time,
-};
-use tree_sitter::{IncludedRangesError, InputEdit, LogType, Parser, Point, Range};
-use tree_sitter_proc_macro::retry;
 
 #[test]
 fn test_parsing_simple_string() {

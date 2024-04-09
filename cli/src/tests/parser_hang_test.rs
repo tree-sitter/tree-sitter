@@ -1,15 +1,17 @@
 // For some reasons `Command::spawn` doesn't work in CI env for many exotic arches.
 #![cfg(all(any(target_arch = "x86_64", target_arch = "x86"), not(sanitizing)))]
 
-use crate::{
-    generate::{generate_parser_for_grammar, load_grammar_file},
-    tests::helpers::fixtures::{fixtures_dir, get_test_language},
-};
 use std::{
     env::VarError,
     process::{Command, Stdio},
 };
+
 use tree_sitter::Parser;
+
+use crate::{
+    generate::{generate_parser_for_grammar, load_grammar_file},
+    tests::helpers::fixtures::{fixtures_dir, get_test_language},
+};
 
 // The `sanitizing` cfg is required to don't run tests under specific sunitizer
 // because they don't work well with subprocesses _(it's an assumption)_.
