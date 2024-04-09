@@ -1,7 +1,10 @@
-use crate::generate::grammars::LexicalGrammar;
-use crate::generate::rules::Symbol;
-use crate::generate::tables::{ParseStateId, ParseTable};
 use std::fmt;
+
+use crate::generate::{
+    grammars::LexicalGrammar,
+    rules::Symbol,
+    tables::{ParseStateId, ParseTable},
+};
 
 pub struct CoincidentTokenIndex<'a> {
     entries: Vec<Vec<ParseStateId>>,

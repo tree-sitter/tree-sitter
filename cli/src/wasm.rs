@@ -1,12 +1,14 @@
-use super::generate::parse_grammar::GrammarJSON;
-use anyhow::{anyhow, Context, Result};
 use std::{
     fs,
     path::{Path, PathBuf},
 };
+
+use anyhow::{anyhow, Context, Result};
 use tree_sitter::wasm_stdlib_symbols;
 use tree_sitter_loader::Loader;
 use wasmparser::Parser;
+
+use super::generate::parse_grammar::GrammarJSON;
 
 pub fn load_language_wasm_file(language_dir: &Path) -> Result<(String, Vec<u8>)> {
     let grammar_name = get_grammar_name(language_dir)

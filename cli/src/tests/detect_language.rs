@@ -1,7 +1,8 @@
-use crate::tests::helpers::fixtures::scratch_dir;
+use std::{fs, path::Path};
 
-use std::path::Path;
 use tree_sitter_loader::Loader;
+
+use crate::tests::helpers::fixtures::scratch_dir;
 
 #[test]
 fn detect_language_by_first_line_regex() {

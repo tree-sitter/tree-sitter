@@ -1,10 +1,13 @@
-use super::helpers::edits::get_random_edit;
-use super::helpers::fixtures::{fixtures_dir, get_language, get_test_language};
-use super::helpers::random::Rand;
-use crate::generate::generate_parser_for_grammar;
-use crate::parse::perform_edit;
 use std::fs;
+
 use tree_sitter::{Node, Parser, Point, Tree};
+
+use super::helpers::{
+    edits::get_random_edit,
+    fixtures::{fixtures_dir, get_language, get_test_language},
+    random::Rand,
+};
+use crate::{generate::generate_parser_for_grammar, parse::perform_edit};
 
 const JSON_EXAMPLE: &str = r#"
 

@@ -7,7 +7,6 @@ mod util;
 use std::os::unix::io::AsRawFd;
 #[cfg(windows)]
 use std::os::windows::io::AsRawHandle;
-
 use std::{
     char, error,
     ffi::CStr,
@@ -21,7 +20,6 @@ use std::{
     ptr::{self, NonNull},
     slice, str,
     sync::atomic::AtomicUsize,
-    u16,
 };
 
 #[cfg(feature = "wasm")]

@@ -1,24 +1,29 @@
-use super::item::{ParseItem, ParseItemSet, ParseItemSetCore};
-use super::item_set_builder::ParseItemSetBuilder;
-use crate::generate::grammars::PrecedenceEntry;
-use crate::generate::grammars::{
-    InlinedProductionMap, LexicalGrammar, SyntaxGrammar, VariableType,
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, HashMap, HashSet, VecDeque},
+    fmt::Write,
+    hash::BuildHasherDefault,
 };
-use crate::generate::node_types::VariableInfo;
-use crate::generate::rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet};
-use crate::generate::tables::{
-    FieldLocation, GotoAction, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
-    ProductionInfo, ProductionInfoId,
-};
-use anyhow::{anyhow, Result};
-use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
-use std::fmt::Write;
-use std::hash::BuildHasherDefault;
-use std::u32;
 
+use anyhow::{anyhow, Result};
 use indexmap::{map::Entry, IndexMap};
 use rustc_hash::FxHasher;
+
+use super::{
+    item::{ParseItem, ParseItemSet, ParseItemSetCore},
+    item_set_builder::ParseItemSetBuilder,
+};
+use crate::generate::{
+    grammars::{
+        InlinedProductionMap, LexicalGrammar, PrecedenceEntry, SyntaxGrammar, VariableType,
+    },
+    node_types::VariableInfo,
+    rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
+    tables::{
+        FieldLocation, GotoAction, ParseAction, ParseState, ParseStateId, ParseTable,
+        ParseTableEntry, ProductionInfo, ProductionInfoId,
+    },
+};
 
 // For conflict reporting, each parse state is associated with an example
 // sequence of symbols that could lead to that parse state.

@@ -1,9 +1,14 @@
+use std::{
+    collections::BTreeMap,
+    env, fs,
+    path::{Path, PathBuf},
+    str,
+    time::Instant,
+    usize,
+};
+
 use anyhow::Context;
 use lazy_static::lazy_static;
-use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
-use std::time::Instant;
-use std::{env, fs, str, usize};
 use tree_sitter::{Language, Parser, Query};
 use tree_sitter_loader::{CompileConfig, Loader};
 

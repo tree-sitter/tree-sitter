@@ -1,5 +1,6 @@
-use super::helpers::fixtures::get_language;
 use tree_sitter::Parser;
+
+use super::helpers::fixtures::get_language;
 
 #[test]
 fn test_lookahead_iterator() {

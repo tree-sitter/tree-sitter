@@ -1,9 +1,10 @@
-use super::ExtractedSyntaxGrammar;
-use crate::generate::grammars::{
-    Production, ProductionStep, SyntaxGrammar, SyntaxVariable, Variable,
-};
-use crate::generate::rules::{Alias, Associativity, Precedence, Rule, Symbol};
 use anyhow::{anyhow, Result};
+
+use super::ExtractedSyntaxGrammar;
+use crate::generate::{
+    grammars::{Production, ProductionStep, SyntaxGrammar, SyntaxVariable, Variable},
+    rules::{Alias, Associativity, Precedence, Rule, Symbol},
+};
 
 struct RuleFlattener {
     production: Production,

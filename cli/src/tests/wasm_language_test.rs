@@ -1,9 +1,11 @@
-use crate::tests::helpers::{allocations, fixtures::WASM_DIR};
-use lazy_static::lazy_static;
 use std::fs;
+
+use lazy_static::lazy_static;
 use tree_sitter::{
     wasmtime::Engine, Parser, Query, QueryCursor, WasmError, WasmErrorKind, WasmStore,
 };
+
+use crate::tests::helpers::{allocations, fixtures::WASM_DIR};
 
 lazy_static! {
     static ref ENGINE: Engine = Engine::default();

@@ -1,7 +1,9 @@
-use super::nfa::Nfa;
-use super::rules::{Alias, Associativity, Precedence, Rule, Symbol};
-use std::collections::HashMap;
-use std::fmt;
+use std::{collections::HashMap, fmt};
+
+use super::{
+    nfa::Nfa,
+    rules::{Alias, Associativity, Precedence, Rule, Symbol},
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum VariableType {

@@ -1,6 +1,9 @@
-use super::nfa::CharacterSet;
-use super::rules::{Alias, Symbol, TokenSet};
 use std::collections::BTreeMap;
+
+use super::{
+    nfa::CharacterSet,
+    rules::{Alias, Symbol, TokenSet},
+};
 pub type ProductionInfoId = usize;
 pub type ParseStateId = usize;
 pub type LexStateId = usize;

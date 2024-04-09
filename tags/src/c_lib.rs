@@ -1,11 +1,11 @@
-use super::{Error, TagsConfiguration, TagsContext};
-use std::collections::HashMap;
-use std::ffi::CStr;
-use std::os::raw::c_char;
-use std::process::abort;
-use std::sync::atomic::AtomicUsize;
-use std::{fmt, slice, str};
+use std::{
+    collections::HashMap, ffi::CStr, fmt, os::raw::c_char, process::abort, slice, str,
+    sync::atomic::AtomicUsize,
+};
+
 use tree_sitter::Language;
+
+use super::{Error, TagsConfiguration, TagsContext};
 
 const BUFFER_TAGS_RESERVE_CAPACITY: usize = 100;
 const BUFFER_DOCS_RESERVE_CAPACITY: usize = 1024;

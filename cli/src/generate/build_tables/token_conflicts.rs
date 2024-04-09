@@ -1,10 +1,11 @@
-use crate::generate::build_tables::item::TokenSetDisplay;
-use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar};
-use crate::generate::nfa::{CharacterSet, NfaCursor, NfaTransition};
-use crate::generate::rules::TokenSet;
-use std::cmp::Ordering;
-use std::collections::HashSet;
-use std::fmt;
+use std::{cmp::Ordering, collections::HashSet, fmt};
+
+use crate::generate::{
+    build_tables::item::TokenSetDisplay,
+    grammars::{LexicalGrammar, SyntaxGrammar},
+    nfa::{CharacterSet, NfaCursor, NfaTransition},
+    rules::TokenSet,
+};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct TokenConflictStatus {
@@ -372,9 +373,11 @@ fn compute_conflict_status(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::generate::grammars::{Variable, VariableType};
-    use crate::generate::prepare_grammar::{expand_tokens, ExtractedLexicalGrammar};
-    use crate::generate::rules::{Precedence, Rule, Symbol};
+    use crate::generate::{
+        grammars::{Variable, VariableType},
+        prepare_grammar::{expand_tokens, ExtractedLexicalGrammar},
+        rules::{Precedence, Rule, Symbol},
+    };
 
     #[test]
     fn test_starting_characters() {

@@ -1,3 +1,14 @@
+use std::{env, fmt::Write};
+
+use indoc::indoc;
+use lazy_static::lazy_static;
+use rand::{prelude::StdRng, SeedableRng};
+use tree_sitter::{
+    CaptureQuantifier, Language, Node, Parser, Point, Query, QueryCursor, QueryError,
+    QueryErrorKind, QueryPredicate, QueryPredicateArg, QueryProperty,
+};
+use unindent::Unindent;
+
 use super::helpers::{
     allocations,
     fixtures::{get_language, get_test_language},
@@ -8,15 +19,6 @@ use crate::{
     generate::generate_parser_for_grammar,
     tests::helpers::query_helpers::{collect_captures, collect_matches},
 };
-use indoc::indoc;
-use lazy_static::lazy_static;
-use rand::{prelude::StdRng, SeedableRng};
-use std::{env, fmt::Write};
-use tree_sitter::{
-    CaptureQuantifier, Language, Node, Parser, Point, Query, QueryCursor, QueryError,
-    QueryErrorKind, QueryPredicate, QueryPredicateArg, QueryProperty,
-};
-use unindent::Unindent;
 
 lazy_static! {
     static ref EXAMPLE_FILTER: Option<String> = env::var("TREE_SITTER_TEST_EXAMPLE_FILTER").ok();

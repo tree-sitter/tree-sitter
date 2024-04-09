@@ -1,8 +1,10 @@
+use std::{collections::HashMap, mem};
+
 use super::ExtractedSyntaxGrammar;
-use crate::generate::grammars::{Variable, VariableType};
-use crate::generate::rules::{Rule, Symbol};
-use std::collections::HashMap;
-use std::mem;
+use crate::generate::{
+    grammars::{Variable, VariableType},
+    rules::{Rule, Symbol},
+};
 
 struct Expander {
     variable_name: String,

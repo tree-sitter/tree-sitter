@@ -1,12 +1,17 @@
-use super::helpers::fixtures::{get_highlight_config, get_language, get_language_queries_path};
+use std::{
+    ffi::CString,
+    fs,
+    os::raw::c_char,
+    ptr, slice, str,
+    sync::atomic::{AtomicUsize, Ordering},
+};
+
 use lazy_static::lazy_static;
-use std::ffi::CString;
-use std::os::raw::c_char;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{fs, ptr, slice, str};
 use tree_sitter_highlight::{
     c, Error, Highlight, HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer,
 };
+
+use super::helpers::fixtures::{get_highlight_config, get_language, get_language_queries_path};
 
 lazy_static! {
     static ref JS_HIGHLIGHT: HighlightConfiguration =

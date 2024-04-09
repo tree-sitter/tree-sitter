@@ -1,3 +1,11 @@
+use core::ops::Range;
+use std::{
+    cmp,
+    collections::{HashMap, HashSet},
+    fmt::Write,
+    mem::swap,
+};
+
 use super::{
     char_tree::{CharacterTree, Comparator},
     grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType},
@@ -6,13 +14,6 @@ use super::{
         AdvanceAction, FieldLocation, GotoAction, LexState, LexTable, ParseAction, ParseTable,
         ParseTableEntry,
     },
-};
-use core::ops::Range;
-use std::{
-    cmp,
-    collections::{HashMap, HashSet},
-    fmt::Write,
-    mem::swap,
 };
 
 const LARGE_CHARACTER_RANGE_COUNT: usize = 8;

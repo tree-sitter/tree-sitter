@@ -1,19 +1,25 @@
-use super::util;
+use std::{
+    collections::BTreeMap,
+    ffi::OsStr,
+    fs,
+    io::{self, Write},
+    path::{Path, PathBuf},
+    str,
+};
+
 use ansi_term::Colour;
 use anyhow::{anyhow, Context, Result};
 use difference::{Changeset, Difference};
 use indoc::indoc;
 use lazy_static::lazy_static;
-use regex::bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder};
-use regex::Regex;
-use std::collections::BTreeMap;
-use std::ffi::OsStr;
-use std::fs;
-use std::io::{self, Write};
-use std::path::{Path, PathBuf};
-use std::str;
+use regex::{
+    bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder},
+    Regex,
+};
 use tree_sitter::{format_sexp, Language, LogType, Parser, Query};
 use walkdir::WalkDir;
+
+use super::util;
 
 lazy_static! {
     static ref HEADER_REGEX: ByteRegex = ByteRegexBuilder::new(

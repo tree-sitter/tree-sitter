@@ -1,10 +1,10 @@
 #![doc = include_str!("../README.md")]
 
+use std::{env, fs, path::PathBuf};
+
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::path::PathBuf;
-use std::{env, fs};
 
 /// Holds the contents of tree-sitter's configuration file.
 ///

@@ -1,6 +1,8 @@
-use super::grammars::VariableType;
-use smallbitvec::SmallBitVec;
 use std::{collections::HashMap, fmt};
+
+use smallbitvec::SmallBitVec;
+
+use super::grammars::VariableType;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum SymbolType {

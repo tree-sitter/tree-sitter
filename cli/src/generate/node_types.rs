@@ -1,9 +1,15 @@
-use super::grammars::{LexicalGrammar, SyntaxGrammar, VariableType};
-use super::rules::{Alias, AliasMap, Symbol, SymbolType};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, HashMap, HashSet},
+};
+
 use anyhow::{anyhow, Result};
 use serde::Serialize;
-use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap, HashSet};
+
+use super::{
+    grammars::{LexicalGrammar, SyntaxGrammar, VariableType},
+    rules::{Alias, AliasMap, Symbol, SymbolType},
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ChildType {
@@ -715,11 +721,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::generate::grammars::{
-        InputGrammar, LexicalVariable, Production, ProductionStep, SyntaxVariable, Variable,
+    use crate::generate::{
+        grammars::{
+            InputGrammar, LexicalVariable, Production, ProductionStep, SyntaxVariable, Variable,
+        },
+        prepare_grammar::prepare_grammar,
+        rules::Rule,
     };
-    use crate::generate::prepare_grammar::prepare_grammar;
-    use crate::generate::rules::Rule;
 
     #[test]
     fn test_node_types_simple() {

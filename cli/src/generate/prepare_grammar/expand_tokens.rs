@@ -1,15 +1,18 @@
-use super::ExtractedLexicalGrammar;
-use crate::generate::grammars::{LexicalGrammar, LexicalVariable};
-use crate::generate::nfa::{CharacterSet, Nfa, NfaState};
-use crate::generate::rules::{Precedence, Rule};
+use std::collections::HashMap;
+
 use anyhow::{anyhow, Context, Result};
 use lazy_static::lazy_static;
 use regex_syntax::ast::{
     parse, Ast, ClassPerlKind, ClassSet, ClassSetBinaryOpKind, ClassSetItem, ClassUnicodeKind,
     RepetitionKind, RepetitionRange,
 };
-use std::collections::HashMap;
-use std::i32;
+
+use super::ExtractedLexicalGrammar;
+use crate::generate::{
+    grammars::{LexicalGrammar, LexicalVariable},
+    nfa::{CharacterSet, Nfa, NfaState},
+    rules::{Precedence, Rule},
+};
 
 lazy_static! {
     static ref UNICODE_CATEGORIES: HashMap<&'static str, Vec<u32>> =
@@ -539,8 +542,10 @@ impl NfaBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::generate::grammars::Variable;
-    use crate::generate::nfa::{NfaCursor, NfaTransition};
+    use crate::generate::{
+        grammars::Variable,
+        nfa::{NfaCursor, NfaTransition},
+    };
 
     fn simulate_nfa<'a>(grammar: &'a LexicalGrammar, s: &'a str) -> Option<(usize, &'a str)> {
         let start_states = grammar.variables.iter().map(|v| v.start_state).collect();

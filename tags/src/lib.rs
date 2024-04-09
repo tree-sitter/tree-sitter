@@ -2,14 +2,19 @@
 
 pub mod c_lib;
 
+use std::{
+    char,
+    collections::HashMap,
+    ffi::{CStr, CString},
+    mem,
+    ops::Range,
+    os::raw::c_char,
+    str,
+    sync::atomic::{AtomicUsize, Ordering},
+};
+
 use memchr::memchr;
 use regex::Regex;
-use std::collections::HashMap;
-use std::ffi::{CStr, CString};
-use std::ops::Range;
-use std::os::raw::c_char;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{char, mem, str};
 use thiserror::Error;
 use tree_sitter::{
     Language, LossyUtf8, Parser, Point, Query, QueryCursor, QueryError, QueryPredicateArg, Tree,
