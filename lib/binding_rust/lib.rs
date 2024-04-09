@@ -2359,8 +2359,8 @@ impl QueryCursor {
     /// This is useful if you don't care about which pattern matched, and just want a single,
     /// ordered sequence of captures.
     #[doc(alias = "ts_query_cursor_exec")]
-    pub fn captures<'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>>(
-        &mut self,
+    pub fn captures<'query, 'cursor: 'query, 'tree, T: TextProvider<I>, I: AsRef<[u8]>>(
+        &'cursor mut self,
         query: &'query Query,
         node: Node<'tree>,
         text_provider: T,
