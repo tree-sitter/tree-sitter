@@ -870,39 +870,40 @@ impl Generator {
             line_break.push_str("  ");
         }
 
-        // parenthesis needed if we add the `!eof` condition to explicitly avoid confusion with
-        // precedence of `&&` and `||`
-        let (mut need_open_paren, mut need_close_paren) = (false, false);
         for (i, range) in ranges.iter().enumerate() {
             if is_included {
                 if i > 0 {
                     add!(self, " ||{line_break}");
                 }
+                // parenthesis needed if we add the `!eof` condition to explicitly avoid confusion with
+                // precedence of `&&` and `||`
+                let mut close_paren = false;
                 if range.start == '\0' {
-                    add!(self, "!eof && ");
-                    (need_open_paren, need_close_paren) = (true, true);
+                    add!(self, "(!eof && ");
+                    close_paren = true;
                 }
                 if range.end == range.start {
-                    if need_open_paren {
-                        add!(self, "(");
-                        need_open_paren = false;
-                    }
                     add!(self, "lookahead == ");
                     self.add_character(range.start);
-                    if need_close_paren && i == ranges.len() - 1 {
-                        add!(self, ")");
-                        need_close_paren = false;
-                    }
                 } else if range.end as u32 == range.start as u32 + 1 {
+                    if close_paren {
+                        add!(self, "(");
+                    }
                     add!(self, "lookahead == ");
                     self.add_character(range.start);
                     add!(self, " ||{line_break}lookahead == ");
                     self.add_character(range.end);
+                    if close_paren {
+                        add!(self, ")");
+                    }
                 } else {
                     add!(self, "(");
                     self.add_character(range.start);
                     add!(self, " <= lookahead && lookahead <= ");
                     self.add_character(range.end);
+                    add!(self, ")");
+                }
+                if close_paren {
                     add!(self, ")");
                 }
             } else {
