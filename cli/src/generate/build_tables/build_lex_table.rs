@@ -1,14 +1,22 @@
-use super::coincident_tokens::CoincidentTokenIndex;
-use super::token_conflicts::TokenConflictMap;
-use crate::generate::dedup::split_state_id_groups;
-use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar};
-use crate::generate::nfa::NfaCursor;
-use crate::generate::rules::{Symbol, TokenSet};
-use crate::generate::tables::{AdvanceAction, LexState, LexTable, ParseStateId, ParseTable};
+use crate::generate::{
+    build_tables::{coincident_tokens::CoincidentTokenIndex, token_conflicts::TokenConflictMap},
+    dedup::split_state_id_groups,
+    grammars::{LexicalGrammar, SyntaxGrammar},
+    nfa::{CharacterSet, NfaCursor, NfaState},
+    rules::{Symbol, TokenSet},
+    tables::{AdvanceAction, LexState, LexTable, ParseStateId, ParseTable},
+};
 use log::info;
-use std::collections::hash_map::Entry;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{hash_map::Entry, HashMap, VecDeque};
 use std::mem;
+
+const LARGE_CHARACTER_RANGE_COUNT: usize = 8;
+
+pub struct LexTables {
+    pub main_lex_table: LexTable,
+    pub keyword_lex_table: LexTable,
+    pub large_character_sets: Vec<(Option<Symbol>, CharacterSet)>,
+}
 
 pub fn build_lex_table(
     parse_table: &mut ParseTable,
@@ -17,7 +25,7 @@ pub fn build_lex_table(
     keywords: &TokenSet,
     coincident_token_index: &CoincidentTokenIndex,
     token_conflict_map: &TokenConflictMap,
-) -> (LexTable, LexTable) {
+) -> LexTables {
     let keyword_lex_table = if syntax_grammar.word_token.is_some() {
         let mut builder = LexTableBuilder::new(lexical_grammar);
         builder.add_state_for_tokens(keywords);
@@ -74,10 +82,36 @@ pub fn build_lex_table(
         }
     }
 
-    let mut table = builder.table;
-    minimize_lex_table(&mut table, parse_table);
-    sort_states(&mut table, parse_table);
-    (table, keyword_lex_table)
+    let mut main_lex_table = builder.table;
+    minimize_lex_table(&mut main_lex_table, parse_table);
+    sort_states(&mut main_lex_table, parse_table);
+
+    let mut large_character_sets = Vec::new();
+    for (state_ix, state) in lexical_grammar.nfa.states.iter().enumerate() {
+        if let NfaState::Advance { chars, is_sep, .. } = state {
+            if chars.range_count() > LARGE_CHARACTER_RANGE_COUNT {
+                let symbol = if *is_sep {
+                    None
+                } else {
+                    let ix = lexical_grammar
+                        .variables
+                        .iter()
+                        .position(|v| v.start_state >= state_ix as u32);
+                    ix.map(Symbol::terminal)
+                };
+
+                if !large_character_sets.iter().any(|(_, set)| set == chars) {
+                    large_character_sets.push((symbol, chars.clone()));
+                }
+            }
+        }
+    }
+
+    LexTables {
+        main_lex_table,
+        keyword_lex_table,
+        large_character_sets,
+    }
 }
 
 struct QueueEntry {

@@ -1,24 +1,36 @@
-pub mod build_lex_table;
-pub mod build_parse_table;
+mod build_lex_table;
+mod build_parse_table;
 mod coincident_tokens;
 mod item;
 mod item_set_builder;
 mod minimize_parse_table;
 mod token_conflicts;
 
-use self::build_lex_table::build_lex_table;
-use self::build_parse_table::{build_parse_table, ParseStateInfo};
-use self::coincident_tokens::CoincidentTokenIndex;
-use self::minimize_parse_table::minimize_parse_table;
-use self::token_conflicts::TokenConflictMap;
-use crate::generate::grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar};
-use crate::generate::nfa::NfaCursor;
-use crate::generate::node_types::VariableInfo;
-use crate::generate::rules::{AliasMap, Symbol, SymbolType, TokenSet};
-use crate::generate::tables::{LexTable, ParseAction, ParseTable, ParseTableEntry};
+use self::{
+    build_lex_table::build_lex_table,
+    build_parse_table::{build_parse_table, ParseStateInfo},
+    coincident_tokens::CoincidentTokenIndex,
+    minimize_parse_table::minimize_parse_table,
+    token_conflicts::TokenConflictMap,
+};
+use crate::generate::{
+    grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar},
+    nfa::{CharacterSet, NfaCursor},
+    node_types::VariableInfo,
+    rules::{AliasMap, Symbol, SymbolType, TokenSet},
+    tables::{LexTable, ParseAction, ParseTable, ParseTableEntry},
+};
 use anyhow::Result;
 use log::info;
 use std::collections::{BTreeSet, HashMap};
+
+pub struct Tables {
+    pub parse_table: ParseTable,
+    pub main_lex_table: LexTable,
+    pub keyword_lex_table: LexTable,
+    pub word_token: Option<Symbol>,
+    pub large_character_sets: Vec<(Option<Symbol>, CharacterSet)>,
+}
 
 pub fn build_tables(
     syntax_grammar: &SyntaxGrammar,
@@ -27,7 +39,7 @@ pub fn build_tables(
     variable_info: &[VariableInfo],
     inlines: &InlinedProductionMap,
     report_symbol_name: Option<&str>,
-) -> Result<(ParseTable, LexTable, LexTable, Option<Symbol>)> {
+) -> Result<Tables> {
     let (mut parse_table, following_tokens, parse_state_info) =
         build_parse_table(syntax_grammar, lexical_grammar, inlines, variable_info)?;
     let token_conflict_map = TokenConflictMap::new(lexical_grammar, following_tokens);
@@ -56,7 +68,7 @@ pub fn build_tables(
         &token_conflict_map,
         &keywords,
     );
-    let (main_lex_table, keyword_lex_table) = build_lex_table(
+    let lex_tables = build_lex_table(
         &mut parse_table,
         syntax_grammar,
         lexical_grammar,
@@ -76,12 +88,14 @@ pub fn build_tables(
             report_symbol_name,
         );
     }
-    Ok((
+
+    Ok(Tables {
         parse_table,
-        main_lex_table,
-        keyword_lex_table,
-        syntax_grammar.word_token,
-    ))
+        main_lex_table: lex_tables.main_lex_table,
+        keyword_lex_table: lex_tables.keyword_lex_table,
+        large_character_sets: lex_tables.large_character_sets,
+        word_token: syntax_grammar.word_token,
+    })
 }
 
 fn populate_error_state(
