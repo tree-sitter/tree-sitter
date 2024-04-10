@@ -2,12 +2,12 @@ use std::{
     char,
     cmp::{max, Ordering},
     fmt,
-    mem::swap,
+    mem::{self, swap},
     ops::{Range, RangeInclusive},
 };
 
 /// A set of characters represented as a vector of ranges.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct CharacterSet {
     ranges: Vec<Range<u32>>,
 }
@@ -320,33 +320,49 @@ impl CharacterSet {
         let mut prev_range: Option<Range<u32>> = None;
         Self {
             ranges: self
-                .char_codes()
-                .map(|c| (c, false))
-                .chain(Some(('\0' as u32, true)))
-                .filter_map(move |(c, done)| {
-                    if done {
-                        return prev_range.clone();
-                    }
-                    if ruled_out_characters.contains_code(c) {
-                        return None;
-                    }
-                    if let Some(range) = prev_range.clone() {
-                        let mut prev_range_successor = range.end as u32;
-                        while prev_range_successor < c as u32 {
-                            if !ruled_out_characters.contains_code(prev_range_successor) {
-                                prev_range = Some(c..(c + 1));
-                                return Some(range);
-                            }
-                            prev_range_successor += 1;
+                .ranges
+                .iter()
+                .map(|range| Some(range.clone()))
+                .chain([None])
+                .filter_map(move |range| {
+                    if let Some(range) = &range {
+                        if ruled_out_characters.contains_codepoint_range(range.clone()) {
+                            return None;
                         }
-                        prev_range = Some(range.start..(c + 1));
-                    } else {
-                        prev_range = Some(c..(c + 1));
+
+                        if let Some(prev_range) = &mut prev_range {
+                            if ruled_out_characters
+                                .contains_codepoint_range(prev_range.end..range.start)
+                            {
+                                prev_range.end = range.end;
+                                return None;
+                            }
+                        }
                     }
-                    None
+
+                    let result = prev_range.clone();
+                    prev_range = range;
+                    result
                 })
                 .collect(),
         }
+    }
+
+    pub fn contains_codepoint_range(&self, seek_range: Range<u32>) -> bool {
+        let ix = match self.ranges.binary_search_by(|probe| {
+            if probe.start < seek_range.start {
+                Ordering::Less
+            } else if probe.start > seek_range.start {
+                Ordering::Greater
+            } else {
+                Ordering::Equal
+            }
+        }) {
+            Ok(ix) | Err(ix) => ix,
+        };
+        self.ranges.get(ix).map_or(false, |range| {
+            range.start <= seek_range.start && range.end >= seek_range.end
+        })
     }
 
     pub fn contains(&self, c: char) -> bool {
@@ -408,11 +424,11 @@ impl fmt::Debug for CharacterSet {
             write!(f, "^ ")?;
             set = set.negate();
         }
-        for (i, c) in set.chars().enumerate() {
+        for (i, range) in set.ranges().enumerate() {
             if i > 0 {
                 write!(f, ", ")?;
             }
-            write!(f, "{c:?}")?;
+            write!(f, "{range:?}")?;
         }
         write!(f, "]")?;
         Ok(())
@@ -524,17 +540,17 @@ impl<'a> NfaCursor<'a> {
         result.sort_unstable_by(|a, b| a.characters.cmp(&b.characters));
 
         let mut i = 0;
-        'i_loop: while i < result.len() {
+        while i < result.len() {
             for j in 0..i {
                 if result[j].states == result[i].states
                     && result[j].is_separator == result[i].is_separator
                     && result[j].precedence == result[i].precedence
                 {
-                    let mut characters = CharacterSet::empty();
-                    swap(&mut characters, &mut result[j].characters);
+                    let characters = mem::take(&mut result[j].characters);
                     result[j].characters = characters.add(&result[i].characters);
                     result.remove(i);
-                    continue 'i_loop;
+                    i -= 1;
+                    break;
                 }
             }
             i += 1;
@@ -1082,6 +1098,16 @@ mod tests {
                 chars: vec!['a', 'b', 'c', 'g', 'h', 'i'],
                 ruled_out_chars: vec!['d', 'j'],
                 expected_ranges: vec!['a'..'c', 'g'..'i'],
+            },
+            Row {
+                chars: vec!['c', 'd', 'e', 'g', 'h'],
+                ruled_out_chars: vec!['a', 'b', 'c', 'd', 'e', 'f'],
+                expected_ranges: vec!['g'..'h'],
+            },
+            Row {
+                chars: vec!['I', 'N'],
+                ruled_out_chars: vec!['A', 'I', 'N', 'Z'],
+                expected_ranges: vec![],
             },
         ];
 

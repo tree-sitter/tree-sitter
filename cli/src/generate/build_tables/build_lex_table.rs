@@ -2,7 +2,7 @@ use crate::generate::{
     build_tables::{coincident_tokens::CoincidentTokenIndex, token_conflicts::TokenConflictMap},
     dedup::split_state_id_groups,
     grammars::{LexicalGrammar, SyntaxGrammar},
-    nfa::{CharacterSet, NfaCursor, NfaState},
+    nfa::{CharacterSet, NfaCursor},
     rules::{Symbol, TokenSet},
     tables::{AdvanceAction, LexState, LexTable, ParseStateId, ParseTable},
 };
@@ -10,7 +10,7 @@ use log::info;
 use std::collections::{hash_map::Entry, HashMap, VecDeque};
 use std::mem;
 
-const LARGE_CHARACTER_RANGE_COUNT: usize = 8;
+pub const LARGE_CHARACTER_RANGE_COUNT: usize = 8;
 
 pub struct LexTables {
     pub main_lex_table: LexTable,
@@ -82,27 +82,36 @@ pub fn build_lex_table(
         }
     }
 
-    let mut main_lex_table = builder.table;
+    let mut main_lex_table = mem::take(&mut builder.table);
     minimize_lex_table(&mut main_lex_table, parse_table);
     sort_states(&mut main_lex_table, parse_table);
 
     let mut large_character_sets = Vec::new();
-    for (state_ix, state) in lexical_grammar.nfa.states.iter().enumerate() {
-        if let NfaState::Advance { chars, is_sep, .. } = state {
-            if chars.range_count() > LARGE_CHARACTER_RANGE_COUNT {
-                let symbol = if *is_sep {
-                    None
-                } else {
-                    let ix = lexical_grammar
-                        .variables
-                        .iter()
-                        .position(|v| v.start_state >= state_ix as u32);
-                    ix.map(Symbol::terminal)
-                };
-
-                if !large_character_sets.iter().any(|(_, set)| set == chars) {
-                    large_character_sets.push((symbol, chars.clone()));
+    for (variable_ix, _variable) in lexical_grammar.variables.iter().enumerate() {
+        let symbol = Symbol::terminal(variable_ix);
+        builder.reset();
+        builder.add_state_for_tokens(&TokenSet::from_iter([symbol]));
+        for state in &builder.table.states {
+            let mut characters = CharacterSet::empty();
+            for (chars, action) in &state.advance_actions {
+                if action.in_main_token {
+                    characters = characters.add(&chars);
+                    continue;
                 }
+
+                if chars.range_count() > LARGE_CHARACTER_RANGE_COUNT
+                    && !large_character_sets.iter().any(|(_, set)| set == chars)
+                {
+                    large_character_sets.push((None, chars.clone()));
+                }
+            }
+
+            if characters.range_count() > LARGE_CHARACTER_RANGE_COUNT
+                && !large_character_sets
+                    .iter()
+                    .any(|(_, set)| *set == characters)
+            {
+                large_character_sets.push((Some(symbol), characters));
             }
         }
     }
@@ -137,6 +146,12 @@ impl<'a> LexTableBuilder<'a> {
             state_queue: VecDeque::new(),
             state_ids_by_nfa_state_set: HashMap::new(),
         }
+    }
+
+    fn reset(&mut self) {
+        self.table = LexTable::default();
+        self.state_queue.clear();
+        self.state_ids_by_nfa_state_set.clear();
     }
 
     fn add_state_for_tokens(&mut self, tokens: &TokenSet) -> usize {

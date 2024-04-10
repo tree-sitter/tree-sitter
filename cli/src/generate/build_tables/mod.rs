@@ -24,6 +24,8 @@ use anyhow::Result;
 use log::info;
 use std::collections::{BTreeSet, HashMap};
 
+pub use build_lex_table::LARGE_CHARACTER_RANGE_COUNT;
+
 pub struct Tables {
     pub parse_table: ParseTable,
     pub main_lex_table: LexTable,

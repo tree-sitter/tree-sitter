@@ -15,7 +15,6 @@ use std::{
     mem::swap,
 };
 
-const LARGE_CHARACTER_RANGE_COUNT: usize = 8;
 const SMALL_STATE_THRESHOLD: usize = 64;
 const ABI_VERSION_MIN: usize = 13;
 const ABI_VERSION_MAX: usize = tree_sitter::LANGUAGE_VERSION;
@@ -674,7 +673,7 @@ impl Generator {
         for (i, state) in lex_table.states.into_iter().enumerate() {
             add_line!(self, "case {i}:");
             indent!(self);
-            self.add_lex_state(state);
+            self.add_lex_state(i, state);
             dedent!(self);
         }
 
@@ -691,7 +690,7 @@ impl Generator {
         add_line!(self, "");
     }
 
-    fn add_lex_state(&mut self, state: LexState) {
+    fn add_lex_state(&mut self, _state_ix: usize, state: LexState) {
         if let Some(accept_action) = state.accept_action {
             add_line!(self, "ACCEPT_TOKEN({});", self.symbol_ids[&accept_action]);
         }
@@ -709,54 +708,81 @@ impl Generator {
 
             // For each state transition, compute the set of character ranges
             // that need to be checked.
-            let simplified = chars.simplify_ignoring(&ruled_out_chars);
-            ruled_out_chars = ruled_out_chars.add(&chars);
-            let mut chars = simplified;
+            let simplified_chars = chars.simplify_ignoring(&ruled_out_chars);
 
             // Find a large character set that matches the transition's character set,
             // allowing for ruled-out characters for previous transitions.
-            let mut call_id = None;
-            if chars.range_count() >= LARGE_CHARACTER_RANGE_COUNT {
+            let mut best_large_char_set: Option<(usize, CharacterSet, CharacterSet)> = None;
+            if simplified_chars.range_count() >= super::build_tables::LARGE_CHARACTER_RANGE_COUNT {
                 for (ix, (_, set)) in self.large_character_sets.iter().enumerate() {
-                    chars_copy.assign(&chars);
+                    chars_copy.assign(&simplified_chars);
                     large_set.assign(&set);
-                    chars_copy.remove_intersection(&mut large_set);
-                    if chars_copy.is_empty()
-                        && large_set.chars().all(|c| ruled_out_chars.contains(c))
-                    {
-                        call_id = Some(ix);
-                        break;
+                    let intersection = chars_copy.remove_intersection(&mut large_set);
+                    if !intersection.is_empty() {
+                        let additions = chars_copy.simplify_ignoring(&ruled_out_chars);
+                        let exclusions = large_set.simplify_ignoring(&ruled_out_chars);
+                        if let Some((_, best_additions, best_exclusions)) = &best_large_char_set {
+                            if best_additions.range_count() + best_exclusions.range_count()
+                                < additions.range_count() + exclusions.range_count()
+                            {
+                                continue;
+                            }
+                        }
+                        best_large_char_set = Some((ix, additions, exclusions));
                     }
                 }
             }
 
+            ruled_out_chars = ruled_out_chars.add(&chars);
+
+            let mut large_char_set_ix = None;
+            let mut asserted_chars = simplified_chars;
+            let mut negated_chars = CharacterSet::empty();
+            if let Some((char_set_ix, additions, exclusions)) = best_large_char_set {
+                asserted_chars = additions;
+                negated_chars = exclusions;
+                large_char_set_ix = Some(char_set_ix);
+            }
+
+            let mut line_break = "\n".to_string();
+            for _ in 0..self.indent_level + 2 {
+                line_break.push_str("  ");
+            }
+
             let mut in_condition = false;
-            if call_id.is_some() || !chars.is_empty() {
+            if large_char_set_ix.is_some()
+                || !asserted_chars.is_empty()
+                || !negated_chars.is_empty()
+            {
                 add!(self, "if (");
                 in_condition = true;
             }
 
-            // If there is a helper function for this transition's character
-            // set, then generate a call to that helper function.
-            if let Some(call_id) = call_id {
+            if let Some(large_char_set_ix) = large_char_set_ix {
                 add!(
                     self,
                     "set_contains({}, {}, lookahead)",
-                    self.large_character_set_constant_names[call_id],
-                    chars.range_count(),
+                    self.large_character_set_constant_names[large_char_set_ix],
+                    self.large_character_sets[large_char_set_ix].1.range_count(),
                 );
             }
-            // Otherwise, generate code to compare the lookahead character
-            // with all of the character ranges.
-            else if !chars.is_empty() {
-                if call_id.is_some() {
-                    add!(self, " || ");
+
+            if !asserted_chars.is_empty() {
+                if large_char_set_ix.is_some() {
+                    add!(self, " ||{line_break}");
                 }
-                let is_included = !chars.contains(char::MAX);
+                let is_included = !asserted_chars.contains(char::MAX);
                 if !is_included {
-                    chars = chars.negate().add_char('\0');
+                    asserted_chars = asserted_chars.negate().add_char('\0');
                 }
-                self.add_character_range_conditions(&chars, is_included, 2);
+                self.add_character_range_conditions(&asserted_chars, is_included, &line_break);
+            }
+
+            if !negated_chars.is_empty() {
+                if large_char_set_ix.is_some() || !asserted_chars.is_empty() {
+                    add!(self, " &&{line_break}");
+                }
+                self.add_character_range_conditions(&negated_chars, false, &line_break);
             }
 
             if in_condition {
@@ -774,13 +800,8 @@ impl Generator {
         &mut self,
         characters: &CharacterSet,
         is_included: bool,
-        indent_count: usize,
+        line_break: &str,
     ) {
-        let mut line_break = "\n".to_string();
-        for _ in 0..self.indent_level + indent_count {
-            line_break.push_str("  ");
-        }
-
         // parenthesis needed if we add the `!eof` condition to explicitly avoid confusion with
         // precedence of `&&` and `||`
         let (mut need_open_paren, mut need_close_paren) = (false, false);
@@ -849,7 +870,8 @@ impl Generator {
         let count = self.large_character_sets[0..ix]
             .iter()
             .filter(|(sym, _)| *sym == symbol)
-            .count();
+            .count()
+            + 1;
 
         let constant_name = if let Some(symbol) = symbol {
             format!("{}_character_set_{}", self.symbol_ids[&symbol], count)
