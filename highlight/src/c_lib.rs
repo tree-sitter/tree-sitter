@@ -72,8 +72,8 @@ pub unsafe extern "C" fn ts_highlighter_new(
 /// `this` must be non-null and must be a valid pointer to a [`TSHighlighter`] instance
 /// created by [`ts_highlighter_new`].
 ///
-/// The caller must ensure that any `*const c_char` (C-style string) parameters are valid for the lifetime of
-/// the [`TSHighlighter`] instance, and are non-null.
+/// The caller must ensure that any `*const c_char` (C-style string) parameters are valid for the
+/// lifetime of the [`TSHighlighter`] instance, and are non-null.
 #[no_mangle]
 pub unsafe extern "C" fn ts_highlighter_add_language(
     this: *mut TSHighlighter,
@@ -188,8 +188,8 @@ pub unsafe extern "C" fn ts_highlight_buffer_delete(this: *mut TSHighlightBuffer
 /// `this` must be non-null and must be a valid pointer to a [`TSHighlightBuffer`] instance
 /// created by [`ts_highlight_buffer_new`].
 ///
-/// The returned pointer, a C-style string, must not outlive the [`TSHighlightBuffer`] instance, else the
-/// data will point to garbage.
+/// The returned pointer, a C-style string, must not outlive the [`TSHighlightBuffer`] instance,
+/// else the data will point to garbage.
 ///
 /// To get the length of the HTML content, use [`ts_highlight_buffer_len`].
 #[no_mangle]
@@ -205,8 +205,8 @@ pub unsafe extern "C" fn ts_highlight_buffer_content(this: *const TSHighlightBuf
 /// `this` must be non-null and must be a valid pointer to a [`TSHighlightBuffer`] instance
 /// created by [`ts_highlight_buffer_new`].
 ///
-/// The returned pointer, a C-style array of [`u32`]s, must not outlive the [`TSHighlightBuffer`] instance, else the
-/// data will point to garbage.
+/// The returned pointer, a C-style array of [`u32`]s, must not outlive the [`TSHighlightBuffer`]
+/// instance, else the data will point to garbage.
 ///
 /// To get the length of the array, use [`ts_highlight_buffer_line_count`].
 #[no_mangle]
@@ -245,10 +245,11 @@ pub unsafe extern "C" fn ts_highlight_buffer_line_count(this: *const TSHighlight
 ///
 /// # Safety
 ///
-/// The caller must ensure that `scope_name`, `source_code`, `output`, and `cancellation_flag` are valid for
-/// the lifetime of the [`TSHighlighter`] instance, and are non-null.
+/// The caller must ensure that `scope_name`, `source_code`, `output`, and `cancellation_flag` are
+/// valid for the lifetime of the [`TSHighlighter`] instance, and are non-null.
 ///
-/// `this` must be a non-null pointer to a [`TSHighlighter`] instance created by [`ts_highlighter_new`]
+/// `this` must be a non-null pointer to a [`TSHighlighter`] instance created by
+/// [`ts_highlighter_new`]
 #[no_mangle]
 pub unsafe extern "C" fn ts_highlighter_highlight(
     this: *const TSHighlighter,

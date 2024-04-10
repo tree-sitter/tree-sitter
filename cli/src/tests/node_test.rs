@@ -850,10 +850,11 @@ fn test_node_numeric_symbols_respect_simple_aliases() {
     parser.set_language(&get_language("python")).unwrap();
 
     // Example 1:
-    // Python argument lists can contain "splat" arguments, which are not allowed within
-    // other expressions. This includes `parenthesized_list_splat` nodes like `(*b)`. These
-    // `parenthesized_list_splat` nodes are aliased as `parenthesized_expression`. Their numeric
-    // `symbol`, aka `kind_id` should match that of a normal `parenthesized_expression`.
+    // Python argument lists can contain "splat" arguments, which are not allowed
+    // within other expressions. This includes `parenthesized_list_splat` nodes
+    // like `(*b)`. These `parenthesized_list_splat` nodes are aliased as
+    // `parenthesized_expression`. Their numeric `symbol`, aka `kind_id` should
+    // match that of a normal `parenthesized_expression`.
     let tree = parser.parse("(a((*b)))", None).unwrap();
     let root = tree.root_node();
     assert_eq!(
@@ -875,9 +876,9 @@ fn test_node_numeric_symbols_respect_simple_aliases() {
     assert_eq!(inner_expr_node.kind_id(), outer_expr_node.kind_id());
 
     // Example 2:
-    // Ruby handles the unary (negative) and binary (minus) `-` operators using two different
-    // tokens. One or more of these is an external token that's aliased as `-`. Their numeric
-    // kind ids should match.
+    // Ruby handles the unary (negative) and binary (minus) `-` operators using two
+    // different tokens. One or more of these is an external token that's
+    // aliased as `-`. Their numeric kind ids should match.
     parser.set_language(&get_language("ruby")).unwrap();
     let tree = parser.parse("-a - b", None).unwrap();
     let root = tree.root_node();

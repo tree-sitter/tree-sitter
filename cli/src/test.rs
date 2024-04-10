@@ -306,13 +306,15 @@ fn run_tests(
                             let expected_output = format_sexp(&output, 0);
                             let actual_output = format_sexp(&actual, 0);
 
-                            // Only bail early before updating if the actual is not the output, sometimes
-                            // users want to test cases that are intended to have errors, hence why this
+                            // Only bail early before updating if the actual is not the output,
+                            // sometimes users want to test cases that
+                            // are intended to have errors, hence why this
                             // check isn't shown above
                             if actual.contains("ERROR") || actual.contains("MISSING") {
                                 *has_parse_errors = true;
 
-                                // keep the original `expected` output if the actual output has an error
+                                // keep the original `expected` output if the actual output has an
+                                // error
                                 corrected_entries.push((
                                     name.clone(),
                                     input,
