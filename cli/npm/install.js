@@ -40,7 +40,7 @@ const matrix = {
 
 // Determine the URL of the file.
 const platform = matrix.platform[process.platform];
-const arch = platform && platform.arch[process.arch];
+const arch = platform?.arch[process.arch];
 
 if (!platform || !platform.name || !arch || !arch.name) {
   console.error(
@@ -91,7 +91,7 @@ function get(url, callback) {
     }
   };
 
-  const proxyEnv = process.env['HTTPS_PROXY'] || process.env['https_proxy'];
+  const proxyEnv = process.env.HTTPS_PROXY || process.env.https_proxy;
   if (!proxyEnv) {
     https.get(url, processResponse);
     return;

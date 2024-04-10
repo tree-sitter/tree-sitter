@@ -23,7 +23,7 @@ function alias(rule, value) {
       }
   }
 
-  throw new Error('Invalid alias value ' + value);
+  throw new Error(`Invalid alias value ${value}`);
 }
 
 function blank() {
@@ -35,7 +35,7 @@ function blank() {
 function field(name, rule) {
   return {
     type: "FIELD",
-    name: name,
+    name,
     content: normalize(rule)
   }
 }
@@ -156,7 +156,7 @@ function seq(...elements) {
 function sym(name) {
   return {
     type: "SYMBOL",
-    name: name
+    name
   };
 }
 
@@ -201,17 +201,17 @@ function normalize(value) {
       if (typeof value.type === 'string') {
         return value;
       } else {
-        throw new TypeError("Invalid rule: " + value.toString());
+        throw new TypeError(`Invalid rule: ${value}`);
       }
   }
 }
 
 function RuleBuilder(ruleMap) {
   return new Proxy({}, {
-    get(target, propertyName) {
+    get(_, propertyName) {
       const symbol = sym(propertyName);
 
-      if (!ruleMap || ruleMap.hasOwnProperty(propertyName)) {
+      if (!ruleMap || Object.prototype.hasOwnProperty.call(ruleMap, propertyName)) {
         return symbol;
       } else {
         const error = new ReferenceError(`Undefined symbol '${propertyName}'`);
@@ -256,10 +256,10 @@ function grammar(baseGrammar, options) {
   }
 
   const ruleMap = {};
-  for (const key in options.rules) {
+  for (const key of Object.keys(options.rules)) {
     ruleMap[key] = true;
   }
-  for (const key in baseGrammar.rules) {
+  for (const key of Object.keys(baseGrammar.rules)) {
     ruleMap[key] = true;
   }
   for (const external of externals) {
@@ -279,16 +279,16 @@ function grammar(baseGrammar, options) {
     throw new Error("Grammar's 'name' property must not start with a digit and cannot contain non-word characters.");
   }
 
-  let rules = Object.assign({}, baseGrammar.rules);
+  const rules = Object.assign({}, baseGrammar.rules);
   if (options.rules) {
     if (typeof options.rules !== "object") {
       throw new Error("Grammar's 'rules' property must be an object.");
     }
 
-    for (const ruleName in options.rules) {
+    for (const ruleName of Object.keys(options.rules)) {
       const ruleFn = options.rules[ruleName];
       if (typeof ruleFn !== "function") {
-        throw new Error("Grammar rules must all be functions. '" + ruleName + "' rule is not.");
+        throw new Error(`Grammar rules must all be functions. '${ruleName}' rule is not.`);
       }
       rules[ruleName] = normalize(ruleFn.call(ruleBuilder, ruleBuilder, baseGrammar.rules[ruleName]));
     }
@@ -403,7 +403,7 @@ function grammar(baseGrammar, options) {
     });
   }
 
-  if (Object.keys(rules).length == 0) {
+  if (Object.keys(rules).length === 0) {
     throw new Error("Grammar must have at least one rule.");
   }
 
