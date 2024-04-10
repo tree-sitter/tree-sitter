@@ -29,7 +29,7 @@ macro_rules! add {
 }
 
 macro_rules! add_whitespace {
-    ($this: tt) => {{
+    ($this:tt) => {{
         for _ in 0..$this.indent_level {
             write!(&mut $this.buffer, "  ").unwrap();
         }
@@ -45,13 +45,13 @@ macro_rules! add_line {
 }
 
 macro_rules! indent {
-    ($this: tt) => {
+    ($this:tt) => {
         $this.indent_level += 1;
     };
 }
 
 macro_rules! dedent {
-    ($this: tt) => {
+    ($this:tt) => {
         assert_ne!($this.indent_level, 0);
         $this.indent_level -= 1;
     };
@@ -221,9 +221,8 @@ impl Generator {
                     });
 
                     // Some aliases match an existing symbol in the grammar.
-                    let alias_id;
-                    if let Some(existing_symbol) = existing_symbol {
-                        alias_id = self.symbol_ids[&self.symbol_map[&existing_symbol]].clone();
+                    let alias_id = if let Some(existing_symbol) = existing_symbol {
+                        self.symbol_ids[&self.symbol_map[&existing_symbol]].clone()
                     }
                     // Other aliases don't match any existing symbol, and need their own
                     // identifiers.
@@ -232,12 +231,12 @@ impl Generator {
                             self.unique_aliases.insert(i, alias.clone());
                         }
 
-                        alias_id = if alias.is_named {
+                        if alias.is_named {
                             format!("alias_sym_{}", self.sanitize_identifier(&alias.value))
                         } else {
                             format!("anon_alias_sym_{}", self.sanitize_identifier(&alias.value))
-                        };
-                    }
+                        }
+                    };
 
                     self.alias_ids.entry(alias.clone()).or_insert(alias_id);
                 }

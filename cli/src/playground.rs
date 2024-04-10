@@ -12,7 +12,7 @@ use tiny_http::{Header, Response, Server};
 use super::wasm;
 
 macro_rules! optional_resource {
-    ($name: tt, $path: tt) => {
+    ($name:tt, $path:tt) => {
         #[cfg(TREE_SITTER_EMBED_WASM_BINDING)]
         fn $name(tree_sitter_dir: Option<&Path>) -> Cow<'static, [u8]> {
             if let Some(tree_sitter_dir) = tree_sitter_dir {

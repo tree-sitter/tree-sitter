@@ -99,7 +99,7 @@ fn test_parsing_with_debug_graph_enabled() {
     parser.print_dot_graphs(&debug_graph_file);
     parser.parse("const zero = 0", None).unwrap();
 
-    debug_graph_file.seek(std::io::SeekFrom::Start(0)).unwrap();
+    debug_graph_file.rewind().unwrap();
     let log_reader = BufReader::new(debug_graph_file)
         .lines()
         .map(|l| l.expect("Failed to read line from graph log"));

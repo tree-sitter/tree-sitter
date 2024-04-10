@@ -33,25 +33,25 @@ fn detect_language_by_first_line_regex() {
     assert_eq!(config[0].scope.as_ref().unwrap(), "source.strace");
 
     let file_name = strace_dir.path().join("strace.log");
-    std::fs::write(&file_name, "execve\nworld").unwrap();
+    fs::write(&file_name, "execve\nworld").unwrap();
     assert_eq!(
         get_lang_scope(&loader, &file_name),
         Some("source.strace".into())
     );
 
     let file_name = strace_dir.path().join("strace.log");
-    std::fs::write(&file_name, "447845 execve\nworld").unwrap();
+    fs::write(&file_name, "447845 execve\nworld").unwrap();
     assert_eq!(
         get_lang_scope(&loader, &file_name),
         Some("source.strace".into())
     );
 
     let file_name = strace_dir.path().join("strace.log");
-    std::fs::write(&file_name, "hello\nexecve").unwrap();
+    fs::write(&file_name, "hello\nexecve").unwrap();
     assert!(get_lang_scope(&loader, &file_name).is_none());
 
     let file_name = strace_dir.path().join("strace.log");
-    std::fs::write(&file_name, "").unwrap();
+    fs::write(&file_name, "").unwrap();
     assert!(get_lang_scope(&loader, &file_name).is_none());
 
     let dummy_dir = tree_sitter_dir(
@@ -76,7 +76,7 @@ fn detect_language_by_first_line_regex() {
         .find_language_configurations_at_path(dummy_dir.path(), false)
         .unwrap();
     let file_name = dummy_dir.path().join("strace.dummy");
-    std::fs::write(&file_name, "execve").unwrap();
+    fs::write(&file_name, "execve").unwrap();
     assert_eq!(
         get_lang_scope(&loader, &file_name),
         Some("source.dummy".into())
@@ -85,15 +85,14 @@ fn detect_language_by_first_line_regex() {
 
 fn tree_sitter_dir(package_json: &str, name: &str) -> tempfile::TempDir {
     let temp_dir = tempfile::tempdir().unwrap();
-    std::fs::write(temp_dir.path().join("package.json"), package_json).unwrap();
-    std::fs::create_dir(temp_dir.path().join("src")).unwrap();
-    std::fs::create_dir(temp_dir.path().join("src/tree_sitter")).unwrap();
-    std::fs::write(
+    fs::write(temp_dir.path().join("package.json"), package_json).unwrap();
+    fs::create_dir_all(temp_dir.path().join("src/tree_sitter")).unwrap();
+    fs::write(
         temp_dir.path().join("src/grammar.json"),
         format!(r#"{{"name":"{name}"}}"#),
     )
     .unwrap();
-    std::fs::write(
+    fs::write(
         temp_dir.path().join("src/parser.c"),
         format!(
             r##"
@@ -108,7 +107,7 @@ fn tree_sitter_dir(package_json: &str, name: &str) -> tempfile::TempDir {
         ),
     )
     .unwrap();
-    std::fs::write(
+    fs::write(
         temp_dir.path().join("src/tree_sitter/parser.h"),
         include_str!("../../../lib/src/parser.h"),
     )
@@ -116,7 +115,7 @@ fn tree_sitter_dir(package_json: &str, name: &str) -> tempfile::TempDir {
     temp_dir
 }
 
-// if we manage to get the language scope, it means we correctly detected the file-type
+// If we manage to get the language scope, it means we correctly detected the file-type
 fn get_lang_scope(loader: &Loader, file_name: &Path) -> Option<String> {
     loader
         .language_configuration_for_file_name(file_name)

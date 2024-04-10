@@ -870,8 +870,7 @@ fn run() -> Result<()> {
             let open_in_browser = !playground_options.quiet;
             let grammar_path = playground_options
                 .grammar_path
-                .map(PathBuf::from)
-                .unwrap_or(current_dir);
+                .map_or(current_dir, PathBuf::from);
             playground::serve(&grammar_path, open_in_browser)?;
         }
 

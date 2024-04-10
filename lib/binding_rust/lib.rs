@@ -1486,7 +1486,7 @@ impl fmt::Display for Node<'_> {
         if sexp.is_empty() {
             write!(f, "")
         } else if !f.alternate() {
-            write!(f, "{}", sexp)
+            write!(f, "{sexp}")
         } else {
             write!(f, "{}", format_sexp(&sexp, f.width().unwrap_or(0)))
         }
@@ -1781,7 +1781,7 @@ impl Query {
             let mut line_start = 0;
             let mut row = 0;
             let mut line_containing_error = None;
-            for line in source.split('\n') {
+            for line in source.lines() {
                 let line_end = line_start + line.len() + 1;
                 if line_end > offset {
                     line_containing_error = Some(line);
@@ -2511,7 +2511,7 @@ impl<'tree> QueryMatch<'_, 'tree> {
                 } else if let Some(ref first_chunk) = self.first_chunk {
                     first_chunk.as_ref()
                 } else {
-                    Default::default()
+                    &[]
                 }
             }
         }
@@ -2823,7 +2823,7 @@ impl<'a> Iterator for LossyUtf8<'a> {
         }
         match std::str::from_utf8(self.bytes) {
             Ok(valid) => {
-                self.bytes = Default::default();
+                self.bytes = &[];
                 Some(valid)
             }
             Err(error) => {
@@ -2901,6 +2901,7 @@ impl fmt::Display for QueryError {
 }
 
 #[doc(hidden)]
+#[must_use]
 pub fn format_sexp(sexp: &str, initial_indent_level: usize) -> String {
     let mut indent_level = initial_indent_level;
     let mut formatted = String::new();
