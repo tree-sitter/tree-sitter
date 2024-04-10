@@ -154,7 +154,7 @@ impl InlinedProductionMapBuilder {
                 self.productions
                     .iter()
                     .position(|p| *p == production)
-                    .unwrap_or({
+                    .unwrap_or_else(|| {
                         self.productions.push(production);
                         self.productions.len() - 1
                     })

@@ -133,7 +133,7 @@ impl<'a> ParseItem<'a> {
 
     /// Create an item like this one, but advanced by one step.
     #[must_use]
-    pub const fn successor(&self) -> ParseItem<'a> {
+    pub const fn successor(&self) -> Self {
         ParseItem {
             variable_index: self.variable_index,
             production: self.production,

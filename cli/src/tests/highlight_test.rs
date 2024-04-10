@@ -753,8 +753,7 @@ fn to_token_vector<'a>(
                 for (i, l) in s.split('\n').enumerate() {
                     let l = l.trim_end_matches('\r');
                     if i > 0 {
-                        lines.push(line);
-                        line = Vec::new();
+                        lines.push(std::mem::take(&mut line));
                     }
                     if !l.is_empty() {
                         line.push((l, highlights.clone()));

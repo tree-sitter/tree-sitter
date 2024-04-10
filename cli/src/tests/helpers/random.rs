@@ -15,7 +15,7 @@ impl Rand {
     }
 
     pub fn unsigned(&mut self, max: usize) -> usize {
-        self.0.gen_range(0..max + 1)
+        self.0.gen_range(0..=max)
     }
 
     pub fn words(&mut self, max_count: usize) -> Vec<u8> {

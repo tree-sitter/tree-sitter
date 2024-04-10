@@ -298,7 +298,7 @@ impl<'a> ParseTableBuilder<'a> {
                         }
                     }
 
-                    reduction_info.precedence = precedence.clone();
+                    reduction_info.precedence.clone_from(precedence);
                     if let Err(i) = reduction_info.symbols.binary_search(&symbol) {
                         reduction_info.symbols.insert(i, symbol);
                     }
@@ -604,13 +604,13 @@ impl<'a> ParseTableBuilder<'a> {
             write!(&mut msg, "  {}", self.symbol_name(symbol)).unwrap();
         }
 
-        write!(
+        writeln!(
             &mut msg,
-            "  •  {}  …\n\n",
+            "  •  {}  …\n",
             self.symbol_name(&conflicting_lookahead)
         )
         .unwrap();
-        write!(&mut msg, "Possible interpretations:\n\n").unwrap();
+        writeln!(&mut msg, "Possible interpretations:\n").unwrap();
 
         let mut interpretations = conflicting_items
             .iter()
@@ -685,7 +685,7 @@ impl<'a> ParseTableBuilder<'a> {
         }
 
         let mut resolution_count = 0;
-        write!(&mut msg, "\nPossible resolutions:\n\n").unwrap();
+        writeln!(&mut msg, "\nPossible resolutions:\n").unwrap();
         let mut shift_items = Vec::new();
         let mut reduce_items = Vec::new();
         for item in conflicting_items {
@@ -961,7 +961,7 @@ fn populate_following_tokens(
             for entry in result.iter_mut() {
                 entry.insert(*extra);
             }
-            result[extra.index] = all_tokens.clone();
+            result[extra.index].clone_from(&all_tokens);
         }
     }
 }

@@ -489,7 +489,6 @@ where
                         // Compute tag properties that depend on the text of the containing line. If
                         // the previous tag occurred on the same line, then
                         // reuse results from the previous tag.
-                        let line_range;
                         let mut prev_utf16_column = 0;
                         let mut prev_utf8_byte = name_range.start - span.start.column;
                         let line_info = self.prev_line_info.as_ref().and_then(|info| {
@@ -499,20 +498,20 @@ where
                                 None
                             }
                         });
-                        if let Some(line_info) = line_info {
-                            line_range = line_info.line_range.clone();
+                        let line_range = if let Some(line_info) = line_info {
                             if line_info.utf8_position.column <= span.start.column {
                                 prev_utf8_byte = line_info.utf8_byte;
                                 prev_utf16_column = line_info.utf16_column;
                             }
+                            line_info.line_range.clone()
                         } else {
-                            line_range = self::line_range(
+                            self::line_range(
                                 self.source,
                                 name_range.start,
                                 span.start,
                                 MAX_LINE_LEN,
-                            );
-                        }
+                            )
+                        };
 
                         let utf16_start_column = prev_utf16_column
                             + utf16_len(&self.source[prev_utf8_byte..name_range.start]);

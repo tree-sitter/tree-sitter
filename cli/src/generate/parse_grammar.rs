@@ -166,19 +166,18 @@ fn parse_rule(json: RuleJSON) -> Rule {
         RuleJSON::PATTERN { value, flags } => Rule::Pattern(
             value,
             flags.map_or(String::new(), |f| {
-                f.chars()
-                    .filter(|c| {
-                        if *c == 'i' {
-                            true
-                        } else {
-                            // silently ignore unicode flags
-                            if *c != 'u' && *c != 'v' {
-                                eprintln!("Warning: unsupported flag {c}");
-                            }
-                            false
+                f.matches(|c| {
+                    if c == 'i' {
+                        true
+                    } else {
+                        // silently ignore unicode flags
+                        if c != 'u' && c != 'v' {
+                            eprintln!("Warning: unsupported flag {c}");
                         }
-                    })
-                    .collect()
+                        false
+                    }
+                })
+                .collect()
             }),
         ),
         RuleJSON::SYMBOL { name } => Rule::NamedSymbol(name),

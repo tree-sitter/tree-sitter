@@ -217,7 +217,7 @@ fn test_language_corpus(
 
                 // Perform a random series of edits and reparse.
                 let mut undo_stack = Vec::new();
-                for _ in 0..1 + rand.unsigned(*EDIT_COUNT) {
+                for _ in 0..=rand.unsigned(*EDIT_COUNT) {
                     let edit = get_random_edit(&mut rand, &input);
                     undo_stack.push(invert_edit(&input, &edit));
                     perform_edit(&mut tree, &mut input, &edit).unwrap();

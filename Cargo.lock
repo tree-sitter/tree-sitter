@@ -1447,6 +1447,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
+ "tempfile",
  "tree-sitter",
  "tree-sitter-highlight",
  "tree-sitter-tags",

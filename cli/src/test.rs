@@ -432,9 +432,9 @@ fn write_tests_to_buffer(
         if i > 0 {
             writeln!(buffer)?;
         }
-        write!(
+        writeln!(
             buffer,
-            "{}\n{name}\n{}\n{input}\n{}\n\n{}\n",
+            "{}\n{name}\n{}\n{input}\n{}\n\n{}",
             "=".repeat(*header_delim_len),
             "=".repeat(*header_delim_len),
             "-".repeat(*divider_delim_len),
@@ -662,7 +662,7 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
             }
         }
         prev_attributes = attributes;
-        prev_name = test_name.unwrap_or(String::new());
+        prev_name = test_name.unwrap_or_default();
         prev_header_len = header_delim_len;
         prev_header_end = header_range.end;
     }
