@@ -248,10 +248,10 @@ impl HighlightConfiguration {
     /// * `language`  - The Tree-sitter `Language` that should be used for parsing.
     /// * `highlights_query` - A string containing tree patterns for syntax highlighting. This
     ///   should be non-empty, otherwise no syntax highlights will be added.
-    /// * `injections_query` -  A string containing tree patterns for injecting other languages
-    ///   into the document. This can be empty if no injections are desired.
-    /// * `locals_query` - A string containing tree patterns for tracking local variable
-    ///   definitions and references. This can be empty if local variable tracking is not needed.
+    /// * `injections_query` -  A string containing tree patterns for injecting other languages into
+    ///   the document. This can be empty if no injections are desired.
+    /// * `locals_query` - A string containing tree patterns for tracking local variable definitions
+    ///   and references. This can be empty if local variable tracking is not needed.
     ///
     /// Returns a `HighlightConfiguration` that can then be used with the `highlight` method.
     pub fn new(
@@ -401,8 +401,8 @@ impl HighlightConfiguration {
     }
 
     // Return the list of this configuration's capture names that are neither present in the
-    // list of predefined 'canonical' names nor start with an underscore (denoting 'private' captures
-    // used as part of capture internals).
+    // list of predefined 'canonical' names nor start with an underscore (denoting 'private'
+    // captures used as part of capture internals).
     #[must_use]
     pub fn nonconformant_capture_names(&self, capture_names: &HashSet<&str>) -> Vec<&str> {
         let capture_names = if capture_names.is_empty() {
@@ -534,12 +534,12 @@ impl<'a> HighlightIterLayer<'a> {
     // Compute the ranges that should be included when parsing an injection.
     // This takes into account three things:
     // * `parent_ranges` - The ranges must all fall within the *current* layer's ranges.
-    // * `nodes` - Every injection takes place within a set of nodes. The injection ranges
-    //   are the ranges of those nodes.
-    // * `includes_children` - For some injections, the content nodes' children should be
-    //   excluded from the nested document, so that only the content nodes' *own* content
-    //   is reparsed. For other injections, the content nodes' entire ranges should be
-    //   reparsed, including the ranges of their children.
+    // * `nodes` - Every injection takes place within a set of nodes. The injection ranges are the
+    //   ranges of those nodes.
+    // * `includes_children` - For some injections, the content nodes' children should be excluded
+    //   from the nested document, so that only the content nodes' *own* content is reparsed. For
+    //   other injections, the content nodes' entire ranges should be reparsed, including the ranges
+    //   of their children.
     fn intersect_ranges(
         parent_ranges: &[Range],
         nodes: &[Node],

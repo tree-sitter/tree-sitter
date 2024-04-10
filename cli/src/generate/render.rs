@@ -178,8 +178,8 @@ impl Generator {
             }
             // Two anonymous tokens with different flags but the same string value
             // should be represented with the same symbol in the public API. Examples:
-            // *  "<" and token(prec(1, "<"))
-            // *  "(" and token.immediate("(")
+            // * "<" and token(prec(1, "<"))
+            // * "(" and token.immediate("(")
             else if symbol.is_terminal() {
                 let metadata = self.metadata_for_symbol(*symbol);
                 for other_symbol in &self.parse_table.symbols {
@@ -225,7 +225,8 @@ impl Generator {
                     if let Some(existing_symbol) = existing_symbol {
                         alias_id = self.symbol_ids[&self.symbol_map[&existing_symbol]].clone();
                     }
-                    // Other aliases don't match any existing symbol, and need their own identifiers.
+                    // Other aliases don't match any existing symbol, and need their own
+                    // identifiers.
                     else {
                         if let Err(i) = self.unique_aliases.binary_search(alias) {
                             self.unique_aliases.insert(i, alias.clone());
@@ -1674,16 +1675,15 @@ impl Generator {
 /// * `parse_table` - The generated parse table for the language
 /// * `main_lex_table` - The generated lexing table for the language
 /// * `keyword_lex_table` - The generated keyword lexing table for the language
-/// * `keyword_capture_token` - A symbol indicating which token is used
-///    for keyword capture, if any.
+/// * `keyword_capture_token` - A symbol indicating which token is used for keyword capture, if any.
 /// * `syntax_grammar` - The syntax grammar extracted from the language's grammar
 /// * `lexical_grammar` - The lexical grammar extracted from the language's grammar
-/// * `default_aliases` - A map describing the global rename rules that should apply.
-///    the keys are symbols that are *always* aliased in the same way, and the values
-///    are the aliases that are applied to those symbols.
-/// * `abi_version` - The language ABI version that should be generated. Usually
-///    you want Tree-sitter's current version, but right after making an ABI
-///    change, it may be useful to generate code with the previous ABI.
+/// * `default_aliases` - A map describing the global rename rules that should apply. the keys are
+///   symbols that are *always* aliased in the same way, and the values are the aliases that are
+///   applied to those symbols.
+/// * `abi_version` - The language ABI version that should be generated. Usually you want
+///   Tree-sitter's current version, but right after making an ABI change, it may be useful to
+///   generate code with the previous ABI.
 #[allow(clippy::too_many_arguments)]
 pub fn render_c_code(
     name: &str,

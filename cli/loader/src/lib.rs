@@ -503,7 +503,8 @@ impl Loader {
         if let Ok(lock_file) = fs::OpenOptions::new().write(true).open(&lock_path) {
             recompile = false;
             if lock_file.try_lock_exclusive().is_err() {
-                // if we can't acquire the lock, another process is compiling the parser, wait for it and don't recompile
+                // if we can't acquire the lock, another process is compiling the parser, wait for
+                // it and don't recompile
                 lock_file.lock_exclusive()?;
                 recompile = false;
             } else {

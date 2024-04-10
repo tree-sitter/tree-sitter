@@ -286,8 +286,9 @@ impl TagsContext {
         unsafe { self.parser.set_cancellation_flag(cancellation_flag) };
         let tree = self.parser.parse(source, None).ok_or(Error::Cancelled)?;
 
-        // The `matches` iterator borrows the `Tree`, which prevents it from being moved.
-        // But the tree is really just a pointer, so it's actually ok to move it.
+        // The `matches` iterator borrows the `Tree`, which prevents it from being
+        // moved. But the tree is really just a pointer, so it's actually ok to
+        // move it.
         let tree_ref = unsafe { mem::transmute::<_, &'static Tree>(&tree) };
         let matches = self
             .cursor
@@ -461,7 +462,8 @@ where
                             }
                         }
 
-                        // Generate a doc string from all of the doc nodes, applying any strip regexes.
+                        // Generate a doc string from all of the doc nodes, applying any strip
+                        // regexes.
                         let mut docs = None;
                         for doc_node in &doc_nodes[docs_start_index..] {
                             if let Ok(content) = str::from_utf8(&self.source[doc_node.byte_range()])
@@ -484,8 +486,9 @@ where
                         let range = rng.start.min(name_range.start)..rng.end.max(name_range.end);
                         let span = name_node.start_position()..name_node.end_position();
 
-                        // Compute tag properties that depend on the text of the containing line. If the
-                        // previous tag occurred on the same line, then reuse results from the previous tag.
+                        // Compute tag properties that depend on the text of the containing line. If
+                        // the previous tag occurred on the same line, then
+                        // reuse results from the previous tag.
                         let line_range;
                         let mut prev_utf16_column = 0;
                         let mut prev_utf8_byte = name_range.start - span.start.column;

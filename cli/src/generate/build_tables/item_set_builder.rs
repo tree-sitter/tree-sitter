@@ -75,8 +75,8 @@ impl<'a> ParseItemSetBuilder<'a> {
 
         // The FIRST set of a non-terminal `i` is the union of the following sets:
         // * the set of all terminals that appear at the beginnings of i's productions
-        // * the FIRST sets of all the non-terminals that appear at the beginnings
-        //   of i's productions
+        // * the FIRST sets of all the non-terminals that appear at the beginnings of i's
+        //   productions
         //
         // Rather than computing these sets using recursion, we use an explicit stack
         // called `symbols_to_process`.
@@ -135,11 +135,11 @@ impl<'a> ParseItemSetBuilder<'a> {
         // item set when `i` occurs as the next symbol in one if its core items. The
         // structure of an *addition* is as follows:
         //   * `item` - the new item that must be added as part of the expansion of `i`
-        //   * `lookaheads` - lookahead tokens that can always come after that item in
-        //      the expansion of `i`
-        //   * `propagates_lookaheads` - a boolean indicating whether or not `item` can
-        //      occur at the *end* of the expansion of `i`, so that i's own current
-        //      lookahead tokens can occur after `item`.
+        //   * `lookaheads` - lookahead tokens that can always come after that item in the expansion
+        //     of `i`
+        //   * `propagates_lookaheads` - a boolean indicating whether or not `item` can occur at the
+        //     *end* of the expansion of `i`, so that i's own current lookahead tokens can occur
+        //     after `item`.
         //
         // Again, rather than computing these additions recursively, we use an explicit
         // stack called `entries_to_process`.
