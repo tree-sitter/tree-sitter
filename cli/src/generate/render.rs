@@ -759,12 +759,20 @@ impl Generator {
             }
 
             if let Some(large_char_set_ix) = large_char_set_ix {
+                let large_set = &self.large_character_sets[large_char_set_ix].1;
+                let check_eof = large_set.contains('\0');
+                if check_eof {
+                    add!(self, "(!eof && ")
+                }
                 add!(
                     self,
                     "set_contains({}, {}, lookahead)",
-                    self.large_character_set_constant_names[large_char_set_ix],
-                    self.large_character_sets[large_char_set_ix].1.range_count(),
+                    &self.large_character_set_constant_names[large_char_set_ix],
+                    large_set.range_count(),
                 );
+                if check_eof {
+                    add!(self, ")");
+                }
             }
 
             if !asserted_chars.is_empty() {
