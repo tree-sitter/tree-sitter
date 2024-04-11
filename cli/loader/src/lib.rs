@@ -569,6 +569,7 @@ impl Loader {
             .cargo_warnings(false)
             .target(BUILD_TARGET)
             .host(BUILD_HOST)
+            .debug(self.debug_build)
             .file(&config.parser_path)
             .includes(&config.header_paths);
 
@@ -608,7 +609,7 @@ impl Loader {
             command.args(cc_config.get_files());
             command.arg("-link").arg(out);
         } else {
-            command.args(["-Werror=implicit-function-declaration", "-g"]);
+            command.arg("-Werror=implicit-function-declaration");
             if cfg!(any(target_os = "macos", target_os = "ios")) {
                 command.arg("-dynamiclib");
                 // TODO: remove when supported

@@ -114,11 +114,8 @@ struct Build {
     pub path: Option<String>,
     #[arg(long, help = "Make the parser reuse the same allocator as the library")]
     pub reuse_allocator: bool,
-    #[arg(
-        long,
-        help = "Build the parser with `TREE_SITTER_INTERNAL_BUILD` defined"
-    )]
-    pub internal_build: bool,
+    #[arg(long, short = '0', help = "Compile a parser in debug mode")]
+    pub debug: bool,
 }
 
 #[derive(Args)]
@@ -502,15 +499,14 @@ fn run() -> Result<()> {
                         .with_extension(env::consts::DLL_EXTENSION)
                 };
 
-                let flags: &[&str] =
-                    match (build_options.reuse_allocator, build_options.internal_build) {
-                        (true, true) => {
-                            &["TREE_SITTER_REUSE_ALLOCATOR", "TREE_SITTER_INTERNAL_BUILD"]
-                        }
-                        (true, false) => &["TREE_SITTER_REUSE_ALLOCATOR"],
-                        (false, true) => &["TREE_SITTER_INTERNAL_BUILD"],
-                        (false, false) => &[],
-                    };
+                let flags: &[&str] = match (build_options.reuse_allocator, build_options.debug) {
+                    (true, true) => &["TREE_SITTER_REUSE_ALLOCATOR", "TREE_SITTER_DEBUG"],
+                    (true, false) => &["TREE_SITTER_REUSE_ALLOCATOR"],
+                    (false, true) => &["TREE_SITTER_DEBUG"],
+                    (false, false) => &[],
+                };
+
+                loader.use_debug_build(build_options.debug);
 
                 let config = Config::load(None)?;
                 let loader_config = config.get()?;
@@ -562,11 +558,6 @@ fn run() -> Result<()> {
             let edits = parse_options.edits.unwrap_or_default();
             let cancellation_flag = util::cancel_on_signal();
             let mut parser = Parser::new();
-
-            if parse_options.debug {
-                // For augmenting debug logging in external scanners
-                env::set_var("TREE_SITTER_DEBUG", "1");
-            }
 
             loader.use_debug_build(parse_options.debug_build);
 
@@ -663,10 +654,6 @@ fn run() -> Result<()> {
 
         Commands::Test(test_options) => {
             let config = Config::load(test_options.config_path)?;
-            if test_options.debug {
-                // For augmenting debug logging in external scanners
-                env::set_var("TREE_SITTER_DEBUG", "1");
-            }
 
             loader.use_debug_build(test_options.debug_build);
 
