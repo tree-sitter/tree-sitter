@@ -1,8 +1,3 @@
----
-title: Code Navigation Systems
-permalink: code-navigation-systems
----
-
 # Code Navigation Systems
 
 Tree-sitter can be used in conjunction with its [tree query language](https://tree-sitter.github.io/tree-sitter/using-parsers#pattern-matching-with-queries) as a part of code navigation systems. An example of such a system can be seen in the `tree-sitter tags` command, which emits a textual dump of the interesting syntactic nodes in its file argument. A notable application of this is GitHub's support for [search-based code navigation](https://docs.github.com/en/repositories/working-with-files/using-files/navigating-code-on-github#precise-and-search-based-navigation). This document exists to describe how to integrate with such systems, and how to extend this functionality to any language with a Tree-sitter grammar.
@@ -65,7 +60,7 @@ An even more sophisticated query is in the [Ruby Tree-sitter repository](https:/
 The below table describes a standard vocabulary for kinds and roles during the tagging process. New applications may extend (or only recognize a subset of) these capture names, but it is desirable to standardize on the names below.
 
 | Category                 | Tag                         |
-|--------------------------|-----------------------------|
+| ------------------------ | --------------------------- |
 | Class definitions        | `@definition.class`         |
 | Function definitions     | `@definition.function`      |
 | Interface definitions    | `@definition.interface`     |
