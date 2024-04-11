@@ -95,7 +95,7 @@ pub fn build_lex_table(
             let mut characters = CharacterSet::empty();
             for (chars, action) in &state.advance_actions {
                 if action.in_main_token {
-                    characters = characters.add(&chars);
+                    characters = characters.add(chars);
                     continue;
                 }
 

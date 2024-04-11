@@ -350,7 +350,7 @@ impl CharacterSet {
 
     pub fn contains_codepoint_range(&self, seek_range: Range<u32>) -> bool {
         let ix = match self.ranges.binary_search_by(|probe| {
-            if probe.start < seek_range.start {
+            if probe.end <= seek_range.start {
                 Ordering::Less
             } else if probe.start > seek_range.start {
                 Ordering::Greater
@@ -366,12 +366,7 @@ impl CharacterSet {
     }
 
     pub fn contains(&self, c: char) -> bool {
-        self.contains_code(c as u32)
-    }
-
-    fn contains_code(&self, c: u32) -> bool {
-        // self.ranges.iter().any(|r| r.start <= c && r.end >= c)
-        self.ranges.iter().any(|r| r.contains(&c))
+        self.contains_codepoint_range(c as u32..c as u32 + 1)
     }
 }
 

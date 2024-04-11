@@ -716,7 +716,7 @@ impl Generator {
             if simplified_chars.range_count() >= super::build_tables::LARGE_CHARACTER_RANGE_COUNT {
                 for (ix, (_, set)) in self.large_character_sets.iter().enumerate() {
                     chars_copy.assign(&simplified_chars);
-                    large_set.assign(&set);
+                    large_set.assign(set);
                     let intersection = chars_copy.remove_intersection(&mut large_set);
                     if !intersection.is_empty() {
                         let additions = chars_copy.simplify_ignoring(&ruled_out_chars);
