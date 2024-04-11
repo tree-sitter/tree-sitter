@@ -1299,16 +1299,9 @@ impl Generator {
                     } => {
                         add!(
                             self,
-                            "REDUCE(.symbol = {}, .child_count = {child_count}",
+                            "REDUCE({}, {child_count}, {dynamic_precedence}, {production_id})",
                             self.symbol_ids[&symbol]
                         );
-                        if dynamic_precedence != 0 {
-                            add!(self, ", .dynamic_precedence = {dynamic_precedence}");
-                        }
-                        if production_id != 0 {
-                            add!(self, ", .production_id = {production_id}");
-                        }
-                        add!(self, ")");
                     }
                 }
                 add!(self, ",");
