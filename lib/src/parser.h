@@ -226,14 +226,15 @@ static inline bool set_contains(TSCharacterRange *ranges, uint32_t len, int32_t 
     }                                 \
   }}
 
-#define REDUCE(symbol_val, child_count_val, ...) \
-  {{                                             \
-    .reduce = {                                  \
-      .type = TSParseActionTypeReduce,           \
-      .symbol = symbol_val,                      \
-      .child_count = child_count_val,            \
-      __VA_ARGS__                                \
-    },                                           \
+#define REDUCE(symbol_name, children, precedence, prod_id) \
+  {{                                                       \
+    .reduce = {                                            \
+      .type = TSParseActionTypeReduce,                     \
+      .symbol = symbol_name,                               \
+      .child_count = children,                             \
+      .dynamic_precedence = precedence,                    \
+      .production_id = prod_id                             \
+    },                                                     \
   }}
 
 #define RECOVER()                    \

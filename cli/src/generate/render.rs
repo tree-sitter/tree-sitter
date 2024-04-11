@@ -802,9 +802,6 @@ impl Generator {
         is_included: bool,
         line_break: &str,
     ) {
-        // parenthesis needed if we add the `!eof` condition to explicitly avoid confusion with
-        // precedence of `&&` and `||`
-        let (mut need_open_paren, mut need_close_paren) = (false, false);
         for (i, range) in characters.ranges().enumerate() {
             let start = *range.start();
             let end = *range.end();
@@ -812,21 +809,20 @@ impl Generator {
                 if i > 0 {
                     add!(self, " ||{line_break}");
                 }
+
                 if start == '\0' {
-                    add!(self, "!eof && ");
-                    (need_open_paren, need_close_paren) = (true, true);
-                }
-                if end == start {
-                    if need_open_paren {
-                        add!(self, "(");
-                        need_open_paren = false;
+                    add!(self, "(!eof && ");
+                    if end == '\0' {
+                        add!(self, "lookahead == 0");
+                    } else {
+                        add!(self, "lookahead <= ");
                     }
+                    self.add_character(end);
+                    add!(self, ")");
+                    continue;
+                } else if end == start {
                     add!(self, "lookahead == ");
                     self.add_character(start);
-                    if need_close_paren && i == characters.range_count() - 1 {
-                        add!(self, ")");
-                        need_close_paren = false;
-                    }
                 } else if end as u32 == start as u32 + 1 {
                     add!(self, "lookahead == ");
                     self.add_character(start);
@@ -908,7 +904,7 @@ impl Generator {
         if action.in_main_token {
             add!(self, "ADVANCE({});", action.state);
         } else {
-            add!(self, "SKIP({})", action.state);
+            add!(self, "SKIP({});", action.state);
         }
     }
 
@@ -1209,14 +1205,11 @@ impl Generator {
                         production_id,
                         ..
                     } => {
-                        add!(self, "REDUCE({}, {child_count}", self.symbol_ids[&symbol]);
-                        if dynamic_precedence != 0 {
-                            add!(self, ", .dynamic_precedence = {dynamic_precedence}");
-                        }
-                        if production_id != 0 {
-                            add!(self, ", .production_id = {production_id}");
-                        }
-                        add!(self, ")");
+                        add!(
+                            self,
+                            "REDUCE({}, {child_count}, {dynamic_precedence}, {production_id})",
+                            self.symbol_ids[&symbol]
+                        );
                     }
                 }
                 add!(self, ",");
@@ -1268,7 +1261,7 @@ impl Generator {
 
         add_line!(
             self,
-            "TS_PUBLIC const TSLanguage *{language_function_name}() {{",
+            "TS_PUBLIC const TSLanguage *{language_function_name}(void) {{",
         );
         indent!(self);
         add_line!(self, "static const TSLanguage language = {{");

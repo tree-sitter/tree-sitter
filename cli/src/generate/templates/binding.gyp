@@ -13,8 +13,17 @@
         "src/parser.c",
         # NOTE: if your language has an external scanner, add it here.
       ],
-      "cflags_c": [
-        "-std=c11",
+      "conditions": [
+        ["OS!='win'", {
+          "cflags_c": [
+            "-std=c11",
+          ],
+        }, { # OS == "win"
+          "cflags_c": [
+            "/std:c11",
+            "/utf-8",
+          ],
+        }],
       ],
     }
   ]
