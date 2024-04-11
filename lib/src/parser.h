@@ -203,12 +203,15 @@ struct TSLanguage {
     }                                 \
   }}
 
-#define REDUCE(...) \
-  {{                                             \
-    .reduce = {                                  \
-      .type = TSParseActionTypeReduce,           \
-      __VA_ARGS__                                \
-    },                                           \
+#define REDUCE(symbol_name, children, precedence, prod_id) \
+  {{                                                       \
+    .reduce = {                                            \
+      .type = TSParseActionTypeReduce,                     \
+      .symbol = symbol_name,                               \
+      .child_count = children,                             \
+      .dynamic_precedence = precedence,                    \
+      .production_id = prod_id                             \
+    },                                                     \
   }}
 
 #define RECOVER()                    \
