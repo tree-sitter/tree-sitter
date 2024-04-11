@@ -38,9 +38,12 @@ setup(
                 "src/parser.c",
                 # NOTE: if your language uses an external scanner, add it here.
             ],
-            extra_compile_args=(
-                ["-std=c11"] if system() != 'Windows' else []
-            ),
+            extra_compile_args=[
+                "-std=c11",
+            ] if system() != "Windows" else [
+                "/std:c11",
+                "/utf-8",
+            ],
             define_macros=[
                 ("Py_LIMITED_API", "0x03080000"),
                 ("PY_SSIZE_T_CLEAN", None)
