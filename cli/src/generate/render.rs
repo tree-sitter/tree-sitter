@@ -731,10 +731,14 @@ impl Generator {
                     if !intersection.is_empty() {
                         let additions = chars_copy.simplify_ignoring(&ruled_out_chars);
                         let removals = large_set.simplify_ignoring(&ruled_out_chars);
+                        let total_range_count = additions.range_count() + removals.range_count();
+                        if total_range_count >= simplified_chars.range_count() {
+                            continue;
+                        }
                         if let Some((_, best_additions, best_removals)) = &best_large_char_set {
-                            if best_additions.range_count() + best_removals.range_count()
-                                < additions.range_count() + removals.range_count()
-                            {
+                            let best_range_count =
+                                best_additions.range_count() + best_removals.range_count();
+                            if best_range_count < total_range_count {
                                 continue;
                             }
                         }
