@@ -281,7 +281,7 @@ pub fn generate_grammar_files(
             |path| {
                 let build_rs =
                     fs::read_to_string(path).with_context(|| "Failed to read build.rs")?;
-                if !build_rs.contains("/utf-8") {
+                if !build_rs.contains("-utf-8") {
                     let index = build_rs
                         .find("    let parser_path = src_dir.join(\"parser.c\")")
                         .ok_or_else(|| anyhow!(indoc!{
