@@ -1,14 +1,13 @@
 use std::{
     char,
     cmp::{max, Ordering},
-    collections::HashSet,
     fmt,
-    mem::swap,
-    ops::Range,
+    mem::{self, swap},
+    ops::{Range, RangeInclusive},
 };
 
 /// A set of characters represented as a vector of ranges.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct CharacterSet {
     ranges: Vec<Range<u32>>,
 }
@@ -113,6 +112,11 @@ impl CharacterSet {
             index = self.add_int_range(index, range.start, range.end);
         }
         self
+    }
+
+    pub fn assign(&mut self, other: &Self) {
+        self.ranges.clear();
+        self.ranges.extend_from_slice(&other.ranges);
     }
 
     fn add_int_range(&mut self, mut i: usize, start: u32, end: u32) -> usize {
@@ -286,12 +290,24 @@ impl CharacterSet {
         self.add(&other)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = u32> + '_ {
-        self.ranges.iter().flat_map(std::clone::Clone::clone)
+    pub fn char_codes(&self) -> impl Iterator<Item = u32> + '_ {
+        self.ranges.iter().flat_map(Clone::clone)
     }
 
     pub fn chars(&self) -> impl Iterator<Item = char> + '_ {
-        self.iter().filter_map(char::from_u32)
+        self.char_codes().filter_map(char::from_u32)
+    }
+
+    pub fn range_count(&self) -> usize {
+        self.ranges.len()
+    }
+
+    pub fn ranges(&self) -> impl Iterator<Item = RangeInclusive<char>> + '_ {
+        self.ranges.iter().filter_map(|range| {
+            let start = range.clone().find_map(char::from_u32)?;
+            let end = (range.start..range.end).rev().find_map(char::from_u32)?;
+            Some(start..=end)
+        })
     }
 
     pub fn is_empty(&self) -> bool {
@@ -300,41 +316,57 @@ impl CharacterSet {
 
     /// Get a reduced list of character ranges, assuming that a given
     /// set of characters can be safely ignored.
-    pub fn simplify_ignoring<'a>(
-        &'a self,
-        ruled_out_characters: &'a HashSet<u32>,
-    ) -> Vec<Range<char>> {
-        let mut prev_range: Option<Range<char>> = None;
-        self.chars()
-            .map(|c| (c, false))
-            .chain(Some(('\0', true)))
-            .filter_map(move |(c, done)| {
-                if done {
-                    return prev_range.clone();
-                }
-                if ruled_out_characters.contains(&(c as u32)) {
-                    return None;
-                }
-                if let Some(range) = prev_range.clone() {
-                    let mut prev_range_successor = range.end as u32 + 1;
-                    while prev_range_successor < c as u32 {
-                        if !ruled_out_characters.contains(&prev_range_successor) {
-                            prev_range = Some(c..c);
-                            return Some(range);
+    pub fn simplify_ignoring(&self, ruled_out_characters: &Self) -> Self {
+        let mut prev_range: Option<Range<u32>> = None;
+        Self {
+            ranges: self
+                .ranges
+                .iter()
+                .map(|range| Some(range.clone()))
+                .chain([None])
+                .filter_map(move |range| {
+                    if let Some(range) = &range {
+                        if ruled_out_characters.contains_codepoint_range(range.clone()) {
+                            return None;
                         }
-                        prev_range_successor += 1;
+
+                        if let Some(prev_range) = &mut prev_range {
+                            if ruled_out_characters
+                                .contains_codepoint_range(prev_range.end..range.start)
+                            {
+                                prev_range.end = range.end;
+                                return None;
+                            }
+                        }
                     }
-                    prev_range = Some(range.start..c);
-                } else {
-                    prev_range = Some(c..c);
-                }
-                None
-            })
-            .collect()
+
+                    let result = prev_range.clone();
+                    prev_range = range;
+                    result
+                })
+                .collect(),
+        }
+    }
+
+    pub fn contains_codepoint_range(&self, seek_range: Range<u32>) -> bool {
+        let ix = match self.ranges.binary_search_by(|probe| {
+            if probe.end <= seek_range.start {
+                Ordering::Less
+            } else if probe.start > seek_range.start {
+                Ordering::Greater
+            } else {
+                Ordering::Equal
+            }
+        }) {
+            Ok(ix) | Err(ix) => ix,
+        };
+        self.ranges.get(ix).map_or(false, |range| {
+            range.start <= seek_range.start && range.end >= seek_range.end
+        })
     }
 
     pub fn contains(&self, c: char) -> bool {
-        self.ranges.iter().any(|r| r.contains(&(c as u32)))
+        self.contains_codepoint_range(c as u32..c as u32 + 1)
     }
 }
 
@@ -387,11 +419,11 @@ impl fmt::Debug for CharacterSet {
             write!(f, "^ ")?;
             set = set.negate();
         }
-        for (i, c) in set.chars().enumerate() {
+        for (i, range) in set.ranges().enumerate() {
             if i > 0 {
                 write!(f, ", ")?;
             }
-            write!(f, "{c:?}")?;
+            write!(f, "{range:?}")?;
         }
         write!(f, "]")?;
         Ok(())
@@ -503,17 +535,17 @@ impl<'a> NfaCursor<'a> {
         result.sort_unstable_by(|a, b| a.characters.cmp(&b.characters));
 
         let mut i = 0;
-        'i_loop: while i < result.len() {
+        while i < result.len() {
             for j in 0..i {
                 if result[j].states == result[i].states
                     && result[j].is_separator == result[i].is_separator
                     && result[j].precedence == result[i].precedence
                 {
-                    let mut characters = CharacterSet::empty();
-                    swap(&mut characters, &mut result[j].characters);
+                    let characters = mem::take(&mut result[j].characters);
                     result[j].characters = characters.add(&result[i].characters);
                     result.remove(i);
-                    continue 'i_loop;
+                    i -= 1;
+                    break;
                 }
             }
             i += 1;
@@ -1034,7 +1066,7 @@ mod tests {
 
     #[test]
     #[allow(clippy::single_range_in_vec_init)]
-    fn test_character_set_get_ranges() {
+    fn test_character_set_simplify_ignoring() {
         struct Row {
             chars: Vec<char>,
             ruled_out_chars: Vec<char>,
@@ -1057,6 +1089,21 @@ mod tests {
                 ruled_out_chars: vec!['d', 'f', 'g'],
                 expected_ranges: vec!['a'..'h', 'z'..'z'],
             },
+            Row {
+                chars: vec!['a', 'b', 'c', 'g', 'h', 'i'],
+                ruled_out_chars: vec!['d', 'j'],
+                expected_ranges: vec!['a'..'c', 'g'..'i'],
+            },
+            Row {
+                chars: vec!['c', 'd', 'e', 'g', 'h'],
+                ruled_out_chars: vec!['a', 'b', 'c', 'd', 'e', 'f'],
+                expected_ranges: vec!['g'..'h'],
+            },
+            Row {
+                chars: vec!['I', 'N'],
+                ruled_out_chars: vec!['A', 'I', 'N', 'Z'],
+                expected_ranges: vec![],
+            },
         ];
 
         for Row {
@@ -1065,13 +1112,23 @@ mod tests {
             expected_ranges,
         } in &table
         {
-            let ruled_out_chars = ruled_out_chars.iter().map(|c: &char| *c as u32).collect();
+            let ruled_out_chars = ruled_out_chars
+                .iter()
+                .fold(CharacterSet::empty(), |set, c| set.add_char(*c));
             let mut set = CharacterSet::empty();
             for c in chars {
                 set = set.add_char(*c);
             }
-            let ranges = set.simplify_ignoring(&ruled_out_chars);
-            assert_eq!(ranges, *expected_ranges);
+            let actual = set.simplify_ignoring(&ruled_out_chars);
+            let expected = expected_ranges
+                .iter()
+                .fold(CharacterSet::empty(), |set, range| {
+                    set.add_range(range.start, range.end)
+                });
+            assert_eq!(
+                actual, expected,
+                "chars: {chars:?}, ruled out chars: {ruled_out_chars:?}"
+            );
         }
     }
 }

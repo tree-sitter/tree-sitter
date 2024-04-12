@@ -1,4 +1,3 @@
-use core::ops::Range;
 use std::{
     cmp,
     collections::{HashMap, HashSet},
@@ -7,8 +6,9 @@ use std::{
 };
 
 use super::{
-    char_tree::{CharacterTree, Comparator},
+    build_tables::Tables,
     grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType},
+    nfa::CharacterSet,
     rules::{Alias, AliasMap, Symbol, SymbolType},
     tables::{
         AdvanceAction, FieldLocation, GotoAction, LexState, LexTable, ParseAction, ParseTable,
@@ -16,7 +16,6 @@ use super::{
     },
 };
 
-const LARGE_CHARACTER_RANGE_COUNT: usize = 8;
 const SMALL_STATE_THRESHOLD: usize = 64;
 const ABI_VERSION_MIN: usize = 13;
 const ABI_VERSION_MAX: usize = tree_sitter::LANGUAGE_VERSION;
@@ -64,6 +63,8 @@ struct Generator {
     parse_table: ParseTable,
     main_lex_table: LexTable,
     keyword_lex_table: LexTable,
+    large_character_sets: Vec<(Option<Symbol>, CharacterSet)>,
+    large_character_set_constant_names: Vec<String>,
     large_state_count: usize,
     keyword_capture_token: Option<Symbol>,
     syntax_grammar: SyntaxGrammar,
@@ -78,18 +79,6 @@ struct Generator {
 
     #[allow(unused)]
     abi_version: usize,
-}
-
-struct TransitionSummary {
-    is_included: bool,
-    ranges: Vec<Range<char>>,
-    call_id: Option<usize>,
-}
-
-struct LargeCharacterSetInfo {
-    ranges: Vec<Range<char>>,
-    symbol: Symbol,
-    index: usize,
 }
 
 impl Generator {
@@ -119,14 +108,20 @@ impl Generator {
             self.add_primary_state_id_list();
         }
 
+        // Generate a helper function for each large character set.
+        // let mut sorted_large_char_sets = self.large_character_sets.iter().collect::<Vec<_>>();
+        for ix in 0..self.large_character_sets.len() {
+            self.add_character_set(ix);
+        }
+
         let mut main_lex_table = LexTable::default();
         swap(&mut main_lex_table, &mut self.main_lex_table);
-        self.add_lex_function("ts_lex", main_lex_table, true);
+        self.add_lex_function("ts_lex", main_lex_table);
 
         if self.keyword_capture_token.is_some() {
             let mut keyword_lex_table = LexTable::default();
             swap(&mut keyword_lex_table, &mut self.keyword_lex_table);
-            self.add_lex_function("ts_lex_keywords", keyword_lex_table, false);
+            self.add_lex_function("ts_lex_keywords", keyword_lex_table);
         }
 
         self.add_lex_modes_list();
@@ -664,97 +659,7 @@ impl Generator {
         add_line!(self, "");
     }
 
-    fn add_lex_function(
-        &mut self,
-        name: &str,
-        lex_table: LexTable,
-        extract_helper_functions: bool,
-    ) {
-        let mut ruled_out_chars = HashSet::new();
-        let mut large_character_sets = Vec::<LargeCharacterSetInfo>::new();
-
-        // For each lex state, compute a summary of the code that needs to be
-        // generated.
-        let state_transition_summaries = lex_table
-            .states
-            .iter()
-            .map(|state| {
-                ruled_out_chars.clear();
-
-                // For each state transition, compute the set of character ranges
-                // that need to be checked.
-                state
-                    .advance_actions
-                    .iter()
-                    .map(|(chars, action)| {
-                        let is_included = !chars.contains(char::MAX);
-                        let mut ranges;
-                        if is_included {
-                            ranges = chars.simplify_ignoring(&ruled_out_chars);
-                            ruled_out_chars.extend(chars.iter());
-                        } else {
-                            ranges = chars.clone().negate().simplify_ignoring(&ruled_out_chars);
-                            ranges.insert(0, '\0'..'\0');
-                        }
-
-                        // Record any large character sets so that they can be extracted
-                        // into helper functions, reducing code duplication.
-                        let mut call_id = None;
-                        if extract_helper_functions && ranges.len() > LARGE_CHARACTER_RANGE_COUNT {
-                            let char_set_symbol = self
-                                .symbol_for_advance_action(action, &lex_table)
-                                .expect("No symbol for lex state");
-                            let mut count_for_symbol = 0;
-                            for (i, info) in large_character_sets.iter_mut().enumerate() {
-                                if info.ranges == ranges {
-                                    call_id = Some(i);
-                                    break;
-                                }
-                                if info.symbol == char_set_symbol {
-                                    count_for_symbol += 1;
-                                }
-                            }
-                            if call_id.is_none() {
-                                call_id = Some(large_character_sets.len());
-                                large_character_sets.push(LargeCharacterSetInfo {
-                                    symbol: char_set_symbol,
-                                    index: count_for_symbol + 1,
-                                    ranges: ranges.clone(),
-                                });
-                            }
-                        }
-
-                        TransitionSummary {
-                            is_included,
-                            ranges,
-                            call_id,
-                        }
-                    })
-                    .collect()
-            })
-            .collect::<Vec<Vec<_>>>();
-
-        // Generate a helper function for each large character set.
-        let mut sorted_large_char_sets = large_character_sets.iter().collect::<Vec<_>>();
-        sorted_large_char_sets.sort_unstable_by_key(|info| (info.symbol, info.index));
-        for info in sorted_large_char_sets {
-            add_line!(
-                self,
-                "static inline bool {}_character_set_{}(int32_t c) {{",
-                self.symbol_ids[&info.symbol],
-                info.index
-            );
-            indent!(self);
-            add_whitespace!(self);
-            add!(self, "return ");
-            let tree = CharacterTree::from_ranges(&info.ranges);
-            self.add_character_tree(tree.as_ref());
-            add!(self, ";\n");
-            dedent!(self);
-            add_line!(self, "}}");
-            add_line!(self, "");
-        }
-
+    fn add_lex_function(&mut self, name: &str, lex_table: LexTable) {
         add_line!(
             self,
             "static bool {name}(TSLexer *lexer, TSStateId state) {{",
@@ -769,7 +674,7 @@ impl Generator {
         for (i, state) in lex_table.states.into_iter().enumerate() {
             add_line!(self, "case {i}:");
             indent!(self);
-            self.add_lex_state(state, &state_transition_summaries[i], &large_character_sets);
+            self.add_lex_state(i, state);
             dedent!(self);
         }
 
@@ -786,35 +691,7 @@ impl Generator {
         add_line!(self, "");
     }
 
-    fn symbol_for_advance_action(
-        &self,
-        action: &AdvanceAction,
-        lex_table: &LexTable,
-    ) -> Option<Symbol> {
-        let mut state_ids = vec![action.state];
-        let mut i = 0;
-        while i < state_ids.len() {
-            let id = state_ids[i];
-            let state = &lex_table.states[id];
-            if let Some(accept) = state.accept_action {
-                return Some(accept);
-            }
-            for (_, action) in &state.advance_actions {
-                if !state_ids.contains(&action.state) {
-                    state_ids.push(action.state);
-                }
-            }
-            i += 1;
-        }
-        None
-    }
-
-    fn add_lex_state(
-        &mut self,
-        state: LexState,
-        transition_info: &[TransitionSummary],
-        large_character_sets: &[LargeCharacterSetInfo],
-    ) {
+    fn add_lex_state(&mut self, _state_ix: usize, state: LexState) {
         if let Some(accept_action) = state.accept_action {
             add_line!(self, "ACCEPT_TOKEN({});", self.symbol_ids[&accept_action]);
         }
@@ -823,37 +700,167 @@ impl Generator {
             add_line!(self, "if (eof) ADVANCE({});", eof_action.state);
         }
 
-        for (i, (_, action)) in state.advance_actions.into_iter().enumerate() {
-            let transition = &transition_info[i];
+        let mut chars_copy = CharacterSet::empty();
+        let mut large_set = CharacterSet::empty();
+        let mut ruled_out_chars = CharacterSet::empty();
+
+        // The transitions in a lex state are sorted with the single-character
+        // transitions first. If there are many single-character transitions,
+        // then implement them using an array of (lookahead character, state)
+        // pairs, instead of individual if statements, in order to reduce compile
+        // time.
+        let mut leading_simple_transition_count = 0;
+        let mut leading_simple_transition_character_count = 0;
+        for (chars, action) in &state.advance_actions {
+            if action.in_main_token
+                && chars
+                    .ranges()
+                    .all(|r| r.start() == r.end() && *r.start() as u32 <= u16::MAX as u32)
+            {
+                leading_simple_transition_count += 1;
+                leading_simple_transition_character_count += chars.range_count();
+            } else {
+                break;
+            }
+        }
+
+        if leading_simple_transition_character_count >= 8 {
+            add_line!(self, "ADVANCE_MAP(");
+            indent!(self);
+            for (chars, action) in &state.advance_actions[0..leading_simple_transition_count] {
+                for range in chars.ranges() {
+                    add_whitespace!(self);
+                    self.add_character(*range.start());
+                    add!(self, ", {},\n", action.state);
+                }
+                ruled_out_chars = ruled_out_chars.add(chars);
+            }
+            dedent!(self);
+            add_line!(self, ");");
+        } else {
+            leading_simple_transition_count = 0;
+        }
+
+        for (chars, action) in &state.advance_actions[leading_simple_transition_count..] {
             add_whitespace!(self);
 
-            // If there is a helper function for this transition's character
-            // set, then generate a call to that helper function.
-            if let Some(call_id) = transition.call_id {
-                let info = &large_character_sets[call_id];
-                add!(self, "if (");
-                if !transition.is_included {
-                    add!(self, "!");
+            // The lex state's advance actions are represented with disjoint
+            // sets of characters. When translating these disjoint sets into a
+            // sequence of checks, we don't need to re-check conditions that
+            // have already been checked due to previous transitions.
+            //
+            // Note that this simplification may result in an empty character set.
+            // That means that the transition is guaranteed (nothing further needs to
+            // be checked), not that this transition is impossible.
+            let simplified_chars = chars.simplify_ignoring(&ruled_out_chars);
+
+            // For large character sets, find the best matching character set from
+            // a pre-selected list of large character sets, which are based on the
+            // state transitions for invidual tokens. This transition may not exactly
+            // match one of the pre-selected character sets. In that case, determine
+            // the additional checks that need to be performed to match this transition.
+            let mut best_large_char_set: Option<(usize, CharacterSet, CharacterSet)> = None;
+            if simplified_chars.range_count() >= super::build_tables::LARGE_CHARACTER_RANGE_COUNT {
+                for (ix, (_, set)) in self.large_character_sets.iter().enumerate() {
+                    chars_copy.assign(&simplified_chars);
+                    large_set.assign(set);
+                    let intersection = chars_copy.remove_intersection(&mut large_set);
+                    if !intersection.is_empty() {
+                        let additions = chars_copy.simplify_ignoring(&ruled_out_chars);
+                        let removals = large_set.simplify_ignoring(&ruled_out_chars);
+                        let total_range_count = additions.range_count() + removals.range_count();
+                        if total_range_count >= simplified_chars.range_count() {
+                            continue;
+                        }
+                        if let Some((_, best_additions, best_removals)) = &best_large_char_set {
+                            let best_range_count =
+                                best_additions.range_count() + best_removals.range_count();
+                            if best_range_count < total_range_count {
+                                continue;
+                            }
+                        }
+                        best_large_char_set = Some((ix, additions, removals));
+                    }
                 }
-                add!(
-                    self,
-                    "{}_character_set_{}(lookahead)) ",
-                    self.symbol_ids[&info.symbol],
-                    info.index
-                );
-                self.add_advance_action(&action);
-                add!(self, "\n");
-                continue;
             }
 
-            // Otherwise, generate code to compare the lookahead character
-            // with all of the character ranges.
-            if !transition.ranges.is_empty() {
+            // Add this transition's character set to the set of ruled out characters,
+            // which don't need to be checked for subsequent transitions in this state.
+            ruled_out_chars = ruled_out_chars.add(chars);
+
+            let mut large_char_set_ix = None;
+            let mut asserted_chars = simplified_chars;
+            let mut negated_chars = CharacterSet::empty();
+            if let Some((char_set_ix, additions, removals)) = best_large_char_set {
+                asserted_chars = additions;
+                negated_chars = removals;
+                large_char_set_ix = Some(char_set_ix);
+            }
+
+            let mut line_break = "\n".to_string();
+            for _ in 0..self.indent_level + 2 {
+                line_break.push_str("  ");
+            }
+
+            let has_positive_condition = large_char_set_ix.is_some() || !asserted_chars.is_empty();
+            let has_negative_condition = !negated_chars.is_empty();
+            let has_condition = has_positive_condition || has_negative_condition;
+            if has_condition {
                 add!(self, "if (");
-                self.add_character_range_conditions(&transition.ranges, transition.is_included, 2);
+                if has_positive_condition && has_negative_condition {
+                    add!(self, "(");
+                }
+            }
+
+            if let Some(large_char_set_ix) = large_char_set_ix {
+                let large_set = &self.large_character_sets[large_char_set_ix].1;
+
+                // If the character set contains the null character, check that we
+                // are not at the end of the file.
+                let check_eof = large_set.contains('\0');
+                if check_eof {
+                    add!(self, "(!eof && ")
+                }
+
+                add!(
+                    self,
+                    "set_contains({}, {}, lookahead)",
+                    &self.large_character_set_constant_names[large_char_set_ix],
+                    large_set.range_count(),
+                );
+                if check_eof {
+                    add!(self, ")");
+                }
+            }
+
+            if !asserted_chars.is_empty() {
+                if large_char_set_ix.is_some() {
+                    add!(self, " ||{line_break}");
+                }
+
+                // If the character set contains the max character, than it probably
+                // corresponds to a negated character class in a regex, so it will be more
+                // concise and readable to express it in terms of negated ranges.
+                let is_included = !asserted_chars.contains(char::MAX);
+                if !is_included {
+                    asserted_chars = asserted_chars.negate().add_char('\0');
+                }
+
+                self.add_character_range_conditions(&asserted_chars, is_included, &line_break);
+            }
+
+            if has_negative_condition {
+                if has_positive_condition {
+                    add!(self, ") &&{line_break}");
+                }
+                self.add_character_range_conditions(&negated_chars, false, &line_break);
+            }
+
+            if has_condition {
                 add!(self, ") ");
             }
-            self.add_advance_action(&action);
+
+            self.add_advance_action(action);
             add!(self, "\n");
         }
 
@@ -862,135 +869,106 @@ impl Generator {
 
     fn add_character_range_conditions(
         &mut self,
-        ranges: &[Range<char>],
+        characters: &CharacterSet,
         is_included: bool,
-        indent_count: usize,
+        line_break: &str,
     ) {
-        let mut line_break = "\n".to_string();
-        for _ in 0..self.indent_level + indent_count {
-            line_break.push_str("  ");
-        }
-
-        for (i, range) in ranges.iter().enumerate() {
+        for (i, range) in characters.ranges().enumerate() {
+            let start = *range.start();
+            let end = *range.end();
             if is_included {
                 if i > 0 {
                     add!(self, " ||{line_break}");
                 }
-                // parenthesis needed if we add the `!eof` condition to explicitly avoid confusion with
-                // precedence of `&&` and `||`
-                let mut close_paren = false;
-                if range.start == '\0' {
+
+                if start == '\0' {
                     add!(self, "(!eof && ");
-                    close_paren = true;
-                }
-                if range.end == range.start {
-                    add!(self, "lookahead == ");
-                    self.add_character(range.start);
-                } else if range.end as u32 == range.start as u32 + 1 {
-                    if close_paren {
-                        add!(self, "(");
+                    if end == '\0' {
+                        add!(self, "lookahead == 0");
+                    } else {
+                        add!(self, "lookahead <= ");
                     }
+                    self.add_character(end);
+                    add!(self, ")");
+                    continue;
+                } else if end == start {
                     add!(self, "lookahead == ");
-                    self.add_character(range.start);
+                    self.add_character(start);
+                } else if end as u32 == start as u32 + 1 {
+                    add!(self, "lookahead == ");
+                    self.add_character(start);
                     add!(self, " ||{line_break}lookahead == ");
-                    self.add_character(range.end);
-                    if close_paren {
-                        add!(self, ")");
-                    }
+                    self.add_character(end);
                 } else {
                     add!(self, "(");
-                    self.add_character(range.start);
+                    self.add_character(start);
                     add!(self, " <= lookahead && lookahead <= ");
-                    self.add_character(range.end);
-                    add!(self, ")");
-                }
-                if close_paren {
+                    self.add_character(end);
                     add!(self, ")");
                 }
             } else {
                 if i > 0 {
                     add!(self, " &&{line_break}");
                 }
-                if range.end == range.start {
+                if end == start {
                     add!(self, "lookahead != ");
-                    self.add_character(range.start);
-                } else if range.end as u32 == range.start as u32 + 1 {
+                    self.add_character(start);
+                } else if end as u32 == start as u32 + 1 {
                     add!(self, "lookahead != ");
-                    self.add_character(range.start);
+                    self.add_character(start);
                     add!(self, " &&{line_break}lookahead != ");
-                    self.add_character(range.end);
-                } else if range.start != '\0' {
+                    self.add_character(end);
+                } else if start != '\0' {
                     add!(self, "(lookahead < ");
-                    self.add_character(range.start);
+                    self.add_character(start);
                     add!(self, " || ");
-                    self.add_character(range.end);
+                    self.add_character(end);
                     add!(self, " < lookahead)");
                 } else {
                     add!(self, "lookahead > ");
-                    self.add_character(range.end);
+                    self.add_character(end);
                 }
             }
         }
     }
 
-    fn add_character_tree(&mut self, tree: Option<&CharacterTree>) {
-        match tree {
-            Some(CharacterTree::Compare {
-                value,
-                operator,
-                consequence,
-                alternative,
-            }) => {
-                let op = match operator {
-                    Comparator::Less => "<",
-                    Comparator::LessOrEqual => "<=",
-                    Comparator::Equal => "==",
-                    Comparator::GreaterOrEqual => ">=",
-                };
-                let consequence = consequence.as_ref().map(Box::as_ref);
-                let alternative = alternative.as_ref().map(Box::as_ref);
+    fn add_character_set(&mut self, ix: usize) {
+        let (symbol, characters) = self.large_character_sets[ix].clone();
+        let count = self.large_character_sets[0..ix]
+            .iter()
+            .filter(|(sym, _)| *sym == symbol)
+            .count()
+            + 1;
 
-                let simple = alternative.is_none() && consequence == Some(&CharacterTree::Yes);
+        let constant_name = if let Some(symbol) = symbol {
+            format!("{}_character_set_{}", self.symbol_ids[&symbol], count)
+        } else {
+            format!("extras_character_set_{}", count)
+        };
+        add_line!(self, "static TSCharacterRange {}[] = {{", constant_name);
+        self.large_character_set_constant_names.push(constant_name);
 
-                if !simple {
-                    add!(self, "(");
+        indent!(self);
+        for (ix, range) in characters.ranges().enumerate() {
+            let column = ix % 8;
+            if column == 0 {
+                if ix > 0 {
+                    add!(self, "\n");
                 }
-
-                add!(self, "c {op} ");
-                self.add_character(*value);
-
-                if !simple {
-                    if alternative.is_none() {
-                        add!(self, " && ");
-                        self.add_character_tree(consequence);
-                    } else if consequence == Some(&CharacterTree::Yes) {
-                        add!(self, " || ");
-                        self.add_character_tree(alternative);
-                    } else {
-                        add!(self, "\n");
-                        indent!(self);
-                        add_whitespace!(self);
-                        add!(self, "? ");
-                        self.add_character_tree(consequence);
-                        add!(self, "\n");
-                        add_whitespace!(self);
-                        add!(self, ": ");
-                        self.add_character_tree(alternative);
-                        dedent!(self);
-                    }
-                }
-
-                if !simple {
-                    add!(self, ")");
-                }
+                add_whitespace!(self);
+            } else {
+                add!(self, " ");
             }
-            Some(CharacterTree::Yes) => {
-                add!(self, "true");
-            }
-            None => {
-                add!(self, "false");
-            }
+            add!(self, "{{");
+            self.add_character(*range.start());
+            add!(self, ", ");
+            self.add_character(*range.end());
+            add!(self, "}},");
         }
+        add!(self, "\n");
+        dedent!(self);
+        add_line!(self, "}};");
+        add_line!(self, "");
     }
 
     fn add_advance_action(&mut self, action: &AdvanceAction) {
@@ -1656,10 +1634,12 @@ impl Generator {
             '\t' => add!(self, "'\\t'"),
             '\r' => add!(self, "'\\r'"),
             _ => {
-                if c == ' ' || c.is_ascii_graphic() {
+                if c == '\0' {
+                    add!(self, "0")
+                } else if c == ' ' || c.is_ascii_graphic() {
                     add!(self, "'{c}'");
                 } else {
-                    add!(self, "{}", c as u32);
+                    add!(self, "0x{:02x}", c as u32);
                 }
             }
         }
@@ -1686,10 +1666,7 @@ impl Generator {
 #[allow(clippy::too_many_arguments)]
 pub fn render_c_code(
     name: &str,
-    parse_table: ParseTable,
-    main_lex_table: LexTable,
-    keyword_lex_table: LexTable,
-    keyword_capture_token: Option<Symbol>,
+    tables: Tables,
     syntax_grammar: SyntaxGrammar,
     lexical_grammar: LexicalGrammar,
     default_aliases: AliasMap,
@@ -1705,10 +1682,12 @@ pub fn render_c_code(
         indent_level: 0,
         language_name: name.to_string(),
         large_state_count: 0,
-        parse_table,
-        main_lex_table,
-        keyword_lex_table,
-        keyword_capture_token,
+        parse_table: tables.parse_table,
+        main_lex_table: tables.main_lex_table,
+        keyword_lex_table: tables.keyword_lex_table,
+        keyword_capture_token: tables.word_token,
+        large_character_sets: tables.large_character_sets,
+        large_character_set_constant_names: Vec::new(),
         syntax_grammar,
         lexical_grammar,
         default_aliases,
