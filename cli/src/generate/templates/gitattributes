@@ -1,4 +1,4 @@
-* text eol=lf
+* text=auto eol=lf
 
 src/*.json linguist-generated
 src/parser.c linguist-generated
