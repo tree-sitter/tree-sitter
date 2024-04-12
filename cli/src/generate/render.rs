@@ -706,12 +706,21 @@ impl Generator {
         for (chars, action) in state.advance_actions {
             add_whitespace!(self);
 
-            // For each state transition, compute the set of character ranges
-            // that need to be checked.
+            // The lex state's advance actions are represented with disjoint
+            // sets of characters. When translating these disjoint sets into a
+            // sequence of checks, we don't need to re-check conditions that
+            // have already been checked due to previous transitions.
+            //
+            // Note that this simplification may result in an empty character set.
+            // That means that the transition is guaranteed (nothing further needs to
+            // be checked), not that this transition is impossible.
             let simplified_chars = chars.simplify_ignoring(&ruled_out_chars);
 
-            // Find a large character set that matches the transition's character set,
-            // allowing for ruled-out characters for previous transitions.
+            // For large character sets, find the best matching character set from
+            // a pre-selected list of large character sets, which are based on the
+            // state transitions for invidual tokens. This transition may not exactly
+            // match one of the pre-selected character sets. In that case, determine
+            // the additional checks that need to be performed to match this transition.
             let mut best_large_char_set: Option<(usize, CharacterSet, CharacterSet)> = None;
             if simplified_chars.range_count() >= super::build_tables::LARGE_CHARACTER_RANGE_COUNT {
                 for (ix, (_, set)) in self.large_character_sets.iter().enumerate() {
@@ -720,27 +729,29 @@ impl Generator {
                     let intersection = chars_copy.remove_intersection(&mut large_set);
                     if !intersection.is_empty() {
                         let additions = chars_copy.simplify_ignoring(&ruled_out_chars);
-                        let exclusions = large_set.simplify_ignoring(&ruled_out_chars);
-                        if let Some((_, best_additions, best_exclusions)) = &best_large_char_set {
-                            if best_additions.range_count() + best_exclusions.range_count()
-                                < additions.range_count() + exclusions.range_count()
+                        let removals = large_set.simplify_ignoring(&ruled_out_chars);
+                        if let Some((_, best_additions, best_removals)) = &best_large_char_set {
+                            if best_additions.range_count() + best_removals.range_count()
+                                < additions.range_count() + removals.range_count()
                             {
                                 continue;
                             }
                         }
-                        best_large_char_set = Some((ix, additions, exclusions));
+                        best_large_char_set = Some((ix, additions, removals));
                     }
                 }
             }
 
+            // Add this transition's character set to the set of ruled out characters,
+            // which don't need to be checked for subsequent transitions in this state.
             ruled_out_chars = ruled_out_chars.add(&chars);
 
             let mut large_char_set_ix = None;
             let mut asserted_chars = simplified_chars;
             let mut negated_chars = CharacterSet::empty();
-            if let Some((char_set_ix, additions, exclusions)) = best_large_char_set {
+            if let Some((char_set_ix, additions, removals)) = best_large_char_set {
                 asserted_chars = additions;
-                negated_chars = exclusions;
+                negated_chars = removals;
                 large_char_set_ix = Some(char_set_ix);
             }
 
@@ -749,21 +760,26 @@ impl Generator {
                 line_break.push_str("  ");
             }
 
-            let mut in_condition = false;
-            if large_char_set_ix.is_some()
-                || !asserted_chars.is_empty()
-                || !negated_chars.is_empty()
-            {
+            let has_positive_condition = large_char_set_ix.is_some() || !asserted_chars.is_empty();
+            let has_negative_condition = !negated_chars.is_empty();
+            let has_condition = has_positive_condition || has_negative_condition;
+            if has_condition {
                 add!(self, "if (");
-                in_condition = true;
+                if has_positive_condition && has_negative_condition {
+                    add!(self, "(");
+                }
             }
 
             if let Some(large_char_set_ix) = large_char_set_ix {
                 let large_set = &self.large_character_sets[large_char_set_ix].1;
+
+                // If the character set contains the null character, check that we
+                // are not at the end of the file.
                 let check_eof = large_set.contains('\0');
                 if check_eof {
                     add!(self, "(!eof && ")
                 }
+
                 add!(
                     self,
                     "set_contains({}, {}, lookahead)",
@@ -779,21 +795,26 @@ impl Generator {
                 if large_char_set_ix.is_some() {
                     add!(self, " ||{line_break}");
                 }
+
+                // If the character set contains the max character, than it probably
+                // corresponds to a negated character class in a regex, so it will be more
+                // concise and readable to express it in terms of negated ranges.
                 let is_included = !asserted_chars.contains(char::MAX);
                 if !is_included {
                     asserted_chars = asserted_chars.negate().add_char('\0');
                 }
+
                 self.add_character_range_conditions(&asserted_chars, is_included, &line_break);
             }
 
-            if !negated_chars.is_empty() {
-                if large_char_set_ix.is_some() || !asserted_chars.is_empty() {
-                    add!(self, " &&{line_break}");
+            if has_negative_condition {
+                if has_positive_condition {
+                    add!(self, ") &&{line_break}");
                 }
                 self.add_character_range_conditions(&negated_chars, false, &line_break);
             }
 
-            if in_condition {
+            if has_condition {
                 add!(self, ") ");
             }
 
