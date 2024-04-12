@@ -518,9 +518,14 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
         let (mut skip, mut platform, mut fail_fast, mut error, mut languages) =
             (false, None, false, false, vec![]);
 
-        let test_name_and_markers = c
-            .name("test_name_and_markers")
-            .map_or("".as_bytes(), |m| m.as_bytes());
+        let test_name_and_markers: Vec<u8> =
+            c.name("test_name_and_markers")
+                .map_or(Vec::new(), |m| {
+                    m.as_bytes()
+                        .iter()
+                        .filter_map(|&c| if c != b'\r' { Some(c) } else { None })
+                        .collect()
+                });
 
         let mut test_name = String::new();
         let mut seen_marker = false;
