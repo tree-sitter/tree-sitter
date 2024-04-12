@@ -2,6 +2,7 @@ use std::{
     char,
     cmp::{max, Ordering},
     fmt,
+    iter::ExactSizeIterator,
     mem::{self, swap},
     ops::{Range, RangeInclusive},
 };
@@ -375,15 +376,9 @@ impl Ord for CharacterSet {
         let count_cmp = self
             .ranges
             .iter()
-            .map(std::iter::ExactSizeIterator::len)
+            .map(ExactSizeIterator::len)
             .sum::<usize>()
-            .cmp(
-                &other
-                    .ranges
-                    .iter()
-                    .map(std::iter::ExactSizeIterator::len)
-                    .sum(),
-            );
+            .cmp(&other.ranges.iter().map(ExactSizeIterator::len).sum());
         if count_cmp != Ordering::Equal {
             return count_cmp;
         }
@@ -532,7 +527,6 @@ impl<'a> NfaCursor<'a> {
                 });
             }
         }
-        result.sort_unstable_by(|a, b| a.characters.cmp(&b.characters));
 
         let mut i = 0;
         while i < result.len() {
@@ -551,6 +545,7 @@ impl<'a> NfaCursor<'a> {
             i += 1;
         }
 
+        result.sort_unstable_by(|a, b| a.characters.cmp(&b.characters));
         result
     }
 
@@ -833,15 +828,15 @@ mod tests {
                 ],
                 vec![
                     NfaTransition {
-                        characters: CharacterSet::empty().add_char('a').add_range('c', 'd'),
-                        precedence: 0,
-                        states: vec![1],
-                        is_separator: false,
-                    },
-                    NfaTransition {
                         characters: CharacterSet::empty().add_char('b').add_char('e'),
                         precedence: 0,
                         states: vec![2],
+                        is_separator: false,
+                    },
+                    NfaTransition {
+                        characters: CharacterSet::empty().add_char('a').add_range('c', 'd'),
+                        precedence: 0,
+                        states: vec![1],
                         is_separator: false,
                     },
                 ],
