@@ -710,21 +710,23 @@ impl Generator {
         // pairs, instead of individual if statements, in order to reduce compile
         // time.
         let mut leading_simple_transition_count = 0;
-        let mut leading_simple_transition_character_count = 0;
+        let mut leading_simple_transition_range_count = 0;
         for (chars, action) in &state.advance_actions {
             if action.in_main_token
-                && chars
-                    .ranges()
-                    .all(|r| r.start() == r.end() && *r.start() as u32 <= u16::MAX as u32)
+                && chars.ranges().all(|r| {
+                    let start = *r.start() as u32;
+                    let end = *r.end() as u32;
+                    end <= start + 1 && end <= u16::MAX as u32
+                })
             {
                 leading_simple_transition_count += 1;
-                leading_simple_transition_character_count += chars.range_count();
+                leading_simple_transition_range_count += chars.range_count();
             } else {
                 break;
             }
         }
 
-        if leading_simple_transition_character_count >= 8 {
+        if leading_simple_transition_range_count >= 8 {
             add_line!(self, "ADVANCE_MAP(");
             indent!(self);
             for (chars, action) in &state.advance_actions[0..leading_simple_transition_count] {
@@ -732,6 +734,11 @@ impl Generator {
                     add_whitespace!(self);
                     self.add_character(*range.start());
                     add!(self, ", {},\n", action.state);
+                    if range.end() > range.start() {
+                        add_whitespace!(self);
+                        self.add_character(*range.end());
+                        add!(self, ", {},\n", action.state);
+                    }
                 }
                 ruled_out_chars = ruled_out_chars.add(chars);
             }
