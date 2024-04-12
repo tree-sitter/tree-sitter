@@ -5,19 +5,6 @@ use indoc::indoc;
 use semver::{BuildMetadata, Prerelease, Version};
 use toml::Value;
 
-fn increment_patch(v: &mut Version) {
-    v.patch += 1;
-    v.pre = Prerelease::EMPTY;
-    v.build = BuildMetadata::EMPTY;
-}
-
-fn increment_minor(v: &mut Version) {
-    v.minor += 1;
-    v.patch = 0;
-    v.pre = Prerelease::EMPTY;
-    v.build = BuildMetadata::EMPTY;
-}
-
 pub fn get_latest_tag(repo: &Repository) -> Result<String, Box<dyn std::error::Error>> {
     let mut tags = repo
         .tag_names(None)?
@@ -62,7 +49,8 @@ pub fn bump_versions() -> Result<(), Box<dyn std::error::Error>> {
     let mut diff_options = DiffOptions::new();
 
     let current_version = Version::parse(&latest_tag)?;
-    let mut next_version = None;
+    let mut should_increment_patch = false;
+    let mut should_increment_minor = false;
 
     for oid in revwalk {
         let oid = oid?;
@@ -81,12 +69,12 @@ pub fn bump_versions() -> Result<(), Box<dyn std::error::Error>> {
             )?
         };
 
-        let mut update = false;
+        let mut source_code_changed = false;
         diff.foreach(
             &mut |delta, _| {
                 let path = delta.new_file().path().unwrap().to_str().unwrap();
                 if path.ends_with("rs") || path.ends_with("js") || path.ends_with('c') {
-                    update = true;
+                    source_code_changed = true;
                 }
                 true
             },
@@ -95,7 +83,9 @@ pub fn bump_versions() -> Result<(), Box<dyn std::error::Error>> {
             None,
         )?;
 
-        if update {
+        if source_code_changed {
+            should_increment_patch = true;
+
             let Some((prefix, _)) = message.split_once(':') else {
                 continue;
             };
@@ -106,56 +96,31 @@ pub fn bump_versions() -> Result<(), Box<dyn std::error::Error>> {
                 prefix
             };
 
-            match convention {
-                "feat" | "feat!" => {
-                    let mut cur_version = current_version.clone();
-                    increment_minor(&mut cur_version);
-                    if let Some(ref ver) = next_version {
-                        if cur_version > *ver {
-                            next_version = Some(cur_version);
-                        }
-                    } else {
-                        next_version = Some(cur_version);
-                    }
-                }
-                "fix" | "refactor" if prefix.ends_with('!') => {
-                    let mut cur_version = current_version.clone();
-                    increment_minor(&mut cur_version);
-                    if let Some(ref ver) = next_version {
-                        if cur_version > *ver {
-                            next_version = Some(cur_version);
-                        }
-                    } else {
-                        next_version = Some(cur_version);
-                    }
-                }
-                "fix" | "refactor" => {
-                    let mut cur_version = current_version.clone();
-                    increment_patch(&mut cur_version);
-                    if let Some(ref ver) = next_version {
-                        if cur_version > *ver {
-                            next_version = Some(cur_version);
-                        }
-                    } else {
-                        next_version = Some(cur_version);
-                    }
-                }
-                _ => {}
+            if ["feat", "feat!"].contains(&convention) || prefix.ends_with('!') {
+                should_increment_minor = true;
             }
         }
     }
 
-    if let Some(ref next_version) = next_version {
-        println!("Bumping from {current_version} to {next_version}");
-
-        update_crates(&current_version, next_version)?;
-
-        update_makefile(next_version)?;
-
-        update_npm(next_version)?;
-
-        tag_next_version(&repo, next_version)?;
+    let mut version = current_version.clone();
+    if should_increment_minor {
+        version.minor += 1;
+        version.patch = 0;
+        version.pre = Prerelease::EMPTY;
+        version.build = BuildMetadata::EMPTY;
+    } else if should_increment_patch {
+        version.patch += 1;
+        version.pre = Prerelease::EMPTY;
+        version.build = BuildMetadata::EMPTY;
+    } else {
+        return Err(format!("No source code changed since {current_version}").into());
     }
+
+    println!("Bumping from {current_version} to {version}");
+    update_crates(&current_version, &version)?;
+    update_makefile(&version)?;
+    update_npm(&version)?;
+    tag_next_version(&repo, &version)?;
 
     Ok(())
 }
@@ -170,6 +135,7 @@ fn tag_next_version(
 
     for file in [
         "Cargo.toml",
+        "Cargo.lock",
         "cli/Cargo.toml",
         "cli/config/Cargo.toml",
         "cli/loader/Cargo.toml",
