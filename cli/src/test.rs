@@ -525,11 +525,11 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
         let mut test_name = String::new();
         let mut seen_marker = false;
 
-        for line in test_name_and_markers
-            .split(|&c| c == b'\n')
+        for line in str::from_utf8(test_name_and_markers)
+            .unwrap()
+            .lines()
             .filter(|s| !s.is_empty())
         {
-            let line = str::from_utf8(line).unwrap();
             match line.split('(').next().unwrap() {
                 ":skip" => (seen_marker, skip) = (true, true),
                 ":platform" => {
