@@ -2,14 +2,19 @@
 
 pub mod c_lib;
 
+use std::{
+    char,
+    collections::HashMap,
+    ffi::{CStr, CString},
+    mem,
+    ops::Range,
+    os::raw::c_char,
+    str,
+    sync::atomic::{AtomicUsize, Ordering},
+};
+
 use memchr::memchr;
 use regex::Regex;
-use std::collections::HashMap;
-use std::ffi::{CStr, CString};
-use std::ops::Range;
-use std::os::raw::c_char;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{char, mem, str};
 use thiserror::Error;
 use tree_sitter::{
     Language, LossyUtf8, Parser, Point, Query, QueryCursor, QueryError, QueryPredicateArg, Tree,
@@ -281,8 +286,9 @@ impl TagsContext {
         unsafe { self.parser.set_cancellation_flag(cancellation_flag) };
         let tree = self.parser.parse(source, None).ok_or(Error::Cancelled)?;
 
-        // The `matches` iterator borrows the `Tree`, which prevents it from being moved.
-        // But the tree is really just a pointer, so it's actually ok to move it.
+        // The `matches` iterator borrows the `Tree`, which prevents it from being
+        // moved. But the tree is really just a pointer, so it's actually ok to
+        // move it.
         let tree_ref = unsafe { mem::transmute::<_, &'static Tree>(&tree) };
         let matches = self
             .cursor
@@ -456,7 +462,8 @@ where
                             }
                         }
 
-                        // Generate a doc string from all of the doc nodes, applying any strip regexes.
+                        // Generate a doc string from all of the doc nodes, applying any strip
+                        // regexes.
                         let mut docs = None;
                         for doc_node in &doc_nodes[docs_start_index..] {
                             if let Ok(content) = str::from_utf8(&self.source[doc_node.byte_range()])
@@ -479,9 +486,9 @@ where
                         let range = rng.start.min(name_range.start)..rng.end.max(name_range.end);
                         let span = name_node.start_position()..name_node.end_position();
 
-                        // Compute tag properties that depend on the text of the containing line. If the
-                        // previous tag occurred on the same line, then reuse results from the previous tag.
-                        let line_range;
+                        // Compute tag properties that depend on the text of the containing line. If
+                        // the previous tag occurred on the same line, then
+                        // reuse results from the previous tag.
                         let mut prev_utf16_column = 0;
                         let mut prev_utf8_byte = name_range.start - span.start.column;
                         let line_info = self.prev_line_info.as_ref().and_then(|info| {
@@ -491,20 +498,20 @@ where
                                 None
                             }
                         });
-                        if let Some(line_info) = line_info {
-                            line_range = line_info.line_range.clone();
+                        let line_range = if let Some(line_info) = line_info {
                             if line_info.utf8_position.column <= span.start.column {
                                 prev_utf8_byte = line_info.utf8_byte;
                                 prev_utf16_column = line_info.utf16_column;
                             }
+                            line_info.line_range.clone()
                         } else {
-                            line_range = self::line_range(
+                            self::line_range(
                                 self.source,
                                 name_range.start,
                                 span.start,
                                 MAX_LINE_LEN,
-                            );
-                        }
+                            )
+                        };
 
                         let utf16_start_column = prev_utf16_column
                             + utf16_len(&self.source[prev_utf8_byte..name_range.start]);

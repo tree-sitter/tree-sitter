@@ -1,3 +1,14 @@
+use std::{env, fmt::Write};
+
+use indoc::indoc;
+use lazy_static::lazy_static;
+use rand::{prelude::StdRng, SeedableRng};
+use tree_sitter::{
+    CaptureQuantifier, Language, Node, Parser, Point, Query, QueryCursor, QueryError,
+    QueryErrorKind, QueryPredicate, QueryPredicateArg, QueryProperty,
+};
+use unindent::Unindent;
+
 use super::helpers::{
     allocations,
     fixtures::{get_language, get_test_language},
@@ -8,15 +19,6 @@ use crate::{
     generate::generate_parser_for_grammar,
     tests::helpers::query_helpers::{collect_captures, collect_matches},
 };
-use indoc::indoc;
-use lazy_static::lazy_static;
-use rand::{prelude::StdRng, SeedableRng};
-use std::{env, fmt::Write};
-use tree_sitter::{
-    CaptureQuantifier, Language, Node, Parser, Point, Query, QueryCursor, QueryError,
-    QueryErrorKind, QueryPredicate, QueryPredicateArg, QueryProperty,
-};
-use unindent::Unindent;
 
 lazy_static! {
     static ref EXAMPLE_FILTER: Option<String> = env::var("TREE_SITTER_TEST_EXAMPLE_FILTER").ok();
@@ -889,12 +891,12 @@ fn test_query_matches_with_immediate_siblings() {
         let language = get_language("python");
 
         // The immediate child operator '.' can be used in three similar ways:
-        // 1. Before the first child node in a pattern, it means that there cannot be any
-        //    named siblings before that child node.
+        // 1. Before the first child node in a pattern, it means that there cannot be any named
+        //    siblings before that child node.
         // 2. After the last child node in a pattern, it means that there cannot be any named
         //    sibling after that child node.
-        // 2. Between two child nodes in a pattern, it specifies that there cannot be any
-        //    named siblings between those two child snodes.
+        // 2. Between two child nodes in a pattern, it specifies that there cannot be any named
+        //    siblings between those two child snodes.
         let query = Query::new(
             &language,
             "
@@ -1423,7 +1425,8 @@ fn test_query_matches_with_nested_optional_nodes() {
     allocations::record(|| {
         let language = get_language("javascript");
 
-        // A function call, optionally containing a function call, which optionally contains a number
+        // A function call, optionally containing a function call, which optionally contains a
+        // number
         let query = Query::new(
             &language,
             "
@@ -3267,8 +3270,8 @@ fn test_query_captures_with_too_many_nested_results() {
         //    appearance.
         // 2. This pattern captures the root `call_expression`.
         // 3. This pattern's result also depends on the final child (the template string).
-        // 4. In between the `call_expression` and the possible `template_string`, there can
-        //    be an arbitrarily deep subtree.
+        // 4. In between the `call_expression` and the possible `template_string`, there can be an
+        //    arbitrarily deep subtree.
         //
         // This means that, if any patterns match *after* the initial `call_expression` is
         // captured, but before the final `template_string` is found, those matches must

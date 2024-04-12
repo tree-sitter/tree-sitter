@@ -6,24 +6,26 @@ mod flatten_grammar;
 mod intern_symbols;
 mod process_inlines;
 
-pub use self::expand_tokens::expand_tokens;
-
-use self::expand_repeats::expand_repeats;
-use self::extract_default_aliases::extract_default_aliases;
-use self::extract_tokens::extract_tokens;
-use self::flatten_grammar::flatten_grammar;
-use self::intern_symbols::intern_symbols;
-use self::process_inlines::process_inlines;
-use super::grammars::{
-    ExternalToken, InlinedProductionMap, InputGrammar, LexicalGrammar, PrecedenceEntry,
-    SyntaxGrammar, Variable,
-};
-use super::rules::{AliasMap, Precedence, Rule, Symbol};
-use anyhow::{anyhow, Result};
 use std::{
     cmp::Ordering,
     collections::{hash_map, HashMap, HashSet},
     mem,
+};
+
+use anyhow::{anyhow, Result};
+
+pub use self::expand_tokens::expand_tokens;
+use self::{
+    expand_repeats::expand_repeats, extract_default_aliases::extract_default_aliases,
+    extract_tokens::extract_tokens, flatten_grammar::flatten_grammar,
+    intern_symbols::intern_symbols, process_inlines::process_inlines,
+};
+use super::{
+    grammars::{
+        ExternalToken, InlinedProductionMap, InputGrammar, LexicalGrammar, PrecedenceEntry,
+        SyntaxGrammar, Variable,
+    },
+    rules::{AliasMap, Precedence, Rule, Symbol},
 };
 
 pub struct IntermediateGrammar<T, U> {

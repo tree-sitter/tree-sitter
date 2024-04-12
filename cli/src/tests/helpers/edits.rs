@@ -1,7 +1,7 @@
+use std::{ops::Range, str};
+
 use super::random::Rand;
 use crate::parse::Edit;
-use std::ops::Range;
-use std::str;
 
 #[derive(Debug)]
 pub struct ReadRecorder<'a> {
@@ -31,7 +31,7 @@ impl<'a> ReadRecorder<'a> {
 
     pub fn strings_read(&self) -> Vec<&'a str> {
         let mut result = Vec::new();
-        let mut last_range: Option<Range<usize>> = None;
+        let mut last_range = Option::<Range<usize>>::None;
         for index in &self.indices_read {
             if let Some(ref mut range) = &mut last_range {
                 if range.end == *index {

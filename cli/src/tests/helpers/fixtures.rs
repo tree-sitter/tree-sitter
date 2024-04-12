@@ -1,7 +1,10 @@
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+};
+
 use anyhow::Context;
 use lazy_static::lazy_static;
-use std::path::{Path, PathBuf};
-use std::{env, fs};
 use tree_sitter::Language;
 use tree_sitter_highlight::HighlightConfiguration;
 use tree_sitter_loader::{CompileConfig, Loader};

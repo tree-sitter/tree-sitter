@@ -1,9 +1,13 @@
-use super::helpers::fixtures::get_language;
-use std::future::Future;
-use std::pin::{pin, Pin};
-use std::ptr;
-use std::task::{self, Context, Poll, RawWaker, RawWakerVTable, Waker};
+use std::{
+    future::Future,
+    pin::{pin, Pin},
+    ptr,
+    task::{self, Context, Poll, RawWaker, RawWakerVTable, Waker},
+};
+
 use tree_sitter::Parser;
+
+use super::helpers::fixtures::get_language;
 
 #[test]
 fn test_node_in_fut() {

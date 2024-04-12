@@ -1,17 +1,21 @@
+use std::{
+    collections::HashSet,
+    env, fs,
+    path::{Path, PathBuf},
+};
+
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::{anyhow, Context, Result};
 use clap::{crate_authors, Args, Command, FromArgMatches as _, Subcommand};
 use glob::glob;
 use regex::Regex;
-use std::collections::HashSet;
-use std::path::{Path, PathBuf};
-use std::{env, fs, u64};
 use tree_sitter::{ffi, Parser, Point};
-use tree_sitter_cli::test::TestOptions;
 use tree_sitter_cli::{
     generate, highlight, logger,
     parse::{self, ParseFileOptions, ParseOutput},
-    playground, query, tags, test, test_highlight, test_tags, util, wasm,
+    playground, query, tags, test,
+    test::TestOptions,
+    test_highlight, test_tags, util, wasm,
 };
 use tree_sitter_config::Config;
 use tree_sitter_highlight::Highlighter;
@@ -866,8 +870,7 @@ fn run() -> Result<()> {
             let open_in_browser = !playground_options.quiet;
             let grammar_path = playground_options
                 .grammar_path
-                .map(PathBuf::from)
-                .unwrap_or(current_dir);
+                .map_or(current_dir, PathBuf::from);
             playground::serve(&grammar_path, open_in_browser)?;
         }
 

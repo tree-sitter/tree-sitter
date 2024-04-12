@@ -1,19 +1,25 @@
-use super::util;
+use std::{
+    collections::BTreeMap,
+    ffi::OsStr,
+    fs,
+    io::{self, Write},
+    path::{Path, PathBuf},
+    str,
+};
+
 use ansi_term::Colour;
 use anyhow::{anyhow, Context, Result};
 use difference::{Changeset, Difference};
 use indoc::indoc;
 use lazy_static::lazy_static;
-use regex::bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder};
-use regex::Regex;
-use std::collections::BTreeMap;
-use std::ffi::OsStr;
-use std::fs;
-use std::io::{self, Write};
-use std::path::{Path, PathBuf};
-use std::str;
+use regex::{
+    bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder},
+    Regex,
+};
 use tree_sitter::{format_sexp, Language, LogType, Parser, Query};
 use walkdir::WalkDir;
+
+use super::util;
 
 lazy_static! {
     static ref HEADER_REGEX: ByteRegex = ByteRegexBuilder::new(
@@ -300,13 +306,15 @@ fn run_tests(
                             let expected_output = format_sexp(&output, 0);
                             let actual_output = format_sexp(&actual, 0);
 
-                            // Only bail early before updating if the actual is not the output, sometimes
-                            // users want to test cases that are intended to have errors, hence why this
+                            // Only bail early before updating if the actual is not the output,
+                            // sometimes users want to test cases that
+                            // are intended to have errors, hence why this
                             // check isn't shown above
                             if actual.contains("ERROR") || actual.contains("MISSING") {
                                 *has_parse_errors = true;
 
-                                // keep the original `expected` output if the actual output has an error
+                                // keep the original `expected` output if the actual output has an
+                                // error
                                 corrected_entries.push((
                                     name.clone(),
                                     input,
@@ -424,9 +432,9 @@ fn write_tests_to_buffer(
         if i > 0 {
             writeln!(buffer)?;
         }
-        write!(
+        writeln!(
             buffer,
-            "{}\n{name}\n{}\n{input}\n{}\n\n{}\n",
+            "{}\n{name}\n{}\n{input}\n{}\n\n{}",
             "=".repeat(*header_delim_len),
             "=".repeat(*header_delim_len),
             "-".repeat(*divider_delim_len),
@@ -654,7 +662,7 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
             }
         }
         prev_attributes = attributes;
-        prev_name = test_name.unwrap_or(String::new());
+        prev_name = test_name.unwrap_or_default();
         prev_header_len = header_delim_len;
         prev_header_end = header_range.end;
     }

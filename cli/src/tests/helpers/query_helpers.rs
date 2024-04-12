@@ -1,5 +1,6 @@
-use rand::prelude::Rng;
 use std::{cmp::Ordering, fmt::Write, ops::Range};
+
+use rand::prelude::Rng;
 use tree_sitter::{
     Language, Node, Parser, Point, Query, QueryCapture, QueryCursor, QueryMatch, Tree, TreeCursor,
 };

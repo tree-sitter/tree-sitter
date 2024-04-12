@@ -1,13 +1,18 @@
-use super::write_file;
+use std::{
+    fs,
+    fs::File,
+    io::BufReader,
+    path::{Path, PathBuf},
+    str,
+};
+
 use anyhow::{anyhow, Context, Result};
 use heck::{ToKebabCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
 use indoc::indoc;
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
-use std::fs::File;
-use std::io::BufReader;
-use std::path::{Path, PathBuf};
-use std::{fs, str};
+
+use super::write_file;
 
 const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CLI_VERSION_PLACEHOLDER: &str = "CLI_VERSION";
@@ -281,7 +286,7 @@ pub fn generate_grammar_files(
             |path| {
                 let build_rs =
                     fs::read_to_string(path).with_context(|| "Failed to read build.rs")?;
-                if !build_rs.contains("/utf-8") {
+                if !build_rs.contains("-utf-8") {
                     let index = build_rs
                         .find("    let parser_path = src_dir.join(\"parser.c\")")
                         .ok_or_else(|| anyhow!(indoc!{

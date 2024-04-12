@@ -1,5 +1,4 @@
-use std::cmp::Ordering;
-use std::path::Path;
+use std::{cmp::Ordering, path::Path};
 
 use git2::{DiffOptions, Repository};
 use indoc::indoc;

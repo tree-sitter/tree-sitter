@@ -1,3 +1,10 @@
+use std::{
+    cmp,
+    collections::{HashMap, HashSet},
+    fmt::Write,
+    mem::swap,
+};
+
 use super::{
     build_tables::Tables,
     grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType},
@@ -7,12 +14,6 @@ use super::{
         AdvanceAction, FieldLocation, GotoAction, LexState, LexTable, ParseAction, ParseTable,
         ParseTableEntry,
     },
-};
-use std::{
-    cmp,
-    collections::{HashMap, HashSet},
-    fmt::Write,
-    mem::swap,
 };
 
 const SMALL_STATE_THRESHOLD: usize = 64;
@@ -27,7 +28,7 @@ macro_rules! add {
 }
 
 macro_rules! add_whitespace {
-    ($this: tt) => {{
+    ($this:tt) => {{
         for _ in 0..$this.indent_level {
             write!(&mut $this.buffer, "  ").unwrap();
         }
@@ -43,13 +44,13 @@ macro_rules! add_line {
 }
 
 macro_rules! indent {
-    ($this: tt) => {
+    ($this:tt) => {
         $this.indent_level += 1;
     };
 }
 
 macro_rules! dedent {
-    ($this: tt) => {
+    ($this:tt) => {
         assert_ne!($this.indent_level, 0);
         $this.indent_level -= 1;
     };
@@ -172,8 +173,8 @@ impl Generator {
             }
             // Two anonymous tokens with different flags but the same string value
             // should be represented with the same symbol in the public API. Examples:
-            // *  "<" and token(prec(1, "<"))
-            // *  "(" and token.immediate("(")
+            // * "<" and token(prec(1, "<"))
+            // * "(" and token.immediate("(")
             else if symbol.is_terminal() {
                 let metadata = self.metadata_for_symbol(*symbol);
                 for other_symbol in &self.parse_table.symbols {
@@ -215,22 +216,22 @@ impl Generator {
                     });
 
                     // Some aliases match an existing symbol in the grammar.
-                    let alias_id;
-                    if let Some(existing_symbol) = existing_symbol {
-                        alias_id = self.symbol_ids[&self.symbol_map[&existing_symbol]].clone();
+                    let alias_id = if let Some(existing_symbol) = existing_symbol {
+                        self.symbol_ids[&self.symbol_map[&existing_symbol]].clone()
                     }
-                    // Other aliases don't match any existing symbol, and need their own identifiers.
+                    // Other aliases don't match any existing symbol, and need their own
+                    // identifiers.
                     else {
                         if let Err(i) = self.unique_aliases.binary_search(alias) {
                             self.unique_aliases.insert(i, alias.clone());
                         }
 
-                        alias_id = if alias.is_named {
+                        if alias.is_named {
                             format!("alias_sym_{}", self.sanitize_identifier(&alias.value))
                         } else {
                             format!("anon_alias_sym_{}", self.sanitize_identifier(&alias.value))
-                        };
-                    }
+                        }
+                    };
 
                     self.alias_ids.entry(alias.clone()).or_insert(alias_id);
                 }
@@ -1612,16 +1613,15 @@ impl Generator {
 /// * `parse_table` - The generated parse table for the language
 /// * `main_lex_table` - The generated lexing table for the language
 /// * `keyword_lex_table` - The generated keyword lexing table for the language
-/// * `keyword_capture_token` - A symbol indicating which token is used
-///    for keyword capture, if any.
+/// * `keyword_capture_token` - A symbol indicating which token is used for keyword capture, if any.
 /// * `syntax_grammar` - The syntax grammar extracted from the language's grammar
 /// * `lexical_grammar` - The lexical grammar extracted from the language's grammar
-/// * `default_aliases` - A map describing the global rename rules that should apply.
-///    the keys are symbols that are *always* aliased in the same way, and the values
-///    are the aliases that are applied to those symbols.
-/// * `abi_version` - The language ABI version that should be generated. Usually
-///    you want Tree-sitter's current version, but right after making an ABI
-///    change, it may be useful to generate code with the previous ABI.
+/// * `default_aliases` - A map describing the global rename rules that should apply. the keys are
+///   symbols that are *always* aliased in the same way, and the values are the aliases that are
+///   applied to those symbols.
+/// * `abi_version` - The language ABI version that should be generated. Usually you want
+///   Tree-sitter's current version, but right after making an ABI change, it may be useful to
+///   generate code with the previous ABI.
 #[allow(clippy::too_many_arguments)]
 pub fn render_c_code(
     name: &str,

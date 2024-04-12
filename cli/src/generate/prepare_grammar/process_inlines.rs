@@ -1,9 +1,11 @@
+use std::collections::HashMap;
+
+use anyhow::{anyhow, Result};
+
 use crate::generate::{
     grammars::{InlinedProductionMap, LexicalGrammar, Production, ProductionStep, SyntaxGrammar},
     rules::SymbolType,
 };
-use anyhow::{anyhow, Result};
-use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct ProductionStepId {
@@ -152,7 +154,7 @@ impl InlinedProductionMapBuilder {
                 self.productions
                     .iter()
                     .position(|p| *p == production)
-                    .unwrap_or({
+                    .unwrap_or_else(|| {
                         self.productions.push(production);
                         self.productions.len() - 1
                     })
@@ -223,8 +225,10 @@ pub(super) fn process_inlines(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::generate::grammars::{LexicalVariable, SyntaxVariable, VariableType};
-    use crate::generate::rules::{Associativity, Precedence, Symbol};
+    use crate::generate::{
+        grammars::{LexicalVariable, SyntaxVariable, VariableType},
+        rules::{Associativity, Precedence, Symbol},
+    };
 
     #[test]
     fn test_basic_inlining() {

@@ -1,24 +1,29 @@
-use super::item::{ParseItem, ParseItemSet, ParseItemSetCore};
-use super::item_set_builder::ParseItemSetBuilder;
-use crate::generate::grammars::PrecedenceEntry;
-use crate::generate::grammars::{
-    InlinedProductionMap, LexicalGrammar, SyntaxGrammar, VariableType,
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, HashMap, HashSet, VecDeque},
+    fmt::Write,
+    hash::BuildHasherDefault,
 };
-use crate::generate::node_types::VariableInfo;
-use crate::generate::rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet};
-use crate::generate::tables::{
-    FieldLocation, GotoAction, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
-    ProductionInfo, ProductionInfoId,
-};
-use anyhow::{anyhow, Result};
-use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
-use std::fmt::Write;
-use std::hash::BuildHasherDefault;
-use std::u32;
 
+use anyhow::{anyhow, Result};
 use indexmap::{map::Entry, IndexMap};
 use rustc_hash::FxHasher;
+
+use super::{
+    item::{ParseItem, ParseItemSet, ParseItemSetCore},
+    item_set_builder::ParseItemSetBuilder,
+};
+use crate::generate::{
+    grammars::{
+        InlinedProductionMap, LexicalGrammar, PrecedenceEntry, SyntaxGrammar, VariableType,
+    },
+    node_types::VariableInfo,
+    rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
+    tables::{
+        FieldLocation, GotoAction, ParseAction, ParseState, ParseStateId, ParseTable,
+        ParseTableEntry, ProductionInfo, ProductionInfoId,
+    },
+};
 
 // For conflict reporting, each parse state is associated with an example
 // sequence of symbols that could lead to that parse state.
@@ -293,7 +298,7 @@ impl<'a> ParseTableBuilder<'a> {
                         }
                     }
 
-                    reduction_info.precedence = precedence.clone();
+                    reduction_info.precedence.clone_from(precedence);
                     if let Err(i) = reduction_info.symbols.binary_search(&symbol) {
                         reduction_info.symbols.insert(i, symbol);
                     }
@@ -599,13 +604,13 @@ impl<'a> ParseTableBuilder<'a> {
             write!(&mut msg, "  {}", self.symbol_name(symbol)).unwrap();
         }
 
-        write!(
+        writeln!(
             &mut msg,
-            "  •  {}  …\n\n",
+            "  •  {}  …\n",
             self.symbol_name(&conflicting_lookahead)
         )
         .unwrap();
-        write!(&mut msg, "Possible interpretations:\n\n").unwrap();
+        writeln!(&mut msg, "Possible interpretations:\n").unwrap();
 
         let mut interpretations = conflicting_items
             .iter()
@@ -680,7 +685,7 @@ impl<'a> ParseTableBuilder<'a> {
         }
 
         let mut resolution_count = 0;
-        write!(&mut msg, "\nPossible resolutions:\n\n").unwrap();
+        writeln!(&mut msg, "\nPossible resolutions:\n").unwrap();
         let mut shift_items = Vec::new();
         let mut reduce_items = Vec::new();
         for item in conflicting_items {
@@ -956,7 +961,7 @@ fn populate_following_tokens(
             for entry in result.iter_mut() {
                 entry.insert(*extra);
             }
-            result[extra.index] = all_tokens.clone();
+            result[extra.index].clone_from(&all_tokens);
         }
     }
 }

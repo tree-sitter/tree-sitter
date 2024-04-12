@@ -1,11 +1,16 @@
-use super::util;
+use std::{
+    fs,
+    io::{self, Write},
+    path::Path,
+    str,
+    time::Instant,
+};
+
 use anyhow::{anyhow, Result};
-use std::io::{self, Write};
-use std::path::Path;
-use std::time::Instant;
-use std::{fs, str};
 use tree_sitter_loader::{Config, Loader};
 use tree_sitter_tags::TagsContext;
+
+use super::util;
 
 pub fn generate_tags(
     loader: &Loader,

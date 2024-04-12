@@ -1,8 +1,9 @@
-use super::helpers::edits::invert_edit;
-use super::helpers::fixtures::get_language;
-use crate::parse::{perform_edit, Edit};
 use std::str;
+
 use tree_sitter::{InputEdit, Parser, Point, Range, Tree};
+
+use super::helpers::{edits::invert_edit, fixtures::get_language};
+use crate::parse::{perform_edit, Edit};
 
 #[test]
 fn test_tree_edit() {

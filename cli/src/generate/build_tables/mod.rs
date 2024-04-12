@@ -6,6 +6,11 @@ mod item_set_builder;
 mod minimize_parse_table;
 mod token_conflicts;
 
+use std::collections::{BTreeSet, HashMap};
+
+use anyhow::Result;
+use log::info;
+
 use self::{
     build_lex_table::build_lex_table,
     build_parse_table::{build_parse_table, ParseStateInfo},
@@ -20,9 +25,6 @@ use crate::generate::{
     rules::{AliasMap, Symbol, SymbolType, TokenSet},
     tables::{LexTable, ParseAction, ParseTable, ParseTableEntry},
 };
-use anyhow::Result;
-use log::info;
-use std::collections::{BTreeSet, HashMap};
 
 pub use build_lex_table::LARGE_CHARACTER_RANGE_COUNT;
 

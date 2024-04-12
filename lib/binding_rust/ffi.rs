@@ -18,10 +18,11 @@ extern "C" {
     pub(crate) fn _ts_dup(handle: *mut std::os::raw::c_void) -> std::os::raw::c_int;
 }
 
+use std::{marker::PhantomData, mem::ManuallyDrop, ptr::NonNull, str};
+
 use crate::{
     Language, LookaheadIterator, Node, Parser, Query, QueryCursor, QueryError, Tree, TreeCursor,
 };
-use std::{marker::PhantomData, mem::ManuallyDrop, ptr::NonNull, str};
 
 impl Language {
     /// Reconstructs a [`Language`] from a raw pointer.
@@ -90,7 +91,7 @@ impl<'tree> Node<'tree> {
     ///
     /// `ptr` must be non-null.
     #[must_use]
-    pub const unsafe fn from_raw(raw: TSNode) -> Node<'tree> {
+    pub const unsafe fn from_raw(raw: TSNode) -> Self {
         Self(raw, PhantomData)
     }
 
@@ -108,7 +109,7 @@ impl<'a> TreeCursor<'a> {
     ///
     /// `ptr` must be non-null.
     #[must_use]
-    pub const unsafe fn from_raw(raw: TSTreeCursor) -> TreeCursor<'a> {
+    pub const unsafe fn from_raw(raw: TSTreeCursor) -> Self {
         Self(raw, PhantomData)
     }
 

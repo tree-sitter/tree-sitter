@@ -1,10 +1,10 @@
 #![doc = include_str!("../README.md")]
 
+use std::{env, fs, path::PathBuf};
+
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::path::PathBuf;
-use std::{env, fs};
 
 /// Holds the contents of tree-sitter's configuration file.
 ///
@@ -62,8 +62,8 @@ impl Config {
     ///
     ///   - Location specified by the path parameter if provided
     ///   - `$TREE_SITTER_DIR/config.json`, if the `TREE_SITTER_DIR` environment variable is set
-    ///   - `tree-sitter/config.json` in your default user configuration directory, as determined
-    ///     by [`dirs::config_dir`](https://docs.rs/dirs/*/dirs/fn.config_dir.html)
+    ///   - `tree-sitter/config.json` in your default user configuration directory, as determined by
+    ///     [`dirs::config_dir`](https://docs.rs/dirs/*/dirs/fn.config_dir.html)
     ///   - `$HOME/.tree-sitter/config.json` as a fallback from where tree-sitter _used_ to store
     ///     its configuration
     pub fn load(path: Option<PathBuf>) -> Result<Self> {

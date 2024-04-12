@@ -1,5 +1,6 @@
-use super::FREE_FN;
 use std::os::raw::c_void;
+
+use super::FREE_FN;
 
 /// A raw pointer and a length, exposed as an iterator.
 pub struct CBufferIter<T> {

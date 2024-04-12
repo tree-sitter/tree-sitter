@@ -1,14 +1,18 @@
+use std::{
+    collections::{hash_map::Entry, HashMap, VecDeque},
+    mem,
+};
+
+use log::info;
+
+use super::{coincident_tokens::CoincidentTokenIndex, token_conflicts::TokenConflictMap};
 use crate::generate::{
-    build_tables::{coincident_tokens::CoincidentTokenIndex, token_conflicts::TokenConflictMap},
     dedup::split_state_id_groups,
     grammars::{LexicalGrammar, SyntaxGrammar},
     nfa::{CharacterSet, NfaCursor},
     rules::{Symbol, TokenSet},
     tables::{AdvanceAction, LexState, LexTable, ParseStateId, ParseTable},
 };
-use log::info;
-use std::collections::{hash_map::Entry, HashMap, VecDeque};
-use std::mem;
 
 pub const LARGE_CHARACTER_RANGE_COUNT: usize = 8;
 

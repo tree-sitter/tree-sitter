@@ -1,5 +1,4 @@
-use std::fs;
-use std::path::Path;
+use std::{fs, path::Path};
 
 use ansi_term::Colour;
 use anyhow::{anyhow, Result};

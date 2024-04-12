@@ -1,7 +1,8 @@
+use std::fs;
+
 use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::fs;
 use tree_sitter::{Language, Parser, Point};
 
 lazy_static! {

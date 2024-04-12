@@ -1,11 +1,15 @@
-use super::util;
+use std::{
+    fmt, fs,
+    io::{self, Write},
+    path::Path,
+    sync::atomic::AtomicUsize,
+    time::{Duration, Instant},
+};
+
 use anyhow::{anyhow, Context, Result};
-use std::io::{self, Write};
-use std::path::Path;
-use std::sync::atomic::AtomicUsize;
-use std::time::{Duration, Instant};
-use std::{fmt, fs, usize};
 use tree_sitter::{ffi, InputEdit, Language, LogType, Parser, Point, Tree};
+
+use super::util;
 
 #[derive(Debug)]
 pub struct Edit {
