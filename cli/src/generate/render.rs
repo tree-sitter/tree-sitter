@@ -704,7 +704,44 @@ impl Generator {
         let mut large_set = CharacterSet::empty();
         let mut ruled_out_chars = CharacterSet::empty();
 
-        for (chars, action) in state.advance_actions {
+        // The transitions in a lex state are sorted with the single-character
+        // transitions first. If there are many single-character transitions,
+        // then implement them using an array of (lookahead character, state)
+        // pairs, instead of individual if statements, in order to reduce compile
+        // time.
+        let mut leading_simple_transition_count = 0;
+        let mut leading_simple_transition_character_count = 0;
+        for (chars, action) in &state.advance_actions {
+            if action.in_main_token
+                && chars
+                    .ranges()
+                    .all(|r| r.start() == r.end() && *r.start() as u32 <= u16::MAX as u32)
+            {
+                leading_simple_transition_count += 1;
+                leading_simple_transition_character_count += chars.range_count();
+            } else {
+                break;
+            }
+        }
+
+        if leading_simple_transition_character_count >= 8 {
+            add_line!(self, "ADVANCE_MAP(");
+            indent!(self);
+            for (chars, action) in &state.advance_actions[0..leading_simple_transition_count] {
+                for range in chars.ranges() {
+                    add_whitespace!(self);
+                    self.add_character(*range.start());
+                    add!(self, ", {},\n", action.state);
+                }
+                ruled_out_chars = ruled_out_chars.add(chars);
+            }
+            dedent!(self);
+            add_line!(self, ");");
+        } else {
+            leading_simple_transition_count = 0;
+        }
+
+        for (chars, action) in &state.advance_actions[leading_simple_transition_count..] {
             add_whitespace!(self);
 
             // The lex state's advance actions are represented with disjoint
@@ -749,7 +786,7 @@ impl Generator {
 
             // Add this transition's character set to the set of ruled out characters,
             // which don't need to be checked for subsequent transitions in this state.
-            ruled_out_chars = ruled_out_chars.add(&chars);
+            ruled_out_chars = ruled_out_chars.add(chars);
 
             let mut large_char_set_ix = None;
             let mut asserted_chars = simplified_chars;
@@ -823,7 +860,7 @@ impl Generator {
                 add!(self, ") ");
             }
 
-            self.add_advance_action(&action);
+            self.add_advance_action(action);
             add!(self, "\n");
         }
 
