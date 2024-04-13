@@ -4,7 +4,7 @@ pub mod ffi;
 mod util;
 
 #[cfg(not(windows))]
-use std::os::fd::io::AsRawFd;
+use std::os::fd::AsRawFd;
 #[cfg(windows)]
 use std::os::windows::io::AsRawHandle;
 use std::{
