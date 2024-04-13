@@ -8,7 +8,7 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 #[cfg(not(feature = "bindgen"))]
 include!("./bindings.rs");
 
-#[cfg(unix)]
+#[cfg(not(windows))]
 extern "C" {
     pub(crate) fn _ts_dup(fd: std::os::raw::c_int) -> std::os::raw::c_int;
 }

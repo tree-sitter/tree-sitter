@@ -3,8 +3,8 @@
 pub mod ffi;
 mod util;
 
-#[cfg(unix)]
-use std::os::unix::io::AsRawFd;
+#[cfg(not(windows))]
+use std::os::fd::AsRawFd;
 #[cfg(windows)]
 use std::os::windows::io::AsRawHandle;
 use std::{
@@ -942,10 +942,10 @@ impl Tree {
     #[doc(alias = "ts_tree_print_dot_graph")]
     pub fn print_dot_graph(
         &self,
-        #[cfg(unix)] file: &impl AsRawFd,
+        #[cfg(not(windows))] file: &impl AsRawFd,
         #[cfg(windows)] file: &impl AsRawHandle,
     ) {
-        #[cfg(unix)]
+        #[cfg(not(windows))]
         {
             let fd = file.as_raw_fd();
             unsafe { ffi::ts_tree_print_dot_graph(self.0.as_ptr(), fd) }
