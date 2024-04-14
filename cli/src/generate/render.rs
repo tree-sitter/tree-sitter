@@ -64,7 +64,7 @@ struct Generator {
     main_lex_table: LexTable,
     keyword_lex_table: LexTable,
     large_character_sets: Vec<(Option<Symbol>, CharacterSet)>,
-    large_character_set_constant_names: Vec<String>,
+    large_character_set_info: Vec<LargeCharacterSetInfo>,
     large_state_count: usize,
     keyword_capture_token: Option<Symbol>,
     syntax_grammar: SyntaxGrammar,
@@ -79,6 +79,11 @@ struct Generator {
 
     #[allow(unused)]
     abi_version: usize,
+}
+
+struct LargeCharacterSetInfo {
+    constant_name: String,
+    is_used: bool,
 }
 
 impl Generator {
@@ -108,11 +113,7 @@ impl Generator {
             self.add_primary_state_id_list();
         }
 
-        // Generate a helper function for each large character set.
-        // let mut sorted_large_char_sets = self.large_character_sets.iter().collect::<Vec<_>>();
-        for ix in 0..self.large_character_sets.len() {
-            self.add_character_set(ix);
-        }
+        let buffer_offset_before_lex_functions = self.buffer.len();
 
         let mut main_lex_table = LexTable::default();
         swap(&mut main_lex_table, &mut self.main_lex_table);
@@ -123,6 +124,16 @@ impl Generator {
             swap(&mut keyword_lex_table, &mut self.keyword_lex_table);
             self.add_lex_function("ts_lex_keywords", keyword_lex_table);
         }
+
+        // Once the lex functions are generated, and we've determined which large
+        // character sets are actually used, we can generate the large character set
+        // constants. Insert them into the output buffer before the lex functions.
+        let lex_functions = self.buffer[buffer_offset_before_lex_functions..].to_string();
+        self.buffer.truncate(buffer_offset_before_lex_functions);
+        for ix in 0..self.large_character_sets.len() {
+            self.add_character_set(ix);
+        }
+        self.buffer.push_str(&lex_functions);
 
         self.add_lex_modes_list();
         self.add_parse_table();
@@ -236,6 +247,23 @@ impl Generator {
                     self.alias_ids.entry(alias.clone()).or_insert(alias_id);
                 }
             }
+        }
+
+        for (ix, (symbol, _)) in self.large_character_sets.iter().enumerate() {
+            let count = self.large_character_sets[0..ix]
+                .iter()
+                .filter(|(sym, _)| sym == symbol)
+                .count()
+                + 1;
+            let constant_name = if let Some(symbol) = symbol {
+                format!("{}_character_set_{}", self.symbol_ids[&symbol], count)
+            } else {
+                format!("extras_character_set_{}", count)
+            };
+            self.large_character_set_info.push(LargeCharacterSetInfo {
+                constant_name,
+                is_used: false,
+            });
         }
 
         // Determine which states should use the "small state" representation, and which should
@@ -829,10 +857,12 @@ impl Generator {
                     add!(self, "(!eof && ")
                 }
 
+                let char_set_info = &mut self.large_character_set_info[large_char_set_ix];
+                char_set_info.is_used = true;
                 add!(
                     self,
                     "set_contains({}, {}, lookahead)",
-                    &self.large_character_set_constant_names[large_char_set_ix],
+                    &char_set_info.constant_name,
                     large_set.range_count(),
                 );
                 if check_eof {
@@ -940,20 +970,17 @@ impl Generator {
     }
 
     fn add_character_set(&mut self, ix: usize) {
-        let (symbol, characters) = self.large_character_sets[ix].clone();
-        let count = self.large_character_sets[0..ix]
-            .iter()
-            .filter(|(sym, _)| *sym == symbol)
-            .count()
-            + 1;
+        let characters = self.large_character_sets[ix].1.clone();
+        let info = &self.large_character_set_info[ix];
+        if !info.is_used {
+            return;
+        }
 
-        let constant_name = if let Some(symbol) = symbol {
-            format!("{}_character_set_{}", self.symbol_ids[&symbol], count)
-        } else {
-            format!("extras_character_set_{}", count)
-        };
-        add_line!(self, "static TSCharacterRange {}[] = {{", constant_name);
-        self.large_character_set_constant_names.push(constant_name);
+        add_line!(
+            self,
+            "static TSCharacterRange {}[] = {{",
+            info.constant_name
+        );
 
         indent!(self);
         for (ix, range) in characters.ranges().enumerate() {
@@ -1694,7 +1721,7 @@ pub fn render_c_code(
         keyword_lex_table: tables.keyword_lex_table,
         keyword_capture_token: tables.word_token,
         large_character_sets: tables.large_character_sets,
-        large_character_set_constant_names: Vec::new(),
+        large_character_set_info: Vec::new(),
         syntax_grammar,
         lexical_grammar,
         default_aliases,
