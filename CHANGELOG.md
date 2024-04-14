@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.3] - 2024-04-14
+
+### Performance
+
+- **cli**: Reduced the compile time of generated parsers by generating C code with fewer conditionals
+  (https://github.com/tree-sitter/tree-sitter/pull/3234)
+
 ## [0.22.1] — 2024-03-10
 
 ### Bug Fixes
