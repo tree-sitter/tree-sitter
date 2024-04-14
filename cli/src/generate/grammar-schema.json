@@ -14,6 +14,12 @@
       "pattern": "^[a-zA-Z_]\\w*"
     },
 
+    "inherits": {
+      "description": "the name of the parent grammar",
+      "type": "string",
+      "pattern": "^[a-zA-Z_]\\w*"
+    },
+
     "rules": {
       "type": "object",
       "patternProperties": {
