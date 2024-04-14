@@ -223,6 +223,8 @@ function RuleBuilder(ruleMap) {
 }
 
 function grammar(baseGrammar, options) {
+  let inherits = null;
+
   if (!options) {
     options = baseGrammar;
     baseGrammar = {
@@ -237,6 +239,7 @@ function grammar(baseGrammar, options) {
     };
   } else {
     baseGrammar = baseGrammar.grammar;
+    inherits = baseGrammar.name;
   }
 
   let externals = baseGrammar.externals;
@@ -277,6 +280,14 @@ function grammar(baseGrammar, options) {
 
   if (!/^[a-zA-Z_]\w*$/.test(name)) {
     throw new Error("Grammar's 'name' property must not start with a digit and cannot contain non-word characters.");
+  }
+
+  if (inherits && typeof inherits !== "string") {
+    throw new Error("Base grammar's 'name' property must be a string.");
+  }
+
+  if (inherits && !/^[a-zA-Z_]\w*$/.test(name)) {
+    throw new Error("Base grammar's 'name' property must not start with a digit and cannot contain non-word characters.");
   }
 
   const rules = Object.assign({}, baseGrammar.rules);
@@ -407,7 +418,7 @@ function grammar(baseGrammar, options) {
     throw new Error("Grammar must have at least one rule.");
   }
 
-  return { grammar: { name, word, rules, extras, conflicts, precedences, externals, inline, supertypes } };
+  return { grammar: { name, inherits, word, rules, extras, conflicts, precedences, externals, inline, supertypes } };
 }
 
 function checkArguments(args, ruleCount, caller, callerName, suffix = '', argType = 'rule') {
