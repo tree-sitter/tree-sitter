@@ -183,7 +183,7 @@ fn test_language_corpus(
             if actual_output != test.output {
                 println!("Incorrect initial parse for {test_name}");
                 print_diff_key();
-                print_diff(&actual_output, &test.output);
+                print_diff(&actual_output, &test.output, true);
                 println!();
                 return false;
             }
@@ -270,7 +270,7 @@ fn test_language_corpus(
                 if actual_output != test.output {
                     println!("Incorrect parse for {test_name} - seed {seed}");
                     print_diff_key();
-                    print_diff(&actual_output, &test.output);
+                    print_diff(&actual_output, &test.output, true);
                     println!();
                     return false;
                 }
@@ -393,7 +393,7 @@ fn test_feature_corpus_files() {
                         true
                     } else {
                         print_diff_key();
-                        print_diff(&actual_output, &test.output);
+                        print_diff(&actual_output, &test.output, true);
                         println!();
                         false
                     }

@@ -638,6 +638,8 @@ fn run() -> Result<()> {
                 env::set_var("TREE_SITTER_DEBUG", "1");
             }
 
+            let color = env::var("NO_COLOR").map_or(true, |v| v != "1");
+
             loader.use_debug_build(test_options.debug_build);
 
             let mut parser = Parser::new();
@@ -673,6 +675,7 @@ fn run() -> Result<()> {
                     update: test_options.update,
                     open_log: test_options.open_log,
                     languages: languages.iter().map(|(l, n)| (n.as_str(), l)).collect(),
+                    color,
                 };
 
                 test::run_tests_at_path(&mut parser, &mut opts)?;
@@ -691,6 +694,7 @@ fn run() -> Result<()> {
                     &config.get()?,
                     &mut highlighter,
                     &test_highlight_dir,
+                    color,
                 )?;
                 parser = highlighter.parser;
             }
@@ -699,7 +703,13 @@ fn run() -> Result<()> {
             if test_tag_dir.is_dir() {
                 let mut tags_context = TagsContext::new();
                 tags_context.parser = parser;
-                test_tags::test_tags(&loader, &config.get()?, &mut tags_context, &test_tag_dir)?;
+                test_tags::test_tags(
+                    &loader,
+                    &config.get()?,
+                    &mut tags_context,
+                    &test_tag_dir,
+                    color,
+                )?;
             }
         }
 

@@ -8,6 +8,7 @@ use tree_sitter_loader::{Config, Loader};
 
 use super::{
     query_testing::{parse_position_comments, Assertion},
+    test::opt_color,
     util,
 };
 
@@ -47,9 +48,10 @@ pub fn test_highlights(
     loader_config: &Config,
     highlighter: &mut Highlighter,
     directory: &Path,
+    use_color: bool,
 ) -> Result<()> {
     println!("syntax highlighting:");
-    test_highlights_indented(loader, loader_config, highlighter, directory, 2)
+    test_highlights_indented(loader, loader_config, highlighter, directory, use_color, 2)
 }
 
 fn test_highlights_indented(
@@ -57,6 +59,7 @@ fn test_highlights_indented(
     loader_config: &Config,
     highlighter: &mut Highlighter,
     directory: &Path,
+    use_color: bool,
     indent_level: usize,
 ) -> Result<()> {
     let mut failed = false;
@@ -77,6 +80,7 @@ fn test_highlights_indented(
                 loader_config,
                 highlighter,
                 &test_file_path,
+                use_color,
                 indent_level + 1,
             )
             .is_err()
@@ -104,13 +108,21 @@ fn test_highlights_indented(
                 Ok(assertion_count) => {
                     println!(
                         "✓ {} ({assertion_count} assertions)",
-                        Colour::Green.paint(test_file_name.to_string_lossy().as_ref()),
+                        opt_color(
+                            use_color,
+                            Colour::Green,
+                            test_file_name.to_string_lossy().as_ref()
+                        ),
                     );
                 }
                 Err(e) => {
                     println!(
                         "✗ {}",
-                        Colour::Red.paint(test_file_name.to_string_lossy().as_ref())
+                        opt_color(
+                            use_color,
+                            Colour::Red,
+                            test_file_name.to_string_lossy().as_ref()
+                        )
                     );
                     println!(
                         "{indent:indent_level$}  {e}",
