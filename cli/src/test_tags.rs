@@ -8,6 +8,7 @@ use tree_sitter_tags::{TagsConfiguration, TagsContext};
 
 use super::{
     query_testing::{parse_position_comments, Assertion},
+    test::opt_color,
     util,
 };
 
@@ -47,9 +48,9 @@ pub fn test_tags(
     loader_config: &Config,
     tags_context: &mut TagsContext,
     directory: &Path,
+    use_color: bool,
 ) -> Result<()> {
     let mut failed = false;
-
     println!("tags:");
     for tag_test_file in fs::read_dir(directory)? {
         let tag_test_file = tag_test_file?;
@@ -74,13 +75,21 @@ pub fn test_tags(
             Ok(assertion_count) => {
                 println!(
                     "  ✓ {} ({assertion_count} assertions)",
-                    Colour::Green.paint(test_file_name.to_string_lossy().as_ref()),
+                    opt_color(
+                        use_color,
+                        Colour::Green,
+                        test_file_name.to_string_lossy().as_ref()
+                    ),
                 );
             }
             Err(e) => {
                 println!(
                     "  ✗ {}",
-                    Colour::Red.paint(test_file_name.to_string_lossy().as_ref())
+                    opt_color(
+                        use_color,
+                        Colour::Red,
+                        test_file_name.to_string_lossy().as_ref()
+                    )
                 );
                 println!("    {e}");
                 failed = true;

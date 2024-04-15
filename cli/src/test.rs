@@ -104,6 +104,7 @@ pub struct TestOptions<'a> {
     pub update: bool,
     pub open_log: bool,
     pub languages: BTreeMap<&'a str, &'a Language>,
+    pub color: bool,
 }
 
 pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<()> {
@@ -164,12 +165,14 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
                 }
             }
 
-            print_diff_key();
+            if opts.color {
+                print_diff_key();
+            }
             for (i, (name, actual, expected)) in failures.iter().enumerate() {
                 println!("\n  {}. {name}:", i + 1);
                 let actual = format_sexp(actual, 2);
                 let expected = format_sexp(expected, 2);
-                print_diff(&actual, &expected);
+                print_diff(&actual, &expected, opts.color);
             }
 
             if has_parse_errors {
@@ -212,22 +215,42 @@ pub fn print_diff_key() {
     );
 }
 
-pub fn print_diff(actual: &str, expected: &str) {
+pub fn print_diff(actual: &str, expected: &str, use_color: bool) {
     let changeset = Changeset::new(actual, expected, "\n");
     for diff in &changeset.diffs {
         match diff {
             Difference::Same(part) => {
-                print!("{part}{}", changeset.split);
+                if use_color {
+                    print!("{part}{}", changeset.split);
+                } else {
+                    print!("correct:\n{part}{}", changeset.split);
+                }
             }
             Difference::Add(part) => {
-                print!("{}{}", Colour::Green.paint(part), changeset.split);
+                if use_color {
+                    print!("{}{}", Colour::Green.paint(part), changeset.split);
+                } else {
+                    print!("expected:\n{part}{}", changeset.split);
+                }
             }
             Difference::Rem(part) => {
-                print!("{}{}", Colour::Red.paint(part), changeset.split);
+                if use_color {
+                    print!("{}{}", Colour::Red.paint(part), changeset.split);
+                } else {
+                    print!("unexpected:\n{part}{}", changeset.split);
+                }
             }
         }
     }
     println!();
+}
+
+pub fn opt_color(use_color: bool, color: ansi_term::Colour, text: &str) -> String {
+    if use_color {
+        color.paint(text).to_string()
+    } else {
+        text.to_string()
+    }
 }
 
 fn run_tests(
@@ -252,12 +275,12 @@ fn run_tests(
             print!("{}", "  ".repeat(indent_level as usize));
 
             if attributes.skip {
-                println!(" {}", Colour::Yellow.paint(&name));
+                println!(" {}", opt_color(opts.color, Colour::Yellow, &name));
                 return Ok(true);
             }
 
             if !attributes.platform {
-                println!(" {}", Colour::Purple.paint(&name));
+                println!(" {}", opt_color(opts.color, Colour::Purple, &name));
                 return Ok(true);
             }
 
@@ -273,9 +296,9 @@ fn run_tests(
 
                 if attributes.error {
                     if tree.root_node().has_error() {
-                        println!(" {}", Colour::Green.paint(&name));
+                        println!(" {}", opt_color(opts.color, Colour::Green, &name));
                     } else {
-                        println!(" {}", Colour::Red.paint(&name));
+                        println!(" {}", opt_color(opts.color, Colour::Red, &name));
                     }
 
                     if attributes.fail_fast {
@@ -288,7 +311,7 @@ fn run_tests(
                     }
 
                     if actual == output {
-                        println!("✓ {}", Colour::Green.paint(&name));
+                        println!("✓ {}", opt_color(opts.color, Colour::Green, &name));
                         if opts.update {
                             let input = String::from_utf8(input.clone()).unwrap();
                             let output = format_sexp(&output, 0);
@@ -330,10 +353,10 @@ fn run_tests(
                                     header_delim_len,
                                     divider_delim_len,
                                 ));
-                                println!("✓ {}", Colour::Blue.paint(&name));
+                                println!("✓ {}", opt_color(opts.color, Colour::Blue, &name));
                             }
                         } else {
-                            println!("✗ {}", Colour::Red.paint(&name));
+                            println!("✗ {}", opt_color(opts.color, Colour::Red, &name));
                         }
                         failures.push((name.clone(), actual, output.clone()));
 
