@@ -41,7 +41,7 @@ strip = false
 ansi_term = "0.12.1"
 anstyle = "1.0.6"
 anyhow = "1.0.82"
-cc = "1.0.92"
+cc = "1.0.94"
 clap = { version = "4.5.4", features = [
   "cargo",
   "derive",
