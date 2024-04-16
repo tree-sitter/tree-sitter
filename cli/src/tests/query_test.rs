@@ -13,11 +13,13 @@ use super::helpers::{
     allocations,
     fixtures::{get_language, get_test_language},
     query_helpers::{assert_query_matches, Match, Pattern},
-    ITERATION_COUNT,
 };
 use crate::{
     generate::generate_parser_for_grammar,
-    tests::helpers::query_helpers::{collect_captures, collect_matches},
+    tests::{
+        helpers::query_helpers::{collect_captures, collect_matches},
+        ITERATION_COUNT,
+    },
 };
 
 lazy_static! {

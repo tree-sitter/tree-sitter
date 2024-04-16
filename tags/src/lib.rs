@@ -289,7 +289,7 @@ impl TagsContext {
         // The `matches` iterator borrows the `Tree`, which prevents it from being
         // moved. But the tree is really just a pointer, so it's actually ok to
         // move it.
-        let tree_ref = unsafe { mem::transmute::<_, &'static Tree>(&tree) };
+        let tree_ref = unsafe { mem::transmute::<&Tree, &'static Tree>(&tree) };
         let matches = self
             .cursor
             .matches(&config.query, tree_ref.root_node(), source);

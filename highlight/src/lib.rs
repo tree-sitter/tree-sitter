@@ -495,9 +495,10 @@ impl<'a> HighlightIterLayer<'a> {
                 // The `captures` iterator borrows the `Tree` and the `QueryCursor`, which
                 // prevents them from being moved. But both of these values are really just
                 // pointers, so it's actually ok to move them.
-                let tree_ref = unsafe { mem::transmute::<_, &'static Tree>(&tree) };
-                let cursor_ref =
-                    unsafe { mem::transmute::<_, &'static mut QueryCursor>(&mut cursor) };
+                let tree_ref = unsafe { mem::transmute::<&Tree, &'static Tree>(&tree) };
+                let cursor_ref = unsafe {
+                    mem::transmute::<&mut QueryCursor, &'static mut QueryCursor>(&mut cursor)
+                };
                 let captures = cursor_ref
                     .captures(&config.query, tree_ref.root_node(), source)
                     .peekable();
@@ -688,7 +689,7 @@ where
                     break;
                 }
                 if i > 0 {
-                    self.layers[0..(i + 1)].rotate_left(1);
+                    self.layers[0..=i].rotate_left(1);
                 }
                 break;
             }

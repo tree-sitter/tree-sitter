@@ -11,6 +11,10 @@ use glob::glob;
 use regex::Regex;
 use tree_sitter::{ffi, Parser, Point};
 use tree_sitter_cli::{
+    fuzz::{
+        fuzz_language_corpus, FuzzOptions, EDIT_COUNT, ITERATION_COUNT, LOG_ENABLED,
+        LOG_GRAPH_ENABLED, START_SEED,
+    },
     generate::{self, lookup_package_json_for_path},
     highlight, logger,
     parse::{self, ParseFileOptions, ParseOutput},
@@ -36,6 +40,7 @@ enum Commands {
     BuildWasm(BuildWasm),
     Parse(Parse),
     Test(Test),
+    Fuzz(Fuzz),
     Query(Query),
     Highlight(Highlight),
     Tags(Tags),
@@ -250,6 +255,25 @@ struct Test {
 }
 
 #[derive(Args)]
+#[command(about = "Fuzz a parser", alias = "f")]
+struct Fuzz {
+    #[arg(long, short, help = "List of test names to skip")]
+    pub skip: Option<Vec<String>>,
+    #[arg(long, help = "Subdirectory to the language")]
+    pub subdir: Option<String>,
+    #[arg(long, short, help = "Maximum number of edits to perform per fuzz test")]
+    pub edits: Option<usize>,
+    #[arg(long, short, help = "Number of fuzzing iterations to run per test")]
+    pub iterations: Option<usize>,
+    #[arg(long, short, help = "Regex pattern to filter tests")]
+    pub filter: Option<Regex>,
+    #[arg(long, short, help = "Enable logging of graphs and input")]
+    pub log_graphs: bool,
+    #[arg(long, short, help = "Enable parser logging")]
+    pub log: bool,
+}
+
+#[derive(Args)]
 #[command(about = "Search files using a syntax tree query", alias = "q")]
 struct Query {
     #[arg(help = "Path to a file with queries", index = 1, required = true)]
@@ -457,7 +481,7 @@ fn run() -> Result<()> {
                 if let Some(path) = generate_options.libdir {
                     loader = loader::Loader::with_parser_lib_path(PathBuf::from(path));
                 }
-                loader.use_debug_build(generate_options.debug_build);
+                loader.debug_build(generate_options.debug_build);
                 loader.languages_at_path(&current_dir)?;
             }
         }
@@ -507,7 +531,7 @@ fn run() -> Result<()> {
                     (false, false) => &[],
                 };
 
-                loader.use_debug_build(build_options.debug);
+                loader.debug_build(build_options.debug);
 
                 let config = Config::load(None)?;
                 let loader_config = config.get()?;
@@ -560,7 +584,7 @@ fn run() -> Result<()> {
             let cancellation_flag = util::cancel_on_signal();
             let mut parser = Parser::new();
 
-            loader.use_debug_build(parse_options.debug_build);
+            loader.debug_build(parse_options.debug_build);
 
             #[cfg(feature = "wasm")]
             if parse_options.wasm {
@@ -656,7 +680,7 @@ fn run() -> Result<()> {
         Commands::Test(test_options) => {
             let config = Config::load(test_options.config_path)?;
 
-            loader.use_debug_build(test_options.debug_build);
+            loader.debug_build(test_options.debug_build);
 
             let mut parser = Parser::new();
 
@@ -728,6 +752,33 @@ fn run() -> Result<()> {
                     color,
                 )?;
             }
+        }
+
+        Commands::Fuzz(fuzz_options) => {
+            loader.sanitize_build(true);
+
+            let languages = loader.languages_at_path(&current_dir)?;
+            let (language, language_name) = &languages
+                .first()
+                .ok_or_else(|| anyhow!("No language found"))?;
+
+            let mut fuzz_options = FuzzOptions {
+                skipped: fuzz_options.skip,
+                subdir: fuzz_options.subdir,
+                edits: fuzz_options.edits.unwrap_or(*EDIT_COUNT),
+                iterations: fuzz_options.iterations.unwrap_or(*ITERATION_COUNT),
+                filter: fuzz_options.filter,
+                log_graphs: fuzz_options.log_graphs || *LOG_GRAPH_ENABLED,
+                log: fuzz_options.log || *LOG_ENABLED,
+            };
+
+            fuzz_language_corpus(
+                language,
+                language_name,
+                *START_SEED,
+                &current_dir,
+                &mut fuzz_options,
+            );
         }
 
         Commands::Query(query_options) => {
