@@ -4,7 +4,6 @@ use std::{
     path::{Path, PathBuf},
     str,
     time::Instant,
-    usize,
 };
 
 use anyhow::Context;

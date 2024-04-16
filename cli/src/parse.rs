@@ -10,13 +10,7 @@ use anyhow::{anyhow, Context, Result};
 use tree_sitter::{ffi, InputEdit, Language, LogType, Parser, Point, Tree};
 
 use super::util;
-
-#[derive(Debug)]
-pub struct Edit {
-    pub position: usize,
-    pub deleted_length: usize,
-    pub inserted_text: Vec<u8>,
-}
+use crate::fuzz::edits::Edit;
 
 #[derive(Debug, Default)]
 pub struct Stats {

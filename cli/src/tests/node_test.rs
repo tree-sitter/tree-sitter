@@ -1,9 +1,9 @@
 use tree_sitter::{Node, Parser, Point, Tree};
 
-use super::helpers::{
-    edits::get_random_edit,
-    fixtures::{fixtures_dir, get_language, get_test_language},
-    random::Rand,
+use super::{
+    get_random_edit,
+    helpers::fixtures::{fixtures_dir, get_language, get_test_language},
+    Rand,
 };
 use crate::{
     generate::{generate_parser_for_grammar, load_grammar_file},

@@ -114,6 +114,7 @@ pub struct Loader {
     highlight_names: Box<Mutex<Vec<String>>>,
     use_all_highlight_names: bool,
     debug_build: bool,
+    sanitize_build: bool,
 
     #[cfg(feature = "wasm")]
     wasm_store: Mutex<Option<tree_sitter::WasmStore>>,
@@ -127,6 +128,7 @@ pub struct CompileConfig<'a> {
     pub external_files: Option<&'a [PathBuf]>,
     pub output_path: Option<PathBuf>,
     pub flags: &'a [&'a str],
+    pub sanitize: bool,
     pub name: String,
 }
 
@@ -145,6 +147,7 @@ impl<'a> CompileConfig<'a> {
             external_files: externals,
             output_path,
             flags: &[],
+            sanitize: false,
             name: String::new(),
         }
     }
@@ -177,6 +180,7 @@ impl Loader {
             highlight_names: Box::new(Mutex::new(Vec::new())),
             use_all_highlight_names: true,
             debug_build: false,
+            sanitize_build: false,
 
             #[cfg(feature = "wasm")]
             wasm_store: Mutex::default(),
@@ -429,6 +433,11 @@ impl Loader {
         );
         if self.debug_build {
             lib_name.push_str(".debug._");
+        }
+
+        if self.sanitize_build {
+            lib_name.push_str(".sanitize._");
+            config.sanitize = true;
         }
 
         if config.output_path.is_none() {
@@ -1142,8 +1151,12 @@ impl Loader {
         }
     }
 
-    pub fn use_debug_build(&mut self, flag: bool) {
+    pub fn debug_build(&mut self, flag: bool) {
         self.debug_build = flag;
+    }
+
+    pub fn sanitize_build(&mut self, flag: bool) {
+        self.sanitize_build = flag;
     }
 
     #[cfg(feature = "wasm")]

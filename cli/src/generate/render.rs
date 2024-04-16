@@ -258,7 +258,7 @@ impl Generator {
             let constant_name = if let Some(symbol) = symbol {
                 format!("{}_character_set_{}", self.symbol_ids[symbol], count)
             } else {
-                format!("extras_character_set_{}", count)
+                format!("extras_character_set_{count}")
             };
             self.large_character_set_info.push(LargeCharacterSetInfo {
                 constant_name,
@@ -369,12 +369,12 @@ impl Generator {
         for symbol in &self.parse_table.symbols {
             if *symbol != Symbol::end() {
                 self.symbol_order.insert(*symbol, i);
-                add_line!(self, "{} = {},", self.symbol_ids[symbol], i);
+                add_line!(self, "{} = {i},", self.symbol_ids[symbol]);
                 i += 1;
             }
         }
         for alias in &self.unique_aliases {
-            add_line!(self, "{} = {},", self.alias_ids[alias], i);
+            add_line!(self, "{} = {i},", self.alias_ids[alias]);
             i += 1;
         }
         dedent!(self);
@@ -393,7 +393,7 @@ impl Generator {
                         alias.value.as_str()
                     }),
             );
-            add_line!(self, "[{}] = \"{}\",", self.symbol_ids[symbol], name);
+            add_line!(self, "[{}] = \"{name}\",", self.symbol_ids[symbol]);
         }
         for alias in &self.unique_aliases {
             add_line!(
@@ -450,12 +450,7 @@ impl Generator {
         indent!(self);
         add_line!(self, "[0] = NULL,");
         for field_name in &self.field_names {
-            add_line!(
-                self,
-                "[{}] = \"{}\",",
-                self.field_id(field_name),
-                field_name
-            );
+            add_line!(self, "[{}] = \"{field_name}\",", self.field_id(field_name));
         }
         dedent!(self);
         add_line!(self, "}};");
@@ -473,7 +468,7 @@ impl Generator {
             indent!(self);
             if let Some(Alias { is_named, .. }) = self.default_aliases.get(symbol) {
                 add_line!(self, ".visible = true,");
-                add_line!(self, ".named = {},", is_named);
+                add_line!(self, ".named = {is_named},");
             } else {
                 match self.metadata_for_symbol(*symbol).1 {
                     VariableType::Named => {
@@ -529,11 +524,11 @@ impl Generator {
                 continue;
             }
 
-            add_line!(self, "[{}] = {{", i);
+            add_line!(self, "[{i}] = {{");
             indent!(self);
             for (j, alias) in production_info.alias_sequence.iter().enumerate() {
                 if let Some(alias) = alias {
-                    add_line!(self, "[{}] = {},", j, self.alias_ids[alias]);
+                    add_line!(self, "[{j}] = {},", self.alias_ids[alias]);
                 }
             }
             dedent!(self);
@@ -1044,9 +1039,8 @@ impl Generator {
         for i in 0..self.syntax_grammar.external_tokens.len() {
             add_line!(
                 self,
-                "{} = {},",
+                "{} = {i},",
                 self.external_token_id(&self.syntax_grammar.external_tokens[i]),
-                i
             );
         }
         dedent!(self);
@@ -1133,7 +1127,7 @@ impl Generator {
             .enumerate()
             .take(self.large_state_count)
         {
-            add_line!(self, "[{}] = {{", i);
+            add_line!(self, "[{i}] = {{");
             indent!(self);
 
             // Ensure the entries are in a deterministic order, since they are

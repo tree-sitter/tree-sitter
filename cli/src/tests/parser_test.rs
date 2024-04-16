@@ -8,13 +8,14 @@ use tree_sitter_proc_macro::retry;
 
 use super::helpers::{
     allocations,
-    edits::{invert_edit, ReadRecorder},
+    edits::ReadRecorder,
     fixtures::{get_language, get_test_language},
 };
 use crate::{
+    fuzz::edits::Edit,
     generate::{generate_parser_for_grammar, load_grammar_file},
-    parse::{perform_edit, Edit},
-    tests::helpers::fixtures::fixtures_dir,
+    parse::perform_edit,
+    tests::{helpers::fixtures::fixtures_dir, invert_edit},
 };
 
 #[test]

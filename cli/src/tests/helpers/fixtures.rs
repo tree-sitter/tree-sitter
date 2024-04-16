@@ -18,7 +18,7 @@ lazy_static! {
     static ref TEST_LOADER: Loader = {
         let mut loader = Loader::with_parser_lib_path(SCRATCH_DIR.clone());
         if env::var("TREE_SITTER_GRAMMAR_DEBUG").is_ok() {
-            loader.use_debug_build(true);
+            loader.debug_build(true);
         }
         loader
     };
