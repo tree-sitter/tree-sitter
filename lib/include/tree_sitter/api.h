@@ -105,7 +105,7 @@ typedef struct TSNode {
 typedef struct TSTreeCursor {
   const void *tree;
   const void *id;
-  uint32_t context[3];
+  uint32_t context[2];
 } TSTreeCursor;
 
 typedef struct TSQueryCapture {
