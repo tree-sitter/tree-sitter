@@ -21,10 +21,6 @@ endif
 
 TS ?= tree-sitter
 
-# ABI versioning
-SONAME_MAJOR := $(word 1,$(subst ., ,$(VERSION)))
-SONAME_MINOR := $(word 2,$(subst ., ,$(VERSION)))
-
 # install directory layout
 PREFIX ?= /usr/local
 INCLUDEDIR ?= $(PREFIX)/include
@@ -40,25 +36,29 @@ OBJS := $(patsubst %.c,%.o,$(PARSER) $(EXTRAS))
 ARFLAGS ?= rcs
 override CFLAGS += -I$(SRC_DIR) -std=c11 -fPIC
 
+# ABI versioning
+SONAME_MAJOR := $(word 1,$(subst ., ,$(VERSION)))
+SONAME_MINOR := $(shell sed -n 's/#define LANGUAGE_VERSION //p' $(PARSER))
+
 # OS-specific bits
 ifeq ($(shell uname),Darwin)
 	SOEXT = dylib
-	SOEXTVER_MAJOR = $(SONAME_MAJOR).dylib
-	SOEXTVER = $(SONAME_MAJOR).$(SONAME_MINOR).dylib
+	SOEXTVER_MAJOR = $(SONAME_MAJOR).$(SOEXT)
+	SOEXTVER = $(SONAME_MAJOR).$(SONAME_MINOR).$(SOEXT)
 	LINKSHARED := $(LINKSHARED)-dynamiclib -Wl,
 	ifneq ($(ADDITIONAL_LIBS),)
 	LINKSHARED := $(LINKSHARED)$(ADDITIONAL_LIBS),
 	endif
-	LINKSHARED := $(LINKSHARED)-install_name,$(LIBDIR)/lib$(LANGUAGE_NAME).$(SONAME_MAJOR).dylib,-rpath,@executable_path/../Frameworks
+	LINKSHARED := $(LINKSHARED)-install_name,$(LIBDIR)/lib$(LANGUAGE_NAME).$(SOEXTVER),-rpath,@executable_path/../Frameworks
 else
 	SOEXT = so
-	SOEXTVER_MAJOR = so.$(SONAME_MAJOR)
-	SOEXTVER = so.$(SONAME_MAJOR).$(SONAME_MINOR)
+	SOEXTVER_MAJOR = $(SOEXT).$(SONAME_MAJOR)
+	SOEXTVER = $(SOEXT).$(SONAME_MAJOR).$(SONAME_MINOR)
 	LINKSHARED := $(LINKSHARED)-shared -Wl,
 	ifneq ($(ADDITIONAL_LIBS),)
 	LINKSHARED := $(LINKSHARED)$(ADDITIONAL_LIBS)
 	endif
-	LINKSHARED := $(LINKSHARED)-soname,lib$(LANGUAGE_NAME).so.$(SONAME_MAJOR)
+	LINKSHARED := $(LINKSHARED)-soname,lib$(LANGUAGE_NAME).$(SOEXTVER)
 endif
 ifneq ($(filter $(shell uname),FreeBSD NetBSD DragonFly),)
 	PCLIBDIR := $(PREFIX)/libdata/pkgconfig
