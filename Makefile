@@ -32,14 +32,14 @@ ifeq ($(OS),Windows_NT)
 	$(error "Windows is not supported")
 else ifeq ($(shell uname),Darwin)
 	SOEXT = dylib
-	SOEXTVER_MAJOR = $(SONAME_MAJOR).dylib
-	SOEXTVER = $(SONAME_MAJOR).$(SONAME_MINOR).dylib
-	LINKSHARED += -dynamiclib -Wl,-install_name,$(LIBDIR)/libtree-sitter.$(SONAME_MAJOR).dylib
+	SOEXTVER_MAJOR = $(SONAME_MAJOR).$(SOEXT)
+	SOEXTVER = $(SONAME_MAJOR).$(SONAME_MINOR).$(SOEXT)
+	LINKSHARED += -dynamiclib -Wl,-install_name,$(LIBDIR)/libtree-sitter.$(SOEXTVER)
 else
 	SOEXT = so
-	SOEXTVER_MAJOR = so.$(SONAME_MAJOR)
-	SOEXTVER = so.$(SONAME_MAJOR).$(SONAME_MINOR)
-	LINKSHARED += -shared -Wl,-soname,libtree-sitter.so.$(SONAME_MAJOR)
+	SOEXTVER_MAJOR = $(SOEXT).$(SONAME_MAJOR)
+	SOEXTVER = $(SOEXT).$(SONAME_MAJOR).$(SONAME_MINOR)
+	LINKSHARED += -shared -Wl,-soname,libtree-sitter.$(SOEXTVER)
 endif
 ifneq ($(filter $(shell uname),FreeBSD NetBSD DragonFly),)
 	PCLIBDIR := $(PREFIX)/libdata/pkgconfig
