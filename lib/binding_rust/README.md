@@ -12,7 +12,7 @@ Rust bindings to the [Tree-sitter][] parsing library.
 First, create a parser:
 
 ```rust
-use tree_sitter::{Parser, Language};
+use tree_sitter::{InputEdit, Language, Parser, Point};
 
 let mut parser = Parser::new();
 ```
@@ -42,7 +42,7 @@ Now you can parse source code:
 
 ```rust
 let source_code = "fn test() {}";
-let tree = parser.parse(source_code, None).unwrap();
+let mut tree = parser.parse(source_code, None).unwrap();
 let root_node = tree.root_node();
 
 assert_eq!(root_node.kind(), "source_file");
@@ -56,7 +56,7 @@ Once you have a syntax tree, you can update it when your source code changes.
 Passing in the previous edited tree makes `parse` run much more quickly:
 
 ```rust
-let new_source_code = "fn test(a: u32) {}"
+let new_source_code = "fn test(a: u32) {}";
 
 tree.edit(&InputEdit {
   start_byte: 8,
@@ -85,7 +85,7 @@ let lines = &[
 
 // Parse the source code using a custom callback. The callback is called
 // with both a byte offset and a row/column offset.
-let tree = parser.parse_with(&mut |_byte: u32, position: Point| -> &[u8] {
+let tree = parser.parse_with(&mut |_byte: usize, position: Point| -> &[u8] {
     let row = position.row as usize;
     let column = position.column as usize;
     if row < lines.len() {
