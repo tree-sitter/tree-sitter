@@ -468,7 +468,9 @@ fn lookup_package_json_for_path(path: &Path) -> Result<(PathBuf, PackageJSON)> {
             .then(|| -> Result<PackageJSON> {
                 let file =
                     File::open(pathbuf.as_path()).with_context(|| "Failed to open package.json")?;
-                Ok(serde_json::from_reader(BufReader::new(file))?)
+                serde_json::from_reader(BufReader::new(file)).context(
+                    "Failed to parse package.json, is the `tree-sitter` section malformed?",
+                )
             })
             .transpose()?;
         if let Some(package_json) = package_json {
