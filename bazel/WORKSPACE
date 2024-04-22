@@ -1,0 +1,13 @@
+workspace(name = "tree-sitter-raw")
+
+load(":configure.bzl", "tree_sitter_configure")
+
+tree_sitter_configure(name = "tree-sitter")
+
+load("@tree-sitter//:repositories.bzl", "tree_sitter_repositories")
+
+tree_sitter_repositories()
+
+load("@tree-sitter//:deps.bzl", "tree_sitter_dependencies")
+
+tree_sitter_dependencies()

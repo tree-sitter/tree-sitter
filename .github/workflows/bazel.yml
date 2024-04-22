@@ -1,0 +1,51 @@
+name: Bazel build
+
+on:
+  push:
+    branches:
+      - "main"
+  pull_request:
+    paths:
+      - "bazel/**"
+
+jobs:
+  bazel-build:
+    strategy:
+      fail-fast: true
+      matrix:
+        compilation-mode:
+          - dbg
+          - fastbuild
+          - opt
+        build-config-wasm:
+          - false
+        build-config-hide-symbols:
+          - true
+          - false
+        target:
+          - macos-latest
+          - macos-14
+          - ubuntu-latest
+    runs-on: ${{ matrix.target }}
+    steps:
+      - name: Setup bazelisk
+        uses: bazelbuild/setup-bazelisk@v3
+
+      - name: Mount bazel cache
+        uses: actions/cache@v4
+        with:
+          path: "~/.cache/bazel"
+          key: bazel
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build with Bazel
+        run: |
+          bazel build \
+              -c ${{ matrix.compilation-mode }} \
+              --@tree-sitter//build_config:wasm=${{ matrix.build-config-wasm }} \
+              --@tree-sitter//build_config:hide_symbols=${{ matrix.build-config-hide-symbols }} \
+              ...
+        working-directory: bazel/
+
