@@ -41,7 +41,7 @@ strip = false
 ansi_term = "0.12.1"
 anstyle = "1.0.6"
 anyhow = "1.0.82"
-cc = "1.0.94"
+cc = "1.0.95"
 clap = { version = "4.5.4", features = [
   "cargo",
   "derive",
@@ -49,7 +49,7 @@ clap = { version = "4.5.4", features = [
   "help",
   "unstable-styles",
 ] }
-ctor = "0.2.7"
+ctor = "0.2.8"
 ctrlc = { version = "3.4.4", features = ["termination"] }
 difference = "2.0.0"
 dirs = "5.0.1"
@@ -72,12 +72,12 @@ regex = "1.10.4"
 regex-syntax = "0.8.3"
 rustc-hash = "1.1.0"
 semver = "1.0.22"
-serde = { version = "1.0.197", features = ["derive"] }
+serde = { version = "1.0.198", features = ["derive"] }
 serde_derive = "1.0.197"
-serde_json = { version = "1.0.115", features = ["preserve_order"] }
+serde_json = { version = "1.0.116", features = ["preserve_order"] }
 smallbitvec = "2.5.3"
 tempfile = "3.10.1"
-thiserror = "1.0.57"
+thiserror = "1.0.59"
 tiny_http = "0.12.0"
 toml = "0.8.12"
 unindent = "0.2.3"
