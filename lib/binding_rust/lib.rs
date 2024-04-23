@@ -1331,10 +1331,19 @@ impl<'tree> Node<'tree> {
     }
 
     /// Get this node's immediate parent.
+    /// Prefer [`child_containing_descendant`](Node::child_containing_descendant)
+    /// for iterating over this node's ancestors.
     #[doc(alias = "ts_node_parent")]
     #[must_use]
     pub fn parent(&self) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_parent(self.0) })
+    }
+
+    /// Get this node's child that contains `descendant`.
+    #[doc(alias = "ts_node_child_containing_descendant")]
+    #[must_use]
+    pub fn child_containing_descendant(&self, descendant: Self) -> Option<Self> {
+        Self::new(unsafe { ffi::ts_node_child_containing_descendant(self.0, descendant.0) })
     }
 
     /// Get this node's next sibling.
