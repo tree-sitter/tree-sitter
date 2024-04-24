@@ -12,5 +12,7 @@ pub fn build(b: *std.Build) void {
     lib.addIncludePath(.{ .path = "lib/include" });
     lib.addIncludePath(.{ .path = "lib/src" });
 
+    lib.installHeadersDirectory(b.path("lib/include"), ".", .{});
+
     b.installArtifact(lib);
 }
