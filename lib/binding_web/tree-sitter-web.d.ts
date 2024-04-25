@@ -95,8 +95,8 @@ declare module 'web-tree-sitter' {
       childForFieldName(fieldName: string): SyntaxNode | null;
       childForFieldId(fieldId: number): SyntaxNode | null;
       fieldNameForChild(childIndex: number): string | null;
-      childrenForFieldName(fieldName: string, cursor: TreeCursor): Array<SyntaxNode>;
-      childrenForFieldId(fieldId: number, cursor: TreeCursor): Array<SyntaxNode>;
+      childrenForFieldName(fieldName: string): Array<SyntaxNode>;
+      childrenForFieldId(fieldId: number): Array<SyntaxNode>;
       firstChildForIndex(index: number): SyntaxNode | null;
       firstNamedChildForIndex(index: number): SyntaxNode | null;
 

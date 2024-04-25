@@ -355,8 +355,12 @@ extern "C" {
     pub fn ts_node_next_parse_state(self_: TSNode) -> TSStateId;
 }
 extern "C" {
-    #[doc = " Get the node's immediate parent."]
+    #[doc = " Get the node's immediate parent.\n Prefer [`ts_node_child_containing_descendant`] for\n iterating over the node's ancestors."]
     pub fn ts_node_parent(self_: TSNode) -> TSNode;
+}
+extern "C" {
+    #[doc = " Get the node's child that contains `descendant`."]
+    pub fn ts_node_child_containing_descendant(self_: TSNode, descendant: TSNode) -> TSNode;
 }
 extern "C" {
     #[doc = " Get the node's child at the given index, where zero represents the first\n child."]

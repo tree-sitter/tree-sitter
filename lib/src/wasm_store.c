@@ -1276,10 +1276,21 @@ const TSLanguage *ts_wasm_store_load_language(
       &memory[wasm_language.field_map_slices],
       wasm_language.production_id_count * sizeof(TSFieldMapSlice)
     );
-    const TSFieldMapSlice last_field_map_slice = language->field_map_slices[language->production_id_count - 1];
+
+    // Determine the number of field map entries by finding the greatest index
+    // in any of the slices.
+    uint32_t field_map_entry_count = 0;
+    for (uint32_t i = 0; i < wasm_language.production_id_count; i++) {
+      TSFieldMapSlice slice = language->field_map_slices[i];
+      uint32_t slice_end = slice.index + slice.length;
+      if (slice_end > field_map_entry_count) {
+        field_map_entry_count = slice_end;
+      }
+    }
+
     language->field_map_entries = copy(
       &memory[wasm_language.field_map_entries],
-      (last_field_map_slice.index + last_field_map_slice.length) * sizeof(TSFieldMapEntry)
+      field_map_entry_count * sizeof(TSFieldMapEntry)
     );
     language->field_names = copy_strings(
       memory,

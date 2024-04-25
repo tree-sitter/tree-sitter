@@ -706,7 +706,7 @@ Here's an example finding potential documentation comments in C
 
 ```scheme
 ((comment)+ @comment.documentation
-  (#match? @comment.documentation "^///\s+.*"))
+  (#match? @comment.documentation "^///\\s+.*"))
 ```
 
 Here's another example finding Cgo comments to potentially inject with C

@@ -421,7 +421,7 @@ impl HighlightConfiguration {
 impl<'a> HighlightIterLayer<'a> {
     /// Create a new 'layer' of highlighting for this document.
     ///
-    /// In the even that the new layer contains "combined injections" (injections where multiple
+    /// In the event that the new layer contains "combined injections" (injections where multiple
     /// disjoint ranges are parsed as one syntax tree), these will be eagerly processed and
     /// added to the returned vector.
     #[allow(clippy::too_many_arguments)]

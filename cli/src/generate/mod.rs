@@ -199,7 +199,7 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result
     let mut node_stdin = node_process
         .stdin
         .take()
-        .with_context(|| "Failed to open stdin for node")?;
+        .with_context(|| format!("Failed to open stdin for {js_runtime}"))?;
     let cli_version = Version::parse(env!("CARGO_PKG_VERSION"))
         .with_context(|| "Could not parse this package's version as semver.")?;
     write!(
@@ -209,20 +209,20 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result
         global.TREE_SITTER_CLI_VERSION_PATCH = {};",
         cli_version.major, cli_version.minor, cli_version.patch,
     )
-    .with_context(|| "Failed to write tree-sitter version to node's stdin")?;
+    .with_context(|| format!("Failed to write tree-sitter version to {js_runtime}'s stdin"))?;
     let javascript_code = include_bytes!("./dsl.js");
     node_stdin
         .write(javascript_code)
-        .with_context(|| "Failed to write grammar dsl to node's stdin")?;
+        .with_context(|| format!("Failed to write grammar dsl to {js_runtime}'s stdin"))?;
     drop(node_stdin);
     let output = node_process
         .wait_with_output()
-        .with_context(|| "Failed to read output from node")?;
+        .with_context(|| format!("Failed to read output from {js_runtime}"))?;
     match output.status.code() {
-        None => panic!("Node process was killed"),
+        None => panic!("{js_runtime} process was killed"),
         Some(0) => {
-            let stdout =
-                String::from_utf8(output.stdout).with_context(|| "Got invalid UTF8 from node")?;
+            let stdout = String::from_utf8(output.stdout)
+                .with_context(|| format!("Got invalid UTF8 from {js_runtime}"))?;
 
             let mut grammar_json = &stdout[..];
 
@@ -244,7 +244,7 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result
             .with_context(|| "Failed to serialize grammar JSON")?
                 + "\n")
         }
-        Some(code) => Err(anyhow!("Node process exited with status {code}")),
+        Some(code) => Err(anyhow!("{js_runtime} process exited with status {code}")),
     }
 }
 
