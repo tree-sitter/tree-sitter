@@ -1642,6 +1642,10 @@ uint32_t ts_wasm_store_call_scanner_serialize(
   if (self->has_error) return 0;
 
   uint32_t length = args[0].i32;
+  if (length > TREE_SITTER_SERIALIZATION_BUFFER_SIZE) {
+      self->has_error = true;
+      return 0;
+  }
 
   if (length > 0) {
     memcpy(
