@@ -1,3 +1,4 @@
+"atof",
 "calloc",
 "free",
 "iswalnum",
