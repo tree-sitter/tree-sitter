@@ -408,26 +408,23 @@ pub fn generate_grammar_files(
     })?;
 
     // Generate Python bindings
-    missing_path(
-        bindings_dir
-            .join("python")
-            .join(format!("tree_sitter_{}", language_name.to_snake_case())),
-        create_dir,
-    )?
-    .apply(|path| {
-        missing_path(path.join("binding.c"), |path| {
+    missing_path(bindings_dir.join("python"), create_dir)?.apply(|path| {
+        let lang_path = path.join(format!("tree_sitter_{}", language_name.to_snake_case()));
+        missing_path(lang_path.clone(), create_dir)?;
+
+        missing_path(lang_path.join("binding.c"), |path| {
             generate_file(path, PY_BINDING_C_TEMPLATE, language_name)
         })?;
 
-        missing_path(path.join("__init__.py"), |path| {
+        missing_path(lang_path.join("__init__.py"), |path| {
             generate_file(path, INIT_PY_TEMPLATE, language_name)
         })?;
 
-        missing_path(path.join("__init__.pyi"), |path| {
+        missing_path(lang_path.join("__init__.pyi"), |path| {
             generate_file(path, INIT_PYI_TEMPLATE, language_name)
         })?;
 
-        missing_path(path.join("py.typed"), |path| {
+        missing_path(lang_path.join("py.typed"), |path| {
             generate_file(path, "", language_name) // py.typed is empty
         })?;
 
@@ -443,14 +440,11 @@ pub fn generate_grammar_files(
     })?;
 
     // Generate Swift bindings
-    missing_path(
-        bindings_dir
-            .join("swift")
-            .join(format!("TreeSitter{}", language_name.to_upper_camel_case())),
-        create_dir,
-    )?
-    .apply(|path| {
-        missing_path(path.join(format!("{language_name}.h")), |path| {
+    missing_path(bindings_dir.join("swift"), create_dir)?.apply(|path| {
+        let lang_path = path.join(format!("TreeSitter{}", language_name.to_upper_camel_case()));
+        missing_path(lang_path.clone(), create_dir)?;
+
+        missing_path(lang_path.join(format!("{language_name}.h")), |path| {
             generate_file(path, PARSER_NAME_H_TEMPLATE, language_name)
         })?;
 
