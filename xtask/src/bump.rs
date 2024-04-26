@@ -120,6 +120,7 @@ pub fn bump_versions() -> Result<(), Box<dyn std::error::Error>> {
     update_crates(&current_version, &version)?;
     update_makefile(&version)?;
     update_npm(&version)?;
+    update_zig(&version)?;
     tag_next_version(&repo, &version)?;
 
     Ok(())
@@ -145,6 +146,7 @@ fn tag_next_version(
         "cli/npm/package.json",
         "lib/binding_web/package.json",
         "Makefile",
+        "build.zig.zon",
     ] {
         index.add_path(Path::new(file))?;
     }
@@ -240,6 +242,27 @@ fn update_npm(next_version: &Version) -> Result<(), Box<dyn std::error::Error>> 
 
         std::fs::write(path, package_json)?;
     }
+
+    Ok(())
+}
+
+fn update_zig(next_version: &Version) -> Result<(), Box<dyn std::error::Error>> {
+    let zig = std::fs::read_to_string("build.zig.zon")?;
+
+    let zig = zig
+        .lines()
+        .map(|line| {
+            if line.starts_with("    .version") {
+                format!("    .version = \"{next_version}\",")
+            } else {
+                line.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+
+    std::fs::write("build.zig.zon", zig)?;
 
     Ok(())
 }
