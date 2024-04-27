@@ -9,6 +9,7 @@ mod token_conflicts;
 use std::collections::{BTreeSet, HashMap};
 
 use anyhow::Result;
+pub use build_lex_table::LARGE_CHARACTER_RANGE_COUNT;
 use log::info;
 
 use self::{
@@ -25,8 +26,6 @@ use crate::generate::{
     rules::{AliasMap, Symbol, SymbolType, TokenSet},
     tables::{LexTable, ParseAction, ParseTable, ParseTableEntry},
 };
-
-pub use build_lex_table::LARGE_CHARACTER_RANGE_COUNT;
 
 pub struct Tables {
     pub parse_table: ParseTable,
