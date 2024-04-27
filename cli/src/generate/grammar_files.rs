@@ -243,7 +243,11 @@ pub fn generate_grammar_files(
         },
     )?;
 
-    let (_, package_json) = lookup_package_json_for_path(package_json_path_state.as_path())?;
+    let package_json = match lookup_package_json_for_path(package_json_path_state.as_path()) {
+        Ok((_, p)) => p,
+        Err(e) if generate_bindings => return Err(e),
+        _ => return Ok(()),
+    };
 
     // Do not create a grammar.js file in a repo with multiple language configs
     if !package_json.has_multiple_language_configs() {
