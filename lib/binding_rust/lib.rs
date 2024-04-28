@@ -1649,7 +1649,8 @@ impl<'cursor> TreeCursor<'cursor> {
         (result >= 0).then_some(result as usize)
     }
 
-    /// Re-initialize this tree cursor to start at a different node.
+    /// Re-initialize this tree cursor to start at the original node that the
+    /// cursor was constructed with.
     #[doc(alias = "ts_tree_cursor_reset")]
     pub fn reset(&mut self, node: Node<'cursor>) {
         unsafe { ffi::ts_tree_cursor_reset(&mut self.0, node.0) };
