@@ -213,7 +213,10 @@ fn update_crates(
         cmd.arg("patch");
     }
 
-    cmd.arg("--no-git-commit").arg("--yes");
+    cmd.arg("--no-git-commit")
+        .arg("--yes")
+        .arg("--force")
+        .arg("*");
 
     let status = cmd.status()?;
 
