@@ -1,5 +1,3 @@
-use std::fs;
-
 use tree_sitter::{Node, Parser, Point, Tree};
 
 use super::helpers::{
@@ -7,7 +5,10 @@ use super::helpers::{
     fixtures::{fixtures_dir, get_language, get_test_language},
     random::Rand,
 };
-use crate::{generate::generate_parser_for_grammar, parse::perform_edit};
+use crate::{
+    generate::{generate_parser_for_grammar, load_grammar_file},
+    parse::perform_edit,
+};
 
 const JSON_EXAMPLE: &str = r#"
 
@@ -853,16 +854,16 @@ fn test_node_field_calls_in_language_without_fields() {
 
 #[test]
 fn test_node_is_named_but_aliased_as_anonymous() {
-    let (parser_name, parser_code) = generate_parser_for_grammar(
-        &fs::read_to_string(
-            fixtures_dir()
-                .join("test_grammars")
-                .join("named_rule_aliased_as_anonymous")
-                .join("grammar.json"),
-        )
-        .unwrap(),
+    let grammar_json = load_grammar_file(
+        &fixtures_dir()
+            .join("test_grammars")
+            .join("named_rule_aliased_as_anonymous")
+            .join("grammar.js"),
+        None,
     )
     .unwrap();
+
+    let (parser_name, parser_code) = generate_parser_for_grammar(&grammar_json).unwrap();
 
     let mut parser = Parser::new();
     let language = get_test_language(&parser_name, &parser_code, None);
