@@ -418,7 +418,20 @@ function grammar(baseGrammar, options) {
     throw new Error("Grammar must have at least one rule.");
   }
 
-  return { grammar: { name, inherits, word, rules, extras, conflicts, precedences, externals, inline, supertypes } };
+  return {
+    grammar: {
+      name,
+      ...(inherits ? ( inherits ) : {}),
+      word,
+      rules,
+      extras,
+      conflicts,
+      precedences,
+      externals,
+      inline,
+      supertypes,
+    },
+  };
 }
 
 function checkArguments(args, ruleCount, caller, callerName, suffix = '', argType = 'rule') {
