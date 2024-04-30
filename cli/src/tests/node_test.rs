@@ -296,7 +296,9 @@ fn test_parent_of_zero_width_node() {
 fn test_node_field_name_for_child() {
     let mut parser = Parser::new();
     parser.set_language(&get_language("c")).unwrap();
-    let tree = parser.parse("int w = x + y;", None).unwrap();
+    let tree = parser
+        .parse("int w = x + /* y is special! */ y;", None)
+        .unwrap();
     let translation_unit_node = tree.root_node();
     let declaration_node = translation_unit_node.named_child(0).unwrap();
 
@@ -311,12 +313,14 @@ fn test_node_field_name_for_child() {
         binary_expression_node.field_name_for_child(1),
         Some("operator")
     );
+    // The comment should not have a field name, as it's just an extra
+    assert_eq!(binary_expression_node.field_name_for_child(2), None);
     assert_eq!(
-        binary_expression_node.field_name_for_child(2),
+        binary_expression_node.field_name_for_child(3),
         Some("right")
     );
     // Negative test - Not a valid child index
-    assert_eq!(binary_expression_node.field_name_for_child(3), None);
+    assert_eq!(binary_expression_node.field_name_for_child(4), None);
 }
 
 #[test]

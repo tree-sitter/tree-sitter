@@ -646,6 +646,9 @@ const char *ts_node_field_name_for_child(TSNode self, uint32_t child_index) {
     while (ts_node_child_iterator_next(&iterator, &child)) {
       if (ts_node__is_relevant(child, true)) {
         if (index == child_index) {
+          if (ts_node_is_extra(child)) {
+            return NULL;
+          }
           const char *field_name = ts_node__field_name_from_language(result, iterator.structural_child_index - 1);
           if (field_name) return field_name;
           return inherited_field_name;
