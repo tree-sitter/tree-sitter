@@ -365,7 +365,7 @@ void ts_lexer_finish(Lexer *self, uint32_t *lookahead_end_byte) {
   // Therefore, the next byte *after* the current (invalid) character
   // affects the interpretation of the current character.
   if (self->data.lookahead == TS_DECODE_ERROR) {
-    current_lookahead_end_byte++;
+    current_lookahead_end_byte += 4; // the maximum number of bytes read to identify an invalid code point
   }
 
   if (current_lookahead_end_byte > *lookahead_end_byte) {
