@@ -679,6 +679,29 @@ fn test_get_changed_ranges() {
     }
 }
 
+#[test]
+fn test_consistency_with_mid_codepoint_edit() {
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("php/php")).unwrap();
+    let mut source_code =
+        b"\n<?php\n\n<<<'\xE5\xAD\x97\xE6\xBC\xA2'\n  T\n\xE5\xAD\x97\xE6\xBC\xA2;".to_vec();
+    let mut tree = parser.parse(&source_code, None).unwrap();
+
+    let edit = Edit {
+        position: 17,
+        deleted_length: 0,
+        inserted_text: vec![46],
+    };
+    perform_edit(&mut tree, &mut source_code, &edit).unwrap();
+    let mut tree2 = parser.parse(&source_code, Some(&tree)).unwrap();
+
+    let inverted = invert_edit(&source_code, &edit);
+    perform_edit(&mut tree2, &mut source_code, &inverted).unwrap();
+    let tree3 = parser.parse(&source_code, Some(&tree2)).unwrap();
+
+    assert_eq!(tree3.root_node().to_sexp(), tree.root_node().to_sexp());
+}
+
 fn index_of(text: &[u8], substring: &str) -> usize {
     str::from_utf8(text).unwrap().find(substring).unwrap()
 }
