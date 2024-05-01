@@ -100,11 +100,11 @@ test_wasm:
 lint:
 	cargo update --workspace --locked --quiet
 	cargo check --workspace --all-targets
-	cargo fmt --all --check
+	cargo +nightly fmt --all --check
 	cargo clippy --workspace --all-targets -- -D warnings
 
 format:
-	cargo fmt --all
+	cargo +nightly fmt --all
 
 changelog:
 	@git-cliff --config script/cliff.toml --output CHANGELOG.md --latest --github-token $(shell gh auth token)
