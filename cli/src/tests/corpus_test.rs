@@ -76,10 +76,11 @@ fn test_corpus_for_json(seed: usize) {
     test_language_corpus("json", seed, None, None);
 }
 
-// #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
-// fn test_corpus_for_php(seed: usize) {
-//     test_language_corpus("php", seed, None, Some("php"));
-// }
+#[ignore]
+#[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
+fn test_corpus_for_php(seed: usize) {
+    test_language_corpus("php", seed, None, Some("php"));
+}
 
 #[test_with_seed(retry=10, seed=*START_SEED, seed_fn=new_seed)]
 fn test_corpus_for_python(seed: usize) {
