@@ -45,7 +45,7 @@ jobs:
         - { platform: windows-x64       , target: x86_64-pc-windows-msvc              , os: windows-latest , cli_features: wasm }
         - { platform: windows-x86       , target: i686-pc-windows-msvc                , os: windows-latest                      }
         - { platform: macos-arm64       , target: aarch64-apple-darwin                , os: macos-14       , cli_features: wasm }
-        - { platform: macos-x64         , target: x86_64-apple-darwin                 , os: macos-latest   , cli_features: wasm }
+        - { platform: macos-x64         , target: x86_64-apple-darwin                 , os: macos-12       , cli_features: wasm }
 
         # Cross compilers for C library
         - { platform: linux-arm64       , cc: aarch64-linux-gnu-gcc             , ar: aarch64-linux-gnu-ar           }
