@@ -5,7 +5,7 @@
 ### Features
 
 - Improve handling of serialization buffer overflows (<https://github.com/tree-sitter/tree-sitter/pull/3318>)
-- Reverse iteration through node parents (#3214) (<https://github.com/tree-sitter/tree-sitter/pull/3214>)
+- Reverse iteration through node parents (<https://github.com/tree-sitter/tree-sitter/pull/3214>)
 - **cli**: Support `NO_COLOR` (<https://github.com/tree-sitter/tree-sitter/pull/3299>)
 - **cli**: Add test listing and allow users to parse a specific test number (<https://github.com/tree-sitter/tree-sitter/pull/3067>)
 - **grammar**: Add "inherits" field if available (<https://github.com/tree-sitter/tree-sitter/pull/3295>)
