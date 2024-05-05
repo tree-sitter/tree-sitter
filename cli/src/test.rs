@@ -27,7 +27,7 @@ lazy_static! {
            (?P<equals>(?:=+){3,})
            (?P<suffix1>[^=\r\n][^\r\n]*)?
            \r?\n
-           (?P<test_name_and_markers>(?:[^=\r\n][^\r\n]*\r?\n)+)
+           (?P<test_name_and_markers>(?:[^=][^\r\n]*\r?\n)+)
            ===+
            (?P<suffix2>[^=\r\n][^\r\n]*)?\r?\n"
     )
