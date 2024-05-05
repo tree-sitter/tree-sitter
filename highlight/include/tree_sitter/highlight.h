@@ -40,6 +40,7 @@ void ts_highlighter_delete(TSHighlighter *);
 // written in a different language.
 TSHighlightError ts_highlighter_add_language(
   TSHighlighter *self,
+  const char *language_name,
   const char *scope_name,
   const char *injection_regex,
   const TSLanguage *language,
@@ -48,7 +49,7 @@ TSHighlightError ts_highlighter_add_language(
   const char *locals_query,
   uint32_t highlight_query_len,
   uint32_t injection_query_len,
-  uint32_t locals_query_len,
+  uint32_t locals_query_len
 );
 
 // Compute syntax highlighting for a given document. You must first
