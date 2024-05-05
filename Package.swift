@@ -37,5 +37,5 @@ let package = Package(
                 ],
                 sources: ["src/lib.c"]),
     ],
-    cLanguageStandard: .c11
+    cLanguageStandard: .c99
 )

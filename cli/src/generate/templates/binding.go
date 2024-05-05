@@ -1,6 +1,6 @@
 package tree_sitter_PARSER_NAME
 
-// #cgo CFLAGS: -std=c11 -fPIC
+// #cgo CFLAGS: -std=c99 -fPIC
 // #include "../../src/parser.c"
 // // NOTE: if your language has an external scanner, add it here.
 import "C"

@@ -43,5 +43,5 @@ let package = Package(
                 publicHeadersPath: "bindings/swift",
                 cSettings: [.headerSearchPath("src")])
     ],
-    cLanguageStandard: .c11
+    cLanguageStandard: .c99
 )

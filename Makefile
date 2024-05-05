@@ -20,7 +20,7 @@ OBJ := $(SRC:.c=.o)
 # define default flags, and override to append mandatory flags
 ARFLAGS := rcs
 CFLAGS ?= -O3 -Wall -Wextra -Wshadow -pedantic
-override CFLAGS += -std=c11 -fPIC -fvisibility=hidden
+override CFLAGS += -std=c99 -fPIC -fvisibility=hidden
 override CFLAGS += -Ilib/src -Ilib/src/wasm -Ilib/include
 
 # ABI versioning

@@ -39,9 +39,9 @@ setup(
                 # NOTE: if your language uses an external scanner, add it here.
             ],
             extra_compile_args=[
-                "-std=c11",
+                "-std=c99",
             ] if system() != "Windows" else [
-                "/std:c11",
+                "/std:c99",
                 "/utf-8",
             ],
             define_macros=[

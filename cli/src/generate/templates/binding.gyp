@@ -16,11 +16,11 @@
       "conditions": [
         ["OS!='win'", {
           "cflags_c": [
-            "-std=c11",
+            "-std=c99",
           ],
         }, { # OS == "win"
           "cflags_c": [
-            "/std:c11",
+            "/std:c99",
             "/utf-8",
           ],
         }],

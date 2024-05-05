@@ -576,7 +576,7 @@ impl Loader {
                 cc_config.cpp(true);
                 eprintln!("Warning: Using a C++ scanner is now deprecated. Please migrate your scanner code to C, as C++ support will be removed in the near future.");
             } else {
-                cc_config.std("c11");
+                cc_config.std("c99");
             }
             cc_config.file(scanner_path);
         }
