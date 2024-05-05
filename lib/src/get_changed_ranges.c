@@ -160,7 +160,7 @@ static bool iterator_tree_is_visible(const Iterator *self) {
     Subtree parent = *self->cursor.stack.contents[self->cursor.stack.size - 2].subtree;
     return ts_language_alias_at(
       self->language,
-      parent.ptr->production_id,
+      parent.ptr->children_state.production_id,
       entry.structural_child_index
     ) != 0;
   }
@@ -187,7 +187,7 @@ static void iterator_get_visible_state(
       const Subtree *parent = self->cursor.stack.contents[i - 1].subtree;
       *alias_symbol = ts_language_alias_at(
         self->language,
-        parent->ptr->production_id,
+        parent->ptr->children_state.production_id,
         entry.structural_child_index
       );
     }

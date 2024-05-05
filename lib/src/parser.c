@@ -1008,7 +1008,7 @@ static StackVersion ts_parser__reduce(
     } else {
       parent.ptr->parse_state = state;
     }
-    parent.ptr->dynamic_precedence += dynamic_precedence;
+    parent.ptr->children_state.dynamic_precedence += dynamic_precedence;
 
     // Push the parent node onto the stack, along with any extra tokens that
     // were previously on top of the stack.
@@ -1058,7 +1058,7 @@ static void ts_parser__accept(
         root = ts_subtree_from_mut(ts_subtree_new_node(
           ts_subtree_symbol(tree),
           &trees,
-          tree.ptr->production_id,
+          tree.ptr->children_state.production_id,
           self->language
         ));
         ts_subtree_release(&self->tree_pool, tree);
