@@ -58,7 +58,7 @@ static inline NodeChildIterator ts_node_iterate_children(const TSNode *node) {
   }
   const TSSymbol *alias_sequence = ts_language_alias_sequence(
     node->tree->language,
-    subtree.ptr->children_state.production_id
+    subtree.ptr->data.children_state.production_id
   );
   return (NodeChildIterator) {
     .tree = node->tree,
@@ -124,9 +124,9 @@ static inline uint32_t ts_node__relevant_child_count(
   Subtree tree = ts_node__subtree(self);
   if (ts_subtree_child_count(tree) > 0) {
     if (include_anonymous) {
-      return tree.ptr->children_state.visible_child_count;
+      return tree.ptr->data.children_state.visible_child_count;
     } else {
-      return tree.ptr->children_state.named_child_count;
+      return tree.ptr->data.children_state.named_child_count;
     }
   } else {
     return 0;
@@ -551,7 +551,7 @@ recur:
   const TSFieldMapEntry *field_map, *field_map_end;
   ts_language_field_map(
     self.tree->language,
-    ts_node__subtree(self).ptr->children_state.production_id,
+    ts_node__subtree(self).ptr->data.children_state.production_id,
     &field_map,
     &field_map_end
   );
@@ -620,7 +620,7 @@ static inline const char *ts_node__field_name_from_language(TSNode self, uint32_
     const TSFieldMapEntry *field_map, *field_map_end;
     ts_language_field_map(
       self.tree->language,
-      ts_node__subtree(self).ptr->children_state.production_id,
+      ts_node__subtree(self).ptr->data.children_state.production_id,
       &field_map,
       &field_map_end
     );
@@ -690,7 +690,7 @@ TSNode ts_node_child_by_field_name(
 uint32_t ts_node_child_count(TSNode self) {
   Subtree tree = ts_node__subtree(self);
   if (ts_subtree_child_count(tree) > 0) {
-    return tree.ptr->children_state.visible_child_count;
+    return tree.ptr->data.children_state.visible_child_count;
   } else {
     return 0;
   }
@@ -699,7 +699,7 @@ uint32_t ts_node_child_count(TSNode self) {
 uint32_t ts_node_named_child_count(TSNode self) {
   Subtree tree = ts_node__subtree(self);
   if (ts_subtree_child_count(tree) > 0) {
-    return tree.ptr->children_state.named_child_count;
+    return tree.ptr->data.children_state.named_child_count;
   } else {
     return 0;
   }

@@ -798,7 +798,7 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
     }
 
     if (head->last_external_token.ptr) {
-      const ExternalScannerState *state = &head->last_external_token.ptr->external_scanner_state;
+      const ExternalScannerState *state = &head->last_external_token.ptr->data.external_scanner_state;
       const char *data = ts_external_scanner_state_data(state);
       fprintf(f, "\nexternal_scanner_state:");
       for (uint32_t j = 0; j < state->length; j++) fprintf(f, " %2X", data[j]);

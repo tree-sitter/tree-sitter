@@ -251,7 +251,7 @@ Subtree ts_subtree_new_error(
   SubtreeHeapData *data = (SubtreeHeapData *)result.ptr;
   data->fragile_left = true;
   data->fragile_right = true;
-  data->lookahead_char = lookahead_char;
+  data->data.lookahead_char = lookahead_char;
   return result;
 }
 
@@ -267,8 +267,8 @@ MutableSubtree ts_subtree_clone(Subtree self) {
       ts_subtree_retain(new_children[i]);
     }
   } else if (self.ptr->has_external_tokens) {
-    result->external_scanner_state = ts_external_scanner_state_copy(
-      &self.ptr->external_scanner_state
+    result->data.external_scanner_state = ts_external_scanner_state_copy(
+      &self.ptr->data.external_scanner_state
     );
   }
   result->ref_count = 1;
@@ -344,7 +344,7 @@ void ts_subtree_balance(Subtree self, SubtreePool *pool, const TSLanguage *langu
   while (pool->tree_stack.size > 0) {
     MutableSubtree tree = array_pop(&pool->tree_stack);
 
-    if (tree.ptr->children_state.repeat_depth > 0) {
+    if (tree.ptr->data.children_state.repeat_depth > 0) {
       Subtree child1 = ts_subtree_children(tree)[0];
       Subtree child2 = ts_subtree_children(tree)[tree.ptr->child_count - 1];
       long repeat_delta = (long)ts_subtree_repeat_depth(child1) - (long)ts_subtree_repeat_depth(child2);
@@ -373,18 +373,18 @@ void ts_subtree_summarize_children(
 ) {
   assert(!self.data.is_inline);
 
-  self.ptr->children_state.named_child_count = 0;
-  self.ptr->children_state.visible_child_count = 0;
+  self.ptr->data.children_state.named_child_count = 0;
+  self.ptr->data.children_state.visible_child_count = 0;
   self.ptr->error_cost = 0;
-  self.ptr->children_state.repeat_depth = 0;
-  self.ptr->children_state.visible_descendant_count = 0;
+  self.ptr->data.children_state.repeat_depth = 0;
+  self.ptr->data.children_state.visible_descendant_count = 0;
   self.ptr->has_external_tokens = false;
   self.ptr->depends_on_column = false;
   self.ptr->has_external_scanner_state_change = false;
-  self.ptr->children_state.dynamic_precedence = 0;
+  self.ptr->data.children_state.dynamic_precedence = 0;
 
   uint32_t structural_index = 0;
-  const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self.ptr->children_state.production_id);
+  const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self.ptr->data.children_state.production_id);
   uint32_t lookahead_end_byte = 0;
 
   const Subtree *children = ts_subtree_children(self);
@@ -430,27 +430,27 @@ void ts_subtree_summarize_children(
         if (ts_subtree_visible(child)) {
           self.ptr->error_cost += ERROR_COST_PER_SKIPPED_TREE;
         } else if (grandchild_count > 0) {
-          self.ptr->error_cost += ERROR_COST_PER_SKIPPED_TREE * child.ptr->children_state.visible_child_count;
+          self.ptr->error_cost += ERROR_COST_PER_SKIPPED_TREE * child.ptr->data.children_state.visible_child_count;
         }
       }
     }
 
-    self.ptr->children_state.dynamic_precedence += ts_subtree_dynamic_precedence(child);
-    self.ptr->children_state.visible_descendant_count += ts_subtree_visible_descendant_count(child);
+    self.ptr->data.children_state.dynamic_precedence += ts_subtree_dynamic_precedence(child);
+    self.ptr->data.children_state.visible_descendant_count += ts_subtree_visible_descendant_count(child);
 
     if (alias_sequence && alias_sequence[structural_index] != 0 && !ts_subtree_extra(child)) {
-      self.ptr->children_state.visible_descendant_count++;
-      self.ptr->children_state.visible_child_count++;
+      self.ptr->data.children_state.visible_descendant_count++;
+      self.ptr->data.children_state.visible_child_count++;
       if (ts_language_symbol_metadata(language, alias_sequence[structural_index]).named) {
-        self.ptr->children_state.named_child_count++;
+        self.ptr->data.children_state.named_child_count++;
       }
     } else if (ts_subtree_visible(child)) {
-      self.ptr->children_state.visible_descendant_count++;
-      self.ptr->children_state.visible_child_count++;
-      if (ts_subtree_named(child)) self.ptr->children_state.named_child_count++;
+      self.ptr->data.children_state.visible_descendant_count++;
+      self.ptr->data.children_state.visible_child_count++;
+      if (ts_subtree_named(child)) self.ptr->data.children_state.named_child_count++;
     } else if (grandchild_count > 0) {
-      self.ptr->children_state.visible_child_count += child.ptr->children_state.visible_child_count;
-      self.ptr->children_state.named_child_count += child.ptr->children_state.named_child_count;
+      self.ptr->data.children_state.visible_child_count += child.ptr->data.children_state.visible_child_count;
+      self.ptr->data.children_state.named_child_count += child.ptr->data.children_state.named_child_count;
     }
 
     if (ts_subtree_has_external_tokens(child)) self.ptr->has_external_tokens = true;
@@ -479,8 +479,8 @@ void ts_subtree_summarize_children(
     Subtree first_child = children[0];
     Subtree last_child = children[self.ptr->child_count - 1];
 
-    self.ptr->children_state.first_leaf.symbol = ts_subtree_leaf_symbol(first_child);
-    self.ptr->children_state.first_leaf.parse_state = ts_subtree_leaf_parse_state(first_child);
+    self.ptr->data.children_state.first_leaf.symbol = ts_subtree_leaf_symbol(first_child);
+    self.ptr->data.children_state.first_leaf.parse_state = ts_subtree_leaf_parse_state(first_child);
 
     if (ts_subtree_fragile_left(first_child)) self.ptr->fragile_left = true;
     if (ts_subtree_fragile_right(last_child)) self.ptr->fragile_right = true;
@@ -492,9 +492,9 @@ void ts_subtree_summarize_children(
       ts_subtree_symbol(first_child) == self.ptr->symbol
     ) {
       if (ts_subtree_repeat_depth(first_child) > ts_subtree_repeat_depth(last_child)) {
-        self.ptr->children_state.repeat_depth = ts_subtree_repeat_depth(first_child) + 1;
+        self.ptr->data.children_state.repeat_depth = ts_subtree_repeat_depth(first_child) + 1;
       } else {
-        self.ptr->children_state.repeat_depth = ts_subtree_repeat_depth(last_child) + 1;
+        self.ptr->data.children_state.repeat_depth = ts_subtree_repeat_depth(last_child) + 1;
       }
     }
   }
@@ -612,7 +612,7 @@ void ts_subtree_release(SubtreePool *pool, Subtree self) {
       ts_free(children);
     } else {
       if (tree.ptr->has_external_tokens) {
-        ts_external_scanner_state_delete(&tree.ptr->external_scanner_state);
+        ts_external_scanner_state_delete(&tree.ptr->data.external_scanner_state);
       }
       ts_subtree_pool_free(pool, tree.ptr);
     }
@@ -874,7 +874,7 @@ static size_t ts_subtree__write_to_string(
 
     if (ts_subtree_is_error(self) && ts_subtree_child_count(self) == 0 && self.ptr->size.bytes > 0) {
       cursor += snprintf(*writer, limit, "(UNEXPECTED ");
-      cursor += ts_subtree__write_char_to_string(*writer, limit, self.ptr->lookahead_char);
+      cursor += ts_subtree__write_char_to_string(*writer, limit, self.ptr->data.lookahead_char);
     } else {
       TSSymbol symbol = alias_symbol ? alias_symbol : ts_subtree_symbol(self);
       const char *symbol_name = ts_language_symbol_name(language, symbol);
@@ -902,11 +902,11 @@ static size_t ts_subtree__write_to_string(
   }
 
   if (ts_subtree_child_count(self)) {
-    const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self.ptr->children_state.production_id);
+    const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self.ptr->data.children_state.production_id);
     const TSFieldMapEntry *field_map, *field_map_end;
     ts_language_field_map(
       language,
-      self.ptr->children_state.production_id,
+      self.ptr->data.children_state.production_id,
       &field_map,
       &field_map_end
     );
@@ -1005,8 +1005,8 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
     ts_subtree_lookahead_bytes(*self)
   );
 
-  if (ts_subtree_is_error(*self) && ts_subtree_child_count(*self) == 0 && self->ptr->lookahead_char != 0) {
-    fprintf(f, "\ncharacter: '%c'", self->ptr->lookahead_char);
+  if (ts_subtree_is_error(*self) && ts_subtree_child_count(*self) == 0 && self->ptr->data.lookahead_char != 0) {
+    fprintf(f, "\ncharacter: '%c'", self->ptr->data.lookahead_char);
   }
 
   fprintf(f, "\"]\n");
@@ -1043,7 +1043,7 @@ const ExternalScannerState *ts_subtree_external_scanner_state(Subtree self) {
     self.ptr->has_external_tokens &&
     self.ptr->child_count == 0
   ) {
-    return &self.ptr->external_scanner_state;
+    return &self.ptr->data.external_scanner_state;
   } else {
     return &empty_state;
   }

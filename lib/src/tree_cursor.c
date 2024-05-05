@@ -24,7 +24,7 @@ static inline bool ts_tree_cursor_is_entry_visible(const TreeCursor *self, uint3
     TreeCursorEntry *parent_entry = &self->stack.contents[index - 1];
     return ts_language_alias_at(
       self->tree->language,
-      parent_entry->subtree->ptr->children_state.production_id,
+      parent_entry->subtree->ptr->data.children_state.production_id,
       entry->structural_child_index
     );
   } else {
@@ -39,7 +39,7 @@ static inline CursorChildIterator ts_tree_cursor_iterate_children(const TreeCurs
   }
   const TSSymbol *alias_sequence = ts_language_alias_sequence(
     self->tree->language,
-    last_entry->subtree->ptr->children_state.production_id
+    last_entry->subtree->ptr->data.children_state.production_id
   );
 
   uint32_t descendant_index = last_entry->descendant_index;
@@ -480,7 +480,7 @@ TSNode ts_tree_cursor_current_node(const TSTreeCursor *_self) {
     TreeCursorEntry *parent_entry = &self->stack.contents[self->stack.size - 2];
     alias_symbol = ts_language_alias_at(
       self->tree->language,
-      parent_entry->subtree->ptr->children_state.production_id,
+      parent_entry->subtree->ptr->data.children_state.production_id,
       last_entry->structural_child_index
     );
   }
@@ -519,7 +519,7 @@ void ts_tree_cursor_current_status(
 
     const TSSymbol *alias_sequence = ts_language_alias_sequence(
       self->tree->language,
-      parent_entry->subtree->ptr->children_state.production_id
+      parent_entry->subtree->ptr->data.children_state.production_id
     );
 
     #define subtree_symbol(subtree, structural_child_index) \
@@ -569,7 +569,7 @@ void ts_tree_cursor_current_status(
         } else if (ts_subtree_visible_child_count(sibling) > 0) {
           *has_later_siblings = true;
           if (*has_later_named_siblings) break;
-          if (sibling.ptr->children_state.named_child_count > 0) {
+          if (sibling.ptr->data.children_state.named_child_count > 0) {
             *has_later_named_siblings = true;
             break;
           }
@@ -584,7 +584,7 @@ void ts_tree_cursor_current_status(
       const TSFieldMapEntry *field_map, *field_map_end;
       ts_language_field_map(
         self->tree->language,
-        parent_entry->subtree->ptr->children_state.production_id,
+        parent_entry->subtree->ptr->data.children_state.production_id,
         &field_map, &field_map_end
       );
 
@@ -635,7 +635,7 @@ TSNode ts_tree_cursor_parent_node(const TSTreeCursor *_self) {
       TreeCursorEntry *parent_entry = &self->stack.contents[i - 1];
       alias_symbol = ts_language_alias_at(
         self->tree->language,
-        parent_entry->subtree->ptr->children_state.production_id,
+        parent_entry->subtree->ptr->data.children_state.production_id,
         entry->structural_child_index
       );
       is_visible = (alias_symbol != 0) || ts_subtree_visible(*entry->subtree);
@@ -671,7 +671,7 @@ TSFieldId ts_tree_cursor_current_field_id(const TSTreeCursor *_self) {
     const TSFieldMapEntry *field_map, *field_map_end;
     ts_language_field_map(
       self->tree->language,
-      parent_entry->subtree->ptr->children_state.production_id,
+      parent_entry->subtree->ptr->data.children_state.production_id,
       &field_map, &field_map_end
     );
     for (const TSFieldMapEntry *map = field_map; map < field_map_end; map++) {

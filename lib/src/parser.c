@@ -413,8 +413,8 @@ static void ts_parser__external_scanner_deserialize(
   const char *data = NULL;
   uint32_t length = 0;
   if (external_token.ptr) {
-    data = ts_external_scanner_state_data(&external_token.ptr->external_scanner_state);
-    length = external_token.ptr->external_scanner_state.length;
+    data = ts_external_scanner_state_data(&external_token.ptr->data.external_scanner_state);
+    length = external_token.ptr->data.external_scanner_state.length;
   }
 
   if (ts_language_is_wasm(self->language)) {
@@ -674,7 +674,7 @@ static Subtree ts_parser__lex(
     if (found_external_token) {
       MutableSubtree mut_result = ts_subtree_to_mut_unsafe(result);
       ts_external_scanner_state_init(
-        &mut_result.ptr->external_scanner_state,
+        &mut_result.ptr->data.external_scanner_state,
         self->lexer.debug_buffer,
         external_scanner_state_len
       );
@@ -1008,7 +1008,7 @@ static StackVersion ts_parser__reduce(
     } else {
       parent.ptr->parse_state = state;
     }
-    parent.ptr->children_state.dynamic_precedence += dynamic_precedence;
+    parent.ptr->data.children_state.dynamic_precedence += dynamic_precedence;
 
     // Push the parent node onto the stack, along with any extra tokens that
     // were previously on top of the stack.
@@ -1058,7 +1058,7 @@ static void ts_parser__accept(
         root = ts_subtree_from_mut(ts_subtree_new_node(
           ts_subtree_symbol(tree),
           &trees,
-          tree.ptr->children_state.production_id,
+          tree.ptr->data.children_state.production_id,
           self->language
         ));
         ts_subtree_release(&self->tree_pool, tree);
