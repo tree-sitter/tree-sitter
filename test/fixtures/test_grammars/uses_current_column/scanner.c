@@ -1,3 +1,4 @@
+#include "tree_sitter/alloc.h"
 #include "tree_sitter/parser.h"
 
 #include <stdlib.h>
@@ -16,7 +17,7 @@ typedef struct {
 } Scanner;
 
 void *tree_sitter_uses_current_column_external_scanner_create() {
-  Scanner *self = malloc(sizeof(Scanner));
+  Scanner *self = ts_malloc(sizeof(Scanner));
   self->queued_dedent_count = 0;
   self->indent_count = 1;
   self->indents[0] = 0;
@@ -24,7 +25,7 @@ void *tree_sitter_uses_current_column_external_scanner_create() {
 }
 
 void tree_sitter_uses_current_column_external_scanner_destroy(void *payload) {
-  free(payload);
+  ts_free(payload);
 }
 
 unsigned tree_sitter_uses_current_column_external_scanner_serialize(
