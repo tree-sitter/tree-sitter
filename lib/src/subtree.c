@@ -26,34 +26,34 @@ typedef struct {
 
 void ts_external_scanner_state_init(ExternalScannerState *self, const char *data, unsigned length) {
   self->length = length;
-  if (length > sizeof(self->short_data)) {
-    self->long_data = ts_malloc(length);
-    memcpy(self->long_data, data, length);
+  if (length > sizeof(self->state.short_data)) {
+    self->state.long_data = ts_malloc(length);
+    memcpy(self->state.long_data, data, length);
   } else {
-    memcpy(self->short_data, data, length);
+    memcpy(self->state.short_data, data, length);
   }
 }
 
 ExternalScannerState ts_external_scanner_state_copy(const ExternalScannerState *self) {
   ExternalScannerState result = *self;
-  if (self->length > sizeof(self->short_data)) {
-    result.long_data = ts_malloc(self->length);
-    memcpy(result.long_data, self->long_data, self->length);
+  if (self->length > sizeof(self->state.short_data)) {
+    result.state.long_data = ts_malloc(self->length);
+    memcpy(result.state.long_data, self->state.long_data, self->length);
   }
   return result;
 }
 
 void ts_external_scanner_state_delete(ExternalScannerState *self) {
-  if (self->length > sizeof(self->short_data)) {
-    ts_free(self->long_data);
+  if (self->length > sizeof(self->state.short_data)) {
+    ts_free(self->state.long_data);
   }
 }
 
 const char *ts_external_scanner_state_data(const ExternalScannerState *self) {
-  if (self->length > sizeof(self->short_data)) {
-    return self->long_data;
+  if (self->length > sizeof(self->state.short_data)) {
+    return self->state.long_data;
   } else {
-    return self->short_data;
+    return self->state.short_data;
   }
 }
 

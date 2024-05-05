@@ -32,7 +32,7 @@ typedef struct {
   union {
     char *long_data;
     char short_data[24];
-  };
+  } state;
   uint32_t length;
 } ExternalScannerState;
 
