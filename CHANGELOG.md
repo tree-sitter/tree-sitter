@@ -1,23 +1,165 @@
 # Changelog
 
-## [0.22.5] - 2024-04-14
+## [0.22.6] — 2024-05-05
+
+### Features
+
+- Improve handling of serialization buffer overflows (<https://github.com/tree-sitter/tree-sitter/pull/3318>)
+- Reverse iteration through node parents (#3214) (<https://github.com/tree-sitter/tree-sitter/pull/3214>)
+- **cli**: Support `NO_COLOR` (<https://github.com/tree-sitter/tree-sitter/pull/3299>)
+- **cli**: Add test listing and allow users to parse a specific test number (<https://github.com/tree-sitter/tree-sitter/pull/3067>)
+- **grammar**: Add "inherits" field if available (<https://github.com/tree-sitter/tree-sitter/pull/3295>)
 
 ### Bug Fixes
 
-- **cli**: Fixed an issue where unused constants were included in generated parsers in some cases.
+- Correctly load field data from wasm languages
+- Improve error message when the `tree-sitter` field is malformed
+- Don't error out on package.json lookup errors if `--no-bindings` is passed (<https://github.com/tree-sitter/tree-sitter/pull/3323>)
+- **cli**: Keep default cc flags in build
+- **cli**: Properly account for multi-grammar repos when using docker to build a wasm parser (<https://github.com/tree-sitter/tree-sitter/pull/3337>)
+- **generate**: Don't check arbitrarily named dirs
+- **generate**: Take `AsRef<Path>` for the path parameter to avoid clones (<https://github.com/tree-sitter/tree-sitter/pull/3322>)
+- **highlight**: Correct signature of `ts_highlighter_add_language`
+- **lib**: Do not return field names for extras (<https://github.com/tree-sitter/tree-sitter/pull/3330>)
+- **lib**: Advance the lookahead end byte by 4 when there's an invalid code point (<https://github.com/tree-sitter/tree-sitter/pull/3305>)
+- **rust**: Update README example (<https://github.com/tree-sitter/tree-sitter/pull/3307>)
+- **rust**: Use unix + wasi cfg instead of not windows for fd (<https://github.com/tree-sitter/tree-sitter/pull/3304>)
+- **test**: Allow newlines in between test name and attribute
+- **wasm**: Correct `childrenFromFieldXXX` method signatures (<https://github.com/tree-sitter/tree-sitter/pull/3301>)
+- **xtask**: Always bump every crate in tandem
+- **zig**: Make usable as a zig dependency (<https://github.com/tree-sitter/tree-sitter/pull/3315>)
 
-## [0.22.4] - 2024-04-12
+### Documentation
+
+- Mention build command variables
+- Swap `\s` for `\\s` in query example
+- **highlight**: Typo (<https://github.com/tree-sitter/tree-sitter/pull/3290>)
+
+### Refactor
+
+- **tests**: Migrate remaining `grammar.json` tests to `grammar.js` (<https://github.com/tree-sitter/tree-sitter/pull/3325>)
+
+### Build System and CI
+
+- Add nightly rustfmt to workflow for linting (<https://github.com/tree-sitter/tree-sitter/pull/3333>)
+- Fix address sanitizer step (<https://github.com/tree-sitter/tree-sitter/pull/3188>)
+- **deps**: Bump cc from 1.0.92 to 1.0.94 in the cargo group (<https://github.com/tree-sitter/tree-sitter/pull/3298>)
+- **deps**: Bump the cargo group with 6 updates (<https://github.com/tree-sitter/tree-sitter/pull/3313>)
+- **xtask**: Bump `build.zig.zon` version when bumping versions
+
+## [0.22.5] — 2024-04-14
 
 ### Bug Fixes
 
-- **cli**: Fixed an issue where redundant conditionals were included in generated lexer functions.
+- Avoid generating unused character set constants
+- **cli**: Test parsing on windows (<https://github.com/tree-sitter/tree-sitter/pull/3289>)
+- **rust**: Compilation on wasm32-wasi (<https://github.com/tree-sitter/tree-sitter/pull/3293>)
 
-## [0.22.3] - 2024-04-12
+## [0.22.4] — 2024-04-12
+
+### Bug Fixes
+
+- Fix sorting of transitions within a lex state
+- Include 2-character ranges in array-based state transitions
+
+### Build System and CI
+
+- Always bump at least the patch version in bump xtask
+
+## [0.22.3] — 2024-04-12
+
+### Features
+
+- Add strncat to wasm stdlib
+- Generate simpler code for matching large character sets (<https://github.com/tree-sitter/tree-sitter/pull/3234>)
+- When loading languages via WASM, gracefully handle memory errors and leaks in external scanners (<https://github.com/tree-sitter/tree-sitter/pull/3181>)
+
+### Bug Fixes
+
+- **bindings**: Add utf-8 flag to python & node (<https://github.com/tree-sitter/tree-sitter/pull/3278>)
+- **bindings**: Generate parser.c if missing (<https://github.com/tree-sitter/tree-sitter/pull/3277>)
+- **bindings**: Remove required platforms for swift (<https://github.com/tree-sitter/tree-sitter/pull/3264>)
+- **cli**: Fix mismatched parenthesis when accounting for `&&` (<https://github.com/tree-sitter/tree-sitter/pull/3274>)
+- **lib**: Do not consider childless nodes for ts_node_parent (<https://github.com/tree-sitter/tree-sitter/pull/3191>)
+- **lib**: Properly account for aliased root nodes and root nodes with
+  children in `ts_subtree_string` (<https://github.com/tree-sitter/tree-sitter/pull/3191>)
+- **lib**: Account for the root node of a tree cursor being an alias (<https://github.com/tree-sitter/tree-sitter/pull/3191>)
+- **lib**: Use correct format specifier in log message (<https://github.com/tree-sitter/tree-sitter/pull/3255>)
+- **parser**: Fix variadic macro (<https://github.com/tree-sitter/tree-sitter/pull/3229>)
+- render: Proper function prototypes (<https://github.com/tree-sitter/tree-sitter/pull/3277>)
+- **windows**: Add `/utf-8` flag for parsers using unicode symbols (<https://github.com/tree-sitter/tree-sitter/pull/3223>)
+- Add a semicolon after SKIP macros (<https://github.com/tree-sitter/tree-sitter/pull/3264>)
+- Add back `build-wasm` temporarily (<https://github.com/tree-sitter/tree-sitter/pull/3203>)
+- Add lifetime to matches function (<https://github.com/tree-sitter/tree-sitter/pull/3254>)
+- Default output directory for `build --wasm` should use current_dir (<https://github.com/tree-sitter/tree-sitter/pull/3203>)
+- Fix sorting of wasm stdlib symbols
+- Insert "tree-sitter" section in current directory's package.json if it exists (<https://github.com/tree-sitter/tree-sitter/pull/3224>)
+- Tie the lifetime of the cursor to the query in `QueryCursor::captures()` (<https://github.com/tree-sitter/tree-sitter/pull/3266>)
+- Wrong flag check in `build.rs`
 
 ### Performance
 
-- **cli**: Reduced the compile time of generated parsers by generating C code with fewer conditionals
-  (https://github.com/tree-sitter/tree-sitter/pull/3234)
+- **cli**: Reduced the compile time of generated parsers by generating C code with fewer conditionals (<https://github.com/tree-sitter/tree-sitter/pull/3234>)
+
+### Documentation
+
+- Add NGINX grammar
+
+### Refactor
+
+- **parser**: Make REDUCE macro non-variadic (<https://github.com/tree-sitter/tree-sitter/pull/3280>)
+- **js**: Misc fixes & tidying
+- **rust**: Misc fixes & tidying
+
+### Testing
+
+- Add regression test for node parent + string bug (<https://github.com/tree-sitter/tree-sitter/pull/3191>)
+- **test**: Allow colons in test names (<https://github.com/tree-sitter/tree-sitter/pull/3264>)
+
+### Build System and CI
+
+- Upgrade wasmtime
+- Update emscripten version (<https://github.com/tree-sitter/tree-sitter/pull/3272>)
+- **dependabot**: Improve PR labels (<https://github.com/tree-sitter/tree-sitter/pull/3282>)
+
+## [0.22.2] — 2024-03-17
+
+### Breaking
+
+- **cli**: Add a separate build command to compile parsers
+
+### Features
+
+- **bindings/rust**: Expose `Parser::included_ranges`
+- Lower the lib's MSRV (<https://github.com/tree-sitter/tree-sitter/pull/3169>)
+- **lib**: Implement Display for Node (<https://github.com/tree-sitter/tree-sitter/pull/3177>)
+
+### Bug Fixes
+
+- **bindings/wasm**: Fix `Parser.getIncludedRanges()` (<https://github.com/tree-sitter/tree-sitter/pull/3164>)
+- **lib**: Makefile installation on macOS (<https://github.com/tree-sitter/tree-sitter/pull/3167>)
+- **lib**: Makefile installation (<https://github.com/tree-sitter/tree-sitter/pull/3173>)
+- **lib**: Avoid possible UB of calling memset on a null ptr when 0 is passed into `array_grow_by` (<https://github.com/tree-sitter/tree-sitter/pull/3176>)
+- **lib**: Allow hiding symbols (<https://github.com/tree-sitter/tree-sitter/pull/3180>)
+
+### Documentation
+
+- Fix typo (<https://github.com/tree-sitter/tree-sitter/pull/3158>)
+- **licensfe**: Update year (<https://github.com/tree-sitter/tree-sitter/pull/3183>)
+
+### Refactor
+
+- Remove dependency on which crate (<https://github.com/tree-sitter/tree-sitter/pull/3172>)
+- Turbofish styling
+
+### Testing
+
+- Fix header writes (<https://github.com/tree-sitter/tree-sitter/pull/3174>)
+
+### Build System and CI
+
+- Simplify workflows (<https://github.com/tree-sitter/tree-sitter/pull/3002>)
+- **lib**: Allow overriding CFLAGS on the commandline (<https://github.com/tree-sitter/tree-sitter/pull/3159>)
 
 ## [0.22.1] — 2024-03-10
 
