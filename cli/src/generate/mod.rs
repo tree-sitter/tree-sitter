@@ -28,6 +28,8 @@ mod render;
 mod rules;
 mod tables;
 
+pub use grammar_files::lookup_package_json_for_path;
+
 lazy_static! {
     static ref JSON_COMMENT_REGEX: Regex = RegexBuilder::new("^\\s*//.*")
         .multi_line(true)

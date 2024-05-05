@@ -60,7 +60,7 @@ const PACKAGE_SWIFT_TEMPLATE: &str = include_str!("./templates/Package.swift");
 struct LanguageConfiguration {}
 
 #[derive(Deserialize, Debug)]
-struct PackageJSON {
+pub struct PackageJSON {
     #[serde(rename = "tree-sitter")]
     tree_sitter: Option<Vec<LanguageConfiguration>>,
 }
@@ -458,7 +458,7 @@ pub fn generate_grammar_files(
     Ok(())
 }
 
-fn lookup_package_json_for_path(path: &Path) -> Result<(PathBuf, PackageJSON)> {
+pub fn lookup_package_json_for_path(path: &Path) -> Result<(PathBuf, PackageJSON)> {
     let mut pathbuf = path.to_owned();
     loop {
         let package_json = pathbuf

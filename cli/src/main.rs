@@ -11,10 +11,11 @@ use glob::glob;
 use regex::Regex;
 use tree_sitter::{ffi, Parser, Point};
 use tree_sitter_cli::{
-    generate, highlight, logger,
+    generate::{self, lookup_package_json_for_path},
+    highlight, logger,
     parse::{self, ParseFileOptions, ParseOutput},
-    playground, query, tags, test,
-    test::TestOptions,
+    playground, query, tags,
+    test::{self, TestOptions},
     test_highlight, test_tags, util, wasm,
 };
 use tree_sitter_config::Config;
@@ -463,8 +464,11 @@ fn run() -> Result<()> {
                 let grammar_path =
                     current_dir.join(build_options.path.as_deref().unwrap_or_default());
                 let output_path = build_options.output.map(|path| current_dir.join(path));
+                let root_path = lookup_package_json_for_path(&grammar_path.join("package.json"))
+                    .map(|(p, _)| p.parent().unwrap().to_path_buf())?;
                 wasm::compile_language_to_wasm(
                     &loader,
+                    Some(&root_path),
                     &grammar_path,
                     &current_dir,
                     output_path,
@@ -515,8 +519,11 @@ fn run() -> Result<()> {
         Commands::BuildWasm(wasm_options) => {
             eprintln!("`build-wasm` is deprecated and will be removed in v0.24.0. You should use `build --wasm` instead");
             let grammar_path = current_dir.join(wasm_options.path.unwrap_or_default());
+            let root_path = lookup_package_json_for_path(&grammar_path.join("package.json"))
+                .map(|(p, _)| p.parent().unwrap().to_path_buf())?;
             wasm::compile_language_to_wasm(
                 &loader,
+                Some(&root_path),
                 &grammar_path,
                 &current_dir,
                 None,

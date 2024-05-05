@@ -475,6 +475,7 @@ impl Loader {
             if recompile {
                 self.compile_parser_to_wasm(
                     &config.name,
+                    None,
                     config.src_path,
                     config
                         .scanner_path
@@ -723,6 +724,7 @@ impl Loader {
     pub fn compile_parser_to_wasm(
         &self,
         language_name: &str,
+        root_path: Option<&Path>,
         src_path: &Path,
         scanner_filename: Option<&Path>,
         output_path: &Path,
@@ -735,6 +737,7 @@ impl Loader {
             Podman,
         }
 
+        let root_path = root_path.unwrap_or(src_path);
         let emcc_name = if cfg!(windows) { "emcc.bat" } else { "emcc" };
 
         // Order of preference: emscripten > docker > podman > error
@@ -773,10 +776,18 @@ impl Loader {
                 };
                 command.args(["run", "--rm"]);
 
-                // Mount the parser directory as a volume
-                command.args(["--workdir", "/src"]);
+                // The working directory is the directory containing the parser itself
+                let workdir = if root_path == src_path {
+                    PathBuf::from("/src")
+                } else {
+                    let mut path = PathBuf::from("/src");
+                    path.push(src_path.strip_prefix(root_path).unwrap());
+                    path
+                };
+                command.args(["--workdir", &workdir.to_string_lossy()]);
 
-                let mut volume_string = OsString::from(&src_path);
+                // Mount the root directory as a volume, which is the repo root
+                let mut volume_string = OsString::from(&root_path);
                 volume_string.push(":/src:Z");
                 command.args([OsStr::new("--volume"), &volume_string]);
 
