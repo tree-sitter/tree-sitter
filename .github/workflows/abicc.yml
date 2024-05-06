@@ -1,0 +1,90 @@
+name: Check ABI changes
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - lib/include/tree_sitter/api.h
+
+concurrency:
+  group: ${{github.workflow}}-${{github.ref}}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dump:
+    name: Dump ${{matrix.version}} ABI data
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        version: [old, new]
+        include:
+          - { version: old, ref: "${{github.event.pull_request.base.sha}}" }
+          - { version: new, ref: "${{github.event.pull_request.head.sha}}" }
+    steps:
+      - name: Checkout ${{matrix.version}} commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{matrix.ref}}
+          sparse-checkout: |
+            lib/src/
+            lib/include/
+      - name: Compile library
+        run: make libtree-sitter.so
+        env:
+          CFLAGS: -Og -g -fno-omit-frame-pointer
+      - name: Run ABI dumper
+        id: abi-dumper
+        uses: ObserverOfTime/abi-compatibility-action/dump@v1
+        with:
+          library: libtree-sitter.so
+          version: ${{matrix.ref}}
+          args: -public-headers lib/include
+      - name: Upload dump artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: abi-dump-${{matrix.version}}
+          path: ${{steps.abi-dumper.outputs.dump}}
+          retention-days: 1
+
+  report:
+    name: Report ABI compatibility
+    runs-on: ubuntu-latest
+    needs: [dump]
+    steps:
+      - name: Download dump artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: abi-dump-*
+      - name: Run ABI compliance checker
+        id: abicc
+        uses: ObserverOfTime/abi-compatibility-action/check@v1
+        continue-on-error: true
+        with:
+          old-dump: abi-dump-old/ABI.dump
+          new-dump: abi-dump-new/ABI.dump
+          old-version: ${{github.event.pull_request.base.sha}}
+          new-version: ${{github.event.pull_request.head.sha}}
+      - name: Post-process HTML report
+        id: post-process
+        uses: ObserverOfTime/abi-compatibility-action/process@v1
+        with:
+          report: ${{steps.abicc.outputs.report}}
+      - name: Find comment
+        id: find-comment
+        uses: peter-evans/find-comment@v3
+        with:
+          comment-author: github-actions[bot]
+          issue-number: ${{github.event.pull_request.number}}
+          body-includes: ABI compatibility report
+      - name: Create or update comment
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{steps.find-comment.outputs.comment-id}}
+          issue-number: ${{github.event.pull_request.number}}
+          body: ${{steps.post-process.outputs.report}}
+          edit-mode: replace
