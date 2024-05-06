@@ -111,21 +111,14 @@ fn test_language_corpus(
     language_name: &str,
     start_seed: usize,
     skipped: Option<&[&str]>,
-    subdir: Option<&str>,
+    language_dir: Option<&str>,
 ) {
-    let subdir = subdir.unwrap_or_default();
+    let language_dir = language_dir.unwrap_or_default();
 
     let grammars_dir = fixtures_dir().join("grammars");
     let error_corpus_dir = fixtures_dir().join("error_corpus");
     let template_corpus_dir = fixtures_dir().join("template_corpus");
-    let mut corpus_dir = grammars_dir.join(language_name).join(subdir).join("corpus");
-    if !corpus_dir.is_dir() {
-        corpus_dir = grammars_dir
-            .join(language_name)
-            .join(subdir)
-            .join("test")
-            .join("corpus");
-    }
+    let corpus_dir = grammars_dir.join(language_name).join("test").join("corpus");
 
     let error_corpus_file = error_corpus_dir.join(format!("{language_name}_errors.txt"));
     let template_corpus_file = template_corpus_dir.join(format!("{language_name}_templates.txt"));
@@ -139,12 +132,14 @@ fn test_language_corpus(
         t
     }));
 
+    tests.retain(|t| t.languages[0].is_empty() || t.languages.contains(&Box::from(language_dir)));
+
     let mut skipped = skipped.map(|x| x.iter().map(|x| (*x, 0)).collect::<HashMap<&str, usize>>());
 
-    let language_path = if subdir.is_empty() {
+    let language_path = if language_dir.is_empty() {
         language_name.to_string()
     } else {
-        format!("{language_name}/{subdir}")
+        format!("{language_name}/{language_dir}")
     };
     let language = get_language(&language_path);
     let mut failure_count = 0;
@@ -557,6 +552,7 @@ struct FlattenedTest {
     name: String,
     input: Vec<u8>,
     output: String,
+    languages: Vec<Box<str>>,
     has_fields: bool,
     template_delimiters: Option<(&'static str, &'static str)>,
 }
@@ -569,6 +565,7 @@ fn flatten_tests(test: TestEntry) -> Vec<FlattenedTest> {
                 input,
                 output,
                 has_fields,
+                attributes,
                 ..
             } => {
                 if !prefix.is_empty() {
@@ -580,11 +577,13 @@ fn flatten_tests(test: TestEntry) -> Vec<FlattenedTest> {
                         return;
                     }
                 }
+
                 result.push(FlattenedTest {
                     name,
                     input,
                     output,
                     has_fields,
+                    languages: attributes.languages,
                     template_delimiters: None,
                 });
             }
