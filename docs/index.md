@@ -168,6 +168,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [VHDL](https://github.com/alemuller/tree-sitter-vhdl)
 * [Vue](https://github.com/ikatyang/tree-sitter-vue)
 * [Wasm](https://github.com/wasm-lsp/tree-sitter-wasm)
+* [WIT (WebAssembly Interface Type)](https://github.com/liamwh/tree-sitter-wit)
 * [WDL](https://github.com/jdidion/tree-sitter-wdl)
 * [WGSL (WebGPU Shading Language)](https://github.com/mehmetoguzderin/tree-sitter-wgsl)
 * [YAML](https://github.com/ikatyang/tree-sitter-yaml)
