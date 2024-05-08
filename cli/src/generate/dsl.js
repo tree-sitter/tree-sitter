@@ -223,7 +223,7 @@ function RuleBuilder(ruleMap) {
 }
 
 function grammar(baseGrammar, options) {
-  let inherits = null;
+  let inherits = undefined;
 
   if (!options) {
     options = baseGrammar;
@@ -421,7 +421,7 @@ function grammar(baseGrammar, options) {
   return {
     grammar: {
       name,
-      ...(inherits ? ( inherits ) : {}),
+      inherits,
       word,
       rules,
       extras,
