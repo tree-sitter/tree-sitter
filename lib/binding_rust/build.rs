@@ -1,6 +1,6 @@
 use std::{
     env, fs,
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
 fn main() {
@@ -26,7 +26,7 @@ fn main() {
             .include(env::var("DEP_WASMTIME_C_API_WASM_INCLUDE").unwrap());
     }
 
-    let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let include_path = manifest_path.join("include");
     let src_path = manifest_path.join("src");
     let wasm_path = src_path.join("wasm");
