@@ -299,6 +299,12 @@ impl Language {
         unsafe { ffi::ts_language_symbol_count(self.0) as usize }
     }
 
+    /// Get an iterator over the node types in this language.
+    pub fn node_kinds(&self) -> impl Iterator<Item = &'static str> + '_ {
+        let count = self.node_kind_count() as u16;
+        (0..count).map(|i| self.node_kind_for_id(i).unwrap())
+    }
+
     /// Get the number of valid states in this language.
     #[doc(alias = "ts_language_state_count")]
     #[must_use]
