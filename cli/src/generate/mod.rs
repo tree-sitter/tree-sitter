@@ -189,6 +189,11 @@ pub fn load_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Resul
 fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result<String> {
     let grammar_path = fs::canonicalize(grammar_path)?;
 
+    #[cfg(windows)]
+    let grammar_path = url::Url::from_file_path(grammar_path)
+        .expect("Failed to convert path to URL")
+        .to_string();
+
     let js_runtime = js_runtime.unwrap_or("node");
 
     let mut js_command = Command::new(js_runtime);

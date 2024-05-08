@@ -1432,6 +1432,7 @@ dependencies = [
  "tree-sitter-tags",
  "tree-sitter-tests-proc-macro",
  "unindent",
+ "url",
  "walkdir",
  "wasmparser 0.206.0",
  "webbrowser",
