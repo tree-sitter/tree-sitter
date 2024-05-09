@@ -13,7 +13,7 @@ use super::{
     item::{ParseItem, ParseItemSet, ParseItemSetCore},
     item_set_builder::ParseItemSetBuilder,
 };
-use crate::generate::{
+use crate::{
     grammars::{
         InlinedProductionMap, LexicalGrammar, PrecedenceEntry, SyntaxGrammar, VariableType,
     },

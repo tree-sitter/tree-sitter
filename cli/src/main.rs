@@ -11,7 +11,6 @@ use glob::glob;
 use regex::Regex;
 use tree_sitter::{ffi, Parser, Point};
 use tree_sitter_cli::{
-    generate::{self, lookup_package_json_for_path},
     highlight, logger,
     parse::{self, ParseFileOptions, ParseOutput},
     playground, query, tags,
@@ -19,6 +18,8 @@ use tree_sitter_cli::{
     test_highlight, test_tags, util, wasm,
 };
 use tree_sitter_config::Config;
+use tree_sitter_generate as generate;
+use tree_sitter_generate::lookup_package_json_for_path;
 use tree_sitter_highlight::Highlighter;
 use tree_sitter_loader as loader;
 use tree_sitter_tags::TagsContext;

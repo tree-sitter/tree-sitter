@@ -1,6 +1,7 @@
 use std::{collections::HashMap, env, fs};
 
 use tree_sitter::{LogType, Node, Parser, Point, Range, Tree};
+use tree_sitter_generate as generate;
 use tree_sitter_proc_macro::test_with_seed;
 
 use super::helpers::{
@@ -14,7 +15,6 @@ use super::helpers::{
     START_SEED,
 };
 use crate::{
-    generate,
     parse::perform_edit,
     test::{parse_tests, print_diff, print_diff_key, strip_sexp_fields, TestEntry},
     util,

@@ -7,6 +7,7 @@ use tree_sitter::{
     CaptureQuantifier, Language, Node, Parser, Point, Query, QueryCursor, QueryError,
     QueryErrorKind, QueryPredicate, QueryPredicateArg, QueryProperty,
 };
+use tree_sitter_generate::generate_parser_for_grammar;
 use unindent::Unindent;
 
 use super::helpers::{
@@ -15,10 +16,7 @@ use super::helpers::{
     query_helpers::{assert_query_matches, Match, Pattern},
     ITERATION_COUNT,
 };
-use crate::{
-    generate::generate_parser_for_grammar,
-    tests::helpers::query_helpers::{collect_captures, collect_matches},
-};
+use crate::tests::helpers::query_helpers::{collect_captures, collect_matches};
 
 lazy_static! {
     static ref EXAMPLE_FILTER: Option<String> = env::var("TREE_SITTER_TEST_EXAMPLE_FILTER").ok();

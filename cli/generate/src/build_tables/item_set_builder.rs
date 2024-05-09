@@ -4,7 +4,7 @@ use std::{
 };
 
 use super::item::{ParseItem, ParseItemDisplay, ParseItemSet, TokenSetDisplay};
-use crate::generate::{
+use crate::{
     grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar},
     rules::{Symbol, SymbolType, TokenSet},
 };

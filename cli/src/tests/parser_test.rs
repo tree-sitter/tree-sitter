@@ -4,6 +4,7 @@ use std::{
 };
 
 use tree_sitter::{IncludedRangesError, InputEdit, LogType, Parser, Point, Range};
+use tree_sitter_generate::{generate_parser_for_grammar, load_grammar_file};
 use tree_sitter_proc_macro::retry;
 
 use super::helpers::{
@@ -12,7 +13,6 @@ use super::helpers::{
     fixtures::{get_language, get_test_language},
 };
 use crate::{
-    generate::{generate_parser_for_grammar, load_grammar_file},
     parse::{perform_edit, Edit},
     tests::helpers::fixtures::fixtures_dir,
 };

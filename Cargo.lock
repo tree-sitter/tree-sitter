@@ -1410,6 +1410,7 @@ dependencies = [
  "tiny_http",
  "tree-sitter",
  "tree-sitter-config",
+ "tree-sitter-generate",
  "tree-sitter-highlight",
  "tree-sitter-loader",
  "tree-sitter-tags",
@@ -1428,6 +1429,26 @@ dependencies = [
  "dirs",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "tree-sitter-generate"
+version = "0.22.6"
+dependencies = [
+ "anyhow",
+ "heck",
+ "indexmap",
+ "indoc",
+ "lazy_static",
+ "log",
+ "regex",
+ "regex-syntax",
+ "rustc-hash",
+ "semver",
+ "serde",
+ "serde_json",
+ "smallbitvec",
+ "tree-sitter",
 ]
 
 [[package]]
