@@ -313,6 +313,7 @@ pub fn opt_color(use_color: bool, color: ansi_term::Colour, text: &str) -> Strin
     }
 }
 
+/// This will return false if we want to "fail fast". It will bail and not parse any more tests.
 #[allow(clippy::too_many_arguments)]
 fn run_tests(
     parser: &mut Parser,
@@ -450,15 +451,14 @@ fn run_tests(
                         failures.push((name.clone(), actual, output.clone()));
 
                         if attributes.fail_fast {
-                            // return value of false means to fail fast
                             return Ok(false);
                         }
-
-                        if i == attributes.languages.len() - 1 {
-                            // reset back to first language
-                            parser.set_language(opts.languages.values().next().unwrap())?;
-                        }
                     }
+                }
+
+                if i == attributes.languages.len() - 1 {
+                    // reset to the first language
+                    parser.set_language(opts.languages.values().next().unwrap())?;
                 }
             }
             opts.test_num += 1;
