@@ -91,7 +91,7 @@ static inline TSClock clock_after(TSClock base, TSDuration duration) {
 }
 
 static inline bool clock_is_null(TSClock self) {
-  return !self.tv_sec;
+  return !self.tv_sec && !self.tv_nsec;
 }
 
 static inline bool clock_is_gt(TSClock self, TSClock other) {
