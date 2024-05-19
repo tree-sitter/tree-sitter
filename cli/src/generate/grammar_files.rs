@@ -142,7 +142,7 @@ pub fn generate_grammar_files(
                     .unwrap();
                 if !dev_dependencies.contains_key("prebuildify") {
                     eprintln!("Adding prebuildify devDependency to package.json");
-                    dev_dependencies.insert("prebuildify".to_string(), "^6.0.0".into());
+                    dev_dependencies.insert("prebuildify".to_string(), "^6.0.1".into());
                     updated = true;
                 }
 
