@@ -40,8 +40,8 @@ strip = false
 [workspace.dependencies]
 ansi_term = "0.12.1"
 anstyle = "1.0.6"
-anyhow = "1.0.83"
-cc = "1.0.97"
+anyhow = "1.0.86"
+cc = "1.0.98"
 clap = { version = "4.5.4", features = [
   "cargo",
   "derive",
@@ -72,14 +72,14 @@ regex = "1.10.4"
 regex-syntax = "0.8.3"
 rustc-hash = "1.1.0"
 semver = "1.0.23"
-serde = { version = "1.0.201", features = ["derive"] }
+serde = { version = "1.0.202", features = ["derive"] }
 serde_derive = "1.0.197"
 serde_json = { version = "1.0.117", features = ["preserve_order"] }
 smallbitvec = "2.5.3"
 tempfile = "3.10.1"
-thiserror = "1.0.60"
+thiserror = "1.0.61"
 tiny_http = "0.12.0"
-toml = "0.8.12"
+toml = "0.8.13"
 unindent = "0.2.3"
 walkdir = "2.5.0"
 wasmparser = "0.206.0"
