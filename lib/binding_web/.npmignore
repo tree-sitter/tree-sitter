@@ -3,3 +3,8 @@
 !tree-sitter.js
 !tree-sitter.wasm
 !tree-sitter-web.d.ts
+
+# !tree-sitter.wasm.map
+# !lib/binding_web/*.c
+# !lib/binding_web/*.h
+# !lib/src/**/*

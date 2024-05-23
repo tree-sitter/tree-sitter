@@ -32,13 +32,15 @@ set -e
 web_dir=lib/binding_web
 src_dir=lib/src
 emscripten_flags="-O3 --minify 0"
+debug=0
 force_docker=0
 emscripen_version=$(cat "$(dirname "$0")"/../cli/loader/emscripten-version)
 
 while [[ $# > 0 ]]; do
   case "$1" in
     --debug)
-      emscripten_flags="-s ASSERTIONS=1 -s SAFE_HEAP=1 -O0 -g"
+      emscripten_flags="-s ASSERTIONS=1 -s SAFE_HEAP=1 -O0 -g -gsource-map"
+      debug=1
       ;;
 
     --help)
@@ -135,3 +137,8 @@ $emcc                                            \
 
 mv target/scratch/tree-sitter.js ${web_dir}/tree-sitter.js
 mv target/scratch/tree-sitter.wasm ${web_dir}/tree-sitter.wasm
+if [[ "$debug" == "1" ]]; then
+  mv target/scratch/tree-sitter.wasm.map ${web_dir}/tree-sitter.wasm.map
+  # For source maps
+  rsync -Rr lib ${web_dir}/
+fi

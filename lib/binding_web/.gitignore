@@ -1,5 +1,7 @@
 /tree-sitter.js
 /tree-sitter.wasm
+/tree-sitter.wasm.map
+/lib
 package-lock.json
 node_modules
 *.tgz
