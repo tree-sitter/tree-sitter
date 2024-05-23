@@ -8,9 +8,9 @@ pub fn build(b: *std.Build) void {
     });
 
     lib.linkLibC();
-    lib.addCSourceFile(.{ .file = .{ .path = "lib/src/lib.c" }, .flags = &.{"-std=c11"} });
-    lib.addIncludePath(.{ .path = "lib/include" });
-    lib.addIncludePath(.{ .path = "lib/src" });
+    lib.addCSourceFile(.{ .file = b.path("lib/src/lib.c"), .flags = &.{"-std=c11"} });
+    lib.addIncludePath(b.path("lib/include"));
+    lib.addIncludePath(b.path("lib/src"));
 
     lib.installHeadersDirectory(b.path("lib/include"), ".", .{});
 
