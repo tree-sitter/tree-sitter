@@ -412,9 +412,19 @@ pub fn generate_grammar_files(
         let lang_path = path.join(format!("tree_sitter_{}", language_name.to_snake_case()));
         missing_path(&lang_path, create_dir)?;
 
-        missing_path(lang_path.join("binding.c"), |path| {
-            generate_file(path, PY_BINDING_C_TEMPLATE, language_name)
-        })?;
+        missing_path_else(
+            lang_path.join("binding.c"),
+            |path| generate_file(path, PY_BINDING_C_TEMPLATE, language_name),
+            |path| {
+                let binding_c = fs::read_to_string(path)
+                    .with_context(|| "Failed to read bindings/python/binding.c")?;
+                if !binding_c.contains("PyCapsule_New") {
+                    eprintln!("Replacing bindings/python/binding.c with new binding API");
+                    generate_file(path, PY_BINDING_C_TEMPLATE, language_name)?;
+                }
+                Ok(())
+            },
+        )?;
 
         missing_path(lang_path.join("__init__.py"), |path| {
             generate_file(path, INIT_PY_TEMPLATE, language_name)
