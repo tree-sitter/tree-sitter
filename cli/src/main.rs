@@ -92,7 +92,8 @@ struct Generate {
         long,
         value_name = "EXECUTABLE",
         env = "TREE_SITTER_JS_RUNTIME",
-        help = "The path to the JavaScript runtime to use for generating parsers"
+        default_value = "node",
+        help = "The name or path of the JavaScript runtime to use for generating parsers"
     )]
     pub js_runtime: Option<String>,
 }

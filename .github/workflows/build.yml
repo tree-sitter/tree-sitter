@@ -101,9 +101,9 @@ jobs:
         echo "image = \"$image\""                              >> Cross.toml
         echo "CROSS_CONFIG=$PWD/Cross.toml"                    >> $GITHUB_ENV
 
-        echo "FROM ghcr.io/cross-rs/$target:edge"              >> Dockerfile
-        echo "ENV DEBIAN_FRONTEND=noninteractive"              >> Dockerfile
-        echo "RUN apt-get update && apt-get install -y nodejs" >> Dockerfile
+        echo "FROM ghcr.io/cross-rs/$target:edge"                            >> Dockerfile
+        echo "RUN curl -fsSL https://deb.nodesource.com/setup_16.x | bash -" >> Dockerfile
+        echo "RUN apt-get update && apt-get -y install nodejs"               >> Dockerfile
         docker build -t $image .
 
     - name: Setup env extras

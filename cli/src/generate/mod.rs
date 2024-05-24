@@ -189,35 +189,54 @@ pub fn load_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Resul
 fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result<String> {
     let grammar_path = fs::canonicalize(grammar_path)?;
 
+    #[cfg(windows)]
+    let grammar_path = url::Url::from_file_path(grammar_path)
+        .expect("Failed to convert path to URL")
+        .to_string();
+
     let js_runtime = js_runtime.unwrap_or("node");
 
-    let mut node_process = Command::new(js_runtime)
+    let mut js_command = Command::new(js_runtime);
+    match js_runtime {
+        "node" => {
+            js_command.args(["--input-type=module", "-"]);
+        }
+        "bun" => {
+            js_command.arg("-");
+        }
+        "deno" => {
+            js_command.args(["run", "--allow-all", "-"]);
+        }
+        _ => {}
+    }
+
+    let mut js_process = js_command
         .env("TREE_SITTER_GRAMMAR_PATH", grammar_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
         .with_context(|| format!("Failed to run `{js_runtime}`"))?;
 
-    let mut node_stdin = node_process
+    let mut js_stdin = js_process
         .stdin
         .take()
         .with_context(|| format!("Failed to open stdin for {js_runtime}"))?;
     let cli_version = Version::parse(env!("CARGO_PKG_VERSION"))
         .with_context(|| "Could not parse this package's version as semver.")?;
     write!(
-        node_stdin,
-        "global.TREE_SITTER_CLI_VERSION_MAJOR = {};
-        global.TREE_SITTER_CLI_VERSION_MINOR = {};
-        global.TREE_SITTER_CLI_VERSION_PATCH = {};",
+        js_stdin,
+        "globalThis.TREE_SITTER_CLI_VERSION_MAJOR = {};
+        globalThis.TREE_SITTER_CLI_VERSION_MINOR = {};
+        globalThis.TREE_SITTER_CLI_VERSION_PATCH = {};",
         cli_version.major, cli_version.minor, cli_version.patch,
     )
     .with_context(|| format!("Failed to write tree-sitter version to {js_runtime}'s stdin"))?;
-    let javascript_code = include_bytes!("./dsl.js");
-    node_stdin
-        .write(javascript_code)
+    js_stdin
+        .write(include_bytes!("./dsl.js"))
         .with_context(|| format!("Failed to write grammar dsl to {js_runtime}'s stdin"))?;
-    drop(node_stdin);
-    let output = node_process
+    drop(js_stdin);
+
+    let output = js_process
         .wait_with_output()
         .with_context(|| format!("Failed to read output from {js_runtime}"))?;
     match output.status.code() {

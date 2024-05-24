@@ -223,7 +223,7 @@ function RuleBuilder(ruleMap) {
 }
 
 function grammar(baseGrammar, options) {
-  let inherits = null;
+  let inherits = undefined;
 
   if (!options) {
     options = baseGrammar;
@@ -421,7 +421,7 @@ function grammar(baseGrammar, options) {
   return {
     grammar: {
       name,
-      ...(inherits ? ( inherits ) : {}),
+      inherits,
       word,
       rules,
       extras,
@@ -456,18 +456,32 @@ function checkPrecedence(value) {
   }
 }
 
-global.alias = alias;
-global.blank = blank;
-global.choice = choice;
-global.optional = optional;
-global.prec = prec;
-global.repeat = repeat;
-global.repeat1 = repeat1;
-global.seq = seq;
-global.sym = sym;
-global.token = token;
-global.grammar = grammar;
-global.field = field;
+function getEnv(name) {
+  if (globalThis.process) return process.env[name]; // Node/Bun
+  if (globalThis.Deno) return Deno.env.get(name); // Deno
+  throw Error("Unsupported JS runtime");
+}
 
-const result = require(process.env.TREE_SITTER_GRAMMAR_PATH);
-process.stdout.write(JSON.stringify(result.grammar, null, null));
+globalThis.alias = alias;
+globalThis.blank = blank;
+globalThis.choice = choice;
+globalThis.optional = optional;
+globalThis.prec = prec;
+globalThis.repeat = repeat;
+globalThis.repeat1 = repeat1;
+globalThis.seq = seq;
+globalThis.sym = sym;
+globalThis.token = token;
+globalThis.grammar = grammar;
+globalThis.field = field;
+
+const result = await import(getEnv("TREE_SITTER_GRAMMAR_PATH"));
+const output = JSON.stringify(result.default?.grammar ?? result.grammar);
+
+if (globalThis.process) { // Node/Bun
+  process.stdout.write(output);
+} else if (globalThis.Deno) { // Deno
+  Deno.stdout.writeSync(new TextEncoder().encode(output));
+} else {
+  throw Error("Unsupported JS runtime");
+}
