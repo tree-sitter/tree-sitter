@@ -3,7 +3,7 @@ use std::{collections::HashMap, mem};
 use anyhow::{anyhow, Result};
 
 use super::{ExtractedLexicalGrammar, ExtractedSyntaxGrammar, InternedGrammar};
-use crate::generate::{
+use crate::{
     grammars::{ExternalToken, Variable, VariableType},
     rules::{MetadataParams, Rule, Symbol, SymbolType},
 };

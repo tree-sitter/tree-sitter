@@ -6,7 +6,7 @@ use std::{
 use log::info;
 
 use super::token_conflicts::TokenConflictMap;
-use crate::generate::{
+use crate::{
     dedup::split_state_id_groups,
     grammars::{LexicalGrammar, SyntaxGrammar, VariableType},
     rules::{AliasMap, Symbol, TokenSet},

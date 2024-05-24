@@ -6,11 +6,10 @@ use std::{
 use anyhow::Context;
 use lazy_static::lazy_static;
 use tree_sitter::Language;
+use tree_sitter_generate::ALLOC_HEADER;
 use tree_sitter_highlight::HighlightConfiguration;
 use tree_sitter_loader::{CompileConfig, Loader};
 use tree_sitter_tags::TagsConfiguration;
-
-use crate::generate::ALLOC_HEADER;
 
 include!("./dirs.rs");
 

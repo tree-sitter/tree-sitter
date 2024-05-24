@@ -8,7 +8,7 @@ use regex_syntax::ast::{
 };
 
 use super::ExtractedLexicalGrammar;
-use crate::generate::{
+use crate::{
     grammars::{LexicalGrammar, LexicalVariable},
     nfa::{CharacterSet, Nfa, NfaState},
     rules::{Precedence, Rule},
@@ -542,7 +542,7 @@ impl NfaBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::generate::{
+    use crate::{
         grammars::Variable,
         nfa::{NfaCursor, NfaTransition},
     };

@@ -76,8 +76,8 @@ enum PrecedenceValueJSON {
 }
 
 #[derive(Deserialize)]
-pub(crate) struct GrammarJSON {
-    pub(crate) name: String,
+pub struct GrammarJSON {
+    pub name: String,
     rules: Map<String, Value>,
     #[serde(default)]
     precedences: Vec<Vec<RuleJSON>>,
@@ -94,7 +94,7 @@ pub(crate) struct GrammarJSON {
     word: Option<String>,
 }
 
-pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
+pub fn parse_grammar(input: &str) -> Result<InputGrammar> {
     let grammar_json = serde_json::from_str::<GrammarJSON>(input)?;
 
     let mut variables = Vec::with_capacity(grammar_json.rules.len());

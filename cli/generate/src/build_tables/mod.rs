@@ -19,7 +19,7 @@ use self::{
     minimize_parse_table::minimize_parse_table,
     token_conflicts::TokenConflictMap,
 };
-use crate::generate::{
+use crate::{
     grammars::{InlinedProductionMap, LexicalGrammar, SyntaxGrammar},
     nfa::{CharacterSet, NfaCursor},
     node_types::VariableInfo,

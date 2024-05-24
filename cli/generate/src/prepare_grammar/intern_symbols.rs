@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 
 use super::InternedGrammar;
-use crate::generate::{
+use crate::{
     grammars::{InputGrammar, Variable, VariableType},
     rules::{Rule, Symbol},
 };

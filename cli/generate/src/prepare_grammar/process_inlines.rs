@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, Result};
 
-use crate::generate::{
+use crate::{
     grammars::{InlinedProductionMap, LexicalGrammar, Production, ProductionStep, SyntaxGrammar},
     rules::SymbolType,
 };
@@ -225,7 +225,7 @@ pub(super) fn process_inlines(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::generate::{
+    use crate::{
         grammars::{LexicalVariable, SyntaxVariable, VariableType},
         rules::{Associativity, Precedence, Symbol},
     };

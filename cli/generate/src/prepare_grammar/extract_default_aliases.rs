@@ -1,4 +1,4 @@
-use crate::generate::{
+use crate::{
     grammars::{LexicalGrammar, SyntaxGrammar},
     rules::{Alias, AliasMap, Symbol, SymbolType},
 };
@@ -164,7 +164,7 @@ pub(super) fn extract_default_aliases(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::generate::{
+    use crate::{
         grammars::{LexicalVariable, Production, ProductionStep, SyntaxVariable, VariableType},
         nfa::Nfa,
     };

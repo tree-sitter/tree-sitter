@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, collections::HashSet, fmt};
 
-use crate::generate::{
+use crate::{
     build_tables::item::TokenSetDisplay,
     grammars::{LexicalGrammar, SyntaxGrammar},
     nfa::{CharacterSet, NfaCursor, NfaTransition},
@@ -373,7 +373,7 @@ fn compute_conflict_status(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::generate::{
+    use crate::{
         grammars::{Variable, VariableType},
         prepare_grammar::{expand_tokens, ExtractedLexicalGrammar},
         rules::{Precedence, Rule, Symbol},

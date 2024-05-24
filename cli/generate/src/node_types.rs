@@ -721,7 +721,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::generate::{
+    use crate::{
         grammars::{
             InputGrammar, LexicalVariable, Production, ProductionStep, SyntaxVariable, Variable,
         },

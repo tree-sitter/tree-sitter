@@ -1,7 +1,7 @@
 use std::{collections::HashMap, mem};
 
 use super::ExtractedSyntaxGrammar;
-use crate::generate::{
+use crate::{
     grammars::{Variable, VariableType},
     rules::{Rule, Symbol},
 };

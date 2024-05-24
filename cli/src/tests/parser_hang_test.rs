@@ -7,11 +7,9 @@ use std::{
 };
 
 use tree_sitter::Parser;
+use tree_sitter_generate::{generate_parser_for_grammar, load_grammar_file};
 
-use crate::{
-    generate::{generate_parser_for_grammar, load_grammar_file},
-    tests::helpers::fixtures::{fixtures_dir, get_test_language},
-};
+use crate::tests::helpers::fixtures::{fixtures_dir, get_test_language};
 
 // The `sanitizing` cfg is required to don't run tests under specific sunitizer
 // because they don't work well with subprocesses _(it's an assumption)_.

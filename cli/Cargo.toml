@@ -56,6 +56,7 @@ webbrowser.workspace = true
 
 tree-sitter.workspace = true
 tree-sitter-config.workspace = true
+tree-sitter-generate.workspace = true
 tree-sitter-highlight.workspace = true
 tree-sitter-loader.workspace = true
 tree-sitter-tags.workspace = true
