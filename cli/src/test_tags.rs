@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use ansi_term::Colour;
+use anstyle::AnsiColor;
 use anyhow::{anyhow, Result};
 use tree_sitter::Point;
 use tree_sitter_loader::{Config, Loader};
@@ -8,7 +8,7 @@ use tree_sitter_tags::{TagsConfiguration, TagsContext};
 
 use super::{
     query_testing::{parse_position_comments, Assertion},
-    test::opt_color,
+    test::paint,
     util,
 };
 
@@ -75,9 +75,8 @@ pub fn test_tags(
             Ok(assertion_count) => {
                 println!(
                     "  ✓ {} ({assertion_count} assertions)",
-                    opt_color(
-                        use_color,
-                        Colour::Green,
+                    paint(
+                        use_color.then_some(AnsiColor::Green),
                         test_file_name.to_string_lossy().as_ref()
                     ),
                 );
@@ -85,9 +84,8 @@ pub fn test_tags(
             Err(e) => {
                 println!(
                     "  ✗ {}",
-                    opt_color(
-                        use_color,
-                        Colour::Red,
+                    paint(
+                        use_color.then_some(AnsiColor::Red),
                         test_file_name.to_string_lossy().as_ref()
                     )
                 );

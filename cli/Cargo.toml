@@ -25,7 +25,6 @@ harness = false
 wasm = ["tree-sitter/wasm", "tree-sitter-loader/wasm"]
 
 [dependencies]
-ansi_term.workspace = true
 anstyle.workspace = true
 anyhow.workspace = true
 clap.workspace = true
