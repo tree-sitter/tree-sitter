@@ -226,8 +226,8 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result
     write!(
         js_stdin,
         "globalThis.TREE_SITTER_CLI_VERSION_MAJOR = {};
-        globalThis.TREE_SITTER_CLI_VERSION_MINOR = {};
-        globalThis.TREE_SITTER_CLI_VERSION_PATCH = {};",
+         globalThis.TREE_SITTER_CLI_VERSION_MINOR = {};
+         globalThis.TREE_SITTER_CLI_VERSION_PATCH = {};",
         cli_version.major, cli_version.minor, cli_version.patch,
     )
     .with_context(|| format!("Failed to write tree-sitter version to {js_runtime}'s stdin"))?;
