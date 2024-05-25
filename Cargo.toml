@@ -39,8 +39,7 @@ inherits = "optimize"
 strip = false
 
 [workspace.dependencies]
-ansi_term = "0.12.1"
-anstyle = "1.0.6"
+anstyle = "1.0.7"
 anyhow = "1.0.86"
 cc = "1.0.98"
 clap = { version = "4.5.4", features = [
