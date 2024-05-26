@@ -19,8 +19,7 @@ fn main() {
         config
             .define("TREE_SITTER_FEATURE_WASM", "")
             .define("static_assert(...)", "")
-            .include(env::var("DEP_WASMTIME_C_API_INCLUDE").unwrap())
-            .include(env::var("DEP_WASMTIME_C_API_WASM_INCLUDE").unwrap());
+            .include(env::var("DEP_WASMTIME_C_API_INCLUDE").unwrap());
     }
 
     let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());

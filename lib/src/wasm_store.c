@@ -4,16 +4,17 @@
 
 #ifdef TREE_SITTER_FEATURE_WASM
 
-#include <wasmtime.h>
-#include <wasm.h>
-#include <string.h>
 #include "./alloc.h"
 #include "./array.h"
 #include "./atomic.h"
 #include "./language.h"
 #include "./lexer.h"
-#include "./wasm_store.h"
 #include "./wasm/wasm-stdlib.h"
+#include "./wasm_store.h"
+
+#include <string.h>
+#include <wasm.h>
+#include <wasmtime.h>
 
 #define array_len(a) (sizeof(a) / sizeof(a[0]))
 
@@ -457,7 +458,7 @@ static wasmtime_extern_t get_builtin_extern(
     .kind = WASMTIME_EXTERN_FUNC,
     .of.func = (wasmtime_func_t) {
       .store_id = table->store_id,
-      .index = index
+      .__private = index
     }
   };
 }
@@ -634,14 +635,14 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
     FunctionDefinition *definition = &builtin_definitions[i];
     wasmtime_func_t func;
     wasmtime_func_new_unchecked(context, definition->type, definition->callback, self, NULL, &func);
-    *definition->storage_location = func.index;
+    *definition->storage_location = func.__private;
     wasm_functype_delete(definition->type);
   }
   for (unsigned i = 0; i < lexer_definitions_len; i++) {
     FunctionDefinition *definition = &lexer_definitions[i];
     wasmtime_func_t func;
     wasmtime_func_new_unchecked(context, definition->type, definition->callback, self, NULL, &func);
-    *definition->storage_location = func.index;
+    *definition->storage_location = func.__private;
     wasm_functype_delete(definition->type);
   }
 
@@ -824,13 +825,13 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
       }
 
       if (name_eq(name, "reset_heap")) {
-        self->builtin_fn_indices.reset_heap = export.of.func.index;
+        self->builtin_fn_indices.reset_heap = export.of.func.__private;
         continue;
       }
 
       for (unsigned j = 0; j < stdlib_symbols_len; j++) {
         if (name_eq(name, STDLIB_SYMBOLS[j])) {
-          self->stdlib_fn_indices[j] = export.of.func.index;
+          self->stdlib_fn_indices[j] = export.of.func.__private;
           break;
         }
       }
