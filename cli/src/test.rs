@@ -9,13 +9,13 @@ use std::{
 
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::{anyhow, Context, Result};
-use difference::{Changeset, Difference};
 use indoc::indoc;
 use lazy_static::lazy_static;
 use regex::{
     bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder},
     Regex,
 };
+use similar::{ChangeTag, TextDiff};
 use tree_sitter::{format_sexp, Language, LogType, Parser, Query};
 use walkdir::WalkDir;
 
@@ -276,32 +276,39 @@ pub fn print_diff_key() {
 }
 
 pub fn print_diff(actual: &str, expected: &str, use_color: bool) {
-    let changeset = Changeset::new(actual, expected, "\n");
-    for diff in &changeset.diffs {
-        match diff {
-            Difference::Same(part) => {
+    let diff = TextDiff::from_lines(actual, expected);
+    for diff in diff.iter_all_changes() {
+        match diff.tag() {
+            ChangeTag::Equal => {
                 if use_color {
-                    print!("{part}{}", changeset.split);
+                    print!("{diff}");
                 } else {
-                    print!("correct:\n{part}{}", changeset.split);
+                    print!(" {diff}");
                 }
             }
-            Difference::Add(part) => {
+            ChangeTag::Insert => {
                 if use_color {
-                    println!("{}{}", paint(Some(AnsiColor::Green), part), changeset.split);
+                    print!("{}", paint(Some(AnsiColor::Green), diff.as_str().unwrap()));
                 } else {
-                    print!("expected:\n{part}{}", changeset.split);
+                    print!("+{diff}");
+                }
+                if diff.missing_newline() {
+                    println!();
                 }
             }
-            Difference::Rem(part) => {
+            ChangeTag::Delete => {
                 if use_color {
-                    println!("{}{}", paint(Some(AnsiColor::Red), part), changeset.split);
+                    print!("{}", paint(Some(AnsiColor::Red), diff.as_str().unwrap()));
                 } else {
-                    print!("unexpected:\n{part}{}", changeset.split);
+                    print!("-{diff}");
+                }
+                if diff.missing_newline() {
+                    println!();
                 }
             }
         }
     }
+
     println!();
 }
 
