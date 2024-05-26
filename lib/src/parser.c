@@ -613,7 +613,7 @@ static Subtree ts_parser__lex(
         self->lexer.data.result_symbol = ts_builtin_sym_error;
         break;
       }
-      self->lexer.data.advance(&self->lexer.data, false);
+      self->lexer.data.advance(&self->lexer.data);
     }
 
     error_end_position = self->lexer.current_position;

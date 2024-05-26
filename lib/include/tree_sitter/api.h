@@ -11,9 +11,9 @@
 extern "C" {
 #endif
 
-#include <stdlib.h>
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
 
 /****************************/
 /* Section - ABI Versioning */
@@ -26,7 +26,7 @@ extern "C" {
  * The Tree-sitter library is generally backwards-compatible with languages
  * generated using older CLI versions, but is not forwards-compatible.
  */
-#define TREE_SITTER_LANGUAGE_VERSION 14
+#define TREE_SITTER_LANGUAGE_VERSION 15
 
 /**
  * The earliest ABI version that is supported by the current version of the

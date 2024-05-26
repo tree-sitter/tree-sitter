@@ -155,8 +155,12 @@ static void ts_lexer_goto(Lexer *self, Length position) {
   }
 }
 
+static void ts_lexer__mark_begin(Lexer *self) {
+  self->token_start_position = self->current_position;
+}
+
 // Intended to be called only from functions that control logging.
-static void ts_lexer__do_advance(Lexer *self, bool skip) {
+static void ts_lexer__do_advance(Lexer *self) {
   if (self->lookahead_size) {
     self->current_position.bytes += self->lookahead_size;
     if (self->data.lookahead == '\n') {
@@ -187,7 +191,7 @@ static void ts_lexer__do_advance(Lexer *self, bool skip) {
     }
   }
 
-  if (skip) self->token_start_position = self->current_position;
+  self->token_start_position = self->current_position;
 
   if (current_range) {
     if (
@@ -206,17 +210,20 @@ static void ts_lexer__do_advance(Lexer *self, bool skip) {
 
 // Advance to the next character in the source code, retrieving a new
 // chunk of source code if needed.
-static void ts_lexer__advance(TSLexer *_self, bool skip) {
+static void ts_lexer__advance(TSLexer *_self) {
   Lexer *self = (Lexer *)_self;
   if (!self->chunk) return;
 
-  if (skip) {
-    LOG("skip", self->data.lookahead)
-  } else {
-    LOG("consume", self->data.lookahead)
-  }
+  LOG("consume", self->data.lookahead)
 
-  ts_lexer__do_advance(self, skip);
+#if TREE_SITTER_LANGUAGE_VERSION <= 14
+  if (!self->called_mark_begin) {
+    ts_lexer__mark_begin(self);
+    self->called_mark_begin = true;
+  }
+#endif
+
+  ts_lexer__do_advance(self);
 }
 
 // Mark that a token match has completed. This can be called multiple
@@ -263,7 +270,7 @@ static uint32_t ts_lexer__get_column(TSLexer *_self) {
     ts_lexer__get_lookahead(self);
     while (self->current_position.bytes < goal_byte && self->chunk) {
       result++;
-      ts_lexer__do_advance(self, false);
+      ts_lexer__do_advance(self);
       if (ts_lexer__eof(_self)) break;
     }
   }
@@ -342,7 +349,7 @@ void ts_lexer_start(Lexer *self) {
     if (
       self->current_position.bytes == 0 &&
       self->data.lookahead == BYTE_ORDER_MARK
-    ) ts_lexer__advance(&self->data, true);
+    ) ts_lexer__advance(&self->data);
   }
 }
 
@@ -375,8 +382,12 @@ void ts_lexer_finish(Lexer *self, uint32_t *lookahead_end_byte) {
 
 void ts_lexer_advance_to_end(Lexer *self) {
   while (self->chunk) {
-    ts_lexer__advance(&self->data, false);
+    ts_lexer__advance(&self->data);
   }
+}
+
+void ts_lexer_mark_begin(Lexer *self) {
+  ts_lexer__mark_begin(self);
 }
 
 void ts_lexer_mark_end(Lexer *self) {

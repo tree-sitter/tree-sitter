@@ -27,6 +27,7 @@ typedef struct {
   uint32_t chunk_size;
   uint32_t lookahead_size;
   bool did_get_column;
+  bool called_mark_begin;
 
   char debug_buffer[TREE_SITTER_SERIALIZATION_BUFFER_SIZE];
 } Lexer;
@@ -38,6 +39,7 @@ void ts_lexer_reset(Lexer *, Length);
 void ts_lexer_start(Lexer *);
 void ts_lexer_finish(Lexer *, uint32_t *);
 void ts_lexer_advance_to_end(Lexer *);
+void ts_lexer_mark_begin(Lexer *);
 void ts_lexer_mark_end(Lexer *);
 bool ts_lexer_set_included_ranges(Lexer *self, const TSRange *ranges, uint32_t count);
 TSRange *ts_lexer_included_ranges(const Lexer *self, uint32_t *count);

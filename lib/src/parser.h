@@ -42,7 +42,11 @@ typedef struct TSLexer TSLexer;
 struct TSLexer {
   int32_t lookahead;
   TSSymbol result_symbol;
+#if TREE_SITTER_LANGUAGE_VERSION >= 15
+  void (*advance)(TSLexer *);
+#else
   void (*advance)(TSLexer *, bool);
+#endif
   void (*mark_end)(TSLexer *);
   uint32_t (*get_column)(TSLexer *);
   bool (*is_at_included_range_start)(const TSLexer *);
