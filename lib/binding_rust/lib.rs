@@ -1,26 +1,31 @@
 #![doc = include_str!("./README.md")]
-
+#![cfg_attr(not(feature = "std"), no_std)]
 pub mod ffi;
 mod util;
 
-#[cfg(any(unix, target_os = "wasi"))]
-use std::os::fd::AsRawFd;
-#[cfg(windows)]
-use std::os::windows::io::AsRawHandle;
-use std::{
-    char, error,
-    ffi::CStr,
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec::Vec};
+use core::{
+    char,
+    ffi::{c_char, c_void, CStr},
     fmt::{self, Write},
     hash, iter,
     marker::PhantomData,
     mem::MaybeUninit,
     num::NonZeroU16,
     ops::{self, Deref},
-    os::raw::{c_char, c_void},
     ptr::{self, NonNull},
     slice, str,
     sync::atomic::AtomicUsize,
 };
+#[cfg(feature = "std")]
+use std::error;
+#[cfg(all(feature = "std", any(unix, target_os = "wasi")))]
+use std::os::fd::AsRawFd;
+#[cfg(all(windows, feature = "std"))]
+use std::os::windows::io::AsRawHandle;
 
 use tree_sitter_language::LanguageFn;
 
@@ -434,7 +439,7 @@ impl<'a> Deref for LanguageRef<'a> {
     type Target = Language;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { &*(std::ptr::addr_of!(self.0).cast::<Language>()) }
+        unsafe { &*(core::ptr::addr_of!(self.0).cast::<Language>()) }
     }
 }
 
@@ -543,6 +548,7 @@ impl Parser {
     /// want to pipe these graphs directly to a `dot(1)` process in order to
     /// generate SVG output.
     #[doc(alias = "ts_parser_print_dot_graphs")]
+    #[cfg(feature = "std")]
     pub fn print_dot_graphs(
         &mut self,
         #[cfg(any(unix, target_os = "wasi"))] file: &impl AsRawFd,
@@ -650,7 +656,7 @@ impl Parser {
         }
 
         let c_input = ffi::TSInput {
-            payload: std::ptr::addr_of_mut!(payload).cast::<c_void>(),
+            payload: core::ptr::addr_of_mut!(payload).cast::<c_void>(),
             read: Some(read::<T, F>),
             encoding: ffi::TSInputEncodingUTF8,
         };
@@ -705,7 +711,7 @@ impl Parser {
         }
 
         let c_input = ffi::TSInput {
-            payload: std::ptr::addr_of_mut!(payload).cast::<c_void>(),
+            payload: core::ptr::addr_of_mut!(payload).cast::<c_void>(),
             read: Some(read::<T, F>),
             encoding: ffi::TSInputEncodingUTF16,
         };
@@ -767,11 +773,7 @@ impl Parser {
     /// slice pointing to a first incorrect range.
     #[doc(alias = "ts_parser_set_included_ranges")]
     pub fn set_included_ranges(&mut self, ranges: &[Range]) -> Result<(), IncludedRangesError> {
-        let ts_ranges = ranges
-            .iter()
-            .copied()
-            .map(std::convert::Into::into)
-            .collect::<Vec<_>>();
+        let ts_ranges = ranges.iter().copied().map(Into::into).collect::<Vec<_>>();
         let result = unsafe {
             ffi::ts_parser_set_included_ranges(
                 self.0.as_ptr(),
@@ -801,13 +803,9 @@ impl Parser {
         let mut count = 0u32;
         unsafe {
             let ptr =
-                ffi::ts_parser_included_ranges(self.0.as_ptr(), std::ptr::addr_of_mut!(count));
+                ffi::ts_parser_included_ranges(self.0.as_ptr(), core::ptr::addr_of_mut!(count));
             let ranges = slice::from_raw_parts(ptr, count as usize);
-            let result = ranges
-                .iter()
-                .copied()
-                .map(std::convert::Into::into)
-                .collect();
+            let result = ranges.iter().copied().map(Into::into).collect();
             result
         }
     }
@@ -923,9 +921,9 @@ impl Tree {
             let ptr = ffi::ts_tree_get_changed_ranges(
                 self.0.as_ptr(),
                 other.0.as_ptr(),
-                std::ptr::addr_of_mut!(count),
+                core::ptr::addr_of_mut!(count),
             );
-            util::CBufferIter::new(ptr, count as usize).map(std::convert::Into::into)
+            util::CBufferIter::new(ptr, count as usize).map(Into::into)
         }
     }
 
@@ -935,13 +933,9 @@ impl Tree {
     pub fn included_ranges(&self) -> Vec<Range> {
         let mut count = 0u32;
         unsafe {
-            let ptr = ffi::ts_tree_included_ranges(self.0.as_ptr(), std::ptr::addr_of_mut!(count));
+            let ptr = ffi::ts_tree_included_ranges(self.0.as_ptr(), core::ptr::addr_of_mut!(count));
             let ranges = slice::from_raw_parts(ptr, count as usize);
-            let result = ranges
-                .iter()
-                .copied()
-                .map(std::convert::Into::into)
-                .collect();
+            let result = ranges.iter().copied().map(Into::into).collect();
             (FREE_FN)(ptr.cast::<c_void>());
             result
         }
@@ -952,6 +946,7 @@ impl Tree {
     /// graph directly to a `dot(1)` process in order to generate SVG
     /// output.
     #[doc(alias = "ts_tree_print_dot_graph")]
+    #[cfg(feature = "std")]
     pub fn print_dot_graph(
         &self,
         #[cfg(any(unix, target_os = "wasi"))] file: &impl AsRawFd,
@@ -1131,7 +1126,7 @@ impl<'tree> Node<'tree> {
 
     /// Get the byte range of source code that this node represents.
     #[must_use]
-    pub fn byte_range(&self) -> std::ops::Range<usize> {
+    pub fn byte_range(&self) -> core::ops::Range<usize> {
         self.start_byte()..self.end_byte()
     }
 
@@ -1467,7 +1462,7 @@ impl<'tree> Node<'tree> {
     #[doc(alias = "ts_node_edit")]
     pub fn edit(&mut self, edit: &InputEdit) {
         let edit = edit.into();
-        unsafe { ffi::ts_node_edit(std::ptr::addr_of_mut!(self.0), &edit) }
+        unsafe { ffi::ts_node_edit(core::ptr::addr_of_mut!(self.0), &edit) }
     }
 }
 
@@ -1778,8 +1773,8 @@ impl Query {
                 language.0,
                 bytes.as_ptr().cast::<c_char>(),
                 bytes.len() as u32,
-                std::ptr::addr_of_mut!(error_offset),
-                std::ptr::addr_of_mut!(error_type),
+                core::ptr::addr_of_mut!(error_offset),
+                core::ptr::addr_of_mut!(error_type),
             )
         };
 
@@ -1884,7 +1879,7 @@ impl Query {
             unsafe {
                 let mut length = 0u32;
                 let name =
-                    ffi::ts_query_capture_name_for_id(ptr.0, i, std::ptr::addr_of_mut!(length))
+                    ffi::ts_query_capture_name_for_id(ptr.0, i, core::ptr::addr_of_mut!(length))
                         .cast::<u8>();
                 let name = slice::from_raw_parts(name, length as usize);
                 let name = str::from_utf8_unchecked(name);
@@ -1909,7 +1904,7 @@ impl Query {
             .map(|i| unsafe {
                 let mut length = 0u32;
                 let value =
-                    ffi::ts_query_string_value_for_id(ptr.0, i, std::ptr::addr_of_mut!(length))
+                    ffi::ts_query_string_value_for_id(ptr.0, i, core::ptr::addr_of_mut!(length))
                         .cast::<u8>();
                 let value = slice::from_raw_parts(value, length as usize);
                 let value = str::from_utf8_unchecked(value);
@@ -1924,7 +1919,7 @@ impl Query {
                 let raw_predicates = ffi::ts_query_predicates_for_pattern(
                     ptr.0,
                     i as u32,
-                    std::ptr::addr_of_mut!(length),
+                    core::ptr::addr_of_mut!(length),
                 );
                 (length > 0)
                     .then(|| slice::from_raw_parts(raw_predicates, length as usize))
@@ -2132,7 +2127,7 @@ impl Query {
             general_predicates: general_predicates_vec.into(),
         };
 
-        std::mem::forget(ptr);
+        core::mem::forget(ptr);
 
         Ok(result)
     }
@@ -2672,7 +2667,7 @@ impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> Iterator
                 if ffi::ts_query_cursor_next_capture(
                     self.ptr,
                     m.as_mut_ptr(),
-                    std::ptr::addr_of_mut!(capture_index),
+                    core::ptr::addr_of_mut!(capture_index),
                 ) {
                     let result = QueryMatch::new(&m.assume_init(), self.ptr);
                     if result.satisfies_text_predicates(
@@ -2860,7 +2855,7 @@ impl<'a> Iterator for LossyUtf8<'a> {
             self.in_replacement = false;
             return Some("\u{fffd}");
         }
-        match std::str::from_utf8(self.bytes) {
+        match core::str::from_utf8(self.bytes) {
             Ok(valid) => {
                 self.bytes = &[];
                 Some(valid)
@@ -2870,7 +2865,7 @@ impl<'a> Iterator for LossyUtf8<'a> {
                     let error_start = error.valid_up_to();
                     if error_start > 0 {
                         let result =
-                            unsafe { std::str::from_utf8_unchecked(&self.bytes[..error_start]) };
+                            unsafe { core::str::from_utf8_unchecked(&self.bytes[..error_start]) };
                         self.bytes = &self.bytes[(error_start + error_len)..];
                         self.in_replacement = true;
                         Some(result)
@@ -3071,8 +3066,11 @@ pub unsafe fn set_allocator(
     ffi::ts_set_allocator(new_malloc, new_calloc, new_realloc, new_free);
 }
 
+#[cfg(feature = "std")]
 impl error::Error for IncludedRangesError {}
+#[cfg(feature = "std")]
 impl error::Error for LanguageError {}
+#[cfg(feature = "std")]
 impl error::Error for QueryError {}
 
 unsafe impl Send for Language {}

@@ -37,11 +37,11 @@ pub struct TSLookaheadIterator {
 }
 pub const TSInputEncodingUTF8: TSInputEncoding = 0;
 pub const TSInputEncodingUTF16: TSInputEncoding = 1;
-pub type TSInputEncoding = ::std::os::raw::c_uint;
+pub type TSInputEncoding = ::core::ffi::c_uint;
 pub const TSSymbolTypeRegular: TSSymbolType = 0;
 pub const TSSymbolTypeAnonymous: TSSymbolType = 1;
 pub const TSSymbolTypeAuxiliary: TSSymbolType = 2;
-pub type TSSymbolType = ::std::os::raw::c_uint;
+pub type TSSymbolType = ::core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct TSPoint {
@@ -59,29 +59,29 @@ pub struct TSRange {
 #[repr(C)]
 #[derive(Debug)]
 pub struct TSInput {
-    pub payload: *mut ::std::os::raw::c_void,
-    pub read: ::std::option::Option<
+    pub payload: *mut ::core::ffi::c_void,
+    pub read: ::core::option::Option<
         unsafe extern "C" fn(
-            payload: *mut ::std::os::raw::c_void,
+            payload: *mut ::core::ffi::c_void,
             byte_index: u32,
             position: TSPoint,
             bytes_read: *mut u32,
-        ) -> *const ::std::os::raw::c_char,
+        ) -> *const ::core::ffi::c_char,
     >,
     pub encoding: TSInputEncoding,
 }
 pub const TSLogTypeParse: TSLogType = 0;
 pub const TSLogTypeLex: TSLogType = 1;
-pub type TSLogType = ::std::os::raw::c_uint;
+pub type TSLogType = ::core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug)]
 pub struct TSLogger {
-    pub payload: *mut ::std::os::raw::c_void,
-    pub log: ::std::option::Option<
+    pub payload: *mut ::core::ffi::c_void,
+    pub log: ::core::option::Option<
         unsafe extern "C" fn(
-            payload: *mut ::std::os::raw::c_void,
+            payload: *mut ::core::ffi::c_void,
             log_type: TSLogType,
-            buffer: *const ::std::os::raw::c_char,
+            buffer: *const ::core::ffi::c_char,
         ),
     >,
 }
@@ -99,14 +99,14 @@ pub struct TSInputEdit {
 #[derive(Debug, Copy, Clone)]
 pub struct TSNode {
     pub context: [u32; 4usize],
-    pub id: *const ::std::os::raw::c_void,
+    pub id: *const ::core::ffi::c_void,
     pub tree: *const TSTree,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct TSTreeCursor {
-    pub tree: *const ::std::os::raw::c_void,
-    pub id: *const ::std::os::raw::c_void,
+    pub tree: *const ::core::ffi::c_void,
+    pub id: *const ::core::ffi::c_void,
     pub context: [u32; 3usize],
 }
 #[repr(C)]
@@ -120,7 +120,7 @@ pub const TSQuantifierZeroOrOne: TSQuantifier = 1;
 pub const TSQuantifierZeroOrMore: TSQuantifier = 2;
 pub const TSQuantifierOne: TSQuantifier = 3;
 pub const TSQuantifierOneOrMore: TSQuantifier = 4;
-pub type TSQuantifier = ::std::os::raw::c_uint;
+pub type TSQuantifier = ::core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug)]
 pub struct TSQueryMatch {
@@ -132,7 +132,7 @@ pub struct TSQueryMatch {
 pub const TSQueryPredicateStepTypeDone: TSQueryPredicateStepType = 0;
 pub const TSQueryPredicateStepTypeCapture: TSQueryPredicateStepType = 1;
 pub const TSQueryPredicateStepTypeString: TSQueryPredicateStepType = 2;
-pub type TSQueryPredicateStepType = ::std::os::raw::c_uint;
+pub type TSQueryPredicateStepType = ::core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug)]
 pub struct TSQueryPredicateStep {
@@ -146,7 +146,7 @@ pub const TSQueryErrorField: TSQueryError = 3;
 pub const TSQueryErrorCapture: TSQueryError = 4;
 pub const TSQueryErrorStructure: TSQueryError = 5;
 pub const TSQueryErrorLanguage: TSQueryError = 6;
-pub type TSQueryError = ::std::os::raw::c_uint;
+pub type TSQueryError = ::core::ffi::c_uint;
 extern "C" {
     #[doc = " Create a new parser."]
     pub fn ts_parser_new() -> *mut TSParser;
@@ -188,7 +188,7 @@ extern "C" {
     pub fn ts_parser_parse_string(
         self_: *mut TSParser,
         old_tree: *const TSTree,
-        string: *const ::std::os::raw::c_char,
+        string: *const ::core::ffi::c_char,
         length: u32,
     ) -> *mut TSTree;
 }
@@ -197,7 +197,7 @@ extern "C" {
     pub fn ts_parser_parse_string_encoding(
         self_: *mut TSParser,
         old_tree: *const TSTree,
-        string: *const ::std::os::raw::c_char,
+        string: *const ::core::ffi::c_char,
         length: u32,
         encoding: TSInputEncoding,
     ) -> *mut TSTree;
@@ -232,7 +232,7 @@ extern "C" {
 }
 extern "C" {
     #[doc = " Set the file descriptor to which the parser should write debugging graphs\n during parsing. The graphs are formatted in the DOT language. You may want\n to pipe these graphs directly to a `dot(1)` process in order to generate\n SVG output. You can turn off this logging by passing a negative number."]
-    pub fn ts_parser_print_dot_graphs(self_: *mut TSParser, fd: ::std::os::raw::c_int);
+    pub fn ts_parser_print_dot_graphs(self_: *mut TSParser, fd: ::core::ffi::c_int);
 }
 extern "C" {
     #[doc = " Create a shallow copy of the syntax tree. This is very fast.\n\n You need to copy a syntax tree in order to use it on more than one thread at\n a time, as syntax trees are not thread safe."]
@@ -276,11 +276,11 @@ extern "C" {
 }
 extern "C" {
     #[doc = " Write a DOT graph describing the syntax tree to the given file."]
-    pub fn ts_tree_print_dot_graph(self_: *const TSTree, file_descriptor: ::std::os::raw::c_int);
+    pub fn ts_tree_print_dot_graph(self_: *const TSTree, file_descriptor: ::core::ffi::c_int);
 }
 extern "C" {
     #[doc = " Get the node's type as a null-terminated string."]
-    pub fn ts_node_type(self_: TSNode) -> *const ::std::os::raw::c_char;
+    pub fn ts_node_type(self_: TSNode) -> *const ::core::ffi::c_char;
 }
 extern "C" {
     #[doc = " Get the node's type as a numerical id."]
@@ -292,7 +292,7 @@ extern "C" {
 }
 extern "C" {
     #[doc = " Get the node's type as it appears in the grammar ignoring aliases as a\n null-terminated string."]
-    pub fn ts_node_grammar_type(self_: TSNode) -> *const ::std::os::raw::c_char;
+    pub fn ts_node_grammar_type(self_: TSNode) -> *const ::core::ffi::c_char;
 }
 extern "C" {
     #[doc = " Get the node's type as a numerical id as it appears in the grammar ignoring\n aliases. This should be used in [`ts_language_next_state`] instead of\n [`ts_node_symbol`]."]
@@ -316,7 +316,7 @@ extern "C" {
 }
 extern "C" {
     #[doc = " Get an S-expression representing the node as a string.\n\n This string is allocated with `malloc` and the caller is responsible for\n freeing it using `free`."]
-    pub fn ts_node_string(self_: TSNode) -> *mut ::std::os::raw::c_char;
+    pub fn ts_node_string(self_: TSNode) -> *mut ::core::ffi::c_char;
 }
 extern "C" {
     #[doc = " Check if the node is null. Functions like [`ts_node_child`] and\n [`ts_node_next_sibling`] will return a null node to indicate that no such node\n was found."]
@@ -371,7 +371,7 @@ extern "C" {
     pub fn ts_node_field_name_for_child(
         self_: TSNode,
         child_index: u32,
-    ) -> *const ::std::os::raw::c_char;
+    ) -> *const ::core::ffi::c_char;
 }
 extern "C" {
     #[doc = " Get the node's number of children."]
@@ -389,7 +389,7 @@ extern "C" {
     #[doc = " Get the node's child with the given field name."]
     pub fn ts_node_child_by_field_name(
         self_: TSNode,
-        name: *const ::std::os::raw::c_char,
+        name: *const ::core::ffi::c_char,
         name_length: u32,
     ) -> TSNode;
 }
@@ -477,7 +477,7 @@ extern "C" {
     #[doc = " Get the field name of the tree cursor's current node.\n\n This returns `NULL` if the current node doesn't have a field.\n See also [`ts_node_child_by_field_name`]."]
     pub fn ts_tree_cursor_current_field_name(
         self_: *const TSTreeCursor,
-    ) -> *const ::std::os::raw::c_char;
+    ) -> *const ::core::ffi::c_char;
 }
 extern "C" {
     #[doc = " Get the field id of the tree cursor's current node.\n\n This returns zero if the current node doesn't have a field.\n See also [`ts_node_child_by_field_id`], [`ts_language_field_id_for_name`]."]
@@ -535,7 +535,7 @@ extern "C" {
     #[doc = " Create a new query from a string containing one or more S-expression\n patterns. The query is associated with a particular language, and can\n only be run on syntax nodes parsed with that language.\n\n If all of the given patterns are valid, this returns a [`TSQuery`].\n If a pattern is invalid, this returns `NULL`, and provides two pieces\n of information about the problem:\n 1. The byte offset of the error is written to the `error_offset` parameter.\n 2. The type of error is written to the `error_type` parameter."]
     pub fn ts_query_new(
         language: *const TSLanguage,
-        source: *const ::std::os::raw::c_char,
+        source: *const ::core::ffi::c_char,
         source_len: u32,
         error_offset: *mut u32,
         error_type: *mut TSQueryError,
@@ -586,7 +586,7 @@ extern "C" {
         self_: *const TSQuery,
         index: u32,
         length: *mut u32,
-    ) -> *const ::std::os::raw::c_char;
+    ) -> *const ::core::ffi::c_char;
 }
 extern "C" {
     #[doc = " Get the quantifier of the query's captures. Each capture is * associated\n with a numeric id based on the order that it appeared in the query's source."]
@@ -601,13 +601,13 @@ extern "C" {
         self_: *const TSQuery,
         index: u32,
         length: *mut u32,
-    ) -> *const ::std::os::raw::c_char;
+    ) -> *const ::core::ffi::c_char;
 }
 extern "C" {
     #[doc = " Disable a certain capture within a query.\n\n This prevents the capture from being returned in matches, and also avoids\n any resource usage associated with recording the capture. Currently, there\n is no way to undo this."]
     pub fn ts_query_disable_capture(
         self_: *mut TSQuery,
-        name: *const ::std::os::raw::c_char,
+        name: *const ::core::ffi::c_char,
         length: u32,
     );
 }
@@ -693,13 +693,13 @@ extern "C" {
     pub fn ts_language_symbol_name(
         self_: *const TSLanguage,
         symbol: TSSymbol,
-    ) -> *const ::std::os::raw::c_char;
+    ) -> *const ::core::ffi::c_char;
 }
 extern "C" {
     #[doc = " Get the numerical id for the given node type string."]
     pub fn ts_language_symbol_for_name(
         self_: *const TSLanguage,
-        string: *const ::std::os::raw::c_char,
+        string: *const ::core::ffi::c_char,
         length: u32,
         is_named: bool,
     ) -> TSSymbol;
@@ -713,13 +713,13 @@ extern "C" {
     pub fn ts_language_field_name_for_id(
         self_: *const TSLanguage,
         id: TSFieldId,
-    ) -> *const ::std::os::raw::c_char;
+    ) -> *const ::core::ffi::c_char;
 }
 extern "C" {
     #[doc = " Get the numerical id for the given field name string."]
     pub fn ts_language_field_id_for_name(
         self_: *const TSLanguage,
-        name: *const ::std::os::raw::c_char,
+        name: *const ::core::ffi::c_char,
         name_length: u32,
     ) -> TSFieldId;
 }
@@ -781,7 +781,7 @@ extern "C" {
     #[doc = " Get the current symbol type of the lookahead iterator as a null terminated\n string."]
     pub fn ts_lookahead_iterator_current_symbol_name(
         self_: *const TSLookaheadIterator,
-    ) -> *const ::std::os::raw::c_char;
+    ) -> *const ::core::ffi::c_char;
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -799,12 +799,12 @@ pub const TSWasmErrorKindParse: TSWasmErrorKind = 1;
 pub const TSWasmErrorKindCompile: TSWasmErrorKind = 2;
 pub const TSWasmErrorKindInstantiate: TSWasmErrorKind = 3;
 pub const TSWasmErrorKindAllocate: TSWasmErrorKind = 4;
-pub type TSWasmErrorKind = ::std::os::raw::c_uint;
+pub type TSWasmErrorKind = ::core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct TSWasmError {
     pub kind: TSWasmErrorKind,
-    pub message: *mut ::std::os::raw::c_char,
+    pub message: *mut ::core::ffi::c_char,
 }
 extern "C" {
     #[doc = " Create a Wasm store."]
@@ -821,8 +821,8 @@ extern "C" {
     #[doc = " Create a language from a buffer of Wasm. The resulting language behaves\n like any other Tree-sitter language, except that in order to use it with\n a parser, that parser must have a Wasm store. Note that the language\n can be used with any Wasm store, it doesn't need to be the same store that\n was used to originally load it."]
     pub fn ts_wasm_store_load_language(
         arg1: *mut TSWasmStore,
-        name: *const ::std::os::raw::c_char,
-        wasm: *const ::std::os::raw::c_char,
+        name: *const ::core::ffi::c_char,
+        wasm: *const ::core::ffi::c_char,
         wasm_len: u32,
         error: *mut TSWasmError,
     ) -> *const TSLanguage;
@@ -846,18 +846,18 @@ extern "C" {
 extern "C" {
     #[doc = " Set the allocation functions used by the library.\n\n By default, Tree-sitter uses the standard libc allocation functions,\n but aborts the process when an allocation fails. This function lets\n you supply alternative allocation functions at runtime.\n\n If you pass `NULL` for any parameter, Tree-sitter will switch back to\n its default implementation of that function.\n\n If you call this function after the library has already been used, then\n you must ensure that either:\n  1. All the existing objects have been freed.\n  2. The new allocator shares its state with the old one, so it is capable\n     of freeing memory that was allocated by the old allocator."]
     pub fn ts_set_allocator(
-        new_malloc: ::std::option::Option<
-            unsafe extern "C" fn(arg1: usize) -> *mut ::std::os::raw::c_void,
+        new_malloc: ::core::option::Option<
+            unsafe extern "C" fn(arg1: usize) -> *mut ::core::ffi::c_void,
         >,
-        new_calloc: ::std::option::Option<
-            unsafe extern "C" fn(arg1: usize, arg2: usize) -> *mut ::std::os::raw::c_void,
+        new_calloc: ::core::option::Option<
+            unsafe extern "C" fn(arg1: usize, arg2: usize) -> *mut ::core::ffi::c_void,
         >,
-        new_realloc: ::std::option::Option<
+        new_realloc: ::core::option::Option<
             unsafe extern "C" fn(
-                arg1: *mut ::std::os::raw::c_void,
+                arg1: *mut ::core::ffi::c_void,
                 arg2: usize,
-            ) -> *mut ::std::os::raw::c_void,
+            ) -> *mut ::core::ffi::c_void,
         >,
-        new_free: ::std::option::Option<unsafe extern "C" fn(arg1: *mut ::std::os::raw::c_void)>,
+        new_free: ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::core::ffi::c_void)>,
     );
 }
