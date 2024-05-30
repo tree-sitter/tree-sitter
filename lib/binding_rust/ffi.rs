@@ -9,6 +9,7 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 include!("./bindings.rs");
 
 #[cfg(any(unix, target_os = "wasi"))]
+#[cfg(feature = "std")]
 extern "C" {
     pub(crate) fn _ts_dup(fd: std::os::raw::c_int) -> std::os::raw::c_int;
 }
@@ -18,7 +19,7 @@ extern "C" {
     pub(crate) fn _ts_dup(handle: *mut std::os::raw::c_void) -> std::os::raw::c_int;
 }
 
-use std::{marker::PhantomData, mem::ManuallyDrop, ptr::NonNull, str};
+use core::{marker::PhantomData, mem::ManuallyDrop, ptr::NonNull, str};
 
 use crate::{
     Language, LookaheadIterator, Node, Parser, Query, QueryCursor, QueryError, Tree, TreeCursor,
