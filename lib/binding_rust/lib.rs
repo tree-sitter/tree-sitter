@@ -2551,10 +2551,11 @@ impl<'tree> QueryMatch<'_, 'tree> {
                         let mut text2 = text_provider.text(node2);
                         let text1 = node_text1.get_text(&mut text1);
                         let text2 = node_text2.get_text(&mut text2);
-                        if (text1 == text2) != *is_positive && *match_all_nodes {
+                        let is_positive_match = text1 == text2;
+                        if is_positive_match != *is_positive && *match_all_nodes {
                             return false;
                         }
-                        if (text1 == text2) == *is_positive && !*match_all_nodes {
+                        if is_positive_match == *is_positive && !*match_all_nodes {
                             return true;
                         }
                     }
@@ -2565,10 +2566,11 @@ impl<'tree> QueryMatch<'_, 'tree> {
                     for node in nodes {
                         let mut text = text_provider.text(node);
                         let text = node_text1.get_text(&mut text);
-                        if (text == s.as_bytes()) != *is_positive && *match_all_nodes {
+                        let is_positive_match = text == s.as_bytes();
+                        if is_positive_match != *is_positive && *match_all_nodes {
                             return false;
                         }
-                        if (text == s.as_bytes()) == *is_positive && !*match_all_nodes {
+                        if is_positive_match == *is_positive && !*match_all_nodes {
                             return true;
                         }
                     }
@@ -2579,10 +2581,11 @@ impl<'tree> QueryMatch<'_, 'tree> {
                     for node in nodes {
                         let mut text = text_provider.text(node);
                         let text = node_text1.get_text(&mut text);
-                        if (r.is_match(text)) != *is_positive && *match_all_nodes {
+                        let is_positive_match = r.is_match(text);
+                        if is_positive_match != *is_positive && *match_all_nodes {
                             return false;
                         }
-                        if (r.is_match(text)) == *is_positive && !*match_all_nodes {
+                        if is_positive_match == *is_positive && !*match_all_nodes {
                             return true;
                         }
                     }
