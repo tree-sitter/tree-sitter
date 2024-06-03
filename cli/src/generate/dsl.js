@@ -394,7 +394,12 @@ function grammar(baseGrammar, options) {
       throw new Error("Grammar's supertypes must be an array of rules.");
     }
 
-    supertypes = supertypeRules.map(symbol => symbol.name);
+    supertypes = supertypeRules.map(symbol => {
+      if (symbol.name === 'ReferenceError') {
+        throw new Error(`Supertype rule \`${symbol.symbol.name}\` is not defined.`);
+      }
+      return symbol.name;
+    });
   }
 
   let precedences = baseGrammar.precedences;
