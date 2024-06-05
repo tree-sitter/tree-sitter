@@ -115,7 +115,6 @@ impl NfaBuilder {
         match rule {
             Rule::Pattern(s, f) => {
                 let hir = Parser::new().parse(s)?;
-                dbg!(&hir);
                 self.expand_regex(&hir, next_state_id, f.contains('i'))
             }
             Rule::String(s) => {
@@ -211,17 +210,19 @@ impl NfaBuilder {
         match hir.kind() {
             HirKind::Empty => Ok(false),
             HirKind::Literal(literal) => {
-                let mut char_set = CharacterSet::default();
-                for character in std::str::from_utf8(&literal.0)?.chars() {
-                    char_set = char_set.add_char(character);
+                for character in std::str::from_utf8(&literal.0)?.chars().rev() {
+                    let mut char_set = CharacterSet::from_char(character);
+
                     if case_insensitive {
                         let inverted = inverse_char(character);
                         if character != inverted {
                             char_set = char_set.add_char(inverted);
                         }
                     }
+                    self.push_advance(char_set, next_state_id);
+                    next_state_id = self.nfa.last_state_id();
                 }
-                self.push_advance(char_set, next_state_id);
+
                 Ok(true)
             }
             HirKind::Repetition(repetition) => match (repetition.min, repetition.max) {
@@ -798,7 +799,6 @@ mod tests {
                     .collect(),
             })
             .unwrap();
-            dbg!(&rules);
             for (haystack, needle) in examples {
                 assert_eq!(simulate_nfa(&grammar, haystack), *needle);
             }
