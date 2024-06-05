@@ -142,6 +142,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [S-expressions](https://github.com/AbstractMachinesLab/tree-sitter-sexp)
 * [Smali](https://github.com/amaanq/tree-sitter-smali)
 * [Smali](https://git.sr.ht/~yotam/tree-sitter-smali)
+* [Small Basic](https://github.com/cosmos-1885/tree-sitter-smallbasic)
 * [SourcePawn](https://github.com/nilshelmig/tree-sitter-sourcepawn)
 * [SPARQL](https://github.com/BonaBeavis/tree-sitter-sparql)
 * [SQL - BigQuery](https://github.com/takegue/tree-sitter-sql-bigquery)
