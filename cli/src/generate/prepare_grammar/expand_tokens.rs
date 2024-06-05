@@ -251,7 +251,6 @@ impl NfaBuilder {
                         chars = chars.add_range(c.start(), c.end());
                     }
                     if case_insensitive {
-                        //??
                         chars = with_inverse_char(chars);
                     }
                     self.push_advance(chars, next_state_id);
