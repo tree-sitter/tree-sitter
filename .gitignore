@@ -4,6 +4,7 @@ log*.html
 *.xcodeproj
 .vscode
 .cache
+.DS_Store
 
 fuzz-results
 
