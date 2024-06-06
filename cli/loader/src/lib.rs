@@ -417,14 +417,14 @@ impl Loader {
         }
         let mut grammar_file = fs::File::open(grammar_path.clone()).with_context(|| {
             format!(
-                "Failed to read grammar.json file at the following path: {:?}",
+                "Failed to read grammar.json file at the following path:\n{:?}",
                 &grammar_path
             )
         })?;
         let grammar_json: GrammarJSON = serde_json::from_reader(BufReader::new(&mut grammar_file))
             .with_context(|| {
                 format!(
-                    "Failed to parse grammar.json file at the following path: {:?}",
+                    "Failed to parse grammar.json file at the following path:\n{:?}",
                     &grammar_path
                 )
             })?;
