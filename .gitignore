@@ -4,6 +4,7 @@ log*.html
 *.xcodeproj
 .vscode
 .cache
+.zig-cache
 
 fuzz-results
 
