@@ -41,8 +41,8 @@ strip = false
 [workspace.dependencies]
 anstyle = "1.0.7"
 anyhow = "1.0.86"
-cc = "1.0.98"
-clap = { version = "4.5.4", features = [
+cc = "1.0.99"
+clap = { version = "4.5.7", features = [
   "cargo",
   "derive",
   "env",
@@ -67,8 +67,8 @@ memchr = "2.7.2"
 once_cell = "1.19.0"
 pretty_assertions = "1.4.0"
 rand = "0.8.5"
-regex = "1.10.4"
-regex-syntax = "0.8.3"
+regex = "1.10.5"
+regex-syntax = "0.8.4"
 rustc-hash = "1.1.0"
 semver = "1.0.23"
 serde = { version = "1.0.202", features = ["derive"] }
