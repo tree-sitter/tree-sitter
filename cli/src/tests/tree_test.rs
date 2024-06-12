@@ -475,12 +475,13 @@ fn test_tree_cursor_child_for_point() {
     assert_eq!(c.node().kind(), "program");
 
     // descend to expression statement
-    assert_eq!(c.goto_first_child_for_point(Point::new(6, 6)), Some(0));
+    assert_eq!(c.goto_first_child_for_point(Point::new(6, 5)), Some(0));
     assert_eq!(c.node().kind(), "expression_statement");
 
     // step into ';' and back up
     assert_eq!(c.goto_first_child_for_point(Point::new(7, 0)), None);
-    assert_eq!(c.goto_first_child_for_point(Point::new(6, 6)), Some(1));
+    assert_eq!(c.goto_first_child_for_point(Point::new(6, 6)), None);
+    assert_eq!(c.goto_first_child_for_point(Point::new(6, 5)), Some(1));
     assert_eq!(
         (c.node().kind(), c.node().start_position()),
         (";", Point::new(6, 5))
@@ -517,7 +518,7 @@ fn test_tree_cursor_child_for_point() {
     assert!(c.goto_parent());
 
     // step into first ',' and back up
-    assert_eq!(c.goto_first_child_for_point(Point::new(1, 12)), Some(2));
+    assert_eq!(c.goto_first_child_for_point(Point::new(1, 11)), Some(2));
     assert_eq!(
         (c.node().kind(), c.node().start_position()),
         (",", Point::new(1, 11))
