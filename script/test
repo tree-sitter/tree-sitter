@@ -3,7 +3,7 @@
 set -e
 
 function usage {
-  cat <<-EOF
+  cat <<EOF
 USAGE
 
   $0 [-adDg] [-s SEED] [-l LANGUAGE] [-e EXAMPLE]
@@ -32,7 +32,7 @@ EOF
 export RUST_BACKTRACE=full
 
 mode=normal
-test_flags=""
+test_flags=()
 
 while getopts "adDghl:e:s:i:" option; do
   case ${option} in
@@ -41,7 +41,7 @@ while getopts "adDghl:e:s:i:" option; do
       exit
       ;;
     a)
-      export CFLAGS="-fsanitize=undefined,address"
+      export CFLAGS=-fsanitize=undefined,address
 
       # When the Tree-sitter C library is compiled with the address sanitizer, the address sanitizer
       # runtime library needs to be linked into the final test executable. When using Xcode clang,
@@ -58,10 +58,10 @@ while getopts "adDghl:e:s:i:" option; do
         release=${BASH_REMATCH[1]}
         current_target=${BASH_REMATCH[2]}
       else
-        echo "Failed to parse toolchain '${toolchain}'"
+        printf "Failed to parse toolchain '%s'\n" "$toolchain" >&2
       fi
 
-      test_flags+=" --target ${current_target}"
+      test_flags+=("--target=$current_target")
       ;;
     e)
       export TREE_SITTER_EXAMPLE=${OPTARG}
@@ -81,17 +81,21 @@ while getopts "adDghl:e:s:i:" option; do
     g)
       mode=debug
       ;;
+    *)
+      usage
+      exit 1
+      ;;
   esac
 done
 
-shift $(expr $OPTIND - 1)
+shift $((OPTIND - 1))
 
-if [[ "${mode}" == "debug" ]]; then
+if [[ ${mode} == debug ]]; then
   test_binary=$(
-    cargo test $test_flags --no-run --message-format=json 2> /dev/null |\
+    cargo test "${test_flags[@]}" --no-run --message-format=json 2> /dev/null |
     jq -rs 'map(select(.target.name == "tree-sitter-cli" and .executable))[0].executable'
   )
-  lldb "${test_binary}" -- $1
+  lldb "${test_binary}" -- "$1"
 else
-  cargo test $test_flags $1 -- --nocapture
+  cargo test "${test_flags[@]}" "$1" -- --nocapture
 fi

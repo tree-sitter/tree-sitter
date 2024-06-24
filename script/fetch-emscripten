@@ -1,32 +1,26 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 
-EMSCRIPTEN_VERSION=$(cat "$(dirname "$0")/../cli/loader/emscripten-version")
+EMSDK_DIR=target/emsdk
+EMSCRIPTEN_VERSION=$(< cli/loader/emscripten-version)
 
-mkdir -p target
-EMSDK_DIR="./target/emsdk"
-
-(
-  if [ ! -f "$EMSDK_DIR/emsdk" ]; then
-    echo 'Downloading emscripten SDK...'
+{
+  if [[ ! -f $EMSDK_DIR/emsdk ]]; then
+    printf 'Downloading emscripten SDK...\n'
     git clone https://github.com/emscripten-core/emsdk.git $EMSDK_DIR
   fi
 
   cd $EMSDK_DIR
 
-  echo 'Updating emscripten SDK...'
+  printf 'Updating emscripten SDK...\n'
   git reset --hard
   git pull
   ./emsdk list
 
-  echo 'Installing emscripten...'
-  ./emsdk install $EMSCRIPTEN_VERSION
+  printf 'Installing emscripten...\n'
+  ./emsdk install "$EMSCRIPTEN_VERSION"
 
-  echo 'Activating emscripten...'
-  ./emsdk activate $EMSCRIPTEN_VERSION
-) >&2
-
-(
-  echo "source \"$EMSDK_DIR/emsdk_env.sh\""
-)
+  printf 'Activating emscripten...\n'
+  ./emsdk activate "$EMSCRIPTEN_VERSION"
+} >&2

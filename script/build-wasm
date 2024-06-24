@@ -29,18 +29,19 @@ EOF
 
 set -e
 
-web_dir=lib/binding_web
-src_dir=lib/src
-emscripten_flags="-O3"
+WEB_DIR=lib/binding_web
+SRC_DIR=lib/src
+EMSCRIPTEN_VERSION=$(< cli/loader/emscripten-version)
+
 minify_js=1
 force_docker=0
-emscripen_version=$(cat "$(dirname "$0")"/../cli/loader/emscripten-version)
+emscripten_flags=(-O3)
 
-while [[ $# > 0 ]]; do
+while (($# > 0)); do
   case "$1" in
     --debug)
       minify_js=0
-      emscripten_flags="-s ASSERTIONS=1 -s SAFE_HEAP=1 -O0"
+      emscripten_flags=(-s ASSERTIONS=1 -s SAFE_HEAP=1 -O0)
       ;;
 
     --help)
@@ -53,59 +54,60 @@ while [[ $# > 0 ]]; do
       ;;
 
     -v|--verbose)
-      emscripten_flags="-s VERBOSE=1 -v $emscripten_flags"
+      emscripten_flags+=(-s VERBOSE=1 -v)
       ;;
 
     *)
       usage
-      echo "Unrecognized argument '$1'"
+      printf "Unrecognized argument '%s'\n" "$1" >&2
       exit 1
       ;;
   esac
   shift
 done
 
-emcc=""
-docker=""
-if which emcc > /dev/null && [[ "$force_docker" == "0" ]]; then
+emcc=
+docker=
+if [[ $force_docker == 0 ]] && command -v emcc > /dev/null; then
   emcc=emcc
-elif which docker > /dev/null; then
+elif command -v docker > /dev/null; then
   # detect which one to use
   docker=docker
-elif which podman > /dev/null; then
+elif command -v podman > /dev/null; then
   docker=podman
 fi
 
-if [ -z "$emcc" ] && [ -n "$docker" ]; then
-  export PODMAN_USERNS=keep-id
-  emcc="$docker run                      \
-    --rm                                 \
-    -v $(pwd):/src:Z                     \
-    -u $(id -u)                          \
-    emscripten/emsdk:$emscripen_version  \
+if [[ -z $emcc ]] && [[ -n $docker ]]; then
+  if [[ $docker == podman ]]; then
+    export PODMAN_USERNS=keep-id
+  fi
+  emcc="$docker run                       \
+    --rm                                  \
+    -v $PWD:/src:Z                        \
+    -u $UID                               \
+    emscripten/emsdk:$EMSCRIPTEN_VERSION  \
     emcc"
 fi
 
-if [ -z "$emcc" ]; then
-  if [[ "$force_docker" == "1" ]]; then
-    echo 'You must have `docker` or `podman` on your PATH to run this script with --docker'
+if [[ -z $emcc ]]; then
+  if [[ $force_docker == 1 ]]; then
+    # shellcheck disable=SC2016
+    printf 'You must have `docker` or `podman` in your PATH to run this script with --docker\n' >&2
   else
-    echo 'You must have either `docker`, `podman`, or `emcc` on your PATH to run this script'
+    # shellcheck disable=SC2016
+    printf 'You must have either `docker`, `podman`, or `emcc` in your PATH to run this script\n' >&2
   fi
   exit 1
 fi
 
 mkdir -p target/scratch
 
-runtime_methods='stringToUTF16','AsciiToString'
+runtime_methods=stringToUTF16,AsciiToString
 
 # Remove quotes, add leading underscores, remove newlines, remove trailing comma.
-EXPORTED_FUNCTIONS=$(                                                \
-    cat ${src_dir}/wasm/stdlib-symbols.txt ${web_dir}/exports.txt  | \
-    sed -e 's/"//g'                                                | \
-    sed -e 's/^/_/g'                                               | \
-    tr -d '\n"'                                                    | \
-    sed -e 's/,$//'                                                  \
+exported_functions=$(
+    cat ${SRC_DIR}/wasm/stdlib-symbols.txt ${WEB_DIR}/exports.txt |
+    sed -e 's/"//g;s/^/_/g' | tr -d '\n' | sed -e 's/,$//'
 )
 
 # Use emscripten to generate `tree-sitter.js` and `tree-sitter.wasm`
@@ -118,40 +120,37 @@ $emcc                                            \
   -s FILESYSTEM=0                                \
   -s NODEJS_CATCH_EXIT=0                         \
   -s NODEJS_CATCH_REJECTION=0                    \
-  -s EXPORTED_FUNCTIONS=${EXPORTED_FUNCTIONS} \
+  -s EXPORTED_FUNCTIONS="${exported_functions}"  \
   -s EXPORTED_RUNTIME_METHODS=$runtime_methods   \
-  $emscripten_flags                              \
+  "${emscripten_flags[@]}"                       \
   -fno-exceptions                                \
   -std=c11                                       \
   -D 'fprintf(...)='                             \
   -D NDEBUG=                                     \
-  -I ${src_dir}                                  \
+  -I ${SRC_DIR}                                  \
   -I lib/include                                 \
-  --js-library ${web_dir}/imports.js             \
-  --pre-js ${web_dir}/prefix.js                  \
-  --post-js ${web_dir}/binding.js                \
-  --post-js ${web_dir}/suffix.js                 \
+  --js-library ${WEB_DIR}/imports.js             \
+  --pre-js ${WEB_DIR}/prefix.js                  \
+  --post-js ${WEB_DIR}/binding.js                \
+  --post-js ${WEB_DIR}/suffix.js                 \
   lib/src/lib.c                                  \
-  ${web_dir}/binding.c                           \
+  ${WEB_DIR}/binding.c                           \
   -o target/scratch/tree-sitter.js
 
 # Use terser to write a minified version of `tree-sitter.js` into
 # the `lib/binding_web` directory.
-if [[ "$minify_js" == "1" ]]; then
-  if [ ! -d ${web_dir}/node_modules/terser ]; then
-    (
-      cd ${web_dir}
-      npm install
-    )
+if [[ $minify_js == 1 ]]; then
+  if [[ ! -d ${WEB_DIR}/node_modules/terser ]]; then
+    (cd ${WEB_DIR} && npm install)
   fi
-  ${web_dir}/node_modules/.bin/terser   \
-    --compress                       \
-    --mangle                         \
-    --keep-classnames                \
-    -- target/scratch/tree-sitter.js \
-    > ${web_dir}/tree-sitter.js
+  ${WEB_DIR}/node_modules/.bin/terser   \
+    --compress                          \
+    --mangle                            \
+    --keep-classnames                   \
+    -- target/scratch/tree-sitter.js    \
+    > ${WEB_DIR}/tree-sitter.js
 else
-  cp target/scratch/tree-sitter.js ${web_dir}/tree-sitter.js
+  cp target/scratch/tree-sitter.js ${WEB_DIR}/tree-sitter.js
 fi
 
-mv target/scratch/tree-sitter.wasm ${web_dir}/tree-sitter.wasm
+mv target/scratch/tree-sitter.wasm ${WEB_DIR}/tree-sitter.wasm
