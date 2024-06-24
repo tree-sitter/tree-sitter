@@ -41,7 +41,7 @@ strip = false
 [workspace.dependencies]
 anstyle = "1.0.7"
 anyhow = "1.0.86"
-cc = "1.0.99"
+cc = "1.0.100"
 clap = { version = "4.5.7", features = [
   "cargo",
   "derive",
@@ -53,17 +53,17 @@ ctor = "0.2.8"
 ctrlc = { version = "3.4.4", features = ["termination"] }
 dirs = "5.0.1"
 filetime = "0.2.23"
-fs4 = "0.8.3"
+fs4 = "0.8.4"
 git2 = "0.18.3"
 glob = "0.3.1"
 heck = "0.5.0"
 html-escape = "0.2.13"
 indexmap = "2.2.6"
 indoc = "2.0.5"
-lazy_static = "1.4.0"
-libloading = "0.8.3"
+lazy_static = "1.5.0"
+libloading = "0.8.4"
 log = { version = "0.4.21", features = ["std"] }
-memchr = "2.7.2"
+memchr = "2.7.4"
 once_cell = "1.19.0"
 pretty_assertions = "1.4.0"
 rand = "0.8.5"
