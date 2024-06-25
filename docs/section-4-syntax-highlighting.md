@@ -445,7 +445,7 @@ var abc = function(d) {
   }
 
   baz();
-  ^ !variable
+  // <- !variable
 };
 ```
 
