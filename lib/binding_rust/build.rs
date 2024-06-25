@@ -37,9 +37,11 @@ fn main() {
         .flag_if_supported("-fvisibility=hidden")
         .flag_if_supported("-Wshadow")
         .flag_if_supported("-Wno-unused-parameter")
+        .flag_if_supported("-Wno-incompatible-pointer-types")
         .include(&src_path)
         .include(&wasm_path)
         .include(&include_path)
+        .warnings(false)
         .file(src_path.join("lib.c"))
         .compile("tree-sitter");
 
@@ -47,7 +49,7 @@ fn main() {
 }
 
 #[cfg(feature = "bindgen")]
-fn generate_bindings(out_dir: &Path) {
+fn generate_bindings(out_dir: &std::path::Path) {
     const HEADER_PATH: &str = "include/tree_sitter/api.h";
 
     println!("cargo:rerun-if-changed={HEADER_PATH}");
@@ -74,6 +76,7 @@ fn generate_bindings(out_dir: &Path) {
         .allowlist_var("^TREE_SITTER.*")
         .no_copy(no_copy.join("|"))
         .prepend_enum_name(false)
+        .use_core()
         .generate()
         .expect("Failed to generate bindings");
 

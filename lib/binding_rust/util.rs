@@ -1,4 +1,4 @@
-use std::os::raw::c_void;
+use core::ffi::c_void;
 
 use super::FREE_FN;
 

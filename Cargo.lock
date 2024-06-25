@@ -1561,6 +1561,7 @@ dependencies = [
  "bindgen",
  "cc",
  "regex",
+ "regex-syntax",
  "tree-sitter-language",
  "wasmtime-c-api-impl",
 ]
