@@ -122,6 +122,8 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [PHP](https://github.com/tree-sitter/tree-sitter-php)
 * [Portable Game Notation](https://github.com/rolandwalker/tree-sitter-pgn)
 * [PowerShell](https://github.com/airbus-cert/tree-sitter-powershell)
+* [Prolog](https://codeberg.org/foxy/tree-sitter-prolog)
+* [ProbLog](https://codeberg.org/foxy/tree-sitter-problog)
 * [Protocol Buffers](https://github.com/mitchellh/tree-sitter-proto)
 * [Python](https://github.com/tree-sitter/tree-sitter-python)
 * [QML](https://github.com/yuja/tree-sitter-qmljs)
