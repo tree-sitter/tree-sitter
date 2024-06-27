@@ -65,6 +65,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Eno](https://github.com/eno-lang/tree-sitter-eno)
 * [ERB / EJS](https://github.com/tree-sitter/tree-sitter-embedded-template)
 * [Erlang](https://github.com/WhatsApp/tree-sitter-erlang/)
+* [F#](https://github.com/ionide/tree-sitter-fsharp)
 * [Fennel](https://github.com/travonted/tree-sitter-fennel)
 * [Fish](https://github.com/ram02z/tree-sitter-fish)
 * [Formula](https://github.com/siraben/tree-sitter-formula)
