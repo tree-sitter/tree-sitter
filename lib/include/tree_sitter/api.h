@@ -682,7 +682,8 @@ TSTreeCursor ts_tree_cursor_new(TSNode node);
 void ts_tree_cursor_delete(TSTreeCursor *self);
 
 /**
- * Re-initialize a tree cursor to start at a different node.
+ * Re-initialize a tree cursor to start at the original node that the cursor was
+ * constructed with.
  */
 void ts_tree_cursor_reset(TSTreeCursor *self, TSNode node);
 
