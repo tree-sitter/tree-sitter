@@ -5171,3 +5171,29 @@ fn test_query_compiler_oob_access() {
     // UBSAN should not report any OOB access
     assert!(Query::new(&language, "(package_declaration _ (_) @name _)").is_ok());
 }
+
+// test for https://github.com/tree-sitter/tree-sitter/issues/2869
+#[test]
+fn test_query_first_immediate_pattern_map() {
+    let language = get_language("javascript");
+    
+    let source = "function name(one, two, three) { }";
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
+    let tree = parser.parse(source, None).unwrap();
+
+    let query = Query::new(
+        &language,
+        "(_ . (identifier) @firstChild)",
+    )
+    .unwrap();
+
+    let mut cursor = QueryCursor::new();
+    let matches = cursor.matches(&query, tree.root_node(), source.as_bytes());
+    let matches = collect_matches(matches, &query, source);
+
+    assert_eq!(matches, &[
+        (0, vec![("firstChild", "name")]),
+        (0, vec![("firstChild", "one")]),
+    ]);
+}
