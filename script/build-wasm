@@ -31,16 +31,16 @@ set -e
 
 web_dir=lib/binding_web
 src_dir=lib/src
-emscripten_flags="-O3"
-minify_js=1
+emscripten_flags="-O3 --minify 0"
+debug=0
 force_docker=0
 emscripen_version=$(cat "$(dirname "$0")"/../cli/loader/emscripten-version)
 
 while [[ $# > 0 ]]; do
   case "$1" in
     --debug)
-      minify_js=0
-      emscripten_flags="-s ASSERTIONS=1 -s SAFE_HEAP=1 -O0"
+      emscripten_flags="-s ASSERTIONS=1 -s SAFE_HEAP=1 -O0 -g -gsource-map"
+      debug=1
       ;;
 
     --help)
@@ -118,7 +118,7 @@ $emcc                                            \
   -s FILESYSTEM=0                                \
   -s NODEJS_CATCH_EXIT=0                         \
   -s NODEJS_CATCH_REJECTION=0                    \
-  -s EXPORTED_FUNCTIONS=${EXPORTED_FUNCTIONS} \
+  -s EXPORTED_FUNCTIONS=${EXPORTED_FUNCTIONS}    \
   -s EXPORTED_RUNTIME_METHODS=$runtime_methods   \
   $emscripten_flags                              \
   -fno-exceptions                                \
@@ -135,23 +135,10 @@ $emcc                                            \
   ${web_dir}/binding.c                           \
   -o target/scratch/tree-sitter.js
 
-# Use terser to write a minified version of `tree-sitter.js` into
-# the `lib/binding_web` directory.
-if [[ "$minify_js" == "1" ]]; then
-  if [ ! -d ${web_dir}/node_modules/terser ]; then
-    (
-      cd ${web_dir}
-      npm install
-    )
-  fi
-  ${web_dir}/node_modules/.bin/terser   \
-    --compress                       \
-    --mangle                         \
-    --keep-classnames                \
-    -- target/scratch/tree-sitter.js \
-    > ${web_dir}/tree-sitter.js
-else
-  cp target/scratch/tree-sitter.js ${web_dir}/tree-sitter.js
-fi
-
+mv target/scratch/tree-sitter.js ${web_dir}/tree-sitter.js
 mv target/scratch/tree-sitter.wasm ${web_dir}/tree-sitter.wasm
+if [[ "$debug" == "1" ]]; then
+  mv target/scratch/tree-sitter.wasm.map ${web_dir}/tree-sitter.wasm.map
+  # For source maps
+  rsync -Rr lib ${web_dir}/
+fi
