@@ -2740,7 +2740,7 @@ TSQuery *ts_query_new(
       // there is a parent node, and capture it if necessary.
       if (step->symbol == WILDCARD_SYMBOL && step->depth == 0 && !step->field) {
         QueryStep *second_step = &self->steps.contents[start_step_index + 1];
-        if (second_step->symbol != WILDCARD_SYMBOL && second_step->depth == 1) {
+        if (second_step->symbol != WILDCARD_SYMBOL && second_step->depth == 1 && !second_step->is_immediate) {
           wildcard_root_alternative_index = step->alternative_index;
           start_step_index += 1;
           step = second_step;
