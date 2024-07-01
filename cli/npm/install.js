@@ -101,12 +101,23 @@ function get(url, callback) {
   const requestPort = requestUrl.port || (requestUrl.protocol === 'https:' ? 443 : 80);
   const proxyUrl = new URL(proxyEnv);
   const request = proxyUrl.protocol === 'https:' ? https : http;
-  request.request({
+  const requestOption = {
     host: proxyUrl.hostname,
     port: proxyUrl.port || (proxyUrl.protocol === 'https:' ? 443 : 80),
     method: 'CONNECT',
     path: `${requestUrl.hostname}:${requestPort}`,
-  }).on('connect', (response, socket, _head) => {
+  };
+  if (proxyUrl.username || proxyUrl.password) {
+    const auth = `${decodeURIComponent(
+      proxyUrl.username
+    )}:${decodeURIComponent(proxyUrl.password)}`;
+    requestOption.headers = {
+      'Proxy-Authorization': `Basic ${Buffer.from(
+        auth
+      ).toString('base64')}`,
+    }
+  }
+  request.request(requestOption).on('connect', (response, socket, _head) => {
     if (response.statusCode !== 200) {
       // let caller handle error
       callback(response);
