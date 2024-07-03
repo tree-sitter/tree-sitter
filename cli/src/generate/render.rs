@@ -1,7 +1,7 @@
 use std::{
     cmp,
     collections::{HashMap, HashSet},
-    fmt::Write,
+    io::Write,
     mem::swap,
 };
 
@@ -9,6 +9,7 @@ use super::{
     build_tables::Tables,
     grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType},
     nfa::CharacterSet,
+    render_buffer::RenderBuffer,
     rules::{Alias, AliasMap, Symbol, SymbolType},
     tables::{
         AdvanceAction, FieldLocation, GotoAction, LexState, LexTable, ParseAction, ParseTable,
@@ -21,44 +22,52 @@ const ABI_VERSION_MIN: usize = 13;
 const ABI_VERSION_MAX: usize = tree_sitter::LANGUAGE_VERSION;
 const ABI_VERSION_WITH_PRIMARY_STATES: usize = 14;
 
+#[macro_export]
 macro_rules! add {
     ($this: tt, $($arg: tt)*) => {{
         $this.buffer.write_fmt(format_args!($($arg)*)).unwrap();
     }}
 }
 
+#[macro_export]
 macro_rules! add_whitespace {
     ($this:tt) => {{
-        for _ in 0..$this.indent_level {
-            write!(&mut $this.buffer, "  ").unwrap();
-        }
+        $this.buffer.add_whitespace();
     }};
 }
 
-macro_rules! add_line {
-    ($this: tt, $($arg: tt)*) => {
-        add_whitespace!($this);
-        $this.buffer.write_fmt(format_args!($($arg)*)).unwrap();
-        $this.buffer += "\n";
-    }
+#[macro_export]
+macro_rules! add_newline {
+    ($this:tt) => {{
+        $this.buffer.add_newline();
+    }};
 }
 
+#[macro_export]
+macro_rules! add_line {
+    ($this: tt, $($arg: tt)*) => {{
+        $this.buffer.add_whitespace();
+        $this.buffer.write_fmt(format_args!($($arg)*)).unwrap();
+        $this.buffer.add_newline();
+    }}
+}
+
+#[macro_export]
 macro_rules! indent {
     ($this:tt) => {
-        $this.indent_level += 1;
+        $this.buffer.indent(1);
     };
 }
 
+#[macro_export]
 macro_rules! dedent {
     ($this:tt) => {
-        assert_ne!($this.indent_level, 0);
-        $this.indent_level -= 1;
+        $this.buffer.dedent(1);
     };
 }
 
 struct Generator {
-    buffer: String,
-    indent_level: usize,
+    buffer: RenderBuffer,
     language_name: String,
     parse_table: ParseTable,
     main_lex_table: LexTable,
@@ -113,8 +122,11 @@ impl Generator {
             self.add_primary_state_id_list();
         }
 
-        let buffer_offset_before_lex_functions = self.buffer.len();
-
+        // The required large character sets are determined through
+        // generation of the lex functions. Isolate the text of the
+        // lex functions so that it can be placed after the text of
+        // the larget character sets.
+        let prefix_text = self.buffer.get_text();
         let mut main_lex_table = LexTable::default();
         swap(&mut main_lex_table, &mut self.main_lex_table);
         self.add_lex_function("ts_lex", main_lex_table);
@@ -124,16 +136,15 @@ impl Generator {
             swap(&mut keyword_lex_table, &mut self.keyword_lex_table);
             self.add_lex_function("ts_lex_keywords", keyword_lex_table);
         }
+        let lex_functions_text = self.buffer.swap_text(prefix_text);
 
         // Once the lex functions are generated, and we've determined which large
         // character sets are actually used, we can generate the large character set
-        // constants. Insert them into the output buffer before the lex functions.
-        let lex_functions = self.buffer[buffer_offset_before_lex_functions..].to_string();
-        self.buffer.truncate(buffer_offset_before_lex_functions);
+        // constants and append the lex functions text.
         for ix in 0..self.large_character_sets.len() {
             self.add_character_set(ix);
         }
-        self.buffer.push_str(&lex_functions);
+        self.buffer.append(lex_functions_text);
 
         self.add_lex_modes_list();
         self.add_parse_table();
@@ -146,7 +157,7 @@ impl Generator {
 
         self.add_parser_export();
 
-        self.buffer
+        self.buffer.get_text()
     }
 
     fn init(&mut self) {
@@ -828,7 +839,7 @@ impl Generator {
             }
 
             let mut line_break = "\n".to_string();
-            for _ in 0..self.indent_level + 2 {
+            for _ in 0..self.buffer.indent_level + 2 {
                 line_break.push_str("  ");
             }
 
@@ -1706,8 +1717,7 @@ pub fn render_c_code(
     );
 
     Generator {
-        buffer: String::new(),
-        indent_level: 0,
+        buffer: RenderBuffer::new(2),
         language_name: name.to_string(),
         large_state_count: 0,
         parse_table: tables.parse_table,
