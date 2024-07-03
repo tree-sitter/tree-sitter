@@ -5,6 +5,7 @@ log*.html
 .vscode
 .cache
 .zig-cache
+.DS_Store
 
 fuzz-results
 
