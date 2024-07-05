@@ -7,7 +7,8 @@ use super::{
     build_tables::Tables,
     grammars::{ExternalToken, LexicalGrammar, SyntaxGrammar, VariableType},
     nfa::CharacterSet,
-    render_target_c::RenderTargetC,
+    render_context::RenderContext,
+    render_target::RenderTarget,
     rules::{Alias, AliasMap, Symbol, SymbolType},
     tables::{
         FieldLocation, GotoAction, LexState, LexTable, ParseTable, ParseTableEntry,
@@ -43,7 +44,7 @@ pub struct Generator {
 }
 
 impl Generator {
-    pub fn generate(&self, target: &mut RenderTargetC) {
+    pub fn generate(&self, target: &mut Box<dyn RenderTarget>) {
         target.begin_language(self);
 
         self.add_symbol_enum(target);
@@ -71,13 +72,13 @@ impl Generator {
         // generation of the lex functions. Isolate the text of the
         // lex functions so that it can be placed after the text of
         // the larget character sets.
-        let prefix_text = target.buffer.get_text();
+        let prefix_text = target.buffer_ref().get_text();
         let mut used_large_set_indices : HashSet<usize> = HashSet::new();
         self.add_lex_function(target, "ts_lex", &self.main_lex_table, &mut used_large_set_indices);
         if self.keyword_capture_token.is_some() {
             self.add_lex_function(target, "ts_lex_keywords", &self.keyword_lex_table, &mut used_large_set_indices);
         }
-        let lex_functions_text = target.buffer.swap_text(prefix_text);
+        let lex_functions_text = target.buffer_ref().swap_text(prefix_text);
 
         // Once the lex functions are generated, and we've determined which large
         // character sets are actually used, we can generate the large character set
@@ -88,7 +89,7 @@ impl Generator {
                 &self.large_character_sets[ix].1
             );
         }
-        target.buffer.append(lex_functions_text);
+        target.buffer_ref().append(lex_functions_text);
 
         self.add_lex_modes_list(target);
         self.add_parse_table(target);
@@ -234,7 +235,7 @@ impl Generator {
         }
     }
 
-    fn add_symbol_enum(&self, target: &mut RenderTargetC) {
+    fn add_symbol_enum(&self, target: &mut Box<dyn RenderTarget>) {
         target.begin_symbol_enum();
         let mut i = 1;
         for symbol in &self.parse_table.symbols {
@@ -250,7 +251,7 @@ impl Generator {
         target.end_symbol_enum();
     }
 
-    fn add_symbol_names_list(&self, target: &mut RenderTargetC) {
+    fn add_symbol_names_list(&self, target: &mut Box<dyn RenderTarget>) {
         target.begin_symbol_names_list();
         for symbol in &self.parse_table.symbols {
             let text = self.sanitize_string(
@@ -268,7 +269,7 @@ impl Generator {
         target.end_symbol_names_list();
     }
 
-    fn add_unique_symbol_map(&self, target: &mut RenderTargetC) {
+    fn add_unique_symbol_map(&self, target: &mut Box<dyn RenderTarget>) {
         target.begin_symbol_map();
         for symbol in &self.parse_table.symbols {
             target.add_symbol_map_item(&self.symbol_ids[symbol], &self.symbol_ids[&self.symbol_map[symbol]]);
@@ -279,7 +280,7 @@ impl Generator {
         target.end_symbol_map();
     }
 
-    fn add_field_name_enum(&self, target: &mut RenderTargetC) {
+    fn add_field_name_enum(&self, target: &mut Box<dyn RenderTarget>) {
         target.begin_field_enum();
         for (i, field_name) in self.field_names.iter().enumerate() {
             target.add_field_enum_item(&self.field_id(field_name), i + 1);
@@ -287,7 +288,7 @@ impl Generator {
         target.end_field_enum();
     }
 
-    fn add_field_name_names_list(&self, target: &mut RenderTargetC) {
+    fn add_field_name_names_list(&self, target: &mut Box<dyn RenderTarget>) {
         target.begin_field_names();
         for field_name in &self.field_names {
             target.add_field_name_item(&self.field_id(field_name), field_name)
@@ -295,7 +296,7 @@ impl Generator {
         target.end_field_names();
     }
 
-    fn add_symbol_metadata_list(&self, target: &mut RenderTargetC) {
+    fn add_symbol_metadata_list(&self, target: &mut Box<dyn RenderTarget>) {
         target.begin_symbol_metadata();
         for symbol in &self.parse_table.symbols {
             let (visible, named, supertype) = if let Some(Alias { is_named, .. }) = self.default_aliases.get(symbol) {
@@ -316,7 +317,7 @@ impl Generator {
         target.end_symbol_metadata();
     }
 
-    fn add_alias_sequences(&self, target: &mut RenderTargetC) {
+    fn add_alias_sequences(&self, target: &mut Box<dyn RenderTarget>) {
         target.begin_alias_sequences();
         for (i, production_info) in self.parse_table.production_infos.iter().enumerate() {
             let alias_ids = production_info.alias_sequence.iter().map(
@@ -327,7 +328,7 @@ impl Generator {
         target.end_alias_sequences();
     }
 
-    fn add_non_terminal_alias_map(&self, target: &mut RenderTargetC) {
+    fn add_non_terminal_alias_map(&self, target: &mut Box<dyn RenderTarget>) {
         let alias_ids_by_symbol = self.get_symbol_and_alias_list_pairs();
         target.begin_non_terminal_alias_map();
         for (symbol, alias_ids) in alias_ids_by_symbol {
@@ -339,7 +340,7 @@ impl Generator {
     }
 
     /// Produces a list of the "primary state" for every state in the grammar.
-    fn add_primary_state_id_list(&self, target: &mut RenderTargetC) {
+    fn add_primary_state_id_list(&self, target: &mut Box<dyn RenderTarget>) {
         target.begin_primary_state_ids();
         let first_state_for_each_core_id: HashMap<usize, usize> = self.get_first_state_for_each_core_id();
         for (idx, state) in self.parse_table.states.iter().enumerate() {
@@ -348,7 +349,7 @@ impl Generator {
         target.end_primary_state_ids();
     }
 
-    fn add_field_sequences(&self, target: &mut RenderTargetC) {
+    fn add_field_sequences(&self, target: &mut Box<dyn RenderTarget>) {
         let (field_map_ids, flat_field_maps) = self.get_field_info();
 
         target.begin_field_map_slices();
@@ -366,7 +367,7 @@ impl Generator {
         target.end_field_map_entries();
     }
 
-    pub fn add_lex_function(&self, target: &mut RenderTargetC, name: &str, lex_table: &LexTable, used_large_set_indices: &mut HashSet<usize>) {
+    pub fn add_lex_function(&self, target: &mut Box<dyn RenderTarget>, name: &str, lex_table: &LexTable, used_large_set_indices: &mut HashSet<usize>) {
         target.begin_lex_function(name);
         for (i, state) in lex_table.states.iter().enumerate() {
             target.begin_lex_function_case(i);
@@ -480,7 +481,7 @@ impl Generator {
         target.end_lex_function();
     }
 
-    fn add_character_set(&self, target: &mut RenderTargetC, name: &str, characters: &CharacterSet) {
+    fn add_character_set(&self, target: &mut Box<dyn RenderTarget>, name: &str, characters: &CharacterSet) {
         target.begin_character_set(name);
         let mut ix : usize = 0;
         for range in characters.ranges() {
@@ -490,7 +491,7 @@ impl Generator {
         target.end_character_set(ix);
     }
 
-    fn add_lex_modes_list(&self, target: &mut RenderTargetC) {
+    fn add_lex_modes_list(&self, target: &mut Box<dyn RenderTarget>) {
         target.begin_lex_modes();
         for (i, state) in self.parse_table.states.iter().enumerate() {
             target.add_lex_modes_item(i, state);
@@ -498,7 +499,7 @@ impl Generator {
         target.end_lex_modes();
     }
 
-    fn add_external_token_enum(&self, target: &mut RenderTargetC) {
+    fn add_external_token_enum(&self, target: &mut Box<dyn RenderTarget>) {
         target.begin_external_token_enum();
         for i in 0..self.syntax_grammar.external_tokens.len() {
             target.add_external_token_enum_item(&self.external_token_id(&self.syntax_grammar.external_tokens[i]), i);
@@ -506,7 +507,7 @@ impl Generator {
         target.end_external_token_enum();
     }
 
-    fn add_external_scanner_symbol_map(&self, target: &mut RenderTargetC) {
+    fn add_external_scanner_symbol_map(&self, target: &mut Box<dyn RenderTarget>) {
         target.begin_external_scanner_symbol_map();
         for i in 0..self.syntax_grammar.external_tokens.len() {
             let token = &self.syntax_grammar.external_tokens[i];
@@ -518,7 +519,7 @@ impl Generator {
         target.end_external_scanner_symbol_map();
     }
 
-    fn add_external_scanner_states_list(&self, target: &mut RenderTargetC) {
+    fn add_external_scanner_states_list(&self, target: &mut Box<dyn RenderTarget>) {
         target.begin_external_scanner_states(self.parse_table.external_lex_states.len());
         for i in 0..self.parse_table.external_lex_states.len() {
             if !self.parse_table.external_lex_states[i].is_empty() {
@@ -531,7 +532,7 @@ impl Generator {
         target.end_external_scanner_states();
     }
 
-    fn add_parse_table(&self, target: &mut RenderTargetC) {
+    fn add_parse_table(&self, target: &mut Box<dyn RenderTarget>) {
         let mut parse_table_entries = HashMap::new();
         let mut next_parse_action_list_index = 0;
 
@@ -672,7 +673,7 @@ impl Generator {
         self.add_parse_action_list(target, parse_table_entries);
     }
 
-    fn add_parse_action_list(&self, target: &mut RenderTargetC, parse_table_entries: Vec<(usize, ParseTableEntry)>) {
+    fn add_parse_action_list(&self, target: &mut Box<dyn RenderTarget>, parse_table_entries: Vec<(usize, ParseTableEntry)>) {
         target.begin_parse_actions();
         for (i, entry) in parse_table_entries {
             target.begin_parse_actions_entry(i, entry.actions.len(), entry.reusable);
@@ -983,9 +984,32 @@ impl Generator {
     }
 }
 
-// For use by RenderTarget...
-impl Generator {
-    pub fn get_token_count(&self) -> usize {
+impl RenderContext for Generator {
+    fn get_language_name(&self) -> &str {
+        self.language_name.as_ref()
+    }
+
+    fn get_abi_version(&self) -> usize {
+        self.abi_version
+    }
+
+    fn get_state_count(&self) -> usize {
+        self.parse_table.states.len()
+    }
+
+    fn get_large_state_count(&self) -> usize {
+        self.large_state_count
+    }
+
+    fn get_symbol_count(&self) -> usize {
+        self.parse_table.symbols.len()
+    }
+
+    fn get_alias_count(&self) -> usize {
+        self.unique_aliases.len()
+    }
+
+    fn get_token_count(&self) -> usize {
         self.parse_table
         .symbols
         .iter()
@@ -1003,10 +1027,35 @@ impl Generator {
         .count()
     }
 
-    pub fn get_external_token_id(&self, index: usize) -> String {
+    fn get_external_token_count(&self) -> usize {
+        self.syntax_grammar.external_tokens.len()
+    }
+
+    fn get_field_count(&self) -> usize {
+        self.field_names.len()
+    }
+
+    fn get_max_alias_sequence_length(&self) -> usize {
+        self.parse_table.max_aliased_production_length
+    }
+
+    fn get_production_id_count(&self) -> usize {
+        self.parse_table.production_infos.len()
+    }
+
+    fn get_main_lex_table_state_count(&self) -> usize {
+        self.main_lex_table.states.len()
+    }
+
+    fn get_keyword_capture_token_id(&self) -> Option<String> {
+        self.keyword_capture_token.map(|t| self.symbol_ids[&t].clone())
+    }
+
+    fn get_external_token_id(&self, index: usize) -> String {
         self.external_token_id(&self.syntax_grammar.external_tokens[index])
     }
 }
+
 
 impl Generator {
     /// Create an instance which can be used to render a grammar with the given properties.

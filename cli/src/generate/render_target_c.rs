@@ -7,56 +7,15 @@ use std::{
 use super::{
     nfa::CharacterSet,
     render_buffer::RenderBuffer,
-    render::{ABI_VERSION_WITH_PRIMARY_STATES, Generator},
+    render_context::RenderContext,
+    render_target::RenderTarget,
+    render::ABI_VERSION_WITH_PRIMARY_STATES,
     rules::{Symbol, TokenSet},
     tables::{
         AdvanceAction, FieldLocation, ParseAction, ParseState,
     },
 };
 
-#[macro_export]
-macro_rules! add {
-    ($this: tt, $($arg: tt)*) => {{
-        $this.buffer.write_fmt(format_args!($($arg)*)).unwrap();
-    }}
-}
-
-#[macro_export]
-macro_rules! add_whitespace {
-    ($this:tt) => {{
-        $this.buffer.add_whitespace();
-    }};
-}
-
-#[macro_export]
-macro_rules! add_newline {
-    ($this:tt) => {{
-        $this.buffer.add_newline();
-    }};
-}
-
-#[macro_export]
-macro_rules! add_line {
-    ($this: tt, $($arg: tt)*) => {{
-        $this.buffer.add_whitespace();
-        $this.buffer.write_fmt(format_args!($($arg)*)).unwrap();
-        $this.buffer.add_newline();
-    }}
-}
-
-#[macro_export]
-macro_rules! indent {
-    ($this:tt) => {
-        $this.buffer.indent(1);
-    };
-}
-
-#[macro_export]
-macro_rules! dedent {
-    ($this:tt) => {
-        $this.buffer.dedent(1);
-    };
-}
 
 pub struct RenderTargetC {
     pub buffer: RenderBuffer,
@@ -73,8 +32,10 @@ impl RenderTargetC {
     fn field_id(&self, field_name: &str) -> String {
         format!("field_{field_name}")
     }
+}
 
-    pub fn begin_language(&mut self, generator: &Generator) {
+impl RenderTarget for RenderTargetC {
+    fn begin_language(&mut self, generator: &dyn RenderContext) {
         // add_includes
         add_line!(self, "#include \"tree_sitter/parser.h\"");
         add_line!(self, "");
@@ -91,7 +52,7 @@ impl RenderTargetC {
         // Compiling large lexer functions can be very slow. Disabling optimizations
         // is not ideal, but only a very small fraction of overall parse time is
         // spent lexing, so the performance impact of this is negligible.
-        if generator.main_lex_table.states.len() > 300 {
+        if generator.get_main_lex_table_state_count() > 300 {
             add_line!(self, "#ifdef _MSC_VER");
             add_line!(self, "#pragma optimize(\"\", off)");
             add_line!(self, "#elif defined(__clang__)");
@@ -103,84 +64,84 @@ impl RenderTargetC {
         }
 
         // add_stats
-        add_line!(self, "#define LANGUAGE_VERSION {}", generator.abi_version);
+        add_line!(self, "#define LANGUAGE_VERSION {}", generator.get_abi_version());
         add_line!(
             self,
             "#define STATE_COUNT {}",
-            generator.parse_table.states.len()
+            generator.get_state_count()
         );
-        add_line!(self, "#define LARGE_STATE_COUNT {}", generator.large_state_count);
+        add_line!(self, "#define LARGE_STATE_COUNT {}", generator.get_large_state_count());
 
         add_line!(
             self,
             "#define SYMBOL_COUNT {}",
-            generator.parse_table.symbols.len()
+            generator.get_symbol_count()
         );
-        add_line!(self, "#define ALIAS_COUNT {}", generator.unique_aliases.len());
+        add_line!(self, "#define ALIAS_COUNT {}", generator.get_alias_count());
         add_line!(self, "#define TOKEN_COUNT {}", generator.get_token_count());
         add_line!(
             self,
             "#define EXTERNAL_TOKEN_COUNT {}",
-            generator.syntax_grammar.external_tokens.len()
+            generator.get_external_token_count()
         );
-        add_line!(self, "#define FIELD_COUNT {}", generator.field_names.len());
+        add_line!(self, "#define FIELD_COUNT {}", generator.get_field_count());
         add_line!(
             self,
             "#define MAX_ALIAS_SEQUENCE_LENGTH {}",
-            generator.parse_table.max_aliased_production_length
+            generator.get_max_alias_sequence_length()
         );
         add_line!(
             self,
             "#define PRODUCTION_ID_COUNT {}",
-            generator.parse_table.production_infos.len()
+            generator.get_production_id_count()
         );
         add_line!(self, "");
     }
 
-    pub fn begin_symbol_enum(&mut self) {
+    fn begin_symbol_enum(&mut self) {
         add_line!(self, "enum ts_symbol_identifiers {{");
         indent!(self);
     }
-    pub fn add_symbol_enum_item(&mut self, name: &str, index: usize) {
+    fn add_symbol_enum_item(&mut self, name: &str, index: usize) {
         add_line!(self, "{} = {},", name, index);
     }
-    pub fn end_symbol_enum(&mut self) {
+    fn end_symbol_enum(&mut self) {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
     }
 
-    pub fn begin_symbol_names_list(&mut self) {
+    fn begin_symbol_names_list(&mut self) {
         add_line!(self, "static const char * const ts_symbol_names[] = {{");
         indent!(self);
     }
-    pub fn add_symbol_names_list_item(&mut self, name: &str, text: &str) {
+    fn add_symbol_names_list_item(&mut self, name: &str, text: &str) {
         add_line!(self, "[{}] = \"{}\",", name, text);
     }
-    pub fn end_symbol_names_list(&mut self) {
+    fn end_symbol_names_list(&mut self) {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
     }
 
-    pub fn begin_symbol_map(&mut self) {
+    fn begin_symbol_map(&mut self) {
         add_line!(self, "static const TSSymbol ts_symbol_map[] = {{");
         indent!(self);
     }
-    pub fn add_symbol_map_item(&mut self, src_name: &str, trg_name: &str) {
+    fn add_symbol_map_item(&mut self, src_name: &str, trg_name: &str) {
         add_line!(self, "[{}] = {},", src_name, trg_name);
     }
-    pub fn end_symbol_map(&mut self) {
+    fn end_symbol_map(&mut self) {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
     }
 
-    pub fn begin_symbol_metadata(&mut self) {
+    fn begin_symbol_metadata(&mut self) {
         add_line!(self, "static const TSSymbolMetadata ts_symbol_metadata[] = {{");
         indent!(self);
     }
-    pub fn add_symbol_metadata_item(&mut self, name: &str, visible: bool, named: bool, supertype: bool) {
+    fn add_symbol_metadata_item(&mut self, name: &str, visible: bool, named: bool, supertype: bool) {
         add_line!(self, "[{}] = {{", name);
         indent!(self);
         add_line!(self, ".visible = {},", if visible { "true" } else { "false" });
@@ -191,57 +152,57 @@ impl RenderTargetC {
         dedent!(self);
         add_line!(self, "}},");
     }
-    pub fn end_symbol_metadata(&mut self) {
+    fn end_symbol_metadata(&mut self) {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
     }
 
-    pub fn begin_field_enum(&mut self) {
+    fn begin_field_enum(&mut self) {
         add_line!(self, "enum ts_field_identifiers {{");
         indent!(self);
     }
-    pub fn add_field_enum_item(&mut self, name: &str, index: usize) {
+    fn add_field_enum_item(&mut self, name: &str, index: usize) {
         add_line!(self, "{} = {},", name, index);
     }
-    pub fn end_field_enum(&mut self) {
+    fn end_field_enum(&mut self) {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
     }
 
-    pub fn begin_field_names(&mut self) {
+    fn begin_field_names(&mut self) {
         add_line!(self, "static const char * const ts_field_names[] = {{");
         indent!(self);
         add_line!(self, "[0] = NULL,");
     }
-    pub fn add_field_name_item(&mut self, name: &str, text: &str) {
+    fn add_field_name_item(&mut self, name: &str, text: &str) {
         add_line!(self, "[{}] = \"{}\",", name, text);
     }
-    pub fn end_field_names(&mut self) {
+    fn end_field_names(&mut self) {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
     }
 
-    pub fn begin_field_map_slices(&mut self) {
+    fn begin_field_map_slices(&mut self) {
         add_line!(self, "static const TSFieldMapSlice ts_field_map_slices[PRODUCTION_ID_COUNT] = {{");
         indent!(self);
     }
-    pub fn add_field_map_slices_item(&mut self, production_id: usize, row_id: usize, length: usize) {
+    fn add_field_map_slices_item(&mut self, production_id: usize, row_id: usize, length: usize) {
         add_line!(self, "[{production_id}] = {{.index = {row_id}, .length = {length}}},");
     }
-    pub fn end_field_map_slices(&mut self) {
+    fn end_field_map_slices(&mut self) {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
     }
 
-    pub fn begin_field_map_entries(&mut self) {
+    fn begin_field_map_entries(&mut self) {
         add_line!(self, "static const TSFieldMapEntry ts_field_map_entries[] = {{");
         indent!(self);
     }
-    pub fn add_field_map_entries_item(&mut self, row_index: usize, field_pairs: Vec<(String, FieldLocation)>) {
+    fn add_field_map_entries_item(&mut self, row_index: usize, field_pairs: Vec<(String, FieldLocation)>) {
         add_line!(self, "[{row_index}] =");
         indent!(self);
         for (field_name, location) in field_pairs {
@@ -255,17 +216,17 @@ impl RenderTargetC {
         }
         dedent!(self);
     }
-    pub fn end_field_map_entries(&mut self) {
+    fn end_field_map_entries(&mut self) {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
     }
 
-    pub fn begin_alias_sequences(&mut self) {
+    fn begin_alias_sequences(&mut self) {
         add_line!(self, "static const TSSymbol ts_alias_sequences[PRODUCTION_ID_COUNT][MAX_ALIAS_SEQUENCE_LENGTH] = {{");
         indent!(self);
     }
-    pub fn add_alias_sequences_item(&mut self, i: usize, alias_ids: Vec<Option<&String>>) {
+    fn add_alias_sequences_item(&mut self, i: usize, alias_ids: Vec<Option<&String>>) {
         if alias_ids.is_empty() {
             // Work around MSVC's intolerance of empty array initializers by
             // explicitly zero-initializing the first element.
@@ -284,17 +245,17 @@ impl RenderTargetC {
             add_line!(self, "}},");
         }
     }
-    pub fn end_alias_sequences(&mut self) {
+    fn end_alias_sequences(&mut self) {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
     }
 
-    pub fn begin_non_terminal_alias_map(&mut self) {
+    fn begin_non_terminal_alias_map(&mut self) {
         add_line!(self, "static const uint16_t ts_non_terminal_alias_map[] = {{");
         indent!(self);
     }
-    pub fn add_non_terminal_alias_map_item(&mut self, symbol_id: &str, count: usize, public_symbol_id: &str, alias_ids: Vec<&String>) {
+    fn add_non_terminal_alias_map_item(&mut self, symbol_id: &str, count: usize, public_symbol_id: &str, alias_ids: Vec<&String>) {
         add_line!(self, "{symbol_id}, {},", count);
         indent!(self);
         add_line!(self, "{public_symbol_id},");
@@ -303,27 +264,27 @@ impl RenderTargetC {
         }
         dedent!(self);
     }
-    pub fn end_non_terminal_alias_map(&mut self) {
+    fn end_non_terminal_alias_map(&mut self) {
         add_line!(self, "0,");
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
     }
 
-    pub fn begin_primary_state_ids(&mut self) {
+    fn begin_primary_state_ids(&mut self) {
         add_line!(self, "static const TSStateId ts_primary_state_ids[STATE_COUNT] = {{");
         indent!(self);
     }
-    pub fn add_primary_state_ids_item(&mut self, idx: usize, primary_state: usize) {
+    fn add_primary_state_ids_item(&mut self, idx: usize, primary_state: usize) {
         add_line!(self, "[{idx}] = {primary_state},");
     }
-    pub fn end_primary_state_ids(&mut self) {
+    fn end_primary_state_ids(&mut self) {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
     }
 
-    pub fn begin_lex_function(&mut self, name: &str) {
+    fn begin_lex_function(&mut self, name: &str) {
         add_line!(
             self,
             "static bool {name}(TSLexer *lexer, TSStateId state) {{",
@@ -336,17 +297,17 @@ impl RenderTargetC {
 
         indent!(self);
     }
-    pub fn begin_lex_function_case(&mut self, state_ix: usize) {
+    fn begin_lex_function_case(&mut self, state_ix: usize) {
         add_line!(self, "case {state_ix}:");
         indent!(self);
     }
-    pub fn add_lex_function_case_accept_token(&mut self, symbol_id: &String) {
+    fn add_lex_function_case_accept_token(&mut self, symbol_id: &String) {
         add_line!(self, "ACCEPT_TOKEN({symbol_id});");
     }
-    pub fn add_lex_function_case_advance_eof(&mut self, state: usize) {
+    fn add_lex_function_case_advance_eof(&mut self, state: usize) {
         add_line!(self, "if (eof) ADVANCE({state});");
     }
-    pub fn add_lex_function_case_advance_map(&mut self, transitions: &[(CharacterSet, AdvanceAction)]) {
+    fn add_lex_function_case_advance_map(&mut self, transitions: &[(CharacterSet, AdvanceAction)]) {
         add_line!(self, "ADVANCE_MAP(");
         indent!(self);
         for (chars, action) in transitions {
@@ -364,14 +325,14 @@ impl RenderTargetC {
         dedent!(self);
         add_line!(self, ");");
     }
-    pub fn add_lex_function_case_advance_to(&mut self, state: usize, in_main_token: bool) {
+    fn add_lex_function_case_advance_to(&mut self, state: usize, in_main_token: bool) {
         if in_main_token {
             add!(self, "ADVANCE({state});");
         } else {
             add!(self, "SKIP({state});");
         }
     }
-    pub fn add_lex_function_case_advance(&mut self, 
+    fn add_lex_function_case_advance(&mut self, 
         large: Option<(&CharacterSet, &String, bool)>, 
         asserted_chars: &CharacterSet,
         asserted_chars_are_inclusive: bool,
@@ -421,10 +382,10 @@ impl RenderTargetC {
         self.add_lex_function_case_advance_to(action.state, action.in_main_token);
         add!(self, "\n");
     }
-    pub fn add_large_set_contains_check(&mut self, large_set_name: &String, range_count: usize) {
+    fn add_large_set_contains_check(&mut self, large_set_name: &String, range_count: usize) {
         add!(self, "set_contains({large_set_name}, {range_count}, lookahead)");
     }
-    pub fn add_character_range_conditions(
+    fn add_character_range_conditions(
         &mut self,
         characters: &CharacterSet,
         is_included: bool,
@@ -488,11 +449,11 @@ impl RenderTargetC {
             }
         }
     }
-    pub fn end_lex_function_case(&mut self) {
+    fn end_lex_function_case(&mut self) {
         add_line!(self, "END_STATE();");
         dedent!(self);
     }
-    pub fn end_lex_function(&mut self) {
+    fn end_lex_function(&mut self) {
         add_line!(self, "default:");
         indent!(self);
         add_line!(self, "return false;");
@@ -506,7 +467,7 @@ impl RenderTargetC {
         add_line!(self, "");
     }
 
-    pub fn begin_character_set(&mut self, name: &str) {
+    fn begin_character_set(&mut self, name: &str) {
         add_line!(
             self,
             "static TSCharacterRange {}[] = {{",
@@ -514,7 +475,7 @@ impl RenderTargetC {
         );
         indent!(self);
     }
-    pub fn add_character_set_item(&mut self, ix: usize, range: RangeInclusive<char>) {
+    fn add_character_set_item(&mut self, ix: usize, range: RangeInclusive<char>) {
         let column = ix % 8;
         if column == 0 {
             if ix > 0 {
@@ -530,18 +491,18 @@ impl RenderTargetC {
         self.add_character(*range.end());
         add!(self, "}},");
     }
-    pub fn end_character_set(&mut self, _count: usize) {
+    fn end_character_set(&mut self, _count: usize) {
         add!(self, "\n");
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
     }
 
-    pub fn begin_lex_modes(&mut self) {
+    fn begin_lex_modes(&mut self) {
         add_line!(self, "static const TSLexMode ts_lex_modes[STATE_COUNT] = {{");
         indent!(self);
     }
-    pub fn add_lex_modes_item(&mut self, index: usize, state: &ParseState) {
+    fn add_lex_modes_item(&mut self, index: usize, state: &ParseState) {
         if state.is_end_of_non_terminal_extra() {
             add_line!(self, "[{index}] = {{(TSStateId)(-1)}},");
         } else if state.external_lex_state_id > 0 {
@@ -555,43 +516,43 @@ impl RenderTargetC {
             add_line!(self, "[{index}] = {{.lex_state = {}}},", state.lex_state_id);
         }
     }
-    pub fn end_lex_modes(&mut self) {
+    fn end_lex_modes(&mut self) {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
     }
 
-    pub fn begin_external_token_enum(&mut self) {
+    fn begin_external_token_enum(&mut self) {
         add_line!(self, "enum ts_external_scanner_symbol_identifiers {{");
         indent!(self);
     }
-    pub fn add_external_token_enum_item(&mut self, name: &str, index: usize) {
+    fn add_external_token_enum_item(&mut self, name: &str, index: usize) {
         add_line!(self, "{} = {},", name, index);
     }
-    pub fn end_external_token_enum(&mut self) {
+    fn end_external_token_enum(&mut self) {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
     }
 
-    pub fn begin_external_scanner_symbol_map(&mut self) {
+    fn begin_external_scanner_symbol_map(&mut self) {
         add_line!(self, "static const TSSymbol ts_external_scanner_symbol_map[EXTERNAL_TOKEN_COUNT] = {{");
         indent!(self);
     }
-    pub fn add_external_scanner_symbol_map_item(&mut self, src_name: &str, trg_name: &str) {
+    fn add_external_scanner_symbol_map_item(&mut self, src_name: &str, trg_name: &str) {
         add_line!(self, "[{}] = {},", src_name, trg_name);
     }
-    pub fn end_external_scanner_symbol_map(&mut self) {
+    fn end_external_scanner_symbol_map(&mut self) {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
     }
 
-    pub fn begin_external_scanner_states(&mut self, external_lext_state_count: usize) {
+    fn begin_external_scanner_states(&mut self, external_lext_state_count: usize) {
         add_line!(self, "static const bool ts_external_scanner_states[{}][EXTERNAL_TOKEN_COUNT] = {{", external_lext_state_count);
         indent!(self);
     }
-    pub fn add_external_scanner_states_item(&mut self, context: &Generator, index: usize, token_set: &TokenSet) {
+    fn add_external_scanner_states_item(&mut self, context: &dyn RenderContext, index: usize, token_set: &TokenSet) {
         add_line!(self, "[{}] = {{", index);
         indent!(self);
         for token in token_set.iter() {
@@ -601,82 +562,82 @@ impl RenderTargetC {
         dedent!(self);
         add_line!(self, "}},");
     }
-    pub fn end_external_scanner_states(&mut self) {
+    fn end_external_scanner_states(&mut self) {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
     }
 
-    pub fn begin_parse_table(&mut self) {
+    fn begin_parse_table(&mut self) {
         add_line!(self, "static const uint16_t ts_parse_table[LARGE_STATE_COUNT][SYMBOL_COUNT] = {{");
         indent!(self);
     }
-    pub fn begin_parse_table_section(&mut self, index: usize) {
+    fn begin_parse_table_section(&mut self, index: usize) {
         add_line!(self, "[{}] = {{", index);
         indent!(self);
     }
-    pub fn add_parse_table_state_item(&mut self, symbol_id: &String, state: usize) {
+    fn add_parse_table_state_item(&mut self, symbol_id: &String, state: usize) {
         add_line!(self, "[{symbol_id}] = STATE({state}),");
     }
-    pub fn add_parse_table_actions_item(&mut self, entry_index: usize, symbol_id: &String) {
+    fn add_parse_table_actions_item(&mut self, entry_index: usize, symbol_id: &String) {
         add_line!(self, "[{symbol_id}] = ACTIONS({entry_index}),");
     }
-    pub fn end_parse_table_section(&mut self) {
+    fn end_parse_table_section(&mut self) {
         dedent!(self);
         add_line!(self, "}},");
     }
-    pub fn end_parse_table(&mut self) {
+    fn end_parse_table(&mut self) {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
     }
 
-    pub fn begin_small_parse_table(&mut self) {
+    fn begin_small_parse_table(&mut self) {
         add_line!(self, "static const uint16_t ts_small_parse_table[] = {{");
         indent!(self);
     }
-    pub fn begin_small_parse_table_section(&mut self, index: usize, count: usize) {
+    fn begin_small_parse_table_section(&mut self, index: usize, count: usize) {
         add_line!(self, "[{index}] = {count},");
         indent!(self);
     }
-    pub fn add_small_parse_table_state_item(&mut self, value: usize, count: usize) {
+    fn add_small_parse_table_state_item(&mut self, value: usize, count: usize) {
         add_line!(self, "STATE({value}), {count},");
     }
-    pub fn add_small_parse_table_actions_item(&mut self, value: usize, count: usize) {
+    fn add_small_parse_table_actions_item(&mut self, value: usize, count: usize) {
         add_line!(self, "ACTIONS({value}), {count},");
     }
-    pub fn add_small_parse_table_symbol_item(&mut self, symbol_id: &String) {
+    fn add_small_parse_table_symbol_item(&mut self, symbol_id: &String) {
         indent!(self);
         add_line!(self, "{symbol_id},");
         dedent!(self);
     }
-    pub fn end_small_parse_table_section(&mut self) {
+    fn end_small_parse_table_section(&mut self) {
         dedent!(self);
     }
-    pub fn end_small_parse_table(&mut self) {
+    fn end_small_parse_table(&mut self) {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
     }
 
-    pub fn begin_small_parse_table_map(&mut self) {
+    fn begin_small_parse_table_map(&mut self) {
         add_line!(self, "static const uint32_t ts_small_parse_table_map[] = {{");
         indent!(self);
     }
-    pub fn add_small_parse_table_map_item(&mut self, src_index: usize, trg_index: usize) {
+    fn add_small_parse_table_map_item(&mut self, src_index: usize, trg_index: usize) {
         add_line!(self, "[SMALL_STATE({src_index})] = {trg_index},");
     }
-    pub fn end_small_parse_table_map(&mut self) {
+    fn end_small_parse_table_map(&mut self) {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
     }
 
-    pub fn begin_parse_actions(&mut self) {
+    fn begin_parse_actions(&mut self) {
         add_line!(self, "static const TSParseActionEntry ts_parse_actions[] = {{");
         indent!(self);
     }
-    pub fn begin_parse_actions_entry(&mut self, index: usize, count: usize, reusable: bool) {
+    fn begin_parse_actions_entry(&mut self, index: usize, count: usize, reusable: bool) {
         add!(
             self,
             "  [{index}] = {{.entry = {{.count = {}, .reusable = {}}}}},",
@@ -684,7 +645,7 @@ impl RenderTargetC {
             reusable
         );
     }
-    pub fn add_parse_actions_action(&mut self, action: &ParseAction, symbol_ids: &HashMap<Symbol, String>) {
+    fn add_parse_actions_action(&mut self, action: &ParseAction, symbol_ids: &HashMap<Symbol, String>) {
         add!(self, " ");
         match action {
             ParseAction::Accept => add!(self, " ACCEPT_INPUT()"),
@@ -716,24 +677,24 @@ impl RenderTargetC {
         }
         add!(self, ",");
     }
-    pub fn end_parse_actions_entry(&mut self) {
+    fn end_parse_actions_entry(&mut self) {
         add!(self, "\n");
     }
-    pub fn end_parse_actions(&mut self) {
+    fn end_parse_actions(&mut self) {
         dedent!(self);
         add_line!(self, "}};");
         add_line!(self, "");
     }
 
-    pub fn end_language(&mut self, generator: &Generator) {
-        let language_function_name = format!("tree_sitter_{}", generator.language_name);
+    fn end_language(&mut self, context: &dyn RenderContext) {
+        let language_function_name = format!("tree_sitter_{}", context.get_language_name());
         let external_scanner_name = format!("{language_function_name}_external_scanner");
 
         add_line!(self, "#ifdef __cplusplus");
         add_line!(self, r#"extern "C" {{"#);
         add_line!(self, "#endif");
 
-        if !generator.syntax_grammar.external_tokens.is_empty() {
+        if context.get_external_token_count() > 0 {
             add_line!(self, "void *{external_scanner_name}_create(void);");
             add_line!(self, "void {external_scanner_name}_destroy(void *);");
             add_line!(
@@ -788,7 +749,7 @@ impl RenderTargetC {
 
         // Parse table
         add_line!(self, ".parse_table = &ts_parse_table[0][0],");
-        if generator.large_state_count < generator.parse_table.states.len() {
+        if context.get_large_state_count() < context.get_state_count() {
             add_line!(self, ".small_parse_table = ts_small_parse_table,");
             add_line!(self, ".small_parse_table_map = ts_small_parse_table_map,");
         }
@@ -796,7 +757,7 @@ impl RenderTargetC {
 
         // Metadata
         add_line!(self, ".symbol_names = ts_symbol_names,");
-        if !generator.field_names.is_empty() {
+        if context.get_field_count() > 0 {
             add_line!(self, ".field_names = ts_field_names,");
             add_line!(self, ".field_map_slices = ts_field_map_slices,");
             add_line!(self, ".field_map_entries = ts_field_map_entries,");
@@ -804,23 +765,23 @@ impl RenderTargetC {
         add_line!(self, ".symbol_metadata = ts_symbol_metadata,");
         add_line!(self, ".public_symbol_map = ts_symbol_map,");
         add_line!(self, ".alias_map = ts_non_terminal_alias_map,");
-        if !generator.parse_table.production_infos.is_empty() {
+        if context.get_production_id_count() > 0 {
             add_line!(self, ".alias_sequences = &ts_alias_sequences[0][0],");
         }
 
         // Lexing
         add_line!(self, ".lex_modes = ts_lex_modes,");
         add_line!(self, ".lex_fn = ts_lex,");
-        if let Some(keyword_capture_token) = generator.keyword_capture_token {
+        if let Some(keyword_capture_token_id) = &context.get_keyword_capture_token_id() {
             add_line!(self, ".keyword_lex_fn = ts_lex_keywords,");
             add_line!(
                 self,
                 ".keyword_capture_token = {},",
-                generator.symbol_ids[&keyword_capture_token]
+                keyword_capture_token_id
             );
         }
 
-        if !generator.syntax_grammar.external_tokens.is_empty() {
+        if context.get_external_token_count() > 0 {
             add_line!(self, ".external_scanner = {{");
             indent!(self);
             add_line!(self, "&ts_external_scanner_states[0][0],");
@@ -834,7 +795,7 @@ impl RenderTargetC {
             add_line!(self, "}},");
         }
 
-        if generator.abi_version >= ABI_VERSION_WITH_PRIMARY_STATES {
+        if context.get_abi_version() >= ABI_VERSION_WITH_PRIMARY_STATES {
             add_line!(self, ".primary_state_ids = ts_primary_state_ids,");
         }
 
@@ -866,5 +827,9 @@ impl RenderTargetC {
                 }
             }
         }
+    }
+
+    fn buffer_ref(&mut self) -> &mut RenderBuffer {
+        &mut self.buffer
     }
 }

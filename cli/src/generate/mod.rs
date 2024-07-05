@@ -13,6 +13,7 @@ use lazy_static::lazy_static;
 use parse_grammar::parse_grammar;
 use prepare_grammar::prepare_grammar;
 use regex::{Regex, RegexBuilder};
+use render_target::RenderTarget;
 use render_target_c::RenderTargetC;
 use render::Generator;
 use semver::Version;
@@ -26,6 +27,9 @@ mod node_types;
 pub mod parse_grammar;
 mod prepare_grammar;
 mod render_buffer;
+mod render_context;
+#[macro_use]
+mod render_target;
 mod render_target_c;
 mod render;
 mod rules;
@@ -167,9 +171,9 @@ fn generate_parser_for_grammar_with_opts(
         simple_aliases,
         abi_version
     );
-    let mut target = RenderTargetC::new(2);
+    let mut target : Box<dyn RenderTarget> = Box::new(RenderTargetC::new(2));
     generator.generate(&mut target);
-    let c_code = target.buffer.get_text();
+    let c_code = target.buffer_ref().get_text();
     Ok(GeneratedParser {
         c_code,
         node_types_json: serde_json::to_string_pretty(&node_types_json).unwrap(),
