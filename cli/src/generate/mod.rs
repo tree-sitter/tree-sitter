@@ -15,6 +15,7 @@ use prepare_grammar::prepare_grammar;
 use regex::{Regex, RegexBuilder};
 use render_target::RenderTarget;
 use render_target_c::RenderTargetC;
+use render_target_swift::RenderTargetSwift;
 use render::Generator;
 use semver::Version;
 
@@ -31,6 +32,7 @@ mod render_context;
 #[macro_use]
 mod render_target;
 mod render_target_c;
+mod render_target_swift;
 mod render;
 mod rules;
 mod tables;
@@ -282,4 +284,84 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result
 fn write_file(path: &Path, body: impl AsRef<[u8]>) -> Result<()> {
     fs::write(path, body)
         .with_context(|| format!("Failed to write {:?}", path.file_name().unwrap()))
+}
+
+/// Generate Swift source for the given json grammar description.
+pub fn swift_parser_source_from_json(json_str: &str, abi_version: u32) -> Result<String> {
+    let input_grammar: InputGrammar = parse_grammar(json_str)?;
+    let (syntax_grammar, lexical_grammar, inlines, simple_aliases) =
+        prepare_grammar(&input_grammar)?;
+    let variable_info =
+        node_types::get_variable_info(&syntax_grammar, &lexical_grammar, &simple_aliases)?;
+    let tables = build_tables(
+        &syntax_grammar,
+        &lexical_grammar,
+        &simple_aliases,
+        &variable_info,
+        &inlines,
+        None,
+    )?;
+    let mut target : Box<dyn RenderTarget> = Box::new(RenderTargetSwift::new());
+    let generator = Generator::new(
+        input_grammar.name.clone(),
+        tables,
+        syntax_grammar,
+        lexical_grammar,
+        simple_aliases,
+        abi_version as usize,
+    );
+    generator.generate(&mut target);
+    Ok(target.buffer_ref().get_text())
+}
+
+// TODO: use bindgen on include/tree_sitter_cli.h
+pub const SWIFTGEN_ERROR_INVALID_VERSION: u32 = 1;
+pub const SWIFTGEN_ERROR_INVALID_INPUT: u32 = 2;
+pub const SWIFTGEN_ERROR_OUTPUT_TOO_LONG: u32 = 3;
+pub const SWIFTGEN_ERROR_OTHER: u32 = 4;
+
+/// Generate Swift source for the given json grammar description. If successful,
+/// return the result of invoking the given function with the generated source;
+/// otherwise return NULL.
+#[no_mangle]
+pub extern "C" fn swiftgen(
+    json_bytes: *const u8, 
+    json_len: u32, 
+    abi_version: u32, 
+    completion: unsafe extern "C" fn(u32, *const u8, u32) -> *const std::ffi::c_void
+) -> *const std::ffi::c_void {
+    fn fail(completion: unsafe extern "C" fn(u32, *const u8, u32) -> *const std::ffi::c_void, status: u32, message: &str) -> *const std::ffi::c_void {
+        let message_bytes = message.as_bytes();
+        unsafe { completion(status, message_bytes.as_ptr(), message_bytes.len() as u32) }
+    }
+    let abi_version = if abi_version == 0 { render::ABI_VERSION_MAX } else { abi_version as usize };
+    if !(render::ABI_VERSION_MIN <= abi_version && abi_version <= render::ABI_VERSION_MAX) {
+        return fail(completion, SWIFTGEN_ERROR_INVALID_VERSION, "Invalid ABI version")
+    }
+    let json_slice = unsafe { std::slice::from_raw_parts(json_bytes, json_len as usize) };
+    match std::str::from_utf8(json_slice) {
+        Ok(json_str) => {
+            match swift_parser_source_from_json(json_str, abi_version as u32) {
+                Ok(swift_text) => {
+                    let swift_bytes = swift_text.as_bytes();
+                    if swift_bytes.len() <= u32::MAX as usize {
+                        unsafe { completion(0, swift_bytes.as_ptr(), swift_bytes.len() as u32) }
+                    } else {
+                        fail(completion, SWIFTGEN_ERROR_OUTPUT_TOO_LONG, "The length of the generated source exceeds the allowed maximum.")
+                    }
+                },
+                Err(err) => {
+                    fail(completion, SWIFTGEN_ERROR_OTHER, format!("Parser generation failed: {err}").as_ref())
+                }
+            }
+        },
+        Err(err) => {
+            fail(completion, SWIFTGEN_ERROR_INVALID_INPUT, format!("Invalid input: {err}").as_ref())
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn swiftgen_max_abi_version() -> u32 {
+    render::ABI_VERSION_MAX as u32
 }

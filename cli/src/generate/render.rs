@@ -16,8 +16,8 @@ use super::{
 };
 
 const SMALL_STATE_THRESHOLD: usize = 64;
-const ABI_VERSION_MIN: usize = 13;
-const ABI_VERSION_MAX: usize = tree_sitter::LANGUAGE_VERSION;
+pub const ABI_VERSION_MIN: usize = 13;
+pub const ABI_VERSION_MAX: usize = tree_sitter::LANGUAGE_VERSION;
 pub const ABI_VERSION_WITH_PRIMARY_STATES: usize = 14;
 
 pub struct Generator {

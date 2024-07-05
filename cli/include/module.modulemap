@@ -1,0 +1,4 @@
+module TreeSitterCLI {
+    header "tree_sitter_cli.h"
+    export *
+}
