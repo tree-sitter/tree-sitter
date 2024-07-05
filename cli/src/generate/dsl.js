@@ -301,7 +301,11 @@ function grammar(baseGrammar, options) {
       if (typeof ruleFn !== "function") {
         throw new Error(`Grammar rules must all be functions. '${ruleName}' rule is not.`);
       }
-      rules[ruleName] = normalize(ruleFn.call(ruleBuilder, ruleBuilder, baseGrammar.rules[ruleName]));
+      const rule = ruleFn.call(ruleBuilder, ruleBuilder, baseGrammar.rules[ruleName]);
+      if (rule === undefined) {
+        throw new Error(`Rule '${ruleName}' returned undefined.`);
+      }
+      rules[ruleName] = normalize(rule);
     }
   }
 
