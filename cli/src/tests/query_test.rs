@@ -3640,30 +3640,27 @@ fn test_query_text_callback_returns_chunks() {
 }
 
 #[test]
-fn test_query_start_byte_for_pattern() {
+fn test_query_start_end_byte_for_pattern() {
     let language = get_language("javascript");
 
-    let patterns_1 = r#"
+    let patterns_1 = indoc! {r#"
         "+" @operator
         "-" @operator
         "*" @operator
         "=" @operator
         "=>" @operator
-    "#
-    .trim_start();
+    "#};
 
-    let patterns_2 = "
+    let patterns_2 = indoc! {"
         (identifier) @a
         (string) @b
-    "
-    .trim_start();
+    "};
 
-    let patterns_3 = "
+    let patterns_3 = indoc! {"
         ((identifier) @b (#match? @b i))
         (function_declaration name: (identifier) @c)
         (method_definition name: (property_identifier) @d)
-    "
-    .trim_start();
+    "};
 
     let mut source = String::new();
     source += patterns_1;
@@ -3673,10 +3670,19 @@ fn test_query_start_byte_for_pattern() {
     let query = Query::new(&language, &source).unwrap();
 
     assert_eq!(query.start_byte_for_pattern(0), 0);
+    assert_eq!(query.end_byte_for_pattern(0), "\"+\" @operator\n".len());
     assert_eq!(query.start_byte_for_pattern(5), patterns_1.len());
+    assert_eq!(
+        query.end_byte_for_pattern(5),
+        patterns_1.len() + "(identifier) @a\n".len()
+    );
     assert_eq!(
         query.start_byte_for_pattern(7),
         patterns_1.len() + patterns_2.len()
+    );
+    assert_eq!(
+        query.end_byte_for_pattern(7),
+        patterns_1.len() + patterns_2.len() + "((identifier) @b (#match? @b i))\n".len()
     );
 }
 

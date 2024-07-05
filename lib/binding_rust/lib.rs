@@ -2152,6 +2152,21 @@ impl Query {
         }
     }
 
+    /// Get the byte offset where the given pattern ends in the query's
+    /// source.
+    #[doc(alias = "ts_query_end_byte_for_pattern")]
+    #[must_use]
+    pub fn end_byte_for_pattern(&self, pattern_index: usize) -> usize {
+        assert!(
+            pattern_index < self.text_predicates.len(),
+            "Pattern index is {pattern_index} but the pattern count is {}",
+            self.text_predicates.len(),
+        );
+        unsafe {
+            ffi::ts_query_end_byte_for_pattern(self.ptr.as_ptr(), pattern_index as u32) as usize
+        }
+    }
+
     /// Get the number of patterns in the query.
     #[doc(alias = "ts_query_pattern_count")]
     #[must_use]
