@@ -5171,3 +5171,20 @@ fn test_query_compiler_oob_access() {
     // UBSAN should not report any OOB access
     assert!(Query::new(&language, "(package_declaration _ (_) @name _)").is_ok());
 }
+
+#[test]
+fn test_query_wildcard_with_immediate_first_child() {
+    let language = get_language("javascript");
+    let query = Query::new(&language, "(_ . (identifier) @firstChild)").unwrap();
+    let source = "function name(one, two, three) { }";
+
+    assert_query_matches(
+        &language,
+        &query,
+        source,
+        &[
+            (0, vec![("firstChild", "name")]),
+            (0, vec![("firstChild", "one")]),
+        ],
+    );
+}
