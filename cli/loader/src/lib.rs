@@ -415,7 +415,7 @@ impl Loader {
         struct GrammarJSON {
             name: String,
         }
-        let mut grammar_file = fs::File::open(grammar_path.clone()).with_context(|| {
+        let mut grammar_file = fs::File::open(&grammar_path).with_context(|| {
             format!(
                 "Failed to read grammar.json file at the following path:\n{:?}",
                 &grammar_path
