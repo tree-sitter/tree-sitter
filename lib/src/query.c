@@ -3541,6 +3541,13 @@ static inline bool ts_query_cursor__advance(
       // Get the properties of the current node.
       TSNode node = ts_tree_cursor_current_node(&self->cursor);
       TSNode parent_node = ts_tree_cursor_parent_node(&self->cursor);
+
+      uint32_t start_byte = ts_node_start_byte(node);
+      uint32_t end_byte = ts_node_end_byte(node);
+      TSPoint start_point = ts_node_start_point(node);
+      TSPoint end_point = ts_node_end_point(node);
+      bool is_empty = start_byte == end_byte;
+
       bool parent_precedes_range = !ts_node_is_null(parent_node) && (
         ts_node_end_byte(parent_node) <= self->start_byte ||
         point_lte(ts_node_end_point(parent_node), self->start_point)
@@ -3549,13 +3556,16 @@ static inline bool ts_query_cursor__advance(
         ts_node_start_byte(parent_node) >= self->end_byte ||
         point_gte(ts_node_start_point(parent_node), self->end_point)
       );
-      bool node_precedes_range = parent_precedes_range || (
-        ts_node_end_byte(node) <= self->start_byte ||
-        point_lte(ts_node_end_point(node), self->start_point)
-      );
+      bool node_precedes_range =
+        parent_precedes_range ||
+        end_byte < self->start_byte ||
+        point_lt(end_point, self->start_point) ||
+        (!is_empty && end_byte == self->start_byte) ||
+        (!is_empty && point_eq(end_point, self->start_point));
+
       bool node_follows_range = parent_follows_range || (
-        ts_node_start_byte(node) >= self->end_byte ||
-        point_gte(ts_node_start_point(node), self->end_point)
+        start_byte >= self->end_byte ||
+        point_gte(start_point, self->end_point)
       );
       bool parent_intersects_range = !parent_precedes_range && !parent_follows_range;
       bool node_intersects_range = !node_precedes_range && !node_follows_range;
