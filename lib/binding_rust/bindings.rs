@@ -560,6 +560,10 @@ extern "C" {
     pub fn ts_query_start_byte_for_pattern(self_: *const TSQuery, pattern_index: u32) -> u32;
 }
 extern "C" {
+    #[doc = " Get the byte offset where the given pattern ends in the query's source.\n\n This can be useful when combining queries by concatenating their source\n code strings."]
+    pub fn ts_query_end_byte_for_pattern(self_: *const TSQuery, pattern_index: u32) -> u32;
+}
+extern "C" {
     #[doc = " Get all of the predicates for the given pattern in the query.\n\n The predicates are represented as a single array of steps. There are three\n types of steps in this array, which correspond to the three legal values for\n the `type` field:\n - `TSQueryPredicateStepTypeCapture` - Steps with this type represent names\n    of captures. Their `value_id` can be used with the\n   [`ts_query_capture_name_for_id`] function to obtain the name of the capture.\n - `TSQueryPredicateStepTypeString` - Steps with this type represent literal\n    strings. Their `value_id` can be used with the\n    [`ts_query_string_value_for_id`] function to obtain their string value.\n - `TSQueryPredicateStepTypeDone` - Steps with this type are *sentinels*\n    that represent the end of an individual predicate. If a pattern has two\n    predicates, then there will be two steps with this `type` in the array."]
     pub fn ts_query_predicates_for_pattern(
         self_: *const TSQuery,
