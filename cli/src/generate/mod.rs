@@ -13,7 +13,8 @@ use lazy_static::lazy_static;
 use parse_grammar::parse_grammar;
 use prepare_grammar::prepare_grammar;
 use regex::{Regex, RegexBuilder};
-use render::render_c_code;
+use render_target_c::RenderTargetC;
+use render::Generator;
 use semver::Version;
 
 mod build_tables;
@@ -25,6 +26,7 @@ mod node_types;
 pub mod parse_grammar;
 mod prepare_grammar;
 mod render_buffer;
+mod render_target_c;
 mod render;
 mod rules;
 mod tables;
@@ -157,14 +159,17 @@ fn generate_parser_for_grammar_with_opts(
         &inlines,
         report_symbol_name,
     )?;
-    let c_code = render_c_code(
-        &input_grammar.name,
+    let generator = Generator::new(
+        input_grammar.name.clone(),
         tables,
         syntax_grammar,
         lexical_grammar,
         simple_aliases,
-        abi_version,
+        abi_version
     );
+    let mut target = RenderTargetC::new(2);
+    generator.generate(&mut target);
+    let c_code = target.buffer.get_text();
     Ok(GeneratedParser {
         c_code,
         node_types_json: serde_json::to_string_pretty(&node_types_json).unwrap(),
