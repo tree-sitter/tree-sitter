@@ -5011,7 +5011,7 @@ fn test_grammar_with_aliased_literal_query() {
     let (parser_name, parser_code) = generate_parser_for_grammar(
         r#"
         {
-            "name": "test",
+            "name": "test_grammar_with_aliased_literal_query",
             "rules": {
                 "source": {
                     "type": "REPEAT",
@@ -5071,7 +5071,69 @@ fn test_grammar_with_aliased_literal_query() {
         &language,
         r#"
         (compound_statement "}" @bracket1)
+        (expansion) @bracket2
+        "#,
+    );
+
+    assert!(query.is_ok());
+
+    let query = Query::new(
+        &language,
+        r#"
         (expansion "}" @bracket2)
+        "#,
+    );
+
+    assert!(query.is_err());
+}
+
+#[test]
+fn test_query_with_seq_or_choice_of_one_rule() {
+    // module.exports = grammar({
+    //   name: 'test',
+    //
+    //   rules: {
+    //     source: $ => choice($._seq, $._choice),
+    //
+    //     _seq: $ => seq("hi"),
+    //     _choice: $ => choice("bye"),
+    //   },
+    // });
+
+    let (parser_name, parser_code) = generate_parser_for_grammar(
+        r#"
+        {
+          "name": "test_query_with_seq_or_choice_of_one_rule",
+          "rules": {
+            "source": {
+              "type": "CHOICE",
+              "members": [
+                { "type": "SYMBOL", "name": "_seq" },
+                { "type": "SYMBOL", "name": "_choice" }
+              ]
+            },
+            "_seq": {
+              "type": "SEQ",
+              "members": [{ "type": "STRING", "value": "hi" }]
+            },
+            "_choice": {
+              "type": "CHOICE",
+              "members": [ { "type": "STRING", "value": "bye" } ]
+            }
+          },
+          "extras": [{ "type": "PATTERN", "value": "\\s" }]
+        }
+        "#,
+    )
+    .unwrap();
+
+    let language = get_test_language(&parser_name, &parser_code, None);
+
+    let query = Query::new(
+        &language,
+        r#"
+        "hi" @seq
+        "bye" @choice
         "#,
     );
 
@@ -5108,4 +5170,21 @@ fn test_query_compiler_oob_access() {
     let language = get_language("java");
     // UBSAN should not report any OOB access
     assert!(Query::new(&language, "(package_declaration _ (_) @name _)").is_ok());
+}
+
+#[test]
+fn test_query_wildcard_with_immediate_first_child() {
+    let language = get_language("javascript");
+    let query = Query::new(&language, "(_ . (identifier) @firstChild)").unwrap();
+    let source = "function name(one, two, three) { }";
+
+    assert_query_matches(
+        &language,
+        &query,
+        source,
+        &[
+            (0, vec![("firstChild", "name")]),
+            (0, vec![("firstChild", "one")]),
+        ],
+    );
 }

@@ -53,10 +53,14 @@ pub(super) fn extract_tokens(
         {
             if i > 0 && extractor.extracted_usage_counts[index] == 1 {
                 let lexical_variable = &mut lexical_variables[index];
-                lexical_variable.kind = variable.kind;
-                lexical_variable.name = variable.name;
-                symbol_replacer.replacements.insert(i, index);
-                continue;
+                if lexical_variable.kind == VariableType::Auxiliary
+                    || variable.kind != VariableType::Hidden
+                {
+                    lexical_variable.kind = variable.kind;
+                    lexical_variable.name = variable.name;
+                    symbol_replacer.replacements.insert(i, index);
+                    continue;
+                }
             }
         }
         variables.push(variable);
@@ -488,6 +492,32 @@ mod test {
                 panic!("Expected an error but got no error");
             }
         }
+    }
+
+    #[test]
+    fn test_extraction_on_hidden_terminal() {
+        let (syntax_grammar, lexical_grammar) = extract_tokens(build_grammar(vec![
+            Variable::named("rule_0", Rule::non_terminal(1)),
+            Variable::hidden("_rule_1", Rule::string("a")),
+        ]))
+        .unwrap();
+
+        // The rule `_rule_1` should not "absorb" the
+        // terminal "a", since it is hidden,
+        // so we expect two variables still
+        assert_eq!(
+            syntax_grammar.variables,
+            vec![
+                Variable::named("rule_0", Rule::non_terminal(1)),
+                Variable::hidden("_rule_1", Rule::terminal(0)),
+            ]
+        );
+
+        // We should not have a hidden rule in our lexical grammar, only the terminal "a"
+        assert_eq!(
+            lexical_grammar.variables,
+            vec![Variable::anonymous("a", Rule::string("a"))]
+        );
     }
 
     fn build_grammar(variables: Vec<Variable>) -> InternedGrammar {

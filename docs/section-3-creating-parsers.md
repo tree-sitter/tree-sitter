@@ -586,6 +586,10 @@ Possible resolutions:
   4:  Add a conflict for these rules: `binary_expression` `unary_expression`
 ```
 
+Note: The • character in the error message indicates where exactly during
+parsing the conflict occurs, or in other words, where the parser is encountering
+ambiguity.
+
 For an expression like `-a * b`, it's not clear whether the `-` operator applies to the `a * b` or just to the `a`. This is where the `prec` function [described above](#the-grammar-dsl) comes into play. By wrapping a rule with `prec`, we can indicate that certain sequence of symbols should *bind to each other more tightly* than others. For example, the `'-', $._expression` sequence in `unary_expression` should bind more tightly than the `$._expression, '+', $._expression` sequence in `binary_expression`:
 
 ```js
