@@ -41,8 +41,6 @@ pub struct MetadataParams {
     pub dynamic_precedence: i32,
     pub associativity: Option<Associativity>,
     pub is_token: bool,
-    pub is_string: bool,
-    pub is_active: bool,
     pub is_main_token: bool,
     pub alias: Option<Alias>,
     pub field_name: Option<String>,
@@ -68,6 +66,98 @@ pub enum Rule {
     },
     Repeat(Box<Rule>),
     Seq(Vec<Rule>),
+}
+
+impl fmt::Display for Rule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Rule::Blank => write!(f, ""),
+            Rule::String(s) => write!(f, "'{s}'"),
+            Rule::Pattern(s, fl) => write!(f, "/{s}/{fl}"),
+            Rule::NamedSymbol(s) => write!(f, "$.{s}"),
+            Rule::Symbol(s) => write!(f, "Symbol({})", s.index),
+            Rule::Choice(v) => {
+                // if v is length two with a Blank and a Repeat, transform the repeat1 into repeat,
+                // as that is the representation under the hood
+                if v.len() == 2 && matches!(v[0], Rule::Repeat(_)) && matches!(v[1], Rule::Blank) {
+                    return write!(f, "{}", v[0].to_string().replacen("repeat1", "repeat", 1));
+                }
+
+                write!(f, "choice(")?;
+                for (i, rule) in v.iter().enumerate() {
+                    if i == v.len() - 1 {
+                        write!(f, "{rule}")?;
+                    } else {
+                        write!(f, "{rule}, ")?;
+                    }
+                }
+                write!(f, ")")
+            }
+            Rule::Metadata { rule, params } => {
+                let mut s = rule.to_string();
+                match (&params.precedence, params.associativity) {
+                    (Precedence::Integer(i), None) => s = format!("prec({i}, {s})"),
+                    (Precedence::Name(n), None) => s = format!("prec('{n}', {s})"),
+                    (Precedence::None, Some(Associativity::Left)) => {
+                        s = format!("prec.left({s})");
+                    }
+                    (Precedence::None, Some(Associativity::Right)) => {
+                        s = format!("prec.right({s})");
+                    }
+                    (Precedence::Integer(i), Some(Associativity::Left)) => {
+                        s = format!("prec.left({i}, {s})");
+                    }
+                    (Precedence::Integer(i), Some(Associativity::Right)) => {
+                        s = format!("prec.right({i}, {s})");
+                    }
+                    (Precedence::Name(n), Some(Associativity::Left)) => {
+                        s = format!("prec.left('{n}', {s})");
+                    }
+                    (Precedence::Name(n), Some(Associativity::Right)) => {
+                        s = format!("prec.right('{n}', {s})");
+                    }
+                    (Precedence::None, None) => {}
+                }
+
+                if params.dynamic_precedence != 0 {
+                    s = format!("prec.dynamic({}, {s})", params.dynamic_precedence);
+                }
+
+                if let Some(alias) = &params.alias {
+                    s = format!(
+                        "alias({s}, {})",
+                        if alias.is_named {
+                            format!("$.{}", alias.value)
+                        } else {
+                            format!("'{}'", alias.value)
+                        }
+                    );
+                }
+
+                if let Some(field_name) = &params.field_name {
+                    s = format!("field('{field_name}', {s})");
+                }
+
+                if params.is_token {
+                    s = format!("token({s})");
+                }
+
+                write!(f, "{s}")
+            }
+            Rule::Repeat(r) => write!(f, "repeat1({r})"),
+            Rule::Seq(v) => {
+                write!(f, "seq(")?;
+                for (i, rule) in v.iter().enumerate() {
+                    if i == v.len() - 1 {
+                        write!(f, "{rule}")?;
+                    } else {
+                        write!(f, "{rule}, ")?;
+                    }
+                }
+                write!(f, ")")
+            }
+        }
+    }
 }
 
 // Because tokens are represented as small (~400 max) unsigned integers,
@@ -487,6 +577,85 @@ impl fmt::Display for Precedence {
             Self::Integer(i) => write!(f, "{i}"),
             Self::Name(s) => write!(f, "'{s}'"),
             Self::None => write!(f, "none"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_converting_a_rule_back_to_javascript() {
+        struct TestCase {
+            rule: Rule,
+            expected: &'static str,
+        }
+
+        let test_cases = [
+            TestCase {
+                rule: Rule::Seq(vec![
+                    Rule::Pattern("[0-9]".to_string(), "i".to_string()),
+                    Rule::Choice(vec![
+                        Rule::Metadata {
+                            params: MetadataParams {
+                                precedence: Precedence::Integer(1),
+                                dynamic_precedence: 0,
+                                associativity: None,
+                                is_token: true,
+                                is_main_token: false,
+                                alias: None,
+                                field_name: None,
+                            },
+                            rule: Box::new(Rule::String("o".to_string())),
+                        },
+                        Rule::Metadata {
+                            params: MetadataParams {
+                                precedence: Precedence::None,
+                                dynamic_precedence: 0,
+                                associativity: Some(Associativity::Left),
+                                is_token: false,
+                                is_main_token: false,
+                                alias: None,
+                                field_name: None,
+                            },
+                            rule: Box::new(Rule::NamedSymbol("p".to_string())),
+                        },
+                    ]),
+                ]),
+                expected: "seq(/[0-9]/i, choice(token(prec(1, 'o')), prec.left($.p)))",
+            },
+            TestCase {
+                rule: Rule::Metadata {
+                    params: MetadataParams {
+                        precedence: Precedence::None,
+                        dynamic_precedence: 5,
+                        associativity: None,
+                        is_token: false,
+                        is_main_token: false,
+                        alias: Some(Alias {
+                            value: "p".to_string(),
+                            is_named: false,
+                        }),
+                        field_name: Some("q".to_string()),
+                    },
+                    rule: Box::new(Rule::NamedSymbol("o".to_string())),
+                },
+                expected: "field('q', alias(prec.dynamic(5, $.o), 'p'))",
+            },
+            TestCase {
+                rule: Rule::Seq(vec![
+                    Rule::Repeat(Box::new(Rule::NamedSymbol("o".to_string()))),
+                    Rule::Choice(vec![
+                        Rule::Repeat(Box::new(Rule::NamedSymbol("p".to_string()))),
+                        Rule::Blank,
+                    ]),
+                ]),
+                expected: "seq(repeat1($.o), repeat($.p))",
+            },
+        ];
+
+        for test in test_cases.iter() {
+            assert_eq!(test.rule.to_string(), test.expected);
         }
     }
 }

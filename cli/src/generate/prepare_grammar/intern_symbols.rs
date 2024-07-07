@@ -7,7 +7,11 @@ use crate::generate::{
 };
 
 pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> {
-    let interner = Interner { grammar };
+    let mut interner = Interner {
+        grammar,
+        is_token: false,
+        parent: &Rule::Blank,
+    };
 
     if variable_type_for_name(&grammar.variables[0].name) == VariableType::Hidden {
         return Err(anyhow!("A grammar's start rule must be visible."));
@@ -96,36 +100,50 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
 
 struct Interner<'a> {
     grammar: &'a InputGrammar,
+    is_token: bool,
+    parent: &'a Rule,
 }
 
 impl<'a> Interner<'a> {
-    fn intern_rule(&self, rule: &Rule, name: Option<&str>) -> Result<Rule> {
+    fn intern_rule(&mut self, rule: &'a Rule, name: Option<&str>) -> Result<Rule> {
+        self.parent = rule;
+        let result = self.intern_rule_internal(rule, name);
+        self.is_token = false;
+        result
+    }
+
+    fn intern_rule_internal(&mut self, rule: &Rule, name: Option<&str>) -> Result<Rule> {
         match rule {
             Rule::Choice(elements) => {
-                if let Some(result) = self.intern_single(elements, name) {
+                if let Some(result) = self.intern_single(rule, elements, name) {
                     return result;
                 }
                 let mut result = Vec::with_capacity(elements.len());
                 for element in elements {
-                    result.push(self.intern_rule(element, name)?);
+                    result.push(self.intern_rule_internal(element, name)?);
                 }
                 Ok(Rule::Choice(result))
             }
             Rule::Seq(elements) => {
-                if let Some(result) = self.intern_single(elements, name) {
+                if let Some(result) = self.intern_single(rule, elements, name) {
                     return result;
                 }
                 let mut result = Vec::with_capacity(elements.len());
                 for element in elements {
-                    result.push(self.intern_rule(element, name)?);
+                    result.push(self.intern_rule_internal(element, name)?);
                 }
                 Ok(Rule::Seq(result))
             }
-            Rule::Repeat(content) => Ok(Rule::Repeat(Box::new(self.intern_rule(content, name)?))),
-            Rule::Metadata { rule, params } => Ok(Rule::Metadata {
-                rule: Box::new(self.intern_rule(rule, name)?),
-                params: params.clone(),
-            }),
+            Rule::Repeat(content) => Ok(Rule::Repeat(Box::new(
+                self.intern_rule_internal(content, name)?,
+            ))),
+            Rule::Metadata { rule, params } => {
+                self.is_token |= params.is_token;
+                Ok(Rule::Metadata {
+                    rule: Box::new(self.intern_rule_internal(rule, name)?),
+                    params: params.clone(),
+                })
+            }
             Rule::NamedSymbol(name) => self.intern_name(name).map_or_else(
                 || Err(anyhow!("Undefined symbol `{name}`")),
                 |symbol| Ok(Rule::Symbol(symbol)),
@@ -155,13 +173,26 @@ impl<'a> Interner<'a> {
     // In the case of a seq or choice rule of 1 element in a hidden rule, weird
     // inconsistent behavior w/ queries can occur. So we should treat it as that single rule itself
     // in this case.
-    fn intern_single(&self, elements: &[Rule], name: Option<&str>) -> Option<Result<Rule>> {
-        if elements.len() == 1 && matches!(elements[0], Rule::String(_) | Rule::Pattern(_, _)) {
+    fn intern_single(
+        &mut self,
+        rule: &Rule,
+        elements: &[Rule],
+        name: Option<&str>,
+    ) -> Option<Result<Rule>> {
+        if !self.is_token
+            && elements.len() == 1
+            && matches!(elements[0], Rule::String(_) | Rule::Pattern(_, _))
+        {
             eprintln!(
-                "Warning: rule {} is just a `seq` or `choice` rule with a single element. This is unnecessary.",
+                "Warning: rule `{}` contains a `seq` or `choice` rule with a single element. Wrapping the element with this function is unnecessary.",
                 name.unwrap_or_default()
             );
-            Some(self.intern_rule(&elements[0], name))
+            let (s_rule, s_parent) = (rule.to_string(), self.parent.to_string());
+            let index = s_parent.find(&s_rule).unwrap();
+            println!("{s_parent}");
+            print!("{: <index$}", "");
+            println!("{:^<1$}", "^", s_rule.len());
+            Some(self.intern_rule_internal(&elements[0], name))
         } else {
             None
         }
