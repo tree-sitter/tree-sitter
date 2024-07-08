@@ -41,7 +41,7 @@ strip = false
 [workspace.dependencies]
 anstyle = "1.0.7"
 anyhow = "1.0.86"
-cc = "1.0.104"
+cc = "1.0.106"
 clap = { version = "4.5.8", features = [
   "cargo",
   "derive",
@@ -71,7 +71,7 @@ regex = "1.10.5"
 regex-syntax = "0.8.4"
 rustc-hash = "1.1.0"
 semver = "1.0.23"
-serde = { version = "1.0.202", features = ["derive"] }
+serde = { version = "1.0.204", features = ["derive"] }
 serde_derive = "1.0.197"
 serde_json = { version = "1.0.120", features = ["preserve_order"] }
 similar = "2.5.0"
