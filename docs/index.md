@@ -41,6 +41,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Agda](https://github.com/tree-sitter/tree-sitter-agda)
 * [Apex](https://github.com/aheber/tree-sitter-sfapex)
 * [ApexCode](https://github.com/jsuarez-chipiron/tree-sitter-apex)
+* [AWK](https://github.com/Beaglefoot/tree-sitter-awk)
 * [AWS Event Rule](https://github.com/3p3r/tree-sitter-eventrule)
 * [Bash](https://github.com/tree-sitter/tree-sitter-bash)
 * [Beancount](https://github.com/zwpaper/tree-sitter-beancount)
