@@ -61,12 +61,12 @@ impl RenderTarget for RenderTargetSwift {
         indent!(self);
     }
     fn add_symbol_names_list_item(&mut self, _name: &str, text: &str) {
-        add_line!(self, "\"{text}\",");
+        add_line!(self, "\"{}\",", hack_utf8(text));
     }
     fn end_symbol_names_list(&mut self) {
         dedent!(self);
         add_line!(self, "]");
-        add_line!(self, "fileprivate static let ts_symbol_names = UnsafeBufferPointer.arrayOfAsciiCSrings(symbolNames)");
+        add_line!(self, "fileprivate static let ts_symbol_names = UnsafeBufferPointer.arrayOfCSrings(symbolNames)");
         add_line!(self, "");
     }
 
@@ -122,7 +122,7 @@ impl RenderTarget for RenderTargetSwift {
     fn end_field_names(&mut self) {
         dedent!(self);
         add_line!(self, "]");
-        add_line!(self, "fileprivate static let ts_field_names = UnsafeBufferPointer<UnsafePointer<CChar>?>.arrayOfAsciiCSrings(fieldNames)");
+        add_line!(self, "fileprivate static let ts_field_names = UnsafeBufferPointer.arrayOfCSrings(fieldNames)");
         add_line!(self, "");
     }
     
@@ -532,4 +532,24 @@ impl RenderTarget for RenderTargetSwift {
     fn buffer_ref(&mut self) -> &mut RenderBuffer {
         &mut self.buffer
     }
+}
+
+
+/// Convert substrings of the form \udddd to \u{dddd}...
+fn hack_utf8(string: &str) -> String {
+    let mut result = String::new();
+    let mut chars = string.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\\' && chars.peek() == Some(&'u') {
+            _ = chars.next();
+            let mut v : [char; 4] = [' ', ' ', ' ', ' '];
+            for i in 0 .. 4 {
+                v[i] = chars.next().unwrap();
+            }
+            result += format!("\\u{{{}{}{}{}}}", v[0], v[1], v[2], v[3]).as_ref();
+        } else {
+            result += format!("{c}").as_ref();
+        }
+    }
+    result
 }
