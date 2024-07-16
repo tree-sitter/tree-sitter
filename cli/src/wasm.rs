@@ -1,9 +1,14 @@
-use super::generate::parse_grammar::GrammarJSON;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
+
 use anyhow::{anyhow, Context, Result};
-use std::{fs, path::Path};
 use tree_sitter::wasm_stdlib_symbols;
 use tree_sitter_loader::Loader;
 use wasmparser::Parser;
+
+use super::generate::parse_grammar::GrammarJSON;
 
 pub fn load_language_wasm_file(language_dir: &Path) -> Result<(String, Vec<u8>)> {
     let grammar_name = get_grammar_name(language_dir)
@@ -11,7 +16,7 @@ pub fn load_language_wasm_file(language_dir: &Path) -> Result<(String, Vec<u8>)>
         .unwrap();
     let wasm_filename = format!("tree-sitter-{grammar_name}.wasm");
     let contents = fs::read(language_dir.join(&wasm_filename)).with_context(|| {
-        format!("Failed to read {wasm_filename}. Run `tree-sitter build-wasm` first.",)
+        format!("Failed to read {wasm_filename}. Run `tree-sitter build --wasm` first.",)
     })?;
     Ok((grammar_name, contents))
 }
@@ -28,16 +33,20 @@ pub fn get_grammar_name(language_dir: &Path) -> Result<String> {
 
 pub fn compile_language_to_wasm(
     loader: &Loader,
+    root_dir: Option<&Path>,
     language_dir: &Path,
     output_dir: &Path,
+    output_file: Option<PathBuf>,
     force_docker: bool,
 ) -> Result<()> {
     let grammar_name = get_grammar_name(language_dir)?;
-    let output_filename = output_dir.join(format!("tree-sitter-{grammar_name}.wasm"));
+    let output_filename =
+        output_file.unwrap_or_else(|| output_dir.join(format!("tree-sitter-{grammar_name}.wasm")));
     let src_path = language_dir.join("src");
     let scanner_path = loader.get_scanner_path(&src_path);
     loader.compile_parser_to_wasm(
         &grammar_name,
+        root_dir,
         &src_path,
         scanner_path
             .as_ref()
@@ -48,7 +57,7 @@ pub fn compile_language_to_wasm(
 
     // Exit with an error if the external scanner uses symbols from the
     // C or C++ standard libraries that aren't available to wasm parsers.
-    let stdlib_symbols: Vec<_> = wasm_stdlib_symbols().collect();
+    let stdlib_symbols = wasm_stdlib_symbols().collect::<Vec<_>>();
     let dylink_symbols = [
         "__indirect_function_table",
         "__memory_base",
@@ -62,6 +71,7 @@ pub fn compile_language_to_wasm(
         "__cxa_atexit",
         "abort",
         "emscripten_notify_memory_growth",
+        "tree_sitter_debug_message",
         "proc_exit",
     ];
 

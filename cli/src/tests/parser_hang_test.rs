@@ -1,15 +1,17 @@
 // For some reasons `Command::spawn` doesn't work in CI env for many exotic arches.
 #![cfg(all(any(target_arch = "x86_64", target_arch = "x86"), not(sanitizing)))]
 
-use crate::{
-    generate::{generate_parser_for_grammar, load_grammar_file},
-    tests::helpers::fixtures::{fixtures_dir, get_test_language},
-};
 use std::{
     env::VarError,
     process::{Command, Stdio},
 };
+
 use tree_sitter::Parser;
+
+use crate::{
+    generate::{generate_parser_for_grammar, load_grammar_file},
+    tests::helpers::fixtures::{fixtures_dir, get_test_language},
+};
 
 // The `sanitizing` cfg is required to don't run tests under specific sunitizer
 // because they don't work well with subprocesses _(it's an assumption)_.
@@ -35,7 +37,7 @@ fn test_grammar_that_should_hang_and_not_segfault() {
 
     let tests_exec_path = std::env::args()
         .next()
-        .expect("Failed get get tests executable path");
+        .expect("Failed to get tests executable path");
 
     match std::env::var(test_var) {
         Ok(v) if v == test_name => {
@@ -45,60 +47,59 @@ fn test_grammar_that_should_hang_and_not_segfault() {
 
         Err(VarError::NotPresent) => {
             eprintln!("    parent process id {}", std::process::id());
-            if true {
-                let mut command = Command::new(tests_exec_path);
-                command.arg(test_name).env(test_var, test_name);
-                if std::env::args().any(|x| x == "--nocapture") {
-                    command.arg("--nocapture");
-                } else {
-                    command.stdout(Stdio::null()).stderr(Stdio::null());
-                }
-                match command.spawn() {
-                    Ok(mut child) => {
-                        std::thread::sleep(std::time::Duration::from_millis(parent_sleep_millis));
-                        match child.try_wait() {
-                            Ok(Some(status)) if status.success() => {
-                                panic!("Child wasn't hang and exited successfully")
-                            }
-                            Ok(Some(status)) => panic!(
-                                "Child wasn't hang and exited with status code: {:?}",
-                                status.code()
-                            ),
-                            _ => (),
+            let mut command = Command::new(tests_exec_path);
+            command.arg(test_name).env(test_var, test_name);
+
+            if std::env::args().any(|x| x == "--nocapture") {
+                command.arg("--nocapture");
+            } else {
+                command.stdout(Stdio::null()).stderr(Stdio::null());
+            }
+
+            match command.spawn() {
+                Ok(mut child) => {
+                    std::thread::sleep(std::time::Duration::from_millis(parent_sleep_millis));
+                    match child.try_wait() {
+                        Ok(Some(status)) if status.success() => {
+                            panic!("Child didn't hang and exited successfully")
                         }
-                        if let Err(e) = child.kill() {
-                            eprintln!(
-                                "Failed to kill hang test sub process id: {}, error: {e}",
-                                child.id()
-                            );
-                        }
+                        Ok(Some(status)) => panic!(
+                            "Child didn't hang and exited with status code: {:?}",
+                            status.code()
+                        ),
+                        _ => (),
                     }
-                    Err(e) => panic!("{e}"),
+                    if let Err(e) = child.kill() {
+                        eprintln!(
+                            "Failed to kill hang test's process id: {}, error: {e}",
+                            child.id()
+                        );
+                    }
                 }
+                Err(e) => panic!("{e}"),
             }
         }
 
         Err(e) => panic!("Env var error: {e}"),
+
         _ => unreachable!(),
     }
+}
 
-    fn hang_test() {
-        let test_grammar_dir = fixtures_dir()
-            .join("test_grammars")
-            .join("get_col_should_hang_not_crash");
+fn hang_test() {
+    let test_grammar_dir = fixtures_dir()
+        .join("test_grammars")
+        .join("get_col_should_hang_not_crash");
 
-        let grammar_json = load_grammar_file(&test_grammar_dir.join("grammar.js"), None).unwrap();
-        let (parser_name, parser_code) =
-            generate_parser_for_grammar(grammar_json.as_str()).unwrap();
+    let grammar_json = load_grammar_file(&test_grammar_dir.join("grammar.js"), None).unwrap();
+    let (parser_name, parser_code) = generate_parser_for_grammar(grammar_json.as_str()).unwrap();
 
-        let language =
-            get_test_language(&parser_name, &parser_code, Some(test_grammar_dir.as_path()));
+    let language = get_test_language(&parser_name, &parser_code, Some(test_grammar_dir.as_path()));
 
-        let mut parser = Parser::new();
-        parser.set_language(&language).unwrap();
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
 
-        let code_that_should_hang = "\nHello";
+    let code_that_should_hang = "\nHello";
 
-        parser.parse(code_that_should_hang, None).unwrap();
-    }
+    parser.parse(code_that_should_hang, None).unwrap();
 }

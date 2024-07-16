@@ -1,9 +1,15 @@
-use super::grammars::{LexicalGrammar, SyntaxGrammar, VariableType};
-use super::rules::{Alias, AliasMap, Symbol, SymbolType};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, HashMap, HashSet},
+};
+
 use anyhow::{anyhow, Result};
 use serde::Serialize;
-use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap, HashSet};
+
+use super::{
+    grammars::{LexicalGrammar, SyntaxGrammar, VariableType},
+    rules::{Alias, AliasMap, Symbol, SymbolType},
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ChildType {
@@ -134,18 +140,17 @@ impl ChildQuantity {
 ///    * `types` - The types of visible children the field can contain.
 ///    * `optional` - Do `N` nodes always have this field?
 ///    * `multiple` - Can `N` nodes have multiple children for this field?
-/// 3. `children_without_fields` - The *other* named children of `N` that are
-///    not associated with fields. Data regarding these children:
+/// 3. `children_without_fields` - The *other* named children of `N` that are not associated with
+///    fields. Data regarding these children:
 ///    * `types` - The types of named children with no field.
 ///    * `optional` - Do `N` nodes always have at least one named child with no field?
 ///    * `multiple` - Can `N` nodes have multiple named children with no field?
 ///
 /// Each summary must account for some indirect factors:
-/// 1. hidden nodes. When a parent node `N` has a hidden child `C`, the visible
-///    children of `C` *appear* to be direct children of `N`.
-/// 2. aliases. If a parent node type `M` is aliased as some other type `N`,
-///    then nodes which *appear* to have type `N` may have internal structure based
-///    on `M`.
+/// 1. hidden nodes. When a parent node `N` has a hidden child `C`, the visible children of `C`
+///    *appear* to be direct children of `N`.
+/// 2. aliases. If a parent node type `M` is aliased as some other type `N`, then nodes which
+///    *appear* to have type `N` may have internal structure based on `M`.
 pub fn get_variable_info(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
@@ -218,7 +223,8 @@ pub fn get_variable_info(
                             .entry(field_name)
                             .or_insert_with(ChildQuantity::zero);
 
-                        // Inherit the types and quantities of hidden children associated with fields.
+                        // Inherit the types and quantities of hidden children associated with
+                        // fields.
                         if child_is_hidden && child_symbol.is_non_terminal() {
                             let child_variable_info = &result[child_symbol.index];
                             did_change |= extend_sorted(
@@ -523,8 +529,8 @@ pub fn generate_node_types_json(
                 let fields_json = node_type_json.fields.as_mut().unwrap();
                 for (new_field, field_info) in &info.fields {
                     let field_json = fields_json.entry(new_field.clone()).or_insert_with(|| {
-                        // If another rule is aliased with the same name, and does *not* have this field,
-                        // then this field cannot be required.
+                        // If another rule is aliased with the same name, and does *not* have this
+                        // field, then this field cannot be required.
                         let mut field_json = FieldInfoJSON::default();
                         if node_type_existed {
                             field_json.required = false;
@@ -534,8 +540,8 @@ pub fn generate_node_types_json(
                     populate_field_info_json(field_json, field_info);
                 }
 
-                // If another rule is aliased with the same name, any fields that aren't present in this
-                // cannot be required.
+                // If another rule is aliased with the same name, any fields that aren't present in
+                // this cannot be required.
                 for (existing_field, field_json) in fields_json.iter_mut() {
                     if !info.fields.contains_key(existing_field) {
                         field_json.required = false;
@@ -715,11 +721,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::generate::grammars::{
-        InputGrammar, LexicalVariable, Production, ProductionStep, SyntaxVariable, Variable,
+    use crate::generate::{
+        grammars::{
+            InputGrammar, LexicalVariable, Production, ProductionStep, SyntaxVariable, Variable,
+        },
+        prepare_grammar::prepare_grammar,
+        rules::Rule,
     };
-    use crate::generate::prepare_grammar::prepare_grammar;
-    use crate::generate::rules::Rule;
 
     #[test]
     fn test_node_types_simple() {

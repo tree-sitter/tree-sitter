@@ -17,6 +17,7 @@ let package = Package(
                 exclude: [
                     "binding_rust",
                     "binding_web",
+                    "node_modules",
                     "Cargo.toml",
                     "README.md",
                     "src/unicode/README.md",
@@ -35,5 +36,6 @@ let package = Package(
                     "src/query.c"
                 ],
                 sources: ["src/lib.c"]),
-    ]
+    ],
+    cLanguageStandard: .c11
 )

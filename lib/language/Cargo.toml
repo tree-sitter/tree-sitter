@@ -1,0 +1,14 @@
+[package]
+name = "tree-sitter-language"
+description = "The tree-sitter Language type, used by the library and by language implementations"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+
+[lib]
+path = "language.rs"

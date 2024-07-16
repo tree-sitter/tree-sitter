@@ -1,7 +1,8 @@
+use std::fs;
+
 use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::fs;
 use tree_sitter::{Language, Parser, Point};
 
 lazy_static! {
@@ -57,7 +58,7 @@ pub fn parse_position_comments(
             let node = cursor.node();
 
             // Find every comment node.
-            if node.kind().contains("comment") {
+            if node.kind().to_lowercase().contains("comment") {
                 if let Ok(text) = node.utf8_text(source) {
                     let mut position = node.start_position();
                     if position.row > 0 {

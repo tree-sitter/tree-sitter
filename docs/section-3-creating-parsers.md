@@ -104,22 +104,75 @@ Let's go over all of the functionality of the `tree-sitter` command line tool.
 
 The most important command you'll use is `tree-sitter generate`. This command reads the `grammar.js` file in your current working directory and creates a file called `src/parser.c`, which implements the parser. After making changes to your grammar, just run `tree-sitter generate` again.
 
-The first time you run `tree-sitter generate`, it will also generate a few other files:
+The first time you run `tree-sitter generate`, it will also generate a few other files for bindings for the following languages:
+
+#### C/C++
+
+* `Makefile` - This file tells `make` how to compile your language.
+* `bindings/c/tree-sitter-language.h` - This file provides the C interface of your language.
+* `bindings/c/tree-sitter-language.pc` - This file provides pkg-config metadata about your language's C library.
+* `src/tree_sitter/parser.h` - This file provides some basic C definitions that are used in your generated `parser.c` file.
+* `src/tree_sitter/alloc.h` - This file provides some memory allocation macros that are to be used in your external scanner, if you have one.
+* `src/tree_sitter/array.h` - This file provides some array macros that are to be used in your external scanner, if you have one.
+
+#### Go
+
+* `bindings/go/binding.go` - This file wraps your language in a Go module.
+* `bindings/go/binding_test.go` - This file contains a test for the Go package.
+
+#### Node
 
 * `binding.gyp` - This file tells Node.js how to compile your language.
 * `bindings/node/index.js` - This is the file that Node.js initially loads when using your language.
-* `bindings/node/binding.cc` - This file wraps your language in a JavaScript object when used in Node.js.
+* `bindings/node/binding.cc` - This file wraps your language in a JavaScript module for Node.js.
+
+#### Python
+
+* `pyproject.toml` - This file is the manifest of the Python package.
+* `setup.py` - This file tells Python how to compile your language.
+* `bindings/python/binding.c` - This file wraps your language in a Python module.
+* `bindings/python/tree_sitter_language/__init__.py` - This file tells Python how to load your language.
+* `bindings/python/tree_sitter_language/__init__.pyi` - This file provides type hints for your parser when used in Python.
+* `bindings/python/tree_sitter_language/py.typed` - This file provides type hints for your parser when used in Python.
+
+#### Rust
+
+* `Cargo.toml` - This file is the manifest of the Rust package.
 * `bindings/rust/lib.rs` - This file wraps your language in a Rust crate when used in Rust.
 * `bindings/rust/build.rs` - This file wraps the building process for the Rust crate.
-* `src/tree_sitter/parser.h` - This file provides some basic C definitions that are used in your generated `parser.c` file.
+
+#### Swift
+
+* `Package.swift` - This file tells Swift how to compile your language.
+* `bindings/swift/TreeSitterLanguage/language.h` - This file wraps your language in a Swift module when used in Swift.
 
 If there is an ambiguity or *local ambiguity* in your grammar, Tree-sitter will detect it during parser generation, and it will exit with a `Unresolved conflict` error message. See below for more information on these errors.
+
+### Command: `build`
+
+The `build` command compiles your parser into a dynamically-loadable library, either as a shared object (`.so`, `.dylib`, or `.dll`) or as a WASM module.
+
+You can change the compiler executable via the `CC` environment variable and add extra flags via `CFLAGS`. For macOS or iOS, you can set `MACOSX_DEPLOYMENT_TARGET` or `IPHONEOS_DEPLOYMENT_TARGET` respectively to define the minimum supported version.
+
+You can specify whether to compile it as a wasm module with the `--wasm`/`-w` flag, and you can opt to use docker or podman to supply emscripten with the `--docker`/`-d` flag. This removes the need to install emscripten on your machine locally.
+
+You can specify where to output the shared object file (native or WASM) with the `--output`/`-o` flag, which accepts either an absolute path or relative path. Note that if you don't supply this flag, the CLI will attempt to figure out what the language name is based on the parent directory (so building in `tree-sitter-javascript` will resolve to `javascript`) to use for the output file. If it can't figure it out, it will default to `parser`, thus generating `parser.so` or `parser.wasm` in the current working directory.
+
+Lastly, you can also specify a path to the actual grammar directory, in case you are not currently in one. This is done by providing a path as the first *positional* argument.
+
+Example:
+
+```sh
+tree-sitter build --wasm --output ./build/parser.wasm tree-sitter-javascript
+```
+
+Notice how the `tree-sitter-javascript` argument is the first positional argument.
 
 ### Command: `test`
 
 The `tree-sitter test` command allows you to easily test that your parser is working correctly.
 
-For each rule that you add to the grammar, you should first create a *test* that describes how the syntax trees should look when parsing that rule. These tests are written using specially-formatted text files in the `corpus/` or `test/corpus/` directories within your parser's root folder.
+For each rule that you add to the grammar, you should first create a *test* that describes how the syntax trees should look when parsing that rule. These tests are written using specially-formatted text files in the `test/corpus/` directory within your parser's root folder.
 
 For example, you might have a file called `test/corpus/statements.txt` that contains a series of entries like this:
 
@@ -181,13 +234,73 @@ increment(n) == n + 1
 
 These tests are important. They serve as the parser's API documentation, and they can be run every time you change the grammar to verify that everything still parses correctly.
 
-By default, the `tree-sitter test` command runs all of the tests in your `corpus` or `test/corpus/` folder. To run a particular test, you can use the `-f` flag:
+By default, the `tree-sitter test` command runs all of the tests in your `test/corpus/` folder. To run a particular test, you can use the `-f` flag:
 
 ```sh
 tree-sitter test -f 'Return statements'
 ```
 
-The recommendation is to be comprehensive in adding tests. If it's a visible node, add it to a test file in your `corpus` directory. It's typically a good idea to test all of the permutations of each language construct. This increases test coverage, but doubly acquaints readers with a way to examine expected outputs and understand the "edges" of a language.
+The recommendation is to be comprehensive in adding tests. If it's a visible node, add it to a test file in your `test/corpus` directory. It's typically a good idea to test all of the permutations of each language construct. This increases test coverage, but doubly acquaints readers with a way to examine expected outputs and understand the "edges" of a language.
+
+#### Attributes
+
+Tests can be annotated with a few `attributes`. Attributes must be put in the header, below the test name, and start with a `:`.
+A couple of attributes also take in a parameter, which require the use of parenthesis.
+
+**Note**: If you'd like to supply in multiple parameters, e.g. to run tests on multiple platforms or to test multiple languages, you can repeat the attribute on a new line.
+
+The following attributes are available:
+
+- `:skip` — This attribute will skip the test when running `tree-sitter test`.
+  This is useful when you want to temporarily disable running a test without deleting it.
+- `:error` — This attribute will assert that the parse tree contains an error. It's useful to just validate that a certain input is invalid without displaying the whole parse tree, as such you should omit the parse tree below the `---` line.
+- `:fail-fast` — This attribute will stop the testing additional tests if the test marked with this attribute fails.
+- `:language(LANG)` — This attribute will run the tests using the parser for the specified language. This is useful for multi-parser repos, such as XML and DTD, or Typescript and TSX. The default parser will be the first entry in the `tree-sitter` field in the root `package.json`, so having a way to pick a second or even third parser is useful.
+- `:platform(PLATFORM)` — This attribute specifies the platform on which the test should run. It is useful to test platform-specific behavior (e.g. Windows newlines are different from Unix). This attribute must match up with Rust's [`std::env::consts::OS`](https://doc.rust-lang.org/std/env/consts/constant.OS.html).
+
+Examples using attributes:
+
+```text
+=========================
+Test that will be skipped
+:skip
+=========================
+
+int main() {}
+
+-------------------------
+
+====================================
+Test that will run on Linux or macOS
+
+:platform(linux)
+:platform(macos)
+====================================
+
+int main() {}
+
+------------------------------------
+
+========================================================================
+Test that expects an error, and will fail fast if there's no parse error
+:fail-fast
+:error
+========================================================================
+
+int main ( {}
+
+------------------------------------------------------------------------
+
+=================================================
+Test that will parse with both Typescript and TSX
+:language(typescript)
+:language(tsx)
+=================================================
+
+console.log('Hello, world!');
+
+-------------------------------------------------
+```
 
 #### Automatic Compilation
 
@@ -386,7 +499,7 @@ With this structure in place, you can now freely decide what part of the grammar
 
 After developing the *type* sublanguage a bit further, you might decide to switch to working on *statements* or *expressions* instead. It's often useful to check your progress by trying to parse some real code using `tree-sitter parse`.
 
-**And remember to add tests for each rule in your `corpus` folder!**
+**And remember to add tests for each rule in your `test/corpus` folder!**
 
 ### Structuring Rules Well
 
@@ -473,6 +586,10 @@ Possible resolutions:
   4:  Add a conflict for these rules: `binary_expression` `unary_expression`
 ```
 
+Note: The • character in the error message indicates where exactly during
+parsing the conflict occurs, or in other words, where the parser is encountering
+ambiguity.
+
 For an expression like `-a * b`, it's not clear whether the `-` operator applies to the `a * b` or just to the `a`. This is where the `prec` function [described above](#the-grammar-dsl) comes into play. By wrapping a rule with `prec`, we can indicate that certain sequence of symbols should *bind to each other more tightly* than others. For example, the `'-', $._expression` sequence in `unary_expression` should bind more tightly than the `$._expression, '+', $._expression` sequence in `binary_expression`:
 
 ```js
@@ -527,7 +644,7 @@ You may have noticed in the above examples that some of the grammar rule name li
 
 ### Using Fields
 
-Often, it's easier to analyze a syntax nodes if you can refer to its children by *name* instead of by their position in an ordered list. Tree-sitter grammars support this using the `field` function. This function allows you to assign unique names to some or all of a node's children:
+Often, it's easier to analyze a syntax node if you can refer to its children by *name* instead of by their position in an ordered list. Tree-sitter grammars support this using the `field` function. This function allows you to assign unique names to some or all of a node's children:
 
 ```js
 function_definition: $ => seq(
@@ -658,7 +775,9 @@ Then, add another C or C++ source file to your project. Currently, its path must
 In this new source file, define an [`enum`][enum] type containing the names of all of your external tokens. The ordering of this enum must match the order in your grammar's `externals` array; the actual names do not matter.
 
 ```c
-#include <tree_sitter/parser.h>
+#include "tree_sitter/parser.h"
+#include "tree_sitter/alloc.h"
+#include "tree_sitter/array.h"
 
 enum TokenType {
   INDENT,
@@ -672,7 +791,7 @@ Finally, you must define five functions with specific names, based on your langu
 #### Create
 
 ```c
-void * tree_sitter_my_language_external_scanner_create() {
+void *tree_sitter_my_language_external_scanner_create(void) {
   // ...
 }
 ```
@@ -756,6 +875,107 @@ if (valid_symbols[INDENT] || valid_symbols[DEDENT]) {
     return true;
   }
 }
+```
+
+#### External Scanner Helpers
+
+##### Allocator
+
+Instead of using libc's `malloc`, `calloc`, `realloc`, and `free`, you should use the versions prefixed with `ts_` from `tree_sitter/alloc.h`.
+These macros can allow a potential consumer to override the default allocator with their own implementation, but by default will use the libc functions.
+
+As a consumer of the tree-sitter core library as well as any parser libraries that might use allocations, you can enable overriding the default allocator and have it use the same one as the library allocator, of which you can set with `ts_set_allocator`.
+To enable this overriding in scanners, you must compile them with the `TREE_SITTER_REUSE_ALLOCATOR` macro defined, and tree-sitter the library must be linked into your final app dynamically, since it needs to resolve the internal functions at runtime. If you are compiling
+an executable binary that uses the core library, but want to load parsers dynamically at runtime, then you will have to use a special linker flag on Unix. For non-Darwin systems, that would be `--dynamic-list` and for Darwin systems, that would be `-exported_symbols_list`.
+The CLI does exactly this, so you can use it as a reference (check out `cli/build.rs`).
+
+For example, assuming you wanted to allocate 100 bytes for your scanner, you'd do so like the following example:
+
+```c
+#include "tree_sitter/parser.h"
+#include "tree_sitter/alloc.h"
+
+// ...
+
+void *tree_sitter_my_language_external_scanner_create(void) {
+  return ts_calloc(100, 1); // or ts_malloc(100)
+}
+
+// ...
+
+```
+
+##### Arrays
+
+If you need to use array-like types in your scanner, such as tracking a stack of indentations or tags, you should use the array macros from `tree_sitter/array.h`.
+
+There are quite a few of them provided for you, but here's how you could get started tracking some . Check out the header itself for more detailed documentation.
+
+**NOTE**: Do not use any of the array functions or macros that are prefixed with an underscore and have comments saying that it is not what you are looking for.
+These are internal functions used as helpers by other macros that are public. They are not meant to be used directly, nor are they what you want.
+
+```c
+#include "tree_sitter/parser.h"
+#include "tree_sitter/array.h"
+
+enum TokenType {
+  INDENT,
+  DEDENT,
+  NEWLINE,
+  STRING,
+}
+
+// Create the array in your create function
+
+void *tree_sitter_my_language_external_scanner_create(void) {
+  return ts_calloc(1, sizeof(Array(int)));
+
+  // or if you want to zero out the memory yourself
+
+  Array(int) *stack = ts_malloc(sizeof(Array(int)));
+  array_init(&stack);
+  return stack;
+}
+
+bool tree_sitter_my_language_external_scanner_scan(
+  void *payload,
+  TSLexer *lexer,
+  const bool *valid_symbols
+) {
+  Array(int) *stack = payload;
+  if (valid_symbols[INDENT]) {
+    array_push(stack, lexer->get_column(lexer));
+    lexer->result_symbol = INDENT;
+    return true;
+  }
+  if (valid_symbols[DEDENT]) {
+    array_pop(stack); // this returns the popped element by value, but we don't need it
+    lexer->result_symbol = DEDENT;
+    return true;
+  }
+
+  // we can also use an array on the stack to keep track of a string
+
+  Array(char) next_string = array_new();
+
+  if (valid_symbols[STRING] && lexer->lookahead == '"') {
+    lexer->advance(lexer, false);
+    while (lexer->lookahead != '"' && lexer->lookahead != '\n' && !lexer->eof(lexer)) {
+      array_push(&next_string, lexer->lookahead);
+      lexer->advance(lexer, false);
+    }
+
+    // assume we have some arbitrary constraint of not having more than 100 characters in a string
+    if (lexer->lookahead == '"' && next_string.size <= 100) {
+      lexer->advance(lexer, false);
+      lexer->result_symbol = STRING;
+      return true;
+    }
+  }
+
+  return false;
+}
+
 ```
 
 #### Other External Scanner Details

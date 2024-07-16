@@ -1,7 +1,7 @@
 [package]
 name = "tree-sitter-loader"
+version.workspace = true
 description = "Locates, builds, and loads tree-sitter grammars at runtime"
-version = "0.20.0"
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -26,16 +26,8 @@ once_cell.workspace = true
 regex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-which.workspace = true
+tempfile.workspace = true
 
-[dependencies.tree-sitter]
-version = "0.20.10"
-path = "../../lib"
-
-[dependencies.tree-sitter-highlight]
-version = "0.20.2"
-path = "../../highlight"
-
-[dependencies.tree-sitter-tags]
-version = "0.20.2"
-path = "../../tags"
+tree-sitter.workspace = true
+tree-sitter-highlight.workspace = true
+tree-sitter-tags.workspace = true

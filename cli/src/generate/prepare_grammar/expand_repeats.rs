@@ -1,8 +1,10 @@
+use std::{collections::HashMap, mem};
+
 use super::ExtractedSyntaxGrammar;
-use crate::generate::grammars::{Variable, VariableType};
-use crate::generate::rules::{Rule, Symbol};
-use std::collections::HashMap;
-use std::mem;
+use crate::generate::{
+    grammars::{Variable, VariableType},
+    rules::{Rule, Symbol},
+};
 
 struct Expander {
     variable_name: String,
@@ -57,7 +59,7 @@ impl Expander {
                 params: params.clone(),
             },
 
-            // For repetitions, introduce an auxiliary rule that contains the the
+            // For repetitions, introduce an auxiliary rule that contains the
             // repeated content, but can also contain a recursive binary tree structure.
             Rule::Repeat(content) => {
                 let inner_rule = self.expand_rule(content);

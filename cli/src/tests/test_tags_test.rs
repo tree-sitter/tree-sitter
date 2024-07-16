@@ -1,8 +1,11 @@
-use super::helpers::fixtures::{get_language, get_tags_config};
-use crate::query_testing::{parse_position_comments, Assertion};
-use crate::test_tags::get_tag_positions;
 use tree_sitter::{Parser, Point};
 use tree_sitter_tags::TagsContext;
+
+use super::helpers::fixtures::{get_language, get_tags_config};
+use crate::{
+    query_testing::{parse_position_comments, Assertion},
+    test_tags::get_tag_positions,
+};
 
 #[test]
 fn test_tags_test_with_basic_test() {

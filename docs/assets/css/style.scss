@@ -33,6 +33,16 @@ a[href^="http"]:after {
   padding: $padding 0;
 }
 
+#main-content code:not(pre code, a code) {
+  color: #c7254e;
+  font-size: 0.9em;
+  background-color: #f8f8f8;
+  border: 1px solid #eaeaea;
+  border-radius: 3px;
+  margin: 0 2px;
+  padding: 0 5px;
+}
+
 #sidebar {
   position: fixed;
   background: white;
@@ -161,6 +171,10 @@ a > span {
 
   .CodeMirror div.CodeMirror-cursor {
     border-left: 3px solid red;
+  }
+
+  h4#about {
+    margin: 10ex 0 0 0;
   }
 }
 

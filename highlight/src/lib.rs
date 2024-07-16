@@ -1,12 +1,14 @@
 #![doc = include_str!("../README.md")]
 
 pub mod c_lib;
-pub use c_lib as c;
+use std::{
+    collections::HashSet,
+    iter, mem, ops, str,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
+pub use c_lib as c;
 use lazy_static::lazy_static;
-use std::collections::HashSet;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{iter, mem, ops, str, usize};
 use thiserror::Error;
 use tree_sitter::{
     Language, LossyUtf8, Node, Parser, Point, Query, QueryCaptures, QueryCursor, QueryError,
@@ -106,7 +108,6 @@ pub struct HighlightConfiguration {
     pub language: Language,
     pub language_name: String,
     pub query: Query,
-    pub apply_all_captures: bool,
     combined_injections_query: Option<Query>,
     locals_pattern_index: usize,
     highlights_pattern_index: usize,
@@ -165,7 +166,6 @@ where
     iter_count: usize,
     next_event: Option<HighlightEvent>,
     last_highlight_range: Option<(usize, usize, usize)>,
-    apply_all_captures: bool,
 }
 
 struct HighlightIterLayer<'a> {
@@ -233,7 +233,6 @@ impl Highlighter {
             layers,
             next_event: None,
             last_highlight_range: None,
-            apply_all_captures: config.apply_all_captures,
         };
         result.sort_layers();
         Ok(result)
@@ -249,10 +248,10 @@ impl HighlightConfiguration {
     /// * `language`  - The Tree-sitter `Language` that should be used for parsing.
     /// * `highlights_query` - A string containing tree patterns for syntax highlighting. This
     ///   should be non-empty, otherwise no syntax highlights will be added.
-    /// * `injections_query` -  A string containing tree patterns for injecting other languages
-    ///   into the document. This can be empty if no injections are desired.
-    /// * `locals_query` - A string containing tree patterns for tracking local variable
-    ///   definitions and references. This can be empty if local variable tracking is not needed.
+    /// * `injections_query` -  A string containing tree patterns for injecting other languages into
+    ///   the document. This can be empty if no injections are desired.
+    /// * `locals_query` - A string containing tree patterns for tracking local variable definitions
+    ///   and references. This can be empty if local variable tracking is not needed.
     ///
     /// Returns a `HighlightConfiguration` that can then be used with the `highlight` method.
     pub fn new(
@@ -261,7 +260,6 @@ impl HighlightConfiguration {
         highlights_query: &str,
         injection_query: &str,
         locals_query: &str,
-        apply_all_captures: bool,
     ) -> Result<Self, QueryError> {
         // Concatenate the query strings, keeping track of the start offset of each section.
         let mut query_source = String::new();
@@ -343,7 +341,6 @@ impl HighlightConfiguration {
             language,
             language_name: name.into(),
             query,
-            apply_all_captures,
             combined_injections_query,
             locals_pattern_index,
             highlights_pattern_index,
@@ -404,8 +401,8 @@ impl HighlightConfiguration {
     }
 
     // Return the list of this configuration's capture names that are neither present in the
-    // list of predefined 'canonical' names nor start with an underscore (denoting 'private' captures
-    // used as part of capture internals).
+    // list of predefined 'canonical' names nor start with an underscore (denoting 'private'
+    // captures used as part of capture internals).
     #[must_use]
     pub fn nonconformant_capture_names(&self, capture_names: &HashSet<&str>) -> Vec<&str> {
         let capture_names = if capture_names.is_empty() {
@@ -424,7 +421,7 @@ impl HighlightConfiguration {
 impl<'a> HighlightIterLayer<'a> {
     /// Create a new 'layer' of highlighting for this document.
     ///
-    /// In the even that the new layer contains "combined injections" (injections where multiple
+    /// In the event that the new layer contains "combined injections" (injections where multiple
     /// disjoint ranges are parsed as one syntax tree), these will be eagerly processed and
     /// added to the returned vector.
     #[allow(clippy::too_many_arguments)]
@@ -498,9 +495,10 @@ impl<'a> HighlightIterLayer<'a> {
                 // The `captures` iterator borrows the `Tree` and the `QueryCursor`, which
                 // prevents them from being moved. But both of these values are really just
                 // pointers, so it's actually ok to move them.
-                let tree_ref = unsafe { mem::transmute::<_, &'static Tree>(&tree) };
-                let cursor_ref =
-                    unsafe { mem::transmute::<_, &'static mut QueryCursor>(&mut cursor) };
+                let tree_ref = unsafe { mem::transmute::<&Tree, &'static Tree>(&tree) };
+                let cursor_ref = unsafe {
+                    mem::transmute::<&mut QueryCursor, &'static mut QueryCursor>(&mut cursor)
+                };
                 let captures = cursor_ref
                     .captures(&config.query, tree_ref.root_node(), source)
                     .peekable();
@@ -537,12 +535,12 @@ impl<'a> HighlightIterLayer<'a> {
     // Compute the ranges that should be included when parsing an injection.
     // This takes into account three things:
     // * `parent_ranges` - The ranges must all fall within the *current* layer's ranges.
-    // * `nodes` - Every injection takes place within a set of nodes. The injection ranges
-    //   are the ranges of those nodes.
-    // * `includes_children` - For some injections, the content nodes' children should be
-    //   excluded from the nested document, so that only the content nodes' *own* content
-    //   is reparsed. For other injections, the content nodes' entire ranges should be
-    //   reparsed, including the ranges of their children.
+    // * `nodes` - Every injection takes place within a set of nodes. The injection ranges are the
+    //   ranges of those nodes.
+    // * `includes_children` - For some injections, the content nodes' children should be excluded
+    //   from the nested document, so that only the content nodes' *own* content is reparsed. For
+    //   other injections, the content nodes' entire ranges should be reparsed, including the ranges
+    //   of their children.
     fn intersect_ranges(
         parent_ranges: &[Range],
         nodes: &[Node],
@@ -691,7 +689,7 @@ where
                     break;
                 }
                 if i > 0 {
-                    self.layers[0..(i + 1)].rotate_left(1);
+                    self.layers[0..=i].rotate_left(1);
                 }
                 break;
             }
@@ -777,12 +775,13 @@ where
             }
             // If there are no more captures, then emit any remaining highlight end events.
             // And if there are none of those, then just advance to the end of the document.
-            else if let Some(end_byte) = layer.highlight_end_stack.last().copied() {
-                layer.highlight_end_stack.pop();
-                return self.emit_event(end_byte, Some(HighlightEvent::HighlightEnd));
-            } else {
+            else {
+                if let Some(end_byte) = layer.highlight_end_stack.last().copied() {
+                    layer.highlight_end_stack.pop();
+                    return self.emit_event(end_byte, Some(HighlightEvent::HighlightEnd));
+                }
                 return self.emit_event(self.source.len(), None);
-            };
+            }
 
             let (mut match_, capture_index) = layer.captures.next().unwrap();
             let mut capture = match_.captures[capture_index];
@@ -936,40 +935,26 @@ where
                 }
             }
 
-            // If the current node was found to be a local variable, then skip over any
-            // highlighting patterns that are disabled for local variables.
-            if definition_highlight.is_some() || reference_highlight.is_some() {
-                while layer.config.non_local_variable_patterns[match_.pattern_index] {
-                    match_.remove();
-                    if let Some((next_match, next_capture_index)) = layer.captures.peek() {
-                        let next_capture = next_match.captures[*next_capture_index];
-                        if next_capture.node == capture.node {
-                            capture = next_capture;
-                            match_ = layer.captures.next().unwrap().0;
-                            continue;
-                        }
-                    }
-
-                    self.sort_layers();
-                    continue 'main;
-                }
-            }
-
-            // Once a highlighting pattern is found for the current node, skip over
-            // any later highlighting patterns that also match this node. Captures
-            // for a given node are ordered by pattern index, so these subsequent
+            // Once a highlighting pattern is found for the current node, keep iterating over
+            // any later highlighting patterns that also match this node and set the match to it.
+            // Captures for a given node are ordered by pattern index, so these subsequent
             // captures are guaranteed to be for highlighting, not injections or
             // local variables.
             while let Some((next_match, next_capture_index)) = layer.captures.peek() {
                 let next_capture = next_match.captures[*next_capture_index];
                 if next_capture.node == capture.node {
-                    if self.apply_all_captures {
-                        match_.remove();
-                        capture = next_capture;
-                        match_ = layer.captures.next().unwrap().0;
-                    } else {
-                        layer.captures.next();
+                    let following_match = layer.captures.next().unwrap().0;
+                    // If the current node was found to be a local variable, then ignore
+                    // the following match if it's a highlighting pattern that is disabled
+                    // for local variables.
+                    if (definition_highlight.is_some() || reference_highlight.is_some())
+                        && layer.config.non_local_variable_patterns[following_match.pattern_index]
+                    {
+                        continue;
                     }
+                    match_.remove();
+                    capture = next_capture;
+                    match_ = following_match;
                 } else {
                     break;
                 }

@@ -1,12 +1,17 @@
-use super::helpers::fixtures::{get_highlight_config, get_language, get_language_queries_path};
+use std::{
+    ffi::CString,
+    fs,
+    os::raw::c_char,
+    ptr, slice, str,
+    sync::atomic::{AtomicUsize, Ordering},
+};
+
 use lazy_static::lazy_static;
-use std::ffi::CString;
-use std::os::raw::c_char;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{fs, ptr, slice, str};
 use tree_sitter_highlight::{
     c, Error, Highlight, HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer,
 };
+
+use super::helpers::fixtures::{get_highlight_config, get_language, get_language_queries_path};
 
 lazy_static! {
     static ref JS_HIGHLIGHT: HighlightConfiguration =
@@ -310,7 +315,7 @@ fn test_highlighting_empty_lines() {
     .join("\n");
 
     assert_eq!(
-        &to_html(&source, &JS_HIGHLIGHT,).unwrap(),
+        &to_html(&source, &JS_HIGHLIGHT).unwrap(),
         &[
             "<span class=keyword>class</span> <span class=constructor>A</span> <span class=punctuation.bracket>{</span>\n".to_string(),
             "\n".to_string(),
@@ -529,7 +534,6 @@ fn test_highlighting_via_c_api() {
             highlights_query.len() as u32,
             injections_query.len() as u32,
             locals_query.len() as u32,
-            false,
         );
     }
 
@@ -553,7 +557,6 @@ fn test_highlighting_via_c_api() {
             highlights_query.len() as u32,
             injections_query.len() as u32,
             0,
-            false,
         );
     }
 
@@ -622,7 +625,7 @@ fn test_highlighting_with_all_captures_applied() {
         [ \"{\" \"}\" \"(\" \")\" ] @punctuation.bracket
     "};
     let mut rust_highlight_reverse =
-        HighlightConfiguration::new(language, "rust", highlights_query, "", "", true).unwrap();
+        HighlightConfiguration::new(language, "rust", highlights_query, "", "").unwrap();
     rust_highlight_reverse.configure(&HIGHLIGHT_NAMES);
 
     assert_eq!(
@@ -750,8 +753,7 @@ fn to_token_vector<'a>(
                 for (i, l) in s.split('\n').enumerate() {
                     let l = l.trim_end_matches('\r');
                     if i > 0 {
-                        lines.push(line);
-                        line = Vec::new();
+                        lines.push(std::mem::take(&mut line));
                     }
                     if !l.is_empty() {
                         line.push((l, highlights.clone()));

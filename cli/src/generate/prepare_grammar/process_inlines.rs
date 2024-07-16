@@ -1,14 +1,16 @@
+use std::collections::HashMap;
+
+use anyhow::{anyhow, Result};
+
 use crate::generate::{
     grammars::{InlinedProductionMap, LexicalGrammar, Production, ProductionStep, SyntaxGrammar},
     rules::SymbolType,
 };
-use anyhow::{anyhow, Result};
-use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct ProductionStepId {
     // A `None` value here means that the production itself was produced via inlining,
-    // and is stored in the the builder's `productions` vector, as opposed to being
+    // and is stored in the builder's `productions` vector, as opposed to being
     // stored in one of the grammar's variables.
     variable_index: Option<usize>,
     production_index: usize,
@@ -152,7 +154,7 @@ impl InlinedProductionMapBuilder {
                 self.productions
                     .iter()
                     .position(|p| *p == production)
-                    .unwrap_or({
+                    .unwrap_or_else(|| {
                         self.productions.push(production);
                         self.productions.len() - 1
                     })
@@ -223,10 +225,10 @@ pub(super) fn process_inlines(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::generate::grammars::{
-        LexicalVariable, ProductionStep, SyntaxVariable, VariableType,
+    use crate::generate::{
+        grammars::{LexicalVariable, SyntaxVariable, VariableType},
+        rules::{Associativity, Precedence, Symbol},
     };
-    use crate::generate::rules::{Associativity, Precedence, Symbol};
 
     #[test]
     fn test_basic_inlining() {
@@ -364,10 +366,10 @@ mod tests {
 
         let inline_map = process_inlines(&grammar, &LexicalGrammar::default()).unwrap();
 
-        let productions: Vec<&Production> = inline_map
+        let productions = inline_map
             .inlined_productions(&grammar.variables[0].productions[0], 1)
             .unwrap()
-            .collect();
+            .collect::<Vec<_>>();
 
         assert_eq!(
             productions.iter().copied().cloned().collect::<Vec<_>>(),
@@ -463,10 +465,10 @@ mod tests {
 
         let inline_map = process_inlines(&grammar, &LexicalGrammar::default()).unwrap();
 
-        let productions: Vec<_> = inline_map
+        let productions = inline_map
             .inlined_productions(&grammar.variables[0].productions[0], 0)
             .unwrap()
-            .collect();
+            .collect::<Vec<_>>();
 
         assert_eq!(
             productions.iter().copied().cloned().collect::<Vec<_>>(),

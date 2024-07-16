@@ -1,7 +1,6 @@
 mod async_context_test;
 mod corpus_test;
 mod detect_language;
-mod github_issue_test;
 mod helpers;
 mod highlight_test;
 mod language_test;
@@ -18,3 +17,10 @@ mod tree_test;
 
 #[cfg(feature = "wasm")]
 mod wasm_language_test;
+
+pub use crate::fuzz::{
+    allocations,
+    edits::{get_random_edit, invert_edit},
+    random::Rand,
+    ITERATION_COUNT,
+};

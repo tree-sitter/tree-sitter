@@ -1,10 +1,15 @@
-use crate::generate::grammars::{LexicalGrammar, Production, ProductionStep, SyntaxGrammar};
-use crate::generate::rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet};
+use std::{
+    cmp::Ordering,
+    fmt,
+    hash::{Hash, Hasher},
+};
+
 use lazy_static::lazy_static;
-use std::cmp::Ordering;
-use std::fmt;
-use std::hash::{Hash, Hasher};
-use std::u32;
+
+use crate::generate::{
+    grammars::{LexicalGrammar, Production, ProductionStep, SyntaxGrammar},
+    rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
+};
 
 lazy_static! {
     static ref START_PRODUCTION: Production = Production {
@@ -128,7 +133,7 @@ impl<'a> ParseItem<'a> {
 
     /// Create an item like this one, but advanced by one step.
     #[must_use]
-    pub const fn successor(&self) -> ParseItem<'a> {
+    pub const fn successor(&self) -> Self {
         ParseItem {
             variable_index: self.variable_index,
             production: self.production,

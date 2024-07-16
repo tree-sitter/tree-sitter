@@ -1,8 +1,11 @@
-use super::helpers::fixtures::{get_highlight_config, get_language, test_loader};
-use crate::query_testing::{parse_position_comments, Assertion};
-use crate::test_highlight::get_highlight_positions;
 use tree_sitter::{Parser, Point};
 use tree_sitter_highlight::{Highlight, Highlighter};
+
+use super::helpers::fixtures::{get_highlight_config, get_language, test_loader};
+use crate::{
+    query_testing::{parse_position_comments, Assertion},
+    test_highlight::get_highlight_positions,
+};
 
 #[test]
 fn test_highlight_test_with_basic_test() {

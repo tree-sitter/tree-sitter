@@ -1,4 +1,3 @@
-use crate::{ffi, Language, LanguageError, Parser, FREE_FN};
 use std::{
     error,
     ffi::{CStr, CString},
@@ -6,7 +5,10 @@ use std::{
     mem::{self, MaybeUninit},
     os::raw::c_char,
 };
-pub use wasmtime;
+
+pub use wasmtime_c_api::wasmtime;
+
+use crate::{ffi, Language, LanguageError, Parser, FREE_FN};
 
 // Force Cargo to include wasmtime-c-api as a dependency of this crate,
 // even though it is only used by the C code.
@@ -134,7 +136,7 @@ impl fmt::Display for WasmError {
             WasmErrorKind::Instantiate => "Failed to instantiate wasm module",
             WasmErrorKind::Other => "Unknown error",
         };
-        write!(f, "{kind} {}", self.message)
+        write!(f, "{kind}: {}", self.message)
     }
 }
 

@@ -1,13 +1,15 @@
-use super::helpers::{
-    allocations,
-    fixtures::{get_language, get_language_queries_path},
-};
 use std::{
     ffi::{CStr, CString},
     fs, ptr, slice, str,
 };
+
 use tree_sitter::Point;
 use tree_sitter_tags::{c_lib as c, Error, TagsConfiguration, TagsContext};
+
+use super::helpers::{
+    allocations,
+    fixtures::{get_language, get_language_queries_path},
+};
 
 const PYTHON_TAG_QUERY: &str = r#"
 (
@@ -397,14 +399,14 @@ fn test_tags_via_c_api() {
         })
         .unwrap();
 
-        let syntax_types: Vec<&str> = unsafe {
-            let mut len: u32 = 0;
+        let syntax_types = unsafe {
+            let mut len = 0;
             let ptr =
                 c::ts_tagger_syntax_kinds_for_scope_name(tagger, c_scope_name.as_ptr(), &mut len);
             slice::from_raw_parts(ptr, len as usize)
                 .iter()
                 .map(|i| CStr::from_ptr(*i).to_str().unwrap())
-                .collect()
+                .collect::<Vec<_>>()
         };
 
         assert_eq!(

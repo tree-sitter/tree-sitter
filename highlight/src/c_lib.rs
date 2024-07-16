@@ -1,12 +1,12 @@
-use super::{Error, Highlight, HighlightConfiguration, Highlighter, HtmlRenderer};
+use std::{
+    collections::HashMap, ffi::CStr, fmt, os::raw::c_char, process::abort, slice, str,
+    sync::atomic::AtomicUsize,
+};
+
 use regex::Regex;
-use std::collections::HashMap;
-use std::ffi::CStr;
-use std::os::raw::c_char;
-use std::process::abort;
-use std::sync::atomic::AtomicUsize;
-use std::{fmt, slice, str};
 use tree_sitter::Language;
+
+use super::{Error, Highlight, HighlightConfiguration, Highlighter, HtmlRenderer};
 
 pub struct TSHighlighter {
     languages: HashMap<String, (Option<Regex>, HighlightConfiguration)>,
@@ -72,8 +72,8 @@ pub unsafe extern "C" fn ts_highlighter_new(
 /// `this` must be non-null and must be a valid pointer to a [`TSHighlighter`] instance
 /// created by [`ts_highlighter_new`].
 ///
-/// The caller must ensure that any `*const c_char` (C-style string) parameters are valid for the lifetime of
-/// the [`TSHighlighter`] instance, and are non-null.
+/// The caller must ensure that any `*const c_char` (C-style string) parameters are valid for the
+/// lifetime of the [`TSHighlighter`] instance, and are non-null.
 #[no_mangle]
 pub unsafe extern "C" fn ts_highlighter_add_language(
     this: *mut TSHighlighter,
@@ -87,7 +87,6 @@ pub unsafe extern "C" fn ts_highlighter_add_language(
     highlight_query_len: u32,
     injection_query_len: u32,
     locals_query_len: u32,
-    apply_all_captures: bool,
 ) -> ErrorCode {
     let f = move || {
         let this = unwrap_mut_ptr(this);
@@ -134,7 +133,6 @@ pub unsafe extern "C" fn ts_highlighter_add_language(
             highlight_query,
             injection_query,
             locals_query,
-            apply_all_captures,
         )
         .or(Err(ErrorCode::InvalidQuery))?;
         config.configure(this.highlight_names.as_slice());
@@ -190,8 +188,8 @@ pub unsafe extern "C" fn ts_highlight_buffer_delete(this: *mut TSHighlightBuffer
 /// `this` must be non-null and must be a valid pointer to a [`TSHighlightBuffer`] instance
 /// created by [`ts_highlight_buffer_new`].
 ///
-/// The returned pointer, a C-style string, must not outlive the [`TSHighlightBuffer`] instance, else the
-/// data will point to garbage.
+/// The returned pointer, a C-style string, must not outlive the [`TSHighlightBuffer`] instance,
+/// else the data will point to garbage.
 ///
 /// To get the length of the HTML content, use [`ts_highlight_buffer_len`].
 #[no_mangle]
@@ -207,8 +205,8 @@ pub unsafe extern "C" fn ts_highlight_buffer_content(this: *const TSHighlightBuf
 /// `this` must be non-null and must be a valid pointer to a [`TSHighlightBuffer`] instance
 /// created by [`ts_highlight_buffer_new`].
 ///
-/// The returned pointer, a C-style array of [`u32`]s, must not outlive the [`TSHighlightBuffer`] instance, else the
-/// data will point to garbage.
+/// The returned pointer, a C-style array of [`u32`]s, must not outlive the [`TSHighlightBuffer`]
+/// instance, else the data will point to garbage.
 ///
 /// To get the length of the array, use [`ts_highlight_buffer_line_count`].
 #[no_mangle]
@@ -247,10 +245,11 @@ pub unsafe extern "C" fn ts_highlight_buffer_line_count(this: *const TSHighlight
 ///
 /// # Safety
 ///
-/// The caller must ensure that `scope_name`, `source_code`, `output`, and `cancellation_flag` are valid for
-/// the lifetime of the [`TSHighlighter`] instance, and are non-null.
+/// The caller must ensure that `scope_name`, `source_code`, `output`, and `cancellation_flag` are
+/// valid for the lifetime of the [`TSHighlighter`] instance, and are non-null.
 ///
-/// `this` must be a non-null pointer to a [`TSHighlighter`] instance created by [`ts_highlighter_new`]
+/// `this` must be a non-null pointer to a [`TSHighlighter`] instance created by
+/// [`ts_highlighter_new`]
 #[no_mangle]
 pub unsafe extern "C" fn ts_highlighter_highlight(
     this: *const TSHighlighter,

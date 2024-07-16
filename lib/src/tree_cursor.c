@@ -151,7 +151,7 @@ static inline bool ts_tree_cursor_child_iterator_previous(
 // TSTreeCursor - lifecycle
 
 TSTreeCursor ts_tree_cursor_new(TSNode node) {
-  TSTreeCursor self = {NULL, NULL, {0, 0}};
+  TSTreeCursor self = {NULL, NULL, {0, 0, 0}};
   ts_tree_cursor_init((TreeCursor *)&self, node);
   return self;
 }
@@ -162,6 +162,7 @@ void ts_tree_cursor_reset(TSTreeCursor *_self, TSNode node) {
 
 void ts_tree_cursor_init(TreeCursor *self, TSNode node) {
   self->tree = node.tree;
+  self->root_alias_symbol = node.context[3];
   array_clear(&self->stack);
   array_push(&self->stack, ((TreeCursorEntry) {
     .subtree = (const Subtree *)node.id,
@@ -221,7 +222,7 @@ TreeCursorStep ts_tree_cursor_goto_last_child_internal(TSTreeCursor *_self) {
   CursorChildIterator iterator = ts_tree_cursor_iterate_children(self);
   if (!iterator.parent.ptr || iterator.parent.ptr->child_count == 0) return TreeCursorStepNone;
 
-  TreeCursorEntry last_entry;
+  TreeCursorEntry last_entry = {0};
   TreeCursorStep last_step = TreeCursorStepNone;
   while (ts_tree_cursor_child_iterator_next(&iterator, &entry, &visible)) {
     if (visible) {
@@ -362,7 +363,6 @@ TreeCursorStep ts_tree_cursor_goto_previous_sibling_internal(TSTreeCursor *_self
   TreeCursor *self = (TreeCursor *)_self;
 
   // for that, save current position before traversing
-  Length position = array_back(&self->stack)->position;
   TreeCursorStep step = ts_tree_cursor_goto_sibling_internal(
       _self, ts_tree_cursor_child_iterator_previous);
   if (step == TreeCursorStepNone)
@@ -374,7 +374,7 @@ TreeCursorStep ts_tree_cursor_goto_previous_sibling_internal(TSTreeCursor *_self
 
   // restore position from the parent node
   const TreeCursorEntry *parent = &self->stack.contents[self->stack.size - 2];
-  position = parent->position;
+  Length position = parent->position;
   uint32_t child_index = array_back(&self->stack)->child_index;
   const Subtree *children = ts_subtree_children((*(parent->subtree)));
 
@@ -475,7 +475,7 @@ uint32_t ts_tree_cursor_current_descendant_index(const TSTreeCursor *_self) {
 TSNode ts_tree_cursor_current_node(const TSTreeCursor *_self) {
   const TreeCursor *self = (const TreeCursor *)_self;
   TreeCursorEntry *last_entry = array_back(&self->stack);
-  TSSymbol alias_symbol = 0;
+  TSSymbol alias_symbol = self->root_alias_symbol;
   if (self->stack.size > 1 && !ts_subtree_extra(*last_entry->subtree)) {
     TreeCursorEntry *parent_entry = &self->stack.contents[self->stack.size - 2];
     alias_symbol = ts_language_alias_at(
@@ -698,6 +698,7 @@ TSTreeCursor ts_tree_cursor_copy(const TSTreeCursor *_cursor) {
   TSTreeCursor res = {NULL, NULL, {0, 0}};
   TreeCursor *copy = (TreeCursor *)&res;
   copy->tree = cursor->tree;
+  copy->root_alias_symbol = cursor->root_alias_symbol;
   array_init(&copy->stack);
   array_push_all(&copy->stack, &cursor->stack);
   return res;
@@ -707,6 +708,7 @@ void ts_tree_cursor_reset_to(TSTreeCursor *_dst, const TSTreeCursor *_src) {
   const TreeCursor *cursor = (const TreeCursor *)_src;
   TreeCursor *copy = (TreeCursor *)_dst;
   copy->tree = cursor->tree;
+  copy->root_alias_symbol = cursor->root_alias_symbol;
   array_clear(&copy->stack);
   array_push_all(&copy->stack, &cursor->stack);
 }

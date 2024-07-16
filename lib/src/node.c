@@ -439,7 +439,14 @@ const char *ts_node_grammar_type(TSNode self) {
 }
 
 char *ts_node_string(TSNode self) {
-  return ts_subtree_string(ts_node__subtree(self), self.tree->language, false);
+  TSSymbol alias_symbol = ts_node__alias(&self);
+  return ts_subtree_string(
+    ts_node__subtree(self),
+    alias_symbol,
+    ts_language_symbol_metadata(self.tree->language, alias_symbol).visible,
+    self.tree->language,
+    false
+  );
 }
 
 bool ts_node_eq(TSNode self, TSNode other) {
@@ -498,33 +505,35 @@ TSStateId ts_node_next_parse_state(TSNode self) {
 
 TSNode ts_node_parent(TSNode self) {
   TSNode node = ts_tree_root_node(self.tree);
-  uint32_t end_byte = ts_node_end_byte(self);
   if (node.id == self.id) return ts_node__null();
 
-  TSNode last_visible_node = node;
-  bool did_descend = true;
-  while (did_descend) {
-    did_descend = false;
-
-    TSNode child;
-    NodeChildIterator iterator = ts_node_iterate_children(&node);
-    while (ts_node_child_iterator_next(&iterator, &child)) {
-      if (
-        ts_node_start_byte(child) > ts_node_start_byte(self) ||
-        child.id == self.id
-      ) break;
-      if (iterator.position.bytes >= end_byte) {
-        node = child;
-        if (ts_node__is_relevant(child, true)) {
-          last_visible_node = node;
-        }
-        did_descend = true;
-        break;
-      }
-    }
+  while (true) {
+   TSNode next_node = ts_node_child_containing_descendant(node, self);
+   if (ts_node_is_null(next_node)) break;
+   node = next_node;
   }
 
-  return last_visible_node;
+  return node;
+}
+
+TSNode ts_node_child_containing_descendant(TSNode self, TSNode subnode) {
+  uint32_t start_byte = ts_node_start_byte(subnode);
+  uint32_t end_byte = ts_node_end_byte(subnode);
+
+  do {
+    NodeChildIterator iter = ts_node_iterate_children(&self);
+    do {
+      if (
+        !ts_node_child_iterator_next(&iter, &self)
+        || ts_node_start_byte(self) > start_byte
+        || self.id == subnode.id
+      ) {
+        return ts_node__null();
+      }
+    } while (iter.position.bytes < end_byte || ts_node_child_count(self) == 0);
+  } while (!ts_node__is_relevant(self, true));
+
+  return self;
 }
 
 TSNode ts_node_child(TSNode self, uint32_t child_index) {
@@ -637,6 +646,9 @@ const char *ts_node_field_name_for_child(TSNode self, uint32_t child_index) {
     while (ts_node_child_iterator_next(&iterator, &child)) {
       if (ts_node__is_relevant(child, true)) {
         if (index == child_index) {
+          if (ts_node_is_extra(child)) {
+            return NULL;
+          }
           const char *field_name = ts_node__field_name_from_language(result, iterator.structural_child_index - 1);
           if (field_name) return field_name;
           return inherited_field_name;

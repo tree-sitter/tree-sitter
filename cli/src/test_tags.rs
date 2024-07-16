@@ -1,7 +1,6 @@
-use std::fs;
-use std::path::Path;
+use std::{fs, path::Path};
 
-use ansi_term::Colour;
+use anstyle::AnsiColor;
 use anyhow::{anyhow, Result};
 use tree_sitter::Point;
 use tree_sitter_loader::{Config, Loader};
@@ -9,6 +8,7 @@ use tree_sitter_tags::{TagsConfiguration, TagsContext};
 
 use super::{
     query_testing::{parse_position_comments, Assertion},
+    test::paint,
     util,
 };
 
@@ -48,9 +48,9 @@ pub fn test_tags(
     loader_config: &Config,
     tags_context: &mut TagsContext,
     directory: &Path,
+    use_color: bool,
 ) -> Result<()> {
     let mut failed = false;
-
     println!("tags:");
     for tag_test_file in fs::read_dir(directory)? {
         let tag_test_file = tag_test_file?;
@@ -75,13 +75,19 @@ pub fn test_tags(
             Ok(assertion_count) => {
                 println!(
                     "  ✓ {} ({assertion_count} assertions)",
-                    Colour::Green.paint(test_file_name.to_string_lossy().as_ref()),
+                    paint(
+                        use_color.then_some(AnsiColor::Green),
+                        test_file_name.to_string_lossy().as_ref()
+                    ),
                 );
             }
             Err(e) => {
                 println!(
                     "  ✗ {}",
-                    Colour::Red.paint(test_file_name.to_string_lossy().as_ref())
+                    paint(
+                        use_color.then_some(AnsiColor::Red),
+                        test_file_name.to_string_lossy().as_ref()
+                    )
                 );
                 println!("    {e}");
                 failed = true;

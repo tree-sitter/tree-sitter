@@ -42,7 +42,7 @@ for lang in ${languages[@]}; do
     $CXX $CXXFLAGS -g -O1 "-I${lang_dir}/src" -c "${lang_scanner}.cc" -o "${lang_scanner}.o"
     objects+=("${lang_scanner}.o")
   elif [ -e "${lang_scanner}.c" ]; then
-    $CC $CFLAGS -std=c99 -g -O1 "-I${lang_dir}/src" -c "${lang_scanner}.c" -o "${lang_scanner}.o"
+    $CC $CFLAGS -std=c11 -g -O1 "-I${lang_dir}/src" -c "${lang_scanner}.c" -o "${lang_scanner}.o"
     objects+=("${lang_scanner}.o")
   fi
 

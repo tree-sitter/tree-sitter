@@ -122,7 +122,7 @@ $emcc                                            \
   -s EXPORTED_RUNTIME_METHODS=$runtime_methods   \
   $emscripten_flags                              \
   -fno-exceptions                                \
-  -std=c99                                       \
+  -std=c11                                       \
   -D 'fprintf(...)='                             \
   -D NDEBUG=                                     \
   -I ${src_dir}                                  \

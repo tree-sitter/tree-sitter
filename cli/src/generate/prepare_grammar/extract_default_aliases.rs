@@ -1,5 +1,7 @@
-use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar};
-use crate::generate::rules::{Alias, AliasMap, Symbol, SymbolType};
+use crate::generate::{
+    grammars::{LexicalGrammar, SyntaxGrammar},
+    rules::{Alias, AliasMap, Symbol, SymbolType},
+};
 
 #[derive(Clone, Default)]
 struct SymbolStatus {
@@ -14,8 +16,8 @@ struct SymbolStatus {
 // This has two benefits:
 // * It reduces the overhead of storing production-specific alias info in the parse table.
 // * Within an `ERROR` node, no context-specific aliases will be applied. This transformation
-//   ensures that the children of an `ERROR` node have symbols that are consistent with the
-//   way that they would appear in a valid syntax tree.
+//   ensures that the children of an `ERROR` node have symbols that are consistent with the way that
+//   they would appear in a valid syntax tree.
 pub(super) fn extract_default_aliases(
     syntax_grammar: &mut SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
@@ -162,10 +164,10 @@ pub(super) fn extract_default_aliases(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::generate::grammars::{
-        LexicalVariable, Production, ProductionStep, SyntaxVariable, VariableType,
+    use crate::generate::{
+        grammars::{LexicalVariable, Production, ProductionStep, SyntaxVariable, VariableType},
+        nfa::Nfa,
     };
-    use crate::generate::nfa::Nfa;
 
     #[test]
     fn test_extract_simple_aliases() {

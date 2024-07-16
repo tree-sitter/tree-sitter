@@ -1,5 +1,3 @@
-use crate::query_testing;
-use anyhow::{Context, Result};
 use std::{
     fs,
     io::{self, Write},
@@ -7,7 +5,11 @@ use std::{
     path::Path,
     time::Instant,
 };
+
+use anyhow::{Context, Result};
 use tree_sitter::{Language, Parser, Point, Query, QueryCursor};
+
+use crate::query_testing;
 
 #[allow(clippy::too_many_arguments)]
 pub fn query_files_at_paths(

@@ -1,20 +1,24 @@
 #ifndef TREE_SITTER_ALLOC_H_
 #define TREE_SITTER_ALLOC_H_
 
-#include "tree_sitter/api.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 
-extern void *(*ts_current_malloc)(size_t);
-extern void *(*ts_current_calloc)(size_t, size_t);
-extern void *(*ts_current_realloc)(void *, size_t);
-extern void (*ts_current_free)(void *);
+#if defined(TREE_SITTER_HIDDEN_SYMBOLS) || defined(_WIN32)
+#define TS_PUBLIC
+#else
+#define TS_PUBLIC __attribute__((visibility("default")))
+#endif
+
+TS_PUBLIC extern void *(*ts_current_malloc)(size_t);
+TS_PUBLIC extern void *(*ts_current_calloc)(size_t, size_t);
+TS_PUBLIC extern void *(*ts_current_realloc)(void *, size_t);
+TS_PUBLIC extern void (*ts_current_free)(void *);
 
 // Allow clients to override allocation functions
 #ifndef ts_malloc
@@ -34,4 +38,4 @@ extern void (*ts_current_free)(void *);
 }
 #endif
 
-#endif  // TREE_SITTER_ALLOC_H_
+#endif // TREE_SITTER_ALLOC_H_

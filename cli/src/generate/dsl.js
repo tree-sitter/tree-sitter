@@ -23,7 +23,7 @@ function alias(rule, value) {
       }
   }
 
-  throw new Error('Invalid alias value ' + value);
+  throw new Error(`Invalid alias value ${value}`);
 }
 
 function blank() {
@@ -35,7 +35,7 @@ function blank() {
 function field(name, rule) {
   return {
     type: "FIELD",
-    name: name,
+    name,
     content: normalize(rule)
   }
 }
@@ -48,13 +48,14 @@ function choice(...elements) {
 }
 
 function optional(value) {
-  checkArguments(arguments.length, optional, 'optional');
+  checkArguments(arguments, arguments.length, optional, 'optional');
   return choice(value, blank());
 }
 
 function prec(number, rule) {
   checkPrecedence(number);
   checkArguments(
+    arguments,
     arguments.length - 1,
     prec,
     'prec',
@@ -76,6 +77,7 @@ prec.left = function(number, rule) {
 
   checkPrecedence(number);
   checkArguments(
+    arguments,
     arguments.length - 1,
     prec.left,
     'prec.left',
@@ -97,6 +99,7 @@ prec.right = function(number, rule) {
 
   checkPrecedence(number);
   checkArguments(
+    arguments,
     arguments.length - 1,
     prec.right,
     'prec.right',
@@ -113,6 +116,7 @@ prec.right = function(number, rule) {
 prec.dynamic = function(number, rule) {
   checkPrecedence(number);
   checkArguments(
+    arguments,
     arguments.length - 1,
     prec.dynamic,
     'prec.dynamic',
@@ -127,7 +131,7 @@ prec.dynamic = function(number, rule) {
 }
 
 function repeat(rule) {
-  checkArguments(arguments.length, repeat, 'repeat');
+  checkArguments(arguments, arguments.length, repeat, 'repeat');
   return {
     type: "REPEAT",
     content: normalize(rule)
@@ -135,7 +139,7 @@ function repeat(rule) {
 }
 
 function repeat1(rule) {
-  checkArguments(arguments.length, repeat1, 'repeat1');
+  checkArguments(arguments, arguments.length, repeat1, 'repeat1');
   return {
     type: "REPEAT1",
     content: normalize(rule)
@@ -152,11 +156,12 @@ function seq(...elements) {
 function sym(name) {
   return {
     type: "SYMBOL",
-    name: name
+    name
   };
 }
 
 function token(value) {
+  checkArguments(arguments, arguments.length, token, 'token', '', 'literal');
   return {
     type: "TOKEN",
     content: normalize(value)
@@ -164,6 +169,7 @@ function token(value) {
 }
 
 token.immediate = function(value) {
+  checkArguments(arguments, arguments.length, token.immediate, 'token.immediate', '', 'literal');
   return {
     type: "IMMEDIATE_TOKEN",
     content: normalize(value)
@@ -195,17 +201,17 @@ function normalize(value) {
       if (typeof value.type === 'string') {
         return value;
       } else {
-        throw new TypeError("Invalid rule: " + value.toString());
+        throw new TypeError(`Invalid rule: ${value}`);
       }
   }
 }
 
 function RuleBuilder(ruleMap) {
   return new Proxy({}, {
-    get(target, propertyName) {
+    get(_, propertyName) {
       const symbol = sym(propertyName);
 
-      if (!ruleMap || ruleMap.hasOwnProperty(propertyName)) {
+      if (!ruleMap || Object.prototype.hasOwnProperty.call(ruleMap, propertyName)) {
         return symbol;
       } else {
         const error = new ReferenceError(`Undefined symbol '${propertyName}'`);
@@ -217,6 +223,8 @@ function RuleBuilder(ruleMap) {
 }
 
 function grammar(baseGrammar, options) {
+  let inherits = undefined;
+
   if (!options) {
     options = baseGrammar;
     baseGrammar = {
@@ -231,6 +239,7 @@ function grammar(baseGrammar, options) {
     };
   } else {
     baseGrammar = baseGrammar.grammar;
+    inherits = baseGrammar.name;
   }
 
   let externals = baseGrammar.externals;
@@ -250,10 +259,10 @@ function grammar(baseGrammar, options) {
   }
 
   const ruleMap = {};
-  for (const key in options.rules) {
+  for (const key of Object.keys(options.rules)) {
     ruleMap[key] = true;
   }
-  for (const key in baseGrammar.rules) {
+  for (const key of Object.keys(baseGrammar.rules)) {
     ruleMap[key] = true;
   }
   for (const external of externals) {
@@ -273,18 +282,30 @@ function grammar(baseGrammar, options) {
     throw new Error("Grammar's 'name' property must not start with a digit and cannot contain non-word characters.");
   }
 
-  let rules = Object.assign({}, baseGrammar.rules);
+  if (inherits && typeof inherits !== "string") {
+    throw new Error("Base grammar's 'name' property must be a string.");
+  }
+
+  if (inherits && !/^[a-zA-Z_]\w*$/.test(name)) {
+    throw new Error("Base grammar's 'name' property must not start with a digit and cannot contain non-word characters.");
+  }
+
+  const rules = Object.assign({}, baseGrammar.rules);
   if (options.rules) {
     if (typeof options.rules !== "object") {
       throw new Error("Grammar's 'rules' property must be an object.");
     }
 
-    for (const ruleName in options.rules) {
+    for (const ruleName of Object.keys(options.rules)) {
       const ruleFn = options.rules[ruleName];
       if (typeof ruleFn !== "function") {
-        throw new Error("Grammar rules must all be functions. '" + ruleName + "' rule is not.");
+        throw new Error(`Grammar rules must all be functions. '${ruleName}' rule is not.`);
       }
-      rules[ruleName] = normalize(ruleFn.call(ruleBuilder, ruleBuilder, baseGrammar.rules[ruleName]));
+      const rule = ruleFn.call(ruleBuilder, ruleBuilder, baseGrammar.rules[ruleName]);
+      if (rule === undefined) {
+        throw new Error(`Rule '${ruleName}' returned undefined.`);
+      }
+      rules[ruleName] = normalize(rule);
     }
   }
 
@@ -377,7 +398,12 @@ function grammar(baseGrammar, options) {
       throw new Error("Grammar's supertypes must be an array of rules.");
     }
 
-    supertypes = supertypeRules.map(symbol => symbol.name);
+    supertypes = supertypeRules.map(symbol => {
+      if (symbol.name === 'ReferenceError') {
+        throw new Error(`Supertype rule \`${symbol.symbol.name}\` is not defined.`);
+      }
+      return symbol.name;
+    });
   }
 
   let precedences = baseGrammar.precedences;
@@ -397,18 +423,36 @@ function grammar(baseGrammar, options) {
     });
   }
 
-  if (Object.keys(rules).length == 0) {
+  if (Object.keys(rules).length === 0) {
     throw new Error("Grammar must have at least one rule.");
   }
 
-  return { grammar: { name, word, rules, extras, conflicts, precedences, externals, inline, supertypes } };
+  return {
+    grammar: {
+      name,
+      inherits,
+      word,
+      rules,
+      extras,
+      conflicts,
+      precedences,
+      externals,
+      inline,
+      supertypes,
+    },
+  };
 }
 
-function checkArguments(ruleCount, caller, callerName, suffix = '') {
-  if (ruleCount > 1) {
+function checkArguments(args, ruleCount, caller, callerName, suffix = '', argType = 'rule') {
+  // Allow for .map() usage where additional arguments are index and the entire array.
+  const isMapCall = ruleCount === 3 && typeof args[1] === 'number' && Array.isArray(args[2]);
+  if (isMapCall) {
+    ruleCount = typeof args[2] === 'number' ? 1 : args[2].length;
+  }
+  if (ruleCount > 1 && !isMapCall) {
     const error = new Error([
-      `The \`${callerName}\` function only takes one rule argument${suffix}.`,
-      'You passed multiple rules. Did you mean to call `seq`?\n'
+      `The \`${callerName}\` function only takes one ${argType} argument${suffix}.`,
+      `You passed in multiple ${argType}s. Did you mean to call \`seq\`?\n`
     ].join('\n'));
     Error.captureStackTrace(error, caller);
     throw error
@@ -421,18 +465,32 @@ function checkPrecedence(value) {
   }
 }
 
-global.alias = alias;
-global.blank = blank;
-global.choice = choice;
-global.optional = optional;
-global.prec = prec;
-global.repeat = repeat;
-global.repeat1 = repeat1;
-global.seq = seq;
-global.sym = sym;
-global.token = token;
-global.grammar = grammar;
-global.field = field;
+function getEnv(name) {
+  if (globalThis.process) return process.env[name]; // Node/Bun
+  if (globalThis.Deno) return Deno.env.get(name); // Deno
+  throw Error("Unsupported JS runtime");
+}
 
-const result = require(process.env.TREE_SITTER_GRAMMAR_PATH);
-process.stdout.write(JSON.stringify(result.grammar, null, null));
+globalThis.alias = alias;
+globalThis.blank = blank;
+globalThis.choice = choice;
+globalThis.optional = optional;
+globalThis.prec = prec;
+globalThis.repeat = repeat;
+globalThis.repeat1 = repeat1;
+globalThis.seq = seq;
+globalThis.sym = sym;
+globalThis.token = token;
+globalThis.grammar = grammar;
+globalThis.field = field;
+
+const result = await import(getEnv("TREE_SITTER_GRAMMAR_PATH"));
+const output = JSON.stringify(result.default?.grammar ?? result.grammar);
+
+if (globalThis.process) { // Node/Bun
+  process.stdout.write(output);
+} else if (globalThis.Deno) { // Deno
+  Deno.stdout.writeSync(new TextEncoder().encode(output));
+} else {
+  throw Error("Unsupported JS runtime");
+}

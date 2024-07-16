@@ -51,7 +51,7 @@ Here's an example of a simple C program that uses the Tree-sitter [JSON parser](
 
 // Declare the `tree_sitter_json` function, which is
 // implemented by the `tree-sitter-json` library.
-TSLanguage *tree_sitter_json();
+const TSLanguage *tree_sitter_json(void);
 
 int main() {
   // Create a parser.
@@ -326,9 +326,9 @@ Conceptually, it can be represented by three syntax trees with overlapping range
 #include <tree_sitter/api.h>
 
 // These functions are each implemented in their own repo.
-const TSLanguage *tree_sitter_embedded_template();
-const TSLanguage *tree_sitter_html();
-const TSLanguage *tree_sitter_ruby();
+const TSLanguage *tree_sitter_embedded_template(void);
+const TSLanguage *tree_sitter_html(void);
+const TSLanguage *tree_sitter_ruby(void);
 
 int main(int argc, const char **argv) {
   const char *text = argv[1];
@@ -661,7 +661,7 @@ Consider the following example targeting C:
   (#eq? @variable.builtin "self"))
 ```
 
-This pattern would match any identifier that is `self` or `this`.
+This pattern would match any identifier that is `self`.
 
 And this pattern would match key-value pairs where the `value` is an identifier
 with the same name as the key:
@@ -706,7 +706,7 @@ Here's an example finding potential documentation comments in C
 
 ```scheme
 ((comment)+ @comment.documentation
-  (#match? @comment.documentation "^///\s+.*"))
+  (#match? @comment.documentation "^///\\s+.*"))
 ```
 
 Here's another example finding Cgo comments to potentially inject with C

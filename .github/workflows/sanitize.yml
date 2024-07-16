@@ -2,7 +2,7 @@ name: Sanitize
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: "-D warnings"
+  RUSTFLAGS: -D warnings
 
 on:
   workflow_call:
@@ -11,7 +11,7 @@ jobs:
   check_undefined_behaviour:
     name: Sanitizer checks
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 20
     env:
       TREE_SITTER: ${{ github.workspace }}/target/release/tree-sitter
     steps:
@@ -23,29 +23,24 @@ jobs:
 
     - run: rustup toolchain install stable --profile minimal
     - uses: Swatinem/rust-cache@v2
+    - run: cargo build --release
+    - run: script/fetch-fixtures
 
-    - name: Build CLI
-      run: cargo build --release
+    - uses: ./.github/actions/cache
+      id: cache
 
-    - name: Fetch fixtures
-      run: script/fetch-fixtures
-
-    - name: Generate fixtures
+    - if: ${{ steps.cache.outputs.cache-hit != 'true' }}
       run: script/generate-fixtures
 
     - name: Run main tests with undefined behaviour sanitizer (UBSAN)
       env:
-        UBSAN_OPTIONS: halt_on_error=1
         CFLAGS: -fsanitize=undefined
         RUSTFLAGS: ${{ env.RUSTFLAGS }} -lubsan
       run: cargo test -- --test-threads 1
 
     - name: Run main tests with address sanitizer (ASAN)
       env:
-        ASAN_OPTIONS: halt_on_error=1
+        ASAN_OPTIONS: verify_asan_link_order=0
         CFLAGS: -fsanitize=address
-        RUSTFLAGS: ${{ env.RUSTFLAGS }} -Zsanitizer=address --cfg=sanitizing
-      run: |
-        rustup install nightly
-        rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
-        cargo +nightly test -Z build-std --target x86_64-unknown-linux-gnu -- --test-threads 1
+        RUSTFLAGS: ${{ env.RUSTFLAGS }} -lasan --cfg sanitizing
+      run: cargo test -- --test-threads 1

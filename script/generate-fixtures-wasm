@@ -21,7 +21,7 @@ fi
 filter_grammar_name=$1
 
 grammars_dir=${root_dir}/test/fixtures/grammars
-grammar_files=$(find $grammars_dir -name grammar.js | grep -v node_modules)
+grammar_files=$(find "$grammars_dir" -name grammar.js | grep -v node_modules)
 
 while read -r grammar_file; do
   grammar_dir=$(dirname "$grammar_file")
@@ -32,7 +32,5 @@ while read -r grammar_file; do
   fi
 
   echo "Compiling ${grammar_name} parser to wasm"
-  "$tree_sitter" build-wasm $build_wasm_args $grammar_dir
-done <<< "$grammar_files"
-
-mv tree-sitter-*.wasm target/release/
+  "$tree_sitter" build --wasm $build_wasm_args -o target/release/tree-sitter-"${grammar_name}".wasm "$grammar_dir"
+done <<<"$grammar_files"

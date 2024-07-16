@@ -1,10 +1,14 @@
-use super::helpers::edits::get_random_edit;
-use super::helpers::fixtures::{fixtures_dir, get_language, get_test_language};
-use super::helpers::random::Rand;
-use crate::generate::generate_parser_for_grammar;
-use crate::parse::perform_edit;
-use std::fs;
 use tree_sitter::{Node, Parser, Point, Tree};
+
+use super::{
+    get_random_edit,
+    helpers::fixtures::{fixtures_dir, get_language, get_test_language},
+    Rand,
+};
+use crate::{
+    generate::{generate_parser_for_grammar, load_grammar_file},
+    parse::perform_edit,
+};
 
 const JSON_EXAMPLE: &str = r#"
 
@@ -165,6 +169,22 @@ fn test_node_child() {
     assert_eq!(object_node.parent().unwrap(), array_node);
     assert_eq!(array_node.parent().unwrap(), tree.root_node());
     assert_eq!(tree.root_node().parent(), None);
+
+    assert_eq!(
+        tree.root_node()
+            .child_containing_descendant(null_node)
+            .unwrap(),
+        array_node
+    );
+    assert_eq!(
+        array_node.child_containing_descendant(null_node).unwrap(),
+        object_node
+    );
+    assert_eq!(
+        object_node.child_containing_descendant(null_node).unwrap(),
+        pair_node
+    );
+    assert_eq!(pair_node.child_containing_descendant(null_node), None);
 }
 
 #[test]
@@ -249,10 +269,36 @@ fn test_node_parent_of_child_by_field_name() {
 }
 
 #[test]
+fn test_parent_of_zero_width_node() {
+    let code = "def dupa(foo):";
+
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("python")).unwrap();
+
+    let tree = parser.parse(code, None).unwrap();
+    let root = tree.root_node();
+    let function_definition = root.child(0).unwrap();
+    let block = function_definition.child(4).unwrap();
+    let block_parent = block.parent().unwrap();
+
+    assert_eq!(block.to_string(), "(block)");
+    assert_eq!(block_parent.kind(), "function_definition");
+    assert_eq!(block_parent.to_string(), "(function_definition name: (identifier) parameters: (parameters (identifier)) body: (block))");
+
+    assert_eq!(
+        root.child_containing_descendant(block).unwrap(),
+        function_definition
+    );
+    assert_eq!(function_definition.child_containing_descendant(block), None);
+}
+
+#[test]
 fn test_node_field_name_for_child() {
     let mut parser = Parser::new();
     parser.set_language(&get_language("c")).unwrap();
-    let tree = parser.parse("int w = x + y;", None).unwrap();
+    let tree = parser
+        .parse("int w = x + /* y is special! */ y;", None)
+        .unwrap();
     let translation_unit_node = tree.root_node();
     let declaration_node = translation_unit_node.named_child(0).unwrap();
 
@@ -267,12 +313,14 @@ fn test_node_field_name_for_child() {
         binary_expression_node.field_name_for_child(1),
         Some("operator")
     );
+    // The comment should not have a field name, as it's just an extra
+    assert_eq!(binary_expression_node.field_name_for_child(2), None);
     assert_eq!(
-        binary_expression_node.field_name_for_child(2),
+        binary_expression_node.field_name_for_child(3),
         Some("right")
     );
     // Negative test - Not a valid child index
-    assert_eq!(binary_expression_node.field_name_for_child(3), None);
+    assert_eq!(binary_expression_node.field_name_for_child(4), None);
 }
 
 #[test]
@@ -364,6 +412,22 @@ fn test_node_named_child() {
     assert_eq!(object_node.parent().unwrap(), array_node);
     assert_eq!(array_node.parent().unwrap(), tree.root_node());
     assert_eq!(tree.root_node().parent(), None);
+
+    assert_eq!(
+        tree.root_node()
+            .child_containing_descendant(null_node)
+            .unwrap(),
+        array_node
+    );
+    assert_eq!(
+        array_node.child_containing_descendant(null_node).unwrap(),
+        object_node
+    );
+    assert_eq!(
+        object_node.child_containing_descendant(null_node).unwrap(),
+        pair_node
+    );
+    assert_eq!(pair_node.child_containing_descendant(null_node), None);
 }
 
 #[test]
@@ -794,16 +858,16 @@ fn test_node_field_calls_in_language_without_fields() {
 
 #[test]
 fn test_node_is_named_but_aliased_as_anonymous() {
-    let (parser_name, parser_code) = generate_parser_for_grammar(
-        &fs::read_to_string(
-            fixtures_dir()
-                .join("test_grammars")
-                .join("named_rule_aliased_as_anonymous")
-                .join("grammar.json"),
-        )
-        .unwrap(),
+    let grammar_json = load_grammar_file(
+        &fixtures_dir()
+            .join("test_grammars")
+            .join("named_rule_aliased_as_anonymous")
+            .join("grammar.js"),
+        None,
     )
     .unwrap();
+
+    let (parser_name, parser_code) = generate_parser_for_grammar(&grammar_json).unwrap();
 
     let mut parser = Parser::new();
     let language = get_test_language(&parser_name, &parser_code, None);
@@ -829,10 +893,11 @@ fn test_node_numeric_symbols_respect_simple_aliases() {
     parser.set_language(&get_language("python")).unwrap();
 
     // Example 1:
-    // Python argument lists can contain "splat" arguments, which are not allowed within
-    // other expressions. This includes `parenthesized_list_splat` nodes like `(*b)`. These
-    // `parenthesized_list_splat` nodes are aliased as `parenthesized_expression`. Their numeric
-    // `symbol`, aka `kind_id` should match that of a normal `parenthesized_expression`.
+    // Python argument lists can contain "splat" arguments, which are not allowed
+    // within other expressions. This includes `parenthesized_list_splat` nodes
+    // like `(*b)`. These `parenthesized_list_splat` nodes are aliased as
+    // `parenthesized_expression`. Their numeric `symbol`, aka `kind_id` should
+    // match that of a normal `parenthesized_expression`.
     let tree = parser.parse("(a((*b)))", None).unwrap();
     let root = tree.root_node();
     assert_eq!(
@@ -854,9 +919,9 @@ fn test_node_numeric_symbols_respect_simple_aliases() {
     assert_eq!(inner_expr_node.kind_id(), outer_expr_node.kind_id());
 
     // Example 2:
-    // Ruby handles the unary (negative) and binary (minus) `-` operators using two different
-    // tokens. One or more of these is an external token that's aliased as `-`. Their numeric
-    // kind ids should match.
+    // Ruby handles the unary (negative) and binary (minus) `-` operators using two
+    // different tokens. One or more of these is an external token that's
+    // aliased as `-`. Their numeric kind ids should match.
     parser.set_language(&get_language("ruby")).unwrap();
     let tree = parser.parse("-a - b", None).unwrap();
     let root = tree.root_node();

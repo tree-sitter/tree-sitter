@@ -1,17 +1,26 @@
+use std::{
+    collections::HashSet,
+    env, fs,
+    path::{Path, PathBuf},
+};
+
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::{anyhow, Context, Result};
 use clap::{crate_authors, Args, Command, FromArgMatches as _, Subcommand};
 use glob::glob;
 use regex::Regex;
-use std::collections::HashSet;
-use std::path::{Path, PathBuf};
-use std::{env, fs, u64};
 use tree_sitter::{ffi, Parser, Point};
-use tree_sitter_cli::test::TestOptions;
 use tree_sitter_cli::{
-    generate, highlight, logger,
+    fuzz::{
+        fuzz_language_corpus, FuzzOptions, EDIT_COUNT, ITERATION_COUNT, LOG_ENABLED,
+        LOG_GRAPH_ENABLED, START_SEED,
+    },
+    generate::{self, lookup_package_json_for_path},
+    highlight, logger,
     parse::{self, ParseFileOptions, ParseOutput},
-    playground, query, tags, test, test_highlight, test_tags, util, wasm,
+    playground, query, tags,
+    test::{self, TestOptions},
+    test_highlight, test_tags, util, wasm,
 };
 use tree_sitter_config::Config;
 use tree_sitter_highlight::Highlighter;
@@ -27,12 +36,14 @@ const DEFAULT_GENERATE_ABI_VERSION: usize = 14;
 enum Commands {
     InitConfig(InitConfig),
     Generate(Generate),
+    Build(Build),
+    BuildWasm(BuildWasm),
     Parse(Parse),
     Test(Test),
+    Fuzz(Fuzz),
     Query(Query),
     Highlight(Highlight),
     Tags(Tags),
-    BuildWasm(BuildWasm),
     Playground(Playground),
     DumpLanguages(DumpLanguages),
 }
@@ -44,7 +55,7 @@ struct InitConfig;
 #[derive(Args)]
 #[command(about = "Generate a parser", alias = "gen", alias = "g")]
 struct Generate {
-    #[arg(long, index = 1, help = "The path to the grammar file")]
+    #[arg(index = 1, help = "The path to the grammar file")]
     pub grammar_path: Option<String>,
     #[arg(long, short, help = "Show debug log during generation")]
     pub log: bool,
@@ -86,9 +97,44 @@ struct Generate {
         long,
         value_name = "EXECUTABLE",
         env = "TREE_SITTER_JS_RUNTIME",
-        help = "The path to the JavaScript runtime to use for generating parsers"
+        default_value = "node",
+        help = "The name or path of the JavaScript runtime to use for generating parsers"
     )]
     pub js_runtime: Option<String>,
+}
+
+#[derive(Args)]
+#[command(about = "Compile a parser", alias = "b")]
+struct Build {
+    #[arg(short, long, help = "Build a WASM module instead of a dynamic library")]
+    pub wasm: bool,
+    #[arg(
+        short,
+        long,
+        help = "Run emscripten via docker even if it is installed locally (only if building a WASM module with --wasm)"
+    )]
+    pub docker: bool,
+    #[arg(short, long, help = "The path to output the compiled file")]
+    pub output: Option<String>,
+    #[arg(index = 1, num_args = 1, help = "The path to the grammar directory")]
+    pub path: Option<String>,
+    #[arg(long, help = "Make the parser reuse the same allocator as the library")]
+    pub reuse_allocator: bool,
+    #[arg(long, short = '0', help = "Compile a parser in debug mode")]
+    pub debug: bool,
+}
+
+#[derive(Args)]
+#[command(about = "Compile a parser to WASM", alias = "bw")]
+struct BuildWasm {
+    #[arg(
+        short,
+        long,
+        help = "Run emscripten via docker even if it is installed locally"
+    )]
+    pub docker: bool,
+    #[arg(index = 1, num_args = 1, help = "The path to output the wasm file")]
+    pub path: Option<String>,
 }
 
 #[derive(Args)]
@@ -150,6 +196,11 @@ struct Parse {
         help = "Open `log.html` in the default browser, if `--debug-graph` is supplied"
     )]
     pub open_log: bool,
+    #[arg(long, help = "The path to an alternative config.json file")]
+    pub config_path: Option<PathBuf>,
+    #[arg(long, short = 'n', help = "Parse the contents of a specific test")]
+    #[clap(conflicts_with = "paths", conflicts_with = "paths_file")]
+    pub test_number: Option<u32>,
 }
 
 #[derive(Args)]
@@ -194,13 +245,32 @@ struct Test {
         help = "Compile parsers to wasm instead of native dynamic libraries"
     )]
     pub wasm: bool,
-    #[arg(long, help = "Apply all captures to highlights")]
-    pub apply_all_captures: bool,
     #[arg(
         long,
         help = "Open `log.html` in the default browser, if `--debug-graph` is supplied"
     )]
     pub open_log: bool,
+    #[arg(long, help = "The path to an alternative config.json file")]
+    pub config_path: Option<PathBuf>,
+}
+
+#[derive(Args)]
+#[command(about = "Fuzz a parser", alias = "f")]
+struct Fuzz {
+    #[arg(long, short, help = "List of test names to skip")]
+    pub skip: Option<Vec<String>>,
+    #[arg(long, help = "Subdirectory to the language")]
+    pub subdir: Option<String>,
+    #[arg(long, short, help = "Maximum number of edits to perform per fuzz test")]
+    pub edits: Option<usize>,
+    #[arg(long, short, help = "Number of fuzzing iterations to run per test")]
+    pub iterations: Option<usize>,
+    #[arg(long, short, help = "Regex pattern to filter tests")]
+    pub filter: Option<Regex>,
+    #[arg(long, short, help = "Enable logging of graphs and input")]
+    pub log_graphs: bool,
+    #[arg(long, short, help = "Enable parser logging")]
+    pub log: bool,
 }
 
 #[derive(Args)]
@@ -235,6 +305,8 @@ struct Query {
     pub captures: bool,
     #[arg(long, help = "Whether to run query tests or not")]
     pub test: bool,
+    #[arg(long, help = "The path to an alternative config.json file")]
+    pub config_path: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -267,8 +339,8 @@ struct Highlight {
     pub paths_file: Option<String>,
     #[arg(num_args = 1.., help = "The source file(s) to use")]
     pub paths: Option<Vec<String>>,
-    #[arg(long, help = "Apply all captures to highlights")]
-    pub apply_all_captures: bool,
+    #[arg(long, help = "The path to an alternative config.json file")]
+    pub config_path: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -290,18 +362,8 @@ struct Tags {
     pub paths_file: Option<String>,
     #[arg(num_args = 1.., help = "The source file(s) to use")]
     pub paths: Option<Vec<String>>,
-}
-
-#[derive(Args)]
-#[command(about = "Compile a parser to WASM", alias = "bw")]
-struct BuildWasm {
-    #[arg(
-        long,
-        help = "Run emscripten via docker even if it is installed locally"
-    )]
-    pub docker: bool,
-    #[arg(index = 1, num_args = 1.., help = "The path to output the wasm file")]
-    pub path: Option<String>,
+    #[arg(long, help = "The path to an alternative config.json file")]
+    pub config_path: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -323,7 +385,10 @@ struct Playground {
 
 #[derive(Args)]
 #[command(about = "Print info about all known language parsers", alias = "langs")]
-struct DumpLanguages;
+struct DumpLanguages {
+    #[arg(long, help = "The path to an alternative config.json file")]
+    pub config_path: Option<PathBuf>,
+}
 
 fn main() {
     let result = run();
@@ -368,8 +433,9 @@ fn run() -> Result<()> {
     let command = Commands::from_arg_matches(&cli.get_matches())?;
 
     let current_dir = env::current_dir().unwrap();
-    let config = Config::load()?;
     let mut loader = loader::Loader::new()?;
+
+    let color = env::var("NO_COLOR").map_or(true, |v| v != "1");
 
     match command {
         Commands::InitConfig(_) => {
@@ -393,16 +459,16 @@ fn run() -> Result<()> {
             if generate_options.log {
                 logger::init();
             }
-            let abi_version = match generate_options.abi_version {
-                Some(ref version) => {
+            let abi_version = generate_options.abi_version.as_ref().map_or(
+                DEFAULT_GENERATE_ABI_VERSION,
+                |version| {
                     if version == "latest" {
                         tree_sitter::LANGUAGE_VERSION
                     } else {
                         version.parse().expect("invalid abi version flag")
                     }
-                }
-                None => DEFAULT_GENERATE_ABI_VERSION,
-            };
+                },
+            );
             generate::generate_parser_in_directory(
                 &current_dir,
                 generate_options.grammar_path.as_deref(),
@@ -415,12 +481,84 @@ fn run() -> Result<()> {
                 if let Some(path) = generate_options.libdir {
                     loader = loader::Loader::with_parser_lib_path(PathBuf::from(path));
                 }
-                loader.use_debug_build(generate_options.debug_build);
+                loader.debug_build(generate_options.debug_build);
                 loader.languages_at_path(&current_dir)?;
             }
         }
 
+        Commands::Build(build_options) => {
+            if build_options.wasm {
+                let grammar_path =
+                    current_dir.join(build_options.path.as_deref().unwrap_or_default());
+                let output_path = build_options.output.map(|path| current_dir.join(path));
+                let root_path = lookup_package_json_for_path(&grammar_path.join("package.json"))
+                    .map(|(p, _)| p.parent().unwrap().to_path_buf())?;
+                wasm::compile_language_to_wasm(
+                    &loader,
+                    Some(&root_path),
+                    &grammar_path,
+                    &current_dir,
+                    output_path,
+                    build_options.docker,
+                )?;
+            } else {
+                let grammar_path =
+                    current_dir.join(build_options.path.as_deref().unwrap_or_default());
+                let output_path = if let Some(ref path) = build_options.output {
+                    let path = Path::new(path);
+                    if path.is_absolute() {
+                        path.to_path_buf()
+                    } else {
+                        current_dir.join(path)
+                    }
+                } else {
+                    let file_name = grammar_path
+                        .file_stem()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .strip_prefix("tree-sitter-")
+                        .unwrap_or("parser");
+                    current_dir
+                        .join(file_name)
+                        .with_extension(env::consts::DLL_EXTENSION)
+                };
+
+                let flags: &[&str] = match (build_options.reuse_allocator, build_options.debug) {
+                    (true, true) => &["TREE_SITTER_REUSE_ALLOCATOR", "TREE_SITTER_DEBUG"],
+                    (true, false) => &["TREE_SITTER_REUSE_ALLOCATOR"],
+                    (false, true) => &["TREE_SITTER_DEBUG"],
+                    (false, false) => &[],
+                };
+
+                loader.debug_build(build_options.debug);
+
+                let config = Config::load(None)?;
+                let loader_config = config.get()?;
+                loader.find_all_languages(&loader_config).unwrap();
+                loader
+                    .compile_parser_at_path(&grammar_path, output_path, flags)
+                    .unwrap();
+            }
+        }
+
+        Commands::BuildWasm(wasm_options) => {
+            eprintln!("`build-wasm` is deprecated and will be removed in v0.24.0. You should use `build --wasm` instead");
+            let grammar_path = current_dir.join(wasm_options.path.unwrap_or_default());
+            let root_path = lookup_package_json_for_path(&grammar_path.join("package.json"))
+                .map(|(p, _)| p.parent().unwrap().to_path_buf())?;
+            wasm::compile_language_to_wasm(
+                &loader,
+                Some(&root_path),
+                &grammar_path,
+                &current_dir,
+                None,
+                wasm_options.docker,
+            )?;
+        }
+
         Commands::Parse(parse_options) => {
+            let config = Config::load(parse_options.config_path)?;
             let output = if parse_options.output_dot {
                 ParseOutput::Dot
             } else if parse_options.output_xml {
@@ -446,12 +584,7 @@ fn run() -> Result<()> {
             let cancellation_flag = util::cancel_on_signal();
             let mut parser = Parser::new();
 
-            if parse_options.debug {
-                // For augmenting debug logging in external scanners
-                env::set_var("TREE_SITTER_DEBUG", "1");
-            }
-
-            loader.use_debug_build(parse_options.debug_build);
+            loader.debug_build(parse_options.debug_build);
 
             #[cfg(feature = "wasm")]
             if parse_options.wasm {
@@ -464,7 +597,22 @@ fn run() -> Result<()> {
 
             let timeout = parse_options.timeout.unwrap_or_default();
 
-            let paths = collect_paths(parse_options.paths_file.as_deref(), parse_options.paths)?;
+            let (paths, language) = if let Some(target_test) = parse_options.test_number {
+                let (test_path, language_names) = test::get_tmp_test_file(target_test, color)?;
+                let languages = loader.languages_at_path(&current_dir)?;
+                let language = languages
+                    .iter()
+                    .find(|(_, n)| language_names.contains(&Box::from(n.as_str())))
+                    .map(|(l, _)| l.clone());
+                let paths =
+                    collect_paths(None, Some(vec![test_path.to_str().unwrap().to_owned()]))?;
+                (paths, language)
+            } else {
+                (
+                    collect_paths(parse_options.paths_file.as_deref(), parse_options.paths)?,
+                    None,
+                )
+            };
 
             let max_path_length = paths.iter().map(|p| p.chars().count()).max().unwrap_or(0);
             let mut has_error = false;
@@ -474,11 +622,14 @@ fn run() -> Result<()> {
             let should_track_stats = parse_options.stat;
             let mut stats = parse::Stats::default();
 
-            for path in paths {
+            for path in &paths {
                 let path = Path::new(&path);
 
-                let language =
-                    loader.select_language(path, &current_dir, parse_options.scope.as_deref())?;
+                let language = if let Some(ref language) = language {
+                    language.clone()
+                } else {
+                    loader.select_language(path, &current_dir, parse_options.scope.as_deref())?
+                };
                 parser
                     .set_language(&language)
                     .context("incompatible language")?;
@@ -486,7 +637,10 @@ fn run() -> Result<()> {
                 let opts = ParseFileOptions {
                     language: language.clone(),
                     path,
-                    edits: &edits.iter().map(|s| s.as_str()).collect::<Vec<&str>>(),
+                    edits: &edits
+                        .iter()
+                        .map(std::string::String::as_str)
+                        .collect::<Vec<&str>>(),
                     max_path_length,
                     output,
                     print_time: time,
@@ -524,12 +678,9 @@ fn run() -> Result<()> {
         }
 
         Commands::Test(test_options) => {
-            if test_options.debug {
-                // For augmenting debug logging in external scanners
-                env::set_var("TREE_SITTER_DEBUG", "1");
-            }
+            let config = Config::load(test_options.config_path)?;
 
-            loader.use_debug_build(test_options.debug_build);
+            loader.debug_build(test_options.debug_build);
 
             let mut parser = Parser::new();
 
@@ -543,18 +694,16 @@ fn run() -> Result<()> {
             }
 
             let languages = loader.languages_at_path(&current_dir)?;
-            let language = languages
+            let language = &languages
                 .first()
-                .ok_or_else(|| anyhow!("No language found"))?;
+                .ok_or_else(|| anyhow!("No language found"))?
+                .0;
             parser.set_language(language)?;
 
             let test_dir = current_dir.join("test");
 
-            // Run the corpus tests. Look for them at two paths: `test/corpus` and `corpus`.
-            let mut test_corpus_dir = test_dir.join("corpus");
-            if !test_corpus_dir.is_dir() {
-                test_corpus_dir = current_dir.join("corpus");
-            }
+            // Run the corpus tests. Look for them in `test/corpus`.
+            let test_corpus_dir = test_dir.join("corpus");
             if test_corpus_dir.is_dir() {
                 let mut opts = TestOptions {
                     path: test_corpus_dir,
@@ -565,6 +714,9 @@ fn run() -> Result<()> {
                     exclude: test_options.exclude,
                     update: test_options.update,
                     open_log: test_options.open_log,
+                    languages: languages.iter().map(|(l, n)| (n.as_str(), l)).collect(),
+                    color,
+                    test_num: 1,
                 };
 
                 test::run_tests_at_path(&mut parser, &mut opts)?;
@@ -583,7 +735,7 @@ fn run() -> Result<()> {
                     &config.get()?,
                     &mut highlighter,
                     &test_highlight_dir,
-                    test_options.apply_all_captures,
+                    color,
                 )?;
                 parser = highlighter.parser;
             }
@@ -592,11 +744,45 @@ fn run() -> Result<()> {
             if test_tag_dir.is_dir() {
                 let mut tags_context = TagsContext::new();
                 tags_context.parser = parser;
-                test_tags::test_tags(&loader, &config.get()?, &mut tags_context, &test_tag_dir)?;
+                test_tags::test_tags(
+                    &loader,
+                    &config.get()?,
+                    &mut tags_context,
+                    &test_tag_dir,
+                    color,
+                )?;
             }
         }
 
+        Commands::Fuzz(fuzz_options) => {
+            loader.sanitize_build(true);
+
+            let languages = loader.languages_at_path(&current_dir)?;
+            let (language, language_name) = &languages
+                .first()
+                .ok_or_else(|| anyhow!("No language found"))?;
+
+            let mut fuzz_options = FuzzOptions {
+                skipped: fuzz_options.skip,
+                subdir: fuzz_options.subdir,
+                edits: fuzz_options.edits.unwrap_or(*EDIT_COUNT),
+                iterations: fuzz_options.iterations.unwrap_or(*ITERATION_COUNT),
+                filter: fuzz_options.filter,
+                log_graphs: fuzz_options.log_graphs || *LOG_GRAPH_ENABLED,
+                log: fuzz_options.log || *LOG_ENABLED,
+            };
+
+            fuzz_language_corpus(
+                language,
+                language_name,
+                *START_SEED,
+                &current_dir,
+                &mut fuzz_options,
+            );
+        }
+
         Commands::Query(query_options) => {
+            let config = Config::load(query_options.config_path)?;
             let paths = collect_paths(query_options.paths_file.as_deref(), query_options.paths)?;
             let loader_config = config.get()?;
             loader.find_all_languages(&loader_config)?;
@@ -634,6 +820,7 @@ fn run() -> Result<()> {
         }
 
         Commands::Highlight(highlight_options) => {
+            let config = Config::load(highlight_options.config_path)?;
             let theme_config: tree_sitter_cli::highlight::ThemeConfig = config.get()?;
             loader.configure_highlights(&theme_config.theme.highlight_names);
             let loader_config = config.get()?;
@@ -674,11 +861,9 @@ fn run() -> Result<()> {
                     }
                 };
 
-                if let Some(highlight_config) = language_config.highlight_config(
-                    language,
-                    highlight_options.apply_all_captures,
-                    highlight_options.query_paths.as_deref(),
-                )? {
+                if let Some(highlight_config) = language_config
+                    .highlight_config(language, highlight_options.query_paths.as_deref())?
+                {
                     if highlight_options.check {
                         let names = if let Some(path) = highlight_options.captures_path.as_deref() {
                             let path = Path::new(path);
@@ -745,6 +930,7 @@ fn run() -> Result<()> {
         }
 
         Commands::Tags(tags_options) => {
+            let config = Config::load(tags_options.config_path)?;
             let loader_config = config.get()?;
             loader.find_all_languages(&loader_config)?;
             let paths = collect_paths(tags_options.paths_file.as_deref(), tags_options.paths)?;
@@ -758,26 +944,16 @@ fn run() -> Result<()> {
             )?;
         }
 
-        Commands::BuildWasm(wasm_options) => {
-            let grammar_path = current_dir.join(wasm_options.path.unwrap_or_default());
-            wasm::compile_language_to_wasm(
-                &loader,
-                &grammar_path,
-                &current_dir,
-                wasm_options.docker,
-            )?;
-        }
-
         Commands::Playground(playground_options) => {
             let open_in_browser = !playground_options.quiet;
             let grammar_path = playground_options
                 .grammar_path
-                .map(PathBuf::from)
-                .unwrap_or(current_dir);
+                .map_or(current_dir, PathBuf::from);
             playground::serve(&grammar_path, open_in_browser)?;
         }
 
-        Commands::DumpLanguages(_) => {
+        Commands::DumpLanguages(dump_options) => {
+            let config = Config::load(dump_options.config_path)?;
             let loader_config = config.get()?;
             loader.find_all_languages(&loader_config)?;
             for (configuration, language_path) in loader.get_all_language_configurations() {

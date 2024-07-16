@@ -1,8 +1,10 @@
 #ifndef TREE_SITTER_API_H_
 #define TREE_SITTER_API_H_
 
+#ifndef TREE_SITTER_HIDE_SYMBOLS
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC visibility push(default)
+#endif
 #endif
 
 #ifdef __cplusplus
@@ -46,46 +48,46 @@ typedef struct TSQuery TSQuery;
 typedef struct TSQueryCursor TSQueryCursor;
 typedef struct TSLookaheadIterator TSLookaheadIterator;
 
-typedef enum {
+typedef enum TSInputEncoding {
   TSInputEncodingUTF8,
   TSInputEncodingUTF16,
 } TSInputEncoding;
 
-typedef enum {
+typedef enum TSSymbolType {
   TSSymbolTypeRegular,
   TSSymbolTypeAnonymous,
   TSSymbolTypeAuxiliary,
 } TSSymbolType;
 
-typedef struct {
+typedef struct TSPoint {
   uint32_t row;
   uint32_t column;
 } TSPoint;
 
-typedef struct {
+typedef struct TSRange {
   TSPoint start_point;
   TSPoint end_point;
   uint32_t start_byte;
   uint32_t end_byte;
 } TSRange;
 
-typedef struct {
+typedef struct TSInput {
   void *payload;
   const char *(*read)(void *payload, uint32_t byte_index, TSPoint position, uint32_t *bytes_read);
   TSInputEncoding encoding;
 } TSInput;
 
-typedef enum {
+typedef enum TSLogType {
   TSLogTypeParse,
   TSLogTypeLex,
 } TSLogType;
 
-typedef struct {
+typedef struct TSLogger {
   void *payload;
   void (*log)(void *payload, TSLogType log_type, const char *buffer);
 } TSLogger;
 
-typedef struct {
+typedef struct TSInputEdit {
   uint32_t start_byte;
   uint32_t old_end_byte;
   uint32_t new_end_byte;
@@ -94,24 +96,24 @@ typedef struct {
   TSPoint new_end_point;
 } TSInputEdit;
 
-typedef struct {
+typedef struct TSNode {
   uint32_t context[4];
   const void *id;
   const TSTree *tree;
 } TSNode;
 
-typedef struct {
+typedef struct TSTreeCursor {
   const void *tree;
   const void *id;
-  uint32_t context[2];
+  uint32_t context[3];
 } TSTreeCursor;
 
-typedef struct {
+typedef struct TSQueryCapture {
   TSNode node;
   uint32_t index;
 } TSQueryCapture;
 
-typedef enum {
+typedef enum TSQuantifier {
   TSQuantifierZero = 0, // must match the array initialization value
   TSQuantifierZeroOrOne,
   TSQuantifierZeroOrMore,
@@ -119,25 +121,25 @@ typedef enum {
   TSQuantifierOneOrMore,
 } TSQuantifier;
 
-typedef struct {
+typedef struct TSQueryMatch {
   uint32_t id;
   uint16_t pattern_index;
   uint16_t capture_count;
   const TSQueryCapture *captures;
 } TSQueryMatch;
 
-typedef enum {
+typedef enum TSQueryPredicateStepType {
   TSQueryPredicateStepTypeDone,
   TSQueryPredicateStepTypeCapture,
   TSQueryPredicateStepTypeString,
 } TSQueryPredicateStepType;
 
-typedef struct {
+typedef struct TSQueryPredicateStep {
   TSQueryPredicateStepType type;
   uint32_t value_id;
 } TSQueryPredicateStep;
 
-typedef enum {
+typedef enum TSQueryError {
   TSQueryErrorNone = 0,
   TSQueryErrorSyntax,
   TSQueryErrorNodeType,
@@ -546,8 +548,15 @@ TSStateId ts_node_next_parse_state(TSNode self);
 
 /**
  * Get the node's immediate parent.
+ * Prefer [`ts_node_child_containing_descendant`] for
+ * iterating over the node's ancestors.
  */
 TSNode ts_node_parent(TSNode self);
+
+/**
+ * Get the node's child that contains `descendant`.
+ */
+TSNode ts_node_child_containing_descendant(TSNode self, TSNode descendant);
 
 /**
  * Get the node's child at the given index, where zero represents the first
@@ -828,6 +837,14 @@ uint32_t ts_query_string_count(const TSQuery *self);
  * code strings.
  */
 uint32_t ts_query_start_byte_for_pattern(const TSQuery *self, uint32_t pattern_index);
+
+/**
+ * Get the byte offset where the given pattern ends in the query's source.
+ *
+ * This can be useful when combining queries by concatenating their source
+ * code strings.
+ */
+uint32_t ts_query_end_byte_for_pattern(const TSQuery *self, uint32_t pattern_index);
 
 /**
  * Get all of the predicates for the given pattern in the query.
@@ -1255,8 +1272,10 @@ void ts_set_allocator(
 }
 #endif
 
+#ifndef TREE_SITTER_HIDE_SYMBOLS
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC visibility pop
+#endif
 #endif
 
 #endif  // TREE_SITTER_API_H_

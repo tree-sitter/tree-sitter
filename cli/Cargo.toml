@@ -1,7 +1,7 @@
 [package]
 name = "tree-sitter-cli"
+version.workspace = true
 description = "CLI tool for developing, testing, and using Tree-sitter parsers"
-version = "0.20.9"
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -25,21 +25,22 @@ harness = false
 wasm = ["tree-sitter/wasm", "tree-sitter-loader/wasm"]
 
 [dependencies]
-ansi_term.workspace = true
 anstyle.workspace = true
 anyhow.workspace = true
 clap.workspace = true
+ctor.workspace = true
 ctrlc.workspace = true
-difference.workspace = true
 dirs.workspace = true
+filetime.workspace = true
 glob.workspace = true
+heck.workspace = true
 html-escape.workspace = true
 indexmap.workspace = true
 indoc.workspace = true
 lazy_static.workspace = true
 log.workspace = true
 memchr.workspace = true
-path-slash.workspace = true
+rand.workspace = true
 regex.workspace = true
 regex-syntax.workspace = true
 rustc-hash.workspace = true
@@ -47,41 +48,25 @@ semver.workspace = true
 serde.workspace = true
 serde_derive.workspace = true
 serde_json.workspace = true
+similar.workspace = true
 smallbitvec.workspace = true
 tiny_http.workspace = true
 walkdir.workspace = true
 wasmparser.workspace = true
 webbrowser.workspace = true
-which.workspace = true
 
-[dependencies.tree-sitter]
-version = "0.20.10"
-path = "../lib"
+tree-sitter.workspace = true
+tree-sitter-config.workspace = true
+tree-sitter-highlight.workspace = true
+tree-sitter-loader.workspace = true
+tree-sitter-tags.workspace = true
 
-[dependencies.tree-sitter-config]
-version = "0.19.0"
-path = "config"
-
-[dependencies.tree-sitter-highlight]
-version = "0.20.2"
-path = "../highlight"
-
-[dependencies.tree-sitter-loader]
-version = "0.20.0"
-path = "loader"
-
-[dependencies.tree-sitter-tags]
-version = "0.20.2"
-path = "../tags"
+[target."cfg(windows)".dependencies]
+url = "2.5.2"
 
 [dev-dependencies]
 tree_sitter_proc_macro = { path = "src/tests/proc_macro", package = "tree-sitter-tests-proc-macro" }
 
-rand.workspace = true
 tempfile.workspace = true
 pretty_assertions.workspace = true
-ctor.workspace = true
 unindent.workspace = true
-
-[build-dependencies]
-toml.workspace = true

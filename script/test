@@ -12,7 +12,7 @@ OPTIONS
 
   -h  Print this message
 
-  -a  Compile C code with the Clang static analyzer
+  -a  Compile C code with the Clang address sanitizer
 
   -e  Run only the corpus tests whose name contain the given string
 
@@ -41,9 +41,17 @@ while getopts "adDghl:e:s:i:" option; do
       exit
       ;;
     a)
-      export RUSTFLAGS="-Z sanitizer=address"
-      # Specify a `--target` explicitly. For some reason, this is required for
-      # address sanitizer support.
+      export CFLAGS="-fsanitize=undefined,address"
+
+      # When the Tree-sitter C library is compiled with the address sanitizer, the address sanitizer
+      # runtime library needs to be linked into the final test executable. When using Xcode clang,
+      # the Rust linker doesn't know where to find that library, so we need to specify linker flags directly.
+      runtime_dir=$(cc -print-runtime-dir)
+      if [[ $runtime_dir == */Xcode.app/* ]]; then
+        export RUSTFLAGS="-C link-arg=-L${runtime_dir} -C link-arg=-lclang_rt.asan_osx_dynamic -C link-arg=-Wl,-rpath,${runtime_dir}"
+      fi
+
+      # Specify a `--target` explicitly. This is required for address sanitizer support.
       toolchain=$(rustup show active-toolchain)
       toolchain_regex='(stable|beta|nightly)-([_a-z0-9-]+).*'
       if [[ $toolchain =~ $toolchain_regex ]]; then
@@ -52,7 +60,8 @@ while getopts "adDghl:e:s:i:" option; do
       else
         echo "Failed to parse toolchain '${toolchain}'"
       fi
-      test_flags="${test_flags} --target ${current_target}"
+
+      test_flags+=" --target ${current_target}"
       ;;
     e)
       export TREE_SITTER_EXAMPLE=${OPTARG}

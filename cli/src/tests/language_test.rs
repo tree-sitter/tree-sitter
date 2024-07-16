@@ -1,5 +1,6 @@
-use super::helpers::fixtures::get_language;
 use tree_sitter::Parser;
+
+use super::helpers::fixtures::get_language;
 
 #[test]
 fn test_lookahead_iterator() {
@@ -26,7 +27,7 @@ fn test_lookahead_iterator() {
     assert_eq!(cursor.node().grammar_name(), "identifier");
     assert_ne!(cursor.node().grammar_id(), cursor.node().kind_id());
 
-    let expected_symbols = ["identifier", "block_comment", "line_comment"];
+    let expected_symbols = ["//", "/*", "identifier", "line_comment", "block_comment"];
     let mut lookahead = language.lookahead_iterator(next_state).unwrap();
     assert_eq!(*lookahead.language(), language);
     assert!(lookahead.iter_names().eq(expected_symbols));

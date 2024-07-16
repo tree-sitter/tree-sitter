@@ -1,13 +1,17 @@
-use super::token_conflicts::TokenConflictMap;
-use crate::generate::dedup::split_state_id_groups;
-use crate::generate::grammars::{LexicalGrammar, SyntaxGrammar, VariableType};
-use crate::generate::rules::{AliasMap, Symbol, TokenSet};
-use crate::generate::tables::{
-    GotoAction, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry,
+use std::{
+    collections::{HashMap, HashSet},
+    mem,
 };
+
 use log::info;
-use std::collections::{HashMap, HashSet};
-use std::mem;
+
+use super::token_conflicts::TokenConflictMap;
+use crate::generate::{
+    dedup::split_state_id_groups,
+    grammars::{LexicalGrammar, SyntaxGrammar, VariableType},
+    rules::{AliasMap, Symbol, TokenSet},
+    tables::{GotoAction, ParseAction, ParseState, ParseStateId, ParseTable, ParseTableEntry},
+};
 
 pub fn minimize_parse_table(
     parse_table: &mut ParseTable,

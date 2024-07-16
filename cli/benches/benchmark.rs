@@ -1,11 +1,15 @@
+use std::{
+    collections::BTreeMap,
+    env, fs,
+    path::{Path, PathBuf},
+    str,
+    time::Instant,
+};
+
 use anyhow::Context;
 use lazy_static::lazy_static;
-use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
-use std::time::Instant;
-use std::{env, fs, str, usize};
 use tree_sitter::{Language, Parser, Query};
-use tree_sitter_loader::Loader;
+use tree_sitter_loader::{CompileConfig, Loader};
 
 include!("../src/tests/helpers/dirs.rs");
 
@@ -210,9 +214,9 @@ fn parse(path: &Path, max_path_length: usize, mut action: impl FnMut(&[u8])) -> 
 }
 
 fn get_language(path: &Path) -> Language {
-    let src_dir = GRAMMARS_DIR.join(path).join("src");
+    let src_path = GRAMMARS_DIR.join(path).join("src");
     TEST_LOADER
-        .load_language_at_path(&src_dir, &[&src_dir])
-        .with_context(|| format!("Failed to load language at path {src_dir:?}"))
+        .load_language_at_path(CompileConfig::new(&src_path, None, None))
+        .with_context(|| format!("Failed to load language at path {src_path:?}"))
         .unwrap()
 }

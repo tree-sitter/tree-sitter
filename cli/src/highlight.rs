@@ -1,14 +1,18 @@
-use ansi_term::Color;
+use std::{
+    collections::HashMap,
+    fmt::Write,
+    fs,
+    io::{self, Write as _},
+    path, str,
+    sync::atomic::AtomicUsize,
+    time::Instant,
+};
+
+use anstyle::{Ansi256Color, AnsiColor, Color, Effects, RgbColor};
 use anyhow::Result;
 use lazy_static::lazy_static;
-use serde::ser::SerializeMap;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
-use std::collections::HashMap;
-use std::fmt::Write;
-use std::sync::atomic::AtomicUsize;
-use std::time::Instant;
-use std::{fs, io, path, str, usize};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter, HtmlRenderer};
 use tree_sitter_loader::Loader;
 
@@ -45,7 +49,7 @@ lazy_static! {
 
 #[derive(Debug, Default)]
 pub struct Style {
-    pub ansi: ansi_term::Style,
+    pub ansi: anstyle::Style,
     pub css: Option<String>,
 }
 
@@ -105,30 +109,37 @@ impl Serialize for Theme {
         let mut map = serializer.serialize_map(Some(self.styles.len()))?;
         for (name, style) in self.highlight_names.iter().zip(&self.styles) {
             let style = &style.ansi;
-            let color = style.foreground.map(|color| match color {
-                Color::Black => json!("black"),
-                Color::Blue => json!("blue"),
-                Color::Cyan => json!("cyan"),
-                Color::Green => json!("green"),
-                Color::Purple => json!("purple"),
-                Color::Red => json!("red"),
-                Color::White => json!("white"),
-                Color::Yellow => json!("yellow"),
-                Color::RGB(r, g, b) => json!(format!("#{:x?}{:x?}{:x?}", r, g, b)),
-                Color::Fixed(n) => json!(n),
+            let color = style.get_fg_color().map(|color| match color {
+                Color::Ansi(color) => match color {
+                    AnsiColor::Black => json!("black"),
+                    AnsiColor::Blue => json!("blue"),
+                    AnsiColor::Cyan => json!("cyan"),
+                    AnsiColor::Green => json!("green"),
+                    AnsiColor::Magenta => json!("purple"),
+                    AnsiColor::Red => json!("red"),
+                    AnsiColor::White => json!("white"),
+                    AnsiColor::Yellow => json!("yellow"),
+                    _ => unreachable!(),
+                },
+                Color::Ansi256(Ansi256Color(n)) => json!(n),
+                Color::Rgb(RgbColor(r, g, b)) => json!(format!("#{r:x?}{g:x?}{b:x?}")),
             });
-            if style.is_bold || style.is_italic || style.is_underline {
+            let effects = style.get_effects();
+            if effects.contains(Effects::BOLD)
+                || effects.contains(Effects::ITALIC)
+                || effects.contains(Effects::UNDERLINE)
+            {
                 let mut style_json = HashMap::new();
                 if let Some(color) = color {
                     style_json.insert("color", color);
                 }
-                if style.is_bold {
+                if effects.contains(Effects::BOLD) {
                     style_json.insert("bold", Value::Bool(true));
                 }
-                if style.is_italic {
+                if effects.contains(Effects::ITALIC) {
                     style_json.insert("italic", Value::Bool(true));
                 }
-                if style.is_underline {
+                if effects.contains(Effects::UNDERLINE) {
                     style_json.insert("underline", Value::Bool(true));
                 }
                 map.serialize_entry(&name, &style_json)?;
@@ -144,9 +155,7 @@ impl Serialize for Theme {
 
 impl Default for Theme {
     fn default() -> Self {
-        serde_json::from_str(
-            r#"
-            {
+        serde_json::from_value(json!({
               "attribute": {"color": 124, "italic": true},
               "comment": {"color": 245, "italic": true},
               "constant.builtin": {"color": 94, "bold": true},
@@ -169,9 +178,7 @@ impl Default for Theme {
               "type.builtin": {"color": 23, "bold": true},
               "variable.builtin": {"bold": true},
               "variable.parameter": {"underline": true}
-            }
-            "#,
-        )
+        }))
         .unwrap()
     }
 }
@@ -197,7 +204,7 @@ fn parse_style(style: &mut Style, json: Value) {
                 }
                 "color" => {
                     if let Some(color) = parse_color(value) {
-                        style.ansi = style.ansi.fg(color);
+                        style.ansi = style.ansi.fg_color(Some(color));
                     }
                 }
                 _ => {}
@@ -205,34 +212,36 @@ fn parse_style(style: &mut Style, json: Value) {
         }
         style.css = Some(style_to_css(style.ansi));
     } else if let Some(color) = parse_color(json) {
-        style.ansi = style.ansi.fg(color);
+        style.ansi = style.ansi.fg_color(Some(color));
         style.css = Some(style_to_css(style.ansi));
     } else {
         style.css = None;
     }
 
-    if let Some(Color::RGB(red, green, blue)) = style.ansi.foreground {
+    if let Some(Color::Rgb(RgbColor(red, green, blue))) = style.ansi.get_fg_color() {
         if !terminal_supports_truecolor() {
-            style.ansi = style.ansi.fg(closest_xterm_color(red, green, blue));
+            style.ansi = style
+                .ansi
+                .fg_color(Some(closest_xterm_color(red, green, blue)));
         }
     }
 }
 
 fn parse_color(json: Value) -> Option<Color> {
     match json {
-        Value::Number(n) => n.as_u64().map(|n| Color::Fixed(n as u8)),
+        Value::Number(n) => n.as_u64().map(|n| Color::Ansi256(Ansi256Color(n as u8))),
         Value::String(s) => match s.to_lowercase().as_str() {
-            "black" => Some(Color::Black),
-            "blue" => Some(Color::Blue),
-            "cyan" => Some(Color::Cyan),
-            "green" => Some(Color::Green),
-            "purple" => Some(Color::Purple),
-            "red" => Some(Color::Red),
-            "white" => Some(Color::White),
-            "yellow" => Some(Color::Yellow),
+            "black" => Some(Color::Ansi(AnsiColor::Black)),
+            "blue" => Some(Color::Ansi(AnsiColor::Blue)),
+            "cyan" => Some(Color::Ansi(AnsiColor::Cyan)),
+            "green" => Some(Color::Ansi(AnsiColor::Green)),
+            "purple" => Some(Color::Ansi(AnsiColor::Magenta)),
+            "red" => Some(Color::Ansi(AnsiColor::Red)),
+            "white" => Some(Color::Ansi(AnsiColor::White)),
+            "yellow" => Some(Color::Ansi(AnsiColor::Yellow)),
             s => {
                 if let Some((red, green, blue)) = hex_string_to_rgb(s) {
-                    Some(Color::RGB(red, green, blue))
+                    Some(Color::Rgb(RgbColor(red, green, blue)))
                 } else {
                     None
                 }
@@ -258,18 +267,19 @@ fn hex_string_to_rgb(s: &str) -> Option<(u8, u8, u8)> {
     }
 }
 
-fn style_to_css(style: ansi_term::Style) -> String {
+fn style_to_css(style: anstyle::Style) -> String {
     let mut result = "style='".to_string();
-    if style.is_underline {
+    let effects = style.get_effects();
+    if effects.contains(Effects::UNDERLINE) {
         write!(&mut result, "text-decoration: underline;").unwrap();
     }
-    if style.is_bold {
+    if effects.contains(Effects::BOLD) {
         write!(&mut result, "font-weight: bold;").unwrap();
     }
-    if style.is_italic {
+    if effects.contains(Effects::ITALIC) {
         write!(&mut result, "font-style: italic;").unwrap();
     }
-    if let Some(color) = style.foreground {
+    if let Some(color) = style.get_fg_color() {
         write_color(&mut result, color);
     }
     result.push('\'');
@@ -277,26 +287,22 @@ fn style_to_css(style: ansi_term::Style) -> String {
 }
 
 fn write_color(buffer: &mut String, color: Color) {
-    if let Color::RGB(r, g, b) = &color {
-        write!(buffer, "color: #{r:02x}{g:02x}{b:02x}").unwrap();
-    } else {
-        write!(
-            buffer,
-            "color: {}",
-            match color {
-                Color::Black => "black",
-                Color::Blue => "blue",
-                Color::Red => "red",
-                Color::Green => "green",
-                Color::Yellow => "yellow",
-                Color::Cyan => "cyan",
-                Color::Purple => "purple",
-                Color::White => "white",
-                Color::Fixed(n) => CSS_STYLES_BY_COLOR_ID[n as usize].as_str(),
-                Color::RGB(_, _, _) => unreachable!(),
-            }
-        )
-        .unwrap();
+    match color {
+        Color::Ansi(color) => match color {
+            AnsiColor::Black => write!(buffer, "color: black").unwrap(),
+            AnsiColor::Red => write!(buffer, "color: red").unwrap(),
+            AnsiColor::Green => write!(buffer, "color: green").unwrap(),
+            AnsiColor::Yellow => write!(buffer, "color: yellow").unwrap(),
+            AnsiColor::Blue => write!(buffer, "color: blue").unwrap(),
+            AnsiColor::Magenta => write!(buffer, "color: purple").unwrap(),
+            AnsiColor::Cyan => write!(buffer, "color: cyan").unwrap(),
+            AnsiColor::White => write!(buffer, "color: white").unwrap(),
+            _ => unreachable!(),
+        },
+        Color::Ansi256(Ansi256Color(n)) => {
+            write!(buffer, "color: {}", CSS_STYLES_BY_COLOR_ID[n as usize]).unwrap()
+        }
+        Color::Rgb(RgbColor(r, g, b)) => write!(buffer, "color: #{r:02x}{g:02x}{b:02x}").unwrap(),
     }
 }
 
@@ -317,15 +323,17 @@ fn closest_xterm_color(red: u8, green: u8, blue: u8) -> Color {
     // Get the xterm color with the minimum Euclidean distance to the target color
     // i.e.  distance = √ (r2 - r1)² + (g2 - g1)² + (b2 - b1)²
     let distances = colors.map(|(color_id, (r, g, b))| {
-        let r_delta: u32 = (max(r, red) - min(r, red)).into();
-        let g_delta: u32 = (max(g, green) - min(g, green)).into();
-        let b_delta: u32 = (max(b, blue) - min(b, blue)).into();
+        let r_delta = (max(r, red) - min(r, red)) as u32;
+        let g_delta = (max(g, green) - min(g, green)) as u32;
+        let b_delta = (max(b, blue) - min(b, blue)) as u32;
         let distance = r_delta.pow(2) + g_delta.pow(2) + b_delta.pow(2);
         // don't need to actually take the square root for the sake of comparison
         (color_id, distance)
     });
 
-    Color::Fixed(distances.min_by(|(_, d1), (_, d2)| d1.cmp(d2)).unwrap().0)
+    Color::Ansi256(Ansi256Color(
+        distances.min_by(|(_, d1), (_, d2)| d1.cmp(d2)).unwrap().0,
+    ))
 }
 
 pub fn ansi(
@@ -342,7 +350,7 @@ pub fn ansi(
     let mut highlighter = Highlighter::new();
 
     let events = highlighter.highlight(config, source, cancellation_flag, |string| {
-        loader.highlight_config_for_injection_string(string, config.apply_all_captures)
+        loader.highlight_config_for_injection_string(string)
     })?;
 
     let mut style_stack = vec![theme.default_style().ansi];
@@ -355,11 +363,10 @@ pub fn ansi(
                 style_stack.pop();
             }
             HighlightEvent::Source { start, end } => {
-                style_stack
-                    .last()
-                    .unwrap()
-                    .paint(&source[start..end])
-                    .write_to(&mut stdout)?;
+                let style = style_stack.last().unwrap();
+                write!(&mut stdout, "{style}").unwrap();
+                stdout.write_all(&source[start..end])?;
+                write!(&mut stdout, "{style:#}").unwrap();
             }
         }
     }
@@ -388,7 +395,7 @@ pub fn html(
     let mut highlighter = Highlighter::new();
 
     let events = highlighter.highlight(config, source, cancellation_flag, |string| {
-        loader.highlight_config_for_injection_string(string, config.apply_all_captures)
+        loader.highlight_config_for_injection_string(string)
     })?;
 
     let mut renderer = HtmlRenderer::new();
@@ -421,8 +428,9 @@ pub fn html(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::env;
+
+    use super::*;
 
     const JUNGLE_GREEN: &str = "#26A69A";
     const DARK_CYAN: &str = "#00AF87";
@@ -432,25 +440,34 @@ mod tests {
         let original_environment_variable = env::var("COLORTERM");
 
         let mut style = Style::default();
-        assert_eq!(style.ansi.foreground, None);
+        assert_eq!(style.ansi.get_fg_color(), None);
         assert_eq!(style.css, None);
 
         // darkcyan is an ANSI color and is preserved
         env::set_var("COLORTERM", "");
         parse_style(&mut style, Value::String(DARK_CYAN.to_string()));
-        assert_eq!(style.ansi.foreground, Some(Color::Fixed(36)));
+        assert_eq!(
+            style.ansi.get_fg_color(),
+            Some(Color::Ansi256(Ansi256Color(36)))
+        );
         assert_eq!(style.css, Some("style=\'color: #00af87\'".to_string()));
 
         // junglegreen is not an ANSI color and is preserved when the terminal supports it
         env::set_var("COLORTERM", "truecolor");
         parse_style(&mut style, Value::String(JUNGLE_GREEN.to_string()));
-        assert_eq!(style.ansi.foreground, Some(Color::RGB(38, 166, 154)));
+        assert_eq!(
+            style.ansi.get_fg_color(),
+            Some(Color::Rgb(RgbColor(38, 166, 154)))
+        );
         assert_eq!(style.css, Some("style=\'color: #26a69a\'".to_string()));
 
         // junglegreen gets approximated as darkcyan when the terminal does not support it
         env::set_var("COLORTERM", "");
         parse_style(&mut style, Value::String(JUNGLE_GREEN.to_string()));
-        assert_eq!(style.ansi.foreground, Some(Color::Fixed(36)));
+        assert_eq!(
+            style.ansi.get_fg_color(),
+            Some(Color::Ansi256(Ansi256Color(36)))
+        );
         assert_eq!(style.css, Some("style=\'color: #26a69a\'".to_string()));
 
         if let Ok(environment_variable) = original_environment_variable {

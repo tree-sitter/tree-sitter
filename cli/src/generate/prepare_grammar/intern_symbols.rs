@@ -1,7 +1,10 @@
-use super::InternedGrammar;
-use crate::generate::grammars::{InputGrammar, Variable, VariableType};
-use crate::generate::rules::{Rule, Symbol};
 use anyhow::{anyhow, Result};
+
+use super::InternedGrammar;
+use crate::generate::{
+    grammars::{InputGrammar, Variable, VariableType},
+    rules::{Rule, Symbol},
+};
 
 pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> {
     let interner = Interner { grammar };
@@ -15,13 +18,13 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         variables.push(Variable {
             name: variable.name.clone(),
             kind: variable_type_for_name(&variable.name),
-            rule: interner.intern_rule(&variable.rule)?,
+            rule: interner.intern_rule(&variable.rule, Some(&variable.name))?,
         });
     }
 
     let mut external_tokens = Vec::with_capacity(grammar.external_tokens.len());
     for external_token in &grammar.external_tokens {
-        let rule = interner.intern_rule(external_token)?;
+        let rule = interner.intern_rule(external_token, None)?;
         let (name, kind) = if let Rule::NamedSymbol(name) = external_token {
             (name.clone(), variable_type_for_name(name))
         } else {
@@ -32,7 +35,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
 
     let mut extra_symbols = Vec::with_capacity(grammar.extra_symbols.len());
     for extra_token in &grammar.extra_symbols {
-        extra_symbols.push(interner.intern_rule(extra_token)?);
+        extra_symbols.push(interner.intern_rule(extra_token, None)?);
     }
 
     let mut supertype_symbols = Vec::with_capacity(grammar.supertype_symbols.len());
@@ -96,33 +99,37 @@ struct Interner<'a> {
 }
 
 impl<'a> Interner<'a> {
-    fn intern_rule(&self, rule: &Rule) -> Result<Rule> {
+    fn intern_rule(&self, rule: &Rule, name: Option<&str>) -> Result<Rule> {
         match rule {
             Rule::Choice(elements) => {
+                if let Some(result) = self.intern_single(elements, name) {
+                    return result;
+                }
                 let mut result = Vec::with_capacity(elements.len());
                 for element in elements {
-                    result.push(self.intern_rule(element)?);
+                    result.push(self.intern_rule(element, name)?);
                 }
                 Ok(Rule::Choice(result))
             }
             Rule::Seq(elements) => {
+                if let Some(result) = self.intern_single(elements, name) {
+                    return result;
+                }
                 let mut result = Vec::with_capacity(elements.len());
                 for element in elements {
-                    result.push(self.intern_rule(element)?);
+                    result.push(self.intern_rule(element, name)?);
                 }
                 Ok(Rule::Seq(result))
             }
-            Rule::Repeat(content) => Ok(Rule::Repeat(Box::new(self.intern_rule(content)?))),
+            Rule::Repeat(content) => Ok(Rule::Repeat(Box::new(self.intern_rule(content, name)?))),
             Rule::Metadata { rule, params } => Ok(Rule::Metadata {
-                rule: Box::new(self.intern_rule(rule)?),
+                rule: Box::new(self.intern_rule(rule, name)?),
                 params: params.clone(),
             }),
-
             Rule::NamedSymbol(name) => self.intern_name(name).map_or_else(
                 || Err(anyhow!("Undefined symbol `{name}`")),
                 |symbol| Ok(Rule::Symbol(symbol)),
             ),
-
             _ => Ok(rule.clone()),
         }
     }
@@ -143,6 +150,21 @@ impl<'a> Interner<'a> {
         }
 
         None
+    }
+
+    // In the case of a seq or choice rule of 1 element in a hidden rule, weird
+    // inconsistent behavior w/ queries can occur. So we should treat it as that single rule itself
+    // in this case.
+    fn intern_single(&self, elements: &[Rule], name: Option<&str>) -> Option<Result<Rule>> {
+        if elements.len() == 1 && matches!(elements[0], Rule::String(_) | Rule::Pattern(_, _)) {
+            eprintln!(
+                "Warning: rule {} is just a `seq` or `choice` rule with a single element. This is unnecessary.",
+                name.unwrap_or_default()
+            );
+            Some(self.intern_rule(&elements[0], name))
+        } else {
+            None
+        }
     }
 }
 
@@ -234,6 +256,42 @@ mod tests {
             Err(e) => assert_eq!(e.to_string(), "Undefined symbol `y`"),
             _ => panic!("Expected an error but got none"),
         }
+    }
+
+    #[test]
+    fn test_interning_a_seq_or_choice_of_one_rule() {
+        let grammar = intern_symbols(&build_grammar(vec![
+            Variable::named("w", Rule::choice(vec![Rule::string("a")])),
+            Variable::named("x", Rule::seq(vec![Rule::pattern("b", "")])),
+            Variable::named("y", Rule::string("a")),
+            Variable::named("z", Rule::pattern("b", "")),
+            // Hidden rules should not affect this.
+            Variable::hidden("_a", Rule::choice(vec![Rule::string("a")])),
+            Variable::hidden("_b", Rule::seq(vec![Rule::pattern("b", "")])),
+            Variable::hidden("_c", Rule::string("a")),
+            Variable::hidden("_d", Rule::pattern("b", "")),
+        ]))
+        .unwrap();
+
+        assert_eq!(
+            grammar.variables,
+            vec![
+                Variable::named("w", Rule::string("a")),
+                Variable::named("x", Rule::pattern("b", "")),
+                Variable::named("y", Rule::string("a")),
+                Variable::named("z", Rule::pattern("b", "")),
+                // Hidden rules show no change.
+                Variable::hidden("_a", Rule::string("a")),
+                Variable::hidden("_b", Rule::pattern("b", "")),
+                Variable::hidden("_c", Rule::string("a")),
+                Variable::hidden("_d", Rule::pattern("b", "")),
+            ]
+        );
+
+        assert_eq!(grammar.variables[0].rule, grammar.variables[2].rule);
+        assert_eq!(grammar.variables[1].rule, grammar.variables[3].rule);
+        assert_eq!(grammar.variables[4].rule, grammar.variables[6].rule);
+        assert_eq!(grammar.variables[5].rule, grammar.variables[7].rule);
     }
 
     fn build_grammar(variables: Vec<Variable>) -> InputGrammar {

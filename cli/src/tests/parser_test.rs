@@ -1,21 +1,22 @@
+use std::{
+    sync::atomic::{AtomicUsize, Ordering},
+    thread, time,
+};
+
+use tree_sitter::{IncludedRangesError, InputEdit, LogType, Parser, Point, Range};
+use tree_sitter_proc_macro::retry;
+
 use super::helpers::{
     allocations,
-    edits::invert_edit,
     edits::ReadRecorder,
     fixtures::{get_language, get_test_language},
 };
 use crate::{
-    generate::generate_parser_for_grammar,
-    parse::{perform_edit, Edit},
-    tests::helpers::fixtures::fixtures_dir,
+    fuzz::edits::Edit,
+    generate::{generate_parser_for_grammar, load_grammar_file},
+    parse::perform_edit,
+    tests::{helpers::fixtures::fixtures_dir, invert_edit},
 };
-use std::{
-    fs,
-    sync::atomic::{AtomicUsize, Ordering},
-    thread, time,
-};
-use tree_sitter::{IncludedRangesError, InputEdit, LogType, Parser, Point, Range};
-use tree_sitter_proc_macro::retry;
 
 #[test]
 fn test_parsing_simple_string() {
@@ -98,7 +99,7 @@ fn test_parsing_with_debug_graph_enabled() {
     parser.print_dot_graphs(&debug_graph_file);
     parser.parse("const zero = 0", None).unwrap();
 
-    debug_graph_file.seek(std::io::SeekFrom::Start(0)).unwrap();
+    debug_graph_file.rewind().unwrap();
     let log_reader = BufReader::new(debug_graph_file)
         .lines()
         .map(|l| l.expect("Failed to read line from graph log"));
@@ -126,7 +127,7 @@ fn test_parsing_with_custom_utf8_input() {
                     if column < lines[row].as_bytes().len() {
                         &lines[row].as_bytes()[column..]
                     } else {
-                        "\n".as_bytes()
+                        b"\n"
                     }
                 } else {
                     &[]
@@ -158,10 +159,10 @@ fn test_parsing_with_custom_utf16_input() {
     let mut parser = Parser::new();
     parser.set_language(&get_language("rust")).unwrap();
 
-    let lines: Vec<Vec<u16>> = ["pub fn foo() {", "  1", "}"]
+    let lines = ["pub fn foo() {", "  1", "}"]
         .iter()
-        .map(|s| s.encode_utf16().collect())
-        .collect();
+        .map(|s| s.encode_utf16().collect::<Vec<_>>())
+        .collect::<Vec<_>>();
 
     let tree = parser
         .parse_utf16_with(
@@ -431,8 +432,8 @@ fn test_parsing_after_editing_tree_that_depends_on_column_values() {
     let dir = fixtures_dir()
         .join("test_grammars")
         .join("uses_current_column");
-    let grammar = fs::read_to_string(dir.join("grammar.json")).unwrap();
-    let (grammar_name, parser_code) = generate_parser_for_grammar(&grammar).unwrap();
+    let grammar_json = load_grammar_file(&dir.join("grammar.js"), None).unwrap();
+    let (grammar_name, parser_code) = generate_parser_for_grammar(&grammar_json).unwrap();
 
     let mut parser = Parser::new();
     parser
@@ -818,9 +819,19 @@ fn test_parsing_with_one_included_range() {
     let script_content_node = html_tree.root_node().child(1).unwrap().child(1).unwrap();
     assert_eq!(script_content_node.kind(), "raw_text");
 
+    assert_eq!(
+        parser.included_ranges(),
+        &[Range {
+            start_byte: 0,
+            end_byte: u32::MAX as usize,
+            start_point: Point::new(0, 0),
+            end_point: Point::new(u32::MAX as usize, u32::MAX as usize),
+        }]
+    );
     parser
         .set_included_ranges(&[script_content_node.range()])
         .unwrap();
+    assert_eq!(parser.included_ranges(), &[script_content_node.range()]);
     parser.set_language(&get_language("javascript")).unwrap();
     let js_tree = parser.parse(source_code, None).unwrap();
 
@@ -887,7 +898,7 @@ fn test_parsing_with_multiple_included_ranges() {
     assert_eq!(
         html_tree.root_node().to_sexp(),
         concat!(
-            "(fragment (element",
+            "(document (element",
             " (start_tag (tag_name))",
             " (text)",
             " (element (start_tag (tag_name)) (end_tag (tag_name)))",
@@ -966,7 +977,7 @@ fn test_parsing_with_included_range_containing_mismatched_positions() {
 
     assert_eq!(
         html_tree.root_node().to_sexp(),
-        "(fragment (element (start_tag (tag_name)) (text) (end_tag (tag_name))))"
+        "(document (element (start_tag (tag_name)) (text) (end_tag (tag_name))))"
     );
 }
 
@@ -1014,11 +1025,11 @@ fn test_parsing_error_in_invalid_included_ranges() {
 #[test]
 fn test_parsing_utf16_code_with_errors_at_the_end_of_an_included_range() {
     let source_code = "<script>a.</script>";
-    let utf16_source_code: Vec<u16> = source_code
+    let utf16_source_code = source_code
         .as_bytes()
         .iter()
         .map(|c| u16::from(*c))
-        .collect();
+        .collect::<Vec<_>>();
 
     let start_byte = 2 * source_code.find("a.").unwrap();
     let end_byte = 2 * source_code.find("</script>").unwrap();
@@ -1135,7 +1146,7 @@ fn test_parsing_with_a_newly_excluded_range() {
     assert_eq!(
         tree.root_node().to_sexp(),
         concat!(
-            "(fragment (text) (element",
+            "(document (text) (element",
             " (start_tag (tag_name))",
             " (element (start_tag (tag_name)) (end_tag (tag_name)))",
             " (end_tag (tag_name))))"
@@ -1379,6 +1390,39 @@ fn test_grammars_that_can_hang_on_eof() {
         .set_language(&get_test_language(&parser_name, &parser_code, None))
         .unwrap();
     parser.parse("\"", None).unwrap();
+}
+
+#[test]
+fn test_parse_stack_recursive_merge_error_cost_calculation_bug() {
+    let source_code = r#"
+fn main() {
+  if n == 1 {
+  } else if n == 2 {
+  } else {
+  }
+}
+
+let y = if x == 5 { 10 } else { 15 };
+
+if foo && bar {}
+
+if foo && bar || baz {}
+"#;
+
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("rust")).unwrap();
+
+    let mut tree = parser.parse(source_code, None).unwrap();
+
+    let edit = Edit {
+        position: 60,
+        deleted_length: 63,
+        inserted_text: Vec::new(),
+    };
+    let mut input = source_code.as_bytes().to_vec();
+    perform_edit(&mut tree, &mut input, &edit).unwrap();
+
+    parser.parse(&input, Some(&tree)).unwrap();
 }
 
 const fn simple_range(start: usize, end: usize) -> Range {

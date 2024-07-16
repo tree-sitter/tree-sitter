@@ -1,7 +1,6 @@
-use std::fs;
-use std::path::Path;
+use std::{fs, path::Path};
 
-use ansi_term::Colour;
+use anstyle::AnsiColor;
 use anyhow::{anyhow, Result};
 use tree_sitter::Point;
 use tree_sitter_highlight::{Highlight, HighlightConfiguration, HighlightEvent, Highlighter};
@@ -9,6 +8,7 @@ use tree_sitter_loader::{Config, Loader};
 
 use super::{
     query_testing::{parse_position_comments, Assertion},
+    test::paint,
     util,
 };
 
@@ -48,17 +48,10 @@ pub fn test_highlights(
     loader_config: &Config,
     highlighter: &mut Highlighter,
     directory: &Path,
-    apply_all_captures: bool,
+    use_color: bool,
 ) -> Result<()> {
     println!("syntax highlighting:");
-    test_highlights_indented(
-        loader,
-        loader_config,
-        highlighter,
-        directory,
-        apply_all_captures,
-        2,
-    )
+    test_highlights_indented(loader, loader_config, highlighter, directory, use_color, 2)
 }
 
 fn test_highlights_indented(
@@ -66,7 +59,7 @@ fn test_highlights_indented(
     loader_config: &Config,
     highlighter: &mut Highlighter,
     directory: &Path,
-    apply_all_captures: bool,
+    use_color: bool,
     indent_level: usize,
 ) -> Result<()> {
     let mut failed = false;
@@ -87,7 +80,7 @@ fn test_highlights_indented(
                 loader_config,
                 highlighter,
                 &test_file_path,
-                apply_all_captures,
+                use_color,
                 indent_level + 1,
             )
             .is_err()
@@ -104,7 +97,7 @@ fn test_highlights_indented(
                     )
                 })?;
             let highlight_config = language_config
-                .highlight_config(language, apply_all_captures, None)?
+                .highlight_config(language, None)?
                 .ok_or_else(|| anyhow!("No highlighting config found for {test_file_path:?}"))?;
             match test_highlight(
                 loader,
@@ -115,13 +108,19 @@ fn test_highlights_indented(
                 Ok(assertion_count) => {
                     println!(
                         "✓ {} ({assertion_count} assertions)",
-                        Colour::Green.paint(test_file_name.to_string_lossy().as_ref()),
+                        paint(
+                            use_color.then_some(AnsiColor::Green),
+                            test_file_name.to_string_lossy().as_ref()
+                        ),
                     );
                 }
                 Err(e) => {
                     println!(
                         "✗ {}",
-                        Colour::Red.paint(test_file_name.to_string_lossy().as_ref())
+                        paint(
+                            use_color.then_some(AnsiColor::Red),
+                            test_file_name.to_string_lossy().as_ref()
+                        )
                     );
                     println!(
                         "{indent:indent_level$}  {e}",
@@ -235,7 +234,7 @@ pub fn get_highlight_positions(
     let source = String::from_utf8_lossy(source);
     let mut char_indices = source.char_indices();
     for event in highlighter.highlight(highlight_config, source.as_bytes(), None, |string| {
-        loader.highlight_config_for_injection_string(string, highlight_config.apply_all_captures)
+        loader.highlight_config_for_injection_string(string)
     })? {
         match event? {
             HighlightEvent::HighlightStart(h) => highlight_stack.push(h),
