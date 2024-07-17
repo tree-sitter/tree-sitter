@@ -166,6 +166,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [USD](https://github.com/ColinKennedy/tree-sitter-usd)
 * [Verilog](https://github.com/tree-sitter/tree-sitter-verilog)
 * [VHDL](https://github.com/alemuller/tree-sitter-vhdl)
+* [VHDL](https://github.com/jpt13653903/tree-sitter-vhdl)
 * [Vue](https://github.com/ikatyang/tree-sitter-vue)
 * [Wasm](https://github.com/wasm-lsp/tree-sitter-wasm)
 * [WDL](https://github.com/jdidion/tree-sitter-wdl)
