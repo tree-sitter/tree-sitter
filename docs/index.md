@@ -136,6 +136,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Robot](https://github.com/Hubro/tree-sitter-robot)
 * [Ruby](https://github.com/tree-sitter/tree-sitter-ruby)
 * [Rust](https://github.com/tree-sitter/tree-sitter-rust)
+* [Ralph](https://github.com/alephium/tree-sitter-ralph)
 * [Scala](https://github.com/tree-sitter/tree-sitter-scala)
 * [Scheme](https://github.com/6cdh/tree-sitter-scheme)
 * [SCSS](https://github.com/serenadeai/tree-sitter-scss)
