@@ -148,7 +148,7 @@ void ts_tree_print_dot_graph(const TSTree *self, int fd) {
   fclose(file);
 }
 
-#else
+#elif !defined(__wasi__) // WASI doesn't support dup
 
 #include <unistd.h>
 
@@ -160,6 +160,13 @@ void ts_tree_print_dot_graph(const TSTree *self, int file_descriptor) {
   FILE *file = fdopen(_ts_dup(file_descriptor), "a");
   ts_subtree_print_dot_graph(self->root, self->language, file);
   fclose(file);
+}
+
+#else
+
+void ts_tree_print_dot_graph(const TSTree *self, int file_descriptor) {
+  (void)self;
+  (void)file_descriptor;
 }
 
 #endif
