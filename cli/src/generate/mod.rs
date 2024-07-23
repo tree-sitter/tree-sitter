@@ -287,7 +287,7 @@ fn write_file(path: &Path, body: impl AsRef<[u8]>) -> Result<()> {
 }
 
 /// Generate Swift source for the given json grammar description.
-pub fn swift_parser_source_from_json(json_str: &str, abi_version: u32) -> Result<String> {
+pub fn swift_parser_source_from_json(json_str: &str, access_modifier: String, abi_version: u32) -> Result<String> {
     let input_grammar: InputGrammar = parse_grammar(json_str)?;
     let (syntax_grammar, lexical_grammar, inlines, simple_aliases) =
         prepare_grammar(&input_grammar)?;
@@ -301,7 +301,7 @@ pub fn swift_parser_source_from_json(json_str: &str, abi_version: u32) -> Result
         &inlines,
         None,
     )?;
-    let mut target : Box<dyn RenderTarget> = Box::new(RenderTargetSwift::new());
+    let mut target : Box<dyn RenderTarget> = Box::new(RenderTargetSwift::new(access_modifier));
     let generator = Generator::new(
         input_grammar.name.clone(),
         tables,
@@ -327,6 +327,8 @@ pub const SWIFTGEN_ERROR_OTHER: u32 = 4;
 pub extern "C" fn swiftgen(
     json_bytes: *const u8, 
     json_len: u32, 
+    access_bytes: *const u8,
+    access_len: u32,
     abi_version: u32, 
     completion: unsafe extern "C" fn(u32, *const u8, u32) -> *const std::ffi::c_void
 ) -> *const std::ffi::c_void {
@@ -338,10 +340,18 @@ pub extern "C" fn swiftgen(
     if !(render::ABI_VERSION_MIN <= abi_version && abi_version <= render::ABI_VERSION_MAX) {
         return fail(completion, SWIFTGEN_ERROR_INVALID_VERSION, "Invalid ABI version")
     }
+    let access_slice = unsafe { std::slice::from_raw_parts(access_bytes, access_len as usize) };
+    let access_modifier : String;
+    match std::str::from_utf8(access_slice) {
+        Ok(str) => 
+            access_modifier = str.to_string(),
+        Err(err) =>
+            return fail(completion, SWIFTGEN_ERROR_INVALID_INPUT, format!("Invalid input: {err}").as_ref())
+    }
     let json_slice = unsafe { std::slice::from_raw_parts(json_bytes, json_len as usize) };
     match std::str::from_utf8(json_slice) {
         Ok(json_str) => {
-            match swift_parser_source_from_json(json_str, abi_version as u32) {
+            match swift_parser_source_from_json(json_str, access_modifier, abi_version as u32) {
                 Ok(swift_text) => {
                     let swift_bytes = swift_text.as_bytes();
                     if swift_bytes.len() <= u32::MAX as usize {

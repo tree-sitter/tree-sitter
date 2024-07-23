@@ -16,11 +16,17 @@ extern "C" {
 /// otherwise invoke completion with non-zero status and the bytes and length of the error 
 /// description. In either case, return the result of completion.
 ///
+/// The access parameter specifies the access modifier applied to the enclosing structure
+/// and thus to various declarations which are considered as exports; specifically the
+/// `language` and `symbolNames` properties.
+///
 /// Note that the bytes given to completion are owned and managed by this method.
 
 const void *swiftgen(
     const uint8_t *json_bytes, 
     uint32_t json_len,
+    const uint8_t * access_bytes,
+    uint32_t access_len,
     uint32_t abi_version,
     const void *(*completion)(uint32_t success, const uint8_t *bytes, uint32_t bytes_len)
 );

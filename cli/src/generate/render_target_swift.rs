@@ -14,13 +14,15 @@ use super::{
 
 
 pub struct RenderTargetSwift {
-    buffer: RenderBuffer
+    buffer: RenderBuffer,
+    access_modifier: String, // the visibility of the enclosing struct
 }
 
 impl RenderTargetSwift {
-    pub fn new() -> Self {
+    pub fn new(access_modifier: String) -> Self {
         Self {
             buffer: RenderBuffer::new(2),
+            access_modifier,
         }
     }
 }
@@ -57,7 +59,8 @@ impl RenderTarget for RenderTargetSwift {
     }
 
     fn begin_symbol_names_list(&mut self) {
-        add_line!(self, "static let symbolNames : [StaticString] = [");
+        let access_modifier = self.access_modifier.clone();
+        add_line!(self, "{} static let symbolNames : [StaticString] = [", access_modifier);
         indent!(self);
     }
     fn add_symbol_names_list_item(&mut self, _name: &str, text: &str) {
@@ -482,7 +485,8 @@ impl RenderTarget for RenderTargetSwift {
     }
 
     fn end_language(&mut self, context: &dyn RenderContext) {
-        add_line!(self, "static let language = UnsafePointer<TSLanguage>.initialized {{ lang in");
+        let access_modifier = self.access_modifier.clone();
+        add_line!(self, "{} static let language = UnsafePointer<TSLanguage>.initialized {{ lang in", access_modifier);
         add_line!(self, "    lang.version = {}", context.get_abi_version());
         add_line!(self, "    lang.symbol_count = {}", context.get_symbol_count());
         add_line!(self, "    lang.alias_count = {}", context.get_alias_count());
