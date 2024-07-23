@@ -78,6 +78,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 * [Go work](https://github.com/omertuc/tree-sitter-go-work)
 * [GraphQL](https://github.com/bkegley/tree-sitter-graphql)
 * [Hack](https://github.com/slackhq/tree-sitter-hack)
+* [Hare](https://git.sr.ht/~ecs/tree-sitter-hare)
 * [Haskell](https://github.com/tree-sitter/tree-sitter-haskell)
 * [HCL](https://github.com/MichaHoffmann/tree-sitter-hcl)
 * [HTML](https://github.com/tree-sitter/tree-sitter-html)
