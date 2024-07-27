@@ -119,6 +119,7 @@ $emcc                                            \
   -s WASM=1                                      \
   -s INITIAL_MEMORY=33554432                     \
   -s ALLOW_MEMORY_GROWTH=1                       \
+  -s SUPPORT_BIG_ENDIAN=1                        \
   -s MAIN_MODULE=2                               \
   -s FILESYSTEM=0                                \
   -s NODEJS_CATCH_EXIT=0                         \
