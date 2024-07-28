@@ -543,12 +543,14 @@ impl Parser {
     /// want to pipe these graphs directly to a `dot(1)` process in order to
     /// generate SVG output.
     #[doc(alias = "ts_parser_print_dot_graphs")]
+    /// This function is unavailable in WASI due to the lack of `dup(2)`
+    #[cfg(not(target_os = "wasi"))]
     pub fn print_dot_graphs(
         &mut self,
-        #[cfg(any(unix, target_os = "wasi"))] file: &impl AsRawFd,
+        #[cfg(unix)] file: &impl AsRawFd,
         #[cfg(windows)] file: &impl AsRawHandle,
     ) {
-        #[cfg(any(unix, target_os = "wasi"))]
+        #[cfg(unix)]
         {
             let fd = file.as_raw_fd();
             unsafe {
@@ -952,12 +954,14 @@ impl Tree {
     /// graph directly to a `dot(1)` process in order to generate SVG
     /// output.
     #[doc(alias = "ts_tree_print_dot_graph")]
+    /// This function is unavailable in WASI due to the lack of `dup(2)`
+    #[cfg(not(target_os = "wasi"))]
     pub fn print_dot_graph(
         &self,
-        #[cfg(any(unix, target_os = "wasi"))] file: &impl AsRawFd,
+        #[cfg(unix)] file: &impl AsRawFd,
         #[cfg(windows)] file: &impl AsRawHandle,
     ) {
-        #[cfg(any(unix, target_os = "wasi"))]
+        #[cfg(unix)]
         {
             let fd = file.as_raw_fd();
             unsafe { ffi::ts_tree_print_dot_graph(self.0.as_ptr(), fd) }
