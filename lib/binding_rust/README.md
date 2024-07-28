@@ -106,3 +106,11 @@ assert_eq!(
 ```
 
 [tree-sitter]: https://github.com/tree-sitter/tree-sitter
+
+## Features
+
+- **std** - This feature is enabled by default and allows `tree-sitter` to use the standard library.
+  - Error types implement the `std::error:Error` trait.
+  - `regex` performance optimizations are enabled.
+  - The DOT graph methods are enabled.
+- **wasm** - This feature is enabled for Wasm targets. `tree-sitter` to be built for Wasm targets using the `wasmtime-c-api` crate.
