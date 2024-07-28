@@ -1545,9 +1545,8 @@ impl<'cursor> TreeCursor<'cursor> {
         }
     }
 
-    /// Get the numerical field id of this tree cursor's current node.
-    ///
-    /// See also [`field_name`](TreeCursor::field_name).
+    /// Get the depth of the cursor's current node relative to the original
+    /// node that the cursor was constructed with.
     #[doc(alias = "ts_tree_cursor_current_depth")]
     #[must_use]
     pub fn depth(&self) -> u32 {
@@ -1650,7 +1649,8 @@ impl<'cursor> TreeCursor<'cursor> {
         (result >= 0).then_some(result as usize)
     }
 
-    /// Re-initialize this tree cursor to start at a different node.
+    /// Re-initialize this tree cursor to start at the original node that the
+    /// cursor was constructed with.
     #[doc(alias = "ts_tree_cursor_reset")]
     pub fn reset(&mut self, node: Node<'cursor>) {
         unsafe { ffi::ts_tree_cursor_reset(&mut self.0, node.0) };
