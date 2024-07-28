@@ -11,6 +11,9 @@ fn main() {
         println!("cargo:rustc-env=BUILD_SHA={git_sha}");
     }
 
+    println!("cargo:rustc-check-cfg=cfg(sanitizing)");
+    println!("cargo:rustc-check-cfg=cfg(TREE_SITTER_EMBED_WASM_BINDING)");
+
     if web_playground_files_present() {
         println!("cargo:rustc-cfg=TREE_SITTER_EMBED_WASM_BINDING");
     }

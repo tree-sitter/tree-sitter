@@ -221,10 +221,7 @@ fn test_parsing_text_with_byte_order_mark() {
 
     // Parse UTF16 text with a BOM
     let tree = parser
-        .parse_utf16(
-            &"\u{FEFF}fn a() {}".encode_utf16().collect::<Vec<_>>(),
-            None,
-        )
+        .parse_utf16("\u{FEFF}fn a() {}".encode_utf16().collect::<Vec<_>>(), None)
         .unwrap();
     assert_eq!(
         tree.root_node().to_sexp(),
