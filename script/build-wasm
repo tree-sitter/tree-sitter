@@ -33,6 +33,7 @@ WEB_DIR=lib/binding_web
 SRC_DIR=lib/src
 EMSCRIPTEN_VERSION=$(< cli/loader/emscripten-version)
 
+verbose=0
 force_docker=0
 emscripten_flags=(-O3 --minify 0)
 
@@ -52,7 +53,7 @@ while (($# > 0)); do
       ;;
 
     -v|--verbose)
-      emscripten_flags+=(-s VERBOSE=1 -v)
+      verbose=1
       ;;
 
     *)
@@ -63,6 +64,10 @@ while (($# > 0)); do
   esac
   shift
 done
+
+if [[ $verbose == 1 ]]; then
+  emscripten_flags+=(-s VERBOSE=1 -v)
+fi
 
 emcc=
 docker=
