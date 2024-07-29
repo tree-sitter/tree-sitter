@@ -251,6 +251,8 @@ struct Test {
     pub show_fields: bool,
     #[arg(short, long, help = "Force rebuild the parser")]
     pub rebuild: bool,
+    #[arg(long, help = "Show only the pass-fail overview tree")]
+    pub overview_only: bool,
 }
 
 #[derive(Args)]
@@ -710,6 +712,7 @@ impl Test {
                 color,
                 test_num: 1,
                 show_fields: self.show_fields,
+                overview_only: self.overview_only,
             };
 
             test::run_tests_at_path(&mut parser, &mut opts)?;
