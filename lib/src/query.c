@@ -3541,6 +3541,7 @@ static inline bool ts_query_cursor__advance(
       // Get the properties of the current node.
       TSNode node = ts_tree_cursor_current_node(&self->cursor);
       TSNode parent_node = ts_tree_cursor_parent_node(&self->cursor);
+      bool is_empty = ts_node_end_byte(node) == 0;
       bool parent_precedes_range = !ts_node_is_null(parent_node) && (
         ts_node_end_byte(parent_node) <= self->start_byte ||
         point_lte(ts_node_end_point(parent_node), self->start_point)
@@ -3550,8 +3551,10 @@ static inline bool ts_query_cursor__advance(
         point_gte(ts_node_start_point(parent_node), self->end_point)
       );
       bool node_precedes_range = parent_precedes_range || (
-        ts_node_end_byte(node) <= self->start_byte ||
-        point_lte(ts_node_end_point(node), self->start_point)
+        !is_empty && (
+          ts_node_end_byte(node) <= self->start_byte ||
+          point_lte(ts_node_end_point(node), self->start_point)
+        )
       );
       bool node_follows_range = parent_follows_range || (
         ts_node_start_byte(node) >= self->end_byte ||
