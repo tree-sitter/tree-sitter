@@ -35,7 +35,8 @@ let package = Package(
                     "src/tree.c",
                     "src/query.c"
                 ],
-                sources: ["src/lib.c"]),
+                sources: ["src/lib.c"],
+                cSettings: [.headerSearchPath("src")]),
     ],
     cLanguageStandard: .c11
 )
