@@ -2144,11 +2144,19 @@ TSTree *ts_parser_parse_string_encoding(
 }
 
 void ts_parser_set_wasm_store(TSParser *self, TSWasmStore *store) {
+  if (self->language && ts_language_is_wasm(self->language)) {
+    ts_parser_set_language(self, NULL);
+  }
+
   ts_wasm_store_delete(self->wasm_store);
   self->wasm_store = store;
 }
 
 TSWasmStore *ts_parser_take_wasm_store(TSParser *self) {
+  if (self->language && ts_language_is_wasm(self->language)) {
+    ts_parser_set_language(self, NULL);
+  }
+
   TSWasmStore *result = self->wasm_store;
   self->wasm_store = NULL;
   return result;
