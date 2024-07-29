@@ -1,3 +1,7 @@
+ifeq ($(OS),Windows_NT)
+$(error Windows is not supported)
+endif
+
 VERSION := 0.0.1
 
 LANGUAGE_NAME := tree-sitter-PARSER_NAME
@@ -37,9 +41,7 @@ ARFLAGS ?= rcs
 override CFLAGS += -I$(SRC_DIR) -std=c11 -fPIC
 
 # OS-specific bits
-ifeq ($(OS),Windows_NT)
-	$(error "Windows is not supported")
-else ifeq ($(shell uname),Darwin)
+ifeq ($(shell uname),Darwin)
 	SOEXT = dylib
 	SOEXTVER_MAJOR = $(SONAME_MAJOR).dylib
 	SOEXTVER = $(SONAME_MAJOR).$(SONAME_MINOR).dylib
