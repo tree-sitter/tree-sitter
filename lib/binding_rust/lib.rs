@@ -27,6 +27,7 @@ use std::os::fd::AsRawFd;
 #[cfg(all(windows, feature = "std"))]
 use std::os::windows::io::AsRawHandle;
 
+use streaming_iterator::StreamingIterator;
 use tree_sitter_language::LanguageFn;
 
 #[cfg(feature = "wasm")]
@@ -202,13 +203,14 @@ pub struct QueryMatch<'cursor, 'tree> {
 }
 
 /// A sequence of [`QueryMatch`]es associated with a given [`QueryCursor`].
-pub struct QueryMatches<'query, 'cursor, T: TextProvider<I>, I: AsRef<[u8]>> {
+pub struct QueryMatches<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'query Query,
     text_provider: T,
     buffer1: Vec<u8>,
     buffer2: Vec<u8>,
-    _phantom: PhantomData<(&'cursor (), I)>,
+    current_match: Option<QueryMatch<'query, 'tree>>,
+    _phantom: PhantomData<(&'tree (), I)>,
 }
 
 /// A sequence of [`QueryCapture`]s associated with a given [`QueryCursor`].
@@ -2391,6 +2393,7 @@ impl QueryCursor {
             text_provider,
             buffer1: Vec::default(),
             buffer2: Vec::default(),
+            current_match: None,
             _phantom: PhantomData,
         }
     }
@@ -2627,15 +2630,19 @@ impl QueryProperty {
     }
 }
 
-impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> Iterator
+/// Provide StreamingIterator instead of traditional one as the underlying object in the C library
+/// gets updated on each iteration. Created copies would have their internal state overwritten,
+/// leading to Undefined Behavior
+impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIterator
     for QueryMatches<'query, 'tree, T, I>
 {
     type Item = QueryMatch<'query, 'tree>;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        unsafe {
+    fn advance(&mut self) {
+        self.current_match = unsafe {
             loop {
-                let mut m = MaybeUninit::<ffi::TSQueryMatch>::uninit();
+                let mut m: MaybeUninit<ffi::TSQueryMatch> =
+                    MaybeUninit::<ffi::TSQueryMatch>::uninit();
                 if ffi::ts_query_cursor_next_match(self.ptr, m.as_mut_ptr()) {
                     let result = QueryMatch::new(&m.assume_init(), self.ptr);
                     if result.satisfies_text_predicates(
@@ -2644,13 +2651,17 @@ impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> Iterator
                         &mut self.buffer2,
                         &mut self.text_provider,
                     ) {
-                        return Some(result);
+                        break Some(result);
                     }
                 } else {
-                    return None;
+                    break None;
                 }
             }
-        }
+        };
+    }
+
+    fn get(&self) -> Option<&Self::Item> {
+        self.current_match.as_ref()
     }
 }
 
