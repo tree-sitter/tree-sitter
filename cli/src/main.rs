@@ -252,6 +252,8 @@ struct Test {
     pub open_log: bool,
     #[arg(long, help = "The path to an alternative config.json file")]
     pub config_path: Option<PathBuf>,
+    #[arg(long, help = "force showing fields in test diffs")]
+    pub show_fields: bool,
 }
 
 #[derive(Args)]
@@ -717,6 +719,7 @@ fn run() -> Result<()> {
                     languages: languages.iter().map(|(l, n)| (n.as_str(), l)).collect(),
                     color,
                     test_num: 1,
+                    show_fields: test_options.show_fields,
                 };
 
                 test::run_tests_at_path(&mut parser, &mut opts)?;
