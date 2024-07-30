@@ -33,14 +33,15 @@ WEB_DIR=lib/binding_web
 SRC_DIR=lib/src
 EMSCRIPTEN_VERSION=$(< cli/loader/emscripten-version)
 
-verbose=0
+minify_js=1
 force_docker=0
-emscripten_flags=(-O3 --minify 0)
+emscripten_flags=(-O3)
 
 while (($# > 0)); do
   case "$1" in
     --debug)
-      emscripten_flags=(-s ASSERTIONS=1 -s SAFE_HEAP=1 -O0 -g)
+      minify_js=0
+      emscripten_flags=(-s ASSERTIONS=1 -s SAFE_HEAP=1 -O0)
       ;;
 
     --help)
@@ -53,7 +54,7 @@ while (($# > 0)); do
       ;;
 
     -v|--verbose)
-      verbose=1
+      emscripten_flags+=(-s VERBOSE=1 -v)
       ;;
 
     *)
@@ -64,10 +65,6 @@ while (($# > 0)); do
   esac
   shift
 done
-
-if [[ $verbose == 1 ]]; then
-  emscripten_flags+=(-s VERBOSE=1 -v)
-fi
 
 emcc=
 docker=
@@ -141,5 +138,20 @@ $emcc                                            \
   ${WEB_DIR}/binding.c                           \
   -o target/scratch/tree-sitter.js
 
-mv target/scratch/tree-sitter.js ${WEB_DIR}/tree-sitter.js
+# Use terser to write a minified version of `tree-sitter.js` into
+# the `lib/binding_web` directory.
+if [[ $minify_js == 1 ]]; then
+  if [[ ! -d ${WEB_DIR}/node_modules/terser ]]; then
+    (cd ${WEB_DIR} && npm install)
+  fi
+  ${WEB_DIR}/node_modules/.bin/terser   \
+    --compress                          \
+    --mangle                            \
+    --keep-classnames                   \
+    -- target/scratch/tree-sitter.js    \
+    > ${WEB_DIR}/tree-sitter.js
+else
+  cp target/scratch/tree-sitter.js ${WEB_DIR}/tree-sitter.js
+fi
+
 mv target/scratch/tree-sitter.wasm ${WEB_DIR}/tree-sitter.wasm
