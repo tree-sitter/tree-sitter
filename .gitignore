@@ -31,4 +31,5 @@ docs/assets/js/tree-sitter.js
 *.lib
 *.wasm
 .swiftpm
+.build
 zig-*
