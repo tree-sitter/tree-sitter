@@ -2145,7 +2145,10 @@ TSTree *ts_parser_parse_string_encoding(
 
 void ts_parser_set_wasm_store(TSParser *self, TSWasmStore *store) {
   if (self->language && ts_language_is_wasm(self->language)) {
-    ts_parser_set_language(self, NULL);
+    // Copy the assigned language into the new store.
+    const TSLanguage *copy = ts_language_copy(self->language);
+    ts_parser_set_language(self, copy);
+    ts_language_delete(copy);
   }
 
   ts_wasm_store_delete(self->wasm_store);
