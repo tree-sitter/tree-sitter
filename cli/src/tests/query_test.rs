@@ -3,6 +3,7 @@ use std::{env, fmt::Write};
 use indoc::indoc;
 use lazy_static::lazy_static;
 use rand::{prelude::StdRng, SeedableRng};
+use streaming_iterator::StreamingIterator;
 use tree_sitter::{
     CaptureQuantifier, Language, Node, Parser, Point, Query, QueryCursor, QueryError,
     QueryErrorKind, QueryPredicate, QueryPredicateArg, QueryProperty,
@@ -2269,29 +2270,50 @@ fn test_query_matches_with_wildcard_at_root_intersecting_byte_range() {
 
         // After the first line of the class definition
         let offset = source.find("A:").unwrap() + 2;
-        let matches = cursor
-            .set_byte_range(offset..offset)
-            .matches(&query, tree.root_node(), source.as_bytes())
-            .map(|mat| mat.captures[0].node.kind())
-            .collect::<Vec<_>>();
+        let mut matches = Vec::new();
+        let mut match_iter = cursor.set_byte_range(offset..offset).matches(
+            &query,
+            tree.root_node(),
+            source.as_bytes(),
+        );
+
+        while let Some(mat) = match_iter.next() {
+            if let Some(capture) = mat.captures.get(0) {
+                matches.push(capture.node.kind());
+            }
+        }
         assert_eq!(matches, &["class_definition"]);
 
         // After the first line of the function definition
         let offset = source.find("b():").unwrap() + 4;
-        let matches = cursor
-            .set_byte_range(offset..offset)
-            .matches(&query, tree.root_node(), source.as_bytes())
-            .map(|mat| mat.captures[0].node.kind())
-            .collect::<Vec<_>>();
+        let mut matches = Vec::new();
+        let mut match_iter = cursor.set_byte_range(offset..offset).matches(
+            &query,
+            tree.root_node(),
+            source.as_bytes(),
+        );
+
+        while let Some(mat) = match_iter.next() {
+            if let Some(capture) = mat.captures.get(0) {
+                matches.push(capture.node.kind());
+            }
+        }
         assert_eq!(matches, &["class_definition", "function_definition"]);
 
         // After the first line of the if statement
         let offset = source.find("c:").unwrap() + 2;
-        let matches = cursor
-            .set_byte_range(offset..offset)
-            .matches(&query, tree.root_node(), source.as_bytes())
-            .map(|mat| mat.captures[0].node.kind())
-            .collect::<Vec<_>>();
+        let mut matches = Vec::new();
+        let mut match_iter = cursor.set_byte_range(offset..offset).matches(
+            &query,
+            tree.root_node(),
+            source.as_bytes(),
+        );
+
+        while let Some(mat) = match_iter.next() {
+            if let Some(capture) = mat.captures.get(0) {
+                matches.push(capture.node.kind());
+            }
+        }
         assert_eq!(
             matches,
             &["class_definition", "function_definition", "if_statement"]
@@ -2604,21 +2626,23 @@ fn test_query_matches_with_captured_wildcard_at_root() {
         parser.set_language(&language).unwrap();
         let tree = parser.parse(source, None).unwrap();
 
-        let match_capture_names_and_rows = cursor
-            .matches(&query, tree.root_node(), source.as_bytes())
-            .map(|m| {
-                m.captures
-                    .iter()
-                    .map(|c| {
-                        (
-                            query.capture_names()[c.index as usize],
-                            c.node.kind(),
-                            c.node.start_position().row,
-                        )
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
+        let mut match_capture_names_and_rows = Vec::new();
+        let mut match_iter = cursor.matches(&query, tree.root_node(), source.as_bytes());
+
+        while let Some(m) = match_iter.next() {
+            let captures = m
+                .captures
+                .iter()
+                .map(|c| {
+                    (
+                        query.capture_names()[c.index as usize],
+                        c.node.kind(),
+                        c.node.start_position().row,
+                    )
+                })
+                .collect::<Vec<_>>();
+            match_capture_names_and_rows.push(captures);
+        }
 
         assert_eq!(
             match_capture_names_and_rows,
@@ -3914,21 +3938,24 @@ fn test_query_random() {
                     panic!("failed to build query for pattern {pattern} - {e}. seed: {seed}");
                 }
             };
-            let mut actual_matches = cursor
-                .matches(
-                    &query,
-                    test_tree.root_node(),
-                    (include_str!("parser_test.rs")).as_bytes(),
-                )
-                .map(|mat| Match {
+            let mut actual_matches = Vec::new();
+            let mut match_iter = cursor.matches(
+                &query,
+                test_tree.root_node(),
+                (include_str!("parser_test.rs")).as_bytes(),
+            );
+
+            while let Some(mat) = match_iter.next() {
+                let transformed_match = Match {
                     last_node: None,
                     captures: mat
                         .captures
                         .iter()
                         .map(|c| (query.capture_names()[c.index as usize], c.node))
                         .collect::<Vec<_>>(),
-                })
-                .collect::<Vec<_>>();
+                };
+                actual_matches.push(transformed_match);
+            }
 
             // actual_matches.sort_unstable();
             actual_matches.dedup();
@@ -4910,12 +4937,12 @@ fn test_consecutive_zero_or_modifiers() {
         assert!(matches.next().is_some());
 
         let mut cursor = QueryCursor::new();
-        let matches = cursor.matches(&query, three_tree.root_node(), three_source.as_bytes());
+        let mut matches = cursor.matches(&query, three_tree.root_node(), three_source.as_bytes());
 
         let mut len_3 = false;
         let mut len_1 = false;
 
-        for m in matches {
+        while let Some(m) = matches.next() {
             if m.captures.len() == 3 {
                 len_3 = true;
             }

@@ -21,6 +21,7 @@ crate-type = ["lib", "staticlib"]
 [dependencies]
 memchr.workspace = true
 regex.workspace = true
+streaming-iterator.workspace = true
 thiserror.workspace = true
 
 tree-sitter.workspace = true

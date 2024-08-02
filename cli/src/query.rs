@@ -7,6 +7,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use streaming_iterator::StreamingIterator;
 use tree_sitter::{Language, Parser, Point, Query, QueryCursor};
 
 use crate::query_testing;
@@ -75,7 +76,9 @@ pub fn query_files_at_paths(
                 });
             }
         } else {
-            for m in query_cursor.matches(&query, tree.root_node(), source_code.as_slice()) {
+            let mut matches =
+                query_cursor.matches(&query, tree.root_node(), source_code.as_slice());
+            while let Some(m) = matches.next() {
                 if !quiet {
                     writeln!(&mut stdout, "  pattern: {}", m.pattern_index)?;
                 }

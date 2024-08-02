@@ -1,6 +1,7 @@
 use std::{cmp::Ordering, fmt::Write, ops::Range};
 
 use rand::prelude::Rng;
+use streaming_iterator::StreamingIterator;
 use tree_sitter::{
     Language, Node, Parser, Point, Query, QueryCapture, QueryCursor, QueryMatch, Tree, TreeCursor,
 };
@@ -324,18 +325,18 @@ pub fn assert_query_matches(
 }
 
 pub fn collect_matches<'a>(
-    matches: impl Iterator<Item = QueryMatch<'a, 'a>>,
+    mut matches: impl StreamingIterator<Item = QueryMatch<'a, 'a>>,
     query: &'a Query,
     source: &'a str,
 ) -> Vec<(usize, Vec<(&'a str, &'a str)>)> {
-    matches
-        .map(|m| {
-            (
-                m.pattern_index,
-                format_captures(m.captures.iter().copied(), query, source),
-            )
-        })
-        .collect()
+    let mut result = Vec::new();
+    while let Some(m) = matches.next() {
+        result.push((
+            m.pattern_index,
+            format_captures(m.captures.iter().copied(), query, source),
+        ));
+    }
+    result
 }
 
 pub fn collect_captures<'a>(

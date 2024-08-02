@@ -22,5 +22,6 @@ crate-type = ["lib", "staticlib"]
 lazy_static.workspace = true
 regex.workspace = true
 thiserror.workspace = true
+streaming-iterator.workspace = true
 
 tree-sitter.workspace = true
