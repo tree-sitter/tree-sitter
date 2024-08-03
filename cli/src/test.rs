@@ -389,9 +389,7 @@ fn run_tests(
                     }
                 } else {
                     let mut actual = tree.root_node().to_sexp();
-                    let show_fields = opts.show_fields || has_fields;
-
-                    if !show_fields {
+                    if !(opts.show_fields || has_fields) {
                         actual = strip_sexp_fields(&actual);
                     }
 
