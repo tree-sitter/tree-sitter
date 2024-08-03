@@ -252,6 +252,8 @@ struct Test {
     pub open_log: bool,
     #[arg(long, help = "The path to an alternative config.json file")]
     pub config_path: Option<PathBuf>,
+    #[arg(long, help = "Show only the pass-fail overview tree")]
+    pub overview_only: bool,
 }
 
 #[derive(Args)]
@@ -717,6 +719,7 @@ fn run() -> Result<()> {
                     languages: languages.iter().map(|(l, n)| (n.as_str(), l)).collect(),
                     color,
                     test_num: 1,
+                    overview_only: test_options.overview_only,
                 };
 
                 test::run_tests_at_path(&mut parser, &mut opts)?;

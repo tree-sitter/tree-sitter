@@ -106,6 +106,7 @@ pub struct TestOptions<'a> {
     pub languages: BTreeMap<&'a str, &'a Language>,
     pub color: bool,
     pub test_num: usize,
+    pub overview_only: bool,
 }
 
 pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<()> {
@@ -158,22 +159,24 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
         } else {
             has_parse_errors = opts.update && has_parse_errors;
 
-            if !has_parse_errors {
-                if failures.len() == 1 {
-                    println!("1 failure:");
-                } else {
-                    println!("{} failures:", failures.len());
+            if !opts.overview_only {
+                if !has_parse_errors {
+                    if failures.len() == 1 {
+                        println!("1 failure:");
+                    } else {
+                        println!("{} failures:", failures.len());
+                    }
                 }
-            }
 
-            if opts.color {
-                print_diff_key();
-            }
-            for (i, (name, actual, expected)) in failures.iter().enumerate() {
-                println!("\n  {}. {name}:", i + 1);
-                let actual = format_sexp(actual, 2);
-                let expected = format_sexp(expected, 2);
-                print_diff(&actual, &expected, opts.color);
+                if opts.color {
+                    print_diff_key();
+                }
+                for (i, (name, actual, expected)) in failures.iter().enumerate() {
+                    println!("\n  {}. {name}:", i + 1);
+                    let actual = format_sexp(actual, 2);
+                    let expected = format_sexp(expected, 2);
+                    print_diff(&actual, &expected, opts.color);
+                }
             }
 
             if has_parse_errors {
