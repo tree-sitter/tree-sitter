@@ -106,6 +106,7 @@ pub struct TestOptions<'a> {
     pub languages: BTreeMap<&'a str, &'a Language>,
     pub color: bool,
     pub test_num: usize,
+    pub show_fields: bool,
 }
 
 pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<()> {
@@ -388,7 +389,7 @@ fn run_tests(
                     }
                 } else {
                     let mut actual = tree.root_node().to_sexp();
-                    if !has_fields {
+                    if !(opts.show_fields || has_fields) {
                         actual = strip_sexp_fields(&actual);
                     }
 
