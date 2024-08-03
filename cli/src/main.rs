@@ -252,7 +252,7 @@ struct Test {
     pub open_log: bool,
     #[arg(long, help = "The path to an alternative config.json file")]
     pub config_path: Option<PathBuf>,
-    #[arg(long, help = "force showing fields in test diffs")]
+    #[arg(long, help = "Force showing fields in test diffs")]
     pub show_fields: bool,
 }
 
