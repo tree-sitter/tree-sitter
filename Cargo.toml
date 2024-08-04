@@ -76,6 +76,7 @@ serde_derive = "1.0.197"
 serde_json = { version = "1.0.120", features = ["preserve_order"] }
 similar = "2.5.0"
 smallbitvec = "2.5.3"
+streaming-iterator = "0.1.9"
 tempfile = "3.10.1"
 thiserror = "1.0.62"
 tiny_http = "0.12.0"

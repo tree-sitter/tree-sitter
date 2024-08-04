@@ -9,6 +9,7 @@ use std::{
 
 pub use c_lib as c;
 use lazy_static::lazy_static;
+use streaming_iterator::StreamingIterator;
 use thiserror::Error;
 use tree_sitter::{
     Language, LossyUtf8, Node, Parser, Point, Query, QueryCaptures, QueryCursor, QueryError,
@@ -456,9 +457,9 @@ impl<'a> HighlightIterLayer<'a> {
                 if let Some(combined_injections_query) = &config.combined_injections_query {
                     let mut injections_by_pattern_index =
                         vec![(None, Vec::new(), false); combined_injections_query.pattern_count()];
-                    let matches =
+                    let mut matches =
                         cursor.matches(combined_injections_query, tree.root_node(), source);
-                    for mat in matches {
+                    while let Some(mat) = matches.next() {
                         let entry = &mut injections_by_pattern_index[mat.pattern_index];
                         let (language_name, content_node, include_children) = injection_for_match(
                             config,
