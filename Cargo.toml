@@ -8,7 +8,7 @@ members = [
   "lib/language",
   "tags",
   "highlight",
-  "xtask",
+  "xtask", "tree-sitter-test",
 ]
 resolver = "2"
 

@@ -1,0 +1,319 @@
+{
+  "name": "test",
+  "rules": {
+    "file": {
+      "type": "REPEAT",
+      "content": {
+        "type": "CHOICE",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "test"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_eol"
+          }
+        ]
+      }
+    },
+    "test": {
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "header"
+          },
+          {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_body"
+            },
+            "named": true,
+            "value": "input"
+          },
+          {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_dashes"
+            },
+            "named": true,
+            "value": "separator"
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_body"
+                },
+                "named": true,
+                "value": "output"
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "_line": {
+      "type": "PATTERN",
+      "value": "[^\\r\\n]+"
+    },
+    "_body": {
+      "type": "REPEAT1",
+      "content": {
+        "type": "CHOICE",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "_line"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_eol"
+          }
+        ]
+      }
+    },
+    "header": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_equals_begin"
+          },
+          "named": true,
+          "value": "separator"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_line"
+          },
+          "named": true,
+          "value": "name"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_eol"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "attributes"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_equals_end"
+          },
+          "named": true,
+          "value": "separator"
+        }
+      ]
+    },
+    "attributes": {
+      "type": "REPEAT1",
+      "content": {
+        "type": "CHOICE",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "attribute"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_eol"
+          }
+        ]
+      }
+    },
+    "attribute": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "STRING",
+          "value": ":skip"
+        },
+        {
+          "type": "STRING",
+          "value": ":error"
+        },
+        {
+          "type": "STRING",
+          "value": ":fail-fast"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_language"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_platform"
+        }
+      ]
+    },
+    "_language": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": ":language"
+        },
+        {
+          "type": "STRING",
+          "value": "("
+        },
+        {
+          "type": "FIELD",
+          "name": "language",
+          "content": {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_lang"
+            },
+            "named": true,
+            "value": "parameter"
+          }
+        },
+        {
+          "type": "STRING",
+          "value": ")"
+        }
+      ]
+    },
+    "_platform": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": ":platform"
+        },
+        {
+          "type": "STRING",
+          "value": "("
+        },
+        {
+          "type": "FIELD",
+          "name": "platform",
+          "content": {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_os"
+            },
+            "named": true,
+            "value": "parameter"
+          }
+        },
+        {
+          "type": "STRING",
+          "value": ")"
+        }
+      ]
+    },
+    "_lang": {
+      "type": "TOKEN",
+      "content": {
+        "type": "REPEAT1",
+        "content": {
+          "type": "PATTERN",
+          "value": "[\\w.-]"
+        }
+      }
+    },
+    "_os": {
+      "type": "TOKEN",
+      "content": {
+        "type": "CHOICE",
+        "members": [
+          {
+            "type": "STRING",
+            "value": "linux"
+          },
+          {
+            "type": "STRING",
+            "value": "macos"
+          },
+          {
+            "type": "STRING",
+            "value": "ios"
+          },
+          {
+            "type": "STRING",
+            "value": "freebsd"
+          },
+          {
+            "type": "STRING",
+            "value": "dragonfly"
+          },
+          {
+            "type": "STRING",
+            "value": "netbsd"
+          },
+          {
+            "type": "STRING",
+            "value": "openbsd"
+          },
+          {
+            "type": "STRING",
+            "value": "solaris"
+          },
+          {
+            "type": "STRING",
+            "value": "android"
+          },
+          {
+            "type": "STRING",
+            "value": "windows"
+          }
+        ]
+      }
+    },
+    "_eol": {
+      "type": "PATTERN",
+      "value": "[\\r\\n]|\\r\\n"
+    }
+  },
+  "extras": [],
+  "conflicts": [],
+  "precedences": [],
+  "externals": [
+    {
+      "type": "SYMBOL",
+      "name": "_equals_begin"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_equals_end"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_dashes"
+    }
+  ],
+  "inline": [],
+  "supertypes": []
+}

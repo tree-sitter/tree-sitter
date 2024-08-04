@@ -1,0 +1,24 @@
+[package]
+name = "tree-sitter-test"
+description = "TS corpus test grammar for tree-sitter"
+version = "0.1.0"
+license = "MIT"
+readme = "README.md"
+keywords = ["incremental", "parsing", "tree-sitter", "test"]
+categories = ["parsing", "text-editors"]
+repository = "https://github.com/tree-sitter-grammars/tree-sitter-test"
+authors = ["ObserverOfTime <chronobserver@disroot.org>"]
+edition = "2021"
+autoexamples = false
+
+build = "bindings/rust/build.rs"
+include = ["bindings/rust/*", "grammar.js", "queries/*", "src/*"]
+
+[lib]
+path = "bindings/rust/lib.rs"
+
+[dependencies]
+tree-sitter = { workspace = true }
+
+[build-dependencies]
+cc = "1.0.87"

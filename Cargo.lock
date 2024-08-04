@@ -1459,6 +1459,7 @@ dependencies = [
  "tree-sitter-highlight",
  "tree-sitter-loader",
  "tree-sitter-tags",
+ "tree-sitter-test",
  "tree-sitter-tests-proc-macro",
  "unindent",
  "url",
@@ -1518,6 +1519,14 @@ dependencies = [
  "memchr",
  "regex",
  "thiserror",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-test"
+version = "0.1.0"
+dependencies = [
+ "cc",
  "tree-sitter",
 ]
 

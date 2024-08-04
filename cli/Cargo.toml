@@ -60,6 +60,7 @@ tree-sitter-config.workspace = true
 tree-sitter-highlight.workspace = true
 tree-sitter-loader.workspace = true
 tree-sitter-tags.workspace = true
+tree-sitter-test = { path = "../tree-sitter-test" }
 
 [target."cfg(windows)".dependencies]
 url = "2.5.2"

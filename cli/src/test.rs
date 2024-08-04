@@ -640,182 +640,95 @@ pub fn strip_points(sexp: &str) -> String {
 }
 
 fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -> TestEntry {
-    let mut children = Vec::new();
-    let bytes = content.as_bytes();
-    let mut prev_name = String::new();
-    let mut prev_header_end = 0;
+    let mut parser = Parser::new();
+    parser.set_language(&tree_sitter_test::language()).unwrap();
+    let root = parser.parse(content, None).unwrap();
+    let root = root.root_node();
 
-    // Find the first test header in the file, and determine if it has a
-    // custom suffix. If so, then this suffix will be used to identify
-    // all subsequent headers and divider lines in the file.
-    let first_suffix = HEADER_REGEX
-        .captures(bytes)
-        .and_then(|c| c.name("suffix1"))
-        .map(|m| String::from_utf8_lossy(m.as_bytes()));
-
-    // Find all of the `===` test headers, which contain the test names.
-    // Ignore any matches whose suffix does not match the first header
-    // suffix in the file.
-    let header_matches = HEADER_REGEX.captures_iter(bytes).filter_map(|c| {
-        let header_delim_len = c.name("equals").map_or(80, |m| m.as_bytes().len());
-        let suffix1 = c
-            .name("suffix1")
-            .map(|m| String::from_utf8_lossy(m.as_bytes()));
-        let suffix2 = c
-            .name("suffix2")
-            .map(|m| String::from_utf8_lossy(m.as_bytes()));
-
-        let (mut skip, mut platform, mut fail_fast, mut error, mut languages) =
-            (false, None, false, false, vec![]);
-
-        let test_name_and_markers = c
-            .name("test_name_and_markers")
-            .map_or("".as_bytes(), |m| m.as_bytes());
-
-        let mut test_name = String::new();
-        let mut seen_marker = false;
-
-        for line in str::from_utf8(test_name_and_markers)
-            .unwrap()
-            .lines()
-            .filter(|s| !s.is_empty())
-        {
-            match line.split('(').next().unwrap() {
-                ":skip" => (seen_marker, skip) = (true, true),
-                ":platform" => {
-                    if let Some(platforms) = line.strip_prefix(':').and_then(|s| {
-                        s.strip_prefix("platform(")
-                            .and_then(|s| s.strip_suffix(')'))
-                    }) {
-                        seen_marker = true;
-                        platform = Some(
-                            platform.unwrap_or(false) || platforms.trim() == std::env::consts::OS,
-                        );
-                    }
-                }
-                ":fail-fast" => (seen_marker, fail_fast) = (true, true),
-                ":error" => (seen_marker, error) = (true, true),
-                ":language" => {
-                    if let Some(lang) = line.strip_prefix(':').and_then(|s| {
-                        s.strip_prefix("language(")
-                            .and_then(|s| s.strip_suffix(')'))
-                    }) {
-                        seen_marker = true;
-                        languages.push(lang.into());
-                    }
-                }
-                _ if !seen_marker => {
-                    test_name.push_str(line);
-                    test_name.push('\n');
-                }
-                _ => {}
-            }
-        }
-
-        // prefer skip over error, both shouldn't be set
-        if skip {
-            error = false;
-        }
-
-        // add a default language if none are specified, will defer to the first language
-        if languages.is_empty() {
-            languages.push("".into());
-        }
-
-        if suffix1 == first_suffix && suffix2 == first_suffix {
-            let header_range = c.get(0).unwrap().range();
-            let test_name = if test_name.is_empty() {
-                None
-            } else {
-                Some(test_name.trim_end().to_string())
+    let children = root
+        .children(&mut root.walk())
+        .map(|item| {
+            let source = content.as_bytes();
+            let input = {
+                let input = item.child(1).unwrap();
+                let range = input.byte_range();
+                source[range.start..range.end].to_vec()
             };
-            Some((
+            let sep = {
+                let sep = item.child(2).unwrap().byte_range();
+                // FIXME: using string repalce usize.
+                // solve: -----------|||
+                sep.end - sep.start
+            };
+            let output = {
+                let output = item.child(3).unwrap();
+                let output = output.utf8_text(source).unwrap();
+
+                // Remove all comments
+                let output = COMMENT_REGEX.replace_all(output, "").to_string();
+
+                // Normalize the whitespace in the expected output.
+                let output = WHITESPACE_REGEX.replace_all(output.trim(), " ");
+                output.replace(" )", ")")
+            };
+
+            let has_fields = SEXP_FIELD_REGEX.is_match(&output);
+            let header = item.child(0).unwrap();
+            let header_delim_len = {
+                // FIXME: parse header with:
+                // ===========|||
+                let delim = header.child(0).unwrap().byte_range();
+                delim.end - delim.start
+            };
+            let name = header.child(1).unwrap().utf8_text(source).unwrap();
+            let attributes = {
+                header
+                    .child(3)
+                    .filter(|item| item.kind() == "attributes")
+                    .map(|item| {
+                        let mut attrs = TestAttributes::default();
+                        for node in item.children(&mut item.walk()) {
+                            if node.kind() != "attribute" {
+                                continue;
+                            }
+                            if node.kind() == "_language" {
+                                let language = node.child(2).unwrap().utf8_text(source).unwrap();
+                                attrs.languages.push(language.to_string().into_boxed_str());
+                            } else if node.kind() == "_platform" {
+                                let node = node.child(2).unwrap().utf8_text(source).unwrap();
+                                attrs.platform = node == std::env::consts::OS;
+                            } else {
+                                match node.utf8_text(source).unwrap() {
+                                    ":skip" => {
+                                        attrs.skip = true;
+                                    }
+                                    ":error" => {
+                                        attrs.error = true;
+                                    }
+                                    ":fail-fast" => {
+                                        attrs.fail_fast = true;
+                                    }
+                                    _ => unreachable!(),
+                                }
+                            }
+                        }
+                        attrs
+                    })
+                    .unwrap_or_default()
+            };
+
+            TestEntry::Example {
+                name: name.to_string(),
+                input,
+                output,
                 header_delim_len,
-                header_range,
-                test_name,
-                TestAttributes {
-                    skip,
-                    platform: platform.unwrap_or(true),
-                    fail_fast,
-                    error,
-                    languages,
-                },
-            ))
-        } else {
-            None
-        }
-    });
-
-    let (mut prev_header_len, mut prev_attributes) = (80, TestAttributes::default());
-    for (header_delim_len, header_range, test_name, attributes) in header_matches.chain(Some((
-        80,
-        bytes.len()..bytes.len(),
-        None,
-        TestAttributes::default(),
-    ))) {
-        // Find the longest line of dashes following each test description. That line
-        // separates the input from the expected output. Ignore any matches whose suffix
-        // does not match the first suffix in the file.
-        if prev_header_end > 0 {
-            let divider_range = DIVIDER_REGEX
-                .captures_iter(&bytes[prev_header_end..header_range.start])
-                .filter_map(|m| {
-                    let divider_delim_len = m.name("hyphens").map_or(80, |m| m.as_bytes().len());
-                    let suffix = m
-                        .name("suffix")
-                        .map(|m| String::from_utf8_lossy(m.as_bytes()));
-                    if suffix == first_suffix {
-                        let range = m.get(0).unwrap().range();
-                        Some((
-                            divider_delim_len,
-                            (prev_header_end + range.start)..(prev_header_end + range.end),
-                        ))
-                    } else {
-                        None
-                    }
-                })
-                .max_by_key(|(_, range)| range.len());
-
-            if let Some((divider_delim_len, divider_range)) = divider_range {
-                if let Ok(output) = str::from_utf8(&bytes[divider_range.end..header_range.start]) {
-                    let mut input = bytes[prev_header_end..divider_range.start].to_vec();
-
-                    // Remove trailing newline from the input.
-                    input.pop();
-                    if input.last() == Some(&b'\r') {
-                        input.pop();
-                    }
-
-                    // Remove all comments
-                    let output = COMMENT_REGEX.replace_all(output, "").to_string();
-
-                    // Normalize the whitespace in the expected output.
-                    let output = WHITESPACE_REGEX.replace_all(output.trim(), " ");
-                    let output = output.replace(" )", ")");
-
-                    // Identify if the expected output has fields indicated. If not, then
-                    // fields will not be checked.
-                    let has_fields = SEXP_FIELD_REGEX.is_match(&output);
-
-                    let t = TestEntry::Example {
-                        name: prev_name,
-                        input,
-                        output,
-                        header_delim_len: prev_header_len,
-                        divider_delim_len,
-                        has_fields,
-                        attributes: prev_attributes,
-                    };
-
-                    children.push(t);
-                }
+                divider_delim_len: sep,
+                has_fields,
+                attributes,
             }
-        }
-        prev_attributes = attributes;
-        prev_name = test_name.unwrap_or_default();
-        prev_header_len = header_delim_len;
-        prev_header_end = header_range.end;
-    }
+        })
+        .collect();
+
     TestEntry::Group {
         name,
         children,
