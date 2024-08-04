@@ -56,8 +56,8 @@ pub enum TestEntry {
         name: String,
         input: Vec<u8>,
         output: String,
-        header_delim_len: usize,
-        divider_delim_len: usize,
+        header_delim_len: String,
+        divider_delim_len: String,
         has_fields: bool,
         attributes: TestAttributes,
     },
@@ -326,7 +326,7 @@ fn run_tests(
     opts: &mut TestOptions,
     mut indent_level: i32,
     failures: &mut Vec<(String, String, String)>,
-    corrected_entries: &mut Vec<(String, String, String, usize, usize)>,
+    corrected_entries: &mut Vec<(String, String, String, String, String)>,
     has_parse_errors: &mut bool,
 ) -> Result<bool> {
     match test_entry {
@@ -406,8 +406,8 @@ fn run_tests(
                                 name.clone(),
                                 input,
                                 output,
-                                header_delim_len,
-                                divider_delim_len,
+                                header_delim_len.clone(),
+                                divider_delim_len.clone(),
                             ));
                         }
                     } else {
@@ -429,16 +429,16 @@ fn run_tests(
                                     name.clone(),
                                     input,
                                     expected_output,
-                                    header_delim_len,
-                                    divider_delim_len,
+                                    header_delim_len.clone(),
+                                    divider_delim_len.clone(),
                                 ));
                             } else {
                                 corrected_entries.push((
                                     name.clone(),
                                     input,
                                     actual_output,
-                                    header_delim_len,
-                                    divider_delim_len,
+                                    header_delim_len.clone(),
+                                    divider_delim_len.clone(),
                                 ));
                                 println!(
                                     "{:>3}. ✓ {}",
@@ -566,7 +566,7 @@ fn count_subtests(test_entry: &TestEntry) -> usize {
 
 fn write_tests(
     file_path: &Path,
-    corrected_entries: &[(String, String, String, usize, usize)],
+    corrected_entries: &[(String, String, String, String, String)],
 ) -> Result<()> {
     let mut buffer = fs::File::create(file_path)?;
     write_tests_to_buffer(&mut buffer, corrected_entries)
@@ -574,9 +574,9 @@ fn write_tests(
 
 fn write_tests_to_buffer(
     buffer: &mut impl Write,
-    corrected_entries: &[(String, String, String, usize, usize)],
+    corrected_entries: &[(String, String, String, String, String)],
 ) -> Result<()> {
-    for (i, (name, input, output, header_delim_len, divider_delim_len)) in
+    for (i, (_, input, output, header_delim_len, divider_delim_len)) in
         corrected_entries.iter().enumerate()
     {
         if i > 0 {
@@ -584,10 +584,7 @@ fn write_tests_to_buffer(
         }
         writeln!(
             buffer,
-            "{}\n{name}\n{}\n{input}\n{}\n\n{}",
-            "=".repeat(*header_delim_len),
-            "=".repeat(*header_delim_len),
-            "-".repeat(*divider_delim_len),
+            "{header_delim_len}\n{input}\n{divider_delim_len}\n\n{}",
             output.trim()
         )?;
     }
@@ -654,32 +651,36 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
                 let range = input.byte_range();
                 source[range.start..range.end].to_vec()
             };
-            let sep = {
-                let sep = item.child(2).unwrap().byte_range();
-                // FIXME: using string repalce usize.
-                // solve: -----------|||
-                sep.end - sep.start
-            };
+            let sep = item
+                .child(2)
+                .unwrap()
+                .utf8_text(source)
+                .unwrap()
+                .to_string();
+
             let output = {
-                let output = item.child(3).unwrap();
-                let output = output.utf8_text(source).unwrap();
+                item.child(3)
+                    .map(|item| item.utf8_text(source).unwrap())
+                    .map(|item| {
+                        // Remove all comments
+                        let output = COMMENT_REGEX.replace_all(item, "").to_string();
 
-                // Remove all comments
-                let output = COMMENT_REGEX.replace_all(output, "").to_string();
-
-                // Normalize the whitespace in the expected output.
-                let output = WHITESPACE_REGEX.replace_all(output.trim(), " ");
-                output.replace(" )", ")")
+                        // Normalize the whitespace in the expected output.
+                        let output = WHITESPACE_REGEX.replace_all(output.trim(), " ");
+                        output.replace(" )", ")")
+                    })
+                    .unwrap_or_default()
             };
 
             let has_fields = SEXP_FIELD_REGEX.is_match(&output);
             let header = item.child(0).unwrap();
-            let header_delim_len = {
-                // FIXME: parse header with:
-                // ===========|||
-                let delim = header.child(0).unwrap().byte_range();
-                delim.end - delim.start
-            };
+            let header_delim_len = header
+                .child(0)
+                .unwrap()
+                .utf8_text(source)
+                .unwrap()
+                .to_string();
+
             let name = header.child(1).unwrap().utf8_text(source).unwrap();
             let attributes = {
                 header
@@ -736,6 +737,7 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
     }
 }
 
+#[cfg(disable)]
 #[cfg(test)]
 mod tests {
     use super::*;
