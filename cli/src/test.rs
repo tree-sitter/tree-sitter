@@ -627,13 +627,17 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
             let input = {
                 let input = item.child(1).unwrap();
                 let range = input.byte_range();
-                source[range.start..range.end].to_vec()
+                let bytes = &source[range.start..range.end];
+                let bytes = std::str::from_utf8(bytes).unwrap().trim();
+                bytes.as_bytes().to_vec()
+                // bytes.to_vec()
             };
             let sep = item
                 .child(2)
                 .unwrap()
                 .utf8_text(source)
                 .unwrap()
+                .trim()
                 .to_string();
 
             let output = {
@@ -652,28 +656,25 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
 
             let has_fields = SEXP_FIELD_REGEX.is_match(&output);
             let header = item.child(0).unwrap();
-            let header_delim_len = header
-                .child(0)
-                .unwrap()
-                .utf8_text(source)
-                .unwrap()
-                .to_string();
-
             let name = header.child(1).unwrap().utf8_text(source).unwrap();
             let attributes = {
                 header
-                    .child(3)
+                    .child(2)
                     .filter(|item| item.kind() == "attributes")
                     .map(|item| {
                         let mut attrs = TestAttributes::default();
+                        let mut ll = vec![];
                         for node in item.children(&mut item.walk()) {
                             if node.kind() != "attribute" {
                                 continue;
                             }
-                            if node.kind() == "_language" {
+                            let text = node.utf8_text(source).unwrap();
+                            if text.starts_with(":language") {
                                 let language = node.child(2).unwrap().utf8_text(source).unwrap();
-                                attrs.languages.push(language.to_string().into_boxed_str());
-                            } else if node.kind() == "_platform" {
+                                if !language.is_empty() {
+                                    ll.push(language.to_string().into_boxed_str());
+                                }
+                            } else if text.starts_with(":platform") {
                                 let node = node.child(2).unwrap().utf8_text(source).unwrap();
                                 attrs.platform = node == std::env::consts::OS;
                             } else {
@@ -687,9 +688,15 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
                                     ":fail-fast" => {
                                         attrs.fail_fast = true;
                                     }
-                                    _ => unreachable!(),
+                                    kind => {
+                                        eprintln!("unknown attr: {kind}");
+                                    }
                                 }
                             }
+                        }
+
+                        if !ll.is_empty() {
+                            attrs.languages = ll;
                         }
                         attrs
                     })
@@ -700,7 +707,7 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
                 name: name.to_string(),
                 input,
                 output,
-                header: header_delim_len,
+                header: header.utf8_text(source).unwrap().trim().to_string(),
                 divider_delim: sep,
                 has_fields,
                 attributes,
@@ -715,7 +722,6 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
     }
 }
 
-#[cfg(disable)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -754,10 +760,20 @@ d
                 children: vec![
                     TestEntry::Example {
                         name: "The first test".to_string(),
-                        input: b"\na b c\n".to_vec(),
+                        input: b"a b c".to_vec(),
                         output: "(a (b c))".to_string(),
-                        header_delim_len: 15,
-                        divider_delim_len: 3,
+                        header: r#"
+===============
+The first test
+===============
+                        "#
+                        .trim()
+                        .to_string(),
+                        divider_delim: r#"
+---
+                        "#
+                        .trim()
+                        .to_string(),
                         has_fields: false,
                         attributes: TestAttributes::default(),
                     },
@@ -765,8 +781,18 @@ d
                         name: "The second test".to_string(),
                         input: b"d".to_vec(),
                         output: "(d)".to_string(),
-                        header_delim_len: 16,
-                        divider_delim_len: 3,
+                        header: r#"
+================
+The second test
+================
+                        "#
+                        .trim()
+                        .to_string(),
+                        divider_delim: r#"
+---
+                        "#
+                        .trim()
+                        .to_string(),
                         has_fields: false,
                         attributes: TestAttributes::default(),
                     },
@@ -777,6 +803,7 @@ d
     }
 
     #[test]
+    #[ignore = "https://github.com/tree-sitter-grammars/tree-sitter-test/issues/3"]
     fn test_parse_test_content_with_dashes_in_source_code() {
         let entry = parse_test_content(
             "the-filename".to_string(),
@@ -815,8 +842,18 @@ abc
                         name: "Code with dashes".to_string(),
                         input: b"abc\n---\ndefg\n----\nhijkl".to_vec(),
                         output: "(a (b))".to_string(),
-                        header_delim_len: 18,
-                        divider_delim_len: 7,
+                        header: r#"
+==================
+Code with dashes
+==================
+                        "#
+                        .trim()
+                        .to_string(),
+                        divider_delim: r#"
+-------
+                        "#
+                        .trim()
+                        .to_string(),
                         has_fields: false,
                         attributes: TestAttributes::default(),
                     },
@@ -824,8 +861,18 @@ abc
                         name: "Code ending with dashes".to_string(),
                         input: b"abc\n-----------".to_vec(),
                         output: "(c (d))".to_string(),
-                        header_delim_len: 25,
-                        divider_delim_len: 19,
+                        header: r#"
+=========================
+Code ending with dashes
+=========================
+                        "#
+                        .trim()
+                        .to_string(),
+                        divider_delim: r#"
+-------------------
+                        "#
+                        .trim()
+                        .to_string(),
                         has_fields: false,
                         attributes: TestAttributes::default(),
                     },
@@ -892,15 +939,35 @@ abc
                 "title 1".to_string(),
                 "input 1".to_string(),
                 "output 1".to_string(),
-                80,
-                80,
+                r#"
+================================================================================
+title 1
+================================================================================
+                "#
+                .trim()
+                .to_string(),
+                r#"
+--------------------------------------------------------------------------------
+                "#
+                .trim()
+                .to_string(),
             ),
             (
                 "title 2".to_string(),
                 "input 2".to_string(),
                 "output 2".to_string(),
-                80,
-                80,
+                r#"
+================================================================================
+title 2
+================================================================================
+                "#
+                .trim()
+                .to_string(),
+                r#"
+--------------------------------------------------------------------------------
+"#
+                .trim()
+                .to_string(),
             ),
         ];
         write_tests_to_buffer(&mut buffer, &corrected_entries).unwrap();
@@ -976,8 +1043,18 @@ code
                         name: "sexp with comment".to_string(),
                         input: b"code".to_vec(),
                         output: "(a (b))".to_string(),
-                        header_delim_len: 18,
-                        divider_delim_len: 3,
+                        header: r#"
+==================
+sexp with comment
+==================
+                        "#
+                        .trim()
+                        .to_string(),
+                        divider_delim: r#"
+---
+                        "#
+                        .trim()
+                        .to_string(),
                         has_fields: false,
                         attributes: TestAttributes::default(),
                     },
@@ -985,8 +1062,18 @@ code
                         name: "sexp with comment between".to_string(),
                         input: b"code".to_vec(),
                         output: "(a (b))".to_string(),
-                        header_delim_len: 18,
-                        divider_delim_len: 3,
+                        header: r#"
+==================
+sexp with comment between
+==================
+                        "#
+                        .trim()
+                        .to_string(),
+                        divider_delim: r#"
+---
+                        "#
+                        .trim()
+                        .to_string(),
                         has_fields: false,
                         attributes: TestAttributes::default(),
                     },
@@ -994,8 +1081,18 @@ code
                         name: "sexp with ';'".to_string(),
                         input: b"code".to_vec(),
                         output: "(MISSING \";\")".to_string(),
-                        header_delim_len: 25,
-                        divider_delim_len: 3,
+                        header: r#"
+=========================
+sexp with ';'
+=========================
+                        "#
+                        .trim()
+                        .to_string(),
+                        divider_delim: r#"
+---
+                        "#
+                        .trim()
+                        .to_string(),
                         has_fields: false,
                         attributes: TestAttributes::default(),
                     }
@@ -1006,6 +1103,7 @@ code
     }
 
     #[test]
+    #[ignore = "https://github.com/tree-sitter-grammars/tree-sitter-test/issues/5"]
     fn test_parse_test_content_with_suffixes() {
         let entry = parse_test_content(
             "the-filename".to_string(),
@@ -1067,8 +1165,18 @@ NOT A TEST HEADER
                         name: "First test".to_string(),
                         input: expected_input.clone(),
                         output: "(a)".to_string(),
-                        header_delim_len: 18,
-                        divider_delim_len: 3,
+                        header: r#"
+==================asdf\()[]|{}*+?^$.-
+First test
+==================asdf\()[]|{}*+?^$.-
+                        "#
+                        .trim()
+                        .to_string(),
+                        divider_delim: r#"
+---asdf\()[]|{}*+?^$.-
+                        "#
+                        .trim()
+                        .to_string(),
                         has_fields: false,
                         attributes: TestAttributes::default(),
                     },
@@ -1076,8 +1184,18 @@ NOT A TEST HEADER
                         name: "Second test".to_string(),
                         input: expected_input.clone(),
                         output: "(a)".to_string(),
-                        header_delim_len: 18,
-                        divider_delim_len: 3,
+                        header: r#"
+==================asdf\()[]|{}*+?^$.-
+Second test
+==================asdf\()[]|{}*+?^$.-
+                        "#
+                        .trim()
+                        .to_string(),
+                        divider_delim: r#"
+---asdf\()[]|{}*+?^$.-
+                        "#
+                        .trim()
+                        .to_string(),
                         has_fields: false,
                         attributes: TestAttributes::default(),
                     },
@@ -1085,8 +1203,18 @@ NOT A TEST HEADER
                         name: "Test name with = symbol".to_string(),
                         input: expected_input,
                         output: "(a)".to_string(),
-                        header_delim_len: 25,
-                        divider_delim_len: 3,
+                        header: r#"
+=========================asdf\()[]|{}*+?^$.-
+Test name with = symbol
+=========================asdf\()[]|{}*+?^$.-
+                        "#
+                        .trim()
+                        .to_string(),
+                        divider_delim: r#"
+---asdf\()[]|{}*+?^$.-
+                        "#
+                        .trim()
+                        .to_string(),
                         has_fields: false,
                         attributes: TestAttributes::default(),
                     }
@@ -1097,6 +1225,7 @@ NOT A TEST HEADER
     }
 
     #[test]
+    #[ignore = "https://github.com/tree-sitter-grammars/tree-sitter-test/issues/4"]
     fn test_parse_test_content_with_newlines_in_test_names() {
         let entry = parse_test_content(
             "the-filename".to_string(),
@@ -1130,8 +1259,20 @@ code with ----
                         name: "name\nwith\nnewlines".to_string(),
                         input: b"a".to_vec(),
                         output: "(b)".to_string(),
-                        header_delim_len: 15,
-                        divider_delim_len: 3,
+                        header: r#"
+===============
+name
+with
+newlines
+===============
+                        "#
+                        .trim()
+                        .to_string(),
+                        divider_delim: r#"
+---
+                        "#
+                        .trim()
+                        .to_string(),
                         has_fields: false,
                         attributes: TestAttributes::default(),
                     },
@@ -1139,8 +1280,18 @@ code with ----
                         name: "name with === signs".to_string(),
                         input: b"code with ----".to_vec(),
                         output: "(d)".to_string(),
-                        header_delim_len: 20,
-                        divider_delim_len: 3,
+                        header: r#"
+====================
+name with === signs
+====================
+                        "#
+                        .trim()
+                        .to_string(),
+                        divider_delim: r#"
+---
+                        "#
+                        .trim()
+                        .to_string(),
                         has_fields: false,
                         attributes: TestAttributes::default(),
                     }
@@ -1176,8 +1327,19 @@ a
                     name: "Test with skip marker".to_string(),
                     input: b"a".to_vec(),
                     output: "(b)".to_string(),
-                    header_delim_len: 21,
-                    divider_delim_len: 3,
+                    header: r#"
+=====================
+Test with skip marker
+:skip
+=====================
+                    "#
+                    .trim()
+                    .to_string(),
+                    divider_delim: r#"
+---
+                    "#
+                    .trim()
+                    .to_string(),
                     has_fields: false,
                     attributes: TestAttributes {
                         skip: true,
@@ -1232,8 +1394,23 @@ a
                         name: "Test with platform marker".to_string(),
                         input: b"a".to_vec(),
                         output: "(b)".to_string(),
-                        header_delim_len: 25,
-                        divider_delim_len: 3,
+                        header: format!(
+                            r#"
+=========================
+Test with platform marker
+:platform({})
+:fail-fast
+=========================
+                        "#,
+                            std::env::consts::OS
+                        )
+                        .trim()
+                        .to_string(),
+                        divider_delim: r#"
+---
+                        "#
+                        .trim()
+                        .to_string(),
                         has_fields: false,
                         attributes: TestAttributes {
                             skip: false,
@@ -1247,8 +1424,27 @@ a
                         name: "Test with bad platform marker".to_string(),
                         input: b"a".to_vec(),
                         output: "(b)".to_string(),
-                        header_delim_len: 29,
-                        divider_delim_len: 3,
+                        header: format!(
+                            r#"
+=============================
+Test with bad platform marker
+:platform({})
+:language(foo)
+=============================
+                        "#,
+                            if std::env::consts::OS == "linux" {
+                                "macos"
+                            } else {
+                                "linux"
+                            }
+                        )
+                        .trim()
+                        .to_string(),
+                        divider_delim: r#"
+---
+                        "#
+                        .trim()
+                        .to_string(),
                         has_fields: false,
                         attributes: TestAttributes {
                             skip: false,
