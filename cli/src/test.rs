@@ -562,7 +562,7 @@ fn write_tests_to_buffer(
         }
         writeln!(
             buffer,
-            "{header}\n{input}\n{divider_delim}\n\n{}",
+            "{header}\n\n{input}\n\n{divider_delim}\n\n{}",
             output.trim()
         )?;
     }
