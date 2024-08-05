@@ -11,10 +11,7 @@ use anstyle::{AnsiColor, Color, Style};
 use anyhow::{anyhow, Context, Result};
 use indoc::indoc;
 use lazy_static::lazy_static;
-use regex::{
-    bytes::{Regex as ByteRegex, RegexBuilder as ByteRegexBuilder},
-    Regex,
-};
+use regex::Regex;
 use similar::{ChangeTag, TextDiff};
 use tree_sitter::{format_sexp, Language, LogType, Parser, Query};
 use walkdir::WalkDir;
@@ -22,23 +19,6 @@ use walkdir::WalkDir;
 use super::util;
 
 lazy_static! {
-    static ref HEADER_REGEX: ByteRegex = ByteRegexBuilder::new(
-        r"^(?x)
-           (?P<equals>(?:=+){3,})
-           (?P<suffix1>[^=\r\n][^\r\n]*)?
-           \r?\n
-           (?P<test_name_and_markers>(?:[^=][^\r\n]*\r?\n)+)
-           ===+
-           (?P<suffix2>[^=\r\n][^\r\n]*)?\r?\n"
-    )
-    .multi_line(true)
-    .build()
-    .unwrap();
-    static ref DIVIDER_REGEX: ByteRegex =
-        ByteRegexBuilder::new(r"^(?P<hyphens>(?:-+){3,})(?P<suffix>[^-\r\n][^\r\n]*)?\r?\n")
-            .multi_line(true)
-            .build()
-            .unwrap();
     static ref COMMENT_REGEX: Regex = Regex::new(r"(?m)^\s*;.*$").unwrap();
     static ref WHITESPACE_REGEX: Regex = Regex::new(r"\s+").unwrap();
     static ref SEXP_FIELD_REGEX: Regex = Regex::new(r" \w+: \(").unwrap();
@@ -56,8 +36,8 @@ pub enum TestEntry {
         name: String,
         input: Vec<u8>,
         output: String,
-        header_delim_len: String,
-        divider_delim_len: String,
+        header: String,
+        divider_delim: String,
         has_fields: bool,
         attributes: TestAttributes,
     },
@@ -334,8 +314,8 @@ fn run_tests(
             name,
             input,
             output,
-            header_delim_len,
-            divider_delim_len,
+            header: header_delim_len,
+            divider_delim: divider_delim_len,
             has_fields,
             attributes,
         } => {
@@ -576,15 +556,13 @@ fn write_tests_to_buffer(
     buffer: &mut impl Write,
     corrected_entries: &[(String, String, String, String, String)],
 ) -> Result<()> {
-    for (i, (_, input, output, header_delim_len, divider_delim_len)) in
-        corrected_entries.iter().enumerate()
-    {
+    for (i, (_, input, output, header, divider_delim)) in corrected_entries.iter().enumerate() {
         if i > 0 {
             writeln!(buffer)?;
         }
         writeln!(
             buffer,
-            "{header_delim_len}\n{input}\n{divider_delim_len}\n\n{}",
+            "{header}\n{input}\n{divider_delim}\n\n{}",
             output.trim()
         )?;
     }
@@ -722,8 +700,8 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
                 name: name.to_string(),
                 input,
                 output,
-                header_delim_len,
-                divider_delim_len: sep,
+                header: header_delim_len,
+                divider_delim: sep,
                 has_fields,
                 attributes,
             }
