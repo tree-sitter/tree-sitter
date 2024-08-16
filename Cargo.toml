@@ -41,7 +41,7 @@ strip = false
 [workspace.dependencies]
 anstyle = "1.0.7"
 anyhow = "1.0.86"
-cc = "1.1.5"
+cc = "1.1.13"
 clap = { version = "4.5.9", features = [
   "cargo",
   "derive",
@@ -82,7 +82,7 @@ tiny_http = "0.12.0"
 toml = "0.8.14"
 unindent = "0.2.3"
 walkdir = "2.5.0"
-wasmparser = "0.207.0"
+wasmparser = "0.215.0"
 webbrowser = "1.0.1"
 
 tree-sitter = { version = "0.22.6", path = "./lib" }
