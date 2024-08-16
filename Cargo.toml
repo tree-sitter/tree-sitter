@@ -82,7 +82,7 @@ tiny_http = "0.12.0"
 toml = "0.8.14"
 unindent = "0.2.3"
 walkdir = "2.5.0"
-wasmparser = "0.207.0"
+wasmparser = "0.215.0"
 webbrowser = "1.0.1"
 
 tree-sitter = { version = "0.22.6", path = "./lib" }
