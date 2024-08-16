@@ -41,7 +41,7 @@ strip = false
 [workspace.dependencies]
 anstyle = "1.0.7"
 anyhow = "1.0.86"
-cc = "1.1.5"
+cc = "1.1.13"
 clap = { version = "4.5.9", features = [
   "cargo",
   "derive",
