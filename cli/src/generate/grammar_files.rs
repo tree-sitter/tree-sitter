@@ -33,7 +33,7 @@ const RUST_BINDING_VERSION_PLACEHOLDER: &str = "RUST_BINDING_VERSION";
 
 const LIB_RS_TEMPLATE: &str = include_str!("./templates/lib.rs");
 const BUILD_RS_TEMPLATE: &str = include_str!("./templates/build.rs");
-const CARGO_TOML_TEMPLATE: &str = include_str!("./templates/cargo.toml");
+const CARGO_TOML_TEMPLATE: &str = include_str!("./templates/_cargo.toml");
 
 const INDEX_JS_TEMPLATE: &str = include_str!("./templates/index.js");
 const INDEX_D_TS_TEMPLATE: &str = include_str!("./templates/index.d.ts");

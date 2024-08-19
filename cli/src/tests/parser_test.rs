@@ -1422,6 +1422,30 @@ if foo && bar || baz {}
     parser.parse(&input, Some(&tree)).unwrap();
 }
 
+#[test]
+fn test_parsing_with_scanner_logging() {
+    let dir = fixtures_dir().join("test_grammars").join("external_tokens");
+    let grammar_json = load_grammar_file(&dir.join("grammar.js"), None).unwrap();
+    let (grammar_name, parser_code) = generate_parser_for_grammar(&grammar_json).unwrap();
+
+    let mut parser = Parser::new();
+    parser
+        .set_language(&get_test_language(&grammar_name, &parser_code, Some(&dir)))
+        .unwrap();
+
+    let mut found = false;
+    parser.set_logger(Some(Box::new(|log_type, message| {
+        if log_type == LogType::Lex && message == "Found a percent string" {
+            found = true;
+        }
+    })));
+
+    let source_code = "x + %(sup (external) scanner?)";
+
+    parser.parse(source_code, None).unwrap();
+    assert!(found);
+}
+
 const fn simple_range(start: usize, end: usize) -> Range {
     Range {
         start_byte: start,
