@@ -3,6 +3,8 @@ $(error Windows is not supported)
 endif
 
 VERSION := 0.23.0
+DESCRIPTION := An incremental parsing system for programming tools
+HOMEPAGE_URL := https://tree-sitter.github.io/tree-sitter/
 
 # install directory layout
 PREFIX ?= /usr/local
@@ -58,12 +60,13 @@ ifneq ($(STRIP),)
 	$(STRIP) $@
 endif
 
-tree-sitter.pc: tree-sitter.pc.in
-	sed -e 's|@VERSION@|$(VERSION)|' \
-		-e 's|@LIBDIR@|$(LIBDIR)|' \
-		-e 's|@INCLUDEDIR@|$(INCLUDEDIR)|' \
-		-e 's|=$(PREFIX)|=$${prefix}|' \
-		-e 's|@PREFIX@|$(PREFIX)|' $< > $@
+tree-sitter.pc: lib/tree-sitter.pc.in
+	sed -e 's|@PROJECT_VERSION@|$(VERSION)|' \
+		-e 's|@CMAKE_INSTALL_LIBDIR@|$(LIBDIR)|' \
+		-e 's|@CMAKE_INSTALL_INCLUDEDIR@|$(INCLUDEDIR)|' \
+		-e 's|@PROJECT_DESCRIPTION@|$(DESCRIPTION)|' \
+		-e 's|@PROJECT_HOMEPAGE_URL@|$(HOMEPAGE_URL)|' \
+		-e 's|@CMAKE_INSTALL_PREFIX@|$(PREFIX)|' $< > $@
 
 clean:
 	$(RM) $(OBJ) tree-sitter.pc libtree-sitter.a libtree-sitter.$(SOEXT)
