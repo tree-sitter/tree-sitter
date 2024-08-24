@@ -102,9 +102,7 @@ impl<'a> Interner<'a> {
     fn intern_rule(&self, rule: &Rule, name: Option<&str>) -> Result<Rule> {
         match rule {
             Rule::Choice(elements) => {
-                if let Some(result) = self.intern_single(elements, name) {
-                    return result;
-                }
+                self.check_single(elements, name);
                 let mut result = Vec::with_capacity(elements.len());
                 for element in elements {
                     result.push(self.intern_rule(element, name)?);
@@ -112,9 +110,7 @@ impl<'a> Interner<'a> {
                 Ok(Rule::Choice(result))
             }
             Rule::Seq(elements) => {
-                if let Some(result) = self.intern_single(elements, name) {
-                    return result;
-                }
+                self.check_single(elements, name);
                 let mut result = Vec::with_capacity(elements.len());
                 for element in elements {
                     result.push(self.intern_rule(element, name)?);
@@ -153,17 +149,13 @@ impl<'a> Interner<'a> {
     }
 
     // In the case of a seq or choice rule of 1 element in a hidden rule, weird
-    // inconsistent behavior w/ queries can occur. So we should treat it as that single rule itself
-    // in this case.
-    fn intern_single(&self, elements: &[Rule], name: Option<&str>) -> Option<Result<Rule>> {
+    // inconsistent behavior with queries can occur. So we should warn the user about it.
+    fn check_single(&self, elements: &[Rule], name: Option<&str>) {
         if elements.len() == 1 && matches!(elements[0], Rule::String(_) | Rule::Pattern(_, _)) {
             eprintln!(
                 "Warning: rule {} is just a `seq` or `choice` rule with a single element. This is unnecessary.",
                 name.unwrap_or_default()
             );
-            Some(self.intern_rule(&elements[0], name))
-        } else {
-            None
         }
     }
 }
@@ -256,42 +248,6 @@ mod tests {
             Err(e) => assert_eq!(e.to_string(), "Undefined symbol `y`"),
             _ => panic!("Expected an error but got none"),
         }
-    }
-
-    #[test]
-    fn test_interning_a_seq_or_choice_of_one_rule() {
-        let grammar = intern_symbols(&build_grammar(vec![
-            Variable::named("w", Rule::choice(vec![Rule::string("a")])),
-            Variable::named("x", Rule::seq(vec![Rule::pattern("b", "")])),
-            Variable::named("y", Rule::string("a")),
-            Variable::named("z", Rule::pattern("b", "")),
-            // Hidden rules should not affect this.
-            Variable::hidden("_a", Rule::choice(vec![Rule::string("a")])),
-            Variable::hidden("_b", Rule::seq(vec![Rule::pattern("b", "")])),
-            Variable::hidden("_c", Rule::string("a")),
-            Variable::hidden("_d", Rule::pattern("b", "")),
-        ]))
-        .unwrap();
-
-        assert_eq!(
-            grammar.variables,
-            vec![
-                Variable::named("w", Rule::string("a")),
-                Variable::named("x", Rule::pattern("b", "")),
-                Variable::named("y", Rule::string("a")),
-                Variable::named("z", Rule::pattern("b", "")),
-                // Hidden rules show no change.
-                Variable::hidden("_a", Rule::string("a")),
-                Variable::hidden("_b", Rule::pattern("b", "")),
-                Variable::hidden("_c", Rule::string("a")),
-                Variable::hidden("_d", Rule::pattern("b", "")),
-            ]
-        );
-
-        assert_eq!(grammar.variables[0].rule, grammar.variables[2].rule);
-        assert_eq!(grammar.variables[1].rule, grammar.variables[3].rule);
-        assert_eq!(grammar.variables[4].rule, grammar.variables[6].rule);
-        assert_eq!(grammar.variables[5].rule, grammar.variables[7].rule);
     }
 
     fn build_grammar(variables: Vec<Variable>) -> InputGrammar {
