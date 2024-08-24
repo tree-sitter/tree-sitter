@@ -1,4 +1,4 @@
-module github.com/tree-sitter/tree-sitter-PARSER_NAME
+module github.com/tree-sitter/tree-sitter-LOWER_PARSER_NAME
 
 go 1.23
 

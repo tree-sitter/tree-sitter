@@ -18,6 +18,7 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 #### Official
 
 * [C#](https://github.com/tree-sitter/csharp-tree-sitter)
+* [Go](https://github.com/tree-sitter/go-tree-sitter)
 * [Haskell](https://github.com/tree-sitter/haskell-tree-sitter)
 * [Java (JDK 22)](https://github.com/tree-sitter/java-tree-sitter)
 * [JavaScript (Node.js)](https://github.com/tree-sitter/node-tree-sitter)
