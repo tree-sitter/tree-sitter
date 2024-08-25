@@ -32,7 +32,7 @@ type SymbolSequence = Vec<Symbol>;
 type AuxiliarySymbolSequence = Vec<AuxiliarySymbolInfo>;
 pub type ParseStateInfo<'a> = (SymbolSequence, ParseItemSet<'a>);
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 struct AuxiliarySymbolInfo {
     auxiliary_symbol: Symbol,
     parent_symbols: Vec<Symbol>,
@@ -193,7 +193,7 @@ impl<'a> ParseTableBuilder<'a> {
     fn add_actions(
         &mut self,
         mut preceding_symbols: SymbolSequence,
-        mut preceding_auxiliary_symbols: Vec<AuxiliarySymbolInfo>,
+        mut preceding_auxiliary_symbols: AuxiliarySymbolSequence,
         state_id: ParseStateId,
         item_set: &ParseItemSet<'a>,
     ) -> Result<()> {
@@ -310,6 +310,8 @@ impl<'a> ParseTableBuilder<'a> {
                 }
             }
         }
+
+        preceding_auxiliary_symbols.dedup();
 
         // Having computed the successor item sets for each symbol, add a new
         // parse state for each of these item sets, and add a corresponding Shift
