@@ -290,6 +290,16 @@ fn test_parent_of_zero_width_node() {
         function_definition
     );
     assert_eq!(function_definition.child_containing_descendant(block), None);
+
+    let code = "<script></script>";
+    parser.set_language(&get_language("html")).unwrap();
+
+    let tree = parser.parse(code, None).unwrap();
+    let root = tree.root_node();
+    let script_element = root.child(0).unwrap();
+    let raw_text = script_element.child(1).unwrap();
+    let parent = raw_text.parent().unwrap();
+    assert_eq!(parent, script_element);
 }
 
 #[test]
