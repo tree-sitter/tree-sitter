@@ -12,6 +12,8 @@ typedef struct {
   const TSSymbol *alias_sequence;
 } NodeChildIterator;
 
+static inline bool ts_node__is_relevant(TSNode self, bool include_anonymous);
+
 // TSNode - constructors
 
 TSNode ts_node_new(
@@ -99,6 +101,21 @@ static inline bool ts_node_child_iterator_next(
   self->position = length_add(self->position, ts_subtree_size(*child));
   self->child_index++;
   return true;
+}
+
+// This will return true if the next sibling is a zero-width token that is adjacent to the current node and is relevant
+static inline bool ts_node_child_iterator_next_sibling_is_empty_adjacent(NodeChildIterator *self, TSNode previous) {
+  if (!self->parent.ptr || ts_node_child_iterator_done(self)) return false;
+  if (self->child_index == 0) return false;
+  const Subtree *child = &ts_subtree_children(self->parent)[self->child_index];
+  TSSymbol alias = 0;
+  if (!ts_subtree_extra(*child)) {
+    if (self->alias_sequence) {
+      alias = self->alias_sequence[self->structural_child_index];
+    }
+  }
+  TSNode next = ts_node_new(self->tree, child, self->position, alias);
+  return ts_node_end_byte(previous) == ts_node_end_byte(next) && ts_node__is_relevant(next, true);
 }
 
 // TSNode - private
@@ -530,6 +547,24 @@ TSNode ts_node_child_containing_descendant(TSNode self, TSNode subnode) {
       ) {
         return ts_node__null();
       }
+
+      // Here we check the current self node and *all* of its zero-width token siblings that follow.
+      // If any of these nodes contain the target subnode, we return that node. Otherwise, we restore the node we started at
+      // for the loop condition, and that will continue with the next *non-zero-width* sibling.
+      TSNode old = self;
+      // While the next sibling is a zero-width token
+      while (ts_node_child_iterator_next_sibling_is_empty_adjacent(&iter, self)) {
+        TSNode current_node = ts_node_child_containing_descendant(self, subnode);
+        // If the target child is in self, return it
+        if (!ts_node_is_null(current_node)) {
+          return current_node;
+        }
+        ts_node_child_iterator_next(&iter, &self);
+        if (self.id == subnode.id) {
+          return ts_node__null();
+        }
+      }
+      self = old;
     } while (iter.position.bytes < end_byte || ts_node_child_count(self) == 0);
   } while (!ts_node__is_relevant(self, true));
 
