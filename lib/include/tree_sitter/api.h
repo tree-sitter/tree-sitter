@@ -984,6 +984,22 @@ uint32_t ts_query_cursor_match_limit(const TSQueryCursor *self);
 void ts_query_cursor_set_match_limit(TSQueryCursor *self, uint32_t limit);
 
 /**
+ * Set the maximum duration in microseconds that query execution should be allowed to
+ * take before halting.
+ *
+ * If query execution takes longer than this, it will halt early, returning NULL.
+ * See [`ts_query_cursor_next_match`] or [`ts_query_cursor_next_capture`] for more information.
+ */
+void ts_query_cursor_set_timeout_micros(TSQueryCursor *self, uint64_t timeout_micros);
+
+/**
+ * Get the duration in microseconds that query execution is allowed to take.
+ *
+ * This is set via [`ts_query_cursor_set_timeout_micros`].
+ */
+uint64_t ts_query_cursor_timeout_micros(const TSQueryCursor *self);
+
+/**
  * Set the range of bytes or (row, column) positions in which the query
  * will be executed.
  */

@@ -2362,6 +2362,26 @@ impl QueryCursor {
         }
     }
 
+    /// Set the maximum duration in microseconds that query execution should be allowed to
+    /// take before halting.
+    ///
+    /// If query execution takes longer than this, it will halt early, returning None.
+    #[doc(alias = "ts_query_cursor_set_timeout_micros")]
+    pub fn set_timeout_micros(&mut self, timeout: u64) {
+        unsafe {
+            ffi::ts_query_cursor_set_timeout_micros(self.ptr.as_ptr(), timeout);
+        }
+    }
+
+    /// Get the duration in microseconds that query execution is allowed to take.
+    ///
+    /// This is set via [`set_timeout_micros`](QueryCursor::set_timeout_micros).
+    #[doc(alias = "ts_query_cursor_timeout_micros")]
+    #[must_use]
+    pub fn timeout_micros(&self) -> u64 {
+        unsafe { ffi::ts_query_cursor_timeout_micros(self.ptr.as_ptr()) }
+    }
+
     /// Check if, on its last execution, this cursor exceeded its maximum number
     /// of in-progress matches.
     #[doc(alias = "ts_query_cursor_did_exceed_match_limit")]
