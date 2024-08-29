@@ -179,6 +179,7 @@ declare module 'web-tree-sitter' {
       endIndex?: number;
       matchLimit?: number;
       maxStartDepth?: number;
+      timeoutMicros?: number;
     };
 
     export interface PredicateResult {

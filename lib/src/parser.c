@@ -83,7 +83,7 @@ static const unsigned MAX_VERSION_COUNT = 6;
 static const unsigned MAX_VERSION_COUNT_OVERFLOW = 4;
 static const unsigned MAX_SUMMARY_DEPTH = 16;
 static const unsigned MAX_COST_DIFFERENCE = 16 * ERROR_COST_PER_SKIPPED_TREE;
-static const unsigned OP_COUNT_PER_TIMEOUT_CHECK = 100;
+static const unsigned OP_COUNT_PER_PARSER_TIMEOUT_CHECK = 100;
 
 typedef struct {
   Subtree token;
@@ -1565,7 +1565,7 @@ static bool ts_parser__advance(
 
     // If a cancellation flag or a timeout was provided, then check every
     // time a fixed number of parse actions has been processed.
-    if (++self->operation_count == OP_COUNT_PER_TIMEOUT_CHECK) {
+    if (++self->operation_count == OP_COUNT_PER_PARSER_TIMEOUT_CHECK) {
       self->operation_count = 0;
     }
     if (

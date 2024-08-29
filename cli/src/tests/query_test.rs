@@ -5146,3 +5146,28 @@ fn test_query_on_empty_source_code() {
         &[(0, vec![("program", "")])],
     );
 }
+
+#[test]
+fn test_query_execution_with_timeout() {
+    let language = get_language("javascript");
+    let mut parser = Parser::new();
+    parser.set_language(&language).unwrap();
+
+    let source_code = "function foo() { while (true) { } }\n".repeat(1000);
+    let tree = parser.parse(&source_code, None).unwrap();
+
+    let query = Query::new(&language, "(function_declaration) @function").unwrap();
+    let mut cursor = QueryCursor::new();
+
+    cursor.set_timeout_micros(1000);
+    let matches = cursor
+        .matches(&query, tree.root_node(), source_code.as_bytes())
+        .count();
+    assert!(matches < 1000);
+
+    cursor.set_timeout_micros(0);
+    let matches = cursor
+        .matches(&query, tree.root_node(), source_code.as_bytes())
+        .count();
+    assert_eq!(matches, 1000);
+}
