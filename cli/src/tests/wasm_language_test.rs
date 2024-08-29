@@ -34,7 +34,7 @@ fn test_wasm_stdlib_symbols() {
 #[test]
 fn test_load_wasm_ruby_language() {
     allocations::record(|| {
-        let mut store = WasmStore::new(ENGINE.clone()).unwrap();
+        let mut store = WasmStore::new(&ENGINE).unwrap();
         let mut parser = Parser::new();
         let wasm = fs::read(WASM_DIR.join("tree-sitter-ruby.wasm")).unwrap();
         let language = store.load_language("ruby", &wasm).unwrap();
@@ -51,7 +51,7 @@ fn test_load_wasm_ruby_language() {
 #[test]
 fn test_load_wasm_html_language() {
     allocations::record(|| {
-        let mut store = WasmStore::new(ENGINE.clone()).unwrap();
+        let mut store = WasmStore::new(&ENGINE).unwrap();
         let mut parser = Parser::new();
         let wasm = fs::read(WASM_DIR.join("tree-sitter-html.wasm")).unwrap();
         let language = store.load_language("html", &wasm).unwrap();
@@ -70,7 +70,7 @@ fn test_load_wasm_html_language() {
 #[test]
 fn test_load_wasm_rust_language() {
     allocations::record(|| {
-        let mut store = WasmStore::new(ENGINE.clone()).unwrap();
+        let mut store = WasmStore::new(&ENGINE).unwrap();
         let mut parser = Parser::new();
         let wasm = fs::read(WASM_DIR.join("tree-sitter-rust.wasm")).unwrap();
         let language = store.load_language("rust", &wasm).unwrap();
@@ -84,7 +84,7 @@ fn test_load_wasm_rust_language() {
 #[test]
 fn test_load_wasm_javascript_language() {
     allocations::record(|| {
-        let mut store = WasmStore::new(ENGINE.clone()).unwrap();
+        let mut store = WasmStore::new(&ENGINE).unwrap();
         let mut parser = Parser::new();
         let wasm = fs::read(WASM_DIR.join("tree-sitter-javascript.wasm")).unwrap();
         let language = store.load_language("javascript", &wasm).unwrap();
@@ -98,7 +98,7 @@ fn test_load_wasm_javascript_language() {
 #[test]
 fn test_load_multiple_wasm_languages() {
     allocations::record(|| {
-        let mut store = WasmStore::new(ENGINE.clone()).unwrap();
+        let mut store = WasmStore::new(&ENGINE).unwrap();
         let mut parser = Parser::new();
 
         let wasm_cpp = fs::read(WASM_DIR.join("tree-sitter-cpp.wasm")).unwrap();
@@ -114,7 +114,7 @@ fn test_load_multiple_wasm_languages() {
 
         let mut parser2 = Parser::new();
         parser2
-            .set_wasm_store(WasmStore::new(ENGINE.clone()).unwrap())
+            .set_wasm_store(WasmStore::new(&ENGINE).unwrap())
             .unwrap();
         let mut query_cursor = QueryCursor::new();
 
@@ -175,7 +175,7 @@ fn test_load_multiple_wasm_languages() {
 #[test]
 fn test_load_and_reload_wasm_language() {
     allocations::record(|| {
-        let mut store = WasmStore::new(ENGINE.clone()).unwrap();
+        let mut store = WasmStore::new(&ENGINE).unwrap();
 
         let wasm_rust = fs::read(WASM_DIR.join("tree-sitter-rust.wasm")).unwrap();
         let wasm_typescript = fs::read(WASM_DIR.join("tree-sitter-typescript.wasm")).unwrap();
@@ -200,18 +200,18 @@ fn test_load_and_reload_wasm_language() {
 #[test]
 fn test_reset_wasm_store() {
     allocations::record(|| {
-        let mut language_store = WasmStore::new(ENGINE.clone()).unwrap();
+        let mut language_store = WasmStore::new(&ENGINE).unwrap();
         let wasm = fs::read(WASM_DIR.join("tree-sitter-rust.wasm")).unwrap();
         let language = language_store.load_language("rust", &wasm).unwrap();
 
         let mut parser = Parser::new();
-        let parser_store = WasmStore::new(ENGINE.clone()).unwrap();
+        let parser_store = WasmStore::new(&ENGINE).unwrap();
         parser.set_wasm_store(parser_store).unwrap();
         parser.set_language(&language).unwrap();
         let tree = parser.parse("fn main() {}", None).unwrap();
         assert_eq!(tree.root_node().to_sexp(), "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))");
 
-        let parser_store = WasmStore::new(ENGINE.clone()).unwrap();
+        let parser_store = WasmStore::new(&ENGINE).unwrap();
         parser.set_wasm_store(parser_store).unwrap();
         let tree = parser.parse("fn main() {}", None).unwrap();
         assert_eq!(tree.root_node().to_sexp(), "(source_file (function_item name: (identifier) parameters: (parameters) body: (block)))");
@@ -221,7 +221,7 @@ fn test_reset_wasm_store() {
 #[test]
 fn test_load_wasm_errors() {
     allocations::record(|| {
-        let mut store = WasmStore::new(ENGINE.clone()).unwrap();
+        let mut store = WasmStore::new(&ENGINE).unwrap();
         let wasm = fs::read(WASM_DIR.join("tree-sitter-rust.wasm")).unwrap();
 
         let bad_wasm = &wasm[1..];
@@ -253,7 +253,7 @@ fn test_load_wasm_errors() {
 #[test]
 fn test_wasm_oom() {
     allocations::record(|| {
-        let mut store = WasmStore::new(ENGINE.clone()).unwrap();
+        let mut store = WasmStore::new(&ENGINE).unwrap();
         let mut parser = Parser::new();
         let wasm = fs::read(WASM_DIR.join("tree-sitter-html.wasm")).unwrap();
         let language = store.load_language("html", &wasm).unwrap();

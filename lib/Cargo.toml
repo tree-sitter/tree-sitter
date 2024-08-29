@@ -37,7 +37,7 @@ tree-sitter-language = { version = "0.1", path = "language" }
 streaming-iterator = "0.1.9"
 
 [dependencies.wasmtime-c-api]
-version = "23.0.2"
+version = "24.0.0"
 optional = true
 package = "wasmtime-c-api-impl"
 default-features = false

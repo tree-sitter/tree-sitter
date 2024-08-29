@@ -41,12 +41,11 @@ pub enum WasmErrorKind {
 }
 
 impl WasmStore {
-    pub fn new(engine: wasmtime::Engine) -> Result<Self, WasmError> {
+    pub fn new(engine: &wasmtime::Engine) -> Result<Self, WasmError> {
         unsafe {
             let mut error = MaybeUninit::<ffi::TSWasmError>::uninit();
-            let engine = Box::new(wasm_engine_t { engine });
             let store = ffi::ts_wasm_store_new(
-                (Box::leak(engine) as *mut wasm_engine_t).cast(),
+                (engine as *const wasmtime::Engine as *mut wasmtime::Engine).cast(),
                 error.as_mut_ptr(),
             );
             if store.is_null() {

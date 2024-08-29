@@ -592,9 +592,9 @@ fn run() -> Result<()> {
             if parse_options.wasm {
                 let engine = tree_sitter::wasmtime::Engine::default();
                 parser
-                    .set_wasm_store(tree_sitter::WasmStore::new(engine.clone()).unwrap())
+                    .set_wasm_store(tree_sitter::WasmStore::new(&engine).unwrap())
                     .unwrap();
-                loader.use_wasm(engine);
+                loader.use_wasm(&engine);
             }
 
             let timeout = parse_options.timeout.unwrap_or_default();
@@ -690,9 +690,9 @@ fn run() -> Result<()> {
             if test_options.wasm {
                 let engine = tree_sitter::wasmtime::Engine::default();
                 parser
-                    .set_wasm_store(tree_sitter::WasmStore::new(engine.clone()).unwrap())
+                    .set_wasm_store(tree_sitter::WasmStore::new(&engine).unwrap())
                     .unwrap();
-                loader.use_wasm(engine);
+                loader.use_wasm(&engine);
             }
 
             let languages = loader.languages_at_path(&current_dir)?;

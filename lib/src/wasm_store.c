@@ -732,7 +732,7 @@ TSWasmStore *ts_wasm_store_new(TSWasmEngine *engine, TSWasmError *wasm_error) {
   assert(!error);
 
   *self = (TSWasmStore) {
-    .engine = engine,
+    .engine = wasmtime_engine_clone(engine),
     .store = store,
     .memory = memory,
     .function_table = function_table,

@@ -431,11 +431,27 @@ pub fn generate_grammar_files(
             generate_file(path, BINDING_GO_TEMPLATE, language_name)
         })?;
 
-        missing_path(path.join("binding_test.go"), |path| {
-            generate_file(path, BINDING_TEST_GO_TEMPLATE, language_name)
-        })?;
+        missing_path_else(
+            path.join("binding_test.go"),
+            |path| generate_file(path, BINDING_TEST_GO_TEMPLATE, language_name),
+            |path| {
+                let binding_test_go =
+                    fs::read_to_string(path).with_context(|| "Failed to read binding_test.go")?;
+                if binding_test_go.contains("smacker") {
+                    eprintln!("Replacing binding_test.go with new binding API");
+                    generate_file(path, BINDING_TEST_GO_TEMPLATE, language_name)?;
+                }
+                Ok(())
+            },
+        )?;
 
-        missing_path(path.join("go.mod"), |path| {
+        // Delete the old go.mod file that lives inside bindings/go, it now lives in the root dir
+        let go_mod_path = path.join("go.mod");
+        if go_mod_path.exists() {
+            fs::remove_file(go_mod_path).with_context(|| "Failed to remove old go.mod file")?;
+        }
+
+        missing_path(repo_path.join("go.mod"), |path| {
             generate_file(path, GO_MOD_TEMPLATE, language_name)
         })?;
 
@@ -447,9 +463,19 @@ pub fn generate_grammar_files(
         let lang_path = path.join(format!("tree_sitter_{}", language_name.to_snake_case()));
         missing_path(&lang_path, create_dir)?;
 
-        missing_path(lang_path.join("binding.c"), |path| {
-            generate_file(path, PY_BINDING_C_TEMPLATE, language_name)
-        })?;
+        missing_path_else(
+            lang_path.join("binding.c"),
+            |path| generate_file(path, PY_BINDING_C_TEMPLATE, language_name),
+            |path| {
+                let binding_c = fs::read_to_string(path)
+                    .with_context(|| "Failed to read bindings/python/binding.c")?;
+                if !binding_c.contains("PyCapsule_New") {
+                    eprintln!("Replacing bindings/python/binding.c with new binding API");
+                    generate_file(path, PY_BINDING_C_TEMPLATE, language_name)?;
+                }
+                Ok(())
+            },
+        )?;
 
         missing_path(lang_path.join("__init__.py"), |path| {
             generate_file(path, INIT_PY_TEMPLATE, language_name)

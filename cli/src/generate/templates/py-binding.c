@@ -5,7 +5,7 @@ typedef struct TSLanguage TSLanguage;
 TSLanguage *tree_sitter_LOWER_PARSER_NAME(void);
 
 static PyObject* _binding_language(PyObject *Py_UNUSED(self), PyObject *Py_UNUSED(args)) {
-    return PyLong_FromVoidPtr(tree_sitter_LOWER_PARSER_NAME());
+    return PyCapsule_New(tree_sitter_LOWER_PARSER_NAME(), "tree_sitter.Language", NULL);
 }
 
 static PyMethodDef methods[] = {
