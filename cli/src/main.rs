@@ -269,7 +269,7 @@ struct Fuzz {
     pub iterations: Option<usize>,
     #[arg(long, short, help = "Regex pattern to filter tests")]
     pub filter: Option<Regex>,
-    #[arg(long, short, help = "Enable logging of graphs and input")]
+    #[arg(long, help = "Enable logging of graphs and input")]
     pub log_graphs: bool,
     #[arg(long, short, help = "Enable parser logging")]
     pub log: bool,
