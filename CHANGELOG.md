@@ -1,5 +1,96 @@
 # Changelog
 
+## [0.23.0] - 2024-08-26
+
+### Breaking
+
+- Introduce tree-sitter-language crate for grammar crates to depend on (<https://github.com/tree-sitter/tree-sitter/pull/3069>)
+- Revert interning of a sequence or choice of a single rule (<https://github.com/tree-sitter/tree-sitter/pull/3548>)
+- **bindings**: Use capsules in python (<https://github.com/tree-sitter/tree-sitter/pull/3384>)
+- **dsl**: Support other JS runtimes (<https://github.com/tree-sitter/tree-sitter/pull/3355>)
+
+### Features
+
+- Add `fuzz` subcommand (<https://github.com/tree-sitter/tree-sitter/pull/3385>)
+- Allow external scanners to use the logger (<https://github.com/tree-sitter/tree-sitter/pull/3204>)
+- **bindings**: Add query constants to python
+- **bindings**: Add node, python, swift tests (<https://github.com/tree-sitter/tree-sitter/pull/3178>)
+- **bindings**: Update npm scripts (<https://github.com/tree-sitter/tree-sitter/pull/3210>)
+- **cli**: Bump unicode data to v15.1.0
+- **cli**: Add debug build flag (<https://github.com/tree-sitter/tree-sitter/pull/3279>)
+- **cli**: Attach helpful context when `grammar.json` cannot be found (<https://github.com/tree-sitter/tree-sitter/pull/3405>)
+- **cli**: Add `--show-fields` flag to `test` command (<https://github.com/tree-sitter/tree-sitter/pull/3502>)
+- **lib**: Add `ts_query_end_byte_for_pattern` (<https://github.com/tree-sitter/tree-sitter/pull/3451>)
+- **lib**: Support no_std
+- **zig**: Update outdated path syntax (<https://github.com/tree-sitter/tree-sitter/pull/3383>)
+
+### Bug Fixes
+
+- Always reset to the first language when iterating over language attributes (<https://github.com/tree-sitter/tree-sitter/pull/3375>)
+- Better error when a supertype rule is invalid (<https://github.com/tree-sitter/tree-sitter/pull/3400>)
+- Intern a sequence or choice of a single element the same as the element itself
+- Do not "absorb" rules that consist of a single terminal if the rule is hidden (<https://github.com/tree-sitter/tree-sitter/pull/2577>)
+- **bindings**: Update go bindings (<https://github.com/tree-sitter/tree-sitter/pull/3544>)
+- **cli**: Installation via authenticated proxy (<https://github.com/tree-sitter/tree-sitter/pull/3414>)
+- **cli**: Dedup `preceding_auxiliary_symbols` (<https://github.com/tree-sitter/tree-sitter/pull/3550>)
+- **dsl**: Improve error message when a rule function returns undefined (<https://github.com/tree-sitter/tree-sitter/pull/3452>)
+- **generate**: Rename `cargo.toml` template (<https://github.com/tree-sitter/tree-sitter/pull/3532>)
+- **go**: Update parser name in binding files, add to docs (<https://github.com/tree-sitter/tree-sitter/pull/3547>)
+- **lib**: A null clock must have `tv_nsec` be 0 as well (<https://github.com/tree-sitter/tree-sitter/pull/3372>)
+- **lib**: Restrict pattern_map optimization when a wildcard step has an immediate first child (<https://github.com/tree-sitter/tree-sitter/pull/3440>)
+- **lib**: An empty root node should not precede an empty range (<https://github.com/tree-sitter/tree-sitter/pull/3450>)
+- **lib**: Fix api header C++ interop (<https://github.com/tree-sitter/tree-sitter/pull/3534>)
+- **make**: Fail properly on Windows (<https://github.com/tree-sitter/tree-sitter/pull/3418>)
+- **rust**: Fetch `CARGO_MANIFEST_DIR` at runtime in build script (<https://github.com/tree-sitter/tree-sitter/pull/3352>)
+- **rust**: Fix new clippy warnings (<https://github.com/tree-sitter/tree-sitter/pull/3491>)
+- **test**: Multi-grammar corpus tests are now in the repo root (<https://github.com/tree-sitter/tree-sitter/pull/3342>)
+- **wasm**: Update test
+
+### Performance
+
+- Hoist out common subexpressions in satisfies_text_predicates (<https://github.com/tree-sitter/tree-sitter/pull/3397>)
+
+### Documentation
+
+- Update changelog
+- Remove duplicate pr # in changelog
+- Add note for bullet
+- Fix syntax highlighting unit testing example (<https://github.com/tree-sitter/tree-sitter/pull/3434>)
+- Add tsserver annotation to example (<https://github.com/tree-sitter/tree-sitter/pull/3460>)
+- Fix tree cursor documentation (<https://github.com/tree-sitter/tree-sitter/pull/3324>)
+- Document rust library features (<https://github.com/tree-sitter/tree-sitter/pull/3395>)
+- Clean up binding & parser lists (<https://github.com/tree-sitter/tree-sitter/pull/3443>)
+
+### Refactor
+
+- Remove ansi_term dependency (<https://github.com/tree-sitter/tree-sitter/pull/3387>)
+- Remove difference dependency (<https://github.com/tree-sitter/tree-sitter/pull/3388>)
+- **scripts**: Clean up bash scripts (<https://github.com/tree-sitter/tree-sitter/pull/3231>)
+
+### Testing
+
+- Modernize scanner files (<https://github.com/tree-sitter/tree-sitter/pull/3340>)
+
+### Build System and CI
+
+- **deps**: bump wasmtime, cc, and wasmparser (<https://github.com/tree-sitter/tree-sitter/pull/3529>
+- **bindings**: Use language version in soname (<https://github.com/tree-sitter/tree-sitter/pull/3308>)
+- **lib**: Include the minor in the soname
+- **loader**: Make dependencies optional (<https://github.com/tree-sitter/tree-sitter/pull/1638>)
+- **swift**: Declare header search path (<https://github.com/tree-sitter/tree-sitter/pull/3474>)
+- **wasm**: Don't minify JS (<https://github.com/tree-sitter/tree-sitter/pull/3380>)
+- **wasm**: Bump emscripten to 3.1.64 (<https://github.com/tree-sitter/tree-sitter/pull/3497>)
+- **wasm**: Support big endian machines (<https://github.com/tree-sitter/tree-sitter/pull/3492>)
+- **zig**: Git ignore updated Zig cache directory (<https://github.com/tree-sitter/tree-sitter/pull/3408>)
+
+### Other
+
+- Swap `sprintf()` for `snprintf()` (<https://github.com/tree-sitter/tree-sitter/pull/3430>)
+- Add `.build` to gitignore (<https://github.com/tree-sitter/tree-sitter/pull/3498>)
+- Reset language when resetting wasm store (<https://github.com/tree-sitter/tree-sitter/pull/3495>)
+- Clone wasm store engine (<https://github.com/tree-sitter/tree-sitter/pull/3542>)
+- **bindings**: Fix indent & line endings (<https://github.com/tree-sitter/tree-sitter/pull/3284>)
+
 ## [0.22.6] — 2024-05-05
 
 ### Features
@@ -259,7 +350,7 @@
   They don't have any dynamic global data, so all it takes is just declaring them as such
 - Fix crash when attempting to load ancient languages via wasm (<https://github.com/tree-sitter/tree-sitter/pull/3068>)
 - Use workspace dependencies for internal crates like Tree-sitter (<https://github.com/tree-sitter/tree-sitter/pull/3076>)
-- Remove vendored wasmtime headers (https://github.com/tree-sitter/tree-sitter/pull/3084)
+- Remove vendored wasmtime headers (<https://github.com/tree-sitter/tree-sitter/pull/3084>)
   When building rust binding, use wasmtime headers provided via cargo
   by the wasmtime-c-api crate.
 - Fix invalid parse stack recursive merging with mismatched error cost (<https://github.com/tree-sitter/tree-sitter/pull/3086>)
