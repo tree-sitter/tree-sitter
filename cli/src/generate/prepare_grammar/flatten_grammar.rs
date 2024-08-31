@@ -192,8 +192,10 @@ pub(super) fn flatten_grammar(grammar: ExtractedSyntaxGrammar) -> Result<SyntaxG
         variables.push(flatten_variable(variable));
     }
     for (i, variable) in variables.iter().enumerate() {
+        let symbol = Symbol::non_terminal(i);
+
         for production in &variable.productions {
-            if production.steps.is_empty() && symbol_is_used(&variables, Symbol::non_terminal(i)) {
+            if production.steps.is_empty() && symbol_is_used(&variables, symbol) {
                 return Err(anyhow!(
                     "The rule `{}` matches the empty string.
 
@@ -201,6 +203,15 @@ Tree-sitter does not support syntactic rules that match the empty string
 unless they are used only as the grammar's start rule.
 ",
                     variable.name
+                ));
+            }
+
+            if grammar.variables_to_inline.contains(&symbol)
+                && production.steps.iter().any(|step| step.symbol == symbol)
+            {
+                return Err(anyhow!(
+                    "Rule `{}` cannot be inlined because it contains a reference to itself.",
+                    variable.name,
                 ));
             }
         }
@@ -410,6 +421,33 @@ mod tests {
                     ]
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn test_flatten_grammar_with_recursive_inline_variable() {
+        let result = flatten_grammar(ExtractedSyntaxGrammar {
+            extra_symbols: Vec::new(),
+            expected_conflicts: Vec::new(),
+            variables_to_inline: vec![Symbol::non_terminal(0)],
+            precedence_orderings: Vec::new(),
+            external_tokens: Vec::new(),
+            supertype_symbols: Vec::new(),
+            word_token: None,
+            variables: vec![Variable {
+                name: "test".to_string(),
+                kind: VariableType::Named,
+                rule: Rule::seq(vec![
+                    Rule::non_terminal(0),
+                    Rule::non_terminal(1),
+                    Rule::non_terminal(2),
+                ]),
+            }],
+        });
+
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Rule `test` cannot be inlined because it contains a reference to itself.",
         );
     }
 }
