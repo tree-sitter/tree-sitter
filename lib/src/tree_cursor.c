@@ -475,8 +475,9 @@ uint32_t ts_tree_cursor_current_descendant_index(const TSTreeCursor *_self) {
 TSNode ts_tree_cursor_current_node(const TSTreeCursor *_self) {
   const TreeCursor *self = (const TreeCursor *)_self;
   TreeCursorEntry *last_entry = array_back(&self->stack);
-  TSSymbol alias_symbol = self->root_alias_symbol;
-  if (self->stack.size > 1 && !ts_subtree_extra(*last_entry->subtree)) {
+  bool is_extra = ts_subtree_extra(*last_entry->subtree);
+  TSSymbol alias_symbol = is_extra ? 0 : self->root_alias_symbol;
+  if (self->stack.size > 1 && !is_extra) {
     TreeCursorEntry *parent_entry = &self->stack.contents[self->stack.size - 2];
     alias_symbol = ts_language_alias_at(
       self->tree->language,

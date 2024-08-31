@@ -702,6 +702,33 @@ fn test_consistency_with_mid_codepoint_edit() {
     assert_eq!(tree3.root_node().to_sexp(), tree.root_node().to_sexp());
 }
 
+#[test]
+fn test_tree_cursor_on_aliased_root_with_extra_child() {
+    let source = r#"
+fn main() {
+    C/* hi */::<D>::E;
+}
+"#;
+
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("rust")).unwrap();
+
+    let tree = parser.parse(source, None).unwrap();
+
+    let function = tree.root_node().child(0).unwrap();
+    let block = function.child(3).unwrap();
+    let expression_statement = block.child(1).unwrap();
+    let scoped_identifier = expression_statement.child(0).unwrap();
+    let generic_type = scoped_identifier.child(0).unwrap();
+    assert_eq!(generic_type.kind(), "generic_type");
+
+    let mut cursor = generic_type.walk();
+    assert!(cursor.goto_first_child());
+    assert_eq!(cursor.node().kind(), "type_identifier");
+    assert!(cursor.goto_next_sibling());
+    assert_eq!(cursor.node().kind(), "block_comment");
+}
+
 fn index_of(text: &[u8], substring: &str) -> usize {
     str::from_utf8(text).unwrap().find(substring).unwrap()
 }
