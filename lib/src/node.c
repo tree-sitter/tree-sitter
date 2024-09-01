@@ -304,21 +304,35 @@ static inline TSNode ts_node__first_child_for_byte(
   TSNode node = self;
   bool did_descend = true;
 
+  NodeChildIterator last_iterator;
+  bool has_last_iterator = false;
+
   while (did_descend) {
     did_descend = false;
 
     TSNode child;
     NodeChildIterator iterator = ts_node_iterate_children(&node);
+  loop:
     while (ts_node_child_iterator_next(&iterator, &child)) {
       if (ts_node_end_byte(child) > goal) {
         if (ts_node__is_relevant(child, include_anonymous)) {
           return child;
         } else if (ts_node_child_count(child) > 0) {
+          if (iterator.child_index < ts_subtree_child_count(ts_node__subtree(child))) {
+            last_iterator = iterator;
+            has_last_iterator = true;
+          }
           did_descend = true;
           node = child;
           break;
         }
       }
+    }
+
+    if (!did_descend && has_last_iterator) {
+      iterator = last_iterator;
+      has_last_iterator = false;
+      goto loop;
     }
   }
 
