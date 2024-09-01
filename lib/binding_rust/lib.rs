@@ -1381,6 +1381,20 @@ impl<'tree> Node<'tree> {
         Self::new(unsafe { ffi::ts_node_prev_named_sibling(self.0) })
     }
 
+    /// Get the node's first child that extends beyond the given byte offset.
+    #[doc(alias = "ts_node_first_child_for_byte")]
+    #[must_use]
+    pub fn first_child_for_byte(&self, byte: usize) -> Option<Self> {
+        Self::new(unsafe { ffi::ts_node_first_child_for_byte(self.0, byte as u32) })
+    }
+
+    /// Get the node's first named child that extends beyond the given byte offset.
+    #[doc(alias = "ts_node_first_named_child_for_point")]
+    #[must_use]
+    pub fn first_named_child_for_byte(&self, byte: usize) -> Option<Self> {
+        Self::new(unsafe { ffi::ts_node_first_named_child_for_byte(self.0, byte as u32) })
+    }
+
     /// Get the node's number of descendants, including one for the node itself.
     #[doc(alias = "ts_node_descendant_count")]
     #[must_use]
