@@ -12,8 +12,8 @@ to parse, to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-tree-sitter-highlight = "^0.21.0"
-tree-sitter-javascript = "0.20.3"
+tree-sitter-highlight = "0.22.0"
+tree-sitter-javascript = "0.21.3"
 ```
 
 Define the list of highlight names that you will recognize:
@@ -61,9 +61,8 @@ let mut javascript_config = HighlightConfiguration::new(
     javascript_language,
     "javascript",
     tree_sitter_javascript::HIGHLIGHT_QUERY,
-    tree_sitter_javascript::INJECTION_QUERY,
+    tree_sitter_javascript::INJECTIONS_QUERY,
     tree_sitter_javascript::LOCALS_QUERY,
-    false,
 ).unwrap();
 ```
 
