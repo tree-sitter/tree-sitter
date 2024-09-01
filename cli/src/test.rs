@@ -59,6 +59,7 @@ pub enum TestEntry {
         header_delim_len: usize,
         divider_delim_len: usize,
         has_fields: bool,
+        attributes_str: String,
         attributes: TestAttributes,
     },
 }
@@ -171,10 +172,22 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
                 print_diff_key();
             }
             for (i, (name, actual, expected)) in failures.iter().enumerate() {
-                println!("\n  {}. {name}:", i + 1);
-                let actual = format_sexp(actual, 2);
-                let expected = format_sexp(expected, 2);
-                print_diff(&actual, &expected, opts.color);
+                if expected == "NO ERROR" {
+                    println!("\n  {}. {name}:\n", i + 1);
+                    println!("  Expected an ERROR node, but got:");
+                    println!(
+                        "  {}",
+                        paint(
+                            opts.color.then_some(AnsiColor::Red),
+                            &format_sexp(actual, 2)
+                        )
+                    );
+                } else {
+                    println!("\n  {}. {name}:", i + 1);
+                    let actual = format_sexp(actual, 2);
+                    let expected = format_sexp(expected, 2);
+                    print_diff(&actual, &expected, opts.color);
+                }
             }
 
             if has_parse_errors {
@@ -382,6 +395,11 @@ fn run_tests(
                             opts.test_num,
                             paint(opts.color.then_some(AnsiColor::Red), &name)
                         );
+                        failures.push((
+                            name.clone(),
+                            tree.root_node().to_sexp(),
+                            "NO ERROR".to_string(),
+                        ));
                     }
 
                     if attributes.fail_fast {
