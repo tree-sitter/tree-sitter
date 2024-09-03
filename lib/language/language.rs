@@ -1,6 +1,7 @@
 #![no_std]
 /// LanguageFn wraps a C function that returns a pointer to a tree-sitter grammer.
 #[repr(transparent)]
+#[derive(Clone, Copy)]
 pub struct LanguageFn(unsafe extern "C" fn() -> *const ());
 
 impl LanguageFn {
