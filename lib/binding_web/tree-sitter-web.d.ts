@@ -150,11 +150,10 @@ declare module 'web-tree-sitter' {
       rootNodeWithOffset(offsetBytes: number, offsetExtent: Point): SyntaxNode;
       copy(): Tree;
       delete(): void;
-      edit(edit: Edit): Tree;
+      edit(edit: Edit): void;
       walk(): TreeCursor;
       getChangedRanges(other: Tree): Range[];
       getIncludedRanges(): Range[];
-      getEditedRange(other: Tree): Range;
       getLanguage(): Language;
     }
 
@@ -179,6 +178,7 @@ declare module 'web-tree-sitter' {
       endIndex?: number;
       matchLimit?: number;
       maxStartDepth?: number;
+      timeoutMicros?: number;
     };
 
     export interface PredicateResult {

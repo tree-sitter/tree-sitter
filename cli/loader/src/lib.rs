@@ -19,10 +19,11 @@ use std::{
 #[cfg(any(feature = "tree-sitter-highlight", feature = "tree-sitter-tags"))]
 use anyhow::Error;
 use anyhow::{anyhow, Context, Result};
-use fs4::FileExt;
+use fs4::fs_std::FileExt;
 use indoc::indoc;
 use libloading::{Library, Symbol};
 use once_cell::unsync::OnceCell;
+use path_slash::PathBufExt as _;
 use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Deserializer, Serialize};
 use tree_sitter::Language;
@@ -131,6 +132,7 @@ pub struct Loader {
     use_all_highlight_names: bool,
     debug_build: bool,
     sanitize_build: bool,
+    force_rebuild: bool,
 
     #[cfg(feature = "wasm")]
     wasm_store: Mutex<Option<tree_sitter::WasmStore>>,
@@ -199,6 +201,7 @@ impl Loader {
             use_all_highlight_names: true,
             debug_build: false,
             sanitize_build: false,
+            force_rebuild: false,
 
             #[cfg(feature = "wasm")]
             wasm_store: Mutex::default(),
@@ -473,7 +476,7 @@ impl Loader {
             fs::create_dir_all(&self.parser_lib_path)?;
         }
 
-        let mut recompile = config.output_path.is_some(); // if specified, always recompile
+        let mut recompile = self.force_rebuild || config.output_path.is_some(); // if specified, always recompile
 
         let output_path = config.output_path.unwrap_or_else(|| {
             let mut path = self.parser_lib_path.join(lib_name);
@@ -609,15 +612,10 @@ impl Loader {
             .host(BUILD_HOST)
             .debug(self.debug_build)
             .file(&config.parser_path)
-            .includes(&config.header_paths);
+            .includes(&config.header_paths)
+            .std("c11");
 
         if let Some(scanner_path) = config.scanner_path.as_ref() {
-            if scanner_path.extension() != Some("c".as_ref()) {
-                cc_config.cpp(true);
-                eprintln!("Warning: Using a C++ scanner is now deprecated. Please migrate your scanner code to C, as C++ support will be removed in the near future.");
-            } else {
-                cc_config.std("c11");
-            }
             cc_config.file(scanner_path);
         }
 
@@ -823,7 +821,7 @@ impl Loader {
                     path.push(src_path.strip_prefix(root_path).unwrap());
                     path
                 };
-                command.args(["--workdir", &workdir.to_string_lossy()]);
+                command.args(["--workdir", &workdir.to_slash_lossy()]);
 
                 // Mount the root directory as a volume, which is the repo root
                 let mut volume_string = OsString::from(&root_path);
@@ -882,14 +880,6 @@ impl Loader {
         ]);
 
         if let Some(scanner_filename) = scanner_filename {
-            if scanner_filename
-                .extension()
-                .and_then(|ext| ext.to_str())
-                .map_or(false, |ext| ["cc", "cpp"].contains(&ext))
-            {
-                eprintln!("Warning: Using a C++ scanner is now deprecated. Please migrate your scanner code to C, as C++ support will be removed in the near future.");
-                command.arg("-xc++");
-            }
             command.arg(scanner_filename);
         }
 
@@ -1197,6 +1187,10 @@ impl Loader {
         self.sanitize_build = flag;
     }
 
+    pub fn force_rebuild(&mut self, rebuild: bool) {
+        self.force_rebuild = rebuild;
+    }
+
     #[cfg(feature = "wasm")]
     pub fn use_wasm(&mut self, engine: &tree_sitter::wasmtime::Engine) {
         *self.wasm_store.lock().unwrap() = Some(tree_sitter::WasmStore::new(engine).unwrap());
@@ -1204,14 +1198,8 @@ impl Loader {
 
     #[must_use]
     pub fn get_scanner_path(&self, src_path: &Path) -> Option<PathBuf> {
-        let mut path = src_path.join("scanner.c");
-        for extension in ["c", "cc", "cpp"] {
-            path.set_extension(extension);
-            if path.exists() {
-                return Some(path);
-            }
-        }
-        None
+        let path = src_path.join("scanner.c");
+        path.exists().then_some(path)
     }
 }
 

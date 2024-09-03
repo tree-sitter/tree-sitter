@@ -4,6 +4,7 @@ use std::{
 };
 
 use tree_sitter::{IncludedRangesError, InputEdit, LogType, Parser, Point, Range};
+use tree_sitter_generate::{generate_parser_for_grammar, load_grammar_file};
 use tree_sitter_proc_macro::retry;
 
 use super::helpers::{
@@ -13,7 +14,6 @@ use super::helpers::{
 };
 use crate::{
     fuzz::edits::Edit,
-    generate::{generate_parser_for_grammar, load_grammar_file},
     parse::perform_edit,
     tests::{helpers::fixtures::fixtures_dir, invert_edit},
 };
@@ -124,7 +124,7 @@ fn test_parsing_with_custom_utf8_input() {
                 let row = position.row;
                 let column = position.column;
                 if row < lines.len() {
-                    if column < lines[row].as_bytes().len() {
+                    if column < lines[row].len() {
                         &lines[row].as_bytes()[column..]
                     } else {
                         b"\n"
@@ -1391,7 +1391,7 @@ fn test_grammars_that_can_hang_on_eof() {
 
 #[test]
 fn test_parse_stack_recursive_merge_error_cost_calculation_bug() {
-    let source_code = r#"
+    let source_code = r"
 fn main() {
   if n == 1 {
   } else if n == 2 {
@@ -1404,7 +1404,7 @@ let y = if x == 5 { 10 } else { 15 };
 if foo && bar {}
 
 if foo && bar || baz {}
-"#;
+";
 
     let mut parser = Parser::new();
     parser.set_language(&get_language("rust")).unwrap();

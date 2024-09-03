@@ -82,9 +82,9 @@ typedef StackAction (*StackCallback)(void *, const StackIterator *);
 static void stack_node_retain(StackNode *self) {
   if (!self)
     return;
-  assert(self->ref_count > 0);
+  ts_assert(self->ref_count > 0);
   self->ref_count++;
-  assert(self->ref_count != 0);
+  ts_assert(self->ref_count != 0);
 }
 
 static void stack_node_release(
@@ -93,7 +93,7 @@ static void stack_node_release(
   SubtreePool *subtree_pool
 ) {
 recur:
-  assert(self->ref_count != 0);
+  ts_assert(self->ref_count != 0);
   self->ref_count--;
   if (self->ref_count > 0) return;
 
@@ -567,7 +567,7 @@ SubtreeArray ts_stack_pop_error(Stack *self, StackVersion version) {
       bool found_error = false;
       StackSliceArray pop = stack__iter(self, version, pop_error_callback, &found_error, 1);
       if (pop.size > 0) {
-        assert(pop.size == 1);
+        ts_assert(pop.size == 1);
         ts_stack_renumber_version(self, pop.contents[0].version, version);
         return pop.contents[0].subtrees;
       }
@@ -663,8 +663,8 @@ void ts_stack_remove_version(Stack *self, StackVersion version) {
 
 void ts_stack_renumber_version(Stack *self, StackVersion v1, StackVersion v2) {
   if (v1 == v2) return;
-  assert(v2 < v1);
-  assert((uint32_t)v1 < self->heads.size);
+  ts_assert(v2 < v1);
+  ts_assert((uint32_t)v1 < self->heads.size);
   StackHead *source_head = &self->heads.contents[v1];
   StackHead *target_head = &self->heads.contents[v2];
   if (target_head->summary && !source_head->summary) {
@@ -683,7 +683,7 @@ void ts_stack_swap_versions(Stack *self, StackVersion v1, StackVersion v2) {
 }
 
 StackVersion ts_stack_copy_version(Stack *self, StackVersion version) {
-  assert(version < self->heads.size);
+  ts_assert(version < self->heads.size);
   array_push(&self->heads, self->heads.contents[version]);
   StackHead *head = array_back(&self->heads);
   stack_node_retain(head->node);
@@ -743,7 +743,7 @@ bool ts_stack_is_paused(const Stack *self, StackVersion version) {
 
 Subtree ts_stack_resume(Stack *self, StackVersion version) {
   StackHead *head = array_get(&self->heads, version);
-  assert(head->status == StackStatusPaused);
+  ts_assert(head->status == StackStatusPaused);
   Subtree result = head->lookahead_when_paused;
   head->status = StackStatusActive;
   head->lookahead_when_paused = NULL_SUBTREE;

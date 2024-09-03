@@ -35,13 +35,11 @@ typedef struct {
   uint16_t action_count;
 } LookaheadIterator;
 
-void ts_language_table_entry(const TSLanguage *, TSStateId, TSSymbol, TableEntry *);
+void ts_language_table_entry(const TSLanguage *self, TSStateId state, TSSymbol symbol, TableEntry *result);
 
-TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *, TSSymbol);
+TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *self, TSSymbol symbol);
 
-TSSymbol ts_language_public_symbol(const TSLanguage *, TSSymbol);
-
-TSStateId ts_language_next_state(const TSLanguage *self, TSStateId state, TSSymbol symbol);
+TSSymbol ts_language_public_symbol(const TSLanguage *self, TSSymbol symbol);
 
 static inline bool ts_language_is_symbol_external(const TSLanguage *self, TSSymbol symbol) {
   return 0 < symbol && symbol < self->external_token_count + 1;

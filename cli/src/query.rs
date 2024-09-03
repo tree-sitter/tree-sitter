@@ -6,11 +6,15 @@ use std::{
     time::Instant,
 };
 
+use anstyle::AnsiColor;
 use anyhow::{Context, Result};
 use streaming_iterator::StreamingIterator;
 use tree_sitter::{Language, Parser, Point, Query, QueryCursor};
 
-use crate::query_testing;
+use crate::{
+    query_testing::{self, to_utf8_point},
+    test::paint,
+};
 
 #[allow(clippy::too_many_arguments)]
 pub fn query_files_at_paths(
@@ -45,7 +49,9 @@ pub fn query_files_at_paths(
     for path in paths {
         let mut results = Vec::new();
 
-        writeln!(&mut stdout, "{path}")?;
+        if !should_test {
+            writeln!(&mut stdout, "{path}")?;
+        }
 
         let source_code =
             fs::read(&path).with_context(|| format!("Error reading source file {path:?}"))?;
@@ -58,7 +64,7 @@ pub fn query_files_at_paths(
             {
                 let capture = mat.captures[capture_index];
                 let capture_name = &query.capture_names()[capture.index as usize];
-                if !quiet {
+                if !quiet && !should_test {
                     writeln!(
                         &mut stdout,
                         "    pattern: {:>2}, capture: {} - {capture_name}, start: {}, end: {}, text: `{}`",
@@ -71,22 +77,22 @@ pub fn query_files_at_paths(
                 }
                 results.push(query_testing::CaptureInfo {
                     name: (*capture_name).to_string(),
-                    start: capture.node.start_position(),
-                    end: capture.node.end_position(),
+                    start: to_utf8_point(capture.node.start_position(), source_code.as_slice()),
+                    end: to_utf8_point(capture.node.end_position(), source_code.as_slice()),
                 });
             }
         } else {
             let mut matches =
                 query_cursor.matches(&query, tree.root_node(), source_code.as_slice());
             while let Some(m) = matches.next() {
-                if !quiet {
+                if !quiet && !should_test {
                     writeln!(&mut stdout, "  pattern: {}", m.pattern_index)?;
                 }
                 for capture in m.captures {
                     let start = capture.node.start_position();
                     let end = capture.node.end_position();
                     let capture_name = &query.capture_names()[capture.index as usize];
-                    if !quiet {
+                    if !quiet && !should_test {
                         if end.row == start.row {
                             writeln!(
                                 &mut stdout,
@@ -103,8 +109,8 @@ pub fn query_files_at_paths(
                     }
                     results.push(query_testing::CaptureInfo {
                         name: (*capture_name).to_string(),
-                        start: capture.node.start_position(),
-                        end: capture.node.end_position(),
+                        start: to_utf8_point(capture.node.start_position(), source_code.as_slice()),
+                        end: to_utf8_point(capture.node.end_position(), source_code.as_slice()),
                     });
                 }
             }
@@ -116,7 +122,20 @@ pub fn query_files_at_paths(
             )?;
         }
         if should_test {
-            query_testing::assert_expected_captures(&results, path, &mut parser, language)?;
+            let path_name = Path::new(&path).file_name().unwrap().to_str().unwrap();
+            match query_testing::assert_expected_captures(&results, &path, &mut parser, language) {
+                Ok(assertion_count) => {
+                    println!(
+                        "  ✓ {} ({} assertions)",
+                        paint(Some(AnsiColor::Green), path_name),
+                        assertion_count
+                    );
+                }
+                Err(e) => {
+                    println!("  ✗ {}", paint(Some(AnsiColor::Red), path_name));
+                    return Err(e);
+                }
+            }
         }
         if print_time {
             writeln!(&mut stdout, "{:?}", start.elapsed())?;

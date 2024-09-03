@@ -571,6 +571,12 @@ TSNode ts_node_child(TSNode self, uint32_t child_index);
 const char *ts_node_field_name_for_child(TSNode self, uint32_t child_index);
 
 /**
+ * Get the field name for node's named child at the given index, where zero
+ * represents the first named child. Returns NULL, if no field is found.
+ */
+const char *ts_node_field_name_for_named_child(TSNode self, uint32_t named_child_index);
+
+/**
  * Get the node's number of children.
  */
 uint32_t ts_node_child_count(TSNode self);
@@ -982,6 +988,22 @@ void ts_query_cursor_exec(TSQueryCursor *self, const TSQuery *query, TSNode node
 bool ts_query_cursor_did_exceed_match_limit(const TSQueryCursor *self);
 uint32_t ts_query_cursor_match_limit(const TSQueryCursor *self);
 void ts_query_cursor_set_match_limit(TSQueryCursor *self, uint32_t limit);
+
+/**
+ * Set the maximum duration in microseconds that query execution should be allowed to
+ * take before halting.
+ *
+ * If query execution takes longer than this, it will halt early, returning NULL.
+ * See [`ts_query_cursor_next_match`] or [`ts_query_cursor_next_capture`] for more information.
+ */
+void ts_query_cursor_set_timeout_micros(TSQueryCursor *self, uint64_t timeout_micros);
+
+/**
+ * Get the duration in microseconds that query execution is allowed to take.
+ *
+ * This is set via [`ts_query_cursor_set_timeout_micros`].
+ */
+uint64_t ts_query_cursor_timeout_micros(const TSQueryCursor *self);
 
 /**
  * Set the range of bytes or (row, column) positions in which the query

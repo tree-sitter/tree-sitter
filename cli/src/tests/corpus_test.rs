@@ -11,10 +11,9 @@ use crate::{
         edits::{get_random_edit, invert_edit},
         flatten_tests, new_seed,
         random::Rand,
-        EDIT_COUNT, EXAMPLE_FILTER, ITERATION_COUNT, LANGUAGE_FILTER, LOG_GRAPH_ENABLED,
-        START_SEED,
+        EDIT_COUNT, EXAMPLE_EXCLUDE, EXAMPLE_INCLUDE, ITERATION_COUNT, LANGUAGE_FILTER,
+        LOG_GRAPH_ENABLED, START_SEED,
     },
-    generate,
     parse::perform_edit,
     test::{parse_tests, print_diff, print_diff_key, strip_sexp_fields},
     tests::{
@@ -130,15 +129,27 @@ pub fn test_language_corpus(
     let main_tests = parse_tests(&corpus_dir).unwrap();
     let error_tests = parse_tests(&error_corpus_file).unwrap_or_default();
     let template_tests = parse_tests(&template_corpus_file).unwrap_or_default();
-    let mut tests = flatten_tests(main_tests, EXAMPLE_FILTER.as_ref());
-    tests.extend(flatten_tests(error_tests, EXAMPLE_FILTER.as_ref()));
+    let mut tests = flatten_tests(
+        main_tests,
+        EXAMPLE_INCLUDE.as_ref(),
+        EXAMPLE_EXCLUDE.as_ref(),
+    );
+    tests.extend(flatten_tests(
+        error_tests,
+        EXAMPLE_INCLUDE.as_ref(),
+        EXAMPLE_EXCLUDE.as_ref(),
+    ));
     tests.extend(
-        flatten_tests(template_tests, EXAMPLE_FILTER.as_ref())
-            .into_iter()
-            .map(|mut t| {
-                t.template_delimiters = Some(("<%", "%>"));
-                t
-            }),
+        flatten_tests(
+            template_tests,
+            EXAMPLE_INCLUDE.as_ref(),
+            EXAMPLE_EXCLUDE.as_ref(),
+        )
+        .into_iter()
+        .map(|mut t| {
+            t.template_delimiters = Some(("<%", "%>"));
+            t
+        }),
     );
 
     tests.retain(|t| t.languages[0].is_empty() || t.languages.contains(&Box::from(language_dir)));
@@ -341,11 +352,11 @@ fn test_feature_corpus_files() {
             grammar_path = test_path.join("grammar.json");
         }
         let error_message_path = test_path.join("expected_error.txt");
-        let grammar_json = generate::load_grammar_file(&grammar_path, None).unwrap();
-        let generate_result = generate::generate_parser_for_grammar(&grammar_json);
+        let grammar_json = tree_sitter_generate::load_grammar_file(&grammar_path, None).unwrap();
+        let generate_result = tree_sitter_generate::generate_parser_for_grammar(&grammar_json);
 
         if error_message_path.exists() {
-            if EXAMPLE_FILTER.is_some() {
+            if EXAMPLE_INCLUDE.is_some() || EXAMPLE_EXCLUDE.is_some() {
                 continue;
             }
 
@@ -377,7 +388,7 @@ fn test_feature_corpus_files() {
             let c_code = generate_result.unwrap().1;
             let language = get_test_language(language_name, &c_code, Some(&test_path));
             let test = parse_tests(&corpus_path).unwrap();
-            let tests = flatten_tests(test, EXAMPLE_FILTER.as_ref());
+            let tests = flatten_tests(test, EXAMPLE_INCLUDE.as_ref(), EXAMPLE_EXCLUDE.as_ref());
 
             if !tests.is_empty() {
                 eprintln!("test language: {language_name:?}");

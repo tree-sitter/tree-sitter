@@ -27,7 +27,8 @@ lazy_static! {
     pub static ref LOG_ENABLED: bool = env::var("TREE_SITTER_LOG").is_ok();
     pub static ref LOG_GRAPH_ENABLED: bool = env::var("TREE_SITTER_LOG_GRAPHS").is_ok();
     pub static ref LANGUAGE_FILTER: Option<String> = env::var("TREE_SITTER_LANGUAGE").ok();
-    pub static ref EXAMPLE_FILTER: Option<Regex> = regex_env_var("TREE_SITTER_EXAMPLE");
+    pub static ref EXAMPLE_INCLUDE: Option<Regex> = regex_env_var("TREE_SITTER_EXAMPLE_INCLUDE");
+    pub static ref EXAMPLE_EXCLUDE: Option<Regex> = regex_env_var("TREE_SITTER_EXAMPLE_EXCLUDE");
     pub static ref START_SEED: usize = new_seed();
     pub static ref EDIT_COUNT: usize = int_env_var("TREE_SITTER_EDITS").unwrap_or(3);
     pub static ref ITERATION_COUNT: usize = int_env_var("TREE_SITTER_ITERATIONS").unwrap_or(10);
@@ -41,6 +42,7 @@ fn regex_env_var(name: &'static str) -> Option<Regex> {
     env::var(name).ok().and_then(|e| Regex::new(&e).ok())
 }
 
+#[must_use]
 pub fn new_seed() -> usize {
     int_env_var("TREE_SITTER_SEED").unwrap_or_else(|| {
         let mut rng = rand::thread_rng();
@@ -53,7 +55,8 @@ pub struct FuzzOptions {
     pub subdir: Option<String>,
     pub edits: usize,
     pub iterations: usize,
-    pub filter: Option<Regex>,
+    pub include: Option<Regex>,
+    pub exclude: Option<Regex>,
     pub log_graphs: bool,
     pub log: bool,
 }
@@ -65,20 +68,6 @@ pub fn fuzz_language_corpus(
     grammar_dir: &Path,
     options: &mut FuzzOptions,
 ) {
-    let subdir = options.subdir.take().unwrap_or_default();
-
-    let corpus_dir = grammar_dir.join(subdir).join("test").join("corpus");
-
-    if !corpus_dir.exists() || !corpus_dir.is_dir() {
-        eprintln!("No corpus directory found, ensure that you have a `test/corpus` directory in your grammar directory with at least one test file.");
-        return;
-    }
-
-    if std::fs::read_dir(&corpus_dir).unwrap().count() == 0 {
-        eprintln!("No corpus files found in `test/corpus`, ensure that you have at least one test file in your corpus directory.");
-        return;
-    }
-
     fn retain(entry: &mut TestEntry, language_name: &str) -> bool {
         match entry {
             TestEntry::Example { attributes, .. } => {
@@ -97,6 +86,20 @@ pub fn fuzz_language_corpus(
         }
     }
 
+    let subdir = options.subdir.take().unwrap_or_default();
+
+    let corpus_dir = grammar_dir.join(subdir).join("test").join("corpus");
+
+    if !corpus_dir.exists() || !corpus_dir.is_dir() {
+        eprintln!("No corpus directory found, ensure that you have a `test/corpus` directory in your grammar directory with at least one test file.");
+        return;
+    }
+
+    if std::fs::read_dir(&corpus_dir).unwrap().count() == 0 {
+        eprintln!("No corpus files found in `test/corpus`, ensure that you have at least one test file in your corpus directory.");
+        return;
+    }
+
     let mut main_tests = parse_tests(&corpus_dir).unwrap();
     match main_tests {
         TestEntry::Group {
@@ -104,15 +107,24 @@ pub fn fuzz_language_corpus(
         } => {
             children.retain_mut(|child| retain(child, language_name));
         }
-        _ => unreachable!(),
+        TestEntry::Example { .. } => unreachable!(),
     }
-    let tests = flatten_tests(main_tests, options.filter.as_ref());
+    let tests = flatten_tests(
+        main_tests,
+        options.include.as_ref(),
+        options.exclude.as_ref(),
+    );
 
-    let mut skipped = options.skipped.as_ref().map(|x| {
-        x.iter()
-            .map(|x| (x.as_str(), 0))
-            .collect::<HashMap<&str, usize>>()
-    });
+    let get_test_name = |test: &FlattenedTest| format!("{language_name} - {}", test.name);
+
+    let mut skipped = options
+        .skipped
+        .take()
+        .unwrap_or_default()
+        .into_iter()
+        .chain(tests.iter().filter(|x| x.skip).map(get_test_name))
+        .map(|x| (x, 0))
+        .collect::<HashMap<String, usize>>();
 
     let mut failure_count = 0;
 
@@ -125,13 +137,11 @@ pub fn fuzz_language_corpus(
 
     println!();
     for (test_index, test) in tests.iter().enumerate() {
-        let test_name = format!("{language_name} - {}", test.name);
-        if let Some(skipped) = skipped.as_mut() {
-            if let Some(counter) = skipped.get_mut(test_name.as_str()) {
-                println!("  {test_index}. {test_name} - SKIPPED");
-                *counter += 1;
-                continue;
-            }
+        let test_name = get_test_name(test);
+        if let Some(counter) = skipped.get_mut(test_name.as_str()) {
+            println!("  {test_index}. {test_name} - SKIPPED");
+            *counter += 1;
+            continue;
         }
 
         println!("  {test_index}. {test_name}");
@@ -143,6 +153,11 @@ pub fn fuzz_language_corpus(
             set_included_ranges(&mut parser, &test.input, test.template_delimiters);
 
             let tree = parser.parse(&test.input, None).unwrap();
+
+            if test.error {
+                return true;
+            }
+
             let mut actual_output = tree.root_node().to_sexp();
             if !test.has_fields {
                 actual_output = strip_sexp_fields(&actual_output);
@@ -240,7 +255,7 @@ pub fn fuzz_language_corpus(
                     actual_output = strip_sexp_fields(&actual_output);
                 }
 
-                if actual_output != test.output {
+                if actual_output != test.output && !test.error {
                     println!("Incorrect parse for {test_name} - seed {seed}");
                     print_diff_key();
                     print_diff(&actual_output, &test.output, true);
@@ -272,16 +287,14 @@ pub fn fuzz_language_corpus(
         eprintln!("{failure_count} {language_name} corpus tests failed fuzzing");
     }
 
-    if let Some(skipped) = skipped.as_mut() {
-        skipped.retain(|_, v| *v == 0);
+    skipped.retain(|_, v| *v == 0);
 
-        if !skipped.is_empty() {
-            println!("Non matchable skip definitions:");
-            for k in skipped.keys() {
-                println!("  {k}");
-            }
-            panic!("Non matchable skip definitions needs to be removed");
+    if !skipped.is_empty() {
+        println!("Non matchable skip definitions:");
+        for k in skipped.keys() {
+            println!("  {k}");
         }
+        panic!("Non matchable skip definitions needs to be removed");
     }
 }
 
@@ -290,14 +303,22 @@ pub struct FlattenedTest {
     pub input: Vec<u8>,
     pub output: String,
     pub languages: Vec<Box<str>>,
+    pub error: bool,
+    pub skip: bool,
     pub has_fields: bool,
     pub template_delimiters: Option<(&'static str, &'static str)>,
 }
 
-pub fn flatten_tests(test: TestEntry, filter: Option<&Regex>) -> Vec<FlattenedTest> {
+#[must_use]
+pub fn flatten_tests(
+    test: TestEntry,
+    include: Option<&Regex>,
+    exclude: Option<&Regex>,
+) -> Vec<FlattenedTest> {
     fn helper(
         test: TestEntry,
-        filter: Option<&Regex>,
+        include: Option<&Regex>,
+        exclude: Option<&Regex>,
         is_root: bool,
         prefix: &str,
         result: &mut Vec<FlattenedTest>,
@@ -315,8 +336,13 @@ pub fn flatten_tests(test: TestEntry, filter: Option<&Regex>) -> Vec<FlattenedTe
                     name.insert_str(0, " - ");
                     name.insert_str(0, prefix);
                 }
-                if let Some(filter) = filter {
-                    if filter.find(&name).is_none() {
+
+                if let Some(include) = include {
+                    if !include.is_match(&name) {
+                        return;
+                    }
+                } else if let Some(exclude) = exclude {
+                    if exclude.is_match(&name) {
                         return;
                     }
                 }
@@ -327,6 +353,8 @@ pub fn flatten_tests(test: TestEntry, filter: Option<&Regex>) -> Vec<FlattenedTe
                     output,
                     has_fields,
                     languages: attributes.languages,
+                    error: attributes.error,
+                    skip: attributes.skip,
                     template_delimiters: None,
                 });
             }
@@ -338,12 +366,12 @@ pub fn flatten_tests(test: TestEntry, filter: Option<&Regex>) -> Vec<FlattenedTe
                     name.insert_str(0, prefix);
                 }
                 for child in children {
-                    helper(child, filter, false, &name, result);
+                    helper(child, include, exclude, false, &name, result);
                 }
             }
         }
     }
     let mut result = Vec::new();
-    helper(test, filter, true, "", &mut result);
+    helper(test, include, exclude, true, "", &mut result);
     result
 }

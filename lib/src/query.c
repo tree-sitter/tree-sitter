@@ -1,6 +1,7 @@
 #include "tree_sitter/api.h"
 #include "./alloc.h"
 #include "./array.h"
+#include "./clock.h"
 #include "./language.h"
 #include "./point.h"
 #include "./tree_cursor.h"
@@ -312,6 +313,9 @@ struct TSQueryCursor {
   TSPoint start_point;
   TSPoint end_point;
   uint32_t next_state_id;
+  TSClock end_clock;
+  TSDuration timeout_duration;
+  unsigned operation_count;
   bool on_visible_node;
   bool ascending;
   bool halted;
@@ -322,6 +326,7 @@ static const TSQueryError PARENT_DONE = -1;
 static const uint16_t PATTERN_DONE_MARKER = UINT16_MAX;
 static const uint16_t NONE = UINT16_MAX;
 static const TSSymbol WILDCARD_SYMBOL = 0;
+static const unsigned OP_COUNT_PER_QUERY_TIMEOUT_CHECK = 100;
 
 /**********
  * Stream
@@ -437,7 +442,7 @@ static const CaptureList *capture_list_pool_get(const CaptureListPool *self, uin
 }
 
 static CaptureList *capture_list_pool_get_mut(CaptureListPool *self, uint16_t id) {
-  assert(id < self->list.size);
+  ts_assert(id < self->list.size);
   return &self->list.contents[id];
 }
 
@@ -1690,7 +1695,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
       unsigned first_child_step_index = parent_step_index + 1;
       uint32_t j, child_exists;
       array_search_sorted_by(&self->step_offsets, .step_index, first_child_step_index, &j, &child_exists);
-      assert(child_exists);
+      ts_assert(child_exists);
       *error_offset = self->step_offsets.contents[j].byte_offset;
       all_patterns_are_valid = false;
       break;
@@ -1749,7 +1754,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     // If this pattern cannot match, store the pattern index so that it can be
     // returned to the caller.
     if (analysis.finished_parent_symbols.size == 0) {
-      assert(analysis.final_step_indices.size > 0);
+      ts_assert(analysis.final_step_indices.size > 0);
       uint16_t impossible_step_index = *array_back(&analysis.final_step_indices);
       uint32_t j, impossible_exists;
       array_search_sorted_by(&self->step_offsets, .step_index, impossible_step_index, &j, &impossible_exists);
@@ -2927,7 +2932,7 @@ bool ts_query__step_is_fallible(
   const TSQuery *self,
   uint16_t step_index
 ) {
-  assert((uint32_t)step_index + 1 < self->steps.size);
+  ts_assert((uint32_t)step_index + 1 < self->steps.size);
   QueryStep *step = &self->steps.contents[step_index];
   QueryStep *next_step = &self->steps.contents[step_index + 1];
   return (
@@ -2986,6 +2991,9 @@ TSQueryCursor *ts_query_cursor_new(void) {
     .start_point = {0, 0},
     .end_point = POINT_MAX,
     .max_start_depth = UINT32_MAX,
+    .timeout_duration = 0,
+    .end_clock = clock_null(),
+    .operation_count = 0,
   };
   array_reserve(&self->states, 8);
   array_reserve(&self->finished_states, 8);
@@ -3012,6 +3020,14 @@ void ts_query_cursor_set_match_limit(TSQueryCursor *self, uint32_t limit) {
   self->capture_list_pool.max_capture_list_count = limit;
 }
 
+uint64_t ts_query_cursor_timeout_micros(const TSQueryCursor *self) {
+  return duration_to_micros(self->timeout_duration);
+}
+
+void ts_query_cursor_set_timeout_micros(TSQueryCursor *self, uint64_t timeout_micros) {
+  self->timeout_duration = duration_from_micros(timeout_micros);
+}
+
 #ifdef DEBUG_EXECUTE_QUERY
 #define LOG(...) fprintf(stderr, __VA_ARGS__)
 #else
@@ -3023,7 +3039,7 @@ void ts_query_cursor_exec(
   const TSQuery *query,
   TSNode node
 ) {
-  if  (query) {
+  if (query) {
     LOG("query steps:\n");
     for (unsigned i = 0; i < query->steps.size; i++) {
       QueryStep *step = &query->steps.contents[i];
@@ -3060,6 +3076,12 @@ void ts_query_cursor_exec(
   self->halted = false;
   self->query = query;
   self->did_exceed_match_limit = false;
+  self->operation_count = 0;
+  if (self->timeout_duration) {
+    self->end_clock = clock_after(clock_now(), self->timeout_duration);
+  } else {
+    self->end_clock = clock_null();
+  }
 }
 
 void ts_query_cursor_set_byte_range(
@@ -3456,7 +3478,19 @@ static inline bool ts_query_cursor__advance(
       }
     }
 
-    if (did_match || self->halted) return did_match;
+    if (++self->operation_count == OP_COUNT_PER_QUERY_TIMEOUT_CHECK) {
+      self->operation_count = 0;
+    }
+    if (
+      did_match ||
+      self->halted ||
+      (
+        self->operation_count == 0 &&
+        !clock_is_null(self->end_clock) && clock_is_gt(clock_now(), self->end_clock)
+      )
+    ) {
+      return did_match;
+    }
 
     // Exit the current node.
     if (self->ascending) {

@@ -43,7 +43,7 @@ void ts_language_table_entry(
     result->is_reusable = false;
     result->actions = NULL;
   } else {
-    assert(symbol < self->token_count);
+    ts_assert(symbol < self->token_count);
     uint32_t action_index = ts_language_lookup(self, state, symbol);
     const TSParseActionEntry *entry = &self->parse_actions[action_index];
     result->action_count = entry->entry.count;

@@ -10,6 +10,7 @@ const OPERATORS: &[char] = &[
 pub struct Rand(StdRng);
 
 impl Rand {
+    #[must_use]
     pub fn new(seed: usize) -> Self {
         Self(StdRng::seed_from_u64(seed as u64))
     }

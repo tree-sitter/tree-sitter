@@ -51,7 +51,6 @@ pub const LANGUAGE_VERSION: usize = ffi::TREE_SITTER_LANGUAGE_VERSION as usize;
 pub const MIN_COMPATIBLE_LANGUAGE_VERSION: usize =
     ffi::TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION as usize;
 
-pub const ARRAY_HEADER: &str = include_str!("../src/array.h");
 pub const PARSER_HEADER: &str = include_str!("../src/parser.h");
 
 /// An opaque object that defines how to parse a particular language. The code
@@ -293,8 +292,9 @@ pub struct LossyUtf8<'a> {
 }
 
 impl Language {
+    #[must_use]
     pub fn new(builder: LanguageFn) -> Self {
-        Self(unsafe { (builder.into_raw())() as _ })
+        Self(unsafe { builder.into_raw()().cast() })
     }
 
     /// Get the ABI version number that indicates which version of the
@@ -1237,6 +1237,14 @@ impl<'tree> Node<'tree> {
         }
     }
 
+    /// Get the field name of this node's named child at the given index.
+    pub fn field_name_for_named_child(&self, named_child_index: u32) -> Option<&'static str> {
+        unsafe {
+            let ptr = ffi::ts_node_field_name_for_named_child(self.0, named_child_index);
+            (!ptr.is_null()).then(|| CStr::from_ptr(ptr).to_str().unwrap())
+        }
+    }
+
     /// Iterate over this node's children.
     ///
     /// A [`TreeCursor`] is used to retrieve the children efficiently. Obtain
@@ -1381,6 +1389,20 @@ impl<'tree> Node<'tree> {
     #[must_use]
     pub fn prev_named_sibling(&self) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_prev_named_sibling(self.0) })
+    }
+
+    /// Get the node's first child that extends beyond the given byte offset.
+    #[doc(alias = "ts_node_first_child_for_byte")]
+    #[must_use]
+    pub fn first_child_for_byte(&self, byte: usize) -> Option<Self> {
+        Self::new(unsafe { ffi::ts_node_first_child_for_byte(self.0, byte as u32) })
+    }
+
+    /// Get the node's first named child that extends beyond the given byte offset.
+    #[doc(alias = "ts_node_first_named_child_for_point")]
+    #[must_use]
+    pub fn first_named_child_for_byte(&self, byte: usize) -> Option<Self> {
+        Self::new(unsafe { ffi::ts_node_first_named_child_for_byte(self.0, byte as u32) })
     }
 
     /// Get the node's number of descendants, including one for the node itself.
@@ -2362,6 +2384,26 @@ impl QueryCursor {
         unsafe {
             ffi::ts_query_cursor_set_match_limit(self.ptr.as_ptr(), limit);
         }
+    }
+
+    /// Set the maximum duration in microseconds that query execution should be allowed to
+    /// take before halting.
+    ///
+    /// If query execution takes longer than this, it will halt early, returning None.
+    #[doc(alias = "ts_query_cursor_set_timeout_micros")]
+    pub fn set_timeout_micros(&mut self, timeout: u64) {
+        unsafe {
+            ffi::ts_query_cursor_set_timeout_micros(self.ptr.as_ptr(), timeout);
+        }
+    }
+
+    /// Get the duration in microseconds that query execution is allowed to take.
+    ///
+    /// This is set via [`set_timeout_micros`](QueryCursor::set_timeout_micros).
+    #[doc(alias = "ts_query_cursor_timeout_micros")]
+    #[must_use]
+    pub fn timeout_micros(&self) -> u64 {
+        unsafe { ffi::ts_query_cursor_timeout_micros(self.ptr.as_ptr()) }
     }
 
     /// Check if, on its last execution, this cursor exceeded its maximum number

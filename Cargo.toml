@@ -34,59 +34,68 @@ codegen-units = 1    # Maximum size reduction optimizations.
 inherits = "optimize"
 opt-level = "s"       # Optimize for size.
 
-[profile.profile]
-inherits = "optimize"
-strip = false
+[profile.release-dev]
+inherits = "release"
+lto = false
+debug = true
+debug-assertions = true
+overflow-checks = true
+incremental = true
+codegen-units = 256
 
 [workspace.dependencies]
 anstyle = "1.0.8"
-anyhow = "1.0.86"
-cc = "1.1.13"
-clap = { version = "4.5.16", features = [
+anyhow = "1.0.89"
+bstr = "1.10.0"
+cc = "1.1.22"
+clap = { version = "4.5.18", features = [
   "cargo",
   "derive",
   "env",
   "help",
   "unstable-styles",
 ] }
+clap_complete = "4.5.29"
 ctor = "0.2.8"
 ctrlc = { version = "3.4.5", features = ["termination"] }
 dirs = "5.0.1"
-filetime = "0.2.24"
-fs4 = "0.8.4"
-git2 = "0.18.3"
+filetime = "0.2.25"
+fs4 = "0.9.1"
+git2 = "0.19.0"
 glob = "0.3.1"
 heck = "0.5.0"
 html-escape = "0.2.13"
-indexmap = "2.4.0"
+indexmap = "2.5.0"
 indoc = "2.0.5"
 lazy_static = "1.5.0"
 libloading = "0.8.5"
 log = { version = "0.4.22", features = ["std"] }
 memchr = "2.7.4"
 once_cell = "1.19.0"
-pretty_assertions = "1.4.0"
+path-slash = "0.2.1"
+pretty_assertions = "1.4.1"
 rand = "0.8.5"
 regex = "1.10.6"
 regex-syntax = "0.8.4"
-rustc-hash = "1.1.0"
+rustc-hash = "2.0.0"
 semver = "1.0.23"
-serde = { version = "1.0.208", features = ["derive"] }
-serde_derive = "1.0.197"
-serde_json = { version = "1.0.125", features = ["preserve_order"] }
+serde = { version = "1.0.210", features = ["derive"] }
+serde_derive = "1.0.210"
+serde_json = { version = "1.0.128", features = ["preserve_order"] }
 similar = "2.6.0"
 smallbitvec = "2.5.3"
 streaming-iterator = "0.1.9"
 tempfile = "3.12.0"
-thiserror = "1.0.63"
+thiserror = "1.0.64"
 tiny_http = "0.12.0"
 toml = "0.8.19"
 unindent = "0.2.3"
 walkdir = "2.5.0"
-wasmparser = "0.215.0"
-webbrowser = "1.0.1"
+wasmparser = "0.217.0"
+webbrowser = "1.0.2"
 
 tree-sitter = { version = "0.23.0", path = "./lib" }
+tree-sitter-generate = { version = "0.23.0", path = "./cli/generate" }
 tree-sitter-loader = { version = "0.23.0", path = "./cli/loader" }
 tree-sitter-config = { version = "0.23.0", path = "./cli/config" }
 tree-sitter-highlight = { version = "0.23.0", path = "./highlight" }

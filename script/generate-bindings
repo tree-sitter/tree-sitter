@@ -37,6 +37,7 @@ bindgen                                        \
   --blocklist-type '^__.*'                     \
   --no-prepend-enum-name                       \
   --no-copy "$no_copy"                         \
+  --use-core                                   \
   "$header_path"                               \
   --                                           \
   -D TREE_SITTER_FEATURE_WASM                  \

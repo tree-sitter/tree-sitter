@@ -1,8 +1,8 @@
 #![doc = include_str!("../README.md")]
 
 pub mod fuzz;
-pub mod generate;
 pub mod highlight;
+pub mod init;
 pub mod logger;
 pub mod parse;
 pub mod playground;

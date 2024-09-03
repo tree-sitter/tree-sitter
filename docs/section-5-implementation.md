@@ -21,15 +21,15 @@ The `tree-sitter` CLI's most important feature is the `generate` subcommand. Thi
 
 ### Parsing a Grammar
 
-First, Tree-sitter must evaluate the JavaScript code in `grammar.js` and convert the grammar to a JSON format. It does this by shelling out to `node`. The format of the grammars is formally specified by the JSON schema in [grammar-schema.json](https://github.com/tree-sitter/tree-sitter/blob/master/cli/src/generate/grammar-schema.json). The parsing is implemented in [parse_grammar.rs](https://github.com/tree-sitter/tree-sitter/blob/master/cli/src/generate/parse_grammar.rs).
+First, Tree-sitter must evaluate the JavaScript code in `grammar.js` and convert the grammar to a JSON format. It does this by shelling out to `node`. The format of the grammars is formally specified by the JSON schema in [grammar.schema.json](https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json). The parsing is implemented in [parse_grammar.rs](https://github.com/tree-sitter/tree-sitter/blob/master/cli/generate/src/parse_grammar.rs).
 
 ### Grammar Rules
 
-A Tree-sitter grammar is composed of a set of *rules* - objects that describe how syntax nodes can be composed from other syntax nodes. There are several types of rules: symbols, strings, regexes, sequences, choices, repetitions, and a few others. Internally, these are all represented using an [enum](https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html) called [`Rule`](https://github.com/tree-sitter/tree-sitter/blob/master/cli/src/generate/rules.rs).
+A Tree-sitter grammar is composed of a set of *rules* - objects that describe how syntax nodes can be composed from other syntax nodes. There are several types of rules: symbols, strings, regexes, sequences, choices, repetitions, and a few others. Internally, these are all represented using an [enum](https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html) called [`Rule`](https://github.com/tree-sitter/tree-sitter/blob/master/cli/generate/src/rules.rs).
 
 ### Preparing a Grammar
 
-Once a grammar has been parsed, it must be transformed in several ways before it can be used to generate a parser. Each transformation is implemented by a separate file in the [`prepare_grammar`](https://github.com/tree-sitter/tree-sitter/tree/master/cli/src/generate/prepare_grammar) directory, and the transformations are ultimately composed together in `prepare_grammar/mod.rs`.
+Once a grammar has been parsed, it must be transformed in several ways before it can be used to generate a parser. Each transformation is implemented by a separate file in the [`prepare_grammar`](https://github.com/tree-sitter/tree-sitter/tree/master/cli/generate/src/prepare_grammar) directory, and the transformations are ultimately composed together in `prepare_grammar/mod.rs`.
 
 At the end of these transformations, the initial grammar is split into two grammars: a *syntax grammar* and a *lexical grammar*. The syntax grammar describes how the language's [*non-terminal symbols*](https://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols) are constructed from other grammar symbols, and the lexical grammar describes how the grammar's *terminal symbols* (strings and regexes) can be composed from individual characters.
 

@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::BTreeMap,
     ffi::OsStr,
     fs,
     io::{self, Write},
@@ -59,6 +59,7 @@ pub enum TestEntry {
         header_delim_len: usize,
         divider_delim_len: usize,
         has_fields: bool,
+        attributes_str: String,
         attributes: TestAttributes,
     },
 }
@@ -98,7 +99,6 @@ pub struct TestOptions<'a> {
     pub path: PathBuf,
     pub debug: bool,
     pub debug_graph: bool,
-    pub filter: Option<&'a str>,
     pub include: Option<Regex>,
     pub exclude: Option<Regex>,
     pub update: bool,
@@ -171,10 +171,22 @@ pub fn run_tests_at_path(parser: &mut Parser, opts: &mut TestOptions) -> Result<
                 print_diff_key();
             }
             for (i, (name, actual, expected)) in failures.iter().enumerate() {
-                println!("\n  {}. {name}:", i + 1);
-                let actual = format_sexp(actual, 2);
-                let expected = format_sexp(expected, 2);
-                print_diff(&actual, &expected, opts.color);
+                if expected == "NO ERROR" {
+                    println!("\n  {}. {name}:\n", i + 1);
+                    println!("  Expected an ERROR node, but got:");
+                    println!(
+                        "  {}",
+                        paint(
+                            opts.color.then_some(AnsiColor::Red),
+                            &format_sexp(actual, 2)
+                        )
+                    );
+                } else {
+                    println!("\n  {}. {name}:", i + 1);
+                    let actual = format_sexp(actual, 2);
+                    let expected = format_sexp(expected, 2);
+                    print_diff(&actual, &expected, opts.color);
+                }
             }
 
             if has_parse_errors {
@@ -203,9 +215,8 @@ pub fn get_test_info<'test>(
         } => {
             if *test_num == target_test {
                 return Some((name, input, attributes.languages.clone()));
-            } else {
-                *test_num += 1;
             }
+            *test_num += 1;
         }
         TestEntry::Group { children, .. } => {
             for child in children {
@@ -326,7 +337,7 @@ fn run_tests(
     opts: &mut TestOptions,
     mut indent_level: i32,
     failures: &mut Vec<(String, String, String)>,
-    corrected_entries: &mut Vec<(String, String, String, usize, usize)>,
+    corrected_entries: &mut Vec<(String, String, String, String, usize, usize)>,
     has_parse_errors: &mut bool,
 ) -> Result<bool> {
     match test_entry {
@@ -337,6 +348,7 @@ fn run_tests(
             header_delim_len,
             divider_delim_len,
             has_fields,
+            attributes_str,
             attributes,
         } => {
             print!("{}", "  ".repeat(indent_level as usize));
@@ -376,12 +388,42 @@ fn run_tests(
                             opts.test_num,
                             paint(opts.color.then_some(AnsiColor::Green), &name)
                         );
+                        if opts.update {
+                            let input = String::from_utf8(input.clone()).unwrap();
+                            let output = format_sexp(&output, 0);
+                            corrected_entries.push((
+                                name.clone(),
+                                input,
+                                output,
+                                attributes_str.clone(),
+                                header_delim_len,
+                                divider_delim_len,
+                            ));
+                        }
                     } else {
+                        if opts.update {
+                            let input = String::from_utf8(input.clone()).unwrap();
+                            // Keep the original `expected` output if the actual output has no error
+                            let output = format_sexp(&output, 0);
+                            corrected_entries.push((
+                                name.clone(),
+                                input,
+                                output,
+                                attributes_str.clone(),
+                                header_delim_len,
+                                divider_delim_len,
+                            ));
+                        }
                         println!(
                             "{:>3}.  {}",
                             opts.test_num,
                             paint(opts.color.then_some(AnsiColor::Red), &name)
                         );
+                        failures.push((
+                            name.clone(),
+                            tree.root_node().to_sexp(),
+                            "NO ERROR".to_string(),
+                        ));
                     }
 
                     if attributes.fail_fast {
@@ -406,6 +448,7 @@ fn run_tests(
                                 name.clone(),
                                 input,
                                 output,
+                                attributes_str.clone(),
                                 header_delim_len,
                                 divider_delim_len,
                             ));
@@ -429,6 +472,7 @@ fn run_tests(
                                     name.clone(),
                                     input,
                                     expected_output,
+                                    attributes_str.clone(),
                                     header_delim_len,
                                     divider_delim_len,
                                 ));
@@ -437,6 +481,7 @@ fn run_tests(
                                     name.clone(),
                                     input,
                                     actual_output,
+                                    attributes_str.clone(),
                                     header_delim_len,
                                     divider_delim_len,
                                 ));
@@ -470,63 +515,73 @@ fn run_tests(
         }
         TestEntry::Group {
             name,
-            mut children,
+            children,
             file_path,
         } => {
-            // track which tests are being skipped to maintain consistent numbering while using
-            // filters
-            let mut skipped_tests = HashSet::new();
-            let mut advance_counter = opts.test_num;
-            children.retain(|child| match child {
-                TestEntry::Example { name, .. } => {
-                    if let Some(filter) = opts.filter {
-                        if !name.contains(filter) {
-                            skipped_tests.insert(advance_counter);
-                            advance_counter += 1;
-                            return false;
-                        }
-                    }
-                    if let Some(include) = &opts.include {
-                        if !include.is_match(name) {
-                            skipped_tests.insert(advance_counter);
-                            advance_counter += 1;
-                            return false;
-                        }
-                    }
-                    if let Some(exclude) = &opts.exclude {
-                        if exclude.is_match(name) {
-                            skipped_tests.insert(advance_counter);
-                            advance_counter += 1;
-                            return false;
-                        }
-                    }
-                    advance_counter += 1;
-                    true
-                }
-                TestEntry::Group { .. } => {
-                    advance_counter += count_subtests(child);
-                    true
-                }
-            });
-
             if children.is_empty() {
-                opts.test_num = advance_counter;
                 return Ok(true);
             }
 
-            if indent_level > 0 {
-                print!("{}", "  ".repeat(indent_level as usize));
-                println!("{name}:");
-            }
-
-            let failure_count = failures.len();
-
             indent_level += 1;
+            let mut advance_counter = opts.test_num;
+            let failure_count = failures.len();
+            let mut has_printed = false;
+            let mut skipped_tests = 0;
+
+            let matches_filter = |name: &str, opts: &TestOptions| {
+                if let Some(include) = &opts.include {
+                    include.is_match(name)
+                } else if let Some(exclude) = &opts.exclude {
+                    !exclude.is_match(name)
+                } else {
+                    true
+                }
+            };
+
+            let mut should_skip = |entry: &TestEntry, opts: &TestOptions| match entry {
+                TestEntry::Example { name, .. } => {
+                    advance_counter += 1;
+                    !matches_filter(name, opts)
+                }
+                TestEntry::Group { .. } => {
+                    advance_counter += count_subtests(entry);
+                    false
+                }
+            };
+
             for child in children {
-                if let TestEntry::Example { .. } = child {
-                    while skipped_tests.remove(&opts.test_num) {
+                if let TestEntry::Example {
+                    ref name,
+                    ref input,
+                    ref output,
+                    ref attributes_str,
+                    header_delim_len,
+                    divider_delim_len,
+                    ..
+                } = child
+                {
+                    if should_skip(&child, opts) {
+                        let input = String::from_utf8(input.clone()).unwrap();
+                        let output = format_sexp(output, 0);
+                        corrected_entries.push((
+                            name.clone(),
+                            input,
+                            output,
+                            attributes_str.clone(),
+                            header_delim_len,
+                            divider_delim_len,
+                        ));
+
                         opts.test_num += 1;
+                        skipped_tests += 1;
+
+                        continue;
                     }
+                }
+                if !has_printed && indent_level > 1 {
+                    has_printed = true;
+                    print!("{}", "  ".repeat((indent_level - 1) as usize));
+                    println!("{name}:");
                 }
                 if !run_tests(
                     parser,
@@ -542,7 +597,7 @@ fn run_tests(
                 }
             }
 
-            opts.test_num += skipped_tests.len();
+            opts.test_num += skipped_tests;
 
             if let Some(file_path) = file_path {
                 if opts.update && failures.len() - failure_count > 0 {
@@ -566,7 +621,7 @@ fn count_subtests(test_entry: &TestEntry) -> usize {
 
 fn write_tests(
     file_path: &Path,
-    corrected_entries: &[(String, String, String, usize, usize)],
+    corrected_entries: &[(String, String, String, String, usize, usize)],
 ) -> Result<()> {
     let mut buffer = fs::File::create(file_path)?;
     write_tests_to_buffer(&mut buffer, corrected_entries)
@@ -574,9 +629,9 @@ fn write_tests(
 
 fn write_tests_to_buffer(
     buffer: &mut impl Write,
-    corrected_entries: &[(String, String, String, usize, usize)],
+    corrected_entries: &[(String, String, String, String, usize, usize)],
 ) -> Result<()> {
-    for (i, (name, input, output, header_delim_len, divider_delim_len)) in
+    for (i, (name, input, output, attributes_str, header_delim_len, divider_delim_len)) in
         corrected_entries.iter().enumerate()
     {
         if i > 0 {
@@ -584,8 +639,13 @@ fn write_tests_to_buffer(
         }
         writeln!(
             buffer,
-            "{}\n{name}\n{}\n{input}\n{}\n\n{}",
+            "{}\n{name}\n{}{}\n{input}\n{}\n\n{}",
             "=".repeat(*header_delim_len),
+            if attributes_str.is_empty() {
+                attributes_str.clone()
+            } else {
+                format!("{attributes_str}\n")
+            },
             "=".repeat(*header_delim_len),
             "-".repeat(*divider_delim_len),
             output.trim()
@@ -643,6 +703,7 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
     let mut children = Vec::new();
     let bytes = content.as_bytes();
     let mut prev_name = String::new();
+    let mut prev_attributes_str = String::new();
     let mut prev_header_end = 0;
 
     // Find the first test header in the file, and determine if it has a
@@ -673,17 +734,20 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
             .map_or("".as_bytes(), |m| m.as_bytes());
 
         let mut test_name = String::new();
+        let mut attributes_str = String::new();
+
         let mut seen_marker = false;
 
-        for line in str::from_utf8(test_name_and_markers)
-            .unwrap()
-            .lines()
+        let test_name_and_markers = str::from_utf8(test_name_and_markers).unwrap();
+        for line in test_name_and_markers
+            .split_inclusive('\n')
             .filter(|s| !s.is_empty())
         {
-            match line.split('(').next().unwrap() {
+            let trimmed_line = line.trim();
+            match trimmed_line.split('(').next().unwrap() {
                 ":skip" => (seen_marker, skip) = (true, true),
                 ":platform" => {
-                    if let Some(platforms) = line.strip_prefix(':').and_then(|s| {
+                    if let Some(platforms) = trimmed_line.strip_prefix(':').and_then(|s| {
                         s.strip_prefix("platform(")
                             .and_then(|s| s.strip_suffix(')'))
                     }) {
@@ -696,7 +760,7 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
                 ":fail-fast" => (seen_marker, fail_fast) = (true, true),
                 ":error" => (seen_marker, error) = (true, true),
                 ":language" => {
-                    if let Some(lang) = line.strip_prefix(':').and_then(|s| {
+                    if let Some(lang) = trimmed_line.strip_prefix(':').and_then(|s| {
                         s.strip_prefix("language(")
                             .and_then(|s| s.strip_suffix(')'))
                     }) {
@@ -706,11 +770,11 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
                 }
                 _ if !seen_marker => {
                     test_name.push_str(line);
-                    test_name.push('\n');
                 }
                 _ => {}
             }
         }
+        attributes_str.push_str(test_name_and_markers.strip_prefix(&test_name).unwrap());
 
         // prefer skip over error, both shouldn't be set
         if skip {
@@ -729,10 +793,16 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
             } else {
                 Some(test_name.trim_end().to_string())
             };
+            let attributes_str = if attributes_str.is_empty() {
+                None
+            } else {
+                Some(attributes_str.trim_end().to_string())
+            };
             Some((
                 header_delim_len,
                 header_range,
                 test_name,
+                attributes_str,
                 TestAttributes {
                     skip,
                     platform: platform.unwrap_or(true),
@@ -747,12 +817,15 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
     });
 
     let (mut prev_header_len, mut prev_attributes) = (80, TestAttributes::default());
-    for (header_delim_len, header_range, test_name, attributes) in header_matches.chain(Some((
-        80,
-        bytes.len()..bytes.len(),
-        None,
-        TestAttributes::default(),
-    ))) {
+    for (header_delim_len, header_range, test_name, attributes_str, attributes) in header_matches
+        .chain(Some((
+            80,
+            bytes.len()..bytes.len(),
+            None,
+            None,
+            TestAttributes::default(),
+        )))
+    {
         // Find the longest line of dashes following each test description. That line
         // separates the input from the expected output. Ignore any matches whose suffix
         // does not match the first suffix in the file.
@@ -804,6 +877,7 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
                         header_delim_len: prev_header_len,
                         divider_delim_len,
                         has_fields,
+                        attributes_str: prev_attributes_str,
                         attributes: prev_attributes,
                     };
 
@@ -813,6 +887,7 @@ fn parse_test_content(name: String, content: &str, file_path: Option<PathBuf>) -
         }
         prev_attributes = attributes;
         prev_name = test_name.unwrap_or_default();
+        prev_attributes_str = attributes_str.unwrap_or_default();
         prev_header_len = header_delim_len;
         prev_header_end = header_range.end;
     }
@@ -866,6 +941,7 @@ d
                         header_delim_len: 15,
                         divider_delim_len: 3,
                         has_fields: false,
+                        attributes_str: String::new(),
                         attributes: TestAttributes::default(),
                     },
                     TestEntry::Example {
@@ -875,6 +951,7 @@ d
                         header_delim_len: 16,
                         divider_delim_len: 3,
                         has_fields: false,
+                        attributes_str: String::new(),
                         attributes: TestAttributes::default(),
                     },
                 ],
@@ -925,6 +1002,7 @@ abc
                         header_delim_len: 18,
                         divider_delim_len: 7,
                         has_fields: false,
+                        attributes_str: String::new(),
                         attributes: TestAttributes::default(),
                     },
                     TestEntry::Example {
@@ -934,6 +1012,7 @@ abc
                         header_delim_len: 25,
                         divider_delim_len: 19,
                         has_fields: false,
+                        attributes_str: String::new(),
                         attributes: TestAttributes::default(),
                     },
                 ],
@@ -981,12 +1060,12 @@ abc
                 r"(source_file (ERROR (UNEXPECTED 'f') (UNEXPECTED '+')))",
                 0
             ),
-            r#"
+            r"
 (source_file
   (ERROR
     (UNEXPECTED 'f')
     (UNEXPECTED '+')))
-"#
+"
             .trim()
         );
     }
@@ -999,6 +1078,7 @@ abc
                 "title 1".to_string(),
                 "input 1".to_string(),
                 "output 1".to_string(),
+                String::new(),
                 80,
                 80,
             ),
@@ -1006,6 +1086,7 @@ abc
                 "title 2".to_string(),
                 "input 2".to_string(),
                 "output 2".to_string(),
+                String::new(),
                 80,
                 80,
             ),
@@ -1086,6 +1167,7 @@ code
                         header_delim_len: 18,
                         divider_delim_len: 3,
                         has_fields: false,
+                        attributes_str: String::new(),
                         attributes: TestAttributes::default(),
                     },
                     TestEntry::Example {
@@ -1095,6 +1177,7 @@ code
                         header_delim_len: 18,
                         divider_delim_len: 3,
                         has_fields: false,
+                        attributes_str: String::new(),
                         attributes: TestAttributes::default(),
                     },
                     TestEntry::Example {
@@ -1104,6 +1187,7 @@ code
                         header_delim_len: 25,
                         divider_delim_len: 3,
                         has_fields: false,
+                        attributes_str: String::new(),
                         attributes: TestAttributes::default(),
                     }
                 ],
@@ -1177,6 +1261,7 @@ NOT A TEST HEADER
                         header_delim_len: 18,
                         divider_delim_len: 3,
                         has_fields: false,
+                        attributes_str: String::new(),
                         attributes: TestAttributes::default(),
                     },
                     TestEntry::Example {
@@ -1186,6 +1271,7 @@ NOT A TEST HEADER
                         header_delim_len: 18,
                         divider_delim_len: 3,
                         has_fields: false,
+                        attributes_str: String::new(),
                         attributes: TestAttributes::default(),
                     },
                     TestEntry::Example {
@@ -1195,6 +1281,7 @@ NOT A TEST HEADER
                         header_delim_len: 25,
                         divider_delim_len: 3,
                         has_fields: false,
+                        attributes_str: String::new(),
                         attributes: TestAttributes::default(),
                     }
                 ],
@@ -1240,6 +1327,7 @@ code with ----
                         header_delim_len: 15,
                         divider_delim_len: 3,
                         has_fields: false,
+                        attributes_str: String::new(),
                         attributes: TestAttributes::default(),
                     },
                     TestEntry::Example {
@@ -1249,6 +1337,7 @@ code with ----
                         header_delim_len: 20,
                         divider_delim_len: 3,
                         has_fields: false,
+                        attributes_str: String::new(),
                         attributes: TestAttributes::default(),
                     }
                 ]
@@ -1286,6 +1375,7 @@ a
                     header_delim_len: 21,
                     divider_delim_len: 3,
                     has_fields: false,
+                    attributes_str: ":skip".to_string(),
                     attributes: TestAttributes {
                         skip: true,
                         platform: true,
@@ -1342,6 +1432,7 @@ a
                         header_delim_len: 25,
                         divider_delim_len: 3,
                         has_fields: false,
+                        attributes_str: format!(":platform({})\n:fail-fast", std::env::consts::OS),
                         attributes: TestAttributes {
                             skip: false,
                             platform: true,
@@ -1357,6 +1448,11 @@ a
                         header_delim_len: 29,
                         divider_delim_len: 3,
                         has_fields: false,
+                        attributes_str: if std::env::consts::OS == "linux" {
+                            ":platform(macos)\n:language(foo)".to_string()
+                        } else {
+                            ":platform(linux)\n:language(foo)".to_string()
+                        },
                         attributes: TestAttributes {
                             skip: false,
                             platform: false,

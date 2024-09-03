@@ -7,6 +7,7 @@ use std::{
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::{anyhow, Context, Result};
 use clap::{crate_authors, Args, Command, FromArgMatches as _, Subcommand};
+use clap_complete::{generate, Shell};
 use glob::glob;
 use regex::Regex;
 use tree_sitter::{ffi, Parser, Point};
@@ -15,8 +16,9 @@ use tree_sitter_cli::{
         fuzz_language_corpus, FuzzOptions, EDIT_COUNT, ITERATION_COUNT, LOG_ENABLED,
         LOG_GRAPH_ENABLED, START_SEED,
     },
-    generate::{self, lookup_package_json_for_path},
-    highlight, logger,
+    highlight,
+    init::{generate_grammar_files, lookup_package_json_for_path},
+    logger,
     parse::{self, ParseFileOptions, ParseOutput},
     playground, query, tags,
     test::{self, TestOptions},
@@ -35,9 +37,9 @@ const DEFAULT_GENERATE_ABI_VERSION: usize = 14;
 #[command(about="Generates and tests parsers", author=crate_authors!("\n"), styles=get_styles())]
 enum Commands {
     InitConfig(InitConfig),
+    Init(Init),
     Generate(Generate),
     Build(Build),
-    BuildWasm(BuildWasm),
     Parse(Parse),
     Test(Test),
     Fuzz(Fuzz),
@@ -46,11 +48,19 @@ enum Commands {
     Tags(Tags),
     Playground(Playground),
     DumpLanguages(DumpLanguages),
+    Complete(Complete),
 }
 
 #[derive(Args)]
 #[command(about = "Generate a default config file")]
 struct InitConfig;
+
+#[derive(Args)]
+#[command(about = "Initialize a grammar repository", alias = "i")]
+struct Init {
+    #[arg(long, short, help = "Update outdated files")]
+    pub update: bool,
+}
 
 #[derive(Args)]
 #[command(about = "Generate a parser", alias = "gen", alias = "g")]
@@ -59,6 +69,8 @@ struct Generate {
     pub grammar_path: Option<String>,
     #[arg(long, short, help = "Show debug log during generation")]
     pub log: bool,
+    #[arg(long, help = "Deprecated (no-op)")]
+    pub no_bindings: bool,
     #[arg(
         long = "abi",
         value_name = "VERSION",
@@ -71,8 +83,6 @@ struct Generate {
                 )
     )]
     pub abi_version: Option<String>,
-    #[arg(long, help = "Don't generate language bindings")]
-    pub no_bindings: bool,
     #[arg(
         long,
         short = 'b',
@@ -122,19 +132,6 @@ struct Build {
     pub reuse_allocator: bool,
     #[arg(long, short = '0', help = "Compile a parser in debug mode")]
     pub debug: bool,
-}
-
-#[derive(Args)]
-#[command(about = "Compile a parser to WASM", alias = "bw")]
-struct BuildWasm {
-    #[arg(
-        short,
-        long,
-        help = "Run emscripten via docker even if it is installed locally"
-    )]
-    pub docker: bool,
-    #[arg(index = 1, num_args = 1, help = "The path to output the wasm file")]
-    pub path: Option<String>,
 }
 
 #[derive(Args)]
@@ -201,17 +198,15 @@ struct Parse {
     #[arg(long, short = 'n', help = "Parse the contents of a specific test")]
     #[clap(conflicts_with = "paths", conflicts_with = "paths_file")]
     pub test_number: Option<u32>,
+    #[arg(short, long, help = "Force rebuild the parser")]
+    pub rebuild: bool,
+    #[arg(long, help = "Omit ranges in the output")]
+    pub no_ranges: bool,
 }
 
 #[derive(Args)]
 #[command(about = "Run a parser's tests", alias = "t")]
 struct Test {
-    #[arg(
-        long,
-        short,
-        help = "Only run corpus test cases whose name includes the given string"
-    )]
-    pub filter: Option<String>,
     #[arg(
         long,
         short,
@@ -254,6 +249,8 @@ struct Test {
     pub config_path: Option<PathBuf>,
     #[arg(long, help = "Force showing fields in test diffs")]
     pub show_fields: bool,
+    #[arg(short, long, help = "Force rebuild the parser")]
+    pub rebuild: bool,
 }
 
 #[derive(Args)]
@@ -263,16 +260,28 @@ struct Fuzz {
     pub skip: Option<Vec<String>>,
     #[arg(long, help = "Subdirectory to the language")]
     pub subdir: Option<String>,
-    #[arg(long, short, help = "Maximum number of edits to perform per fuzz test")]
+    #[arg(long, help = "Maximum number of edits to perform per fuzz test")]
     pub edits: Option<usize>,
-    #[arg(long, short, help = "Number of fuzzing iterations to run per test")]
+    #[arg(long, help = "Number of fuzzing iterations to run per test")]
     pub iterations: Option<usize>,
-    #[arg(long, short, help = "Regex pattern to filter tests")]
-    pub filter: Option<Regex>,
-    #[arg(long, short, help = "Enable logging of graphs and input")]
+    #[arg(
+        long,
+        short,
+        help = "Only fuzz corpus test cases whose name matches the given regex"
+    )]
+    pub include: Option<Regex>,
+    #[arg(
+        long,
+        short,
+        help = "Only fuzz corpus test cases whose name does not match the given regex"
+    )]
+    pub exclude: Option<Regex>,
+    #[arg(long, help = "Enable logging of graphs and input")]
     pub log_graphs: bool,
     #[arg(long, short, help = "Enable parser logging")]
     pub log: bool,
+    #[arg(short, long, help = "Force rebuild the parser")]
+    pub rebuild: bool,
 }
 
 #[derive(Args)]
@@ -392,6 +401,639 @@ struct DumpLanguages {
     pub config_path: Option<PathBuf>,
 }
 
+#[derive(Args)]
+#[command(about = "Generate shell completions", alias = "comp")]
+struct Complete {
+    #[arg(
+        long,
+        short,
+        value_enum,
+        help = "The shell to generate completions for"
+    )]
+    pub shell: Shell,
+}
+
+impl InitConfig {
+    fn run() -> Result<()> {
+        if let Ok(Some(config_path)) = Config::find_config_file() {
+            return Err(anyhow!(
+                "Remove your existing config file first: {}",
+                config_path.to_string_lossy()
+            ));
+        }
+        let mut config = Config::initial()?;
+        config.add(tree_sitter_loader::Config::initial())?;
+        config.add(tree_sitter_cli::highlight::ThemeConfig::default())?;
+        config.save()?;
+        println!(
+            "Saved initial configuration to {}",
+            config.location.display()
+        );
+        Ok(())
+    }
+}
+
+impl Init {
+    fn run(self, current_dir: &Path) -> Result<()> {
+        if let Some(dir_name) = current_dir
+            .file_name()
+            .map(|x| x.to_string_lossy().to_ascii_lowercase())
+        {
+            if let Some(language_name) = dir_name
+                .strip_prefix("tree-sitter-")
+                .or_else(|| Some(dir_name.as_ref()))
+            {
+                generate_grammar_files(current_dir, language_name, self.update)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl Generate {
+    fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
+        if self.no_bindings {
+            eprint!("The --no-bindings flag is no longer used and will be removed in v0.25.0");
+        }
+        if self.log {
+            logger::init();
+        }
+        let abi_version =
+            self.abi_version
+                .as_ref()
+                .map_or(DEFAULT_GENERATE_ABI_VERSION, |version| {
+                    if version == "latest" {
+                        tree_sitter::LANGUAGE_VERSION
+                    } else {
+                        version.parse().expect("invalid abi version flag")
+                    }
+                });
+        tree_sitter_generate::generate_parser_in_directory(
+            current_dir,
+            self.grammar_path.as_deref(),
+            abi_version,
+            self.report_states_for_rule.as_deref(),
+            self.js_runtime.as_deref(),
+        )?;
+        if self.build {
+            if let Some(path) = self.libdir {
+                loader = loader::Loader::with_parser_lib_path(PathBuf::from(path));
+            }
+            loader.debug_build(self.debug_build);
+            loader.languages_at_path(current_dir)?;
+        }
+        Ok(())
+    }
+}
+
+impl Build {
+    fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
+        let grammar_path = current_dir.join(self.path.as_deref().unwrap_or_default());
+
+        if self.wasm {
+            let output_path = self.output.map(|path| current_dir.join(path));
+            let root_path = lookup_package_json_for_path(&grammar_path.join("package.json"))
+                .map(|(p, _)| p.parent().unwrap().to_path_buf())?;
+            wasm::compile_language_to_wasm(
+                &loader,
+                Some(&root_path),
+                &grammar_path,
+                current_dir,
+                output_path,
+                self.docker,
+            )?;
+        } else {
+            let output_path = if let Some(ref path) = self.output {
+                let path = Path::new(path);
+                if path.is_absolute() {
+                    path.to_path_buf()
+                } else {
+                    current_dir.join(path)
+                }
+            } else {
+                let file_name = grammar_path
+                    .file_stem()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .strip_prefix("tree-sitter-")
+                    .unwrap_or("parser");
+                current_dir
+                    .join(file_name)
+                    .with_extension(env::consts::DLL_EXTENSION)
+            };
+
+            let flags: &[&str] = match (self.reuse_allocator, self.debug) {
+                (true, true) => &["TREE_SITTER_REUSE_ALLOCATOR", "TREE_SITTER_DEBUG"],
+                (true, false) => &["TREE_SITTER_REUSE_ALLOCATOR"],
+                (false, true) => &["TREE_SITTER_DEBUG"],
+                (false, false) => &[],
+            };
+
+            loader.debug_build(self.debug);
+
+            let config = Config::load(None)?;
+            let loader_config = config.get()?;
+            loader.find_all_languages(&loader_config).unwrap();
+            loader
+                .compile_parser_at_path(&grammar_path, output_path, flags)
+                .unwrap();
+        }
+        Ok(())
+    }
+}
+
+impl Parse {
+    fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
+        let config = Config::load(self.config_path)?;
+        let color = env::var("NO_COLOR").map_or(true, |v| v != "1");
+        let output = if self.output_dot {
+            ParseOutput::Dot
+        } else if self.output_xml {
+            ParseOutput::Xml
+        } else if self.quiet {
+            ParseOutput::Quiet
+        } else {
+            ParseOutput::Normal
+        };
+
+        let encoding = if let Some(encoding) = self.encoding {
+            match encoding.as_str() {
+                "utf16" => Some(ffi::TSInputEncodingUTF16),
+                "utf8" => Some(ffi::TSInputEncodingUTF8),
+                _ => return Err(anyhow!("Invalid encoding. Expected one of: utf8, utf16")),
+            }
+        } else {
+            None
+        };
+
+        let time = self.time;
+        let edits = self.edits.unwrap_or_default();
+        let cancellation_flag = util::cancel_on_signal();
+        let mut parser = Parser::new();
+
+        loader.debug_build(self.debug_build);
+        loader.force_rebuild(self.rebuild);
+
+        #[cfg(feature = "wasm")]
+        if self.wasm {
+            let engine = tree_sitter::wasmtime::Engine::default();
+            parser
+                .set_wasm_store(tree_sitter::WasmStore::new(&engine).unwrap())
+                .unwrap();
+            loader.use_wasm(&engine);
+        }
+
+        let timeout = self.timeout.unwrap_or_default();
+
+        let (paths, language) = if let Some(target_test) = self.test_number {
+            let (test_path, language_names) = test::get_tmp_test_file(target_test, color)?;
+            let languages = loader.languages_at_path(current_dir)?;
+            let language = languages
+                .iter()
+                .find(|(_, n)| language_names.contains(&Box::from(n.as_str())))
+                .map(|(l, _)| l.clone());
+            let paths = collect_paths(None, Some(vec![test_path.to_str().unwrap().to_owned()]))?;
+            (paths, language)
+        } else {
+            (collect_paths(self.paths_file.as_deref(), self.paths)?, None)
+        };
+
+        let max_path_length = paths.iter().map(|p| p.chars().count()).max().unwrap_or(0);
+        let mut has_error = false;
+        let loader_config = config.get()?;
+        loader.find_all_languages(&loader_config)?;
+
+        let should_track_stats = self.stat;
+        let mut stats = parse::Stats::default();
+
+        for path in &paths {
+            let path = Path::new(&path);
+
+            let language = if let Some(ref language) = language {
+                language.clone()
+            } else {
+                loader.select_language(path, current_dir, self.scope.as_deref())?
+            };
+            parser
+                .set_language(&language)
+                .context("incompatible language")?;
+
+            let opts = ParseFileOptions {
+                language: language.clone(),
+                path,
+                edits: &edits
+                    .iter()
+                    .map(std::string::String::as_str)
+                    .collect::<Vec<&str>>(),
+                max_path_length,
+                output,
+                print_time: time,
+                timeout,
+                debug: self.debug,
+                debug_graph: self.debug_graph,
+                cancellation_flag: Some(&cancellation_flag),
+                encoding,
+                open_log: self.open_log,
+                no_ranges: self.no_ranges,
+            };
+
+            let parse_result = parse::parse_file_at_path(&mut parser, &opts)?;
+
+            if should_track_stats {
+                stats.total_parses += 1;
+                if parse_result.successful {
+                    stats.successful_parses += 1;
+                }
+                if let Some(duration) = parse_result.duration {
+                    stats.total_bytes += parse_result.bytes;
+                    stats.total_duration += duration;
+                }
+            }
+
+            has_error |= !parse_result.successful;
+        }
+
+        if should_track_stats {
+            println!("\n{stats}");
+        }
+
+        if has_error {
+            return Err(anyhow!(""));
+        }
+
+        Ok(())
+    }
+}
+
+impl Test {
+    fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
+        let config = Config::load(self.config_path)?;
+        let color = env::var("NO_COLOR").map_or(true, |v| v != "1");
+
+        loader.debug_build(self.debug_build);
+        loader.force_rebuild(self.rebuild);
+
+        let mut parser = Parser::new();
+
+        #[cfg(feature = "wasm")]
+        if self.wasm {
+            let engine = tree_sitter::wasmtime::Engine::default();
+            parser
+                .set_wasm_store(tree_sitter::WasmStore::new(&engine).unwrap())
+                .unwrap();
+            loader.use_wasm(&engine);
+        }
+
+        let languages = loader.languages_at_path(current_dir)?;
+        let language = &languages
+            .first()
+            .ok_or_else(|| anyhow!("No language found"))?
+            .0;
+        parser.set_language(language)?;
+
+        let test_dir = current_dir.join("test");
+
+        // Run the corpus tests. Look for them in `test/corpus`.
+        let test_corpus_dir = test_dir.join("corpus");
+        if test_corpus_dir.is_dir() {
+            let mut opts = TestOptions {
+                path: test_corpus_dir,
+                debug: self.debug,
+                debug_graph: self.debug_graph,
+                include: self.include,
+                exclude: self.exclude,
+                update: self.update,
+                open_log: self.open_log,
+                languages: languages.iter().map(|(l, n)| (n.as_str(), l)).collect(),
+                color,
+                test_num: 1,
+                show_fields: self.show_fields,
+            };
+
+            test::run_tests_at_path(&mut parser, &mut opts)?;
+        }
+
+        // Check that all of the queries are valid.
+        test::check_queries_at_path(language, &current_dir.join("queries"))?;
+
+        // Run the syntax highlighting tests.
+        let test_highlight_dir = test_dir.join("highlight");
+        if test_highlight_dir.is_dir() {
+            let mut highlighter = Highlighter::new();
+            highlighter.parser = parser;
+            test_highlight::test_highlights(
+                &loader,
+                &config.get()?,
+                &mut highlighter,
+                &test_highlight_dir,
+                color,
+            )?;
+            parser = highlighter.parser;
+        }
+
+        let test_tag_dir = test_dir.join("tags");
+        if test_tag_dir.is_dir() {
+            let mut tags_context = TagsContext::new();
+            tags_context.parser = parser;
+            test_tags::test_tags(
+                &loader,
+                &config.get()?,
+                &mut tags_context,
+                &test_tag_dir,
+                color,
+            )?;
+        }
+
+        // For the rest of the queries, find their tests and run them
+        for entry in walkdir::WalkDir::new(current_dir.join("queries"))
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_file())
+        {
+            let stem = entry
+                .path()
+                .file_stem()
+                .map(|s| s.to_str().unwrap_or_default())
+                .unwrap_or_default();
+            if stem != "highlights" && stem != "tags" {
+                let paths = walkdir::WalkDir::new(test_dir.join(stem))
+                    .into_iter()
+                    .filter_map(|e| {
+                        let entry = e.ok()?;
+                        if entry.file_type().is_file() {
+                            Some(String::from(entry.path().to_string_lossy()))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<String>>();
+                if !paths.is_empty() {
+                    println!("{stem}:");
+                }
+                query::query_files_at_paths(
+                    language,
+                    paths,
+                    entry.path(),
+                    false,
+                    None,
+                    None,
+                    true,
+                    false,
+                    false,
+                )?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Fuzz {
+    fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
+        loader.sanitize_build(true);
+        loader.force_rebuild(self.rebuild);
+
+        let languages = loader.languages_at_path(current_dir)?;
+        let (language, language_name) = &languages
+            .first()
+            .ok_or_else(|| anyhow!("No language found"))?;
+
+        let mut fuzz_options = FuzzOptions {
+            skipped: self.skip,
+            subdir: self.subdir,
+            edits: self.edits.unwrap_or(*EDIT_COUNT),
+            iterations: self.iterations.unwrap_or(*ITERATION_COUNT),
+            include: self.include,
+            exclude: self.exclude,
+            log_graphs: self.log_graphs || *LOG_GRAPH_ENABLED,
+            log: self.log || *LOG_ENABLED,
+        };
+
+        fuzz_language_corpus(
+            language,
+            language_name,
+            *START_SEED,
+            current_dir,
+            &mut fuzz_options,
+        );
+        Ok(())
+    }
+}
+
+impl Query {
+    fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
+        let config = Config::load(self.config_path)?;
+        let paths = collect_paths(self.paths_file.as_deref(), self.paths)?;
+        let loader_config = config.get()?;
+        loader.find_all_languages(&loader_config)?;
+        let language =
+            loader.select_language(Path::new(&paths[0]), current_dir, self.scope.as_deref())?;
+        let query_path = Path::new(&self.query_path);
+
+        let byte_range = self.byte_range.as_ref().and_then(|range| {
+            let mut parts = range.split(':');
+            let start = parts.next()?.parse().ok()?;
+            let end = parts.next().unwrap().parse().ok()?;
+            Some(start..end)
+        });
+        let point_range = self.row_range.as_ref().and_then(|range| {
+            let mut parts = range.split(':');
+            let start = parts.next()?.parse().ok()?;
+            let end = parts.next().unwrap().parse().ok()?;
+            Some(Point::new(start, 0)..Point::new(end, 0))
+        });
+
+        query::query_files_at_paths(
+            &language,
+            paths,
+            query_path,
+            self.captures,
+            byte_range,
+            point_range,
+            self.test,
+            self.quiet,
+            self.time,
+        )?;
+        Ok(())
+    }
+}
+
+impl Highlight {
+    fn run(self, mut loader: loader::Loader) -> Result<()> {
+        let config = Config::load(self.config_path)?;
+        let theme_config: tree_sitter_cli::highlight::ThemeConfig = config.get()?;
+        loader.configure_highlights(&theme_config.theme.highlight_names);
+        let loader_config = config.get()?;
+        loader.find_all_languages(&loader_config)?;
+
+        let quiet = self.quiet;
+        let html_mode = quiet || self.html;
+        let paths = collect_paths(self.paths_file.as_deref(), self.paths)?;
+
+        if html_mode && !quiet {
+            println!("{}", highlight::HTML_HEADER);
+        }
+
+        let cancellation_flag = util::cancel_on_signal();
+
+        let mut language = None;
+        if let Some(scope) = self.scope.as_deref() {
+            language = loader.language_configuration_for_scope(scope)?;
+            if language.is_none() {
+                return Err(anyhow!("Unknown scope '{scope}'"));
+            }
+        }
+
+        for path in paths {
+            let path = Path::new(&path);
+            let (language, language_config) = match language.clone() {
+                Some(v) => v,
+                None => {
+                    if let Some(v) = loader.language_configuration_for_file_name(path)? {
+                        v
+                    } else {
+                        eprintln!("{}", util::lang_not_found_for_path(path, &loader_config));
+                        continue;
+                    }
+                }
+            };
+
+            if let Some(highlight_config) =
+                language_config.highlight_config(language, self.query_paths.as_deref())?
+            {
+                if self.check {
+                    let names = if let Some(path) = self.captures_path.as_deref() {
+                        let path = Path::new(path);
+                        let file = fs::read_to_string(path)?;
+                        let capture_names = file
+                            .lines()
+                            .filter_map(|line| {
+                                if line.trim().is_empty() || line.trim().starts_with(';') {
+                                    return None;
+                                }
+                                line.split(';').next().map(|s| s.trim().trim_matches('"'))
+                            })
+                            .collect::<HashSet<_>>();
+                        highlight_config.nonconformant_capture_names(&capture_names)
+                    } else {
+                        highlight_config.nonconformant_capture_names(&HashSet::new())
+                    };
+                    if names.is_empty() {
+                        eprintln!("All highlight captures conform to standards.");
+                    } else {
+                        eprintln!(
+                            "Non-standard highlight {} detected:",
+                            if names.len() > 1 {
+                                "captures"
+                            } else {
+                                "capture"
+                            }
+                        );
+                        for name in names {
+                            eprintln!("* {name}");
+                        }
+                    }
+                }
+
+                let source = fs::read(path)?;
+                if html_mode {
+                    highlight::html(
+                        &loader,
+                        &theme_config.theme,
+                        &source,
+                        highlight_config,
+                        quiet,
+                        self.time,
+                        Some(&cancellation_flag),
+                    )?;
+                } else {
+                    highlight::ansi(
+                        &loader,
+                        &theme_config.theme,
+                        &source,
+                        highlight_config,
+                        self.time,
+                        Some(&cancellation_flag),
+                    )?;
+                }
+            } else {
+                eprintln!("No syntax highlighting config found for path {path:?}");
+            }
+        }
+
+        if html_mode && !quiet {
+            println!("{}", highlight::HTML_FOOTER);
+        }
+        Ok(())
+    }
+}
+
+impl Tags {
+    fn run(self, mut loader: loader::Loader) -> Result<()> {
+        let config = Config::load(self.config_path)?;
+        let loader_config = config.get()?;
+        loader.find_all_languages(&loader_config)?;
+        let paths = collect_paths(self.paths_file.as_deref(), self.paths)?;
+        tags::generate_tags(
+            &loader,
+            &config.get()?,
+            self.scope.as_deref(),
+            &paths,
+            self.quiet,
+            self.time,
+        )?;
+        Ok(())
+    }
+}
+
+impl Playground {
+    fn run(self, current_dir: &Path) -> Result<()> {
+        let open_in_browser = !self.quiet;
+        let grammar_path = self.grammar_path.as_deref().map_or(current_dir, Path::new);
+        playground::serve(grammar_path, open_in_browser)?;
+        Ok(())
+    }
+}
+
+impl DumpLanguages {
+    fn run(self, mut loader: loader::Loader) -> Result<()> {
+        let config = Config::load(self.config_path)?;
+        let loader_config = config.get()?;
+        loader.find_all_languages(&loader_config)?;
+        for (configuration, language_path) in loader.get_all_language_configurations() {
+            println!(
+                concat!(
+                    "scope: {}\n",
+                    "parser: {:?}\n",
+                    "highlights: {:?}\n",
+                    "file_types: {:?}\n",
+                    "content_regex: {:?}\n",
+                    "injection_regex: {:?}\n",
+                ),
+                configuration.scope.as_ref().unwrap_or(&String::new()),
+                language_path,
+                configuration.highlights_filenames,
+                configuration.file_types,
+                configuration.content_regex,
+                configuration.injection_regex,
+            );
+        }
+        Ok(())
+    }
+}
+
+impl Complete {
+    fn run(self, cli: &mut Command) {
+        generate(
+            self.shell,
+            cli,
+            cli.get_name().to_string(),
+            &mut std::io::stdout(),
+        );
+    }
+}
+
 fn main() {
     let result = run();
     if let Err(err) = &result {
@@ -430,554 +1072,27 @@ fn run() -> Result<()> {
         .arg_required_else_help(true)
         .disable_help_subcommand(true)
         .disable_colored_help(false);
-    let cli = Commands::augment_subcommands(cli);
+    let mut cli = Commands::augment_subcommands(cli);
 
-    let command = Commands::from_arg_matches(&cli.get_matches())?;
+    let command = Commands::from_arg_matches(&cli.clone().get_matches())?;
 
     let current_dir = env::current_dir().unwrap();
-    let mut loader = loader::Loader::new()?;
-
-    let color = env::var("NO_COLOR").map_or(true, |v| v != "1");
+    let loader = loader::Loader::new()?;
 
     match command {
-        Commands::InitConfig(_) => {
-            if let Ok(Some(config_path)) = Config::find_config_file() {
-                return Err(anyhow!(
-                    "Remove your existing config file first: {}",
-                    config_path.to_string_lossy()
-                ));
-            }
-            let mut config = Config::initial()?;
-            config.add(tree_sitter_loader::Config::initial())?;
-            config.add(tree_sitter_cli::highlight::ThemeConfig::default())?;
-            config.save()?;
-            println!(
-                "Saved initial configuration to {}",
-                config.location.display()
-            );
-        }
-
-        Commands::Generate(generate_options) => {
-            if generate_options.log {
-                logger::init();
-            }
-            let abi_version = generate_options.abi_version.as_ref().map_or(
-                DEFAULT_GENERATE_ABI_VERSION,
-                |version| {
-                    if version == "latest" {
-                        tree_sitter::LANGUAGE_VERSION
-                    } else {
-                        version.parse().expect("invalid abi version flag")
-                    }
-                },
-            );
-            generate::generate_parser_in_directory(
-                &current_dir,
-                generate_options.grammar_path.as_deref(),
-                abi_version,
-                !generate_options.no_bindings,
-                generate_options.report_states_for_rule.as_deref(),
-                generate_options.js_runtime.as_deref(),
-            )?;
-            if generate_options.build {
-                if let Some(path) = generate_options.libdir {
-                    loader = loader::Loader::with_parser_lib_path(PathBuf::from(path));
-                }
-                loader.debug_build(generate_options.debug_build);
-                loader.languages_at_path(&current_dir)?;
-            }
-        }
-
-        Commands::Build(build_options) => {
-            if build_options.wasm {
-                let grammar_path =
-                    current_dir.join(build_options.path.as_deref().unwrap_or_default());
-                let output_path = build_options.output.map(|path| current_dir.join(path));
-                let root_path = lookup_package_json_for_path(&grammar_path.join("package.json"))
-                    .map(|(p, _)| p.parent().unwrap().to_path_buf())?;
-                wasm::compile_language_to_wasm(
-                    &loader,
-                    Some(&root_path),
-                    &grammar_path,
-                    &current_dir,
-                    output_path,
-                    build_options.docker,
-                )?;
-            } else {
-                let grammar_path =
-                    current_dir.join(build_options.path.as_deref().unwrap_or_default());
-                let output_path = if let Some(ref path) = build_options.output {
-                    let path = Path::new(path);
-                    if path.is_absolute() {
-                        path.to_path_buf()
-                    } else {
-                        current_dir.join(path)
-                    }
-                } else {
-                    let file_name = grammar_path
-                        .file_stem()
-                        .unwrap()
-                        .to_str()
-                        .unwrap()
-                        .strip_prefix("tree-sitter-")
-                        .unwrap_or("parser");
-                    current_dir
-                        .join(file_name)
-                        .with_extension(env::consts::DLL_EXTENSION)
-                };
-
-                let flags: &[&str] = match (build_options.reuse_allocator, build_options.debug) {
-                    (true, true) => &["TREE_SITTER_REUSE_ALLOCATOR", "TREE_SITTER_DEBUG"],
-                    (true, false) => &["TREE_SITTER_REUSE_ALLOCATOR"],
-                    (false, true) => &["TREE_SITTER_DEBUG"],
-                    (false, false) => &[],
-                };
-
-                loader.debug_build(build_options.debug);
-
-                let config = Config::load(None)?;
-                let loader_config = config.get()?;
-                loader.find_all_languages(&loader_config).unwrap();
-                loader
-                    .compile_parser_at_path(&grammar_path, output_path, flags)
-                    .unwrap();
-            }
-        }
-
-        Commands::BuildWasm(wasm_options) => {
-            eprintln!("`build-wasm` is deprecated and will be removed in v0.24.0. You should use `build --wasm` instead");
-            let grammar_path = current_dir.join(wasm_options.path.unwrap_or_default());
-            let root_path = lookup_package_json_for_path(&grammar_path.join("package.json"))
-                .map(|(p, _)| p.parent().unwrap().to_path_buf())?;
-            wasm::compile_language_to_wasm(
-                &loader,
-                Some(&root_path),
-                &grammar_path,
-                &current_dir,
-                None,
-                wasm_options.docker,
-            )?;
-        }
-
-        Commands::Parse(parse_options) => {
-            let config = Config::load(parse_options.config_path)?;
-            let output = if parse_options.output_dot {
-                ParseOutput::Dot
-            } else if parse_options.output_xml {
-                ParseOutput::Xml
-            } else if parse_options.quiet {
-                ParseOutput::Quiet
-            } else {
-                ParseOutput::Normal
-            };
-
-            let encoding = if let Some(encoding) = parse_options.encoding {
-                match encoding.as_str() {
-                    "utf16" => Some(ffi::TSInputEncodingUTF16),
-                    "utf8" => Some(ffi::TSInputEncodingUTF8),
-                    _ => return Err(anyhow!("Invalid encoding. Expected one of: utf8, utf16")),
-                }
-            } else {
-                None
-            };
-
-            let time = parse_options.time;
-            let edits = parse_options.edits.unwrap_or_default();
-            let cancellation_flag = util::cancel_on_signal();
-            let mut parser = Parser::new();
-
-            loader.debug_build(parse_options.debug_build);
-
-            #[cfg(feature = "wasm")]
-            if parse_options.wasm {
-                let engine = tree_sitter::wasmtime::Engine::default();
-                parser
-                    .set_wasm_store(tree_sitter::WasmStore::new(&engine).unwrap())
-                    .unwrap();
-                loader.use_wasm(&engine);
-            }
-
-            let timeout = parse_options.timeout.unwrap_or_default();
-
-            let (paths, language) = if let Some(target_test) = parse_options.test_number {
-                let (test_path, language_names) = test::get_tmp_test_file(target_test, color)?;
-                let languages = loader.languages_at_path(&current_dir)?;
-                let language = languages
-                    .iter()
-                    .find(|(_, n)| language_names.contains(&Box::from(n.as_str())))
-                    .map(|(l, _)| l.clone());
-                let paths =
-                    collect_paths(None, Some(vec![test_path.to_str().unwrap().to_owned()]))?;
-                (paths, language)
-            } else {
-                (
-                    collect_paths(parse_options.paths_file.as_deref(), parse_options.paths)?,
-                    None,
-                )
-            };
-
-            let max_path_length = paths.iter().map(|p| p.chars().count()).max().unwrap_or(0);
-            let mut has_error = false;
-            let loader_config = config.get()?;
-            loader.find_all_languages(&loader_config)?;
-
-            let should_track_stats = parse_options.stat;
-            let mut stats = parse::Stats::default();
-
-            for path in &paths {
-                let path = Path::new(&path);
-
-                let language = if let Some(ref language) = language {
-                    language.clone()
-                } else {
-                    loader.select_language(path, &current_dir, parse_options.scope.as_deref())?
-                };
-                parser
-                    .set_language(&language)
-                    .context("incompatible language")?;
-
-                let opts = ParseFileOptions {
-                    language: language.clone(),
-                    path,
-                    edits: &edits
-                        .iter()
-                        .map(std::string::String::as_str)
-                        .collect::<Vec<&str>>(),
-                    max_path_length,
-                    output,
-                    print_time: time,
-                    timeout,
-                    debug: parse_options.debug,
-                    debug_graph: parse_options.debug_graph,
-                    cancellation_flag: Some(&cancellation_flag),
-                    encoding,
-                    open_log: parse_options.open_log,
-                };
-
-                let parse_result = parse::parse_file_at_path(&mut parser, &opts)?;
-
-                if should_track_stats {
-                    stats.total_parses += 1;
-                    if parse_result.successful {
-                        stats.successful_parses += 1;
-                    }
-                    if let Some(duration) = parse_result.duration {
-                        stats.total_bytes += parse_result.bytes;
-                        stats.total_duration += duration;
-                    }
-                }
-
-                has_error |= !parse_result.successful;
-            }
-
-            if should_track_stats {
-                println!("\n{stats}");
-            }
-
-            if has_error {
-                return Err(anyhow!(""));
-            }
-        }
-
-        Commands::Test(test_options) => {
-            let config = Config::load(test_options.config_path)?;
-
-            loader.debug_build(test_options.debug_build);
-
-            let mut parser = Parser::new();
-
-            #[cfg(feature = "wasm")]
-            if test_options.wasm {
-                let engine = tree_sitter::wasmtime::Engine::default();
-                parser
-                    .set_wasm_store(tree_sitter::WasmStore::new(&engine).unwrap())
-                    .unwrap();
-                loader.use_wasm(&engine);
-            }
-
-            let languages = loader.languages_at_path(&current_dir)?;
-            let language = &languages
-                .first()
-                .ok_or_else(|| anyhow!("No language found"))?
-                .0;
-            parser.set_language(language)?;
-
-            let test_dir = current_dir.join("test");
-
-            // Run the corpus tests. Look for them in `test/corpus`.
-            let test_corpus_dir = test_dir.join("corpus");
-            if test_corpus_dir.is_dir() {
-                let mut opts = TestOptions {
-                    path: test_corpus_dir,
-                    debug: test_options.debug,
-                    debug_graph: test_options.debug_graph,
-                    filter: test_options.filter.as_deref(),
-                    include: test_options.include,
-                    exclude: test_options.exclude,
-                    update: test_options.update,
-                    open_log: test_options.open_log,
-                    languages: languages.iter().map(|(l, n)| (n.as_str(), l)).collect(),
-                    color,
-                    test_num: 1,
-                    show_fields: test_options.show_fields,
-                };
-
-                test::run_tests_at_path(&mut parser, &mut opts)?;
-            }
-
-            // Check that all of the queries are valid.
-            test::check_queries_at_path(language, &current_dir.join("queries"))?;
-
-            // Run the syntax highlighting tests.
-            let test_highlight_dir = test_dir.join("highlight");
-            if test_highlight_dir.is_dir() {
-                let mut highlighter = Highlighter::new();
-                highlighter.parser = parser;
-                test_highlight::test_highlights(
-                    &loader,
-                    &config.get()?,
-                    &mut highlighter,
-                    &test_highlight_dir,
-                    color,
-                )?;
-                parser = highlighter.parser;
-            }
-
-            let test_tag_dir = test_dir.join("tags");
-            if test_tag_dir.is_dir() {
-                let mut tags_context = TagsContext::new();
-                tags_context.parser = parser;
-                test_tags::test_tags(
-                    &loader,
-                    &config.get()?,
-                    &mut tags_context,
-                    &test_tag_dir,
-                    color,
-                )?;
-            }
-        }
-
-        Commands::Fuzz(fuzz_options) => {
-            loader.sanitize_build(true);
-
-            let languages = loader.languages_at_path(&current_dir)?;
-            let (language, language_name) = &languages
-                .first()
-                .ok_or_else(|| anyhow!("No language found"))?;
-
-            let mut fuzz_options = FuzzOptions {
-                skipped: fuzz_options.skip,
-                subdir: fuzz_options.subdir,
-                edits: fuzz_options.edits.unwrap_or(*EDIT_COUNT),
-                iterations: fuzz_options.iterations.unwrap_or(*ITERATION_COUNT),
-                filter: fuzz_options.filter,
-                log_graphs: fuzz_options.log_graphs || *LOG_GRAPH_ENABLED,
-                log: fuzz_options.log || *LOG_ENABLED,
-            };
-
-            fuzz_language_corpus(
-                language,
-                language_name,
-                *START_SEED,
-                &current_dir,
-                &mut fuzz_options,
-            );
-        }
-
-        Commands::Query(query_options) => {
-            let config = Config::load(query_options.config_path)?;
-            let paths = collect_paths(query_options.paths_file.as_deref(), query_options.paths)?;
-            let loader_config = config.get()?;
-            loader.find_all_languages(&loader_config)?;
-            let language = loader.select_language(
-                Path::new(&paths[0]),
-                &current_dir,
-                query_options.scope.as_deref(),
-            )?;
-            let query_path = Path::new(&query_options.query_path);
-
-            let byte_range = query_options.byte_range.as_ref().and_then(|range| {
-                let mut parts = range.split(':');
-                let start = parts.next()?.parse().ok()?;
-                let end = parts.next().unwrap().parse().ok()?;
-                Some(start..end)
-            });
-            let point_range = query_options.row_range.as_ref().and_then(|range| {
-                let mut parts = range.split(':');
-                let start = parts.next()?.parse().ok()?;
-                let end = parts.next().unwrap().parse().ok()?;
-                Some(Point::new(start, 0)..Point::new(end, 0))
-            });
-
-            query::query_files_at_paths(
-                &language,
-                paths,
-                query_path,
-                query_options.captures,
-                byte_range,
-                point_range,
-                query_options.test,
-                query_options.quiet,
-                query_options.time,
-            )?;
-        }
-
-        Commands::Highlight(highlight_options) => {
-            let config = Config::load(highlight_options.config_path)?;
-            let theme_config: tree_sitter_cli::highlight::ThemeConfig = config.get()?;
-            loader.configure_highlights(&theme_config.theme.highlight_names);
-            let loader_config = config.get()?;
-            loader.find_all_languages(&loader_config)?;
-
-            let quiet = highlight_options.quiet;
-            let html_mode = quiet || highlight_options.html;
-            let paths = collect_paths(
-                highlight_options.paths_file.as_deref(),
-                highlight_options.paths,
-            )?;
-
-            if html_mode && !quiet {
-                println!("{}", highlight::HTML_HEADER);
-            }
-
-            let cancellation_flag = util::cancel_on_signal();
-
-            let mut language = None;
-            if let Some(scope) = highlight_options.scope.as_deref() {
-                language = loader.language_configuration_for_scope(scope)?;
-                if language.is_none() {
-                    return Err(anyhow!("Unknown scope '{scope}'"));
-                }
-            }
-
-            for path in paths {
-                let path = Path::new(&path);
-                let (language, language_config) = match language.clone() {
-                    Some(v) => v,
-                    None => {
-                        if let Some(v) = loader.language_configuration_for_file_name(path)? {
-                            v
-                        } else {
-                            eprintln!("{}", util::lang_not_found_for_path(path, &loader_config));
-                            continue;
-                        }
-                    }
-                };
-
-                if let Some(highlight_config) = language_config
-                    .highlight_config(language, highlight_options.query_paths.as_deref())?
-                {
-                    if highlight_options.check {
-                        let names = if let Some(path) = highlight_options.captures_path.as_deref() {
-                            let path = Path::new(path);
-                            let file = fs::read_to_string(path)?;
-                            let capture_names = file
-                                .lines()
-                                .filter_map(|line| {
-                                    if line.trim().is_empty() || line.trim().starts_with(';') {
-                                        return None;
-                                    }
-                                    line.split(';').next().map(|s| s.trim().trim_matches('"'))
-                                })
-                                .collect::<HashSet<_>>();
-                            highlight_config.nonconformant_capture_names(&capture_names)
-                        } else {
-                            highlight_config.nonconformant_capture_names(&HashSet::new())
-                        };
-                        if names.is_empty() {
-                            eprintln!("All highlight captures conform to standards.");
-                        } else {
-                            eprintln!(
-                                "Non-standard highlight {} detected:",
-                                if names.len() > 1 {
-                                    "captures"
-                                } else {
-                                    "capture"
-                                }
-                            );
-                            for name in names {
-                                eprintln!("* {name}");
-                            }
-                        }
-                    }
-
-                    let source = fs::read(path)?;
-                    if html_mode {
-                        highlight::html(
-                            &loader,
-                            &theme_config.theme,
-                            &source,
-                            highlight_config,
-                            quiet,
-                            highlight_options.time,
-                            Some(&cancellation_flag),
-                        )?;
-                    } else {
-                        highlight::ansi(
-                            &loader,
-                            &theme_config.theme,
-                            &source,
-                            highlight_config,
-                            highlight_options.time,
-                            Some(&cancellation_flag),
-                        )?;
-                    }
-                } else {
-                    eprintln!("No syntax highlighting config found for path {path:?}");
-                }
-            }
-
-            if html_mode && !quiet {
-                println!("{}", highlight::HTML_FOOTER);
-            }
-        }
-
-        Commands::Tags(tags_options) => {
-            let config = Config::load(tags_options.config_path)?;
-            let loader_config = config.get()?;
-            loader.find_all_languages(&loader_config)?;
-            let paths = collect_paths(tags_options.paths_file.as_deref(), tags_options.paths)?;
-            tags::generate_tags(
-                &loader,
-                &config.get()?,
-                tags_options.scope.as_deref(),
-                &paths,
-                tags_options.quiet,
-                tags_options.time,
-            )?;
-        }
-
-        Commands::Playground(playground_options) => {
-            let open_in_browser = !playground_options.quiet;
-            let grammar_path = playground_options
-                .grammar_path
-                .map_or(current_dir, PathBuf::from);
-            playground::serve(&grammar_path, open_in_browser)?;
-        }
-
-        Commands::DumpLanguages(dump_options) => {
-            let config = Config::load(dump_options.config_path)?;
-            let loader_config = config.get()?;
-            loader.find_all_languages(&loader_config)?;
-            for (configuration, language_path) in loader.get_all_language_configurations() {
-                println!(
-                    concat!(
-                        "scope: {}\n",
-                        "parser: {:?}\n",
-                        "highlights: {:?}\n",
-                        "file_types: {:?}\n",
-                        "content_regex: {:?}\n",
-                        "injection_regex: {:?}\n",
-                    ),
-                    configuration.scope.as_ref().unwrap_or(&String::new()),
-                    language_path,
-                    configuration.highlights_filenames,
-                    configuration.file_types,
-                    configuration.content_regex,
-                    configuration.injection_regex,
-                );
-            }
-        }
+        Commands::InitConfig(_) => InitConfig::run()?,
+        Commands::Init(init_options) => init_options.run(&current_dir)?,
+        Commands::Generate(generate_options) => generate_options.run(loader, &current_dir)?,
+        Commands::Build(build_options) => build_options.run(loader, &current_dir)?,
+        Commands::Parse(parse_options) => parse_options.run(loader, &current_dir)?,
+        Commands::Test(test_options) => test_options.run(loader, &current_dir)?,
+        Commands::Fuzz(fuzz_options) => fuzz_options.run(loader, &current_dir)?,
+        Commands::Query(query_options) => query_options.run(loader, &current_dir)?,
+        Commands::Highlight(highlight_options) => highlight_options.run(loader)?,
+        Commands::Tags(tags_options) => tags_options.run(loader)?,
+        Commands::Playground(playground_options) => playground_options.run(&current_dir)?,
+        Commands::DumpLanguages(dump_options) => dump_options.run(loader)?,
+        Commands::Complete(complete_options) => complete_options.run(&mut cli),
     }
 
     Ok(())

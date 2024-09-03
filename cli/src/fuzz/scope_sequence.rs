@@ -6,6 +6,7 @@ pub struct ScopeSequence(Vec<ScopeStack>);
 type ScopeStack = Vec<&'static str>;
 
 impl ScopeSequence {
+    #[must_use]
     pub fn new(tree: &Tree) -> Self {
         let mut result = Self(Vec::new());
         let mut scope_stack = Vec::new();

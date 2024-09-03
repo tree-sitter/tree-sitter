@@ -60,6 +60,7 @@ pub struct ParseFileOptions<'a> {
     pub cancellation_flag: Option<&'a AtomicUsize>,
     pub encoding: Option<u32>,
     pub open_log: bool,
+    pub no_ranges: bool,
 }
 
 #[derive(Copy, Clone)]
@@ -178,15 +179,14 @@ pub fn parse_file_at_path(parser: &mut Parser, opts: &ParseFileOptions) -> Resul
                         if let Some(field_name) = cursor.field_name() {
                             write!(&mut stdout, "{field_name}: ")?;
                         }
-                        write!(
-                            &mut stdout,
-                            "({} [{}, {}] - [{}, {}]",
-                            node.kind(),
-                            start.row,
-                            start.column,
-                            end.row,
-                            end.column
-                        )?;
+                        write!(&mut stdout, "({}", node.kind())?;
+                        if !opts.no_ranges {
+                            write!(
+                                &mut stdout,
+                                " [{}, {}] - [{}, {}]",
+                                start.row, start.column, end.row, end.column
+                            )?;
+                        }
                         needs_newline = true;
                     }
                     if cursor.goto_first_child() {
