@@ -465,7 +465,7 @@ impl<'a> HighlightIterLayer<'a> {
                             config,
                             parent_name,
                             combined_injections_query,
-                            &mat,
+                            mat,
                             source,
                         );
                         if language_name.is_some() {

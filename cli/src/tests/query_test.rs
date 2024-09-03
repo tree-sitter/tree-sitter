@@ -2276,7 +2276,7 @@ fn test_query_matches_with_wildcard_at_root_intersecting_byte_range() {
         );
 
         while let Some(mat) = match_iter.next() {
-            if let Some(capture) = mat.captures.get(0) {
+            if let Some(capture) = mat.captures.first() {
                 matches.push(capture.node.kind());
             }
         }
@@ -2292,7 +2292,7 @@ fn test_query_matches_with_wildcard_at_root_intersecting_byte_range() {
         );
 
         while let Some(mat) = match_iter.next() {
-            if let Some(capture) = mat.captures.get(0) {
+            if let Some(capture) = mat.captures.first() {
                 matches.push(capture.node.kind());
             }
         }
@@ -2308,7 +2308,7 @@ fn test_query_matches_with_wildcard_at_root_intersecting_byte_range() {
         );
 
         while let Some(mat) = match_iter.next() {
-            if let Some(capture) = mat.captures.get(0) {
+            if let Some(capture) = mat.captures.first() {
                 matches.push(capture.node.kind());
             }
         }
