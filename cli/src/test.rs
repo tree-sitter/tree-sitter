@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::BTreeMap,
     ffi::OsStr,
     fs,
     io::{self, Write},
@@ -517,63 +517,75 @@ fn run_tests(
         }
         TestEntry::Group {
             name,
-            mut children,
+            children,
             file_path,
         } => {
-            // track which tests are being skipped to maintain consistent numbering while using
-            // filters
-            let mut skipped_tests = HashSet::new();
-            let mut advance_counter = opts.test_num;
-            children.retain(|child| match child {
-                TestEntry::Example { name, .. } => {
-                    if let Some(filter) = opts.filter {
-                        if !name.contains(filter) {
-                            skipped_tests.insert(advance_counter);
-                            advance_counter += 1;
-                            return false;
-                        }
-                    }
-                    if let Some(include) = &opts.include {
-                        if !include.is_match(name) {
-                            skipped_tests.insert(advance_counter);
-                            advance_counter += 1;
-                            return false;
-                        }
-                    }
-                    if let Some(exclude) = &opts.exclude {
-                        if exclude.is_match(name) {
-                            skipped_tests.insert(advance_counter);
-                            advance_counter += 1;
-                            return false;
-                        }
-                    }
-                    advance_counter += 1;
-                    true
-                }
-                TestEntry::Group { .. } => {
-                    advance_counter += count_subtests(child);
-                    true
-                }
-            });
-
             if children.is_empty() {
-                opts.test_num = advance_counter;
                 return Ok(true);
             }
 
-            if indent_level > 0 {
-                print!("{}", "  ".repeat(indent_level as usize));
-                println!("{name}:");
-            }
-
-            let failure_count = failures.len();
-
             indent_level += 1;
+            let mut advance_counter = opts.test_num;
+            let failure_count = failures.len();
+            let mut has_printed = false;
+            let mut skipped_tests = 0;
+
+            let matches_filter = |name: &str, opts: &TestOptions| {
+                if let Some(filter) = opts.filter {
+                    name.contains(filter)
+                } else if let Some(include) = &opts.include {
+                    include.is_match(name)
+                } else if let Some(exclude) = &opts.exclude {
+                    !exclude.is_match(name)
+                } else {
+                    true
+                }
+            };
+
+            let mut should_skip = |entry: &TestEntry, opts: &TestOptions| match entry {
+                TestEntry::Example { name, .. } => {
+                    advance_counter += 1;
+                    !matches_filter(name, opts)
+                }
+                TestEntry::Group { .. } => {
+                    advance_counter += count_subtests(entry);
+                    false
+                }
+            };
+
             for child in children {
-                if let TestEntry::Example { .. } = child {
-                    while skipped_tests.remove(&opts.test_num) {
+                if let TestEntry::Example {
+                    ref name,
+                    ref input,
+                    ref output,
+                    ref attributes_str,
+                    header_delim_len,
+                    divider_delim_len,
+                    ..
+                } = child
+                {
+                    if should_skip(&child, opts) {
+                        let input = String::from_utf8(input.clone()).unwrap();
+                        let output = format_sexp(output, 0);
+                        corrected_entries.push((
+                            name.clone(),
+                            input,
+                            output,
+                            attributes_str.clone(),
+                            header_delim_len,
+                            divider_delim_len,
+                        ));
+
                         opts.test_num += 1;
+                        skipped_tests += 1;
+
+                        continue;
                     }
+                }
+                if !has_printed && indent_level > 1 {
+                    has_printed = true;
+                    print!("{}", "  ".repeat((indent_level - 1) as usize));
+                    println!("{name}:");
                 }
                 if !run_tests(
                     parser,
@@ -589,7 +601,7 @@ fn run_tests(
                 }
             }
 
-            opts.test_num += skipped_tests.len();
+            opts.test_num += skipped_tests;
 
             if let Some(file_path) = file_path {
                 if opts.update && failures.len() - failure_count > 0 {
