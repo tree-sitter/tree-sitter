@@ -334,10 +334,12 @@ pub fn generate_grammar_files(
                         .ok_or_else(|| anyhow!("Failed to find the end of the `tree-sitter` version in Cargo.toml"))?;
 
                     let cargo_toml = format!(
-                        "{}{}{}",
+                        "{}{}{}\n{}\n{}",
                         &cargo_toml[..start_index],
                         "tree-sitter-language = \"0.1.0\"",
                         &cargo_toml[version_end_index + 1..],
+                        "[dev-dependencies]",
+                        "tree-sitter = \"0.23\"",
                     );
 
                     write_file(path, cargo_toml)?;
