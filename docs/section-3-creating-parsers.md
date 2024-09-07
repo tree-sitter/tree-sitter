@@ -14,7 +14,7 @@ Developing Tree-sitter grammars can have a difficult learning curve, but once yo
 In order to develop a Tree-sitter parser, there are two dependencies that you need to install:
 
 * **Node.js** - Tree-sitter grammars are written in JavaScript, and Tree-sitter uses [Node.js][node.js] to interpret JavaScript files. It requires the `node` command to be in one of the directories in your [`PATH`][path-env]. You'll need Node.js version 6.0 or greater.
-* **A C Compiler** - Tree-sitter creates parsers that are written in C. In order to run and test these parsers with the `tree-sitter parse` or `tree-sitter test` commands, you must have a C/C++ compiler installed. Tree-sitter will try to look for these compilers in the standard places for each platform.
+* **A C Compiler** - Tree-sitter creates parsers that are written in C. In order to run and test these parsers with the `tree-sitter parse` or `tree-sitter test` commands, you must have a C compiler installed. Tree-sitter will try to look for these compilers in the standard places for each platform.
 
 ### Installation
 
@@ -766,14 +766,7 @@ grammar({
 });
 ```
 
-Then, add another C or C++ source file to your project. Currently, its path must be `src/scanner.c` or `src/scanner.cc` for the CLI to recognize it. Be sure to add this file to the `sources` section of your `binding.gyp` file so that it will be included when your project is compiled by Node.js and uncomment the appropriate block in your `bindings/rust/build.rs` file so that it will be included in your Rust crate.
-
-> **Note**
->
-> C++ scanners are now deprecated and will be removed in the near future.
-> While it is currently possible to write an external scanner in C++, it can be difficult
-> to get working cross-platform and introduces extra requirements; therefore it
-> is *greatly* preferred to use C.
+Then, add another C source file to your project. Currently, its path must be `src/scanner.c` for the CLI to recognize it. Be sure to add this file to the `sources` section of your `binding.gyp` file so that it will be included when your project is compiled by Node.js and uncomment the appropriate block in your `bindings/rust/build.rs` file so that it will be included in your Rust crate.
 
 In this new source file, define an [`enum`][enum] type containing the names of all of your external tokens. The ordering of this enum must match the order in your grammar's `externals` array; the actual names do not matter.
 
@@ -789,7 +782,7 @@ enum TokenType {
 }
 ```
 
-Finally, you must define five functions with specific names, based on your language's name and five actions: *create*, *destroy*, *serialize*, *deserialize*, and *scan*. These functions must all use [C linkage][c-linkage], so if you're writing the scanner in C++, you need to declare them with the `extern "C"` qualifier.
+Finally, you must define five functions with specific names, based on your language's name and five actions: *create*, *destroy*, *serialize*, *deserialize*, and *scan*.
 
 #### Create
 
