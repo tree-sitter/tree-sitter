@@ -27,7 +27,8 @@ lazy_static! {
     pub static ref LOG_ENABLED: bool = env::var("TREE_SITTER_LOG").is_ok();
     pub static ref LOG_GRAPH_ENABLED: bool = env::var("TREE_SITTER_LOG_GRAPHS").is_ok();
     pub static ref LANGUAGE_FILTER: Option<String> = env::var("TREE_SITTER_LANGUAGE").ok();
-    pub static ref EXAMPLE_FILTER: Option<Regex> = regex_env_var("TREE_SITTER_EXAMPLE");
+    pub static ref EXAMPLE_INCLUDE: Option<Regex> = regex_env_var("TREE_SITTER_EXAMPLE_INCLUDE");
+    pub static ref EXAMPLE_EXCLUDE: Option<Regex> = regex_env_var("TREE_SITTER_EXAMPLE_EXCLUDE");
     pub static ref START_SEED: usize = new_seed();
     pub static ref EDIT_COUNT: usize = int_env_var("TREE_SITTER_EDITS").unwrap_or(3);
     pub static ref ITERATION_COUNT: usize = int_env_var("TREE_SITTER_ITERATIONS").unwrap_or(10);
@@ -41,6 +42,7 @@ fn regex_env_var(name: &'static str) -> Option<Regex> {
     env::var(name).ok().and_then(|e| Regex::new(&e).ok())
 }
 
+#[must_use]
 pub fn new_seed() -> usize {
     int_env_var("TREE_SITTER_SEED").unwrap_or_else(|| {
         let mut rng = rand::thread_rng();
@@ -53,7 +55,8 @@ pub struct FuzzOptions {
     pub subdir: Option<String>,
     pub edits: usize,
     pub iterations: usize,
-    pub filter: Option<Regex>,
+    pub include: Option<Regex>,
+    pub exclude: Option<Regex>,
     pub log_graphs: bool,
     pub log: bool,
 }
@@ -106,7 +109,11 @@ pub fn fuzz_language_corpus(
         }
         _ => unreachable!(),
     }
-    let tests = flatten_tests(main_tests, options.filter.as_ref());
+    let tests = flatten_tests(
+        main_tests,
+        options.include.as_ref(),
+        options.exclude.as_ref(),
+    );
 
     let mut skipped = options.skipped.as_ref().map(|x| {
         x.iter()
@@ -294,10 +301,16 @@ pub struct FlattenedTest {
     pub template_delimiters: Option<(&'static str, &'static str)>,
 }
 
-pub fn flatten_tests(test: TestEntry, filter: Option<&Regex>) -> Vec<FlattenedTest> {
+#[must_use]
+pub fn flatten_tests(
+    test: TestEntry,
+    include: Option<&Regex>,
+    exclude: Option<&Regex>,
+) -> Vec<FlattenedTest> {
     fn helper(
         test: TestEntry,
-        filter: Option<&Regex>,
+        include: Option<&Regex>,
+        exclude: Option<&Regex>,
         is_root: bool,
         prefix: &str,
         result: &mut Vec<FlattenedTest>,
@@ -315,8 +328,13 @@ pub fn flatten_tests(test: TestEntry, filter: Option<&Regex>) -> Vec<FlattenedTe
                     name.insert_str(0, " - ");
                     name.insert_str(0, prefix);
                 }
-                if let Some(filter) = filter {
-                    if filter.find(&name).is_none() {
+
+                if let Some(include) = include {
+                    if !include.is_match(&name) {
+                        return;
+                    }
+                } else if let Some(exclude) = exclude {
+                    if exclude.is_match(&name) {
                         return;
                     }
                 }
@@ -338,12 +356,12 @@ pub fn flatten_tests(test: TestEntry, filter: Option<&Regex>) -> Vec<FlattenedTe
                     name.insert_str(0, prefix);
                 }
                 for child in children {
-                    helper(child, filter, false, &name, result);
+                    helper(child, include, exclude, false, &name, result);
                 }
             }
         }
     }
     let mut result = Vec::new();
-    helper(test, filter, true, "", &mut result);
+    helper(test, include, exclude, true, "", &mut result);
     result
 }
