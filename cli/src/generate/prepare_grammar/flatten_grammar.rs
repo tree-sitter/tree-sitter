@@ -15,7 +15,7 @@ struct RuleFlattener {
 }
 
 impl RuleFlattener {
-    fn new() -> Self {
+    const fn new() -> Self {
         Self {
             production: Production {
                 steps: Vec::new(),

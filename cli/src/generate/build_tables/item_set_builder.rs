@@ -237,7 +237,7 @@ impl<'a> ParseItemSetBuilder<'a> {
         result
     }
 
-    pub fn transitive_closure(&mut self, item_set: &ParseItemSet<'a>) -> ParseItemSet<'a> {
+    pub fn transitive_closure(&self, item_set: &ParseItemSet<'a>) -> ParseItemSet<'a> {
         let mut result = ParseItemSet::default();
         for (item, lookaheads) in &item_set.entries {
             if let Some(productions) = self

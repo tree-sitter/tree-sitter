@@ -849,7 +849,7 @@ impl Generator {
                 // are not at the end of the file.
                 let check_eof = large_set.contains('\0');
                 if check_eof {
-                    add!(self, "(!eof && ")
+                    add!(self, "(!eof && ");
                 }
 
                 let char_set_info = &mut self.large_character_set_info[large_char_set_ix];
@@ -1663,7 +1663,7 @@ impl Generator {
             '\r' => add!(self, "'\\r'"),
             _ => {
                 if c == '\0' {
-                    add!(self, "0")
+                    add!(self, "0");
                 } else if c == ' ' || c.is_ascii_graphic() {
                     add!(self, "'{c}'");
                 } else {

@@ -65,20 +65,6 @@ pub fn fuzz_language_corpus(
     grammar_dir: &Path,
     options: &mut FuzzOptions,
 ) {
-    let subdir = options.subdir.take().unwrap_or_default();
-
-    let corpus_dir = grammar_dir.join(subdir).join("test").join("corpus");
-
-    if !corpus_dir.exists() || !corpus_dir.is_dir() {
-        eprintln!("No corpus directory found, ensure that you have a `test/corpus` directory in your grammar directory with at least one test file.");
-        return;
-    }
-
-    if std::fs::read_dir(&corpus_dir).unwrap().count() == 0 {
-        eprintln!("No corpus files found in `test/corpus`, ensure that you have at least one test file in your corpus directory.");
-        return;
-    }
-
     fn retain(entry: &mut TestEntry, language_name: &str) -> bool {
         match entry {
             TestEntry::Example { attributes, .. } => {
@@ -97,6 +83,20 @@ pub fn fuzz_language_corpus(
         }
     }
 
+    let subdir = options.subdir.take().unwrap_or_default();
+
+    let corpus_dir = grammar_dir.join(subdir).join("test").join("corpus");
+
+    if !corpus_dir.exists() || !corpus_dir.is_dir() {
+        eprintln!("No corpus directory found, ensure that you have a `test/corpus` directory in your grammar directory with at least one test file.");
+        return;
+    }
+
+    if std::fs::read_dir(&corpus_dir).unwrap().count() == 0 {
+        eprintln!("No corpus files found in `test/corpus`, ensure that you have at least one test file in your corpus directory.");
+        return;
+    }
+
     let mut main_tests = parse_tests(&corpus_dir).unwrap();
     match main_tests {
         TestEntry::Group {
@@ -104,7 +104,7 @@ pub fn fuzz_language_corpus(
         } => {
             children.retain_mut(|child| retain(child, language_name));
         }
-        _ => unreachable!(),
+        TestEntry::Example { .. } => unreachable!(),
     }
     let tests = flatten_tests(main_tests, options.filter.as_ref());
 

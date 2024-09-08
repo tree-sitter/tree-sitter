@@ -216,9 +216,8 @@ pub fn get_test_info<'test>(
         } => {
             if *test_num == target_test {
                 return Some((name, input, attributes.languages.clone()));
-            } else {
-                *test_num += 1;
             }
+            *test_num += 1;
         }
         TestEntry::Group { children, .. } => {
             for child in children {
@@ -648,7 +647,7 @@ fn write_tests_to_buffer(
             if attributes_str.is_empty() {
                 attributes_str.clone()
             } else {
-                format!("{}\n", attributes_str)
+                format!("{attributes_str}\n")
             },
             "=".repeat(*header_delim_len),
             "-".repeat(*divider_delim_len),

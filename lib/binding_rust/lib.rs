@@ -291,8 +291,9 @@ pub struct LossyUtf8<'a> {
 }
 
 impl Language {
+    #[must_use]
     pub fn new(builder: LanguageFn) -> Self {
-        Self(unsafe { (builder.into_raw())() as _ })
+        Self(unsafe { builder.into_raw()().cast() })
     }
 
     /// Get the ABI version number that indicates which version of the

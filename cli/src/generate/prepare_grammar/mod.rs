@@ -90,6 +90,27 @@ pub fn prepare_grammar(
 /// within the `precedences` lists, and also that there are no conflicting
 /// precedence orderings declared in those lists.
 fn validate_precedences(grammar: &InputGrammar) -> Result<()> {
+    // Check that no rule contains a named precedence that is not present in
+    // any of the `precedences` lists.
+    fn validate(rule_name: &str, rule: &Rule, names: &HashSet<&String>) -> Result<()> {
+        match rule {
+            Rule::Repeat(rule) => validate(rule_name, rule, names),
+            Rule::Seq(elements) | Rule::Choice(elements) => elements
+                .iter()
+                .try_for_each(|e| validate(rule_name, e, names)),
+            Rule::Metadata { rule, params } => {
+                if let Precedence::Name(n) = &params.precedence {
+                    if !names.contains(n) {
+                        return Err(anyhow!("Undeclared precedence '{n}' in rule '{rule_name}'"));
+                    }
+                }
+                validate(rule_name, rule, names)?;
+                Ok(())
+            }
+            _ => Ok(()),
+        }
+    }
+
     // For any two precedence names `a` and `b`, if `a` comes before `b`
     // in some list, then it cannot come *after* `b` in any list.
     let mut pairs = HashMap::new();
@@ -117,27 +138,6 @@ fn validate_precedences(grammar: &InputGrammar) -> Result<()> {
                     }
                 }
             }
-        }
-    }
-
-    // Check that no rule contains a named precedence that is not present in
-    // any of the `precedences` lists.
-    fn validate(rule_name: &str, rule: &Rule, names: &HashSet<&String>) -> Result<()> {
-        match rule {
-            Rule::Repeat(rule) => validate(rule_name, rule, names),
-            Rule::Seq(elements) | Rule::Choice(elements) => elements
-                .iter()
-                .try_for_each(|e| validate(rule_name, e, names)),
-            Rule::Metadata { rule, params } => {
-                if let Precedence::Name(n) = &params.precedence {
-                    if !names.contains(n) {
-                        return Err(anyhow!("Undeclared precedence '{n}' in rule '{rule_name}'"));
-                    }
-                }
-                validate(rule_name, rule, names)?;
-                Ok(())
-            }
-            _ => Ok(()),
         }
     }
 
