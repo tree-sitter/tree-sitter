@@ -27,6 +27,7 @@ wasm = ["tree-sitter/wasm", "tree-sitter-loader/wasm"]
 [dependencies]
 anstyle.workspace = true
 anyhow.workspace = true
+bstr.workspace = true
 clap.workspace = true
 ctor.workspace = true
 ctrlc.workspace = true

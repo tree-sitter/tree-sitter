@@ -2,12 +2,11 @@ use std::{fs, path::Path};
 
 use anstyle::AnsiColor;
 use anyhow::{anyhow, Result};
-use tree_sitter::Point;
 use tree_sitter_loader::{Config, Loader};
 use tree_sitter_tags::{TagsConfiguration, TagsContext};
 
 use super::{
-    query_testing::{parse_position_comments, Assertion},
+    query_testing::{parse_position_comments, to_utf8_point, Assertion, Utf8Point},
     test::paint,
     util,
 };
@@ -168,7 +167,7 @@ pub fn get_tag_positions(
     tags_context: &mut TagsContext,
     tags_config: &TagsConfiguration,
     source: &[u8],
-) -> Result<Vec<(Point, Point, String)>> {
+) -> Result<Vec<(Utf8Point, Utf8Point, String)>> {
     let (tags_iter, _has_error) = tags_context.generate_tags(tags_config, source, None)?;
     let tag_positions = tags_iter
         .filter_map(std::result::Result::ok)
@@ -179,7 +178,11 @@ pub fn get_tag_positions(
             } else {
                 format!("reference.{tag_postfix}")
             };
-            (tag.span.start, tag.span.end, tag_name)
+            (
+                to_utf8_point(tag.span.start, source),
+                to_utf8_point(tag.span.end, source),
+                tag_name,
+            )
         })
         .collect();
     Ok(tag_positions)

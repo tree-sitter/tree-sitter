@@ -1,6 +1,7 @@
 use std::fs;
 
 use anyhow::{anyhow, Result};
+use bstr::{BStr, ByteSlice};
 use lazy_static::lazy_static;
 use regex::Regex;
 use tree_sitter::{Language, Parser, Point};
@@ -9,16 +10,56 @@ lazy_static! {
     static ref CAPTURE_NAME_REGEX: Regex = Regex::new("[\\w_\\-.]+").unwrap();
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Utf8Point {
+    pub row: usize,
+    pub column: usize,
+}
+
+impl std::fmt::Display for Utf8Point {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "({}, {})", self.row, self.column)
+    }
+}
+
+impl Utf8Point {
+    pub const fn new(row: usize, column: usize) -> Self {
+        Self { row, column }
+    }
+}
+
+pub fn to_utf8_point(point: Point, source: &[u8]) -> Utf8Point {
+    if point.column == 0 {
+        return Utf8Point::new(point.row, 0);
+    }
+
+    let bstr = BStr::new(source);
+    let line = bstr.lines_with_terminator().nth(point.row).unwrap();
+    let mut utf8_column = 0;
+
+    for (_, grapheme_end, _) in line.grapheme_indices() {
+        utf8_column += 1;
+        if grapheme_end >= point.column {
+            break;
+        }
+    }
+
+    Utf8Point {
+        row: point.row,
+        column: utf8_column,
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct CaptureInfo {
     pub name: String,
-    pub start: Point,
-    pub end: Point,
+    pub start: Utf8Point,
+    pub end: Utf8Point,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Assertion {
-    pub position: Point,
+    pub position: Utf8Point,
     pub negative: bool,
     pub expected_capture_name: String,
 }
@@ -27,7 +68,7 @@ impl Assertion {
     #[must_use]
     pub fn new(row: usize, col: usize, negative: bool, expected_capture_name: String) -> Self {
         Self {
-            position: Point::new(row, col),
+            position: Utf8Point::new(row, col),
             negative,
             expected_capture_name,
         }
@@ -103,7 +144,7 @@ pub fn parse_position_comments(
                         {
                             assertion_ranges.push((node.start_position(), node.end_position()));
                             result.push(Assertion {
-                                position,
+                                position: to_utf8_point(position, source),
                                 negative,
                                 expected_capture_name: mat.as_str().to_string(),
                             });
