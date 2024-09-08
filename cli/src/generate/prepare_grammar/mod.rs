@@ -13,6 +13,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
+pub(super) use flatten_grammar::symbol_is_used;
 
 pub use self::expand_tokens::expand_tokens;
 use self::{
