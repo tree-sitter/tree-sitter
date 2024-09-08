@@ -25,7 +25,12 @@ pub struct Assertion {
 
 impl Assertion {
     #[must_use]
-    pub fn new(row: usize, col: usize, negative: bool, expected_capture_name: String) -> Self {
+    pub const fn new(
+        row: usize,
+        col: usize,
+        negative: bool,
+        expected_capture_name: String,
+    ) -> Self {
         Self {
             position: Point::new(row, col),
             negative,

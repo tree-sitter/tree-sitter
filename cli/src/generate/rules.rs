@@ -146,7 +146,7 @@ impl Rule {
         Self::Choice(elements)
     }
 
-    pub fn seq(rules: Vec<Self>) -> Self {
+    pub const fn seq(rules: Vec<Self>) -> Self {
         Self::Seq(rules)
     }
 }
@@ -272,7 +272,7 @@ impl From<Symbol> for Rule {
 }
 
 impl TokenSet {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             terminal_bits: SmallBitVec::new(),
             external_bits: SmallBitVec::new(),

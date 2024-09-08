@@ -628,13 +628,16 @@ pub fn generate_node_types_json(
     for (name, kind) in regular_tokens.chain(external_tokens) {
         match kind {
             VariableType::Named => {
-                let node_type_json = node_types_json.entry(name.clone()).or_insert(NodeInfoJSON {
-                    kind: name.clone(),
-                    named: true,
-                    fields: None,
-                    children: None,
-                    subtypes: None,
-                });
+                let node_type_json =
+                    node_types_json
+                        .entry(name.clone())
+                        .or_insert_with(|| NodeInfoJSON {
+                            kind: name.clone(),
+                            named: true,
+                            fields: None,
+                            children: None,
+                            subtypes: None,
+                        });
                 if let Some(children) = &mut node_type_json.children {
                     children.required = false;
                 }

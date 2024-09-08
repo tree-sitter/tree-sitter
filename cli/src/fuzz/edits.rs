@@ -7,6 +7,7 @@ pub struct Edit {
     pub inserted_text: Vec<u8>,
 }
 
+#[must_use]
 pub fn invert_edit(input: &[u8], edit: &Edit) -> Edit {
     let position = edit.position;
     let removed_content = &input[position..(position + edit.deleted_length)];

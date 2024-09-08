@@ -130,7 +130,7 @@ pub fn generate_parser_for_grammar(grammar_json: &str) -> Result<(String, String
     let input_grammar = parse_grammar(&grammar_json)?;
     let parser =
         generate_parser_for_grammar_with_opts(&input_grammar, tree_sitter::LANGUAGE_VERSION, None)?;
-    Ok((input_grammar.name.clone(), parser.c_code))
+    Ok((input_grammar.name, parser.c_code))
 }
 
 fn generate_parser_for_grammar_with_opts(

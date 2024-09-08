@@ -144,7 +144,7 @@ impl<'a> ParseItem<'a> {
 
     /// Create an item identical to this one, but with a different production.
     /// This is used when dynamically "inlining" certain symbols in a production.
-    pub const fn substitute_production(&self, production: &'a Production) -> ParseItem<'a> {
+    pub const fn substitute_production(&self, production: &'a Production) -> Self {
         let mut result = *self;
         result.production = production;
         result
