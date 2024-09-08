@@ -37,7 +37,6 @@ enum Commands {
     InitConfig(InitConfig),
     Generate(Generate),
     Build(Build),
-    BuildWasm(BuildWasm),
     Parse(Parse),
     Test(Test),
     Fuzz(Fuzz),
@@ -122,19 +121,6 @@ struct Build {
     pub reuse_allocator: bool,
     #[arg(long, short = '0', help = "Compile a parser in debug mode")]
     pub debug: bool,
-}
-
-#[derive(Args)]
-#[command(about = "Compile a parser to WASM", alias = "bw")]
-struct BuildWasm {
-    #[arg(
-        short,
-        long,
-        help = "Run emscripten via docker even if it is installed locally"
-    )]
-    pub docker: bool,
-    #[arg(index = 1, num_args = 1, help = "The path to output the wasm file")]
-    pub path: Option<String>,
 }
 
 #[derive(Args)]
@@ -542,21 +528,6 @@ fn run() -> Result<()> {
                     .compile_parser_at_path(&grammar_path, output_path, flags)
                     .unwrap();
             }
-        }
-
-        Commands::BuildWasm(wasm_options) => {
-            eprintln!("`build-wasm` is deprecated and will be removed in v0.24.0. You should use `build --wasm` instead");
-            let grammar_path = current_dir.join(wasm_options.path.unwrap_or_default());
-            let root_path = lookup_package_json_for_path(&grammar_path.join("package.json"))
-                .map(|(p, _)| p.parent().unwrap().to_path_buf())?;
-            wasm::compile_language_to_wasm(
-                &loader,
-                Some(&root_path),
-                &grammar_path,
-                &current_dir,
-                None,
-                wasm_options.docker,
-            )?;
         }
 
         Commands::Parse(parse_options) => {
