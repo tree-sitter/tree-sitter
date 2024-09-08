@@ -173,7 +173,7 @@ fn flatten_variable(variable: Variable) -> SyntaxVariable {
     }
 }
 
-fn symbol_is_used(variables: &[SyntaxVariable], symbol: Symbol) -> bool {
+pub fn symbol_is_used(variables: &[SyntaxVariable], symbol: Symbol) -> bool {
     for variable in variables {
         for production in &variable.productions {
             for step in &production.steps {
