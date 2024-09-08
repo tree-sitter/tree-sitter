@@ -9,7 +9,7 @@ use std::{
 use anyhow::{Context, Result};
 use tree_sitter::{Language, Parser, Point, Query, QueryCursor};
 
-use crate::query_testing;
+use crate::query_testing::{self, to_utf8_point};
 
 #[allow(clippy::too_many_arguments)]
 pub fn query_files_at_paths(
@@ -70,8 +70,8 @@ pub fn query_files_at_paths(
                 }
                 results.push(query_testing::CaptureInfo {
                     name: (*capture_name).to_string(),
-                    start: capture.node.start_position(),
-                    end: capture.node.end_position(),
+                    start: to_utf8_point(capture.node.start_position(), source_code.as_slice()),
+                    end: to_utf8_point(capture.node.end_position(), source_code.as_slice()),
                 });
             }
         } else {
@@ -100,8 +100,8 @@ pub fn query_files_at_paths(
                     }
                     results.push(query_testing::CaptureInfo {
                         name: (*capture_name).to_string(),
-                        start: capture.node.start_position(),
-                        end: capture.node.end_position(),
+                        start: to_utf8_point(capture.node.start_position(), source_code.as_slice()),
+                        end: to_utf8_point(capture.node.end_position(), source_code.as_slice()),
                     });
                 }
             }
