@@ -99,7 +99,6 @@ pub struct TestOptions<'a> {
     pub path: PathBuf,
     pub debug: bool,
     pub debug_graph: bool,
-    pub filter: Option<&'a str>,
     pub include: Option<Regex>,
     pub exclude: Option<Regex>,
     pub update: bool,
@@ -530,9 +529,7 @@ fn run_tests(
             let mut skipped_tests = 0;
 
             let matches_filter = |name: &str, opts: &TestOptions| {
-                if let Some(filter) = opts.filter {
-                    name.contains(filter)
-                } else if let Some(include) = &opts.include {
+                if let Some(include) = &opts.include {
                     include.is_match(name)
                 } else if let Some(exclude) = &opts.exclude {
                     !exclude.is_match(name)

@@ -209,12 +209,6 @@ struct Test {
     #[arg(
         long,
         short,
-        help = "Only run corpus test cases whose name includes the given string"
-    )]
-    pub filter: Option<String>,
-    #[arg(
-        long,
-        short,
         help = "Only run corpus test cases whose name matches the given regex"
     )]
     pub include: Option<Regex>,
@@ -267,8 +261,18 @@ struct Fuzz {
     pub edits: Option<usize>,
     #[arg(long, short, help = "Number of fuzzing iterations to run per test")]
     pub iterations: Option<usize>,
-    #[arg(long, short, help = "Regex pattern to filter tests")]
-    pub filter: Option<Regex>,
+    #[arg(
+        long,
+        short,
+        help = "Only fuzz corpus test cases whose name matches the given regex"
+    )]
+    pub include: Option<Regex>,
+    #[arg(
+        long,
+        short,
+        help = "Only fuzz corpus test cases whose name does not match the given regex"
+    )]
+    pub exclude: Option<Regex>,
     #[arg(long, help = "Enable logging of graphs and input")]
     pub log_graphs: bool,
     #[arg(long, short, help = "Enable parser logging")]
@@ -489,9 +493,9 @@ fn run() -> Result<()> {
         }
 
         Commands::Build(build_options) => {
+            let grammar_path = current_dir.join(build_options.path.as_deref().unwrap_or_default());
+
             if build_options.wasm {
-                let grammar_path =
-                    current_dir.join(build_options.path.as_deref().unwrap_or_default());
                 let output_path = build_options.output.map(|path| current_dir.join(path));
                 let root_path = lookup_package_json_for_path(&grammar_path.join("package.json"))
                     .map(|(p, _)| p.parent().unwrap().to_path_buf())?;
@@ -504,8 +508,6 @@ fn run() -> Result<()> {
                     build_options.docker,
                 )?;
             } else {
-                let grammar_path =
-                    current_dir.join(build_options.path.as_deref().unwrap_or_default());
                 let output_path = if let Some(ref path) = build_options.output {
                     let path = Path::new(path);
                     if path.is_absolute() {
@@ -711,7 +713,6 @@ fn run() -> Result<()> {
                     path: test_corpus_dir,
                     debug: test_options.debug,
                     debug_graph: test_options.debug_graph,
-                    filter: test_options.filter.as_deref(),
                     include: test_options.include,
                     exclude: test_options.exclude,
                     update: test_options.update,
@@ -770,7 +771,8 @@ fn run() -> Result<()> {
                 subdir: fuzz_options.subdir,
                 edits: fuzz_options.edits.unwrap_or(*EDIT_COUNT),
                 iterations: fuzz_options.iterations.unwrap_or(*ITERATION_COUNT),
-                filter: fuzz_options.filter,
+                include: fuzz_options.include,
+                exclude: fuzz_options.exclude,
                 log_graphs: fuzz_options.log_graphs || *LOG_GRAPH_ENABLED,
                 log: fuzz_options.log || *LOG_ENABLED,
             };
