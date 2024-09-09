@@ -36,6 +36,8 @@ pub struct NodeInfoJSON {
     #[serde(rename = "type")]
     kind: String,
     named: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    root: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     fields: Option<BTreeMap<String, FieldInfoJSON>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -475,6 +477,7 @@ pub fn generate_node_types_json(
                     .or_insert_with(|| NodeInfoJSON {
                         kind: variable.name.clone(),
                         named: true,
+                        root: false,
                         fields: None,
                         children: None,
                         subtypes: None,
@@ -520,6 +523,7 @@ pub fn generate_node_types_json(
                     NodeInfoJSON {
                         kind: kind.clone(),
                         named: is_named,
+                        root: i == 0,
                         fields: Some(BTreeMap::new()),
                         children: None,
                         subtypes: None,
@@ -634,6 +638,7 @@ pub fn generate_node_types_json(
                         .or_insert_with(|| NodeInfoJSON {
                             kind: name.clone(),
                             named: true,
+                            root: false,
                             fields: None,
                             children: None,
                             subtypes: None,
@@ -650,6 +655,7 @@ pub fn generate_node_types_json(
             VariableType::Anonymous => anonymous_node_types.push(NodeInfoJSON {
                 kind: name.clone(),
                 named: false,
+                root: false,
                 fields: None,
                 children: None,
                 subtypes: None,
@@ -767,6 +773,7 @@ mod tests {
             NodeInfoJSON {
                 kind: "v1".to_string(),
                 named: true,
+                root: true,
                 subtypes: None,
                 children: None,
                 fields: Some(
@@ -804,6 +811,7 @@ mod tests {
             NodeInfoJSON {
                 kind: ";".to_string(),
                 named: false,
+                root: false,
                 subtypes: None,
                 children: None,
                 fields: None
@@ -814,6 +822,7 @@ mod tests {
             NodeInfoJSON {
                 kind: "v2".to_string(),
                 named: true,
+                root: false,
                 subtypes: None,
                 children: None,
                 fields: None
@@ -858,6 +867,7 @@ mod tests {
             NodeInfoJSON {
                 kind: "v1".to_string(),
                 named: true,
+                root: true,
                 subtypes: None,
                 children: None,
                 fields: Some(
@@ -895,6 +905,7 @@ mod tests {
             NodeInfoJSON {
                 kind: ";".to_string(),
                 named: false,
+                root: false,
                 subtypes: None,
                 children: None,
                 fields: None
@@ -905,6 +916,7 @@ mod tests {
             NodeInfoJSON {
                 kind: "v2".to_string(),
                 named: true,
+                root: false,
                 subtypes: None,
                 children: None,
                 fields: None
@@ -915,6 +927,7 @@ mod tests {
             NodeInfoJSON {
                 kind: "v3".to_string(),
                 named: true,
+                root: false,
                 subtypes: None,
                 children: None,
                 fields: None
@@ -960,6 +973,7 @@ mod tests {
             NodeInfoJSON {
                 kind: "_v2".to_string(),
                 named: true,
+                root: false,
                 fields: None,
                 children: None,
                 subtypes: Some(vec![
@@ -983,6 +997,7 @@ mod tests {
             NodeInfoJSON {
                 kind: "v1".to_string(),
                 named: true,
+                root: true,
                 subtypes: None,
                 children: None,
                 fields: Some(
@@ -1045,6 +1060,7 @@ mod tests {
             NodeInfoJSON {
                 kind: "v1".to_string(),
                 named: true,
+                root: true,
                 subtypes: None,
                 children: Some(FieldInfoJSON {
                     multiple: true,
@@ -1082,6 +1098,7 @@ mod tests {
             NodeInfoJSON {
                 kind: "v2".to_string(),
                 named: true,
+                root: false,
                 subtypes: None,
                 children: Some(FieldInfoJSON {
                     multiple: false,
@@ -1126,6 +1143,7 @@ mod tests {
             NodeInfoJSON {
                 kind: "v1".to_string(),
                 named: true,
+                root: true,
                 subtypes: None,
                 children: Some(FieldInfoJSON {
                     multiple: true,
@@ -1199,6 +1217,7 @@ mod tests {
             Some(&NodeInfoJSON {
                 kind: "identifier".to_string(),
                 named: true,
+                root: false,
                 subtypes: None,
                 children: None,
                 fields: None,
@@ -1209,6 +1228,7 @@ mod tests {
             Some(&NodeInfoJSON {
                 kind: "type_identifier".to_string(),
                 named: true,
+                root: false,
                 subtypes: None,
                 children: None,
                 fields: None,
@@ -1250,6 +1270,7 @@ mod tests {
             NodeInfoJSON {
                 kind: "a".to_string(),
                 named: true,
+                root: true,
                 subtypes: None,
                 children: Some(FieldInfoJSON {
                     multiple: true,
@@ -1297,6 +1318,7 @@ mod tests {
             [NodeInfoJSON {
                 kind: "script".to_string(),
                 named: true,
+                root: true,
                 fields: Some(BTreeMap::new()),
                 children: None,
                 subtypes: None
@@ -1353,6 +1375,7 @@ mod tests {
                 NodeInfoJSON {
                     kind: "a".to_string(),
                     named: true,
+                    root: false,
                     subtypes: None,
                     children: None,
                     fields: Some(
@@ -1408,6 +1431,7 @@ mod tests {
                 NodeInfoJSON {
                     kind: "script".to_string(),
                     named: true,
+                    root: true,
                     subtypes: None,
                     // Only one node
                     children: Some(FieldInfoJSON {
@@ -1462,6 +1486,7 @@ mod tests {
             NodeInfoJSON {
                 kind: "b".to_string(),
                 named: true,
+                root: false,
                 subtypes: None,
                 children: Some(FieldInfoJSON {
                     multiple: true,
