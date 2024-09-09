@@ -688,6 +688,48 @@ const char *ts_node_field_name_for_child(TSNode self, uint32_t child_index) {
   return NULL;
 }
 
+const char *ts_node_field_name_for_named_child(TSNode self, uint32_t named_child_index) {
+  TSNode result = self;
+  bool did_descend = true;
+  const char *inherited_field_name = NULL;
+
+  while (did_descend) {
+    did_descend = false;
+
+    TSNode child;
+    uint32_t index = 0;
+    NodeChildIterator iterator = ts_node_iterate_children(&result);
+    while (ts_node_child_iterator_next(&iterator, &child)) {
+      if (ts_node__is_relevant(child, false)) {
+        if (index == named_child_index) {
+          if (ts_node_is_extra(child)) {
+            return NULL;
+          }
+          const char *field_name = ts_node__field_name_from_language(result, iterator.structural_child_index - 1);
+          if (field_name) return field_name;
+          return inherited_field_name;
+        }
+        index++;
+      } else {
+        uint32_t named_grandchild_index = named_child_index - index;
+        uint32_t grandchild_count = ts_node__relevant_child_count(child, false);
+        if (named_grandchild_index < grandchild_count) {
+          const char *field_name = ts_node__field_name_from_language(result, iterator.structural_child_index - 1);
+          if (field_name) inherited_field_name = field_name;
+
+          did_descend = true;
+          result = child;
+          named_child_index = named_grandchild_index;
+          break;
+        }
+        index += grandchild_count;
+      }
+    }
+  }
+
+  return NULL;
+}
+
 TSNode ts_node_child_by_field_name(
   TSNode self,
   const char *name,

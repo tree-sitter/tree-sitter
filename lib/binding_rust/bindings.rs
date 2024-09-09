@@ -374,6 +374,13 @@ extern "C" {
     ) -> *const ::core::ffi::c_char;
 }
 extern "C" {
+    #[doc = " Get the field name for node's named child at the given index, where zero\n represents the first named child. Returns NULL, if no field is found."]
+    pub fn ts_node_field_name_for_named_child(
+        self_: TSNode,
+        named_child_index: u32,
+    ) -> *const ::core::ffi::c_char;
+}
+extern "C" {
     #[doc = " Get the node's number of children."]
     pub fn ts_node_child_count(self_: TSNode) -> u32;
 }
@@ -642,7 +649,7 @@ extern "C" {
     pub fn ts_query_cursor_set_timeout_micros(self_: *mut TSQueryCursor, timeout_micros: u64);
 }
 extern "C" {
-    #[doc = " Get the duration in microseconds that query execution is allowed to take."]
+    #[doc = " Get the duration in microseconds that query execution is allowed to take.\n\n This is set via [`ts_query_cursor_set_timeout_micros`]."]
     pub fn ts_query_cursor_timeout_micros(self_: *const TSQueryCursor) -> u64;
 }
 extern "C" {
