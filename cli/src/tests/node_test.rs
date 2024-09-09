@@ -308,6 +308,13 @@ fn test_node_field_name_for_child() {
         .child_by_field_name("value")
         .unwrap();
 
+    // -------------------
+    // left: (identifier)  0
+    // operator: "+"       1 <--- (not a named child)
+    // (comment)           2 <--- (is an extra)
+    // right: (identifier) 3
+    // -------------------
+
     assert_eq!(binary_expression_node.field_name_for_child(0), Some("left"));
     assert_eq!(
         binary_expression_node.field_name_for_child(1),
@@ -321,6 +328,44 @@ fn test_node_field_name_for_child() {
     );
     // Negative test - Not a valid child index
     assert_eq!(binary_expression_node.field_name_for_child(4), None);
+}
+
+#[test]
+fn test_node_field_name_for_named_child() {
+    let mut parser = Parser::new();
+    parser.set_language(&get_language("c")).unwrap();
+    let tree = parser
+        .parse("int w = x + /* y is special! */ y;", None)
+        .unwrap();
+    let translation_unit_node = tree.root_node();
+    let declaration_node = translation_unit_node.named_child(0).unwrap();
+
+    let binary_expression_node = declaration_node
+        .child_by_field_name("declarator")
+        .unwrap()
+        .child_by_field_name("value")
+        .unwrap();
+
+    // -------------------
+    // left: (identifier)  0
+    // operator: "+"       _ <--- (not a named child)
+    // (comment)           1 <--- (is an extra)
+    // right: (identifier) 2
+    // -------------------
+
+    assert_eq!(
+        binary_expression_node.field_name_for_named_child(0),
+        Some("left")
+    );
+    // The comment should not have a field name, as it's just an extra
+    assert_eq!(binary_expression_node.field_name_for_named_child(1), None);
+    // The operator is not a named child, so the named child at index 2 is the right child
+    assert_eq!(
+        binary_expression_node.field_name_for_named_child(2),
+        Some("right")
+    );
+    // Negative test - Not a valid child index
+    assert_eq!(binary_expression_node.field_name_for_named_child(3), None);
 }
 
 #[test]
