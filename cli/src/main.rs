@@ -245,7 +245,7 @@ struct Fuzz {
     pub subdir: Option<String>,
     #[arg(long, help = "Maximum number of edits to perform per fuzz test")]
     pub edits: Option<usize>,
-    #[arg(long, short, help = "Number of fuzzing iterations to run per test")]
+    #[arg(long, help = "Number of fuzzing iterations to run per test")]
     pub iterations: Option<usize>,
     #[arg(
         long,
