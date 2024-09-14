@@ -243,7 +243,7 @@ struct Fuzz {
     pub skip: Option<Vec<String>>,
     #[arg(long, help = "Subdirectory to the language")]
     pub subdir: Option<String>,
-    #[arg(long, short, help = "Maximum number of edits to perform per fuzz test")]
+    #[arg(long, help = "Maximum number of edits to perform per fuzz test")]
     pub edits: Option<usize>,
     #[arg(long, short, help = "Number of fuzzing iterations to run per test")]
     pub iterations: Option<usize>,
