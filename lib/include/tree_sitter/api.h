@@ -56,6 +56,7 @@ typedef enum TSInputEncoding {
 typedef enum TSSymbolType {
   TSSymbolTypeRegular,
   TSSymbolTypeAnonymous,
+  TSSymbolTypeSupertype,
   TSSymbolTypeAuxiliary,
 } TSSymbolType;
 

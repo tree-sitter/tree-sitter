@@ -1,4 +1,12 @@
-use tree_sitter::Parser;
+use std::ffi::CStr;
+
+use tree_sitter::{
+    ffi::{
+        ts_language_symbol_name, ts_language_symbol_type, TSSymbol, TSSymbolTypeAnonymous,
+        TSSymbolTypeAuxiliary, TSSymbolTypeRegular, TSSymbolTypeSupertype,
+    },
+    Parser,
+};
 
 use super::helpers::fixtures::get_language;
 
@@ -62,4 +70,69 @@ fn test_lookahead_iterator_modifiable_only_by_mut() {
 
     let mut names = lookahead.iter_names();
     let _ = names.next();
+}
+
+#[test]
+fn test_symbol_metadata_checks() {
+    let language = get_language("rust");
+    let ts_language = language.clone().into_raw();
+    for i in 0..language.node_kind_count() {
+        let ts_symbol: TSSymbol = i.try_into().unwrap();
+        unsafe {
+            let name = CStr::from_ptr(ts_language_symbol_name(ts_language, ts_symbol))
+                .to_str()
+                .unwrap();
+            match name {
+                "_type"
+                | "_expression"
+                | "_pattern"
+                | "_literal"
+                | "_literal_pattern"
+                | "_declaration_statement" => {
+                    assert_eq!(
+                        ts_language_symbol_type(ts_language, ts_symbol),
+                        TSSymbolTypeSupertype
+                    );
+                    assert_ne!(
+                        ts_language_symbol_type(ts_language, ts_symbol),
+                        TSSymbolTypeAuxiliary
+                    );
+                }
+                "_raw_string_literal_start"
+                | "_raw_string_literal_end"
+                | "_line_doc_comment"
+                | "_error_sentinel" => {
+                    assert_eq!(
+                        ts_language_symbol_type(ts_language, ts_symbol),
+                        TSSymbolTypeAuxiliary
+                    );
+                    assert_ne!(
+                        ts_language_symbol_type(ts_language, ts_symbol),
+                        TSSymbolTypeSupertype
+                    );
+                }
+                "enum_item" | "struct_item" | "type_item" => {
+                    assert_ne!(
+                        ts_language_symbol_type(ts_language, ts_symbol),
+                        TSSymbolTypeSupertype
+                    );
+                    assert_eq!(
+                        ts_language_symbol_type(ts_language, ts_symbol),
+                        TSSymbolTypeRegular
+                    );
+                }
+                "=>" | "[" | "]" | "(" | ")" | "{" | "}" => {
+                    assert_ne!(
+                        ts_language_symbol_type(ts_language, ts_symbol),
+                        TSSymbolTypeSupertype
+                    );
+                    assert_eq!(
+                        ts_language_symbol_type(ts_language, ts_symbol),
+                        TSSymbolTypeAnonymous
+                    );
+                }
+                _ => {}
+            }
+        }
+    }
 }
