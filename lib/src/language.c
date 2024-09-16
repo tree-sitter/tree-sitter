@@ -138,6 +138,8 @@ TSSymbolType ts_language_symbol_type(
     return TSSymbolTypeRegular;
   } else if (metadata.visible) {
     return TSSymbolTypeAnonymous;
+  } else if (metadata.supertype) {
+    return TSSymbolTypeSupertype;
   } else {
     return TSSymbolTypeAuxiliary;
   }

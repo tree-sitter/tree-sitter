@@ -40,7 +40,8 @@ pub const TSInputEncodingUTF16: TSInputEncoding = 1;
 pub type TSInputEncoding = ::core::ffi::c_uint;
 pub const TSSymbolTypeRegular: TSSymbolType = 0;
 pub const TSSymbolTypeAnonymous: TSSymbolType = 1;
-pub const TSSymbolTypeAuxiliary: TSSymbolType = 2;
+pub const TSSymbolTypeSupertype: TSSymbolType = 2;
+pub const TSSymbolTypeAuxiliary: TSSymbolType = 3;
 pub type TSSymbolType = ::core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
