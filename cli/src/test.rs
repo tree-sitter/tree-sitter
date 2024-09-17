@@ -1291,6 +1291,77 @@ NOT A TEST HEADER
     }
 
     #[test]
+    #[ignore = "Failing; see https://github.com/tree-sitter/tree-sitter/issues/3643"]
+    fn test_parse_tlaplus_corpus_test_suffixes() {
+        let first_input = r"
+
+---- MODULE Test ----
+op ==
+    /\ 1
+    /\ 2
+====
+
+        ";
+        let first_output = "(source_file (module (header_line) (identifier) (header_line) (operator_definition (identifier) (def_eq) (conj_list (conj_item (bullet_conj) (nat_number)) (conj_item (bullet_conj) (nat_number)))) (double_line)))";
+        let second_input = r"
+
+---- MODULE Test ----
+op == /\ 1
+      /\ 2
+====
+
+        ";
+        let second_output = "(source_file (module (header_line) (identifier) (header_line) (operator_definition (identifier) (def_eq) (conj_list (conj_item (bullet_conj) (nat_number)) (conj_item (bullet_conj) (nat_number)))) (double_line)))";
+        let content =
+            r"
+=============|||
+Basic Conjlist
+=============|||
+"
+            .to_owned()
+                + first_input
+                + r"
+-------------|||
+" + first_output + r"
+=============|||
+Inline Conjlist
+=============|||
+" + second_input + r"
+-------------|||
+" + second_output;
+        let entry = parse_test_content("the-filename".to_string(), &content, None);
+        assert_eq!(
+            entry,
+            TestEntry::Group {
+                name: "the-filename".to_string(),
+                children: vec![
+                    TestEntry::Example {
+                        name: "Basic Conjlist".to_string(),
+                        input: first_input.into(),
+                        output: first_output.into(),
+                        header_delim_len: 13,
+                        divider_delim_len: 13,
+                        has_fields: false,
+                        attributes_str: String::new(),
+                        attributes: TestAttributes::default(),
+                    },
+                    TestEntry::Example {
+                        name: "Inline Conjlist".to_string(),
+                        input: second_input.into(),
+                        output: second_output.into(),
+                        header_delim_len: 13,
+                        divider_delim_len: 13,
+                        has_fields: false,
+                        attributes_str: String::new(),
+                        attributes: TestAttributes::default(),
+                    },
+                ],
+                file_path: None,
+            }
+        );
+    }
+
+    #[test]
     fn test_parse_test_content_with_newlines_in_test_names() {
         let entry = parse_test_content(
             "the-filename".to_string(),
