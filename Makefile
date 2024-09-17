@@ -32,7 +32,7 @@ SONAME_MAJOR := $(word 1,$(subst ., ,$(VERSION)))
 SONAME_MINOR := $(word 2,$(subst ., ,$(VERSION)))
 
 # OS-specific bits
-ifeq ($(shell uname),Darwin)
+ifneq ($(findstring darwin,$(shell $(CC) -dumpmachine)),)
 	SOEXT = dylib
 	SOEXTVER_MAJOR = $(SONAME_MAJOR).$(SOEXT)
 	SOEXTVER = $(SONAME_MAJOR).$(SONAME_MINOR).$(SOEXT)
