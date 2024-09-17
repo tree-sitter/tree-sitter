@@ -67,7 +67,7 @@ pub fn parse_position_comments(
                 if let Ok(text) = node.utf8_text(source) {
                     let mut position = node.start_position();
                     if position.row > 0 {
-                        // Find the arrow character ("^" or '<-") in the comment. A left arrow
+                        // Find the arrow character ("^" or "<-") in the comment. A left arrow
                         // refers to the column where the comment node starts. An up arrow refers
                         // to its own column.
                         let mut has_left_caret = false;
