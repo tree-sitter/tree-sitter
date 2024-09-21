@@ -26,6 +26,7 @@ fs4.workspace = true
 indoc.workspace = true
 libloading.workspace = true
 once_cell.workspace = true
+path-slash.workspace = true
 regex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
