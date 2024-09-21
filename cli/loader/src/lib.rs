@@ -23,6 +23,7 @@ use fs4::FileExt;
 use indoc::indoc;
 use libloading::{Library, Symbol};
 use once_cell::unsync::OnceCell;
+use path_slash::PathBufExt as _;
 use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Deserializer, Serialize};
 use tree_sitter::Language;
@@ -818,7 +819,7 @@ impl Loader {
                     path.push(src_path.strip_prefix(root_path).unwrap());
                     path
                 };
-                command.args(["--workdir", &workdir.to_string_lossy()]);
+                command.args(["--workdir", &workdir.to_slash_lossy()]);
 
                 // Mount the root directory as a volume, which is the repo root
                 let mut volume_string = OsString::from(&root_path);
