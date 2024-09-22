@@ -124,7 +124,7 @@ fn test_parsing_with_custom_utf8_input() {
                 let row = position.row;
                 let column = position.column;
                 if row < lines.len() {
-                    if column < lines[row].as_bytes().len() {
+                    if column < lines[row].len() {
                         &lines[row].as_bytes()[column..]
                     } else {
                         b"\n"

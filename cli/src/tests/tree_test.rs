@@ -735,7 +735,7 @@ fn index_of(text: &[u8], substring: &str) -> usize {
 
 fn range_of(text: &[u8], substring: &str) -> Range {
     let start_byte = index_of(text, substring);
-    let end_byte = start_byte + substring.as_bytes().len();
+    let end_byte = start_byte + substring.len();
     Range {
         start_byte,
         end_byte,
