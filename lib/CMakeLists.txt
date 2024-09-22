@@ -9,6 +9,8 @@ project(tree-sitter
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 option(TREE_SITTER_FEATURE_WASM "Enable the Wasm feature" OFF)
 
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+
 add_library(tree-sitter src/lib.c)
 
 target_include_directories(tree-sitter PRIVATE src src/wasm include)
@@ -17,16 +19,10 @@ if(NOT MSVC)
 endif()
 
 if(TREE_SITTER_FEATURE_WASM)
-  find_path(WASMTIME_INCLUDE_DIR wasmtime.h
-            PATHS ENV DEP_WASMTIME_C_API_INCLUDE
-            REQUIRED)
-
-  find_library(WASMTIME_LIBRARY wasmtime
-               REQUIRED)
+  find_package(Wasmtime)
+  target_link_libraries(tree-sitter PRIVATE wasmtime)
 
   target_compile_definitions(tree-sitter PUBLIC TREE_SITTER_FEATURE_WASM)
-  target_include_directories(tree-sitter SYSTEM PRIVATE "${WASMTIME_INCLUDE_DIR}")
-  target_link_libraries(tree-sitter PRIVATE "${WASMTIME_LIBRARY}")
   set_target_properties(tree-sitter PROPERTIES C_STANDARD_REQUIRED ON)
 endif()
 
