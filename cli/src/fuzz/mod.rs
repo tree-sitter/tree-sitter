@@ -115,11 +115,16 @@ pub fn fuzz_language_corpus(
         options.exclude.as_ref(),
     );
 
-    let mut skipped = options.skipped.as_ref().map(|x| {
-        x.iter()
-            .map(|x| (x.as_str(), 0))
-            .collect::<HashMap<&str, usize>>()
-    });
+    let get_test_name = |test: &FlattenedTest| format!("{language_name} - {}", test.name);
+
+    let mut skipped = options
+        .skipped
+        .take()
+        .unwrap_or_default()
+        .into_iter()
+        .chain(tests.iter().filter(|x| x.skip).map(get_test_name))
+        .map(|x| (x, 0))
+        .collect::<HashMap<String, usize>>();
 
     let mut failure_count = 0;
 
@@ -132,13 +137,11 @@ pub fn fuzz_language_corpus(
 
     println!();
     for (test_index, test) in tests.iter().enumerate() {
-        let test_name = format!("{language_name} - {}", test.name);
-        if let Some(skipped) = skipped.as_mut() {
-            if let Some(counter) = skipped.get_mut(test_name.as_str()) {
-                println!("  {test_index}. {test_name} - SKIPPED");
-                *counter += 1;
-                continue;
-            }
+        let test_name = get_test_name(test);
+        if let Some(counter) = skipped.get_mut(test_name.as_str()) {
+            println!("  {test_index}. {test_name} - SKIPPED");
+            *counter += 1;
+            continue;
         }
 
         println!("  {test_index}. {test_name}");
@@ -150,6 +153,11 @@ pub fn fuzz_language_corpus(
             set_included_ranges(&mut parser, &test.input, test.template_delimiters);
 
             let tree = parser.parse(&test.input, None).unwrap();
+
+            if test.error {
+                return true;
+            }
+
             let mut actual_output = tree.root_node().to_sexp();
             if !test.has_fields {
                 actual_output = strip_sexp_fields(&actual_output);
@@ -247,7 +255,7 @@ pub fn fuzz_language_corpus(
                     actual_output = strip_sexp_fields(&actual_output);
                 }
 
-                if actual_output != test.output {
+                if actual_output != test.output && !test.error {
                     println!("Incorrect parse for {test_name} - seed {seed}");
                     print_diff_key();
                     print_diff(&actual_output, &test.output, true);
@@ -279,16 +287,14 @@ pub fn fuzz_language_corpus(
         eprintln!("{failure_count} {language_name} corpus tests failed fuzzing");
     }
 
-    if let Some(skipped) = skipped.as_mut() {
-        skipped.retain(|_, v| *v == 0);
+    skipped.retain(|_, v| *v == 0);
 
-        if !skipped.is_empty() {
-            println!("Non matchable skip definitions:");
-            for k in skipped.keys() {
-                println!("  {k}");
-            }
-            panic!("Non matchable skip definitions needs to be removed");
+    if !skipped.is_empty() {
+        println!("Non matchable skip definitions:");
+        for k in skipped.keys() {
+            println!("  {k}");
         }
+        panic!("Non matchable skip definitions needs to be removed");
     }
 }
 
@@ -297,6 +303,8 @@ pub struct FlattenedTest {
     pub input: Vec<u8>,
     pub output: String,
     pub languages: Vec<Box<str>>,
+    pub error: bool,
+    pub skip: bool,
     pub has_fields: bool,
     pub template_delimiters: Option<(&'static str, &'static str)>,
 }
@@ -345,6 +353,8 @@ pub fn flatten_tests(
                     output,
                     has_fields,
                     languages: attributes.languages,
+                    error: attributes.error,
+                    skip: attributes.skip,
                     template_delimiters: None,
                 });
             }
