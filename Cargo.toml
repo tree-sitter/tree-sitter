@@ -42,8 +42,8 @@ strip = false
 anstyle = "1.0.8"
 anyhow = "1.0.89"
 bstr = "1.10.0"
-cc = "1.1.19"
-clap = { version = "4.5.17", features = [
+cc = "1.1.21"
+clap = { version = "4.5.18", features = [
   "cargo",
   "derive",
   "env",
@@ -79,7 +79,7 @@ serde_json = { version = "1.0.128", features = ["preserve_order"] }
 similar = "2.6.0"
 smallbitvec = "2.5.3"
 tempfile = "3.12.0"
-thiserror = "1.0.63"
+thiserror = "1.0.64"
 tiny_http = "0.12.0"
 toml = "0.8.19"
 unindent = "0.2.3"
