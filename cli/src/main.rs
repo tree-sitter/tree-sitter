@@ -7,6 +7,7 @@ use std::{
 use anstyle::{AnsiColor, Color, Style};
 use anyhow::{anyhow, Context, Result};
 use clap::{crate_authors, Args, Command, FromArgMatches as _, Subcommand};
+use clap_complete::{generate, Shell};
 use glob::glob;
 use regex::Regex;
 use tree_sitter::{ffi, Parser, Point};
@@ -45,6 +46,7 @@ enum Commands {
     Tags(Tags),
     Playground(Playground),
     DumpLanguages(DumpLanguages),
+    Complete(Complete),
 }
 
 #[derive(Args)]
@@ -388,6 +390,18 @@ struct DumpLanguages {
     pub config_path: Option<PathBuf>,
 }
 
+#[derive(Args)]
+#[command(about = "Generate shell completions", alias = "comp")]
+struct Complete {
+    #[arg(
+        long,
+        short,
+        value_enum,
+        help = "The shell to generate completions for"
+    )]
+    pub shell: Shell,
+}
+
 fn main() {
     let result = run();
     if let Err(err) = &result {
@@ -426,9 +440,9 @@ fn run() -> Result<()> {
         .arg_required_else_help(true)
         .disable_help_subcommand(true)
         .disable_colored_help(false);
-    let cli = Commands::augment_subcommands(cli);
+    let mut cli = Commands::augment_subcommands(cli);
 
-    let command = Commands::from_arg_matches(&cli.get_matches())?;
+    let command = Commands::from_arg_matches(&cli.clone().get_matches())?;
 
     let current_dir = env::current_dir().unwrap();
     let mut loader = loader::Loader::new()?;
@@ -999,6 +1013,12 @@ fn run() -> Result<()> {
                     configuration.injection_regex,
                 );
             }
+        }
+
+        Commands::Complete(complete_options) => {
+            let name = cli.get_name().to_string();
+            let stdout = &mut std::io::stdout();
+            generate(complete_options.shell, &mut cli, name, stdout);
         }
     }
 
