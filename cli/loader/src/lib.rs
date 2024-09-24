@@ -132,6 +132,7 @@ pub struct Loader {
     use_all_highlight_names: bool,
     debug_build: bool,
     sanitize_build: bool,
+    force_rebuild: bool,
 
     #[cfg(feature = "wasm")]
     wasm_store: Mutex<Option<tree_sitter::WasmStore>>,
@@ -200,6 +201,7 @@ impl Loader {
             use_all_highlight_names: true,
             debug_build: false,
             sanitize_build: false,
+            force_rebuild: false,
 
             #[cfg(feature = "wasm")]
             wasm_store: Mutex::default(),
@@ -474,7 +476,7 @@ impl Loader {
             fs::create_dir_all(&self.parser_lib_path)?;
         }
 
-        let mut recompile = config.output_path.is_some(); // if specified, always recompile
+        let mut recompile = self.force_rebuild || config.output_path.is_some(); // if specified, always recompile
 
         let output_path = config.output_path.unwrap_or_else(|| {
             let mut path = self.parser_lib_path.join(lib_name);
@@ -1183,6 +1185,10 @@ impl Loader {
 
     pub fn sanitize_build(&mut self, flag: bool) {
         self.sanitize_build = flag;
+    }
+
+    pub fn force_rebuild(&mut self, rebuild: bool) {
+        self.force_rebuild = rebuild;
     }
 
     #[cfg(feature = "wasm")]
