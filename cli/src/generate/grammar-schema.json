@@ -32,6 +32,7 @@
 
     "extras": {
       "type": "array",
+      "uniqueItems": true,
       "items": {
         "$ref": "#/definitions/rule"
       }
@@ -39,16 +40,22 @@
 
     "precedences": {
       "type": "array",
+      "uniqueItems": true,
       "items": {
         "type": "array",
+        "uniqueItems": true,
         "items": {
-          "$ref": "#/definitions/rule"
+          "oneOf": [
+            { "type": "string" },
+            { "$ref": "#/definitions/symbol-rule" }
+          ]
         }
       }
     },
 
     "externals": {
       "type": "array",
+      "uniqueItems": true,
       "items": {
         "$ref": "#/definitions/rule"
       }
@@ -56,6 +63,7 @@
 
     "inline": {
       "type": "array",
+      "uniqueItems": true,
       "items": {
         "type": "string",
         "pattern": "^[a-zA-Z_]\\w*$"
@@ -64,8 +72,10 @@
 
     "conflicts": {
       "type": "array",
+      "uniqueItems": true,
       "items": {
         "type": "array",
+        "uniqueItems": true,
         "items": {
           "type": "string",
           "pattern": "^[a-zA-Z_]\\w*$"
@@ -81,6 +91,7 @@
     "supertypes": {
       "description": "A list of hidden rule names that should be considered supertypes in the generated node types file. See https://tree-sitter.github.io/tree-sitter/using-parsers#static-node-types.",
       "type": "array",
+      "uniqueItems": true,
       "items": {
         "description": "the name of a rule in `rules` or `extras`",
         "type": "string"
