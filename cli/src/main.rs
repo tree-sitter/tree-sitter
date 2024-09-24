@@ -187,6 +187,8 @@ struct Parse {
     #[arg(long, short = 'n', help = "Parse the contents of a specific test")]
     #[clap(conflicts_with = "paths", conflicts_with = "paths_file")]
     pub test_number: Option<u32>,
+    #[arg(short, long, help = "Force rebuild the parser")]
+    pub rebuild: bool,
 }
 
 #[derive(Args)]
@@ -234,6 +236,8 @@ struct Test {
     pub config_path: Option<PathBuf>,
     #[arg(long, help = "Force showing fields in test diffs")]
     pub show_fields: bool,
+    #[arg(short, long, help = "Force rebuild the parser")]
+    pub rebuild: bool,
 }
 
 #[derive(Args)]
@@ -263,6 +267,8 @@ struct Fuzz {
     pub log_graphs: bool,
     #[arg(long, short, help = "Enable parser logging")]
     pub log: bool,
+    #[arg(short, long, help = "Force rebuild the parser")]
+    pub rebuild: bool,
 }
 
 #[derive(Args)]
@@ -560,6 +566,7 @@ fn run() -> Result<()> {
             let mut parser = Parser::new();
 
             loader.debug_build(parse_options.debug_build);
+            loader.force_rebuild(parse_options.rebuild);
 
             #[cfg(feature = "wasm")]
             if parse_options.wasm {
@@ -656,6 +663,7 @@ fn run() -> Result<()> {
             let config = Config::load(test_options.config_path)?;
 
             loader.debug_build(test_options.debug_build);
+            loader.force_rebuild(test_options.rebuild);
 
             let mut parser = Parser::new();
 
@@ -731,6 +739,7 @@ fn run() -> Result<()> {
 
         Commands::Fuzz(fuzz_options) => {
             loader.sanitize_build(true);
+            loader.force_rebuild(fuzz_options.rebuild);
 
             let languages = loader.languages_at_path(&current_dir)?;
             let (language, language_name) = &languages
