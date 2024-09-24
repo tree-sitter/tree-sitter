@@ -29,6 +29,7 @@ anstyle.workspace = true
 anyhow.workspace = true
 bstr.workspace = true
 clap.workspace = true
+clap_complete.workspace = true
 ctor.workspace = true
 ctrlc.workspace = true
 dirs.workspace = true
