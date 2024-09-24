@@ -14,16 +14,17 @@ pub(super) fn extract_tokens(
     let mut extractor = TokenExtractor {
         current_variable_name: String::new(),
         current_variable_token_count: 0,
+        is_first_rule: false,
         extracted_variables: Vec::new(),
         extracted_usage_counts: Vec::new(),
     };
 
-    for variable in &mut grammar.variables {
-        extractor.extract_tokens_in_variable(variable);
+    for (i, variable) in &mut grammar.variables.iter_mut().enumerate() {
+        extractor.extract_tokens_in_variable(i == 0, variable)?;
     }
 
     for variable in &mut grammar.external_tokens {
-        extractor.extract_tokens_in_variable(variable);
+        extractor.extract_tokens_in_variable(false, variable)?;
     }
 
     let mut lexical_variables = Vec::with_capacity(extractor.extracted_variables.len());
@@ -172,6 +173,7 @@ pub(super) fn extract_tokens(
 struct TokenExtractor {
     current_variable_name: String,
     current_variable_token_count: usize,
+    is_first_rule: bool,
     extracted_variables: Vec<Variable>,
     extracted_usage_counts: Vec<usize>,
 }
@@ -181,19 +183,25 @@ struct SymbolReplacer {
 }
 
 impl TokenExtractor {
-    fn extract_tokens_in_variable(&mut self, variable: &mut Variable) {
+    fn extract_tokens_in_variable(
+        &mut self,
+        is_first: bool,
+        variable: &mut Variable,
+    ) -> Result<()> {
         self.current_variable_name.clear();
         self.current_variable_name.push_str(&variable.name);
         self.current_variable_token_count = 0;
+        self.is_first_rule = is_first;
         let mut rule = Rule::Blank;
         mem::swap(&mut rule, &mut variable.rule);
-        variable.rule = self.extract_tokens_in_rule(&rule);
+        variable.rule = self.extract_tokens_in_rule(&rule)?;
+        Ok(())
     }
 
-    fn extract_tokens_in_rule(&mut self, input: &Rule) -> Rule {
+    fn extract_tokens_in_rule(&mut self, input: &Rule) -> Result<Rule> {
         match input {
-            Rule::String(name) => self.extract_token(input, Some(name)).into(),
-            Rule::Pattern(..) => self.extract_token(input, None).into(),
+            Rule::String(name) => Ok(self.extract_token(input, Some(name))?.into()),
+            Rule::Pattern(..) => Ok(self.extract_token(input, None)?.into()),
             Rule::Metadata { params, rule } => {
                 if params.is_token {
                     let mut params = params.clone();
@@ -210,41 +218,53 @@ impl TokenExtractor {
                         input
                     };
 
-                    self.extract_token(rule_to_extract, string_value).into()
+                    Ok(self.extract_token(rule_to_extract, string_value)?.into())
                 } else {
-                    Rule::Metadata {
+                    Ok(Rule::Metadata {
                         params: params.clone(),
-                        rule: Box::new(self.extract_tokens_in_rule(rule)),
-                    }
+                        rule: Box::new(self.extract_tokens_in_rule(rule)?),
+                    })
                 }
             }
-            Rule::Repeat(content) => Rule::Repeat(Box::new(self.extract_tokens_in_rule(content))),
-            Rule::Seq(elements) => Rule::Seq(
+            Rule::Repeat(content) => Ok(Rule::Repeat(Box::new(
+                self.extract_tokens_in_rule(content)?,
+            ))),
+            Rule::Seq(elements) => Ok(Rule::Seq(
                 elements
                     .iter()
                     .map(|e| self.extract_tokens_in_rule(e))
-                    .collect(),
-            ),
-            Rule::Choice(elements) => Rule::Choice(
+                    .collect::<Result<Vec<_>>>()?,
+            )),
+            Rule::Choice(elements) => Ok(Rule::Choice(
                 elements
                     .iter()
                     .map(|e| self.extract_tokens_in_rule(e))
-                    .collect(),
-            ),
-            _ => input.clone(),
+                    .collect::<Result<Vec<_>>>()?,
+            )),
+            _ => Ok(input.clone()),
         }
     }
 
-    fn extract_token(&mut self, rule: &Rule, string_value: Option<&String>) -> Symbol {
+    fn extract_token(&mut self, rule: &Rule, string_value: Option<&String>) -> Result<Symbol> {
         for (i, variable) in self.extracted_variables.iter_mut().enumerate() {
             if variable.rule == *rule {
                 self.extracted_usage_counts[i] += 1;
-                return Symbol::terminal(i);
+                return Ok(Symbol::terminal(i));
             }
         }
 
         let index = self.extracted_variables.len();
         let variable = if let Some(string_value) = string_value {
+            if string_value.is_empty() && !self.is_first_rule {
+                return Err(anyhow!(
+                    "The rule `{}` contains an empty string.
+
+Tree-sitter does not support syntactic rules that contain an empty string
+unless they are used only as the grammar's start rule.
+",
+                    self.current_variable_name
+                ));
+            }
             Variable {
                 name: string_value.clone(),
                 kind: VariableType::Anonymous,
@@ -264,7 +284,7 @@ impl TokenExtractor {
 
         self.extracted_variables.push(variable);
         self.extracted_usage_counts.push(1);
-        Symbol::terminal(index)
+        Ok(Symbol::terminal(index))
     }
 }
 
@@ -518,6 +538,15 @@ mod test {
             lexical_grammar.variables,
             vec![Variable::anonymous("a", Rule::string("a"))]
         );
+    }
+
+    #[test]
+    fn test_extraction_with_empty_string() {
+        assert!(extract_tokens(build_grammar(vec![
+            Variable::named("rule_0", Rule::non_terminal(1)),
+            Variable::hidden("_rule_1", Rule::string("")),
+        ]))
+        .is_err());
     }
 
     fn build_grammar(variables: Vec<Variable>) -> InternedGrammar {
