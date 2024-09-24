@@ -735,6 +735,46 @@ fn run() -> Result<()> {
                     color,
                 )?;
             }
+
+            // For the rest of the queries, find their tests and run them
+            for entry in walkdir::WalkDir::new(current_dir.join("queries"))
+                .into_iter()
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_type().is_file())
+            {
+                let stem = entry
+                    .path()
+                    .file_stem()
+                    .map(|s| s.to_str().unwrap_or_default())
+                    .unwrap_or_default();
+                if stem != "highlights" && stem != "tags" {
+                    let paths = walkdir::WalkDir::new(test_dir.join(stem))
+                        .into_iter()
+                        .filter_map(|e| {
+                            let entry = e.ok()?;
+                            if entry.file_type().is_file() {
+                                Some(String::from(entry.path().to_string_lossy()))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<String>>();
+                    if !paths.is_empty() {
+                        println!("{stem}:");
+                    }
+                    query::query_files_at_paths(
+                        language,
+                        paths,
+                        entry.path(),
+                        false,
+                        None,
+                        None,
+                        true,
+                        false,
+                        false,
+                    )?;
+                }
+            }
         }
 
         Commands::Fuzz(fuzz_options) => {
