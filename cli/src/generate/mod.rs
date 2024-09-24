@@ -68,7 +68,11 @@ pub fn generate_parser_in_directory(
         }
     }
 
-    if repo_path.is_dir() && !repo_path.join("grammar.js").exists() && !path_in_ignore(&repo_path) {
+    let grammar_path = grammar_path
+        .map(PathBuf::from)
+        .unwrap_or(repo_path.join("grammar.js"));
+
+    if repo_path.is_dir() && !grammar_path.exists() && !path_in_ignore(&repo_path) {
         if let Some(dir_name) = repo_path
             .file_name()
             .map(|x| x.to_string_lossy().to_ascii_lowercase())
@@ -82,14 +86,8 @@ pub fn generate_parser_in_directory(
         }
     }
 
-    // Read the grammar.json.
-    let grammar_json = if let Some(path) = grammar_path {
-        load_grammar_file(path.as_ref(), js_runtime)?
-    } else {
-        let grammar_js_path =
-            grammar_path.map_or(repo_path.join("grammar.js"), std::convert::Into::into);
-        load_grammar_file(&grammar_js_path, js_runtime)?
-    };
+    // Read the grammar file.
+    let grammar_json = load_grammar_file(&grammar_path, js_runtime)?;
 
     let src_path = repo_path.join("src");
     let header_path = src_path.join("tree_sitter");
@@ -98,7 +96,7 @@ pub fn generate_parser_in_directory(
     fs::create_dir_all(&src_path)?;
     fs::create_dir_all(&header_path)?;
 
-    if grammar_path.is_none() {
+    if grammar_path.file_name().unwrap() != "grammar.json" {
         fs::write(src_path.join("grammar.json"), &grammar_json)
             .with_context(|| format!("Failed to write grammar.json to {src_path:?}"))?;
     }
@@ -118,7 +116,7 @@ pub fn generate_parser_in_directory(
     write_file(&header_path.join("array.h"), tree_sitter::ARRAY_HEADER)?;
     write_file(&header_path.join("parser.h"), tree_sitter::PARSER_HEADER)?;
 
-    if !path_in_ignore(&repo_path) {
+    if !path_in_ignore(&repo_path) && grammar_path == repo_path.join("grammar.js") {
         grammar_files::generate_grammar_files(&repo_path, &input_grammar.name, generate_bindings)?;
     }
 
