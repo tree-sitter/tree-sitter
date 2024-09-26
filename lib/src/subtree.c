@@ -22,6 +22,7 @@ typedef struct {
 #define TS_MAX_INLINE_TREE_LENGTH UINT8_MAX
 #define TS_MAX_TREE_POOL_SIZE 32
 
+
 // ExternalScannerState
 
 void ts_external_scanner_state_init(ExternalScannerState *self, const char *data, unsigned length) {
@@ -196,8 +197,10 @@ Subtree ts_subtree_new_leaf(
     }};
   } else {
     SubtreeHeapData *data = ts_subtree_pool_allocate(pool);
+    printf("[1] ALLOCATED %p\n", (void *)data);
     *data = (SubtreeHeapData) {
       .ref_count = 1,
+      .og_ptr = (size_t)data,
       .padding = padding,
       .size = size,
       .lookahead_bytes = lookahead_bytes,
@@ -272,6 +275,7 @@ MutableSubtree ts_subtree_clone(Subtree self) {
     );
   }
   result->ref_count = 1;
+  printf("NEW SUBTREE: %p\n", result);
   return (MutableSubtree) {.ptr = result};
 }
 
@@ -375,7 +379,10 @@ void ts_subtree_summarize_children(
 
   self.ptr->named_child_count = 0;
   self.ptr->visible_child_count = 0;
-  self.ptr->error_cost = 0;
+  if (!ts_subtree_is_error(ts_subtree_from_mut(self))) {
+    printf("SET 0: %s\n", ts_language_symbol_name(language, self.ptr->symbol));
+    self.ptr->error_cost = 0;
+  }
   self.ptr->repeat_depth = 0;
   self.ptr->visible_descendant_count = 0;
   self.ptr->has_external_tokens = false;
@@ -422,16 +429,27 @@ void ts_subtree_summarize_children(
     }
 
     uint32_t grandchild_count = ts_subtree_child_count(child);
+    printf("HI: %s\n", ts_language_symbol_name(language, self.ptr->symbol));
     if (
       self.ptr->symbol == ts_builtin_sym_error ||
       self.ptr->symbol == ts_builtin_sym_error_repeat
     ) {
+      printf("THE FIRST BLOCK\n");
       if (!ts_subtree_extra(child) && !(ts_subtree_is_error(child) && grandchild_count == 0)) {
         if (ts_subtree_visible(child)) {
           self.ptr->error_cost += ERROR_COST_PER_SKIPPED_TREE;
         } else if (grandchild_count > 0) {
           self.ptr->error_cost += ERROR_COST_PER_SKIPPED_TREE * child.ptr->visible_child_count;
         }
+      } else {
+        printf("FALSE BLOCK\n");
+      }
+
+      if (ts_subtree_is_error(child) && grandchild_count == 0) {
+        MutableSubtree child_mut = ts_subtree_to_mut_unsafe(child);
+        child_mut.ptr->error_cost = ERROR_COST_PER_RECOVERY +
+          ERROR_COST_PER_SKIPPED_CHAR * child.ptr->size.bytes +
+          ERROR_COST_PER_SKIPPED_LINE * child.ptr->size.extent.row;
       }
     }
 
@@ -465,10 +483,13 @@ void ts_subtree_summarize_children(
 
   self.ptr->lookahead_bytes = lookahead_end_byte - self.ptr->size.bytes - self.ptr->padding.bytes;
 
+  printf("HI 2: %d\n", self.ptr->symbol);
+  printf("HI 2: %s\n", ts_language_symbol_name(language, self.ptr->symbol));
   if (
     self.ptr->symbol == ts_builtin_sym_error ||
     self.ptr->symbol == ts_builtin_sym_error_repeat
   ) {
+    printf("HI 3\n");
     self.ptr->error_cost +=
       ERROR_COST_PER_RECOVERY +
       ERROR_COST_PER_SKIPPED_CHAR * self.ptr->size.bytes +
@@ -519,9 +540,10 @@ MutableSubtree ts_subtree_new_node(
     children->capacity = (uint32_t)(new_byte_size / sizeof(Subtree));
   }
   SubtreeHeapData *data = (SubtreeHeapData *)&children->contents[children->size];
-
+  printf("[0]ALLOCATED %p\n", (void *)data);
   *data = (SubtreeHeapData) {
     .ref_count = 1,
+    .og_ptr = (size_t)data,
     .symbol = symbol,
     .child_count = children->size,
     .visible = metadata.visible,
@@ -538,6 +560,11 @@ MutableSubtree ts_subtree_new_node(
     }}
   };
   MutableSubtree result = {.ptr = data};
+  if (symbol == ts_builtin_sym_error_repeat) {
+    printf("ptr: %p\n", (void *)result.ptr);
+  } else if (symbol == ts_builtin_sym_error) {
+    printf("ptr: %p\n", (void *)result.ptr);
+  }
   ts_subtree_summarize_children(result, language);
   return result;
 }
@@ -981,6 +1008,7 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
   uint32_t end_offset = start_offset + ts_subtree_total_bytes(*self);
   fprintf(f, "tree_%p [label=\"", (void *)self);
   ts_language_write_symbol_as_dot_string(language, f, symbol);
+  printf("[0]ts_subtree_error_cost(link.subtree)=%u\n", ts_subtree_error_cost(*self));
   fprintf(f, "\"");
 
   if (ts_subtree_child_count(*self) == 0) fprintf(f, ", shape=plaintext");
@@ -994,7 +1022,8 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
     "depends-on-column: %u\n"
     "descendant-count: %u\n"
     "repeat-depth: %u\n"
-    "lookahead-bytes: %u",
+    "lookahead-bytes: %u\n"
+    "ptr: %p",
     start_offset, end_offset,
     ts_subtree_parse_state(*self),
     ts_subtree_error_cost(*self),
@@ -1002,11 +1031,23 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
     ts_subtree_depends_on_column(*self),
     ts_subtree_visible_descendant_count(*self),
     ts_subtree_repeat_depth(*self),
-    ts_subtree_lookahead_bytes(*self)
+    ts_subtree_lookahead_bytes(*self),
+    (void*)self->ptr
   );
+
+  if (self->data.is_inline) {
+    fprintf(f, "\nis_inline: %d", self->data.is_inline);
+  } else {
+    fprintf(f, "\nog_ptr: %p", (void*)self->ptr->og_ptr);
+  }
 
   if (ts_subtree_is_error(*self) && ts_subtree_child_count(*self) == 0 && self->ptr->lookahead_char != 0) {
     fprintf(f, "\ncharacter: '%c'", self->ptr->lookahead_char);
+    printf("ptr %p is error with an error cost of %d\n", (void*)self->ptr, ts_subtree_error_cost(*self));
+    printf("branch [1] %d %p\n", ts_subtree_missing(*self), self->ptr);
+    printf("branch [2] %d\n", self->data.is_inline);
+  } else {
+    printf("no call!\n");
   }
 
   fprintf(f, "\"]\n");

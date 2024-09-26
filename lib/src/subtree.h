@@ -110,6 +110,7 @@ struct SubtreeInlineData {
 // the inline representation.
 typedef struct {
   volatile uint32_t ref_count;
+  size_t og_ptr;
   Length padding;
   Length size;
   uint32_t lookahead_bytes;

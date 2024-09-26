@@ -206,12 +206,18 @@ static bool ts_parser__breakdown_top_of_stack(
         }
 
         ts_subtree_retain(child);
-        ts_stack_push(self->stack, slice.version, child, pending, state);
+        ts_stack_push(self->stack, slice.version, child, pending, state, self->language);
+        LOG("push 1");
+        printf("push 1\n");
+        LOG_STACK();
       }
 
       for (uint32_t j = 1; j < slice.subtrees.size; j++) {
         Subtree tree = slice.subtrees.contents[j];
-        ts_stack_push(self->stack, slice.version, tree, false, state);
+        ts_stack_push(self->stack, slice.version, tree, false, state, self->language);
+        LOG("push 2");
+        printf("push 2\n");
+        LOG_STACK();
       }
 
       ts_subtree_release(&self->tree_pool, parent);
@@ -913,7 +919,10 @@ static void ts_parser__shift(
     subtree_to_push = ts_subtree_from_mut(result);
   }
 
-  ts_stack_push(self->stack, version, subtree_to_push, !is_leaf, state);
+  ts_stack_push(self->stack, version, subtree_to_push, !is_leaf, state, self->language);
+  LOG("push 3");
+  printf("push 3\n");
+  LOG_STACK();
   if (ts_subtree_has_external_tokens(subtree_to_push)) {
     ts_stack_set_last_external_token(
       self->stack, version, ts_subtree_last_external_token(subtree_to_push)
@@ -1016,9 +1025,15 @@ static StackVersion ts_parser__reduce(
 
     // Push the parent node onto the stack, along with any extra tokens that
     // were previously on top of the stack.
-    ts_stack_push(self->stack, slice_version, ts_subtree_from_mut(parent), false, next_state);
+    ts_stack_push(self->stack, slice_version, ts_subtree_from_mut(parent), false, next_state, self->language);
+    LOG("push 4");
+    printf("push 4\n");
+    LOG_STACK();
     for (uint32_t j = 0; j < self->trailing_extras.size; j++) {
-      ts_stack_push(self->stack, slice_version, self->trailing_extras.contents[j], false, next_state);
+      ts_stack_push(self->stack, slice_version, self->trailing_extras.contents[j], false, next_state, self->language);
+      LOG("push 5");
+      printf("push 5\n");
+      LOG_STACK();
     }
 
     for (StackVersion j = 0; j < slice_version; j++) {
@@ -1042,9 +1057,15 @@ static void ts_parser__accept(
   Subtree lookahead
 ) {
   assert(ts_subtree_is_eof(lookahead));
-  ts_stack_push(self->stack, version, lookahead, false, 1);
+  ts_stack_push(self->stack, version, lookahead, false, 1, self->language);
+  LOG("push 6");
+  printf("push 6\n");
+  LOG_STACK();
 
-  StackSliceArray pop = ts_stack_pop_all(self->stack, version);
+  LOG("POP ALL")
+  printf("POP ALL\n");
+  StackSliceArray pop = ts_stack_pop_all(self->stack, version, self->dot_graph_file);
+  LOG_STACK();
   for (uint32_t i = 0; i < pop.size; i++) {
     SubtreeArray trees = pop.contents[i].subtrees;
 
@@ -1222,14 +1243,20 @@ static bool ts_parser__recover_to_state(
 
     if (slice.subtrees.size > 0) {
       Subtree error = ts_subtree_new_error_node(&slice.subtrees, true, self->language);
-      ts_stack_push(self->stack, slice.version, error, false, goal_state);
+      ts_stack_push(self->stack, slice.version, error, false, goal_state, self->language);
+      LOG("push 7");
+      printf("push 7\n");
+      LOG_STACK();
     } else {
       array_delete(&slice.subtrees);
     }
 
     for (unsigned j = 0; j < self->trailing_extras.size; j++) {
       Subtree tree = self->trailing_extras.contents[j];
-      ts_stack_push(self->stack, slice.version, tree, false, goal_state);
+      ts_stack_push(self->stack, slice.version, tree, false, goal_state, self->language);
+      LOG("push 8");
+      printf("push 8\n");
+      LOG_STACK();
     }
 
     previous_version = slice.version;
@@ -1339,7 +1366,10 @@ static void ts_parser__recover(
     LOG("recover_eof");
     SubtreeArray children = array_new();
     Subtree parent = ts_subtree_new_error_node(&children, false, self->language);
-    ts_stack_push(self->stack, version, parent, false, 1);
+    ts_stack_push(self->stack, version, parent, false, 1, self->language);
+    LOG("push 9");
+    printf("push 9\n");
+    LOG_STACK();
     ts_parser__accept(self, version, lookahead);
     return;
   }
@@ -1407,7 +1437,10 @@ static void ts_parser__recover(
   }
 
   // Push the new ERROR onto the stack.
-  ts_stack_push(self->stack, version, ts_subtree_from_mut(error_repeat), false, ERROR_STATE);
+  ts_stack_push(self->stack, version, ts_subtree_from_mut(error_repeat), false, ERROR_STATE, self->language);
+  LOG("push 10");
+  printf("push 10\n");
+  LOG_STACK();
   if (ts_subtree_has_external_tokens(lookahead)) {
     ts_stack_set_last_external_token(
       self->stack, version, ts_subtree_last_external_token(lookahead)
@@ -1469,8 +1502,11 @@ static void ts_parser__handle_error(
           ts_stack_push(
             self->stack, version_with_missing_tree,
             missing_tree, false,
-            state_after_missing_symbol
+            state_after_missing_symbol, self->language
           );
+          LOG("push 11");
+          printf("push 11\n");
+          LOG_STACK();
 
           if (ts_parser__do_all_potential_reductions(
             self, version_with_missing_tree,
@@ -1488,7 +1524,10 @@ static void ts_parser__handle_error(
       }
     }
 
-    ts_stack_push(self->stack, v, NULL_SUBTREE, false, ERROR_STATE);
+    ts_stack_push(self->stack, v, NULL_SUBTREE, false, ERROR_STATE, self->language);
+    LOG("push 12");
+    printf("push 12\n");
+    LOG_STACK();
     v = (v == version) ? previous_version_count : v + 1;
   }
 
@@ -1847,7 +1886,7 @@ TSParser *ts_parser_new(void) {
   array_init(&self->reduce_actions);
   array_reserve(&self->reduce_actions, 4);
   self->tree_pool = ts_subtree_pool_new(32);
-  self->stack = ts_stack_new(&self->tree_pool);
+  self->stack = ts_stack_new(&self->tree_pool, self->language);
   self->finished_tree = NULL_SUBTREE;
   self->reusable_node = reusable_node_new();
   self->dot_graph_file = NULL;
@@ -1915,6 +1954,8 @@ bool ts_parser_set_language(TSParser *self, const TSLanguage *language) {
   }
 
   self->language = ts_language_copy(language);
+  ts_stack_set_language(self->stack, ts_language_copy(language));
+  ts_stack_set_lexer(self->stack, &self->lexer);
   return true;
 }
 

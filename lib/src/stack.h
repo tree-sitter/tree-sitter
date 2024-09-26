@@ -7,6 +7,7 @@ extern "C" {
 
 #include "./array.h"
 #include "./subtree.h"
+#include "./lexer.h"
 #include "./error_costs.h"
 #include <stdio.h>
 
@@ -29,7 +30,7 @@ typedef struct {
 typedef Array(StackSummaryEntry) StackSummary;
 
 // Create a stack.
-Stack *ts_stack_new(SubtreePool *);
+Stack *ts_stack_new(SubtreePool *, const TSLanguage*);
 
 // Release the memory reserved for a given stack.
 void ts_stack_delete(Stack *);
@@ -47,6 +48,10 @@ Subtree ts_stack_last_external_token(const Stack *, StackVersion);
 // Set the last external token associated with a given version of the stack.
 void ts_stack_set_last_external_token(Stack *, StackVersion, Subtree );
 
+void ts_stack_set_language(Stack *self, const TSLanguage *language);
+
+void ts_stack_set_lexer(Stack *self, Lexer *lexer);
+
 // Get the position of the given version of the stack within the document.
 Length ts_stack_position(const Stack *, StackVersion);
 
@@ -55,7 +60,7 @@ Length ts_stack_position(const Stack *, StackVersion);
 // This transfers ownership of the tree to the Stack. Callers that
 // need to retain ownership of the tree for their own purposes should
 // first retain the tree.
-void ts_stack_push(Stack *, StackVersion, Subtree , bool, TSStateId);
+void ts_stack_push(Stack *, StackVersion, Subtree , bool, TSStateId, const TSLanguage*);
 
 // Pop the given number of entries from the given version of the stack. This
 // operation can increase the number of stack versions by revealing multiple
@@ -71,7 +76,7 @@ SubtreeArray ts_stack_pop_error(Stack *, StackVersion);
 StackSliceArray ts_stack_pop_pending(Stack *, StackVersion);
 
 // Remove any all trees from the given version of the stack.
-StackSliceArray ts_stack_pop_all(Stack *, StackVersion);
+StackSliceArray ts_stack_pop_all(Stack *, StackVersion, FILE*);
 
 // Get the maximum number of tree nodes reachable from this version of the stack
 // since the last error was detected.

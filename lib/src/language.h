@@ -272,6 +272,7 @@ static inline void ts_language_write_symbol_as_dot_string(
   TSSymbol symbol
 ) {
   const char *name = ts_language_symbol_name(self, symbol);
+  printf("name: %s\n", name);
   for (const char *chr = name; *chr; chr++) {
     switch (*chr) {
       case '"':
