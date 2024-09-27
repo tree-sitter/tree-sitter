@@ -50,7 +50,6 @@ pub const LANGUAGE_VERSION: usize = ffi::TREE_SITTER_LANGUAGE_VERSION as usize;
 pub const MIN_COMPATIBLE_LANGUAGE_VERSION: usize =
     ffi::TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION as usize;
 
-pub const ARRAY_HEADER: &str = include_str!("../src/array.h");
 pub const PARSER_HEADER: &str = include_str!("../src/parser.h");
 
 /// An opaque object that defines how to parse a particular language. The code

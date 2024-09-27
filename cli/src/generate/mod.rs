@@ -7,7 +7,6 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use build_tables::build_tables;
-use grammar_files::path_in_ignore;
 use grammars::InputGrammar;
 use lazy_static::lazy_static;
 use parse_grammar::parse_grammar;
@@ -28,8 +27,6 @@ mod render;
 mod rules;
 mod tables;
 
-pub use grammar_files::lookup_package_json_for_path;
-
 lazy_static! {
     static ref JSON_COMMENT_REGEX: Regex = RegexBuilder::new("^\\s*//.*")
         .multi_line(true)
@@ -42,13 +39,13 @@ struct GeneratedParser {
     node_types_json: String,
 }
 
-pub const ALLOC_HEADER: &str = include_str!("./templates/alloc.h");
+pub const ALLOC_HEADER: &str = include_str!("../templates/alloc.h");
+pub const ARRAY_HEADER: &str = include_str!("../templates/array.h");
 
 pub fn generate_parser_in_directory(
     repo_path: &Path,
     grammar_path: Option<&str>,
     abi_version: usize,
-    generate_bindings: bool,
     report_symbol_name: Option<&str>,
     js_runtime: Option<&str>,
 ) -> Result<()> {
@@ -71,20 +68,6 @@ pub fn generate_parser_in_directory(
     let grammar_path = grammar_path
         .map(PathBuf::from)
         .unwrap_or(repo_path.join("grammar.js"));
-
-    if repo_path.is_dir() && !grammar_path.exists() && !path_in_ignore(&repo_path) {
-        if let Some(dir_name) = repo_path
-            .file_name()
-            .map(|x| x.to_string_lossy().to_ascii_lowercase())
-        {
-            if let Some(language_name) = dir_name
-                .strip_prefix("tree-sitter-")
-                .or_else(|| Some(dir_name.as_ref()))
-            {
-                grammar_files::generate_grammar_files(&repo_path, language_name, false)?;
-            }
-        }
-    }
 
     // Read the grammar file.
     let grammar_json = load_grammar_file(&grammar_path, js_runtime)?;
@@ -113,12 +96,8 @@ pub fn generate_parser_in_directory(
     write_file(&src_path.join("parser.c"), c_code)?;
     write_file(&src_path.join("node-types.json"), node_types_json)?;
     write_file(&header_path.join("alloc.h"), ALLOC_HEADER)?;
-    write_file(&header_path.join("array.h"), tree_sitter::ARRAY_HEADER)?;
+    write_file(&header_path.join("array.h"), ARRAY_HEADER)?;
     write_file(&header_path.join("parser.h"), tree_sitter::PARSER_HEADER)?;
-
-    if !path_in_ignore(&repo_path) && grammar_path == repo_path.join("grammar.js") {
-        grammar_files::generate_grammar_files(&repo_path, &input_grammar.name, generate_bindings)?;
-    }
 
     Ok(())
 }
@@ -267,7 +246,7 @@ fn load_js_grammar_file(grammar_path: &Path, js_runtime: Option<&str>) -> Result
     }
 }
 
-fn write_file(path: &Path, body: impl AsRef<[u8]>) -> Result<()> {
+pub fn write_file(path: &Path, body: impl AsRef<[u8]>) -> Result<()> {
     fs::write(path, body)
         .with_context(|| format!("Failed to write {:?}", path.file_name().unwrap()))
 }
