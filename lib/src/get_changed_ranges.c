@@ -3,7 +3,7 @@
 #include "./language.h"
 #include "./error_costs.h"
 #include "./tree_cursor.h"
-#include <assert.h>
+#include "./ts_assert.h"
 
 // #define DEBUG_GET_CHANGED_RANGES
 

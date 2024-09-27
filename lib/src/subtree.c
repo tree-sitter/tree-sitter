@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <ctype.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -11,6 +10,7 @@
 #include "./length.h"
 #include "./language.h"
 #include "./error_costs.h"
+#include "./ts_assert.h"
 #include <stddef.h>
 
 typedef struct {
@@ -229,7 +229,7 @@ void ts_subtree_set_symbol(
 ) {
   TSSymbolMetadata metadata = ts_language_symbol_metadata(language, symbol);
   if (self->data.is_inline) {
-    assert(symbol < UINT8_MAX);
+    ts_assert(symbol < UINT8_MAX);
     self->data.symbol = symbol;
     self->data.named = metadata.named;
     self->data.visible = metadata.visible;
@@ -371,7 +371,7 @@ void ts_subtree_summarize_children(
   MutableSubtree self,
   const TSLanguage *language
 ) {
-  assert(!self.data.is_inline);
+  ts_assert(!self.data.is_inline);
 
   self.ptr->named_child_count = 0;
   self.ptr->visible_child_count = 0;
@@ -583,16 +583,16 @@ Subtree ts_subtree_new_missing_leaf(
 
 void ts_subtree_retain(Subtree self) {
   if (self.data.is_inline) return;
-  assert(self.ptr->ref_count > 0);
+  ts_assert(self.ptr->ref_count > 0);
   atomic_inc((volatile uint32_t *)&self.ptr->ref_count);
-  assert(self.ptr->ref_count != 0);
+  ts_assert(self.ptr->ref_count != 0);
 }
 
 void ts_subtree_release(SubtreePool *pool, Subtree self) {
   if (self.data.is_inline) return;
   array_clear(&pool->tree_stack);
 
-  assert(self.ptr->ref_count > 0);
+  ts_assert(self.ptr->ref_count > 0);
   if (atomic_dec((volatile uint32_t *)&self.ptr->ref_count) == 0) {
     array_push(&pool->tree_stack, ts_subtree_to_mut_unsafe(self));
   }
@@ -604,7 +604,7 @@ void ts_subtree_release(SubtreePool *pool, Subtree self) {
       for (uint32_t i = 0; i < tree.ptr->child_count; i++) {
         Subtree child = children[i];
         if (child.data.is_inline) continue;
-        assert(child.ptr->ref_count > 0);
+        ts_assert(child.ptr->ref_count > 0);
         if (atomic_dec((volatile uint32_t *)&child.ptr->ref_count) == 0) {
           array_push(&pool->tree_stack, ts_subtree_to_mut_unsafe(child));
         }
