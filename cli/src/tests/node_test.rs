@@ -1,14 +1,12 @@
 use tree_sitter::{Node, Parser, Point, Tree};
+use tree_sitter_generate::{generate_parser_for_grammar, load_grammar_file};
 
 use super::{
     get_random_edit,
     helpers::fixtures::{fixtures_dir, get_language, get_test_language},
     Rand,
 };
-use crate::{
-    generate::{generate_parser_for_grammar, load_grammar_file},
-    parse::perform_edit,
-};
+use crate::parse::perform_edit;
 
 const JSON_EXAMPLE: &str = r#"
 

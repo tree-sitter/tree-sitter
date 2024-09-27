@@ -58,13 +58,11 @@ wasmparser.workspace = true
 webbrowser.workspace = true
 
 tree-sitter.workspace = true
+tree-sitter-generate.workspace = true
 tree-sitter-config.workspace = true
 tree-sitter-highlight.workspace = true
 tree-sitter-loader.workspace = true
 tree-sitter-tags.workspace = true
-
-[target."cfg(windows)".dependencies]
-url = "2.5.2"
 
 [dev-dependencies]
 tree_sitter_proc_macro = { path = "src/tests/proc_macro", package = "tree-sitter-tests-proc-macro" }

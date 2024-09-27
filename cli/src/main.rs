@@ -16,7 +16,7 @@ use tree_sitter_cli::{
         fuzz_language_corpus, FuzzOptions, EDIT_COUNT, ITERATION_COUNT, LOG_ENABLED,
         LOG_GRAPH_ENABLED, START_SEED,
     },
-    generate, highlight,
+    highlight,
     init::{generate_grammar_files, lookup_package_json_for_path},
     logger,
     parse::{self, ParseFileOptions, ParseOutput},
@@ -461,7 +461,7 @@ impl Generate {
                         version.parse().expect("invalid abi version flag")
                     }
                 });
-        generate::generate_parser_in_directory(
+        tree_sitter_generate::generate_parser_in_directory(
             current_dir,
             self.grammar_path.as_deref(),
             abi_version,

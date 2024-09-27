@@ -11,8 +11,7 @@ use heck::{ToKebabCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
 use indoc::indoc;
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
-
-use crate::generate::write_file;
+use tree_sitter_generate::write_file;
 
 const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CLI_VERSION_PLACEHOLDER: &str = "CLI_VERSION";
