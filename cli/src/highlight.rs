@@ -300,7 +300,7 @@ fn write_color(buffer: &mut String, color: Color) {
             _ => unreachable!(),
         },
         Color::Ansi256(Ansi256Color(n)) => {
-            write!(buffer, "color: {}", CSS_STYLES_BY_COLOR_ID[n as usize]).unwrap()
+            write!(buffer, "color: {}", CSS_STYLES_BY_COLOR_ID[n as usize]).unwrap();
         }
         Color::Rgb(RgbColor(r, g, b)) => write!(buffer, "color: #{r:02x}{g:02x}{b:02x}").unwrap(),
     }

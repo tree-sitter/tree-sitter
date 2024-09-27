@@ -23,11 +23,13 @@ impl std::fmt::Display for Utf8Point {
 }
 
 impl Utf8Point {
+    #[must_use]
     pub const fn new(row: usize, column: usize) -> Self {
         Self { row, column }
     }
 }
 
+#[must_use]
 pub fn to_utf8_point(point: Point, source: &[u8]) -> Utf8Point {
     if point.column == 0 {
         return Utf8Point::new(point.row, 0);

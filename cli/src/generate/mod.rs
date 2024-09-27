@@ -67,7 +67,7 @@ pub fn generate_parser_in_directory(
 
     let grammar_path = grammar_path
         .map(PathBuf::from)
-        .unwrap_or(repo_path.join("grammar.js"));
+        .unwrap_or_else(|| repo_path.join("grammar.js"));
 
     // Read the grammar file.
     let grammar_json = load_grammar_file(&grammar_path, js_runtime)?;

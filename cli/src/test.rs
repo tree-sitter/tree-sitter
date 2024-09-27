@@ -1060,12 +1060,12 @@ abc
                 r"(source_file (ERROR (UNEXPECTED 'f') (UNEXPECTED '+')))",
                 0
             ),
-            r#"
+            r"
 (source_file
   (ERROR
     (UNEXPECTED 'f')
     (UNEXPECTED '+')))
-"#
+"
             .trim()
         );
     }
