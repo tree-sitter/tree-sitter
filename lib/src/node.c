@@ -375,9 +375,13 @@ static inline TSNode ts_node__descendant_for_byte_range(
       uint32_t node_end = iterator.position.bytes;
 
       // The end of this node must extend far enough forward to touch
-      // the end of the range and exceed the start of the range.
+      // the end of the range
       if (node_end < range_end) continue;
-      if (node_end <= range_start) continue;
+
+      // ...and exceed the start of the range, unless the node itself is
+      // empty, in which case it must at least be equal to the start of the range.
+      bool is_empty = ts_node_start_byte(child) == node_end;
+      if (is_empty ? node_end < range_start : node_end <= range_start) continue;
 
       // The start of this node must extend far enough backward to
       // touch the start of the range.
@@ -414,9 +418,15 @@ static inline TSNode ts_node__descendant_for_point_range(
       TSPoint node_end = iterator.position.extent;
 
       // The end of this node must extend far enough forward to touch
-      // the end of the range and exceed the start of the range.
+      // the end of the range
       if (point_lt(node_end, range_end)) continue;
-      if (point_lte(node_end, range_start)) continue;
+
+      // ...and exceed the start of the range, unless the node itself is
+      // empty, in which case it must at least be equal to the start of the range.
+      bool is_empty =  point_eq(ts_node_start_point(child), node_end);
+      if (is_empty ? point_lt(node_end, range_start) : point_lte(node_end, range_start)) {
+        continue;
+      }
 
       // The start of this node must extend far enough backward to
       // touch the start of the range.
