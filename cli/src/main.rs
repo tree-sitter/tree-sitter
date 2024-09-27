@@ -191,6 +191,8 @@ struct Parse {
     pub test_number: Option<u32>,
     #[arg(short, long, help = "Force rebuild the parser")]
     pub rebuild: bool,
+    #[arg(long, help = "Omit ranges in the output")]
+    pub no_ranges: bool,
 }
 
 #[derive(Args)]
@@ -605,6 +607,7 @@ impl Parse {
                 cancellation_flag: Some(&cancellation_flag),
                 encoding,
                 open_log: self.open_log,
+                no_ranges: self.no_ranges,
             };
 
             let parse_result = parse::parse_file_at_path(&mut parser, &opts)?;
