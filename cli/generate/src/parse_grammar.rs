@@ -76,8 +76,8 @@ enum PrecedenceValueJSON {
 }
 
 #[derive(Deserialize)]
-pub(crate) struct GrammarJSON {
-    pub(crate) name: String,
+pub struct GrammarJSON {
+    pub name: String,
     rules: Map<String, Value>,
     #[serde(default)]
     precedences: Vec<Vec<RuleJSON>>,

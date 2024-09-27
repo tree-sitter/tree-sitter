@@ -1505,12 +1505,12 @@ dependencies = [
  "tiny_http",
  "tree-sitter",
  "tree-sitter-config",
+ "tree-sitter-generate",
  "tree-sitter-highlight",
  "tree-sitter-loader",
  "tree-sitter-tags",
  "tree-sitter-tests-proc-macro",
  "unindent",
- "url",
  "walkdir",
  "wasmparser",
  "webbrowser",
@@ -1524,6 +1524,27 @@ dependencies = [
  "dirs",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "tree-sitter-generate"
+version = "0.23.0"
+dependencies = [
+ "anyhow",
+ "heck 0.5.0",
+ "indexmap",
+ "indoc",
+ "lazy_static",
+ "log",
+ "regex",
+ "regex-syntax",
+ "rustc-hash",
+ "semver",
+ "serde",
+ "serde_json",
+ "smallbitvec",
+ "tree-sitter",
+ "url",
 ]
 
 [[package]]

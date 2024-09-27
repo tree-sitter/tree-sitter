@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::generate::{
+use crate::{
     grammars::LexicalGrammar,
     rules::Symbol,
     tables::{ParseStateId, ParseTable},

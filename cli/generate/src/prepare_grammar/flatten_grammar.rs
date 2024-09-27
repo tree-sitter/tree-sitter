@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 
 use super::ExtractedSyntaxGrammar;
-use crate::generate::{
+use crate::{
     grammars::{Production, ProductionStep, SyntaxGrammar, SyntaxVariable, Variable},
     rules::{Alias, Associativity, Precedence, Rule, Symbol},
 };
@@ -231,7 +231,7 @@ unless they are used only as the grammar's start rule.
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::generate::grammars::VariableType;
+    use crate::grammars::VariableType;
 
     #[test]
     fn test_flatten_grammar() {

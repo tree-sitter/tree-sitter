@@ -89,6 +89,7 @@ wasmparser = "0.215.0"
 webbrowser = "1.0.2"
 
 tree-sitter = { version = "0.23.0", path = "./lib" }
+tree-sitter-generate = { version = "0.23.0", path = "./cli/generate" }
 tree-sitter-loader = { version = "0.23.0", path = "./cli/loader" }
 tree-sitter-config = { version = "0.23.0", path = "./cli/config" }
 tree-sitter-highlight = { version = "0.23.0", path = "./highlight" }

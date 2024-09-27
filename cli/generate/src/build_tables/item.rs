@@ -6,7 +6,7 @@ use std::{
 
 use lazy_static::lazy_static;
 
-use crate::generate::{
+use crate::{
     grammars::{LexicalGrammar, Production, ProductionStep, SyntaxGrammar},
     rules::{Associativity, Precedence, Symbol, SymbolType, TokenSet},
 };

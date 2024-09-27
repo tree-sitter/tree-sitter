@@ -7,6 +7,7 @@ use tree_sitter::{
     CaptureQuantifier, Language, Node, Parser, Point, Query, QueryCursor, QueryError,
     QueryErrorKind, QueryPredicate, QueryPredicateArg, QueryProperty,
 };
+use tree_sitter_generate::generate_parser_for_grammar;
 use unindent::Unindent;
 
 use super::helpers::{
@@ -14,12 +15,9 @@ use super::helpers::{
     fixtures::{get_language, get_test_language},
     query_helpers::{assert_query_matches, Match, Pattern},
 };
-use crate::{
-    generate::generate_parser_for_grammar,
-    tests::{
-        helpers::query_helpers::{collect_captures, collect_matches},
-        ITERATION_COUNT,
-    },
+use crate::tests::{
+    helpers::query_helpers::{collect_captures, collect_matches},
+    ITERATION_COUNT,
 };
 
 lazy_static! {

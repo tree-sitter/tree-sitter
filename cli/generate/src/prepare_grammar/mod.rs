@@ -164,7 +164,7 @@ fn validate_precedences(grammar: &InputGrammar) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::generate::grammars::VariableType;
+    use crate::grammars::VariableType;
 
     #[test]
     fn test_validate_precedences_with_undeclared_precedence() {
