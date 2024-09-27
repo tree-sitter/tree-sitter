@@ -23,5 +23,5 @@ while read -r grammar_file; do
   fi
 
   printf 'Regenerating %s parser\n' "$grammar_name"
-  (cd "$grammar_dir" && "$TREE_SITTER" generate src/grammar.json --no-bindings --abi=latest)
+  (cd "$grammar_dir" && "$TREE_SITTER" generate src/grammar.json --abi=latest)
 done < <(find "$GRAMMARS_DIR" -name grammar.js -not -path '*/node_modules/*')

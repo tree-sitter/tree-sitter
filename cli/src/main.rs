@@ -16,8 +16,9 @@ use tree_sitter_cli::{
         fuzz_language_corpus, FuzzOptions, EDIT_COUNT, ITERATION_COUNT, LOG_ENABLED,
         LOG_GRAPH_ENABLED, START_SEED,
     },
-    generate::{self, lookup_package_json_for_path},
-    highlight, logger,
+    generate, highlight,
+    init::{generate_grammar_files, lookup_package_json_for_path},
+    logger,
     parse::{self, ParseFileOptions, ParseOutput},
     playground, query, tags,
     test::{self, TestOptions},
@@ -36,6 +37,7 @@ const DEFAULT_GENERATE_ABI_VERSION: usize = 14;
 #[command(about="Generates and tests parsers", author=crate_authors!("\n"), styles=get_styles())]
 enum Commands {
     InitConfig(InitConfig),
+    Init(Init),
     Generate(Generate),
     Build(Build),
     Parse(Parse),
@@ -52,6 +54,10 @@ enum Commands {
 #[derive(Args)]
 #[command(about = "Generate a default config file")]
 struct InitConfig;
+
+#[derive(Args)]
+#[command(about = "Initialize a grammar repository", alias = "i")]
+struct Init;
 
 #[derive(Args)]
 #[command(about = "Generate a parser", alias = "gen", alias = "g")]
@@ -72,8 +78,6 @@ struct Generate {
                 )
     )]
     pub abi_version: Option<String>,
-    #[arg(long, help = "Don't generate language bindings")]
-    pub no_bindings: bool,
     #[arg(
         long,
         short = 'b',
@@ -424,6 +428,24 @@ impl InitConfig {
     }
 }
 
+impl Init {
+    fn run(self, current_dir: PathBuf) -> Result<()> {
+        if let Some(dir_name) = current_dir
+            .file_name()
+            .map(|x| x.to_string_lossy().to_ascii_lowercase())
+        {
+            if let Some(language_name) = dir_name
+                .strip_prefix("tree-sitter-")
+                .or_else(|| Some(dir_name.as_ref()))
+            {
+                generate_grammar_files(&current_dir, language_name)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl Generate {
     fn run(self, mut loader: loader::Loader, current_dir: PathBuf) -> Result<()> {
         if self.log {
@@ -443,7 +465,6 @@ impl Generate {
             &current_dir,
             self.grammar_path.as_deref(),
             abi_version,
-            !self.no_bindings,
             self.report_states_for_rule.as_deref(),
             self.js_runtime.as_deref(),
         )?;
@@ -1052,6 +1073,7 @@ fn run() -> Result<()> {
 
     match command {
         Commands::InitConfig(init_config) => init_config.run()?,
+        Commands::Init(init) => init.run(current_dir)?,
         Commands::Generate(generate_options) => generate_options.run(loader, current_dir)?,
         Commands::Build(build_options) => build_options.run(loader, current_dir)?,
         Commands::Parse(parse_options) => parse_options.run(loader, current_dir)?,

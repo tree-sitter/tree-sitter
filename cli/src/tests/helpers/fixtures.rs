@@ -10,7 +10,7 @@ use tree_sitter_highlight::HighlightConfiguration;
 use tree_sitter_loader::{CompileConfig, Loader};
 use tree_sitter_tags::TagsConfiguration;
 
-use crate::generate::ALLOC_HEADER;
+use crate::generate::{ALLOC_HEADER, ARRAY_HEADER};
 
 include!("./dirs.rs");
 
@@ -112,7 +112,7 @@ pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> 
 
     [
         ("alloc.h", ALLOC_HEADER),
-        ("array.h", tree_sitter::ARRAY_HEADER),
+        ("array.h", ARRAY_HEADER),
         ("parser.h", tree_sitter::PARSER_HEADER),
     ]
     .iter()
