@@ -442,7 +442,7 @@ static const CaptureList *capture_list_pool_get(const CaptureListPool *self, uin
 }
 
 static CaptureList *capture_list_pool_get_mut(CaptureListPool *self, uint16_t id) {
-  assert(id < self->list.size);
+  ts_assert(id < self->list.size);
   return &self->list.contents[id];
 }
 
@@ -1695,7 +1695,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
       unsigned first_child_step_index = parent_step_index + 1;
       uint32_t j, child_exists;
       array_search_sorted_by(&self->step_offsets, .step_index, first_child_step_index, &j, &child_exists);
-      assert(child_exists);
+      ts_assert(child_exists);
       *error_offset = self->step_offsets.contents[j].byte_offset;
       all_patterns_are_valid = false;
       break;
@@ -1754,7 +1754,7 @@ static bool ts_query__analyze_patterns(TSQuery *self, unsigned *error_offset) {
     // If this pattern cannot match, store the pattern index so that it can be
     // returned to the caller.
     if (analysis.finished_parent_symbols.size == 0) {
-      assert(analysis.final_step_indices.size > 0);
+      ts_assert(analysis.final_step_indices.size > 0);
       uint16_t impossible_step_index = *array_back(&analysis.final_step_indices);
       uint32_t j, impossible_exists;
       array_search_sorted_by(&self->step_offsets, .step_index, impossible_step_index, &j, &impossible_exists);
@@ -2932,7 +2932,7 @@ bool ts_query__step_is_fallible(
   const TSQuery *self,
   uint16_t step_index
 ) {
-  assert((uint32_t)step_index + 1 < self->steps.size);
+  ts_assert((uint32_t)step_index + 1 < self->steps.size);
   QueryStep *step = &self->steps.contents[step_index];
   QueryStep *next_step = &self->steps.contents[step_index + 1];
   return (
