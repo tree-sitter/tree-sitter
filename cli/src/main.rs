@@ -409,7 +409,7 @@ struct Complete {
 }
 
 impl InitConfig {
-    fn run(self) -> Result<()> {
+    fn run() -> Result<()> {
         if let Ok(Some(config_path)) = Config::find_config_file() {
             return Err(anyhow!(
                 "Remove your existing config file first: {}",
@@ -429,7 +429,7 @@ impl InitConfig {
 }
 
 impl Init {
-    fn run(self, current_dir: PathBuf) -> Result<()> {
+    fn run(current_dir: &Path) -> Result<()> {
         if let Some(dir_name) = current_dir
             .file_name()
             .map(|x| x.to_string_lossy().to_ascii_lowercase())
@@ -438,7 +438,7 @@ impl Init {
                 .strip_prefix("tree-sitter-")
                 .or_else(|| Some(dir_name.as_ref()))
             {
-                generate_grammar_files(&current_dir, language_name)?;
+                generate_grammar_files(current_dir, language_name)?;
             }
         }
 
@@ -447,7 +447,7 @@ impl Init {
 }
 
 impl Generate {
-    fn run(self, mut loader: loader::Loader, current_dir: PathBuf) -> Result<()> {
+    fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         if self.log {
             logger::init();
         }
@@ -462,7 +462,7 @@ impl Generate {
                     }
                 });
         generate::generate_parser_in_directory(
-            &current_dir,
+            current_dir,
             self.grammar_path.as_deref(),
             abi_version,
             self.report_states_for_rule.as_deref(),
@@ -473,14 +473,14 @@ impl Generate {
                 loader = loader::Loader::with_parser_lib_path(PathBuf::from(path));
             }
             loader.debug_build(self.debug_build);
-            loader.languages_at_path(&current_dir)?;
+            loader.languages_at_path(current_dir)?;
         }
         Ok(())
     }
 }
 
 impl Build {
-    fn run(self, mut loader: loader::Loader, current_dir: PathBuf) -> Result<()> {
+    fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let grammar_path = current_dir.join(self.path.as_deref().unwrap_or_default());
 
         if self.wasm {
@@ -491,7 +491,7 @@ impl Build {
                 &loader,
                 Some(&root_path),
                 &grammar_path,
-                &current_dir,
+                current_dir,
                 output_path,
                 self.docker,
             )?;
@@ -537,7 +537,7 @@ impl Build {
 }
 
 impl Parse {
-    fn run(self, mut loader: loader::Loader, current_dir: PathBuf) -> Result<()> {
+    fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
         let color = env::var("NO_COLOR").map_or(true, |v| v != "1");
         let output = if self.output_dot {
@@ -581,7 +581,7 @@ impl Parse {
 
         let (paths, language) = if let Some(target_test) = self.test_number {
             let (test_path, language_names) = test::get_tmp_test_file(target_test, color)?;
-            let languages = loader.languages_at_path(&current_dir)?;
+            let languages = loader.languages_at_path(current_dir)?;
             let language = languages
                 .iter()
                 .find(|(_, n)| language_names.contains(&Box::from(n.as_str())))
@@ -606,7 +606,7 @@ impl Parse {
             let language = if let Some(ref language) = language {
                 language.clone()
             } else {
-                loader.select_language(path, &current_dir, self.scope.as_deref())?
+                loader.select_language(path, current_dir, self.scope.as_deref())?
             };
             parser
                 .set_language(&language)
@@ -660,7 +660,7 @@ impl Parse {
 }
 
 impl Test {
-    fn run(self, mut loader: loader::Loader, current_dir: PathBuf) -> Result<()> {
+    fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
         let color = env::var("NO_COLOR").map_or(true, |v| v != "1");
 
@@ -678,7 +678,7 @@ impl Test {
             loader.use_wasm(&engine);
         }
 
-        let languages = loader.languages_at_path(&current_dir)?;
+        let languages = loader.languages_at_path(current_dir)?;
         let language = &languages
             .first()
             .ok_or_else(|| anyhow!("No language found"))?
@@ -782,11 +782,11 @@ impl Test {
 }
 
 impl Fuzz {
-    fn run(self, mut loader: loader::Loader, current_dir: PathBuf) -> Result<()> {
+    fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         loader.sanitize_build(true);
         loader.force_rebuild(self.rebuild);
 
-        let languages = loader.languages_at_path(&current_dir)?;
+        let languages = loader.languages_at_path(current_dir)?;
         let (language, language_name) = &languages
             .first()
             .ok_or_else(|| anyhow!("No language found"))?;
@@ -806,7 +806,7 @@ impl Fuzz {
             language,
             language_name,
             *START_SEED,
-            &current_dir,
+            current_dir,
             &mut fuzz_options,
         );
         Ok(())
@@ -814,13 +814,13 @@ impl Fuzz {
 }
 
 impl Query {
-    fn run(self, mut loader: loader::Loader, current_dir: PathBuf) -> Result<()> {
+    fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         let config = Config::load(self.config_path)?;
         let paths = collect_paths(self.paths_file.as_deref(), self.paths)?;
         let loader_config = config.get()?;
         loader.find_all_languages(&loader_config)?;
         let language =
-            loader.select_language(Path::new(&paths[0]), &current_dir, self.scope.as_deref())?;
+            loader.select_language(Path::new(&paths[0]), current_dir, self.scope.as_deref())?;
         let query_path = Path::new(&self.query_path);
 
         let byte_range = self.byte_range.as_ref().and_then(|range| {
@@ -980,10 +980,10 @@ impl Tags {
 }
 
 impl Playground {
-    fn run(self, current_dir: PathBuf) -> Result<()> {
+    fn run(self, current_dir: &Path) -> Result<()> {
         let open_in_browser = !self.quiet;
-        let grammar_path = self.grammar_path.map_or(current_dir, PathBuf::from);
-        playground::serve(&grammar_path, open_in_browser)?;
+        let grammar_path = self.grammar_path.as_deref().map_or(current_dir, Path::new);
+        playground::serve(grammar_path, open_in_browser)?;
         Ok(())
     }
 }
@@ -1072,17 +1072,17 @@ fn run() -> Result<()> {
     let loader = loader::Loader::new()?;
 
     match command {
-        Commands::InitConfig(init_config) => init_config.run()?,
-        Commands::Init(init) => init.run(current_dir)?,
-        Commands::Generate(generate_options) => generate_options.run(loader, current_dir)?,
-        Commands::Build(build_options) => build_options.run(loader, current_dir)?,
-        Commands::Parse(parse_options) => parse_options.run(loader, current_dir)?,
-        Commands::Test(test_options) => test_options.run(loader, current_dir)?,
-        Commands::Fuzz(fuzz_options) => fuzz_options.run(loader, current_dir)?,
-        Commands::Query(query_options) => query_options.run(loader, current_dir)?,
+        Commands::InitConfig(_) => InitConfig::run()?,
+        Commands::Init(_) => Init::run(&current_dir)?,
+        Commands::Generate(generate_options) => generate_options.run(loader, &current_dir)?,
+        Commands::Build(build_options) => build_options.run(loader, &current_dir)?,
+        Commands::Parse(parse_options) => parse_options.run(loader, &current_dir)?,
+        Commands::Test(test_options) => test_options.run(loader, &current_dir)?,
+        Commands::Fuzz(fuzz_options) => fuzz_options.run(loader, &current_dir)?,
+        Commands::Query(query_options) => query_options.run(loader, &current_dir)?,
         Commands::Highlight(highlight_options) => highlight_options.run(loader)?,
         Commands::Tags(tags_options) => tags_options.run(loader)?,
-        Commands::Playground(playground_options) => playground_options.run(current_dir)?,
+        Commands::Playground(playground_options) => playground_options.run(&current_dir)?,
         Commands::DumpLanguages(dump_options) => dump_options.run(loader)?,
         Commands::Complete(complete_options) => complete_options.run(&mut cli),
     }

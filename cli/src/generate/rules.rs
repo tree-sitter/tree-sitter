@@ -272,6 +272,7 @@ impl From<Symbol> for Rule {
 }
 
 impl TokenSet {
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             terminal_bits: SmallBitVec::new(),

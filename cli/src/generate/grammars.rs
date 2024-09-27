@@ -108,6 +108,7 @@ pub struct SyntaxGrammar {
 
 #[cfg(test)]
 impl ProductionStep {
+    #[must_use]
     pub const fn new(symbol: Symbol) -> Self {
         Self {
             symbol,

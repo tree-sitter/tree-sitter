@@ -110,18 +110,16 @@ pub fn get_test_language(name: &str, parser_code: &str, path: Option<&Path>) -> 
     let header_path = src_dir.join("tree_sitter");
     fs::create_dir_all(&header_path).unwrap();
 
-    [
+    for (file, content) in [
         ("alloc.h", ALLOC_HEADER),
         ("array.h", ARRAY_HEADER),
         ("parser.h", tree_sitter::PARSER_HEADER),
-    ]
-    .iter()
-    .for_each(|(file, content)| {
+    ] {
         let file = header_path.join(file);
         fs::write(&file, content)
             .with_context(|| format!("Failed to write {:?}", file.file_name().unwrap()))
             .unwrap();
-    });
+    }
 
     let paths_to_check = if let Some(scanner_path) = &scanner_path {
         vec![parser_path, scanner_path.clone()]

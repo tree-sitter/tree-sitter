@@ -92,6 +92,7 @@ pub struct LexTable {
 }
 
 impl ParseTableEntry {
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             reusable: true,

@@ -426,6 +426,7 @@ impl fmt::Debug for CharacterSet {
 }
 
 impl Nfa {
+    #[must_use]
     pub const fn new() -> Self {
         Self { states: Vec::new() }
     }

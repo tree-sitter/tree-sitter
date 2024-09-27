@@ -3918,7 +3918,7 @@ fn test_query_random() {
                 .matches(
                     &query,
                     test_tree.root_node(),
-                    (include_str!("parser_test.rs")).as_bytes(),
+                    include_bytes!("parser_test.rs").as_ref(),
                 )
                 .map(|mat| Match {
                     last_node: None,
@@ -5137,7 +5137,7 @@ fn test_query_wildcard_with_immediate_first_child() {
 fn test_query_on_empty_source_code() {
     let language = get_language("javascript");
     let source_code = "";
-    let query = r#"(program) @program"#;
+    let query = "(program) @program";
     let query = Query::new(&language, query).unwrap();
     assert_query_matches(
         &language,
