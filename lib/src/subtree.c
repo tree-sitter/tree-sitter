@@ -435,6 +435,14 @@ void ts_subtree_summarize_children(
       }
     }
 
+    // This is a terminal ERROR node that hasn't had its error cost assigned to it yet.
+    if (ts_subtree_is_error(child) && grandchild_count == 0) {
+      MutableSubtree child_mut = ts_subtree_to_mut_unsafe(child);
+      child_mut.ptr->error_cost = ERROR_COST_PER_RECOVERY +
+        ERROR_COST_PER_SKIPPED_CHAR * child.ptr->size.bytes +
+        ERROR_COST_PER_SKIPPED_LINE * child.ptr->size.extent.row;
+    }
+
     self.ptr->dynamic_precedence += ts_subtree_dynamic_precedence(child);
     self.ptr->visible_descendant_count += ts_subtree_visible_descendant_count(child);
 
