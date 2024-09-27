@@ -613,6 +613,26 @@ fn test_node_descendant_for_range() {
     assert_eq!(pair_node.end_byte(), string_index + 9);
     assert_eq!(pair_node.start_position(), Point::new(6, 4));
     assert_eq!(pair_node.end_position(), Point::new(6, 13));
+
+    // Zero-width token
+    {
+        let code = "<script></script>";
+        let mut parser = Parser::new();
+        parser.set_language(&get_language("html")).unwrap();
+
+        let tree = parser.parse(code, None).unwrap();
+        let root = tree.root_node();
+
+        let child = root
+            .named_descendant_for_point_range(Point::new(0, 8), Point::new(0, 8))
+            .unwrap();
+        assert_eq!(child.kind(), "raw_text");
+
+        let child2 = root.named_descendant_for_byte_range(8, 8).unwrap();
+        assert_eq!(child2.kind(), "raw_text");
+
+        assert_eq!(child, child2);
+    }
 }
 
 #[test]
