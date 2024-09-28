@@ -451,7 +451,7 @@ impl Init {
 impl Generate {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
         if self.no_bindings {
-            eprint!("The --no-bindings flag is now a no-op and will be removed in v0.25.0");
+            eprint!("The --no-bindings flag is no longer used and will be removed in v0.25.0");
         }
         if self.log {
             logger::init();
