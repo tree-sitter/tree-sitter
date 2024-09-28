@@ -2,10 +2,10 @@
 
 // This script generates a JSON file that is used by the CLI to handle unicode property escapes.
 
-const CATEGORY_OUTPUT_PATH = './cli/src/generate/prepare_grammar/unicode-categories.json'
-const PROPERTY_OUTPUT_PATH = './cli/src/generate/prepare_grammar/unicode-properties.json'
-const CATEGORY_ALIAS_OUTPUT_PATH = './cli/src/generate/prepare_grammar/unicode-category-aliases.json'
-const PROPERTY_ALIAS_OUTPUT_PATH = './cli/src/generate/prepare_grammar/unicode-property-aliases.json'
+const CATEGORY_OUTPUT_PATH = './cli/generate/src/prepare_grammar/unicode-categories.json'
+const PROPERTY_OUTPUT_PATH = './cli/generate/src/prepare_grammar/unicode-properties.json'
+const CATEGORY_ALIAS_OUTPUT_PATH = './cli/generate/src/prepare_grammar/unicode-category-aliases.json'
+const PROPERTY_ALIAS_OUTPUT_PATH = './cli/generate/src/prepare_grammar/unicode-property-aliases.json'
 
 const UNICODE_STANDARD_VERSION = '15.1.0';
 const CATEGORY_URL = `https://unicode.org/Public/${UNICODE_STANDARD_VERSION}/ucd/UnicodeData.txt`
