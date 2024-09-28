@@ -100,7 +100,11 @@ fn insert_after(
     entries.into_iter().collect()
 }
 
-pub fn generate_grammar_files(repo_path: &Path, language_name: &str) -> Result<()> {
+pub fn generate_grammar_files(
+    repo_path: &Path,
+    language_name: &str,
+    allow_update: bool,
+) -> Result<()> {
     let dashed_language_name = language_name.to_kebab_case();
 
     // TODO: remove legacy code updates in v0.24.0
@@ -108,6 +112,7 @@ pub fn generate_grammar_files(repo_path: &Path, language_name: &str) -> Result<(
     // Create or update package.json
     let package_json_path_state = missing_path_else(
         repo_path.join("package.json"),
+        allow_update,
         |path| generate_file(path, PACKAGE_JSON_TEMPLATE, dashed_language_name.as_str()),
         |path| {
             let package_json_str =
@@ -259,6 +264,7 @@ pub fn generate_grammar_files(repo_path: &Path, language_name: &str) -> Result<(
     missing_path(bindings_dir.join("rust"), create_dir)?.apply(|path| {
         missing_path_else(
             path.join("lib.rs"),
+            allow_update,
             |path| generate_file(path, LIB_RS_TEMPLATE, language_name),
             |path| {
                 let lib_rs =
@@ -273,6 +279,7 @@ pub fn generate_grammar_files(repo_path: &Path, language_name: &str) -> Result<(
 
         missing_path_else(
             path.join("build.rs"),
+            allow_update,
             |path| generate_file(path, BUILD_RS_TEMPLATE, language_name),
             |path| {
                 let build_rs =
@@ -301,6 +308,7 @@ pub fn generate_grammar_files(repo_path: &Path, language_name: &str) -> Result<(
 
         missing_path_else(
             repo_path.join("Cargo.toml"),
+            allow_update,
             |path| generate_file(path, CARGO_TOML_TEMPLATE, dashed_language_name.as_str()),
             |path| {
                 let cargo_toml =
@@ -339,6 +347,7 @@ pub fn generate_grammar_files(repo_path: &Path, language_name: &str) -> Result<(
     missing_path(bindings_dir.join("node"), create_dir)?.apply(|path| {
         missing_path_else(
             path.join("index.js"),
+            allow_update,
             |path| generate_file(path, INDEX_JS_TEMPLATE, language_name),
             |path| {
                 let index_js =
@@ -361,6 +370,7 @@ pub fn generate_grammar_files(repo_path: &Path, language_name: &str) -> Result<(
 
         missing_path_else(
             path.join("binding.cc"),
+            allow_update,
             |path| generate_file(path, JS_BINDING_CC_TEMPLATE, language_name),
             |path| {
                 let binding_cc =
@@ -376,6 +386,7 @@ pub fn generate_grammar_files(repo_path: &Path, language_name: &str) -> Result<(
         // Create binding.gyp, or update it with new binding API.
         missing_path_else(
             repo_path.join("binding.gyp"),
+            allow_update,
             |path| generate_file(path, BINDING_GYP_TEMPLATE, language_name),
             |path| {
                 let binding_gyp =
@@ -418,6 +429,7 @@ pub fn generate_grammar_files(repo_path: &Path, language_name: &str) -> Result<(
 
         missing_path_else(
             path.join("binding_test.go"),
+            allow_update,
             |path| generate_file(path, BINDING_TEST_GO_TEMPLATE, language_name),
             |path| {
                 let binding_test_go =
@@ -432,7 +444,7 @@ pub fn generate_grammar_files(repo_path: &Path, language_name: &str) -> Result<(
 
         // Delete the old go.mod file that lives inside bindings/go, it now lives in the root dir
         let go_mod_path = path.join("go.mod");
-        if go_mod_path.exists() {
+        if allow_update && go_mod_path.exists() {
             fs::remove_file(go_mod_path).with_context(|| "Failed to remove old go.mod file")?;
         }
 
@@ -450,6 +462,7 @@ pub fn generate_grammar_files(repo_path: &Path, language_name: &str) -> Result<(
 
         missing_path_else(
             lang_path.join("binding.c"),
+            allow_update,
             |path| generate_file(path, PY_BINDING_C_TEMPLATE, language_name),
             |path| {
                 let binding_c = fs::read_to_string(path)
@@ -645,7 +658,12 @@ where
     }
 }
 
-fn missing_path_else<P, T, F>(path: P, mut action: T, mut else_action: F) -> Result<PathState<P>>
+fn missing_path_else<P, T, F>(
+    path: P,
+    allow_update: bool,
+    mut action: T,
+    mut else_action: F,
+) -> Result<PathState<P>>
 where
     P: AsRef<Path>,
     T: FnMut(&Path) -> Result<()>,
@@ -656,7 +674,9 @@ where
         action(path_ref)?;
         Ok(PathState::Missing(path))
     } else {
-        else_action(path_ref)?;
+        if allow_update {
+            else_action(path_ref)?;
+        }
         Ok(PathState::Exists(path))
     }
 }
