@@ -9,7 +9,7 @@ publish = false
 proc-macro = true
 
 [dependencies]
-proc-macro2 = "1.0.78"
-quote = "1.0.35"
+proc-macro2 = "1.0.86"
+quote = "1.0.37"
 rand = "0.8.5"
-syn = { version = "2.0.52", features = ["full"] }
+syn = { version = "2.0.79", features = ["full"] }

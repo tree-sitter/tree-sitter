@@ -19,7 +19,7 @@ use std::{
 #[cfg(any(feature = "tree-sitter-highlight", feature = "tree-sitter-tags"))]
 use anyhow::Error;
 use anyhow::{anyhow, Context, Result};
-use fs4::FileExt;
+use fs4::fs_std::FileExt;
 use indoc::indoc;
 use libloading::{Library, Symbol};
 use once_cell::unsync::OnceCell;
