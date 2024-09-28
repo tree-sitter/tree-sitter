@@ -485,7 +485,11 @@ globalThis.grammar = grammar;
 globalThis.field = field;
 
 const result = await import(getEnv("TREE_SITTER_GRAMMAR_PATH"));
-const output = JSON.stringify(result.default?.grammar ?? result.grammar);
+const object = {
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json",
+  ...(result.default?.grammar ?? result.grammar)
+};
+const output = JSON.stringify(object);
 
 if (globalThis.process) { // Node/Bun
   process.stdout.write(output);
