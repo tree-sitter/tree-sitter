@@ -66,6 +66,8 @@ struct Generate {
     pub grammar_path: Option<String>,
     #[arg(long, short, help = "Show debug log during generation")]
     pub log: bool,
+    #[arg(long, help = "Deprecated (no-op)")]
+    pub no_bindings: bool,
     #[arg(
         long = "abi",
         value_name = "VERSION",
@@ -448,6 +450,9 @@ impl Init {
 
 impl Generate {
     fn run(self, mut loader: loader::Loader, current_dir: &Path) -> Result<()> {
+        if self.no_bindings {
+            eprint!("The --no-bindings flag is now a no-op and will be removed in v0.25.0");
+        }
         if self.log {
             logger::init();
         }
