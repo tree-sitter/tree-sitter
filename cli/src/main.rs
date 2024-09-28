@@ -57,7 +57,10 @@ struct InitConfig;
 
 #[derive(Args)]
 #[command(about = "Initialize a grammar repository", alias = "i")]
-struct Init;
+struct Init {
+    #[arg(long, short, help = "Update outdated files")]
+    pub update: bool,
+}
 
 #[derive(Args)]
 #[command(about = "Generate a parser", alias = "gen", alias = "g")]
@@ -431,7 +434,7 @@ impl InitConfig {
 }
 
 impl Init {
-    fn run(current_dir: &Path) -> Result<()> {
+    fn run(self, current_dir: &Path) -> Result<()> {
         if let Some(dir_name) = current_dir
             .file_name()
             .map(|x| x.to_string_lossy().to_ascii_lowercase())
@@ -440,7 +443,7 @@ impl Init {
                 .strip_prefix("tree-sitter-")
                 .or_else(|| Some(dir_name.as_ref()))
             {
-                generate_grammar_files(current_dir, language_name)?;
+                generate_grammar_files(current_dir, language_name, self.update)?;
             }
         }
 
@@ -1078,7 +1081,7 @@ fn run() -> Result<()> {
 
     match command {
         Commands::InitConfig(_) => InitConfig::run()?,
-        Commands::Init(_) => Init::run(&current_dir)?,
+        Commands::Init(init_options) => init_options.run(&current_dir)?,
         Commands::Generate(generate_options) => generate_options.run(loader, &current_dir)?,
         Commands::Build(build_options) => build_options.run(loader, &current_dir)?,
         Commands::Parse(parse_options) => parse_options.run(loader, &current_dir)?,
