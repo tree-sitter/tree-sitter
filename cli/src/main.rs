@@ -8,8 +8,11 @@ use anstyle::{AnsiColor, Color, Style};
 use anyhow::{anyhow, Context, Result};
 use clap::{crate_authors, Args, Command, FromArgMatches as _, Subcommand};
 use clap_complete::{generate, Shell};
+use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input};
 use glob::glob;
+use heck::ToUpperCamelCase;
 use regex::Regex;
+use semver::Version;
 use tree_sitter::{ffi, Parser, Point};
 use tree_sitter_cli::{
     fuzz::{
@@ -17,7 +20,9 @@ use tree_sitter_cli::{
         LOG_GRAPH_ENABLED, START_SEED,
     },
     highlight,
-    init::{generate_grammar_files, lookup_package_json_for_path},
+    init::{
+        generate_grammar_files, lookup_package_json_for_path, migrate_package_json, JsonConfigOpts,
+    },
     logger,
     parse::{self, ParseFileOptions, ParseOutput},
     playground, query, tags,
@@ -26,7 +31,7 @@ use tree_sitter_cli::{
 };
 use tree_sitter_config::Config;
 use tree_sitter_highlight::Highlighter;
-use tree_sitter_loader as loader;
+use tree_sitter_loader::{self as loader, TreeSitterJSON};
 use tree_sitter_tags::TagsContext;
 
 const BUILD_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -435,17 +440,210 @@ impl InitConfig {
 
 impl Init {
     fn run(self, current_dir: &Path) -> Result<()> {
-        if let Some(dir_name) = current_dir
-            .file_name()
-            .map(|x| x.to_string_lossy().to_ascii_lowercase())
-        {
-            if let Some(language_name) = dir_name
-                .strip_prefix("tree-sitter-")
-                .or_else(|| Some(dir_name.as_ref()))
-            {
-                generate_grammar_files(current_dir, language_name, self.update)?;
+        let configure_json = if current_dir.join("tree-sitter.json").exists() {
+            Confirm::with_theme(&ColorfulTheme::default())
+                .with_prompt("It looks like you already have a `tree-sitter.json` file. Do you want to re-configure it?")
+                .interact()?
+        } else if current_dir.join("package.json").exists() {
+            if Confirm::with_theme(&ColorfulTheme::default())
+                .with_prompt("It looks like you have a `package.json` already. If you have a `tree-sitter` field in it, do you want to auto-migrate to the new `tree-sitter.json` config file?")
+                .interact()? {
+                !migrate_package_json(current_dir)?
+            } else {
+                true
             }
-        }
+        } else {
+            true
+        };
+
+        let (language_name, json_config_opts) = if configure_json {
+            let mut opts = JsonConfigOpts::default();
+
+            let author = || {
+                Input::<String>::with_theme(&ColorfulTheme::default())
+                .with_prompt("What is your name? This will be used in each binding's manifests as the author name")
+                .interact_text()
+            };
+
+            let email = || {
+                Input::with_theme(&ColorfulTheme::default())
+                 .with_prompt("What is your email? (optional)")
+                 .validate_with({
+                    let mut force = None;
+                    move |input: &String| -> Result<(), &str> {
+                        if input.contains('@') || input.trim().is_empty() || force.as_ref().map_or(false, |old| old == input) {
+                            Ok(())
+                        } else {
+                            force = Some(input.clone());
+                            Err("This is not an email address; type the same value again to force use")
+                        }
+                    }
+                 })
+                 .allow_empty(true)
+                 .interact_text().map(|e| (!e.trim().is_empty()).then_some(e))
+            };
+
+            let name = || {
+                Input::<String>::with_theme(&ColorfulTheme::default())
+                    .with_prompt("What is the name of your language? (lowercase)")
+                    .validate_with(|input: &String| {
+                        if input.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_') {
+                            Ok(())
+                        } else {
+                            Err("The name must be lowercase and contain only letters, digits, and underscores")
+                        }
+                    })
+                    .interact_text()
+            };
+
+            let upper_camel_name = |name: &str| {
+                Input::<String>::with_theme(&ColorfulTheme::default())
+                    .with_prompt("What is the UpperCamelCase name of your language?")
+                    .default(name.to_upper_camel_case())
+                    .interact_text()
+            };
+
+            let scope = |name: &str| {
+                Input::<String>::with_theme(&ColorfulTheme::default())
+                    .with_prompt("What is the scope of your language?")
+                    .default(format!("source.{name}"))
+                    .interact_text()
+            };
+
+            let file_types = |name: &str| {
+                Input::<String>::with_theme(&ColorfulTheme::default())
+                    .with_prompt("What file types are associated with your language? (space or comma separated, e.g. `.py, .pyw`)")
+                    .default(format!(".{name}"))
+                    .validate_with(|input: &String| {
+                        if input.split(',')
+                            .flat_map(|part| part.split(' '))
+                            .all(|ext| ext.starts_with('.'))
+                        {
+                            Ok(())
+                        } else {
+                            Err("Each file type must start with a period")
+                        }
+                    })
+                    .interact_text()
+                    .map(|ft| {
+                        let mut set = HashSet::new();
+                        for ext in ft.split(',').flat_map(|part| part.split(' ')) {
+                            let ext = ext.trim();
+                            if ext.len() > 0 {
+                                set.insert(ext.to_string());
+                            }
+                        }
+                        set.into_iter().collect::<Vec<_>>()
+                    })
+            };
+
+            let license = || {
+                Input::<String>::with_theme(&ColorfulTheme::default())
+                    .with_prompt("What license will you use?")
+                    .default("MIT".to_string())
+                    .interact_text()
+            };
+
+            let description = |name: &str| {
+                Input::<String>::with_theme(&ColorfulTheme::default())
+                    .with_prompt("What is the description of your language?")
+                    .default(format!(
+                        "{} grammar for tree-sitter",
+                        name.to_upper_camel_case()
+                    ))
+                    .show_default(false)
+                    .allow_empty(true)
+                    .interact_text()
+            };
+
+            let repository = |name: &str| {
+                Input::<String>::with_theme(&ColorfulTheme::default())
+                    .with_prompt(
+                        "What is the repository URL? (if you don't have one, just hit enter)",
+                    )
+                    .allow_empty(true)
+                    .default(format!("https://github.com/tree-sitter/tree-sitter-{name}"))
+                    .show_default(false)
+                    .interact_text()
+            };
+
+            let initial_version = || {
+                Input::<Version>::with_theme(&ColorfulTheme::default())
+                    .with_prompt("What is the initial version of your language?")
+                    .default(Version::new(0, 1, 0))
+                    .interact_text()
+            };
+
+            let choices = [
+                "author",
+                "email",
+                "name",
+                "upper_camel_name",
+                "scope",
+                "file_types",
+                "license",
+                "description",
+                "repository",
+                "version",
+                "exit",
+            ];
+
+            macro_rules! set_choice {
+                ($choice:expr) => {
+                    match $choice {
+                        "author" => opts.author = author()?,
+                        "email" => opts.email = email()?,
+                        "name" => opts.name = name()?,
+                        "upper_camel_name" => opts.upper_camel_name = upper_camel_name(&opts.name)?,
+                        "scope" => opts.scope = scope(&opts.name)?,
+                        "file_types" => opts.file_types = file_types(&opts.name)?,
+                        "license" => opts.license = license()?,
+                        "description" => opts.description = description(&opts.name)?,
+                        "repository" => opts.repository = repository(&opts.name)?,
+                        "version" => opts.version = initial_version()?,
+                        "exit" => break,
+                        _ => unreachable!(),
+                    }
+                };
+            }
+
+            // Initial configuration
+            for choice in choices.iter().take(choices.len() - 1) {
+                set_choice!(*choice);
+            }
+
+            // Loop for editing the configuration
+            loop {
+                println!(
+                    "Your current configuration:\n{}",
+                    serde_json::to_string_pretty(&opts)?
+                );
+
+                if Confirm::with_theme(&ColorfulTheme::default())
+                    .with_prompt("Does the config above look correct?")
+                    .interact()?
+                {
+                    break;
+                }
+
+                let idx = FuzzySelect::with_theme(&ColorfulTheme::default())
+                    .with_prompt("Which field would you like to change?")
+                    .items(&choices)
+                    .interact()?;
+
+                set_choice!(choices[idx]);
+            }
+
+            (opts.name.clone(), Some(opts))
+        } else {
+            let json = serde_json::from_reader::<_, TreeSitterJSON>(
+                fs::File::open(current_dir.join("tree-sitter.json"))
+                    .with_context(|| "Failed to open tree-sitter.json")?,
+            )?;
+            (json.grammars[0].name.clone(), None)
+        };
+
+        generate_grammar_files(current_dir, &language_name, self.update, json_config_opts)?;
 
         Ok(())
     }

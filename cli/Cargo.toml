@@ -32,6 +32,7 @@ clap.workspace = true
 clap_complete.workspace = true
 ctor.workspace = true
 ctrlc.workspace = true
+dialoguer.workspace = true
 dirs.workspace = true
 filetime.workspace = true
 glob.workspace = true

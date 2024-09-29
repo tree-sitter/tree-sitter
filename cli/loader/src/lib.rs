@@ -25,6 +25,7 @@ use libloading::{Library, Symbol};
 use once_cell::unsync::OnceCell;
 use path_slash::PathBufExt as _;
 use regex::{Regex, RegexBuilder};
+use semver::Version;
 use serde::{Deserialize, Deserializer, Serialize};
 use tree_sitter::Language;
 #[cfg(any(feature = "tree-sitter-highlight", feature = "tree-sitter-tags"))]
@@ -46,6 +47,330 @@ pub struct Config {
         deserialize_with = "deserialize_parser_directories"
     )]
     pub parser_directories: Vec<PathBuf>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(untagged)]
+pub enum PathsJSON {
+    #[default]
+    Empty,
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+impl PathsJSON {
+    fn into_vec(self) -> Option<Vec<String>> {
+        match self {
+            Self::Empty => None,
+            Self::Single(s) => Some(vec![s]),
+            Self::Multiple(s) => Some(s),
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        matches!(self, Self::Empty)
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum PackageJSONAuthor {
+    String(String),
+    Object {
+        name: String,
+        email: Option<String>,
+        url: Option<String>,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum PackageJSONRepository {
+    String(String),
+    Object { url: String },
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct PackageJSON {
+    pub name: String,
+    pub version: Version,
+    pub description: Option<String>,
+    pub author: Option<PackageJSONAuthor>,
+    pub license: Option<String>,
+    pub repository: Option<PackageJSONRepository>,
+    #[serde(default)]
+    #[serde(rename = "tree-sitter")]
+    pub tree_sitter: Option<Vec<LanguageConfigurationJSON>>,
+}
+
+impl PackageJSON {
+    pub fn has_multiple_language_configs(&self) -> bool {
+        self.tree_sitter.as_ref().is_some_and(|c| c.len() > 1)
+    }
+}
+
+fn default_path() -> PathBuf {
+    PathBuf::from(".")
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub struct LanguageConfigurationJSON {
+    #[serde(default = "default_path")]
+    pub path: PathBuf,
+    pub scope: Option<String>,
+    pub file_types: Option<Vec<String>>,
+    pub content_regex: Option<String>,
+    pub first_line_regex: Option<String>,
+    pub injection_regex: Option<String>,
+    #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
+    pub highlights: PathsJSON,
+    #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
+    pub injections: PathsJSON,
+    #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
+    pub locals: PathsJSON,
+    #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
+    pub tags: PathsJSON,
+    #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
+    pub external_files: PathsJSON,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct TreeSitterJSON {
+    #[serde(rename = "$schema")]
+    pub schema: String,
+    pub grammars: Vec<Grammar>,
+    pub metadata: Metadata,
+    pub bindings: Bindings,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct Grammar {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub upper_camel_name: Option<String>,
+    pub scope: String,
+    pub path: PathBuf,
+    #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
+    pub external_files: PathsJSON,
+    pub file_types: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
+    pub highlights: PathsJSON,
+    #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
+    pub injections: PathsJSON,
+    #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
+    pub locals: PathsJSON,
+    #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
+    pub tags: PathsJSON,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub injection_regex: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_line_regex: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_regex: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Metadata {
+    pub version: Version,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub license: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub authors: Vec<Author>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub links: Option<Links>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub namespace: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Author {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Links {
+    pub repository: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub homepage: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Bindings {
+    pub c: bool,
+    pub go: bool,
+    pub java: bool,
+    pub kotlin: bool,
+    pub node: bool,
+    pub python: bool,
+    pub rust: bool,
+    pub swift: bool,
+}
+
+impl Default for Bindings {
+    fn default() -> Self {
+        Self {
+            c: true,
+            go: true,
+            java: true,
+            kotlin: true,
+            node: true,
+            python: true,
+            rust: true,
+            swift: true,
+        }
+    }
+}
+
+pub enum ConfigurationJSON {
+    PackageJson(PackageJSON),
+    TreeSitterJson(TreeSitterJSON),
+}
+
+pub trait LanguageConfigurable {
+    fn path(&self) -> &Path;
+    fn scope(&self) -> Option<&str>;
+    fn file_types(&self) -> &[String];
+    fn external_files(&self) -> &PathsJSON;
+    fn first_line_regex(&self) -> Option<&str>;
+    fn injection_regex(&self) -> Option<&str>;
+    fn content_regex(&self) -> Option<&str>;
+    fn locals(&self) -> &PathsJSON;
+    fn highlights(&self) -> &PathsJSON;
+    fn injections(&self) -> &PathsJSON;
+    fn tags(&self) -> &PathsJSON;
+}
+
+impl LanguageConfigurable for &LanguageConfigurationJSON {
+    fn path(&self) -> &Path {
+        &self.path
+    }
+
+    fn scope(&self) -> Option<&str> {
+        self.scope.as_deref()
+    }
+
+    fn file_types(&self) -> &[String] {
+        self.file_types.as_deref().unwrap_or_default()
+    }
+
+    fn external_files(&self) -> &PathsJSON {
+        &self.external_files
+    }
+
+    fn first_line_regex(&self) -> Option<&str> {
+        self.first_line_regex.as_deref()
+    }
+
+    fn injection_regex(&self) -> Option<&str> {
+        self.injection_regex.as_deref()
+    }
+
+    fn content_regex(&self) -> Option<&str> {
+        self.content_regex.as_deref()
+    }
+
+    fn locals(&self) -> &PathsJSON {
+        &self.locals
+    }
+
+    fn highlights(&self) -> &PathsJSON {
+        &self.highlights
+    }
+
+    fn injections(&self) -> &PathsJSON {
+        &self.injections
+    }
+
+    fn tags(&self) -> &PathsJSON {
+        &self.tags
+    }
+}
+
+impl LanguageConfigurable for &Grammar {
+    fn path(&self) -> &Path {
+        &self.path
+    }
+
+    fn scope(&self) -> Option<&str> {
+        Some(&self.scope)
+    }
+
+    fn file_types(&self) -> &[String] {
+        self.file_types.as_deref().unwrap_or_default()
+    }
+
+    fn external_files(&self) -> &PathsJSON {
+        &self.external_files
+    }
+
+    fn first_line_regex(&self) -> Option<&str> {
+        self.first_line_regex.as_deref()
+    }
+
+    fn injection_regex(&self) -> Option<&str> {
+        self.injection_regex.as_deref()
+    }
+
+    fn content_regex(&self) -> Option<&str> {
+        self.content_regex.as_deref()
+    }
+
+    fn locals(&self) -> &PathsJSON {
+        &self.locals
+    }
+
+    fn highlights(&self) -> &PathsJSON {
+        &self.highlights
+    }
+
+    fn injections(&self) -> &PathsJSON {
+        &self.injections
+    }
+
+    fn tags(&self) -> &PathsJSON {
+        &self.tags
+    }
+}
+
+impl ConfigurationJSON {
+    pub fn new(path: &Path) -> Option<Self> {
+        if let Ok(file) = fs::File::open(path.join("tree-sitter.json")) {
+            Some(Self::TreeSitterJson(serde_json::from_reader(file).ok()?))
+        } else if let Ok(file) = fs::File::open(path.join("package.json")) {
+            Some(Self::PackageJson(serde_json::from_reader(file).ok()?))
+        } else {
+            None
+        }
+    }
+
+    pub fn iterate_grammars(
+        &self,
+    ) -> Box<dyn Iterator<Item = Box<dyn LanguageConfigurable + '_>> + '_> {
+        match self {
+            Self::PackageJson(package) => Box::new(
+                package
+                    .tree_sitter
+                    .as_ref()
+                    .map(|v| v.iter())
+                    .unwrap_or_else(|| [].iter())
+                    .map(|g| Box::new(g) as Box<dyn LanguageConfigurable + '_>),
+            ),
+            Self::TreeSitterJson(tree_sitter) => Box::new(
+                tree_sitter
+                    .grammars
+                    .iter()
+                    .map(|g| Box::new(g) as Box<dyn LanguageConfigurable + '_>),
+            ),
+        }
+    }
 }
 
 // Replace `~` or `$HOME` with home path string.
@@ -930,57 +1255,6 @@ impl Loader {
         parser_path: &Path,
         set_current_path_config: bool,
     ) -> Result<&[LanguageConfiguration]> {
-        #[derive(Deserialize, Clone, Default)]
-        #[serde(untagged)]
-        enum PathsJSON {
-            #[default]
-            Empty,
-            Single(String),
-            Multiple(Vec<String>),
-        }
-
-        impl PathsJSON {
-            fn into_vec(self) -> Option<Vec<String>> {
-                match self {
-                    Self::Empty => None,
-                    Self::Single(s) => Some(vec![s]),
-                    Self::Multiple(s) => Some(s),
-                }
-            }
-        }
-
-        #[derive(Deserialize)]
-        struct LanguageConfigurationJSON {
-            #[serde(default)]
-            path: PathBuf,
-            scope: Option<String>,
-            #[serde(rename = "file-types")]
-            file_types: Option<Vec<String>>,
-            #[serde(rename = "content-regex")]
-            content_regex: Option<String>,
-            #[serde(rename = "first-line-regex")]
-            first_line_regex: Option<String>,
-            #[serde(rename = "injection-regex")]
-            injection_regex: Option<String>,
-            #[serde(default)]
-            highlights: PathsJSON,
-            #[serde(default)]
-            injections: PathsJSON,
-            #[serde(default)]
-            locals: PathsJSON,
-            #[serde(default)]
-            tags: PathsJSON,
-            #[serde(default, rename = "external-files")]
-            external_files: PathsJSON,
-        }
-
-        #[derive(Deserialize)]
-        struct PackageJSON {
-            #[serde(default)]
-            #[serde(rename = "tree-sitter")]
-            tree_sitter: Vec<LanguageConfigurationJSON>,
-        }
-
         #[derive(Deserialize)]
         struct GrammarJSON {
             name: String,
@@ -988,41 +1262,40 @@ impl Loader {
 
         let initial_language_configuration_count = self.language_configurations.len();
 
-        if let Ok(package_json_contents) = fs::read_to_string(parser_path.join("package.json")) {
-            let package_json = serde_json::from_str::<PackageJSON>(&package_json_contents);
-            if let Ok(package_json) = package_json {
-                let language_count = self.languages_by_id.len();
-                for config_json in package_json.tree_sitter {
-                    // Determine the path to the parser directory. This can be specified in
-                    // the package.json, but defaults to the directory containing the package.json.
-                    let language_path = parser_path.join(config_json.path);
+        if let Some(config) = ConfigurationJSON::new(parser_path) {
+            let language_count = self.languages_by_id.len();
+            for config_json in config.iterate_grammars() {
+                // Determine the path to the parser directory. This can be specified in
+                // the package.json, but defaults to the directory containing the
+                // package.json.
+                let language_path = parser_path.join(config_json.path());
 
-                    let grammar_path = language_path.join("src").join("grammar.json");
-                    let mut grammar_file = fs::File::open(grammar_path)
-                        .with_context(|| "Failed to read grammar.json")?;
-                    let grammar_json: GrammarJSON =
-                        serde_json::from_reader(BufReader::new(&mut grammar_file))
-                            .with_context(|| "Failed to parse grammar.json")?;
+                let grammar_path = language_path.join("src").join("grammar.json");
+                let mut grammar_file =
+                    fs::File::open(grammar_path).with_context(|| "Failed to read grammar.json")?;
+                let grammar_json: GrammarJSON =
+                    serde_json::from_reader(BufReader::new(&mut grammar_file))
+                        .with_context(|| "Failed to parse grammar.json")?;
 
-                    // Determine if a previous language configuration in this package.json file
-                    // already uses the same language.
-                    let mut language_id = None;
-                    for (id, (path, _, _)) in
-                        self.languages_by_id.iter().enumerate().skip(language_count)
-                    {
-                        if language_path == *path {
-                            language_id = Some(id);
-                        }
+                // Determine if a previous language configuration in this package.json file
+                // already uses the same language.
+                let mut language_id = None;
+                for (id, (path, _, _)) in
+                    self.languages_by_id.iter().enumerate().skip(language_count)
+                {
+                    if language_path == *path {
+                        language_id = Some(id);
                     }
+                }
 
-                    // If not, add a new language path to the list.
-                    let language_id = if let Some(language_id) = language_id {
-                        language_id
-                    } else {
-                        self.languages_by_id.push((
+                // If not, add a new language path to the list.
+                let language_id = if let Some(language_id) = language_id {
+                    language_id
+                } else {
+                    self.languages_by_id.push((
                             language_path,
                             OnceCell::new(),
-                            config_json.external_files.clone().into_vec().map(|files| {
+                            config_json.external_files().clone().into_vec().map(|files| {
                                 files.into_iter()
                                     .map(|path| {
                                        let path = parser_path.join(path);
@@ -1036,57 +1309,55 @@ impl Loader {
                                     .collect::<Result<Vec<_>>>()
                             }).transpose()?,
                         ));
-                        self.languages_by_id.len() - 1
-                    };
+                    self.languages_by_id.len() - 1
+                };
 
-                    let configuration = LanguageConfiguration {
-                        root_path: parser_path.to_path_buf(),
-                        language_name: grammar_json.name.clone(),
-                        scope: config_json.scope,
-                        language_id,
-                        file_types: config_json.file_types.unwrap_or_default(),
-                        content_regex: Self::regex(config_json.content_regex.as_deref()),
-                        first_line_regex: Self::regex(config_json.first_line_regex.as_deref()),
-                        injection_regex: Self::regex(config_json.injection_regex.as_deref()),
-                        injections_filenames: config_json.injections.into_vec(),
-                        locals_filenames: config_json.locals.into_vec(),
-                        tags_filenames: config_json.tags.into_vec(),
-                        highlights_filenames: config_json.highlights.into_vec(),
-                        #[cfg(feature = "tree-sitter-highlight")]
-                        highlight_config: OnceCell::new(),
-                        #[cfg(feature = "tree-sitter-tags")]
-                        tags_config: OnceCell::new(),
-                        #[cfg(feature = "tree-sitter-highlight")]
-                        highlight_names: &self.highlight_names,
-                        #[cfg(feature = "tree-sitter-highlight")]
-                        use_all_highlight_names: self.use_all_highlight_names,
-                    };
+                let configuration = LanguageConfiguration {
+                    root_path: parser_path.to_path_buf(),
+                    language_name: grammar_json.name.clone(),
+                    scope: config_json.scope().map(|s| s.to_string()),
+                    language_id,
+                    file_types: config_json.file_types().to_vec(),
+                    content_regex: Self::regex(config_json.content_regex()),
+                    first_line_regex: Self::regex(config_json.first_line_regex()),
+                    injection_regex: Self::regex(config_json.injection_regex()),
+                    injections_filenames: config_json.injections().clone().into_vec(),
+                    locals_filenames: config_json.locals().clone().into_vec(),
+                    tags_filenames: config_json.tags().clone().into_vec(),
+                    highlights_filenames: config_json.highlights().clone().into_vec(),
+                    #[cfg(feature = "tree-sitter-highlight")]
+                    highlight_config: OnceCell::new(),
+                    #[cfg(feature = "tree-sitter-tags")]
+                    tags_config: OnceCell::new(),
+                    #[cfg(feature = "tree-sitter-highlight")]
+                    highlight_names: &self.highlight_names,
+                    #[cfg(feature = "tree-sitter-highlight")]
+                    use_all_highlight_names: self.use_all_highlight_names,
+                };
 
-                    for file_type in &configuration.file_types {
-                        self.language_configuration_ids_by_file_type
-                            .entry(file_type.to_string())
-                            .or_default()
-                            .push(self.language_configurations.len());
-                    }
-                    if let Some(first_line_regex) = &configuration.first_line_regex {
-                        self.language_configuration_ids_by_first_line_regex
-                            .entry(first_line_regex.to_string())
-                            .or_default()
-                            .push(self.language_configurations.len());
-                    }
+                for file_type in &configuration.file_types {
+                    self.language_configuration_ids_by_file_type
+                        .entry(file_type.to_string())
+                        .or_default()
+                        .push(self.language_configurations.len());
+                }
+                if let Some(first_line_regex) = &configuration.first_line_regex {
+                    self.language_configuration_ids_by_first_line_regex
+                        .entry(first_line_regex.to_string())
+                        .or_default()
+                        .push(self.language_configurations.len());
+                }
 
-                    self.language_configurations.push(unsafe {
-                        mem::transmute::<LanguageConfiguration<'_>, LanguageConfiguration<'static>>(
-                            configuration,
-                        )
-                    });
+                self.language_configurations.push(unsafe {
+                    mem::transmute::<LanguageConfiguration<'_>, LanguageConfiguration<'static>>(
+                        configuration,
+                    )
+                });
 
-                    if set_current_path_config
-                        && self.language_configuration_in_current_path.is_none()
-                    {
-                        self.language_configuration_in_current_path =
-                            Some(self.language_configurations.len() - 1);
-                    }
+                if set_current_path_config && self.language_configuration_in_current_path.is_none()
+                {
+                    self.language_configuration_in_current_path =
+                        Some(self.language_configurations.len() - 1);
                 }
             }
         }
