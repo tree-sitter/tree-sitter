@@ -1,6 +1,6 @@
 /**
  * @file CAMEL_PARSER_NAME grammar for tree-sitter
- * @author PARSER_AUTHOR_NAME PARSER_AUTHOR_EMAIL_ANGLED
+ * @author PARSER_AUTHOR_NAME PARSER_AUTHOR_EMAIL
  * @license PARSER_LICENSE
  */
 

@@ -26,9 +26,29 @@ const CAMEL_PARSER_NAME_PLACEHOLDER: &str = "CAMEL_PARSER_NAME";
 const UPPER_PARSER_NAME_PLACEHOLDER: &str = "UPPER_PARSER_NAME";
 const LOWER_PARSER_NAME_PLACEHOLDER: &str = "LOWER_PARSER_NAME";
 
+const PARSER_DESCRIPTION_PLACEHOLDER: &str = "PARSER_DESCRIPTION";
+const PARSER_LICENSE_PLACEHOLDER: &str = "PARSER_LICENSE";
+
 const AUTHOR_NAME_PLACEHOLDER: &str = "PARSER_AUTHOR_NAME";
 const AUTHOR_EMAIL_PLACEHOLDER: &str = "PARSER_AUTHOR_EMAIL";
-const AUTHOR_EMAIL_ANGLED_PLACEHOLDER: &str = "PARSER_AUTHOR_EMAIL_ANGLED";
+const AUTHOR_URL_PLACEHOLDER: &str = "PARSER_AUTHOR_URL";
+
+const AUTHOR_BLOCK_JS: &str = "\n  \"author\": {";
+const AUTHOR_NAME_PLACEHOLDER_JS: &str = "\n    \"name\": \"PARSER_AUTHOR_NAME\",";
+const AUTHOR_EMAIL_PLACEHOLDER_JS: &str = ",\n    \"email\": \"PARSER_AUTHOR_EMAIL\"";
+const AUTHOR_URL_PLACEHOLDER_JS: &str = ",\n    \"url\": \"PARSER_AUTHOR_URL\"";
+
+const AUTHOR_BLOCK_PY: &str = "\nauthors = [{";
+const AUTHOR_NAME_PLACEHOLDER_PY: &str = "name = \"PARSER_AUTHOR_NAME\"";
+const AUTHOR_EMAIL_PLACEHOLDER_PY: &str = ", email = \"PARSER_AUTHOR_EMAIL\"";
+
+const AUTHOR_BLOCK_RS: &str = "\nauthors = [";
+const AUTHOR_NAME_PLACEHOLDER_RS: &str = "PARSER_AUTHOR_NAME";
+const AUTHOR_EMAIL_PLACEHOLDER_RS: &str = " PARSER_AUTHOR_EMAIL";
+
+const AUTHOR_BLOCK_GRAMMAR: &str = "\n * @author ";
+const AUTHOR_NAME_PLACEHOLDER_GRAMMAR: &str = "PARSER_AUTHOR_NAME";
+const AUTHOR_EMAIL_PLACEHOLDER_GRAMMAR: &str = " PARSER_AUTHOR_EMAIL";
 
 const GRAMMAR_JS_TEMPLATE: &str = include_str!("./templates/grammar.js");
 const PACKAGE_JSON_TEMPLATE: &str = include_str!("./templates/package.json");
@@ -100,26 +120,27 @@ fn insert_after(
     entries.into_iter().collect()
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct JsonConfigOpts {
-    pub author: String,
-    pub email: Option<String>,
     pub name: String,
     pub upper_camel_name: String,
+    pub description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repository: Option<Url>,
     pub scope: String,
     pub file_types: Vec<String>,
-    pub license: String,
-    pub description: String,
-    pub repository: Option<Url>,
     pub version: Version,
+    pub license: String,
+    pub author: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<Url>,
 }
 
 impl JsonConfigOpts {
     pub fn to_tree_sitter_json(self) -> TreeSitterJSON {
         TreeSitterJSON {
-            schema: String::from(
-                "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
-            ),
             grammars: vec![Grammar {
                 name: self.name.clone(),
                 upper_camel_name: Some(self.upper_camel_name),
@@ -164,16 +185,17 @@ impl JsonConfigOpts {
 impl Default for JsonConfigOpts {
     fn default() -> Self {
         Self {
-            author: String::new(),
-            email: None,
             name: String::new(),
             upper_camel_name: String::new(),
-            scope: String::new(),
-            file_types: vec![],
-            license: String::new(),
             description: String::new(),
             repository: None,
+            scope: String::new(),
+            file_types: vec![],
             version: Version::from_str("0.1.0").unwrap(),
+            license: String::new(),
+            author: String::new(),
+            email: None,
+            url: None,
         }
     }
 }
@@ -181,6 +203,7 @@ impl Default for JsonConfigOpts {
 struct GenerateOpts<'a> {
     author_name: Option<&'a str>,
     author_email: Option<&'a str>,
+    author_url: Option<&'a str>,
     license: Option<&'a str>,
     description: Option<&'a str>,
 }
@@ -188,9 +211,14 @@ struct GenerateOpts<'a> {
 // TODO: remove in 0.25
 // A return value of true means migration was successful, and false if not.
 pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
-    let mut old_config = serde_json::from_reader::<_, PackageJSON>(
-        File::open(repo_path.join("package.json"))
-            .with_context(|| "Failed to open package.json")?,
+    let (package_json_path, tree_sitter_json_path) = (
+        repo_path.join("package.json"),
+        repo_path.join("tree-sitter.json"),
+    );
+
+    let old_config = serde_json::from_reader::<_, PackageJSON>(
+        File::open(&package_json_path)
+            .with_context(|| format!("Failed to open package.json in {}", repo_path.display()))?,
     )?;
 
     if old_config.tree_sitter.is_none() {
@@ -201,9 +229,6 @@ pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
     let name = old_config.name.replace("tree-sitter-", "");
 
     let new_config = TreeSitterJSON {
-        schema: String::from(
-            "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
-        ),
         grammars: old_config
             .tree_sitter
             .unwrap()
@@ -211,7 +236,7 @@ pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
             .map(|l| Grammar {
                 name: name.clone(),
                 upper_camel_name: Some(name.to_upper_camel_case()),
-                scope: l.scope.unwrap_or_else(|| format!("source.{}", name)),
+                scope: l.scope.unwrap_or_else(|| format!("source.{name}")),
                 path: l.path,
                 external_files: l.external_files,
                 file_types: l.file_types,
@@ -233,7 +258,7 @@ pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
             description: old_config
                 .description
                 .clone()
-                .map_or_else(|| Some(format!("{} grammar for tree-sitter", name)), Some),
+                .map_or_else(|| Some(format!("{name} grammar for tree-sitter")), Some),
             authors: old_config
                 .author
                 .clone()
@@ -302,15 +327,26 @@ pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
     };
 
     write_file(
-        &repo_path.join("tree-sitter.json"),
+        &tree_sitter_json_path,
         serde_json::to_string_pretty(&new_config)?,
     )?;
 
-    old_config.tree_sitter = None;
+    // Remove the `tree-sitter` field in-place
+    let mut package_json = serde_json::from_reader::<_, Map<String, Value>>(
+        File::open(&package_json_path)
+            .with_context(|| format!("Failed to open package.json in {}", repo_path.display()))?,
+    )
+    .unwrap();
+    package_json.remove("tree-sitter");
     write_file(
         &repo_path.join("package.json"),
-        serde_json::to_string_pretty(&old_config)?,
+        serde_json::to_string_pretty(&package_json)?,
     )?;
+
+    println!("Warning: your package.json's `tree-sitter` field has been automatically migrated to the new `tree-sitter.json` config file");
+    println!(
+        "For more information, visit https://tree-sitter.github.io/tree-sitter/creating-parsers"
+    );
 
     Ok(true)
 }
@@ -319,21 +355,33 @@ pub fn generate_grammar_files(
     repo_path: &Path,
     language_name: &str,
     allow_update: bool,
-    mut opts: Option<JsonConfigOpts>,
+    opts: Option<JsonConfigOpts>,
 ) -> Result<()> {
     let dashed_language_name = language_name.to_kebab_case();
 
     // TODO: remove legacy code updates in v0.24.0
 
-    let tree_sitter_config = missing_path(repo_path.join("tree-sitter.json"), |path| {
-        // invariant: opts is always Some when `tree-sitter.json` doesn't exist
-        let Some(opts) = opts.take() else {
-            unreachable!()
-        };
+    let tree_sitter_config = missing_path_else(
+        repo_path.join("tree-sitter.json"),
+        true,
+        |path| {
+            // invariant: opts is always Some when `tree-sitter.json` doesn't exist
+            let Some(opts) = opts.clone() else {
+                unreachable!()
+            };
 
-        let tree_sitter_json = opts.to_tree_sitter_json();
-        write_file(path, serde_json::to_string_pretty(&tree_sitter_json)?)
-    })?;
+            let tree_sitter_json = opts.to_tree_sitter_json();
+            write_file(path, serde_json::to_string_pretty(&tree_sitter_json)?)
+        },
+        |path| {
+            // updating the config, if needed
+            if let Some(opts) = opts.clone() {
+                let tree_sitter_json = opts.to_tree_sitter_json();
+                write_file(path, serde_json::to_string_pretty(&tree_sitter_json)?)?;
+            }
+            Ok(())
+        },
+    )?;
 
     let tree_sitter_config = serde_json::from_reader::<_, TreeSitterJSON>(
         File::open(tree_sitter_config.as_path())
@@ -351,6 +399,11 @@ pub fn generate_grammar_files(
             .authors
             .first()
             .and_then(|a| a.email.as_deref()),
+        author_url: tree_sitter_config
+            .metadata
+            .authors
+            .first()
+            .and_then(|a| a.url.as_deref()),
         license: tree_sitter_config.metadata.license.as_deref(),
         description: tree_sitter_config.metadata.description.as_deref(),
     };
@@ -863,6 +916,8 @@ fn generate_file(
     language_name: &str,
     generate_opts: &GenerateOpts,
 ) -> Result<()> {
+    let filename = path.file_name().unwrap().to_str().unwrap();
+
     let mut replacement = template
         .replace(
             CAMEL_PARSER_NAME_PLACEHOLDER,
@@ -880,35 +935,127 @@ fn generate_file(
         .replace(CLI_VERSION_PLACEHOLDER, CLI_VERSION)
         .replace(RUST_BINDING_VERSION_PLACEHOLDER, RUST_BINDING_VERSION);
 
-    match (generate_opts.author_name, generate_opts.author_email) {
-        (Some(name), Some(email)) => {
-            replacement = replacement
-                .replace(AUTHOR_NAME_PLACEHOLDER, name)
-                .replace(AUTHOR_EMAIL_ANGLED_PLACEHOLDER, &format!("<{email}>"))
-                .replace(AUTHOR_EMAIL_PLACEHOLDER, email);
+    if let Some(name) = generate_opts.author_name {
+        replacement = replacement.replace(AUTHOR_NAME_PLACEHOLDER, name);
+    } else {
+        match filename {
+            "package.json" => {
+                replacement = replacement.replace(AUTHOR_NAME_PLACEHOLDER_JS, "");
+            }
+            "pyproject.toml" => {
+                replacement = replacement.replace(AUTHOR_NAME_PLACEHOLDER_PY, "");
+            }
+            "grammar.js" => {
+                replacement = replacement.replace(AUTHOR_NAME_PLACEHOLDER_GRAMMAR, "");
+            }
+            "Cargo.toml" => {
+                replacement = replacement.replace(AUTHOR_NAME_PLACEHOLDER_RS, "");
+            }
+            _ => {}
         }
-        (Some(name), None) => {
-            replacement = replacement
-                .replace(AUTHOR_NAME_PLACEHOLDER, name)
-                .replace(AUTHOR_EMAIL_ANGLED_PLACEHOLDER, "")
-                .replace(AUTHOR_EMAIL_PLACEHOLDER, "");
+    }
+
+    if let Some(email) = generate_opts.author_email {
+        replacement = replacement.replace(AUTHOR_EMAIL_PLACEHOLDER, email);
+    } else {
+        match filename {
+            "package.json" => {
+                replacement = replacement.replace(AUTHOR_EMAIL_PLACEHOLDER_JS, "");
+            }
+            "pyproject.toml" => {
+                replacement = replacement.replace(AUTHOR_EMAIL_PLACEHOLDER_PY, "");
+            }
+            "grammar.js" => {
+                replacement = replacement.replace(AUTHOR_EMAIL_PLACEHOLDER_GRAMMAR, "");
+            }
+            "Cargo.toml" => {
+                replacement = replacement.replace(AUTHOR_EMAIL_PLACEHOLDER_RS, "");
+            }
+            _ => {}
         }
-        _ => {}
+    }
+
+    if filename == "package.json" {
+        if let Some(url) = generate_opts.author_url {
+            replacement = replacement.replace(AUTHOR_URL_PLACEHOLDER, url);
+        } else {
+            replacement = replacement.replace(AUTHOR_URL_PLACEHOLDER_JS, "");
+        }
+    }
+
+    if generate_opts.author_name.is_none()
+        && generate_opts.author_email.is_none()
+        && generate_opts.author_url.is_none()
+        && filename == "package.json"
+    {
+        if let Some(start_idx) = replacement.find(AUTHOR_BLOCK_JS) {
+            if let Some(end_idx) = replacement[start_idx..]
+                .find("},")
+                .map(|i| i + start_idx + 2)
+            {
+                replacement.replace_range(start_idx..end_idx, "");
+            }
+        }
+    } else if generate_opts.author_name.is_none() && generate_opts.author_email.is_none() {
+        match filename {
+            "pyproject.toml" => {
+                if let Some(start_idx) = replacement.find(AUTHOR_BLOCK_PY) {
+                    if let Some(end_idx) = replacement[start_idx..]
+                        .find("}]")
+                        .map(|i| i + start_idx + 2)
+                    {
+                        replacement.replace_range(start_idx..end_idx, "");
+                    } else {
+                        println!("none 2");
+                    }
+                } else {
+                    println!("none 1");
+                }
+            }
+            "grammar.js" => {
+                if let Some(start_idx) = replacement.find(AUTHOR_BLOCK_GRAMMAR) {
+                    if let Some(end_idx) = replacement[start_idx..]
+                        .find(" \n")
+                        .map(|i| i + start_idx + 1)
+                    {
+                        replacement.replace_range(start_idx..end_idx, "");
+                    } else {
+                        println!("none 2");
+                    }
+                } else {
+                    println!("none 1");
+                }
+            }
+            "Cargo.toml" => {
+                if let Some(start_idx) = replacement.find(AUTHOR_BLOCK_RS) {
+                    if let Some(end_idx) = replacement[start_idx..]
+                        .find("\"]")
+                        .map(|i| i + start_idx + 2)
+                    {
+                        replacement.replace_range(start_idx..end_idx, "");
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 
     match generate_opts.license {
-        Some(license) => replacement = replacement.replace("LICENSE_PLACEHOLDER", license),
-        _ => replacement = replacement.replace("LICENSE_PLACEHOLDER", "MIT"),
+        Some(license) => replacement = replacement.replace(PARSER_LICENSE_PLACEHOLDER, license),
+        _ => replacement = replacement.replace(PARSER_LICENSE_PLACEHOLDER, "MIT"),
     }
 
     match generate_opts.description {
         Some(description) => {
-            replacement = replacement.replace("DESCRIPTION_PLACEHOLDER", description)
+            replacement = replacement.replace(PARSER_DESCRIPTION_PLACEHOLDER, description)
         }
         _ => {
             replacement = replacement.replace(
-                "DESCRIPTION_PLACEHOLDER",
-                &format!("{language_name} grammar for tree-sitter"),
+                PARSER_DESCRIPTION_PLACEHOLDER,
+                &format!(
+                    "{} grammar for tree-sitter",
+                    language_name.to_upper_camel_case()
+                ),
             )
         }
     }

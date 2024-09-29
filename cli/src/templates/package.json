@@ -6,7 +6,8 @@
   "license": "PARSER_LICENSE",
   "author": {
     "name": "PARSER_AUTHOR_NAME",
-    "email": "PARSER_AUTHOR_EMAIL"
+    "email": "PARSER_AUTHOR_EMAIL",
+    "url": "PARSER_AUTHOR_URL"
   },
   "main": "bindings/node",
   "types": "bindings/node",

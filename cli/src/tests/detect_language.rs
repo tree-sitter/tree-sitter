@@ -8,17 +8,21 @@ use crate::tests::helpers::fixtures::scratch_dir;
 fn detect_language_by_first_line_regex() {
     let strace_dir = tree_sitter_dir(
         r#"{
-  "name": "tree-sitter-strace",
-  "version": "0.0.1",
-  "tree-sitter": [
+  "grammars": [
     {
+      "name": "strace",
+      "path": ".",
       "scope": "source.strace",
       "file-types": [
         "strace"
       ],
       "first-line-regex":  "[0-9:.]* *execve"
     }
-  ]
+  ],
+  "metadata": {
+    "version": "0.0.1",
+    "authors": []
+  }
 }
 "#,
         "strace",
@@ -56,16 +60,20 @@ fn detect_language_by_first_line_regex() {
 
     let dummy_dir = tree_sitter_dir(
         r#"{
-  "name": "tree-sitter-dummy",
-  "version": "0.0.1",
-  "tree-sitter": [
+  "grammars": [
     {
+      "name": "dummy",
       "scope": "source.dummy",
+      "path": ".",
       "file-types": [
         "dummy"
       ]
     }
-  ]
+  ],
+  "metadata": {
+    "version": "0.0.1",
+    "authors": []
+  }
 }
 "#,
         "dummy",
@@ -83,9 +91,9 @@ fn detect_language_by_first_line_regex() {
     );
 }
 
-fn tree_sitter_dir(package_json: &str, name: &str) -> tempfile::TempDir {
+fn tree_sitter_dir(tree_sitter_json: &str, name: &str) -> tempfile::TempDir {
     let temp_dir = tempfile::tempdir().unwrap();
-    fs::write(temp_dir.path().join("package.json"), package_json).unwrap();
+    fs::write(temp_dir.path().join("tree-sitter.json"), tree_sitter_json).unwrap();
     fs::create_dir_all(temp_dir.path().join("src/tree_sitter")).unwrap();
     fs::write(
         temp_dir.path().join("src/grammar.json"),

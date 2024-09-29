@@ -133,14 +133,21 @@ pub struct LanguageConfigurationJSON {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct TreeSitterJSON {
-    #[serde(rename = "$schema")]
-    pub schema: String,
     pub grammars: Vec<Grammar>,
     pub metadata: Metadata,
+    #[serde(default)]
     pub bindings: Bindings,
 }
 
 impl TreeSitterJSON {
+    pub fn from_file(path: &Path) -> Option<Self> {
+        if let Ok(file) = fs::File::open(path.join("tree-sitter.json")) {
+            Some(serde_json::from_reader(file).ok()?)
+        } else {
+            None
+        }
+    }
+
     pub fn has_multiple_language_configs(&self) -> bool {
         self.grammars.len() > 1
     }
@@ -204,6 +211,7 @@ pub struct Links {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(default)]
 pub struct Bindings {
     pub c: bool,
     pub go: bool,
@@ -226,150 +234,6 @@ impl Default for Bindings {
             python: true,
             rust: true,
             swift: true,
-        }
-    }
-}
-
-pub enum ConfigurationJSON {
-    PackageJson(PackageJSON),
-    TreeSitterJson(TreeSitterJSON),
-}
-
-pub trait LanguageConfigurable {
-    fn path(&self) -> &Path;
-    fn scope(&self) -> Option<&str>;
-    fn file_types(&self) -> &[String];
-    fn external_files(&self) -> &PathsJSON;
-    fn first_line_regex(&self) -> Option<&str>;
-    fn injection_regex(&self) -> Option<&str>;
-    fn content_regex(&self) -> Option<&str>;
-    fn locals(&self) -> &PathsJSON;
-    fn highlights(&self) -> &PathsJSON;
-    fn injections(&self) -> &PathsJSON;
-    fn tags(&self) -> &PathsJSON;
-}
-
-impl LanguageConfigurable for &LanguageConfigurationJSON {
-    fn path(&self) -> &Path {
-        &self.path
-    }
-
-    fn scope(&self) -> Option<&str> {
-        self.scope.as_deref()
-    }
-
-    fn file_types(&self) -> &[String] {
-        self.file_types.as_deref().unwrap_or_default()
-    }
-
-    fn external_files(&self) -> &PathsJSON {
-        &self.external_files
-    }
-
-    fn first_line_regex(&self) -> Option<&str> {
-        self.first_line_regex.as_deref()
-    }
-
-    fn injection_regex(&self) -> Option<&str> {
-        self.injection_regex.as_deref()
-    }
-
-    fn content_regex(&self) -> Option<&str> {
-        self.content_regex.as_deref()
-    }
-
-    fn locals(&self) -> &PathsJSON {
-        &self.locals
-    }
-
-    fn highlights(&self) -> &PathsJSON {
-        &self.highlights
-    }
-
-    fn injections(&self) -> &PathsJSON {
-        &self.injections
-    }
-
-    fn tags(&self) -> &PathsJSON {
-        &self.tags
-    }
-}
-
-impl LanguageConfigurable for &Grammar {
-    fn path(&self) -> &Path {
-        &self.path
-    }
-
-    fn scope(&self) -> Option<&str> {
-        Some(&self.scope)
-    }
-
-    fn file_types(&self) -> &[String] {
-        self.file_types.as_deref().unwrap_or_default()
-    }
-
-    fn external_files(&self) -> &PathsJSON {
-        &self.external_files
-    }
-
-    fn first_line_regex(&self) -> Option<&str> {
-        self.first_line_regex.as_deref()
-    }
-
-    fn injection_regex(&self) -> Option<&str> {
-        self.injection_regex.as_deref()
-    }
-
-    fn content_regex(&self) -> Option<&str> {
-        self.content_regex.as_deref()
-    }
-
-    fn locals(&self) -> &PathsJSON {
-        &self.locals
-    }
-
-    fn highlights(&self) -> &PathsJSON {
-        &self.highlights
-    }
-
-    fn injections(&self) -> &PathsJSON {
-        &self.injections
-    }
-
-    fn tags(&self) -> &PathsJSON {
-        &self.tags
-    }
-}
-
-impl ConfigurationJSON {
-    pub fn new(path: &Path) -> Option<Self> {
-        if let Ok(file) = fs::File::open(path.join("tree-sitter.json")) {
-            Some(Self::TreeSitterJson(serde_json::from_reader(file).ok()?))
-        } else if let Ok(file) = fs::File::open(path.join("package.json")) {
-            Some(Self::PackageJson(serde_json::from_reader(file).ok()?))
-        } else {
-            None
-        }
-    }
-
-    pub fn iterate_grammars(
-        &self,
-    ) -> Box<dyn Iterator<Item = Box<dyn LanguageConfigurable + '_>> + '_> {
-        match self {
-            Self::PackageJson(package) => Box::new(
-                package
-                    .tree_sitter
-                    .as_ref()
-                    .map(|v| v.iter())
-                    .unwrap_or_else(|| [].iter())
-                    .map(|g| Box::new(g) as Box<dyn LanguageConfigurable + '_>),
-            ),
-            Self::TreeSitterJson(tree_sitter) => Box::new(
-                tree_sitter
-                    .grammars
-                    .iter()
-                    .map(|g| Box::new(g) as Box<dyn LanguageConfigurable + '_>),
-            ),
         }
     }
 }
@@ -1263,13 +1127,13 @@ impl Loader {
 
         let initial_language_configuration_count = self.language_configurations.len();
 
-        if let Some(config) = ConfigurationJSON::new(parser_path) {
+        if let Some(config) = TreeSitterJSON::from_file(parser_path) {
             let language_count = self.languages_by_id.len();
-            for config_json in config.iterate_grammars() {
+            for grammar in config.grammars {
                 // Determine the path to the parser directory. This can be specified in
                 // the package.json, but defaults to the directory containing the
                 // package.json.
-                let language_path = parser_path.join(config_json.path());
+                let language_path = parser_path.join(grammar.path);
 
                 let grammar_path = language_path.join("src").join("grammar.json");
                 let mut grammar_file =
@@ -1296,7 +1160,7 @@ impl Loader {
                     self.languages_by_id.push((
                             language_path,
                             OnceCell::new(),
-                            config_json.external_files().clone().into_vec().map(|files| {
+                            grammar.external_files.clone().into_vec().map(|files| {
                                 files.into_iter()
                                     .map(|path| {
                                        let path = parser_path.join(path);
@@ -1315,17 +1179,17 @@ impl Loader {
 
                 let configuration = LanguageConfiguration {
                     root_path: parser_path.to_path_buf(),
-                    language_name: grammar_json.name.clone(),
-                    scope: config_json.scope().map(|s| s.to_string()),
+                    language_name: grammar_json.name,
+                    scope: Some(grammar.scope),
                     language_id,
-                    file_types: config_json.file_types().to_vec(),
-                    content_regex: Self::regex(config_json.content_regex()),
-                    first_line_regex: Self::regex(config_json.first_line_regex()),
-                    injection_regex: Self::regex(config_json.injection_regex()),
-                    injections_filenames: config_json.injections().clone().into_vec(),
-                    locals_filenames: config_json.locals().clone().into_vec(),
-                    tags_filenames: config_json.tags().clone().into_vec(),
-                    highlights_filenames: config_json.highlights().clone().into_vec(),
+                    file_types: grammar.file_types.unwrap_or_default(),
+                    content_regex: Self::regex(grammar.content_regex.as_deref()),
+                    first_line_regex: Self::regex(grammar.first_line_regex.as_deref()),
+                    injection_regex: Self::regex(grammar.injection_regex.as_deref()),
+                    injections_filenames: grammar.injections.into_vec(),
+                    locals_filenames: grammar.locals.into_vec(),
+                    tags_filenames: grammar.tags.into_vec(),
+                    highlights_filenames: grammar.highlights.into_vec(),
                     #[cfg(feature = "tree-sitter-highlight")]
                     highlight_config: OnceCell::new(),
                     #[cfg(feature = "tree-sitter-tags")]

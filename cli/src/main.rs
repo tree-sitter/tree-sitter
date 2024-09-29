@@ -440,19 +440,13 @@ impl InitConfig {
 }
 
 impl Init {
-    fn run(self, current_dir: &Path) -> Result<()> {
+    fn run(self, current_dir: &Path, migrated: bool) -> Result<()> {
         let configure_json = if current_dir.join("tree-sitter.json").exists() {
             Confirm::with_theme(&ColorfulTheme::default())
                 .with_prompt("It looks like you already have a `tree-sitter.json` file. Do you want to re-configure it?")
                 .interact()?
         } else if current_dir.join("package.json").exists() {
-            if Confirm::with_theme(&ColorfulTheme::default())
-                .with_prompt("It looks like you have a `package.json` already. If you have a `tree-sitter` field in it, do you want to auto-migrate to the new `tree-sitter.json` config file?")
-                .interact()? {
-                !migrate_package_json(current_dir)?
-            } else {
-                true
-            }
+            !migrated
         } else {
             true
         };
@@ -460,33 +454,9 @@ impl Init {
         let (language_name, json_config_opts) = if configure_json {
             let mut opts = JsonConfigOpts::default();
 
-            let author = || {
-                Input::<String>::with_theme(&ColorfulTheme::default())
-                .with_prompt("What is your name? This will be used in each binding's manifests as the author name")
-                .interact_text()
-            };
-
-            let email = || {
-                Input::with_theme(&ColorfulTheme::default())
-                 .with_prompt("What is your email? (optional)")
-                 .validate_with({
-                    let mut force = None;
-                    move |input: &String| -> Result<(), &str> {
-                        if input.contains('@') || input.trim().is_empty() || force.as_ref().map_or(false, |old| old == input) {
-                            Ok(())
-                        } else {
-                            force = Some(input.clone());
-                            Err("This is not an email address; type the same value again to force use")
-                        }
-                    }
-                 })
-                 .allow_empty(true)
-                 .interact_text().map(|e| (!e.trim().is_empty()).then_some(e))
-            };
-
             let name = || {
                 Input::<String>::with_theme(&ColorfulTheme::default())
-                    .with_prompt("What is the name of your language? (lowercase)")
+                    .with_prompt("Parser name")
                     .validate_with(|input: &String| {
                         if input.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_') {
                             Ok(())
@@ -499,51 +469,9 @@ impl Init {
 
             let upper_camel_name = |name: &str| {
                 Input::<String>::with_theme(&ColorfulTheme::default())
-                    .with_prompt("What is the UpperCamelCase name of your language?")
+                    .with_prompt("UpperCamelCase name")
                     .default(name.to_upper_camel_case())
                     .interact_text()
-            };
-
-            let scope = |name: &str| {
-                Input::<String>::with_theme(&ColorfulTheme::default())
-                    .with_prompt("What is the scope of your language?")
-                    .default(format!("source.{name}"))
-                    .interact_text()
-            };
-
-            let file_types = |name: &str| {
-                Input::<String>::with_theme(&ColorfulTheme::default())
-                    .with_prompt("What file types are associated with your language? (space or comma separated, e.g. `.py, .pyw`)")
-                    .default(format!(".{name}"))
-                    .validate_with(|input: &String| {
-                        if input.split(',')
-                            .flat_map(|part| part.split(' '))
-                            .all(|ext| ext.starts_with('.'))
-                        {
-                            Ok(())
-                        } else {
-                            Err("Each file type must start with a period")
-                        }
-                    })
-                    .interact_text()
-                    .map(|ft| {
-                        let mut set = HashSet::new();
-                        for ext in ft.split(',').flat_map(|part| part.split(' ')) {
-                            let ext = ext.trim();
-                            if !ext.is_empty() {
-                                set.insert(ext.to_string());
-                            }
-                        }
-                        set.into_iter().collect::<Vec<_>>()
-                    })
-            };
-
-            let license = || {
-                Input::<String>::with_theme(&ColorfulTheme::default())
-                    .with_prompt("What license will you use?")
-                    .default("MIT".to_string())
-                    .allow_empty(true)
-                    .interact()
             };
 
             let description = |name: &str| {
@@ -574,6 +502,30 @@ impl Init {
                     .interact_text()
             };
 
+            let scope = |name: &str| {
+                Input::<String>::with_theme(&ColorfulTheme::default())
+                    .with_prompt("What is the scope of your language?")
+                    .default(format!("source.{name}"))
+                    .interact_text()
+            };
+
+            let file_types = |name: &str| {
+                Input::<String>::with_theme(&ColorfulTheme::default())
+                    .with_prompt("What file types are associated with your language? (space-separated, e.g. `.py .pyw`)")
+                    .default(format!(".{name}"))
+                    .interact_text()
+                    .map(|ft| {
+                        let mut set = HashSet::new();
+                        for ext in ft.split(' ') {
+                            let ext = ext.trim();
+                            if !ext.is_empty() {
+                                set.insert(ext.to_string());
+                            }
+                        }
+                        set.into_iter().collect::<Vec<_>>()
+                    })
+            };
+
             let initial_version = || {
                 Input::<Version>::with_theme(&ColorfulTheme::default())
                     .with_prompt("What is the initial version of your language?")
@@ -581,33 +533,82 @@ impl Init {
                     .interact_text()
             };
 
+            let license = || {
+                Input::<String>::with_theme(&ColorfulTheme::default())
+                    .with_prompt("What license will you use?")
+                    .default("MIT".to_string())
+                    .allow_empty(true)
+                    .interact()
+            };
+
+            let author = || {
+                Input::<String>::with_theme(&ColorfulTheme::default())
+                    .with_prompt("Author name")
+                    .interact_text()
+            };
+
+            let email = || {
+                Input::with_theme(&ColorfulTheme::default())
+                 .with_prompt("Author email")
+                 .validate_with({
+                    let mut force = None;
+                    move |input: &String| -> Result<(), &str> {
+                        if input.contains('@') || input.trim().is_empty() || force.as_ref().map_or(false, |old| old == input) {
+                            Ok(())
+                        } else {
+                            force = Some(input.clone());
+                            Err("This is not an email address; type the same value again to force use")
+                        }
+                    }
+                 })
+                 .allow_empty(true)
+                 .interact_text().map(|e| (!e.trim().is_empty()).then_some(e))
+            };
+
+            let url = || {
+                Input::<String>::with_theme(&ColorfulTheme::default())
+                    .with_prompt("Author URL")
+                    .allow_empty(true)
+                    .validate_with(|input: &String| -> Result<(), &str> {
+                        if input.trim().is_empty() || Url::parse(input).is_ok() {
+                            Ok(())
+                        } else {
+                            Err("This is not a valid URL")
+                        }
+                    })
+                    .interact_text()
+                    .map(|e| (!e.trim().is_empty()).then(|| Url::parse(&e).unwrap()))
+            };
+
             let choices = [
-                "author",
-                "email",
                 "name",
                 "upper_camel_name",
-                "scope",
-                "file_types",
-                "license",
                 "description",
                 "repository",
+                "scope",
+                "file_types",
                 "version",
+                "license",
+                "author",
+                "email",
+                "url",
                 "exit",
             ];
 
             macro_rules! set_choice {
                 ($choice:expr) => {
                     match $choice {
-                        "author" => opts.author = author()?,
-                        "email" => opts.email = email()?,
                         "name" => opts.name = name()?,
                         "upper_camel_name" => opts.upper_camel_name = upper_camel_name(&opts.name)?,
-                        "scope" => opts.scope = scope(&opts.name)?,
-                        "file_types" => opts.file_types = file_types(&opts.name)?,
-                        "license" => opts.license = license()?,
                         "description" => opts.description = description(&opts.name)?,
                         "repository" => opts.repository = Some(repository(&opts.name)?),
+                        "scope" => opts.scope = scope(&opts.name)?,
+                        "file_types" => opts.file_types = file_types(&opts.name)?,
                         "version" => opts.version = initial_version()?,
+                        "license" => opts.license = license()?,
+                        "author" => opts.author = author()?,
+                        "email" => opts.email = email()?,
+                        "url" => opts.url = url()?,
                         "exit" => break,
                         _ => unreachable!(),
                     }
@@ -1284,9 +1285,17 @@ fn run() -> Result<()> {
     let current_dir = env::current_dir().unwrap();
     let loader = loader::Loader::new()?;
 
+    let migrated = if !current_dir.join("tree-sitter.json").exists()
+        && current_dir.join("package.json").exists()
+    {
+        migrate_package_json(&current_dir).with_context(|| "Failed to migrate package.json")?
+    } else {
+        false
+    };
+
     match command {
         Commands::InitConfig(_) => InitConfig::run()?,
-        Commands::Init(init_options) => init_options.run(&current_dir)?,
+        Commands::Init(init_options) => init_options.run(&current_dir, migrated)?,
         Commands::Generate(generate_options) => generate_options.run(loader, &current_dir)?,
         Commands::Build(build_options) => build_options.run(loader, &current_dir)?,
         Commands::Parse(parse_options) => parse_options.run(loader, &current_dir)?,
