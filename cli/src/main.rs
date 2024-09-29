@@ -542,7 +542,8 @@ impl Init {
                 Input::<String>::with_theme(&ColorfulTheme::default())
                     .with_prompt("What license will you use?")
                     .default("MIT".to_string())
-                    .interact_text()
+                    .allow_empty(true)
+                    .interact()
             };
 
             let description = |name: &str| {

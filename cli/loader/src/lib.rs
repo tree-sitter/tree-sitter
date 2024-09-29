@@ -100,14 +100,8 @@ pub struct PackageJSON {
     pub license: Option<String>,
     pub repository: Option<PackageJSONRepository>,
     #[serde(default)]
-    #[serde(rename = "tree-sitter")]
+    #[serde(rename = "tree-sitter", skip_serializing_if = "Option::is_none")]
     pub tree_sitter: Option<Vec<LanguageConfigurationJSON>>,
-}
-
-impl PackageJSON {
-    pub fn has_multiple_language_configs(&self) -> bool {
-        self.tree_sitter.as_ref().is_some_and(|c| c.len() > 1)
-    }
 }
 
 fn default_path() -> PathBuf {
@@ -144,6 +138,12 @@ pub struct TreeSitterJSON {
     pub grammars: Vec<Grammar>,
     pub metadata: Metadata,
     pub bindings: Bindings,
+}
+
+impl TreeSitterJSON {
+    pub fn has_multiple_language_configs(&self) -> bool {
+        self.grammars.len() > 1
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -220,8 +220,8 @@ impl Default for Bindings {
         Self {
             c: true,
             go: true,
-            java: true,
-            kotlin: true,
+            java: false,
+            kotlin: false,
             node: true,
             python: true,
             rust: true,
