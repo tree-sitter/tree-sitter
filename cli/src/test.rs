@@ -27,7 +27,7 @@ lazy_static! {
            (?P<equals>(?:=+){3,})
            (?P<suffix1>[^=\r\n][^\r\n]*)?
            \r?\n
-           (?P<test_name_and_markers>(?:[^=][^\r\n]*\r?\n)+)
+           (?P<test_name_and_markers>(?:([^=\r\n]|\s+:)[^\r\n]*\r?\n)+)
            ===+
            (?P<suffix2>[^=\r\n][^\r\n]*)?\r?\n"
     )
@@ -1243,7 +1243,27 @@ NOT A TEST HEADER
 ---asdf\()[]|{}*+?^$.-
 
 (a)
-        "
+
+==============================asdf\()[]|{}*+?^$.-
+Test containing equals
+==============================asdf\()[]|{}*+?^$.-
+
+===
+
+------------------------------asdf\()[]|{}*+?^$.-
+
+(a)
+
+==============================asdf\()[]|{}*+?^$.-
+Subsequent test containing equals
+==============================asdf\()[]|{}*+?^$.-
+
+===
+
+------------------------------asdf\()[]|{}*+?^$.-
+
+(a)
+"
             .trim(),
             None,
         );
@@ -1253,7 +1273,7 @@ NOT A TEST HEADER
             =========================\n\
             -------------------------\n"
             .to_vec();
-        assert_eq!(
+        pretty_assertions::assert_eq!(
             entry,
             TestEntry::Group {
                 name: "the-filename".to_string(),
@@ -1284,6 +1304,26 @@ NOT A TEST HEADER
                         output: "(a)".to_string(),
                         header_delim_len: 25,
                         divider_delim_len: 3,
+                        has_fields: false,
+                        attributes_str: String::new(),
+                        attributes: TestAttributes::default(),
+                    },
+                    TestEntry::Example {
+                        name: "Test containing equals".to_string(),
+                        input: "\n===\n".into(),
+                        output: "(a)".into(),
+                        header_delim_len: 30,
+                        divider_delim_len: 30,
+                        has_fields: false,
+                        attributes_str: String::new(),
+                        attributes: TestAttributes::default(),
+                    },
+                    TestEntry::Example {
+                        name: "Subsequent test containing equals".to_string(),
+                        input: "\n===\n".into(),
+                        output: "(a)".into(),
+                        header_delim_len: 30,
+                        divider_delim_len: 30,
                         has_fields: false,
                         attributes_str: String::new(),
                         attributes: TestAttributes::default(),
@@ -1407,6 +1447,7 @@ a
 =============================
 Test with bad platform marker
 :platform({})
+
 :language(foo)
 =============================
 a
@@ -1453,9 +1494,9 @@ a
                         divider_delim_len: 3,
                         has_fields: false,
                         attributes_str: if std::env::consts::OS == "linux" {
-                            ":platform(macos)\n:language(foo)".to_string()
+                            ":platform(macos)\n\n:language(foo)".to_string()
                         } else {
-                            ":platform(linux)\n:language(foo)".to_string()
+                            ":platform(linux)\n\n:language(foo)".to_string()
                         },
                         attributes: TestAttributes {
                             skip: false,
