@@ -1298,6 +1298,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
+name = "streaming-iterator"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b2231b7c3057d5e4ad0156fb3dc807d900806020c5ffa3ee6ff2c8c76fb8520"
+
+[[package]]
 name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1462,6 +1468,7 @@ dependencies = [
  "cc",
  "regex",
  "regex-syntax",
+ "streaming-iterator",
  "tree-sitter-language",
  "wasmtime-c-api-impl",
 ]
@@ -1498,6 +1505,7 @@ dependencies = [
  "serde_json",
  "similar",
  "smallbitvec",
+ "streaming-iterator",
  "tempfile",
  "tiny_http",
  "tree-sitter",
@@ -1550,6 +1558,7 @@ version = "0.23.0"
 dependencies = [
  "lazy_static",
  "regex",
+ "streaming-iterator",
  "thiserror",
  "tree-sitter",
 ]
@@ -1585,6 +1594,7 @@ version = "0.23.0"
 dependencies = [
  "memchr",
  "regex",
+ "streaming-iterator",
  "thiserror",
  "tree-sitter",
 ]

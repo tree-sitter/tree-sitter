@@ -34,6 +34,7 @@ wasm = ["wasmtime-c-api"]
 regex = { version = "1.10.6", default-features = false, features = ["unicode"] }
 regex-syntax = { version = "0.8.4", default-features = false }
 tree-sitter-language = { version = "0.1", path = "language" }
+streaming-iterator = "0.1.9"
 
 [dependencies.wasmtime-c-api]
 version = "25.0.1"

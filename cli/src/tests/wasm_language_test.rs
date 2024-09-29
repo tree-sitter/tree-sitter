@@ -1,6 +1,7 @@
 use std::fs;
 
 use lazy_static::lazy_static;
+use streaming_iterator::StreamingIterator;
 use tree_sitter::{
     wasmtime::Engine, Parser, Query, QueryCursor, WasmError, WasmErrorKind, WasmStore,
 };
