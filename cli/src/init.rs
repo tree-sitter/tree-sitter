@@ -16,6 +16,7 @@ use tree_sitter_loader::{
     Author, Bindings, Grammar, Links, Metadata, PackageJSON, PackageJSONAuthor,
     PackageJSONRepository, PathsJSON, TreeSitterJSON,
 };
+use url::Url;
 
 const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CLI_VERSION_PLACEHOLDER: &str = "CLI_VERSION";
@@ -109,7 +110,7 @@ pub struct JsonConfigOpts {
     pub file_types: Vec<String>,
     pub license: String,
     pub description: String,
-    pub repository: String,
+    pub repository: Option<Url>,
     pub version: Version,
 }
 
@@ -144,7 +145,13 @@ impl JsonConfigOpts {
                     url: None,
                 }],
                 links: Some(Links {
-                    repository: self.repository,
+                    repository: self.repository.unwrap_or_else(|| {
+                        Url::parse(&format!(
+                            "https://github.com/tree-sitter/tree-sitter-{}",
+                            self.name
+                        ))
+                        .expect("Failed to parse default repository URL")
+                    }),
                     homepage: None,
                 }),
                 namespace: None,
@@ -165,7 +172,7 @@ impl Default for JsonConfigOpts {
             file_types: vec![],
             license: String::new(),
             description: String::new(),
-            repository: String::new(),
+            repository: None,
             version: Version::from_str("0.1.0").unwrap(),
         }
     }
@@ -273,15 +280,19 @@ pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
                         PackageJSONRepository::String(s) => {
                             if s.starts_with("github:") {
                                 let repo_name = &s["github:".len()..].trim();
-                                format!("https://github.com/{repo_name}")
+                                Url::parse(&format!("https://github.com/{repo_name}"))
                             } else {
-                                s
+                                Url::parse(&s)
                             }
                         }
-                        PackageJSONRepository::Object { url, .. } => url,
+                        PackageJSONRepository::Object { url, .. } => Url::parse(&url),
                     })
+                    .transpose()?
                     .unwrap_or_else(|| {
-                        format!("https://github.com/tree-sitter/tree-sitter-{name}")
+                        Url::parse(&format!(
+                            "https://github.com/tree-sitter/tree-sitter-{name}"
+                        ))
+                        .expect("Failed to parse default repository URL")
                     }),
                 homepage: None,
             }),

@@ -36,6 +36,7 @@ use tree_sitter::QueryErrorKind;
 use tree_sitter_highlight::HighlightConfiguration;
 #[cfg(feature = "tree-sitter-tags")]
 use tree_sitter_tags::{Error as TagsError, TagsConfiguration};
+use url::Url;
 
 pub const EMSCRIPTEN_TAG: &str = concat!("docker.io/emscripten/emsdk:", env!("EMSCRIPTEN_VERSION"));
 
@@ -197,7 +198,7 @@ pub struct Author {
 
 #[derive(Serialize, Deserialize)]
 pub struct Links {
-    pub repository: String,
+    pub repository: Url,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub homepage: Option<String>,
 }

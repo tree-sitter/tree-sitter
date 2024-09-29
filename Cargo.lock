@@ -1578,6 +1578,7 @@ dependencies = [
  "tree-sitter-tags",
  "tree-sitter-tests-proc-macro",
  "unindent",
+ "url",
  "walkdir",
  "wasmparser",
  "webbrowser",
@@ -1649,6 +1650,7 @@ dependencies = [
  "tree-sitter",
  "tree-sitter-highlight",
  "tree-sitter-tags",
+ "url",
 ]
 
 [[package]]
@@ -1720,6 +1722,7 @@ dependencies = [
  "form_urlencoded",
  "idna",
  "percent-encoding",
+ "serde",
 ]
 
 [[package]]

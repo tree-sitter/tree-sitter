@@ -33,6 +33,7 @@ use tree_sitter_config::Config;
 use tree_sitter_highlight::Highlighter;
 use tree_sitter_loader::{self as loader, TreeSitterJSON};
 use tree_sitter_tags::TagsContext;
+use url::Url;
 
 const BUILD_VERSION: &str = env!("CARGO_PKG_VERSION");
 const BUILD_SHA: Option<&'static str> = option_env!("BUILD_SHA");
@@ -557,12 +558,17 @@ impl Init {
             };
 
             let repository = |name: &str| {
-                Input::<String>::with_theme(&ColorfulTheme::default())
+                Input::<Url>::with_theme(&ColorfulTheme::default())
                     .with_prompt(
                         "What is the repository URL? (if you don't have one, just hit enter)",
                     )
                     .allow_empty(true)
-                    .default(format!("https://github.com/tree-sitter/tree-sitter-{name}"))
+                    .default(
+                        Url::parse(&format!(
+                            "https://github.com/tree-sitter/tree-sitter-{name}"
+                        ))
+                        .expect("Failed to parse default repository URL"),
+                    )
                     .show_default(false)
                     .interact_text()
             };
@@ -599,7 +605,7 @@ impl Init {
                         "file_types" => opts.file_types = file_types(&opts.name)?,
                         "license" => opts.license = license()?,
                         "description" => opts.description = description(&opts.name)?,
-                        "repository" => opts.repository = repository(&opts.name)?,
+                        "repository" => opts.repository = Some(repository(&opts.name)?),
                         "version" => opts.version = initial_version()?,
                         "exit" => break,
                         _ => unreachable!(),
