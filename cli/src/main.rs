@@ -530,7 +530,7 @@ impl Init {
                         let mut set = HashSet::new();
                         for ext in ft.split(',').flat_map(|part| part.split(' ')) {
                             let ext = ext.trim();
-                            if ext.len() > 0 {
+                            if !ext.is_empty() {
                                 set.insert(ext.to_string());
                             }
                         }

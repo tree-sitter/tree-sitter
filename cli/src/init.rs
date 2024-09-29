@@ -278,8 +278,8 @@ pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
                     .clone()
                     .map(|r| match r {
                         PackageJSONRepository::String(s) => {
-                            if s.starts_with("github:") {
-                                let repo_name = &s["github:".len()..].trim();
+                            if let Some(stripped) = s.strip_prefix("github:") {
+                                let repo_name = stripped.trim();
                                 Url::parse(&format!("https://github.com/{repo_name}"))
                             } else {
                                 Url::parse(&s)
