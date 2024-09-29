@@ -182,7 +182,11 @@ fn test_node_child() {
         object_node.child_containing_descendant(null_node).unwrap(),
         pair_node
     );
-    assert_eq!(pair_node.child_containing_descendant(null_node), None);
+    assert_eq!(
+        pair_node.child_containing_descendant(null_node).unwrap(),
+        null_node
+    );
+    assert_eq!(null_node.child_containing_descendant(null_node), None);
 }
 
 #[test]
@@ -287,7 +291,13 @@ fn test_parent_of_zero_width_node() {
         root.child_containing_descendant(block).unwrap(),
         function_definition
     );
-    assert_eq!(function_definition.child_containing_descendant(block), None);
+    assert_eq!(
+        function_definition
+            .child_containing_descendant(block)
+            .unwrap(),
+        block
+    );
+    assert_eq!(block.child_containing_descendant(block), None);
 
     let code = "<script></script>";
     parser.set_language(&get_language("html")).unwrap();
@@ -480,7 +490,11 @@ fn test_node_named_child() {
         object_node.child_containing_descendant(null_node).unwrap(),
         pair_node
     );
-    assert_eq!(pair_node.child_containing_descendant(null_node), None);
+    assert_eq!(
+        pair_node.child_containing_descendant(null_node).unwrap(),
+        null_node
+    );
+    assert_eq!(null_node.child_containing_descendant(null_node), None);
 }
 
 #[test]

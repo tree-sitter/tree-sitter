@@ -550,7 +550,7 @@ TSNode ts_node_parent(TSNode self) {
 
   while (true) {
    TSNode next_node = ts_node_child_containing_descendant(node, self);
-   if (ts_node_is_null(next_node)) break;
+   if (next_node.id == self.id) break;
    node = next_node;
   }
 
@@ -567,9 +567,11 @@ TSNode ts_node_child_containing_descendant(TSNode self, TSNode subnode) {
       if (
         !ts_node_child_iterator_next(&iter, &self)
         || ts_node_start_byte(self) > start_byte
-        || self.id == subnode.id
       ) {
         return ts_node__null();
+      }
+      if (self.id == subnode.id) {
+        return self;
       }
 
       // Here we check the current self node and *all* of its zero-width token siblings that follow.
@@ -585,7 +587,7 @@ TSNode ts_node_child_containing_descendant(TSNode self, TSNode subnode) {
         }
         ts_node_child_iterator_next(&iter, &self);
         if (self.id == subnode.id) {
-          return ts_node__null();
+          return self;
         }
       }
       self = old;
