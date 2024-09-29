@@ -59,10 +59,10 @@ pub fn query_files_at_paths(
 
         let start = Instant::now();
         if ordered_captures {
-            for (mat, capture_index) in
-                query_cursor.captures(&query, tree.root_node(), source_code.as_slice())
-            {
-                let capture = mat.captures[capture_index];
+            let mut captures =
+                query_cursor.captures(&query, tree.root_node(), source_code.as_slice());
+            while let Some((mat, capture_index)) = captures.next() {
+                let capture = mat.captures[*capture_index];
                 let capture_name = &query.capture_names()[capture.index as usize];
                 if !quiet && !should_test {
                     writeln!(

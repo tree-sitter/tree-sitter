@@ -27,7 +27,7 @@ use std::os::fd::AsRawFd;
 #[cfg(all(windows, feature = "std"))]
 use std::os::windows::io::AsRawHandle;
 
-use streaming_iterator::StreamingIterator;
+use streaming_iterator::{StreamingIterator, StreamingIteratorMut};
 use tree_sitter_language::LanguageFn;
 
 #[cfg(feature = "wasm")]
@@ -213,13 +213,14 @@ pub struct QueryMatches<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]
 }
 
 /// A sequence of [`QueryCapture`]s associated with a given [`QueryCursor`].
-pub struct QueryCaptures<'query, 'cursor, T: TextProvider<I>, I: AsRef<[u8]>> {
+pub struct QueryCaptures<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> {
     ptr: *mut ffi::TSQueryCursor,
     query: &'query Query,
     text_provider: T,
     buffer1: Vec<u8>,
     buffer2: Vec<u8>,
-    _phantom: PhantomData<(&'cursor (), I)>,
+    current_match: Option<(QueryMatch<'query, 'tree>, usize)>,
+    _phantom: PhantomData<(&'tree (), I)>,
 }
 
 pub trait TextProvider<I>
@@ -2460,6 +2461,7 @@ impl QueryCursor {
             text_provider,
             buffer1: Vec::default(),
             buffer2: Vec::default(),
+            current_match: None,
             _phantom: PhantomData,
         }
     }
@@ -2525,7 +2527,7 @@ impl<'tree> QueryMatch<'_, 'tree> {
     }
 
     #[doc(alias = "ts_query_cursor_remove_match")]
-    pub fn remove(self) {
+    pub fn remove(&self) {
         unsafe { ffi::ts_query_cursor_remove_match(self.cursor, self.id) }
     }
 
@@ -2554,7 +2556,7 @@ impl<'tree> QueryMatch<'_, 'tree> {
         }
     }
 
-    fn satisfies_text_predicates<I: AsRef<[u8]>>(
+    pub fn satisfies_text_predicates<I: AsRef<[u8]>>(
         &self,
         query: &Query,
         buffer1: &mut Vec<u8>,
@@ -2683,8 +2685,7 @@ impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIterato
     fn advance(&mut self) {
         self.current_match = unsafe {
             loop {
-                let mut m: MaybeUninit<ffi::TSQueryMatch> =
-                    MaybeUninit::<ffi::TSQueryMatch>::uninit();
+                let mut m = MaybeUninit::<ffi::TSQueryMatch>::uninit();
                 if ffi::ts_query_cursor_next_match(self.ptr, m.as_mut_ptr()) {
                     let result = QueryMatch::new(&m.assume_init(), self.ptr);
                     if result.satisfies_text_predicates(
@@ -2707,13 +2708,21 @@ impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIterato
     }
 }
 
-impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> Iterator
+impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIteratorMut
+    for QueryMatches<'query, 'tree, T, I>
+{
+    fn get_mut(&mut self) -> Option<&mut Self::Item> {
+        self.current_match.as_mut()
+    }
+}
+
+impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIterator
     for QueryCaptures<'query, 'tree, T, I>
 {
     type Item = (QueryMatch<'query, 'tree>, usize);
 
-    fn next(&mut self) -> Option<Self::Item> {
-        unsafe {
+    fn advance(&mut self) {
+        self.current_match = unsafe {
             loop {
                 let mut capture_index = 0u32;
                 let mut m = MaybeUninit::<ffi::TSQueryMatch>::uninit();
@@ -2729,14 +2738,26 @@ impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> Iterator
                         &mut self.buffer2,
                         &mut self.text_provider,
                     ) {
-                        return Some((result, capture_index as usize));
+                        break Some((result, capture_index as usize));
                     }
                     result.remove();
                 } else {
-                    return None;
+                    break None;
                 }
             }
         }
+    }
+
+    fn get(&self) -> Option<&Self::Item> {
+        self.current_match.as_ref()
+    }
+}
+
+impl<'query, 'tree: 'query, T: TextProvider<I>, I: AsRef<[u8]>> StreamingIteratorMut
+    for QueryCaptures<'query, 'tree, T, I>
+{
+    fn get_mut(&mut self) -> Option<&mut Self::Item> {
+        self.current_match.as_mut()
     }
 }
 

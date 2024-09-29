@@ -2364,8 +2364,9 @@ fn test_query_captures_within_byte_range_assigned_after_iterating() {
 
         // Retrieve some captures
         let mut results = Vec::new();
-        for (mat, capture_ix) in captures.by_ref().take(5) {
-            let capture = mat.captures[capture_ix];
+        let mut first_five = captures.by_ref().take(5);
+        while let Some((mat, capture_ix)) = first_five.next() {
+            let capture = mat.captures[*capture_ix];
             results.push((
                 query.capture_names()[capture.index as usize],
                 &source[capture.node.byte_range()],
@@ -2387,8 +2388,8 @@ fn test_query_captures_within_byte_range_assigned_after_iterating() {
         // intersect the range.
         results.clear();
         captures.set_byte_range(source.find("Ok").unwrap()..source.len());
-        for (mat, capture_ix) in captures {
-            let capture = mat.captures[capture_ix];
+        while let Some((mat, capture_ix)) = captures.next() {
+            let capture = mat.captures[*capture_ix];
             results.push((
                 query.capture_names()[capture.index as usize],
                 &source[capture.node.byte_range()],
@@ -3484,9 +3485,13 @@ fn test_query_captures_with_matches_removed() {
         let mut cursor = QueryCursor::new();
 
         let mut captured_strings = Vec::new();
-        for (m, i) in cursor.captures(&query, tree.root_node(), source.as_bytes()) {
-            let capture = m.captures[i];
+
+        let mut captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
+        while let Some((m, i)) = captures.next() {
+            println!("captured: {:?}, {}", m, i);
+            let capture = m.captures[*i];
             let text = capture.node.utf8_text(source.as_bytes()).unwrap();
+            println!("captured: {:?}", text);
             if text == "a" {
                 m.remove();
                 continue;
@@ -3528,8 +3533,9 @@ fn test_query_captures_with_matches_removed_before_they_finish() {
         let mut cursor = QueryCursor::new();
 
         let mut captured_strings = Vec::new();
-        for (m, i) in cursor.captures(&query, tree.root_node(), source.as_bytes()) {
-            let capture = m.captures[i];
+        let mut captures = cursor.captures(&query, tree.root_node(), source.as_bytes());
+        while let Some((m, i)) = captures.next() {
+            let capture = m.captures[*i];
             let text = capture.node.utf8_text(source.as_bytes()).unwrap();
             if text == "as" {
                 m.remove();
