@@ -554,9 +554,21 @@ TSStateId ts_node_next_parse_state(TSNode self);
 TSNode ts_node_parent(TSNode self);
 
 /**
- * Get the node's child that contains `descendant`.
+ * @deprecated use [`ts_node_contains_descendant`] instead, this will be removed in 0.25
+ *
+ * Get the node's child containing `descendant`. This will not return
+ * the descendant if it is a direct child of `self`, for that use
+ * `ts_node_contains_descendant`.
  */
 TSNode ts_node_child_containing_descendant(TSNode self, TSNode descendant);
+
+/**
+ * Get the node that contains `descendant`.
+ *
+ * Note that this can return `descendant` itself, unlike the deprecated function
+ * [`ts_node_child_containing_descendant`].
+ */
+TSNode ts_node_child_with_descendant(TSNode self, TSNode descendant);
 
 /**
  * Get the node's child at the given index, where zero represents the first
