@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "tree-sitter-PARSER_NAME"
 description = "PARSER_DESCRIPTION"
-version = "0.0.1"
+version = "PARSER_VERSION"
 keywords = ["incremental", "parsing", "tree-sitter", "PARSER_NAME"]
 classifiers = [
   "Intended Audience :: Developers",

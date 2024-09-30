@@ -1,7 +1,7 @@
 [package]
 name = "tree-sitter-PARSER_NAME"
 description = "PARSER_DESCRIPTION"
-version = "0.0.1"
+version = "PARSER_VERSION"
 authors = ["PARSER_AUTHOR_NAME PARSER_AUTHOR_EMAIL"]
 license = "PARSER_LICENSE"
 readme = "README.md"
