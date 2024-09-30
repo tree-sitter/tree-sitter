@@ -20,7 +20,7 @@ license.text = "PARSER_LICENSE"
 readme = "README.md"
 
 [project.urls]
-Homepage = "https://github.com/tree-sitter/tree-sitter-PARSER_NAME"
+Homepage = "PARSER_URL"
 
 [project.optional-dependencies]
 core = ["tree-sitter~=0.22"]

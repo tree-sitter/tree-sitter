@@ -8,6 +8,7 @@ use std::{
 use anyhow::{anyhow, Context, Result};
 use heck::{ToKebabCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
 use indoc::indoc;
+use regex::Regex;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -28,6 +29,8 @@ const LOWER_PARSER_NAME_PLACEHOLDER: &str = "LOWER_PARSER_NAME";
 
 const PARSER_DESCRIPTION_PLACEHOLDER: &str = "PARSER_DESCRIPTION";
 const PARSER_LICENSE_PLACEHOLDER: &str = "PARSER_LICENSE";
+const PARSER_URL_PLACEHOLDER: &str = "PARSER_URL";
+const PARSER_URL_STRIPPED_PLACEHOLDER: &str = "PARSER_URL_STRIPPED";
 
 const AUTHOR_NAME_PLACEHOLDER: &str = "PARSER_AUTHOR_NAME";
 const AUTHOR_EMAIL_PLACEHOLDER: &str = "PARSER_AUTHOR_EMAIL";
@@ -160,11 +163,11 @@ impl JsonConfigOpts {
                 version: self.version,
                 license: Some(self.license),
                 description: Some(self.description),
-                authors: vec![Author {
+                authors: Some(vec![Author {
                     name: self.author,
                     email: self.email,
                     url: None,
-                }],
+                }]),
                 links: Some(Links {
                     repository: self.repository.unwrap_or_else(|| {
                         Url::parse(&format!(
@@ -206,6 +209,7 @@ struct GenerateOpts<'a> {
     author_url: Option<&'a str>,
     license: Option<&'a str>,
     description: Option<&'a str>,
+    repository: Option<&'a str>,
 }
 
 // TODO: remove in 0.25
@@ -257,54 +261,67 @@ pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
             description: old_config
                 .description
                 .map_or_else(|| Some(format!("{name} grammar for tree-sitter")), Some),
-            authors: old_config
-                .author
-                .map(|a| vec![a].into_iter())
-                .unwrap_or_else(|| vec![].into_iter())
-                .chain(old_config.maintainers.unwrap_or_default())
-                .filter_map(|a| match a {
-                    PackageJSONAuthor::String(s) => {
-                        let mut name = s.trim().to_string();
-                        if name.is_empty() {
-                            return None;
-                        }
-
-                        let mut email = None;
-                        let mut url = None;
-
-                        if let Some(url_start) = name.rfind('(') {
-                            if let Some(url_end) = name.rfind(')') {
-                                url = Some(name[url_start + 1..url_end].trim().to_string());
-                                name = name[..url_start].trim().to_string();
+            authors: {
+                let authors = old_config
+                    .author
+                    .map(|a| vec![a].into_iter())
+                    .unwrap_or_else(|| vec![].into_iter())
+                    .chain(old_config.maintainers.unwrap_or_default())
+                    .filter_map(|a| match a {
+                        PackageJSONAuthor::String(s) => {
+                            let mut name = s.trim().to_string();
+                            if name.is_empty() {
+                                return None;
                             }
-                        }
 
-                        if let Some(email_start) = name.rfind('<') {
-                            if let Some(email_end) = name.rfind('>') {
-                                email = Some(name[email_start + 1..email_end].trim().to_string());
-                                name = name[..email_start].trim().to_string();
+                            let mut email = None;
+                            let mut url = None;
+
+                            if let Some(url_start) = name.rfind('(') {
+                                if let Some(url_end) = name.rfind(')') {
+                                    url = Some(name[url_start + 1..url_end].trim().to_string());
+                                    name = name[..url_start].trim().to_string();
+                                }
                             }
-                        }
 
-                        Some(Author { name, email, url })
-                    }
-                    PackageJSONAuthor::Object { name, email, url } => {
-                        if name.is_empty() {
-                            None
-                        } else {
+                            if let Some(email_start) = name.rfind('<') {
+                                if let Some(email_end) = name.rfind('>') {
+                                    email =
+                                        Some(name[email_start + 1..email_end].trim().to_string());
+                                    name = name[..email_start].trim().to_string();
+                                }
+                            }
+
                             Some(Author { name, email, url })
                         }
-                    }
-                })
-                .collect(),
+                        PackageJSONAuthor::Object { name, email, url } => {
+                            if name.is_empty() {
+                                None
+                            } else {
+                                Some(Author { name, email, url })
+                            }
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                if authors.is_empty() {
+                    None
+                } else {
+                    Some(authors)
+                }
+            },
             links: Some(Links {
                 repository: old_config
                     .repository
                     .map(|r| match r {
                         PackageJSONRepository::String(s) => {
                             if let Some(stripped) = s.strip_prefix("github:") {
-                                let repo_name = stripped.trim();
-                                Url::parse(&format!("https://github.com/{repo_name}"))
+                                Url::parse(&format!("https://github.com/{stripped}"))
+                            } else if Regex::new(r"^[\w.-]+/[\w.-]+$").unwrap().is_match(&s) {
+                                Url::parse(&format!("https://github.com/{s}"))
+                            } else if let Some(stripped) = s.strip_prefix("gitlab:") {
+                                Url::parse(&format!("https://gitlab.com/{stripped}"))
+                            } else if let Some(stripped) = s.strip_prefix("bitbucket:") {
+                                Url::parse(&format!("https://bitbucket.org/{stripped}"))
                             } else {
                                 Url::parse(&s)
                             }
@@ -387,24 +404,25 @@ pub fn generate_grammar_files(
             .with_context(|| "Failed to open tree-sitter.json")?,
     )?;
 
+    let authors = tree_sitter_config.metadata.authors.as_ref();
+
     let generate_opts = GenerateOpts {
-        author_name: tree_sitter_config
-            .metadata
-            .authors
-            .first()
-            .map(|a| a.name.as_str()),
-        author_email: tree_sitter_config
-            .metadata
-            .authors
-            .first()
-            .and_then(|a| a.email.as_deref()),
-        author_url: tree_sitter_config
-            .metadata
-            .authors
-            .first()
-            .and_then(|a| a.url.as_deref()),
+        author_name: authors
+            .map(|a| a.first().map(|a| a.name.as_str()))
+            .unwrap_or_default(),
+        author_email: authors
+            .map(|a| a.first().and_then(|a| a.email.as_deref()))
+            .unwrap_or_default(),
+        author_url: authors
+            .map(|a| a.first().and_then(|a| a.url.as_deref()))
+            .unwrap_or_default(),
         license: tree_sitter_config.metadata.license.as_deref(),
         description: tree_sitter_config.metadata.description.as_deref(),
+        repository: tree_sitter_config
+            .metadata
+            .links
+            .as_ref()
+            .map(|l| l.repository.as_str()),
     };
 
     // Create or update package.json
@@ -1056,6 +1074,34 @@ fn generate_file(
                     language_name.to_upper_camel_case()
                 ),
             )
+        }
+    }
+
+    match generate_opts.repository {
+        Some(repository) => {
+            replacement = replacement
+                .replace(
+                    PARSER_URL_STRIPPED_PLACEHOLDER,
+                    &repository.replace("https://", "").to_lowercase(),
+                )
+                .replace(PARSER_URL_PLACEHOLDER, &repository.to_lowercase())
+        }
+        _ => {
+            replacement = replacement
+                .replace(
+                    PARSER_URL_STRIPPED_PLACEHOLDER,
+                    &format!(
+                        "github.com/tree-sitter/tree-sitter-{}",
+                        language_name.to_lowercase()
+                    ),
+                )
+                .replace(
+                    PARSER_URL_PLACEHOLDER,
+                    &format!(
+                        "https://github.com/tree-sitter/tree-sitter-{}",
+                        language_name.to_lowercase()
+                    ),
+                )
         }
     }
 

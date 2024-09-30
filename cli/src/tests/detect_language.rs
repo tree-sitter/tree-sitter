@@ -20,8 +20,7 @@ fn detect_language_by_first_line_regex() {
     }
   ],
   "metadata": {
-    "version": "0.0.1",
-    "authors": []
+    "version": "0.0.1"
   }
 }
 "#,
@@ -71,8 +70,7 @@ fn detect_language_by_first_line_regex() {
     }
   ],
   "metadata": {
-    "version": "0.0.1",
-    "authors": []
+    "version": "0.0.1"
   }
 }
 "#,

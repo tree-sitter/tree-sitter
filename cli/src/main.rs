@@ -476,7 +476,7 @@ impl Init {
 
             let description = |name: &str| {
                 Input::<String>::with_theme(&ColorfulTheme::default())
-                    .with_prompt("What is the description of your language?")
+                    .with_prompt("Description")
                     .default(format!(
                         "{} grammar for tree-sitter",
                         name.to_upper_camel_case()
@@ -488,9 +488,7 @@ impl Init {
 
             let repository = |name: &str| {
                 Input::<Url>::with_theme(&ColorfulTheme::default())
-                    .with_prompt(
-                        "What is the repository URL? (if you don't have one, just hit enter)",
-                    )
+                    .with_prompt("Repository URL")
                     .allow_empty(true)
                     .default(
                         Url::parse(&format!(
@@ -504,14 +502,14 @@ impl Init {
 
             let scope = |name: &str| {
                 Input::<String>::with_theme(&ColorfulTheme::default())
-                    .with_prompt("What is the scope of your language?")
+                    .with_prompt("TextMate scope")
                     .default(format!("source.{name}"))
                     .interact_text()
             };
 
             let file_types = |name: &str| {
                 Input::<String>::with_theme(&ColorfulTheme::default())
-                    .with_prompt("What file types are associated with your language? (space-separated, e.g. `.py .pyw`)")
+                    .with_prompt("File types (space-separated)")
                     .default(format!(".{name}"))
                     .interact_text()
                     .map(|ft| {
@@ -528,14 +526,14 @@ impl Init {
 
             let initial_version = || {
                 Input::<Version>::with_theme(&ColorfulTheme::default())
-                    .with_prompt("What is the initial version of your language?")
+                    .with_prompt("Version")
                     .default(Version::new(0, 1, 0))
                     .interact_text()
             };
 
             let license = || {
                 Input::<String>::with_theme(&ColorfulTheme::default())
-                    .with_prompt("What license will you use?")
+                    .with_prompt("License")
                     .default("MIT".to_string())
                     .allow_empty(true)
                     .interact()

@@ -3,7 +3,7 @@ libdir=@LIBDIR@
 includedir=@INCLUDEDIR@
 
 Name: tree-sitter-PARSER_NAME
-Description: CAMEL_PARSER_NAME grammar for tree-sitter
+Description: PARSER_DESCRIPTION
 URL: @URL@
 Version: @VERSION@
 Requires: @REQUIRES@

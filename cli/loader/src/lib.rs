@@ -188,7 +188,8 @@ pub struct Metadata {
     pub license: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    pub authors: Vec<Author>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub authors: Option<Vec<Author>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub links: Option<Links>,
     #[serde(skip_serializing_if = "Option::is_none")]
