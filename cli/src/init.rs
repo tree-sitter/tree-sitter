@@ -31,6 +31,7 @@ const PARSER_DESCRIPTION_PLACEHOLDER: &str = "PARSER_DESCRIPTION";
 const PARSER_LICENSE_PLACEHOLDER: &str = "PARSER_LICENSE";
 const PARSER_URL_PLACEHOLDER: &str = "PARSER_URL";
 const PARSER_URL_STRIPPED_PLACEHOLDER: &str = "PARSER_URL_STRIPPED";
+const PARSER_VERSION_PLACEHOLDER: &str = "PARSER_VERSION";
 
 const AUTHOR_NAME_PLACEHOLDER: &str = "PARSER_AUTHOR_NAME";
 const AUTHOR_EMAIL_PLACEHOLDER: &str = "PARSER_AUTHOR_EMAIL";
@@ -210,6 +211,7 @@ struct GenerateOpts<'a> {
     license: Option<&'a str>,
     description: Option<&'a str>,
     repository: Option<&'a str>,
+    version: &'a Version,
 }
 
 // TODO: remove in 0.25
@@ -423,6 +425,7 @@ pub fn generate_grammar_files(
             .links
             .as_ref()
             .map(|l| l.repository.as_str()),
+        version: &tree_sitter_config.metadata.version,
     };
 
     // Create or update package.json
@@ -950,7 +953,8 @@ fn generate_file(
         )
         .replace(PARSER_NAME_PLACEHOLDER, language_name)
         .replace(CLI_VERSION_PLACEHOLDER, CLI_VERSION)
-        .replace(RUST_BINDING_VERSION_PLACEHOLDER, RUST_BINDING_VERSION);
+        .replace(RUST_BINDING_VERSION_PLACEHOLDER, RUST_BINDING_VERSION)
+        .replace(PARSER_VERSION_PLACEHOLDER, &generate_opts.version.to_string());
 
     if let Some(name) = generate_opts.author_name {
         replacement = replacement.replace(AUTHOR_NAME_PLACEHOLDER, name);
