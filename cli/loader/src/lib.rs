@@ -97,6 +97,7 @@ pub struct PackageJSON {
     pub version: Version,
     pub description: Option<String>,
     pub author: Option<PackageJSONAuthor>,
+    pub maintainers: Option<Vec<PackageJSONAuthor>>,
     pub license: Option<String>,
     pub repository: Option<PackageJSONRepository>,
     #[serde(default)]

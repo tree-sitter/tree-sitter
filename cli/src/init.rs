@@ -250,23 +250,23 @@ pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
             })
             .collect(),
         metadata: Metadata {
-            version: old_config.version.clone(),
+            version: old_config.version,
             license: old_config
                 .license
-                .clone()
                 .map_or_else(|| Some("MIT".to_string()), Some),
             description: old_config
                 .description
-                .clone()
                 .map_or_else(|| Some(format!("{name} grammar for tree-sitter")), Some),
             authors: old_config
                 .author
-                .clone()
-                .map(|a| match a {
+                .map(|a| vec![a].into_iter())
+                .unwrap_or_else(|| vec![].into_iter())
+                .chain(old_config.maintainers.unwrap_or_default())
+                .filter_map(|a| match a {
                     PackageJSONAuthor::String(s) => {
                         let mut name = s.trim().to_string();
                         if name.is_empty() {
-                            return vec![];
+                            return None;
                         }
 
                         let mut email = None;
@@ -286,21 +286,20 @@ pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
                             }
                         }
 
-                        vec![Author { name, email, url }]
+                        Some(Author { name, email, url })
                     }
                     PackageJSONAuthor::Object { name, email, url } => {
                         if name.is_empty() {
-                            vec![]
+                            None
                         } else {
-                            vec![Author { name, email, url }]
+                            Some(Author { name, email, url })
                         }
                     }
                 })
-                .unwrap_or_default(),
+                .collect(),
             links: Some(Links {
                 repository: old_config
                     .repository
-                    .clone()
                     .map(|r| match r {
                         PackageJSONRepository::String(s) => {
                             if let Some(stripped) = s.strip_prefix("github:") {
