@@ -22,6 +22,9 @@ use url::Url;
 const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CLI_VERSION_PLACEHOLDER: &str = "CLI_VERSION";
 
+const ABI_VERSION_MAX: usize = tree_sitter::LANGUAGE_VERSION;
+const ABI_VERSION_MAX_PLACEHOLDER: &str = "ABI_VERSION_MAX";
+
 const PARSER_NAME_PLACEHOLDER: &str = "PARSER_NAME";
 const CAMEL_PARSER_NAME_PLACEHOLDER: &str = "CAMEL_PARSER_NAME";
 const UPPER_PARSER_NAME_PLACEHOLDER: &str = "UPPER_PARSER_NAME";
@@ -74,6 +77,7 @@ const BINDING_GYP_TEMPLATE: &str = include_str!("./templates/binding.gyp");
 const BINDING_TEST_JS_TEMPLATE: &str = include_str!("./templates/binding_test.js");
 
 const MAKEFILE_TEMPLATE: &str = include_str!("./templates/makefile");
+const CMAKELISTS_TXT_TEMPLATE: &str = include_str!("./templates/cmakelists.txt");
 const PARSER_NAME_H_TEMPLATE: &str = include_str!("./templates/PARSER_NAME.h");
 const PARSER_NAME_PC_IN_TEMPLATE: &str = include_str!("./templates/PARSER_NAME.pc.in");
 
@@ -746,6 +750,10 @@ pub fn generate_grammar_files(
                 generate_file(path, MAKEFILE_TEMPLATE, language_name, &generate_opts)
             })?;
 
+            missing_path(repo_path.join("CMakeLists.txt"), |path| {
+                generate_file(path, CMAKELISTS_TXT_TEMPLATE, language_name, &generate_opts)
+            })?;
+
             Ok(())
         })?;
     }
@@ -954,6 +962,7 @@ fn generate_file(
         .replace(PARSER_NAME_PLACEHOLDER, language_name)
         .replace(CLI_VERSION_PLACEHOLDER, CLI_VERSION)
         .replace(RUST_BINDING_VERSION_PLACEHOLDER, RUST_BINDING_VERSION)
+        .replace(ABI_VERSION_MAX_PLACEHOLDER, &ABI_VERSION_MAX.to_string())
         .replace(
             PARSER_VERSION_PLACEHOLDER,
             &generate_opts.version.to_string(),
