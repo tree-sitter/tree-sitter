@@ -58,6 +58,7 @@ clap = { version = "4.5.18", features = [
 clap_complete = "4.5.29"
 ctor = "0.2.8"
 ctrlc = { version = "3.4.5", features = ["termination"] }
+dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
 dirs = "5.0.1"
 filetime = "0.2.25"
 fs4 = "0.9.1"
@@ -78,7 +79,7 @@ rand = "0.8.5"
 regex = "1.10.6"
 regex-syntax = "0.8.4"
 rustc-hash = "2.0.0"
-semver = "1.0.23"
+semver = { version = "1.0.23", features = ["serde"] }
 serde = { version = "1.0.210", features = ["derive"] }
 serde_derive = "1.0.210"
 serde_json = { version = "1.0.128", features = ["preserve_order"] }
@@ -90,6 +91,7 @@ thiserror = "1.0.64"
 tiny_http = "0.12.0"
 toml = "0.8.19"
 unindent = "0.2.3"
+url = { version = "2.5.2", features = ["serde"] }
 walkdir = "2.5.0"
 wasmparser = "0.217.0"
 webbrowser = "1.0.2"

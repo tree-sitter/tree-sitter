@@ -1,4 +1,4 @@
-"""CAMEL_PARSER_NAME grammar for tree-sitter"""
+"""PARSER_DESCRIPTION"""
 
 from importlib.resources import files as _files
 

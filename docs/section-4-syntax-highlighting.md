@@ -14,10 +14,10 @@ This document explains how the Tree-sitter syntax highlighting system works, usi
 All of the files needed to highlight a given language are normally included in the same git repository as the Tree-sitter grammar for that language (for example, [`tree-sitter-javascript`](https://github.com/tree-sitter/tree-sitter-javascript), [`tree-sitter-ruby`](https://github.com/tree-sitter/tree-sitter-ruby)). In order to run syntax highlighting from the command-line, three types of files are needed:
 
 1. Per-user configuration in `~/.config/tree-sitter/config.json`
-2. Language configuration in grammar repositories' `package.json` files.
+2. Language configuration in grammar repositories' `tree-sitter.json` files.
 3. Tree queries in the grammars repositories' `queries` folders.
 
-For an example of the language-specific files, see the [`package.json` file](https://github.com/tree-sitter/tree-sitter-ruby/blob/master/package.json) and [`queries` directory](https://github.com/tree-sitter/tree-sitter-ruby/tree/master/queries) in the `tree-sitter-ruby` repository. The following sections describe the behavior of each file.
+For an example of the language-specific files, see the [`tree-sitter.json` file](https://github.com/tree-sitter/tree-sitter-ruby/blob/master/tree-sitter.json) and [`queries` directory](https://github.com/tree-sitter/tree-sitter-ruby/tree/master/queries) in the `tree-sitter-ruby` repository. The following sections describe the behavior of each file.
 
 ## Per-user Configuration
 
@@ -82,7 +82,7 @@ Styling values can be any of the following:
 
 ## Language Configuration
 
-The `package.json` file is used by package managers like `npm`. Within this file, the Tree-sitter CLI looks for data nested under the top-level `"tree-sitter"` key. This key is expected to contain an array of objects with the following keys:
+The `tree-sitter.json` file is used by the Tree-sitter CLI. Within this file, the CLI looks for data nested under the top-level `"grammars"` key. This key is expected to contain an array of objects with the following keys:
 
 ### Basics
 
@@ -90,7 +90,7 @@ These keys specify basic information about the parser:
 
 * `scope` (required) - A string like `"source.js"` that identifies the language. Currently, we strive to match the scope names used by popular [TextMate grammars](https://macromates.com/manual/en/language_grammars) and by the [Linguist](https://github.com/github/linguist) library.
 
-* `path` (optional) - A relative path from the directory containing `package.json` to another directory containing the `src/` folder, which contains the actual generated parser. The default value is `"."` (so that `src/` is in the same folder as `package.json`), and this very rarely needs to be overridden.
+* `path` (optional) - A relative path from the directory containing `tree-sitter.json` to another directory containing the `src/` folder, which contains the actual generated parser. The default value is `"."` (so that `src/` is in the same folder as `tree-sitter.json`), and this very rarely needs to be overridden.
 
 * `external-files` (optional) - A list of relative paths from the root dir of a
 parser to files that should be checked for modifications during recompilation.
@@ -111,7 +111,7 @@ These keys help to decide whether the language applies to a given file:
 
 ### Query Paths
 
-These keys specify relative paths from the directory containing `package.json` to the files that control syntax highlighting:
+These keys specify relative paths from the directory containing `tree-sitter.json` to the files that control syntax highlighting:
 
 * `highlights` - Path to a *highlight query*. Default: `queries/highlights.scm`
 * `locals` - Path to a *local variable query*. Default: `queries/locals.scm`.

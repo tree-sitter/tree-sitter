@@ -1,12 +1,13 @@
 [package]
 name = "tree-sitter-PARSER_NAME"
-description = "CAMEL_PARSER_NAME grammar for tree-sitter"
+description = "PARSER_DESCRIPTION"
 version = "0.0.1"
-license = "MIT"
+authors = ["PARSER_AUTHOR_NAME PARSER_AUTHOR_EMAIL"]
+license = "PARSER_LICENSE"
 readme = "README.md"
 keywords = ["incremental", "parsing", "tree-sitter", "PARSER_NAME"]
 categories = ["parsing", "text-editors"]
-repository = "https://github.com/tree-sitter/tree-sitter-PARSER_NAME"
+repository = "PARSER_URL"
 edition = "2021"
 autoexamples = false
 

@@ -1,9 +1,14 @@
 {
   "name": "tree-sitter-PARSER_NAME",
   "version": "0.0.1",
-  "description": "CAMEL_PARSER_NAME grammar for tree-sitter",
+  "description": "PARSER_DESCRIPTION",
   "repository": "github:tree-sitter/tree-sitter-PARSER_NAME",
-  "license": "MIT",
+  "license": "PARSER_LICENSE",
+  "author": {
+    "name": "PARSER_AUTHOR_NAME",
+    "email": "PARSER_AUTHOR_EMAIL",
+    "url": "PARSER_AUTHOR_URL"
+  },
   "main": "bindings/node",
   "types": "bindings/node",
   "keywords": [
