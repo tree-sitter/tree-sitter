@@ -13,7 +13,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.23.1"
+version = "0.23.2"
 authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
 edition = "2021"
 rust-version = "1.74.1"
@@ -87,8 +87,8 @@ walkdir = "2.5.0"
 wasmparser = "0.215.0"
 webbrowser = "1.0.2"
 
-tree-sitter = { version = "0.23.1", path = "./lib" }
-tree-sitter-loader = { version = "0.23.1", path = "./cli/loader" }
-tree-sitter-config = { version = "0.23.1", path = "./cli/config" }
-tree-sitter-highlight = { version = "0.23.1", path = "./highlight" }
-tree-sitter-tags = { version = "0.23.1", path = "./tags" }
+tree-sitter = { version = "0.23.2", path = "./lib" }
+tree-sitter-loader = { version = "0.23.2", path = "./cli/loader" }
+tree-sitter-config = { version = "0.23.2", path = "./cli/config" }
+tree-sitter-highlight = { version = "0.23.2", path = "./highlight" }
+tree-sitter-tags = { version = "0.23.2", path = "./tags" }
