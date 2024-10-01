@@ -443,15 +443,8 @@ impl InitConfig {
 
 impl Init {
     fn run(self, current_dir: &Path, migrated: bool) -> Result<()> {
-        let configure_json = if current_dir.join("tree-sitter.json").exists() {
-            Confirm::with_theme(&ColorfulTheme::default())
-                .with_prompt("It looks like you already have a `tree-sitter.json` file. Do you want to re-configure it?")
-                .interact()?
-        } else if current_dir.join("package.json").exists() {
-            !migrated
-        } else {
-            true
-        };
+        let configure_json = !current_dir.join("tree-sitter.json").exists()
+            && (!current_dir.join("package.json").exists() || !migrated);
 
         let (language_name, json_config_opts) = if configure_json {
             let mut opts = JsonConfigOpts::default();
