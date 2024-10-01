@@ -103,6 +103,8 @@ struct SubtreeInlineData {
 #undef SUBTREE_BITS
 #undef SUBTREE_SIZE
 
+typedef union Subtree Subtree;
+
 // A heap-allocated representation of a subtree.
 //
 // This representation is used for parent nodes, external tokens,
@@ -117,6 +119,7 @@ typedef struct {
   uint32_t child_count;
   TSSymbol symbol;
   TSStateId parse_state;
+  Subtree *parent;
 
   bool visible : 1;
   bool named : 1;
@@ -154,10 +157,10 @@ typedef struct {
 } SubtreeHeapData;
 
 // The fundamental building block of a syntax tree.
-typedef union {
+union Subtree {
   SubtreeInlineData data;
   const SubtreeHeapData *ptr;
-} Subtree;
+};
 
 // Like Subtree, but mutable.
 typedef union {

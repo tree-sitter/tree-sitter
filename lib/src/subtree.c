@@ -391,6 +391,10 @@ void ts_subtree_summarize_children(
   for (uint32_t i = 0; i < self.ptr->child_count; i++) {
     Subtree child = children[i];
 
+    MutableSubtree mchild = ts_subtree_to_mut_unsafe(child);
+    mchild.ptr->parent = ts_malloc(sizeof(Subtree));
+    *mchild.ptr->parent = ts_subtree_from_mut(self);
+
     if (
       self.ptr->size.extent.row == 0 &&
       ts_subtree_depends_on_column(child)

@@ -544,17 +544,42 @@ TSStateId ts_node_next_parse_state(TSNode self) {
   return ts_language_next_state(language, state, symbol);
 }
 
-TSNode ts_node_parent(TSNode self) {
-  TSNode node = ts_tree_root_node(self.tree);
-  if (node.id == self.id) return ts_node__null();
-
-  while (true) {
-   TSNode next_node = ts_node_child_containing_descendant(node, self);
-   if (ts_node_is_null(next_node)) break;
-   node = next_node;
+static Length ts_subtree__length(Subtree *subtree, const Subtree *root) {
+  if (subtree->ptr == root->ptr) {
+    return length_zero();
   }
 
-  return node;
+  Subtree *parent = subtree->ptr->parent;
+  Length length = ts_subtree__length(parent, root);
+
+  for (uint32_t i = 0; i < parent->ptr->child_count; i++) {
+    const Subtree *child = &ts_subtree_children(*parent)[i];
+    if (child->ptr == subtree->ptr) {
+      break;
+    }
+    length = length_add(length, ts_subtree_size(*child));
+  }
+
+  return length_add(length, ts_subtree_padding(*subtree));
+}
+
+TSNode ts_node_parent(TSNode self) {
+  Subtree subtree = ts_node__subtree(self);
+  if (subtree.data.is_inline) {
+    return ts_node__null();
+  }
+  Subtree *parent = subtree.ptr->parent;
+
+  if (!parent) {
+    return ts_node__null();
+  }
+
+  return ts_node_new(
+    self.tree,
+    parent,
+    ts_subtree__length(parent, &(self.tree->root)),
+    0 // TODO(lewis6991): ???
+  );
 }
 
 TSNode ts_node_child_containing_descendant(TSNode self, TSNode descendant) {
