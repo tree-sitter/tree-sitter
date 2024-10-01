@@ -159,7 +159,7 @@ impl TreeSitterJSON {
 pub struct Grammar {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub upper_camel_name: Option<String>,
+    pub camelcase: Option<String>,
     pub scope: String,
     pub path: PathBuf,
     #[serde(default, skip_serializing_if = "PathsJSON::is_empty")]
@@ -192,7 +192,8 @@ pub struct Metadata {
     pub authors: Option<Vec<Author>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub links: Option<Links>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    // #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip)]
     pub namespace: Option<String>,
 }
 
@@ -217,7 +218,9 @@ pub struct Links {
 pub struct Bindings {
     pub c: bool,
     pub go: bool,
+    #[serde(skip)]
     pub java: bool,
+    #[serde(skip)]
     pub kotlin: bool,
     pub node: bool,
     pub python: bool,

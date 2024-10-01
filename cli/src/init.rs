@@ -131,7 +131,7 @@ fn insert_after(
 #[derive(Serialize, Deserialize, Clone)]
 pub struct JsonConfigOpts {
     pub name: String,
-    pub upper_camel_name: String,
+    pub camelcase: String,
     pub description: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub repository: Option<Url>,
@@ -151,7 +151,7 @@ impl JsonConfigOpts {
         TreeSitterJSON {
             grammars: vec![Grammar {
                 name: self.name.clone(),
-                upper_camel_name: Some(self.upper_camel_name),
+                camelcase: Some(self.camelcase),
                 scope: self.scope,
                 path: PathBuf::from("."),
                 external_files: PathsJSON::Empty,
@@ -194,7 +194,7 @@ impl Default for JsonConfigOpts {
     fn default() -> Self {
         Self {
             name: String::new(),
-            upper_camel_name: String::new(),
+            camelcase: String::new(),
             description: String::new(),
             repository: None,
             scope: String::new(),
@@ -245,7 +245,7 @@ pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
             .into_iter()
             .map(|l| Grammar {
                 name: name.clone(),
-                upper_camel_name: Some(name.to_upper_camel_case()),
+                camelcase: Some(name.to_upper_camel_case()),
                 scope: l.scope.unwrap_or_else(|| format!("source.{name}")),
                 path: l.path,
                 external_files: l.external_files,

@@ -2,6 +2,9 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
+    "$schema": {
+      "type": "string"
+    },
     "grammars": {
       "type": "array",
       "items": {
@@ -132,6 +135,7 @@
             "description": "A regex pattern that will be tested against the contents of the file in order to break ties in cases where multiple grammars matched the file."
           }
         },
+        "additionalProperties": false,
         "required": [
           "name",
           "scope"
@@ -174,6 +178,7 @@
               "description": "The project's homepage."
             }
           },
+          "additionalProperties": false,
           "required": [
             "repository"
           ]
@@ -196,6 +201,7 @@
                 "format": "uri"
               }
             },
+            "additionalProperties": false,
             "required": [
               "name"
             ]
@@ -209,6 +215,7 @@
           "$comment": "Used as is in the Maven/Gradle group name and transformed accordingly for the package names and directories (e.g. io.github.treesitter.jtreesitter.html - src/main/java/io/github/treesitter/jtreesitter/html)."
         }
       },
+      "additionalProperties": false,
       "required": [
         "version",
         "links"
@@ -230,11 +237,11 @@
         },
         "java": {
           "type": "boolean",
-          "default": true
+          "default": false
         },
         "kotlin": {
           "type": "boolean",
-          "default": true
+          "default": false
         },
         "node": {
           "type": "boolean",
@@ -256,9 +263,11 @@
           "type": "boolean",
           "default": true
         }
-      }
+      },
+      "additionalProperties": false
     }
   },
+  "additionalProperties": false,
   "required": [
     "grammars",
     "metadata"
