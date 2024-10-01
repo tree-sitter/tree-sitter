@@ -8,6 +8,10 @@
   "additionalProperties": false,
 
   "properties": {
+    "$schema": {
+      "type": "string"
+    },
+
     "name": {
       "description": "The name of the grammar",
       "type": "string",
