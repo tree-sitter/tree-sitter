@@ -6,10 +6,6 @@ project(tree-sitter
         HOMEPAGE_URL "https://tree-sitter.github.io/tree-sitter/"
         LANGUAGES C)
 
-if(NOT MSVC)
-  set(CMAKE_C_FLAGS "-O3 -Wall -Wextra -Wshadow -Wno-unused-parameter -pedantic")
-endif(NOT MSVC)
-
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 option(TREE_SITTER_FEATURE_WASM "Enable the Wasm feature" OFF)
 
@@ -20,6 +16,18 @@ add_library(tree-sitter ${TS_SOURCE_FILES})
 
 target_include_directories(tree-sitter PRIVATE src src/wasm include)
 
+if(NOT MSVC)
+  target_compile_options(tree-sitter PRIVATE -Wall -Wextra -Wshadow -Wno-unused-parameter -pedantic)
+endif()
+
+if(NOT BUILD_SHARED_LIBS)
+  if(WIN32)
+    set(CMAKE_FIND_LIBRARY_SUFFIXES .lib .a)
+  else()
+    set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
+  endif()
+endif()
+
 if(TREE_SITTER_FEATURE_WASM)
   if(NOT DEFINED CACHE{WASMTIME_INCLUDE_DIR})
     message(CHECK_START "Looking for wasmtime headers")
@@ -27,20 +35,29 @@ if(TREE_SITTER_FEATURE_WASM)
               PATHS ENV DEP_WASMTIME_C_API_INCLUDE
               REQUIRED)
     message(CHECK_PASS "found")
-  endif(NOT DEFINED CACHE{WASMTIME_INCLUDE_DIR})
+  endif()
 
   if(NOT DEFINED CACHE{WASMTIME_LIBRARY})
     message(CHECK_START "Looking for wasmtime library")
     find_library(WASMTIME_LIBRARY wasmtime
                  REQUIRED)
     message(CHECK_PASS "found")
-  endif(NOT DEFINED CACHE{WASMTIME_LIBRARY})
+  endif()
 
   target_compile_definitions(tree-sitter PUBLIC TREE_SITTER_FEATURE_WASM)
   target_include_directories(tree-sitter SYSTEM PRIVATE "${WASMTIME_INCLUDE_DIR}")
   target_link_libraries(tree-sitter PRIVATE "${WASMTIME_LIBRARY}")
   set_property(TARGET tree-sitter PROPERTY C_STANDARD_REQUIRED ON)
-endif(TREE_SITTER_FEATURE_WASM)
+
+  if(NOT BUILD_SHARED_LIBS)
+    if(WIN32)
+      target_compile_definitions(tree-sitter PRIVATE WASM_API_EXTERN= WASI_API_EXTERN=)
+      target_link_libraries(tree-sitter PRIVATE ws2_32 advapi32 userenv ntdll shell32 ole32 bcrypt)
+    elseif(NOT APPLE)
+      target_link_libraries(tree-sitter PRIVATE pthread dl m)
+    endif()
+  endif()
+endif()
 
 set_target_properties(tree-sitter
                       PROPERTIES
