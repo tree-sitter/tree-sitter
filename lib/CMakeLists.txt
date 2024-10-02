@@ -21,19 +21,16 @@ add_library(tree-sitter ${TS_SOURCE_FILES})
 
 target_include_directories(tree-sitter PRIVATE src src/wasm include)
 
-if(MSVC)
-  target_compile_options(tree-sitter PRIVATE
-                         /wd4018 # disable 'signed/unsigned mismatch'
-                         /wd4232 # disable 'nonstandard extension used'
-                         /wd4244 # disable 'possible loss of data'
-                         /wd4267 # disable 'possible loss of data (size_t)'
-                         /wd4701 # disable 'potentially uninitialized local variable'
-                         /we4022 # treat 'incompatible types' as an error
-                         /W4)
-else()
-  target_compile_options(tree-sitter PRIVATE
-                         -Wall -Wextra -Wshadow -Wpedantic
-                         -Werror=incompatible-pointer-types)
+if(NOT MSVC)
+  target_compile_options(tree-sitter PRIVATE -Wall -Wextra -Wshadow -Wno-unused-parameter -pedantic)
+endif()
+
+if(NOT BUILD_SHARED_LIBS)
+  if(WIN32)
+    set(CMAKE_FIND_LIBRARY_SUFFIXES .lib .a)
+  else()
+    set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
+  endif()
 endif()
 
 if(TREE_SITTER_FEATURE_WASM)
@@ -66,9 +63,9 @@ if(TREE_SITTER_FEATURE_WASM)
   if(NOT BUILD_SHARED_LIBS)
     if(WIN32)
       target_compile_definitions(tree-sitter PRIVATE WASM_API_EXTERN= WASI_API_EXTERN=)
-      target_link_libraries(tree-sitter INTERFACE ws2_32 advapi32 userenv ntdll shell32 ole32 bcrypt)
+      target_link_libraries(tree-sitter PRIVATE ws2_32 advapi32 userenv ntdll shell32 ole32 bcrypt)
     elseif(NOT APPLE)
-      target_link_libraries(tree-sitter INTERFACE pthread dl m)
+      target_link_libraries(tree-sitter PRIVATE pthread dl m)
     endif()
   endif()
 endif()
