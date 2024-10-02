@@ -1300,7 +1300,10 @@ fn run() -> Result<()> {
     let migrated = if !current_dir.join("tree-sitter.json").exists()
         && current_dir.join("package.json").exists()
     {
-        migrate_package_json(&current_dir).with_context(|| "Failed to migrate package.json")?
+        migrate_package_json(&current_dir).is_ok_and(|_| {
+            eprintln!("Failed to migrate package.json");
+            false
+        })
     } else {
         false
     };
