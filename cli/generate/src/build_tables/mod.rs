@@ -192,6 +192,7 @@ fn populate_used_symbols(
             match symbol.kind {
                 SymbolType::Terminal => terminal_usages[symbol.index] = true,
                 SymbolType::External => external_usages[symbol.index] = true,
+                SymbolType::NonTerminal => non_terminal_usages[symbol.index] = true,
                 _ => {}
             }
         }
