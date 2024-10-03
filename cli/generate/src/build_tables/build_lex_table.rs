@@ -10,7 +10,6 @@ use crate::{
     dedup::split_state_id_groups,
     grammars::{LexicalGrammar, SyntaxGrammar},
     nfa::{CharacterSet, NfaCursor},
-    prepare_grammar::symbol_is_used,
     rules::{Symbol, TokenSet},
     tables::{AdvanceAction, LexState, LexTable, ParseStateId, ParseTable},
 };
@@ -94,9 +93,6 @@ pub fn build_lex_table(
     let mut large_character_sets = Vec::new();
     for (variable_ix, _variable) in lexical_grammar.variables.iter().enumerate() {
         let symbol = Symbol::terminal(variable_ix);
-        if !symbol_is_used(&syntax_grammar.variables, symbol) {
-            continue;
-        }
         builder.reset();
         builder.add_state_for_tokens(&TokenSet::from_iter([symbol]));
         for state in &builder.table.states {
