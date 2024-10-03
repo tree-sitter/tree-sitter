@@ -11,6 +11,10 @@ indent_size = 2
 indent_style = space
 indent_size = 2
 
+[*.scm]
+indent_style = space
+indent_size = 2
+
 [*.{c,cc,h}]
 indent_style = space
 indent_size = 4
