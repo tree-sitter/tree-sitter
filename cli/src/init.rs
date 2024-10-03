@@ -221,14 +221,16 @@ struct GenerateOpts<'a> {
 // TODO: remove in 0.25
 // A return value of true means migration was successful, and false if not.
 pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
+    let root_path =
+        get_root_path(&repo_path.join("package.json")).unwrap_or_else(|_| repo_path.to_path_buf());
     let (package_json_path, tree_sitter_json_path) = (
-        repo_path.join("package.json"),
-        repo_path.join("tree-sitter.json"),
+        root_path.join("package.json"),
+        root_path.join("tree-sitter.json"),
     );
 
     let old_config = serde_json::from_reader::<_, PackageJSON>(
         File::open(&package_json_path)
-            .with_context(|| format!("Failed to open package.json in {}", repo_path.display()))?,
+            .with_context(|| format!("Failed to open package.json in {}", root_path.display()))?,
     )?;
 
     if old_config.tree_sitter.is_none() {
@@ -356,12 +358,12 @@ pub fn migrate_package_json(repo_path: &Path) -> Result<bool> {
     // Remove the `tree-sitter` field in-place
     let mut package_json = serde_json::from_reader::<_, Map<String, Value>>(
         File::open(&package_json_path)
-            .with_context(|| format!("Failed to open package.json in {}", repo_path.display()))?,
+            .with_context(|| format!("Failed to open package.json in {}", root_path.display()))?,
     )
     .unwrap();
     package_json.remove("tree-sitter");
     write_file(
-        &repo_path.join("package.json"),
+        &root_path.join("package.json"),
         serde_json::to_string_pretty(&package_json)?,
     )?;
 
@@ -909,32 +911,42 @@ pub fn generate_grammar_files(
     Ok(())
 }
 
-pub fn lookup_package_json_for_path(path: &Path) -> Result<(PathBuf, PackageJSON)> {
+pub fn get_root_path(path: &Path) -> Result<PathBuf> {
     let mut pathbuf = path.to_owned();
+    let filename = path.file_name().unwrap().to_str().unwrap();
+    let is_package_json = filename == "package.json";
     loop {
-        let package_json = pathbuf
+        let json = pathbuf
             .exists()
-            .then(|| -> Result<PackageJSON> {
-                let file =
-                    File::open(pathbuf.as_path()).with_context(|| "Failed to open package.json")?;
-                serde_json::from_reader(BufReader::new(file)).context(
-                    "Failed to parse package.json, is the `tree-sitter` section malformed?",
-                )
+            .then(|| {
+                let file = File::open(pathbuf.as_path())
+                    .with_context(|| format!("Failed to open {filename}"))?;
+                let reader = BufReader::new(file);
+                if is_package_json {
+                    serde_json::from_reader::<_, Map<String, Value>>(reader)
+                        .context(format!("Failed to parse {filename}"))
+                        .map(|v| v.contains_key("tree-sitter"))
+                } else {
+                    serde_json::from_reader::<_, TreeSitterJSON>(reader)
+                        .context(format!("Failed to parse {filename}"))
+                        .map(|_| true)
+                }
             })
             .transpose()?;
-        if let Some(package_json) = package_json {
-            if package_json.tree_sitter.is_some() {
-                return Ok((pathbuf, package_json));
-            }
+        if let Some(true) = json {
+            return Ok(pathbuf.parent().unwrap().to_path_buf());
         }
-        pathbuf.pop(); // package.json
+        pathbuf.pop(); // filename
         if !pathbuf.pop() {
-            return Err(anyhow!(concat!(
-                "Failed to locate a package.json file that has a \"tree-sitter\" section,",
-                " please ensure you have one, and if you don't then consult the docs",
+            return Err(anyhow!(format!(
+                concat!(
+                    "Failed to locate a {} file,",
+                    " please ensure you have one, and if you don't then consult the docs",
+                ),
+                filename
             )));
         }
-        pathbuf.push("package.json");
+        pathbuf.push(filename);
     }
 }
 
