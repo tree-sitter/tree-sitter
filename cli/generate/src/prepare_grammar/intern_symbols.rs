@@ -40,22 +40,18 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
 
     let mut supertype_symbols = Vec::with_capacity(grammar.supertype_symbols.len());
     for supertype_symbol_name in &grammar.supertype_symbols {
-        supertype_symbols.push(
-            interner
-                .intern_name(supertype_symbol_name)
-                .ok_or_else(|| anyhow!("Undefined symbol `{supertype_symbol_name}`"))?,
-        );
+        supertype_symbols.push(interner.intern_name(supertype_symbol_name).ok_or_else(|| {
+            anyhow!("Undefined symbol `{supertype_symbol_name}` in grammar's supertypes array")
+        })?);
     }
 
     let mut expected_conflicts = Vec::new();
     for conflict in &grammar.expected_conflicts {
         let mut interned_conflict = Vec::with_capacity(conflict.len());
         for name in conflict {
-            interned_conflict.push(
-                interner
-                    .intern_name(name)
-                    .ok_or_else(|| anyhow!("Undefined symbol `{name}`"))?,
-            );
+            interned_conflict.push(interner.intern_name(name).ok_or_else(|| {
+                anyhow!("Undefined symbol `{name}` in grammar's conflicts array")
+            })?);
         }
         expected_conflicts.push(interned_conflict);
     }
@@ -72,7 +68,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         word_token = Some(
             interner
                 .intern_name(name)
-                .ok_or_else(|| anyhow!("Undefined symbol `{name}`"))?,
+                .ok_or_else(|| anyhow!("Undefined symbol `{name}` as grammar's word token"))?,
         );
     }
 
