@@ -746,6 +746,7 @@ impl Build {
             };
 
             loader.debug_build(self.debug);
+            loader.force_rebuild(true);
 
             let config = Config::load(None)?;
             let loader_config = config.get()?;
